@@ -26,7 +26,7 @@ ID: `YOLO-v2`
 YOLO-v1
 | **Client**   | Signal | Spec | Merged | Syncing |
 |--------------|--------|------|--------|---------|
-| Besu         | x      | x    |        |         |
+| Besu         | x      | x    | x      | x       |
 | EthereumJS   |        |      |        |         |
 | Geth         | x      | x    | x      | x       |
 | Nethermind   | x      | x    |        |         |
