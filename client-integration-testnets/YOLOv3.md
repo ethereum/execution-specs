@@ -13,6 +13,7 @@ Name: Yolo
 ID: `YOLO-v3`
 
   - [x] EIP 2537 Commit Hash - [5edff4ae6ff62c7e0bbfad624fc3d0ba7dc84392](https://github.com/ethereum/EIPs/commit/5edff4ae6ff62c7e0bbfad624fc3d0ba7dc84392)
+  - [x] EIP 2565
   - [x] EIP 2315 Commit Hash - [e8accf22cdc5562d6982c560080c6cd6b7f94867](https://github.com/ethereum/EIPs/commit/e8accf22cdc5562d6982c560080c6cd6b7f94867)
   - [x] EIP 2929
   - [x] EIP 2718
