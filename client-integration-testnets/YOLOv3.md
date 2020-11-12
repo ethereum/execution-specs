@@ -12,11 +12,11 @@ The specification for Ephemeral Testnet Yolo. Clients who wish to sync need to i
 Name: Yolo
 ID: `YOLO-v3`
 
-  - [x] EIP 2565
-  - [x] EIP 2315 Commit Hash - [e8accf22cdc5562d6982c560080c6cd6b7f94867](https://github.com/ethereum/EIPs/commit/e8accf22cdc5562d6982c560080c6cd6b7f94867)
-  - [x] EIP 2929
-  - [x] EIP 2718
-  - [x] EIP 2930
+  - [x] [EIP-2565](https://eips.ethereum.org/EIPS/eip-2565)
+  - [x] [EIP-2315](https://eips.ethereum.org/EIPS/eip-2315) Commit Hash - [e8accf22cdc5562d6982c560080c6cd6b7f94867](https://github.com/ethereum/EIPs/commit/e8accf22cdc5562d6982c560080c6cd6b7f94867)
+  - [x] [EIP-2929](https://eips.ethereum.org/EIPS/eip-2929)
+  - [x] [EIP-2718](https://eips.ethereum.org/EIPS/eip-2718)
+  - [x] [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930)
 
 *[ ] Proposed - [x] Consensus to include.*
 ## Timeline
