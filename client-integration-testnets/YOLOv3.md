@@ -32,7 +32,7 @@ YOLO-v3
 | EthereumJS   |        |      |        |         |
 | Geth         | x      | x    |        |         |
 | Nethermind   | x      | x    |        |         |
-| OpenEthereum | x      |      |        |         |
+| OpenEthereum | x      | x    |        |         |
 | Trinity      |        |      |        |         |
 
 **Signal** -
