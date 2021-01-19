@@ -21,12 +21,12 @@ Specifies changes included in the Network Upgrade.
  
 Code merged into Participating Clients
 
-| **Client**  | EIP-2565 | EIP-2315 | EIP-2929 | EIP-2718 | EIP-2930  |
-|------------- |----------|----------|----------|----------| --------- |
-| Geth         | x        | x        | x        | x        |           |
-| Besu         | x        | x        | x        | x        | x         |
-| Nethermind   | x        | x        | x        | x        | x         |
-| OpenEthereum | x        | x        | x        | x        | x         |
+|  **Client**  | EIP-2565 | EIP-2315 | EIP-2929 | EIP-2718 | EIP-2930  |
+|--------------|:--------:|:--------:|:--------:|:--------:|:---------:|
+| Geth         | ✔        | ✔        | ✔        | ✔        |           |
+| Besu         | ✔        | ✔        | ✔        | ✔        | ✔         |
+| Nethermind   | ✔        | ✔        | ✔        | ✔        | ✔         |
+| OpenEthereum | ✔        | ✔        | ✔        | ✔        | ✔         |
  
  Tasks 
  - [ ] [Deploy Yolo-v3](https://github.com/ethereum/eth1.0-specs/blob/master/client-integration-testnets/YOLOv3.md)
