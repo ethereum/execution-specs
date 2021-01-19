@@ -8,11 +8,11 @@ Fork Block: TBD
 ### Included EIPs
 Specifies changes included in the Network Upgrade.
 
-  - [x] [EIP-2565](https://eips.ethereum.org/EIPS/eip-2565)
-  - [x] [EIP-2315](https://eips.ethereum.org/EIPS/eip-2315) Commit Hash - [e8accf22cdc5562d6982c560080c6cd6b7f94867](https://github.com/ethereum/EIPs/commit/e8accf22cdc5562d6982c560080c6cd6b7f94867)
-  - [x] [EIP-2929](https://eips.ethereum.org/EIPS/eip-2929)
-  - [x] [EIP-2718](https://eips.ethereum.org/EIPS/eip-2718)
-  - [x] [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930)
+  - [x] [EIP-2565: ModExp Gas Cost](https://eips.ethereum.org/EIPS/eip-2565)
+  - [x] [EIP-2315: Simple Subroutines for the EVM](https://eips.ethereum.org/EIPS/eip-2315)
+  - [x] [EIP-2929: Gas cost increases for state access opcodes](https://eips.ethereum.org/EIPS/eip-2929)
+  - [x] [EIP-2718: Typed Transaction Envelope](https://eips.ethereum.org/EIPS/eip-2718)
+  - [x] [EIP-2930: Optional access lists](https://eips.ethereum.org/EIPS/eip-2930)
 
 
  ### Readiness Checklist
