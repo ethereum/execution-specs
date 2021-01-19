@@ -30,11 +30,12 @@ Code merged into Participating Clients
  - [ ] Green Light from security teams
    - [ ] Client Integration
    - [ ] Fuzz Testing
- - [ ] Choose Fork Block for testnets
+ - [ ] Propose Fork Block for testnets
    - [ ] Goerli
    - [ ] Ropsten
    - [ ] Rinkeby
    - [ ] Kovan
- - [ ] Choose mainnet fork block
+ - [ ] Propose Mainnet fork block
+ - [ ] Finalise Testnet and Mainnet fork blocks.
  - [ ] Deploy Clients
- - [ ] Fork Block
+ - [ ] Pass fork block on Mainnet.
