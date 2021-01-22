@@ -23,7 +23,7 @@ Code merged into Participating Clients
 
 |  **Client**  | EIP-2565 | EIP-2315 | EIP-2929 | EIP-2718 | EIP-2930  |
 |--------------|:--------:|:--------:|:--------:|:--------:|:---------:|
-| Geth         | ✔        | ✔        | ✔        | ✔        |           |
+| Geth         | ✔        | ✔        | ✔        |         |           |
 | Besu         | ✔        | ✔        | ✔        | ✔        | ✔         |
 | Nethermind   | ✔        | ✔        | ✔        | ✔        | ✔         |
 | OpenEthereum | ✔        | ✔        | ✔        | ✔        | ✔         |
