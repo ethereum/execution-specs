@@ -23,13 +23,13 @@ Code merged into Participating Clients
 
 |  **Client**  | EIP-2565 | EIP-2315 | EIP-2929 | EIP-2718 | EIP-2930  |
 |--------------|:--------:|:--------:|:--------:|:--------:|:---------:|
-| Geth         | ✔        | ✔        | ✔        |         |           |
+| Geth         | ✔        | ✔        | ✔        | ✔        | ✔         |
 | Besu         | ✔        | ✔        | ✔        | ✔        | ✔         |
 | Nethermind   | ✔        | ✔        | ✔        | ✔        | ✔         |
 | OpenEthereum | ✔        | ✔        | ✔        | ✔        | ✔         |
  
  Tasks 
- - [ ] [Deploy Yolo-v3](https://github.com/ethereum/eth1.0-specs/blob/master/client-integration-testnets/YOLOv3.md)
+ - [x] [Deploy Yolo-v3](https://github.com/ethereum/eth1.0-specs/blob/master/client-integration-testnets/YOLOv3.md)
  - [ ] Green Light from security teams
    - [ ] Client Integration
    - [ ] Fuzz Testing
