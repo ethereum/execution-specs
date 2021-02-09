@@ -34,7 +34,7 @@ Code merged into Participating Clients
    - [ ] Client Integration
    - [ ] Fuzz Testing
  - [ ] Propose Fork Block for testnets
-   - [ ] Goerli
+   - [x] Goerli `4_333_333` [goerli/testnet#75](https://github.com/goerli/testnet/pull/75)
    - [ ] Ropsten
    - [ ] Rinkeby
    - [ ] Kovan
