@@ -35,7 +35,7 @@ Code merged into Participating Clients
    - [ ] Fuzz Testing
  - [ ] Propose Fork Block for testnets
    - [x] Goerli `4_333_333` [goerli/testnet#75](https://github.com/goerli/testnet/pull/75)
-   - [x] Ropsten `9_710_179` [ethereum/ropsten#38]((https://github.com/ethereum/ropsten/issues/38)
+   - [x] Ropsten `9_710_179` [ethereum/ropsten#38](https://github.com/ethereum/ropsten/issues/38)
    - [ ] Rinkeby
    - [ ] Kovan
  - [ ] Propose Mainnet fork block
