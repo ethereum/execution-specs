@@ -31,9 +31,9 @@ YOLO-v3
 | Besu         | x      | x    |  x     |   x     |
 | EthereumJS   |        |      |        |         |
 | Geth         | x      | x    |  x     |   x     |
-| Nethermind   | x      | x    |  x     |         |
+| Nethermind   | x      | x    |  x     |   x     |
 | OpenEthereum | x      | x    |  x     |   x     |
-| Trinity      |        |      |        |         |
+
 
 **Signal** -
 Client intends to participate. *(You are on the bus)*
