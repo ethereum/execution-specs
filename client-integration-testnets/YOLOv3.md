@@ -28,10 +28,10 @@ ID: `YOLO-v3`
 YOLO-v3
 | **Client**   | Signal | Spec | Merged | Syncing |
 |--------------|--------|------|--------|---------|
-| Besu         | x      | x    |  X     |   x     |
+| Besu         | x      | x    |  x     |   x     |
 | EthereumJS   |        |      |        |         |
 | Geth         | x      | x    |  x     |   x     |
-| Nethermind   | x      | x    |  x     |   x     |
+| Nethermind   | x      | x    |  x     |         |
 | OpenEthereum | x      | x    |  x     |   x     |
 | Trinity      |        |      |        |         |
 
