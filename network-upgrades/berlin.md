@@ -27,8 +27,7 @@ Code merged into Participating Clients
 | Besu         | ✔        | ✔        | ✔        | ✔        | ✔         |
 | Nethermind   | ✔        | ✔        | ✔        | ✔        | ✔         |
 | OpenEthereum | ✔        | ✔        | ✔        | ✔        | ✔         |
-| EthereumJS   |          |           |          |           |           |
-
+| EthereumJS   | ✔        | ✔        | ✔        |          |           |
  
  Tasks 
  - [x] [Deploy Yolo-v3](https://github.com/ethereum/eth1.0-specs/blob/master/client-integration-testnets/YOLOv3.md)
