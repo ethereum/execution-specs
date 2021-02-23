@@ -2,9 +2,6 @@
 
 ## Berlin Network Upgrade Specification
 
-Name: Berlin
-Fork Block: TBD
-
 ### Included EIPs
 Specifies changes included in the Network Upgrade.
 
@@ -38,7 +35,7 @@ Code merged into Participating Clients
    - [x] Goerli `4_460_644` [goerli/testnet#75](https://github.com/goerli/testnet/pull/75)
    - [x] Ropsten `9_812_189` [ethereum/ropsten#38](https://github.com/ethereum/ropsten/issues/38)
    - [x] Rinkeby `8_290_928` [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
-   - [ ] ~~Kovan~~
+   - [x] ~~Kovan~~ (Will be handled by OpenEthereum at a later date)
  - [x] Propose Mainnet fork block `12_244_000` [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
  - [ ] Finalise Testnet and Mainnet fork blocks.
  - [ ] Deploy Clients
