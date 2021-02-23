@@ -34,12 +34,12 @@ Code merged into Participating Clients
  - [ ] Green Light from security teams
    - [ ] Client Integration
    - [ ] Fuzz Testing
- - [ ] Propose Fork Block for testnets
-   - [ ] Goerli
-   - [ ] Ropsten
-   - [ ] Rinkeby
-   - [ ] Kovan
- - [ ] Propose Mainnet fork block
+ - [x] Propose Fork Block for testnets
+   - [x] Goerli `4_460_644` [goerli/testnet#75](https://github.com/goerli/testnet/pull/75)
+   - [x] Ropsten `9_812_189` [ethereum/ropsten#38](https://github.com/ethereum/ropsten/issues/38)
+   - [x] Rinkeby `8_290_928` [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
+   - [ ] ~~Kovan~~
+ - [x] Propose Mainnet fork block `12_244_000` [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
  - [ ] Finalise Testnet and Mainnet fork blocks.
  - [ ] Deploy Clients
  - [ ] Pass fork block on Mainnet.
