@@ -1,8 +1,6 @@
+# Berlin Network Upgrade Specification
 
-
-## Berlin Network Upgrade Specification
-
-### Included EIPs
+# Included EIPs
 Specifies changes included in the Network Upgrade.
 
   - [x] [EIP-2565: ModExp Gas Cost](https://eips.ethereum.org/EIPS/eip-2565)
@@ -11,9 +9,8 @@ Specifies changes included in the Network Upgrade.
   - [x] [EIP-2718: Typed Transaction Envelope](https://eips.ethereum.org/EIPS/eip-2718)
   - [x] [EIP-2930: Optional access lists](https://eips.ethereum.org/EIPS/eip-2930)
 
+# Readiness Checklist
 
- ### Readiness Checklist
- 
 **List of outstanding items before deployment.**
  
 Code merged into Participating Clients
@@ -27,16 +24,25 @@ Code merged into Participating Clients
 | EthereumJS   | ✔        | ✔        | ✔        |          |           |
  
  Tasks 
- - [x] [Deploy Yolo-v3](https://github.com/ethereum/eth1.0-specs/blob/master/client-integration-testnets/YOLOv3.md)
- - [ ] Green Light from security teams
-   - [ ] Client Integration
-   - [ ] Fuzz Testing
- - [x] Propose Fork Block for testnets
+- [x] Client Integration Testing
+  - [x] [Deploy Yolo-v3](https://github.com/ethereum/eth1.0-specs/blob/master/client-integration-testnets/YOLOv3.md)
+  - [x] [Integration tests](https://github.com/ethereum/tests/releases/tag/v7.0.0)
+  - [x] Fuzz Testing
+ - [x] Select Fork Blocks
    - [x] Goerli `4_460_644` [goerli/testnet#75](https://github.com/goerli/testnet/pull/75)
    - [x] Ropsten `9_812_189` [ethereum/ropsten#38](https://github.com/ethereum/ropsten/issues/38)
    - [x] Rinkeby `8_290_928` [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
    - [x] ~~Kovan~~ (Will be handled by OpenEthereum at a later date)
- - [x] Propose Mainnet fork block `12_244_000` [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
- - [ ] Finalise Testnet and Mainnet fork blocks.
+   - [x] Mainnet `12_244_000` [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
  - [ ] Deploy Clients
- - [ ] Pass fork block on Mainnet.
+   - [ ]  Geth
+   - [ ]  Besu
+   - [ ]  Nethermind
+   - [ ]  OpenEthereum
+   - [ ]  EthereumJS
+ - [ ] Pass Fork Blocks
+   - [ ] Goerli `4_460_644` [goerli/testnet#75](https://github.com/goerli/testnet/pull/75)
+   - [ ] Ropsten `9_812_189` [ethereum/ropsten#38](https://github.com/ethereum/ropsten/issues/38)
+   - [ ] Rinkeby `8_290_928` [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
+   - [ ] ~~Kovan~~ (Will be handled by OpenEthereum at a later date)
+   - [ ] Mainnet `12_244_000` [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
