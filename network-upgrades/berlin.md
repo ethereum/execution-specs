@@ -29,11 +29,11 @@ Code merged into Participating Clients
   - [x] [Integration tests](https://github.com/ethereum/tests/releases/tag/v7.0.0)
   - [x] Fuzz Testing
  - [x] Select Fork Blocks
-   - [x] Goerli `4_460_644` [goerli/testnet#75](https://github.com/goerli/testnet/pull/75)
-   - [x] Ropsten `9_812_189` [ethereum/ropsten#38](https://github.com/ethereum/ropsten/issues/38)
-   - [x] Rinkeby `8_290_928` [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
+   - [x] Ropsten `9_812_189` (10 Mar 2021) [ethereum/ropsten#38](https://github.com/ethereum/ropsten/issues/38)
+   - [x] Goerli `4_460_644` (17 Mar 2021) [goerli/testnet#75](https://github.com/goerli/testnet/pull/75)
+   - [x] Rinkeby `8_290_928` (24 Mar 2021) [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
    - [x] ~~Kovan~~ (Will be handled by OpenEthereum at a later date)
-   - [x] Mainnet `12_244_000` [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
+   - [x] Mainnet `12_244_000` (14 Apr 2021) [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
  - [ ] Deploy Clients
    - [ ]  Geth
    - [ ]  Besu
@@ -41,8 +41,8 @@ Code merged into Participating Clients
    - [ ]  OpenEthereum
    - [ ]  EthereumJS
  - [ ] Pass Fork Blocks
-   - [ ] Goerli `4_460_644` [goerli/testnet#75](https://github.com/goerli/testnet/pull/75)
-   - [ ] Ropsten `9_812_189` [ethereum/ropsten#38](https://github.com/ethereum/ropsten/issues/38)
-   - [ ] Rinkeby `8_290_928` [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
-   - [ ] ~~Kovan~~ (Will be handled by OpenEthereum at a later date)
-   - [ ] Mainnet `12_244_000` [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
+   - [x] Ropsten `9_812_189` (10 Mar 2021) [ethereum/ropsten#38](https://github.com/ethereum/ropsten/issues/38)
+   - [x] Goerli `4_460_644` (17 Mar 2021) [goerli/testnet#75](https://github.com/goerli/testnet/pull/75)
+   - [x] Rinkeby `8_290_928` (24 Mar 2021) [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
+   - [x] ~~Kovan~~ (Will be handled by OpenEthereum at a later date)
+   - [x] Mainnet `12_244_000` (14 Apr 2021) [ethereum/pm#248](https://github.com/ethereum/pm/issues/248)
