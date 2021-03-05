@@ -29,7 +29,7 @@ YOLO-v3
 | **Client**   | Signal | Spec | Merged | Syncing |
 |--------------|--------|------|--------|---------|
 | Besu         | x      | x    |  x     |   x     |
-| EthereumJS   | x      | x    |        |         |
+| EthereumJS   | x      | x    |  x     |   x     |
 | Geth         | x      | x    |  x     |   x     |
 | Nethermind   | x      | x    |  x     |   x     |
 | OpenEthereum | x      | x    |  x     |   x     |
