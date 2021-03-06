@@ -17,7 +17,7 @@ Code merged into Participating Clients
 |--------------|:--------:|:--------:|
 | Geth         |          |         |
 | Besu         |          |         |
-| Nethermind   |          |         |
+| Nethermind   |    x     |         |
 | OpenEthereum |          |         |
 | EthereumJS   |          |         |
 
