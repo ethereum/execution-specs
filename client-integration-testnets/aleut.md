@@ -10,6 +10,7 @@ Name: Aleut
 ID: `Aleut`
 
   - [x] [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) Commit Hash - [TBA]
+  - [x] [EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) Commit Hash - [081db1a6614e523dd791691cff7016e32c369912](https://github.com/ethereum/EIPs/commit/081db1a6614e523dd791691cff7016e32c369912) 
 
 ## Timeline
 
