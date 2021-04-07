@@ -18,14 +18,14 @@ ID: `Aleut`
 
 ## Client Consensus -> Implementation 
 
-YOLO-v1
-| **Client**   | Signal | Spec | Merged | Syncing |
-|--------------|--------|------|--------|---------|
-| Besu         | x      | x    |        |         |
-| Geth         | x      | x    |        |         |
-| Nethermind   | x      | x    |        |         |
-| OpenEthereum | x      | x    |        |         |
-| EthereumJS   | x      | x    |        |         |
+
+| **Client**   | Repo                     | Signal | Spec | Merged | Syncing |
+|--------------|--------------------------|--------|------|--------|---------|
+| Besu         | [URL][besu-repo]         | x      | x    |        |         |
+| Geth         | [URL][geth-repo]         | x      | x    |        |         |
+| Nethermind   | [URL][nethermind-repo]   | x      | x    |        |         |
+| OpenEthereum | [URL][openethereum-repo] | x      | x    |        |         |
+| EthereumJS   | [URL][ethereumjs-repo]   | x      | x    |        |         |
 
 **Signal** -
 Client intends to participate. *(You are on the bus)*
@@ -46,3 +46,10 @@ TBA
 
 ## Copyright
 Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+
+
+[besu-repo]: https://github.com/hyperledger/besu
+[geth-repo]: https://github.com/ethereum/go-ethereum
+[nethermind-repo]: https://github.com/NethermindEth/nethermind
+[openethereum-repo]: https://github.com/openethereum/openethereum
+[ethereumjs-repo]: https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/client
