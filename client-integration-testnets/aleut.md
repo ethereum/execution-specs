@@ -21,6 +21,8 @@ ID: `Aleut`
 | Nethermind   | [URL][nethermind-repo]   | x      | x    |        |         |
 | OpenEthereum | [URL][openethereum-repo] | x      | x    |        |         |
 | EthereumJS   | [URL][ethereumjs-repo]   | x      | x    |        |         |
+| TurboGeth    | [URL][turbogeth-repo]    | x      | x    |        |         |
+
 
 **Signal** -
 Client intends to participate. *(You are on the bus)*
@@ -47,3 +49,4 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 [nethermind-repo]: https://github.com/NethermindEth/nethermind
 [openethereum-repo]: https://github.com/openethereum/openethereum
 [ethereumjs-repo]: https://github.com/ethereumjs/ethereumjs-monorepo/tree/master/packages/client
+[turbogeth-repo]: https://github.com/ledgerwatch/turbo-geth
