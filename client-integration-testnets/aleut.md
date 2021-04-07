@@ -25,6 +25,7 @@ YOLO-v1
 | Geth         | x      | x    |        |         |
 | Nethermind   | x      | x    |        |         |
 | OpenEthereum | x      | x    |        |         |
+| EthereumJS   | x      | x    |        |         |
 
 **Signal** -
 Client intends to participate. *(You are on the bus)*
