@@ -12,10 +12,6 @@ ID: `Aleut`
   - [x] [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) Commit Hash - [79f4fe6cbe0d323dfac7412270c6e8cf33e62af3](https://github.com/ethereum/EIPs/commit/79f4fe6cbe0d323dfac7412270c6e8cf33e62af3)
   - [x] [EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) Commit Hash - [081db1a6614e523dd791691cff7016e32c369912](https://github.com/ethereum/EIPs/commit/081db1a6614e523dd791691cff7016e32c369912) 
 
-## Timeline
-
- - Deployed:
-
 ## Client Consensus -> Implementation 
 
 | **Client**   | Signal | Spec | Merged | Syncing |
