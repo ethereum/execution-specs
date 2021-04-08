@@ -2,17 +2,17 @@
 
 ## Description
 
-This folder provides the specifications for the various network upgrades to Ethereum. It contains specifications for the client integration testnets which are set up during the testing phase of upgrades, for the network upgrades which will be deployed to the Ethereum mainnet, as well as retrospectives/postmortems on network upgrade-related incidents.
+This folder provides the specifications for the various network upgrades to Ethereum 1.0. It contains specifications for the client integration testnets which are set up during the testing phase of upgrades, for the network upgrades which will be deployed to the Ethereum mainnet, as well as retrospectives/postmortems on network upgrade-related incidents.
 
-In an effort to separate this process from the EIP process itself, three stages have been devised to move EIPs from specifications to being deployed on mainnet: Considered for Inclusion (CFI), Client Integration Testnets, and Mainnet. Below, we explain the process for EIPs to move through these stages.
+In an effort to separate this process from the EIP standardization process, three stages have been devised to move EIPs from specifications to being deployed on the Ethereum mainnet: Considered for Inclusion (CFI), Client Integration Testnets, and Mainnet. Below, we explain the process for EIPs to move through these stages.
 
 ## Definitions
 
-**Considered for Inclusion**: Signals that client developers are generally positive towards the idea, and that, assuming it meets all the requirements for mainnet inclusion, it could potentially be included in a network upgrade. This means the EIP may be included in client integration testnets. It is similar to "concept ACK" in other open source projects, and is not sufficient to result in deployement to mainnet.
+**Considered for Inclusion**: Signals that client developers are generally positive towards the idea, and that, assuming it meets all the requirements for mainnet inclusion, it could potentially be included in a network upgrade. This means the EIP may be included in client integration testnets. It is similar to "concept ACK" in other open source projects, and is not sufficient to result in deployment to mainnet.
 
 **Client Integration Testnets**: Short-lived integration testnets which are stood up to test cross-client implementations of certain EIPs. This does not guarantee mainnet deployement, and for some EIPs with small or non-applicable changes, this step may be skipped.
 
-**Mainnet**: Signals that client developers with to include the EIP into an upgrade to the public Ethereum networks (i.e. testnets such as Goerli, Ropsten and Rinkeby and mainnet).
+**Mainnet**: Signals that client developers wish to include the EIP into an upgrade to the public Ethereum networks (i.e. testnets such as Goerli, Ropsten and Rinkeby and mainnet).
 
 ## Process
 
