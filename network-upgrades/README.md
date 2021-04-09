@@ -16,6 +16,10 @@ In an effort to separate this process from the EIP standardization process, thre
 
 ## Process
 
+### Overview 
+
+![CFI Graph](https://user-images.githubusercontent.com/9390255/114197321-11f4aa80-9907-11eb-9c8b-fe09690f6228.png)
+
 ### Preconditions for Consideration
 
 _See [EIP-1](https://eips.ethereum.org/EIPS/eip-1#core-eips) for more context._
