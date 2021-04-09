@@ -7,7 +7,9 @@ The specification for the Aleut Client Integration Tesnet. Clients who wish to s
 ## Specification
 
 Name: Aleut
+
 ID: `Aleut`
+
 ChainId: `7822` # The deepest part of the Aleutian trench has been measured at 7,822 metres
 
 Genesis File: 
