@@ -73,7 +73,7 @@ The specification for the Aleut Client Integration Tesnet. Clients who wish to s
 |--------------|--------------------------|--------|------|--------|---------|
 | Besu         | [URL][besu-repo]         | x      | x    | x      | x       |
 | Geth         | [URL][geth-repo]         | x      | x    |        |         |
-| Nethermind   | [URL][nethermind-repo]   | x      | x    |        |         |
+| Nethermind   | [URL][nethermind-repo]   | x      | x    | x      | x       |
 | OpenEthereum | [URL][openethereum-repo] | x      | x    |        |         |
 | EthereumJS   | [URL][ethereumjs-repo]   | x      | x    |        |         |
 | TurboGeth    | [URL][turbogeth-repo]    | x      | x    |        |         |
