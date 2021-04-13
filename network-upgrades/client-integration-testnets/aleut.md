@@ -12,12 +12,12 @@ The specification for the Aleut Client Integration Tesnet. Clients who wish to s
 
 **ChainId:** `7822` # The deepest part of the Aleutian trench has been measured at 7,822 metres
 
-**Genesis File:** 
+**Genesis File:**
 
 <details>
   <summary>aleut.json</summary>
-  
-  ```
+
+  ```json
   {
    "config":{
       "chainId":7822,
@@ -63,11 +63,24 @@ The specification for the Aleut Client Integration Tesnet. Clients who wish to s
   ```
 </details>
 
+**Genesis File:**
+
+<details>
+  <summary>static-nodes.json</summary>
+
+  ```json
+  [
+    "enode://0c72e2b7873e4342d725b5990c17adb2b159aad2ff5853de7e4910b25522a1f9e78f9cd802a8a3225b8fae4e994e522b50d6bd5a163eb3a7b49a0a73ca9a1c7e@3.12.166.199:30303",
+    "enode://aec88fd902744bf67705c098bf532b01017ccc3a156395508e2d9c4e7c22699ecccae1e7316614f8a2d4c5698a9be3fe6151ee25b9ed4aa052f88e112c65387a@164.90.171.157:31559"
+  ]
+  ```
+</details>
+
 **Included EIPs:**
   - [x] [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) Commit Hash - [79f4fe6cbe0d323dfac7412270c6e8cf33e62af3](https://github.com/ethereum/EIPs/commit/79f4fe6cbe0d323dfac7412270c6e8cf33e62af3)
-  - [x] [EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) Commit Hash - [081db1a6614e523dd791691cff7016e32c369912](https://github.com/ethereum/EIPs/commit/081db1a6614e523dd791691cff7016e32c369912) 
+  - [x] [EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) Commit Hash - [081db1a6614e523dd791691cff7016e32c369912](https://github.com/ethereum/EIPs/commit/081db1a6614e523dd791691cff7016e32c369912)
 
-## Client Consensus -> Implementation 
+## Client Consensus -> Implementation
 
 | **Client**   | Repo                     | Signal | Spec | Merged | Syncing |
 |--------------|--------------------------|--------|------|--------|---------|
