@@ -6,7 +6,7 @@ created: 2021-04-13
 ---
 
 ## Simple Summary
-This document specifies in detail the expected behaviour of the eth_blockNumber; Eth 1.x JSON RPC endpoint.
+This document specifies in detail the expected behaviour of the eth_blockNumber Eth 1.x JSON RPC endpoint.
 
 ## Abstract
 We cover basic behaviour and edge cases for various sync modes.
