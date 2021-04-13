@@ -71,7 +71,8 @@ The specification for the Aleut Client Integration Tesnet. Clients who wish to s
   ```json
   [
     "enode://0c72e2b7873e4342d725b5990c17adb2b159aad2ff5853de7e4910b25522a1f9e78f9cd802a8a3225b8fae4e994e522b50d6bd5a163eb3a7b49a0a73ca9a1c7e@3.12.166.199:30303",
-    "enode://aec88fd902744bf67705c098bf532b01017ccc3a156395508e2d9c4e7c22699ecccae1e7316614f8a2d4c5698a9be3fe6151ee25b9ed4aa052f88e112c65387a@164.90.171.157:31559"
+    "enode://aec88fd902744bf67705c098bf532b01017ccc3a156395508e2d9c4e7c22699ecccae1e7316614f8a2d4c5698a9be3fe6151ee25b9ed4aa052f88e112c65387a@164.90.171.157:31559",
+    "enode://d4937b184f79b21845c290902e3667b9e8e96af3cf7b4917e85c7d3aa12d6ed22720d3c3f6ef7d6f93311f5c4ddc0c1e2a166ea4a765220212e49dfd54eec456@quilt.link:30308"
   ]
   ```
 </details>
@@ -85,7 +86,7 @@ The specification for the Aleut Client Integration Tesnet. Clients who wish to s
 | **Client**   | Repo                     | Signal | Spec | Merged | Syncing |
 |--------------|--------------------------|--------|------|--------|---------|
 | Besu         | [URL][besu-repo]         | x      | x    | x      | x       |
-| Geth         | [URL][geth-repo]         | x      | x    |        |         |
+| Geth         | [URL][geth-repo]         | x      | x    |        | x       |
 | Nethermind   | [URL][nethermind-repo]   | x      | x    | x      | x       |
 | OpenEthereum | [URL][openethereum-repo] | x      | x    |        |         |
 | EthereumJS   | [URL][ethereumjs-repo]   | x      | x    |        |         |
