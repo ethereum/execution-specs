@@ -1,6 +1,6 @@
 ---
 title: JSPON RPC eth_blockNumber Spec
-author: Alita Moore (@alita-moore)
+author: Tomasz K. Stanczak (@tkstanczak)
 discussions-to: https://github.com/ethereum-oasis/eth1.x-JSON-RPC-API-standard
 created: 2021-03-17
 ---
