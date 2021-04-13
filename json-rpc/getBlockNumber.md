@@ -6,11 +6,6 @@ Returns the number of most recent block
 
 None
 
-
-
-
-
-
 # Development Section / Notes 
 
 ## Implemntations
@@ -67,7 +62,7 @@ func (api *APIImpl) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
 ```
 
 ### OpenEthereum
-
+As of `04/13/2021`
 ```rust
 fn block_number(&self) -> Result<U256> {
     Ok(U256::from(self.client.chain_info().best_block_number))
