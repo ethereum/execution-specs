@@ -1,75 +1,88 @@
-# eth_getBlockNumber
+---
+title: JSPON RPC eth_blockNumber Spec
+author: Alita Moore (@alita-moore)
+discussions-to: https://github.com/ethereum-oasis/eth1.x-JSON-RPC-API-standard
+created: 2021-03-17
+---
 
-Returns the number of most recent block
+## Simple Summary
+This document specifies in detail the expected behaviour of the eth_blockNumber; Eth 1.x JSON RPC endpoint.
 
-## Parameters
+## Abstract
+We cover basic behaviour and edge cases for various sync modes.
 
-None
+## Motivation
+eth_blockNumber is the most commonly called JSON RPC endpoint, yet it has some undefined edge cases that needs specification so that the behaviour is consistent in all situation on all Ethereum 1.x client implementations.
 
-# Development Section / Notes 
+## Specification
 
-## Implemntations
+### eth_blockNumber
 
-### Geth 
-As of `04/13/2021`
-```go
-// GetBlockNumber retrieves the block number belonging to the given hash
-// from the cache or database
-func (hc *HeaderChain) GetBlockNumber(hash common.Hash) *uint64 {
-  if cached, ok := hc.numberCache.Get(hash); ok {
-    number := cached.(uint64)
-    return &number
-  }
-  number := rawdb.ReadHeaderNumber(hc.chainDb, hash)
-  if number != nil {
-    hc.numberCache.Add(hash, *number)
-  }
-  return number
+### Description
+- Returns the number of the block that is the current chain head (the latest best processed and verified block on the chain).
+- The number of the chain head is returned if the node has ability of serving the header, body, and the full state starting from the state root of the block having the number in a finite time.
+- The node may know a higher block number but still return a lower one if the lower number block has higher total difficulty or if the higher number block has not been fully processed yet.
+- Provides no promise on for how long the node will keep the block details so if you request the block data for the given block number any time after receiving the block number itself, you may get a null response.
+<br/>Returns an error if the node has not yet processed or failed to process the genesis block. Some nodes MAY decide not to enable JSON RPC if the genesis block calculation has not been done yet.
+
+##### Types
+
+Specific types of values passed to and returned from Ethereum RPC methods require special encoding:
+
+##### `Quantity`
+
+- A `Quantity` value **MUST** be hex-encoded.
+- A `Quantity` value **MUST** be "0x"-prefixed.
+- A `Quantity` value **MUST** be expressed using the fewest possible hex digits per byte.
+- A `Quantity` value **MUST** express zero as "0x0".
+
+Examples `Quantity` values:
+
+|Value|Valid|Reason|
+|-|-|-|
+|0x|`invalid`|empty not a valid quantity|
+|0x0|`valid`|interpreted as a quantity of zero|
+|0x00|`invalid`|leading zeroes not allowed|
+|0x41|`valid`|interpreted as a quantity of 65|
+|0x400|`valid`|interpreted as a quantity of 1024|
+|0x0400|`invalid`|leading zeroes not allowed|
+|ff|`invalid`|values must be prefixed|
+
+##### Parameters
+
+_(none)_
+
+##### Returns
+
+{[`Quantity`](https://eips.ethereum.org/EIPS/eip-1474#quantity)} - number of the latest block
+
+##### Example
+
+```sh
+# Request
+curl -X POST --data '{
+    "id": 1337,
+    "jsonrpc": "2.0",
+    "method": "eth_blockNumber",
+    "params": []
+}' <url>
+
+# Response
+{
+    "id": 1337,
+    "jsonrpc": "2.0",
+    "result": "0xc94"
 }
 ```
 
-### Nethermind 
-As of `04/13/2021`
-```cs
-public Task<RpcResult<long?>> eth_blockNumber()
-    => _proxy.SendAsync<long?>(nameof(eth_blockNumber));
-```
+## Rationale
+The definition of being able to serve the full state has been introduced to clarify the behaviour in the midst of fast sync and similar.
 
-### Besu
-As of `04/13/2021`
-``` java
-public EthBlockNumber(final BlockchainQueries blockchain) {
-  this(Suppliers.ofInstance(blockchain), false);
-}
-```
+## Test Cases
+TBD
 
-### Turbo Geth 
-As of `04/13/2021`
-```go
-// BlockNumber implements eth_blockNumber. Returns the block number of most recent block.
-func (api *APIImpl) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
-	tx, err := api.db.BeginRo(ctx)
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback()
-	execution, err := stages.GetStageProgress(tx, stages.Finish)
-	if err != nil {
-		return 0, err
-	}
-	return hexutil.Uint64(execution), nil
-}
-```
+## Security Considerations
+`eth_blockNumber` is considered to be safe
 
-### OpenEthereum
-As of `04/13/2021`
-```rust
-fn block_number(&self) -> Result<U256> {
-    Ok(U256::from(self.client.chain_info().best_block_number))
-}
-```
-
-
-
-
-
+## Copyright
+Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
