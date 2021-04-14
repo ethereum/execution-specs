@@ -13,10 +13,12 @@ created: 2021-04-13
 
 ##### Requirements
 
-- A `Quantity` value **MUST** be hex-encoded.
-- A `Quantity` value **MUST** be "0x"-prefixed.
-- A `Quantity` value **MUST** be expressed using the fewest possible hex digits per byte.
-- A `Quantity` value **MUST** express zero as "0x0".
+| Req. | Description  |
+| ----------- | ------------ |
+|    **Γ1**   | A `Quantity` value **MUST** be hex-encoded |
+|    **Γ2**   | A `Quantity` value **MUST** be "0x"-prefixed |
+|    **Γ3**   | A `Quantity` value **MUST** be expressed using the fewest possible hex digits per byte |
+|    **Γ4**   | A `Quantity` value **MUST** express zero as "0x0" |
 
 ##### Examples 
 
