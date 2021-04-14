@@ -63,7 +63,7 @@ The specification for the Aleut Client Integration Tesnet. Clients who wish to s
   ```
 </details>
 
-**Genesis File:**
+**Static Nodes:**
 
 <details>
   <summary>static-nodes.json</summary>
