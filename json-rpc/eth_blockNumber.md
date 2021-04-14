@@ -1,12 +1,12 @@
 ---
 title: JSPON RPC eth_blockNumber Spec
-author: Alita Moore (@alita-moore)
+author: Tomasz K. Stanczak (@tkstanczak)
 discussions-to: https://github.com/ethereum-oasis/eth1.x-JSON-RPC-API-standard
-created: 2021-03-17
+created: 2021-04-13
 ---
 
 ## Simple Summary
-This document specifies in detail the expected behaviour of the eth_blockNumber; Eth 1.x JSON RPC endpoint.
+This document specifies in detail the expected behaviour of the eth_blockNumber Eth 1.x JSON RPC endpoint.
 
 ## Abstract
 `eth_blockNumber` and its sync modes are described here.
