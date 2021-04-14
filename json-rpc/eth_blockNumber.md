@@ -9,23 +9,20 @@ created: 2021-03-17
 This document specifies in detail the expected behaviour of the eth_blockNumber; Eth 1.x JSON RPC endpoint.
 
 ## Abstract
-We cover basic behaviour and edge cases for various sync modes.
+`eth_blockNumber` and its sync modes are described here.
 
 ## Motivation
-eth_blockNumber is the most commonly called JSON RPC endpoint, yet it has some undefined edge cases that needs specification so that the behaviour is consistent in all situation on all Ethereum 1.x client implementations.
+`eth_blockNumber` is the most commonly called JSON RPC endpoint, yet it has some undefined edge cases. The goal is to assert its behavior through all Ethereum 1.x client implementations.
 
 ## Specification
 
-### eth_blockNumber
-
-### Description
-- Returns the number of the block that is the current chain head (the latest best processed and verified block on the chain).
-- The number of the chain head is returned if the node has ability of serving the header, body, and the full state starting from the state root of the block having the number in a finite time.
-- The node may know a higher block number but still return a lower one if the lower number block has higher total difficulty or if the higher number block has not been fully processed yet.
-- Provides no promise on for how long the node will keep the block details so if you request the block data for the given block number any time after receiving the block number itself, you may get a null response.
-- Returns an error if the node has not yet processed or failed to process the genesis block. Some nodes MAY decide not to enable JSON RPC if the genesis block calculation has not been done yet.
-
-## Spec
+| Spec | Description  |
+| ----------- | --------------------------------------------------- |
+| **δ1** |  Returns the number of the block that is the current chain head (the latest best processed and verified block on the chain). |
+| **δ2** |  The number of the chain head is returned if the node has ability of serving the header, body, and the full state starting from the state root of the block having the number in a finite time.  |
+| **δ3** | The node may know a higher block number but still return a lower one if the lower number block has higher total difficulty or if the higher number block has not been fully processed yet. |
+| **δ4** | Provides no promise on for how long the node will keep the block details so if you request the block data for the given block number any time after receiving the block number itself, you may get a null response. |
+| **δ5** | Returns an error if the node has not yet processed or failed to process the genesis block. Some nodes MAY decide not to enable JSON RPC if the genesis block calculation has not been done yet. |
 
 ##### Parameters
 
