@@ -32,7 +32,7 @@ The specification for the Aleut Client Integration Tesnet. Clients who wish to s
       "istanbulBlock":0,
       "muirGlacierBlock":0,
       "berlinBlock":0,
-      "eip1559Block":10,
+      "aleutBlock":10,
       "clique":{
          "blockperiodseconds":15,
          "epochlength":30000
