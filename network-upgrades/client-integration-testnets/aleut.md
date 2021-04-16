@@ -28,7 +28,7 @@ The specification for the Aleut Client Integration Tesnet. Clients who wish to s
       "eip158Block":0,
       "byzantiumBlock":0,
       "constantinopleBlock":0,
-      "constantinopleFixBlock":0,
+      "petersburgBlock":0,
       "istanbulBlock":0,
       "muirGlacierBlock":0,
       "berlinBlock":0,
