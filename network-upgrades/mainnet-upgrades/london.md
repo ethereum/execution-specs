@@ -4,7 +4,7 @@
 Specifies changes included in the Network Upgrade.
 
   - [x] [EIP-1559: Fee market change for ETH 1.0 chain](https://eips.ethereum.org/EIPS/eip-1559)
-  - [ ] [EIP-3198: BASEFEE opcode](https://eips.ethereum.org/EIPS/eip-3198)
+  - [x] [EIP-3198: BASEFEE opcode](https://eips.ethereum.org/EIPS/eip-3198)
   - [x] [EIP-3238: Difficulty Bomb Delay to Summer 2022](https://eips.ethereum.org/EIPS/eip-3238)
 
 
