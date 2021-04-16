@@ -22,13 +22,13 @@ To describe the process of preparing, activating and error handling during the B
 Berlin upgrade upgrade was following process decsribed in [Shedding light on the Ethereum Network Upgrade Process](https://medium.com/ethereum-cat-herders/shedding-light-on-the-ethereum-network-upgrade-process-4c6186ed442c).
 
 ### Timeline - Backlog check
-- May 15, 2020: Proposal, decision and initial selection of EIPs for Berlin to spin up an ephemeral testnet YOLO in [ACD 87](https://www.youtube.com/watch?v=bGgzALuyY3w&t=4788s)
-- May 19: [Meta EIP-2657](https://eips.ethereum.org/EIPS/eip-2657) created for ephemeral testnet YOLO
-- May 29: Selection of EIPs, a decision on the state-test name as Yolo-v1 (and not Berlin) in [ACD 88](https://github.com/ethereum/pm/blob/5198ef636a0f2c443a5c99374563ef285b002b0e/All%20Core%20Devs%20Meetings/Meeting%2088.md#decisions-made)
-- June 03: Finalized spec of EIPs for v1, commit hash [added](https://github.com/ethereum/EIPs/pull/2657/commits/fb2a20f2d87a272edf0925f1e347b36644268f9b) to YOLO meta EIP
-- June 03: Yolo v-1 deployed with [Geth](https://twitter.com/peter_szilagyi/status/1268123563850170368)
-- Jun 10: [Open Ethereum](https://twitter.com/vorot93/status/1270597961014218752) and [Besu](https://github.com/hyperledger/besu/pull/1051) joined the network.
-- June 10: [YOLO stopped](https://twitter.com/peter_szilagyi/status/1270824487886426113). It went out of disk.
+- May 15, 2020: Proposal, decision and initial selection of EIPs for Berlin to spin up an [ephemeral testnet YOLO](https://medium.com/ethereum-cat-herders/yolo-an-ephemeral-test-network-for-ethereum-356d43179b1a) in [ACD 87](https://www.youtube.com/watch?v=bGgzALuyY3w&t=4788s)
+- May 19, 2020: [Meta EIP-2657](https://eips.ethereum.org/EIPS/eip-2657) created for ephemeral testnet YOLO
+- May 29, 2020: Selection of EIPs, a decision on the state-test name as Yolo-v1 (and not Berlin) in [ACD 88](https://github.com/ethereum/pm/blob/5198ef636a0f2c443a5c99374563ef285b002b0e/All%20Core%20Devs%20Meetings/Meeting%2088.md#decisions-made)
+- June 03, 2020: Finalized spec of EIPs for v1, commit hash [added](https://github.com/ethereum/EIPs/pull/2657/commits/fb2a20f2d87a272edf0925f1e347b36644268f9b) to YOLO meta EIP
+- June 03, 2020: Yolo v-1 deployed with [Geth](https://twitter.com/peter_szilagyi/status/1268123563850170368)
+- Jun 10, 2020: [Open Ethereum](https://twitter.com/vorot93/status/1270597961014218752) and [Besu](https://github.com/hyperledger/besu/pull/1051) joined the network.
+- June 10, 2020: [YOLO stopped](https://twitter.com/peter_szilagyi/status/1270824487886426113). It went out of disk.
 - June 11, 2020: YOLO is back as [YOLT (You only live twice)](https://twitter.com/peter_szilagyi/status/1270931154267504643)
 - June 12, 2020: Restarted at AWS cloud
 - June 12, 2020: Proposed EIPs for Yolo v2 in [ACD meeting 89](https://github.com/ethereum/pm/blob/master/All%20Core%20Devs%20Meetings/Meeting%2089.md#3-yolo-testnet-update)
