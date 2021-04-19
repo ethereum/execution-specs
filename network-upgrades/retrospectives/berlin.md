@@ -34,6 +34,10 @@ To describe the process of preparing, activating and error handling during the B
 
 On [AllCoreDevs 110](https://youtu.be/-H8UpqarZ1Y?t=732), a longer conversation about testing process improvements to catch such bugs in the future was had. The idea of having chain configurations on Hive be identical to mainnet was also noted as the only way to catch such an issue.
 
+### Resources
+
+A detailled Twitter thread about the issue: https://twitter.com/ralexstokes/status/1382750001026146304l.
+
 ## Besu Testnet Consesus Issue
 
 TBA.
