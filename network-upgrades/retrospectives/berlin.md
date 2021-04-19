@@ -1,24 +1,53 @@
-## Purpose
-To describe the process of preparing, activating and error handling during the Berlin upgrade. 
+# Berlin Restrospective
+To describe the process of preparing, activating and error handling during the Berlin upgrade.
 
-### Upgrade summary 
-* Date and time (in UTC): Apr-15-2021 
-* Block Number (Mainnet): 10:07:03 AM +UTC
-* Mined by: Hiveon Pool
-* Block Reward: 2.884653520945903523 Ether (2 + 0.884653520945903523)
-* Uncles Reward: 0
-* Difficulty: 6,696,239,334,037,736
-* Total Difficulty: 23,316,419,380,214,989,812,302
-* Block number (Ropsten): 9812189
+## OpenEthereum Mainnet Consensus Issue
 
-### EIP Included 
+### Problematic Block Information
+* Date and time (in UTC): Apr-15-2021 11:05:04 AM +UTC
+* Block Number (Mainnet): 12244294
+* Block Hash (Mainnet): 0x53c7b43c15c489b012053d156bc5ef95f3f5d498c2d01a0a3d9f3cc1dd007601
+* Transaction: 0x7006f38fa2e6654fae1a781aefc5885fe0cb8f778b1add10636eaf7e34279247
 
-- [EIP-2565: Repricing of the EIP-198 ModExp precompile](https://eips.ethereum.org/EIPS/eip-2565)
-- [EIP-2718: Typed Transaction Envelope](https://eips.ethereum.org/EIPS/eip-2718)
-- [EIP-2929: Gas cost increases for state access opcodes](https://eips.ethereum.org/EIPS/eip-2929)
-- [EIP-2930: Optional access lists](https://eips.ethereum.org/EIPS/eip-2930)
 
-**Process of EIP selection**
+**OpenEthereum Consensus Failure**
+- April 15, 2021 at 8:21 am EST: [War room](https://discordapp.com/channels/595666850260713488/745077610685661265/832229172126547998) set up
+- April 15, 2021 at 1:48 pm EST: [OpenEthereum v3.2.3 is released](https://discordapp.com/channels/595666850260713488/745077610685661265/832311394178826291)
+
+### Timeline of Events
+
+**April 15, 2021 (all times in UTC)**
+* 11:12 AM: ["I think etherscan just went down"](https://discordapp.com/channels/595666850260713488/745077610685661265/832211783883423754) shared in Eth R&D discord by `Agusx1211`
+* 11:17 AM: ["all our openethereum nodes just died"](https://discordapp.com/channels/595666850260713488/745077610685661265/832211783883423754) shared in Eth R&D discord by `Peter [beaconcha.in]`
+* 11:30 AM: [Confirmation](https://discord.com/channels/595666850260713488/745077610685661265/832216373312618508) by `denisgranha` from the OpenEthereum team that OpenEthereum nodes are having an issue and that the team is investigating it.
+* 12:21 PM: [Zoom link shared by OpenEthereum](https://discord.com/channels/595666850260713488/745077610685661265/832229172126547998) for other developers to help find the issue.
+* 12:41 PM: Potential fix for the bug identified, [PR opened](https://github.com/openethereum/openethereum/pull/364).
+* 12:41 PM - 3:30 PM: Testing of potential fix by deploying against nodes and syncing to the head of the chain. Preparation for official release.
+* 3:36 PM: [Confirmation](https://twitter.com/OpenEthereumOrg/status/1382752559073529856) that the potential fix is working.
+* 5:47 PM: [Announcement](https://twitter.com/OpenEthereumOrg/status/1382752559073529856) of OpenEthereum v3.2.3 which contains the fix for the issue.
+
+
+### Suggested Corrective Action
+[Discord Suggestion](https://discordapp.com/channels/595666850260713488/745077610685661265/832280444967190559):
+> Client tests must be run against mainnet spec **directly**. Having separate test spec and mainnet spec could be the reson for slippage as fuzzing can't catch this bug.
+> It probably increase CI time and extra development effort, since it needs to take into consideration of the whole mainnet genesis block, and will probably have to fake block numbers so that it passes the activation block. But it is important because The test spec or the ropsten spec doesn't have non-active precompile definitions.
+
+On [AllCoreDevs 110](https://youtu.be/-H8UpqarZ1Y?t=732), a longer conversation about testing process improvements to catch such bugs in the future was had. The idea of having chain configurations on Hive be identical to mainnet was also noted as the only way to catch such an issue.
+
+## Besu Testnet Consesus Issue
+
+TBA.
+
+## Berlin Planning
+
+### Upgrade summary
+* Date and time (in UTC): Apr-15-2021 10:07:03 AM +UTC
+* Block Number (Mainnet): 12244000
+* Block Hash (Mainnet): 0x1638380ab737e0e916bd1c7f23bd2bab2a532e44b90047f045f262ee21c42b21
+* Mined by: 0x1ad91ee08f21be3de0ba2ba6918e714da6b45836 (Hiveon Pool)
+
+### Process of EIP selection
+
 Berlin upgrade upgrade was following process decsribed in [Shedding light on the Ethereum Network Upgrade Process](https://medium.com/ethereum-cat-herders/shedding-light-on-the-ethereum-network-upgrade-process-4c6186ed442c).
 
 ### Timeline - Backlog check
@@ -37,40 +66,7 @@ Berlin upgrade upgrade was following process decsribed in [Shedding light on the
 - October 30, 2020: EIP-2537 is not considered for yolov3, and will be delayed until after the next hardfork, decided in [ACD 99](https://github.com/ethereum/pm/blob/master/All%20Core%20Devs%20Meetings/Meeting%2099.md#decisions-made)
 - November 27, 2020: EIP-2930 & EIP-2718 added to Berlin EIPs, decided in [ACD 1010](https://github.com/ethereum/pm/blob/master/All%20Core%20Devs%20Meetings/Meeting%20101.md#summary)
 - March 08, 2021: Ethereum Berlin Upgrade [Announcement](https://blog.ethereum.org/2021/03/08/ethereum-berlin-upgrade-announcement/)
-- Mar 10, 2021: Ropsten at block #9 812 189	
-- Mar 17, 2021: Goerli	at block #4 460 644	
-- Mar 24, 2021: Rinkeby	at block #8 290 928	
+- Mar 10, 2021: Ropsten at block #9 812 189
+- Mar 17, 2021: Goerli	at block #4 460 644
+- Mar 24, 2021: Rinkeby	at block #8 290 928
 - Apr 15, 2021: Mainnet	at block #12 244 000
-
-**OpenEthereum Consensus Failure**
-- April 15, 2021 at 7:12 am EST: [Etherscan went down](https://discordapp.com/channels/595666850260713488/745077610685661265/832211783883423754)
-- April 15, 2021 at 7:30 am EST: [Confirmation from OpenEthereum](https://discordapp.com/channels/595666850260713488/745077610685661265/832216373312618508) 
-- April 15, 2021 at 8:21 am EST: [War room](https://discordapp.com/channels/595666850260713488/745077610685661265/832229172126547998) set up 
-- April 15, 2021 at 1:48 pm EST: [OpenEthereum v3.2.3 is released](https://discordapp.com/channels/595666850260713488/745077610685661265/832311394178826291)
-
-#### Discovery of problem 
-
-
-#### Validation of problem
-
-
-#### Discussion & decision making 
-
-
-#### Implementation
-
-OpenEthereum made a [release](https://discordapp.com/channels/595666850260713488/745077610685661265/832311394178826291) that fixed consensus problem that was identified.
-
-### Best Practices
-- Running tests having mainnet specs.
-
-### Suggested Corrective Action
-(Problem and suggestions)
-Problem: Client consensus bug
-[Suggestion](https://discordapp.com/channels/595666850260713488/745077610685661265/832280444967190559): Client tests must be run against mainnet spec **directly**. Having separate test spec and mainnet spec could be the reson for slippage as fuzzing can't catch this bug.
-It probably increase CI time and extra development effort, since it needs to take into consideration of the whole mainnet genesis block, and will probably have to fake block numbers so that it passes the activation block. But it is important because The test spec or the ropsten spec doesn't have non-active precompile definitions.
-
-
-## Resources
-* All Core Dev Discord 
-* Etherscan - https://etherscan.io/block/12244000
