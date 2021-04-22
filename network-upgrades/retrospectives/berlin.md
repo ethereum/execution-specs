@@ -3,16 +3,13 @@ To describe the process of preparing, activating and error handling during the B
 
 ## OpenEthereum Mainnet Consensus Issue
 
+OpenEthereum's postmortem on the consensus issue can be found [here](https://docs.google.com/document/d/18BhIEB7V_f_GkL8NZptxq-xadu5sb8QUzego8YVVMUM/edit#). 
+
 ### Problematic Block Information
 * Date and time (in UTC): Apr-15-2021 11:05:04 AM +UTC
 * Block Number (Mainnet): 12244294
 * Block Hash (Mainnet): 0x53c7b43c15c489b012053d156bc5ef95f3f5d498c2d01a0a3d9f3cc1dd007601
 * Transaction: 0x7006f38fa2e6654fae1a781aefc5885fe0cb8f778b1add10636eaf7e34279247
-
-
-**OpenEthereum Consensus Failure**
-- April 15, 2021 at 8:21 am EST: [War room](https://discordapp.com/channels/595666850260713488/745077610685661265/832229172126547998) set up
-- April 15, 2021 at 1:48 pm EST: [OpenEthereum v3.2.3 is released](https://discordapp.com/channels/595666850260713488/745077610685661265/832311394178826291)
 
 ### Timeline of Events
 
