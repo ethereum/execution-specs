@@ -1,12 +1,4 @@
-# Simple Summary
-This document strictly specifies the expected behaviour of the `eth_blockNumber` Eth 1.x JSON RPC endpoint.
-
-The definition of being able to serve the full state has been introduced to clarify the behaviour in the midst of fast sync and similar. 
-
-# Description
-`eth_blockNumber` is the most commonly called JSON RPC endpoint, yet it has some undefined edge cases. The goal is to assert its behavior for all current and future Ethereum 1.x client implementations.
-
-# Specification
+# `eth_blockNumber`
 
 | Spec | Description  |
 | ----------- | --------------------------------------------------- |
@@ -16,15 +8,33 @@ The definition of being able to serve the full state has been introduced to clar
 | 4 | Provides no promise on for how long the node will keep the block details so if you request the block data for the given block number any time after receiving the block number itself, you may get a null response |
 | 5 | Returns an error if the node has not yet processed or failed to process the genesis block. Some nodes MAY decide not to enable JSON RPC if the genesis block calculation has not been done yet |
 
-# Parameters
+# Tests
+
+[...]
+
+# Security Considerations
+`eth_blockNumber` is considered safe
+
+# Notes About Usage
+
+
+### Simple Summary
+This document strictly specifies the expected behaviour of the `eth_blockNumber` Eth 1.x JSON RPC endpoint.
+
+The definition of being able to serve the full state has been introduced to clarify the behaviour in the midst of fast sync and similar. 
+
+### Description
+`eth_blockNumber` is the most commonly called JSON RPC endpoint, yet it has some undefined edge cases. The goal is to assert its behavior for all current and future Ethereum 1.x client implementations.
+
+### Parameters
 
 _(none)_
 
-# Returns
+### Returns
 
 {[`Quantity`](./types/Quantity.md)} - number of the latest block
 
-# Example
+### Example
 
 ```sh
 # Request
@@ -42,8 +52,7 @@ curl -X POST --data '{
     "result": "0xc94"
 }
 ```
-# Security Considerations
-`eth_blockNumber` is considered safe
+
 
 # Copyright
 Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
