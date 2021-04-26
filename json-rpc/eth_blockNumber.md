@@ -1,12 +1,12 @@
 # `eth_blockNumber`
 The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”, “SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “MAY”, and “OPTIONAL” in this document are to be interpreted as described in [RFC-2119](https://www.ietf.org/rfc/rfc2119.txt).
-| Spec | Description  |
-| ----------- | --------------------------------------------------- |
-| 1 |  Returns the number of the block that is the current chain head (the latest best processed and verified block on the chain) |
-| 2 |  The number of the chain head is returned if the node has ability of serving the header, body, and the full state starting from the state root of the block having the number in a finite time  |
-| 3 | The node may know a higher block number but still return a lower one if the lower number block has higher total difficulty or if the higher number block has not been fully processed yet |
-| 4 | Provides no promise on for how long the node will keep the block details so if you request the block data for the given block number any time after receiving the block number itself, you may get a null response |
-| 5 | Returns an error if the node has not yet processed or failed to process the genesis block. Some nodes MAY decide not to enable JSON RPC if the genesis block calculation has not been done yet |
+Specification | Description 
+---|---
+ 1 |  Returns the number of the block that is the current chain head (the latest best processed and verified block on the chain) |
+ 2 |  The number of the chain head is returned if the node has ability of serving the header, body, and the full state starting from the state root of the block having the number in a finite time  |
+ 3 | The node may know a higher block number but still return a lower one if the lower number block has higher total difficulty or if the higher number block has not been fully processed yet |
+ 4 | Provides no promise on for how long the node will keep the block details so if you request the block data for the given block number any time after receiving the block number itself, you may get a null response |
+ 5 | Returns an error if the node has not yet processed or failed to process the genesis block. Some nodes MAY decide not to enable JSON RPC if the genesis block calculation has not been done yet |
 
 # Tests
 

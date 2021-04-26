@@ -1,8 +1,6 @@
-# Description
-`Quantity` is the 32 byte hex-encoded representation of a decimal value
 
-# Specification
-
+# `Quantity`
+The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”, “SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “MAY”, and “OPTIONAL” in this document are to be interpreted as described in [RFC-2119](https://www.ietf.org/rfc/rfc2119.txt).
 | Req. | Description  |
 | ----------- | ------------ |
 | 1   | A `Quantity` value **MUST** be hex-encoded |
@@ -12,7 +10,11 @@
 | 5   | A `Quantity` value **MUST** represent an unsigned integer value |
 | 6   | A `Quantity` value **MUST** represent a 32 byte hex encoded decimal with the leading `0`s stripped |
 
-# Examples 
+# Notes About Usage
+### Description
+`Quantity` is the 32 byte hex-encoded representation of a decimal value
+
+### Examples 
 
 |Value|Valid|Reason|
 |-|-|-|
