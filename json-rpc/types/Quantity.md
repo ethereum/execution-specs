@@ -1,5 +1,4 @@
 # Description
-
 `Quantity` is the 32 byte hex-encoded representation of a decimal value
 
 # Specification
@@ -10,6 +9,9 @@
 | 2   | A `Quantity` value **MUST** be "0x"-prefixed |
 | 3   | A `Quantity` value **MUST** be expressed using the fewest possible hex digits per byte |
 | 4   | A `Quantity` value **MUST** express zero as "0x0" |
+| 5   | A `Quantity` value **MUST** represent an unsigned integer value |
+| 6   | A `Quantity` value **MUST** represent a 32 byte hex encoded decimal with the leading `0`s stripped |
+
 # Examples 
 
 |Value|Valid|Reason|
