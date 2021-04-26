@@ -69,21 +69,21 @@ specification | description
 
 # Notes About Usage
 
-## Summary
+### Summary
 `eth_call` is useful for development and avoiding failed transactions. `eth_call` Executes a new message call immediately without submitting a transaction to the network
 
-## Parameters
+### Parameters
 
 |#|Type|Description|
 |-|-|-|
 |1|{`object`}|@property {[`Data`](#data)} `[from]` - transaction sender<br/>@property {[`Data`](#data)} `to` - transaction recipient or `null` if deploying a contract<br/>@property {[`Quantity`](#quantity)} `[gas]` - gas provided for transaction execution<br/>@property {[`Quantity`](#quantity)} `[gasPrice]` - price in wei of each gas used<br/>@property {[`Quantity`](#quantity)} `[value]` - value in wei sent with this transaction<br/>@property {[`Data`](#data)} `[data]` - contract code or a hashed method call with encoded args|
 |2|{[`Quantity`]()[!]\|`string`\|[`Block Identifier`]()[!]}|block number, or one of `"latest"`, `"earliest"` or `"pending"`, or a block identifier as described in [`Block Identifier`](#block-identifier)|
 
-## Returns
+### Returns
 
 {[`Data`][!]} - return value of executed contract
 
-# Example
+### Example
 
 ```sh
 # Request
@@ -109,5 +109,5 @@ curl -X POST --data '{
 }
 ```
 
-## Copyright
+# Copyright
 Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
