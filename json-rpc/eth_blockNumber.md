@@ -17,12 +17,6 @@
 
 # Notes About Usage
 
-
-### Simple Summary
-This document strictly specifies the expected behaviour of the `eth_blockNumber` Eth 1.x JSON RPC endpoint.
-
-The definition of being able to serve the full state has been introduced to clarify the behaviour in the midst of fast sync and similar. 
-
 ### Description
 `eth_blockNumber` is the most commonly called JSON RPC endpoint, yet it has some undefined edge cases. The goal is to assert its behavior for all current and future Ethereum 1.x client implementations.
 
@@ -52,7 +46,6 @@ curl -X POST --data '{
     "result": "0xc94"
 }
 ```
-
 
 # Copyright
 Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
