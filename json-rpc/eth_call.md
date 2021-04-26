@@ -1,3 +1,5 @@
+The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”, “SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “MAY”, and “OPTIONAL” in this document are to be interpreted as described in [RFC-2119](https://www.ietf.org/rfc/rfc2119.txt).
+
 # Summary
 `eth_call` is useful for development and avoiding failed transactions. `eth_call` Executes a new message call immediately without submitting a transaction to the network
 
