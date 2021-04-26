@@ -1,6 +1,11 @@
 The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”, “SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “MAY”, and “OPTIONAL” in this document are to be interpreted as described in [RFC-2119](https://www.ietf.org/rfc/rfc2119.txt).
 
-# Summary
+# Introduction
+This document strictly specifies the expected behaviour of the `eth_call` Eth 1.x JSON RPC endpoint.
+
+The definition of being able to serve the full state has been introduced to clarify the behaviour in the midst of fast sync and similar. 
+
+# Description
 `eth_call` is useful for development and avoiding failed transactions. `eth_call` Executes a new message call immediately without submitting a transaction to the network
 
 # Specification
