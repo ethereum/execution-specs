@@ -1,7 +1,4 @@
-# Summary
-`eth_call` is useful for development and avoiding failed transactions. `eth_call` Executes a new message call immediately without submitting a transaction to the network
-
-# Specification
+# `eth_call`
 
 specification | description 
 --|--
@@ -61,14 +58,25 @@ specification | description
 5.6       | `eth_call` SHOULD throw exception `-32000` [1] with message `invalid arguments; neither block nor hash specified` if the provided `Block Identifier` parameter is either not defined or equal to `null`[!].
 5.7       | `eth_call` SHOULD throw exception `-32000` [1] with message `head not found` if the `Block Identifier` parameter is equal to a hex encoded `Quantity`[!] value greater than the currently known height of the best blockchain ([yellow paper](https://ethereum.github.io/yellowpaper/paper.pdf))
 
-# Parameters
+# Tests
+[...]
+
+# Security Considerations
+[?]
+
+# Notes About Usage
+
+## Summary
+`eth_call` is useful for development and avoiding failed transactions. `eth_call` Executes a new message call immediately without submitting a transaction to the network
+
+## Parameters
 
 |#|Type|Description|
 |-|-|-|
 |1|{`object`}|@property {[`Data`](#data)} `[from]` - transaction sender<br/>@property {[`Data`](#data)} `to` - transaction recipient or `null` if deploying a contract<br/>@property {[`Quantity`](#quantity)} `[gas]` - gas provided for transaction execution<br/>@property {[`Quantity`](#quantity)} `[gasPrice]` - price in wei of each gas used<br/>@property {[`Quantity`](#quantity)} `[value]` - value in wei sent with this transaction<br/>@property {[`Data`](#data)} `[data]` - contract code or a hashed method call with encoded args|
 |2|{[`Quantity`]()[!]\|`string`\|[`Block Identifier`]()[!]}|block number, or one of `"latest"`, `"earliest"` or `"pending"`, or a block identifier as described in [`Block Identifier`](#block-identifier)|
 
-# Returns
+## Returns
 
 {[`Data`][!]} - return value of executed contract
 
@@ -97,9 +105,6 @@ curl -X POST --data '{
     "result": "0x"
 }
 ```
----
-# Security Considerations
-[?]
 
 ## Copyright
 Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
