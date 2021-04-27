@@ -8,24 +8,24 @@ Specifies changes included in the Network Upgrade.
   - [x] [EIP-3238: Difficulty Bomb Delay to Summer 2022](https://eips.ethereum.org/EIPS/eip-3238)
 
 
- ### Readiness Checklist
-
-**List of outstanding items before deployment.**
-
+### Readiness Checklist
 Code merged into Participating Clients
 
-|  **Client**  | EIP-1559 | EIP-3238 |
-|--------------|:--------:|:--------:|
-| Geth         |          |         |
-| Besu         |          |         |
-| Nethermind   |    x     |         |
-| OpenEthereum |          |         |
-| EthereumJS   |          |         |
+| EIP | Geth | OpenEthereum | Besu | Nethermind | TurboGeth | EthereumJS | 
+|-----|------|-------|--------|------------|--------|------------|
+| [EIP-1559: Fee market change for ETH 1.0 chain](https://eips.ethereum.org/EIPS/eip-1559)| [Not merged](https://github.com/ethereum/EIPs/pull/2129) |  |[This & others](https://github.com/hyperledger/besu/pull/1867) |
+| [EIP-3198: BASEFEE opcode](https://eips.ethereum.org/EIPS/eip-3198) | [Not merged](https://github.com/ethereum/EIPs/pull/2129) |
+| [EIP-3238: Difficulty Bomb Delay to Q2/2022](https://eips.ethereum.org/EIPS/eip-3238) |
 
- Tasks
-- [ ] Client Integration Testing
-  - [ ] Deploy a Client Integration Testnet
-  - [ ] Integration Tests
+#### Client Teams Trackers
+
+* Geth: https://github.com/ethereum/go-ethereum/issues/22736 
+
+#### Other Tasks
+ 
+- [x] Client Integration Testing
+  - [x] Deploy a Client Integration Testnet: [Aleut](https://github.com/ethereum/eth1.0-specs/blob/master/network-upgrades/client-integration-testnets/aleut.md)
+  - [ ] Integration Tests: [WIP](https://hackmd.io/@SduYUIHbT6a6DHUpikAcFQ/BJP9arcB_/%2FuID06YEhSj2uFzEviDIaJQ)
   - [ ] Fuzz Testing
  - [ ] Select Fork Blocks
  - [ ] Deploy Clients
