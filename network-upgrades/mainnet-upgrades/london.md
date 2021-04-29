@@ -11,11 +11,14 @@ Specifies changes included in the Network Upgrade.
 ### Client Readiness Checklist
 Code merged into Participating Clients
 
-| EIP | Geth | OpenEthereum | Besu | Nethermind | TurboGeth | EthereumJS | 
-|-----|------|-------|--------|------------|--------|------------|
-| [EIP-1559: Fee market change for ETH 1.0 chain](https://eips.ethereum.org/EIPS/eip-1559)| [Not merged](https://github.com/ethereum/EIPs/pull/2129) |  |[This & others](https://github.com/hyperledger/besu/pull/1867) | [Not merged](https://github.com/NethermindEth/nethermind/pull/3023) 
-| [EIP-3198: BASEFEE opcode](https://eips.ethereum.org/EIPS/eip-3198) | [Not merged](https://github.com/ethereum/EIPs/pull/2129) | | | [This & others](https://github.com/NethermindEth/nethermind/pull/2985)
-| [EIP-3238: Difficulty Bomb Delay to Q2/2022](https://eips.ethereum.org/EIPS/eip-3238) |
+| EIP | [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) | [EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) | [EIP-3238](https://eips.ethereum.org/EIPS/eip-3238) |
+|------------------|------|-------|--------|
+| **Geth**         | [Not merged](https://github.com/ethereum/go-ethereum/pull/22617) | [Not merged](https://github.com/ethereum/go-ethereum/pull/22617) | 
+| **OpenEthereum** | 
+| **Besu**         | [Multiple PRs](https://github.com/hyperledger/besu/pulls?q=is%3Apr+1559) | [Merged](https://github.com/hyperledger/besu/pull/2123)
+| **Nethermind**   | [Not merged](https://github.com/NethermindEth/nethermind/pull/3023) | [Merged](https://github.com/NethermindEth/nethermind/pull/2985)
+| **TurboGeth**    |
+| **EthereumJS**   | 
 
 #### Client Teams Trackers
 
