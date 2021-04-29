@@ -8,7 +8,7 @@ Specifies changes included in the Network Upgrade.
   - [x] [EIP-3238: Difficulty Bomb Delay to Summer 2022](https://eips.ethereum.org/EIPS/eip-3238)
 
 
-### Readiness Checklist
+### Client Readiness Checklist
 Code merged into Participating Clients
 
 | EIP | Geth | OpenEthereum | Besu | Nethermind | TurboGeth | EthereumJS | 
