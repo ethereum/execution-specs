@@ -17,7 +17,7 @@ Code merged into Participating Clients
 | **OpenEthereum** | 
 | **Besu**         | [Multiple PRs](https://github.com/hyperledger/besu/pulls?q=is%3Apr+1559) | [Merged](https://github.com/hyperledger/besu/pull/2123)
 | **Nethermind**   | [Not merged](https://github.com/NethermindEth/nethermind/pull/3023) | [Merged](https://github.com/NethermindEth/nethermind/pull/2985)
-| **TurboGeth**    |
+| **TurboGeth**    | [Merged](https://github.com/ledgerwatch/turbo-geth/pull/1704) | [Merged](https://github.com/ledgerwatch/turbo-geth/pull/1704) 
 | **EthereumJS**   | 
 
 #### Client Teams Trackers
