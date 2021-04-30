@@ -104,12 +104,14 @@ Many of these projects may not update until much closer to the designated London
 
 | Name | [1559][eip-1559-link] | [3198][eip-3198-link] | Work | Dependencies | Status
 |---|---|---|---|---|---|
+| [Amazon Web Services][AWS-link]        | ❌    | ❌       |      | ?             | ❌
 | [Infura][infura-link]        | ❌        | ❌       |      | ?             | ❌
 | [POKT][pocket-link]        | ❌        | ❌       |      | Ethers, ?     | ❌ 
 | [Etherscan][etherscan-link] | ❌        | ❌       |      | ?           | ❌
 | [MetaMask][metamask-link]   | ❌        | ❌       |      | EthereumJS, Ethers, Web3, ? | ❌
 | [Ethernodes][ethernodes-link]   | ❌        | ❌       |      |  | ❌
 
+[AWS]: https://aws.amazon.com/
 [ethernodes-link]: https://www.ethernodes.org/
 [infura-link]: https://github.com/INFURA
 [pocket-link]: https://pokt.network/
