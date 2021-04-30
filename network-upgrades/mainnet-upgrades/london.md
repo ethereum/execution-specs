@@ -6,13 +6,14 @@ Specifies changes included in the Network Upgrade.
   - [x] [EIP-1559: Fee market change for ETH 1.0 chain](https://eips.ethereum.org/EIPS/eip-1559)
   - [x] [EIP-3198: BASEFEE opcode](https://eips.ethereum.org/EIPS/eip-3198)
   - [x] [EIP-3238: Difficulty Bomb Delay to Summer 2022](https://eips.ethereum.org/EIPS/eip-3238)
+  - [x] [EIP-3529: Reduction in refunds](https://eips.ethereum.org/EIPS/eip-3529)
 
 
 ### Client Readiness Checklist
 Code merged into Participating Clients
 
-| EIP | [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) | [EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) | [EIP-3238](https://eips.ethereum.org/EIPS/eip-3238) |
-|------------------|------|-------|--------|
+| EIP | [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) | [EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) | [EIP-3238](https://eips.ethereum.org/EIPS/eip-3238) | [EIP-3529](https://eips.ethereum.org/EIPS/eip-3529) | 
+|------------------|------|-------|--------|---------|
 | **Geth**         | [Not merged](https://github.com/ethereum/go-ethereum/pull/22617) | [Not merged](https://github.com/ethereum/go-ethereum/pull/22617) | 
 | **OpenEthereum** | 
 | **Besu**         | [Multiple PRs](https://github.com/hyperledger/besu/pulls?q=is%3Apr+1559) | [Merged](https://github.com/hyperledger/besu/pull/2123)
