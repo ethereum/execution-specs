@@ -11,6 +11,7 @@ The specification for the Baikal Client Integration Tesnet. Clients who wish to 
 **ID:** `Baikal`
 
 **ChainId:** `1642` # The deepest point of Lake Baikal is 1642 meters. 
+**NetworkId**: `1642`
 
 **Genesis File: TBA**
 
