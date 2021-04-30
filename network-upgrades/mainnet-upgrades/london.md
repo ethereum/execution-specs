@@ -111,7 +111,7 @@ Many of these projects may not update until much closer to the designated London
 | [MetaMask][metamask-link]   | ❌        | ❌       |      | EthereumJS, Ethers, Web3, ? | ❌
 | [Ethernodes][ethernodes-link]   | ❌        | ❌       |      |  | ❌
 
-[AWS]: https://aws.amazon.com/
+[AWS-link]: https://aws.amazon.com/
 [ethernodes-link]: https://www.ethernodes.org/
 [infura-link]: https://github.com/INFURA
 [pocket-link]: https://pokt.network/
