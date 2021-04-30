@@ -47,7 +47,7 @@ If you know about a status update please add a PR to this document.
 Legend for status updates:
 
 - `-`: EIP not relevant
-- ❌ : Not ready
+- ❌ : Not started
 - 🛠️ : In progress
 - ✅ : Ready
 
