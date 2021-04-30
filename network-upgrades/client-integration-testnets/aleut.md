@@ -1,6 +1,6 @@
 # Client Integration Testnet Specification - Aleut
 
-**Disclaimer: This network will soon be shut down in favor of [Baikal](/baikal.md).**
+**Disclaimer: This network will soon be shut down in favor of [Baikal](/network-upgrades/client-integration-testnets/aleut.md).**
 
 The specification for the Aleut Client Integration Tesnet. Clients who wish to sync need to implement the following features into their client. It is for testing basic infrastructure and will be deprecated.
 
