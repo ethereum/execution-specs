@@ -47,8 +47,7 @@ If you know about a status update please add a PR to this document.
 
 Legend for status updates:
 
-- `-`: EIP not relevant
-- ❌ : Not started
+- `-`: EIP not relevant / work not started
 - 🛠️ : In progress
 - ✅ : Ready
 
@@ -56,7 +55,7 @@ Legend for status updates:
 
 | Name | [1559][eip-1559-link] | [3198][eip-3198-link] | Work | Dependencies | Status
 |---|---|---|---|---|---|
-| [Blocknative][blocknative-link]        | ❌ | ❌ |          | -      | ❌ 
+| [Blocknative][blocknative-link]        | - | - |          | -      | ❌ 
 | [Hardhat][hardhat-link]        | ❌ | ❌ |          | EthereumJS      | ❌ 
 | [Truffle][truffle-link]        | ❌ | ❌ |          | ?               | ❌ 
 | [Remix][remix-link]            | ❌ | ❌ |          | EthereumJS, ?   | ❌
