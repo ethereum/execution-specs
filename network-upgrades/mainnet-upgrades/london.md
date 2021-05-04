@@ -59,7 +59,7 @@ Legend for status updates:
 | [Hardhat][hardhat-link]        | - | - |          | EthereumJS      | - 
 | [Truffle][truffle-link]        | - | - |          | ?               | - 
 | [Remix][remix-link]            | - | - |          | EthereumJS, ?   | -
-| [Waffle][waffle-link]          | - | - |          | ?               | -
+| [Waffle][waffle-link]          | - | - |          | Ganache, ?      | -
 | [Brownie][brownie-link]          | - | - |          | Ganache, ?      | -
 | [OpenZeppelin][oz-link]        | - | - |          | ?               | -
 | [Tenderly][tenderly-link]        | - | - |          | -      | - 
