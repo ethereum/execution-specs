@@ -1192,6 +1192,11 @@
           "blockNumber": {
             "$ref": "#/components/schemas/BlockNumber"
           },
+          "type": {
+            "title": "type",
+            "$ref": "#/components/schemas/Byte",
+            "description": "The transaction's EIP-2718 type byte (if applicable)"
+          },
           "contractAddress": {
             "title": "ReceiptContractAddress",
             "description": "The contract address created, if the transaction was a contract creation, otherwise null",
@@ -1462,6 +1467,28 @@
           }
         }
       },
+      "AccessListEntry": {
+        "title": "accessListEntry",
+        "type": "object",
+        "properties": {
+          "address": {
+            "$ref": "#/components/schemas/Address"
+          },
+          "storageKeys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Keccak"
+          }
+        }
+        }
+      },
+      "AccessList": {
+        "title": "accessList",
+        "type": "object",
+          "items": {
+            "$ref": "#/components/schemas/AccessListEntry"
+          }
+      },
       "Transaction": {
         "title": "transaction",
         "type": "object",
@@ -1476,6 +1503,11 @@
           },
           "blockNumber": {
             "$ref": "#/components/schemas/BlockNumberOrNull"
+          },
+          "type": {
+            "title": "type",
+            "$ref": "#/components/schemas/Byte",
+            "description": "The transaction's EIP-2718 type byte (if applicable)"
           },
           "from": {
             "$ref": "#/components/schemas/From"
@@ -1497,6 +1529,11 @@
             "title": "transactionInput",
             "type": "string",
             "description": "The data field sent with the transaction"
+          },
+          "accessList": {
+            "title": "accessList",
+            "description": "EIP-2930 access list",
+            "$ref": "#/components/schemas/AccessList"
           },
           "nonce": {
             "title": "transactionNonce",
@@ -1602,6 +1639,12 @@
         "type": "string",
         "description": "Hex representation of a 256 bit unit of data",
         "pattern": "^0x([a-fA-F\\d]{64})?$"
+      },
+      "Byte": {
+        "title": "byte",
+        "type": "string",
+        "description": "Hex representation of a byte",
+        "pattern": "^0x([a-fA-F0-9]?){1,2}$"
       },
       "Bytes": {
         "title": "bytes",
