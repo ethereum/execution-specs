@@ -89,6 +89,7 @@ Legend for status updates:
 | [Web3.py][web3py-link]        | - | - |          | ?             | -
 | [Web3j][web3j-link]           | - | - |          | ?             | -
 | [Nethereum][nethereum-link]   | - | - |          | ?             | -
+| [KEthereum][kethereum-link]        | 🛠️ | - | [URL][kethereum-work] | - | 🛠️ 
 
 [web3js-link]: https://github.com/ChainSafe/web3.js
 [ethers-link]: https://github.com/ethers-io/ethers.js
@@ -97,6 +98,8 @@ Legend for status updates:
 [web3py-link]: https://github.com/ethereum/web3.py
 [web3j-link]: https://github.com/web3j/web3j
 [nethereum-link]: https://github.com/Nethereum/Nethereum
+[kethereum-link]: https://github.com/komputing/KEthereum
+[kethereum-work]: https://github.com/komputing/KEthereum/issues/101
 
 ### Infrastructure
 
@@ -110,6 +113,9 @@ Many of these projects may not update until much closer to the designated London
 | [Etherscan][etherscan-link] | -        | -       |      | ?           | -
 | [MetaMask][metamask-link]   | -        | -       |      | EthereumJS, Ethers, Web3, ? | -
 | [Ethernodes][ethernodes-link]   | -        | -       |      |  | -
+| [TREZOR][trezor-link]     | -        | -       |  [trezor-work][trezor-work]      | | -
+| [WallETH][walleth-link]   | -        | -       |  [walleth-work][walleth-work]    |  KEthereum | -
+
 
 [AWS-link]: https://aws.amazon.com/
 [ethernodes-link]: https://www.ethernodes.org/
@@ -117,6 +123,10 @@ Many of these projects may not update until much closer to the designated London
 [pocket-link]: https://pokt.network/
 [etherscan-link]: https://github.com/etherscan
 [metamask-link]: https://github.com/MetaMask
+[trezor-link]: https://trezor.io
+[trezor-work]: https://github.com/trezor/trezor-firmware/issues/1604
+[walleth-link]: https://walleth.org
+[walleth-work]: https://github.com/walleth/walleth/issues/523
 
 [eip-1559-link]: https://eips.ethereum.org/EIPS/eip-1559
 [eip-3198-link]: https://eips.ethereum.org/EIPS/eip-3198
