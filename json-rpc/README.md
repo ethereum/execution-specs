@@ -12,5 +12,6 @@ The specification is written in [OpenRPC](https://open-rpc.org/).
 
 ## Attribution
 
-This specification was originally developed by
-[ETC Core](https://github.com/etclabscore/ethereum-json-rpc-specification).
+This specification was originally developed by [ETC
+Core](https://github.com/etclabscore/ethereum-json-rpc-specification) and is
+licensed under the Apache 2.0 license.
