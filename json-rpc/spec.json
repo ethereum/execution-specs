@@ -1464,6 +1464,14 @@
               "description": "Block hash of the RLP encoding of an uncle block",
               "$ref": "#/components/schemas/Keccak"
             }
+          },
+          "baseFee": {
+            "title": "baseFee",
+            "description": "The block's baseline network fee per gas; the baseFee is burned",
+            "type": {
+              "title": "type",
+              "$ref": "#/components/schemas/Integer"
+            }
           }
         }
       },
@@ -1517,11 +1525,6 @@
             "type": "string",
             "description": "The gas limit provided by the sender in Wei"
           },
-          "gasPrice": {
-            "title": "transactionGasPrice",
-            "type": "string",
-            "description": "The gas price willing to be paid by the sender in Wei"
-          },
           "hash": {
             "$ref": "#/components/schemas/TransactionHash"
           },
@@ -1550,6 +1553,16 @@
             "title": "transactionValue",
             "description": "Value of Ether being transferred in Wei",
             "$ref": "#/components/schemas/Keccak"
+          },
+          "maxPriorityFeePerGas":{
+            "title": "maxPriorityFeePerGas",
+            "description": "maximum fee per gas the sender is willing to pay to miners in wei",
+            "$ref": "#/components/schemas/Integer"
+          },
+          "maxFeePerGas": {
+            "title": "maxPriorityFeePerGas",
+            "description": "The maximum total fee per gas the sender is willing to pay (includes the network / base fee and miner / priority fee) in wei",
+            "$ref": "#/components/schemas/Integer"
           },
           "v": {
             "title": "transactionSigV",
