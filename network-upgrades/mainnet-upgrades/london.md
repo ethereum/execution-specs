@@ -17,7 +17,7 @@ Code merged into Participating Clients
 | **Geth**         | [Not merged](https://github.com/ethereum/go-ethereum/pull/22617) | [Not merged](https://github.com/ethereum/go-ethereum/pull/22617) | 
 | **OpenEthereum** | 
 | **Besu**         | [Multiple PRs](https://github.com/hyperledger/besu/pulls?q=is%3Apr+1559) | [Merged](https://github.com/hyperledger/besu/pull/2123)
-| **Nethermind**   | [Not merged](https://github.com/NethermindEth/nethermind/pull/3023) | [Merged](https://github.com/NethermindEth/nethermind/pull/2985)
+| **Nethermind**   | [Merged](https://github.com/NethermindEth/nethermind/pull/3023) | [Merged](https://github.com/NethermindEth/nethermind/pull/2985)||[Not merged](https://github.com/NethermindEth/nethermind/pull/3048)
 | **TurboGeth**    | [Merged](https://github.com/ledgerwatch/turbo-geth/pull/1704) | [Merged](https://github.com/ledgerwatch/turbo-geth/pull/1704) | | |
 | **EthereumJS**   | [Not merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1148) | [Not merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1148) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1245) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1239)
 
