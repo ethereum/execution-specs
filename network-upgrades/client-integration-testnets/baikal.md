@@ -871,7 +871,7 @@ enode://39eb08bbfad87481553c471a63ff2a4b4885fffa4ff50f1cf46744d9ad6e2f764ede146f
 |--------------|--------------------------|--------|-------|---------|
 | Besu         | [URL][besu-repo]         | x      | x     | x       |
 | Geth         | [URL][geth-repo]         | x      | x     | x       |
-| Nethermind   | [URL][nethermind-repo]   | x      |       |         |
+| Nethermind   | [URL][nethermind-repo]   | x      | x     | x       |
 | OpenEthereum | [URL][openethereum-repo] | x      |       |         |
 | EthereumJS   | [URL][ethereumjs-repo]   | x      |       |         |
 | TurboGeth    | [URL][turbogeth-repo]    | x      |       |         |
