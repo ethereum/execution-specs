@@ -864,7 +864,7 @@ enode://aec88fd902744bf67705c098bf532b01017ccc3a156395508e2d9c4e7c22699ecccae1e7
   - [x] [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) Commit Hash - [efd64dba56f485eb6eb51567ee83819a12fa0bda](https://github.com/ethereum/EIPs/commit/efd64dba56f485eb6eb51567ee83819a12fa0bda)
   - [x] [EIP-3198](https://eips.ethereum.org/EIPS/eip-3198) Commit Hash - [081db1a6614e523dd791691cff7016e32c369912](https://github.com/ethereum/EIPs/commit/081db1a6614e523dd791691cff7016e32c369912)
   - [x] [EIP-3529](https://eips.ethereum.org/EIPS/eip-3529) Commit Hash - [6079eba5d1344a6b68075f79c14d4b7caf13ef53](https://github.com/ethereum/EIPs/commit/6079eba5d1344a6b68075f79c14d4b7caf13ef53)
-  - [x] [EIP-3541](https://eips.ethereum.org/EIPS/eip-3541) Commit Hash - [82038271ee7981395db5f60b320b7ce76b1a677c](https://github.com/ethereum/EIPs/commit/82038271ee7981395db5f60b320b7ce76b1a677c)
+  - [x] [EIP-3541](https://eips.ethereum.org/EIPS/eip-3541) Commit Hash - [168245a87a5a21890cb909e1624135fff63dea71](https://github.com/ethereum/EIPs/commit/168245a87a5a21890cb909e1624135fff63dea71)
 
 ## Client Consensus -> Implementation
 
