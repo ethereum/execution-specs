@@ -34,6 +34,9 @@ Code merged into Participating Clients
   - [ ] Integration Tests: [WIP](https://hackmd.io/@SduYUIHbT6a6DHUpikAcFQ/BJP9arcB_/%2FuID06YEhSj2uFzEviDIaJQ)
   - [ ] Fuzz Testing
  - [ ] Select Fork Blocks
+  - [ ] Ropsten: `10399301` (June 9, 2021)
+  - [ ] Goerli:  `4979794` (June 16, 2021)
+  - [ ] Rinkeby: `8813188` (June 23, 2021)
  - [ ] Deploy Clients
    - [ ]  Geth
    - [ ]  Besu
