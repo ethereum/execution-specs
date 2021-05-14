@@ -5,7 +5,7 @@ Specifies changes included in the Network Upgrade.
 
   - [x] [EIP-1559: Fee market change for ETH 1.0 chain](https://eips.ethereum.org/EIPS/eip-1559)
   - [x] [EIP-3198: BASEFEE opcode](https://eips.ethereum.org/EIPS/eip-3198)
-  - [x] [EIP-3554:Difficulty Bomb Delay to December 1st 2021](https://eips.ethereum.org/EIPS/eip-3554)
+  - [x] [EIP-3554: Difficulty Bomb Delay to December 1st 2021](https://eips.ethereum.org/EIPS/eip-3554)
   - [x] [EIP-3529: Reduction in refunds](https://eips.ethereum.org/EIPS/eip-3529)
 
 
