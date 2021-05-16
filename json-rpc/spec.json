@@ -1467,7 +1467,8 @@
           },
           "baseFee": {
             "title": "baseFee",
-            "description": "The block's baseline network fee per gas; the baseFee is burned",
+            "required": false,
+            "description": "(optional) The block's baseline network fee per gas; the baseFee is burned",
             "$ref": "#/components/schemas/Integer"
           }
         }
