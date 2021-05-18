@@ -12,6 +12,8 @@ The specification for the Baikal Client Integration Tesnet. Clients who wish to 
 
 **Faucet:** https://faucet.baikal.ethdevops.io/ 
 
+**Explorer:** http://18.224.51.102:3000/
+
 **ID:** `Baikal`
 
 **ChainId:** `1642` # The deepest point of Lake Baikal is 1642 meters. 
