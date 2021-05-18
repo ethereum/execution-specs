@@ -1,5 +1,5 @@
 ---
-eip: 606
+eip: [606](https://eips.ethereum.org/EIPS/eip-606)
 title: "Hardfork Meta: Homestead"
 author: Alex Beregszaszi (@axic)
 type: Meta
