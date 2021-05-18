@@ -1,11 +1,12 @@
 ---
-eip: [606](https://eips.ethereum.org/EIPS/eip-606)
+eip: 606
 title: "Hardfork Meta: Homestead"
 author: Alex Beregszaszi (@axic)
 type: Meta
 status: Final
 created: 2017-04-23
 requires: 2, 7, 8
+link: https://eips.ethereum.org/EIPS/eip-606
 ---
 
 ## Abstract
