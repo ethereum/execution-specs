@@ -4,7 +4,7 @@
 Specifies changes included in the Network Upgrade.
 
 
- ### Readiness Checklist
+### Readiness Checklist
 
 **List of outstanding items before deployment.**
 
