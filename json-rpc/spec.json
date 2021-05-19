@@ -1605,7 +1605,7 @@
                         "properties": {
                             "maxPriorityFeePerGas": {
                                 "title": "maxPriorityFeePerGas",
-                                "description": "maximum fee per gas the sender is willing to pay to miners in wei",
+                                "description": "Maximum fee per gas the sender is willing to pay to miners in wei",
                                 "$ref": "#/components/schemas/Integer"
                             },
                             "maxFeePerGas": {
