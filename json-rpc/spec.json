@@ -1609,7 +1609,7 @@
                                 "$ref": "#/components/schemas/Integer"
                             },
                             "maxFeePerGas": {
-                                "title": "maxPriorityFeePerGas",
+                                "title": "maxFeePerGas",
                                 "description": "The maximum total fee per gas the sender is willing to pay (includes the network / base fee and miner / priority fee) in wei",
                                 "$ref": "#/components/schemas/Integer"
                             }
