@@ -6,7 +6,7 @@ type: Meta
 status: Final
 created: 2017-04-23
 requires: 2, 7, 8
-link: https://eips.ethereum.org/EIPS/eip-606
+legacy link:https://eips.ethereum.org/EIPS/eip-606
 ---
 
 ## Abstract
@@ -21,9 +21,9 @@ This specifies the changes included in the hard fork named Homestead.
   - Block >= 494,000 on Morden
   - Block >= 0 on future testnets
 - Included EIPs:
-  - [EIP-2](./eip-2.md) (Homestead Hard-fork Changes)
-  - [EIP-7](./eip-7.md) (DELEGATECALL)
-  - [EIP-8](./eip-8.md) (Networking layer: devp2p Forward Compatibility Requirements for Homestead)
+  - [EIP-2](https://eips.ethereum.org/EIPS/eip-2) (Homestead Hard-fork Changes)
+  - [EIP-7](https://eips.ethereum.org/EIPS/eip-7) (DELEGATECALL)
+  - [EIP-8](https://eips.ethereum.org/EIPS/eip-8) (Networking layer: devp2p Forward Compatibility Requirements for Homestead)
 
 ## References
 

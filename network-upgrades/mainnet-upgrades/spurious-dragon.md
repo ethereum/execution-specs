@@ -6,7 +6,7 @@ type: Meta
 status: Final
 created: 2017-04-23
 requires: 155, 160, 161, 170, 608
-link: https://eips.ethereum.org/EIPS/eip-607
+legacy link:https://eips.ethereum.org/EIPS/eip-607
 ---
 
 ## Abstract
@@ -21,10 +21,10 @@ This specifies the changes included in the hard fork named Spurious Dragon.
   - Block >= 2,675,000 on Mainnet
   - Block >= 1,885,000 on Morden
 - Included EIPs:
-  - [EIP-155](./eip-155.md) (Simple replay attack protection)
-  - [EIP-160](./eip-160.md) (EXP cost increase)
-  - [EIP-161](./eip-161.md) (State trie clearing)
-  - [EIP-170](./eip-170.md) (Contract code size limit)
+  - [EIP-155](https://eips.ethereum.org/EIPS/eip-155) (Simple replay attack protection)
+  - [EIP-160](https://eips.ethereum.org/EIPS/eip-160) (EXP cost increase)
+  - [EIP-161](https://eips.ethereum.org/EIPS/eip-161) (State trie clearing)
+  - [EIP-170](https://eips.ethereum.org/EIPS/eip-170) (Contract code size limit)
 
 ## References
 

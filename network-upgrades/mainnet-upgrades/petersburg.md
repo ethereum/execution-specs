@@ -6,12 +6,12 @@ type: Meta
 status: Final
 created: 2019-01-21
 requires: 1013, 1283
-link: https://eips.ethereum.org/EIPS/eip-1716
+legacy link:https://eips.ethereum.org/EIPS/eip-1716
 ---
 
 ## Abstract
 
-This meta-EIP specifies the changes included in the Ethereum hardfork that removes [EIP-1283](./eip-1283.md) from [Constantinople](./eip-1013.md).
+This meta-EIP specifies the changes included in the Ethereum hardfork that removes [EIP-1283](https://eips.ethereum.org/EIPS/eip-1283) from [Constantinople](https://eips.ethereum.org/EIPS/eip-1013).
 
 ## Specification
 
@@ -24,7 +24,7 @@ This meta-EIP specifies the changes included in the Ethereum hardfork that remov
   - `Block >= 4_321_234` on the Rinkeby testnet
   - `Block >= 0` on the Görli testnet
 - Removed EIPs:
-  - [EIP-1283](./eip-1283.md): Net gas metering for SSTORE without dirty maps
+  - [EIP-1283](https://eips.ethereum.org/EIPS/eip-1283): Net gas metering for SSTORE without dirty maps
 
 If `Petersburg` and `Constantinople` are applied at the same block, `Petersburg` takes precedence: with the net effect of EIP-1283 being _disabled_.
 

@@ -6,7 +6,7 @@ type: Meta
 status: Final
 created: 2018-04-20
 requires: 145, 609, 1014, 1052, 1234, 1283
-link: https://eips.ethereum.org/EIPS/eip-1013
+legacy link:https://eips.ethereum.org/EIPS/eip-1013
 ---
 
 ## Abstract
@@ -23,11 +23,11 @@ This meta-EIP specifies the changes included in the Ethereum hardfork named Cons
   - `Block >= 9_200_000` on the Kovan testnet
   - `Block >= 3_660_663` on the Rinkeby testnet
 - Included EIPs:
-  - [EIP-145](./eip-145.md): Bitwise shifting instructions in EVM
-  - [EIP-1014](./eip-1014.md): Skinny CREATE2
-  - [EIP-1052](./eip-1052.md): EXTCODEHASH Opcode
-  - [EIP-1234](./eip-1234.md): Delay difficulty bomb, adjust block reward
-  - [EIP-1283](./eip-1283.md): Net gas metering for SSTORE without dirty maps
+  - [EIP-145](https://eips.ethereum.org/EIPS/eip-145): Bitwise shifting instructions in EVM
+  - [EIP-1014](https://eips.ethereum.org/EIPS/eip-1014): Skinny CREATE2
+  - [EIP-1052](https://eips.ethereum.org/EIPS/eip-1052): EXTCODEHASH Opcode
+  - [EIP-1234](https://eips.ethereum.org/EIPS/eip-1234): Delay difficulty bomb, adjust block reward
+  - [EIP-1283](https://eips.ethereum.org/EIPS/eip-1283): Net gas metering for SSTORE without dirty maps
 
 ## References
 

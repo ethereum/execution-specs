@@ -6,7 +6,7 @@ type: Meta
 status: Final
 created: 2017-04-23
 requires: 150, 779
-link: https://eips.ethereum.org/EIPS/eip-608
+legacy link:https://eips.ethereum.org/EIPS/eip-608
 ---
 
 ## Abstract
@@ -20,7 +20,7 @@ This specifies the changes included in the hard fork named Tangerine Whistle (EI
 - Activation:
   - Block >= 2,463,000 on Mainnet
 - Included EIPs:
-  - [EIP-150](./eip-150.md) (Gas cost changes for IO-heavy operations)
+  - [EIP-150](https://eips.ethereum.org/EIPS/eip-150) (Gas cost changes for IO-heavy operations)
 
 ## References
 
