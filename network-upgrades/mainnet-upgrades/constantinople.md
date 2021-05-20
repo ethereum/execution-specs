@@ -6,7 +6,7 @@ type: Meta
 status: Final
 created: 2018-04-20
 requires: 145, 609, 1014, 1052, 1234, 1283
-legacy link:https://eips.ethereum.org/EIPS/eip-1013
+legacy link: https://eips.ethereum.org/EIPS/eip-1013
 ---
 
 ## Abstract

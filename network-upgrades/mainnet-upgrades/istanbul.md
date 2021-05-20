@@ -7,7 +7,7 @@ type: Meta
 status: Final
 created: 2019-01-04
 requires: 152, 1108, 1344, 1716, 1884, 2028, 2200
-legacy link:https://eips.ethereum.org/EIPS/eip-1679
+legacy link: https://eips.ethereum.org/EIPS/eip-1679
 ---
 
 ## Abstract

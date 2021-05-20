@@ -6,7 +6,7 @@ type: Meta
 status: Final
 created: 2019-01-21
 requires: 1013, 1283
-legacy link:https://eips.ethereum.org/EIPS/eip-1716
+legacy link: https://eips.ethereum.org/EIPS/eip-1716
 ---
 
 ## Abstract

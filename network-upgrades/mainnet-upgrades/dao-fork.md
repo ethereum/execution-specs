@@ -6,7 +6,7 @@ type: Meta
 status: Final
 created: 2017-11-26
 requires: 606
-legacy link:https://eips.ethereum.org/EIPS/eip-779
+legacy link: https://eips.ethereum.org/EIPS/eip-779
 ---
 
 ## Abstract

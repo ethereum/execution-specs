@@ -7,7 +7,7 @@ type: Meta
 status: Final
 created: 2019-11-22
 requires: 1679, 2384
-legacy link:https://eips.ethereum.org/EIPS/eip-2387
+legacy link: https://eips.ethereum.org/EIPS/eip-2387
 ---
 
 ## Abstract

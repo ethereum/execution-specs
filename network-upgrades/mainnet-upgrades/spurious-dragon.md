@@ -6,7 +6,7 @@ type: Meta
 status: Final
 created: 2017-04-23
 requires: 155, 160, 161, 170, 608
-legacy link:https://eips.ethereum.org/EIPS/eip-607
+legacy link: https://eips.ethereum.org/EIPS/eip-607
 ---
 
 ## Abstract
