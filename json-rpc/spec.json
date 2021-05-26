@@ -146,6 +146,21 @@
       }
     },
     {
+      "name": "eth_createAccessList",
+      "summary": "Creates an access list for the given transaction.",
+      "params": [
+        {
+          "$ref": "#/components/contentDescriptors/Transaction"
+        },
+        {
+          "$ref": "#/components/contentDescriptors/BlockNumber"
+        }
+      ],
+      "result": {
+        "$ref": "#/components/contentDescriptors/AccessListResult"
+      }
+    },
+    {
       "name": "eth_chainId",
       "summary": "Returns the currently configured chain id",
       "description": "Returns the currently configured chain id, a value used in replay-protected transaction signing as introduced by [EIP-155](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md).",
@@ -1772,6 +1787,25 @@
               "$ref": "#/components/schemas/Null"
             }
           ]
+        }
+      },
+      "AccessListResult": {
+        "name": "accessListResult",
+        "description": "Returns an accesslist, the gas used and an internal error if available",
+        "schema": {
+          "title": "ALResult",
+          "type": "object",
+          "properties": {
+            "accessList": {
+              "$ref": "#/components/schemas/AccessList"
+            },
+            "gasUsed": {
+              "$ref": "#/components/schemas/Integer"
+            },
+            "vmErr": {
+              "type": "string"
+            }
+          }
         }
       },
       "UncleCountResult": {
