@@ -1,35 +1,32 @@
-## Ecosystem Readiness Checklist
+# Ecosystem Readiness Checklist
 Tooling, Libraries and other Infrastructure
 
-If you know about a status update please add a PR to this document.
+If you know about a status update please add a PR to this document or post on the latest [update issue](https://github.com/ethereum/eth1.0-specs/issues/198) for aggregated inclusion on a weekly basis.
 
-Legend for status updates:
+## London Hardfork
 
-- `-`: EIP not relevant / work not started
-- 🛠️ : In progress
-- ✅ : Ready
+For a list of included EIPs see the [specification](./mainnet-upgrades/london.md) document.
 
-### Tools
+Tracking: `active`
 
-| Name | [1559][eip-1559-link] | [3198][eip-3198-link] | Work | Dependencies | Status
-|---|---|---|---|---|---|
-| [Blocknative][blocknative-link]        | - | - |          | -      | - 
-| [Hardhat][hardhat-link]        | - | - |          | EthereumJS      | - 
-| [Truffle][truffle-link]        | - | - |          | ?               | - 
-| [Remix][remix-link]            | - | - |          | EthereumJS, ?   | -
-| [Waffle][waffle-link]          | - | - |          | Ganache, Ethers.js | -
-| [Brownie][brownie-link]          | - | - |          | Ganache, ?      | -
-| [OpenZeppelin][oz-link]        | - | - |          | ?               | -
-| [Tenderly][tenderly-link]        | - | - |          | -      | - 
-| [hardhat-deploy][hardhat-deploy-link]        | - | - |          | -      | - 
-| [solidity-coverage][solidity-coverage-link]        | - | - |          | -      | - 
-| [Typechain][typechain-link]        | - | - |          | -      | - 
-| [Solidity][solidity-link]          | - | - | [solidity-work]         | -      | -
 
-[typechain-link]: https://github.com/ethereum-ts/TypeChain
-[solidity-coverage-link]: https://github.com/sc-forks/solidity-coverage
-[hardhat-deploy-link]: https://github.com/wighawag/hardhat-deploy
-[blocknative-link]: https://github.com/blocknative
+### Developer Tools
+
+| Name | Description | Dependencies | Work | EIPs | Release | Status
+|---|---|---|---|---|---|---|
+| [Hardhat][hardhat-link] | Framework | EthereumJS, Ethers |  | All |  | ⭕
+| [Truffle][truffle-link] | Framework | EthereumJS, Web3.js, Ethers |  | All | | ⭕
+| [Remix][remix-link] | IDE | EthereumJS, Web3.js, Ethers |  | All |  | ⭕
+| [Waffle][waffle-link] | Framework | Ganache, Ethers.js, Typechain |  | All | | ⭕
+| [Brownie][brownie-link] | Framework | Web3.py |  | All | | ⭕
+| [OpenZeppelin][oz-link] | Smart Contract Security | Hardhat |  | ? | | ⭕
+| [Tenderly][tenderly-link] | Contract Monitoring | Hardhat |  | 1559 | | ⭕
+| [hardhat-deploy][hardhat-deploy-link] | Contract Deployment | Hardhat, Ethers |  | ? | | ⭕
+| [solidity-coverage][solidity-coverage-link] | Contract Testing | Hardhat, Solidity |  | ? | | ⭕
+| [Typechain][typechain-link] | Language Tool | Ethers, Truffle, Hardhat, Web3.js, Solidity |  | ? | | ⭕
+| [Solidity][solidity-link] | Language | - | [URL][solidity-work] | 3198 |  | 🛠️ 
+
+
 [hardhat-link]: https://github.com/nomiclabs/hardhat
 [truffle-link]: https://github.com/trufflesuite/truffle
 [remix-link]: https://github.com/ethereum/remix-project
@@ -37,28 +34,36 @@ Legend for status updates:
 [brownie-link]: https://github.com/eth-brownie/brownie
 [oz-link]: https://github.com/OpenZeppelin
 [tenderly-link]: https://github.com/Tenderly
+[hardhat-deploy-link]: https://github.com/wighawag/hardhat-deploy
+[solidity-coverage-link]: https://github.com/sc-forks/solidity-coverage
+[typechain-link]: https://github.com/ethereum-ts/TypeChain
 [solidity-link]: http://soliditylang.eth
 [solidity-work]: https://github.com/ethereum/solidity/issues/11390
 
 
 ### Libraries
 
-| Name | [1559][eip-1559-link] | [3198][eip-3198-link] | Work | Dependencies | Status
-|---|---|---|---|---|---|
-| [Web3.js][web3js-link]        | - | - |          | EthereumJS    | - 
-| [Ethers.js][ethers-link]      | - | - |          | -             | - 
-| [EthereumJS][ethereumjs-link] | 🛠️ | - | [URL][ethereumjs-work]   | -    | 🛠️ 
-| [Web3.py][web3py-link]        | - | - |          | ?             | -
-| [Web3j][web3j-link]           | - | - |          | ?             | -
-| [Nethereum][nethereum-link]   | - | - |          | ?             | -
-| [KEthereum][kethereum-link]   | 🛠️ | - | [URL][kethereum-work] | - | 🛠️
+| Name | Description | Dependencies | Work | EIPs | Release | Status
+|---|---|---|---|---|---|---|
+| [Web3.js][web3js-link] | Network API (JavaScript) | EthereumJS |  | 1559 |  | ⭕
+| [Ethers.js][ethers-link] | Network API (JavaScript) |  | [URL][ethers-work] | 1559 |  | 🛠️ 
+| [EthereumJS][ethereumjs-link] | Libraries |  | [URL][ethereumjs-work] | All | [URL][ethereumjs-release] | ✅
+| [Web3.py][web3py-link] | Network API (Python) |  | [URL][web3py-work] | 1559 |  | ⭕
+| [Web3j][web3j-link] | Network API (Java) |  | [URL][web3j-work] | 1559 |  | 🛠️ 
+| [Nethereum][nethereum-link] | Network API (.Net) |  |  | 1559 |  | ⭕
+| [KEthereum][kethereum-link] | Network API (Kotlin) | | [URL][kethereum-work] | 1559 |  | ⭕ 
+
 
 [web3js-link]: https://github.com/ChainSafe/web3.js
 [ethers-link]: https://github.com/ethers-io/ethers.js
+[ethers-work]: https://github.com/ethers-io/ethers.js/issues/1610
 [ethereumjs-link]: https://github.com/ethereumjs/ethereumjs-monorepo
 [ethereumjs-work]: https://github.com/ethereumjs/ethereumjs-monorepo/issues/1211
+[ethereumjs-release]: https://github.com/ethereumjs/ethereumjs-monorepo/pull/1263
 [web3py-link]: https://github.com/ethereum/web3.py
+[web3py-work]: https://github.com/ethereum/web3.py/issues/1835
 [web3j-link]: https://github.com/web3j/web3j
+[web3j-work]: https://github.com/web3j/web3j/pull/1417
 [nethereum-link]: https://github.com/Nethereum/Nethereum
 [kethereum-link]: https://github.com/komputing/KEthereum
 [kethereum-work]: https://github.com/komputing/KEthereum/issues/101
@@ -67,27 +72,28 @@ Legend for status updates:
 
 Many of these projects may not update until much closer to the designated London block number.
 
-| Name | [1559][eip-1559-link] | [3198][eip-3198-link] | Work | Dependencies | Status
-|---|---|---|---|---|---|
-| [Amazon Web Services][AWS-link]        | -    | -       |      | ?             | -
-| [Infura][infura-link]        | -        | -       |      | ?             | -
-| [POKT][pocket-link]        | -        | -       |      | Ethers, ?     | - 
-| [Etherscan][etherscan-link] | -        | -       |      | ?           | -
-| [MetaMask][metamask-link]   | -        | -       |      | EthereumJS, Ethers, Web3, ? | -
-| [Ethernodes][ethernodes-link]   | -        | -       |      |  | -
-| [TREZOR][trezor-link]     | -        | -       |  [trezor-work][trezor-work]      | | -
-| [WallETH][walleth-link]   | -        | -       |  [walleth-work][walleth-work]    |  KEthereum | -
+| Name | Description | Dependencies | Work | EIPs | Release | Status
+|---|---|---|---|---|---|---|
+| [Amazon Web Services][AWS-link] | Managed Blockchain |  |  | All |  | ⭕ 
+| [Blocknative][blocknative-link] | Mempool Explorer |  |  | 1559 |  | ⭕ 
+| [Infura][infura-link] | Ethereum APIs |  |  | 1559 |  | ⭕ 
+| [POKT][pocket-link] | Request API |  |  | 1559 |  | ⭕ 
+| [Etherscan][etherscan-link] | Block Explorer |  |  | 1559 |  | ⭕ 
+| [MetaMask][metamask-link] | Browser Extension | EthereumJS, Ethers, Web3, ? | [URL][metamask-work] | 1559 |  | 🛠️ 
+| [Ethernodes][ethernodes-link] | Node Explorer | Eth 1.0 Clients |  | ? |  | ⭕ 
+| [TREZOR][trezor-link] | Hardware Wallet |  | [URL][trezor-work] | 1559 |  | 🛠️ 
+| [WallETH][walleth-link] | Wallet | KEthereum | [URL][walleth-work] | 1559 |  | 🛠️  
 
-[AWS-link]: https://aws.amazon.com/
-[ethernodes-link]: https://www.ethernodes.org/
+[AWS-link]: https://aws.amazon.com/managed-blockchain/
+[blocknative-link]: https://github.com/blocknative
 [infura-link]: https://github.com/INFURA
 [pocket-link]: https://pokt.network/
 [etherscan-link]: https://github.com/etherscan
 [metamask-link]: https://github.com/MetaMask
+[metamask-work]: https://github.com/MetaMask/metamask-mobile/issues/2571
+[ethernodes-link]: https://www.ethernodes.org/
 [trezor-link]: https://trezor.io
 [trezor-work]: https://github.com/trezor/trezor-firmware/issues/1604
 [walleth-link]: https://walleth.org
 [walleth-work]: https://github.com/walleth/walleth/issues/523
 
-[eip-1559-link]: https://eips.ethereum.org/EIPS/eip-1559
-[eip-3198-link]: https://eips.ethereum.org/EIPS/eip-3198
