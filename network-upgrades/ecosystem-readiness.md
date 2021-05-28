@@ -1,7 +1,7 @@
 # Ecosystem Readiness Checklist
 Tooling, Libraries and other Infrastructure
 
-If you know about a status update please add a PR to this document.
+If you know about a status update please add a PR to this document or post on the latest [update issue](https://github.com/ethereum/eth1.0-specs/issues/198) for aggregated inclusion on a weekly basis.
 
 ## London Hardfork
 
