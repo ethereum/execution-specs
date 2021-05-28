@@ -5,13 +5,10 @@ If you know about a status update please add a PR to this document or post on th
 
 ## London Hardfork
 
+For a list of included EIPs see the [specification](./mainnet-upgrades/london.md) document.
+
 Tracking: `active`
 
-- [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559): Fee market change for ETH 1.0 chain
-- [EIP-3198](https://eips.ethereum.org/EIPS/eip-3198): BASEFEE opcode
-- [EIP-3529](https://eips.ethereum.org/EIPS/eip-3529): Reduction in refunds
-- [EIP-3541](https://eips.ethereum.org/EIPS/eip-3541): Reject new contracts starting with the 0xEF byte
-- [EIP-3554](https://eips.ethereum.org/EIPS/eip-3554): Difficulty Bomb Delay to December 1st 2021
 
 ### Developer Tools
 
