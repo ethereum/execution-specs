@@ -197,6 +197,22 @@
 			}
 		},
 		{
+			"name": "eth_maxFeePerGas",
+			"summary": "Returns a maxFeePerGas value suitable for quick transaction inclusion",
+			"params": [],
+			"result": {
+				"$ref": "#/components/contentDescriptors/MaxFeePerGas"
+			}
+		},
+		{
+			"name": "eth_maxPriorityFeePerGas",
+			"summary": "Returns a maxPriorityFeePerGas value suitable for quick transaction inclusion",
+			"params": [],
+			"result": {
+				"$ref": "#/components/contentDescriptors/MaxPriorityFeePerGas"
+			}
+		},
+		{
 			"name": "eth_getBalance",
 			"summary": "Returns Ether balance of a given or account or contract",
 			"params": [
@@ -1758,6 +1774,24 @@
 					"title": "gasPriceResult",
 					"description": "Integer of the current gas price",
 					"$ref": "#/components/schemas/Integer"
+				}
+			},
+			"MaxFeePerGas": {
+				"name": "maxFeePerGas",
+				"required": true,
+				"schema": {
+					"title": "maxFeeCapPerGas",
+					"description": "Integer of the max fee per gas",
+					"$ref": "#/components/schemas/Integer256"
+				}
+			},
+			"MaxPriorityFeePerGas": {
+				"name": "maxPriorityFeePerGas",
+				"required": true,
+				"schema": {
+					"title": "maxPriorityFeePerGas",
+					"description": "Integer of the max priority fee per gas",
+					"$ref": "#/components/schemas/Integer256"
 				}
 			},
 			"Transaction": {
