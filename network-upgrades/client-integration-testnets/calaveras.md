@@ -873,6 +873,7 @@ The specification for the Calaveras Client Integration Tesnet. Clients who wish 
 **Bootnodes:** 
 
 ```
+	enode://39eb08bbfad87481553c471a63ff2a4b4885fffa4ff50f1cf46744d9ad6e2f764ede146fe4df563fa9ccda1a46b9b1a88fb08135e1bf1d71b320912499da773d@3.21.156.138:30303
 	enode://9e1096aa59862a6f164994cb5cb16f5124d6c992cdbf4535ff7dea43ea1512afe5448dca9df1b7ab0726129603f1a3336b631e4d7a1a44c94daddd03241587f9@3.9.20.133:30303
 ```
 
