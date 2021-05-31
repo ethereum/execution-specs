@@ -8,11 +8,11 @@ The specification for the Calaveras Client Integration Tesnet. Clients who wish 
 
 **Name:** Calaveras
 
-**EthStats:** TBA
+**EthStats:** https://calaveras.ethdevops.io/
 
-**Faucet:** TBA
+**Faucet:** https://faucet.calaveras.ethdevops.io/
 
-**Explorer:** TBA
+**Explorer:** http://18.224.51.102:3000/
 
 **ID:** `Calaveras`
 
