@@ -39,4 +39,5 @@ Code merged into Participating Clients
    - [ ]  Besu
    - [ ]  Nethermind
    - [ ]  OpenEthereum
+   - [ ]  Erigon
    - [ ]  EthereumJS
