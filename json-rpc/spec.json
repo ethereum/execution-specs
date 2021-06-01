@@ -197,14 +197,6 @@
 			}
 		},
 		{
-			"name": "eth_maxFeePerGas",
-			"summary": "Returns a maxFeePerGas value suitable for quick transaction inclusion",
-			"params": [],
-			"result": {
-				"$ref": "#/components/contentDescriptors/MaxFeePerGas"
-			}
-		},
-		{
 			"name": "eth_maxPriorityFeePerGas",
 			"summary": "Returns a maxPriorityFeePerGas value suitable for quick transaction inclusion",
 			"params": [],
@@ -1774,15 +1766,6 @@
 					"title": "gasPriceResult",
 					"description": "Integer of the current gas price",
 					"$ref": "#/components/schemas/Integer"
-				}
-			},
-			"MaxFeePerGas": {
-				"name": "maxFeePerGas",
-				"required": true,
-				"schema": {
-					"title": "maxFeeCapPerGas",
-					"description": "Integer of the max fee per gas",
-					"$ref": "#/components/schemas/Integer256"
 				}
 			},
 			"MaxPriorityFeePerGas": {
