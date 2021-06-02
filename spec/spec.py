@@ -22,6 +22,8 @@ TX_DATA_COST_PER_ZERO = 4
 class BlockChain:
     blocks: list[Block]
     state: State
+    storage: dict[Address, dict[bytes32, bytes32]]
+    code: dict[Address, bytes]
 
 class Account:
     nonce: Uint, 
@@ -161,7 +163,7 @@ def recover_sender(tx) -> Address:
     assert 0 < r_int and r_int < secp256k1n
     #assert 0<s_int and s_int<(secp256k1n//2+1)     # TODO: this causes error starting in block 46169 (or 46170?), so just commented
 
-    return crypto.secp256k1recover(r, s, v-27, sig_hash_tx(tx))
+    return crypto.secp256k1recover(r, s, v-27, sig_hash_tx(tx))[12:]
 
 def sig_hash_tx(tx: Transaction) -> Hash32:
     return crypto.keccak256(rlp.encode(
