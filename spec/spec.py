@@ -43,12 +43,12 @@ class Header:
     mix_digest: Bytes32
     nonce: Bytes8
 
-class Block():
+class Block:
     header: Header
     transactions: list[Transaction]
     ommers: list[Header]
 
-class Transaction():
+class Transaction:
     nonce: Uint
     gas_price: Uint
     gas: Uint
@@ -59,7 +59,7 @@ class Transaction():
     r: Uint
     s: Uint
 
-class Bloom():
+class Bloom:
     pass
 
 def state_transition(chain: Blockchain, block: Block) -> None:
@@ -107,32 +107,11 @@ def verify_transaction(tx: Transaction) -> bool:
 
     return TX_BASE_COST + data_cost <= tx.gas_limit
 
-def process_call(chain: BlockChain, block: Block, tx: Transaction):
-    pass
-
-def process_create(chain: BlockChain, block: Block, tx: Transaction):
-    pass
-
 def get_account(state: State, address: Address) -> Account:
     return state[address]
 
-def get_balance(address: Address):
-    pass
-
-def get_nonce(address: Address):
-    pass
-
-def get_code(address: Address):
-    pass
-
-def get_code_hash(address: Address):
-    pass
-
-def get_storage(address: Address, key: Bytes32):
-    pass
-
-def set_storage(address: Address, key: Bytes32, val: Bytes32):
-    pass
+def get_code(state: State, address: Address) -> Account:
+    return state[address].code
 
 def recover_sender(tx) -> Address:
     pass
