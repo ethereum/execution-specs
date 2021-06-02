@@ -1,0 +1,2 @@
+pysha3==1.0
+coincurve==15.0

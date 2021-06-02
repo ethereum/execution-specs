@@ -1,3 +1,5 @@
+from spec import Log, Address, Uint, Hash32, U256
+
 ADD = "\x01"
 
 class Evm:
@@ -12,7 +14,7 @@ class Evm:
     depth: Uint
     env: EvmEnvironment
 
-class EvmEnvironment:
+class Environment:
     block_hashes: list[Hash32]
     origin: Address
     coinbase: Address
@@ -23,7 +25,7 @@ class EvmEnvironment:
     difficulty: Uint
     state: State
 
-def proccess_call(caller: Address, target: Address, data: bytes, value: Uint, gas: Uint, depth: Uint, env: EvmEnvironment):
+def proccess_call(caller: Address, target: Address, data: bytes, value: Uint, gas: Uint, depth: Uint, env: Environment) -> int, list[Log]
     evm = Evm(
         pc=0,
         stack: [],
@@ -38,11 +40,13 @@ def proccess_call(caller: Address, target: Address, data: bytes, value: Uint, ga
 
     code = get_code(evm.env.state, evm.current)
 
-    while(pc < len(code)):
-        op = code[pc]
+    return [], evm.gas_left
 
-        switch(op):
-            case ADD:
-                x = evm.stack.pop()
-                y = evm.stack.pop()
-                evm.stack.append(x + y)
+    #  while(pc < len(code)):
+    #      op = code[pc]
+
+    #      switch(op):
+    #          case ADD:
+    #              x = evm.stack.pop()
+    #              y = evm.stack.pop()
+    #              evm.stack.append(x + y)
