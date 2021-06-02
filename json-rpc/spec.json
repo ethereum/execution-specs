@@ -1518,18 +1518,20 @@
 			"Transaction": {
 				"title": "transaction",
 				"type": "object",
-				"required": [
-					"gas",
-					"gasPrice",
-					"nonce"
-				],
 				"allOf": [
 					{
 						"type": "object",
 						"required": [
+							"from",
 							"gas",
-							"gasPrice",
-							"nonce"
+							"hash",
+							"input",
+							"nonce",
+							"to",
+							"value",
+							"v",
+							"r",
+							"s"
 						],
 						"properties": {
 							"blockHash": {
@@ -1600,24 +1602,30 @@
 					{
 						"oneOf": [
 							{
-								"title": "Block <1559> to PRESENT",
+								"title": "EIP-1559 fee market parameters",
 								"type": "object",
+								"description": "EIP-1559 dynamic fee transactions have two fee parameters.",
+								"required": [
+									"maxFeePerGas",
+									"maxPriorityFeePerGas"
+								],
 								"properties": {
 									"maxPriorityFeePerGas": {
-										"title": "maxPriorityFeePerGas",
+										"title": "transactionMaxPriorityFeePerGas",
 										"description": "Maximum fee per gas the sender is willing to pay to miners in wei",
 										"$ref": "#/components/schemas/Integer"
 									},
 									"maxFeePerGas": {
-										"title": "maxFeePerGas",
+										"title": "transactionMaxFeePerGas",
 										"description": "The maximum total fee per gas the sender is willing to pay (includes the network / base fee and miner / priority fee) in wei",
 										"$ref": "#/components/schemas/Integer"
 									}
 								}
 							},
 							{
-								"title": "Block 0 to Block <1559>",
+								"title": "Legacy fee market parameters",
 								"type": "object",
+								"description": "Legacy transactions and EIP-2930 access list transaction include this parameter.",
 								"properties": {
 									"gasPrice": {
 										"title": "transactionGasPrice",
