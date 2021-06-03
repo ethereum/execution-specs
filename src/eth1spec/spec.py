@@ -1,8 +1,23 @@
-import crypto
-import evm
-import rlp
-import trie
-from eth_types import *
+from dataclasses import dataclass
+from typing import List, Tuple
+
+from . import crypto, evm, rlp, trie
+from .eth_types import (
+    TX_BASE_COST,
+    TX_DATA_COST_PER_NON_ZERO,
+    TX_DATA_COST_PER_ZERO,
+    Account,
+    Address,
+    Block,
+    Hash32,
+    Header,
+    Log,
+    Receipt,
+    Root,
+    State,
+    Transaction,
+    Uint,
+)
 
 BLOCK_REWARD = 5 * 10 ** 18
 EMPTY_ACCOUNT = Account(
@@ -13,15 +28,20 @@ EMPTY_ACCOUNT = Account(
 )
 
 
+@dataclass
 class BlockChain:
-    blocks: list[Block]
+    blocks: List[Block]
     state: State
 
 
 def state_transition(chain: BlockChain, block: Block) -> None:
     assert verify_header(block.header)
     state, receipt_root, gas_used = apply_body(
-        state, block.header.gas_limit, block.transactions, block.ommers
+        chain.state,
+        block.header.coinbase,
+        block.header.gas_limit,
+        block.transactions,
+        block.ommers,
     )
     if header == block.header:
         chain.blocks.append(block)
@@ -38,9 +58,9 @@ def apply_body(
     state: State,
     coinbase: Address,
     gas_limit: Uint,
-    transactions: list[Transaction],
-    ommers: list[Header],
-) -> (Uint, Root, State):
+    transactions: List[Transaction],
+    ommers: List[Header],
+) -> Tuple[Uint, Root, State]:
     gas_available = gas_limit
     receipts = []
 
@@ -85,11 +105,11 @@ def apply_body(
 
 def process_transaction(
     ctx: evm.Environment, tx: Transaction
-) -> (list[Log], Uint):
+) -> Tuple[List[Log], Uint]:
     assert verify_transaction(tx)
 
     sender_address = recover_sender(tx)
-    sender = ctx.state[from_address]
+    sender = ctx.state[sender_address]
 
     assert sender.nonce == tx.nonce
     sender.nonce += 1

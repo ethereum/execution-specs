@@ -1,9 +1,9 @@
-import crypto
-import rlp
-from eth_types import Account
+from . import crypto, rlp
+from .eth_types import Account
 
 debug = False
 verbose = False
+
 
 # hex prefix encoding
 def HP(x, t):

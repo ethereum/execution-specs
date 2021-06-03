@@ -1,6 +1,5 @@
 import argparse
 import json
-import sys
 
 import spec
 import trie
@@ -21,8 +20,6 @@ def main():
         alloc = json.load(f)
     with open(args.env) as f:
         env = json.load(f)
-    with open(args.txs) as f:
-        txs = json.load(f)
 
     state = {}
     for (addr, vals) in alloc.items():

@@ -1,4 +1,6 @@
 verbose = False
+debug = False
+
 
 # main functions for encoding (RLP) and decoding (RLP_inv)
 def encode(x):

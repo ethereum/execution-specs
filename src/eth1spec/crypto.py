@@ -1,7 +1,5 @@
 import coincurve
 import sha3
-from coincurve.ecdsa import deserialize_recoverable, recover
-from coincurve.keys import PublicKey
 
 
 def keccak256(bytes_):

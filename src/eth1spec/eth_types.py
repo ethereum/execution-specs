@@ -1,4 +1,5 @@
-from typing import Optional
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
 Bytes = bytes
 Bytes32 = bytes
@@ -10,7 +11,7 @@ Address = Bytes20
 U256 = int
 Uint = int
 
-Storage = dict[Bytes32, Bytes32]
+Storage = Dict[Bytes32, Bytes32]
 Bloom = Bytes32
 
 TX_BASE_COST = 21000
@@ -18,13 +19,8 @@ TX_DATA_COST_PER_NON_ZERO = 68
 TX_DATA_COST_PER_ZERO = 4
 
 
-class Container:
-    def __init__(self, **kwargs):
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-
-class Transaction(Container):
+@dataclass
+class Transaction:
     nonce: Uint
     gas_price: Uint
     gas: Uint
@@ -36,14 +32,16 @@ class Transaction(Container):
     s: Uint
 
 
-class Account(Container):
+@dataclass
+class Account:
     nonce: Uint
     balance: Uint
     code: bytes
     storage: Storage
 
 
-class Header(Container):
+@dataclass
+class Header:
     parent: Hash32
     ommers: Hash32
     coinbase: Address
@@ -61,23 +59,26 @@ class Header(Container):
     nonce: Bytes8
 
 
-class Block(Container):
+@dataclass
+class Block:
     header: Header
-    transactions: list[Transaction]
-    ommers: list[Header]
+    transactions: List[Transaction]
+    ommers: List[Header]
 
 
-class Log(Container):
+@dataclass
+class Log:
     address: Address
-    topics: list[Hash32]
+    topics: List[Hash32]
     data: bytes
 
 
-class Receipt(Container):
+@dataclass
+class Receipt:
     post_state: Root
     cumulative_gas_used: Uint
     bloom: Bloom
-    logs: list[Log]
+    logs: List[Log]
 
 
-State = dict[Address, Account]
+State = Dict[Address, Account]
