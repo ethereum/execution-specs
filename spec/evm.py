@@ -38,6 +38,11 @@ def proccess_call(caller: Address, target: Address, data: bytes, value: Uint, ga
         env=env
     )
 
+    env.storage
+    assert ctx.value <= from.balance
+    from.balance -= tx.value
+
+
     code = get_code(evm.env.state, evm.current)
 
     return [], evm.gas_left

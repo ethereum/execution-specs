@@ -126,9 +126,6 @@ def process_transaction(ctx: evm.Environment, tx: Transaction) -> Logs, int:
     assert cost <= from.balance
     from.balance -= cost
 
-    assert tx.value <= from.balance
-    from.balance -= tx.value
-
     ctx.caller = from
     return evm.proccess_call(from, target, tx.data, tx.value, tx.gas, 0, ctx)
 

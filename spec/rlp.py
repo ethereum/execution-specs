@@ -1,3 +1,5 @@
+verbose = False
+
 # main functions for encoding (RLP) and decoding (RLP_inv)
 def encode(x):
   if verbose: print("RLP(",x,")")
