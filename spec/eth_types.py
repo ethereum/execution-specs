@@ -17,8 +17,12 @@ TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 68
 TX_DATA_COST_PER_ZERO = 4
 
+class Container:
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
 
-class Transaction:
+class Transaction(Container):
     nonce: Uint
     gas_price: Uint
     gas: Uint
@@ -29,13 +33,13 @@ class Transaction:
     r: Uint
     s: Uint
 
-class Account:
+class Account(Container):
     nonce: Uint 
     balance: Uint
     code: bytes
     storage: Storage
 
-class Header:
+class Header(Container):
     parent: Hash32
     ommers: Hash32
     coinbase: Address
@@ -52,17 +56,17 @@ class Header:
     mix_digest: Bytes32
     nonce: Bytes8
 
-class Block:
+class Block(Container):
     header: Header
     transactions: list[Transaction]
     ommers: list[Header]
 
-class Log:
+class Log(Container):
     address: Address
     topics: list[Hash32]
     data: bytes
 
-class Receipt:
+class Receipt(Container):
     post_state: Root
     cumulative_gas_used: Uint
     bloom: Bloom

@@ -2,11 +2,11 @@ verbose = False
 
 # main functions for encoding (RLP) and decoding (RLP_inv)
 def encode(x):
-  if verbose: print("RLP(",x,")")
+  if verbose: print("RLP(",x,")", "type: ", type(x))
   if type(x) in {bytearray,bytes}:
     return R_b(x)
   elif type(x)==int:
-    return RLP(BE(x))
+    return encode(BE(x))
   else: #list
     return R_l(x)
 
@@ -45,7 +45,7 @@ def s(x):
   if verbose: print("s(",x,")")
   sx = bytearray([])
   for xi in x:
-    sx+=RLP(xi)
+    sx+=encode(xi)
   return sx
 
 

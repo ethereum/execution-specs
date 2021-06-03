@@ -1,6 +1,8 @@
 import rlp
 import crypto
+from eth_types import Account 
 
+debug = False
 verbose = False
 
 # hex prefix encoding
@@ -85,9 +87,8 @@ def c(J,i):
   # if leaf node
   if len(J) == 1:
     leaf = J[I_0]
-    # if type(leaf) == Account:
-    if False:
-      I_1 = rlp.encode((leaf.nonce, leaf.balance, leaf.storage_root, leaf.code_hash))
+    if type(leaf) == Account:
+      I_1 = rlp.encode((leaf.nonce, leaf.balance, TRIE(y(leaf.storage)), crypto.keccak256(leaf.code)))
     else:
       #I_1 = leaf
       I_1 = rlp.encode(leaf)
@@ -132,4 +133,4 @@ def c(J,i):
   #print("v",v)
   val = rlp.encode([u(k) for k in range(16)] + [v])
   #print("branch rlp",rlp.hex(),crypto.keccak256(rlp).hex())
-  return rlp
+  return val

@@ -1,6 +1,10 @@
 import argparse
 import json
 import spec
+import trie
+import sys
+
+# sys.setrecursionlimit(10000)
 
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
@@ -22,13 +26,17 @@ def main():
     for (addr, vals) in alloc.items():
         account = spec.Account(
             nonce=vals.get('nonce', 0),
-            balance=vals.get('balance', 0),
-            code=bytes.fromhex(vals.get('code', '')).decode('utf-8'),
+            balance=int(vals.get('balance', 0)),
+            code=bytes.fromhex(vals.get('code', '')),
             storage={} # TODO: support storage
         )
+        addr = bytes.fromhex(addr)
         state[addr] = account
 
-    print(spec.apply_body(state, env['currentGasLimit'], [], []))
+    gas_used, receipts, state = spec.apply_body(state, env['currentGasLimit'], [], [])
+    print(gas_used)
+    print(receipts.hex())
+    print(trie.TRIE(trie.y(state)).hex())
 
 if __name__ == "__main__":
     main()

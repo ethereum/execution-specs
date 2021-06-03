@@ -1,6 +1,8 @@
 import crypto
 import rlp
 import evm
+import trie
+
 from eth_types import *
 
 class BlockChain:
@@ -23,7 +25,7 @@ def apply_body(state: State, gas_limit: Uint, transactions: list[Transaction], o
     gas_available = gas_limit
     receipts = []
 
-    for tx in block.transactions:
+    for tx in transactions:
         assert tx.gas_limit <= gas_available
         ctx = evm.Environment(
                 block_hashes=[],
@@ -49,7 +51,7 @@ def apply_body(state: State, gas_limit: Uint, transactions: list[Transaction], o
 
         gas_available -= gas_used
 
-    return (gas_limit - gas_available), trie.y(receipts), state
+    return (gas_available), trie.TRIE(trie.y(receipts)), state
 
 
 def process_transaction(ctx: evm.Environment, tx: Transaction) -> (list[Log], Uint):
