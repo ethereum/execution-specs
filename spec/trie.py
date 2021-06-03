@@ -1,8 +1,6 @@
 import rlp
 import crypto
 
-from spec import Account
-
 verbose = False
 
 # hex prefix encoding
@@ -87,7 +85,8 @@ def c(J,i):
   # if leaf node
   if len(J) == 1:
     leaf = J[I_0]
-    if type(leaf) == Account:
+    # if type(leaf) == Account:
+    if False:
       I_1 = rlp.encode((leaf.nonce, leaf.balance, leaf.storage_root, leaf.code_hash))
     else:
       #I_1 = leaf

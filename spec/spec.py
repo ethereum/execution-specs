@@ -1,89 +1,26 @@
 import crypto
 import rlp
-
-from typing import Optional
-
-Bytes = bytes
-Bytes32 = bytes
-Bytes20 = bytes
-Bytes8 = bytes
-Root = Bytes32
-Hash32 = Bytes32
-Address = Bytes20
-U256 = int
-Uint = int
-State = dict[Address, Account]
-Bloom = Bytes32
-
-TX_BASE_COST = 21000
-TX_DATA_COST_PER_NON_ZERO = 68
-TX_DATA_COST_PER_ZERO = 4
+import evm
+from eth_types import *
 
 class BlockChain:
     blocks: list[Block]
     state: State
-    storage: dict[Address, dict[bytes32, bytes32]]
-    code: dict[Address, bytes]
 
-class Account:
-    nonce: Uint, 
-    balance: Uint,
-    code_hash: Hash32,
-    storage_root: Root,
-
-class Header:
-    parent: Hash32
-    ommers_hash: Hash32
-    coinbase: Address
-    state_root: Root
-    transactions_root: Root
-    receipt_root: Root
-    bloom: Bloom
-    difficulty: Uint
-    number: Uint
-    gas_limit: Uint
-    gas_used: Uint
-    time: Uint
-    extra: Bytes
-    mix_digest: Bytes32
-    nonce: Bytes8
-
-class Block:
-    header: Header
-    transactions: list[Transaction]
-    ommers: list[Header]
-
-class Transaction:
-    nonce: Uint
-    gas_price: Uint
-    gas: Uint
-    to: Optional[Address]
-    value: Uint
-    data: Bytes
-    v: Uint
-    r: Uint
-    s: Uint
-
-class Receipt:
-    post_state: Root
-    cumulative_gas_used: Uint
-    bloom: Bloom
-    logs: list[Log]
-
-class Log:
-    address: Address
-    topics: list[Hash32]
-    data: bytes
-
-def state_transition(chain: Blockchain, block: Block) -> None:
+def state_transition(chain: BlockChain, block: Block) -> None:
     assert verify_header(block.header)
-    process_block(chain, block)
+    state, receipt_root, gas_used = apply_body(state, block.header.gas_limit, block.transactions, block.ommers)
+    if header == block.header:
+        chain.blocks.append(block)
+        chain.state = state
+    else:
+        print("invalid block")
 
 def verify_header(header: Header) -> bool:
     pass
 
-def process_block(chain: BlockChain, block: Block) -> None:
-    gas_available = block.header.gas_limit
+def apply_body(state: State, gas_limit: Uint, transactions: list[Transaction], ommers: list[Header]) -> (Uint, Root, State):
+    gas_available = gas_limit
     receipts = []
 
     for tx in block.transactions:
@@ -93,7 +30,7 @@ def process_block(chain: BlockChain, block: Block) -> None:
                 coinbase=block.coinbase,
                 number=block.number,
                 gas_limit=block.gas_limit,
-                gas_price=tx.gas_price
+                gas_price=tx.gas_price,
                 time=block.time,
                 difficulty=block.difficulty,
                 state=chain.state
@@ -112,22 +49,24 @@ def process_block(chain: BlockChain, block: Block) -> None:
 
         gas_available -= gas_used
 
+    return (gas_limit - gas_available), trie.y(receipts), state
 
-def process_transaction(ctx: evm.Environment, tx: Transaction) -> Logs, int:
+
+def process_transaction(ctx: evm.Environment, tx: Transaction) -> (list[Log], Uint):
     assert verify_transaction(tx)
 
-    from_address = recover_sender(tx)
-    from = get_account(state, from_address) 
+    sender_address = recover_sender(tx)
+    sender = get_account(state, from_address) 
 
-    assert from.nonce == tx.nonce
-    from.nonce += 1
+    assert sender.nonce == tx.nonce
+    sender.nonce += 1
 
     cost = tx.gas_limit * tx.gas_price 
-    assert cost <= from.balance
-    from.balance -= cost
+    assert cost <= sender.balance
+    sender.balance -= cost
 
-    ctx.caller = from
-    return evm.proccess_call(from, target, tx.data, tx.value, tx.gas, 0, ctx)
+    ctx.caller = sender
+    return evm.proccess_call(sender, target, tx.data, tx.value, tx.gas, 0, ctx)
 
 
 def verify_transaction(tx: Transaction) -> bool:

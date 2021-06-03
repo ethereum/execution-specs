@@ -1,5 +1,6 @@
 import argparse
 import json
+import spec
 
 def main():
     parser = argparse.ArgumentParser(description='Process some integers.')
@@ -17,9 +18,17 @@ def main():
     with open(args.txs) as f:
       txs = json.load(f)
 
-    print(alloc)
-    print(env)
-    print(txs)
+    state = {}
+    for (addr, vals) in alloc.items():
+        account = spec.Account(
+            nonce=vals.get('nonce', 0),
+            balance=vals.get('balance', 0),
+            code=bytes.fromhex(vals.get('code', '')).decode('utf-8'),
+            storage={} # TODO: support storage
+        )
+        state[addr] = account
+
+    print(spec.apply_body(state, env['currentGasLimit'], [], []))
 
 if __name__ == "__main__":
     main()
