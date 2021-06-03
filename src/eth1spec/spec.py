@@ -1,49 +1,60 @@
 import crypto
-import rlp
 import evm
+import rlp
 import trie
-
 from eth_types import *
 
-BLOCK_REWARD = 5 * 10**18
+BLOCK_REWARD = 5 * 10 ** 18
 EMPTY_ACCOUNT = Account(
-        nonce=0,
-        balance=0,
-        code=bytearray(),
-        storage={},
+    nonce=0,
+    balance=0,
+    code=bytearray(),
+    storage={},
 )
+
 
 class BlockChain:
     blocks: list[Block]
     state: State
 
+
 def state_transition(chain: BlockChain, block: Block) -> None:
     assert verify_header(block.header)
-    state, receipt_root, gas_used = apply_body(state, block.header.gas_limit, block.transactions, block.ommers)
+    state, receipt_root, gas_used = apply_body(
+        state, block.header.gas_limit, block.transactions, block.ommers
+    )
     if header == block.header:
         chain.blocks.append(block)
         chain.state = state
     else:
         print("invalid block")
 
+
 def verify_header(header: Header) -> bool:
     pass
 
-def apply_body(state: State, coinbase: Address, gas_limit: Uint, transactions: list[Transaction], ommers: list[Header]) -> (Uint, Root, State):
+
+def apply_body(
+    state: State,
+    coinbase: Address,
+    gas_limit: Uint,
+    transactions: list[Transaction],
+    ommers: list[Header],
+) -> (Uint, Root, State):
     gas_available = gas_limit
     receipts = []
 
     for tx in transactions:
         assert tx.gas_limit <= gas_available
         ctx = evm.Environment(
-                block_hashes=[],
-                coinbase=block.coinbase,
-                number=block.number,
-                gas_limit=block.gas_limit,
-                gas_price=tx.gas_price,
-                time=block.time,
-                difficulty=block.difficulty,
-                state=chain.state
+            block_hashes=[],
+            coinbase=block.coinbase,
+            number=block.number,
+            gas_limit=block.gas_limit,
+            gas_price=tx.gas_price,
+            time=block.time,
+            difficulty=block.difficulty,
+            state=chain.state,
         )
 
         logs, gas_used = process_transaction(chain, block, tx)
@@ -51,11 +62,16 @@ def apply_body(state: State, coinbase: Address, gas_limit: Uint, transactions: l
 
         receipts.append(
             Receipt(
-                post_state=bytes.from_hex('00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'),
+                post_state=bytes.from_hex(
+                    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                ),
                 cumulative_gas_used=(block.gas_limit - gas_available),
-                bloom=bytes.from_hex('00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'),
-                logs=logs
-        ))
+                bloom=bytes.from_hex(
+                    "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                ),
+                logs=logs,
+            )
+        )
 
         gas_available -= gas_used
 
@@ -67,16 +83,18 @@ def apply_body(state: State, coinbase: Address, gas_limit: Uint, transactions: l
     return (gas_available), trie.TRIE(trie.y(receipts)), state
 
 
-def process_transaction(ctx: evm.Environment, tx: Transaction) -> (list[Log], Uint):
+def process_transaction(
+    ctx: evm.Environment, tx: Transaction
+) -> (list[Log], Uint):
     assert verify_transaction(tx)
 
     sender_address = recover_sender(tx)
-    sender = ctx.state[from_address] 
+    sender = ctx.state[from_address]
 
     assert sender.nonce == tx.nonce
     sender.nonce += 1
 
-    cost = tx.gas_limit * tx.gas_price 
+    cost = tx.gas_limit * tx.gas_price
     assert cost <= sender.balance
     sender.balance -= cost
 
@@ -95,27 +113,26 @@ def verify_transaction(tx: Transaction) -> bool:
 
     return TX_BASE_COST + data_cost <= tx.gas_limit
 
+
 def recover_sender(tx) -> Address:
     v, r, s = tx.v, tx.r, tx.s
 
     #  if v > 28:
     #      v = v - (chainid*2+8)
 
-    assert v==27 or v==28
-    r_int  = int.from_bytes(r, "big")
-    s_int  = int.from_bytes(s, "big")
+    assert v == 27 or v == 28
+    r_int = int.from_bytes(r, "big")
+    s_int = int.from_bytes(s, "big")
 
     assert 0 < r_int and r_int < secp256k1n
-    #assert 0<s_int and s_int<(secp256k1n//2+1)     # TODO: this causes error starting in block 46169 (or 46170?), so just commented
+    # assert 0<s_int and s_int<(secp256k1n//2+1)     # TODO: this causes error starting in block 46169 (or 46170?), so just commented
 
-    return crypto.secp256k1recover(r, s, v-27, sig_hash_tx(tx))[12:]
+    return crypto.secp256k1recover(r, s, v - 27, sig_hash_tx(tx))[12:]
+
 
 def sig_hash_tx(tx: Transaction) -> Hash32:
-    return crypto.keccak256(rlp.encode(
-        tx.nonce,
-        tx.gas_price,
-        tx.gas_limit,
-        tx.to,
-        tx.value,
-        tx.data
-    ))
+    return crypto.keccak256(
+        rlp.encode(
+            tx.nonce, tx.gas_price, tx.gas_limit, tx.to, tx.value, tx.data
+        )
+    )

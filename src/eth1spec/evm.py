@@ -2,6 +2,7 @@ from eth_types import *
 
 ADD = "\x01"
 
+
 class Environment:
     block_hashes: list[Hash32]
     origin: Address
@@ -12,6 +13,7 @@ class Environment:
     time: Uint
     difficulty: Uint
     state: State
+
 
 class Evm:
     pc: Uint
@@ -25,7 +27,16 @@ class Evm:
     depth: Uint
     env: Environment
 
-def proccess_call(caller: Address, target: Address, data: bytes, value: Uint, gas: Uint, depth: Uint, env: Environment) -> (Uint, list[Log]):
+
+def proccess_call(
+    caller: Address,
+    target: Address,
+    data: bytes,
+    value: Uint,
+    gas: Uint,
+    depth: Uint,
+    env: Environment,
+) -> (Uint, list[Log]):
     evm = Evm(
         pc=0,
         stack=[],
@@ -35,7 +46,7 @@ def proccess_call(caller: Address, target: Address, data: bytes, value: Uint, ga
         data=data,
         value=value,
         depth=depth,
-        env=env
+        env=env,
     )
 
     code = get_code(evm.env.state, evm.current)
