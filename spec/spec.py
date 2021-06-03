@@ -5,6 +5,14 @@ import trie
 
 from eth_types import *
 
+BLOCK_REWARD = 5 * 10**18
+EMPTY_ACCOUNT = Account(
+        nonce=0,
+        balance=0,
+        code=bytearray(),
+        storage={},
+)
+
 class BlockChain:
     blocks: list[Block]
     state: State
@@ -21,7 +29,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
 def verify_header(header: Header) -> bool:
     pass
 
-def apply_body(state: State, gas_limit: Uint, transactions: list[Transaction], ommers: list[Header]) -> (Uint, Root, State):
+def apply_body(state: State, coinbase: Address, gas_limit: Uint, transactions: list[Transaction], ommers: list[Header]) -> (Uint, Root, State):
     gas_available = gas_limit
     receipts = []
 
@@ -51,6 +59,11 @@ def apply_body(state: State, gas_limit: Uint, transactions: list[Transaction], o
 
         gas_available -= gas_used
 
+    if coinbase not in state:
+        state[coinbase] = EMPTY_ACCOUNT
+
+    state[coinbase].balance += BLOCK_REWARD
+
     return (gas_available), trie.TRIE(trie.y(receipts)), state
 
 
@@ -58,7 +71,7 @@ def process_transaction(ctx: evm.Environment, tx: Transaction) -> (list[Log], Ui
     assert verify_transaction(tx)
 
     sender_address = recover_sender(tx)
-    sender = get_account(state, from_address) 
+    sender = ctx.state[from_address] 
 
     assert sender.nonce == tx.nonce
     sender.nonce += 1
@@ -81,12 +94,6 @@ def verify_transaction(tx: Transaction) -> bool:
             data_cost += TX_DATA_COST_PER_NON_ZERO
 
     return TX_BASE_COST + data_cost <= tx.gas_limit
-
-def get_account(state: State, address: Address) -> Account:
-    return state[address]
-
-def get_code(state: State, address: Address) -> Account:
-    return state[address].code
 
 def recover_sender(tx) -> Address:
     v, r, s = tx.v, tx.r, tx.s

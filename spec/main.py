@@ -33,7 +33,7 @@ def main():
         addr = bytes.fromhex(addr)
         state[addr] = account
 
-    gas_used, receipts, state = spec.apply_body(state, env['currentGasLimit'], [], [])
+    gas_used, receipts, state = spec.apply_body(state, bytes.fromhex(env['currentCoinbase'][2:]), int(env['currentGasLimit'], 16), [], [])
     print(gas_used)
     print(receipts.hex())
     print(trie.TRIE(trie.y(state)).hex())
