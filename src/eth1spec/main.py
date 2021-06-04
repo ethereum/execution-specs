@@ -1,8 +1,7 @@
 import argparse
 import json
 
-import spec
-import trie
+from . import spec, trie
 
 # sys.setrecursionlimit(10000)
 
