@@ -96,7 +96,7 @@ def BE(x: Uint) -> Bytes:
 
 
 # list encoding/decoding
-def R_l(x: List[RLP]) -> Bytes:
+def R_l(x: Sequence) -> Bytes:
     """
     Encodes `x`, a list of RLP encodable objects, using RLP.
 
@@ -125,7 +125,7 @@ def R_l(x: List[RLP]) -> Bytes:
 
 
 # for a list, recursively call RLP or RLP_inverse
-def s(x: List[RLP]) -> Bytes:
+def s(x: Sequence[RLP]) -> Bytes:
     """
     Partially encodes `x`, a list of RLP encodable objects, using RLP,
     excluding the length prefix.
@@ -323,4 +323,4 @@ def decode_length(b: Bytes) -> Tuple[Uint, Uint]:
     elif first_rlp_byte <= 0xBF:
         length_length = first_rlp_byte - 0xB7
         rlp_length = BE_inverse(b[1 : 1 + length_length])
-    return rlp_length, 1 + length_length
+    return rlp_length, Uint(1 + length_length)
