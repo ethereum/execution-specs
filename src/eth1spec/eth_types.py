@@ -1,15 +1,22 @@
+"""
+# Ethereum Base Types
+"""
+
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
+from .number import Uint
+
 Bytes = bytes
-Bytes32 = bytes
-Bytes20 = bytes
-Bytes8 = bytes
-Root = Bytes32
-Hash32 = Bytes32
+Bytes64 = Bytes
+Bytes32 = Bytes
+Bytes20 = Bytes
+Bytes8 = Bytes
+Hash32 = Bytes
+Root = Bytes
+Hash64 = Bytes64
 Address = Bytes20
-U256 = int
-Uint = int
+U256 = Uint
 
 Storage = Dict[Bytes32, Bytes32]
 Bloom = Bytes32
@@ -21,6 +28,10 @@ TX_DATA_COST_PER_ZERO = 4
 
 @dataclass
 class Transaction:
+    """
+    Atomic operation performed on the block chain.
+    """
+
     nonce: Uint
     gas_price: Uint
     gas: Uint
@@ -34,6 +45,10 @@ class Transaction:
 
 @dataclass
 class Account:
+    """
+    State associated with an address.
+    """
+
     nonce: Uint
     balance: Uint
     code: bytes
@@ -42,6 +57,10 @@ class Account:
 
 @dataclass
 class Header:
+    """
+    Header portion of a block on the chain.
+    """
+
     parent: Hash32
     ommers: Hash32
     coinbase: Address
@@ -61,6 +80,10 @@ class Header:
 
 @dataclass
 class Block:
+    """
+    A complete block.
+    """
+
     header: Header
     transactions: List[Transaction]
     ommers: List[Header]
@@ -68,6 +91,10 @@ class Block:
 
 @dataclass
 class Log:
+    """
+    Data record produced during the execution of a transaction.
+    """
+
     address: Address
     topics: List[Hash32]
     data: bytes
@@ -75,6 +102,10 @@ class Log:
 
 @dataclass
 class Receipt:
+    """
+    Result of a transaction.
+    """
+
     post_state: Root
     cumulative_gas_used: Uint
     bloom: Bloom
