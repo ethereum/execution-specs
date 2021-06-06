@@ -24,8 +24,8 @@ def main() -> None:
     state = {}
     for (addr, vals) in alloc.items():
         account = spec.Account(
-            nonce=vals.get("nonce", 0),
-            balance=Uint(int(vals.get("balance", 0))),
+            nonce=vals.get("nonce", Uint(0)),
+            balance=Uint(int(vals.get("balance", Uint(0)))),
             code=bytes.fromhex(vals.get("code", "")),
             storage={},  # TODO: support storage
         )

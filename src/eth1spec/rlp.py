@@ -37,7 +37,7 @@ def encode(x: RLP) -> Bytes:
         return R_b(x)
     elif isinstance(x, Uint):
         return encode(BE(x))
-    elif isinstance(x, list):
+    elif isinstance(x, Sequence):
         return R_l(x)
     else:
         raise TypeError()
