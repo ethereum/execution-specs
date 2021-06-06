@@ -28,7 +28,7 @@ def load_test(path: str) -> Any:
         test = json.load(f)
 
     name = os.path.splitext(os.path.basename(path))[0]
-    testname = name + "_frontier"
+    testname = name + "_Frontier"
 
     if testname not in test:
         print("test not found")
@@ -38,9 +38,12 @@ def load_test(path: str) -> Any:
 
 
 def run_test(path: str) -> None:
-    test = load_test(
-        "fixtures/LegacyTests/Constantinople/GeneralStateTests/" + path
+    base = (
+        "tests/fixtures/"
+        "LegacyTests/Constantinople/BlockchainTests/GeneralStateTests/"
     )
+
+    test = load_test(base + path)
 
     genesis = Block(
         json_to_header(test.get("genesisBlockHeader")),
@@ -80,8 +83,8 @@ def json_to_header(raw: Any) -> Header:
         hex2uint(raw.get("gasLimit")),
         hex2uint(raw.get("gasUsed")),
         hex2u256(raw.get("timestamp")),
-        hex2bytes(raw.get("extra")),
-        hex2bytes32(raw.bet("mixHash")),
+        hex2bytes(raw.get("extraData")),
+        hex2bytes32(raw.get("mixHash")),
         hex2bytes8(raw.get("nonce")),
     )
 

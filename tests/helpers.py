@@ -15,7 +15,7 @@ def hex2bytes(x: str) -> Bytes:
 
 
 def hex2bytes8(x: str) -> Bytes8:
-    return Bytes8(bytes.fromhex(x.lstrip("0x")))
+    return Bytes8(bytes.fromhex(x.lstrip("0x").rjust(16, "0")))
 
 
 def hex2bytes32(x: str) -> Bytes32:
@@ -31,7 +31,7 @@ def hex2root(x: str) -> Root:
 
 
 def hex2address(x: str) -> Address:
-    return Address(bytes.fromhex(x.lstrip("0x")))
+    return Address(bytes.fromhex(x.lstrip("0x").rjust(40, "0")))
 
 
 def hex2uint(x: str) -> Uint:
