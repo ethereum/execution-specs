@@ -1,0 +1,31 @@
+name: GitHub Pages
+
+on:
+  push:
+    branches:
+      - master
+      - pyspec
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.7"
+
+      - name: Checkout
+        uses: actions/checkout@v2.3.1
+
+      - name: Install Tox and any other packages
+        run: pip install tox
+
+      - name: Sphinx
+        run: tox -e doc
+
+      - name: Deploy
+        uses: JamesIves/github-pages-deploy-action@4.1.4
+        with:
+          branch: gh-pages
+          folder: .tox/docs_out
