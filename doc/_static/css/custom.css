@@ -1,0 +1,37 @@
+/* Headings */
+#module-details h3 {
+    border-bottom: 1px solid #888;
+}
+
+/* Code Blocks */
+pre, .class, .function {
+    font-size: 13px;
+}
+
+/* Classes */
+.class {
+    background: #d5d5ee;
+    padding: 1.5em;
+}
+
+/* Functions */
+.function {
+    background: #d0eed0;
+    padding: 1.5em;
+}
+
+/* Improve function signatures with type hints */
+
+.sig-param:first-of-type()::before {
+    content: '';
+}
+
+.sig-param::before {
+    content: '\A    ';
+    white-space: pre;
+}
+
+.sig-param + .sig-paren::before {
+    content: '\A';
+    white-space: pre;
+}

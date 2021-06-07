@@ -1,5 +1,6 @@
 """
-# State Trie
+State Trie
+----------
 
 The state trie is the structure responsible for storing
 `eth1spec.eth_types.Account` objects.
@@ -67,13 +68,13 @@ def f(t: Union[bool, int]) -> int:
         return 0
 
 
-def HP_inverse(bytes_: Bytes) -> Tuple[str, bool]:
+def HP_inverse(buffer: Bytes) -> Tuple[str, bool]:
     """
     Hex prefix decoding.
 
     Parameters
     ----------
-    bytes_ : `Bytes`
+    buffer : `Bytes`
         TODO
 
     Returns
@@ -84,11 +85,11 @@ def HP_inverse(bytes_: Bytes) -> Tuple[str, bool]:
         TODO
     """
     nibbles = ""
-    odd_length = (bytes_[0] >> 4) % 2 == 1  # sixth lowest bit
-    t = (bytes_[0] >> 5) % 2 != 0  # fifth lowest bit
+    odd_length = (buffer[0] >> 4) % 2 == 1  # sixth lowest bit
+    t = (buffer[0] >> 5) % 2 != 0  # fifth lowest bit
     if odd_length:
-        nibbles += bytes_[0:1].hex()[1]
-    for b in bytes_[1:]:
+        nibbles += buffer[0:1].hex()[1]
+    for b in buffer[1:]:
         nibbles += bytes([b]).hex()
     return nibbles, t
 

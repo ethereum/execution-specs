@@ -1,5 +1,6 @@
 """
-# Ethereum Specification
+Ethereum Specification
+----------------------
 """
 
 from dataclasses import dataclass

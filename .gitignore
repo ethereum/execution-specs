@@ -36,3 +36,5 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 .tox/
+
+/doc/_autosummary

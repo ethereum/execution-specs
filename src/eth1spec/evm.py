@@ -1,5 +1,6 @@
 """
-# Ethereum Virtual Machine (EVM)
+Ethereum Virtual Machine (EVM)
+------------------------------
 
 The abstract computer which runs the code stored in an
 `eth1spec.eth_types.Account`.
@@ -8,9 +9,13 @@ The abstract computer which runs the code stored in an
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from .eth_types import U256, Address, Hash32, Log, State, Uint
+from .eth_types import U256, Address, Hash32, Log, State
+from .number import Uint
 
-ADD = "\x01"
+ADD = b"\x01"
+"""
+Opcode for the addition (`+`) instruction.
+"""
 
 
 @dataclass

@@ -1,5 +1,8 @@
 """
-# Ethereum Base Types
+Base Types
+----------
+
+Types re-used throughout the specification.
 """
 
 from dataclasses import dataclass

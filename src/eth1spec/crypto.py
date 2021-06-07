@@ -1,5 +1,6 @@
 """
-# Cryptographic Functions
+Cryptographic Functions
+-----------------------
 """
 
 import coincurve
@@ -8,13 +9,13 @@ import sha3
 from .eth_types import Bytes, Hash32, Hash64, Uint
 
 
-def keccak256(bytes_: Bytes) -> Hash32:
+def keccak256(buffer: Bytes) -> Hash32:
     """
-    Computes the keccak256 hash of the input `bytes_`.
+    Computes the keccak256 hash of the input `buffer`.
 
     Parameters
     ----------
-    bytes_ : `eth1spec.eth_types.Bytes`
+    buffer : `eth1spec.eth_types.Bytes`
         Input for the hashing function.
 
     Returns
@@ -22,16 +23,16 @@ def keccak256(bytes_: Bytes) -> Hash32:
     hash : `eth1spec.eth_types.Hash32`
         Output of the hash function.
     """
-    return sha3.keccak_256(bytes_).digest()
+    return sha3.keccak_256(buffer).digest()
 
 
-def keccak512(bytes_: Bytes) -> Hash64:
+def keccak512(buffer: Bytes) -> Hash64:
     """
-    Computes the keccak512 hash of the input `bytes_`.
+    Computes the keccak512 hash of the input `buffer`.
 
     Parameters
     ----------
-    bytes_ : `eth1spec.eth_types.Bytes`
+    buffer : `eth1spec.eth_types.Bytes`
         Input for the hashing function.
 
     Returns
@@ -39,7 +40,7 @@ def keccak512(bytes_: Bytes) -> Hash64:
     hash : `eth1spec.eth_types.Hash32`
         Output of the hash function.
     """
-    return sha3.keccak_512(bytes_).digest()
+    return sha3.keccak_512(buffer).digest()
 
 
 def secp256k1_recover(r: Uint, s: Uint, v: Uint, msg_hash: Hash32) -> Bytes:

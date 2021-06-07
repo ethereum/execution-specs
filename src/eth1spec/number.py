@@ -1,5 +1,6 @@
 """
-# Numeric Types
+Numeric Types
+-------------
 """
 
 # flake8: noqa

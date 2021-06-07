@@ -1,5 +1,6 @@
 """
-# Recursive Length Prefix (RLP) Encoding
+Recursive Length Prefix (RLP) Encoding
+--------------------------------------
 """
 
 from __future__ import annotations
@@ -299,7 +300,7 @@ def decode_length(b: Bytes) -> Tuple[Uint, Uint]:
     -------
     rlp_length : `eth1spec.number.Uint`
         TODO
-    length_length : `eth1spec.number.Uint'
+    length_length : `eth1spec.number.Uint`
         TODO
     """
     if verbose:
