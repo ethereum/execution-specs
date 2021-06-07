@@ -11,10 +11,10 @@ from .eth_types import (
     TX_BASE_COST,
     TX_DATA_COST_PER_NON_ZERO,
     TX_DATA_COST_PER_ZERO,
-    Account,
     Address,
     Block,
     Bytes32,
+    EMPTY_ACCOUNT,
     Hash32,
     Header,
     Log,
@@ -26,12 +26,6 @@ from .eth_types import (
 )
 
 BLOCK_REWARD = 5 * 10 ** 18
-EMPTY_ACCOUNT = Account(
-    nonce=Uint(0),
-    balance=Uint(0),
-    code=bytearray(),
-    storage={},
-)
 
 
 @dataclass
@@ -66,7 +60,14 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.transactions,
         block.ommers,
     )
-    #  raise NotImplementedError()  # TODO
+
+    print(gas_used)
+    print(receipt_root.hex())
+    print(trie.TRIE(trie.y(state)).hex())
+
+    assert gas_used == block.header.gas_used
+    assert receipt_root == block.header.receipt_root
+    assert trie.TRIE(trie.y(state)) == block.header.state_root
 
 
 def verify_header(header: Header) -> bool:
@@ -131,6 +132,10 @@ def apply_body(
     gas_available = block_gas_limit
     receipts = []
 
+    if coinbase not in state:
+        state[coinbase] = EMPTY_ACCOUNT
+    state[coinbase].balance += BLOCK_REWARD
+
     for tx in transactions:
         assert tx.gas <= gas_available
         sender_address = recover_sender(tx)
@@ -148,18 +153,16 @@ def apply_body(
             state=state,
         )
 
+        pre_state = Root(
+                    trie.TRIE(trie.y(state))
+                )
+
         gas_used, logs = process_transaction(env, tx)
         gas_available -= gas_used
 
         receipts.append(
             Receipt(
-                post_state=Root(
-                    bytes.fromhex(
-                        "00000000000000000000000000000000000000000000000000000"
-                        "00000000000000000000000000000000000000000000000000000"
-                        "0000000000000000000000"
-                    )
-                ),
+                pre_state=pre_state,
                 cumulative_gas_used=(block_gas_limit - gas_available),
                 bloom=Bytes32(
                     bytes.fromhex(
@@ -172,18 +175,11 @@ def apply_body(
             )
         )
 
-        gas_available -= gas_used
-
-    if coinbase not in state:
-        state[coinbase] = EMPTY_ACCOUNT
-
-    state[coinbase].balance += BLOCK_REWARD
-
     receipts_map = {
         Uint(k).to_big_endian(): v for (k, v) in enumerate(receipts)
     }
     receipts_y = trie.y(receipts_map)
-    return (gas_available), trie.TRIE(receipts_y), state
+    return (block_gas_limit - gas_available), trie.TRIE(receipts_y), state
 
 
 def process_transaction(
@@ -218,13 +214,21 @@ def process_transaction(
     assert cost <= sender.balance
     sender.balance -= cost
 
+    gas = tx.gas - intrinsic_cost(tx)
+
     if tx.to is None:
         raise NotImplementedError()  # TODO
 
-    return evm.process_call(
-        sender_address, tx.to, tx.data, tx.value, tx.gas, Uint(0), env
+    gas_left, logs = evm.process_call(
+        sender_address, tx.to, tx.data, tx.value, gas, Uint(0), env
     )
 
+    sender.balance += gas_left * tx.gas_price
+    gas_used = tx.gas - gas_left
+    print(env.coinbase.hex())
+    env.state[env.coinbase].balance += gas_used * tx.gas_price
+
+    return (gas_used, logs)
 
 def verify_transaction(tx: Transaction) -> bool:
     """
@@ -240,6 +244,23 @@ def verify_transaction(tx: Transaction) -> bool:
     verified : `bool`
         True if the transaction can be executed, or False otherwise.
     """
+    return intrinsic_cost(tx) <= tx.gas
+
+
+def intrinsic_cost(tx: Transaction) -> Uint:
+    """
+    Verifies a transaction.
+
+    Parameters
+    ----------
+    tx : `eth1spec.eth_types.Transaction`
+        Transaction to compute the intrinsic cost of.
+
+    Returns
+    -------
+    verified : `eth1spec.number.Uint`
+        The intrinsic cost of the transaction.
+    """
     data_cost = 0
 
     for byte in tx.data:
@@ -248,7 +269,7 @@ def verify_transaction(tx: Transaction) -> bool:
         else:
             data_cost += TX_DATA_COST_PER_NON_ZERO
 
-    return TX_BASE_COST + data_cost <= tx.gas
+    return Uint(TX_BASE_COST + data_cost)
 
 
 def recover_sender(tx: Transaction) -> Address:
