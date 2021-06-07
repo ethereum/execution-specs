@@ -224,7 +224,14 @@ def c(J: Mapping[Bytes, Union[Bytes, Account, Receipt]], i: Uint) -> Bytes:
                 )
             )
         elif isinstance(leaf, Receipt):
-            raise NotImplementedError()  # TODO
+            I_1 = rlp.encode(
+                (
+                    leaf.post_state,
+                    leaf.cumulative_gas_used,
+                    leaf.bloom,
+                    leaf.logs,
+                )
+            )
         else:
             # I_1 = leaf
             I_1 = rlp.encode(leaf)

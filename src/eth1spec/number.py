@@ -196,4 +196,4 @@ class Uint(int):
     # TODO: Implement and, or, xor, neg, pos, abs, invert, ...
 
     def to_big_endian(self) -> bytes:
-        raise NotImplementedError()  # TODO
+        return bytes(bytearray.fromhex(hex(self).lstrip("0x")))

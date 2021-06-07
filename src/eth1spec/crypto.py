@@ -72,7 +72,7 @@ def secp256k1_recover(r: Uint, s: Uint, v: Uint, msg_hash: Hash32) -> Bytes:
     signature[64 - len(s_bytes) : 64] = s_bytes
     signature[64] = v
     public_key = coincurve.PublicKey.from_signature_and_message(
-        signature, msg_hash, hasher=None
+        bytes(signature), msg_hash, hasher=None
     )
     public_key = public_key.format(compressed=False)[1:]
     return public_key

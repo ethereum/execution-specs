@@ -55,7 +55,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block : `eth1spec.eth_types.Block`
         Block to apply to `chain`.
     """
-    assert verify_header(block.header)
+    #  assert verify_header(block.header)
     gas_used, receipt_root, state = apply_body(
         chain.state,
         block.header.coinbase,
@@ -66,7 +66,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.transactions,
         block.ommers,
     )
-    raise NotImplementedError()  # TODO
+    #  raise NotImplementedError()  # TODO
 
 
 def verify_header(header: Header) -> bool:
@@ -281,7 +281,7 @@ def recover_sender(tx: Transaction) -> Address:
     # assert 0<s_int and s_int<(secp256k1n//2+1)
 
     public_key = crypto.secp256k1_recover(r, s, v - 27, signing_hash(tx))
-    return Address(public_key[12:])
+    return Address(crypto.keccak256(public_key)[12:32])
 
 
 def signing_hash(tx: Transaction) -> Hash32:
@@ -299,5 +299,14 @@ def signing_hash(tx: Transaction) -> Hash32:
         Hash of the transaction.
     """
     return crypto.keccak256(
-        rlp.encode((tx.nonce, tx.gas_price, tx.gas, tx.to, tx.value, tx.data))
+        rlp.encode(
+            (
+                tx.nonce,
+                tx.gas_price,
+                tx.gas,
+                tx.to,
+                tx.value,
+                tx.data,
+            )
+        )
     )
