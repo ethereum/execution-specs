@@ -226,7 +226,7 @@ def c(J: Mapping[Bytes, Union[Bytes, Account, Receipt]], i: Uint) -> Bytes:
         elif isinstance(leaf, Receipt):
             I_1 = rlp.encode(
                 (
-                    leaf.pre_state,
+                    leaf.post_state,
                     leaf.cumulative_gas_used,
                     leaf.bloom,
                     leaf.logs,

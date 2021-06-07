@@ -10,16 +10,15 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 from .eth_types import (
+    EMPTY_ACCOUNT,
     U256,
     Address,
     Bytes32,
-    EMPTY_ACCOUNT,
     Hash32,
     Log,
     State,
     Uint,
 )
-
 
 ops = {
     "ADD": b"\x01",

@@ -117,7 +117,7 @@ class Receipt:
     Result of a transaction.
     """
 
-    pre_state: Root
+    post_state: Root
     cumulative_gas_used: Uint
     bloom: Bloom
     logs: List[Log]

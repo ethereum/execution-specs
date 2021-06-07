@@ -8,13 +8,13 @@ from typing import List, Tuple
 
 from . import crypto, evm, rlp, trie
 from .eth_types import (
+    EMPTY_ACCOUNT,
     TX_BASE_COST,
     TX_DATA_COST_PER_NON_ZERO,
     TX_DATA_COST_PER_ZERO,
     Address,
     Block,
     Bytes32,
-    EMPTY_ACCOUNT,
     Hash32,
     Header,
     Log,
@@ -153,16 +153,12 @@ def apply_body(
             state=state,
         )
 
-        pre_state = Root(
-                    trie.TRIE(trie.y(state))
-                )
-
         gas_used, logs = process_transaction(env, tx)
         gas_available -= gas_used
 
         receipts.append(
             Receipt(
-                pre_state=pre_state,
+                post_state=Root(trie.TRIE(trie.y(state))),
                 cumulative_gas_used=(block_gas_limit - gas_available),
                 bloom=Bytes32(
                     bytes.fromhex(
@@ -225,10 +221,13 @@ def process_transaction(
 
     sender.balance += gas_left * tx.gas_price
     gas_used = tx.gas - gas_left
-    print(env.coinbase.hex())
     env.state[env.coinbase].balance += gas_used * tx.gas_price
 
+    print(sender.balance)
+    print(env.state[env.coinbase].balance)
+
     return (gas_used, logs)
+
 
 def verify_transaction(tx: Transaction) -> bool:
     """
