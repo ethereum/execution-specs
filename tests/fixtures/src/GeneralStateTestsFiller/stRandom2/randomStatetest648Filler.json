@@ -1,0 +1,65 @@
+{
+    "randomStatetest648" : {
+        "_info" : {
+            "comment" : "Consensus issue test produced by fuzz testing team 00000005-storagefuzz-1"
+        },
+	"env":{
+      "currentCoinbase": "b94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+      "currentDifficulty": "0x20000",
+      "currentGasLimit": "0x26e1f476fe1e22",
+      "currentNumber": "0x1",
+      "currentTimestamp": "0x3e8",
+      "previousHash": "5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6"
+	},
+	"expect" : [
+		{
+		        "indexes" : {
+		            "data" : -1,
+		            "gas" : -1,
+		            "value" : -1
+		        },
+		        "network" : [">=Istanbul"],
+		        "result" : {
+		        	"0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b":{
+    					"nonce":"1"
+    				}
+		        }
+   		}
+	],
+	"pre":{
+      "0x00000000000000000000000000000000000000f1": {
+        "code": ":raw 0x600060006000600060f15af450600060005060f5fffd",
+        "storage": {},
+        "balance": "0x0",
+        "nonce": "0x0"
+      },
+      "0x00000000000000000000000000000000000000f5": {
+        "code": ":raw 0x600050",
+        "storage": {},
+        "balance": "0x0",
+        "nonce": "0x0"
+      },
+      "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
+        "code": "0x",
+        "storage": {},
+        "balance": "0xffffffff",
+        "nonce": "0x0"
+      }
+	},
+	"transaction":{
+		"data":[
+			":raw 0x384c289327fda733f319011b605929b98b6cc52e4915c942369264c71a3ca70ebce56fef7e41103f1acc71e91f299bf6c5730b265d6f9d475936735ea60c58b9bb125a78178171784759606d696e98f8522b52fe213edee397b3df6ca9f0c6"
+		],
+		"gasLimit":[
+			"0x53dad"
+		],
+		"gasPrice":"0x0a",
+		"nonce":"0x00",
+		"secretKey":"0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+		"to":"0x00000000000000000000000000000000000000f1",
+		"value":[
+			"0xdb2206"
+		]
+	}
+  }
+}

@@ -1,0 +1,779 @@
+# Check the various push opcodes
+#
+# NOTE: The functionality provided by the old push1_missingStack and
+# push32Undefined* is available in GeneralStateTests/stStackTests/underflowTest
+#
+# I don't swee the point in the old push32AndSuicide
+#
+# We can't use lll with dup, swap, or push (lll needs to manage the stack 
+# on its own). Instead, we do:
+#
+# PUSH<n> <n bytes>
+# PUSH1 0
+# SSTORE
+
+push:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    # PUSH1
+    0000000000000000000000000000000000000100:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x60FF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH2
+    0000000000000000000000000000000000000101:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x61EEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH3
+    0000000000000000000000000000000000000102:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x62DDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH4
+    0000000000000000000000000000000000000103:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x63CCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH5
+    0000000000000000000000000000000000000104:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x64BBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+    # PUSH6
+    0000000000000000000000000000000000000105:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x65AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+    # PUSH7
+    0000000000000000000000000000000000000106:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6699AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+    # PUSH8
+    0000000000000000000000000000000000000107:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x678899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+    # PUSH9
+    0000000000000000000000000000000000000108:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x68778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH10
+    0000000000000000000000000000000000000109:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6966778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH11
+    000000000000000000000000000000000000010A:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6A5566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH12
+    000000000000000000000000000000000000010B:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6B445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH13
+    000000000000000000000000000000000000010C:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6C33445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH14
+    000000000000000000000000000000000000010D:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6D2233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH15
+    000000000000000000000000000000000000010E:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6E112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH16
+    000000000000000000000000000000000000010F:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x6F00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH17
+    0000000000000000000000000000000000000110:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x70FF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH18
+    0000000000000000000000000000000000000111:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x71EEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH19
+    0000000000000000000000000000000000000112:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x72DDEEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH20
+    0000000000000000000000000000000000000113:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x73CCDDEEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH21
+    0000000000000000000000000000000000000114:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x74BBCCDDEEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH22
+    0000000000000000000000000000000000000115:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x75AABBCCDDEEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH23
+    0000000000000000000000000000000000000116:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x7699AABBCCDDEEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH24
+    0000000000000000000000000000000000000117:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH25
+    0000000000000000000000000000000000000118:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x78778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH26
+    0000000000000000000000000000000000000119:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x7966778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH27
+    000000000000000000000000000000000000011A:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x7A5566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH28
+    000000000000000000000000000000000000011B:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x7B445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH29
+    000000000000000000000000000000000000011C:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x7C33445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+    # PUSH30
+    000000000000000000000000000000000000011D:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x7D2233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH31
+    000000000000000000000000000000000000011E:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x7E112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+    # PUSH32
+    000000000000000000000000000000000000011F:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: 0x7F00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF600055
+      nonce: '0'
+      storage: {}
+
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            (call (gas) (+ 0x100 $4) 0 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x100000000000
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+
+
+
+  transaction:
+    data:
+    - :label push1  :abi f(uint) 0
+    - :label push2  :abi f(uint) 1
+    - :label push3  :abi f(uint) 2
+    - :label push4  :abi f(uint) 3
+    - :label push5  :abi f(uint) 4
+    - :label push6  :abi f(uint) 5
+    - :label push7  :abi f(uint) 6
+    - :label push8  :abi f(uint) 7
+    - :label push9  :abi f(uint) 8
+    - :label push10 :abi f(uint) 9
+    - :label push11 :abi f(uint) 10
+    - :label push12 :abi f(uint) 11
+    - :label push13 :abi f(uint) 12
+    - :label push14 :abi f(uint) 13
+    - :label push15 :abi f(uint) 14
+    - :label push16 :abi f(uint) 15
+    - :label push17 :abi f(uint) 16
+    - :label push18 :abi f(uint) 17
+    - :label push19 :abi f(uint) 18
+    - :label push20 :abi f(uint) 19
+    - :label push21 :abi f(uint) 20
+    - :label push22 :abi f(uint) 21
+    - :label push23 :abi f(uint) 22
+    - :label push24 :abi f(uint) 23
+    - :label push25 :abi f(uint) 24
+    - :label push26 :abi f(uint) 25
+    - :label push27 :abi f(uint) 26
+    - :label push28 :abi f(uint) 27
+    - :label push29 :abi f(uint) 28
+    - :label push30 :abi f(uint) 29
+    - :label push31 :abi f(uint) 30
+    - :label push32 :abi f(uint) 31
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    - indexes:
+        data: :label push1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000100:
+          storage:
+            0x00: 0xFF
+     
+
+
+    - indexes:
+        data: :label push2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000101:
+          storage:
+            0x00: 0xEEFF
+     
+
+    - indexes:
+        data: :label push3
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000102:
+          storage:
+            0x00: 0xDDEEFF
+     
+
+    - indexes:
+        data: :label push4
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000103:
+          storage:
+            0x00: 0xCCDDEEFF
+     
+
+    - indexes:
+        data: :label push5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000104:
+          storage:
+            0x00: 0xBBCCDDEEFF
+     
+
+    - indexes:
+        data: :label push6
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000105:
+          storage:
+            0x00: 0xAABBCCDDEEFF
+     
+
+    - indexes:
+        data: :label push7
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000106:
+          storage:
+            0x00: 0x99AABBCCDDEEFF
+     
+
+    - indexes:
+        data: :label push8
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000107:
+          storage:
+            0x00: 0x8899AABBCCDDEEFF
+     
+
+    - indexes:
+        data: :label push9
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000108:
+          storage:
+            0x00: 0x778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push10
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000109:
+          storage:
+            0x00: 0x66778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push11
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000010A:
+          storage:
+            0x00: 0x5566778899AABBCCDDEEFF
+     
+
+
+
+
+    - indexes:
+        data: :label push12
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000010B:
+          storage:
+            0x00: 0x445566778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push13
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000010C:
+          storage:
+            0x00: 0x33445566778899AABBCCDDEEFF
+     
+
+
+
+
+    - indexes:
+        data: :label push14
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000010D:
+          storage:
+            0x00: 0x2233445566778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push15
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000010E:
+          storage:
+            0x00: 0x112233445566778899AABBCCDDEEFF
+     
+
+    - indexes:
+        data: :label push16
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000010F:
+          storage:
+            0x00: 0x00112233445566778899AABBCCDDEEFF
+
+
+
+    - indexes:
+        data: :label push17
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000110:
+          storage:
+            0x00: 0xFF00112233445566778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push18
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000111:
+          storage:
+            0x00: 0xEEFF00112233445566778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push19
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000112:
+          storage:
+            0x00: 0xDDEEFF00112233445566778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push20
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000113:
+          storage:
+            0x00: 0xCCDDEEFF00112233445566778899AABBCCDDEEFF
+     
+
+
+
+
+    - indexes:
+        data: :label push21
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000114:
+          storage:
+            0x00: 0xBBCCDDEEFF00112233445566778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push22
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000115:
+          storage:
+            0x00: 0xAABBCCDDEEFF00112233445566778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push23
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000116:
+          storage:
+            0x00: 0x99AABBCCDDEEFF00112233445566778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push24
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000117:
+          storage:
+            0x00: 0x8899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF
+     
+
+
+
+
+    - indexes:
+        data: :label push25
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000118:
+          storage:
+            0x00: 0x778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF
+     
+
+
+    - indexes:
+        data: :label push26
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000119:
+          storage:
+            0x00: 0x66778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push27
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000011A:
+          storage:
+            0x00: 0x5566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF
+     
+
+
+
+
+    - indexes:
+        data: :label push28
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000011B:
+          storage:
+            0x00: 0x445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push29
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000011C:
+          storage:
+            0x00: 0x33445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push30
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000011D:
+          storage:
+            0x00: 0x2233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push31
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000011E:
+          storage:
+            0x00: 0x112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF
+     
+
+
+
+    - indexes:
+        data: :label push32
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000011F:
+          storage:
+            0x00: 0x00112233445566778899AABBCCDDEEFF00112233445566778899AABBCCDDEEFF
+     
+

@@ -1,0 +1,44 @@
+{
+    "TransactionWithSvalueLessThan_c_secp256k1n_x05" : {
+        "Byzantium" : {
+            "hash" : "0e16a207e6274d78cae05e4ea51bd9bab0ae355b7daecd5d2977a1ae6a233dcd",
+            "sender" : "33e931e187e9cb5b6f8560755519d54560dd63e8"
+        },
+        "Constantinople" : {
+            "hash" : "0e16a207e6274d78cae05e4ea51bd9bab0ae355b7daecd5d2977a1ae6a233dcd",
+            "sender" : "33e931e187e9cb5b6f8560755519d54560dd63e8"
+        },
+        "ConstantinopleFix" : {
+            "hash" : "0e16a207e6274d78cae05e4ea51bd9bab0ae355b7daecd5d2977a1ae6a233dcd",
+            "sender" : "33e931e187e9cb5b6f8560755519d54560dd63e8"
+        },
+        "EIP150" : {
+            "hash" : "0e16a207e6274d78cae05e4ea51bd9bab0ae355b7daecd5d2977a1ae6a233dcd",
+            "sender" : "33e931e187e9cb5b6f8560755519d54560dd63e8"
+        },
+        "EIP158" : {
+            "hash" : "0e16a207e6274d78cae05e4ea51bd9bab0ae355b7daecd5d2977a1ae6a233dcd",
+            "sender" : "33e931e187e9cb5b6f8560755519d54560dd63e8"
+        },
+        "Frontier" : {
+            "hash" : "0e16a207e6274d78cae05e4ea51bd9bab0ae355b7daecd5d2977a1ae6a233dcd",
+            "sender" : "33e931e187e9cb5b6f8560755519d54560dd63e8"
+        },
+        "Homestead" : {
+            "hash" : "0e16a207e6274d78cae05e4ea51bd9bab0ae355b7daecd5d2977a1ae6a233dcd",
+            "sender" : "33e931e187e9cb5b6f8560755519d54560dd63e8"
+        },
+        "Istanbul" : {
+            "hash" : "0e16a207e6274d78cae05e4ea51bd9bab0ae355b7daecd5d2977a1ae6a233dcd",
+            "sender" : "33e931e187e9cb5b6f8560755519d54560dd63e8"
+        },
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.7.0-alpha.1-33+commit.9ec9d33e.dirty",
+            "lllcversion" : "Version: 0.5.0-develop.2019.8.22+commit.9709dfe0.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttRSValue/TransactionWithSvalueLessThan_c_secp256k1n_x05Filler.json",
+            "sourceHash" : "0ee806b51c5ca4626b3603904f221b55a510a996ce418cf877f3200039832425"
+        },
+        "rlp" : "0xf85f800182520894095e7baea6a6c7c4c2dfeb977efac326af552d870b801ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a07fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b2090"
+    }
+}

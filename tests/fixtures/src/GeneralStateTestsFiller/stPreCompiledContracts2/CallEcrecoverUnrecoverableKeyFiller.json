@@ -1,0 +1,63 @@
+{
+    "CallEcrecoverUnrecoverableKey" : {
+        "_info" : {
+            "comment": "CALL to ECREC precompile with input that has a valid signature structure but that does not recover a valid key. Specifies a 32 byte output range in memory. ECREC should return an empty response and the 32 byte output range should be left unchanged."
+        },
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "10000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000",
+            "previousHash" : "5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6"
+        },
+        "expect" : [
+            {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Istanbul"],
+                "result" : {
+                    "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+                        "storage" : {
+                            "0x00" : "0x1122334455667788991011121314151617181920212223242526272829303132"
+                        }
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+                "balance" : "20000000",
+                "code" : "{ (MSTORE 0 0xa8b53bdf3306a35a7103ab5504a0c9b492295564b6202b1942a84ef300107281) (MSTORE 32 0x000000000000000000000000000000000000000000000000000000000000001b) (MSTORE 64 0x3078356531653033663533636531386237373263636230303933666637316633) (MSTORE 96 0x6635336635633735623734646362333161383561613862383839326234653862) (MSTORE 128 0x1122334455667788991011121314151617181920212223242526272829303132) (CALL 300000 1 0 0 128 128 32) (SSTORE 0 (MLOAD 128)) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "1000000000000000000",
+                "code" : "",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                ""
+            ],
+            "gasLimit" : [
+                "3652240"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "095e7baea6a6c7c4c2dfeb977efac326af552d87",
+            "value" : [
+                "100000"
+            ]
+        }
+    }
+}

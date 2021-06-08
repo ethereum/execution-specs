@@ -1,0 +1,637 @@
+# Check the effects of maxPriorityFeePerGass on the miner's (coinbase) balance
+
+
+tips:
+  genesisBlockHeader:
+    bloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    coinbase:  0xBA5E000000000000000000000000000000000000
+    difficulty: '131073'
+    extraData: '0x42'
+    gasUsed: '0'
+    mixHash: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    nonce: '0x0102030405060708'
+    number: '0'
+    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    receiptTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    stateRoot: '0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a'
+    timestamp: '0x03b6'
+    transactionsTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    uncleHash: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347'
+    gasLimit: 10000000000
+    gasUsed:   10000000000
+    baseFee: 1000
+  sealEngine: NoProof
+
+  pre:
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x10000000000000000
+      code: ''
+      nonce: '0x00'
+      storage: {}
+
+    0xd02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: 0x10000000000000000
+      nonce: 1
+      code: ''
+      storage: {}
+
+    # Store the change in coinbase balance (minus the block reward, 2 ETH)
+    0xcccccccccccccccccccccccccccccccccccccccc:
+      balance: 0x10000000000
+      nonce: 1
+      code: |
+         :yul {
+            // Inside block n we can see the balance at the end of block n-1,
+            // because the end of block processing hasn't happened yet            
+            let miner := 0xBA5E000000000000000000000000000000000000
+            let blockReward := 2000000000000000000  // Block reward, 2 ETH (in wei)
+            let lastBalance := 0xFFFF   // Storage for last balance
+            let minerBalance := balance(miner)
+          
+            if eq(number(), 1) { blockReward := 0 }
+
+
+            sstore(sub(number(),1),   // The miner gets paid after the block,
+                                      // so in block n we see the result of block n-1
+               sub(sub(minerBalance, sload(lastBalance)), blockReward)
+            )
+
+            // Update the balance. If we got any data, zero it so we won't have
+            // to keep track for the expect: section
+            if eq(calldatasize(), 0) { sstore(lastBalance, minerBalance) }
+            if gt(calldatasize(), 0) { sstore(lastBalance, 0) }
+
+
+         }
+      storage: {}
+
+
+
+    # Gives us the current baseFee
+    0xcccccccccccccccccccccccccccccccccccccccd:
+      balance: 0x10000000000
+      nonce: 1
+      code: |
+         {
+            (sstore (number) (basefee))
+         }
+      storage: {}
+
+
+    # Gives us the current baseFee and gasPrice
+    0xccccccccccccccccccccccccccccccccccccccce:
+      balance: 0x10000000000
+      nonce: 1
+      code: |
+         {
+            (sstore (number) (basefee))
+            (sstore (add (number) 0x1000) (sub (gasprice) (basefee)))
+         }
+      storage: {}
+
+    
+
+
+
+    # Extremely simple (and cheap in gas) contract. Just a push, 3 gas
+    0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:
+      balance: 0x10000000000
+      nonce: 1
+      code: :raw 0x60FF00
+      storage: {}
+
+
+    # Invalid opcode, revert after using up the gas
+    0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab:
+      balance: 0x10000000000
+      nonce: 1
+      code: :raw 0xFE
+      storage: {}
+
+
+
+
+    # Orderly revert
+    0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac:
+      balance: 0x10000000000
+      nonce: 1
+      code: |
+        :yul {
+           revert(0,0)
+        }
+      storage: {}
+
+
+
+
+
+
+  blocks:
+  # Block 1
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+  # Block 2
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+  # Block 3, maxPriorityFeePerGas=1
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    # This transaction gives the miner 21003 wei because it uses 21003 gas
+    # 21k for the transaction, and 3 for the push that AA..AA does
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0x01
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+
+
+  # Block 4, maxPriorityFeePerGas=1000, so it's effectively maxFeePerGas-baseFee
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+    # This transaction has an huge maxPriorityFeePerGas (1e6), and a much smaller maxFeePerGas (1e3). So
+    # the real maxPriorityFeePerGas amount is maxFeePerGas-baseFee
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 1000
+      maxFeePerGas:         1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+
+
+  # Block 5, mulmaxPriorityFeePerGasle transactions
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    # Tip = 1
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 1
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+    # Tip = 1e6
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 1000000
+      maxFeePerGas:         9000000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+    # Tip = 1e12
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 1000000000000
+      maxFeePerGas:         9000000000000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+
+
+  # Block 6, maxPriorityFeePerGas=1 but there is an access list (one address, no storage cells)
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    - data: ''
+      accessList:
+      - address: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+        storageKeys: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0x01
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+
+
+  # Block 7, maxPriorityFeePerGas=1 but there is an access list (one address, one storage cell)
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    - data: ''
+      accessList:
+      - address: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+        storageKeys:
+        - 0x00
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0x01
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+
+
+  # Block 8, maxPriorityFeePerGas=1 but there is an access list (two addresses, no storage cells)
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    - data: ''
+      accessList:
+      - address: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+        storageKeys: []
+      - address: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+        storageKeys: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0x01
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+
+
+  # Block 9, maxPriorityFeePerGas=1 but there is an access list (two addresses, one storage cell)
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    - data: ''
+      accessList:
+      - address: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+        storageKeys: []
+      - address: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+        storageKeys:
+        - 0x00
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0x01
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+
+
+
+  # Block 10, maxPriorityFeePerGas=1 but there is an access list (two addresses, two storage cells)
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    - data: ''
+      accessList:
+      - address: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+        storageKeys:
+        - 0x00
+      - address: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+        storageKeys:
+        - 0x00
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0x01
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+
+
+
+  # Block 11, maxPriorityFeePerGas=1 but there is an access list (two addresses, two storage cells in one)
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    - data: ''
+      accessList:
+      - address: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+        storageKeys:
+        - 0x00
+        - 0x01
+      - address: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+        storageKeys: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0x01
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+
+
+  # Block 12, maxPriorityFeePerGas=1 but there is an access list (two identical addresses, count as two)
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    - data: ''
+      accessList:
+      - address: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+        storageKeys: []
+      - address: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+        storageKeys: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0x01
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+
+
+  # Block 13, maxPriorityFeePerGas=1 but there is an access list (2 identical addresses, 2 identical cells)
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    - data: ''
+      accessList:
+      - address: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+        storageKeys:
+        - 0x10
+        - 0x10
+      - address: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+        storageKeys: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0x01
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+
+
+
+  # Block 14, maxPriorityFeePerGas=1 for an invalid transaction
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0x01
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB
+      value: 0x0
+
+
+
+  # Block 15, maxPriorityFeePerGas=1 for an orderly revert
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0x01
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC
+      value: 0x0
+
+
+
+
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 121
+      maxFeePerGas:         242
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE
+      value: 0x00
+
+
+  # Block 17, check tip > baseFee  (here baseFee = 106)
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 500
+      maxFeePerGas:         500
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE
+      value: 0x0
+
+    # Clear 0xFFFF so we won't have to put it in the expect: section.
+    - data: :raw 0x60A7
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+
+
+
+
+
+
+
+
+  expect:
+  - network:
+    - ">=London"
+    result:
+      # Change in miner balance, minus the block reward
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+        storage:
+          # Two blocks without any maxPriorityFeePerGasped transactions
+          0x01:                 0
+          0x02:                 0
+
+          # Tip=1
+          0x03:             21003  
+   
+          # Tip=maxFeePerGas-baseFee 
+          0x04:           8653236   # 21003 * 412
+
+          # Three transactions:
+          # 1. Tip=1
+          # 2. Tip=1e6
+          # 3. Tip=1e12
+          0x05: 21003021003021003
+          # 1e6           1000000
+          # 1e12    1000000000000
+
+
+          # Access lists
+          0x06:             23403   # One address (2400)
+          0x07:             25303   # One address (2400) and one cell (1900)
+          0x08:             25803   # Two addresses (4800)
+          0x09:             27703   # Two addresses (4800), one cell (1900)
+          0x0A:             29603   # Two addresses (4800), two cells (3800)
+          0x0B:             29603   # Two addresses (4800), two cells (3800) in same addr
+          0x0C:             25803   # Two identical addresses
+          0x0D:             29603   # Two identical addresses, two identical cells
+
+          # Invalid transactions still count for the maxPriorityFeePerGas
+          0x0E:            100000
+
+          # As does an orderly revert
+          0x0F:             21006
+
+
+
+      # baseFee (where it's relevant)
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD:
+        storage:
+          0x04: 588     # so with a maxFeePerGas of 1000, we get a maxPriorityFeePerGas of 412
+
+
+
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE:
+        storage:
+          # Block 16, tip == baseFee
+          0x0010:  121   # baseFee
+          0x1010:  121   # tip
+         
+          # Block 17, tip > baseFee
+          0x0011:  106
+          0x1011:  394
+
+

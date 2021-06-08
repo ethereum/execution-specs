@@ -1,0 +1,461 @@
+gasCostMemory:
+
+# Note: In the main contract the test doesn't look below memory address 0x0100,
+# because that's where the contract's variables are
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+# Human readable information
+  _info:
+    comment: "Ori Pomerantz qbzzt1@gmail.com"
+
+  pre:
+
+    # Baseline cost, mstore followed by mload
+    000000000000000000000000000000000000ba5e:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (mstore $0 0x60A7)
+           (mload $0)
+        }     
+      nonce: 0
+      storage: {}
+
+
+    # Extra: mstore followed by two mloads
+    000000000000000000000000000000000010ba5e:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (mstore $0 0x60A7)
+           (mload $0)
+           (mload $0)
+        }     
+      nonce: 0
+      storage: {}
+
+
+    # Extra: mstore, mload, and then mstore
+    000000000000000000000000000000000011ba5e:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (mstore $0 0x60A7)
+           (mload $0)
+           (mstore $0 0x60A7)
+        }     
+      nonce: 0
+      storage: {}
+
+
+
+
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Initialization
+ 
+          ; Variables (0x20 byte wide)
+          (def 'action            0x000)  ; Action to take with the memory
+          (def 'addr              0x020)  ; Address to read / write
+          (def 'expectedCost      0x040)  ; Expected gas cost
+          (def 'gasB4             0x060)  ; Before the action being measured
+          (def 'gasAfter          0x080)  ; After the action being measured
+
+          ; Gas cost for a baseline operation (call a contract that does mstore
+          ; and then mload)
+          (def 'gasBaseline       0x0A0)
+
+          ; Gas for for the action intself (call a contract plus <whatever>)
+          (def 'gasAction         0x0C0)
+
+          ; Temporary values
+          (def 'temp              0x0E0)
+
+          ; Understand CALLDATA. It is four bytes of function
+          ; selector (irrelevant) followed by 32 byte words
+          ; of the parameters
+          [action]        $4
+          [addr]          $36
+          [expectedCost]  $68
+
+          ; Constants
+          (def  'NOP    0) ; No operation (for if statements)
+
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Define the actions
+
+          ; Store the gas amounts
+          (def 'gas0 [gasB4]    (gas))
+          (def 'gas1 [gasAfter] (gas))
+
+          ; Get the baseline cost
+          (def 'getBaseline {
+              gas0
+              (call 0x10000 0xba5e 0 addr 0x20 0 0)
+              gas1
+              [gasBaseline] (- @gasB4 @gasAfter)
+          })   ;  def 'getBaseline
+
+          ; The actions
+
+          ; 0 - just read the address
+          (def 'act0 {
+              gas0 
+              (mload @addr) 
+              gas1
+          })          ; def 'act0
+
+
+          ; 1 - store a word long value
+          (def 'act1 {
+             gas0 
+             [@addr] 0x60A7
+             gas1
+          })          ; def 'act1
+
+
+          ; 2 - store a byte long value
+          (def 'act2 {
+             gas0 
+             (mstore8 @addr 0xFF)
+             gas1
+          })          ; def 'act2
+
+
+          ; Cost of running just the baseline
+          (def 'act3 getBaseline)       ; def 'act3
+
+
+          ; Excess cost of extra mload
+          (def 'act10 {
+              getBaseline
+              gas0
+              (call 0x10000 0x10ba5e 0 addr 0x20 0 0)
+              gas1
+              [gasAction] (- @gasB4 @gasAfter)
+          })           ; def 'act10
+
+
+          ; Excess cost of extra mstore
+          (def 'act11 {
+              getBaseline
+              gas0
+              (call 0x10000 0x11ba5e 0 addr 0x20 0 0)
+              gas1
+              [gasAction] (- @gasB4 @gasAfter)
+          })           ; def 'act11
+
+
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Run the operation
+
+          ; Single operation cost 
+          (if (= @action 0) act0 NOP)
+          (if (= @action 1) act1 NOP)
+          (if (= @action 2) act2 NOP)
+
+          ; Baseline cost
+          (if (= @action 3) act3 NOP)
+
+          ; Differential costs
+          (if (= @action 0x10) act10 NOP)
+          (if (= @action 0x11) act11 NOP)
+
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Output
+
+          ; an operation
+          (if (<= @action 2)
+             (sstore 0 (- @gasB4 @gasAfter @expectedCost))
+             NOP
+          )
+
+          ; the baseline
+          (if (= @action 3)
+             (sstore 0 (- @gasBaseline @expectedCost))
+             NOP
+          )
+
+
+          ; differential costs
+          (if (= 0x10 (and @action 0xF0))
+             (sstore 0 (- @gasAction @gasBaseline @expectedCost))
+             NOP
+          )
+        }
+      nonce: '0'
+      storage:
+         0: 60A7
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # 
+    # fun(action, address, cost)
+    #
+
+    # 0: The cost to mload increases the higher the address
+    #   \/ 0
+    - :abi fun(uint,uint,uint) 0 0x0100 0x0025
+    - :abi fun(uint,uint,uint) 0 0x0120 0x0028
+    - :abi fun(uint,uint,uint) 0 0x0140 0x002b
+    - :abi fun(uint,uint,uint) 0 0x0160 0x002e
+    - :abi fun(uint,uint,uint) 0 0x0180 0x0031
+
+    #   \/ 5
+    - :abi fun(uint,uint,uint) 0 0x0200 0x003d
+    - :abi fun(uint,uint,uint) 0 0x0300 0x0056 
+    - :abi fun(uint,uint,uint) 0 0x0400 0x006f
+    - :abi fun(uint,uint,uint) 0 0x0800 0x00d5
+    - :abi fun(uint,uint,uint) 0 0x1000 0x01ad
+
+    #    \/ 10
+    - :abi fun(uint,uint,uint) 0 0x2000 0x038e
+    - :abi fun(uint,uint,uint) 0 0x3000 0x05ae
+
+
+    # 1: The cost to mstore is one more than the cost to mload
+    - :abi fun(uint,uint,uint) 1 0x0100 0x0026
+    - :abi fun(uint,uint,uint) 1 0x0120 0x0029
+    - :abi fun(uint,uint,uint) 1 0x0140 0x002c
+
+    #    \/ 15
+    - :abi fun(uint,uint,uint) 1 0x0160 0x002f
+    - :abi fun(uint,uint,uint) 1 0x0180 0x0032
+    - :abi fun(uint,uint,uint) 1 0x0200 0x003e
+    - :abi fun(uint,uint,uint) 1 0x0300 0x0057 
+    - :abi fun(uint,uint,uint) 1 0x0400 0x0070
+
+    #   \/ 20
+    - :abi fun(uint,uint,uint) 1 0x0800 0x00d6
+    - :abi fun(uint,uint,uint) 1 0x1000 0x01ae
+    - :abi fun(uint,uint,uint) 1 0x2000 0x038f
+    - :abi fun(uint,uint,uint) 1 0x3000 0x05af
+
+
+    # 2: The cost to mstore8 is the same as mstore
+    - :abi fun(uint,uint,uint) 2 0x0100 0x0026
+
+    #    \/ 25
+    - :abi fun(uint,uint,uint) 2 0x0120 0x0029
+    - :abi fun(uint,uint,uint) 2 0x0140 0x002c
+    - :abi fun(uint,uint,uint) 2 0x0160 0x002f
+    - :abi fun(uint,uint,uint) 2 0x0180 0x0032
+    - :abi fun(uint,uint,uint) 2 0x0200 0x003e
+
+    #    \/ 30
+    - :abi fun(uint,uint,uint) 2 0x0300 0x0057 
+    - :abi fun(uint,uint,uint) 2 0x0400 0x0070
+    - :abi fun(uint,uint,uint) 2 0x0800 0x00d6
+    - :abi fun(uint,uint,uint) 2 0x1000 0x01ae
+    - :abi fun(uint,uint,uint) 2 0x2000 0x038f
+   
+    #    \/ 35
+    - :abi fun(uint,uint,uint) 2 0x3000 0x05af
+
+
+    # 3: The cost of the baseline contract
+    #    Starting at this point it's fine to check memory below
+    #    0x0100 because the called contracts don't have variables
+    - :abi fun(uint,uint,uint) 3 0x0000 0x02F6
+    - :abi fun(uint,uint,uint) 3 0x0020 0x02F9
+    - :abi fun(uint,uint,uint) 3 0x0040 0x02FC
+    - :abi fun(uint,uint,uint) 3 0x0060 0x02FF
+
+    #     \/ 40
+    - :abi fun(uint,uint,uint) 3 0x0080 0x0302
+    - :abi fun(uint,uint,uint) 3 0x0100 0x030e
+    - :abi fun(uint,uint,uint) 3 0x0200 0x0326
+    - :abi fun(uint,uint,uint) 3 0x0400 0x0358
+    - :abi fun(uint,uint,uint) 3 0x0800 0x03be
+
+    #     \/ 45
+    - :abi fun(uint,uint,uint) 3 0x1000 0x0496
+    - :abi fun(uint,uint,uint) 3 0x2000 0x0677
+    - :abi fun(uint,uint,uint) 3 0x4000 0x0af8
+    - :abi fun(uint,uint,uint) 3 0x8000 0x16fa
+
+    # 0x10 - the differential cost of an extra mload
+    - :abi fun(uint,uint,uint) 0x10 0x0000 0x08
+
+    #       \/ 50
+    - :abi fun(uint,uint,uint) 0x10 0x0010 0x08
+    - :abi fun(uint,uint,uint) 0x10 0x0020 0x08
+    - :abi fun(uint,uint,uint) 0x10 0x0040 0x08
+    - :abi fun(uint,uint,uint) 0x10 0x0080 0x08
+    - :abi fun(uint,uint,uint) 0x10 0x0100 0x08
+    
+    #      \/ 55
+    - :abi fun(uint,uint,uint) 0x10 0x0200 0x08
+    - :abi fun(uint,uint,uint) 0x10 0x0400 0x08
+    - :abi fun(uint,uint,uint) 0x10 0x0800 0x08
+    - :abi fun(uint,uint,uint) 0x10 0x1000 0x08
+    - :abi fun(uint,uint,uint) 0x10 0x2000 0x08
+
+    #      \/ 60 
+    - :abi fun(uint,uint,uint) 0x10 0x4000 0x08
+    - :abi fun(uint,uint,uint) 0x10 0x8000 0x08
+
+    # 0x11 - the differential cost of an extra mstore (and a push for the value)
+    - :abi fun(uint,uint,uint) 0x11 0x0000 0x0b
+    - :abi fun(uint,uint,uint) 0x11 0x0010 0x0b
+    - :abi fun(uint,uint,uint) 0x11 0x0020 0x0b
+
+    #                \/ 65
+    - :abi fun(uint,uint,uint) 0x11 0x0040 0x0b
+    - :abi fun(uint,uint,uint) 0x11 0x0080 0x0b
+    - :abi fun(uint,uint,uint) 0x11 0x0100 0x0b
+    - :abi fun(uint,uint,uint) 0x11 0x0200 0x0b
+    - :abi fun(uint,uint,uint) 0x11 0x0400 0x0b
+
+    #            \/ 70
+    - :abi fun(uint,uint,uint) 0x11 0x0800 0x0b
+    - :abi fun(uint,uint,uint) 0x11 0x1000 0x0b
+    - :abi fun(uint,uint,uint) 0x11 0x2000 0x0b
+    - :abi fun(uint,uint,uint) 0x11 0x4000 0x0b
+    - :abi fun(uint,uint,uint) 0x11 0x8000 0x0b
+
+
+    gasLimit:
+    - 80000000
+    gasPrice: 10
+    nonce: 0
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - 1
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+
+    # Istanbul
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          storage:
+            0x00: 0
+
+
+    # Berlin, for costs that don't include contract calls
+    - indexes:
+        data: 
+        - !!int 0
+        - !!int 1
+        - !!int 2
+        - !!int 3
+        - !!int 4
+        - !!int 5
+        - !!int 6
+        - !!int 7
+        - !!int 8
+        - !!int 9
+        - !!int 10
+        - !!int 11
+        - !!int 12
+        - !!int 13
+        - !!int 14
+        - !!int 15
+        - !!int 16
+        - !!int 17
+        - !!int 18
+        - !!int 19
+        - !!int 20
+        - !!int 21
+        - !!int 22
+        - !!int 23
+        - !!int 24
+        - !!int 25
+        - !!int 26
+        - !!int 27
+        - !!int 28
+        - !!int 29
+        - !!int 30
+        - !!int 31
+        - !!int 32
+        - !!int 33
+        - !!int 34
+        - !!int 35
+        - !!int 49
+        - !!int 50
+        - !!int 51
+        - !!int 52
+        - !!int 53
+        - !!int 54
+        - !!int 55
+        - !!int 56
+        - !!int 57
+        - !!int 58
+        - !!int 59
+        - !!int 60
+        - !!int 61
+        - !!int 62
+        - !!int 63
+        - !!int 64
+        - !!int 65
+        - !!int 66
+        - !!int 67
+        - !!int 68
+        - !!int 69
+        - !!int 70
+        - !!int 71
+        - !!int 72
+        - !!int 73
+        - !!int 74
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          storage:
+            0x00: 0
+
+
+
+
+    # Berlin, for costs that do include a contract call (and tare therefore 
+    - indexes:
+        data: 
+        - !!int 36
+        - !!int 37
+        - !!int 38
+        - !!int 39
+        - !!int 40
+        - !!int 41
+        - !!int 42
+        - !!int 43
+        - !!int 44
+        - !!int 45
+        - !!int 46
+        - !!int 47
+        - !!int 48
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          storage:
+            0x00: 0x076c
+

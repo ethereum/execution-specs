@@ -1,0 +1,162 @@
+{
+    "definitions": {
+        "ExpectStateAccount": {
+            "additionalproperties": true,
+            "properties": {
+                "balance": {
+                    "$ref": "#/definitions/IntegerOrConfusedHex"
+                },
+                "code": {
+                    "$ref": "#/definitions/HexMaybePrefixOrEmpty"
+                },
+                "nonce": {
+                    "$ref": "#/definitions/IntegerOrConfusedHex"
+                },
+                "storage": {
+                    "additionalProperties": false,
+                    "patternProperties": {
+                        "^(0x)?[0-9a-f]+": {
+                            "$ref": "#/definitions/PrefixedHexOrInteger",
+                            "description": "storage key with 0x. data is HexData"
+                        }
+                    },
+                    "type": "object"
+                }
+            },
+            "type": "object"
+        },
+        "PreStateAccount": {
+            "additionalproperties": true,
+            "properties": {
+                "balance": {
+                    "$ref": "#/definitions/IntegerOrConfusedHex"
+                },
+                "code": {
+                    "$ref": "#/definitions/LLLCode"
+                },
+                "nonce": {
+                    "$ref": "#/definitions/IntegerOrConfusedHex"
+                },
+                "storage": {
+                    "additionalProperties": false,
+                    "patternProperties": {
+                        "^(0x)?[0-9a-f]+": {
+                            "$ref": "#/definitions/PrefixedHexOrInteger",
+                            "description": "storage key with 0x. data is HexData"
+                        }
+                    },
+                    "type": "object"
+                }
+            },
+            "required": [
+                "balance",
+                "code",
+                "nonce"
+            ],
+            "type": "object"
+        }
+    },
+    "patternProperties": {
+        "^.*$": {
+            "properties": {
+                "env": {
+                    "additionalproperties": false,
+                    "properties": {
+                        "currentCoinbase": {
+                            "$ref": "#/definitions/HexMaybePrefix"
+                        },
+                        "currentDifficulty": {
+                            "$ref": "#/definitions/IntegerOrConfusedHex"
+                        },
+                        "currentGasLimit": {
+                            "$ref": "#/definitions/IntegerOrConfusedHex"
+                        },
+                        "currentNumber": {
+                            "$ref": "#/definitions/IntegerOrConfusedHex"
+                        },
+                        "currentTimestamp": {
+                            "$ref": "#/definitions/IntegerOrNumberOrConfusedHex"
+                        }
+                    },
+                    "required": [
+                        "currentCoinbase",
+                        "currentDifficulty",
+                        "currentGasLimit",
+                        "currentNumber",
+                        "currentTimestamp"
+                    ],
+                    "type": "object"
+                },
+                "exec": {
+                    "additionalproperties": false,
+                    "properties": {
+                        "address": {
+                            "$ref": "#/definitions/AddressMaybePrefixOrEmpty"
+                        },
+                        "caller": {
+                            "$ref": "#/definitions/AddressMaybePrefixOrEmpty"
+                        },
+                        "code": {
+                            "$ref": "#/definitions/LLLCode"
+                        },
+                        "data": {
+                            "$ref": "#/definitions/HexDataOrEmpty"
+                        },
+                        "gas": {
+                            "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                        },
+                        "gasPrice": {
+                            "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                        },
+                        "origin": {
+                            "$ref": "#/definitions/AddressMaybePrefixOrEmpty"
+                        },
+                        "value": {
+                            "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                        }
+                    },
+                    "required": [
+                        "address",
+                        "caller",
+                        "data",
+                        "gas",
+                        "gasPrice",
+                        "origin",
+                        "value"
+                    ]
+                },
+                "expect": {
+                    "additionalProperties": false,
+                    "patternProperties": {
+                        "^[0-9a-f]*": {
+                            "$ref": "#/definitions/ExpectStateAccount",
+                            "description": "expectstate account address with 0x prefix"
+                        }
+                    },
+                    "type": "object"
+                },
+                "gas": {
+                    "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                },
+                "logs": {
+                    "$ref": "#/definitions/HexDataOrEmpty"
+                },
+                "out": {
+                    "$ref": "#/definitions/HexDataOrEmpty"
+                },
+                "pre": {
+                    "additionalProperties": false,
+                    "patternProperties": {
+                        "^(0x)?[0-9a-f]*": {
+                            "$ref": "#/definitions/PreStateAccount",
+                            "description": "prestate account address with 0x prefix"
+                        }
+                    },
+                    "type": "object"
+                }
+            },
+            "type": "object"
+        }
+    },
+    "type": "object"
+}

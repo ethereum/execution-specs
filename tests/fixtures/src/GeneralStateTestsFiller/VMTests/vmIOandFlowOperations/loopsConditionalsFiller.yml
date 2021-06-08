@@ -1,0 +1,305 @@
+# Check the LLL operations when, unless, if, while, until, and for
+#
+# Technically speaking we are checking here the LLL compiler rather than
+# the virtual machine, but considering a problem with the compiler will affect
+# almost all our tests, it's worth verifying.
+#
+# There were some tests in the old repository that didn't make sense so I
+# didn't transfer them:
+# stack_loop
+# stackjump1
+loopsConditionals: 
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    # when with a positive result
+    0000000000000000000000000000000000000100:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (when (> 1 0) [[0]] 0x600D)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # when with a negative result
+    0000000000000000000000000000000000000101:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (when (< 1 0) [[0]] 0x600D)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # unless with a negative result
+    0000000000000000000000000000000000000102:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (unless (> 1 0) [[0]] 0x600D)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # unless with a positive result
+    0000000000000000000000000000000000000103:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (unless (< 1 0) [[0]] 0x600D)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # if with a positive result
+    0000000000000000000000000000000000000104:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            [[0]] (if (> 1 0) 0x600D 0x60A7)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # if with a negative result
+    0000000000000000000000000000000000000105:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            [[0]] (if (< 1 0) 0x600D 0x60A7)
+        }
+      nonce: '0'
+      storage: {}
+
+    # while
+    0000000000000000000000000000000000000106:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            [[0]] 0x10
+            [[1]] 0x01
+
+            (while @@0 {
+               [[0]] (- @@0 1)
+               [[1]] (* @@1 2)               
+            })  ; while loop
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # until
+    0000000000000000000000000000000000000107:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            [[0]] 0x10
+            [[1]] 0x01
+
+            (until (= @@0 0) {
+               [[0]] (- @@0 1)
+               [[1]] (* @@1 2)               
+            })  ; until loop
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # for
+    0000000000000000000000000000000000000108:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (for 
+              { [[0]] 0x10  [[1]] 0x01 }         ; initialization
+              (> @@0 0)                          ; predicate
+              [[0]] (- @@0 1)                    ; post
+              [[1]] (* @@1 2)                    ; body
+            )   ; for loop
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # for_loop1 (from the original tests)
+    0000000000000000000000000000000000000109:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (def 'i 0x80) 
+            (def 'j 0xA0) 
+
+            (for [i] 10        ; init
+                 (> @i 0)      ; predicate
+                 [i] (- @i 1)  ; post
+                 [j] (+ @i @j) ; body
+            )    ; for loop
+
+            [[0]] @j
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    # for_loop2 (from the original tests)
+    000000000000000000000000000000000000010A:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+            (def 'i 0x80) 
+            (def 'j 0xA0) 
+
+            (for [i] 0         ; init
+                 (<= @i 10)    ; predicate
+                 [i] (+ @i 1)  ; post
+                 [j] (+ @i @j) ; body
+            )    ; for loop
+
+            [[0]] @j
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    # Using DELEGATECALL lets us group results together, because everything
+    # is written to the same storage.
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            (delegatecall (gas) (+ 0x100 $4) 0 0 0 0)
+        }
+      nonce: '0'
+      storage:
+        0x00: 0x0BAD
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x100000000000
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+
+
+
+  transaction:
+    data:
+    - :label whenTrue    :abi f(uint) 0
+    - :label whenFalse   :abi f(uint) 1
+    - :label unlessTrue  :abi f(uint) 3
+    - :label unlessFalse :abi f(uint) 2
+    - :label ifTrue      :abi f(uint) 4
+    - :label ifFalse     :abi f(uint) 5
+    - :label while       :abi f(uint) 6
+    - :label until       :abi f(uint) 7
+    - :label for         :abi f(uint) 8
+    - :label for_loop1   :abi f(uint) 9
+    - :label for_loop2   :abi f(uint) 10
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    - indexes:
+        data: 
+        - :label whenTrue
+        - :label unlessTrue
+        - :label ifTrue
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x600D
+
+
+    - indexes:
+        data: 
+        - :label whenFalse
+        - :label unlessFalse
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x0BAD
+
+
+
+    - indexes:
+        data: 
+        - :label ifFalse
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x60A7
+
+
+
+    - indexes:
+        data: 
+        - :label while
+        - :label until
+        - :label for
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x000000
+            0x01: 0x010000
+
+
+    - indexes:
+        data: 
+        - :label for_loop1
+        - :label for_loop2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x37   # 55, aka 1+2+3..+10
+

@@ -1,0 +1,172 @@
+
+# Check that a revert causes previous state changes (SSTOREs) to disappear.
+stateRevert:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    # This contract is called, changes state, and then the caller reverts.
+    000000000000000000000000000000000000DEAD:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            [[2]] 0x60A7
+        }
+      nonce: '0'
+      storage: {}
+    
+
+
+    # REVERT opcode
+    0000000000000000000000000000000000000100:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            [[1]] 0x0100
+            (delegatecall (- (gas) 30000) 0xDEAD 0 0 0 0)
+            (revert 0 0x10)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # Out of gas
+    0000000000000000000000000000000000000101:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            [[1]] 0x0101
+            (delegatecall (- (gas) 30000) 0xDEAD 0 0 0 0)
+            (while 1 (sha3 0 0x1000000))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # Extreme out of gas  (gas cost of an opcode > 2^64)
+    0000000000000000000000000000000000000102:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            [[1]] 0x0102
+            (delegatecall (- (gas) 30000) 0xDEAD 0 0 0 0)
+            (sha3 0 (- 0 1))
+        }
+      nonce: '0'
+      storage: {}
+
+    # The next invalid states are difficult/impossible to do in LLL
+    # so they use the assembled version of contract 0x0101, except change the 
+    # last part from (revert 0 0x10) to whatever is needed
+
+    # Invalid opcode
+    0000000000000000000000000000000000000103:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: :raw 0x610103600155600060006000600061dead6175305a03f450BA
+      nonce: '0'
+      storage: {}
+
+    # Jump to a non jumpdest (pc=0, which is a PUSH2)
+    0000000000000000000000000000000000000104:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: :raw 0x610104600155600060006000600061dead6175305a03f450600056
+      nonce: '0'
+      storage: {}
+
+
+    # Stack underflow
+    0000000000000000000000000000000000000105:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: :raw 0x610105600155600060006000600061dead6175305a03f450010101
+      nonce: '0'
+      storage: {}
+
+
+    # Stack overflow
+    0000000000000000000000000000000000000106:
+      # The code that does the overflow:
+      # n    5B    JUMPDEST
+      # n+1  58    PC
+      # n+2  6004  PUSH1 4
+      # n+4  58    PC
+      # n+5  03    SUB
+      # n+6  56    JUMP
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: :raw 0x610106600155600060006000600061dead6175305a03f4505b586004580356
+      nonce: '0'
+      storage: {}
+
+
+
+    CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            [[0]] 0x60A7
+            (delegatecall (gas) (+ 0x100 $4) 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x100000000000
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+
+
+
+  transaction:
+    data:
+    - :label revert     :abi f(uint) 0
+    - :label outOfGas   :abi f(uint) 1
+    - :label xtremeOOG  :abi f(uint) 2
+    - :label badOpcode  :abi f(uint) 3
+    - :label jumpBadly  :abi f(uint) 4
+    - :label stackUnder :abi f(uint) 5
+    - :label stackOver  :abi f(uint) 6
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    - indexes:
+        data: 
+        - :label revert
+        - :label outOfGas
+        - :label xtremeOOG
+        - :label badOpcode
+        - :label jumpBadly
+        - :label stackUnder
+        - :label stackOver
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+          storage:
+            0: 0x60A7  # CCCCCCC changes state
+            1:   0x00  # The contract that reverted does not
+            2:   0x00  # Neither does a contract called by the reverter
+

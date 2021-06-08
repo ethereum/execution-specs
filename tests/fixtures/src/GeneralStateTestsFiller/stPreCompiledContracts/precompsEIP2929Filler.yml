@@ -1,0 +1,836 @@
+# Check which low address contracts (precompiles) are part of the EIP2929
+# access lists. This was the Berlin fork OpenEthereum bug, that they thought
+# 0x00.000a was in the access list and the other clients disagreed (see
+# https://twitter.com/ralexstokes/status/1382750525070868484 and
+# https://twitter.com/ralexstokes/status/1382750938142629889)
+#
+# According to EIP2929 (https://eips.ethereum.org/EIPS/eip-2929#abstract) precompiles
+# are exempt from the opcode cost increases for the first (cold) access, they are
+# always hot.
+#
+# NOTE: This does not apply to sending contracts wei (see below in the definition
+#       of 0xCC..CCC)
+
+
+precompsEIP2929:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: '0xFF112233445566'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  pre:  
+
+    # Check if the cost of doing various things to an account is the same
+    # cost the first time as the second
+    #
+    # If the account is a precompile it should be, because it should already
+    # be on the EIP2929 access list.
+    #
+    # NOTE: This does not apply to sending contracts wei. If there is no trie for
+    #       a precompile it will have to be created and that costs gas. However,
+    #       in the real world (a.k.a. mainnet) all the accounts up to 0x00...00020
+    #       already have a balance (and therefore a trie) and this issue won't
+    #       happen with them.
+    #
+    # calldataload(0x04) - account number to check
+    # calldataload(0x24) - action:
+    #    0xf100 - CALL
+    #    0xf101 - CALL and send one wei
+    #    0xf102 - CALL and send one byte of input
+    #    0xf103 - CALL with one wei and one byte
+    #    0xf104 - CALL and receive one byte of output
+    #    0xf105 - CALL with one wei and receive one byte
+    #    0xf200 - CALL
+    #    0xf201 - CALL and send one wei
+    #    0xf202 - CALL and send one byte of input
+    #    0xf203 - CALL with one wei and one byte
+    #    0xf204 - CALL and receive one byte of output
+    #    0xf205 - CALL with one wei and receive one byte
+    #    0xf400 - CALL
+    #    0xf401 - CALL and send one wei
+    #    0xf402 - CALL and send one byte of input
+    #    0xf403 - CALL with one wei and one byte
+    #    0xf404 - CALL and receive one byte of output
+    #    0xf405 - CALL with one wei and receive one byte
+    #    0xfa00 - CALL
+    #    0xfa01 - CALL and send one wei
+    #    0xfa02 - CALL and send one byte of input
+    #    0xfa03 - CALL with one wei and one byte
+    #    0xfa04 - CALL and receive one byte of output
+    #    0xfa05 - CALL with one wei and receive one byte
+    #      0x31 - read the balance
+    #      0x3B - get code size
+    #      0x3C - copy code
+    #      0x3F - get the code hash
+    cccccccccccccccccccccccccccccccccccccccc:
+      code: |
+        :yul {
+          let addrTest   := calldataload(0x04)
+          let action     := calldataload(0x24)
+          let gas0, gas1, gas2
+
+          // Touch the first word of memory here, so it
+          // won't confuse the gas measurement
+          mstore(0x100, 0xDEADBEEF)
+
+          // Access 0x101157 (so it becomes hot and send it wei)
+          pop(call(0x100000, 0x101157, 1, 0, 0, 0, 0))
+
+          // Switch before measuring, so it won't affect
+          // the gas costs
+          switch action
+          case 0xf100 {
+              gas0 := gas()
+              pop(call(0x100000, addrTest, 0, 0, 0, 0, 0))
+              gas1 := gas()
+              pop(call(0x100000, addrTest, 0, 0, 0, 0, 0))
+              gas2 := gas()
+          }
+          case 0xf101 {
+              gas0 := gas()
+              pop(call(0x100000, addrTest, 1, 0, 0, 0, 0))
+              gas1 := gas()
+              pop(call(0x100000, addrTest, 1, 0, 0, 0, 0))
+              gas2 := gas()
+          }
+          case 0xf102 {
+              gas0 := gas()
+              pop(call(0x100000, addrTest, 0, 0, 1, 0, 0))
+              gas1 := gas()
+              pop(call(0x100000, addrTest, 0, 0, 1, 0, 0))
+              gas2 := gas()
+          }
+          case 0xf103 {
+              gas0 := gas()
+              pop(call(0x100000, addrTest, 1, 0, 1, 0, 0))
+              gas1 := gas()
+              pop(call(0x100000, addrTest, 1, 0, 1, 0, 0))
+              gas2 := gas()
+          }
+          case 0xf104 {
+              gas0 := gas()
+              pop(call(0x100000, addrTest, 0, 0, 0, 0, 1))
+              gas1 := gas()
+              pop(call(0x100000, addrTest, 0, 0, 0, 0, 1))
+              gas2 := gas()
+          }
+          case 0xf105 {
+              gas0 := gas()
+              pop(call(0x100000, addrTest, 1, 0, 0, 0, 1))
+              gas1 := gas()
+              pop(call(0x100000, addrTest, 1, 0, 0, 0, 1))
+              gas2 := gas()
+          }
+          case 0xf200 {
+              gas0 := gas()
+              pop(callcode(0x100000, addrTest, 0, 0, 0, 0, 0))
+              gas1 := gas()
+              pop(callcode(0x100000, addrTest, 0, 0, 0, 0, 0))
+              gas2 := gas()
+          }
+          case 0xf201 {
+              gas0 := gas()
+              pop(callcode(0x100000, addrTest, 1, 0, 0, 0, 0))
+              gas1 := gas()
+              pop(callcode(0x100000, addrTest, 1, 0, 0, 0, 0))
+              gas2 := gas()
+          }
+          case 0xf202 {
+              gas0 := gas()
+              pop(callcode(0x100000, addrTest, 0, 0, 1, 0, 0))
+              gas1 := gas()
+              pop(callcode(0x100000, addrTest, 0, 0, 1, 0, 0))
+              gas2 := gas()
+          }
+          case 0xf203 {
+              gas0 := gas()
+              pop(callcode(0x100000, addrTest, 1, 0, 1, 0, 0))
+              gas1 := gas()
+              pop(callcode(0x100000, addrTest, 1, 0, 1, 0, 0))
+              gas2 := gas()
+          }
+          case 0xf204 {
+              gas0 := gas()
+              pop(callcode(0x100000, addrTest, 0, 0, 0, 0, 1))
+              gas1 := gas()
+              pop(callcode(0x100000, addrTest, 0, 0, 0, 0, 1))
+              gas2 := gas()
+          }
+          case 0xf205 {
+              gas0 := gas()
+              pop(callcode(0x100000, addrTest, 1, 0, 0, 0, 1))
+              gas1 := gas()
+              pop(callcode(0x100000, addrTest, 1, 0, 0, 0, 1))
+              gas2 := gas()
+          }
+          case 0xf400 {
+              gas0 := gas()
+              pop(delegatecall(0x100000, addrTest, 0, 0, 0, 0))
+              gas1 := gas()
+              pop(delegatecall(0x100000, addrTest, 0, 0, 0, 0))
+              gas2 := gas()
+          }
+          case 0xf402 {
+              gas0 := gas()
+              pop(delegatecall(0x100000, addrTest, 0, 1, 0, 0))
+              gas1 := gas()
+              pop(delegatecall(0x100000, addrTest, 0, 1, 0, 0))
+              gas2 := gas()
+          }
+          case 0xf404 {
+              gas0 := gas()
+              pop(delegatecall(0x100000, addrTest, 0, 0, 0, 1))
+              gas1 := gas()
+              pop(delegatecall(0x100000, addrTest, 0, 0, 0, 1))
+              gas2 := gas()
+          }
+          case 0xfa00 {
+              gas0 := gas()
+              pop(staticcall(0x100000, addrTest, 0, 0, 0, 0))
+              gas1 := gas()
+              pop(staticcall(0x100000, addrTest, 0, 0, 0, 0))
+              gas2 := gas()
+          }
+          case 0xfa02 {
+              gas0 := gas()
+              pop(staticcall(0x100000, addrTest, 0, 1, 0, 0))
+              gas1 := gas()
+              pop(staticcall(0x100000, addrTest, 0, 1, 0, 0))
+              gas2 := gas()
+          }
+          case 0xfa04 {
+              gas0 := gas()
+              pop(staticcall(0x100000, addrTest, 0, 0, 0, 1))
+              gas1 := gas()
+              pop(staticcall(0x100000, addrTest, 0, 0, 0, 1))
+              gas2 := gas()
+          }
+
+
+          case 0x31 {
+              gas0 := gas()
+              pop(balance(addrTest))
+              gas1 := gas()
+              pop(balance(addrTest))
+              gas2 := gas()
+          }
+          case 0x3B {
+              gas0 := gas()
+              pop(extcodesize(addrTest))
+              gas1 := gas()
+              pop(extcodesize(addrTest))
+              gas2 := gas()
+          }
+          case 0x3C {
+              gas0 := gas()
+              extcodecopy(addrTest,0,0,0x100)
+              gas1 := gas()
+              extcodecopy(addrTest,0,0,0x100)
+              gas2 := gas()
+          }
+          case 0x3F {
+              gas0 := gas()
+              pop(extcodehash(addrTest))
+              gas1 := gas()
+              pop(extcodehash(addrTest))
+              gas2 := gas()
+          }
+
+          let gasTest1 := sub(gas0, gas1)
+          let gasTest2 := sub(gas1, gas2)
+          
+          sstore(0, eq(gasTest1, gasTest2))
+          sstore(1, sub(gasTest1, gasTest2))
+        }  
+      nonce: 1
+      storage:
+        0: 0x60A7
+        1: 0x60A7
+      balance: 0
+
+
+    # Just a normal contract for comparison
+    000000000000000000000000000000000010c0de:
+      code: |
+        :yul {
+           mstore(0,add(1,2))
+        }  
+      nonce: 1
+      storage: {}
+      balance: 0
+
+
+    # And a contract that has been previously accessed
+    0000000000000000000000000000000000101157:
+      code: |
+        :yul {
+           mstore(0,add(1,2))
+        }  
+      nonce: 1
+      storage: {}
+      balance: 0
+
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: 0x
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # The first parameter is the address to call
+    # The second parameter is the action
+
+    # Precompiles
+    - :label yes :abi f(uint,uint) 0x01 0xf100
+    - :label yes :abi f(uint,uint) 0x02 0xf100
+    - :label yes :abi f(uint,uint) 0x03 0xf100
+    - :label yes :abi f(uint,uint) 0x04 0xf100
+    - :label yes :abi f(uint,uint) 0x05 0xf100
+    - :label yes :abi f(uint,uint) 0x06 0xf100
+    - :label yes :abi f(uint,uint) 0x07 0xf100
+    - :label yes :abi f(uint,uint) 0x08 0xf100
+    - :label yes :abi f(uint,uint) 0x09 0xf100
+
+    # Not precompiles (so far)
+    - :label no  :abi f(uint,uint) 0x0a 0xf100
+    - :label no  :abi f(uint,uint) 0x0c 0xf100
+    - :label no  :abi f(uint,uint) 0x0b 0xf100
+    - :label no  :abi f(uint,uint) 0x0d 0xf100
+    - :label no  :abi f(uint,uint) 0x0e 0xf100
+    - :label no  :abi f(uint,uint) 0x0f 0xf100
+
+    # Empty account (nothing there)
+    - :label no  :abi f(uint,uint) 0x100000 0xf100
+
+    # Normal contract account
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf100
+
+    # Account that has already been touched
+    - :label yes :abi f(uint,uint) 0x101157 0xf100
+
+    # When we do send wei there is an extra cost for the first access because it
+    # needs to create the trie for the account. This is not an issue in the real
+    # world because on mainnet these tries already exist (each of these accounts
+    # has at least one wei, but to 0x0...020
+    - :label new :abi f(uint,uint) 0x01 0xf101
+    - :label new :abi f(uint,uint) 0x02 0xf101
+    - :label new :abi f(uint,uint) 0x03 0xf101
+    - :label new :abi f(uint,uint) 0x04 0xf101
+    - :label new :abi f(uint,uint) 0x05 0xf101
+    - :label new :abi f(uint,uint) 0x06 0xf101
+    - :label new :abi f(uint,uint) 0x07 0xf101
+    - :label new :abi f(uint,uint) 0x08 0xf101
+    # When the transaction is rejected, no cost for the trie
+    - :label yes :abi f(uint,uint) 0x09 0xf101
+    - :label all :abi f(uint,uint) 0x0a 0xf101
+    - :label all :abi f(uint,uint) 0x0b 0xf101
+    - :label all :abi f(uint,uint) 0x0c 0xf101
+    - :label all :abi f(uint,uint) 0x0d 0xf101
+    - :label all :abi f(uint,uint) 0x0e 0xf101
+    - :label all :abi f(uint,uint) 0x0f 0xf101
+    - :label all :abi f(uint,uint) 0x100000 0xf101
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf101
+    - :label yes :abi f(uint,uint) 0x101157 0xf101
+
+    # If we send data, it behaves normally (except for #8)
+    - :label yes :abi f(uint,uint) 0x01 0xf102
+    - :label yes :abi f(uint,uint) 0x02 0xf102
+    - :label yes :abi f(uint,uint) 0x03 0xf102
+    - :label yes :abi f(uint,uint) 0x04 0xf102
+    - :label yes :abi f(uint,uint) 0x05 0xf102
+    - :label yes :abi f(uint,uint) 0x06 0xf102
+    - :label yes :abi f(uint,uint) 0x07 0xf102
+    - :label yes :abi f(uint,uint) 0x08 0xf102
+    - :label yes :abi f(uint,uint) 0x09 0xf102
+    - :label no  :abi f(uint,uint) 0x0a 0xf102
+    - :label no  :abi f(uint,uint) 0x0b 0xf102
+    - :label no  :abi f(uint,uint) 0x0c 0xf102
+    - :label no  :abi f(uint,uint) 0x0d 0xf102
+    - :label no  :abi f(uint,uint) 0x0e 0xf102
+    - :label no  :abi f(uint,uint) 0x0f 0xf102
+    - :label no  :abi f(uint,uint) 0x100000 0xf102
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf102
+    - :label yes :abi f(uint,uint) 0x101157 0xf102
+
+    # If we send wei and data
+    - :label new :abi f(uint,uint) 0x01 0xf103
+    - :label new :abi f(uint,uint) 0x02 0xf103
+    - :label new :abi f(uint,uint) 0x03 0xf103
+    - :label new :abi f(uint,uint) 0x04 0xf103
+    - :label new :abi f(uint,uint) 0x05 0xf103
+    - :label new :abi f(uint,uint) 0x06 0xf103
+    - :label new :abi f(uint,uint) 0x07 0xf103
+    - :label yes :abi f(uint,uint) 0x08 0xf103
+    - :label yes :abi f(uint,uint) 0x09 0xf103
+    - :label all :abi f(uint,uint) 0x0a 0xf103
+    - :label all :abi f(uint,uint) 0x0b 0xf103
+    - :label all :abi f(uint,uint) 0x0c 0xf103
+    - :label all :abi f(uint,uint) 0x0d 0xf103
+    - :label all :abi f(uint,uint) 0x0e 0xf103
+    - :label all :abi f(uint,uint) 0x0f 0xf103
+    - :label all :abi f(uint,uint) 0x100000 0xf103
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf103
+    - :label yes :abi f(uint,uint) 0x101157 0xf103
+
+
+    # If we receive data, it behaves normally
+    - :label yes :abi f(uint,uint) 0x01 0xf104
+    - :label yes :abi f(uint,uint) 0x02 0xf104
+    - :label yes :abi f(uint,uint) 0x03 0xf104
+    - :label yes :abi f(uint,uint) 0x04 0xf104
+    - :label yes :abi f(uint,uint) 0x05 0xf104
+    - :label yes :abi f(uint,uint) 0x06 0xf104
+    - :label yes :abi f(uint,uint) 0x07 0xf104
+    - :label yes :abi f(uint,uint) 0x08 0xf104
+    - :label yes :abi f(uint,uint) 0x09 0xf104
+    - :label no  :abi f(uint,uint) 0x0a 0xf104
+    - :label no  :abi f(uint,uint) 0x0b 0xf104
+    - :label no  :abi f(uint,uint) 0x0c 0xf104
+    - :label no  :abi f(uint,uint) 0x0d 0xf104
+    - :label no  :abi f(uint,uint) 0x0e 0xf104
+    - :label no  :abi f(uint,uint) 0x0f 0xf104
+    - :label no  :abi f(uint,uint) 0x100000 0xf104
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf104
+    - :label yes :abi f(uint,uint) 0x101157 0xf104
+
+    # If we send wei and receive data
+    - :label new :abi f(uint,uint) 0x01 0xf105
+    - :label new :abi f(uint,uint) 0x02 0xf105
+    - :label new :abi f(uint,uint) 0x03 0xf105
+    - :label new :abi f(uint,uint) 0x04 0xf105
+    - :label new :abi f(uint,uint) 0x05 0xf105
+    - :label new :abi f(uint,uint) 0x06 0xf105
+    - :label new :abi f(uint,uint) 0x07 0xf105
+    - :label new :abi f(uint,uint) 0x08 0xf105
+    - :label yes :abi f(uint,uint) 0x09 0xf105
+    - :label all :abi f(uint,uint) 0x0a 0xf105
+    - :label all :abi f(uint,uint) 0x0b 0xf105
+    - :label all :abi f(uint,uint) 0x0c 0xf105
+    - :label all :abi f(uint,uint) 0x0d 0xf105
+    - :label all :abi f(uint,uint) 0x0e 0xf105
+    - :label all :abi f(uint,uint) 0x0f 0xf105
+    - :label all :abi f(uint,uint) 0x100000 0xf105
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf105
+    - :label yes :abi f(uint,uint) 0x101157 0xf105
+
+    # CALLCODE
+    - :label yes :abi f(uint,uint) 0x01 0xf200
+    - :label yes :abi f(uint,uint) 0x02 0xf200
+    - :label yes :abi f(uint,uint) 0x03 0xf200
+    - :label yes :abi f(uint,uint) 0x04 0xf200
+    - :label yes :abi f(uint,uint) 0x05 0xf200
+    - :label yes :abi f(uint,uint) 0x06 0xf200
+    - :label yes :abi f(uint,uint) 0x07 0xf200
+    - :label yes :abi f(uint,uint) 0x08 0xf200
+    - :label yes :abi f(uint,uint) 0x09 0xf200
+    - :label no  :abi f(uint,uint) 0x0a 0xf200
+    - :label no  :abi f(uint,uint) 0x0b 0xf200
+    - :label no  :abi f(uint,uint) 0x0c 0xf200
+    - :label no  :abi f(uint,uint) 0x0d 0xf200
+    - :label no  :abi f(uint,uint) 0x0e 0xf200
+    - :label no  :abi f(uint,uint) 0x0f 0xf200
+    - :label no  :abi f(uint,uint) 0x100000 0xf200
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf200
+    - :label yes :abi f(uint,uint) 0x101157 0xf200
+
+    # With DELEGATECALL the second call doesn't cost more
+    - :label yes :abi f(uint,uint) 0x01 0xf201
+    - :label yes :abi f(uint,uint) 0x02 0xf201
+    - :label yes :abi f(uint,uint) 0x03 0xf201
+    - :label yes :abi f(uint,uint) 0x04 0xf201
+    - :label yes :abi f(uint,uint) 0x05 0xf201
+    - :label yes :abi f(uint,uint) 0x06 0xf201
+    - :label yes :abi f(uint,uint) 0x07 0xf201
+    - :label yes :abi f(uint,uint) 0x08 0xf201
+    - :label yes :abi f(uint,uint) 0x09 0xf201
+    - :label no  :abi f(uint,uint) 0x0a 0xf201
+    - :label no  :abi f(uint,uint) 0x0b 0xf201
+    - :label no  :abi f(uint,uint) 0x0c 0xf201
+    - :label no  :abi f(uint,uint) 0x0d 0xf201
+    - :label no  :abi f(uint,uint) 0x0e 0xf201
+    - :label no  :abi f(uint,uint) 0x0f 0xf201
+    - :label no  :abi f(uint,uint) 0x100000 0xf201
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf201
+    - :label yes :abi f(uint,uint) 0x101157 0xf201
+
+    # If we send data, it behaves normally
+    - :label yes :abi f(uint,uint) 0x01 0xf202
+    - :label yes :abi f(uint,uint) 0x02 0xf202
+    - :label yes :abi f(uint,uint) 0x03 0xf202
+    - :label yes :abi f(uint,uint) 0x04 0xf202
+    - :label yes :abi f(uint,uint) 0x05 0xf202
+    - :label yes :abi f(uint,uint) 0x06 0xf202
+    - :label yes :abi f(uint,uint) 0x07 0xf202
+    - :label yes :abi f(uint,uint) 0x08 0xf202
+    - :label yes :abi f(uint,uint) 0x09 0xf202
+    - :label no  :abi f(uint,uint) 0x0a 0xf202
+    - :label no  :abi f(uint,uint) 0x0b 0xf202
+    - :label no  :abi f(uint,uint) 0x0c 0xf202
+    - :label no  :abi f(uint,uint) 0x0d 0xf202
+    - :label no  :abi f(uint,uint) 0x0e 0xf202
+    - :label no  :abi f(uint,uint) 0x0f 0xf202
+    - :label no  :abi f(uint,uint) 0x100000 0xf202
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf202
+    - :label yes :abi f(uint,uint) 0x101157 0xf202
+
+    # If we send wei and data
+    - :label yes :abi f(uint,uint) 0x01 0xf203
+    - :label yes :abi f(uint,uint) 0x02 0xf203
+    - :label yes :abi f(uint,uint) 0x03 0xf203
+    - :label yes :abi f(uint,uint) 0x04 0xf203
+    - :label yes :abi f(uint,uint) 0x05 0xf203
+    - :label yes :abi f(uint,uint) 0x06 0xf203
+    - :label yes :abi f(uint,uint) 0x07 0xf203
+    - :label yes :abi f(uint,uint) 0x08 0xf203
+    - :label yes :abi f(uint,uint) 0x09 0xf203
+    - :label no  :abi f(uint,uint) 0x0a 0xf203
+    - :label no  :abi f(uint,uint) 0x0b 0xf203
+    - :label no  :abi f(uint,uint) 0x0c 0xf203
+    - :label no  :abi f(uint,uint) 0x0d 0xf203
+    - :label no  :abi f(uint,uint) 0x0e 0xf203
+    - :label no  :abi f(uint,uint) 0x0f 0xf203
+    - :label no  :abi f(uint,uint) 0x100000 0xf203
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf203
+    - :label yes :abi f(uint,uint) 0x101157 0xf203
+
+
+    # If we receive data, it behaves normally
+    - :label yes :abi f(uint,uint) 0x01 0xf204
+    - :label yes :abi f(uint,uint) 0x02 0xf204
+    - :label yes :abi f(uint,uint) 0x03 0xf204
+    - :label yes :abi f(uint,uint) 0x04 0xf204
+    - :label yes :abi f(uint,uint) 0x05 0xf204
+    - :label yes :abi f(uint,uint) 0x06 0xf204
+    - :label yes :abi f(uint,uint) 0x07 0xf204
+    - :label yes :abi f(uint,uint) 0x08 0xf204
+    - :label yes :abi f(uint,uint) 0x09 0xf204
+    - :label no  :abi f(uint,uint) 0x0a 0xf204
+    - :label no  :abi f(uint,uint) 0x0b 0xf204
+    - :label no  :abi f(uint,uint) 0x0c 0xf204
+    - :label no  :abi f(uint,uint) 0x0d 0xf204
+    - :label no  :abi f(uint,uint) 0x0e 0xf204
+    - :label no  :abi f(uint,uint) 0x0f 0xf204
+    - :label no  :abi f(uint,uint) 0x100000 0xf204
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf204
+    - :label yes :abi f(uint,uint) 0x101157 0xf204
+
+    # If we send wei and receive data
+    - :label yes :abi f(uint,uint) 0x01 0xf205
+    - :label yes :abi f(uint,uint) 0x02 0xf205
+    - :label yes :abi f(uint,uint) 0x03 0xf205
+    - :label yes :abi f(uint,uint) 0x04 0xf205
+    - :label yes :abi f(uint,uint) 0x05 0xf205
+    - :label yes :abi f(uint,uint) 0x06 0xf205
+    - :label yes :abi f(uint,uint) 0x07 0xf205
+    - :label yes :abi f(uint,uint) 0x08 0xf205
+    - :label yes :abi f(uint,uint) 0x09 0xf205
+    - :label no  :abi f(uint,uint) 0x0a 0xf205
+    - :label no  :abi f(uint,uint) 0x0b 0xf205
+    - :label no  :abi f(uint,uint) 0x0c 0xf205
+    - :label no  :abi f(uint,uint) 0x0d 0xf205
+    - :label no  :abi f(uint,uint) 0x0e 0xf205
+    - :label no  :abi f(uint,uint) 0x0f 0xf205
+    - :label no  :abi f(uint,uint) 0x100000 0xf205
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf205
+    - :label yes :abi f(uint,uint) 0x101157 0xf205
+
+    # DELEGATECALL
+    - :label yes :abi f(uint,uint) 0x01 0xf400
+    - :label yes :abi f(uint,uint) 0x02 0xf400
+    - :label yes :abi f(uint,uint) 0x03 0xf400
+    - :label yes :abi f(uint,uint) 0x04 0xf400
+    - :label yes :abi f(uint,uint) 0x05 0xf400
+    - :label yes :abi f(uint,uint) 0x06 0xf400
+    - :label yes :abi f(uint,uint) 0x07 0xf400
+    - :label yes :abi f(uint,uint) 0x08 0xf400
+    - :label yes :abi f(uint,uint) 0x09 0xf400
+    - :label no  :abi f(uint,uint) 0x0a 0xf400
+    - :label no  :abi f(uint,uint) 0x0b 0xf400
+    - :label no  :abi f(uint,uint) 0x0c 0xf400
+    - :label no  :abi f(uint,uint) 0x0d 0xf400
+    - :label no  :abi f(uint,uint) 0x0e 0xf400
+    - :label no  :abi f(uint,uint) 0x0f 0xf400
+    - :label no  :abi f(uint,uint) 0x100000 0xf400
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf400
+    - :label yes :abi f(uint,uint) 0x101157 0xf400
+
+    # If we send data, it behaves normally
+    - :label yes :abi f(uint,uint) 0x01 0xf402
+    - :label yes :abi f(uint,uint) 0x02 0xf402
+    - :label yes :abi f(uint,uint) 0x03 0xf402
+    - :label yes :abi f(uint,uint) 0x04 0xf402
+    - :label yes :abi f(uint,uint) 0x05 0xf402
+    - :label yes :abi f(uint,uint) 0x06 0xf402
+    - :label yes :abi f(uint,uint) 0x07 0xf402
+    - :label yes :abi f(uint,uint) 0x08 0xf402
+    - :label yes :abi f(uint,uint) 0x09 0xf402
+    - :label no  :abi f(uint,uint) 0x0a 0xf402
+    - :label no  :abi f(uint,uint) 0x0b 0xf402
+    - :label no  :abi f(uint,uint) 0x0c 0xf402
+    - :label no  :abi f(uint,uint) 0x0d 0xf402
+    - :label no  :abi f(uint,uint) 0x0e 0xf402
+    - :label no  :abi f(uint,uint) 0x0f 0xf402
+    - :label no  :abi f(uint,uint) 0x100000 0xf402
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf402
+    - :label yes :abi f(uint,uint) 0x101157 0xf402
+
+
+    # If we receive data, it behaves normally
+    - :label yes :abi f(uint,uint) 0x01 0xf404
+    - :label yes :abi f(uint,uint) 0x02 0xf404
+    - :label yes :abi f(uint,uint) 0x03 0xf404
+    - :label yes :abi f(uint,uint) 0x04 0xf404
+    - :label yes :abi f(uint,uint) 0x05 0xf404
+    - :label yes :abi f(uint,uint) 0x06 0xf404
+    - :label yes :abi f(uint,uint) 0x07 0xf404
+    - :label yes :abi f(uint,uint) 0x08 0xf404
+    - :label yes :abi f(uint,uint) 0x09 0xf404
+    - :label no  :abi f(uint,uint) 0x0a 0xf404
+    - :label no  :abi f(uint,uint) 0x0b 0xf404
+    - :label no  :abi f(uint,uint) 0x0c 0xf404
+    - :label no  :abi f(uint,uint) 0x0d 0xf404
+    - :label no  :abi f(uint,uint) 0x0e 0xf404
+    - :label no  :abi f(uint,uint) 0x0f 0xf404
+    - :label no  :abi f(uint,uint) 0x100000 0xf404
+    - :label no  :abi f(uint,uint) 0x10c0de 0xf404
+    - :label yes :abi f(uint,uint) 0x101157 0xf404
+
+    # STATICCALL
+    - :label yes :abi f(uint,uint) 0x01 0xfa00
+    - :label yes :abi f(uint,uint) 0x02 0xfa00
+    - :label yes :abi f(uint,uint) 0x03 0xfa00
+    - :label yes :abi f(uint,uint) 0x04 0xfa00
+    - :label yes :abi f(uint,uint) 0x05 0xfa00
+    - :label yes :abi f(uint,uint) 0x06 0xfa00
+    - :label yes :abi f(uint,uint) 0x07 0xfa00
+    - :label yes :abi f(uint,uint) 0x08 0xfa00
+    - :label yes :abi f(uint,uint) 0x09 0xfa00
+    - :label no  :abi f(uint,uint) 0x0a 0xfa00
+    - :label no  :abi f(uint,uint) 0x0b 0xfa00
+    - :label no  :abi f(uint,uint) 0x0c 0xfa00
+    - :label no  :abi f(uint,uint) 0x0d 0xfa00
+    - :label no  :abi f(uint,uint) 0x0e 0xfa00
+    - :label no  :abi f(uint,uint) 0x0f 0xfa00
+    - :label no  :abi f(uint,uint) 0x100000 0xfa00
+    - :label no  :abi f(uint,uint) 0x10c0de 0xfa00
+    - :label yes :abi f(uint,uint) 0x101157 0xfa00
+
+    # If we send data, it behaves normally
+    - :label yes :abi f(uint,uint) 0x01 0xfa02
+    - :label yes :abi f(uint,uint) 0x02 0xfa02
+    - :label yes :abi f(uint,uint) 0x03 0xfa02
+    - :label yes :abi f(uint,uint) 0x04 0xfa02
+    - :label yes :abi f(uint,uint) 0x05 0xfa02
+    - :label yes :abi f(uint,uint) 0x06 0xfa02
+    - :label yes :abi f(uint,uint) 0x07 0xfa02
+    - :label yes :abi f(uint,uint) 0x08 0xfa02
+    - :label yes :abi f(uint,uint) 0x09 0xfa02
+    - :label no  :abi f(uint,uint) 0x0a 0xfa02
+    - :label no  :abi f(uint,uint) 0x0b 0xfa02
+    - :label no  :abi f(uint,uint) 0x0c 0xfa02
+    - :label no  :abi f(uint,uint) 0x0d 0xfa02
+    - :label no  :abi f(uint,uint) 0x0e 0xfa02
+    - :label no  :abi f(uint,uint) 0x0f 0xfa02
+    - :label no  :abi f(uint,uint) 0x100000 0xfa02
+    - :label no  :abi f(uint,uint) 0x10c0de 0xfa02
+    - :label yes :abi f(uint,uint) 0x101157 0xfa02
+
+
+    # If we receive data, it behaves normally
+    - :label yes :abi f(uint,uint) 0x01 0xfa04
+    - :label yes :abi f(uint,uint) 0x02 0xfa04
+    - :label yes :abi f(uint,uint) 0x03 0xfa04
+    - :label yes :abi f(uint,uint) 0x04 0xfa04
+    - :label yes :abi f(uint,uint) 0x05 0xfa04
+    - :label yes :abi f(uint,uint) 0x06 0xfa04
+    - :label yes :abi f(uint,uint) 0x07 0xfa04
+    - :label yes :abi f(uint,uint) 0x08 0xfa04
+    - :label yes :abi f(uint,uint) 0x09 0xfa04
+    - :label no  :abi f(uint,uint) 0x0a 0xfa04
+    - :label no  :abi f(uint,uint) 0x0b 0xfa04
+    - :label no  :abi f(uint,uint) 0x0c 0xfa04
+    - :label no  :abi f(uint,uint) 0x0d 0xfa04
+    - :label no  :abi f(uint,uint) 0x0e 0xfa04
+    - :label no  :abi f(uint,uint) 0x0f 0xfa04
+    - :label no  :abi f(uint,uint) 0x100000 0xfa04
+    - :label no  :abi f(uint,uint) 0x10c0de 0xfa04
+    - :label yes :abi f(uint,uint) 0x101157 0xfa04
+
+
+
+    # Get the account balance
+    - :label yes :abi f(uint,uint) 0x01 0x31
+    - :label yes :abi f(uint,uint) 0x02 0x31
+    - :label yes :abi f(uint,uint) 0x03 0x31
+    - :label yes :abi f(uint,uint) 0x04 0x31
+    - :label yes :abi f(uint,uint) 0x05 0x31
+    - :label yes :abi f(uint,uint) 0x06 0x31
+    - :label yes :abi f(uint,uint) 0x07 0x31
+    - :label yes :abi f(uint,uint) 0x08 0x31
+    - :label yes :abi f(uint,uint) 0x09 0x31
+    - :label no  :abi f(uint,uint) 0x0a 0x31
+    - :label no  :abi f(uint,uint) 0x0b 0x31
+    - :label no  :abi f(uint,uint) 0x0c 0x31
+    - :label no  :abi f(uint,uint) 0x0d 0x31
+    - :label no  :abi f(uint,uint) 0x0e 0x31
+    - :label no  :abi f(uint,uint) 0x0f 0x31
+    - :label no  :abi f(uint,uint) 0x100000 0x31
+    - :label no  :abi f(uint,uint) 0x10c0de 0x31
+    - :label yes :abi f(uint,uint) 0x101157 0x31
+
+    # Get the account codehash
+    - :label yes :abi f(uint,uint) 0x01 0x3f
+    - :label yes :abi f(uint,uint) 0x02 0x3f
+    - :label yes :abi f(uint,uint) 0x03 0x3f
+    - :label yes :abi f(uint,uint) 0x04 0x3f
+    - :label yes :abi f(uint,uint) 0x05 0x3f
+    - :label yes :abi f(uint,uint) 0x06 0x3f
+    - :label yes :abi f(uint,uint) 0x07 0x3f
+    - :label yes :abi f(uint,uint) 0x08 0x3f
+    - :label yes :abi f(uint,uint) 0x09 0x3f
+    - :label no  :abi f(uint,uint) 0x0a 0x3f
+    - :label no  :abi f(uint,uint) 0x0b 0x3f
+    - :label no  :abi f(uint,uint) 0x0c 0x3f
+    - :label no  :abi f(uint,uint) 0x0d 0x3f
+    - :label no  :abi f(uint,uint) 0x0e 0x3f
+    - :label no  :abi f(uint,uint) 0x0f 0x3f
+    - :label no  :abi f(uint,uint) 0x100000 0x3f
+    - :label no  :abi f(uint,uint) 0x10c0de 0x3f
+    - :label yes :abi f(uint,uint) 0x101157 0x3f
+
+    # Copy account code
+    - :label yes :abi f(uint,uint) 0x01 0x3c
+    - :label yes :abi f(uint,uint) 0x02 0x3c
+    - :label yes :abi f(uint,uint) 0x03 0x3c
+    - :label yes :abi f(uint,uint) 0x04 0x3c
+    - :label yes :abi f(uint,uint) 0x05 0x3c
+    - :label yes :abi f(uint,uint) 0x06 0x3c
+    - :label yes :abi f(uint,uint) 0x07 0x3c
+    - :label yes :abi f(uint,uint) 0x08 0x3c
+    - :label yes :abi f(uint,uint) 0x09 0x3c
+    - :label no  :abi f(uint,uint) 0x0a 0x3c
+    - :label no  :abi f(uint,uint) 0x0b 0x3c
+    - :label no  :abi f(uint,uint) 0x0c 0x3c
+    - :label no  :abi f(uint,uint) 0x0d 0x3c
+    - :label no  :abi f(uint,uint) 0x0e 0x3c
+    - :label no  :abi f(uint,uint) 0x0f 0x3c
+    - :label no  :abi f(uint,uint) 0x100000 0x3c
+    - :label no  :abi f(uint,uint) 0x10c0de 0x3c
+    - :label yes :abi f(uint,uint) 0x101157 0x3c
+
+    # Get code size
+    - :label yes :abi f(uint,uint) 0x01 0x3b
+    - :label yes :abi f(uint,uint) 0x02 0x3b
+    - :label yes :abi f(uint,uint) 0x03 0x3b
+    - :label yes :abi f(uint,uint) 0x04 0x3b
+    - :label yes :abi f(uint,uint) 0x05 0x3b
+    - :label yes :abi f(uint,uint) 0x06 0x3b
+    - :label yes :abi f(uint,uint) 0x07 0x3b
+    - :label yes :abi f(uint,uint) 0x08 0x3b
+    - :label yes :abi f(uint,uint) 0x09 0x3b
+    - :label no  :abi f(uint,uint) 0x0a 0x3b
+    - :label no  :abi f(uint,uint) 0x0b 0x3b
+    - :label no  :abi f(uint,uint) 0x0c 0x3b
+    - :label no  :abi f(uint,uint) 0x0d 0x3b
+    - :label no  :abi f(uint,uint) 0x0e 0x3b
+    - :label no  :abi f(uint,uint) 0x0f 0x3b
+    - :label no  :abi f(uint,uint) 0x100000 0x3b
+    - :label no  :abi f(uint,uint) 0x10c0de 0x3b
+    - :label yes :abi f(uint,uint) 0x101157 0x3b
+
+    gasLimit:
+    - '40000000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: cccccccccccccccccccccccccccccccccccccccc
+
+    value:
+    - '100000'
+
+
+
+  expect:
+
+  - indexes:
+      data: 
+      - :label yes
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Berlin"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          # If this is a precompile (or previously accessed acct.), we
+          # expect to always have the same gas cost
+          0x00: 0x01
+          0x01: 0x00
+
+
+
+  # The EIP 2929 cost for a new account reference
+  - indexes:
+      data: 
+      - :label no
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Berlin"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          # If this isn't a precompile, we expect the second call to it to cost
+          # less than the first
+          0x00: 0x0000
+          0x01: 0x09c4
+
+
+  # The cost for a new trie
+  - indexes:
+      data: 
+      - :label new
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Berlin"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          # If we need to create a new trie, that's a different cost
+          # than the EIP 2929 one.
+          0x00: 0x0000
+          0x01: 0x61a8
+
+
+  # The cost for a new reference AND a new trie
+  - indexes:
+      data: 
+      - :label all
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Berlin"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          # If we need to create a new trie, that's a different cost
+          # than the EIP 2929 one.
+          0x00: 0x0000
+          0x01: 0x6b6c
+
+

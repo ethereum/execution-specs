@@ -1,0 +1,81 @@
+{
+    "extCodeCopyBounds" : {
+        "_info" : {
+            "comment" : "EXTCODECOPY edge case https://github.com/ethereum/tests/issues/438",
+            "filledwith" : "testeth 1.7.0-alpha.0+commit.2b11ce5c",
+            "lllcversion" : "Version: 0.5.0-develop.2018.11.9+commit.9709dfe0.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/stExtCodeHash/extCodeCopyBoundsFiller.yml",
+            "sourceHash" : "694c67a8cb257b75fe317158bd9ac71bc274cec397b9f3fbac03e1f09e518caf"
+        },
+        "env" : {
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "0x0f4240",
+            "currentNumber" : "0x01",
+            "currentTimestamp" : "0x03e8",
+            "previousHash" : "0x5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6"
+        },
+        "post" : {
+            "Constantinople" : [
+                {
+                    "hash" : "0x842751645a2064e56aea7816dd721f3cfa4e0910b62997e529e734d6309ecc4c",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ],
+            "ConstantinopleFix" : [
+                {
+                    "hash" : "0x6ed1c42124f69181dce63ce15e0fd1808ffa6a57859a66d410d7b194b0d67b0f",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ]
+        },
+        "pre" : {
+            "0x095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x61138874010000000000000000000000000000000000000000600173e713449c212d891357cc2966816b1d528cfb59e03c600051600055602051600155600c74010000000000000000000000000000000000000000600173e713449c212d891357cc2966816b1d528cfb59e03c600051600255602051600355600c6005600173e713449c212d891357cc2966816b1d528cfb59e03c600051600455602051600555",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x00",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xe713449c212d891357cc2966816b1d528cfb59e0" : {
+                "balance" : "0x00",
+                "code" : "0x600c606355600b606355600a606355",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x061a80"
+            ],
+            "gasPrice" : "0x01",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+            "value" : [
+                "0x01"
+            ]
+        }
+    }
+}

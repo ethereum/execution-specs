@@ -1,0 +1,243 @@
+loopExp:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "100000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  solidity: |
+    pragma solidity ^0.7;
+    // SPDX-License-Identifier: GPL-3.0
+
+    contract ExpPerformanceTester {
+
+        uint256 result = 0;
+
+        function testExp(uint exponent, uint256 seed, uint n) external returns (uint) {
+            uint e = seed;
+            for (uint i = 0; i < n; i += 1) {
+                e = e ** exponent;
+            }
+            result = e;
+            return e;
+        }
+
+        function testExpUnroll16(uint exponent, uint256 seed, uint n) external returns (uint) {
+            uint e = seed;
+            for (uint i = 0; i < n; i += 16) {
+                e = e ** exponent;
+                e = e ** exponent;
+                e = e ** exponent;
+                e = e ** exponent;
+                e = e ** exponent;
+                e = e ** exponent;
+                e = e ** exponent;
+                e = e ** exponent;
+                e = e ** exponent;
+                e = e ** exponent;
+                e = e ** exponent;
+                e = e ** exponent;
+                e = e ** exponent;
+                e = e ** exponent;
+                e = e ** exponent;
+                e = e ** exponent;
+            }
+            result = e;
+            return e;
+        }
+
+        function testNop(uint exponent, uint256 seed, uint n) external returns (uint) {
+            (exponent);
+            for (uint i = 0; i < n; i += 1) {}
+            result = seed;
+            return seed;
+        }
+
+        function testNopUnroll16(uint exponent, uint256 seed, uint n) external returns (uint) {
+            (exponent);
+            for (uint i = 0; i < n; i += 16) {}
+            result = seed;
+            return seed;
+        }
+
+    }
+
+  pre:
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: :solidity ExpPerformanceTester
+      nonce: 1
+      storage: {}
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # fun(a,b,c) calculates b <- b^a    c times
+    # 
+    # testExp            naive implementation
+    # testExpUnroll16    the loop is unrolled so it only runs c/16 times
+    # testNop            like the naive implementation but with an empty loop
+    # testNopUnroll16    line the unroll implementation but with an empty loop
+    - :label nop_3_3_160          :abi testNop(uint256,uint256,uint256) 3 3 160
+    - :label nop_3_3_160  :abi testNopUnroll16(uint256,uint256,uint256) 3 3 160
+    - :label exp_3_3_160          :abi testExp(uint256,uint256,uint256) 3 3 160
+    - :label exp_3_3_160  :abi testExpUnroll16(uint256,uint256,uint256) 3 3 160
+
+    - :label nop_2_2_32           :abi testNop(uint256,uint256,uint256) 2 2 32
+    - :label nop_2_2_32   :abi testNopUnroll16(uint256,uint256,uint256) 2 2 32
+    - :label exp_2_2_32           :abi testExp(uint256,uint256,uint256) 2 2 32
+    - :label exp_2_2_32   :abi testExpUnroll16(uint256,uint256,uint256) 2 2 32
+
+    # The old exponentiation tests
+    - :label exp_1b_1M    :abi testExp(uint256,uint256,uint256) 0xff 0x5851f42d4c957f2d 1000000
+    - :label exp_2b_100k  :abi testExp(uint256,uint256,uint256) 0xffff 0x5851f42d4c957f2d 100000
+    - :label exp_4b_100k  :abi testExp(uint256,uint256,uint256) 0xffffffff 0x5851f42d4c957f2d 100000
+    - :label exp_8b_100k  :abi testExp(uint256,uint256,uint256) 0xffffffffffffffff 0x5851f42d4c957f2d 100000
+    - :label exp_16b_100k :abi testExp(uint256,uint256,uint256) 0xffffffffffffffffffffffffffffffff 0x5851f42d4c957f2d 100000
+    - :label exp_32b_100k :abi testExp(uint256,uint256,uint256) 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0x5851f42d4c957f2d 100000
+    - :label nop_0_15_1M  :abi testNop(uint256,uint256,uint256) 0 15 1000000
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    value:
+    - 0
+
+  expect:
+    - indexes:
+        data:
+        - :label exp_2_2_32
+        - :label exp_1b_1M
+        - :label exp_16b_100k
+        - :label exp_32b_100k
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            # 2^2^2^2 .. 32 times is 0, mod 2^256
+            0: 0
+
+
+    - indexes:
+        data:
+        - :label exp_2b_100k
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x87b9c676d0fd90e2d05a9f8621a374edc678a3fc7209929731e3c9c8f8157f2d
+
+
+
+    - indexes:
+        data:
+        - :label exp_4b_100k
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0xd0e61f591bd78de46f37ced3590d1b5b8c9534ef27bcf11dd02d9fad4c957f2d
+
+
+
+    - indexes:
+        data:
+        - :label exp_8b_100k
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0xa0b60baf8a7d5ff1840537484b793d86f808935d77dbab805851f42d4c957f2d
+
+
+
+
+    - indexes:
+        data:
+        - :label nop_0_15_1M
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 15
+
+
+
+
+
+
+
+
+    - indexes:
+        data:
+        - :label nop_3_3_160
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 3
+
+
+
+    - indexes:
+        data:
+        - :label exp_3_3_160
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x9cf0248d6311b77070454df6fd81b1a6c87a3f3c52fa8b3cdd7095952acd8e03
+
+
+
+    - indexes:
+        data:
+        - :label nop_2_2_32
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 2
+
+
+

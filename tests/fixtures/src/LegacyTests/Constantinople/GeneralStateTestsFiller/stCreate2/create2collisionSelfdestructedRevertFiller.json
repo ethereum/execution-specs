@@ -1,0 +1,117 @@
+{
+    "create2collisionSelfdestructedRevert" : {
+	"_info" : {
+	    "comment" : "collision with address that has been selfdestructed in the same transaction but then REVERT is called"
+	},
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "1000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000",
+            "previousHash" : "5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6"
+        },
+        "expect" : [
+            {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : ["Byzantium"],
+                "result" : {
+                    "e2b35478fdd26477cc576dd906e6277761246a3c" : {
+                        "balance" : "1"
+                    },
+		    "0000000000000000000000000000000000000010" : {
+			"shouldnotexist" : "1"
+		    },
+                    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+                        "shouldnotexist" : "1"
+                    },
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    }
+                }
+            },
+            {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=Constantinople"],
+                "result" : {
+                    "e2b35478fdd26477cc576dd906e6277761246a3c" : {
+                        "balance" : "1",
+			"code" : "0x6010ff"
+                    },
+		    "af3ecba2fe09a4f6c19f16a9d119e44e08c2da01" : {
+                        "balance" : "1",
+			"code" : "0x6010ff"
+                    },
+		    "ec2c6832d00680ece8ff9254f81fdab0a5a2ac50" : {
+                        "balance" : "1",
+			"code" : "0x6010ff"
+                    },
+		    "0000000000000000000000000000000000000010" : {
+			"shouldnotexist" : "1"
+		    },
+                    "6295ee1b4f6dd65047762f924ecd367c17eabf8f" : {
+                        "shouldnotexist" : "1"
+                    },
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "1000000000000000000",
+                "code" : "0x",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+	    "e2b35478fdd26477cc576dd906e6277761246a3c" : {
+                "balance" : "1",
+                "code" : "{ (SELFDESTRUCT 0x10) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+	    "af3ecba2fe09a4f6c19f16a9d119e44e08c2da01" : {
+                "balance" : "1",
+                "code" : "{ (SELFDESTRUCT 0x10) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+	    "ec2c6832d00680ece8ff9254f81fdab0a5a2ac50" : {
+                "balance" : "1",
+                "code" : "{ (SELFDESTRUCT 0x10) }",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "{ (CALL 50000 0xe2b35478fdd26477cc576dd906e6277761246a3c 0 0 0 0 0) (CREATE2 0 0 0 0) (MSTORE 0 0x112233) (REVERT 29 3) }",
+		"{ (CALL 50000 0xe2b35478fdd26477cc576dd906e6277761246a3c 0 0 0 0 0) (MSTORE 0 0x6001600155) (CREATE2 0 27 5 0) (MSTORE 0 0x112233) (REVERT 29 3) }",
+		"{ (CALL 50000 0xe2b35478fdd26477cc576dd906e6277761246a3c 0 0 0 0 0) (MSTORE 0 0x6460016001556000526005601bf3) (CREATE2 0 18 14 0) (MSTORE 0 0x112233) (REVERT 29 3) }"
+            ],
+            "gasLimit" : [
+                "400000"
+            ],
+            "gasPrice" : "1",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "",
+            "value" : [
+                "1"
+            ]
+        }
+    }
+}

@@ -1,0 +1,208 @@
+---
+CallWithNOTZeroValueToPrecompileFromContractInitialization:
+  _info:
+    comment: |
+      Contract A creates new contract.
+      New contract initialization code staticcalls contract CALL-00X.
+      Contract CALL-00X calls precompiled contracts with non zero value.
+      It should interrupt for each precompiled contract.
+  env:
+    currentCoinbase: '0xcafe000000000000000000000000000000000001'
+    currentDifficulty: '0x20000'
+    currentGasLimit: '10000000'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+    previousHash: '0x5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6'
+  expect:
+  - indexes:
+      data:
+        - !!int 0
+        - !!int 1
+        - !!int 2
+        - !!int 3
+        - !!int 4
+        - !!int 5
+        - !!int 6
+        - !!int 7
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Istanbul"
+    result:
+      a000000000000000000000000000000000000000:
+        balance: '1100'
+        storage:
+          '0x00': '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed'
+          '0x01': '0xf7b0c3906cdfc0b8a638d274d3bcbbd6318e9ac1'
+          '0x02': '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed'
+      f7b0c3906cdfc0b8a638d274d3bcbbd6318e9ac1:
+        storage:
+          '0x00': '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed'
+          '0x02': '0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed'
+  pre:
+    a000000000000000000000000000000000000000:
+      balance: '1000'
+      nonce: '1'
+      storage:
+        '0x00': '0xdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeaf'
+        '0x01': '0xdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeaf'
+        '0x02': '0xdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeafdeadbeaf'
+      code: |
+        {
+          [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed
+          (CALLDATACOPY 0 0 (CALLDATASIZE))
+          [[ 0x01 ]] (CREATE 0 0 (CALLDATASIZE))
+          [[ 0x02 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed
+        }
+    ca11001000000000000000000000000000000000:
+      balance: '1000'
+      nonce: '0'
+      storage: {}
+      code: |
+        {
+          ;; Recovery of ECDSA signature
+          [ 0x00 ] 0x18c547e4f7b0f325ad1e56f57e26c745b09a3e503d86e00e5255ff7f715d3d1c
+          [ 0x20 ] 28
+          [ 0x40 ] 0x73b1693892219d736caba55bdb67216e485557ea6b6af75f37096c9aa6a5a75f
+          [ 0x60 ] 0xeeb940b1d03b21e36b0e47e79769f095fe2ab855bd91e3a38756b7d75a9c4549
+          (CALL (GAS) 1 2 0 128 0x2000 32)
+        }
+    ca11002000000000000000000000000000000000:
+      balance: '1000'
+      nonce: '0'
+      storage: {}
+      code: |
+        {
+          ;; Hash function SHA256
+          [ 0x00 ] 0x0000000ccccccccccccccccccccccccccccccccccccccccccccccccccc000000
+          (CALL (GAS) 2 2 0 32 0x2000 32)
+        }
+    ca11003000000000000000000000000000000000:
+      balance: '1000'
+      nonce: '0'
+      storage: {}
+      code: |
+        {
+          ;; Hash function RIPEMD160
+          [ 0x00 ] 0x0000000ccccccccccccccccccccccccccccccccccccccccccccccccccc000000
+          (CALL (GAS) 3 2 0 32 0x2000 32)
+        }
+    ca11004000000000000000000000000000000000:
+      balance: '1000'
+      nonce: '0'
+      storage: {}
+      code: |
+        {
+          ;; Identity
+          [ 0x00 ] 0x0000000ccccccccccccccccccccccccccccccccccccccccccccccccccc000000
+          (CALL (GAS) 4 2 0 32 0x2000 32)
+        }
+    ca11005000000000000000000000000000000000:
+      balance: '1000'
+      nonce: '0'
+      storage: {}
+      code: |
+        {
+          ;; Modular exponentiation
+          [ 0x00 ] 1
+          [ 0x20 ] 32
+          [ 0x40 ] 32
+          [ 0x60 ] 0x03fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc
+          [ 0x80 ] 0x2efffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc
+          [ 0xa0 ] 0x2f00000000000000000000000000000000000000000000000000000000000000
+          (CALL (GAS) 5 2 0 0xa1 0x2000 32)
+        }
+    ca11006000000000000000000000000000000000:
+      balance: '1000'
+      nonce: '0'
+      storage: {}
+      code: |
+        {
+          ;; Addition on elliptic curve alt_bn128
+          [ 0x00 ] 0x0f25929bcb43d5a57391564615c9e70a992b10eafa4db109709649cf48c50dd2
+          [ 0x20 ] 0x16da2f5cb6be7a0aa72c440c53c9bbdfec6c36c7d515536431b3a865468acbba
+          [ 0x40 ] 0x1de49a4b0233273bba8146af82042d004f2085ec982397db0d97da17204cc286
+          [ 0x60 ] 0x0217327ffc463919bef80cc166d09c6172639d8589799928761bcd9f22c903d4
+          (CALL (GAS) 6 2 0 128 0x2000 64)
+        }
+    ca11007000000000000000000000000000000000:
+      balance: '1000'
+      nonce: '0'
+      storage: {}
+      code: |
+        {
+          ;; Scalar multiplication on elliptic curve alt_bn128
+          [ 0x00 ] 0x0f25929bcb43d5a57391564615c9e70a992b10eafa4db109709649cf48c50dd2
+          [ 0x20 ] 0x16da2f5cb6be7a0aa72c440c53c9bbdfec6c36c7d515536431b3a865468acbba
+          [ 0x40 ] 0x0000000000000000000000000000000000000000000000000000000000000003
+          (CALL (GAS) 7 2 0 96 0x2000 64)
+        }
+    ca11008000000000000000000000000000000000:
+      balance: '1000'
+      nonce: '0'
+      storage: {}
+      code: |
+        {
+          ;; Checking a pairing equation on curve alt_bn128
+          ;; proof.A + vk.A + negateG1(proof.Ap) + P2
+          [ 0x0000 ] 0x1c76476f4def4bb94541d57ebba1193381ffa7aa76ada664dd31c16024c43f59
+          [ 0x0020 ] 0x3034dd2920f673e204fee2811c678745fc819b55d3e9d294e45c9b03a76aef41
+          [ 0x0040 ] 0x209dd15ebff5d46c4bd888e51a93cf99a7329636c63514396b4a452003a35bf7
+          [ 0x0060 ] 0x04bf11ca01483bfa8b34b43561848d28905960114c8ac04049af4b6315a41678
+          [ 0x0080 ] 0x2bb8324af6cfc93537a2ad1a445cfd0ca2a71acd7ac41fadbf933c2a51be344d
+          [ 0x00a0 ] 0x120a2a4cf30c1bf9845f20c6fe39e07ea2cce61f0c9bb048165fe5e4de877550
+          [ 0x00c0 ] 0x111e129f1cf1097710d41c4ac70fcdfa5ba2023c6ff1cbeac322de49d1b6df7c
+          [ 0x00e0 ] 0x2032c61a830e3c17286de9462bf242fca2883585b93870a73853face6a6bf411
+          [ 0x0100 ] 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2
+          [ 0x0120 ] 0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed
+          [ 0x0140 ] 0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b
+          [ 0x0160 ] 0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa
+          (CALL (GAS) 8 2 0 0x0180 0x2000 32)
+        }
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: ''
+      nonce: '0'
+      storage: {}
+  transaction:
+    data:
+    - |
+      { [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed
+        [[ 0x01 ]] (STATICCALL (GAS) 0xca11001000000000000000000000000000000000 0 0 0 0)
+        [[ 0x02 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed }
+    - |
+      { [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed
+        [[ 0x01 ]] (STATICCALL (GAS) 0xca11002000000000000000000000000000000000 0 0 0 0)
+        [[ 0x02 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed }
+    - |
+      { [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed
+        [[ 0x01 ]] (STATICCALL (GAS) 0xca11003000000000000000000000000000000000 0 0 0 0)
+        [[ 0x02 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed }
+    - |
+      { [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed
+        [[ 0x01 ]] (STATICCALL (GAS) 0xca11004000000000000000000000000000000000 0 0 0 0)
+        [[ 0x02 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed }
+    - |
+      { [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed
+        [[ 0x01 ]] (STATICCALL (GAS) 0xca11005000000000000000000000000000000000 0 0 0 0)
+        [[ 0x02 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed }
+    - |
+      { [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed
+        [[ 0x01 ]] (STATICCALL (GAS) 0xca11006000000000000000000000000000000000 0 0 0 0)
+        [[ 0x02 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed }
+    - |
+      { [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed
+        [[ 0x01 ]] (STATICCALL (GAS) 0xca11007000000000000000000000000000000000 0 0 0 0)
+        [[ 0x02 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed }
+    - |
+      { [[ 0x00 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed
+        [[ 0x01 ]] (STATICCALL (GAS) 0xca11008000000000000000000000000000000000 0 0 0 0)
+        [[ 0x02 ]] 0xfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeedfeed }
+    gasLimit:
+    - '4000000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: '0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8'
+    to: 'a000000000000000000000000000000000000000'
+    value:
+    - '100'

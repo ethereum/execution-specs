@@ -1,0 +1,135 @@
+{
+  "selfBalanceCallTypes": {
+    "_info": {
+      "comment": "SELFBALANCE tests inside CALL, DELEGATECALL, and CALLCODE"
+    },
+    "env": {
+      "currentCoinbase": "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+      "currentDifficulty": "0x20000",
+      "currentGasLimit": "10000000000",
+      "currentNumber": "1",
+      "currentTimestamp": "1000",
+      "previousHash": "5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6"
+    },
+    "expect": [
+      {
+        "//comment": "For all CALL calls, expect storage in contract called to be modified",
+        "indexes": {
+          "data": [0],
+          "gas": -1,
+          "value": -1
+        },
+        "network": [">=Istanbul"],
+        "result": {
+          "1100000000000000000000000000000000000000": {
+            "storage": {
+              "0x11": "0x01"
+            }
+          },
+          "1200000000000000000000000000000000000000": {
+            "storage": {
+              "0x21": "0x1100"
+            }
+          },
+          "1300000000000000000000000000000000000000": {
+            "storage": {
+              "0x31": "0x05"
+            }
+          },
+          "1400000000000000000000000000000000000000": {
+            "storage": {
+              "0x41": "0x1300",
+              "0x42": "0x12ff",
+              "0x43": "0x01"
+            }
+          }
+        }
+      },
+      {
+        "//comment": "For all DELEGATECALL and CALLCODE calls, expect storage in caller to be modified",
+        "indexes": {
+          "data": [1, 2],
+          "gas": -1,
+          "value": -1
+        },
+        "network": [">=Istanbul"],
+        "result": {
+          "2000000000000000000000000000000000000000": {
+            "storage": {
+              "0x00": "0x1100000000000000000000000000000000000000",
+              "0x01": "0x1200000000000000000000000000000000000000",
+              "0x02": "0x1300000000000000000000000000000000000000",
+              "0x03": "0x1400000000000000000000000000000000000000",
+              "0x11": "0x01",
+              "0x21": "0x2000",
+              "0x31": "0x05",
+              "0x41": "0x2000",
+              "0x42": "0x1fff",
+              "0x43": "0x01"
+            }
+          }
+        }
+      }
+    ],
+    "pre": {
+      "1100000000000000000000000000000000000000": {
+        "balance": "0x1000",
+        "code": "{ [[ 0x11 ]] (EQ (SELFBALANCE) (BALANCE (ADDRESS))) }",
+        "nonce": "0",
+        "storage": {}
+      },
+      "1200000000000000000000000000000000000000": {
+        "balance": "0x1100",
+        "code": "{ [[ 0x21 ]] (SELFBALANCE) }",
+        "//code": "0x47600155",
+        "nonce": "0",
+        "storage": {}
+      },
+      "1300000000000000000000000000000000000000": {
+        "balance": "0x1200",
+        "//code": "record the gas, run the operation, then record the gas again.  Drop output, subtract 2 for GAS, what is left is the cost of the operation, store in storage 0x01.",
+        "code": "(asm GAS SELFBALANCE GAS SWAP1 POP SWAP1 SUB 2 SWAP1 SUB 0x31 SSTORE)",
+        "nonce": "0",
+        "storage": {}
+      },
+      "1400000000000000000000000000000000000000": {
+        "balance": "0x1300",
+        "code": "(asm SELFBALANCE DUP1 0x41 SSTORE 0 0 0 0 1 0 0 CALL POP SELFBALANCE DUP1 0x42 SSTORE SWAP1 SUB 0x43 SSTORE)",
+        "nonce": "0",
+        "storage": {}
+      },
+      "2000000000000000000000000000000000000000": {
+        "balance": "0x02000",
+        "//comment1": "starting at storage 0, call each contract by address until contract 0x0 is reached",
+        "//comment2": "If calldata 0 is 1 then CALL, if calldata 0 is 2 then DELEGATECALL, if calldata 0 is 3 then CALLCODE",
+        "code": "{(set 'i 0) (while @@ @i {(when (eq 0x01 $0x0) (call allgas @@ @i 0 0 0 0 0)) (when (eq 0x02 $0x0) (delegatecall allgas @@ @i 0 0 0 0)) (when (eq 0x03 $0x0) (callcode allgas @@ @i 0 0 0 0 0)) [i]:(+ @i 1)})}",
+        "nonce": "0",
+        "storage": {
+          "0x00": "0x1100000000000000000000000000000000000000",
+          "0x01": "0x1200000000000000000000000000000000000000",
+          "0x02": "0x1300000000000000000000000000000000000000",
+          "0x03": "0x1400000000000000000000000000000000000000"
+        }
+      },
+      "a94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
+        "balance": "1000000000000000000000",
+        "code": "",
+        "nonce": "0",
+        "storage": {}
+      }
+    },
+    "transaction": {
+      "data": [
+        ":raw 0x0000000000000000000000000000000000000000000000000000000000000001",
+        ":raw 0x0000000000000000000000000000000000000000000000000000000000000002",
+        ":raw 0x0000000000000000000000000000000000000000000000000000000000000003"
+      ],
+      "gasLimit": ["1000000"],
+      "gasPrice": "10",
+      "nonce": "0",
+      "secretKey": "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+      "to": "2000000000000000000000000000000000000000",
+      "value": ["0"]
+    }
+  }
+}

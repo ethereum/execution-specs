@@ -1,0 +1,153 @@
+# SELFDESTRUCT happens at the end of the transaction. Any
+# subsequent transaction, even in the same block, is going to see
+# an EXTCODEHASH of zero (unless something else happens to the address)
+
+
+# Ori Pomerantz qbzzt1@gmail.com
+
+extcodehashEmptySuicide:
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 0x8888f1f195afa192cfee860698584c030f4c9db1
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: 3141592
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+#  sealEngine: NoProof
+
+
+  pre:
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '10000000000'
+      nonce: '0'
+      code: ''
+      storage: {}
+
+    0xd02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: '0xba1a9ce'
+      nonce: '0'
+      code: ''
+      storage: {}
+
+    # What happens when a contract commits suicide? Does the EXTCODEHASH
+    # change, and if so when?
+    000000000000000000000000000000000000DEAD:
+      balance: 100
+      code: :raw 0x6160A7FF
+      nonce: 0
+      storage: {}
+
+    # Store (extcodehash 0xdead) at various points
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: 100
+      code: |
+        {
+           (def 'writeTo @@0)
+           [[writeTo]] (extcodehash 0xdead)
+           [[(+ 0x100 writeTo)]] (extcodehash 0x60a7)
+           [[0]] (+ writeTo 1)
+        }
+      nonce: 0
+      storage:
+        0x00: 0x01 
+
+
+    # Give 0xDEAD one wei in memory of its life
+    dddddddddddddddddddddddddddddddddddddddd: 
+      balance: 100
+      code: |
+        {
+           (call (gas) 0xdead 1 0 0 0 0)
+        }
+      nonce: 0
+      storage: {}
+
+
+  blocks:
+  # Check EXTCODEHASH, commit suicide, then check it again
+  - transactions:
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x000000000000000000000000000000000000dead
+      value: 0
+
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+
+  # Check the EXTCODEHASH in the next block, give 0xDEAD 1 wei, and check again
+  - transactions:
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+      value: 0
+
+    - data: ''
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0
+
+
+
+  expect:
+  - network:
+    - ">=Istanbul"
+    result:
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+        storage:
+          0x0000: 0x05
+
+          # Before SELFDESTRUCT
+          0x0001: 0x2951f94cc6db6e9b3de9e43ccbd2c84491c46fc3be255c6634299f82b37baaf8
+          0x0101: 0x00
+
+          # After SELFDESTRUCT, same block
+          0x0002: 0x00
+          0x0102: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+
+          # After SELFDESTRUCT, next block
+          0x0003: 0x00
+          0x0103: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+
+          # After the dead account is given 1 wei
+          0x0004: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+          0x0104: 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+           

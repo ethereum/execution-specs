@@ -1,0 +1,120 @@
+# Verify the mstore8 (store just a single byte) opcode
+
+mstore8:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000000100:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+             ; It ignores all but one byte, the least significant one
+             (mstore8 1 0x112233445566778899AABBCCDDEEFF)
+             [[0]] @1
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000000101:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (mstore8 1 0xFF)
+           (mstore8 2 0xEE)
+           [[0]] @0
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000000102:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+             ; It ignores all but one byte, the least significant one
+             (mstore8 1 (- 0 1))
+             [[0]] @1
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    # Using DELEGATECALL lets us group results together, because everything
+    # is written to the same storage.
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            (delegatecall (gas) (+ 0x100 $4) 0 0 0 0)
+        }
+      nonce: '0'
+      storage:
+        0x00: 0x0BAD
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x100000000000
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+
+
+
+  transaction:
+    data:
+    - :label mstore8_onebyte   :abi f(uint) 0
+    - :label mstore8_twobytes  :abi f(uint) 1
+    - :label mstore8_neg1      :abi f(uint) 2
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    - indexes:
+        data: 
+        - :label mstore8_onebyte
+        - :label mstore8_neg1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0xff00000000000000000000000000000000000000000000000000000000000000
+
+
+
+    - indexes:
+        data: 
+        - :label mstore8_twobytes
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x00ffee0000000000000000000000000000000000000000000000000000000000
+

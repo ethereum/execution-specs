@@ -1,0 +1,48 @@
+---
+StaticcallForPrecompilesIssue683:
+  _info:
+    comment: |
+      Bytecode from issue 683, that initially show the problem with staticcall in hevm.
+      Issue link: https://github.com/ethereum/tests/issues/683
+      Pullrequest link with original bytecode: https://github.com/dapphub/dapptools/pull/360
+  env:
+    currentCoinbase: '0xcafe000000000000000000000000000000000001'
+    currentDifficulty: '0x20000'
+    currentGasLimit: '10000000'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+    previousHash: '0x5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6'
+  expect:
+  - indexes:
+      data: !!int -1
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Istanbul"
+    result:
+      a000000000000000000000000000000000000000:
+        balance: '1100'
+        storage:
+          '0x00': '0x01'
+  pre:
+    a000000000000000000000000000000000000000:
+      balance: '1000'
+      nonce: '0'
+      storage: {}
+      code: ':raw 0x600080541515601d576001815580818283305afa15601b578081fd5b005b80818283600160025af15050'
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: ''
+      nonce: '0'
+      storage: {}
+  transaction:
+    data:
+    - ''
+    gasLimit:
+    - '1000000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: '0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8'
+    to: 'a000000000000000000000000000000000000000'
+    value:
+    - '100'

@@ -1,0 +1,168 @@
+calldataload:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000000100:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            (mstore8 0 0x25)
+            (mstore8 1 0x60)
+            (call 0xffffff 0x200 0 
+              0x00 ; arg offest
+              0x02 ; arg length 
+            0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000000101:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            [0] 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+            (mstore8 0x20 0x23)
+            (call 0xffffff 0x201 0 
+              0x00 ; arg offest
+              0x21 ; arg length 
+            0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000000102:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            [0] 0x123456789abcdef0000000000000000000000000000000000000000000000000
+            (mstore8 0x20 0x00)
+            (mstore8 0x21 0x24)
+            (call 0xffffff 0x205 0 
+              0x00 ; arg offest
+              0x22 ; arg length 
+            0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    0000000000000000000000000000000000000200:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+          [[0]] (calldataload 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000000201:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+          [[0]] (calldataload 1)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    0000000000000000000000000000000000000205:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+          [[0]] (calldataload 5)
+        }
+      nonce: '0'
+      storage: {}
+
+      
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            (call 0xffffff (+ 0x100 $4) 0 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+# The transaction to check
+  transaction:
+    data:
+    - :label two_bytes   :abi f(uint) 0
+    - :label word_n_byte :abi f(uint) 1
+    - :label 34_bytes    :abi f(uint) 2
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    - indexes:
+        data: :label two_bytes
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000200:
+          storage:
+            0: 0x2560000000000000000000000000000000000000000000000000000000000000
+
+
+    - indexes:
+        data: :label word_n_byte
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000201:
+          storage:
+            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff23
+
+
+
+
+    - indexes:
+        data: :label 34_bytes
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000205:
+          storage:
+            0: 0xbcdef00000000000000000000000000000000000000000000000000024000000
+

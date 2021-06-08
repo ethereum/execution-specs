@@ -1,0 +1,117 @@
+expPower2:
+
+  # For n where n=2^m
+  # Test 2^n, 2^(n-1), 2^(n+1) 
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+      
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            (def 'storageJump 0x10)
+
+            (def 'calc (m) {
+                 (def 'n (exp 2 m))
+
+                 [[(* storageJump m)]]       (exp 2 n)
+                 [[(+ (* storageJump m) 1)]] (exp 2 (- n 1))
+                 [[(+ (* storageJump m) 2)]] (exp 2 (+ n 1))
+              }
+            )
+
+            (calc 1)
+            (calc 2)
+            (calc 3)
+            (calc 4)
+            (calc 5)
+            (calc 6)
+            (calc 7)
+            (calc 8)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+  transaction:
+    data:
+    - :abi f(uint) 0
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            # 0x10*m:   2^(2^m)
+            # 0x10*m+1: 2^(2^m-1)
+            # 0x10*m+2: 2^(2^m+1)
+
+            # 2^2
+            0x10: 0x04
+            0x11: 0x02
+            0x12: 0x08
+
+            # 2^4
+            0x20: 0x10
+            0x21: 0x08
+            0x22: 0x20
+
+            # 2^8
+            0x30: 0x0100
+            0x31: 0x0080
+            0x32: 0x0200
+
+            # 2^16
+            0x40: 0x010000
+            0x41: 0x008000
+            0x42: 0x020000
+
+            # 2^32
+            0x50: 0x0100000000
+            0x51: 0x0080000000
+            0x52: 0x0200000000
+
+            # 2^64
+            0x60: 0x010000000000000000
+            0x61: 0x008000000000000000
+            0x62: 0x020000000000000000
+
+            # 2^128
+            0x70: 0x0100000000000000000000000000000000
+            0x71: 0x0080000000000000000000000000000000
+            0x72: 0x0200000000000000000000000000000000
+
+            # 2^256 = 0 in evm math
+            0x81: 0x8000000000000000000000000000000000000000000000000000000000000000

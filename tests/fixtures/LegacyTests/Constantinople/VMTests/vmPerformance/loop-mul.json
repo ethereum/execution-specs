@@ -1,0 +1,51 @@
+{
+    "loop-mul" : {
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.8.0-6+commit.c7ba3b69",
+            "lllcversion" : "Version: 0.5.14-develop.2019.11.27+commit.8f259595.Linux.g++",
+            "source" : "src/VMTestsFiller/vmPerformance/loop-mulFiller.json",
+            "sourceHash" : "11b767fe2cc67aea2f42457498d3cdbeb183a35b77612ded8058a4aeab120acf"
+        },
+        "callcreates" : [
+        ],
+        "env" : {
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentGasLimit" : "0x7fffffffffffffff",
+            "currentNumber" : "0x01",
+            "currentTimestamp" : "0x03e8"
+        },
+        "exec" : {
+            "address" : "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6",
+            "caller" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "code" : "0x606060405260e060020a6000350463eb8ac9218114601c575b6002565b3460025760646004356024356000675851f42d4c957f2d6714057b7ef767814f82805b600086146076575050938102840180820285018082029560001995909501949190603f565b60408051918252519081900360200190f35b50949594505050505056",
+            "data" : "0xeb8ac9215eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeed0000000000000000000000000000000000000000000000000000000000100000",
+            "gas" : "0xe8d4a51000",
+            "gasPrice" : "0x0c",
+            "origin" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "value" : "0x00"
+        },
+        "gas" : "0xe8cd950f22",
+        "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+        "out" : "0xaf5113aa9f5bf0371ae31b13a58edff7f3ce96c9f40d9bb4c7b2ed490a6396c6",
+        "post" : {
+            "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+                "balance" : "0x152d02c7e14af6800000",
+                "code" : "0x606060405260e060020a6000350463eb8ac9218114601c575b6002565b3460025760646004356024356000675851f42d4c957f2d6714057b7ef767814f82805b600086146076575050938102840180820285018082029560001995909501949190603f565b60408051918252519081900360200190f35b50949594505050505056",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "pre" : {
+            "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+                "balance" : "0x152d02c7e14af6800000",
+                "code" : "0x606060405260e060020a6000350463eb8ac9218114601c575b6002565b3460025760646004356024356000675851f42d4c957f2d6714057b7ef767814f82805b600086146076575050938102840180820285018082029560001995909501949190603f565b60408051918252519081900360200190f35b50949594505050505056",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        }
+    }
+}

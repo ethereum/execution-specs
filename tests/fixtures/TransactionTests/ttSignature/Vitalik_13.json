@@ -1,0 +1,44 @@
+{
+    "Vitalik_13" : {
+        "Byzantium" : {
+            "hash" : "278608eba8465230d0552c8df9fbcc6fc35d2350f4feb0e49a399b2adab37e39",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "Constantinople" : {
+            "hash" : "278608eba8465230d0552c8df9fbcc6fc35d2350f4feb0e49a399b2adab37e39",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "ConstantinopleFix" : {
+            "hash" : "278608eba8465230d0552c8df9fbcc6fc35d2350f4feb0e49a399b2adab37e39",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "EIP150" : {
+            "hash" : "278608eba8465230d0552c8df9fbcc6fc35d2350f4feb0e49a399b2adab37e39",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "EIP158" : {
+            "hash" : "278608eba8465230d0552c8df9fbcc6fc35d2350f4feb0e49a399b2adab37e39",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "Frontier" : {
+            "hash" : "278608eba8465230d0552c8df9fbcc6fc35d2350f4feb0e49a399b2adab37e39",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "Homestead" : {
+            "hash" : "278608eba8465230d0552c8df9fbcc6fc35d2350f4feb0e49a399b2adab37e39",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "Istanbul" : {
+            "hash" : "278608eba8465230d0552c8df9fbcc6fc35d2350f4feb0e49a399b2adab37e39",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.7.0-alpha.1-33+commit.9ec9d33e.dirty",
+            "lllcversion" : "Version: 0.5.0-develop.2019.8.22+commit.9709dfe0.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttSignature/Vitalik_13Filler.json",
+            "sourceHash" : "aa1dbf34aaf97492bbbd2a28e1e75d751dc72be3ed2db5f86fc073b9c9c15a86"
+        },
+        "rlp" : "0xf8660f80830493e09400000000000000000000000000000000000000c08086646f6e6b65791ba09f00c6da4f2e4b5f3316e70c7669f9df71fa21d533afa63450065731132ba7b6a03886c27a8b3515ab9e2e04492f8214718621421e92d3b6954d9e3fb409ead788"
+    }
+}

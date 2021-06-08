@@ -1,0 +1,89 @@
+{
+    "RevertOnEmptyStack" : {
+        "_info" : {
+            "comment" : "Calling a runtime code that contains only a single `REVERT` should consume all gas.",
+            "filling-rpc-server" : "evm version 1.10.4-unstable-966ee3ae-20210528",
+            "filling-tool-version" : "retesteth-0.1.1-eip1559+commit.658fc3a8.Linux.g++",
+            "lllcversion" : "Version: 0.5.14-develop.2021.5.18+commit.14c9d5de.mod.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/stRevertTest/RevertOnEmptyStackFiller.json",
+            "sourceHash" : "53c5444be61e7ae6cbc94a212be757ca0886fee878333a8e356afd1221678eac"
+        },
+        "env" : {
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentNumber" : "0x01",
+            "currentTimestamp" : "0x03e8",
+            "previousHash" : "0x5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6",
+            "currentGasLimit" : "0x989680"
+        },
+        "post" : {
+            "Berlin" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0x1a1098f7e9910cdab952f9cdf04c0a19d7e588fcf171d3026d6fce2ff0706a21",
+                    "txbytes" : "0xf860800a831e848094a00000000000000000000000000000000000000080801ba0d2930ecbb7ac6800dc8327166abee7e583a849b5227924da23c21fdef394b9d2a0746757ad43c4a34031ebf7186c40781e418f5da69a149f9183fd561618ccbe79",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ],
+            "Istanbul" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0x1a1098f7e9910cdab952f9cdf04c0a19d7e588fcf171d3026d6fce2ff0706a21",
+                    "txbytes" : "0xf860800a831e848094a00000000000000000000000000000000000000080801ba0d2930ecbb7ac6800dc8327166abee7e583a849b5227924da23c21fdef394b9d2a0746757ad43c4a34031ebf7186c40781e418f5da69a149f9183fd561618ccbe79",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ],
+            "London" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0x8cba86fee6e7d957ba84186490e12a0259007798a49479aca61fc85374c163ad",
+                    "txbytes" : "0xf860800a831e848094a00000000000000000000000000000000000000080801ba0d2930ecbb7ac6800dc8327166abee7e583a849b5227924da23c21fdef394b9d2a0746757ad43c4a34031ebf7186c40781e418f5da69a149f9183fd561618ccbe79",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa000000000000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "0xfd",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x5af3107a4000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x"
+            ],
+            "gasPrice" : "0x0a",
+            "gasLimit" : [
+                "0x1e8480"
+            ],
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "0xa000000000000000000000000000000000000000",
+            "value" : [
+                "0x00"
+            ]
+        }
+    }
+}

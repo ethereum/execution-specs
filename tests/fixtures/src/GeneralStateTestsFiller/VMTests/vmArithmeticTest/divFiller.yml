@@ -1,0 +1,206 @@
+div:
+
+  # Division tests
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000000100:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           [[0]]  (/ 0x02 
+               0xfedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210)
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000000101:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           ; Verify the fix to the divBoostBug
+           [[0]] (/ 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFBA 
+                     0x1DAE6076B981DAE6076B981DAE6076B981DAE6076B981DAE6076B981DAE6077)
+
+
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000000102:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           [[0]]  (/ 5 2) 
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000000103:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           [[0]]  (/ 23 24)
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000000104:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           [[0]]  (/ 0 24)
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000000105:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           [[0]]  (/ 1 1)
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000000106:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           ; Divide by zero
+           [[0]]  (/ 2 0)
+        }
+      nonce: '0'
+      storage: {}
+
+    0000000000000000000000000000000000000107:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           [[0]]  (+ (/ 13 0) 7)
+        }
+      nonce: '0'
+      storage: {}
+
+
+      
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            (call 0xffffff (+ 0x100 $4) 0 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+# The transaction to check
+  transaction:
+    data:
+    - :label div_2_big     :abi f(uint) 0
+    - :label div_boost_bug :abi f(uint) 1
+    - :label div_5_2       :abi f(uint) 2
+    - :label div_23_24     :abi f(uint) 3
+    - :label div_0_24      :abi f(uint) 4
+    - :label div_1_0       :abi f(uint) 5
+    - :label div_2_0       :abi f(uint) 6
+    - :label div_0_add     :abi f(uint) 7
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    # All the zero results can be in the same case because zero's the default
+    - indexes:
+        data:
+        - :label div_2_big
+        - :label div_23_24
+        - :label div_0_24
+        - :label div_2_0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000100:
+          storage:
+            0: 0x00
+        0000000000000000000000000000000000000103:
+          storage:
+            0: 0x00
+        0000000000000000000000000000000000000104:
+          storage:
+            0: 0x00
+        0000000000000000000000000000000000000106:
+          storage:
+            0: 0x00
+
+
+    - indexes:
+        data: :label div_boost_bug
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000101:
+          storage:
+            0: 0x89
+
+    - indexes:
+        data: :label div_5_2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000102:
+          storage:
+            0: 0x02
+
+    - indexes:
+        data: :label div_1_0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000105:
+          storage:
+            0: 0x01
+
+    - indexes:
+        data: :label div_0_add
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000107:
+          storage:
+            0: 0x07
+

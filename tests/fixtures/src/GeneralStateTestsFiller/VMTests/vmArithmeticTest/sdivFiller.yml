@@ -1,0 +1,510 @@
+sdiv:
+
+  # This test deals with addition, mostly addition that causes an overflow.
+  # It is based on the fact that arithmetic in the evm is modulu 2^256. 
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000000100:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; (0 - (-1)) / (-1) = 1/(-1) = -1
+           ;
+           ; -1 = 2^256-1
+           (def 'neg1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+           [[0]] (sdiv (- 0 neg1) neg1)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    0000000000000000000000000000000000000101:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; (-1) / (0 - (-1)) = (-1)/1 = -1
+           ;
+           ; -1 = 2^256-1
+           (def 'neg1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+
+           [[0]] (sdiv neg1 (- 0 neg1))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000000102:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; (-2) / (-4) = 0
+           ; 
+           ; evm doesn't do fractions
+           [[0]] (sdiv (- 0 2) (- 0 4))
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000000103:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; 4 / (-2) = -2
+           ; 
+           [[0]] (sdiv 4 (- 0 2))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    0000000000000000000000000000000000000104:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; 5 / (-4) = -1    
+           ;
+           ; evm doesn't do fractions
+           ; 
+           [[0]] (sdiv 5 (- 0 4))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    0000000000000000000000000000000000000105:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; (-2^255) / (-1) = 2^255
+           ; Because 2^255 = -2^255 in evm arithmetic
+           (def 'pow_2_255 0x8000000000000000000000000000000000000000000000000000000000000000)
+
+           [[0]] (sdiv (- 0 pow_2_255) (- 0 1))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000000106:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; (-2^255) / 0 = 0
+           ; anything / 0 = 0 in evm
+           ;
+           (def 'pow_2_255 0x8000000000000000000000000000000000000000000000000000000000000000)
+
+           [[0]] (sdiv (- 0 pow_2_255) 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    0000000000000000000000000000000000000107:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; (-1)/25 = 0 (no fractions in evm)
+
+           [[0]] (sdiv (- 0 1) 25)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000000108:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; (-1)/(-1) = 1
+
+           [[0]] (sdiv (- 0 1) (- 0 1))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000000109:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; (-1)/1 = -1
+
+           [[0]] (sdiv (- 0 1) 1)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    000000000000000000000000000000000000010a:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; (-3)/0 = 0 
+           ; x/0 = 0 in evm
+
+           [[0]] (sdiv (- 0 3) (- 0 0))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    000000000000000000000000000000000000010b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; (0-(-1))/0 = 0 
+           ;
+           ; -1 = 2^256-1
+           (def 'neg1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+
+           [[0]] (sdiv (- 0 neg1) 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    000000000000000000000000000000000000010c:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; (0-(-1))/0 + 1 = 1 
+           ;
+           ; -1 = 2^256-1
+           (def 'neg1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+
+           [[0]] (+ (sdiv (- 0 neg1) 0) 1)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    000000000000000000000000000000000000010d:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      # 00 PUSH1 05
+      # 02 PUSH1 09
+      # 04 PUSH1 00
+      # 06 SUB  (stack becomes -9, 5)
+      # 07 SDIV (-9/5 = -1, no fractions)
+      # 08 PUSH1 00
+      # 0A SSTORE
+      # 0B STOP
+      code: :raw 0x600560096000030560005500
+      nonce: '0'
+      storage: {}
+
+
+    000000000000000000000000000000000000010e:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; A negative number sdiv -1 is the absolute value of that number
+           (def 'pow2_255 0x8000000000000000000000000000000000000000000000000000000000000000)
+           (def 'pow2_255_min1 (- pow2_255 1))
+           [[0]] (sdiv (- 0 pow2_255_min1) (- 0 1))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    000000000000000000000000000000000000010f:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; A negative number sdiv -1 is the absolute value of that number
+           (def 'pow2_255 0x8000000000000000000000000000000000000000000000000000000000000000)
+           [[0]] (sdiv (- 0 pow2_255) (- 0 1))
+           ; 2^255 = -2^255 in evm (modulu 2^256)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000000110:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           ; (- 0 maxint) is 0x80.....01, so -1 / -maxint is zero
+
+           (def 'neg1   0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+           (def 'maxint 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+           [[0]] (sdiv neg1 (- 0 maxint))
+        }
+      nonce: '0'
+      storage: {}
+
+
+   
+      
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            (call 0xffffff (+ 0x100 $4) 0 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+# The transaction to check
+  transaction:
+    data:
+    - :label sdiv_1_neg1       :abi f(uint) 0
+    - :label sdiv_neg1_1       :abi f(uint) 1
+    - :label sdiv_neg2_neg4    :abi f(uint) 2
+    - :label sdiv_4_neg2       :abi f(uint) 3
+    - :label sdiv_5_neg4       :abi f(uint) 4
+    - :label sdiv_2pow255_neg1 :abi f(uint) 5
+    - :label sdiv_2pow255_0    :abi f(uint) 6
+    - :label sdiv_neg1_25      :abi f(uint) 7
+    - :label sdiv_neg1_neg1    :abi f(uint) 8
+    - :label sdiv_neg1_1_2nd   :abi f(uint) 9
+    - :label sdiv_neg3_0       :abi f(uint) 0x0a
+    - :label sdiv_1_0          :abi f(uint) 0x0b
+    - :label sdiv_1_0_add1     :abi f(uint) 0x0c
+    - :label sdiv_neg9_5       :abi f(uint) 0x0d
+    - :label sdiv_2pow255_neg1_2nd :abi f(uint) 0x0f
+
+    # The minint here is (- 0 maxint), which is 0x80...001, which is
+    # one more than the real minint
+    - :label sdiv_minint_neg1  :abi f(uint) 0x0e
+    - :label sdiv_neg1_minint  :abi f(uint) 0x10
+
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+
+    - indexes:
+        data: 
+        - :label sdiv_neg2_neg4
+        - :label sdiv_2pow255_0
+        - :label sdiv_neg1_25
+        - :label sdiv_neg3_0
+        - :label sdiv_1_0
+        - :label sdiv_neg1_minint
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000102:
+          storage:
+            # evm doesn't do fractions, so this is zero
+            0: 0x00
+        0000000000000000000000000000000000000106:
+          storage:
+            # anything / 0x00 in evm
+            0: 0x00
+        0000000000000000000000000000000000000107:
+          storage:
+            # evm doesn't do fractions, so this is zero
+            0: 0x00
+        000000000000000000000000000000000000010A:
+          storage:
+            # anything / 0x00 in evm
+            0: 0x00
+        000000000000000000000000000000000000010B:
+          storage:
+            # anything / 0x00 in evm
+            0: 0x00
+        0000000000000000000000000000000000000110:
+          storage:
+            0: 0x00
+
+
+
+    - indexes:
+        data: :label sdiv_1_neg1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000100:
+          storage:
+            # -1
+            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+
+
+
+    - indexes:
+        data: :label sdiv_neg1_1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000101:
+          storage:
+            # -1
+            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+
+
+
+
+
+
+
+    - indexes:
+        data: :label sdiv_4_neg2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000103:
+          storage:
+            # -2
+            0: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe
+
+
+
+    - indexes:
+        data: :label sdiv_5_neg4
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000104:
+          storage:
+            # -1
+            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+
+
+
+    - indexes:
+        data: :label sdiv_2pow255_neg1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000105:
+          storage:
+            # 2^255 = -2^255
+            0: 0x8000000000000000000000000000000000000000000000000000000000000000
+
+
+
+    - indexes:
+        data: :label sdiv_neg1_neg1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000108:
+          storage:
+            0: 0x01
+
+
+
+    - indexes:
+        data: :label sdiv_neg1_1_2nd
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000109:
+          storage:
+            # -1
+            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+
+
+
+    - indexes:
+        data: :label sdiv_1_0_add1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000010C:
+          storage:
+            # 1/0 + 1
+            0: 1
+
+
+
+
+    - indexes:
+        data: :label sdiv_neg9_5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000010d:
+          storage:
+            # -9/5 = -1, no fractions
+            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+
+
+
+
+    - indexes:
+        data: :label sdiv_minint_neg1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000010e:
+          storage:
+            # minint is -0x8000...0001, which
+            # turns into 0x7fff...ffff
+            0: 0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+
+
+
+    - indexes:
+        data: :label sdiv_2pow255_neg1_2nd
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000010f:
+          storage:
+            # 2^255 = -2^255 in evm arithmetic
+            0: 0x8000000000000000000000000000000000000000000000000000000000000000
+
+
+

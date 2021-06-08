@@ -1,0 +1,460 @@
+# Verify that the balance of the caller is reduced by the basefee and tip per gas, 
+# but the balance of coinbase only gets the tip (and the 2 ETH standard reward)
+
+burnVerify:
+  genesisBlockHeader:
+    bloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    coinbase:  0xBA5E000000000000000000000000000000000000
+    difficulty: '131073'
+    extraData: '0x42'
+    gasUsed: '0'
+    mixHash: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    nonce: '0x0102030405060708'
+    number: '0'
+    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    receiptTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    stateRoot: '0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a'
+    timestamp: '0x03b6'
+    transactionsTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    uncleHash: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347'
+    gasLimit: 10000000000
+    gasUsed:  0
+    baseFee: 1000
+  sealEngine: NoProof
+
+  pre:
+    # Account corresponding to secretKey: 45a9 ...
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000000000000  # 1 ETH (in wei)
+      code: ''
+      nonce: '0x00'
+      storage: {}
+
+    # The miner
+    0xBA5E000000000000000000000000000000000000:
+      balance: 0
+      nonce: 1
+      code: ''
+      storage: {}
+
+    # We start with a total balance of 1 ETH. 
+    # Store how many Wei are missing after the previous block,
+    # and how much gas was used
+    0xcccccccccccccccccccccccccccccccccccccccc:
+      balance: 0
+      nonce: 1
+      code: |
+         :yul {
+            // Inside block n we can see the balance at the end of block n-1,
+            // because the end of block processing hasn't happened yet            
+            let miner :=  0xBA5E000000000000000000000000000000000000
+            let sender := 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b
+
+            let eth := 1000000000000000000  // 1 ETH (in wei)
+            let blockReward := mul(eth, 2) 
+
+            // get the previous baseFee and update it
+            // Yul doesn't have the opcode yet, so we'll just use GASPRICE and refrain
+            // from tipping
+            let prevBaseFee := sload(0xFFFFFF)
+            sstore(0xFFFFFF, gasprice())
+
+            // The number of the previous block
+            let prevBlock := sub(number(), 1)
+
+            // Wei are in three locations:
+            // The balance of the miner  (blockReward*(number-1)) + tips
+            // The balance of the sender (accumulated gas costs for previous transactions)
+            // The maximum this transaction could cost, <tx gas limit>*gasPrice
+            let totalWeiTemp := add(balance(miner), balance(sender))
+            let totalWei := add(totalWeiTemp, mul(100000, gasprice()))
+
+            // The total wei we'd expect to have had there not been
+            // any burn. The initial balance plus the blockRewards
+            let noBurnTotal := add(eth, 
+                                   mul(blockReward, prevBlock))
+
+            // The number of "missing" wei
+            // Number of "missing" wei
+            sstore(prevBlock, 
+                   sub(noBurnTotal, totalWei))
+         
+            // Get the number of missing wei specifically from the previous block
+            // This calculation even works if prevBlock=0, because sload(0xFF..FFF) is zero
+            let prevBurnedWei := sub(sload(prevBlock), sload(sub(prevBlock,1)))
+             
+            // At 0x1000 + <block num>, store the amount of gas used based on the
+            // amount of wei burned
+            sstore(add(prevBlock, 0x1000), div(prevBurnedWei, prevBaseFee))
+
+            // At 0x2000 + <block num>, should ALWAYS be zero
+            sstore(add(prevBlock, 0x2000), mod(prevBurnedWei, prevBaseFee))
+         }
+      storage:
+        0xFFFFFF: 875   # The initial baseFee
+
+
+    # Gives us the current baseFee
+    0xcccccccccccccccccccccccccccccccccccccccd:
+      balance: 0
+      nonce: 1
+      code: |
+         {
+            (sstore (number) (basefee))
+         }
+      storage: {}
+
+
+
+    # Extremely simple (and cheap in gas) contract. Just a push, 3 gas
+    0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:
+      balance: 0
+      nonce: 1
+      code: :raw 0x60FF00
+      storage: {}
+
+
+    # Invalid operation
+    0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+           invalid()
+        }
+      storage: {}
+
+
+
+
+    # Orderly revert
+    0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaac:
+      balance: 0
+      nonce: 1
+      code: |
+        :yul {
+           revert(0,0)
+        }
+      storage: {}
+
+
+
+
+
+
+
+  blocks:
+  # Block 1, no missing wei
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas:    0
+      maxFeePerGas:         1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    # Record base fee
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas:   0
+      maxFeePerGas:        1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+
+
+  # Block 2, burned wei because of the transactions last time
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas:   0
+      maxFeePerGas:        1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    # Record base fee
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas:   0
+      maxFeePerGas:        1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+
+
+  # Block 3, base as block 2 (except for a lower baseFee)
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas:   0
+      maxFeePerGas:        1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    # Record base fee
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas:  0
+      maxFeePerGas:       1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+
+
+  # Block 4, add some transactions (zero tip so far)
+  - transactions:
+    # Process results of previous block
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas:    0
+      maxFeePerGas:         1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    # Just 21003 gas (21k for the call, three for the contract
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas:      1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+
+    # Spend all the gas on an invalid opcode
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas:      1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB
+      value: 0x0
+
+    # Orderly revert
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas:      1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC
+      value: 0x0
+
+    # Record base fee, 0x01c3 = 451
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas:    0
+      maxFeePerGas:        10000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+
+
+
+
+  # Block 5, now with tips. Shows that tips don't affect
+  # the total (they just move wei from the sender to the miner)
+  - transactions:
+    # Process results of previous block
+    - data: 0x
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas:   1000000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    # Just 21003 gas (21k for the call, three for the contract
+    - data: 0x
+      accessList: []
+      gasLimit: 100000
+      maxPriorityFeePerGas:       1
+      maxFeePerGas:    100000000000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+
+    # Spend all the gas on an invalid opcode
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas:    1000
+      maxFeePerGas:     10000000000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB
+      value: 0x0
+
+    # Orderly revert
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 1000000
+      maxFeePerGas:     10000000000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC
+      value: 0x0
+
+    # Record base fee
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas:   0
+      maxFeePerGas:       10000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+
+
+
+
+  # Block 6, with tips that are not maxPriorityFee
+  # the total (they just move wei from the sender to the miner)
+  - transactions:
+    # Process results of previous block
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 0
+      maxFeePerGas:   1000000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    # Record base fee, 0x01c3 = 451
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas:  0
+      maxFeePerGas:      10000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+
+
+
+    # Just 21003 gas (21k for the call, three for the contract
+    - data: ''
+      accessList: []
+      gasLimit: 100000
+      maxPriorityFeePerGas: 1
+      maxFeePerGas:       460
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      value: 0x0
+
+    # Spend all the gas on an invalid opcode
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 470
+      maxFeePerGas:         470
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB
+      value: 0x0
+
+    # Orderly revert
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas: 480
+      maxFeePerGas:         480
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC
+      value: 0x0
+
+
+
+
+  # Last block, call cc..cc to get the figures for the previous block
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 100000	
+      maxPriorityFeePerGas:   0
+      maxFeePerGas:        1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+
+
+
+  expect:
+  - network:
+    - ">=London"
+    result:
+      # Number of wei "missing" because they were burned
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+        storage:
+          # Block one
+          0x0001:  68222875   # Wei burned (in all blocks so far)
+          0x1001:     77969   # Gas used (<wei burned> / <baseFee>)
+
+          # Block two
+          0x0002: 160578729   # Wei burned in this block:  92355854  
+          0x1002:    120569   # 92355854 / 766
+ 
+          # Block three (same transactions as block two, lower baseFee)          
+          0x0003: 241480528   # Wei burned in this block:  80901799
+          0x1003:    120569   # 80901799 / 671
+          
+          # Block four (new transactions)
+          0x0004: 395876392   # Wei burned in this block: 154395864
+          0x1004:    262578
+
+          # Block five (same transactions as block four, but with tips)
+          0x0005: 531104062   # Wei burned in this block: 135227670
+          0x1005:    262578
+
+          # Block six (still the same transactions as block four, but
+          # tips calculated based on maxFeePerGas 
+          # rather than maxPriorityFeePerGas
+          0x0006: 649526740   # Wei burned in this block: 118422678
+          0x1006:    262578
+
+          # Temporary value is it easiest not to erase
+          0xffffff: 0x018b
+
+
+      # The base fees at the different blocks
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD:
+        storage:
+          0x01: 875
+          0x02: 766
+          0x03: 671
+          0x04: 588
+          0x05: 515
+          0x06: 451
+
+

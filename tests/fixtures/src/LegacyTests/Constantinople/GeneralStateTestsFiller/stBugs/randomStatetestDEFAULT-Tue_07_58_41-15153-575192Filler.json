@@ -1,0 +1,106 @@
+{
+  "randomStatetestDEFAULT-Tue_07_58_41-15153-575192": {
+    "_info": {
+      "comment": "This is a canon example of a test found by fuzzing with EVMlab, demoing how a suicide-created-but-empty account has a non-zero codehash in geth",
+      "filledwith": "evmlab",
+      "lllcversion": "not available",
+      "source": "not available",
+      "sourceHash": "not available"
+    },
+    "expect" : [
+            {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : ["Constantinople"],
+                "result" : {
+                    "0x1000000000000000000000000000000000000000" : {
+                            "balance" : "0x3562",
+                            "code" : "0x61dead6000600060006000600061dead5af162abcdef3f600155",
+                            "nonce" : "0x1c",
+                            "storage" : {
+                            }
+                        },
+                        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                            "balance" : "0x5d8fdd3ff5426352",
+                            "code" : "",
+                            "nonce" : "0x1d",
+                            "storage" : {
+                            }
+                   }
+                }
+            },
+            {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">=ConstantinopleFix"],
+                "result" : {
+                    "0x1000000000000000000000000000000000000000" : {
+                            "balance" : "16066",
+                            "code" : "0x61dead6000600060006000600061dead5af162abcdef3f600155",
+                            "nonce" : "0x1c",
+                            "storage" : {
+                            }
+                        },
+                        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                            "balance" : "6741850433964366322",
+                            "code" : "",
+                            "nonce" : "0x1d",
+                            "storage" : {
+                            }
+                   }
+                }
+            }
+    ],
+    "env": {
+      "currentCoinbase": "0x1000000000000000000000000000000000000000",
+      "currentDifficulty": "0x20000",
+      "currentGasLimit": "0x1312D00",
+      "currentNumber": "1",
+      "currentTimestamp": "1000",
+      "previousHash": "5fa368f13facaec6bf82d19c5d075fd3386be8a4265ed2d90c29b312a09b6d9d"
+    },
+    "pre": {
+      "000000000000000000000000000000000000dead": {
+        "balance": "0x00",
+        "code": "0x62abcdefff",
+        "nonce": "0x1c",
+        "storage": {}
+      },
+      "1000000000000000000000000000000000000000": {
+        "balance": "0x00",
+        "code" : "0x61dead6000600060006000600061dead5af162abcdef3f600155",
+        "nonce": "0x1c",
+        "storage": {}
+      },
+      "a94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
+        "balance": "0x5d8fdd3ff54298b4",
+        "code": "0x",
+        "nonce": "0x1c",
+        "storage": {}
+      }
+    },
+
+    "transaction": {
+      "data": [
+        "0x"
+      ],
+      "gasLimit": [
+        "0x5fde07"
+      ],
+      "gasPrice": "0x01",
+      "nonce": "0x1c",
+      "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+      "to": "0x1000000000000000000000000000000000000000",
+      "value": [
+        "0x00"
+      ]
+    }
+  }
+}
+

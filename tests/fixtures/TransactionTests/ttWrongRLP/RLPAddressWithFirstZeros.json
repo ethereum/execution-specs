@@ -1,0 +1,28 @@
+{
+    "RLPAddressWithFirstZeros" : {
+        "Byzantium" : {
+        },
+        "Constantinople" : {
+        },
+        "ConstantinopleFix" : {
+        },
+        "EIP150" : {
+        },
+        "EIP158" : {
+        },
+        "Frontier" : {
+        },
+        "Homestead" : {
+        },
+        "Istanbul" : {
+        },
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.7.0-alpha.1-33+commit.9ec9d33e.dirty",
+            "lllcversion" : "Version: 0.5.0-develop.2019.8.22+commit.9709dfe0.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttWrongRLP/RLPAddressWithFirstZerosCopier.json",
+            "sourceHash" : "f9e16779c3b12d9098be4958451096c7fabc724fd782b6e8fbe54142f116cb87"
+        },
+        "rlp" : "0xf86080018209489500095e7baea6a6c7c4c2dfeb977efac326af552d870a801ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a0efffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804"
+    }
+}

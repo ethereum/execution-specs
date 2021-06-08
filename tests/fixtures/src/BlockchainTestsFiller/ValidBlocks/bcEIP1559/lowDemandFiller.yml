@@ -1,0 +1,781 @@
+# This test looks at the effects of very low demand on the gas price.
+# Each block contains one transaction, which costs about 42k gas 
+# (21k for the transaction, and 21k for the sstore within the transaction)
+#
+# gasTarget is 42000*10000, so the gas used is 10^-4 of gasTarget, which is
+# negligible. So the calculation becomes
+#
+# gas_used_delta = parent_gas_target - parent_gas_used ~= parent_gas_target
+#
+# base_fee_per_gas_delta = 
+#  parent_base_fee_per_gas * gas_used_delta // parent_gas_target // BASE_FEE_MAX_CHANGE_DENOMINATOR
+#  ~= parent_base_fee_per_gas * 1 // BASE_FEE_MAX_CHANGE_DENOMINATOR
+#  ~= parent_base_fee_per_gas / 8
+#
+# expected_base_fee_per_gas = 
+#    max(parent_base_fee_per_gas - base_fee_per_gas_delta, 0)
+#    ~= 7/8 * parent_base_fee_per_gas
+
+lowDemand:
+  genesisBlockHeader:
+    bloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    coinbase: '0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba'
+    difficulty: '131072'
+    extraData: '0x42'
+    gasUsed: '0'
+    mixHash: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    nonce: '0x0102030405060708'
+    number: '0'
+    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    receiptTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    stateRoot: '0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a'
+    timestamp: '0x03b6'
+    transactionsTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    uncleHash: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347'
+    gasLimit: 840000000
+    baseFee: 1000
+  sealEngine: NoProof
+
+  pre:
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x10000000000
+      code: ''
+      nonce: '0x00'
+      storage: {}
+
+    0xd02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: 0x10000000000
+      nonce: 1
+      code: ''
+      storage: {}
+
+    # Store the current gasPrice (the amount a user pays, which isn't the same as 
+    # what the miner gets)
+    0xcccccccccccccccccccccccccccccccccccccccc:
+      balance: 0x10000000000
+      nonce: 1
+      code: |
+         :yul {
+            sstore(number(), gasprice())
+         }
+      storage: {}
+
+
+
+
+  blocks:
+
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 3
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 4
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 5
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 6
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 7
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 8
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 9
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 10
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 11
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 12
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 13
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 14
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 15
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 16
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 17
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 18
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 19
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 20
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 21
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 22
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 23
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 24
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 25
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 26
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 27
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 28
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 29
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 30
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 31
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 32
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 33
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 34
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 35
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 36
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 37
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 38
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 39
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 40
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 41
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 42
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 43
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 44
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 45
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 46
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 47
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 48
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+
+  # Block 49
+  - blockHeader:
+      extraData: '0x42'
+
+
+  # Block 50
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  # Block 51
+  - blockHeader:
+      extraData: '0x42'
+
+
+  # Block 52
+  - transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 50000000
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0x0
+
+  
+
+
+#    blockHeader:
+#      gasTarget: 0xffc0000
+
+
+
+
+
+  expect:
+  - network:
+    - ">=London"
+    result:
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+        storage:
+          # These blocks all have the same total gas, so the ratio between
+          # the old gas price and the new one is roughly constant.
+          #
+          0x01: 0x036b # 875 = 1000*.875
+          0x02: 0x02fe # 766 ~= 875*.875
+          0x03: 0x029f # 671 ~= 766*.875
+          0x04: 0x024c # 588 ~= 671*.875 
+          0x05: 0x0203 # 515 ~= 588*.875
+          0x06: 0x01c3 # 451 ~= 515*.875
+          0x07: 0x018b # 395 ~= 451*.875
+          0x08: 0x015a # 346
+          0x09: 0x012f # 303
+          0x0a: 0x010a # 266
+          0x0b: 0x00e9 # 233
+          0x0c: 0x00cc # 204
+          0x0d: 0x00b3 # 179
+          0x0e: 0x009d # 157
+          0x0f: 0x008a # 138
+          0x10: 0x0079 # 121
+          0x11: 0x006a # 106
+          0x12: 0x005d #  93
+          0x13: 0x0052 #  82
+          0x14: 0x0048 #  72
+          0x15: 0x0040 #  64
+          0x16: 0x0039 #  57
+          0x17: 0x0032 #  50
+          0x18: 0x002c #  44
+          0x19: 0x0027 #  39
+          0x1a: 0x0023 #  35
+          0x1b: 0x001f #  31
+          0x1c: 0x001c #  28
+          0x1d: 0x0019 #  25
+          0x1e: 0x0016 #  22
+          0x1f: 0x0014 #  20
+          0x20: 0x0012 #  18
+          0x21: 0x0010 #  16
+          0x22: 0x000f #  15
+          0x23: 0x000e #  14
+          0x24: 0x000d #  13
+          0x25: 0x000c #  12
+          0x26: 0x000b #  11
+          0x27: 0x000a #  10
+          0x28: 0x0009 #   9
+
+          # Once baseFee gets to 8 it stays there, because
+          # the fraction is slightly more than 7/8, since we
+          # use some gas
+          0x29: 0x0008 #   8
+          0x2a: 0x0008 #   8 
+          0x2b: 0x0008 #   8
+          0x2c: 0x0008 #
+          0x2d: 0x0008 #
+          0x2e: 0x0008 #
+          0x2f: 0x0008 #
+          0x30: 0x0008 #
+
+          # If we put a block that doesn't use any gas,
+          # the ratio is exactly 7/8's, so the following block
+          # has a baseFee of 7.
+
+          0x32: 0x0007
+
+          # baseFee doesn't go below 7. 7*7/8 is 6.125, but then
+          # it is rounded up
+          0x34: 0x0007

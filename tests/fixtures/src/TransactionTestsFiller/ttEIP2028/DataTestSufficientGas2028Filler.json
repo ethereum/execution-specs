@@ -1,0 +1,38 @@
+{
+  "DataTestSufficientGas2028": {
+    "expect": [
+      {
+        "network": [
+          ">=Istanbul"
+        ],
+        "result": "valid"
+      },
+      {
+        "network": [
+          "Frontier",
+          "Homestead",
+          "EIP150",
+          "EIP158",
+          "Byzantium",
+          "Constantinople",
+          "ConstantinopleFix"
+        ],
+        "result": "invalid"
+      }
+    ],
+    "transaction": {
+      "//comment1": "35 bytes, 4 z-bytes and 31 nz bytes. ",
+      "//comment2": "EIP 2028: 21000 + 4*4 + 31*16 = 21512 gas",
+      "//comment3": "Others  : 21000 + 4*4 + 31*68 = 23124 gas",
+      "data": "0xdeadbeef0000000101010010101010101010101010101aaabbbbbbcccccccddddddddd",
+      "gasLimit": "21512",
+      "gasPrice": "1",
+      "nonce": "0",
+      "to": "095e7baea6a6c7c4c2dfeb977efac326af552d87",
+      "value": "0",
+      "v": "27",
+      "r": "0x48b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353",
+      "s": "0x1fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804"
+    }
+  }
+}

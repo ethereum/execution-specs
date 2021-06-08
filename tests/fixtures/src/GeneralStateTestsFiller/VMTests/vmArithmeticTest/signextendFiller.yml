@@ -1,0 +1,415 @@
+signextend:
+
+  # sign extend tests
+  # This opcode takes two parameters, b and x. 
+  #     b is the number of bytes of x that are filled.
+  # It then extends the sign by filling the rest of the bytes with the most significant bit of x
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+    # Invalid Byte Number
+    0000000000000000000000000000000000000100:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           [[0]] (signextend 80 0x126af4)
+        }
+      nonce: '0'
+      storage: {}
+
+    # SIGNEXTEND 0 0 
+    0000000000000000000000000000000000000101:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           [[0]] (signextend 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # SIGNEXTEND 0 -1 
+    0000000000000000000000000000000000000102:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           ; -1 = 2^256-1 in EVM arithmetic
+           [[0]] (signextend 0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # SIGNEXTEND -2 -2
+    0000000000000000000000000000000000000103:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           ; -2 = 2^256-2 in EVM arithmetic
+           [[0]] (signextend
+                    0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe
+                    0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe
+                 )
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # SIGNEXTEND -1 -1
+    0000000000000000000000000000000000000104:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           ; -1 = 2^256-1 in EVM arithmetic
+           [[0]] (signextend
+                    0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                    0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                 )
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # SIGNEXTEND <large number> 255
+    0000000000000000000000000000000000000105:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           [[0]] (signextend 0xf00000000000000001 0xff)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    # SIGNEXTEND -1 0
+    0000000000000000000000000000000000000106:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           [[0]] (signextend 
+                     ; -1 a.k.a. 2^256-1
+                     0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                     0x00
+                 )
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # SIGNEXTEND bit is not set
+    0000000000000000000000000000000000000107:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; Extend the sign of 0x6a, which is a positive 8 bit number
+           [[0]] (signextend 0 0x122f6a) 
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # SIGNEXTEND bit is not set in higher byte
+    0000000000000000000000000000000000000108:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; Extend the sign of 0x6af4, which is a positive 16 bit number
+           [[0]] (signextend 1 0x126af4) 
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # SIGNEXTEND bit is set in higher byte
+    0000000000000000000000000000000000000109:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  ; The first two bytes are 0xfaf4, which is a negative 16 bit number
+           ; (-1292). The sign is extended from the first two bytes to the entire
+           ; value
+           [[0]] (signextend 1 0x12faf4) 
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # SIGNEXTEND overflow the byte number value
+    # Called signextend_Overflow_dj42 in the VMTests
+    000000000000000000000000000000000000010A:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           [[0]] (signextend 0x010000000000000001 0x8000)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # SIGNEXTEND, try to overflow the byte number value
+    # using a different value
+    000000000000000000000000000000000000010B:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           [[0]] (signextend 0xf0000000000001 0xFFFF)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # SIGNEXTEND set bit (0, 0x<whatever>ff)
+    000000000000000000000000000000000000010C:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           [[0]] (signextend 0 0x122ff4)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+      
+      
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            (call 0xffffff (+ 0x100 $4) 0 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+# The transaction to check
+  transaction:
+    data:
+    - :label invalid_byte        :abi f(uint) 0
+    - :label zero_zero           :abi f(uint) 1
+    - :label zero_neg1           :abi f(uint) 2
+    - :label neg2_neg2           :abi f(uint) 3
+    - :label neg1_neg1           :abi f(uint) 4
+    - :label large_ff            :abi f(uint) 5
+    - :label neg1_zero           :abi f(uint) 6
+    - :label bit_is_not_set      :abi f(uint) 7
+    - :label bit_is_not_set_high :abi f(uint) 8
+    - :label bit_is_set_high     :abi f(uint) 9
+    - :label overflow_bytenum    :abi f(uint) 0x0A
+    - :label overflow_bytenum2   :abi f(uint) 0x0B
+    - :label bit_is_set          :abi f(uint) 0x0C
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+
+    # All the tests where the result is zero
+    - indexes:
+        data:
+        - :label zero_zero
+        - :label neg1_zero
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000101:
+          storage:
+            0: 0x00
+        0000000000000000000000000000000000000106:
+          storage:
+            0: 0x00
+
+
+    - indexes:
+        data:
+        - :label invalid_byte
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000100:
+          storage:
+            0: 0x126af4
+
+
+    - indexes:
+        data:
+        - :label zero_neg1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000102:
+          storage:
+            #  -1 a.k.a. 2^256-1
+            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+
+
+
+    - indexes:
+        data:
+        - :label neg2_neg2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000103:
+          storage:
+            #  -2, a.k.a 2^256-2
+            0: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe
+
+
+
+    - indexes:
+        data:
+        - :label neg1_neg1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000104:
+          storage:
+            #  -1, a.k.a 2^256-1
+            0: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+
+
+
+
+    - indexes:
+        data:
+        - :label large_ff
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000105:
+          storage:
+            0: 0xff
+
+
+
+    - indexes:
+        data:
+        - :label bit_is_not_set
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000107:
+          storage:
+            0: 0x6a
+
+
+
+
+    - indexes:
+        data:
+        - :label bit_is_not_set_high
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000108:
+          storage:
+            0: 0x6af4
+
+
+
+    - indexes:
+        data:
+        - :label bit_is_set_high
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000109:
+          storage:
+            # -1292, the first two bytes are negative, and their sign is extended
+            0: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffaf4
+
+
+
+    - indexes:
+        data:
+        - :label overflow_bytenum
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000010a:
+          storage:
+            # No sign extension with such a high value for the byte num
+            0: 0x8000
+
+
+
+    - indexes:
+        data:
+        - :label overflow_bytenum2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000010b:
+          storage:
+            # No sign extension with such a high value for the byte num
+            0: 0xFFFF
+
+
+
+    - indexes:
+        data:
+        - :label bit_is_set
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000010c:
+          storage:
+            # Extend 0xf4, which is negative - so the result is negative
+            0: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff4
+
+
+
+

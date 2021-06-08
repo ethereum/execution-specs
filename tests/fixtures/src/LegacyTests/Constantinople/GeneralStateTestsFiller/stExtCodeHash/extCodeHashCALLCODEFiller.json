@@ -1,0 +1,111 @@
+{
+    "extCodeHashCALLCODE" : {
+	"_info" : {
+	    "comment": "EXTCODEHASH of an account during a CALLCODE"
+	},
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "1000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000",
+            "previousHash" : "5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6"
+        },
+        "expect" : [
+            {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : [">Byzantium"],
+                "result" : {
+                    "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+                        "balance" : "1000000000000000001",
+                        "storage" : {
+                            "0x00" : "0x56570de287d73cd1cb6092bb8fdee6173974955fdef345ae579ee9f475ea7432",
+			    "0x01" : "0x02"
+                        }
+                    }
+                }
+            },
+            {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : -1,
+                    "value" : -1
+                },
+                "network" : ["<=Byzantium"],
+                "result" : {
+                    "deadbeef00000000000000000000000000000000" : {
+                        "balance" : "1000000000000000000",
+                        "storage" : {
+                            "0x00" : "0xdeadbeef"
+                        }
+                    },
+                    "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+                        "balance" : "1000000000000000000",
+                        "storage" : {
+                            "0x00" : "0xdeadbeef"
+                        }
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+                "balance" : "1000000000000000000",
+                "code" : "{ (CALLCODE 150000 0xdeadbeef00000000000000000000000000000000 0 0 0 0 32) (RETURNDATACOPY 0 0 32) [[0]] (MLOAD 0) (CALLCODE 150000 0xaeadbeef00000000000000000000000000000000 0 0 0 0 32) (RETURNDATACOPY 0 0 32) [[1]] (MLOAD 0)}",
+                "nonce" : "0",
+                "storage" : {
+                  "0x00": "0xdeadbeef"
+                }
+            },
+            "deadbeef00000000000000000000000000000000" : {
+                "balance" : "1000000000000000000",
+                "code" : "{  (MSTORE 0 (EXTCODEHASH 0xdeadbeef00000000000000000000000000000001)) (RETURN 0 32) }",
+                "nonce" : "0",
+                "storage" : {
+                  "0x00": "0xdeadbeef"
+                }
+            },
+            "aeadbeef00000000000000000000000000000000" : {
+                "balance" : "1000000000000000000",
+                "code" : "{  (MSTORE 0 (EXTCODESIZE 0xdeadbeef00000000000000000000000000000001)) (RETURN 0 32) }",
+                "nonce" : "0",
+                "storage" : {
+                  "0x00": "0xdeadbeef"
+                }
+            },
+            "deadbeef00000000000000000000000000000001" : {
+                "balance" : "1000000000000000000",
+                "code" : "0x1234",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "1000000000000000000",
+                "code" : "0x",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                ""
+            ],
+            "gasLimit" : [
+                "400000"
+            ],
+            "gasPrice" : "1",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "095e7baea6a6c7c4c2dfeb977efac326af552d87",
+            "value" : [
+                "1"
+            ]
+        }
+    }
+}

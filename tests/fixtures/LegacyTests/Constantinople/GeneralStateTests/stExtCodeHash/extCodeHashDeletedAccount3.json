@@ -1,0 +1,88 @@
+{
+    "extCodeHashDeletedAccount3" : {
+        "_info" : {
+            "comment" : "3) Call creates Account A (0x95ab1c33798981918da6d27056f70376674878d2)\nCall to Account B do the following:\n- stores Account A code hash to 1\n- stores Account A code size to 2\n- stores Account A code to 3\n- Run selfdestruct on A\n- stores Account A code hash to 4\n- stores Account A code size to 5\n- stores Account A code to 6\n",
+            "filledwith" : "testeth 1.7.0-alpha.0+commit.2b11ce5c",
+            "lllcversion" : "Version: 0.5.0-develop.2018.11.9+commit.9709dfe0.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/stExtCodeHash/extCodeHashDeletedAccount3Filler.yml",
+            "sourceHash" : "3ed097be6fbd3fafc5efa5e0c4ba4742d97e0f3dab6cb7097cf2e6c89d058d67"
+        },
+        "env" : {
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "0x0f4240",
+            "currentNumber" : "0x01",
+            "currentTimestamp" : "0x03e8",
+            "previousHash" : "0x5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6"
+        },
+        "post" : {
+            "Constantinople" : [
+                {
+                    "hash" : "0xf5fbc7006e2fcda26c72bbf7379a2a503719d062a1793813497aba13c7c40fdc",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ],
+            "ConstantinopleFix" : [
+                {
+                    "hash" : "0xf5fbc7006e2fcda26c72bbf7379a2a503719d062a1793813497aba13c7c40fdc",
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ]
+        },
+        "pre" : {
+            "0x095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x6000603c80603f60003960006000f56000526000516000556020600060006000600073bbbbbbbb00000000000000000000000000000000620249f0f15000fe73cccccccc000000000000000000000000000000003b6000526000516000602073cccccccc000000000000000000000000000000003c6000516020f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x00",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xbbbbbbbb00000000000000000000000000000000" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x7395ab1c33798981918da6d27056f70376674878d23f6001557395ab1c33798981918da6d27056f70376674878d23b600255600254600060007395ab1c33798981918da6d27056f70376674878d23c600051600355602060006000600060007395ab1c33798981918da6d27056f70376674878d2620249f0f1507395ab1c33798981918da6d27056f70376674878d23f6004557395ab1c33798981918da6d27056f70376674878d23b600555600554600060207395ab1c33798981918da6d27056f70376674878d23c602051600655",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xcccccccc00000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "0x73bbbbbbbb00000000000000000000000000000000ff",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x"
+            ],
+            "gasLimit" : [
+                "0x061a80"
+            ],
+            "gasPrice" : "0x01",
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+            "value" : [
+                "0x01"
+            ]
+        }
+    }
+}

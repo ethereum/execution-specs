@@ -1,0 +1,44 @@
+{
+    "TransactionWithSvalue1" : {
+        "Byzantium" : {
+            "hash" : "c766ef7fc21cabd37e346c2ca957a30aa87853b6579917a6d5259fb74b657eea",
+            "sender" : "e115cf6bb5656786569dd273705242ca72d84bc0"
+        },
+        "Constantinople" : {
+            "hash" : "c766ef7fc21cabd37e346c2ca957a30aa87853b6579917a6d5259fb74b657eea",
+            "sender" : "e115cf6bb5656786569dd273705242ca72d84bc0"
+        },
+        "ConstantinopleFix" : {
+            "hash" : "c766ef7fc21cabd37e346c2ca957a30aa87853b6579917a6d5259fb74b657eea",
+            "sender" : "e115cf6bb5656786569dd273705242ca72d84bc0"
+        },
+        "EIP150" : {
+            "hash" : "c766ef7fc21cabd37e346c2ca957a30aa87853b6579917a6d5259fb74b657eea",
+            "sender" : "e115cf6bb5656786569dd273705242ca72d84bc0"
+        },
+        "EIP158" : {
+            "hash" : "c766ef7fc21cabd37e346c2ca957a30aa87853b6579917a6d5259fb74b657eea",
+            "sender" : "e115cf6bb5656786569dd273705242ca72d84bc0"
+        },
+        "Frontier" : {
+            "hash" : "c766ef7fc21cabd37e346c2ca957a30aa87853b6579917a6d5259fb74b657eea",
+            "sender" : "e115cf6bb5656786569dd273705242ca72d84bc0"
+        },
+        "Homestead" : {
+            "hash" : "c766ef7fc21cabd37e346c2ca957a30aa87853b6579917a6d5259fb74b657eea",
+            "sender" : "e115cf6bb5656786569dd273705242ca72d84bc0"
+        },
+        "Istanbul" : {
+            "hash" : "c766ef7fc21cabd37e346c2ca957a30aa87853b6579917a6d5259fb74b657eea",
+            "sender" : "e115cf6bb5656786569dd273705242ca72d84bc0"
+        },
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.7.0-alpha.1-33+commit.9ec9d33e.dirty",
+            "lllcversion" : "Version: 0.5.0-develop.2019.8.22+commit.9709dfe0.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttRSValue/TransactionWithSvalue1Filler.json",
+            "sourceHash" : "59359bcf73f94d9bb4378759e9dab87fae9a02dbce6d0ccdb76024c0161f3eb6"
+        },
+        "rlp" : "0xf83f800182520894095e7baea6a6c7c4c2dfeb977efac326af552d870b801ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a3664935301"
+    }
+}

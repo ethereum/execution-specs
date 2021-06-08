@@ -1,0 +1,268 @@
+# This test looks at the effects of very high demand on baseFee. 
+#
+# Each of the blocks have a gasTarget of 100k, and a gasUsed of almost 200k. This
+# leads to baseFee growing by 12.5% (1/BASE_FEE_MAX_CHANGE_DENOMINATOR) every block
+
+
+highDemand:
+  genesisBlockHeader:
+    bloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    coinbase: '0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba'
+    difficulty: '131072'
+    extraData: '0x42'
+    mixHash: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    nonce: '0x0102030405060708'
+    number: '0'
+    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    receiptTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    stateRoot: '0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a'
+    timestamp: '0x03b6'
+    transactionsTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    uncleHash: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347'
+    gasLimit:  200000
+    gasUsed:   100000
+    baseFee: 1000
+  sealEngine: NoProof
+
+  pre:
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x10000000000000000
+      code: ''
+      nonce: '0x00'
+      storage: {}
+
+    0xd02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: 0x10000000000000000
+      nonce: 1
+      code: ''
+      storage: {}
+
+    # Store the current gasPrice (the amount a user pays, which isn't the same as 
+    # what the miner gets)
+    0xcccccccccccccccccccccccccccccccccccccccc:
+      balance: 0x10000000000
+      nonce: 1
+      code: |
+         :yul {
+            sstore(number(), gasprice())
+         }
+      storage: {}
+
+
+    # Spend the entire allowance (by having an illegal opcode)
+    0x1111111111111111111111111111111111111111:
+      balance: 0x10000000000
+      nonce: 1
+      code: :raw 0xFE
+      storage: {}
+
+
+
+  blocks:
+
+  - blockHeader:
+      gasLimit: 200000
+    transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 43104
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    - data: ''
+      accessList: []
+      gasLimit: 156896
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0x1111111111111111111111111111111111111111
+      value: 0x0
+
+
+  - blockHeader:
+      gasLimit: 200000
+    transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 43104
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    - data: ''
+      accessList: []
+      gasLimit: 156896
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0x1111111111111111111111111111111111111111
+      value: 0x0
+
+
+  - blockHeader:
+      gasLimit: 200000
+    transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 43104
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    - data: ''
+      accessList: []
+      gasLimit: 156896
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0x1111111111111111111111111111111111111111
+      value: 0x0
+
+  - blockHeader:
+      gasLimit: 200000
+    transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 43104
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    - data: ''
+      accessList: []
+      gasLimit: 156896
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0x1111111111111111111111111111111111111111
+      value: 0x0
+
+
+
+  - blockHeader:
+      gasLimit: 200000
+    transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 43104
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    - data: ''
+      accessList: []
+      gasLimit: 156896
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0x1111111111111111111111111111111111111111
+      value: 0x0
+
+
+
+  - blockHeader:
+      gasLimit: 200000
+    transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 43104
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    - data: ''
+      accessList: []
+      gasLimit: 156896
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0x1111111111111111111111111111111111111111
+      value: 0x0
+
+
+
+  - blockHeader:
+      gasLimit: 200000
+    transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 43104
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    - data: ''
+      accessList: []
+      gasLimit: 156896
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0x1111111111111111111111111111111111111111
+      value: 0x0
+
+
+
+  - blockHeader:
+      gasLimit: 200000
+    transactions:
+    - data: ''
+      accessList: []
+      gasLimit: 43104
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    - data: ''
+      accessList: []
+      gasLimit: 156896
+      maxPriorityFeePerGas: 0x00
+      maxFeePerGas: 2000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0x1111111111111111111111111111111111111111
+      value: 0x0
+
+
+
+
+
+
+
+  expect:
+  - network:
+    - ">=London"
+    result:
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+        storage:
+          0x01: 0x036b   #  875, because the genesis block didn't have any gas used
+          0x02: 0x03d8   #  984 ~=  875 * 1.125
+          0x03: 0x0453   # 1107  =  984 * 1.125
+          0x04: 0x04dd   # 1245 ~= 1107 * 1.125
+          0x05: 0x0578   # 1400 ~= 1245 * 1.125
+          0x06: 0x0627   # 1575  = 1400 * 1.125
+          0x07: 0x06eb   # 1771 ~= 1575 * 1.125
+          0x08: 0x07c8   # 1992 ~= 1771 * 1.125

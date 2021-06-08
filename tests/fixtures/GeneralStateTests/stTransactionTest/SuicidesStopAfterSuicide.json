@@ -1,0 +1,96 @@
+{
+    "SuicidesStopAfterSuicide" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.10.4-unstable-966ee3ae-20210528",
+            "filling-tool-version" : "retesteth-0.1.1-eip1559+commit.658fc3a8.Linux.g++",
+            "lllcversion" : "Version: 0.5.14-develop.2021.5.18+commit.14c9d5de.mod.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/stTransactionTest/SuicidesStopAfterSuicideFiller.json",
+            "sourceHash" : "90854fbabdf25c276c57f842da37856f16d2dee03c59ae4183ff9f7b30109fc6"
+        },
+        "env" : {
+            "currentCoinbase" : "0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "currentDifficulty" : "0x020000",
+            "currentNumber" : "0x01",
+            "currentTimestamp" : "0x03e8",
+            "previousHash" : "0x5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6",
+            "currentGasLimit" : "0x0186a0"
+        },
+        "post" : {
+            "Berlin" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0xd53bb3d2c7e0779bb8729ae9cd90a2400040f85582a4e5ac263ad0536da3a162",
+                    "txbytes" : "0xf860800a830146f494c94f5374fce5edbc8e2a8697c15331677e6ebf0b0a801ba067b705b92163ccfd9705cfbe4a5df1b72d71a0b225ef9991d1c44570306f2002a04a28fa12146d50bd38a4c4420e596a369e28bb7beeb1837d22f27df8a66c3425",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ],
+            "Istanbul" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0xe90293ef704e013e4b4ebb4077aa7163bdd1181b2dc690791f9f0841b6e34b6e",
+                    "txbytes" : "0xf860800a830146f494c94f5374fce5edbc8e2a8697c15331677e6ebf0b0a801ba067b705b92163ccfd9705cfbe4a5df1b72d71a0b225ef9991d1c44570306f2002a04a28fa12146d50bd38a4c4420e596a369e28bb7beeb1837d22f27df8a66c3425",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ],
+            "London" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0xcc248257d4b6c9dca0f426695888564e0d8340659b66e4c985e0ac3b1188a1f7",
+                    "txbytes" : "0xf860800a830146f494c94f5374fce5edbc8e2a8697c15331677e6ebf0b0a801ba067b705b92163ccfd9705cfbe4a5df1b72d71a0b225ef9991d1c44570306f2002a04a28fa12146d50bd38a4c4420e596a369e28bb7beeb1837d22f27df8a66c3425",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ]
+        },
+        "pre" : {
+            "0x0000000000000000000000000000000000000000" : {
+                "balance" : "0x0456",
+                "code" : "0x6001ff00",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x07459280",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x2710",
+                "code" : "0x6000ff600060006000600060006000617530f100",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x"
+            ],
+            "gasPrice" : "0x0a",
+            "gasLimit" : [
+                "0x0146f4"
+            ],
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "value" : [
+                "0x0a"
+            ]
+        }
+    }
+}

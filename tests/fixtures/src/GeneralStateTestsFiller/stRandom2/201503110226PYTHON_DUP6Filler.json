@@ -1,0 +1,58 @@
+{
+    "201503110226PYTHON_DUP6" : {
+        "_info" : {
+            "comment" : "This test used to be a VM test and it once failed in python client some day.  Since the test contains a BALANCE instruction (which must be mocked), it's moved to GeneralSateTest https://github.com/ethereum/tests/pull/445/files#r179426325"
+        },
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x20000",
+            "currentGasLimit" : "1000000000000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000",
+            "previousHash" : "5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6"
+        },
+        "pre": {
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": {
+                "balance": "0x1038beec8feeca2598",
+                "code": "",
+                "nonce": "0x00",
+                "storage": {}
+            },
+            "0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+                "balance" : "1000000000000000000",
+                "code" : ":raw 0x45414443434042405b85",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to": "0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6",
+            "data" : ["0x"],
+            "gasLimit" : ["100000"],
+            "gasPrice" : "100000000000000",
+            "value" : ["1000000000000000000"],
+            "nonce" : "0x00"
+        },
+        "expect" : [
+            {
+	            "indexes" : {
+	                "data" : -1,
+	                "gas" : -1,
+	                "value" : -1
+	            },
+	            "network" : [">=Istanbul"],
+                "result" : {
+                    "0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+                        "balance" : "2000000000000000000",
+                        "code" : "0x45414443434042405b85",
+                        "nonce" : "0",
+                        "storage" : {
+                        }
+                    }
+                }
+            }
+        ]
+    }
+}

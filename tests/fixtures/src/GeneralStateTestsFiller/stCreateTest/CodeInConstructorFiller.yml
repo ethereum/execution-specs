@@ -1,0 +1,197 @@
+CodeInConstructor:
+
+  env:
+    currentCoinbase: ba5e0000ba5e0000ba5e0000ba5e0000ba5e0000
+    currentDifficulty: '0x20000'
+    currentGasLimit: 0x100000000
+    currentNumber: "1"
+    currentTimestamp: "1000"
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  pre:
+
+    # Record information
+    000000000000000000000000000000000000da7a:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code:   | 
+        {
+            (def 'counterLoc 0)
+            (def 'counterVal @@counterLoc)
+            [[counterVal]] $0
+            [[counterLoc]] (+ counterVal 1)
+        }
+      nonce: 0
+      storage:
+        0: 1
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code:   | 
+        {
+          ; Variables are 0x20 bytes (= 256 bits) apart, except for
+          ; code buffers that get 0x100 (256 bytes)
+          (def 'constructorCode   0x000)
+          (def 'contractCode      0x100)
+          (def 'contractLength    0x200)
+          (def 'constructorLength 0x220)
+          (def 'addr              0x240)
+          (def 'dataLoc           0x260)
+          ; The type of CREATE to use
+          (def 'createType        $ 4)
+          ; Other constants
+          (def 'NOP 0)   ; No OPeration
+          ; Send data to 0x00da7a
+          (def 'sendData (data) {
+             [dataLoc] data
+             (call 0xFFFFFF 0xda7a 0 dataLoc 0x20 0 0)
+          })
+          ; Buffer length (use for constructor and contract)
+          (def 'bufLength     0x100)
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Create the contract and a constructor to pass to CREATE[2]
+          ;
+          ; 
+          [contractLength] 
+            (lll
+              (sstore 0 0xFF)
+              contractCode
+            )
+          [constructorLength] 
+            (lll {
+                   ; copy the contract from code to memory
+                   (codecopy contractCode contractCode bufLength)
+                   ; Send the data to 0x00da7a so we'll be able to
+                   ; check it in the expect: section
+                   ; [[2]] PC
+                   ; [[3]] address of new contract
+                   ; [[4]] codesize
+                   ; [[5]] extcodeize
+                   ; [[6]] first word from codecopy
+                   ; [[7]] first word from extcodecopy
+                   ; [[8]] PC
+                   (sendData (pc))
+                   (sendData (address))
+                   (sendData (codesize))
+                   (sendData (extcodesize (address)))
+                   (codecopy 0x100 0 0x20)
+                   (sendData @0x100)
+                   (extcodecopy (address) 0x100 0 0x20)
+                   (sendData @0x100)
+                   (sendData (pc))
+                   ; Return actual code
+                   (return contractCode (- (codesize) bufLength))
+                 } 
+                 constructorCode            
+            )   
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Actually create the contract
+          ;
+          ; The buffer size lets us send the contract code as part of the
+          ; constructor code
+          [addr] (if (= createType 1)
+             (create 0 constructorCode (+ bufLength @contractLength))
+             (create2 0 constructorCode (+ bufLength @contractLength) 0x5a17)
+                 )
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # User account
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # Parameters:
+    # createType   1 - CREATE     2 - CREATE2
+    - :abi fun(uint) 1
+    - :abi fun(uint) 2
+    gasLimit:
+    - 0x900000
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    value:
+    - 0
+
+  expect:
+
+    # CREATE
+    - indexes:
+        data: !!int 0
+        gas:  !!int 0
+        value: !!int 0
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000da7a:
+          storage:
+            0: 8
+
+            # PC before sending data
+            1: 0x0A
+
+            # ADDRESS of new contract
+            2: 0x8af6a7af30d840ba137e8f3f34d54cfb8beba6e2
+
+            # CODESIZE, size of constructor
+            3: 0x106
+
+            # EXTCODESIZE, zero
+            4: 0
+
+            # CODECOPY, gives constructor code (in this case, first word)
+            5: 0x610100610100610100395861026052600060006020610260600061da7a62ffff
+
+            # EXTCODECOPY, gives zero
+            6: 0
+
+            # PC after sending data
+            7: 0xB8
+
+
+
+    # CREATE2
+    - indexes:
+        data: !!int 1
+        gas:  !!int 0
+        value: !!int 0
+      network:
+        - '>=Istanbul'
+      result:
+        000000000000000000000000000000000000da7a:
+          storage:
+            0: 8
+
+            # PC before sending data
+            1: 0x0A
+
+            # ADDRESS of new contract
+            2: 0x33c409678a4289f0184c95c627ba09da2daeaa46
+
+            # CODESIZE, size of constructor
+            3: 0x106
+
+            # EXTCODESIZE, zero
+            4: 0
+
+            # CODECOPY, gives constructor code (in this case, first word)
+            5: 0x610100610100610100395861026052600060006020610260600061da7a62ffff
+
+            # EXTCODECOPY, gives zero
+            6: 0
+
+            # PC after sending data
+            7: 0xB8
+

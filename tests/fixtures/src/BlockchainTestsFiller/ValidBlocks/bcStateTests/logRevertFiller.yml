@@ -1,0 +1,294 @@
+# This test verifies that if we LOGn and then abort 
+# the transaction the logs don't happen.
+#
+# We can't observe logs directly from the EVM, so this is somewhat complicated:
+#
+# Block 1 has transactions that generate a state change and then revert
+# Block 2 has a transaction that gets the block hash of the previous block,
+#         the test fails if the block hash isn't what we expect.
+#
+#
+# This test is extremely sensitive. Anything that changes in a block, even 
+# the gas balance due to an opcode repricing will break it. When you get a failure
+# here run the command:
+#
+# <run the test> --verbosity 6 | | grep '\"logs\": \['
+#
+# If you don't see any lines it means that this fork simply generates a different hash. 
+# Replace it in the storage for 0x6E70DA7A0.....0 / 0x01.
+#
+# 
+#
+# Contract addresses are ccccccc.....cccX.
+# X is the type of revert:
+#     0 - REVERT opcode
+#     1 - gas cost overflow (> 2^64)
+#     2 - invalid opcode
+#     3 - stack underflow 
+#     4 - stack overflow
+#     5 - jump to addr0 (not a JUMPDEST)
+#
+#     6 is supposed to be a normal out of gas (< 2^64), but that causes an
+#     invalid transaction and kills the test     
+#
+# suggested in https://github.com/ethereum/tests/issues/348
+
+
+logRevert:
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 0x8888f1f195afa192cfee860698584c030f4c9db1
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: 31415920
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+
+
+  pre:
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 600000000000
+      nonce: '0'
+      code: ''
+      storage: {}
+    0xd02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: 600000000
+      nonce: '0'
+      code: ''
+      storage: {}
+
+    # The operations we test
+
+    # Log then revert
+    0xccccccccccccccccccccccccccccccccccccccc0:
+      balance: '0xba1a9ce'
+      nonce: '0'
+      code: |
+        {
+           (log0 0 0x20)
+           (log1 0 0x20 0xBEEF)
+           (log2 0 0x20 0x60A7 0xBEEF)
+           (log3 0 0x20 0xDEAD 0x60A7 0xBEEF)
+           (log4 0 0x20 0x600D 0xDEAD 0x60A7 0xBEEF)
+           (revert 0 0x10)
+
+        }
+      storage: {}
+
+    # Logs then out of gas  (extreme, cost > 2^64)
+    0xccccccccccccccccccccccccccccccccccccccc1:
+      balance: '0xba1a9ce'
+      nonce: '0'
+      code: |
+        {
+           (log0 0 0x20)
+           (log1 0 0x20 0xBEEF)
+           (log2 0 0x20 0x60A7 0xBEEF)
+           (log3 0 0x20 0xDEAD 0x60A7 0xBEEF)
+           (log4 0 0x20 0x600D 0xDEAD 0x60A7 0xBEEF)
+           (sha3 0 (- 0 1))
+        }
+      storage: {}
+
+
+
+    # Logs then illegal opcode
+    0xccccccccccccccccccccccccccccccccccccccc2:
+      # Same code as c....c0, but with an illegal opcode (0xBA) instead of revert
+      code: :raw 0x60206000a061beef60206000a161beef6160a760206000a261beef6160a761dead60206000a361beef6160a761dead61600d60206000a460106000BA
+      balance: '0xba1a9ce'
+      nonce: '0'
+      storage: {}
+
+
+
+    # Logs then underflow
+    0xccccccccccccccccccccccccccccccccccccccc3:
+      # Same code as c....c0, but with some ADDs to underflow the stack
+      code: :raw 0x60206000a061beef60206000a161beef6160a760206000a261beef6160a761dead60206000a361beef6160a761dead61600d60206000a401010101
+      balance: '0xba1a9ce'
+      nonce: '0'
+      storage: {}
+
+
+
+    # Logs then overflow
+    0xccccccccccccccccccccccccccccccccccccccc4:
+      # The code that does the overflow:
+      # n    5B    JUMPDEST
+      # n+1  58    PC
+      # n+2  6004  PUSH1 4
+      # n+4  58    PC
+      # n+5  03    SUB
+      # n+6  56    JUMP
+      #       
+      # Same code as c....c0, except the REVERT is replaced by the above code
+      # that generates a stack overflow
+      code: :raw 0x60206000a061beef60206000a161beef6160a760206000a261beef6160a761dead60206000a361beef6160a761dead61600d60206000a45B586004580356
+      balance: '0xba1a9ce'
+      nonce: '0'
+      storage: {}
+
+
+    # Logs then jumps to a non jumpdest
+    0xccccccccccccccccccccccccccccccccccccccc5:
+      # Same code as c....c0, except the REVERT is replaced by a jump to pc=0
+      code: :raw 0x60206000a061beef60206000a161beef6160a760206000a261beef6160a761dead60206000a361beef6160a761dead61600d60206000a4600056
+      balance: '0xba1a9ce'
+      nonce: '0'
+      storage: {}
+
+
+
+    # Logs then out of gas  (not extreme, cost < 2^64)
+    # Note that this causes an invalid transaction, not a revert,
+    # so we don't actually check it.
+    0xccccccccccccccccccccccccccccccccccccccc6:
+      balance: '0xba1a9ce'
+      nonce: '0'
+      code: |
+        {
+           (log0 0 0x20)
+           (log1 0 0x20 0xBEEF)
+           (log2 0 0x20 0x60A7 0xBEEF)
+           (log3 0 0x20 0xDEAD 0x60A7 0xBEEF)
+           (log4 0 0x20 0x600D 0xDEAD 0x60A7 0xBEEF)
+           (sha3 0 0x1000000)
+        }
+      storage: {}
+
+
+
+
+    # ##############################################################################
+
+
+
+    # Get block data
+    0x6E70DA7A00000000000000000000000000000000:
+      balance: '0xba1a9ce'
+      nonce: '0'
+      code: |
+        {
+           [[0]] (number)
+           [[1]] (blockhash (- (number) 1))
+        }
+      storage: {}
+
+  blocks:
+
+  # Block 1, operations being tested
+  - transactions:
+
+    # Run all five log opcodes and then revert
+    - data: :raw 0x00
+      gasLimit: 600000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to:   0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC0
+      value: '10'
+
+    # Run all five log opcodes, then runs out of gas (but doesn't overflow 2^64)
+    # This transaction fails, which causes the entire test to fail.
+    - data: :raw 0x00
+      gasLimit: 600000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to:   0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC6
+      value: '10'
+
+
+    # Run all five log opcodes, then run out of gas (overflow the 2^64 variable)
+    - data: :raw 0x00
+      gasLimit: 600000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to:   0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC1
+      value: '10'
+
+
+
+    # Run all five log opcodes, then run an invalid opcode (0xBA)
+    - data: :raw 0x00
+      gasLimit: 600000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to:   0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC2
+      value: '10'
+
+
+
+    # Run all five log opcodes, then stack underflow
+    - data: :raw 0x00
+      gasLimit: 600000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to:   0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC3
+      value: '10'
+
+
+    # Run all five log opcodes, then stack overflow
+    - data: :raw 0x00
+      gasLimit: 600000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to:   0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC4
+      value: '10'
+
+
+    # Run all five log opcodes, then jump to a non-jumpdest
+    - data: :raw 0x00
+      gasLimit: 600000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to:   0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC5
+      value: '10'
+
+
+
+
+
+
+  # Block 2, get block information
+  - transactions:
+    - data: ''
+      gasLimit: 500000
+      gasPrice: '20'
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0x6E70DA7A00000000000000000000000000000000
+      value: '20'
+
+
+
+  expect:
+  - network:
+    - "Istanbul"
+    - "Berlin"
+    result:
+      0x6E70DA7A00000000000000000000000000000000:
+         storage:
+            0: 0x02
+            1: 0xb658eba33a64f87c60b140dbc3c4061c8d0b32f4d9c68fed4ce5719a7ee1d19e
+  - network:
+    - ">=London"
+    result:
+      0x6E70DA7A00000000000000000000000000000000:
+         storage:
+            0: 0x02
+            1: 0x6a21efff25ba77b749e55a3a767d9ad8e6816cc66e63496799a4a8992122f94b

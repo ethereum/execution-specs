@@ -1,0 +1,44 @@
+{
+    "TransactionWithSvaluePrefixed00" : {
+        "Byzantium" : {
+            "hash" : "e105dd8e6927c4c27d69b5c3926a521208181ed830134685293479b05729ae54",
+            "sender" : "a825d77f343f31619c991cd7db5aaa6adbe9452e"
+        },
+        "Constantinople" : {
+            "hash" : "e105dd8e6927c4c27d69b5c3926a521208181ed830134685293479b05729ae54",
+            "sender" : "a825d77f343f31619c991cd7db5aaa6adbe9452e"
+        },
+        "ConstantinopleFix" : {
+            "hash" : "e105dd8e6927c4c27d69b5c3926a521208181ed830134685293479b05729ae54",
+            "sender" : "a825d77f343f31619c991cd7db5aaa6adbe9452e"
+        },
+        "EIP150" : {
+            "hash" : "e105dd8e6927c4c27d69b5c3926a521208181ed830134685293479b05729ae54",
+            "sender" : "a825d77f343f31619c991cd7db5aaa6adbe9452e"
+        },
+        "EIP158" : {
+            "hash" : "e105dd8e6927c4c27d69b5c3926a521208181ed830134685293479b05729ae54",
+            "sender" : "a825d77f343f31619c991cd7db5aaa6adbe9452e"
+        },
+        "Frontier" : {
+            "hash" : "e105dd8e6927c4c27d69b5c3926a521208181ed830134685293479b05729ae54",
+            "sender" : "a825d77f343f31619c991cd7db5aaa6adbe9452e"
+        },
+        "Homestead" : {
+            "hash" : "e105dd8e6927c4c27d69b5c3926a521208181ed830134685293479b05729ae54",
+            "sender" : "a825d77f343f31619c991cd7db5aaa6adbe9452e"
+        },
+        "Istanbul" : {
+            "hash" : "e105dd8e6927c4c27d69b5c3926a521208181ed830134685293479b05729ae54",
+            "sender" : "a825d77f343f31619c991cd7db5aaa6adbe9452e"
+        },
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.7.0-alpha.1-33+commit.9ec9d33e.dirty",
+            "lllcversion" : "Version: 0.5.0-develop.2019.8.22+commit.9709dfe0.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttRSValue/TransactionWithSvaluePrefixed00Filler.json",
+            "sourceHash" : "bddb5ca7d85bc3568aca73d5e695b27df725f7c7f900e295a02cdafff0f39d2d"
+        },
+        "rlp" : "0xf851800182520894095e7baea6a6c7c4c2dfeb977efac326af552d870b801ba098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4a920ef0b28ad43601b4ab949f53faa07bd2c804"
+    }
+}

@@ -1,0 +1,91 @@
+arith:
+
+  # An extremely basic test
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+        # 00 PUSH1 1      6001                      1
+        # 02 PUSH1 1      6001                      1,1
+        # 04 SWAP1        90 
+        # 05 ADD          01                        2
+        # 06 PUSH1 7      6007                      7,2 
+        # 08 MUL          02                        14
+        # 09 PUSH1 5      6005                      5,14
+        # 0B ADD          01                        19
+        # 0C PUSH1 2      6002                      2,19
+        # 0E SWAP1        90                        19,2
+        # 0F DIV          04                        9
+        # 10 PUSH1 4      6004                      4,9
+        # 12 SWAP1        90                        9,4
+        # 13 PUSH1 0x21   6021                      33,9,4
+        # 15 SWAP1        90                        9,33,4
+        # 16 SDIV         05                        0,4
+        # 17 PUSH1 0x17   6017                      21,0,4
+        # 19 ADD          01                        21,4
+        # 1A PUSH1 3      6003                      3,21,4
+        # 1C MUL          02                        63,4
+        # 1D PUSH1 5      6005                      5,63,4
+        # 1F SWAP1        90                        63,5,4
+        # 20 SMOD         07                        3,4
+        # 21 PUSH1 3      6003                      3,3,4
+        # 23 SUB          03                        0,4
+        # 24 PUSH1 9      6009                      9,0,4
+        # 26 PUSH1 0x11   6011                      17,9,0,4                           
+        # 28 EXP          0A                        17^9,0,4                       
+        # 29 PUSH1 0      6000                      0,17^9,0,4
+        # 2B SSTORE       55 The original was MSTORE, but that's not testable
+        # 2C PUSH1 8      6008                      8,0,4
+        # 2E PUSH1 0      6000                      0,8,0,4
+        # 30 RETURN       F3
+      code: :raw 0x600160019001600702600501600290046004906021900560170160030260059007600303600960110A60005560086000F3
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+# The transaction to check
+  transaction:
+    data:
+    - 0x00
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            # 17^9
+            0: 0x1b9c636491

@@ -1,0 +1,405 @@
+# Identify which precompiles exist on a node
+#
+# The list of precompiles in GETH is at 
+#     https://github.com/ethereum/go-ethereum/blob/master/core/vm/contracts.go#L83
+
+
+idPrecomps:
+
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: '0xFF112233445566'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  pre:  
+
+
+    # Call different contracts depending on the parameter. Write in [[0]] whether
+    # the call was successful or not.
+    #
+    # This is done by calling the precompile and then 0x10000 and seeing if the
+    # difference is gas cost is consistent. I chose this somewhat complicated
+    # method because it is almost immune to opcode gas cost changes (not 100% immune
+    # because there are opcodes that appear in one and not the other, that's the 
+    # reason we ignore differences of less than 256 gas)
+    cccccccccccccccccccccccccccccccccccccccc:
+      code: |
+        {
+            (def 'gasTest   0x0000)
+            (def 'gas10000  0x0020)
+            (def 'length    0x0040)
+            (def 'inputBuf  0x1000)
+            (def 'outputBuf 0x2000)
+
+            [length] 0x20
+
+            ; Make sure that the first touch of the buffers isn't within
+            ; a test to avoid the gas penalty confusing us
+            [inputBuf] 0xFF
+            [outputBuf] 0xFF
+            (mstore8 inputBuf 0xFF)
+            (mstore8 outputBuf 0xFF)
+
+            ; Make sure the first touch of the address isn't within
+            ; a test
+            (balance $4)
+            (balance 0x10000)
+
+            [gasTest] (gas)
+            (call (gas) $4 0 inputBuf @length outputBuf @length)
+            [gasTest] (- @gasTest (gas))
+
+
+            ; Figure the cost of calling 0x10000 (which is above the 
+            ; precompile range)
+            [gas10000] (gas)
+            (call (gas) 0x10000 0 inputBuf @length outputBuf @length)
+            [gas10000] (- @gas10000 (gas))
+
+            [[0]]  (if (> @gasTest @gas10000) (- @gasTest @gas10000) (- @gas10000 @gasTest))
+            ; [[1]]  @@0
+            [[0]]  (< @@0 0x10)
+            ; [[1]] @gasTest
+            ; [[2]] @gas10000
+        }  
+      nonce: '0'
+      storage: {}
+      balance: 0
+
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: 0x
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # Some precomps don't appear to happen in Istanbul for some reason
+ 
+    # Accounts where we expect to find precompiles
+    - :label yes :abi f(uint) 0x01
+    - :label yes :abi f(uint) 0x02
+    - :label yes :abi f(uint) 0x03
+    - :label yes :abi f(uint) 0x04
+    - :label yes :abi f(uint) 0x05
+    - :label yes :abi f(uint) 0x06
+    - :label yes :abi f(uint) 0x07
+    - :label yes :abi f(uint) 0x08
+    - :label yes :abi f(uint) 0x09
+
+    # Accounts where we do not expect to find precompiles
+    - :label no :abi f(uint) 0x0A
+    - :label no :abi f(uint) 0x0B
+    - :label no :abi f(uint) 0x0C
+    - :label no :abi f(uint) 0x0D
+    - :label no :abi f(uint) 0x0E
+    - :label no :abi f(uint) 0x0F
+
+    - :label no     :abi f(uint) 0x10
+    - :label no     :abi f(uint) 0x11
+    - :label no     :abi f(uint) 0x12
+    - :label no     :abi f(uint) 0x13
+    - :label no     :abi f(uint) 0x14
+    - :label no     :abi f(uint) 0x15
+    - :label no     :abi f(uint) 0x16
+    - :label no     :abi f(uint) 0x17
+    - :label no     :abi f(uint) 0x18
+    - :label no     :abi f(uint) 0x19
+    - :label no     :abi f(uint) 0x1A
+    - :label no     :abi f(uint) 0x1B
+    - :label no     :abi f(uint) 0x1C
+    - :label no     :abi f(uint) 0x1D
+    - :label no     :abi f(uint) 0x1E
+    - :label no     :abi f(uint) 0x1F
+
+    - :label no     :abi f(uint) 0x20
+    - :label no     :abi f(uint) 0x21
+    - :label no     :abi f(uint) 0x22
+    - :label no     :abi f(uint) 0x23
+    - :label no     :abi f(uint) 0x24
+    - :label no     :abi f(uint) 0x25
+    - :label no     :abi f(uint) 0x26
+    - :label no     :abi f(uint) 0x27
+    - :label no     :abi f(uint) 0x28
+    - :label no     :abi f(uint) 0x29
+    - :label no     :abi f(uint) 0x2A
+    - :label no     :abi f(uint) 0x2B
+    - :label no     :abi f(uint) 0x2C
+    - :label no     :abi f(uint) 0x2D
+    - :label no     :abi f(uint) 0x2E
+    - :label no     :abi f(uint) 0x2F
+
+    - :label no     :abi f(uint) 0x30
+    - :label no     :abi f(uint) 0x31
+    - :label no     :abi f(uint) 0x32
+    - :label no     :abi f(uint) 0x33
+    - :label no     :abi f(uint) 0x34
+    - :label no     :abi f(uint) 0x35
+    - :label no     :abi f(uint) 0x36
+    - :label no     :abi f(uint) 0x37
+    - :label no     :abi f(uint) 0x38
+    - :label no     :abi f(uint) 0x39
+    - :label no     :abi f(uint) 0x3A
+    - :label no     :abi f(uint) 0x3B
+    - :label no     :abi f(uint) 0x3C
+    - :label no     :abi f(uint) 0x3D
+    - :label no     :abi f(uint) 0x3E
+    - :label no     :abi f(uint) 0x3F
+
+    - :label no     :abi f(uint) 0x40
+    - :label no     :abi f(uint) 0x41
+    - :label no     :abi f(uint) 0x42
+    - :label no     :abi f(uint) 0x43
+    - :label no     :abi f(uint) 0x44
+    - :label no     :abi f(uint) 0x45
+    - :label no     :abi f(uint) 0x46
+    - :label no     :abi f(uint) 0x47
+    - :label no     :abi f(uint) 0x48
+    - :label no     :abi f(uint) 0x49
+    - :label no     :abi f(uint) 0x4A
+    - :label no     :abi f(uint) 0x4B
+    - :label no     :abi f(uint) 0x4C
+    - :label no     :abi f(uint) 0x4D
+    - :label no     :abi f(uint) 0x4E
+    - :label no     :abi f(uint) 0x4F
+
+    - :label no     :abi f(uint) 0x50
+    - :label no     :abi f(uint) 0x51
+    - :label no     :abi f(uint) 0x52
+    - :label no     :abi f(uint) 0x53
+    - :label no     :abi f(uint) 0x54
+    - :label no     :abi f(uint) 0x55
+    - :label no     :abi f(uint) 0x56
+    - :label no     :abi f(uint) 0x57
+    - :label no     :abi f(uint) 0x58
+    - :label no     :abi f(uint) 0x59
+    - :label no     :abi f(uint) 0x5A
+    - :label no     :abi f(uint) 0x5B
+    - :label no     :abi f(uint) 0x5C
+    - :label no     :abi f(uint) 0x5D
+    - :label no     :abi f(uint) 0x5E
+    - :label no     :abi f(uint) 0x5F
+
+    - :label no     :abi f(uint) 0x60
+    - :label no     :abi f(uint) 0x61
+    - :label no     :abi f(uint) 0x62
+    - :label no     :abi f(uint) 0x63
+    - :label no     :abi f(uint) 0x64
+    - :label no     :abi f(uint) 0x65
+    - :label no     :abi f(uint) 0x66
+    - :label no     :abi f(uint) 0x67
+    - :label no     :abi f(uint) 0x68
+    - :label no     :abi f(uint) 0x69
+    - :label no     :abi f(uint) 0x6A
+    - :label no     :abi f(uint) 0x6B
+    - :label no     :abi f(uint) 0x6C
+    - :label no     :abi f(uint) 0x6D
+    - :label no     :abi f(uint) 0x6E
+    - :label no     :abi f(uint) 0x6F
+
+    - :label no     :abi f(uint) 0x70
+    - :label no     :abi f(uint) 0x71
+    - :label no     :abi f(uint) 0x72
+    - :label no     :abi f(uint) 0x73
+    - :label no     :abi f(uint) 0x74
+    - :label no     :abi f(uint) 0x75
+    - :label no     :abi f(uint) 0x76
+    - :label no     :abi f(uint) 0x77
+    - :label no     :abi f(uint) 0x78
+    - :label no     :abi f(uint) 0x79
+    - :label no     :abi f(uint) 0x7A
+    - :label no     :abi f(uint) 0x7B
+    - :label no     :abi f(uint) 0x7C
+    - :label no     :abi f(uint) 0x7D
+    - :label no     :abi f(uint) 0x7E
+    - :label no     :abi f(uint) 0x7F
+
+    - :label no     :abi f(uint) 0x80
+    - :label no     :abi f(uint) 0x81
+    - :label no     :abi f(uint) 0x82
+    - :label no     :abi f(uint) 0x83
+    - :label no     :abi f(uint) 0x84
+    - :label no     :abi f(uint) 0x85
+    - :label no     :abi f(uint) 0x86
+    - :label no     :abi f(uint) 0x87
+    - :label no     :abi f(uint) 0x88
+    - :label no     :abi f(uint) 0x89
+    - :label no     :abi f(uint) 0x8A
+    - :label no     :abi f(uint) 0x8B
+    - :label no     :abi f(uint) 0x8C
+    - :label no     :abi f(uint) 0x8D
+    - :label no     :abi f(uint) 0x8E
+    - :label no     :abi f(uint) 0x8F
+
+    - :label no     :abi f(uint) 0x90
+    - :label no     :abi f(uint) 0x91
+    - :label no     :abi f(uint) 0x92
+    - :label no     :abi f(uint) 0x93
+    - :label no     :abi f(uint) 0x94
+    - :label no     :abi f(uint) 0x95
+    - :label no     :abi f(uint) 0x96
+    - :label no     :abi f(uint) 0x97
+    - :label no     :abi f(uint) 0x98
+    - :label no     :abi f(uint) 0x99
+    - :label no     :abi f(uint) 0x9A
+    - :label no     :abi f(uint) 0x9B
+    - :label no     :abi f(uint) 0x9C
+    - :label no     :abi f(uint) 0x9D
+    - :label no     :abi f(uint) 0x9E
+    - :label no     :abi f(uint) 0x9F
+
+    - :label no     :abi f(uint) 0xA0
+    - :label no     :abi f(uint) 0xA1
+    - :label no     :abi f(uint) 0xA2
+    - :label no     :abi f(uint) 0xA3
+    - :label no     :abi f(uint) 0xA4
+    - :label no     :abi f(uint) 0xA5
+    - :label no     :abi f(uint) 0xA6
+    - :label no     :abi f(uint) 0xA7
+    - :label no     :abi f(uint) 0xA8
+    - :label no     :abi f(uint) 0xA9
+    - :label no     :abi f(uint) 0xAA
+    - :label no     :abi f(uint) 0xAB
+    - :label no     :abi f(uint) 0xAC
+    - :label no     :abi f(uint) 0xAD
+    - :label no     :abi f(uint) 0xAE
+    - :label no     :abi f(uint) 0xAF
+
+    - :label no     :abi f(uint) 0xB0
+    - :label no     :abi f(uint) 0xB1
+    - :label no     :abi f(uint) 0xB2
+    - :label no     :abi f(uint) 0xB3
+    - :label no     :abi f(uint) 0xB4
+    - :label no     :abi f(uint) 0xB5
+    - :label no     :abi f(uint) 0xB6
+    - :label no     :abi f(uint) 0xB7
+    - :label no     :abi f(uint) 0xB8
+    - :label no     :abi f(uint) 0xB9
+    - :label no     :abi f(uint) 0xBA
+    - :label no     :abi f(uint) 0xBB
+    - :label no     :abi f(uint) 0xBC
+    - :label no     :abi f(uint) 0xBD
+    - :label no     :abi f(uint) 0xBE
+    - :label no     :abi f(uint) 0xBF
+
+    - :label no     :abi f(uint) 0xC0
+    - :label no     :abi f(uint) 0xC1
+    - :label no     :abi f(uint) 0xC2
+    - :label no     :abi f(uint) 0xC3
+    - :label no     :abi f(uint) 0xC4
+    - :label no     :abi f(uint) 0xC5
+    - :label no     :abi f(uint) 0xC6
+    - :label no     :abi f(uint) 0xC7
+    - :label no     :abi f(uint) 0xC8
+    - :label no     :abi f(uint) 0xC9
+    - :label no     :abi f(uint) 0xCA
+    - :label no     :abi f(uint) 0xCB
+    - :label no     :abi f(uint) 0xCC
+    - :label no     :abi f(uint) 0xCD
+    - :label no     :abi f(uint) 0xCE
+    - :label no     :abi f(uint) 0xCF
+
+    - :label no     :abi f(uint) 0xD0
+    - :label no     :abi f(uint) 0xD1
+    - :label no     :abi f(uint) 0xD2
+    - :label no     :abi f(uint) 0xD3
+    - :label no     :abi f(uint) 0xD4
+    - :label no     :abi f(uint) 0xD5
+    - :label no     :abi f(uint) 0xD6
+    - :label no     :abi f(uint) 0xD7
+    - :label no     :abi f(uint) 0xD8
+    - :label no     :abi f(uint) 0xD9
+    - :label no     :abi f(uint) 0xDA
+    - :label no     :abi f(uint) 0xDB
+    - :label no     :abi f(uint) 0xDC
+    - :label no     :abi f(uint) 0xDD
+    - :label no     :abi f(uint) 0xDE
+    - :label no     :abi f(uint) 0xDF
+
+    - :label no     :abi f(uint) 0xE0
+    - :label no     :abi f(uint) 0xE1
+    - :label no     :abi f(uint) 0xE2
+    - :label no     :abi f(uint) 0xE3
+    - :label no     :abi f(uint) 0xE4
+    - :label no     :abi f(uint) 0xE5
+    - :label no     :abi f(uint) 0xE6
+    - :label no     :abi f(uint) 0xE7
+    - :label no     :abi f(uint) 0xE8
+    - :label no     :abi f(uint) 0xE9
+    - :label no     :abi f(uint) 0xEA
+    - :label no     :abi f(uint) 0xEB
+    - :label no     :abi f(uint) 0xEC
+    - :label no     :abi f(uint) 0xED
+    - :label no     :abi f(uint) 0xEE
+    - :label no     :abi f(uint) 0xEF
+
+    - :label no     :abi f(uint) 0xF0
+    - :label no     :abi f(uint) 0xF1
+    - :label no     :abi f(uint) 0xF2
+    - :label no     :abi f(uint) 0xF3
+    - :label no     :abi f(uint) 0xF4
+    - :label no     :abi f(uint) 0xF5
+    - :label no     :abi f(uint) 0xF6
+    - :label no     :abi f(uint) 0xF7
+    - :label no     :abi f(uint) 0xF8
+    - :label no     :abi f(uint) 0xF9
+    - :label no     :abi f(uint) 0xFA
+    - :label no     :abi f(uint) 0xFB
+    - :label no     :abi f(uint) 0xFC
+    - :label no     :abi f(uint) 0xFD
+    - :label no     :abi f(uint) 0xFE
+    - :label no     :abi f(uint) 0xFF
+
+    gasLimit:
+    - '40000000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: cccccccccccccccccccccccccccccccccccccccc
+
+    value:
+    - '100000'
+
+
+
+  expect:
+
+  - indexes:
+      data: 
+      - :label yes
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Istanbul"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          # High gas cost when there's a precompile
+          0x00: 0x00 
+
+
+  - indexes:
+      data: 
+      - :label no
+      gas: !!int -1
+      value: !!int -1
+    network: 
+    - ">=Istanbul"
+    result:
+      cccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          # Normal gas cost when there isn't a precompile
+          0x00: 0x01    

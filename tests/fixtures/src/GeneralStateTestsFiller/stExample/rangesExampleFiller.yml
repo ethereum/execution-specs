@@ -1,0 +1,100 @@
+# An example how to use ranges in expect section
+# More info: https://ethereum-tests.readthedocs.io/en/latest/test_filler/test_expect_state.html?highlight=labels
+
+rangesExample:
+  _info:
+    comment: An example how to use ranges in expect section
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 0xFF112233445566
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  expect:
+    # we can select transactions with data from 0 to 2, meaning the ones having data indexes 0, 1, 2
+    - indexes:
+        data:
+            - '0-2'
+        gas:  !!int 0
+        value: !!int -1
+
+      network:
+        - '>=Berlin'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          storage:
+            0x00: 0x0100000000000000000000000000000000000000000000000000000000000000
+
+    # Same goes for gas and value indexes, also you can combine labels, ranges and indexes
+    # if you select some transactions twice they will be count once
+    - indexes:
+        data:
+            - !!int 0
+            - '1-2'
+            - ':label transaction1'
+        gas:
+            - '1-2'
+        value: !!int -1
+
+      network:
+        - '>=Berlin'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          storage:
+            0x00: 0x0100000000000000000000000000000000000000000000000000000000000000
+
+    # be careful not to cover the same transaction with 2 different expect section as blockchain tests does not like it
+    # also if you have an expect section that does not cover any existing transaction you will see a retesteth error
+    # if you have a transaction without expect section coverage you will se a retesteth error
+
+    - indexes:
+        data: !!int 3
+        gas: '0-2'
+        value: '0-1'
+
+      network:
+        - '>=Berlin'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          storage:
+            0x00: 0x0400000000000000000000000000000000000000000000000000000000000000
+
+  pre:
+
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '1000000000000000000'
+      code: |
+          {
+             [[0]] (CALLDATALOAD 0) 
+          }
+      nonce: '0'
+      storage: {}
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+  transaction:
+    # When we have many transactions it comes useful to design an expect section using ranges rather then indexes
+    data:
+    - ':label transaction1 :raw 0x01'
+    - ':raw 0x01'
+    - ':raw 0x01'
+    - ':raw 0x04'
+    gasLimit:
+    - '400000'
+    - '1400000'
+    - '2400000'
+    gasPrice: '10'
+    nonce: '0'
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - '100000'
+    - '200000'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+

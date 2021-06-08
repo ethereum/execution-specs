@@ -1,0 +1,51 @@
+{
+    "DynamicJump_value2" : {
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.8.0-6+commit.c7ba3b69",
+            "lllcversion" : "Version: 0.5.14-develop.2019.11.27+commit.8f259595.Linux.g++",
+            "source" : "src/VMTestsFiller/vmIOandFlowOperations/DynamicJump_value2Filler.json",
+            "sourceHash" : "04645ffe99e5711c0748124c8783378b107c8c2e78049db47736c0e10337dd60"
+        },
+        "callcreates" : [
+        ],
+        "env" : {
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentGasLimit" : "0x7fffffffffffffff",
+            "currentNumber" : "0x01",
+            "currentTimestamp" : "0x03e8"
+        },
+        "exec" : {
+            "address" : "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6",
+            "caller" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "code" : "0x60016002600334565b5050600052596000f35b50600052596000f35b600052596000f3",
+            "data" : "0x",
+            "gas" : "0x0186a0",
+            "gasPrice" : "0x0c",
+            "origin" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "value" : "0x12"
+        },
+        "gas" : "0x01867c",
+        "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+        "out" : "0x0000000000000000000000000000000000000000000000000000000000000002",
+        "post" : {
+            "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+                "balance" : "0x152d02c7e14af6800000",
+                "code" : "0x60016002600334565b5050600052596000f35b50600052596000f35b600052596000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "pre" : {
+            "0x0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6" : {
+                "balance" : "0x152d02c7e14af6800000",
+                "code" : "0x60016002600334565b5050600052596000f35b50600052596000f35b600052596000f3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        }
+    }
+}

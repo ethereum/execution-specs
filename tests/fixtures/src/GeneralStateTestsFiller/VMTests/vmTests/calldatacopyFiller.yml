@@ -1,0 +1,343 @@
+calldatacopy:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+
+    0000000000000000000000000000000000000100:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+          ; Copy data from calldata locations [1:(1+2)-1] to memory 
+          ; locations [0:(0+2)-1]. So we skip the 0'th byte (the 0x12),
+          ; and write the second and third bytes into memory locations zero
+          ; and one. 
+          ;
+          ; When put into a 256 bit storage cell, this gives us 0x3456....0
+          (calldatacopy 0 1 2)
+          [[0]] @0
+
+          (return 0 (msize))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # Same as 0x100, but with a length of one
+    0000000000000000000000000000000000000101:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+          (calldatacopy 0 1 1)
+          [[0]] @0
+
+          (return 0 (msize))
+        }
+      nonce: '0'
+      storage: {}
+   
+
+
+    # Same as 0x100, but with a length of zero
+    0000000000000000000000000000000000000102:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+          (calldatacopy 0 1 0)
+          [[0]] @0
+
+          (return 0 (msize))
+        }
+      nonce: '0'
+      storage: {}
+
+
+    # ZeroMemExpansion
+    0000000000000000000000000000000000000103:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+          (calldatacopy 0 0 0)
+          [[0]] @0
+
+          (return 0 (msize))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # DataIndexTooHigh  
+    0000000000000000000000000000000000000104:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+          (calldatacopy 0 
+             0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa 0xff)
+          [[0]] @0
+
+          (return 0 (msize))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    # DataIndexTooHigh 2
+    0000000000000000000000000000000000000105:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+          (calldatacopy 0 
+             0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffa 0x09)
+          [[0]] @0
+
+          (return 0 (msize))
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+
+    # Underflow
+    0000000000000000000000000000000000000110:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      #
+      #  0 PUSH1 1
+      #  2 PUSH1 1
+      #  4 SSTORE (to have a value that will appear unless we revert)
+      #  5 PUSH1 1
+      #  7 PUSH1 2
+      #  9 CALLDATACOPY
+      code: :raw 0x60016001556001600237
+      nonce: '0'
+      storage: {}
+
+
+    # sec, provided as bytecode, disassembled by https://etherscan.io/opcode-tool
+    0000000000000000000000000000000000000111:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      #  [1] PUSH1 0x05
+      #  [2] JUMP                Jump to 5
+
+      #  [3] JUMPDEST            If we got here, failure
+      #  [4] STOP
+
+      #  [5] JUMPDEST
+      #  [7] PUSH1 0x42
+      #  [9] PUSH1 0x1f
+      # [10] MSTORE8             mem[0x1f] = 0x42
+
+      # [13] PUSH2 0x0103
+      # [15] PUSH1 0x00
+      # [17] PUSH1 0x1f
+      # [18] CALLDATACOPY        calldatacopy of 0x0103 bytes to memory 0x1f (and later)
+
+      # [20] PUSH1 0x00          
+      # [21] MLOAD               ; Should be zero 
+      # [22] DUP1
+      # [24] PUSH1 0x60
+      # [25] EQ                  ; Is zero equal to 0x60?
+
+      # [27] PUSH1 0x03          ; If so, fail
+      # [28] JUMPI
+      # [34] PUSH5 0x0badc0ffee      If we got here, success
+      # [36] PUSH1 0xff
+      # [37] SSTORE
+      code: :raw 0x6005565b005b6042601f536101036000601f3760005180606014600357640badc0ffee60ff55
+      nonce: '0'
+      storage: {}
+
+
+
+     
+      
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            ; Put a 0x10 byte long value in zero (each byte is two hex digits)
+            ; Then call a contract with just that data. In evm the most 
+            ; significant byte comes first, so the value ends up in memory
+            ; locations 0x10-0x1F
+
+            [0] 0x1234567890abcdef01234567890abcdef0
+
+            (call 0xffffff (+ 0x100 $4) 0 
+               0x0F 0x10   ; arg offset and length to get the 0x1234...f0 value
+               0x20 0x40)  ; return offset and length 
+            
+            ; Preserve the return data
+            [[0]] @0x20
+            [[1]] @0x40
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+
+
+
+  transaction:
+    data:
+    - :label cdc_0_1_2      :abi f(uint) 0
+    - :label cdc_0_1_1      :abi f(uint) 1
+    - :label cdc_0_1_0      :abi f(uint) 2
+    - :label cdc_0_0_0      :abi f(uint) 3
+    - :label cdc_0_neg6_ff  :abi f(uint) 4
+    - :label cdc_0_neg6_9   :abi f(uint) 5
+    - :label underflow      :abi f(uint) 0x10
+    - :label sec            :abi f(uint) 0x11
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    - indexes:
+        data: :label cdc_0_1_2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000100:
+          storage:
+            0: 0x3456000000000000000000000000000000000000000000000000000000000000
+
+        # The return value of the call, which is the memory content
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x3456000000000000000000000000000000000000000000000000000000000000
+
+
+
+
+    - indexes:
+        data: :label cdc_0_1_1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000101:
+          storage:
+            0: 0x3400000000000000000000000000000000000000000000000000000000000000
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x3400000000000000000000000000000000000000000000000000000000000000
+  
+
+
+    - indexes:
+        data: :label cdc_0_1_0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000102:
+          storage:
+            0: 0
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0
+
+
+
+    - indexes:
+        data: :label cdc_0_0_0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000103:
+          storage:
+            0: 0
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0
+
+
+
+
+    - indexes:
+        data: :label cdc_0_neg6_ff
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000104:
+          storage:
+            0: 0
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0
+
+
+
+    - indexes:
+        data: :label cdc_0_neg6_9
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000105:
+          storage:
+            0: 0
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0
+
+
+
+    - indexes:
+        data: :label underflow
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000110:
+          storage:
+            1: 0
+
+
+
+    - indexes:
+        data: :label sec
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000111:
+          storage:
+            0xff: 0x0badc0ffee

@@ -1,0 +1,67 @@
+{
+    "Create2OOGafterInitCodeReturndataSize" : {
+	"_info" : {
+	    "comment" : "Calls a contract that runs CREATE2 which deploy a code. then OOG happens upon deployment of the actual code. check the RETURNDATASIZE after create. fails with OOG if RETURNDATASIZE != 0"
+	},
+        "env" : {
+            "currentCoinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentGasLimit" : "10000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000",
+            "previousHash" : "5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6"
+        },
+        "expect" : [
+	    {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : 0,
+                    "value" : -1
+                },
+                "network" : [">=Istanbul"],
+                "result" : {
+		    "b94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+		        "balance" : "1"
+		    },
+		    "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40" : {
+			"shouldnotexist" : "1"
+		    }
+                }
+            }
+        ],
+        "pre" :
+        {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "1000000000000",
+                "code" : "",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+	    "b94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0",
+		"nonce" : "0",
+		"//code" : "{ (MSTORE 0 0x60016001556001600255) (RETURN 22 10) }",
+		"//code" : "{ (SSTORE 1 1) (SSTORE 2 1) } ",
+		"code" : "{ (MSTORE 0 0x6960016001556001600255600052600a6016f3) (CREATE2 0 13 19 0) (EXP 2 (RETURNDATASIZE)) }",
+		"storage": {
+		}
+            }
+        },
+        "transaction" : {
+            "data" : [
+                ""
+            ],
+            "gasLimit" : [
+                "55054"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "0",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "b94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "value" : [
+                "1"
+            ]
+        }
+    }
+}

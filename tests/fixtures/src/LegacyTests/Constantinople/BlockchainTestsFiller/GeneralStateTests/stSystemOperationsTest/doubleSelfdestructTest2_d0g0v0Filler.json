@@ -1,0 +1,118 @@
+{
+    "doubleSelfdestructTest2_d0g0v0" : {
+        "_info" : {
+            "comment" : "The second test case requested here https://github.com/ethereum/tests/issues/431#issue-306081539 .\nInvoked Solidity 0.4.21 with solc --bin-runtime --optimize\ncontract DoubleSelfdestructTest2 {\n  address constant B = 0x3;\n  function remoteSelfdestruct() external {\n    selfdestruct(this);\n  }\n  function() external payable {\n    this.remoteSelfdestruct();\n    selfdestruct(B);\n  }\n}\nThe version of Solidity emits code that always enter OOG for Homestead and Frontier.  So no new accounts\nare created for Homestead and Frontier.  EIP158 changes the behavior of zero-amount transfer so that no new accounts are created.\nThis leaves EIP150 as a special case.\n"
+        },
+        "blocks" : [
+            {
+                "blockHeaderPremine" : {
+                    "difficulty" : "0x020000",
+                    "gasLimit" : "0x02540be400",
+                    "timestamp" : "0x03e8",
+                    "updatePoW" : "1"
+                },
+                "transactions" : [
+                    {
+                        "data" : "0x",
+                        "gasLimit" : "0x3b9aca00",
+                        "gasPrice" : "0x00",
+                        "nonce" : "0x00",
+                        "r" : "0x37de084a867928aff0d24ad4fc002b0cef4212d18e1916ca4c49ffd2ca498b10",
+                        "s" : "0x6e5471d17e48ecf3a958278b05dc88582f43fc9caa28aa1788838bc1cb170ff3",
+                        "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "v" : "0x1c",
+                        "value" : "0x0186a0"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            }
+        ],
+        "expect" : [
+            {
+                "network" : "Frontier",
+                "result" : {
+                    "0x0000000000000000000000000000000000000003" : {
+                    }
+                }
+            },
+            {
+                "network" : "Homestead",
+                "result" : {
+                    "0x0000000000000000000000000000000000000003" : {
+                    }
+                }
+            },
+            {
+                "network" : "EIP150",
+                "result" : {
+                    "0x0000000000000000000000000000000000000003" : {
+                        "balance" : "0x00"
+                    }
+                }
+            },
+            {
+                "network" : "EIP158",
+                "result" : {
+                    "0x0000000000000000000000000000000000000003" : {
+                    }
+                }
+            },
+            {
+                "network" : "Byzantium",
+                "result" : {
+                    "0x0000000000000000000000000000000000000003" : {
+                    }
+                }
+            },
+            {
+                "network" : "Constantinople",
+                "result" : {
+                    "0x0000000000000000000000000000000000000003" : {
+                    }
+                }
+            },
+            {
+                "network" : "ConstantinopleFix",
+                "result" : {
+                    "0x0000000000000000000000000000000000000003" : {
+                    }
+                }
+            }
+        ],
+        "genesisBlockHeader" : {
+            "bloom" : "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "coinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "difficulty" : "131072",
+            "extraData" : "0x42",
+            "gasLimit" : "0x02540be400",
+            "gasUsed" : "0",
+            "mixHash" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "nonce" : "0x0102030405060708",
+            "number" : "0",
+            "parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "receiptTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "stateRoot" : "0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a",
+            "timestamp" : "0x03b6",
+            "transactionsTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "uncleHash" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+        },
+        "pre" : {
+            "0x095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x606060405260043610603e5763ffffffff7c01000000000000000000000000000000000000000000000000000000006000350416632c3f2bf3811460b4575b3073ffffffffffffffffffffffffffffffffffffffff16632c3f2bf36040518163ffffffff167c0100000000000000000000000000000000000000000000000000000000028152600401600060405180830381600087803b151560a057600080fd5b5af1151560ac57600080fd5b506003915050ff5b341560be57600080fd5b60c460c6565b005b3073ffffffffffffffffffffffffffffffffffffffff16ff00a165627a7a7230582004c215a78ad0add6ec7f9e2488a74efe60734d3dfe25da652ef8ac9dae892c4a0029",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "sealEngine" : "NoProof"
+    }
+}

@@ -1,0 +1,161 @@
+add:
+
+  # This test deals with addition, mostly addition that causes an overflow.
+  # It is based on the fact that arithmetic in the evm is modulu 2^256. 
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000000100:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           ; -1+-1 = -2
+           ;
+           ; The big number is 256^2-1, the biggest number that the evm can hold,
+           ; and because evm math is done modulu 256^2, it's equivalent to -1
+           [[0]] (+ 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000000101:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           ; -1 + 4 = -3
+           ; same big number (2^256-1) as above
+              [[0]] (+ 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 4) 
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000000102:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           ; -1 + 1 = 0
+              [[0]] (+ 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 1)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000000103:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+              [[0]] (+ 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000000104:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+          ; 1 + -1 = 0
+              [[0]] (+ 1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+      
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            (call 0xffffff (+ 0x100 $4) 0 0 0 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+# The transaction to check
+  transaction:
+    data:
+    - :label add_neg1_neg1 :abi f(uint) 0
+    - :label add_neg1_4    :abi f(uint) 1
+    - :label add_neg1_1    :abi f(uint) 2
+    - :label add_0_0       :abi f(uint) 3
+    - :label add_1_neg1    :abi f(uint) 4
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    - indexes:
+        data: :label add_neg1_neg1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000100:
+          storage:
+            # -2
+            0: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe
+
+
+    - indexes:
+        data: :label add_neg1_4
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000101:
+          storage:
+            0: 0x03
+
+
+    # We can group these three together because the return value is zero,
+    # and the default value for storage is also zero
+    - indexes:
+        data: 
+        - :label add_neg1_1
+        - :label add_0_0
+        - :label add_1_neg1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000102:
+          storage:
+            0: 0x00
+        0000000000000000000000000000000000000103:
+          storage:
+            0: 0x00
+        0000000000000000000000000000000000000104:
+          storage:
+            0: 0x00
+

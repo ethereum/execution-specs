@@ -1,0 +1,347 @@
+gasCostBerlin:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+# Human readable information
+  _info:
+    comment: "Ori Pomerantz qbzzt1@gmail.com"
+
+  pre:
+
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        { ; LLL doesn't let us call arbitrary code, so we craft
+          ; a new contract with the opcode and then call it to see
+          ; how much the contract cost
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Initialization
+ 
+          ; Variables (0x20 byte wide)
+          (def 'opcode            0x200)
+          (def 'contractLength    0x220)
+          (def 'constructorLength 0x240)
+          (def 'i                 0x260)
+          (def 'addr              0x280)
+          (def 'gasB4             0x300)
+          (def 'gasAfter          0x320)
+          (def 'expectedCost      0x340)
+
+          ; Maximum length of contract
+          (def 'maxLength         0x100)
+
+          ; Code in memory
+          (def 'constructorCode   0x000)
+          (def 'contractCode      (+ constructorCode maxLength))
+          ; contractCode has to be immediately after constructoCode 
+          ; for us to send it as part of the constructor code
+
+          ; Cost of everything around the opcode
+          (def 'sysCost           0xb9)
+
+
+          ; Understand the input
+          [opcode]        (shr $ 0 248)
+          [expectedCost]  (and (shr $ 0 232) 0xFFFF)
+
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Craft the contract
+
+          ; First, 17 pushes. SWAP16 looks that far down in the stack
+          [i] 17
+          (while @i {   ; until i is zero
+             [i] (- @i 1)
+
+             ; PUSH2 0xDATA
+             (mstore8 (+ contractCode @contractLength) 0x61)
+             (mstore8 (+ contractCode @contractLength 1) 0xDA)
+             (mstore8 (+ contractCode @contractLength 2) 0x7A)
+             [contractLength] (+ @contractLength 3)
+          })            ; while i
+
+          ; Run the opcode and then STOP
+          (mstore8 (+ contractCode @contractLength) @opcode)
+          (mstore8 (+ contractCode @contractLength 1) 0x00)
+          [contractLength] (+ @contractLength 2)
+
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Create the constructor. Use the memory where the 
+          ; contract already exists
+          [constructorLength]
+             (lll {
+                (codecopy contractCode contractCode maxLength)
+                (return contractCode maxLength)  ; wasteful (the contract is
+                                                 ; a lot shorter), but easy
+             }
+             constructorCode)
+
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Create the contract. Use enough length so it'll
+          ; also include the contract code. Again, wasteful
+          ; but easy
+
+          [addr] (create 0 constructorCode (* maxLength 2))
+
+
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Actually call the contract and see the gas cost
+          [gasB4] (gas)
+          (call 0x10000 @addr 0 0 0 0 0)
+          [gasAfter] (gas)
+
+
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          ; Output
+
+          [[0]] (- @gasB4 @gasAfter sysCost @expectedCost)
+          [[1]] @expectedCost
+        }
+      nonce: '0'
+      storage:
+         0: 60A7
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # MSB <opcode> <expected cost, two bytes> LSB
+    #
+    # Encoding the expected cost in the data means that if a fork changes
+    # the cost of an opcode we'll need a new test file. However, the other
+    # option is to have a copy of expect: for each opcode with the
+    # cost, which would be IMAO too cumbersome
+    #
+    - :raw 0x000000    # STOP
+    - :raw 0x010003    # ADD
+    - :raw 0x020005    # MUL
+    - :raw 0x030003    # SUB
+    - :raw 0x040005    # DIV
+    # d: 5 \/
+    - :raw 0x050005    # SDIV
+    - :raw 0x060005    # MOD
+    - :raw 0x070005    # SMOD
+    - :raw 0x080008    # ADDMOD
+    - :raw 0x090008    # MULMOD
+    # d: 10 \/
+    - :raw 0x0B0005    # SIGNEXTEND
+
+    - :raw 0x100003    # LT
+    - :raw 0x110003    # GT
+    - :raw 0x120003    # SLT
+    - :raw 0x130003    # SGT
+    # d: 15 \/
+    - :raw 0x140003    # EQ
+    - :raw 0x150003    # ISZERO
+    - :raw 0x160003    # AND
+    - :raw 0x170003    # OR
+    - :raw 0x180003    # XOR
+    # d: 20 \/
+    - :raw 0x190003    # NOT
+    - :raw 0x1A0003    # BYTE
+
+    - :raw 0x300002    # ADDRESS
+
+    # SLOAD and BALANCE had their cost changed since the yellow paper
+    # See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1884.md
+    - :raw 0x310A28    # BALANCE   ** CHANGED IN BERLIN **
+    - :raw 0x320002    # ORIGIN
+
+    # d:25 \/
+    - :raw 0x330002    # CALLER
+    - :raw 0x340002    # CALLVALUE
+    - :raw 0x350003    # CALLDATALOAD
+    - :raw 0x360002    # CALLDATASIZE
+    - :raw 0x380002    # CODESIZE
+
+    # d:30 \/
+    - :raw 0x3A0002    # GASPRICE
+    - :raw 0x3B0A28    # EXTCODESIZE    ** CHANGED IN BERLIN **
+
+    - :raw 0x400014    # BLOCKHASH 
+    - :raw 0x410002    # COINBASE
+    - :raw 0x420002    # TIMESTAMP
+
+    # d:35 \/
+    - :raw 0x430002    # NUMBER
+    - :raw 0x440002    # DIFFICULTY
+    - :raw 0x450002    # GASLIMIT
+
+    - :raw 0x500002    # POP
+
+    # Memory opcodes get their own test, because the value depends
+    # on the memory being accessed
+
+    # SLOAD and BALANCE had their cost changed since the yellow paper
+    # See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1884.md
+    - :raw 0x540834    # SLOAD           ** CHANGED IN BERLIN **
+
+    # d: 40 \/
+    - :raw 0x555654    # SSTORE (from a zero to a non zero)  ** CHANGED IN BERLIN **
+    - :raw 0x580002    # PC
+    - :raw 0x590002    # MSIZE
+    - :raw 0x5A0002    # GAS
+    - :raw 0x5B0001    # JUMPDEST
+
+    # Look below for PUSH, SWAP, and DUP. I put them after the interesting
+    # opcodes
+
+
+    # d: 45 \/
+    - :raw 0xFF1DB0    # SELFDESTRUCT   ** CHANGED IN BERLIN **
+
+
+
+
+    # All the PUSH commands will read a bunch of bytes which are all zero
+    # and push that value
+    - :raw 0x600003    
+    - :raw 0x610003    
+    - :raw 0x620003    
+    - :raw 0x630003    
+    - :raw 0x640003    
+    - :raw 0x650003    
+    - :raw 0x660003    
+    - :raw 0x670003    
+    - :raw 0x680003    
+    - :raw 0x690003    
+    - :raw 0x6A0003    
+    - :raw 0x6B0003    
+    - :raw 0x6C0003    
+    - :raw 0x6D0003    
+    - :raw 0x6E0003    
+    - :raw 0x6F0003    
+    - :raw 0x700003    
+    - :raw 0x710003    
+    - :raw 0x720003    
+    - :raw 0x730003    
+    - :raw 0x740003    
+    - :raw 0x750003    
+    - :raw 0x760003    
+    - :raw 0x770003    
+    - :raw 0x780003    
+    - :raw 0x790003    
+    - :raw 0x7A0003    
+    - :raw 0x7B0003    
+    - :raw 0x7C0003    
+    - :raw 0x7D0003    
+    - :raw 0x7E0003    
+    - :raw 0x7F0003    
+
+    # DUP
+    - :raw 0x800003    
+    - :raw 0x810003    
+    - :raw 0x820003    
+    - :raw 0x830003    
+    - :raw 0x840003    
+    - :raw 0x850003    
+    - :raw 0x860003    
+    - :raw 0x870003    
+    - :raw 0x880003    
+    - :raw 0x890003    
+    - :raw 0x8A0003    
+    - :raw 0x8B0003    
+    - :raw 0x8C0003    
+    - :raw 0x8D0003    
+    - :raw 0x8E0003    
+    - :raw 0x8F0003    
+
+    # SWAP
+    - :raw 0x900003    
+    - :raw 0x910003    
+    - :raw 0x920003    
+    - :raw 0x930003    
+    - :raw 0x940003    
+    - :raw 0x950003    
+    - :raw 0x960003    
+    - :raw 0x970003    
+    - :raw 0x980003    
+    - :raw 0x990003    
+    - :raw 0x9A0003    
+    - :raw 0x9B0003    
+    - :raw 0x9C0003    
+    - :raw 0x9D0003    
+    - :raw 0x9E0003    
+    - :raw 0x9F0003    
+
+
+
+
+    # Opcodes skipped for complexity
+
+
+
+    # Opcodes skipped for complexity that other tests cover
+    #
+    # 0x0A EXP  
+    # stEIP150singleCodeGasPrices/gasCostExp.yml
+    #
+    # 0x20 SHA
+    # 0x37 CALLDATACOPY
+    # 0x39 CODECOPY
+    # 0xA0 LOG0
+    # 0xA1 LOG1
+    # 0xA2 LOG2
+    # 0xA3 LOG3
+    # 0xA4 LOG4
+    # stEIP150singleCodeGasPrices/gasCostMemSeg.yml
+    #
+    # 0x56 JUMP
+    # 0x57 JUMPI
+    # stEIP150singleCodeGasPrices/gasCostJump.yml
+    #
+    # 0xF2 CALLCODE    
+    # stEIP150singleCodeGasPrices/RawCallCodeGasMemoryFiller.json
+    #
+    # 0xF1 CALL
+    # stEIP150singleCodeGasPrices/RawCallGasAskFiller.json
+    #
+    # 0xF0 CREATE
+    # stEIP150singleCodeGasPrices/RawCreateGasFiller.json
+    #
+    # 0xF3 RETURN
+    # stEIP150singleCodeGasPrices/gasCostReturn.yml
+    #    
+    # 0xF4 DELEGATECALL
+    # stEIP150singleCodeGasPrices/RawDelegateCallGasAskFiller.json
+    #
+    # 0x3C EXTCODECOPY
+    # stEIP150singleCodeGasPrices/RawExtCodeCopyGasFiller.json
+
+
+
+
+    gasLimit:
+    - 80000000
+    gasPrice: 10
+    nonce: 0
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - 1
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          storage:
+            0x00: 0
+
+
+

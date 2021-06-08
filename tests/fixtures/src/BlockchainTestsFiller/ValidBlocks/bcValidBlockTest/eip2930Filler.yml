@@ -1,0 +1,366 @@
+eip2930:
+
+  # This test checks that having one transaction that declared it is
+  # using a storage spot doesn't cause any change in the costs of subsequent
+  # transactions that don't declare that
+
+  # Ori Pomerantz qbzzt1@gmail.com
+
+  genesisBlockHeader:
+    bloom: 0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    coinbase: 0x8888f1f195afa192cfee860698584c030f4c9db1
+    difficulty: 131072
+    extraData: 0x42
+    gasLimit: 3141592
+    gasUsed: 0
+    mixHash: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    nonce: 0x0102030405060708
+    number: 0
+    parentHash: 0x0000000000000000000000000000000000000000000000000000000000000000
+    receiptTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    stateRoot: 0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a
+    timestamp: 0x54c98c81
+    transactionsTrie: 0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421
+    uncleHash: 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
+
+
+  pre:
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '10000000000'
+      nonce: '0'
+      code: ''
+      storage: {}
+    0xd02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: '0xba1a9ce'
+      nonce: '0'
+      code: ''
+      storage: {}
+
+    # Used by all the WRITE tests
+    0xcccccccccccccccccccccccccccccccccccccccc:
+      balance: '0xba1a9ce'
+      nonce: '0'
+      code: |
+         {
+              ; Write the gas cost of writing to a storage cell
+              ; This way we can distinguish between writes that are predeclared
+              ; in the access list and those that aren't.
+
+              ; Variables
+              (def 'gasVar      0x00)
+
+              ; Write the cost to this cell
+              (def 'gasTo $4)
+
+              ; This is the cell to write to
+              (def 'dataTo $36)
+
+              ; Measure the gas cost of writing to dataTo
+              [gasVar] (gas)    ; before
+              [[dataTo]] 0x60A7
+              [gasVar] (- @gasVar (gas) 23)
+
+              ; Return the cell to zero so we can reuse it
+              [[dataTo]] 0x00
+
+              ; Write the gas cost 
+              [[gasTo]] @gasVar
+
+         }
+      storage: {}
+
+
+    # Used by all the READ tests
+    0xcccccccccccccccccccccccccccccccccccccccd:
+      balance: '0xba1a9ce'
+      nonce: '0'
+      code: |
+         {
+              ; Write the gas cost of reading a storage cell
+              ; This way we can distinguish between reads that are predeclared
+              ; in the access list and those that aren't.
+
+              ; Variables
+              (def 'gasVar      0x00)
+              (def 'temp        0x20)
+
+              ; Write the cost to this cell
+              (def 'gasTo $4)
+
+              ; This is the cell to read from
+              (def 'readMe $36)
+
+              ; Measure the gas cost of reading readMe
+              [gasVar] (gas)    ; before
+              [temp] @@readMe
+              [gasVar] (- @gasVar (gas) 29)
+
+              ; Write the gas cost 
+              [[gasTo]] @gasVar
+
+         }
+      storage: {}
+
+  blocks:
+
+  - transactions:
+
+    # Write the gas cost to cell 1, write without an access list
+    #
+    # PRE_WRITE_DISCOUNT
+    - data: :abi f(uint,uint) 1 0x1000
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0
+
+
+    # Write the gas cost to cell 2, write with an access list
+    - data: :abi f(uint,uint) 2 0x1000
+      accessList: 
+      - address: 0xcccccccccccccccccccccccccccccccccccccccc
+        storageKeys:
+        - 0x1000
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0
+
+
+    # Write the gas cost to cell 3, write without an access list
+    # Show the fact a previous transaction accessed the storage is irrelevant
+    #
+    # POST_WRITE_DISCOUNT
+    - data: :abi f(uint,uint) 3 0x1000
+      gasLimit: 500000
+      gasPrice: 1000
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0
+      nonce: auto
+
+
+
+    # Write the gas cost to cell 1, read without an access list
+    #
+    # PRE_READ_DISCOUNT
+    - data: :abi f(uint,uint) 1 0x1000
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccd
+      value: 0
+
+
+    # Write the gas cost to cell 2, read with an access list
+    - data: :abi f(uint,uint) 2 0x1000
+      accessList: 
+      - address: 0xcccccccccccccccccccccccccccccccccccccccd
+        storageKeys:
+        - 0x1000
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccd
+      value: 0
+
+
+    # Write the gas cost to cell 3, read without an access list
+    # Show the fact a previous transaction accessed the storage is irrelevant
+    #
+    # POST_READ_DISCOUNT
+    - data: :abi f(uint,uint) 3 0x1000
+      gasLimit: 500000
+      gasPrice: 1000
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccd
+      value: 0
+      nonce: auto
+
+
+    # Check that you get the same result if there is an access list, but it 
+    # doesn't apply to this address
+    #
+    # POST_READ_BADADDR
+
+    # First, a declared read
+    - data: :abi f(uint,uint) 4 0x1000
+      accessList: 
+      - address: 0xcccccccccccccccccccccccccccccccccccccccd
+        storageKeys:
+        - 0x1000
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccd
+      value: 0
+
+    # Then an undeclared read
+    - data: :abi f(uint,uint) 4 0x1000
+      accessList: 
+      - address: 0xFccccccccccccccccccccccccccccccccccccccd
+        storageKeys:
+        - 0x1000
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccd
+      value: 0
+
+    # Check that you get the same result if there is an access list for the
+    # address, but it doesn't apply to this particular cell
+    #
+    # POST_READ_BADCELL
+
+    # First, a declared read
+    - data: :abi f(uintPO,uint) 5 0x1000
+      accessList: 
+      - address: 0xcccccccccccccccccccccccccccccccccccccccd
+        storageKeys:
+        - 0x1000
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccd
+      value: 0
+
+    # Then an undeclared read
+    - data: :abi f(uint,uint) 5 0x1000
+      accessList: 
+      - address: 0xcccccccccccccccccccccccccccccccccccccccd
+        storageKeys:
+        - 0x1001
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccd
+      value: 0
+
+
+
+    # Check that you get the same result if there is an access list, but it 
+    # doesn't apply to this address
+    #
+    # POST_WRITE_BADADDR
+
+    # First, a declared write
+    - data: :abi f(uint,uint) 4 0x1000
+      accessList: 
+      - address: 0xcccccccccccccccccccccccccccccccccccccccc
+        storageKeys:
+        - 0x1000
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0
+
+    # Then an undeclared write
+    - data: :abi f(uint,uint) 4 0x1000
+      accessList: 
+      - address: 0xFccccccccccccccccccccccccccccccccccccccc
+        storageKeys:
+        - 0x1000
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0
+
+    # Check that you get the same result if there is an access list for the
+    # address, but it doesn't apply to this particular cell
+    #
+    # POST_WRITE_BADCELL
+
+    # First, a declared write
+    - data: :abi f(uint,uint) 5 0x1000
+      accessList: 
+      - address: 0xcccccccccccccccccccccccccccccccccccccccc
+        storageKeys:
+        - 0x1000
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0
+
+    # Then an undeclared write
+    - data: :abi f(uint,uint) 5 0x1000
+      accessList: 
+      - address: 0xcccccccccccccccccccccccccccccccccccccccc
+        storageKeys:
+        - 0x1001
+      gasLimit: 500000
+      gasPrice: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xcccccccccccccccccccccccccccccccccccccccc
+      value: 0
+
+
+  expect:
+  - network:
+    - ">=Berlin"
+    result:
+      0xcccccccccccccccccccccccccccccccccccccccc:
+        storage:
+          # Write without an access list
+          # PRE_WRITE_DISCOUNT
+          0x01: 22100
+
+          # Write with an access list
+          0x02: 20000
+
+          # Write without an access list, after a transaction
+          # with an access list was processed. Show it does not
+          # matter
+          # POST_WRITE_DISCOUNT
+          0x03: 22100
+
+          # After a transaction with an access list is processed,
+          # do a write with an access list that doesn't contain the 
+          # storage cell - see it still doesn't matter
+          # POST_WRITE_BADADDR
+          0x04: 22100
+
+          # POST_WRITE_BADCELL
+          0x05: 22100
+
+
+
+      0xcccccccccccccccccccccccccccccccccccccccd:
+        storage:
+          # Read without an access list
+          # PRE_READ_DISCOUNT
+          0x01: 2100
+
+          # Read with an access list
+          0x02: 100
+
+          # Read without an access list, after a transaction
+          # with an access list was processed. Show it does not
+          # matter
+          # POST_READ_DISCOUNT
+          0x03: 2100
+
+          # After a transaction with an access list is processed,
+          # do a read with an access list that doesn't contain the 
+          # storage cell - see it still doesn't matter
+          # POST_WRITE_BADADDR
+          0x04: 2100
+ 
+          # POST_WRITE_BADCELL
+          0x05: 2100

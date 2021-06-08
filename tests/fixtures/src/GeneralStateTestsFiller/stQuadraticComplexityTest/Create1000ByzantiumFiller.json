@@ -1,0 +1,237 @@
+{
+    "Create1000Byzantium" : {
+        "env" : {
+            "currentCoinbase" : "b94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "currentDifficulty" : "0x020000",
+            "currentGasLimit" : "8600000000",
+            "currentNumber" : "1",
+            "currentTimestamp" : "1000",
+            "previousHash" : "5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6"
+        },
+        "expect" : [
+	    {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : 0,
+                    "value" : -1
+                },
+                "network" : [">=Istanbul"],
+                "result" : {
+                    "010d8b0816e30ff51ba07678c64b272cdeddb807" : {
+                        "shouldnotexist" : "1"
+                    }
+                }
+            },
+            {
+                "indexes" : {
+                    "data" : -1,
+                    "gas" : 1,
+                    "value" : -1
+                },
+                "network" : [">=Istanbul"],
+                "result" : {
+                    "010d8b0816e30ff51ba07678c64b272cdeddb807" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "014830fe159f418212e5c39b4b2e2ddc7b295395" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "0198014bab0c420093975c147de1d795b02a6667" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "01a763e7767b586a82d994dfb37611db8ccd1911" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "01e329fd650bc9f99b371aa50cd4743ff25e47dd" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "04cd429f6c5242cc74bfe335b56b68b512bf6426" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "0d42d597a7098b78040361cd713bd95ee5bb84c5" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "199f034abb3009f0ab4c98bc5b1953f5e2cf00db" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "2390b52e7c23284e27956aafc67fe7b79ebcd30a" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "3267dad9b9e4a733e7a84e967c98c98f5f448a06" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "4121ee49b4e406ac1e1949b79e1359f8dcec6983" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "56cfafa62000e9b801b4119a01dd711180fa9e3a" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "6ca9a51627995a321981f06e6110bde0a4c759d8" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "76333aee952287d0c76cbd4cf6cfd25766d08a35" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "89ed59ca181ba3ed5704c8dc9e349b2ee2bb1fd2" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "97dd832eb719f5b15fae5065c29cdafec99d1c41" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "aa6abeac0bf58ce8ef3f0d9ed85391463ca15de9" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "bbbcf533bfcf4f82d07d07fedea2641efdd8d4ba" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "bbbf5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "balance" : "0x0ffffffffffc21",
+                        "nonce" : "0x03e8",
+                        "storage" : {
+                            "0x00" : "0x7981fa24b134deb51d71d250d7b0d9e33c8c5457",
+                            "0x01" : "0x03e8"
+                        }
+                    },
+                    "ccc8aac532fc1658a59ee8f21ecf5561f805c00f" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "dde85d05080e22c8c0c2348da0cfcbf78e678c17" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "eccc01b1257f072a2d2eee0aabf60b20c2b478e1" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "f54dc1c13b33a9d30f5d5bcbcf473318d47e0ff2" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    },
+                    "fff043abcbf2b0972c1dca19b2ba3cd682f10e90" : {
+                        "balance" : "0x01",
+                        "code" : "0x",
+                        "nonce" : "0x01",
+                        "storage" : {
+                        }
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0xffffffffffffffffffffffffffffffff",
+                "code" : "",
+                "nonce" : "0",
+                "storage" : {
+                }
+            },
+            "bbbf5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0xfffffffffffff",
+                "code" : "{ (def 'i 0x80) (for {} (< @i 1000) [i](+ @i 1) [[ 0 ]] (CREATE 1 0 50000) ) [[ 1 ]] @i}",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                ""
+            ],
+            "gasLimit" : [
+                "150000", "250000000"
+            ],
+            "gasPrice" : "10",
+            "nonce" : "",
+            "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "bbbf5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "value" : [
+                "10"
+            ]
+        }
+    }
+}

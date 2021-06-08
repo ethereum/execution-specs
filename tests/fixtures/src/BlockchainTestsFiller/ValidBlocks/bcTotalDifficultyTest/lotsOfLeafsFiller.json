@@ -1,0 +1,323 @@
+{
+    "lotsOfLeafs" : {
+        "_info" : {
+            "//comment" : "   1 2 3 (288 1)",
+            "//comment" : "       3 (288 2)",
+            "//comment" : "       3 (288 3)",
+            "//comment" : ">>     3 (5   4)",
+            "//comment" : "       3 (288 5)",
+            "//comment" : "       3 (def 6)",
+            "//comment" : "       3 (288 7)",
+            "//comment" : "       3 (288 ~)",
+            "//comment" : "       3 (288 9)",
+            "//comment" : "       3 (288 inv)",
+            "//comment" : "       3 (288 11)",
+            "comment" : "Many chains with the same totaldifficulty. NOTE: fixate difficulty as clients might calculate it differently depends on SealEngine"
+        },
+        "genesisBlockHeader" : {
+            "bloom" : "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "coinbase" : "0x8888f1f195afa192cfee860698584c030f4c9db1",
+            "difficulty" : "231072",
+            "extraData" : "0x42",
+            "gasLimit" : "3141592",
+            "gasUsed" : "0",
+            "number" : "0",
+            "parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "receiptTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "stateRoot" : "0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a",
+            "timestamp" : "0x54c98c81",
+            "mixHash" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "nonce" : "0x0102030405060708",
+            "transactionsTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "uncleHash" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+        },
+        "sealEngine" : "NoProof",
+        "expect" : [
+	    {
+		    "network" : [">=Istanbul"],
+		    "result" : {
+			    "0x095e7baea6a6c7c4c2dfeb977efac326af552d87" : {
+    				"balance" : "4"
+			    },
+			    "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+	    			"nonce" : "3"
+			    }
+		    }
+	    }
+        ],
+        "pre" : {
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "10000000000000",
+                "nonce" : "0",
+                "code" : "",
+                "storage": {}
+            }
+        },
+        "blocks" : [
+            {
+                "blocknumber" : "1",
+                "transactions" : [
+                    {
+                        "data" : "",
+                        "gasLimit" : "314159",
+                        "gasPrice" : "1000",
+                        "nonce" : "0",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "value" : "0"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "2",
+                "transactions" : [
+                    {
+                        "data" : "",
+                        "gasLimit" : "314159",
+                        "gasPrice" : "1000",
+                        "nonce" : "1",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "value" : "0"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "3",
+                "blockHeader" : {
+                    "RelTimestamp" : "288",
+                    "difficulty" : "206229"
+                },
+                "transactions" : [
+                    {
+                        "data" : "",
+                        "gasLimit" : "314159",
+                        "gasPrice" : "1000",
+                        "nonce" : "2",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "value" : "1"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "3",
+                "//blocknumber" : "4",
+                "blockHeader" : {
+                    "RelTimestamp" : "218",
+                    "difficulty" : "207045"
+                },
+                "transactions" : [
+                    {
+                        "expectException" : {
+                            ">=Istanbul" : "TR_GasLimitReached"
+                        },
+                        "data" : "",
+                        "gasLimit" : "314134359",
+                        "gasPrice" : "1343",
+                        "nonce" : "2",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "value" : "2"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "3",
+                "//blocknumber" : "5",
+                "blockHeader" : {
+                    "RelTimestamp" : "258",
+                    "difficulty" : "206637"
+                },
+                "transactions" : [
+                    {
+                        "expectException" : {
+                            ">=Istanbul" : "TR_GasLimitReached"
+                        },
+                        "data" : ":raw 0x342354353460",
+                        "gasLimit" : "314143359",
+                        "gasPrice" : "1000",
+                        "nonce" : "2",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "value" : "3"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "//comment" : "should become the biggest difficulty",
+                "blocknumber" : "3",
+                "//blocknumber" : "6",
+                "blockHeader" : {
+                    "//difficulty" : "209493 instead of 206229 (all of the others)",
+                    "difficulty" : "209493",
+                    "RelTimestamp" : "5"
+                },
+                "transactions" : [
+                    {
+                        "data" : "",
+                        "gasLimit" : "314159",
+                        "gasPrice" : "3331",
+                        "nonce" : "2",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "value" : "4"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "3",
+                "//blocknumber" : "7",
+                "blockHeader" : {
+                    "RelTimestamp" : "288",
+                    "difficulty" : "206229"
+                },
+                "transactions" : [
+                    {
+                        "data" : ":raw 0x44634634",
+                        "gasLimit" : "314159",
+                        "gasPrice" : "1000",
+                        "nonce" : "2",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "value" : "5"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "3",
+                "//blocknumber" : "8",
+                "blockHeader" : {
+                    "//difficulty" : "209493 instead of 206229 (all of the others)",
+                    "difficulty" : "199293"
+                },
+                "transactions" : [
+                    {
+                        "data" : "",
+                        "gasLimit" : "31059",
+                        "gasPrice" : "1000",
+                        "nonce" : "2",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "value" : "6"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "3",
+                "//blocknumber" : "9",
+                "blockHeader" : {
+                    "RelTimestamp" : "288",
+                    "difficulty" : "206229"
+                },
+                "transactions" : [
+                    {
+                        "data" : ":raw 0x34534540",
+                        "gasLimit" : "31509",
+                        "gasPrice" : "1000",
+                        "nonce" : "2",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "value" : "7"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "3",
+                "//blocknumber" : "10",
+                "blockHeader" : {
+                    "RelTimestamp" : "288",
+                    "difficulty" : "206229"
+                },
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "3",
+                "//blocknumber" : "11",
+                "blockHeader" : {
+                    "RelTimestamp" : "288",
+                    "difficulty" : "206229"
+                },
+                "transactions" : [
+                    {
+                        "data" : "",
+                        "gasLimit" : "314159",
+                        "gasPrice" : "1000",
+                        "nonce" : "2",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "795e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "value" : "9"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "3",
+                "//blocknumber" : "12",
+                "blockHeader" : {
+                    "RelTimestamp" : "200",
+                    "difficulty" : "207249"
+                },
+                "transactions" : [
+                    {
+                        "expectException" : {
+                            ">=Istanbul" : "TR_NoFunds"
+                        },
+                        "data" : "",
+                        "gasLimit" : "31400",
+                        "gasPrice" : "100000000000",
+                        "nonce" : "2",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "value" : "10"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "3",
+                "//blocknumber" : "13",
+                "blockHeader" : {
+                    "RelTimestamp" : "288",
+                    "difficulty" : "206229"
+                },
+                "transactions" : [
+                    {
+                        "data" : "",
+                        "gasLimit" : "314159",
+                        "gasPrice" : "1000",
+                        "nonce" : "2",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0x095e7baea6a6c7c4c2dfeb977efac326af552d87",
+                        "value" : "11"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            }
+        ]
+    }
+}

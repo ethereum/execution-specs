@@ -1,0 +1,101 @@
+# EXTCODEHASH to a deleted account
+---
+extCodeHashDeletedAccount2:
+  _info:
+    comment: |
+      2) Account A already exists in the state and contains code
+      Call to Account B stores Account A code hash to 1, code size to 2, code to 3
+      Call to Account C runs self destruct on A
+      Call to Account B stores Account A code hash to 4, code size to 5, code to 6
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "1000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+  pre:
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (MSTORE 0 0x01)
+          (CALL 150000 0xbbbbbbbb00000000000000000000000000000000 0 0 32 0 32)
+          
+          (CALL 150000 0xaaaaaaaa00000000000000000000000000000000 0 0 0  0 32)
+          
+          (MSTORE 32 0x04)
+          (CALL 150000 0xbbbbbbbb00000000000000000000000000000000 0 32 32 0 32)
+        }
+      nonce: '0'
+      storage: {}
+    # Acount A: already exists in the state
+    # contains selfdestruct code
+    aaaaaaaa00000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (SELFDESTRUCT (BALANCE 0xdeadbeef00000000000000000000000000000000))
+        }
+      nonce: '0'
+      storage: {}
+    # Account B
+    # Receives storage key as call data
+    bbbbbbbb00000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (CALLDATACOPY 0 0 32)
+          (SSTORE (MLOAD 0) (EXTCODEHASH 0xaaaaaaaa00000000000000000000000000000000))
+
+          (MSTORE 32 (EXTCODESIZE 0xaaaaaaaa00000000000000000000000000000000))
+          
+          (MSTORE 0 (ADD (MLOAD 0) 1))
+          (SSTORE (MLOAD 0) (MLOAD 32))
+
+          (MSTORE 0 (ADD (MLOAD 0) 1))
+          (EXTCODECOPY 0xaaaaaaaa00000000000000000000000000000000 64 0 (MLOAD 32))
+          (SSTORE (MLOAD 0) (MLOAD 64))
+        }
+      nonce: '0'
+      storage: {}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: '0x00'
+      nonce: '0'
+      storage: {}
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Constantinople'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {}
+        aaaaaaaa00000000000000000000000000000000:
+          shouldnotexist: '1'
+        bbbbbbbb00000000000000000000000000000000:
+          balance: '1000000000000000000'
+          storage: {
+            1: '0x9dff858fbcae72e5644a465fa893f46deb3e03b9cd5a8b531109cd577f7fb293',
+            2: '0x17',
+            3: '0x73deadbeef0000000000000000000000000000000031ff000000000000000000',
+            4: '0x9dff858fbcae72e5644a465fa893f46deb3e03b9cd5a8b531109cd577f7fb293',
+            5: '0x17',
+            6: '0x73deadbeef0000000000000000000000000000000031ff000000000000000000'
+          }
+  transaction:
+    data:
+    - ''
+    gasLimit:
+    - '400000'
+    gasPrice: '1'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - '1'
+

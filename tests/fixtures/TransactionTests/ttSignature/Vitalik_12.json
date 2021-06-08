@@ -1,0 +1,44 @@
+{
+    "Vitalik_12" : {
+        "Byzantium" : {
+            "hash" : "db38325f4c7a9917a611fd09694492c23b0ec357a68ab5cbf905fc9757b9919a",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "Constantinople" : {
+            "hash" : "db38325f4c7a9917a611fd09694492c23b0ec357a68ab5cbf905fc9757b9919a",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "ConstantinopleFix" : {
+            "hash" : "db38325f4c7a9917a611fd09694492c23b0ec357a68ab5cbf905fc9757b9919a",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "EIP150" : {
+            "hash" : "db38325f4c7a9917a611fd09694492c23b0ec357a68ab5cbf905fc9757b9919a",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "EIP158" : {
+            "hash" : "db38325f4c7a9917a611fd09694492c23b0ec357a68ab5cbf905fc9757b9919a",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "Frontier" : {
+            "hash" : "db38325f4c7a9917a611fd09694492c23b0ec357a68ab5cbf905fc9757b9919a",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "Homestead" : {
+            "hash" : "db38325f4c7a9917a611fd09694492c23b0ec357a68ab5cbf905fc9757b9919a",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "Istanbul" : {
+            "hash" : "db38325f4c7a9917a611fd09694492c23b0ec357a68ab5cbf905fc9757b9919a",
+            "sender" : "874b54a8bd152966d63f706bae1ffeb0411921e5"
+        },
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.7.0-alpha.1-33+commit.9ec9d33e.dirty",
+            "lllcversion" : "Version: 0.5.0-develop.2019.8.22+commit.9709dfe0.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttSignature/Vitalik_12Filler.json",
+            "sourceHash" : "b66d9aa05274e7980221e43420de4a4eea388e9932446d7b5b9d023127595faf"
+        },
+        "rlp" : "0xf8610e80830493e080809560f2ff61000080610011600039610011565b6000f31ca0a310f4d0b26207db76ba4e1e6e7cf1857ee3aa8559bcbc399a6b09bfea2d30b4a06dff38c645a1486651a717ddf3daccb4fd9a630871ecea0758ddfcf2774f9bc6"
+    }
+}

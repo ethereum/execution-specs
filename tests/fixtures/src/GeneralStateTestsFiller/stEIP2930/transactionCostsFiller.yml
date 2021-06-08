@@ -1,0 +1,345 @@
+transactionCosts:
+
+  # This test is for the costs of having the access list in the
+  # transaction.
+  #
+  # To do this we send various transactions with different access lists,
+  # and then check the remaining balance of the account that sends the
+  # transactions. 
+
+
+  # Cost of a storage key (ACCESS_LIST_STORAGE_KEY_COST) 1900
+  # Cost of an address    (ACCESS_LIST_ADDRESS_COST)     2400
+
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: '0xFF112233445566'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  pre:
+
+    # Do nothing 
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+
+      # 00 STOP
+
+      code: :raw 0x00
+      nonce: '0'
+      storage: {}
+
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      # Without an access list the cost of the transaction is 121004
+      # Adding that amount lets us count down from a round number
+      balance: 100310040
+      code: 0x
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # Type 0 transaction, no EIP2930 access list
+    # NO_LIST
+    - :label type0 :raw 0x00
+
+    # Empty access list
+    # EMPTY_LIST
+    - data: :label addrs_0_keys_0 :raw 0x00
+      accessList: []
+
+
+    # An access list with one address that has nothing in it
+    # ONE_ZERO
+    - data: :label addrs_1_keys_0 :raw 0x00
+      accessList:
+      - address: 0x0000000000000000000000000000000000000102
+        storageKeys: []
+
+
+
+    # One address, one storage key. The values of addresses and storage keys 
+    # don't matter to the cost of the access list - just how many of them
+    # there are
+    # ONE_ONE
+    - data: :label addrs_1_keys_1 :raw 0x00
+      accessList:
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys:
+        - 0x0000
+
+    # DIFF_ADDR
+    - data: :label addrs_1_keys_1 :raw 0x00
+      accessList:
+      - address: 0xFF00000000000000000000000000000000000101
+        storageKeys:
+        - 0x0000
+
+
+    # DIFF_KEY
+    - data: :label addrs_1_keys_1 :raw 0x00
+      accessList:
+      - address: 0xFF00000000000000000000000000000000000101
+        storageKeys:
+        - 0xFFFFFFFFFFFFFFFFFFFFFFFFF
+
+
+    # One address, two storage keys
+    # ONE_TWO
+    - data: :label addrs_1_keys_2 :raw 0x00
+      accessList:
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys:
+        - 0x0000
+        - 0x0001
+
+
+    # Two addresses, two storage keys
+    # TWO_TWO
+    - data: :label addrs_2_keys_2 :raw 0x00
+      accessList:
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys:
+        - 0x0000
+      - address: 0x0000000000000000000000000000000000000102
+        storageKeys:
+        - 0x0001
+
+
+
+      # TWO_KEYS_THEN_ZERO
+#      - data: :label addrs_2_keys_2 :raw 0x00
+#        accessList:
+#        - address: 0x0000000000000000000000000000000000000101
+#          storageKeys:
+#          - 0x0000
+#          - 0x0001
+#        - address: 0x0000000000000000000000000000000000000102
+#          storageKeys: []
+
+
+
+
+
+    # It is the responsibility of the transaction sender to avoid duplicates
+    # The cost of the transaction is not affected by the fact it could have
+    # been shorter
+
+    # Duplicate address, different storage keys
+    # DUP_ADDR
+    - data: :label addrs_2_keys_2 :raw 0x00 
+      accessList:
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys:
+        - 0x0000
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys:
+        - 0x0001
+
+    # Duplicate address and storage key
+    # DUP_ADDR_DUP_KEY
+    - data: :label addrs_2_keys_2 :raw 0x00
+      accessList:
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys:
+        - 0x0000
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys:
+        - 0x0000
+
+    # Duplicate storage key
+    # DUP_KEY
+    - data: :label addrs_1_keys_2 :raw 0x00   
+      accessList:
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys:
+        - 0x0000
+        - 0x0000
+
+
+    # A large access list
+    # LARGE
+    - data: :label addrs_10_keys_25 :raw 0x00   
+      accessList:
+      - address: 0x0000000000000000000000000000000000000100
+        storageKeys:
+        - 0x0000
+        - 0x0010
+        - 0xFFFFFFFFFFFFFFF
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys:
+        - 0x0000
+        - 0x0010
+      - address: 0x0000000000000000000000000000000000000102
+        storageKeys:
+        - 0x0000
+        - 0x0010
+        - 0xFFFFFFFFFFFFFFF
+      - address: 0x0000000000000000000000000000000000000103
+        storageKeys:
+        - 0x0000
+        - 0x0010
+      - address: 0x0000000000000000000000000000000000000104
+        storageKeys:
+        - 0x0000
+        - 0x0010
+        - 0xFFFFFFFFFFFFFFF
+      - address: 0x0000000000000000000000000000000000000105
+        storageKeys:
+        - 0x0000
+        - 0x0010
+        - 0x1111
+        - 0x2222
+        - 0x3333
+      - address: 0x0000000000000000000000000000000000000106
+        storageKeys: []
+      - address: 0x0000000000000000000000000000000000000107
+        storageKeys:
+        - 0x0000
+        - 0x0010
+      - address: 0x0000000000000000000000000000000000000108
+        storageKeys:
+        - 0x0000
+        - 0x0010
+        - 0xFFFFFFFFFFFFFFF
+      - address: 0x0000000000000000000000000000000000000109
+        storageKeys:
+        - 0x0000
+        - 0x0010
+
+
+
+    gasLimit:
+    - '400000'
+    gasPrice: 10
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '100000'
+
+
+
+
+
+
+  expect:
+
+
+  - indexes:
+      # NO_LIST
+      # EMPTY_LIST
+      data: 
+      - :label type0
+      - :label addrs_0_keys_0
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Berlin"
+    result:
+      a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+        balance: 100000000
+        # Without an access list the cost of the transaction is 121004
+        #
+        # We add that to the initial balance so we can count down from
+        # a nice round number. It doesn't matter if the transaction is old
+        # style (type 0), or if it simply doesn't have entries in the access
+        # list
+
+
+  # An access list with one address and no keys in it
+  # It costs 2400 per address
+  # ONE_ZERO
+  - indexes:
+      data: :label addrs_1_keys_0
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Berlin"
+    result:
+      a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+        balance: 99976000
+
+
+  # An access list with one address and one storage key in it
+  # It costs 4300, 2400 for the address and 1900 for the key
+  # ONE_ONE
+  # DIFF_ADDR
+  # DIFF_KEY
+  - indexes:
+      data: :label addrs_1_keys_1
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Berlin"
+    result:
+      a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+        balance: 99957000
+
+
+
+  # An access list with one address and two storage keys in it
+  # It costs 6200, 2400 for the address and 2*1900 for the keys
+  #
+  # Another test checks what happens when the two keys are the same,
+  # it does not matter - access lists are not checked for duplicates,
+  # so you pay for each entry, needed or not.
+  # ONE_TWO
+  # DUP_KEY
+  - indexes:
+      data: :label addrs_1_keys_2
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Berlin"
+    result:
+      a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+        balance: 99938000
+       
+
+
+  # An access list with two addresses and two storage keys in it
+  # It costs 8600, 2400*2 for the addresses and 2*1900 for the keys
+  # 
+  # Another test checks what happens when the two addresses are the same,
+  # it does not matter - access lists are not checked for duplicates,
+  # so you pay for each entry, needed or not.
+  # TWO_TWO
+  # DUP_ADDR
+  # DUP_ADDR_DUP_KEY
+  - indexes:
+      data: :label addrs_2_keys_2
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Berlin"
+    result:
+      a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+        balance: 99914000
+       
+
+
+  # A big list of ten addresses and twenty five keys. 
+  # The cost is still 2400 per address and 1900 per key
+  # LARGE
+  - indexes:
+      data: :label addrs_10_keys_25
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Berlin"
+    result:
+      a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+        balance: 99285000

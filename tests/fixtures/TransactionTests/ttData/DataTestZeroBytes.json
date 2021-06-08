@@ -1,0 +1,44 @@
+{
+    "DataTestZeroBytes" : {
+        "Byzantium" : {
+            "hash" : "f418ca224c8fb22e767fe9814fb27c17ce9dc9eccd9d4973eb8deeb213fd7bf6",
+            "sender" : "61adaba383a740078e3efbddf082be05534e5484"
+        },
+        "Constantinople" : {
+            "hash" : "f418ca224c8fb22e767fe9814fb27c17ce9dc9eccd9d4973eb8deeb213fd7bf6",
+            "sender" : "61adaba383a740078e3efbddf082be05534e5484"
+        },
+        "ConstantinopleFix" : {
+            "hash" : "f418ca224c8fb22e767fe9814fb27c17ce9dc9eccd9d4973eb8deeb213fd7bf6",
+            "sender" : "61adaba383a740078e3efbddf082be05534e5484"
+        },
+        "EIP150" : {
+            "hash" : "f418ca224c8fb22e767fe9814fb27c17ce9dc9eccd9d4973eb8deeb213fd7bf6",
+            "sender" : "61adaba383a740078e3efbddf082be05534e5484"
+        },
+        "EIP158" : {
+            "hash" : "f418ca224c8fb22e767fe9814fb27c17ce9dc9eccd9d4973eb8deeb213fd7bf6",
+            "sender" : "61adaba383a740078e3efbddf082be05534e5484"
+        },
+        "Frontier" : {
+            "hash" : "f418ca224c8fb22e767fe9814fb27c17ce9dc9eccd9d4973eb8deeb213fd7bf6",
+            "sender" : "61adaba383a740078e3efbddf082be05534e5484"
+        },
+        "Homestead" : {
+            "hash" : "f418ca224c8fb22e767fe9814fb27c17ce9dc9eccd9d4973eb8deeb213fd7bf6",
+            "sender" : "61adaba383a740078e3efbddf082be05534e5484"
+        },
+        "Istanbul" : {
+            "hash" : "f418ca224c8fb22e767fe9814fb27c17ce9dc9eccd9d4973eb8deeb213fd7bf6",
+            "sender" : "61adaba383a740078e3efbddf082be05534e5484"
+        },
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.7.0-alpha.1-33+commit.9ec9d33e.dirty",
+            "lllcversion" : "Version: 0.5.0-develop.2019.8.22+commit.9709dfe0.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttData/DataTestZeroBytesFiller.json",
+            "sourceHash" : "2193f823f91a72c8d2386a996fc6f044c4a574473d5ed6f96240b03a82375bed"
+        },
+        "rlp" : "0xf87c80018261a894095e7baea6a6c7c4c2dfeb977efac326af552d870a9d00000000000000000000000000000000000000000000000000000000001ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a01fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804"
+    }
+}

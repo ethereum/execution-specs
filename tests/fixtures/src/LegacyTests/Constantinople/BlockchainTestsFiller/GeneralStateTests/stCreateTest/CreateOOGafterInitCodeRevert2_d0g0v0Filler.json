@@ -1,0 +1,111 @@
+{
+    "CreateOOGafterInitCodeRevert2_d0g0v0" : {
+        "_info" : {
+            "comment" : "Calls a contract that runs CREATE which deploy a code. then after deployment and exiting from CREATE a REVERT is called. check the REVERT data in this case equal to RETURN value of CREATE. CREATE fails due to the deployment cost."
+        },
+        "blocks" : [
+            {
+                "blockHeaderPremine" : {
+                    "difficulty" : "0x020000",
+                    "gasLimit" : "0x989680",
+                    "timestamp" : "0x03e8",
+                    "updatePoW" : "1"
+                },
+                "transactions" : [
+                    {
+                        "data" : "0x",
+                        "gasLimit" : "0x0124f8",
+                        "gasPrice" : "0x01",
+                        "nonce" : "0x00",
+                        "r" : "0xb524b286a1aaf2902aeec847abc1351ee6c3c1fa27d5405086807bdc855c85b0",
+                        "s" : "0x264d638cdeb8512a3cc8fc1261d3f292ebb19c727a08a6630ba6f570915dae33",
+                        "to" : "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+                        "v" : "0x1c",
+                        "value" : "0x00"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            }
+        ],
+        "expect" : [
+            {
+                "network" : "Byzantium",
+                "result" : {
+                    "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "storage" : {
+                            "0x01" : "0x6460016001556000526005601bf3"
+                        }
+                    },
+                    "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40" : {
+                    }
+                }
+            },
+            {
+                "network" : "Constantinople",
+                "result" : {
+                    "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "storage" : {
+                            "0x01" : "0x6460016001556000526005601bf3"
+                        }
+                    },
+                    "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40" : {
+                    }
+                }
+            },
+            {
+                "network" : "ConstantinopleFix",
+                "result" : {
+                    "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "storage" : {
+                            "0x01" : "0x6460016001556000526005601bf3"
+                        }
+                    },
+                    "0xf1ecf98489fa9ed60a664fc4998db699cfa39d40" : {
+                    }
+                }
+            }
+        ],
+        "genesisBlockHeader" : {
+            "bloom" : "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "coinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "difficulty" : "131072",
+            "extraData" : "0x42",
+            "gasLimit" : "0x989680",
+            "gasUsed" : "0",
+            "mixHash" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "nonce" : "0x0102030405060708",
+            "number" : "0",
+            "parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "receiptTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "stateRoot" : "0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a",
+            "timestamp" : "0x03b6",
+            "transactionsTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "uncleHash" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+        },
+        "pre" : {
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0xe8d4a51000",
+                "code" : "",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x00",
+                "code" : "0x6d6460016001556000526005601bf3600052600e60126000f05060206000fd",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x00",
+                "code" : "0x6020600060006000600073b94f5374fce5edbc8e2a8697c15331677e6ebf0b6180e8f150600051600155",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "sealEngine" : "NoProof"
+    }
+}

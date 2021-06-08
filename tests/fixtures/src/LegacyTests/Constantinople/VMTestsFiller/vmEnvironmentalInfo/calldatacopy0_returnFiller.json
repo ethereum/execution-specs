@@ -1,0 +1,36 @@
+{
+    "calldatacopy0_return": {
+        "env": {
+            "currentCoinbase": "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty": "0x020000",
+            "currentGasLimit": "0x7fffffffffffffff",
+            "currentNumber": "1",
+            "currentTimestamp": "1000",
+            "previousHash": "5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6"
+        },
+        "exec": {
+            "address": "0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6",
+            "caller": "a94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "data": "0x1234567890abcdef01234567890abcdef0",
+            "gas": "100000000000",
+            "gasPrice": "12",
+            "origin": "a94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "value": "11"
+        },
+        "expect": {
+            "0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6": {
+                "storage": {
+                    "0x": "0x3456000000000000000000000000000000000000000000000000000000000000"
+                }
+            }
+        },
+        "pre": {
+            "0f572e5295c57f15886f9b263e2f6d2d6c7b5ec6": {
+                "balance": "1000000000000000000",
+                "code": "{ (CALLDATACOPY 0 1 2 ) [[0]] (MLOAD 0) (RETURN 0 (MSIZE))}",
+                "nonce": "0",
+                "storage": {}
+            }
+        }
+    }
+}

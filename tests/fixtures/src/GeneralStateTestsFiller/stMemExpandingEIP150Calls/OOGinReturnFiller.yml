@@ -1,0 +1,140 @@
+OOGinReturn:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: 0x100000000
+    currentNumber: "1"
+    currentTimestamp: "1000"
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  pre:
+
+    ccccccccccccccccccccccccccccccccccccccc1:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code:   | 
+        {
+            [0] 0xDEAD60A7
+            (return 0 0x100)
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    ccccccccccccccccccccccccccccccccccccccc2:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code:   | 
+        {
+            [0] 0xDEAD60A7
+            (revert 0 0x100)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code:   | 
+        {
+          ; Variables are 0x20 bytes (= 256 bits) apart, except for
+          ; code buffers that get 0x100 (256 bytes)
+          (def 'callRet    0x100)
+          (def 'type       0x120)
+          (def 'gas2Use    0x140)
+          (def 'retVal     0x160)
+          ; Other constants
+          (def 'NOP 0)   ; No OPeration
+          ; Understand the input.
+          [type]       $4
+          [gas2Use]    $36
+          ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+          [0] 0x60A760A7
+          [callRet] (call @gas2Use
+                          (+ 0xccccccccccccccccccccccccccccccccccccccc0 @type)
+                          0
+                          0 0
+                          0 0x100)
+          [[0]] @0    ; first 0x20 bytes of return data
+          (if (> (returndatasize) 0) (returndatacopy retVal 0 0x20) NOP)
+          [[1]] @retVal
+        }   ; end of LLL code
+      nonce: '0'
+      storage: {}
+
+
+    # User account
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # Type:    01 - RETURN    02 - REVERT
+    # Gas
+
+    # Enough gas for the called contract to finish
+    - :abi f(uint,uint) 1 0x36
+    - :abi f(uint,uint) 2 0x36
+
+    # Out of gas during the RETURN / REVERT
+    - :abi f(uint,uint) 1 0x25
+    - :abi f(uint,uint) 2 0x25
+
+    # Out of gas before getting to the RETURN / REVERT
+    - :abi f(uint,uint) 1 0x10
+    - :abi f(uint,uint) 2 0x10
+
+    gasLimit:
+    - 0x900000
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    value:
+    - 0
+
+  expect:
+
+    # Calls that don't return data
+    - indexes:
+        data:
+        - !!int 2
+        - !!int 3
+        - !!int 4
+        - !!int 5
+        gas:  !!int 0
+        value: !!int 0
+      network:
+        - 'Istanbul'
+      result:
+
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0x60A760A7
+
+
+
+
+    # Calls that return data
+    - indexes:
+        data:
+        - !!int 0
+        - !!int 1
+        gas:  !!int 0
+        value: !!int 0
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0xDEAD60A7
+            0x01: 0xDEAD60A7
+

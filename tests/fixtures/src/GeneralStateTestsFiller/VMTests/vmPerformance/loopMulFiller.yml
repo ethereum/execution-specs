@@ -1,0 +1,138 @@
+loopMul:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: 0x7fffffffffffffff
+    currentNumber: "1"
+    currentTimestamp: "1000"
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  solidity: |
+    pragma solidity ^0.7;
+    // SPDX-License-Identifier: GPL-3.0
+
+
+    contract MulPerformanceTester {
+        uint result;
+
+        function testMulMod(uint x, uint y, uint k, uint n) external returns (uint) {
+            uint r = x;
+            for (uint i = 0; i < n; i += 1) {
+                r = mulmod(r, y, k);
+            }
+            result = r;
+            return r;
+        }
+
+        function testDivAdd(uint x, uint y, uint k, uint n) external returns (uint) {
+            uint r = x;
+            for (uint i = 0; i < n; i += 1) {
+                r /= y;
+                r += k;
+            }
+            result = r;
+            return r;
+        }
+
+        function testMul(uint x, uint y, uint n) external returns (uint) {
+            uint r = x;
+            for (uint i = 0; i < n; i += 1) {
+                r *= y;
+            }
+            result = r;
+            return r;
+        }
+
+        function testAdd(uint x, uint y, uint n) external returns (uint) {
+            uint r = x;
+            for (uint i = 0; i < n; i += 1) {
+                r += y;
+            }
+            result = r;
+            return r;
+        }
+    }
+
+  pre:
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: :solidity MulPerformanceTester 
+      nonce: 1
+      storage: {}
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x7fffffffffffffff00
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    - :label add-10M    :abi testAdd(uint256,uint256,uint256) 0x8edad8b55b1586805ea8c245d8c16b06a5102b791fc6eb60693731c0677bf501 0x8edad8b55b1586805ea8c245d8c16b06a5102b791fc6eb60693731c0677bf501 10000000
+    - :label divadd-10M :abi testDivAdd(uint256,uint256,uint256,uint256) 0x8edad8b55b1586805ea8c245d8c16b06a5102b791fc6eb60693731c0677bf501 0x1c68db1c179cd35ab3fc60c63704aa7fcbea40f19782b1611aaba86726a7686c 0xff00ffffffffffffffffffffffffffaaffffffffffffffffbbffffffffffffff0000 10000000
+    # Skipped the unrolled divadd test, because the source is missing
+    # Skipped mul, because we don't have the source. 
+    #        The old test has two parameters, the function here three
+    - :label mulmod-2M  :abi testMulMod(uint256,uint256,uint256,uint256) 0x8edad8b55b1586805ea8c245d8c16b06a5102b791fc6eb60693731c0677bf501 0x1c68db1c179cd35ab3fc60c63704aa7fcbea40f19782b1611aaba86726a7686c 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 2000000 
+    gasLimit:
+    - 0x7fffffffffffffff
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    value:
+    - 0
+
+  expect:
+    - indexes:
+        data:
+        - :label add-10M
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0xe2ef8b895ee03259ee57850b1a1ed4aa7689bec352659200e63440303f9d0b81
+
+
+
+
+
+    - indexes:
+        data:
+        - :label divadd-10M
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0xffffffffffffffffffffffffffaaffffffffffffffffbbffffffffffffff0009
+
+
+
+
+
+    - indexes:
+        data:
+        - :label mulmod-2M
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x0e1c6aac6663c379a52d9ccc7ba4757131020772d41447dfcf478cf9fb0c2bbf
+
+
+

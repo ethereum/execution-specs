@@ -1,0 +1,170 @@
+# The EIP2929 changes in SELFDESTRUCT (opcode 0xFF)
+
+eip2929-ff:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    # The address that gets the funds from the self-destruct
+    000000000000000000000000000000000000DE57:
+      balance: '0x0'
+      code: ':raw 0x00'
+      nonce: '0'
+      storage: {}
+
+    # Do a SELFDESTRUCT and give 0xDE57 your remaining gas
+    000000000000000000000000000000000000ca11:
+      balance: '0xde0b6b3a7640000'  # 1 ETH
+      code: |
+         {
+              (selfdestruct 0xDE57)
+         }
+      nonce: '0'
+      storage: {}
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (def 'operation $4)
+
+           (def 'measurementCost 0x08)
+           
+           ; Make sure not to be overwritten by extcodecopy
+           (def 'gasB4     0x100)
+           (def 'gasAfter  0x120) 
+
+           ; Write something so the storage won't be new
+           [gasB4] 0xFF
+           [gasAfter] 0xFF
+              
+           (def 'NOP 0)
+           (def 'dest 0xDE57)   ; destination address
+
+           ; Read so access to that account later won't trigger EIP2929 costs
+           (balance 0xca11)
+
+           ; If we need to add the destination address to the active set,
+           ; do so.
+           (if (= operation 0x31) (balance dest) NOP)
+           (if (= operation 0x3B) (extcodesize dest) NOP)
+           (if (= operation 0x3C) (extcodecopy dest 0 0 1) NOP)
+           (if (= operation 0x3F) (extcodehash dest) NOP)
+           (if (= operation 0xF1) (call 0x10000 dest 0 0 0 0 0) NOP)
+           (if (= operation 0xF2) (callcode 0x10000 dest 0 0 0 0 0) NOP)
+           (if (= operation 0xF4) (delegatecall 0x10000 dest 0 0 0 0) NOP)
+           (if (= operation 0xFA) (staticcall 0x10000 dest 0 0 0 0) NOP)
+
+           ; Look just as the gas cost of the SELFDESTRUCT
+           [gasB4] (gas)
+           (call 0x1000000 0xca11 0 0 0 0 0)
+           [gasAfter] (gas)
+
+           [[0]] (- @gasB4 @gasAfter measurementCost)
+
+           ; Get the gas cost of BALANCE for dest. This is
+           ; to verify, in the case of :label simple, that the 
+           ; destination address is indeed touched by the SELFDESTRUCT
+           ; that sends it money
+           [gasB4] (gas)
+           (balance dest)
+           [gasAfter] (gas)
+
+           [[1]] (- @gasB4 @gasAfter measurementCost)
+
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+  transaction:
+    data:
+    # Just run the SELFDESTRUCT
+    - :label simple       :abi f(uint) 0x00
+
+    # Add the destination address to the active set first
+    # (in various ways)
+    - :label balance      :abi f(uint) 0x31
+    - :label extcodesize  :abi f(uint) 0x3B
+    - :label extcodecopy  :abi f(uint) 0x3C
+    - :label extcodehash  :abi f(uint) 0x3F
+    - :label call         :abi f(uint) 0xF1
+    - :label callcode     :abi f(uint) 0xF2
+    - :label delegatecall :abi f(uint) 0xF4
+    - :label staticcall   :abi f(uint) 0xFA
+
+    gasLimit: 
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    - indexes:
+        data:
+        - :label simple
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 7726
+            1: 105
+
+    - indexes:
+        data:
+        - :label balance     
+        - :label extcodesize 
+        - :label extcodecopy 
+        - :label extcodehash 
+        - :label call        
+        - :label callcode    
+        - :label delegatecall
+        - :label staticcall  
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 5126
+            1: 105
+
+
+    # Istanbul is pre EIP2929, and therefore should cost the same 
+    # regardless of what happens before the SELFDESTRUCT
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 5726
+            1: 705

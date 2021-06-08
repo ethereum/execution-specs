@@ -1,0 +1,44 @@
+{
+    "RightVRSTest" : {
+        "Byzantium" : {
+            "hash" : "1cbb233404f49e96cb795d0ea74f485eca2c41a216e0ce80694cef4dd7a45b50",
+            "sender" : "58d79230fc81a042315da7d243272798e27cb40c"
+        },
+        "Constantinople" : {
+            "hash" : "1cbb233404f49e96cb795d0ea74f485eca2c41a216e0ce80694cef4dd7a45b50",
+            "sender" : "58d79230fc81a042315da7d243272798e27cb40c"
+        },
+        "ConstantinopleFix" : {
+            "hash" : "1cbb233404f49e96cb795d0ea74f485eca2c41a216e0ce80694cef4dd7a45b50",
+            "sender" : "58d79230fc81a042315da7d243272798e27cb40c"
+        },
+        "EIP150" : {
+            "hash" : "1cbb233404f49e96cb795d0ea74f485eca2c41a216e0ce80694cef4dd7a45b50",
+            "sender" : "58d79230fc81a042315da7d243272798e27cb40c"
+        },
+        "EIP158" : {
+            "hash" : "1cbb233404f49e96cb795d0ea74f485eca2c41a216e0ce80694cef4dd7a45b50",
+            "sender" : "58d79230fc81a042315da7d243272798e27cb40c"
+        },
+        "Frontier" : {
+            "hash" : "1cbb233404f49e96cb795d0ea74f485eca2c41a216e0ce80694cef4dd7a45b50",
+            "sender" : "58d79230fc81a042315da7d243272798e27cb40c"
+        },
+        "Homestead" : {
+            "hash" : "1cbb233404f49e96cb795d0ea74f485eca2c41a216e0ce80694cef4dd7a45b50",
+            "sender" : "58d79230fc81a042315da7d243272798e27cb40c"
+        },
+        "Istanbul" : {
+            "hash" : "1cbb233404f49e96cb795d0ea74f485eca2c41a216e0ce80694cef4dd7a45b50",
+            "sender" : "58d79230fc81a042315da7d243272798e27cb40c"
+        },
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.7.0-alpha.1-33+commit.9ec9d33e.dirty",
+            "lllcversion" : "Version: 0.5.0-develop.2019.8.22+commit.9709dfe0.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttSignature/RightVRSTestFiller.json",
+            "sourceHash" : "c6a8c1f6841ff332d6f5888e02ec1eba79b98c1b481df696060738cb6a659d4c"
+        },
+        "rlp" : "0xf85f030182520894b94f5374fce5edbc8e2a8697c15331677e6ebf0b0a801ca098ff921201554726367d2be8c804a7ff89ccf285ebc57dff8ae4c44b9c19ac4aa01887321be575c8095f789dd4c743dfe42c1820f9231f98a962b210e3ac2452a3"
+    }
+}

@@ -1,0 +1,223 @@
+# See that the extra gas cost of EIP2929 causes an out of gas
+
+eip2929OOG:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000001054:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           @@0
+        }
+      nonce: 1
+      storage: {}
+
+
+    0000000000000000000000000000000000001055:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           [[0]] 0x60A7
+        }
+      nonce: 1
+      storage: {}
+
+
+    0000000000000000000000000000000000001031:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (balance 0xACC7)
+        }
+      nonce: 1
+      storage: {}
+
+
+    000000000000000000000000000000000000103B:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (extcodesize 0x1031)
+        }
+      nonce: 1
+      storage: {}
+
+
+    000000000000000000000000000000000000103C:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (extcodecopy 0x1031 0 0 0x20)
+        }
+      nonce: 1
+      storage: {}
+
+
+    000000000000000000000000000000000000103F:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (extcodehash 0x1031)
+        }
+      nonce: 1
+      storage: {}
+
+
+
+    00000000000000000000000000000000000010F1:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (call 0x06A5 0xACC7 0 0 0 0 0)
+        }
+      nonce: 1
+      storage: {}
+
+
+    00000000000000000000000000000000000010F2:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (callcode 0x06A5 0xACC7 0 0 0 0 0)
+        }
+      nonce: 1
+      storage: {}
+
+
+    00000000000000000000000000000000000010F4:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (delegatecall 0x06A5 0xACC7 0 0 0 0)
+        }
+      nonce: 1
+      storage: {}
+
+
+
+    00000000000000000000000000000000000010FA:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (staticcall 0x06A5 0xACC7 0 0 0 0)
+        }
+      nonce: 1
+      storage: {}
+
+
+    # Just an account
+    000000000000000000000000000000000000ACC7:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (return 0 0)
+        }
+      nonce: 1
+      storage: {}
+
+
+    
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (def 'addr     $4)     ; the address to call
+           (def 'callGas $36)     ; the amount of gas to give it
+
+           [[0]] (call callGas addr 0 0 0 0 0)
+        }
+      nonce: 1
+      storage:
+        # Gets overwritten
+        0x0: 0x60A7
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: 1
+      storage: {}
+      
+  transaction:
+    data:
+    # SLOAD
+    - :label failEIP2929 :abi f(uint,uint) 0x1054 2000
+
+    # SSTORE
+    - :label failEIP2929 :abi f(uint,uint) 0x1055 22000
+
+    # BALANCE
+    - :label failEIP2929 :abi f(uint,uint) 0x1031 2000
+
+    # EXTCODESIZE
+    - :label failEIP2929 :abi f(uint,uint) 0x103B 2500
+
+    # EXTCODECOPY
+    - :label failEIP2929 :abi f(uint,uint) 0x103C 2500
+
+    # EXTCODEHASH
+    - :label failEIP2929 :abi f(uint,uint) 0x103F 2500
+
+    # CALL
+    - :label failEIP2929 :abi f(uint,uint) 0x10F1 1750
+
+    # CALLCODE
+    - :label failEIP2929 :abi f(uint,uint) 0x10F2 1750
+
+    # DELEGATECALL
+    - :label failEIP2929 :abi f(uint,uint) 0x10F4 1750
+
+    # STATICCALL
+    - :label failEIP2929 :abi f(uint,uint) 0x10FA 1750
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    # Berlin and above should fail (not enough gas)
+    - indexes:
+        data:
+        - :label failEIP2929
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0
+
+
+    # Istanbul, which is pre EIP2929, should be successful
+    - indexes:
+        data:
+        - :label failEIP2929
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 1

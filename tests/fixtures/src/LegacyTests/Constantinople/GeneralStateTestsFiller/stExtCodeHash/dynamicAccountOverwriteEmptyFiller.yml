@@ -1,0 +1,105 @@
+# EXTCODEHASH of empty account, then CREATE or CREATE2 over it, EXTCODEHASH again.
+# This should check that code hash cache is correctly updated during the transaction.
+---
+dynamicAccountOverwriteEmpty:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "1000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+  _info:
+    comment: "EXTCODEHASH of empty account, then CREATE or CREATE2 over it, EXTCODEHASH again.
+This should check that code hash cache is correctly updated during the transaction."
+  pre:
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '1000000000000000000'
+      code: |
+        {
+          ;; Check stats of empty account
+          [[0]] (EXTCODEHASH 0xe713449c212d891357cc2966816b1d528cfb59e0)
+          [[1]] (EXTCODESIZE 0xe713449c212d891357cc2966816b1d528cfb59e0)
+          (EXTCODECOPY 0xe713449c212d891357cc2966816b1d528cfb59e0 0 0 32)
+          (SSTORE 2 (MLOAD 0))
+          (SSTORE 3 (CALLCODE 50000 0xe713449c212d891357cc2966816b1d528cfb59e0 0 0 0 0 0))
+
+
+          ;; Create account e713449c212d891357cc2966816b1d528cfb59e0 again. should be overwritten without collision
+          (CREATE2 0 0 (lll
+              {
+                ;; Put some code into it
+                (MSTORE 0 (EXTCODESIZE 0xdddddddd00000000000000000000000000000000))
+                (EXTCODECOPY 0xdddddddd00000000000000000000000000000000
+                             32
+                             0
+                             (MLOAD 0))
+                (RETURN 32 (MLOAD 0))
+              }
+              0) 
+          0)
+
+          ;; Check stats of same account after overwrite
+          [[4]] (EXTCODEHASH 0xe713449c212d891357cc2966816b1d528cfb59e0)
+          [[5]] (EXTCODESIZE 0xe713449c212d891357cc2966816b1d528cfb59e0)
+          (EXTCODECOPY 0xe713449c212d891357cc2966816b1d528cfb59e0 0 0 32)
+          (SSTORE 6 (MLOAD 0))
+          (SSTORE 7 (CALLCODE 50000 0xe713449c212d891357cc2966816b1d528cfb59e0 0 0 0 0 0))
+
+          (STOP)
+        }
+      nonce: '0'
+      storage: {}
+    # empty account
+    e713449c212d891357cc2966816b1d528cfb59e0:
+      balance: '0'
+      code: ''
+      nonce: '0'
+      storage: {
+         1: '1'
+      }
+    dddddddd00000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+       {
+            [[80]] 11
+       }
+      nonce: '0'
+      storage: {}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: '0x00'
+      nonce: '0'
+      storage: {}
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Constantinople'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            0: '0',
+            1: '0',
+            2: '0',
+            3: '1',
+            4: '0x412346c5b3b3397c3af572eaee1ec5642e1b4c71fd8da2942c9d31341d74184b',
+            5: '5',
+            6: '0x600b605055000000000000000000000000000000000000000000000000000000',
+            7: '1',
+            80: '11'
+          }
+  transaction:
+    data:
+    - ''
+    gasLimit:
+    - '400000'
+    gasPrice: '1'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - '1'

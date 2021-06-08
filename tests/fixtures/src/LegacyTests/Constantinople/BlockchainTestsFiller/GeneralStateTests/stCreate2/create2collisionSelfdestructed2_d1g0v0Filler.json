@@ -1,0 +1,101 @@
+{
+    "create2collisionSelfdestructed2_d1g0v0" : {
+        "_info" : {
+            "comment" : "A contract which performs SUICIDE, and is then attempted to be recreated (different code, same init-code) during the same transaction. This ought to fail, since the code is not cleaned out until after the transaction is ended."
+        },
+        "blocks" : [
+            {
+                "blockHeaderPremine" : {
+                    "difficulty" : "0x020000",
+                    "gasLimit" : "0x0f4240",
+                    "timestamp" : "0x03e8",
+                    "updatePoW" : "1"
+                },
+                "transactions" : [
+                    {
+                        "data" : "0x6000600060006000600073cff64f4c5df8f436c4f2c1af4b2e3f9e3004c77961c350f1506b626010ff6000526003601df36000526000600c60146000f5",
+                        "gasLimit" : "0x061a80",
+                        "gasPrice" : "0x01",
+                        "nonce" : "0x00",
+                        "r" : "0x2f5cc10fe04d67301b8f039cdebb279b51578ce54c711c0eb7170852f4893d9e",
+                        "s" : "0x0b5dcf40e42ea7afb5ac8282eef23eead4eb197e939169786b2ede913d3476bd",
+                        "to" : "",
+                        "v" : "0x1b",
+                        "value" : "0x00"
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            }
+        ],
+        "expect" : [
+            {
+                "network" : "Constantinople",
+                "result" : {
+                    "0x0000000000000000000000000000000000000010" : {
+                        "balance" : "0x01"
+                    },
+                    "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "0x01"
+                    },
+                    "0xcff64f4c5df8f436c4f2c1af4b2e3f9e3004c779" : {
+                    }
+                }
+            },
+            {
+                "network" : "ConstantinopleFix",
+                "result" : {
+                    "0x0000000000000000000000000000000000000010" : {
+                        "balance" : "0x01"
+                    },
+                    "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "0x01"
+                    },
+                    "0xcff64f4c5df8f436c4f2c1af4b2e3f9e3004c779" : {
+                    }
+                }
+            }
+        ],
+        "genesisBlockHeader" : {
+            "bloom" : "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "coinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "difficulty" : "131072",
+            "extraData" : "0x42",
+            "gasLimit" : "0x0f4240",
+            "gasUsed" : "0",
+            "mixHash" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "nonce" : "0x0102030405060708",
+            "number" : "0",
+            "parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "receiptTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "stateRoot" : "0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a",
+            "timestamp" : "0x03b6",
+            "transactionsTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "uncleHash" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+        },
+        "pre" : {
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x626010ff6000526003601df3",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xcff64f4c5df8f436c4f2c1af4b2e3f9e3004c779" : {
+                "balance" : "0x01",
+                "code" : "0x6010ff",
+                "nonce" : "0x01",
+                "storage" : {
+                }
+            },
+            "0xfce41d047b4a1d4450382dcc29ec7e5fedc5f9a3" : {
+                "balance" : "0x01",
+                "code" : "0x6010ff",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "sealEngine" : "NoProof"
+    }
+}

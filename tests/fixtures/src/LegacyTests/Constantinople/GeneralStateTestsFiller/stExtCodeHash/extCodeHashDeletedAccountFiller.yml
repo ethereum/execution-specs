@@ -1,0 +1,143 @@
+# EXTCODEHASH to a deleted account same transaction
+---
+extCodeHashDeletedAccount:
+  _info:
+    comment: |
+      Get account A (aaaaaaaa00000000000000000000000000000000) code hash, code size, and code
+      Calls Account A's code which causes self destruction of A
+      Get account A codehash, code size and code
+      It is still getting the same values because selfdestruct is performed
+      at the end of transaction during state finalization stage.
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "1000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+  pre:
+    # get account A codehash, destructs account A, get account A codehash
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '1000000000000000000'
+      code: |   
+        {
+          ;; Gets external code hash, stores it in [[0]]
+          (CALL 150000 0xdeadbeef00000000000000000000000000000000 0 0 0 0 32)
+          (RETURNDATACOPY 0 0 32)
+          [[0]] (MLOAD 0)
+
+          ;; Gets external code size, stores it in [[1]]
+          (CALL 150000 0xdeadbeef00000000000000000000000000000001 0 0 0 0 32)
+          (RETURNDATACOPY 0 0 32)
+          [[1]] (MLOAD 0)
+
+          ;; Gets external code, stores it in [[2]]
+          (CALL 150000 0xdeadbeef00000000000000000000000000000002 0 0 0 0 32)
+          (RETURNDATACOPY 0 0 32)
+          [[2]] (MLOAD 0)
+
+
+          ;; Call Account A (self destructs)
+          (CALL 150000 0xaaaaaaaa00000000000000000000000000000000 0 0 0 0 32)
+
+
+          ;; Gets external code hash, stores it in [[3]]
+          (CALL 150000 0xdeadbeef00000000000000000000000000000000 0 0 0 0 32)
+          (RETURNDATACOPY 0 0 32)
+          [[3]] (MLOAD 0)
+
+          ;; Gets external code size, stores it in [[4]]
+          (CALL 150000 0xdeadbeef00000000000000000000000000000001 0 0 0 0 32)
+          (RETURNDATACOPY 0 0 32)
+          [[4]] (MLOAD 0)
+
+          ;; Gets external code, stores it in [[5]]
+          (CALL 150000 0xdeadbeef00000000000000000000000000000002 0 0 0 0 32)
+          (RETURNDATACOPY 0 0 32)
+          [[5]] (MLOAD 0)
+
+        }
+      nonce: '0'
+      storage: {}
+    aaaaaaaa00000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (SELFDESTRUCT 0xdeadbeef00000000000000000000000000000000)
+        }
+      nonce: '0'
+      storage: {}
+    # Returns External Code Hash
+    deadbeef00000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (MSTORE 0 (EXTCODEHASH 0xaaaaaaaa00000000000000000000000000000000))
+          (RETURN 0 32)
+        }
+      nonce: '0'
+      storage: {}
+    # Returns External Code Size
+    deadbeef00000000000000000000000000000001:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (MSTORE 0 (EXTCODESIZE 0xaaaaaaaa00000000000000000000000000000000))
+          (RETURN 0 32)
+        }
+      nonce: '0'
+      storage: {}
+    # Returns the first 32 bytes of the External Code
+    deadbeef00000000000000000000000000000002:
+      balance: '1000000000000000000'
+      code: |
+        {
+          ;;(MSTORE 0 (EXTCODESIZE 0xaaaaaaaa00000000000000000000000000000000))
+          ;;(EXTCODECOPY 0xaaaaaaaa00000000000000000000000000000000
+            
+          (EXTCODECOPY 0xaaaaaaaa00000000000000000000000000000000
+                       0
+                       0
+                      (EXTCODESIZE 0xaaaaaaaa00000000000000000000000000000000))
+          (RETURN 0 32)
+        }
+      nonce: '0'
+      storage: {}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: '0x00'
+      nonce: '0'
+      storage: {}
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Constantinople'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            0: '0x4f8f2f49aec2d92b196659c9d1dc920d271503707a57472bd99eca81b9187f0f',
+            1: '0x16',
+            2: '0x73deadbeef00000000000000000000000000000000ff00000000000000000000',
+            3: '0x4f8f2f49aec2d92b196659c9d1dc920d271503707a57472bd99eca81b9187f0f',
+            4: '0x16',
+            5: '0x73deadbeef00000000000000000000000000000000ff00000000000000000000'
+          }
+        aaaaaaaa00000000000000000000000000000000:
+          shouldnotexist: '1'
+        deadbeef00000000000000000000000000000000:
+          balance: '2000000000000000000'
+  transaction:
+    data:
+    - ''
+    gasLimit:
+    - '400000'
+    gasPrice: '1'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - '1'

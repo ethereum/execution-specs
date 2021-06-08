@@ -1,0 +1,813 @@
+# Deal with all EIP2929 changes except for the change to 
+# SELFDESTRUCT
+
+eip2929:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    000000000000000000000000000000000000ca11:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: ':raw 0x00'
+      nonce: '0'
+      storage: {}
+
+
+    # Get the balance of the 0xCA11 account. To show
+    # that looking at an address twice, in two different
+    # contracts (during the same transaction) only
+    # incurs one eip2929 charge.
+    000000000000000000000000000000ca1100ca11:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+         {
+              (balance 0xca11)
+         }
+      nonce: '0'
+      storage: {}
+
+
+    # Access storage 0x100 from a different account
+    00000000000000000000000000000000ca110100:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+         {
+             @@0x100
+         }
+      nonce: '0'
+      storage: {}
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {
+           (def 'oper1 $4)
+           (def 'oper2 $36)
+           (def 'oper3 $68)
+              
+           (def 'NOP 0)
+           (def 'measurementCost 0x022a)
+           
+           (def 'gasB4     0x00)
+           (def 'gasAfter  0x20) 
+           (def 'operation 0x40)
+ 
+           ; Write to the memory so memory allocation won't affect the
+           ; measurement
+           [gasB4] (gas)
+           [gasAfter] (gas)
+
+           ; Read addresses so that won't affect the measurement
+           (balance 0xca1100ca11)
+           (balance   0xca110100)
+
+           (def 'tests {
+               (if (= @operation 1) @@0x100 NOP) ; SLOAD
+               (if (= @operation 2) [[0x100]] 5 NOP) ; SSTORE
+               (if (= @operation 11) (balance 0xca11) NOP) ; BALANCE
+               (if (= @operation 12) (extcodesize 0xca11) NOP) ; EXTCODESIZE
+               (if (= @operation 13) (extcodecopy 0xca11 0 0 0) NOP) ; EXTCODECOPY
+               (if (= @operation 14) (extcodehash 0xca11) NOP) ; EXTCODEHASH
+               (if (= @operation 21) (call 0x1000 0xca11 0 0 0 0 0) NOP) ; CALL
+               (if (= @operation 22) (callcode 0x1000 0xca11 0 0 0 0 0) NOP) ; CALLCODE
+               (if (= @operation 23) (delegatecall 0x1000 0xca11 0 0 0 0) NOP) ; DELEGATECALL
+               (if (= @operation 24) (staticcall 0x1000 0xca11 0 0 0 0) NOP) ; STATICCALL
+
+               ; Look at the address 0xca11 in a different account
+               (if (= @operation 31) (call 0x1000 0xca1100ca11 0 0 0 0 0) NOP)
+
+               ; Read storage in a different account CALLCODE
+               (if (= @operation 32) (callcode 0x1000 0xca110100 0 0 0 0 0) NOP)
+
+               ; Read storage in a different account DELEGATECALL
+               (if (= @operation 33) (delegatecall 0x1000 0xca110100 0 0 0 0) NOP)
+              }
+            )     ; def 'tests
+
+            [operation] oper1
+            [gasB4] (gas)
+            tests
+            [gasAfter] (gas)
+            [[0]] (- @gasB4 @gasAfter measurementCost)
+
+            [operation] oper2
+            [gasB4] (gas)
+            tests
+            [gasAfter] (gas)
+            [[1]] (- @gasB4 @gasAfter measurementCost)
+
+            [operation] oper3
+            [gasB4] (gas)
+            tests
+            [gasAfter] (gas)
+            [[2]] (- @gasB4 @gasAfter measurementCost)
+
+            [[0x100]] 0
+
+        }
+      nonce: '0'
+      storage:
+        # Gets overwritten, used to avoid the gas cost of new storage
+        0x100: 0x60A7
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+  transaction:
+    data:
+    # No operation
+    - :label nop-nop-nop :abi f(uint,uint,uint) 0 0 0
+  
+    # SLOAD three times
+    - :label sload-sload-sload :abi f(uint,uint,uint) 1 1 1
+
+    # SSTORE three times
+    - :label sstore-sstore-sstore :abi f(uint,uint,uint) 2 2 2
+
+    # addr is used for most opcodes that read address information 
+    # (BALANCE, EXTCODESIZE, and EXTCODEHASH). 
+
+    # BALANCE three times
+    - :label addr-addr-addr :abi f(uint,uint,uint) 11 11 11
+
+    # EXTCODESIZE three times
+    - :label addr-addr-addr :abi f(uint,uint,uint) 12 12 12
+
+    # EXTCODECOPY three times
+    # Not addr, because it takes seven more gas than the addr
+    # (BALANCE, EXTCODESIZE, EXTCODEHASH)
+    - :label copy-copy-copy :abi f(uint,uint,uint) 13 13 13
+
+    # EXTCODEHASH three times
+    - :label addr-addr-addr :abi f(uint,uint,uint) 14 14 14
+
+    # call8 is for the expensive CALL opcodes: CALL and CALLCODE
+    # CALL three times
+    - :label call8-call8-call8 :abi f(uint,uint,uint) 21 21 21
+
+    # CALLCODE three times
+    - :label call8-call8-call8 :abi f(uint,uint,uint) 22 22 22
+
+    # call5 is for the cheap CALL opcodes: DELEGATECALL and STATICCALL
+    # DELEGATECALL three times
+    - :label call5-call5-call5 :abi f(uint,uint,uint) 23 23 23
+
+    # STATICCALL three times
+    - :label call5-call5-call5 :abi f(uint,uint,uint) 24 24 24
+
+    # Look at an address through a different account, three times
+    - :label faraddr-faraddr-faraddr :abi f(uint,uint,uint) 31 31 31
+
+    # Look at storage through a different account using:
+    # CALLCODE
+    - :label farcall8-farcall8-farcall8 :abi f(uint,uint,uint) 32 32 32
+
+    # DELEGATECALL   
+    - :label farcall5-farcall5-farcall5 :abi f(uint,uint,uint) 33 33 33
+
+
+
+    ############# Various opcode mixtures
+
+    # SSTORE and SLOAD mix (same storage cell)
+    - :label sload-sstore-sload :abi f(uint,uint,uint) 1 2 1
+
+    # SLOAD, SSTORE and CALLCODE / DELEGATECALL mixes
+    - :label sload-farcall8-farcall5 :abi f(uint,uint,uint) 1 32 33
+    - :label sload-sstore-farcall5 :abi f(uint,uint,uint) 1 2 33
+    - :label farcall8-sload-farcall5 :abi f(uint,uint,uint) 32 1 33
+    - :label farcall5-sload-sstore :abi f(uint,uint,uint) 33 1 2
+
+    # address information mixes
+    - :label addr-addr-addr :abi f(uint,uint,uint) 11 12 14
+    - :label addr-addr-addr :abi f(uint,uint,uint) 11 14 12
+    - :label addr-addr-addr :abi f(uint,uint,uint) 12 11 14
+    - :label addr-addr-addr :abi f(uint,uint,uint) 12 14 11
+    - :label addr-addr-addr :abi f(uint,uint,uint) 14 12 11
+    - :label addr-addr-addr :abi f(uint,uint,uint) 14 11 12
+    
+    # CALL mixes
+    - :label call8-call8-call8 :abi f(uint,uint,uint) 21 22 21
+    - :label call8-call8-call8 :abi f(uint,uint,uint) 22 22 21
+    - :label call5-call5-call5 :abi f(uint,uint,uint) 23 24 23
+    - :label call5-call5-call5 :abi f(uint,uint,uint) 23 24 24
+
+    # address information and call mixes
+    - :label addr-call8-call8 :abi f(uint,uint,uint) 11 21 22
+    - :label addr-call8-call8 :abi f(uint,uint,uint) 12 21 22
+    - :label addr-call8-call8 :abi f(uint,uint,uint) 14 21 22
+    - :label addr-call8-call8 :abi f(uint,uint,uint) 11 22 21
+    - :label addr-call8-call8 :abi f(uint,uint,uint) 12 22 21
+    - :label addr-call8-call8 :abi f(uint,uint,uint) 14 22 21
+
+    # Mix local and "remote" reads 
+    - :label addr-addr-faraddr :abi f(uint,uint,uint) 11 12 31
+    - :label addr-faraddr-addr :abi f(uint,uint,uint) 11 31 14
+    - :label faraddr-addr-addr :abi f(uint,uint,uint) 31 14 11
+
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    # No operation happens, so it should return zero
+    # If it doesn't, check measurementCost
+    - indexes:
+        data:
+        - :label nop-nop-nop
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 0
+
+
+    ######### STORAGE ################################################
+
+
+    # SLOAD three times
+    - indexes:
+        data:
+        - :label sload-sload-sload
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2090
+            0x01: 90
+            0x02: 90
+
+    - indexes:
+        data:
+        - :label sload-sload-sload
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 790
+            0x01: 790
+            0x02: 790
+
+
+
+    # SSTORE three times
+    - indexes:
+        data:
+        - :label sstore-sstore-sstore
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 4991
+            0x01: 91
+            0x02: 91
+
+    - indexes:
+        data:
+        - :label sstore-sstore-sstore
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 4991
+            0x01: 791
+            0x02: 791
+
+
+
+    # SLOAD, SSTORE, SLOAD (same address)
+    - indexes:
+        data:
+        - :label sload-sstore-sload
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2090
+            0x01: 2891
+            0x02: 90
+
+    - indexes:
+        data:
+        - :label sload-sstore-sload
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 790
+            0x01: 4991
+            0x02: 790
+
+
+    ############################### ADDRESS FUNCTIONS ######################
+
+
+    # BALANCE, EXTCODESIZE, and EXTCODEHASH in various combos.
+    - indexes:
+        data:
+        - :label addr-addr-addr
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2590
+            0x01: 90
+            0x02: 90
+
+    - indexes:
+        data:
+        - :label addr-addr-addr
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 690
+            0x01: 690
+            0x02: 690
+
+
+
+    # EXTCODECOPY three times
+    - indexes:
+        data:
+        - :label copy-copy-copy
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2597
+            0x01: 97
+            0x02: 97
+
+    - indexes:
+        data:
+        - :label copy-copy-copy
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 697
+            0x01: 697
+            0x02: 697
+
+
+
+    # CALL and CALLCODE
+    - indexes:
+        data:
+        - :label call8-call8-call8
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2608
+            0x01: 108
+            0x02: 108
+
+    - indexes:
+        data:
+        - :label call8-call8-call8
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 708
+            0x01: 708
+            0x02: 708
+
+
+
+    # DELEGATECALL and STATICCALL
+    - indexes:
+        data:
+        - :label call5-call5-call5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2605
+            0x01: 105
+            0x02: 105
+
+    - indexes:
+        data:
+        - :label call5-call5-call5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 705
+            0x01: 705
+            0x02: 705
+
+
+    # address information and then call
+    - indexes:
+        data:
+        - :label addr-call8-call8
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2590
+            0x01: 108
+            0x02: 108
+
+    - indexes:
+        data:
+        - :label addr-call8-call8
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 690
+            0x01: 708
+            0x02: 708
+
+
+    # Access an address through a different contract
+    - indexes:
+        data:
+        - :label faraddr-faraddr-faraddr
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2711
+            0x01: 211
+            0x02: 211
+
+    - indexes:
+        data:
+        - :label faraddr-faraddr-faraddr
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 1411
+            0x01: 1411
+            0x02: 1411
+
+
+    # Mix remote and local requests for data
+    - indexes:
+        data:
+        - :label addr-addr-faraddr
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2590
+            0x01: 90
+            0x02: 211
+
+    - indexes:
+        data:
+        - :label addr-addr-faraddr
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 690
+            0x01: 690
+            0x02: 1411
+
+
+
+
+    - indexes:
+        data:
+        - :label addr-faraddr-addr
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2590
+            0x01: 211
+            0x02: 90
+
+    - indexes:
+        data:
+        - :label addr-faraddr-addr
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 690
+            0x01: 1411
+            0x02: 690
+
+
+
+    - indexes:
+        data:
+        - :label faraddr-addr-addr
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2711
+            0x01: 90
+            0x02: 90
+
+    - indexes:
+        data:
+        - :label faraddr-addr-addr
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 1411
+            0x01: 690
+            0x02: 690
+
+
+    # CALLCODE to read storage
+    - indexes:
+        data:
+        - :label farcall8-farcall8-farcall8
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2211
+            0x01: 211
+            0x02: 211
+
+    - indexes:
+        data:
+        - :label farcall8-farcall8-farcall8
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 1511
+            0x01: 1511
+            0x02: 1511
+
+
+
+    # DELEGATECALL to read storage
+    - indexes:
+        data:
+        - :label farcall5-farcall5-farcall5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2208
+            0x01: 208
+            0x02: 208
+
+    - indexes:
+        data:
+        - :label farcall5-farcall5-farcall5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 1508
+            0x01: 1508
+            0x02: 1508
+
+
+
+
+
+    # Mix of local SLOAD/SSTORE and other contract SLOAD
+    - indexes:
+        data:
+        - :label sload-farcall8-farcall5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2090
+            0x01: 211
+            0x02: 208
+
+    - indexes:
+        data:
+        - :label sload-farcall8-farcall5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 790
+            0x01: 1511
+            0x02: 1508
+
+
+
+
+
+
+    - indexes:
+        data:
+        - :label sload-sstore-farcall5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2090
+            0x01: 2891
+            0x02: 208
+
+    - indexes:
+        data:
+        - :label sload-sstore-farcall5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 790
+            0x01: 4991
+            0x02: 1508
+
+
+
+
+
+
+    - indexes:
+        data:
+        - :label farcall8-sload-farcall5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2211
+            0x01: 90
+            0x02: 208
+
+    - indexes:
+        data:
+        - :label farcall8-sload-farcall5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 1511
+            0x01: 790
+            0x02: 1508
+
+
+
+
+
+
+    - indexes:
+        data:
+        - :label farcall5-sload-sstore
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 2208
+            0x01: 90
+            0x02: 2891
+
+    - indexes:
+        data:
+        - :label farcall5-sload-sstore
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - Istanbul
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0x00: 1508
+            0x01: 790
+            0x02: 4991
+

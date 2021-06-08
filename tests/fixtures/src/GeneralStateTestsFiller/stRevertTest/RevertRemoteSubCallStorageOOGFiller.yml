@@ -1,0 +1,87 @@
+---
+RevertRemoteSubCallStorageOOG:
+  _info:
+    comment: "contract A calls itself. In the sub-call, storage is modified, the calls returns successfully. After that, storage is modified again and then an exception occurs.  0xc0406226 == sha(run())"
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "10000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+  solidity: |
+      // SPDX-License-Identifier: GPL-3.0
+      pragma solidity >=0.4.16 <0.8.0;
+      contract B {
+        function callback(address x) public {
+            (bool success, bytes memory data) = x.call(abi.encodeWithSignature("stor()"));
+            assembly { sstore(1,success) }
+            success;
+            data;
+        }
+      }
+      contract Test {
+            function runOOG() public {
+                B callerc = new B();
+                callerc.callback(address(this));
+                assembly { sstore(2,3) }
+                assembly { sstore(3,3) }
+                assembly { let size := keccak256(0x00, 0x2fffff) } 
+            }
+            function run() public {
+                B callerc = new B();
+                callerc.callback(address(this));
+                assembly { sstore(2,3) }
+            }
+            function stor() public {
+                assembly { sstore(2,2) }
+            }
+      }
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b: 
+        balance: '1000000000000'
+        code: ''
+        nonce: '0'
+        storage: {}
+    a000000000000000000000000000000000000000:
+        balance: '0x0ba1a9ce0ba1a9ce'
+        code: ':solidity Test'
+        nonce: '0'
+        storage: {
+            '0x02': '0xff'
+        }
+  expect:
+    - indexes:
+        data: !!int 0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        a000000000000000000000000000000000000000:
+          storage: {
+             '0x02': '0x03'
+          }
+    - indexes:
+        data: !!int 1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        a000000000000000000000000000000000000000:
+          storage: {
+             '0x02': '0xff'
+          }
+  transaction:
+    data:
+    - ':abi run()'
+    - ':abi runOOG()'
+    gasLimit:
+    - '1400000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 'a000000000000000000000000000000000000000'
+    value:
+    - '0'

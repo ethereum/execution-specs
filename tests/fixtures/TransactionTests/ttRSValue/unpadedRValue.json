@@ -1,0 +1,44 @@
+{
+    "unpadedRValue" : {
+        "Byzantium" : {
+            "hash" : "63bbd64e9ee62976d0b8633c00d482905163a0a6038d819ccf771e10cbbed6c5",
+            "sender" : "c1584838993ee7a9581cba0bced81785e8bb581d"
+        },
+        "Constantinople" : {
+            "hash" : "63bbd64e9ee62976d0b8633c00d482905163a0a6038d819ccf771e10cbbed6c5",
+            "sender" : "c1584838993ee7a9581cba0bced81785e8bb581d"
+        },
+        "ConstantinopleFix" : {
+            "hash" : "63bbd64e9ee62976d0b8633c00d482905163a0a6038d819ccf771e10cbbed6c5",
+            "sender" : "c1584838993ee7a9581cba0bced81785e8bb581d"
+        },
+        "EIP150" : {
+            "hash" : "63bbd64e9ee62976d0b8633c00d482905163a0a6038d819ccf771e10cbbed6c5",
+            "sender" : "c1584838993ee7a9581cba0bced81785e8bb581d"
+        },
+        "EIP158" : {
+            "hash" : "63bbd64e9ee62976d0b8633c00d482905163a0a6038d819ccf771e10cbbed6c5",
+            "sender" : "c1584838993ee7a9581cba0bced81785e8bb581d"
+        },
+        "Frontier" : {
+            "hash" : "63bbd64e9ee62976d0b8633c00d482905163a0a6038d819ccf771e10cbbed6c5",
+            "sender" : "c1584838993ee7a9581cba0bced81785e8bb581d"
+        },
+        "Homestead" : {
+            "hash" : "63bbd64e9ee62976d0b8633c00d482905163a0a6038d819ccf771e10cbbed6c5",
+            "sender" : "c1584838993ee7a9581cba0bced81785e8bb581d"
+        },
+        "Istanbul" : {
+            "hash" : "63bbd64e9ee62976d0b8633c00d482905163a0a6038d819ccf771e10cbbed6c5",
+            "sender" : "c1584838993ee7a9581cba0bced81785e8bb581d"
+        },
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.7.0-alpha.1-33+commit.9ec9d33e.dirty",
+            "lllcversion" : "Version: 0.5.0-develop.2019.8.22+commit.9709dfe0.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttRSValue/unpadedRValueFiller.json",
+            "sourceHash" : "cf25d31d8286b6c16bca9f86c0380f82d74d4a64b20815a1b1e0d02af83337b4"
+        },
+        "rlp" : "0xf8880d8609184e72a00082f710947c47ef93268a311f4cad0c750724299e9b72c26880a4379607f500000000000000000000000000000000000000000000000000000000000000051c9f6ab6dda9f4df56ea45583af36660329147f1753f3724ea5eb9ed83e812ca77a0495701e230667832c8999e884e366a61028633ecf951e8cd66d119f381ae5718"
+    }
+}

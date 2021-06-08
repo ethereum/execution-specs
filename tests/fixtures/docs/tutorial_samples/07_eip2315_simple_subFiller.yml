@@ -1,0 +1,88 @@
+# This is a state transtion test
+
+07_eip2513_simple_sub:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Testing EIP 2513, https://eips.ethereum.org/EIPS/eip-2315#test-cases
+
+
+  pre:
+
+    # The first valid test in EIP 2513:
+   
+    # Jump to a subroutine, return, and then stop
+
+    # 0 PUSH1 0x04 
+    # 2 JUMPSUB 
+    # 3 STOP 
+    # 4 BEGINSUB
+    # 5 RETURNSUB
+    0x2222222222222222222222222222222222222222:
+      balance: '0x0'
+      code: :raw 0x60045e005c5d
+      nonce: '0'
+      storage: {}
+
+
+    # An invalid test. 0xFE is not a valid opcode
+    0x22222222222222222222222222222222222222FE:
+      balance: '0x0'
+      code: :raw 0xfe
+      nonce: '0'
+      storage: {}
+
+
+    # Run the two tests and store the results in the account storage
+    0x1111111111111111111111111111111111111111:
+      balance: 0
+      code: | 
+        {
+          [[1]] (call allgas 0x2222222222222222222222222222222222222222 0 0 0 0 0) 
+          [[2]] (call allgas 0x22222222222222222222222222222222222222FE 0 0 0 0 0) 
+        }
+      nonce: 0
+      storage: {}
+
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+  transaction:
+    data:
+    - 0xFF
+    gasLimit:
+    - 80000000
+    gasPrice: 1
+    nonce: 0
+    to: 0x1111111111111111111111111111111111111111
+    value:
+    - 0
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+
+
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        0x1111111111111111111111111111111111111111:
+          storage:
+            0x01: 1  # Meaning the contract code ran as expected
+            0x02: 0  # In other words, no value

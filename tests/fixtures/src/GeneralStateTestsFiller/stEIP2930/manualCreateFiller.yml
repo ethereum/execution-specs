@@ -1,0 +1,126 @@
+manualCreate:
+
+# Create contracts using contract creation transactions instead of 
+# CREATE or CREATE2 from the evm
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: '0xFF112233445566'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  pre:
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x1000000000000000000
+      code: 0x
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    # To create a contract directly, we send a transaction with the
+    # constructor code in the data and no to: field
+
+    # Constructor:
+
+    # Measure the cost of account data access ************************
+    # GAS            5A
+    # ADDRESS        30
+    # BALANCE        31
+    # POP            50
+    # GAS            5A
+    # SWAP1          90
+    # SUB            03
+    # PUSH1 01       6001
+    # SSTORE         55
+
+
+    # Measure the cost of an SSTORE *************************************
+    # GAS            5A
+    # PUSH1 FF       60FF
+    # PUSH1 00       6000
+    # SSTORE         55
+    # GAS            5A
+    # SWAP1          90
+    # SUB            03
+    # PUSH1 00       6000
+    # SSTORE         55
+
+    # Finish *****************************************************
+    # STOP           00
+
+
+
+    - data: :label allBad :raw 0x5A3031505A90036001555A60FF6000555A900360005500
+      accessList:
+      - address: 0x0000000000000000000000000000000000000100
+        storageKeys:
+        - 0x00
+
+
+    - data: :label addrGoodCellBad :raw 0x5A3031505A90036001555A60FF6000555A900360005500
+      accessList:
+      - address: 0xec0e71ad0a90ffe1909d27dac207f7680abba42d
+        storageKeys:
+        - 0x01
+
+    - data: :label allGood :raw 0x5A3031505A90036001555A60FF6000555A900360005500
+      accessList:
+      - address: 0xec0e71ad0a90ffe1909d27dac207f7680abba42d
+        storageKeys:
+        - 0x00
+
+
+    gasLimit:
+    - '400000'
+    gasPrice: '10'
+    nonce: 1
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: ""
+    value:
+    - 0
+
+
+
+  expect:
+
+  - indexes:
+      data: 
+      - :label allGood
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Berlin"
+    result:
+      0xec0e71ad0a90ffe1909d27dac207f7680abba42d:
+         storage:
+            00: 0x4e28  # 20000, cost for declared cell
+            01: 0x006a  # 106, address, balance (known addr), pop
+
+
+
+  - indexes:
+      data: 
+      - :label addrGoodCellBad
+      - :label allBad
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Berlin"
+    result:
+      0xec0e71ad0a90ffe1909d27dac207f7680abba42d:
+         storage:
+            00: 0x565c  # 22100, cost for undeclared cell
+            01: 0x006a  # 106, address, balance (known addr), pop
+
+

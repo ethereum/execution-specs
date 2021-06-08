@@ -1,0 +1,104 @@
+# The test calls CREATE2 in a loop deploying 1-byte contracts with all possible byte values, records in storage the values that failed to deploy.
+CREATE2_FirstByte_loop:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x020000'
+    currentGasLimit: '89128960'
+    currentBaseFee: '10'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000000000
+      code: ''
+      nonce: 0
+      storage: {}
+    b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      code: |
+        :yul
+        {
+          // initcode: { mstore8(0, 0x00) return(0, 1) }
+          mstore(0, 0x600060005360016000f300000000000000000000000000000000000000000000)
+          for { let code := 0 } lt(code, 256) { code := add(code, 1) } 
+          { 
+            mstore8(1, code) // change returned byte in initcode
+            if iszero(create2(0, 0, 10, 0)) { sstore(code, 1) }
+          }
+          sstore(256, 1)
+        }
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data: 
+      - ''
+    gasLimit:
+      - 70000000
+    gasPrice: 10
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 'b94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+    value:
+    - 0
+
+  expect:
+    - indexes:
+       data: !!int -1
+       gas: !!int -1
+       value: !!int -1
+      network:
+        - 'Berlin'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 256
+          storage:
+            '256': 1
+       7243c189900bddbc8e39c9115f7030dbc86a2b15:
+          nonce: 1
+          code: '0x00'
+       884f09dec8b15b4988a71f0290f6c921be908026:
+          nonce: 1
+          code: '0x01'
+       e893e8a20a685f12abde1714eb00b59859d8bdef:
+          nonce: 1
+          code: '0xef'
+       6778c377c68b0930eddf71eebf31023ed756e40c:
+          nonce: 1
+          code: '0xfe'
+       205b487b17915053055fdc3974c81b03e6d4acdb:
+          nonce: 1
+          code: '0xff'
+
+    - indexes:
+       data: !!int -1
+       gas: !!int -1
+       value: !!int -1
+      network:
+        - '>=London'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 256
+          storage:
+            'ef': '1'  # EIP-3541 forbids deploying contracts starting with 0xef
+            '256': 1
+       7243c189900bddbc8e39c9115f7030dbc86a2b15:
+          nonce: 1
+          code: '0x00'
+       884f09dec8b15b4988a71f0290f6c921be908026:
+          nonce: 1
+          code: '0x01'
+       e893e8a20a685f12abde1714eb00b59859d8bdef:
+          shouldnotexist: 1
+       6778c377c68b0930eddf71eebf31023ed756e40c:
+          nonce: 1
+          code: '0xfe'
+       205b487b17915053055fdc3974c81b03e6d4acdb:
+          nonce: 1
+          code: '0xff'

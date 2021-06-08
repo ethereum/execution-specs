@@ -1,0 +1,480 @@
+# Check that the initial values for EIP1559 (baseFee and gasLimit) are the 
+# correct ones. Also check that type 2 transactions are accepted only
+# after London, and types 0-1 are accepted all the time.
+
+initialVal:
+  genesisBlockHeader:
+    bloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    coinbase: '0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba'
+    difficulty: '131072'
+    extraData: '0x42'
+    gasUsed: '0'
+    mixHash: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    nonce: '0x0102030405060708'
+    number: '0'
+    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    receiptTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    stateRoot: '0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a'
+    timestamp: '0x03b6'
+    transactionsTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    uncleHash: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347'
+    gasLimit: 0x10000000000
+  sealEngine: NoProof
+
+  pre:
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x10000000000000000000
+      code: ''
+      nonce: 1
+      storage: {}
+
+    0xd02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: 0x10000000000000000000
+      nonce: 1
+      code: ''
+      storage: {}
+
+    # Record some variables
+    0xcccccccccccccccccccccccccccccccccccccccc:
+      balance: 0
+      nonce: 1
+      code: |
+        {
+           (sstore $4 (gasprice))
+           (sstore (add $4 1) (basefee))
+           (sstore (add $4 2) (sub (gasprice) (basefee)))
+           (sstore (add $4 3) (gaslimit))
+        }
+      storage: {}
+
+
+    # Record the gas price total only (for Berlin Transactions)
+    0xcccccccccccccccccccccccccccccccccccccccd:
+      balance: 0
+      nonce: 1
+      code: |
+        {
+           (sstore $4 (gasprice))
+           (sstore (add $4 3) (gaslimit))
+        }
+      storage: {}
+
+# 0x30aef158fab404b766b50db4618b2231ba4e39148a563dc69d80927cd620cfe5 
+    0xe2AFf99a29fADcd427b47b514b42ee5394913A01:
+      balance: 100000000000
+      nonce: 1
+      code: 0x
+      storage: {}
+
+
+# 0x69d66403e6a54b18c2a768af4a8de554df133550d4dfa37a377ec8c0e85b9ef4 
+    0x6c5F5b28B10d021bf947e626Bf4565C8957162B4 :
+      balance: 100000000000
+      nonce: 1
+      code: 0x
+      storage: {}
+
+
+
+# 0x46093816a2161080e010e4973379e22386888bb80395f387d95342a773a7e7d7 
+    0x3D0fE89106005C4Dfe13b1DfdDFa6c012F0FbC45 :
+      balance: 100000000000
+      nonce: 1
+      code: 0x
+      storage: {}
+
+
+
+
+
+  blocks:
+
+  # Block 1
+  - transactions: []  
+  # Block 2
+  - transactions: []  
+  # Block 3
+  - transactions:
+    # This call to cc..cd should be successful (type 0 transaction)
+    - data: :abi f(uint) 0x3000
+      gasLimit: 500000
+      gasPrice: 1000000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+
+
+  # Block 4
+  - blockHeader:
+      gasLimit: 0x10000000000
+    transactions:
+    # The call to cc..cc fails because there is no BASEFEE opcode yet
+    - data: :abi f(uint) 0x4000
+      gasLimit: 500000
+      gasPrice: 1000000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    # This call to cc..cd should be successful (type 0 transaction)
+    - data: :abi f(uint) 0x4010
+      gasLimit: 500000
+      gasPrice: 1000000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+
+    # This call to cc..cd should be successful (type 1 transaction)
+    - data: :abi f(uint) 0x4020
+      accessList: []
+      gasLimit: 500000
+      gasPrice:  100000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+
+    # This call to cc..cd should is a type 2, it should fail
+    - data: :abi f(uint) 0x4030
+      accessList: []
+      expectException:
+        BerlinToLondonAt5: TR_TypeNotSupported
+      gasLimit: 500000
+      maxFeePerGas:  10000000000
+      maxPriorityFeePerGas: 1000
+      nonce: auto
+      secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+
+
+  # Block 5     
+  - blockHeader:
+      # Post EIP-1559 the block gasLimit is doubled, so the new 
+      # gasTarget will be the old gasLimit
+      gasLimit: 0x20000000000
+      baseFee: 1000000000
+
+    transactions:
+    # Type 0 transaction, tip calculated correctly
+    - data: :abi f(uint) 0x5000
+      gasLimit: 1000000
+      gasPrice: 1000000000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    # Type 1 transaction, tip also calculated correctly
+    - data: :abi f(uint) 0x5010
+      accessList: []
+      gasLimit: 1000000
+      gasPrice: 1000000000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    # Type 2 transaction, tip = maxPriorityFeePerGas
+    - data: :abi f(uint) 0x5020
+      accessList: []
+      gasLimit: 1000000
+      maxFeePerGas: 10000000000
+      maxPriorityFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    # Type 2 transaction, tip = maxFeePerGas - baseFee
+    - data: :abi f(uint) 0x5030
+      accessList: []
+      gasLimit: 1000000
+      maxFeePerGas:         1000000000
+      maxPriorityFeePerGas:  500000000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+
+
+  # Block 6   
+  - blocknumber: 6
+    transactions:
+    # This call to cc..cc shows us that subsequent London blocks have a different
+    # baseFee (the gasLimit stays the same unless changed) and that the tip is
+    # calculated correctly for type 0 transactions
+    - data: :abi f(uint) 0x6000
+      gasLimit: 1000000
+      gasPrice: 1000000000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    # Type 1 transaction, tip also calculated correctly
+    - data: :abi f(uint) 0x6010
+      accessList: []
+      gasLimit: 1000000
+      gasPrice: 1000000000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    # Type 2 transaction, tip = maxPriorityFeePerGas
+    - data: :abi f(uint) 0x6020
+      accessList: []
+      gasLimit: 1000000
+      maxFeePerGas: 10000000000
+      maxPriorityFeePerGas: 1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    # Type 2 transaction, tip = maxFeePerGas - baseFee
+    - data: :abi f(uint) 0x6030
+      accessList: []
+      gasLimit: 1000000
+      maxFeePerGas:         1000000000
+      maxPriorityFeePerGas:  500000000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    # This type 0 transaction has gasPrice = baseFee+1. It should happen
+    - data: :abi f(uint) 0x6040
+      gasLimit: 1000000
+      gasPrice:  875000045
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    # This type 0 transaction has gasPrice = baseFee. It should happen
+    - data: :abi f(uint) 0x6050
+      gasLimit: 1000000
+      gasPrice:  875000044
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+
+    # This type 0 transaction has gasPrice < baseFee. It won't happen
+    # Invalid transactions mess up the nonce calculation, so I prefer to do them
+    # with otherwise unused accounts  
+    - data: :abi f(uint) 0x6060
+      expectException:
+        BerlinToLondonAt5: TR_FeeCapLessThanBlocks
+      gasLimit: 1000000
+      gasPrice: 875000043
+      nonce: auto
+      secretKey: 0x30aef158fab404b766b50db4618b2231ba4e39148a563dc69d80927cd620cfe5
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+
+    # This type 1 transaction has gasPrice = baseFee+1. It should happen
+    - data: :abi f(uint) 0x6070
+      accessList: []
+      gasLimit: 1000000
+      gasPrice:  875000045
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    # This type 1 transaction has gasPrice = baseFee. It should happen
+    - data: :abi f(uint) 0x6080
+      accessList: []
+      gasLimit: 1000000
+      gasPrice:  875000044
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+
+    # This type 1 transaction has gasPrice < baseFee. It won't happen
+    # Invalid transactions mess up the nonce calculation, so I prefer to do them
+    # with otherwise unused accounts  
+    - data: :abi f(uint) 0x6090
+      expectException:
+        BerlinToLondonAt5: TR_FeeCapLessThanBlocks
+      gasLimit: 1000000
+      gasPrice: 875000043
+      nonce: auto
+      secretKey: 0x69d66403e6a54b18c2a768af4a8de554df133550d4dfa37a377ec8c0e85b9ef4
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    # This type 2 transaction has gasPrice = baseFee+1. It should happen
+    - data: :abi f(uint) 0x60A0
+      accessList: []
+      gasLimit: 1000000
+      maxFeePerGas:   875000045
+      maxPriorityFeePerGas: 100
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    # This type 2 transaction has gasPrice = baseFee. It should happen
+    - data: :abi f(uint) 0x60B0
+      accessList: []
+      gasLimit: 1000000
+      maxFeePerGas:   875000044
+      maxPriorityFeePerGas: 100
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+
+    # This type 2 transaction has gasPrice < baseFee. It won't happen
+    # Invalid transactions mess up the nonce calculation, so I prefer to do them
+    # with otherwise unused accounts  
+    - data: :abi f(uint) 0x60C0
+      expectException:
+        BerlinToLondonAt5: TR_FeeCapLessThanBlocks
+      gasLimit: 1000000
+      gasPrice: 875000043
+      nonce: auto
+      secretKey: 0x46093816a2161080e010e4973379e22386888bb80395f387d95342a773a7e7d7
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+  # Block 7, except it's a pre EIP1559 block so it fails
+  - blockHeader:
+      remove:
+      - baseFee
+      gasLimit: 0x20000000000
+    blocknumber: 7
+    expectException:
+      BerlinToLondonAt5: LegacyBlockImportImpossible2
+  - transactions: []
+
+  # The real block 7
+  - blockHeader:
+      gasLimit: 0x20000000001
+    blocknumber: 7
+  - transactions: []
+
+
+
+  expect:
+  - network:
+    - BerlinToLondonAt5
+
+    result:
+      0xcccccccccccccccccccccccccccccccccccccccd:
+        storage:
+          0x3000:       1000000 # gasPrice
+          0x3003: 0x10000000000 # block gasLimit
+
+          0x4010:       1000000 # gasPrice
+          0x4013: 0x10000000000 # block gasLimit
+
+          0x4020:        100000 # gasPrice
+          0x4023: 0x10000000000 # block gasLimit
+
+
+      0xcccccccccccccccccccccccccccccccccccccccc:
+        storage:
+
+          # Block 5
+          # Type 0 transaction
+          0x5000:    1000000000  # Gas price
+          0x5001:    1000000000  # baseFee
+          0x5002:             0  # Tip (no time)
+          0x5003: 0x20000000000  # Block gas limit
+
+          # Type 1 transaction
+          0x5010:    1000000000  # Gas price
+          0x5011:    1000000000  # baseFee
+          0x5012:             0  # Tip
+          0x5013: 0x20000000000  # Block gas limit
+
+          # Type 2 transaction 
+          0x5020:    1000001000  # Gas price
+          0x5021:    1000000000  # baseFee
+          0x5022:          1000  # Tip
+          0x5023: 0x20000000000  # Block gas limit
+
+          # Type 2 transaction, tip = maxFeePerGas - baseFee
+          0x5030:    1000000000  # Gas price
+          0x5031:    1000000000  # baseFee
+          0x5032:             0  # Tip
+          0x5033: 0x20000000000  # Block gas limit
+
+          # Block 6
+          # Type 0 transaction
+          0x6000:    1000000000  # Gas price
+          0x6001:     875000044  # baseFee
+                                 # Block 5 is nearly empty, but not fully empty,
+                                 # so the basefee is slightly more than 7/8'th of what
+                                 # it was
+          0x6002:     124999956  # Tip
+          0x6003: 0x020000000000 # Block gas limit
+
+          # Type 1 transaction
+          0x6010:    1000000000  # Gas price
+          0x6011:     875000044  # baseFee
+          0x6012:     124999956  # Tip
+          0x6013: 0x020000000000 # Block gas limit
+
+          # Type 2 transaction 
+          0x6020:     875001044  # Gas price
+          0x6021:     875000044  # baseFee
+          0x6022:          1000  # Tip
+          0x6023: 0x020000000000 # Block gas limit
+
+          # Type 2 transaction, tip = maxFeePerGas - baseFee
+          0x6030:    1000000000  # Gas price
+          0x6031:     875000044  # baseFee
+          0x6032:     124999956  # Tip
+          0x6033: 0x020000000000 # Block gas limit
+
+          # Type 0 transaction, gasPrice = baseFee+1
+          0x6040:     875000045  # Gas price
+          0x6041:     875000044  # baseFee
+          0x6042:             1  # Tip
+          0x6043: 0x020000000000 # Block gas limit
+
+          # Type 0 transaction, gasPrice = baseFee
+          0x6050:     875000044  # Gas price
+          0x6051:     875000044  # baseFee
+          0x6052:             0  # Tip
+          0x6053: 0x020000000000 # Block gas limit
+
+          # Type 1 transaction, gasPrice = baseFee+1
+          0x6070:     875000045  # Gas price
+          0x6071:     875000044  # baseFee
+          0x6072:             1  # Tip
+          0x6073: 0x020000000000 # Block gas limit
+
+          # Type 1 transaction, gasPrice = baseFee
+          0x6080:     875000044  # Gas price
+          0x6081:     875000044  # baseFee
+          0x6082:             0  # Tip
+          0x6083: 0x020000000000 # Block gas limit
+
+          # Type 2 transaction, gasPrice = baseFee+1
+          0x60A0:     875000045  # Gas price
+          0x60A1:     875000044  # baseFee
+          0x60A2:             1  # Tip
+          0x60A3: 0x020000000000 # Block gas limit
+
+          # Type 2 transaction, gasPrice = baseFee
+          0x60B0:     875000044  # Gas price
+          0x60B1:     875000044  # baseFee
+          0x60B2:             0  # Tip
+          0x60B3: 0x020000000000 # Block gas limit
+

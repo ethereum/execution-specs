@@ -1,0 +1,78 @@
+# Calculate the refund provided by a single SSTORE that replaces a value with zero
+#
+# Berlin: 13005 gas
+# London:  4800 gas (as per EIP 3529)
+
+
+refundSSTORE:
+  _info:
+    comment: Ori Pomerantz   qbzzt1@gmail.com
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x1000000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+    currentBaseFee: 1000
+
+  pre:
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '1000000000000000000'
+      code: |
+          :yul {
+             sstore(0,0x0)
+          }
+      nonce: 1
+      storage:
+        0x00: 0x60A7
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000026010000
+      code: '0x'
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    - data: :raw 0x00
+      accessList: []
+    gasLimit:
+    - 2601000
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    gasPrice: 1000
+    
+
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+
+      network:
+        - '>=London'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          # Without a refund, the balance would be 1000000000000
+          # The London refund is 4800000 wei, which is 4800 gas 
+          balance: 1000004800000
+
+
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+
+      network:
+        - 'Berlin'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          # Without a refund, the balance would be 1000000000000
+          # The Berlin refund is 13005000 wei, which is 13005 gas 
+          balance: 1000013005000

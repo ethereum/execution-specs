@@ -1,0 +1,110 @@
+{
+    "codeCopyZero" : {
+        "_info" : {
+            "comment" : "https://github.com/ethereum/tests/issues/493,  CODECOPY and EXTCODECOPY where codesize = 0",
+            "filling-rpc-server" : "evm version 1.10.4-unstable-966ee3ae-20210528",
+            "filling-tool-version" : "retesteth-0.1.1-eip1559+commit.658fc3a8.Linux.g++",
+            "lllcversion" : "Version: 0.5.14-develop.2021.5.18+commit.14c9d5de.mod.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/stExtCodeHash/codeCopyZeroFiller.yml",
+            "sourceHash" : "3488d74b381bcaad20a25cbedd2e6a9c676330c53780987d2f41da50690ece43"
+        },
+        "env" : {
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentNumber" : "0x01",
+            "currentTimestamp" : "0x03e8",
+            "previousHash" : "0x5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6",
+            "currentGasLimit" : "0x989680"
+        },
+        "post" : {
+            "Berlin" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0x8b6b0a17bd3b74e26c647df19b0bd6d497d8af0814ce69d53d1e3efb4cb31de7",
+                    "txbytes" : "0xf860800a83155cc094a00000000000000000000000000000000000000001801ca0c4779e01b0c76f529fb497f3b6e15762f89ddb906091a91fe9f6b005e205ee17a0736cfe95bf57a25f44159f28fd34a058669e42f293161491cde3a49d501da93c",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ],
+            "Istanbul" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0xc1a7925e78e7849c0e6bd0425298de800cbdcfdc82ac598948cdae1962bc5d5a",
+                    "txbytes" : "0xf860800a83155cc094a00000000000000000000000000000000000000001801ca0c4779e01b0c76f529fb497f3b6e15762f89ddb906091a91fe9f6b005e205ee17a0736cfe95bf57a25f44159f28fd34a058669e42f293161491cde3a49d501da93c",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ],
+            "London" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0x7cac3ec110fe9591560520cfb18e4c82409b3326be4d48d58058600d0917584e",
+                    "txbytes" : "0xf860800a83155cc094a00000000000000000000000000000000000000001801ca0c4779e01b0c76f529fb497f3b6e15762f89ddb906091a91fe9f6b005e205ee17a0736cfe95bf57a25f44159f28fd34a058669e42f293161491cde3a49d501da93c",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ]
+        },
+        "pre" : {
+            "0xa000000000000000000000000000000000000000" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x60206000600073a2220000000000000000000000000000000000003c60005160105573a2220000000000000000000000000000000000003b60115573a2220000000000000000000000000000000000003f6012556000600060006000600073a22200000000000000000000000000000000000061c350f260135560206000600073a2000000000000000000000000000000000000003c60005160205573a2000000000000000000000000000000000000003b60215573a2000000000000000000000000000000000000003f6022556000600060006000600073a20000000000000000000000000000000000000061c350f260235560206000600073a3000000000000000000000000000000000000003c60005160305573a3000000000000000000000000000000000000003b60315573a3000000000000000000000000000000000000003f6032556000600060006000600073a30000000000000000000000000000000000000061c350f26033556020600060006000600073a10000000000000000000000000000000000000062086470f15060005160405500",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa100000000000000000000000000000000000000" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x6000603980601a60003960006000f560005260206000f30000fe60206000600039600051605055303b605155303f605255600060006000600060003061c350f23b605355602060006000303c60005160545500",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa200000000000000000000000000000000000000" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa300000000000000000000000000000000000000" : {
+                "balance" : "0x00",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x0de0b6b3a7640000",
+                "code" : "0x00",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x"
+            ],
+            "gasPrice" : "0x0a",
+            "gasLimit" : [
+                "0x155cc0"
+            ],
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "0xa000000000000000000000000000000000000000",
+            "value" : [
+                "0x01"
+            ]
+        }
+    }
+}

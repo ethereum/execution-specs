@@ -1,0 +1,165 @@
+# EXTCODEHASH of precompiles addresses
+---
+extCodeHashPrecompiles:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "1000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+  pre:
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '1000000000000000000'
+      code: |
+        {
+          (CALLDATACOPY 12 0 20)
+          [[0]] (EXTCODEHASH (MLOAD 0))
+          [[1]] (EXTCODESIZE (MLOAD 0))
+        }
+      nonce: '0'
+      storage: { # set initial values to be overwritten
+        0: '0xab',
+        1: '0xab'}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+  expect:
+    - indexes:
+        data: !!int 0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>Byzantium'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            0: '0xd7f7ece59a0c71c5d0e6fd4f298dea11bfbc05b6d5701c7ae9bd2a444d897c27',
+            1: '0x15'
+            }
+    - indexes:
+        data: !!int 1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>Byzantium'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            0: '0x',
+            1: '0x'
+            }
+    - indexes:
+        data: !!int 2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>Byzantium'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            0: '0x',
+            1: '0x'
+            }
+    - indexes:
+        data: !!int 3
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>Byzantium'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            0: '0x',
+            1: '0x'
+            }
+    - indexes:
+        data: !!int 4
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>Byzantium'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            0: '0x',
+            1: '0x'
+            }
+    - indexes:
+        data: !!int 5
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>Byzantium'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            0: '0x',
+            1: '0x'
+            }
+    - indexes:
+        data: !!int 6
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>Byzantium'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            0: '0x',
+            1: '0x'
+            }
+    - indexes:
+        data: !!int 7
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>Byzantium'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            0: '0x',
+            1: '0x'
+            }
+    - indexes:
+        data: !!int 8
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>Byzantium'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            0: '0x',
+            1: '0x'
+            }
+  transaction:
+    data:
+    - '0x095e7baea6a6c7c4c2dfeb977efac326af552d87'
+    - '0x0000000000000000000000000000000000000001'
+    - '0x0000000000000000000000000000000000000002'
+    - '0x0000000000000000000000000000000000000003'
+    - '0x0000000000000000000000000000000000000004'
+    - '0x0000000000000000000000000000000000000005'
+    - '0x0000000000000000000000000000000000000006'
+    - '0x0000000000000000000000000000000000000007'
+    - '0x0000000000000000000000000000000000000008'
+    gasLimit:
+    - '400000'
+    gasPrice: '1'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - '1'

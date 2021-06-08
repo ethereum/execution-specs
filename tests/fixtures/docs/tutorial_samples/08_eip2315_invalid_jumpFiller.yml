@@ -1,0 +1,77 @@
+08_eip2513_invalid_jump:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Testing EIP 2513, https://eips.ethereum.org/EIPS/eip-2315#test-cases
+
+  pre:
+
+    0x1111111111111111111111111111111111111111:
+      balance: '0x0'
+      code: | 
+        {
+          [[1]] (call allgas 0x2222222222222222222222222222222222222222 0 0 0 0 0) 
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+# First invalid test case in EIP 2513:
+#
+# Try to jump to a subroutine beyond the end of the code
+#
+#  0 PUSH9 0x01000000000000000c
+# 10 JUMPSUB
+# 11 STOP
+# 12 BEGINSUB
+# 13 PUSH1 0x11
+# 15 JUMPSUB
+# 16 RETURNSUB
+# 17 BEGINSUB
+# 18 RETURNSUB
+    0x2222222222222222222222222222222222222222:
+      balance: '0x0'
+      code: 0x6801000000000000000c5e005c60115e5d5c5d
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+  transaction:
+    data:
+    - '0xFF'
+    gasLimit:
+    - '80000000'
+    gasPrice: '1'
+    nonce: '0'
+    to: 0x1111111111111111111111111111111111111111
+    value:
+    - '1'
+    # a94f5374fce5edbc8e2a8697c15331677e6ebf0b
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Berlin'
+      result:
+        0x1111111111111111111111111111111111111111:
+          storage:
+            0x01: 0    # Zero means the test contract failed

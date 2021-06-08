@@ -1,0 +1,318 @@
+# Check baseFee in multiple blocks, multiple times per block
+
+baseFee:
+  genesisBlockHeader:
+    bloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    coinbase:  0xBA5E000000000000000000000000000000000000
+    difficulty: '131073'
+    extraData: '0x42'
+    gasUsed: '0'
+    mixHash: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    nonce: '0x0102030405060708'
+    number: '0'
+    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    receiptTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    stateRoot: '0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a'
+    timestamp: '0x03b6'
+    transactionsTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    uncleHash: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347'
+    gasLimit: 100000000000000000
+    gasUsed:   10000000000
+    baseFee: 1000
+  sealEngine: NoProof
+
+  pre:
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x1000000000000000000
+      code: ''
+      nonce: '0x00'
+      storage: {}
+
+    0xd02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: 0x1000000000000000000
+      nonce: 1
+      code: ''
+      storage: {}
+
+    # Gives us the current baseFee, tip, and selfBalance
+    0xcccccccccccccccccccccccccccccccccccccccc:
+      balance: 0x10000000000
+      nonce: 1
+      code: |
+         {
+            (sstore (number) (basefee))
+            (sstore (add (number) 0x1000) (sub (gasprice) (basefee)))
+            (sstore (add (number) 0x2000) (selfbalance))
+         }
+      storage: {}
+
+
+    # Same as cc..cc, except it gets stored in a different account
+    0xcccccccccccccccccccccccccccccccccccccccd:
+      balance: 0x20000000000
+      nonce: 1
+      code: |
+         :yul {
+             let throwMe := delegatecall(gas(), 
+                      0xcccccccccccccccccccccccccccccccccccccccc, 
+                      0, 0, 0, 0)
+         }
+      storage: {}
+
+
+    # Same as cc..cc, except it gets stored in a different account
+    0x000000000000000000000000000000000000c0de:
+      balance: 0
+      nonce: 1
+      code: |
+         :yul {
+             let throwMe := delegatecall(gas(), 
+                      0xcccccccccccccccccccccccccccccccccccccccc, 
+                      0, 0, 0, 0)
+         }
+      storage: {}
+
+
+    # Send some wei to 0xc0de
+    0xccccccccccccccccccccccccccccccccccccccce:
+      balance: 0x20000000000
+      nonce: 1
+      code: |
+         :yul {
+             let throwMe := call(gas(), 0xC0DE, 0x1000, 
+                      0, 0, 0, 0)
+             throwMe := delegatecall(gas(), 
+                      0xcccccccccccccccccccccccccccccccccccccccc, 
+                      0, 0, 0, 0)
+         }
+      storage: {}
+
+    # Gives us the current baseFee, tip, and selfBalance
+    
+
+  blocks:
+  # Block 1
+  - transactions:
+    - data: :raw 0x01
+      accessList: []
+      gasLimit: 1000000000000	
+      maxPriorityFeePerGas: 1
+      maxFeePerGas:      1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+
+  # Block 2
+  - transactions:
+    - data: :raw 0x0201
+      accessList: []
+      gasLimit: 1000000000000	
+      maxPriorityFeePerGas: 10
+      maxFeePerGas:       1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+    - data: :raw 0x0202
+      accessList: []
+      gasLimit: 1000000000000	
+      maxPriorityFeePerGas: 100
+      maxFeePerGas:        1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+    - data: :raw 0x0203
+      accessList: []
+      gasLimit: 1000000000000	
+      maxPriorityFeePerGas: 100
+      maxFeePerGas:        1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE
+      value: 0x0
+
+
+  # Block 3
+  - transactions:
+    - data: :raw 0x0301
+      accessList: []
+      gasLimit: 1000000000000	
+      maxPriorityFeePerGas: 1000
+      maxFeePerGas:         1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    - data: :raw 0x0302
+      expectException:
+        ">=London": TR_TipGtFeeCap
+      accessList: []
+      gasLimit: 1000000000000	
+      maxPriorityFeePerGas: 100000
+      maxFeePerGas:           1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+
+    - data: :raw 0x0303
+      accessList: []
+      gasLimit: 1000000000000	
+      maxPriorityFeePerGas: 100
+      maxFeePerGas:        1000
+      nonce: 6
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE
+      value: 0x0
+
+    - data: :raw 0x0304
+      accessList: []
+      gasLimit: 1000000000000	
+      maxPriorityFeePerGas: 100000
+      maxFeePerGas:         100000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+
+
+  # Block 4
+  - transactions:
+    - data: :raw 0x0401
+      accessList: []
+      gasLimit: 1000000000000	
+      maxPriorityFeePerGas: 1000
+      maxFeePerGas:         1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+      value: 0x0
+
+    - data: :raw 0x0402
+      expectException:
+        ">=London": TR_TipGtFeeCap
+      accessList: []
+      gasLimit: 1000000000000	
+      maxPriorityFeePerGas: 100000
+      maxFeePerGas:           1000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+
+    - data: :raw 0x0403
+      accessList: []
+      gasLimit: 1000000000000	
+      maxPriorityFeePerGas: 100
+      maxFeePerGas:        1000
+      nonce: 9
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE
+      value: 0x0
+
+    - data: :raw 0x0404
+      accessList: []
+      gasLimit: 1000000000000	
+      maxPriorityFeePerGas: 100000
+      maxFeePerGas:         100000
+      nonce: auto
+      secretKey: 41f6e321b31e72173f8ff2e292359e1862f24fba42fe6f97efaf641980eff298
+      to: 0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD
+      value: 0x0
+
+
+
+
+  expect:
+  - network:
+    - ">=London"
+    result:
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC: 
+          storage:
+              
+            # BASEFEE and the tip in block 1
+            0x0001:      875 # BASEFEE
+            0x1001:        1 # tip
+
+            # Block 2
+            0x0002:      766 # BASEFEE
+            0x1002:       10 # tip
+
+            # Block 3
+            0x0003:      671
+            0x1003:      329
+
+            # Block 4
+            0x0004:      588
+            0x1004:      412
+
+            # SELFBALANCE, always the same
+            0x2001: 0x010000000000
+            0x2002: 0x010000000000
+            0x2003: 0x010000000000
+            0x2004: 0x010000000000
+
+
+      # Just another contract that stores the same info as cc..cc
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD: 
+          storage:
+              
+            # Block 2
+            0x0002:      766   # BASEFEE
+            0x1002:      100   # tip
+
+            # Block 3
+            0x0003:      671
+            0x1003:    99329
+
+            # Block 4
+            0x0004:      588
+            0x1004:    99412
+
+            # SELFBALANCE, always the same
+            0x2002: 0x020000000000
+            0x2003: 0x020000000000
+            0x2004: 0x020000000000
+
+
+      # This contract sends out some of its balance
+      0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE: 
+          storage:
+            # Block 2              
+            0x0002:      766   # BASEFEE
+            0x1002:      100   # tip
+
+            0x0003:      671
+            0x1003:      100
+
+            0x0004:      588
+            0x1004:      100
+
+            # SELFBALANCE
+            0x2002: 0x01fffffff000
+            0x2003: 0x01ffffffe000
+            0x2004: 0x01ffffffd000
+
+      # And this contract receives it
+      0x000000000000000000000000000000000000C0DE:
+          storage:
+            # Block 2              
+            0x0002:      766
+            0x1002:      100
+
+            # Block 3
+            0x0003:      671
+            0x1003:      100
+
+            # Block 4
+            0x0004:      588 
+            0x1004:      100
+
+            # SELFBALANCE
+            0x2002: 0x1000
+            0x2003: 0x2000
+            0x2004: 0x3000

@@ -1,0 +1,131 @@
+# CREATE opcode deploying code with 0xef first byte (EIP-3541)
+CREATE_EOF1:
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x020000'
+    currentGasLimit: '89128960'
+    currentBaseFee: '10'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  pre:
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 10000000
+      code: ''
+      nonce: 0
+      storage: {}
+    b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0
+      code: ':yul { mstore(0, calldataload(0)) sstore(0, create(0, 0, calldatasize())) }'
+      nonce: 0
+      storage: {}
+
+  transaction:
+    data: 
+      #- ':yul { mstore8(0, 0xef) return(0, 1) }'
+      - ':label deploying_0xef :raw 0x60ef60005360016000f3'
+      #- ':yul { mstore8(0, 0xef) return(0, 2) }'
+      - ':label deploying_0xef00 :raw 0x60ef60005360026000f3'
+      #- ':yul { mstore8(0, 0xef) return(0, 3) }'
+      - ':label deploying_0xef0000 :raw 0x60ef60005360036000f3'
+      #- ':yul { mstore8(0, 0xef) return(0, 32) }'
+      - ':label deploying_0xef00..00 :raw 0x60ef60005360206000f3'
+    gasLimit:
+      - 700000
+    gasPrice: 10
+    nonce: 0
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 'b94f5374fce5edbc8e2a8697c15331677e6ebf0b'
+    value:
+    - 0
+
+  expect:
+    - indexes:
+       data: ':label deploying_0xef'
+       gas: !!int -1
+       value: !!int -1
+      network:
+        - 'Berlin'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+          storage:
+            '0': 'f1ecf98489fa9ed60a664fc4998db699cfa39d40'
+       f1ecf98489fa9ed60a664fc4998db699cfa39d40:
+          nonce: 1
+          code: '0xef'
+          storage: {}
+
+    - indexes:
+       data: ':label deploying_0xef00'
+       gas: !!int -1
+       value: !!int -1
+      network:
+        - 'Berlin'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+          storage:
+            '0': 'f1ecf98489fa9ed60a664fc4998db699cfa39d40'
+       f1ecf98489fa9ed60a664fc4998db699cfa39d40:
+          nonce: 1
+          code: '0xef00'
+          storage: {}
+
+    - indexes:
+       data: ':label deploying_0xef0000'
+       gas: !!int -1
+       value: !!int -1
+      network:
+        - 'Berlin'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+          storage:
+            '0': 'f1ecf98489fa9ed60a664fc4998db699cfa39d40'
+       f1ecf98489fa9ed60a664fc4998db699cfa39d40:
+          nonce: 1
+          code: '0xef0000'
+          storage: {}
+
+    - indexes:
+       data: ':label deploying_0xef00..00'
+       gas: !!int -1
+       value: !!int -1
+      network:
+        - 'Berlin'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+          storage:
+            '0': 'f1ecf98489fa9ed60a664fc4998db699cfa39d40'
+       f1ecf98489fa9ed60a664fc4998db699cfa39d40:
+          nonce: 1
+          code: '0xef00000000000000000000000000000000000000000000000000000000000000'
+          storage: {}
+
+    # For London expectation is the same for every data: contract is not deployed
+    - indexes:
+       data: !!int -1
+       gas: !!int -1
+       value: !!int -1
+      network:
+        - '>=London'
+      result:
+       a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: 1
+       b94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          nonce: '1'
+          storage:
+            '0': '0'
+       f1ecf98489fa9ed60a664fc4998db699cfa39d40:
+          shouldnotexist: 1

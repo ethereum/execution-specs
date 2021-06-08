@@ -1,0 +1,103 @@
+{
+    "CreateOOGafterInitCodeRevert" : {
+        "_info" : {
+            "comment" : "Calls a contract that runs CREATE which deploy a code. then after deployment and exiting from CREATE a REVERT is called. check the REVERT data in this case equal to RETURN value of CREATE",
+            "filling-rpc-server" : "evm version 1.10.4-unstable-966ee3ae-20210528",
+            "filling-tool-version" : "retesteth-0.1.1-eip1559+commit.658fc3a8.Linux.g++",
+            "lllcversion" : "Version: 0.5.14-develop.2021.5.18+commit.14c9d5de.mod.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/stCreateTest/CreateOOGafterInitCodeRevertFiller.json",
+            "sourceHash" : "b78ee186c778e016e35f58404124a9aa20e1f8c28a0955ea718ac406513b7fe7"
+        },
+        "env" : {
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentNumber" : "0x01",
+            "currentTimestamp" : "0x03e8",
+            "previousHash" : "0x5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6",
+            "currentGasLimit" : "0x989680"
+        },
+        "post" : {
+            "Berlin" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0xc8569e187250b916180eecdcedffb7a6ecad20525ead782365ff69c8cb8cb737",
+                    "txbytes" : "0xf860800a8304594894c94f5374fce5edbc8e2a8697c15331677e6ebf0b80801ca027eb6159091d11652e4b5b287efcf95c85a667cbc548adf8dd31688e1c2413eca061bfd90c21d4c3ba6b1fa2eb5bc2f7a9f1cd29f58f073f8488429d33c7e022e3",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ],
+            "Istanbul" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0xaaf11e1b7d331ae1c42836acb7329afa87413b2686b26e877c52ec9cc0f717bb",
+                    "txbytes" : "0xf860800a8304594894c94f5374fce5edbc8e2a8697c15331677e6ebf0b80801ca027eb6159091d11652e4b5b287efcf95c85a667cbc548adf8dd31688e1c2413eca061bfd90c21d4c3ba6b1fa2eb5bc2f7a9f1cd29f58f073f8488429d33c7e022e3",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ],
+            "London" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0x08c52480566f3341e792755265414bb2a99d2d865f09e1e4b8ac4833c396b1c0",
+                    "txbytes" : "0xf860800a8304594894c94f5374fce5edbc8e2a8697c15331677e6ebf0b80801ca027eb6159091d11652e4b5b287efcf95c85a667cbc548adf8dd31688e1c2413eca061bfd90c21d4c3ba6b1fa2eb5bc2f7a9f1cd29f58f073f8488429d33c7e022e3",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ]
+        },
+        "pre" : {
+            "0x094f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x00",
+                "code" : "0x622fffff60002000",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0xe8d4a51000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x00",
+                "code" : "0x6d6460016001556000526005601bf3600052600e60126000f0506000600060006000600073094f5374fce5edbc8e2a8697c15331677e6ebf0b612710f25060206000fd00",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0x00",
+                "code" : "0x6020600060006000600073b94f5374fce5edbc8e2a8697c15331677e6ebf0b5af15060005160015500",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x"
+            ],
+            "gasPrice" : "0x0a",
+            "gasLimit" : [
+                "0x045948"
+            ],
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "0xc94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "value" : [
+                "0x00"
+            ]
+        }
+    }
+}

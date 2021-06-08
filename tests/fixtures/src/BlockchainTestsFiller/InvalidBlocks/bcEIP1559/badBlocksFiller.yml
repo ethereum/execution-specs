@@ -1,0 +1,155 @@
+# Check for block headers that don't obey EIP 1559
+#
+# 1. Incorrect baseFee after a block
+# 2. gasLimit decreased by more than 1/1024
+# 3. gasLimit increased by more than 1/1024
+
+
+badBlocks:
+  genesisBlockHeader:
+    bloom: '0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
+    coinbase: '0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba'
+    difficulty: '131072'
+    extraData: '0x42'
+    gasUsed: '0'
+    mixHash: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    nonce: '0x0102030405060708'
+    number: '0'
+    parentHash: '0x0000000000000000000000000000000000000000000000000000000000000000'
+    receiptTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    stateRoot: '0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a'
+    timestamp: '0x03b6'
+    transactionsTrie: '0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421'
+    uncleHash: '0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347'
+    gasLimit: 1073741824  # 1024^3
+    baseFee: 1000
+  sealEngine: NoProof
+
+
+  pre:
+    0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x10000000000
+      code: ''
+      nonce: 1
+      storage: {}
+
+    0xd02d72E067e77158444ef2020Ff2d325f929B363:
+      balance: 0x1000000000000
+      nonce: 1
+      code: ''
+      storage: {}
+
+
+    # Spend all the gas you can
+    # (that is the result of a call with an illegal opcode)
+    0x1111111111111111111111111111111111111111:
+      balance: 0x10000000000
+      nonce: 1
+      code: :raw 0xfe
+      storage: {}
+
+
+
+
+  blocks:
+
+  # The baseFee is calculated, in a fixed manner, by the blockchain.
+  # If you specify the wrong one it won't work
+  #
+  # From the EIP:
+  #
+  # if parent_gas_used == parent_gas_target:
+  #    expected_base_fee_per_gas = parent_base_fee_per_gas
+  # elif parent_gas_used > parent_gas_target:
+  #    gas_used_delta = parent_gas_used - parent_gas_target
+  #    base_fee_per_gas_delta = max(parent_base_fee_per_gas * gas_used_delta // parent_gas_target // BASE_FEE_MAX_CHANGE_DENOMINATOR, 1)
+  #    expected_base_fee_per_gas = parent_base_fee_per_gas + base_fee_per_gas_delta
+  # else:
+  #    gas_used_delta = parent_gas_target - parent_gas_used
+  #    base_fee_per_gas_delta = parent_base_fee_per_gas * gas_used_delta // parent_gas_target // BASE_FEE_MAX_CHANGE_DENOMINATOR
+  #    expected_base_fee_per_gas = max(parent_base_fee_per_gas - base_fee_per_gas_delta, 0)
+  # assert expected_base_fee_per_gas == block.base_fee_per_gas, 'invalid block: base fee not correct'
+
+  - blockHeader:
+      baseFee: 0x36c
+    blocknumber: 1
+    expectException:
+      '>=London': 1559BlockImportImpossible_BaseFeeWrong
+    transactions: []
+  - blockHeader:
+      baseFee: 0x36a
+    blocknumber: 1
+    expectException:
+      '>=London': 1559BlockImportImpossible_BaseFeeWrong
+    transactions: []
+  - blockHeader:
+      baseFee: 0x36b
+    blocknumber: 1
+    transactions: []
+
+
+  # gasTarget can be decreased, but by no more than 1/1024 per block.
+  # gasLimit is twice gasTarget, so it is the same fraction.
+  #
+  # From the EIP:
+  #
+  # assert block.gas_limit > parent_gas_limit - parent_gas_limit // 1024, 'invalid block: 
+  #     gas limit decreased too much'
+  - blockHeader:
+      gasLimit: 2072693247
+    blocknumber: 2
+    expectException:
+      '>=London': InvalidGasLimit2
+    transactions: []
+  - blockHeader:
+      gasLimit: 1072693248 # block.gas_limit = parent_gas_limit - parent_gas_limit // 1024
+    blocknumber: 2
+    expectException:
+      '>=London': InvalidGasLimit2
+    transactions: []
+  - blockHeader:
+      gasLimit: 1072693249    # 1024*1024*1023 (1023/1024 of the previous gasLimit)
+    blocknumber: 2
+    transactions: []
+
+
+  # gasTarget can be increased, but by no more than 1/1024 per block.
+  # gasLimit is twice gasTarget, so it is the same fraction.
+  #
+  # From the EIP:
+  #
+  # assert block.gas_limit < parent_gas_limit + parent_gas_limit // 1024, 
+  #       'invalid block: gas limit increased too much'
+
+  - blockHeader:
+      gasLimit: 2073740801
+    blocknumber: 3	
+    expectException:
+      '>=London': InvalidGasLimit2
+    transactions: []
+  - blockHeader:
+      gasLimit: 1073740801  # block.gas_limit = parent_gas_limit + parent_gas_limit // 1024
+    blocknumber: 3
+    expectException:
+      '>=London': InvalidGasLimit2
+    transactions: []
+  - blockHeader:
+      # 1024*1023*1025 (1025/1024 of the previous limit) plus one. The one is accepted
+      # because of the effects of integer division 
+      gasLimit: 1073740800  
+    blocknumber: 3
+    transactions: []
+
+
+
+
+
+
+  expect:
+  - network:
+    - ">=London"
+    # No real result, this test is based on exceptions
+    # No transactions, so no need to check the nonces either
+    result: {}
+
+

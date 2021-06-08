@@ -1,0 +1,135 @@
+# EXTCODEHASH to a deleted account
+---
+extCodeHashDeletedAccount4:
+  _info:
+    comment: |
+      4) Call creates Account A
+      Call to Account B stores Account A hash to 1
+      Call to Account C runs self destruct on A
+      Call to Account B stores Account a hash to 2
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "1000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+  pre:
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '1000000000000000000'
+      code: |
+        {
+          ;; Creates Account A using code in existing account D
+          (MSTORE 0
+            (CREATE2 0 0
+              (lll
+              {
+                (MSTORE 0 (EXTCODESIZE 0xdddddddd00000000000000000000000000000000))
+                (EXTCODECOPY 0xdddddddd00000000000000000000000000000000
+                             32
+                             0
+                             (MLOAD 0))
+                (RETURN 32 (MLOAD 0))
+              }
+              0)
+            0))
+
+          ;; Stores new Account A address
+          [[0]] (MLOAD 0)
+
+          ;; Call Account B:
+          ;; Stores Account A code hash to 1, code size to 2, code to 3
+          (MSTORE 32 0x01)
+          (CALL 150000 0xbbbbbbbb00000000000000000000000000000000 0 32 32 0 32)
+
+          ;; Call Account C:
+          ;; Runs self Destructs on Account A
+          (CALL 150000 0xcccccccc00000000000000000000000000000000 0 0  0  0 32)
+
+          ;; Call Account B:
+          ;; Stores Account B code hash to 4, code size to 5, code to 6
+          (MSTORE 64 0x04)
+          (CALL 150000 0xbbbbbbbb00000000000000000000000000000000 0 64 32 0 32)
+          
+          (STOP)
+        }
+      nonce: '0'
+      storage: {}
+    bbbbbbbb00000000000000000000000000000000:
+      balance: '1000000000000000000'
+      code: |
+        {
+          ;; get key from call data
+          (CALLDATACOPY 0 0 32)
+          
+          ;; store Account A code hash
+          [[(MLOAD 0)]] (EXTCODEHASH 0xe713449c212d891357cc2966816b1d528cfb59e0)
+          
+          (MSTORE 0 (ADD (MLOAD 0) 1))  ;; increments storage key
+          [[(MLOAD 0)]] (EXTCODESIZE 0xe713449c212d891357cc2966816b1d528cfb59e0)
+
+          (EXTCODECOPY 0xe713449c212d891357cc2966816b1d528cfb59e0 32 0 (SLOAD (MLOAD 0)))
+          (MSTORE 0 (ADD (MLOAD 0) 1))  ;; increments storage key
+          [[(MLOAD 0)]] (MLOAD 32)
+        }
+      nonce: '0'
+      storage: {}
+    cccccccc00000000000000000000000000000000:
+      balance: '0'
+      code: |
+        {
+          ;; Run self destruct on Account A
+          (CALL 150000 0xe713449c212d891357cc2966816b1d528cfb59e0 0 0  0  0 32)
+        }
+      nonce: '0'
+      storage: {}
+    dddddddd00000000000000000000000000000000:
+      balance: '0'
+      code: |
+        {
+          (SELFDESTRUCT 0xbbbbbbbb00000000000000000000000000000000)
+        }
+      nonce: '0'
+      storage: {}
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: ''
+      nonce: '0'
+      storage: {}
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Constantinople'
+      result:
+        095e7baea6a6c7c4c2dfeb977efac326af552d87:
+          balance: '1000000000000000001'
+          storage: {
+            0: '0xe713449c212d891357cc2966816b1d528cfb59e0'
+            }
+        bbbbbbbb00000000000000000000000000000000:
+          balance: '1000000000000000000'
+          storage: {
+            1: '0xb05d47e0911e4f67786f4cdc582608ee5f731e845a1e95ddc99759e2b3da81bf',
+            2: '0x16',
+            3: '0x73bbbbbbbb00000000000000000000000000000000ff00000000000000000000',
+            4: '0xb05d47e0911e4f67786f4cdc582608ee5f731e845a1e95ddc99759e2b3da81bf',
+            5: '0x16',
+            6: '0x73bbbbbbbb00000000000000000000000000000000ff00000000000000000000'
+          }
+        e713449c212d891357cc2966816b1d528cfb59e0:
+          shouldnotexist: '1'
+  transaction:
+    data:
+    - ''
+    gasLimit:
+    - '400000'
+    gasPrice: '1'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    value:
+    - '1'
+    

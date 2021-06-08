@@ -1,0 +1,604 @@
+addressOpcodes:
+
+  # Check the gas cost of various address information opcodes (balance, etc.)
+  # when the address is or isn't in the access list
+
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: '0xFF112233445566'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  pre:  
+    # Applies to all tests in this file
+    0000000000000000000000000000000000000100:
+      balance: '1000000000000000000'
+      code: |
+       { 
+          (def 'acctType  $0)   ; type of account we handle
+          (def 'opcode $0x20)   ; the opcode we are dealing with
+
+          (def 'acct 0x20)
+
+          (def 'NOP 0)
+
+
+          ; the type of account we handle
+
+          ; unrelated account
+          (if (= acctType 0) [acct] 0x101 NOP)
+
+          ; transaction sender
+          (if (= acctType 1) [acct] (origin) NOP)
+
+          ; the contract that called us
+          (if (= acctType 2) [acct] (caller) NOP)
+
+          ; our own contract
+          (if (= acctType 3) [acct] (address) NOP)
+
+          ; a precompile
+          (if (= acctType 4) [acct] 0x0001 NOP)
+
+
+          [0] @0    ; Just to disable the first use of memory cost
+
+          (if (= opcode 0) {
+                [0] (gas)
+                (balance @acct)
+                [[0]] (- @0 (gas) 22)
+
+                [0] (gas)
+                (balance @acct)
+                [[1]] (- @0 (gas) 22)
+            } NOP)   ; (if (= opcode 0) ... )
+
+
+          (if (= opcode 1) {
+                [0] (gas)
+                (extcodesize @acct)
+                [[0]] (- @0 (gas) 22)
+
+                [0] (gas)
+                (extcodesize @acct)
+                [[1]] (- @0 (gas) 22)
+            } NOP)   ; (if (= opcode 1) ... )
+
+
+          (if (= opcode 2) {
+                [0] (gas)
+                (extcodehash @acct)
+                [[0]] (- @0 (gas) 22)
+
+                [0] (gas)
+                (extcodehash @acct)
+                [[1]] (- @0 (gas) 22)
+            } NOP)   ; (if (= opcode 1) ... )
+
+
+          ; This test writes to memory, so we need to write to it first 
+          ; to avoid measuring that number
+          (if (= opcode 3) {
+                [0x100]   0x06A5
+                [0] (gas)
+                (extcodecopy @acct 0x100 0 0x20)  ; don't touch @0 or @acct
+                [[0]] (- @0 (gas) 32)             ; normalize to the same cost as 
+                                                  ; the other tests
+
+                [0] (gas)
+                (extcodecopy @acct 0x100 0 0x20)
+                [[1]] (- @0 (gas) 32)
+            } NOP)   ; (if (= opcode 1) ... )
+
+       }
+      nonce: '0'
+      storage: {}
+
+
+
+
+
+    # Call the contract that does the actual work
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            ; relay the parameters
+            [0x100] $4
+            [0x120] $36
+            (call (gas) 0x100 0 0x100 0x40 0 0x40)
+
+            ; Write the returned results, if any
+            [[0]] @0x00
+            [[1]] @0x20
+        }  
+      nonce: '0'
+      storage: {}
+
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: 0x
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    # The first parameter is the type of address involved:
+    #
+    # 0 - 0x101, a random address
+    # 1 - transaction sender (0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b)
+    # 2 - caller  (0xcccc...cccc)
+    # 3 - address (0x100)
+    # 4 - a precompile (0x0...01)
+    #
+    # The second parameter is the action:
+    # 0 - BALANCE
+    # 1 - EXTCODEHASH
+    # 2 - EXTCODESIZE
+    # 3 - EXTCODECOPY
+
+    # BALANCE_VALID
+    - data: :label valid :abi f(uint,uint) 0 0
+      accessList:
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # BALANCE_VALID_NO_CELLS
+    - data: :label valid :abi f(uint,uint) 0 0
+      accessList:
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys: []
+
+
+    # BALANCE_NO_LIST
+    - data: :label invalid :abi f(uint,uint) 0 0
+      accessList: []
+
+
+
+    # BALANCE_BAD_ADDR
+    - data: :label invalid :abi f(uint,uint) 0 0
+      accessList:
+      - address: 0xF00000000000000000000000000000000000F101
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+    # BALANCE_SENDER_VALID
+    - data: :label valid :abi f(uint,uint) 1 0
+      accessList:
+      - address: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+    # BALANCE_SENDER_INVALID
+    - data: :label valid :abi f(uint,uint) 1 0
+      accessList: []
+
+
+
+    # BALANCE_PAST_VALID
+    - data: :label valid :abi f(uint,uint) 2 0
+      accessList:
+      - address: 0xcccccccccccccccccccccccccccccccccccccccc
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # BALANCE_PAST_INVALID
+    - data: :label valid :abi f(uint,uint) 2 0
+      accessList: []
+
+
+
+
+    # BALANCE_CURRENT_VALID  
+    - data: :label valid :abi f(uint,uint) 3 0
+      accessList:
+      - address: 0x0000000000000000000000000000000000000100
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # BALANCE_CURRENT_INVALID
+    - data: :label valid :abi f(uint,uint) 3 0
+      accessList: []
+
+
+    # BALANCE_PRECOMPILE_VALID  
+    - data: :label valid :abi f(uint,uint) 4 0
+      accessList:
+      - address: 0x0000000000000000000000000000000000000001
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # BALANCE_PRECOMPILE_INVALID
+    - data: :label valid :abi f(uint,uint) 4 0
+      accessList: []
+
+
+
+
+    # EXTCODESIZE_VALID
+    - data: :label valid :abi f(uint,uint) 0 1
+      accessList:
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # EXTCODESIZE_VALID_NO_CELLS
+    - data: :label valid :abi f(uint,uint) 0 1
+      accessList:
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys: []
+
+
+    # EXTCODESIZE_NO_LIST
+    - data: :label invalid :abi f(uint,uint) 0 1
+      accessList: []
+
+
+
+    # EXTCODESIZE_BAD_ADDR
+    - data: :label invalid :abi f(uint,uint) 0 1
+      accessList:
+      - address: 0xF00000000000000000000000000000000000F101
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+    # EXTCODESIZE_SENDER_VALID
+    - data: :label valid :abi f(uint,uint) 1 1
+      accessList:
+      - address: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+    # EXTCODESIZE_SENDER_INVALID
+    - data: :label valid :abi f(uint,uint) 1 1
+      accessList: []
+
+
+
+    # EXTCODESIZE_PAST_VALID
+    - data: :label valid :abi f(uint,uint) 2 1
+      accessList:
+      - address: 0xcccccccccccccccccccccccccccccccccccccccc
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # EXTCODESIZE_PAST_INVALID
+    - data: :label valid :abi f(uint,uint) 2 1
+      accessList: []
+
+
+
+    # EXTCODESIZE_CURRENT_VALID  
+    - data: :label valid :abi f(uint,uint) 3 1
+      accessList:
+      - address: 0x0000000000000000000000000000000000000100
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # EXTCODESIZE_CURRENT_INVALID
+    - data: :label valid :abi f(uint,uint) 3 1
+      accessList: []
+
+
+    # EXTCODESIZE_PRECOMPILE_VALID  
+    - data: :label valid :abi f(uint,uint) 4 1
+      accessList:
+      - address: 0x0000000000000000000000000000000000000001
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # EXTCODESIZE_PRECOMPILE_INVALID
+    - data: :label valid :abi f(uint,uint) 4 1
+      accessList: []
+
+
+
+
+
+
+    # EXTCODEHASH_VALID
+    - data: :label valid :abi f(uint,uint) 0 2
+      accessList:
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # EXTCODEHASH_VALID_NO_CELLS
+    - data: :label valid :abi f(uint,uint) 0 2
+      accessList:
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys: []
+
+
+    # EXTCODEHASH_NO_LIST
+    - data: :label invalid :abi f(uint,uint) 0 2
+      accessList: []
+
+
+
+    # EXTCODEHASH_BAD_ADDR
+    - data: :label invalid :abi f(uint,uint) 0 2
+      accessList:
+      - address: 0xF00000000000000000000000000000000000F101
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+    # EXTCODEHASH_SENDER_VALID
+    - data: :label valid :abi f(uint,uint) 1 2
+      accessList:
+      - address: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+    # EXTCODEHASH_SENDER_INVALID
+    - data: :label valid :abi f(uint,uint) 1 2
+      accessList: []
+
+
+
+    # EXTCODEHASH_PAST_VALID
+    - data: :label valid :abi f(uint,uint) 2 2
+      accessList:
+      - address: 0xcccccccccccccccccccccccccccccccccccccccc
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # EXTCODEHASH_PAST_INVALID
+    - data: :label valid :abi f(uint,uint) 2 2
+      accessList: []
+
+
+
+    # EXTCODEHASH_CURRENT_VALID  
+    - data: :label valid :abi f(uint,uint) 3 2
+      accessList:
+      - address: 0x0000000000000000000000000000000000000100
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # EXTCODEHASH_CURRENT_INVALID
+    - data: :label valid :abi f(uint,uint) 3 2
+      accessList: []
+
+
+    # EXTCODEHASH_PRECOMPILE_VALID  
+    - data: :label valid :abi f(uint,uint) 4 2
+      accessList:
+      - address: 0x0000000000000000000000000000000000000001
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # EXTCODEHASH_PRECOMPILE_INVALID
+    - data: :label valid :abi f(uint,uint) 4 2
+      accessList: []
+
+
+
+
+
+    # EXTCODECOPY_VALID
+    - data: :label valid :abi f(uint,uint) 0 3
+      accessList:
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # EXTCODECOPY_VALID_NO_CELLS
+    - data: :label valid :abi f(uint,uint) 0 3
+      accessList:
+      - address: 0x0000000000000000000000000000000000000101
+        storageKeys: []
+
+
+    # EXTCODECOPY_NO_LIST
+    - data: :label invalid :abi f(uint,uint) 0 3
+      accessList: []
+
+
+
+    # EXTCODECOPY_BAD_ADDR
+    - data: :label invalid :abi f(uint,uint) 0 3
+      accessList:
+      - address: 0xF00000000000000000000000000000000000F101
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+    # EXTCODECOPY_SENDER_VALID
+    - data: :label valid :abi f(uint,uint) 1 3
+      accessList:
+      - address: 0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+    # EXTCODECOPY_SENDER_INVALID
+    - data: :label valid :abi f(uint,uint) 1 3
+      accessList: []
+
+
+
+    # EXTCODECOPY_PAST_VALID
+    - data: :label valid :abi f(uint,uint) 2 3
+      accessList:
+      - address: 0xcccccccccccccccccccccccccccccccccccccccc
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # EXTCODECOPY_PAST_INVALID
+    - data: :label valid :abi f(uint,uint) 2 3
+      accessList: []
+
+
+
+
+    # EXTCODECOPY_CURRENT_VALID  
+    - data: :label valid :abi f(uint,uint) 3 3
+      accessList:
+      - address: 0x0000000000000000000000000000000000000100
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # EXTCODECOPY_CURRENT_INVALID
+    - data: :label valid :abi f(uint,uint) 3 3
+      accessList: []
+
+
+    # EXTCODECOPY_PRECOMPILE_VALID  
+    - data: :label valid :abi f(uint,uint) 4 3
+      accessList:
+      - address: 0x0000000000000000000000000000000000000001
+        storageKeys:
+        - 0x00
+        - 0x60A7
+
+
+    # EXTCODECOPY_PRECOMPILE_INVALID
+    - data: :label valid :abi f(uint,uint) 4 3
+      accessList: []
+
+
+
+
+    gasLimit:
+    - '40000000'
+    gasPrice: '10'
+    nonce: '0'
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: cccccccccccccccccccccccccccccccccccccccc
+
+    value:
+    - '100000'
+
+
+
+
+  expect:
+
+  # BALANCE_VALID
+  # BALANCE_VALID_NO_CELLS
+  # BALANCE_SENDER_VALID
+  # BALANCE_SENDER_INVALID
+  # BALANCE_PAST_INVALID
+  # BALANCE_PAST_VALID
+  # BALANCE_CURRENT_VALID  
+  # BALANCE_CURRENT_INVALID
+  # BALANCE_PRECOMPILE_VALID  
+  # BALANCE_PRECOMPILE_INVALID
+  # EXTCODESIZE_VALID
+  # EXTCODESIZE_VALID_NO_CELLS
+  # EXTCODESIZE_SENDER_VALID
+  # EXTCODESIZE_SENDER_INVALID
+  # EXTCODESIZE_PAST_INVALID
+  # EXTCODESIZE_PAST_VALID
+  # EXTCODESIZE_CURRENT_VALID  
+  # EXTCODESIZE_CURRENT_INVALID
+  # EXTCODESIZE_PRECOMPILE_VALID  
+  # EXTCODESIZE_PRECOMPILE_INVALID
+  # EXTCODEHASH_VALID
+  # EXTCODEHASH_VALID_NO_CELLS
+  # EXTCODEHASH_SENDER_VALID
+  # EXTCODEHASH_SENDER_INVALID
+  # EXTCODEHASH_PAST_INVALID
+  # EXTCODEHASH_PAST_VALID
+  # EXTCODEHASH_CURRENT_VALID  
+  # EXTCODEHASH_CURRENT_INVALID
+  # EXTCODEHASH_PRECOMPILE_VALID  
+  # EXTCODEHASH_PRECOMPILE_INVALID
+  # EXTCODECOPY_VALID
+  # EXTCODECOPY_VALID_NO_CELLS
+  # EXTCODECOPY_SENDER_VALID
+  # EXTCODECOPY_SENDER_INVALID
+  # EXTCODECOPY_PAST_INVALID
+  # EXTCODECOPY_PAST_VALID
+  # EXTCODECOPY_CURRENT_VALID  
+  # EXTCODECOPY_CURRENT_INVALID
+  # EXTCODECOPY_PRECOMPILE_VALID  
+  # EXTCODECOPY_PRECOMPILE_INVALID
+
+  - indexes:
+      data: :label valid
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Berlin"
+    result:
+      0000000000000000000000000000000000000100:
+        storage:
+          0x00: 0x0061
+          0x01: 0x0061
+
+
+  # BALANCE_NO_LIST
+  # BALANCE_BAD_ADDR
+  # EXTCODESIZE_NO_LIST
+  # EXTCODESIZE_BAD_ADDR
+  # EXTCODEHASH_NO_LIST
+  # EXTCODEHASH_BAD_ADDR
+  # EXTCODECOPY_NO_LIST
+  # EXTCODECOPY_BAD_ADDR
+  - indexes:
+      data: :label invalid
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=Berlin"
+    result:
+      0000000000000000000000000000000000000100:
+        storage:
+          0x00: 0x0a25
+          0x01: 0x0061
+          0x02: 0x0000
+
+
+

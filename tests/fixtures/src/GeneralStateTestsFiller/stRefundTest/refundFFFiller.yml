@@ -1,0 +1,85 @@
+# The refund for opcode FF   (SELFDESTRUCT)
+# 
+# There should be a refund in Berlin, but not in London (EIP 3529)
+# The Berlin refund is 14303, not the expected 24000, because it is limited
+# to half the gas used by the transaction.
+
+refundFF:
+  _info:
+    comment: Ori Pomerantz   qbzzt1@gmail.com
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentNumber: 1
+    currentTimestamp: 1000
+    currentGasLimit: 0x1000000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+    currentBaseFee: 1000
+
+  pre:
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: 0
+      code: |
+          :yul {
+             selfdestruct(0xdddddddddddddddddddddddddddddddddddddddd)
+          }
+      nonce: 1
+      storage: {}
+
+
+    # The recipient of the balance from SELFDESTRUCT
+    dddddddddddddddddddddddddddddddddddddddd:
+      balance: 0
+      code: 0x
+      nonce: 1
+      storage: {}
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 1000028607000
+      code: '0x'
+      nonce: 1
+      storage: {}
+
+
+  transaction:
+    data:
+    - data: :raw 0x00
+      accessList: []
+    gasLimit:
+    - 2601000
+    nonce: 1
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - 0
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    gasPrice: 1000
+    
+
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+
+      network:
+        - '>=London'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          # Without a refund, the balance would be 1000000000000
+          # There is no refund in London
+          balance: 1000000000000
+
+
+    - indexes:
+        data: !!int -1
+        gas:  !!int -1
+        value: !!int -1
+
+      network:
+        - 'Berlin'
+      result:
+        a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+          # Without a refund, the balance would be 1000000000000
+          # The Berlin refund is 14303000 wei, which is 14303 gas 
+          balance: 1000014303000

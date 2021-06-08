@@ -1,0 +1,109 @@
+# Check the costs of transferring gas to coinbase and how it interacts with the 
+# access list in transaction type 2
+
+coinbaseT2:
+  env:
+    currentCoinbase: 000000000000000000000000000000000000BA5E
+    currentDifficulty: '0x20000'
+    currentGasLimit: '0xFF112233445566'
+    currentNumber: '1'
+    currentTimestamp: '1000'
+    currentBaseFee: 100
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  pre:  
+    # Send wei to coinbase and see how much gas that costs.
+    000000000000000000000000000000000000C0DE:
+      balance: '1000000000000000000'
+      code: |
+       :yul { 
+         mstore(0, gas())
+         pop(call(gas(), 0xBA5E, 1000000, 0, 0, 0, 0))
+         mstore(0x20, gas())
+
+         // The 24 is the cost of twi gas(), seven pushes(), a pop(), and an mstore()
+         sstore(0, sub(sub(mload(0), mload(0x20)),33))
+       }
+      nonce: 1
+      storage: {}
+
+
+    # Signer
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '1000000000000000000'
+      code: 0x
+      nonce: 1
+      storage: {}
+
+
+    # Coinbase
+    000000000000000000000000000000000000BA5E:
+      balance: 0
+      code: 0x
+      nonce: 1
+      storage: {}
+
+
+
+  transaction:
+    data:
+    # Type 2 transaction, base in list
+    - data: :label T2baseInList :abi f(uint) 0
+      accessList:
+      - address: 0x000000000000000000000000000000000000BA5E
+        storageKeys: []
+
+
+    # Type 2 transaction, base NOT in list
+    - data: :label T2baseNotInList :abi f(uint) 0
+      accessList:
+      - address: 0x000000000000000000000000000000000000BA5A
+        storageKeys: []
+
+    gasLimit:
+    - 40000000
+    maxFeePerGas: 10000
+    maxPriorityFeePerGas: 100
+    nonce: 1
+    secretKey: 45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8
+    to: 000000000000000000000000000000000000C0DE
+    value:
+    - 0
+
+
+
+
+
+
+
+
+  expect:
+
+  - indexes:
+      data: :label T2baseInList
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=London"
+    result:
+      000000000000000000000000000000000000C0DE:
+        storage:
+          0x00: 6800
+
+
+  - indexes:
+      data: :label T2baseNotInList
+      gas: !!int -1
+      value: !!int -1
+    network:
+    - ">=London"
+    result:
+      000000000000000000000000000000000000C0DE:
+        storage:
+          0x00: 9300

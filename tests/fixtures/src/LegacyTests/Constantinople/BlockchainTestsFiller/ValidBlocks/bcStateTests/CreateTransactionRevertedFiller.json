@@ -1,0 +1,77 @@
+{
+    "CreateTransactionReverted" : {
+        "_info" : {
+            "comment" : "check that transaction with gas < intrinsic value is rejected. must be a blockchain test. TODO: add a test where transaction has enough gas. create happens in init code and revert opcode is called!"
+        },
+        "genesisBlockHeader" : {
+            "coinbase" : "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "difficulty" : "0x020000",
+            "gasLimit" : "1000000000000",
+            "number" : "0",
+            "timestamp" : "1000",
+            "parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "bloom" : "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "extraData" : "0x42",
+            "gasUsed" : "0",
+            "mixHash" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "nonce" : "0x0102030405060708",
+            "receiptTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "stateRoot" : "0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a",
+            "transactionsTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "uncleHash" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+        },
+	    "sealEngine" : "NoProof",
+        "expect" : [
+            {
+                "network" : ["<EIP158"],
+                "result" : {
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "balance" : "132000",
+                        "nonce" : "0"
+                    },
+		            "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba" : {
+                        "balance" : "5000000000000000000"
+                    }
+                }
+            },
+	        {
+                "network" : ["EIP158", "Constantinople", "ConstantinopleFix"],
+                "result" : {
+                    "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "balance" : "132000",
+                        "nonce" : "0"
+                    },
+		            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "balance" : "132000"
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "a94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "132000",
+                "code" : "",
+                "nonce" : "0",
+                "storage" : {
+                }
+            }
+        },
+        "blocks" : [
+            {
+                "transactions" : [
+                     {
+                        "data" :"0x602280600c6000396000f30060e060020a600035048063f8a8fd6d14601457005b601a6020565b60006000f35b56",
+                        "gasLimit" : "23679",
+                        "gasPrice" : "1",
+                        "nonce" : "0",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "",
+                        "value" : ""
+                    }
+                ],
+                "uncleHeaders" : [
+                ]
+            }
+        ]
+    }
+}

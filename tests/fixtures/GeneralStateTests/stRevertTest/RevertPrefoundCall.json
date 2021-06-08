@@ -1,0 +1,96 @@
+{
+    "RevertPrefoundCall" : {
+        "_info" : {
+            "comment" : "",
+            "filling-rpc-server" : "evm version 1.10.4-unstable-966ee3ae-20210528",
+            "filling-tool-version" : "retesteth-0.1.1-eip1559+commit.658fc3a8.Linux.g++",
+            "lllcversion" : "Version: 0.5.14-develop.2021.5.18+commit.14c9d5de.mod.Linux.g++",
+            "source" : "src/GeneralStateTestsFiller/stRevertTest/RevertPrefoundCallFiller.json",
+            "sourceHash" : "782b65dc83abb6b34da32154734403a4baa4d25c7bda6774f6058fc85f7e475a"
+        },
+        "env" : {
+            "currentCoinbase" : "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+            "currentDifficulty" : "0x020000",
+            "currentNumber" : "0x01",
+            "currentTimestamp" : "0x03e8",
+            "previousHash" : "0x5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6",
+            "currentGasLimit" : "0x989680"
+        },
+        "post" : {
+            "Berlin" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0xb2d04dcefc58fc5616961a25dab773458a55dddd125cb763f6999ed2ebd886e9",
+                    "txbytes" : "0xf860800a83016f3094a00000000000000000000000000000000000000080801ba05ccb788f6098ea99168081b2cf1612cf26ad39c6b024a8436d00ad2f4825ce60a04a2e3eebe2688b5b9503b21d7f2a6a2a8fbc5cd04f5335012beaf40ebb66792b",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ],
+            "Istanbul" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0xc937b0a01d0f66dad6fcaf508e03d3a7c0a98afbea30442fb61cf4e4de62a738",
+                    "txbytes" : "0xf860800a83016f3094a00000000000000000000000000000000000000080801ba05ccb788f6098ea99168081b2cf1612cf26ad39c6b024a8436d00ad2f4825ce60a04a2e3eebe2688b5b9503b21d7f2a6a2a8fbc5cd04f5335012beaf40ebb66792b",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ],
+            "London" : [
+                {
+                    "indexes" : {
+                        "data" : 0,
+                        "gas" : 0,
+                        "value" : 0
+                    },
+                    "hash" : "0x3b075d23a04d0df8e89f89b176cf17c9f8c719e99633da9ea253d892f8eff079",
+                    "txbytes" : "0xf860800a83016f3094a00000000000000000000000000000000000000080801ba05ccb788f6098ea99168081b2cf1612cf26ad39c6b024a8436d00ad2f4825ce60a04a2e3eebe2688b5b9503b21d7f2a6a2a8fbc5cd04f5335012beaf40ebb66792b",
+                    "logs" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+                }
+            ]
+        },
+        "pre" : {
+            "0x7db299e0885c85039f56fa504a13dd8ce8a56aa7" : {
+                "balance" : "0x01",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa000000000000000000000000000000000000000" : {
+                "balance" : "0x01",
+                "code" : "0x60206000602060006000737db299e0885c85039f56fa504a13dd8ce8a56aa761c350f1600055600c60015500",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            },
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "0xe8d4a51000",
+                "code" : "0x",
+                "nonce" : "0x00",
+                "storage" : {
+                }
+            }
+        },
+        "transaction" : {
+            "data" : [
+                "0x"
+            ],
+            "gasPrice" : "0x0a",
+            "gasLimit" : [
+                "0x016f30"
+            ],
+            "nonce" : "0x00",
+            "secretKey" : "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+            "to" : "0xa000000000000000000000000000000000000000",
+            "value" : [
+                "0x00"
+            ]
+        }
+    }
+}

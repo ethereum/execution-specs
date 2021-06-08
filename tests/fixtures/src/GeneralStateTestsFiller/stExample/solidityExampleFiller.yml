@@ -1,0 +1,102 @@
+# An example of using solidity contracts in the test
+# More examples at https://ethereum-tests.readthedocs.io/en/latest/state-transition-tutorial.html#solidity-tests
+solidityExample:
+  _info:
+    comment: An example test for using solidity contracts in the test
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "100000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  expect:
+    - indexes:
+        data: !!int -1
+        gas:  !!int 0
+        value: !!int -1
+
+      network:
+        - '>=Berlin'
+      result:
+        # TestDependency contract created during transaction execution
+        0xd2571607e241ecf590ed94b12d87c94babe36db6:
+          storage:
+            0: 69
+            5: 69
+
+  solidity: |
+      // SPDX-License-Identifier: GPL-3.0
+      pragma solidity >=0.4.16 <0.8.0;
+
+      contract TestDependency {
+        uint256 storageVar = 0xff00ff00ff00ff00;
+        function val2Storage(uint256 addr, uint256 val) public
+        {
+          storageVar = val;
+          assembly { sstore(addr, val) }
+        } 
+      }
+
+      contract Test {
+        TestDependency instance;
+        function val2Storage(uint256 addr, uint256 val) public
+        {
+          instance = new TestDependency();
+          instance.val2Storage(addr, val);
+        } 
+      }  
+
+  pre:
+
+    # If solidity contract requires dependency contracts to be compiled, you can compile them all using solidity section
+    # and then refere to the main contract from code here
+    095e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: ':solidity Test'
+      nonce: '0'
+      storage: {}
+
+    # A single solidity contract can be defined at the code itself.
+    195e7baea6a6c7c4c2dfeb977efac326af552d87:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        // SPDX-License-Identifier: GPL-3.0
+        pragma solidity >=0.4.16 <0.8.0;
+
+        contract Test {
+            uint256 storageVar = 0xff00ff00ff00ff00;
+            function val2Storage(uint256 addr, uint256 val) public
+            {
+              storageVar = val;
+              assembly { sstore(addr, val) }
+            } 
+        }
+
+      nonce: '0'
+      storage: {}
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+
+  transaction:
+    data:
+    # make sure the function abi is correct, otherwise it won't be executed
+    - ":abi val2Storage(uint256,uint256) 5 69"
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: 095e7baea6a6c7c4c2dfeb977efac326af552d87
+    # check that the function you are calling is accepting value (marked payable), solidity has many precautions
+    value:
+    - '0'
+    secretKey: '45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8'
+

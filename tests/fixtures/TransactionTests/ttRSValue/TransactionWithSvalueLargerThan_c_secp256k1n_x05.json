@@ -1,0 +1,30 @@
+{
+    "TransactionWithSvalueLargerThan_c_secp256k1n_x05" : {
+        "Byzantium" : {
+        },
+        "Constantinople" : {
+        },
+        "ConstantinopleFix" : {
+        },
+        "EIP150" : {
+        },
+        "EIP158" : {
+        },
+        "Frontier" : {
+            "hash" : "aa9b37202f998b5b2145b030d8349f79dad692134a30a2efdba00b9c83ba217a",
+            "sender" : "5ced92a94a7bfd7853b12d33ee59dd10ae94eb86"
+        },
+        "Homestead" : {
+        },
+        "Istanbul" : {
+        },
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.7.0-alpha.1-33+commit.9ec9d33e.dirty",
+            "lllcversion" : "Version: 0.5.0-develop.2019.8.22+commit.9709dfe0.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttRSValue/TransactionWithSvalueLargerThan_c_secp256k1n_x05Filler.json",
+            "sourceHash" : "8226703714721a88cf6bd59e3a7b667b0946c95b0136d9e913013122c0b2c9b0"
+        },
+        "rlp" : "0xf85f800182520894095e7baea6a6c7c4c2dfeb977efac326af552d870b801ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a07fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a1"
+    }
+}

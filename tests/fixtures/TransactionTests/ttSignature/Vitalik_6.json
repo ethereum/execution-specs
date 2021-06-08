@@ -1,0 +1,38 @@
+{
+    "Vitalik_6" : {
+        "Byzantium" : {
+            "hash" : "99a214f26aaf2804d84367ac8f33ff74b3a94e68baf820668f3641819ced1216",
+            "sender" : "a8f7aba377317440bc5b26198a363ad22af1f3a4"
+        },
+        "Constantinople" : {
+            "hash" : "99a214f26aaf2804d84367ac8f33ff74b3a94e68baf820668f3641819ced1216",
+            "sender" : "a8f7aba377317440bc5b26198a363ad22af1f3a4"
+        },
+        "ConstantinopleFix" : {
+            "hash" : "99a214f26aaf2804d84367ac8f33ff74b3a94e68baf820668f3641819ced1216",
+            "sender" : "a8f7aba377317440bc5b26198a363ad22af1f3a4"
+        },
+        "EIP150" : {
+        },
+        "EIP158" : {
+            "hash" : "99a214f26aaf2804d84367ac8f33ff74b3a94e68baf820668f3641819ced1216",
+            "sender" : "a8f7aba377317440bc5b26198a363ad22af1f3a4"
+        },
+        "Frontier" : {
+        },
+        "Homestead" : {
+        },
+        "Istanbul" : {
+            "hash" : "99a214f26aaf2804d84367ac8f33ff74b3a94e68baf820668f3641819ced1216",
+            "sender" : "a8f7aba377317440bc5b26198a363ad22af1f3a4"
+        },
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.7.0-alpha.1-33+commit.9ec9d33e.dirty",
+            "lllcversion" : "Version: 0.5.0-develop.2019.8.22+commit.9709dfe0.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttSignature/Vitalik_6Filler.json",
+            "sourceHash" : "9eb546bed165040cf0ef745520e44cad8b2b2d608dc3263b7ce009c7f28ef71c"
+        },
+        "rlp" : "0xf865058504a817c8058301ec309435353535353535353535353535353535353535357d8025a04eebf77a833b30520287ddd9478ff51abbdffa30aa90a8d655dba0e8a79ce0c1a04eebf77a833b30520287ddd9478ff51abbdffa30aa90a8d655dba0e8a79ce0c1"
+    }
+}

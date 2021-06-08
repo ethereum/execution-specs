@@ -1,0 +1,227 @@
+SelfDestruct:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "100000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  solidity: |
+      // SPDX-License-Identifier: GPL-3.0
+      pragma solidity ^0.7;
+
+
+      // Try to selfdestruct twice, see only the first one (going to B2)
+      // gets the account's balance
+      contract DoubleSelfdestructTest {
+
+        address payable constant B1 = payable(0x1);
+        address payable constant B2 = payable(0x2);
+
+        function remoteSelfdestruct() external {
+          selfdestruct(B2);
+        }
+
+        function callMe() external payable {
+          this.remoteSelfdestruct();
+          selfdestruct(B1);
+        }
+      }   // contract DoubleSelfdestructTest
+
+
+      // Try to selfdestruct and give yourself the balance
+      contract DoubleSelfdestructTest2 {
+
+        address payable constant B = payable(0x3);
+
+        function remoteSelfdestruct() external {
+          selfdestruct(payable(address(this)));
+        }
+
+        function callMe() external payable {
+          this.remoteSelfdestruct();
+          selfdestruct(B);
+        }
+      }     // contract DoubleSelfdestructTest2
+
+
+
+      
+      contract DoubleSelfdestructTest3 {
+
+        function remoteSelfdestruct() external {
+          selfdestruct(payable(address(this)));
+        }
+
+        function callMe() external payable {
+          this.remoteSelfdestruct();
+          selfdestruct(payable(address(this)));
+        }
+      }     // contract DoubleSelfdestructTest3     
+
+      contract DeadBoss {
+         uint256 unused = 0xFFFF;
+         uint256 balance1;
+         uint256 balance2;
+         uint256 balance3;
+        
+         function callTest(uint testNum) public {
+             DoubleSelfdestructTest testMe;
+          
+             if (testNum == 1) {
+               testMe = DoubleSelfdestructTest(0xdead000000000000000000000000000000000001);
+               testMe.callMe();
+             }
+
+             if (testNum == 2) {
+               testMe = DoubleSelfdestructTest(0xdEaD000000000000000000000000000000000002);
+               testMe.callMe();
+             }
+
+             if (testNum == 3) {
+               testMe = DoubleSelfdestructTest(0xDeaD000000000000000000000000000000000003);
+               testMe.callMe();
+             }
+
+             // We can't look at the balance of a non existent account from the expect
+             // section, so we get it here
+             balance1 = address(0xdead000000000000000000000000000000000001).balance;
+             balance2 = address(0xdEaD000000000000000000000000000000000002).balance;
+             balance3 = address(0xDeaD000000000000000000000000000000000003).balance;
+
+         }
+
+      }     /// contract DeadBoss
+
+  pre:
+    0000000000000000000000000000000000000001:
+      balance: 1   # So we can check it hasn't changed
+      code: 0x
+      nonce: 0
+      storage: {}
+
+    0000000000000000000000000000000000000002:
+      balance: 1   # So we can check it hasn't changed
+      code: 0x
+      nonce: 0
+      storage: {}
+
+    0000000000000000000000000000000000000003:
+      balance: 1   # So we can check it hasn't changed
+      code: 0x
+      nonce: 0
+      storage: {}
+
+
+    dead000000000000000000000000000000000001:
+      balance: 0xffffffffffffff
+      code: ':solidity DoubleSelfdestructTest'
+      nonce: '0'
+      storage: {}
+
+    dead000000000000000000000000000000000002:
+      balance: 0xffffffffffffff
+      code: ':solidity DoubleSelfdestructTest2'
+      nonce: '0'
+      storage: {}
+
+    dead000000000000000000000000000000000003:
+      balance: 0xffffffffffffff
+      code: ':solidity DoubleSelfdestructTest3'
+      nonce: '0'
+      storage: {}
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: ':solidity DeadBoss'
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    - :abi callTest(uint256) 1
+    - :abi callTest(uint256) 2
+    - :abi callTest(uint256) 3
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    value:
+    - 0
+
+  expect:
+    - indexes:
+        data: !!int 0
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000001:
+           balance: 1
+        0000000000000000000000000000000000000002:
+           balance: 0x0100000000000000
+        0000000000000000000000000000000000000003:
+           balance: 1
+        cccccccccccccccccccccccccccccccccccccccc:
+           storage:
+             1: 0
+             2: 0xffffffffffffff
+             3: 0xffffffffffffff
+
+
+    - indexes:
+        data: !!int 1
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000001:
+           balance: 1
+        0000000000000000000000000000000000000002:
+           balance: 1
+        0000000000000000000000000000000000000003:
+           balance: 1
+        cccccccccccccccccccccccccccccccccccccccc:
+           storage:
+             1: 0xffffffffffffff
+             2: 0
+             3: 0xffffffffffffff
+
+
+
+    - indexes:
+        data: !!int 2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000001:
+           balance: 1
+        0000000000000000000000000000000000000002:
+           balance: 1
+        0000000000000000000000000000000000000003:
+           balance: 1
+        cccccccccccccccccccccccccccccccccccccccc:
+           storage:
+             1: 0xffffffffffffff
+             2: 0xffffffffffffff
+             3: 0

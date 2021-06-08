@@ -1,0 +1,154 @@
+{
+    "UncleFromFrontierInHomestead" : {
+        "_info" : {
+            "comment" : "Attach uncle (block5) to block6 of Homestead. but block5 uncle header is on Frontier"
+        },
+        "genesisBlockHeader" : {
+            "bloom" : "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+            "coinbase" : "0x8888f1f195afa192cfee860698584c030f4c9db1",
+            "difficulty" : "131072",
+            "extraData" : "0x42",
+            "gasLimit" : "3141592",
+            "gasUsed" : "0",
+            "mixHash" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "nonce" : "0x0102030405060708",
+            "number" : "0",
+            "parentHash" : "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "receiptTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "stateRoot" : "0xf99eb1626cfa6db435c0836235942d7ccaa935f1ae247d3f1c21e495685f903a",
+            "timestamp" : "0x54c98c81",
+            "transactionsTrie" : "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
+            "uncleHash" : "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+        },
+        "expect" : [
+            {
+                "network" : "FrontierToHomesteadAt5",
+                "result" : {
+                    "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                        "nonce" : "1"
+                    }
+                }
+            }
+        ],
+        "pre" : {
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b" : {
+                "balance" : "10000000000",
+                "nonce" : "0",
+                "code" : "",
+                "storage": {}
+            }
+        },
+        "blocks" : [            
+            {
+                "donotimportonclient" : "1",
+                "blocknumber" : "1",
+                "chainname" : "F",
+                "chainnetwork" : "Frontier",
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "donotimportonclient" : "1",
+                "blocknumber" : "2",
+                "chainname" : "F",
+                "chainnetwork" : "Frontier",
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "donotimportonclient" : "1",
+                "blocknumber" : "3",
+                "chainname" : "F",
+                "chainnetwork" : "Frontier",
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "donotimportonclient" : "1",
+                "blocknumber" : "4",
+                "chainname" : "F",
+                "chainnetwork" : "Frontier",
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "1",
+                "chainname" : "H",
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "2",
+                "chainname" : "H",
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "3",
+                "chainname" : "H",
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "4",
+                "chainname" : "H",
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "5",
+                "chainname" : "H",
+                "transactions" : [
+		            {
+                        "data" : "",
+                        "gasLimit" : "130000",
+                        "gasPrice" : "1",
+                        "nonce" : "0",
+                        "secretKey" : "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
+                        "to" : "0xb94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+                        "value" : "10"
+		            }
+                ],
+                "uncleHeaders" : [
+                ]
+            },
+            {
+                "blocknumber" : "6",
+                "chainname" : "H",
+                "blockHeader" : {
+                    "stateRoot" : "0x767155c1eee7ff696171fcb0e6a24488dc13aea8748590ec3da7460eeee094eb"
+                },
+                "transactions" : [
+                ],
+                "uncleHeaders" : [
+                    {
+                        "chainname" : "F",
+                        "populateFromBlock" : "4",                        
+                        "extraData" : "0x22"
+                    },
+                    {
+                        "chainname" : "H",
+                        "populateFromBlock" : "4",   
+                        "coinbase" : "0x0000000000000000000000000000000000000011"
+                    }
+                ]
+            }
+        ]
+    }
+}

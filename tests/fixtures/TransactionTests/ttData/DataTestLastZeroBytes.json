@@ -1,0 +1,44 @@
+{
+    "DataTestLastZeroBytes" : {
+        "Byzantium" : {
+            "hash" : "47a86e3d0be8ff2a9868b973ef1b30b4fd1796bb26f6c6e4f92804d6db2db977",
+            "sender" : "186f6d666993362b46b3b6c626f55903a439cc8d"
+        },
+        "Constantinople" : {
+            "hash" : "47a86e3d0be8ff2a9868b973ef1b30b4fd1796bb26f6c6e4f92804d6db2db977",
+            "sender" : "186f6d666993362b46b3b6c626f55903a439cc8d"
+        },
+        "ConstantinopleFix" : {
+            "hash" : "47a86e3d0be8ff2a9868b973ef1b30b4fd1796bb26f6c6e4f92804d6db2db977",
+            "sender" : "186f6d666993362b46b3b6c626f55903a439cc8d"
+        },
+        "EIP150" : {
+            "hash" : "47a86e3d0be8ff2a9868b973ef1b30b4fd1796bb26f6c6e4f92804d6db2db977",
+            "sender" : "186f6d666993362b46b3b6c626f55903a439cc8d"
+        },
+        "EIP158" : {
+            "hash" : "47a86e3d0be8ff2a9868b973ef1b30b4fd1796bb26f6c6e4f92804d6db2db977",
+            "sender" : "186f6d666993362b46b3b6c626f55903a439cc8d"
+        },
+        "Frontier" : {
+            "hash" : "47a86e3d0be8ff2a9868b973ef1b30b4fd1796bb26f6c6e4f92804d6db2db977",
+            "sender" : "186f6d666993362b46b3b6c626f55903a439cc8d"
+        },
+        "Homestead" : {
+            "hash" : "47a86e3d0be8ff2a9868b973ef1b30b4fd1796bb26f6c6e4f92804d6db2db977",
+            "sender" : "186f6d666993362b46b3b6c626f55903a439cc8d"
+        },
+        "Istanbul" : {
+            "hash" : "47a86e3d0be8ff2a9868b973ef1b30b4fd1796bb26f6c6e4f92804d6db2db977",
+            "sender" : "186f6d666993362b46b3b6c626f55903a439cc8d"
+        },
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.7.0-alpha.1-33+commit.9ec9d33e.dirty",
+            "lllcversion" : "Version: 0.5.0-develop.2019.8.22+commit.9709dfe0.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttData/DataTestLastZeroBytesFiller.json",
+            "sourceHash" : "0f8ce7744dc211871f5d04d5638af5993400f527ff4c48a7184435afb66ef1fc"
+        },
+        "rlp" : "0xf87c80018261a894095e7baea6a6c7c4c2dfeb977efac326af552d870a9d01000000000000000000000000000000000000000000000000000000001ba048b55bfa915ac795c431978d8a6a992b628d557da5ff759b307d495a36649353a01fffd310ac743f371de3b9f7f9cb56c0b28ad43601b4ab949f53faa07bd2c804"
+    }
+}

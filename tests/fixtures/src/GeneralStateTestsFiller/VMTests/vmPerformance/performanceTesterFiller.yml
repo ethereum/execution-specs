@@ -1,0 +1,157 @@
+performanceTester:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: '0x20000'
+    currentGasLimit: "100000000"
+    currentNumber: "1"
+    currentTimestamp: "1000"
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+
+  solidity: |
+    pragma solidity ^0.7;
+    // SPDX-License-Identifier: GPL-3.0
+
+    contract PerformanceTester {    
+        uint result;
+
+        function ackermann(uint m, uint n) public returns (uint) {
+                if (m == 0)
+                        return n + 1;
+                
+                if (n == 0)
+                        return ackermann(m - 1, 1);
+                
+                return ackermann(m - 1, ackermann(m, n - 1));
+        }
+  
+        function ack(uint m, uint n) public returns (uint) {
+                result = ackermann(m,n);
+                return result;
+        }
+
+        
+        function fibonacci(uint n) public returns (uint) {
+            if (n == 0 || n == 1)
+                return n;
+
+            return fibonacci(n - 1) + fibonacci(n - 2);
+        }
+
+
+
+        function fib(uint n) public returns (uint) {
+            result = fibonacci(n);
+            return 0x60A7;
+        }
+    }
+
+  pre:
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: :solidity PerformanceTester
+      nonce: 1
+      storage: {}
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+
+
+  transaction:
+    data:
+    - :label fib10 :abi fib(uint256) 10
+    - :label fib16 :abi fib(uint256) 16
+    - :label ack31 :abi ack(uint256,uint256) 3 1
+    - :label ack32 :abi ack(uint256,uint256) 3 2
+    - :label ack33 :abi ack(uint256,uint256) 3 3
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    value:
+    - 0
+
+  expect:
+    - indexes:
+        data:
+        - :label fib10
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x37   # 55
+
+
+
+
+    - indexes:
+        data:
+        - :label fib16
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x03db   # 987
+
+
+
+
+    - indexes:
+        data:
+        - :label ack31
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x0d   # 13
+
+
+
+
+    - indexes:
+        data:
+        - :label ack32
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x1d   # 29
+
+
+
+
+
+
+    - indexes:
+        data:
+        - :label ack33
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        cccccccccccccccccccccccccccccccccccccccc:
+          storage:
+            0: 0x3d   # 61
+

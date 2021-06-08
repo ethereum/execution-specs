@@ -1,0 +1,44 @@
+{
+    "libsecp256k1test" : {
+        "Byzantium" : {
+            "hash" : "ba09edc1275a285fb27bfe82c4eea240a907a0dbaf9e55764b8f318c37d5974f",
+            "sender" : "170ad78f26da62f591fa3fe3d54c30016167cbbf"
+        },
+        "Constantinople" : {
+            "hash" : "ba09edc1275a285fb27bfe82c4eea240a907a0dbaf9e55764b8f318c37d5974f",
+            "sender" : "170ad78f26da62f591fa3fe3d54c30016167cbbf"
+        },
+        "ConstantinopleFix" : {
+            "hash" : "ba09edc1275a285fb27bfe82c4eea240a907a0dbaf9e55764b8f318c37d5974f",
+            "sender" : "170ad78f26da62f591fa3fe3d54c30016167cbbf"
+        },
+        "EIP150" : {
+            "hash" : "ba09edc1275a285fb27bfe82c4eea240a907a0dbaf9e55764b8f318c37d5974f",
+            "sender" : "170ad78f26da62f591fa3fe3d54c30016167cbbf"
+        },
+        "EIP158" : {
+            "hash" : "ba09edc1275a285fb27bfe82c4eea240a907a0dbaf9e55764b8f318c37d5974f",
+            "sender" : "170ad78f26da62f591fa3fe3d54c30016167cbbf"
+        },
+        "Frontier" : {
+            "hash" : "ba09edc1275a285fb27bfe82c4eea240a907a0dbaf9e55764b8f318c37d5974f",
+            "sender" : "170ad78f26da62f591fa3fe3d54c30016167cbbf"
+        },
+        "Homestead" : {
+            "hash" : "ba09edc1275a285fb27bfe82c4eea240a907a0dbaf9e55764b8f318c37d5974f",
+            "sender" : "170ad78f26da62f591fa3fe3d54c30016167cbbf"
+        },
+        "Istanbul" : {
+            "hash" : "ba09edc1275a285fb27bfe82c4eea240a907a0dbaf9e55764b8f318c37d5974f",
+            "sender" : "170ad78f26da62f591fa3fe3d54c30016167cbbf"
+        },
+        "_info" : {
+            "comment" : "",
+            "filledwith" : "testeth 1.7.0-alpha.1-33+commit.9ec9d33e.dirty",
+            "lllcversion" : "Version: 0.5.0-develop.2019.8.22+commit.9709dfe0.Linux.g++",
+            "source" : "src/TransactionTestsFiller/ttSignature/libsecp256k1testFiller.json",
+            "sourceHash" : "bcf578aa2a8c4e661ec7c93b3b238cde0ed321333622740d1651ac4c78793ea0"
+        },
+        "rlp" : "0xd1808609184e72a00082f3888080801b2c04"
+    }
+}

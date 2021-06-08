@@ -1,0 +1,141 @@
+{
+    "definitions": {
+        "PreStateAccount": {
+            "additionalproperties": true,
+            "properties": {
+                "balance": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "code": {
+                    "$ref": "#/definitions/HexMaybePrefixOrEmpty"
+                },
+                "nonce": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "storage": {
+                    "additionalProperties": false,
+                    "patternProperties": {
+                        "^0x[0-9a-f]+": {
+                            "$ref": "#/definitions/HexData",
+                            "description": "storage key with 0x. data is HexData"
+                        }
+                    },
+                    "type": "object"
+                }
+            },
+            "required": [
+                "balance",
+                "code",
+                "nonce"
+            ],
+            "type": "object"
+        }
+    },
+    "patternProperties": {
+        "^.*$": {
+            "properties": {
+                "_info": {
+                    "$ref": "#/definitions/Info"
+                },
+                "env": {
+                    "additionalproperties": false,
+                    "properties": {
+                        "currentCoinbase": {
+                            "$ref": "#/definitions/HexData"
+                        },
+                        "currentDifficulty": {
+                            "$ref": "#/definitions/ConfusedHexType"
+                        },
+                        "currentGasLimit": {
+                            "$ref": "#/definitions/ConfusedHexType"
+                        },
+                        "currentNumber": {
+                            "$ref": "#/definitions/ConfusedHexType"
+                        },
+                        "currentTimestamp": {
+                            "$ref": "#/definitions/ConfusedHexType"
+                        }
+                    },
+                    "required": [
+                        "currentCoinbase",
+                        "currentDifficulty",
+                        "currentGasLimit",
+                        "currentNumber",
+                        "currentTimestamp"
+                    ],
+                    "type": "object"
+                },
+                "exec": {
+                    "additionalproperties": false,
+                    "properties": {
+                        "address": {
+                            "$ref": "#/definitions/AddressMaybePrefixOrEmpty"
+                        },
+                        "caller": {
+                            "$ref": "#/definitions/AddressMaybePrefixOrEmpty"
+                        },
+                        "code": {
+                            "$ref": "#/definitions/HexMaybePrefixOrEmpty"
+                        },
+                        "data": {
+                            "$ref": "#/definitions/HexDataOrEmpty"
+                        },
+                        "gas": {
+                            "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                        },
+                        "gasPrice": {
+                            "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                        },
+                        "origin": {
+                            "$ref": "#/definitions/AddressMaybePrefixOrEmpty"
+                        },
+                        "value": {
+                            "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                        }
+                    },
+                    "required": [
+                        "address",
+                        "caller",
+                        "code",
+                        "data",
+                        "gas",
+                        "gasPrice",
+                        "origin",
+                        "value"
+                    ]
+                },
+                "gas": {
+                    "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                },
+                "logs": {
+                    "$ref": "#/definitions/HexDataOrEmpty"
+                },
+                "out": {
+                    "$ref": "#/definitions/HexDataOrEmpty"
+                },
+                "post": {
+                    "additionalProperties": false,
+                    "patternProperties": {
+                        "^0x[0-9a-f]*": {
+                            "$ref": "#/definitions/PreStateAccount",
+                            "description": "poststate account address with 0x prefix"
+                        }
+                    },
+                    "type": "object"
+                },
+                "pre": {
+                    "additionalProperties": false,
+                    "patternProperties": {
+                        "^0x[0-9a-f]*": {
+                            "$ref": "#/definitions/PreStateAccount",
+                            "description": "prestate account address with 0x prefix"
+                        }
+                    },
+                    "type": "object"
+                }
+            },
+            "type": "object"
+        }
+    },
+    "type": "object"
+}

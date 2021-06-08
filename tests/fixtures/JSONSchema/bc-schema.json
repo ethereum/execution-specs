@@ -1,0 +1,334 @@
+{
+    "definitions": {
+        "BadHexData": {
+            "pattern": "^0x[0-9a-zA-Z]*$",
+            "type": "string"
+        },
+        "Block": {
+            "additionalProperties": false,
+            "properties": {
+                "blockHeader": {
+                    "$ref": "#/definitions/BlockHeader"
+                },
+                "blocknumber": {
+                    "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                },
+                "chainname": {
+                    "type": "string"
+                },
+                "chainnetwork": {
+                    "type": "string"
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "expectException": {
+                    "type": "string"
+                },
+                "expectExceptionALL": {
+                    "type": "string"
+                },
+                "expectExceptionByzantium": {
+                    "type": "string"
+                },
+                "expectExceptionConstantinople": {
+                    "type": "string"
+                },
+                "expectExceptionConstantinopleFix": {
+                    "type": "string"
+                },
+                "expectExceptionEIP150": {
+                    "type": "string"
+                },
+                "expectExceptionEIP158": {
+                    "type": "string"
+                },
+                "expectExceptionFrontier": {
+                    "type": "string"
+                },
+                "expectExceptionHomestead": {
+                    "type": "string"
+                },
+                "expectExceptionIstanbul": {
+                    "type": "string"
+                },
+                "rlp": {
+                    "$ref": "#/definitions/BadHexData"
+                },
+                "transactions": {
+                    "items": {
+                        "$ref": "#/definitions/Transaction"
+                    },
+                    "type": "array"
+                },
+                "uncleHeaders": {
+                    "type": "array"
+                }
+            },
+            "type": "object"
+        },
+        "BlockHeader": {
+            "properties": {
+                "bloom": {
+                    "$ref": "#/definitions/HexData"
+                },
+                "coinbase": {
+                    "$ref": "#/definitions/AddressMaybePrefixOrEmpty"
+                },
+                "difficulty": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "extraData": {
+                    "$ref": "#/definitions/HexMaybePrefixOrEmpty"
+                },
+                "gasLimit": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "gasUsed": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "hash": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "mixHash": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "nonce": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "number": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "parentHash": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "receiptTrie": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "stateRoot": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "timestamp": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "transactionsTrie": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "uncleHash": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                }
+            }
+        },
+        "NullSenderTransaction": {
+            "additionalProperties": true,
+            "not": {
+                "required": [
+                    "secretKey"
+                ]
+            },
+            "properties": {
+                "data": {
+                    "items": {
+                        "$ref": "#/definitions/HexMaybePrefixOrEmpty"
+                    },
+                    "type": "array"
+                },
+                "gasLimit": {
+                    "items": {
+                        "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                    },
+                    "type": "array"
+                },
+                "gasPrice": {
+                    "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                },
+                "nonce": {
+                    "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                },
+                "r": {
+                    "$ref": "#/definitions/TxSigR"
+                },
+                "s": {
+                    "$ref": "#/definitions/TxSigS"
+                },
+                "to": {
+                    "$ref": "#/definitions/AddressMaybePrefixOrEmpty"
+                },
+                "v": {
+                    "$ref": "#/definitions/TxSigV"
+                },
+                "value": {
+                    "items": {
+                        "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "data",
+                "gasLimit",
+                "gasPrice",
+                "nonce",
+                "r",
+                "s",
+                "v",
+                "to",
+                "value"
+            ],
+            "type": "object"
+        },
+        "PreStateAccount": {
+            "additionalproperties": true,
+            "properties": {
+                "balance": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "code": {
+                    "$ref": "#/definitions/HexMaybePrefixOrEmpty"
+                },
+                "nonce": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "storage": {
+                    "additionalProperties": false,
+                    "patternProperties": {
+                        "^0x[0-9a-f]*": {
+                            "$ref": "#/definitions/HexData",
+                            "description": "storage key with 0x. data is HexData"
+                        }
+                    },
+                    "type": "object"
+                }
+            },
+            "required": [
+                "balance",
+                "code",
+                "nonce"
+            ],
+            "type": "object"
+        },
+	"sealEngine": {
+	    "$ref": "#/definitions/SealEngineType"
+	},
+        "Transaction": {
+            "additionalProperties": true,
+            "not": {
+                "required": [
+                    "r, s, v"
+                ]
+            },
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/HexDataOrEmpty"
+                },
+                "gasLimit": {
+                    "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                },
+                "gasPrice": {
+                    "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                },
+                "nonce": {
+                    "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                },
+                "secretKey": {
+                    "$ref": "#/definitions/HexMaybePrefix"
+                },
+                "to": {
+                    "$ref": "#/definitions/AddressMaybePrefixOrEmpty"
+                },
+                "value": {
+                    "$ref": "#/definitions/IntegerOrEmptyOrConfusedHex"
+                }
+            },
+            "required": [
+                "data",
+                "gasLimit",
+                "gasPrice",
+                "nonce",
+                "to",
+                "value"
+            ],
+            "type": "object"
+        },
+        "TxSigR": {
+            "oneOf": [
+                {
+                    "enum": [
+                        "0x00"
+                    ]
+                }
+            ]
+        },
+        "TxSigS": {
+            "oneOf": [
+                {
+                    "enum": [
+                        "0x00"
+                    ]
+                }
+            ]
+        },
+        "TxSigV": {
+            "description": "a value of 0 is an invalid chainId, but used in a test case",
+            "oneOf": [
+                {
+                    "enum": [
+                        "0x00",
+                        "0x01"
+                    ]
+                }
+            ]
+        }
+    },
+    "patternProperties": {
+        "^.*$": {
+            "properties": {
+                "_info": {
+                    "$ref": "#/definitions/Info"
+                },
+                "blocks": {
+                    "items": {
+                        "$ref": "#/definitions/Block"
+                    },
+                    "type": "array"
+                },
+                "genesisBlockHeader": {
+                    "$ref": "#/definitions/BlockHeader"
+                },
+                "genesisRLP": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "postStateHash": {
+                    "$ref": "#/definitions/ConfusedHexType"
+                },
+                "postState": {
+                    "patternProperties": {
+                        "^0x[0-9a-f]*": {
+                            "$ref": "#/definitions/PreStateAccount",
+                            "description": "poststate account address with 0x prefix"
+                        }
+                    }
+                },
+                "pre": {
+                    "patternProperties": {
+                        "^0x[0-9a-f]*": {
+                            "$ref": "#/definitions/PreStateAccount",
+                            "description": "prestate account address with 0x prefix"
+                        }
+                    }
+                },
+		"sealEngine": {
+		    "$ref": "#/definitions/SealEngineType"
+		}
+            },
+            "required": [
+                "pre",
+                "network",
+                "lastblockhash",
+                "blocks",
+                "genesisBlockHeader"
+            ],
+            "type": "object"
+        }
+    }
+}

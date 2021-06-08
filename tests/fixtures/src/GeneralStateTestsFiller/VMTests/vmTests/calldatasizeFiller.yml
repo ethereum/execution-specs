@@ -1,0 +1,173 @@
+calldatasize:
+
+  # Run CALLDATASIZE with various call data sizes
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000000100:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+           [[0]] (calldatasize)
+        }
+      nonce: '0'
+      storage: {}
+
+      
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            ; Use the second parameter to decide what data to send
+            [0] (sha3 0 $36)
+
+            ; Call 0x100 with whatever value we got as a 
+            ; parameter
+            (call 0xffffff 0x100 0 0 $4 0 0)
+        }
+      nonce: '0'
+      storage: {}
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+# The transaction to check
+  transaction:
+    data:
+    - :label data1_2    :abi f(uint,uint) 0x02 1
+    - :label data1_11   :abi f(uint,uint) 0x11 1
+    - :label data1_21   :abi f(uint,uint) 0x21 1
+    - :label data1_31   :abi f(uint,uint) 0x31 1
+    - :label data1_101  :abi f(uint,uint) 0x0101 1
+    - :label data2_2    :abi f(uint,uint) 0x02 2
+    - :label data2_11   :abi f(uint,uint) 0x11 2
+    - :label data2_21   :abi f(uint,uint) 0x21 2
+    - :label data2_31   :abi f(uint,uint) 0x31 2
+    - :label data2_101  :abi f(uint,uint) 0x0101 2
+    - :label data3_2    :abi f(uint,uint) 0x02 3
+    - :label data3_11   :abi f(uint,uint) 0x11 3
+    - :label data3_21   :abi f(uint,uint) 0x21 3
+    - :label data3_31   :abi f(uint,uint) 0x31 3
+    - :label data3_101  :abi f(uint,uint) 0x0101 3
+    - :label data4_2    :abi f(uint,uint) 0x02 4
+    - :label data4_11   :abi f(uint,uint) 0x11 4
+    - :label data4_21   :abi f(uint,uint) 0x21 4
+    - :label data4_31   :abi f(uint,uint) 0x31 4
+    - :label data4_101  :abi f(uint,uint) 0x0101 4
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+    
+    
+  expect:
+    - indexes:
+        data:
+        - :label data1_2
+        - :label data2_2
+        - :label data3_2
+        - :label data4_2
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000100:
+          storage:
+            # Just the length, the data is irrelevant
+            0: 0x02
+
+
+
+    - indexes:
+        data:
+        - :label data1_11
+        - :label data2_11
+        - :label data3_11
+        - :label data4_11
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000100:
+          storage:
+            # Just the length, the data is irrelevant
+            0: 0x11
+
+
+
+
+    - indexes:
+        data:
+        - :label data1_21
+        - :label data2_21
+        - :label data3_21
+        - :label data4_21
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000100:
+          storage:
+            # Just the length, the data is irrelevant
+            0: 0x21
+
+
+
+
+    - indexes:
+        data:
+        - :label data1_31
+        - :label data2_31
+        - :label data3_31
+        - :label data4_31
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000100:
+          storage:
+            # Just the length, the data is irrelevant
+            0: 0x31
+
+
+
+    - indexes:
+        data:
+        - :label data1_101
+        - :label data2_101
+        - :label data3_101
+        - :label data4_101
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+        0000000000000000000000000000000000000100:
+          storage:
+            # Just the length, the data is irrelevant
+            0: 0x0101
+

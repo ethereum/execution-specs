@@ -1,0 +1,199 @@
+log0:
+
+  env:
+    currentCoinbase: 2adc25665018aa1fe0e6bc666dac8fc2697ff9ba
+    currentDifficulty: 0x20000
+    currentGasLimit: 100000000
+    currentNumber: 1
+    currentTimestamp: 1000
+    previousHash: 5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6
+
+  _info:
+    comment: Ori Pomerantz qbzzt1@gmail.com
+
+  pre:
+
+    0000000000000000000000000000000000000100:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {   ; emptyMem
+            (log0 0 0)
+
+            [[0]] 0x600D
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000000101:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {      ; memStartTooHigh
+           [0]   0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd
+           (log0 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 1)
+           [[0]] 0x600D
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000000102:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {        ; memSizeTooHigh
+           [0] 0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd
+           (log0 1 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff) 
+           [[0]] 0x600D
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000000103:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {        ; memSizeZero
+           [0] 0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd
+           (log0 1 0)
+           [[0]] 0x600D
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    0000000000000000000000000000000000000104:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {        ; nonEmptyMem
+           [0] 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff 
+           (log0 0 32) 
+           [[0]] 0x600D
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000000105:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {        ; log_0_1
+           [0] 0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd
+           (log0 0 1)
+           [[0]] 0x600D
+        }
+      nonce: '0'
+      storage: {}
+
+
+    0000000000000000000000000000000000000106:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {        ; log_31_1
+           [0] 0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd
+           (log0 31 1)
+           [[0]] 0x600D
+        }
+      nonce: '0'
+      storage: {}
+
+
+    000000000000000000000000000000000000010a:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {        ; logTwice
+           [0] 0xaabbffffffffffffffffffffffffffffffffffffffffffffffffffffffffccdd
+           (log0 0 32) 
+           (log0 2 16)
+           [[0]] 0x600D
+        }
+      nonce: '0'
+      storage: {}
+
+
+
+    cccccccccccccccccccccccccccccccccccccccc:
+      balance: '0x0ba1a9ce0ba1a9ce'
+      code: |
+        {  
+            (delegatecall (gas) (+ 0x100 $4) 0 0 0 0)
+        }
+      nonce: '0'
+      storage:
+        0: 0x0BAD
+
+
+    a94f5374fce5edbc8e2a8697c15331677e6ebf0b:
+      balance: 0x100000000000
+      code: '0x'
+      nonce: '0'
+      storage: {}
+      
+
+
+
+  transaction:
+    data:
+    - :label emptyMem         :abi f(uint) 0
+    - :label memStartTooHigh  :abi f(uint) 1
+    - :label memSizeTooHigh   :abi f(uint) 2
+    - :label memSizeZero      :abi f(uint) 3
+    - :label nonEmptyMem      :abi f(uint) 4
+    - :label log_0_1          :abi f(uint) 5
+    - :label log_31_1         :abi f(uint) 6
+    - :label logTwice         :abi f(uint) 10
+
+    gasLimit:
+    - '80000000'
+    gasPrice: '10'
+    nonce: '0'
+    to: cccccccccccccccccccccccccccccccccccccccc
+    value:
+    - '1'
+    secretKey: "45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
+
+  # Log tests do two things that are visible to retesteth:
+  # 
+  # 1. Cost gas
+  # 2. Abort or don't above the contract call
+  #
+  # This test checks the second one by having an SSTORE that either happens
+  # (success) or not (failure) 
+  expect:
+
+
+  # All the successes
+    - indexes:
+        data: 
+        - :label emptyMem
+        - :label memSizeZero
+        - :label nonEmptyMem
+        - :label log_0_1
+        - :label log_31_1
+        - :label logTwice
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+         CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+           storage:
+             0: 0x600D
+
+
+
+  # All the failures
+    - indexes:
+        data: 
+        - :label memStartTooHigh
+        - :label memSizeTooHigh
+        gas:  !!int -1
+        value: !!int -1
+      network:
+        - '>=Istanbul'
+      result:
+         CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC:
+           storage:
+             0: 0x0BAD
+
