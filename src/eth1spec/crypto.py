@@ -6,7 +6,8 @@ Cryptographic Functions
 import coincurve
 import sha3
 
-from .eth_types import Bytes, Hash32, Hash64, Uint
+from .eth_types import Bytes, Hash32, Hash64
+from .number import Uint
 
 
 def keccak256(buffer: Bytes) -> Hash32:

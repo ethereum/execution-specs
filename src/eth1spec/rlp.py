@@ -7,7 +7,8 @@ from __future__ import annotations
 
 from typing import List, Sequence, Tuple, Union
 
-from .eth_types import Bytes, Uint
+from .eth_types import Bytes
+from .number import Uint
 
 verbose = False
 debug = False

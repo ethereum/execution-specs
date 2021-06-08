@@ -4,9 +4,8 @@ import argparse
 import json
 
 from . import spec, trie
-from .eth_types import Address, Uint
-
-# sys.setrecursionlimit(10000)
+from .eth_types import Address
+from .number import Uint
 
 
 def main() -> None:
