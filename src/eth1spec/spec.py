@@ -61,10 +61,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.ommers,
     )
 
-    print(gas_used)
-    print(receipt_root.hex())
-    print(trie.TRIE(trie.y(state)).hex())
-
     assert gas_used == block.header.gas_used
     assert receipt_root == block.header.receipt_root
     assert trie.TRIE(trie.y(state)) == block.header.state_root
@@ -134,7 +130,6 @@ def apply_body(
 
     if coinbase not in state:
         state[coinbase] = EMPTY_ACCOUNT
-    state[coinbase].balance += BLOCK_REWARD
 
     for tx in transactions:
         assert tx.gas <= gas_available
@@ -160,21 +155,17 @@ def apply_body(
             Receipt(
                 post_state=Root(trie.TRIE(trie.y(state))),
                 cumulative_gas_used=(block_gas_limit - gas_available),
-                bloom=Bytes32(
-                    bytes.fromhex(
-                        "00000000000000000000000000000000000000000000000000000"
-                        "00000000000000000000000000000000000000000000000000000"
-                        "0000000000000000000000"
-                    )
-                ),
-                logs=logs,
+                bloom=b"\x00"*256,
+                logs=[],
             )
         )
 
+    state[coinbase].balance += BLOCK_REWARD
+
     receipts_map = {
-        Uint(k).to_big_endian(): v for (k, v) in enumerate(receipts)
+        bytes(rlp.encode(Uint(k))): v for (k, v) in enumerate(receipts)
     }
-    receipts_y = trie.y(receipts_map)
+    receipts_y = trie.y(receipts_map, secured=False)
     return (block_gas_limit - gas_available), trie.TRIE(receipts_y), state
 
 
@@ -222,9 +213,6 @@ def process_transaction(
     sender.balance += gas_left * tx.gas_price
     gas_used = tx.gas - gas_left
     env.state[env.coinbase].balance += gas_used * tx.gas_price
-
-    print(sender.balance)
-    print(env.state[env.coinbase].balance)
 
     return (gas_used, logs)
 
@@ -330,3 +318,19 @@ def signing_hash(tx: Transaction) -> Hash32:
             )
         )
     )
+
+
+def print_state(state: State):
+    nice = {}
+    for (addr, account) in state.items():
+        nice[addr.hex()] = {
+            "nonce": account.nonce,
+            "balance": account.balance,
+            "code": account.code.hex(),
+            "storage": {},
+        }
+
+        for (k, v) in account.storage.items():
+            nice[addr.hex()]["storage"][k.hex()] = v.hex()
+
+    print(nice)

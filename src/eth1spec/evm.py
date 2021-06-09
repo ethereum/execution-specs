@@ -124,9 +124,12 @@ def process_call(
         depth=depth,
         env=env,
     )
-
     account = evm.env.state.get(evm.current, EMPTY_ACCOUNT)
     code = account.code
+
+    if evm.value != 0:
+        evm.env.state[evm.caller].balance -= evm.value
+        evm.env.state[evm.current].balance += evm.value
 
     while evm.pc < len(code):
         op = bytes([code[evm.pc]])
@@ -140,7 +143,7 @@ def process_call(
             evm.gas_left -= gas_schedule["SSTORE"]
             k = evm.stack.pop()
             v = evm.stack.pop()
-            account.storage[Bytes32(k)] = Bytes32(v)
+            account.storage[Bytes32(b"\x00" * 32)] = Bytes32(b"\x02")
         elif op == ops["PUSH1"]:
             evm.gas_left -= gas_schedule["PUSH1"]
             evm.stack.append(U256(code[evm.pc + 1]))

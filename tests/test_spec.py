@@ -2,7 +2,14 @@ import json
 import os
 from typing import Any, List
 
-from eth1spec.eth_types import Account, Block, Header, State, Transaction
+from eth1spec.eth_types import (
+    Account,
+    Block,
+    Bytes32,
+    Header,
+    State,
+    Transaction,
+)
 from eth1spec.spec import BlockChain, state_transition
 
 from .helpers import (
@@ -110,8 +117,12 @@ def json_to_state(raw: Any) -> State:
             nonce=hex2uint(vals.get("nonce", "0x0")),
             balance=hex2uint(vals.get("balance", "0x0")),
             code=hex2bytes(vals.get("code", "")),
-            storage={},  # TODO: support storage
+            storage={},
         )
+
+        # TODO: Load storage from json (be sure to strip leading 0s of value)
+        #  for (k, v) in vals.get("storage", {}).items():
+        #      account.storage[hex2bytes32(k)] = b"\x02"  # hex2bytes32(v)
 
         state[hex2address(addr)] = account
 

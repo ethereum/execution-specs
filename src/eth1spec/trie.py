@@ -97,7 +97,7 @@ def HP_inverse(buffer: Bytes) -> Tuple[str, bool]:
 T = TypeVar("T")
 
 
-def y(J: Mapping[Bytes, T]) -> Mapping[Bytes64, T]:
+def y(J: Mapping[Bytes, T], secured=True) -> Mapping[Bytes64, T]:
     """
     TODO
 
@@ -112,15 +112,19 @@ def y(J: Mapping[Bytes, T]) -> Mapping[Bytes64, T]:
     """
     yJ = {}
     for kn in J:
-        kn_ = crypto.keccak256(kn)
+        kn_ = kn
+        if secured:
+            kn_ = crypto.keccak256(kn)
         knprime = bytearray(2 * len(kn_))
         for i in range(2 * len(kn_)):
             if i % 2 == 0:  # even
                 knprime[i] = kn_[i // 2] // 16
             else:
                 knprime[i] = kn_[i // 2] % 16
-        # print(kn.hex(),kn_.hex(),knprime.hex())
+        #  print(kn.hex(),kn_.hex(),knprime.hex())
         yJ[bytes(knprime)] = J[kn]
+
+    #  print(yJ)
     return yJ
 
 
@@ -139,7 +143,7 @@ def TRIE(J: Mapping[Bytes, Union[Account, Bytes, Receipt]]) -> Root:
         TODO
     """
     cJ0 = c(J, Uint(0))
-    # print("cJ0",cJ0.hex())
+    #  print("cJ0",cJ0.hex())
     return crypto.keccak256(cJ0)
 
 
@@ -189,8 +193,8 @@ def c(J: Mapping[Bytes, Union[Bytes, Account, Receipt]], i: Uint) -> Bytes:
     value : `eth1spec.eth_types.Bytes`
         TODO
     """
-    # print("c(",J,i,")")
-    # print("c(",i,")")
+    #  print("c(", J, i, ")")
+    #  print("c(", i, ")")
 
     if len(J) == 0:
         # note: empty storage tree has merkle root:
@@ -223,6 +227,7 @@ def c(J: Mapping[Bytes, Union[Bytes, Account, Receipt]], i: Uint) -> Bytes:
                     crypto.keccak256(leaf.code),
                 )
             )
+
         elif isinstance(leaf, Receipt):
             I_1 = rlp.encode(
                 (
@@ -233,12 +238,10 @@ def c(J: Mapping[Bytes, Union[Bytes, Account, Receipt]], i: Uint) -> Bytes:
                 )
             )
         else:
-            # I_1 = leaf
-            I_1 = rlp.encode(leaf)
+            I_1 = leaf
             #  print("c() leaf", I_0.hex(), I_1.hex())
-        # print(I_1.hex())
         value = rlp.encode((HP(I_0[i:], 1), I_1))
-        # print("leaf rlp",rlp.hex(),crypto.keccak256(rlp).hex())
+        #  print("leaf rlp", value.hex(), crypto.keccak256(value).hex())
         return value
 
     # prepare for extension node check by finding max j such that all keys I in
