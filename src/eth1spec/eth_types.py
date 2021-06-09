@@ -21,7 +21,7 @@ Hash64 = Bytes64
 Address = Bytes20
 U256 = Uint
 
-Storage = Dict[Bytes32, Bytes32]
+Storage = Dict[Bytes32, U256]
 Bloom = Bytes32
 
 TX_BASE_COST = 21000

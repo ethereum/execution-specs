@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 from . import crypto, evm, rlp, trie
+from .evm.interpreter import process_call
 from .eth_types import (
     EMPTY_ACCOUNT,
     TX_BASE_COST,
@@ -205,7 +206,7 @@ def process_transaction(
     if tx.to is None:
         raise NotImplementedError()  # TODO
 
-    gas_left, logs = evm.process_call(
+    gas_left, logs = process_call(
         sender_address, tx.to, tx.data, tx.value, gas, Uint(0), env
     )
 

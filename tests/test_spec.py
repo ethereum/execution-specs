@@ -5,7 +5,6 @@ from typing import Any, List
 from eth1spec.eth_types import (
     Account,
     Block,
-    Bytes32,
     Header,
     State,
     Transaction,
