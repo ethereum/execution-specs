@@ -11,10 +11,14 @@ from typing import List, Tuple
 
 from .eth_types import EMPTY_ACCOUNT, U256, Address, Hash32, Log, State, Uint
 
+ADD = b"\x01"
+PUSH1 = b"\x60"
+SSTORE = b"\x55"
+
 ops = {
-    "ADD": b"\x01",
-    "PUSH1": b"\x60",
-    "SSTORE": b"\x55",
+    "ADD": ADD,
+    "PUSH1": PUSH1,
+    "SSTORE": SSTORE,
 }
 
 
