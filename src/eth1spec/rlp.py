@@ -5,7 +5,7 @@ Recursive Length Prefix (RLP) Encoding
 
 from __future__ import annotations
 
-from typing import List, Sequence, Tuple, Union
+from typing import List, Sequence, Tuple, Union, cast
 
 from .eth_types import Bytes
 from .number import Uint
@@ -38,7 +38,7 @@ def encode(x: RLP) -> Bytes:
     elif isinstance(x, Uint):
         return encode(BE(x))
     elif isinstance(x, Sequence):
-        return R_l(x)
+        return R_l(cast(Sequence[RLP], x))
     else:
         raise TypeError()
 
@@ -96,7 +96,7 @@ def BE(x: Uint) -> Bytes:
 
 
 # list encoding/decoding
-def R_l(x: Sequence) -> Bytes:
+def R_l(x: Sequence[RLP]) -> Bytes:
     """
     Encodes `x`, a list of RLP encodable objects, using RLP.
 
