@@ -18,3 +18,12 @@ class StackOverflowError(Exception):
     """
 
     pass
+
+
+class OutOfGasError(Exception):
+    """
+    Occurs when an operation costs more than the amount of gas left in the
+    frame.
+    """
+
+    pass
