@@ -1,10 +1,11 @@
-#!/bin/sh
+#!/bin/sh 
 
 # Translate BlockchainTests into t8n format.
 #
 # Note: t8n requires that hex values not have leading 0s, so you'll need to
 # trim the manually (for now) :(.
 
+set -euf
 
 if [ "$#" -ne 2 ]; then
     echo "Usage: debug.sh [test_path] [test_name]"
