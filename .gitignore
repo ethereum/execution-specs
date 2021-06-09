@@ -38,3 +38,5 @@ pip-delete-this-directory.txt
 .tox/
 
 /doc/_autosummary
+
+.coverage

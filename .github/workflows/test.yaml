@@ -24,3 +24,9 @@ jobs:
       - name: Run Tox (CPython)
         if: ${{ matrix.python != 'pypy-3.7' }}
         run: tox -e py3
+      - name: Upload coverage to Codecov
+        if: ${{ matrix.python != 'pypy-3.7' }}
+        uses: codecov/codecov-action@v1
+        with:
+          files: .tox/coverage.xml
+          flags: unittests
