@@ -13,7 +13,6 @@ from .eth_types import (
     EMPTY_ACCOUNT,
     U256,
     Address,
-    Bytes32,
     Hash32,
     Log,
     State,
