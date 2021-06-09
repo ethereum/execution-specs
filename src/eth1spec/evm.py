@@ -9,15 +9,7 @@ The abstract computer which runs the code stored in an
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from .eth_types import (
-    EMPTY_ACCOUNT,
-    U256,
-    Address,
-    Hash32,
-    Log,
-    State,
-    Uint,
-)
+from .eth_types import EMPTY_ACCOUNT, U256, Address, Hash32, Log, State, Uint
 
 ops = {
     "ADD": b"\x01",
