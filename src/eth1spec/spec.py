@@ -235,7 +235,8 @@ def verify_transaction(tx: Transaction) -> bool:
 
 def intrinsic_cost(tx: Transaction) -> Uint:
     """
-    Verifies a transaction.
+    Calculates the intrinsic cost of the transaction that is charged before
+    execution is instantiated.
 
     Parameters
     ----------
