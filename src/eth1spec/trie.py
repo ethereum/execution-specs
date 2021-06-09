@@ -97,7 +97,7 @@ def HP_inverse(buffer: Bytes) -> Tuple[str, bool]:
 T = TypeVar("T")
 
 
-def y(J: Mapping[Bytes, T], secured=True) -> Mapping[Bytes64, T]:
+def y(J: Mapping[Bytes, T], secured: bool = True) -> Mapping[Bytes64, T]:
     """
     TODO
 
@@ -105,6 +105,8 @@ def y(J: Mapping[Bytes, T], secured=True) -> Mapping[Bytes64, T]:
     ----------
     J : `Dict[Bytes, Bytes]`
         TODO
+    secured : `bool`
+        Denotes whether the keys should be hashed. Defaults to `true`.
 
     Returns
     -------

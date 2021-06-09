@@ -42,7 +42,7 @@ def hex2u256(x: str) -> U256:
     return U256(int(x, 16))
 
 
-def remove_hex_prefix(x):
+def remove_hex_prefix(x: str) -> str:
     if x.startswith("0x"):
         return x[len("0x") :]
     return x

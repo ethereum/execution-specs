@@ -143,7 +143,9 @@ def process_call(
             evm.gas_left -= gas_schedule["SSTORE"]
             k = evm.stack.pop()
             v = evm.stack.pop()
-            account.storage[Bytes32(b"\x00" * 32)] = Bytes32(b"\x02")
+            account.storage[k.to_bytes(32, "big")] = v.to_bytes(
+                (2 ** v.bit_length() // 8) or 1, "big"
+            )
         elif op == ops["PUSH1"]:
             evm.gas_left -= gas_schedule["PUSH1"]
             evm.stack.append(U256(code[evm.pc + 1]))

@@ -14,7 +14,6 @@ from .eth_types import (
     TX_DATA_COST_PER_ZERO,
     Address,
     Block,
-    Bytes32,
     Hash32,
     Header,
     Log,
@@ -155,7 +154,7 @@ def apply_body(
             Receipt(
                 post_state=Root(trie.TRIE(trie.y(state))),
                 cumulative_gas_used=(block_gas_limit - gas_available),
-                bloom=b"\x00"*256,
+                bloom=b"\x00" * 256,
                 logs=[],
             )
         )
@@ -320,10 +319,18 @@ def signing_hash(tx: Transaction) -> Hash32:
     )
 
 
-def print_state(state: State):
+def print_state(state: State) -> None:
+    """
+    Pretty prints the state.
+
+    Parameters
+    ----------
+    state : `eth1spec.eth_types.State`
+        Ethereum state.
+    """
     nice = {}
-    for (addr, account) in state.items():
-        nice[addr.hex()] = {
+    for (address, account) in state.items():
+        nice[address.hex()] = {
             "nonce": account.nonce,
             "balance": account.balance,
             "code": account.code.hex(),
@@ -331,6 +338,6 @@ def print_state(state: State):
         }
 
         for (k, v) in account.storage.items():
-            nice[addr.hex()]["storage"][k.hex()] = v.hex()
+            nice[address.hex()]["storage"][k.hex()] = v.hex()  # type: ignore
 
     print(nice)
