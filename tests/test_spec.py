@@ -2,13 +2,7 @@ import json
 import os
 from typing import Any, List
 
-from eth1spec.eth_types import (
-    Account,
-    Block,
-    Header,
-    State,
-    Transaction,
-)
+from eth1spec.eth_types import Account, Block, Header, State, Transaction
 from eth1spec.spec import BlockChain, state_transition
 
 from .helpers import (

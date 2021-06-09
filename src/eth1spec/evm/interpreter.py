@@ -10,9 +10,10 @@ A straightforward interpreter that executes EVM code.
 from dataclasses import dataclass
 from typing import List, Tuple
 
+from ..eth_types import EMPTY_ACCOUNT, U256, Address, Hash32, Log, State, Uint
+from . import Environment, Evm
 from .gas import GAS_VERY_LOW
 from .ops import *  # noqa: F403
-from ..eth_types import EMPTY_ACCOUNT, U256, Address, Hash32, Log, State, Uint
 
 
 def process_call(
@@ -71,7 +72,7 @@ def process_call(
         env=env,
     )
 
-    logs = []
+    logs: List[Log] = []
 
     if evm.value != 0:
         evm.env.state[evm.caller].balance -= evm.value

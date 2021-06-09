@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 from . import crypto, evm, rlp, trie
-from .evm.interpreter import process_call
 from .eth_types import (
     EMPTY_ACCOUNT,
     TX_BASE_COST,
@@ -24,6 +23,7 @@ from .eth_types import (
     Transaction,
     Uint,
 )
+from .evm.interpreter import process_call
 
 BLOCK_REWARD = 5 * 10 ** 18
 

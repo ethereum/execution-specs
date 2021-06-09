@@ -130,13 +130,13 @@ def y(J: Mapping[Bytes, T], secured: bool = True) -> Mapping[Bytes64, T]:
     return yJ
 
 
-def TRIE(J: Mapping[Bytes, Union[Account, Bytes, Receipt]]) -> Root:
+def TRIE(J: Mapping[Bytes, Union[Account, Bytes, Receipt, Uint]]) -> Root:
     """
     Computes the root hash of the storage trie.
 
     Parameters
     ----------
-    J : `Mapping[Bytes, Union[Bytes, Account, Receipt]]`
+    J : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint]]`
         TODO
 
     Returns
@@ -149,13 +149,15 @@ def TRIE(J: Mapping[Bytes, Union[Account, Bytes, Receipt]]) -> Root:
     return crypto.keccak256(cJ0)
 
 
-def n(J: Mapping[Bytes, Union[Bytes, Account, Receipt]], i: U256) -> Bytes:
+def n(
+    J: Mapping[Bytes, Union[Bytes, Account, Receipt, Uint]], i: U256
+) -> Bytes:
     """
     Node composition function.
 
     Parameters
     ----------
-    J : `Mapping[Bytes, Union[Bytes, Account, Receipt]]`
+    J : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint]]`
         TODO
     i : `eth1spec.eth_types.U256`
         TODO
@@ -176,7 +178,9 @@ def n(J: Mapping[Bytes, Union[Bytes, Account, Receipt]], i: U256) -> Bytes:
         return crypto.keccak256(cJi)
 
 
-def c(J: Mapping[Bytes, Union[Bytes, Account, Receipt]], i: Uint) -> Bytes:
+def c(
+    J: Mapping[Bytes, Union[Bytes, Account, Receipt, Uint]], i: Uint
+) -> Bytes:
     """
     Structural composition function.
 
@@ -185,7 +189,7 @@ def c(J: Mapping[Bytes, Union[Bytes, Account, Receipt]], i: Uint) -> Bytes:
 
     Parameters
     ----------
-    J : `Mapping[Bytes, Union[Bytes, Account, Receipt]]`
+    J : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint]]`
         TODO
     i : `eth1spec.number.Uint`
         TODO
@@ -220,6 +224,9 @@ def c(J: Mapping[Bytes, Union[Bytes, Account, Receipt]], i: Uint) -> Bytes:
     # if leaf node
     if len(J) == 1:
         leaf = J[I_0]
+
+        I_1: Union[bytes, Uint]
+
         if isinstance(leaf, Account):
             I_1 = rlp.encode(
                 (
@@ -270,12 +277,12 @@ def c(J: Mapping[Bytes, Union[Bytes, Account, Receipt]], i: Uint) -> Bytes:
         return value
 
     # otherwise branch node
-    def u(j: int) -> Bytes:
+    def u(j: int) -> Union[Bytes, Uint]:
         # print("u(",j,")")
         # print([k.hex() for k in J.keys()])
         return n({I_0: I_1 for I_0, I_1 in J.items() if I_0[i] == j}, i + 1)
 
-    v = b""
+    v: Union[bytes, Uint] = b""
     for I_0 in J:
         if len(I_0) == i:
             J_I_0 = J[I_0]
