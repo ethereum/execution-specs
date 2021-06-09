@@ -1,3 +1,4 @@
 [submodule "tests/fixtures"]
 	path = tests/fixtures
 	url = https://github.com/ethereum/tests
+    branch = develop
