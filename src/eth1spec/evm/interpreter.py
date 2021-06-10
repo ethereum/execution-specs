@@ -9,7 +9,7 @@ from typing import List, Tuple
 
 from ..eth_types import Address, Log, Uint
 from . import Environment, Evm
-from .ops import op_to_func
+from .ops import op_implementation
 
 
 def process_call(
@@ -76,7 +76,7 @@ def process_call(
 
     while evm.pc < len(evm.code):
         op = evm.code[evm.pc]
-        op_to_func[op](evm)
+        op_implementation[op](evm)
         evm.pc += 1
 
     return evm.gas_left, logs
