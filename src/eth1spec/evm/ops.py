@@ -1,6 +1,4 @@
-# flake8: noqa 405
-
-from .instructions import *  # noqa 403
+from .instructions import add, push1, sstore
 
 ADD = 0x01
 PUSH1 = 0x60

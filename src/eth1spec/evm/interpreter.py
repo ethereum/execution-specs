@@ -1,5 +1,3 @@
-# flake8: noqa 405
-
 """
 EVM Interpreter
 ------------------------------
@@ -7,13 +5,11 @@ EVM Interpreter
 A straightforward interpreter that executes EVM code.
 """
 
-from dataclasses import dataclass
 from typing import List, Tuple
 
-from ..eth_types import EMPTY_ACCOUNT, U256, Address, Hash32, Log, State, Uint
+from ..eth_types import Address, Log, Uint
 from . import Environment, Evm
-from .gas import GAS_VERY_LOW
-from .ops import *  # noqa: F403
+from .ops import op_to_func
 
 
 def process_call(
