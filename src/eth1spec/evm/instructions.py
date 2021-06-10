@@ -58,7 +58,7 @@ def sstore(evm: Evm) -> None:
     k = pop(evm.stack)
     v = pop(evm.stack)
 
-    evm.env.state[evm.current].storage[k.to_bytes(32, "big")] = v
+    evm.env.state[evm.current].storage[k.to_be_bytes32()] = v
 
 
 def push1(evm: Evm) -> None:
