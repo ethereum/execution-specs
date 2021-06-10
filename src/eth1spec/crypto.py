@@ -6,8 +6,8 @@ Cryptographic Functions
 import coincurve
 import sha3
 
-from .eth_types import Bytes, Hash32, Hash64
-from .number import Uint
+from .base_types import Bytes, Uint
+from .eth_types import Hash32, Hash64
 
 
 def keccak256(buffer: Bytes) -> Hash32:
@@ -50,11 +50,11 @@ def secp256k1_recover(r: Uint, s: Uint, v: Uint, msg_hash: Hash32) -> Bytes:
 
     Parameters
     ----------
-    r : `eth1spec.number.Uint`
+    r : `eth1spec.base_types.Uint`
         TODO
-    s : `eth1spec.number.Uint`
+    s : `eth1spec.base_types.Uint`
         TODO
-    v : `eth1spec.number.Uint`
+    v : `eth1spec.base_types.Uint`
         TODO
     msg_hash : `eth1spec.eth_types.Hash32`
         Hash of the message being recovered.
@@ -64,8 +64,8 @@ def secp256k1_recover(r: Uint, s: Uint, v: Uint, msg_hash: Hash32) -> Bytes:
     public_key : `eth1spec.eth_types.Bytes`
         Recovered public key.
     """
-    r_bytes = r.to_big_endian()
-    s_bytes = s.to_big_endian()
+    r_bytes = r.to_be_bytes()
+    s_bytes = s.to_be_bytes()
 
     signature = bytearray([0] * 65)
     signature[32 - len(r_bytes) : 32] = r_bytes

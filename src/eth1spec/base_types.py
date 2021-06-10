@@ -17,6 +17,24 @@ class Uint(int):
 
     __slots__ = ()
 
+    @classmethod
+    def from_be_bytes(cls: Type, buffer: "Bytes") -> "Uint":
+        """
+        Converts a sequence of bytes into an arbitrarily sized unsigned integer
+        from its big endian representation.
+
+        Parameters
+        ----------
+        buffer : `Bytes`
+            Bytes to decode.
+
+        Returns
+        -------
+        self : `Uint`
+            Unsigned integer decoded from `buffer`.
+        """
+        return cls(int.from_bytes(buffer, "big"))
+
     def __new__(cls: Type, value: int) -> "Uint":
         if not isinstance(value, int):
             raise TypeError()
@@ -195,5 +213,36 @@ class Uint(int):
 
     # TODO: Implement and, or, xor, neg, pos, abs, invert, ...
 
-    def to_big_endian(self) -> bytes:
+    def to_be_bytes32(self) -> "Bytes32":
+        """
+        Converts this arbitrarily sized unsigned integer into its big endian
+        representation with exactly 32 bytes.
+
+        Returns
+        -------
+        big_endian : `Bytes32`
+            Big endian (most significant bits first) representation.
+        """
         return self.to_bytes(32, "big")
+
+    def to_be_bytes(self) -> "Bytes":
+        """
+        Converts this arbitrarily sized unsigned integer into its big endian
+        representation.
+
+        Returns
+        -------
+        big_endian : `Bytes`
+            Big endian (most significant bits first) representation.
+        """
+        bit_length = self.bit_length()
+        byte_length = (bit_length + 7) // 8
+        return self.to_bytes(byte_length, "big")
+
+
+Bytes = bytes
+Bytes64 = Bytes
+Bytes32 = Bytes
+Bytes20 = Bytes
+Bytes8 = Bytes
+U256 = Uint

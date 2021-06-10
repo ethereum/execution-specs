@@ -8,18 +8,12 @@ Types re-used throughout the specification.
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-from .number import Uint
+from .base_types import U256, Bytes, Bytes8, Bytes20, Bytes32, Bytes64, Uint
 
-Bytes = bytes
-Bytes64 = Bytes
-Bytes32 = Bytes
-Bytes20 = Bytes
-Bytes8 = Bytes
-Hash32 = Bytes
-Root = Bytes
-Hash64 = Bytes64
 Address = Bytes20
-U256 = Uint
+Root = Bytes
+Hash32 = Bytes32
+Hash64 = Bytes64
 
 Storage = Dict[Bytes32, U256]
 Bloom = Bytes32

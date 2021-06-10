@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 from . import crypto, evm, rlp, trie
+from .base_types import Uint
 from .eth_types import (
     EMPTY_ACCOUNT,
     TX_BASE_COST,
@@ -21,7 +22,6 @@ from .eth_types import (
     Root,
     State,
     Transaction,
-    Uint,
 )
 from .evm.interpreter import process_call
 
@@ -102,13 +102,13 @@ def apply_body(
         Current account state.
     coinbase : `eth1spec.eth_types.Address`
         Address of account which receives block reward and transaction fees.
-    block_number : `eth1spec.number.Uint`
+    block_number : `eth1spec.base_types.Uint`
         Position of the block within the chain.
-    block_gas_limit : `eth1spec.number.Uint`
+    block_gas_limit : `eth1spec.base_types.Uint`
         Initial amount of gas available for execution in this block.
-    block_time : `eth1spec.number.Uint`
+    block_time : `eth1spec.base_types.Uint`
         Time the block was produced, measured in seconds since the epoch.
-    block_difficulty : `eth1spec.number.Uint`
+    block_difficulty : `eth1spec.base_types.Uint`
         Difficulty of the block.
     transactions : `List[eth1spec.eth_types.Transaction]`
         Transactions included in the block.
@@ -118,7 +118,7 @@ def apply_body(
 
     Returns
     -------
-    gas_available : `eth1spec.number.Uint`
+    gas_available : `eth1spec.base_types.Uint`
         Remaining gas after all transactions have been executed.
     root : `eth1spec.eth_types.Root`
         State root after all transactions have been executed.
@@ -184,7 +184,7 @@ def process_transaction(
 
     Returns
     -------
-    gas_left : `eth1spec.number.Uint`
+    gas_left : `eth1spec.base_types.Uint`
         Remaining gas after execution.
     logs : `List[eth1spec.eth_types.Log]`
         Logs generated during execution.
@@ -246,7 +246,7 @@ def intrinsic_cost(tx: Transaction) -> Uint:
 
     Returns
     -------
-    verified : `eth1spec.number.Uint`
+    verified : `eth1spec.base_types.Uint`
         The intrinsic cost of the transaction.
     """
     data_cost = 0

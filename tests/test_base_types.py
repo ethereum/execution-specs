@@ -1,6 +1,6 @@
 import pytest
 
-from eth1spec.number import Uint
+from eth1spec.base_types import Uint
 
 
 def test_uint_new() -> None:
@@ -407,3 +407,83 @@ def test_uint_ipow_modulo() -> None:
 def test_uint_ipow_modulo_negative() -> None:
     with pytest.raises(ValueError):
         Uint(4).__ipow__(2, -3)
+
+
+def test_uint_to_be_bytes_zero() -> None:
+    encoded = Uint(0).to_be_bytes()
+    assert encoded == bytes([])
+
+
+def test_uint_to_be_bytes_one() -> None:
+    encoded = Uint(1).to_be_bytes()
+    assert encoded == bytes([1])
+
+
+def test_uint_to_be_bytes_is_big_endian() -> None:
+    encoded = Uint(0xABCD).to_be_bytes()
+    assert encoded == bytes([0xAB, 0xCD])
+
+
+def test_uint_to_be_bytes32_zero() -> None:
+    encoded = Uint(0).to_be_bytes32()
+    assert encoded == bytes([0] * 32)
+
+
+def test_uint_to_be_bytes32_one() -> None:
+    encoded = Uint(1).to_be_bytes32()
+    assert encoded == bytes([0] * 31 + [1])
+
+
+def test_uint_to_be_bytes32_max_value() -> None:
+    encoded = Uint(2 ** 256 - 1).to_be_bytes32()
+    assert encoded == bytes(
+        [
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+            0xFF,
+        ]
+    )
+
+
+def test_uint_from_be_bytes_empty() -> None:
+    value = Uint.from_be_bytes(b"")
+    assert value == 0
+
+
+def test_uint_from_be_bytes_one() -> None:
+    value = Uint.from_be_bytes(bytes([1]))
+    assert value == 1
+
+
+def test_uint_from_be_bytes_is_big_endian() -> None:
+    value = Uint.from_be_bytes(bytes([0xAB, 0xCD]))
+    assert value == 0xABCD

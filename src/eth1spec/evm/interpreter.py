@@ -1,6 +1,6 @@
 """
-EVM Interpreter
-------------------------------
+Ethereum Virtual Machine (EVM) Interpreter
+------------------------------------------
 
 A straightforward interpreter that executes EVM code.
 """
@@ -35,13 +35,13 @@ def process_call(
     data : `bytes`
         Array of bytes provided to the code in `target`.
 
-    value : `eth1spec.number.Uint`
+    value : `eth1spec.base_types.Uint`
         Value to be transferred.
 
-    gas : `eth1spec.number.Uint`
+    gas : `eth1spec.base_types.Uint`
         Gas provided for the code in `target`.
 
-    depth : `eth1spec.number.Uint`
+    depth : `eth1spec.base_types.Uint`
         Number of call/contract creation environments on the call stack.
 
     env : `Environment`

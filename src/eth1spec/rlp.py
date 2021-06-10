@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import List, Sequence, Tuple, Union, cast
 
+from .base_types import Uint
 from .eth_types import Bytes
-from .number import Uint
 
 verbose = False
 debug = False
@@ -36,7 +36,7 @@ def encode(x: RLP) -> Bytes:
     if isinstance(x, (bytearray, bytes)):
         return R_b(x)
     elif isinstance(x, Uint):
-        return encode(BE(x))
+        return encode(x.to_be_bytes())
     elif isinstance(x, Sequence):
         return R_l(cast(Sequence[RLP], x))
     else:
@@ -66,33 +66,8 @@ def R_b(x: Bytes) -> Bytes:
     elif len_x < 56:
         return bytearray([128 + len_x]) + x
     else:
-        return bytearray([183 + len(BE(len_x))]) + BE(len_x) + x
-
-
-def BE(x: Uint) -> Bytes:
-    """
-    Converts an arbitrarily sized unsigned integer `x` into its big endian
-    representation.
-
-    Parameters
-    ----------
-    x : `eth1spec.number.Uint`
-        Integer to convert.
-
-    Returns
-    -------
-    big_endian : `eth1spec.eth_types.Bytes`
-        Big endian (most significant bits first) representation of `x`.
-    """
-    if verbose:
-        print("BE(", x, ")")
-    if x == 0:
-        return bytearray([])
-    big_endian = bytearray([])
-    while x > 0:
-        big_endian = bytearray([x % 256]) + big_endian
-        x = x // 256
-    return big_endian
+        big_endian = len_x.to_be_bytes()
+        return bytearray([183 + len(big_endian)]) + big_endian + x
 
 
 # list encoding/decoding
@@ -117,11 +92,8 @@ def R_l(x: Sequence[RLP]) -> Bytes:
     if len_partial_x < 56:
         return bytearray([192 + len_partial_x]) + partial_x
     else:
-        return (
-            bytearray([247 + len(BE(len_partial_x))])
-            + BE(len_partial_x)
-            + partial_x
-        )
+        big_endian = len_partial_x.to_be_bytes()
+        return bytearray([247 + len(big_endian)]) + big_endian + partial_x
 
 
 # for a list, recursively call RLP or RLP_inverse
@@ -198,32 +170,8 @@ def R_b_inverse(b: Bytes) -> Bytes:
         return b[1 : 1 + b[0] - 0x80]
     else:
         length_len = b[0] - 183
-        len_x = BE_inverse(b[1 : length_len + 1])
+        len_x = Uint.from_be_bytes(b[1 : length_len + 1])
         return b[length_len + 1 : length_len + 1 + len_x]
-
-
-def BE_inverse(b: Bytes) -> Uint:
-    """
-    Converts a sequence of bytes into an arbitrarily sized unsigned integer `x`
-    from its big endian representation.
-
-    Parameters
-    ----------
-    b : `eth1spec.eth_types.Bytes`
-        Bytes to decode.
-
-    Returns
-    -------
-    x : `eth1spec.number.Uint`
-        The byte sequence `b`, interpreted as a big endian unsigned integer.
-    """
-    if verbose:
-        print("BE_inverse(", b.hex(), ")")
-    x = 0
-    for n in range(len(b)):
-        # x+=b[n]*2**(len(b)-1-n)
-        x += b[n] * 2 ** (8 * (len(b) - 1 - n))
-    return Uint(x)
 
 
 def R_l_inverse(b: Bytes) -> List[RLP]:
@@ -247,7 +195,7 @@ def R_l_inverse(b: Bytes) -> List[RLP]:
         partial_x = b[1 : 1 + len_partial_x]
     else:
         len_len_partial_x = b[0] - 247
-        len_partial_x = BE_inverse(b[1 : 1 + len_len_partial_x])
+        len_partial_x = Uint.from_be_bytes(b[1 : 1 + len_len_partial_x])
         partial_x = b[
             1 + len_len_partial_x : 1 + len_len_partial_x + len_partial_x
         ]
@@ -299,9 +247,9 @@ def decode_length(b: Bytes) -> Tuple[Uint, Uint]:
 
     Returns
     -------
-    rlp_length : `eth1spec.number.Uint`
+    rlp_length : `eth1spec.base_types.Uint`
         TODO
-    length_length : `eth1spec.number.Uint`
+    length_length : `eth1spec.base_types.Uint`
         TODO
     """
     if verbose:
@@ -317,10 +265,10 @@ def decode_length(b: Bytes) -> Tuple[Uint, Uint]:
         rlp_length = first_rlp_byte - 0x80
     elif first_rlp_byte <= 0xBF:
         length_length = first_rlp_byte - 0xB7
-        rlp_length = BE_inverse(b[1 : 1 + length_length])
+        rlp_length = Uint.from_be_bytes(b[1 : 1 + length_length])
     elif first_rlp_byte <= 0xF7:
         rlp_length = first_rlp_byte - 0xC0
     elif first_rlp_byte <= 0xBF:
         length_length = first_rlp_byte - 0xB7
-        rlp_length = BE_inverse(b[1 : 1 + length_length])
+        rlp_length = Uint.from_be_bytes(b[1 : 1 + length_length])
     return rlp_length, Uint(1 + length_length)

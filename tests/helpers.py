@@ -1,3 +1,4 @@
+from eth1spec.base_types import Uint
 from eth1spec.eth_types import (
     U256,
     Address,
@@ -6,7 +7,6 @@ from eth1spec.eth_types import (
     Bytes32,
     Hash32,
     Root,
-    Uint,
 )
 
 

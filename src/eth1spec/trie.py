@@ -9,7 +9,8 @@ The state trie is the structure responsible for storing
 from typing import Mapping, Tuple, TypeVar, Union
 
 from . import crypto, rlp
-from .eth_types import U256, Account, Bytes, Bytes64, Receipt, Root, Uint
+from .base_types import U256, Bytes, Bytes64, Uint
+from .eth_types import Account, Receipt, Root
 
 debug = False
 verbose = False
@@ -191,7 +192,7 @@ def c(
     ----------
     J : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint]]`
         TODO
-    i : `eth1spec.number.Uint`
+    i : `eth1spec.base_types.Uint`
         TODO
 
     Returns
