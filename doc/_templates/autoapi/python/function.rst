@@ -25,7 +25,6 @@
 {% set module_name = obj.obj.full_name[:-suffix] %}
 {% set module = obj.app.env.autoapi_objects[module_name] %}
 
-.. literalinclude:: ../../../../src/{{ module.obj.relative_path }}
+.. literalinclude:: /../src/{{ module.obj.relative_path }}
    :language: {{ module.language }}
    :lines: {{ obj.obj.from_line_no }}-{{ obj.obj.to_line_no }}
-
