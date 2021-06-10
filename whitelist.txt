@@ -48,6 +48,8 @@ ipow
 pos
 dest
 fromhex
+preimage
+substring
 
 elle
 knprime

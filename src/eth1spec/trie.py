@@ -13,206 +13,172 @@ The state trie is the structure responsible for storing
 `eth1spec.eth_types.Account` objects.
 """
 
-from typing import Mapping, Tuple, TypeVar, Union
+from copy import copy
+from typing import Mapping, TypeVar, Union, cast
 
 from . import crypto, rlp
-from .base_types import U256, Bytes, Bytes64, Uint
+from .base_types import U256, Bytes, Bytes32, Uint
 from .eth_types import Account, Receipt, Root
 
 debug = False
 verbose = False
 
 
-def HP(x: Bytes, t: Union[bool, int]) -> bytearray:
+def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
     """
-    Hex prefix encoding.
+    Compresses nibble-list into a standard byte array with a flag.
+
+    A nibble-list is a list of byte values no greater than `16`. The flag is
+    encoded in high nibble of the highest byte. The flag nibble can be broken
+    down into two two-bit flags.
+
+    Highest nibble:
+
+    ```
+    +---+---+----------+--------+
+    | _ | _ | terminal | parity |
+    +---+---+----------+--------+
+      3   2      1         0
+
+    ```
+
+    The lowest bit of the nibble encodes the parity of the length of the
+    remaining nibbles -- `0` when even and `1` when odd. The second lowest bit
+    encodes whether the key maps to a terminal node. The other two bits are not
+    used.
 
     Parameters
     ----------
     x : `eth1spec.eth_types.Bytes`
-        Array of values less than 16.
-    t : `Union[bool, int]`
-        Any of `0`, `1`, `False`, or `True`.
+        Array of nibbles.
+    terminal : `bool`
+        Flag denoting if the key points to a terminal (leaf) node.
 
     Returns
     -------
-    encoded : `bytearray`
-        TODO
+    compressed : `bytearray`
+        Compact byte array.
     """
-    if verbose:
-        print("HP(", x, t, ")")
-    # x = bytes([int(d,16) for d in x.hex()])
     encoded = bytearray()
+
     if len(x) % 2 == 0:  # ie even length
-        encoded.append(16 * f(t))
+        encoded.append(16 * (2 * terminal))
         for i in range(0, len(x), 2):
             encoded.append(16 * x[i] + x[i + 1])
     else:
-        encoded.append(16 * (f(t) + 1) + x[0])
+        encoded.append(16 * ((2 * terminal) + 1) + x[0])
         for i in range(1, len(x), 2):
             encoded.append(16 * x[i] + x[i + 1])
-    if debug:
-        print("HP() returning", encoded)
+
     return encoded
-
-
-def f(t: Union[bool, int]) -> int:
-    """
-    Encodes `t` as a bit flag.
-
-    Parameters
-    ----------
-    t : `Union[bool, int]`
-        Arbitrary boolean.
-
-    Returns
-    -------
-    flag : `int`
-        `t` encoded as a bit flag.
-    """
-    if t:
-        return 0b10
-    else:
-        return 0
-
-
-def HP_inverse(buffer: Bytes) -> Tuple[str, bool]:
-    """
-    Hex prefix decoding.
-
-    Parameters
-    ----------
-    buffer : `Bytes`
-        TODO
-
-    Returns
-    -------
-    nibbles : `str`
-        Decoded prefix
-    t : `bool`
-        TODO
-    """
-    nibbles = ""
-    odd_length = (buffer[0] >> 4) % 2 == 1  # sixth lowest bit
-    t = (buffer[0] >> 5) % 2 != 0  # fifth lowest bit
-    if odd_length:
-        nibbles += buffer[0:1].hex()[1]
-    for b in buffer[1:]:
-        nibbles += bytes([b]).hex()
-    return nibbles, t
 
 
 T = TypeVar("T")
 
 
-def y(J: Mapping[Bytes, T], secured: bool = True) -> Mapping[Bytes64, T]:
+def map_keys(
+    obj: Mapping[Bytes, T], secured: bool = True
+) -> Mapping[Bytes32, T]:
     """
-    TODO
+    Maps all compact keys to nibble-list format. Optionally hashes the keys.
 
     Parameters
     ----------
-    J : `Dict[Bytes, Bytes]`
-        TODO
+    obj : `Dict[Bytes, T]`
+        Underlying trie key-value pairs.
     secured : `bool`
         Denotes whether the keys should be hashed. Defaults to `true`.
 
     Returns
     -------
-    TODO
+    out : `Mapping[Bytes, T]`
+        Object with keys mapped to nibble-byte form.
     """
-    yJ = {}
-    for kn in J:
-        kn_ = kn
-        if secured:
-            kn_ = crypto.keccak256(kn)
-        knprime = bytearray(2 * len(kn_))
-        for i in range(2 * len(kn_)):
+    mapped = {}
+    for preimage in obj:
+        # "secure" tries hash keys once before construction
+        key = crypto.keccak256(preimage) if secured else preimage
+
+        nibble_list = bytearray(2 * len(key))
+        for i in range(2 * len(key)):
             if i % 2 == 0:  # even
-                knprime[i] = kn_[i // 2] // 16
+                nibble_list[i] = key[i // 2] // 16
             else:
-                knprime[i] = kn_[i // 2] % 16
-        #  print(kn.hex(),kn_.hex(),knprime.hex())
-        yJ[bytes(knprime)] = J[kn]
+                nibble_list[i] = key[i // 2] % 16
 
-    #  print(yJ)
-    return yJ
+        mapped[bytes(nibble_list)] = obj[preimage]
+
+    return mapped
 
 
-def TRIE(
-    J: Mapping[Bytes, Union[Account, Bytes, Receipt, Uint, U256]]
-) -> Root:
+def root(obj: Mapping[Bytes, Union[Account, Bytes, Receipt, Uint, U256]]) -> Root:
     """
-    Computes the root hash of the storage trie.
+    Computes the root of a modified merkle patricia trie (MPT).
 
     Parameters
     ----------
-    J : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]]`
-        TODO
+    obj : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]]`
+        Underlying trie key-value pairs.
 
     Returns
     -------
     root : `eth1spec.eth_types.Root`
-        TODO
+        MPT root of the underlying key-value pairs.
     """
-    cJ0 = c(J, U256(0))
-    #  print("cJ0",cJ0.hex())
-    return crypto.keccak256(cJ0)
+    root_node = patricialize(obj, Uint(0))
+    return crypto.keccak256(root_node)
 
 
-def n(
-    J: Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]], i: U256
+def node_cap(
+    obj: Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]], i: U256
 ) -> Bytes:
     """
-    Node composition function.
+    Internal nodes less than 32 bytes in length are represented by themselves
+    directly. Larger nodes are hashed once to cap their size to 32 bytes.
 
     Parameters
     ----------
-    J : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]]`
-        TODO
+    obj : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]]`
+        Underlying trie key-value pairs.
     i : `eth1spec.eth_types.U256`
-        TODO
+        Current trie level.
 
     Returns
     -------
     hash : `eth1spec.eth_types.Hash32`
-        TODO
+        Internal node commitment.
     """
-    # print("n(",i,")")
-    if len(J) == 0:
+    if len(obj) == 0:
         return b""
-    cJi = c(J, i)
-    if len(cJi) < 32:
-        return cJi
-    else:
-        # print("cJi,crypto.keccak256(cJi)",cJi.hex(),crypto.keccak256(cJi).hex())
-        return crypto.keccak256(cJi)
+    node = patricialize(obj, i)
+    if len(node) < 32:
+        return node
+
+    return crypto.keccak256(node)
 
 
-def c(
-    J: Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]], i: U256
+def patricialize(
+    obj: Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]], i: Uint
 ) -> Bytes:
     """
     Structural composition function.
 
-    Used to patricialize and merkleize a dictionary. Includes memoization of
-    the tree structure and hashes.
+    Used to recursively patricialize and merkleize a dictionary. Includes
+    memoization of the tree structure and hashes.
 
     Parameters
     ----------
-    J : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]]`
-        TODO
-    i : `eth1spec.base_types.Uint`
-        TODO
+    obj : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]]`
+        Underlying trie key-value pairs.
+    i : `eth1spec.eth_types.Uint`
+        Current trie level.
 
     Returns
     -------
-    value : `eth1spec.eth_types.Bytes`
-        TODO
+    node : `eth1spec.eth_types.Bytes`
+        Root node of `obj`.
     """
-    #  print("c(", J, i, ")")
-    #  print("c(", i, ")")
-
-    if len(J) == 0:
+    if len(obj) == 0:
         # note: empty storage tree has merkle root:
         #
         #   crypto.keccak256(RLP(b''))
@@ -229,26 +195,24 @@ def c(
 
         return rlp.encode(b"")
 
-    I_0 = next(iter(J))  # get first key, will reuse below
+    key = next(iter(obj))  # get first key, will reuse below
 
     # if leaf node
-    if len(J) == 1:
-        leaf = J[I_0]
-
-        I_1: Union[bytes, Uint, U256]
+    if len(obj) == 1:
+        leaf = obj[key]
+        node: rlp.RLP
 
         if isinstance(leaf, Account):
-            I_1 = rlp.encode(
+            node = rlp.encode(
                 (
                     leaf.nonce,
                     leaf.balance,
-                    TRIE(y(leaf.storage)),
+                    root(map_keys(leaf.storage)),
                     crypto.keccak256(leaf.code),
                 )
             )
-
         elif isinstance(leaf, Receipt):
-            I_1 = rlp.encode(
+            node = rlp.encode(
                 (
                     leaf.post_state,
                     leaf.cumulative_gas_used,
@@ -257,50 +221,45 @@ def c(
                 )
             )
         else:
-            I_1 = leaf
-            #  print("c() leaf", I_0.hex(), I_1.hex())
-        value = rlp.encode((HP(I_0[i:], 1), I_1))
-        #  print("leaf rlp", value.hex(), crypto.keccak256(value).hex())
-        return value
+            node = leaf
 
-    # prepare for extension node check by finding max j such that all keys I in
-    # J have the same I[i:j]
-    elle = I_0[:]
-    j = U256(len(elle))
-    for I_0 in J:
-        j = min(j, U256(len(I_0)))
-        elle = elle[:j]
+        return rlp.encode((nibble_list_to_compact(key[i:], True), node))
+
+    # prepare for extension node check by finding max j such that all keys in
+    # obj have the same key[i:j]
+    substring = copy(key)
+    j = U256(len(substring))
+    for key in obj:
+        j = min(j, U256(len(key)))
+        substring = substring[:j]
         for x in range(i, j):
-            if I_0[x] != elle[x]:
-                j = U256(x)
-                elle = elle[:j]
+            # mismatch -- reduce j to best previous value
+            if key[x] != substring[x]:
+                j = Uint(x)
+                substring = substring[:j]
                 break
+        # finished searching, found another key at the current level
         if i == j:
             break
 
     # if extension node
     if i != j:
-        child = n(J, j)
-        # print("extension,child",I_0[i:j].hex(),child.hex())
-        value = rlp.encode((HP(I_0[i:j], 0), child))
-        # print("extension rlp",rlp.hex(),crypto.keccak256(rlp).hex())
-        return value
+        child = node_cap(obj, j)
+        return rlp.encode((nibble_list_to_compact(key[i:j], False), child))
 
     # otherwise branch node
-    def u(j: int) -> Union[Bytes, Uint, U256]:
-        # print("u(",j,")")
-        # print([k.hex() for k in J.keys()])
-        return n({I_0: I_1 for I_0, I_1 in J.items() if I_0[i] == j}, i + 1)
+    def build_branch(j: int) -> Bytes:
+        return node_cap(
+            {key: value for key, value in obj.items() if key[i] == j}, i + 1
+        )
 
-    v: Union[bytes, Uint, U256] = b""
-    for I_0 in J:
-        if len(I_0) == i:
-            J_I_0 = J[I_0]
-            if isinstance(J_I_0, (Account, Receipt)):
-                raise TypeError()  # TODO: Not sure if this is correct?
-            v = J_I_0
+    value: Bytes = b""
+    for key in obj:
+        if len(key) == i:
+            # shouldn't ever have an account or receipt in an internal node
+            if isinstance(obj[key], (Account, Receipt, Uint)):
+                raise TypeError()
+            value = cast(Bytes, obj[key])
             break
-    # print("v",v)
-    value = rlp.encode([u(k) for k in range(16)] + [v])
-    # print("branch rlp",rlp.hex(),crypto.keccak256(rlp).hex())
-    return value
+
+    return rlp.encode([build_branch(k) for k in range(16)] + [value])

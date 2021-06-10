@@ -72,7 +72,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
 
     assert gas_used == block.header.gas_used
     assert receipt_root == block.header.receipt_root
-    assert trie.TRIE(trie.y(state)) == block.header.state_root
+    assert trie.root(trie.map_keys(state)) == block.header.state_root
 
 
 def verify_header(header: Header) -> bool:
@@ -162,7 +162,7 @@ def apply_body(
 
         receipts.append(
             Receipt(
-                post_state=Root(trie.TRIE(trie.y(state))),
+                post_state=Root(trie.root(trie.map_keys(state))),
                 cumulative_gas_used=(block_gas_limit - gas_available),
                 bloom=b"\x00" * 256,
                 logs=[],
@@ -174,8 +174,8 @@ def apply_body(
     receipts_map = {
         bytes(rlp.encode(Uint(k))): v for (k, v) in enumerate(receipts)
     }
-    receipts_y = trie.y(receipts_map, secured=False)
-    return (block_gas_limit - gas_available), trie.TRIE(receipts_y), state
+    receipts_y = trie.map_keys(receipts_map, secured=False)
+    return (block_gas_limit - gas_available), trie.root(receipts_y), state
 
 
 def process_transaction(
