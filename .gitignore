@@ -29,6 +29,9 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# pycharm
+.idea/
+
 *.manifest
 *.spec
 

@@ -35,6 +35,8 @@ from .eth_types import (
 from .evm.interpreter import process_call
 
 BLOCK_REWARD = 5 * 10 ** 18
+GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
+GAS_LIMIT_MINIMUM = 125000
 
 
 @dataclass
@@ -58,13 +60,14 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block : `eth1spec.eth_types.Block`
         Block to apply to `chain`.
     """
-    #  assert verify_header(block.header)
+    parent_header = get_block_header_by_hash(block.header.parent_hash, chain)
+    assert verify_header(block.header, parent_header)
     gas_used, receipt_root, state = apply_body(
         chain.state,
         block.header.coinbase,
         block.header.number,
         block.header.gas_limit,
-        block.header.time,
+        block.header.timestamp,
         block.header.difficulty,
         block.transactions,
         block.ommers,
@@ -75,7 +78,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     assert trie.root(trie.map_keys(state)) == block.header.state_root
 
 
-def verify_header(header: Header) -> bool:
+def verify_header(header: Header, parent_header: Header) -> bool:
     """
     Verifies a block header.
 
@@ -83,13 +86,25 @@ def verify_header(header: Header) -> bool:
     ----------
     header : `eth1spec.eth_types.Header`
         Header to check for correctness.
+    parent_header: `eth1spec.eth_types.Header`
+        Parent Header of the header to check for correctness
 
     Returns
     -------
     verified : `bool`
         True if the header is correct, False otherwise.
     """
-    raise NotImplementedError()  # TODO
+    # TODO: get rid of the comment below once
+    #  validate_proof_of_work is implemented
+    # assert validate_proof_of_work(header)
+    assert header.difficulty == calculate_block_difficulty(
+        header, parent_header
+    )
+    assert validate_gas_limit(header.gas_limit, parent_header.gas_limit)
+    assert header.timestamp > parent_header.timestamp
+    assert header.number == parent_header.number + 1
+    assert len(header.extra_data) <= 32
+    return True
 
 
 def apply_body(
@@ -331,6 +346,143 @@ def signing_hash(tx: Transaction) -> Hash32:
             )
         )
     )
+
+
+def header_hash(header: Header) -> Hash32:
+    """
+    Computes the hash of a block Header.
+
+    Parameters
+    ----------
+    header : `eth1spec.eth_types.Header`
+        Header of interest.
+
+    Returns
+    -------
+    hash : `eth1spec.eth_types.Hash32`
+        Hash of the Header.
+    """
+    return crypto.keccak256(
+        rlp.encode(
+            (
+                header.parent_hash,
+                header.ommers_hash,
+                header.coinbase,
+                header.state_root,
+                header.transactions_root,
+                header.receipt_root,
+                header.bloom,
+                header.difficulty,
+                header.number,
+                header.gas_limit,
+                header.gas_used,
+                header.timestamp,
+                header.extra_data,
+                header.mix_digest,
+                header.nonce,
+            )
+        )
+    )
+
+
+def get_block_header_by_hash(hash: Hash32, chain: BlockChain) -> Header:
+    """
+    Fetches the block header by searching its hash.
+
+    Parameters
+    ----------
+    hash : `eth1spec.eth_types.Hash32`
+        hash of the header of interest.
+
+    chain : `eth1spec.eth_types.BlockChain`
+        History and current state.
+
+    Returns
+    -------
+    Header : `eth1spec.eth_types.Header`
+        Block header found by its hash.
+    """
+    for block in chain.blocks:
+        if header_hash(block.header) == hash:
+            return block.header
+    else:
+        raise ValueError(f"Could not find Header with hash={hash.hex()}")
+
+
+def validate_proof_of_work(header: Header) -> bool:
+    """
+    Validates the Proof of Work constraints
+
+    Parameters
+    ----------
+    header : `eth1spec.eth_types.Uint`
+        header of interest
+
+    Returns
+    -------
+    verified : `bool`
+        True if Proof of Work constraints are satisfied, False otherwise
+    """
+    # TODO: Implement this method once proof of work
+    #  algorithm is implemented
+    #  https://github.com/quilt/eth1.0-specs/issues/43
+    raise NotImplementedError
+
+
+def validate_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
+    """
+    Validates the gas limit for a block
+
+    Parameters
+    ----------
+    gas_limit : `eth1spec.eth_types.Uint`
+        gas limit of the header of interest
+
+    parent_gas_limit : `eth1spec.eth_types.Uint`
+        gas limit of the porent header of interest
+
+    Returns
+    -------
+    verified : `bool`
+        True if header gas limit constraints are satisfied, False otherwise
+    """
+    max_adjustment_delta = parent_gas_limit // GAS_LIMIT_ADJUSTMENT_FACTOR
+    if gas_limit >= parent_gas_limit + max_adjustment_delta:
+        return False
+    if gas_limit <= parent_gas_limit - max_adjustment_delta:
+        return False
+    if gas_limit < GAS_LIMIT_MINIMUM:
+        return False
+
+    return True
+
+
+def calculate_block_difficulty(header: Header, parent_header: Header) -> Uint:
+    """
+    Computes difficulty of a block using its header and parent header
+    Parameters
+    ----------
+    header: `eth1spec.eth_types.Header`
+        header of interest
+    parent_header: `eth1spec.eth_types.Header`
+        parent header of header of interest
+    Returns
+    ------
+    difficulty: Uint
+        Computed difficulty for a block.
+    """
+    if parent_header.number == 0:
+        return Uint(131072)
+    elif header.timestamp < parent_header.timestamp:
+        return parent_header.difficulty + parent_header.difficulty // Uint(
+            2048
+        )
+    else:  # header.timestamp >= parent_header.timestamp
+        return max(
+            Uint(131072),
+            parent_header.difficulty
+            - (parent_header.difficulty // Uint(2048)),
+        )
 
 
 def print_state(state: State) -> None:
