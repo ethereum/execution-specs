@@ -34,6 +34,9 @@ Code merged into Participating Clients
   - [Baikal](https://github.com/ethereum/eth1.0-specs/blob/master/network-upgrades/client-integration-testnets/baikal.md)
   - [Calaveras](https://github.com/ethereum/eth1.0-specs/blob/master/network-upgrades/client-integration-testnets/calaveras.md)
  - [ ] Fork Blocks
+   - Ropsten: `10499401` (June 24, 2021)
+   - Goerli: `5062605` (June 30, 2021)
+   - Rinkeby: `8897988` (July 7, 2021)
  - [ ] Clients Releases
    - [ ]  Geth
    - [ ]  Besu
