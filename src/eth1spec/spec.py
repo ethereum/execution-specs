@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 from . import crypto, evm, rlp, trie
-from .base_types import Uint
+from .base_types import U256, Uint
 from .eth_types import (
     EMPTY_ACCOUNT,
     TX_BASE_COST,
@@ -88,7 +88,7 @@ def apply_body(
     coinbase: Address,
     block_number: Uint,
     block_gas_limit: Uint,
-    block_time: Uint,
+    block_time: U256,
     block_difficulty: Uint,
     transactions: List[Transaction],
     ommers: List[Header],
@@ -106,7 +106,7 @@ def apply_body(
         Position of the block within the chain.
     block_gas_limit : `eth1spec.base_types.Uint`
         Initial amount of gas available for execution in this block.
-    block_time : `eth1spec.base_types.Uint`
+    block_time : `eth1spec.base_types.U256`
         Time the block was produced, measured in seconds since the epoch.
     block_difficulty : `eth1spec.base_types.Uint`
         Difficulty of the block.
@@ -171,7 +171,7 @@ def apply_body(
 
 def process_transaction(
     env: evm.Environment, tx: Transaction
-) -> Tuple[Uint, List[Log]]:
+) -> Tuple[U256, List[Log]]:
     """
     Execute a transaction against the provided environment.
 
@@ -184,7 +184,7 @@ def process_transaction(
 
     Returns
     -------
-    gas_left : `eth1spec.base_types.Uint`
+    gas_left : `eth1spec.base_types.U256`
         Remaining gas after execution.
     logs : `List[eth1spec.eth_types.Log]`
         Logs generated during execution.

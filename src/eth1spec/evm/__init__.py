@@ -26,8 +26,8 @@ class Environment:
     coinbase: Address
     number: Uint
     gas_limit: Uint
-    gas_price: Uint
-    time: Uint
+    gas_price: U256
+    time: U256
     difficulty: Uint
     state: State
 
@@ -40,10 +40,10 @@ class Evm:
     stack: List[U256]
     memory: bytes
     code: bytes
-    gas_left: Uint
+    gas_left: U256
     current: Address
     caller: Address
     data: bytes
-    value: Uint
+    value: U256
     depth: Uint
     env: Environment

@@ -6,7 +6,7 @@ Cryptographic Functions
 import coincurve
 import sha3
 
-from .base_types import Bytes, Uint
+from .base_types import U256, Bytes
 from .eth_types import Hash32, Hash64
 
 
@@ -44,7 +44,7 @@ def keccak512(buffer: Bytes) -> Hash64:
     return sha3.keccak_512(buffer).digest()
 
 
-def secp256k1_recover(r: Uint, s: Uint, v: Uint, msg_hash: Hash32) -> Bytes:
+def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
     """
     Recovers the public key from a given signature.
 
@@ -64,8 +64,8 @@ def secp256k1_recover(r: Uint, s: Uint, v: Uint, msg_hash: Hash32) -> Bytes:
     public_key : `eth1spec.eth_types.Bytes`
         Recovered public key.
     """
-    r_bytes = r.to_be_bytes()
-    s_bytes = s.to_be_bytes()
+    r_bytes = r.to_be_bytes32()
+    s_bytes = s.to_be_bytes32()
 
     signature = bytearray([0] * 65)
     signature[32 - len(r_bytes) : 32] = r_bytes

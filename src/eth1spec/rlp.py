@@ -7,14 +7,14 @@ from __future__ import annotations
 
 from typing import List, Sequence, Tuple, Union, cast
 
-from .base_types import Uint
+from .base_types import U256, Uint
 from .eth_types import Bytes
 
 verbose = False
 debug = False
 
 
-RLP = Union[Bytes, Uint, Sequence["RLP"]]  # type: ignore
+RLP = Union[Bytes, Uint, U256, Sequence["RLP"]]  # type: ignore
 
 
 def encode(x: RLP) -> Bytes:
@@ -35,7 +35,7 @@ def encode(x: RLP) -> Bytes:
         print("RLP(", x, ")", "type: ", type(x))
     if isinstance(x, (bytearray, bytes)):
         return R_b(x)
-    elif isinstance(x, Uint):
+    elif isinstance(x, (Uint, U256)):
         return encode(x.to_be_bytes())
     elif isinstance(x, Sequence):
         return R_l(cast(Sequence[RLP], x))

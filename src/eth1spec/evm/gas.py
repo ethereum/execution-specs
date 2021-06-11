@@ -1,21 +1,21 @@
 """
 EVM Gas Constants and Calculators
 """
-from ..eth_types import Uint
+from ..base_types import U256
 from .error import OutOfGasError
 
-GAS_VERY_LOW = Uint(3)
+GAS_VERY_LOW = U256(3)
 
 
-def subtract_gas(gas_left: Uint, amount: Uint) -> Uint:
+def subtract_gas(gas_left: U256, amount: U256) -> U256:
     """
     Subtracts `amount` from `gas_left`.
 
     Parameters
     ----------
-    gas_left : `Uint`
+    gas_left : `eth1spec.base_types.U256`
         The amount of gas left in the current frame.
-    amount : `Uint`
+    amount : `eth1spec.base_types.U256`
         The amount of gas the current operation requires.
 
     Raises

@@ -7,7 +7,8 @@ A straightforward interpreter that executes EVM code.
 
 from typing import List, Tuple
 
-from ..eth_types import Address, Log, Uint
+from ..base_types import U256, Uint
+from ..eth_types import Address, Log
 from . import Environment, Evm
 from .ops import op_implementation
 
@@ -16,11 +17,11 @@ def process_call(
     caller: Address,
     target: Address,
     data: bytes,
-    value: Uint,
-    gas: Uint,
+    value: U256,
+    gas: U256,
     depth: Uint,
     env: Environment,
-) -> Tuple[Uint, List[Log]]:
+) -> Tuple[U256, List[Log]]:
     """
     Executes a call from the `caller` to the `target` in a new EVM instance.
 
@@ -49,7 +50,7 @@ def process_call(
 
     Returns
     -------
-    output : `Tuple[Uint, List[eth1spec.eth_types.Log]]`
+    output : `Tuple[U256, List[eth1spec.eth_types.Log]]`
         The tuple `(gas_left, logs)`, where `gas_left` is the remaining gas
         after execution, and logs is the list of `eth1spec.eth_types.Log`
         generated during execution.
