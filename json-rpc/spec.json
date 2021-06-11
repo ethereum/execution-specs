@@ -1215,6 +1215,11 @@
 						"description": "The total gas used by the transaction",
 						"$ref": "#/components/schemas/Integer"
 					},
+					"effectiveGasPrice": {
+						"title": "ReceiptEffectiveGasPrice",
+						"description": "The actual value per gas deducted from the senders account. Before EIP-1559, this is equal to the transaction's gas price. After, it is equal to baseFeePerGas + min(maxFeePerGas - baseFeePerGas, maxPriorityFeePerGas). Legacy transactions and EIP-2930 transactions are coerced into the EIP-1559 format by setting both maxFeePerGas and maxPriorityFeePerGas as the transaction's gas price.",
+						"$ref": "#components/schemas/Integer"
+					},
 					"logs": {
 						"title": "logs",
 						"type": "array",
