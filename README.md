@@ -52,6 +52,18 @@ Running the tests necessary to merge into the repository requires:
 
 These version ranges are necessary because, at the time of writing, PyPy is only compatible with Python 3.7.
 
+`eth1.0-specs` depends on a submodule that contains common tests that are run across all clients, so we need to clone the repo with the --recursive flag. Example:
+```bash
+$ git clone --recursive https://github.com/quilt/eth1.0-specs.git
+```
+
+Or, if you've already cloned the repository, you can fetch the submodules with:
+
+```bash
+$ git submodule update --init --recursive
+```
+
+The tests can be run with:
 ```bash
 $ tox
 ```
