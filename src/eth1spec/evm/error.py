@@ -1,6 +1,15 @@
 """
-EVM Runtime Errors
-------------------
+Ethereum Virtual Machine (EVM) Errors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. contents:: Table of Contents
+    :backlinks: none
+    :local:
+
+Introduction
+------------
+
+Errors which cause the EVM to halt exceptionally.
 """
 
 

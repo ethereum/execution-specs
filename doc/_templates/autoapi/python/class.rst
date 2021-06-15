@@ -1,8 +1,5 @@
 {% if obj.display %}
 
-{{ obj.short_name }}
-{{ '~' * obj.short_name|length }}
-
 {% if obj.docstring %}
 {{ obj.docstring|prepare_docstring }}
 {% endif %}

@@ -1,6 +1,15 @@
 """
 Cryptographic Functions
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
+
+..contents:: Table of Contents
+    :backlinks: none
+    :local:
+
+Introduction
+------------
+
+Cryptographic primatives used in—but not defined by—the Ethereum specification.
 """
 
 import coincurve

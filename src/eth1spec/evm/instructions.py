@@ -1,6 +1,15 @@
 """
-EVM Instructions
-----------------------
+Ethereum Virtual Machine (EVM) Instructions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. contents:: Table of Contents
+    :backlinks: none
+    :local:
+
+Introduction
+------------
+
+Implementations of the instructions understood by the EVM.
 """
 
 

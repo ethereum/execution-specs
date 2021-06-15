@@ -1,5 +1,5 @@
 /* Headings */
-#module-details h3 {
+#package-details h4, #module-details h4 {
     border-bottom: 1px solid #888;
 }
 

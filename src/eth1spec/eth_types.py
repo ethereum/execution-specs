@@ -1,8 +1,15 @@
 """
-Base Types
-----------
+Ethereum Types
+^^^^^^^^^^^^^^
 
-Types re-used throughout the specification.
+.. contents:: Table of Contents
+    :backlinks: none
+    :local:
+
+Introduction
+------------
+
+Types re-used throughout the specification, which are specific to Ethereum.
 """
 
 from dataclasses import dataclass

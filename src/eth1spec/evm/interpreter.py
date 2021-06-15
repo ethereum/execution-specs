@@ -1,6 +1,13 @@
 """
 Ethereum Virtual Machine (EVM) Interpreter
-------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. contents:: Table of Contents
+    :backlinks: none
+    :local:
+
+Introduction
+------------
 
 A straightforward interpreter that executes EVM code.
 """

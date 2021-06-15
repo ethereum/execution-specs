@@ -1,6 +1,17 @@
 """
-EVM Gas Constants and Calculators
+Ethereum Virtual Machine (EVM) Gas
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. contents:: Table of Contents
+    :backlinks: none
+    :local:
+
+Introduction
+------------
+
+EVM gas constants and calculators.
 """
+
 from ..base_types import U256
 from .error import OutOfGasError
 

@@ -1,8 +1,5 @@
 {% if obj.display %}
 
-{{ obj.short_name }}
-{{ '~' * obj.short_name|length }}
-
 {{ obj.summary|prepare_docstring }}
 
 .. function:: {{ obj.short_name }}({{ obj.args }}){% if obj.return_annotation is not none %} -> {{ obj.return_annotation }}{% endif %}

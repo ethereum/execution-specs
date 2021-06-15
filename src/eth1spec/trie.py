@@ -1,6 +1,13 @@
 """
 State Trie
-----------
+^^^^^^^^^^
+
+.. contents:: Table of Contents
+    :backlinks: none
+    :local:
+
+Introduction
+------------
 
 The state trie is the structure responsible for storing
 `eth1spec.eth_types.Account` objects.

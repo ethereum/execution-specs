@@ -1,6 +1,15 @@
 """
 Ethereum Specification
-----------------------
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. contents:: Table of Contents
+    :backlinks: none
+    :local:
+
+Introduction
+------------
+
+Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass

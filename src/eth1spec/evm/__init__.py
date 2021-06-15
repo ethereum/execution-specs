@@ -1,6 +1,13 @@
 """
 Ethereum Virtual Machine (EVM)
-------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. contents:: Table of Contents
+    :backlinks: none
+    :local:
+
+Introduction
+------------
 
 The abstract computer which runs the code stored in an
 `eth1spec.eth_types.Account`.

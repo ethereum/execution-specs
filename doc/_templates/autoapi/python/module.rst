@@ -108,6 +108,12 @@ Attributes
 {{ "-" * obj.type|length }}---------
 {% endif %}
 {% for obj_item in visible_children %}
+{% if obj_item.display %}
+
+{{ obj_item.short_name }}
+{{ '~' * obj_item.short_name|length }}
+
+{% endif %}
 {{ obj_item.render()|indent(0) }}
 {% endfor %}
 {% endif %}

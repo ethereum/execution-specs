@@ -1,6 +1,15 @@
 """
 Numeric & Array Types
----------------------
+^^^^^^^^^^^^^^^^^^^^^
+
+.. contents:: Table of Contents
+    :backlinks: none
+    :local:
+
+Introduction
+------------
+
+Integer and array types which are used by—but not unique to—Ethereum.
 """
 
 # flake8: noqa
