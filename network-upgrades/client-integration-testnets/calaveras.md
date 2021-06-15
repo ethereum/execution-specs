@@ -20,6 +20,8 @@ The specification for the Calaveras Client Integration Tesnet. Clients who wish 
 
 **NetworkId**: `123`
 
+**JSON RPC endpoint:** http://18.224.51.102:8545/
+
 **Genesis File:** 
 
 <details> 
