@@ -45,7 +45,7 @@ Code merged into Participating Clients
 ### Client Releases 
 
  - [ ] Testnets 
-   - [ ]  Geth
+   - [x]  Geth [v1.10.4](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.4)
    - [ ]  Besu
    - [ ]  Nethermind
    - [ ]  OpenEthereum
