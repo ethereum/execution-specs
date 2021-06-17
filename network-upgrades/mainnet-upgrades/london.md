@@ -46,7 +46,7 @@ Code merged into Participating Clients
 
  - [ ] Testnets 
    - [x]  Geth [v1.10.4](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.4)
-   - [x]  Besu [v27.7.0-RC1](https://github.com/hyperledger/besu/releases/tag/21.7.0-RC1)
+   - [x]  Besu [v21.7.0-RC1](https://github.com/hyperledger/besu/releases/tag/21.7.0-RC1)
    - [x]  Nethermind [v1.10.73](https://github.com/NethermindEth/nethermind/releases/tag/1.10.73)
    - [ ]  OpenEthereum 
    - [ ]  Erigon 
