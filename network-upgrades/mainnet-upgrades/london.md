@@ -50,7 +50,7 @@ Code merged into Participating Clients
    - [x]  Nethermind [v1.10.73](https://github.com/NethermindEth/nethermind/releases/tag/1.10.73)
    - [ ]  OpenEthereum 
    - [ ]  Erigon 
-   - [ ]  EthereumJS
+   - [x]  EthereumJS [v5.4.0](https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/%40ethereumjs%2Fvm%405.4.0)
  - [ ]  Mainnet 
    - [ ]  Geth
    - [ ]  Besu
