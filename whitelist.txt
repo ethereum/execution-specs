@@ -7,12 +7,14 @@ Bytes8
 coinbase
 coincurve
 crypto
+encodings
 endian
 eth
 ethereum
 evm
 Hash32
 hasher
+idx
 keccak
 keccak256
 keccak512
