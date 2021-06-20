@@ -1,9 +1,10 @@
 import json
 from typing import Any
 
-from .helpers import sanitize, remove_hex_prefix
 from eth1spec import rlp
 from eth1spec.trie import map_keys, root
+
+from .helpers import remove_hex_prefix, sanitize
 
 
 def test_trie_secure_hex() -> None:
@@ -53,23 +54,22 @@ def test_trie() -> None:
         for t in test.get("in"):
             normalized[sanitize(t[0])] = sanitize(t[1])
 
-        print(name)
         result = root(map_keys(normalized, secured=False))
         expected = remove_hex_prefix(test.get("root"))
         assert result.hex() == expected, f"test {name} failed"
 
 
-#  def test_trie_any_order() -> None:
-#      tests = load_tests("trieanyorder.json")
+def test_trie_any_order() -> None:
+    tests = load_tests("trieanyorder.json")
 
-#      for (name, test) in tests.items():
-#          normalized = {}
-#          for (k, v) in test.get("in").items():
-#              normalized[sanitize(k)] = sanitize(v)
+    for (name, test) in tests.items():
+        normalized = {}
+        for (k, v) in test.get("in").items():
+            normalized[sanitize(k)] = sanitize(v)
 
-#          result = root(map_keys(normalized, secured=False))
-#          expected = remove_hex_prefix(test.get("root"))
-#          assert result.hex() == expected, f"test {name} failed"
+        result = root(map_keys(normalized, secured=False))
+        expected = remove_hex_prefix(test.get("root"))
+        assert result.hex() == expected, f"test {name} failed"
 
 
 def load_tests(path: str) -> Any:

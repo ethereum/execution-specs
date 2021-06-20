@@ -71,9 +71,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     )
 
     assert gas_used == block.header.gas_used
-    print()
-    print(receipt_root.hex())
-    print(block.header.receipt_root.hex())
     assert receipt_root == block.header.receipt_root
     assert trie.root(trie.map_keys(state)) == block.header.state_root
 

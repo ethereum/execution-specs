@@ -14,14 +14,16 @@ The state trie is the structure responsible for storing
 """
 
 from copy import copy
-from typing import Mapping, TypeVar, Sequence, Union, cast
+from typing import Mapping, MutableMapping, TypeVar, Union, cast
 
 from . import crypto, rlp
-from .base_types import U256, Bytes, Bytes32, Uint
+from .base_types import U256, Bytes, Uint
 from .eth_types import Account, Receipt, Root
 
 debug = False
 verbose = False
+
+Node = Union[Account, Bytes, Receipt, Uint, U256]
 
 
 def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
@@ -77,8 +79,8 @@ T = TypeVar("T")
 
 
 def map_keys(
-    obj: Mapping[Bytes, T], secured: bool = True
-) -> Mapping[Bytes32, T]:
+    obj: Mapping[Bytes, Node], secured: bool = True
+) -> Mapping[Bytes, Node]:
     """
     Maps all compact keys to nibble-list format. Optionally hashes the keys.
 
@@ -94,8 +96,8 @@ def map_keys(
     out : `Mapping[Bytes, T]`
         Object with keys mapped to nibble-byte form.
     """
-    mapped = {}
-    skip = {}
+    mapped: MutableMapping[Bytes, Node] = {}
+    skip: MutableMapping[Bytes, bool] = {}
 
     for preimage in obj:
         # "secure" tries hash keys once before construction
@@ -104,7 +106,7 @@ def map_keys(
         if preimage in skip:
             continue
 
-        if obj[preimage] == b"" or obj[preimage] == None:
+        if obj[preimage] == b"" or obj[preimage] is None:
             skip[preimage] = True
             if key in mapped:
                 del mapped[key]
@@ -117,12 +119,12 @@ def map_keys(
             else:
                 nibble_list[i] = key[i // 2] % 16
 
-        mapped[bytes(nibble_list)] = obj[preimage]
+        mapped[Bytes(nibble_list)] = obj[preimage]
 
     return mapped
 
 
-def root(obj: Mapping[Bytes, Union[Account, Bytes, Receipt, Uint, U256]]) -> Root:
+def root(obj: Mapping[Bytes, Node]) -> Root:
     """
     Computes the root of a modified merkle patricia trie (MPT).
 
@@ -140,9 +142,7 @@ def root(obj: Mapping[Bytes, Union[Account, Bytes, Receipt, Uint, U256]]) -> Roo
     return crypto.keccak256(rlp.encode(root_node))
 
 
-def node_cap(
-    obj: Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]], i: U256
-) -> Bytes:
+def node_cap(obj: Mapping[Bytes, Node], i: Uint) -> rlp.RLP:
     """
     Internal nodes less than 32 bytes in length are represented by themselves
     directly. Larger nodes are hashed once to cap their size to 32 bytes.
@@ -169,9 +169,7 @@ def node_cap(
     return crypto.keccak256(encoded)
 
 
-def patricialize(
-    obj: Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]], i: Uint
-) -> Sequence:
+def patricialize(obj: Mapping[Bytes, Node], i: Uint) -> rlp.RLP:
     """
     Structural composition function.
 
@@ -234,16 +232,15 @@ def patricialize(
             )
         else:
             node = leaf
-            value = rlp.encode((nibble_list_to_compact(key[i:], False), node))
 
-        return [nibble_list_to_compact(key[i:], True), node]
+        return (nibble_list_to_compact(key[i:], True), node)
 
     # prepare for extension node check by finding max j such that all keys in
     # obj have the same key[i:j]
     substring = copy(key)
-    j = U256(len(substring))
+    j = Uint(len(substring))
     for key in obj:
-        j = min(j, U256(len(key)))
+        j = min(j, Uint(len(key)))
         substring = substring[:j]
         for x in range(i, j):
             # mismatch -- reduce j to best previous value
@@ -258,10 +255,10 @@ def patricialize(
     # if extension node
     if i != j:
         child = node_cap(obj, j)
-        return [nibble_list_to_compact(key[i:j], False), child]
+        return (nibble_list_to_compact(key[i:j], False), child)
 
     # otherwise branch node
-    def build_branch(j: int) -> Bytes:
+    def build_branch(j: int) -> rlp.RLP:
         branch = {}
         skip = {}
         for (k, v) in obj.items():
@@ -272,9 +269,7 @@ def patricialize(
             if k[i] == j:
                 branch[k] = v
 
-        return node_cap(
-            branch, i + 1
-        )
+        return node_cap(branch, i + 1)
 
     value: Bytes = b""
     for key in obj:
@@ -285,5 +280,4 @@ def patricialize(
             value = cast(Bytes, obj[key])
             break
 
-    print(rlp.encode([build_branch(k) for k in range(16)] + [value]).hex())
     return [build_branch(k) for k in range(16)] + [value]

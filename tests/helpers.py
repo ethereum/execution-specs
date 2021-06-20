@@ -9,12 +9,14 @@ from eth1spec.eth_types import (
     Root,
 )
 
+
 def sanitize(x: str) -> Bytes:
     if x is None:
         return b""
     if has_hex_prefix(x):
         return hex2bytes(x)
     return x.encode()
+
 
 def hex2bytes(x: str) -> Bytes:
     return bytes.fromhex(remove_hex_prefix(x))
@@ -47,9 +49,12 @@ def hex2uint(x: str) -> Uint:
 def hex2u256(x: str) -> U256:
     return U256(int(x, 16))
 
+
 def has_hex_prefix(x: str) -> bool:
     if x.startswith("0x"):
         return True
+    return False
+
 
 def remove_hex_prefix(x: str) -> str:
     if has_hex_prefix(x):
