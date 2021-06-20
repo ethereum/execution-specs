@@ -14,7 +14,7 @@ The state trie is the structure responsible for storing
 """
 
 from copy import copy
-from typing import Mapping, TypeVar, Union, cast
+from typing import Mapping, TypeVar, Sequence, Union, cast
 
 from . import crypto, rlp
 from .base_types import U256, Bytes, Bytes32, Uint
@@ -95,9 +95,20 @@ def map_keys(
         Object with keys mapped to nibble-byte form.
     """
     mapped = {}
+    skip = {}
+
     for preimage in obj:
         # "secure" tries hash keys once before construction
         key = crypto.keccak256(preimage) if secured else preimage
+
+        if preimage in skip:
+            continue
+
+        if obj[preimage] == b"" or obj[preimage] == None:
+            skip[preimage] = True
+            if key in mapped:
+                del mapped[key]
+            continue
 
         nibble_list = bytearray(2 * len(key))
         for i in range(2 * len(key)):
@@ -126,7 +137,7 @@ def root(obj: Mapping[Bytes, Union[Account, Bytes, Receipt, Uint, U256]]) -> Roo
         MPT root of the underlying key-value pairs.
     """
     root_node = patricialize(obj, Uint(0))
-    return crypto.keccak256(root_node)
+    return crypto.keccak256(rlp.encode(root_node))
 
 
 def node_cap(
@@ -151,15 +162,16 @@ def node_cap(
     if len(obj) == 0:
         return b""
     node = patricialize(obj, i)
-    if len(node) < 32:
+    encoded = rlp.encode(node)
+    if len(encoded) < 32:
         return node
 
-    return crypto.keccak256(node)
+    return crypto.keccak256(encoded)
 
 
 def patricialize(
     obj: Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]], i: Uint
-) -> Bytes:
+) -> Sequence:
     """
     Structural composition function.
 
@@ -193,7 +205,7 @@ def patricialize(
         #
         # which is the sha3Uncles hash in block header for no uncles
 
-        return rlp.encode(b"")
+        return b""
 
     key = next(iter(obj))  # get first key, will reuse below
 
@@ -222,8 +234,9 @@ def patricialize(
             )
         else:
             node = leaf
+            value = rlp.encode((nibble_list_to_compact(key[i:], False), node))
 
-        return rlp.encode((nibble_list_to_compact(key[i:], True), node))
+        return [nibble_list_to_compact(key[i:], True), node]
 
     # prepare for extension node check by finding max j such that all keys in
     # obj have the same key[i:j]
@@ -245,12 +258,22 @@ def patricialize(
     # if extension node
     if i != j:
         child = node_cap(obj, j)
-        return rlp.encode((nibble_list_to_compact(key[i:j], False), child))
+        return [nibble_list_to_compact(key[i:j], False), child]
 
     # otherwise branch node
     def build_branch(j: int) -> Bytes:
+        branch = {}
+        skip = {}
+        for (k, v) in obj.items():
+            if len(k) <= i:
+                skip[k] = True
+            if k in skip:
+                continue
+            if k[i] == j:
+                branch[k] = v
+
         return node_cap(
-            {key: value for key, value in obj.items() if key[i] == j}, i + 1
+            branch, i + 1
         )
 
     value: Bytes = b""
@@ -262,4 +285,5 @@ def patricialize(
             value = cast(Bytes, obj[key])
             break
 
-    return rlp.encode([build_branch(k) for k in range(16)] + [value])
+    print(rlp.encode([build_branch(k) for k in range(16)] + [value]).hex())
+    return [build_branch(k) for k in range(16)] + [value]

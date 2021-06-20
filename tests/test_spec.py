@@ -66,8 +66,6 @@ def run_test(path: str) -> None:
 
         state_transition(chain, Block(header, txs, ommers))
 
-    print(chain.blocks)
-
 
 def json_to_header(raw: Any) -> Header:
     return Header(
