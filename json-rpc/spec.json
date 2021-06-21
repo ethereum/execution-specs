@@ -1594,7 +1594,7 @@
 					},
 					"baseFeePerGas": {
 						"title": "baseFeePerGas",
-						"description": "The block's baseline network fee per gas; the baseFee is burned",
+						"description": "The block's baseline network fee per gas; the baseFee is burned. Before London, this field must empty. After London, this field must be set to the block's base fee per gas value.",
 						"$ref": "#/components/schemas/Integer"
 					}
 				}
