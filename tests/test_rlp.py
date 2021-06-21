@@ -64,6 +64,18 @@ def test_rlp_encode_uint(raw_data: Uint, expected_encoded_data: Bytes) -> None:
 
 
 @pytest.mark.parametrize(
+    "raw_data, expected_encoded_data",
+    [
+        ("", b"\x80"),
+        ("h", b"h"),
+        ("hello", b"\x85hello"),
+    ],
+)
+def test_rlp_encode_str(raw_data: str, expected_encoded_data: Bytes) -> None:
+    assert rlp.encode(raw_data) == expected_encoded_data
+
+
+@pytest.mark.parametrize(
     ("raw_data", "expected_encoded_data"),
     [
         # Empty sequence
@@ -131,9 +143,8 @@ def test_rlp_encode_successfully(
 @pytest.mark.parametrize(
     "raw_data",
     [
-        "hello",
         123,
-        [b"hello", Uint(255), [b"how", [b"are", [b"you", ["doing"]]]]],
+        [b"hello", Uint(255), [b"how", [b"are", [b"you", [123]]]]],
     ],
 )
 def test_rlp_encode_fails(raw_data: RLP) -> None:
