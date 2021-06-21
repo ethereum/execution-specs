@@ -4,7 +4,7 @@ from typing import Any
 from eth1spec import rlp
 from eth1spec.trie import map_keys, root
 
-from .helpers import remove_hex_prefix, sanitize
+from .helpers import remove_hex_prefix, to_bytes
 
 
 def test_trie_secure_hex() -> None:
@@ -13,7 +13,7 @@ def test_trie_secure_hex() -> None:
     for (name, test) in tests.items():
         normalized = {}
         for (k, v) in test.get("in").items():
-            normalized[sanitize(k)] = sanitize(v)
+            normalized[to_bytes(k)] = to_bytes(v)
 
         result = root(map_keys(normalized))
         expected = remove_hex_prefix(test.get("root"))
@@ -26,7 +26,7 @@ def test_trie_secure() -> None:
     for (name, test) in tests.items():
         normalized = {}
         for t in test.get("in"):
-            normalized[sanitize(t[0])] = sanitize(t[1])
+            normalized[to_bytes(t[0])] = to_bytes(t[1])
 
         result = root(map_keys(normalized))
         expected = remove_hex_prefix(test.get("root"))
@@ -39,7 +39,7 @@ def test_trie_secure_any_order() -> None:
     for (name, test) in tests.items():
         normalized = {}
         for (k, v) in test.get("in").items():
-            normalized[sanitize(k)] = sanitize(v)
+            normalized[to_bytes(k)] = to_bytes(v)
 
         result = root(map_keys(normalized))
         expected = remove_hex_prefix(test.get("root"))
@@ -52,7 +52,7 @@ def test_trie() -> None:
     for (name, test) in tests.items():
         normalized = {}
         for t in test.get("in"):
-            normalized[sanitize(t[0])] = sanitize(t[1])
+            normalized[to_bytes(t[0])] = to_bytes(t[1])
 
         result = root(map_keys(normalized, secured=False))
         expected = remove_hex_prefix(test.get("root"))
@@ -65,7 +65,7 @@ def test_trie_any_order() -> None:
     for (name, test) in tests.items():
         normalized = {}
         for (k, v) in test.get("in").items():
-            normalized[sanitize(k)] = sanitize(v)
+            normalized[to_bytes(k)] = to_bytes(v)
 
         result = root(map_keys(normalized, secured=False))
         expected = remove_hex_prefix(test.get("root"))

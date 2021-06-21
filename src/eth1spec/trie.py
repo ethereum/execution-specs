@@ -14,7 +14,7 @@ The state trie is the structure responsible for storing
 """
 
 from copy import copy
-from typing import Mapping, MutableMapping, TypeVar, Union, cast
+from typing import Mapping, MutableMapping, Set, TypeVar, Union, cast
 
 from . import crypto, rlp
 from .base_types import U256, Bytes, Uint
@@ -30,7 +30,7 @@ def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
     """
     Compresses nibble-list into a standard byte array with a flag.
 
-    A nibble-list is a list of byte values no greater than `16`. The flag is
+    A nibble-list is a list of byte values no greater than `15`. The flag is
     encoded in high nibble of the highest byte. The flag nibble can be broken
     down into two two-bit flags.
 
@@ -61,18 +61,18 @@ def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
     compressed : `bytearray`
         Compact byte array.
     """
-    encoded = bytearray()
+    compact = bytearray()
 
     if len(x) % 2 == 0:  # ie even length
-        encoded.append(16 * (2 * terminal))
+        compact.append(16 * (2 * terminal))
         for i in range(0, len(x), 2):
-            encoded.append(16 * x[i] + x[i + 1])
+            compact.append(16 * x[i] + x[i + 1])
     else:
-        encoded.append(16 * ((2 * terminal) + 1) + x[0])
+        compact.append(16 * ((2 * terminal) + 1) + x[0])
         for i in range(1, len(x), 2):
-            encoded.append(16 * x[i] + x[i + 1])
+            compact.append(16 * x[i] + x[i + 1])
 
-    return encoded
+    return compact
 
 
 T = TypeVar("T")
@@ -97,20 +97,19 @@ def map_keys(
         Object with keys mapped to nibble-byte form.
     """
     mapped: MutableMapping[Bytes, Node] = {}
-    skip: MutableMapping[Bytes, bool] = {}
 
-    for preimage in obj:
-        # "secure" tries hash keys once before construction
-        key = crypto.keccak256(preimage) if secured else preimage
+    # skip empty values, these are defined to be omitted from the trie
+    skip: Set[Bytes] = set()
+    for (k, v) in obj.items():
+        if v == b"":
+            skip.add(k)
 
+    for (preimage, value) in obj.items():
         if preimage in skip:
             continue
 
-        if obj[preimage] == b"" or obj[preimage] is None:
-            skip[preimage] = True
-            if key in mapped:
-                del mapped[key]
-            continue
+        # "secure" tries hash keys once before construction
+        key = crypto.keccak256(preimage) if secured else preimage
 
         nibble_list = bytearray(2 * len(key))
         for i in range(2 * len(key)):
@@ -119,7 +118,7 @@ def map_keys(
             else:
                 nibble_list[i] = key[i // 2] % 16
 
-        mapped[Bytes(nibble_list)] = obj[preimage]
+        mapped[Bytes(nibble_list)] = value
 
     return mapped
 

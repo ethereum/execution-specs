@@ -10,7 +10,7 @@ from eth1spec.eth_types import (
 )
 
 
-def sanitize(x: str) -> Bytes:
+def to_bytes(x: str) -> Bytes:
     if x is None:
         return b""
     if has_hex_prefix(x):
