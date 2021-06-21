@@ -88,7 +88,7 @@ def encode_bytes(raw_bytes: Bytes) -> Bytes:
 
 def encode_sequence(raw_sequence: Sequence[RLP]) -> Bytes:
     """
-    Encodes a sequence of RLP encodable objects (`raw_sequence`) using RLP.
+    Encodes a list of RLP encodable objects (`raw_sequence`) using RLP.
 
     Parameters
     ----------
