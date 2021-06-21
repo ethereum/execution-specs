@@ -51,10 +51,6 @@ fromhex
 preimage
 substring
 
-elle
-knprime
-J0
-Ji
 sha3
 
 stop

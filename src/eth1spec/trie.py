@@ -14,7 +14,7 @@ The state trie is the structure responsible for storing
 """
 
 from copy import copy
-from typing import Mapping, MutableMapping, Set, TypeVar, Union, cast
+from typing import Mapping, MutableMapping, Set, Union, cast
 
 from . import crypto, rlp
 from .base_types import U256, Bytes, Uint
@@ -73,9 +73,6 @@ def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
             compact.append(16 * x[i] + x[i + 1])
 
     return compact
-
-
-T = TypeVar("T")
 
 
 def map_keys(
