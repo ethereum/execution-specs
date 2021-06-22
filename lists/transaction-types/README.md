@@ -2,7 +2,7 @@ Transaction Type List
 =====================
 
 This is a list of existing, reserved and tentative
-[EIP-2718](https://eips.ethereum.org/EIPS/eip-2718) TransactionTypes.
+[EIP-2718](https://eips.ethereum.org/EIPS/eip-2718) Transaction Types.
 
 Transaction Types
 -----------------
