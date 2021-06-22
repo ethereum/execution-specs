@@ -20,13 +20,13 @@ from .helpers import hex2bytes
 
 
 def test_rlp_encode_empty_bytes() -> None:
-    assert rlp.encode_bytes(b"") == bytearray([128])
-    assert rlp.encode_bytes(bytearray()) == bytearray([128])
+    assert rlp.encode_bytes(b"") == bytearray([0x80])
+    assert rlp.encode_bytes(bytearray()) == bytearray([0x80])
 
 
 def test_rlp_encode_single_byte_val_less_than_128() -> None:
-    assert rlp.encode_bytes(b"x") == bytearray([120])
-    assert rlp.encode_bytes(bytearray(b"x")) == bytearray([120])
+    assert rlp.encode_bytes(b"x") == bytearray([0x78])
+    assert rlp.encode_bytes(bytearray(b"x")) == bytearray([0x78])
 
 
 def test_rlp_encode_single_byte_val_equal_128() -> None:
@@ -35,27 +35,27 @@ def test_rlp_encode_single_byte_val_equal_128() -> None:
 
 
 def test_rlp_encode_single_byte_val_greater_than_128() -> None:
-    assert rlp.encode_bytes(b"\x83") == bytearray([129, 131])
-    assert rlp.encode_bytes(bytearray(b"\x83")) == bytearray([129, 131])
+    assert rlp.encode_bytes(b"\x83") == bytearray([0x81, 0x83])
+    assert rlp.encode_bytes(bytearray(b"\x83")) == bytearray([0x81, 0x83])
 
 
 def test_rlp_encode_55_bytes() -> None:
-    assert rlp.encode_bytes(b"\x83" * 55) == bytearray([183]) + bytearray(
+    assert rlp.encode_bytes(b"\x83" * 55) == bytearray([0xB7]) + bytearray(
         b"\x83" * 55
     )
     assert rlp.encode_bytes(bytearray(b"\x83") * 55) == bytearray(
-        [183]
+        [0xB7]
     ) + bytearray(b"\x83" * 55)
 
 
 def test_rlp_encode_large_bytes() -> None:
     assert rlp.encode_bytes(b"\x83" * 2 ** 20) == (
-        bytearray([186])
+        bytearray([0xBA])
         + bytearray(b"\x10\x00\x00")
         + bytearray(b"\x83" * 2 ** 20)
     )
     assert rlp.encode_bytes(bytearray(b"\x83") * 2 ** 20) == (
-        bytearray([186])
+        bytearray([0xBA])
         + bytearray(b"\x10\x00\x00")
         + bytearray(b"\x83" * 2 ** 20)
     )
@@ -105,21 +105,21 @@ def test_rlp_encode_multi_char_str() -> None:
 
 
 def test_rlp_encode_empty_sequence() -> None:
-    assert rlp.encode_sequence([]) == bytearray([192])
+    assert rlp.encode_sequence([]) == bytearray([0xC0])
 
 
 def test_rlp_encode_single_elem_list_byte() -> None:
-    assert rlp.encode_sequence([b"hello"]) == bytearray([198]) + b"\x85hello"
+    assert rlp.encode_sequence([b"hello"]) == bytearray([0xC6]) + b"\x85hello"
 
 
 def test_rlp_encode_single_elem_list_uint() -> None:
-    assert rlp.encode_sequence([Uint(255)]) == bytearray([194]) + b"\x81\xff"
+    assert rlp.encode_sequence([Uint(255)]) == bytearray([0xC2]) + b"\x81\xff"
 
 
 def test_rlp_encode_10_elem_byte_uint_combo() -> None:
     raw_data = [b"hello"] * 5 + [Uint(35)] * 5  # type: ignore
     expected = (
-        bytearray([227])
+        bytearray([0xE3])
         + b"\x85hello\x85hello\x85hello\x85hello\x85hello#####"
     )
     assert rlp.encode_sequence(raw_data) == expected
@@ -128,7 +128,7 @@ def test_rlp_encode_10_elem_byte_uint_combo() -> None:
 def test_rlp_encode_20_elem_byte_uint_combo() -> None:
     raw_data = [Uint(35)] * 10 + [b"hello"] * 10  # type: ignore
     expected = (
-        bytearray([248])
+        bytearray([0xF8])
         + b"F"
         + b"##########\x85hello\x85hello\x85hello\x85hello\x85hello\x85hello\x85hello\x85hello\x85hello\x85hello"
     )
@@ -149,14 +149,14 @@ def test_rlp_encode_nested_sequence() -> None:
 
 def test_rlp_encode_successfully() -> None:
     test_cases = [
-        (b"", bytearray([128])),
-        (b"\x83" * 55, bytearray([183]) + bytearray(b"\x83" * 55)),
+        (b"", bytearray([0x80])),
+        (b"\x83" * 55, bytearray([0xB7]) + bytearray(b"\x83" * 55)),
         (Uint(0), b"\x80"),
         (Uint(255), b"\x81\xff"),
-        ([], bytearray([192])),
+        ([], bytearray([0xC0])),
         (
             [b"hello"] * 5 + [Uint(35)] * 5,  # type: ignore
-            bytearray([227])
+            bytearray([0xE3])
             + bytearray(b"\x85hello\x85hello\x85hello\x85hello\x85hello#####"),
         ),
         (
@@ -190,27 +190,27 @@ def test_rlp_encode_fails() -> None:
 
 
 def test_rlp_decode_to_empty_bytes() -> None:
-    assert rlp.decode_to_bytes(bytearray([128])) == b""
+    assert rlp.decode_to_bytes(bytearray([0x80])) == b""
 
 
 def test_rlp_decode_to_single_byte_less_than_128() -> None:
     assert rlp.decode_to_bytes(bytearray([0])) == bytearray([0])
-    assert rlp.decode_to_bytes(bytearray([120])) == bytearray([120])
+    assert rlp.decode_to_bytes(bytearray([0x78])) == bytearray([0x78])
 
 
 def test_rlp_decode_to_single_byte_gte_128() -> None:
-    assert rlp.decode_to_bytes(bytearray([129, 131])) == b"\x83"
+    assert rlp.decode_to_bytes(bytearray([0x81, 0x83])) == b"\x83"
     assert rlp.decode_to_bytes(b"\x81\x80") == b"\x80"
 
 
 def test_rlp_decode_to_55_bytes() -> None:
-    encoding = bytearray([183]) + bytearray(b"\x83" * 55)
+    encoding = bytearray([0xB7]) + bytearray(b"\x83" * 55)
     expected_raw_data = bytearray(b"\x83") * 55
     assert rlp.decode_to_bytes(encoding) == expected_raw_data
 
 
 def test_rlp_decode_to_large_bytes() -> None:
-    encoding = bytearray([186]) + b"\x10\x00\x00" + b"\x83" * (2 ** 20)
+    encoding = bytearray([0xBA]) + b"\x10\x00\x00" + b"\x83" * (2 ** 20)
     expected_raw_data = b"\x83" * (2 ** 20)
     assert rlp.decode_to_bytes(encoding) == expected_raw_data
 
@@ -251,24 +251,24 @@ def test_rlp_decode_multi_char_str() -> None:
 
 
 def test_rlp_decode_to_empty_sequence() -> None:
-    assert rlp.decode_to_sequence(bytearray([192])) == []
+    assert rlp.decode_to_sequence(bytearray([0xC0])) == []
 
 
 def test_rlp_decode_to_1_elem_sequence_of_byte() -> None:
-    assert rlp.decode_to_sequence(bytearray([198]) + b"\x85hello") == [
+    assert rlp.decode_to_sequence(bytearray([0xC6]) + b"\x85hello") == [
         b"hello"
     ]
 
 
 def test_rlp_decode_to_1_elem_sequence_of_uint() -> None:
-    assert rlp.decode_to_sequence(bytearray([194]) + b"\x81\xff") == [
+    assert rlp.decode_to_sequence(bytearray([0xC2]) + b"\x81\xff") == [
         Uint(255).to_be_bytes()
     ]
 
 
 def test_rlp_decode_to_10_elem_sequence_of_bytes_and_uints() -> None:
     encoded_data = (
-        bytearray([227])
+        bytearray([0xE3])
         + b"\x85hello\x85hello\x85hello\x85hello\x85hello#####"
     )
     expected_raw_data = [b"hello"] * 5 + [Uint(35).to_be_bytes()] * 5
@@ -277,7 +277,7 @@ def test_rlp_decode_to_10_elem_sequence_of_bytes_and_uints() -> None:
 
 def test_rlp_decode_to_20_elem_sequence_of_bytes_and_uints() -> None:
     encoded_data = (
-        bytearray([248])
+        bytearray([0xF8])
         + b"F"
         + b"\x85hello\x85hello\x85hello\x85hello\x85hello\x85hello\x85hello\x85hello\x85hello\x85hello##########"
     )
@@ -302,9 +302,9 @@ def test_rlp_decode_to_nested_sequence() -> None:
 
 def test_rlp_decode_successfully() -> None:
     test_cases = [
-        (bytearray([128]), bytearray()),
-        (bytearray([183]) + bytearray(b"\x83" * 55), bytearray(b"\x83") * 55),
-        (bytearray([192]), []),
+        (bytearray([0x80]), bytearray()),
+        (bytearray([0xB7]) + bytearray(b"\x83" * 55), bytearray(b"\x83") * 55),
+        (bytearray([0xC0]), []),
         (
             b"\xdb\x85hello\xd4\x83how\xcf\x83are\x83you\xc6\x85doing",
             [b"hello", [b"how", [b"are", b"you", [b"doing"]]]],

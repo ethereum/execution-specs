@@ -75,12 +75,12 @@ def encode_bytes(raw_bytes: Bytes) -> Bytes:
     if len_raw_data == 1 and raw_bytes[0] < 0x80:
         return raw_bytes
     elif len_raw_data < 0x38:
-        return bytearray([128 + len_raw_data]) + raw_bytes
+        return bytearray([0x80 + len_raw_data]) + raw_bytes
     else:
         # length of raw data represented as big endian bytes
         len_raw_data_as_be = len_raw_data.to_be_bytes()
         return (
-            bytearray([183 + len(len_raw_data_as_be)])
+            bytearray([0xB7 + len(len_raw_data_as_be)])
             + len_raw_data_as_be
             + raw_bytes
         )
@@ -104,11 +104,11 @@ def encode_sequence(raw_sequence: Sequence[RLP]) -> Bytes:
     len_joined_encodings = Uint(len(joined_encodings))
 
     if len_joined_encodings < 0x38:
-        return bytearray([192 + len_joined_encodings]) + joined_encodings
+        return bytearray([0xC0 + len_joined_encodings]) + joined_encodings
     else:
         len_joined_encodings_as_be = len_joined_encodings.to_be_bytes()
         return (
-            bytearray([247 + len(len_joined_encodings_as_be)])
+            bytearray([0xF7 + len(len_joined_encodings_as_be)])
             + len_joined_encodings_as_be
             + joined_encodings
         )
@@ -159,8 +159,8 @@ def decode(encoded_data: Bytes) -> RLP:
     """
     # Raising error as there can never be empty encoded data for any
     # given raw data (including empty raw data)
-    # RLP Encoding(b'') -> [128]
-    # RLP Encoding([]) -> [192]
+    # RLP Encoding(b'') -> [0x80]  # noqa: SC100
+    # RLP Encoding([])  -> [0xc0]  # noqa: SC100
     assert len(encoded_data) > 0
 
     if encoded_data[0] <= 0xBF:
@@ -189,7 +189,7 @@ def decode_to_bytes(encoded_bytes: Bytes) -> Bytes:
     if len(encoded_bytes) == 1 and encoded_bytes[0] < 0x80:
         return encoded_bytes
     elif encoded_bytes[0] <= 0xB7:
-        len_raw_data = encoded_bytes[0] - 128
+        len_raw_data = encoded_bytes[0] - 0x80
         assert len_raw_data < len(encoded_bytes)
         raw_data = encoded_bytes[1 : 1 + len_raw_data]
         assert not (len_raw_data == 1 and raw_data[0] < 0x80)
@@ -197,7 +197,7 @@ def decode_to_bytes(encoded_bytes: Bytes) -> Bytes:
     else:
         # This is the index in the encoded data at which decoded data
         # starts from.
-        decoded_data_start_idx = 1 + encoded_bytes[0] - 183
+        decoded_data_start_idx = 1 + encoded_bytes[0] - 0xB7
         assert decoded_data_start_idx - 1 < len(encoded_bytes)
         # Expectation is that the big endian bytes shouldn't start with 0
         # while trying to decode using RLP, in which case is an error.
@@ -205,7 +205,6 @@ def decode_to_bytes(encoded_bytes: Bytes) -> Bytes:
         len_decoded_data = Uint.from_be_bytes(
             encoded_bytes[1:decoded_data_start_idx]
         )
-        # TODO: Make 56 a constant
         assert len_decoded_data >= 0x38
         decoded_data_end_idx = decoded_data_start_idx + len_decoded_data
         assert decoded_data_end_idx - 1 < len(encoded_bytes)
@@ -227,13 +226,12 @@ def decode_to_sequence(encoded_sequence: Bytes) -> List[RLP]:
     decoded : `Sequence[RLP]`
         Sequence of objects decoded from `encoded_sequence`.
     """
-    # TODO: Make 247 a constant
     if encoded_sequence[0] <= 0xF7:
-        len_joined_encodings = encoded_sequence[0] - 192
+        len_joined_encodings = encoded_sequence[0] - 0xC0
         assert len_joined_encodings < len(encoded_sequence)
         joined_encodings = encoded_sequence[1 : 1 + len_joined_encodings]
     else:
-        joined_encodings_start_idx = 1 + encoded_sequence[0] - 247
+        joined_encodings_start_idx = 1 + encoded_sequence[0] - 0xF7
         assert joined_encodings_start_idx - 1 < len(encoded_sequence)
         # Expectation is that the big endian bytes shouldn't start with 0
         # while trying to decode using RLP, in which case is an error.
@@ -241,7 +239,6 @@ def decode_to_sequence(encoded_sequence: Bytes) -> List[RLP]:
         len_joined_encodings = Uint.from_be_bytes(
             encoded_sequence[1:joined_encodings_start_idx]
         )
-        # TODO: Make 56 a constant
         assert len_joined_encodings >= 0x38
         joined_encodings_end_idx = (
             joined_encodings_start_idx + len_joined_encodings
@@ -325,11 +322,11 @@ def decode_item_length(encoded_data: Bytes) -> int:
     # This occurs only when the raw_data is a byte stream with length < 56
     # and doesn't fall into the above cases
     elif first_rlp_byte <= 0xB7:
-        decoded_data_length = first_rlp_byte - 128
+        decoded_data_length = first_rlp_byte - 0x80
     # This occurs only when the raw_data is a byte stream and doesn't fall
     # into the above cases
     elif first_rlp_byte <= 0xBF:
-        length_length = first_rlp_byte - 183
+        length_length = first_rlp_byte - 0xB7
         assert length_length < len(encoded_data)
         # Expectation is that the big endian bytes shouldn't start with 0
         # while trying to decode using RLP, in which case is an error.
@@ -340,11 +337,11 @@ def decode_item_length(encoded_data: Bytes) -> int:
     # This occurs only when the raw_data is a sequence of objects with
     # length(concatenation of encoding of each object) < 56
     elif first_rlp_byte <= 0xF7:
-        decoded_data_length = first_rlp_byte - 192
+        decoded_data_length = first_rlp_byte - 0xC0
     # This occurs only when the raw_data is a sequence of objects and
     # doesn't fall into the above cases.
     elif first_rlp_byte <= 0xFF:
-        length_length = first_rlp_byte - 247
+        length_length = first_rlp_byte - 0xF7
         assert length_length < len(encoded_data)
         # Expectation is that the big endian bytes shouldn't start with 0
         # while trying to decode using RLP, in which case is an error.
