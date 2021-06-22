@@ -13,7 +13,7 @@ Transaction Types
 | 0x01  | [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930) *(available in Berlin)* |
 | 0x02  | [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) *(available in London)* |
 | 0x03  | Reserved: prevents collision with [EIP-3074](https://eips.ethereum.org/EIPS/eip-3074) *(see notes below)* |
-| 0x18  | Reserved: prevent collision with [EIP-191](https://eips.ethereum.org/EIPS/eip-191) *(see notes below)* |
+| 0x18  | Reserved: prevents collision with [EIP-191](https://eips.ethereum.org/EIPS/eip-191) *(see notes below)* |
 | 0x80 - 0xff  | Invalid; collides with the initial byte of valid RLP encoded transactions |
 
 
