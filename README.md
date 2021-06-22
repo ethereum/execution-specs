@@ -1,12 +1,8 @@
 # Eth1.0 Specifications
 
-## Consensus Specification
-
- * [Rendered](https://quilt.github.io/eth1.0-specs/)
-
 ### Description
 
-This repository contains various specification related to the Ethereum 1.0 chain, specifically the specifications for [network upgrades](/network-upgrades) and the [JSON RPC API](/json-rpc). 
+This repository contains various specification related to the Ethereum 1.0 chain, specifically the [pyspec](/src/eth1spec/spec.py), specifications for [network upgrades](/network-upgrades), and the [JSON RPC API](/json-rpc). 
 
 ### Ethereum Protocol Releases
 
@@ -26,6 +22,10 @@ This repository contains various specification related to the Ethereum 1.0 chain
 | Homestead | 1150000 | 03/14/2016  | [EIP-2](https://eips.ethereum.org/EIPS/eip-2) <br/> [EIP-7](https://eips.ethereum.org/EIPS/eip-7) <br/> [EIP-8](https://eips.ethereum.org/EIPS/eip-8) | [HFM-606](https://eips.ethereum.org/EIPS/eip-606) | [Blog](https://blog.ethereum.org/2016/02/29/homestead-release/) |
 | Frontier Thawing | 200000 | 09/07/2015 | | | [Blog](https://blog.ethereum.org/2015/08/04/the-thawing-frontier/) |
 | Frontier | 1 | 07/30/2015 | | | [Blog](https://blog.ethereum.org/2015/07/22/frontier-is-coming-what-to-expect-and-how-to-prepare/) |
+
+## Consensus Specification (work-in-progress)
+
+ * [Rendered specification](https://quilt.github.io/eth1.0-specs/)
 
 ## Usage
 
