@@ -9,18 +9,20 @@ Transaction Types
 
 | Version | Specs or Purpose |
 |---------|------------------|
-| 0x00  | Reserved: to describe legacy (untyped) trancactions (see notes below) |
+| 0x00  | Reserved: indicates legacy (untyped) trancactions *(see notes below)* |
 | 0x01  | [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930) (avaialbe in Berlin) |
 | 0x02  | [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) (available in London) |
-| 0x03  | Reserved: prevents collision with [EIP-3074](https://eips.ethereum.org/EIPS/eip-3074) (see notes below) |
-| 0x18  | Reserved: prevent collision with [EIP-191](https://eips.ethereum.org/EIPS/eip-191) (see notes below) |
+| 0x03  | Reserved: prevents collision with [EIP-3074](https://eips.ethereum.org/EIPS/eip-3074) *(see notes below)* |
+| 0x18  | Reserved: prevent collision with [EIP-191](https://eips.ethereum.org/EIPS/eip-191) *(see notes below)* |
+| 0x80 - 0xff  | Invalid; possibly collisdes with the initial byte of RLP encoded trnasactions |
 
 
 Reserved Transaction Types Motivation and History
 -------------------------------------------------
 
-Reserved types cannot be used as [EIP-2918](https://eips.ethereum.org/EIPS/eip-2718)
+Reserved types cannot be used as [EIP-2718](https://eips.ethereum.org/EIPS/eip-2718)
 TransactionType values and should never be used as a TransactionType prefix.
+
 
 ### Type 0x00 (0)
 
@@ -32,11 +34,12 @@ This was an unintentional consequence of the internal type of 0 being
 exposed in early JSON-RPC implementations, but is convenience as it
 allows a canonical value to indicate a transaction is untyped.
 
+
 ### Type 0x03 (3)
 
 The TransactionType 0x03 is reserved to prefix data payloads to be
-signed for the `AUTHCALL` opcode.
-
+signed for the [EIP-3074](https://eips.ethereum.org/EIPS/eip-3074)
+`AUTHCALL` opcode.
 
 
 ### Type 0x19 (25)
