@@ -1,6 +1,6 @@
 # Eth1.0 Specifications
 
-### Description
+## Description
 
 This repository contains various specification related to the Ethereum 1.0 chain, specifically the [pyspec](/src/eth1spec/spec.py), specifications for [network upgrades](/network-upgrades), and the [JSON RPC API](/json-rpc). 
 
@@ -24,6 +24,8 @@ This repository contains various specification related to the Ethereum 1.0 chain
 | Frontier | 1 | 07/30/2015 | | | [Blog](https://blog.ethereum.org/2015/07/22/frontier-is-coming-what-to-expect-and-how-to-prepare/) |
 
 ## Consensus Specification (work-in-progress)
+
+The consensus specification is a python implementation of Ethereum that prioritizes readability and simplicity. It [will] accompanied by both narrative and API level documentation of the various components written in restructured text and rendered using Sphinx....
 
  * [Rendered specification](https://quilt.github.io/eth1.0-specs/)
 
@@ -87,7 +89,7 @@ This specification aims to be:
 
 1. **Correct** - Describe the _intended_ behavior of the Ethereum blockchain, and any deviation from that is a bug.
 2. **Complete** - Capture the entirety of _consensus critical_ parts of Ethereum.
-3. **Usable** - Prioritize readability, clarity, and plain language over performance and brevity.
+3. **Accessible** - Prioritize readability, clarity, and plain language over performance and brevity.
 
 ### Spelling
 
