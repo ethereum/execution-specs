@@ -7,13 +7,16 @@ This is a list of existing, reserved and tentative
 Transaction Types
 -----------------
 
+See the sections below for additional notes on Version Bytes marked
+Reserved or Tentative.
+
 | Version Byte | Specs or Purpose |
 |--------------|------------------|
-| 0x00  | Reserved: indicates legacy (untyped) trancactions *(see notes below)* |
+| 0x00  | Reserved: indicates legacy (untyped) trancactions |
 | 0x01  | [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930) *(available in Berlin)* |
 | 0x02  | [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) *(available in London)* |
-| 0x03  | Tentative: prevents collision with [EIP-3074](https://eips.ethereum.org/EIPS/eip-3074) *(see notes below)* |
-| 0x18  | Reserved: prevents collision with [EIP-191](https://eips.ethereum.org/EIPS/eip-191) *(see notes below)* |
+| 0x03  | Tentative: prevents collision with [EIP-3074](https://eips.ethereum.org/EIPS/eip-3074) |
+| 0x18  | Reserved: prevents collision with [EIP-191](https://eips.ethereum.org/EIPS/eip-191) |
 | 0x80 - 0xff  | Invalid; collides with the initial byte of valid RLP encoded transactions |
 
 
