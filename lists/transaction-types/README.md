@@ -72,4 +72,4 @@ still subject to change.
 
 The TransactionType `0x03` is reserved to prefix data payload operand
 to be signed for the [EIP-3074](https://eips.ethereum.org/EIPS/eip-3074)
-`AUTHCALL` opcode.
+`AUTH` opcode.
