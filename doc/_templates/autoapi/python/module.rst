@@ -1,3 +1,7 @@
+{#
+   Modified from:
+      https://github.com/readthedocs/sphinx-autoapi/blob/83b1260e67a69b5c844bcce412e448889223dea8/autoapi/templates/python/module.rst
+#}
 {% if not obj.display %}
 :orphan:
 
