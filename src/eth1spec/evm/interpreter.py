@@ -65,7 +65,7 @@ def process_call(
     evm = Evm(
         pc=Uint(0),
         stack=[],
-        memory=b"",
+        memory=bytearray(),
         code=env.state[target].code,
         gas_left=gas,
         current=target,

@@ -41,7 +41,7 @@ def add(evm: Evm) -> None:
     x = pop(evm.stack)
     y = pop(evm.stack)
 
-    val = x + y
+    val = x.wrapping_add(y)
 
     push(evm.stack, val)
 

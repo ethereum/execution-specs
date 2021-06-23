@@ -171,11 +171,14 @@ def apply_body(
 
     state[coinbase].balance += BLOCK_REWARD
 
+    gas_remaining = block_gas_limit - gas_available
+
     receipts_map = {
         bytes(rlp.encode(Uint(k))): v for (k, v) in enumerate(receipts)
     }
-    receipts_y = trie.map_keys(receipts_map, secured=False)
-    return (block_gas_limit - gas_available), trie.root(receipts_y), state
+    receipt_root = trie.root(trie.map_keys(receipts_map, secured=False))
+
+    return (gas_remaining, receipt_root, state)
 
 
 def process_transaction(
@@ -198,7 +201,7 @@ def process_transaction(
     logs : `List[eth1spec.eth_types.Log]`
         Logs generated during execution.
     """
-    assert verify_transaction(tx)
+    assert validate_transaction(tx)
 
     sender_address = env.origin
     sender = env.state[sender_address]
@@ -210,7 +213,7 @@ def process_transaction(
     assert cost <= sender.balance
     sender.balance -= cost
 
-    gas = tx.gas - intrinsic_cost(tx)
+    gas = tx.gas - calculate_intrinsic_cost(tx)
 
     if tx.to is None:
         raise NotImplementedError()  # TODO
@@ -226,24 +229,24 @@ def process_transaction(
     return (gas_used, logs)
 
 
-def verify_transaction(tx: Transaction) -> bool:
+def validate_transaction(tx: Transaction) -> bool:
     """
     Verifies a transaction.
 
     Parameters
     ----------
     tx : `eth1spec.eth_types.Transaction`
-        Transaction to verify.
+        Transaction to validate.
 
     Returns
     -------
     verified : `bool`
         True if the transaction can be executed, or False otherwise.
     """
-    return intrinsic_cost(tx) <= tx.gas
+    return calculate_intrinsic_cost(tx) <= tx.gas
 
 
-def intrinsic_cost(tx: Transaction) -> Uint:
+def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     """
     Calculates the intrinsic cost of the transaction that is charged before
     execution is instantiated.

@@ -45,7 +45,7 @@ class Evm:
 
     pc: Uint
     stack: List[U256]
-    memory: bytes
+    memory: bytearray
     code: bytes
     gas_left: U256
     current: Address

@@ -110,10 +110,13 @@ def map_keys(
 
         nibble_list = bytearray(2 * len(key))
         for i in range(2 * len(key)):
-            if i % 2 == 0:  # even
-                nibble_list[i] = key[i // 2] // 16
+            byte_idx = i // 2
+            if i % 2 == 0:
+                # get upper nibble
+                nibble_list[i] = (key[byte_idx] & 0xF0) >> 4
             else:
-                nibble_list[i] = key[i // 2] % 16
+                # get lower nibble
+                nibble_list[i] = key[byte_idx] & 0x0F
 
         mapped[Bytes(nibble_list)] = value
 
