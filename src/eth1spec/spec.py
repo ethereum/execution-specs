@@ -348,9 +348,9 @@ def signing_hash(tx: Transaction) -> Hash32:
     )
 
 
-def header_hash(header: Header) -> Hash32:
+def compute_header_hash(header: Header) -> Hash32:
     """
-    Computes the hash of a block Header.
+    Computes the hash of a block header.
 
     Parameters
     ----------
@@ -360,7 +360,7 @@ def header_hash(header: Header) -> Hash32:
     Returns
     -------
     hash : `eth1spec.eth_types.Hash32`
-        Hash of the Header.
+        Hash of the header.
     """
     return crypto.keccak256(
         rlp.encode(
@@ -387,12 +387,12 @@ def header_hash(header: Header) -> Hash32:
 
 def get_block_header_by_hash(hash: Hash32, chain: BlockChain) -> Header:
     """
-    Fetches the block header by searching its hash.
+    Fetches the block header with the corresponding hash.
 
     Parameters
     ----------
     hash : `eth1spec.eth_types.Hash32`
-        hash of the header of interest.
+        Hash of the header of interest.
 
     chain : `eth1spec.eth_types.BlockChain`
         History and current state.
@@ -403,10 +403,10 @@ def get_block_header_by_hash(hash: Hash32, chain: BlockChain) -> Header:
         Block header found by its hash.
     """
     for block in chain.blocks:
-        if header_hash(block.header) == hash:
+        if compute_header_hash(block.header) == hash:
             return block.header
     else:
-        raise ValueError(f"Could not find Header with hash={hash.hex()}")
+        raise ValueError(f"Could not find header with hash={hash.hex()}")
 
 
 def validate_proof_of_work(header: Header) -> bool:
@@ -420,7 +420,7 @@ def validate_proof_of_work(header: Header) -> bool:
 
     Returns
     -------
-    verified : `bool`
+    valid : `bool`
         True if Proof of Work constraints are satisfied, False otherwise
     """
     # TODO: Implement this method once proof of work
@@ -436,15 +436,15 @@ def validate_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
     Parameters
     ----------
     gas_limit : `eth1spec.eth_types.Uint`
-        gas limit of the header of interest
+        Gas limit to validate.
 
     parent_gas_limit : `eth1spec.eth_types.Uint`
-        gas limit of the porent header of interest
+        Gas limit of the parent block.
 
     Returns
     -------
-    verified : `bool`
-        True if header gas limit constraints are satisfied, False otherwise
+    valid : `bool`
+        True if gas limit constraints are satisfied, False otherwise
     """
     max_adjustment_delta = parent_gas_limit // GAS_LIMIT_ADJUSTMENT_FACTOR
     if gas_limit >= parent_gas_limit + max_adjustment_delta:
@@ -471,13 +471,13 @@ def calculate_block_difficulty(header: Header, parent_header: Header) -> Uint:
     difficulty: Uint
         Computed difficulty for a block.
     """
-    if parent_header.number == 0:
+    if header.number == 0:
         return Uint(131072)
-    elif header.timestamp < parent_header.timestamp:
+    elif header.timestamp < parent_header.timestamp + 13:
         return parent_header.difficulty + parent_header.difficulty // Uint(
             2048
         )
-    else:  # header.timestamp >= parent_header.timestamp
+    else:  # header.timestamp >= parent_header.timestamp + 13
         return max(
             Uint(131072),
             parent_header.difficulty
