@@ -52,6 +52,7 @@ dest
 fromhex
 preimage
 substring
+klass
 
 sha3
 

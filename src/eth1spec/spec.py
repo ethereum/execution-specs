@@ -59,7 +59,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         Block to apply to `chain`.
     """
     #  assert verify_header(block.header)
-    gas_used, receipt_root, state = apply_body(
+    gas_used, transactions_root, receipt_root, state = apply_body(
         chain.state,
         block.header.coinbase,
         block.header.number,
@@ -71,8 +71,14 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     )
 
     assert gas_used == block.header.gas_used
+    assert compute_ommers_hash(block) == block.header.ommers
+    # TODO: Also need to verify that these ommers are indeed valid as per the
+    # Nth generation
+    assert transactions_root == block.header.transactions_root
     assert receipt_root == block.header.receipt_root
     assert trie.root(trie.map_keys(state)) == block.header.state_root
+
+    chain.blocks.append(block)
 
 
 def verify_header(header: Header) -> bool:
@@ -101,7 +107,7 @@ def apply_body(
     block_difficulty: Uint,
     transactions: List[Transaction],
     ommers: List[Header],
-) -> Tuple[Uint, Root, State]:
+) -> Tuple[Uint, Root, Root, State]:
     """
     Executes a block.
 
@@ -165,7 +171,7 @@ def apply_body(
                 post_state=Root(trie.root(trie.map_keys(state))),
                 cumulative_gas_used=(block_gas_limit - gas_available),
                 bloom=b"\x00" * 256,
-                logs=[],
+                logs=logs,
             )
         )
 
@@ -178,7 +184,22 @@ def apply_body(
     }
     receipt_root = trie.root(trie.map_keys(receipts_map, secured=False))
 
-    return (gas_remaining, receipt_root, state)
+    transactions_map = {
+        bytes(rlp.encode(Uint(idx))): tx
+        for (idx, tx) in enumerate(transactions)
+    }
+    transactions_root = trie.root(
+        trie.map_keys(transactions_map, secured=False)
+    )
+
+    return (gas_remaining, transactions_root, receipt_root, state)
+
+
+def compute_ommers_hash(block: Block) -> Hash32:
+    """
+    Compute hash of ommers list for a block
+    """
+    return crypto.keccak256(rlp.encode(block.ommers))
 
 
 def process_transaction(
@@ -352,6 +373,6 @@ def print_state(state: State) -> None:
         }
 
         for (k, v) in account.storage.items():
-            nice[address.hex()]["storage"][k.hex()] = v.hex()  # type: ignore
+            nice[address.hex()]["storage"][k.hex()] = hex(v)  # type: ignore
 
     print(nice)

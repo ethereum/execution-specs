@@ -17,6 +17,8 @@ from __future__ import annotations
 from typing import List, Sequence, Union, cast
 
 from .base_types import U256, Bytes, Uint
+from .crypto import keccak256
+from .eth_types import Account, Block, Header, Log, Receipt, Transaction
 
 RLP = Union[Bytes, Uint, U256, Sequence["RLP"]]  # type: ignore
 
@@ -49,6 +51,18 @@ def encode(raw_data: RLP) -> Bytes:
         return encode_bytes(raw_data.encode())
     elif isinstance(raw_data, Sequence):
         return encode_sequence(cast(Sequence[RLP], raw_data))
+    elif isinstance(raw_data, Block):
+        return encode_block(raw_data)
+    elif isinstance(raw_data, Header):
+        return encode_header(raw_data)
+    elif isinstance(raw_data, Account):
+        return encode_account(raw_data)
+    elif isinstance(raw_data, Transaction):
+        return encode_transaction(raw_data)
+    elif isinstance(raw_data, Receipt):
+        return encode_receipt(raw_data)
+    elif isinstance(raw_data, Log):
+        return encode_log(raw_data)
     else:
         raise TypeError(
             "RLP Encoding of type {} is not supported".format(type(raw_data))
@@ -350,3 +364,113 @@ def decode_item_length(encoded_data: Bytes) -> int:
         )
 
     return 1 + length_length + decoded_data_length
+
+
+#
+# Encoding and decoding custom dataclasses like Account, Transaction,
+# Receipt etc.
+#
+
+
+def encode_block(raw_block_data: Block) -> Bytes:
+    """
+    Encode `Block` dataclass
+    """
+    return encode(
+        (
+            raw_block_data.header,
+            raw_block_data.transactions,
+            raw_block_data.ommers,
+        )
+    )
+
+
+def encode_header(raw_header_data: Header) -> Bytes:
+    """
+    Encode `Header` dataclass
+    """
+    return encode(
+        (
+            raw_header_data.parent,
+            raw_header_data.ommers,
+            raw_header_data.coinbase,
+            raw_header_data.state_root,
+            raw_header_data.transactions_root,
+            raw_header_data.receipt_root,
+            raw_header_data.bloom,
+            raw_header_data.difficulty,
+            raw_header_data.number,
+            raw_header_data.gas_limit,
+            raw_header_data.gas_used,
+            raw_header_data.time,
+            raw_header_data.extra,
+            raw_header_data.mix_digest,
+            raw_header_data.nonce,
+        )
+    )
+
+
+def encode_account(raw_account_data: Account) -> Bytes:
+    """
+    Encode `Account` dataclass
+    """
+    # TODO: This function should be split into 2 functions. One to
+    # patricialize the storage root and hashing code. Another for rlp
+    # encoding the previously obtained data.
+    # Imported here to prevent circular dependency
+    from .trie import map_keys, root
+
+    return encode(
+        (
+            raw_account_data.nonce,
+            raw_account_data.balance,
+            root(map_keys(raw_account_data.storage)),
+            keccak256(raw_account_data.code),
+        )
+    )
+
+
+def encode_transaction(raw_tx_data: Transaction) -> Bytes:
+    """
+    Encode `Transaction` dataclass
+    """
+    return encode(
+        (
+            raw_tx_data.nonce,
+            raw_tx_data.gas_price,
+            raw_tx_data.gas,
+            raw_tx_data.to,
+            raw_tx_data.value,
+            raw_tx_data.data,
+            raw_tx_data.v,
+            raw_tx_data.r,
+            raw_tx_data.s,
+        )
+    )
+
+
+def encode_receipt(raw_receipt_data: Receipt) -> Bytes:
+    """
+    Encode `Receipt` dataclass
+    """
+    return encode(
+        (
+            raw_receipt_data.post_state,
+            raw_receipt_data.cumulative_gas_used,
+            raw_receipt_data.bloom,
+            raw_receipt_data.logs,
+        )
+    )
+
+
+def encode_log(raw_log_data: Log) -> Bytes:
+    """
+    Encode `Log` dataclass
+    """
+    return encode(
+        (
+            raw_log_data.address,
+            raw_log_data.topics,
+            raw_log_data.data,
+        )
+    )
