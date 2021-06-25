@@ -7,7 +7,7 @@ for payloads signed using secp256k1.
 Signature Types
 ---------------
 
-See the sections below for additional notes on Version Bytes marked
+See the sections below for additional notes on prefix bytes marked
 Reserved or Tentative.
 
 | Prefix byte | Specs or Purpose |
