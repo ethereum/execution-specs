@@ -8,6 +8,10 @@ pre, .class, .function {
     font-size: 13px;
 }
 
+pre {
+    padding: 1.5em;
+}
+
 /* Classes */
 .class {
     background: #d5d5ee;
@@ -15,7 +19,7 @@ pre, .class, .function {
 }
 
 /* Functions */
-.function {
+.function .sig {
     background: #d0eed0;
     padding: 1.5em;
     margin: 1em 0;

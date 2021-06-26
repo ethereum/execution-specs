@@ -4,8 +4,6 @@
 #}
 {% if obj.display %}
 
-{{ obj.docstring|prepare_docstring }}
-
 .. function:: {{ obj.short_name }}({{ obj.args }}){% if obj.return_annotation is not none %} -> {{ obj.return_annotation }}{% endif %}
 
    :noindexentry:
@@ -19,8 +17,12 @@
    {% endfor %}
    {% endif %}
 
-
+   {% if obj.docstring %}
+   {{ obj.docstring|prepare_docstring|indent(3) }}
+   {% else %}
+   {% endif %}
 {% endif %}
+
 
 {% set suffix = 1 + obj.obj.name|length %}
 {% set module_name = obj.obj.full_name[:-suffix] %}
