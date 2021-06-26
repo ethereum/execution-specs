@@ -34,25 +34,25 @@ def process_call(
 
     Parameters
     ----------
-    caller : `eth1spec.eth_types.Address`
+    caller :
         Account which initiated this call.
 
-    target : `eth1spec.eth_types.Address`
+    target :
         Account whose code will be executed.
 
-    data : `bytes`
+    data :
         Array of bytes provided to the code in `target`.
 
-    value : `eth1spec.base_types.Uint`
+    value :
         Value to be transferred.
 
-    gas : `eth1spec.base_types.Uint`
+    gas :
         Gas provided for the code in `target`.
 
-    depth : `eth1spec.base_types.Uint`
+    depth :
         Number of call/contract creation environments on the call stack.
 
-    env : `Environment`
+    env :
         External items required for EVM execution.
 
     Returns

@@ -24,7 +24,7 @@ def pop(stack: List[U256]) -> U256:
 
     Parameters
     ----------
-    stack : `List[U256]`
+    stack :
         EVM stack.
 
     Returns
@@ -49,10 +49,10 @@ def push(stack: List[U256], value: U256) -> None:
 
     Parameters
     ----------
-    stack : `List[U256]`
+    stack :
         EVM stack.
 
-    value : `U256`
+    value :
         Item to be pushed onto `stack`.
 
     Raises

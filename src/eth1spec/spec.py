@@ -53,9 +53,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
 
     Parameters
     ----------
-    chain : `eth1spec.eth_types.BlockChain`
+    chain :
         History and current state.
-    block : `eth1spec.eth_types.Block`
+    block :
         Block to apply to `chain`.
     """
     #  assert verify_header(block.header)
@@ -81,7 +81,7 @@ def verify_header(header: Header) -> bool:
 
     Parameters
     ----------
-    header : `eth1spec.eth_types.Header`
+    header :
         Header to check for correctness.
 
     Returns
@@ -107,21 +107,21 @@ def apply_body(
 
     Parameters
     ----------
-    state : `eth1spec.eth_types.State`
+    state :
         Current account state.
-    coinbase : `eth1spec.eth_types.Address`
+    coinbase :
         Address of account which receives block reward and transaction fees.
-    block_number : `eth1spec.base_types.Uint`
+    block_number :
         Position of the block within the chain.
-    block_gas_limit : `eth1spec.base_types.Uint`
+    block_gas_limit :
         Initial amount of gas available for execution in this block.
-    block_time : `eth1spec.base_types.U256`
+    block_time :
         Time the block was produced, measured in seconds since the epoch.
-    block_difficulty : `eth1spec.base_types.Uint`
+    block_difficulty :
         Difficulty of the block.
-    transactions : `List[eth1spec.eth_types.Transaction]`
+    transactions :
         Transactions included in the block.
-    ommers : `List[eth1spec.eth_types.Header]`
+    ommers :
         Headers of ancestor blocks which are not direct parents (formerly
         uncles.)
 
@@ -189,9 +189,9 @@ def process_transaction(
 
     Parameters
     ----------
-    env : `eth1spec.evm.Environment`
+    env :
         Environment for the Ethereum Virtual Machine.
-    tx : `eth1spec.eth_types.Transaction`
+    tx :
         Transaction to execute.
 
     Returns
@@ -235,7 +235,7 @@ def validate_transaction(tx: Transaction) -> bool:
 
     Parameters
     ----------
-    tx : `eth1spec.eth_types.Transaction`
+    tx :
         Transaction to validate.
 
     Returns
@@ -253,7 +253,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
 
     Parameters
     ----------
-    tx : `eth1spec.eth_types.Transaction`
+    tx :
         Transaction to compute the intrinsic cost of.
 
     Returns
@@ -278,7 +278,7 @@ def recover_sender(tx: Transaction) -> Address:
 
     Parameters
     ----------
-    tx : `eth1spec.eth_types.Transaction`
+    tx :
         Transaction of interest.
 
     Returns
@@ -311,7 +311,7 @@ def signing_hash(tx: Transaction) -> Hash32:
 
     Parameters
     ----------
-    tx : `eth1spec.eth_types.Transaction`
+    tx :
         Transaction of interest.
 
     Returns
@@ -339,7 +339,7 @@ def print_state(state: State) -> None:
 
     Parameters
     ----------
-    state : `eth1spec.eth_types.State`
+    state :
         Ethereum state.
     """
     nice = {}

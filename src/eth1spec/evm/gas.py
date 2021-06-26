@@ -24,9 +24,9 @@ def subtract_gas(gas_left: U256, amount: U256) -> U256:
 
     Parameters
     ----------
-    gas_left : `eth1spec.base_types.U256`
+    gas_left :
         The amount of gas left in the current frame.
-    amount : `eth1spec.base_types.U256`
+    amount :
         The amount of gas the current operation requires.
 
     Raises

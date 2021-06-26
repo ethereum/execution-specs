@@ -4,7 +4,7 @@
 #}
 {% if obj.display %}
 
-{{ obj.summary|prepare_docstring }}
+{{ obj.docstring|prepare_docstring }}
 
 .. function:: {{ obj.short_name }}({{ obj.args }}){% if obj.return_annotation is not none %} -> {{ obj.return_annotation }}{% endif %}
 
@@ -26,6 +26,6 @@
 {% set module_name = obj.obj.full_name[:-suffix] %}
 {% set module = obj.app.env.autoapi_objects[module_name] %}
 
-.. literalinclude:: /../src/{{ module.obj.relative_path }}
+.. undocinclude:: /../src/{{ module.obj.relative_path }}
    :language: {{ module.language }}
    :lines: {{ obj.obj.from_line_no }}-{{ obj.obj.to_line_no }}

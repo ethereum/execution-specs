@@ -25,7 +25,7 @@ def keccak256(buffer: Bytes) -> Hash32:
 
     Parameters
     ----------
-    buffer : `eth1spec.eth_types.Bytes`
+    buffer :
         Input for the hashing function.
 
     Returns
@@ -42,7 +42,7 @@ def keccak512(buffer: Bytes) -> Hash64:
 
     Parameters
     ----------
-    buffer : `eth1spec.eth_types.Bytes`
+    buffer :
         Input for the hashing function.
 
     Returns
@@ -59,13 +59,13 @@ def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
 
     Parameters
     ----------
-    r : `eth1spec.base_types.Uint`
+    r :
         TODO
-    s : `eth1spec.base_types.Uint`
+    s :
         TODO
-    v : `eth1spec.base_types.Uint`
+    v :
         TODO
-    msg_hash : `eth1spec.eth_types.Hash32`
+    msg_hash :
         Hash of the message being recovered.
 
     Returns

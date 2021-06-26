@@ -26,7 +26,7 @@ def add(evm: Evm) -> None:
 
     Parameters
     ----------
-    evm : `Evm`
+    evm :
         The current EVM frame.
 
     Raises
@@ -52,7 +52,7 @@ def sstore(evm: Evm) -> None:
 
     Parameters
     ----------
-    evm : `Evm`
+    evm :
         The current EVM frame.
 
     Raises
@@ -76,7 +76,7 @@ def push1(evm: Evm) -> None:
 
     Parameters
     ----------
-    evm : `Evm`
+    evm :
         The current EVM frame.
 
     Raises
