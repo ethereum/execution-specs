@@ -88,7 +88,7 @@ def map_keys(
 
     Returns
     -------
-    out :
+    out : `Mapping[eth1spec.base_types.Bytes, Node]`
         Object with keys mapped to nibble-byte form.
     """
     mapped: MutableMapping[Bytes, Node] = {}
@@ -182,7 +182,7 @@ def patricialize(obj: Mapping[Bytes, Node], i: Uint) -> rlp.RLP:
 
     Returns
     -------
-    node : `eth1spec.eth_types.Bytes`
+    node : `eth1spec.base_types.Bytes`
         Root node of `obj`.
     """
     if len(obj) == 0:

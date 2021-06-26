@@ -16,8 +16,7 @@ from __future__ import annotations
 
 from typing import List, Sequence, Union, cast
 
-from .base_types import U256, Uint
-from .eth_types import Bytes
+from .base_types import U256, Bytes, Uint
 
 RLP = Union[Bytes, Uint, U256, Sequence["RLP"]]  # type: ignore
 
@@ -39,7 +38,7 @@ def encode(raw_data: RLP) -> Bytes:
 
     Returns
     -------
-    encoded : `eth1spec.eth_types.Bytes`
+    encoded : `eth1spec.base_types.Bytes`
         The RLP encoded bytes representing `raw_data`.
     """
     if isinstance(raw_data, (bytearray, bytes)):
@@ -67,7 +66,7 @@ def encode_bytes(raw_bytes: Bytes) -> Bytes:
 
     Returns
     -------
-    encoded : `eth1spec.eth_types.Bytes`
+    encoded : `eth1spec.base_types.Bytes`
         The RLP encoded bytes representing `raw_bytes`.
     """
     len_raw_data = Uint(len(raw_bytes))
@@ -97,7 +96,7 @@ def encode_sequence(raw_sequence: Sequence[RLP]) -> Bytes:
 
     Returns
     -------
-    encoded : `eth1spec.eth_types.Bytes`
+    encoded : `eth1spec.base_types.Bytes`
         The RLP encoded bytes representing `raw_sequence`.
     """
     joined_encodings = get_joined_encodings(raw_sequence)
@@ -126,7 +125,7 @@ def get_joined_encodings(raw_sequence: Sequence[RLP]) -> Bytes:
 
     Returns
     -------
-    joined_encodings : `eth1spec.eth_types.Bytes`
+    joined_encodings : `eth1spec.base_types.Bytes`
         The concatenated RLP encoded bytes for each item in sequence
         raw_sequence.
     """
@@ -183,7 +182,7 @@ def decode_to_bytes(encoded_bytes: Bytes) -> Bytes:
 
     Returns
     -------
-    decoded : `eth1spec.eth_types.Bytes`
+    decoded : `eth1spec.base_types.Bytes`
         RLP decoded Bytes data
     """
     if len(encoded_bytes) == 1 and encoded_bytes[0] < 0x80:

@@ -70,7 +70,7 @@ def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
 
     Returns
     -------
-    public_key : `eth1spec.eth_types.Bytes`
+    public_key : `eth1spec.base_types.Bytes`
         Recovered public key.
     """
     r_bytes = r.to_be_bytes32()
