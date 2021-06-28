@@ -55,3 +55,4 @@ class Evm:
     depth: Uint
     env: Environment
     refund_counter: Uint
+    running: bool
