@@ -54,3 +54,4 @@ class Evm:
     value: U256
     depth: Uint
     env: Environment
+    refund_counter: Uint

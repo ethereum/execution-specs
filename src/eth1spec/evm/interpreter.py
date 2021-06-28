@@ -74,6 +74,7 @@ def process_call(
         value=value,
         depth=depth,
         env=env,
+        refund_counter=Uint(0),
     )
 
     logs: List[Log] = []
@@ -87,4 +88,7 @@ def process_call(
         op_implementation[op](evm)
         evm.pc += 1
 
-    return evm.gas_left, logs
+    gas_used = gas - evm.gas_left
+    refund = min(gas_used // 2, evm.refund_counter)
+
+    return evm.gas_left + refund, logs
