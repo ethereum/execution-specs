@@ -34,15 +34,13 @@ def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
     encoded in high nibble of the highest byte. The flag nibble can be broken
     down into two two-bit flags.
 
-    Highest nibble:
+    Highest nibble::
 
-    ```
-    +---+---+----------+--------+
-    | _ | _ | terminal | parity |
-    +---+---+----------+--------+
-      3   2      1         0
+        +---+---+----------+--------+
+        | _ | _ | terminal | parity |
+        +---+---+----------+--------+
+          3   2      1         0
 
-    ```
 
     The lowest bit of the nibble encodes the parity of the length of the
     remaining nibbles -- `0` when even and `1` when odd. The second lowest bit
@@ -51,9 +49,9 @@ def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
 
     Parameters
     ----------
-    x : `eth1spec.eth_types.Bytes`
+    x :
         Array of nibbles.
-    terminal : `bool`
+    terminal :
         Flag denoting if the key points to a terminal (leaf) node.
 
     Returns
@@ -83,14 +81,14 @@ def map_keys(
 
     Parameters
     ----------
-    obj : `Dict[Bytes, T]`
+    obj :
         Underlying trie key-value pairs.
-    secured : `bool`
+    secured :
         Denotes whether the keys should be hashed. Defaults to `true`.
 
     Returns
     -------
-    out : `Mapping[Bytes, T]`
+    out : `Mapping[eth1spec.base_types.Bytes, Node]`
         Object with keys mapped to nibble-byte form.
     """
     mapped: MutableMapping[Bytes, Node] = {}
@@ -129,7 +127,7 @@ def root(obj: Mapping[Bytes, Node]) -> Root:
 
     Parameters
     ----------
-    obj : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]]`
+    obj :
         Underlying trie key-value pairs.
 
     Returns
@@ -148,9 +146,9 @@ def node_cap(obj: Mapping[Bytes, Node], i: Uint) -> rlp.RLP:
 
     Parameters
     ----------
-    obj : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]]`
+    obj :
         Underlying trie key-value pairs.
-    i : `eth1spec.eth_types.U256`
+    i :
         Current trie level.
 
     Returns
@@ -177,14 +175,14 @@ def patricialize(obj: Mapping[Bytes, Node], i: Uint) -> rlp.RLP:
 
     Parameters
     ----------
-    obj : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]]`
+    obj :
         Underlying trie key-value pairs.
-    i : `eth1spec.eth_types.Uint`
+    i :
         Current trie level.
 
     Returns
     -------
-    node : `eth1spec.eth_types.Bytes`
+    node : `eth1spec.base_types.Bytes`
         Root node of `obj`.
     """
     if len(obj) == 0:

@@ -34,7 +34,7 @@ class Uint(int):
 
         Parameters
         ----------
-        buffer : `Bytes`
+        buffer :
             Bytes to decode.
 
         Returns
@@ -267,7 +267,7 @@ class U256(int):
 
         Parameters
         ----------
-        buffer : `Bytes`
+        buffer :
             Bytes to decode.
 
         Returns

@@ -16,8 +16,7 @@ from __future__ import annotations
 
 from typing import List, Sequence, Union, cast
 
-from .base_types import U256, Uint
-from .eth_types import Bytes
+from .base_types import U256, Bytes, Uint
 
 RLP = Union[Bytes, Uint, U256, Sequence["RLP"]]  # type: ignore
 
@@ -33,13 +32,13 @@ def encode(raw_data: RLP) -> Bytes:
 
     Parameters
     ----------
-    raw_data : `RLP`
+    raw_data :
         A `Bytes`, `Uint`, `Uint256` or sequence of `RLP` encodable
         objects.
 
     Returns
     -------
-    encoded : `eth1spec.eth_types.Bytes`
+    encoded : `eth1spec.base_types.Bytes`
         The RLP encoded bytes representing `raw_data`.
     """
     if isinstance(raw_data, (bytearray, bytes)):
@@ -62,12 +61,12 @@ def encode_bytes(raw_bytes: Bytes) -> Bytes:
 
     Parameters
     ----------
-    raw_bytes : `eth1spec.eth_types.Bytes`
+    raw_bytes :
         Bytes to encode with RLP.
 
     Returns
     -------
-    encoded : `eth1spec.eth_types.Bytes`
+    encoded : `eth1spec.base_types.Bytes`
         The RLP encoded bytes representing `raw_bytes`.
     """
     len_raw_data = Uint(len(raw_bytes))
@@ -92,12 +91,12 @@ def encode_sequence(raw_sequence: Sequence[RLP]) -> Bytes:
 
     Parameters
     ----------
-    raw_sequence : `Sequence[RLP]`
+    raw_sequence :
             Sequence of RLP encodable objects.
 
     Returns
     -------
-    encoded : `eth1spec.eth_types.Bytes`
+    encoded : `eth1spec.base_types.Bytes`
         The RLP encoded bytes representing `raw_sequence`.
     """
     joined_encodings = get_joined_encodings(raw_sequence)
@@ -121,12 +120,12 @@ def get_joined_encodings(raw_sequence: Sequence[RLP]) -> Bytes:
 
     Parameters
     ----------
-    raw_sequence : `Sequence[RLP]`
+    raw_sequence :
         Sequence to encode with RLP.
 
     Returns
     -------
-    joined_encodings : `eth1spec.eth_types.Bytes`
+    joined_encodings : `eth1spec.base_types.Bytes`
         The concatenated RLP encoded bytes for each item in sequence
         raw_sequence.
     """
@@ -149,7 +148,7 @@ def decode(encoded_data: Bytes) -> RLP:
 
     Parameters
     ----------
-    encoded_data : `eth1spec.eth_types.Bytes`
+    encoded_data :
         A sequence of bytes, in RLP form.
 
     Returns
@@ -178,12 +177,12 @@ def decode_to_bytes(encoded_bytes: Bytes) -> Bytes:
 
     Parameters
     ----------
-    encoded_bytes : `eth1spec.eth_types.Bytes`
+    encoded_bytes :
         RLP encoded byte stream.
 
     Returns
     -------
-    decoded : `eth1spec.eth_types.Bytes`
+    decoded : `eth1spec.base_types.Bytes`
         RLP decoded Bytes data
     """
     if len(encoded_bytes) == 1 and encoded_bytes[0] < 0x80:
@@ -218,7 +217,7 @@ def decode_to_sequence(encoded_sequence: Bytes) -> List[RLP]:
 
     Parameters
     ----------
-    encoded_sequence : `eth1spec.eth_types.Bytes`
+    encoded_sequence :
         An RLP encoded Sequence.
 
     Returns
@@ -258,7 +257,7 @@ def decode_joined_encodings(joined_encodings: Bytes) -> List[RLP]:
 
     Parameters
     ----------
-    joined_encodings : `eth1spec.eth_types.Bytes`
+    joined_encodings :
         concatenation of RLP encoded objects
 
     Returns
@@ -296,7 +295,7 @@ def decode_item_length(encoded_data: Bytes) -> int:
 
     Parameters
     ----------
-    encoded_data : `eth1spec.eth_types.Bytes`
+    encoded_data :
         RLP encoded data for a sequence of objects.
 
     Returns
