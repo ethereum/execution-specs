@@ -20,7 +20,18 @@ from .base_types import U256, Bytes, Uint
 from .crypto import keccak256
 from .eth_types import Account, Block, Header, Log, Receipt, Transaction
 
-RLP = Union[Bytes, Uint, U256, Sequence["RLP"]]  # type: ignore
+RLP = Union[  # type: ignore
+    Bytes,
+    Uint,
+    U256,
+    Block,
+    Header,
+    Account,
+    Transaction,
+    Receipt,
+    Log,
+    Sequence["RLP"],  # type: ignore
+]
 
 
 #
