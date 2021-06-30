@@ -32,3 +32,6 @@ jobs:
         with:
           files: .tox/coverage.xml
           flags: unittests
+      - name: Build docs
+        if: ${{ matrix.python != 'pypy-3.7' }}
+        run: tox -e doc
