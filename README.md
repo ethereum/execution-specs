@@ -45,6 +45,14 @@ $ tox -e doc
 
 The path to the generated HTML will be printed to the console.
 
+#### Live Preview
+
+A live preview of the documentation can be viewed locally on port `8000` with the following command:
+
+```bash
+$ tox -e doc-autobuild
+```
+
 ### Development
 
 Running the tests necessary to merge into the repository requires:
