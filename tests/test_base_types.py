@@ -1,6 +1,6 @@
 import pytest
 
-from eth1spec.base_types import U256, Uint
+from ethereum.base_types import U256, Uint
 
 
 def test_uint_new() -> None:

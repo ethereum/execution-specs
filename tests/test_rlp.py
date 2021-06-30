@@ -4,9 +4,9 @@ from typing import List, Sequence, Tuple, Union, cast
 
 import pytest
 
-from eth1spec import rlp
-from eth1spec.eth_types import U256, Bytes, Uint
-from eth1spec.rlp import RLP
+from ethereum import rlp
+from ethereum.eth_types import U256, Bytes, Uint
+from ethereum.rlp import RLP
 
 from .helpers import hex2bytes
 

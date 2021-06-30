@@ -15,7 +15,7 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from . import crypto, evm, rlp, trie
+from . import crypto, rlp, trie, vm
 from .base_types import U256, Uint
 from .eth_types import (
     EMPTY_ACCOUNT,
@@ -32,7 +32,7 @@ from .eth_types import (
     State,
     Transaction,
 )
-from .evm.interpreter import process_call
+from .vm.interpreter import process_call
 
 BLOCK_REWARD = 5 * 10 ** 18
 
@@ -150,7 +150,7 @@ def apply_body(
         assert tx.gas <= gas_available
         sender_address = recover_sender(tx)
 
-        env = evm.Environment(
+        env = vm.Environment(
             caller=sender_address,
             origin=sender_address,
             block_hashes=[],
@@ -203,7 +203,7 @@ def compute_ommers_hash(block: Block) -> Hash32:
 
 
 def process_transaction(
-    env: evm.Environment, tx: Transaction
+    env: vm.Environment, tx: Transaction
 ) -> Tuple[U256, List[Log]]:
     """
     Execute a transaction against the provided environment.
