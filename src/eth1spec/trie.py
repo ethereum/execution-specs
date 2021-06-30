@@ -18,12 +18,12 @@ from typing import Mapping, MutableMapping, Set, Union, cast
 
 from . import crypto, rlp
 from .base_types import U256, Bytes, Uint
-from .eth_types import Account, Receipt, Root
+from .eth_types import Account, Receipt, Root, Transaction
 
 debug = False
 verbose = False
 
-Node = Union[Account, Bytes, Receipt, Uint, U256]
+Node = Union[Account, Bytes, Transaction, Receipt, Uint, U256]
 
 
 def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
@@ -121,6 +121,18 @@ def map_keys(
     return mapped
 
 
+def encode_leaf(leaf: Node) -> rlp.RLP:
+    """
+    RLP encode leaf nodes of the Trie.
+    Currently leaf nodes can be `Account`, `Transaction`, `Receipt`
+    dataclasses.
+    """
+    if isinstance(leaf, (Account, Transaction, Receipt)):
+        return rlp.encode(cast(rlp.RLP, leaf))
+
+    return leaf
+
+
 def root(obj: Mapping[Bytes, Node]) -> Root:
     """
     Computes the root of a modified merkle patricia trie (MPT).
@@ -207,29 +219,7 @@ def patricialize(obj: Mapping[Bytes, Node], i: Uint) -> rlp.RLP:
     # if leaf node
     if len(obj) == 1:
         leaf = obj[key]
-        node: rlp.RLP
-
-        if isinstance(leaf, Account):
-            node = rlp.encode(
-                (
-                    leaf.nonce,
-                    leaf.balance,
-                    root(map_keys(leaf.storage)),
-                    crypto.keccak256(leaf.code),
-                )
-            )
-        elif isinstance(leaf, Receipt):
-            node = rlp.encode(
-                (
-                    leaf.post_state,
-                    leaf.cumulative_gas_used,
-                    leaf.bloom,
-                    leaf.logs,
-                )
-            )
-        else:
-            node = leaf
-
+        node: rlp.RLP = encode_leaf(leaf)
         return (nibble_list_to_compact(key[i:], True), node)
 
     # prepare for extension node check by finding max j such that all keys in
