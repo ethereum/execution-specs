@@ -35,7 +35,7 @@ extensions = [
 ]
 
 autoapi_type = 'python'
-autoapi_dirs = ['../src/eth1spec']
+autoapi_dirs = ['../src/ethereum']
 autoapi_template_dir = '_templates/autoapi'
 
 # Add any paths that contain templates here, relative to this directory.
