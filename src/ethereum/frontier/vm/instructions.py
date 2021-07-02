@@ -440,7 +440,7 @@ def push_n(evm: Evm, num_bytes: int) -> None:
     evm :
         The current EVM frame.
 
-    num_bytes : `int`
+    num_bytes :
         The number of immediate bytes to be read from the code and pushed to
         the stack.
 
@@ -460,6 +460,62 @@ def push_n(evm: Evm, num_bytes: int) -> None:
     push(evm.stack, data_to_push)
 
     evm.pc += num_bytes
+
+
+def dup_n(evm: Evm, item_number: int) -> None:
+    """
+    Duplicate the Nth stack item (0-indexed from top of the stack) to the
+    top of stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    item_number :
+        The stack item number (0-indexed from top of stack) to be duplicated
+        to the top of stack.
+
+    Raises
+    ------
+    OutOfGasError
+        If `evm.gas_left` is less than `GAS_VERY_LOW`.
+    """
+    assert item_number < len(evm.stack)
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+
+    data_to_duplicate = evm.stack[len(evm.stack) - 1 - item_number]
+    push(evm.stack, data_to_duplicate)
+
+
+def swap_n(evm: Evm, item_number: int) -> None:
+    """
+    Swap the 1st and Nth items in the stack. All items are 0-indexed from the
+    top of the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    item_number :
+        The stack item number (0-indexed from top of stack) to be swapped
+        with the top of stack element.
+
+    Raises
+    ------
+    OutOfGasError
+        If `evm.gas_left` is less than `GAS_VERY_LOW`.
+    """
+    assert item_number < len(evm.stack)
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+
+    top_element_idx = len(evm.stack) - 1
+    nth_element_idx = len(evm.stack) - 1 - item_number
+    evm.stack[top_element_idx], evm.stack[nth_element_idx] = (
+        evm.stack[nth_element_idx],
+        evm.stack[top_element_idx],
+    )
 
 
 push1 = partial(push_n, num_bytes=1)
@@ -494,3 +550,37 @@ push29 = partial(push_n, num_bytes=29)
 push30 = partial(push_n, num_bytes=30)
 push31 = partial(push_n, num_bytes=31)
 push32 = partial(push_n, num_bytes=32)
+
+dup1 = partial(dup_n, item_number=0)
+dup2 = partial(dup_n, item_number=1)
+dup3 = partial(dup_n, item_number=2)
+dup4 = partial(dup_n, item_number=3)
+dup5 = partial(dup_n, item_number=4)
+dup6 = partial(dup_n, item_number=5)
+dup7 = partial(dup_n, item_number=6)
+dup8 = partial(dup_n, item_number=7)
+dup9 = partial(dup_n, item_number=8)
+dup10 = partial(dup_n, item_number=9)
+dup11 = partial(dup_n, item_number=10)
+dup12 = partial(dup_n, item_number=11)
+dup13 = partial(dup_n, item_number=12)
+dup14 = partial(dup_n, item_number=13)
+dup15 = partial(dup_n, item_number=14)
+dup16 = partial(dup_n, item_number=15)
+
+swap1 = partial(swap_n, item_number=1)
+swap2 = partial(swap_n, item_number=2)
+swap3 = partial(swap_n, item_number=3)
+swap4 = partial(swap_n, item_number=4)
+swap5 = partial(swap_n, item_number=5)
+swap6 = partial(swap_n, item_number=6)
+swap7 = partial(swap_n, item_number=7)
+swap8 = partial(swap_n, item_number=8)
+swap9 = partial(swap_n, item_number=9)
+swap10 = partial(swap_n, item_number=10)
+swap11 = partial(swap_n, item_number=11)
+swap12 = partial(swap_n, item_number=12)
+swap13 = partial(swap_n, item_number=13)
+swap14 = partial(swap_n, item_number=14)
+swap15 = partial(swap_n, item_number=15)
+swap16 = partial(swap_n, item_number=16)

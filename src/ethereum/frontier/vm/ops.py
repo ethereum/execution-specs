@@ -65,6 +65,42 @@ PUSH30 = 0x7D
 PUSH31 = 0x7E
 PUSH32 = 0x7F
 
+# Dup operations
+DUP1 = 0x80
+DUP2 = 0x81
+DUP3 = 0x82
+DUP4 = 0x83
+DUP5 = 0x84
+DUP6 = 0x85
+DUP7 = 0x86
+DUP8 = 0x87
+DUP9 = 0x88
+DUP10 = 0x89
+DUP11 = 0x8A
+DUP12 = 0x8B
+DUP13 = 0x8C
+DUP14 = 0x8D
+DUP15 = 0x8E
+DUP16 = 0x8F
+
+# Swap operations
+SWAP1 = 0x90
+SWAP2 = 0x91
+SWAP3 = 0x92
+SWAP4 = 0x93
+SWAP5 = 0x94
+SWAP6 = 0x95
+SWAP7 = 0x96
+SWAP8 = 0x97
+SWAP9 = 0x98
+SWAP10 = 0x99
+SWAP11 = 0x9A
+SWAP12 = 0x9B
+SWAP13 = 0x9C
+SWAP14 = 0x9D
+SWAP15 = 0x9E
+SWAP16 = 0x9F
+
 SSTORE = 0x55
 
 
@@ -114,4 +150,36 @@ op_implementation: Dict[int, Callable] = {
     PUSH30: instructions.push30,
     PUSH31: instructions.push31,
     PUSH32: instructions.push32,
+    DUP1: instructions.dup1,
+    DUP2: instructions.dup2,
+    DUP3: instructions.dup3,
+    DUP4: instructions.dup4,
+    DUP5: instructions.dup5,
+    DUP6: instructions.dup6,
+    DUP7: instructions.dup7,
+    DUP8: instructions.dup8,
+    DUP9: instructions.dup9,
+    DUP10: instructions.dup10,
+    DUP11: instructions.dup11,
+    DUP12: instructions.dup12,
+    DUP13: instructions.dup13,
+    DUP14: instructions.dup14,
+    DUP15: instructions.dup15,
+    DUP16: instructions.dup16,
+    SWAP1: instructions.swap1,
+    SWAP2: instructions.swap2,
+    SWAP3: instructions.swap3,
+    SWAP4: instructions.swap4,
+    SWAP5: instructions.swap5,
+    SWAP6: instructions.swap6,
+    SWAP7: instructions.swap7,
+    SWAP8: instructions.swap8,
+    SWAP9: instructions.swap9,
+    SWAP10: instructions.swap10,
+    SWAP11: instructions.swap11,
+    SWAP12: instructions.swap12,
+    SWAP13: instructions.swap13,
+    SWAP14: instructions.swap14,
+    SWAP15: instructions.swap15,
+    SWAP16: instructions.swap16,
 }
