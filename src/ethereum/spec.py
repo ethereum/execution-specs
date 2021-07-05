@@ -378,7 +378,7 @@ def compute_header_hash(header: Header) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.base_types.Hash32`
+    hash : `ethereum.eth_types.Hash32`
         Hash of the header.
     """
     return crypto.keccak256(
@@ -418,7 +418,7 @@ def get_block_header_by_hash(hash: Hash32, chain: BlockChain) -> Header:
 
     Returns
     -------
-    Header : `ethereum.base_types.Header`
+    Header : `ethereum.eth_types.Header`
         Block header found by its hash.
     """
     for block in chain.blocks:
@@ -496,14 +496,14 @@ def calculate_block_difficulty(
         difficulty of the parent block
     Returns
     ------
-    difficulty : Uint
+    difficulty : `ethereum.base_types.Uint`
         Computed difficulty for a block.
     """
     max_adjustment_delta = parent_difficulty // Uint(2048)
     if number == 0:
         return GENESIS_DIFFICULTY
-    elif timestamp < parent_header_timestamp + 13:
-        return parent_header_difficulty + max_adjustment_delta
+    elif timestamp < parent_timestamp + 13:
+        return parent_difficulty + max_adjustment_delta
     else:  # timestamp >= parent_timestamp + 13
         return max(
             GENESIS_DIFFICULTY,
