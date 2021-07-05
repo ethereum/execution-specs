@@ -14,7 +14,7 @@ Implementation of the stack operators for the EVM.
 
 from typing import List
 
-from ..eth_types import U256
+from ..base_types import U256
 from .error import StackOverflowError, StackUnderflowError
 
 
@@ -24,7 +24,7 @@ def pop(stack: List[U256]) -> U256:
 
     Parameters
     ----------
-    stack : `List[U256]`
+    stack :
         EVM stack.
 
     Returns
@@ -49,10 +49,10 @@ def push(stack: List[U256], value: U256) -> None:
 
     Parameters
     ----------
-    stack : `List[U256]`
+    stack :
         EVM stack.
 
-    value : `U256`
+    value :
         Item to be pushed onto `stack`.
 
     Raises

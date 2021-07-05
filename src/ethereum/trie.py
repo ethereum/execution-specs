@@ -18,12 +18,12 @@ from typing import Mapping, MutableMapping, Set, Union, cast
 
 from . import crypto, rlp
 from .base_types import U256, Bytes, Uint
-from .eth_types import Account, Receipt, Root
+from .eth_types import Account, Receipt, Root, Transaction
 
 debug = False
 verbose = False
 
-Node = Union[Account, Bytes, Receipt, Uint, U256]
+Node = Union[Account, Bytes, Transaction, Receipt, Uint, U256]
 
 
 def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
@@ -34,15 +34,13 @@ def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
     encoded in high nibble of the highest byte. The flag nibble can be broken
     down into two two-bit flags.
 
-    Highest nibble:
+    Highest nibble::
 
-    ```
-    +---+---+----------+--------+
-    | _ | _ | terminal | parity |
-    +---+---+----------+--------+
-      3   2      1         0
+        +---+---+----------+--------+
+        | _ | _ | terminal | parity |
+        +---+---+----------+--------+
+          3   2      1         0
 
-    ```
 
     The lowest bit of the nibble encodes the parity of the length of the
     remaining nibbles -- `0` when even and `1` when odd. The second lowest bit
@@ -51,9 +49,9 @@ def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
 
     Parameters
     ----------
-    x : `eth1spec.eth_types.Bytes`
+    x :
         Array of nibbles.
-    terminal : `bool`
+    terminal :
         Flag denoting if the key points to a terminal (leaf) node.
 
     Returns
@@ -83,14 +81,14 @@ def map_keys(
 
     Parameters
     ----------
-    obj : `Dict[Bytes, T]`
+    obj :
         Underlying trie key-value pairs.
-    secured : `bool`
+    secured :
         Denotes whether the keys should be hashed. Defaults to `true`.
 
     Returns
     -------
-    out : `Mapping[Bytes, T]`
+    out : `Mapping[eth1spec.base_types.Bytes, Node]`
         Object with keys mapped to nibble-byte form.
     """
     mapped: MutableMapping[Bytes, Node] = {}
@@ -123,13 +121,25 @@ def map_keys(
     return mapped
 
 
+def encode_leaf(leaf: Node) -> rlp.RLP:
+    """
+    RLP encode leaf nodes of the Trie.
+    Currently leaf nodes can be `Account`, `Transaction`, `Receipt`
+    dataclasses.
+    """
+    if isinstance(leaf, (Account, Transaction, Receipt)):
+        return rlp.encode(cast(rlp.RLP, leaf))
+
+    return leaf
+
+
 def root(obj: Mapping[Bytes, Node]) -> Root:
     """
     Computes the root of a modified merkle patricia trie (MPT).
 
     Parameters
     ----------
-    obj : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]]`
+    obj :
         Underlying trie key-value pairs.
 
     Returns
@@ -148,9 +158,9 @@ def node_cap(obj: Mapping[Bytes, Node], i: Uint) -> rlp.RLP:
 
     Parameters
     ----------
-    obj : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]]`
+    obj :
         Underlying trie key-value pairs.
-    i : `eth1spec.eth_types.U256`
+    i :
         Current trie level.
 
     Returns
@@ -177,14 +187,14 @@ def patricialize(obj: Mapping[Bytes, Node], i: Uint) -> rlp.RLP:
 
     Parameters
     ----------
-    obj : `Mapping[Bytes, Union[Bytes, Account, Receipt, Uint, U256]]`
+    obj :
         Underlying trie key-value pairs.
-    i : `eth1spec.eth_types.Uint`
+    i :
         Current trie level.
 
     Returns
     -------
-    node : `eth1spec.eth_types.Bytes`
+    node : `eth1spec.base_types.Bytes`
         Root node of `obj`.
     """
     if len(obj) == 0:
@@ -209,29 +219,7 @@ def patricialize(obj: Mapping[Bytes, Node], i: Uint) -> rlp.RLP:
     # if leaf node
     if len(obj) == 1:
         leaf = obj[key]
-        node: rlp.RLP
-
-        if isinstance(leaf, Account):
-            node = rlp.encode(
-                (
-                    leaf.nonce,
-                    leaf.balance,
-                    root(map_keys(leaf.storage)),
-                    crypto.keccak256(leaf.code),
-                )
-            )
-        elif isinstance(leaf, Receipt):
-            node = rlp.encode(
-                (
-                    leaf.post_state,
-                    leaf.cumulative_gas_used,
-                    leaf.bloom,
-                    leaf.logs,
-                )
-            )
-        else:
-            node = leaf
-
+        node: rlp.RLP = encode_leaf(leaf)
         return (nibble_list_to_compact(key[i:], True), node)
 
     # prepare for extension node check by finding max j such that all keys in

@@ -16,6 +16,9 @@ from ..base_types import U256
 from .error import OutOfGasError
 
 GAS_VERY_LOW = U256(3)
+GAS_STORAGE_SET = U256(20000)
+GAS_STORAGE_UPDATE = U256(5000)
+GAS_STORAGE_CLEAR_REFUND = U256(15000)
 
 
 def subtract_gas(gas_left: U256, amount: U256) -> U256:
@@ -24,9 +27,9 @@ def subtract_gas(gas_left: U256, amount: U256) -> U256:
 
     Parameters
     ----------
-    gas_left : `eth1spec.base_types.U256`
+    gas_left :
         The amount of gas left in the current frame.
-    amount : `eth1spec.base_types.U256`
+    amount :
         The amount of gas the current operation requires.
 
     Raises

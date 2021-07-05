@@ -21,7 +21,6 @@ project = 'Ethereum Specification'
 copyright = '2021, Ethereum'
 author = 'Ethereum'
 
-
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -32,10 +31,11 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.autodoc',
     'autoapi.extension',
+    'undocinclude.extension',
 ]
 
 autoapi_type = 'python'
-autoapi_dirs = ['../src/eth1spec']
+autoapi_dirs = ['../src/ethereum']
 autoapi_template_dir = '_templates/autoapi'
 
 # Add any paths that contain templates here, relative to this directory.

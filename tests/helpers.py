@@ -1,5 +1,8 @@
-from eth1spec.base_types import Uint
-from eth1spec.eth_types import (
+from typing import Any
+
+from ethereum import crypto, rlp
+from ethereum.base_types import Uint
+from ethereum.eth_types import (
     U256,
     Address,
     Bytes,
@@ -27,7 +30,7 @@ def hex2bytes8(x: str) -> Bytes8:
 
 
 def hex2bytes32(x: str) -> Bytes32:
-    return Bytes32(bytes.fromhex(remove_hex_prefix(x)))
+    return Bytes32(bytes.fromhex(remove_hex_prefix(x).rjust(64, "0")))
 
 
 def hex2hash(x: str) -> Hash32:
@@ -58,3 +61,7 @@ def remove_hex_prefix(x: str) -> str:
     if has_hex_prefix(x):
         return x[len("0x") :]
     return x
+
+
+def rlp_hash(x: Any) -> Bytes:
+    return crypto.keccak256(rlp.encode(x))

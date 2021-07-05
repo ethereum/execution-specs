@@ -15,7 +15,7 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from . import crypto, evm, rlp, trie
+from . import crypto, rlp, trie, vm
 from .base_types import U256, Uint
 from .eth_types import (
     EMPTY_ACCOUNT,
@@ -32,11 +32,12 @@ from .eth_types import (
     State,
     Transaction,
 )
-from .evm.interpreter import process_call
+from .vm.interpreter import process_call
 
 BLOCK_REWARD = 5 * 10 ** 18
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 125000
+GENESIS_DIFFICULTY = Uint(131072)
 
 
 @dataclass
@@ -55,14 +56,14 @@ def state_transition(chain: BlockChain, block: Block) -> None:
 
     Parameters
     ----------
-    chain : `eth1spec.eth_types.BlockChain`
+    chain :
         History and current state.
-    block : `eth1spec.eth_types.Block`
+    block :
         Block to apply to `chain`.
     """
     parent_header = get_block_header_by_hash(block.header.parent_hash, chain)
-    assert verify_header(block.header, parent_header)
-    gas_used, receipt_root, state = apply_body(
+    validate_header(block.header, parent_header)
+    gas_used, transactions_root, receipt_root, state = apply_body(
         chain.state,
         block.header.coinbase,
         block.header.number,
@@ -74,37 +75,40 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     )
 
     assert gas_used == block.header.gas_used
+    assert compute_ommers_hash(block) == block.header.ommers_hash
+    # TODO: Also need to verify that these ommers are indeed valid as per the
+    # Nth generation
+    assert transactions_root == block.header.transactions_root
     assert receipt_root == block.header.receipt_root
     assert trie.root(trie.map_keys(state)) == block.header.state_root
 
+    chain.blocks.append(block)
 
-def verify_header(header: Header, parent_header: Header) -> bool:
+
+def validate_header(header: Header, parent_header: Header) -> None:
     """
     Verifies a block header.
 
     Parameters
     ----------
-    header : `eth1spec.eth_types.Header`
+    header :
         Header to check for correctness.
-    parent_header: `eth1spec.eth_types.Header`
+    parent_header :
         Parent Header of the header to check for correctness
-
-    Returns
-    -------
-    verified : `bool`
-        True if the header is correct, False otherwise.
     """
     # TODO: get rid of the comment below once
-    #  validate_proof_of_work is implemented
-    # assert validate_proof_of_work(header)
+    #  check_proof_of_work is implemented
+    # assert check_proof_of_work(header)
     assert header.difficulty == calculate_block_difficulty(
-        header, parent_header
+        header.number,
+        header.timestamp,
+        parent_header.timestamp,
+        parent_header.difficulty,
     )
-    assert validate_gas_limit(header.gas_limit, parent_header.gas_limit)
+    assert check_gas_limit(header.gas_limit, parent_header.gas_limit)
     assert header.timestamp > parent_header.timestamp
     assert header.number == parent_header.number + 1
     assert len(header.extra_data) <= 32
-    return True
 
 
 def apply_body(
@@ -116,27 +120,27 @@ def apply_body(
     block_difficulty: Uint,
     transactions: List[Transaction],
     ommers: List[Header],
-) -> Tuple[Uint, Root, State]:
+) -> Tuple[Uint, Root, Root, State]:
     """
     Executes a block.
 
     Parameters
     ----------
-    state : `eth1spec.eth_types.State`
+    state :
         Current account state.
-    coinbase : `eth1spec.eth_types.Address`
+    coinbase :
         Address of account which receives block reward and transaction fees.
-    block_number : `eth1spec.base_types.Uint`
+    block_number :
         Position of the block within the chain.
-    block_gas_limit : `eth1spec.base_types.Uint`
+    block_gas_limit :
         Initial amount of gas available for execution in this block.
-    block_time : `eth1spec.base_types.U256`
+    block_time :
         Time the block was produced, measured in seconds since the epoch.
-    block_difficulty : `eth1spec.base_types.Uint`
+    block_difficulty :
         Difficulty of the block.
-    transactions : `List[eth1spec.eth_types.Transaction]`
+    transactions :
         Transactions included in the block.
-    ommers : `List[eth1spec.eth_types.Header]`
+    ommers :
         Headers of ancestor blocks which are not direct parents (formerly
         uncles.)
 
@@ -159,7 +163,7 @@ def apply_body(
         assert tx.gas <= gas_available
         sender_address = recover_sender(tx)
 
-        env = evm.Environment(
+        env = vm.Environment(
             caller=sender_address,
             origin=sender_address,
             block_hashes=[],
@@ -180,7 +184,7 @@ def apply_body(
                 post_state=Root(trie.root(trie.map_keys(state))),
                 cumulative_gas_used=(block_gas_limit - gas_available),
                 bloom=b"\x00" * 256,
-                logs=[],
+                logs=logs,
             )
         )
 
@@ -193,20 +197,35 @@ def apply_body(
     }
     receipt_root = trie.root(trie.map_keys(receipts_map, secured=False))
 
-    return (gas_remaining, receipt_root, state)
+    transactions_map = {
+        bytes(rlp.encode(Uint(idx))): tx
+        for (idx, tx) in enumerate(transactions)
+    }
+    transactions_root = trie.root(
+        trie.map_keys(transactions_map, secured=False)
+    )
+
+    return (gas_remaining, transactions_root, receipt_root, state)
+
+
+def compute_ommers_hash(block: Block) -> Hash32:
+    """
+    Compute hash of ommers list for a block
+    """
+    return crypto.keccak256(rlp.encode(block.ommers))
 
 
 def process_transaction(
-    env: evm.Environment, tx: Transaction
+    env: vm.Environment, tx: Transaction
 ) -> Tuple[U256, List[Log]]:
     """
     Execute a transaction against the provided environment.
 
     Parameters
     ----------
-    env : `eth1spec.evm.Environment`
+    env :
         Environment for the Ethereum Virtual Machine.
-    tx : `eth1spec.eth_types.Transaction`
+    tx :
         Transaction to execute.
 
     Returns
@@ -250,7 +269,7 @@ def validate_transaction(tx: Transaction) -> bool:
 
     Parameters
     ----------
-    tx : `eth1spec.eth_types.Transaction`
+    tx :
         Transaction to validate.
 
     Returns
@@ -268,7 +287,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
 
     Parameters
     ----------
-    tx : `eth1spec.eth_types.Transaction`
+    tx :
         Transaction to compute the intrinsic cost of.
 
     Returns
@@ -293,7 +312,7 @@ def recover_sender(tx: Transaction) -> Address:
 
     Parameters
     ----------
-    tx : `eth1spec.eth_types.Transaction`
+    tx :
         Transaction of interest.
 
     Returns
@@ -326,7 +345,7 @@ def signing_hash(tx: Transaction) -> Hash32:
 
     Parameters
     ----------
-    tx : `eth1spec.eth_types.Transaction`
+    tx :
         Transaction of interest.
 
     Returns
@@ -354,12 +373,12 @@ def compute_header_hash(header: Header) -> Hash32:
 
     Parameters
     ----------
-    header : `eth1spec.eth_types.Header`
+    header :
         Header of interest.
 
     Returns
     -------
-    hash : `eth1spec.eth_types.Hash32`
+    hash : `ethereum.base_types.Hash32`
         Hash of the header.
     """
     return crypto.keccak256(
@@ -391,15 +410,15 @@ def get_block_header_by_hash(hash: Hash32, chain: BlockChain) -> Header:
 
     Parameters
     ----------
-    hash : `eth1spec.eth_types.Hash32`
+    hash :
         Hash of the header of interest.
 
-    chain : `eth1spec.eth_types.BlockChain`
+    chain :
         History and current state.
 
     Returns
     -------
-    Header : `eth1spec.eth_types.Header`
+    Header : `ethereum.base_types.Header`
         Block header found by its hash.
     """
     for block in chain.blocks:
@@ -409,19 +428,19 @@ def get_block_header_by_hash(hash: Hash32, chain: BlockChain) -> Header:
         raise ValueError(f"Could not find header with hash={hash.hex()}")
 
 
-def validate_proof_of_work(header: Header) -> bool:
+def check_proof_of_work(header: Header) -> bool:
     """
-    Validates the Proof of Work constraints
+    Validates the Proof of Work constraints.
 
     Parameters
     ----------
-    header : `eth1spec.eth_types.Uint`
-        header of interest
+    header :
+        Header of interest.
 
     Returns
     -------
-    valid : `bool`
-        True if Proof of Work constraints are satisfied, False otherwise
+    check : `bool`
+        True if Proof of Work constraints are satisfied, False otherwise.
     """
     # TODO: Implement this method once proof of work
     #  algorithm is implemented
@@ -429,22 +448,22 @@ def validate_proof_of_work(header: Header) -> bool:
     raise NotImplementedError
 
 
-def validate_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
+def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
     """
-    Validates the gas limit for a block
+    Validates the gas limit for a block.
 
     Parameters
     ----------
-    gas_limit : `eth1spec.eth_types.Uint`
+    gas_limit :
         Gas limit to validate.
 
-    parent_gas_limit : `eth1spec.eth_types.Uint`
+    parent_gas_limit :
         Gas limit of the parent block.
 
     Returns
     -------
-    valid : `bool`
-        True if gas limit constraints are satisfied, False otherwise
+    check : `bool`
+        True if gas limit constraints are satisfied, False otherwise.
     """
     max_adjustment_delta = parent_gas_limit // GAS_LIMIT_ADJUSTMENT_FACTOR
     if gas_limit >= parent_gas_limit + max_adjustment_delta:
@@ -457,31 +476,38 @@ def validate_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
     return True
 
 
-def calculate_block_difficulty(header: Header, parent_header: Header) -> Uint:
+def calculate_block_difficulty(
+    number: Uint,
+    timestamp: U256,
+    parent_timestamp: U256,
+    parent_difficulty: Uint,
+) -> Uint:
     """
-    Computes difficulty of a block using its header and parent header
+    Computes difficulty of a block using its header and parent header.
     Parameters
     ----------
-    header: `eth1spec.eth_types.Header`
-        header of interest
-    parent_header: `eth1spec.eth_types.Header`
-        parent header of header of interest
+    number :
+        Block number of the block
+    timestamp :
+        Timestmap of the block
+    parent_timestamp :
+        Timestanp of the parent block
+    parent_difficulty :
+        difficulty of the parent block
     Returns
     ------
-    difficulty: Uint
+    difficulty : Uint
         Computed difficulty for a block.
     """
-    if header.number == 0:
-        return Uint(131072)
-    elif header.timestamp < parent_header.timestamp + 13:
-        return parent_header.difficulty + parent_header.difficulty // Uint(
-            2048
-        )
-    else:  # header.timestamp >= parent_header.timestamp + 13
+    max_adjustment_delta = parent_difficulty // Uint(2048)
+    if number == 0:
+        return GENESIS_DIFFICULTY
+    elif timestamp < parent_header_timestamp + 13:
+        return parent_header_difficulty + max_adjustment_delta
+    else:  # timestamp >= parent_timestamp + 13
         return max(
-            Uint(131072),
-            parent_header.difficulty
-            - (parent_header.difficulty // Uint(2048)),
+            GENESIS_DIFFICULTY,
+            parent_difficulty - max_adjustment_delta,
         )
 
 
@@ -491,7 +517,7 @@ def print_state(state: State) -> None:
 
     Parameters
     ----------
-    state : `eth1spec.eth_types.State`
+    state :
         Ethereum state.
     """
     nice = {}
@@ -504,6 +530,6 @@ def print_state(state: State) -> None:
         }
 
         for (k, v) in account.storage.items():
-            nice[address.hex()]["storage"][k.hex()] = v.hex()  # type: ignore
+            nice[address.hex()]["storage"][k.hex()] = hex(v)  # type: ignore
 
     print(nice)

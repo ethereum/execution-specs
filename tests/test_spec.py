@@ -1,9 +1,11 @@
 import json
 import os
-from typing import Any, List
+from typing import Any, List, cast
 
-from eth1spec.eth_types import Account, Block, Header, State, Transaction
-from eth1spec.spec import BlockChain, state_transition
+from ethereum import rlp
+from ethereum.base_types import U256
+from ethereum.eth_types import Account, Block, Header, State, Transaction
+from ethereum.spec import BlockChain, print_state, state_transition
 
 from .helpers import (
     hex2address,
@@ -14,12 +16,12 @@ from .helpers import (
     hex2root,
     hex2u256,
     hex2uint,
+    rlp_hash,
 )
 
 
 def test_add() -> None:
     run_test("stExample/add11_d0g0v0.json")
-    print("done")
 
 
 # loads a blockchain test
@@ -45,26 +47,49 @@ def run_test(path: str) -> None:
 
     test = load_test(base + path)
 
+    genesis_header = json_to_header(test.get("genesisBlockHeader"))
     genesis = Block(
-        json_to_header(test.get("genesisBlockHeader")),
+        genesis_header,
         [],
         [],
     )
 
+    assert rlp_hash(genesis_header) == hex2bytes(
+        test["genesisBlockHeader"]["hash"]
+    )
+    assert rlp.encode(cast(rlp.RLP, genesis)) == hex2bytes(
+        test.get("genesisRLP")
+    )
+
     pre_state = json_to_state(test.get("pre"))
-    # post_state = json_to_state(test.get("post"))
+    expected_post_state = json_to_state(test.get("postState"))
 
     chain = BlockChain(
         blocks=[genesis],
         state=pre_state,
     )
 
+    block_obj = None
     for block in test.get("blocks"):
         header = json_to_header(block.get("blockHeader"))
-        txs = list(map(json_to_tx, block.get("transactions")))
-        ommers: List[Header] = []  # TODO
+        txs: List[Transaction] = [
+            json_to_tx(tx_json) for tx_json in block.get("transactions")
+        ]
+        ommers: List[Header] = [
+            json_to_header(ommer_json)
+            for ommer_json in block.get("uncleHeaders")
+        ]
 
-        state_transition(chain, Block(header, txs, ommers))
+        assert rlp_hash(header) == hex2bytes(block["blockHeader"]["hash"])
+        block_obj = Block(header, txs, ommers)
+        assert rlp.encode(cast(rlp.RLP, block_obj)) == hex2bytes(block["rlp"])
+
+        state_transition(chain, block_obj)
+
+    last_block_hash = rlp_hash(chain.blocks[-1].header)
+    assert last_block_hash == hex2bytes(test["lastblockhash"])
+
+    assert chain.state == expected_post_state
 
 
 def json_to_header(raw: Any) -> Header:
@@ -103,17 +128,18 @@ def json_to_tx(raw: Any) -> Transaction:
 
 def json_to_state(raw: Any) -> State:
     state = {}
-    for (addr, vals) in raw.items():
+    for (addr, acc_state) in raw.items():
         account = Account(
-            nonce=hex2uint(vals.get("nonce", "0x0")),
-            balance=hex2uint(vals.get("balance", "0x0")),
-            code=hex2bytes(vals.get("code", "")),
+            nonce=hex2uint(acc_state.get("nonce", "0x0")),
+            balance=hex2uint(acc_state.get("balance", "0x0")),
+            code=hex2bytes(acc_state.get("code", "")),
             storage={},
         )
 
-        # TODO: Load storage from json (be sure to strip leading 0s of value)
-        #  for (k, v) in vals.get("storage", {}).items():
-        #      account.storage[hex2bytes32(k)] = b"\x02"  # hex2bytes32(v)
+        for (k, v) in acc_state.get("storage", {}).items():
+            account.storage[hex2bytes32(k)] = U256.from_be_bytes(
+                hex2bytes32(v)
+            )
 
         state[hex2address(addr)] = account
 
