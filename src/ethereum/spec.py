@@ -381,27 +381,7 @@ def compute_header_hash(header: Header) -> Hash32:
     hash : `ethereum.eth_types.Hash32`
         Hash of the header.
     """
-    return crypto.keccak256(
-        rlp.encode(
-            (
-                header.parent_hash,
-                header.ommers_hash,
-                header.coinbase,
-                header.state_root,
-                header.transactions_root,
-                header.receipt_root,
-                header.bloom,
-                header.difficulty,
-                header.number,
-                header.gas_limit,
-                header.gas_used,
-                header.timestamp,
-                header.extra_data,
-                header.mix_digest,
-                header.nonce,
-            )
-        )
-    )
+    return crypto.keccak256(rlp.encode(header))
 
 
 def get_block_header_by_hash(hash: Hash32, chain: BlockChain) -> Header:
