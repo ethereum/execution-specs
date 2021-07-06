@@ -12,7 +12,8 @@ Introduction
 EVM gas constants and calculators.
 """
 
-from ..base_types import U256
+from ethereum.base_types import U256
+
 from .error import OutOfGasError
 
 GAS_VERY_LOW = U256(3)

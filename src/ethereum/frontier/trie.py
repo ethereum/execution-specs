@@ -16,8 +16,9 @@ The state trie is the structure responsible for storing
 from copy import copy
 from typing import Mapping, MutableMapping, Set, Union, cast
 
-from . import crypto, rlp
-from .base_types import U256, Bytes, Uint
+from .. import crypto
+from ..base_types import U256, Bytes, Uint
+from . import rlp
 from .eth_types import Account, Receipt, Root, Transaction
 
 debug = False

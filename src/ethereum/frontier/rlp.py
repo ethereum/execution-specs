@@ -16,8 +16,8 @@ from __future__ import annotations
 
 from typing import List, Sequence, Union, cast
 
-from .base_types import U256, Bytes, Uint
-from .crypto import keccak256
+from ..base_types import U256, Bytes, Uint
+from ..crypto import keccak256
 from .eth_types import Account, Block, Header, Log, Receipt, Transaction
 
 RLP = Union[  # type: ignore

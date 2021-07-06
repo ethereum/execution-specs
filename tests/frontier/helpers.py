@@ -1,8 +1,9 @@
 from typing import Any
 
-from ethereum import crypto, rlp
+from ethereum import crypto
 from ethereum.base_types import Uint
-from ethereum.eth_types import (
+from ethereum.frontier import rlp
+from ethereum.frontier.eth_types import (
     U256,
     Address,
     Bytes,

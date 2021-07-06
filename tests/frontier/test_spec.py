@@ -2,10 +2,16 @@ import json
 import os
 from typing import Any, List, cast
 
-from ethereum import rlp
 from ethereum.base_types import U256
-from ethereum.eth_types import Account, Block, Header, State, Transaction
-from ethereum.spec import BlockChain, print_state, state_transition
+from ethereum.frontier import rlp
+from ethereum.frontier.eth_types import (
+    Account,
+    Block,
+    Header,
+    State,
+    Transaction,
+)
+from ethereum.frontier.spec import BlockChain, state_transition
 
 from .helpers import (
     hex2address,

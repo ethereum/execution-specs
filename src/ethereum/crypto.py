@@ -15,8 +15,10 @@ Cryptographic primatives used in—but not defined by—the Ethereum specificati
 import coincurve
 import sha3
 
-from .base_types import U256, Bytes
-from .eth_types import Hash32, Hash64
+from .base_types import U256, Bytes, Bytes32, Bytes64
+
+Hash32 = Bytes32
+Hash64 = Bytes64
 
 
 def keccak256(buffer: Bytes) -> Hash32:
