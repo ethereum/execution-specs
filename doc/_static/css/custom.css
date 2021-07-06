@@ -1,0 +1,47 @@
+/* Headings */
+#package-details h4, #module-details h4 {
+    border-bottom: 1px solid #888;
+}
+
+/* Code Blocks */
+pre, .class, .function {
+    font-size: 13px;
+}
+
+pre {
+    padding: 1.5em;
+}
+
+/* Classes */
+.class {
+    background: #d5d5ee;
+    padding: 1.5em;
+}
+
+/* Functions */
+.function .sig {
+    background: #d0eed0;
+    padding: 1.5em;
+    margin: 1em 0;
+}
+
+/* Improve function signatures with type hints */
+
+.sig-param:first-of-type()::before {
+    content: '';
+}
+
+.sig-param::before {
+    content: '\A    ';
+    white-space: pre;
+}
+
+/* Prefer increasing width in field lists over wrapping */
+dl.field-list > dt {
+    word-break: normal;
+}
+
+.sig-param + .sig-paren::before {
+    content: '\A';
+    white-space: pre;
+}

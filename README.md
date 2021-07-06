@@ -2,9 +2,9 @@
 
 ## Description
 
-This repository contains various specification related to the Ethereum 1.0 chain, specifically the specifications for [network upgrades](/network-upgrades) and the [JSON RPC API](/json-rpc). 
+This repository contains various specification related to the Ethereum 1.0 chain, specifically the [pyspec](/src/eth1spec/spec.py), specifications for [network upgrades](/network-upgrades), and the [JSON RPC API](/json-rpc). 
 
-## Ethereum Protocol Releases
+### Ethereum Protocol Releases
 
 | Version and Code Name | Block No. | Released | Incl EIPs | Specs | Blog |
 |-----------------------|-----------|----------|-----------|-------|-------|
@@ -23,4 +23,82 @@ This repository contains various specification related to the Ethereum 1.0 chain
 | Frontier Thawing | 200000 | 09/07/2015 | | | [Blog](https://blog.ethereum.org/2015/08/04/the-thawing-frontier/) |
 | Frontier | 1 | 07/30/2015 | | | [Blog](https://blog.ethereum.org/2015/07/22/frontier-is-coming-what-to-expect-and-how-to-prepare/) |
 
+## Consensus Specification (work-in-progress)
 
+The consensus specification is a python implementation of Ethereum that prioritizes readability and simplicity. It [will] accompanied by both narrative and API level documentation of the various components written in restructured text and rendered using Sphinx....
+
+ * [Rendered specification](https://quilt.github.io/eth1.0-specs/)
+
+## Usage
+
+The Ethereum specification is maintained as a Python library, for better integration with tooling and testing.
+
+Requires Python 3.7+
+
+### Building
+
+Building the documentation is most easily done through [`tox`](https://tox.readthedocs.io/en/latest/):
+
+```bash
+$ tox -e doc
+```
+
+The path to the generated HTML will be printed to the console.
+
+#### Live Preview
+
+A live preview of the documentation can be viewed locally on port `8000` with the following command:
+
+```bash
+$ tox -e doc-autobuild
+```
+
+### Development
+
+Running the tests necessary to merge into the repository requires:
+
+ * Python 3.7.x (not 3.8 or later), and
+ * [PyPy 7.3.x](https://www.pypy.org/).
+
+These version ranges are necessary because, at the time of writing, PyPy is only compatible with Python 3.7.
+
+`eth1.0-specs` depends on a submodule that contains common tests that are run across all clients, so we need to clone the repo with the --recursive flag. Example:
+```bash
+$ git clone --recursive https://github.com/quilt/eth1.0-specs.git
+```
+
+Or, if you've already cloned the repository, you can fetch the submodules with:
+
+```bash
+$ git submodule update --init --recursive
+```
+
+The tests can be run with:
+```bash
+$ tox
+```
+
+The development tools can also be run outside of `tox`, and can automatically reformat the code:
+
+```bash
+$ pip install -e .[doc,lint,test]   # Installs eth1spec, and development tools.
+$ isort src                         # Organizes imports.
+$ black src                         # Formats code.
+$ flake8                            # Reports style/spelling/documentation errors.
+$ mypy src                          # Verifies type annotations.
+$ pytest                            # Runs tests.
+```
+
+It is recommended to use a [virtual environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) to keep your system Python installation clean.
+
+## Contribution Guidelines
+
+This specification aims to be:
+
+1. **Correct** - Describe the _intended_ behavior of the Ethereum blockchain, and any deviation from that is a bug.
+2. **Complete** - Capture the entirety of _consensus critical_ parts of Ethereum.
+3. **Accessible** - Prioritize readability, clarity, and plain language over performance and brevity.
+
+### Spelling
+
+Attempt to use descriptive English words (or _very common_ abbreviations) in documentation and identifiers. If necessary, there is a custom dictionary `whitelist.txt`.

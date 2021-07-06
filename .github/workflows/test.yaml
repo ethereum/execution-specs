@@ -1,0 +1,37 @@
+name: Python Specification
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: [3.7, pypy-3.7]
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install Tox and any other packages
+        run: pip install tox
+      - name: Run Tox (PyPy)
+        if: ${{ matrix.python == 'pypy-3.7' }}
+        run: tox -e pypy3
+      - name: Run Tox (CPython)
+        if: ${{ matrix.python != 'pypy-3.7' }}
+        run: tox -e py3
+      - name: Upload coverage to Codecov
+        if: ${{ matrix.python != 'pypy-3.7' }}
+        uses: codecov/codecov-action@v1
+        with:
+          files: .tox/coverage.xml
+          flags: unittests
+      - name: Build docs
+        if: ${{ matrix.python != 'pypy-3.7' }}
+        run: tox -e doc
