@@ -402,8 +402,8 @@ def encode_header(raw_header_data: Header) -> Bytes:
     """
     return encode(
         (
-            raw_header_data.parent,
-            raw_header_data.ommers,
+            raw_header_data.parent_hash,
+            raw_header_data.ommers_hash,
             raw_header_data.coinbase,
             raw_header_data.state_root,
             raw_header_data.transactions_root,
@@ -413,8 +413,8 @@ def encode_header(raw_header_data: Header) -> Bytes:
             raw_header_data.number,
             raw_header_data.gas_limit,
             raw_header_data.gas_used,
-            raw_header_data.time,
-            raw_header_data.extra,
+            raw_header_data.timestamp,
+            raw_header_data.extra_data,
             raw_header_data.mix_digest,
             raw_header_data.nonce,
         )

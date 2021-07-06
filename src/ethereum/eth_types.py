@@ -73,8 +73,8 @@ class Header:
     Header portion of a block on the chain.
     """
 
-    parent: Hash32
-    ommers: Hash32
+    parent_hash: Hash32
+    ommers_hash: Hash32
     coinbase: Address
     state_root: Root
     transactions_root: Root
@@ -84,8 +84,8 @@ class Header:
     number: Uint
     gas_limit: Uint
     gas_used: Uint
-    time: U256
-    extra: Bytes
+    timestamp: U256
+    extra_data: Bytes
     mix_digest: Bytes32
     nonce: Bytes8
 
