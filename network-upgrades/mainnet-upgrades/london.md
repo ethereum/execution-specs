@@ -17,7 +17,7 @@ Specifies changes included in the Network Upgrade.
 | Goerli  | `5062605`  | June 30, 2021 | `0xB8C6299D` | 
 | Rinkeby | `8897988`  | July 7, 2021  | `0x8E29F2F3` | 
 | Kovan   | TBA        | TBA           | TBA          | 
-| Mainnet | TBA        | TBA           | TBA          | 
+| Mainnet | `12965000` | August 4, 2021 | TBA          | 
 
 ### Client Readiness Checklist
 Code merged into Participating Clients
