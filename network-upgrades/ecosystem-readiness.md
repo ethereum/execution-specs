@@ -53,7 +53,7 @@ Tracking: `active`
 | [Web3.py][web3py-link] | Network API (Python) |  | [URL][web3py-work] | 1559 |  | ⭕
 | [Web3j][web3j-link] | Network API (Java) |  | [URL][web3j-work] | 1559 |  | 🛠️ 
 | [Nethereum][nethereum-link] | Network API (.Net) |  |  | 1559 |  | ⭕
-| [KEthereum][kethereum-link] | Network API (Kotlin) | | [URL][kethereum-work] | 1559 |  | ⭕ 
+| [KEthereum][kethereum-link] | Network API (Kotlin) | | [URL][kethereum-work] | 1559 |[URL][kethereum-release]  |✅
 
 
 [web3js-link]: https://github.com/ChainSafe/web3.js
@@ -69,6 +69,7 @@ Tracking: `active`
 [nethereum-link]: https://github.com/Nethereum/Nethereum
 [kethereum-link]: https://github.com/komputing/KEthereum
 [kethereum-work]: https://github.com/komputing/KEthereum/issues/101
+[kethereum-release]: https://github.com/komputing/KEthereum/commit/8c1386853301e792f798d148677812c04ff0e434
 
 ### Infrastructure
 
