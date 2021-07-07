@@ -14,7 +14,7 @@ Tracking: `active`
 
 | Name | Description | Dependencies | Work | EIPs | Release | Status
 |---|---|---|---|---|---|---|
-| [Hardhat][hardhat-link] | Framework | EthereumJS, Ethers |  | All |  | ⭕
+| [Hardhat][hardhat-link] | Framework | EthereumJS, Ethers | [URL][hardhat-work] | All |  | 🛠️ 
 | [Truffle][truffle-link] | Framework | EthereumJS, Web3.js, Ethers |  | All | | ⭕
 | [Remix][remix-link] | IDE | EthereumJS, Web3.js, Ethers |  | All |  | ⭕
 | [Waffle][waffle-link] | Framework | Ganache, Ethers.js, Typechain |  | All | | ⭕
@@ -26,8 +26,8 @@ Tracking: `active`
 | [Typechain][typechain-link] | Language Tool | Ethers, Truffle, Hardhat, Web3.js, Solidity |  | ? | | ⭕
 | [Solidity][solidity-link] | Language | - | [URL][solidity-work] | 3198 |  | 🛠️ 
 
-
 [hardhat-link]: https://github.com/nomiclabs/hardhat
+[hardhat-work]: https://github.com/nomiclabs/hardhat/projects/8
 [truffle-link]: https://github.com/trufflesuite/truffle
 [remix-link]: https://github.com/ethereum/remix-project
 [waffle-link]: https://github.com/EthWorks/Waffle
