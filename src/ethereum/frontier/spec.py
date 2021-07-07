@@ -425,7 +425,7 @@ def check_proof_of_work(header: Header) -> bool:
     """
     # TODO: Implement this method once proof of work
     #  algorithm is implemented
-    #  https://github.com/quilt/eth1.0-specs/issues/43
+    #  https://github.com/ethereum/eth1.0-specs/issues/238
     raise NotImplementedError
 
 
