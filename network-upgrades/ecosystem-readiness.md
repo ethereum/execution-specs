@@ -10,7 +10,9 @@ If you know about a status update please add a PR to this document or post on th
 For a list of included EIPs see the [specification](./mainnet-upgrades/london.md) document.
 
 Tracking: `active`
-
+⭕ - Not Started
+🛠️ - In Progress
+✅ - Complete
 
 ### Developer Tools
 
