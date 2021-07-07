@@ -15,8 +15,9 @@ Implementations of the instructions understood by the EVM.
 
 from functools import partial
 
-from ..base_types import U255_CEIL_VALUE, U256, U256_CEIL_VALUE, Uint
-from ..utils import get_sign
+from ethereum.base_types import U255_CEIL_VALUE, U256, U256_CEIL_VALUE, Uint
+from ethereum.utils import get_sign
+
 from . import Evm
 from .gas import (
     GAS_EXPONENTIATION,

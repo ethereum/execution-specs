@@ -27,7 +27,7 @@ This repository contains various specification related to the Ethereum 1.0 chain
 
 The consensus specification is a python implementation of Ethereum that prioritizes readability and simplicity. It [will] accompanied by both narrative and API level documentation of the various components written in restructured text and rendered using Sphinx....
 
- * [Rendered specification](https://quilt.github.io/eth1.0-specs/)
+ * [Rendered specification](https://ethereum.github.io/eth1.0-specs/)
 
 ## Usage
 

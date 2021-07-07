@@ -15,8 +15,9 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from . import crypto, rlp, trie, vm
-from .base_types import U256, Uint
+from .. import crypto
+from ..base_types import U256, Uint
+from . import rlp, trie, vm
 from .eth_types import (
     EMPTY_ACCOUNT,
     TX_BASE_COST,

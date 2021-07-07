@@ -14,7 +14,8 @@ Implementation of the stack operators for the EVM.
 
 from typing import List
 
-from ..base_types import U256
+from ethereum.base_types import U256
+
 from .error import StackOverflowError, StackUnderflowError
 
 

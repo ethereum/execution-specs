@@ -1,8 +1,7 @@
 import json
 from typing import Any
 
-from ethereum import rlp
-from ethereum.trie import map_keys, root
+from ethereum.frontier.trie import map_keys, root
 
 from .helpers import remove_hex_prefix, to_bytes
 

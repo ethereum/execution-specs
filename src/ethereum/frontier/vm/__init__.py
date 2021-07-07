@@ -16,7 +16,10 @@ The abstract computer which runs the code stored in an
 from dataclasses import dataclass
 from typing import List
 
-from ..eth_types import U256, Address, Hash32, State, Uint
+from ethereum.base_types import U256, Uint
+from ethereum.crypto import Hash32
+
+from ..eth_types import Address, State
 
 __all__ = ("Environment", "Evm")
 

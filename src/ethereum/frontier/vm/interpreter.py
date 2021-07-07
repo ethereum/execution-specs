@@ -14,7 +14,8 @@ A straightforward interpreter that executes EVM code.
 
 from typing import List, Tuple
 
-from ..base_types import U256, Uint
+from ethereum.base_types import U256, Uint
+
 from ..eth_types import Address, Log
 from . import Environment, Evm
 from .ops import op_implementation

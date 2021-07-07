@@ -4,20 +4,14 @@ from typing import Any
 
 import pytest
 
-from ethereum import rlp
 from ethereum.base_types import U256, Uint
 from ethereum.crypto import keccak256
-from ethereum.eth_types import Account, State
-from ethereum.spec import print_state
-from ethereum.vm import Environment
-from ethereum.vm.interpreter import process_call
-from tests.helpers import (
-    hex2address,
-    hex2bytes,
-    hex2bytes32,
-    hex2u256,
-    hex2uint,
-)
+from ethereum.frontier import rlp
+from ethereum.frontier.eth_types import Account, State
+from ethereum.frontier.vm import Environment
+from ethereum.frontier.vm.interpreter import process_call
+
+from ..helpers import hex2address, hex2bytes, hex2bytes32, hex2u256, hex2uint
 
 
 @pytest.mark.parametrize(
