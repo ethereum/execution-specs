@@ -49,8 +49,9 @@ Tracking: `active`
 
 | Name | Description | Dependencies | Work | EIPs | Release | Status
 |---|---|---|---|---|---|---|
+
 | [Web3.js][web3js-link] | Network API (JavaScript) | EthereumJS |  | 1559 |  | 🛠️
-| [Ethers.js][ethers-link] | Network API (JavaScript) |  | [URL][ethers-work] | 1559 |  | 🛠️ 
+| [Ethers.js][ethers-link] | Network API (JavaScript) |  | [URL][ethers-work] | 1559 |[v5.4.1][ethers-release]  | 🛠️ 
 | [EthereumJS][ethereumjs-link] | Libraries |  | [URL][ethereumjs-work] | All | [URL][ethereumjs-release] | ✅
 | [Web3.py][web3py-link] | Network API (Python) |  | [URL][web3py-work] | 1559 |  |🛠️ 
 | [Web3j][web3j-link] | Network API (Java) |  | [URL][web3j-work] | 1559 |  | 🛠️ 
@@ -61,6 +62,7 @@ Tracking: `active`
 [web3js-link]: https://github.com/ChainSafe/web3.js
 [ethers-link]: https://github.com/ethers-io/ethers.js
 [ethers-work]: https://github.com/ethers-io/ethers.js/issues/1610
+[ethers-release]: https://github.com/ethers-io/ethers.js/releases/tag/v5.4.1
 [ethereumjs-link]: https://github.com/ethereumjs/ethereumjs-monorepo
 [ethereumjs-work]: https://github.com/ethereumjs/ethereumjs-monorepo/issues/1211
 [ethereumjs-release]: https://github.com/ethereumjs/ethereumjs-monorepo/pull/1263
