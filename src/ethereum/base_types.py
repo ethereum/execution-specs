@@ -18,6 +18,11 @@ from __future__ import annotations
 
 from typing import Optional, Tuple, Type
 
+U255_MAX_VALUE = (2 ** 255) - 1
+U255_CEIL_VALUE = 2 ** 255
+U256_MAX_VALUE = (2 ** 256) - 1
+U256_CEIL_VALUE = 2 ** 256
+
 
 class Uint(int):
     """
@@ -280,11 +285,31 @@ class U256(int):
 
         return cls(int.from_bytes(buffer, "big"))
 
+    @classmethod
+    def from_signed(cls: Type, value: int) -> "U256":
+        """
+        Converts a signed number into a 256-bit unsigned integer.
+
+        Parameters
+        ----------
+        value :
+            Signed number
+
+        Returns
+        -------
+        self : `U256`
+            Unsigned integer obtained from `value`.
+        """
+        if value >= 0:
+            return cls(value)
+
+        return cls(value & U256_MAX_VALUE)
+
     def __new__(cls: Type, value: int) -> "U256":
         if not isinstance(value, int):
             raise TypeError()
 
-        if value < 0 or value >= 2 ** 256:
+        if value < 0 or value > U256_MAX_VALUE:
             raise ValueError()
 
         return super(cls, cls).__new__(cls, value)
@@ -315,7 +340,8 @@ class U256(int):
         if result == NotImplemented:
             return NotImplemented
 
-        result %= 2 ** 256
+        # This is a fast way of ensuring that the result is < (2 ** 256)
+        result &= self.MAX_VALUE
         return self.__class__(result)
 
     def __iadd__(self, right: int) -> "U256":
@@ -344,7 +370,8 @@ class U256(int):
         if result == NotImplemented:
             return NotImplemented
 
-        result %= 2 ** 256
+        # This is a fast way of ensuring that the result is < (2 ** 256)
+        result &= self.MAX_VALUE
         return self.__class__(result)
 
     def __rsub__(self, left: int) -> "U256":
@@ -375,7 +402,8 @@ class U256(int):
         if result == NotImplemented:
             return NotImplemented
 
-        result %= 2 ** 256
+        # This is a fast way of ensuring that the result is < (2 ** 256)
+        result &= self.MAX_VALUE
         return self.__class__(result)
 
     def __mul__(self, right: int) -> "U256":
@@ -483,7 +511,8 @@ class U256(int):
         if result == NotImplemented:
             return NotImplemented
 
-        result %= 2 ** 256
+        # This is a fast way of ensuring that the result is < (2 ** 256)
+        result &= self.MAX_VALUE
         return self.__class__(result)
 
     def __pow__(self, right: int, modulo: Optional[int] = None) -> "U256":
@@ -542,8 +571,24 @@ class U256(int):
         byte_length = (bit_length + 7) // 8
         return self.to_bytes(byte_length, "big")
 
+    def to_signed(self) -> int:
+        """
+        Converts this 256-bit unsigned integer into a signed integer.
 
-U256.MAX_VALUE = U256(2 ** 256 - 1)
+        Returns
+        -------
+        signed_int : `int`
+            Signed integer obtained from 256-bit unsigned integer.
+        """
+        if self <= U255_MAX_VALUE:
+            # This means that the sign bit is 0
+            return int(self)
+
+        # -1 * (2's complement of U256 value)
+        return int(self) - U256_CEIL_VALUE
+
+
+U256.MAX_VALUE = U256(U256_MAX_VALUE)
 
 
 Bytes = bytes
