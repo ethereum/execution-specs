@@ -49,7 +49,6 @@ Tracking: `active`
 
 | Name | Description | Dependencies | Work | EIPs | Release | Status
 |---|---|---|---|---|---|---|
-
 | [Web3.js][web3js-link] | Network API (JavaScript) | EthereumJS |  | 1559 |  | 🛠️
 | [Ethers.js][ethers-link] | Network API (JavaScript) |  | [URL][ethers-work] | 1559 |[v5.4.1][ethers-release]  | 🛠️ 
 | [EthereumJS][ethereumjs-link] | Libraries |  | [URL][ethereumjs-work] | All | [URL][ethereumjs-release] | ✅
