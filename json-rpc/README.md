@@ -3,7 +3,7 @@
 ### Depreaction Notice
 **Please note, this spec will continue to be updated as a coordination point
 for the London hardfork. After the fork, this spec will be _deprecated_ in
-favor this repository: https://github.com/ethereum/eth1.0-apis**
+favor of this repository: https://github.com/ethereum/eth1.0-apis**
 
 --
 
