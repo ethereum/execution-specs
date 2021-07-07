@@ -50,7 +50,7 @@ Tracking: `active`
 | [Web3.js][web3js-link] | Network API (JavaScript) | EthereumJS |  | 1559 |  | ⭕
 | [Ethers.js][ethers-link] | Network API (JavaScript) |  | [URL][ethers-work] | 1559 |  | 🛠️ 
 | [EthereumJS][ethereumjs-link] | Libraries |  | [URL][ethereumjs-work] | All | [URL][ethereumjs-release] | ✅
-| [Web3.py][web3py-link] | Network API (Python) |  | [URL][web3py-work] | 1559 |  | ⭕
+| [Web3.py][web3py-link] | Network API (Python) |  | [URL][web3py-work] | 1559 |  |🛠️ 
 | [Web3j][web3j-link] | Network API (Java) |  | [URL][web3j-work] | 1559 |  | 🛠️ 
 | [Nethereum][nethereum-link] | Network API (.Net) |  |  | 1559 |  | ⭕
 | [KEthereum][kethereum-link] | Network API (Kotlin) | | [URL][kethereum-work] | 1559 |[URL][kethereum-release]  |✅
