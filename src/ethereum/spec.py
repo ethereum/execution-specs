@@ -35,6 +35,9 @@ from .eth_types import (
 from .vm.interpreter import process_call
 
 BLOCK_REWARD = 5 * 10 ** 18
+GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
+GAS_LIMIT_MINIMUM = 125000
+GENESIS_DIFFICULTY = Uint(131072)
 
 
 @dataclass
@@ -58,20 +61,21 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block :
         Block to apply to `chain`.
     """
-    #  assert verify_header(block.header)
+    parent_header = get_block_header_by_hash(block.header.parent_hash, chain)
+    validate_header(block.header, parent_header)
     gas_used, transactions_root, receipt_root, state = apply_body(
         chain.state,
         block.header.coinbase,
         block.header.number,
         block.header.gas_limit,
-        block.header.time,
+        block.header.timestamp,
         block.header.difficulty,
         block.transactions,
         block.ommers,
     )
 
     assert gas_used == block.header.gas_used
-    assert compute_ommers_hash(block) == block.header.ommers
+    assert compute_ommers_hash(block) == block.header.ommers_hash
     # TODO: Also need to verify that these ommers are indeed valid as per the
     # Nth generation
     assert transactions_root == block.header.transactions_root
@@ -81,7 +85,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     chain.blocks.append(block)
 
 
-def verify_header(header: Header) -> bool:
+def validate_header(header: Header, parent_header: Header) -> None:
     """
     Verifies a block header.
 
@@ -89,13 +93,22 @@ def verify_header(header: Header) -> bool:
     ----------
     header :
         Header to check for correctness.
-
-    Returns
-    -------
-    verified : `bool`
-        True if the header is correct, False otherwise.
+    parent_header :
+        Parent Header of the header to check for correctness
     """
-    raise NotImplementedError()  # TODO
+    # TODO: get rid of the comment below once
+    #  check_proof_of_work is implemented
+    # assert check_proof_of_work(header)
+    assert header.difficulty == calculate_block_difficulty(
+        header.number,
+        header.timestamp,
+        parent_header.timestamp,
+        parent_header.difficulty,
+    )
+    assert check_gas_limit(header.gas_limit, parent_header.gas_limit)
+    assert header.timestamp > parent_header.timestamp
+    assert header.number == parent_header.number + 1
+    assert len(header.extra_data) <= 32
 
 
 def apply_body(
@@ -352,6 +365,130 @@ def signing_hash(tx: Transaction) -> Hash32:
             )
         )
     )
+
+
+def compute_header_hash(header: Header) -> Hash32:
+    """
+    Computes the hash of a block header.
+
+    Parameters
+    ----------
+    header :
+        Header of interest.
+
+    Returns
+    -------
+    hash : `ethereum.eth_types.Hash32`
+        Hash of the header.
+    """
+    return crypto.keccak256(rlp.encode(header))
+
+
+def get_block_header_by_hash(hash: Hash32, chain: BlockChain) -> Header:
+    """
+    Fetches the block header with the corresponding hash.
+
+    Parameters
+    ----------
+    hash :
+        Hash of the header of interest.
+
+    chain :
+        History and current state.
+
+    Returns
+    -------
+    Header : `ethereum.eth_types.Header`
+        Block header found by its hash.
+    """
+    for block in chain.blocks:
+        if compute_header_hash(block.header) == hash:
+            return block.header
+    else:
+        raise ValueError(f"Could not find header with hash={hash.hex()}")
+
+
+def check_proof_of_work(header: Header) -> bool:
+    """
+    Validates the Proof of Work constraints.
+
+    Parameters
+    ----------
+    header :
+        Header of interest.
+
+    Returns
+    -------
+    check : `bool`
+        True if Proof of Work constraints are satisfied, False otherwise.
+    """
+    # TODO: Implement this method once proof of work
+    #  algorithm is implemented
+    #  https://github.com/quilt/eth1.0-specs/issues/43
+    raise NotImplementedError
+
+
+def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
+    """
+    Validates the gas limit for a block.
+
+    Parameters
+    ----------
+    gas_limit :
+        Gas limit to validate.
+
+    parent_gas_limit :
+        Gas limit of the parent block.
+
+    Returns
+    -------
+    check : `bool`
+        True if gas limit constraints are satisfied, False otherwise.
+    """
+    max_adjustment_delta = parent_gas_limit // GAS_LIMIT_ADJUSTMENT_FACTOR
+    if gas_limit >= parent_gas_limit + max_adjustment_delta:
+        return False
+    if gas_limit <= parent_gas_limit - max_adjustment_delta:
+        return False
+    if gas_limit < GAS_LIMIT_MINIMUM:
+        return False
+
+    return True
+
+
+def calculate_block_difficulty(
+    number: Uint,
+    timestamp: U256,
+    parent_timestamp: U256,
+    parent_difficulty: Uint,
+) -> Uint:
+    """
+    Computes difficulty of a block using its header and parent header.
+    Parameters
+    ----------
+    number :
+        Block number of the block
+    timestamp :
+        Timestmap of the block
+    parent_timestamp :
+        Timestanp of the parent block
+    parent_difficulty :
+        difficulty of the parent block
+    Returns
+    ------
+    difficulty : `ethereum.base_types.Uint`
+        Computed difficulty for a block.
+    """
+    max_adjustment_delta = parent_difficulty // Uint(2048)
+    if number == 0:
+        return GENESIS_DIFFICULTY
+    elif timestamp < parent_timestamp + 13:
+        return parent_difficulty + max_adjustment_delta
+    else:  # timestamp >= parent_timestamp + 13
+        return max(
+            GENESIS_DIFFICULTY,
+            parent_difficulty - max_adjustment_delta,
+        )
 
 
 def print_state(state: State) -> None:
