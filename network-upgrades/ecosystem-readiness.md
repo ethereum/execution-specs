@@ -24,11 +24,11 @@ Tracking: `active`
 | [Waffle][waffle-link] | Framework | Ganache, Ethers.js, Typechain |  | All | | ⭕
 | [Brownie][brownie-link] | Framework | Web3.py |  | All | | ⭕
 | [OpenZeppelin][oz-link] | Smart Contract Security | Hardhat |  | ? | | ⭕
-| [Tenderly][tenderly-link] | Contract Monitoring | Hardhat |  | 1559 | | ⭕
+| [Tenderly][tenderly-link] | Contract Monitoring | Hardhat |  |1559 | | ⭕
 | [hardhat-deploy][hardhat-deploy-link] | Contract Deployment | Hardhat, Ethers |  | ? | | ⭕
 | [solidity-coverage][solidity-coverage-link] | Contract Testing | Hardhat, Solidity |  | ? | | ⭕
 | [Typechain][typechain-link] | Language Tool | Ethers, Truffle, Hardhat, Web3.js, Solidity |  | ? | | ⭕
-| [Solidity][solidity-link] | Language | - | [URL][solidity-work] | 3198 |  | 🛠️ 
+| [Solidity][solidity-link] | Language | - | [URL][solidity-work] |3198 |  | 🛠️ 
 
 [hardhat-link]: https://github.com/nomiclabs/hardhat
 [hardhat-work]: https://github.com/nomiclabs/hardhat/projects/8
