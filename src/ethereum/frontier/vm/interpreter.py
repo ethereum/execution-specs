@@ -18,7 +18,7 @@ from ethereum.base_types import U256, Uint
 
 from ..eth_types import Address, Log
 from . import Environment, Evm
-from .ops import op_implementation
+from .instructions import Ops, op_implementation
 
 
 def process_call(
@@ -86,7 +86,7 @@ def process_call(
         evm.env.state[evm.current].balance += evm.value
 
     while evm.running:
-        op = evm.code[evm.pc]
+        op = Ops(evm.code[evm.pc])
         op_implementation[op](evm)
         evm.pc += 1
 

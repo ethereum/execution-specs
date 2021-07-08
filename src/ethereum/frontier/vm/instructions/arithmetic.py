@@ -1,6 +1,6 @@
 """
-Ethereum Virtual Machine (EVM) Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Arithmetic Instructions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -9,56 +9,31 @@ Ethereum Virtual Machine (EVM) Instructions
 Introduction
 ------------
 
-Implementations of the instructions understood by the EVM.
+Implementations of the EVM Arithmetic instructions.
 """
-
-
-from functools import partial
 
 from ethereum.base_types import U255_CEIL_VALUE, U256, U256_CEIL_VALUE, Uint
 from ethereum.utils import get_sign
 
-from . import Evm
-from .gas import (
+from .. import Evm
+from ..gas import (
     GAS_EXPONENTIATION,
     GAS_LOW,
     GAS_MID,
-    GAS_STORAGE_CLEAR_REFUND,
-    GAS_STORAGE_SET,
-    GAS_STORAGE_UPDATE,
     GAS_VERY_LOW,
     subtract_gas,
 )
-from .stack import pop, push
-
-
-def stop(evm: Evm) -> None:
-    """
-    Stop further execution of EVM code.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-    """
-    evm.running = False
-
-
-#
-# Arithmetic Operations
-#
+from ..stack import pop, push
 
 
 def add(evm: Evm) -> None:
     """
     Adds the top two elements of the stack together, and pushes the result back
     on the stack.
-
     Parameters
     ----------
     evm :
         The current EVM frame.
-
     Raises
     ------
     StackUnderflowError
@@ -79,12 +54,10 @@ def sub(evm: Evm) -> None:
     """
     Subtracts the top two elements of the stack, and pushes the result back
     on the stack.
-
     Parameters
     ----------
     evm :
         The current EVM frame.
-
     Raises
     ------
     StackUnderflowError
@@ -105,12 +78,10 @@ def mul(evm: Evm) -> None:
     """
     Multiply the top two elements of the stack, and pushes the result back
     on the stack.
-
     Parameters
     ----------
     evm :
         The current EVM frame.
-
     Raises
     ------
     StackUnderflowError
@@ -131,12 +102,10 @@ def div(evm: Evm) -> None:
     """
     Integer division of the top two elements of the stack. Pushes the result
     back on the stack.
-
     Parameters
     ----------
     evm :
         The current EVM frame.
-
     Raises
     ------
     StackUnderflowError
@@ -160,12 +129,10 @@ def sdiv(evm: Evm) -> None:
     """
     Signed integer division of the top two elements of the stack. Pushes the
     result back on the stack.
-
     Parameters
     ----------
     evm :
         The current EVM frame.
-
     Raises
     ------
     StackUnderflowError
@@ -193,12 +160,10 @@ def mod(evm: Evm) -> None:
     """
     Modulo remainder of the top two elements of the stack. Pushes the result
     back on the stack.
-
     Parameters
     ----------
     evm :
         The current EVM frame.
-
     Raises
     ------
     StackUnderflowError
@@ -222,12 +187,10 @@ def smod(evm: Evm) -> None:
     """
     Signed modulo remainder of the top two elements of the stack. Pushes the
     result back on the stack.
-
     Parameters
     ----------
     evm :
         The current EVM frame.
-
     Raises
     ------
     StackUnderflowError
@@ -252,12 +215,10 @@ def addmod(evm: Evm) -> None:
     """
     Modulo addition of the top 2 elements with the 3rd element. Pushes the
     result back on the stack.
-
     Parameters
     ----------
     evm :
         The current EVM frame.
-
     Raises
     ------
     StackUnderflowError
@@ -283,12 +244,10 @@ def mulmod(evm: Evm) -> None:
     """
     Modulo multiplication of the top 2 elements with the 3rd element. Pushes
     the result back on the stack.
-
     Parameters
     ----------
     evm :
         The current EVM frame.
-
     Raises
     ------
     StackUnderflowError
@@ -314,12 +273,10 @@ def exp(evm: Evm) -> None:
     """
     Exponential operation of the top 2 elements. Pushes the result back on
     the stack.
-
     Parameters
     ----------
     evm :
         The current EVM frame.
-
     Raises
     ------
     StackUnderflowError
@@ -348,12 +305,10 @@ def signextend(evm: Evm) -> None:
     """
     Sign extend operation. In other words, extend a signed number which
     fits in N bytes to 32 bytes.
-
     Parameters
     ----------
     evm :
         The current EVM frame.
-
     Raises
     ------
     StackUnderflowError
@@ -387,200 +342,3 @@ def signextend(evm: Evm) -> None:
             )
 
     push(evm.stack, result)
-
-
-def sstore(evm: Evm) -> None:
-    """
-    Stores a value at a certain key in the current context's storage.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    StackUnderflowError
-        If `len(stack)` is less than `2`.
-    OutOfGasError
-        If `evm.gas_left` is less than `20000`.
-    """
-    key = pop(evm.stack).to_be_bytes32()
-    new_value = pop(evm.stack)
-    current_value = evm.env.state[evm.current].storage.get(key, U256(0))
-
-    # TODO: SSTORE gas usage hasn't been tested yet. Testing this needs
-    # other opcodes to be implemented.
-    # Calculating the gas needed for the storage
-    if new_value != 0 and current_value == 0:
-        gas_cost = GAS_STORAGE_SET
-    else:
-        gas_cost = GAS_STORAGE_UPDATE
-
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
-
-    # TODO: Refund counter hasn't been tested yet. Testing this needs other
-    # Opcodes to be implemented
-    if new_value == 0 and current_value != 0:
-        evm.refund_counter += GAS_STORAGE_CLEAR_REFUND
-
-    if new_value == 0:
-        # Deletes a k-v pair from dict if key is present, else does nothing
-        evm.env.state[evm.current].storage.pop(key, None)
-    else:
-        evm.env.state[evm.current].storage[key] = new_value
-
-
-def push_n(evm: Evm, num_bytes: int) -> None:
-    """
-    Pushes a N-byte immediate onto the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    num_bytes :
-        The number of immediate bytes to be read from the code and pushed to
-        the stack.
-
-    Raises
-    ------
-    StackOverflowError
-        If `len(stack)` is equals `1024`.
-    OutOfGasError
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
-    """
-    assert evm.pc + num_bytes < len(evm.code)
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
-
-    data_to_push = U256.from_be_bytes(
-        evm.code[evm.pc + 1 : evm.pc + num_bytes + 1]
-    )
-    push(evm.stack, data_to_push)
-
-    evm.pc += num_bytes
-
-
-def dup_n(evm: Evm, item_number: int) -> None:
-    """
-    Duplicate the Nth stack item (0-indexed from top of the stack) to the
-    top of stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    item_number :
-        The stack item number (0-indexed from top of stack) to be duplicated
-        to the top of stack.
-
-    Raises
-    ------
-    OutOfGasError
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
-    """
-    assert item_number < len(evm.stack)
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
-
-    data_to_duplicate = evm.stack[len(evm.stack) - 1 - item_number]
-    push(evm.stack, data_to_duplicate)
-
-
-def swap_n(evm: Evm, item_number: int) -> None:
-    """
-    Swap the 1st and Nth items in the stack. All items are 0-indexed from the
-    top of the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    item_number :
-        The stack item number (0-indexed from top of stack) to be swapped
-        with the top of stack element.
-
-    Raises
-    ------
-    OutOfGasError
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
-    """
-    assert item_number < len(evm.stack)
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
-
-    top_element_idx = len(evm.stack) - 1
-    nth_element_idx = len(evm.stack) - 1 - item_number
-    evm.stack[top_element_idx], evm.stack[nth_element_idx] = (
-        evm.stack[nth_element_idx],
-        evm.stack[top_element_idx],
-    )
-
-
-push1 = partial(push_n, num_bytes=1)
-push2 = partial(push_n, num_bytes=2)
-push3 = partial(push_n, num_bytes=3)
-push4 = partial(push_n, num_bytes=4)
-push5 = partial(push_n, num_bytes=5)
-push6 = partial(push_n, num_bytes=6)
-push7 = partial(push_n, num_bytes=7)
-push8 = partial(push_n, num_bytes=8)
-push9 = partial(push_n, num_bytes=9)
-push10 = partial(push_n, num_bytes=10)
-push11 = partial(push_n, num_bytes=11)
-push12 = partial(push_n, num_bytes=12)
-push13 = partial(push_n, num_bytes=13)
-push14 = partial(push_n, num_bytes=14)
-push15 = partial(push_n, num_bytes=15)
-push16 = partial(push_n, num_bytes=16)
-push17 = partial(push_n, num_bytes=17)
-push18 = partial(push_n, num_bytes=18)
-push19 = partial(push_n, num_bytes=19)
-push20 = partial(push_n, num_bytes=20)
-push21 = partial(push_n, num_bytes=21)
-push22 = partial(push_n, num_bytes=22)
-push23 = partial(push_n, num_bytes=23)
-push24 = partial(push_n, num_bytes=24)
-push25 = partial(push_n, num_bytes=25)
-push26 = partial(push_n, num_bytes=26)
-push27 = partial(push_n, num_bytes=27)
-push28 = partial(push_n, num_bytes=28)
-push29 = partial(push_n, num_bytes=29)
-push30 = partial(push_n, num_bytes=30)
-push31 = partial(push_n, num_bytes=31)
-push32 = partial(push_n, num_bytes=32)
-
-dup1 = partial(dup_n, item_number=0)
-dup2 = partial(dup_n, item_number=1)
-dup3 = partial(dup_n, item_number=2)
-dup4 = partial(dup_n, item_number=3)
-dup5 = partial(dup_n, item_number=4)
-dup6 = partial(dup_n, item_number=5)
-dup7 = partial(dup_n, item_number=6)
-dup8 = partial(dup_n, item_number=7)
-dup9 = partial(dup_n, item_number=8)
-dup10 = partial(dup_n, item_number=9)
-dup11 = partial(dup_n, item_number=10)
-dup12 = partial(dup_n, item_number=11)
-dup13 = partial(dup_n, item_number=12)
-dup14 = partial(dup_n, item_number=13)
-dup15 = partial(dup_n, item_number=14)
-dup16 = partial(dup_n, item_number=15)
-
-swap1 = partial(swap_n, item_number=1)
-swap2 = partial(swap_n, item_number=2)
-swap3 = partial(swap_n, item_number=3)
-swap4 = partial(swap_n, item_number=4)
-swap5 = partial(swap_n, item_number=5)
-swap6 = partial(swap_n, item_number=6)
-swap7 = partial(swap_n, item_number=7)
-swap8 = partial(swap_n, item_number=8)
-swap9 = partial(swap_n, item_number=9)
-swap10 = partial(swap_n, item_number=10)
-swap11 = partial(swap_n, item_number=11)
-swap12 = partial(swap_n, item_number=12)
-swap13 = partial(swap_n, item_number=13)
-swap14 = partial(swap_n, item_number=14)
-swap15 = partial(swap_n, item_number=15)
-swap16 = partial(swap_n, item_number=16)
