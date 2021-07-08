@@ -18,16 +18,16 @@ Tracking: `active`
 
 | Name | Description | Dependencies | Work | EIPs | Release | Status
 |---|---|---|---|---|---|---|
-| [Hardhat][hardhat-link] | Framework | EthereumJS, Ethers | [URL][hardhat-work] | All |  | 🛠️ 
-| [Truffle][truffle-link] | Framework | EthereumJS, Web3.js, Ethers |  | All | | ⭕
-| [Remix][remix-link] | IDE | EthereumJS, Web3.js, Ethers |  | All |  | ⭕
-| [Waffle][waffle-link] | Framework | Ganache, Ethers.js, Typechain |  | All | | ⭕
-| [Brownie][brownie-link] | Framework | Web3.py |  | All | | ⭕
-| [OpenZeppelin][oz-link] | Smart Contract Security | Hardhat |  | ? | | ⭕
+| [Hardhat][hardhat-link] | Framework | EthereumJS, Ethers | [URL][hardhat-work] | All | | 🛠️ 
+| [Truffle][truffle-link] | Framework | EthereumJS, Web3.js, Ethers |  | All | | ⭕
+| [Remix][remix-link] | IDE | EthereumJS, Web3.js, Ethers |  | All |  | ⭕
+| [Waffle][waffle-link] | Framework | Ganache, Ethers.js, Typechain |  | All | | ⭕
+| [Brownie][brownie-link] | Framework | Web3.py |  | All | | ⭕
+| [OpenZeppelin][oz-link] | Smart Contract Security | Hardhat |  | ? | | ⭕
 | [Tenderly][tenderly-link] | Contract Monitoring | Hardhat |  | 1559 | | ⭕
-| [hardhat-deploy][hardhat-deploy-link] | Contract Deployment | Hardhat, Ethers |  | ? | | ⭕
-| [solidity-coverage][solidity-coverage-link] | Contract Testing | Hardhat, Solidity |  | ? | | ⭕
-| [Typechain][typechain-link] | Language Tool | Ethers, Truffle, Hardhat, Web3.js, Solidity |  | ? | | ⭕
+| [hardhat-deploy][hardhat-deploy-link] | Contract Deployment | Hardhat, Ethers |  | ? | | ⭕
+| [solidity-coverage][solidity-coverage-link] | Contract Testing | Hardhat, Solidity |  | ? | | ⭕
+| [Typechain][typechain-link] | Language Tool | Ethers, Truffle, Hardhat, Web3.js, Solidity |  | ? | | ⭕
 | [Solidity][solidity-link] | Language | - | [URL][solidity-work] | 3198 |  | 🛠️ 
 
 [hardhat-link]: https://github.com/nomiclabs/hardhat
@@ -49,12 +49,12 @@ Tracking: `active`
 
 | Name | Description | Dependencies | Work | EIPs | Release | Status
 |---|---|---|---|---|---|---|
-| [Web3.js][web3js-link] | Network API (JavaScript) | EthereumJS |  | 1559 |  | 🛠️
-| [Ethers.js][ethers-link] | Network API (JavaScript) |  | [URL][ethers-work] | 1559 |[v5.4.1][ethers-release]  | ✅ 
-| [EthereumJS][ethereumjs-link] | Libraries |  | [URL][ethereumjs-work] | All | [URL][ethereumjs-release] | ✅
+| [Web3.js][web3js-link] | Network API (JavaScript) | EthereumJS |  | 1559 |  |🛠️
+| [Ethers.js][ethers-link] | Network API (JavaScript) |  | [URL][ethers-work] | 1559 |[v5.4.1][ethers-release]  |✅ 
+| [EthereumJS][ethereumjs-link] | Libraries |  | [URL][ethereumjs-work] | All | [URL][ethereumjs-release] |✅
 | [Web3.py][web3py-link] | Network API (Python) |  | [URL][web3py-work] | 1559 |  |🛠️ 
-| [Web3j][web3j-link] | Network API (Java) |  | [URL][web3j-work] | 1559 |  | 🛠️ 
-| [Nethereum][nethereum-link] | Network API (.Net) |  |  | 1559 |  | ⭕
+| [Web3j][web3j-link] | Network API (Java) |  | [URL][web3j-work] | 1559 |  |🛠️ 
+| [Nethereum][nethereum-link] | Network API (.Net) |  |  | 1559 |  |🛠️
 | [KEthereum][kethereum-link] | Network API (Kotlin) | | [URL][kethereum-work] | 1559 |[URL][kethereum-release]  |✅
 
 
@@ -80,15 +80,15 @@ Many of these projects may not update until much closer to the designated London
 
 | Name | Description | Dependencies | Work | EIPs | Release | Status
 |---|---|---|---|---|---|---|
-| [Amazon Web Services][AWS-link] | Managed Blockchain |  |  | All |  | ⭕ 
-| [Blocknative][blocknative-link] | Mempool Explorer |  |  | 1559 |  | ⭕ 
-| [Infura][infura-link] | Ethereum APIs |  |  | 1559 |  | ⭕ 
-| [POKT][pocket-link] | Request API |  |  | 1559 |  | ⭕ 
-| [Etherscan][etherscan-link] | Block Explorer |  |  | 1559 |  | ⭕ 
-| [MetaMask][metamask-link] | Browser Extension | EthereumJS, Ethers, Web3, ? | [URL][metamask-work] | 1559 |  | 🛠️ 
-| [Ethernodes][ethernodes-link] | Node Explorer | Eth 1.0 Clients |  | ? |  | ⭕ 
-| [TREZOR][trezor-link] | Hardware Wallet |  | [URL][trezor-work] | 1559 |  | 🛠️ 
-| [WallETH][walleth-link] | Wallet | KEthereum | [URL][walleth-work] | 1559 |  | 🛠️  
+| [Amazon Web Services][AWS-link] | Managed Blockchain |  |  | All |  |⭕
+| [Blocknative][blocknative-link] | Mempool Explorer |  |  | 1559 |  |⭕
+| [Infura][infura-link] | Ethereum APIs |  |  | 1559 |  |⭕ 
+| [POKT][pocket-link] | Request API |  |  | 1559 |  |⭕ 
+| [Etherscan][etherscan-link] | Block Explorer |  |  | 1559 |  |⭕
+| [MetaMask][metamask-link] | Browser Extension | EthereumJS, Ethers, Web3, ? | [URL][metamask-work] | 1559 |  |🛠️ 
+| [Ethernodes][ethernodes-link] | Node Explorer | Eth 1.0 Clients |  | ? |  |⭕ 
+| [TREZOR][trezor-link] | Hardware Wallet |  | [URL][trezor-work] | 1559 |  |🛠️ 
+| [WallETH][walleth-link] | Wallet | KEthereum | [URL][walleth-work] | 1559 |  |🛠️  
 
 [AWS-link]: https://aws.amazon.com/managed-blockchain/
 [blocknative-link]: https://github.com/blocknative
