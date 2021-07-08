@@ -17,6 +17,8 @@ import enum
 from typing import Callable, Dict
 
 from . import arithmetic as arithmetic_instructions
+from . import bitwise as bitwise_instructions
+from . import comparison as comparison_instructions
 from . import control_flow as control_flow_instructions
 from . import stack as stack_instructions
 from . import storage as storage_instructions
@@ -39,6 +41,21 @@ class Ops(enum.Enum):
     MULMOD = 0x09
     EXP = 0x0A
     SIGNEXTEND = 0x0B
+
+    # Comparison Ops
+    LT = 0x10
+    GT = 0x11
+    SLT = 0x12
+    SGT = 0x13
+    EQ = 0x14
+    ISZERO = 0x15
+
+    # Bitwise Ops
+    AND = 0x16
+    OR = 0x17
+    XOR = 0x18
+    NOT = 0x19
+    BYTE = 0x1A
 
     # Computation Ops
     STOP = 0x00
@@ -130,6 +147,17 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.MULMOD: arithmetic_instructions.mulmod,
     Ops.EXP: arithmetic_instructions.exp,
     Ops.SIGNEXTEND: arithmetic_instructions.signextend,
+    Ops.LT: comparison_instructions.less_than,
+    Ops.GT: comparison_instructions.greater_than,
+    Ops.SLT: comparison_instructions.signed_less_than,
+    Ops.SGT: comparison_instructions.signed_greater_than,
+    Ops.EQ: comparison_instructions.equal,
+    Ops.ISZERO: comparison_instructions.is_zero,
+    Ops.AND: bitwise_instructions.bitwise_and,
+    Ops.OR: bitwise_instructions.bitwise_or,
+    Ops.XOR: bitwise_instructions.bitwise_xor,
+    Ops.NOT: bitwise_instructions.bitwise_not,
+    Ops.BYTE: bitwise_instructions.get_byte,
     Ops.SSTORE: storage_instructions.sstore,
     Ops.PUSH1: stack_instructions.push1,
     Ops.PUSH2: stack_instructions.push2,

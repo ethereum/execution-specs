@@ -543,7 +543,57 @@ class U256(int):
     def __ipow__(self, right: int, modulo: Optional[int] = None) -> "U256":
         return self.__pow__(right, modulo)
 
-    # TODO: Implement and, or, xor, neg, pos, abs, invert, ...
+    def __and__(self, right: int) -> "U256":
+        if not isinstance(right, int):
+            return NotImplemented
+
+        if right < 0 or right > self.MAX_VALUE:
+            raise ValueError()
+
+        return self.__class__(super(U256, self).__and__(right))
+
+    def __or__(self, right: int) -> "U256":
+        if not isinstance(right, int):
+            return NotImplemented
+
+        if right < 0 or right > self.MAX_VALUE:
+            raise ValueError()
+
+        return self.__class__(super(U256, self).__or__(right))
+
+    def __xor__(self, right: int) -> "U256":
+        if not isinstance(right, int):
+            return NotImplemented
+
+        if right < 0 or right > self.MAX_VALUE:
+            raise ValueError()
+
+        return self.__class__(super(U256, self).__xor__(right))
+
+    def __rxor__(self, left: int) -> "U256":
+        if not isinstance(left, int):
+            return NotImplemented
+
+        if left < 0 or left > self.MAX_VALUE:
+            raise ValueError()
+
+        return self.__class__(super(U256, self).__rxor__(left))
+
+    def __ixor__(self, right: int) -> "U256":
+        return self.__xor__(right)
+
+    def __invert__(self) -> "U256":
+        result = super(U256, self).__invert__() & U256_MAX_VALUE
+        return self.__class__(result)
+
+    def __rshift__(self, shift_by: int) -> "U256":
+        if not isinstance(shift_by, int):
+            return NotImplemented
+
+        result = super(U256, self).__rshift__(shift_by)
+        return self.__class__(result)
+
+    # TODO: Implement neg, pos, abs ...
 
     def to_be_bytes32(self) -> "Bytes32":
         """
