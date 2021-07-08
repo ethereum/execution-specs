@@ -1,4 +1,4 @@
-# Berlin Restrospective
+# Berlin Retrospective
 To describe the process of preparing, activating and error handling during the Berlin upgrade.
 
 ## OpenEthereum Mainnet Consensus Issue
@@ -33,9 +33,9 @@ On [AllCoreDevs 110](https://youtu.be/-H8UpqarZ1Y?t=732), a longer conversation 
 
 ### Resources
 
-A detailled Twitter thread about the issue: https://twitter.com/ralexstokes/status/1382750001026146304l.
+A detailed Twitter thread about the issue: https://twitter.com/ralexstokes/status/1382750001026146304l.
 
-## Besu Testnet Consesus Issue
+## Besu Testnet Consensus Issue
 
 TBA.
 
@@ -49,7 +49,7 @@ TBA.
 
 ### Process of EIP selection
 
-Berlin upgrade upgrade was following process decsribed in [Shedding light on the Ethereum Network Upgrade Process](https://medium.com/ethereum-cat-herders/shedding-light-on-the-ethereum-network-upgrade-process-4c6186ed442c).
+Berlin upgrade upgrade was following process described in [Shedding light on the Ethereum Network Upgrade Process](https://medium.com/ethereum-cat-herders/shedding-light-on-the-ethereum-network-upgrade-process-4c6186ed442c).
 
 ### Timeline - Backlog check
 - May 15, 2020: Proposal, decision and initial selection of EIPs for Berlin to spin up an [ephemeral testnet YOLO](https://medium.com/ethereum-cat-herders/yolo-an-ephemeral-test-network-for-ethereum-356d43179b1a) in [ACD 87](https://www.youtube.com/watch?v=bGgzALuyY3w&t=4788s)
