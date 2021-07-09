@@ -1716,6 +1716,11 @@
 									"maxPriorityFeePerGas"
 								],
 								"properties": {
+									"gasPrice": {
+										"title": "transactionGasPrice",
+										"type": "string",
+										"description": "The effective gas price paid by the sender in Wei. For transactions not yet mined, this value should be set equal to the max fee cap per gas. This field is DEPRECATED, please transition to using effectiveGasPrice in the Receipt object going forward."
+									},
 									"maxPriorityFeePerGas": {
 										"title": "transactionMaxPriorityFeePerGas",
 										"description": "Maximum fee per gas the sender is willing to pay to miners in wei",
