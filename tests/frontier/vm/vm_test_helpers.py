@@ -36,7 +36,7 @@ def run_test(test_dir: str, test_file: str) -> None:
     assert keccak256(rlp.encode(logs)) == test_data["expected_logs_hash"]
     # We are checking only the storage here and not the whole state, as the
     # balances in the testcases don't change even though some value is
-    # transferred along with code invokation. But our evm execution transfers
+    # transferred along with code invocation. But our evm execution transfers
     # the value as well as executing the code.
     assert (
         env.state[target].storage

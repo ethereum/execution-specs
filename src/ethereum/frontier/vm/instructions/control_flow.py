@@ -1,6 +1,6 @@
 """
-Ethereum Virtual Machine (EVM) Computation Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) control flow instructions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -9,7 +9,7 @@ Ethereum Virtual Machine (EVM) Computation Instructions
 Introduction
 ------------
 
-Implementations of the EVM Arithmetic instructions.
+Implementations of the EVM control flow instructions.
 """
 
 from .. import Evm

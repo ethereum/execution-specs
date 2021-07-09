@@ -17,7 +17,7 @@ import enum
 from typing import Callable, Dict
 
 from . import arithmetic as arithmetic_instructions
-from . import computation as computation_instructions
+from . import control_flow as control_flow_instructions
 from . import stack as stack_instructions
 from . import storage as storage_instructions
 
@@ -118,7 +118,7 @@ class Ops(enum.Enum):
 
 
 op_implementation: Dict[Ops, Callable] = {
-    Ops.STOP: computation_instructions.stop,
+    Ops.STOP: control_flow_instructions.stop,
     Ops.ADD: arithmetic_instructions.add,
     Ops.MUL: arithmetic_instructions.mul,
     Ops.SUB: arithmetic_instructions.sub,

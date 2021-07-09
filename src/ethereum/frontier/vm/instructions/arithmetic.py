@@ -30,16 +30,18 @@ def add(evm: Evm) -> None:
     """
     Adds the top two elements of the stack together, and pushes the result back
     on the stack.
+
     Parameters
     ----------
     evm :
         The current EVM frame.
+
     Raises
     ------
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
+        If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
 
@@ -54,16 +56,18 @@ def sub(evm: Evm) -> None:
     """
     Subtracts the top two elements of the stack, and pushes the result back
     on the stack.
+
     Parameters
     ----------
     evm :
         The current EVM frame.
+
     Raises
     ------
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
+        If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
 
@@ -78,16 +82,18 @@ def mul(evm: Evm) -> None:
     """
     Multiply the top two elements of the stack, and pushes the result back
     on the stack.
+
     Parameters
     ----------
     evm :
         The current EVM frame.
+
     Raises
     ------
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_LOW`.
+        If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
 
@@ -102,16 +108,18 @@ def div(evm: Evm) -> None:
     """
     Integer division of the top two elements of the stack. Pushes the result
     back on the stack.
+
     Parameters
     ----------
     evm :
         The current EVM frame.
+
     Raises
     ------
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_LOW`.
+        If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
 
@@ -129,16 +137,18 @@ def sdiv(evm: Evm) -> None:
     """
     Signed integer division of the top two elements of the stack. Pushes the
     result back on the stack.
+
     Parameters
     ----------
     evm :
         The current EVM frame.
+
     Raises
     ------
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_LOW`.
+        If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
 
@@ -160,16 +170,18 @@ def mod(evm: Evm) -> None:
     """
     Modulo remainder of the top two elements of the stack. Pushes the result
     back on the stack.
+
     Parameters
     ----------
     evm :
         The current EVM frame.
+
     Raises
     ------
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_LOW`.
+        If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
 
@@ -187,16 +199,18 @@ def smod(evm: Evm) -> None:
     """
     Signed modulo remainder of the top two elements of the stack. Pushes the
     result back on the stack.
+
     Parameters
     ----------
     evm :
         The current EVM frame.
+
     Raises
     ------
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_LOW`.
+        If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
 
@@ -215,16 +229,18 @@ def addmod(evm: Evm) -> None:
     """
     Modulo addition of the top 2 elements with the 3rd element. Pushes the
     result back on the stack.
+
     Parameters
     ----------
     evm :
         The current EVM frame.
+
     Raises
     ------
     StackUnderflowError
         If `len(stack)` is less than `3`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_MID`.
+        If `evm.gas_left` is less than `8`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_MID)
 
@@ -244,16 +260,18 @@ def mulmod(evm: Evm) -> None:
     """
     Modulo multiplication of the top 2 elements with the 3rd element. Pushes
     the result back on the stack.
+
     Parameters
     ----------
     evm :
         The current EVM frame.
+
     Raises
     ------
     StackUnderflowError
         If `len(stack)` is less than `3`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_MID`.
+        If `evm.gas_left` is less than `8`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_MID)
 
@@ -273,16 +291,16 @@ def exp(evm: Evm) -> None:
     """
     Exponential operation of the top 2 elements. Pushes the result back on
     the stack.
+
     Parameters
     ----------
     evm :
         The current EVM frame.
+
     Raises
     ------
     StackUnderflowError
         If `len(stack)` is less than `2`.
-    OutOfGasError
-        If `evm.gas_left` is less than `GAS_MID`.
     """
     base = Uint(pop(evm.stack))
     exponent = Uint(pop(evm.stack))
@@ -305,16 +323,18 @@ def signextend(evm: Evm) -> None:
     """
     Sign extend operation. In other words, extend a signed number which
     fits in N bytes to 32 bytes.
+
     Parameters
     ----------
     evm :
         The current EVM frame.
+
     Raises
     ------
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_LOW`.
+        If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
 

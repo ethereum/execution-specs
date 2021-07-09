@@ -15,6 +15,7 @@ A straightforward interpreter that executes EVM code.
 from typing import List, Tuple
 
 from ethereum.base_types import U256, Uint
+from ethereum.frontier.vm.error import InvalidOpcode
 
 from ..eth_types import Address, Log
 from . import Environment, Evm
@@ -86,7 +87,11 @@ def process_call(
         evm.env.state[evm.current].balance += evm.value
 
     while evm.running:
-        op = Ops(evm.code[evm.pc])
+        try:
+            op = Ops(evm.code[evm.pc])
+        except ValueError:
+            raise InvalidOpcode(evm.code[evm.pc])
+
         op_implementation[op](evm)
         evm.pc += 1
 

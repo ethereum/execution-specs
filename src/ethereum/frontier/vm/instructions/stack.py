@@ -1,6 +1,6 @@
 """
 Ethereum Virtual Machine (EVM) stack Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -39,7 +39,7 @@ def push_n(evm: Evm, num_bytes: int) -> None:
     StackOverflowError
         If `len(stack)` is equals `1024`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
+        If `evm.gas_left` is less than `3`.
     """
     assert evm.pc + num_bytes < len(evm.code)
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -68,7 +68,7 @@ def dup_n(evm: Evm, item_number: int) -> None:
     Raises
     ------
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
+        If `evm.gas_left` is less than `3`.
     """
     assert item_number < len(evm.stack)
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -81,6 +81,8 @@ def swap_n(evm: Evm, item_number: int) -> None:
     """
     Swap the 1st and Nth items in the stack. All items are 0-indexed from the
     top of the stack.
+    If N is 0, then this is a Noop. Regardless, `swap_n` with N as 0 isn't
+    a valid EVM opcode and hence shouldn't be used.
 
     Parameters
     ----------
@@ -94,7 +96,7 @@ def swap_n(evm: Evm, item_number: int) -> None:
     Raises
     ------
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
+        If `evm.gas_left` is less than `3`.
     """
     assert item_number < len(evm.stack)
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
