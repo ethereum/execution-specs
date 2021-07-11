@@ -1,6 +1,6 @@
 """
-Ethereum Virtual Machine (EVM) Instructions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Arithmetic Instructions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -9,44 +9,21 @@ Ethereum Virtual Machine (EVM) Instructions
 Introduction
 ------------
 
-Implementations of the instructions understood by the EVM.
+Implementations of the EVM Arithmetic instructions.
 """
-
-
-from functools import partial
 
 from ethereum.base_types import U255_CEIL_VALUE, U256, U256_CEIL_VALUE, Uint
 from ethereum.utils import get_sign
 
-from . import Evm
-from .gas import (
+from .. import Evm
+from ..gas import (
     GAS_EXPONENTIATION,
     GAS_LOW,
     GAS_MID,
-    GAS_STORAGE_CLEAR_REFUND,
-    GAS_STORAGE_SET,
-    GAS_STORAGE_UPDATE,
     GAS_VERY_LOW,
     subtract_gas,
 )
-from .stack import pop, push
-
-
-def stop(evm: Evm) -> None:
-    """
-    Stop further execution of EVM code.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-    """
-    evm.running = False
-
-
-#
-# Arithmetic Operations
-#
+from ..stack import pop, push
 
 
 def add(evm: Evm) -> None:
@@ -64,7 +41,7 @@ def add(evm: Evm) -> None:
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
+        If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
 
@@ -90,7 +67,7 @@ def sub(evm: Evm) -> None:
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
+        If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
 
@@ -116,7 +93,7 @@ def mul(evm: Evm) -> None:
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_LOW`.
+        If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
 
@@ -142,7 +119,7 @@ def div(evm: Evm) -> None:
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_LOW`.
+        If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
 
@@ -171,7 +148,7 @@ def sdiv(evm: Evm) -> None:
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_LOW`.
+        If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
 
@@ -204,7 +181,7 @@ def mod(evm: Evm) -> None:
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_LOW`.
+        If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
 
@@ -233,7 +210,7 @@ def smod(evm: Evm) -> None:
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_LOW`.
+        If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
 
@@ -263,7 +240,7 @@ def addmod(evm: Evm) -> None:
     StackUnderflowError
         If `len(stack)` is less than `3`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_MID`.
+        If `evm.gas_left` is less than `8`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_MID)
 
@@ -294,7 +271,7 @@ def mulmod(evm: Evm) -> None:
     StackUnderflowError
         If `len(stack)` is less than `3`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_MID`.
+        If `evm.gas_left` is less than `8`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_MID)
 
@@ -324,8 +301,6 @@ def exp(evm: Evm) -> None:
     ------
     StackUnderflowError
         If `len(stack)` is less than `2`.
-    OutOfGasError
-        If `evm.gas_left` is less than `GAS_MID`.
     """
     base = Uint(pop(evm.stack))
     exponent = Uint(pop(evm.stack))
@@ -359,7 +334,7 @@ def signextend(evm: Evm) -> None:
     StackUnderflowError
         If `len(stack)` is less than `2`.
     OutOfGasError
-        If `evm.gas_left` is less than `GAS_LOW`.
+        If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
 
@@ -387,110 +362,3 @@ def signextend(evm: Evm) -> None:
             )
 
     push(evm.stack, result)
-
-
-def sstore(evm: Evm) -> None:
-    """
-    Stores a value at a certain key in the current context's storage.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    StackUnderflowError
-        If `len(stack)` is less than `2`.
-    OutOfGasError
-        If `evm.gas_left` is less than `20000`.
-    """
-    key = pop(evm.stack).to_be_bytes32()
-    new_value = pop(evm.stack)
-    current_value = evm.env.state[evm.current].storage.get(key, U256(0))
-
-    # TODO: SSTORE gas usage hasn't been tested yet. Testing this needs
-    # other opcodes to be implemented.
-    # Calculating the gas needed for the storage
-    if new_value != 0 and current_value == 0:
-        gas_cost = GAS_STORAGE_SET
-    else:
-        gas_cost = GAS_STORAGE_UPDATE
-
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
-
-    # TODO: Refund counter hasn't been tested yet. Testing this needs other
-    # Opcodes to be implemented
-    if new_value == 0 and current_value != 0:
-        evm.refund_counter += GAS_STORAGE_CLEAR_REFUND
-
-    if new_value == 0:
-        # Deletes a k-v pair from dict if key is present, else does nothing
-        evm.env.state[evm.current].storage.pop(key, None)
-    else:
-        evm.env.state[evm.current].storage[key] = new_value
-
-
-def push_n(evm: Evm, num_bytes: int) -> None:
-    """
-    Pushes a N-byte immediate onto the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    num_bytes : `int`
-        The number of immediate bytes to be read from the code and pushed to
-        the stack.
-
-    Raises
-    ------
-    StackOverflowError
-        If `len(stack)` is equals `1024`.
-    OutOfGasError
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
-    """
-    assert evm.pc + num_bytes < len(evm.code)
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
-
-    data_to_push = U256.from_be_bytes(
-        evm.code[evm.pc + 1 : evm.pc + num_bytes + 1]
-    )
-    push(evm.stack, data_to_push)
-
-    evm.pc += num_bytes
-
-
-push1 = partial(push_n, num_bytes=1)
-push2 = partial(push_n, num_bytes=2)
-push3 = partial(push_n, num_bytes=3)
-push4 = partial(push_n, num_bytes=4)
-push5 = partial(push_n, num_bytes=5)
-push6 = partial(push_n, num_bytes=6)
-push7 = partial(push_n, num_bytes=7)
-push8 = partial(push_n, num_bytes=8)
-push9 = partial(push_n, num_bytes=9)
-push10 = partial(push_n, num_bytes=10)
-push11 = partial(push_n, num_bytes=11)
-push12 = partial(push_n, num_bytes=12)
-push13 = partial(push_n, num_bytes=13)
-push14 = partial(push_n, num_bytes=14)
-push15 = partial(push_n, num_bytes=15)
-push16 = partial(push_n, num_bytes=16)
-push17 = partial(push_n, num_bytes=17)
-push18 = partial(push_n, num_bytes=18)
-push19 = partial(push_n, num_bytes=19)
-push20 = partial(push_n, num_bytes=20)
-push21 = partial(push_n, num_bytes=21)
-push22 = partial(push_n, num_bytes=22)
-push23 = partial(push_n, num_bytes=23)
-push24 = partial(push_n, num_bytes=24)
-push25 = partial(push_n, num_bytes=25)
-push26 = partial(push_n, num_bytes=26)
-push27 = partial(push_n, num_bytes=27)
-push28 = partial(push_n, num_bytes=28)
-push29 = partial(push_n, num_bytes=29)
-push30 = partial(push_n, num_bytes=30)
-push31 = partial(push_n, num_bytes=31)
-push32 = partial(push_n, num_bytes=32)

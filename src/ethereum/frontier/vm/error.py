@@ -36,3 +36,11 @@ class OutOfGasError(Exception):
     """
 
     pass
+
+
+class InvalidOpcode(Exception):
+    """
+    Raised when an invalid opcode is encountered.
+    """
+
+    pass
