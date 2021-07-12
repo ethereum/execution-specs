@@ -52,7 +52,7 @@ Tracking: `active`
 | [Web3.js][web3js-link] | Network API (JavaScript) | EthereumJS |  |1559 |  |🛠️
 | [Ethers.js][ethers-link] | Network API (JavaScript) |  | [URL][ethers-work] |1559 |[v5.4.1][ethers-release]  |✅ 
 | [EthereumJS][ethereumjs-link] | Libraries |  | [URL][ethereumjs-work] | All | [URL][ethereumjs-release] |✅
-| [Web3.py][web3py-link] | Network API (Python) |  | [URL][web3py-work] |1559 |  |🛠️ 
+| [Web3.py][web3py-link] | Network API (Python) |  | [URL][web3py-work] |1559 | [v5.21.0][web3py-release] |✅
 | [Web3j][web3j-link] | Network API (Java) |  | [URL][web3j-work] |1559 |  |🛠️ 
 | [Nethereum][nethereum-link] | Network API (.Net) |  |  |1559 |  |🛠️
 | [KEthereum][kethereum-link] | Network API (Kotlin) | | [URL][kethereum-work] |1559 |[URL][kethereum-release]  |✅
@@ -67,6 +67,7 @@ Tracking: `active`
 [ethereumjs-release]: https://github.com/ethereumjs/ethereumjs-monorepo/pull/1263
 [web3py-link]: https://github.com/ethereum/web3.py
 [web3py-work]: https://github.com/ethereum/web3.py/issues/1835
+[web3py-release]: https://web3py.readthedocs.io/en/latest/releases.html#v5-21-0-2021-07-12
 [web3j-link]: https://github.com/web3j/web3j
 [web3j-work]: https://github.com/web3j/web3j/pull/1417
 [nethereum-link]: https://github.com/Nethereum/Nethereum
