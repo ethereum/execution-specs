@@ -20,6 +20,7 @@ from . import arithmetic as arithmetic_instructions
 from . import bitwise as bitwise_instructions
 from . import comparison as comparison_instructions
 from . import control_flow as control_flow_instructions
+from . import memory as memory_instructions
 from . import stack as stack_instructions
 from . import storage as storage_instructions
 
@@ -134,6 +135,12 @@ class Ops(enum.Enum):
     SWAP15 = 0x9E
     SWAP16 = 0x9F
 
+    # Memory Operations
+    MLOAD = 0x51
+    MSTORE = 0x52
+    MSTORE8 = 0x53
+    MSIZE = 0x59
+
 
 op_implementation: Dict[Ops, Callable] = {
     Ops.STOP: control_flow_instructions.stop,
@@ -225,4 +232,8 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.SWAP14: stack_instructions.swap14,
     Ops.SWAP15: stack_instructions.swap15,
     Ops.SWAP16: stack_instructions.swap16,
+    Ops.MLOAD: memory_instructions.mload,
+    Ops.MSTORE: memory_instructions.mstore,
+    Ops.MSTORE8: memory_instructions.mstore8,
+    Ops.MSIZE: memory_instructions.msize,
 }
