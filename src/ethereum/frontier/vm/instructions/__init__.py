@@ -18,6 +18,7 @@ from typing import Callable, Dict
 
 from . import arithmetic as arithmetic_instructions
 from . import control_flow as control_flow_instructions
+from . import memory as memory_instructions
 from . import stack as stack_instructions
 from . import storage as storage_instructions
 
@@ -45,6 +46,15 @@ class Ops(enum.Enum):
 
     # Storage Ops
     SSTORE = 0x55
+
+    # Memory Ops
+    MLOAD = 0x51
+    MSTORE = 0x52
+    MSTORE8 = 0x53
+    MSIZE = 0x59
+
+    # Pop operation
+    POP = 0x50
 
     # Push Operations
     PUSH1 = 0x60
@@ -130,7 +140,12 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.MULMOD: arithmetic_instructions.mulmod,
     Ops.EXP: arithmetic_instructions.exp,
     Ops.SIGNEXTEND: arithmetic_instructions.signextend,
+    Ops.MLOAD: memory_instructions.mload,
+    Ops.MSTORE: memory_instructions.mstore,
+    Ops.MSTORE8: memory_instructions.mstore8,
+    Ops.MSIZE: memory_instructions.msize,
     Ops.SSTORE: storage_instructions.sstore,
+    Ops.POP: stack_instructions.pop_opcode,
     Ops.PUSH1: stack_instructions.push1,
     Ops.PUSH2: stack_instructions.push2,
     Ops.PUSH3: stack_instructions.push3,

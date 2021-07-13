@@ -17,8 +17,28 @@ from functools import partial
 from ethereum.base_types import U256
 
 from .. import Evm
-from ..gas import GAS_VERY_LOW, subtract_gas
-from ..stack import push
+from ..gas import GAS_BASE, GAS_VERY_LOW, subtract_gas
+from ..stack import pop, push
+
+
+def pop_opcode(evm: Evm) -> None:
+    """
+    Remove item from stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Raises
+    ------
+    StackUnderflowError
+        If `len(stack)` is less than `1`.
+    OutOfGasError
+        If `evm.gas_left` is less than `2`.
+    """
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    pop(evm.stack)
 
 
 def push_n(evm: Evm, num_bytes: int) -> None:

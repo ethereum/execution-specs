@@ -48,7 +48,7 @@ def test_sub(test_file: str) -> None:
         "mul4.json",
         "mul5.json",
         "mul6.json",
-        # TODO: Uncomment mul7.json once MLOAD, MSTORE is implemented
+        # TODO: Uncomment mul7.json once RETURN is implemented
         # "mul7.json",
     ],
 )
@@ -59,7 +59,7 @@ def test_mul(test_file: str) -> None:
 @pytest.mark.parametrize(
     "test_file",
     [
-        # TODO: Uncomment div1.json file once MSTORE is implemented
+        # TODO: Uncomment div1.json file once RETURN is implemented
         # "div1.json",
         "divBoostBug.json",
         "divByNonZero0.json",
@@ -93,8 +93,7 @@ def test_div(test_file: str) -> None:
         "sdiv_i256min.json",
         "sdiv_i256min2.json",
         "sdiv_i256min3.json",
-        # TODO: Run sdiv_dejavu.json once DUP series has been implemented
-        # "sdiv_dejavu.json",
+        "sdiv_dejavu.json",
     ],
 )
 def test_sdiv(test_file: str) -> None:
@@ -170,7 +169,7 @@ def test_addmod(test_file: str) -> None:
         "mulmod2.json",
         # TODO: Test files 'mulmod2_1.json', 'mulmod3_0.json' after implementing EQ
         # TODO: Test file 'mulmod2_0.json' after implementing SMOD
-        # TODO: Test file 'mulmod4.json' after implementing MSTORE8
+        # TODO: Test file 'mulmod4.json' after implementing RETURN
         # "mulmod2_0.json",
         # "mulmod2_1.json",
         "mulmod3.json",

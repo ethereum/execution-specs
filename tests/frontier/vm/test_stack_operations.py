@@ -2,6 +2,7 @@ from functools import partial
 
 import pytest
 
+from ethereum.frontier.vm.error import StackUnderflowError
 from tests.frontier.vm.vm_test_helpers import run_test
 
 run_push_vm_test = partial(
@@ -10,13 +11,18 @@ run_push_vm_test = partial(
 )
 run_dup_vm_test = run_swap_vm_test = run_push_vm_test
 
+run_pop_vm_test = partial(
+    run_test,
+    "tests/fixtures/LegacyTests/Constantinople/VMTests/vmIOandFlowOperations",
+)
+
 
 def test_push_successfully() -> None:
     for i in range(1, 34):
         run_push_vm_test(f"push{i}.json")
 
     run_push_vm_test("push32Undefined2.json")
-    # TODO: Run below test once suicide opcode has been implemented
+    # TODO: Run below test once SUICIDE opcode has been implemented
     # "push32AndSuicide.json"
 
 
@@ -55,3 +61,12 @@ def test_swap() -> None:
 def test_swap_error() -> None:
     with pytest.raises(AssertionError):
         run_swap_vm_test("swap2error.json")
+
+
+def test_pop_succeeds() -> None:
+    run_pop_vm_test("pop0.json")
+
+
+def test_pop_fails_with_underflow() -> None:
+    with pytest.raises(StackUnderflowError):
+        run_pop_vm_test("pop1.json")

@@ -16,7 +16,9 @@ from ethereum.base_types import U256
 
 from .error import OutOfGasError
 
+GAS_BASE = U256(2)
 GAS_VERY_LOW = U256(3)
+GAS_MEMORY = U256(3)
 GAS_STORAGE_SET = U256(20000)
 GAS_STORAGE_UPDATE = U256(5000)
 GAS_STORAGE_CLEAR_REFUND = U256(15000)
