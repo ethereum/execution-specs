@@ -61,6 +61,7 @@ class Ops(enum.Enum):
     STOP = 0x00
 
     # Storage Ops
+    SLOAD = 0x54
     SSTORE = 0x55
 
     # Push Operations
@@ -158,6 +159,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.XOR: bitwise_instructions.bitwise_xor,
     Ops.NOT: bitwise_instructions.bitwise_not,
     Ops.BYTE: bitwise_instructions.get_byte,
+    Ops.SLOAD: storage_instructions.sload,
     Ops.SSTORE: storage_instructions.sstore,
     Ops.PUSH1: stack_instructions.push1,
     Ops.PUSH2: stack_instructions.push2,

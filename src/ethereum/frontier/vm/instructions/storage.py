@@ -16,12 +16,38 @@ from ethereum.base_types import U256
 
 from .. import Evm
 from ..gas import (
+    GAS_SLOAD,
     GAS_STORAGE_CLEAR_REFUND,
     GAS_STORAGE_SET,
     GAS_STORAGE_UPDATE,
     subtract_gas,
 )
-from ..stack import pop
+from ..stack import pop, push
+
+
+def sload(evm: Evm) -> None:
+    """
+    Loads to the stack, the value corresponding to a certain key from the
+    storage of the current account.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Raises
+    ------
+    StackUnderflowError
+        If `len(stack)` is less than `1`.
+    OutOfGasError
+        If `evm.gas_left` is less than `50`.
+    """
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_SLOAD)
+
+    key = pop(evm.stack).to_be_bytes32()
+    value = evm.env.state[evm.current].storage.get(key, U256(0))
+
+    push(evm.stack, value)
 
 
 def sstore(evm: Evm) -> None:
