@@ -2,11 +2,16 @@ from functools import partial
 
 import pytest
 
+from ethereum.frontier.vm.error import StackUnderflowError
 from tests.frontier.vm.vm_test_helpers import run_test
 
 run_push_vm_test = partial(
     run_test,
     "tests/fixtures/LegacyTests/Constantinople/VMTests/vmPushDupSwapTest",
+)
+run_pop_vm_test = partial(
+    run_test,
+    "tests/fixtures/LegacyTests/Constantinople/VMTests/vmIOandFlowOperations",
 )
 run_dup_vm_test = run_swap_vm_test = run_push_vm_test
 
@@ -48,10 +53,20 @@ def test_swap() -> None:
     for i in range(1, 17):
         run_swap_vm_test(f"swap{i}.json")
 
-    # TODO: Run below test once JUMP opcode has been implemented
-    # "swapjump1.json"
+
+def test_swap_jump() -> None:
+    run_swap_vm_test("swapjump1.json")
 
 
 def test_swap_error() -> None:
     with pytest.raises(AssertionError):
         run_swap_vm_test("swap2error.json")
+
+
+def test_pop() -> None:
+    run_pop_vm_test("pop0.json")
+
+
+def test_pop_fails_when_stack_underflowed() -> None:
+    with pytest.raises(StackUnderflowError):
+        run_pop_vm_test("pop1.json")

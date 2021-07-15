@@ -75,8 +75,13 @@ class Ops(enum.Enum):
     EXTCODESIZE = 0x3B
     EXTCODECOPY = 0x3C
 
-    # Computation Ops
+    # Control Flow Ops
     STOP = 0x00
+    JUMP = 0x56
+    JUMPI = 0x57
+    PC = 0x58
+    GAS = 0x5A
+    JUMPDEST = 0x5B
 
     # Keccak Op
     KECCAK = 0x20
@@ -84,6 +89,9 @@ class Ops(enum.Enum):
     # Storage Ops
     SLOAD = 0x54
     SSTORE = 0x55
+
+    # Pop Operation
+    POP = 0x50
 
     # Push Operations
     PUSH1 = 0x60
@@ -206,6 +214,12 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.GASPRICE: environment_instructions.gasprice,
     Ops.EXTCODESIZE: environment_instructions.extcodesize,
     Ops.SSTORE: storage_instructions.sstore,
+    Ops.JUMP: control_flow_instructions.jump,
+    Ops.JUMPI: control_flow_instructions.jumpi,
+    Ops.PC: control_flow_instructions.pc,
+    Ops.GAS: control_flow_instructions.gas_left,
+    Ops.JUMPDEST: control_flow_instructions.jumpdest,
+    Ops.POP: stack_instructions.pop,
     Ops.PUSH1: stack_instructions.push1,
     Ops.PUSH2: stack_instructions.push2,
     Ops.PUSH3: stack_instructions.push3,

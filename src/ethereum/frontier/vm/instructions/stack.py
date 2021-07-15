@@ -16,9 +16,28 @@ from functools import partial
 
 from ethereum.base_types import U256
 
-from .. import Evm
-from ..gas import GAS_VERY_LOW, subtract_gas
-from ..stack import push
+from .. import Evm, stack
+from ..gas import GAS_BASE, GAS_VERY_LOW, subtract_gas
+
+
+def pop(evm: Evm) -> None:
+    """
+    Remove item from stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Raises
+    ------
+    StackUnderflowError
+        If `len(stack)` is less than `1`.
+    OutOfGasError
+        If `evm.gas_left` is less than `2`.
+    """
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    stack.pop(evm.stack)
 
 
 def push_n(evm: Evm, num_bytes: int) -> None:
@@ -47,7 +66,7 @@ def push_n(evm: Evm, num_bytes: int) -> None:
     data_to_push = U256.from_be_bytes(
         evm.code[evm.pc + 1 : evm.pc + num_bytes + 1]
     )
-    push(evm.stack, data_to_push)
+    stack.push(evm.stack, data_to_push)
 
     evm.pc += num_bytes
 
@@ -74,7 +93,7 @@ def dup_n(evm: Evm, item_number: int) -> None:
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
 
     data_to_duplicate = evm.stack[len(evm.stack) - 1 - item_number]
-    push(evm.stack, data_to_duplicate)
+    stack.push(evm.stack, data_to_duplicate)
 
 
 def swap_n(evm: Evm, item_number: int) -> None:
