@@ -1,5 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) stack Instructions
+Ethereum Virtual Machine (EVM) Stack Instructions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
@@ -79,10 +79,11 @@ def dup_n(evm: Evm, item_number: int) -> None:
 
 def swap_n(evm: Evm, item_number: int) -> None:
     """
-    Swap the 1st and Nth items in the stack. All items are 0-indexed from the
-    top of the stack.
-    If N is 0, then this is a Noop. Regardless, `swap_n` with N as 0 isn't
-    a valid EVM opcode and hence shouldn't be used.
+    Swap the top and the `item_number` element of the stack, where
+    the top of the stack is position zero.
+
+    If `item_number` is zero, this function does nothing (which should not be
+    possible, since there is no `SWAP0` instruction).
 
     Parameters
     ----------

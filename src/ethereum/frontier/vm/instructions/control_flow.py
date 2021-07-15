@@ -1,5 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) control flow instructions
+Ethereum Virtual Machine (EVM) Control Flow Instructions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents

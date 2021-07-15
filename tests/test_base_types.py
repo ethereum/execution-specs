@@ -1177,3 +1177,103 @@ def test_u256_from_be_bytes_is_big_endian() -> None:
 def test_u256_from_be_bytes_too_large() -> None:
     with pytest.raises(ValueError):
         U256.from_be_bytes(bytes([0xFF] * 33))
+
+
+def test_u256_bitwise_and_successful() -> None:
+    assert U256(0) & U256(0) == 0
+    assert U256(2 ** 256 - 1) & U256(2 ** 256 - 1) == 2 ** 256 - 1
+    assert U256(2 ** 256 - 1) & U256(0) == U256(0)
+
+
+def test_u256_bitwise_and_fails() -> None:
+    with pytest.raises(ValueError):
+        U256(0) & (2 ** 256)
+    with pytest.raises(ValueError):
+        U256(2 ** 256 - 1) & (2 ** 256)
+    with pytest.raises(ValueError):
+        U256(2 ** 256 - 1) & -10
+
+
+def test_u256_bitwise_or_successful() -> None:
+    assert U256(0) | U256(0) == 0
+    assert U256(2 ** 256 - 1) | U256(0) == 2 ** 256 - 1
+    assert U256(2 ** 256 - 1) | U256(2 ** 256 - 1) == U256(2 ** 256 - 1)
+    assert U256(2 ** 256 - 1) | U256(17) == U256(2 ** 256 - 1)
+    assert U256(17) | U256(18) == U256(19)
+
+
+def test_u256_bitwise_or_failed() -> None:
+    with pytest.raises(ValueError):
+        U256(0) | (2 ** 256)
+    with pytest.raises(ValueError):
+        U256(2 ** 256 - 1) | (2 ** 256)
+    with pytest.raises(ValueError):
+        U256(2 ** 256 - 1) | -10
+
+
+def test_u256_bitwise_xor_successful() -> None:
+    assert U256(0) ^ U256(0) == 0
+    assert U256(2 ** 256 - 1) ^ U256(0) == 2 ** 256 - 1
+    assert U256(2 ** 256 - 1) ^ U256(2 ** 256 - 1) == U256(0)
+    assert U256(2 ** 256 - 1) ^ U256(17) == U256(2 ** 256 - 1) - U256(17)
+    assert U256(17) ^ U256(18) == U256(3)
+
+
+def test_u256_bitwise_xor_failed() -> None:
+    with pytest.raises(ValueError):
+        U256(0) | (2 ** 256)
+    with pytest.raises(ValueError):
+        U256(2 ** 256 - 1) ^ (2 ** 256)
+    with pytest.raises(ValueError):
+        U256(2 ** 256 - 1) ^ -10
+
+
+def test_u256_bitwise_rxor_successful() -> None:
+    assert U256(0).__rxor__(U256(0)) == 0
+    assert U256(2 ** 256 - 1).__rxor__(U256(0)) == 2 ** 256 - 1
+    assert U256(2 ** 256 - 1).__rxor__(U256(2 ** 256 - 1)) == U256(0)
+    assert U256(2 ** 256 - 1).__rxor__(U256(17)) == U256(2 ** 256 - 1) - U256(
+        17
+    )
+    assert U256(17).__rxor__(U256(18)) == U256(3)
+
+
+def test_u256_bitwise_rxor_failed() -> None:
+    with pytest.raises(ValueError):
+        U256(0).__rxor__(2 ** 256)
+    with pytest.raises(ValueError):
+        U256(2 ** 256 - 1).__rxor__(2 ** 256)
+    with pytest.raises(ValueError):
+        U256(2 ** 256 - 1).__rxor__(-10)
+
+
+def test_u256_bitwise_ixor_successful() -> None:
+    assert U256(0).__ixor__(U256(0)) == 0
+    assert U256(2 ** 256 - 1).__ixor__(U256(0)) == 2 ** 256 - 1
+    assert U256(2 ** 256 - 1).__ixor__(U256(2 ** 256 - 1)) == U256(0)
+    assert U256(2 ** 256 - 1).__ixor__(U256(17)) == U256(2 ** 256 - 1) - U256(
+        17
+    )
+    assert U256(17).__ixor__(U256(18)) == U256(3)
+
+
+def test_u256_bitwise_ixor_failed() -> None:
+    with pytest.raises(ValueError):
+        U256(0).__ixor__(2 ** 256)
+    with pytest.raises(ValueError):
+        U256(2 ** 256 - 1).__ixor__(2 ** 256)
+    with pytest.raises(ValueError):
+        U256(2 ** 256 - 1).__ixor__(-10)
+
+
+def test_u256_invert() -> None:
+    assert ~U256(0) == U256_MAX_VALUE
+    assert ~U256(10) == U256_MAX_VALUE - 10
+    assert ~U256(2 ** 256 - 1) == 0
+
+
+def test_u256_rshift() -> None:
+    assert U256(U256_MAX_VALUE) >> 255 == 1
+    assert U256(U256_MAX_VALUE) >> 256 == 0
+    assert U256(U256_MAX_VALUE) >> 257 == 0
+    assert U256(0) >> 20 == 0
