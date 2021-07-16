@@ -11,6 +11,7 @@ Introduction
 
 Utility functions used in this application.
 """
+from ethereum.base_types import Uint
 
 
 def get_sign(value: int) -> int:
@@ -34,3 +35,27 @@ def get_sign(value: int) -> int:
         return 0
     else:
         return 1
+
+
+def ceil32(value: Uint) -> Uint:
+    """
+    Converts a unsigned integer to the next closest multiple of 32.
+
+    Parameters
+    ----------
+    value :
+        The value whose ceil32 is to be calculated.
+
+    Returns
+    -------
+    ceil32 : `ethereum.base_types.U256`
+        The same value if it's a perfect multiple of 32
+        else it returns the smallest multiple of 32
+        that is greater than `value`.
+    """
+    ceiling = Uint(32)
+    remainder = value % ceiling
+    if remainder == Uint(0):
+        return value
+    else:
+        return value + ceiling - remainder

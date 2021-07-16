@@ -36,6 +36,7 @@ rlp
 trie
 U256
 U255
+U8
 secp256k1
 secp256k1n
 iadd
@@ -227,3 +228,6 @@ staticcall
 revert
 invalid
 selfdestruct
+
+ceil32
+rjust

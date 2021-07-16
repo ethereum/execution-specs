@@ -22,6 +22,7 @@ U255_MAX_VALUE = (2 ** 255) - 1
 U255_CEIL_VALUE = 2 ** 255
 U256_MAX_VALUE = (2 ** 256) - 1
 U256_CEIL_VALUE = 2 ** 256
+U8_MAX_VALUE = (2 ** 8) - 1
 
 
 class Uint(int):
@@ -36,12 +37,10 @@ class Uint(int):
         """
         Converts a sequence of bytes into an arbitrarily sized unsigned integer
         from its big endian representation.
-
         Parameters
         ----------
         buffer :
             Bytes to decode.
-
         Returns
         -------
         self : `Uint`
@@ -231,7 +230,6 @@ class Uint(int):
         """
         Converts this arbitrarily sized unsigned integer into its big endian
         representation with exactly 32 bytes.
-
         Returns
         -------
         big_endian : `Bytes32`
@@ -243,7 +241,6 @@ class Uint(int):
         """
         Converts this arbitrarily sized unsigned integer into its big endian
         representation.
-
         Returns
         -------
         big_endian : `Bytes`
@@ -269,12 +266,10 @@ class U256(int):
         """
         Converts a sequence of bytes into an arbitrarily sized unsigned integer
         from its big endian representation.
-
         Parameters
         ----------
         buffer :
             Bytes to decode.
-
         Returns
         -------
         self : `U256`
@@ -289,12 +284,10 @@ class U256(int):
     def from_signed(cls: Type, value: int) -> "U256":
         """
         Converts a signed number into a 256-bit unsigned integer.
-
         Parameters
         ----------
         value :
             Signed number
-
         Returns
         -------
         self : `U256`
@@ -599,7 +592,6 @@ class U256(int):
         """
         Converts this 256-bit unsigned integer into its big endian
         representation with exactly 32 bytes.
-
         Returns
         -------
         big_endian : `Bytes32`
@@ -611,7 +603,6 @@ class U256(int):
         """
         Converts this 256-bit unsigned integer into its big endian
         representation, omitting leading zero bytes.
-
         Returns
         -------
         big_endian : `Bytes`
@@ -624,7 +615,6 @@ class U256(int):
     def to_signed(self) -> int:
         """
         Converts this 256-bit unsigned integer into a signed integer.
-
         Returns
         -------
         signed_int : `int`
