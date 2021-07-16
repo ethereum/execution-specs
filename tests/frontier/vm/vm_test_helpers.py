@@ -1,11 +1,13 @@
 import json
 import os
+from functools import partial
 from typing import Any
 
 from ethereum.base_types import U256, Uint
 from ethereum.crypto import keccak256
 from ethereum.frontier import rlp
 from ethereum.frontier.eth_types import Account, State
+from ethereum.frontier.spec import BlockChain, get_recent_block_hashes
 from ethereum.frontier.vm import Environment
 from ethereum.frontier.vm.interpreter import process_call
 from tests.frontier.helpers import (
@@ -76,10 +78,15 @@ def json_to_env(json_data: Any) -> Environment:
 
     current_state = json_to_state(json_data["pre"])
 
+    chain = BlockChain(
+        blocks=[],
+        state=current_state,
+    )
+
     return Environment(
         caller=hex2address(json_data["exec"]["caller"]),
         origin=hex2address(json_data["exec"]["origin"]),
-        block_hashes=[],
+        block_hashes=get_recent_block_hashes(chain, Uint(256)),
         coinbase=hex2address(json_data["env"]["currentCoinbase"]),
         number=hex2uint(json_data["env"]["currentNumber"]),
         gas_limit=hex2uint(json_data["env"]["currentGasLimit"]),
