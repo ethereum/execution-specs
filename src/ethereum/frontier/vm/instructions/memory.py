@@ -14,12 +14,13 @@ Implementations of the EVM Memory instructions.
 from ethereum.base_types import U8_MAX_VALUE, U256, Uint
 
 from .. import Evm
-from ..gas import GAS_BASE, GAS_VERY_LOW, subtract_gas
-from ..memory import (
-    extend_memory_and_subtract_gas,
-    memory_read_bytes,
-    memory_write,
+from ..gas import (
+    GAS_BASE,
+    GAS_VERY_LOW,
+    calculate_gas_extend_memory,
+    subtract_gas,
 )
+from ..memory import extend_memory, memory_read_bytes, memory_write
 from ..stack import pop, push
 
 
@@ -45,8 +46,15 @@ def mstore(evm: Evm) -> None:
     # convert to Uint as start_position + size_to_extend can overflow.
     start_position = Uint(pop(evm.stack))
     value = pop(evm.stack).to_be_bytes32()
-    extend_memory_and_subtract_gas(evm, start_position, U256(32))
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+
+    total_gas_cost = (
+        calculate_gas_extend_memory(evm.memory, start_position, U256(32))
+        + GAS_VERY_LOW
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+
+    # extend memory and subtract gas for allocating 32 bytes of memory
+    extend_memory(evm.memory, start_position, U256(32))
     memory_write(evm.memory, start_position, value)
 
 
@@ -74,8 +82,15 @@ def mstore8(evm: Evm) -> None:
     value = pop(evm.stack)
     # make sure that value doesn't exceed 1 byte
     normalized_bytes_value = (value & U8_MAX_VALUE).to_be_bytes()
-    extend_memory_and_subtract_gas(evm, start_position, U256(1))
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+
+    total_gas_cost = (
+        calculate_gas_extend_memory(evm.memory, start_position, U256(1))
+        + GAS_VERY_LOW
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+
+    # extend memory and subtract gas for allocating 32 bytes of memory
+    extend_memory(evm.memory, start_position, U256(1))
     memory_write(evm.memory, start_position, normalized_bytes_value)
 
 
@@ -98,12 +113,18 @@ def mload(evm: Evm) -> None:
     """
     # convert to Uint as start_position + size_to_extend can overflow.
     start_position = Uint(pop(evm.stack))
+
+    total_gas_cost = (
+        calculate_gas_extend_memory(evm.memory, start_position, U256(32))
+        + GAS_VERY_LOW
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+
     # extend memory and subtract gas for allocating 32 bytes of memory
-    extend_memory_and_subtract_gas(evm, start_position, U256(32))
+    extend_memory(evm.memory, start_position, U256(32))
     value = U256.from_be_bytes(
         memory_read_bytes(evm.memory, start_position, U256(32))
     )
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
     push(evm.stack, value)
 
 
