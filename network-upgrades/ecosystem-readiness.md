@@ -83,7 +83,7 @@ Many of these projects may not update until much closer to the designated London
 |---|---|---|---|---|---|---|
 | [Amazon Web Services][AWS-link] | Managed Blockchain |  |  | All |  |⭕
 | [Blocknative][blocknative-link] | Mempool Explorer |  |  | 1559 |  |⭕
-| [Infura][infura-link] | Ethereum APIs |  |  | 1559 |  |⭕ 
+| [Infura][infura-link] | Ethereum APIs |  |  | 1559 |  |✅
 | [POKT][pocket-link] | Request API |  |  | 1559 |  |⭕ 
 | [Etherscan][etherscan-link] | Block Explorer |  |  | 1559 |  |⭕
 | [MetaMask][metamask-link] | Browser Extension | EthereumJS, Ethers, Web3, ? | [URL][metamask-work] | 1559 |  |🛠️ 
