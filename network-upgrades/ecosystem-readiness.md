@@ -20,19 +20,21 @@ Tracking: `active`
 |---|---|---|---|---|---|---|
 | [Hardhat][hardhat-link] | Framework | EthereumJS, Ethers | [URL][hardhat-work] | All | | 🛠️ 
 | [Truffle][truffle-link] | Framework | EthereumJS, Web3.js, Ethers |  | All | | ⭕
+| [DappTools][dapptools-link] | Framework | - | [URL][dapptools-work] | All |  | 🛠️ 
 | [Remix][remix-link] | IDE | EthereumJS, Web3.js, Ethers |  | All |  | 🛠️
 | [Waffle][waffle-link] | Framework | Ganache, Ethers.js, Typechain |  | All | | 🛠️
 | [Brownie][brownie-link] | Framework | Web3.py |  | All | | ⭕
 | [OpenZeppelin][oz-link] | Smart Contract Security | Hardhat |  | ? | | 🛠️
-| [Tenderly][tenderly-link] | Contract Monitoring | Hardhat |  |1559 | | 🛠️
+| [Tenderly][tenderly-link] | Contract Monitoring | Hardhat |  | 1559 | | 🛠️
 | [hardhat-deploy][hardhat-deploy-link] | Contract Deployment | Hardhat, Ethers |  | ? | | ⭕
 | [solidity-coverage][solidity-coverage-link] | Contract Testing | Hardhat, Solidity |  | ? | | ⭕
 | [Typechain][typechain-link] | Language Tool | Ethers, Truffle, Hardhat, Web3.js, Solidity |  | ? | | ⭕
-| [Solidity][solidity-link] | Language | - | [URL][solidity-work] |3198 |  | 🛠️ 
+| [Solidity][solidity-link] | Language | - | [URL][solidity-work] | 3198 |  | 🛠️ 
 
 [hardhat-link]: https://github.com/nomiclabs/hardhat
 [hardhat-work]: https://github.com/nomiclabs/hardhat/projects/8
 [truffle-link]: https://github.com/trufflesuite/truffle
+[dapptools-link]: https://github.com/dapphub/dapptools
 [remix-link]: https://github.com/ethereum/remix-project
 [waffle-link]: https://github.com/EthWorks/Waffle
 [brownie-link]: https://github.com/eth-brownie/brownie
@@ -43,6 +45,7 @@ Tracking: `active`
 [typechain-link]: https://github.com/ethereum-ts/TypeChain
 [solidity-link]: http://soliditylang.eth
 [solidity-work]: https://github.com/ethereum/solidity/issues/11390
+[dapptools-work]:https://github.com/dapphub/dapptools/pull/688
 
 
 ### Libraries
