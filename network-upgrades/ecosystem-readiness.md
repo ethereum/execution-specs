@@ -20,10 +20,10 @@ Tracking: `active`
 |---|---|---|---|---|---|---|
 | [Hardhat][hardhat-link] | Framework | EthereumJS, Ethers | [URL][hardhat-work] | All | | 🛠️ 
 | [Truffle][truffle-link] | Framework | EthereumJS, Web3.js, Ethers |  | All | | ⭕
-| [Remix][remix-link] | IDE | EthereumJS, Web3.js, Ethers |  | All |  | ⭕
-| [Waffle][waffle-link] | Framework | Ganache, Ethers.js, Typechain |  | All | | ⭕
+| [Remix][remix-link] | IDE | EthereumJS, Web3.js, Ethers |  | All |  | 🛠️
+| [Waffle][waffle-link] | Framework | Ganache, Ethers.js, Typechain |  | All | | 🛠️
 | [Brownie][brownie-link] | Framework | Web3.py |  | All | | ⭕
-| [OpenZeppelin][oz-link] | Smart Contract Security | Hardhat |  | ? | | ⭕
+| [OpenZeppelin][oz-link] | Smart Contract Security | Hardhat |  | ? | | 🛠️
 | [Tenderly][tenderly-link] | Contract Monitoring | Hardhat |  |1559 | | 🛠️
 | [hardhat-deploy][hardhat-deploy-link] | Contract Deployment | Hardhat, Ethers |  | ? | | ⭕
 | [solidity-coverage][solidity-coverage-link] | Contract Testing | Hardhat, Solidity |  | ? | | ⭕
