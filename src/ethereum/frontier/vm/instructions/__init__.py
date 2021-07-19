@@ -20,6 +20,7 @@ from . import arithmetic as arithmetic_instructions
 from . import bitwise as bitwise_instructions
 from . import comparison as comparison_instructions
 from . import control_flow as control_flow_instructions
+from . import keccak as keccak_instructions
 from . import memory as memory_instructions
 from . import stack as stack_instructions
 from . import storage as storage_instructions
@@ -60,6 +61,9 @@ class Ops(enum.Enum):
 
     # Computation Ops
     STOP = 0x00
+
+    # Keccak Op
+    KECCAK = 0x20
 
     # Storage Ops
     SLOAD = 0x54
@@ -166,8 +170,13 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.XOR: bitwise_instructions.bitwise_xor,
     Ops.NOT: bitwise_instructions.bitwise_not,
     Ops.BYTE: bitwise_instructions.get_byte,
+    Ops.KECCAK: keccak_instructions.keccak,
     Ops.SLOAD: storage_instructions.sload,
     Ops.SSTORE: storage_instructions.sstore,
+    Ops.MLOAD: memory_instructions.mload,
+    Ops.MSTORE: memory_instructions.mstore,
+    Ops.MSTORE8: memory_instructions.mstore8,
+    Ops.MSIZE: memory_instructions.msize,
     Ops.PUSH1: stack_instructions.push1,
     Ops.PUSH2: stack_instructions.push2,
     Ops.PUSH3: stack_instructions.push3,
@@ -232,8 +241,4 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.SWAP14: stack_instructions.swap14,
     Ops.SWAP15: stack_instructions.swap15,
     Ops.SWAP16: stack_instructions.swap16,
-    Ops.MLOAD: memory_instructions.mload,
-    Ops.MSTORE: memory_instructions.mstore,
-    Ops.MSTORE8: memory_instructions.mstore8,
-    Ops.MSIZE: memory_instructions.msize,
 }
