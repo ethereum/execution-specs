@@ -83,11 +83,10 @@ def process_call(
         depth=depth,
         env=env,
         valid_jump_destinations=valid_jump_destinations,
+        logs=[],
         refund_counter=Uint(0),
         running=True,
     )
-
-    logs: List[Log] = []
 
     if evm.value != 0:
         evm.env.state[evm.caller].balance -= evm.value
@@ -110,4 +109,4 @@ def process_call(
     gas_used = gas - evm.gas_left
     refund = min(gas_used // 2, evm.refund_counter)
 
-    return evm.gas_left + refund, logs
+    return evm.gas_left + refund, evm.logs

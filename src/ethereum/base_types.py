@@ -632,7 +632,8 @@ U256.MAX_VALUE = U256(U256_MAX_VALUE)
 
 
 Bytes = bytes
-Bytes64 = Bytes
-Bytes32 = Bytes
-Bytes20 = Bytes
 Bytes8 = Bytes
+Bytes20 = Bytes
+Bytes32 = Bytes
+Bytes64 = Bytes
+Bytearray256 = bytearray

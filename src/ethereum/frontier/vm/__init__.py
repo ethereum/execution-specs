@@ -19,7 +19,7 @@ from typing import List, Set
 from ethereum.base_types import U256, Uint
 from ethereum.crypto import Hash32
 
-from ..eth_types import Address, State
+from ..eth_types import Address, Log, State
 
 __all__ = ("Environment", "Evm")
 
@@ -58,5 +58,6 @@ class Evm:
     depth: Uint
     env: Environment
     valid_jump_destinations: Set[Uint]
+    logs: List[Log]
     refund_counter: Uint
     running: bool

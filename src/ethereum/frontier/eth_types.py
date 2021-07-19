@@ -15,14 +15,22 @@ Types re-used throughout the specification, which are specific to Ethereum.
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-from ..base_types import U256, Bytes, Bytes8, Bytes20, Bytes32, Uint
+from ..base_types import (
+    U256,
+    Bytearray256,
+    Bytes,
+    Bytes8,
+    Bytes20,
+    Bytes32,
+    Uint,
+)
 from ..crypto import Hash32
 
 Address = Bytes20
 Root = Bytes
 
 Storage = Dict[Bytes32, U256]
-Bloom = Bytes32
+Bloom = Bytearray256
 
 TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 68
