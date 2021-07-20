@@ -20,6 +20,7 @@ from . import arithmetic as arithmetic_instructions
 from . import bitwise as bitwise_instructions
 from . import comparison as comparison_instructions
 from . import control_flow as control_flow_instructions
+from . import environment as environment_instructions
 from . import keccak as keccak_instructions
 from . import memory as memory_instructions
 from . import stack as stack_instructions
@@ -58,6 +59,21 @@ class Ops(enum.Enum):
     XOR = 0x18
     NOT = 0x19
     BYTE = 0x1A
+
+    # Environmental Ops
+    ADDRESS = 0x30
+    BALANCE = 0x31
+    ORIGIN = 0x32
+    CALLER = 0x33
+    CALLVALUE = 0x34
+    CALLDATALOAD = 0x35
+    CALLDATASIZE = 0x36
+    CALLDATACOPY = 0x37
+    CODESIZE = 0x38
+    CODECOPY = 0x39
+    GASPRICE = 0x3A
+    EXTCODESIZE = 0x3B
+    EXTCODECOPY = 0x3C
 
     # Computation Ops
     STOP = 0x00
@@ -177,6 +193,19 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.MSTORE: memory_instructions.mstore,
     Ops.MSTORE8: memory_instructions.mstore8,
     Ops.MSIZE: memory_instructions.msize,
+    Ops.ADDRESS: environment_instructions.address,
+    Ops.BALANCE: environment_instructions.balance,
+    Ops.ORIGIN: environment_instructions.origin,
+    Ops.CALLER: environment_instructions.caller,
+    Ops.CALLVALUE: environment_instructions.callvalue,
+    Ops.CALLDATALOAD: environment_instructions.calldataload,
+    Ops.CALLDATASIZE: environment_instructions.calldatasize,
+    Ops.CALLDATACOPY: environment_instructions.calldatacopy,
+    Ops.CODESIZE: environment_instructions.codesize,
+    Ops.CODECOPY: environment_instructions.codecopy,
+    Ops.GASPRICE: environment_instructions.gasprice,
+    Ops.EXTCODESIZE: environment_instructions.extcodesize,
+    Ops.SSTORE: storage_instructions.sstore,
     Ops.PUSH1: stack_instructions.push1,
     Ops.PUSH2: stack_instructions.push2,
     Ops.PUSH3: stack_instructions.push3,

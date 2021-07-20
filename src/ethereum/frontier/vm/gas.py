@@ -16,6 +16,7 @@ from ethereum.utils import ceil32
 
 from .error import OutOfGasError
 
+GAS_EXT = U256(20)
 GAS_VERY_LOW = U256(3)
 GAS_SLOAD = U256(50)
 GAS_STORAGE_SET = U256(20000)
@@ -28,6 +29,7 @@ GAS_BASE = U256(2)
 GAS_MEMORY = U256(3)
 GAS_KECCAK256 = U256(30)
 GAS_KECCAK256_WORD = U256(6)
+GAS_COPY = U256(3)
 
 
 def subtract_gas(gas_left: U256, amount: U256) -> U256:
