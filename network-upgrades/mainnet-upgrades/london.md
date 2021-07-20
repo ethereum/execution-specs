@@ -48,13 +48,13 @@ Code merged into Participating Clients
    - [x]  Geth [v1.10.4](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.4)
    - [x]  Besu [v21.7.0-RC1](https://github.com/hyperledger/besu/releases/tag/21.7.0-RC1)
    - [x]  Nethermind [v1.10.73](https://github.com/NethermindEth/nethermind/releases/tag/1.10.73)
-   - [x]  OpenEthereum [3.3.0-rc2](https://github.com/openethereum/openethereum/releases/tag/v3.3.0-rc2)
-   - [x]  Erigon [2021.06.04-alpha](https://github.com/ledgerwatch/erigon/releases/tag/v2021.06.04)
+   - [x]  OpenEthereum [v3.3.0-rc2](https://github.com/openethereum/openethereum/releases/tag/v3.3.0-rc2)
+   - [x]  Erigon [v2021.06.04-alpha](https://github.com/ledgerwatch/erigon/releases/tag/v2021.06.04)
    - [x]  EthereumJS [v5.4.1](https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/%40ethereumjs%2Fvm%405.4.1)
- - [ ]  Mainnet 
-   - [ ]  Geth
-   - [ ]  Besu
-   - [ ]  Nethermind
-   - [ ]  OpenEthereum
-   - [ ]  Erigon
-   - [ ]  EthereumJS [v5.5.0](https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/%40ethereumjs%2Fvm%405.5.0)
+ - [x]  Mainnet 
+   - [x]  Geth [v1.10.15](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.5)
+   - [x]  Besu [v21.7.1](https://github.com/hyperledger/besu/releases/tag/21.7.1)
+   - [x]  Nethermind [v1.10.77](https://github.com/NethermindEth/nethermind/releases/tag/1.10.77)
+   - [x]  OpenEthereum [v3.3.0-rc.4](https://github.com/openethereum/openethereum/releases/tag/v3.3.0-rc.4)
+   - [x]  Erigon [v2021.07.03-alpha	](https://github.com/ledgerwatch/erigon/releases/tag/v2021.07.03)
+   - [x]  EthereumJS [v5.5.0](https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/%40ethereumjs%2Fvm%405.5.0)
