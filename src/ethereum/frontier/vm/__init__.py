@@ -14,7 +14,7 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass
-from typing import List, Set
+from typing import List, Set, Tuple
 
 from ethereum.base_types import U256, Uint
 from ethereum.crypto import Hash32
@@ -58,6 +58,6 @@ class Evm:
     depth: Uint
     env: Environment
     valid_jump_destinations: Set[Uint]
-    logs: List[Log]
+    logs: Tuple[Log, ...]
     refund_counter: Uint
     running: bool

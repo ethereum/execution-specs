@@ -62,17 +62,18 @@ def log_n(evm: Evm, num_topics: int) -> None:
 
     extend_memory(evm.memory, memory_start_index, size)
 
+    topics = []
+    for _ in range(num_topics):
+        topic = pop(evm.stack).to_be_bytes32()
+        topics.append(topic)
+
     log_entry = Log(
         address=evm.current,
-        topics=[],
+        topics=tuple(topics),
         data=memory_read_bytes(evm.memory, memory_start_index, size),
     )
 
-    for _ in range(num_topics):
-        topic = pop(evm.stack).to_be_bytes32()
-        log_entry.topics.append(topic)
-
-    evm.logs.append(log_entry)
+    evm.logs = evm.logs + (log_entry,)
 
 
 log0 = partial(log_n, num_topics=0)

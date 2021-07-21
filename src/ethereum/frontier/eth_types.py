@@ -13,7 +13,7 @@ Types re-used throughout the specification, which are specific to Ethereum.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Callable, Dict, Optional, Tuple
 
 from ..base_types import (
     U256,
@@ -21,8 +21,10 @@ from ..base_types import (
     Bytes8,
     Bytes20,
     Bytes32,
-    BytesMutable256,
+    Bytes256,
     Uint,
+    modify,
+    slotted_freezable,
 )
 from ..crypto import Hash32
 
@@ -30,13 +32,14 @@ Address = Bytes20
 Root = Bytes
 
 Storage = Dict[Bytes32, U256]
-Bloom = BytesMutable256
+Bloom = Bytes256
 
 TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 68
 TX_DATA_COST_PER_ZERO = 4
 
 
+@slotted_freezable
 @dataclass
 class Transaction:
     """
@@ -54,6 +57,7 @@ class Transaction:
     s: U256
 
 
+@slotted_freezable
 @dataclass
 class Account:
     """
@@ -61,19 +65,20 @@ class Account:
     """
 
     nonce: Uint
-    balance: Uint
+    balance: U256
     code: bytes
     storage: Storage
 
 
 EMPTY_ACCOUNT = Account(
     nonce=Uint(0),
-    balance=Uint(0),
+    balance=U256(0),
     code=bytearray(),
     storage={},
 )
 
 
+@slotted_freezable
 @dataclass
 class Header:
     """
@@ -97,6 +102,7 @@ class Header:
     nonce: Bytes8
 
 
+@slotted_freezable
 @dataclass
 class Block:
     """
@@ -104,10 +110,11 @@ class Block:
     """
 
     header: Header
-    transactions: List[Transaction]
-    ommers: List[Header]
+    transactions: Tuple[Transaction, ...]
+    ommers: Tuple[Header, ...]
 
 
+@slotted_freezable
 @dataclass
 class Log:
     """
@@ -115,10 +122,11 @@ class Log:
     """
 
     address: Address
-    topics: List[Hash32]
+    topics: Tuple[Hash32, ...]
     data: bytes
 
 
+@slotted_freezable
 @dataclass
 class Receipt:
     """
@@ -128,7 +136,37 @@ class Receipt:
     post_state: Root
     cumulative_gas_used: Uint
     bloom: Bloom
-    logs: List[Log]
+    logs: Tuple[Log, ...]
 
 
 State = Dict[Address, Account]
+
+
+def modify_state(
+    state: State, address: Address, f: Callable[[Account], None]
+) -> None:
+    """
+    Modify an `Account` in the `State`.
+    """
+    state[address] = modify(state[address], f)
+
+
+def move_ether(
+    state: State,
+    sender_address: Address,
+    recipient_address: Address,
+    amount: U256,
+) -> None:
+    """
+    Move funds between accounts.
+    """
+
+    def reduce_sender_balance(sender: Account) -> None:
+        assert sender.balance >= amount
+        sender.balance -= amount
+
+    def increase_recipient_balance(recipient: Account) -> None:
+        recipient.balance += amount
+
+    modify_state(state, sender_address, reduce_sender_balance)
+    modify_state(state, recipient_address, increase_recipient_balance)

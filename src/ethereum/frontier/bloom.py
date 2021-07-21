@@ -12,7 +12,7 @@ Introduction
 Logs Bloom related functionalities used in Ethereum.
 """
 
-from typing import List
+from typing import Tuple
 
 from ethereum.base_types import Uint
 from ethereum.crypto import keccak256
@@ -20,7 +20,7 @@ from ethereum.crypto import keccak256
 from .eth_types import Bloom, Log
 
 
-def add_to_bloom(bloom: Bloom, bloom_entry: bytes) -> None:
+def add_to_bloom(bloom: bytearray, bloom_entry: bytes) -> None:
     """
     Add a bloom entry to the bloom filter (`bloom`).
 
@@ -49,7 +49,7 @@ def add_to_bloom(bloom: Bloom, bloom_entry: bytes) -> None:
         bloom[byte_index] = bloom[byte_index] | bit_value
 
 
-def logs_bloom(logs: List[Log]) -> Bloom:
+def logs_bloom(logs: Tuple[Log, ...]) -> Bloom:
     """
     Obtain the logs bloom from a list of log entries.
 
@@ -66,11 +66,11 @@ def logs_bloom(logs: List[Log]) -> Bloom:
     """
     # TODO: Logs bloom functionality hasn't been tested rigorously yet. The
     # required test cases need `CALL` opcode to be implemented.
-    bloom: Bloom = bytearray(b"\x00" * 256)
+    bloom: bytearray = bytearray(b"\x00" * 256)
 
     for log in logs:
         add_to_bloom(bloom, log.address)
         for topic in log.topics:
             add_to_bloom(bloom, topic)
 
-    return bloom
+    return bytes(bloom)

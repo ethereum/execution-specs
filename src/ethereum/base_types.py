@@ -16,7 +16,8 @@ Integer and array types which are used by—but not unique to—Ethereum.
 
 from __future__ import annotations
 
-from typing import Optional, Tuple, Type
+from dataclasses import replace
+from typing import Any, Callable, Optional, Tuple, Type, TypeVar
 
 U255_MAX_VALUE = (2 ** 255) - 1
 U255_CEIL_VALUE = 2 ** 255
@@ -636,4 +637,69 @@ Bytes8 = Bytes
 Bytes20 = Bytes
 Bytes32 = Bytes
 Bytes64 = Bytes
-BytesMutable256 = bytearray
+Bytes256 = Bytes
+
+
+def _setattr_function(self: Any, attr: str, value: Any) -> None:
+    if self._frozen:
+        raise Exception("Mutating frozen dataclasses is not allowed.")
+    else:
+        object.__setattr__(self, attr, value)
+
+
+def _delattr_function(self: Any, attr: str) -> None:
+    if self._frozen:
+        raise Exception("Mutating frozen dataclasses is not allowed.")
+    else:
+        object.__delattr__(self, attr)
+
+
+def _make_init_function(f: Callable) -> Callable:
+    def init_function(self: Any, *args: Any, **kwargs: Any) -> None:
+        will_be_frozen = kwargs.pop("_frozen", True)
+        object.__setattr__(self, "_frozen", False)
+        f(self, *args, **kwargs)
+        self._frozen = will_be_frozen
+
+    return init_function
+
+
+def slotted_freezable(cls: Any) -> Any:
+    """
+    Monkey patches a dataclass so it can be frozen by setting `_frozen` to
+    `True` and uses `__slots__` for efficiency.
+
+    Instances will be created frozen by default unless you pass `_frozen=False`
+    to `__init__`.
+    """
+    cls.__slots__ = ("_frozen",) + tuple(cls.__annotations__)
+    cls.__init__ = _make_init_function(cls.__init__)
+    cls.__setattr__ = _setattr_function
+    cls.__delattr__ = _delattr_function
+    return type(cls)(cls.__name__, cls.__bases__, dict(cls.__dict__))
+
+
+T = TypeVar("T")
+
+
+def modify(obj: T, f: Callable[[T], None]) -> T:
+    """
+    Create a mutable copy of `obj` (which must be `@slotted_freezable`) and
+    apply `f` to the copy before freezing it.
+
+    Parameters
+    ----------
+    obj : `T`
+        Object to copy.
+    f : `Callable[[T], None]`
+        Function to apply to `obj`.
+
+    Returns
+    -------
+    new_obj : `T`
+        Compact byte array.
+    """
+    new_obj = replace(obj, _frozen=False)
+    f(new_obj)
+    new_obj._frozen = True  # type: ignore
+    return new_obj
