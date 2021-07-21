@@ -18,11 +18,11 @@ Tracking: `active`
 
 | Name | Description | Dependencies | Work | EIPs | Release | Status
 |---|---|---|---|---|---|---|
-| [Hardhat][hardhat-link] | Framework | EthereumJS, Ethers | [URL][hardhat-work] | All | | 🛠️ 
+| [Hardhat][hardhat-link] | Framework | EthereumJS, Ethers |  | All |[v2.5.0][hardhat-release] |✅
 | [Truffle][truffle-link] | Framework | EthereumJS, Web3.js, Ethers |  | All | | ⭕
 | [DappTools][dapptools-link] | Framework | - | [URL][dapptools-work] | All |  | 🛠️ 
 | [Remix][remix-link] | IDE | EthereumJS, Web3.js, Ethers |  | All |  | 🛠️
-| [Waffle][waffle-link] | Framework | Ganache, Ethers.js, Typechain |  | All | | 🛠️
+| [Waffle][waffle-link] | Framework | Ganache, Ethers.js, Typechain |  | All | | 🛠
 | [Brownie][brownie-link] | Framework | Web3.py |  | All | | ⭕
 | [OpenZeppelin][oz-link] | Smart Contract Security | Hardhat |  | ? | | 🛠️
 | [Tenderly][tenderly-link] | Contract Monitoring | Hardhat |  | 1559 | | 🛠️
@@ -32,7 +32,7 @@ Tracking: `active`
 | [Solidity][solidity-link] | Language | - | [URL][solidity-work] | 3198 |  | 🛠️ 
 
 [hardhat-link]: https://github.com/nomiclabs/hardhat
-[hardhat-work]: https://github.com/nomiclabs/hardhat/projects/8
+[hardhat-release]: https://github.com/nomiclabs/hardhat/releases/tag/hardhat-core-v2.5.0
 [truffle-link]: https://github.com/trufflesuite/truffle
 [dapptools-link]: https://github.com/dapphub/dapptools
 [remix-link]: https://github.com/ethereum/remix-project
