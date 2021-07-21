@@ -88,7 +88,7 @@ Many of these projects may not update until much closer to the designated London
 | [Blocknative][blocknative-link] | Mempool Explorer |  |  | 1559 |  |⭕
 | [Infura][infura-link] | Ethereum APIs |  |  | 1559 |  |✅
 | [POKT][pocket-link] | Request API |  |  | 1559 |  |⭕ 
-| [Etherscan][etherscan-link] | Block Explorer |  |  | 1559 |  |⭕
+| [Etherscan][etherscan-link] | Block Explorer |  |  | 1559 |  |🛠️
 | [MetaMask][metamask-link] | Browser Extension | EthereumJS, Ethers, Web3, ? | [URL][metamask-work] | 1559 |  |🛠️ 
 | [Ethernodes][ethernodes-link] | Node Explorer | Eth 1.0 Clients |  | ? |  |⭕ 
 | [TREZOR][trezor-link] | Hardware Wallet |  | [URL][trezor-work] | 1559 |  |🛠️ 
