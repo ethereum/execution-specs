@@ -52,7 +52,7 @@ Tracking: `active`
 
 | Name | Description | Dependencies | Work | EIPs | Release | Status
 |---|---|---|---|---|---|---|
-| [Web3.js][web3js-link] | Network API (JavaScript) | EthereumJS |  |1559 |  |🛠️
+| [Web3.js][web3js-link] | Network API (JavaScript) | EthereumJS |  |1559 |[v1.5.0-rc.0][web3js-release]   |✅ 
 | [Ethers.js][ethers-link] | Network API (JavaScript) |  | [URL][ethers-work] |1559 |[v5.4.1][ethers-release]  |✅ 
 | [EthereumJS][ethereumjs-link] | Libraries |  | [URL][ethereumjs-work] | All | [URL][ethereumjs-release] |✅
 | [Web3.py][web3py-link] | Network API (Python) |  | [URL][web3py-work] |1559 | [v5.21.0][web3py-release] |✅
@@ -60,8 +60,8 @@ Tracking: `active`
 | [Nethereum][nethereum-link] | Network API (.Net) |  |  |1559 |  |🛠️
 | [KEthereum][kethereum-link] | Network API (Kotlin) | | [URL][kethereum-work] |1559 |[URL][kethereum-release]  |✅
 
-
 [web3js-link]: https://github.com/ChainSafe/web3.js
+[web3js-release]: https://github.com/ChainSafe/web3.js/releases/tag/v1.5.0-rc.0
 [ethers-link]: https://github.com/ethers-io/ethers.js
 [ethers-work]: https://github.com/ethers-io/ethers.js/issues/1610
 [ethers-release]: https://github.com/ethers-io/ethers.js/releases/tag/v5.4.1
