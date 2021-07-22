@@ -20,6 +20,9 @@ from ethereum.frontier.vm.error import InvalidOpcode
 from ..eth_types import Address, Log
 from . import Environment, Evm
 from .instructions import Ops, op_implementation
+from .runtime import get_valid_jump_destinations
+
+PC_CHANGING_OPS = {Ops.JUMP, Ops.JUMPI}
 
 
 def process_call(
@@ -64,11 +67,14 @@ def process_call(
         after execution, and logs is the list of `eth1spec.eth_types.Log`
         generated during execution.
     """
+    code = env.state[target].code
+    valid_jump_destinations = get_valid_jump_destinations(code)
+
     evm = Evm(
         pc=Uint(0),
         stack=[],
         memory=bytearray(),
-        code=env.state[target].code,
+        code=code,
         gas_left=gas,
         current=target,
         caller=caller,
@@ -76,6 +82,7 @@ def process_call(
         value=value,
         depth=depth,
         env=env,
+        valid_jump_destinations=valid_jump_destinations,
         refund_counter=Uint(0),
         running=True,
     )
@@ -93,7 +100,9 @@ def process_call(
             raise InvalidOpcode(evm.code[evm.pc])
 
         op_implementation[op](evm)
-        evm.pc += 1
+
+        if op not in PC_CHANGING_OPS:
+            evm.pc += 1
 
         if evm.pc >= len(evm.code):
             evm.running = False
