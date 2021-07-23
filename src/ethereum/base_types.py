@@ -636,4 +636,4 @@ Bytes8 = Bytes
 Bytes20 = Bytes
 Bytes32 = Bytes
 Bytes64 = Bytes
-Bytearray256 = bytearray
+BytesMutable256 = bytearray

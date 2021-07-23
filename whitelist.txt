@@ -7,7 +7,6 @@ Bytes20
 Bytes32
 Bytes64
 Bytes8
-Bytearray256
 coinbase
 coincurve
 crypto
@@ -26,6 +25,7 @@ keccak
 keccak256
 keccak512
 linter
+mutable256
 mainnet
 memoization
 merkle

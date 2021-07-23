@@ -17,11 +17,11 @@ from typing import Dict, List, Optional
 
 from ..base_types import (
     U256,
-    Bytearray256,
     Bytes,
     Bytes8,
     Bytes20,
     Bytes32,
+    BytesMutable256,
     Uint,
 )
 from ..crypto import Hash32
@@ -30,7 +30,7 @@ Address = Bytes20
 Root = Bytes
 
 Storage = Dict[Bytes32, U256]
-Bloom = Bytearray256
+Bloom = BytesMutable256
 
 TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 68
