@@ -22,6 +22,7 @@ from . import comparison as comparison_instructions
 from . import control_flow as control_flow_instructions
 from . import environment as environment_instructions
 from . import keccak as keccak_instructions
+from . import log as log_instructions
 from . import memory as memory_instructions
 from . import stack as stack_instructions
 from . import storage as storage_instructions
@@ -169,6 +170,13 @@ class Ops(enum.Enum):
     MSTORE8 = 0x53
     MSIZE = 0x59
 
+    # Log Operations
+    LOG0 = 0xA0
+    LOG1 = 0xA1
+    LOG2 = 0xA2
+    LOG3 = 0xA3
+    LOG4 = 0xA4
+
 
 op_implementation: Dict[Ops, Callable] = {
     Ops.STOP: control_flow_instructions.stop,
@@ -284,4 +292,9 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.SWAP14: stack_instructions.swap14,
     Ops.SWAP15: stack_instructions.swap15,
     Ops.SWAP16: stack_instructions.swap16,
+    Ops.LOG0: log_instructions.log0,
+    Ops.LOG1: log_instructions.log1,
+    Ops.LOG2: log_instructions.log2,
+    Ops.LOG3: log_instructions.log3,
+    Ops.LOG4: log_instructions.log4,
 }

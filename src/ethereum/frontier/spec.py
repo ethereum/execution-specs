@@ -15,6 +15,8 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Tuple
 
+from ethereum.frontier.bloom import logs_bloom
+
 from .. import crypto
 from ..base_types import U256, Uint
 from . import rlp, trie, vm
@@ -25,6 +27,7 @@ from .eth_types import (
     TX_DATA_COST_PER_ZERO,
     Address,
     Block,
+    Bloom,
     Hash32,
     Header,
     Log,
@@ -64,7 +67,13 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     """
     parent_header = get_block_header_by_hash(block.header.parent_hash, chain)
     validate_header(block.header, parent_header)
-    gas_used, transactions_root, receipt_root, state = apply_body(
+    (
+        gas_used,
+        transactions_root,
+        receipt_root,
+        block_logs_bloom,
+        state,
+    ) = apply_body(
         chain.state,
         block.header.coinbase,
         block.header.number,
@@ -82,6 +91,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     assert transactions_root == block.header.transactions_root
     assert receipt_root == block.header.receipt_root
     assert trie.root(trie.map_keys(state)) == block.header.state_root
+    assert block_logs_bloom == block.header.bloom
 
     chain.blocks.append(block)
 
@@ -121,7 +131,7 @@ def apply_body(
     block_difficulty: Uint,
     transactions: List[Transaction],
     ommers: List[Header],
-) -> Tuple[Uint, Root, Root, State]:
+) -> Tuple[Uint, Root, Root, Bloom, State]:
     """
     Executes a block.
 
@@ -149,13 +159,19 @@ def apply_body(
     -------
     gas_available : `eth1spec.base_types.Uint`
         Remaining gas after all transactions have been executed.
-    root : `eth1spec.eth_types.Root`
-        State root after all transactions have been executed.
+    transactions_root : `eth1spec.eth_types.Root`
+        Trie root of all the transactions in the block.
+    receipt_root : `eth1spec.eth_types.Root`
+        Trie root of all the receipts in the block.
+    block_logs_bloom : `Bloom`
+        Logs bloom of all the logs included in all the transactions of the
+        block.
     state : `eth1spec.eth_types.State`
         State after all transactions have been executed.
     """
     gas_available = block_gas_limit
     receipts = []
+    block_logs = []
 
     if coinbase not in state:
         state[coinbase] = EMPTY_ACCOUNT
@@ -184,10 +200,12 @@ def apply_body(
             Receipt(
                 post_state=Root(trie.root(trie.map_keys(state))),
                 cumulative_gas_used=(block_gas_limit - gas_available),
-                bloom=b"\x00" * 256,
+                bloom=logs_bloom(logs),
                 logs=logs,
             )
         )
+
+        block_logs.extend(logs)
 
     state[coinbase].balance += BLOCK_REWARD
 
@@ -206,7 +224,15 @@ def apply_body(
         trie.map_keys(transactions_map, secured=False)
     )
 
-    return (gas_remaining, transactions_root, receipt_root, state)
+    block_logs_bloom = logs_bloom(block_logs)
+
+    return (
+        gas_remaining,
+        transactions_root,
+        receipt_root,
+        block_logs_bloom,
+        state,
+    )
 
 
 def compute_ommers_hash(block: Block) -> Hash32:
