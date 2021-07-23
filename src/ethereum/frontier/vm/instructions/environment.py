@@ -20,7 +20,7 @@ from .. import Evm
 from ..gas import (
     GAS_BASE,
     GAS_COPY,
-    GAS_EXT,
+    GAS_EXTERNAL,
     GAS_VERY_LOW,
     calculate_gas_extend_memory,
     subtract_gas,
@@ -67,7 +67,7 @@ def balance(evm: Evm) -> None:
     """
     # TODO: There are no test cases against this function. Need to write
     # custom test cases.
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_EXT)
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_EXTERNAL)
 
     address = pop(evm.stack).to_be_bytes32()
     address = address[-MAX_ADDRESS_BYTES:]
@@ -326,7 +326,7 @@ def extcodesize(evm: Evm) -> None:
     """
     # TODO: There are no test cases against this function. Need to write
     # custom test cases.
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_EXT)
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_EXTERNAL)
 
     address = pop(evm.stack).to_be_bytes32()
     address = address[-MAX_ADDRESS_BYTES:]
@@ -366,7 +366,7 @@ def extcodecopy(evm: Evm) -> None:
 
     words = ceil32(Uint(size)) // 32
     gas_cost = (
-        GAS_EXT
+        GAS_EXTERNAL
         + (GAS_COPY * words)
         + calculate_gas_extend_memory(evm.memory, memory_start_index, size)
     )

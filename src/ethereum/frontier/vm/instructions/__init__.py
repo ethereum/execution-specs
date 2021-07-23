@@ -18,6 +18,7 @@ from typing import Callable, Dict
 
 from . import arithmetic as arithmetic_instructions
 from . import bitwise as bitwise_instructions
+from . import block as block_instructions
 from . import comparison as comparison_instructions
 from . import control_flow as control_flow_instructions
 from . import environment as environment_instructions
@@ -61,6 +62,9 @@ class Ops(enum.Enum):
     NOT = 0x19
     BYTE = 0x1A
 
+    # Keccak Op
+    KECCAK = 0x20
+
     # Environmental Ops
     ADDRESS = 0x30
     BALANCE = 0x31
@@ -76,6 +80,14 @@ class Ops(enum.Enum):
     EXTCODESIZE = 0x3B
     EXTCODECOPY = 0x3C
 
+    # Block Ops
+    BLOCKHASH = 0x40
+    COINBASE = 0x41
+    TIMESTAMP = 0x42
+    NUMBER = 0x43
+    DIFFICULTY = 0x44
+    GASLIMIT = 0x45
+
     # Control Flow Ops
     STOP = 0x00
     JUMP = 0x56
@@ -83,9 +95,6 @@ class Ops(enum.Enum):
     PC = 0x58
     GAS = 0x5A
     JUMPDEST = 0x5B
-
-    # Keccak Op
-    KECCAK = 0x20
 
     # Storage Ops
     SLOAD = 0x54
@@ -204,6 +213,12 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.BYTE: bitwise_instructions.get_byte,
     Ops.KECCAK: keccak_instructions.keccak,
     Ops.SLOAD: storage_instructions.sload,
+    Ops.BLOCKHASH: block_instructions.block_hash,
+    Ops.COINBASE: block_instructions.coinbase,
+    Ops.TIMESTAMP: block_instructions.timestamp,
+    Ops.NUMBER: block_instructions.number,
+    Ops.DIFFICULTY: block_instructions.difficulty,
+    Ops.GASLIMIT: block_instructions.gas_limit,
     Ops.SSTORE: storage_instructions.sstore,
     Ops.MLOAD: memory_instructions.mload,
     Ops.MSTORE: memory_instructions.mstore,

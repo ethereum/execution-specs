@@ -54,6 +54,49 @@ class BlockChain:
     state: State
 
 
+def get_recent_block_hashes(
+    chain: BlockChain, num_blocks: Uint
+) -> List[Hash32]:
+    """
+    Obtain the list of hashes of the previous `num_blocks` blocks in the
+    order of increasing block number.
+
+    Parameters
+    ----------
+    chain :
+        History and current state.
+    num_blocks :
+        Number of recent block hashes one wishes to obtain.
+
+    Returns
+    -------
+    recent_block_hashes : `List[Hash32]`
+        Hashes of the recent `num_blocks` blocks in order of increasing
+        block number.
+    """
+    # TODO: This function has not been tested rigorously
+    if len(chain.blocks) == 0 or num_blocks == 0:
+        return []
+
+    # We are computing the hash only for the most recent block and not for
+    # the rest of the blocks as they have successors which have the hash of
+    # the current block as parent hash.
+    most_recent_block_hash = crypto.keccak256(rlp.encode(chain.blocks[-1]))
+    recent_block_hashes = [most_recent_block_hash]
+
+    # We consider only the last `num_blocks - 1` blocks as we already have
+    # the most recent block hash computed and need only `num_blocks - 1` more
+    # hashes.
+    recent_blocks = chain.blocks[-(num_blocks - 1) :]
+
+    for block in reversed(recent_blocks):
+        prev_block_hash = block.header.parent_hash
+        recent_block_hashes.append(prev_block_hash)
+
+    recent_block_hashes.reverse()
+    return list(recent_block_hashes)
+
+
 def state_transition(chain: BlockChain, block: Block) -> None:
     """
     Attempts to apply a block to an existing block chain.
@@ -75,6 +118,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         state,
     ) = apply_body(
         chain.state,
+        get_recent_block_hashes(chain, Uint(256)),
         block.header.coinbase,
         block.header.number,
         block.header.gas_limit,
@@ -124,6 +168,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
 
 def apply_body(
     state: State,
+    block_hashes: List[Hash32],
     coinbase: Address,
     block_number: Uint,
     block_gas_limit: Uint,
@@ -139,6 +184,9 @@ def apply_body(
     ----------
     state :
         Current account state.
+    block_hashes :
+        List of hashes of the previous 256 blocks in the order of
+        increasing block number.
     coinbase :
         Address of account which receives block reward and transaction fees.
     block_number :
@@ -183,7 +231,7 @@ def apply_body(
         env = vm.Environment(
             caller=sender_address,
             origin=sender_address,
-            block_hashes=[],
+            block_hashes=block_hashes,
             coinbase=coinbase,
             number=block_number,
             gas_limit=block_gas_limit,
