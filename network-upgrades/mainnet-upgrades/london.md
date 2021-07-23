@@ -52,7 +52,7 @@ Code merged into Participating Clients
    - [x]  Erigon [v2021.06.04-alpha](https://github.com/ledgerwatch/erigon/releases/tag/v2021.06.04)
    - [x]  EthereumJS [v5.4.1](https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/%40ethereumjs%2Fvm%405.4.1)
  - [x]  Mainnet 
-   - [x]  Geth [v1.10.5](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.5)
+   - [x]  Geth [v1.10.6](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.6)
    - [x]  Besu [v21.7.1](https://github.com/hyperledger/besu/releases/tag/21.7.1)
    - [x]  Nethermind [v1.10.77](https://github.com/NethermindEth/nethermind/releases/tag/1.10.77)
    - [x]  OpenEthereum [v3.3.0-rc.4](https://github.com/openethereum/openethereum/releases/tag/v3.3.0-rc.4)
