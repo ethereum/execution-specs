@@ -247,7 +247,7 @@
 						"oldestBlock": {
 							"title": "oldestBlock",
 							"description": "Lowest number block of the returned range.",
-							"$ref": "#/components/schemas/BlockNumber"
+							"$ref": "#/components/schemas/Integer"
 						},
 						"baseFeePerGas": {
 							"title": "baseFeePerGasArray",
