@@ -16,13 +16,13 @@ The abstract computer which runs the code stored in an
 from dataclasses import dataclass
 from typing import List, Set, Tuple
 
-from ethereum.base_types import U256, Uint
+from ethereum.base_types import U256, Bytes, Uint
 from ethereum.crypto import Hash32
 
 from ..eth_types import Address, Log
 from ..state import State
 
-__all__ = ("Environment", "Evm")
+__all__ = ("Environment", "Evm", "Message")
 
 
 @dataclass
@@ -44,21 +44,34 @@ class Environment:
 
 
 @dataclass
+class Message:
+    """
+    Items that are used by contract creation or message call.
+    """
+
+    caller: Address
+    target: Address
+    current_target: Address
+    gas: U256
+    value: U256
+    data: Bytes
+    code: Bytes
+    depth: Uint
+
+
+@dataclass
 class Evm:
     """The internal state of the virtual machine."""
 
     pc: Uint
     stack: List[U256]
     memory: bytearray
-    code: bytes
+    code: Bytes
     gas_left: U256
-    current: Address
-    caller: Address
-    data: bytes
-    value: U256
-    depth: Uint
     env: Environment
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]
     refund_counter: Uint
     running: bool
+    message: Message
+    output: Bytes

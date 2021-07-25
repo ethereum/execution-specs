@@ -1,0 +1,74 @@
+"""
+Frontier Utility Functions For The Message Data-structure
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+..contents:: Table of Contents
+    :backlinks: none
+    :local:
+
+Introduction
+------------
+
+Message specific functions used in this frontier version of specification.
+"""
+from ethereum.base_types import U256, Bytes, Bytes0, Uint
+
+from ..eth_types import Address
+from ..state import get_account
+from ..vm import Environment, Message
+from .address import compute_contract_address
+
+
+def prepare_message(
+    caller: Address,
+    target: Address,
+    value: U256,
+    data: Bytes,
+    gas: U256,
+    env: Environment,
+) -> Message:
+    """
+    Execute a transaction against the provided environment.
+
+    Parameters
+    ----------
+    caller :
+        Address which initiated the transaction
+    target :
+        Address whose code will be executed
+    value :
+        Value to be transferred.
+    data :
+        Array of bytes provided to the code in `target`.
+    gas :
+        Gas provided for the code in `target`.
+    env :
+        Environment for the Ethereum Virtual Machine.
+
+    Returns
+    -------
+    message: `ethereum.frontier.vm.Message`
+        Items containing contract creation or message call specific data.
+    """
+    if target == Bytes0(b""):
+        current_target = compute_contract_address(
+            caller,
+            get_account(env.state, caller).nonce - U256(1),
+        )
+        msg_data = Bytes(b"")
+        code = data
+    else:
+        current_target = target
+        msg_data = data
+        code = get_account(env.state, target).code
+
+    return Message(
+        caller=caller,
+        target=target,
+        gas=gas,
+        value=value,
+        data=msg_data,
+        code=code,
+        depth=Uint(0),
+        current_target=current_target,
+    )

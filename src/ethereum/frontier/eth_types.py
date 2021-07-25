@@ -13,11 +13,12 @@ Types re-used throughout the specification, which are specific to Ethereum.
 """
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple, Union
 
 from ..base_types import (
     U256,
     Bytes,
+    Bytes0,
     Bytes8,
     Bytes20,
     Bytes32,
@@ -48,7 +49,7 @@ class Transaction:
     nonce: U256
     gas_price: U256
     gas: U256
-    to: Optional[Address]
+    to: Union[Bytes0, Address]
     value: U256
     data: Bytes
     v: U256

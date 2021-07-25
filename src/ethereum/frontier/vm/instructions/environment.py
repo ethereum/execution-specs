@@ -45,7 +45,7 @@ def address(evm: Evm) -> None:
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
-    push(evm.stack, U256.from_be_bytes(evm.current))
+    push(evm.stack, U256.from_be_bytes(evm.message.current_target))
 
 
 def balance(evm: Evm) -> None:
@@ -110,7 +110,7 @@ def caller(evm: Evm) -> None:
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
-    push(evm.stack, U256.from_be_bytes(evm.caller))
+    push(evm.stack, U256.from_be_bytes(evm.message.caller))
 
 
 def callvalue(evm: Evm) -> None:
@@ -128,7 +128,7 @@ def callvalue(evm: Evm) -> None:
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
-    push(evm.stack, evm.value)
+    push(evm.stack, evm.message.value)
 
 
 def calldataload(evm: Evm) -> None:
@@ -153,7 +153,7 @@ def calldataload(evm: Evm) -> None:
     # Converting start_index to Uint from U256 as start_index + 32 can
     # overflow U256.
     start_index = Uint(pop(evm.stack))
-    value = evm.data[start_index : start_index + 32]
+    value = evm.message.data[start_index : start_index + 32]
     # Right pad with 0 so that there are overall 32 bytes.
     value = value.ljust(32, b"\x00")
 
@@ -175,7 +175,7 @@ def calldatasize(evm: Evm) -> None:
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
-    push(evm.stack, U256(len(evm.data)))
+    push(evm.stack, U256(len(evm.message.data)))
 
 
 def calldatacopy(evm: Evm) -> None:
@@ -214,7 +214,7 @@ def calldatacopy(evm: Evm) -> None:
 
     extend_memory(evm.memory, memory_start_index, size)
 
-    value = evm.data[data_start_index : data_start_index + size]
+    value = evm.message.data[data_start_index : data_start_index + size]
     # But it is possible that data_start_index + size won't exist in evm.data
     # in which case we need to right pad the above obtained bytes with 0.
     value = value.ljust(size, b"\x00")

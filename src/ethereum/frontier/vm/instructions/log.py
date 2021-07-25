@@ -68,7 +68,7 @@ def log_n(evm: Evm, num_topics: int) -> None:
         topics.append(topic)
 
     log_entry = Log(
-        address=evm.current,
+        address=evm.message.current_target,
         topics=tuple(topics),
         data=memory_read_bytes(evm.memory, memory_start_index, size),
     )

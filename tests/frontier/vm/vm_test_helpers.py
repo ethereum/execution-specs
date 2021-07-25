@@ -14,8 +14,9 @@ from ethereum.frontier.state import (
     storage_root,
 )
 from ethereum.frontier.utils.hexadecimal import hex_to_address
+from ethereum.frontier.utils.message import prepare_message
 from ethereum.frontier.vm import Environment
-from ethereum.frontier.vm.interpreter import process_call
+from ethereum.frontier.vm.interpreter import process_message_call
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes32,
@@ -28,14 +29,17 @@ def run_test(test_dir: str, test_file: str) -> None:
     test_data = load_test(test_dir, test_file)
     target = test_data["target"]
     env = test_data["env"]
-
-    gas_left, logs = process_call(
+    message = prepare_message(
         caller=test_data["caller"],
         target=target,
-        data=test_data["data"],
         value=test_data["value"],
+        data=test_data["data"],
         gas=test_data["gas"],
-        depth=test_data["depth"],
+        env=env,
+    )
+
+    gas_left, logs = process_message_call(
+        message=message,
         env=env,
     )
 
