@@ -89,6 +89,8 @@ A few lines above (L207), though, `sender.balance` is modified to substract from
 
 One suggested fix is to move this assertion closer to when the `sender.balance` value is updated, similarly to the other assertion on line 208. 
 
+**Update: a fix for this was proposed in [this PR](https://github.com/ethereum/EIPs/pull/3681)**
+
 #### Go-Ethereum Recovery
 
 [Notes from @holiman](https://github.com/ethereum/pm/issues/354#issuecomment-885687324) about recovery from the bug in go-ethereum: 
