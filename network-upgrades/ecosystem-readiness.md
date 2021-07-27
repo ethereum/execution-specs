@@ -18,18 +18,18 @@ Tracking: `active`
 
 | Name | Description | Dependencies | Work | EIPs | Release | Status
 |---|---|---|---|---|---|---|
-| [Hardhat][hardhat-link] | Framework | EthereumJS, Ethers |  | All |[v2.5.0][hardhat-release] |✅
-| [Truffle][truffle-link] | Framework | EthereumJS, Web3.js, Ethers |  | All | | ⭕
-| [DappTools][dapptools-link] | Framework | - | [URL][dapptools-work] | All |  | 🛠️ 
-| [Remix][remix-link] | IDE | EthereumJS, Web3.js, Ethers |  | All |  | 🛠️
-| [Waffle][waffle-link] | Framework | Ganache, Ethers.js, Typechain |  | All | | 🛠
-| [Brownie][brownie-link] | Framework | Web3.py |  | All | | ⭕
-| [OpenZeppelin][oz-link] | Smart Contract Security | Hardhat |  | ? | | 🛠️
-| [Tenderly][tenderly-link] | Contract Monitoring | Hardhat |  | 1559 | | 🛠️
-| [hardhat-deploy][hardhat-deploy-link] | Contract Deployment | Hardhat, Ethers |  | ? | | ⭕
-| [solidity-coverage][solidity-coverage-link] | Contract Testing | Hardhat, Solidity |  | ? | | ⭕
-| [Typechain][typechain-link] | Language Tool | Ethers, Truffle, Hardhat, Web3.js, Solidity |  | ? | | ⭕
-| [Solidity][solidity-link] | Language | - | [URL][solidity-work] | 3198 |  | 🛠️ 
+| [Hardhat][hardhat-link] |Framework |EthereumJS, Ethers |  | All |[v2.5.0][hardhat-release] |✅
+| [Truffle][truffle-link] |Framework |EthereumJS, Web3.js, Ethers |  | All | | ⭕
+| [DappTools][dapptools-link] |Framework | - | [URL][dapptools-work] | All |  | 🛠️ 
+| [Remix][remix-link] | IDE |EthereumJS, Web3.js, Ethers |  | All |  | 🛠️
+| [Waffle][waffle-link] |Framework |Ganache, Ethers.js, Typechain |  | All | | 🛠
+| [Brownie][brownie-link] |Framework |Web3.py |  | All | | ⭕
+| [OpenZeppelin][oz-link] |Smart Contract Security |Hardhat |  | ? | | 🛠️
+| [Tenderly][tenderly-link] |Contract Monitoring |Hardhat |  | 1559 | | 🛠️
+| [hardhat-deploy][hardhat-deploy-link] |Contract Deployment |Hardhat, Ethers |  | ? | | ⭕
+| [solidity-coverage][solidity-coverage-link] |Contract Testing |Hardhat, Solidity |  | ? | | ⭕
+| [Typechain][typechain-link] |Language Tool |Ethers, Truffle, Hardhat, Web3.js, Solidity |  | ? | | ⭕
+| [Solidity][solidity-link] |Language | - | [URL][solidity-work] | 3198 |  | 🛠️ 
 
 [hardhat-link]: https://github.com/nomiclabs/hardhat
 [hardhat-release]: https://github.com/nomiclabs/hardhat/releases/tag/hardhat-core-v2.5.0
@@ -52,13 +52,15 @@ Tracking: `active`
 
 | Name | Description | Dependencies | Work | EIPs | Release | Status
 |---|---|---|---|---|---|---|
-| [Web3.js][web3js-link] | Network API (JavaScript) | EthereumJS |  |1559 |[v1.5.0-rc.0][web3js-release]   |✅ 
-| [Ethers.js][ethers-link] | Network API (JavaScript) |  | [URL][ethers-work] |1559 |[v5.4.1][ethers-release]  |✅ 
-| [EthereumJS][ethereumjs-link] | Libraries |  | [URL][ethereumjs-work] | All | [URL][ethereumjs-release] |✅
-| [Web3.py][web3py-link] | Network API (Python) |  | [URL][web3py-work] |1559 | [v5.21.0][web3py-release] |✅
-| [Web3j][web3j-link] | Network API (Java) |  | [URL][web3j-work] |1559 |  |🛠️ 
-| [Nethereum][nethereum-link] | Network API (.Net) |  |  |1559 |  |🛠️
-| [KEthereum][kethereum-link] | Network API (Kotlin) | | [URL][kethereum-work] |1559 |[URL][kethereum-release]  |✅
+| [Web3.js][web3js-link] |Network API (JavaScript) | EthereumJS |  |1559 |[v1.5.0-rc.0][web3js-release]   |✅ 
+| [Ethers.js][ethers-link] |Network API (JavaScript) |  | [URL][ethers-work] |1559 |[v5.4.1][ethers-release]  |✅ 
+| [EthereumJS][ethereumjs-link] |Libraries |  | [URL][ethereumjs-work] | All | [URL][ethereumjs-release] |✅
+| [Web3.py][web3py-link] |Network API (Python) |  | [URL][web3py-work] |1559 | [v5.21.0][web3py-release] |✅
+| [Web3j][web3j-link] |Network API (Java) |  | [URL][web3j-work] |1559 |  |🛠️ 
+| [Nethereum][nethereum-link] |Network API (.Net) |  |  |1559 | [v4.0.0][nethereum-release]  |✅
+| [KEthereum][kethereum-link] |Network API (Kotlin) | | [URL][kethereum-work] |1559 |[URL][kethereum-release]  |✅
+
+https://github.com/Nethereum/Nethereum/releases/tag/4.0.0
 
 [web3js-link]: https://github.com/ChainSafe/web3.js
 [web3js-release]: https://github.com/ChainSafe/web3.js/releases/tag/v1.5.0-rc.0
@@ -74,6 +76,7 @@ Tracking: `active`
 [web3j-link]: https://github.com/web3j/web3j
 [web3j-work]: https://github.com/web3j/web3j/pull/1417
 [nethereum-link]: https://github.com/Nethereum/Nethereum
+[nethereum-release]: https://github.com/Nethereum/Nethereum/releases/tag/4.0.0
 [kethereum-link]: https://github.com/komputing/KEthereum
 [kethereum-work]: https://github.com/komputing/KEthereum/issues/101
 [kethereum-release]: https://github.com/komputing/KEthereum/commit/8c1386853301e792f798d148677812c04ff0e434
