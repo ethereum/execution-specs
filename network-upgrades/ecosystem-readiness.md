@@ -44,7 +44,7 @@ Tracking: `active`
 [solidity-coverage-link]: https://github.com/sc-forks/solidity-coverage
 [typechain-link]: https://github.com/ethereum-ts/TypeChain
 [solidity-link]: http://soliditylang.eth
-[solidity-work]: https://github.com/ethereum/solidity/issues/11390
+[solidity-work]: https://github.com/ethereum/solidity/pull/11647
 [dapptools-work]:https://github.com/dapphub/dapptools/pull/688
 
 
