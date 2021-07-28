@@ -60,8 +60,6 @@ Tracking: `active`
 | [Nethereum][nethereum-link] |Network API (.Net) |  |  |1559 | [v4.0.0][nethereum-release]  |✅
 | [KEthereum][kethereum-link] |Network API (Kotlin) | | [URL][kethereum-work] |1559 |[URL][kethereum-release]  |✅
 
-https://github.com/Nethereum/Nethereum/releases/tag/4.0.0
-
 [web3js-link]: https://github.com/ChainSafe/web3.js
 [web3js-release]: https://github.com/ChainSafe/web3.js/releases/tag/v1.5.0-rc.0
 [ethers-link]: https://github.com/ethers-io/ethers.js
