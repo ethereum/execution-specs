@@ -54,11 +54,11 @@ Tracking: `active`
 |---|---|---|---|---|---|---|
 | [Web3.js][web3js-link] |Network API (JavaScript) | EthereumJS |  |1559 |[v1.5.0-rc.0][web3js-release]   |✅ 
 | [Ethers.js][ethers-link] |Network API (JavaScript) |  | [URL][ethers-work] |1559 |[v5.4.1][ethers-release]  |✅ 
-| [EthereumJS][ethereumjs-link] |Libraries |  | [URL][ethereumjs-work] | All | [Releases][ethereumjs-release] |✅
-| [Web3.py][web3py-link] |Network API (Python) |  | [URL][web3py-work] |1559 | [v5.21.0][web3py-release] |✅
+| [EthereumJS][ethereumjs-link] |Libraries |  | [URL][ethereumjs-work] | All |[Releases][ethereumjs-release] |✅
+| [Web3.py][web3py-link] |Network API (Python) |  | [URL][web3py-work] |1559 |[v5.21.0][web3py-release] |✅
 | [Web3j][web3j-link] |Network API (Java) |  | [URL][web3j-work] |1559 |[v4.8.6][web3j-release]  |✅ 
-| [Nethereum][nethereum-link] |Network API (.Net) |  |  |1559 | [v4.0.0][nethereum-release]  |✅
-| [KEthereum][kethereum-link] |Network API (Kotlin) | | [URL][kethereum-work] |1559 |[URL][kethereum-release]  |✅
+| [Nethereum][nethereum-link] |Network API (.Net) |  |  |1559 |[v4.0.0][nethereum-release]  |✅
+| [KEthereum][kethereum-link] |Network API (Kotlin) | | [URL][kethereum-work] |1559 |[v0.84.9][kethereum-release]  |✅
 
 [web3js-link]: https://github.com/ChainSafe/web3.js
 [web3js-release]: https://github.com/ChainSafe/web3.js/releases/tag/v1.5.0-rc.0
