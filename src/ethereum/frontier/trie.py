@@ -26,6 +26,30 @@ verbose = False
 
 Node = Union[Account, Bytes, Transaction, Receipt, Uint, U256]
 
+from enum import Enum
+
+class Nibble(enum.IntEnum):
+    NIBBLE_0 = 0x0
+    NIBBLE_1 = 0x1
+    NIBBLE_2 = 0x2
+    NIBBLE_3 = 0x3
+    NIBBLE_4 = 0x4
+    NIBBLE_5 = 0x5
+    NIBBLE_6 = 0x6
+    NIBBLE_7 = 0x7
+    NIBBLE_8 = 0x8
+    NIBBLE_9 = 0x9
+    NIBBLE_A = 0xa
+    NIBBLE_B = 0xb
+    NIBBLE_C = 0xc
+    NIBBLE_D = 0xd
+    NIBBLE_E = 0xe
+    NIBBLE_F = 0xf
+
+Nibbles = List[Nibble]
+
+def bytes_to_nibbles(value: bytes) -> Nibbles:
+    return [Nibble(v) for v in value]  # will raise a TypeError if the value isn't part of the Enum)
 
 def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
     """
