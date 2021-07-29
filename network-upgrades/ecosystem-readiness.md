@@ -19,10 +19,10 @@ Tracking: `active`
 | Name | Description | Dependencies | Work | EIPs | Release | Status
 |---|---|---|---|---|---|---|
 | [Hardhat][hardhat-link] |Framework |EthereumJS, Ethers |  | All |[v2.5.0][hardhat-release] |✅
-| [Truffle][truffle-link] |Framework |EthereumJS, Web3.js, Ethers |  | All | | ⭕
+| [Truffle][truffle-link] |Framework |EthereumJS, Web3.js, Ethers |  | All | | 🛠️
 | [DappTools][dapptools-link] |Framework | - | [URL][dapptools-work] | All |  | 🛠️ 
 | [Remix][remix-link] | IDE |EthereumJS, Web3.js, Ethers |  | All |  | 🛠️
-| [Waffle][waffle-link] |Framework |Ganache, Ethers.js, Typechain |  | All | | 🛠
+| [Waffle][waffle-link] |Framework |Ganache, Ethers.js, Typechain |  | All | | 🛠️
 | [Brownie][brownie-link] |Framework |Web3.py |  | All | | ⭕
 | [OpenZeppelin][oz-link] |Smart Contract Security |Hardhat |  | ? | | 🛠️
 | [Tenderly][tenderly-link] |Contract Monitoring |Hardhat |  | 1559 | | 🛠️
@@ -52,7 +52,7 @@ Tracking: `active`
 
 | Name | Description | Dependencies | Work | EIPs | Release | Status
 |---|---|---|---|---|---|---|
-| [Web3.js][web3js-link] |Network API (JavaScript) | EthereumJS |  |1559 |[v1.5.0-rc.0][web3js-release]   |✅ 
+| [Web3.js][web3js-link] |Network API (JavaScript) | EthereumJS |  |1559 |[v1.5.0][web3js-release]   |✅ 
 | [Ethers.js][ethers-link] |Network API (JavaScript) |  | [URL][ethers-work] |1559 |[v5.4.1][ethers-release]  |✅ 
 | [EthereumJS][ethereumjs-link] |Libraries |  | [URL][ethereumjs-work] | All |[Releases][ethereumjs-release] |✅
 | [Web3.py][web3py-link] |Network API (Python) |  | [URL][web3py-work] |1559 |[v5.21.0][web3py-release] |✅
@@ -61,7 +61,7 @@ Tracking: `active`
 | [KEthereum][kethereum-link] |Network API (Kotlin) | | [URL][kethereum-work] |1559 |[v0.84.9][kethereum-release]  |✅
 
 [web3js-link]: https://github.com/ChainSafe/web3.js
-[web3js-release]: https://github.com/ChainSafe/web3.js/releases/tag/v1.5.0-rc.0
+[web3js-release]: https://github.com/ChainSafe/web3.js/releases/tag/v1.5.0
 [ethers-link]: https://github.com/ethers-io/ethers.js
 [ethers-work]: https://github.com/ethers-io/ethers.js/issues/1610
 [ethers-release]: https://github.com/ethers-io/ethers.js/releases/tag/v5.4.1
@@ -90,9 +90,9 @@ Many of these projects may not update until much closer to the designated London
 | [Blocknative][blocknative-link] | Mempool Explorer |  |  | 1559 |  |⭕
 | [Infura][infura-link] | Ethereum APIs |  |  | 1559 |  |✅
 | [POKT][pocket-link] | Request API |  |  | 1559 |  |⭕ 
-| [Etherscan][etherscan-link] | Block Explorer |  |  | 1559 |  |🛠️
+| [Etherscan][etherscan-link] | Block Explorer |  |  | 1559 |  |✅
 | [MetaMask][metamask-link] | Browser Extension | EthereumJS, Ethers, Web3, ? | [URL][metamask-work] | 1559 |  |🛠️ 
-| [Ethernodes][ethernodes-link] | Node Explorer | Eth 1.0 Clients |  | ? |  |⭕ 
+| [Ethernodes][ethernodes-link] | Node Explorer | Eth 1.0 Clients |  | ? |  |✅ 
 | [TREZOR][trezor-link] | Hardware Wallet |  | [URL][trezor-work] | 1559 |  |🛠️ 
 | [WallETH][walleth-link] | Wallet | KEthereum | [URL][walleth-work] | 1559 |  |🛠️  
 
