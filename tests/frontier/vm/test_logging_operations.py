@@ -102,8 +102,7 @@ def test_log2_fail_required_gas_overflows(test_file: str) -> None:
         "log3_nonEmptyMem.json",
         "log3_nonEmptyMem_logMemSize1.json",
         "log3_nonEmptyMem_logMemSize1_logMemStart31.json",
-        # TODO: Run below test case once `PC` opcode has been implemented
-        # "log3_PC.json",
+        "log3_PC.json",
     ],
 )
 def test_log3(test_file: str) -> None:
@@ -132,8 +131,7 @@ def test_log3_fail_required_gas_overflows(test_file: str) -> None:
         "log4_nonEmptyMem.json",
         "log4_nonEmptyMem_logMemSize1.json",
         "log4_nonEmptyMem_logMemSize1_logMemStart31.json",
-        # TODO: Run below test case once `PC` opcode has been implemented
-        # "log4_PC.json",
+        "log4_PC.json",
     ],
 )
 def test_log4(test_file: str) -> None:

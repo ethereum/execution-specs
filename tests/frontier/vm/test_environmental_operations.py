@@ -70,8 +70,7 @@ def test_calldatasize(test_file: str) -> None:
         "calldatacopyZeroMemExpansion.json",
         "calldatacopy_DataIndexTooHigh.json",
         "calldatacopy_DataIndexTooHigh2.json",
-        # TODO: Run below test case once the JUMP opcode is implemented
-        # "calldatacopy_sec.json",
+        "calldatacopy_sec.json",
         # TODO: Run the above test cases which end with `_return.json` once
         # RETURN opcode is implemented.
     ],
