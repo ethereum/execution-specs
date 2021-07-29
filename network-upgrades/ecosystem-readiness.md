@@ -97,6 +97,7 @@ Many of these projects may not update until much closer to the designated London
 | [TREZOR][trezor-link] |Hardware Wallet |  | [URL][trezor-work] | 1559 |🛠️ 
 | [WallETH][walleth-link] |Wallet | KEthereum | [URL][walleth-work] | 1559 |🛠️  
 | [Ledger][ledger-link] |Hardware Wallet | Ethers | | 1559 |🛠️  
+| [ETH Gas Station][ethgasstation-link] | Metrics for the gas market | Web3.js | [URL][walleth-work] | 1559 |  |🛠️  
 
 [AWS-link]: https://aws.amazon.com/managed-blockchain/
 [blocknative-link]: https://github.com/blocknative
@@ -111,3 +112,4 @@ Many of these projects may not update until much closer to the designated London
 [walleth-link]: https://walleth.org
 [walleth-work]: https://github.com/walleth/walleth/issues/523
 [ledger-link]: https://ledger.com
+[ethgasstation-link]: https://ethgasstation.info
