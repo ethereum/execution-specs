@@ -25,6 +25,7 @@ from .eth_types import (
     TX_BASE_COST,
     TX_DATA_COST_PER_NON_ZERO,
     TX_DATA_COST_PER_ZERO,
+    Account,
     Address,
     Block,
     Bloom,
@@ -35,10 +36,12 @@ from .eth_types import (
     Root,
     State,
     Transaction,
+    modify_state,
+    move_ether,
 )
 from .vm.interpreter import process_call
 
-BLOCK_REWARD = 5 * 10 ** 18
+BLOCK_REWARD = U256(5 * 10 ** 18)
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 125000
 GENESIS_DIFFICULTY = Uint(131072)
@@ -174,8 +177,8 @@ def apply_body(
     block_gas_limit: Uint,
     block_time: U256,
     block_difficulty: Uint,
-    transactions: List[Transaction],
-    ommers: List[Header],
+    transactions: Tuple[Transaction, ...],
+    ommers: Tuple[Header, ...],
 ) -> Tuple[Uint, Root, Root, Bloom, State]:
     """
     Executes a block.
@@ -219,7 +222,7 @@ def apply_body(
     """
     gas_available = block_gas_limit
     receipts = []
-    block_logs = []
+    block_logs = ()
 
     if coinbase not in state:
         state[coinbase] = EMPTY_ACCOUNT
@@ -253,9 +256,10 @@ def apply_body(
             )
         )
 
-        block_logs.extend(logs)
+    def pay_block_reward(coinbase: Account) -> None:
+        coinbase.balance += BLOCK_REWARD
 
-    state[coinbase].balance += BLOCK_REWARD
+    modify_state(state, coinbase, pay_block_reward)
 
     gas_remaining = block_gas_limit - gas_available
 
@@ -292,7 +296,7 @@ def compute_ommers_hash(block: Block) -> Hash32:
 
 def process_transaction(
     env: vm.Environment, tx: Transaction
-) -> Tuple[U256, List[Log]]:
+) -> Tuple[U256, Tuple[Log, ...]]:
     """
     Execute a transaction against the provided environment.
 
@@ -307,20 +311,15 @@ def process_transaction(
     -------
     gas_left : `eth1spec.base_types.U256`
         Remaining gas after execution.
-    logs : `List[eth1spec.eth_types.Log]`
+    logs : `Tuple[eth1spec.eth_types.Log, ...]`
         Logs generated during execution.
     """
     assert validate_transaction(tx)
 
-    sender_address = env.origin
-    sender = env.state[sender_address]
+    sender = env.origin
 
-    assert sender.nonce == tx.nonce
-    sender.nonce += 1
-
-    cost = tx.gas * tx.gas_price
-    assert cost <= sender.balance
-    sender.balance -= cost
+    assert env.state[sender].nonce == tx.nonce
+    assert env.state[sender].balance >= tx.gas * tx.gas_price
 
     gas = tx.gas - calculate_intrinsic_cost(tx)
 
@@ -328,12 +327,16 @@ def process_transaction(
         raise NotImplementedError()  # TODO
 
     gas_left, logs = process_call(
-        sender_address, tx.to, tx.data, tx.value, gas, Uint(0), env
+        sender, tx.to, tx.data, tx.value, gas, Uint(0), env
     )
 
-    sender.balance += gas_left * tx.gas_price
     gas_used = tx.gas - gas_left
-    env.state[env.coinbase].balance += gas_used * tx.gas_price
+    move_ether(env.state, sender, env.coinbase, gas_used * tx.gas_price)
+
+    def increment_nonce(sender: Account) -> None:
+        sender.nonce += 1
+
+    modify_state(env.state, sender, increment_nonce)
 
     return (gas_used, logs)
 

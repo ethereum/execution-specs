@@ -102,7 +102,7 @@ def json_to_state(raw: Any) -> State:
     for (addr, acc_state) in raw.items():
         account = Account(
             nonce=hex2uint(acc_state.get("nonce", "0x0")),
-            balance=hex2uint(acc_state.get("balance", "0x0")),
+            balance=U256(hex2uint(acc_state.get("balance", "0x0"))),
             code=hex2bytes(acc_state.get("code", "")),
             storage={},
         )

@@ -38,8 +38,8 @@ def run_blockchain_st_test(test_file: str, network: str) -> None:
     genesis_header = test_data["genesis_header"]
     genesis_block = Block(
         genesis_header,
-        [],
-        [],
+        (),
+        (),
     )
 
     assert rlp_hash(genesis_header) == test_data["genesis_header_hash"]
@@ -102,10 +102,12 @@ def json_to_blocks(
 
     for json_block in json_blocks:
         header = json_to_header(json_block["blockHeader"])
-        transactions = [json_to_tx(tx) for tx in json_block["transactions"]]
-        uncles = [
+        transactions = tuple(
+            json_to_tx(tx) for tx in json_block["transactions"]
+        )
+        uncles = tuple(
             json_to_header(uncle) for uncle in json_block["uncleHeaders"]
-        ]
+        )
 
         blocks.append(
             Block(
@@ -130,7 +132,7 @@ def json_to_header(raw: Any) -> Header:
         hex2root(raw.get("stateRoot")),
         hex2root(raw.get("transactionsTrie")),
         hex2root(raw.get("receiptTrie")),
-        bytearray(hex2bytes(raw.get("bloom"))),
+        hex2bytes(raw.get("bloom")),
         hex2uint(raw.get("difficulty")),
         hex2uint(raw.get("number")),
         hex2uint(raw.get("gasLimit")),
@@ -161,7 +163,7 @@ def json_to_state(raw: Any) -> State:
     for (addr, acc_state) in raw.items():
         account = Account(
             nonce=hex2uint(acc_state.get("nonce", "0x0")),
-            balance=hex2uint(acc_state.get("balance", "0x0")),
+            balance=U256(hex2uint(acc_state.get("balance", "0x0"))),
             code=hex2bytes(acc_state.get("code", "")),
             storage={},
         )

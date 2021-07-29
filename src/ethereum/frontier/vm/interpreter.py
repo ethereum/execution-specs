@@ -12,12 +12,12 @@ Introduction
 A straightforward interpreter that executes EVM code.
 """
 
-from typing import List, Tuple
+from typing import Tuple
 
 from ethereum.base_types import U256, Uint
 from ethereum.frontier.vm.error import InvalidOpcode
 
-from ..eth_types import Address, Log
+from ..eth_types import Address, Log, move_ether
 from . import Environment, Evm
 from .instructions import Ops, op_implementation
 from .runtime import get_valid_jump_destinations
@@ -33,7 +33,7 @@ def process_call(
     gas: U256,
     depth: Uint,
     env: Environment,
-) -> Tuple[U256, List[Log]]:
+) -> Tuple[U256, Tuple[Log, ...]]:
     """
     Executes a call from the `caller` to the `target` in a new EVM instance.
 
@@ -83,14 +83,13 @@ def process_call(
         depth=depth,
         env=env,
         valid_jump_destinations=valid_jump_destinations,
-        logs=[],
+        logs=(),
         refund_counter=Uint(0),
         running=True,
     )
 
     if evm.value != 0:
-        evm.env.state[evm.caller].balance -= evm.value
-        evm.env.state[evm.current].balance += evm.value
+        move_ether(evm.env.state, evm.caller, evm.current, evm.value)
 
     while evm.running:
         try:
