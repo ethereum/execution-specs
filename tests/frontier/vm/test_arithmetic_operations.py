@@ -48,7 +48,7 @@ def test_sub(test_file: str) -> None:
         "mul4.json",
         "mul5.json",
         "mul6.json",
-        # TODO: Uncomment mul7.json once MLOAD, MSTORE is implemented
+        # TODO: Uncomment mul7.json once RETURN is implemented
         # "mul7.json",
     ],
 )
@@ -59,7 +59,7 @@ def test_mul(test_file: str) -> None:
 @pytest.mark.parametrize(
     "test_file",
     [
-        # TODO: Uncomment div1.json file once MSTORE is implemented
+        # TODO: Uncomment div1.json file once RETURN is implemented
         # "div1.json",
         "divBoostBug.json",
         "divByNonZero0.json",
@@ -93,8 +93,7 @@ def test_div(test_file: str) -> None:
         "sdiv_i256min.json",
         "sdiv_i256min2.json",
         "sdiv_i256min3.json",
-        # TODO: Run sdiv_dejavu.json once DUP series has been implemented
-        # "sdiv_dejavu.json",
+        "sdiv_dejavu.json",
     ],
 )
 def test_sdiv(test_file: str) -> None:
@@ -146,12 +145,10 @@ def test_smod(test_file: str) -> None:
         "addmod1_overflow4.json",
         "addmod1_overflowDiff.json",
         "addmod2.json",
-        # TODO: Test files 'addmod2_1.json', 'addmod3_0.json' after implementing EQ
-        # TODO: Test file 'addmod2_0.json' after implementing EQ
-        # "addmod2_0.json",
-        # "addmod2_1.json",
+        "addmod2_0.json",
+        "addmod2_1.json",
         "addmod3.json",
-        # "addmod3_0.json",
+        "addmod3_0.json",
     ],
 )
 def test_addmod(test_file: str) -> None:
@@ -168,13 +165,11 @@ def test_addmod(test_file: str) -> None:
         "mulmod1_overflow3.json",
         "mulmod1_overflow4.json",
         "mulmod2.json",
-        # TODO: Test files 'mulmod2_1.json', 'mulmod3_0.json' after implementing EQ
-        # TODO: Test file 'mulmod2_0.json' after implementing SMOD
-        # TODO: Test file 'mulmod4.json' after implementing MSTORE8
-        # "mulmod2_0.json",
-        # "mulmod2_1.json",
+        "mulmod2_0.json",
+        "mulmod2_1.json",
         "mulmod3.json",
-        # "mulmod3_0.json",
+        "mulmod3_0.json",
+        # TODO: Test file 'mulmod4.json' after implementing RETURN opcode
         # "mulmod4.json",
     ],
 )
@@ -194,9 +189,8 @@ def test_mulmod(test_file: str) -> None:
         "exp6.json",
         "exp7.json",
         "exp8.json",
-        # TODO: Run expXY.json, expXY_success.json when CALLDATALOAD is implemented
-        # "expXY.json",
-        # "expXY_success.json",
+        "expXY.json",
+        "expXY_success.json",
     ],
 )
 def test_exp(test_file: str) -> None:
@@ -230,8 +224,7 @@ def test_exp_power_256() -> None:
         "signextend_BitIsNotSetInHigherByte.json",
         "signextend_bitIsSet.json",
         "signextend_BitIsSetInHigherByte.json",
-        # TODO: Run the below commented test after implementing JUMP opcode
-        # "signextend_Overflow_dj42.json",
+        "signextend_Overflow_dj42.json",
         "signextendInvalidByteNumber.json",
     ],
 )

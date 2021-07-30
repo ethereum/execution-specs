@@ -1,10 +1,12 @@
 from functools import partial
+from typing import Any
 
 import pytest
 
 from ethereum.frontier.vm.error import (
     InvalidJumpDestError,
     OutOfGasError,
+    StackOverflowError,
     StackUnderflowError,
 )
 
@@ -29,23 +31,21 @@ run_control_flow_ops_vm_test = partial(
         # "indirect_jump1.json",
         # "indirect_jump2.json",
         # "indirect_jump3.json",
-        "indirect_jump4.json",
-        "JDfromStorageDynamicJump0_jumpdest0.json",
-        "JDfromStorageDynamicJump0_jumpdest2.json",
-        # TODO: Run below test once CALLVALUE is implemented
         # "DynamicJump_value1.json",
         # "DynamicJump_value2.json",
         # "DynamicJump_value3.json",
+        # "stackjump1.json",
+        "indirect_jump4.json",
+        "JDfromStorageDynamicJump0_jumpdest0.json",
+        "JDfromStorageDynamicJump0_jumpdest2.json",
         "DynamicJump0_jumpdest0.json",
         "DynamicJump0_jumpdest2.json",
         "DynamicJumpAfterStop.json",
-        # TODO: Run below test cases once NUMBER opcode has been implemented.
-        # "DynamicJumpJD_DependsOnJumps1.json",
-        # "DynamicJumpPathologicalTest0.json",
-        # "DynamicJumpPathologicalTest1.json",
-        # "DynamicJumpPathologicalTest2.json",
-        # "DynamicJumpPathologicalTest3.json",
+        "DynamicJumpJD_DependsOnJumps1.json",
+        "DynamicJumpPathologicalTest0.json",
         "DynamicJumpStartWithJumpDest.json",
+        "BlockNumberDynamicJump0_jumpdest0.json",
+        "BlockNumberDynamicJump0_jumpdest2.json",
     ],
 )
 def test_jump(test_file: str) -> None:
@@ -82,8 +82,16 @@ def test_jump(test_file: str) -> None:
         "DynamicJump1.json",
         "DynamicJumpInsidePushWithJumpDest.json",
         "DynamicJumpInsidePushWithoutJumpDest.json",
-        # TODO: Run below test case once NUMBER opcode has been implemented.
-        # "DynamicJumpJD_DependsOnJumps0.json",
+        "DynamicJumpJD_DependsOnJumps0.json",
+        "DynamicJumpPathologicalTest1.json",
+        "DynamicJumpPathologicalTest2.json",
+        "DynamicJumpPathologicalTest3.json",
+        "BlockNumberDynamicJump0_AfterJumpdest.json",
+        "BlockNumberDynamicJump0_AfterJumpdest3.json",
+        "BlockNumberDynamicJump0_withoutJumpdest.json",
+        "BlockNumberDynamicJump1.json",
+        "BlockNumberDynamicJumpInsidePushWithJumpDest.json",
+        "BlockNumberDynamicJumpInsidePushWithoutJumpDest.json",
     ],
 )
 def test_jump_raises_invalid_jump_dest_error(test_file: str) -> None:
@@ -97,6 +105,7 @@ def test_jump_raises_invalid_jump_dest_error(test_file: str) -> None:
         "jump0_foreverOutOfGas.json",
         "JDfromStorageDynamicJump0_foreverOutOfGas.json",
         "DynamicJump0_foreverOutOfGas.json",
+        "BlockNumberDynamicJump0_foreverOutOfGas.json",
     ],
 )
 def test_jump_raises_error_when_out_of_gas(test_file: str) -> None:
@@ -108,8 +117,8 @@ def test_jump_raises_error_when_out_of_gas(test_file: str) -> None:
     "test_file",
     [
         "jumpOntoJump.json",
-        # TODO: Run below test once CALLVALUE has been implemented
-        # "DynamicJump_valueUnderflow.json",
+        "DynamicJump_valueUnderflow.json",
+        "stack_loop.json",
     ],
 )
 def test_jump_raises_error_when_stack_underflows(test_file: str) -> None:
@@ -127,6 +136,8 @@ def test_jump_raises_error_when_stack_underflows(test_file: str) -> None:
         "JDfromStorageDynamicJumpiAfterStop.json",
         "DynamicJumpi1.json",
         "DynamicJumpiAfterStop.json",
+        "BlockNumberDynamicJumpi1.json",
+        "BlockNumberDynamicJumpiAfterStop.json",
     ],
 )
 def test_jumpi(test_file: str) -> None:
@@ -153,6 +164,11 @@ def test_jumpi(test_file: str) -> None:
         "DynamicJumpifInsidePushWithJumpDest.json",
         "DynamicJumpifInsidePushWithoutJumpDest.json",
         "DynamicJumpiOutsideBoundary.json",
+        "BlockNumberDynamicJumpi0.json",
+        "BlockNumberDynamicJumpi1_jumpdest.json",
+        "BlockNumberDynamicJumpifInsidePushWithJumpDest.json",
+        "BlockNumberDynamicJumpifInsidePushWithoutJumpDest.json",
+        "BlockNumberDynamicJumpiOutsideBoundary.json",
     ],
 )
 def test_jumpi_raises_invalid_jump_dest_error(test_file: str) -> None:
@@ -187,6 +203,45 @@ def test_gas_fails_overflow() -> None:
         run_control_flow_ops_vm_test("gasOverFlow.json")
 
 
-# TODO: There are some more test cases to be run. But they depend on block
-# operations. Need to run the remaining test cases in
-# vmIOandFlowOperations once the mentioned operations are done.
+@pytest.mark.parametrize(
+    "test_file",
+    [
+        "for_loop1.json",
+        "for_loop2.json",
+        # TODO: Run below test once RETURN opcode has been implemented.
+        # "loop_stacklimit_1020.json",
+    ],
+)
+def test_loop(test_file: str) -> None:
+    run_control_flow_ops_vm_test(test_file)
+
+
+def test_loop_throws_stack_overflow_error() -> None:
+    with pytest.raises(StackOverflowError):
+        run_control_flow_ops_vm_test("loop_stacklimit_1021.json")
+
+
+def test_when() -> None:
+    run_control_flow_ops_vm_test("when.json")
+
+
+@pytest.mark.parametrize(
+    ("test_file", "error_type"),
+    [
+        ("byte1.json", None),
+        ("calldatacopyMemExp.json", OutOfGasError),
+        ("codecopyMemExp.json", OutOfGasError),
+        # TODO: Run below test case once RETURN opcode has been implemented
+        # ("deadCode_1.json", None),
+        ("dupAt51becameMload.json", None),
+        ("swapAt52becameMstore.json", StackUnderflowError),
+        ("log1MemExp.json", OutOfGasError),
+    ],
+)
+def test_miscellaneous(test_file: str, error_type: Any) -> None:
+    if error_type is None:
+        run_control_flow_ops_vm_test(test_file)
+        return
+
+    with pytest.raises(error_type):
+        run_control_flow_ops_vm_test(test_file)

@@ -50,6 +50,7 @@ def get_valid_jump_destinations(code: bytes) -> Set[Uint]:
             # Skip invalid opcodes, as they don't affect the jumpdest
             # analysis. Nevertheless, such invalid opcodes would be caught
             # and raised when the interpreter runs.
+            pc += 1
             continue
 
         if current_opcode == Ops.JUMPDEST:
