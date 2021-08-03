@@ -86,7 +86,7 @@ Many of these projects may not update until much closer to the designated London
 
 | Name | Description | Dependencies | Work | EIPs | Status
 |---|---|---|---|---|---|
-| [Amazon Web Services][AWS-link] |managed Ethereum nodes | Geth |  | 1559 |Testnets:✅<br /> Mainnet: <br />5/6 regions
+| [Amazon Web Services][AWS-link] |managed Ethereum nodes | Geth |  | 1559 | ✅
 | [Blocknative][blocknative-link] |Mempool Explorer |  |  | 1559  |✅
 | [Infura][infura-link] |Ethereum APIs |  |  | 1559  |✅
 | [POKT][pocket-link] |Request API |  |  | 1559 |⭕ 
