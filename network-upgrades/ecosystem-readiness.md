@@ -25,7 +25,7 @@ Tracking: `active`
 | [Waffle][waffle-link] |Framework |Ganache, Ethers.js, Typechain |  | All | | 🛠️
 | [Brownie][brownie-link] |Framework |Web3.py |  | All | | ⭕
 | [OpenZeppelin][oz-link] |Smart Contract Security |Hardhat |  | ? | | 🛠️
-| [Tenderly][tenderly-link] |Contract Monitoring |Hardhat |  | 1559 | | 🛠️
+| [Tenderly][tenderly-link] |Contract Monitoring |Hardhat |  | 1559 |N/A |✅
 | [hardhat-deploy][hardhat-deploy-link] |Contract Deployment |Hardhat, Ethers |  | ? | | ⭕
 | [solidity-coverage][solidity-coverage-link] |Contract Testing |Hardhat, Solidity |  | ? | | ⭕
 | [Typechain][typechain-link] |Language Tool |Ethers, Truffle, Hardhat, Web3.js, Solidity |  | ? | | ⭕
@@ -84,17 +84,17 @@ Tracking: `active`
 
 Many of these projects may not update until much closer to the designated London block number.
 
-| Name | Description | Dependencies | Work | EIPs | Release | Status
-|---|---|---|---|---|---|---|
-| [Amazon Web Services][AWS-link] | managed Ethereum nodes | Geth |  | 1559 |  |Testnets:✅<br /> Mainnet: <br />5/6 regions
-| [Blocknative][blocknative-link] | Mempool Explorer |  |  | 1559 |  |✅
-| [Infura][infura-link] | Ethereum APIs |  |  | 1559 |  |✅
-| [POKT][pocket-link] | Request API |  |  | 1559 |  |⭕ 
-| [Etherscan][etherscan-link] | Block Explorer |  |  | 1559 |  |✅
-| [MetaMask][metamask-link] | Browser Extension | EthereumJS, Ethers, Web3, ? | [URL][metamask-work] | 1559 |  |🛠️ 
-| [Ethernodes][ethernodes-link] | Node Explorer | Eth 1.0 Clients |  | ? |  |✅ 
-| [TREZOR][trezor-link] | Hardware Wallet |  | [URL][trezor-work] | 1559 |  |🛠️ 
-| [WallETH][walleth-link] | Wallet | KEthereum | [URL][walleth-work] | 1559 |  |🛠️  
+| Name | Description | Dependencies | Work | EIPs | Status
+|---|---|---|---|---|---|
+| [Amazon Web Services][AWS-link] |managed Ethereum nodes | Geth |  | 1559 |Testnets:✅<br /> Mainnet: <br />5/6 regions
+| [Blocknative][blocknative-link] |Mempool Explorer |  |  | 1559  |✅
+| [Infura][infura-link] |Ethereum APIs |  |  | 1559  |✅
+| [POKT][pocket-link] |Request API |  |  | 1559 |⭕ 
+| [Etherscan][etherscan-link] |Block Explorer |  |  | 1559 |✅
+| [MetaMask][metamask-link] |Browser Extension | EthereumJS, Ethers, Web3, ? | [URL][metamask-work] | 1559 |🛠️ 
+| [Ethernodes][ethernodes-link] |Node Explorer | Eth 1.0 Clients |  | ? |✅ 
+| [TREZOR][trezor-link] |Hardware Wallet |  | [URL][trezor-work] | 1559 |🛠️ 
+| [WallETH][walleth-link] |Wallet | KEthereum | [URL][walleth-work] | 1559 |🛠️  
 
 [AWS-link]: https://aws.amazon.com/managed-blockchain/
 [blocknative-link]: https://github.com/blocknative
