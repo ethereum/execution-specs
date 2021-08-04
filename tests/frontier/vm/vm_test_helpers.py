@@ -10,12 +10,12 @@ from ethereum.frontier.eth_types import Account, State
 from ethereum.frontier.spec import BlockChain, get_recent_block_hashes
 from ethereum.frontier.vm import Environment
 from ethereum.frontier.vm.interpreter import process_call
-from tests.frontier.helpers import (
-    hex2address,
-    hex2bytes,
-    hex2bytes32,
-    hex2u256,
-    hex2uint,
+from ethereum.utils import (
+    hex_to_address,
+    hex_to_bytes,
+    hex_to_bytes32,
+    hex_to_u256,
+    hex_to_uint,
 )
 
 
@@ -55,15 +55,15 @@ def load_test(test_dir: str, test_file: str) -> Any:
     env = json_to_env(json_data)
 
     return {
-        "caller": hex2address(json_data["exec"]["caller"]),
-        "target": hex2address(json_data["exec"]["address"]),
-        "data": hex2bytes(json_data["exec"]["data"]),
-        "value": hex2u256(json_data["exec"]["value"]),
-        "gas": hex2u256(json_data["exec"]["gas"]),
+        "caller": hex_to_address(json_data["exec"]["caller"]),
+        "target": hex_to_address(json_data["exec"]["address"]),
+        "data": hex_to_bytes(json_data["exec"]["data"]),
+        "value": hex_to_u256(json_data["exec"]["value"]),
+        "gas": hex_to_u256(json_data["exec"]["gas"]),
         "depth": Uint(0),
         "env": env,
-        "expected_gas_left": hex2u256(json_data.get("gas", "0x64")),
-        "expected_logs_hash": hex2bytes(json_data.get("logs", "0x00")),
+        "expected_gas_left": hex_to_u256(json_data.get("gas", "0x64")),
+        "expected_logs_hash": hex_to_bytes(json_data.get("logs", "0x00")),
         "expected_post_state": json_to_state(json_data.get("post", {})),
     }
 
@@ -84,15 +84,15 @@ def json_to_env(json_data: Any) -> Environment:
     )
 
     return Environment(
-        caller=hex2address(json_data["exec"]["caller"]),
-        origin=hex2address(json_data["exec"]["origin"]),
+        caller=hex_to_address(json_data["exec"]["caller"]),
+        origin=hex_to_address(json_data["exec"]["origin"]),
         block_hashes=get_recent_block_hashes(chain, Uint(256)),
-        coinbase=hex2address(json_data["env"]["currentCoinbase"]),
-        number=hex2uint(json_data["env"]["currentNumber"]),
-        gas_limit=hex2uint(json_data["env"]["currentGasLimit"]),
-        gas_price=hex2u256(json_data["exec"]["gasPrice"]),
-        time=hex2u256(json_data["env"]["currentTimestamp"]),
-        difficulty=hex2uint(json_data["env"]["currentDifficulty"]),
+        coinbase=hex_to_address(json_data["env"]["currentCoinbase"]),
+        number=hex_to_uint(json_data["env"]["currentNumber"]),
+        gas_limit=hex_to_uint(json_data["env"]["currentGasLimit"]),
+        gas_price=hex_to_u256(json_data["exec"]["gasPrice"]),
+        time=hex_to_u256(json_data["env"]["currentTimestamp"]),
+        difficulty=hex_to_uint(json_data["env"]["currentDifficulty"]),
         state=current_state,
     )
 
@@ -101,18 +101,18 @@ def json_to_state(raw: Any) -> State:
     state = {}
     for (addr, acc_state) in raw.items():
         account = Account(
-            nonce=hex2uint(acc_state.get("nonce", "0x0")),
-            balance=U256(hex2uint(acc_state.get("balance", "0x0"))),
-            code=hex2bytes(acc_state.get("code", "")),
+            nonce=hex_to_uint(acc_state.get("nonce", "0x0")),
+            balance=U256(hex_to_uint(acc_state.get("balance", "0x0"))),
+            code=hex_to_bytes(acc_state.get("code", "")),
             storage={},
         )
 
         for (k, v) in acc_state.get("storage", {}).items():
-            account.storage[hex2bytes32(k)] = U256.from_be_bytes(
-                hex2bytes32(v)
+            account.storage[hex_to_bytes32(k)] = U256.from_be_bytes(
+                hex_to_bytes32(v)
             )
 
-        state[hex2address(addr)] = account
+        state[hex_to_address(addr)] = account
 
     return state
 
@@ -120,7 +120,7 @@ def json_to_state(raw: Any) -> State:
 def get_dummy_account_state(min_balance: str) -> Any:
     # dummy account balance is the min balance needed plus 1 eth for gas
     # cost
-    account_balance = hex2uint(min_balance) + (10 ** 18)
+    account_balance = hex_to_uint(min_balance) + (10 ** 18)
 
     return {
         "balance": hex(account_balance),

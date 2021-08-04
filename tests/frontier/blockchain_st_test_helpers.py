@@ -13,16 +13,15 @@ from ethereum.frontier.eth_types import (
     Transaction,
 )
 from ethereum.frontier.spec import BlockChain, state_transition
-
-from .helpers import (
-    hex2address,
-    hex2bytes,
-    hex2bytes8,
-    hex2bytes32,
-    hex2hash,
-    hex2root,
-    hex2u256,
-    hex2uint,
+from ethereum.utils import (
+    hex_to_address,
+    hex_to_bytes,
+    hex_to_bytes8,
+    hex_to_bytes32,
+    hex_to_hash,
+    hex_to_root,
+    hex_to_u256,
+    hex_to_uint,
     rlp_hash,
 )
 
@@ -80,11 +79,11 @@ def load_test(test_file: str, network: str) -> Any:
 
     return {
         "genesis_header": json_to_header(json_data["genesisBlockHeader"]),
-        "genesis_header_hash": hex2bytes(
+        "genesis_header_hash": hex_to_bytes(
             json_data["genesisBlockHeader"]["hash"]
         ),
-        "genesis_block_rlp": hex2bytes(json_data["genesisRLP"]),
-        "last_block_hash": hex2bytes(json_data["lastblockhash"]),
+        "genesis_block_rlp": hex_to_bytes(json_data["genesisRLP"]),
+        "last_block_hash": hex_to_bytes(json_data["lastblockhash"]),
         "pre_state": json_to_state(json_data["pre"]),
         "expected_post_state": json_to_state(json_data["postState"]),
         "blocks": blocks,
@@ -117,44 +116,44 @@ def json_to_blocks(
             )
         )
         block_header_hashes.append(
-            hex2bytes(json_block["blockHeader"]["hash"])
+            hex_to_bytes(json_block["blockHeader"]["hash"])
         )
-        block_rlps.append(hex2bytes(json_block["rlp"]))
+        block_rlps.append(hex_to_bytes(json_block["rlp"]))
 
     return blocks, block_header_hashes, block_rlps
 
 
 def json_to_header(raw: Any) -> Header:
     return Header(
-        hex2hash(raw.get("parentHash")),
-        hex2hash(raw.get("uncleHash")),
-        hex2address(raw.get("coinbase")),
-        hex2root(raw.get("stateRoot")),
-        hex2root(raw.get("transactionsTrie")),
-        hex2root(raw.get("receiptTrie")),
-        hex2bytes(raw.get("bloom")),
-        hex2uint(raw.get("difficulty")),
-        hex2uint(raw.get("number")),
-        hex2uint(raw.get("gasLimit")),
-        hex2uint(raw.get("gasUsed")),
-        hex2u256(raw.get("timestamp")),
-        hex2bytes(raw.get("extraData")),
-        hex2bytes32(raw.get("mixHash")),
-        hex2bytes8(raw.get("nonce")),
+        hex_to_hash(raw.get("parentHash")),
+        hex_to_hash(raw.get("uncleHash")),
+        hex_to_address(raw.get("coinbase")),
+        hex_to_root(raw.get("stateRoot")),
+        hex_to_root(raw.get("transactionsTrie")),
+        hex_to_root(raw.get("receiptTrie")),
+        hex_to_bytes(raw.get("bloom")),
+        hex_to_uint(raw.get("difficulty")),
+        hex_to_uint(raw.get("number")),
+        hex_to_uint(raw.get("gasLimit")),
+        hex_to_uint(raw.get("gasUsed")),
+        hex_to_u256(raw.get("timestamp")),
+        hex_to_bytes(raw.get("extraData")),
+        hex_to_bytes32(raw.get("mixHash")),
+        hex_to_bytes8(raw.get("nonce")),
     )
 
 
 def json_to_tx(raw: Any) -> Transaction:
     return Transaction(
-        hex2u256(raw.get("nonce")),
-        hex2u256(raw.get("gasPrice")),
-        hex2u256(raw.get("gasLimit")),
-        None if raw.get("to") == "" else hex2address(raw.get("to")),
-        hex2u256(raw.get("value")),
-        hex2bytes(raw.get("data")),
-        hex2u256(raw.get("v")),
-        hex2u256(raw.get("r")),
-        hex2u256(raw.get("s")),
+        hex_to_u256(raw.get("nonce")),
+        hex_to_u256(raw.get("gasPrice")),
+        hex_to_u256(raw.get("gasLimit")),
+        None if raw.get("to") == "" else hex_to_address(raw.get("to")),
+        hex_to_u256(raw.get("value")),
+        hex_to_bytes(raw.get("data")),
+        hex_to_u256(raw.get("v")),
+        hex_to_u256(raw.get("r")),
+        hex_to_u256(raw.get("s")),
     )
 
 
@@ -162,18 +161,18 @@ def json_to_state(raw: Any) -> State:
     state = {}
     for (addr, acc_state) in raw.items():
         account = Account(
-            nonce=hex2uint(acc_state.get("nonce", "0x0")),
-            balance=U256(hex2uint(acc_state.get("balance", "0x0"))),
-            code=hex2bytes(acc_state.get("code", "")),
+            nonce=hex_to_uint(acc_state.get("nonce", "0x0")),
+            balance=U256(hex_to_uint(acc_state.get("balance", "0x0"))),
+            code=hex_to_bytes(acc_state.get("code", "")),
             storage={},
         )
 
         for (k, v) in acc_state.get("storage", {}).items():
-            account.storage[hex2bytes32(k)] = U256.from_be_bytes(
-                hex2bytes32(v)
+            account.storage[hex_to_bytes32(k)] = U256.from_be_bytes(
+                hex_to_bytes32(v)
             )
 
-        state[hex2address(addr)] = account
+        state[hex_to_address(addr)] = account
 
     return state
 
