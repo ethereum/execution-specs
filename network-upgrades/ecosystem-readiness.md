@@ -95,6 +95,7 @@ Many of these projects may not update until much closer to the designated London
 | [Ethernodes][ethernodes-link] |Node Explorer | Eth 1.0 Clients |  | ? |✅ 
 | [TREZOR][trezor-link] |Hardware Wallet |  | [URL][trezor-work] | 1559 |🛠️ 
 | [WallETH][walleth-link] |Wallet | KEthereum | [URL][walleth-work] | 1559 |🛠️  
+| [Ledger][ledger-link] |Hardware Wallet | Ethers | | 1559 |🛠️  
 
 [AWS-link]: https://aws.amazon.com/managed-blockchain/
 [blocknative-link]: https://github.com/blocknative
@@ -108,4 +109,4 @@ Many of these projects may not update until much closer to the designated London
 [trezor-work]: https://github.com/trezor/trezor-firmware/issues/1604
 [walleth-link]: https://walleth.org
 [walleth-work]: https://github.com/walleth/walleth/issues/523
-
+[ledger-link]: https://ledger.com
