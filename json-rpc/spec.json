@@ -1635,7 +1635,6 @@
 							"nonce",
 							"to",
 							"value",
-							"v",
 							"r",
 							"s"
 						],
@@ -1645,11 +1644,6 @@
 							},
 							"blockNumber": {
 								"$ref": "#/components/schemas/BlockNumberOrNull"
-							},
-							"type": {
-								"title": "type",
-								"$ref": "#/components/schemas/Byte",
-								"description": "The transaction's EIP-2718 type byte (if applicable)"
 							},
 							"from": {
 								"$ref": "#/components/schemas/From"
@@ -1667,11 +1661,6 @@
 								"type": "string",
 								"description": "The data field sent with the transaction"
 							},
-							"accessList": {
-								"title": "accessList",
-								"description": "EIP-2930 access list",
-								"$ref": "#/components/schemas/AccessList"
-							},
 							"nonce": {
 								"title": "transactionNonce",
 								"description": "The total number of prior transactions made by the sender",
@@ -1688,11 +1677,6 @@
 								"description": "Value of Ether being transferred in Wei",
 								"$ref": "#/components/schemas/Keccak"
 							},
-							"v": {
-								"title": "transactionSigV",
-								"type": "string",
-								"description": "ECDSA recovery id"
-							},
 							"r": {
 								"title": "transactionSigR",
 								"type": "string",
@@ -1708,14 +1692,23 @@
 					{
 						"oneOf": [
 							{
-								"title": "EIP-1559 fee market parameters",
+								"title": "EIP-1559 transaction parameters",
 								"type": "object",
-								"description": "EIP-1559 dynamic fee transactions have two fee parameters.",
+								"description": "Transaction parameters that are specific to EIP-1559 transactions.",
 								"required": [
+									"type",
 									"maxFeePerGas",
-									"maxPriorityFeePerGas"
+									"maxPriorityFeePerGas",
+									"yParity",
+									"chainId",
+									"accessList",
 								],
 								"properties": {
+									"type": {
+										"title": "type",
+										"$ref": "#/components/schemas/Byte",
+										"description": "The transaction's EIP-2718 type byte (if applicable)"
+									},
 									"maxPriorityFeePerGas": {
 										"title": "transactionMaxPriorityFeePerGas",
 										"description": "Maximum fee per gas the sender is willing to pay to miners in wei",
@@ -1725,18 +1718,87 @@
 										"title": "transactionMaxFeePerGas",
 										"description": "The maximum total fee per gas the sender is willing to pay (includes the network / base fee and miner / priority fee) in wei",
 										"$ref": "#/components/schemas/Integer"
+									},
+									"yParity": {
+										"title": "transactionSigYParity",
+										"description": "The parity (0 for even, 1 for odd) of the y-value of a secp256k1 signature.",
+										"$ref": "#/components/schemas/Integer"
+									},
+									"chainId": {
+										"title": "chainId",
+										"description": "The transaction only valid on networks with this chainID.",
+										"$ref": "#/components/schemas/Integer"
+									},
+									"accessList": {
+										"title": "accessList",
+										"description": "EIP-2930 access list",
+										"$ref": "#/components/schemas/AccessList"
 									}
 								}
 							},
 							{
-								"title": "Legacy fee market parameters",
+								"title": "EIP-2930 transaction parameters",
 								"type": "object",
-								"description": "Legacy transactions and EIP-2930 access list transaction include this parameter.",
+								"description": "Transaction parameters that are specific to EIP-2930 transactions.",
+								"required": [
+									"type",
+									"gasPrice",
+									"yParity",
+									"chainId",
+									"accessList",
+								],
 								"properties": {
+									"type": {
+										"title": "type",
+										"$ref": "#/components/schemas/Byte",
+										"description": "The transaction's EIP-2718 type byte (if applicable)"
+									},
 									"gasPrice": {
 										"title": "transactionGasPrice",
 										"type": "string",
 										"description": "The gas price willing to be paid by the sender in Wei"
+									},
+									"yParity": {
+										"title": "transactionSigYParity",
+										"description": "The parity (0 for even, 1 for odd) of the y-value of a secp256k1 signature.",
+										"$ref": "#/components/schemas/Integer"
+									},
+									"chainId": {
+										"title": "Chain ID",
+										"description": "The transaction only valid on networks with this chainID.",
+										"$ref": "#/components/schemas/Integer"
+									},
+									"accessList": {
+										"title": "accessList",
+										"description": "EIP-2930 access list",
+										"$ref": "#/components/schemas/AccessList"
+									}
+								}
+							},
+							{
+								"title": "Legacy transaction",
+								"type": "object",
+								"description": "Ttransaction parameters that are specific to legacy transactions.",
+								"required": [
+									"type",
+									"gasPrice",
+									"v",
+								],
+								"properties": {
+									"type": {
+										"title": "type",
+										"$ref": "#/components/schemas/Byte",
+										"description": "The transaction's EIP-2718 type byte (if applicable)"
+									},
+									"gasPrice": {
+										"title": "transactionGasPrice",
+										"type": "string",
+										"description": "The gas price willing to be paid by the sender in Wei"
+									},
+									"v": {
+										"title": "transactionSigV",
+										"description": "ECDSA recovery id",
+										"$ref": "#/components/schemas/Integer"
 									}
 								}
 							}
