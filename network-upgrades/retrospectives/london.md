@@ -116,5 +116,9 @@ So you'd do `geth --whitelist 123123=0x2342fafa9af9af9af9af9af9`
 
 The whitelist means that geth, when peering with another peer, will ask the peer "what's your block `123123`". If it gets a header back with a hash that doesn't match the whitelist, it willl disconnect from that peer. So essentially, the node will isolate itself from peers on the wrong chain, and only connect to peers that will deliver blocks from the shorter (but correct) chain. 
 
-
+### Upgrade summary
+* Date and time (in UTC): Aug-05-2021 12:33:42 PM +UTC
+* Block Number (Mainnet): 12965000
+* Block Hash (Mainnet): 0x9b83c12c69edb74f6c8dd5d052765c1adf940e320bd1291696e6fa07829eee71
+* Mined by: 0x7777788200b672a42421017f65ede4fc759564c8 
 
