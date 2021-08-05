@@ -2,7 +2,7 @@
 
 ## Description
 
-This repository contains various specification related to the Ethereum 1.0 chain, specifically the [pyspec](/src/eth1spec/spec.py), specifications for [network upgrades](/network-upgrades), and the [JSON-RPC API](https://github.com/ethereum/eth1.0-apis). 
+This repository contains the consensus specifications related to the Ethereum 1.0 chain, specifically the [pyspec](/src/eth1spec/spec.py) and specifications for [network upgrades](/network-upgrades). The [JSON-RPC API specification](https://github.com/ethereum/eth1.0-apis) can be found in a separate repository. 
 
 ### Ethereum Protocol Releases
 
