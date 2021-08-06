@@ -21,11 +21,9 @@ from .. import crypto
 from ..base_types import U256, Uint
 from . import rlp, trie, vm
 from .eth_types import (
-    EMPTY_ACCOUNT,
     TX_BASE_COST,
     TX_DATA_COST_PER_NON_ZERO,
     TX_DATA_COST_PER_ZERO,
-    Account,
     Address,
     Block,
     Bloom,
@@ -36,7 +34,9 @@ from .eth_types import (
     Root,
     State,
     Transaction,
-    modify_state,
+    add_ether,
+    get_account,
+    increment_nonce,
     move_ether,
 )
 from .vm.interpreter import process_call
@@ -186,7 +186,7 @@ def apply_body(
     Parameters
     ----------
     state :
-        Current account state.
+        Current world state.
     block_hashes :
         List of hashes of the previous 256 blocks in the order of
         increasing block number.
@@ -224,9 +224,6 @@ def apply_body(
     receipts = []
     block_logs = ()
 
-    if coinbase not in state:
-        state[coinbase] = EMPTY_ACCOUNT
-
     for tx in transactions:
         assert tx.gas <= gas_available
         sender_address = recover_sender(tx)
@@ -256,10 +253,8 @@ def apply_body(
             )
         )
 
-    def pay_block_reward(coinbase: Account) -> None:
-        coinbase.balance += BLOCK_REWARD
-
-    modify_state(state, coinbase, pay_block_reward)
+    if block_number != 0:
+        pay_rewards(state, coinbase, ommers)
 
     gas_remaining = block_gas_limit - gas_available
 
@@ -317,9 +312,10 @@ def process_transaction(
     assert validate_transaction(tx)
 
     sender = env.origin
+    sender_account = get_account(env.state, sender)
 
-    assert env.state[sender].nonce == tx.nonce
-    assert env.state[sender].balance >= tx.gas * tx.gas_price
+    assert sender_account.nonce == tx.nonce
+    assert sender_account.balance >= tx.gas * tx.gas_price
 
     gas = tx.gas - calculate_intrinsic_cost(tx)
 
@@ -333,10 +329,7 @@ def process_transaction(
     gas_used = tx.gas - gas_left
     move_ether(env.state, sender, env.coinbase, gas_used * tx.gas_price)
 
-    def increment_nonce(sender: Account) -> None:
-        sender.nonce += 1
-
-    modify_state(env.state, sender, increment_nonce)
+    increment_nonce(env.state, sender)
 
     return (gas_used, logs)
 
@@ -382,6 +375,31 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
             data_cost += TX_DATA_COST_PER_NON_ZERO
 
     return Uint(TX_BASE_COST + data_cost)
+
+
+def pay_rewards(
+    state: State,
+    coinbase: Address,
+    ommers: Tuple[Header, ...],
+) -> None:
+    """
+    Pay rewards to the block miner and ommers miners.
+
+    Parameters
+    ----------
+    state :
+        Current world state.
+    coinbase :
+        Address of account which receives block reward and transaction fees.
+        In other words, this address is the address of the miner.
+    ommers :
+        Headers of ancestor blocks which are not direct parents (formerly
+        uncles.)
+    """
+    miner_reward = BLOCK_REWARD + ((BLOCK_REWARD * len(ommers)) // 32)
+    add_ether(state, coinbase, miner_reward)
+
+    # TODO: Add ommers miners rewards as well.
 
 
 def recover_sender(tx: Transaction) -> Address:
@@ -482,8 +500,8 @@ def get_block_header_by_hash(hash: Hash32, chain: BlockChain) -> Header:
     for block in chain.blocks:
         if compute_header_hash(block.header) == hash:
             return block.header
-    else:
-        raise ValueError(f"Could not find header with hash={hash.hex()}")
+
+    raise ValueError(f"Could not find header with hash={hash.hex()}")
 
 
 def check_proof_of_work(header: Header) -> bool:
@@ -562,7 +580,8 @@ def calculate_block_difficulty(
         return GENESIS_DIFFICULTY
     elif timestamp < parent_timestamp + 13:
         return parent_difficulty + max_adjustment_delta
-    else:  # timestamp >= parent_timestamp + 13
+    else:
+        # timestamp >= parent_timestamp + 13
         return max(
             GENESIS_DIFFICULTY,
             parent_difficulty - max_adjustment_delta,

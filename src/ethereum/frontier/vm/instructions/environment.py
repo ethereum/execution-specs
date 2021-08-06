@@ -13,6 +13,7 @@ Implementations of the EVM environment related instructions.
 """
 
 from ethereum.base_types import U256, Uint
+from ethereum.frontier.eth_types import get_account
 from ethereum.frontier.vm.memory import extend_memory, memory_write
 from ethereum.utils import ceil32
 
@@ -72,11 +73,9 @@ def balance(evm: Evm) -> None:
     address = pop(evm.stack).to_be_bytes32()
     address = address[-MAX_ADDRESS_BYTES:]
 
-    account_state = evm.env.state.get(address, None)
-    if account_state is None:
-        balance = U256(0)
-    else:
-        balance = U256(account_state.balance)
+    # Get balance of given account. In case the given account doesn't exist
+    # in the state yet, default to a balance of 0.
+    balance = get_account(evm.env.state, address).balance
 
     push(evm.stack, balance)
 
@@ -331,11 +330,9 @@ def extcodesize(evm: Evm) -> None:
     address = pop(evm.stack).to_be_bytes32()
     address = address[-MAX_ADDRESS_BYTES:]
 
-    account_state = evm.env.state.get(address, None)
-    if account_state is None:
-        codesize = U256(0)
-    else:
-        codesize = U256(len(evm.env.state[address].code))
+    # Get code belonging to an external account. In case the external account
+    # doesn't exist in the state yet, default to an empty byte code.
+    codesize = U256(len(get_account(evm.env.state, address).code))
 
     push(evm.stack, codesize)
 
@@ -375,13 +372,9 @@ def extcodecopy(evm: Evm) -> None:
     if size == 0:
         return
 
-    # Get code belonging to another account. In case the other account
+    # Get code belonging to an external account. In case the external account
     # doesn't exist in the state yet, default to an empty byte code.
-    account_state = evm.env.state.get(address, None)
-    if account_state is None:
-        code = b""
-    else:
-        code = account_state.code
+    code = get_account(evm.env.state, address).code
 
     extend_memory(evm.memory, memory_start_index, size)
 

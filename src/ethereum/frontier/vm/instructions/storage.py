@@ -13,6 +13,11 @@ Implementations of the EVM storage related instructions.
 """
 
 from ethereum.base_types import U256
+from ethereum.frontier.eth_types import (
+    delete_storage_key,
+    get_account,
+    set_storage_key,
+)
 
 from .. import Evm
 from ..gas import (
@@ -44,8 +49,10 @@ def sload(evm: Evm) -> None:
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_SLOAD)
 
+    account = get_account(evm.env.state, evm.current)
+
     key = pop(evm.stack).to_be_bytes32()
-    value = evm.env.state[evm.current].storage.get(key, U256(0))
+    value = account.storage.get(key, U256(0))
 
     push(evm.stack, value)
 
@@ -66,9 +73,11 @@ def sstore(evm: Evm) -> None:
     OutOfGasError
         If `evm.gas_left` is less than `20000`.
     """
+    account = get_account(evm.env.state, evm.current)
+
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
-    current_value = evm.env.state[evm.current].storage.get(key, U256(0))
+    current_value = account.storage.get(key, U256(0))
 
     # TODO: SSTORE gas usage hasn't been tested yet. Testing this needs
     # other opcodes to be implemented.
@@ -86,7 +95,7 @@ def sstore(evm: Evm) -> None:
         evm.refund_counter += GAS_STORAGE_CLEAR_REFUND
 
     if new_value == 0:
-        # Deletes a k-v pair from dict if key is present, else does nothing
-        evm.env.state[evm.current].storage.pop(key, None)
+        # Deletes a k-v pair from storage if key is present, else does nothing
+        delete_storage_key(evm.env.state, evm.current, key)
     else:
-        evm.env.state[evm.current].storage[key] = new_value
+        set_storage_key(evm.env.state, evm.current, key, new_value)

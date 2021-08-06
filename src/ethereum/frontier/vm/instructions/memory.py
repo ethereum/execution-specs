@@ -89,7 +89,7 @@ def mstore8(evm: Evm) -> None:
     )
     evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
 
-    # extend memory and subtract gas for allocating 32 bytes of memory
+    # extend memory and subtract gas for allocating 1 byte of memory
     extend_memory(evm.memory, start_position, U256(1))
     memory_write(evm.memory, start_position, normalized_bytes_value)
 
