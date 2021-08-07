@@ -14,7 +14,7 @@ Implementations of the EVM environment related instructions.
 
 from ethereum.base_types import U256, Uint
 from ethereum.frontier.vm.memory import extend_memory, memory_write
-from ethereum.utils import ceil32
+from ethereum.utils import ceil32, to_address
 
 from .. import Evm
 from ..gas import (
@@ -26,9 +26,6 @@ from ..gas import (
     subtract_gas,
 )
 from ..stack import pop, push
-
-# Address can be only 20 bytes
-MAX_ADDRESS_BYTES = 20
 
 
 def address(evm: Evm) -> None:
@@ -69,8 +66,7 @@ def balance(evm: Evm) -> None:
     # custom test cases.
     evm.gas_left = subtract_gas(evm.gas_left, GAS_EXTERNAL)
 
-    address = pop(evm.stack).to_be_bytes32()
-    address = address[-MAX_ADDRESS_BYTES:]
+    address = to_address(pop(evm.stack))
 
     account_state = evm.env.state.get(address, None)
     if account_state is None:
@@ -328,8 +324,7 @@ def extcodesize(evm: Evm) -> None:
     # custom test cases.
     evm.gas_left = subtract_gas(evm.gas_left, GAS_EXTERNAL)
 
-    address = pop(evm.stack).to_be_bytes32()
-    address = address[-MAX_ADDRESS_BYTES:]
+    address = to_address(pop(evm.stack))
 
     account_state = evm.env.state.get(address, None)
     if account_state is None:
@@ -357,8 +352,7 @@ def extcodecopy(evm: Evm) -> None:
     # TODO: There are no test cases against this function. Need to write
     # custom test cases.
 
-    address = pop(evm.stack).to_be_bytes32()
-    address = address[-MAX_ADDRESS_BYTES:]
+    address = to_address(pop(evm.stack))
 
     memory_start_index = Uint(pop(evm.stack))
     code_start_index = Uint(pop(evm.stack))

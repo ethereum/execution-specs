@@ -1,9 +1,18 @@
 import json
 from typing import Any
 
+from ethereum.frontier.eth_types import Bytes
 from ethereum.frontier.trie import map_keys, root
+from ethereum.utils import has_hex_prefix, hex_to_bytes, remove_hex_prefix
 
-from .helpers import remove_hex_prefix, to_bytes
+
+def to_bytes(data: str) -> Bytes:
+    if data is None:
+        return b""
+    if has_hex_prefix(data):
+        return hex_to_bytes(data)
+
+    return data.encode()
 
 
 def test_trie_secure_hex() -> None:

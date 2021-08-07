@@ -7,8 +7,7 @@ import pytest
 from ethereum.frontier import rlp
 from ethereum.frontier.eth_types import U256, Bytes, Uint
 from ethereum.frontier.rlp import RLP
-
-from .helpers import hex2bytes
+from ethereum.utils import hex_to_bytes
 
 #
 # Tests for RLP encode
@@ -331,6 +330,7 @@ def test_roundtrip_encoding_and_decoding() -> None:
             b"hello",
             [b"how", [b"are", b"you", [b"doing", [Uint(255).to_be_bytes()]]]],
         ],
+        [[b"hello", b"world"], [b"how", b"are"], [b"you", b"doing"]],
     ]
     for raw_data in test_cases:
         assert rlp.decode(rlp.encode(cast(RLP, raw_data))) == raw_data
@@ -373,7 +373,7 @@ def ethtest_fixtures_as_pytest_fixtures(
         pytest_fixtures.append(
             (
                 convert_to_rlp_native(test_details["in"]),
-                hex2bytes(test_details["out"]),
+                hex_to_bytes(test_details["out"]),
             )
         )
 
