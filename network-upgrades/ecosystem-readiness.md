@@ -90,6 +90,7 @@ Many of these projects may not update until much closer to the designated London
 | [Amazon Web Services][AWS-link] |managed Ethereum nodes | Geth |  | 1559 | ✅
 | [Blocknative][blocknative-link] |Mempool Explorer |  |  | 1559  |✅
 | [Infura][infura-link] |Ethereum APIs |  |  | 1559  |✅
+| [ETHGasStation][ethgasstation-link] | Metrics for the gas market | Web3.js | | 1559 |  |🛠️  
 | [POKT][pocket-link] |Request API |  |  | 1559 |⭕ 
 | [Etherscan][etherscan-link] |Block Explorer |  |  | 1559 |✅
 | [MetaMask][metamask-link] |Browser Extension | EthereumJS, Ethers, Web3, ? | [URL][metamask-work] | 1559 |🛠️ 
@@ -97,7 +98,7 @@ Many of these projects may not update until much closer to the designated London
 | [TREZOR][trezor-link] |Hardware Wallet |  | [URL][trezor-work] | 1559 |🛠️ 
 | [WallETH][walleth-link] |Wallet | KEthereum | [URL][walleth-work] | 1559 |🛠️  
 | [Ledger][ledger-link] |Hardware Wallet | Ethers | | 1559 |🛠️  
-| [ETH Gas Station][ethgasstation-link] | Metrics for the gas market | Web3.js | [URL][walleth-work] | 1559 |  |🛠️  
+
 
 [AWS-link]: https://aws.amazon.com/managed-blockchain/
 [blocknative-link]: https://github.com/blocknative
