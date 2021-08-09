@@ -11,7 +11,7 @@ Introduction
 
 EVM memory operations.
 """
-from ethereum.utils import ceil32
+from ethereum.utils.numeric import ceil32
 
 from ...base_types import U256, Bytes, Uint
 

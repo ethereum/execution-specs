@@ -3,7 +3,11 @@ from typing import Any
 
 from ethereum.frontier.eth_types import Bytes
 from ethereum.frontier.trie import map_keys, root
-from ethereum.utils import has_hex_prefix, hex_to_bytes, remove_hex_prefix
+from ethereum.utils.hexadecimal import (
+    has_hex_prefix,
+    hex_to_bytes,
+    remove_hex_prefix,
+)
 
 
 def to_bytes(data: str) -> Bytes:

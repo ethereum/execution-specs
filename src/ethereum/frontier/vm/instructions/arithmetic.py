@@ -13,7 +13,7 @@ Implementations of the EVM Arithmetic instructions.
 """
 
 from ethereum.base_types import U255_CEIL_VALUE, U256, U256_CEIL_VALUE, Uint
-from ethereum.utils import get_sign
+from ethereum.utils.numeric import get_sign
 
 from .. import Evm
 from ..gas import (
