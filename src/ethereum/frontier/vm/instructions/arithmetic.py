@@ -351,8 +351,7 @@ def signextend(evm: Evm) -> None:
 
         # Now among the obtained value bytes, consider only
         # N `least significant bytes`, where N is `byte_num + 1`.
-        if len(value_bytes) > byte_num:
-            value_bytes = value_bytes[len(value_bytes) - 1 - byte_num :]
+        value_bytes = value_bytes[len(value_bytes) - 1 - int(byte_num) :]
         sign_bit = value_bytes[0] >> 7
         if sign_bit == 0:
             result = U256.from_be_bytes(value_bytes)
