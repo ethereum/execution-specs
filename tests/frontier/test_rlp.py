@@ -7,7 +7,7 @@ import pytest
 from ethereum.frontier import rlp
 from ethereum.frontier.eth_types import U256, Bytes, Uint
 from ethereum.frontier.rlp import RLP
-from ethereum.utils import hex_to_bytes
+from ethereum.utils.hexadecimal import hex_to_bytes
 
 #
 # Tests for RLP encode

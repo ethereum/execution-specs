@@ -13,8 +13,9 @@ Implementations of the EVM environment related instructions.
 """
 
 from ethereum.base_types import U256, Uint
+from ethereum.frontier.utils.address import to_address
 from ethereum.frontier.vm.memory import extend_memory, memory_write
-from ethereum.utils import ceil32, to_address
+from ethereum.utils.numeric import ceil32
 
 from .. import Evm
 from ..gas import (

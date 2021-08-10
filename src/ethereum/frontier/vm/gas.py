@@ -12,7 +12,7 @@ Introduction
 EVM gas constants and calculators.
 """
 from ethereum.base_types import U256, Uint
-from ethereum.utils import ceil32
+from ethereum.utils.numeric import ceil32
 
 from .error import OutOfGasError
 

@@ -10,7 +10,7 @@ from ethereum.frontier.eth_types import Account, State
 from ethereum.frontier.spec import BlockChain, get_recent_block_hashes
 from ethereum.frontier.vm import Environment
 from ethereum.frontier.vm.interpreter import process_call
-from ethereum.utils import (
+from ethereum.utils.hexadecimal import (
     hex_to_address,
     hex_to_bytes,
     hex_to_bytes32,

@@ -12,8 +12,9 @@ from ethereum.frontier.eth_types import (
     State,
     Transaction,
 )
+from ethereum.frontier.rlp import rlp_hash
 from ethereum.frontier.spec import BlockChain, state_transition
-from ethereum.utils import (
+from ethereum.utils.hexadecimal import (
     hex_to_address,
     hex_to_bytes,
     hex_to_bytes8,
@@ -22,7 +23,6 @@ from ethereum.utils import (
     hex_to_root,
     hex_to_u256,
     hex_to_uint,
-    rlp_hash,
 )
 
 TEST_DIR = (
