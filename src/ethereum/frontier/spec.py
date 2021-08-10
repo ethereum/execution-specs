@@ -222,7 +222,7 @@ def apply_body(
     """
     gas_available = block_gas_limit
     receipts = []
-    block_logs = ()
+    block_logs: Tuple[Log, ...] = ()
 
     if coinbase not in state:
         state[coinbase] = EMPTY_ACCOUNT
@@ -255,6 +255,7 @@ def apply_body(
                 logs=logs,
             )
         )
+        block_logs += logs
 
     def pay_block_reward(coinbase: Account) -> None:
         coinbase.balance += BLOCK_REWARD
