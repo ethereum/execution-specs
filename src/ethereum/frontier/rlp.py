@@ -16,6 +16,9 @@ from __future__ import annotations
 
 from typing import List, Sequence, Union, cast
 
+from ethereum import crypto
+from ethereum.crypto import Hash32
+
 from ..base_types import U256, Bytes, Uint
 from ..crypto import keccak256
 from .eth_types import Account, Block, Header, Log, Receipt, Transaction
@@ -485,3 +488,20 @@ def encode_log(raw_log_data: Log) -> Bytes:
             raw_log_data.data,
         )
     )
+
+
+def rlp_hash(data: RLP) -> Hash32:
+    """
+    Obtain the keccak-256 hash of the rlp encoding of the passed in data.
+
+    Parameters
+    ----------
+    data :
+        The data for which we need the rlp hash.
+
+    Returns
+    -------
+    hash : `Hash32`
+        The rlp hash of the passed in data.
+    """
+    return crypto.keccak256(encode(data))

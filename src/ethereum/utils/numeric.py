@@ -9,7 +9,7 @@ Utility Functions For Numeric Operations
 Introduction
 ------------
 
-Numeric operations specific utility functions used in this application.
+Numeric operations specific utility functions used in this specification.
 """
 from ethereum.base_types import Uint
 

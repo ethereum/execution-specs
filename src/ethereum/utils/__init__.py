@@ -9,5 +9,5 @@ Utility Functions
 Introduction
 ------------
 
-Utility functions used in this application.
+Utility functions used in this specification.
 """

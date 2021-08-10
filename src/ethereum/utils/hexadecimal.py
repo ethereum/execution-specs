@@ -9,7 +9,7 @@ Utility Functions For Hexadecimal Strings
 Introduction
 ------------
 
-Hexadecimal strings specific utility functions used in this application.
+Hexadecimal strings specific utility functions used in this specification.
 """
 from ethereum.base_types import U256, Bytes, Bytes8, Bytes32, Uint
 from ethereum.crypto import Hash32
