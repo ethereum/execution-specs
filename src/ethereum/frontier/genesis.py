@@ -18,15 +18,15 @@ from dataclasses import dataclass
 from typing import Dict, cast
 
 from ethereum.base_types import U256, Bytes, Bytes8, Uint, slotted_freezable
-from ethereum.frontier.eth_types import Address
-
-from .utils.hexadecimal import (
-    hex_to_address,
+from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
     hex_to_u256,
     hex_to_uint,
 )
+
+from .eth_types import Address
+from .utils.hexadecimal import hex_to_address
 
 
 @slotted_freezable

@@ -5,7 +5,7 @@ import pytest
 
 from ethereum.base_types import U256, Bytes
 from ethereum.frontier import rlp
-from ethereum.genesis import genesis_configuration
+from ethereum.frontier.genesis import genesis_configuration
 
 MAINNET_GENESIS_CONFIGURATION = genesis_configuration("mainnet.json")
 
@@ -14,7 +14,7 @@ MAINNET_GENESIS_CONFIGURATION = genesis_configuration("mainnet.json")
 def mainnet_alloc_rlp_encoding() -> bytes:
     rlp_encoding_hex = cast(
         bytes,
-        pkgutil.get_data("ethereum", f"assets/mainnet_genesis_alloc_rlp.hex"),
+        pkgutil.get_data("ethereum", "assets/mainnet_genesis_alloc_rlp.hex"),
     ).decode()
 
     return bytes.fromhex(rlp_encoding_hex)

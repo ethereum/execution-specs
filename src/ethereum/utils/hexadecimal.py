@@ -13,7 +13,6 @@ Hexadecimal strings specific utility functions used in this specification.
 """
 from ethereum.base_types import U256, Bytes, Bytes8, Bytes32, Uint
 from ethereum.crypto import Hash32
-from ethereum.frontier.eth_types import Address, Bloom, Root
 
 
 def has_hex_prefix(hex_string: str) -> bool:
@@ -120,57 +119,6 @@ def hex_to_hash(hex_string: str) -> Hash32:
         32-byte stream obtained from the given hexadecimal string.
     """
     return Hash32(bytes.fromhex(remove_hex_prefix(hex_string)))
-
-
-def hex_to_root(hex_string: str) -> Root:
-    """
-    Convert hex string to trie root.
-
-    Parameters
-    ----------
-    hex_string :
-        The hexadecimal string to be converted to trie root.
-
-    Returns
-    -------
-    root : `Root`
-        Trie root obtained from the given hexadecimal string.
-    """
-    return Root(bytes.fromhex(remove_hex_prefix(hex_string)))
-
-
-def hex_to_bloom(hex_string: str) -> Bloom:
-    """
-    Convert hex string to bloom.
-
-    Parameters
-    ----------
-    hex_string :
-        The hexadecimal string to be converted to bloom.
-
-    Returns
-    -------
-    bloom : `Bloom`
-        Bloom obtained from the given hexadecimal string.
-    """
-    return Bloom(bytes.fromhex(remove_hex_prefix(hex_string)))
-
-
-def hex_to_address(hex_string: str) -> Address:
-    """
-    Convert hex string to Address (20 bytes).
-
-    Parameters
-    ----------
-    hex_string :
-        The hexadecimal string to be converted to Address.
-
-    Returns
-    -------
-    address : `Address`
-        The address obtained from the given hexadecimal string.
-    """
-    return Address(bytes.fromhex(remove_hex_prefix(hex_string).rjust(40, "0")))
 
 
 def hex_to_uint(hex_string: str) -> Uint:
