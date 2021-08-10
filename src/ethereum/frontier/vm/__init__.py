@@ -19,7 +19,8 @@ from typing import List, Set, Tuple
 from ethereum.base_types import U256, Uint
 from ethereum.crypto import Hash32
 
-from ..eth_types import Address, Log, State
+from ..eth_types import Address, Log
+from ..state import State
 
 __all__ = ("Environment", "Evm")
 

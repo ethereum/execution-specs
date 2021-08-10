@@ -69,8 +69,6 @@ def encode(raw_data: RLP) -> Bytes:
         return encode_block(raw_data)
     elif isinstance(raw_data, Header):
         return encode_header(raw_data)
-    elif isinstance(raw_data, Account):
-        return encode_account(raw_data)
     elif isinstance(raw_data, Transaction):
         return encode_transaction(raw_data)
     elif isinstance(raw_data, Receipt):
@@ -102,12 +100,12 @@ def encode_bytes(raw_bytes: Bytes) -> Bytes:
     if len_raw_data == 1 and raw_bytes[0] < 0x80:
         return raw_bytes
     elif len_raw_data < 0x38:
-        return bytearray([0x80 + len_raw_data]) + raw_bytes
+        return bytes([0x80 + len_raw_data]) + raw_bytes
     else:
         # length of raw data represented as big endian bytes
         len_raw_data_as_be = len_raw_data.to_be_bytes()
         return (
-            bytearray([0xB7 + len(len_raw_data_as_be)])
+            bytes([0xB7 + len(len_raw_data_as_be)])
             + len_raw_data_as_be
             + raw_bytes
         )
@@ -424,21 +422,18 @@ def encode_header(raw_header_data: Header) -> Bytes:
     )
 
 
-def encode_account(raw_account_data: Account) -> Bytes:
+def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
     """
-    Encode `Account` dataclass
-    """
-    # TODO: This function should be split into 2 functions. One to
-    # patricialize the storage root and hashing code. Another for rlp
-    # encoding the previously obtained data.
-    # Imported here to prevent circular dependency
-    from .trie import map_keys, root
+    Encode `Account` dataclass.
 
+    Storage is not stored in the `Account` dataclass, so `Accounts` cannot be
+    enocoded with providing a storage root.
+    """
     return encode(
         (
             raw_account_data.nonce,
             raw_account_data.balance,
-            root(map_keys(raw_account_data.storage)),
+            storage_root,
             keccak256(raw_account_data.code),
         )
     )

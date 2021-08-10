@@ -6,8 +6,14 @@ from typing import Any
 from ethereum.base_types import U256, Uint
 from ethereum.crypto import keccak256
 from ethereum.frontier import rlp
-from ethereum.frontier.eth_types import Account, State
+from ethereum.frontier.eth_types import Account
 from ethereum.frontier.spec import BlockChain, get_recent_block_hashes
+from ethereum.frontier.state import (
+    State,
+    set_account,
+    set_storage,
+    storage_root,
+)
 from ethereum.frontier.vm import Environment
 from ethereum.frontier.vm.interpreter import process_call
 from ethereum.utils.hexadecimal import (
@@ -39,11 +45,11 @@ def run_test(test_dir: str, test_file: str) -> None:
     # We are checking only the storage here and not the whole state, as the
     # balances in the testcases don't change even though some value is
     # transferred along with code invocation. But our evm execution transfers
-    # the value as well as executing the code.
-    assert (
-        env.state[target].storage
-        == test_data["expected_post_state"][target].storage
-    )
+    # the value as well as executing the code
+    for addr in test_data["expected_post_state"]._storage_tries:
+        assert storage_root(
+            test_data["expected_post_state"], addr
+        ) == storage_root(env.state, addr)
 
 
 def load_test(test_dir: str, test_file: str) -> Any:
@@ -98,21 +104,25 @@ def json_to_env(json_data: Any) -> Environment:
 
 
 def json_to_state(raw: Any) -> State:
-    state = {}
-    for (addr, acc_state) in raw.items():
+    state = State()
+    for (addr_hex, acc_state) in raw.items():
+        addr = hex_to_address(addr_hex)
         account = Account(
             nonce=hex_to_uint(acc_state.get("nonce", "0x0")),
             balance=U256(hex_to_uint(acc_state.get("balance", "0x0"))),
             code=hex_to_bytes(acc_state.get("code", "")),
-            storage={},
         )
+        set_account(state, addr, account)
 
         for (k, v) in acc_state.get("storage", {}).items():
-            account.storage[hex_to_bytes32(k)] = U256.from_be_bytes(
-                hex_to_bytes32(v)
+            set_storage(
+                state,
+                addr,
+                hex_to_bytes32(k),
+                U256.from_be_bytes(hex_to_bytes32(v)),
             )
 
-        state[hex_to_address(addr)] = account
+        set_account(state, addr, account)
 
     return state
 

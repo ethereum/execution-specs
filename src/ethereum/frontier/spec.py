@@ -13,15 +13,14 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from ethereum.frontier.bloom import logs_bloom
 
 from .. import crypto
 from ..base_types import U256, Uint
-from . import rlp, trie, vm
+from . import rlp, vm
 from .eth_types import (
-    EMPTY_ACCOUNT,
     TX_BASE_COST,
     TX_DATA_COST_PER_NON_ZERO,
     TX_DATA_COST_PER_ZERO,
@@ -34,11 +33,10 @@ from .eth_types import (
     Log,
     Receipt,
     Root,
-    State,
     Transaction,
-    modify_state,
-    move_ether,
 )
+from .state import State, get_account, modify_state, move_ether, state_root
+from .trie import Trie, root, trie_set
 from .vm.interpreter import process_call
 
 BLOCK_REWARD = U256(5 * 10 ** 18)
@@ -137,7 +135,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     # Nth generation
     assert transactions_root == block.header.transactions_root
     assert receipt_root == block.header.receipt_root
-    assert trie.root(trie.map_keys(state)) == block.header.state_root
+    assert state_root(state) == block.header.state_root
     assert block_logs_bloom == block.header.bloom
 
     chain.blocks.append(block)
@@ -221,13 +219,15 @@ def apply_body(
         State after all transactions have been executed.
     """
     gas_available = block_gas_limit
-    receipts = []
+    transactions_trie: Trie[Optional[Transaction]] = Trie(
+        secured=False, default=None
+    )
+    receipts_trie: Trie[Optional[Receipt]] = Trie(secured=False, default=None)
     block_logs: Tuple[Log, ...] = ()
 
-    if coinbase not in state:
-        state[coinbase] = EMPTY_ACCOUNT
+    for i, tx in enumerate(transactions):
+        trie_set(transactions_trie, rlp.encode(Uint(i)), tx)
 
-    for tx in transactions:
         assert tx.gas <= gas_available
         sender_address = recover_sender(tx)
 
@@ -247,13 +247,15 @@ def apply_body(
         gas_used, logs = process_transaction(env, tx)
         gas_available -= gas_used
 
-        receipts.append(
+        trie_set(
+            receipts_trie,
+            rlp.encode(Uint(i)),
             Receipt(
-                post_state=Root(trie.root(trie.map_keys(state))),
+                post_state=state_root(state),
                 cumulative_gas_used=(block_gas_limit - gas_available),
                 bloom=logs_bloom(logs),
                 logs=logs,
-            )
+            ),
         )
         block_logs += logs
 
@@ -264,25 +266,12 @@ def apply_body(
 
     gas_remaining = block_gas_limit - gas_available
 
-    receipts_map = {
-        bytes(rlp.encode(Uint(k))): v for (k, v) in enumerate(receipts)
-    }
-    receipt_root = trie.root(trie.map_keys(receipts_map, secured=False))
-
-    transactions_map = {
-        bytes(rlp.encode(Uint(idx))): tx
-        for (idx, tx) in enumerate(transactions)
-    }
-    transactions_root = trie.root(
-        trie.map_keys(transactions_map, secured=False)
-    )
-
     block_logs_bloom = logs_bloom(block_logs)
 
     return (
         gas_remaining,
-        transactions_root,
-        receipt_root,
+        root(transactions_trie),
+        root(receipts_trie),
         block_logs_bloom,
         state,
     )
@@ -318,9 +307,9 @@ def process_transaction(
     assert validate_transaction(tx)
 
     sender = env.origin
-
-    assert env.state[sender].nonce == tx.nonce
-    assert env.state[sender].balance >= tx.gas * tx.gas_price
+    sender_account = get_account(env.state, sender)
+    assert sender_account.nonce == tx.nonce
+    assert sender_account.balance >= tx.gas * tx.gas_price
 
     gas = tx.gas - calculate_intrinsic_cost(tx)
 
@@ -334,8 +323,8 @@ def process_transaction(
     gas_used = tx.gas - gas_left
     move_ether(env.state, sender, env.coinbase, gas_used * tx.gas_price)
 
-    def increment_nonce(sender: Account) -> None:
-        sender.nonce += 1
+    def increment_nonce(sender_account: Account) -> None:
+        sender_account.nonce += 1
 
     modify_state(env.state, sender, increment_nonce)
 
@@ -568,27 +557,3 @@ def calculate_block_difficulty(
             GENESIS_DIFFICULTY,
             parent_difficulty - max_adjustment_delta,
         )
-
-
-def print_state(state: State) -> None:
-    """
-    Pretty prints the state.
-
-    Parameters
-    ----------
-    state :
-        Ethereum state.
-    """
-    nice = {}
-    for (address, account) in state.items():
-        nice[address.hex()] = {
-            "nonce": account.nonce,
-            "balance": account.balance,
-            "code": account.code.hex(),
-            "storage": {},
-        }
-
-        for (k, v) in account.storage.items():
-            nice[address.hex()]["storage"][k.hex()] = hex(v)  # type: ignore
-
-    print(nice)

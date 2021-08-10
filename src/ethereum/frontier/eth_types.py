@@ -13,7 +13,7 @@ Types re-used throughout the specification, which are specific to Ethereum.
 """
 
 from dataclasses import dataclass
-from typing import Callable, Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from ..base_types import (
     U256,
@@ -23,7 +23,6 @@ from ..base_types import (
     Bytes32,
     Bytes256,
     Uint,
-    modify,
     slotted_freezable,
 )
 from ..crypto import Hash32
@@ -67,14 +66,12 @@ class Account:
     nonce: Uint
     balance: U256
     code: bytes
-    storage: Storage
 
 
 EMPTY_ACCOUNT = Account(
     nonce=Uint(0),
     balance=U256(0),
     code=bytearray(),
-    storage={},
 )
 
 
@@ -137,36 +134,3 @@ class Receipt:
     cumulative_gas_used: Uint
     bloom: Bloom
     logs: Tuple[Log, ...]
-
-
-State = Dict[Address, Account]
-
-
-def modify_state(
-    state: State, address: Address, f: Callable[[Account], None]
-) -> None:
-    """
-    Modify an `Account` in the `State`.
-    """
-    state[address] = modify(state[address], f)
-
-
-def move_ether(
-    state: State,
-    sender_address: Address,
-    recipient_address: Address,
-    amount: U256,
-) -> None:
-    """
-    Move funds between accounts.
-    """
-
-    def reduce_sender_balance(sender: Account) -> None:
-        assert sender.balance >= amount
-        sender.balance -= amount
-
-    def increase_recipient_balance(recipient: Account) -> None:
-        recipient.balance += amount
-
-    modify_state(state, sender_address, reduce_sender_balance)
-    modify_state(state, recipient_address, increase_recipient_balance)
