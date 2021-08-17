@@ -9,13 +9,12 @@ from ethereum.frontier.eth_types import Account, Block, Header, Transaction
 from ethereum.frontier.rlp import rlp_hash
 from ethereum.frontier.spec import BlockChain, state_transition
 from ethereum.frontier.state import State, set_account, set_storage
+from ethereum.frontier.utils.hexadecimal import hex_to_address, hex_to_root
 from ethereum.utils.hexadecimal import (
-    hex_to_address,
     hex_to_bytes,
     hex_to_bytes8,
     hex_to_bytes32,
     hex_to_hash,
-    hex_to_root,
     hex_to_u256,
     hex_to_uint,
 )

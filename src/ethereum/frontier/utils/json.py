@@ -14,14 +14,16 @@ Json specific utilities used in this frontier version of specification.
 from typing import Any, Dict, Tuple
 
 from ethereum.frontier.eth_types import Block, Header, Transaction
-from ethereum.utils.hexadecimal import (
+from ethereum.frontier.utils.hexadecimal import (
     hex_to_address,
     hex_to_bloom,
+    hex_to_root,
+)
+from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
     hex_to_bytes32,
     hex_to_hash,
-    hex_to_root,
     hex_to_u256,
     hex_to_uint,
 )

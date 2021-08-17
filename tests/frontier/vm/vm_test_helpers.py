@@ -1,6 +1,5 @@
 import json
 import os
-from functools import partial
 from typing import Any
 
 from ethereum.base_types import U256, Uint
@@ -14,10 +13,10 @@ from ethereum.frontier.state import (
     set_storage,
     storage_root,
 )
+from ethereum.frontier.utils.hexadecimal import hex_to_address
 from ethereum.frontier.vm import Environment
 from ethereum.frontier.vm.interpreter import process_call
 from ethereum.utils.hexadecimal import (
-    hex_to_address,
     hex_to_bytes,
     hex_to_bytes32,
     hex_to_u256,
