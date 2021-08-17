@@ -12,7 +12,7 @@ Introduction
 Implementations of the EVM storage related instructions.
 """
 
-from ethereum.base_types import U256
+from ethereum.frontier.state import get_storage, set_storage
 
 from .. import Evm
 from ..gas import (
@@ -45,7 +45,7 @@ def sload(evm: Evm) -> None:
     evm.gas_left = subtract_gas(evm.gas_left, GAS_SLOAD)
 
     key = pop(evm.stack).to_be_bytes32()
-    value = evm.env.state[evm.current].storage.get(key, U256(0))
+    value = get_storage(evm.env.state, evm.current, key)
 
     push(evm.stack, value)
 
@@ -68,7 +68,7 @@ def sstore(evm: Evm) -> None:
     """
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
-    current_value = evm.env.state[evm.current].storage.get(key, U256(0))
+    current_value = get_storage(evm.env.state, evm.current, key)
 
     # TODO: SSTORE gas usage hasn't been tested yet. Testing this needs
     # other opcodes to be implemented.
@@ -85,8 +85,4 @@ def sstore(evm: Evm) -> None:
     if new_value == 0 and current_value != 0:
         evm.refund_counter += GAS_STORAGE_CLEAR_REFUND
 
-    if new_value == 0:
-        # Deletes a k-v pair from dict if key is present, else does nothing
-        evm.env.state[evm.current].storage.pop(key, None)
-    else:
-        evm.env.state[evm.current].storage[key] = new_value
+    set_storage(evm.env.state, evm.current, key, new_value)

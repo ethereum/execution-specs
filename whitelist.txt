@@ -235,3 +235,10 @@ selfdestruct
 ceil32
 rjust
 ljust
+
+subnode
+subnodes
+unencoded
+setitem
+getitem
+delitem

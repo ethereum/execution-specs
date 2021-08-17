@@ -13,21 +13,210 @@ The state trie is the structure responsible for storing
 `eth1spec.eth_types.Account` objects.
 """
 
-from copy import copy
-from typing import Mapping, MutableMapping, Set, Union, cast
+from dataclasses import dataclass, field
+from typing import (
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Sequence,
+    TypeVar,
+    Union,
+    cast,
+)
+
+from ethereum.utils.hexadecimal import hex_to_bytes
 
 from .. import crypto
-from ..base_types import U256, Bytes, Uint
+from ..base_types import U256, Bytes, Uint, slotted_freezable
 from . import rlp
 from .eth_types import Account, Receipt, Root, Transaction
 
 debug = False
 verbose = False
 
-Node = Union[Account, Bytes, Transaction, Receipt, Uint, U256]
+
+# note: an empty trie (regardless of whether it is secured) has root:
+#
+#   crypto.keccak256(RLP(b''))
+#       ==
+#   56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421 # noqa: E501,SC10
+#
+# also:
+#
+#   crypto.keccak256(RLP(()))
+#       ==
+#   1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347 # noqa: E501,SC10
+#
+# which is the sha3Uncles hash in block header with no uncles
+EMPTY_TRIE_ROOT = hex_to_bytes(
+    "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+)
+
+Node = Union[Account, Bytes, Transaction, Receipt, Uint, U256, None]
+T = TypeVar(
+    "T", Account, Bytes, Optional[Transaction], Optional[Receipt], Uint, U256
+)
 
 
-def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
+@slotted_freezable
+@dataclass
+class LeafNode:
+    """Leaf node in the Merkle Trie"""
+
+    rest_of_key: Bytes
+    value: Bytes
+
+
+@slotted_freezable
+@dataclass
+class ExtensionNode:
+    """Extension node in the Merkle Trie"""
+
+    key_segment: Bytes
+    subnode: rlp.RLP
+
+
+@slotted_freezable
+@dataclass
+class BranchNode:
+    """Branch node in the Merkle Trie"""
+
+    subnodes: List[rlp.RLP]
+    value: rlp.RLP
+
+
+InternalNode = Union[LeafNode, ExtensionNode, BranchNode]
+
+
+def encode_internal_node(node: Optional[InternalNode]) -> rlp.RLP:
+    """
+    Encodes a Merkle Trie node into its RLP form. The RLP will then be
+    serialized into a `Bytes` and hashed unless it is less that 32 bytes
+    when serialized.
+
+    This function also accepts `None`, representing the absence of a node,
+    which is encoded to `b""`.
+
+    Parameters
+    ----------
+    node : Optional[InternalNode]
+        The node to encode.
+
+    Returns
+    -------
+    encoded : `rlp.RLP`
+        The node encoded as RLP.
+    """
+    unencoded: rlp.RLP
+    if node is None:
+        unencoded = b""
+    elif isinstance(node, LeafNode):
+        unencoded = (
+            nibble_list_to_compact(node.rest_of_key, True),
+            node.value,
+        )
+    elif isinstance(node, ExtensionNode):
+        unencoded = (
+            nibble_list_to_compact(node.key_segment, False),
+            node.subnode,
+        )
+    elif isinstance(node, BranchNode):
+        unencoded = node.subnodes + [node.value]
+    else:
+        raise Exception(f"Invalid internal node type {type(node)}!")
+
+    encoded = rlp.encode(unencoded)
+    if len(encoded) < 32:
+        return unencoded
+    else:
+        return crypto.keccak256(encoded)
+
+
+def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
+    """
+    Encode a Node for storage in the Merkle Trie.
+
+    Currently mostly an unimplemented stub.
+    """
+    if isinstance(node, Account):
+        assert storage_root is not None
+        return rlp.encode_account(node, storage_root)
+    elif isinstance(node, (Transaction, Receipt)):
+        return rlp.encode(cast(rlp.RLP, node))
+    else:
+        return cast(Bytes, node)
+
+
+@dataclass
+class Trie(Generic[T]):
+    """
+    The Merkle Trie.
+    """
+
+    secured: bool
+    default: T
+    _data: Dict[Bytes, T] = field(default_factory=dict)
+
+
+def trie_set(trie: Trie[T], key: Bytes, value: T) -> None:
+    """
+    Stores an item in a Merkle Trie.
+
+    This method deletes the key if `value == trie.default`, because the Merkle
+    Trie represents the default value by omitting it from the trie.
+
+    Parameters
+    ----------
+    trie: `Trie`
+        Trie to store in.
+    key : `Bytes`
+        Key to lookup.
+    value : `T`
+        Node to insert at `key`.
+    """
+    if value == trie.default:
+        if key in trie._data:
+            del trie._data[key]
+    else:
+        trie._data[key] = value
+
+
+def trie_get(trie: Trie, key: Bytes) -> T:
+    """
+    Gets an item from the Merkle Trie.
+
+    This method returns `trie.default` if the key is missing.
+
+    Parameters
+    ----------
+    trie: `Trie`
+        Trie to lookup in.
+    key : `Bytes`
+        Key to lookup.
+
+    Returns
+    -------
+    node : `T`
+        Node at `key` in the trie.
+    """
+    return trie._data.get(key, trie.default)
+
+
+def common_prefix_length(a: Sequence, b: Sequence) -> int:
+    """
+    Find the longest common prefix of two sequences.
+    """
+    for i in range(len(a)):
+        if i >= len(b) or a[i] != b[i]:
+            return i
+    return len(a)
+
+
+def nibble_list_to_compact(x: Bytes, is_leaf: bool) -> bytearray:
     """
     Compresses nibble-list into a standard byte array with a flag.
 
@@ -38,22 +227,23 @@ def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
     Highest nibble::
 
         +---+---+----------+--------+
-        | _ | _ | terminal | parity |
+        | _ | _ | is_leaf | parity |
         +---+---+----------+--------+
           3   2      1         0
 
 
     The lowest bit of the nibble encodes the parity of the length of the
     remaining nibbles -- `0` when even and `1` when odd. The second lowest bit
-    encodes whether the key maps to a terminal node. The other two bits are not
+    is used to distinguish leaf and extension nodes. The other two bits are not
     used.
 
     Parameters
     ----------
     x :
         Array of nibbles.
-    terminal :
-        Flag denoting if the key points to a terminal (leaf) node.
+    is_leaf :
+        True if this is part of a leaf node, or false if it is an extension
+        node.
 
     Returns
     -------
@@ -63,123 +253,110 @@ def nibble_list_to_compact(x: Bytes, terminal: bool) -> bytearray:
     compact = bytearray()
 
     if len(x) % 2 == 0:  # ie even length
-        compact.append(16 * (2 * terminal))
+        compact.append(16 * (2 * is_leaf))
         for i in range(0, len(x), 2):
             compact.append(16 * x[i] + x[i + 1])
     else:
-        compact.append(16 * ((2 * terminal) + 1) + x[0])
+        compact.append(16 * ((2 * is_leaf) + 1) + x[0])
         for i in range(1, len(x), 2):
             compact.append(16 * x[i] + x[i + 1])
 
     return compact
 
 
-def map_keys(
-    obj: Mapping[Bytes, Node], secured: bool = True
-) -> Mapping[Bytes, Node]:
+def bytes_to_nibble_list(bytes: Bytes) -> Bytes:
     """
-    Maps all compact keys to nibble-list format. Optionally hashes the keys.
+    Converts a `Bytes` into to a sequence of nibbles (bytes with value < 16).
 
     Parameters
     ----------
-    obj :
-        Underlying trie key-value pairs.
-    secured :
-        Denotes whether the keys should be hashed. Defaults to `true`.
+    bytes: `Bytes`
+        The `Bytes` to convert.
+
+    Returns
+    -------
+    nibble_list : `Bytes`
+        The `Bytes` in nibble-list format.
+    """
+    nibble_list = bytearray(2 * len(bytes))
+    for byte_index, byte in enumerate(bytes):
+        nibble_list[byte_index * 2] = (byte & 0xF0) >> 4
+        nibble_list[byte_index * 2 + 1] = byte & 0x0F
+    return Bytes(nibble_list)
+
+
+def _prepare_trie(
+    trie: Trie,
+    get_storage_root: Callable[[Bytes], Bytes] = None,
+) -> Mapping[Bytes, Bytes]:
+    """
+    Prepares the trie for root calculation. Removes values that are empty,
+    hashes the keys (if `secured == True`) and encodes all the nodes.
+
+    Parameters
+    ----------
+    trie : `Trie`
+        The `Trie` to prepare.
+    get_storage_root : `Callable[[Bytes], Bytes]`
+        Function to get the storage root of an account. Needed to encode
+        `Account` objects.
 
     Returns
     -------
     out : `Mapping[eth1spec.base_types.Bytes, Node]`
         Object with keys mapped to nibble-byte form.
     """
-    mapped: MutableMapping[Bytes, Node] = {}
+    mapped: MutableMapping[Bytes, Bytes] = {}
 
-    # skip empty values, these are defined to be omitted from the trie
-    skip: Set[Bytes] = set()
-    for (k, v) in obj.items():
-        if v == b"":
-            skip.add(k)
-
-    for (preimage, value) in obj.items():
-        if preimage in skip:
-            continue
-
+    for (preimage, value) in trie._data.items():
+        if isinstance(value, Account):
+            assert get_storage_root is not None
+            encoded_value = encode_node(value, get_storage_root(preimage))
+        else:
+            encoded_value = encode_node(value)
+        # Empty values are represented by their absence
+        assert encoded_value != b""
         # "secure" tries hash keys once before construction
-        key = crypto.keccak256(preimage) if secured else preimage
-
-        nibble_list = bytearray(2 * len(key))
-        for i in range(2 * len(key)):
-            byte_idx = i // 2
-            if i % 2 == 0:
-                # get upper nibble
-                nibble_list[i] = (key[byte_idx] & 0xF0) >> 4
-            else:
-                # get lower nibble
-                nibble_list[i] = key[byte_idx] & 0x0F
-
-        mapped[Bytes(nibble_list)] = value
+        key = crypto.keccak256(preimage) if trie.secured else preimage
+        mapped[bytes_to_nibble_list(key)] = encoded_value
 
     return mapped
 
 
-def encode_leaf(leaf: Node) -> rlp.RLP:
-    """
-    RLP encode leaf nodes of the Trie.
-    Currently leaf nodes can be `Account`, `Transaction`, `Receipt`
-    dataclasses.
-    """
-    if isinstance(leaf, (Account, Transaction, Receipt)):
-        return rlp.encode(cast(rlp.RLP, leaf))
-
-    return leaf
-
-
-def root(obj: Mapping[Bytes, Node]) -> Root:
+def root(
+    trie: Trie,
+    get_storage_root: Callable[[Bytes], Bytes] = None,
+) -> Root:
     """
     Computes the root of a modified merkle patricia trie (MPT).
 
     Parameters
     ----------
-    obj :
-        Underlying trie key-value pairs.
+    trie : `Trie`
+        `Trie` to get the root of.
+    get_storage_root : `Callable[[Bytes], Bytes]`
+        Function to get the storage root of an account. Needed to encode
+        `Account` objects.
+
 
     Returns
     -------
     root : `eth1spec.eth_types.Root`
         MPT root of the underlying key-value pairs.
     """
-    root_node = patricialize(obj, Uint(0))
-    return crypto.keccak256(rlp.encode(root_node))
+    obj = _prepare_trie(trie, get_storage_root)
+
+    root_node = encode_internal_node(patricialize(obj, Uint(0)))
+    if len(rlp.encode(root_node)) < 32:
+        return crypto.keccak256(rlp.encode(root_node))
+    else:
+        assert isinstance(root_node, Bytes)
+        return root_node
 
 
-def node_cap(obj: Mapping[Bytes, Node], i: Uint) -> rlp.RLP:
-    """
-    Internal nodes less than 32 bytes in length are represented by themselves
-    directly. Larger nodes are hashed once to cap their size to 32 bytes.
-
-    Parameters
-    ----------
-    obj :
-        Underlying trie key-value pairs.
-    i :
-        Current trie level.
-
-    Returns
-    -------
-    hash : `eth1spec.eth_types.Hash32`
-        Internal node commitment.
-    """
-    if len(obj) == 0:
-        return b""
-    node = patricialize(obj, i)
-    encoded = rlp.encode(node)
-    if len(encoded) < 32:
-        return node
-
-    return crypto.keccak256(encoded)
-
-
-def patricialize(obj: Mapping[Bytes, Node], i: Uint) -> rlp.RLP:
+def patricialize(
+    obj: Mapping[Bytes, Bytes], level: Uint
+) -> Optional[InternalNode]:
     """
     Structural composition function.
 
@@ -189,8 +366,8 @@ def patricialize(obj: Mapping[Bytes, Node], i: Uint) -> rlp.RLP:
     Parameters
     ----------
     obj :
-        Underlying trie key-value pairs.
-    i :
+        Underlying trie key-value pairs, with keys in nibble-list format.
+    level :
         Current trie level.
 
     Returns
@@ -199,73 +376,53 @@ def patricialize(obj: Mapping[Bytes, Node], i: Uint) -> rlp.RLP:
         Root node of `obj`.
     """
     if len(obj) == 0:
-        # note: empty storage tree has merkle root:
-        #
-        #   crypto.keccak256(RLP(b''))
-        #       ==
-        #   56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421 # noqa: E501,SC100
-        #
-        # also:
-        #
-        #   crypto.keccak256(RLP(()))
-        #       ==
-        #   1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347 # noqa: E501,SC100
-        #
-        # which is the sha3Uncles hash in block header for no uncles
+        return None
 
-        return b""
-
-    key = next(iter(obj))  # get first key, will reuse below
+    arbitrary_key = next(iter(obj))
 
     # if leaf node
     if len(obj) == 1:
-        leaf = obj[key]
-        node: rlp.RLP = encode_leaf(leaf)
-        return (nibble_list_to_compact(key[i:], True), node)
+        leaf = LeafNode(arbitrary_key[level:], obj[arbitrary_key])
+        return leaf
 
     # prepare for extension node check by finding max j such that all keys in
     # obj have the same key[i:j]
-    substring = copy(key)
-    j = Uint(len(substring))
+    substring = arbitrary_key[level:]
+    prefix_length = len(substring)
     for key in obj:
-        j = min(j, Uint(len(key)))
-        substring = substring[:j]
-        for x in range(i, j):
-            # mismatch -- reduce j to best previous value
-            if key[x] != substring[x]:
-                j = Uint(x)
-                substring = substring[:j]
-                break
+        prefix_length = min(
+            prefix_length, common_prefix_length(substring, key[level:])
+        )
+
         # finished searching, found another key at the current level
-        if i == j:
+        if prefix_length == 0:
             break
 
     # if extension node
-    if i != j:
-        child = node_cap(obj, j)
-        return (nibble_list_to_compact(key[i:j], False), child)
+    if prefix_length > 0:
+        prefix = arbitrary_key[level : level + prefix_length]
+        return ExtensionNode(
+            prefix,
+            encode_internal_node(patricialize(obj, level + prefix_length)),
+        )
 
-    # otherwise branch node
-    def build_branch(j: int) -> rlp.RLP:
-        branch = {}
-        skip = {}
-        for (k, v) in obj.items():
-            if len(k) <= i:
-                skip[k] = True
-            if k in skip:
-                continue
-            if k[i] == j:
-                branch[k] = v
-
-        return node_cap(branch, i + 1)
-
-    value: Bytes = b""
+    branches: List[MutableMapping[Bytes, Bytes]] = []
+    for _ in range(16):
+        branches.append({})
+    value = b""
     for key in obj:
-        if len(key) == i:
+        if len(key) == level:
             # shouldn't ever have an account or receipt in an internal node
             if isinstance(obj[key], (Account, Receipt, Uint)):
                 raise TypeError()
-            value = cast(Bytes, obj[key])
-            break
+            value = obj[key]
+        else:
+            branches[key[level]][key] = obj[key]
 
-    return [build_branch(k) for k in range(16)] + [value]
+    return BranchNode(
+        [
+            encode_internal_node(patricialize(branches[k], level + 1))
+            for k in range(16)
+        ],
+        value,
+    )

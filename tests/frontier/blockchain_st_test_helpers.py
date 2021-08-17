@@ -5,15 +5,10 @@ from typing import Any, List, Tuple, cast
 
 from ethereum.base_types import U256
 from ethereum.frontier import rlp
-from ethereum.frontier.eth_types import (
-    Account,
-    Block,
-    Header,
-    State,
-    Transaction,
-)
+from ethereum.frontier.eth_types import Account, Block, Header, Transaction
 from ethereum.frontier.rlp import rlp_hash
 from ethereum.frontier.spec import BlockChain, state_transition
+from ethereum.frontier.state import State, set_account, set_storage
 from ethereum.utils.hexadecimal import (
     hex_to_address,
     hex_to_bytes,
@@ -158,22 +153,23 @@ def json_to_tx(raw: Any) -> Transaction:
 
 
 def json_to_state(raw: Any) -> State:
-    state = {}
-    for (addr, acc_state) in raw.items():
+    state = State()
+    for (addr_hex, acc_state) in raw.items():
+        addr = hex_to_address(addr_hex)
         account = Account(
             nonce=hex_to_uint(acc_state.get("nonce", "0x0")),
             balance=U256(hex_to_uint(acc_state.get("balance", "0x0"))),
             code=hex_to_bytes(acc_state.get("code", "")),
-            storage={},
         )
+        set_account(state, addr, account)
 
         for (k, v) in acc_state.get("storage", {}).items():
-            account.storage[hex_to_bytes32(k)] = U256.from_be_bytes(
-                hex_to_bytes32(v)
+            set_storage(
+                state,
+                addr,
+                hex_to_bytes32(k),
+                U256.from_be_bytes(hex_to_bytes32(v)),
             )
-
-        state[hex_to_address(addr)] = account
-
     return state
 
 

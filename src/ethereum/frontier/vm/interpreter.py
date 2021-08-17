@@ -17,7 +17,8 @@ from typing import Tuple
 from ethereum.base_types import U256, Uint
 from ethereum.frontier.vm.error import InvalidOpcode
 
-from ..eth_types import Address, Log, move_ether
+from ..eth_types import Address, Log
+from ..state import get_account, move_ether
 from . import Environment, Evm
 from .instructions import Ops, op_implementation
 from .runtime import get_valid_jump_destinations
@@ -67,7 +68,7 @@ def process_call(
         after execution, and logs is the list of `eth1spec.eth_types.Log`
         generated during execution.
     """
-    code = env.state[target].code
+    code = get_account(env.state, target).code
     valid_jump_destinations = get_valid_jump_destinations(code)
 
     evm = Evm(
