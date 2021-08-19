@@ -23,7 +23,7 @@ Tracking: `active`
 | [DappTools][dapptools-link] |Framework | - | [URL][dapptools-work] | All | [v0.48.0][dapptools-release] | ✅ 
 | [Remix][remix-link] | IDE |EthereumJS, Web3.js, Ethers |  | All |  | 🛠️
 | [Waffle][waffle-link] |Framework |Ganache, Ethers.js, Typechain |  | All | | 🛠️
-| [Brownie][brownie-link] |Framework |Web3.py |  | All | | ⭕
+| [Brownie][brownie-link] |Framework |Web3.py |  | All | [v1.16.0][brownie-release] | ✅
 | [OpenZeppelin][oz-link] |Smart Contract Security |Hardhat |  | ? | | 🛠️
 | [Tenderly][tenderly-link] |Contract Monitoring |Hardhat |  | 1559 |N/A | ✅
 | [hardhat-deploy][hardhat-deploy-link] |Contract Deployment |Hardhat, Ethers |  | ? | | ⭕
@@ -38,6 +38,7 @@ Tracking: `active`
 [remix-link]: https://github.com/ethereum/remix-project
 [waffle-link]: https://github.com/EthWorks/Waffle
 [brownie-link]: https://github.com/eth-brownie/brownie
+[brownie-release]: https://github.com/eth-brownie/brownie/releases/tag/v1.16.0
 [oz-link]: https://github.com/OpenZeppelin
 [tenderly-link]: https://github.com/Tenderly
 [hardhat-deploy-link]: https://github.com/wighawag/hardhat-deploy
