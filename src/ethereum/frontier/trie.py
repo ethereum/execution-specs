@@ -35,10 +35,6 @@ from ..base_types import U256, Bytes, Uint, slotted_freezable
 from . import rlp
 from .eth_types import Account, Receipt, Root, Transaction
 
-debug = False
-verbose = False
-
-
 # note: an empty trie (regardless of whether it is secured) has root:
 #
 #   crypto.keccak256(RLP(b''))
