@@ -1,4 +1,4 @@
-# Eth1.0 Specifications
+# Ethereum Execution Client Specifications
 
 ## Description
 
