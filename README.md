@@ -1,4 +1,4 @@
-# Ethereum Exeuction Specifications
+# Ethereum Execution Specifications
 
 ## Description
 
