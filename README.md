@@ -1,8 +1,9 @@
-# Ethereum Execution Specifications
+# Ethereum Execution Client Specifications
+
 
 ## Description
 
-This repository contains the consensus specifications related to the Ethereum execution engine, specifically the [pyspec](/src/eth1spec/spec.py) and specifications for [network upgrades](/network-upgrades). The [JSON-RPC API specification](https://github.com/ethereum/execution-apis) can be found in a separate repository. 
+This repository contains the consensus specifications related to the Ethereum execution client, specifically the [pyspec](/src/eth1spec/spec.py) and specifications for [network upgrades](/network-upgrades). The [JSON-RPC API specification](https://github.com/ethereum/execution-apis) can be found in a separate repository. 
 
 ### Ethereum Protocol Releases
 
