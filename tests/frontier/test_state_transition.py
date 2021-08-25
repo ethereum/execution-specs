@@ -20,13 +20,12 @@ def test_add() -> None:
     "test_file",
     [
         f"stTransactionTest/Opcodes_TransactionInit_d{i}g0v0.json"
-        for i in range(121)
-        if i not in [33, 37, 38]
-        # TODO: Tests 121-127 need the CALL Opcode
-        #  increase the range to 128 once CALL is implemeneted
+        for i in range(128)
+        if i not in [33, 37, 38, 124, 125, 126, 127]
         # NOTE:
-        # - Test 33 has no tests for Frontier
-        # - test 37, 38 have invalid opcodes that needs to be handled gracefully
+        # - Test 33, 127 has no tests for Frontier
+        # - test 37, 38 124, 125, 126 have invalid opcodes
+        # that need to be handled gracefully
     ],
 )
 def test_transaction_init(test_file: str) -> None:

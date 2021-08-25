@@ -177,7 +177,7 @@ def state_root(state: State) -> Bytes:
     Parameters
     ----------
     state: `State`
-        The state
+        The current state.
 
     Returns
     -------
@@ -189,6 +189,25 @@ def state_root(state: State) -> Bytes:
         return storage_root(state, address)
 
     return root(state._main_trie, get_storage_root=get_storage_root)
+
+
+def account_exists(state: State, address: Address) -> bool:
+    """
+    Checks if an account exists in the state trie
+
+    Parameters
+    ----------
+    state:
+        The state
+    address:
+        Address of the account that needs to be checked.
+
+    Returns
+    -------
+    account_exists : `bool`
+        True if account exists in the state trie, False otherwise
+    """
+    return address in state._main_trie._data
 
 
 def modify_state(
@@ -221,25 +240,42 @@ def move_ether(
     modify_state(state, recipient_address, increase_recipient_balance)
 
 
-def increment_nonce(state: State, sender_address: Address) -> None:
+def increment_nonce(state: State, address: Address) -> None:
     """
-    Increment Account nonce
+    Increments the nonce of an account.
+
+    Parameters
+    ----------
+    state:
+        The current state.
+
+    address:
+        Address of the account whose nonce needs to be incremented.
     """
 
-    def _increment_nonce(sender: Account) -> None:
+    def increase_nonce(sender: Account) -> None:
         sender.nonce += 1
 
-    modify_state(state, sender_address, _increment_nonce)
+    modify_state(state, address, increase_nonce)
 
 
-def write_code(
-    state: State, sender_address: Address, contract_code: Bytes
-) -> None:
+def set_code(state: State, address: Address, code: Bytes) -> None:
     """
-    Update Account code
+    Sets Account code.
+
+    Parameters
+    ----------
+    state:
+        The current state.
+
+    address:
+        Address of the account whose code needs to be update.
+
+    code:
+        The bytecode that needs to be set.
     """
 
-    def _write_code(sender: Account) -> None:
-        sender.code = contract_code
+    def write_code(sender: Account) -> None:
+        sender.code = code
 
-    modify_state(state, sender_address, _write_code)
+    modify_state(state, address, write_code)

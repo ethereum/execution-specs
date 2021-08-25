@@ -12,6 +12,8 @@ Introduction
 EVM gas constants and calculators.
 """
 from ethereum.base_types import U256, Uint
+from ethereum.frontier.eth_types import Address
+from ethereum.frontier.state import State, account_exists
 from ethereum.utils.numeric import ceil32
 
 from .error import OutOfGasError
@@ -38,6 +40,10 @@ GAS_LOG_TOPIC = U256(375)
 GAS_CREATE = U256(32000)
 GAS_CODE_DEPOSIT = U256(200)
 GAS_ZERO = U256(0)
+GAS_CALL = U256(40)
+GAS_NEW_ACCOUNT = U256(25000)
+GAS_CALL_VALUE = U256(9000)
+GAS_CALL_STIPEND = U256(2300)
 
 
 def subtract_gas(gas_left: U256, amount: U256) -> U256:
@@ -118,3 +124,48 @@ def calculate_gas_extend_memory(
     total_cost = calculate_memory_gas_cost(after_size)
     to_be_paid = total_cost - already_paid
     return to_be_paid
+
+
+def calculate_call_gas_cost(
+    state: State, gas: U256, to: Address, value: U256
+) -> U256:
+    """
+    Calculates the gas amount for executing Opcodes `CALL` and `CALLCODE`.
+
+    Parameters
+    ----------
+    state :
+        The current state.
+    gas :
+        The amount of gas provided to the message-call.
+    to:
+        The address of the recipient account.
+    value:
+        The amount of `ETH` that needs to be transferred.
+
+    Returns
+    -------
+    call_gas_cost: `ethereum.base_types.U256`
+        The total gas amount for executing Opcodes `CALL` and `CALLCODE`.
+    """
+    _account_exists = account_exists(state, to)
+    create_gas_cost = U256(0) if _account_exists else GAS_NEW_ACCOUNT
+    transfer_gas_cost = U256(0) if value == 0 else GAS_CALL_VALUE
+    return GAS_CALL + gas + create_gas_cost + transfer_gas_cost
+
+
+def calculate_message_call_gas_stipend(value: U256) -> U256:
+    """
+    Calculates the gas stipend for making the message call
+    with the given value.
+
+    Parameters
+    ----------
+    value:
+        The amount of `ETH` that needs to be transferred.
+    Returns
+    -------
+    message_call_gas_stipend: `ethereum.base_types.U256`
+        The gas stipend for making the message-call.
+    """
+    return U256(0) if value == 0 else GAS_CALL_STIPEND
