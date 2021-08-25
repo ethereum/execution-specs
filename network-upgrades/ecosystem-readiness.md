@@ -29,7 +29,7 @@ Tracking: `active`
 | [hardhat-deploy][hardhat-deploy-link] |Contract Deployment |Hardhat, Ethers |  | ? | | ⭕
 | [solidity-coverage][solidity-coverage-link] |Contract Testing |Hardhat, Solidity |  | ? | | ⭕
 | [Typechain][typechain-link] |Language Tool |Ethers, Truffle, Hardhat, Web3.js, Solidity |  | ? | | ⭕
-| [Solidity][solidity-link] |Language | - | | 3198 | [v0.8.7](solidity-release] | ✅
+| [Solidity][solidity-link] |Language | - | | 3198 | [v0.8.7][solidity-release] | ✅
 
 [hardhat-link]: https://github.com/nomiclabs/hardhat
 [hardhat-release]: https://github.com/nomiclabs/hardhat/releases/tag/hardhat-core-v2.5.0
