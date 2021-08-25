@@ -29,7 +29,7 @@ Tracking: `active`
 | [hardhat-deploy][hardhat-deploy-link] |Contract Deployment |Hardhat, Ethers |  | ? | | ⭕
 | [solidity-coverage][solidity-coverage-link] |Contract Testing |Hardhat, Solidity |  | ? | | ⭕
 | [Typechain][typechain-link] |Language Tool |Ethers, Truffle, Hardhat, Web3.js, Solidity |  | ? | | ⭕
-| [Solidity][solidity-link] |Language | - | [URL][solidity-work] | 3198 |  | 🛠️ 
+| [Solidity][solidity-link] |Language | - | | 3198 | [v0.8.7][solidity-release] | ✅
 
 [hardhat-link]: https://github.com/nomiclabs/hardhat
 [hardhat-release]: https://github.com/nomiclabs/hardhat/releases/tag/hardhat-core-v2.5.0
@@ -44,8 +44,8 @@ Tracking: `active`
 [hardhat-deploy-link]: https://github.com/wighawag/hardhat-deploy
 [solidity-coverage-link]: https://github.com/sc-forks/solidity-coverage
 [typechain-link]: https://github.com/ethereum-ts/TypeChain
-[solidity-link]: http://soliditylang.eth
-[solidity-work]: https://github.com/ethereum/solidity/pull/11647
+[solidity-link]: http://soliditylang.org
+[solidity-release]: https://github.com/ethereum/solidity/releases/tag/v0.8.7
 [dapptools-work]:https://github.com/dapphub/dapptools/pull/688
 [dapptools-release]: https://github.com/dapphub/dapptools/releases/tag/hevm%2F0.48.0
 
