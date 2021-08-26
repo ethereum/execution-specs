@@ -25,9 +25,9 @@ optimized_state_patches = {
     "root": optimized_trie.root,
     "trie_get": optimized_trie.trie_get,
     "trie_set": optimized_trie.trie_set,
-    "State": optimized_state.State,  # type: ignore
-    "set_storage": optimized_state.set_storage,  # type: ignore
-    "get_storage": optimized_state.get_storage,  # type: ignore
+    "State": optimized_state.State,
+    "set_storage": optimized_state.set_storage,
+    "get_storage": optimized_state.get_storage,
 }
 
 

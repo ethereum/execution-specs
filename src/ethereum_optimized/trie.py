@@ -33,7 +33,7 @@ from ethereum.frontier.trie import (
 )
 
 
-@dataclass(eq=False)
+@dataclass
 class Trie(Generic[T]):
     """An optimized Trie implementation."""
 

@@ -1,4 +1,3 @@
-# type: ignore
 """
 Optimized State
 ^^^^^^^^^^^^^^^
@@ -15,8 +14,9 @@ This module contains functions can be monkey patched into
 """
 
 from dataclasses import dataclass, field
-from typing import Dict
+from typing import Dict, cast
 
+import ethereum.frontier.state
 from ethereum.base_types import U256, Bytes
 from ethereum.frontier.eth_types import EMPTY_ACCOUNT, Account, Address
 from ethereum.frontier.state import state_root
@@ -35,13 +35,15 @@ class State:
     )
     _storage_tries: Dict[Address, Trie[U256]] = field(default_factory=dict)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         """
         Test for equality by comparing state roots.
         """
         if type(self) != type(other):
             return NotImplemented
-        return state_root(self) == state_root(other)
+        return state_root(
+            cast(ethereum.frontier.state.State, self)
+        ) == state_root(cast(ethereum.frontier.state.State, other))
 
 
 def set_storage(
