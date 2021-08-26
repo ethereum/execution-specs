@@ -38,21 +38,26 @@ def run_test(test_dir: str, test_file: str) -> None:
         env=env,
     )
 
-    gas_left, refund, logs, accounts_to_delete = process_message_call(
+    evm = process_message_call(
         message=message,
         env=env,
     )
 
-    assert gas_left == test_data["expected_gas_left"]
-    assert keccak256(rlp.encode(logs)) == test_data["expected_logs_hash"]
-    # We are checking only the storage here and not the whole state, as the
-    # balances in the testcases don't change even though some value is
-    # transferred along with code invocation. But our evm execution transfers
-    # the value as well as executing the code
-    for addr in test_data["expected_post_state"]._storage_tries:
-        assert storage_root(
-            test_data["expected_post_state"], addr
-        ) == storage_root(env.state, addr)
+    if test_data["has_post_state"]:
+        assert evm.gas_left == test_data["expected_gas_left"]
+        assert (
+            keccak256(rlp.encode(evm.logs)) == test_data["expected_logs_hash"]
+        )
+        # We are checking only the storage here and not the whole state, as the
+        # balances in the testcases don't change even though some value is
+        # transferred along with code invocation. But our evm execution transfers
+        # the value as well as executing the code
+        for addr in test_data["expected_post_state"]._storage_tries:
+            assert storage_root(
+                test_data["expected_post_state"], addr
+            ) == storage_root(evm.env.state, addr)
+    else:
+        assert evm.has_erred is True
 
 
 def load_test(test_dir: str, test_file: str) -> Any:
@@ -74,6 +79,7 @@ def load_test(test_dir: str, test_file: str) -> Any:
         "expected_gas_left": hex_to_u256(json_data.get("gas", "0x64")),
         "expected_logs_hash": hex_to_bytes(json_data.get("logs", "0x00")),
         "expected_post_state": json_to_state(json_data.get("post", {})),
+        "has_post_state": bool(json_data.get("post", {})),
     }
 
 

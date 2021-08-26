@@ -253,3 +253,7 @@ DATASET
 fnv
 geth
 sqrt
+
+precompiled
+ripemd160
+ecrecover

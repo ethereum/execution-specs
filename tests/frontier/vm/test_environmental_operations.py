@@ -2,7 +2,6 @@ from functools import partial
 
 import pytest
 
-from ethereum.frontier.vm.error import StackUnderflowError
 from tests.frontier.vm.vm_test_helpers import run_test
 
 run_environmental_vm_test = partial(
@@ -71,17 +70,13 @@ def test_calldatasize(test_file: str) -> None:
         "calldatacopy_DataIndexTooHigh.json",
         "calldatacopy_DataIndexTooHigh2.json",
         "calldatacopy_sec.json",
+        "calldatacopyUnderFlow.json"
         # TODO: Run the above test cases which end with `_return.json` once
         # RETURN opcode is implemented.
     ],
 )
 def test_calldatacopy(test_file: str) -> None:
     run_environmental_vm_test(test_file)
-
-
-def test_calldatacopy_fails_stack_underflow_error() -> None:
-    with pytest.raises(StackUnderflowError):
-        run_environmental_vm_test("calldatacopyUnderFlow.json")
 
 
 def test_codesize() -> None:

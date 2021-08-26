@@ -14,7 +14,7 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass
-from typing import List, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 from ethereum.base_types import U256, Bytes, Uint
 from ethereum.crypto import Hash32
@@ -55,6 +55,7 @@ class Message:
     gas: U256
     value: U256
     data: Bytes
+    code_address: Optional[Address]
     code: Bytes
     depth: Uint
 
@@ -76,3 +77,4 @@ class Evm:
     message: Message
     output: Bytes
     accounts_to_delete: Set[Address]
+    has_erred: bool

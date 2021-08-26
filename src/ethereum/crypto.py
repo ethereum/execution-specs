@@ -20,6 +20,8 @@ from .base_types import U256, Bytes, Bytes32, Bytes64
 Hash32 = Bytes32
 Hash64 = Bytes64
 
+SECP256K1N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+
 
 def keccak256(buffer: Bytes) -> Hash32:
     """

@@ -83,9 +83,14 @@ def create(evm: Evm) -> None:
         code=call_data,
         current_target=contract_address,
         depth=evm.message.depth + 1,
+        code_address=None,
     )
     child_evm = process_create_message(child_message, evm.env)
-    push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
+    if child_evm.has_erred:
+        push(evm.stack, U256(0))
+        evm.env.state = child_evm.env.state
+    else:
+        push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
     evm.gas_left = child_evm.gas_left
     evm.refund_counter += child_evm.refund_counter
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
@@ -176,10 +181,16 @@ def call(evm: Evm) -> None:
         code=code,
         current_target=to,
         depth=evm.message.depth + 1,
+        code_address=to,
     )
     child_evm = process_message(child_message, evm.env)
-    # TODO: push 0 to stack if message call results in an error
-    push(evm.stack, U256(1))
+
+    if child_evm.has_erred:
+        push(evm.stack, U256(0))
+        evm.env.state = child_evm.env.state
+    else:
+        push(evm.stack, U256(1))
+
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
     memory_write(
         evm.memory,
@@ -254,10 +265,15 @@ def callcode(evm: Evm) -> None:
         code=code,
         current_target=to,
         depth=evm.message.depth + 1,
+        code_address=code_address,
     )
+
     child_evm = process_message(child_message, evm.env)
-    # TODO: push 0 to stack if message call results in an error
-    push(evm.stack, U256(1))
+    if child_evm.has_erred:
+        push(evm.stack, U256(0))
+        evm.env.state = child_evm.env.state
+    else:
+        push(evm.stack, U256(1))
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
     memory_write(
         evm.memory,

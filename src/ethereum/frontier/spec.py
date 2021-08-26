@@ -15,6 +15,7 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
+from ethereum.crypto import SECP256K1N
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.frontier.bloom import logs_bloom
 from ethereum.frontier.state import destroy_account, increment_nonce
@@ -131,6 +132,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.transactions,
         block.ommers,
     )
+    chain.state = state
 
     assert gas_used == block.header.gas_used
     assert compute_ommers_hash(block) == block.header.ommers_hash
@@ -316,7 +318,7 @@ def apply_body(
             state=state,
         )
 
-        gas_used, logs = process_transaction(env, tx)
+        gas_used, logs, state = process_transaction(env, tx)
         gas_available -= gas_used
 
         trie_set(
@@ -358,7 +360,7 @@ def compute_ommers_hash(block: Block) -> Hash32:
 
 def process_transaction(
     env: vm.Environment, tx: Transaction
-) -> Tuple[U256, Tuple[Log, ...]]:
+) -> Tuple[U256, Tuple[Log, ...], State]:
     """
     Execute a transaction against the provided environment.
 
@@ -395,16 +397,17 @@ def process_transaction(
         env,
     )
 
-    gas_left, refund, logs, accounts_to_delete = process_message_call(
-        message, env
-    )
-    gas_used = tx.gas - gas_left - refund
+    evm = process_message_call(message, env)
+
+    gas_used = gas - evm.gas_left
+    gas_refund = min(gas_used // 2, evm.refund_counter)
+    gas_used = tx.gas - evm.gas_left - gas_refund
     move_ether(env.state, sender, env.coinbase, gas_used * tx.gas_price)
 
-    for address in accounts_to_delete:
+    for address in evm.accounts_to_delete:
         destroy_account(env.state, address)
 
-    return gas_used, logs
+    return gas_used, evm.logs, evm.env.state
 
 
 def validate_transaction(tx: Transaction) -> bool:
@@ -469,15 +472,11 @@ def recover_sender(tx: Transaction) -> Address:
     #  if v > 28:
     #      v = v - (chain_id*2+8)
 
-    secp256k1n = (
-        0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
-    )
-
     assert v == 27 or v == 28
-    assert 0 < r and r < secp256k1n
+    assert 0 < r and r < SECP256K1N
 
     # TODO: this causes error starting in block 46169 (or 46170?)
-    # assert 0<s_int and s_int<(secp256k1n//2+1)
+    # assert 0<s_int and s_int<(SECP256K1N//2+1)
 
     public_key = crypto.secp256k1_recover(r, s, v - 27, signing_hash(tx))
     return Address(crypto.keccak256(public_key)[12:32])
