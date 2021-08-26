@@ -192,6 +192,7 @@ class Ops(enum.Enum):
     RETURN = 0xF3
     CALL = 0xF1
     CALLCODE = 0xF2
+    SELFDESTRUCT = 0xFF
 
 
 op_implementation: Dict[Ops, Callable] = {
@@ -323,4 +324,5 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.RETURN: system_instructions.return_,
     Ops.CALL: system_instructions.call,
     Ops.CALLCODE: system_instructions.callcode,
+    Ops.SELFDESTRUCT: system_instructions.selfdestruct,
 }

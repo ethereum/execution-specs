@@ -38,7 +38,7 @@ def run_test(test_dir: str, test_file: str) -> None:
         env=env,
     )
 
-    gas_left, logs = process_message_call(
+    gas_left, refund, logs, accounts_to_delete = process_message_call(
         message=message,
         env=env,
     )
