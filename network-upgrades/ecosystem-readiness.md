@@ -110,7 +110,7 @@ Many of these projects may not update until much closer to the designated London
 [metamask-work]: https://github.com/MetaMask/metamask-mobile/issues/2571
 [ethernodes-link]: https://www.ethernodes.org/
 [trezor-link]: https://trezor.io
-[trezor-work]: https://github.com/trezor/trezor-firmware/issues/1604
+[trezor-work]: https://github.com/trezor/connect/pull/874
 [walleth-link]: https://walleth.org
 [walleth-work]: https://github.com/walleth/walleth/issues/523
 [ledger-link]: https://ledger.com
