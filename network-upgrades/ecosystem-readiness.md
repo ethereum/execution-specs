@@ -28,7 +28,7 @@ Tracking: `active`
 | [Tenderly][tenderly-link] |Contract Monitoring |Hardhat |  | 1559 |N/A | ✅
 | [hardhat-deploy][hardhat-deploy-link] |Contract Deployment |Hardhat, Ethers |  | ? | | ⭕
 | [solidity-coverage][solidity-coverage-link] |Contract Testing |Hardhat, Solidity |  | ? | | ⭕
-| [Typechain][typechain-link] |Language Tool |Ethers, Truffle, Hardhat, Web3.js, Solidity |  | ? | | ⭕
+| [Typechain][typechain-link] |Language Tool |Ethers, Truffle, Hardhat, Web3.js, Solidity |  | ? | [Releases][typechain-release] | ✅
 | [Solidity][solidity-link] |Language | - | | 3198 | [v0.8.7][solidity-release] | ✅
 
 [hardhat-link]: https://github.com/nomiclabs/hardhat
@@ -44,6 +44,7 @@ Tracking: `active`
 [hardhat-deploy-link]: https://github.com/wighawag/hardhat-deploy
 [solidity-coverage-link]: https://github.com/sc-forks/solidity-coverage
 [typechain-link]: https://github.com/ethereum-ts/TypeChain
+[typechain-release]: https://github.com/ethereum-ts/TypeChain/releases
 [solidity-link]: http://soliditylang.org
 [solidity-release]: https://github.com/ethereum/solidity/releases/tag/v0.8.7
 [dapptools-work]:https://github.com/dapphub/dapptools/pull/688
