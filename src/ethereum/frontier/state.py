@@ -219,3 +219,27 @@ def move_ether(
 
     modify_state(state, sender_address, reduce_sender_balance)
     modify_state(state, recipient_address, increase_recipient_balance)
+
+
+def increment_nonce(state: State, sender_address: Address) -> None:
+    """
+    Increment Account nonce
+    """
+
+    def _increment_nonce(sender: Account) -> None:
+        sender.nonce += 1
+
+    modify_state(state, sender_address, _increment_nonce)
+
+
+def write_code(
+    state: State, sender_address: Address, contract_code: Bytes
+) -> None:
+    """
+    Update Account code
+    """
+
+    def _write_code(sender: Account) -> None:
+        sender.code = contract_code
+
+    modify_state(state, sender_address, _write_code)

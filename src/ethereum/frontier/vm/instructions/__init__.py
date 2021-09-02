@@ -27,6 +27,7 @@ from . import log as log_instructions
 from . import memory as memory_instructions
 from . import stack as stack_instructions
 from . import storage as storage_instructions
+from . import system as system_instructions
 
 
 class Ops(enum.Enum):
@@ -186,6 +187,10 @@ class Ops(enum.Enum):
     LOG3 = 0xA3
     LOG4 = 0xA4
 
+    # System Operations
+    CREATE = 0xF0
+    RETURN = 0xF3
+
 
 op_implementation: Dict[Ops, Callable] = {
     Ops.STOP: control_flow_instructions.stop,
@@ -312,4 +317,6 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.LOG2: log_instructions.log2,
     Ops.LOG3: log_instructions.log3,
     Ops.LOG4: log_instructions.log4,
+    Ops.CREATE: system_instructions.create,
+    Ops.RETURN: system_instructions.return_,
 }

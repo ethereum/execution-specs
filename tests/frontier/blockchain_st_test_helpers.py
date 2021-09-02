@@ -3,7 +3,7 @@ import os
 from functools import partial
 from typing import Any, List, Tuple, cast
 
-from ethereum.base_types import U256
+from ethereum.base_types import U256, Bytes0
 from ethereum.frontier import rlp
 from ethereum.frontier.eth_types import Account, Block, Header, Transaction
 from ethereum.frontier.rlp import rlp_hash
@@ -142,7 +142,7 @@ def json_to_tx(raw: Any) -> Transaction:
         hex_to_u256(raw.get("nonce")),
         hex_to_u256(raw.get("gasPrice")),
         hex_to_u256(raw.get("gasLimit")),
-        None if raw.get("to") == "" else hex_to_address(raw.get("to")),
+        Bytes0(b"") if raw.get("to") == "" else hex_to_address(raw.get("to")),
         hex_to_u256(raw.get("value")),
         hex_to_bytes(raw.get("data")),
         hex_to_u256(raw.get("v")),

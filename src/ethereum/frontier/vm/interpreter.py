@@ -11,14 +11,15 @@ Introduction
 
 A straightforward interpreter that executes EVM code.
 """
-
 from typing import Tuple
 
-from ethereum.base_types import U256, Uint
-from ethereum.frontier.vm.error import InvalidOpcode
+from ethereum.base_types import U256, Bytes0, Uint
+from ethereum.frontier.vm import Message
+from ethereum.frontier.vm.error import InvalidOpcode, StackDepthLimitError
+from ethereum.frontier.vm.gas import GAS_CODE_DEPOSIT, subtract_gas
 
-from ..eth_types import Address, Log
-from ..state import get_account, move_ether
+from ..eth_types import Log
+from ..state import move_ether, write_code
 from . import Environment, Evm
 from .instructions import Ops, op_implementation
 from .runtime import get_valid_jump_destinations
@@ -26,37 +27,20 @@ from .runtime import get_valid_jump_destinations
 PC_CHANGING_OPS = {Ops.JUMP, Ops.JUMPI}
 
 
-def process_call(
-    caller: Address,
-    target: Address,
-    data: bytes,
-    value: U256,
-    gas: U256,
-    depth: Uint,
-    env: Environment,
+STACK_DEPTH_LIMIT = U256(1024)
+
+
+def process_message_call(
+    message: Message, env: Environment
 ) -> Tuple[U256, Tuple[Log, ...]]:
     """
-    Executes a call from the `caller` to the `target` in a new EVM instance.
+    If `message.current` is empty then it creates a smart contract
+    else it executes a call from the `message.caller` to the `message.target`.
 
     Parameters
     ----------
-    caller :
-        Account which initiated this call.
-
-    target :
-        Account whose code will be executed.
-
-    data :
-        Array of bytes provided to the code in `target`.
-
-    value :
-        Value to be transferred.
-
-    gas :
-        Gas provided for the code in `target`.
-
-    depth :
-        Number of call/contract creation environments on the call stack.
+    message :
+        Transaction specific items.
 
     env :
         External items required for EVM execution.
@@ -68,31 +52,105 @@ def process_call(
         after execution, and logs is the list of `eth1spec.eth_types.Log`
         generated during execution.
     """
-    code = get_account(env.state, target).code
-    valid_jump_destinations = get_valid_jump_destinations(code)
+    gas_before = message.gas
 
+    if message.target == Bytes0(b""):
+        evm = process_create_message(message, env)
+    else:
+        evm = process_message(message, env)
+
+    gas_used = gas_before - evm.gas_left
+    refund = min(gas_used // 2, evm.refund_counter)
+
+    return evm.gas_left + refund, evm.logs
+
+
+def process_create_message(message: Message, env: Environment) -> Evm:
+    """
+    Executes a call to create a smart contract.
+
+    Parameters
+    ----------
+    message :
+        Transaction specific items.
+    env :
+        External items required for EVM execution.
+
+    Returns
+    -------
+    evm: `ethereum.frontier.vm.Evm`
+        Items containing execution specific objects.
+    """
+    evm = process_message(message, env)
+    contract_code = evm.output
+    if contract_code:
+        contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
+        evm.gas_left = subtract_gas(evm.gas_left, contract_code_gas)
+        write_code(env.state, message.current_target, contract_code)
+    return evm
+
+
+def process_message(message: Message, env: Environment) -> Evm:
+    """
+    Executes a call to create a smart contract.
+
+    Parameters
+    ----------
+    message :
+        Transaction specific items.
+    env :
+        External items required for EVM execution.
+
+    Returns
+    -------
+    evm: `ethereum.frontier.vm.Evm`
+        Items containing execution specific objects
+    """
+    if message.depth > STACK_DEPTH_LIMIT:
+        raise StackDepthLimitError("Stack depth limit reached")
+    if message.value != 0:
+        move_ether(
+            env.state, message.caller, message.current_target, message.value
+        )
+
+    evm = execute_code(message, env)
+    # TODO: revert state check if code execution resulted in error
+    return evm
+
+
+def execute_code(message: Message, env: Environment) -> Evm:
+    """
+    Executes bytecode present in the `message`.
+
+    Parameters
+    ----------
+    message :
+        Transaction specific items.
+    env :
+        External items required for EVM execution.
+
+    Returns
+    -------
+    evm: `ethereum.vm.EVM`
+        Items containing execution specific objects
+    """
+    code = message.code
+    valid_jump_destinations = get_valid_jump_destinations(code)
     evm = Evm(
         pc=Uint(0),
         stack=[],
         memory=bytearray(),
         code=code,
-        gas_left=gas,
-        current=target,
-        caller=caller,
-        data=data,
-        value=value,
-        depth=depth,
+        gas_left=message.gas,
         env=env,
         valid_jump_destinations=valid_jump_destinations,
         logs=(),
         refund_counter=Uint(0),
         running=True,
+        message=message,
+        output=b"",
     )
-
-    if evm.value != 0:
-        move_ether(evm.env.state, evm.caller, evm.current, evm.value)
-
-    while evm.running:
+    while evm.running and evm.pc < len(evm.code):
         try:
             op = Ops(evm.code[evm.pc])
         except ValueError:
@@ -105,8 +163,4 @@ def process_call(
 
         if evm.pc >= len(evm.code):
             evm.running = False
-
-    gas_used = gas - evm.gas_left
-    refund = min(gas_used // 2, evm.refund_counter)
-
-    return evm.gas_left + refund, evm.logs
+    return evm

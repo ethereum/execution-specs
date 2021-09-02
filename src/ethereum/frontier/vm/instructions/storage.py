@@ -45,7 +45,7 @@ def sload(evm: Evm) -> None:
     evm.gas_left = subtract_gas(evm.gas_left, GAS_SLOAD)
 
     key = pop(evm.stack).to_be_bytes32()
-    value = get_storage(evm.env.state, evm.current, key)
+    value = get_storage(evm.env.state, evm.message.current_target, key)
 
     push(evm.stack, value)
 
@@ -68,7 +68,7 @@ def sstore(evm: Evm) -> None:
     """
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
-    current_value = get_storage(evm.env.state, evm.current, key)
+    current_value = get_storage(evm.env.state, evm.message.current_target, key)
 
     # TODO: SSTORE gas usage hasn't been tested yet. Testing this needs
     # other opcodes to be implemented.
@@ -85,4 +85,4 @@ def sstore(evm: Evm) -> None:
     if new_value == 0 and current_value != 0:
         evm.refund_counter += GAS_STORAGE_CLEAR_REFUND
 
-    set_storage(evm.env.state, evm.current, key, new_value)
+    set_storage(evm.env.state, evm.message.current_target, key, new_value)

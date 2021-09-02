@@ -56,4 +56,10 @@ class InvalidJumpDestError(Exception):
     `PUSH-N` opcodes.
     """
 
+
+class StackDepthLimitError(Exception):
+    """
+    Raised when the message depth is greater than `1024`
+    """
+
     pass

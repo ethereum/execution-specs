@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 from ethereum.frontier.bloom import logs_bloom
+from ethereum.frontier.state import increment_nonce
+from ethereum.frontier.utils.message import prepare_message
 
 from .. import crypto
 from ..base_types import U256, Uint
@@ -37,7 +39,7 @@ from .eth_types import (
 )
 from .state import State, get_account, modify_state, move_ether, state_root
 from .trie import Trie, root, trie_set
-from .vm.interpreter import process_call
+from .vm.interpreter import process_message_call
 
 BLOCK_REWARD = U256(5 * 10 ** 18)
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
@@ -312,23 +314,22 @@ def process_transaction(
     assert sender_account.balance >= tx.gas * tx.gas_price
 
     gas = tx.gas - calculate_intrinsic_cost(tx)
+    increment_nonce(env.state, sender)
 
-    if tx.to is None:
-        raise NotImplementedError()  # TODO
-
-    gas_left, logs = process_call(
-        sender, tx.to, tx.data, tx.value, gas, Uint(0), env
+    message = prepare_message(
+        sender,
+        tx.to,
+        tx.value,
+        tx.data,
+        gas,
+        env,
     )
 
+    gas_left, logs = process_message_call(message, env)
     gas_used = tx.gas - gas_left
     move_ether(env.state, sender, env.coinbase, gas_used * tx.gas_price)
 
-    def increment_nonce(sender_account: Account) -> None:
-        sender_account.nonce += 1
-
-    modify_state(env.state, sender, increment_nonce)
-
-    return (gas_used, logs)
+    return gas_used, logs
 
 
 def validate_transaction(tx: Transaction) -> bool:

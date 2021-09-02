@@ -13,6 +13,7 @@ Json specific utilities used in this frontier version of specification.
 """
 from typing import Any, Dict, Tuple
 
+from ethereum.base_types import Bytes0
 from ethereum.frontier.eth_types import Block, Header, Transaction
 from ethereum.frontier.utils.hexadecimal import (
     hex_to_address,
@@ -50,7 +51,7 @@ def json_to_transactions(json_data: Dict[Any, Any]) -> Tuple[Transaction, ...]:
             gas_price=hex_to_u256(transaction["gasPrice"]),
             gas=hex_to_u256(transaction["gas"]),
             to=(
-                None
+                Bytes0(b"")
                 if transaction["to"] == ""
                 else hex_to_address(transaction["to"])
             ),

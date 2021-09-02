@@ -8,6 +8,7 @@ Bytes32
 Bytes64
 Bytes8
 Bytes256
+Bytes0
 coinbase
 coincurve
 crypto
