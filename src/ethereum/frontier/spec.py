@@ -15,12 +15,13 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
+from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.frontier.bloom import logs_bloom
 from ethereum.frontier.state import increment_nonce
 from ethereum.frontier.utils.message import prepare_message
 
 from .. import crypto
-from ..base_types import U256, Uint
+from ..base_types import U256, U256_CEIL_VALUE, Uint
 from . import rlp, vm
 from .eth_types import (
     TX_BASE_COST,
@@ -154,9 +155,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_header :
         Parent Header of the header to check for correctness
     """
-    # TODO: get rid of the comment below once
-    #  check_proof_of_work is implemented
-    # assert check_proof_of_work(header)
+    validate_proof_of_work(header)
     assert header.difficulty == calculate_block_difficulty(
         header.number,
         header.timestamp,
@@ -167,6 +166,76 @@ def validate_header(header: Header, parent_header: Header) -> None:
     assert header.timestamp > parent_header.timestamp
     assert header.number == parent_header.number + 1
     assert len(header.extra_data) <= 32
+
+
+def generate_header_hash_for_pow(header: Header) -> Hash32:
+    """
+    Generate rlp hash of the header which is to be used for Proof-of-Work
+    verification. This hash is generated with the following header fields:
+    * parent_hash
+    * ommers_hash
+    * coinbase
+    * state_root
+    * transactions_root
+    * receipt_root
+    * bloom
+    * difficulty
+    * number
+    * gas_limit
+    * gas_used
+    * timestamp
+    * extra_data
+
+    In other words the PoW artefacts which are `mix_diges` and `nonce` are
+    ignored while calculating this hash.
+
+    Parameters
+    ----------
+    header :
+        The header object for which the hash is to be generated.
+
+    Returns
+    -------
+    hash : `Hash32`
+        The PoW valid rlp hash of the passed in header.
+    """
+    header_data_without_pow_artefacts = [
+        header.parent_hash,
+        header.ommers_hash,
+        header.coinbase,
+        header.state_root,
+        header.transactions_root,
+        header.receipt_root,
+        header.bloom,
+        header.difficulty,
+        header.number,
+        header.gas_limit,
+        header.gas_used,
+        header.timestamp,
+        header.extra_data,
+    ]
+
+    return rlp.rlp_hash(header_data_without_pow_artefacts)
+
+
+def validate_proof_of_work(header: Header) -> None:
+    """
+    Validates the Proof of Work constraints.
+
+    Parameters
+    ----------
+    header :
+        Header of interest.
+    """
+    header_hash = generate_header_hash_for_pow(header)
+    nonce = header.nonce
+    cache = generate_cache(header.number)
+    mix_digest, result = hashimoto_light(
+        header_hash, nonce, cache, dataset_size(header.number)
+    )
+
+    assert mix_digest == header.mix_digest
+    assert Uint.from_be_bytes(result) <= (U256_CEIL_VALUE // header.difficulty)
 
 
 def apply_body(
@@ -475,26 +544,6 @@ def get_block_header_by_hash(hash: Hash32, chain: BlockChain) -> Header:
             return block.header
     else:
         raise ValueError(f"Could not find header with hash={hash.hex()}")
-
-
-def check_proof_of_work(header: Header) -> bool:
-    """
-    Validates the Proof of Work constraints.
-
-    Parameters
-    ----------
-    header :
-        Header of interest.
-
-    Returns
-    -------
-    check : `bool`
-        True if Proof of Work constraints are satisfied, False otherwise.
-    """
-    # TODO: Implement this method once proof of work
-    #  algorithm is implemented
-    #  https://github.com/ethereum/eth1.0-specs/issues/238
-    raise NotImplementedError
 
 
 def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:

@@ -16,11 +16,13 @@ crypto
 encodings
 endian
 eth
+ethash
 ethereum
 evm
 getsource
 Hash32
 hasher
+hashimoto
 hardfork
 hardforks
 idx

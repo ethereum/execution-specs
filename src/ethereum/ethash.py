@@ -12,9 +12,9 @@ Introduction
 Ethash algorithm related functionalities.
 """
 
-from typing import Tuple, Union
+from typing import Callable, Tuple, Union
 
-from ethereum.base_types import UINT32_MAX_VALUE, Uint, Uint32
+from ethereum.base_types import UINT32_MAX_VALUE, Bytes8, Uint, Uint32
 from ethereum.crypto import Hash32, Hash64, keccak256, keccak512
 from ethereum.utils.numeric import (
     is_prime,
@@ -32,6 +32,7 @@ HASH_BYTES = 64
 MIX_BYTES = 128
 CACHE_ROUNDS = 3
 DATASET_PARENTS = 256
+HASHIMOTO_ACCESSES = 64
 
 
 def epoch(block_number: Uint) -> Uint:
@@ -240,8 +241,8 @@ def generate_dataset_item(
 
     Returns
     -------
-    dataset_item : `Hash32`
-        The cache generation seed for the passed in block.
+    dataset_item : `Hash64`
+        The generated dataset item for passed index.
     """
     mix = keccak512(
         (
@@ -287,3 +288,113 @@ def generate_dataset(block_number: Uint) -> Tuple[Hash64, ...]:
         generate_dataset_item(cache, Uint(index))
         for index in range(dataset_size_bytes // HASH_BYTES)
     )
+
+
+def hashimoto(
+    header_hash: Hash32,
+    nonce: Bytes8,
+    dataset_size: Uint,
+    fetch_dataset_item: Callable[[Uint], Tuple[Uint32, ...]],
+) -> Tuple[bytes, Hash32]:
+    """
+    Obtain the mix digest and the final value for a header, by aggregating
+    data from the full dataset.
+
+    Parameters
+    ----------
+    header_hash :
+        The PoW valid rlp hash of a header.
+    nonce :
+        The propogated nonce for the given block.
+    dataset_size :
+        Dataset size for the epoch to which the current block belongs to.
+    fetch_dataset_item :
+        The function which will be used to obtain a specific dataset item
+        from an index.
+
+    Returns
+    -------
+    mix_digest : `bytes`
+        The mix digest generated from the header hash and propogated nonce.
+    result : `Hash32`
+        The final result obtained which will be checked for leading zeros (in
+        byte representation) in correspondance with the block difficulty.
+    """
+    nonce_le = bytes(reversed(nonce))
+    seed_hash = keccak512(header_hash + nonce_le)
+    seed_head = Uint32.from_le_bytes(seed_hash[:4])
+
+    rows = dataset_size // 128
+    mix = le_bytes_to_uint32_sequence(seed_hash) * (MIX_BYTES // HASH_BYTES)
+
+    for i in range(HASHIMOTO_ACCESSES):
+        new_data: Tuple[Uint32, ...] = ()
+        parent = fnv(i ^ seed_head, mix[i % len(mix)]) % rows
+        for j in range(MIX_BYTES // HASH_BYTES):
+            # Typecasting `parent` from Uint32 to Uint as 2*parent + j may
+            # overflow Uint32.
+            new_data += fetch_dataset_item(2 * Uint(parent) + j)
+
+        mix = fnv_hash(mix, new_data)
+
+    compressed_mix = []
+    for i in range(0, len(mix), 4):
+        compressed_mix.append(
+            fnv(fnv(fnv(mix[i], mix[i + 1]), mix[i + 2]), mix[i + 3])
+        )
+
+    mix_digest = le_uint32_sequence_to_bytes(compressed_mix)
+    result = keccak256(seed_hash + mix_digest)
+
+    return mix_digest, result
+
+
+def hashimoto_light(
+    header_hash: Hash32,
+    nonce: Bytes8,
+    cache: Tuple[Tuple[Uint32, ...], ...],
+    dataset_size: Uint,
+) -> Tuple[bytes, Hash32]:
+    """
+    Run the hashimoto algorithm by generating dataset item using the cache
+    instead of loading the full dataset into main memory.
+
+    Parameters
+    ----------
+    header_hash :
+        The PoW valid rlp hash of a header.
+    nonce :
+        The propogated nonce for the given block.
+    cache:
+        The generated cache for the epoch to which the current block belongs
+        to.
+    dataset_size :
+        Dataset size for the epoch to which the current block belongs to.
+
+    Returns
+    -------
+    mix_digest : `bytes`
+        The mix digest generated from the header hash and propogated nonce.
+    result : `Hash32`
+        The final result obtained which will be checked for leading zeros (in
+        byte representation) in correspondance with the block difficulty.
+    """
+
+    def fetch_dataset_item(index: Uint) -> Tuple[Uint32, ...]:
+        """
+        Generate dataset item (as tuple of Uint32 numbers) from cache.
+
+        Parameters
+        ----------
+        index :
+            The index of the dataset item to generate.
+
+        Returns
+        -------
+        dataset_item : `Tuple[Uint32, ...]`
+            The generated dataset item for passed index.
+        """
+        item: Hash64 = generate_dataset_item(cache, index)
+        return le_bytes_to_uint32_sequence(item)
+
+    return hashimoto(header_hash, nonce, dataset_size, fetch_dataset_item)

@@ -21,7 +21,17 @@ from ethereum.crypto import Hash32
 
 from ..base_types import U256, Bytes, Uint
 from ..crypto import keccak256
-from .eth_types import Account, Block, Header, Log, Receipt, Transaction
+from .eth_types import (
+    Account,
+    Address,
+    Block,
+    Bloom,
+    Header,
+    Log,
+    Receipt,
+    Root,
+    Transaction,
+)
 
 RLP = Union[  # type: ignore
     Bytes,
@@ -482,6 +492,42 @@ def encode_log(raw_log_data: Log) -> Bytes:
             raw_log_data.topics,
             raw_log_data.data,
         )
+    )
+
+
+def decode_to_header(encoded_header: Bytes) -> Header:
+    """
+    Decodes a rlp encoded byte stream assuming that the decoded data
+    should be of type `Header`.
+
+    Parameters
+    ----------
+    encoded_header :
+        An RLP encoded Header.
+
+    Returns
+    -------
+    decoded_header : `Header`
+        The header object decoded from `encoded_header`.
+    """
+    decoded_data = cast(Sequence[Bytes], decode(encoded_header))
+
+    return Header(
+        parent_hash=decoded_data[0],
+        ommers_hash=decoded_data[1],
+        coinbase=Address(decoded_data[2]),
+        state_root=Root(decoded_data[3]),
+        transactions_root=Root(decoded_data[4]),
+        receipt_root=Root(decoded_data[5]),
+        bloom=Bloom(decoded_data[6]),
+        difficulty=Uint.from_be_bytes(decoded_data[7]),
+        number=Uint.from_be_bytes(decoded_data[8]),
+        gas_limit=Uint.from_be_bytes(decoded_data[9]),
+        gas_used=Uint.from_be_bytes(decoded_data[10]),
+        timestamp=U256.from_be_bytes(decoded_data[11]),
+        extra_data=decoded_data[12],
+        mix_digest=decoded_data[13],
+        nonce=decoded_data[14],
     )
 
 

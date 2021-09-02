@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 from tests.frontier.blockchain_st_test_helpers import (
