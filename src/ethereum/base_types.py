@@ -19,11 +19,13 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any, Callable, Optional, Tuple, Type, TypeVar
 
+U8_MAX_VALUE = (2 ** 8) - 1
+UINT32_MAX_VALUE = (2 ** 32) - 1
+UINT32_CEIL_VALUE = 2 ** 32
 U255_MAX_VALUE = (2 ** 255) - 1
 U255_CEIL_VALUE = 2 ** 255
 U256_MAX_VALUE = (2 ** 256) - 1
 U256_CEIL_VALUE = 2 ** 256
-U8_MAX_VALUE = (2 ** 8) - 1
 
 
 class Uint(int):
@@ -48,6 +50,10 @@ class Uint(int):
             Unsigned integer decoded from `buffer`.
         """
         return cls(int.from_bytes(buffer, "big"))
+
+    @classmethod
+    def from_le_bytes(cls: Type, buffer: "Bytes") -> "Uint":
+        return cls(int.from_bytes(buffer, "little"))
 
     def __new__(cls: Type, value: int) -> "Uint":
         if not isinstance(value, int):
@@ -225,7 +231,28 @@ class Uint(int):
     def __ipow__(self, right: int, modulo: Optional[int] = None) -> "Uint":
         return self.__pow__(right, modulo)
 
-    # TODO: Implement and, or, xor, neg, pos, abs, invert, ...
+    def __xor__(self, right: int) -> "Uint":
+        if not isinstance(right, int):
+            return NotImplemented
+
+        if right < 0:
+            raise ValueError()
+
+        return self.__class__(super(Uint, self).__xor__(right))
+
+    def __rxor__(self, left: int) -> "Uint":
+        if not isinstance(left, int):
+            return NotImplemented
+
+        if left < 0:
+            raise ValueError()
+
+        return self.__class__(super(Uint, self).__rxor__(left))
+
+    def __ixor__(self, right: int) -> "Uint":
+        return self.__xor__(right)
+
+    # TODO: Implement and, or, neg, pos, abs, invert, ...
 
     def to_be_bytes32(self) -> "Bytes32":
         """
@@ -250,6 +277,13 @@ class Uint(int):
         bit_length = self.bit_length()
         byte_length = (bit_length + 7) // 8
         return self.to_bytes(byte_length, "big")
+
+    def to_le_bytes(self, number_bytes: int = None) -> "Bytes":
+        if number_bytes is None:
+            bit_length = self.bit_length()
+            number_bytes = (bit_length + 7) // 8
+
+        return self.to_bytes(number_bytes, "little")
 
 
 class U256(int):
@@ -577,7 +611,7 @@ class U256(int):
         return self.__xor__(right)
 
     def __invert__(self) -> "U256":
-        result = super(U256, self).__invert__() & U256_MAX_VALUE
+        result = super(U256, self).__invert__() & self.MAX_VALUE
         return self.__class__(result)
 
     def __rshift__(self, shift_by: int) -> "U256":
@@ -632,8 +666,334 @@ class U256(int):
 U256.MAX_VALUE = U256(U256_MAX_VALUE)
 
 
+class Uint32(int):
+    """
+    Unsigned positive integer, which can represent `0` to `2 ** 32 - 1`,
+    inclusive.
+    """
+
+    MAX_VALUE: "Uint32"
+
+    __slots__ = ()
+
+    @classmethod
+    def from_le_bytes(cls: Type, buffer: "Bytes") -> "Uint32":
+        """
+        Converts a sequence of bytes into an arbitrarily sized unsigned integer
+        from its little endian representation.
+        """
+        if len(buffer) > 4:
+            raise ValueError()
+
+        return cls(int.from_bytes(buffer, "little"))
+
+    def __new__(cls: Type, value: int) -> "Uint32":
+        if not isinstance(value, int):
+            raise TypeError()
+
+        if value < 0 or value > UINT32_MAX_VALUE:
+            raise ValueError()
+
+        return super(cls, cls).__new__(cls, value)
+
+    def __radd__(self, left: int) -> "Uint32":
+        return self.__add__(left)
+
+    def __add__(self, right: int) -> "Uint32":
+        result = self.unchecked_add(right)
+
+        if result == NotImplemented:
+            return NotImplemented
+
+        return self.__class__(result)
+
+    def unchecked_add(self, right: int) -> int:
+        if not isinstance(right, int):
+            return NotImplemented
+
+        if right < 0 or right > self.MAX_VALUE:
+            raise ValueError()
+
+        return super(Uint32, self).__add__(right)
+
+    def wrapping_add(self, right: int) -> "Uint32":
+        result = self.unchecked_add(right)
+
+        if result == NotImplemented:
+            return NotImplemented
+
+        # This is a fast way of ensuring that the result is < (2 ** 32)
+        result &= self.MAX_VALUE
+        return self.__class__(result)
+
+    def __iadd__(self, right: int) -> "Uint32":
+        return self.__add__(right)
+
+    def __sub__(self, right: int) -> "Uint32":
+        result = self.unchecked_sub(right)
+
+        if result == NotImplemented:
+            return NotImplemented
+
+        return self.__class__(result)
+
+    def unchecked_sub(self, right: int) -> int:
+        if not isinstance(right, int):
+            return NotImplemented
+
+        if right < 0 or right > self.MAX_VALUE:
+            raise ValueError()
+
+        return super(Uint32, self).__sub__(right)
+
+    def wrapping_sub(self, right: int) -> "Uint32":
+        result = self.unchecked_sub(right)
+
+        if result == NotImplemented:
+            return NotImplemented
+
+        # This is a fast way of ensuring that the result is < (2 ** 32)
+        result &= self.MAX_VALUE
+        return self.__class__(result)
+
+    def __rsub__(self, left: int) -> "Uint32":
+        if not isinstance(left, int):
+            return NotImplemented
+
+        if left < 0 or left > self.MAX_VALUE:
+            raise ValueError()
+
+        result = super(Uint32, self).__rsub__(left)
+        return self.__class__(result)
+
+    def __isub__(self, right: int) -> "Uint32":
+        return self.__sub__(right)
+
+    def unchecked_mul(self, right: int) -> int:
+        if not isinstance(right, int):
+            return NotImplemented
+
+        if right < 0 or right > self.MAX_VALUE:
+            raise ValueError()
+
+        return super(Uint32, self).__mul__(right)
+
+    def wrapping_mul(self, right: int) -> "Uint32":
+        result = self.unchecked_mul(right)
+
+        if result == NotImplemented:
+            return NotImplemented
+
+        # This is a fast way of ensuring that the result is < (2 ** 32)
+        result &= self.MAX_VALUE
+        return self.__class__(result)
+
+    def __mul__(self, right: int) -> "Uint32":
+        result = self.unchecked_mul(right)
+
+        if result == NotImplemented:
+            return NotImplemented
+
+        return self.__class__(result)
+
+    def __rmul__(self, left: int) -> "Uint32":
+        return self.__mul__(left)
+
+    def __imul__(self, right: int) -> "Uint32":
+        return self.__mul__(right)
+
+    # Explicitly don't override __truediv__, __rtruediv__, and __itruediv__
+    # since they return floats anyway.
+
+    def __floordiv__(self, right: int) -> "Uint32":
+        if not isinstance(right, int):
+            return NotImplemented
+
+        if right < 0 or right > self.MAX_VALUE:
+            raise ValueError()
+
+        result = super(Uint32, self).__floordiv__(right)
+        return self.__class__(result)
+
+    def __rfloordiv__(self, left: int) -> "Uint32":
+        if not isinstance(left, int):
+            return NotImplemented
+
+        if left < 0 or left > self.MAX_VALUE:
+            raise ValueError()
+
+        result = super(Uint32, self).__rfloordiv__(left)
+        return self.__class__(result)
+
+    def __ifloordiv__(self, right: int) -> "Uint32":
+        return self.__floordiv__(right)
+
+    def __mod__(self, right: int) -> "Uint32":
+        if not isinstance(right, int):
+            return NotImplemented
+
+        if right < 0 or right > self.MAX_VALUE:
+            raise ValueError()
+
+        result = super(Uint32, self).__mod__(right)
+        return self.__class__(result)
+
+    def __rmod__(self, left: int) -> "Uint32":
+        if not isinstance(left, int):
+            return NotImplemented
+
+        if left < 0 or left > self.MAX_VALUE:
+            raise ValueError()
+
+        result = super(Uint32, self).__rmod__(left)
+        return self.__class__(result)
+
+    def __imod__(self, right: int) -> "Uint32":
+        return self.__mod__(right)
+
+    def __divmod__(self, right: int) -> Tuple["Uint32", "Uint32"]:
+        if not isinstance(right, int):
+            return NotImplemented
+
+        if right < 0 or right > self.MAX_VALUE:
+            raise ValueError()
+
+        result = super(Uint32, self).__divmod__(right)
+        return (self.__class__(result[0]), self.__class__(result[1]))
+
+    def __rdivmod__(self, left: int) -> Tuple["Uint32", "Uint32"]:
+        if not isinstance(left, int):
+            return NotImplemented
+
+        if left < 0 or left > self.MAX_VALUE:
+            raise ValueError()
+
+        result = super(Uint32, self).__rdivmod__(left)
+        return (self.__class__(result[0]), self.__class__(result[1]))
+
+    def unchecked_pow(self, right: int, modulo: Optional[int] = None) -> int:
+        if modulo is not None:
+            if not isinstance(modulo, int):
+                return NotImplemented
+
+            if modulo < 0 or modulo > self.MAX_VALUE:
+                raise ValueError()
+
+        if not isinstance(right, int):
+            return NotImplemented
+
+        if right < 0 or right > self.MAX_VALUE:
+            raise ValueError()
+
+        return super(Uint32, self).__pow__(right, modulo)
+
+    def wrapping_pow(
+        self, right: int, modulo: Optional[int] = None
+    ) -> "Uint32":
+        result = self.unchecked_pow(right, modulo)
+
+        if result == NotImplemented:
+            return NotImplemented
+
+        # This is a fast way of ensuring that the result is < (2 ** 32)
+        result &= self.MAX_VALUE
+        return self.__class__(result)
+
+    def __pow__(self, right: int, modulo: Optional[int] = None) -> "Uint32":
+        result = self.unchecked_pow(right, modulo)
+
+        if result == NotImplemented:
+            return NotImplemented
+
+        return self.__class__(result)
+
+    def __rpow__(self, left: int, modulo: Optional[int] = None) -> "Uint32":
+        if modulo is not None:
+            if not isinstance(modulo, int):
+                return NotImplemented
+
+            if modulo < 0 or modulo > self.MAX_VALUE:
+                raise ValueError()
+
+        if not isinstance(left, int):
+            return NotImplemented
+
+        if left < 0 or left > self.MAX_VALUE:
+            raise ValueError()
+
+        result = super(Uint32, self).__rpow__(left, modulo)
+        return self.__class__(result)
+
+    def __ipow__(self, right: int, modulo: Optional[int] = None) -> "Uint32":
+        return self.__pow__(right, modulo)
+
+    def __and__(self, right: int) -> "Uint32":
+        if not isinstance(right, int):
+            return NotImplemented
+
+        if right < 0 or right > self.MAX_VALUE:
+            raise ValueError()
+
+        return self.__class__(super(Uint32, self).__and__(right))
+
+    def __or__(self, right: int) -> "Uint32":
+        if not isinstance(right, int):
+            return NotImplemented
+
+        if right < 0 or right > self.MAX_VALUE:
+            raise ValueError()
+
+        return self.__class__(super(Uint32, self).__or__(right))
+
+    def __xor__(self, right: int) -> "Uint32":
+        if not isinstance(right, int):
+            return NotImplemented
+
+        if right < 0 or right > self.MAX_VALUE:
+            raise ValueError()
+
+        return self.__class__(super(Uint32, self).__xor__(right))
+
+    def __rxor__(self, left: int) -> "Uint32":
+        if not isinstance(left, int):
+            return NotImplemented
+
+        if left < 0 or left > self.MAX_VALUE:
+            raise ValueError()
+
+        return self.__class__(super(Uint32, self).__rxor__(left))
+
+    def __ixor__(self, right: int) -> "Uint32":
+        return self.__xor__(right)
+
+    def __invert__(self) -> "Uint32":
+        result = super(Uint32, self).__invert__() & self.MAX_VALUE
+        return self.__class__(result)
+
+    def __rshift__(self, shift_by: int) -> "Uint32":
+        if not isinstance(shift_by, int):
+            return NotImplemented
+
+        result = super(Uint32, self).__rshift__(shift_by)
+        return self.__class__(result)
+
+    # TODO: Implement neg, pos, abs ...
+
+    def to_le_bytes4(self) -> "Bytes4":
+        return self.to_bytes(4, "little")
+
+    def to_le_bytes(self) -> "Bytes":
+        bit_length = self.bit_length()
+        byte_length = (bit_length + 7) // 8
+        return self.to_bytes(byte_length, "little")
+
+
+Uint32.MAX_VALUE = Uint32(UINT32_MAX_VALUE)
+
+
 Bytes = bytes
 Bytes0 = Bytes
+Bytes4 = Bytes
 Bytes8 = Bytes
 Bytes20 = Bytes
 Bytes32 = Bytes

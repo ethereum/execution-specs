@@ -64,3 +64,17 @@ autodoc_typehints = "signature"
 html_css_files = [
     'css/custom.css',
 ]
+
+
+def skip_max_value(app, what, name, obj, skip, options):
+    """
+    Autoapi is mapping the MAX_VALUE constants in base_types to the same TOC
+    entry.
+    """
+    if what == "data" and "base_types" in name and "MAX_VALUE" in name:
+        skip = True
+    return skip
+
+
+def setup(sphinx):
+    sphinx.connect("autoapi-skip-member", skip_max_value)

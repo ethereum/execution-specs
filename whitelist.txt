@@ -4,6 +4,7 @@ ClassDef
 radd
 Hash64
 Bytes20
+Bytes4
 Bytes32
 Bytes64
 Bytes8
@@ -243,3 +244,9 @@ unencoded
 setitem
 getitem
 delitem
+
+dataset
+DATASET
+fnv
+geth
+sqrt

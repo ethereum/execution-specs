@@ -9,3 +9,8 @@ line_length = 79
 
 [tool.black]
 line-length = 79
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]

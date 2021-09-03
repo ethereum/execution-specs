@@ -87,6 +87,7 @@ $ black src                         # Formats code.
 $ flake8                            # Reports style/spelling/documentation errors.
 $ mypy src                          # Verifies type annotations.
 $ pytest                            # Runs tests.
+$ pytest -m "not slow"              # Runs tests which execute quickly.
 ```
 
 It is recommended to use a [virtual environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) to keep your system Python installation clean.
