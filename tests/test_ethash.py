@@ -30,8 +30,12 @@ from ethereum.ethash import (
 from ethereum.frontier import rlp
 from ethereum.frontier.eth_types import Header
 from ethereum.frontier.genesis import genesis_configuration
-from ethereum.frontier.spec import generate_header_hash_for_pow
+from ethereum.frontier.spec import (
+    generate_header_hash_for_pow,
+    validate_proof_of_work,
+)
 from ethereum.frontier.trie import Trie, root
+from ethereum.frontier.utils.json import json_to_header
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -261,7 +265,7 @@ def load_pow_test_fixtures() -> List[Dict[str, Any]]:
         ],
     ],
 )
-def test_random_blocks(
+def test_pow_random_blocks(
     block_number: Uint,
     block_difficulty: Uint,
     header_hash: str,
@@ -279,6 +283,24 @@ def test_random_blocks(
     assert mix_digest == hex_to_bytes32(expected_mix_digest)
     assert result == hex_to_bytes(expected_result)
     assert Uint.from_be_bytes(result) <= U256_CEIL_VALUE // (block_difficulty)
+
+
+@pytest.mark.parametrize(
+    "block_file_name",
+    [
+        "block_1.json",
+        "block_1234567.json",
+        "block_12964999.json",
+    ],
+)
+def test_pow_validation_block_headers(block_file_name: str) -> None:
+    block_str_data = cast(
+        bytes, pkgutil.get_data("ethereum", f"assets/blocks/{block_file_name}")
+    ).decode()
+    block_json_data = json.loads(block_str_data)
+
+    header: Header = json_to_header(block_json_data)
+    validate_proof_of_work(header)
 
 
 # TODO: Once there is a method to download blocks, test the proof-of-work

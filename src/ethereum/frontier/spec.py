@@ -155,7 +155,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_header :
         Parent Header of the header to check for correctness
     """
-    validate_proof_of_work(header)
+    assert header.number == parent_header.number + 1
     assert header.difficulty == calculate_block_difficulty(
         header.number,
         header.timestamp,
@@ -164,7 +164,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
     )
     assert check_gas_limit(header.gas_limit, parent_header.gas_limit)
     assert header.timestamp > parent_header.timestamp
-    assert header.number == parent_header.number + 1
+    validate_proof_of_work(header)
     assert len(header.extra_data) <= 32
 
 
@@ -186,7 +186,7 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
     * timestamp
     * extra_data
 
-    In other words the PoW artefacts which are `mix_diges` and `nonce` are
+    In other words the PoW artefacts which are `mix_digest` and `nonce` are
     ignored while calculating this hash.
 
     Parameters
@@ -228,10 +228,11 @@ def validate_proof_of_work(header: Header) -> None:
         Header of interest.
     """
     header_hash = generate_header_hash_for_pow(header)
-    nonce = header.nonce
+    # TODO: Memoize this somewhere and read from that data instead of
+    # calculating cache for every block validation.
     cache = generate_cache(header.number)
     mix_digest, result = hashimoto_light(
-        header_hash, nonce, cache, dataset_size(header.number)
+        header_hash, header.nonce, cache, dataset_size(header.number)
     )
 
     assert mix_digest == header.mix_digest

@@ -500,6 +500,10 @@ def decode_to_header(encoded_header: Bytes) -> Header:
     Decodes a rlp encoded byte stream assuming that the decoded data
     should be of type `Header`.
 
+    NOTE - This function is valid only till the London Hardfork. Post that
+    there would be changes in the Header object as well as this function with
+    the introduction of `base_fee` parameter.
+
     Parameters
     ----------
     encoded_header :
@@ -511,6 +515,9 @@ def decode_to_header(encoded_header: Bytes) -> Header:
         The header object decoded from `encoded_header`.
     """
     decoded_data = cast(Sequence[Bytes], decode(encoded_header))
+
+    # TODO: Add assertions about the number of bytes in each of the below
+    # variables if it's used in chain sync later on.
 
     return Header(
         parent_hash=decoded_data[0],

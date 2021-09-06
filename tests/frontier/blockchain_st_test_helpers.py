@@ -47,7 +47,7 @@ def run_blockchain_st_test(test_file: str, network: str) -> None:
         state=test_data["pre_state"],
     )
 
-    if test_data["should_validate_pow"]:
+    if not test_data["ignore_pow_validation"]:
         add_blocks_to_chain(chain, test_data)
     else:
         with patch(
@@ -95,7 +95,7 @@ def load_test(test_file: str, network: str) -> Dict[str, Any]:
         "blocks": blocks,
         "block_header_hashes": block_header_hashes,
         "block_rlps": block_rlps,
-        "should_validate_pow": json_data["sealEngine"] != "NoProof",
+        "ignore_pow_validation": json_data["sealEngine"] == "NoProof",
     }
 
 

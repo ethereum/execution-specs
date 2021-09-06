@@ -32,6 +32,7 @@ keccak512
 linter
 mutable256
 mainnet
+memoize
 memoization
 merkle
 merkleize
