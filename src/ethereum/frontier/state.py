@@ -12,9 +12,12 @@ Introduction
 The state contains all information that is preserved between transactions.
 
 It consists of a main account trie and storage tries for each contract.
+
+There is a distinction between an account that does not exist and
+`EMPTY_ACCOUNT`.
 """
 from dataclasses import dataclass, field
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 
 from ethereum.base_types import U256, Bytes, modify
 
@@ -28,8 +31,8 @@ class State:
     Contains all information that is preserved between transactions.
     """
 
-    _main_trie: Trie[Account] = field(
-        default_factory=lambda: Trie(secured=True, default=EMPTY_ACCOUNT)
+    _main_trie: Trie[Optional[Account]] = field(
+        default_factory=lambda: Trie(secured=True, default=None)
     )
     _storage_tries: Dict[Address, Trie[U256]] = field(default_factory=dict)
 
@@ -38,6 +41,9 @@ def get_account(state: State, address: Address) -> Account:
     """
     Get the `Account` object at an address. Returns `EMPTY_ACCOUNT` if there
     is no account at the address.
+
+    Use `get_account_optional()` if you care about the difference between a
+    non-existent account and `EMPTY_ACCOUNT`.
 
     Parameters
     ----------
@@ -52,13 +58,38 @@ def get_account(state: State, address: Address) -> Account:
         Account at address.
     """
     account = trie_get(state._main_trie, address)
-    assert isinstance(account, Account)
+    if isinstance(account, Account):
+        return account
+    else:
+        return EMPTY_ACCOUNT
+
+
+def get_account_optional(state: State, address: Address) -> Optional[Account]:
+    """
+    Get the `Account` object at an address. Returns `None` (rather than
+    `EMPTY_ACCOUNT`) if there is no account at the address.
+
+    Parameters
+    ----------
+    state: `State`
+        The state
+    address : `Address`
+        Address to lookup.
+
+    Returns
+    -------
+    account : `Account`
+        Account at address.
+    """
+    account = trie_get(state._main_trie, address)
     return account
 
 
-def set_account(state: State, address: Address, account: Account) -> None:
+def set_account(
+    state: State, address: Address, account: Optional[Account]
+) -> None:
     """
-    Set the `Account` object at an address. Setting to `EMPTY_ACCOUNT` deletes
+    Set the `Account` object at an address. Setting to `None` deletes
     the account (but not its storage, see `destroy_account()`).
 
     Parameters
@@ -89,7 +120,7 @@ def destroy_account(state: State, address: Address) -> None:
         Address of account to destroy.
     """
     del state._storage_tries[address]
-    set_account(state, address, EMPTY_ACCOUNT)
+    set_account(state, address, None)
 
 
 def get_storage(state: State, address: Address, key: Bytes) -> U256:

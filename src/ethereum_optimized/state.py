@@ -14,11 +14,11 @@ This module contains functions can be monkey patched into
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, cast
+from typing import Dict, Optional, cast
 
 import ethereum.frontier.state
 from ethereum.base_types import U256, Bytes
-from ethereum.frontier.eth_types import EMPTY_ACCOUNT, Account, Address
+from ethereum.frontier.eth_types import Account, Address
 from ethereum.frontier.state import state_root
 
 from .trie import Trie, get_internal_key, trie_get, trie_set
@@ -30,8 +30,8 @@ class State:
     Contains all information that is preserved between transactions.
     """
 
-    _main_trie: Trie[Account] = field(
-        default_factory=lambda: Trie(secured=True, default=EMPTY_ACCOUNT)
+    _main_trie: Trie[Optional[Account]] = field(
+        default_factory=lambda: Trie(secured=True, default=None)
     )
     _storage_tries: Dict[Address, Trie[U256]] = field(default_factory=dict)
 

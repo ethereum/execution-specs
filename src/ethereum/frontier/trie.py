@@ -54,7 +54,13 @@ EMPTY_TRIE_ROOT = hex_to_bytes(
 
 Node = Union[Account, Bytes, Transaction, Receipt, Uint, U256, None]
 T = TypeVar(
-    "T", Account, Bytes, Optional[Transaction], Optional[Receipt], Uint, U256
+    "T",
+    Optional[Account],
+    Bytes,
+    Optional[Transaction],
+    Optional[Receipt],
+    Uint,
+    U256,
 )
 
 
@@ -141,10 +147,14 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
     if isinstance(node, Account):
         assert storage_root is not None
         return rlp.encode_account(node, storage_root)
-    elif isinstance(node, (Transaction, Receipt)):
+    elif isinstance(node, (Transaction, Receipt, U256)):
         return rlp.encode(cast(rlp.RLP, node))
+    elif isinstance(node, Bytes):
+        return node
     else:
-        return cast(Bytes, node)
+        raise NotImplementedError(
+            f"encoding for {type(node)} is not currently implemented"
+        )
 
 
 @dataclass
