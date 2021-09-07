@@ -14,12 +14,12 @@ A straightforward interpreter that executes EVM code.
 from typing import Tuple
 
 from ethereum.base_types import U256, Bytes0, Uint
+from ethereum.frontier.state import move_ether, set_code
 from ethereum.frontier.vm import Message
 from ethereum.frontier.vm.error import InvalidOpcode, StackDepthLimitError
 from ethereum.frontier.vm.gas import GAS_CODE_DEPOSIT, subtract_gas
 
 from ..eth_types import Log
-from ..state import move_ether, write_code
 from . import Environment, Evm
 from .instructions import Ops, op_implementation
 from .runtime import get_valid_jump_destinations
@@ -86,7 +86,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
     if contract_code:
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         evm.gas_left = subtract_gas(evm.gas_left, contract_code_gas)
-        write_code(env.state, message.current_target, contract_code)
+        set_code(env.state, message.current_target, contract_code)
     return evm
 
 

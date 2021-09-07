@@ -190,6 +190,8 @@ class Ops(enum.Enum):
     # System Operations
     CREATE = 0xF0
     RETURN = 0xF3
+    CALL = 0xF1
+    CALLCODE = 0xF2
 
 
 op_implementation: Dict[Ops, Callable] = {
@@ -319,4 +321,6 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.LOG4: log_instructions.log4,
     Ops.CREATE: system_instructions.create,
     Ops.RETURN: system_instructions.return_,
+    Ops.CALL: system_instructions.call,
+    Ops.CALLCODE: system_instructions.callcode,
 }
