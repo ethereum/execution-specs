@@ -81,7 +81,7 @@ $ tox
 The development tools can also be run outside of `tox`, and can automatically reformat the code:
 
 ```bash
-$ pip install -e .[doc,lint,test]   # Installs eth1spec, and development tools.
+$ pip install -e ".[doc,lint,test]" # Installs eth1spec, and development tools.
 $ isort src                         # Organizes imports.
 $ black src                         # Formats code.
 $ flake8                            # Reports style/spelling/documentation errors.
