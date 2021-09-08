@@ -1,7 +1,8 @@
 import json
 import os
 from functools import partial
-from typing import Any, List, Tuple, cast
+from typing import Any, Dict, List, Tuple, cast
+from unittest.mock import patch
 
 from ethereum.base_types import U256, Bytes0
 from ethereum.frontier import rlp
@@ -46,17 +47,28 @@ def run_blockchain_st_test(test_file: str, network: str) -> None:
         state=test_data["pre_state"],
     )
 
-    for idx, block in enumerate(test_data["blocks"]):
-        assert rlp_hash(block.header) == test_data["block_header_hashes"][idx]
-        assert rlp.encode(cast(rlp.RLP, block)) == test_data["block_rlps"][idx]
-
-        state_transition(chain, block)
+    if not test_data["ignore_pow_validation"]:
+        add_blocks_to_chain(chain, test_data)
+    else:
+        with patch(
+            "ethereum.frontier.spec.validate_proof_of_work", autospec=True
+        ) as mocked_pow_validator:
+            add_blocks_to_chain(chain, test_data)
+            for block in test_data["blocks"]:
+                mocked_pow_validator.assert_called_with(block.header)
 
     assert rlp_hash(chain.blocks[-1].header) == test_data["last_block_hash"]
     assert chain.state == test_data["expected_post_state"]
 
 
-def load_test(test_file: str, network: str) -> Any:
+def add_blocks_to_chain(chain: BlockChain, test_data: Dict[str, Any]) -> None:
+    for idx, block in enumerate(test_data["blocks"]):
+        assert rlp_hash(block.header) == test_data["block_header_hashes"][idx]
+        assert rlp.encode(cast(rlp.RLP, block)) == test_data["block_rlps"][idx]
+        state_transition(chain, block)
+
+
+def load_test(test_file: str, network: str) -> Dict[str, Any]:
     # Extract the pure basename of the file without the path to the file.
     # Ex: Extract "world.json" from "path/to/file/world.json"
     pure_test_file = os.path.basename(test_file)
@@ -83,6 +95,7 @@ def load_test(test_file: str, network: str) -> Any:
         "blocks": blocks,
         "block_header_hashes": block_header_hashes,
         "block_rlps": block_rlps,
+        "ignore_pow_validation": json_data["sealEngine"] == "NoProof",
     }
 
 

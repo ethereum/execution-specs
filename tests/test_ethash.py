@@ -7,12 +7,13 @@ import subprocess
 import tarfile
 import tempfile
 from random import randint
-from typing import Tuple, cast
+from typing import Any, Dict, List, Tuple, cast
 
 import pytest
 import requests
 
-from ethereum.base_types import Uint
+from ethereum import crypto
+from ethereum.base_types import U255_CEIL_VALUE, U256_CEIL_VALUE, Uint
 from ethereum.crypto import keccak256
 from ethereum.ethash import (
     EPOCH_SIZE,
@@ -24,8 +25,23 @@ from ethereum.ethash import (
     generate_cache,
     generate_dataset_item,
     generate_seed,
+    hashimoto_light,
 )
-from ethereum.utils.numeric import is_prime
+from ethereum.frontier import rlp
+from ethereum.frontier.eth_types import Header
+from ethereum.frontier.genesis import genesis_configuration
+from ethereum.frontier.spec import (
+    generate_header_hash_for_pow,
+    validate_proof_of_work,
+)
+from ethereum.frontier.trie import Trie, root
+from ethereum.frontier.utils.json import json_to_header
+from ethereum.utils.hexadecimal import (
+    hex_to_bytes,
+    hex_to_bytes8,
+    hex_to_bytes32,
+)
+from ethereum.utils.numeric import is_prime, le_uint32_sequence_to_bytes
 
 
 @pytest.mark.parametrize(
@@ -162,6 +178,139 @@ def test_epoch_start_and_end_blocks_have_same_seed() -> None:
         )
 
 
+def test_ethtest_fixtures() -> None:
+    ethereum_tests = load_pow_test_fixtures()
+    for test in ethereum_tests:
+        header = test["header"]
+        assert header.nonce == test["nonce"]
+        assert header.mix_digest == test["mix_digest"]
+        assert generate_seed(header.number) == test["seed"]
+        assert cache_size(header.number) == test["cache_size"]
+        assert dataset_size(header.number) == test["dataset_size"]
+
+        header_hash = generate_header_hash_for_pow(header)
+        assert header_hash == test["header_hash"]
+
+        cache = generate_cache(header.number)
+        cache_hash = crypto.keccak256(
+            b"".join(
+                le_uint32_sequence_to_bytes(cache_item) for cache_item in cache
+            )
+        )
+        assert cache_hash == test["cache_hash"]
+
+        mix_digest, result = hashimoto_light(
+            header_hash, header.nonce, cache, dataset_size(header.number)
+        )
+        assert mix_digest == test["mix_digest"]
+        assert result == test["result"]
+
+
+def load_pow_test_fixtures() -> List[Dict[str, Any]]:
+    with open(
+        "tests/fixtures/PoWTests/ethash_tests.json"
+    ) as pow_test_file_handler:
+        return [
+            {
+                "nonce": hex_to_bytes8(raw_fixture["nonce"]),
+                "mix_digest": hex_to_bytes32(raw_fixture["mixHash"]),
+                "header": rlp.decode_to_header(
+                    hex_to_bytes(raw_fixture["header"])
+                ),
+                "seed": hex_to_bytes32(raw_fixture["seed"]),
+                "result": hex_to_bytes32(raw_fixture["result"]),
+                "cache_size": Uint(raw_fixture["cache_size"]),
+                "dataset_size": Uint(raw_fixture["full_size"]),
+                "header_hash": hex_to_bytes32(raw_fixture["header_hash"]),
+                "cache_hash": hex_to_bytes32(raw_fixture["cache_hash"]),
+            }
+            for raw_fixture in json.load(pow_test_file_handler).values()
+        ]
+
+
+@pytest.mark.parametrize(
+    "block_number, block_difficulty, header_hash, nonce, expected_mix_digest, expected_result",
+    [
+        [
+            Uint(1),
+            Uint(17171480576),
+            "0x85913a3057ea8bec78cd916871ca73802e77724e014dda65add3405d02240eb7",
+            "0x539bd4979fef1ec4",
+            "0x969b900de27b6ac6a67742365dd65f55a0526c41fd18e1b16f1a1215c2e66f59",
+            "0x000000002bc095dd4de049873e6302c3f14a7f2e5b5a1f60cdf1f1798164d610",
+        ],
+        [
+            Uint(5),
+            Uint(17154711556),
+            "0xfe557bbc2346abe74c4e66b1843df7a884f83e3594a210d96594c455c32d33c1",
+            "0xfba9d0cff9dc5cf3",
+            "0x17b85b5ec310c4868249fa2f378c83b4f330e2d897e5373a8195946c71d1d19e",
+            "0x000000000767f35d1d21220cb5c53e060afd84fadd622db784f0d4b0541c034a",
+        ],
+        [
+            Uint(123456),
+            Uint(4505282870523),
+            "0xad896938ef53ff923b4336d03573d52c69097dabf8734d71b9546d31db603121",
+            "0xf4b883fed83092b2",
+            "0x84d4162717b039a996ffaf59a54158443c62201b76170b02dbad626cca3226d5",
+            "0x00000000000fb25dfcfe2fcdc9a63c892ce795aba4380513a9705489bf247b07",
+        ],
+        [
+            Uint(1000865),
+            Uint(12652630789208),
+            "0xcc868f6114e4cadc3876e4ca4e0705b2bcb76955f459bb019a80d72a512eefdb",
+            "0xc6613bcf40e716d6",
+            "0xce47e0609103ac85d56bf1637e51afd28e29431f47c11df47db80a63d95efbae",
+            "0x000000000015de37404be3c9beda75e12ae41ef7c937dcd52130cfc3b389bf42",
+        ],
+    ],
+)
+def test_pow_random_blocks(
+    block_number: Uint,
+    block_difficulty: Uint,
+    header_hash: str,
+    nonce: str,
+    expected_mix_digest: str,
+    expected_result: str,
+) -> None:
+    mix_digest, result = hashimoto_light(
+        hex_to_bytes32(header_hash),
+        hex_to_bytes8(nonce),
+        generate_cache(block_number),
+        dataset_size(block_number),
+    )
+
+    assert mix_digest == hex_to_bytes32(expected_mix_digest)
+    assert result == hex_to_bytes(expected_result)
+    assert Uint.from_be_bytes(result) <= U256_CEIL_VALUE // (block_difficulty)
+
+
+@pytest.mark.parametrize(
+    "block_file_name",
+    [
+        "block_1.json",
+        "block_1234567.json",
+        "block_12964999.json",
+    ],
+)
+def test_pow_validation_block_headers(block_file_name: str) -> None:
+    block_str_data = cast(
+        bytes, pkgutil.get_data("ethereum", f"assets/blocks/{block_file_name}")
+    ).decode()
+    block_json_data = json.loads(block_str_data)
+
+    header: Header = json_to_header(block_json_data)
+    validate_proof_of_work(header)
+
+
+# TODO: Once there is a method to download blocks, test the proof-of-work
+# validation for the following blocks in each hardfork (except London as the
+# current PoW algo won't work from London):
+#   * Start of hardfork
+#   * two random blocks inside the hardfork
+#   * End of hardfork
+
+
 #
 # Geth DAG related functionalities for fuzz testing
 #
@@ -204,6 +353,7 @@ def fetch_dag_data(dag_dump_dir: str, epoch_seed: bytes) -> Tuple[bytes, ...]:
     return tuple(dag_dataset_items)
 
 
+@pytest.mark.slow
 def test_dataset_generation_random_epoch(tmpdir: str) -> None:
     """
     Generate a random epoch and obtain the DAG for that epoch from geth.

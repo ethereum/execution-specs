@@ -16,11 +16,13 @@ crypto
 encodings
 endian
 eth
+ethash
 ethereum
 evm
 getsource
 Hash32
 hasher
+hashimoto
 hardfork
 hardforks
 idx
@@ -30,6 +32,7 @@ keccak512
 linter
 mutable256
 mainnet
+memoize
 memoization
 merkle
 merkleize
