@@ -170,6 +170,7 @@ def set_storage(
     value : `U256`
         Value to set at the key.
     """
+    assert trie_get(state._main_trie, address) is not None
     trie = state._storage_tries.get(address)
     if trie is None:
         trie = Trie(secured=True, default=U256(0))
@@ -238,7 +239,7 @@ def account_exists(state: State, address: Address) -> bool:
     account_exists : `bool`
         True if account exists in the state trie, False otherwise
     """
-    return address in state._main_trie._data
+    return get_account_optional(state, address) is not None
 
 
 def modify_state(
