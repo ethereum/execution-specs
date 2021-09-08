@@ -28,7 +28,9 @@ from ethereum.frontier.vm.error import (
     StackUnderflowError,
 )
 from ethereum.frontier.vm.gas import GAS_CODE_DEPOSIT, subtract_gas
-from ethereum.frontier.vm.precompiled_contracts import PRE_COMPILED_CONTRACTS
+from ethereum.frontier.vm.precompiled_contracts.mapping import (
+    PRE_COMPILED_CONTRACTS,
+)
 
 from . import Environment, Evm
 from .instructions import Ops, op_implementation
