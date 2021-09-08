@@ -64,6 +64,7 @@ def set_storage(
     value : `U256`
         Value to set at the key.
     """
+    assert trie_get(state._main_trie, address) is not None
     internal_address = get_internal_key(state._main_trie, address)
     trie = state._storage_tries.get(internal_address)
     if trie is None:

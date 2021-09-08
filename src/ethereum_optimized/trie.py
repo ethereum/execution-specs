@@ -197,13 +197,7 @@ def walk_leaf(
             trie._internal_nodes[
                 node_key + leaf_node.rest_of_key[: prefix_length + 1]
             ] = LeafNode(
-                leaf_node.rest_of_key[prefix_length + 1 :],
-                encode_node(
-                    leaf_node.value,
-                    get_storage_root(
-                        node_key + leaf_node.rest_of_key[: prefix_length + 1]
-                    ),
-                ),
+                leaf_node.rest_of_key[prefix_length + 1 :], leaf_node.value
             )
         walk_branch(trie, node_key + prefix, dirty_list, get_storage_root)
         if prefix_length != 0:
