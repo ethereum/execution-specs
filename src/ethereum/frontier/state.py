@@ -271,6 +271,28 @@ def move_ether(
     modify_state(state, recipient_address, increase_recipient_balance)
 
 
+def set_account_balance(state: State, address: Address, amount: U256) -> None:
+    """
+    Sets the balance of an account.
+
+    Parameters
+    ----------
+    state:
+        The current state.
+
+    address:
+        Address of the account whose nonce needs to be incremented.
+
+    amount:
+        The amount that needs to set in balance.
+    """
+
+    def set_balance(account: Account) -> None:
+        account.balance = amount
+
+    modify_state(state, address, set_balance)
+
+
 def increment_nonce(state: State, address: Address) -> None:
     """
     Increments the nonce of an account.

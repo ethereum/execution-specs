@@ -12,8 +12,9 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Uint
+from ethereum.frontier.vm.gas import REFUND_SELF_DESTRUCT
 
-from ...state import get_account, increment_nonce
+from ...state import get_account, increment_nonce, set_account_balance
 from ...utils.address import compute_contract_address, to_address
 from .. import Evm, Message
 from ..gas import (
@@ -86,6 +87,8 @@ def create(evm: Evm) -> None:
     child_evm = process_create_message(child_message, evm.env)
     push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
     evm.gas_left = child_evm.gas_left
+    evm.refund_counter += child_evm.refund_counter
+    evm.accounts_to_delete.update(child_evm.accounts_to_delete)
 
 
 def return_(evm: Evm) -> None:
@@ -184,6 +187,8 @@ def call(evm: Evm) -> None:
         child_evm.output[:actual_output_size],
     )
     evm.gas_left += child_evm.gas_left
+    evm.refund_counter += child_evm.refund_counter
+    evm.accounts_to_delete.update(child_evm.accounts_to_delete)
 
 
 def callcode(evm: Evm) -> None:
@@ -260,3 +265,38 @@ def callcode(evm: Evm) -> None:
         child_evm.output[:actual_output_size],
     )
     evm.gas_left += child_evm.gas_left
+    evm.refund_counter += child_evm.refund_counter
+    evm.accounts_to_delete.update(child_evm.accounts_to_delete)
+
+
+def selfdestruct(evm: Evm) -> None:
+    """
+    Halt execution and register account for later deletion.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    beneficiary = to_address(pop(evm.stack))
+    originator = evm.message.current_target
+    beneficiary_balance = get_account(evm.env.state, beneficiary).balance
+    originator_balance = get_account(evm.env.state, originator).balance
+
+    # First Transfer to beneficiary
+    set_account_balance(
+        evm.env.state, beneficiary, beneficiary_balance + originator_balance
+    )
+    # Next, Zero the balance of the address being deleted (must come after
+    # sending to beneficiary in case the contract named itself as the
+    # beneficiary).
+    set_account_balance(evm.env.state, originator, U256(0))
+
+    # gas refund
+    evm.refund_counter += REFUND_SELF_DESTRUCT
+
+    # register account for deletion
+    evm.accounts_to_delete.add(beneficiary)
+
+    # HALT the execution
+    evm.running = False

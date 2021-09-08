@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 from ethereum.frontier.bloom import logs_bloom
-from ethereum.frontier.state import increment_nonce
+from ethereum.frontier.state import destroy_account, increment_nonce
 from ethereum.frontier.utils.message import prepare_message
 
 from .. import crypto
@@ -325,9 +325,14 @@ def process_transaction(
         env,
     )
 
-    gas_left, logs = process_message_call(message, env)
-    gas_used = tx.gas - gas_left
+    gas_left, refund, logs, accounts_to_delete = process_message_call(
+        message, env
+    )
+    gas_used = tx.gas - gas_left - refund
     move_ether(env.state, sender, env.coinbase, gas_used * tx.gas_price)
+
+    for address in accounts_to_delete:
+        destroy_account(env.state, address)
 
     return gas_used, logs
 

@@ -11,9 +11,10 @@ Introduction
 
 A straightforward interpreter that executes EVM code.
 """
-from typing import Tuple
+from typing import Set, Tuple
 
 from ethereum.base_types import U256, Bytes0, Uint
+from ethereum.frontier.eth_types import Address
 from ethereum.frontier.state import move_ether, set_code
 from ethereum.frontier.vm import Message
 from ethereum.frontier.vm.error import InvalidOpcode, StackDepthLimitError
@@ -32,7 +33,7 @@ STACK_DEPTH_LIMIT = U256(1024)
 
 def process_message_call(
     message: Message, env: Environment
-) -> Tuple[U256, Tuple[Log, ...]]:
+) -> Tuple[U256, U256, Tuple[Log, ...], Set[Address]]:
     """
     If `message.current` is empty then it creates a smart contract
     else it executes a call from the `message.caller` to the `message.target`.
@@ -62,7 +63,7 @@ def process_message_call(
     gas_used = gas_before - evm.gas_left
     refund = min(gas_used // 2, evm.refund_counter)
 
-    return evm.gas_left + refund, evm.logs
+    return evm.gas_left, refund, evm.logs, evm.accounts_to_delete
 
 
 def process_create_message(message: Message, env: Environment) -> Evm:
@@ -145,10 +146,11 @@ def execute_code(message: Message, env: Environment) -> Evm:
         env=env,
         valid_jump_destinations=valid_jump_destinations,
         logs=(),
-        refund_counter=Uint(0),
+        refund_counter=U256(0),
         running=True,
         message=message,
         output=b"",
+        accounts_to_delete=set(),
     )
     while evm.running and evm.pc < len(evm.code):
         try:

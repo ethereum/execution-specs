@@ -71,7 +71,8 @@ class Evm:
     env: Environment
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]
-    refund_counter: Uint
+    refund_counter: U256
     running: bool
     message: Message
     output: Bytes
+    accounts_to_delete: Set[Address]
