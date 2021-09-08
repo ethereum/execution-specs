@@ -60,8 +60,8 @@ def push_n(evm: Evm, num_bytes: int) -> None:
     OutOfGasError
         If `evm.gas_left` is less than `3`.
     """
-    assert evm.pc + num_bytes < len(evm.code)
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    assert evm.pc + num_bytes < len(evm.code)
 
     data_to_push = U256.from_be_bytes(
         evm.code[evm.pc + 1 : evm.pc + num_bytes + 1]
@@ -89,8 +89,8 @@ def dup_n(evm: Evm, item_number: int) -> None:
     OutOfGasError
         If `evm.gas_left` is less than `3`.
     """
-    assert item_number < len(evm.stack)
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    assert item_number < len(evm.stack)
 
     data_to_duplicate = evm.stack[len(evm.stack) - 1 - item_number]
     stack.push(evm.stack, data_to_duplicate)
@@ -118,8 +118,8 @@ def swap_n(evm: Evm, item_number: int) -> None:
     OutOfGasError
         If `evm.gas_left` is less than `3`.
     """
-    assert item_number < len(evm.stack)
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    assert item_number < len(evm.stack)
 
     top_element_idx = len(evm.stack) - 1
     nth_element_idx = len(evm.stack) - 1 - item_number

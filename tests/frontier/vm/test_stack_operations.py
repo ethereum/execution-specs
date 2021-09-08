@@ -30,11 +30,10 @@ def test_push_successfully(test_file: str) -> None:
 @pytest.mark.parametrize(
     "test_file",
     [
-        # TODO: These tests are currently failing. Need to investigate
-        # "push1_missingStack.json",
-        # "push32Undefined.json",
-        # "push32Undefined3.json",
-        # "push32FillUpInputWithZerosAtTheEnd.json",
+        "push1_missingStack.json",
+        "push32Undefined.json",
+        "push32Undefined3.json",
+        "push32FillUpInputWithZerosAtTheEnd.json",
     ],
 )
 def test_push_failed(test_file: str) -> None:
