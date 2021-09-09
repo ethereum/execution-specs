@@ -18,12 +18,12 @@ There is a distinction between an account that does not exist and
 """
 from copy import deepcopy
 from dataclasses import dataclass, field, is_dataclass, replace
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ethereum.base_types import U256, Bytes, modify
 
 from .eth_types import EMPTY_ACCOUNT, Account, Address, Root
-from .trie import EMPTY_TRIE_ROOT, Trie, root, trie_get, trie_set
+from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
 
 @dataclass
@@ -36,6 +36,53 @@ class State:
         default_factory=lambda: Trie(secured=True, default=None)
     )
     _storage_tries: Dict[Address, Trie[U256]] = field(default_factory=dict)
+    _snapshots: List[
+        Tuple[Trie[Optional[Account]], Dict[Bytes, Trie[U256]]]
+    ] = field(default_factory=list)
+
+
+def start_transaction(state: State) -> None:
+    """
+    Start a state transaction. Transactions are entirely implicit and can be
+    nested. It is not possible to calculate the state root during a
+    transaction.
+
+    Parameters
+    ----------
+    state : State
+        The state.
+    """
+    state._snapshots.append(
+        (
+            copy_trie(state._main_trie),
+            {k: copy_trie(t) for (k, t) in state._storage_tries.items()},
+        )
+    )
+
+
+def commit_transaction(state: State) -> None:
+    """
+    Commit a state transaction.
+
+    Parameters
+    ----------
+    state : State
+        The state.
+    """
+    state._snapshots.pop()
+
+
+def rollback_transaction(state: State) -> None:
+    """
+    Rollback a state transaction, resetting the state to the point when the
+    corresponding `start_transaction()` call was made.
+
+    Parameters
+    ----------
+    state : State
+        The state.
+    """
+    state._main_trie, state._storage_tries = state._snapshots.pop()
 
 
 def get_account(state: State, address: Address) -> Account:
@@ -198,6 +245,7 @@ def storage_root(state: State, address: Address) -> Bytes:
     root : `Bytes`
         Storage root of the account.
     """
+    assert state._snapshots == []
     if address in state._storage_tries:
         return root(state._storage_tries[address])
     else:
@@ -218,6 +266,7 @@ def state_root(state: State) -> Bytes:
     root : `Bytes`
         The state root.
     """
+    assert state._snapshots == []
 
     def get_storage_root(address: Address) -> Root:
         return storage_root(state, address)

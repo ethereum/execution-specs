@@ -13,6 +13,7 @@ The state trie is the structure responsible for storing
 `eth1spec.eth_types.Account` objects.
 """
 
+import copy
 from dataclasses import dataclass, field
 from typing import (
     Callable,
@@ -166,6 +167,24 @@ class Trie(Generic[T]):
     secured: bool
     default: T
     _data: Dict[Bytes, T] = field(default_factory=dict)
+
+
+def copy_trie(trie: Trie[T]) -> Trie[T]:
+    """
+    Create a copy of `trie`. Since only frozen objects may be stored in tries,
+    the contents are reused.
+
+    Parameters
+    ----------
+    trie: `Trie`
+        Trie to copy.
+
+    Returns
+    -------
+    new_trie : `T`
+        A copy of the trie.
+    """
+    return Trie(trie.secured, trie.default, copy.copy(trie._data))
 
 
 def trie_set(trie: Trie[T], key: Bytes, value: T) -> None:
