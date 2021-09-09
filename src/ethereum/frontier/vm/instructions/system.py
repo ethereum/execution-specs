@@ -312,7 +312,7 @@ def selfdestruct(evm: Evm) -> None:
     evm.refund_counter += REFUND_SELF_DESTRUCT
 
     # register account for deletion
-    evm.accounts_to_delete.add(beneficiary)
+    evm.accounts_to_delete.add(originator)
 
     # HALT the execution
     evm.running = False

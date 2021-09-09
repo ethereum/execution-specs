@@ -9,7 +9,7 @@ from ethereum.frontier import rlp
 from ethereum.frontier.eth_types import Account, Block, Header, Transaction
 from ethereum.frontier.rlp import rlp_hash
 from ethereum.frontier.spec import BlockChain, state_transition
-from ethereum.frontier.state import State, set_account, set_storage, state_root
+from ethereum.frontier.state import State, set_account, set_storage
 from ethereum.frontier.utils.hexadecimal import hex_to_address, hex_to_root
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
@@ -20,14 +20,11 @@ from ethereum.utils.hexadecimal import (
     hex_to_uint,
 )
 
-TEST_DIR = (
-    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
-    "GeneralStateTests/"
-)
 
-
-def run_blockchain_st_test(test_file: str, network: str) -> None:
-    test_data = load_test(test_file, network)
+def run_blockchain_st_test(
+    test_dir: str, test_file: str, network: str
+) -> None:
+    test_data = load_test(test_dir, test_file, network)
 
     genesis_header = test_data["genesis_header"]
     genesis_block = Block(
@@ -68,14 +65,14 @@ def add_blocks_to_chain(chain: BlockChain, test_data: Dict[str, Any]) -> None:
         state_transition(chain, block)
 
 
-def load_test(test_file: str, network: str) -> Dict[str, Any]:
+def load_test(test_dir: str, test_file: str, network: str) -> Dict[str, Any]:
     # Extract the pure basename of the file without the path to the file.
     # Ex: Extract "world.json" from "path/to/file/world.json"
     pure_test_file = os.path.basename(test_file)
     # Extract the filename without the extension. Ex: Extract "world" from
     # "world.json"
     test_name = os.path.splitext(pure_test_file)[0]
-    path = os.path.join(TEST_DIR, test_file)
+    path = os.path.join(test_dir, test_file)
     with open(path, "r") as fp:
         json_data = json.load(fp)[f"{test_name}_{network}"]
 

@@ -399,15 +399,17 @@ def process_transaction(
 
     evm = process_message_call(message, env)
 
-    gas_used = gas - evm.gas_left
+    gas_used = tx.gas - evm.gas_left
     gas_refund = min(gas_used // 2, evm.refund_counter)
-    gas_used = tx.gas - evm.gas_left - gas_refund
-    move_ether(env.state, sender, env.coinbase, gas_used * tx.gas_price)
+    transaction_fee = (tx.gas - evm.gas_left - gas_refund) * tx.gas_price
+    total_gas_used = gas_used - gas_refund
+    # transfer miner fees
+    move_ether(env.state, sender, env.coinbase, transaction_fee)
 
     for address in evm.accounts_to_delete:
         destroy_account(env.state, address)
 
-    return gas_used, evm.logs, evm.env.state
+    return total_gas_used, evm.logs, evm.env.state
 
 
 def validate_transaction(tx: Transaction) -> bool:
