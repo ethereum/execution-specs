@@ -16,8 +16,9 @@ It consists of a main account trie and storage tries for each contract.
 There is a distinction between an account that does not exist and
 `EMPTY_ACCOUNT`.
 """
-from dataclasses import dataclass, field
-from typing import Callable, Dict, Optional
+from copy import deepcopy
+from dataclasses import dataclass, field, is_dataclass, replace
+from typing import Any, Callable, Dict, Optional
 
 from ethereum.base_types import U256, Bytes, modify
 
@@ -294,6 +295,22 @@ def set_account_balance(state: State, address: Address, amount: U256) -> None:
     modify_state(state, address, set_balance)
 
 
+def touch_account(state: State, address: Address) -> None:
+    """
+    Initializes an account to state.
+
+    Parameters
+    ----------
+    state:
+        The current state.
+
+    address:
+        The address of the account that need to initialised.
+    """
+    if not account_exists(state, address):
+        set_account(state, address, EMPTY_ACCOUNT)
+
+
 def increment_nonce(state: State, address: Address) -> None:
     """
     Increments the nonce of an account.
@@ -333,3 +350,47 @@ def set_code(state: State, address: Address, code: Bytes) -> None:
         sender.code = code
 
     modify_state(state, address, write_code)
+
+
+def snapshot_state(state: State) -> State:
+    """
+    Creates a copy of the `state` so that any changes made to the
+    `state` are not applied to the newly created copy of the `state`.
+
+    Parameters
+    ----------
+    state:
+        The current state.
+
+    Returns
+    -------
+    copied_state : `State`
+        A new copy of the `state`.
+    """
+
+    def deepcopy_frozen_dataclass(obj: Any) -> Any:
+        def deepcopy_frozen_value(_value: Any) -> Any:
+            if is_dataclass(_value):
+                return deepcopy_frozen_dataclass(_value)
+            elif isinstance(_value, dict):
+                return dict(
+                    (deepcopy(_key), deepcopy_frozen_value(_val))
+                    for _key, _val in _value.items()
+                )
+            else:
+                return deepcopy(_value)
+
+        assert is_dataclass(obj)
+        new_obj = replace(obj)
+
+        for key in obj.__dataclass_fields__.keys():
+            value = getattr(obj, key)
+            if getattr(new_obj, "_frozen", False):
+                new_obj = replace(new_obj, _frozen=False)
+                setattr(new_obj, key, deepcopy_frozen_value(value))
+                new_obj._frozen = True
+            else:
+                setattr(new_obj, key, deepcopy_frozen_value(value))
+        return new_obj
+
+    return deepcopy_frozen_dataclass(state)

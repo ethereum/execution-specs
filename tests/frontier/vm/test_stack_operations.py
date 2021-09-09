@@ -2,7 +2,6 @@ from functools import partial
 
 import pytest
 
-from ethereum.frontier.vm.error import StackUnderflowError
 from tests.frontier.vm.vm_test_helpers import run_test
 
 run_push_vm_test = partial(
@@ -16,13 +15,16 @@ run_pop_vm_test = partial(
 run_dup_vm_test = run_swap_vm_test = run_push_vm_test
 
 
-def test_push_successfully() -> None:
-    for i in range(1, 34):
-        run_push_vm_test(f"push{i}.json")
-
-    run_push_vm_test("push32Undefined2.json")
-    # TODO: Run below test once suicide opcode has been implemented
-    # "push32AndSuicide.json"
+@pytest.mark.parametrize(
+    "test_file",
+    [f"push{i}.json" for i in range(1, 34)]
+    + [
+        "push32Undefined2.json",
+        "push32AndSuicide.json",
+    ],
+)
+def test_push_successfully(test_file: str) -> None:
+    run_push_vm_test(test_file)
 
 
 @pytest.mark.parametrize(
@@ -35,8 +37,7 @@ def test_push_successfully() -> None:
     ],
 )
 def test_push_failed(test_file: str) -> None:
-    with pytest.raises(AssertionError):
-        run_push_vm_test(test_file)
+    run_push_vm_test(test_file)
 
 
 def test_dup() -> None:
@@ -45,8 +46,7 @@ def test_dup() -> None:
 
 
 def test_dup_error() -> None:
-    with pytest.raises(AssertionError):
-        run_dup_vm_test("dup2error.json")
+    run_dup_vm_test("dup2error.json")
 
 
 def test_swap() -> None:
@@ -59,8 +59,7 @@ def test_swap_jump() -> None:
 
 
 def test_swap_error() -> None:
-    with pytest.raises(AssertionError):
-        run_swap_vm_test("swap2error.json")
+    run_swap_vm_test("swap2error.json")
 
 
 def test_pop() -> None:
@@ -68,5 +67,4 @@ def test_pop() -> None:
 
 
 def test_pop_fails_when_stack_underflowed() -> None:
-    with pytest.raises(StackUnderflowError):
-        run_pop_vm_test("pop1.json")
+    run_pop_vm_test("pop1.json")

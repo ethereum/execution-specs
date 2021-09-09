@@ -11,6 +11,8 @@ Introduction
 
 Message specific functions used in this frontier version of specification.
 """
+from typing import Optional
+
 from ethereum.base_types import U256, Bytes, Bytes0, Uint
 
 from ..eth_types import Address
@@ -26,6 +28,7 @@ def prepare_message(
     data: Bytes,
     gas: U256,
     env: Environment,
+    code_address: Optional[Address] = None,
 ) -> Message:
     """
     Execute a transaction against the provided environment.
@@ -44,6 +47,10 @@ def prepare_message(
         Gas provided for the code in `target`.
     env :
         Environment for the Ethereum Virtual Machine.
+    code_address :
+        This is usually same as the `target` address except when an alternative
+        accounts code needs to be executed.
+        eg. `CALLCODE` calling a precompile.
 
     Returns
     -------
@@ -71,4 +78,5 @@ def prepare_message(
         code=code,
         depth=Uint(0),
         current_target=current_target,
+        code_address=code_address,
     )

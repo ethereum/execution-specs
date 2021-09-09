@@ -11,16 +11,27 @@ Introduction
 
 A straightforward interpreter that executes EVM code.
 """
-from typing import Set, Tuple
-
 from ethereum.base_types import U256, Bytes0, Uint
-from ethereum.frontier.eth_types import Address
-from ethereum.frontier.state import move_ether, set_code
+from ethereum.frontier.state import (
+    move_ether,
+    set_code,
+    snapshot_state,
+    touch_account,
+)
 from ethereum.frontier.vm import Message
-from ethereum.frontier.vm.error import InvalidOpcode, StackDepthLimitError
+from ethereum.frontier.vm.error import (
+    InvalidJumpDestError,
+    InvalidOpcode,
+    OutOfGasError,
+    StackDepthLimitError,
+    StackOverflowError,
+    StackUnderflowError,
+)
 from ethereum.frontier.vm.gas import GAS_CODE_DEPOSIT, subtract_gas
+from ethereum.frontier.vm.precompiled_contracts.mapping import (
+    PRE_COMPILED_CONTRACTS,
+)
 
-from ..eth_types import Log
 from . import Environment, Evm
 from .instructions import Ops, op_implementation
 from .runtime import get_valid_jump_destinations
@@ -31,9 +42,7 @@ PC_CHANGING_OPS = {Ops.JUMP, Ops.JUMPI}
 STACK_DEPTH_LIMIT = U256(1024)
 
 
-def process_message_call(
-    message: Message, env: Environment
-) -> Tuple[U256, U256, Tuple[Log, ...], Set[Address]]:
+def process_message_call(message: Message, env: Environment) -> Evm:
     """
     If `message.current` is empty then it creates a smart contract
     else it executes a call from the `message.caller` to the `message.target`.
@@ -53,17 +62,12 @@ def process_message_call(
         after execution, and logs is the list of `eth1spec.eth_types.Log`
         generated during execution.
     """
-    gas_before = message.gas
-
     if message.target == Bytes0(b""):
         evm = process_create_message(message, env)
     else:
         evm = process_message(message, env)
 
-    gas_used = gas_before - evm.gas_left
-    refund = min(gas_used // 2, evm.refund_counter)
-
-    return evm.gas_left, refund, evm.logs, evm.accounts_to_delete
+    return evm
 
 
 def process_create_message(message: Message, env: Environment) -> Evm:
@@ -107,15 +111,23 @@ def process_message(message: Message, env: Environment) -> Evm:
     evm: `ethereum.frontier.vm.Evm`
         Items containing execution specific objects
     """
+    # take snapshot of state before processing the message
+    state_snapshot = snapshot_state(env.state)
+
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
+
+    touch_account(env.state, message.current_target)
     if message.value != 0:
         move_ether(
             env.state, message.caller, message.current_target, message.value
         )
 
     evm = execute_code(message, env)
-    # TODO: revert state check if code execution resulted in error
+    if evm.has_erred:
+        # revert state to the last saved checkpoint
+        # since the message call resulted in an error
+        evm.env.state = state_snapshot
     return evm
 
 
@@ -151,18 +163,38 @@ def execute_code(message: Message, env: Environment) -> Evm:
         message=message,
         output=b"",
         accounts_to_delete=set(),
+        has_erred=False,
     )
-    while evm.running and evm.pc < len(evm.code):
-        try:
-            op = Ops(evm.code[evm.pc])
-        except ValueError:
-            raise InvalidOpcode(evm.code[evm.pc])
+    try:
 
-        op_implementation[op](evm)
+        if evm.message.code_address in PRE_COMPILED_CONTRACTS:
+            PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
+            return evm
 
-        if op not in PC_CHANGING_OPS:
-            evm.pc += 1
+        while evm.running and evm.pc < len(evm.code):
+            try:
+                op = Ops(evm.code[evm.pc])
+            except ValueError:
+                raise InvalidOpcode(evm.code[evm.pc])
 
-        if evm.pc >= len(evm.code):
-            evm.running = False
-    return evm
+            op_implementation[op](evm)
+
+            if op not in PC_CHANGING_OPS:
+                evm.pc += 1
+
+    except OutOfGasError:
+        evm.gas_left = U256(0)
+        evm.has_erred = True
+    except (
+        OutOfGasError,
+        InvalidOpcode,
+        InvalidJumpDestError,
+        StackOverflowError,
+        StackUnderflowError,
+        StackDepthLimitError,
+        AssertionError,
+        ValueError,
+    ):
+        evm.has_erred = True
+    finally:
+        return evm
