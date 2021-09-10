@@ -169,6 +169,8 @@ def test_precompiles(test_file: str) -> None:
     "test_file",
     [
         "ABAcalls0_d0g0v0.json",
+        "ABAcalls1_d0g0v0.json",
+        "ABAcalls2_d0g0v0.json",
         "ABAcalls3_d0g0v0.json",
         "ABAcallsSuicide0_d0g0v0.json",
         "ABAcallsSuicide1_d0g0v0.json",
