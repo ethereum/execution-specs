@@ -13,9 +13,11 @@ A straightforward interpreter that executes EVM code.
 """
 from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.frontier.state import (
+    begin_transaction,
+    commit_transaction,
     move_ether,
+    rollback_transaction,
     set_code,
-    snapshot_state,
     touch_account,
 )
 from ethereum.frontier.vm import Message
@@ -111,11 +113,11 @@ def process_message(message: Message, env: Environment) -> Evm:
     evm: `ethereum.frontier.vm.Evm`
         Items containing execution specific objects
     """
-    # take snapshot of state before processing the message
-    state_snapshot = snapshot_state(env.state)
-
     if message.depth > STACK_DEPTH_LIMIT:
         raise StackDepthLimitError("Stack depth limit reached")
+
+    # take snapshot of state before processing the message
+    begin_transaction(env.state)
 
     touch_account(env.state, message.current_target)
     if message.value != 0:
@@ -127,7 +129,9 @@ def process_message(message: Message, env: Environment) -> Evm:
     if evm.has_erred:
         # revert state to the last saved checkpoint
         # since the message call resulted in an error
-        evm.env.state = state_snapshot
+        rollback_transaction(env.state)
+    else:
+        commit_transaction(env.state)
     return evm
 
 

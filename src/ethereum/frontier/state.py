@@ -16,14 +16,13 @@ It consists of a main account trie and storage tries for each contract.
 There is a distinction between an account that does not exist and
 `EMPTY_ACCOUNT`.
 """
-from copy import deepcopy
-from dataclasses import dataclass, field, is_dataclass, replace
-from typing import Any, Callable, Dict, Optional
+from dataclasses import dataclass, field
+from typing import Callable, Dict, List, Optional, Tuple
 
 from ethereum.base_types import U256, Bytes, modify
 
 from .eth_types import EMPTY_ACCOUNT, Account, Address, Root
-from .trie import EMPTY_TRIE_ROOT, Trie, root, trie_get, trie_set
+from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
 
 @dataclass
@@ -36,6 +35,54 @@ class State:
         default_factory=lambda: Trie(secured=True, default=None)
     )
     _storage_tries: Dict[Address, Trie[U256]] = field(default_factory=dict)
+    _snapshots: List[
+        Tuple[Trie[Optional[Account]], Dict[Bytes, Trie[U256]]]
+    ] = field(default_factory=list)
+
+
+def begin_transaction(state: State) -> None:
+    """
+    Start a state transaction.
+
+    Transactions are entirely implicit and can be nested. It is not possible to
+    calculate the state root during a transaction.
+
+    Parameters
+    ----------
+    state : State
+        The state.
+    """
+    state._snapshots.append(
+        (
+            copy_trie(state._main_trie),
+            {k: copy_trie(t) for (k, t) in state._storage_tries.items()},
+        )
+    )
+
+
+def commit_transaction(state: State) -> None:
+    """
+    Commit a state transaction.
+
+    Parameters
+    ----------
+    state : State
+        The state.
+    """
+    state._snapshots.pop()
+
+
+def rollback_transaction(state: State) -> None:
+    """
+    Rollback a state transaction, resetting the state to the point when the
+    corresponding `start_transaction()` call was made.
+
+    Parameters
+    ----------
+    state : State
+        The state.
+    """
+    state._main_trie, state._storage_tries = state._snapshots.pop()
 
 
 def get_account(state: State, address: Address) -> Account:
@@ -198,6 +245,7 @@ def storage_root(state: State, address: Address) -> Bytes:
     root : `Bytes`
         Storage root of the account.
     """
+    assert state._snapshots == []
     if address in state._storage_tries:
         return root(state._storage_tries[address])
     else:
@@ -218,6 +266,7 @@ def state_root(state: State) -> Bytes:
     root : `Bytes`
         The state root.
     """
+    assert state._snapshots == []
 
     def get_storage_root(address: Address) -> Root:
         return storage_root(state, address)
@@ -351,47 +400,3 @@ def set_code(state: State, address: Address, code: Bytes) -> None:
         sender.code = code
 
     modify_state(state, address, write_code)
-
-
-def snapshot_state(state: State) -> State:
-    """
-    Creates a copy of the `state` so that any changes made to the
-    `state` are not applied to the newly created copy of the `state`.
-
-    Parameters
-    ----------
-    state:
-        The current state.
-
-    Returns
-    -------
-    copied_state : `State`
-        A new copy of the `state`.
-    """
-
-    def deepcopy_frozen_dataclass(obj: Any) -> Any:
-        def deepcopy_frozen_value(_value: Any) -> Any:
-            if is_dataclass(_value):
-                return deepcopy_frozen_dataclass(_value)
-            elif isinstance(_value, dict):
-                return dict(
-                    (deepcopy(_key), deepcopy_frozen_value(_val))
-                    for _key, _val in _value.items()
-                )
-            else:
-                return deepcopy(_value)
-
-        assert is_dataclass(obj)
-        new_obj = replace(obj)
-
-        for key in obj.__dataclass_fields__.keys():
-            value = getattr(obj, key)
-            if getattr(new_obj, "_frozen", False):
-                new_obj = replace(new_obj, _frozen=False)
-                setattr(new_obj, key, deepcopy_frozen_value(value))
-                new_obj._frozen = True
-            else:
-                setattr(new_obj, key, deepcopy_frozen_value(value))
-        return new_obj
-
-    return deepcopy_frozen_dataclass(state)
