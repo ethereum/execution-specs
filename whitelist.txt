@@ -257,3 +257,6 @@ sqrt
 precompiled
 ripemd160
 ecrecover
+
+getrecursionlimit
+setrecursionlimit
