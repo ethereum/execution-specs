@@ -16,9 +16,8 @@ run_storage_vm_test = partial(
         "sstore_load_0.json",
         "sstore_load_1.json",
         "sstore_load_2.json",
-        "sstore_underflow.json"
-        # TODO: Run below test once RETURN opcode has been implemented.
-        # "kv1.json",
+        "sstore_underflow.json",
+        "kv1.json",
     ],
 )
 def test_sstore_and_sload(test_file: str) -> None:
