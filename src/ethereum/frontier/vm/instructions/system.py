@@ -88,7 +88,6 @@ def create(evm: Evm) -> None:
     child_evm = process_create_message(child_message, evm.env)
     if child_evm.has_erred:
         push(evm.stack, U256(0))
-        evm.env.state = child_evm.env.state
     else:
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
     evm.gas_left = child_evm.gas_left
@@ -187,7 +186,6 @@ def call(evm: Evm) -> None:
 
     if child_evm.has_erred:
         push(evm.stack, U256(0))
-        evm.env.state = child_evm.env.state
     else:
         push(evm.stack, U256(1))
 
@@ -271,7 +269,6 @@ def callcode(evm: Evm) -> None:
     child_evm = process_message(child_message, evm.env)
     if child_evm.has_erred:
         push(evm.stack, U256(0))
-        evm.env.state = child_evm.env.state
     else:
         push(evm.stack, U256(1))
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))

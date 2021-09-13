@@ -132,7 +132,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.transactions,
         block.ommers,
     )
-    chain.state = state
 
     assert gas_used == block.header.gas_used
     assert compute_ommers_hash(block) == block.header.ommers_hash
@@ -318,7 +317,7 @@ def apply_body(
             state=state,
         )
 
-        gas_used, logs, state = process_transaction(env, tx)
+        gas_used, logs = process_transaction(env, tx)
         gas_available -= gas_used
 
         trie_set(
@@ -360,7 +359,7 @@ def compute_ommers_hash(block: Block) -> Hash32:
 
 def process_transaction(
     env: vm.Environment, tx: Transaction
-) -> Tuple[U256, Tuple[Log, ...], State]:
+) -> Tuple[U256, Tuple[Log, ...]]:
     """
     Execute a transaction against the provided environment.
 
@@ -409,7 +408,7 @@ def process_transaction(
     for address in evm.accounts_to_delete:
         destroy_account(env.state, address)
 
-    return total_gas_used, evm.logs, evm.env.state
+    return total_gas_used, evm.logs
 
 
 def validate_transaction(tx: Transaction) -> bool:
