@@ -29,7 +29,11 @@ from ethereum.frontier.vm.error import (
     StackOverflowError,
     StackUnderflowError,
 )
-from ethereum.frontier.vm.gas import GAS_CODE_DEPOSIT, subtract_gas
+from ethereum.frontier.vm.gas import (
+    GAS_CODE_DEPOSIT,
+    REFUND_SELF_DESTRUCT,
+    subtract_gas,
+)
 from ethereum.frontier.vm.precompiled_contracts.mapping import (
     PRE_COMPILED_CONTRACTS,
 )
@@ -68,6 +72,8 @@ def process_message_call(message: Message, env: Environment) -> Evm:
         evm = process_create_message(message, env)
     else:
         evm = process_message(message, env)
+
+    evm.refund_counter += len(evm.accounts_to_delete) * REFUND_SELF_DESTRUCT
 
     return evm
 

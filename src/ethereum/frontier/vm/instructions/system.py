@@ -12,7 +12,6 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Uint
-from ethereum.frontier.vm.gas import REFUND_SELF_DESTRUCT
 
 from ...state import get_account, increment_nonce, set_account_balance
 from ...utils.address import compute_contract_address, to_address
@@ -304,9 +303,6 @@ def selfdestruct(evm: Evm) -> None:
     # sending to beneficiary in case the contract named itself as the
     # beneficiary).
     set_account_balance(evm.env.state, originator, U256(0))
-
-    # gas refund
-    evm.refund_counter += REFUND_SELF_DESTRUCT
 
     # register account for deletion
     evm.accounts_to_delete.add(originator)
