@@ -186,9 +186,6 @@ def execute_code(message: Message, env: Environment) -> Evm:
             if op not in PC_CHANGING_OPS:
                 evm.pc += 1
 
-    except OutOfGasError:
-        evm.gas_left = U256(0)
-        evm.has_erred = True
     except (
         OutOfGasError,
         InvalidOpcode,
@@ -196,6 +193,10 @@ def execute_code(message: Message, env: Environment) -> Evm:
         StackOverflowError,
         StackUnderflowError,
         StackDepthLimitError,
+    ):
+        evm.gas_left = U256(0)
+        evm.has_erred = True
+    except (
         AssertionError,
         ValueError,
     ):
