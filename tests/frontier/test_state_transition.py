@@ -18,6 +18,12 @@ run_transaction_init_test = partial(
     "GeneralStateTests/stTransactionTest/",
 )
 
+run_log_test = partial(
+    run_frontier_blockchain_st_tests,
+    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
+    "GeneralStateTests/stLogTests/",
+)
+
 run_precompiles_test = partial(
     run_frontier_blockchain_st_tests,
     "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
@@ -49,15 +55,61 @@ def test_transaction_init(test_file: str) -> None:
     run_transaction_init_test(test_file)
 
 
-# TODO: Run the below test cases once CALL opcode has been implemented.
-# @pytest.mark.parametrize(
-#     "test_file",
-#     list(os.listdir(os.path.join(TEST_DIR, "stLogTests")))
-# )
-# def test_log_operations(test_file: str) -> None:
-#     print(test_file)
-#     run_frontier_blockchain_st_tests(f"stLogTests/{test_file}")
-#     assert 1 == 0
+@pytest.mark.parametrize(
+    "test_file",
+    [
+        "log0_emptyMem_d0g0v0.json",
+        "log0_logMemsizeZero_d0g0v0.json",
+        "log0_nonEmptyMem_d0g0v0.json",
+        "log0_nonEmptyMem_logMemSize1_d0g0v0.json",
+        "log0_nonEmptyMem_logMemSize1_logMemStart31_d0g0v0.json",
+        "log1_Caller_d0g0v0.json",
+        "log1_MaxTopic_d0g0v0.json",
+        "log1_emptyMem_d0g0v0.json",
+        "log1_logMemsizeZero_d0g0v0.json",
+        "log1_nonEmptyMem_d0g0v0.json",
+        "log1_nonEmptyMem_logMemSize1_d0g0v0.json",
+        "log1_nonEmptyMem_logMemSize1_logMemStart31_d0g0v0.json",
+        "log2_Caller_d0g0v0.json",
+        "log2_MaxTopic_d0g0v0.json",
+        "log2_emptyMem_d0g0v0.json",
+        "log2_logMemsizeZero_d0g0v0.json",
+        "log2_nonEmptyMem_d0g0v0.json",
+        "log2_nonEmptyMem_logMemSize1_d0g0v0.json",
+        "log2_nonEmptyMem_logMemSize1_logMemStart31_d0g0v0.json",
+        "log3_Caller_d0g0v0.json",
+        "log3_MaxTopic_d0g0v0.json",
+        "log3_PC_d0g0v0.json",
+        "log3_emptyMem_d0g0v0.json",
+        "log3_logMemsizeZero_d0g0v0.json",
+        "log3_nonEmptyMem_d0g0v0.json",
+        "log3_nonEmptyMem_logMemSize1_d0g0v0.json",
+        "log3_nonEmptyMem_logMemSize1_logMemStart31_d0g0v0.json",
+        "log4_Caller_d0g0v0.json",
+        "log4_MaxTopic_d0g0v0.json",
+        "log4_PC_d0g0v0.json",
+        "log4_emptyMem_d0g0v0.json",
+        "log4_logMemsizeZero_d0g0v0.json",
+        "log4_nonEmptyMem_d0g0v0.json",
+        "log4_nonEmptyMem_logMemSize1_d0g0v0.json",
+        "log4_nonEmptyMem_logMemSize1_logMemStart31_d0g0v0.json",
+        # FIXME: The tests below are failing because gas calculation is causing
+        #  U256 to overflow. These tests are supposed to fail with OOG exception
+        #  "log0_logMemStartTooHigh_d0g0v0.json",
+        #  "log0_logMemsizeTooHigh_d0g0v0.json",
+        #  "log1_logMemStartTooHigh_d0g0v0.json",
+        #  "log1_logMemsizeTooHigh_d0g0v0.json",
+        #  "log2_logMemStartTooHigh_d0g0v0.json",
+        #  "log2_logMemsizeTooHigh_d0g0v0.json",
+        #  "log3_logMemStartTooHigh_d0g0v0.json",
+        #  "log3_logMemsizeTooHigh_d0g0v0.json",
+        #  "log4_logMemStartTooHigh_d0g0v0.json",
+        #  "log4_logMemsizeTooHigh_d0g0v0.json",
+        #  "logInOOG_Call_d0g0v0.json",
+    ],
+)
+def test_log_operations(test_file: str) -> None:
+    run_log_test(test_file)
 
 
 @pytest.mark.parametrize(
