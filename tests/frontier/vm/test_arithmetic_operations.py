@@ -48,8 +48,7 @@ def test_sub(test_file: str) -> None:
         "mul4.json",
         "mul5.json",
         "mul6.json",
-        # TODO: Uncomment mul7.json once RETURN is implemented
-        # "mul7.json",
+        "mul7.json",
     ],
 )
 def test_mul(test_file: str) -> None:
@@ -59,8 +58,7 @@ def test_mul(test_file: str) -> None:
 @pytest.mark.parametrize(
     "test_file",
     [
-        # TODO: Uncomment div1.json file once RETURN is implemented
-        # "div1.json",
+        "div1.json",
         "divBoostBug.json",
         "divByNonZero0.json",
         "divByNonZero1.json",
@@ -169,8 +167,7 @@ def test_addmod(test_file: str) -> None:
         "mulmod2_1.json",
         "mulmod3.json",
         "mulmod3_0.json",
-        # TODO: Test file 'mulmod4.json' after implementing RETURN opcode
-        # "mulmod4.json",
+        "mulmod4.json",
     ],
 )
 def test_mulmod(test_file: str) -> None:

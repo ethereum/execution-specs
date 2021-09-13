@@ -19,15 +19,14 @@ run_control_flow_ops_vm_test = partial(
         "jumpAfterStop.json",
         "jumpdestBigList.json",
         "jumpTo1InstructionafterJump.json",
-        # TODO: Run below test once RETURN is implemented
-        # "jumpDynamicJumpSameDest.json",
-        # "indirect_jump1.json",
-        # "indirect_jump2.json",
-        # "indirect_jump3.json",
-        # "DynamicJump_value1.json",
-        # "DynamicJump_value2.json",
-        # "DynamicJump_value3.json",
-        # "stackjump1.json",
+        "jumpDynamicJumpSameDest.json",
+        "indirect_jump1.json",
+        "indirect_jump2.json",
+        "indirect_jump3.json",
+        "DynamicJump_value1.json",
+        "DynamicJump_value2.json",
+        "DynamicJump_value3.json",
+        "stackjump1.json",
         "indirect_jump4.json",
         "JDfromStorageDynamicJump0_jumpdest0.json",
         "JDfromStorageDynamicJump0_jumpdest2.json",
@@ -153,8 +152,7 @@ def test_gas(test_file: str) -> None:
     [
         "for_loop1.json",
         "for_loop2.json",
-        # TODO: Run below test once RETURN opcode has been implemented.
-        # "loop_stacklimit_1020.json",
+        "loop_stacklimit_1020.json",
         "loop_stacklimit_1021.json",
     ],
 )
@@ -172,8 +170,7 @@ def test_when() -> None:
         "byte1.json",
         "calldatacopyMemExp.json",
         "codecopyMemExp.json",
-        # TODO: Run below test case once RETURN opcode has been implemented
-        # "deadCode_1.json",
+        "deadCode_1.json",
         "dupAt51becameMload.json",
         "swapAt52becameMstore.json",
         "log1MemExp.json",

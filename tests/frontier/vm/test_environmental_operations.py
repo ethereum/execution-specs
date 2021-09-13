@@ -70,9 +70,13 @@ def test_calldatasize(test_file: str) -> None:
         "calldatacopy_DataIndexTooHigh.json",
         "calldatacopy_DataIndexTooHigh2.json",
         "calldatacopy_sec.json",
-        "calldatacopyUnderFlow.json"
-        # TODO: Run the above test cases which end with `_return.json` once
-        # RETURN opcode is implemented.
+        "calldatacopyUnderFlow.json",
+        "calldatacopy0_return.json",
+        "calldatacopy1_return.json",
+        "calldatacopy2_return.json",
+        "calldatacopyZeroMemExpansion_return.json",
+        "calldatacopy_DataIndexTooHigh_return.json",
+        "calldatacopy_DataIndexTooHigh2_return.json",
     ],
 )
 def test_calldatacopy(test_file: str) -> None:
