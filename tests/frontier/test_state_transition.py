@@ -40,11 +40,9 @@ def test_add() -> None:
     [
         f"Opcodes_TransactionInit_d{i}g0v0.json"
         for i in range(128)
-        if i not in [33, 37, 38, 124, 125, 126, 127]
+        if i not in [33, 127]
         # NOTE:
         # - Test 33, 127 has no tests for Frontier
-        # - test 37, 38 124, 125, 126 have invalid opcodes
-        # that need to be handled gracefully
     ],
 )
 def test_transaction_init(test_file: str) -> None:
