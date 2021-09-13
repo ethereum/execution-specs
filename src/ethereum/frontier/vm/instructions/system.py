@@ -92,6 +92,7 @@ def create(evm: Evm) -> None:
     evm.gas_left = child_evm.gas_left
     evm.refund_counter += child_evm.refund_counter
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
+    evm.logs += child_evm.logs
 
 
 def return_(evm: Evm) -> None:
@@ -197,6 +198,7 @@ def call(evm: Evm) -> None:
     evm.gas_left += child_evm.gas_left
     evm.refund_counter += child_evm.refund_counter
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
+    evm.logs += child_evm.logs
 
 
 def callcode(evm: Evm) -> None:
@@ -279,6 +281,7 @@ def callcode(evm: Evm) -> None:
     evm.gas_left += child_evm.gas_left
     evm.refund_counter += child_evm.refund_counter
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
+    evm.logs += child_evm.logs
 
 
 def selfdestruct(evm: Evm) -> None:
