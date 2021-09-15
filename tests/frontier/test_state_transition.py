@@ -103,8 +103,7 @@ def test_transaction_init(test_file: str) -> None:
         "log3_logMemsizeTooHigh_d0g0v0.json",
         "log4_logMemStartTooHigh_d0g0v0.json",
         "log4_logMemsizeTooHigh_d0g0v0.json",
-        # FIXME: The receipt root doesn't match for the test below
-        # "logInOOG_Call_d0g0v0.json",
+        "logInOOG_Call_d0g0v0.json",
     ],
 )
 def test_log_operations(test_file: str) -> None:
