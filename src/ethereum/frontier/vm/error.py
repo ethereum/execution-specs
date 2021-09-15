@@ -63,3 +63,11 @@ class StackDepthLimitError(Exception):
     """
 
     pass
+
+
+class Halt(Exception):
+    """
+    Raised when an opcode halts vm execution.
+    """
+
+    pass

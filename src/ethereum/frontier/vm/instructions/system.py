@@ -12,6 +12,7 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Uint
+from ethereum.frontier.vm.error import Halt
 
 from ...state import get_account, increment_nonce, set_account_balance
 from ...utils.address import compute_contract_address, to_address
@@ -115,7 +116,7 @@ def return_(evm: Evm) -> None:
         evm.memory, memory_start_position, memory_size
     )
     # HALT the execution
-    evm.running = False
+    raise Halt("Return")
 
 
 def call(evm: Evm) -> None:
@@ -311,4 +312,4 @@ def selfdestruct(evm: Evm) -> None:
     evm.accounts_to_delete.add(originator)
 
     # HALT the execution
-    evm.running = False
+    raise Halt("SELFDESTRUCT")

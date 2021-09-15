@@ -13,7 +13,7 @@ Implementations of the EVM control flow instructions.
 """
 
 from ethereum.base_types import U256, Uint
-from ethereum.frontier.vm.error import InvalidJumpDestError
+from ethereum.frontier.vm.error import Halt, InvalidJumpDestError
 from ethereum.frontier.vm.gas import (
     GAS_BASE,
     GAS_HIGH,
@@ -35,7 +35,7 @@ def stop(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    evm.running = False
+    raise Halt("STOP")
 
 
 def jump(evm: Evm) -> None:

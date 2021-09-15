@@ -22,6 +22,7 @@ from ethereum.frontier.state import (
 )
 from ethereum.frontier.vm import Message
 from ethereum.frontier.vm.error import (
+    Halt,
     InvalidJumpDestError,
     InvalidOpcode,
     OutOfGasError,
@@ -169,7 +170,6 @@ def execute_code(message: Message, env: Environment) -> Evm:
         valid_jump_destinations=valid_jump_destinations,
         logs=(),
         refund_counter=U256(0),
-        running=True,
         message=message,
         output=b"",
         accounts_to_delete=set(),
@@ -181,7 +181,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
             PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
             return evm
 
-        while evm.running and evm.pc < len(evm.code):
+        while evm.pc < len(evm.code):
             try:
                 op = Ops(evm.code[evm.pc])
             except ValueError:
@@ -207,5 +207,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         ValueError,
     ):
         evm.has_erred = True
+    except Halt:
+        pass
     finally:
         return evm
