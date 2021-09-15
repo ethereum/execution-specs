@@ -201,6 +201,9 @@ def execute_code(message: Message, env: Environment) -> Evm:
         StackDepthLimitError,
     ):
         evm.gas_left = U256(0)
+        evm.logs = ()
+        evm.accounts_to_delete = set()
+        evm.refund_counter = U256(0)
         evm.has_erred = True
     except (
         AssertionError,
