@@ -15,6 +15,7 @@ from ethereum.base_types import U256, Uint
 from ethereum.frontier.eth_types import Address
 from ethereum.frontier.state import State, account_exists
 from ethereum.utils.numeric import ceil32
+from ethereum.utils.safe_arithmetic import u256_safe_add
 
 from .error import OutOfGasError
 
@@ -96,7 +97,10 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> U256:
     linear_cost = size_in_words * GAS_MEMORY
     quadratic_cost = size_in_words ** 2 // 512
     total_gas_cost = linear_cost + quadratic_cost
-    return U256(total_gas_cost)
+    try:
+        return U256(total_gas_cost)
+    except ValueError:
+        raise OutOfGasError
 
 
 def calculate_gas_extend_memory(
@@ -159,7 +163,13 @@ def calculate_call_gas_cost(
     _account_exists = account_exists(state, to)
     create_gas_cost = U256(0) if _account_exists else GAS_NEW_ACCOUNT
     transfer_gas_cost = U256(0) if value == 0 else GAS_CALL_VALUE
-    return GAS_CALL + gas + create_gas_cost + transfer_gas_cost
+    return u256_safe_add(
+        GAS_CALL,
+        gas,
+        create_gas_cost,
+        transfer_gas_cost,
+        exception_type=OutOfGasError,
+    )
 
 
 def calculate_message_call_gas_stipend(value: U256) -> U256:

@@ -13,7 +13,9 @@ Implementations of the EVM logging instructions.
 """
 from functools import partial
 
-from ethereum.base_types import Uint
+from ethereum.base_types import U256, Uint
+from ethereum.frontier.vm.error import OutOfGasError
+from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
 from ...eth_types import Log
 from .. import Evm
@@ -28,7 +30,7 @@ from ..memory import extend_memory, memory_read_bytes
 from ..stack import pop
 
 
-def log_n(evm: Evm, num_topics: int) -> None:
+def log_n(evm: Evm, num_topics: U256) -> None:
     """
     Appends a log entry, having `num_topics` topics, to the evm logs.
 
@@ -52,11 +54,21 @@ def log_n(evm: Evm, num_topics: int) -> None:
     memory_start_index = Uint(pop(evm.stack))
     size = pop(evm.stack)
 
-    gas_cost = (
-        GAS_LOG
-        + (GAS_LOG_DATA * size)
-        + (GAS_LOG_TOPIC * num_topics)
-        + calculate_gas_extend_memory(evm.memory, memory_start_index, size)
+    gas_cost_log_data = u256_safe_multiply(
+        GAS_LOG_DATA, size, exception_type=OutOfGasError
+    )
+    gas_cost_log_topic = u256_safe_multiply(
+        GAS_LOG_TOPIC, num_topics, exception_type=OutOfGasError
+    )
+    gas_cost_memory_extend = calculate_gas_extend_memory(
+        evm.memory, memory_start_index, size
+    )
+    gas_cost = u256_safe_add(
+        GAS_LOG,
+        gas_cost_log_data,
+        gas_cost_log_topic,
+        gas_cost_memory_extend,
+        exception_type=OutOfGasError,
     )
     evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
 

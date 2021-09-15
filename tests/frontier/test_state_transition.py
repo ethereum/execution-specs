@@ -93,19 +93,18 @@ def test_transaction_init(test_file: str) -> None:
         "log4_nonEmptyMem_d0g0v0.json",
         "log4_nonEmptyMem_logMemSize1_d0g0v0.json",
         "log4_nonEmptyMem_logMemSize1_logMemStart31_d0g0v0.json",
-        # FIXME: The tests below are failing because gas calculation is causing
-        #  U256 to overflow. These tests are supposed to fail with OOG exception
-        #  "log0_logMemStartTooHigh_d0g0v0.json",
-        #  "log0_logMemsizeTooHigh_d0g0v0.json",
-        #  "log1_logMemStartTooHigh_d0g0v0.json",
-        #  "log1_logMemsizeTooHigh_d0g0v0.json",
-        #  "log2_logMemStartTooHigh_d0g0v0.json",
-        #  "log2_logMemsizeTooHigh_d0g0v0.json",
-        #  "log3_logMemStartTooHigh_d0g0v0.json",
-        #  "log3_logMemsizeTooHigh_d0g0v0.json",
-        #  "log4_logMemStartTooHigh_d0g0v0.json",
-        #  "log4_logMemsizeTooHigh_d0g0v0.json",
-        #  "logInOOG_Call_d0g0v0.json",
+        "log0_logMemStartTooHigh_d0g0v0.json",
+        "log0_logMemsizeTooHigh_d0g0v0.json",
+        "log1_logMemStartTooHigh_d0g0v0.json",
+        "log1_logMemsizeTooHigh_d0g0v0.json",
+        "log2_logMemStartTooHigh_d0g0v0.json",
+        "log2_logMemsizeTooHigh_d0g0v0.json",
+        "log3_logMemStartTooHigh_d0g0v0.json",
+        "log3_logMemsizeTooHigh_d0g0v0.json",
+        "log4_logMemStartTooHigh_d0g0v0.json",
+        "log4_logMemsizeTooHigh_d0g0v0.json",
+        # FIXME: The receipt root doesn't match for the test below
+        # "logInOOG_Call_d0g0v0.json",
     ],
 )
 def test_log_operations(test_file: str) -> None:
