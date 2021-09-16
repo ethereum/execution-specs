@@ -14,7 +14,7 @@ Defines the serialization and deserialization format used throughout Ethereum.
 
 from __future__ import annotations
 
-from typing import List, Sequence, Union, cast
+from typing import Any, List, Sequence, Union, cast
 
 from ethereum import crypto
 from ethereum.crypto import Hash32
@@ -495,6 +495,82 @@ def encode_log(raw_log_data: Log) -> Bytes:
     )
 
 
+def sequence_to_header(sequence: Sequence[Bytes]) -> Header:
+    """
+    Build a Header object from a sequence of bytes. The sequence should be
+    containing exactly 15 byte sequences.
+
+    Parameters
+    ----------
+    sequence :
+        The sequence of bytes which is supposed to form the Header
+        object.
+
+    Returns
+    -------
+    header : `Header`
+        The obtained `Header` object.
+    """
+    # TODO: Add assertions about the number of bytes in each of the below
+    # variables if it's used in chain sync later on.
+    assert len(sequence) == 15
+
+    return Header(
+        parent_hash=sequence[0],
+        ommers_hash=sequence[1],
+        coinbase=Address(sequence[2]),
+        state_root=Root(sequence[3]),
+        transactions_root=Root(sequence[4]),
+        receipt_root=Root(sequence[5]),
+        bloom=Bloom(sequence[6]),
+        difficulty=Uint.from_be_bytes(sequence[7]),
+        number=Uint.from_be_bytes(sequence[8]),
+        gas_limit=Uint.from_be_bytes(sequence[9]),
+        gas_used=Uint.from_be_bytes(sequence[10]),
+        timestamp=U256.from_be_bytes(sequence[11]),
+        extra_data=sequence[12],
+        mix_digest=sequence[13],
+        nonce=sequence[14],
+    )
+
+
+def sequence_to_transaction(sequence: Sequence[Bytes]) -> Transaction:
+    """
+    Build a Transaction object from a sequence of bytes. The sequence should
+    be containing exactly 9 byte sequences.
+
+    Parameters
+    ----------
+    sequence :
+        The sequence of bytes which is supposed to form the Transaction
+        object.
+
+    Returns
+    -------
+    transaction : `Transaction`
+        The obtained `Transaction` object.
+    """
+    # TODO: Add assertions about the number of bytes in each of the below
+    # variables if it's used in chain sync later on.
+    assert len(sequence) == 9
+
+    to = b""
+    if sequence[3] != b"":
+        to = Address(sequence[3])
+
+    return Transaction(
+        nonce=U256.from_be_bytes(sequence[0]),
+        gas_price=U256.from_be_bytes(sequence[1]),
+        gas=U256.from_be_bytes(sequence[2]),
+        to=to,
+        value=U256.from_be_bytes(sequence[4]),
+        data=sequence[5],
+        v=U256.from_be_bytes(sequence[6]),
+        r=U256.from_be_bytes(sequence[7]),
+        s=U256.from_be_bytes(sequence[8]),
+    )
+
+
 def decode_to_header(encoded_header: Bytes) -> Header:
     """
     Decodes a rlp encoded byte stream assuming that the decoded data
@@ -515,27 +591,44 @@ def decode_to_header(encoded_header: Bytes) -> Header:
         The header object decoded from `encoded_header`.
     """
     decoded_data = cast(Sequence[Bytes], decode(encoded_header))
+    return sequence_to_header(decoded_data)
 
-    # TODO: Add assertions about the number of bytes in each of the below
-    # variables if it's used in chain sync later on.
 
-    return Header(
-        parent_hash=decoded_data[0],
-        ommers_hash=decoded_data[1],
-        coinbase=Address(decoded_data[2]),
-        state_root=Root(decoded_data[3]),
-        transactions_root=Root(decoded_data[4]),
-        receipt_root=Root(decoded_data[5]),
-        bloom=Bloom(decoded_data[6]),
-        difficulty=Uint.from_be_bytes(decoded_data[7]),
-        number=Uint.from_be_bytes(decoded_data[8]),
-        gas_limit=Uint.from_be_bytes(decoded_data[9]),
-        gas_used=Uint.from_be_bytes(decoded_data[10]),
-        timestamp=U256.from_be_bytes(decoded_data[11]),
-        extra_data=decoded_data[12],
-        mix_digest=decoded_data[13],
-        nonce=decoded_data[14],
+def decode_to_block(encoded_block: Bytes) -> Block:
+    """
+    Decodes a rlp encoded byte stream assuming that the decoded data
+    should be of type `Block`.
+
+    NOTE - This function is valid only till the London Hardfork. Post that
+    there would be changes in the Header object as well as this function with
+    the introduction of `base_fee` parameter.
+
+    Parameters
+    ----------
+    encoded_block :
+        An RLP encoded block.
+
+    Returns
+    -------
+    decoded_block : `Block`
+        The block object decoded from `encoded_block`.
+    """
+    sequential_header, sequential_transactions, sequential_ommers = cast(
+        Sequence[Any],
+        decode(encoded_block),
     )
+
+    header = sequence_to_header(sequential_header)
+    transactions = tuple(
+        sequence_to_transaction(sequential_tx)
+        for sequential_tx in sequential_transactions
+    )
+    ommers = tuple(
+        sequence_to_header(sequential_ommer)
+        for sequential_ommer in sequential_ommers
+    )
+
+    return Block(header, transactions, ommers)
 
 
 def rlp_hash(data: RLP) -> Hash32:

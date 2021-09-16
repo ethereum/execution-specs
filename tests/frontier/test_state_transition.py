@@ -1,3 +1,4 @@
+import os
 from functools import partial
 
 import pytest
@@ -40,6 +41,11 @@ run_create_test = partial(
     run_frontier_blockchain_st_tests,
     "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
     "GeneralStateTests/stCreateTest/",
+)
+
+run_uncles_test = partial(
+    run_frontier_blockchain_st_tests,
+    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests",
 )
 
 
@@ -282,3 +288,41 @@ def test_system_operations(test_file: str) -> None:
 )
 def test_create(test_file: str) -> None:
     run_create_test(test_file)
+
+
+@pytest.mark.parametrize(
+    "test_file",
+    [
+        "ValidBlocks/bcUncleTest/oneUncle.json",
+        "ValidBlocks/bcUncleTest/oneUncleGeneration2.json",
+        "ValidBlocks/bcUncleTest/oneUncleGeneration3.json",
+        "ValidBlocks/bcUncleTest/oneUncleGeneration4.json",
+        "ValidBlocks/bcUncleTest/oneUncleGeneration5.json",
+        "ValidBlocks/bcUncleTest/oneUncleGeneration6.json",
+        "ValidBlocks/bcUncleTest/twoUncle.json",
+        "ValidBlocks/bcUncleTest/uncleHeaderAtBlock2.json",
+        "ValidBlocks/bcUncleSpecialTests/uncleBloomNot0.json",
+        "ValidBlocks/bcUncleSpecialTests/futureUncleTimestampDifficultyDrop.json",
+        "InvalidBlocks/bcUncleHeaderValidity/correct.json",
+    ],
+)
+def test_uncles_correctness(test_file: str) -> None:
+    run_uncles_test(test_file)
+
+
+def test_invalid_uncles() -> None:
+    invalid_blocks_dir = (
+        "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
+        "InvalidBlocks"
+    )
+
+    for test_file in os.listdir(f"{invalid_blocks_dir}/bcUncleTest"):
+        with pytest.raises(AssertionError):
+            run_uncles_test(f"InvalidBlocks/bcUncleTest/{test_file}")
+
+    for test_file in os.listdir(f"{invalid_blocks_dir}/bcUncleHeaderValidity"):
+        if test_file == "correct.json":
+            continue
+
+        with pytest.raises(AssertionError):
+            run_uncles_test(f"InvalidBlocks/bcUncleHeaderValidity/{test_file}")
