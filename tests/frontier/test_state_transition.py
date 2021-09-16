@@ -249,6 +249,7 @@ def test_system_operations(test_file: str) -> None:
         "CREATE_ContractRETURNBigOffset_d0g0v0.json",
         "CREATE_ContractRETURNBigOffset_d1g0v0.json",
         "CREATE_ContractRETURNBigOffset_d2g0v0.json",
+        "CREATE_ContractRETURNBigOffset_d3g0v0.json",
         "CREATE_ContractSSTOREDuringInit_d0g0v0.json",
         "CREATE_ContractSuicideDuringInit_ThenStoreThenReturn_d0g0v0.json",
         "CREATE_ContractSuicideDuringInit_WithValueToItself_d0g0v0.json",
@@ -274,8 +275,6 @@ def test_system_operations(test_file: str) -> None:
         "TransactionCollisionToEmptyButNonce_d0g0v1.json",
         "TransactionCollisionToEmpty_d0g0v0.json",
         "TransactionCollisionToEmpty_d0g0v1.json",
-        # FIXME: The test below results in gas overflow
-        # "CREATE_ContractRETURNBigOffset_d3g0v0.json",
         # Note: All other tests from stCreateTest that aren't listed
         # here don't have tests for Frontier.
     ],

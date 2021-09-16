@@ -116,8 +116,12 @@ def process_create_message(message: Message, env: Environment) -> Evm:
     contract_code = evm.output
     if contract_code:
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
-        evm.gas_left = subtract_gas(evm.gas_left, contract_code_gas)
-        set_code(env.state, message.current_target, contract_code)
+        try:
+            evm.gas_left = subtract_gas(evm.gas_left, contract_code_gas)
+        except OutOfGasError:
+            evm.output = b""
+        else:
+            set_code(env.state, message.current_target, contract_code)
     return evm
 
 
