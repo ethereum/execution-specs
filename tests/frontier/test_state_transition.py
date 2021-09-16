@@ -36,6 +36,12 @@ run_system_operations_test = partial(
     "GeneralStateTests/stSystemOperationsTest/",
 )
 
+run_create_test = partial(
+    run_frontier_blockchain_st_tests,
+    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
+    "GeneralStateTests/stCreateTest/",
+)
+
 
 def test_add() -> None:
     run_example_test("add11_d0g0v0.json")
@@ -234,3 +240,44 @@ def test_precompiles(test_file: str) -> None:
 )
 def test_system_operations(test_file: str) -> None:
     run_system_operations_test(test_file)
+
+
+@pytest.mark.parametrize(
+    "test_file",
+    [
+        "CREATE_AcreateB_BSuicide_BStore_d0g0v0.json",
+        "CREATE_ContractRETURNBigOffset_d0g0v0.json",
+        "CREATE_ContractRETURNBigOffset_d1g0v0.json",
+        "CREATE_ContractRETURNBigOffset_d2g0v0.json",
+        "CREATE_ContractRETURNBigOffset_d3g0v0.json",
+        "CREATE_ContractSSTOREDuringInit_d0g0v0.json",
+        "CREATE_ContractSuicideDuringInit_ThenStoreThenReturn_d0g0v0.json",
+        "CREATE_ContractSuicideDuringInit_WithValueToItself_d0g0v0.json",
+        "CREATE_ContractSuicideDuringInit_WithValue_d0g0v0.json",
+        "CREATE_ContractSuicideDuringInit_d0g0v0.json",
+        "CREATE_EContractCreateEContractInInit_Tr_d0g0v0.json",
+        "CREATE_EContractCreateNEContractInInitOOG_Tr_d0g0v0.json",
+        "CREATE_EContractCreateNEContractInInit_Tr_d0g0v0.json",
+        "CREATE_EContract_ThenCALLToNonExistentAcc_d0g0v0.json",
+        "CREATE_EmptyContractAndCallIt_0wei_d0g0v0.json",
+        "CREATE_EmptyContractAndCallIt_1wei_d0g0v0.json",
+        "CREATE_EmptyContractWithBalance_d0g0v0.json",
+        "CREATE_EmptyContractWithStorageAndCallIt_0wei_d0g0v0.json",
+        "CREATE_EmptyContractWithStorageAndCallIt_1wei_d0g0v0.json",
+        "CREATE_EmptyContractWithStorage_d0g0v0.json",
+        "CREATE_EmptyContract_d0g0v0.json",
+        "CREATE_empty000CreateinInitCode_Transaction_d0g0v0.json",
+        "CreateCollisionToEmpty_d0g0v0.json",
+        "CreateCollisionToEmpty_d0g0v1.json",
+        "TransactionCollisionToEmptyButCode_d0g0v0.json",
+        "TransactionCollisionToEmptyButCode_d0g0v1.json",
+        "TransactionCollisionToEmptyButNonce_d0g0v0.json",
+        "TransactionCollisionToEmptyButNonce_d0g0v1.json",
+        "TransactionCollisionToEmpty_d0g0v0.json",
+        "TransactionCollisionToEmpty_d0g0v1.json",
+        # Note: All other tests from stCreateTest that aren't listed
+        # here don't have tests for Frontier.
+    ],
+)
+def test_create(test_file: str) -> None:
+    run_create_test(test_file)
