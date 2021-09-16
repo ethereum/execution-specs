@@ -18,7 +18,11 @@ from typing import List, Optional, Tuple
 from ethereum.crypto import SECP256K1N
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.frontier.bloom import logs_bloom
-from ethereum.frontier.state import destroy_account, increment_nonce
+from ethereum.frontier.state import (
+    destroy_account,
+    increment_nonce,
+    set_account_balance,
+)
 from ethereum.frontier.utils.message import prepare_message
 
 from .. import crypto
@@ -39,7 +43,7 @@ from .eth_types import (
     Root,
     Transaction,
 )
-from .state import State, get_account, modify_state, move_ether, state_root
+from .state import State, get_account, modify_state, state_root
 from .trie import Trie, root, trie_set
 from .vm.interpreter import process_message_call
 
@@ -381,11 +385,14 @@ def process_transaction(
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
+    gas_fee = tx.gas * tx.gas_price
     assert sender_account.nonce == tx.nonce
-    assert sender_account.balance >= tx.gas * tx.gas_price
+    assert sender_account.balance >= gas_fee
 
     gas = tx.gas - calculate_intrinsic_cost(tx)
     increment_nonce(env.state, sender)
+    sender_balance_after_gas_fee = sender_account.balance - gas_fee
+    set_account_balance(env.state, sender, sender_balance_after_gas_fee)
 
     message = prepare_message(
         sender,
@@ -406,10 +413,23 @@ def process_transaction(
 
     gas_used = tx.gas - gas_left
     gas_refund = min(gas_used // 2, refund_counter)
+    gas_refund_amount = (gas_left + gas_refund) * tx.gas_price
     transaction_fee = (tx.gas - gas_left - gas_refund) * tx.gas_price
     total_gas_used = gas_used - gas_refund
+
+    # refund gas
+    sender_balance_after_refund = (
+        get_account(env.state, sender).balance + gas_refund_amount
+    )
+    set_account_balance(env.state, sender, sender_balance_after_refund)
+
     # transfer miner fees
-    move_ether(env.state, sender, env.coinbase, transaction_fee)
+    coinbase_balance_after_mining_fee = (
+        get_account(env.state, env.coinbase).balance + transaction_fee
+    )
+    set_account_balance(
+        env.state, env.coinbase, coinbase_balance_after_mining_fee
+    )
 
     for address in accounts_to_delete:
         destroy_account(env.state, address)
