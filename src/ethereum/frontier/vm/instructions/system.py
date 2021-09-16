@@ -12,6 +12,8 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Uint
+from ethereum.frontier.vm.error import OutOfGasError
+from ethereum.utils.safe_arithmetic import u256_safe_add
 
 from ...state import get_account, increment_nonce, set_account_balance
 from ...utils.address import compute_contract_address, to_address
@@ -45,10 +47,15 @@ def create(evm: Evm) -> None:
     memory_start_position = Uint(pop(evm.stack))
     memory_size = pop(evm.stack)
 
-    gas_cost = GAS_CREATE + calculate_gas_extend_memory(
+    extend_memory_gas_cost = calculate_gas_extend_memory(
         evm.memory, memory_start_position, memory_size
     )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
+    total_gas_cost = u256_safe_add(
+        GAS_CREATE,
+        extend_memory_gas_cost,
+        exception_type=OutOfGasError,
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
     extend_memory(evm.memory, memory_start_position, memory_size)
     sender_address = evm.env.origin
     sender = get_account(evm.env.state, sender_address)
@@ -141,7 +148,11 @@ def call(evm: Evm) -> None:
     memory_output_size = pop(evm.stack)
 
     call_gas_fee = calculate_call_gas_cost(evm.env.state, gas, to, value)
-    message_call_gas_fee = gas + calculate_message_call_gas_stipend(value)
+    message_call_gas_fee = u256_safe_add(
+        gas,
+        calculate_message_call_gas_stipend(value),
+        exception_type=OutOfGasError,
+    )
 
     evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
 
@@ -225,7 +236,11 @@ def callcode(evm: Evm) -> None:
     to = evm.message.current_target
 
     call_gas_fee = calculate_call_gas_cost(evm.env.state, gas, to, value)
-    message_call_gas_fee = gas + calculate_message_call_gas_stipend(value)
+    message_call_gas_fee = u256_safe_add(
+        gas,
+        calculate_message_call_gas_stipend(value),
+        exception_type=OutOfGasError,
+    )
 
     evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
 

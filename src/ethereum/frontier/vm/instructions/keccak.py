@@ -14,7 +14,9 @@ Implementations of the EVM keccak instructions.
 
 from ethereum.base_types import U256, Uint
 from ethereum.crypto import keccak256
+from ethereum.frontier.vm.error import OutOfGasError
 from ethereum.utils.numeric import ceil32
+from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
 from .. import Evm
 from ..gas import (
@@ -50,12 +52,21 @@ def keccak(evm: Evm) -> None:
     size = pop(evm.stack)
 
     words = ceil32(Uint(size)) // 32
-    gas_cost = (
-        GAS_KECCAK256
-        + (GAS_KECCAK256_WORD * words)
-        + calculate_gas_extend_memory(evm.memory, memory_start_index, size)
+    word_gas_cost = u256_safe_multiply(
+        GAS_KECCAK256_WORD,
+        words,
+        exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
+    memory_extend_gas_cost = calculate_gas_extend_memory(
+        evm.memory, memory_start_index, size
+    )
+    total_gas_cost = u256_safe_add(
+        GAS_KECCAK256,
+        word_gas_cost,
+        memory_extend_gas_cost,
+        exception_type=OutOfGasError,
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
 
     extend_memory(evm.memory, memory_start_index, size)
 
