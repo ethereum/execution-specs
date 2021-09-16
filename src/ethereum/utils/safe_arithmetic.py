@@ -11,13 +11,14 @@ Introduction
 
 Safe arithmetic utility functions for U256 integer type.
 """
-from typing import Optional, Type
+from typing import Optional, Type, Union
 
-from ethereum.base_types import U256
+from ethereum.base_types import U256, Uint
 
 
 def u256_safe_add(
-    *numbers: U256, exception_type: Optional[Type[BaseException]] = None
+    *numbers: Union[U256, Uint],
+    exception_type: Optional[Type[BaseException]] = None
 ) -> U256:
     """
     Adds together the given sequence of numbers. If the total sum of the
@@ -54,7 +55,8 @@ def u256_safe_add(
 
 
 def u256_safe_multiply(
-    *numbers: U256, exception_type: Optional[Type[BaseException]] = None
+    *numbers: Union[U256, Uint],
+    exception_type: Optional[Type[BaseException]] = None
 ) -> U256:
     """
     Multiplies together the given sequence of numbers. If the net product of
@@ -85,7 +87,7 @@ def u256_safe_multiply(
     try:
         for number in numbers[1:]:
             result *= number
-        return result
+        return U256(result)
     except ValueError as e:
         if exception_type:
             raise exception_type from e

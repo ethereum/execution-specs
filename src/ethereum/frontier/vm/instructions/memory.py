@@ -12,6 +12,8 @@ Introduction
 Implementations of the EVM Memory instructions.
 """
 from ethereum.base_types import U8_MAX_VALUE, U256, Uint
+from ethereum.frontier.vm.error import OutOfGasError
+from ethereum.utils.safe_arithmetic import u256_safe_add
 
 from .. import Evm
 from ..gas import (
@@ -47,9 +49,13 @@ def mstore(evm: Evm) -> None:
     start_position = Uint(pop(evm.stack))
     value = pop(evm.stack).to_be_bytes32()
 
-    total_gas_cost = (
-        calculate_gas_extend_memory(evm.memory, start_position, U256(32))
-        + GAS_VERY_LOW
+    gas_cost_memory_extend = calculate_gas_extend_memory(
+        evm.memory, start_position, U256(32)
+    )
+    total_gas_cost = u256_safe_add(
+        GAS_VERY_LOW,
+        gas_cost_memory_extend,
+        exception_type=OutOfGasError,
     )
     evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
 
@@ -83,9 +89,13 @@ def mstore8(evm: Evm) -> None:
     # make sure that value doesn't exceed 1 byte
     normalized_bytes_value = (value & U8_MAX_VALUE).to_be_bytes()
 
-    total_gas_cost = (
-        calculate_gas_extend_memory(evm.memory, start_position, U256(1))
-        + GAS_VERY_LOW
+    memory_extend_gas_cost = calculate_gas_extend_memory(
+        evm.memory, start_position, U256(1)
+    )
+    total_gas_cost = u256_safe_add(
+        GAS_VERY_LOW,
+        memory_extend_gas_cost,
+        exception_type=OutOfGasError,
     )
     evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
 
@@ -114,9 +124,13 @@ def mload(evm: Evm) -> None:
     # convert to Uint as start_position + size_to_extend can overflow.
     start_position = Uint(pop(evm.stack))
 
-    total_gas_cost = (
-        calculate_gas_extend_memory(evm.memory, start_position, U256(32))
-        + GAS_VERY_LOW
+    memory_extend_gas_cost = calculate_gas_extend_memory(
+        evm.memory, start_position, U256(32)
+    )
+    total_gas_cost = u256_safe_add(
+        GAS_VERY_LOW,
+        memory_extend_gas_cost,
+        exception_type=OutOfGasError,
     )
     evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
 

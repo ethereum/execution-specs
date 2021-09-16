@@ -15,8 +15,10 @@ Implementations of the EVM environment related instructions.
 from ethereum.base_types import U256, Uint
 from ethereum.frontier.state import get_account
 from ethereum.frontier.utils.address import to_address
+from ethereum.frontier.vm.error import OutOfGasError
 from ethereum.frontier.vm.memory import extend_memory, memory_write
 from ethereum.utils.numeric import ceil32
+from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
 from .. import Evm
 from ..gas import (
@@ -202,12 +204,21 @@ def calldatacopy(evm: Evm) -> None:
     size = pop(evm.stack)
 
     words = ceil32(Uint(size)) // 32
-    gas_cost = (
-        GAS_VERY_LOW
-        + (GAS_COPY * words)
-        + calculate_gas_extend_memory(evm.memory, memory_start_index, size)
+    copy_gas_cost = u256_safe_multiply(
+        GAS_COPY,
+        words,
+        exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
+    memory_extend_gas_cost = calculate_gas_extend_memory(
+        evm.memory, memory_start_index, size
+    )
+    total_gas_cost = u256_safe_add(
+        GAS_VERY_LOW,
+        copy_gas_cost,
+        memory_extend_gas_cost,
+        exception_type=OutOfGasError,
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
 
     if size == 0:
         return
@@ -264,12 +275,21 @@ def codecopy(evm: Evm) -> None:
     size = pop(evm.stack)
 
     words = ceil32(Uint(size)) // 32
-    gas_cost = (
-        GAS_VERY_LOW
-        + (GAS_COPY * words)
-        + calculate_gas_extend_memory(evm.memory, memory_start_index, size)
+    copy_gas_cost = u256_safe_multiply(
+        GAS_COPY,
+        words,
+        exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
+    memory_extend_gas_cost = calculate_gas_extend_memory(
+        evm.memory, memory_start_index, size
+    )
+    total_gas_cost = u256_safe_add(
+        GAS_VERY_LOW,
+        copy_gas_cost,
+        memory_extend_gas_cost,
+        exception_type=OutOfGasError,
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
 
     if size == 0:
         return
@@ -355,12 +375,21 @@ def extcodecopy(evm: Evm) -> None:
     size = pop(evm.stack)
 
     words = ceil32(Uint(size)) // 32
-    gas_cost = (
-        GAS_EXTERNAL
-        + (GAS_COPY * words)
-        + calculate_gas_extend_memory(evm.memory, memory_start_index, size)
+    copy_gas_cost = u256_safe_multiply(
+        GAS_COPY,
+        words,
+        exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
+    memory_extend_gas_cost = calculate_gas_extend_memory(
+        evm.memory, memory_start_index, size
+    )
+    total_gas_cost = u256_safe_add(
+        GAS_EXTERNAL,
+        copy_gas_cost,
+        memory_extend_gas_cost,
+        exception_type=OutOfGasError,
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
 
     if size == 0:
         return
