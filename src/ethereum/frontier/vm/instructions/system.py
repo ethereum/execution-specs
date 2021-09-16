@@ -12,6 +12,7 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Uint
+from ethereum.frontier.state import account_has_code_or_nonce
 from ethereum.frontier.vm.error import OutOfGasError
 from ethereum.utils.safe_arithmetic import u256_safe_add
 
@@ -76,6 +77,10 @@ def create(evm: Evm) -> None:
         evm.message.current_target,
         get_account(evm.env.state, evm.message.current_target).nonce - U256(1),
     )
+    is_collision = account_has_code_or_nonce(evm.env.state, contract_address)
+    if is_collision:
+        push(evm.stack, U256(0))
+        return
 
     gas_left = evm.gas_left
     evm.gas_left = subtract_gas(evm.gas_left, gas_left)

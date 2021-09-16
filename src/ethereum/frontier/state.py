@@ -19,7 +19,7 @@ There is a distinction between an account that does not exist and
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple
 
-from ethereum.base_types import U256, Bytes, modify
+from ethereum.base_types import U256, Bytes, Uint, modify
 
 from .eth_types import EMPTY_ACCOUNT, Account, Address, Root
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
@@ -291,6 +291,27 @@ def account_exists(state: State, address: Address) -> bool:
         True if account exists in the state trie, False otherwise
     """
     return get_account_optional(state, address) is not None
+
+
+def account_has_code_or_nonce(state: State, address: Address) -> bool:
+    """
+    Checks if an account has non zero nonce or non empty code
+
+    Parameters
+    ----------
+    state:
+        The state
+    address:
+        Address of the account that needs to be checked.
+
+    Returns
+    -------
+    has_code_or_nonce : `bool`
+        True if if an account has non zero nonce or non empty code,
+        False otherwise.
+    """
+    account = get_account(state, address)
+    return account.nonce != Uint(0) or account.code != b""
 
 
 def modify_state(

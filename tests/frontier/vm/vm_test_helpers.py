@@ -38,16 +38,17 @@ def run_test(test_dir: str, test_file: str) -> None:
         env=env,
     )
 
-    evm = process_message_call(
-        message=message,
-        env=env,
-    )
+    (
+        gas_left,
+        refund_counter,
+        logs,
+        accounts_to_delete,
+        has_erred,
+    ) = process_message_call(message=message, env=env)
 
     if test_data["has_post_state"]:
-        assert evm.gas_left == test_data["expected_gas_left"]
-        assert (
-            keccak256(rlp.encode(evm.logs)) == test_data["expected_logs_hash"]
-        )
+        assert gas_left == test_data["expected_gas_left"]
+        assert keccak256(rlp.encode(logs)) == test_data["expected_logs_hash"]
         # We are checking only the storage here and not the whole state, as the
         # balances in the testcases don't change even though some value is
         # transferred along with code invocation. But our evm execution transfers
@@ -55,9 +56,9 @@ def run_test(test_dir: str, test_file: str) -> None:
         for addr in test_data["expected_post_state"]._storage_tries:
             assert storage_root(
                 test_data["expected_post_state"], addr
-            ) == storage_root(evm.env.state, addr)
+            ) == storage_root(env.state, addr)
     else:
-        assert evm.has_erred is True
+        assert has_erred is True
 
 
 def load_test(test_dir: str, test_file: str) -> Any:

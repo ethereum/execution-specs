@@ -11,8 +11,12 @@ Introduction
 
 A straightforward interpreter that executes EVM code.
 """
-from ethereum.base_types import U256, Bytes0, Uint
+from typing import Set, Tuple, Union
+
+from ethereum.base_types import U256, Bytes, Bytes0, Uint
+from ethereum.frontier.eth_types import Log
 from ethereum.frontier.state import (
+    account_has_code_or_nonce,
     begin_transaction,
     commit_transaction,
     move_ether,
@@ -48,7 +52,9 @@ PC_CHANGING_OPS = {Ops.JUMP, Ops.JUMPI}
 STACK_DEPTH_LIMIT = U256(1024)
 
 
-def process_message_call(message: Message, env: Environment) -> Evm:
+def process_message_call(
+    message: Message, env: Environment
+) -> Tuple[U256, U256, Union[Tuple[()], Tuple[Log, ...]], Set[Bytes], bool]:
     """
     If `message.current` is empty then it creates a smart contract
     else it executes a call from the `message.caller` to the `message.target`.
@@ -69,13 +75,25 @@ def process_message_call(message: Message, env: Environment) -> Evm:
         generated during execution.
     """
     if message.target == Bytes0(b""):
-        evm = process_create_message(message, env)
+        is_collision = account_has_code_or_nonce(
+            env.state, message.current_target
+        )
+        if is_collision:
+            return U256(0), U256(0), tuple(), set(), True
+        else:
+            evm = process_create_message(message, env)
     else:
         evm = process_message(message, env)
 
     evm.refund_counter += len(evm.accounts_to_delete) * REFUND_SELF_DESTRUCT
 
-    return evm
+    return (
+        evm.gas_left,
+        evm.refund_counter,
+        evm.logs,
+        evm.accounts_to_delete,
+        evm.has_erred,
+    )
 
 
 def process_create_message(message: Message, env: Environment) -> Evm:
