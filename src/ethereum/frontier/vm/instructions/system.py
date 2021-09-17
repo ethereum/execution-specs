@@ -73,6 +73,10 @@ def create(evm: Evm) -> None:
     )
 
     increment_nonce(evm.env.state, evm.message.current_target)
+
+    create_message_gas = evm.gas_left
+    evm.gas_left = subtract_gas(evm.gas_left, create_message_gas)
+
     contract_address = compute_contract_address(
         evm.message.current_target,
         get_account(evm.env.state, evm.message.current_target).nonce - U256(1),
@@ -82,13 +86,10 @@ def create(evm: Evm) -> None:
         push(evm.stack, U256(0))
         return
 
-    gas_left = evm.gas_left
-    evm.gas_left = subtract_gas(evm.gas_left, gas_left)
-
     child_message = Message(
         caller=evm.message.current_target,
         target=b"",
-        gas=gas_left,
+        gas=create_message_gas,
         value=endowment,
         data=b"",
         code=call_data,
