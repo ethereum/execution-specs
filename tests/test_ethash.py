@@ -228,6 +228,7 @@ def load_pow_test_fixtures() -> List[Dict[str, Any]]:
         ]
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "block_number, block_difficulty, header_hash, nonce, expected_mix_digest, expected_result",
     [
@@ -285,6 +286,7 @@ def test_pow_random_blocks(
     assert Uint.from_be_bytes(result) <= U256_CEIL_VALUE // (block_difficulty)
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "block_file_name",
     [
@@ -314,23 +316,6 @@ def test_pow_validation_block_headers(block_file_name: str) -> None:
 #
 # Geth DAG related functionalities for fuzz testing
 #
-
-
-def download_geth(dir: str) -> None:
-    geth_release_name = "geth-linux-amd64-1.10.8-26675454"
-    # 26 seconds to fetch Geth. 1.5 minute for each epoch dataset creation
-    url = f"https://gethstore.blob.core.windows.net/builds/{geth_release_name}.tar.gz"
-    r = requests.get(url)
-
-    with open(f"{dir}/geth.tar.gz", "wb") as f:
-        f.write(r.content)
-
-    geth_tar = tarfile.open(f"{dir}/geth.tar.gz")
-    geth_tar.extractall(dir)
-
-    shutil.move(f"{dir}/{geth_release_name}/geth", dir)
-    shutil.rmtree(f"{dir}/{geth_release_name}", ignore_errors=True)
-    os.remove(f"{dir}/geth.tar.gz")
 
 
 def generate_dag_via_geth(
@@ -363,12 +348,19 @@ def test_dataset_generation_random_epoch(tmpdir: str) -> None:
         2. Randomly take 500 indices between
         [101, `dataset size in words` - 1] and ensure that the values are
         same between python implementation and DAG dataset.
+
+    NOTE - For this test case to run, it is mandatory for Geth to be
+    installed and accessible
     """
-    download_geth(tmpdir)
+    geth_path = shutil.which("geth")
+    if geth_path == None:
+        raise Exception("Geth binary not found")
 
     epoch_number = Uint(randint(0, 100))
     block_number = epoch_number * EPOCH_SIZE + randint(0, EPOCH_SIZE - 1)
-    generate_dag_via_geth(f"{tmpdir}/geth", block_number, f"{tmpdir}/.ethash")
+    generate_dag_via_geth(
+        cast(str, geth_path), block_number, f"{tmpdir}/.ethash"
+    )
     seed = generate_seed(block_number)
     dag_dataset = fetch_dag_data(f"{tmpdir}/.ethash", seed)
 

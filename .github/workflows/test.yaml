@@ -4,7 +4,6 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -19,7 +18,12 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Install Tox and any other packages
-        run: pip install tox
+        run: pip install tox requests
+      - name: Download Geth and add to $PATH
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/bin
+          $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
+          echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
       - name: Run Tox (PyPy)
         if: ${{ matrix.python == 'pypy-3.7' }}
         run: tox -e pypy3
