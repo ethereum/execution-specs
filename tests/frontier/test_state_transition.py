@@ -48,6 +48,12 @@ run_uncles_test = partial(
     "tests/fixtures/LegacyTests/Constantinople/BlockchainTests",
 )
 
+run_transaction_test = partial(
+    run_frontier_blockchain_st_tests,
+    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
+    "GeneralStateTests/stTransactionTest/",
+)
+
 
 def test_add() -> None:
     run_example_test("add11_d0g0v0.json")
@@ -327,3 +333,21 @@ def test_invalid_uncles() -> None:
 
         with pytest.raises(AssertionError):
             run_uncles_test(f"InvalidBlocks/bcUncleHeaderValidity/{test_file}")
+
+
+@pytest.mark.parametrize(
+    "test_file",
+    os.listdir(
+        "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
+        "GeneralStateTests/stTransactionTest/"
+    ),
+)
+def test_transactions(test_file: str) -> None:
+    try:
+        run_transaction_test(test_file)
+    except KeyError:
+        # Note The two tests below will raise KeyError
+        # as these tests don't have tests for frontier.
+        # Opcodes_TransactionInit_d33g0v0.json
+        # Opcodes_TransactionInit_d127g0v0.json
+        pass
