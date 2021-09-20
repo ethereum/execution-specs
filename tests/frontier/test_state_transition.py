@@ -243,6 +243,7 @@ def test_precompiles(test_file: str) -> None:
         "suicideSendEtherPostDeath_d0g0v0.json",
         "suicideSendEtherToMe_d0g0v0.json",
         "callerAccountBalance_d0g0v0.json",
+        "CreateHashCollision_d0g0v0.json",
     ],
 )
 def test_system_operations(test_file: str) -> None:
