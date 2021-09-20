@@ -13,7 +13,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Set, Tuple
 
 from ethereum.crypto import SECP256K1N
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
@@ -32,7 +32,6 @@ from .eth_types import (
     TX_BASE_COST,
     TX_DATA_COST_PER_NON_ZERO,
     TX_DATA_COST_PER_ZERO,
-    Account,
     Address,
     Block,
     Bloom,
@@ -43,7 +42,7 @@ from .eth_types import (
     Root,
     Transaction,
 )
-from .state import State, get_account, modify_state, state_root
+from .state import State, create_ether, get_account, state_root
 from .trie import Trie, root, trie_set
 from .vm.interpreter import process_message_call
 
@@ -51,6 +50,7 @@ BLOCK_REWARD = U256(5 * 10 ** 18)
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 125000
 GENESIS_DIFFICULTY = Uint(131072)
+MAX_UNCLE_DEPTH = 6
 
 
 @dataclass
@@ -117,8 +117,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block :
         Block to apply to `chain`.
     """
-    parent_header = get_block_header_by_hash(block.header.parent_hash, chain)
+    parent_header = chain.blocks[block.header.number - 1].header
     validate_header(block.header, parent_header)
+    validate_ommers(block.ommers, block.header, chain)
     (
         gas_used,
         transactions_root,
@@ -138,9 +139,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     )
 
     assert gas_used == block.header.gas_used
-    assert compute_ommers_hash(block) == block.header.ommers_hash
-    # TODO: Also need to verify that these ommers are indeed valid as per the
-    # Nth generation
     assert transactions_root == block.header.transactions_root
     assert receipt_root == block.header.receipt_root
     assert state_root(state) == block.header.state_root
@@ -336,10 +334,7 @@ def apply_body(
         )
         block_logs += logs
 
-    def pay_block_reward(coinbase: Account) -> None:
-        coinbase.balance += BLOCK_REWARD
-
-    modify_state(state, coinbase, pay_block_reward)
+    pay_rewards(state, block_number, coinbase, ommers)
 
     gas_remaining = block_gas_limit - gas_available
 
@@ -354,11 +349,103 @@ def apply_body(
     )
 
 
-def compute_ommers_hash(block: Block) -> Hash32:
+def validate_ommers(
+    ommers: Tuple[Header, ...], block_header: Header, chain: BlockChain
+) -> None:
     """
-    Compute hash of ommers list for a block
+    Validates the ommers mentioned in the block.
+
+    Parameters
+    ----------
+    ommers :
+        List of ommers mentioned in the current block.
+    block_header:
+        The header of current block.
+    chain :
+        History and current state.
     """
-    return crypto.keccak256(rlp.encode(block.ommers))
+    block_hash = rlp.rlp_hash(block_header)
+
+    assert rlp.rlp_hash(ommers) == block_header.ommers_hash
+
+    if len(ommers) == 0:
+        # Nothing to validate
+        return
+
+    # Check that each ommer satisfies the constraints of a header
+    for ommer in ommers:
+        assert 1 <= ommer.number < block_header.number
+        ommer_parent_header = chain.blocks[ommer.number - 1].header
+        validate_header(ommer, ommer_parent_header)
+
+    # Check that there can be only at most 2 ommers for a block.
+    assert len(ommers) <= 2
+
+    ommers_hashes = [rlp.rlp_hash(ommer) for ommer in ommers]
+    # Check that there are no duplicates in the ommers of current block
+    assert len(ommers_hashes) == len(set(ommers_hashes))
+
+    recent_canonical_blocks = chain.blocks[-(MAX_UNCLE_DEPTH + 1) :]
+    recent_canonical_block_hashes = {
+        rlp.rlp_hash(block.header) for block in recent_canonical_blocks
+    }
+    recent_ommers_hashes: Set[Hash32] = set()
+    for block in recent_canonical_blocks:
+        recent_ommers_hashes = recent_ommers_hashes.union(
+            {rlp.rlp_hash(ommer) for ommer in block.ommers}
+        )
+
+    for ommer_index, ommer in enumerate(ommers):
+        ommer_hash = ommers_hashes[ommer_index]
+        # The current block shouldn't be the ommer
+        assert ommer_hash != block_hash
+
+        # Ommer shouldn't be one of the recent canonical blocks
+        assert ommer_hash not in recent_canonical_block_hashes
+
+        # Ommer shouldn't be one of the uncles mentioned in the recent
+        # canonical blocks
+        assert ommer_hash not in recent_ommers_hashes
+
+        # Ommer age with respect to the current block. For example, an age of
+        # 1 indicates that the ommer is a sibling of previous block.
+        ommer_age = block_header.number - ommer.number
+        assert 1 <= ommer_age <= MAX_UNCLE_DEPTH
+
+        assert (
+            ommer.parent_hash in recent_canonical_block_hashes
+            and ommer.parent_hash != block_header.parent_hash
+        )
+
+
+def pay_rewards(
+    state: State,
+    block_number: Uint,
+    coinbase: Address,
+    ommers: Tuple[Header, ...],
+) -> None:
+    """
+    Pay rewards to the block miner as well as the ommers miners.
+
+    Parameters
+    ----------
+    state :
+        Current account state.
+    block_number :
+        Position of the block within the chain.
+    coinbase :
+        Address of account which receives block reward and transaction fees.
+    ommers :
+        List of ommers mentioned in the current block.
+    """
+    miner_reward = BLOCK_REWARD + (len(ommers) * (BLOCK_REWARD // 32))
+    create_ether(state, coinbase, miner_reward)
+
+    for ommer in ommers:
+        # Ommer age with respect to the current block.
+        ommer_age = U256(block_number - ommer.number)
+        ommer_miner_reward = ((8 - ommer_age) * BLOCK_REWARD) // 8
+        create_ether(state, ommer.coinbase, ommer_miner_reward)
 
 
 def process_transaction(

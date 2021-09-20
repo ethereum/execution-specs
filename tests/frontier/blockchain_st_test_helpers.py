@@ -2,7 +2,7 @@ import json
 import os
 from functools import partial
 from typing import Any, Dict, List, Tuple, cast
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from ethereum.base_types import U256, Bytes0
 from ethereum.frontier import rlp
@@ -51,8 +51,10 @@ def run_blockchain_st_test(
             "ethereum.frontier.spec.validate_proof_of_work", autospec=True
         ) as mocked_pow_validator:
             add_blocks_to_chain(chain, test_data)
-            for block in test_data["blocks"]:
-                mocked_pow_validator.assert_called_with(block.header)
+            mocked_pow_validator.assert_has_calls(
+                [call(block.header) for block in test_data["blocks"]],
+                any_order=False,
+            )
 
     assert rlp_hash(chain.blocks[-1].header) == test_data["last_block_hash"]
     assert chain.state == test_data["expected_post_state"]
@@ -104,6 +106,15 @@ def json_to_blocks(
     block_rlps = []
 
     for json_block in json_blocks:
+        if "blockHeader" not in json_block and "rlp" in json_block:
+            # Some blocks are represented by only the RLP and not the block details
+            block_rlp = hex_to_bytes(json_block["rlp"])
+            block = rlp.decode_to_block(block_rlp)
+            blocks.append(block)
+            block_header_hashes.append(rlp.rlp_hash(block.header))
+            block_rlps.append(block_rlp)
+            continue
+
         header = json_to_header(json_block["blockHeader"])
         transactions = tuple(
             json_to_tx(tx) for tx in json_block["transactions"]
