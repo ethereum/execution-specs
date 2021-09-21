@@ -338,6 +338,21 @@ def fetch_dag_data(dag_dump_dir: str, epoch_seed: bytes) -> Tuple[bytes, ...]:
     return tuple(dag_dataset_items)
 
 
+GETH_MISSING = """geth binary not found.
+
+Some tests require a copy of the go-ethereum client binary to generate required
+data.
+
+The tool `scripts/download_geth_linux.py` can fetch the appropriate version, or
+you can download geth from:
+
+    https://geth.ethereum.org/downloads/
+
+Make sure you add the directory containing `geth` to your PATH, then try
+running the tests again.
+"""
+
+
 @pytest.mark.slow
 def test_dataset_generation_random_epoch(tmpdir: str) -> None:
     """
@@ -353,14 +368,12 @@ def test_dataset_generation_random_epoch(tmpdir: str) -> None:
     installed and accessible
     """
     geth_path = shutil.which("geth")
-    if geth_path == None:
-        raise Exception("Geth binary not found")
+    if geth_path is None:
+        raise Exception(GETH_MISSING)
 
     epoch_number = Uint(randint(0, 100))
     block_number = epoch_number * EPOCH_SIZE + randint(0, EPOCH_SIZE - 1)
-    generate_dag_via_geth(
-        cast(str, geth_path), block_number, f"{tmpdir}/.ethash"
-    )
+    generate_dag_via_geth(geth_path, block_number, f"{tmpdir}/.ethash")
     seed = generate_seed(block_number)
     dag_dataset = fetch_dag_data(f"{tmpdir}/.ethash", seed)
 
