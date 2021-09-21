@@ -60,6 +60,7 @@ K = TypeVar("K", bound=Bytes)
 V = TypeVar(
     "V",
     Optional[Account],
+    Optional[Bytes],
     Bytes,
     Optional[Transaction],
     Optional[Receipt],
@@ -74,7 +75,7 @@ class LeafNode:
     """Leaf node in the Merkle Trie"""
 
     rest_of_key: Bytes
-    value: Bytes
+    value: rlp.RLP
 
 
 @slotted_freezable
@@ -244,7 +245,7 @@ def common_prefix_length(a: Sequence, b: Sequence) -> int:
     return len(a)
 
 
-def nibble_list_to_compact(x: Bytes, is_leaf: bool) -> bytearray:
+def nibble_list_to_compact(x: Bytes, is_leaf: bool) -> Bytes:
     """
     Compresses nibble-list into a standard byte array with a flag.
 
@@ -289,7 +290,7 @@ def nibble_list_to_compact(x: Bytes, is_leaf: bool) -> bytearray:
         for i in range(1, len(x), 2):
             compact.append(16 * x[i] + x[i + 1])
 
-    return compact
+    return Bytes(compact)
 
 
 def bytes_to_nibble_list(bytes_: Bytes) -> Bytes:
