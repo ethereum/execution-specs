@@ -59,6 +59,7 @@ Running the tests necessary to merge into the repository requires:
 
  * Python 3.7.x (not 3.8 or later), and
  * [PyPy 7.3.x](https://www.pypy.org/).
+ * `geth` installed and present in `$PATH`
 
 These version ranges are necessary because, at the time of writing, PyPy is only compatible with Python 3.7.
 
@@ -86,7 +87,7 @@ $ isort src                         # Organizes imports.
 $ black src                         # Formats code.
 $ flake8                            # Reports style/spelling/documentation errors.
 $ mypy src                          # Verifies type annotations.
-$ pytest                            # Runs tests.
+$ pytest -n 4                       # Runs tests parallelly.
 $ pytest -m "not slow"              # Runs tests which execute quickly.
 ```
 

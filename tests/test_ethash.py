@@ -228,6 +228,7 @@ def load_pow_test_fixtures() -> List[Dict[str, Any]]:
         ]
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "block_number, block_difficulty, header_hash, nonce, expected_mix_digest, expected_result",
     [
@@ -285,6 +286,7 @@ def test_pow_random_blocks(
     assert Uint.from_be_bytes(result) <= U256_CEIL_VALUE // (block_difficulty)
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(
     "block_file_name",
     [
@@ -316,23 +318,6 @@ def test_pow_validation_block_headers(block_file_name: str) -> None:
 #
 
 
-def download_geth(dir: str) -> None:
-    geth_release_name = "geth-linux-amd64-1.10.8-26675454"
-    # 26 seconds to fetch Geth. 1.5 minute for each epoch dataset creation
-    url = f"https://gethstore.blob.core.windows.net/builds/{geth_release_name}.tar.gz"
-    r = requests.get(url)
-
-    with open(f"{dir}/geth.tar.gz", "wb") as f:
-        f.write(r.content)
-
-    geth_tar = tarfile.open(f"{dir}/geth.tar.gz")
-    geth_tar.extractall(dir)
-
-    shutil.move(f"{dir}/{geth_release_name}/geth", dir)
-    shutil.rmtree(f"{dir}/{geth_release_name}", ignore_errors=True)
-    os.remove(f"{dir}/geth.tar.gz")
-
-
 def generate_dag_via_geth(
     geth_path: str, block_number: Uint, dag_dump_dir: str
 ) -> None:
@@ -353,6 +338,21 @@ def fetch_dag_data(dag_dump_dir: str, epoch_seed: bytes) -> Tuple[bytes, ...]:
     return tuple(dag_dataset_items)
 
 
+GETH_MISSING = """geth binary not found.
+
+Some tests require a copy of the go-ethereum client binary to generate required
+data.
+
+The tool `scripts/download_geth_linux.py` can fetch the appropriate version, or
+you can download geth from:
+
+    https://geth.ethereum.org/downloads/
+
+Make sure you add the directory containing `geth` to your PATH, then try
+running the tests again.
+"""
+
+
 @pytest.mark.slow
 def test_dataset_generation_random_epoch(tmpdir: str) -> None:
     """
@@ -363,12 +363,17 @@ def test_dataset_generation_random_epoch(tmpdir: str) -> None:
         2. Randomly take 500 indices between
         [101, `dataset size in words` - 1] and ensure that the values are
         same between python implementation and DAG dataset.
+
+    NOTE - For this test case to run, it is mandatory for Geth to be
+    installed and accessible
     """
-    download_geth(tmpdir)
+    geth_path = shutil.which("geth")
+    if geth_path is None:
+        raise Exception(GETH_MISSING)
 
     epoch_number = Uint(randint(0, 100))
     block_number = epoch_number * EPOCH_SIZE + randint(0, EPOCH_SIZE - 1)
-    generate_dag_via_geth(f"{tmpdir}/geth", block_number, f"{tmpdir}/.ethash")
+    generate_dag_via_geth(geth_path, block_number, f"{tmpdir}/.ethash")
     seed = generate_seed(block_number)
     dag_dataset = fetch_dag_data(f"{tmpdir}/.ethash", seed)
 
