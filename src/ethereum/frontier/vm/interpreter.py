@@ -13,8 +13,8 @@ A straightforward interpreter that executes EVM code.
 """
 from typing import Set, Tuple, Union
 
-from ethereum.base_types import U256, Bytes, Bytes0, Uint
-from ethereum.frontier.eth_types import Log
+from ethereum.base_types import U256, Bytes0, Uint
+from ethereum.frontier.eth_types import Address, Log
 from ethereum.frontier.state import (
     account_has_code_or_nonce,
     begin_transaction,
@@ -54,7 +54,7 @@ STACK_DEPTH_LIMIT = U256(1024)
 
 def process_message_call(
     message: Message, env: Environment
-) -> Tuple[U256, U256, Union[Tuple[()], Tuple[Log, ...]], Set[Bytes], bool]:
+) -> Tuple[U256, U256, Union[Tuple[()], Tuple[Log, ...]], Set[Address], bool]:
     """
     If `message.current` is empty then it creates a smart contract
     else it executes a call from the `message.caller` to the `message.target`.
@@ -69,10 +69,14 @@ def process_message_call(
 
     Returns
     -------
-    output : `Tuple[U256, List[eth1spec.eth_types.Log]]`
-        The tuple `(gas_left, logs)`, where `gas_left` is the remaining gas
-        after execution, and logs is the list of `eth1spec.eth_types.Log`
-        generated during execution.
+    output : `Tuple`
+        A tuple of the following:
+
+          1. `gas_left`: remaining gas after execution.
+          2. `refund_counter`: gas to refund after execution.
+          3. `logs`: list of `Log` generated during execution.
+          4. `accounts_to_delete`: Contracts which have self-destructed.
+          5. `has_erred`: True if execution has caused an error.
     """
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(

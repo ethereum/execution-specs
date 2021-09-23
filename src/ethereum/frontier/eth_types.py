@@ -13,7 +13,7 @@ Types re-used throughout the specification, which are specific to Ethereum.
 """
 
 from dataclasses import dataclass
-from typing import Dict, Tuple, Union
+from typing import Tuple, Union
 
 from ..base_types import (
     U256,
@@ -29,9 +29,8 @@ from ..base_types import (
 from ..crypto import Hash32
 
 Address = Bytes20
-Root = Bytes
+Root = Hash32
 
-Storage = Dict[Bytes32, U256]
 Bloom = Bytes256
 
 TX_BASE_COST = 21000

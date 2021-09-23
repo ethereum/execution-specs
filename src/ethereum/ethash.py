@@ -123,7 +123,7 @@ def generate_seed(block_number: Uint) -> Hash32:
         seed = keccak256(seed)
         epoch_number -= 1
 
-    return seed
+    return Hash32(seed)
 
 
 def generate_cache(block_number: Uint) -> Tuple[Tuple[Uint32, ...], ...]:
@@ -258,7 +258,7 @@ def generate_dataset_item(
         parent = cache[cache_index]
         mix_integers = fnv_hash(mix_integers, parent)
 
-    mix = le_uint32_sequence_to_bytes(mix_integers)
+    mix = Hash64(le_uint32_sequence_to_bytes(mix_integers))
 
     return keccak512(mix)
 

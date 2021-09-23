@@ -30,10 +30,12 @@ class State:
     Contains all information that is preserved between transactions.
     """
 
-    _main_trie: Trie[Optional[Account]] = field(
+    _main_trie: Trie[Address, Optional[Account]] = field(
         default_factory=lambda: Trie(secured=True, default=None)
     )
-    _storage_tries: Dict[Address, Trie[U256]] = field(default_factory=dict)
+    _storage_tries: Dict[Bytes, Trie[Bytes, U256]] = field(
+        default_factory=dict
+    )
 
     def __eq__(self, other: object) -> bool:
         """

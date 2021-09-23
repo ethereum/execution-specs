@@ -26,7 +26,7 @@ from ethereum.frontier.state import (
 from ethereum.frontier.utils.message import prepare_message
 
 from .. import crypto
-from ..base_types import U256, U256_CEIL_VALUE, Uint
+from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint
 from . import rlp, vm
 from .eth_types import (
     TX_BASE_COST,
@@ -294,10 +294,12 @@ def apply_body(
         State after all transactions have been executed.
     """
     gas_available = block_gas_limit
-    transactions_trie: Trie[Optional[Transaction]] = Trie(
+    transactions_trie: Trie[Bytes, Optional[Transaction]] = Trie(
         secured=False, default=None
     )
-    receipts_trie: Trie[Optional[Receipt]] = Trie(secured=False, default=None)
+    receipts_trie: Trie[Bytes, Optional[Receipt]] = Trie(
+        secured=False, default=None
+    )
     block_logs: Tuple[Log, ...] = ()
 
     for i, tx in enumerate(transactions):

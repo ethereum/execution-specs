@@ -5,8 +5,15 @@ from typing import Any, Dict, List, Tuple, cast
 from unittest.mock import call, patch
 
 from ethereum.base_types import U256, Bytes0
+from ethereum.crypto import Hash32
 from ethereum.frontier import rlp
-from ethereum.frontier.eth_types import Account, Block, Header, Transaction
+from ethereum.frontier.eth_types import (
+    Account,
+    Block,
+    Bloom,
+    Header,
+    Transaction,
+)
 from ethereum.frontier.rlp import rlp_hash
 from ethereum.frontier.spec import BlockChain, state_transition
 from ethereum.frontier.state import State, set_account, set_storage
@@ -100,7 +107,7 @@ def load_test(test_dir: str, test_file: str, network: str) -> Dict[str, Any]:
 
 def json_to_blocks(
     json_blocks: Any,
-) -> Tuple[List[Block], List[bytes], List[bytes]]:
+) -> Tuple[List[Block], List[Hash32], List[bytes]]:
     blocks = []
     block_header_hashes = []
     block_rlps = []
@@ -131,7 +138,7 @@ def json_to_blocks(
             )
         )
         block_header_hashes.append(
-            hex_to_bytes(json_block["blockHeader"]["hash"])
+            Hash32(hex_to_bytes(json_block["blockHeader"]["hash"]))
         )
         block_rlps.append(hex_to_bytes(json_block["rlp"]))
 
@@ -146,7 +153,7 @@ def json_to_header(raw: Any) -> Header:
         hex_to_root(raw.get("stateRoot")),
         hex_to_root(raw.get("transactionsTrie")),
         hex_to_root(raw.get("receiptTrie")),
-        hex_to_bytes(raw.get("bloom")),
+        Bloom(hex_to_bytes(raw.get("bloom"))),
         hex_to_uint(raw.get("difficulty")),
         hex_to_uint(raw.get("number")),
         hex_to_uint(raw.get("gasLimit")),

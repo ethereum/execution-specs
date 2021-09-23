@@ -19,7 +19,7 @@ from typing import Any, List, Sequence, Union, cast
 from ethereum import crypto
 from ethereum.crypto import Hash32
 
-from ..base_types import U256, Bytes, Uint
+from ..base_types import U256, Bytes, Bytes0, Bytes8, Uint
 from ..crypto import keccak256
 from .eth_types import (
     Account,
@@ -511,13 +511,13 @@ def sequence_to_header(sequence: Sequence[Bytes]) -> Header:
     header : `Header`
         The obtained `Header` object.
     """
-    # TODO: Add assertions about the number of bytes in each of the below
-    # variables if it's used in chain sync later on.
     assert len(sequence) == 15
 
+    assert len(sequence[12]) <= 32
+
     return Header(
-        parent_hash=sequence[0],
-        ommers_hash=sequence[1],
+        parent_hash=Hash32(sequence[0]),
+        ommers_hash=Hash32(sequence[1]),
         coinbase=Address(sequence[2]),
         state_root=Root(sequence[3]),
         transactions_root=Root(sequence[4]),
@@ -529,8 +529,8 @@ def sequence_to_header(sequence: Sequence[Bytes]) -> Header:
         gas_used=Uint.from_be_bytes(sequence[10]),
         timestamp=U256.from_be_bytes(sequence[11]),
         extra_data=sequence[12],
-        mix_digest=sequence[13],
-        nonce=sequence[14],
+        mix_digest=Hash32(sequence[13]),
+        nonce=Bytes8(sequence[14]),
     )
 
 
@@ -554,7 +554,7 @@ def sequence_to_transaction(sequence: Sequence[Bytes]) -> Transaction:
     # variables if it's used in chain sync later on.
     assert len(sequence) == 9
 
-    to = b""
+    to: Union[Bytes0, Address] = Bytes0()
     if sequence[3] != b"":
         to = Address(sequence[3])
 

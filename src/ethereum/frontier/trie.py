@@ -34,7 +34,7 @@ from ethereum.utils.hexadecimal import hex_to_bytes
 from .. import crypto
 from ..base_types import U256, Bytes, Uint, slotted_freezable
 from . import rlp
-from .eth_types import Account, Receipt, Root, Transaction
+from .eth_types import Account, Address, Receipt, Root, Transaction
 
 # note: an empty trie (regardless of whether it is secured) has root:
 #
@@ -49,13 +49,16 @@ from .eth_types import Account, Receipt, Root, Transaction
 #   1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347 # noqa: E501,SC10
 #
 # which is the sha3Uncles hash in block header with no uncles
-EMPTY_TRIE_ROOT = hex_to_bytes(
-    "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+EMPTY_TRIE_ROOT = Root(
+    hex_to_bytes(
+        "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+    )
 )
 
 Node = Union[Account, Bytes, Transaction, Receipt, Uint, U256, None]
-T = TypeVar(
-    "T",
+K = TypeVar("K", bound=Bytes)
+V = TypeVar(
+    "V",
     Optional[Account],
     Bytes,
     Optional[Transaction],
@@ -159,17 +162,17 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
 
 
 @dataclass
-class Trie(Generic[T]):
+class Trie(Generic[K, V]):
     """
     The Merkle Trie.
     """
 
     secured: bool
-    default: T
-    _data: Dict[Bytes, T] = field(default_factory=dict)
+    default: V
+    _data: Dict[K, V] = field(default_factory=dict)
 
 
-def copy_trie(trie: Trie[T]) -> Trie[T]:
+def copy_trie(trie: Trie[K, V]) -> Trie[K, V]:
     """
     Create a copy of `trie`. Since only frozen objects may be stored in tries,
     the contents are reused.
@@ -181,13 +184,13 @@ def copy_trie(trie: Trie[T]) -> Trie[T]:
 
     Returns
     -------
-    new_trie : `T`
+    new_trie : `Trie[K, V]`
         A copy of the trie.
     """
     return Trie(trie.secured, trie.default, copy.copy(trie._data))
 
 
-def trie_set(trie: Trie[T], key: Bytes, value: T) -> None:
+def trie_set(trie: Trie[K, V], key: K, value: V) -> None:
     """
     Stores an item in a Merkle Trie.
 
@@ -200,7 +203,7 @@ def trie_set(trie: Trie[T], key: Bytes, value: T) -> None:
         Trie to store in.
     key : `Bytes`
         Key to lookup.
-    value : `T`
+    value : `V`
         Node to insert at `key`.
     """
     if value == trie.default:
@@ -210,7 +213,7 @@ def trie_set(trie: Trie[T], key: Bytes, value: T) -> None:
         trie._data[key] = value
 
 
-def trie_get(trie: Trie, key: Bytes) -> T:
+def trie_get(trie: Trie[K, V], key: K) -> V:
     """
     Gets an item from the Merkle Trie.
 
@@ -218,14 +221,14 @@ def trie_get(trie: Trie, key: Bytes) -> T:
 
     Parameters
     ----------
-    trie: `Trie`
+    trie:
         Trie to lookup in.
-    key : `Bytes`
+    key :
         Key to lookup.
 
     Returns
     -------
-    node : `T`
+    node : `V`
         Node at `key` in the trie.
     """
     return trie._data.get(key, trie.default)
@@ -289,13 +292,13 @@ def nibble_list_to_compact(x: Bytes, is_leaf: bool) -> bytearray:
     return compact
 
 
-def bytes_to_nibble_list(bytes: Bytes) -> Bytes:
+def bytes_to_nibble_list(bytes_: Bytes) -> Bytes:
     """
     Converts a `Bytes` into to a sequence of nibbles (bytes with value < 16).
 
     Parameters
     ----------
-    bytes: `Bytes`
+    bytes_:
         The `Bytes` to convert.
 
     Returns
@@ -303,16 +306,16 @@ def bytes_to_nibble_list(bytes: Bytes) -> Bytes:
     nibble_list : `Bytes`
         The `Bytes` in nibble-list format.
     """
-    nibble_list = bytearray(2 * len(bytes))
-    for byte_index, byte in enumerate(bytes):
+    nibble_list = bytearray(2 * len(bytes_))
+    for byte_index, byte in enumerate(bytes_):
         nibble_list[byte_index * 2] = (byte & 0xF0) >> 4
         nibble_list[byte_index * 2 + 1] = byte & 0x0F
     return Bytes(nibble_list)
 
 
 def _prepare_trie(
-    trie: Trie,
-    get_storage_root: Callable[[Bytes], Bytes] = None,
+    trie: Trie[K, V],
+    get_storage_root: Callable[[Address], Root] = None,
 ) -> Mapping[Bytes, Bytes]:
     """
     Prepares the trie for root calculation. Removes values that are empty,
@@ -320,9 +323,9 @@ def _prepare_trie(
 
     Parameters
     ----------
-    trie : `Trie`
+    trie :
         The `Trie` to prepare.
-    get_storage_root : `Callable[[Bytes], Bytes]`
+    get_storage_root :
         Function to get the storage root of an account. Needed to encode
         `Account` objects.
 
@@ -336,30 +339,35 @@ def _prepare_trie(
     for (preimage, value) in trie._data.items():
         if isinstance(value, Account):
             assert get_storage_root is not None
-            encoded_value = encode_node(value, get_storage_root(preimage))
+            address = Address(preimage)
+            encoded_value = encode_node(value, get_storage_root(address))
         else:
             encoded_value = encode_node(value)
         # Empty values are represented by their absence
         assert encoded_value != b""
-        # "secure" tries hash keys once before construction
-        key = crypto.keccak256(preimage) if trie.secured else preimage
+        key: Bytes
+        if trie.secured:
+            # "secure" tries hash keys once before construction
+            key = crypto.keccak256(preimage)
+        else:
+            key = preimage
         mapped[bytes_to_nibble_list(key)] = encoded_value
 
     return mapped
 
 
 def root(
-    trie: Trie,
-    get_storage_root: Callable[[Bytes], Bytes] = None,
+    trie: Trie[K, V],
+    get_storage_root: Callable[[Address], Root] = None,
 ) -> Root:
     """
     Computes the root of a modified merkle patricia trie (MPT).
 
     Parameters
     ----------
-    trie : `Trie`
+    trie :
         `Trie` to get the root of.
-    get_storage_root : `Callable[[Bytes], Bytes]`
+    get_storage_root :
         Function to get the storage root of an account. Needed to encode
         `Account` objects.
 
@@ -376,7 +384,7 @@ def root(
         return crypto.keccak256(rlp.encode(root_node))
     else:
         assert isinstance(root_node, Bytes)
-        return root_node
+        return Root(root_node)
 
 
 def patricialize(

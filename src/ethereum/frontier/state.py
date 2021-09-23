@@ -31,12 +31,16 @@ class State:
     Contains all information that is preserved between transactions.
     """
 
-    _main_trie: Trie[Optional[Account]] = field(
+    _main_trie: Trie[Address, Optional[Account]] = field(
         default_factory=lambda: Trie(secured=True, default=None)
     )
-    _storage_tries: Dict[Address, Trie[U256]] = field(default_factory=dict)
+    _storage_tries: Dict[Address, Trie[Bytes, U256]] = field(
+        default_factory=dict
+    )
     _snapshots: List[
-        Tuple[Trie[Optional[Account]], Dict[Bytes, Trie[U256]]]
+        Tuple[
+            Trie[Address, Optional[Account]], Dict[Address, Trie[Bytes, U256]]
+        ]
     ] = field(default_factory=list)
 
 
@@ -229,20 +233,20 @@ def set_storage(
         del state._storage_tries[address]
 
 
-def storage_root(state: State, address: Address) -> Bytes:
+def storage_root(state: State, address: Address) -> Root:
     """
     Calculate the storage root of an account.
 
     Parameters
     ----------
-    state: `State`
+    state:
         The state
-    address : `Address`
+    address :
         Address of the account.
 
     Returns
     -------
-    root : `Bytes`
+    root : `Root`
         Storage root of the account.
     """
     assert state._snapshots == []
@@ -252,18 +256,18 @@ def storage_root(state: State, address: Address) -> Bytes:
         return EMPTY_TRIE_ROOT
 
 
-def state_root(state: State) -> Bytes:
+def state_root(state: State) -> Root:
     """
     Calculate the state root.
 
     Parameters
     ----------
-    state: `State`
+    state:
         The current state.
 
     Returns
     -------
-    root : `Bytes`
+    root : `Root`
         The state root.
     """
     assert state._snapshots == []

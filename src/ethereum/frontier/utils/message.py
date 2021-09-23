@@ -11,7 +11,7 @@ Introduction
 
 Message specific functions used in this frontier version of specification.
 """
-from typing import Optional
+from typing import Optional, Union
 
 from ethereum.base_types import U256, Bytes, Bytes0, Uint
 
@@ -23,7 +23,7 @@ from .address import compute_contract_address
 
 def prepare_message(
     caller: Address,
-    target: Address,
+    target: Union[Bytes0, Address],
     value: U256,
     data: Bytes,
     gas: U256,
@@ -57,17 +57,19 @@ def prepare_message(
     message: `ethereum.frontier.vm.Message`
         Items containing contract creation or message call specific data.
     """
-    if target == Bytes0(b""):
+    if isinstance(target, Bytes0):
         current_target = compute_contract_address(
             caller,
             get_account(env.state, caller).nonce - U256(1),
         )
         msg_data = Bytes(b"")
         code = data
-    else:
+    elif isinstance(target, Address):
         current_target = target
         msg_data = data
         code = get_account(env.state, target).code
+    else:
+        raise TypeError()
 
     return Message(
         caller=caller,

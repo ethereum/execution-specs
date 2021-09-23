@@ -251,7 +251,7 @@ class Uint(int):
         big_endian : `Bytes32`
             Big endian (most significant bits first) representation.
         """
-        return self.to_bytes(32, "big")
+        return Bytes32(self.to_bytes(32, "big"))
 
     def to_be_bytes(self) -> "Bytes":
         """
@@ -617,7 +617,7 @@ class U256(FixedUInt):
         big_endian : `Bytes32`
             Big endian (most significant bits first) representation.
         """
-        return self.to_bytes(32, "big")
+        return Bytes32(self.to_bytes(32, "big"))
 
     def to_be_bytes(self) -> "Bytes":
         """
@@ -673,7 +673,7 @@ class Uint32(FixedUInt):
         return cls(int.from_bytes(buffer, "little"))
 
     def to_le_bytes4(self) -> "Bytes4":
-        return self.to_bytes(4, "little")
+        return Bytes4(self.to_bytes(4, "little"))
 
     def to_le_bytes(self) -> "Bytes":
         bit_length = self.bit_length()
@@ -684,14 +684,85 @@ class Uint32(FixedUInt):
 Uint32.MAX_VALUE = int.__new__(Uint32, UINT32_MAX_VALUE)
 
 
+B = TypeVar("B", bound="FixedBytes")
+
+
+class FixedBytes(bytes):
+    """
+    Superclass for fixed sized byte arrays. Not intended to be used directly,
+    but should be subclassed.
+    """
+
+    LENGTH: int
+
+    __slots__ = ()
+
+    def __new__(cls: Type[B], *args: Any, **kwargs: Any) -> B:
+        result = super(FixedBytes, cls).__new__(cls, *args, **kwargs)
+        if len(result) != cls.LENGTH:
+            raise ValueError(
+                f"expected {cls.LENGTH} bytes but got {len(result)}"
+            )
+        return result
+
+
+class Bytes0(FixedBytes):
+    """
+    Byte array of exactly zero elements.
+    """
+
+    LENGTH = 0
+
+
+class Bytes4(FixedBytes):
+    """
+    Byte array of exactly four elements.
+    """
+
+    LENGTH = 4
+
+
+class Bytes8(FixedBytes):
+    """
+    Byte array of exactly eight elements.
+    """
+
+    LENGTH = 8
+
+
+class Bytes20(FixedBytes):
+    """
+    Byte array of exactly 20 elements.
+    """
+
+    LENGTH = 20
+
+
+class Bytes32(FixedBytes):
+    """
+    Byte array of exactly 32 elements.
+    """
+
+    LENGTH = 32
+
+
+class Bytes64(FixedBytes):
+    """
+    Byte array of exactly 64 elements.
+    """
+
+    LENGTH = 64
+
+
+class Bytes256(FixedBytes):
+    """
+    Byte array of exactly 256 elements.
+    """
+
+    LENGTH = 256
+
+
 Bytes = bytes
-Bytes0 = Bytes
-Bytes4 = Bytes
-Bytes8 = Bytes
-Bytes20 = Bytes
-Bytes32 = Bytes
-Bytes64 = Bytes
-Bytes256 = Bytes
 
 
 def _setattr_function(self: Any, attr: str, value: Any) -> None:
