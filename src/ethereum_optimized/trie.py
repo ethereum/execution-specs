@@ -18,14 +18,15 @@ from typing import Any, Callable, Dict, Generic, List, Set
 from ethereum import crypto
 from ethereum.base_types import Bytes
 from ethereum.frontier import rlp
-from ethereum.frontier.eth_types import Root
+from ethereum.frontier.eth_types import Account, Address, Root
 from ethereum.frontier.trie import (
     EMPTY_TRIE_ROOT,
     BranchNode,
     ExtensionNode,
     InternalNode,
+    K,
     LeafNode,
-    T,
+    V,
     bytes_to_nibble_list,
     common_prefix_length,
     encode_internal_node,
@@ -34,12 +35,12 @@ from ethereum.frontier.trie import (
 
 
 @dataclass
-class Trie(Generic[T]):
+class Trie(Generic[K, V]):
     """An optimized Trie implementation."""
 
     secured: bool
-    default: T
-    _data: Dict[Bytes, T] = field(default_factory=dict)
+    default: V
+    _data: Dict[Bytes, V] = field(default_factory=dict)
     _internal_nodes: Dict[Bytes, InternalNode] = field(default_factory=dict)
     _dirty_set: Set[Bytes] = field(default_factory=set)
     _root: Root = field(default=EMPTY_TRIE_ROOT)
@@ -55,7 +56,7 @@ class Trie(Generic[T]):
         return root(self) == root(other)
 
 
-def get_internal_key(trie: Trie[T], key: Bytes) -> Bytes:
+def get_internal_key(trie: Trie[K, V], key: K) -> Bytes:
     """
     Convert a key to the form used internally inside the trie.
     """
@@ -65,14 +66,14 @@ def get_internal_key(trie: Trie[T], key: Bytes) -> Bytes:
         return bytes_to_nibble_list(key)
 
 
-def trie_get(trie: Trie, key: Bytes) -> T:
+def trie_get(trie: Trie[K, V], key: K) -> V:
     """
     Gets an item from the Merkle Trie.
     """
     return trie._data.get(get_internal_key(trie, key), trie.default)
 
 
-def trie_set(trie: Trie[T], key: Bytes, value: T) -> None:
+def trie_set(trie: Trie[K, V], key: K, value: V) -> None:
     """
     Stores an item in a Merkle Trie and adds `key` to `trie.dirty_set`.
     """
@@ -85,7 +86,7 @@ def trie_set(trie: Trie[T], key: Bytes, value: T) -> None:
         trie._data[nibble_list_key] = value
 
 
-def no_storage(x: Bytes) -> Bytes:
+def no_storage(x: Address) -> Root:
     """
     A stub to replace the `get_storage_root` argument in tries that don't
     contain `Account` objects.
@@ -94,8 +95,8 @@ def no_storage(x: Bytes) -> Bytes:
 
 
 def root(
-    trie: Trie,
-    get_storage_root: Callable[[Bytes], Bytes] = no_storage,
+    trie: Trie[K, V],
+    get_storage_root: Callable[[Address], Root] = no_storage,
 ) -> Root:
     """
     Calculate the root of the trie, by regenerating all internal nodes as
@@ -113,7 +114,7 @@ def root(
     if b"" in trie._internal_nodes:
         root = encode_internal_node(trie._internal_nodes[b""])
         if isinstance(root, Bytes):
-            trie._root = root
+            trie._root = Root(root)
         else:
             trie._root = crypto.keccak256(rlp.encode(root))
     else:
@@ -122,10 +123,10 @@ def root(
 
 
 def walk(
-    trie: Trie,
+    trie: Trie[K, V],
     node_key: Bytes,
     dirty_list: List[Bytes],
-    get_storage_root: Callable[[Bytes], Bytes],
+    get_storage_root: Callable[[Address], Root],
 ) -> None:
     """
     Visit the internal node at `node_key` and update it and all its subnodes as
@@ -146,10 +147,10 @@ def walk(
 
 
 def walk_empty(
-    trie: Trie,
+    trie: Trie[K, V],
     node_key: Bytes,
     dirty_list: List[Bytes],
-    get_storage_root: Callable[[Bytes], Bytes],
+    get_storage_root: Callable[[Address], Root],
 ) -> None:
     """
     Consume the last element of `dirty_list` and create a `LeafNode` pointing
@@ -160,15 +161,15 @@ def walk_empty(
     value = trie._data.get(key)
     if value is not None:
         trie._internal_nodes[node_key] = LeafNode(
-            key[len(node_key) :], encode_node(value, get_storage_root(key))
+            key[len(node_key) :], encode_node(value, key)
         )
 
 
 def walk_leaf(
-    trie: Trie,
+    trie: Trie[K, V],
     node_key: Bytes,
     dirty_list: List[Bytes],
-    get_storage_root: Callable[[Bytes], Bytes],
+    get_storage_root: Callable[[Address], Root],
 ) -> None:
     """
     Consume the last element of `dirty_list` and update the `LeafNode` at
@@ -183,9 +184,14 @@ def walk_leaf(
         if value is None:
             del trie._internal_nodes[node_key]
         else:
+            root = None
+            if isinstance(value, Account):
+                address = Address(key)
+                root = get_storage_root(address)
+
             trie._internal_nodes[node_key] = LeafNode(
                 leaf_node.rest_of_key,
-                encode_node(value, get_storage_root(key)),
+                encode_node(value, root),
             )
         dirty_list.pop()
     else:
@@ -205,10 +211,10 @@ def walk_leaf(
 
 
 def walk_extension(
-    trie: Trie,
+    trie: Trie[K, V],
     node_key: Bytes,
     dirty_list: List[Bytes],
-    get_storage_root: Callable[[Bytes], Bytes],
+    get_storage_root: Callable[[Address], Root],
 ) -> None:
     """
     Consume the last element of `dirty_list` and update the `ExtensionNode` at
@@ -245,10 +251,10 @@ def walk_extension(
 
 
 def walk_branch(
-    trie: Trie,
+    trie: Trie[K, V],
     node_key: Bytes,
     dirty_list: List[Bytes],
-    get_storage_root: Callable[[Bytes], Bytes],
+    get_storage_root: Callable[[Address], Root],
 ) -> None:
     """
     Make a `BranchNode` at `node_key` and consume all elements of `dirty_list`
@@ -271,7 +277,7 @@ def walk_branch(
                 del trie._internal_nodes[node_key]
         else:
             trie._internal_nodes[node_key] = LeafNode(
-                b"", encode_node(value_at_node, get_storage_root(node_key))
+                b"", encode_node(value_at_node, node_key)
             )
     elif number_of_subnodes == 1 and value_at_node is None:
         for i in range(16):

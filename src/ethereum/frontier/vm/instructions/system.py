@@ -11,7 +11,7 @@ Introduction
 
 Implementations of the EVM system related instructions.
 """
-from ethereum.base_types import U256, Uint
+from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.frontier.state import account_has_code_or_nonce
 from ethereum.frontier.vm.error import OutOfGasError
 from ethereum.utils.safe_arithmetic import u256_safe_add
@@ -88,7 +88,7 @@ def create(evm: Evm) -> None:
 
     child_message = Message(
         caller=evm.message.current_target,
-        target=b"",
+        target=Bytes0(),
         gas=create_message_gas,
         value=endowment,
         data=b"",

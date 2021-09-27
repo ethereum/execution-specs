@@ -33,7 +33,7 @@ def to_address(data: Union[Uint, U256]) -> Address:
     address : `Address`
         The obtained address.
     """
-    return data.to_be_bytes32()[-20:]
+    return Address(data.to_be_bytes32()[-20:])
 
 
 def compute_contract_address(address: Address, nonce: Uint) -> Address:

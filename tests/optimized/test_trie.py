@@ -34,8 +34,10 @@ operations: List[List[Tuple[Bytes, Bytes]]] = [
 
 
 def test_trie() -> None:
-    trie_normal = normal_trie.Trie(False, b"")
-    trie_optimized = optimized_trie.Trie(False, b"")
+    trie_normal: normal_trie.Trie[Bytes, Bytes] = normal_trie.Trie(False, b"")
+    trie_optimized: optimized_trie.Trie[Bytes, Bytes] = optimized_trie.Trie(
+        False, b""
+    )
     for insert_list in operations:
         for (key, value) in insert_list:
             normal_trie.trie_set(trie_normal, key, value)

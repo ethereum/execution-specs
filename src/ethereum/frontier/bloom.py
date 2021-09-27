@@ -73,4 +73,4 @@ def logs_bloom(logs: Tuple[Log, ...]) -> Bloom:
         for topic in log.topics:
             add_to_bloom(bloom, topic)
 
-    return bytes(bloom)
+    return Bloom(bloom)
