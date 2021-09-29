@@ -5,7 +5,7 @@ See the [1559 Cheatsheet for Implementers](https://hackmd.io/4YVYKxxvRZGDto7aq7r
 
 If you know about a status update please add a PR to this document or post on the latest [update issue](https://github.com/ethereum/eth1.0-specs/issues/198) for aggregated inclusion on a weekly basis.
 
-## London Hardfork
+## London Network Upgrade
 
 For a list of included EIPs see the [specification](./mainnet-upgrades/london.md) document.
 
