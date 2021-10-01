@@ -139,11 +139,11 @@ def encode_sequence(raw_sequence: Sequence[RLP]) -> Bytes:
     len_joined_encodings = Uint(len(joined_encodings))
 
     if len_joined_encodings < 0x38:
-        return bytearray([0xC0 + len_joined_encodings]) + joined_encodings
+        return Bytes([0xC0 + len_joined_encodings]) + joined_encodings
     else:
         len_joined_encodings_as_be = len_joined_encodings.to_be_bytes()
         return (
-            bytearray([0xF7 + len(len_joined_encodings_as_be)])
+            Bytes([0xF7 + len(len_joined_encodings_as_be)])
             + len_joined_encodings_as_be
             + joined_encodings
         )
@@ -165,11 +165,7 @@ def get_joined_encodings(raw_sequence: Sequence[RLP]) -> Bytes:
         The concatenated RLP encoded bytes for each item in sequence
         raw_sequence.
     """
-    joined_encodings = bytearray()
-    for item in raw_sequence:
-        joined_encodings += encode(item)
-
-    return joined_encodings
+    return b"".join(encode(item) for item in raw_sequence)
 
 
 #

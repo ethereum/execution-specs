@@ -1,11 +1,11 @@
 import json
 import os
-from typing import Any
+from typing import Any, List
 
 from ethereum.base_types import U256, Uint
 from ethereum.crypto import keccak256
 from ethereum.frontier import rlp
-from ethereum.frontier.eth_types import Account
+from ethereum.frontier.eth_types import Account, Address
 from ethereum.frontier.spec import BlockChain, get_recent_block_hashes
 from ethereum.frontier.state import (
     State,
@@ -53,7 +53,7 @@ def run_test(test_dir: str, test_file: str) -> None:
         # balances in the testcases don't change even though some value is
         # transferred along with code invocation. But our evm execution transfers
         # the value as well as executing the code
-        for addr in test_data["expected_post_state"]._storage_tries:
+        for addr in test_data["post_state_addresses"]:
             assert storage_root(
                 test_data["expected_post_state"], addr
             ) == storage_root(env.state, addr)
@@ -80,6 +80,7 @@ def load_test(test_dir: str, test_file: str) -> Any:
         "expected_gas_left": hex_to_u256(json_data.get("gas", "0x64")),
         "expected_logs_hash": hex_to_bytes(json_data.get("logs", "0x00")),
         "expected_post_state": json_to_state(json_data.get("post", {})),
+        "post_state_addresses": json_to_addrs(json_data.get("post", {})),
         "has_post_state": bool(json_data.get("post", {})),
     }
 
@@ -135,6 +136,13 @@ def json_to_state(raw: Any) -> State:
         set_account(state, addr, account)
 
     return state
+
+
+def json_to_addrs(raw: Any) -> List[Address]:
+    addrs = []
+    for addr_hex in raw:
+        addrs.append(hex_to_address(addr_hex))
+    return addrs
 
 
 def get_dummy_account_state(min_balance: str) -> Any:

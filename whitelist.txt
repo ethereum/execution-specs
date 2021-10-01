@@ -261,3 +261,11 @@ ecrecover
 
 getrecursionlimit
 setrecursionlimit
+
+nohash
+lmdb
+tempdir
+
+0x0
+0x1
+0x2
