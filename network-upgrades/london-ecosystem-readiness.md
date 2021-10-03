@@ -1,4 +1,4 @@
-# Ecosystem Readiness Checklist
+# London Ecosystem Readiness Checklist
 Tooling, Libraries and other Infrastructure
 
 See the [1559 Cheatsheet for Implementers](https://hackmd.io/4YVYKxxvRZGDto7aq7rVkg?view) for the latest resources to help you along.
