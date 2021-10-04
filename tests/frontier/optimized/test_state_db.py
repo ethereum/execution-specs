@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 import ethereum.frontier.trie as normal_trie
-import ethereum_optimized.state_db as state_db
+import ethereum_optimized.frontier.state_db as state_db
 from ethereum.base_types import Bytes, Optional
 
 operations: List[List[Tuple[Bytes, Optional[Bytes]]]] = [

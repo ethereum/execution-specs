@@ -1,7 +1,7 @@
 from typing import List, Tuple
 
 import ethereum.frontier.trie as normal_trie
-import ethereum_optimized.trie as optimized_trie
+import ethereum_optimized.frontier.trie as optimized_trie
 from ethereum.base_types import Bytes
 
 operations: List[List[Tuple[Bytes, Bytes]]] = [
