@@ -36,23 +36,17 @@ def block_hash(evm: Evm) -> None:
     OutOfGasError
         If `evm.gas_left` is less than `20`.
     """
-    # TODO: This function hasn't been tested. Need to come up with unit tests
-    # for this function.
     evm.gas_left = subtract_gas(evm.gas_left, GAS_EXTERNAL)
 
     block_number = pop(evm.stack)
-    # The block age (1-indexed) with respect to the current block number.
-    # A block having age of `a` indicates that it is `a` blocks
-    # behind the current block number.
-    block_age = evm.env.number - block_number
 
-    if block_age < 1 or block_age > 256:
+    if evm.env.number <= block_number or evm.env.number > block_number + 256:
         # Default hash to 0, if the block of interest is not yet on the chain
         # (including the block which has the current executing transaction),
         # or if the block's age is more than 256.
         hash = b"\x00"
     else:
-        hash = evm.env.block_hashes[256 - block_age]
+        hash = evm.env.block_hashes[256 - (evm.env.number - block_number)]
 
     push(evm.stack, U256.from_be_bytes(hash))
 

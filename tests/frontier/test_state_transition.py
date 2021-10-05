@@ -54,6 +54,12 @@ run_transaction_test = partial(
     "GeneralStateTests/stTransactionTest/",
 )
 
+run_random2_tests = partial(
+    run_frontier_blockchain_st_tests,
+    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
+    "GeneralStateTests/stRandom2/",
+)
+
 
 def test_add() -> None:
     run_example_test("add11_d0g0v0.json")
@@ -350,4 +356,18 @@ def test_transactions(test_file: str) -> None:
         # as these tests don't have tests for frontier.
         # Opcodes_TransactionInit_d33g0v0.json
         # Opcodes_TransactionInit_d127g0v0.json
+        pass
+
+
+@pytest.mark.parametrize(
+    "test_file",
+    os.listdir(
+        "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
+        "GeneralStateTests/stRandom2"
+    ),
+)
+def test_random2(test_file: str) -> None:
+    try:
+        run_random2_tests(test_file)
+    except KeyError:
         pass
