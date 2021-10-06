@@ -522,6 +522,7 @@ def walk(
                 state,
                 trie_prefix,
                 node_key,
+                current_node,
                 dirty_list,
                 cursor,
             )
@@ -587,6 +588,10 @@ def walk_leaf(
         assert (
             len(leaf_node.rest_of_key) != prefix_length
         )  # Keys must be same length
+        new_leaf_node = LeafNode(
+            leaf_node.rest_of_key[prefix_length + 1 :],
+            leaf_node.value,
+        )
         write_internal_node(
             cursor,
             trie_prefix,
@@ -596,8 +601,14 @@ def walk_leaf(
                 leaf_node.value,
             ),
         )
-        current_node = walk_branch(
-            state, trie_prefix, node_key + prefix, dirty_list, cursor
+        current_node = split_branch(
+            state,
+            trie_prefix,
+            node_key + prefix,
+            leaf_node.rest_of_key[prefix_length],
+            encode_internal_node(new_leaf_node),
+            dirty_list,
+            cursor,
         )
         if prefix_length != 0:
             return make_extension_node(
@@ -650,17 +661,27 @@ def walk_extension(
     )
     prefix = extension_node.key_segment[:prefix_length]
     if prefix_length != len(extension_node.key_segment) - 1:
+        new_extension_node = ExtensionNode(
+            extension_node.key_segment[prefix_length + 1 :],
+            extension_node.subnode,
+        )
         write_internal_node(
             cursor,
             trie_prefix,
             node_key + extension_node.key_segment[: prefix_length + 1],
-            ExtensionNode(
-                extension_node.key_segment[prefix_length + 1 :],
-                extension_node.subnode,
-            ),
+            new_extension_node,
         )
-    node = walk_branch(
-        state, trie_prefix, node_key + prefix, dirty_list, cursor
+        encoded_new_extension_node = encode_internal_node(new_extension_node)
+    else:
+        encoded_new_extension_node = extension_node.subnode
+    node = split_branch(
+        state,
+        trie_prefix,
+        node_key + prefix,
+        extension_node.key_segment[prefix_length],
+        encoded_new_extension_node,
+        dirty_list,
+        cursor,
     )
     if prefix_length != 0:
         return make_extension_node(
@@ -674,42 +695,55 @@ def walk_branch(
     state: State,
     trie_prefix: Bytes,
     node_key: Bytes,
+    current_node: BranchNode,
     dirty_list: List[Tuple[Bytes, Node]],
     cursor: Any,
 ) -> Optional[InternalNode]:
     """
-    Make a `BranchNode` at `node_key` and consume all elements of `dirty_list`
-    that are under it.
+    Consume the last element of `dirty_list` and update the `BranchNode` at
+    `node_key`, potentially turning it into `ExtensionNode` or a `LeafNode`.
 
     This function returns the new value of the visited node, but does not write
     it to the database.
     """
     assert dirty_list[-1][0] != node_key  # All keys must be the same length
 
-    subnodes = []
-    for i in range(16):
-        subnode = walk(
-            state,
-            trie_prefix,
-            node_key + bytes([i]),
-            dirty_list,
-            cursor,
-        )
-        write_internal_node(
-            cursor, trie_prefix, node_key + bytes([i]), subnode
-        )
-        subnodes.append(subnode)
+    # The copy here is probably unnecessary, but the optimization isn't worth
+    # the risk.
+    encoded_subnodes = current_node.subnodes[:]
+    if dirty_list[-1][0].startswith(node_key):
+        for i in range(16):
+            if (
+                dirty_list
+                and dirty_list[-1][0].startswith(node_key)
+                and dirty_list[-1][0][len(node_key)] == i
+            ):
+                subnode = walk(
+                    state,
+                    trie_prefix,
+                    node_key + bytes([i]),
+                    dirty_list,
+                    cursor,
+                )
+                write_internal_node(
+                    cursor, trie_prefix, node_key + bytes([i]), subnode
+                )
+                encoded_subnodes[i] = encode_internal_node(subnode)
 
-    number_of_subnodes = 16 - subnodes.count(None)
+    number_of_subnodes = 16 - encoded_subnodes.count(b"")
 
     if number_of_subnodes == 0:
         return None
     elif number_of_subnodes == 1:
         for i in range(16):
-            if subnodes[i] is not None:
+            if encoded_subnodes[i] != b"":
                 subnode_index = i
-                subnode = subnodes[i]
                 break
+        subnode = decode_to_internal_node(
+            cursor.get(
+                b"\x02" + trie_prefix + node_key + bytes([subnode_index])
+            )
+        )
         return make_extension_node(
             state,
             trie_prefix,
@@ -719,9 +753,6 @@ def walk_branch(
             cursor,
         )
     else:
-        encoded_subnodes = [
-            encode_internal_node(subnode) for subnode in subnodes
-        ]
         return BranchNode(encoded_subnodes, b"")
 
 
@@ -764,3 +795,34 @@ def make_extension_node(
         )
     else:
         assert False  # Invalid internal node type
+
+
+def split_branch(
+    state: State,
+    trie_prefix: Bytes,
+    node_key: Bytes,
+    key: int,
+    encoded_subnode: rlp.RLP,
+    dirty_list: List[Tuple[Bytes, Node]],
+    cursor: Any,
+) -> Optional[InternalNode]:
+    """
+    Make a branch node with `encoded_subnode` as its only child and then
+    consume all `dirty_list` elements under it.
+
+    This function takes a `encoded_node` to avoid a database read in some
+    situations.
+
+    This function returns the new value of the visited node, but does not write
+    it to the database.
+    """
+    encoded_subnodes: List[rlp.RLP] = [b""] * 16
+    encoded_subnodes[key] = encoded_subnode
+    return walk_branch(
+        state,
+        trie_prefix,
+        node_key,
+        BranchNode(encoded_subnodes, b""),
+        dirty_list,
+        cursor,
+    )
