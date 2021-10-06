@@ -16,7 +16,12 @@ from ethereum.frontier.eth_types import (
 )
 from ethereum.frontier.rlp import rlp_hash
 from ethereum.frontier.spec import BlockChain, state_transition
-from ethereum.frontier.state import State, set_account, set_storage
+from ethereum.frontier.state import (
+    State,
+    close_state,
+    set_account,
+    set_storage,
+)
 from ethereum.frontier.utils.hexadecimal import hex_to_address, hex_to_root
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
@@ -65,6 +70,8 @@ def run_blockchain_st_test(
 
     assert rlp_hash(chain.blocks[-1].header) == test_data["last_block_hash"]
     assert chain.state == test_data["expected_post_state"]
+    close_state(chain.state)
+    close_state(test_data["expected_post_state"])
 
 
 def add_blocks_to_chain(chain: BlockChain, test_data: Dict[str, Any]) -> None:

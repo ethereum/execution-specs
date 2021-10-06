@@ -265,6 +265,7 @@ setrecursionlimit
 nohash
 lmdb
 tempdir
+noop
 
 0x0
 0x1

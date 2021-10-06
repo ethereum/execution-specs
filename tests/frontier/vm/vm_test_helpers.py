@@ -9,6 +9,7 @@ from ethereum.frontier.eth_types import Account, Address
 from ethereum.frontier.spec import BlockChain, get_recent_block_hashes
 from ethereum.frontier.state import (
     State,
+    close_state,
     set_account,
     set_storage,
     storage_root,
@@ -59,6 +60,8 @@ def run_test(test_dir: str, test_file: str) -> None:
             ) == storage_root(env.state, addr)
     else:
         assert has_erred is True
+    close_state(env.state)
+    close_state(test_data["expected_post_state"])
 
 
 def load_test(test_dir: str, test_file: str) -> Any:

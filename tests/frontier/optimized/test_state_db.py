@@ -32,11 +32,11 @@ def test_trie() -> None:
     trie_normal: normal_trie.Trie[Bytes, Optional[Bytes]] = normal_trie.Trie(
         False, None
     )
-    state = state_db.State()
-    state_db.begin_db_transaction(state)
-    for insert_list in operations:
-        for (key, value) in insert_list:
-            normal_trie.trie_set(trie_normal, key, value)
-            state_db.set_account_debug(state, key, value)
-        root = normal_trie.root(trie_normal)
-        assert root == state_db.state_root(state)
+    with state_db.State() as state:
+        state_db.begin_db_transaction(state)
+        for insert_list in operations:
+            for (key, value) in insert_list:
+                normal_trie.trie_set(trie_normal, key, value)
+                state_db.set_account_debug(state, key, value)
+            root = normal_trie.root(trie_normal)
+            assert root == state_db.state_root(state)

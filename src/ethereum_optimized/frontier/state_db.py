@@ -51,6 +51,7 @@ class State:
     """
 
     _db: Any
+    _current_tx: Any
     _tx_stack: List[Any]
     _dirty_accounts: List[Dict[Bytes, Optional[Account]]]
     _dirty_storage: List[Dict[Bytes, Dict[Bytes, Optional[U256]]]]
@@ -64,6 +65,7 @@ class State:
             self._db = lmdb.open(self._tempdir.name, map_size=2 ** 20)
         else:
             self._db = lmdb.open(path, map_size=2 ** 40)
+        self._current_tx = None
         self._tx_stack = []
         self._dirty_accounts = [{}]
         self._dirty_storage = [{}]
@@ -77,6 +79,26 @@ class State:
         if not isinstance(other, State):
             return NotImplemented
         return state_root(self) == state_root(other)
+
+    def __enter__(self) -> "State":
+        """Support with statements"""
+        # This is actually noop, but call it anyway for correctness
+        self._db.__enter__()
+        return self
+
+    def __exit__(self, *args: Any) -> bool:
+        """Support with statements"""
+        return self._db.__exit__(*args)
+
+
+def close_state(state: State) -> None:
+    """Close a state, releasing all resources it holds"""
+    state._db.close()
+    del state._current_tx
+    del state._tx_stack
+    del state._dirty_accounts
+    del state._dirty_storage
+    del state._destroyed_accounts
 
 
 def begin_db_transaction(state: State) -> None:
@@ -92,36 +114,56 @@ def begin_db_transaction(state: State) -> None:
     """
     if state._tx_stack == []:
         state._tx_stack.append(lmdb.Transaction(state._db, write=True))
+    elif state._tx_stack[-1] is None:
+        raise Exception(
+            "Non db transactions cannot have db transctions as children"
+        )
     else:
         state_root(state)
         state._tx_stack.append(
             lmdb.Transaction(state._db, parent=state._tx_stack[-1], write=True)
         )
+    state._current_tx = state._tx_stack[-1]
 
 
 def commit_db_transaction(state: State) -> None:
     """
     Commit the current database transaction.
+    raise Exception("Current transaction is not a db transaction")
     """
+    if state._tx_stack[-1] is None:
+        raise Exception("Current transaction is not a db transaction")
     state_root(state)
     state._tx_stack.pop().commit()
+    if state._tx_stack != []:
+        state._current_tx = state._tx_stack[-1]
+    else:
+        state._current_tx = None
 
 
 def rollback_db_transaction(state: State) -> None:
     """
     Rollback the current database transaction.
     """
+    if state._tx_stack[-1] is None:
+        raise Exception("Current transaction is not a db transaction")
     state._tx_stack.pop().abort()
     state._dirty_accounts = [{}]
     state._dirty_storage = [{}]
     state._destroyed_accounts = [set()]
+    if state._tx_stack != []:
+        state._current_tx = state._tx_stack[-1]
+    else:
+        state._current_tx = None
 
 
 def begin_transaction(state: State) -> None:
     """
     See `ethereum.frontier.state`.
     """
-    state._tx_stack.append(state._tx_stack[-1])
+    if state._tx_stack == []:
+        raise Exception("First transaction must be a db transaction")
+    state._tx_stack.append(None)
     state._dirty_accounts.append({})
     state._dirty_storage.append({})
     state._destroyed_accounts.append(set())
@@ -131,6 +173,8 @@ def commit_transaction(state: State) -> None:
     """
     See `ethereum.frontier.state`.
     """
+    if state._tx_stack[-1] is not None:
+        raise Exception("Current transaction is a db transaction")
     for (internal_address, account) in state._dirty_accounts.pop().items():
         state._dirty_accounts[-1][internal_address] = account
     state._destroyed_accounts[-2] |= state._destroyed_accounts[-1]
@@ -148,6 +192,8 @@ def rollback_transaction(state: State) -> None:
     """
     See `ethereum.frontier.state`.
     """
+    if state._tx_stack[-1] is not None:
+        raise Exception("Current transaction is a db transaction")
     state._tx_stack.pop()
     state._dirty_accounts.pop()
     state._dirty_storage.pop()
@@ -180,7 +226,7 @@ def get_storage(state: State, address: Address, key: Bytes) -> U256:
             if internal_key in state._destroyed_accounts[i]:
                 # Higher levels refer to the account prior to destruction
                 return U256(0)
-    res = state._tx_stack[-1].get(
+    res = state._current_tx.get(
         b"\x01" + internal_address + b"\x00" + internal_key
     )
     if res is None:
@@ -219,7 +265,7 @@ def get_account_optional(state: State, address: Address) -> Optional[Account]:
     for cache in reversed(state._dirty_accounts):
         if internal_address in cache:
             return cache[internal_address]
-    res = state._tx_stack[-1].get(b"\x01" + internal_address)
+    res = state._current_tx.get(b"\x01" + internal_address)
     if res is None:
         return None
     else:
@@ -269,7 +315,7 @@ def clear_destroyed_account(state: State, internal_address: Bytes) -> None:
     Remove every storage key associated to a destroyed account from the
     database.
     """
-    cursor = state._tx_stack[-1].cursor()
+    cursor = state._current_tx.cursor()
     cursor.set_range(b"\x01" + internal_address + b"\x00")
     while cursor.key().startswith(b"\x01" + internal_address):
         cursor.delete()
@@ -287,7 +333,7 @@ def get_account_debug(state: State, key: Bytes) -> Bytes:
     for cache in reversed(state._dirty_accounts):
         if internal_key in cache:
             return cache[internal_key]  # type: ignore
-    return state._tx_stack[-1].get(b"\x01" + internal_key)
+    return state._current_tx.get(b"\x01" + internal_key)
 
 
 def set_account_debug(
@@ -344,16 +390,18 @@ def state_root(
     """
     Calculate the state root.
     """
+    if state._current_tx is None:
+        raise Exception("Cannot compute state root inside non db transaction")
     for internal_address, account in state._dirty_accounts[-1].items():
         if account is None:
-            state._tx_stack[-1].delete(b"\x01" + internal_address)
+            state._current_tx.delete(b"\x01" + internal_address)
         elif isinstance(account, Bytes):  # Testing only
-            state._tx_stack[-1].put(
+            state._current_tx.put(
                 b"\x01" + internal_address,
                 account,
             )
         elif isinstance(account, Account):
-            state._tx_stack[-1].put(
+            state._current_tx.put(
                 b"\x01" + internal_address,
                 rlp.encode([account.nonce, account.balance, account.code]),
             )
@@ -366,9 +414,9 @@ def state_root(
         b"",
         b"",
         list(sorted(state._dirty_accounts[-1].items(), reverse=True)),
-        state._tx_stack[-1].cursor(),
+        state._current_tx.cursor(),
     )
-    write_internal_node(state._tx_stack[-1].cursor(), b"", b"", root_node)
+    write_internal_node(state._current_tx.cursor(), b"", b"", root_node)
     state._dirty_accounts[-1] = {}
     if root_node is None:
         return EMPTY_TRIE_ROOT
@@ -384,9 +432,11 @@ def storage_root(state: State, address: Bytes) -> None:
     """
     Calculate the storage root.
     """
-    _storage_root(
-        state, get_internal_key(address), state._tx_stack[-1].cursor()
-    )
+    if state._current_tx is None:
+        raise Exception(
+            "Cannot compute storage root inside non db transaction"
+        )
+    _storage_root(state, get_internal_key(address), state._current_tx.cursor())
 
 
 def _storage_root(state: State, internal_address: Bytes, cursor: Any) -> Root:
@@ -399,11 +449,11 @@ def _storage_root(state: State, internal_address: Bytes, cursor: Any) -> Root:
     dirty_storage = state._dirty_storage[-1].pop(internal_address, {}).items()
     for key, value in dirty_storage:
         if value is None:
-            state._tx_stack[-1].delete(
+            state._current_tx.delete(
                 b"\x01" + internal_address + b"\x00" + internal_address
             )
         else:
-            state._tx_stack[-1].put(
+            state._current_tx.put(
                 b"\x01" + internal_address + b"\x00" + internal_address,
                 rlp.encode(value),
             )

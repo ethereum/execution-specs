@@ -44,6 +44,16 @@ class State:
     ] = field(default_factory=list)
 
 
+def close_state(state: State) -> None:
+    """
+    Free resources held by the state. Used by optmized implementations to
+    release file descriptors.
+    """
+    del state._main_trie
+    del state._storage_tries
+    del state._snapshots
+
+
 def begin_transaction(state: State) -> None:
     """
     Start a state transaction.

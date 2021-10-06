@@ -35,6 +35,7 @@ optimized_state_db_patches = {
     "begin_transaction": optimized_state_db.begin_transaction,
     "rollback_transaction": optimized_state_db.rollback_transaction,
     "commit_transaction": optimized_state_db.commit_transaction,
+    "close_state": optimized_state_db.close_state,
 }
 
 
