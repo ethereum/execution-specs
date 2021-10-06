@@ -29,6 +29,7 @@ from typing import (
     cast,
 )
 
+from ethereum.utils.ensure import ensure
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 from .. import crypto
@@ -345,7 +346,7 @@ def _prepare_trie(
         else:
             encoded_value = encode_node(value)
         # Empty values are represented by their absence
-        assert encoded_value != b""
+        ensure(encoded_value != b"")
         key: Bytes
         if trie.secured:
             # "secure" tries hash keys once before construction

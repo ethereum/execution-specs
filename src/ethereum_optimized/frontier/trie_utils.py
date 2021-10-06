@@ -22,6 +22,7 @@ from ethereum.frontier.trie import (
     LeafNode,
     nibble_list_to_compact,
 )
+from ethereum.utils.ensure import ensure
 
 
 def compact_to_nibble_list(bytes: Bytes) -> Tuple[Bytes, bool]:
@@ -77,5 +78,5 @@ def decode_to_internal_node(data_in: Bytes) -> InternalNode:
         else:
             return ExtensionNode(key_segment, data[1])
     else:
-        assert len(data) == 17
+        ensure(len(data) == 17)
         return BranchNode(data[:-1], data[-1])

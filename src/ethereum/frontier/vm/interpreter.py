@@ -41,6 +41,7 @@ from ethereum.frontier.vm.gas import (
 from ethereum.frontier.vm.precompiled_contracts.mapping import (
     PRE_COMPILED_CONTRACTS,
 )
+from ethereum.utils.ensure import EnsureError
 
 from . import Environment, Evm
 from .instructions import Ops, op_implementation
@@ -232,7 +233,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         evm.refund_counter = U256(0)
         evm.has_erred = True
     except (
-        AssertionError,
+        EnsureError,
         ValueError,
     ):
         evm.has_erred = True

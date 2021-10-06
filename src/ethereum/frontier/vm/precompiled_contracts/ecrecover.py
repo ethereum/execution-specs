@@ -40,17 +40,20 @@ def ecrecover(evm: Evm) -> None:
     r = U256.from_be_bytes(r_bytes)
     s_bytes = left_pad_zero_bytes(data[96:128], 32)
     s = U256.from_be_bytes(s_bytes)
-    try:
-        assert v == 27 or v == 28
-        assert 0 < r < SECP256K1N
-        assert 0 < s < SECP256K1N
-    except AssertionError:
-        return None
+
+    if v != 27 and v != 28:
+        return
+    if 0 >= r or r >= SECP256K1N:
+        return
+    if 0 >= s or s >= SECP256K1N:
+        return
+
     try:
         public_key = crypto.secp256k1_recover(r, s, v - 27, message_hash)
     except ValueError:
         # unable to extract public key
         return
+
     address = crypto.keccak256(public_key)[12:32]
     padded_address = left_pad_zero_bytes(address, 32)
     evm.output = padded_address
