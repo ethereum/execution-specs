@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Tuple
 
 from ethereum.base_types import U256, Bytes, Uint, modify
+from ethereum.utils.ensure import ensure
 
 from .eth_types import EMPTY_ACCOUNT, Account, Address, Root
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
@@ -234,6 +235,7 @@ def set_storage(
         Value to set at the key.
     """
     assert trie_get(state._main_trie, address) is not None
+
     trie = state._storage_tries.get(address)
     if trie is None:
         trie = Trie(secured=True, default=U256(0))
@@ -348,7 +350,7 @@ def move_ether(
     """
 
     def reduce_sender_balance(sender: Account) -> None:
-        assert sender.balance >= amount
+        ensure(sender.balance >= amount)
         sender.balance -= amount
 
     def increase_recipient_balance(recipient: Account) -> None:

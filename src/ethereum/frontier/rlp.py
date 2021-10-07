@@ -18,6 +18,7 @@ from typing import Any, List, Sequence, Union, cast
 
 from ethereum import crypto
 from ethereum.crypto import Hash32
+from ethereum.utils.ensure import ensure
 
 from ..base_types import U256, Bytes, Bytes0, Bytes8, Uint
 from ..crypto import keccak256
@@ -192,7 +193,7 @@ def decode(encoded_data: Bytes) -> RLP:
     # given raw data (including empty raw data)
     # RLP Encoding(b'') -> [0x80]  # noqa: SC100
     # RLP Encoding([])  -> [0xc0]  # noqa: SC100
-    assert len(encoded_data) > 0
+    ensure(len(encoded_data) > 0)
 
     if encoded_data[0] <= 0xBF:
         # This means that the raw data is of type bytes
@@ -221,24 +222,24 @@ def decode_to_bytes(encoded_bytes: Bytes) -> Bytes:
         return encoded_bytes
     elif encoded_bytes[0] <= 0xB7:
         len_raw_data = encoded_bytes[0] - 0x80
-        assert len_raw_data < len(encoded_bytes)
+        ensure(len_raw_data < len(encoded_bytes))
         raw_data = encoded_bytes[1 : 1 + len_raw_data]
-        assert not (len_raw_data == 1 and raw_data[0] < 0x80)
+        ensure(not (len_raw_data == 1 and raw_data[0] < 0x80))
         return raw_data
     else:
         # This is the index in the encoded data at which decoded data
         # starts from.
         decoded_data_start_idx = 1 + encoded_bytes[0] - 0xB7
-        assert decoded_data_start_idx - 1 < len(encoded_bytes)
+        ensure(decoded_data_start_idx - 1 < len(encoded_bytes))
         # Expectation is that the big endian bytes shouldn't start with 0
         # while trying to decode using RLP, in which case is an error.
-        assert encoded_bytes[1] != 0
+        ensure(encoded_bytes[1] != 0)
         len_decoded_data = Uint.from_be_bytes(
             encoded_bytes[1:decoded_data_start_idx]
         )
-        assert len_decoded_data >= 0x38
+        ensure(len_decoded_data >= 0x38)
         decoded_data_end_idx = decoded_data_start_idx + len_decoded_data
-        assert decoded_data_end_idx - 1 < len(encoded_bytes)
+        ensure(decoded_data_end_idx - 1 < len(encoded_bytes))
         return encoded_bytes[decoded_data_start_idx:decoded_data_end_idx]
 
 
@@ -259,22 +260,22 @@ def decode_to_sequence(encoded_sequence: Bytes) -> List[RLP]:
     """
     if encoded_sequence[0] <= 0xF7:
         len_joined_encodings = encoded_sequence[0] - 0xC0
-        assert len_joined_encodings < len(encoded_sequence)
+        ensure(len_joined_encodings < len(encoded_sequence))
         joined_encodings = encoded_sequence[1 : 1 + len_joined_encodings]
     else:
         joined_encodings_start_idx = 1 + encoded_sequence[0] - 0xF7
-        assert joined_encodings_start_idx - 1 < len(encoded_sequence)
+        ensure(joined_encodings_start_idx - 1 < len(encoded_sequence))
         # Expectation is that the big endian bytes shouldn't start with 0
         # while trying to decode using RLP, in which case is an error.
-        assert encoded_sequence[1] != 0
+        ensure(encoded_sequence[1] != 0)
         len_joined_encodings = Uint.from_be_bytes(
             encoded_sequence[1:joined_encodings_start_idx]
         )
-        assert len_joined_encodings >= 0x38
+        ensure(len_joined_encodings >= 0x38)
         joined_encodings_end_idx = (
             joined_encodings_start_idx + len_joined_encodings
         )
-        assert joined_encodings_end_idx - 1 < len(encoded_sequence)
+        ensure(joined_encodings_end_idx - 1 < len(encoded_sequence))
         joined_encodings = encoded_sequence[
             joined_encodings_start_idx:joined_encodings_end_idx
         ]
@@ -304,7 +305,9 @@ def decode_joined_encodings(joined_encodings: Bytes) -> List[RLP]:
         encoded_item_length = decode_item_length(
             joined_encodings[item_start_idx:]
         )
-        assert item_start_idx + encoded_item_length - 1 < len(joined_encodings)
+        ensure(
+            item_start_idx + encoded_item_length - 1 < len(joined_encodings)
+        )
         encoded_item = joined_encodings[
             item_start_idx : item_start_idx + encoded_item_length
         ]
@@ -335,7 +338,7 @@ def decode_item_length(encoded_data: Bytes) -> int:
     rlp_length : `int`
     """
     # Can't decode item length for empty encoding
-    assert len(encoded_data) > 0
+    ensure(len(encoded_data) > 0)
 
     first_rlp_byte = Uint(encoded_data[0])
 
@@ -358,10 +361,10 @@ def decode_item_length(encoded_data: Bytes) -> int:
     # into the above cases
     elif first_rlp_byte <= 0xBF:
         length_length = first_rlp_byte - 0xB7
-        assert length_length < len(encoded_data)
+        ensure(length_length < len(encoded_data))
         # Expectation is that the big endian bytes shouldn't start with 0
         # while trying to decode using RLP, in which case is an error.
-        assert encoded_data[1] != 0
+        ensure(encoded_data[1] != 0)
         decoded_data_length = Uint.from_be_bytes(
             encoded_data[1 : 1 + length_length]
         )
@@ -373,10 +376,10 @@ def decode_item_length(encoded_data: Bytes) -> int:
     # doesn't fall into the above cases.
     elif first_rlp_byte <= 0xFF:
         length_length = first_rlp_byte - 0xF7
-        assert length_length < len(encoded_data)
+        ensure(length_length < len(encoded_data))
         # Expectation is that the big endian bytes shouldn't start with 0
         # while trying to decode using RLP, in which case is an error.
-        assert encoded_data[1] != 0
+        ensure(encoded_data[1] != 0)
         decoded_data_length = Uint.from_be_bytes(
             encoded_data[1 : 1 + length_length]
         )
@@ -507,9 +510,9 @@ def sequence_to_header(sequence: Sequence[Bytes]) -> Header:
     header : `Header`
         The obtained `Header` object.
     """
-    assert len(sequence) == 15
+    ensure(len(sequence) == 15)
 
-    assert len(sequence[12]) <= 32
+    ensure(len(sequence[12]) <= 32)
 
     return Header(
         parent_hash=Hash32(sequence[0]),
@@ -548,7 +551,7 @@ def sequence_to_transaction(sequence: Sequence[Bytes]) -> Transaction:
     """
     # TODO: Add assertions about the number of bytes in each of the below
     # variables if it's used in chain sync later on.
-    assert len(sequence) == 9
+    ensure(len(sequence) == 9)
 
     to: Union[Bytes0, Address] = Bytes0()
     if sequence[3] != b"":

@@ -3,6 +3,7 @@ from functools import partial
 
 import pytest
 
+from ethereum.utils.ensure import EnsureError
 from tests.frontier.blockchain_st_test_helpers import (
     run_frontier_blockchain_st_tests,
 )
@@ -330,14 +331,14 @@ def test_invalid_uncles() -> None:
     )
 
     for test_file in os.listdir(f"{invalid_blocks_dir}/bcUncleTest"):
-        with pytest.raises(AssertionError):
+        with pytest.raises(EnsureError):
             run_uncles_test(f"InvalidBlocks/bcUncleTest/{test_file}")
 
     for test_file in os.listdir(f"{invalid_blocks_dir}/bcUncleHeaderValidity"):
         if test_file == "correct.json":
             continue
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(EnsureError):
             run_uncles_test(f"InvalidBlocks/bcUncleHeaderValidity/{test_file}")
 
 
