@@ -41,6 +41,8 @@ def bitwise_and(evm: Evm) -> None:
     y = pop(evm.stack)
     push(evm.stack, x & y)
 
+    evm.pc += 1
+
 
 def bitwise_or(evm: Evm) -> None:
     """
@@ -63,6 +65,8 @@ def bitwise_or(evm: Evm) -> None:
     x = pop(evm.stack)
     y = pop(evm.stack)
     push(evm.stack, x | y)
+
+    evm.pc += 1
 
 
 def bitwise_xor(evm: Evm) -> None:
@@ -87,6 +91,8 @@ def bitwise_xor(evm: Evm) -> None:
     y = pop(evm.stack)
     push(evm.stack, x ^ y)
 
+    evm.pc += 1
+
 
 def bitwise_not(evm: Evm) -> None:
     """
@@ -108,6 +114,8 @@ def bitwise_not(evm: Evm) -> None:
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
     x = pop(evm.stack)
     push(evm.stack, ~x)
+
+    evm.pc += 1
 
 
 def get_byte(evm: Evm) -> None:
@@ -145,3 +153,5 @@ def get_byte(evm: Evm) -> None:
         result = U256(word)
 
     push(evm.stack, result)
+
+    evm.pc += 1

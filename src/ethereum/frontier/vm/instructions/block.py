@@ -50,6 +50,8 @@ def block_hash(evm: Evm) -> None:
 
     push(evm.stack, U256.from_be_bytes(hash))
 
+    evm.pc += 1
+
 
 def coinbase(evm: Evm) -> None:
     """
@@ -73,6 +75,8 @@ def coinbase(evm: Evm) -> None:
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     push(evm.stack, U256.from_be_bytes(evm.env.coinbase))
+
+    evm.pc += 1
 
 
 def timestamp(evm: Evm) -> None:
@@ -98,6 +102,8 @@ def timestamp(evm: Evm) -> None:
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     push(evm.stack, evm.env.time)
 
+    evm.pc += 1
+
 
 def number(evm: Evm) -> None:
     """
@@ -120,6 +126,8 @@ def number(evm: Evm) -> None:
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     push(evm.stack, U256(evm.env.number))
+
+    evm.pc += 1
 
 
 def difficulty(evm: Evm) -> None:
@@ -144,6 +152,8 @@ def difficulty(evm: Evm) -> None:
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     push(evm.stack, U256(evm.env.difficulty))
 
+    evm.pc += 1
+
 
 def gas_limit(evm: Evm) -> None:
     """
@@ -166,3 +176,5 @@ def gas_limit(evm: Evm) -> None:
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     push(evm.stack, U256(evm.env.gas_limit))
+
+    evm.pc += 1

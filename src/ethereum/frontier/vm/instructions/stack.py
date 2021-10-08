@@ -40,6 +40,8 @@ def pop(evm: Evm) -> None:
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     stack.pop(evm.stack)
 
+    evm.pc += 1
+
 
 def push_n(evm: Evm, num_bytes: int) -> None:
     """
@@ -69,7 +71,7 @@ def push_n(evm: Evm, num_bytes: int) -> None:
     )
     stack.push(evm.stack, data_to_push)
 
-    evm.pc += num_bytes
+    evm.pc += 1 + num_bytes
 
 
 def dup_n(evm: Evm, item_number: int) -> None:
@@ -95,6 +97,8 @@ def dup_n(evm: Evm, item_number: int) -> None:
 
     data_to_duplicate = evm.stack[len(evm.stack) - 1 - item_number]
     stack.push(evm.stack, data_to_duplicate)
+
+    evm.pc += 1
 
 
 def swap_n(evm: Evm, item_number: int) -> None:
@@ -128,6 +132,8 @@ def swap_n(evm: Evm, item_number: int) -> None:
         evm.stack[nth_element_idx],
         evm.stack[top_element_idx],
     )
+
+    evm.pc += 1
 
 
 push1 = partial(push_n, num_bytes=1)

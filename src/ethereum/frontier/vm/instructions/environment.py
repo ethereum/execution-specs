@@ -49,6 +49,8 @@ def address(evm: Evm) -> None:
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     push(evm.stack, U256.from_be_bytes(evm.message.current_target))
 
+    evm.pc += 1
+
 
 def balance(evm: Evm) -> None:
     """
@@ -77,6 +79,8 @@ def balance(evm: Evm) -> None:
 
     push(evm.stack, balance)
 
+    evm.pc += 1
+
 
 def origin(evm: Evm) -> None:
     """
@@ -96,6 +100,8 @@ def origin(evm: Evm) -> None:
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     push(evm.stack, U256.from_be_bytes(evm.env.origin))
 
+    evm.pc += 1
+
 
 def caller(evm: Evm) -> None:
     """
@@ -114,6 +120,8 @@ def caller(evm: Evm) -> None:
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     push(evm.stack, U256.from_be_bytes(evm.message.caller))
 
+    evm.pc += 1
+
 
 def callvalue(evm: Evm) -> None:
     """
@@ -131,6 +139,8 @@ def callvalue(evm: Evm) -> None:
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     push(evm.stack, evm.message.value)
+
+    evm.pc += 1
 
 
 def calldataload(evm: Evm) -> None:
@@ -161,6 +171,8 @@ def calldataload(evm: Evm) -> None:
 
     push(evm.stack, U256.from_be_bytes(value))
 
+    evm.pc += 1
+
 
 def calldatasize(evm: Evm) -> None:
     """
@@ -178,6 +190,8 @@ def calldatasize(evm: Evm) -> None:
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     push(evm.stack, U256(len(evm.message.data)))
+
+    evm.pc += 1
 
 
 def calldatacopy(evm: Evm) -> None:
@@ -220,6 +234,8 @@ def calldatacopy(evm: Evm) -> None:
     )
     evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
 
+    evm.pc += 1
+
     if size == 0:
         return
 
@@ -249,6 +265,8 @@ def codesize(evm: Evm) -> None:
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     push(evm.stack, U256(len(evm.code)))
+
+    evm.pc += 1
 
 
 def codecopy(evm: Evm) -> None:
@@ -291,6 +309,8 @@ def codecopy(evm: Evm) -> None:
     )
     evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
 
+    evm.pc += 1
+
     if size == 0:
         return
 
@@ -322,6 +342,8 @@ def gasprice(evm: Evm) -> None:
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     push(evm.stack, evm.env.gas_price)
 
+    evm.pc += 1
+
 
 def extcodesize(evm: Evm) -> None:
     """
@@ -349,6 +371,8 @@ def extcodesize(evm: Evm) -> None:
     codesize = U256(len(get_account(evm.env.state, address).code))
 
     push(evm.stack, codesize)
+
+    evm.pc += 1
 
 
 def extcodecopy(evm: Evm) -> None:
@@ -390,6 +414,8 @@ def extcodecopy(evm: Evm) -> None:
         exception_type=OutOfGasError,
     )
     evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+
+    evm.pc += 1
 
     if size == 0:
         return

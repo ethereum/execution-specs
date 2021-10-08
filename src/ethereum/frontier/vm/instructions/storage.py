@@ -49,6 +49,8 @@ def sload(evm: Evm) -> None:
 
     push(evm.stack, value)
 
+    evm.pc += 1
+
 
 def sstore(evm: Evm) -> None:
     """
@@ -86,3 +88,5 @@ def sstore(evm: Evm) -> None:
         evm.refund_counter += GAS_STORAGE_CLEAR_REFUND
 
     set_storage(evm.env.state, evm.message.current_target, key, new_value)
+
+    evm.pc += 1

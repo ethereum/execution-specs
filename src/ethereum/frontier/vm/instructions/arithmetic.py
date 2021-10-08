@@ -51,6 +51,8 @@ def add(evm: Evm) -> None:
 
     push(evm.stack, result)
 
+    evm.pc += 1
+
 
 def sub(evm: Evm) -> None:
     """
@@ -77,6 +79,8 @@ def sub(evm: Evm) -> None:
 
     push(evm.stack, result)
 
+    evm.pc += 1
+
 
 def mul(evm: Evm) -> None:
     """
@@ -102,6 +106,8 @@ def mul(evm: Evm) -> None:
     result = x.wrapping_mul(y)
 
     push(evm.stack, result)
+
+    evm.pc += 1
 
 
 def div(evm: Evm) -> None:
@@ -131,6 +137,8 @@ def div(evm: Evm) -> None:
         quotient = dividend // divisor
 
     push(evm.stack, quotient)
+
+    evm.pc += 1
 
 
 def sdiv(evm: Evm) -> None:
@@ -165,6 +173,8 @@ def sdiv(evm: Evm) -> None:
 
     push(evm.stack, U256.from_signed(quotient))
 
+    evm.pc += 1
+
 
 def mod(evm: Evm) -> None:
     """
@@ -193,6 +203,8 @@ def mod(evm: Evm) -> None:
         remainder = x % y
 
     push(evm.stack, remainder)
+
+    evm.pc += 1
 
 
 def smod(evm: Evm) -> None:
@@ -223,6 +235,8 @@ def smod(evm: Evm) -> None:
         remainder = get_sign(x) * (abs(x) % abs(y))
 
     push(evm.stack, U256.from_signed(remainder))
+
+    evm.pc += 1
 
 
 def addmod(evm: Evm) -> None:
@@ -255,6 +269,8 @@ def addmod(evm: Evm) -> None:
 
     push(evm.stack, result)
 
+    evm.pc += 1
+
 
 def mulmod(evm: Evm) -> None:
     """
@@ -285,6 +301,8 @@ def mulmod(evm: Evm) -> None:
         result = U256((x * y) % z)
 
     push(evm.stack, result)
+
+    evm.pc += 1
 
 
 def exp(evm: Evm) -> None:
@@ -317,6 +335,8 @@ def exp(evm: Evm) -> None:
     result = U256(pow(base, exponent, U256_CEIL_VALUE))
 
     push(evm.stack, result)
+
+    evm.pc += 1
 
 
 def signextend(evm: Evm) -> None:
@@ -362,3 +382,5 @@ def signextend(evm: Evm) -> None:
             )
 
     push(evm.stack, result)
+
+    evm.pc += 1

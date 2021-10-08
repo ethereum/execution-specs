@@ -47,9 +47,6 @@ from . import Environment, Evm
 from .instructions import Ops, op_implementation
 from .runtime import get_valid_jump_destinations
 
-PC_CHANGING_OPS = {Ops.JUMP, Ops.JUMPI}
-
-
 STACK_DEPTH_LIMIT = U256(1024)
 
 
@@ -215,10 +212,6 @@ def execute_code(message: Message, env: Environment) -> Evm:
                 raise InvalidOpcode(evm.code[evm.pc])
 
             op_implementation[op](evm)
-
-            if op not in PC_CHANGING_OPS:
-                evm.pc += 1
-
     except (
         OutOfGasError,
         InvalidOpcode,

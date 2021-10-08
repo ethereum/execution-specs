@@ -128,6 +128,7 @@ def pc(evm: Evm) -> None:
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     push(evm.stack, U256(evm.pc))
+    evm.pc += 1
 
 
 def gas_left(evm: Evm) -> None:
@@ -149,6 +150,7 @@ def gas_left(evm: Evm) -> None:
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     push(evm.stack, evm.gas_left)
+    evm.pc += 1
 
 
 def jumpdest(evm: Evm) -> None:
@@ -168,4 +170,4 @@ def jumpdest(evm: Evm) -> None:
         If `evm.gas_left` is less than `1`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_JUMPDEST)
-    return
+    evm.pc += 1
