@@ -2,7 +2,7 @@
 Utility Functions For Numeric Operations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-..contents:: Table of Contents
+.. contents:: Table of Contents
     :backlinks: none
     :local:
 

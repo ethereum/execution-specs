@@ -2,7 +2,7 @@
 Ethereum Virtual Machine (EVM) ECRECOVER PRECOMPILED CONTRACT
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-..contents:: Table of Contents
+.. contents:: Table of Contents
     :backlinks: none
     :local:
 

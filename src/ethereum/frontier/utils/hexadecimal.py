@@ -2,7 +2,7 @@
 Utility Functions For Hexadecimal Strings
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-..contents:: Table of Contents
+.. contents:: Table of Contents
     :backlinks: none
     :local:
 

@@ -2,7 +2,7 @@
 Safe Arithmetic for U256 Integer Type
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-..contents:: Table of Contents
+.. contents:: Table of Contents
     :backlinks: none
     :local:
 
