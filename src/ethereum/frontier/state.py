@@ -47,7 +47,7 @@ class State:
 
 def close_state(state: State) -> None:
     """
-    Free resources held by the state. Used by optmized implementations to
+    Free resources held by the state. Used by optimized implementations to
     release file descriptors.
     """
     del state._main_trie

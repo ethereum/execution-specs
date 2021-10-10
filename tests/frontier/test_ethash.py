@@ -1,19 +1,14 @@
 import json
-import multiprocessing as mp
-import os
 import pkgutil
 import shutil
 import subprocess
-import tarfile
-import tempfile
 from random import randint
 from typing import Any, Dict, List, Tuple, cast
 
 import pytest
-import requests
 
 from ethereum import crypto
-from ethereum.base_types import U255_CEIL_VALUE, U256_CEIL_VALUE, Uint
+from ethereum.base_types import U256_CEIL_VALUE, Uint
 from ethereum.crypto import keccak256
 from ethereum.ethash import (
     EPOCH_SIZE,
@@ -29,12 +24,10 @@ from ethereum.ethash import (
 )
 from ethereum.frontier import rlp
 from ethereum.frontier.eth_types import Header
-from ethereum.frontier.genesis import genesis_configuration
 from ethereum.frontier.spec import (
     generate_header_hash_for_pow,
     validate_proof_of_work,
 )
-from ethereum.frontier.trie import Trie, root
 from ethereum.frontier.utils.json import json_to_header
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,

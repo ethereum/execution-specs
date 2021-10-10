@@ -2,7 +2,7 @@
 Optimized State
 ^^^^^^^^^^^^^^^
 
-..contents:: Table of Contents
+.. contents:: Table of Contents
     :backlinks: none
     :local:
 
@@ -10,13 +10,12 @@ Introduction
 ------------
 
 This module contains functions can be monkey patched into
-`ethereum.frontier.state` to use an optmized database backed state.
+`ethereum.frontier.state` to use an optimized database backed state.
 """
+import logging
 from dataclasses import dataclass
 from tempfile import TemporaryDirectory
 from typing import Any, Dict, List, Optional, Set, Tuple
-
-import lmdb
 
 import ethereum.crypto as crypto
 from ethereum.base_types import U256, Bytes, Uint
@@ -35,6 +34,15 @@ from ethereum.frontier.trie import (
 )
 
 from .trie_utils import decode_to_internal_node, encode_internal_node_nohash
+
+try:
+    import lmdb
+except ImportError as e:
+    # Add a message, but keep it an ImportError.
+    raise e from Exception(
+        "Install with `pip install 'ethereum[optimized]'` to enable this "
+        "package"
+    )
 
 # 0x0 : Metadata
 # 0x1 : Accounts and storage
@@ -62,9 +70,11 @@ class State:
         if path is None:
             # Reference kept so directory won't be deleted until State is
             self._tempdir = TemporaryDirectory()
-            self._db = lmdb.open(self._tempdir.name, map_size=2 ** 20)
-        else:
-            self._db = lmdb.open(path, map_size=2 ** 40)
+            path = self._tempdir.name
+
+        logging.info("using optimized state db at %s", path)
+
+        self._db = lmdb.open(path, map_size=2 ** 40)
         self._current_tx = None
         self._tx_stack = []
         self._dirty_accounts = [{}]
