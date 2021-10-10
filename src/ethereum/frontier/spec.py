@@ -18,6 +18,7 @@ from typing import List, Optional, Set, Tuple
 from ethereum.crypto import SECP256K1N
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.frontier.bloom import logs_bloom
+from ethereum.frontier.genesis import genesis_configuration
 from ethereum.frontier.state import (
     destroy_account,
     increment_nonce,
@@ -62,6 +63,55 @@ class BlockChain:
 
     blocks: List[Block]
     state: State
+
+
+def apply_fork(old: None) -> BlockChain:
+    """
+    Transforms the state from the previous hard fork (`old`) into the block
+    chain object for this hard fork and returns it.
+
+    Parameters
+    ----------
+    old :
+        Previous block chain object.
+
+    Returns
+    -------
+    new : `BlockChain`
+        Upgraded block chain object for this hard fork.
+    """
+    genesis = genesis_configuration("mainnet.json")
+
+    state = State()
+
+    for account, balance in genesis.initial_balances.items():
+        create_ether(state, account, balance)
+
+    genesis_header = Header(
+        parent_hash=Hash32(b"\0" * 32),
+        ommers_hash=rlp.rlp_hash(()),
+        coinbase=Address(b"\0" * 20),
+        state_root=state_root(state),
+        transactions_root=root(Trie(False, None)),
+        receipt_root=root(Trie(False, None)),
+        bloom=Bloom(b"\0" * 256),
+        difficulty=genesis.difficulty,
+        number=Uint(0),
+        gas_limit=genesis.gas_limit,
+        gas_used=Uint(0),
+        timestamp=genesis.timestamp,
+        extra_data=genesis.extra_data,
+        mix_digest=Hash32(b"\0" * 32),
+        nonce=genesis.nonce,
+    )
+
+    genesis_block = Block(
+        header=genesis_header,
+        transactions=(),
+        ommers=(),
+    )
+
+    return BlockChain(blocks=[genesis_block], state=state)
 
 
 def get_recent_block_hashes(
@@ -423,10 +473,8 @@ def validate_ommers(
         ommer_age = block_header.number - ommer.number
         ensure(1 <= ommer_age <= MAX_UNCLE_DEPTH)
 
-        ensure(
-            ommer.parent_hash in recent_canonical_block_hashes
-            and ommer.parent_hash != block_header.parent_hash
-        )
+        ensure(ommer.parent_hash in recent_canonical_block_hashes)
+        ensure(ommer.parent_hash != block_header.parent_hash)
 
 
 def pay_rewards(

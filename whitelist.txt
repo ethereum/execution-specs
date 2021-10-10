@@ -19,6 +19,7 @@ eth
 ethash
 ethereum
 evm
+exc
 getsource
 Hash32
 hasher
@@ -40,6 +41,7 @@ metaclass
 ommers
 patricialize
 rlp
+rpc
 trie
 U256
 U255
