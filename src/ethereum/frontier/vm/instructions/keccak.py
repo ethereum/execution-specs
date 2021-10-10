@@ -74,3 +74,5 @@ def keccak(evm: Evm) -> None:
     hash = keccak256(data)
 
     push(evm.stack, U256.from_be_bytes(hash))
+
+    evm.pc += 1

@@ -60,6 +60,9 @@ def create(evm: Evm) -> None:
     extend_memory(evm.memory, memory_start_position, memory_size)
     sender_address = evm.env.origin
     sender = get_account(evm.env.state, sender_address)
+
+    evm.pc += 1
+
     if sender.balance < endowment:
         push(evm.stack, U256(0))
         return None
@@ -178,6 +181,9 @@ def call(evm: Evm) -> None:
     sender_balance = get_account(
         evm.env.state, evm.message.current_target
     ).balance
+
+    evm.pc += 1
+
     if sender_balance < value:
         push(evm.stack, U256(0))
         evm.gas_left += message_call_gas_fee
@@ -266,6 +272,9 @@ def callcode(evm: Evm) -> None:
     sender_balance = get_account(
         evm.env.state, evm.message.current_target
     ).balance
+
+    evm.pc += 1
+
     if sender_balance < value:
         push(evm.stack, U256(0))
         evm.gas_left += message_call_gas_fee

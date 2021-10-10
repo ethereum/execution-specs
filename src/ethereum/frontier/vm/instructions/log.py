@@ -87,6 +87,8 @@ def log_n(evm: Evm, num_topics: U256) -> None:
 
     evm.logs = evm.logs + (log_entry,)
 
+    evm.pc += 1
+
 
 log0 = partial(log_n, num_topics=0)
 log1 = partial(log_n, num_topics=1)

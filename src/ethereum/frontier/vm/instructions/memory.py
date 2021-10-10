@@ -63,6 +63,8 @@ def mstore(evm: Evm) -> None:
     extend_memory(evm.memory, start_position, U256(32))
     memory_write(evm.memory, start_position, value)
 
+    evm.pc += 1
+
 
 def mstore8(evm: Evm) -> None:
     """
@@ -103,6 +105,8 @@ def mstore8(evm: Evm) -> None:
     extend_memory(evm.memory, start_position, U256(1))
     memory_write(evm.memory, start_position, normalized_bytes_value)
 
+    evm.pc += 1
+
 
 def mload(evm: Evm) -> None:
     """
@@ -141,6 +145,8 @@ def mload(evm: Evm) -> None:
     )
     push(evm.stack, value)
 
+    evm.pc += 1
+
 
 def msize(evm: Evm) -> None:
     """
@@ -159,3 +165,5 @@ def msize(evm: Evm) -> None:
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
     memory_size = U256(len(evm.memory))
     push(evm.stack, memory_size)
+
+    evm.pc += 1

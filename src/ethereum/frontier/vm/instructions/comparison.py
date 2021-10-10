@@ -44,6 +44,8 @@ def less_than(evm: Evm) -> None:
 
     push(evm.stack, result)
 
+    evm.pc += 1
+
 
 def signed_less_than(evm: Evm) -> None:
     """
@@ -68,6 +70,8 @@ def signed_less_than(evm: Evm) -> None:
     result = U256(left < right)
 
     push(evm.stack, result)
+
+    evm.pc += 1
 
 
 def greater_than(evm: Evm) -> None:
@@ -95,6 +99,8 @@ def greater_than(evm: Evm) -> None:
 
     push(evm.stack, result)
 
+    evm.pc += 1
+
 
 def signed_greater_than(evm: Evm) -> None:
     """
@@ -119,6 +125,8 @@ def signed_greater_than(evm: Evm) -> None:
     result = U256(left > right)
 
     push(evm.stack, result)
+
+    evm.pc += 1
 
 
 def equal(evm: Evm) -> None:
@@ -146,6 +154,8 @@ def equal(evm: Evm) -> None:
 
     push(evm.stack, result)
 
+    evm.pc += 1
+
 
 def is_zero(evm: Evm) -> None:
     """
@@ -170,3 +180,5 @@ def is_zero(evm: Evm) -> None:
     result = U256(x == 0)
 
     push(evm.stack, result)
+
+    evm.pc += 1
