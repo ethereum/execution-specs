@@ -9,7 +9,9 @@ import argparse
 import json
 import logging
 import time
-from typing import Any, List, Optional
+from queue import Empty, Full, Queue
+from threading import Thread
+from typing import Any, Dict, List, Optional, Union
 from urllib import request
 
 from .forks import Hardfork
@@ -52,6 +54,7 @@ class Sync:
 
         return parser.parse_args()
 
+    downloaded_blocks: Queue
     forks: List[Hardfork]
     active_fork_index: int
     options: argparse.Namespace
@@ -87,6 +90,7 @@ class Sync:
         self.forks = Hardfork.discover()
         self.active_fork_index = 0
         self.chain = self.module("spec").apply_fork(None)
+        self.downloaded_blocks = Queue(maxsize=512)
 
     def module(self, name: str) -> Any:
         """
@@ -94,23 +98,33 @@ class Sync:
         """
         return self.active_fork.module(name)
 
-    def fetch_block(self, number: int) -> bytes:
+    def fetch_blocks(
+        self,
+        first: int,
+        count: int,
+    ) -> List[Union[bytes, RpcError]]:
         """
         Fetch the block specified by the given number from the RPC provider as
         an RLP encoded byte array.
         """
-        request_id = hex(number)
+        if count == 0:
+            return []
 
-        call = {
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "method": "debug_getBlockRlp",
-            "params": [number],
-        }
+        calls = []
 
-        data = json.dumps(call).encode("utf-8")
+        for number in range(first, first + count):
+            calls.append(
+                {
+                    "jsonrpc": "2.0",
+                    "id": hex(number),
+                    "method": "debug_getBlockRlp",
+                    "params": [number],
+                }
+            )
 
-        self.log.debug("fetching block %s...", number)
+        data = json.dumps(calls).encode("utf-8")
+
+        self.log.debug("fetching blocks [%s, %s)...", first, first + count)
 
         post = request.Request(
             self.options.rpc_url,
@@ -122,47 +136,119 @@ class Sync:
         )
 
         with request.urlopen(post) as response:
-            reply = json.load(response)
-            if reply["id"] != request_id:
-                raise Exception("mismatched request id")
+            replies = json.load(response)
+            blocks: Dict[int, Union[RpcError, bytes]] = {}
 
-            if "error" in reply:
-                raise RpcError(
-                    reply["error"]["code"],
-                    reply["error"]["message"],
+            for reply in replies:
+                reply_id = int(reply["id"], 0)
+
+                if reply_id < first or reply_id >= first + count:
+                    raise Exception("mismatched request id")
+
+                if "error" in reply:
+                    blocks[reply_id] = RpcError(
+                        reply["error"]["code"],
+                        reply["error"]["message"],
+                    )
+                else:
+                    blocks[reply_id] = bytes.fromhex(reply["result"])
+
+            if len(blocks) != count:
+                raise Exception(
+                    f"expected {count} blocks but only got {len(blocks)}"
                 )
 
-            self.log.info("block %s fetched", number)
-            return bytes.fromhex(reply["result"])
+            self.log.info("blocks [%s, %s) fetched", first, first + count)
 
-    def process_block(self) -> None:
-        """
-        Fetch and validate the next block.
-        """
-        block_number = len(self.chain.blocks)
+            return [v for (_, v) in sorted(blocks.items())]
 
-        if self.next_fork and block_number >= self.next_fork.block:
-            self.log.debug("applying %s fork...", self.next_fork.name)
+    def download(self) -> None:
+        """
+        Fetch chunks of blocks from the RPC provider.
+        """
+        start = len(self.chain.blocks)
+        running = True
+
+        while running:
+            count = max(1, self.downloaded_blocks.maxsize // 2)
+            replies = self.fetch_blocks(start, count)
+
+            for reply in replies:
+                to_push: Optional[bytes]
+
+                if isinstance(reply, RpcError):
+                    if reply.code != -32000:
+                        raise reply
+
+                    logging.info("reached end of chain", exc_info=reply)
+                    running = False
+                    to_push = None
+                else:
+                    to_push = reply
+                    start += 1
+
+                # Use a loop+timeout so that KeyboardInterrupt is still raised.
+                while True:
+                    try:
+                        self.downloaded_blocks.put(to_push, timeout=1)
+                        break
+                    except Full:
+                        pass
+
+    def take_block(self) -> Optional[bytes]:
+        """
+        Pop a block of the download queue.
+        """
+        # Use a loop+timeout so that KeyboardInterrupt is still raised.
+        while True:
+            try:
+                return self.downloaded_blocks.get(timeout=1)
+            except Empty:
+                pass
+
+    def process_blocks(self) -> None:
+        """
+        Validate blocks that have been fetched.
+        """
+        while True:
+            block_number = len(self.chain.blocks)
+
+            if self.next_fork and block_number >= self.next_fork.block:
+                self.log.debug("applying %s fork...", self.next_fork.name)
+                start = time.monotonic()
+                self.chain = self.module("spec").apply_fork(self.chain)
+                end = time.monotonic()
+                self.log.info(
+                    "applied %s fork (took %ss)",
+                    self.next_fork.name,
+                    end - start,
+                )
+                self.active_fork_index += 1
+
+            encoded_block = self.take_block()
+
+            if encoded_block is None:
+                break
+
+            block = self.module("rlp").decode_to_block(encoded_block)
+
+            if block.header.number != block_number:
+                raise Exception(
+                    f"expected block {block_number} "
+                    f"but got {block.header.number}"
+                )
+
+            self.log.debug("applying block %s...", block_number)
+
             start = time.monotonic()
-            self.chain = self.module("spec").apply_fork(self.chain)
+            self.module("spec").state_transition(self.chain, block)
             end = time.monotonic()
+
             self.log.info(
-                "applied %s fork (took %ss)",
-                self.next_fork.name,
+                "block %s applied (took %ss)",
+                block_number,
                 end - start,
             )
-            self.active_fork_index += 1
-
-        encoded_block = self.fetch_block(block_number)
-        block = self.module("rlp").decode_to_block(encoded_block)
-
-        self.log.debug("applying block %s...", block_number)
-
-        start = time.monotonic()
-        self.module("spec").state_transition(self.chain, block)
-        end = time.monotonic()
-
-        self.log.info("block %s applied (took %ss)", block_number, end - start)
 
 
 def main() -> None:
@@ -173,14 +259,10 @@ def main() -> None:
 
     sync = Sync()
 
-    try:
-        while True:
-            sync.process_block()
-    except RpcError as e:
-        if e.code == -32000:
-            logging.info("reached end of chain", exc_info=e)
-            return
-        raise
+    download = Thread(target=sync.download, name="download", daemon=True)
+    download.start()
+
+    sync.process_blocks()
 
 
 if __name__ == "__main__":
