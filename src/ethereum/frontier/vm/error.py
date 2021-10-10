@@ -50,10 +50,11 @@ class InvalidJumpDestError(Exception):
     """
     Occurs when the destination of a jump operation doesn't meet any of the
     following criteria:
-    * The jump destination is less than the length of the code.
-    * The jump destination should have the `JUMPDEST` opcode (0x5B).
-    * The jump destination shouldn't be part of the data corresponding to
-    `PUSH-N` opcodes.
+
+      * The jump destination is less than the length of the code.
+      * The jump destination should have the `JUMPDEST` opcode (0x5B).
+      * The jump destination shouldn't be part of the data corresponding to
+        `PUSH-N` opcodes.
     """
 
 

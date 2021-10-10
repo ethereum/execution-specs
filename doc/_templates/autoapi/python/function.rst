@@ -30,4 +30,4 @@
 
 .. undocinclude:: /../src/{{ module.obj.relative_path }}
    :language: {{ module.language }}
-   :lines: {{ obj.obj.from_line_no }}-{{ obj.obj.to_line_no }}
+   :pyobject: {{ obj.obj.name }}

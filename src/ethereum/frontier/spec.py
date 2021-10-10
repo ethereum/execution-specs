@@ -179,22 +179,23 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
     """
     Generate rlp hash of the header which is to be used for Proof-of-Work
     verification. This hash is generated with the following header fields:
-    * parent_hash
-    * ommers_hash
-    * coinbase
-    * state_root
-    * transactions_root
-    * receipt_root
-    * bloom
-    * difficulty
-    * number
-    * gas_limit
-    * gas_used
-    * timestamp
-    * extra_data
 
-    In other words the PoW artefacts which are `mix_digest` and `nonce` are
-    ignored while calculating this hash.
+      * `parent_hash`
+      * `ommers_hash`
+      * `coinbase`
+      * `state_root`
+      * `transactions_root`
+      * `receipt_root`
+      * `bloom`
+      * `difficulty`
+      * `number`
+      * `gas_limit`
+      * `gas_used`
+      * `timestamp`
+      * `extra_data`
+
+    In other words, the PoW artefacts `mix_digest` and `nonce` are ignored
+    while calculating this hash.
 
     Parameters
     ----------
@@ -709,6 +710,7 @@ def calculate_block_difficulty(
 ) -> Uint:
     """
     Computes difficulty of a block using its header and parent header.
+
     Parameters
     ----------
     number :
@@ -719,8 +721,9 @@ def calculate_block_difficulty(
         Timestanp of the parent block
     parent_difficulty :
         difficulty of the parent block
+
     Returns
-    ------
+    -------
     difficulty : `ethereum.base_types.Uint`
         Computed difficulty for a block.
     """

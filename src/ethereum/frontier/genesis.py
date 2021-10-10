@@ -2,7 +2,7 @@
 Genesis Configuration
 ^^^^^^^^^^^^^^^^^^^^^
 
-..contents:: Table of Contents
+.. contents:: Table of Contents
     :backlinks: none
     :local:
 
