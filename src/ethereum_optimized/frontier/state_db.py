@@ -409,6 +409,9 @@ def state_root(
             raise Exception(
                 f"Invalid object of type {type(account)} stored in state"
             )
+    for internal_address in state._destroyed_accounts[-1]:
+        clear_destroyed_account(state, internal_address)
+    state._destroyed_accounts[-1] = set()
     root_node = walk(
         state,
         b"",
@@ -443,18 +446,16 @@ def _storage_root(state: State, internal_address: Bytes, cursor: Any) -> Root:
     """
     Calculate the storage root.
     """
-    if internal_address in state._destroyed_accounts:
-        clear_destroyed_account(state, internal_address)
     storage_prefix = internal_address + b"\x00"
     dirty_storage = state._dirty_storage[-1].pop(internal_address, {}).items()
-    for key, value in dirty_storage:
+    for internal_key, value in dirty_storage:
         if value is None:
             state._current_tx.delete(
-                b"\x01" + internal_address + b"\x00" + internal_address
+                b"\x01" + internal_address + b"\x00" + internal_key
             )
         else:
             state._current_tx.put(
-                b"\x01" + internal_address + b"\x00" + internal_address,
+                b"\x01" + internal_address + b"\x00" + internal_key,
                 rlp.encode(value),
             )
     root_node = walk(
