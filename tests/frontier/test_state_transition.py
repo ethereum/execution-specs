@@ -61,6 +61,12 @@ run_random2_tests = partial(
     "GeneralStateTests/stRandom2/",
 )
 
+run_init_code_tests = partial(
+    run_frontier_blockchain_st_tests,
+    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
+    "GeneralStateTests/stInitCodeTest/",
+)
+
 
 def test_add() -> None:
     run_example_test("add11_d0g0v0.json")
@@ -371,4 +377,19 @@ def test_random2(test_file: str) -> None:
     try:
         run_random2_tests(test_file)
     except KeyError:
+        pass
+
+
+@pytest.mark.parametrize(
+    "test_file",
+    os.listdir(
+        "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
+        "GeneralStateTests/stInitCodeTest/"
+    ),
+)
+def test_init_code(test_file: str) -> None:
+    try:
+        run_init_code_tests(test_file)
+    except KeyError:
+        # KeyError is raised when a test_file has no tests for frontier
         pass
