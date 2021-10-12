@@ -19,6 +19,7 @@ from ethereum.frontier.state import (
     account_has_code_or_nonce,
     begin_transaction,
     commit_transaction,
+    get_account,
     move_ether,
     rollback_transaction,
     set_code,
@@ -26,6 +27,7 @@ from ethereum.frontier.state import (
 )
 from ethereum.frontier.vm import Message
 from ethereum.frontier.vm.error import (
+    InsufficientFunds,
     InvalidJumpDestError,
     InvalidOpcode,
     OutOfGasError,
@@ -150,7 +152,15 @@ def process_message(message: Message, env: Environment) -> Evm:
     begin_transaction(env.state)
 
     touch_account(env.state, message.current_target)
+
+    sender_balance = get_account(env.state, message.caller).balance
+
     if message.value != 0:
+        if sender_balance < message.value:
+            rollback_transaction(env.state)
+            raise InsufficientFunds(
+                f"Insufficient funds: {sender_balance} < {message.value}"
+            )
         move_ether(
             env.state, message.caller, message.current_target, message.value
         )
@@ -212,10 +222,12 @@ def execute_code(message: Message, env: Environment) -> Evm:
                 raise InvalidOpcode(evm.code[evm.pc])
 
             op_implementation[op](evm)
+
     except (
         OutOfGasError,
         InvalidOpcode,
         InvalidJumpDestError,
+        InsufficientFunds,
         StackOverflowError,
         StackUnderflowError,
         StackDepthLimitError,

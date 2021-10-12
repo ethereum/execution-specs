@@ -64,3 +64,12 @@ class StackDepthLimitError(Exception):
     """
 
     pass
+
+
+class InsufficientFunds(Exception):
+    """
+    Raised when an account has insufficient funds to transfer the
+    requested value.
+    """
+
+    pass

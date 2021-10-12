@@ -58,7 +58,7 @@ def create(evm: Evm) -> None:
     )
     evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
     extend_memory(evm.memory, memory_start_position, memory_size)
-    sender_address = evm.env.origin
+    sender_address = evm.message.current_target
     sender = get_account(evm.env.state, sender_address)
 
     evm.pc += 1
