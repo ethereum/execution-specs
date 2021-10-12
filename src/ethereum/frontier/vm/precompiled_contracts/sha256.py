@@ -14,11 +14,11 @@ Implementation of the `SHA256` precompiled contract.
 import hashlib
 
 from ethereum.base_types import Uint
-from ethereum.frontier.vm.error import OutOfGasError
 from ethereum.utils.numeric import ceil32
 from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
 from ...vm import Evm
+from ...vm.error import OutOfGasError
 from ...vm.gas import GAS_SHA256, GAS_SHA256_WORD, subtract_gas
 
 

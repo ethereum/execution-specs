@@ -2,7 +2,7 @@ from functools import partial
 
 import pytest
 
-from tests.frontier.vm.vm_test_helpers import run_test
+from ..vm.vm_test_helpers import run_test
 
 run_environmental_vm_test = partial(
     run_test,

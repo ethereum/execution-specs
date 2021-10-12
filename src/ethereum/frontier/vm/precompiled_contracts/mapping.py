@@ -13,8 +13,7 @@ Mapping of precompiled contracts their implementations.
 """
 from typing import Callable, Dict
 
-from ethereum.frontier.eth_types import Address
-
+from ...eth_types import Address
 from ...utils.hexadecimal import hex_to_address
 from .ecrecover import ecrecover
 from .identity import identity

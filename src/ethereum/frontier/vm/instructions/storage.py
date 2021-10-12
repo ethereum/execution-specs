@@ -12,8 +12,7 @@ Introduction
 Implementations of the EVM storage related instructions.
 """
 
-from ethereum.frontier.state import get_storage, set_storage
-
+from ...state import get_storage, set_storage
 from .. import Evm
 from ..gas import (
     GAS_SLOAD,

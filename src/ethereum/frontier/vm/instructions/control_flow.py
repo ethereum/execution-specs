@@ -13,15 +13,9 @@ Implementations of the EVM control flow instructions.
 """
 
 from ethereum.base_types import U256, Uint
-from ethereum.frontier.vm.error import InvalidJumpDestError
-from ethereum.frontier.vm.gas import (
-    GAS_BASE,
-    GAS_HIGH,
-    GAS_JUMPDEST,
-    GAS_MID,
-    subtract_gas,
-)
 
+from ...vm.error import InvalidJumpDestError
+from ...vm.gas import GAS_BASE, GAS_HIGH, GAS_JUMPDEST, GAS_MID, subtract_gas
 from .. import Evm
 from ..stack import pop, push
 

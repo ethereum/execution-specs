@@ -12,11 +12,11 @@ Introduction
 Implementation of the `IDENTITY` precompiled contract.
 """
 from ethereum.base_types import Uint
-from ethereum.frontier.vm.error import OutOfGasError
 from ethereum.utils.numeric import ceil32
 from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
 from ...vm import Evm
+from ...vm.error import OutOfGasError
 from ...vm.gas import GAS_IDENTITY, GAS_IDENTITY_WORD, subtract_gas
 
 

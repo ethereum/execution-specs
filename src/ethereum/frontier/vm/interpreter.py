@@ -14,8 +14,10 @@ A straightforward interpreter that executes EVM code.
 from typing import Set, Tuple, Union
 
 from ethereum.base_types import U256, Bytes0, Uint
-from ethereum.frontier.eth_types import Address, Log
-from ethereum.frontier.state import (
+from ethereum.utils.ensure import EnsureError
+
+from ..eth_types import Address, Log
+from ..state import (
     account_has_code_or_nonce,
     begin_transaction,
     commit_transaction,
@@ -25,8 +27,8 @@ from ethereum.frontier.state import (
     set_code,
     touch_account,
 )
-from ethereum.frontier.vm import Message
-from ethereum.frontier.vm.error import (
+from ..vm import Message
+from ..vm.error import (
     InsufficientFunds,
     InvalidJumpDestError,
     InvalidOpcode,
@@ -35,16 +37,8 @@ from ethereum.frontier.vm.error import (
     StackOverflowError,
     StackUnderflowError,
 )
-from ethereum.frontier.vm.gas import (
-    GAS_CODE_DEPOSIT,
-    REFUND_SELF_DESTRUCT,
-    subtract_gas,
-)
-from ethereum.frontier.vm.precompiled_contracts.mapping import (
-    PRE_COMPILED_CONTRACTS,
-)
-from ethereum.utils.ensure import EnsureError
-
+from ..vm.gas import GAS_CODE_DEPOSIT, REFUND_SELF_DESTRUCT, subtract_gas
+from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
 from .instructions import Ops, op_implementation
 from .runtime import get_valid_jump_destinations

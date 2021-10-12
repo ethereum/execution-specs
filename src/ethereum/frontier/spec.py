@@ -17,19 +17,12 @@ from typing import List, Optional, Set, Tuple
 
 from ethereum.crypto import SECP256K1N
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
-from ethereum.frontier.bloom import logs_bloom
-from ethereum.frontier.genesis import genesis_configuration
-from ethereum.frontier.state import (
-    destroy_account,
-    increment_nonce,
-    set_account_balance,
-)
-from ethereum.frontier.utils.message import prepare_message
 from ethereum.utils.ensure import ensure
 
 from .. import crypto
 from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint
 from . import rlp, vm
+from .bloom import logs_bloom
 from .eth_types import (
     TX_BASE_COST,
     TX_DATA_COST_PER_NON_ZERO,
@@ -44,8 +37,18 @@ from .eth_types import (
     Root,
     Transaction,
 )
-from .state import State, create_ether, get_account, state_root
+from .genesis import genesis_configuration
+from .state import (
+    State,
+    create_ether,
+    destroy_account,
+    get_account,
+    increment_nonce,
+    set_account_balance,
+    state_root,
+)
 from .trie import Trie, root, trie_set
+from .utils.message import prepare_message
 from .vm.interpreter import process_message_call
 
 BLOCK_REWARD = U256(5 * 10 ** 18)
