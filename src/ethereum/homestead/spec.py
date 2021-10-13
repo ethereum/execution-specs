@@ -15,8 +15,10 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple
 
+from ethereum.base_types import Bytes0
 from ethereum.crypto import SECP256K1N
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
+from ethereum.homestead.eth_types import TX_CREATE_COST
 from ethereum.utils.ensure import ensure
 
 from .. import crypto
@@ -212,7 +214,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
         Parent Header of the header to check for correctness
     """
     block_difficulty = calculate_block_difficulty(
-        header.number,
+        parent_header.number,
         header.timestamp,
         parent_header.timestamp,
         parent_header.difficulty,
@@ -625,7 +627,12 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
         else:
             data_cost += TX_DATA_COST_PER_NON_ZERO
 
-    return Uint(TX_BASE_COST + data_cost)
+    if tx.to == Bytes0(b""):
+        create_cost = TX_CREATE_COST
+    else:
+        create_cost = 0
+
+    return Uint(TX_BASE_COST + data_cost + create_cost)
 
 
 def recover_sender(tx: Transaction) -> Address:
@@ -649,9 +656,8 @@ def recover_sender(tx: Transaction) -> Address:
 
     ensure(v == 27 or v == 28)
     ensure(0 < r and r < SECP256K1N)
-
-    # TODO: this causes error starting in block 46169 (or 46170?)
-    # assert 0<s_int and s_int<(SECP256K1N//2+1)
+    # FIXME
+    # ensure(s == 0 or s > SECP256K1N // 2 -1)
 
     public_key = crypto.secp256k1_recover(r, s, v - 27, signing_hash(tx))
     return Address(crypto.keccak256(public_key)[12:32])
@@ -755,7 +761,7 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
 
 
 def calculate_block_difficulty(
-    number: Uint,
+    parent_block_number: Uint,
     timestamp: U256,
     parent_timestamp: U256,
     parent_difficulty: Uint,
@@ -765,34 +771,35 @@ def calculate_block_difficulty(
 
     Parameters
     ----------
-    number :
-        Block number of the block
+    parent_block_number :
+        Block number of the parent block.
     timestamp :
-        Timestmap of the block
+        Timestmap of the block.
     parent_timestamp :
-        Timestanp of the parent block
+        Timestanp of the parent block.
     parent_difficulty :
-        difficulty of the parent block
+        difficulty of the parent block.
 
     Returns
     -------
     difficulty : `ethereum.base_types.Uint`
         Computed difficulty for a block.
     """
-    max_adjustment_delta = parent_difficulty // Uint(2048)
-    if number == 0:
-        return GENESIS_DIFFICULTY
-    elif timestamp < parent_timestamp + 13:
-        difficulty = parent_difficulty + max_adjustment_delta
-    else:  # timestamp >= parent_timestamp + 13
-        difficulty = parent_difficulty - max_adjustment_delta
-
+    offset = int(parent_difficulty) // 2048
+    sign = max(1 - (int(timestamp) - int(parent_timestamp)) // 10, -99)
+    difficulty = max(
+        int(parent_difficulty) + offset * sign,
+        min(parent_difficulty, GENESIS_DIFFICULTY),
+    )
     # Historical Note: The difficulty bomb was not present in Ethereum at the
     # start of Homestead, but was added shortly after launch. However since the
     # bomb has no effect prior to block 200000 we pretend it existed from
     # genesis.
     # See https://github.com/ethereum/go-ethereum/pull/1588
-    num_bomb_periods = int(number) // 100000 - 2
+    num_bomb_periods = ((int(parent_block_number) + 1) // 100000) - 2
     if num_bomb_periods >= 0:
-        difficulty += 2 ** num_bomb_periods
-    return Uint(max(difficulty, GENESIS_DIFFICULTY))
+        return Uint(
+            max(difficulty + 2 ** num_bomb_periods, GENESIS_DIFFICULTY)
+        )
+    else:
+        return Uint(difficulty)
