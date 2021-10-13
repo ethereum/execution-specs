@@ -29,6 +29,7 @@ def prepare_message(
     gas: U256,
     env: Environment,
     code_address: Optional[Address] = None,
+    should_transfer_value: bool = True,
 ) -> Message:
     """
     Execute a transaction against the provided environment.
@@ -51,6 +52,8 @@ def prepare_message(
         This is usually same as the `target` address except when an alternative
         accounts code needs to be executed.
         eg. `CALLCODE` calling a precompile.
+    should_transfer_value :
+        if True ETH should be transferred while executing a message call.
 
     Returns
     -------
@@ -83,4 +86,5 @@ def prepare_message(
         depth=Uint(0),
         current_target=current_target,
         code_address=code_address,
+        should_transfer_value=should_transfer_value,
     )

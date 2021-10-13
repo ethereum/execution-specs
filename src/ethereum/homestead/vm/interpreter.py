@@ -157,7 +157,7 @@ def process_message(message: Message, env: Environment) -> Evm:
 
     sender_balance = get_account(env.state, message.caller).balance
 
-    if message.value != 0:
+    if message.should_transfer_value and message.value != 0:
         if sender_balance < message.value:
             rollback_transaction(env.state)
             raise InsufficientFunds(

@@ -12,6 +12,7 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Bytes0, Uint
+from ethereum.homestead.vm.gas import GAS_CALL
 from ethereum.utils.safe_arithmetic import u256_safe_add
 
 from ...state import (
@@ -103,6 +104,7 @@ def create(evm: Evm) -> None:
         current_target=contract_address,
         depth=evm.message.depth + 1,
         code_address=None,
+        should_transfer_value=True,
     )
     child_evm = process_create_message(child_message, evm.env)
     if child_evm.has_erred:
@@ -208,6 +210,7 @@ def call(evm: Evm) -> None:
         current_target=to,
         depth=evm.message.depth + 1,
         code_address=to,
+        should_transfer_value=True,
     )
     child_evm = process_message(child_message, evm.env)
 
@@ -299,6 +302,7 @@ def callcode(evm: Evm) -> None:
         current_target=to,
         depth=evm.message.depth + 1,
         code_address=code_address,
+        should_transfer_value=True,
     )
 
     child_evm = process_message(child_message, evm.env)
@@ -346,3 +350,84 @@ def selfdestruct(evm: Evm) -> None:
 
     # HALT the execution
     evm.running = False
+
+
+def delegatecall(evm: Evm) -> None:
+    """
+    Message-call into this account with an alternative account’s code,
+    but persisting the current values for sender.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    from ethereum.homestead.vm.interpreter import (
+        STACK_DEPTH_LIMIT,
+        process_message,
+    )
+
+    gas = pop(evm.stack)
+    code_address = to_address(pop(evm.stack))
+    memory_input_start_position = Uint(pop(evm.stack))
+    memory_input_size = pop(evm.stack)
+    memory_output_start_position = Uint(pop(evm.stack))
+    memory_output_size = pop(evm.stack)
+    value = evm.message.value
+    to = evm.message.current_target
+
+    call_gas_fee = GAS_CALL + gas
+    message_call_gas_fee = gas
+
+    evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
+
+    gas_input_memory = calculate_gas_extend_memory(
+        evm.memory, memory_input_start_position, memory_input_size
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, gas_input_memory)
+    extend_memory(evm.memory, memory_input_start_position, memory_input_size)
+    gas_output_memory = calculate_gas_extend_memory(
+        evm.memory, memory_output_start_position, memory_output_size
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, gas_output_memory)
+    extend_memory(evm.memory, memory_output_start_position, memory_output_size)
+    call_data = memory_read_bytes(
+        evm.memory, memory_input_start_position, memory_input_size
+    )
+
+    evm.pc += 1
+
+    if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
+        push(evm.stack, U256(0))
+        evm.gas_left += message_call_gas_fee
+        return None
+
+    code = get_account(evm.env.state, code_address).code
+    child_message = Message(
+        caller=evm.message.caller,
+        target=to,
+        gas=message_call_gas_fee,
+        value=value,
+        data=call_data,
+        code=code,
+        current_target=to,
+        depth=evm.message.depth + 1,
+        code_address=code_address,
+        should_transfer_value=False,
+    )
+
+    child_evm = process_message(child_message, evm.env)
+    if child_evm.has_erred:
+        push(evm.stack, U256(0))
+    else:
+        push(evm.stack, U256(1))
+    actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
+    memory_write(
+        evm.memory,
+        memory_output_start_position,
+        child_evm.output[:actual_output_size],
+    )
+    evm.gas_left += child_evm.gas_left
+    evm.refund_counter += child_evm.refund_counter
+    evm.accounts_to_delete.update(child_evm.accounts_to_delete)
+    evm.logs += child_evm.logs

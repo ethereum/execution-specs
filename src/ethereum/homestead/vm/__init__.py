@@ -58,6 +58,7 @@ class Message:
     code_address: Optional[Address]
     code: Bytes
     depth: Uint
+    should_transfer_value: bool
 
 
 @dataclass
