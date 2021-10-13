@@ -6,15 +6,90 @@ Using an RPC provider, fetch each block and validate it with the specification.
 """
 
 import argparse
+import copyreg
+import dataclasses
 import json
 import logging
+import os.path
+import pickle
 import time
 from queue import Empty, Full, Queue
 from threading import Thread
-from typing import Any, Dict, List, Optional, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 from urllib import request
 
 from .forks import Hardfork
+
+T = TypeVar("T")
+
+
+class DispatchTable:
+    """
+    `dict`-like object that maps types to their pickle implementation.
+
+    Workaround for Python 3.7 not having `reducer_override`.
+    """
+
+    @staticmethod
+    def construct_dataclass(t: Callable[..., T], d: Dict[str, Any]) -> T:
+        """
+        Create a new instance of `t`, expanding `d` as keyword arguments.
+        """
+        return t(**d)
+
+    def reduce_dataclass(
+        self, d: T
+    ) -> Tuple[
+        Callable[[Callable[..., T], Dict[str, Any]], T],
+        Tuple[Type[T], Dict[str, Any]],
+    ]:
+        """
+        Convert a dataclass into a tuple for pickling.
+        """
+        fields = dataclasses.fields(d)
+
+        return (
+            DispatchTable.construct_dataclass,
+            (type(d), {f.name: getattr(d, f.name) for f in fields}),
+        )
+
+    def get(self, t: Type[T]) -> Callable[[T], Tuple]:
+        """
+        Return the value for key if key is in the dictionary, else `None`.
+        """
+        if dataclasses.is_dataclass(t):
+            return self.reduce_dataclass
+        else:
+            return copyreg.dispatch_table.get(t)  # type: ignore
+
+    def __getitem__(self, k: Type[T]) -> Callable[[T], Tuple]:
+        """
+        Return the value for key if key is in the dictionary.
+
+        x.__getitem__(y) <==> x[y]
+        """
+        if dataclasses.is_dataclass(k):
+            return self.reduce_dataclass
+        else:
+            return copyreg.dispatch_table[k]  # type: ignore
+
+
+class DataclassPickler(pickle.Pickler):
+    """
+    A Pickler with special support for dataclasses.
+    """
+
+    dispatch_table = DispatchTable()  # type: ignore
 
 
 class RpcError(Exception):
@@ -52,6 +127,11 @@ class Sync:
             action="store_true",
         )
 
+        parser.add_argument(
+            "--persist",
+            help="save the block list and state periodically to this file",
+        )
+
         return parser.parse_args()
 
     downloaded_blocks: Queue
@@ -60,6 +140,7 @@ class Sync:
     options: argparse.Namespace
     chain: Any
     log: logging.Logger
+    persisted: int
 
     @property
     def active_fork(self) -> Hardfork:
@@ -79,18 +160,112 @@ class Sync:
             return None
 
     def __init__(self) -> None:
+        self.persisted = 0
+        self.downloaded_blocks = Queue(maxsize=512)
         self.log = logging.getLogger(__name__)
         self.options = self.parse_arguments()
+
+        database_path = None
+
+        if self.options.persist is not None:
+            database_path = os.path.join(self.options.persist, "state")
+
+            try:
+                os.mkdir(self.options.persist)
+            except FileExistsError:
+                pass
 
         if self.options.optimized:
             import ethereum_optimized
 
-            ethereum_optimized.monkey_patch()
+            ethereum_optimized.monkey_patch(state_path=database_path)
 
         self.forks = Hardfork.discover()
         self.active_fork_index = 0
-        self.chain = self.module("spec").apply_fork(None)
-        self.downloaded_blocks = Queue(maxsize=512)
+
+        if self.options.persist is None:
+            self.chain = self.module("spec").apply_fork(None)
+            return
+
+        self.log.debug("loading blocks and state...")
+
+        blocks_path = os.path.join(self.options.persist, "blocks.pickle")
+
+        blocks = []
+
+        try:
+            with open(blocks_path, "rb") as f:
+                while True:
+                    try:
+                        blocks.extend(pickle.load(f))
+                    except EOFError:
+                        break
+        except FileNotFoundError as e:
+            self.log.warning("no block file found", exc_info=e)
+            self.chain = self.module("spec").apply_fork(None)
+            return
+
+        if len(blocks) == 0:
+            raise Exception("no blocks loaded")
+
+        # TODO: Replace self.chain.state with the correct hard fork.
+
+        self.persisted = len(blocks)
+
+        if self.options.optimized:
+            state = self.active_fork.optimized_module("state_db").State()
+        else:
+            state_path = os.path.join(self.options.persist, "state.pickle")
+
+            try:
+                with open(state_path, "rb") as f:
+                    state = pickle.load(f)
+            except FileNotFoundError as e:
+                raise Exception("found blocks file but no state") from e
+
+        self.chain = self.module("spec").BlockChain(
+            blocks=blocks,
+            state=state,
+        )
+
+        # TODO: Fast forward to correct hard fork.
+
+        self.log.info("loaded state and %s blocks", len(self.chain.blocks))
+
+    def persist(self) -> None:
+        """
+        Save the block list and state to file.
+        """
+        if self.options.persist is None:
+            return
+
+        self.log.debug("persisting blocks and state...")
+
+        start = time.monotonic()
+
+        blocks_path = os.path.join(self.options.persist, "blocks.pickle")
+
+        with open(blocks_path, "ab") as f:
+            to_write = self.chain.blocks[self.persisted :]
+            self.persisted += len(to_write)
+            DataclassPickler(f).dump(to_write)
+
+        if self.options.optimized:
+            module = self.active_fork.optimized_module("state_db")
+            module.commit_db_transaction(self.chain.state)
+            module.begin_db_transaction(self.chain.state)
+        else:
+            state_path = os.path.join(self.options.persist, "state.pickle")
+
+            with open(state_path, "wb") as f:
+                DataclassPickler(f).dump(self.chain.state)
+
+        end = time.monotonic()
+        self.log.info(
+            "persisted state and %s blocks (took %ss)",
+            len(self.chain.blocks),
+            end - start,
+        )
 
     def module(self, name: str) -> Any:
         """
@@ -249,6 +424,9 @@ class Sync:
                 block_number,
                 end - start,
             )
+
+            if block_number % 1000 == 0:
+                self.persist()
 
 
 def main() -> None:

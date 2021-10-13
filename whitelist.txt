@@ -10,6 +10,7 @@ Bytes64
 Bytes8
 Bytes256
 Bytes0
+copyreg
 coinbase
 coincurve
 crypto
@@ -40,6 +41,7 @@ merkleize
 metaclass
 ommers
 patricialize
+pickler
 rlp
 rpc
 trie

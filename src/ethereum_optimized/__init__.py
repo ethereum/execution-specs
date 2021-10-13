@@ -16,11 +16,13 @@ They can be monkey patched in during start up by calling the `monkey_patch()`
 function.
 """
 
+from typing import Optional
 
-def monkey_patch() -> None:
+
+def monkey_patch(state_path: Optional[str]) -> None:
     """
     Apply all monkey patches to the specification.
     """
     from . import frontier
 
-    frontier.monkey_patch()
+    frontier.monkey_patch(state_path)

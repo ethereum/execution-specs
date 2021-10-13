@@ -99,6 +99,15 @@ class Hardfork:
         """
         return importlib.import_module(self.mod.__name__ + "." + name)
 
+    def optimized_module(self, name: str) -> Any:
+        """
+        Import if necessary, and return the given module belonging to this hard
+        fork's optimized implementation.
+        """
+        assert self.mod.__name__.startswith("ethereum.")
+        module = "ethereum_optimized" + self.mod.__name__[8:] + "." + name
+        return importlib.import_module(module)
+
     def iter_modules(self) -> Iterator[ModuleInfo]:
         """
         Iterate through the (sub-)modules describing this hardfork.

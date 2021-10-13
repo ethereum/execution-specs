@@ -7,8 +7,10 @@ Optimized Implementations (Frontier)
     :local:
 """
 
+from typing import Optional
 
-def monkey_patch_optimized_state_db() -> None:
+
+def monkey_patch_optimized_state_db(state_path: Optional[str]) -> None:
     """
     Replace the state interface with one that supports high performance
     updates and storing state in a database.
@@ -39,6 +41,9 @@ def monkey_patch_optimized_state_db() -> None:
     for (name, value) in optimized_state_db_patches.items():
         setattr(slow_state, name, value)
 
+    if state_path is not None:
+        fast_state.State.default_path = state_path
+
 
 def monkey_patch_optimized_spec() -> None:
     """
@@ -55,12 +60,12 @@ def monkey_patch_optimized_spec() -> None:
     slow_spec.validate_proof_of_work = fast_spec.validate_proof_of_work
 
 
-def monkey_patch() -> None:
+def monkey_patch(state_path: Optional[str]) -> None:
     """
     Apply all monkey patches to swap in high performance implementations.
 
     This function must be called before any of the ethereum modules are
     imported anywhere.
     """
-    monkey_patch_optimized_state_db()
+    monkey_patch_optimized_state_db(state_path)
     monkey_patch_optimized_spec()

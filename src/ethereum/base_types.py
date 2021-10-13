@@ -766,7 +766,7 @@ Bytes = bytes
 
 
 def _setattr_function(self: Any, attr: str, value: Any) -> None:
-    if self._frozen:
+    if getattr(self, "_frozen", None):
         raise Exception("Mutating frozen dataclasses is not allowed.")
     else:
         object.__setattr__(self, attr, value)
