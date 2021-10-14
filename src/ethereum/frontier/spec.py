@@ -91,7 +91,9 @@ def get_recent_block_hashes(
     # We are computing the hash only for the most recent block and not for
     # the rest of the blocks as they have successors which have the hash of
     # the current block as parent hash.
-    most_recent_block_hash = crypto.keccak256(rlp.encode(chain.blocks[-1]))
+    most_recent_block_hash = crypto.keccak256(
+        rlp.encode(chain.blocks[-1].header)
+    )
     recent_block_hashes = [most_recent_block_hash]
 
     # We consider only the last `num_blocks - 1` blocks as we already have
