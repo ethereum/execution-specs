@@ -68,6 +68,8 @@ def prepare_message(
         current_target = target
         msg_data = data
         code = get_account(env.state, target).code
+        if code_address is None:
+            code_address = target
     else:
         raise TypeError()
 
