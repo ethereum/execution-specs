@@ -367,11 +367,10 @@ def signextend(evm: Evm) -> None:
         result = value
     else:
         # U256(0).to_be_bytes() gives b'' instead b'\x00'. # noqa: SC100
-        value_bytes = value.to_be_bytes() or b"\x00"
-
+        value_bytes = bytes(value.to_be_bytes32())
         # Now among the obtained value bytes, consider only
         # N `least significant bytes`, where N is `byte_num + 1`.
-        value_bytes = value_bytes[len(value_bytes) - 1 - int(byte_num) :]
+        value_bytes = value_bytes[31 - int(byte_num) :]
         sign_bit = value_bytes[0] >> 7
         if sign_bit == 0:
             result = U256.from_be_bytes(value_bytes)
