@@ -781,9 +781,16 @@ def calculate_block_difficulty(
     if number == 0:
         return GENESIS_DIFFICULTY
     elif timestamp < parent_timestamp + 13:
-        return parent_difficulty + max_adjustment_delta
+        difficulty = parent_difficulty + max_adjustment_delta
     else:  # timestamp >= parent_timestamp + 13
-        return max(
-            GENESIS_DIFFICULTY,
-            parent_difficulty - max_adjustment_delta,
-        )
+        difficulty = parent_difficulty - max_adjustment_delta
+
+    # Historical Note: The difficulty bomb was not present in Ethereum at the
+    # start of Frontier, but was added shortly after launch. However since the
+    # bomb has no effect prior to block 200000 we pretend it existed from
+    # genesis.
+    # See https://github.com/ethereum/go-ethereum/pull/1588
+    num_bomb_periods = int(number) // 100000 - 2
+    if num_bomb_periods >= 0:
+        difficulty += 2 ** num_bomb_periods
+    return Uint(max(difficulty, GENESIS_DIFFICULTY))
