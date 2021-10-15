@@ -9,7 +9,7 @@ Optimized Trie Utility Functions
 Introduction
 ------------
 
-This module contains utility functions needed by the optmized state.
+This module contains utility functions needed by the optimized state.
 """
 from typing import Tuple
 

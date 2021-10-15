@@ -1,14 +1,22 @@
-from pathlib import Path
-from typing import Any, List, Tuple
+import sys
+from typing import Any, List, Optional, Tuple
+
+import pytest
 
 import ethereum.frontier.state as state
 import ethereum.frontier.trie as normal_trie
-import ethereum_optimized.frontier.state_db as state_db
-from ethereum.base_types import U256, Bytes, Optional
+from ethereum.base_types import U256, Bytes
 from ethereum.frontier.eth_types import EMPTY_ACCOUNT
 from ethereum.frontier.utils.hexadecimal import hex_to_address
 
+try:
+    import ethereum_optimized.frontier.state_db as state_db
+except ImportError:
+    pass
+
+
 ADDRESS_FOO = hex_to_address("0x00000000219ab540356cbb839cbe05303d7705fa")
+
 
 operations: List[List[Tuple[Bytes, Optional[Bytes]]]] = [
     [],
@@ -33,6 +41,10 @@ operations: List[List[Tuple[Bytes, Optional[Bytes]]]] = [
 ]
 
 
+@pytest.mark.skipif(
+    "ethereum_optimized.frontier.state_db" not in sys.modules,
+    reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
+)
 def test_trie() -> None:
     trie_normal: normal_trie.Trie[Bytes, Optional[Bytes]] = normal_trie.Trie(
         False, None
@@ -47,6 +59,10 @@ def test_trie() -> None:
             assert root == state_db.state_root(state)
 
 
+@pytest.mark.skipif(
+    "ethereum_optimized.frontier.state_db" not in sys.modules,
+    reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
+)
 def test_storage_key() -> None:
     def actions(impl: Any) -> Any:
         obj = impl.State()
@@ -65,6 +81,10 @@ def test_storage_key() -> None:
     )
 
 
+@pytest.mark.skipif(
+    "ethereum_optimized.frontier.state_db" not in sys.modules,
+    reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
+)
 def test_resurrection() -> None:
     def actions(impl: Any) -> Any:
         obj = impl.State()

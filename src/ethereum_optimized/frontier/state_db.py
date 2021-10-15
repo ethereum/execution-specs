@@ -2,7 +2,7 @@
 Optimized State
 ^^^^^^^^^^^^^^^
 
-..contents:: Table of Contents
+.. contents:: Table of Contents
     :backlinks: none
     :local:
 
@@ -10,13 +10,12 @@ Introduction
 ------------
 
 This module contains functions can be monkey patched into
-`ethereum.frontier.state` to use an optmized database backed state.
+`ethereum.frontier.state` to use an optimized database backed state.
 """
+import logging
 from dataclasses import dataclass
 from tempfile import TemporaryDirectory
-from typing import Any, Dict, List, Optional, Set, Tuple
-
-import lmdb
+from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
 
 import ethereum.crypto as crypto
 from ethereum.base_types import U256, Bytes, Uint
@@ -36,6 +35,15 @@ from ethereum.frontier.trie import (
 
 from .trie_utils import decode_to_internal_node, encode_internal_node_nohash
 
+try:
+    import lmdb
+except ImportError as e:
+    # Add a message, but keep it an ImportError.
+    raise e from Exception(
+        "Install with `pip install 'ethereum[optimized]'` to enable this "
+        "package"
+    )
+
 # 0x0 : Metadata
 # 0x1 : Accounts and storage
 # 0x2 : Internal Nodes
@@ -50,6 +58,8 @@ class State:
     created with `State(path)` open or create the db located at `path`.
     """
 
+    default_path: ClassVar[Optional[str]] = None
+
     _db: Any
     _current_tx: Any
     _tx_stack: List[Any]
@@ -60,11 +70,16 @@ class State:
 
     def __init__(self, path: Optional[str] = None) -> None:
         if path is None:
-            # Reference kept so directory won't be deleted until State is
-            self._tempdir = TemporaryDirectory()
-            self._db = lmdb.open(self._tempdir.name, map_size=2 ** 20)
-        else:
-            self._db = lmdb.open(path, map_size=2 ** 40)
+            path = State.default_path
+
+            if path is None:
+                # Reference kept so directory won't be deleted until State is
+                self._tempdir = TemporaryDirectory()
+                path = self._tempdir.name
+
+        logging.info("using optimized state db at %s", path)
+
+        self._db = lmdb.open(path, map_size=2 ** 40)
         self._current_tx = None
         self._tx_stack = []
         self._dirty_accounts = [{}]
@@ -104,10 +119,10 @@ def close_state(state: State) -> None:
 def begin_db_transaction(state: State) -> None:
     """
     Start a database transaction. A transaction is automatically started when a
-    `State` is created and the entire stack of transactions must be commited
+    `State` is created and the entire stack of transactions must be committed
     for any permanent changes to be made to the database.
 
-    Database transctions are more expensive than normal transactions, but the
+    Database transactions are more expensive than normal transactions, but the
     state root can be calculated while in them.
 
     No operations are supported when not in a transaction.
@@ -116,7 +131,7 @@ def begin_db_transaction(state: State) -> None:
         state._tx_stack.append(lmdb.Transaction(state._db, write=True))
     elif state._tx_stack[-1] is None:
         raise Exception(
-            "Non db transactions cannot have db transctions as children"
+            "Non db transactions cannot have db transactions as children"
         )
     else:
         state_root(state)
@@ -129,7 +144,6 @@ def begin_db_transaction(state: State) -> None:
 def commit_db_transaction(state: State) -> None:
     """
     Commit the current database transaction.
-    raise Exception("Current transaction is not a db transaction")
     """
     if state._tx_stack[-1] is None:
         raise Exception("Current transaction is not a db transaction")
