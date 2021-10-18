@@ -34,3 +34,21 @@ class Filler:
         )
 
         return parser.parse_args()
+
+
+    options: argparse.Namespace
+
+
+    def __init__(self) -> None:
+        self.options = self.parse_arguments()
+
+    def fill(self) -> None:
+        """
+        Fill test fixtures.
+        """
+        print("Filling...")
+
+
+def main() -> None:
+    filler = Filler()
+    filler.fill()
