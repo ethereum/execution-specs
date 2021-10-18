@@ -193,8 +193,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
 
     ensure(gas_used == block.header.gas_used)
     ensure(transactions_root == block.header.transactions_root)
-    ensure(receipt_root == block.header.receipt_root)
     ensure(state_root(state) == block.header.state_root)
+    ensure(receipt_root == block.header.receipt_root)
     ensure(block_logs_bloom == block.header.bloom)
 
     chain.blocks.append(block)
