@@ -65,7 +65,6 @@ def push_n(evm: Evm, num_bytes: int) -> None:
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
-    ensure(evm.pc + num_bytes < len(evm.code))
 
     data_to_push = U256.from_be_bytes(
         evm.code[evm.pc + 1 : evm.pc + num_bytes + 1]
