@@ -8,6 +8,7 @@ clients.
 
 import argparse
 
+
 class Filler:
     """
     A command line tool to process test fillers into full hydrated tests.
@@ -35,9 +36,7 @@ class Filler:
 
         return parser.parse_args()
 
-
     options: argparse.Namespace
-
 
     def __init__(self) -> None:
         self.options = self.parse_arguments()
