@@ -117,8 +117,8 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         Items containing execution specific objects.
     """
     evm = process_message(message, env)
-    contract_code = evm.output
-    if contract_code:
+    if not evm.has_erred:
+        contract_code = evm.output
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         try:
             evm.gas_left = subtract_gas(evm.gas_left, contract_code_gas)

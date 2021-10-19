@@ -28,6 +28,15 @@ from typing import (
 )
 from urllib import request
 
+from ethereum.base_types import Bytes0, Bytes256
+from ethereum.utils.hexadecimal import (
+    hex_to_bytes,
+    hex_to_bytes8,
+    hex_to_bytes32,
+    hex_to_u256,
+    hex_to_uint,
+)
+
 from .forks import Hardfork
 
 T = TypeVar("T")
@@ -273,14 +282,103 @@ class Sync:
         """
         return self.active_fork.module(name)
 
+    def make_header(self, json: Any) -> Any:
+        """
+        Create a Header object from JSON describing it.
+        """
+        return self.module("eth_types").Header(
+            hex_to_bytes32(json["parentHash"]),
+            hex_to_bytes32(json["sha3Uncles"]),
+            self.module("utils.hexadecimal").hex_to_address(json["miner"]),
+            hex_to_bytes32(json["stateRoot"]),
+            hex_to_bytes32(json["transactionsRoot"]),
+            hex_to_bytes32(json["receiptsRoot"]),
+            Bytes256(hex_to_bytes(json["logsBloom"])),
+            hex_to_uint(json["difficulty"]),
+            hex_to_uint(json["number"]),
+            hex_to_uint(json["gasLimit"]),
+            hex_to_uint(json["gasUsed"]),
+            hex_to_u256(json["timestamp"]),
+            hex_to_bytes(json["extraData"]),
+            hex_to_bytes32(json["mixHash"]),
+            hex_to_bytes8(json["nonce"]),
+        )
+
+    def fetch_uncles(self, uncles_needed: Dict[int, int]) -> Dict[int, Any]:
+        """
+        Fetch the uncles for a given block from the RPC provider.
+        """
+        calls = []
+
+        for (block_number, num_uncles) in uncles_needed.items():
+            for i in range(num_uncles):
+                calls.append(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": hex(block_number * 20 + i),
+                        "method": "eth_getUncleByBlockNumberAndIndex",
+                        "params": [block_number, hex(i)],
+                    }
+                )
+
+        if calls == []:
+            return {}
+
+        data = json.dumps(calls).encode("utf-8")
+
+        self.log.debug(
+            "fetching uncles [%s, %s]...",
+            min(uncles_needed),
+            max(uncles_needed),
+        )
+
+        post = request.Request(
+            self.options.rpc_url,
+            data=data,
+            headers={
+                "Content-Length": str(len(data)),
+                "Content-Type": "application/json",
+            },
+        )
+
+        with request.urlopen(post) as response:
+            replies = json.load(response)
+            uncles: Dict[int, Dict[int, Any]] = {}
+
+            for reply in replies:
+                reply_id = int(reply["id"], 0)
+
+                if reply_id // 20 not in uncles:
+                    uncles[reply_id // 20] = {}
+
+                if "error" in reply:
+                    raise RpcError(
+                        reply["error"]["code"],
+                        reply["error"]["message"],
+                    )
+                else:
+                    uncles[reply_id // 20][reply_id % 20] = self.make_header(
+                        reply["result"]
+                    )
+
+            self.log.info(
+                "uncles [%s, %s] fetched",
+                min(uncles_needed),
+                max(uncles_needed),
+            )
+
+            return {
+                k: tuple(x for (_, x) in sorted(v.items()))
+                for (k, v) in uncles.items()
+            }
+
     def fetch_blocks(
         self,
         first: int,
         count: int,
-    ) -> List[Union[bytes, RpcError]]:
+    ) -> List[Union[Any, RpcError]]:
         """
-        Fetch the block specified by the given number from the RPC provider as
-        an RLP encoded byte array.
+        Fetch the block specified by the given number from the RPC provider.
         """
         if count == 0:
             return []
@@ -292,8 +390,8 @@ class Sync:
                 {
                     "jsonrpc": "2.0",
                     "id": hex(number),
-                    "method": "debug_getBlockRlp",
-                    "params": [number],
+                    "method": "eth_getBlockByNumber",
+                    "params": [number, True],
                 }
             )
 
@@ -312,7 +410,10 @@ class Sync:
 
         with request.urlopen(post) as response:
             replies = json.load(response)
-            blocks: Dict[int, Union[RpcError, bytes]] = {}
+            blocks: Dict[int, Union[RpcError, Any]] = {}
+            headers: Dict[int, Any] = {}
+            transaction_lists: Dict[int, List[Any]] = {}
+            uncles_needed: Dict[int, int] = {}
 
             for reply in replies:
                 reply_id = int(reply["id"], 0)
@@ -326,7 +427,37 @@ class Sync:
                         reply["error"]["message"],
                     )
                 else:
-                    blocks[reply_id] = bytes.fromhex(reply["result"])
+                    res = reply["result"]
+                    headers[reply_id] = self.make_header(res)
+                    transactions = []
+                    for t in res["transactions"]:
+                        transactions.append(
+                            self.module("eth_types").Transaction(
+                                hex_to_u256(t["nonce"]),
+                                hex_to_u256(t["gasPrice"]),
+                                hex_to_u256(t["gas"]),
+                                self.module(
+                                    "utils.hexadecimal"
+                                ).hex_to_address(t["to"])
+                                if t["to"]
+                                else Bytes0(b""),
+                                hex_to_u256(t["value"]),
+                                hex_to_bytes(t["input"]),
+                                hex_to_u256(t["v"]),
+                                hex_to_u256(t["r"]),
+                                hex_to_u256(t["s"]),
+                            )
+                        )
+                    transaction_lists[reply_id] = transactions
+                    uncles_needed[reply_id] = len(res["uncles"])
+
+            uncles = self.fetch_uncles(uncles_needed)
+            for id in headers:
+                blocks[id] = self.module("eth_types").Block(
+                    headers[id],
+                    tuple(transaction_lists[id]),
+                    uncles.get(id, ()),
+                )
 
             if len(blocks) != count:
                 raise Exception(
@@ -370,7 +501,7 @@ class Sync:
                     except Full:
                         pass
 
-    def take_block(self) -> Optional[bytes]:
+    def take_block(self) -> Optional[Any]:
         """
         Pop a block of the download queue.
         """
@@ -400,12 +531,10 @@ class Sync:
                 )
                 self.active_fork_index += 1
 
-            encoded_block = self.take_block()
+            block = self.take_block()
 
-            if encoded_block is None:
+            if block is None:
                 break
-
-            block = self.module("rlp").decode_to_block(encoded_block)
 
             if block.header.number != block_number:
                 raise Exception(
