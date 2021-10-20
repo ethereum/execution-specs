@@ -6,7 +6,7 @@ from ethereum.base_types import U256, Uint
 from ethereum.crypto import keccak256
 from ethereum.frontier import rlp
 from ethereum.frontier.eth_types import Account, Address
-from ethereum.frontier.spec import BlockChain, get_recent_block_hashes
+from ethereum.frontier.spec import BlockChain, get_last_256_block_hashes
 from ethereum.frontier.state import (
     State,
     close_state,
@@ -106,7 +106,7 @@ def json_to_env(json_data: Any) -> Environment:
     return Environment(
         caller=hex_to_address(json_data["exec"]["caller"]),
         origin=hex_to_address(json_data["exec"]["origin"]),
-        block_hashes=get_recent_block_hashes(chain, Uint(256)),
+        block_hashes=get_last_256_block_hashes(chain),
         coinbase=hex_to_address(json_data["env"]["currentCoinbase"]),
         number=hex_to_uint(json_data["env"]["currentNumber"]),
         gas_limit=hex_to_uint(json_data["env"]["currentGasLimit"]),
