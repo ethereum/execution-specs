@@ -317,7 +317,7 @@ class Sync:
                         "jsonrpc": "2.0",
                         "id": hex(block_number * 20 + i),
                         "method": "eth_getUncleByBlockNumberAndIndex",
-                        "params": [block_number, hex(i)],
+                        "params": [hex(block_number), hex(i)],
                     }
                 )
 
@@ -391,7 +391,7 @@ class Sync:
                     "jsonrpc": "2.0",
                     "id": hex(number),
                     "method": "eth_getBlockByNumber",
-                    "params": [number, True],
+                    "params": [hex(number), True],
                 }
             )
 
