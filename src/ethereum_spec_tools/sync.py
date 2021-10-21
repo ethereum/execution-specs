@@ -141,6 +141,12 @@ class Sync:
             help="save the block list and state periodically to this file",
         )
 
+        parser.add_argument(
+            "--geth",
+            help="use geth specific RPC endpoints while fetching blocks",
+            action="store_true",
+        )
+
         return parser.parse_args()
 
     downloaded_blocks: Queue
@@ -380,6 +386,84 @@ class Sync:
         """
         Fetch the block specified by the given number from the RPC provider.
         """
+        if self.options.geth:
+            return self.fetch_blocks_debug(first, count)
+        else:
+            return self.fetch_blocks_eth(first, count)
+
+    def fetch_blocks_debug(
+        self,
+        first: int,
+        count: int,
+    ) -> List[Union[bytes, RpcError]]:
+        """
+        Fetch the block specified by the given number from the RPC provider as
+        an RLP encoded byte array.
+        """
+        if count == 0:
+            return []
+
+        calls = []
+
+        for number in range(first, first + count):
+            calls.append(
+                {
+                    "jsonrpc": "2.0",
+                    "id": hex(number),
+                    "method": "debug_getBlockRlp",
+                    "params": [number],
+                }
+            )
+
+        data = json.dumps(calls).encode("utf-8")
+
+        self.log.debug("fetching blocks [%s, %s)...", first, first + count)
+
+        post = request.Request(
+            self.options.rpc_url,
+            data=data,
+            headers={
+                "Content-Length": str(len(data)),
+                "Content-Type": "application/json",
+            },
+        )
+
+        with request.urlopen(post) as response:
+            replies = json.load(response)
+            blocks: Dict[int, Union[RpcError, bytes]] = {}
+
+            for reply in replies:
+                reply_id = int(reply["id"], 0)
+
+                if reply_id < first or reply_id >= first + count:
+                    raise Exception("mismatched request id")
+
+                if "error" in reply:
+                    blocks[reply_id] = RpcError(
+                        reply["error"]["code"],
+                        reply["error"]["message"],
+                    )
+                else:
+                    blocks[reply_id] = bytes.fromhex(reply["result"])
+
+            if len(blocks) != count:
+                raise Exception(
+                    f"expected {count} blocks but only got {len(blocks)}"
+                )
+
+            self.log.info("blocks [%s, %s) fetched", first, first + count)
+
+            return [v for (_, v) in sorted(blocks.items())]
+
+    def fetch_blocks_eth(
+        self,
+        first: int,
+        count: int,
+    ) -> List[Union[Any, RpcError]]:
+        """
+        Fetch the block specified by the given number from the RPC provider
+        using only standard endpoints.
+        """
         if count == 0:
             return []
 
@@ -535,6 +619,10 @@ class Sync:
 
             if block is None:
                 break
+
+            if isinstance(block, bytes):
+                # Decode the block using the rules for the active fork.
+                block = self.module("rlp").decode_to_block(block)
 
             if block.header.number != block_number:
                 raise Exception(
