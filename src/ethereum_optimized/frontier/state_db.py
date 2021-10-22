@@ -48,6 +48,8 @@ except ImportError as e:
 # 0x1 : Accounts and storage
 # 0x2 : Internal Nodes
 
+DB_VERSION = b"1"
+
 
 @dataclass
 class State:
@@ -86,6 +88,18 @@ class State:
         self._dirty_storage = [{}]
         self._destroyed_accounts = [set()]
         begin_db_transaction(self)
+        version = get_metadata(self, b"version")
+        if version is None:
+            if self._db.stat()["entries"] != 0:
+                raise Exception("State DB is missing version")
+            else:
+                set_metadata(self, b"version", DB_VERSION)
+        elif version != DB_VERSION:
+            raise Exception(
+                f"State DB version mismatch"
+                f" (expected: {DB_VERSION.decode('ascii')},"
+                f" got: {version.decode('ascii')})"
+            )
 
     def __eq__(self, other: object) -> bool:
         """
@@ -114,6 +128,16 @@ def close_state(state: State) -> None:
     del state._dirty_accounts
     del state._dirty_storage
     del state._destroyed_accounts
+
+
+def get_metadata(state: State, key: Bytes) -> Optional[Bytes]:
+    """Get a piece of metadata"""
+    return state._current_tx.get(b"\x00" + key)
+
+
+def set_metadata(state: State, key: Bytes, value: Bytes) -> None:
+    """Set a piece of metadata"""
+    return state._current_tx.put(b"\x00" + key, value)
 
 
 def begin_db_transaction(state: State) -> None:
