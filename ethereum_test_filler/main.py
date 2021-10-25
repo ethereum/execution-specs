@@ -7,7 +7,15 @@ clients.
 """
 
 import argparse
+from inspect import getmembers, isfunction
+import importlib
+import inspect
+import pkgutil
+import setuptools
+from typing import Iterable, List
 
+import ethereum_test
+from ethereum_test.types import Fixture
 
 class Filler:
     """
@@ -46,6 +54,31 @@ class Filler:
         Fill test fixtures.
         """
         print("Filling...")
+
+        pkg_name = "ethereum_tests"
+        tests = []
+
+        import ethereum_tests
+        print(ethereum_tests.__path__)
+
+        def find_modules(path):
+            modules = set()
+            for pkg in setuptools.find_packages(path):
+                modules.add(pkg)
+                pkgpath = path + '/' + pkg.replace('.', '/')
+                for info in pkgutil.iter_modules([pkgpath]):
+                    if not info.ispkg:
+                        modules.add(pkg + '.' + info.name)
+            return modules
+
+        for module in find_modules(ethereum_tests.__path__[0]):
+            module = importlib.import_module(pkg_name + "." + module)
+            for obj in module.__dict__.values():
+                if isinstance(obj, Fixture):
+                    print(obj)
+
+
+
 
 
 def main() -> None:

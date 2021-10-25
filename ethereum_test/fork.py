@@ -6,7 +6,6 @@ List of Ethereum network upgrades.
 """
 
 from enum import Enum
-from typing import Callable
 
 
 class Fork(Enum):

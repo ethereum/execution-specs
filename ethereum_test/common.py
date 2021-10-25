@@ -8,5 +8,5 @@ TestAddress = Address(hex_to_bytes("0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b")
 
 Big0 = U256(0)
 Big1 = U256(1)
-AddrAA = Address(hex_to_bytes("0xAA"))
-AddrBB = Address(hex_to_bytes("0xBB"))
+AddrAA = Address(hex_to_bytes("0x00000000000000000000000000000000000000AA"))
+AddrBB = Address(hex_to_bytes("0x00000000000000000000000000000000000000BB"))
