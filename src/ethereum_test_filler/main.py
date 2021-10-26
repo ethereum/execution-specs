@@ -8,14 +8,10 @@ clients.
 
 import argparse
 import importlib
-import inspect
 import pkgutil
-from inspect import getmembers, isfunction
-from typing import Iterable, List
 
 import setuptools
 
-import ethereum_test
 from ethereum_test.types import Fixture
 
 
@@ -26,6 +22,9 @@ class Filler:
 
     @staticmethod
     def parse_arguments() -> argparse.Namespace:
+        """
+        Parse command line arguments.
+        """
         parser = argparse.ArgumentParser()
 
         parser.add_argument(
@@ -57,18 +56,15 @@ class Filler:
         print("Filling...")
 
         pkg_name = "ethereum_tests"
-        tests = []
 
         import ethereum_tests
-
-        print(ethereum_tests.__path__)
 
         def find_modules(path):
             modules = set()
             for pkg in setuptools.find_packages(path):
                 modules.add(pkg)
-                pkgpath = path + "/" + pkg.replace(".", "/")
-                for info in pkgutil.iter_modules([pkgpath]):
+                pkg_path = path + "/" + pkg.replace(".", "/")
+                for info in pkgutil.iter_modules([pkg_path]):
                     if not info.ispkg:
                         modules.add(pkg + "." + info.name)
             return modules
@@ -81,5 +77,8 @@ class Filler:
 
 
 def main() -> None:
+    """
+    Fills the specified test definitions.
+    """
     filler = Filler()
     filler.fill()

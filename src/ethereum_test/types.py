@@ -1,9 +1,13 @@
+"""
+Useful types for generating Ethereum tests.
+"""
+
 from dataclasses import dataclass
 from typing import List, Mapping, Optional, Tuple, Type
 
 from ethereum.base_types import U256, Bytes, Bytes20, Uint
 from ethereum.crypto import Hash32
-from ethereum.frontier.eth_types import Account, Address, Block, Header, Root
+from ethereum.frontier.eth_types import Block
 from ethereum.frontier.utils.hexadecimal import hex_to_address
 from ethereum.utils.hexadecimal import hex_to_hash
 
@@ -16,6 +20,10 @@ Address = Bytes20
 
 @dataclass
 class Account:
+    """
+    State associated with an address.
+    """
+
     nonce: U256
     balance: U256
     code: Code
@@ -23,11 +31,18 @@ class Account:
 
     @classmethod
     def with_code(cls: Type, code: Code) -> "Account":
+        """
+        Create account with provided `code` and nonce of `1`.
+        """
         return Account(nonce=Big1, balance=Big0, code=code, storage={})
 
 
 @dataclass
 class Environment:
+    """
+    Context in which a test will be executed.
+    """
+
     coinbase: Address = hex_to_address(
         "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba"
     )
@@ -43,6 +58,10 @@ class Environment:
 
 @dataclass
 class Transaction:
+    """
+    Generic object that can represent all Ethereum transaction types.
+    """
+
     nonce: U256 = Big0
     to: Optional[Address] = AddrAA
     value: U256 = Big0
@@ -58,6 +77,9 @@ class Transaction:
     private_key: Optional[str] = None
 
     def __post_init__(self) -> None:
+        """
+        Ensures the transaction has no conflicting properties.
+        """
         if (
             self.gas_price is not None
             and self.max_fee_per_gas is not None
