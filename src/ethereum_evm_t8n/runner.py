@@ -3,20 +3,25 @@ import subprocess
 from pathlib import Path
 from typing import List, Mapping, Tuple, Union
 
-JSON = Union[str, int, float, bool, None, Mapping[str, 'JSON'], List['JSON']]
+JSON = Union[str, int, float, bool, None, Mapping[str, "JSON"], List["JSON"]]
 
 
-class TransitionTool():
+class TransitionTool:
     binary: Path = Path("evm")
 
-    def evaluate(self, alloc: Mapping[str, Mapping[str, str]], txs: List[JSON], env: Mapping[str, str]) -> Tuple[JSON, JSON]:
+    def evaluate(
+        self,
+        alloc: Mapping[str, Mapping[str, str]],
+        txs: List[JSON],
+        env: Mapping[str, str],
+    ) -> Tuple[JSON, JSON]:
         args = [
             self.binary,
             "--input.alloc=stdin",
             "--input.txs=stdin",
             "--input.env=stdin",
             "--output.result=stdout",
-            "--output.alloc=stdout"
+            "--output.alloc=stdout",
         ]
         stdin = {
             "alloc": alloc,

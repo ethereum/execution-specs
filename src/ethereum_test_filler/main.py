@@ -40,8 +40,7 @@ class Filler:
         )
 
         parser.add_argument(
-            "--output",
-            help="directory to store filled test fixtures"
+            "--output", help="directory to store filled test fixtures"
         )
 
         return parser.parse_args()
@@ -61,16 +60,17 @@ class Filler:
         tests = []
 
         import ethereum_tests
+
         print(ethereum_tests.__path__)
 
         def find_modules(path):
             modules = set()
             for pkg in setuptools.find_packages(path):
                 modules.add(pkg)
-                pkgpath = path + '/' + pkg.replace('.', '/')
+                pkgpath = path + "/" + pkg.replace(".", "/")
                 for info in pkgutil.iter_modules([pkgpath]):
                     if not info.ispkg:
-                        modules.add(pkg + '.' + info.name)
+                        modules.add(pkg + "." + info.name)
             return modules
 
         for module in find_modules(ethereum_tests.__path__[0]):
@@ -78,9 +78,6 @@ class Filler:
             for obj in module.__dict__.values():
                 if isinstance(obj, Fixture):
                     print(obj)
-
-
-
 
 
 def main() -> None:
