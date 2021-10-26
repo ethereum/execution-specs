@@ -5,17 +5,15 @@ Useful types for generating Ethereum tests.
 from dataclasses import dataclass
 from typing import List, Mapping, Optional, Tuple, Type
 
-from ethereum.base_types import U256, Bytes, Bytes20, Uint
+from ethereum.base_types import U256, Bytes, Uint
 from ethereum.crypto import Hash32
-from ethereum.frontier.eth_types import Block
+from ethereum.frontier.eth_types import Address, Block
 from ethereum.frontier.utils.hexadecimal import hex_to_address
 from ethereum.utils.hexadecimal import hex_to_hash
 
 from .code import Code
 from .common import AddrAA, Big0, Big1, TestPrivateKey
 from .fork import Fork
-
-Address = Bytes20
 
 
 @dataclass
@@ -49,7 +47,7 @@ class Environment:
     difficulty: Uint = Uint(0x20000)
     gas_limit: Uint = Uint(10000000)
     number: Uint = Uint(1)
-    timestamp: Uint = Uint(1000)
+    timestamp: U256 = U256(1000)
     previous: Hash32 = hex_to_hash(
         "5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6"
     )

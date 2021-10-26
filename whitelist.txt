@@ -4,6 +4,7 @@ big0
 big1
 bytes8
 bytes20
+bytes32
 coinbase
 crypto
 dao
