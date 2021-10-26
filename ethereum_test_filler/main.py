@@ -7,15 +7,17 @@ clients.
 """
 
 import argparse
-from inspect import getmembers, isfunction
 import importlib
 import inspect
 import pkgutil
-import setuptools
+from inspect import getmembers, isfunction
 from typing import Iterable, List
+
+import setuptools
 
 import ethereum_test
 from ethereum_test.types import Fixture
+
 
 class Filler:
     """

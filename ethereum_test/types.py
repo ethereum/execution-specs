@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 from typing import List, Mapping, Optional, Tuple, Type
-from ethereum.base_types import Bytes, Bytes20, U256, Uint
+
+from ethereum.base_types import U256, Bytes, Bytes20, Uint
 from ethereum.crypto import Hash32
-from ethereum.utils.hexadecimal import hex_to_hash
-from ethereum.frontier.eth_types import Address, Account, Block, Header, Root
+from ethereum.frontier.eth_types import Account, Address, Block, Header, Root
 from ethereum.frontier.utils.hexadecimal import hex_to_address
+from ethereum.utils.hexadecimal import hex_to_hash
 
 from .code import Code
 from .common import AddrAA, Big0, Big1, TestPrivateKey
