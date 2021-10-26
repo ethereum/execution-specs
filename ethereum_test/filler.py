@@ -5,19 +5,13 @@ Filler object definitions.
 from dataclasses import dataclass
 from typing import Callable, List, Mapping
 
+from ethereum.base_types import Bytes8, Bytes32, Uint
 from ethereum.crypto import Hash32
-from ethereum.frontier.eth_types import (
-    Account,
-    Address,
-    Block,
-    Bloom,
-    Header,
-    Root,
-)
+from ethereum.frontier.eth_types import Address, Block, Bloom, Header, Root
 from ethereum.utils.hexadecimal import hex_to_hash
 
 from .fork import Fork
-from .types import Environment, Fixture, Transaction
+from .types import Account, Environment, Fixture, Transaction
 
 
 @dataclass
@@ -59,14 +53,14 @@ class StateTest:
             number=self.env.number,
             # TODO: following block will have invalid gas limit after 1559
             gas_limit=self.env.gas_limit,
-            gas_used=0,
+            gas_used=Uint(0),
             timestamp=self.env.timestamp,
             extra_data=bytearray(),
-            mix_digest=bytearray(32),
-            nonce=bytearray(8),
+            mix_digest=Bytes32(bytearray(32)),
+            nonce=Bytes8(bytearray(8)),
         )
 
-        return Block(header, [], [])
+        return Block(header, (), ())
 
 
 def test_from(fork: str) -> Callable[[Callable[[], StateTest]], Fixture]:

@@ -7,7 +7,8 @@ import subprocess
 from pathlib import Path
 from typing import List, Mapping, Tuple, Union
 
-JSON = Union[str, int, float, bool, None, Mapping[str, "JSON"], List["JSON"]]
+JSONValue = Union[str, int, float, bool, None]
+JSON = Union[JSONValue, Mapping[str, JSONValue], List[JSONValue]]
 
 
 class TransitionTool:
