@@ -1,9 +1,7 @@
 import json
 import subprocess
-
 from pathlib import Path
 from typing import List, Mapping, Tuple, Union
-
 
 JSON = Union[str, int, float, bool, None, Mapping[str, 'JSON'], List['JSON']]
 

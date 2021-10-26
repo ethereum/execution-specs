@@ -1,11 +1,19 @@
 from dataclasses import dataclass
 from typing import Callable, List, Mapping
-from ethereum.frontier.eth_types import Address, Account, Block, Bloom, Header, Root
-from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_bytes8, hex_to_hash
-from ethereum.crypto import Hash32
 
-from .types import Block, Environment, Fixture, Transaction
+from ethereum.crypto import Hash32
+from ethereum.frontier.eth_types import (
+    Account,
+    Address,
+    Block,
+    Bloom,
+    Header,
+    Root,
+)
+from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_bytes8, hex_to_hash
+
 from .fork import Fork
+from .types import Block, Environment, Fixture, Transaction
 
 
 @dataclass

@@ -1,4 +1,5 @@
 from typing import Mapping
+
 from ethereum.base_types import U256
 
 from .code import Code
