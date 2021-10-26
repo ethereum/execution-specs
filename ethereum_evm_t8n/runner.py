@@ -1,3 +1,7 @@
+"""
+`evm t8n` runner.
+"""
+
 import json
 import subprocess
 from pathlib import Path
@@ -7,6 +11,10 @@ JSON = Union[str, int, float, bool, None, Mapping[str, "JSON"], List["JSON"]]
 
 
 class TransitionTool:
+    """
+    Transition tool frontend.
+    """
+
     binary: Path = Path("evm")
 
     def evaluate(
@@ -15,6 +23,9 @@ class TransitionTool:
         txs: List[JSON],
         env: Mapping[str, str],
     ) -> Tuple[JSON, JSON]:
+        """
+        Executes `evm t8n` with the specified arguments.
+        """
         args = [
             self.binary,
             "--input.alloc=stdin",

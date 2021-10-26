@@ -1,3 +1,7 @@
+"""
+Common values used in Ethereum tests.
+"""
+
 from ethereum.base_types import U256
 from ethereum.frontier.eth_types import Address
 from ethereum.utils.hexadecimal import hex_to_bytes
