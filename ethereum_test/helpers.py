@@ -8,12 +8,19 @@ from .filler import StateTest
 from .types import Account, Environment, Transaction
 
 
-def TestCode(code: Code, expected: Mapping[U256, U256], gas_limit: U256 = U256(100000)):
+def TestCode(
+    code: Code, expected: Mapping[U256, U256], gas_limit: U256 = U256(100000)
+):
     env = Environment()
 
     pre = {
         AddrAA: Account(nonce=Big1, balance=Big0, code=code, storage={}),
-        TestAddress: Account(nonce=Big0, balance=U256(1000000000000000), code=Code(""), storage={})
+        TestAddress: Account(
+            nonce=Big0,
+            balance=U256(1000000000000000),
+            code=Code(""),
+            storage={},
+        ),
     }
 
     post = {

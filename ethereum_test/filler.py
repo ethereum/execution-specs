@@ -17,21 +17,37 @@ from .types import Block, Environment, Fixture, Transaction
 
 
 @dataclass
-class StateTest():
+class StateTest:
     env: Environment
     pre: Mapping[Address, Account]
     post: Mapping[Address, Account]
     txs: List[Transaction]
 
-    def make_genesis(self, ) -> Block:
+    def make_genesis(
+        self,
+    ) -> Block:
         header = Header(
             parent_hash=self.env.previous,
-            ommers_hash=hex_to_hash("0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"),
+            ommers_hash=hex_to_hash(
+                "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+            ),
             coinbase=self.env.coinbase,
             state_root=Root(hex_to_hash("0x00")),
-            transactions_root=Root(hex_to_hash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")),
-            receipt_root=Root(hex_to_hash("0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")),
-            bloom=Bloom(hex_to_bytes("0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")),
+            transactions_root=Root(
+                hex_to_hash(
+                    "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+                )
+            ),
+            receipt_root=Root(
+                hex_to_hash(
+                    "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+                )
+            ),
+            bloom=Bloom(
+                hex_to_bytes(
+                    "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                )
+            ),
             difficulty=self.env.difficulty,
             number=self.env.number,
             # TODO: following block will have invalid gas limit after 1559
@@ -39,8 +55,10 @@ class StateTest():
             gas_used=0,
             timestamp=self.env.timestamp,
             extra_data=bytearray(),
-            mix_digest=hex_to_hash("0x0000000000000000000000000000000000000000000000000000000000000000"),
-            nonce=hex_to_bytes8("0x0000000000000000")
+            mix_digest=hex_to_hash(
+                "0x0000000000000000000000000000000000000000000000000000000000000000"
+            ),
+            nonce=hex_to_bytes8("0x0000000000000000"),
         )
 
         return Block(header, [], [])
@@ -55,7 +73,7 @@ def test_from(fork: str) -> Callable[[Callable[[], StateTest]], Fixture]:
             fork=Fork.LONDON,
             preState={},
             postState={},
-            sealEngine="ethash"
+            sealEngine="ethash",
         )
 
     inner.decorator = test_from
@@ -71,7 +89,8 @@ def test_only(fork: str) -> Callable[[Callable[[], StateTest]], Fixture]:
             fork=Fork.LONDON,
             preState={},
             postState={},
-            sealEngine="ethash"
+            sealEngine="ethash",
         )
+
     inner.decorator = test_only
     return inner

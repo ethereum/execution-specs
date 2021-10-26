@@ -13,8 +13,9 @@ from .fork import Fork
 
 Address = Bytes20
 
+
 @dataclass
-class Account():
+class Account:
     nonce: U256
     balance: U256
     code: Code
@@ -26,18 +27,22 @@ class Account():
 
 
 @dataclass
-class Environment():
-    coinbase: Address = hex_to_address("2adc25665018aa1fe0e6bc666dac8fc2697ff9ba")
+class Environment:
+    coinbase: Address = hex_to_address(
+        "2adc25665018aa1fe0e6bc666dac8fc2697ff9ba"
+    )
     difficulty: Uint = Uint(0x20000)
     gas_limit: Uint = Uint(10000000)
     number: Uint = Uint(1)
     timestamp: Uint = Uint(1000)
-    previous: Hash32 = hex_to_hash("5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6")
+    previous: Hash32 = hex_to_hash(
+        "5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6"
+    )
     base_fee: Optional[U256] = None
 
 
 @dataclass
-class Transaction():
+class Transaction:
     nonce: U256 = Big0
     to: Optional[Address] = AddrAA
     value: U256 = Big0
@@ -54,22 +59,24 @@ class Transaction():
 
     def __post_init__(self) -> None:
         if (
-            self.gas_price is not None and
-            self.max_fee_per_gas is not None and
-            self.max_priority_fee_per_gas is not None
+            self.gas_price is not None
+            and self.max_fee_per_gas is not None
+            and self.max_priority_fee_per_gas is not None
         ):
-            raise Exception("only one type of fee payment field can be used in a single tx")
+            raise Exception(
+                "only one type of fee payment field can be used in a single tx"
+            )
 
         if (
-            self.gas_price is None and
-            self.max_fee_per_gas is None and
-            self.max_priority_fee_per_gas is None
+            self.gas_price is None
+            and self.max_fee_per_gas is None
+            and self.max_priority_fee_per_gas is None
         ):
             self.gas_price = Big0
 
         if self.signature is not None and self.private_key is not None:
             raise Exception("can't define both 'signature' and 'private_key'")
-        
+
         if self.signature is None and self.private_key is None:
             self.private_key = TestPrivateKey
 

@@ -9,7 +9,7 @@ from ethereum_test.types import Account, Environment, Transaction
 #  @valid_until("London")
 #  def test_add():
 #      pre = {
-#          "0xaa": 
+#          "0xaa":
 #              code="6001600201600055"
 #          )
 #      }
@@ -27,17 +27,17 @@ from ethereum_test.types import Account, Environment, Transaction
 
 @test_only("London")
 def test_add_simpler():
-    code = Code("""
+    code = Code(
+        """
         push1 1
         push1 2
         add
         push1 0
         sstore
-    """)
+    """
+    )
 
-    expect = {
-        U256(0): U256(3)
-    }
+    expect = {U256(0): U256(3)}
 
     return TestCode(code, expect)
 
@@ -54,7 +54,7 @@ def test_tip_too_high():
         gas_limit=U256(30000),
         max_fee_per_gas=U256(100),
         max_priority_fee_per_gas=U256(101),
-        nonce=U256(1)
+        nonce=U256(1),
     )
 
     return StateTest(Environment(), pre, pre, [tx])
