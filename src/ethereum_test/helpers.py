@@ -7,7 +7,7 @@ from typing import Mapping
 from ethereum.base_types import U256
 
 from .code import Code
-from .common import AddrAA, Big0, Big1, TestAddress
+from .common import AddrAA, TestAddress
 from .filler import StateTest
 from .types import Account, Environment, Transaction
 
@@ -21,9 +21,9 @@ def TestCode(
     env = Environment()
 
     pre = {
-        AddrAA: Account(nonce=Big1, balance=Big0, code=code, storage={}),
+        AddrAA: Account(nonce=U256(1), balance=U256(0), code=code, storage={}),
         TestAddress: Account(
-            nonce=Big0,
+            nonce=U256(0),
             balance=U256(1000000000000000),
             code=Code(""),
             storage={},
@@ -31,7 +31,9 @@ def TestCode(
     }
 
     post = {
-        AddrAA: Account(nonce=Big1, balance=Big0, code=code, storage=expected)
+        AddrAA: Account(
+            nonce=U256(1), balance=U256(0), code=code, storage=expected
+        )
     }
 
     tx = Transaction(to=AddrAA, gas_limit=gas_limit)
