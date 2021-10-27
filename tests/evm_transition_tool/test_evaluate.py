@@ -2,9 +2,9 @@ import json
 import os
 from pathlib import Path
 
-from ethereum_evm_t8n import TransitionTool
+from evm_transition_tool import TransitionTool
 
-FIXTURES_ROOT = Path("tests/ethereum_evm_t8n/fixtures")
+FIXTURES_ROOT = Path("tests/evm_transition_tool/fixtures")
 
 
 def test_simple() -> None:
