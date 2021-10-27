@@ -28,4 +28,4 @@ def test_general_state_tests(test_file: str) -> None:
         run_general_state_tests(test_file)
     except KeyError:
         # KeyError is raised when a test_file has no tests for frontier
-        pass
+        raise pytest.skip(f"{test_file} has no tests for frontier")
