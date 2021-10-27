@@ -12,7 +12,7 @@ from ethereum.frontier.utils.hexadecimal import hex_to_address
 from ethereum.utils.hexadecimal import hex_to_hash
 
 from .code import Code
-from .common import AddrAA, Big0, Big1, TestPrivateKey
+from .common import AddrAA, TestPrivateKey
 from .fork import Fork
 
 
@@ -32,7 +32,7 @@ class Account:
         """
         Create account with provided `code` and nonce of `1`.
         """
-        return Account(nonce=Big1, balance=Big0, code=code, storage={})
+        return Account(nonce=U256(1), balance=U256(0), code=code, storage={})
 
 
 @dataclass
@@ -60,9 +60,9 @@ class Transaction:
     Generic object that can represent all Ethereum transaction types.
     """
 
-    nonce: U256 = Big0
+    nonce: U256 = U256(0)
     to: Optional[Address] = AddrAA
-    value: U256 = Big0
+    value: U256 = U256(0)
     data: Bytes = bytearray()
     gas_limit: U256 = U256(21000)
     access_list: Optional[List[Tuple[Address, List[U256]]]] = None
@@ -92,7 +92,7 @@ class Transaction:
             and self.max_fee_per_gas is None
             and self.max_priority_fee_per_gas is None
         ):
-            self.gas_price = Big0
+            self.gas_price = U256(0)
 
         if self.signature is not None and self.private_key is not None:
             raise Exception("can't define both 'signature' and 'private_key'")
