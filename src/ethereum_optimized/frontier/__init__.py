@@ -60,6 +60,20 @@ def monkey_patch_optimized_spec() -> None:
     slow_spec.validate_proof_of_work = fast_spec.validate_proof_of_work
 
 
+def monkey_patch_rlp() -> None:
+    """
+    Replace the rlp implementation with one that supports higher performance.
+
+    This function must be called before the rlp interface is imported anywhere.
+    """
+    import ethereum.frontier.rlp as slow_rlp
+
+    from . import rlp as fast_rlp
+
+    slow_rlp.encode = fast_rlp.encode
+    slow_rlp.decode = fast_rlp.decode
+
+
 def monkey_patch(state_path: Optional[str]) -> None:
     """
     Apply all monkey patches to swap in high performance implementations.
@@ -67,5 +81,6 @@ def monkey_patch(state_path: Optional[str]) -> None:
     This function must be called before any of the ethereum modules are
     imported anywhere.
     """
+    monkey_patch_rlp()
     monkey_patch_optimized_state_db(state_path)
     monkey_patch_optimized_spec()

@@ -71,21 +71,21 @@ def encode(raw_data: RLP) -> Bytes:
     if isinstance(raw_data, (bytearray, bytes)):
         return encode_bytes(raw_data)
     elif isinstance(raw_data, (Uint, U256)):
-        return encode(raw_data.to_be_bytes())
+        return encode_bytes(raw_data.to_be_bytes())
     elif isinstance(raw_data, str):
         return encode_bytes(raw_data.encode())
     elif isinstance(raw_data, Sequence):
         return encode_sequence(cast(Sequence[RLP], raw_data))
     elif isinstance(raw_data, Block):
-        return encode_block(raw_data)
+        return encode(transcode_block(raw_data))
     elif isinstance(raw_data, Header):
-        return encode_header(raw_data)
+        return encode(transcode_header(raw_data))
     elif isinstance(raw_data, Transaction):
-        return encode_transaction(raw_data)
+        return encode(transcode_transaction(raw_data))
     elif isinstance(raw_data, Receipt):
-        return encode_receipt(raw_data)
+        return encode(transcode_receipt(raw_data))
     elif isinstance(raw_data, Log):
-        return encode_log(raw_data)
+        return encode(transcode_log(raw_data))
     else:
         raise TypeError(
             "RLP Encoding of type {} is not supported".format(type(raw_data))
@@ -393,41 +393,37 @@ def decode_item_length(encoded_data: Bytes) -> int:
 #
 
 
-def encode_block(raw_block_data: Block) -> Bytes:
+def transcode_block(raw_block_data: Block) -> RLP:
     """
     Encode `Block` dataclass
     """
-    return encode(
-        (
-            raw_block_data.header,
-            raw_block_data.transactions,
-            raw_block_data.ommers,
-        )
+    return (
+        raw_block_data.header,
+        raw_block_data.transactions,
+        raw_block_data.ommers,
     )
 
 
-def encode_header(raw_header_data: Header) -> Bytes:
+def transcode_header(raw_header_data: Header) -> RLP:
     """
     Encode `Header` dataclass
     """
-    return encode(
-        (
-            raw_header_data.parent_hash,
-            raw_header_data.ommers_hash,
-            raw_header_data.coinbase,
-            raw_header_data.state_root,
-            raw_header_data.transactions_root,
-            raw_header_data.receipt_root,
-            raw_header_data.bloom,
-            raw_header_data.difficulty,
-            raw_header_data.number,
-            raw_header_data.gas_limit,
-            raw_header_data.gas_used,
-            raw_header_data.timestamp,
-            raw_header_data.extra_data,
-            raw_header_data.mix_digest,
-            raw_header_data.nonce,
-        )
+    return (
+        raw_header_data.parent_hash,
+        raw_header_data.ommers_hash,
+        raw_header_data.coinbase,
+        raw_header_data.state_root,
+        raw_header_data.transactions_root,
+        raw_header_data.receipt_root,
+        raw_header_data.bloom,
+        raw_header_data.difficulty,
+        raw_header_data.number,
+        raw_header_data.gas_limit,
+        raw_header_data.gas_used,
+        raw_header_data.timestamp,
+        raw_header_data.extra_data,
+        raw_header_data.mix_digest,
+        raw_header_data.nonce,
     )
 
 
@@ -448,49 +444,43 @@ def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
     )
 
 
-def encode_transaction(raw_tx_data: Transaction) -> Bytes:
+def transcode_transaction(raw_tx_data: Transaction) -> RLP:
     """
     Encode `Transaction` dataclass
     """
-    return encode(
-        (
-            raw_tx_data.nonce,
-            raw_tx_data.gas_price,
-            raw_tx_data.gas,
-            raw_tx_data.to,
-            raw_tx_data.value,
-            raw_tx_data.data,
-            raw_tx_data.v,
-            raw_tx_data.r,
-            raw_tx_data.s,
-        )
+    return (
+        raw_tx_data.nonce,
+        raw_tx_data.gas_price,
+        raw_tx_data.gas,
+        raw_tx_data.to,
+        raw_tx_data.value,
+        raw_tx_data.data,
+        raw_tx_data.v,
+        raw_tx_data.r,
+        raw_tx_data.s,
     )
 
 
-def encode_receipt(raw_receipt_data: Receipt) -> Bytes:
+def transcode_receipt(raw_receipt_data: Receipt) -> RLP:
     """
     Encode `Receipt` dataclass
     """
-    return encode(
-        (
-            raw_receipt_data.post_state,
-            raw_receipt_data.cumulative_gas_used,
-            raw_receipt_data.bloom,
-            raw_receipt_data.logs,
-        )
+    return (
+        raw_receipt_data.post_state,
+        raw_receipt_data.cumulative_gas_used,
+        raw_receipt_data.bloom,
+        raw_receipt_data.logs,
     )
 
 
-def encode_log(raw_log_data: Log) -> Bytes:
+def transcode_log(raw_log_data: Log) -> RLP:
     """
     Encode `Log` dataclass
     """
-    return encode(
-        (
-            raw_log_data.address,
-            raw_log_data.topics,
-            raw_log_data.data,
-        )
+    return (
+        raw_log_data.address,
+        raw_log_data.topics,
+        raw_log_data.data,
     )
 
 
