@@ -15,8 +15,9 @@ from typing import Union
 
 from ethereum.base_types import U256, Uint
 from ethereum.crypto import keccak256
-from ethereum.frontier import rlp
-from ethereum.frontier.eth_types import Address
+
+from .. import rlp
+from ..eth_types import Address
 
 
 def to_address(data: Union[Uint, U256]) -> Address:

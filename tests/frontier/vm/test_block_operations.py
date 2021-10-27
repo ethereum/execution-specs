@@ -1,6 +1,6 @@
 from functools import partial
 
-from tests.frontier.vm.vm_test_helpers import run_test
+from ..vm.vm_test_helpers import run_test
 
 run_block_ops_vm_test = partial(
     run_test,

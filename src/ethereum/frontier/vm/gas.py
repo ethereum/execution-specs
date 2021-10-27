@@ -12,11 +12,11 @@ Introduction
 EVM gas constants and calculators.
 """
 from ethereum.base_types import U256, Uint
-from ethereum.frontier.eth_types import Address
-from ethereum.frontier.state import State, account_exists
 from ethereum.utils.numeric import ceil32
 from ethereum.utils.safe_arithmetic import u256_safe_add
 
+from ..eth_types import Address
+from ..state import State, account_exists
 from .error import OutOfGasError
 
 GAS_JUMPDEST = U256(1)

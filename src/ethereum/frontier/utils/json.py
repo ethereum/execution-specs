@@ -14,12 +14,6 @@ Json specific utilities used in this frontier version of specification.
 from typing import Any, Dict, Tuple
 
 from ethereum.base_types import Bytes0
-from ethereum.frontier.eth_types import Block, Header, Transaction
-from ethereum.frontier.utils.hexadecimal import (
-    hex_to_address,
-    hex_to_bloom,
-    hex_to_root,
-)
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -28,6 +22,9 @@ from ethereum.utils.hexadecimal import (
     hex_to_u256,
     hex_to_uint,
 )
+
+from ..eth_types import Block, Header, Transaction
+from ..utils.hexadecimal import hex_to_address, hex_to_bloom, hex_to_root
 
 
 def json_to_transactions(json_data: Dict[Any, Any]) -> Tuple[Transaction, ...]:

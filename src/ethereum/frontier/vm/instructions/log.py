@@ -14,10 +14,10 @@ Implementations of the EVM logging instructions.
 from functools import partial
 
 from ethereum.base_types import U256, Uint
-from ethereum.frontier.vm.error import OutOfGasError
 from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
 from ...eth_types import Log
+from ...vm.error import OutOfGasError
 from .. import Evm
 from ..gas import (
     GAS_LOG,

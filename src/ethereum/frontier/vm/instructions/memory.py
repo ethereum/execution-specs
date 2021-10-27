@@ -12,9 +12,9 @@ Introduction
 Implementations of the EVM Memory instructions.
 """
 from ethereum.base_types import U8_MAX_VALUE, U256, Uint
-from ethereum.frontier.vm.error import OutOfGasError
 from ethereum.utils.safe_arithmetic import u256_safe_add
 
+from ...vm.error import OutOfGasError
 from .. import Evm
 from ..gas import (
     GAS_BASE,

@@ -13,13 +13,13 @@ Implementations of the EVM environment related instructions.
 """
 
 from ethereum.base_types import U256, Uint
-from ethereum.frontier.state import get_account
-from ethereum.frontier.utils.address import to_address
-from ethereum.frontier.vm.error import OutOfGasError
-from ethereum.frontier.vm.memory import extend_memory, memory_write
 from ethereum.utils.numeric import ceil32
 from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
+from ...state import get_account
+from ...utils.address import to_address
+from ...vm.error import OutOfGasError
+from ...vm.memory import extend_memory, memory_write
 from .. import Evm
 from ..gas import (
     GAS_BASE,

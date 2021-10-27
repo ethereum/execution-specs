@@ -12,12 +12,16 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Bytes0, Uint
-from ethereum.frontier.state import account_has_code_or_nonce
-from ethereum.frontier.vm.error import OutOfGasError
 from ethereum.utils.safe_arithmetic import u256_safe_add
 
-from ...state import get_account, increment_nonce, set_account_balance
+from ...state import (
+    account_has_code_or_nonce,
+    get_account,
+    increment_nonce,
+    set_account_balance,
+)
 from ...utils.address import compute_contract_address, to_address
+from ...vm.error import OutOfGasError
 from .. import Evm, Message
 from ..gas import (
     GAS_CREATE,
