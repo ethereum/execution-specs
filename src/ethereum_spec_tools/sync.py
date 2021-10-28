@@ -155,7 +155,6 @@ class Sync:
     options: argparse.Namespace
     chain: Any
     log: logging.Logger
-    persisted: int
 
     @property
     def active_fork(self) -> Hardfork:
@@ -175,7 +174,6 @@ class Sync:
             return None
 
     def __init__(self) -> None:
-        self.persisted = 0
         self.downloaded_blocks = Queue(maxsize=512)
         self.log = logging.getLogger(__name__)
         self.options = self.parse_arguments()
@@ -225,8 +223,6 @@ class Sync:
 
         # TODO: Replace self.chain.state with the correct hard fork.
 
-        self.persisted = len(blocks)
-
         if self.options.optimized:
             state = self.active_fork.optimized_module("state_db").State()
         else:
@@ -258,12 +254,15 @@ class Sync:
 
         start = time.monotonic()
 
+        temp_path = os.path.join(self.options.persist, "blocks.pickle.temp")
         blocks_path = os.path.join(self.options.persist, "blocks.pickle")
 
-        with open(blocks_path, "ab") as f:
-            to_write = self.chain.blocks[self.persisted :]
-            self.persisted += len(to_write)
-            DataclassPickler(f).dump(to_write)
+        with open(temp_path, "wb") as f:
+            DataclassPickler(f).dump(self.chain.blocks)
+
+        # If we are interrupted between `os.replace()` and
+        # `commit_db_transaction()` the two files will get out of sync.
+        os.replace(temp_path, blocks_path)
 
         if self.options.optimized:
             module = self.active_fork.optimized_module("state_db")
@@ -556,7 +555,7 @@ class Sync:
         """
         Fetch chunks of blocks from the RPC provider.
         """
-        start = len(self.chain.blocks)
+        start = self.chain.blocks[-1].header.number + 1
         running = True
 
         while running:
@@ -601,7 +600,12 @@ class Sync:
         Validate blocks that have been fetched.
         """
         while True:
-            block_number = len(self.chain.blocks)
+            block = self.take_block()
+
+            if block is None:
+                break
+
+            block_number = block.header.number
 
             if self.next_fork and block_number >= self.next_fork.block:
                 self.log.debug("applying %s fork...", self.next_fork.name)
@@ -614,11 +618,6 @@ class Sync:
                     end - start,
                 )
                 self.active_fork_index += 1
-
-            block = self.take_block()
-
-            if block is None:
-                break
 
             if isinstance(block, bytes):
                 # Decode the block using the rules for the active fork.

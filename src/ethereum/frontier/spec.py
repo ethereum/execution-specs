@@ -117,49 +117,43 @@ def apply_fork(old: None) -> BlockChain:
     return BlockChain(blocks=[genesis_block], state=state)
 
 
-def get_recent_block_hashes(
-    chain: BlockChain, num_blocks: Uint
-) -> List[Hash32]:
+def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     """
-    Obtain the list of hashes of the previous `num_blocks` blocks in the
-    order of increasing block number.
+    Obtain the list of hashes of the previous 256 blocks in order of increasing
+    block number.
+
+    This function will return less hashes for the first 256 blocks.
 
     Parameters
     ----------
     chain :
         History and current state.
-    num_blocks :
-        Number of recent block hashes one wishes to obtain.
 
     Returns
     -------
     recent_block_hashes : `List[Hash32]`
-        Hashes of the recent `num_blocks` blocks in order of increasing
-        block number.
+        Hashes of the recent 256 blocks in order of increasing block number.
     """
+    recent_blocks = chain.blocks[-255:]
     # TODO: This function has not been tested rigorously
-    if len(chain.blocks) == 0 or num_blocks == 0:
+    if len(recent_blocks) == 0:
         return []
+
+    recent_block_hashes = []
+
+    for block in recent_blocks:
+        prev_block_hash = block.header.parent_hash
+        recent_block_hashes.append(prev_block_hash)
 
     # We are computing the hash only for the most recent block and not for
     # the rest of the blocks as they have successors which have the hash of
     # the current block as parent hash.
     most_recent_block_hash = crypto.keccak256(
-        rlp.encode(chain.blocks[-1].header)
+        rlp.encode(recent_blocks[-1].header)
     )
-    recent_block_hashes = [most_recent_block_hash]
+    recent_block_hashes.append(most_recent_block_hash)
 
-    # We consider only the last `num_blocks - 1` blocks as we already have
-    # the most recent block hash computed and need only `num_blocks - 1` more
-    # hashes.
-    recent_blocks = chain.blocks[-(num_blocks - 1) :]
-
-    for block in reversed(recent_blocks):
-        prev_block_hash = block.header.parent_hash
-        recent_block_hashes.append(prev_block_hash)
-
-    recent_block_hashes.reverse()
-    return list(recent_block_hashes)
+    return recent_block_hashes
 
 
 def state_transition(chain: BlockChain, block: Block) -> None:
@@ -173,7 +167,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     block :
         Block to apply to `chain`.
     """
-    parent_header = chain.blocks[block.header.number - 1].header
+    parent_header = chain.blocks[-1].header
     validate_header(block.header, parent_header)
     validate_ommers(block.ommers, block.header, chain)
     (
@@ -184,7 +178,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         state,
     ) = apply_body(
         chain.state,
-        get_recent_block_hashes(chain, Uint(256)),
+        get_last_256_block_hashes(chain),
         block.header.coinbase,
         block.header.number,
         block.header.gas_limit,
@@ -193,7 +187,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.transactions,
         block.ommers,
     )
-
     ensure(gas_used == block.header.gas_used)
     ensure(transactions_root == block.header.transactions_root)
     ensure(state_root(state) == block.header.state_root)
@@ -201,6 +194,10 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     ensure(block_logs_bloom == block.header.bloom)
 
     chain.blocks.append(block)
+    if len(chain.blocks) > 255:
+        # Real clients have to store more blocks to deal with reorgs, but the
+        # protocol only requires the last 255
+        chain.blocks = chain.blocks[-255:]
 
 
 def validate_header(header: Header, parent_header: Header) -> None:
@@ -439,7 +436,9 @@ def validate_ommers(
     # Check that each ommer satisfies the constraints of a header
     for ommer in ommers:
         ensure(1 <= ommer.number < block_header.number)
-        ommer_parent_header = chain.blocks[ommer.number - 1].header
+        ommer_parent_header = chain.blocks[
+            -(block_header.number - ommer.number) - 1
+        ].header
         validate_header(ommer, ommer_parent_header)
 
     # Check that there can be only at most 2 ommers for a block.
