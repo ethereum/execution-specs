@@ -48,6 +48,8 @@ except ImportError as e:
 # 0x1 : Accounts and storage
 # 0x2 : Internal Nodes
 
+DB_VERSION = b"1"
+
 
 @dataclass
 class State:
@@ -63,9 +65,9 @@ class State:
     _db: Any
     _current_tx: Any
     _tx_stack: List[Any]
-    _dirty_accounts: List[Dict[Bytes, Optional[Account]]]
-    _dirty_storage: List[Dict[Bytes, Dict[Bytes, Optional[U256]]]]
-    _destroyed_accounts: List[Set[Bytes]]
+    _dirty_accounts: List[Dict[Address, Optional[Account]]]
+    _dirty_storage: List[Dict[Address, Dict[Bytes, Optional[U256]]]]
+    _destroyed_accounts: List[Set[Address]]
     _root: Root
 
     def __init__(self, path: Optional[str] = None) -> None:
@@ -86,6 +88,18 @@ class State:
         self._dirty_storage = [{}]
         self._destroyed_accounts = [set()]
         begin_db_transaction(self)
+        version = get_metadata(self, b"version")
+        if version is None:
+            if self._db.stat()["entries"] != 0:
+                raise Exception("State DB is missing version")
+            else:
+                set_metadata(self, b"version", DB_VERSION)
+        elif version != DB_VERSION:
+            raise Exception(
+                f"State DB version mismatch"
+                f" (expected: {DB_VERSION.decode('ascii')},"
+                f" got: {version.decode('ascii')})"
+            )
 
     def __eq__(self, other: object) -> bool:
         """
@@ -114,6 +128,16 @@ def close_state(state: State) -> None:
     del state._dirty_accounts
     del state._dirty_storage
     del state._destroyed_accounts
+
+
+def get_metadata(state: State, key: Bytes) -> Optional[Bytes]:
+    """Get a piece of metadata"""
+    return state._current_tx.get(b"\x00" + key)
+
+
+def set_metadata(state: State, key: Bytes, value: Bytes) -> None:
+    """Set a piece of metadata"""
+    return state._current_tx.put(b"\x00" + key, value)
 
 
 def begin_db_transaction(state: State) -> None:
@@ -189,16 +213,16 @@ def commit_transaction(state: State) -> None:
     """
     if state._tx_stack[-1] is not None:
         raise Exception("Current transaction is a db transaction")
-    for (internal_address, account) in state._dirty_accounts.pop().items():
-        state._dirty_accounts[-1][internal_address] = account
+    for (address, account) in state._dirty_accounts.pop().items():
+        state._dirty_accounts[-1][address] = account
     state._destroyed_accounts[-2] |= state._destroyed_accounts[-1]
-    for internal_address in state._destroyed_accounts.pop():
-        state._dirty_storage[-2].pop(internal_address)
-    for (internal_address, cache) in state._dirty_storage.pop().items():
-        if internal_address not in state._dirty_storage[-1]:
-            state._dirty_storage[-1][internal_address] = {}
+    for address in state._destroyed_accounts.pop():
+        state._dirty_storage[-2].pop(address)
+    for (address, cache) in state._dirty_storage.pop().items():
+        if address not in state._dirty_storage[-1]:
+            state._dirty_storage[-1][address] = {}
         for (key, value) in cache.items():
-            state._dirty_storage[-1][internal_address][key] = value
+            state._dirty_storage[-1][address][key] = value
     state._tx_stack.pop()
 
 
@@ -225,24 +249,18 @@ def get_storage(state: State, address: Address, key: Bytes) -> U256:
     """
     See `ethereum.frontier.state`.
     """
-    internal_address = get_internal_key(address)
-    internal_key = get_internal_key(key)
     for i in range(len(state._tx_stack) - 1, -1, -1):
-        if internal_address in state._dirty_storage[i]:
-            if internal_key in state._dirty_storage[i][internal_address]:
-                cached_res = state._dirty_storage[i][internal_address][
-                    internal_key
-                ]
+        if address in state._dirty_storage[i]:
+            if key in state._dirty_storage[i][address]:
+                cached_res = state._dirty_storage[i][address][key]
                 if cached_res is None:
                     return U256(0)
                 else:
                     return cached_res
-            if internal_key in state._destroyed_accounts[i]:
+            if key in state._destroyed_accounts[i]:
                 # Higher levels refer to the account prior to destruction
                 return U256(0)
-    res = state._current_tx.get(
-        b"\x01" + internal_address + b"\x00" + internal_key
-    )
+    res = state._current_tx.get(b"\x01" + address + b"\x00" + key)
     if res is None:
         return U256(0)
     else:
@@ -257,28 +275,26 @@ def set_storage(
     """
     See `ethereum.frontier.state`.
     """
-    internal_address = get_internal_key(address)
-    internal_key = get_internal_key(key)
-    if internal_address not in state._dirty_accounts[-1]:
-        state._dirty_accounts[-1][internal_address] = get_account_optional(
+    if address not in state._dirty_accounts[-1]:
+        state._dirty_accounts[-1][address] = get_account_optional(
             state, address
         )
-    if internal_address not in state._dirty_storage[-1]:
-        state._dirty_storage[-1][internal_address] = {}
+    if address not in state._dirty_storage[-1]:
+        state._dirty_storage[-1][address] = {}
     if value == 0:
-        state._dirty_storage[-1][internal_address][internal_key] = None
+        state._dirty_storage[-1][address][key] = None
     else:
-        state._dirty_storage[-1][internal_address][internal_key] = value
+        state._dirty_storage[-1][address][key] = value
 
 
 def get_account_optional(state: State, address: Address) -> Optional[Account]:
     """
     See `ethereum.frontier.state`.
     """
-    internal_address = get_internal_key(address)
     for cache in reversed(state._dirty_accounts):
-        if internal_address in cache:
-            return cache[internal_address]
+        if address in cache:
+            return cache[address]
+    internal_address = get_internal_key(address)
     res = state._current_tx.get(b"\x01" + internal_address)
     if res is None:
         return None
@@ -307,62 +323,34 @@ def set_account(
     """
     See `ethereum.frontier.state`.
     """
-    internal_address = get_internal_key(address)
     if account is None:
-        state._dirty_accounts[-1][internal_address] = None
+        state._dirty_accounts[-1][address] = None
     else:
-        state._dirty_accounts[-1][internal_address] = account
+        state._dirty_accounts[-1][address] = account
 
 
 def destroy_account(state: State, address: Address) -> None:
     """
     See `ethereum.frontier.state`.
     """
-    internal_address = get_internal_key(address)
-    state._destroyed_accounts[-1].add(internal_address)
-    state._dirty_storage[-1].pop(internal_address, None)
-    state._dirty_accounts[-1][internal_address] = None
+    state._destroyed_accounts[-1].add(address)
+    state._dirty_storage[-1].pop(address, None)
+    state._dirty_accounts[-1][address] = None
 
 
-def clear_destroyed_account(state: State, internal_address: Bytes) -> None:
+def clear_destroyed_account(state: State, address: Bytes) -> None:
     """
     Remove every storage key associated to a destroyed account from the
     database.
     """
+    internal_address = get_internal_key(address)
     cursor = state._current_tx.cursor()
-    cursor.set_range(b"\x01" + internal_address + b"\x00")
-    while cursor.key().startswith(b"\x01" + internal_address):
+    cursor.set_range(b"\x01" + address + b"\x00")
+    while cursor.key().startswith(b"\x01" + address):
         cursor.delete()
     cursor.set_range(b"\x02" + internal_address + b"\x00")
     while cursor.key().startswith(b"\x02" + internal_address):
         cursor.delete()
-
-
-def get_account_debug(state: State, key: Bytes) -> Bytes:
-    """
-    Treats the `State` as an unsecured `Trie[Bytes, Bytes]`. It exists
-    exclusively to test the trie implementation.
-    """
-    internal_key = bytes_to_nibble_list(key)
-    for cache in reversed(state._dirty_accounts):
-        if internal_key in cache:
-            return cache[internal_key]  # type: ignore
-    return state._current_tx.get(b"\x01" + internal_key)
-
-
-def set_account_debug(
-    state: State, key: Bytes, account: Optional[Bytes]
-) -> None:
-    """
-    Treats the `State` as an unsecured `Trie[Bytes, Bytes]`. It exists
-    exclusively to test the trie implementation.
-    """
-    internal_key = bytes_to_nibble_list(key)
-    state._dirty_accounts[-1][internal_key] = account  # type: ignore
-    if account is None:
-        state._dirty_accounts[-1][internal_key] = None
-    else:
-        state._dirty_accounts[-1][internal_key] = account  # type: ignore
 
 
 def make_node(
@@ -373,7 +361,11 @@ def make_node(
     storage root if the node is an `Account`.
     """
     if isinstance(value, Account):
-        account_storage_root = _storage_root(state, node_key, cursor)
+        res = cursor.get(b"\x02" + node_key + b"\x00")
+        if res is None:
+            account_storage_root = EMPTY_TRIE_ROOT
+        else:
+            account_storage_root = crypto.keccak256(res)
         return rlp.encode_account(value, account_storage_root)
     elif isinstance(value, Bytes):
         return value
@@ -383,17 +375,20 @@ def make_node(
 
 
 def write_internal_node(
-    cursor: Any, trie_prefix: Bytes, key: Bytes, node: Optional[InternalNode]
+    cursor: Any,
+    trie_prefix: Bytes,
+    node_key: Bytes,
+    node: Optional[InternalNode],
 ) -> None:
     """
     Write an internal node into the database.
     """
     if node is None:
-        if cursor.set_key(b"\x02" + trie_prefix + key):
+        if cursor.set_key(b"\x02" + trie_prefix + node_key):
             cursor.delete()
     else:
         cursor.put(
-            b"\x02" + trie_prefix + key,
+            b"\x02" + trie_prefix + node_key,
             encode_internal_node_nohash(node),
         )
 
@@ -406,7 +401,8 @@ def state_root(
     """
     if state._current_tx is None:
         raise Exception("Cannot compute state root inside non db transaction")
-    for internal_address, account in state._dirty_accounts[-1].items():
+    for address, account in state._dirty_accounts[-1].items():
+        internal_address = get_internal_key(address)
         if account is None:
             state._current_tx.delete(b"\x01" + internal_address)
         elif isinstance(account, Bytes):  # Testing only
@@ -423,14 +419,25 @@ def state_root(
             raise Exception(
                 f"Invalid object of type {type(account)} stored in state"
             )
-    for internal_address in state._destroyed_accounts[-1]:
-        clear_destroyed_account(state, internal_address)
+    for address in state._destroyed_accounts[-1]:
+        clear_destroyed_account(state, address)
     state._destroyed_accounts[-1] = set()
+    for address in list(state._dirty_storage[-1]):
+        storage_root(state, address)
+    dirty_list: List[Tuple[Bytes, Node]] = list(
+        sorted(
+            (
+                (get_internal_key(address), account)
+                for address, account in state._dirty_accounts[-1].items()
+            ),
+            reverse=True,
+        )
+    )
     root_node = walk(
         state,
         b"",
         b"",
-        list(sorted(state._dirty_accounts[-1].items(), reverse=True)),
+        dirty_list,
         state._current_tx.cursor(),
     )
     write_internal_node(state._current_tx.cursor(), b"", b"", root_node)
@@ -445,7 +452,7 @@ def state_root(
             return crypto.keccak256(rlp.encode(root))
 
 
-def storage_root(state: State, address: Bytes) -> None:
+def storage_root(state: State, address: Address) -> Root:
     """
     Calculate the storage root.
     """
@@ -453,30 +460,39 @@ def storage_root(state: State, address: Bytes) -> None:
         raise Exception(
             "Cannot compute storage root inside non db transaction"
         )
-    _storage_root(state, get_internal_key(address), state._current_tx.cursor())
+    return _storage_root(state, address, state._current_tx.cursor())
 
 
-def _storage_root(state: State, internal_address: Bytes, cursor: Any) -> Root:
+def _storage_root(state: State, address: Address, cursor: Any) -> Root:
     """
     Calculate the storage root.
     """
-    storage_prefix = internal_address + b"\x00"
-    dirty_storage = state._dirty_storage[-1].pop(internal_address, {}).items()
-    for internal_key, value in dirty_storage:
+    dirty_storage = state._dirty_storage[-1].pop(address, {}).items()
+    for key, value in dirty_storage:
         if value is None:
-            state._current_tx.delete(
-                b"\x01" + internal_address + b"\x00" + internal_key
-            )
+            state._current_tx.delete(b"\x01" + address + b"\x00" + key)
         else:
             state._current_tx.put(
-                b"\x01" + internal_address + b"\x00" + internal_key,
+                b"\x01" + address + b"\x00" + key,
                 rlp.encode(value),
             )
+
+    internal_address = get_internal_key(address)
+    storage_prefix = internal_address + b"\x00"
+    dirty_list: List[Tuple[Bytes, Node]] = list(
+        sorted(
+            (
+                (get_internal_key(key), account)
+                for key, account in dirty_storage
+            ),
+            reverse=True,
+        )
+    )
     root_node = walk(
         state,
         storage_prefix,
         b"",
-        list(sorted(dirty_storage, reverse=True)),
+        dirty_list,
         cursor,
     )
     write_internal_node(cursor, storage_prefix, b"", root_node)

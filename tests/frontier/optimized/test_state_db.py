@@ -41,6 +41,14 @@ operations: List[List[Tuple[Bytes, Optional[Bytes]]]] = [
 ]
 
 
+def fake_get_internal_key(key: Bytes) -> Bytes:
+    """
+    Replacing `state_db.get_internal_key()` with this function switches
+    `state_db` to a unsecured trie which is necessary for some tests.
+    """
+    return normal_trie.bytes_to_nibble_list(key)
+
+
 @pytest.mark.skipif(
     "ethereum_optimized.frontier.state_db" not in sys.modules,
     reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
@@ -49,14 +57,17 @@ def test_trie() -> None:
     trie_normal: normal_trie.Trie[Bytes, Optional[Bytes]] = normal_trie.Trie(
         False, None
     )
+    backup_get_internal_key = state_db.get_internal_key
+    state_db.get_internal_key = fake_get_internal_key
     with state_db.State() as state:
         state_db.begin_db_transaction(state)
         for insert_list in operations:
             for (key, value) in insert_list:
                 normal_trie.trie_set(trie_normal, key, value)
-                state_db.set_account_debug(state, key, value)
+                state_db.set_account(state, key, value)  # type: ignore
             root = normal_trie.root(trie_normal)
             assert root == state_db.state_root(state)
+    state_db.get_internal_key = backup_get_internal_key
 
 
 @pytest.mark.skipif(
