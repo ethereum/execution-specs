@@ -9,7 +9,7 @@ Specifies changes included in the Network Upgrade.
 
 | Network | Block      | Expected Date | Fork Hash    |
 | --------|------------|---------------|--------------|
-| Mainnet | 13773000 | December 8, 2021 | TBA |
+| Mainnet | 13773000 | December 8, 2021 | `0x20c327fc` |
 
 ### Client Releases
 
