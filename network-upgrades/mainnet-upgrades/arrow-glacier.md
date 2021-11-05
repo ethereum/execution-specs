@@ -16,6 +16,6 @@ Specifies changes included in the Network Upgrade.
  - [ ]  Mainnet
    - [ ]  Geth
    - [ ]  Besu
-   - [ ]  Nethermind
+   - [x]  Nethermind https://github.com/NethermindEth/nethermind/releases/tag/1.11.7
    - [ ]  Erigon
    - [ ]  EthereumJS 
