@@ -12,7 +12,7 @@ A new set of APIs is introduced as part of The Merge for the execution layer cli
 
 ### Upgrade Schedule
 
-| Network | Terminal Total Diffioculty (`TTD`) | Expected Date | Fork Hash    |
+| Network | Terminal Total Difficulty (`TTD`) | Expected Date | Fork Hash    |
 |---------|------------|---------------|--------------|
 | Ropsten | TBD | TBD | TBD |
 | Goerli  | TBD | TBD | TBD |
