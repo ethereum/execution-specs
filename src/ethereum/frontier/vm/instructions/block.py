@@ -46,7 +46,7 @@ def block_hash(evm: Evm) -> None:
         # or if the block's age is more than 256.
         hash = b"\x00"
     else:
-        hash = evm.env.block_hashes[256 - (evm.env.number - block_number)]
+        hash = evm.env.block_hashes[evm.env.number - block_number - 1]
 
     push(evm.stack, U256.from_be_bytes(hash))
 
