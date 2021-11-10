@@ -1,7 +1,7 @@
 ## Merge Upgrade Specification
 
 ### Included EIPs
-Specifies changes included in the Network Upgrade.
+Specifies changes included in the network upgrade.
 
   - [x] [EIP-3675: Upgrade consensus to Proof-of-Stake](https://eips.ethereum.org/EIPS/eip-3675)
   - [x] [EIP-4399: Supplant DIFFICULTY opcode with RANDOM](https://eips.ethereum.org/EIPS/eip-4399)
@@ -9,6 +9,10 @@ Specifies changes included in the Network Upgrade.
 ### Engine API
 
 A new set of APIs is introduced as part of The Merge for the execution layer clients to communicate with the consensus layer. The specification for it is available [here](https://github.com/ethereum/execution-apis/tree/main/src/engine).
+
+### Consensus Layer Specifications
+
+This network upgrade requires changes to both Ethereum's execution and consensus layers. The consensus layer specifications for this upgrade are available [here](https://github.com/ethereum/consensus-specs/tree/dev/specs/merge).
 
 ### Upgrade Schedule
 
