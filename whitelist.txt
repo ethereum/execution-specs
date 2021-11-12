@@ -283,3 +283,5 @@ Words2
 Generated2
 devnull
 splitext
+
+astuple

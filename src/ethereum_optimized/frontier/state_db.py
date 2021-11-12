@@ -18,9 +18,15 @@ from tempfile import TemporaryDirectory
 from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
 
 import ethereum.crypto as crypto
+from ethereum import rlp
 from ethereum.base_types import U256, Bytes, Uint
-from ethereum.frontier import rlp
-from ethereum.frontier.eth_types import EMPTY_ACCOUNT, Account, Address, Root
+from ethereum.frontier.eth_types import (
+    EMPTY_ACCOUNT,
+    Account,
+    Address,
+    Root,
+    encode_account,
+)
 from ethereum.frontier.trie import (
     EMPTY_TRIE_ROOT,
     BranchNode,
@@ -366,7 +372,7 @@ def make_node(
             account_storage_root = EMPTY_TRIE_ROOT
         else:
             account_storage_root = crypto.keccak256(res)
-        return rlp.encode_account(value, account_storage_root)
+        return encode_account(value, account_storage_root)
     elif isinstance(value, Bytes):
         return value
     else:

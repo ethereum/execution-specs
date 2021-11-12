@@ -14,38 +14,16 @@ Defines the serialization and deserialization format used throughout Ethereum.
 
 from __future__ import annotations
 
-from typing import Any, List, Sequence, Union, cast
+from dataclasses import astuple, fields, is_dataclass
+from typing import Any, List, Sequence, Tuple, Type, TypeVar, Union
 
 from ethereum import crypto
 from ethereum.crypto import Hash32
 from ethereum.utils.ensure import ensure
 
-from ..base_types import U256, Bytes, Bytes0, Bytes8, Uint
-from ..crypto import keccak256
-from .eth_types import (
-    Account,
-    Address,
-    Block,
-    Bloom,
-    Header,
-    Log,
-    Receipt,
-    Root,
-    Transaction,
-)
+from .base_types import U256, Bytes, Bytes0, Bytes20, Uint
 
-RLP = Union[  # type: ignore
-    Bytes,
-    Uint,
-    U256,
-    Block,
-    Header,
-    Account,
-    Transaction,
-    Receipt,
-    Log,
-    Sequence["RLP"],  # type: ignore
-]
+RLP = Any
 
 
 #
@@ -75,17 +53,9 @@ def encode(raw_data: RLP) -> Bytes:
     elif isinstance(raw_data, str):
         return encode_bytes(raw_data.encode())
     elif isinstance(raw_data, Sequence):
-        return encode_sequence(cast(Sequence[RLP], raw_data))
-    elif isinstance(raw_data, Block):
-        return encode_block(raw_data)
-    elif isinstance(raw_data, Header):
-        return encode_header(raw_data)
-    elif isinstance(raw_data, Transaction):
-        return encode_transaction(raw_data)
-    elif isinstance(raw_data, Receipt):
-        return encode_receipt(raw_data)
-    elif isinstance(raw_data, Log):
-        return encode_log(raw_data)
+        return encode_sequence(raw_data)
+    elif is_dataclass(raw_data):
+        return encode(astuple(raw_data))
     else:
         raise TypeError(
             "RLP Encoding of type {} is not supported".format(type(raw_data))
@@ -201,6 +171,83 @@ def decode(encoded_data: Bytes) -> RLP:
     else:
         # This means that the raw data is of type sequence
         return decode_to_sequence(encoded_data)
+
+
+T = TypeVar("T")
+
+
+def decode_to(cls: Type[T], encoded_data: Bytes) -> T:
+    """
+    Decode the bytes in `encoded_data` to an object of type `cls`. `cls` can be
+    a `Bytes` subclass, a dataclass, `Uint`, `U256` or `Tuple[cls]`.
+
+    Parameters
+    ----------
+    cls: `Type[T]`
+        The type to decode to.
+    encoded_data :
+        A sequence of bytes, in RLP form.
+
+    Returns
+    -------
+    decoded_data : `T`
+        Object decoded from `encoded_data`.
+    """
+    return decode_to_(cls, decode(encoded_data))
+
+
+def decode_to_(cls: Type[T], raw_rlp: RLP) -> T:
+    """
+    Decode the rlp structure in `encoded_data` to an object of type `cls`.
+    `cls` can be a `Bytes` subclass, a dataclass, `Uint`, `U256` or
+    `Tuple[cls]`.
+
+    Parameters
+    ----------
+    cls: `Type[T]`
+        The type to decode to.
+    raw_rlp :
+        A decode rlp structure.
+
+    Returns
+    -------
+    decoded_data : `T`
+        Object decoded from `encoded_data`.
+    """
+    if isinstance(cls, type(Tuple[Uint, ...])) and cls._name == "Tuple":  # type: ignore # noqa: E501
+        ensure(type(raw_rlp) == list)
+        args = []
+        for raw_item in raw_rlp:
+            args.append(decode_to_(cls.__args__[0], raw_item))  # type: ignore
+        return tuple(args)  # type: ignore
+    elif cls == Union[Bytes0, Bytes20]:
+        # We can't support Union types in general, so we support this one
+        # (which appears in the Transaction type) as a special case
+        ensure(type(raw_rlp) == Bytes)
+        if len(raw_rlp) == 0:
+            return Bytes0()  # type: ignore
+        elif len(raw_rlp) == 20:
+            return Bytes20(raw_rlp)  # type: ignore
+        else:
+            raise TypeError(
+                "RLP Decoding to type {} is not supported".format(cls)
+            )
+    elif issubclass(cls, Bytes):
+        ensure(type(raw_rlp) == Bytes)
+        return raw_rlp
+    elif issubclass(cls, (Uint, U256)):
+        ensure(type(raw_rlp) == Bytes)
+        return cls.from_be_bytes(raw_rlp)  # type: ignore
+    elif is_dataclass(cls):
+        ensure(type(raw_rlp) == list)
+        assert isinstance(raw_rlp, list)
+        args = []
+        # FIXME: Add length check
+        for (field, rlp_item) in zip(fields(cls), raw_rlp):
+            args.append(decode_to_(field.type, rlp_item))
+        return cls(*args)
+    else:
+        raise TypeError("RLP Decoding to type {} is not supported".format(cls))
 
 
 def decode_to_bytes(encoded_bytes: Bytes) -> Bytes:
@@ -385,249 +432,6 @@ def decode_item_length(encoded_data: Bytes) -> int:
         )
 
     return 1 + length_length + decoded_data_length
-
-
-#
-# Encoding and decoding custom dataclasses like Account, Transaction,
-# Receipt etc.
-#
-
-
-def encode_block(raw_block_data: Block) -> Bytes:
-    """
-    Encode `Block` dataclass
-    """
-    return encode(
-        (
-            raw_block_data.header,
-            raw_block_data.transactions,
-            raw_block_data.ommers,
-        )
-    )
-
-
-def encode_header(raw_header_data: Header) -> Bytes:
-    """
-    Encode `Header` dataclass
-    """
-    return encode(
-        (
-            raw_header_data.parent_hash,
-            raw_header_data.ommers_hash,
-            raw_header_data.coinbase,
-            raw_header_data.state_root,
-            raw_header_data.transactions_root,
-            raw_header_data.receipt_root,
-            raw_header_data.bloom,
-            raw_header_data.difficulty,
-            raw_header_data.number,
-            raw_header_data.gas_limit,
-            raw_header_data.gas_used,
-            raw_header_data.timestamp,
-            raw_header_data.extra_data,
-            raw_header_data.mix_digest,
-            raw_header_data.nonce,
-        )
-    )
-
-
-def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
-    """
-    Encode `Account` dataclass.
-
-    Storage is not stored in the `Account` dataclass, so `Accounts` cannot be
-    enocoded with providing a storage root.
-    """
-    return encode(
-        (
-            raw_account_data.nonce,
-            raw_account_data.balance,
-            storage_root,
-            keccak256(raw_account_data.code),
-        )
-    )
-
-
-def encode_transaction(raw_tx_data: Transaction) -> Bytes:
-    """
-    Encode `Transaction` dataclass
-    """
-    return encode(
-        (
-            raw_tx_data.nonce,
-            raw_tx_data.gas_price,
-            raw_tx_data.gas,
-            raw_tx_data.to,
-            raw_tx_data.value,
-            raw_tx_data.data,
-            raw_tx_data.v,
-            raw_tx_data.r,
-            raw_tx_data.s,
-        )
-    )
-
-
-def encode_receipt(raw_receipt_data: Receipt) -> Bytes:
-    """
-    Encode `Receipt` dataclass
-    """
-    return encode(
-        (
-            raw_receipt_data.post_state,
-            raw_receipt_data.cumulative_gas_used,
-            raw_receipt_data.bloom,
-            raw_receipt_data.logs,
-        )
-    )
-
-
-def encode_log(raw_log_data: Log) -> Bytes:
-    """
-    Encode `Log` dataclass
-    """
-    return encode(
-        (
-            raw_log_data.address,
-            raw_log_data.topics,
-            raw_log_data.data,
-        )
-    )
-
-
-def sequence_to_header(sequence: Sequence[Bytes]) -> Header:
-    """
-    Build a Header object from a sequence of bytes. The sequence should be
-    containing exactly 15 byte sequences.
-
-    Parameters
-    ----------
-    sequence :
-        The sequence of bytes which is supposed to form the Header
-        object.
-
-    Returns
-    -------
-    header : `Header`
-        The obtained `Header` object.
-    """
-    ensure(len(sequence) == 15)
-
-    ensure(len(sequence[12]) <= 32)
-
-    return Header(
-        parent_hash=Hash32(sequence[0]),
-        ommers_hash=Hash32(sequence[1]),
-        coinbase=Address(sequence[2]),
-        state_root=Root(sequence[3]),
-        transactions_root=Root(sequence[4]),
-        receipt_root=Root(sequence[5]),
-        bloom=Bloom(sequence[6]),
-        difficulty=Uint.from_be_bytes(sequence[7]),
-        number=Uint.from_be_bytes(sequence[8]),
-        gas_limit=Uint.from_be_bytes(sequence[9]),
-        gas_used=Uint.from_be_bytes(sequence[10]),
-        timestamp=U256.from_be_bytes(sequence[11]),
-        extra_data=sequence[12],
-        mix_digest=Hash32(sequence[13]),
-        nonce=Bytes8(sequence[14]),
-    )
-
-
-def sequence_to_transaction(sequence: Sequence[Bytes]) -> Transaction:
-    """
-    Build a Transaction object from a sequence of bytes. The sequence should
-    be containing exactly 9 byte sequences.
-
-    Parameters
-    ----------
-    sequence :
-        The sequence of bytes which is supposed to form the Transaction
-        object.
-
-    Returns
-    -------
-    transaction : `Transaction`
-        The obtained `Transaction` object.
-    """
-    # TODO: Add assertions about the number of bytes in each of the below
-    # variables if it's used in chain sync later on.
-    ensure(len(sequence) == 9)
-
-    to: Union[Bytes0, Address] = Bytes0()
-    if sequence[3] != b"":
-        to = Address(sequence[3])
-
-    return Transaction(
-        nonce=U256.from_be_bytes(sequence[0]),
-        gas_price=U256.from_be_bytes(sequence[1]),
-        gas=U256.from_be_bytes(sequence[2]),
-        to=to,
-        value=U256.from_be_bytes(sequence[4]),
-        data=sequence[5],
-        v=U256.from_be_bytes(sequence[6]),
-        r=U256.from_be_bytes(sequence[7]),
-        s=U256.from_be_bytes(sequence[8]),
-    )
-
-
-def decode_to_header(encoded_header: Bytes) -> Header:
-    """
-    Decodes a rlp encoded byte stream assuming that the decoded data
-    should be of type `Header`.
-
-    NOTE - This function is valid only till the London Hardfork. Post that
-    there would be changes in the Header object as well as this function with
-    the introduction of `base_fee` parameter.
-
-    Parameters
-    ----------
-    encoded_header :
-        An RLP encoded Header.
-
-    Returns
-    -------
-    decoded_header : `Header`
-        The header object decoded from `encoded_header`.
-    """
-    decoded_data = cast(Sequence[Bytes], decode(encoded_header))
-    return sequence_to_header(decoded_data)
-
-
-def decode_to_block(encoded_block: Bytes) -> Block:
-    """
-    Decodes a rlp encoded byte stream assuming that the decoded data
-    should be of type `Block`.
-
-    NOTE - This function is valid only till the London Hardfork. Post that
-    there would be changes in the Header object as well as this function with
-    the introduction of `base_fee` parameter.
-
-    Parameters
-    ----------
-    encoded_block :
-        An RLP encoded block.
-
-    Returns
-    -------
-    decoded_block : `Block`
-        The block object decoded from `encoded_block`.
-    """
-    sequential_header, sequential_transactions, sequential_ommers = cast(
-        Sequence[Any],
-        decode(encoded_block),
-    )
-
-    header = sequence_to_header(sequential_header)
-    transactions = tuple(
-        sequence_to_transaction(sequential_tx)
-        for sequential_tx in sequential_transactions
-    )
-    ommers = tuple(
-        sequence_to_header(sequential_ommer)
-        for sequential_ommer in sequential_ommers
-    )
-
-    return Block(header, transactions, ommers)
 
 
 def rlp_hash(data: RLP) -> Hash32:
