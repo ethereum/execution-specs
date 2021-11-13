@@ -274,3 +274,12 @@ noop
 0x0
 0x1
 0x2
+
+rstdiff
+docutils
+dirname
+Text2
+Words2
+Generated2
+devnull
+splitext

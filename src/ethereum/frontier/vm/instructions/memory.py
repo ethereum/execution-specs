@@ -39,9 +39,9 @@ def mstore(evm: Evm) -> None:
 
     Raises
     ------
-    StackUnderflowError
+    ethereum.frontier.vm.error.StackUnderflowError
         If `len(stack)` is less than `2`.
-    OutOfGasError
+    ethereum.frontier.vm.error.OutOfGasError
         If `evm.gas_left` is less than
         `3` + gas needed to extend memeory.
     """
@@ -79,9 +79,9 @@ def mstore8(evm: Evm) -> None:
 
     Raises
     ------
-    StackUnderflowError
+    ethereum.frontier.vm.error.StackUnderflowError
         If `len(stack)` is less than `2`.
-    OutOfGasError
+    ethereum.frontier.vm.error.OutOfGasError
         If `evm.gas_left` is less than
         `3` + gas needed to extend memory.
     """
@@ -119,9 +119,9 @@ def mload(evm: Evm) -> None:
 
     Raises
     ------
-    StackUnderflowError
+    ethereum.frontier.vm.error.StackUnderflowError
         If `len(stack)` is less than `1`.
-    OutOfGasError
+    ethereum.frontier.vm.error.OutOfGasError
         If `evm.gas_left` is less than
         `3` + gas needed to extend memory.
     """
@@ -159,7 +159,7 @@ def msize(evm: Evm) -> None:
 
     Raises
     ------
-    OutOfGasError
+    ethereum.frontier.vm.error.OutOfGasError
         If `evm.gas_left` is less than `2`
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)

@@ -33,9 +33,9 @@ def pop(evm: Evm) -> None:
 
     Raises
     ------
-    StackUnderflowError
+    ethereum.frontier.vm.error.StackUnderflowError
         If `len(stack)` is less than `1`.
-    OutOfGasError
+    ethereum.frontier.vm.error.OutOfGasError
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -59,9 +59,9 @@ def push_n(evm: Evm, num_bytes: int) -> None:
 
     Raises
     ------
-    StackOverflowError
+    ethereum.frontier.vm.error.StackOverflowError
         If `len(stack)` is equals `1024`.
-    OutOfGasError
+    ethereum.frontier.vm.error.OutOfGasError
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -89,7 +89,7 @@ def dup_n(evm: Evm, item_number: int) -> None:
 
     Raises
     ------
-    OutOfGasError
+    ethereum.frontier.vm.error.OutOfGasError
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -120,7 +120,7 @@ def swap_n(evm: Evm, item_number: int) -> None:
 
     Raises
     ------
-    OutOfGasError
+    ethereum.frontier.vm.error.OutOfGasError
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
