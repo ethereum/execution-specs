@@ -45,3 +45,24 @@ dl.field-list > dt {
     content: '\A';
     white-space: pre;
 }
+
+*[class*="change-"] + *[class*="change-"] {
+    margin-left: 0.1em;
+}
+
+.change-added, .change-removed, .change-replacement, .change-replaced {
+    padding: 0.2em;
+    border: 1px solid;
+    border-left: none;
+    border-right: none;
+}
+
+.change-added, .change-replacement {
+    background: rgba(0, 255, 0, 0.2);
+    border-color: green;
+}
+
+.change-removed, .change-replaced {
+    background: rgba(255, 0, 0, 0.2);
+    border-color: red;
+}

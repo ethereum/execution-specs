@@ -32,6 +32,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'autoapi.extension',
     'undocinclude.extension',
+    'picklebuilder.picklebuilder',
 ]
 
 autoapi_type = 'python'
@@ -41,10 +42,35 @@ autoapi_template_dir = '_templates/autoapi'
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
+# The default language to highlight source code in.
+highlight_language = 'python3'
+
+# A boolean that decides whether module names are prepended to all object
+# names (for object types where a "module" of some kind is defined), e.g.
+# for py:function directives.
+add_module_names = False
+
+# This value controls how to represent typehints (PEP 484.)
+autodoc_typehints = 'signature'
+
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
+
+if tags.has('stage0'):
+    root_doc = 'stage0'
+    exclude_patterns.append('index.rst')
+    exclude_patterns.append('diffs/**')
+
+    # Avoid generating nodes that'll always differ between hard forks to reduce
+    # noise in the diffs.
+    autodoc_typehints = 'none'
+elif tags.has('stage1'):
+    root_doc = 'index'
+    exclude_patterns.append('stage0.rst')
+else:
+    raise Exception("Pass either `-t stage0` or `-t stage1` to sphinx-build")
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -59,12 +85,9 @@ html_theme = 'alabaster'
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-autodoc_typehints = "signature"
-
 html_css_files = [
     'css/custom.css',
 ]
-
 
 def skip_max_value(app, what, name, obj, skip, options):
     """

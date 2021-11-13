@@ -1,15 +1,8 @@
-Ethereum Specification
-======================
+.. include:: stage0.rst
 
 .. toctree::
-   :maxdepth: 4
-   :caption: Contents:
+   :caption: Comparisons:
+   :maxdepth: 2
+   :hidden:
 
-   autoapi/index
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   diffs/index

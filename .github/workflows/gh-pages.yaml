@@ -28,4 +28,4 @@ jobs:
         uses: JamesIves/github-pages-deploy-action@4.1.4
         with:
           branch: gh-pages
-          folder: .tox/docs_out
+          folder: .tox/docs/stage1_out
