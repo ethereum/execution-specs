@@ -1,0 +1,12 @@
+{% extends "!layout.html" %}
+
+{% block relbar1 %}
+<div id="disclaimer">
+    The documentation tools are undergoing heavy development and may introduce
+    subtle bugs while rendering, especially in hard fork comparisons. Until this
+    warning is removed, <em>always</em> double check against the
+    <a href="https://github.com/ethereum/execution-specs/">original source</a>.
+</div>
+{{ super() }}
+{% endblock %}
+
