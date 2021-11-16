@@ -6,23 +6,23 @@ from unittest.mock import call, patch
 
 from ethereum.base_types import U256, Bytes0
 from ethereum.crypto import Hash32
-from ethereum.frontier import rlp
-from ethereum.frontier.eth_types import (
+from ethereum.homestead import rlp
+from ethereum.homestead.eth_types import (
     Account,
     Block,
     Bloom,
     Header,
     Transaction,
 )
-from ethereum.frontier.rlp import rlp_hash
-from ethereum.frontier.spec import BlockChain, state_transition
-from ethereum.frontier.state import (
+from ethereum.homestead.rlp import rlp_hash
+from ethereum.homestead.spec import BlockChain, state_transition
+from ethereum.homestead.state import (
     State,
     close_state,
     set_account,
     set_storage,
 )
-from ethereum.frontier.utils.hexadecimal import hex_to_address, hex_to_root
+from ethereum.homestead.utils.hexadecimal import hex_to_address, hex_to_root
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -60,7 +60,7 @@ def run_blockchain_st_test(
         add_blocks_to_chain(chain, test_data)
     else:
         with patch(
-            "ethereum.frontier.spec.validate_proof_of_work", autospec=True
+            "ethereum.homestead.spec.validate_proof_of_work", autospec=True
         ) as mocked_pow_validator:
             add_blocks_to_chain(chain, test_data)
             mocked_pow_validator.assert_has_calls(
@@ -207,6 +207,6 @@ def json_to_state(raw: Any) -> State:
     return state
 
 
-run_frontier_blockchain_st_tests = partial(
-    run_blockchain_st_test, network="Frontier"
+run_homestead_blockchain_st_tests = partial(
+    run_blockchain_st_test, network="Homestead"
 )

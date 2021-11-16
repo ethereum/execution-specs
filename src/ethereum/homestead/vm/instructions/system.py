@@ -147,7 +147,7 @@ def call(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ethereum.frontier.vm.interpreter import (
+    from ethereum.homestead.vm.interpreter import (
         STACK_DEPTH_LIMIT,
         process_message,
     )
@@ -237,7 +237,7 @@ def callcode(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ethereum.frontier.vm.interpreter import (
+    from ethereum.homestead.vm.interpreter import (
         STACK_DEPTH_LIMIT,
         process_message,
     )

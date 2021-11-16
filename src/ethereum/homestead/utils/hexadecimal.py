@@ -9,7 +9,7 @@ Utility Functions For Hexadecimal Strings
 Introduction
 ------------
 
-Hexadecimal utility functions used in this specification, specific to Frontier
+Hexadecimal utility functions used in this specification, specific to Homestead
 types.
 """
 from ethereum.utils.hexadecimal import remove_hex_prefix

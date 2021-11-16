@@ -35,7 +35,7 @@ def pop(stack: List[U256]) -> U256:
 
     Raises
     ------
-    ethereum.frontier.vm.error.StackUnderflowError
+    ethereum.homestead.vm.error.StackUnderflowError
         If `stack` is empty.
     """
     if len(stack) == 0:
@@ -58,7 +58,7 @@ def push(stack: List[U256], value: U256) -> None:
 
     Raises
     ------
-    ethereum.frontier.vm.error.StackOverflowError
+    ethereum.homestead.vm.error.StackOverflowError
         If `len(stack)` is `1024`.
     """
     if len(stack) == 1024:

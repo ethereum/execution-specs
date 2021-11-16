@@ -10,7 +10,7 @@ Introduction
 ------------
 
 This module contains functions can be monkey patched into
-`ethereum.frontier.state` to use an optimized database backed state.
+`ethereum.homestead.state` to use an optimized database backed state.
 """
 import logging
 from dataclasses import dataclass
@@ -19,9 +19,9 @@ from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
 
 import ethereum.crypto as crypto
 from ethereum.base_types import U256, Bytes, Uint
-from ethereum.frontier import rlp
-from ethereum.frontier.eth_types import EMPTY_ACCOUNT, Account, Address, Root
-from ethereum.frontier.trie import (
+from ethereum.homestead import rlp
+from ethereum.homestead.eth_types import EMPTY_ACCOUNT, Account, Address, Root
+from ethereum.homestead.trie import (
     EMPTY_TRIE_ROOT,
     BranchNode,
     ExtensionNode,
@@ -197,7 +197,7 @@ def rollback_db_transaction(state: State) -> None:
 
 def begin_transaction(state: State) -> None:
     """
-    See `ethereum.frontier.state`.
+    See `ethereum.homestead.state`.
     """
     if state._tx_stack == []:
         raise Exception("First transaction must be a db transaction")
@@ -209,7 +209,7 @@ def begin_transaction(state: State) -> None:
 
 def commit_transaction(state: State) -> None:
     """
-    See `ethereum.frontier.state`.
+    See `ethereum.homestead.state`.
     """
     if state._tx_stack[-1] is not None:
         raise Exception("Current transaction is a db transaction")
@@ -228,7 +228,7 @@ def commit_transaction(state: State) -> None:
 
 def rollback_transaction(state: State) -> None:
     """
-    See `ethereum.frontier.state`.
+    See `ethereum.homestead.state`.
     """
     if state._tx_stack[-1] is not None:
         raise Exception("Current transaction is a db transaction")
@@ -247,7 +247,7 @@ def get_internal_key(key: Bytes) -> Bytes:
 
 def get_storage(state: State, address: Address, key: Bytes) -> U256:
     """
-    See `ethereum.frontier.state`.
+    See `ethereum.homestead.state`.
     """
     for i in range(len(state._tx_stack) - 1, -1, -1):
         if address in state._dirty_storage[i]:
@@ -273,7 +273,7 @@ def set_storage(
     state: State, address: Address, key: Bytes, value: U256
 ) -> None:
     """
-    See `ethereum.frontier.state`.
+    See `ethereum.homestead.state`.
     """
     if address not in state._dirty_accounts[-1]:
         state._dirty_accounts[-1][address] = get_account_optional(
@@ -289,7 +289,7 @@ def set_storage(
 
 def get_account_optional(state: State, address: Address) -> Optional[Account]:
     """
-    See `ethereum.frontier.state`.
+    See `ethereum.homestead.state`.
     """
     for cache in reversed(state._dirty_accounts):
         if address in cache:
@@ -308,7 +308,7 @@ def get_account_optional(state: State, address: Address) -> Optional[Account]:
 
 def get_account(state: State, address: Address) -> Account:
     """
-    See `ethereum.frontier.state`.
+    See `ethereum.homestead.state`.
     """
     res = get_account_optional(state, address)
     if res is None:
@@ -321,7 +321,7 @@ def set_account(
     state: State, address: Address, account: Optional[Account]
 ) -> None:
     """
-    See `ethereum.frontier.state`.
+    See `ethereum.homestead.state`.
     """
     if account is None:
         state._dirty_accounts[-1][address] = None
@@ -331,7 +331,7 @@ def set_account(
 
 def destroy_account(state: State, address: Address) -> None:
     """
-    See `ethereum.frontier.state`.
+    See `ethereum.homestead.state`.
     """
     state._destroyed_accounts[-1].add(address)
     state._dirty_storage[-1].pop(address, None)

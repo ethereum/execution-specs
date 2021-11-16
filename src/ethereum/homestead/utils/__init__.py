@@ -1,5 +1,5 @@
 """
-Frontier Utility Functions
+Homestead Utility Functions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
@@ -9,5 +9,5 @@ Frontier Utility Functions
 Introduction
 ------------
 
-Utility functions used in this frontier version of specification.
+Utility functions used in this homestead version of specification.
 """

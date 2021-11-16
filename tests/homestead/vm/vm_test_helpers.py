@@ -4,20 +4,20 @@ from typing import Any, List
 
 from ethereum.base_types import U256, Uint
 from ethereum.crypto import keccak256
-from ethereum.frontier import rlp
-from ethereum.frontier.eth_types import Account, Address
-from ethereum.frontier.spec import BlockChain, get_last_256_block_hashes
-from ethereum.frontier.state import (
+from ethereum.homestead import rlp
+from ethereum.homestead.eth_types import Account, Address
+from ethereum.homestead.spec import BlockChain, get_last_256_block_hashes
+from ethereum.homestead.state import (
     State,
     close_state,
     set_account,
     set_storage,
     storage_root,
 )
-from ethereum.frontier.utils.hexadecimal import hex_to_address
-from ethereum.frontier.utils.message import prepare_message
-from ethereum.frontier.vm import Environment
-from ethereum.frontier.vm.interpreter import process_message_call
+from ethereum.homestead.utils.hexadecimal import hex_to_address
+from ethereum.homestead.utils.message import prepare_message
+from ethereum.homestead.vm import Environment
+from ethereum.homestead.vm.interpreter import process_message_call
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes32,

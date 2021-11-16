@@ -3,8 +3,8 @@ from functools import partial
 
 import pytest
 
-from tests.frontier.blockchain_st_test_helpers import (
-    run_frontier_blockchain_st_tests,
+from tests.homestead.blockchain_st_test_helpers import (
+    run_homestead_blockchain_st_tests,
 )
 
 test_dir = (
@@ -12,7 +12,7 @@ test_dir = (
     "GeneralStateTests/"
 )
 
-run_general_state_tests = partial(run_frontier_blockchain_st_tests, test_dir)
+run_general_state_tests = partial(run_homestead_blockchain_st_tests, test_dir)
 
 
 @pytest.mark.parametrize(
@@ -27,5 +27,5 @@ def test_general_state_tests(test_file: str) -> None:
     try:
         run_general_state_tests(test_file)
     except KeyError:
-        # KeyError is raised when a test_file has no tests for frontier
-        raise pytest.skip(f"{test_file} has no tests for frontier")
+        # KeyError is raised when a test_file has no tests for homestead
+        raise pytest.skip(f"{test_file} has no tests for homestead")

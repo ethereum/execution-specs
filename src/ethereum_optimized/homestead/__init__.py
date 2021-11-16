@@ -1,6 +1,6 @@
 """
-Optimized Implementations (Frontier)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Optimized Implementations (Homestead)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -18,7 +18,7 @@ def monkey_patch_optimized_state_db(state_path: Optional[str]) -> None:
     This function must be called before the state interface is imported
     anywhere.
     """
-    import ethereum.frontier.state as slow_state
+    import ethereum.homestead.state as slow_state
 
     from . import state_db as fast_state
 
@@ -53,7 +53,7 @@ def monkey_patch_optimized_spec() -> None:
     This function must be called before the spec interface is imported
     anywhere.
     """
-    import ethereum.frontier.spec as slow_spec
+    import ethereum.homestead.spec as slow_spec
 
     from . import spec as fast_spec
 

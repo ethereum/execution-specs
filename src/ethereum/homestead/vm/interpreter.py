@@ -107,7 +107,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
 
     Returns
     -------
-    evm: `ethereum.frontier.vm.Evm`
+    evm: `ethereum.homestead.vm.Evm`
         Items containing execution specific objects.
     """
     evm = process_message(message, env)
@@ -136,7 +136,7 @@ def process_message(message: Message, env: Environment) -> Evm:
 
     Returns
     -------
-    evm: `ethereum.frontier.vm.Evm`
+    evm: `ethereum.homestead.vm.Evm`
         Items containing execution specific objects
     """
     if message.depth > STACK_DEPTH_LIMIT:

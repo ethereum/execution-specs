@@ -1,5 +1,5 @@
 """
-Frontier Utility Functions For The Message Data-structure
+Homestead Utility Functions For The Message Data-structure
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
@@ -9,7 +9,7 @@ Frontier Utility Functions For The Message Data-structure
 Introduction
 ------------
 
-Message specific functions used in this frontier version of specification.
+Message specific functions used in this homestead version of specification.
 """
 from typing import Optional, Union
 
@@ -54,7 +54,7 @@ def prepare_message(
 
     Returns
     -------
-    message: `ethereum.frontier.vm.Message`
+    message: `ethereum.homestead.vm.Message`
         Items containing contract creation or message call specific data.
     """
     if isinstance(target, Bytes0):

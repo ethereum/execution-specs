@@ -4,9 +4,9 @@ from typing import List, Sequence, Tuple, Union, cast
 
 import pytest
 
-from ethereum.frontier import rlp
-from ethereum.frontier.eth_types import U256, Bytes, Uint
-from ethereum.frontier.rlp import RLP
+from ethereum.homestead import rlp
+from ethereum.homestead.eth_types import U256, Bytes, Uint
+from ethereum.homestead.rlp import RLP
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 #

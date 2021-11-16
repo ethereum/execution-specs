@@ -1,5 +1,5 @@
-from ethereum.frontier.trie import nibble_list_to_compact
-from ethereum_optimized.frontier.trie_utils import compact_to_nibble_list
+from ethereum.homestead.trie import nibble_list_to_compact
+from ethereum_optimized.homestead.trie_utils import compact_to_nibble_list
 
 
 def test_compact_to_nibble_list() -> None:

@@ -1,5 +1,5 @@
 """
-Frontier Utility Functions For Addresses
+Homestead Utility Functions For Addresses
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
@@ -9,7 +9,7 @@ Frontier Utility Functions For Addresses
 Introduction
 ------------
 
-Address specific functions used in this frontier version of specification.
+Address specific functions used in this homestead version of specification.
 """
 from typing import Union
 
@@ -51,7 +51,7 @@ def compute_contract_address(address: Address, nonce: Uint) -> Address:
 
     Returns
     -------
-    address: `ethereum.frontier.eth_types.Address`
+    address: `ethereum.homestead.eth_types.Address`
         The computed address of the new account.
     """
     computed_address = keccak256(rlp.encode([address, nonce]))

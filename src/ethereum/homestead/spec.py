@@ -788,7 +788,7 @@ def calculate_block_difficulty(
         difficulty = parent_difficulty - max_adjustment_delta
 
     # Historical Note: The difficulty bomb was not present in Ethereum at the
-    # start of Frontier, but was added shortly after launch. However since the
+    # start of Homestead, but was added shortly after launch. However since the
     # bomb has no effect prior to block 200000 we pretend it existed from
     # genesis.
     # See https://github.com/ethereum/go-ethereum/pull/1588

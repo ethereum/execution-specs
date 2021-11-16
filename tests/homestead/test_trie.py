@@ -1,8 +1,8 @@
 import json
 from typing import Any
 
-from ethereum.frontier.eth_types import Bytes
-from ethereum.frontier.trie import Trie, root, trie_set
+from ethereum.homestead.eth_types import Bytes
+from ethereum.homestead.trie import Trie, root, trie_set
 from ethereum.utils.hexadecimal import (
     has_hex_prefix,
     hex_to_bytes,

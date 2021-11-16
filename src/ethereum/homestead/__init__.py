@@ -1,5 +1,5 @@
 """
-Ethereum Frontier Hardfork
+Ethereum Homestead Hardfork
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The first Ethereum hardfork.

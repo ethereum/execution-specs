@@ -43,7 +43,7 @@ def keccak(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.frontier.vm.error.StackUnderflowError
+    ethereum.homestead.vm.error.StackUnderflowError
         If `len(stack)` is less than `2`.
     """
     # Converting memory_start_index to Uint as memory_end_index can

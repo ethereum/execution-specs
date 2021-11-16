@@ -14,8 +14,8 @@ This module contains utility functions needed by the optimized state.
 from typing import Tuple
 
 from ethereum.base_types import Bytes
-from ethereum.frontier import rlp
-from ethereum.frontier.trie import (
+from ethereum.homestead import rlp
+from ethereum.homestead.trie import (
     BranchNode,
     ExtensionNode,
     InternalNode,
@@ -27,7 +27,7 @@ from ethereum.utils.ensure import ensure
 
 def compact_to_nibble_list(bytes: Bytes) -> Tuple[Bytes, bool]:
     """
-    Performs the reverse of `ethereum.frontier.trie.nibble_list_to_compact`.
+    Performs the reverse of `ethereum.homestead.trie.nibble_list_to_compact`.
     """
     is_leaf = bool(bytes[0] & 0x20)
     parity = bool(bytes[0] & 0x10)
@@ -42,7 +42,7 @@ def compact_to_nibble_list(bytes: Bytes) -> Tuple[Bytes, bool]:
 
 def encode_internal_node_nohash(node: InternalNode) -> Bytes:
     """
-    Perform an `ethereum.frontier.trie.encode_internal_node`, but skip the
+    Perform an `ethereum.homestead.trie.encode_internal_node`, but skip the
     hashing step.
     """
     if isinstance(node, LeafNode):

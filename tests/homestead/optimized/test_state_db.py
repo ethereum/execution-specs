@@ -3,14 +3,14 @@ from typing import Any, List, Optional, Tuple
 
 import pytest
 
-import ethereum.frontier.state as state
-import ethereum.frontier.trie as normal_trie
+import ethereum.homestead.state as state
+import ethereum.homestead.trie as normal_trie
 from ethereum.base_types import U256, Bytes
-from ethereum.frontier.eth_types import EMPTY_ACCOUNT
-from ethereum.frontier.utils.hexadecimal import hex_to_address
+from ethereum.homestead.eth_types import EMPTY_ACCOUNT
+from ethereum.homestead.utils.hexadecimal import hex_to_address
 
 try:
-    import ethereum_optimized.frontier.state_db as state_db
+    import ethereum_optimized.homestead.state_db as state_db
 except ImportError:
     pass
 
@@ -50,7 +50,7 @@ def fake_get_internal_key(key: Bytes) -> Bytes:
 
 
 @pytest.mark.skipif(
-    "ethereum_optimized.frontier.state_db" not in sys.modules,
+    "ethereum_optimized.homestead.state_db" not in sys.modules,
     reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
 )
 def test_trie() -> None:
@@ -71,7 +71,7 @@ def test_trie() -> None:
 
 
 @pytest.mark.skipif(
-    "ethereum_optimized.frontier.state_db" not in sys.modules,
+    "ethereum_optimized.homestead.state_db" not in sys.modules,
     reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
 )
 def test_storage_key() -> None:
@@ -93,7 +93,7 @@ def test_storage_key() -> None:
 
 
 @pytest.mark.skipif(
-    "ethereum_optimized.frontier.state_db" not in sys.modules,
+    "ethereum_optimized.homestead.state_db" not in sys.modules,
     reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
 )
 def test_resurrection() -> None:
