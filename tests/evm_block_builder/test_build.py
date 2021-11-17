@@ -26,4 +26,4 @@ def test_simple() -> None:
 
             (rlp, h) = b11r.build(env, txs, ommers, None)
             assert rlp == expected.get("rlp")
-            assert h == expected.get("hash")
+            assert "0x" + h.hex() == expected.get("hash")
