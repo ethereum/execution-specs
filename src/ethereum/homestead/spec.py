@@ -656,8 +656,7 @@ def recover_sender(tx: Transaction) -> Address:
 
     ensure(v == 27 or v == 28)
     ensure(0 < r and r < SECP256K1N)
-    # FIXME
-    # ensure(s == 0 or s > SECP256K1N // 2 -1)
+    ensure(0 < s and s <= SECP256K1N // 2)
 
     public_key = crypto.secp256k1_recover(r, s, v - 27, signing_hash(tx))
     return Address(crypto.keccak256(public_key)[12:32])
@@ -774,9 +773,9 @@ def calculate_block_difficulty(
     parent_block_number :
         Block number of the parent block.
     timestamp :
-        Timestmap of the block.
+        Timestamp of the block.
     parent_timestamp :
-        Timestanp of the parent block.
+        Timestamp of the parent block.
     parent_difficulty :
         difficulty of the parent block.
 
@@ -792,7 +791,7 @@ def calculate_block_difficulty(
         min(parent_difficulty, GENESIS_DIFFICULTY),
     )
     # Historical Note: The difficulty bomb was not present in Ethereum at the
-    # start of Homestead, but was added shortly after launch. However since the
+    # start of Frontier, but was added shortly after launch. However since the
     # bomb has no effect prior to block 200000 we pretend it existed from
     # genesis.
     # See https://github.com/ethereum/go-ethereum/pull/1588

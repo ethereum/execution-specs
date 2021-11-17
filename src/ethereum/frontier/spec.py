@@ -649,9 +649,7 @@ def recover_sender(tx: Transaction) -> Address:
 
     ensure(v == 27 or v == 28)
     ensure(0 < r and r < SECP256K1N)
-
-    # TODO: this causes error starting in block 46169 (or 46170?)
-    # assert 0<s_int and s_int<(SECP256K1N//2+1)
+    ensure(0 < s and s < SECP256K1N)
 
     public_key = crypto.secp256k1_recover(r, s, v - 27, signing_hash(tx))
     return Address(crypto.keccak256(public_key)[12:32])
@@ -766,13 +764,13 @@ def calculate_block_difficulty(
     Parameters
     ----------
     number :
-        Block number of the block
+        Block number of the block.
     timestamp :
-        Timestmap of the block
+        Timestamp of the block.
     parent_timestamp :
-        Timestanp of the parent block
+        Timestamp of the parent block.
     parent_difficulty :
-        difficulty of the parent block
+        difficulty of the parent block.
 
     Returns
     -------
