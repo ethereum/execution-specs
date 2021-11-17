@@ -1,6 +1,6 @@
 """
 Ethereum Homestead Hardfork
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The first Ethereum hardfork.
 """
