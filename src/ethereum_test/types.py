@@ -3,16 +3,12 @@ Useful types for generating Ethereum tests.
 """
 import json
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import List, Mapping, Optional, Tuple, Type
 
-from ethereum.base_types import U256, Bytes, Bytes20, Uint
 from ethereum.crypto import Hash32
-from ethereum.frontier.eth_types import Address, Header
-from ethereum.frontier.utils.hexadecimal import hex_to_address
-from ethereum.utils.hexadecimal import hex_to_hash
+from ethereum.frontier.eth_types import Header
 
-from .code import Code
 from .common import AddrAA, TestPrivateKey
 
 
@@ -57,7 +53,7 @@ class Transaction:
     """
 
     ty: int
-    nonce: int = U256(0)
+    nonce: int = 0
     to: Optional[str] = AddrAA
     value: int = 0
     data: str = ""
@@ -113,8 +109,14 @@ class Fixture:
 
 
 class JSONEncoder(json.JSONEncoder):
+    """
+    Custom JSON encoder for `ethereum_test` types.
+    """
+
     def default(self, obj):
-        print("HELLO")
+        """
+        Enocdes types defined in this module using basic python facilities.
+        """
         if isinstance(obj, Account):
             return {
                 "nonce": str(obj.nonce),
@@ -154,6 +156,7 @@ class JSONEncoder(json.JSONEncoder):
                 tx["maxFeePerGas"] = hex(obj.max_fee_per_gas)
             if obj.secret_key is not None:
                 tx["secretKey"] = obj.secret_key
+
             return tx
         elif isinstance(obj, Environment):
             return {

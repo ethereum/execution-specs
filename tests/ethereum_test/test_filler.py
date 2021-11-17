@@ -1,4 +1,3 @@
-from ethereum_test.common import TestPrivateKey
 from ethereum_test.filler import fill_fixture, StateTest
 from ethereum_test.helpers import AddrAA
 from ethereum_test.types import Account, Environment, Transaction
@@ -24,6 +23,7 @@ def test_fill_state_test():
     )
 
     test = StateTest(Environment(base_fee=0x7), pre, pre, [tx])
-    fixture = fill_fixture(test, "london", "ethash")
+    fixture = fill_fixture(test, "London", "ethash")
 
     print(fixture)
+    assert False

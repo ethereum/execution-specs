@@ -24,6 +24,6 @@ def test_simple() -> None:
             env = json.load(env)
             expected = json.load(exp)
 
-            (alloc, result) = t8n.evaluate(alloc, txs, env)
+            (alloc, result) = t8n.evaluate(alloc, txs, env, "Berlin")
             assert alloc == expected.get("alloc")
             assert result == expected.get("result")

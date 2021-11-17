@@ -2,13 +2,15 @@
 Filler object definitions.
 """
 import json
+import os
+import tempfile
 
 from dataclasses import dataclass
 from typing import Callable, List, Mapping, Tuple
 
 from ethereum.base_types import Bytes8, Bytes32, Uint
 from ethereum.crypto import Hash32
-from ethereum.frontier.eth_types import Address, Bloom, Header
+from ethereum.frontier.eth_types import Bloom, Header
 from ethereum.utils.hexadecimal import hex_to_hash
 
 from evm_transition_tool import TransitionTool
@@ -35,14 +37,10 @@ class StateTest:
     post: Mapping[str, Account]
     txs: List[Transaction]
 
-    def make_genesis(
-        self,
-        t8n: TransitionTool,
-    ) -> Header:
+    def make_genesis(self, t8n: TransitionTool, fork: str) -> Header:
         """
         Create a genesis block from the state test definition.
         """
-        print("making genesis")
         genesis = Header(
             parent_hash=hex_to_hash(
                 "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
@@ -52,7 +50,7 @@ class StateTest:
             ),
             coinbase=self.env.coinbase,
             state_root=t8n.calc_state_root(
-                json.loads(json.dumps(self.pre, cls=JSONEncoder))
+                json.loads(json.dumps(self.pre, cls=JSONEncoder)), fork
             ),
             transactions_root=EmptyTrieRoot,
             receipt_root=EmptyTrieRoot,
@@ -71,9 +69,7 @@ class StateTest:
         return genesis
 
     def make_block(
-        self,
-        b11r: BlockBuilder,
-        t8n: TransitionTool,
+        self, b11r: BlockBuilder, t8n: TransitionTool, fork: str
     ) -> Tuple[str, Hash32]:
         """
         Create a block from the state test definition.
@@ -82,20 +78,26 @@ class StateTest:
         txs = json.loads(json.dumps(self.txs, cls=JSONEncoder))
         env = json.loads(json.dumps(self.env, cls=JSONEncoder))
 
-        (_, result) = t8n.evaluate(pre, txs, env)
+        with tempfile.TemporaryDirectory() as directory:
+            txsRlp = os.path.join(directory, "txs.rlp")
+            (_, result) = t8n.evaluate(pre, txs, env, fork, txsPath=txsRlp)
+            with open(txsRlp, "r") as file:
+                txs = file.read().strip('"')
+
         header = result | {
             "parentHash": self.env.previous,
             "miner": self.env.coinbase,
             "transactionsRoot": result.get("txRoot"),
             "receiptsRoot": result.get("receiptRoot"),
-            "difficulty": self.env.difficulty,
-            "number": self.env.number,
-            "gasLimit": self.env.gas_limit,
-            "timestamp": self.env.timestamp,
-            "baseFeePerGas": self.env.base_fee,
+            "difficulty": hex(self.env.difficulty),
+            "number": str(self.env.number),
+            "gasLimit": str(self.env.gas_limit),
+            "timestamp": str(self.env.timestamp),
         }
+        if self.env.base_fee is not None:
+            header["baseFeePerGas"] = str(self.env.base_fee)
 
-        return b11r.build(header, self.txs, [], None)
+        return b11r.build(header, txs, [], None)
 
 
 #  def test_from(
@@ -132,8 +134,8 @@ def fill_fixture(test: StateTest, fork: str, engine: str) -> Fixture:
     b11r = BlockBuilder()
     t8n = TransitionTool()
 
-    genesis = test.make_genesis(t8n)
-    (block, head) = test.make_block(b11r, t8n)
+    genesis = test.make_genesis(t8n, fork)
+    (block, head) = test.make_block(b11r, t8n, fork)
 
     return Fixture(
         blocks=[block],
