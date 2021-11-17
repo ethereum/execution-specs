@@ -5,7 +5,7 @@ Python wrapper for the `evm t8n` tool.
 import json
 import subprocess
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any, Optional, Tuple
 
 from ethereum.crypto import Hash32
 
@@ -22,6 +22,10 @@ class TransitionTool:
         alloc: Any,
         txs: Any,
         env: Any,
+        fork: str,
+        chain_id: int = 1,
+        reward: int = 0,
+        txsPath: Optional[str] = None,
     ) -> Tuple[Any, Any]:
         """
         Executes `evm t8n` with the specified arguments.
@@ -34,20 +38,26 @@ class TransitionTool:
             "--input.env=stdin",
             "--output.result=stdout",
             "--output.alloc=stdout",
-            "--state.fork=London",
+            f"--state.fork={fork}",
+            f"--state.chainid={chain_id}",
+            f"--state.reward={reward}",
         ]
+
+        if txsPath is not None:
+            args.append(f"--output.body={txsPath}")
+
         stdin = {
             "alloc": alloc,
             "txs": txs,
             "env": env,
         }
-        print(str(json.dumps(stdin)))
+
         result = subprocess.run(
             args, input=str.encode(json.dumps(stdin)), stdout=subprocess.PIPE
         )
 
         if result.returncode != 0:
-            raise Exception("Failed to evaluate: " + str(result.stderr))
+            raise Exception("Failed to evaluate")
 
         output = json.loads(result.stdout)
 
@@ -56,7 +66,7 @@ class TransitionTool:
 
         return (output["alloc"], output["result"])
 
-    def calc_state_root(self, alloc: Any) -> Hash32:
+    def calc_state_root(self, alloc: Any, fork: str) -> Hash32:
         """
         Calculate the state root for the given `alloc`.
         """
@@ -67,5 +77,8 @@ class TransitionTool:
             "currentNumber": "0",
             "currentTimestamp": "0",
         }
-        (_, result) = self.evaluate(alloc, [], env)
+        if fork == "London":
+            env["currentBaseFee"] = hex(0x7)
+
+        (_, result) = self.evaluate(alloc, [], env, fork)
         return result.get("stateRoot")
