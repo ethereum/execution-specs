@@ -7,6 +7,9 @@ import subprocess
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
+from ethereum.crypto import Hash32
+from ethereum.utils.hexadecimal import hex_to_hash
+
 
 class BlockBuilder:
     """
@@ -17,13 +20,13 @@ class BlockBuilder:
 
     def build(
         self,
-        env: Any,
+        header: Any,
         txs: Any,
         ommers: Any,
         clique: Optional[Any],
         ethash: bool = False,
         ethashMode: str = "normal",
-    ) -> Tuple[str, str]:
+    ) -> Tuple[str, Hash32]:
         """
         Executes `evm b11r` with the specified arguments.
         """
@@ -42,12 +45,11 @@ class BlockBuilder:
             args.append("--seal.ethash.mode=" + ethashMode)
 
         stdin = {
-            "header": env,
+            "header": header,
             "txs": txs,
             "uncles": ommers,
             "clique": clique,
         }
-        print(str.encode(json.dumps(stdin)))
         result = subprocess.run(
             args, input=str.encode(json.dumps(stdin)), stdout=subprocess.PIPE
         )
@@ -60,4 +62,4 @@ class BlockBuilder:
         if "rlp" not in output or "hash" not in output:
             Exception("Malformed result")
 
-        return (output["rlp"], output["hash"])
+        return (output["rlp"], hex_to_hash(output["hash"]))

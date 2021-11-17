@@ -28,8 +28,8 @@ class Filler:
         parser = argparse.ArgumentParser()
 
         parser.add_argument(
-            "--t8n-tool",
-            help="path to evm t8n executable",
+            "--evm-bin",
+            help="path to evm executable",
             default="evm",
         )
 
