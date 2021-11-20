@@ -26,7 +26,7 @@ class BlockBuilder:
         clique: Optional[Any],
         ethash: bool = False,
         ethashMode: str = "normal",
-    ) -> Tuple[str, Hash32]:
+    ) -> Tuple[str, str]:
         """
         Executes `evm b11r` with the specified arguments.
         """
@@ -62,4 +62,4 @@ class BlockBuilder:
         if "rlp" not in output or "hash" not in output:
             Exception("Malformed result")
 
-        return (output["rlp"], hex_to_hash(output["hash"]))
+        return (output["rlp"], output["hash"])

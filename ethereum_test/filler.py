@@ -10,7 +10,7 @@ from typing import Callable, List, Mapping, Tuple
 
 from ethereum.base_types import Bytes8, Bytes32, Uint
 from ethereum.crypto import Hash32
-from ethereum.frontier.eth_types import Bloom, Header
+from ethereum.frontier.eth_types import Bloom
 from ethereum.utils.hexadecimal import hex_to_hash
 
 from evm_transition_tool import TransitionTool
@@ -21,6 +21,7 @@ from .types import (
     Account,
     Environment,
     Fixture,
+    Header,
     JSONEncoder,
     Transaction,
 )
@@ -42,35 +43,36 @@ class StateTest:
         Create a genesis block from the state test definition.
         """
         genesis = Header(
-            parent_hash=hex_to_hash(
-                "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
-            ),
-            ommers_hash=hex_to_hash(
-                "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"  # noqa: E501
-            ),
+            parent_hash="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
+            ommers_hash="0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",  # noqa: E501
             coinbase=self.env.coinbase,
             state_root=t8n.calc_state_root(
                 json.loads(json.dumps(self.pre, cls=JSONEncoder)), fork
             ),
             transactions_root=EmptyTrieRoot,
             receipt_root=EmptyTrieRoot,
-            bloom=Bloom(bytearray(256)),
+            bloom="0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
             difficulty=self.env.difficulty,
-            number=self.env.number,
-            # TODO: following block will have invalid gas limit after 1559
+            number=self.env.number - 1,
             gas_limit=self.env.gas_limit,
-            gas_used=Uint(0),
-            timestamp=self.env.timestamp,
-            extra_data=bytearray(),
-            mix_digest=Bytes32(bytearray(32)),
-            nonce=Bytes8(bytearray(8)),
+            gas_used=0,
+            timestamp=0,
+            extra_data="0x00",
+            mix_digest="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
+            nonce="0x0000000000000000",
+            base_fee=None,
         )
 
         return genesis
 
     def make_block(
-        self, b11r: BlockBuilder, t8n: TransitionTool, fork: str
-    ) -> Tuple[str, Hash32]:
+        self,
+        b11r: BlockBuilder,
+        t8n: TransitionTool,
+        fork: str,
+        chain_id=1,
+        reward=0,
+    ) -> Tuple[str, str]:
         """
         Create a block from the state test definition.
         """
@@ -80,7 +82,15 @@ class StateTest:
 
         with tempfile.TemporaryDirectory() as directory:
             txsRlp = os.path.join(directory, "txs.rlp")
-            (_, result) = t8n.evaluate(pre, txs, env, fork, txsPath=txsRlp)
+            (_, result) = t8n.evaluate(
+                pre,
+                txs,
+                env,
+                fork,
+                txsPath=txsRlp,
+                chain_id=chain_id,
+                reward=reward,
+            )
             with open(txsRlp, "r") as file:
                 txs = file.read().strip('"')
 
@@ -88,14 +98,18 @@ class StateTest:
             "parentHash": self.env.previous,
             "miner": self.env.coinbase,
             "transactionsRoot": result.get("txRoot"),
-            "receiptsRoot": result.get("receiptRoot"),
             "difficulty": hex(self.env.difficulty),
             "number": str(self.env.number),
             "gasLimit": str(self.env.gas_limit),
             "timestamp": str(self.env.timestamp),
+            "extraData": self.env.extra_data
+            if len(self.env.extra_data) != 0
+            else "0x",
         }
         if self.env.base_fee is not None:
             header["baseFeePerGas"] = str(self.env.base_fee)
+
+        print(header)
 
         return b11r.build(header, txs, [], None)
 
@@ -135,13 +149,15 @@ def fill_fixture(test: StateTest, fork: str, engine: str) -> Fixture:
     t8n = TransitionTool()
 
     genesis = test.make_genesis(t8n, fork)
-    (block, head) = test.make_block(b11r, t8n, fork)
+    (block, head) = test.make_block(
+        b11r, t8n, fork, reward=2000000000000000000
+    )
 
     return Fixture(
         blocks=[block],
         genesis=genesis,
         head=head,
         fork=fork,
-        preState=test.pre,
-        sealEngine=engine,
+        pre_state=test.pre,
+        seal_engine=engine,
     )

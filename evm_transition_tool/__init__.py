@@ -7,8 +7,6 @@ import subprocess
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
-from ethereum.crypto import Hash32
-
 
 class TransitionTool:
     """
@@ -52,6 +50,8 @@ class TransitionTool:
             "env": env,
         }
 
+        #  print(" ".join(args))
+        #  print(str.encode(json.dumps(stdin)))
         result = subprocess.run(
             args, input=str.encode(json.dumps(stdin)), stdout=subprocess.PIPE
         )
@@ -66,14 +66,14 @@ class TransitionTool:
 
         return (output["alloc"], output["result"])
 
-    def calc_state_root(self, alloc: Any, fork: str) -> Hash32:
+    def calc_state_root(self, alloc: Any, fork: str) -> str:
         """
         Calculate the state root for the given `alloc`.
         """
         env = {
             "currentCoinbase": "0x0000000000000000000000000000000000000000",
-            "currentDifficulty": "0x00",
-            "currentGasLimit": "0x00",
+            "currentDifficulty": "0x0",
+            "currentGasLimit": "0x0",
             "currentNumber": "0",
             "currentTimestamp": "0",
         }

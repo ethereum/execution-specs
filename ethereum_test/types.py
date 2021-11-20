@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import List, Mapping, Optional, Tuple, Type
 
 from ethereum.crypto import Hash32
-from ethereum.frontier.eth_types import Header
 
 from .common import AddrAA, TestPrivateKey
 
@@ -43,6 +42,7 @@ class Environment:
     number: int = 1
     timestamp: int = 1000
     previous: str = "0x5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6"  # noqa: E501
+    extra_data: str = "0x"
     base_fee: Optional[int] = None
 
 
@@ -53,6 +53,7 @@ class Transaction:
     """
 
     ty: int
+    chain_id: int = 1
     nonce: int = 0
     to: Optional[str] = AddrAA
     value: int = 0
@@ -66,6 +67,7 @@ class Transaction:
 
     signature: Optional[Tuple[str, str, str]] = None
     secret_key: Optional[str] = None
+    protected: bool = True
 
     def __post_init__(self) -> None:
         """
@@ -95,6 +97,30 @@ class Transaction:
 
 
 @dataclass
+class Header:
+    """
+    Ethereum header object.
+    """
+
+    parent_hash: str
+    ommers_hash: str
+    coinbase: str
+    state_root: str
+    transactions_root: str
+    receipt_root: str
+    bloom: str
+    difficulty: int
+    number: int
+    gas_limit: int
+    gas_used: int
+    timestamp: int
+    extra_data: str
+    mix_digest: str
+    nonce: str
+    base_fee: Optional[int]
+
+
+@dataclass
 class Fixture:
     """
     Cross-client compatible Ethereum test fixture.
@@ -102,10 +128,10 @@ class Fixture:
 
     blocks: List[str]
     genesis: Header
-    head: Hash32
+    head: str
     fork: str
-    preState: Mapping[str, Account]
-    sealEngine: str
+    pre_state: Mapping[str, Account]
+    seal_engine: str
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -119,15 +145,15 @@ class JSONEncoder(json.JSONEncoder):
         """
         if isinstance(obj, Account):
             return {
-                "nonce": str(obj.nonce),
-                "balance": str(obj.balance),
-                "code": obj.code,
-                "storage": obj.storage,
+                "nonce": hex(obj.nonce),
+                "balance": hex(obj.balance),
+                "code": obj.code if len(obj.code) != 0 else "0x",
+                "storage": obj.storage if obj.storage is not None else {},
             }
         elif isinstance(obj, Transaction):
             tx = {
                 "type": hex(obj.ty),
-                "chainId": hex(1),
+                "chainId": hex(obj.chain_id),
                 "nonce": hex(obj.nonce),
                 "gasPrice": None,
                 "maxPriorityFeePerGas": None,
@@ -137,6 +163,7 @@ class JSONEncoder(json.JSONEncoder):
                 "input": obj.data,
                 "to": obj.to,
                 "accessList": obj.access_list,
+                "protected": obj.protected
             }
 
             if obj.signature is None:
@@ -173,6 +200,37 @@ class JSONEncoder(json.JSONEncoder):
                 if obj.base_fee is not None
                 else None,
                 "parentUncleHash": None,
+            }
+        elif isinstance(obj, Header):
+            header = {
+                "parentHash": obj.parent_hash,
+                "uncleHash": obj.ommers_hash,
+                "coinbase": obj.coinbase,
+                "stateRoot": obj.state_root,
+                "transactionsTrie": obj.transactions_root,
+                "receiptTrie": obj.receipt_root,
+                "bloom": obj.bloom,
+                "difficulty": hex(obj.difficulty),
+                "number": hex(obj.number),
+                "gasLimit": hex(obj.gas_limit),
+                "gasUsed": hex(obj.gas_used),
+                "timestamp": hex(obj.timestamp),
+                "extraData": obj.extra_data if len(obj.extra_data) != 0 else "0x",  # noqa: E501
+                "mixHash": obj.mix_digest,
+                "nonce": obj.nonce,
+            }
+            if obj.base_fee is not None:
+                header["baseFeePerGas"] = hex(obj.base_fee)
+            return header
+        elif isinstance(obj, Fixture):
+            return {
+                "_info": {},
+                "blocks": list(map(lambda x: {"rlp": x}, obj.blocks)),
+                "genesisBlockHeader": self.default(obj.genesis),
+                "lastblockhash": obj.head,
+                "network": obj.fork,
+                "pre": json.loads(json.dumps(obj.pre_state, cls=JSONEncoder)),
+                "sealEngine": obj.seal_engine,
             }
         else:
             return super().default(obj)
