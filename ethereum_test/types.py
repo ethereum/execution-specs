@@ -4,9 +4,7 @@ Useful types for generating Ethereum tests.
 import json
 
 from dataclasses import dataclass
-from typing import List, Mapping, Optional, Tuple, Type
-
-from ethereum.crypto import Hash32
+from typing import Any, List, Mapping, Optional, Tuple, Type
 
 from .common import AddrAA, TestPrivateKey
 
@@ -118,6 +116,32 @@ class Header:
     mix_digest: str
     nonce: str
     base_fee: Optional[int]
+    hash: Optional[str] = None
+
+    def to_geth_dict(self) -> Mapping[str, Any]:
+        """
+        Outputs a dict that can be marshalled to JSON and ingested by geth.
+        """
+        header = {
+            "parentHash": self.parent_hash,
+            "sha3Uncles": self.ommers_hash,
+            "miner": self.coinbase,
+            "stateRoot": self.state_root,
+            "transactionsRoot": self.transactions_root,
+            "receiptsRoot": self.receipt_root,
+            "logsBloom": self.bloom,
+            "difficulty": hex(self.difficulty),
+            "number": hex(self.number),
+            "gasLimit": hex(self.gas_limit),
+            "gasUsed": hex(self.gas_used),
+            "timestamp": hex(self.timestamp),
+            "extraData": self.extra_data if len(self.extra_data) != 0 else "0x",  # noqa: E501
+            "mixHash": self.mix_digest,
+            "nonce": self.nonce,
+        }
+        if self.base_fee is not None:
+            header["baseFeePerGas"] = hex(self.base_fee)
+        return header
 
 
 @dataclass
@@ -221,6 +245,8 @@ class JSONEncoder(json.JSONEncoder):
             }
             if obj.base_fee is not None:
                 header["baseFeePerGas"] = hex(obj.base_fee)
+            if obj.hash is not None:
+                header["hash"] = obj.hash
             return header
         elif isinstance(obj, Fixture):
             return {

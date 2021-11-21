@@ -23,7 +23,7 @@ class BlockBuilder:
         header: Any,
         txs: Any,
         ommers: Any,
-        clique: Optional[Any],
+        clique: Optional[Any] = None,
         ethash: bool = False,
         ethashMode: str = "normal",
     ) -> Tuple[str, str]:
@@ -50,6 +50,7 @@ class BlockBuilder:
             "uncles": ommers,
             "clique": clique,
         }
+        print(str.encode(json.dumps(stdin)))
         result = subprocess.run(
             args, input=str.encode(json.dumps(stdin)), stdout=subprocess.PIPE
         )
