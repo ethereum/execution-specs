@@ -38,7 +38,9 @@ class StateTest:
     post: Mapping[str, Account]
     txs: List[Transaction]
 
-    def make_genesis(self, t8n: TransitionTool, fork: str) -> Header:
+    def make_genesis(
+        self, b11r: BlockBuilder, t8n: TransitionTool, fork: str
+    ) -> Header:
         """
         Create a genesis block from the state test definition.
         """
@@ -62,6 +64,9 @@ class StateTest:
             nonce="0x0000000000000000",
             base_fee=None,
         )
+
+        (_, h) = b11r.build(genesis.to_geth_dict(), "", [])
+        genesis.hash = h
 
         return genesis
 
@@ -109,8 +114,6 @@ class StateTest:
         if self.env.base_fee is not None:
             header["baseFeePerGas"] = str(self.env.base_fee)
 
-        print(header)
-
         return b11r.build(header, txs, [], None)
 
 
@@ -148,7 +151,7 @@ def fill_fixture(test: StateTest, fork: str, engine: str) -> Fixture:
     b11r = BlockBuilder()
     t8n = TransitionTool()
 
-    genesis = test.make_genesis(t8n, fork)
+    genesis = test.make_genesis(b11r, t8n, fork)
     (block, head) = test.make_block(
         b11r, t8n, fork, reward=2000000000000000000
     )

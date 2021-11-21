@@ -15,6 +15,7 @@ ethash
 ethereum
 evm
 fn
+geth
 hash32
 listdir
 ispkg
