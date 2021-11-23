@@ -121,8 +121,11 @@ def process_create_message(message: Message, env: Environment) -> Evm:
             evm.gas_left = subtract_gas(evm.gas_left, contract_code_gas)
         except OutOfGasError:
             rollback_transaction(env.state)
-            evm.has_erred = True
             evm.gas_left = U256(0)
+            evm.logs = ()
+            evm.accounts_to_delete = set()
+            evm.refund_counter = U256(0)
+            evm.has_erred = True
         else:
             set_code(env.state, message.current_target, contract_code)
             commit_transaction(env.state)
