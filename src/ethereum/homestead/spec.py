@@ -752,12 +752,12 @@ def calculate_block_difficulty(
     difficulty : `ethereum.base_types.Uint`
         Computed difficulty for a block.
     """
-    offset = int(parent_difficulty) // 2048
-    sign = max(1 - (int(timestamp) - int(parent_timestamp)) // 10, -99)
-    difficulty = max(
-        int(parent_difficulty) + offset * sign,
-        min(parent_difficulty, GENESIS_DIFFICULTY),
+    offset = (
+        int(parent_difficulty)
+        // 2048
+        * max(1 - int(timestamp - parent_timestamp) // 10, -99)
     )
+    difficulty = int(parent_difficulty) + offset
     # Historical Note: The difficulty bomb was not present in Ethereum at the
     # start of Frontier, but was added shortly after launch. However since the
     # bomb has no effect prior to block 200000 we pretend it existed from
@@ -769,4 +769,4 @@ def calculate_block_difficulty(
             max(difficulty + 2 ** num_bomb_periods, GENESIS_DIFFICULTY)
         )
     else:
-        return Uint(difficulty)
+        return Uint(max(difficulty, GENESIS_DIFFICULTY))
