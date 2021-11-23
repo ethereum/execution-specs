@@ -606,7 +606,10 @@ class Sync:
             if block is None:
                 break
 
-            block_number = block.header.number
+            try:
+                block_number = self.chain.blocks[-1].header.number + 1
+            except IndexError:
+                block_number = 0
 
             if self.next_fork and block_number >= self.next_fork.block:
                 self.log.debug("applying %s fork...", self.next_fork.name)
