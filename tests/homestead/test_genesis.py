@@ -3,8 +3,8 @@ from typing import List, cast
 
 import pytest
 
+from ethereum import rlp
 from ethereum.base_types import U256, Bytes
-from ethereum.homestead import rlp
 from ethereum.homestead.genesis import genesis_configuration
 
 MAINNET_GENESIS_CONFIGURATION = genesis_configuration("mainnet.json")

@@ -16,7 +16,7 @@ from typing import Union
 from ethereum.base_types import U256, Uint
 from ethereum.crypto import keccak256
 
-from .. import rlp
+from ... import rlp
 from ..eth_types import Address
 
 

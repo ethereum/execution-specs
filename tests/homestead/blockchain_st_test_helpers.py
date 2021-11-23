@@ -4,9 +4,9 @@ from functools import partial
 from typing import Any, Dict, List, Tuple, cast
 from unittest.mock import call, patch
 
+from ethereum import rlp
 from ethereum.base_types import U256, Bytes0
 from ethereum.crypto import Hash32
-from ethereum.homestead import rlp
 from ethereum.homestead.eth_types import (
     Account,
     Block,
@@ -14,7 +14,6 @@ from ethereum.homestead.eth_types import (
     Header,
     Transaction,
 )
-from ethereum.homestead.rlp import rlp_hash
 from ethereum.homestead.spec import BlockChain, state_transition
 from ethereum.homestead.state import (
     State,
@@ -23,6 +22,7 @@ from ethereum.homestead.state import (
     set_storage,
 )
 from ethereum.homestead.utils.hexadecimal import hex_to_address, hex_to_root
+from ethereum.rlp import rlp_hash
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -123,7 +123,7 @@ def json_to_blocks(
         if "blockHeader" not in json_block and "rlp" in json_block:
             # Some blocks are represented by only the RLP and not the block details
             block_rlp = hex_to_bytes(json_block["rlp"])
-            block = rlp.decode_to_block(block_rlp)
+            block = rlp.decode_to(Block, block_rlp)
             blocks.append(block)
             block_header_hashes.append(rlp.rlp_hash(block.header))
             block_rlps.append(block_rlp)

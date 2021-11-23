@@ -193,10 +193,10 @@ def decode_to(cls: Type[T], encoded_data: Bytes) -> T:
     decoded_data : `T`
         Object decoded from `encoded_data`.
     """
-    return decode_to_(cls, decode(encoded_data))
+    return _decode_to(cls, decode(encoded_data))
 
 
-def decode_to_(cls: Type[T], raw_rlp: RLP) -> T:
+def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
     """
     Decode the rlp structure in `encoded_data` to an object of type `cls`.
     `cls` can be a `Bytes` subclass, a dataclass, `Uint`, `U256` or
@@ -218,7 +218,7 @@ def decode_to_(cls: Type[T], raw_rlp: RLP) -> T:
         ensure(type(raw_rlp) == list)
         args = []
         for raw_item in raw_rlp:
-            args.append(decode_to_(cls.__args__[0], raw_item))  # type: ignore
+            args.append(_decode_to(cls.__args__[0], raw_item))  # type: ignore
         return tuple(args)  # type: ignore
     elif cls == Union[Bytes0, Bytes20]:
         # We can't support Union types in general, so we support this one
@@ -244,7 +244,7 @@ def decode_to_(cls: Type[T], raw_rlp: RLP) -> T:
         args = []
         # FIXME: Add length check
         for (field, rlp_item) in zip(fields(cls), raw_rlp):
-            args.append(decode_to_(field.type, rlp_item))
+            args.append(_decode_to(field.type, rlp_item))
         return cls(*args)
     else:
         raise TypeError("RLP Decoding to type {} is not supported".format(cls))
