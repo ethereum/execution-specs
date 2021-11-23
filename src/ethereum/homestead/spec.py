@@ -39,7 +39,6 @@ from .eth_types import (
     Root,
     Transaction,
 )
-from .genesis import genesis_configuration
 from .state import (
     State,
     create_ether,
@@ -70,7 +69,7 @@ class BlockChain:
     state: State
 
 
-def apply_fork(old: None) -> BlockChain:
+def apply_fork(old: BlockChain) -> BlockChain:
     """
     Transforms the state from the previous hard fork (`old`) into the block
     chain object for this hard fork and returns it.
@@ -85,38 +84,7 @@ def apply_fork(old: None) -> BlockChain:
     new : `BlockChain`
         Upgraded block chain object for this hard fork.
     """
-    genesis = genesis_configuration("mainnet.json")
-
-    state = State()
-
-    for account, balance in genesis.initial_balances.items():
-        create_ether(state, account, balance)
-
-    genesis_header = Header(
-        parent_hash=Hash32(b"\0" * 32),
-        ommers_hash=rlp.rlp_hash(()),
-        coinbase=Address(b"\0" * 20),
-        state_root=state_root(state),
-        transactions_root=root(Trie(False, None)),
-        receipt_root=root(Trie(False, None)),
-        bloom=Bloom(b"\0" * 256),
-        difficulty=genesis.difficulty,
-        number=Uint(0),
-        gas_limit=genesis.gas_limit,
-        gas_used=Uint(0),
-        timestamp=genesis.timestamp,
-        extra_data=genesis.extra_data,
-        mix_digest=Hash32(b"\0" * 32),
-        nonce=genesis.nonce,
-    )
-
-    genesis_block = Block(
-        header=genesis_header,
-        transactions=(),
-        ommers=(),
-    )
-
-    return BlockChain(blocks=[genesis_block], state=state)
+    return old
 
 
 def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
