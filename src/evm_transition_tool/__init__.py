@@ -50,8 +50,6 @@ class TransitionTool:
             "env": env,
         }
 
-        #  print(" ".join(args))
-        #  print(str.encode(json.dumps(stdin)))
         result = subprocess.run(
             args, input=str.encode(json.dumps(stdin)), stdout=subprocess.PIPE
         )

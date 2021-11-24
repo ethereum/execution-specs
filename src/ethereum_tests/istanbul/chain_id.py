@@ -1,16 +1,11 @@
-"""
-Test suite for `ethereum_test` module.
-"""
-
-import json
-
-from ethereum_test.filler import fill_fixture, StateTest
-from ethereum_test.types import Account, Environment, JSONEncoder, Transaction
+from ethereum_test.types import Account, Environment, Transaction
+from ethereum_test.filler import StateTest, test_only
 
 
-def test_fill_state_test():
+@test_only("istanbul")
+def test_chain_id():
     """
-    Test `ethereum_test.filler.fill_fixture` with `StateTest`.
+    Test CHAINID opcode.
     """
     env = Environment(
         coinbase="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
@@ -47,10 +42,4 @@ def test_fill_state_test():
         ),
     }
 
-    test = StateTest(env, pre, post, [tx])
-    fixture = fill_fixture(test, "Istanbul", "NoProof")
-
-    with open("tests/ethereum_test/fixtures/chainid_filled.json") as f:
-        expected = json.load(f)
-
-    assert json.loads(json.dumps(fixture, cls=JSONEncoder)) == expected
+    return StateTest(env, pre, post, [tx])

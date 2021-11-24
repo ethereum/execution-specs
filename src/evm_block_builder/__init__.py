@@ -7,9 +7,6 @@ import subprocess
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
-from ethereum.crypto import Hash32
-from ethereum.utils.hexadecimal import hex_to_hash
-
 
 class BlockBuilder:
     """
@@ -50,13 +47,13 @@ class BlockBuilder:
             "uncles": ommers,
             "clique": clique,
         }
-        print(str.encode(json.dumps(stdin)))
+
         result = subprocess.run(
             args, input=str.encode(json.dumps(stdin)), stdout=subprocess.PIPE
         )
 
         if result.returncode != 0:
-            raise Exception("Failed to evaluate: " + str(result.stderr))
+            raise Exception("Failed to build")
 
         output = json.loads(result.stdout)
 
