@@ -8,11 +8,6 @@ import tempfile
 from dataclasses import dataclass
 from typing import Callable, List, Mapping, Tuple
 
-from ethereum.base_types import Bytes8, Bytes32, Uint
-from ethereum.crypto import Hash32
-from ethereum.frontier.eth_types import Bloom
-from ethereum.utils.hexadecimal import hex_to_hash
-
 from evm_transition_tool import TransitionTool
 from evm_block_builder import BlockBuilder
 
@@ -132,16 +127,27 @@ class StateTest:
 #      return inner
 
 
-def test_only(fork: str) -> Callable[[Callable[[], StateTest], str], Fixture]:
+def test_only(
+    fork: str,
+) -> Callable[[Callable[[], StateTest]], Callable[[str], Fixture]]:
     """
     Decorator that takes a test generator and fills it only for the specified
     fork.
     """
+    fork = fork.capitalize()
 
-    def inner(fn: Callable[[], StateTest], engine: str) -> Fixture:
-        return fill_fixture(fn(), fork, engine)
+    def decorator(fn: Callable[[], StateTest]) -> Callable[[str], Fixture]:
+        def inner(engine) -> Fixture:
+            return fill_fixture(fn(), fork, engine)
 
-    return inner
+        inner.__filler_metadata__ = {
+            "fork": fork,
+            "name": fn.__name__,
+        }
+
+        return inner
+
+    return decorator
 
 
 def fill_fixture(test: StateTest, fork: str, engine: str) -> Fixture:
