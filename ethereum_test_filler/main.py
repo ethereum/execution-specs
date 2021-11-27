@@ -32,7 +32,8 @@ class Filler:
 
         parser.add_argument(
             "--evm-bin",
-            help="path to evm executable",
+            help="path to evm executable that provides `t8n` and `b11r` "
+            + "subcommands",
             default="evm",
         )
 
@@ -42,7 +43,9 @@ class Filler:
         )
 
         parser.add_argument(
-            "--output", help="directory to store filled test fixtures"
+            "--output",
+            help="directory to store filled test fixtures",
+            default="out",
         )
 
         return parser.parse_args()
