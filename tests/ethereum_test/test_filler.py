@@ -4,7 +4,7 @@ Test suite for `ethereum_test` module.
 
 import json
 
-from ethereum_test.filler import fill_fixture, StateTest
+from ethereum_test.filler import StateTest, fill_fixture
 from ethereum_test.types import Account, Environment, JSONEncoder, Transaction
 
 
