@@ -1,5 +1,9 @@
-from ethereum_test.types import Account, Environment, Transaction
+"""
+Test EIP-1344 CHAINID opcode
+"""
+
 from ethereum_test.filler import StateTest, test_only
+from ethereum_test.types import Account, Environment, Transaction
 
 
 @test_only("istanbul")

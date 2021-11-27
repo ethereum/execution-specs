@@ -2,7 +2,6 @@
 Useful types for generating Ethereum tests.
 """
 import json
-
 from dataclasses import dataclass
 from typing import Any, List, Mapping, Optional, Tuple, Type
 
@@ -135,7 +134,9 @@ class Header:
             "gasLimit": hex(self.gas_limit),
             "gasUsed": hex(self.gas_used),
             "timestamp": hex(self.timestamp),
-            "extraData": self.extra_data if len(self.extra_data) != 0 else "0x",  # noqa: E501
+            "extraData": self.extra_data
+            if len(self.extra_data) != 0
+            else "0x",  # noqa: E501
             "mixHash": self.mix_digest,
             "nonce": self.nonce,
         }
@@ -187,7 +188,7 @@ class JSONEncoder(json.JSONEncoder):
                 "input": obj.data,
                 "to": obj.to,
                 "accessList": obj.access_list,
-                "protected": obj.protected
+                "protected": obj.protected,
             }
 
             if obj.signature is None:
@@ -239,7 +240,9 @@ class JSONEncoder(json.JSONEncoder):
                 "gasLimit": hex(obj.gas_limit),
                 "gasUsed": hex(obj.gas_used),
                 "timestamp": hex(obj.timestamp),
-                "extraData": obj.extra_data if len(obj.extra_data) != 0 else "0x",  # noqa: E501
+                "extraData": obj.extra_data
+                if len(obj.extra_data) != 0
+                else "0x",  # noqa: E501
                 "mixHash": obj.mix_digest,
                 "nonce": obj.nonce,
             }

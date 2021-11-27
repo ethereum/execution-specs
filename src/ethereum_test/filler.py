@@ -4,12 +4,11 @@ Filler object definitions.
 import json
 import os
 import tempfile
-
 from dataclasses import dataclass
-from typing import Callable, List, Mapping, Tuple
+from typing import Any, Callable, List, Mapping, Tuple, cast
 
-from evm_transition_tool import TransitionTool
 from evm_block_builder import BlockBuilder
+from evm_transition_tool import TransitionTool
 
 from .common import EmptyTrieRoot
 from .types import (
@@ -140,7 +139,7 @@ def test_only(
         def inner(engine) -> Fixture:
             return fill_fixture(fn(), fork, engine)
 
-        inner.__filler_metadata__ = {
+        cast(Any, inner).__filler_metadata__ = {
             "fork": fork,
             "name": fn.__name__,
         }

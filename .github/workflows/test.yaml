@@ -1,0 +1,39 @@
+name: Ethereum Testing Tools
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.10']
+        golang: [1.17]
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - name: Checkout go-ethereum
+        uses: actions/checkout@v2
+        with:
+          repository: ethereum/go-ethereum
+          path: go-ethereum
+      - name: Setup golang
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.golang }}
+      - name: Build evm cmd
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/bin
+          cd $GITHUB_WORKSPACE/go-ethereum/cmd/evm
+          go build .
+          echo $GITHUB_WORKSPACE/go-ethereum/cmd/evm >> $GITHUB_PATH
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install Tox and any other packages
+        run: pip install tox requests
+      - name: Run Tox (CPython)
+        run: tox -e py3
