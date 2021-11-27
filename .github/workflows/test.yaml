@@ -20,7 +20,7 @@ jobs:
           repository: ethereum/go-ethereum
           path: go-ethereum
       - name: Setup golang
-      - uses: actions/setup-go@v2
+        uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.golang }}
       - name: Build evm cmd
