@@ -612,16 +612,16 @@ class Sync:
                 block_number = 0
 
             if self.next_fork and block_number >= self.next_fork.block:
-                self.log.debug("applying %s fork...", self.next_fork.name)
+                self.active_fork_index += 1
+                self.log.debug("applying %s fork...", self.active_fork.name)
                 start = time.monotonic()
                 self.chain = self.module("spec").apply_fork(self.chain)
                 end = time.monotonic()
                 self.log.info(
                     "applied %s fork (took %ss)",
-                    self.next_fork.name,
+                    self.active_fork.name,
                     end - start,
                 )
-                self.active_fork_index += 1
 
             if isinstance(block, bytes):
                 # Decode the block using the rules for the active fork.
