@@ -2,9 +2,9 @@ import json
 import os
 from typing import Any, List
 
+from ethereum import rlp
 from ethereum.base_types import U256, Uint
 from ethereum.crypto import keccak256
-from ethereum.frontier import rlp
 from ethereum.frontier.eth_types import Account, Address
 from ethereum.frontier.spec import BlockChain, get_last_256_block_hashes
 from ethereum.frontier.state import (

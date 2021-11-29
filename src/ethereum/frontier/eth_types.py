@@ -15,6 +15,7 @@ Types re-used throughout the specification, which are specific to Ethereum.
 from dataclasses import dataclass
 from typing import Tuple, Union
 
+from .. import rlp
 from ..base_types import (
     U256,
     Bytes,
@@ -26,7 +27,7 @@ from ..base_types import (
     Uint,
     slotted_freezable,
 )
-from ..crypto import Hash32
+from ..crypto import Hash32, keccak256
 
 Address = Bytes20
 Root = Hash32
@@ -73,6 +74,23 @@ EMPTY_ACCOUNT = Account(
     balance=U256(0),
     code=bytearray(),
 )
+
+
+def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
+    """
+    Encode `Account` dataclass.
+
+    Storage is not stored in the `Account` dataclass, so `Accounts` cannot be
+    encoded with providing a storage root.
+    """
+    return rlp.encode(
+        (
+            raw_account_data.nonce,
+            raw_account_data.balance,
+            storage_root,
+            keccak256(raw_account_data.code),
+        )
+    )
 
 
 @slotted_freezable

@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Tuple, cast
 
 import pytest
 
-from ethereum import crypto
+from ethereum import crypto, rlp
 from ethereum.base_types import U256_CEIL_VALUE, Uint
 from ethereum.crypto import keccak256
 from ethereum.ethash import (
@@ -22,7 +22,6 @@ from ethereum.ethash import (
     generate_seed,
     hashimoto_light,
 )
-from ethereum.homestead import rlp
 from ethereum.homestead.eth_types import Header
 from ethereum.homestead.spec import (
     generate_header_hash_for_pow,
@@ -207,8 +206,8 @@ def load_pow_test_fixtures() -> List[Dict[str, Any]]:
             {
                 "nonce": hex_to_bytes8(raw_fixture["nonce"]),
                 "mix_digest": hex_to_bytes32(raw_fixture["mixHash"]),
-                "header": rlp.decode_to_header(
-                    hex_to_bytes(raw_fixture["header"])
+                "header": rlp.decode_to(
+                    Header, hex_to_bytes(raw_fixture["header"])
                 ),
                 "seed": hex_to_bytes32(raw_fixture["seed"]),
                 "result": hex_to_bytes32(raw_fixture["result"]),

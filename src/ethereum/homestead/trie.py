@@ -32,10 +32,16 @@ from typing import (
 from ethereum.utils.ensure import ensure
 from ethereum.utils.hexadecimal import hex_to_bytes
 
-from .. import crypto
+from .. import crypto, rlp
 from ..base_types import U256, Bytes, Uint, slotted_freezable
-from . import rlp
-from .eth_types import Account, Address, Receipt, Root, Transaction
+from .eth_types import (
+    Account,
+    Address,
+    Receipt,
+    Root,
+    Transaction,
+    encode_account,
+)
 
 # note: an empty trie (regardless of whether it is secured) has root:
 #
@@ -152,7 +158,7 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
     """
     if isinstance(node, Account):
         assert storage_root is not None
-        return rlp.encode_account(node, storage_root)
+        return encode_account(node, storage_root)
     elif isinstance(node, (Transaction, Receipt, U256)):
         return rlp.encode(cast(rlp.RLP, node))
     elif isinstance(node, Bytes):

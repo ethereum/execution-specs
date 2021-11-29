@@ -11,7 +11,7 @@ Introduction
 
 Hexadecimal strings specific utility functions used in this specification.
 """
-from ethereum.base_types import U256, Bytes, Bytes8, Bytes32, Uint
+from ethereum.base_types import U256, Bytes, Bytes8, Bytes32, Bytes256, Uint
 from ethereum.crypto import Hash32
 
 
@@ -102,6 +102,25 @@ def hex_to_bytes32(hex_string: str) -> Bytes32:
         32-byte stream corresponding to the given hexadecimal string.
     """
     return Bytes32(bytes.fromhex(remove_hex_prefix(hex_string).rjust(64, "0")))
+
+
+def hex_to_bytes256(hex_string: str) -> Bytes256:
+    """
+    Convert hex string to 256 bytes.
+
+    Parameters
+    ----------
+    hex_string :
+        The hexadecimal string to be converted to 256 bytes.
+
+    Returns
+    -------
+    256_byte_stream : `bytes`
+        256-byte stream corresponding to the given hexadecimal string.
+    """
+    return Bytes256(
+        bytes.fromhex(remove_hex_prefix(hex_string).rjust(512, "0"))
+    )
 
 
 def hex_to_hash(hex_string: str) -> Hash32:

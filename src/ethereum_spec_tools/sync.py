@@ -28,6 +28,7 @@ from typing import (
 )
 from urllib import request
 
+from ethereum import rlp
 from ethereum.base_types import Bytes0, Bytes256
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
@@ -605,7 +606,10 @@ class Sync:
             if block is None:
                 break
 
-            block_number = block.header.number
+            try:
+                block_number = self.chain.blocks[-1].header.number + 1
+            except IndexError:
+                block_number = 0
 
             if self.next_fork and block_number >= self.next_fork.block:
                 self.log.debug("applying %s fork...", self.next_fork.name)
@@ -621,7 +625,7 @@ class Sync:
 
             if isinstance(block, bytes):
                 # Decode the block using the rules for the active fork.
-                block = self.module("rlp").decode_to_block(block)
+                block = rlp.decode_to(self.module("eth_types").Block, block)
 
             if block.header.number != block_number:
                 raise Exception(

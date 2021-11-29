@@ -21,9 +21,9 @@ from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.homestead.eth_types import TX_CREATE_COST
 from ethereum.utils.ensure import ensure
 
-from .. import crypto
+from .. import crypto, rlp
 from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint
-from . import rlp, vm
+from . import vm
 from .bloom import logs_bloom
 from .eth_types import (
     TX_BASE_COST,

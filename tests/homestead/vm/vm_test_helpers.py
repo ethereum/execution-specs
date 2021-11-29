@@ -2,9 +2,9 @@ import json
 import os
 from typing import Any, List
 
+from ethereum import rlp
 from ethereum.base_types import U256, Uint
 from ethereum.crypto import keccak256
-from ethereum.homestead import rlp
 from ethereum.homestead.eth_types import Account, Address
 from ethereum.homestead.spec import BlockChain, get_last_256_block_hashes
 from ethereum.homestead.state import (

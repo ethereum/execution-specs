@@ -13,8 +13,8 @@ This module contains utility functions needed by the optimized state.
 """
 from typing import Tuple
 
+from ethereum import rlp
 from ethereum.base_types import Bytes
-from ethereum.frontier import rlp
 from ethereum.frontier.trie import (
     BranchNode,
     ExtensionNode,
