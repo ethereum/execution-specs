@@ -283,5 +283,7 @@ Words2
 Generated2
 devnull
 splitext
+shortname
+localname
 
 astuple

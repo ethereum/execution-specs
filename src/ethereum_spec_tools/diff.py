@@ -49,7 +49,7 @@ def diff(
     new_path = new.name.replace(".", os.sep)
     new_path = os.path.join(input_path, new_path)
 
-    diff_path = old.name.split(".")[-1] + "_" + new.name.split(".")[-1]
+    diff_path = old.short_name + "_" + new.short_name
     diff_path = os.path.join(output_path, diff_path)
 
     old_pickles = set(find_pickles(old_path, old))

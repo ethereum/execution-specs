@@ -33,6 +33,7 @@ extensions = [
     'autoapi.extension',
     'undocinclude.extension',
     'picklebuilder.picklebuilder',
+    'ethereum_spec_tools.nav',
 ]
 
 autoapi_type = 'python'

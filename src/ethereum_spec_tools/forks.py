@@ -67,6 +67,13 @@ class Hardfork:
         return getattr(self.mod, "__path__", None)
 
     @property
+    def short_name(self) -> str:
+        """
+        Short name (without the `ethereum.` prefix) of the hard fork.
+        """
+        return self.mod.__name__.split(".")[-1]
+
+    @property
     def name(self) -> str:
         """
         Name of the hard fork.
