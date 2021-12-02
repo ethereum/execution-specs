@@ -6,6 +6,7 @@ Using an RPC provider, fetch each block and validate it with the specification.
 """
 
 import argparse
+import base64
 import copyreg
 import dataclasses
 import json
@@ -29,7 +30,7 @@ from typing import (
 from urllib import request
 
 from ethereum import rlp
-from ethereum.base_types import Bytes0, Bytes256
+from ethereum.base_types import U256, Bytes0, Bytes256, Uint
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -40,6 +41,9 @@ from ethereum.utils.hexadecimal import (
 
 from .forks import Hardfork
 
+EMPTY_TRIE_ROOT_STR = (
+    "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+)
 T = TypeVar("T")
 
 
@@ -148,6 +152,13 @@ class Sync:
             action="store_true",
         )
 
+        parser.add_argument(
+            "--start",
+            help="Start syncing from this block",
+            type=int,
+            default=None,
+        )
+
         return parser.parse_args()
 
     downloaded_blocks: Queue
@@ -197,52 +208,68 @@ class Sync:
         self.forks = Hardfork.discover()
         self.active_fork_index = 0
 
-        if self.options.persist is None:
-            self.chain = self.module("spec").apply_fork(None)
-            return
+        if self.options.persist is not None:
+            self.log.debug("loading blocks and state...")
 
-        self.log.debug("loading blocks and state...")
+            blocks_path = os.path.join(self.options.persist, "blocks.pickle")
 
-        blocks_path = os.path.join(self.options.persist, "blocks.pickle")
-
-        blocks = []
-
-        try:
-            with open(blocks_path, "rb") as f:
-                while True:
-                    try:
-                        blocks.extend(pickle.load(f))
-                    except EOFError:
-                        break
-        except FileNotFoundError as e:
-            self.log.warning("no block file found", exc_info=e)
-            self.chain = self.module("spec").apply_fork(None)
-            return
-
-        if len(blocks) == 0:
-            raise Exception("no blocks loaded")
-
-        # TODO: Replace self.chain.state with the correct hard fork.
-
-        if self.options.optimized:
-            state = self.active_fork.optimized_module("state_db").State()
-        else:
-            state_path = os.path.join(self.options.persist, "state.pickle")
+            blocks = []
 
             try:
-                with open(state_path, "rb") as f:
-                    state = pickle.load(f)
+                with open(blocks_path, "rb") as f:
+                    while True:
+                        try:
+                            blocks.extend(pickle.load(f))
+                        except EOFError:
+                            break
             except FileNotFoundError as e:
-                raise Exception("found blocks file but no state") from e
+                self.log.warning("no block file found", exc_info=e)
+                if self.options.start is None:
+                    self.chain = self.module("spec").apply_fork(None)
+                else:
+                    self.set_initial_fork(self.options.start)
+                    self.chain = self.download_state(
+                        self.options.start, self.module("state").State()
+                    )
+                return
 
-        self.chain = self.module("spec").BlockChain(
-            blocks=blocks,
-            state=state,
-        )
+            if len(blocks) == 0:
+                raise Exception("no blocks loaded")
 
-        # TODO: Fast forward to correct hard fork.
+            if self.options.optimized:
+                state = self.active_fork.optimized_module("state_db").State()
+            else:
+                state_path = os.path.join(self.options.persist, "state.pickle")
 
-        self.log.info("loaded state and %s blocks", len(self.chain.blocks))
+                try:
+                    with open(state_path, "rb") as f:
+                        state = pickle.load(f)
+                except FileNotFoundError as e:
+                    raise Exception("found blocks file but no state") from e
+
+            self.chain = self.module("spec").BlockChain(
+                blocks=blocks,
+                state=state,
+            )
+
+            self.set_initial_fork(self.chain.blocks[-1].header.number)
+
+            self.log.info("loaded state and %s blocks", len(self.chain.blocks))
+        else:
+            if self.options.start is None:
+                self.chain = self.module("spec").apply_fork(None)
+            else:
+                self.set_initial_fork(self.options.start)
+                self.chain = self.download_state(
+                    self.options.start, self.module("state").State()
+                )
+
+    def set_initial_fork(self, block_number: int) -> None:
+        """Set the initial fork, don't run any transitions."""
+        self.active_fork_index = 0
+        while self.next_fork and block_number >= self.next_fork.block:
+            self.active_fork_index += 1
+        self.log.info("initial fork is %s", self.active_fork.name)
 
     def persist(self) -> None:
         """
@@ -584,6 +611,148 @@ class Sync:
                         break
                     except Full:
                         pass
+
+    def download_state(self, block_number: int, state: Any) -> Any:
+        """
+        Fetch the state at `block_number`. Return a chain object.
+        """
+        next_token = ""
+        with_storage = []
+        while True:
+            call = [
+                {
+                    "jsonrpc": "2.0",
+                    "id": hex(1),
+                    "method": "debug_accountRange",
+                    "params": [
+                        hex(block_number),
+                        next_token,
+                        256,
+                        False,
+                        True,
+                        False,
+                    ],
+                }
+            ]
+            data = json.dumps(call).encode("utf-8")
+
+            post = request.Request(
+                self.options.rpc_url,
+                data=data,
+                headers={
+                    "Content-Length": str(len(data)),
+                    "Content-Type": "application/json",
+                },
+            )
+
+            with request.urlopen(post) as response:
+                reply = json.load(response)[0]
+                assert reply["id"] == hex(1)
+                for address, account in reply["result"]["accounts"].items():
+                    if account["root"] != EMPTY_TRIE_ROOT_STR:
+                        with_storage.append(address)
+                    address = self.module("utils.hexadecimal").hex_to_address(
+                        address
+                    )
+                    account = self.module("eth_types").Account(
+                        nonce=Uint(account["nonce"]),
+                        balance=U256(int(account["balance"])),
+                        code=hex_to_bytes(account["code"])
+                        if "code" in account
+                        else bytes(),
+                    )
+                    self.module("state").set_account(state, address, account)
+
+                if "next" in reply["result"]:
+                    next_token = reply["result"]["next"]
+                    self.log.info(
+                        "downloading accounts (%.2f%%)",
+                        int.from_bytes(base64.b64decode(next_token), "big")
+                        / 2 ** 256
+                        * 100,
+                    )
+                else:
+                    break
+
+        chain = self.module("spec").BlockChain(
+            blocks=self.fetch_blocks(
+                max(0, block_number - 255), min(256, block_number + 1)
+            ),
+            state=state,
+        )
+
+        blockhash_str = "0x" + rlp.rlp_hash(chain.blocks[-1].header).hex()
+        self.download_storage(blockhash_str, state, with_storage)
+
+        assert (
+            self.module("state").state_root(chain.state)
+            == chain.blocks[-1].header.state_root
+        )
+        return chain
+
+    def download_storage(
+        self, blockhash_str: str, state: Any, with_storage: List[str]
+    ) -> None:
+        """
+        Fetch all the storage keys in the accounts in `with_storage`.
+        """
+        count = 0
+        next_tokens = []
+        while with_storage != []:
+            for i in range(min(64, len(with_storage))):
+                next_tokens.append([with_storage.pop(), ""])
+            while next_tokens != []:
+                calls = [
+                    {
+                        "jsonrpc": "2.0",
+                        "id": hex(i),
+                        "method": "debug_storageRangeAt",
+                        "params": [
+                            blockhash_str,
+                            0,
+                            address_str,
+                            next_token,
+                            256 // len(next_tokens),
+                        ],
+                    }
+                    for i, (address_str, next_token) in enumerate(next_tokens)
+                ]
+                data = json.dumps(calls).encode("utf-8")
+
+                post = request.Request(
+                    self.options.rpc_url,
+                    data=data,
+                    headers={
+                        "Content-Length": str(len(data)),
+                        "Content-Type": "application/json",
+                    },
+                )
+
+                with request.urlopen(post) as response:
+                    for reply in json.load(response):
+                        reply_id = int(reply["id"], base=16)
+                        for slot in reply["result"]["storage"].values():
+                            count += 1
+                            self.module("state").set_storage(
+                                state,
+                                self.module(
+                                    "utils.hexadecimal"
+                                ).hex_to_address(next_tokens[reply_id][0]),
+                                hex_to_bytes32(slot["key"]),
+                                hex_to_u256(slot["value"]),
+                            )
+
+                        if reply["result"]["nextKey"] is not None:
+                            next_tokens[reply_id][1] = reply["result"][
+                                "nextKey"
+                            ]
+                        else:
+                            next_tokens[reply_id] = ["", ""]
+                next_tokens = [x for x in next_tokens if x != ["", ""]]
+                self.log.info(
+                    "downloading storage (%d remaining)",
+                    len(with_storage) + len(next_tokens),
+                )
 
     def take_block(self) -> Optional[Any]:
         """
