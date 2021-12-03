@@ -1,0 +1,103 @@
+.menu {
+    overflow-x: clip;
+    overflow-y: visible;
+    height: 2em;
+    max-height: 2em;
+    min-height: 2em;
+
+    display: flex;
+    align-items: center;
+    justify-content: right;
+
+    padding: 0 1em;
+}
+
+.menu a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.menu .active {
+    font-weight: bold;
+}
+
+.menu > ol {
+    list-style: none;
+    padding-left: 0;
+    height: 100%;
+}
+
+.menu > ol > li > * {
+    width: 100%;
+}
+
+.menu > ol > li > button {
+	background: none;
+	color: inherit;
+	border: none;
+	padding: 0.5em 2em 0.5em 0.5em;
+	font: inherit;
+	cursor: pointer;
+	outline: inherit;
+	position: relative;
+	text-align: left;
+}
+
+.menu > ol > li > button:after {
+    content: '';
+    display: block;
+    position: absolute;
+    top: 50%;
+    right: 0.7em;
+    width: 0;
+    height: 0;
+    border-left: 0.3em solid transparent;
+    border-right: 0.3em solid transparent;
+    border-top: 0.3em solid #ccc;
+    margin-top: -0.15em;
+}
+
+.menu > ol > li {
+    display: inline-block;
+    height: 100%;
+    border: 1px solid #ccc;
+}
+
+.menu > ol > li > *:first-child {
+    height: 100%;
+}
+
+.menu > ol > li:hover > .submenu,
+.menu > ol > li:focus-within > .submenu {
+    background: white;
+    visibility: visible;
+}
+
+.submenu {
+    visibility: hidden;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    margin-left: -1px;
+    border: 1px solid #ccc;
+    border-top: none;
+
+    position: relative;
+    z-index: 1;
+}
+
+.submenu > li > a {
+    padding: 0.5em;
+    display: block;
+}
+
+.submenu > li {
+    width: fit-content;
+    min-width: 100%;
+}
+
+.submenu > li:hover,
+.submenu > li:focus-within {
+    background: #eee;
+}

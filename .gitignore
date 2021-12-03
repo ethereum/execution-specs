@@ -45,3 +45,4 @@ pip-delete-this-directory.txt
 .coverage
 
 /doc/diffs
+/doc/autoapi
