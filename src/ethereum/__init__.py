@@ -6,6 +6,8 @@ Core specifications for Ethereum clients.
 """
 import sys
 
+__version__ = "0.1.0"
+
 #
 #  Ensure we can reach 1024 frames of recursion
 #

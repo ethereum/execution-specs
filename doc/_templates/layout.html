@@ -7,6 +7,23 @@
     warning is removed, <em>always</em> double check against the
     <a href="https://github.com/ethereum/execution-specs/">original source</a>.
 </div>
+
+{% if forks %}
+<nav class="menu">
+    <ol>
+        <li>
+            <button>Forks</button>
+            <ol class="submenu">
+                {% for fork in forks %}
+                <li{% if fork.selected %} class="active"{% endif %}>
+                    <a href="{{ fork.uri }}">{{ fork.short_name|title }}</a>
+                </li>
+                {% endfor %}
+            </ol>
+        </li>
+    </ol>
+</nav>
+{% endif %}
+
 {{ super() }}
 {% endblock %}
-

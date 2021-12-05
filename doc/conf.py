@@ -33,6 +33,7 @@ extensions = [
     'autoapi.extension',
     'undocinclude.extension',
     'picklebuilder.picklebuilder',
+    'ethereum_spec_tools.nav',
 ]
 
 autoapi_type = 'python'
@@ -86,6 +87,7 @@ html_theme = 'alabaster'
 html_static_path = ['_static']
 
 html_css_files = [
+    'css/dropdown.css',
     'css/custom.css',
 ]
 
