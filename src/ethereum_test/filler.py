@@ -128,16 +128,20 @@ class StateTest:
 
 def test_only(
     fork: str,
-) -> Callable[[Callable[[], StateTest]], Callable[[str], Fixture]]:
+) -> Callable[
+    [Callable[[], StateTest]], Callable[[str], Mapping[str, Fixture]]
+]:
     """
     Decorator that takes a test generator and fills it only for the specified
     fork.
     """
     fork = fork.capitalize()
 
-    def decorator(fn: Callable[[], StateTest]) -> Callable[[str], Fixture]:
-        def inner(engine) -> Fixture:
-            return fill_fixture(fn(), fork, engine)
+    def decorator(
+        fn: Callable[[], StateTest]
+    ) -> Callable[[str], Mapping[str, Fixture]]:
+        def inner(engine) -> Mapping[str, Fixture]:
+            return fill_fixtures(fn(), [fork], engine)
 
         cast(Any, inner).__filler_metadata__ = {
             "fork": fork,
@@ -149,23 +153,35 @@ def test_only(
     return decorator
 
 
-def fill_fixture(test: StateTest, fork: str, engine: str) -> Fixture:
+def fill_fixtures(
+    test: StateTest, forks: List[str], engine: str
+) -> Mapping[str, Fixture]:
     """
-    Fills a fixture for a certain fork.
+    Fills fixtures for certain forks.
     """
-    b11r = BlockBuilder()
-    t8n = TransitionTool()
+    fixtures = []
+    for fork in forks:
+        b11r = BlockBuilder()
+        t8n = TransitionTool()
 
-    genesis = test.make_genesis(b11r, t8n, fork)
-    (block, head) = test.make_block(
-        b11r, t8n, fork, reward=2000000000000000000
-    )
+        genesis = test.make_genesis(b11r, t8n, fork)
+        (block, head) = test.make_block(
+            b11r, t8n, fork, reward=2000000000000000000
+        )
 
-    return Fixture(
-        blocks=[block],
-        genesis=genesis,
-        head=head,
-        fork=fork,
-        pre_state=test.pre,
-        seal_engine=engine,
-    )
+        fixtures.append(
+            Fixture(
+                blocks=[block],
+                genesis=genesis,
+                head=head,
+                fork=fork,
+                pre_state=test.pre,
+                seal_engine=engine,
+            )
+        )
+
+    out = {}
+    for fixture in fixtures:
+        out[fixture.fork.lower()] = fixture
+
+    return out
