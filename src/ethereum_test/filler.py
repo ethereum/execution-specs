@@ -145,7 +145,7 @@ def test_only(
 
         cast(Any, inner).__filler_metadata__ = {
             "fork": fork,
-            "name": fn.__name__,
+            "name": fn.__name__.lstrip("test_"),
         }
 
         return inner
