@@ -8,9 +8,10 @@ from dataclasses import dataclass
 from typing import Any, Callable, List, Mapping, Tuple, cast
 
 from evm_block_builder import BlockBuilder
-from evm_transition_tool import TransitionTool
+from evm_transition_tool import TransitionTool, map_fork
 
 from .common import EmptyTrieRoot
+from .fork import forks_from, is_london
 from .types import (
     Account,
     Environment,
@@ -33,7 +34,7 @@ class StateTest:
     txs: List[Transaction]
 
     def make_genesis(
-        self, b11r: BlockBuilder, t8n: TransitionTool, fork: str
+        self, b11r: BlockBuilder, t8n: TransitionTool, env: Any, fork: str
     ) -> Header:
         """
         Create a genesis block from the state test definition.
@@ -43,7 +44,9 @@ class StateTest:
             ommers_hash="0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",  # noqa: E501
             coinbase=self.env.coinbase,
             state_root=t8n.calc_state_root(
-                json.loads(json.dumps(self.pre, cls=JSONEncoder)), fork
+                env,
+                json.loads(json.dumps(self.pre, cls=JSONEncoder)),
+                fork,
             ),
             transactions_root=EmptyTrieRoot,
             receipt_root=EmptyTrieRoot,
@@ -56,7 +59,7 @@ class StateTest:
             extra_data="0x00",
             mix_digest="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
             nonce="0x0000000000000000",
-            base_fee=None,
+            base_fee=self.env.base_fee,
         )
 
         (_, h) = b11r.build(genesis.to_geth_dict(), "", [])
@@ -111,19 +114,31 @@ class StateTest:
         return b11r.build(header, txs, [], None)
 
 
-#  def test_from(
-#      fork: str,
-#  ) -> Callable[[Callable[[], StateTest]], Callable[[], List[Fixture]]]:
-#      """
-#      Decorator that takes a test generator and fills it for each for fork after  # noqa
-#      the specified fork.
-#      """
+def test_from(
+    fork: str,
+) -> Callable[
+    [Callable[[], StateTest]], Callable[[str], Mapping[str, Fixture]]
+]:
+    """
+    Decorator that takes a test generator and fills it for all forks after the
+    specified fork.
+    """
+    fork = fork.capitalize()
 
-#      def inner(fn: Callable[[], StateTest]) -> Fixture:
-#          return fill_fixture(fork, fn())
+    def decorator(
+        fn: Callable[[], StateTest]
+    ) -> Callable[[str], Mapping[str, Fixture]]:
+        def inner(engine) -> Mapping[str, Fixture]:
+            return fill_fixtures(fn(), forks_from(fork), engine)
 
-#      inner.decorator = test_from
-#      return inner
+        cast(Any, inner).__filler_metadata__ = {
+            "fork": fork,
+            "name": fn.__name__.lstrip("test_"),
+        }
+
+        return inner
+
+    return decorator
 
 
 def test_only(
@@ -145,7 +160,7 @@ def test_only(
 
         cast(Any, inner).__filler_metadata__ = {
             "fork": fork,
-            "name": fn.__name__,
+            "name": fn.__name__.lstrip("test_"),
         }
 
         return inner
@@ -164,7 +179,19 @@ def fill_fixtures(
         b11r = BlockBuilder()
         t8n = TransitionTool()
 
-        genesis = test.make_genesis(b11r, t8n, fork)
+        if is_london(fork) and test.env.base_fee is None:
+            test.env.base_fee = 7
+
+        mapped = map_fork(fork)
+        if mapped is None:
+            # Fork not supported by t8n, skip
+            continue
+        fork = str(mapped)
+        if fork == "ArrowGlacier":
+            # Fork not supported by hive, skip
+            continue
+
+        genesis = test.make_genesis(b11r, t8n, test.env, fork)
         (block, head) = test.make_block(
             b11r, t8n, fork, reward=2000000000000000000
         )

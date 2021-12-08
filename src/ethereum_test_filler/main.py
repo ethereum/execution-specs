@@ -86,8 +86,7 @@ class Filler:
         for filler in fillers:
             fixture = filler("NoProof")
             name = filler.__filler_metadata__["name"]
-            fork = filler.__filler_metadata__["fork"].lower()
-            path = os.path.join(self.options.output, f"{name}_{fork}.json")
+            path = os.path.join(self.options.output, f"{name}.json")
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(
                     fixture, f, ensure_ascii=False, indent=4, cls=JSONEncoder

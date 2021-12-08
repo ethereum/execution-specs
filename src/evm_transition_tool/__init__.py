@@ -64,7 +64,7 @@ class TransitionTool:
 
         return (output["alloc"], output["result"])
 
-    def calc_state_root(self, alloc: Any, fork: str) -> str:
+    def calc_state_root(self, env: Any, alloc: Any, fork: str) -> str:
         """
         Calculate the state root for the given `alloc`.
         """
@@ -74,9 +74,34 @@ class TransitionTool:
             "currentGasLimit": "0x0",
             "currentNumber": "0",
             "currentTimestamp": "0",
+            "currentBaseFee": hex(env.base_fee)
+            if env.base_fee is not None
+            else None,
         }
-        if fork == "London":
-            env["currentBaseFee"] = hex(0x7)
 
         (_, result) = self.evaluate(alloc, [], env, fork)
         return result.get("stateRoot")
+
+
+fork_map = {
+    "frontier": "Frontier",
+    "homestead": "Homestead",
+    "dao": None,
+    "tangerine whistle": "EIP150",
+    "spurious dragon": "EIP158",
+    "byzantium": "Byzantium",
+    "constantinople": "Constantinople",
+    "petersburg": "ConstantinopleFix",
+    "istanbul": "Istanbul",
+    "muir glacier": None,
+    "berlin": "Berlin",
+    "london": "London",
+    "arrow glacier": "ArrowGlacier",
+}
+
+
+def map_fork(fork: str) -> Optional[str]:
+    """
+    Map known fork to t8n fork identifier.
+    """
+    return fork_map.get(fork, fork)
