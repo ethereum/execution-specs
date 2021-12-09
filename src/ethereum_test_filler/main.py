@@ -70,23 +70,25 @@ class Filler:
 
         fillers = []
         for module in find_modules(os.path.abspath(pkg_path)):
+            self.log.debug(f"searching {module} for fillers")
             module = importlib.import_module(pkg_name + "." + module)
             for obj in module.__dict__.values():
                 if callable(obj):
                     if hasattr(obj, "__filler_metadata__"):
+
                         fillers.append(obj)
 
-        self.log.info(f"Collected {len(fillers)} fillers")
+        self.log.info(f"collected {len(fillers)} fillers")
 
-        try:
-            os.mkdir(self.options.output)
-        except FileExistsError:
-            pass
+        os.makedirs(self.options.output, exist_ok=True)
 
         for filler in fillers:
-            fixture = filler("NoProof")
             name = filler.__filler_metadata__["name"]
             path = os.path.join(self.options.output, f"{name}.json")
+
+            self.log.debug(f"filling {name}")
+            fixture = filler("NoProof")
+
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(
                     fixture, f, ensure_ascii=False, indent=4, cls=JSONEncoder
@@ -110,7 +112,7 @@ def main() -> None:
     """
     Fills the specified test definitions.
     """
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
 
     filler = Filler()
     filler.fill()

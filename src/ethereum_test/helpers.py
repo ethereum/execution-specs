@@ -6,7 +6,7 @@ from typing import Mapping
 
 from .code import Code
 from .common import AddrAA, TestAddress
-from .filler import StateTest
+from .state_test import StateTest
 from .types import Account, Environment, Transaction
 
 

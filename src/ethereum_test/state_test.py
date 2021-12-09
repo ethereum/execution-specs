@@ -1,25 +1,17 @@
 """
-Filler object definitions.
+State test filler.
 """
 import json
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Callable, List, Mapping, Tuple, cast
+from typing import Any, List, Mapping, Tuple
 
 from evm_block_builder import BlockBuilder
-from evm_transition_tool import TransitionTool, map_fork
+from evm_transition_tool import TransitionTool
 
 from .common import EmptyTrieRoot
-from .fork import forks_from, is_london
-from .types import (
-    Account,
-    Environment,
-    Fixture,
-    Header,
-    JSONEncoder,
-    Transaction,
-)
+from .types import Account, Environment, Header, JSONEncoder, Transaction
 
 
 @dataclass
@@ -112,103 +104,3 @@ class StateTest:
             header["baseFeePerGas"] = str(self.env.base_fee)
 
         return b11r.build(header, txs, [], None)
-
-
-def test_from(
-    fork: str,
-) -> Callable[
-    [Callable[[], StateTest]], Callable[[str], Mapping[str, Fixture]]
-]:
-    """
-    Decorator that takes a test generator and fills it for all forks after the
-    specified fork.
-    """
-    fork = fork.capitalize()
-
-    def decorator(
-        fn: Callable[[], StateTest]
-    ) -> Callable[[str], Mapping[str, Fixture]]:
-        def inner(engine) -> Mapping[str, Fixture]:
-            return fill_fixtures(fn(), forks_from(fork), engine)
-
-        cast(Any, inner).__filler_metadata__ = {
-            "fork": fork,
-            "name": fn.__name__.lstrip("test_"),
-        }
-
-        return inner
-
-    return decorator
-
-
-def test_only(
-    fork: str,
-) -> Callable[
-    [Callable[[], StateTest]], Callable[[str], Mapping[str, Fixture]]
-]:
-    """
-    Decorator that takes a test generator and fills it only for the specified
-    fork.
-    """
-    fork = fork.capitalize()
-
-    def decorator(
-        fn: Callable[[], StateTest]
-    ) -> Callable[[str], Mapping[str, Fixture]]:
-        def inner(engine) -> Mapping[str, Fixture]:
-            return fill_fixtures(fn(), [fork], engine)
-
-        cast(Any, inner).__filler_metadata__ = {
-            "fork": fork,
-            "name": fn.__name__.lstrip("test_"),
-        }
-
-        return inner
-
-    return decorator
-
-
-def fill_fixtures(
-    test: StateTest, forks: List[str], engine: str
-) -> Mapping[str, Fixture]:
-    """
-    Fills fixtures for certain forks.
-    """
-    fixtures = []
-    for fork in forks:
-        b11r = BlockBuilder()
-        t8n = TransitionTool()
-
-        if is_london(fork) and test.env.base_fee is None:
-            test.env.base_fee = 7
-
-        mapped = map_fork(fork)
-        if mapped is None:
-            # Fork not supported by t8n, skip
-            continue
-        fork = str(mapped)
-        if fork == "ArrowGlacier":
-            # Fork not supported by hive, skip
-            continue
-
-        genesis = test.make_genesis(b11r, t8n, test.env, fork)
-        (block, head) = test.make_block(
-            b11r, t8n, fork, reward=2000000000000000000
-        )
-
-        fixtures.append(
-            Fixture(
-                blocks=[block],
-                genesis=genesis,
-                head=head,
-                fork=fork,
-                pre_state=test.pre,
-                seal_engine=engine,
-            )
-        )
-
-    out = {}
-    for fixture in fixtures:
-        out[fixture.fork.lower()] = fixture
-
-    return out
