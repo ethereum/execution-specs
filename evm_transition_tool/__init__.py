@@ -51,16 +51,19 @@ class TransitionTool:
         }
 
         result = subprocess.run(
-            args, input=str.encode(json.dumps(stdin)), stdout=subprocess.PIPE
+            args,
+            input=str.encode(json.dumps(stdin)),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
 
         if result.returncode != 0:
-            raise Exception("Failed to evaluate")
+            raise Exception("failed to evaluate")
 
         output = json.loads(result.stdout)
 
         if "alloc" not in output or "result" not in output:
-            Exception("Malformed result")
+            Exception("malformed result")
 
         return (output["alloc"], output["result"])
 
