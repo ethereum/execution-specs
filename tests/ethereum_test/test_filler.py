@@ -4,8 +4,14 @@ Test suite for `ethereum_test` module.
 
 import json
 
-from ethereum_test.filler import StateTest, fill_fixtures
-from ethereum_test.types import Account, Environment, JSONEncoder, Transaction
+from ethereum_test import (
+    Account,
+    Environment,
+    JSONEncoder,
+    StateTest,
+    Transaction,
+    fill_state_test,
+)
 
 
 def test_fill_state_test():
@@ -48,7 +54,7 @@ def test_fill_state_test():
     }
 
     test = StateTest(env, pre, post, [tx])
-    fixture = fill_fixtures(test, ["Istanbul"], "NoProof")
+    fixture = fill_state_test(test, ["Istanbul"], "NoProof")
 
     with open("tests/ethereum_test/fixtures/chainid_filled.json") as f:
         expected = json.load(f)

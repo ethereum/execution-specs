@@ -2,8 +2,13 @@
 Test EIP-1344 CHAINID opcode
 """
 
-from ethereum_test.filler import StateTest, test_from
-from ethereum_test.types import Account, Environment, Transaction
+from ethereum_test import (
+    Account,
+    Environment,
+    StateTest,
+    Transaction,
+    test_from,
+)
 
 
 @test_from("istanbul")

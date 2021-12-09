@@ -49,15 +49,18 @@ class BlockBuilder:
         }
 
         result = subprocess.run(
-            args, input=str.encode(json.dumps(stdin)), stdout=subprocess.PIPE
+            args,
+            input=str.encode(json.dumps(stdin)),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
 
         if result.returncode != 0:
-            raise Exception("Failed to build")
+            raise Exception("failed to build")
 
         output = json.loads(result.stdout)
 
         if "rlp" not in output or "hash" not in output:
-            Exception("Malformed result")
+            Exception("malformed result")
 
         return (output["rlp"], output["hash"])
