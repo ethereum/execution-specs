@@ -1,6 +1,6 @@
 """
 Tangerine Whistle Utility Functions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -9,5 +9,5 @@ Tangerine Whistle Utility Functions
 Introduction
 ------------
 
-Utility functions used in this tangerine_whistle version of specification.
+Utility functions used in this tangerine whistle version of specification.
 """

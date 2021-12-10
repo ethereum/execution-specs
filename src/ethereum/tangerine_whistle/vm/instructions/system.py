@@ -12,7 +12,15 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Bytes0, Uint
-from ethereum.tangerine_whistle.vm.gas import GAS_CALL
+from ethereum.tangerine_whistle.state import account_exists
+from ethereum.tangerine_whistle.vm.gas import (
+    GAS_CALL,
+    GAS_CALL_VALUE,
+    GAS_NEW_ACCOUNT,
+    GAS_SELF_DESTRUCT,
+    GAS_SELF_DESTRUCT_NEW_ACCOUNT,
+    max_message_call_gas,
+)
 from ethereum.utils.safe_arithmetic import u256_safe_add
 
 from ...state import (
@@ -82,7 +90,7 @@ def create(evm: Evm) -> None:
 
     increment_nonce(evm.env.state, evm.message.current_target)
 
-    create_message_gas = evm.gas_left
+    create_message_gas = max_message_call_gas(evm.gas_left)
     evm.gas_left = subtract_gas(evm.gas_left, create_message_gas)
 
     contract_address = compute_contract_address(
@@ -111,7 +119,7 @@ def create(evm: Evm) -> None:
         push(evm.stack, U256(0))
     else:
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
-    evm.gas_left = child_evm.gas_left
+    evm.gas_left += child_evm.gas_left
     evm.refund_counter += child_evm.refund_counter
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.logs += child_evm.logs
@@ -154,6 +162,8 @@ def call(evm: Evm) -> None:
         process_message,
     )
 
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_CALL)
+
     gas = pop(evm.stack)
     to = to_address(pop(evm.stack))
     value = pop(evm.stack)
@@ -176,14 +186,20 @@ def call(evm: Evm) -> None:
         evm.memory, memory_input_start_position, memory_input_size
     )
 
-    call_gas_fee = calculate_call_gas_cost(evm.env.state, gas, to, value)
-    message_call_gas_fee = u256_safe_add(
-        gas,
-        calculate_message_call_gas_stipend(value),
+    _account_exists = account_exists(evm.env.state, to)
+    create_gas_cost = U256(0) if _account_exists else GAS_NEW_ACCOUNT
+    transfer_gas_cost = U256(0) if value == 0 else GAS_CALL_VALUE
+    extra_gas = u256_safe_add(
+        create_gas_cost,
+        transfer_gas_cost,
         exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
+    call_gas_fee = calculate_call_gas_cost(gas, evm.gas_left, extra_gas)
+    message_call_gas_fee = calculate_message_call_gas_stipend(
+        value, gas, evm.gas_left, extra_gas
+    )
 
+    evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
     sender_balance = get_account(
         evm.env.state, evm.message.current_target
     ).balance
@@ -245,6 +261,8 @@ def callcode(evm: Evm) -> None:
         process_message,
     )
 
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_CALL)
+
     gas = pop(evm.stack)
     code_address = to_address(pop(evm.stack))
     value = pop(evm.stack)
@@ -268,12 +286,13 @@ def callcode(evm: Evm) -> None:
         evm.memory, memory_input_start_position, memory_input_size
     )
 
-    call_gas_fee = calculate_call_gas_cost(evm.env.state, gas, to, value)
-    message_call_gas_fee = u256_safe_add(
-        gas,
-        calculate_message_call_gas_stipend(value),
-        exception_type=OutOfGasError,
+    transfer_gas_cost = U256(0) if value == 0 else GAS_CALL_VALUE
+    extra_gas = transfer_gas_cost
+    call_gas_fee = calculate_call_gas_cost(gas, evm.gas_left, extra_gas)
+    message_call_gas_fee = calculate_message_call_gas_stipend(
+        value, gas, evm.gas_left, extra_gas
     )
+
     evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
 
     sender_balance = get_account(
@@ -331,7 +350,14 @@ def selfdestruct(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_SELF_DESTRUCT)
     beneficiary = to_address(pop(evm.stack))
+
+    if not account_exists(evm.env.state, beneficiary):
+        evm.gas_left = subtract_gas(
+            evm.gas_left, GAS_SELF_DESTRUCT_NEW_ACCOUNT
+        )
+
     originator = evm.message.current_target
     beneficiary_balance = get_account(evm.env.state, beneficiary).balance
     originator_balance = get_account(evm.env.state, originator).balance
@@ -367,6 +393,8 @@ def delegatecall(evm: Evm) -> None:
         process_message,
     )
 
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_CALL)
+
     gas = pop(evm.stack)
     code_address = to_address(pop(evm.stack))
     memory_input_start_position = Uint(pop(evm.stack))
@@ -390,8 +418,12 @@ def delegatecall(evm: Evm) -> None:
         evm.memory, memory_input_start_position, memory_input_size
     )
 
-    call_gas_fee = GAS_CALL + gas
-    message_call_gas_fee = gas
+    extra_gas = U256(0)
+    call_gas_fee = calculate_call_gas_cost(gas, evm.gas_left, extra_gas)
+    message_call_gas_fee = calculate_message_call_gas_stipend(
+        value, gas, evm.gas_left, extra_gas, call_stipend=U256(0)
+    )
+
     evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
 
     evm.pc += 1

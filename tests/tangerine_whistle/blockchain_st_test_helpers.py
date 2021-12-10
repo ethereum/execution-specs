@@ -7,6 +7,7 @@ from unittest.mock import call, patch
 from ethereum import rlp
 from ethereum.base_types import U256, Bytes0
 from ethereum.crypto import Hash32
+from ethereum.rlp import rlp_hash
 from ethereum.tangerine_whistle.eth_types import (
     Account,
     Block,
@@ -21,8 +22,10 @@ from ethereum.tangerine_whistle.state import (
     set_account,
     set_storage,
 )
-from ethereum.tangerine_whistle.utils.hexadecimal import hex_to_address, hex_to_root
-from ethereum.rlp import rlp_hash
+from ethereum.tangerine_whistle.utils.hexadecimal import (
+    hex_to_address,
+    hex_to_root,
+)
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -60,7 +63,8 @@ def run_blockchain_st_test(
         add_blocks_to_chain(chain, test_data)
     else:
         with patch(
-            "ethereum.tangerine_whistle.spec.validate_proof_of_work", autospec=True
+            "ethereum.tangerine_whistle.spec.validate_proof_of_work",
+            autospec=True,
         ) as mocked_pow_validator:
             add_blocks_to_chain(chain, test_data)
             mocked_pow_validator.assert_has_calls(

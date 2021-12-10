@@ -22,6 +22,7 @@ from ...vm.error import OutOfGasError
 from ...vm.memory import extend_memory, memory_write
 from .. import Evm
 from ..gas import (
+    GAS_BALANCE,
     GAS_BASE,
     GAS_COPY,
     GAS_EXTERNAL,
@@ -70,7 +71,7 @@ def balance(evm: Evm) -> None:
     """
     # TODO: There are no test cases against this function. Need to write
     # custom test cases.
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_EXTERNAL)
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_BALANCE)
 
     address = to_address(pop(evm.stack))
 

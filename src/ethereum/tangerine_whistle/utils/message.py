@@ -1,6 +1,6 @@
 """
 Tangerine Whistle Utility Functions For The Message Data-structure
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -9,7 +9,8 @@ Tangerine Whistle Utility Functions For The Message Data-structure
 Introduction
 ------------
 
-Message specific functions used in this tangerine_whistle version of specification.
+Message specific functions used in this tangerine whistle version of
+specification.
 """
 from typing import Optional, Union
 

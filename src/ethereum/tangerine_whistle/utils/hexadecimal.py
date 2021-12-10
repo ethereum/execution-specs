@@ -9,8 +9,8 @@ Utility Functions For Hexadecimal Strings
 Introduction
 ------------
 
-Hexadecimal utility functions used in this specification, specific to Tangerine Whistle
-types.
+Hexadecimal utility functions used in this specification, specific to
+Tangerine Whistle types.
 """
 from ethereum.utils.hexadecimal import remove_hex_prefix
 

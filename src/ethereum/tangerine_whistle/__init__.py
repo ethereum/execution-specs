@@ -1,8 +1,8 @@
 """
 Ethereum Tangerine Whistle Hardfork
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The second Ethereum hardfork.
+The fourth Ethereum hardfork.
 """
 
-MAINNET_FORK_BLOCK = 1150000
+MAINNET_FORK_BLOCK = 2463000

@@ -1,6 +1,6 @@
 """
 Tangerine Whistle Utility Functions For Addresses
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -9,7 +9,8 @@ Tangerine Whistle Utility Functions For Addresses
 Introduction
 ------------
 
-Address specific functions used in this tangerine_whistle version of specification.
+Address specific functions used in this tangerine whistle version of
+specification.
 """
 from typing import Union
 

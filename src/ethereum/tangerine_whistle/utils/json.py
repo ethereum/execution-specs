@@ -1,6 +1,6 @@
 """
 Tangerine Whistle Utilities Json
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -9,7 +9,8 @@ Tangerine Whistle Utilities Json
 Introduction
 ------------
 
-Json specific utilities used in this tangerine_whistle version of specification.
+Json specific utilities used in this tangerine whistle version of
+specification.
 """
 from typing import Any, Dict, Tuple
 

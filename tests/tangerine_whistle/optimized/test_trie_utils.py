@@ -1,5 +1,7 @@
 from ethereum.tangerine_whistle.trie import nibble_list_to_compact
-from ethereum_optimized.tangerine_whistle.trie_utils import compact_to_nibble_list
+from ethereum_optimized.tangerine_whistle.trie_utils import (
+    compact_to_nibble_list,
+)
 
 
 def test_compact_to_nibble_list() -> None:

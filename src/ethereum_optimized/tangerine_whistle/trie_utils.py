@@ -27,7 +27,8 @@ from ethereum.utils.ensure import ensure
 
 def compact_to_nibble_list(bytes: Bytes) -> Tuple[Bytes, bool]:
     """
-    Performs the reverse of `ethereum.tangerine_whistle.trie.nibble_list_to_compact`.
+    Performs the reverse of
+    `ethereum.tangerine_whistle.trie.nibble_list_to_compact`.
     """
     is_leaf = bool(bytes[0] & 0x20)
     parity = bool(bytes[0] & 0x10)
@@ -42,8 +43,8 @@ def compact_to_nibble_list(bytes: Bytes) -> Tuple[Bytes, bool]:
 
 def encode_internal_node_nohash(node: InternalNode) -> Bytes:
     """
-    Perform an `ethereum.tangerine_whistle.trie.encode_internal_node`, but skip the
-    hashing step.
+    Perform an `ethereum.tangerine_whistle.trie.encode_internal_node`, but skip
+    the hashing step.
     """
     if isinstance(node, LeafNode):
         return rlp.encode(
