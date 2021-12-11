@@ -160,15 +160,6 @@ def call(evm: Evm) -> None:
     memory_output_start_position = Uint(pop(evm.stack))
     memory_output_size = pop(evm.stack)
 
-    call_gas_fee = calculate_call_gas_cost(evm.env.state, gas, to, value)
-    message_call_gas_fee = u256_safe_add(
-        gas,
-        calculate_message_call_gas_stipend(value),
-        exception_type=OutOfGasError,
-    )
-
-    evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
-
     gas_input_memory = calculate_gas_extend_memory(
         evm.memory, memory_input_start_position, memory_input_size
     )
@@ -182,6 +173,15 @@ def call(evm: Evm) -> None:
     call_data = memory_read_bytes(
         evm.memory, memory_input_start_position, memory_input_size
     )
+
+    call_gas_fee = calculate_call_gas_cost(evm.env.state, gas, to, value)
+    message_call_gas_fee = u256_safe_add(
+        gas,
+        calculate_message_call_gas_stipend(value),
+        exception_type=OutOfGasError,
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
+
     sender_balance = get_account(
         evm.env.state, evm.message.current_target
     ).balance
@@ -251,15 +251,6 @@ def callcode(evm: Evm) -> None:
     memory_output_size = pop(evm.stack)
     to = evm.message.current_target
 
-    call_gas_fee = calculate_call_gas_cost(evm.env.state, gas, to, value)
-    message_call_gas_fee = u256_safe_add(
-        gas,
-        calculate_message_call_gas_stipend(value),
-        exception_type=OutOfGasError,
-    )
-
-    evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
-
     gas_input_memory = calculate_gas_extend_memory(
         evm.memory, memory_input_start_position, memory_input_size
     )
@@ -273,6 +264,15 @@ def callcode(evm: Evm) -> None:
     call_data = memory_read_bytes(
         evm.memory, memory_input_start_position, memory_input_size
     )
+
+    call_gas_fee = calculate_call_gas_cost(evm.env.state, gas, to, value)
+    message_call_gas_fee = u256_safe_add(
+        gas,
+        calculate_message_call_gas_stipend(value),
+        exception_type=OutOfGasError,
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
+
     sender_balance = get_account(
         evm.env.state, evm.message.current_target
     ).balance
