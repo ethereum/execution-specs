@@ -16,19 +16,19 @@ run_vm_test = partial(
 
 
 @pytest.mark.parametrize(
-    "test_file",
+    "test_file, check_gas_left",
     [
-        "suicide0.json",
-        "suicideNotExistingAccount.json",
-        "suicideSendEtherToMe.json",
+        ("suicide0.json", False),
+        ("suicideNotExistingAccount.json", False),
+        ("suicideSendEtherToMe.json", False),
     ],
 )
-def test_seldestruct(test_file: str) -> None:
-    run_system_vm_test(test_file)
+def test_seldestruct(test_file: str, check_gas_left: bool) -> None:
+    run_system_vm_test(test_file, check_gas_left=check_gas_left)
 
 
 def test_seldestruct_vm_test() -> None:
-    run_vm_test("suicide.json")
+    run_vm_test("suicide.json", check_gas_left=False)
 
 
 @pytest.mark.parametrize(

@@ -6,7 +6,10 @@ from ethereum import rlp
 from ethereum.base_types import U256, Uint
 from ethereum.crypto import keccak256
 from ethereum.tangerine_whistle.eth_types import Account, Address
-from ethereum.tangerine_whistle.spec import BlockChain, get_last_256_block_hashes
+from ethereum.tangerine_whistle.spec import (
+    BlockChain,
+    get_last_256_block_hashes,
+)
 from ethereum.tangerine_whistle.state import (
     State,
     close_state,
@@ -26,7 +29,9 @@ from ethereum.utils.hexadecimal import (
 )
 
 
-def run_test(test_dir: str, test_file: str) -> None:
+def run_test(
+    test_dir: str, test_file: str, check_gas_left: bool = True
+) -> None:
     test_data = load_test(test_dir, test_file)
     target = test_data["target"]
     env = test_data["env"]
@@ -48,7 +53,8 @@ def run_test(test_dir: str, test_file: str) -> None:
     ) = process_message_call(message=message, env=env)
 
     if test_data["has_post_state"]:
-        assert gas_left == test_data["expected_gas_left"]
+        if check_gas_left:
+            assert gas_left == test_data["expected_gas_left"]
         assert keccak256(rlp.encode(logs)) == test_data["expected_logs_hash"]
         # We are checking only the storage here and not the whole state, as the
         # balances in the testcases don't change even though some value is

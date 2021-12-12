@@ -11,14 +11,14 @@ run_storage_vm_test = partial(
 
 
 @pytest.mark.parametrize(
-    "test_file",
+    "test_file, check_gas_left",
     [
-        "sstore_load_0.json",
-        "sstore_load_1.json",
-        "sstore_load_2.json",
-        "sstore_underflow.json",
-        "kv1.json",
+        ("sstore_load_0.json", False),
+        ("sstore_load_1.json", False),
+        ("sstore_load_2.json", False),
+        ("sstore_underflow.json", True),
+        ("kv1.json", True),
     ],
 )
-def test_sstore_and_sload(test_file: str) -> None:
-    run_storage_vm_test(test_file)
+def test_sstore_and_sload(test_file: str, check_gas_left: bool) -> None:
+    run_storage_vm_test(test_file, check_gas_left=check_gas_left)

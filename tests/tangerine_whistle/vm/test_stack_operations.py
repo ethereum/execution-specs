@@ -16,15 +16,15 @@ run_dup_vm_test = run_swap_vm_test = run_push_vm_test
 
 
 @pytest.mark.parametrize(
-    "test_file",
-    [f"push{i}.json" for i in range(1, 34)]
+    "test_file, check_gas_left",
+    [(f"push{i}.json", True) for i in range(1, 34)]
     + [
-        "push32Undefined2.json",
-        "push32AndSuicide.json",
+        ("push32Undefined2.json", True),
+        ("push32AndSuicide.json", False),
     ],
 )
-def test_push_successfully(test_file: str) -> None:
-    run_push_vm_test(test_file)
+def test_push_successfully(test_file: str, check_gas_left: bool) -> None:
+    run_push_vm_test(test_file, check_gas_left=check_gas_left)
 
 
 @pytest.mark.parametrize(
