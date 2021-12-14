@@ -53,7 +53,7 @@ except ImportError as e:
 # 0x1 : Accounts and storage
 # 0x2 : Internal Nodes
 
-DB_VERSION = b"1"
+DB_VERSION = b"2"
 
 
 @dataclass
