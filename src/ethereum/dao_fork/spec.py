@@ -17,14 +17,15 @@ from typing import List, Optional, Set, Tuple
 
 from ethereum.base_types import Bytes0
 from ethereum.crypto import SECP256K1N
-from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.dao_fork.eth_types import TX_CREATE_COST
+from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.utils.ensure import ensure
 
 from .. import crypto, rlp
 from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint
-from . import vm
+from . import MAINNET_FORK_BLOCK, vm
 from .bloom import logs_bloom
+from .dao import do_dao_fork
 from .eth_types import (
     TX_BASE_COST,
     TX_DATA_COST_PER_NON_ZERO,
@@ -84,6 +85,7 @@ def apply_fork(old: BlockChain) -> BlockChain:
     new : `BlockChain`
         Upgraded block chain object for this hard fork.
     """
+    do_dao_fork(old.state)
     return old
 
 
@@ -188,6 +190,11 @@ def validate_header(header: Header, parent_header: Header) -> None:
         parent_header.difficulty,
     )
 
+    if (
+        header.number >= MAINNET_FORK_BLOCK
+        and header.number < MAINNET_FORK_BLOCK + 10
+    ):
+        ensure(header.extra_data == b"dao-hard-fork")
     ensure(header.difficulty == block_difficulty)
     ensure(header.number == parent_header.number + 1)
     ensure(check_gas_limit(header.gas_limit, parent_header.gas_limit))

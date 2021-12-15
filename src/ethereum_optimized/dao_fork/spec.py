@@ -13,9 +13,9 @@ This module contains functions can be monkey patched into
 `ethereum.dao_fork.spec` to use alternate optimized implementations.
 """
 from ethereum.base_types import U256_CEIL_VALUE
-from ethereum.ethash import epoch
 from ethereum.dao_fork.eth_types import Header
 from ethereum.dao_fork.spec import generate_header_hash_for_pow
+from ethereum.ethash import epoch
 from ethereum.utils.ensure import ensure
 
 try:
