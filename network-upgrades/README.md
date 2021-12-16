@@ -2,7 +2,7 @@
 
 ## Description
 
-This folder provides the specifications for the various network upgrades to Ethereum 1.0. It contains specifications for the client integration testnets which are set up during the testing phase of upgrades, for the network upgrades which will be deployed to the Ethereum mainnet, as well as retrospectives/postmortems on network upgrade-related incidents.
+This folder provides the specifications for the various network upgrades to Ethereum execution layer. It contains specifications for the client integration testnets which are set up during the testing phase of upgrades, for the network upgrades which will be deployed to the Ethereum mainnet, as well as retrospectives/postmortems on network upgrade-related incidents.
 
 In an effort to separate this process from the EIP standardization process, three stages have been devised to move EIPs from specifications to being deployed on the Ethereum mainnet: Considered for Inclusion (CFI), Client Integration Testnets, and Mainnet. Below, we explain the process for EIPs to move through these stages.
 
