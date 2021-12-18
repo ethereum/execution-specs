@@ -55,7 +55,7 @@ BLOCK_REWARD = U256(5 * 10 ** 18)
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
 GENESIS_DIFFICULTY = Uint(131072)
-MAX_UNCLE_DEPTH = 6
+MAX_OMMER_DEPTH = 6
 
 
 @dataclass
@@ -448,7 +448,7 @@ def validate_ommers(
     # Check that there are no duplicates in the ommers of current block
     ensure(len(ommers_hashes) == len(set(ommers_hashes)))
 
-    recent_canonical_blocks = chain.blocks[-(MAX_UNCLE_DEPTH + 1) :]
+    recent_canonical_blocks = chain.blocks[-(MAX_OMMER_DEPTH + 1) :]
     recent_canonical_block_hashes = {
         rlp.rlp_hash(block.header) for block in recent_canonical_blocks
     }
@@ -473,7 +473,7 @@ def validate_ommers(
         # Ommer age with respect to the current block. For example, an age of
         # 1 indicates that the ommer is a sibling of previous block.
         ommer_age = block_header.number - ommer.number
-        ensure(1 <= ommer_age <= MAX_UNCLE_DEPTH)
+        ensure(1 <= ommer_age <= MAX_OMMER_DEPTH)
 
         ensure(ommer.parent_hash in recent_canonical_block_hashes)
         ensure(ommer.parent_hash != block_header.parent_hash)

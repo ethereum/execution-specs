@@ -216,19 +216,19 @@ class Sync:
             hex_to_bytes8(json["nonce"]),
         )
 
-    def fetch_uncles(self, uncles_needed: Dict[int, int]) -> Dict[int, Any]:
+    def fetch_ommers(self, ommers_needed: Dict[int, int]) -> Dict[int, Any]:
         """
-        Fetch the uncles for a given block from the RPC provider.
+        Fetch the ommers for a given block from the RPC provider.
         """
         calls = []
 
-        for (block_number, num_uncles) in uncles_needed.items():
-            for i in range(num_uncles):
+        for (block_number, num_ommers) in ommers_needed.items():
+            for i in range(num_ommers):
                 calls.append(
                     {
                         "jsonrpc": "2.0",
                         "id": hex(block_number * 20 + i),
-                        "method": "eth_getUncleByBlockNumberAndIndex",
+                        "method": "eth_getOmmerByBlockNumberAndIndex",
                         "params": [hex(block_number), hex(i)],
                     }
                 )
@@ -239,9 +239,9 @@ class Sync:
         data = json.dumps(calls).encode("utf-8")
 
         self.log.debug(
-            "fetching uncles [%s, %s]...",
-            min(uncles_needed),
-            max(uncles_needed),
+            "fetching ommers [%s, %s]...",
+            min(ommers_needed),
+            max(ommers_needed),
         )
 
         post = request.Request(
@@ -255,13 +255,13 @@ class Sync:
 
         with request.urlopen(post) as response:
             replies = json.load(response)
-            uncles: Dict[int, Dict[int, Any]] = {}
+            ommers: Dict[int, Dict[int, Any]] = {}
 
             for reply in replies:
                 reply_id = int(reply["id"], 0)
 
-                if reply_id // 20 not in uncles:
-                    uncles[reply_id // 20] = {}
+                if reply_id // 20 not in ommers:
+                    ommers[reply_id // 20] = {}
 
                 if "error" in reply:
                     raise RpcError(
@@ -269,19 +269,19 @@ class Sync:
                         reply["error"]["message"],
                     )
                 else:
-                    uncles[reply_id // 20][reply_id % 20] = self.make_header(
+                    ommers[reply_id // 20][reply_id % 20] = self.make_header(
                         reply["result"]
                     )
 
             self.log.info(
-                "uncles [%s, %s] fetched",
-                min(uncles_needed),
-                max(uncles_needed),
+                "ommers [%s, %s] fetched",
+                min(ommers_needed),
+                max(ommers_needed),
             )
 
             return {
                 k: tuple(x for (_, x) in sorted(v.items()))
-                for (k, v) in uncles.items()
+                for (k, v) in ommers.items()
             }
 
     def fetch_initial_blocks(self, block_number: int) -> List[Any]:
@@ -411,7 +411,7 @@ class Sync:
             blocks: Dict[int, Union[RpcError, Any]] = {}
             headers: Dict[int, Any] = {}
             transaction_lists: Dict[int, List[Any]] = {}
-            uncles_needed: Dict[int, int] = {}
+            ommers_needed: Dict[int, int] = {}
 
             for reply in replies:
                 reply_id = int(reply["id"], 0)
@@ -447,14 +447,14 @@ class Sync:
                             )
                         )
                     transaction_lists[reply_id] = transactions
-                    uncles_needed[reply_id] = len(res["uncles"])
+                    ommers_needed[reply_id] = len(res["ommers"])
 
-            uncles = self.fetch_uncles(uncles_needed)
+            ommers = self.fetch_ommers(ommers_needed)
             for id in headers:
                 blocks[id] = self.module("eth_types").Block(
                     headers[id],
                     tuple(transaction_lists[id]),
-                    uncles.get(id, ()),
+                    ommers.get(id, ()),
                 )
 
             if len(blocks) != count:
