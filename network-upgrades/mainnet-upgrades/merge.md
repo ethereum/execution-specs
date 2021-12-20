@@ -35,7 +35,11 @@ See https://github.com/ethereum/pm/blob/master/Merge/mainnet-readiness.md
     - [Quickstart](https://github.com/parithosh/pithos-lighthouse-geth-quick-start)
     - [Configs](https://github.com/parithosh/consensus-deployment-ansible/blob/master/README.md)
     - [Explorer](https://pithos-explorer.ethdevops.io/)
-  - [Kintsugi](https://notes.ethereum.org/rki-W2RvRf-TkVn3ZIvMFA)
+  - [Kintsugi](https://kintsugi.themerge.dev/)
+    - [devnet-0](https://github.com/parithosh/consensus-deployment-ansible/tree/master/merge-devnet-0)
+    - [devnet-1](https://github.com/parithosh/consensus-deployment-ansible/tree/master/merge-devnet-1)
+    - [devnet-2](https://github.com/parithosh/consensus-deployment-ansible/tree/master/merge-devnet-2)
+    - [devnet-3](https://github.com/parithosh/consensus-deployment-ansible/tree/master/merge-devnet-3)
 
 ### Client Releases
 
