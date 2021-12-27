@@ -68,7 +68,7 @@ class BlockChain:
     state: State
 
 
-def apply_fork(old: None) -> BlockChain:
+def apply_fork(old: BlockChain) -> BlockChain:
     """
     Transforms the state from the previous hard fork (`old`) into the block
     chain object for this hard fork and returns it.
@@ -85,16 +85,14 @@ def apply_fork(old: None) -> BlockChain:
     """
     genesis = genesis_configuration("mainnet.json")
 
-    state = State()
-
     for account, balance in genesis.initial_balances.items():
-        create_ether(state, account, balance)
+        create_ether(old.state, account, balance)
 
     genesis_header = Header(
         parent_hash=Hash32(b"\0" * 32),
         ommers_hash=rlp.rlp_hash(()),
         coinbase=Address(b"\0" * 20),
-        state_root=state_root(state),
+        state_root=state_root(old.state),
         transactions_root=root(Trie(False, None)),
         receipt_root=root(Trie(False, None)),
         bloom=Bloom(b"\0" * 256),
@@ -114,7 +112,9 @@ def apply_fork(old: None) -> BlockChain:
         ommers=(),
     )
 
-    return BlockChain(blocks=[genesis_block], state=state)
+    old.blocks.append(genesis_block)
+
+    return old
 
 
 def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:

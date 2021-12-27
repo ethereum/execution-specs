@@ -287,3 +287,5 @@ shortname
 localname
 
 astuple
+
+base64
