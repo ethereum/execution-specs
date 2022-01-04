@@ -228,7 +228,7 @@ class Sync:
                     {
                         "jsonrpc": "2.0",
                         "id": hex(block_number * 20 + i),
-                        "method": "eth_getOmmerByBlockNumberAndIndex",
+                        "method": "eth_getUncleByBlockNumberAndIndex",
                         "params": [hex(block_number), hex(i)],
                     }
                 )
@@ -447,7 +447,7 @@ class Sync:
                             )
                         )
                     transaction_lists[reply_id] = transactions
-                    ommers_needed[reply_id] = len(res["ommers"])
+                    ommers_needed[reply_id] = len(res["uncles"])
 
             ommers = self.fetch_ommers(ommers_needed)
             for id in headers:
