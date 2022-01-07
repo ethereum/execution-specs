@@ -218,6 +218,9 @@ def validate_header(header: Header, parent_header: Header) -> None:
         parent_header.difficulty,
     )
 
+    block_parent_hash = crypto.keccak256(rlp.encode(parent_header))
+
+    ensure(header.parent_hash == block_parent_hash)
     ensure(header.difficulty == block_difficulty)
     ensure(header.number == parent_header.number + 1)
     ensure(check_gas_limit(header.gas_limit, parent_header.gas_limit))
