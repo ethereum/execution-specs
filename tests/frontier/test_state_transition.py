@@ -43,7 +43,7 @@ run_invalid_header_test = partial(
     "test_file_parent_hash",
     [
         "wrongParentHash.json",
-        "wrongParentHash.json",
+        "wrongParentHash2.json",
     ],
 )
 def test_invalid_parent_hash(test_file_parent_hash: str) -> None:
