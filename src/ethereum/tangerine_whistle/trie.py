@@ -29,7 +29,7 @@ from typing import (
     cast,
 )
 
-import ethereum.frontier.trie
+import ethereum.dao_fork.trie
 from ethereum.utils.ensure import ensure
 from ethereum.utils.hexadecimal import hex_to_bytes
 
@@ -165,7 +165,7 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
     elif isinstance(node, Bytes):
         return node
     else:
-        return ethereum.frontier.trie.encode_node(node, storage_root)
+        return ethereum.dao_fork.trie.encode_node(node, storage_root)
 
 
 @dataclass
