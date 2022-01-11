@@ -4,6 +4,7 @@ from typing import Generator
 
 import pytest
 
+from ethereum.utils.ensure import EnsureError
 from tests.homestead.blockchain_st_test_helpers import (
     run_homestead_blockchain_st_tests,
 )
@@ -114,3 +115,22 @@ def test_general_state_tests(test_file: str) -> None:
     except KeyError:
         # KeyError is raised when a test_file has no tests for homestead
         raise pytest.skip(f"{test_file} has no tests for homestead")
+
+
+# Test Invalid Block Headers
+run_invalid_header_test = partial(
+    run_homestead_blockchain_st_tests,
+    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/InvalidBlocks/bcInvalidHeaderTest",
+)
+
+
+@pytest.mark.parametrize(
+    "test_file_parent_hash",
+    [
+        "wrongParentHash.json",
+        "wrongParentHash2.json",
+    ],
+)
+def test_invalid_parent_hash(test_file_parent_hash: str) -> None:
+    with pytest.raises(EnsureError):
+        run_invalid_header_test(test_file_parent_hash)
