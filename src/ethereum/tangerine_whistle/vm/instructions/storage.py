@@ -36,9 +36,9 @@ def sload(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.tangerine_whistle.vm.error.StackUnderflowError
+    :py:class:`~ethereum.tangerine_whistle.vm.error.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    ethereum.tangerine_whistle.vm.error.OutOfGasError
+    :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `50`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_SLOAD)
@@ -62,9 +62,9 @@ def sstore(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.tangerine_whistle.vm.error.StackUnderflowError
+    :py:class:`~ethereum.tangerine_whistle.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    ethereum.tangerine_whistle.vm.error.OutOfGasError
+    :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `20000`.
     """
     key = pop(evm.stack).to_be_bytes32()

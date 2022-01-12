@@ -12,7 +12,6 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Bytes0, Uint
-from ethereum.homestead.vm.gas import GAS_CALL
 from ethereum.utils.safe_arithmetic import u256_safe_add
 
 from ...state import (
@@ -25,6 +24,7 @@ from ...utils.address import compute_contract_address, to_address
 from ...vm.error import OutOfGasError
 from .. import Evm, Message
 from ..gas import (
+    GAS_CALL,
     GAS_CREATE,
     GAS_ZERO,
     calculate_call_gas_cost,
@@ -149,10 +149,7 @@ def call(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ethereum.homestead.vm.interpreter import (
-        STACK_DEPTH_LIMIT,
-        process_message,
-    )
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
     gas = pop(evm.stack)
     to = to_address(pop(evm.stack))
@@ -240,10 +237,7 @@ def callcode(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ethereum.homestead.vm.interpreter import (
-        STACK_DEPTH_LIMIT,
-        process_message,
-    )
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
     gas = pop(evm.stack)
     code_address = to_address(pop(evm.stack))
@@ -362,10 +356,7 @@ def delegatecall(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ethereum.homestead.vm.interpreter import (
-        STACK_DEPTH_LIMIT,
-        process_message,
-    )
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
     gas = pop(evm.stack)
     code_address = to_address(pop(evm.stack))

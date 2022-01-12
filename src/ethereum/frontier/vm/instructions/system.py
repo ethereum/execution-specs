@@ -147,10 +147,7 @@ def call(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ethereum.frontier.vm.interpreter import (
-        STACK_DEPTH_LIMIT,
-        process_message,
-    )
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
     gas = pop(evm.stack)
     to = to_address(pop(evm.stack))
@@ -237,10 +234,7 @@ def callcode(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ethereum.frontier.vm.interpreter import (
-        STACK_DEPTH_LIMIT,
-        process_message,
-    )
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
     gas = pop(evm.stack)
     code_address = to_address(pop(evm.stack))

@@ -107,7 +107,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
 
     Returns
     -------
-    evm: `ethereum.dao_fork.vm.Evm`
+    evm: :py:class:`~ethereum.dao_fork.vm.Evm`
         Items containing execution specific objects.
     """
     # take snapshot of state before processing the message
@@ -147,7 +147,7 @@ def process_message(message: Message, env: Environment) -> Evm:
 
     Returns
     -------
-    evm: `ethereum.dao_fork.vm.Evm`
+    evm: :py:class:`~ethereum.dao_fork.vm.Evm`
         Items containing execution specific objects
     """
     if message.depth > STACK_DEPTH_LIMIT:

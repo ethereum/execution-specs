@@ -15,10 +15,10 @@ Implementations of the EVM stack related instructions.
 from functools import partial
 
 from ethereum.base_types import U256
-from ethereum.tangerine_whistle.vm.error import StackUnderflowError
 from ethereum.utils.ensure import ensure
 
 from .. import Evm, stack
+from ..error import StackUnderflowError
 from ..gas import GAS_BASE, GAS_VERY_LOW, subtract_gas
 
 
@@ -33,9 +33,9 @@ def pop(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.tangerine_whistle.vm.error.StackUnderflowError
+    :py:class:`~ethereum.tangerine_whistle.vm.error.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    ethereum.tangerine_whistle.vm.error.OutOfGasError
+    :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -59,9 +59,9 @@ def push_n(evm: Evm, num_bytes: int) -> None:
 
     Raises
     ------
-    ethereum.tangerine_whistle.vm.error.StackOverflowError
+    :py:class:`~ethereum.tangerine_whistle.vm.error.StackOverflowError`
         If `len(stack)` is equals `1024`.
-    ethereum.tangerine_whistle.vm.error.OutOfGasError
+    :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -89,7 +89,7 @@ def dup_n(evm: Evm, item_number: int) -> None:
 
     Raises
     ------
-    ethereum.tangerine_whistle.vm.error.OutOfGasError
+    :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -120,7 +120,7 @@ def swap_n(evm: Evm, item_number: int) -> None:
 
     Raises
     ------
-    ethereum.tangerine_whistle.vm.error.OutOfGasError
+    :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)

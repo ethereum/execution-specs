@@ -36,9 +36,9 @@ def sload(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `50`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_SLOAD)
@@ -62,9 +62,9 @@ def sstore(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `20000`.
     """
     key = pop(evm.stack).to_be_bytes32()
