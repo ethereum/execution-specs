@@ -183,7 +183,7 @@ def calculate_message_call_gas_stipend(value: U256) -> U256:
         The amount of `ETH` that needs to be transferred.
     Returns
     -------
-    message_call_gas_stipend: `ethereum.base_types.U256`
+    message_call_gas_stipend : `ethereum.base_types.U256`
         The gas stipend for making the message-call.
     """
     return U256(0) if value == 0 else GAS_CALL_STIPEND
