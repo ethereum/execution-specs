@@ -15,7 +15,9 @@ The state trie is the structure responsible for storing
 
 import copy
 from dataclasses import dataclass, field
+from importlib import import_module
 from typing import (
+    Any,
     Callable,
     Dict,
     Generic,
@@ -34,6 +36,7 @@ from ethereum.utils.hexadecimal import hex_to_bytes
 
 from .. import crypto, rlp
 from ..base_types import U256, Bytes, Uint, slotted_freezable
+from . import PREV_FORK
 from .eth_types import (
     Account,
     Address,
@@ -150,11 +153,28 @@ def encode_internal_node(node: Optional[InternalNode]) -> rlp.RLP:
         return crypto.keccak256(encoded)
 
 
+if PREV_FORK is None:
+
+    def prev_fork_encode_node(
+        node: Node, storage_root: Optional[Bytes] = None
+    ) -> Bytes:
+        """
+        The `encode_node()` function from the previous fork.
+        """
+        raise NotImplementedError(
+            f"encoding for {type(node)} is not currently implemented"
+        )
+
+
+else:
+    prev_fork: Any
+    prev_fork = import_module(f"ethereum.{PREV_FORK}.trie")
+    prev_fork_encode_node = prev_fork
+
+
 def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
     """
     Encode a Node for storage in the Merkle Trie.
-
-    Currently mostly an unimplemented stub.
     """
     if isinstance(node, Account):
         assert storage_root is not None
@@ -164,9 +184,7 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
     elif isinstance(node, Bytes):
         return node
     else:
-        raise NotImplementedError(
-            f"encoding for {type(node)} is not currently implemented"
-        )
+        return prev_fork_encode_node(node, storage_root)
 
 
 @dataclass
