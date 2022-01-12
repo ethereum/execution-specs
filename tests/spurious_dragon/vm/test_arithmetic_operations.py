@@ -175,36 +175,40 @@ def test_mulmod(test_file: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "test_file, check_gas_left",
+    "test_file",
     [
-        ("exp0.json", True),
-        ("exp1.json", True),
-        ("exp2.json", True),
-        ("exp3.json", True),
-        ("exp4.json", True),
-        ("exp5.json", True),
-        ("exp6.json", True),
-        ("exp7.json", True),
-        ("exp8.json", True),
-        ("expXY.json", False),
-        ("expXY_success.json", False),
+        "exp0.json",
+        "exp1.json",
+        "exp2.json",
+        "exp3.json",
+        "exp4.json",
+        "exp5.json",
+        "exp6.json",
+        "exp7.json",
+        "exp8.json",
+        "expXY.json",
+        "expXY_success.json",
     ],
 )
-def test_exp(test_file: str, check_gas_left: bool) -> None:
-    run_arithmetic_vm_test(test_file, check_gas_left=check_gas_left)
+def test_exp(test_file: str) -> None:
+    run_arithmetic_vm_test(test_file, check_gas_left=False)
 
 
 @pytest.mark.parametrize("exponent", ([2, 4, 8, 16, 32, 64, 128, 256]))
 def test_exp_power_2(exponent: int) -> None:
-    run_arithmetic_vm_test(f"expPowerOf2_{exponent}.json")
+    run_arithmetic_vm_test(
+        f"expPowerOf2_{exponent}.json", check_gas_left=False
+    )
 
 
 def test_exp_power_256() -> None:
     for i in range(1, 34):
-        run_arithmetic_vm_test(f"expPowerOf256_{i}.json")
+        run_arithmetic_vm_test(f"expPowerOf256_{i}.json", check_gas_left=False)
 
     for i in range(34):
-        run_arithmetic_vm_test(f"expPowerOf256Of256_{i}.json")
+        run_arithmetic_vm_test(
+            f"expPowerOf256Of256_{i}.json", check_gas_left=False
+        )
 
 
 @pytest.mark.parametrize(
