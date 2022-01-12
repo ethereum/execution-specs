@@ -23,8 +23,9 @@ def monkey_patch(state_path: Optional[str]) -> None:
     """
     Apply all monkey patches to the specification.
     """
-    from . import dao_fork, frontier, homestead
+    from . import dao_fork, frontier, homestead, tangerine_whistle
 
     frontier.monkey_patch(state_path)
     homestead.monkey_patch(state_path)
     dao_fork.monkey_patch(state_path)
+    tangerine_whistle.monkey_patch(state_path)
