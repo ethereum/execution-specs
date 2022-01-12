@@ -23,7 +23,7 @@ from ethereum.utils.ensure import ensure
 
 from .. import crypto, rlp
 from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint
-from . import vm
+from . import CHAIN_ID, vm
 from .bloom import logs_bloom
 from .eth_types import (
     TX_BASE_COST,
@@ -188,6 +188,9 @@ def validate_header(header: Header, parent_header: Header) -> None:
         parent_header.difficulty,
     )
 
+    block_parent_hash = crypto.keccak256(rlp.encode(parent_header))
+
+    ensure(header.parent_hash == block_parent_hash)
     ensure(header.difficulty == block_difficulty)
     ensure(header.number == parent_header.number + 1)
     ensure(check_gas_limit(header.gas_limit, parent_header.gas_limit))
@@ -619,20 +622,24 @@ def recover_sender(tx: Transaction) -> Address:
     """
     v, r, s = tx.v, tx.r, tx.s
 
-    #  if v > 28:
-    #      v = v - (chain_id*2+8)
-
-    ensure(v == 27 or v == 28)
     ensure(0 < r and r < SECP256K1N)
     ensure(0 < s and s <= SECP256K1N // 2)
 
-    public_key = crypto.secp256k1_recover(r, s, v - 27, signing_hash(tx))
+    if v == 27 or v == 28:
+        public_key = crypto.secp256k1_recover(
+            r, s, v - 27, signing_hash_legacy(tx)
+        )
+    else:
+        ensure(v == 35 + CHAIN_ID * 2 or v == 36 + CHAIN_ID * 2)
+        public_key = crypto.secp256k1_recover(
+            r, s, v - 35 - CHAIN_ID * 2, signing_hash_155(tx)
+        )
     return Address(crypto.keccak256(public_key)[12:32])
 
 
-def signing_hash(tx: Transaction) -> Hash32:
+def signing_hash_legacy(tx: Transaction) -> Hash32:
     """
-    Compute the hash of a transaction used in the signature.
+    Compute the hash of a transaction used in a legacy (pre EIP 155) signature.
 
     Parameters
     ----------
@@ -653,6 +660,37 @@ def signing_hash(tx: Transaction) -> Hash32:
                 tx.to,
                 tx.value,
                 tx.data,
+            )
+        )
+    )
+
+
+def signing_hash_155(tx: Transaction) -> Hash32:
+    """
+    Compute the hash of a transaction used in a EIP 155 signature.
+
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `eth1spec.eth_types.Hash32`
+        Hash of the transaction.
+    """
+    return crypto.keccak256(
+        rlp.encode(
+            (
+                tx.nonce,
+                tx.gas_price,
+                tx.gas,
+                tx.to,
+                tx.value,
+                tx.data,
+                Uint(1),
+                Uint(0),
+                Uint(0),
             )
         )
     )
