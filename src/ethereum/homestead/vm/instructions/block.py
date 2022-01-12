@@ -15,7 +15,7 @@ Implementations of the EVM block instructions.
 from ethereum.base_types import U256
 
 from .. import Evm
-from ..gas import GAS_BASE, GAS_EXTERNAL, subtract_gas
+from ..gas import GAS_BASE, GAS_BLOCK_HASH, subtract_gas
 from ..stack import pop, push
 
 
@@ -36,7 +36,7 @@ def block_hash(evm: Evm) -> None:
     ethereum.homestead.vm.error.OutOfGasError
         If `evm.gas_left` is less than `20`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_EXTERNAL)
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_BLOCK_HASH)
 
     block_number = pop(evm.stack)
 
