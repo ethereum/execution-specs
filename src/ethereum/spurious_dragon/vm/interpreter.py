@@ -14,7 +14,7 @@ A straightforward interpreter that executes EVM code.
 from typing import Set, Tuple, Union
 
 from ethereum.base_types import U256, Bytes0, Uint
-from ethereum.utils.ensure import EnsureError
+from ethereum.utils.ensure import EnsureError, ensure
 
 from ..eth_types import Address, Log
 from ..state import (
@@ -44,6 +44,7 @@ from .instructions import Ops, op_implementation
 from .runtime import get_valid_jump_destinations
 
 STACK_DEPTH_LIMIT = U256(1024)
+MAX_CODE_SIZE = 0x6000
 
 
 def process_message_call(
@@ -119,6 +120,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         try:
             evm.gas_left = subtract_gas(evm.gas_left, contract_code_gas)
+            ensure(len(contract_code) <= MAX_CODE_SIZE, OutOfGasError)
         except OutOfGasError:
             rollback_transaction(env.state)
             evm.gas_left = U256(0)
