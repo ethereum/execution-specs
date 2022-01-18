@@ -35,7 +35,7 @@ def pop(stack: List[U256]) -> U256:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `stack` is empty.
     """
     if len(stack) == 0:
@@ -58,7 +58,7 @@ def push(stack: List[U256], value: U256) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackOverflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackOverflowError`
         If `len(stack)` is `1024`.
     """
     if len(stack) == 1024:

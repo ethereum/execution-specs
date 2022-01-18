@@ -38,9 +38,9 @@ def add(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -66,9 +66,9 @@ def sub(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -94,9 +94,9 @@ def mul(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
@@ -122,9 +122,9 @@ def div(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
@@ -153,9 +153,9 @@ def sdiv(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
@@ -188,9 +188,9 @@ def mod(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
@@ -219,9 +219,9 @@ def smod(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
@@ -251,9 +251,9 @@ def addmod(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `3`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `8`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_MID)
@@ -284,9 +284,9 @@ def mulmod(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `3`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `8`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_MID)
@@ -317,7 +317,7 @@ def exp(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2`.
     """
     base = Uint(pop(evm.stack))
@@ -351,9 +351,9 @@ def signextend(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)

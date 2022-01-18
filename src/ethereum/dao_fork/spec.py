@@ -17,7 +17,6 @@ from typing import List, Optional, Set, Tuple
 
 from ethereum.base_types import Bytes0
 from ethereum.crypto import SECP256K1N
-from ethereum.dao_fork.eth_types import TX_CREATE_COST
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.utils.ensure import ensure
 
@@ -28,6 +27,7 @@ from .bloom import logs_bloom
 from .dao import DAO_ACCOUNTS, DAO_RECOVERY
 from .eth_types import (
     TX_BASE_COST,
+    TX_CREATE_COST,
     TX_DATA_COST_PER_NON_ZERO,
     TX_DATA_COST_PER_ZERO,
     Address,

@@ -12,18 +12,10 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Bytes0, Uint
-from ethereum.tangerine_whistle.state import account_exists
-from ethereum.tangerine_whistle.vm.gas import (
-    GAS_CALL,
-    GAS_CALL_VALUE,
-    GAS_NEW_ACCOUNT,
-    GAS_SELF_DESTRUCT,
-    GAS_SELF_DESTRUCT_NEW_ACCOUNT,
-    max_message_call_gas,
-)
 from ethereum.utils.safe_arithmetic import u256_safe_add
 
 from ...state import (
+    account_exists,
     account_has_code_or_nonce,
     get_account,
     increment_nonce,
@@ -33,11 +25,17 @@ from ...utils.address import compute_contract_address, to_address
 from ...vm.error import OutOfGasError
 from .. import Evm, Message
 from ..gas import (
+    GAS_CALL,
+    GAS_CALL_VALUE,
     GAS_CREATE,
+    GAS_NEW_ACCOUNT,
+    GAS_SELF_DESTRUCT,
+    GAS_SELF_DESTRUCT_NEW_ACCOUNT,
     GAS_ZERO,
     calculate_call_gas_cost,
     calculate_gas_extend_memory,
     calculate_message_call_gas_stipend,
+    max_message_call_gas,
     subtract_gas,
 )
 from ..memory import extend_memory, memory_read_bytes, memory_write
@@ -157,10 +155,7 @@ def call(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ethereum.tangerine_whistle.vm.interpreter import (
-        STACK_DEPTH_LIMIT,
-        process_message,
-    )
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
     evm.gas_left = subtract_gas(evm.gas_left, GAS_CALL)
 
@@ -256,10 +251,7 @@ def callcode(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ethereum.tangerine_whistle.vm.interpreter import (
-        STACK_DEPTH_LIMIT,
-        process_message,
-    )
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
     evm.gas_left = subtract_gas(evm.gas_left, GAS_CALL)
 
@@ -388,10 +380,7 @@ def delegatecall(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ethereum.tangerine_whistle.vm.interpreter import (
-        STACK_DEPTH_LIMIT,
-        process_message,
-    )
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
     evm.gas_left = subtract_gas(evm.gas_left, GAS_CALL)
 

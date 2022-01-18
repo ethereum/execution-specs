@@ -43,7 +43,7 @@ def keccak(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.tangerine_whistle.vm.error.StackUnderflowError
+    :py:class:`~ethereum.tangerine_whistle.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2`.
     """
     # Converting memory_start_index to Uint as memory_end_index can

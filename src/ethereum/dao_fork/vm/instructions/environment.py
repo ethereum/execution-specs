@@ -44,7 +44,7 @@ def address(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -64,9 +64,9 @@ def balance(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `20`.
     """
     # TODO: There are no test cases against this function. Need to write
@@ -95,7 +95,7 @@ def origin(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -115,7 +115,7 @@ def caller(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -135,7 +135,7 @@ def callvalue(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -156,9 +156,9 @@ def calldataload(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -186,7 +186,7 @@ def calldatasize(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -209,7 +209,7 @@ def calldatacopy(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `3`.
     """
     # Converting below to Uint as though the start indices may belong to U256,
@@ -261,7 +261,7 @@ def codesize(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -284,7 +284,7 @@ def codecopy(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `3`.
     """
     # Converting below to Uint as though the start indices may belong to U256,
@@ -337,7 +337,7 @@ def gasprice(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -357,9 +357,9 @@ def extcodesize(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    ethereum.dao_fork.vm.error.OutOfGasError
+    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `20`.
     """
     # TODO: There are no test cases against this function. Need to write
@@ -387,7 +387,7 @@ def extcodecopy(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.dao_fork.vm.error.StackUnderflowError
+    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
         If `len(stack)` is less than `4`.
     """
     # TODO: There are no test cases against this function. Need to write

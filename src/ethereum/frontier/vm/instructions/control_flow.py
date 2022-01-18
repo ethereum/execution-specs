@@ -44,15 +44,15 @@ def jump(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.frontier.vm.error.InvalidJumpDestError
+    :py:class:`~ethereum.frontier.vm.error.InvalidJumpDestError`
         If the jump destination doesn't meet any of the following criteria:
             * The jump destination is less than the length of the code.
             * The jump destination should have the `JUMPDEST` opcode (0x5B).
             * The jump destination shouldn't be part of the data corresponding
             to `PUSH-N` opcodes.
-    ethereum.frontier.vm.error.StackUnderflowError
+    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    ethereum.frontier.vm.error.OutOfGasError
+    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `8`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_MID)
@@ -77,15 +77,15 @@ def jumpi(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.frontier.vm.error.InvalidJumpDestError
+    :py:class:`~ethereum.frontier.vm.error.InvalidJumpDestError`
         If the jump destination doesn't meet any of the following criteria:
             * The jump destination is less than the length of the code.
             * The jump destination should have the `JUMPDEST` opcode (0x5B).
             * The jump destination shouldn't be part of the data corresponding
             to `PUSH-N` opcodes.
-    ethereum.frontier.vm.error.StackUnderflowError
+    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    ethereum.frontier.vm.error.OutOfGasError
+    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `10`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_HIGH)
@@ -115,9 +115,9 @@ def pc(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.frontier.vm.error.StackOverflowError
+    :py:class:`~ethereum.frontier.vm.error.StackOverflowError`
         If `len(stack)` is more than `1023`.
-    ethereum.frontier.vm.error.OutOfGasError
+    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -137,9 +137,9 @@ def gas_left(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.frontier.vm.error.StackOverflowError
+    :py:class:`~ethereum.frontier.vm.error.StackOverflowError`
         If `len(stack)` is more than `1023`.
-    ethereum.frontier.vm.error.OutOfGasError
+    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -160,7 +160,7 @@ def jumpdest(evm: Evm) -> None:
 
     Raises
     ------
-    ethereum.frontier.vm.error.OutOfGasError
+    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `1`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_JUMPDEST)
