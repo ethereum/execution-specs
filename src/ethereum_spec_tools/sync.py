@@ -706,7 +706,17 @@ class Sync:
                 end - start,
             )
 
-            if block_number % 1000 == 0:
+            if block_number > 2220000 and block_number > 2463000:
+                # Excessive DB load due to the Shanghai DOS attacks, requires
+                # more regular DB commits
+                if block_number % 100 == 0:
+                    self.persist()
+            if block_number > 2675000 and block_number < 2700598:
+                # Excessive DB load due to state clearing, requires more
+                # regular DB commits
+                if block_number % 100 == 0:
+                    self.persist()
+            elif block_number % 1000 == 0:
                 self.persist()
 
 
