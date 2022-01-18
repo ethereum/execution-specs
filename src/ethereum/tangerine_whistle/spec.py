@@ -572,7 +572,7 @@ def validate_transaction(tx: Transaction) -> bool:
     verified : `bool`
         True if the transaction can be executed, or False otherwise.
     """
-    return calculate_intrinsic_cost(tx) <= tx.gas
+    return calculate_intrinsic_cost(tx) <= tx.gas and tx.nonce < 2 ** 64 - 1
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Uint:

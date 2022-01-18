@@ -29,6 +29,9 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# Python virtual environment
+venv/
+
 # pycharm
 .idea/
 
