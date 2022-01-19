@@ -1,6 +1,3 @@
-import json
-import os
-import sys
 from functools import partial
 
 import pytest
@@ -11,8 +8,9 @@ from ethereum.frontier.spec import (
     calculate_intrinsic_cost,
     validate_transaction,
 )
-from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_uint
-from tests.frontier.blockchain_st_test_helpers import load_test_transaction
+from ethereum.utils.hexadecimal import hex_to_uint
+
+from ..helpers.eth_types_helpers import load_test_transaction
 
 test_dir = "tests/fixtures/TransactionTests"
 
@@ -30,7 +28,9 @@ load_frontier_transaction = partial(load_test_transaction, network="Frontier")
 def test_high_nonce(test_file_high_nonce: str) -> None:
     test = load_frontier_transaction(test_dir, test_file_high_nonce)
 
-    assert validate_transaction(test["transaction"]) == False
+    tx = rlp.decode_to(Transaction, test["tx_rlp"])
+
+    assert validate_transaction(tx) == False
 
 
 @pytest.mark.parametrize(
@@ -43,12 +43,11 @@ def test_high_nonce(test_file_high_nonce: str) -> None:
 def test_nonce(test_file_nonce: str) -> None:
     test = load_frontier_transaction(test_dir, test_file_nonce)
 
+    tx = rlp.decode_to(Transaction, test["tx_rlp"])
+
     result_intrinsic_gas_cost = hex_to_uint(
         test["test_result"]["intrinsicGas"]
     )
 
-    assert validate_transaction(test["transaction"]) == True
-    assert (
-        calculate_intrinsic_cost(test["transaction"])
-        == result_intrinsic_gas_cost
-    )
+    assert validate_transaction(tx) == True
+    assert calculate_intrinsic_cost(tx) == result_intrinsic_gas_cost
