@@ -14,7 +14,7 @@ The abstract computer which runs the code stored in an
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple, Union
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from ethereum.base_types import U256, Bytes, Bytes0, Uint
 from ethereum.crypto import Hash32
@@ -77,5 +77,6 @@ class Evm:
     running: bool
     message: Message
     output: Bytes
-    accounts_to_delete: Set[Address]
+    accounts_to_delete: Dict[Address, Address]
     has_erred: bool
+    children: List["Evm"]

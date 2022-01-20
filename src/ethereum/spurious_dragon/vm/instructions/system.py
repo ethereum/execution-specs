@@ -27,6 +27,7 @@ from ...state import (
     account_has_code_or_nonce,
     get_account,
     increment_nonce,
+    is_account_empty,
     set_account_balance,
 )
 from ...utils.address import compute_contract_address, to_address
@@ -115,13 +116,13 @@ def create(evm: Evm) -> None:
         should_transfer_value=True,
     )
     child_evm = process_create_message(child_message, evm.env)
+    evm.children.append(child_evm)
     if child_evm.has_erred:
         push(evm.stack, U256(0))
     else:
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
     evm.gas_left += child_evm.gas_left
     evm.refund_counter += child_evm.refund_counter
-    evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.logs += child_evm.logs
 
 
@@ -186,8 +187,12 @@ def call(evm: Evm) -> None:
         evm.memory, memory_input_start_position, memory_input_size
     )
 
-    _account_exists = account_exists(evm.env.state, to)
-    create_gas_cost = U256(0) if _account_exists else GAS_NEW_ACCOUNT
+    is_account_alive = account_exists(
+        evm.env.state, to
+    ) and not is_account_empty(evm.env.state, to)
+    create_gas_cost = (
+        U256(0) if is_account_alive or value == 0 else GAS_NEW_ACCOUNT
+    )
     transfer_gas_cost = U256(0) if value == 0 else GAS_CALL_VALUE
     extra_gas = u256_safe_add(
         create_gas_cost,
@@ -229,6 +234,7 @@ def call(evm: Evm) -> None:
         should_transfer_value=True,
     )
     child_evm = process_message(child_message, evm.env)
+    evm.children.append(child_evm)
 
     if child_evm.has_erred:
         push(evm.stack, U256(0))
@@ -243,7 +249,6 @@ def call(evm: Evm) -> None:
     )
     evm.gas_left += child_evm.gas_left
     evm.refund_counter += child_evm.refund_counter
-    evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.logs += child_evm.logs
 
 
@@ -325,6 +330,7 @@ def callcode(evm: Evm) -> None:
     )
 
     child_evm = process_message(child_message, evm.env)
+    evm.children.append(child_evm)
     if child_evm.has_erred:
         push(evm.stack, U256(0))
     else:
@@ -337,7 +343,6 @@ def callcode(evm: Evm) -> None:
     )
     evm.gas_left += child_evm.gas_left
     evm.refund_counter += child_evm.refund_counter
-    evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.logs += child_evm.logs
 
 
@@ -353,7 +358,15 @@ def selfdestruct(evm: Evm) -> None:
     evm.gas_left = subtract_gas(evm.gas_left, GAS_SELF_DESTRUCT)
     beneficiary = to_address(pop(evm.stack))
 
-    if not account_exists(evm.env.state, beneficiary):
+    originator = evm.message.current_target
+    beneficiary_balance = get_account(evm.env.state, beneficiary).balance
+    originator_balance = get_account(evm.env.state, originator).balance
+
+    is_dead_account = not account_exists(
+        evm.env.state, beneficiary
+    ) or is_account_empty(evm.env.state, beneficiary)
+
+    if is_dead_account and originator_balance != 0:
         evm.gas_left = subtract_gas(
             evm.gas_left, GAS_SELF_DESTRUCT_NEW_ACCOUNT
         )
@@ -372,7 +385,7 @@ def selfdestruct(evm: Evm) -> None:
     set_account_balance(evm.env.state, originator, U256(0))
 
     # register account for deletion
-    evm.accounts_to_delete.add(originator)
+    evm.accounts_to_delete[originator] = beneficiary
 
     # HALT the execution
     evm.running = False
@@ -448,6 +461,7 @@ def delegatecall(evm: Evm) -> None:
     )
 
     child_evm = process_message(child_message, evm.env)
+    evm.children.append(child_evm)
     if child_evm.has_erred:
         push(evm.stack, U256(0))
     else:
@@ -460,5 +474,4 @@ def delegatecall(evm: Evm) -> None:
     )
     evm.gas_left += child_evm.gas_left
     evm.refund_counter += child_evm.refund_counter
-    evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.logs += child_evm.logs

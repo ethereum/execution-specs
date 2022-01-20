@@ -41,10 +41,12 @@ from .eth_types import (
 )
 from .state import (
     State,
+    account_exists,
     create_ether,
     destroy_account,
     get_account,
     increment_nonce,
+    is_account_empty,
     set_account_balance,
     state_root,
 )
@@ -529,6 +531,7 @@ def process_transaction(
         refund_counter,
         logs,
         accounts_to_delete,
+        touched_accounts,
         has_erred,
     ) = process_message_call(message, env)
 
@@ -554,6 +557,13 @@ def process_transaction(
 
     for address in accounts_to_delete:
         destroy_account(env.state, address)
+
+    for address in touched_accounts:
+        should_delete = account_exists(
+            env.state, address
+        ) and is_account_empty(env.state, address)
+        if should_delete:
+            destroy_account(env.state, address)
 
     return total_gas_used, logs
 

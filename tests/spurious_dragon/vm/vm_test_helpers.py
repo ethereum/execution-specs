@@ -46,6 +46,7 @@ def run_test(
         refund_counter,
         logs,
         accounts_to_delete,
+        touched_accounts,
         has_erred,
     ) = process_message_call(message=message, env=env)
 

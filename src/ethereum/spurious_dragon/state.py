@@ -330,6 +330,30 @@ def account_has_code_or_nonce(state: State, address: Address) -> bool:
     return account.nonce != Uint(0) or account.code != b""
 
 
+def is_account_empty(state: State, address: Address) -> bool:
+    """
+    Checks if an account has non zero nonce, non empty code and non zero
+    balance.
+
+    Parameters
+    ----------
+    state:
+        The state
+    address:
+        Address of the account that needs to be checked.
+
+    Returns
+    -------
+    is_empty : `bool`
+        True if if an account has non zero nonce, non empty code and
+        non zero balance, False otherwise.
+    """
+    return (
+        not account_has_code_or_nonce(state, address)
+        and get_account(state, address).balance == 0
+    )
+
+
 def modify_state(
     state: State, address: Address, f: Callable[[Account], None]
 ) -> None:

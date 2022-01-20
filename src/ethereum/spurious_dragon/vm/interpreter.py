@@ -11,7 +11,7 @@ Introduction
 
 A straightforward interpreter that executes EVM code.
 """
-from typing import Set, Tuple, Union
+from typing import Iterable, Set, Tuple, Union
 
 from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.utils.ensure import EnsureError, ensure
@@ -22,11 +22,13 @@ from ..state import (
     begin_transaction,
     commit_transaction,
     get_account,
+    increment_nonce,
     move_ether,
     rollback_transaction,
     set_code,
     touch_account,
 )
+from ..utils.address import to_address
 from ..vm import Message
 from ..vm.error import (
     InsufficientFunds,
@@ -45,11 +47,19 @@ from .runtime import get_valid_jump_destinations
 
 STACK_DEPTH_LIMIT = U256(1024)
 MAX_CODE_SIZE = 0x6000
+THREE = to_address(Uint(3))
 
 
 def process_message_call(
     message: Message, env: Environment
-) -> Tuple[U256, U256, Union[Tuple[()], Tuple[Log, ...]], Set[Address], bool]:
+) -> Tuple[
+    U256,
+    U256,
+    Union[Tuple[()], Tuple[Log, ...]],
+    Set[Address],
+    Iterable[Address],
+    bool,
+]:
     """
     If `message.current` is empty then it creates a smart contract
     else it executes a call from the `message.caller` to the `message.target`.
@@ -78,19 +88,21 @@ def process_message_call(
             env.state, message.current_target
         )
         if is_collision:
-            return U256(0), U256(0), tuple(), set(), True
+            return U256(0), U256(0), tuple(), set(), set(), True
         else:
             evm = process_create_message(message, env)
     else:
         evm = process_message(message, env)
 
-    evm.refund_counter += len(evm.accounts_to_delete) * REFUND_SELF_DESTRUCT
+    accounts_to_delete = collect_accounts_to_delete(evm, set())
+    evm.refund_counter += len(accounts_to_delete) * REFUND_SELF_DESTRUCT
 
     return (
         evm.gas_left,
         evm.refund_counter,
         evm.logs,
-        evm.accounts_to_delete,
+        accounts_to_delete,
+        collect_touched_accounts(evm),
         evm.has_erred,
     )
 
@@ -114,6 +126,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
     # take snapshot of state before processing the message
     begin_transaction(env.state)
 
+    increment_nonce(env.state, message.current_target)
     evm = process_message(message, env)
     if not evm.has_erred:
         contract_code = evm.output
@@ -125,7 +138,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
             rollback_transaction(env.state)
             evm.gas_left = U256(0)
             evm.logs = ()
-            evm.accounts_to_delete = set()
+            evm.accounts_to_delete = dict()
             evm.refund_counter = U256(0)
             evm.has_erred = True
         else:
@@ -213,8 +226,9 @@ def execute_code(message: Message, env: Environment) -> Evm:
         running=True,
         message=message,
         output=b"",
-        accounts_to_delete=set(),
+        accounts_to_delete=dict(),
         has_erred=False,
+        children=[],
     )
     try:
 
@@ -241,7 +255,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
     ):
         evm.gas_left = U256(0)
         evm.logs = ()
-        evm.accounts_to_delete = set()
+        evm.accounts_to_delete = dict()
         evm.refund_counter = U256(0)
         evm.has_erred = True
     except (
@@ -251,3 +265,93 @@ def execute_code(message: Message, env: Environment) -> Evm:
         evm.has_erred = True
     finally:
         return evm
+
+
+def collect_touched_accounts(
+    evm: Evm, ancestor_had_error: bool = False
+) -> Iterable[Address]:
+    """
+    Collect all of the accounts that *may* need to be deleted based on
+    `EIP-161 <https://eips.ethereum.org/EIPS/eip-161>`_.
+    Checking whether they *do* need to be deleted happens in the caller.
+    See also: https://github.com/ethereum/EIPs/issues/716
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    ancestor_had_error :
+        True if the ancestors of the evm object erred else False
+
+    Returns
+    -------
+    touched_accounts: `typing.Iterable`
+        returns all the accounts that were touched and may need to be deleted.
+    """
+    # collect the coinbase account if it was touched via zero-fee transfer
+    if (evm.message.caller == evm.env.origin) and evm.env.gas_price == 0:
+        yield evm.env.coinbase
+
+    # collect those explicitly marked for deletion
+    # ("beneficiary" is of SELFDESTRUCT)
+    for beneficiary in sorted(set(evm.accounts_to_delete.values())):
+        if evm.has_erred or ancestor_had_error:
+            # Special case to account for geth+parity bug
+            # https://github.com/ethereum/EIPs/issues/716
+            if beneficiary == THREE:
+                yield beneficiary
+            continue
+        else:
+            yield beneficiary
+
+    # collect account directly addressed
+    if evm.message.target != Bytes0(b""):
+        if evm.has_erred or ancestor_had_error:
+            # collect RIPEMD160 precompile even if ancestor evm had error.
+            # otherwise, skip collection from children of erred-out evm objects
+            if evm.message.target == THREE:
+                # mypy is a little dumb;
+                # Although we have evm.message.target != Bytes0(b""),
+                # my expects target to be Union[Bytes0, Address]
+                yield evm.message.target  # type: ignore
+        else:
+            # mypy is a little dumb;
+            # Although we have evm.message.target != Bytes0(b""),
+            # my expects target to be Union[Bytes0, Address]
+            yield evm.message.target  # type: ignore
+
+    # recurse into nested computations
+    # (even erred ones, since looking for RIPEMD160)
+    for child in evm.children:
+        yield from collect_touched_accounts(
+            child, ancestor_had_error=(evm.has_erred or ancestor_had_error)
+        )
+
+
+def collect_accounts_to_delete(
+    evm: Evm, accounts_to_delete: Set[Address]
+) -> Set[Address]:
+    """
+    Collects all the accounts that need to deleted from the `evm` object and
+    its children
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    accounts_to_delete :
+        list of accounts that need to be deleted.
+        Note: An empty set should be passed to this parameter. This set
+        is used to store the results obtained by recursively iterating over the
+        child evm objects
+
+    Returns
+    -------
+    touched_accounts: `set`
+        returns all the accounts that were touched and may need to be deleted.
+    """
+    if not evm.has_erred:
+        for address in evm.accounts_to_delete.keys():
+            accounts_to_delete.add(address)
+        for child in evm.children:
+            collect_accounts_to_delete(child, accounts_to_delete)
+    return accounts_to_delete
