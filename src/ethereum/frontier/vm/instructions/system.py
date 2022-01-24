@@ -71,6 +71,10 @@ def create(evm: Evm) -> None:
         push(evm.stack, U256(0))
         return None
 
+    if sender.nonce == Uint(2 ** 64 - 1):
+        push(evm.stack, U256(0))
+        return None
+
     if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
         push(evm.stack, U256(0))
         return None
