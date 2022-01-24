@@ -46,7 +46,7 @@ def log_n(evm: Evm, num_topics: U256) -> None:
 
     Raises
     ------
-    ethereum.spurious_dragon.vm.error.StackUnderflowError
+    :py:class:`~ethereum.spurious_dragon.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2 + num_topics`.
     """
     # Converting memory_start_index to Uint as memory_start_index + size - 1

@@ -120,7 +120,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
 
     Returns
     -------
-    evm: `ethereum.spurious_dragon.vm.Evm`
+    evm: :py:class:`~ethereum.spurious_dragon.vm.Evm`
         Items containing execution specific objects.
     """
     # take snapshot of state before processing the message
@@ -162,7 +162,7 @@ def process_message(message: Message, env: Environment) -> Evm:
 
     Returns
     -------
-    evm: `ethereum.spurious_dragon.vm.Evm`
+    evm: :py:class:`~ethereum.spurious_dragon.vm.Evm`
         Items containing execution specific objects
     """
     if message.depth > STACK_DEPTH_LIMIT:
@@ -334,6 +334,7 @@ def collect_accounts_to_delete(
     """
     Collects all the accounts that need to deleted from the `evm` object and
     its children
+
     Parameters
     ----------
     evm :

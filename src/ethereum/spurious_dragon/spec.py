@@ -18,7 +18,6 @@ from typing import List, Optional, Set, Tuple
 from ethereum.base_types import Bytes0
 from ethereum.crypto import SECP256K1N
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
-from ethereum.spurious_dragon.eth_types import TX_CREATE_COST
 from ethereum.utils.ensure import ensure
 
 from .. import crypto, rlp
@@ -27,6 +26,7 @@ from . import CHAIN_ID, vm
 from .bloom import logs_bloom
 from .eth_types import (
     TX_BASE_COST,
+    TX_CREATE_COST,
     TX_DATA_COST_PER_NON_ZERO,
     TX_DATA_COST_PER_ZERO,
     Address,
@@ -582,7 +582,7 @@ def validate_transaction(tx: Transaction) -> bool:
     verified : `bool`
         True if the transaction can be executed, or False otherwise.
     """
-    return calculate_intrinsic_cost(tx) <= tx.gas
+    return calculate_intrinsic_cost(tx) <= tx.gas and tx.nonce < 2 ** 64 - 1
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Uint:

@@ -71,7 +71,7 @@ def subtract_gas(gas_left: U256, amount: U256) -> U256:
 
     Raises
     ------
-    ethereum.spurious_dragon.vm.error.OutOfGasError
+    :py:class:`~ethereum.spurious_dragon.vm.error.OutOfGasError`
         If `gas_left` is less than `amount`.
     """
     if gas_left < amount:
