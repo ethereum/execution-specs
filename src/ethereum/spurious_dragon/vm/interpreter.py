@@ -47,7 +47,7 @@ from .runtime import get_valid_jump_destinations
 
 STACK_DEPTH_LIMIT = U256(1024)
 MAX_CODE_SIZE = 0x6000
-THREE = to_address(Uint(3))
+RIPEMD160_ADDRESS = to_address(Uint(3))
 
 
 def process_message_call(
@@ -81,6 +81,7 @@ def process_message_call(
           2. `refund_counter`: gas to refund after execution.
           3. `logs`: list of `Log` generated during execution.
           4. `accounts_to_delete`: Contracts which have self-destructed.
+          5. `touched_accounts`: Accounts that have been touched.
           5. `has_erred`: True if execution has caused an error.
     """
     if message.target == Bytes0(b""):
@@ -298,27 +299,21 @@ def collect_touched_accounts(
         if evm.has_erred or ancestor_had_error:
             # Special case to account for geth+parity bug
             # https://github.com/ethereum/EIPs/issues/716
-            if beneficiary == THREE:
+            if beneficiary == RIPEMD160_ADDRESS:
                 yield beneficiary
             continue
         else:
             yield beneficiary
 
     # collect account directly addressed
-    if evm.message.target != Bytes0(b""):
+    if not isinstance(evm.message.target, Bytes0):
         if evm.has_erred or ancestor_had_error:
             # collect RIPEMD160 precompile even if ancestor evm had error.
             # otherwise, skip collection from children of erred-out evm objects
-            if evm.message.target == THREE:
-                # mypy is a little dumb;
-                # Although we have evm.message.target != Bytes0(b""),
-                # my expects target to be Union[Bytes0, Address]
-                yield evm.message.target  # type: ignore
+            if evm.message.target == RIPEMD160_ADDRESS:
+                yield evm.message.target
         else:
-            # mypy is a little dumb;
-            # Although we have evm.message.target != Bytes0(b""),
-            # my expects target to be Union[Bytes0, Address]
-            yield evm.message.target  # type: ignore
+            yield evm.message.target
 
     # recurse into nested computations
     # (even erred ones, since looking for RIPEMD160)

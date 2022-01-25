@@ -637,7 +637,7 @@ def recover_sender(tx: Transaction) -> Address:
 
     if v == 27 or v == 28:
         public_key = crypto.secp256k1_recover(
-            r, s, v - 27, signing_hash_legacy(tx)
+            r, s, v - 27, signing_hash_pre155(tx)
         )
     else:
         ensure(v == 35 + CHAIN_ID * 2 or v == 36 + CHAIN_ID * 2)
@@ -647,7 +647,7 @@ def recover_sender(tx: Transaction) -> Address:
     return Address(crypto.keccak256(public_key)[12:32])
 
 
-def signing_hash_legacy(tx: Transaction) -> Hash32:
+def signing_hash_pre155(tx: Transaction) -> Hash32:
     """
     Compute the hash of a transaction used in a legacy (pre EIP 155) signature.
 
