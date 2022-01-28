@@ -291,3 +291,6 @@ astuple
 base64
 
 dao
+precompile
+recurse
+pre155

@@ -18,6 +18,7 @@ from ethereum.utils.numeric import get_sign
 from .. import Evm
 from ..gas import (
     GAS_EXPONENTIATION,
+    GAS_EXPONENTIATION_PER_BYTE,
     GAS_LOW,
     GAS_MID,
     GAS_VERY_LOW,
@@ -329,7 +330,7 @@ def exp(evm: Evm) -> None:
         # function is inaccurate leading to wrong results.
         exponent_bits = exponent.bit_length()
         exponent_bytes = (exponent_bits + 7) // 8
-        gas_used += GAS_EXPONENTIATION * exponent_bytes
+        gas_used += GAS_EXPONENTIATION_PER_BYTE * exponent_bytes
     evm.gas_left = subtract_gas(evm.gas_left, gas_used)
 
     result = U256(pow(base, exponent, U256_CEIL_VALUE))
