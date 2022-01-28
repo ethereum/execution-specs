@@ -82,7 +82,7 @@ def process_message_call(
           3. `logs`: list of `Log` generated during execution.
           4. `accounts_to_delete`: Contracts which have self-destructed.
           5. `touched_accounts`: Accounts that have been touched.
-          5. `has_erred`: True if execution has caused an error.
+          6. `has_erred`: True if execution has caused an error.
     """
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
