@@ -11,7 +11,8 @@ Introduction
 
 A straightforward interpreter that executes EVM code.
 """
-from typing import Set, Tuple, Union
+from dataclasses import dataclass
+from typing import Iterable, Set, Tuple, Union
 
 from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.utils.ensure import EnsureError
@@ -46,9 +47,32 @@ from .runtime import get_valid_jump_destinations
 STACK_DEPTH_LIMIT = U256(1024)
 
 
+@dataclass
+class MessageCallOutput:
+    """
+    Output of a particular message call
+
+    Contains the following:
+
+          1. `gas_left`: remaining gas after execution.
+          2. `refund_counter`: gas to refund after execution.
+          3. `logs`: list of `Log` generated during execution.
+          4. `accounts_to_delete`: Contracts which have self-destructed.
+          5. `touched_accounts`: Accounts that have been touched.
+          6. `has_erred`: True if execution has caused an error.
+    """
+
+    gas_left: U256
+    refund_counter: U256
+    logs: Union[Tuple[()], Tuple[Log, ...]]
+    accounts_to_delete: Set[Address]
+    touched_accounts: Iterable[Address]
+    has_erred: bool
+
+
 def process_message_call(
     message: Message, env: Environment
-) -> Tuple[U256, U256, Union[Tuple[()], Tuple[Log, ...]], Set[Address], bool]:
+) -> MessageCallOutput:
     """
     If `message.current` is empty then it creates a smart contract
     else it executes a call from the `message.caller` to the `message.target`.
@@ -63,21 +87,17 @@ def process_message_call(
 
     Returns
     -------
-    output : `Tuple`
-        A tuple of the following:
-
-          1. `gas_left`: remaining gas after execution.
-          2. `refund_counter`: gas to refund after execution.
-          3. `logs`: list of `Log` generated during execution.
-          4. `accounts_to_delete`: Contracts which have self-destructed.
-          5. `has_erred`: True if execution has caused an error.
+    output : `MessageCallOutput`
+        Output of the message call
     """
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
             env.state, message.current_target
         )
         if is_collision:
-            return U256(0), U256(0), tuple(), set(), True
+            return MessageCallOutput(
+                U256(0), U256(0), tuple(), set(), set(), True
+            )
         else:
             evm = process_create_message(message, env)
     else:
@@ -85,12 +105,13 @@ def process_message_call(
 
     evm.refund_counter += len(evm.accounts_to_delete) * REFUND_SELF_DESTRUCT
 
-    return (
-        evm.gas_left,
-        evm.refund_counter,
-        evm.logs,
-        evm.accounts_to_delete,
-        evm.has_erred,
+    return MessageCallOutput(
+        gas_left=evm.gas_left,
+        refund_counter=evm.refund_counter,
+        logs=evm.logs,
+        accounts_to_delete=evm.accounts_to_delete,
+        touched_accounts=set(),
+        has_erred=evm.has_erred,
     )
 
 
