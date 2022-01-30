@@ -39,6 +39,7 @@ from ..vm.error import (
     StackDepthLimitError,
     StackOverflowError,
     StackUnderflowError,
+    WriteProtection,
 )
 from ..vm.gas import GAS_CODE_DEPOSIT, REFUND_SELF_DESTRUCT, subtract_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
@@ -254,6 +255,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         StackOverflowError,
         StackUnderflowError,
         StackDepthLimitError,
+        WriteProtection,
     ):
         evm.gas_left = U256(0)
         evm.has_erred = True

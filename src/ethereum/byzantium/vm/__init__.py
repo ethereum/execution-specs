@@ -59,6 +59,7 @@ class Message:
     code: Bytes
     depth: Uint
     should_transfer_value: bool
+    is_static: bool
 
 
 @dataclass

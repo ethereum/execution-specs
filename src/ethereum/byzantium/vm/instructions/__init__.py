@@ -193,6 +193,7 @@ class Ops(enum.Enum):
     CALL = 0xF1
     CALLCODE = 0xF2
     DELEGATECALL = 0xF4
+    STATICCALL = 0xFA
     SELFDESTRUCT = 0xFF
 
 
@@ -327,4 +328,5 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.CALLCODE: system_instructions.callcode,
     Ops.DELEGATECALL: system_instructions.delegatecall,
     Ops.SELFDESTRUCT: system_instructions.selfdestruct,
+    Ops.STATICCALL: system_instructions.staticcall,
 }

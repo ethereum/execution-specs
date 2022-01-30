@@ -31,6 +31,7 @@ def prepare_message(
     env: Environment,
     code_address: Optional[Address] = None,
     should_transfer_value: bool = True,
+    is_static: bool = False,
 ) -> Message:
     """
     Execute a transaction against the provided environment.
@@ -55,6 +56,9 @@ def prepare_message(
         eg. `CALLCODE` calling a precompile.
     should_transfer_value :
         if True ETH should be transferred while executing a message call.
+    is_static:
+        if True then it prevents all state-changing operations from being
+        executed.
 
     Returns
     -------
@@ -88,4 +92,5 @@ def prepare_message(
         current_target=current_target,
         code_address=code_address,
         should_transfer_value=should_transfer_value,
+        is_static=is_static,
     )
