@@ -355,14 +355,14 @@ def apply_body(
             state=state,
         )
 
-        gas_used, logs = process_transaction(env, tx)
+        gas_used, logs, has_erred = process_transaction(env, tx)
         gas_available -= gas_used
 
         trie_set(
             receipts_trie,
             rlp.encode(Uint(i)),
             Receipt(
-                post_state=state_root(state),
+                post_state=Bytes(b"") if has_erred else Bytes(b"\x01"),
                 cumulative_gas_used=(block_gas_limit - gas_available),
                 bloom=logs_bloom(logs),
                 logs=logs,
@@ -486,7 +486,7 @@ def pay_rewards(
 
 def process_transaction(
     env: vm.Environment, tx: Transaction
-) -> Tuple[U256, Tuple[Log, ...]]:
+) -> Tuple[U256, Tuple[Log, ...], bool]:
     """
     Execute a transaction against the provided environment.
 
@@ -565,7 +565,7 @@ def process_transaction(
         if should_delete:
             destroy_account(env.state, address)
 
-    return total_gas_used, logs
+    return total_gas_used, logs, has_erred
 
 
 def validate_transaction(tx: Transaction) -> bool:

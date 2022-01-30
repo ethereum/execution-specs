@@ -149,7 +149,7 @@ class Receipt:
     Result of a transaction.
     """
 
-    post_state: Root
+    post_state: Bytes
     cumulative_gas_used: Uint
     bloom: Bloom
     logs: Tuple[Log, ...]
