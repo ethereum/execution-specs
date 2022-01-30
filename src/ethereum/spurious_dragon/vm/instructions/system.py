@@ -367,10 +367,6 @@ def selfdestruct(evm: Evm) -> None:
             evm.gas_left, GAS_SELF_DESTRUCT_NEW_ACCOUNT
         )
 
-    originator = evm.message.current_target
-    beneficiary_balance = get_account(evm.env.state, beneficiary).balance
-    originator_balance = get_account(evm.env.state, originator).balance
-
     # First Transfer to beneficiary
     set_account_balance(
         evm.env.state, beneficiary, beneficiary_balance + originator_balance
