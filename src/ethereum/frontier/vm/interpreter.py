@@ -12,6 +12,7 @@ Introduction
 A straightforward interpreter that executes EVM code.
 """
 from dataclasses import dataclass
+from itertools import chain
 from typing import Set, Tuple, Union
 
 from ethereum.base_types import U256, Bytes0, Uint
@@ -99,13 +100,17 @@ def process_message_call(
     else:
         evm = process_message(message, env)
 
-    evm.refund_counter += len(evm.accounts_to_delete) * REFUND_SELF_DESTRUCT
+    accounts_to_delete = collect_accounts_to_delete(evm)
+    refund_counter = (
+        calculate_gas_refund(evm)
+        + len(accounts_to_delete) * REFUND_SELF_DESTRUCT
+    )
 
     return MessageCallOutput(
         gas_left=evm.gas_left,
-        refund_counter=evm.refund_counter,
-        logs=evm.logs,
-        accounts_to_delete=evm.accounts_to_delete,
+        refund_counter=refund_counter,
+        logs=collect_logs(evm),
+        accounts_to_delete=accounts_to_delete,
         has_erred=evm.has_erred,
     )
 
@@ -218,6 +223,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         output=b"",
         accounts_to_delete=set(),
         has_erred=False,
+        children=[],
     )
     try:
 
@@ -243,9 +249,6 @@ def execute_code(message: Message, env: Environment) -> Evm:
         StackDepthLimitError,
     ):
         evm.gas_left = U256(0)
-        evm.logs = ()
-        evm.accounts_to_delete = set()
-        evm.refund_counter = U256(0)
         evm.has_erred = True
     except (
         EnsureError,
@@ -254,3 +257,80 @@ def execute_code(message: Message, env: Environment) -> Evm:
         evm.has_erred = True
     finally:
         return evm
+
+
+def collect_accounts_to_delete(evm: Evm) -> Set[Address]:
+    """
+    Collects all the accounts that were marked for deletion by the
+    `SELFDESTRUCT` opcode.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Returns
+    -------
+    accounts_to_delete: `set`
+        returns all the accounts need marked for deletion by the
+        `SELFDESTRUCT` opcode.
+    """
+    if evm.has_erred:
+        return set()
+    else:
+        return set(
+            chain(
+                evm.accounts_to_delete,
+                *(collect_accounts_to_delete(child) for child in evm.children),
+            )
+        )
+
+
+def collect_logs(evm: Evm) -> Tuple[Log, ...]:
+    """
+    Collects all the logs emitted while executing the message call.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Returns
+    -------
+    logs: `tuple`
+        returns all the logs that were emitted while executing the
+        message call.
+    """
+    if evm.has_erred:
+        return ()
+    else:
+        return tuple(
+            chain(
+                evm.logs,
+                *(collect_logs(child_evm) for child_evm in evm.children),
+            )
+        )
+
+
+def calculate_gas_refund(evm: Evm) -> U256:
+    """
+    Adds up the gas that was refunded in each execution frame during the
+    message call.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Returns
+    -------
+    gas_refund: `ethereum.base_types.U256`
+        returns the total gas that needs to be refunded after executing the
+        message call.
+    """
+    if evm.has_erred:
+        return U256(0)
+    else:
+        return evm.refund_counter + sum(
+            calculate_gas_refund(child_evm) for child_evm in evm.children
+        )
