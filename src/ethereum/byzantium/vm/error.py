@@ -91,3 +91,11 @@ class OutOfBoundsRead(Exception):
     """
 
     pass
+
+
+class Revert(Exception):
+    """
+    Raised by the `REVERT` opcode.
+    """
+
+    pass

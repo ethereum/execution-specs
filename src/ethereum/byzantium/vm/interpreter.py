@@ -37,6 +37,7 @@ from ..vm.error import (
     InvalidOpcode,
     OutOfBoundsRead,
     OutOfGasError,
+    Revert,
     StackDepthLimitError,
     StackOverflowError,
     StackUnderflowError,
@@ -234,6 +235,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         has_erred=False,
         children=[],
         return_data=b"",
+        error=None,
     )
     try:
 
@@ -266,6 +268,9 @@ def execute_code(message: Message, env: Environment) -> Evm:
         EnsureError,
         ValueError,
     ):
+        evm.has_erred = True
+    except Revert as e:
+        evm.error = e
         evm.has_erred = True
     finally:
         return evm

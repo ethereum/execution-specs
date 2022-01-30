@@ -24,7 +24,7 @@ from ...state import (
     set_account_balance,
 )
 from ...utils.address import compute_contract_address, to_address
-from ...vm.error import OutOfGasError, WriteProtection
+from ...vm.error import OutOfGasError, Revert, WriteProtection
 from .. import Evm, Message
 from ..gas import (
     GAS_CALL,
@@ -245,7 +245,10 @@ def call(evm: Evm) -> None:
 
     if child_evm.has_erred:
         push(evm.stack, U256(0))
-        evm.return_data = b""
+        if isinstance(child_evm.error, Revert):
+            evm.return_data = child_evm.output
+        else:
+            evm.return_data = b""
     else:
         push(evm.stack, U256(1))
         evm.return_data = child_evm.output
@@ -341,7 +344,10 @@ def callcode(evm: Evm) -> None:
     evm.children.append(child_evm)
     if child_evm.has_erred:
         push(evm.stack, U256(0))
-        evm.return_data = b""
+        if isinstance(child_evm.error, Revert):
+            evm.return_data = child_evm.output
+        else:
+            evm.return_data = b""
     else:
         push(evm.stack, U256(1))
         evm.return_data = child_evm.output
@@ -469,7 +475,10 @@ def delegatecall(evm: Evm) -> None:
     evm.children.append(child_evm)
     if child_evm.has_erred:
         push(evm.stack, U256(0))
-        evm.return_data = b""
+        if isinstance(evm.error, Revert):
+            evm.return_data = child_evm.output
+        else:
+            evm.return_data = b""
     else:
         push(evm.stack, U256(1))
         evm.return_data = child_evm.output
@@ -559,7 +568,10 @@ def staticcall(evm: Evm) -> None:
 
     if child_evm.has_erred:
         push(evm.stack, U256(0))
-        evm.return_data = b""
+        if isinstance(child_evm.error, Revert):
+            evm.return_data = child_evm.output
+        else:
+            evm.return_data = b""
     else:
         push(evm.stack, U256(1))
         evm.return_data = child_evm.output
@@ -572,3 +584,27 @@ def staticcall(evm: Evm) -> None:
     )
     evm.gas_left += child_evm.gas_left
     child_evm.gas_left = U256(0)
+
+
+def revert(evm: Evm) -> None:
+    """
+    Stop execution and revert state changes, without consuming all provided gas
+    and also has the ability to return a reason
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    memory_start_index = Uint(pop(evm.stack))
+    size = pop(evm.stack)
+
+    memory_extend_gas_cost = calculate_gas_extend_memory(
+        evm.memory, memory_start_index, size
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, memory_extend_gas_cost)
+    extend_memory(evm.memory, memory_start_index, size)
+
+    output = memory_read_bytes(evm.memory, memory_start_index, size)
+    evm.output = bytes(output)
+    raise Revert

@@ -82,3 +82,4 @@ class Evm:
     has_erred: bool
     children: List["Evm"]
     return_data: Bytes
+    error: Optional[Exception]
