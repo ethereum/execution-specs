@@ -54,11 +54,12 @@ from .trie import Trie, root, trie_set
 from .utils.message import prepare_message
 from .vm.interpreter import process_message_call
 
-BLOCK_REWARD = U256(5 * 10 ** 18)
+BLOCK_REWARD = U256(3 * 10 ** 18)
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
 GENESIS_DIFFICULTY = Uint(131072)
 MAX_OMMER_DEPTH = 6
+BOMB_DELAY_BLOCKS = 3000000
 
 
 @dataclass
@@ -811,7 +812,9 @@ def calculate_block_difficulty(
     # bomb has no effect prior to block 200000 we pretend it existed from
     # genesis.
     # See https://github.com/ethereum/go-ethereum/pull/1588
-    num_bomb_periods = ((int(parent_block_number) + 1) // 100000) - 2
+    num_bomb_periods = (
+        (int(parent_block_number) + 1 - BOMB_DELAY_BLOCKS) // 100000
+    ) - 2
     if num_bomb_periods >= 0:
         return Uint(
             max(difficulty + 2 ** num_bomb_periods, GENESIS_DIFFICULTY)
