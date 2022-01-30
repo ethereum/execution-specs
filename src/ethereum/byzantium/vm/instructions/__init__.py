@@ -80,6 +80,8 @@ class Ops(enum.Enum):
     GASPRICE = 0x3A
     EXTCODESIZE = 0x3B
     EXTCODECOPY = 0x3C
+    RETURNDATASIZE = 0x3D
+    RETURNDATACOPY = 0x3E
 
     # Block Ops
     BLOCKHASH = 0x40
@@ -246,6 +248,8 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.GASPRICE: environment_instructions.gasprice,
     Ops.EXTCODESIZE: environment_instructions.extcodesize,
     Ops.EXTCODECOPY: environment_instructions.extcodecopy,
+    Ops.RETURNDATASIZE: environment_instructions.returndatasize,
+    Ops.RETURNDATACOPY: environment_instructions.returndatacopy,
     Ops.SSTORE: storage_instructions.sstore,
     Ops.JUMP: control_flow_instructions.jump,
     Ops.JUMPI: control_flow_instructions.jumpi,

@@ -81,3 +81,4 @@ class Evm:
     accounts_to_delete: Dict[Address, Address]
     has_erred: bool
     children: List["Evm"]
+    return_data: Bytes

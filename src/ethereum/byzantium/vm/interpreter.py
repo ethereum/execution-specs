@@ -35,6 +35,7 @@ from ..vm.error import (
     InsufficientFunds,
     InvalidJumpDestError,
     InvalidOpcode,
+    OutOfBoundsRead,
     OutOfGasError,
     StackDepthLimitError,
     StackOverflowError,
@@ -232,6 +233,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         accounts_to_delete=dict(),
         has_erred=False,
         children=[],
+        return_data=b"",
     )
     try:
 
@@ -248,6 +250,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
             op_implementation[op](evm)
 
     except (
+        OutOfBoundsRead,
         OutOfGasError,
         InvalidOpcode,
         InvalidJumpDestError,

@@ -82,3 +82,12 @@ class WriteProtection(Exception):
     """
 
     pass
+
+
+class OutOfBoundsRead(Exception):
+    """
+    Raised when an attempt was made to read data beyond the
+    boundaries of the buffer.
+    """
+
+    pass

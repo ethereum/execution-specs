@@ -124,8 +124,10 @@ def create(evm: Evm) -> None:
     evm.children.append(child_evm)
     if child_evm.has_erred:
         push(evm.stack, U256(0))
+        evm.return_data = child_evm.output
     else:
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
+        evm.return_data = b""
     evm.gas_left += child_evm.gas_left
     child_evm.gas_left = U256(0)
 
@@ -216,10 +218,12 @@ def call(evm: Evm) -> None:
     if sender_balance < value:
         push(evm.stack, U256(0))
         evm.gas_left += message_call_gas_fee
+        evm.return_data = b""
         return None
     if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
         push(evm.stack, U256(0))
         evm.gas_left += message_call_gas_fee
+        evm.return_data = b""
         return None
 
     code = get_account(evm.env.state, to).code
@@ -241,8 +245,10 @@ def call(evm: Evm) -> None:
 
     if child_evm.has_erred:
         push(evm.stack, U256(0))
+        evm.return_data = b""
     else:
         push(evm.stack, U256(1))
+        evm.return_data = child_evm.output
 
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
     memory_write(
@@ -308,10 +314,12 @@ def callcode(evm: Evm) -> None:
     if sender_balance < value:
         push(evm.stack, U256(0))
         evm.gas_left += message_call_gas_fee
+        evm.return_data = b""
         return None
     if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
         push(evm.stack, U256(0))
         evm.gas_left += message_call_gas_fee
+        evm.return_data = b""
         return None
 
     code = get_account(evm.env.state, code_address).code
@@ -333,8 +341,10 @@ def callcode(evm: Evm) -> None:
     evm.children.append(child_evm)
     if child_evm.has_erred:
         push(evm.stack, U256(0))
+        evm.return_data = b""
     else:
         push(evm.stack, U256(1))
+        evm.return_data = child_evm.output
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
     memory_write(
         evm.memory,
@@ -437,6 +447,7 @@ def delegatecall(evm: Evm) -> None:
     if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
         push(evm.stack, U256(0))
         evm.gas_left += message_call_gas_fee
+        evm.return_data = b""
         return None
 
     code = get_account(evm.env.state, code_address).code
@@ -458,8 +469,10 @@ def delegatecall(evm: Evm) -> None:
     evm.children.append(child_evm)
     if child_evm.has_erred:
         push(evm.stack, U256(0))
+        evm.return_data = b""
     else:
         push(evm.stack, U256(1))
+        evm.return_data = child_evm.output
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
     memory_write(
         evm.memory,
@@ -524,6 +537,7 @@ def staticcall(evm: Evm) -> None:
     if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
         push(evm.stack, U256(0))
         evm.gas_left += message_call_gas_fee
+        evm.return_data = b""
         return None
 
     code = get_account(evm.env.state, to).code
@@ -545,8 +559,10 @@ def staticcall(evm: Evm) -> None:
 
     if child_evm.has_erred:
         push(evm.stack, U256(0))
+        evm.return_data = b""
     else:
         push(evm.stack, U256(1))
+        evm.return_data = child_evm.output
 
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
     memory_write(

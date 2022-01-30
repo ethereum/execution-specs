@@ -13,12 +13,13 @@ Implementations of the EVM environment related instructions.
 """
 
 from ethereum.base_types import U256, Uint
+from ethereum.utils.ensure import ensure
 from ethereum.utils.numeric import ceil32
 from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
 from ...state import get_account
 from ...utils.address import to_address
-from ...vm.error import OutOfGasError
+from ...vm.error import OutOfBoundsRead, OutOfGasError
 from ...vm.memory import extend_memory, memory_write
 from .. import Evm
 from ..gas import (
@@ -26,6 +27,7 @@ from ..gas import (
     GAS_BASE,
     GAS_COPY,
     GAS_EXTERNAL,
+    GAS_RETURN_DATA_COPY,
     GAS_VERY_LOW,
     calculate_gas_extend_memory,
     subtract_gas,
@@ -432,3 +434,60 @@ def extcodecopy(evm: Evm) -> None:
     value = value.ljust(size, b"\x00")
 
     memory_write(evm.memory, memory_start_index, value)
+
+
+def returndatasize(evm: Evm) -> None:
+    """
+    Pushes the size of the return data buffer onto the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    return_size = U256(len(evm.return_data))
+    push(evm.stack, return_size)
+    evm.pc += 1
+
+
+def returndatacopy(evm: Evm) -> None:
+    """
+    Copies data from the return data buffer code to memory
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    memory_start_index = Uint(pop(evm.stack))
+    return_data_start_position = Uint(pop(evm.stack))
+    size = pop(evm.stack)
+    ensure(
+        return_data_start_position + size <= len(evm.return_data),
+        OutOfBoundsRead,
+    )
+
+    words = ceil32(Uint(size)) // 32
+    copy_gas_cost = u256_safe_multiply(
+        GAS_RETURN_DATA_COPY,
+        words,
+        exception_type=OutOfGasError,
+    )
+    memory_extend_gas_cost = calculate_gas_extend_memory(
+        evm.memory, memory_start_index, size
+    )
+    total_gas_cost = u256_safe_add(
+        GAS_VERY_LOW,
+        copy_gas_cost,
+        memory_extend_gas_cost,
+        exception_type=OutOfGasError,
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+
+    extend_memory(evm.memory, memory_start_index, size)
+    value = evm.return_data[
+        return_data_start_position : return_data_start_position + size
+    ]
+    memory_write(evm.memory, memory_start_index, value)
+    evm.pc += 1
