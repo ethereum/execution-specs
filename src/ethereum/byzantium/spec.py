@@ -60,6 +60,7 @@ GAS_LIMIT_MINIMUM = 5000
 GENESIS_DIFFICULTY = Uint(131072)
 MAX_OMMER_DEPTH = 6
 BOMB_DELAY_BLOCKS = 3000000
+EMPTY_UNCLE_HASH = crypto.keccak256(rlp.encode([]))
 
 
 @dataclass
@@ -189,6 +190,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
         header.timestamp,
         parent_header.timestamp,
         parent_header.difficulty,
+        parent_header.ommers_hash,
     )
 
     block_parent_hash = crypto.keccak256(rlp.encode(parent_header))
@@ -781,6 +783,7 @@ def calculate_block_difficulty(
     timestamp: U256,
     parent_timestamp: U256,
     parent_difficulty: Uint,
+    parent_ommers_hash: Hash32,
 ) -> Uint:
     """
     Computes difficulty of a block using its header and parent header.
@@ -795,16 +798,22 @@ def calculate_block_difficulty(
         Timestamp of the parent block.
     parent_difficulty :
         difficulty of the parent block.
+    parent_ommers_hash:
+        hash of parents ommers.
 
     Returns
     -------
     difficulty : `ethereum.base_types.Uint`
         Computed difficulty for a block.
     """
+    has_uncles = parent_ommers_hash != EMPTY_UNCLE_HASH
     offset = (
         int(parent_difficulty)
         // 2048
-        * max(1 - int(timestamp - parent_timestamp) // 10, -99)
+        * max(
+            (2 if has_uncles else 1) - int(timestamp - parent_timestamp) // 9,
+            -99,
+        )
     )
     difficulty = int(parent_difficulty) + offset
     # Historical Note: The difficulty bomb was not present in Ethereum at the
