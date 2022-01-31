@@ -12,7 +12,7 @@ Introduction
 A straightforward interpreter that executes EVM code.
 """
 from dataclasses import dataclass
-from typing import Iterable, Set, Tuple, Union
+from typing import Set, Tuple, Union
 
 from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.utils.ensure import EnsureError
@@ -58,15 +58,13 @@ class MessageCallOutput:
           2. `refund_counter`: gas to refund after execution.
           3. `logs`: list of `Log` generated during execution.
           4. `accounts_to_delete`: Contracts which have self-destructed.
-          5. `touched_accounts`: Accounts that have been touched.
-          6. `has_erred`: True if execution has caused an error.
+          5. `has_erred`: True if execution has caused an error.
     """
 
     gas_left: U256
     refund_counter: U256
     logs: Union[Tuple[()], Tuple[Log, ...]]
     accounts_to_delete: Set[Address]
-    touched_accounts: Iterable[Address]
     has_erred: bool
 
 
@@ -95,9 +93,7 @@ def process_message_call(
             env.state, message.current_target
         )
         if is_collision:
-            return MessageCallOutput(
-                U256(0), U256(0), tuple(), set(), set(), True
-            )
+            return MessageCallOutput(U256(0), U256(0), tuple(), set(), True)
         else:
             evm = process_create_message(message, env)
     else:
@@ -110,7 +106,6 @@ def process_message_call(
         refund_counter=evm.refund_counter,
         logs=evm.logs,
         accounts_to_delete=evm.accounts_to_delete,
-        touched_accounts=set(),
         has_erred=evm.has_erred,
     )
 
