@@ -145,6 +145,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         except OutOfGasError:
             rollback_transaction(env.state)
             evm.gas_left = U256(0)
+            evm.output = b""
             evm.has_erred = True
         else:
             set_code(env.state, message.current_target, contract_code)
@@ -263,6 +264,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         WriteProtection,
     ):
         evm.gas_left = U256(0)
+        evm.output = b""
         evm.has_erred = True
     except (
         EnsureError,
