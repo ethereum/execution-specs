@@ -535,18 +535,12 @@ def process_transaction(
         env,
     )
 
-    (
-        gas_left,
-        refund_counter,
-        logs,
-        accounts_to_delete,
-        has_erred,
-    ) = process_message_call(message, env)
+    output = process_message_call(message, env)
 
-    gas_used = tx.gas - gas_left
-    gas_refund = min(gas_used // 2, refund_counter)
-    gas_refund_amount = (gas_left + gas_refund) * tx.gas_price
-    transaction_fee = (tx.gas - gas_left - gas_refund) * tx.gas_price
+    gas_used = tx.gas - output.gas_left
+    gas_refund = min(gas_used // 2, output.refund_counter)
+    gas_refund_amount = (output.gas_left + gas_refund) * tx.gas_price
+    transaction_fee = (tx.gas - output.gas_left - gas_refund) * tx.gas_price
     total_gas_used = gas_used - gas_refund
 
     # refund gas
@@ -563,10 +557,10 @@ def process_transaction(
         env.state, env.coinbase, coinbase_balance_after_mining_fee
     )
 
-    for address in accounts_to_delete:
+    for address in output.accounts_to_delete:
         destroy_account(env.state, address)
 
-    return total_gas_used, logs
+    return total_gas_used, output.logs
 
 
 def validate_transaction(tx: Transaction) -> bool:
