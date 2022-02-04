@@ -98,7 +98,7 @@ class PatchHygieneVisitor(ast.NodeVisitor):
         # Detect imports inside function body
         for node in function.body:
             if isinstance(node, ast.ImportFrom):
-                self.item_imports.append(node.module)
+                self.item_imports.append(str(node.module))
             if isinstance(node, ast.Import):
                 self.item_imports.append(node.names[0].name)
 
@@ -111,7 +111,7 @@ class PatchHygieneVisitor(ast.NodeVisitor):
         # Detect imports inside function body
         for node in function.body:
             if isinstance(node, ast.ImportFrom):
-                self.item_imports.append(node.module)
+                self.item_imports.append(str(node.module))
             if isinstance(node, ast.Import):
                 self.item_imports.append(node.names[0].name)
 
@@ -163,7 +163,7 @@ class PatchHygieneVisitor(ast.NodeVisitor):
         """
         Visit an ImportFrom.
         """
-        self.item_imports.append(mod.module)
+        self.item_imports.append(str(mod.module))
 
 
 class PatchHygiene(Lint):
@@ -177,7 +177,6 @@ class PatchHygiene(Lint):
         """
         Walks the sources for each hardfork and emits Diagnostic messages.
         """
-
         all_current = dict(walk_sources(forks[position]))
         diagnostics: List[Diagnostic] = []
         if position == 0:
@@ -245,15 +244,14 @@ class PatchHygiene(Lint):
         Checks a Python source and emits diagnostic
         messages if there are any invalid imports.
         """
-
         diagnostics: List[Diagnostic] = []
 
         invalid_imports = {
             "active_fork": forks[position].name,
-            "future_fork": tuple(fork.name for fork in forks[position + 1 :]),
-            "minus2_fork": tuple(fork.name for fork in forks[: position - 1])
+            "future_fork": [fork.name for fork in forks[position + 1 :]],
+            "minus2_fork": [fork.name for fork in forks[: position - 1]]
             if position > 1
-            else tuple(),
+            else [],
         }
 
         current_imports = self.parse(source).item_imports
@@ -261,7 +259,7 @@ class PatchHygiene(Lint):
         for item in current_imports:
             if item is None:
                 continue
-            elif item.startswith(invalid_imports["active_fork"]):
+            elif item.startswith(str(invalid_imports["active_fork"])):
                 diagnostic = Diagnostic(
                     message=(
                         f"The import `{item}` in `{name}` is "
@@ -270,7 +268,7 @@ class PatchHygiene(Lint):
                 )
                 diagnostics.append(diagnostic)
 
-            elif item.startswith(invalid_imports["future_fork"]):
+            elif item.startswith(tuple(invalid_imports["future_fork"])):
                 diagnostic = Diagnostic(
                     message=(
                         f"The import `{item}` in `{name}` "
@@ -278,11 +276,12 @@ class PatchHygiene(Lint):
                     )
                 )
                 diagnostics.append(diagnostic)
-            elif item.startswith(invalid_imports["minus2_fork"]):
+            elif item.startswith(tuple(invalid_imports["minus2_fork"])):
                 diagnostic = Diagnostic(
                     message=(
-                        f"The import `{item}` in `{name}` is from an older fork."
-                        " Only imports from the previous fork are allowed."
+                        f"The import `{item}` in `{name}` is from an "
+                        "older fork. Only imports from the previous "
+                        "fork are allowed."
                     )
                 )
                 diagnostics.append(diagnostic)
@@ -292,7 +291,8 @@ class PatchHygiene(Lint):
     def parse(self, source: str) -> PatchHygieneVisitor:
         """
         Walks the source string and extracts an ordered sequence of
-        identifiers as well as the relevant imports within a PatchHygieneVisitor.
+        identifiers as well as the relevant imports within a
+        PatchHygieneVisitor.
         """
         parsed = ast.parse(source)
         visitor = PatchHygieneVisitor()
@@ -329,7 +329,8 @@ class Linter:
                 if diagnostics:
                     count += len(diagnostics)
                     print(
-                        f"{hardforks[hardfork].name} - {lint.__class__.__name__}:"
+                        f"{hardforks[hardfork].name} - "
+                        "{lint.__class__.__name__}:"
                     )
                     for diagnostic in diagnostics:
                         print("\t", diagnostic.message)
