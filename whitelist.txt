@@ -1,6 +1,7 @@
 AnnAssign
 AsyncFunctionDef
 ClassDef
+ImportFrom
 radd
 Hash64
 Bytes20

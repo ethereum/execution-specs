@@ -123,3 +123,12 @@ class Hardfork:
             raise ValueError(f"cannot walk {self.name}, path is None")
 
         return pkgutil.iter_modules(self.path, self.name + ".")
+
+    def walk_packages(self) -> Iterator[ModuleInfo]:
+        """
+        Iterate recursively through the (sub-)modules describing this hardfork.
+        """
+        if self.path is None:
+            raise ValueError(f"cannot walk {self.name}, path is None")
+
+        return pkgutil.walk_packages(self.path, self.name + ".")

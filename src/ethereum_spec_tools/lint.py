@@ -9,18 +9,18 @@ import ast
 import importlib
 import inspect
 from abc import ABCMeta, abstractmethod
-from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Generator, List, Optional, Sequence, Tuple
 
 from .forks import Hardfork
+from .visitors import ImportHygieneVisitor, PatchHygieneVisitor
 
 
 def walk_sources(fork: Hardfork) -> Generator[Tuple[str, str], None, None]:
     """
     Import the modules specifying a hardfork, and retrieve their source code.
     """
-    for mod_info in fork.iter_modules():
+    for mod_info in fork.walk_packages():
         mod = importlib.import_module(mod_info.name)
         source = inspect.getsource(mod)
         name = mod.__name__
@@ -57,87 +57,6 @@ class Lint(metaclass=ABCMeta):
         position :
             The particular hardfork to lint.
         """
-
-
-class PatchHygieneVisitor(ast.NodeVisitor):
-    """
-    Visits nodes in a syntax tree and collects functions, classes, and
-    assignments.
-    """
-
-    path: List[str]
-    _items: "OrderedDict[str, None]"
-    in_assign: int
-
-    def __init__(self) -> None:
-        self.path = []
-        self._items = OrderedDict()
-        self.in_assign = 0
-
-    def _insert(self, item: str) -> None:
-        item = ".".join(self.path + [item])
-        if item in self._items:
-            raise ValueError(f"duplicate path {item}")
-        self._items[item] = None
-
-    @property
-    def items(self) -> Sequence[str]:
-        """
-        Sequence of all identifiers found while visiting the source.
-        """
-        return list(self._items.keys())
-
-    def visit_AsyncFunctionDef(self, function: ast.AsyncFunctionDef) -> None:
-        """
-        Visit an asynchronous function.
-        """
-        self._insert(function.name)
-        # Explicitly don't visit the children of functions.
-
-    def visit_FunctionDef(self, function: ast.FunctionDef) -> None:
-        """
-        Visit a function.
-        """
-        self._insert(function.name)
-        # Explicitly don't visit the children of functions.
-
-    def visit_ClassDef(self, klass: ast.ClassDef) -> None:
-        """
-        Visit a class.
-        """
-        self._insert(klass.name)
-        self.path.append(klass.name)
-        self.generic_visit(klass)
-        got = self.path.pop()
-        assert klass.name == got
-
-    def visit_Assign(self, assign: ast.Assign) -> None:
-        """
-        Visit an assignment.
-        """
-        self.in_assign += 1
-        for target in assign.targets:
-            self.visit(target)
-        self.in_assign -= 1
-        self.visit(assign.value)
-
-    def visit_AnnAssign(self, assign: ast.AnnAssign) -> None:
-        """
-        Visit an annotated assignment.
-        """
-        self.in_assign += 1
-        self.visit(assign.target)
-        self.in_assign -= 1
-        self.visit(assign.annotation)
-        if assign.value is not None:
-            self.visit(assign.value)
-
-    def visit_Name(self, identifier: ast.Name) -> None:
-        """
-        Visit an identifier.
-        """
-        if self.in_assign > 0:
-            self._insert(identifier.id)
 
 
 class PatchHygiene(Lint):
@@ -216,14 +135,92 @@ class PatchHygiene(Lint):
         return visitor.items
 
 
+class ImportHygiene(Lint):
+    """
+    Ensures that the import statements follow the relevant rules.
+    """
+
+    def lint(
+        self, forks: List[Hardfork], position: int
+    ) -> Sequence[Diagnostic]:
+        """
+        Walks the sources for each hardfork and emits Diagnostic messages.
+        """
+        all_sources = dict(walk_sources(forks[position]))
+        diagnostics: List[Diagnostic] = []
+        for (name, source) in all_sources.items():
+            diagnostics += self.check_import(forks, position, name, source)
+
+        return diagnostics
+
+    def check_import(
+        self, forks: List[Hardfork], position: int, name: str, source: str
+    ) -> List[Diagnostic]:
+        """
+        Checks a Python source and emits diagnostic
+        messages if there are any invalid imports.
+        """
+        diagnostics: List[Diagnostic] = []
+
+        active_fork = forks[position].name
+        future_forks = tuple(fork.name for fork in forks[position + 1 :])
+        ancient_forks = (
+            tuple(fork.name for fork in forks[: position - 1])
+            if position > 1
+            else tuple()
+        )
+
+        current_imports = self.parse(source)
+
+        for item in current_imports:
+            if item is None:
+                continue
+            elif item.startswith(active_fork):
+                diagnostic = Diagnostic(
+                    message=(
+                        f"The import `{item}` in `{name}` is "
+                        "from the current fork. Please use a relative import."
+                    )
+                )
+                diagnostics.append(diagnostic)
+
+            elif item.startswith(future_forks):
+                diagnostic = Diagnostic(
+                    message=(
+                        f"The import `{item}` in `{name}` "
+                        "is from a future fork. This is not allowed."
+                    )
+                )
+                diagnostics.append(diagnostic)
+            elif item.startswith(ancient_forks):
+                diagnostic = Diagnostic(
+                    message=(
+                        f"The import `{item}` in `{name}` is from an "
+                        "older fork. Only imports from the previous "
+                        "fork are allowed."
+                    )
+                )
+                diagnostics.append(diagnostic)
+
+        return diagnostics
+
+    def parse(self, source: str) -> List[str]:
+        """
+        Walks the source string and extracts an ordered list of
+        imports.
+        """
+        parsed = ast.parse(source)
+        visitor = ImportHygieneVisitor()
+        visitor.visit(parsed)
+        return visitor.item_imports
+
+
 class Linter:
     """
     Checks the specification for style guideline violations.
     """
 
-    ALL_LINTS: List[Lint] = [
-        PatchHygiene(),
-    ]
+    ALL_LINTS: List[Lint] = [PatchHygiene(), ImportHygiene()]
 
     lints: Sequence[Lint]
 
@@ -242,13 +239,16 @@ class Linter:
             for hardfork in range(0, len(hardforks)):
                 diagnostics += lint.lint(hardforks, hardfork)
 
-            if diagnostics:
-                count += len(diagnostics)
-                print(
-                    f"{hardforks[hardfork].name} - {lint.__class__.__name__}:"
-                )
-                for diagnostic in diagnostics:
-                    print("\t", diagnostic.message)
+                if diagnostics:
+                    count += len(diagnostics)
+                    print(
+                        f"{hardforks[hardfork].name} - "
+                        f"{lint.__class__.__name__}:"
+                    )
+                    for diagnostic in diagnostics:
+                        print("\t", diagnostic.message)
+
+                    diagnostics = []
 
         if count > 0:
             print("Total diagnostics:", count)
