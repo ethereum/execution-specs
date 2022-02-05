@@ -12,7 +12,7 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Generator, List, Optional, Sequence, Tuple
 
-from .forks import Hardfork
+from ..forks import Hardfork
 from .visitors import ImportHygieneVisitor, PatchHygieneVisitor
 
 
@@ -263,9 +263,3 @@ def main() -> int:
     """
     linter = Linter()
     return linter.run()
-
-
-if __name__ == "__main__":
-    import sys
-
-    sys.exit(main())
