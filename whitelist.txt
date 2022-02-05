@@ -29,6 +29,7 @@ hashimoto
 hardfork
 hardforks
 idx
+isabstract
 keccak
 keccak256
 keccak512
@@ -51,6 +52,7 @@ U255
 U8
 secp256k1
 secp256k1n
+subclasses
 iadd
 ispkg
 isub

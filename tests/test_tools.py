@@ -1,10 +1,10 @@
 import ast
 from textwrap import dedent
 
-from ethereum_spec_tools.lint import (
-    Diagnostic,
-    PatchHygiene,
-    PatchHygieneVisitor,
+from ethereum_spec_tools.lint import Diagnostic
+from ethereum_spec_tools.lint.lints.patch_hygiene import PatchHygiene
+from ethereum_spec_tools.lint.lints.patch_hygiene import (
+    _Visitor as PatchHygieneVisitor,
 )
 
 
