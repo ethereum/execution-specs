@@ -9,11 +9,11 @@ import ast
 import importlib
 import inspect
 from abc import ABCMeta, abstractmethod
-from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Generator, List, Optional, Sequence, Tuple
 
 from .forks import Hardfork
+from .visitors import ImportHygieneVisitor, PatchHygieneVisitor
 
 
 def walk_sources(fork: Hardfork) -> Generator[Tuple[str, str], None, None]:
@@ -59,113 +59,6 @@ class Lint(metaclass=ABCMeta):
         """
 
 
-class PatchHygieneVisitor(ast.NodeVisitor):
-    """
-    Visits nodes in a syntax tree and collects functions, classes, and
-    assignments.
-    """
-
-    path: List[str]
-    _items: "OrderedDict[str, None]"
-    in_assign: int
-    item_imports: List[str]
-
-    def __init__(self) -> None:
-        self.path = []
-        self._items = OrderedDict()
-        self.in_assign = 0
-        self.item_imports = []
-
-    def _insert(self, item: str) -> None:
-        item = ".".join(self.path + [item])
-        if item in self._items:
-            raise ValueError(f"duplicate path {item}")
-        self._items[item] = None
-
-    @property
-    def items(self) -> Sequence[str]:
-        """
-        Sequence of all identifiers found while visiting the source.
-        """
-        return list(self._items.keys())
-
-    def visit_AsyncFunctionDef(self, function: ast.AsyncFunctionDef) -> None:
-        """
-        Visit an asynchronous function.
-        """
-        self._insert(function.name)
-
-        # Detect imports inside function body
-        for node in function.body:
-            if isinstance(node, ast.ImportFrom):
-                self.item_imports.append(str(node.module))
-            if isinstance(node, ast.Import):
-                self.item_imports.append(node.names[0].name)
-
-    def visit_FunctionDef(self, function: ast.FunctionDef) -> None:
-        """
-        Visit a function.
-        """
-        self._insert(function.name)
-
-        # Detect imports inside function body
-        for node in function.body:
-            if isinstance(node, ast.ImportFrom):
-                self.item_imports.append(str(node.module))
-            if isinstance(node, ast.Import):
-                self.item_imports.append(node.names[0].name)
-
-    def visit_ClassDef(self, klass: ast.ClassDef) -> None:
-        """
-        Visit a class.
-        """
-        self._insert(klass.name)
-        self.path.append(klass.name)
-        self.generic_visit(klass)
-        got = self.path.pop()
-        assert klass.name == got
-
-    def visit_Assign(self, assign: ast.Assign) -> None:
-        """
-        Visit an assignment.
-        """
-        self.in_assign += 1
-        for target in assign.targets:
-            self.visit(target)
-        self.in_assign -= 1
-        self.visit(assign.value)
-
-    def visit_AnnAssign(self, assign: ast.AnnAssign) -> None:
-        """
-        Visit an annotated assignment.
-        """
-        self.in_assign += 1
-        self.visit(assign.target)
-        self.in_assign -= 1
-        self.visit(assign.annotation)
-        if assign.value is not None:
-            self.visit(assign.value)
-
-    def visit_Name(self, identifier: ast.Name) -> None:
-        """
-        Visit an identifier.
-        """
-        if self.in_assign > 0:
-            self._insert(identifier.id)
-
-    def visit_Import(self, mod: ast.Import) -> None:
-        """
-        Visit an Import.
-        """
-        self.item_imports.append(mod.names[0].name)
-
-    def visit_ImportFrom(self, mod: ast.ImportFrom) -> None:
-        """
-        Visit an ImportFrom.
-        """
-        self.item_imports.append(str(mod.module))
-
-
 class PatchHygiene(Lint):
     """
     Ensures that the order of identifiers between each hardfork is consistent.
@@ -177,25 +70,20 @@ class PatchHygiene(Lint):
         """
         Walks the sources for each hardfork and emits Diagnostic messages.
         """
-        all_current = dict(walk_sources(forks[position]))
-        diagnostics: List[Diagnostic] = []
         if position == 0:
-            for (name, source) in all_current.items():
-                # No need to run compare since this is the first fork
-                diagnostics += self.check_import(forks, position, name, source)
-        else:
-            all_previous = dict(walk_sources(forks[position - 1]))
+            # Nothing to compare against!
+            return []
 
-            items = (
-                (k, v, all_previous.get(k, None))
-                for (k, v) in all_current.items()
-            )
+        all_previous = dict(walk_sources(forks[position - 1]))
+        all_current = dict(walk_sources(forks[position]))
 
-            for (name, current, previous) in items:
-                diagnostics += self.compare(name, current, previous)
-                diagnostics += self.check_import(
-                    forks, position, name, current
-                )
+        items = (
+            (k, v, all_previous.get(k, None)) for (k, v) in all_current.items()
+        )
+
+        diagnostics: List[Diagnostic] = []
+        for (name, current, previous) in items:
+            diagnostics += self.compare(name, current, previous)
 
         return diagnostics
 
@@ -210,10 +98,9 @@ class PatchHygiene(Lint):
             # Entire file is new, so nothing to compare!
             return []
 
-        current_nodes = self.parse(current_source).items
+        current_nodes = self.parse(current_source)
         previous_nodes = {
-            item: idx
-            for (idx, item) in enumerate(self.parse(previous_source).items)
+            item: idx for (idx, item) in enumerate(self.parse(previous_source))
         }
 
         diagnostics: List[Diagnostic] = []
@@ -237,6 +124,35 @@ class PatchHygiene(Lint):
 
         return diagnostics
 
+    def parse(self, source: str) -> Sequence[str]:
+        """
+        Walks the source string and extracts an ordered sequence of
+        identifiers.
+        """
+        parsed = ast.parse(source)
+        visitor = PatchHygieneVisitor()
+        visitor.visit(parsed)
+        return visitor.items
+
+
+class ImportHygiene(Lint):
+    """
+    Ensures that the import statements follow the relevant rules.
+    """
+
+    def lint(
+        self, forks: List[Hardfork], position: int
+    ) -> Sequence[Diagnostic]:
+        """
+        Walks the sources for each hardfork and emits Diagnostic messages.
+        """
+        all_sources = dict(walk_sources(forks[position]))
+        diagnostics: List[Diagnostic] = []
+        for (name, source) in all_sources.items():
+            diagnostics += self.check_import(forks, position, name, source)
+
+        return diagnostics
+
     def check_import(
         self, forks: List[Hardfork], position: int, name: str, source: str
     ) -> List[Diagnostic]:
@@ -246,20 +162,20 @@ class PatchHygiene(Lint):
         """
         diagnostics: List[Diagnostic] = []
 
-        invalid_imports = {
-            "active_fork": forks[position].name,
-            "future_fork": [fork.name for fork in forks[position + 1 :]],
-            "minus2_fork": [fork.name for fork in forks[: position - 1]]
+        active_fork = forks[position].name
+        future_forks = tuple(fork.name for fork in forks[position + 1 :])
+        ancient_forks = (
+            tuple(fork.name for fork in forks[: position - 1])
             if position > 1
-            else [],
-        }
+            else tuple()
+        )
 
-        current_imports = self.parse(source).item_imports
+        current_imports = self.parse(source)
 
         for item in current_imports:
             if item is None:
                 continue
-            elif item.startswith(str(invalid_imports["active_fork"])):
+            elif item.startswith(active_fork):
                 diagnostic = Diagnostic(
                     message=(
                         f"The import `{item}` in `{name}` is "
@@ -268,7 +184,7 @@ class PatchHygiene(Lint):
                 )
                 diagnostics.append(diagnostic)
 
-            elif item.startswith(tuple(invalid_imports["future_fork"])):
+            elif item.startswith(future_forks):
                 diagnostic = Diagnostic(
                     message=(
                         f"The import `{item}` in `{name}` "
@@ -276,7 +192,7 @@ class PatchHygiene(Lint):
                     )
                 )
                 diagnostics.append(diagnostic)
-            elif item.startswith(tuple(invalid_imports["minus2_fork"])):
+            elif item.startswith(ancient_forks):
                 diagnostic = Diagnostic(
                     message=(
                         f"The import `{item}` in `{name}` is from an "
@@ -288,16 +204,15 @@ class PatchHygiene(Lint):
 
         return diagnostics
 
-    def parse(self, source: str) -> PatchHygieneVisitor:
+    def parse(self, source: str) -> List[str]:
         """
-        Walks the source string and extracts an ordered sequence of
-        identifiers as well as the relevant imports within a
-        PatchHygieneVisitor.
+        Walks the source string and extracts an ordered list of
+        imports.
         """
         parsed = ast.parse(source)
-        visitor = PatchHygieneVisitor()
+        visitor = ImportHygieneVisitor()
         visitor.visit(parsed)
-        return visitor
+        return visitor.item_imports
 
 
 class Linter:
@@ -305,9 +220,7 @@ class Linter:
     Checks the specification for style guideline violations.
     """
 
-    ALL_LINTS: List[Lint] = [
-        PatchHygiene(),
-    ]
+    ALL_LINTS: List[Lint] = [PatchHygiene(), ImportHygiene()]
 
     lints: Sequence[Lint]
 
@@ -330,7 +243,7 @@ class Linter:
                     count += len(diagnostics)
                     print(
                         f"{hardforks[hardfork].name} - "
-                        "{lint.__class__.__name__}:"
+                        f"{lint.__class__.__name__}:"
                     )
                     for diagnostic in diagnostics:
                         print("\t", diagnostic.message)
