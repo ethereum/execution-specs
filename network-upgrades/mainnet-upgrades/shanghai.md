@@ -15,15 +15,16 @@ Specifies changes potentially included in the Network Upgrade, pending successfu
 
 **List of outstanding items before deployment.**
 
-Code merged into Participating Clients
+Code merged into Participating Clients:
 
-|  **Client**  | TBA EIPs |
-|--------------|:--------:|
-| Geth         |          |
-| Besu         |          |
-| Nethermind   |          |
-| OpenEthereum |          |
-| EthereumJS   |          |
+| EIP | [EIP-3540](https://eips.ethereum.org/EIPS/eip-3540) | [EIP-3670](https://eips.ethereum.org/EIPS/eip-3670) | [EIP-3855](https://eips.ethereum.org/EIPS/eip-3855) | [EIP-3860](https://eips.ethereum.org/EIPS/eip-3860) |
+|------------------|------|------|------|------|
+| **Geth**         | [Not merged](https://github.com/ethereum/go-ethereum/pull/22958) | [Not merged](https://github.com/ethereum/go-ethereum/pull/24090) | [Not merged](https://github.com/ethereum/go-ethereum/pull/24039) | [Not merged](https://github.com/ethereum/go-ethereum/pull/23847) |
+| **Besu**         | | | | |
+| **Nethermind**   | | | | |
+| **OpenEthereum** | | | | |
+| **Erigon**    | | | | |
+| **EthereumJS**   | | | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1616) | [Not merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1619) |
 
  Tasks
 - [ ] Client Integration Testing
@@ -36,5 +37,6 @@ Code merged into Participating Clients
    - [ ]  Besu
    - [ ]  Nethermind
    - [ ]  OpenEthereum
+   - [ ]  Erigon
    - [ ]  EthereumJS
  - [ ] Pass Fork Blocks
