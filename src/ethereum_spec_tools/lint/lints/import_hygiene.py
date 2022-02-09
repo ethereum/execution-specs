@@ -55,7 +55,7 @@ class ImportHygiene(Lint):
             else tuple()
         )
 
-        current_imports = self.parse(source)
+        current_imports = self._parse(source, _Visitor(), "item_imports")
 
         for item in current_imports:
             if item is None:
@@ -88,16 +88,6 @@ class ImportHygiene(Lint):
                 diagnostics.append(diagnostic)
 
         return diagnostics
-
-    def parse(self, source: str) -> List[str]:
-        """
-        Walks the source string and extracts an ordered list of
-        imports.
-        """
-        parsed = ast.parse(source)
-        visitor = _Visitor()
-        visitor.visit(parsed)
-        return visitor.item_imports
 
 
 class _Visitor(ast.NodeVisitor):
