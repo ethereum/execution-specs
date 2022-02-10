@@ -4,6 +4,7 @@ from typing import Generator
 
 import pytest
 
+from ethereum.utils.ensure import EnsureError
 from tests.spurious_dragon.blockchain_st_test_helpers import (
     run_spurious_dragon_blockchain_st_tests,
 )
@@ -41,3 +42,44 @@ def test_general_state_tests(test_file: str) -> None:
     except KeyError:
         # KeyError is raised when a test_file has no tests for spurious_dragon
         raise pytest.skip(f"{test_file} has no tests for spurious_dragon")
+
+
+# Test Invalid Block Headers
+run_invalid_header_test = partial(
+    run_spurious_dragon_blockchain_st_tests,
+    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/InvalidBlocks/bcInvalidHeaderTest",
+)
+
+
+@pytest.mark.parametrize(
+    "test_file_parent_hash",
+    [
+        "wrongParentHash.json",
+        "wrongParentHash2.json",
+    ],
+)
+def test_invalid_parent_hash(test_file_parent_hash: str) -> None:
+    with pytest.raises(EnsureError):
+        run_invalid_header_test(test_file_parent_hash)
+
+
+# Run Non-Legacy GeneralStateTests
+run_general_state_tests_new = partial(
+    run_spurious_dragon_blockchain_st_tests,
+    "tests/fixtures/BlockchainTests/GeneralStateTests/",
+)
+
+
+@pytest.mark.parametrize(
+    "test_file_new",
+    [
+        "stCreateTest/CREATE_HighNonce.json",
+        "stCreateTest/CREATE_HighNonceMinus1.json",
+    ],
+)
+def test_general_state_tests_new(test_file_new: str) -> None:
+    try:
+        run_general_state_tests_new(test_file_new)
+    except KeyError:
+        # KeyError is raised when a test_file has no tests for spurious_dragon
+        raise pytest.skip(f"{test_file_new} has no tests for spurious_dragon")

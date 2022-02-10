@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from functools import partial
 from typing import Any, Dict, List, Tuple, cast
 from unittest.mock import call, patch
@@ -90,7 +91,19 @@ def load_test(test_dir: str, test_file: str, network: str) -> Dict[str, Any]:
     test_name = os.path.splitext(pure_test_file)[0]
     path = os.path.join(test_dir, test_file)
     with open(path, "r") as fp:
-        json_data = json.load(fp)[f"{test_name}_{network}"]
+        data = json.load(fp)
+
+        # Some newer test files have for example _d0g0v0_
+        # between test_name and network
+        keys_to_search = re.compile(
+            f"{test_name}_d[0-9]g[0-9]v[0-9]_{network}"
+        )
+        found_keys = list(filter(keys_to_search.match, data.keys()))
+
+        if len(found_keys) > 0:
+            json_data = data[found_keys[0]]
+        else:
+            json_data = data[f"{test_name}_{network}"]
 
     blocks, block_header_hashes, block_rlps = json_to_blocks(
         json_data["blocks"]
