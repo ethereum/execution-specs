@@ -50,9 +50,12 @@ class PatchHygiene(Lint):
             # Entire file is new, so nothing to compare!
             return []
 
-        current_nodes = self.parse(current_source)
+        current_nodes = self._parse(current_source, _Visitor(), "items")
         previous_nodes = {
-            item: idx for (idx, item) in enumerate(self.parse(previous_source))
+            item: idx
+            for (idx, item) in enumerate(
+                self._parse(previous_source, _Visitor(), "items")
+            )
         }
 
         diagnostics: List[Diagnostic] = []
@@ -75,16 +78,6 @@ class PatchHygiene(Lint):
                 diagnostics.append(diagnostic)
 
         return diagnostics
-
-    def parse(self, source: str) -> Sequence[str]:
-        """
-        Walks the source string and extracts an ordered sequence of
-        identifiers.
-        """
-        parsed = ast.parse(source)
-        visitor = _Visitor()
-        visitor.visit(parsed)
-        return visitor.items
 
 
 class _Visitor(ast.NodeVisitor):

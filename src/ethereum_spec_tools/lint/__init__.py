@@ -5,6 +5,7 @@ Lints
 Checks specific to the Ethereum specification source code.
 """
 
+import ast
 import importlib
 import inspect
 import pkgutil
@@ -56,6 +57,16 @@ class Lint(metaclass=ABCMeta):
         position :
             The particular hardfork to lint.
         """
+
+    def _parse(
+        self, source: str, visitor: ast.NodeVisitor, attr: str
+    ) -> Sequence[str]:
+        """
+        Walks the source string and extracts a sequence of identifiers.
+        """
+        parsed = ast.parse(source)
+        visitor.visit(parsed)
+        return getattr(visitor, attr)
 
 
 class Linter:
