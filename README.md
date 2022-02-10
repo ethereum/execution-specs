@@ -23,6 +23,13 @@ This repository contains the consensus specifications related to the Ethereum ex
 | Frontier Thawing | 200000 | 2015-09-07 | | | [Blog](https://blog.ethereum.org/2015/08/04/the-thawing-frontier/) |
 | Frontier | 1 | 2015-07-30 | | | [Blog](https://blog.ethereum.org/2015/07/22/frontier-is-coming-what-to-expect-and-how-to-prepare/) |
 
+Some clarifications were enabled without protocol releases:
+
+| EIP | Block No. |
+|-----|-----------|
+| [EIP-2681](https://eips.ethereum.org/EIPS/eip-2681) | 0 |
+| [EIP-3607](https://eips.ethereum.org/EIPS/eip-3607) | 0 |
+
 ## Consensus Specification (work-in-progress)
 
 The consensus specification is a python implementation of Ethereum that prioritizes readability and simplicity. It [will] accompanied by both narrative and API level documentation of the various components written in restructured text and rendered using Sphinx....
