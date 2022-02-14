@@ -97,17 +97,17 @@ def load_test(test_dir: str, test_file: str, network: str) -> Dict[str, Any]:
     with open(path, "r") as fp:
         data = json.load(fp)
 
-        # Some newer test files have for example _d0g0v0_
+        # Some newer test files have patterns like _d0g0v0_
         # between test_name and network
         keys_to_search = re.compile(
-            f"{test_name}_d[0-9]g[0-9]v[0-9]_{network}"
+            f"{re.escape(test_name)}.*{re.escape(network)}"
         )
         found_keys = list(filter(keys_to_search.match, data.keys()))
 
         if len(found_keys) > 0:
             json_data = data[found_keys[0]]
         else:
-            json_data = data[f"{test_name}_{network}"]
+            raise KeyError
 
     blocks, block_header_hashes, block_rlps = json_to_blocks(
         json_data["blocks"]
