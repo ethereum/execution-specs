@@ -134,3 +134,25 @@ run_invalid_header_test = partial(
 def test_invalid_parent_hash(test_file_parent_hash: str) -> None:
     with pytest.raises(EnsureError):
         run_invalid_header_test(test_file_parent_hash)
+
+
+# Run Non-Legacy GeneralStateTests
+run_general_state_tests_new = partial(
+    run_homestead_blockchain_st_tests,
+    "tests/fixtures/BlockchainTests/GeneralStateTests/",
+)
+
+
+@pytest.mark.parametrize(
+    "test_file_new",
+    [
+        "stCreateTest/CREATE_HighNonce.json",
+        "stCreateTest/CREATE_HighNonceMinus1.json",
+    ],
+)
+def test_general_state_tests_new(test_file_new: str) -> None:
+    try:
+        run_general_state_tests_new(test_file_new)
+    except KeyError:
+        # KeyError is raised when a test_file has no tests for homestead
+        raise pytest.skip(f"{test_file_new} has no tests for homestead")
