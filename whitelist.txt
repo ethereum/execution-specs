@@ -297,3 +297,16 @@ dao
 precompile
 recurse
 pre155
+
+bn128
+modexp
+GQUADDIVISOR
+mult
+BNF
+BNP
+p0
+p1
+x0
+x1
+y0
+y1
