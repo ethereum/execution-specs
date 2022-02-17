@@ -196,12 +196,16 @@ class Load(BaseLoad):
     def json_to_header(self, raw: Any) -> Any:
         return self.Header(
             hex_to_hash(raw.get("parentHash")),
-            hex_to_hash(raw.get("uncleHash")),
-            self.hex_to_address(raw.get("coinbase")),
+            hex_to_hash(raw.get("uncleHash") or raw.get("sha3Uncles")),
+            self.hex_to_address(raw.get("coinbase") or raw.get("miner")),
             self.hex_to_root(raw.get("stateRoot")),
-            self.hex_to_root(raw.get("transactionsTrie")),
-            self.hex_to_root(raw.get("receiptTrie")),
-            self.Bloom(hex_to_bytes(raw.get("bloom"))),
+            self.hex_to_root(
+                raw.get("transactionsTrie") or raw.get("transactionsRoot")
+            ),
+            self.hex_to_root(
+                raw.get("receiptTrie") or raw.get("receiptsRoot")
+            ),
+            self.Bloom(hex_to_bytes(raw.get("bloom") or raw.get("logsBloom"))),
             hex_to_uint(raw.get("difficulty")),
             hex_to_uint(raw.get("number")),
             hex_to_uint(raw.get("gasLimit")),

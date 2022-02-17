@@ -27,13 +27,14 @@ from ethereum.frontier.spec import (
     generate_header_hash_for_pow,
     validate_proof_of_work,
 )
-from ethereum.frontier.utils.json import json_to_header
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
     hex_to_bytes32,
 )
 from ethereum.utils.numeric import is_prime, le_uint32_sequence_to_bytes
+
+from ..helpers.load import Load
 
 
 @pytest.mark.parametrize(
@@ -293,7 +294,8 @@ def test_pow_validation_block_headers(block_file_name: str) -> None:
     ).decode()
     block_json_data = json.loads(block_str_data)
 
-    header: Header = json_to_header(block_json_data)
+    load = Load("Frontier", "frontier")
+    header: Header = load.json_to_header(block_json_data)
     validate_proof_of_work(header)
 
 
