@@ -6,6 +6,8 @@ import pytest
 
 from ethereum.utils.ensure import EnsureError
 from tests.tangerine_whistle.blockchain_st_test_helpers import (
+    FIXTURE_NETWORK_KEY,
+    load_json_fixture,
     run_tangerine_whistle_blockchain_st_tests,
 )
 
@@ -23,7 +25,7 @@ run_general_state_tests = partial(
 SLOW_TESTS = ()
 
 
-def get_test_files() -> Generator[str, None, None]:
+def get_state_test_files() -> Generator[str, None, None]:
     for idx, _dir in enumerate(os.listdir(test_dir)):
         test_file_path = os.path.join(test_dir, _dir)
         for _file in os.listdir(test_file_path):
@@ -32,16 +34,23 @@ def get_test_files() -> Generator[str, None, None]:
             if _test_file in SLOW_TESTS:
                 continue
             else:
-                yield _test_file
+                try:
+                    load_json_fixture(
+                        test_dir, _test_file, FIXTURE_NETWORK_KEY
+                    )
+                    yield _test_file
+                except KeyError:
+                    pass
 
 
-@pytest.mark.parametrize("test_file", get_test_files())
+@pytest.mark.parametrize("test_file", get_state_test_files())
 def test_general_state_tests(test_file: str) -> None:
     try:
         run_general_state_tests(test_file)
     except KeyError:
-        # KeyError is raised when a test_file has no tests for tangerine_whistle
-        raise pytest.skip(f"{test_file} has no tests for tangerine_whistle")
+        # FIXME: get rid of this block
+        # KeyError occurs when the test doesn't have post state
+        pass
 
 
 # Test Invalid Block Headers
@@ -78,11 +87,4 @@ run_general_state_tests_new = partial(
     ],
 )
 def test_general_state_tests_new(test_file_new: str) -> None:
-    try:
-        run_general_state_tests_new(test_file_new)
-    except KeyError:
-        # KeyError is raised when a test_file has no
-        # tests for tangerine_whistle
-        raise pytest.skip(
-            f"{test_file_new} has no tests for tangerine_whistle"
-        )
+    run_general_state_tests_new(test_file_new)

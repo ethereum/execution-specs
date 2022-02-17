@@ -1,10 +1,13 @@
 import os
 from functools import partial
+from typing import Generator
 
 import pytest
 
 from ethereum.utils.ensure import EnsureError
 from tests.frontier.blockchain_st_test_helpers import (
+    FIXTURE_NETWORK_KEY,
+    load_json_fixture,
     run_frontier_blockchain_st_tests,
 )
 
@@ -16,20 +19,26 @@ test_dir = (
 run_general_state_tests = partial(run_frontier_blockchain_st_tests, test_dir)
 
 
-@pytest.mark.parametrize(
-    "test_file",
-    [
-        os.path.join(_dir, _file)
-        for _dir in os.listdir(test_dir)
-        for _file in os.listdir(os.path.join(test_dir, _dir))
-    ],
-)
+def get_state_test_files() -> Generator[str, None, None]:
+    for _dir in os.listdir(test_dir):
+        test_file_path = os.path.join(test_dir, _dir)
+        for _file in os.listdir(test_file_path):
+            _test_file = os.path.join(_dir, _file)
+            try:
+                load_json_fixture(test_dir, _test_file, FIXTURE_NETWORK_KEY)
+                yield _test_file
+            except KeyError:
+                pass
+
+
+@pytest.mark.parametrize("test_file", get_state_test_files())
 def test_general_state_tests(test_file: str) -> None:
     try:
         run_general_state_tests(test_file)
     except KeyError:
-        # KeyError is raised when a test_file has no tests for frontier
-        raise pytest.skip(f"{test_file} has no tests for frontier")
+        # FIXME: get rid of this block
+        # KeyError occurs when the test doesn't have post state
+        pass
 
 
 # Test Invalid Block Headers
@@ -66,8 +75,4 @@ run_general_state_tests_new = partial(
     ],
 )
 def test_general_state_tests_new(test_file_new: str) -> None:
-    try:
-        run_general_state_tests_new(test_file_new)
-    except KeyError:
-        # KeyError is raised when a test_file has no tests for frontier
-        raise pytest.skip(f"{test_file_new} has no tests for frontier")
+    run_general_state_tests_new(test_file_new)

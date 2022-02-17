@@ -33,6 +33,8 @@ from ethereum.utils.hexadecimal import (
     hex_to_uint,
 )
 
+FIXTURE_NETWORK_KEY = "Frontier"
+
 
 def run_blockchain_st_test(
     test_dir: str, test_file: str, network: str
@@ -82,7 +84,9 @@ def add_blocks_to_chain(chain: BlockChain, test_data: Dict[str, Any]) -> None:
         state_transition(chain, block)
 
 
-def load_test(test_dir: str, test_file: str, network: str) -> Dict[str, Any]:
+def load_json_fixture(
+    test_dir: str, test_file: str, network: str
+) -> Dict[str, Any]:
     # Extract the pure basename of the file without the path to the file.
     # Ex: Extract "world.json" from "path/to/file/world.json"
     pure_test_file = os.path.basename(test_file)
@@ -104,6 +108,11 @@ def load_test(test_dir: str, test_file: str, network: str) -> Dict[str, Any]:
             json_data = data[found_keys[0]]
         else:
             raise KeyError
+    return json_data
+
+
+def load_test(test_dir: str, test_file: str, network: str) -> Dict[str, Any]:
+    json_data = load_json_fixture(test_dir, test_file, network)
 
     blocks, block_header_hashes, block_rlps = json_to_blocks(
         json_data["blocks"]
@@ -221,5 +230,5 @@ def json_to_state(raw: Any) -> State:
 
 
 run_frontier_blockchain_st_tests = partial(
-    run_blockchain_st_test, network="Frontier"
+    run_blockchain_st_test, network=FIXTURE_NETWORK_KEY
 )
