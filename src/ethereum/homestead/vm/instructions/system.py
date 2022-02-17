@@ -117,6 +117,7 @@ def create(evm: Evm) -> None:
     else:
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
     evm.gas_left = child_evm.gas_left
+    child_evm.gas_left = U256(0)
 
 
 def return_(evm: Evm) -> None:
@@ -226,6 +227,7 @@ def call(evm: Evm) -> None:
         child_evm.output[:actual_output_size],
     )
     evm.gas_left += child_evm.gas_left
+    child_evm.gas_left = U256(0)
 
 
 def callcode(evm: Evm) -> None:
@@ -312,6 +314,7 @@ def callcode(evm: Evm) -> None:
         child_evm.output[:actual_output_size],
     )
     evm.gas_left += child_evm.gas_left
+    child_evm.gas_left = U256(0)
 
 
 def selfdestruct(evm: Evm) -> None:
@@ -417,3 +420,4 @@ def delegatecall(evm: Evm) -> None:
         child_evm.output[:actual_output_size],
     )
     evm.gas_left += child_evm.gas_left
+    child_evm.gas_left = U256(0)
