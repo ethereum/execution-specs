@@ -78,3 +78,4 @@ class Evm:
     output: Bytes
     accounts_to_delete: Set[Address]
     has_erred: bool
+    children: List["Evm"]

@@ -109,14 +109,13 @@ def create(evm: Evm) -> None:
         code_address=None,
     )
     child_evm = process_create_message(child_message, evm.env)
+    evm.children.append(child_evm)
     if child_evm.has_erred:
         push(evm.stack, U256(0))
     else:
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
     evm.gas_left = child_evm.gas_left
-    evm.refund_counter += child_evm.refund_counter
-    evm.accounts_to_delete.update(child_evm.accounts_to_delete)
-    evm.logs += child_evm.logs
+    child_evm.gas_left = U256(0)
 
 
 def return_(evm: Evm) -> None:
@@ -211,6 +210,7 @@ def call(evm: Evm) -> None:
         code_address=to,
     )
     child_evm = process_message(child_message, evm.env)
+    evm.children.append(child_evm)
 
     if child_evm.has_erred:
         push(evm.stack, U256(0))
@@ -224,9 +224,7 @@ def call(evm: Evm) -> None:
         child_evm.output[:actual_output_size],
     )
     evm.gas_left += child_evm.gas_left
-    evm.refund_counter += child_evm.refund_counter
-    evm.accounts_to_delete.update(child_evm.accounts_to_delete)
-    evm.logs += child_evm.logs
+    child_evm.gas_left = U256(0)
 
 
 def callcode(evm: Evm) -> None:
@@ -300,6 +298,7 @@ def callcode(evm: Evm) -> None:
     )
 
     child_evm = process_message(child_message, evm.env)
+    evm.children.append(child_evm)
     if child_evm.has_erred:
         push(evm.stack, U256(0))
     else:
@@ -311,9 +310,7 @@ def callcode(evm: Evm) -> None:
         child_evm.output[:actual_output_size],
     )
     evm.gas_left += child_evm.gas_left
-    evm.refund_counter += child_evm.refund_counter
-    evm.accounts_to_delete.update(child_evm.accounts_to_delete)
-    evm.logs += child_evm.logs
+    child_evm.gas_left = U256(0)
 
 
 def selfdestruct(evm: Evm) -> None:

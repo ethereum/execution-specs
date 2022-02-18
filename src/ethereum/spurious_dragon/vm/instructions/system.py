@@ -124,8 +124,7 @@ def create(evm: Evm) -> None:
     else:
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
     evm.gas_left += child_evm.gas_left
-    evm.refund_counter += child_evm.refund_counter
-    evm.logs += child_evm.logs
+    child_evm.gas_left = U256(0)
 
 
 def return_(evm: Evm) -> None:
@@ -247,8 +246,7 @@ def call(evm: Evm) -> None:
         child_evm.output[:actual_output_size],
     )
     evm.gas_left += child_evm.gas_left
-    evm.refund_counter += child_evm.refund_counter
-    evm.logs += child_evm.logs
+    child_evm.gas_left = U256(0)
 
 
 def callcode(evm: Evm) -> None:
@@ -338,8 +336,7 @@ def callcode(evm: Evm) -> None:
         child_evm.output[:actual_output_size],
     )
     evm.gas_left += child_evm.gas_left
-    evm.refund_counter += child_evm.refund_counter
-    evm.logs += child_evm.logs
+    child_evm.gas_left = U256(0)
 
 
 def selfdestruct(evm: Evm) -> None:
@@ -366,10 +363,6 @@ def selfdestruct(evm: Evm) -> None:
         evm.gas_left = subtract_gas(
             evm.gas_left, GAS_SELF_DESTRUCT_NEW_ACCOUNT
         )
-
-    originator = evm.message.current_target
-    beneficiary_balance = get_account(evm.env.state, beneficiary).balance
-    originator_balance = get_account(evm.env.state, originator).balance
 
     # First Transfer to beneficiary
     set_account_balance(
@@ -466,5 +459,4 @@ def delegatecall(evm: Evm) -> None:
         child_evm.output[:actual_output_size],
     )
     evm.gas_left += child_evm.gas_left
-    evm.refund_counter += child_evm.refund_counter
-    evm.logs += child_evm.logs
+    child_evm.gas_left = U256(0)
