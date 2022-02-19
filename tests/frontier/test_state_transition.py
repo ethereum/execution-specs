@@ -1,12 +1,13 @@
-import os
 from functools import partial
 
 import pytest
 
 from ethereum.utils.ensure import EnsureError
 from tests.frontier.blockchain_st_test_helpers import (
+    FIXTURES_LOADER,
     run_frontier_blockchain_st_tests,
 )
+from tests.helpers.load_state_tests import fetch_state_test_files
 
 test_dir = (
     "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
@@ -16,20 +17,18 @@ test_dir = (
 run_general_state_tests = partial(run_frontier_blockchain_st_tests, test_dir)
 
 
+SLOW_TESTS = ()
+
+
 @pytest.mark.parametrize(
-    "test_file",
-    [
-        os.path.join(_dir, _file)
-        for _dir in os.listdir(test_dir)
-        for _file in os.listdir(os.path.join(test_dir, _dir))
-    ],
+    "test_file", fetch_state_test_files(test_dir, SLOW_TESTS, FIXTURES_LOADER)
 )
 def test_general_state_tests(test_file: str) -> None:
     try:
         run_general_state_tests(test_file)
     except KeyError:
-        # KeyError is raised when a test_file has no tests for frontier
-        raise pytest.skip(f"{test_file} has no tests for frontier")
+        # FIXME: Handle tests that don't have post state
+        pytest.xfail(f"{test_file} doesn't have post state")
 
 
 # Test Invalid Block Headers
