@@ -34,7 +34,7 @@ from ethereum.utils.hexadecimal import (
 )
 from ethereum.utils.numeric import is_prime, le_uint32_sequence_to_bytes
 
-from ..helpers.load import Load
+from ..helpers.load_state_tests import Load
 
 
 @pytest.mark.parametrize(
