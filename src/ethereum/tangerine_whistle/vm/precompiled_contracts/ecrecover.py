@@ -14,7 +14,7 @@ Implementation of the ECRECOVER precompiled contract.
 from ethereum import crypto
 from ethereum.base_types import U256
 from ethereum.crypto import SECP256K1N, Hash32
-from ethereum.utils.byte import left_pad_zero_bytes
+from ethereum.utils.byte import left_pad_zero_bytes, right_pad_zero_bytes
 
 from ...vm import Evm
 from ...vm.gas import GAS_ECRECOVER, subtract_gas
@@ -31,14 +31,14 @@ def ecrecover(evm: Evm) -> None:
         The current EVM frame.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_ECRECOVER)
-    data = evm.message.data
-    message_hash_bytes = left_pad_zero_bytes(data[:32], 32)
+    data = right_pad_zero_bytes(evm.message.data, 128)
+    message_hash_bytes = data[:32]
     message_hash = Hash32(message_hash_bytes)
-    v_bytes = left_pad_zero_bytes(data[32:64], 32)
+    v_bytes = data[32:64]
     v = U256.from_be_bytes(v_bytes)
-    r_bytes = left_pad_zero_bytes(data[64:96], 32)
+    r_bytes = data[64:96]
     r = U256.from_be_bytes(r_bytes)
-    s_bytes = left_pad_zero_bytes(data[96:128], 32)
+    s_bytes = data[96:128]
     s = U256.from_be_bytes(s_bytes)
 
     if v != 27 and v != 28:
