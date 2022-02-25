@@ -3,7 +3,7 @@ import json
 import os.path
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Tuple, cast
+from typing import Any, Dict, Generator, List, Tuple, cast
 from unittest.mock import call, patch
 
 from ethereum import rlp
@@ -217,7 +217,9 @@ class Load(BaseLoad):
         )
 
 
-def load_test(test_dir: str, test_file: str, load: BaseLoad) -> Dict[str, Any]:
+def load_json_fixture(
+    test_dir: str, test_file: str, load: BaseLoad
+) -> Dict[str, Any]:
     # Extract the pure basename of the file without the path to the file.
     # Ex: Extract "world.json" from "path/to/file/world.json"
     pure_test_file = os.path.basename(test_file)
@@ -239,6 +241,11 @@ def load_test(test_dir: str, test_file: str, load: BaseLoad) -> Dict[str, Any]:
             json_data = data[found_keys[0]]
         else:
             raise KeyError
+    return json_data
+
+
+def load_test(test_dir: str, test_file: str, load: BaseLoad) -> Dict[str, Any]:
+    json_data = load_json_fixture(test_dir, test_file, load)
 
     blocks, block_header_hashes, block_rlps = load.json_to_blocks(
         json_data["blocks"]
@@ -313,3 +320,22 @@ def add_blocks_to_chain(
         )
         assert rlp.encode(cast(rlp.RLP, block)) == test_data["block_rlps"][idx]
         load.state_transition(chain, block)
+
+
+def fetch_state_test_files(
+    test_dir: str, slow_test_list: Tuple[str, ...], load: BaseLoad
+) -> Generator[str, None, None]:
+    for _dir in os.listdir(test_dir):
+        test_file_path = os.path.join(test_dir, _dir)
+        for _file in os.listdir(test_file_path):
+            _test_file = os.path.join(_dir, _file)
+            # TODO: provide a way to run slow tests
+            if _test_file in slow_test_list:
+                continue
+            else:
+                try:
+                    load_json_fixture(test_dir, _test_file, load)
+                    yield _test_file
+                except KeyError:
+                    # file doesn't contain tests for the given fork
+                    pass

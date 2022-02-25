@@ -1,11 +1,11 @@
-import os
 from functools import partial
-from typing import Generator
 
 import pytest
 
 from ethereum.utils.ensure import EnsureError
+from tests.helpers.load_state_tests import fetch_state_test_files
 from tests.spurious_dragon.blockchain_st_test_helpers import (
+    FIXTURES_LOADER,
     run_spurious_dragon_blockchain_st_tests,
 )
 
@@ -23,25 +23,15 @@ run_general_state_tests = partial(
 SLOW_TESTS = ()
 
 
-def get_test_files() -> Generator[str, None, None]:
-    for idx, _dir in enumerate(os.listdir(test_dir)):
-        test_file_path = os.path.join(test_dir, _dir)
-        for _file in os.listdir(test_file_path):
-            _test_file = os.path.join(_dir, _file)
-            # TODO: provide a way to run slow tests
-            if _test_file in SLOW_TESTS:
-                continue
-            else:
-                yield _test_file
-
-
-@pytest.mark.parametrize("test_file", get_test_files())
+@pytest.mark.parametrize(
+    "test_file", fetch_state_test_files(test_dir, SLOW_TESTS, FIXTURES_LOADER)
+)
 def test_general_state_tests(test_file: str) -> None:
     try:
         run_general_state_tests(test_file)
     except KeyError:
-        # KeyError is raised when a test_file has no tests for spurious_dragon
-        raise pytest.skip(f"{test_file} has no tests for spurious_dragon")
+        # FIXME: Handle tests that don't have post state
+        pytest.xfail(f"{test_file} doesn't have post state")
 
 
 # Test Invalid Block Headers
