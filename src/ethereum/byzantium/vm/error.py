@@ -75,7 +75,7 @@ class InsufficientFunds(Exception):
     pass
 
 
-class WriteProtection(Exception):
+class WriteInStaticContext(Exception):
     """
     Raised when an attempt is made to modify the state while operating inside
     of a STATICCALL context.

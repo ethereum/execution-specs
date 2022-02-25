@@ -15,7 +15,7 @@ from ethereum.utils.ensure import ensure
 
 from ...state import get_storage, set_storage
 from .. import Evm
-from ..error import WriteProtection
+from ..error import WriteInStaticContext
 from ..gas import (
     GAS_SLOAD,
     GAS_STORAGE_CLEAR_REFUND,
@@ -69,7 +69,7 @@ def sstore(evm: Evm) -> None:
     :py:class:`~ethereum.byzantium.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `20000`.
     """
-    ensure(not evm.message.is_static, WriteProtection)
+    ensure(not evm.message.is_static, WriteInStaticContext)
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
     current_value = get_storage(evm.env.state, evm.message.current_target, key)

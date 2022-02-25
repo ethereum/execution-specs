@@ -20,7 +20,7 @@ from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 from ...eth_types import Log
 from ...vm.error import OutOfGasError
 from .. import Evm
-from ..error import WriteProtection
+from ..error import WriteInStaticContext
 from ..gas import (
     GAS_LOG,
     GAS_LOG_DATA,
@@ -51,7 +51,7 @@ def log_n(evm: Evm, num_topics: U256) -> None:
     :py:class:`~ethereum.byzantium.vm.error.StackUnderflowError`
         If `len(stack)` is less than `2 + num_topics`.
     """
-    ensure(not evm.message.is_static, WriteProtection)
+    ensure(not evm.message.is_static, WriteInStaticContext)
     # Converting memory_start_index to Uint as memory_start_index + size - 1
     # can overflow U256.
     memory_start_index = Uint(pop(evm.stack))

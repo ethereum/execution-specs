@@ -60,7 +60,7 @@ GAS_LIMIT_MINIMUM = 5000
 GENESIS_DIFFICULTY = Uint(131072)
 MAX_OMMER_DEPTH = 6
 BOMB_DELAY_BLOCKS = 3000000
-EMPTY_UNCLE_HASH = crypto.keccak256(rlp.encode([]))
+EMPTY_OMMER_HASH = crypto.keccak256(rlp.encode([]))
 
 
 @dataclass
@@ -529,19 +529,12 @@ def process_transaction(
         env,
     )
 
-    (
-        gas_left,
-        refund_counter,
-        logs,
-        accounts_to_delete,
-        touched_accounts,
-        has_erred,
-    ) = process_message_call(message, env)
+    output = process_message_call(message, env)
 
-    gas_used = tx.gas - gas_left
-    gas_refund = min(gas_used // 2, refund_counter)
-    gas_refund_amount = (gas_left + gas_refund) * tx.gas_price
-    transaction_fee = (tx.gas - gas_left - gas_refund) * tx.gas_price
+    gas_used = tx.gas - output.gas_left
+    gas_refund = min(gas_used // 2, output.refund_counter)
+    gas_refund_amount = (output.gas_left + gas_refund) * tx.gas_price
+    transaction_fee = (tx.gas - output.gas_left - gas_refund) * tx.gas_price
     total_gas_used = gas_used - gas_refund
 
     # refund gas
@@ -558,17 +551,17 @@ def process_transaction(
         env.state, env.coinbase, coinbase_balance_after_mining_fee
     )
 
-    for address in accounts_to_delete:
+    for address in output.accounts_to_delete:
         destroy_account(env.state, address)
 
-    for address in touched_accounts:
+    for address in output.touched_accounts:
         should_delete = account_exists(
             env.state, address
         ) and is_account_empty(env.state, address)
         if should_delete:
             destroy_account(env.state, address)
 
-    return total_gas_used, logs, has_erred
+    return total_gas_used, output.logs, output.has_erred
 
 
 def validate_transaction(tx: Transaction) -> bool:
@@ -806,12 +799,12 @@ def calculate_block_difficulty(
     difficulty : `ethereum.base_types.Uint`
         Computed difficulty for a block.
     """
-    has_uncles = parent_ommers_hash != EMPTY_UNCLE_HASH
+    has_ommers = parent_ommers_hash != EMPTY_OMMER_HASH
     offset = (
         int(parent_difficulty)
         // 2048
         * max(
-            (2 if has_uncles else 1) - int(timestamp - parent_timestamp) // 9,
+            (2 if has_ommers else 1) - int(timestamp - parent_timestamp) // 9,
             -99,
         )
     )

@@ -24,7 +24,7 @@ from ...state import (
     set_account_balance,
 )
 from ...utils.address import compute_contract_address, to_address
-from ...vm.error import OutOfGasError, Revert, WriteProtection
+from ...vm.error import OutOfGasError, Revert, WriteInStaticContext
 from .. import Evm, Message
 from ..gas import (
     GAS_CALL,
@@ -57,7 +57,7 @@ def create(evm: Evm) -> None:
     # if it's not moved inside this method
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
 
-    ensure(not evm.message.is_static, WriteProtection)
+    ensure(not evm.message.is_static, WriteInStaticContext)
     endowment = pop(evm.stack)
     memory_start_position = Uint(pop(evm.stack))
     memory_size = pop(evm.stack)
@@ -175,7 +175,7 @@ def call(evm: Evm) -> None:
     memory_input_size = pop(evm.stack)
     memory_output_start_position = Uint(pop(evm.stack))
     memory_output_size = pop(evm.stack)
-    ensure(not evm.message.is_static or value == U256(0), WriteProtection)
+    ensure(not evm.message.is_static or value == U256(0), WriteInStaticContext)
 
     gas_input_memory = calculate_gas_extend_memory(
         evm.memory, memory_input_start_position, memory_input_size
@@ -370,7 +370,7 @@ def selfdestruct(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    ensure(not evm.message.is_static, WriteProtection)
+    ensure(not evm.message.is_static, WriteInStaticContext)
     evm.gas_left = subtract_gas(evm.gas_left, GAS_SELF_DESTRUCT)
     beneficiary = to_address(pop(evm.stack))
 
