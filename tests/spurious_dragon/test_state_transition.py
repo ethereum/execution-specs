@@ -9,6 +9,7 @@ from tests.spurious_dragon.blockchain_st_test_helpers import (
     run_spurious_dragon_blockchain_st_tests,
 )
 
+# Run legacy general state tests
 test_dir = (
     "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
     "GeneralStateTests/"
@@ -34,23 +35,61 @@ def test_general_state_tests(test_file: str) -> None:
         pytest.xfail(f"{test_file} doesn't have post state")
 
 
-# Test Invalid Block Headers
-run_invalid_header_test = partial(
+# Run legacy valid block tests
+test_dir = (
+    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/ValidBlocks/"
+)
+
+run_valid_block_test = partial(
     run_spurious_dragon_blockchain_st_tests,
-    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/InvalidBlocks/bcInvalidHeaderTest",
+    test_dir,
 )
 
 
 @pytest.mark.parametrize(
-    "test_file_parent_hash",
+    "test_file_uncle_correctness",
     [
-        "wrongParentHash.json",
-        "wrongParentHash2.json",
+        "bcUncleTest/oneUncle.json",
+        "bcUncleTest/oneUncleGeneration2.json",
+        "bcUncleTest/oneUncleGeneration3.json",
+        "bcUncleTest/oneUncleGeneration4.json",
+        "bcUncleTest/oneUncleGeneration5.json",
+        "bcUncleTest/oneUncleGeneration6.json",
+        "bcUncleTest/twoUncle.json",
+        "bcUncleTest/uncleHeaderAtBlock2.json",
+        "bcUncleSpecialTests/uncleBloomNot0.json",
+        "bcUncleSpecialTests/futureUncleTimestampDifficultyDrop.json",
     ],
 )
-def test_invalid_parent_hash(test_file_parent_hash: str) -> None:
-    with pytest.raises(EnsureError):
-        run_invalid_header_test(test_file_parent_hash)
+def test_uncles_correctness(test_file_uncle_correctness: str) -> None:
+    run_valid_block_test(test_file_uncle_correctness)
+
+
+# Run legacy invalid block tests
+test_dir = (
+    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/InvalidBlocks"
+)
+
+run_invalid_block_test = partial(
+    run_spurious_dragon_blockchain_st_tests,
+    test_dir,
+)
+
+
+@pytest.mark.parametrize(
+    "test_file", fetch_state_test_files(test_dir, (), FIXTURES_LOADER)
+)
+def test_invalid_block_tests(test_file: str) -> None:
+    try:
+        # Ideally correct.json should not have been in the InvalidBlocks folder
+        if test_file == "bcUncleHeaderValidity/correct.json":
+            run_invalid_block_test(test_file)
+        else:
+            with pytest.raises((EnsureError, AssertionError, ValueError)):
+                run_invalid_block_test(test_file)
+    except KeyError:
+        # FIXME: Handle tests that don't have post state
+        pytest.xfail(f"{test_file} doesn't have post state")
 
 
 # Run Non-Legacy GeneralStateTests
