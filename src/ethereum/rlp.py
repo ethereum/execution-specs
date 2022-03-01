@@ -52,6 +52,11 @@ def encode(raw_data: RLP) -> Bytes:
         return encode(raw_data.to_be_bytes())
     elif isinstance(raw_data, str):
         return encode_bytes(raw_data.encode())
+    elif isinstance(raw_data, bool):
+        if raw_data:
+            return encode_bytes(b"\x01")
+        else:
+            return encode_bytes(b"")
     elif isinstance(raw_data, Sequence):
         return encode_sequence(raw_data)
     elif is_dataclass(raw_data):
@@ -232,6 +237,13 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
             raise TypeError(
                 "RLP Decoding to type {} is not supported".format(cls)
             )
+    elif issubclass(cls, bool):
+        if raw_rlp == b"\x01":
+            return cls(True)  # type: ignore
+        elif raw_rlp == b"":
+            return cls(False)  # type: ignore
+        else:
+            raise TypeError("Cannot decode {} as {}".format(raw_rlp, cls))
     elif issubclass(cls, Bytes):
         ensure(type(raw_rlp) == Bytes)
         return raw_rlp
