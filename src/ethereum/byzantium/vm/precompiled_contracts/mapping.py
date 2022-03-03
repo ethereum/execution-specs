@@ -15,7 +15,7 @@ from typing import Callable, Dict
 
 from ...eth_types import Address
 from ...utils.hexadecimal import hex_to_address
-from .alt_bn128 import alt_bn128_add, alt_bn128_mul
+from .alt_bn128 import alt_bn128_add, alt_bn128_mul, alt_bn128_pairing_check
 from .ecrecover import ecrecover
 from .identity import identity
 from .modexp import modexp
@@ -30,4 +30,5 @@ PRE_COMPILED_CONTRACTS: Dict[Address, Callable] = {
     hex_to_address("0x05"): modexp,
     hex_to_address("0x06"): alt_bn128_add,
     hex_to_address("0x07"): alt_bn128_mul,
+    hex_to_address("0x08"): alt_bn128_pairing_check,
 }

@@ -161,6 +161,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.transactions,
         block.ommers,
     )
+    print(gas_used, block.header.gas_used)
     ensure(gas_used == block.header.gas_used)
     ensure(transactions_root == block.header.transactions_root)
     ensure(state_root(state) == block.header.state_root)

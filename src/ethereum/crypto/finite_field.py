@@ -48,7 +48,7 @@ class Field(Protocol):
     def __ipow__(self: F, right: int) -> F:
         ...
 
-    def __invert__(self: F) -> F:
+    def __neg__(self: F) -> F:
         ...
 
     def __truediv__(self: F, right: F) -> F:
@@ -86,6 +86,10 @@ class PrimeField(int, Field):
     @classmethod
     def zero(cls: Type[T]) -> T:
         return cls.__new__(cls, 0)
+
+    @classmethod
+    def from_int(cls: Type[T], n: int) -> T:
+        return cls(n)
 
     def __new__(cls: Type[T], value: int) -> T:
         return int.__new__(cls, value % cls.PRIME)
@@ -151,8 +155,8 @@ class PrimeField(int, Field):
     __irshift__ = None
     __ilshift__ = None
 
-    def __invert__(self: T) -> T:
-        return self.__new__(type(self), int.__invert__(self))
+    def __neg__(self: T) -> T:
+        return self.__new__(type(self), int.__neg__(self))
 
     def __truediv__(self: T, right: T) -> T:  # type: ignore[override]
         return self * right ** (-1)
@@ -180,17 +184,20 @@ class GaloisField(tuple, Field):
     __slots__ = ()
 
     PRIME: int
-    DEGREE: int
-    PRIMITIVE_ROOT: int
+    MODULUS: Tuple[int, ...]
     ZERO: "GaloisField"
 
-    PRIME = 13
-    DEGREE = 3
-    PRIMITIVE_ROOT = 2
+    @classmethod
+    def zero(cls: Type[T]) -> T:
+        return cls.__new__(cls, [0] * len(cls.MODULUS))
+
+    @classmethod
+    def from_int(cls: Type[T], n: int) -> T:
+        return cls.__new__(cls, [n] + [0] * (len(cls.MODULUS) - 1))
 
     def __new__(cls: Type[U], iterable: Iterable[int]) -> U:
         self = tuple.__new__(cls, (x % cls.PRIME for x in iterable))
-        assert len(self) == self.DEGREE
+        assert len(self) == len(cls.MODULUS)
         return self
 
     def __add__(self: U, right: U) -> U:  # type: ignore[override]
@@ -241,17 +248,22 @@ class GaloisField(tuple, Field):
         if not isinstance(right, type(self)):
             return NotImplemented
 
-        degree = self.DEGREE
-        root = self.PRIMITIVE_ROOT
+        modulus = self.MODULUS
+        degree = len(modulus)
+        prime = self.PRIME
         mul = [0] * (degree * 2)
 
         for i in range(degree):
             for j in range(degree):
                 mul[i + j] += self[i] * right[j]
 
+        for i in range(degree * 2 - 1, degree - 1, -1):
+            for j in range(i - degree, i):
+                mul[j] -= (mul[i] * modulus[degree - (i - j)]) % prime
+
         return self.__new__(
             type(self),
-            (mul[i] + root * mul[i + degree] for i in range(degree)),
+            mul[:degree],
         )
 
     def __rmul__(self: U, left: U) -> U:  # type: ignore[override]
@@ -260,12 +272,18 @@ class GaloisField(tuple, Field):
     def __imul__(self: U, right: U) -> U:  # type: ignore[override]
         return self.__mul__(right)
 
-    def __pow__(self: U, exponent: int) -> U:
-        if exponent < 0:
-            # FIXME: Euclidian Algorithm
-            exponent = self.PRIME + exponent
+    def __truediv__(self: U, right: U) -> U:
+        return self * right ** (-1)
 
-        res = self.__new__(type(self), [1] + [0] * (self.DEGREE - 1))
+    def __neg__(self: U):
+        return self.__new__(type(self), (-a for a in self))
+
+    def __pow__(self: U, exponent: int) -> U:
+        degree = len(self.MODULUS)
+        # FIXME: Euclidian Algorithm
+        exponent = exponent % (self.PRIME ** degree - 1)
+
+        res = self.__new__(type(self), [1] + [0] * (degree - 1))
         s = self
         while exponent != 0:
             if exponent % 2 == 1:

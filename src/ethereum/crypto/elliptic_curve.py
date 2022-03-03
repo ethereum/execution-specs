@@ -31,26 +31,32 @@ class EllipticCurve(Generic[F]):
 
     def __init__(self, x: F, y: F) -> None:
         if (
-            x != 0 or y != 0
-        ) and y ** 2 - x ** 3 - self.A * x - self.B != self.FIELD.ZERO:
-            raise ValueError()
+            x != self.FIELD.zero() or y != self.FIELD.zero()
+        ) and y ** 2 - x ** 3 - self.A * x - self.B != self.FIELD.zero():
+            print(y ** 2 - x ** 3 - self.A * x - self.B)
+            raise ValueError("Point not on curve")
+
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
 
     def __str__(self) -> str:
         return str((self.x, self.y))
 
     @classmethod
     def inf(cls: Type[T]) -> T:
-        return cls.__new__(cls, cls.FIELD.ZERO, cls.FIELD.ZERO)
+        return cls.__new__(cls, cls.FIELD.zero(), cls.FIELD.zero())
 
     def double(self: T) -> T:
         x, y, F = self.x, self.y, self.FIELD
-        lam = (F(3) * x ** 2 + self.A) / (F(2) * y)
+        if x == 0 and y == 0:
+            return self
+        lam = (F.from_int(3) * x ** 2 + self.A) / (F.from_int(2) * y)
         new_x = lam ** 2 - x - x
         new_y = lam * (x - new_x) - y
         return self.__new__(type(self), new_x, new_y)
 
     def __add__(self: T, other: T) -> T:
-        ZERO = self.FIELD.ZERO
+        ZERO = self.FIELD.zero()
         self_x, self_y, other_x, other_y = self.x, self.y, other.x, other.y
         if self_x == ZERO and self_y == ZERO:
             return other
@@ -67,7 +73,7 @@ class EllipticCurve(Generic[F]):
         return self.__new__(type(self), x, y)
 
     def mul_by(self: T, n: int) -> T:
-        res = self.__new__(type(self), self.FIELD.ZERO, self.FIELD.ZERO)
+        res = self.__new__(type(self), self.FIELD.zero(), self.FIELD.zero())
         s = self
         while n != 0:
             if n % 2 == 1:
