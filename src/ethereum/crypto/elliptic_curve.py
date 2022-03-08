@@ -1,4 +1,7 @@
-# flake8: noqa
+"""
+Elliptic Curves
+^^^^^^^^^^^^^^^
+"""
 
 from typing import Generic, Type, TypeVar
 
@@ -24,29 +27,54 @@ class EllipticCurve(Generic[F]):
     y: F
 
     def __new__(cls: Type[T], x: F, y: F) -> T:
+        """
+        Make new point on the curve. The point is not checked to see if it is
+        on the curve.
+        """
         res = object.__new__(cls)
         res.x = x
         res.y = y
         return res
 
     def __init__(self, x: F, y: F) -> None:
+        """
+        Checks if the point is on the curve. To skip this check call
+        `__new__()` directly.
+        """
         if (
             x != self.FIELD.zero() or y != self.FIELD.zero()
         ) and y ** 2 - x ** 3 - self.A * x - self.B != self.FIELD.zero():
-            print(y ** 2 - x ** 3 - self.A * x - self.B)
             raise ValueError("Point not on curve")
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
+        """
+        Test two points for equality.
+        """
+        if not isinstance(other, type(self)):
+            return False
         return self.x == other.x and self.y == other.y
 
     def __str__(self) -> str:
+        """
+        Stringify a point as its coordinates.
+        """
         return str((self.x, self.y))
 
     @classmethod
     def inf(cls: Type[T]) -> T:
+        """
+        Return the point at infinity. This is the identity element of the group
+        operation.
+
+        The point at infinity doesn't actually have coordinates so we use
+        `(0, 0)` (which isn't on the curve) to represent it.
+        """
         return cls.__new__(cls, cls.FIELD.zero(), cls.FIELD.zero())
 
     def double(self: T) -> T:
+        """
+        Add a point to itself.
+        """
         x, y, F = self.x, self.y, self.FIELD
         if x == 0 and y == 0:
             return self
@@ -56,6 +84,9 @@ class EllipticCurve(Generic[F]):
         return self.__new__(type(self), new_x, new_y)
 
     def __add__(self: T, other: T) -> T:
+        """
+        Add two points together.
+        """
         ZERO = self.FIELD.zero()
         self_x, self_y, other_x, other_y = self.x, self.y, other.x, other.y
         if self_x == ZERO and self_y == ZERO:
@@ -73,6 +104,9 @@ class EllipticCurve(Generic[F]):
         return self.__new__(type(self), x, y)
 
     def mul_by(self: T, n: int) -> T:
+        """
+        Multiply `self` by `n` using the double and add algorithm.
+        """
         res = self.__new__(type(self), self.FIELD.zero(), self.FIELD.zero())
         s = self
         while n != 0:

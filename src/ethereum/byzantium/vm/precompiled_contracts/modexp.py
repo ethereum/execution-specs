@@ -66,7 +66,6 @@ def modexp(evm: Evm) -> None:
     adjusted_exp_length = Uint(
         max(adjusted_exp_length, int(exp.bit_length()) - 1)
     )
-    print(base_length, exp_length, modulus_length)
     gas_used = mult_complexity * max(1, adjusted_exp_length) // GQUADDIVISOR
 
     # NOTE: It is in principle possible for the conversion to U256 to overflow

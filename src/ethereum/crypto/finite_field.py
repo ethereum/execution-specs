@@ -1,22 +1,36 @@
+"""
+Finite Fields
+^^^^^^^^^^^^^
+"""
+
 # flake8: noqa: D102, D105
 
 import math
-from typing import Iterable, Tuple, Type, TypeVar, cast
+from typing import Iterable, List, Tuple, Type, TypeVar, cast
 
 from typing_extensions import Protocol
 
 from ..base_types import Bytes, Bytes32, Uint
 
 p = 21888242871839275222246405745257275088696311157297823662689037894645226208583
-primitive_root = 3
 
 F = TypeVar("F", bound="Field")
 
 
 class Field(Protocol):
+    """
+    A type protocol for defining fields.
+    """
+
     __slots__ = ()
 
-    ZERO: "Field"
+    @classmethod
+    def zero(cls: Type[F]) -> F:
+        ...
+
+    @classmethod
+    def from_int(cls: Type[F], n: int) -> F:
+        ...
 
     def __radd__(self: F, left: F) -> F:
         ...
@@ -66,7 +80,6 @@ class PrimeField(int, Field):
 
     __slots__ = ()
     PRIME: int
-    ZERO: "PrimeField"
 
     @classmethod
     def from_be_bytes(cls: Type, buffer: "Bytes") -> "Uint":
@@ -137,7 +150,9 @@ class PrimeField(int, Field):
     __rdivmod__ = None  # type: ignore
 
     def __pow__(self: T, exponent: int) -> T:  # type: ignore[override]
-        # FIXME: Euclidian Algorithm
+        # We should be able to omit the modulus here in Python3.8. This would
+        # use the Euclidian Algorithm and be considerably faster, but does not
+        # not work under PyPy.
         return int.__pow__(self, exponent % (self.PRIME - 1), self.PRIME)
 
     __rpow__ = None  # type: ignore
@@ -159,7 +174,10 @@ class PrimeField(int, Field):
         return self.__new__(type(self), int.__neg__(self))
 
     def __truediv__(self: T, right: T) -> T:  # type: ignore[override]
-        return self * right ** (-1)
+        return self * right.inv()
+
+    def inv(self: T) -> T:
+        return self ** (-1)
 
     def to_be_bytes32(self) -> "Bytes32":
         """
@@ -178,21 +196,29 @@ U = TypeVar("U", bound="GaloisField")
 
 class GaloisField(tuple, Field):
     """
-    FIXME
+    Superclass for defining finite fields. Not intended to be used
+    directly, but rather to be subclassed.
+
+    Fields are represented as `F_p[x]/(x^n + ...)` where the `MODULUS` is a
+    tuple of the non-leading coefficients of the defining polynomial. For
+    example `x^3 + 2x^2 + 3x + 4` is `(2, 3, 4)`.
+
+    In practice the polynomial is likely to be be sparse and you should overload
+    the `__mul__()` function to take advantage of this fact.
     """
 
     __slots__ = ()
 
     PRIME: int
     MODULUS: Tuple[int, ...]
-    ZERO: "GaloisField"
+    FROBENIUS_COEFFICIENTS: Tuple["GaloisField", ...]
 
     @classmethod
-    def zero(cls: Type[T]) -> T:
+    def zero(cls: Type[U]) -> U:
         return cls.__new__(cls, [0] * len(cls.MODULUS))
 
     @classmethod
-    def from_int(cls: Type[T], n: int) -> T:
+    def from_int(cls: Type[U], n: int) -> U:
         return cls.__new__(cls, [n] + [0] * (len(cls.MODULUS) - 1))
 
     def __new__(cls: Type[U], iterable: Iterable[int]) -> U:
@@ -245,9 +271,6 @@ class GaloisField(tuple, Field):
         )
 
     def __mul__(self: U, right: U) -> U:  # type: ignore[override]
-        if not isinstance(right, type(self)):
-            return NotImplemented
-
         modulus = self.MODULUS
         degree = len(modulus)
         prime = self.PRIME
@@ -273,14 +296,74 @@ class GaloisField(tuple, Field):
         return self.__mul__(right)
 
     def __truediv__(self: U, right: U) -> U:
-        return self * right ** (-1)
+        return self * right.inv()
 
-    def __neg__(self: U):
+    def __neg__(self: U) -> U:
         return self.__new__(type(self), (-a for a in self))
+
+    def scalar_mul(self: U, x: int) -> U:
+        """
+        Multiply a field element by a integer. This is faster than using
+        `from_int()` and field multiplication.
+        """
+        return self.__new__(type(self), (x * n for n in self))
+
+    def deg(self: U) -> int:
+        """
+        This is a support function for `inv()`.
+        """
+        for i in range(len(self.MODULUS) - 1, -1, -1):
+            if self[i] != 0:
+                return i
+        raise ValueError("deg() does not support zero")
+
+    def inv(self: U) -> U:
+        """
+        Calculate the multiplicative inverse. Uses the Euclidian algorithm.
+        """
+        x2: List[int]
+        p = self.PRIME
+        x1, f1 = list(self.MODULUS), [0] * len(self)
+        x2, f2, d2 = list(self), [1] + [0] * (len(self) - 1), self.deg()
+        q_0 = pow(x2[d2], (-1) % (self.PRIME - 1), p)
+        for i in range(d2):
+            x1[i + len(x1) - d2] = (x1[i + len(x1) - d2] - q_0 * x2[i]) % p
+            f1[i + len(x1) - d2] = (f1[i + len(x1) - d2] - q_0 * f2[i]) % p
+        for i in range(len(self.MODULUS) - 1, -1, -1):
+            if x1[i] != 0:
+                d1 = i
+                break
+        while True:
+            if d1 == 0:
+                ans = f1
+                q = pow(x1[0], (-1) % (self.PRIME - 1), self.PRIME)
+                for i in range(len(ans)):
+                    ans[i] *= q
+                break
+            elif d2 == 0:
+                ans = f2
+                q = pow(x2[0], (-1) % (self.PRIME - 1), self.PRIME)
+                for i in range(len(ans)):
+                    ans *= q
+                break
+            if d1 < d2:
+                q = x2[d2] * pow(x1[d1], (-1) % (self.PRIME - 1), self.PRIME)
+                for i in range(len(self.MODULUS) - (d2 - d1)):
+                    x2[i + (d2 - d1)] = (x2[i + (d2 - d1)] - q * x1[i]) % p
+                    f2[i + (d2 - d1)] = (f2[i + (d2 - d1)] - q * f1[i]) % p
+                while x2[d2] == 0:
+                    d2 -= 1
+            else:
+                q = x1[d1] * pow(x2[d2], (-1) % (self.PRIME - 1), self.PRIME)
+                for i in range(len(self.MODULUS) - (d1 - d2)):
+                    x1[i + (d1 - d2)] = (x1[i + (d1 - d2)] - q * x2[i]) % p
+                    f1[i + (d1 - d2)] = (f1[i + (d1 - d2)] - q * f2[i]) % p
+                while x1[d1] == 0:
+                    d1 -= 1
+        return self.__new__(type(self), ans)
 
     def __pow__(self: U, exponent: int) -> U:
         degree = len(self.MODULUS)
-        # FIXME: Euclidian Algorithm
         exponent = exponent % (self.PRIME ** degree - 1)
 
         res = self.__new__(type(self), [1] + [0] * (degree - 1))
@@ -291,3 +374,28 @@ class GaloisField(tuple, Field):
             s *= s
             exponent //= 2
         return res
+
+    @classmethod
+    def calculate_frobenius_coefficients(cls: Type[U]) -> Tuple[U, ...]:
+        """
+        Calculate the coefficients needed by `frobenius()`.
+        """
+        coefficients = []
+        for i in range(len(cls.MODULUS)):
+            x = [0] * len(cls.MODULUS)
+            x[i] = 1
+            coefficients.append(cls.__new__(cls, x) ** cls.PRIME)
+        return tuple(coefficients)
+
+    def frobenius(self: U) -> U:
+        """
+        Returns `self ** p`. This function is known as the Frobenius
+        endomorphism and has many special mathematical properties. In
+        particular it is extremely cheap to compute compared to other
+        exponentiations.
+        """
+        ans = self.from_int(0)
+        a: int
+        for (i, a) in enumerate(self):
+            ans += cast(U, self.FROBENIUS_COEFFICIENTS[i]).scalar_mul(a)
+        return ans
