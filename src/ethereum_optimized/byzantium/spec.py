@@ -16,6 +16,7 @@ from ethereum.base_types import U256_CEIL_VALUE
 from ethereum.byzantium.eth_types import Header
 from ethereum.byzantium.spec import generate_header_hash_for_pow
 from ethereum.ethash import epoch
+from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 
 try:
@@ -43,4 +44,4 @@ def validate_proof_of_work(header: Header) -> None:
         (U256_CEIL_VALUE // header.difficulty).to_be_bytes32(),
     )
 
-    ensure(result)
+    ensure(result, InvalidBlock)

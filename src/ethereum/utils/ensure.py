@@ -12,17 +12,11 @@ Introduction
 Functions that simplify checking assertions and raising exceptions.
 """
 
-from typing import Callable
-
-
-class EnsureError(Exception):
-    """
-    Represents a failed check.
-    """
+from typing import Callable, Union
 
 
 def ensure(
-    value: bool, exception_class: Callable[[], Exception] = EnsureError
+    value: bool, exception: Union[Callable[[], BaseException], BaseException]
 ) -> None:
     """
     Does nothing if `value` is truthy, otherwise raises the exception returned
@@ -34,9 +28,9 @@ def ensure(
     value :
         Value that should be true.
 
-    exception_class :
+    exception :
         Constructor for the exception to raise.
     """
     if value:
         return
-    raise exception_class()
+    raise exception  # type: ignore

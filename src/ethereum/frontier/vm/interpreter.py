@@ -17,7 +17,6 @@ from typing import Set, Tuple, Union
 
 from ethereum import evm_trace
 from ethereum.base_types import U256, Bytes0, Uint
-from ethereum.utils.ensure import EnsureError
 
 from ..eth_types import Address, Log
 from ..state import (
@@ -32,13 +31,10 @@ from ..state import (
 )
 from ..vm import Message
 from ..vm.error import (
+    ConsumeAllGasException,
     InsufficientFunds,
-    InvalidJumpDestError,
     InvalidOpcode,
-    OutOfGasError,
     StackDepthLimitError,
-    StackOverflowError,
-    StackUnderflowError,
 )
 from ..vm.gas import GAS_CODE_DEPOSIT, REFUND_SELF_DESTRUCT, subtract_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
@@ -138,7 +134,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         try:
             evm.gas_left = subtract_gas(evm.gas_left, contract_code_gas)
-        except OutOfGasError:
+        except ConsumeAllGasException:
             evm.output = b""
         else:
             set_code(env.state, message.current_target, contract_code)
@@ -242,21 +238,8 @@ def execute_code(message: Message, env: Environment) -> Evm:
             evm_trace(evm, op)
             op_implementation[op](evm)
 
-    except (
-        OutOfGasError,
-        InvalidOpcode,
-        InvalidJumpDestError,
-        InsufficientFunds,
-        StackOverflowError,
-        StackUnderflowError,
-        StackDepthLimitError,
-    ):
+    except (ConsumeAllGasException):
         evm.gas_left = U256(0)
-        evm.has_erred = True
-    except (
-        EnsureError,
-        ValueError,
-    ):
         evm.has_erred = True
     finally:
         return evm

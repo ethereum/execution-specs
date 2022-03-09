@@ -93,7 +93,7 @@ def dup_n(evm: Evm, item_number: int) -> None:
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
-    ensure(item_number < len(evm.stack), exception_class=StackUnderflowError)
+    ensure(item_number < len(evm.stack), StackUnderflowError)
 
     data_to_duplicate = evm.stack[len(evm.stack) - 1 - item_number]
     stack.push(evm.stack, data_to_duplicate)
@@ -124,7 +124,7 @@ def swap_n(evm: Evm, item_number: int) -> None:
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
-    ensure(item_number < len(evm.stack), exception_class=StackUnderflowError)
+    ensure(item_number < len(evm.stack), StackUnderflowError)
 
     top_element_idx = len(evm.stack) - 1
     nth_element_idx = len(evm.stack) - 1 - item_number
