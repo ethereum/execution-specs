@@ -186,4 +186,4 @@ def test_general_state_tests_new(test_file_new: str) -> None:
         run_general_state_tests_new(test_file_new)
     except KeyError:
         # KeyError is raised when a test_file has no tests for homestead
-        raise pytest.skip(f"{test_file_new} has no tests for homestead")
+        pytest.skip(f"{test_file_new} has no tests for homestead")
