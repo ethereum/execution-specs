@@ -98,7 +98,7 @@ log2 = Log(
 )
 
 receipt = Receipt(
-    post_state=hash1,
+    succeeded=True,
     cumulative_gas_used=Uint(1),
     bloom=bloom,
     logs=(log1, log2),

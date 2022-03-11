@@ -365,7 +365,7 @@ def apply_body(
             receipts_trie,
             rlp.encode(Uint(i)),
             Receipt(
-                post_state=Bytes(b"") if has_erred else Bytes(b"\x01"),
+                succeeded=not has_erred,
                 cumulative_gas_used=(block_gas_limit - gas_available),
                 bloom=logs_bloom(logs),
                 logs=logs,
