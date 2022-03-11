@@ -14,7 +14,7 @@ A new set of APIs is introduced as part of The Merge for the execution layer cli
 
 ### Consensus Layer Specifications
 
-This network upgrade requires changes to both Ethereum's execution and consensus layers. The consensus layer specifications for this upgrade are available [here](https://github.com/ethereum/consensus-specs/tree/dev/specs/merge).
+This network upgrade requires changes to both Ethereum's execution and consensus layers. The consensus layer specifications for this upgrade are available [here](https://github.com/ethereum/consensus-specs/tree/dev/specs/bellatrix).
 
 ### Upgrade Schedule
 
