@@ -1,4 +1,6 @@
-## Merge Upgrade Specification
+## Paris Upgrade Specification
+
+The Paris specification corresponds to the execution layers changes associated with Ethereum's transition to proof-of-stake, a.k.a. The Merge.
 
 ### Included EIPs
 Specifies changes included in the network upgrade.
