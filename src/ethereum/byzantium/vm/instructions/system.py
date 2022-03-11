@@ -475,7 +475,7 @@ def delegatecall(evm: Evm) -> None:
     evm.children.append(child_evm)
     if child_evm.has_erred:
         push(evm.stack, U256(0))
-        if isinstance(evm.error, Revert):
+        if isinstance(child_evm.error, Revert):
             evm.return_data = child_evm.output
         else:
             evm.return_data = b""
