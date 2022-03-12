@@ -185,12 +185,13 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_header :
         Parent Header of the header to check for correctness
     """
+    parent_has_ommers = parent_header.ommers_hash != EMPTY_OMMER_HASH
     block_difficulty = calculate_block_difficulty(
-        parent_header.number,
+        header.number,
         header.timestamp,
         parent_header.timestamp,
         parent_header.difficulty,
-        parent_header.ommers_hash,
+        parent_has_ommers,
     )
 
     block_parent_hash = crypto.keccak256(rlp.encode(parent_header))
@@ -772,39 +773,39 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
 
 
 def calculate_block_difficulty(
-    parent_block_number: Uint,
-    timestamp: U256,
+    block_number: Uint,
+    block_timestamp: U256,
     parent_timestamp: U256,
     parent_difficulty: Uint,
-    parent_ommers_hash: Hash32,
+    parent_has_ommers: bool,
 ) -> Uint:
     """
     Computes difficulty of a block using its header and parent header.
 
     Parameters
     ----------
-    parent_block_number :
-        Block number of the parent block.
-    timestamp :
+    block_number :
+        Block number of the block.
+    block_timestamp :
         Timestamp of the block.
     parent_timestamp :
         Timestamp of the parent block.
     parent_difficulty :
         difficulty of the parent block.
-    parent_ommers_hash:
-        hash of parents ommers.
+    parent_has_ommers:
+        does the parent have ommers.
 
     Returns
     -------
     difficulty : `ethereum.base_types.Uint`
         Computed difficulty for a block.
     """
-    has_ommers = parent_ommers_hash != EMPTY_OMMER_HASH
     offset = (
         int(parent_difficulty)
         // 2048
         * max(
-            (2 if has_ommers else 1) - int(timestamp - parent_timestamp) // 9,
+            (2 if parent_has_ommers else 1)
+            - int(block_timestamp - parent_timestamp) // 9,
             -99,
         )
     )
@@ -814,9 +815,7 @@ def calculate_block_difficulty(
     # bomb has no effect prior to block 200000 we pretend it existed from
     # genesis.
     # See https://github.com/ethereum/go-ethereum/pull/1588
-    num_bomb_periods = (
-        (int(parent_block_number) + 1 - BOMB_DELAY_BLOCKS) // 100000
-    ) - 2
+    num_bomb_periods = ((int(block_number) - BOMB_DELAY_BLOCKS) // 100000) - 2
     if num_bomb_periods >= 0:
         return Uint(
             max(difficulty + 2 ** num_bomb_periods, GENESIS_DIFFICULTY)
