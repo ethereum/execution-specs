@@ -12,8 +12,6 @@ from typing_extensions import Protocol
 
 from ..base_types import Bytes, Bytes32, Uint
 
-p = 21888242871839275222246405745257275088696311157297823662689037894645226208583
-
 F = TypeVar("F", bound="Field")
 
 

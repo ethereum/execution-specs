@@ -13,13 +13,13 @@ Implementation of the ALT_BN128 precompiled contracts.
 """
 from ethereum.base_types import U256
 from ethereum.crypto.alt_bn128 import (
+    ALT_BN128_CURVE_ORDER,
+    ALT_BN128_PRIME,
     BNF,
     BNF2,
     BNF12,
     BNP,
     BNP2,
-    alt_bn128_curve_order,
-    alt_bn128_prime,
     pairing,
 )
 from ethereum.utils.ensure import ensure
@@ -48,7 +48,7 @@ def alt_bn128_add(evm: Evm) -> None:
     y1_value = U256.from_be_bytes(y1_bytes)
 
     for i in (x0_value, y0_value, x1_value, y1_value):
-        if i >= alt_bn128_prime:
+        if i >= ALT_BN128_PRIME:
             raise OutOfGasError
 
     try:
@@ -79,7 +79,7 @@ def alt_bn128_mul(evm: Evm) -> None:
     n = U256.from_be_bytes(evm.message.data[64:96].ljust(32, b"\x00"))
 
     for i in (x0_value, y0_value):
-        if i >= alt_bn128_prime:
+        if i >= ALT_BN128_PRIME:
             raise OutOfGasError
 
     try:
@@ -114,7 +114,7 @@ def alt_bn128_pairing_check(evm: Evm) -> None:
             value = U256.from_be_bytes(
                 evm.message.data[i * 192 + 32 * j : i * 192 + 32 * (j + 1)]
             )
-            if value >= alt_bn128_prime:
+            if value >= ALT_BN128_PRIME:
                 raise OutOfGasError
             values.append(int(value))
 
@@ -125,8 +125,8 @@ def alt_bn128_pairing_check(evm: Evm) -> None:
             )
         except ValueError:
             raise OutOfGasError()
-        ensure(p.mul_by(alt_bn128_curve_order) == BNP.inf(), OutOfGasError)
-        ensure(q.mul_by(alt_bn128_curve_order) == BNP2.inf(), OutOfGasError)
+        ensure(p.mul_by(ALT_BN128_CURVE_ORDER) == BNP.inf(), OutOfGasError)
+        ensure(q.mul_by(ALT_BN128_CURVE_ORDER) == BNP2.inf(), OutOfGasError)
         if p != BNP.inf() and q != BNP2.inf():
             result = result * pairing(q, p)
 
