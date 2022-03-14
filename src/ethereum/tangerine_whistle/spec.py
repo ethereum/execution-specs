@@ -182,7 +182,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
         Parent Header of the header to check for correctness
     """
     block_difficulty = calculate_block_difficulty(
-        parent_header.number,
+        header.number,
         header.timestamp,
         parent_header.timestamp,
         parent_header.difficulty,
@@ -725,8 +725,8 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
 
 
 def calculate_block_difficulty(
-    parent_block_number: Uint,
-    timestamp: U256,
+    block_number: Uint,
+    block_timestamp: U256,
     parent_timestamp: U256,
     parent_difficulty: Uint,
 ) -> Uint:
@@ -735,9 +735,9 @@ def calculate_block_difficulty(
 
     Parameters
     ----------
-    parent_block_number :
-        Block number of the parent block.
-    timestamp :
+    block_number :
+        Block number of the block.
+    block_timestamp :
         Timestamp of the block.
     parent_timestamp :
         Timestamp of the parent block.
@@ -752,7 +752,7 @@ def calculate_block_difficulty(
     offset = (
         int(parent_difficulty)
         // 2048
-        * max(1 - int(timestamp - parent_timestamp) // 10, -99)
+        * max(1 - int(block_timestamp - parent_timestamp) // 10, -99)
     )
     difficulty = int(parent_difficulty) + offset
     # Historical Note: The difficulty bomb was not present in Ethereum at the
@@ -760,7 +760,7 @@ def calculate_block_difficulty(
     # bomb has no effect prior to block 200000 we pretend it existed from
     # genesis.
     # See https://github.com/ethereum/go-ethereum/pull/1588
-    num_bomb_periods = ((int(parent_block_number) + 1) // 100000) - 2
+    num_bomb_periods = (int(block_number) // 100000) - 2
     if num_bomb_periods >= 0:
         return Uint(
             max(difficulty + 2 ** num_bomb_periods, GENESIS_DIFFICULTY)
