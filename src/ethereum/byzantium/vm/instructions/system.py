@@ -126,6 +126,7 @@ def create(evm: Evm) -> None:
         push(evm.stack, U256(0))
         evm.return_data = child_evm.output
     else:
+        evm.logs += child_evm.logs
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
         evm.return_data = b""
     evm.gas_left += child_evm.gas_left
@@ -250,6 +251,7 @@ def call(evm: Evm) -> None:
         else:
             evm.return_data = b""
     else:
+        evm.logs += child_evm.logs
         push(evm.stack, U256(1))
         evm.return_data = child_evm.output
 
@@ -349,6 +351,7 @@ def callcode(evm: Evm) -> None:
         else:
             evm.return_data = b""
     else:
+        evm.logs += child_evm.logs
         push(evm.stack, U256(1))
         evm.return_data = child_evm.output
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
@@ -480,6 +483,7 @@ def delegatecall(evm: Evm) -> None:
         else:
             evm.return_data = b""
     else:
+        evm.logs += child_evm.logs
         push(evm.stack, U256(1))
         evm.return_data = child_evm.output
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
