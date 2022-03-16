@@ -156,7 +156,7 @@ def miller_loop(q: BNP12, p: BNP12) -> BNF12:
     """
     The core of the pairing algorithm.
     """
-    if p == BNP12.inf() or q == BNP12.inf():
+    if p == BNP12.point_at_infinity() or q == BNP12.point_at_infinity():
         return BNF12.from_int(1)
     r = q
     f = BNF12.from_int(1)

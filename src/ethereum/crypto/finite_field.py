@@ -5,7 +5,6 @@ Finite Fields
 
 # flake8: noqa: D102, D105
 
-import math
 from typing import Iterable, List, Tuple, Type, TypeVar, cast
 
 from typing_extensions import Protocol
@@ -80,7 +79,7 @@ class PrimeField(int, Field):
     PRIME: int
 
     @classmethod
-    def from_be_bytes(cls: Type, buffer: "Bytes") -> "Uint":
+    def from_be_bytes(cls: Type, buffer: "Bytes") -> T:
         """
         Converts a sequence of bytes into a element of the field.
         Parameters
@@ -172,9 +171,9 @@ class PrimeField(int, Field):
         return self.__new__(type(self), int.__neg__(self))
 
     def __truediv__(self: T, right: T) -> T:  # type: ignore[override]
-        return self * right.inv()
+        return self * right.multiplicative_inverse()
 
-    def inv(self: T) -> T:
+    def multiplicative_inverse(self: T) -> T:
         return self ** (-1)
 
     def to_be_bytes32(self) -> "Bytes32":
@@ -294,7 +293,7 @@ class GaloisField(tuple, Field):
         return self.__mul__(right)
 
     def __truediv__(self: U, right: U) -> U:
-        return self * right.inv()
+        return self * right.multiplicative_inverse()
 
     def __neg__(self: U) -> U:
         return self.__new__(type(self), (-a for a in self))
@@ -308,14 +307,14 @@ class GaloisField(tuple, Field):
 
     def deg(self: U) -> int:
         """
-        This is a support function for `inv()`.
+        This is a support function for `multiplicative_inverse()`.
         """
         for i in range(len(self.MODULUS) - 1, -1, -1):
             if self[i] != 0:
                 return i
         raise ValueError("deg() does not support zero")
 
-    def inv(self: U) -> U:
+    def multiplicative_inverse(self: U) -> U:
         """
         Calculate the multiplicative inverse. Uses the Euclidian algorithm.
         """

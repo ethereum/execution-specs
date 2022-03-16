@@ -61,7 +61,7 @@ class EllipticCurve(Generic[F]):
         return str((self.x, self.y))
 
     @classmethod
-    def inf(cls: Type[T]) -> T:
+    def point_at_infinity(cls: Type[T]) -> T:
         """
         Return the point at infinity. This is the identity element of the group
         operation.
@@ -97,7 +97,7 @@ class EllipticCurve(Generic[F]):
             if self_y == other_y:
                 return self.double()
             else:
-                return self.inf()
+                return self.point_at_infinity()
         lam = (other_y - self_y) / (other_x - self_x)
         x = lam ** 2 - self_x - other_x
         y = lam * (self_x - x) - self_y
