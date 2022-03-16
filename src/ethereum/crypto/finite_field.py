@@ -9,7 +9,7 @@ from typing import Iterable, List, Tuple, Type, TypeVar, cast
 
 from typing_extensions import Protocol
 
-from ..base_types import Bytes, Bytes32, Uint
+from ..base_types import Bytes, Bytes32
 
 F = TypeVar("F", bound="Field")
 
@@ -79,7 +79,7 @@ class PrimeField(int, Field):
     PRIME: int
 
     @classmethod
-    def from_be_bytes(cls: Type, buffer: "Bytes") -> T:
+    def from_be_bytes(cls: Type[T], buffer: "Bytes") -> T:
         """
         Converts a sequence of bytes into a element of the field.
         Parameters
@@ -88,7 +88,7 @@ class PrimeField(int, Field):
             Bytes to decode.
         Returns
         -------
-        self : `Uint`
+        self : `T`
             Unsigned integer decoded from `buffer`.
         """
         return cls(int.from_bytes(buffer, "big"))
