@@ -13,10 +13,11 @@ A straightforward interpreter that executes EVM code.
 """
 from dataclasses import dataclass
 from itertools import chain
-from typing import Set, Tuple, Union
+from typing import Any, Callable, Set, Tuple, Union
 
 from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.utils.ensure import EnsureError
+from ethereum_spec_tools.evm_trace import trace_evm
 
 from ..eth_types import Address, Log
 from ..state import (
@@ -198,6 +199,14 @@ def process_message(message: Message, env: Environment) -> Evm:
     return evm
 
 
+@trace_evm
+def implement_evm_code(evm: Evm, function: Callable, op: Any) -> None:
+    """
+    Implement the individual opcodes or precompiles
+    """
+    function(evm)
+
+
 def execute_code(message: Message, env: Environment) -> Evm:
     """
     Executes bytecode present in the `message`.
@@ -236,7 +245,11 @@ def execute_code(message: Message, env: Environment) -> Evm:
     try:
 
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
-            PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
+            implement_evm_code(
+                evm=evm,
+                function=PRE_COMPILED_CONTRACTS[evm.message.code_address],
+                op=evm.message.code_address,
+            )
             return evm
 
         while evm.running and evm.pc < len(evm.code):
@@ -245,7 +258,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
             except ValueError:
                 raise InvalidOpcode(evm.code[evm.pc])
 
-            op_implementation[op](evm)
+            implement_evm_code(evm=evm, function=op_implementation[op], op=op)
 
     except (
         OutOfGasError,
