@@ -17,7 +17,7 @@ from ethereum.exceptions import EthereumException
 
 class ConsumeAllGasException(EthereumException):
     """
-    Indicates that EVM execution has fails with all gas being consumed.
+    Indicates that EVM execution has failed with all gas being consumed.
     """
 
 

@@ -12,11 +12,11 @@ Introduction
 Functions that simplify checking assertions and raising exceptions.
 """
 
-from typing import Callable, Union
+from typing import Type, Union
 
 
 def ensure(
-    value: bool, exception: Union[Callable[[], BaseException], BaseException]
+    value: bool, exception: Union[Type[BaseException], BaseException]
 ) -> None:
     """
     Does nothing if `value` is truthy, otherwise raises the exception returned
@@ -33,4 +33,4 @@ def ensure(
     """
     if value:
         return
-    raise exception  # type: ignore
+    raise exception
