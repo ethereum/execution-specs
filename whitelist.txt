@@ -22,6 +22,8 @@ ethash
 ethereum
 evm
 exc
+formatter
+Formatter
 getsource
 Hash32
 hasher
