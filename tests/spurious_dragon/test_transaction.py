@@ -15,7 +15,7 @@ from ..helpers.eth_types_helpers import load_test_transaction
 test_dir = "tests/fixtures/TransactionTests"
 
 load_spurious_dragon_transaction = partial(
-    load_test_transaction, network="EIP150"
+    load_test_transaction, network="EIP158"
 )
 
 

@@ -1,5 +1,5 @@
 """
-Optimized Implementations (Tangerine Whistle)
+Optimized Implementations (Spurious Dragon)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
