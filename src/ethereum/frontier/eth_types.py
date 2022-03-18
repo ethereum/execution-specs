@@ -27,7 +27,7 @@ from ..base_types import (
     Uint,
     slotted_freezable,
 )
-from ..crypto import Hash32, keccak256
+from ..crypto.hash import Hash32, keccak256
 
 Address = Bytes20
 Root = Hash32

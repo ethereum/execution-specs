@@ -30,10 +30,11 @@ from typing import (
 )
 
 import ethereum.tangerine_whistle.trie
+from ethereum.crypto.hash import keccak256
 from ethereum.utils.ensure import ensure
 from ethereum.utils.hexadecimal import hex_to_bytes
 
-from .. import crypto, rlp
+from .. import rlp
 from ..base_types import U256, Bytes, Uint, slotted_freezable
 from .eth_types import (
     Account,
@@ -46,13 +47,13 @@ from .eth_types import (
 
 # note: an empty trie (regardless of whether it is secured) has root:
 #
-#   crypto.keccak256(RLP(b''))
+#   keccak256(RLP(b''))
 #       ==
 #   56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421 # noqa: E501,SC10
 #
 # also:
 #
-#   crypto.keccak256(RLP(()))
+#   keccak256(RLP(()))
 #       ==
 #   1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347 # noqa: E501,SC10
 #
@@ -148,7 +149,7 @@ def encode_internal_node(node: Optional[InternalNode]) -> rlp.RLP:
     if len(encoded) < 32:
         return unencoded
     else:
-        return crypto.keccak256(encoded)
+        return keccak256(encoded)
 
 
 def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
@@ -355,7 +356,7 @@ def _prepare_trie(
         key: Bytes
         if trie.secured:
             # "secure" tries hash keys once before construction
-            key = crypto.keccak256(preimage)
+            key = keccak256(preimage)
         else:
             key = preimage
         mapped[bytes_to_nibble_list(key)] = encoded_value
@@ -388,7 +389,7 @@ def root(
 
     root_node = encode_internal_node(patricialize(obj, Uint(0)))
     if len(rlp.encode(root_node)) < 32:
-        return crypto.keccak256(rlp.encode(root_node))
+        return keccak256(rlp.encode(root_node))
     else:
         assert isinstance(root_node, Bytes)
         return Root(root_node)

@@ -15,7 +15,7 @@ Ethash algorithm related functionalities.
 from typing import Callable, Tuple, Union
 
 from ethereum.base_types import UINT32_MAX_VALUE, Bytes8, Uint, Uint32
-from ethereum.crypto import Hash32, Hash64, keccak256, keccak512
+from ethereum.crypto.hash import Hash32, Hash64, keccak256, keccak512
 from ethereum.utils.numeric import (
     is_prime,
     le_bytes_to_uint32_sequence,

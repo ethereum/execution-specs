@@ -91,15 +91,21 @@ html_css_files = [
     'css/custom.css',
 ]
 
-def skip_max_value(app, what, name, obj, skip, options):
+
+def skip_duplicates(app, what, name, obj, skip, options):
     """
-    Autoapi is mapping the MAX_VALUE constants in base_types to the same TOC
-    entry.
+    Autoapi is mapping some constants with similar names to the same TOC entry.
     """
     if what == "data" and "base_types" in name and "MAX_VALUE" in name:
         skip = True
+
+    constants = (".FROBENIUS_COEFFICIENTS", ".i_plus_9")
+
+    if any(name.endswith(constant) for constant in constants):
+        skip = True
+
     return skip
 
 
 def setup(sphinx):
-    sphinx.connect("autoapi-skip-member", skip_max_value)
+    sphinx.connect("autoapi-skip-member", skip_duplicates)

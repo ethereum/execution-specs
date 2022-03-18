@@ -17,8 +17,7 @@ from __future__ import annotations
 from dataclasses import astuple, fields, is_dataclass
 from typing import Any, List, Sequence, Tuple, Type, TypeVar, Union
 
-from ethereum import crypto
-from ethereum.crypto import Hash32
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.ensure import ensure
 
 from .base_types import U256, Bytes, Bytes0, Bytes20, Uint
@@ -460,4 +459,4 @@ def rlp_hash(data: RLP) -> Hash32:
     hash : `Hash32`
         The rlp hash of the passed in data.
     """
-    return crypto.keccak256(encode(data))
+    return keccak256(encode(data))
