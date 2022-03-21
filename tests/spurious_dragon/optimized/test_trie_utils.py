@@ -1,5 +1,5 @@
 from ethereum.spurious_dragon.trie import nibble_list_to_compact
-from ethereum_optimized.tangerine_whistle.trie_utils import (
+from ethereum_optimized.spurious_dragon.trie_utils import (
     compact_to_nibble_list,
 )
 

@@ -50,7 +50,7 @@ def fake_get_internal_key(key: Bytes) -> Bytes:
 
 
 @pytest.mark.skipif(
-    "ethereum_optimized.tangerine_whistle.state_db" not in sys.modules,
+    "ethereum_optimized.spurious_dragon.state_db" not in sys.modules,
     reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
 )
 def test_trie() -> None:
@@ -71,7 +71,7 @@ def test_trie() -> None:
 
 
 @pytest.mark.skipif(
-    "ethereum_optimized.tangerine_whistle.state_db" not in sys.modules,
+    "ethereum_optimized.spurious_dragon.state_db" not in sys.modules,
     reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
 )
 def test_storage_key() -> None:
@@ -93,7 +93,7 @@ def test_storage_key() -> None:
 
 
 @pytest.mark.skipif(
-    "ethereum_optimized.tangerine_whistle.state_db" not in sys.modules,
+    "ethereum_optimized.spurious_dragon.state_db" not in sys.modules,
     reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
 )
 def test_resurrection() -> None:
