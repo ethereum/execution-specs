@@ -104,7 +104,7 @@ $ pytest -m "not slow"              # Runs tests which execute quickly.
 It is recommended to use a [virtual environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/#creating-a-virtual-environment) to keep your system Python installation clean.
 
 
-A trace of the EVM execution for any test case can be obtained by adding the `--evm-trace` to pytest.
+A trace of the EVM execution for any test case can be obtained by providing the `--evm-trace` argument to pytest.
 Note: Make sure to run the EVM trace on a small number of tests at a time. The log might otherwise get very big.
 Below is an example.
 

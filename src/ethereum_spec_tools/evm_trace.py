@@ -3,7 +3,7 @@ The module implements the raw EVM tracer for pytest
 """
 import logging
 from dataclasses import dataclass
-from typing import Any, Callable, List
+from typing import Any, List
 
 from ethereum.base_types import U256, Bytes, Uint
 
@@ -44,16 +44,16 @@ class EvmTrace:
         return rep
 
 
-def new_trace_from_evm(evm: Any, op: Any) -> EvmTrace:
+def evm_trace(evm: Any, op: Any) -> None:
     """
     Create a new trace instance before opcode execution
     """
     if isinstance(op, bytes):
-        opcode = "0x" + op.hex()[-2:]
+        opcode = "0x" + op.hex().lstrip("00")
     else:
         opcode = str(op).split(".")[-1]
 
-    return EvmTrace(
+    new_trace = EvmTrace(
         depth=evm.message.depth,
         pc=evm.pc,
         op=opcode,
@@ -63,23 +63,4 @@ def new_trace_from_evm(evm: Any, op: Any) -> EvmTrace:
         output=evm.output,
         stack=evm.stack.copy(),
     )
-
-
-def trace_evm(function: Callable) -> Callable:
-    """
-    Decorator to generate EVM Trace in pytest.
-    Trace can be activated by passing `--evm-trace`
-    to pytest
-    """
-
-    def wrapper(*args: Any, **kwargs: Any) -> None:
-        if logging.root.level != 10:
-            function(*args, **kwargs)
-        else:
-            # Capture parameters before OPCode execution in a new trace
-            trace = new_trace_from_evm(kwargs["evm"], kwargs["op"])
-            logging.info(trace.custom_repr())
-
-            function(*args, **kwargs)
-
-    return wrapper
+    logging.info(new_trace.custom_repr())
