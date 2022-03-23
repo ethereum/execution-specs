@@ -15,13 +15,14 @@ Errors which cause the EVM to halt exceptionally.
 from ethereum.exceptions import EthereumException
 
 
-class ConsumeAllGasException(EthereumException):
+class ExceptionalHalt(EthereumException):
     """
-    Indicates that EVM execution has failed with all gas being consumed.
+    Indicates that the EVM has experienced an exceptional halt. This causes
+    execution to immediately end with all gas being consumed.
     """
 
 
-class StackUnderflowError(ConsumeAllGasException):
+class StackUnderflowError(ExceptionalHalt):
     """
     Occurs when a pop is executed on an empty stack.
     """
@@ -29,7 +30,7 @@ class StackUnderflowError(ConsumeAllGasException):
     pass
 
 
-class StackOverflowError(ConsumeAllGasException):
+class StackOverflowError(ExceptionalHalt):
     """
     Occurs when a push is executed on a stack at max capacity.
     """
@@ -37,7 +38,7 @@ class StackOverflowError(ConsumeAllGasException):
     pass
 
 
-class OutOfGasError(ConsumeAllGasException):
+class OutOfGasError(ExceptionalHalt):
     """
     Occurs when an operation costs more than the amount of gas left in the
     frame.
@@ -46,7 +47,7 @@ class OutOfGasError(ConsumeAllGasException):
     pass
 
 
-class InvalidOpcode(ConsumeAllGasException):
+class InvalidOpcode(ExceptionalHalt):
     """
     Raised when an invalid opcode is encountered.
     """
@@ -54,7 +55,7 @@ class InvalidOpcode(ConsumeAllGasException):
     pass
 
 
-class InvalidJumpDestError(ConsumeAllGasException):
+class InvalidJumpDestError(ExceptionalHalt):
     """
     Occurs when the destination of a jump operation doesn't meet any of the
     following criteria:
@@ -66,7 +67,7 @@ class InvalidJumpDestError(ConsumeAllGasException):
     """
 
 
-class StackDepthLimitError(ConsumeAllGasException):
+class StackDepthLimitError(ExceptionalHalt):
     """
     Raised when the message depth is greater than `1024`
     """
@@ -74,7 +75,7 @@ class StackDepthLimitError(ConsumeAllGasException):
     pass
 
 
-class InsufficientFunds(ConsumeAllGasException):
+class InsufficientFunds(ExceptionalHalt):
     """
     Raised when an account has insufficient funds to transfer the
     requested value.

@@ -34,7 +34,7 @@ from ..state import (
 from ..utils.address import to_address
 from ..vm import Message
 from ..vm.error import (
-    ConsumeAllGasException,
+    ExceptionalHalt,
     InsufficientFunds,
     InvalidOpcode,
     OutOfGasError,
@@ -150,7 +150,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         try:
             evm.gas_left = subtract_gas(evm.gas_left, contract_code_gas)
             ensure(len(contract_code) <= MAX_CODE_SIZE, OutOfGasError)
-        except ConsumeAllGasException:
+        except ExceptionalHalt:
             rollback_transaction(env.state)
             evm.gas_left = U256(0)
             evm.has_erred = True
@@ -259,7 +259,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
             evm_trace(evm, op)
             op_implementation[op](evm)
 
-    except (ConsumeAllGasException):
+    except ExceptionalHalt:
         evm.gas_left = U256(0)
         evm.has_erred = True
     finally:
