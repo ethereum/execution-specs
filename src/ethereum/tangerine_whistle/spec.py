@@ -182,6 +182,12 @@ def validate_header(header: Header, parent_header: Header) -> None:
         Parent Header of the header to check for correctness
     """
     ensure(header.timestamp > parent_header.timestamp, InvalidBlock)
+    ensure(header.number == parent_header.number + 1, InvalidBlock)
+    ensure(
+        check_gas_limit(header.gas_limit, parent_header.gas_limit),
+        InvalidBlock,
+    )
+    ensure(len(header.extra_data) <= 32, InvalidBlock)
 
     block_difficulty = calculate_block_difficulty(
         header.number,
@@ -189,17 +195,10 @@ def validate_header(header: Header, parent_header: Header) -> None:
         parent_header.timestamp,
         parent_header.difficulty,
     )
+    ensure(header.difficulty == block_difficulty, InvalidBlock)
 
     block_parent_hash = keccak256(rlp.encode(parent_header))
-
     ensure(header.parent_hash == block_parent_hash, InvalidBlock)
-    ensure(header.difficulty == block_difficulty, InvalidBlock)
-    ensure(header.number == parent_header.number + 1, InvalidBlock)
-    ensure(
-        check_gas_limit(header.gas_limit, parent_header.gas_limit),
-        InvalidBlock,
-    )
-    ensure(len(header.extra_data) <= 32, InvalidBlock)
 
     validate_proof_of_work(header)
 
