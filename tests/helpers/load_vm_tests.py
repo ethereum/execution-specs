@@ -7,7 +7,7 @@ from typing import Any, List, TypeVar
 
 from ethereum import rlp
 from ethereum.base_types import U256, Uint
-from ethereum.crypto import keccak256
+from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes32,

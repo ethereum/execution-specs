@@ -2,7 +2,7 @@ import pytest
 
 import ethereum.rlp as rlp
 from ethereum.base_types import U256, Bytes, Bytes0, Bytes8, Uint
-from ethereum.crypto import keccak256
+from ethereum.crypto.hash import keccak256
 from ethereum.frontier.eth_types import (
     Block,
     Header,

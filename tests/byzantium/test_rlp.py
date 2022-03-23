@@ -10,7 +10,7 @@ from ethereum.byzantium.eth_types import (
     Transaction,
 )
 from ethereum.byzantium.utils.hexadecimal import hex_to_address
-from ethereum.crypto import keccak256
+from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes256
 
 hash1 = keccak256(b"foo")

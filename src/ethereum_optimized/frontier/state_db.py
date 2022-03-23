@@ -17,9 +17,9 @@ from dataclasses import dataclass
 from tempfile import TemporaryDirectory
 from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
 
-import ethereum.crypto as crypto
 from ethereum import rlp
 from ethereum.base_types import U256, Bytes, Uint
+from ethereum.crypto.hash import keccak256
 from ethereum.frontier.eth_types import (
     EMPTY_ACCOUNT,
     Account,
@@ -248,7 +248,7 @@ def get_internal_key(key: Bytes) -> Bytes:
     """
     Convert a key to the form used internally inside the trie.
     """
-    return bytes_to_nibble_list(crypto.keccak256(key))
+    return bytes_to_nibble_list(keccak256(key))
 
 
 def get_storage(state: State, address: Address, key: Bytes) -> U256:
@@ -371,7 +371,7 @@ def make_node(
         if res is None:
             account_storage_root = EMPTY_TRIE_ROOT
         else:
-            account_storage_root = crypto.keccak256(res)
+            account_storage_root = keccak256(res)
         return encode_account(value, account_storage_root)
     elif isinstance(value, Bytes):
         return value
@@ -455,7 +455,7 @@ def state_root(
         if isinstance(root, Bytes):
             return Root(root)
         else:
-            return crypto.keccak256(rlp.encode(root))
+            return keccak256(rlp.encode(root))
 
 
 def storage_root(state: State, address: Address) -> Root:
@@ -509,7 +509,7 @@ def _storage_root(state: State, address: Address, cursor: Any) -> Root:
         if isinstance(root, Bytes):
             return Root(root)
         else:
-            return crypto.keccak256(rlp.encode(root))
+            return keccak256(rlp.encode(root))
 
 
 def walk(

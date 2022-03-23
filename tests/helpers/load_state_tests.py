@@ -8,7 +8,7 @@ from unittest.mock import call, patch
 
 from ethereum import rlp
 from ethereum.base_types import U256, Bytes0
-from ethereum.crypto import Hash32
+from ethereum.crypto.hash import Hash32
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,

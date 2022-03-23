@@ -15,7 +15,7 @@ Logs Bloom related functionalities used in Ethereum.
 from typing import Tuple
 
 from ethereum.base_types import Uint
-from ethereum.crypto import keccak256
+from ethereum.crypto.hash import keccak256
 
 from .eth_types import Bloom, Log
 

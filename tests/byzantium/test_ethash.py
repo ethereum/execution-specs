@@ -15,7 +15,7 @@ from ethereum.byzantium.spec import (
     validate_proof_of_work,
 )
 from ethereum.byzantium.utils.json import json_to_header
-from ethereum.crypto import keccak256
+from ethereum.crypto.hash import keccak256
 from ethereum.ethash import (
     EPOCH_SIZE,
     HASH_BYTES,
@@ -184,7 +184,7 @@ def test_ethtest_fixtures() -> None:
         assert header_hash == test["header_hash"]
 
         cache = generate_cache(header.number)
-        cache_hash = crypto.keccak256(
+        cache_hash = keccak256(
             b"".join(
                 le_uint32_sequence_to_bytes(cache_item) for cache_item in cache
             )

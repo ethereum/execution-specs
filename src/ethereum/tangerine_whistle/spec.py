@@ -16,11 +16,12 @@ from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple
 
 from ethereum.base_types import Bytes0
-from ethereum.crypto import SECP256K1N
+from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
+from ethereum.crypto.hash import keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.utils.ensure import ensure
 
-from .. import crypto, rlp
+from .. import rlp
 from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint
 from . import vm
 from .bloom import logs_bloom
@@ -118,9 +119,7 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     # We are computing the hash only for the most recent block and not for
     # the rest of the blocks as they have successors which have the hash of
     # the current block as parent hash.
-    most_recent_block_hash = crypto.keccak256(
-        rlp.encode(recent_blocks[-1].header)
-    )
+    most_recent_block_hash = keccak256(rlp.encode(recent_blocks[-1].header))
     recent_block_hashes.append(most_recent_block_hash)
 
     return recent_block_hashes
@@ -188,7 +187,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
         parent_header.difficulty,
     )
 
-    block_parent_hash = crypto.keccak256(rlp.encode(parent_header))
+    block_parent_hash = keccak256(rlp.encode(parent_header))
 
     ensure(header.parent_hash == block_parent_hash)
     ensure(header.difficulty == block_difficulty)
@@ -623,8 +622,8 @@ def recover_sender(tx: Transaction) -> Address:
     ensure(0 < r and r < SECP256K1N)
     ensure(0 < s and s <= SECP256K1N // 2)
 
-    public_key = crypto.secp256k1_recover(r, s, v - 27, signing_hash(tx))
-    return Address(crypto.keccak256(public_key)[12:32])
+    public_key = secp256k1_recover(r, s, v - 27, signing_hash(tx))
+    return Address(keccak256(public_key)[12:32])
 
 
 def signing_hash(tx: Transaction) -> Hash32:
@@ -641,7 +640,7 @@ def signing_hash(tx: Transaction) -> Hash32:
     hash : `eth1spec.eth_types.Hash32`
         Hash of the transaction.
     """
-    return crypto.keccak256(
+    return keccak256(
         rlp.encode(
             (
                 tx.nonce,
@@ -669,7 +668,7 @@ def compute_header_hash(header: Header) -> Hash32:
     hash : `ethereum.eth_types.Hash32`
         Hash of the header.
     """
-    return crypto.keccak256(rlp.encode(header))
+    return keccak256(rlp.encode(header))
 
 
 def get_block_header_by_hash(hash: Hash32, chain: BlockChain) -> Header:

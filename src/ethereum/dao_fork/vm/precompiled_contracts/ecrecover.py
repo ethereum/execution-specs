@@ -11,9 +11,9 @@ Introduction
 
 Implementation of the ECRECOVER precompiled contract.
 """
-from ethereum import crypto
 from ethereum.base_types import U256
-from ethereum.crypto import SECP256K1N, Hash32
+from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
 
 from ...vm import Evm
@@ -49,11 +49,11 @@ def ecrecover(evm: Evm) -> None:
         return
 
     try:
-        public_key = crypto.secp256k1_recover(r, s, v - 27, message_hash)
+        public_key = secp256k1_recover(r, s, v - 27, message_hash)
     except ValueError:
         # unable to extract public key
         return
 
-    address = crypto.keccak256(public_key)[12:32]
+    address = keccak256(public_key)[12:32]
     padded_address = left_pad_zero_bytes(address, 32)
     evm.output = padded_address

@@ -12,7 +12,7 @@ Introduction
 Hexadecimal strings specific utility functions used in this specification.
 """
 from ethereum.base_types import U256, Bytes, Bytes8, Bytes32, Bytes256, Uint
-from ethereum.crypto import Hash32
+from ethereum.crypto.hash import Hash32
 
 
 def has_hex_prefix(hex_string: str) -> bool:
