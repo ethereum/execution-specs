@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from itertools import chain
 from typing import Set, Tuple, Union
 
+from ethereum import evm_trace
 from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.utils.ensure import EnsureError
 
@@ -236,6 +237,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
     try:
 
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
+            evm_trace(evm, evm.message.code_address)
             PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
             return evm
 
@@ -245,6 +247,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
             except ValueError:
                 raise InvalidOpcode(evm.code[evm.pc])
 
+            evm_trace(evm, op)
             op_implementation[op](evm)
 
     except (
