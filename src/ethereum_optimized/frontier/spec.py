@@ -14,6 +14,7 @@ This module contains functions can be monkey patched into
 """
 from ethereum.base_types import U256_CEIL_VALUE
 from ethereum.ethash import epoch
+from ethereum.exceptions import InvalidBlock
 from ethereum.frontier.eth_types import Header
 from ethereum.frontier.spec import generate_header_hash_for_pow
 from ethereum.utils.ensure import ensure
@@ -43,4 +44,4 @@ def validate_proof_of_work(header: Header) -> None:
         (U256_CEIL_VALUE // header.difficulty).to_be_bytes32(),
     )
 
-    ensure(result)
+    ensure(result, InvalidBlock)

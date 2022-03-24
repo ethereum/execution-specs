@@ -142,7 +142,7 @@ def encode_internal_node(node: Optional[InternalNode]) -> rlp.RLP:
     elif isinstance(node, BranchNode):
         unencoded = node.subnodes + [node.value]
     else:
-        raise Exception(f"Invalid internal node type {type(node)}!")
+        raise AssertionError(f"Invalid internal node type {type(node)}!")
 
     encoded = rlp.encode(unencoded)
     if len(encoded) < 32:
@@ -165,7 +165,7 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
     elif isinstance(node, Bytes):
         return node
     else:
-        raise NotImplementedError(
+        raise AssertionError(
             f"encoding for {type(node)} is not currently implemented"
         )
 
@@ -353,7 +353,7 @@ def _prepare_trie(
         else:
             encoded_value = encode_node(value)
         # Empty values are represented by their absence
-        ensure(encoded_value != b"")
+        ensure(encoded_value != b"", AssertionError)
         key: Bytes
         if trie.secured:
             # "secure" tries hash keys once before construction
@@ -456,7 +456,7 @@ def patricialize(
         if len(key) == level:
             # shouldn't ever have an account or receipt in an internal node
             if isinstance(obj[key], (Account, Receipt, Uint)):
-                raise TypeError()
+                raise AssertionError
             value = obj[key]
         else:
             branches[key[level]][key] = obj[key]

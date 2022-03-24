@@ -12,8 +12,17 @@ Introduction
 Errors which cause the EVM to halt exceptionally.
 """
 
+from ethereum.exceptions import EthereumException
 
-class StackUnderflowError(Exception):
+
+class ExceptionalHalt(EthereumException):
+    """
+    Indicates that the EVM has experienced an exceptional halt. This causes
+    execution to immediately end with all gas being consumed.
+    """
+
+
+class StackUnderflowError(ExceptionalHalt):
     """
     Occurs when a pop is executed on an empty stack.
     """
@@ -21,7 +30,7 @@ class StackUnderflowError(Exception):
     pass
 
 
-class StackOverflowError(Exception):
+class StackOverflowError(ExceptionalHalt):
     """
     Occurs when a push is executed on a stack at max capacity.
     """
@@ -29,7 +38,7 @@ class StackOverflowError(Exception):
     pass
 
 
-class OutOfGasError(Exception):
+class OutOfGasError(ExceptionalHalt):
     """
     Occurs when an operation costs more than the amount of gas left in the
     frame.
@@ -38,7 +47,7 @@ class OutOfGasError(Exception):
     pass
 
 
-class InvalidOpcode(Exception):
+class InvalidOpcode(ExceptionalHalt):
     """
     Raised when an invalid opcode is encountered.
     """
@@ -46,7 +55,7 @@ class InvalidOpcode(Exception):
     pass
 
 
-class InvalidJumpDestError(Exception):
+class InvalidJumpDestError(ExceptionalHalt):
     """
     Occurs when the destination of a jump operation doesn't meet any of the
     following criteria:
@@ -58,7 +67,7 @@ class InvalidJumpDestError(Exception):
     """
 
 
-class StackDepthLimitError(Exception):
+class StackDepthLimitError(ExceptionalHalt):
     """
     Raised when the message depth is greater than `1024`
     """
@@ -66,7 +75,7 @@ class StackDepthLimitError(Exception):
     pass
 
 
-class InsufficientFunds(Exception):
+class InsufficientFunds(ExceptionalHalt):
     """
     Raised when an account has insufficient funds to transfer the
     requested value.

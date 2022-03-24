@@ -18,6 +18,7 @@ from typing import List, Optional, Set, Tuple
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
+from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 
 from .. import rlp
@@ -186,11 +187,11 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.transactions,
         block.ommers,
     )
-    ensure(gas_used == block.header.gas_used)
-    ensure(transactions_root == block.header.transactions_root)
-    ensure(state_root(state) == block.header.state_root)
-    ensure(receipt_root == block.header.receipt_root)
-    ensure(block_logs_bloom == block.header.bloom)
+    ensure(gas_used == block.header.gas_used, InvalidBlock)
+    ensure(transactions_root == block.header.transactions_root, InvalidBlock)
+    ensure(state_root(state) == block.header.state_root, InvalidBlock)
+    ensure(receipt_root == block.header.receipt_root, InvalidBlock)
+    ensure(block_logs_bloom == block.header.bloom, InvalidBlock)
 
     chain.blocks.append(block)
     if len(chain.blocks) > 255:
@@ -210,21 +211,24 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_header :
         Parent Header of the header to check for correctness
     """
+    ensure(header.timestamp > parent_header.timestamp, InvalidBlock)
+    ensure(header.number == parent_header.number + 1, InvalidBlock)
+    ensure(
+        check_gas_limit(header.gas_limit, parent_header.gas_limit),
+        InvalidBlock,
+    )
+    ensure(len(header.extra_data) <= 32, InvalidBlock)
+
     block_difficulty = calculate_block_difficulty(
         header.number,
         header.timestamp,
         parent_header.timestamp,
         parent_header.difficulty,
     )
+    ensure(header.difficulty == block_difficulty, InvalidBlock)
 
     block_parent_hash = keccak256(rlp.encode(parent_header))
-
-    ensure(header.parent_hash == block_parent_hash)
-    ensure(header.difficulty == block_difficulty)
-    ensure(header.number == parent_header.number + 1)
-    ensure(check_gas_limit(header.gas_limit, parent_header.gas_limit))
-    ensure(header.timestamp > parent_header.timestamp)
-    ensure(len(header.extra_data) <= 32)
+    ensure(header.parent_hash == block_parent_hash, InvalidBlock)
 
     validate_proof_of_work(header)
 
@@ -297,9 +301,10 @@ def validate_proof_of_work(header: Header) -> None:
         header_hash, header.nonce, cache, dataset_size(header.number)
     )
 
-    ensure(mix_digest == header.mix_digest)
+    ensure(mix_digest == header.mix_digest, InvalidBlock)
     ensure(
-        Uint.from_be_bytes(result) <= (U256_CEIL_VALUE // header.difficulty)
+        Uint.from_be_bytes(result) <= (U256_CEIL_VALUE // header.difficulty),
+        InvalidBlock,
     )
 
 
@@ -366,7 +371,7 @@ def apply_body(
     for i, tx in enumerate(transactions):
         trie_set(transactions_trie, rlp.encode(Uint(i)), tx)
 
-        ensure(tx.gas <= gas_available)
+        ensure(tx.gas <= gas_available, InvalidBlock)
         sender_address = recover_sender(tx)
 
         env = vm.Environment(
@@ -429,7 +434,7 @@ def validate_ommers(
     """
     block_hash = rlp.rlp_hash(block_header)
 
-    ensure(rlp.rlp_hash(ommers) == block_header.ommers_hash)
+    ensure(rlp.rlp_hash(ommers) == block_header.ommers_hash, InvalidBlock)
 
     if len(ommers) == 0:
         # Nothing to validate
@@ -437,18 +442,18 @@ def validate_ommers(
 
     # Check that each ommer satisfies the constraints of a header
     for ommer in ommers:
-        ensure(1 <= ommer.number < block_header.number)
+        ensure(1 <= ommer.number < block_header.number, InvalidBlock)
         ommer_parent_header = chain.blocks[
             -(block_header.number - ommer.number) - 1
         ].header
         validate_header(ommer, ommer_parent_header)
 
     # Check that there can be only at most 2 ommers for a block.
-    ensure(len(ommers) <= 2)
+    ensure(len(ommers) <= 2, InvalidBlock)
 
     ommers_hashes = [rlp.rlp_hash(ommer) for ommer in ommers]
     # Check that there are no duplicates in the ommers of current block
-    ensure(len(ommers_hashes) == len(set(ommers_hashes)))
+    ensure(len(ommers_hashes) == len(set(ommers_hashes)), InvalidBlock)
 
     recent_canonical_blocks = chain.blocks[-(MAX_OMMER_DEPTH + 1) :]
     recent_canonical_block_hashes = {
@@ -463,22 +468,24 @@ def validate_ommers(
     for ommer_index, ommer in enumerate(ommers):
         ommer_hash = ommers_hashes[ommer_index]
         # The current block shouldn't be the ommer
-        ensure(ommer_hash != block_hash)
+        ensure(ommer_hash != block_hash, InvalidBlock)
 
         # Ommer shouldn't be one of the recent canonical blocks
-        ensure(ommer_hash not in recent_canonical_block_hashes)
+        ensure(ommer_hash not in recent_canonical_block_hashes, InvalidBlock)
 
         # Ommer shouldn't be one of the uncles mentioned in the recent
         # canonical blocks
-        ensure(ommer_hash not in recent_ommers_hashes)
+        ensure(ommer_hash not in recent_ommers_hashes, InvalidBlock)
 
         # Ommer age with respect to the current block. For example, an age of
         # 1 indicates that the ommer is a sibling of previous block.
         ommer_age = block_header.number - ommer.number
-        ensure(1 <= ommer_age <= MAX_OMMER_DEPTH)
+        ensure(1 <= ommer_age <= MAX_OMMER_DEPTH, InvalidBlock)
 
-        ensure(ommer.parent_hash in recent_canonical_block_hashes)
-        ensure(ommer.parent_hash != block_header.parent_hash)
+        ensure(
+            ommer.parent_hash in recent_canonical_block_hashes, InvalidBlock
+        )
+        ensure(ommer.parent_hash != block_header.parent_hash, InvalidBlock)
 
 
 def pay_rewards(
@@ -531,13 +538,13 @@ def process_transaction(
     logs : `Tuple[eth1spec.eth_types.Log, ...]`
         Logs generated during execution.
     """
-    ensure(validate_transaction(tx))
+    ensure(validate_transaction(tx), InvalidBlock)
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
     gas_fee = tx.gas * tx.gas_price
-    ensure(sender_account.nonce == tx.nonce)
-    ensure(sender_account.balance >= gas_fee)
+    ensure(sender_account.nonce == tx.nonce, InvalidBlock)
+    ensure(sender_account.balance >= gas_fee, InvalidBlock)
 
     gas = tx.gas - calculate_intrinsic_cost(tx)
     increment_nonce(env.state, sender)
@@ -643,9 +650,9 @@ def recover_sender(tx: Transaction) -> Address:
     #  if v > 28:
     #      v = v - (chain_id*2+8)
 
-    ensure(v == 27 or v == 28)
-    ensure(0 < r and r < SECP256K1N)
-    ensure(0 < s and s < SECP256K1N)
+    ensure(v == 27 or v == 28, InvalidBlock)
+    ensure(0 < r and r < SECP256K1N, InvalidBlock)
+    ensure(0 < s and s < SECP256K1N, InvalidBlock)
 
     public_key = secp256k1_recover(r, s, v - 27, signing_hash(tx))
     return Address(keccak256(public_key)[12:32])
@@ -694,30 +701,6 @@ def compute_header_hash(header: Header) -> Hash32:
         Hash of the header.
     """
     return keccak256(rlp.encode(header))
-
-
-def get_block_header_by_hash(hash: Hash32, chain: BlockChain) -> Header:
-    """
-    Fetches the block header with the corresponding hash.
-
-    Parameters
-    ----------
-    hash :
-        Hash of the header of interest.
-
-    chain :
-        History and current state.
-
-    Returns
-    -------
-    Header : `ethereum.eth_types.Header`
-        Block header found by its hash.
-    """
-    for block in chain.blocks:
-        if compute_header_hash(block.header) == hash:
-            return block.header
-    else:
-        raise ValueError(f"Could not find header with hash={hash.hex()}")
 
 
 def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:

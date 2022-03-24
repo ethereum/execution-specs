@@ -74,7 +74,7 @@ def prepare_message(
         if code_address is None:
             code_address = target
     else:
-        raise TypeError()
+        raise AssertionError("Target must be address or empty bytes")
 
     return Message(
         caller=caller,

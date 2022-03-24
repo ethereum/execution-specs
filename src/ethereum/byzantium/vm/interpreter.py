@@ -17,7 +17,7 @@ from typing import Iterable, Set, Tuple, Union
 
 from ethereum import evm_trace
 from ethereum.base_types import U256, Bytes0, Uint
-from ethereum.utils.ensure import EnsureError, ensure
+from ethereum.utils.ensure import ensure
 
 from ..eth_types import Address, Log
 from ..state import (
@@ -34,16 +34,12 @@ from ..state import (
 from ..utils.address import to_address
 from ..vm import Message
 from ..vm.error import (
+    ExceptionalHalt,
     InsufficientFunds,
-    InvalidJumpDestError,
     InvalidOpcode,
-    OutOfBoundsRead,
     OutOfGasError,
     Revert,
     StackDepthLimitError,
-    StackOverflowError,
-    StackUnderflowError,
-    WriteInStaticContext,
 )
 from ..vm.gas import GAS_CODE_DEPOSIT, REFUND_SELF_DESTRUCT, subtract_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
@@ -155,7 +151,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         try:
             evm.gas_left = subtract_gas(evm.gas_left, contract_code_gas)
             ensure(len(contract_code) <= MAX_CODE_SIZE, OutOfGasError)
-        except OutOfGasError:
+        except ExceptionalHalt:
             rollback_transaction(env.state)
             evm.gas_left = U256(0)
             evm.output = b""
@@ -267,24 +263,9 @@ def execute_code(message: Message, env: Environment) -> Evm:
             evm_trace(evm, op)
             op_implementation[op](evm)
 
-    except (
-        OutOfBoundsRead,
-        OutOfGasError,
-        InvalidOpcode,
-        InvalidJumpDestError,
-        InsufficientFunds,
-        StackOverflowError,
-        StackUnderflowError,
-        StackDepthLimitError,
-        WriteInStaticContext,
-    ):
+    except ExceptionalHalt:
         evm.gas_left = U256(0)
         evm.output = b""
-        evm.has_erred = True
-    except (
-        EnsureError,
-        ValueError,
-    ):
         evm.has_erred = True
     except Revert as e:
         evm.error = e

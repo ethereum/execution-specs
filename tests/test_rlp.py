@@ -5,6 +5,7 @@ from typing import List, Sequence, Tuple, Union, cast
 import pytest
 
 from ethereum import rlp
+from ethereum.exceptions import RLPEncodingError
 from ethereum.frontier.eth_types import U256, Bytes, Uint
 from ethereum.rlp import RLP
 from ethereum.utils.hexadecimal import hex_to_bytes
@@ -175,7 +176,7 @@ def test_rlp_encode_fails() -> None:
         [b"hello", Uint(255), [b"how", [b"are", [b"you", [123]]]]],
     ]
     for raw_data in test_cases:
-        with pytest.raises(TypeError):
+        with pytest.raises(RLPEncodingError):
             rlp.encode(cast(RLP, raw_data))
 
 

@@ -78,5 +78,5 @@ def decode_to_internal_node(data_in: Bytes) -> InternalNode:
         else:
             return ExtensionNode(key_segment, data[1])
     else:
-        ensure(len(data) == 17)
+        ensure(len(data) == 17, AssertionError)
         return BranchNode(data[:-1], data[-1])
