@@ -43,7 +43,7 @@ The consensus specification is a python implementation of Ethereum that prioriti
 
 The Ethereum specification is maintained as a Python library, for better integration with tooling and testing.
 
-Requires Python 3.7+
+Requires Python 3.8+
 
 ### Building
 
@@ -67,7 +67,7 @@ $ tox -e doc-autobuild
 
 Running the tests necessary to merge into the repository requires:
 
- * Python 3.7.x (not 3.8 or later), and
+ * Python 3.8.x (not 3.9 or later), and
  * [PyPy 7.3.x](https://www.pypy.org/).
  * `geth` installed and present in `$PATH`
 

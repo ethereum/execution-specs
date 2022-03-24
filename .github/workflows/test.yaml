@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: [3.7, pypy-3.7]
+        python: [3.8, pypy-3.8]
 
     steps:
       - uses: actions/checkout@v2
@@ -25,17 +25,17 @@ jobs:
           $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
           echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
       - name: Run Tox (PyPy)
-        if: ${{ matrix.python == 'pypy-3.7' }}
+        if: ${{ matrix.python == 'pypy-3.8' }}
         run: tox -e pypy3
       - name: Run Tox (CPython)
-        if: ${{ matrix.python != 'pypy-3.7' }}
+        if: ${{ matrix.python != 'pypy-3.8' }}
         run: tox -e py3
       - name: Upload coverage to Codecov
-        if: ${{ matrix.python != 'pypy-3.7' }}
+        if: ${{ matrix.python != 'pypy-3.8' }}
         uses: codecov/codecov-action@v1
         with:
           files: .tox/coverage.xml
           flags: unittests
       - name: Build docs
-        if: ${{ matrix.python != 'pypy-3.7' }}
+        if: ${{ matrix.python != 'pypy-3.8' }}
         run: tox -e doc
