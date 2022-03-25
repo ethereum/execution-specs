@@ -706,7 +706,7 @@ class Sync:
                 end - start,
             )
 
-            if block_number > 2220000 and block_number > 2463000:
+            if block_number > 2220000 and block_number < 2463000:
                 # Excessive DB load due to the Shanghai DOS attacks, requires
                 # more regular DB commits
                 if block_number % 100 == 0:

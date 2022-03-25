@@ -106,7 +106,7 @@ def process_message_call(
     return MessageCallOutput(
         gas_left=evm.gas_left,
         refund_counter=refund_counter,
-        logs=collect_logs(evm),
+        logs=evm.logs if not evm.has_erred else (),
         accounts_to_delete=accounts_to_delete,
         has_erred=evm.has_erred,
     )
@@ -268,32 +268,6 @@ def collect_accounts_to_delete(evm: Evm) -> Set[Address]:
             chain(
                 evm.accounts_to_delete,
                 *(collect_accounts_to_delete(child) for child in evm.children),
-            )
-        )
-
-
-def collect_logs(evm: Evm) -> Tuple[Log, ...]:
-    """
-    Collects all the logs emitted while executing the message call.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Returns
-    -------
-    logs: `tuple`
-        returns all the logs that were emitted while executing the
-        message call.
-    """
-    if evm.has_erred:
-        return ()
-    else:
-        return tuple(
-            chain(
-                evm.logs,
-                *(collect_logs(child_evm) for child_evm in evm.children),
             )
         )
 
