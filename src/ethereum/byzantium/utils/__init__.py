@@ -9,5 +9,5 @@ Byzantium Utility Functions
 Introduction
 ------------
 
-Utility functions used in this spurious dragon version of specification.
+Utility functions used in this byzantium version of specification.
 """

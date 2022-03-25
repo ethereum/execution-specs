@@ -1,5 +1,5 @@
 """
-Optimized Implementations (Tangerine Whistle)
+Optimized Implementations (Byzantium)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents

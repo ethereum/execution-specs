@@ -9,7 +9,7 @@ Byzantium Utility Functions For The Message Data-structure
 Introduction
 ------------
 
-Message specific functions used in this spurious dragon version of
+Message specific functions used in this byzantium version of
 specification.
 """
 from typing import Optional, Union

@@ -166,7 +166,7 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
     elif isinstance(node, Bytes):
         return node
     else:
-        return ethereum.tangerine_whistle.trie.encode_node(node, storage_root)
+        return ethereum.spurious_dragon.trie.encode_node(node, storage_root)
 
 
 @dataclass
