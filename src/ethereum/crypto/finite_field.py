@@ -147,10 +147,11 @@ class PrimeField(int, Field):
     __rdivmod__ = None  # type: ignore
 
     def __pow__(self: T, exponent: int) -> T:  # type: ignore[override]
-        # We should be able to omit the modulus here in Python3.8. This would
-        # use the Euclidian Algorithm and be considerably faster, but does not
-        # not work under PyPy.
-        return int.__pow__(self, exponent % (self.PRIME - 1), self.PRIME)
+        # For reasons that are unclear, self must be cast to int here under
+        # PyPy.
+        return self.__new__(
+            type(self), int.__pow__(int(self), exponent, self.PRIME)
+        )
 
     __rpow__ = None  # type: ignore
 
@@ -322,7 +323,7 @@ class GaloisField(tuple, Field):
         p = self.PRIME
         x1, f1 = list(self.MODULUS), [0] * len(self)
         x2, f2, d2 = list(self), [1] + [0] * (len(self) - 1), self.deg()
-        q_0 = pow(x2[d2], (-1) % (self.PRIME - 1), p)
+        q_0 = pow(x2[d2], -1, p)
         for i in range(d2):
             x1[i + len(x1) - d2] = (x1[i + len(x1) - d2] - q_0 * x2[i]) % p
             f1[i + len(x1) - d2] = (f1[i + len(x1) - d2] - q_0 * f2[i]) % p
@@ -333,25 +334,25 @@ class GaloisField(tuple, Field):
         while True:
             if d1 == 0:
                 ans = f1
-                q = pow(x1[0], (-1) % (self.PRIME - 1), self.PRIME)
+                q = pow(x1[0], -1, self.PRIME)
                 for i in range(len(ans)):
                     ans[i] *= q
                 break
             elif d2 == 0:
                 ans = f2
-                q = pow(x2[0], (-1) % (self.PRIME - 1), self.PRIME)
+                q = pow(x2[0], -1, self.PRIME)
                 for i in range(len(ans)):
                     ans *= q
                 break
             if d1 < d2:
-                q = x2[d2] * pow(x1[d1], (-1) % (self.PRIME - 1), self.PRIME)
+                q = x2[d2] * pow(x1[d1], -1, self.PRIME)
                 for i in range(len(self.MODULUS) - (d2 - d1)):
                     x2[i + (d2 - d1)] = (x2[i + (d2 - d1)] - q * x1[i]) % p
                     f2[i + (d2 - d1)] = (f2[i + (d2 - d1)] - q * f1[i]) % p
                 while x2[d2] == 0:
                     d2 -= 1
             else:
-                q = x1[d1] * pow(x2[d2], (-1) % (self.PRIME - 1), self.PRIME)
+                q = x1[d1] * pow(x2[d2], -1, self.PRIME)
                 for i in range(len(self.MODULUS) - (d1 - d2)):
                     x1[i + (d1 - d2)] = (x1[i + (d1 - d2)] - q * x2[i]) % p
                     f1[i + (d1 - d2)] = (f1[i + (d1 - d2)] - q * f2[i]) % p
@@ -361,7 +362,9 @@ class GaloisField(tuple, Field):
 
     def __pow__(self: U, exponent: int) -> U:
         degree = len(self.MODULUS)
-        exponent = exponent % (self.PRIME ** degree - 1)
+        if exponent < 0:
+            self = self.multiplicative_inverse()
+            exponent = -exponent
 
         res = self.__new__(type(self), [1] + [0] * (degree - 1))
         s = self
