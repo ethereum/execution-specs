@@ -85,6 +85,7 @@ class Ops(enum.Enum):
     EXTCODECOPY = 0x3C
     RETURNDATASIZE = 0x3D
     RETURNDATACOPY = 0x3E
+    EXTCODEHASH = 0x3F
 
     # Block Ops
     BLOCKHASH = 0x40
@@ -257,6 +258,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.EXTCODECOPY: environment_instructions.extcodecopy,
     Ops.RETURNDATASIZE: environment_instructions.returndatasize,
     Ops.RETURNDATACOPY: environment_instructions.returndatacopy,
+    Ops.EXTCODEHASH: environment_instructions.extcodehash,
     Ops.SSTORE: storage_instructions.sstore,
     Ops.JUMP: control_flow_instructions.jump,
     Ops.JUMPI: control_flow_instructions.jumpi,

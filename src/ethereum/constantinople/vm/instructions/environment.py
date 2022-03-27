@@ -13,10 +13,12 @@ Implementations of the EVM environment related instructions.
 """
 
 from ethereum.base_types import U256, Uint
+from ethereum.crypto.hash import keccak256
 from ethereum.utils.ensure import ensure
 from ethereum.utils.numeric import ceil32
 from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
+from ...eth_types import EMPTY_ACCOUNT
 from ...state import get_account
 from ...utils.address import to_address
 from ...vm.error import OutOfBoundsRead, OutOfGasError
@@ -25,6 +27,7 @@ from .. import Evm
 from ..gas import (
     GAS_BALANCE,
     GAS_BASE,
+    GAS_CODE_HASH,
     GAS_COPY,
     GAS_EXTERNAL,
     GAS_RETURN_DATA_COPY,
@@ -491,3 +494,28 @@ def returndatacopy(evm: Evm) -> None:
     ]
     memory_write(evm.memory, memory_start_index, value)
     evm.pc += 1
+
+
+def extcodehash(evm: Evm) -> None:
+    """
+    Returns the keccak256 hash of a contract’s bytecode
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    address = to_address(pop(evm.stack))
+
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_CODE_HASH)
+
+    evm.pc += 1
+
+    account = get_account(evm.env.state, address)
+
+    if account == EMPTY_ACCOUNT:
+        push(evm.stack, U256(0))
+    else:
+        code = account.code
+        code_hash = keccak256(code)
+        push(evm.stack, U256.from_be_bytes(code_hash))
