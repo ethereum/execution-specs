@@ -56,12 +56,12 @@ from .trie import Trie, root, trie_set
 from .utils.message import prepare_message
 from .vm.interpreter import process_message_call
 
-BLOCK_REWARD = U256(3 * 10 ** 18)
+BLOCK_REWARD = U256(2 * 10 ** 18)
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
 GENESIS_DIFFICULTY = Uint(131072)
 MAX_OMMER_DEPTH = 6
-BOMB_DELAY_BLOCKS = 3000000
+BOMB_DELAY_BLOCKS = 5000000
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 
 
