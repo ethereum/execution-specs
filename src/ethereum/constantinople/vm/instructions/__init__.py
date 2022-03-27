@@ -62,6 +62,9 @@ class Ops(enum.Enum):
     XOR = 0x18
     NOT = 0x19
     BYTE = 0x1A
+    SHL = 0x1B
+    SHR = 0x1C
+    SAR = 0x1D
 
     # Keccak Op
     KECCAK = 0x20
@@ -224,6 +227,9 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.XOR: bitwise_instructions.bitwise_xor,
     Ops.NOT: bitwise_instructions.bitwise_not,
     Ops.BYTE: bitwise_instructions.get_byte,
+    Ops.SHL: bitwise_instructions.bitwise_shl,
+    Ops.SHR: bitwise_instructions.bitwise_shr,
+    Ops.SAR: bitwise_instructions.bitwise_sar,
     Ops.KECCAK: keccak_instructions.keccak,
     Ops.SLOAD: storage_instructions.sload,
     Ops.BLOCKHASH: block_instructions.block_hash,

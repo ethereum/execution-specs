@@ -12,7 +12,7 @@ Introduction
 Implementations of the EVM bitwise instructions.
 """
 
-from ethereum.base_types import U256
+from ethereum.base_types import U256, U256_CEIL_VALUE
 
 from .. import Evm
 from ..gas import GAS_VERY_LOW, subtract_gas
@@ -155,3 +155,78 @@ def get_byte(evm: Evm) -> None:
     push(evm.stack, result)
 
     evm.pc += 1
+
+
+def bitwise_shl(evm: Evm) -> None:
+    """
+    Shift right (SHL) operation of the top 2 elements of the stack. Pushes the
+    result back on the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    shift = pop(evm.stack)
+    value = pop(evm.stack)
+
+    evm.pc += 1
+    if shift >= 256:
+        push(evm.stack, U256(0))
+        return
+
+    shifted_value = (value << shift) % U256_CEIL_VALUE
+    push(evm.stack, U256(shifted_value))
+
+
+def bitwise_shr(evm: Evm) -> None:
+    """
+    Logical shift right (SHR) operation of the top 2 elements of the stack.
+    Pushes the result back on the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    shift = pop(evm.stack)
+    value = pop(evm.stack)
+
+    evm.pc += 1
+    if shift >= 256:
+        push(evm.stack, U256(0))
+        return
+
+    shifted_value = value >> shift
+    push(evm.stack, shifted_value)
+
+
+def bitwise_sar(evm: Evm) -> None:
+    """
+    Arithmetic shift right (SAR) operation of the top 2 elements of the stack.
+    Pushes the result back on the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    shift = pop(evm.stack)
+    value = pop(evm.stack)
+
+    signed_value = value.to_signed()
+
+    evm.pc += 1
+    if shift >= 256:
+        if signed_value >= 0:
+            push(evm.stack, U256(0))
+            return
+        else:
+            push(evm.stack, U256(U256.MAX_VALUE))
+            return
+
+    shifted_value = signed_value >> shift
+    push(evm.stack, U256.from_signed(shifted_value))
