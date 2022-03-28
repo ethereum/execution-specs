@@ -7,14 +7,13 @@ from typing import Any, Dict, List, Tuple, cast
 
 import pytest
 
-from ethereum import crypto, rlp
+from ethereum import rlp
 from ethereum.base_types import U256_CEIL_VALUE, Uint
 from ethereum.byzantium.eth_types import Header
 from ethereum.byzantium.spec import (
     generate_header_hash_for_pow,
     validate_proof_of_work,
 )
-from ethereum.byzantium.utils.json import json_to_header
 from ethereum.crypto.hash import keccak256
 from ethereum.ethash import (
     EPOCH_SIZE,
@@ -34,6 +33,8 @@ from ethereum.utils.hexadecimal import (
     hex_to_bytes32,
 )
 from ethereum.utils.numeric import is_prime, le_uint32_sequence_to_bytes
+
+from ..helpers.load_state_tests import Load
 
 
 @pytest.mark.parametrize(
@@ -293,7 +294,8 @@ def test_pow_validation_block_headers(block_file_name: str) -> None:
     ).decode()
     block_json_data = json.loads(block_str_data)
 
-    header: Header = json_to_header(block_json_data)
+    load = Load("Byzantium", "byzantium")
+    header: Header = load.json_to_header(block_json_data)
     validate_proof_of_work(header)
 
 
