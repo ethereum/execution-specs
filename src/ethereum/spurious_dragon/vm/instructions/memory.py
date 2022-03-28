@@ -89,7 +89,7 @@ def mstore8(evm: Evm) -> None:
     start_position = Uint(pop(evm.stack))
     value = pop(evm.stack)
     # make sure that value doesn't exceed 1 byte
-    normalized_bytes_value = (value & U8_MAX_VALUE).to_be_bytes()
+    normalized_bytes_value = (value & U8_MAX_VALUE).to_bytes(1, "big")
 
     memory_extend_gas_cost = calculate_gas_extend_memory(
         evm.memory, start_position, U256(1)
