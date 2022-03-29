@@ -262,8 +262,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
     except ExceptionalHalt:
         evm.gas_left = U256(0)
         evm.has_erred = True
-    finally:
-        return evm
+    return evm
 
 
 def collect_touched_accounts(
