@@ -81,7 +81,7 @@ def is_prime(number: int) -> bool:
         return False
 
     # number ** 0.5 is faster than math.sqrt(number)
-    for x in range(2, int(number ** 0.5) + 1):
+    for x in range(2, int(number**0.5) + 1):
         # Return False if number is divisible by x
         if number % x == 0:
             return False

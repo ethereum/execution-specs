@@ -555,7 +555,7 @@ class Sync:
                     self.log.info(
                         "downloading accounts (%.2f%%)",
                         int.from_bytes(base64.b64decode(next_token), "big")
-                        / 2 ** 256
+                        / 2**256
                         * 100,
                     )
                 else:

@@ -51,7 +51,7 @@ def test_epoch(block_number: Uint, expected_epoch: Uint) -> None:
 
 def test_epoch_start_and_end_blocks_have_same_epoch() -> None:
     for _ in range(100):
-        block_number = Uint(randint(10 ** 9, 2 * (10 ** 9)))
+        block_number = Uint(randint(10**9, 2 * (10**9)))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
         epoch_end_block_number = epoch_start_block_number + EPOCH_SIZE - 1
 
@@ -89,7 +89,7 @@ def test_cache_size_2048_epochs() -> None:
 
 def test_epoch_start_and_end_blocks_have_same_cache_size() -> None:
     for _ in range(100):
-        block_number = Uint(randint(10 ** 9, 2 * (10 ** 9)))
+        block_number = Uint(randint(10**9, 2 * (10**9)))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
         epoch_end_block_number = epoch_start_block_number + EPOCH_SIZE - 1
 
@@ -129,7 +129,7 @@ def test_dataset_size_2048_epochs() -> None:
 
 def test_epoch_start_and_end_blocks_have_same_dataset_size() -> None:
     for _ in range(100):
-        block_number = Uint(randint(10 ** 9, 2 * (10 ** 9)))
+        block_number = Uint(randint(10**9, 2 * (10**9)))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
         epoch_end_block_number = epoch_start_block_number + EPOCH_SIZE - 1
 

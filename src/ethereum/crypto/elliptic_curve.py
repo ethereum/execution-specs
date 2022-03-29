@@ -83,7 +83,7 @@ class EllipticCurve(Generic[F]):
         """
         if (
             x != self.FIELD.zero() or y != self.FIELD.zero()
-        ) and y ** 2 - x ** 3 - self.A * x - self.B != self.FIELD.zero():
+        ) and y ** 2 - x**3 - self.A * x - self.B != self.FIELD.zero():
             raise ValueError("Point not on curve")
 
     def __eq__(self, other: object) -> bool:
@@ -118,8 +118,8 @@ class EllipticCurve(Generic[F]):
         x, y, F = self.x, self.y, self.FIELD
         if x == 0 and y == 0:
             return self
-        lam = (F.from_int(3) * x ** 2 + self.A) / (F.from_int(2) * y)
-        new_x = lam ** 2 - x - x
+        lam = (F.from_int(3) * x**2 + self.A) / (F.from_int(2) * y)
+        new_x = lam**2 - x - x
         new_y = lam * (x - new_x) - y
         return self.__new__(type(self), new_x, new_y)
 
@@ -139,7 +139,7 @@ class EllipticCurve(Generic[F]):
             else:
                 return self.point_at_infinity()
         lam = (other_y - self_y) / (other_x - self_x)
-        x = lam ** 2 - self_x - other_x
+        x = lam**2 - self_x - other_x
         y = lam * (self_x - x) - self_y
         return self.__new__(type(self), x, y)
 

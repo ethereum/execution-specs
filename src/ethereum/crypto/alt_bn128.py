@@ -91,7 +91,7 @@ class BNF12(finite_field.GaloisField):
 
 BNF12.FROBENIUS_COEFFICIENTS = BNF12.calculate_frobenius_coefficients()
 BNF12.w = BNF12((0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
-BNF12.i_plus_9 = BNF12.w ** 6
+BNF12.i_plus_9 = BNF12.w**6
 
 
 class BNP12(elliptic_curve.EllipticCurve):
@@ -127,8 +127,8 @@ def twist(p: BNP2) -> BNP12:
     Apply to twist to change variables from the curve `BNP2` to `BNP12`.
     """
     return BNP12(
-        bnf2_to_bnf12(p.x) * (BNF12.w ** 2),
-        bnf2_to_bnf12(p.y) * (BNF12.w ** 3),
+        bnf2_to_bnf12(p.x) * (BNF12.w**2),
+        bnf2_to_bnf12(p.y) * (BNF12.w**3),
     )
 
 
@@ -146,7 +146,7 @@ def linefunc(p1: BNP12, p2: BNP12, t: BNP12) -> BNF12:
         lam = (p2.y - p1.y) / (p2.x - p1.x)
         return lam * (t.x - p1.x) - (t.y - p1.y)
     elif p1.y == p2.y:
-        lam = BNF12.from_int(3) * p1.x ** 2 / (BNF12.from_int(2) * p1.y)
+        lam = BNF12.from_int(3) * p1.x**2 / (BNF12.from_int(2) * p1.y)
         return lam * (t.x - p1.x) - (t.y - p1.y)
     else:
         return t.x - p1.x
@@ -163,7 +163,7 @@ def miller_loop(q: BNP12, p: BNP12) -> BNF12:
     for i in range(ATE_PAIRING_COUNT_BITS, -1, -1):
         f = f * f * linefunc(r, r, p)
         r = r.double()
-        if (ATE_PAIRING_COUNT - 1) & (2 ** i):
+        if (ATE_PAIRING_COUNT - 1) & (2**i):
             f = f * linefunc(r, q, p)
             r = r + q
     assert r == q.mul_by(ATE_PAIRING_COUNT - 1)
@@ -175,7 +175,7 @@ def miller_loop(q: BNP12, p: BNP12) -> BNF12:
     r = r + q1
     f = f * linefunc(r, nq2, p)
 
-    return f ** ((ALT_BN128_PRIME ** 12 - 1) // ALT_BN128_CURVE_ORDER)
+    return f ** ((ALT_BN128_PRIME**12 - 1) // ALT_BN128_CURVE_ORDER)
 
 
 def pairing(q: BNP2, p: BNP) -> BNF12:

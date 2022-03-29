@@ -49,15 +49,15 @@ def test_rlp_encode_55_bytes() -> None:
 
 
 def test_rlp_encode_large_bytes() -> None:
-    assert rlp.encode_bytes(b"\x83" * 2 ** 20) == (
+    assert rlp.encode_bytes(b"\x83" * 2**20) == (
         bytearray([0xBA])
         + bytearray(b"\x10\x00\x00")
-        + bytearray(b"\x83" * 2 ** 20)
+        + bytearray(b"\x83" * 2**20)
     )
-    assert rlp.encode_bytes(bytearray(b"\x83") * 2 ** 20) == (
+    assert rlp.encode_bytes(bytearray(b"\x83") * 2**20) == (
         bytearray([0xBA])
         + bytearray(b"\x10\x00\x00")
-        + bytearray(b"\x83" * 2 ** 20)
+        + bytearray(b"\x83" * 2**20)
     )
 
 
@@ -210,8 +210,8 @@ def test_rlp_decode_to_55_bytes() -> None:
 
 
 def test_rlp_decode_to_large_bytes() -> None:
-    encoding = bytearray([0xBA]) + b"\x10\x00\x00" + b"\x83" * (2 ** 20)
-    expected_raw_data = b"\x83" * (2 ** 20)
+    encoding = bytearray([0xBA]) + b"\x10\x00\x00" + b"\x83" * (2**20)
+    expected_raw_data = b"\x83" * (2**20)
     assert rlp.decode_to_bytes(encoding) == expected_raw_data
 
 
