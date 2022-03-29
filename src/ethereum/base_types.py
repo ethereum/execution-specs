@@ -19,13 +19,13 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any, Callable, Optional, Tuple, Type, TypeVar
 
-U8_MAX_VALUE = (2 ** 8) - 1
-UINT32_MAX_VALUE = (2 ** 32) - 1
-UINT32_CEIL_VALUE = 2 ** 32
-U255_MAX_VALUE = (2 ** 255) - 1
-U255_CEIL_VALUE = 2 ** 255
-U256_MAX_VALUE = (2 ** 256) - 1
-U256_CEIL_VALUE = 2 ** 256
+U8_MAX_VALUE = (2**8) - 1
+UINT32_MAX_VALUE = (2**32) - 1
+UINT32_CEIL_VALUE = 2**32
+U255_MAX_VALUE = (2**255) - 1
+U255_CEIL_VALUE = 2**255
+U256_MAX_VALUE = (2**256) - 1
+U256_CEIL_VALUE = 2**256
 
 
 class Uint(int):

@@ -53,7 +53,7 @@ from .trie import Trie, root, trie_set
 from .utils.message import prepare_message
 from .vm.interpreter import process_message_call
 
-BLOCK_REWARD = U256(5 * 10 ** 18)
+BLOCK_REWARD = U256(5 * 10**18)
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
 GENESIS_DIFFICULTY = Uint(131072)
@@ -602,7 +602,7 @@ def validate_transaction(tx: Transaction) -> bool:
     verified : `bool`
         True if the transaction can be executed, or False otherwise.
     """
-    return calculate_intrinsic_cost(tx) <= tx.gas and tx.nonce < 2 ** 64 - 1
+    return calculate_intrinsic_cost(tx) <= tx.gas and tx.nonce < 2**64 - 1
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Uint:
@@ -771,5 +771,5 @@ def calculate_block_difficulty(
     # See https://github.com/ethereum/go-ethereum/pull/1588
     num_bomb_periods = int(block_number) // 100000 - 2
     if num_bomb_periods >= 0:
-        difficulty += 2 ** num_bomb_periods
+        difficulty += 2**num_bomb_periods
     return Uint(max(difficulty, GENESIS_DIFFICULTY))

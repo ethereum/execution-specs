@@ -435,7 +435,7 @@ def test_uint_to_be_bytes32_one() -> None:
 
 
 def test_uint_to_be_bytes32_max_value() -> None:
-    encoded = Uint(2 ** 256 - 1).to_be_bytes32()
+    encoded = Uint(2**256 - 1).to_be_bytes32()
     assert encoded == bytes(
         [
             0xFF,
@@ -507,14 +507,14 @@ def test_u256_new_float() -> None:
 
 
 def test_u256_new_max_value() -> None:
-    value = U256(2 ** 256 - 1)
+    value = U256(2**256 - 1)
     assert isinstance(value, U256)
-    assert value == 2 ** 256 - 1
+    assert value == 2**256 - 1
 
 
 def test_u256_new_too_large() -> None:
     with pytest.raises(ValueError):
-        U256(2 ** 256)
+        U256(2**256)
 
 
 def test_u256_radd() -> None:
@@ -525,7 +525,7 @@ def test_u256_radd() -> None:
 
 def test_u256_radd_overflow() -> None:
     with pytest.raises(ValueError):
-        (2 ** 256 - 1) + U256(5)
+        (2**256 - 1) + U256(5)
 
 
 def test_u256_radd_negative() -> None:
@@ -547,7 +547,7 @@ def test_u256_add() -> None:
 
 def test_u256_add_overflow() -> None:
     with pytest.raises(ValueError):
-        U256(5) + (2 ** 256 - 1)
+        U256(5) + (2**256 - 1)
 
 
 def test_u256_add_negative() -> None:
@@ -568,7 +568,7 @@ def test_u256_wrapping_add() -> None:
 
 
 def test_u256_wrapping_add_overflow() -> None:
-    value = U256(5).wrapping_add(2 ** 256 - 1)
+    value = U256(5).wrapping_add(2**256 - 1)
     assert isinstance(value, U256)
     assert value == 4
 
@@ -601,7 +601,7 @@ def test_u256_iadd_float() -> None:
 def test_u256_iadd_overflow() -> None:
     value = U256(5)
     with pytest.raises(ValueError):
-        value += 2 ** 256 - 1
+        value += 2**256 - 1
 
 
 def test_u256_rsub() -> None:
@@ -657,7 +657,7 @@ def test_u256_wrapping_sub() -> None:
 def test_u256_wrapping_sub_underflow() -> None:
     value = U256(5).wrapping_sub(6)
     assert isinstance(value, U256)
-    assert value == 2 ** 256 - 1
+    assert value == 2**256 - 1
 
 
 def test_u256_wrapping_sub_negative() -> None:
@@ -699,7 +699,7 @@ def test_u256_rmul() -> None:
 
 def test_u256_rmul_overflow() -> None:
     with pytest.raises(ValueError):
-        (2 ** 256 - 1) * U256(5)
+        (2**256 - 1) * U256(5)
 
 
 def test_u256_rmul_negative() -> None:
@@ -771,7 +771,7 @@ def test_u256_imul_negative() -> None:
 def test_u256_imul_arg_overflow() -> None:
     value = U256(5)
     with pytest.raises(ValueError):
-        value *= 2 ** 256
+        value *= 2**256
 
 
 def test_u256_imul_float() -> None:
@@ -784,7 +784,7 @@ def test_u256_imul_float() -> None:
 def test_u256_imul_overflow() -> None:
     value = U256(5)
     with pytest.raises(ValueError):
-        value *= 2 ** 256 - 1
+        value *= 2**256 - 1
 
 
 def test_u256_floordiv() -> None:
@@ -795,7 +795,7 @@ def test_u256_floordiv() -> None:
 
 def test_u256_floordiv_overflow() -> None:
     with pytest.raises(ValueError):
-        U256(5) // (2 ** 256)
+        U256(5) // (2**256)
 
 
 def test_u256_floordiv_negative() -> None:
@@ -817,7 +817,7 @@ def test_u256_rfloordiv() -> None:
 
 def test_u256_rfloordiv_overflow() -> None:
     with pytest.raises(ValueError):
-        (2 ** 256) // U256(2)
+        (2**256) // U256(2)
 
 
 def test_u256_rfloordiv_negative() -> None:
@@ -847,7 +847,7 @@ def test_u256_ifloordiv_negative() -> None:
 def test_u256_ifloordiv_overflow() -> None:
     value = U256(5)
     with pytest.raises(ValueError):
-        value //= 2 ** 256
+        value //= 2**256
 
 
 def test_u256_rmod() -> None:
@@ -870,7 +870,7 @@ def test_u256_mod() -> None:
 
 def test_u256_mod_overflow() -> None:
     with pytest.raises(ValueError):
-        U256(5) % (2 ** 256)
+        U256(5) % (2**256)
 
 
 def test_u256_mod_negative() -> None:
@@ -894,7 +894,7 @@ def test_u256_imod() -> None:
 def test_u256_imod_overflow() -> None:
     value = U256(5)
     with pytest.raises(ValueError):
-        value %= 2 ** 256
+        value %= 2**256
 
 
 def test_u256_imod_negative() -> None:
@@ -920,7 +920,7 @@ def test_u256_divmod() -> None:
 
 def test_u256_divmod_overflow() -> None:
     with pytest.raises(ValueError):
-        divmod(U256(5), 2 ** 256)
+        divmod(U256(5), 2**256)
 
 
 def test_u256_divmod_negative() -> None:
@@ -946,7 +946,7 @@ def test_u256_rdivmod() -> None:
 
 def test_u256_rdivmod_overflow() -> None:
     with pytest.raises(ValueError):
-        divmod(2 ** 256, U256(2))
+        divmod(2**256, U256(2))
 
 
 def test_u256_rdivmod_negative() -> None:
@@ -986,7 +986,7 @@ def test_u256_pow_modulo() -> None:
 
 def test_u256_pow_modulo_overflow() -> None:
     with pytest.raises(ValueError):
-        pow(U256(4), 2, 2 ** 257)
+        pow(U256(4), 2, 2**257)
 
 
 def test_u256_pow_modulo_negative() -> None:
@@ -1002,7 +1002,7 @@ def test_u256_rpow() -> None:
 
 def test_u256_rpow_overflow() -> None:
     with pytest.raises(ValueError):
-        (2 ** 256) ** U256(2)
+        (2**256) ** U256(2)
 
 
 def test_u256_rpow_negative() -> None:
@@ -1018,7 +1018,7 @@ def test_u256_rpow_modulo() -> None:
 
 def test_u256_rpow_modulo_overflow() -> None:
     with pytest.raises(ValueError):
-        U256.__rpow__(U256(2), 4, 2 ** 256 + 1)
+        U256.__rpow__(U256(2), 4, 2**256 + 1)
 
 
 def test_u256_rpow_modulo_negative() -> None:
@@ -1058,7 +1058,7 @@ def test_u256_ipow_modulo_negative() -> None:
 
 def test_u256_ipow_modulo_overflow() -> None:
     with pytest.raises(ValueError):
-        U256(4).__ipow__(2, 2 ** 256 + 1)
+        U256(4).__ipow__(2, 2**256 + 1)
 
 
 def test_u256_wrapping_pow() -> None:
@@ -1086,7 +1086,7 @@ def test_u256_wrapping_pow_modulo() -> None:
 
 def test_u256_wrapping_pow_modulo_overflow() -> None:
     with pytest.raises(ValueError):
-        U256(4).wrapping_pow(2, 2 ** 256 + 1)
+        U256(4).wrapping_pow(2, 2**256 + 1)
 
 
 def test_u256_wrapping_pow_modulo_negative() -> None:
@@ -1120,7 +1120,7 @@ def test_u256_to_be_bytes32_one() -> None:
 
 
 def test_u256_to_be_bytes32_max_value() -> None:
-    encoded = U256(2 ** 256 - 1).to_be_bytes32()
+    encoded = U256(2**256 - 1).to_be_bytes32()
     assert encoded == bytes(
         [
             0xFF,
@@ -1181,58 +1181,58 @@ def test_u256_from_be_bytes_too_large() -> None:
 
 def test_u256_bitwise_and_successful() -> None:
     assert U256(0) & U256(0) == 0
-    assert U256(2 ** 256 - 1) & U256(2 ** 256 - 1) == 2 ** 256 - 1
-    assert U256(2 ** 256 - 1) & U256(0) == U256(0)
+    assert U256(2**256 - 1) & U256(2**256 - 1) == 2**256 - 1
+    assert U256(2**256 - 1) & U256(0) == U256(0)
 
 
 def test_u256_bitwise_and_fails() -> None:
     with pytest.raises(ValueError):
-        U256(0) & (2 ** 256)
+        U256(0) & (2**256)
     with pytest.raises(ValueError):
-        U256(2 ** 256 - 1) & (2 ** 256)
+        U256(2**256 - 1) & (2**256)
     with pytest.raises(ValueError):
-        U256(2 ** 256 - 1) & -10
+        U256(2**256 - 1) & -10
 
 
 def test_u256_bitwise_or_successful() -> None:
     assert U256(0) | U256(0) == 0
-    assert U256(2 ** 256 - 1) | U256(0) == 2 ** 256 - 1
-    assert U256(2 ** 256 - 1) | U256(2 ** 256 - 1) == U256(2 ** 256 - 1)
-    assert U256(2 ** 256 - 1) | U256(17) == U256(2 ** 256 - 1)
+    assert U256(2**256 - 1) | U256(0) == 2**256 - 1
+    assert U256(2**256 - 1) | U256(2**256 - 1) == U256(2**256 - 1)
+    assert U256(2**256 - 1) | U256(17) == U256(2**256 - 1)
     assert U256(17) | U256(18) == U256(19)
 
 
 def test_u256_bitwise_or_failed() -> None:
     with pytest.raises(ValueError):
-        U256(0) | (2 ** 256)
+        U256(0) | (2**256)
     with pytest.raises(ValueError):
-        U256(2 ** 256 - 1) | (2 ** 256)
+        U256(2**256 - 1) | (2**256)
     with pytest.raises(ValueError):
-        U256(2 ** 256 - 1) | -10
+        U256(2**256 - 1) | -10
 
 
 def test_u256_bitwise_xor_successful() -> None:
     assert U256(0) ^ U256(0) == 0
-    assert U256(2 ** 256 - 1) ^ U256(0) == 2 ** 256 - 1
-    assert U256(2 ** 256 - 1) ^ U256(2 ** 256 - 1) == U256(0)
-    assert U256(2 ** 256 - 1) ^ U256(17) == U256(2 ** 256 - 1) - U256(17)
+    assert U256(2**256 - 1) ^ U256(0) == 2**256 - 1
+    assert U256(2**256 - 1) ^ U256(2**256 - 1) == U256(0)
+    assert U256(2**256 - 1) ^ U256(17) == U256(2**256 - 1) - U256(17)
     assert U256(17) ^ U256(18) == U256(3)
 
 
 def test_u256_bitwise_xor_failed() -> None:
     with pytest.raises(ValueError):
-        U256(0) | (2 ** 256)
+        U256(0) | (2**256)
     with pytest.raises(ValueError):
-        U256(2 ** 256 - 1) ^ (2 ** 256)
+        U256(2**256 - 1) ^ (2**256)
     with pytest.raises(ValueError):
-        U256(2 ** 256 - 1) ^ -10
+        U256(2**256 - 1) ^ -10
 
 
 def test_u256_bitwise_rxor_successful() -> None:
     assert U256(0).__rxor__(U256(0)) == 0
-    assert U256(2 ** 256 - 1).__rxor__(U256(0)) == 2 ** 256 - 1
-    assert U256(2 ** 256 - 1).__rxor__(U256(2 ** 256 - 1)) == U256(0)
-    assert U256(2 ** 256 - 1).__rxor__(U256(17)) == U256(2 ** 256 - 1) - U256(
+    assert U256(2**256 - 1).__rxor__(U256(0)) == 2**256 - 1
+    assert U256(2**256 - 1).__rxor__(U256(2**256 - 1)) == U256(0)
+    assert U256(2**256 - 1).__rxor__(U256(17)) == U256(2**256 - 1) - U256(
         17
     )
     assert U256(17).__rxor__(U256(18)) == U256(3)
@@ -1240,18 +1240,18 @@ def test_u256_bitwise_rxor_successful() -> None:
 
 def test_u256_bitwise_rxor_failed() -> None:
     with pytest.raises(ValueError):
-        U256(0).__rxor__(2 ** 256)
+        U256(0).__rxor__(2**256)
     with pytest.raises(ValueError):
-        U256(2 ** 256 - 1).__rxor__(2 ** 256)
+        U256(2**256 - 1).__rxor__(2**256)
     with pytest.raises(ValueError):
-        U256(2 ** 256 - 1).__rxor__(-10)
+        U256(2**256 - 1).__rxor__(-10)
 
 
 def test_u256_bitwise_ixor_successful() -> None:
     assert U256(0).__ixor__(U256(0)) == 0
-    assert U256(2 ** 256 - 1).__ixor__(U256(0)) == 2 ** 256 - 1
-    assert U256(2 ** 256 - 1).__ixor__(U256(2 ** 256 - 1)) == U256(0)
-    assert U256(2 ** 256 - 1).__ixor__(U256(17)) == U256(2 ** 256 - 1) - U256(
+    assert U256(2**256 - 1).__ixor__(U256(0)) == 2**256 - 1
+    assert U256(2**256 - 1).__ixor__(U256(2**256 - 1)) == U256(0)
+    assert U256(2**256 - 1).__ixor__(U256(17)) == U256(2**256 - 1) - U256(
         17
     )
     assert U256(17).__ixor__(U256(18)) == U256(3)
@@ -1259,17 +1259,17 @@ def test_u256_bitwise_ixor_successful() -> None:
 
 def test_u256_bitwise_ixor_failed() -> None:
     with pytest.raises(ValueError):
-        U256(0).__ixor__(2 ** 256)
+        U256(0).__ixor__(2**256)
     with pytest.raises(ValueError):
-        U256(2 ** 256 - 1).__ixor__(2 ** 256)
+        U256(2**256 - 1).__ixor__(2**256)
     with pytest.raises(ValueError):
-        U256(2 ** 256 - 1).__ixor__(-10)
+        U256(2**256 - 1).__ixor__(-10)
 
 
 def test_u256_invert() -> None:
     assert ~U256(0) == U256_MAX_VALUE
     assert ~U256(10) == U256_MAX_VALUE - 10
-    assert ~U256(2 ** 256 - 1) == 0
+    assert ~U256(2**256 - 1) == 0
 
 
 def test_u256_rshift() -> None:

@@ -184,7 +184,7 @@ class VmTestLoader:
     def get_dummy_account_state(self, min_balance: str) -> Any:
         # dummy account balance is the min balance needed plus 1 eth for gas
         # cost
-        account_balance = hex_to_uint(min_balance) + (10 ** 18)
+        account_balance = hex_to_uint(min_balance) + (10**18)
 
         return {
             "balance": hex(account_balance),

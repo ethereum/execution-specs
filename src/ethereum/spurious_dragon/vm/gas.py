@@ -98,7 +98,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> U256:
     """
     size_in_words = ceil32(size_in_bytes) // 32
     linear_cost = size_in_words * GAS_MEMORY
-    quadratic_cost = size_in_words ** 2 // 512
+    quadratic_cost = size_in_words**2 // 512
     total_gas_cost = linear_cost + quadratic_cost
     try:
         return U256(total_gas_cost)
