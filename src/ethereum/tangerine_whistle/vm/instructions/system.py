@@ -67,7 +67,7 @@ def create(evm: Evm) -> None:
         extend_memory_gas_cost,
         exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+    subtract_gas(evm, total_gas_cost)
     extend_memory(evm.memory, memory_start_position, memory_size)
     sender_address = evm.message.current_target
     sender = get_account(evm.env.state, sender_address)
@@ -93,7 +93,7 @@ def create(evm: Evm) -> None:
     increment_nonce(evm.env.state, evm.message.current_target)
 
     create_message_gas = max_message_call_gas(evm.gas_left)
-    evm.gas_left = subtract_gas(evm.gas_left, create_message_gas)
+    subtract_gas(evm, create_message_gas)
 
     contract_address = compute_contract_address(
         evm.message.current_target,
@@ -141,7 +141,7 @@ def return_(evm: Evm) -> None:
     gas_cost = GAS_ZERO + calculate_gas_extend_memory(
         evm.memory, memory_start_position, memory_size
     )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
+    subtract_gas(evm, gas_cost)
     extend_memory(evm.memory, memory_start_position, memory_size)
     evm.output = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
@@ -161,7 +161,7 @@ def call(evm: Evm) -> None:
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_CALL)
+    subtract_gas(evm, GAS_CALL)
 
     gas = pop(evm.stack)
     to = to_address(pop(evm.stack))
@@ -174,12 +174,12 @@ def call(evm: Evm) -> None:
     gas_input_memory = calculate_gas_extend_memory(
         evm.memory, memory_input_start_position, memory_input_size
     )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_input_memory)
+    subtract_gas(evm, gas_input_memory)
     extend_memory(evm.memory, memory_input_start_position, memory_input_size)
     gas_output_memory = calculate_gas_extend_memory(
         evm.memory, memory_output_start_position, memory_output_size
     )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_output_memory)
+    subtract_gas(evm, gas_output_memory)
     extend_memory(evm.memory, memory_output_start_position, memory_output_size)
     call_data = memory_read_bytes(
         evm.memory, memory_input_start_position, memory_input_size
@@ -198,7 +198,7 @@ def call(evm: Evm) -> None:
         value, gas, evm.gas_left, extra_gas
     )
 
-    evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
+    subtract_gas(evm, call_gas_fee)
     sender_balance = get_account(
         evm.env.state, evm.message.current_target
     ).balance
@@ -257,7 +257,7 @@ def callcode(evm: Evm) -> None:
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_CALL)
+    subtract_gas(evm, GAS_CALL)
 
     gas = pop(evm.stack)
     code_address = to_address(pop(evm.stack))
@@ -271,12 +271,12 @@ def callcode(evm: Evm) -> None:
     gas_input_memory = calculate_gas_extend_memory(
         evm.memory, memory_input_start_position, memory_input_size
     )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_input_memory)
+    subtract_gas(evm, gas_input_memory)
     extend_memory(evm.memory, memory_input_start_position, memory_input_size)
     gas_output_memory = calculate_gas_extend_memory(
         evm.memory, memory_output_start_position, memory_output_size
     )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_output_memory)
+    subtract_gas(evm, gas_output_memory)
     extend_memory(evm.memory, memory_output_start_position, memory_output_size)
     call_data = memory_read_bytes(
         evm.memory, memory_input_start_position, memory_input_size
@@ -289,7 +289,7 @@ def callcode(evm: Evm) -> None:
         value, gas, evm.gas_left, extra_gas
     )
 
-    evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
+    subtract_gas(evm, call_gas_fee)
 
     sender_balance = get_account(
         evm.env.state, evm.message.current_target
@@ -346,13 +346,11 @@ def selfdestruct(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_SELF_DESTRUCT)
+    subtract_gas(evm, GAS_SELF_DESTRUCT)
     beneficiary = to_address(pop(evm.stack))
 
     if not account_exists(evm.env.state, beneficiary):
-        evm.gas_left = subtract_gas(
-            evm.gas_left, GAS_SELF_DESTRUCT_NEW_ACCOUNT
-        )
+        subtract_gas(evm, GAS_SELF_DESTRUCT_NEW_ACCOUNT)
 
     originator = evm.message.current_target
     beneficiary_balance = get_account(evm.env.state, beneficiary).balance
@@ -386,7 +384,7 @@ def delegatecall(evm: Evm) -> None:
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_CALL)
+    subtract_gas(evm, GAS_CALL)
 
     gas = pop(evm.stack)
     code_address = to_address(pop(evm.stack))
@@ -400,12 +398,12 @@ def delegatecall(evm: Evm) -> None:
     gas_input_memory = calculate_gas_extend_memory(
         evm.memory, memory_input_start_position, memory_input_size
     )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_input_memory)
+    subtract_gas(evm, gas_input_memory)
     extend_memory(evm.memory, memory_input_start_position, memory_input_size)
     gas_output_memory = calculate_gas_extend_memory(
         evm.memory, memory_output_start_position, memory_output_size
     )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_output_memory)
+    subtract_gas(evm, gas_output_memory)
     extend_memory(evm.memory, memory_output_start_position, memory_output_size)
     call_data = memory_read_bytes(
         evm.memory, memory_input_start_position, memory_input_size
@@ -417,7 +415,7 @@ def delegatecall(evm: Evm) -> None:
         value, gas, evm.gas_left, extra_gas, call_stipend=U256(0)
     )
 
-    evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
+    subtract_gas(evm, call_gas_fee)
 
     evm.pc += 1
 

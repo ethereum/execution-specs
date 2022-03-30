@@ -44,7 +44,7 @@ def ripemd160(evm: Evm) -> None:
         word_count_gas_cost,
         exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+    subtract_gas(evm, total_gas_cost)
     hash_bytes = hashlib.new("ripemd160", data).digest()
     padded_hash = left_pad_zero_bytes(hash_bytes, 32)
     evm.output = padded_hash

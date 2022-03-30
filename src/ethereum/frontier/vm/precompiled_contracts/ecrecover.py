@@ -30,7 +30,7 @@ def ecrecover(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_ECRECOVER)
+    subtract_gas(evm, GAS_ECRECOVER)
     data = right_pad_zero_bytes(evm.message.data, 128)
     message_hash_bytes = data[:32]
     message_hash = Hash32(message_hash_bytes)

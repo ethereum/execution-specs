@@ -72,7 +72,7 @@ def modexp(evm: Evm) -> None:
     # here. However, for this to happen without triggering the earlier check
     # would require providing more than 2**250 gas, which is obviously
     # not realistic.
-    evm.gas_left = subtract_gas(evm.gas_left, U256(gas_used))
+    subtract_gas(evm, U256(gas_used))
     if modulus == 0:
         evm.output = Bytes(b"\x00") * modulus_length
     else:

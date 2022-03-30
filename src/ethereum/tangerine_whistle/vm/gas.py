@@ -15,6 +15,7 @@ from ethereum.base_types import U256, Uint
 from ethereum.utils.numeric import ceil32
 from ethereum.utils.safe_arithmetic import u256_safe_add
 
+from . import Evm
 from .error import OutOfGasError
 
 GAS_JUMPDEST = U256(1)
@@ -58,14 +59,15 @@ GAS_IDENTITY = U256(15)
 GAS_IDENTITY_WORD = U256(3)
 
 
-def subtract_gas(gas_left: U256, amount: U256) -> U256:
+def subtract_gas(evm: Evm, amount: U256) -> None:
     """
-    Subtracts `amount` from `gas_left`.
+    Subtracts `amount` from `evm.gas_left`. Raise `OutOfGasError` if that is
+    not possible.
 
     Parameters
     ----------
-    gas_left :
-        The amount of gas left in the current frame.
+    evm :
+        Current `evm` instance.
     amount :
         The amount of gas the current operation requires.
 
@@ -74,10 +76,34 @@ def subtract_gas(gas_left: U256, amount: U256) -> U256:
     :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
         If `gas_left` is less than `amount`.
     """
-    if gas_left < amount:
+    if evm.gas_left < amount:
         raise OutOfGasError
+    else:
+        evm.gas_left -= amount
 
-    return gas_left - amount
+
+def check_gas(evm: Evm, amount: U256) -> None:
+    """
+    Check that at least `amount` gas is available in `evm`. Raise
+    `OutOfGasError` if it isn't.
+
+    This is useful to guard a potentially expensive operation with a gas check
+    when the full gas cost will be calculated later.
+
+    Parameters
+    ----------
+    evm :
+        Current `evm` instance.
+    amount :
+        The amount of gas the current operation requires.
+
+    Raises
+    ------
+    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
+        If `gas_left` is less than `amount`.
+    """
+    if evm.gas_left < amount:
+        raise OutOfGasError
 
 
 def calculate_memory_gas_cost(size_in_bytes: Uint) -> U256:

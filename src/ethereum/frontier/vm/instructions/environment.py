@@ -47,7 +47,7 @@ def address(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    subtract_gas(evm, GAS_BASE)
     push(evm.stack, U256.from_be_bytes(evm.message.current_target))
 
     evm.pc += 1
@@ -71,7 +71,7 @@ def balance(evm: Evm) -> None:
     """
     # TODO: There are no test cases against this function. Need to write
     # custom test cases.
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BALANCE)
+    subtract_gas(evm, GAS_BALANCE)
 
     address = to_address(pop(evm.stack))
 
@@ -98,7 +98,7 @@ def origin(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    subtract_gas(evm, GAS_BASE)
     push(evm.stack, U256.from_be_bytes(evm.env.origin))
 
     evm.pc += 1
@@ -118,7 +118,7 @@ def caller(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    subtract_gas(evm, GAS_BASE)
     push(evm.stack, U256.from_be_bytes(evm.message.caller))
 
     evm.pc += 1
@@ -138,7 +138,7 @@ def callvalue(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    subtract_gas(evm, GAS_BASE)
     push(evm.stack, evm.message.value)
 
     evm.pc += 1
@@ -161,7 +161,7 @@ def calldataload(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
 
     # Converting start_index to Uint from U256 as start_index + 32 can
     # overflow U256.
@@ -189,7 +189,7 @@ def calldatasize(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    subtract_gas(evm, GAS_BASE)
     push(evm.stack, U256(len(evm.message.data)))
 
     evm.pc += 1
@@ -233,7 +233,7 @@ def calldatacopy(evm: Evm) -> None:
         memory_extend_gas_cost,
         exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+    subtract_gas(evm, total_gas_cost)
 
     evm.pc += 1
 
@@ -264,7 +264,7 @@ def codesize(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    subtract_gas(evm, GAS_BASE)
     push(evm.stack, U256(len(evm.code)))
 
     evm.pc += 1
@@ -308,7 +308,7 @@ def codecopy(evm: Evm) -> None:
         memory_extend_gas_cost,
         exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+    subtract_gas(evm, total_gas_cost)
 
     evm.pc += 1
 
@@ -340,7 +340,7 @@ def gasprice(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    subtract_gas(evm, GAS_BASE)
     push(evm.stack, evm.env.gas_price)
 
     evm.pc += 1
@@ -364,7 +364,7 @@ def extcodesize(evm: Evm) -> None:
     """
     # TODO: There are no test cases against this function. Need to write
     # custom test cases.
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_EXTERNAL)
+    subtract_gas(evm, GAS_EXTERNAL)
 
     address = to_address(pop(evm.stack))
 
@@ -414,7 +414,7 @@ def extcodecopy(evm: Evm) -> None:
         memory_extend_gas_cost,
         exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+    subtract_gas(evm, total_gas_cost)
 
     evm.pc += 1
 

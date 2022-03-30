@@ -44,7 +44,7 @@ def add(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
 
     x = pop(evm.stack)
     y = pop(evm.stack)
@@ -72,7 +72,7 @@ def sub(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
 
     x = pop(evm.stack)
     y = pop(evm.stack)
@@ -100,7 +100,7 @@ def mul(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
+    subtract_gas(evm, GAS_LOW)
 
     x = pop(evm.stack)
     y = pop(evm.stack)
@@ -128,7 +128,7 @@ def div(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
+    subtract_gas(evm, GAS_LOW)
 
     dividend = pop(evm.stack)
     divisor = pop(evm.stack)
@@ -159,7 +159,7 @@ def sdiv(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
+    subtract_gas(evm, GAS_LOW)
 
     dividend = pop(evm.stack).to_signed()
     divisor = pop(evm.stack).to_signed()
@@ -194,7 +194,7 @@ def mod(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
+    subtract_gas(evm, GAS_LOW)
 
     x = pop(evm.stack)
     y = pop(evm.stack)
@@ -225,7 +225,7 @@ def smod(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
+    subtract_gas(evm, GAS_LOW)
 
     x = pop(evm.stack).to_signed()
     y = pop(evm.stack).to_signed()
@@ -257,7 +257,7 @@ def addmod(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `8`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_MID)
+    subtract_gas(evm, GAS_MID)
 
     x = Uint(pop(evm.stack))
     y = Uint(pop(evm.stack))
@@ -290,7 +290,7 @@ def mulmod(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `8`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_MID)
+    subtract_gas(evm, GAS_MID)
 
     x = Uint(pop(evm.stack))
     y = Uint(pop(evm.stack))
@@ -331,7 +331,7 @@ def exp(evm: Evm) -> None:
         exponent_bits = exponent.bit_length()
         exponent_bytes = (exponent_bits + 7) // 8
         gas_used += GAS_EXPONENTIATION_PER_BYTE * exponent_bytes
-    evm.gas_left = subtract_gas(evm.gas_left, gas_used)
+    subtract_gas(evm, gas_used)
 
     result = U256(pow(base, exponent, U256_CEIL_VALUE))
 
@@ -357,7 +357,7 @@ def signextend(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
+    subtract_gas(evm, GAS_LOW)
 
     # byte_num would be 0-indexed when inserted to the stack.
     byte_num = pop(evm.stack)

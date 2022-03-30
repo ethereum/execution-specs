@@ -38,7 +38,7 @@ def pop(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    subtract_gas(evm, GAS_BASE)
     stack.pop(evm.stack)
 
     evm.pc += 1
@@ -64,7 +64,7 @@ def push_n(evm: Evm, num_bytes: int) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
 
     data_to_push = U256.from_be_bytes(
         evm.code[evm.pc + 1 : evm.pc + num_bytes + 1]
@@ -92,7 +92,7 @@ def dup_n(evm: Evm, item_number: int) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
     ensure(item_number < len(evm.stack), StackUnderflowError)
 
     data_to_duplicate = evm.stack[len(evm.stack) - 1 - item_number]
@@ -123,7 +123,7 @@ def swap_n(evm: Evm, item_number: int) -> None:
     :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
     ensure(item_number < len(evm.stack), StackUnderflowError)
 
     top_element_idx = len(evm.stack) - 1

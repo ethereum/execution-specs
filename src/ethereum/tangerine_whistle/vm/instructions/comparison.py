@@ -36,7 +36,7 @@ def less_than(evm: Evm) -> None:
     :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
 
     left = pop(evm.stack)
     right = pop(evm.stack)
@@ -63,7 +63,7 @@ def signed_less_than(evm: Evm) -> None:
     :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
 
     left = pop(evm.stack).to_signed()
     right = pop(evm.stack).to_signed()
@@ -91,7 +91,7 @@ def greater_than(evm: Evm) -> None:
     :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
 
     left = pop(evm.stack)
     right = pop(evm.stack)
@@ -118,7 +118,7 @@ def signed_greater_than(evm: Evm) -> None:
     :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
 
     left = pop(evm.stack).to_signed()
     right = pop(evm.stack).to_signed()
@@ -146,7 +146,7 @@ def equal(evm: Evm) -> None:
     :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
 
     left = pop(evm.stack)
     right = pop(evm.stack)
@@ -174,7 +174,7 @@ def is_zero(evm: Evm) -> None:
     :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
 
     x = pop(evm.stack)
     result = U256(x == 0)

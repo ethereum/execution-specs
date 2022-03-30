@@ -36,7 +36,7 @@ def block_hash(evm: Evm) -> None:
     :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `20`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BLOCK_HASH)
+    subtract_gas(evm, GAS_BLOCK_HASH)
 
     block_number = pop(evm.stack)
 
@@ -73,7 +73,7 @@ def coinbase(evm: Evm) -> None:
     :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    subtract_gas(evm, GAS_BASE)
     push(evm.stack, U256.from_be_bytes(evm.env.coinbase))
 
     evm.pc += 1
@@ -99,7 +99,7 @@ def timestamp(evm: Evm) -> None:
     :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    subtract_gas(evm, GAS_BASE)
     push(evm.stack, evm.env.time)
 
     evm.pc += 1
@@ -124,7 +124,7 @@ def number(evm: Evm) -> None:
     :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    subtract_gas(evm, GAS_BASE)
     push(evm.stack, U256(evm.env.number))
 
     evm.pc += 1
@@ -149,7 +149,7 @@ def difficulty(evm: Evm) -> None:
     :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    subtract_gas(evm, GAS_BASE)
     push(evm.stack, U256(evm.env.difficulty))
 
     evm.pc += 1
@@ -174,7 +174,7 @@ def gas_limit(evm: Evm) -> None:
     :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    subtract_gas(evm, GAS_BASE)
     push(evm.stack, U256(evm.env.gas_limit))
 
     evm.pc += 1

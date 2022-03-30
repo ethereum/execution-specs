@@ -59,7 +59,7 @@ def alt_bn128_add(evm: Evm) -> None:
 
     p = p0 + p1
 
-    evm.gas_left = subtract_gas(evm.gas_left, U256(500))
+    subtract_gas(evm, U256(500))
     evm.output = p.x.to_be_bytes32() + p.y.to_be_bytes32()
 
 
@@ -89,7 +89,7 @@ def alt_bn128_mul(evm: Evm) -> None:
 
     p = p0.mul_by(n)
 
-    evm.gas_left = subtract_gas(evm.gas_left, U256(40000))
+    subtract_gas(evm, U256(40000))
     evm.output = p.x.to_be_bytes32() + p.y.to_be_bytes32()
 
 
@@ -104,9 +104,7 @@ def alt_bn128_pairing_check(evm: Evm) -> None:
     """
     if len(evm.message.data) % 192 != 0:
         raise OutOfGasError
-    evm.gas_left = subtract_gas(
-        evm.gas_left, U256(80000 * (len(evm.message.data) // 192) + 100000)
-    )
+    subtract_gas(evm, U256(80000 * (len(evm.message.data) // 192) + 100000))
     result = BNF12.from_int(1)
     for i in range(len(evm.message.data) // 192):
         values = []

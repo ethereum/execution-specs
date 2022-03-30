@@ -73,7 +73,7 @@ def log_n(evm: Evm, num_topics: U256) -> None:
         gas_cost_memory_extend,
         exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
+    subtract_gas(evm, gas_cost)
 
     extend_memory(evm.memory, memory_start_index, size)
 

@@ -133,7 +133,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         contract_code = evm.output
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         try:
-            evm.gas_left = subtract_gas(evm.gas_left, contract_code_gas)
+            subtract_gas(evm, contract_code_gas)
         except ExceptionalHalt:
             evm.output = b""
         else:

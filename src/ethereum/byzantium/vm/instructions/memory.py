@@ -57,7 +57,7 @@ def mstore(evm: Evm) -> None:
         gas_cost_memory_extend,
         exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+    subtract_gas(evm, total_gas_cost)
 
     # extend memory and subtract gas for allocating 32 bytes of memory
     extend_memory(evm.memory, start_position, U256(32))
@@ -99,7 +99,7 @@ def mstore8(evm: Evm) -> None:
         memory_extend_gas_cost,
         exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+    subtract_gas(evm, total_gas_cost)
 
     # extend memory and subtract gas for allocating 32 bytes of memory
     extend_memory(evm.memory, start_position, U256(1))
@@ -136,7 +136,7 @@ def mload(evm: Evm) -> None:
         memory_extend_gas_cost,
         exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+    subtract_gas(evm, total_gas_cost)
 
     # extend memory and subtract gas for allocating 32 bytes of memory
     extend_memory(evm.memory, start_position, U256(32))
@@ -162,7 +162,7 @@ def msize(evm: Evm) -> None:
     :py:class:`~ethereum.byzantium.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `2`
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    subtract_gas(evm, GAS_BASE)
     memory_size = U256(len(evm.memory))
     push(evm.stack, memory_size)
 

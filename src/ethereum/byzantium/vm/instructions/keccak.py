@@ -66,7 +66,7 @@ def keccak(evm: Evm) -> None:
         memory_extend_gas_cost,
         exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+    subtract_gas(evm, total_gas_cost)
 
     extend_memory(evm.memory, memory_start_index, size)
 

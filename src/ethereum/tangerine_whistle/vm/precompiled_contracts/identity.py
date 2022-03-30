@@ -41,5 +41,5 @@ def identity(evm: Evm) -> None:
         word_count_gas_cost,
         exception_type=OutOfGasError,
     )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+    subtract_gas(evm, total_gas_cost)
     evm.output = data

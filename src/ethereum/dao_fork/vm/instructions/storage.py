@@ -41,7 +41,7 @@ def sload(evm: Evm) -> None:
     :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `50`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_SLOAD)
+    subtract_gas(evm, GAS_SLOAD)
 
     key = pop(evm.stack).to_be_bytes32()
     value = get_storage(evm.env.state, evm.message.current_target, key)
@@ -79,7 +79,7 @@ def sstore(evm: Evm) -> None:
     else:
         gas_cost = GAS_STORAGE_UPDATE
 
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
+    subtract_gas(evm, gas_cost)
 
     # TODO: Refund counter hasn't been tested yet. Testing this needs other
     # Opcodes to be implemented

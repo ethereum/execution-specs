@@ -36,7 +36,7 @@ def bitwise_and(evm: Evm) -> None:
     :py:class:`~ethereum.homestead.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
     x = pop(evm.stack)
     y = pop(evm.stack)
     push(evm.stack, x & y)
@@ -61,7 +61,7 @@ def bitwise_or(evm: Evm) -> None:
     :py:class:`~ethereum.homestead.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
     x = pop(evm.stack)
     y = pop(evm.stack)
     push(evm.stack, x | y)
@@ -86,7 +86,7 @@ def bitwise_xor(evm: Evm) -> None:
     :py:class:`~ethereum.homestead.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
     x = pop(evm.stack)
     y = pop(evm.stack)
     push(evm.stack, x ^ y)
@@ -111,7 +111,7 @@ def bitwise_not(evm: Evm) -> None:
     :py:class:`~ethereum.homestead.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
     x = pop(evm.stack)
     push(evm.stack, ~x)
 
@@ -136,7 +136,7 @@ def get_byte(evm: Evm) -> None:
     :py:class:`~ethereum.homestead.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    subtract_gas(evm, GAS_VERY_LOW)
     # 0-indexed from left (most significant) to right (least significant)
     # in "Big Endian" representation.
     byte_index = pop(evm.stack)
