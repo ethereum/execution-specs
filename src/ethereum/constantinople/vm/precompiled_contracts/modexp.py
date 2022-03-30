@@ -22,7 +22,7 @@ GQUADDIVISOR = 20
 
 def modexp(evm: Evm) -> None:
     """
-    Calculates `(base ** exp) % modulus` for arbitary sized `base`, `exp` and.
+    Calculates `(base**exp) % modulus` for arbitary sized `base`, `exp` and.
     `modulus`. The return value is the same length as the modulus.
     """
     data = evm.message.data
@@ -86,8 +86,8 @@ def get_mult_complexity(x: Uint) -> Uint:
     Estimate the complexity of performing Karatsuba multiplication.
     """
     if x <= 64:
-        return x ** 2
+        return x**2
     elif x <= 1024:
-        return x ** 2 // 4 + 96 * x - 3072
+        return x**2 // 4 + 96 * x - 3072
     else:
-        return x ** 2 // 16 + 480 * x - 199680
+        return x**2 // 16 + 480 * x - 199680

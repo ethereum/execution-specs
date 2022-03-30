@@ -87,7 +87,7 @@ class State:
 
         logging.info("using optimized state db at %s", path)
 
-        self._db = lmdb.open(path, map_size=2 ** 40)
+        self._db = lmdb.open(path, map_size=2**40)
         self._current_tx = None
         self._tx_stack = []
         self._dirty_accounts = [{}]
