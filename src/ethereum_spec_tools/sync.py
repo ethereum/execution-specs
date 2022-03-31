@@ -584,7 +584,7 @@ class Sync:
         count = 0
         next_tokens = []
         while with_storage != []:
-            for i in range(min(64, len(with_storage))):
+            for _ in range(min(64, len(with_storage))):
                 next_tokens.append([with_storage.pop(), ""])
             while next_tokens != []:
                 calls = [
