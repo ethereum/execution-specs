@@ -13,7 +13,8 @@ Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.utils.ensure import ensure
-from ethereum.utils.safe_arithmetic import u256_safe_add
+from ethereum.utils.numeric import ceil32
+from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
 from ...state import (
     account_exists,
@@ -23,13 +24,18 @@ from ...state import (
     is_account_empty,
     set_account_balance,
 )
-from ...utils.address import compute_contract_address, to_address
+from ...utils.address import (
+    compute_contract_address,
+    compute_create2_contract_address,
+    to_address,
+)
 from ...vm.error import OutOfGasError, Revert, WriteInStaticContext
 from .. import Evm, Message
 from ..gas import (
     GAS_CALL,
     GAS_CALL_VALUE,
     GAS_CREATE,
+    GAS_KECCAK256_WORD,
     GAS_NEW_ACCOUNT,
     GAS_SELF_DESTRUCT,
     GAS_SELF_DESTRUCT_NEW_ACCOUNT,
@@ -127,6 +133,107 @@ def create(evm: Evm) -> None:
         evm.return_data = child_evm.output
     else:
         evm.logs += child_evm.logs
+        push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
+        evm.return_data = b""
+    evm.gas_left += child_evm.gas_left
+    child_evm.gas_left = U256(0)
+
+
+def create2(evm: Evm) -> None:
+    """
+    Creates a new account with associated code.
+
+    It's similar to CREATE opcode except that the address of new account
+    depends on the init_code instead of the nonce of sender.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # This import causes a circular import error
+    # if it's not moved inside this method
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create2_message
+
+    ensure(not evm.message.is_static, WriteInStaticContext)
+
+    endowment = pop(evm.stack)
+    memory_start_position = Uint(pop(evm.stack))
+    memory_size = pop(evm.stack)
+    salt = pop(evm.stack).to_be_bytes32()
+
+    extend_memory_gas_cost = calculate_gas_extend_memory(
+        evm.memory, memory_start_position, memory_size
+    )
+    call_data_words = ceil32(Uint(memory_size)) // 32
+    hash_cost = u256_safe_multiply(
+        GAS_KECCAK256_WORD,
+        call_data_words,
+        exception_type=OutOfGasError,
+    )
+    total_gas_cost = u256_safe_add(
+        GAS_CREATE,
+        extend_memory_gas_cost,
+        hash_cost,
+        exception_type=OutOfGasError,
+    )
+    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+    extend_memory(evm.memory, memory_start_position, memory_size)
+    sender_address = evm.message.current_target
+    sender = get_account(evm.env.state, sender_address)
+
+    evm.pc += 1
+
+    if sender.balance < endowment:
+        push(evm.stack, U256(0))
+        return None
+
+    if sender.nonce == Uint(2 ** 64 - 1):
+        push(evm.stack, U256(0))
+        return None
+
+    if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
+        push(evm.stack, U256(0))
+        return None
+
+    call_data = memory_read_bytes(
+        evm.memory, memory_start_position, memory_size
+    )
+
+    increment_nonce(evm.env.state, evm.message.current_target)
+
+    create_message_gas = max_message_call_gas(evm.gas_left)
+    evm.gas_left = subtract_gas(evm.gas_left, create_message_gas)
+
+    contract_address = compute_create2_contract_address(
+        evm.message.current_target,
+        salt,
+        call_data,
+    )
+    is_collision = account_has_code_or_nonce(evm.env.state, contract_address)
+    if is_collision:
+        push(evm.stack, U256(0))
+        return
+
+    child_message = Message(
+        caller=evm.message.current_target,
+        target=Bytes0(),
+        gas=create_message_gas,
+        value=endowment,
+        data=b"",
+        code=call_data,
+        current_target=contract_address,
+        depth=evm.message.depth + 1,
+        code_address=None,
+        should_transfer_value=True,
+        is_static=False,
+    )
+    child_evm = process_create2_message(child_message, evm.env)
+    evm.children.append(child_evm)
+    if child_evm.has_erred:
+        push(evm.stack, U256(0))
+        evm.return_data = child_evm.output
+    else:
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
         evm.return_data = b""
     evm.gas_left += child_evm.gas_left

@@ -1,3 +1,4 @@
+import os
 from functools import partial
 
 import pytest
@@ -240,6 +241,25 @@ SLOW_TESTS = (
     "test_file", fetch_state_test_files(test_dir, SLOW_TESTS, FIXTURES_LOADER)
 )
 def test_general_state_tests(test_file: str) -> None:
+    try:
+        run_general_state_tests(test_file)
+    except KeyError:
+        # FIXME: Handle tests that don't have post state
+        pytest.xfail(f"{test_file} doesn't have post state")
+
+
+def load_st_create2_tests():
+    # Load all the tests in test_dir/stCreate2/
+    return (
+        f"stCreate2/{file}" for file in os.listdir(f"{test_dir}/stCreate2")
+    )
+
+
+@pytest.mark.parametrize(
+    "test_file",
+    load_st_create2_tests(),
+)
+def test_create2(test_file: str) -> None:
     try:
         run_general_state_tests(test_file)
     except KeyError:

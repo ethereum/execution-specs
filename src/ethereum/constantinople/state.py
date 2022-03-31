@@ -187,6 +187,21 @@ def destroy_account(state: State, address: Address) -> None:
     set_account(state, address, None)
 
 
+def destroy_storage(state: State, address: Address) -> None:
+    """
+    Completely remove the account at `address` and all of its storage.
+
+    Parameters
+    ----------
+    state: `State`
+        The state
+    address : `Address`
+        Address of account whose storage is to be deleted.
+    """
+    if address in state._storage_tries:
+        del state._storage_tries[address]
+
+
 def get_storage(state: State, address: Address, key: Bytes) -> U256:
     """
     Get a value at a storage key on an account. Returns `U256(0)` if the
