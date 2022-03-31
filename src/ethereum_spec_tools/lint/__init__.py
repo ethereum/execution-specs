@@ -89,7 +89,7 @@ class Linter:
             return []
 
         modules = pkgutil.iter_modules(path, lints.__name__ + ".")
-        for finder, name, ispkg in modules:
+        for _, name, _ in modules:
             try:
                 importlib.import_module(name)
             except Exception:

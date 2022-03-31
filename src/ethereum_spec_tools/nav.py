@@ -54,14 +54,16 @@ class HardforkIndex(Index):
             if kind != "module":
                 continue
 
+            fork_index = None
             fork = None
 
             for index, guess in enumerate(forks):
                 if name.startswith(guess.name + "."):
                     fork = guess
+                    fork_index = index
                     break
 
-            if fork is None:
+            if fork is None or fork_index is None:
                 continue
 
             content[fork].modules.append(
@@ -83,7 +85,7 @@ class HardforkIndex(Index):
             next_fork: Optional[Hardfork]
 
             try:
-                next_fork = forks[index + 1]
+                next_fork = forks[fork_index + 1]
             except IndexError:
                 next_fork = None
 
@@ -91,8 +93,8 @@ class HardforkIndex(Index):
                 comparisons[(fork, next_fork)].add((rel_doc_name, rel_name))
 
             prev_fork = None
-            if index > 0:
-                prev_fork = forks[index - 1]
+            if fork_index > 0:
+                prev_fork = forks[fork_index - 1]
 
             if prev_fork:
                 comparisons[(prev_fork, fork)].add((rel_doc_name, rel_name))

@@ -49,7 +49,7 @@ def evm_trace(evm: Any, op: Any) -> None:
     Create a new trace instance before opcode execution
     """
     if isinstance(op, bytes):
-        opcode = "0x" + op.hex().lstrip("00")
+        opcode = "0x" + op.hex().lstrip("0")
     else:
         opcode = str(op).split(".")[-1]
 

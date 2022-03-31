@@ -270,8 +270,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
     except Revert as e:
         evm.error = e
         evm.has_erred = True
-    finally:
-        return evm
+    return evm
 
 
 def collect_touched_accounts(

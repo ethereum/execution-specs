@@ -57,7 +57,7 @@ class Hardfork:
         """
         Block number of the first block in this hard fork.
         """
-        return getattr(self.mod, "MAINNET_FORK_BLOCK")
+        return getattr(self.mod, "MAINNET_FORK_BLOCK")  # noqa: B009
 
     @property
     def path(self) -> Optional[str]:

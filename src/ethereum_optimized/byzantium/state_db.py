@@ -564,7 +564,7 @@ def walk(
                 cursor,
             )
         else:
-            assert False  # Invalid internal node type
+            raise AssertionError()  # Invalid internal node type
     return current_node
 
 
@@ -831,7 +831,7 @@ def make_extension_node(
             target_key[len(node_key) :], encode_internal_node(target_node)
         )
     else:
-        assert False  # Invalid internal node type
+        raise AssertionError()  # Invalid internal node type
 
 
 def split_branch(
