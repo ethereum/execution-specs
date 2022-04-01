@@ -188,7 +188,7 @@ def create2(evm: Evm) -> None:
         push(evm.stack, U256(0))
         return None
 
-    if sender.nonce == Uint(2 ** 64 - 1):
+    if sender.nonce == Uint(2**64 - 1):
         push(evm.stack, U256(0))
         return None
 

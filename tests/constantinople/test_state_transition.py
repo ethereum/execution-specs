@@ -1,5 +1,6 @@
 import os
 from functools import partial
+from typing import Iterator
 
 import pytest
 
@@ -248,7 +249,7 @@ def test_general_state_tests(test_file: str) -> None:
         pytest.xfail(f"{test_file} doesn't have post state")
 
 
-def load_st_create2_tests():
+def load_st_create2_tests() -> Iterator[str]:
     # Load all the tests in test_dir/stCreate2/
     return (
         f"stCreate2/{file}" for file in os.listdir(f"{test_dir}/stCreate2")

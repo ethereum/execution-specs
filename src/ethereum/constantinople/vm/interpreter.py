@@ -24,7 +24,6 @@ from ..state import (
     account_has_code_or_nonce,
     begin_transaction,
     commit_transaction,
-    destroy_account,
     destroy_storage,
     get_account,
     increment_nonce,
@@ -322,8 +321,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
     except Revert as e:
         evm.error = e
         evm.has_erred = True
-    finally:
-        return evm
+    return evm
 
 
 def collect_touched_accounts(
