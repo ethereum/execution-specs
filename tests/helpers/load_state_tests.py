@@ -323,14 +323,18 @@ def add_blocks_to_chain(
 
 
 def fetch_state_test_files(
-    test_dir: str, slow_test_list: Tuple[str, ...], load: BaseLoad
+    test_dir: str,
+    slow_test_list: Tuple[str, ...],
+    incorrect_tests_list: Tuple[str, ...],
+    load: BaseLoad,
 ) -> Generator[str, None, None]:
+    # TODO: provide a way to run slow tests
+    tests_to_ignore = slow_test_list + incorrect_tests_list
     for _dir in os.listdir(test_dir):
         test_file_path = os.path.join(test_dir, _dir)
         for _file in os.listdir(test_file_path):
             _test_file = os.path.join(_dir, _file)
-            # TODO: provide a way to run slow tests
-            if _test_file in slow_test_list:
+            if _test_file in tests_to_ignore:
                 continue
             else:
                 try:
