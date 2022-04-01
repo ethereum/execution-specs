@@ -20,7 +20,7 @@ from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 from ...state import get_account
 from ...utils.address import to_address
 from ...vm.error import OutOfBoundsRead, OutOfGasError
-from ...vm.memory import extend_memory, memory_write
+from ...vm.memory import memory_write, touch_memory
 from .. import Evm
 from ..gas import (
     GAS_BALANCE,
@@ -29,7 +29,6 @@ from ..gas import (
     GAS_EXTERNAL,
     GAS_RETURN_DATA_COPY,
     GAS_VERY_LOW,
-    calculate_gas_extend_memory,
     subtract_gas,
 )
 from ..stack import pop, push
@@ -216,8 +215,8 @@ def calldatacopy(evm: Evm) -> None:
     """
     # Converting below to Uint as though the start indices may belong to U256,
     # the ending indices may overflow U256.
-    memory_start_index = Uint(pop(evm.stack))
-    data_start_index = Uint(pop(evm.stack))
+    memory_start_index = pop(evm.stack)
+    data_start_index = pop(evm.stack)
     size = pop(evm.stack)
 
     words = ceil32(Uint(size)) // 32
@@ -226,13 +225,9 @@ def calldatacopy(evm: Evm) -> None:
         words,
         exception_type=OutOfGasError,
     )
-    memory_extend_gas_cost = calculate_gas_extend_memory(
-        evm.memory, memory_start_index, size
-    )
     total_gas_cost = u256_safe_add(
         GAS_VERY_LOW,
         copy_gas_cost,
-        memory_extend_gas_cost,
         exception_type=OutOfGasError,
     )
     subtract_gas(evm, total_gas_cost)
@@ -242,14 +237,15 @@ def calldatacopy(evm: Evm) -> None:
     if size == 0:
         return
 
-    extend_memory(evm.memory, memory_start_index, size)
-
-    value = evm.message.data[data_start_index : data_start_index + size]
+    touch_memory(evm, memory_start_index, size)
+    value = evm.message.data[
+        data_start_index : Uint(data_start_index) + Uint(size)
+    ]
     # But it is possible that data_start_index + size won't exist in evm.data
     # in which case we need to right pad the above obtained bytes with 0.
     value = value.ljust(size, b"\x00")
 
-    memory_write(evm.memory, memory_start_index, value)
+    memory_write(evm, memory_start_index, value)
 
 
 def codesize(evm: Evm) -> None:
@@ -291,8 +287,8 @@ def codecopy(evm: Evm) -> None:
     """
     # Converting below to Uint as though the start indices may belong to U256,
     # the ending indices may not belong to U256.
-    memory_start_index = Uint(pop(evm.stack))
-    code_start_index = Uint(pop(evm.stack))
+    memory_start_index = pop(evm.stack)
+    code_start_index = pop(evm.stack)
     size = pop(evm.stack)
 
     words = ceil32(Uint(size)) // 32
@@ -301,13 +297,9 @@ def codecopy(evm: Evm) -> None:
         words,
         exception_type=OutOfGasError,
     )
-    memory_extend_gas_cost = calculate_gas_extend_memory(
-        evm.memory, memory_start_index, size
-    )
     total_gas_cost = u256_safe_add(
         GAS_VERY_LOW,
         copy_gas_cost,
-        memory_extend_gas_cost,
         exception_type=OutOfGasError,
     )
     subtract_gas(evm, total_gas_cost)
@@ -317,15 +309,14 @@ def codecopy(evm: Evm) -> None:
     if size == 0:
         return
 
-    extend_memory(evm.memory, memory_start_index, size)
-
-    value = evm.code[code_start_index : code_start_index + size]
+    touch_memory(evm, memory_start_index, size)
+    value = evm.code[code_start_index : Uint(code_start_index) + Uint(size)]
     # But it is possible that code_start_index + size - 1 won't exist in
     # evm.code in which case we need to right pad the above obtained bytes
     # with 0.
     value = value.ljust(size, b"\x00")
 
-    memory_write(evm.memory, memory_start_index, value)
+    memory_write(evm, memory_start_index, value)
 
 
 def gasprice(evm: Evm) -> None:
@@ -396,9 +387,8 @@ def extcodecopy(evm: Evm) -> None:
     # custom test cases.
 
     address = to_address(pop(evm.stack))
-
-    memory_start_index = Uint(pop(evm.stack))
-    code_start_index = Uint(pop(evm.stack))
+    memory_start_index = pop(evm.stack)
+    code_start_index = pop(evm.stack)
     size = pop(evm.stack)
 
     words = ceil32(Uint(size)) // 32
@@ -407,13 +397,9 @@ def extcodecopy(evm: Evm) -> None:
         words,
         exception_type=OutOfGasError,
     )
-    memory_extend_gas_cost = calculate_gas_extend_memory(
-        evm.memory, memory_start_index, size
-    )
     total_gas_cost = u256_safe_add(
         GAS_EXTERNAL,
         copy_gas_cost,
-        memory_extend_gas_cost,
         exception_type=OutOfGasError,
     )
     subtract_gas(evm, total_gas_cost)
@@ -426,14 +412,13 @@ def extcodecopy(evm: Evm) -> None:
     # Non-existent accounts default to EMPTY_ACCOUNT, which has empty code.
     code = get_account(evm.env.state, address).code
 
-    extend_memory(evm.memory, memory_start_index, size)
-
-    value = code[code_start_index : code_start_index + size]
+    touch_memory(evm, memory_start_index, size)
+    value = code[code_start_index : Uint(code_start_index) + Uint(size)]
     # But it is possible that code_start_index + size won't exist in evm.code
     # in which case we need to right pad the above obtained bytes with 0.
     value = value.ljust(size, b"\x00")
 
-    memory_write(evm.memory, memory_start_index, value)
+    memory_write(evm, memory_start_index, value)
 
 
 def returndatasize(evm: Evm) -> None:
@@ -460,11 +445,11 @@ def returndatacopy(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    memory_start_index = Uint(pop(evm.stack))
-    return_data_start_position = Uint(pop(evm.stack))
+    memory_start_index = pop(evm.stack)
+    return_data_start_position = pop(evm.stack)
     size = pop(evm.stack)
     ensure(
-        return_data_start_position + size <= len(evm.return_data),
+        Uint(return_data_start_position) + Uint(size) <= len(evm.return_data),
         OutOfBoundsRead,
     )
 
@@ -474,20 +459,16 @@ def returndatacopy(evm: Evm) -> None:
         words,
         exception_type=OutOfGasError,
     )
-    memory_extend_gas_cost = calculate_gas_extend_memory(
-        evm.memory, memory_start_index, size
-    )
     total_gas_cost = u256_safe_add(
         GAS_VERY_LOW,
         copy_gas_cost,
-        memory_extend_gas_cost,
         exception_type=OutOfGasError,
     )
     subtract_gas(evm, total_gas_cost)
 
-    extend_memory(evm.memory, memory_start_index, size)
     value = evm.return_data[
-        return_data_start_position : return_data_start_position + size
+        return_data_start_position : Uint(return_data_start_position)
+        + Uint(size)
     ]
-    memory_write(evm.memory, memory_start_index, value)
+    memory_write(evm, memory_start_index, value)
     evm.pc += 1

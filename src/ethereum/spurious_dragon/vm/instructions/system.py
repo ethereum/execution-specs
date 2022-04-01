@@ -34,12 +34,11 @@ from ..gas import (
     GAS_SELF_DESTRUCT_NEW_ACCOUNT,
     GAS_ZERO,
     calculate_call_gas_cost,
-    calculate_gas_extend_memory,
     calculate_message_call_gas_stipend,
     max_message_call_gas,
     subtract_gas,
 )
-from ..memory import extend_memory, memory_read_bytes, memory_write
+from ..memory import memory_read_bytes, memory_write, touch_memory
 from ..stack import pop, push
 
 
@@ -57,19 +56,13 @@ def create(evm: Evm) -> None:
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
 
     endowment = pop(evm.stack)
-    memory_start_position = Uint(pop(evm.stack))
+    memory_start_position = pop(evm.stack)
     memory_size = pop(evm.stack)
 
-    extend_memory_gas_cost = calculate_gas_extend_memory(
-        evm.memory, memory_start_position, memory_size
-    )
-    total_gas_cost = u256_safe_add(
-        GAS_CREATE,
-        extend_memory_gas_cost,
-        exception_type=OutOfGasError,
-    )
-    subtract_gas(evm, total_gas_cost)
-    extend_memory(evm.memory, memory_start_position, memory_size)
+    call_data = memory_read_bytes(evm, memory_start_position, memory_size)
+
+    subtract_gas(evm, GAS_CREATE)
+
     sender_address = evm.message.current_target
     sender = get_account(evm.env.state, sender_address)
 
@@ -86,10 +79,6 @@ def create(evm: Evm) -> None:
     if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
         push(evm.stack, U256(0))
         return None
-
-    call_data = memory_read_bytes(
-        evm.memory, memory_start_position, memory_size
-    )
 
     increment_nonce(evm.env.state, evm.message.current_target)
 
@@ -137,16 +126,12 @@ def return_(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    memory_start_position = Uint(pop(evm.stack))
+    memory_start_position = pop(evm.stack)
     memory_size = pop(evm.stack)
-    gas_cost = GAS_ZERO + calculate_gas_extend_memory(
-        evm.memory, memory_start_position, memory_size
-    )
-    subtract_gas(evm, gas_cost)
-    extend_memory(evm.memory, memory_start_position, memory_size)
-    evm.output = memory_read_bytes(
-        evm.memory, memory_start_position, memory_size
-    )
+
+    subtract_gas(evm, GAS_ZERO)
+
+    evm.output = memory_read_bytes(evm, memory_start_position, memory_size)
     # HALT the execution
     evm.running = False
 
@@ -167,24 +152,15 @@ def call(evm: Evm) -> None:
     gas = pop(evm.stack)
     to = to_address(pop(evm.stack))
     value = pop(evm.stack)
-    memory_input_start_position = Uint(pop(evm.stack))
+    memory_input_start_position = pop(evm.stack)
     memory_input_size = pop(evm.stack)
-    memory_output_start_position = Uint(pop(evm.stack))
+    memory_output_start_position = pop(evm.stack)
     memory_output_size = pop(evm.stack)
 
-    gas_input_memory = calculate_gas_extend_memory(
-        evm.memory, memory_input_start_position, memory_input_size
-    )
-    subtract_gas(evm, gas_input_memory)
-    extend_memory(evm.memory, memory_input_start_position, memory_input_size)
-    gas_output_memory = calculate_gas_extend_memory(
-        evm.memory, memory_output_start_position, memory_output_size
-    )
-    subtract_gas(evm, gas_output_memory)
-    extend_memory(evm.memory, memory_output_start_position, memory_output_size)
     call_data = memory_read_bytes(
-        evm.memory, memory_input_start_position, memory_input_size
+        evm, memory_input_start_position, memory_input_size
     )
+    touch_memory(evm, memory_output_start_position, memory_output_size)
 
     is_account_alive = account_exists(
         evm.env.state, to
@@ -243,7 +219,7 @@ def call(evm: Evm) -> None:
 
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
     memory_write(
-        evm.memory,
+        evm,
         memory_output_start_position,
         child_evm.output[:actual_output_size],
     )
@@ -267,25 +243,16 @@ def callcode(evm: Evm) -> None:
     gas = pop(evm.stack)
     code_address = to_address(pop(evm.stack))
     value = pop(evm.stack)
-    memory_input_start_position = Uint(pop(evm.stack))
+    memory_input_start_position = pop(evm.stack)
     memory_input_size = pop(evm.stack)
-    memory_output_start_position = Uint(pop(evm.stack))
+    memory_output_start_position = pop(evm.stack)
     memory_output_size = pop(evm.stack)
     to = evm.message.current_target
 
-    gas_input_memory = calculate_gas_extend_memory(
-        evm.memory, memory_input_start_position, memory_input_size
-    )
-    subtract_gas(evm, gas_input_memory)
-    extend_memory(evm.memory, memory_input_start_position, memory_input_size)
-    gas_output_memory = calculate_gas_extend_memory(
-        evm.memory, memory_output_start_position, memory_output_size
-    )
-    subtract_gas(evm, gas_output_memory)
-    extend_memory(evm.memory, memory_output_start_position, memory_output_size)
     call_data = memory_read_bytes(
-        evm.memory, memory_input_start_position, memory_input_size
+        evm, memory_input_start_position, memory_input_size
     )
+    touch_memory(evm, memory_output_start_position, memory_output_size)
 
     transfer_gas_cost = U256(0) if value == 0 else GAS_CALL_VALUE
     extra_gas = transfer_gas_cost
@@ -334,7 +301,7 @@ def callcode(evm: Evm) -> None:
         push(evm.stack, U256(1))
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
     memory_write(
-        evm.memory,
+        evm,
         memory_output_start_position,
         child_evm.output[:actual_output_size],
     )
@@ -397,26 +364,17 @@ def delegatecall(evm: Evm) -> None:
 
     gas = pop(evm.stack)
     code_address = to_address(pop(evm.stack))
-    memory_input_start_position = Uint(pop(evm.stack))
+    memory_input_start_position = pop(evm.stack)
     memory_input_size = pop(evm.stack)
-    memory_output_start_position = Uint(pop(evm.stack))
+    memory_output_start_position = pop(evm.stack)
     memory_output_size = pop(evm.stack)
     value = evm.message.value
     to = evm.message.current_target
 
-    gas_input_memory = calculate_gas_extend_memory(
-        evm.memory, memory_input_start_position, memory_input_size
-    )
-    subtract_gas(evm, gas_input_memory)
-    extend_memory(evm.memory, memory_input_start_position, memory_input_size)
-    gas_output_memory = calculate_gas_extend_memory(
-        evm.memory, memory_output_start_position, memory_output_size
-    )
-    subtract_gas(evm, gas_output_memory)
-    extend_memory(evm.memory, memory_output_start_position, memory_output_size)
     call_data = memory_read_bytes(
-        evm.memory, memory_input_start_position, memory_input_size
+        evm, memory_input_start_position, memory_input_size
     )
+    touch_memory(evm, memory_output_start_position, memory_output_size)
 
     extra_gas = U256(0)
     call_gas_fee = calculate_call_gas_cost(gas, evm.gas_left, extra_gas)
@@ -456,7 +414,7 @@ def delegatecall(evm: Evm) -> None:
         push(evm.stack, U256(1))
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
     memory_write(
-        evm.memory,
+        evm,
         memory_output_start_position,
         child_evm.output[:actual_output_size],
     )

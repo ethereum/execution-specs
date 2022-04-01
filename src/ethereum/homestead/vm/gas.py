@@ -82,30 +82,6 @@ def subtract_gas(evm: Evm, amount: U256) -> None:
         evm.gas_left -= amount
 
 
-def check_gas(evm: Evm, amount: U256) -> None:
-    """
-    Check that at least `amount` gas is available in `evm`. Raise
-    `OutOfGasError` if it isn't.
-
-    This is useful to guard a potentially expensive operation with a gas check
-    when the full gas cost will be calculated later.
-
-    Parameters
-    ----------
-    evm :
-        Current `evm` instance.
-    amount :
-        The amount of gas the current operation requires.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `gas_left` is less than `amount`.
-    """
-    if evm.gas_left < amount:
-        raise OutOfGasError
-
-
 def calculate_memory_gas_cost(size_in_bytes: Uint) -> U256:
     """
     Calculates the gas cost for allocating memory
@@ -130,41 +106,6 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> U256:
         return U256(total_gas_cost)
     except ValueError:
         raise OutOfGasError
-
-
-def calculate_gas_extend_memory(
-    memory: bytearray, start_position: Uint, size: U256
-) -> U256:
-    """
-    Calculates the gas amount to extend memory
-
-    Parameters
-    ----------
-    memory :
-        Memory contents of the EVM.
-    start_position :
-        Starting pointer to the memory.
-    size:
-        Amount of bytes by which the memory needs to be extended.
-
-    Returns
-    -------
-    to_be_paid : `ethereum.base_types.U256`
-        returns `0` if size=0 or if the
-        size after extending memory is less than the size before extending
-        else it returns the amount that needs to be paid for extendinng memory.
-    """
-    if size == 0:
-        return U256(0)
-    memory_size = Uint(len(memory))
-    before_size = ceil32(memory_size)
-    after_size = ceil32(start_position + size)
-    if after_size <= before_size:
-        return U256(0)
-    already_paid = calculate_memory_gas_cost(before_size)
-    total_cost = calculate_memory_gas_cost(after_size)
-    to_be_paid = total_cost - already_paid
-    return to_be_paid
 
 
 def calculate_call_gas_cost(

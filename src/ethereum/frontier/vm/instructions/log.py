@@ -13,20 +13,14 @@ Implementations of the EVM logging instructions.
 """
 from functools import partial
 
-from ethereum.base_types import U256, Uint
+from ethereum.base_types import U256
 from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
 from ...eth_types import Log
 from ...vm.error import OutOfGasError
 from .. import Evm
-from ..gas import (
-    GAS_LOG,
-    GAS_LOG_DATA,
-    GAS_LOG_TOPIC,
-    calculate_gas_extend_memory,
-    subtract_gas,
-)
-from ..memory import extend_memory, memory_read_bytes
+from ..gas import GAS_LOG, GAS_LOG_DATA, GAS_LOG_TOPIC, subtract_gas
+from ..memory import memory_read_bytes
 from ..stack import pop
 
 
@@ -51,7 +45,7 @@ def log_n(evm: Evm, num_topics: U256) -> None:
     """
     # Converting memory_start_index to Uint as memory_start_index + size - 1
     # can overflow U256.
-    memory_start_index = Uint(pop(evm.stack))
+    memory_start_index = pop(evm.stack)
     size = pop(evm.stack)
 
     gas_cost_log_data = u256_safe_multiply(
@@ -60,29 +54,22 @@ def log_n(evm: Evm, num_topics: U256) -> None:
     gas_cost_log_topic = u256_safe_multiply(
         GAS_LOG_TOPIC, num_topics, exception_type=OutOfGasError
     )
-    gas_cost_memory_extend = calculate_gas_extend_memory(
-        evm.memory, memory_start_index, size
-    )
     gas_cost = u256_safe_add(
         GAS_LOG,
         gas_cost_log_data,
         gas_cost_log_topic,
-        gas_cost_memory_extend,
         exception_type=OutOfGasError,
     )
     subtract_gas(evm, gas_cost)
-
-    extend_memory(evm.memory, memory_start_index, size)
 
     topics = []
     for _ in range(num_topics):
         topic = pop(evm.stack).to_be_bytes32()
         topics.append(topic)
-
     log_entry = Log(
         address=evm.message.current_target,
         topics=tuple(topics),
-        data=memory_read_bytes(evm.memory, memory_start_index, size),
+        data=memory_read_bytes(evm, memory_start_index, size),
     )
 
     evm.logs = evm.logs + (log_entry,)

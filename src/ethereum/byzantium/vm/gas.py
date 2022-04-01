@@ -109,41 +109,6 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> U256:
         raise OutOfGasError
 
 
-def calculate_gas_extend_memory(
-    memory: bytearray, start_position: Uint, size: U256
-) -> U256:
-    """
-    Calculates the gas amount to extend memory
-
-    Parameters
-    ----------
-    memory :
-        Memory contents of the EVM.
-    start_position :
-        Starting pointer to the memory.
-    size:
-        Amount of bytes by which the memory needs to be extended.
-
-    Returns
-    -------
-    to_be_paid : `ethereum.base_types.U256`
-        returns `0` if size=0 or if the
-        size after extending memory is less than the size before extending
-        else it returns the amount that needs to be paid for extendinng memory.
-    """
-    if size == 0:
-        return U256(0)
-    memory_size = Uint(len(memory))
-    before_size = ceil32(memory_size)
-    after_size = ceil32(start_position + size)
-    if after_size <= before_size:
-        return U256(0)
-    already_paid = calculate_memory_gas_cost(before_size)
-    total_cost = calculate_memory_gas_cost(after_size)
-    to_be_paid = total_cost - already_paid
-    return to_be_paid
-
-
 def calculate_call_gas_cost(
     gas: U256, gas_left: U256, extra_gas: U256
 ) -> U256:
