@@ -159,8 +159,8 @@ def get_byte(evm: Evm) -> None:
 
 def bitwise_shl(evm: Evm) -> None:
     """
-    Shift right (SHL) operation of the top 2 elements of the stack. Pushes the
-    result back on the stack.
+    Logical shift left (SHL) operation of the top 2 elements of the stack.
+    Pushes the result back on the stack.
 
     Parameters
     ----------
@@ -172,11 +172,10 @@ def bitwise_shl(evm: Evm) -> None:
     value = pop(evm.stack)
 
     evm.pc += 1
-    if shift >= 256:
-        push(evm.stack, U256(0))
-        return
+    shifted_value = 0
+    if shift < 256:
+        shifted_value = (value << shift) % U256_CEIL_VALUE
 
-    shifted_value = (value << shift) % U256_CEIL_VALUE
     push(evm.stack, U256(shifted_value))
 
 
@@ -195,11 +194,10 @@ def bitwise_shr(evm: Evm) -> None:
     value = pop(evm.stack)
 
     evm.pc += 1
-    if shift >= 256:
-        push(evm.stack, U256(0))
-        return
+    shifted_value = U256(0)
+    if shift < 256:
+        shifted_value = value >> shift
 
-    shifted_value = value >> shift
     push(evm.stack, shifted_value)
 
 
@@ -220,13 +218,11 @@ def bitwise_sar(evm: Evm) -> None:
     signed_value = value.to_signed()
 
     evm.pc += 1
-    if shift >= 256:
-        if signed_value >= 0:
-            push(evm.stack, U256(0))
-            return
-        else:
-            push(evm.stack, U256(U256.MAX_VALUE))
-            return
+    if shift < 256:
+        shifted_value = signed_value >> shift
+    elif signed_value >= 0:
+        shifted_value = 0
+    else:
+        shifted_value = U256.MAX_VALUE
 
-    shifted_value = signed_value >> shift
     push(evm.stack, U256.from_signed(shifted_value))

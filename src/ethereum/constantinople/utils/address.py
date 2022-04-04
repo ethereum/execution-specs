@@ -52,7 +52,7 @@ def compute_contract_address(address: Address, nonce: Uint) -> Address:
 
     Returns
     -------
-    address: `ethereum.constantinople.eth_types.Address`
+    address: `Address`
         The computed address of the new account.
     """
     computed_address = keccak256(rlp.encode([address, nonce]))
