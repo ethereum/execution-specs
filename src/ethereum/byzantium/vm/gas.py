@@ -70,7 +70,7 @@ def subtract_gas(evm: Evm, amount: U256) -> None:
     evm :
         Current `evm` instance.
     amount :
-        The amount of gas the current operation requires.
+        The amount of gas to deduct.
 
     Raises
     ------

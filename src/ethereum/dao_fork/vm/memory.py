@@ -22,8 +22,7 @@ from .gas import calculate_memory_gas_cost, subtract_gas
 
 def extend_memory(evm: Evm, new_size: U256) -> None:
     """
-    Extends the size of the memory and
-    substracts the gas amount to extend memory.
+    Extend memory to `new_size` and charge the appropriate amount of gas.
 
     Parameters
     ----------
@@ -47,7 +46,7 @@ def extend_memory(evm: Evm, new_size: U256) -> None:
 def touch_memory(evm: Evm, start_position: U256, size: U256) -> None:
     """
     Extend memory as if a read or write at `start_position` of length `size`
-    had occured.
+    had occured and charge the appropriate amount of gas.
 
     Parameters
     ----------
@@ -69,7 +68,8 @@ def touch_memory(evm: Evm, start_position: U256, size: U256) -> None:
 
 def memory_write(evm: Evm, start_position: U256, value: Bytes) -> None:
     """
-    Writes to memory.
+    Writes to memory. If necessary, extend memory and charge the appropriate
+    amount of gas.
 
     Parameters
     ----------
@@ -92,7 +92,8 @@ def memory_write(evm: Evm, start_position: U256, value: Bytes) -> None:
 
 def memory_read_bytes(evm: Evm, start_position: U256, size: U256) -> Bytes:
     """
-    Read bytes from memory.
+    Read bytes from memory. If necessary, extend memory and charge the
+    appropriate amount of gas.
 
     Parameters
     ----------
