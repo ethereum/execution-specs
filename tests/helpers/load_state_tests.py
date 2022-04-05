@@ -3,8 +3,11 @@ import json
 import os.path
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Generator, List, Tuple, cast
+from typing import Any, Dict, Generator, List, Tuple, Union, cast
 from unittest.mock import call, patch
+
+import pytest
+from _pytest.mark.structures import ParameterSet
 
 from ethereum import rlp
 from ethereum.base_types import U256, Bytes0
@@ -327,15 +330,15 @@ def fetch_state_test_files(
     slow_test_list: Tuple[str, ...],
     incorrect_tests_list: Tuple[str, ...],
     load: BaseLoad,
-) -> Generator[str, None, None]:
-    # TODO: provide a way to run slow tests
-    tests_to_ignore = slow_test_list + incorrect_tests_list
+) -> Generator[Union[str, ParameterSet], None, None]:
     for _dir in os.listdir(test_dir):
         test_file_path = os.path.join(test_dir, _dir)
         for _file in os.listdir(test_file_path):
             _test_file = os.path.join(_dir, _file)
-            if _test_file in tests_to_ignore:
+            if _test_file in incorrect_tests_list:
                 continue
+            elif _test_file in slow_test_list:
+                yield pytest.param(_test_file, marks=pytest.mark.slow)
             else:
                 try:
                     load_json_fixture(test_dir, _test_file, load)
