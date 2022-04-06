@@ -19,11 +19,23 @@ run_general_state_tests = partial(run_byzantium_blockchain_st_tests, test_dir)
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
-SLOW_TESTS = ("stRevertTest/RevertInCreateInInit_d0g0v0.json",)
+SLOW_TESTS = ()
+
+# These are tests that are considered to be incorrect,
+# Please provide an explanation when adding entries
+INCORRECT_UPSTREAM_STATE_TESTS = (
+    # The test considers a scenario that cannot be reached by following the
+    # rules of consensus. For more details, read:
+    # https://github.com/ethereum/py-evm/pull/1224#issuecomment-418775512
+    "stRevertTest/RevertInCreateInInit_d0g0v0.json",
+)
 
 
 @pytest.mark.parametrize(
-    "test_file", fetch_state_test_files(test_dir, SLOW_TESTS, FIXTURES_LOADER)
+    "test_file",
+    fetch_state_test_files(
+        test_dir, SLOW_TESTS, INCORRECT_UPSTREAM_STATE_TESTS, FIXTURES_LOADER
+    ),
 )
 def test_general_state_tests(test_file: str) -> None:
     try:
@@ -72,7 +84,7 @@ run_invalid_block_test = partial(
 
 
 @pytest.mark.parametrize(
-    "test_file", fetch_state_test_files(test_dir, (), FIXTURES_LOADER)
+    "test_file", fetch_state_test_files(test_dir, (), (), FIXTURES_LOADER)
 )
 def test_invalid_block_tests(test_file: str) -> None:
     try:

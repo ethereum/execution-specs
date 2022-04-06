@@ -97,8 +97,16 @@ SLOW_TESTS = (
 )
 
 
+# These are tests that are considered to be incorrect,
+# Please provide an explanation when adding entries
+INCORRECT_UPSTREAM_STATE_TESTS = ()
+
+
 @pytest.mark.parametrize(
-    "test_file", fetch_state_test_files(test_dir, SLOW_TESTS, FIXTURES_LOADER)
+    "test_file",
+    fetch_state_test_files(
+        test_dir, SLOW_TESTS, INCORRECT_UPSTREAM_STATE_TESTS, FIXTURES_LOADER
+    ),
 )
 def test_general_state_tests(test_file: str) -> None:
     try:
@@ -149,7 +157,7 @@ run_invalid_block_test = partial(
 
 
 @pytest.mark.parametrize(
-    "test_file", fetch_state_test_files(test_dir, (), FIXTURES_LOADER)
+    "test_file", fetch_state_test_files(test_dir, (), (), FIXTURES_LOADER)
 )
 def test_invalid_block_tests(test_file: str) -> None:
     try:
