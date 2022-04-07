@@ -32,23 +32,18 @@ INCORRECT_UPSTREAM_STATE_TESTS = (
     # rules of consensus. For more details, read:
     # https://github.com/ethereum/py-evm/pull/1224#issuecomment-418775512
     "stRevertTest/RevertInCreateInInit_d0g0v0.json",
-
     # The test considers a scenario that cannot be reached by following the
     # rules of consensus.
     "stCreate2/RevertInCreateInInitCreate2_d0g0v0.json",
-
     # The test considers a scenario that cannot be reached by following the
     # rules of consensus.
     "stSStoreTest/InitCollision_d0g0v0.json",
-
     # The test considers a scenario that cannot be reached by following the
     # rules of consensus.
     "stSStoreTest/InitCollision_d1g0v0.json",
-
     # The test considers a scenario that cannot be reached by following the
     # rules of consensus.
     "stSStoreTest/InitCollision_d2g0v0.json",
-
     # The test considers a scenario that cannot be reached by following the
     # rules of consensus.
     "stSStoreTest/InitCollision_d3g0v0.json",
