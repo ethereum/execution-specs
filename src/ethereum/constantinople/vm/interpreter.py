@@ -299,11 +299,6 @@ def execute_code(message: Message, env: Environment) -> Evm:
             evm_trace(evm, evm.message.code_address)
             PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
             return evm
-        else:
-            print(
-                "Got an unimplemented Pre Compiled Contract",
-                evm.message.code_address,
-            )
 
         while evm.running and evm.pc < len(evm.code):
             try:
