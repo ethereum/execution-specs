@@ -52,9 +52,10 @@ def create(evm: Evm) -> None:
     memory_start_position = pop(evm.stack)
     memory_size = pop(evm.stack)
 
-    call_data = memory_read_bytes(evm, memory_start_position, memory_size)
-
     subtract_gas(evm, GAS_CREATE)
+    touch_memory(evm, memory_start_position, memory_size)
+
+    call_data = memory_read_bytes(evm, memory_start_position, memory_size)
 
     sender_address = evm.message.current_target
     sender = get_account(evm.env.state, sender_address)
@@ -123,6 +124,7 @@ def return_(evm: Evm) -> None:
     memory_size = pop(evm.stack)
 
     subtract_gas(evm, GAS_ZERO)
+    touch_memory(evm, memory_start_position, memory_size)
 
     evm.output = memory_read_bytes(evm, memory_start_position, memory_size)
     # HALT the execution
@@ -148,10 +150,12 @@ def call(evm: Evm) -> None:
     memory_output_start_position = pop(evm.stack)
     memory_output_size = pop(evm.stack)
 
+    touch_memory(evm, memory_input_start_position, memory_input_size)
+    touch_memory(evm, memory_output_start_position, memory_output_size)
+
     call_data = memory_read_bytes(
         evm, memory_input_start_position, memory_input_size
     )
-    touch_memory(evm, memory_output_start_position, memory_output_size)
 
     call_gas_fee = calculate_call_gas_cost(evm.env.state, gas, to, value)
     message_call_gas_fee = u256_safe_add(
@@ -228,10 +232,12 @@ def callcode(evm: Evm) -> None:
     memory_output_size = pop(evm.stack)
     to = evm.message.current_target
 
+    touch_memory(evm, memory_input_start_position, memory_input_size)
+    touch_memory(evm, memory_output_start_position, memory_output_size)
+
     call_data = memory_read_bytes(
         evm, memory_input_start_position, memory_input_size
     )
-    touch_memory(evm, memory_output_start_position, memory_output_size)
 
     call_gas_fee = calculate_call_gas_cost(evm.env.state, gas, to, value)
     message_call_gas_fee = u256_safe_add(
@@ -338,10 +344,12 @@ def delegatecall(evm: Evm) -> None:
     value = evm.message.value
     to = evm.message.current_target
 
+    touch_memory(evm, memory_input_start_position, memory_input_size)
+    touch_memory(evm, memory_output_start_position, memory_output_size)
+
     call_data = memory_read_bytes(
         evm, memory_input_start_position, memory_input_size
     )
-    touch_memory(evm, memory_output_start_position, memory_output_size)
 
     call_gas_fee = GAS_CALL + gas
     message_call_gas_fee = gas

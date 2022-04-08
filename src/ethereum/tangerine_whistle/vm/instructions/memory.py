@@ -15,7 +15,7 @@ from ethereum.base_types import U8_MAX_VALUE, U256
 
 from .. import Evm
 from ..gas import GAS_BASE, GAS_VERY_LOW, subtract_gas
-from ..memory import memory_read_bytes, memory_write
+from ..memory import memory_read_bytes, memory_write, touch_memory
 from ..stack import pop, push
 
 
@@ -42,6 +42,8 @@ def mstore(evm: Evm) -> None:
     value = pop(evm.stack).to_be_bytes32()
 
     subtract_gas(evm, GAS_VERY_LOW)
+    touch_memory(evm, start_position, U256(len(value)))
+
     memory_write(evm, start_position, value)
 
     evm.pc += 1
@@ -73,6 +75,8 @@ def mstore8(evm: Evm) -> None:
     normalized_bytes_value = (value & U8_MAX_VALUE).to_bytes(1, "big")
 
     subtract_gas(evm, GAS_VERY_LOW)
+    touch_memory(evm, start_position, U256(1))
+
     memory_write(evm, start_position, normalized_bytes_value)
 
     evm.pc += 1
@@ -98,6 +102,7 @@ def mload(evm: Evm) -> None:
     # convert to Uint as start_position + size_to_extend can overflow.
     start_position = pop(evm.stack)
     subtract_gas(evm, GAS_VERY_LOW)
+    touch_memory(evm, start_position, U256(32))
 
     # extend memory and subtract gas for allocating 32 bytes of memory
     value = U256.from_be_bytes(

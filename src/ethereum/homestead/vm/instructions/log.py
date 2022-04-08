@@ -20,7 +20,7 @@ from ...eth_types import Log
 from ...vm.error import OutOfGasError
 from .. import Evm
 from ..gas import GAS_LOG, GAS_LOG_DATA, GAS_LOG_TOPIC, subtract_gas
-from ..memory import memory_read_bytes
+from ..memory import memory_read_bytes, touch_memory
 from ..stack import pop
 
 
@@ -61,6 +61,7 @@ def log_n(evm: Evm, num_topics: U256) -> None:
         exception_type=OutOfGasError,
     )
     subtract_gas(evm, gas_cost)
+    touch_memory(evm, memory_start_index, size)
 
     topics = []
     for _ in range(num_topics):

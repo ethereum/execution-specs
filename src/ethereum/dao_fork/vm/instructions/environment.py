@@ -229,13 +229,13 @@ def calldatacopy(evm: Evm) -> None:
         exception_type=OutOfGasError,
     )
     subtract_gas(evm, total_gas_cost)
+    touch_memory(evm, memory_start_index, size)
 
     evm.pc += 1
 
     if size == 0:
         return
 
-    touch_memory(evm, memory_start_index, size)
     value = evm.message.data[
         data_start_index : Uint(data_start_index) + Uint(size)
     ]
@@ -301,13 +301,13 @@ def codecopy(evm: Evm) -> None:
         exception_type=OutOfGasError,
     )
     subtract_gas(evm, total_gas_cost)
+    touch_memory(evm, memory_start_index, size)
 
     evm.pc += 1
 
     if size == 0:
         return
 
-    touch_memory(evm, memory_start_index, size)
     value = evm.code[code_start_index : Uint(code_start_index) + Uint(size)]
     # But it is possible that code_start_index + size - 1 won't exist in
     # evm.code in which case we need to right pad the above obtained bytes
@@ -401,6 +401,7 @@ def extcodecopy(evm: Evm) -> None:
         exception_type=OutOfGasError,
     )
     subtract_gas(evm, total_gas_cost)
+    touch_memory(evm, memory_start_index, size)
 
     evm.pc += 1
 

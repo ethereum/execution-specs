@@ -20,7 +20,7 @@ from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 from ...vm.error import OutOfGasError
 from .. import Evm
 from ..gas import GAS_KECCAK256, GAS_KECCAK256_WORD, subtract_gas
-from ..memory import memory_read_bytes
+from ..memory import memory_read_bytes, touch_memory
 from ..stack import pop, push
 
 
@@ -56,6 +56,7 @@ def keccak(evm: Evm) -> None:
         exception_type=OutOfGasError,
     )
     subtract_gas(evm, total_gas_cost)
+    touch_memory(evm, memory_start_index, size)
 
     data = memory_read_bytes(evm, memory_start_index, size)
     hash = keccak256(data)

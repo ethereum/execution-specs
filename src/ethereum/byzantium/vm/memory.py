@@ -11,6 +11,7 @@ Introduction
 
 EVM memory operations.
 """
+from ethereum.utils.ensure import ensure
 from ethereum.utils.numeric import ceil32
 from ethereum.utils.safe_arithmetic import u256_safe_add
 
@@ -45,8 +46,8 @@ def extend_memory(evm: Evm, new_size: U256) -> None:
 
 def touch_memory(evm: Evm, start_position: U256, size: U256) -> None:
     """
-    Extend memory as if a read or write at `start_position` of length `size`
-    had occured and charge the appropriate amount of gas.
+    Extend memory as needed to perform a read or write at `start_position` of
+    length `size` and charge the appropriate amount of gas.
 
     Parameters
     ----------
@@ -68,8 +69,7 @@ def touch_memory(evm: Evm, start_position: U256, size: U256) -> None:
 
 def memory_write(evm: Evm, start_position: U256, value: Bytes) -> None:
     """
-    Writes to memory. If necessary, extend memory and charge the appropriate
-    amount of gas.
+    Writes to memory.
 
     Parameters
     ----------
@@ -82,18 +82,14 @@ def memory_write(evm: Evm, start_position: U256, value: Bytes) -> None:
     """
     if len(value) == 0:
         return
-    end_position = u256_safe_add(
-        start_position, U256(len(value)), exception_type=OutOfGasError
-    )
-    if len(evm.memory) < end_position:
-        extend_memory(evm, end_position)
+    end_position = start_position + U256(len(value))
+    ensure(len(evm.memory) >= end_position, AssertionError)
     evm.memory[start_position:end_position] = value
 
 
 def memory_read_bytes(evm: Evm, start_position: U256, size: U256) -> Bytes:
     """
-    Read bytes from memory. If necessary, extend memory and charge the
-    appropriate amount of gas.
+    Read bytes from memory.
 
     Parameters
     ----------
@@ -111,9 +107,6 @@ def memory_read_bytes(evm: Evm, start_position: U256, size: U256) -> Bytes:
     """
     if size == 0:
         return Bytes()
-    end_position = u256_safe_add(
-        start_position, size, exception_type=OutOfGasError
-    )
-    if len(evm.memory) < end_position:
-        extend_memory(evm, end_position)
+    end_position = start_position + size
+    ensure(len(evm.memory) >= end_position, AssertionError)
     return Bytes(evm.memory[start_position:end_position])
