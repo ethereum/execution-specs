@@ -235,6 +235,7 @@ def create2(evm: Evm) -> None:
         evm.return_data = child_evm.output
     else:
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
+        evm.logs += child_evm.logs
         evm.return_data = b""
     evm.gas_left += child_evm.gas_left
     child_evm.gas_left = U256(0)

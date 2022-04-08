@@ -189,7 +189,7 @@ def destroy_account(state: State, address: Address) -> None:
 
 def destroy_storage(state: State, address: Address) -> None:
     """
-    Completely remove the account at `address` and all of its storage.
+    Completely remove the storage at `address`.
 
     Parameters
     ----------
