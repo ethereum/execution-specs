@@ -334,7 +334,7 @@ def load_json_fixture(test_file: str, network: str) -> Generator:
 def fetch_state_test_files(
     test_dir: str,
     network: str,
-    custom_file_list: Tuple[str, ...] = (),
+    only_in: Tuple[str, ...] = (),
     slow_list: Tuple[str, ...] = (),
     ignore_list: Tuple[str, ...] = (),
 ) -> Generator[Union[Dict, ParameterSet], None, None]:
@@ -345,10 +345,10 @@ def fetch_state_test_files(
     # Get all the files to iterate over
     # Maybe from the custom file list or entire test_dir
     files_to_iterate = []
-    if any(custom_file_list):
+    if len(only_in):
         # Get file list from custom list, if one is specified
-        for _file in custom_file_list:
-            files_to_iterate.append(os.path.join(test_dir, _file))
+        for test_path in only_in:
+            files_to_iterate.append(os.path.join(test_dir, test_path))
     else:
         # If there isnt a custom list, iterate over the test_dir
         all_jsons = [
@@ -357,18 +357,25 @@ def fetch_state_test_files(
             for y in glob(os.path.join(x[0], "*.json"))
         ]
 
-        for _full_path in all_jsons:
-            if not any(x.search(_full_path) for x in all_ignore):
+        for full_path in all_jsons:
+            if not any(x.search(full_path) for x in all_ignore):
                 # If a file or folder is marked for ignore,
                 # it can already be dropped at this stage
-                files_to_iterate.append(_full_path)
+                files_to_iterate.append(full_path)
 
     # Start yielding individual test cases from the file list
     for _test_file in files_to_iterate:
         try:
             for _test_case in load_json_fixture(_test_file, network):
-                # identifier could identifiy files, folders or individual cases
-                _identifier = _test_case["test_file"] + _test_case["test_key"]
+                # _identifier could identifiy files, folders through test_file
+                #  individual cases through test_key
+                _identifier = (
+                    "("
+                    + _test_case["test_file"]
+                    + "|"
+                    + _test_case["test_key"]
+                    + ")"
+                )
                 if any(x.search(_identifier) for x in all_ignore):
                     continue
                 elif any(x.search(_identifier) for x in all_slow):

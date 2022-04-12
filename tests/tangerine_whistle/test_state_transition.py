@@ -47,7 +47,7 @@ test_dir = (
     "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/ValidBlocks/"
 )
 
-custom_file_list = (
+only_in = (
     "bcUncleTest/oneUncle.json",
     "bcUncleTest/oneUncleGeneration2.json",
     "bcUncleTest/oneUncleGeneration3.json",
@@ -62,7 +62,7 @@ custom_file_list = (
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_tangerine_whistle_tests(test_dir, custom_file_list=custom_file_list),
+    fetch_tangerine_whistle_tests(test_dir, only_in=only_in),
     ids=idfn,
 )
 def test_uncles_correctness(test_case: Dict) -> None:
@@ -103,7 +103,7 @@ def test_invalid_block_tests(test_case: Dict) -> None:
 # Run Non-Legacy GeneralStateTests
 test_dir = "tests/fixtures/BlockchainTests/GeneralStateTests/"
 
-non_legacy_custom_file_list = (
+non_legacy_only_in = (
     "stCreateTest/CREATE_HighNonce.json",
     "stCreateTest/CREATE_HighNonceMinus1.json",
 )
@@ -111,9 +111,7 @@ non_legacy_custom_file_list = (
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_tangerine_whistle_tests(
-        test_dir, custom_file_list=non_legacy_custom_file_list
-    ),
+    fetch_tangerine_whistle_tests(test_dir, only_in=non_legacy_only_in),
     ids=idfn,
 )
 def test_general_state_tests_new(test_case: Dict) -> None:
