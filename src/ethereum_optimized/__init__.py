@@ -25,6 +25,7 @@ def monkey_patch(state_path: Optional[str]) -> None:
     """
     from . import (
         byzantium,
+        constantinople,
         dao_fork,
         frontier,
         homestead,
@@ -38,3 +39,4 @@ def monkey_patch(state_path: Optional[str]) -> None:
     tangerine_whistle.monkey_patch(state_path)
     spurious_dragon.monkey_patch(state_path)
     byzantium.monkey_patch(state_path)
+    constantinople.monkey_patch(state_path)
