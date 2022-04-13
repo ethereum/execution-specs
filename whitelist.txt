@@ -12,6 +12,7 @@ Bytes8
 Bytes256
 Bytes0
 copyreg
+copytree
 coinbase
 coincurve
 crypto
@@ -22,6 +23,7 @@ ethash
 ethereum
 evm
 exc
+formatter
 getsource
 Hash32
 hasher

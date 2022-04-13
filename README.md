@@ -124,3 +124,28 @@ This specification aims to be:
 ### Spelling
 
 Attempt to use descriptive English words (or _very common_ abbreviations) in documentation and identifiers. If necessary, there is a custom dictionary `whitelist.txt`.
+
+
+## CLI Utilities `ethereum_spec_tools`
+
+### New Fork Tool
+This tool can be used to creates the base code for a new fork by using the existing code from a given fork.
+
+The command takes 4 arguments, 2 of which are optional
+ * from_fork: The fork name from which the code is to be duplicated. Eg. - "Tangerine Whistle"
+ * to_fork: The fork name of the new fork Eg - "Spurious Dragon"
+ * from_test (Optional): Name of the from fork within the test fixtures in case it is different from fork name. Eg. - "EIP150"
+ * to_test (Optional): Name of the to fork within the test fixtures in case it is different from fork name Eg - "EIP158"
+
+As an example, if one wants to create baseline code for the `Spurious Dragon` fork from the `Tangerine Whistle` one
+
+```bash
+ethereum-spec-new-fork --from_fork="Tangerine Whistle" --to_fork="Spurious Dragon" --from_test=EIP150 --to_test=EIP158
+```
+
+The following will have to however, be updated manually
+ 1. The fork number and MAINNET_FORK_BLOCK in __init__.py
+ 2. Any absolute package imports from other forks eg. in trie.py
+ 3. Package names under setup.cfg
+ 4. Add the new fork to the monkey_patch() function in src/ethereum_optimized/__init__.py
+ 5. Adjust the underline in fork/__init__.py as well as __init__.py, address.py, message.py in fork/utils
