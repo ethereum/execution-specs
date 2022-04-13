@@ -11,12 +11,15 @@ Introduction
 
 Implementations of the EVM storage related instructions.
 """
+from ethereum.base_types import U256
 from ethereum.utils.ensure import ensure
 
 from ...state import get_storage, set_storage
+from ...trie import trie_get
 from .. import Evm
-from ..error import WriteInStaticContext
+from ..error import OutOfGasError, WriteInStaticContext
 from ..gas import (
+    GAS_CALL_STIPEND,
     GAS_SLOAD,
     GAS_STORAGE_CLEAR_REFUND,
     GAS_STORAGE_SET,
@@ -69,25 +72,48 @@ def sstore(evm: Evm) -> None:
     :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
         If `evm.gas_left` is less than `20000`.
     """
+    if evm.gas_left <= GAS_CALL_STIPEND:
+        raise OutOfGasError
+
     ensure(not evm.message.is_static, WriteInStaticContext)
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
     current_value = get_storage(evm.env.state, evm.message.current_target, key)
 
-    # TODO: SSTORE gas usage hasn't been tested yet. Testing this needs
-    # other opcodes to be implemented.
-    # Calculating the gas needed for the storage
-    if new_value != 0 and current_value == 0:
-        gas_cost = GAS_STORAGE_SET
+    _, original_trie = evm.env.state._snapshots[0]
+    original_account_trie = original_trie.get(evm.message.current_target)
+
+    if original_account_trie is None:
+        original_value = U256(0)
     else:
-        gas_cost = GAS_STORAGE_UPDATE
+        original_value = trie_get(original_account_trie, key)
+
+    assert isinstance(original_value, U256)
+
+    if current_value == new_value:
+        gas_cost = GAS_SLOAD
+    else:
+        if original_value == current_value:
+            if original_value == 0:
+                gas_cost = GAS_STORAGE_SET
+            else:
+                gas_cost = GAS_STORAGE_UPDATE
+                if new_value == 0:
+                    evm.refund_counter += int(GAS_STORAGE_CLEAR_REFUND)
+        else:
+            gas_cost = GAS_SLOAD
+            if original_value != 0:
+                if current_value == 0:
+                    evm.refund_counter -= int(GAS_STORAGE_CLEAR_REFUND)
+                if new_value == 0:
+                    evm.refund_counter += int(GAS_STORAGE_CLEAR_REFUND)
+            if original_value == new_value:
+                if original_value == 0:
+                    evm.refund_counter += int(GAS_STORAGE_SET - GAS_SLOAD)
+                else:
+                    evm.refund_counter += int(GAS_STORAGE_UPDATE - GAS_SLOAD)
 
     evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
-
-    # TODO: Refund counter hasn't been tested yet. Testing this needs other
-    # Opcodes to be implemented
-    if new_value == 0 and current_value != 0:
-        evm.refund_counter += GAS_STORAGE_CLEAR_REFUND
 
     set_storage(evm.env.state, evm.message.current_target, key, new_value)
 

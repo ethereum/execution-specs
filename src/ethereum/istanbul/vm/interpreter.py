@@ -283,7 +283,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         env=env,
         valid_jump_destinations=valid_jump_destinations,
         logs=(),
-        refund_counter=U256(0),
+        refund_counter=0,
         running=True,
         message=message,
         output=b"",
@@ -401,7 +401,7 @@ def collect_accounts_to_delete(evm: Evm) -> Set[Address]:
         )
 
 
-def calculate_gas_refund(evm: Evm) -> U256:
+def calculate_gas_refund(evm: Evm) -> int:
     """
     Adds up the gas that was refunded in each execution frame during the
     message call.
@@ -418,7 +418,7 @@ def calculate_gas_refund(evm: Evm) -> U256:
         message call.
     """
     if evm.has_erred:
-        return U256(0)
+        return 0
     else:
         return evm.refund_counter + sum(
             calculate_gas_refund(child_evm) for child_evm in evm.children
