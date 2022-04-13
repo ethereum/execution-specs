@@ -13,10 +13,10 @@ This module contains functions can be monkey patched into
 `ethereum.istanbul.spec` to use alternate optimized implementations.
 """
 from ethereum.base_types import U256_CEIL_VALUE
-from ethereum.istanbul.eth_types import Header
-from ethereum.istanbul.spec import generate_header_hash_for_pow
 from ethereum.ethash import epoch
 from ethereum.exceptions import InvalidBlock
+from ethereum.istanbul.eth_types import Header
+from ethereum.istanbul.spec import generate_header_hash_for_pow
 from ethereum.utils.ensure import ensure
 
 try:

@@ -6,11 +6,6 @@ import pytest
 
 from ethereum import rlp
 from ethereum.base_types import Uint
-from ethereum.istanbul.eth_types import Header
-from ethereum.istanbul.spec import (
-    generate_header_hash_for_pow,
-    validate_proof_of_work,
-)
 from ethereum.crypto.hash import keccak256
 from ethereum.ethash import (
     cache_size,
@@ -18,6 +13,11 @@ from ethereum.ethash import (
     generate_cache,
     generate_seed,
     hashimoto_light,
+)
+from ethereum.istanbul.eth_types import Header
+from ethereum.istanbul.spec import (
+    generate_header_hash_for_pow,
+    validate_proof_of_work,
 )
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,

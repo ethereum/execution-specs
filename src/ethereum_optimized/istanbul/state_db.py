@@ -19,6 +19,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
 
 from ethereum import rlp
 from ethereum.base_types import U256, Bytes, Uint
+from ethereum.crypto.hash import keccak256
 from ethereum.istanbul.eth_types import (
     EMPTY_ACCOUNT,
     Account,
@@ -37,7 +38,6 @@ from ethereum.istanbul.trie import (
     common_prefix_length,
     encode_internal_node,
 )
-from ethereum.crypto.hash import keccak256
 
 from .trie_utils import decode_to_internal_node, encode_internal_node_nohash
 

@@ -96,7 +96,6 @@ class Ops(enum.Enum):
     GASLIMIT = 0x45
     SELFBALANCE = 0x47
 
-
     # Control Flow Ops
     STOP = 0x00
     JUMP = 0x56

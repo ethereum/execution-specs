@@ -2,6 +2,7 @@ import pytest
 
 import ethereum.rlp as rlp
 from ethereum.base_types import U256, Bytes, Bytes0, Bytes8, Uint
+from ethereum.crypto.hash import keccak256
 from ethereum.istanbul.eth_types import (
     Block,
     Header,
@@ -10,7 +11,6 @@ from ethereum.istanbul.eth_types import (
     Transaction,
 )
 from ethereum.istanbul.utils.hexadecimal import hex_to_address
-from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes256
 
 hash1 = keccak256(b"foo")

@@ -327,3 +327,11 @@ linefunc
 metavar
 const
 keepends
+
+blake2
+blake2b
+blake2f
+R1
+R2
+R3
+R4

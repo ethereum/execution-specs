@@ -14,9 +14,7 @@ from ..helpers.eth_types_helpers import load_test_transaction
 
 test_dir = "tests/fixtures/TransactionTests"
 
-load_istanbul_transaction = partial(
-    load_test_transaction, network="Istanbul"
-)
+load_istanbul_transaction = partial(load_test_transaction, network="Istanbul")
 
 
 @pytest.mark.parametrize(
