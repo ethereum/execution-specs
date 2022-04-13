@@ -30,6 +30,7 @@ from ..gas import (
     GAS_CODE_HASH,
     GAS_COPY,
     GAS_EXTERNAL,
+    GAS_FAST_STEP,
     GAS_RETURN_DATA_COPY,
     GAS_VERY_LOW,
     calculate_gas_extend_memory,
@@ -519,3 +520,31 @@ def extcodehash(evm: Evm) -> None:
         code = account.code
         code_hash = keccak256(code)
         push(evm.stack, U256.from_be_bytes(code_hash))
+
+
+def self_balance(evm: Evm) -> None:
+    """
+    Pushes the balance of the current address to the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Raises
+    ------
+    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+        If `evm.gas_left` is less than GAS_FAST_STEP.
+    """
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_FAST_STEP)
+
+    current_target = U256.from_be_bytes(evm.message.current_target)
+
+    address = to_address(current_target)
+
+    # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
+    balance = get_account(evm.env.state, address).balance
+
+    push(evm.stack, balance)
+
+    evm.pc += 1

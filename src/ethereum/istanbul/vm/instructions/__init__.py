@@ -94,6 +94,8 @@ class Ops(enum.Enum):
     NUMBER = 0x43
     DIFFICULTY = 0x44
     GASLIMIT = 0x45
+    SELFBALANCE = 0x47
+
 
     # Control Flow Ops
     STOP = 0x00
@@ -260,6 +262,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.RETURNDATASIZE: environment_instructions.returndatasize,
     Ops.RETURNDATACOPY: environment_instructions.returndatacopy,
     Ops.EXTCODEHASH: environment_instructions.extcodehash,
+    Ops.SELFBALANCE: environment_instructions.self_balance,
     Ops.SSTORE: storage_instructions.sstore,
     Ops.JUMP: control_flow_instructions.jump,
     Ops.JUMPI: control_flow_instructions.jumpi,
