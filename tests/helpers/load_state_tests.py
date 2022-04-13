@@ -1,8 +1,10 @@
 import importlib
 import json
+import logging
 import os.path
 import re
 from abc import ABC, abstractmethod
+from glob import glob
 from typing import Any, Dict, Generator, List, Tuple, Union, cast
 from unittest.mock import call, patch
 
@@ -220,41 +222,17 @@ class Load(BaseLoad):
         )
 
 
-def load_json_fixture(
-    test_dir: str, test_file: str, load: BaseLoad
-) -> Dict[str, Any]:
-    # Extract the pure basename of the file without the path to the file.
-    # Ex: Extract "world.json" from "path/to/file/world.json"
-    pure_test_file = os.path.basename(test_file)
-    # Extract the filename without the extension. Ex: Extract "world" from
-    # "world.json"
-    test_name = os.path.splitext(pure_test_file)[0]
-    path = os.path.join(test_dir, test_file)
-    with open(path, "r") as fp:
-        data = json.load(fp)
+def load_test(test_case: Dict, load: BaseLoad) -> Dict:
 
-        # Some newer test files have patterns like _d0g0v0_
-        # between test_name and network
-        keys_to_search = re.compile(
-            f"{re.escape(test_name)}.*{re.escape(load.network)}"
-        )
-        found_keys = list(filter(keys_to_search.match, data.keys()))
-
-        if len(found_keys) > 0:
-            json_data = data[found_keys[0]]
-        else:
-            raise KeyError
-    return json_data
-
-
-def load_test(test_dir: str, test_file: str, load: BaseLoad) -> Dict[str, Any]:
-    json_data = load_json_fixture(test_dir, test_file, load)
+    json_data = test_case["test_data"]
 
     blocks, block_header_hashes, block_rlps = load.json_to_blocks(
         json_data["blocks"]
     )
 
     return {
+        "test_file": test_case["test_file"],
+        "test_key": test_case["test_key"],
         "genesis_header": load.json_to_header(json_data["genesisBlockHeader"]),
         "genesis_header_hash": hex_to_bytes(
             json_data["genesisBlockHeader"]["hash"]
@@ -270,10 +248,9 @@ def load_test(test_dir: str, test_file: str, load: BaseLoad) -> Dict[str, Any]:
     }
 
 
-def run_blockchain_st_test(
-    test_dir: str, test_file: str, load: BaseLoad
-) -> None:
-    test_data = load_test(test_dir, test_file, load)
+def run_blockchain_st_test(test_case: Dict, load: BaseLoad) -> None:
+
+    test_data = load_test(test_case, load)
 
     genesis_header = test_data["genesis_header"]
     genesis_block = load.Block(
@@ -325,24 +302,93 @@ def add_blocks_to_chain(
         load.state_transition(chain, block)
 
 
+# Functions that fetch individual test cases
+def load_json_fixture(test_file: str, network: str) -> Generator:
+    # Extract the pure basename of the file without the path to the file.
+    # Ex: Extract "world.json" from "path/to/file/world.json"
+    pure_test_file = os.path.basename(test_file)
+    # Extract the filename without the extension. Ex: Extract "world" from
+    # "world.json"
+    test_name = os.path.splitext(pure_test_file)[0]
+    with open(test_file, "r") as fp:
+        data = json.load(fp)
+
+        # Some newer test files have patterns like _d0g0v0_
+        # between test_name and network
+        keys_to_search = re.compile(
+            f"{re.escape(test_name)}.*{re.escape(network)}"
+        )
+        found_keys = list(filter(keys_to_search.match, data.keys()))
+
+        if not any(found_keys):
+            raise KeyError
+
+        for _key in found_keys:
+            yield {
+                "test_file": test_file,
+                "test_key": _key,
+                "test_data": data[_key],
+            }
+
+
 def fetch_state_test_files(
     test_dir: str,
-    slow_test_list: Tuple[str, ...],
-    incorrect_tests_list: Tuple[str, ...],
-    load: BaseLoad,
-) -> Generator[Union[str, ParameterSet], None, None]:
-    for _dir in os.listdir(test_dir):
-        test_file_path = os.path.join(test_dir, _dir)
-        for _file in os.listdir(test_file_path):
-            _test_file = os.path.join(_dir, _file)
-            if _test_file in incorrect_tests_list:
-                continue
-            elif _test_file in slow_test_list:
-                yield pytest.param(_test_file, marks=pytest.mark.slow)
-            else:
-                try:
-                    load_json_fixture(test_dir, _test_file, load)
-                    yield _test_file
-                except KeyError:
-                    # file doesn't contain tests for the given fork
-                    pass
+    network: str,
+    only_in: Tuple[str, ...] = (),
+    slow_list: Tuple[str, ...] = (),
+    ignore_list: Tuple[str, ...] = (),
+) -> Generator[Union[Dict, ParameterSet], None, None]:
+
+    all_slow = [re.compile(x) for x in slow_list]
+    all_ignore = [re.compile(x) for x in ignore_list]
+
+    # Get all the files to iterate over
+    # Maybe from the custom file list or entire test_dir
+    files_to_iterate = []
+    if len(only_in):
+        # Get file list from custom list, if one is specified
+        for test_path in only_in:
+            files_to_iterate.append(os.path.join(test_dir, test_path))
+    else:
+        # If there isnt a custom list, iterate over the test_dir
+        all_jsons = [
+            y
+            for x in os.walk(test_dir)
+            for y in glob(os.path.join(x[0], "*.json"))
+        ]
+
+        for full_path in all_jsons:
+            if not any(x.search(full_path) for x in all_ignore):
+                # If a file or folder is marked for ignore,
+                # it can already be dropped at this stage
+                files_to_iterate.append(full_path)
+
+    # Start yielding individual test cases from the file list
+    for _test_file in files_to_iterate:
+        try:
+            for _test_case in load_json_fixture(_test_file, network):
+                # _identifier could identifiy files, folders through test_file
+                #  individual cases through test_key
+                _identifier = (
+                    "("
+                    + _test_case["test_file"]
+                    + "|"
+                    + _test_case["test_key"]
+                    + ")"
+                )
+                if any(x.search(_identifier) for x in all_ignore):
+                    continue
+                elif any(x.search(_identifier) for x in all_slow):
+                    yield pytest.param(_test_case, marks=pytest.mark.slow)
+                else:
+                    yield _test_case
+        except KeyError:
+            # file doesn't contain tests for the given fork
+            continue
+
+
+# Test case Identifier
+def idfn(test_case: Dict) -> str:
+    folder_name = test_case["test_file"].split("/")[-2]
+    # Assign Folder name and test_key to identify tests in output
+    return folder_name + " - " + test_case["test_key"]
