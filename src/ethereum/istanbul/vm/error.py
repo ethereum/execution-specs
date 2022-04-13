@@ -111,3 +111,11 @@ class OutOfBoundsRead(ExceptionalHalt):
     """
 
     pass
+
+
+class InvalidBlake2Parameter(ExceptionalHalt):
+    """
+    Raised when invalid parameters are passed to the Blake2 precompile
+    """
+
+    pass
