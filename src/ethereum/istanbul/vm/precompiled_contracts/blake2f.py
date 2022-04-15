@@ -12,9 +12,10 @@ Introduction
 Implementation of the `Blake2` precompiled contract.
 """
 from ethereum.crypto.blake2 import Blake2b
+from ethereum.utils.ensure import ensure
 
 from ...vm import Evm
-from ...vm.error import InvalidBlake2Parameter
+from ...vm.error import InvalidParameter
 from ...vm.gas import GAS_BLAKE2_PER_ROUND, subtract_gas
 
 
@@ -29,14 +30,12 @@ def blake2f(evm: Evm) -> None:
     """
     data = evm.message.data
 
-    if len(data) != 213:
-        raise InvalidBlake2Parameter
+    ensure(len(data) == 213, InvalidParameter)
 
     blake2b = Blake2b()
     rounds, h, m, t_0, t_1, f = blake2b.get_blake2_parameters(data)
 
-    if f not in [0, 1]:
-        raise InvalidBlake2Parameter
+    ensure(f in [0, 1], InvalidParameter)
 
     total_gas_cost = GAS_BLAKE2_PER_ROUND * rounds
 

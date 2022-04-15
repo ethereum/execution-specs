@@ -538,9 +538,7 @@ def self_balance(evm: Evm) -> None:
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_FAST_STEP)
 
-    current_target = U256.from_be_bytes(evm.message.current_target)
-
-    address = to_address(current_target)
+    address = evm.message.current_target
 
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
     balance = get_account(evm.env.state, address).balance

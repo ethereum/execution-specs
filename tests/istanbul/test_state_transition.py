@@ -99,6 +99,8 @@ def test_uncles_correctness(test_case: Dict) -> None:
 # Run legacy invalid block tests
 test_dir = "tests/fixtures/BlockchainTests/InvalidBlocks"
 
+# TODO: Investigate why some of the below tests pass
+# All except GasLimitHigherThan2p63m1_Istanbul
 xfail_candidates = (
     "timestampTooLow_Istanbul",
     "timestampTooHigh_Istanbul",
