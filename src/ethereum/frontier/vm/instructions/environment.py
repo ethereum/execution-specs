@@ -11,6 +11,7 @@ Introduction
 
 Implementations of the EVM environment related instructions.
 """
+from typing import List
 
 from ethereum.base_types import U256, Uint
 from ethereum.utils.numeric import ceil32
@@ -29,194 +30,106 @@ from ..gas import (
     GAS_VERY_LOW,
     subtract_gas,
 )
-from ..stack import pop, push
+from ..operation import Operation, static_gas
 
 
-def address(evm: Evm) -> None:
+def do_address(evm: Evm, stack: List[U256]) -> U256:
     """
     Pushes the address of the current executing account to the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
-    subtract_gas(evm, GAS_BASE)
-    push(evm.stack, U256.from_be_bytes(evm.message.current_target))
-
-    evm.pc += 1
+    return U256.from_be_bytes(evm.message.current_target)
 
 
-def balance(evm: Evm) -> None:
+address = Operation(static_gas(GAS_BASE), do_address, 0, 1)
+
+
+def do_balance(evm: Evm, stack: List[U256], address: U256) -> U256:
     """
     Pushes the balance of the given account onto the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `20`.
     """
-    # TODO: There are no test cases against this function. Need to write
-    # custom test cases.
-    subtract_gas(evm, GAS_BALANCE)
-
-    address = to_address(pop(evm.stack))
-
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
-    balance = get_account(evm.env.state, address).balance
-
-    push(evm.stack, balance)
-
-    evm.pc += 1
+    return get_account(evm.env.state, to_address(address)).balance
 
 
-def origin(evm: Evm) -> None:
+balance = Operation(static_gas(GAS_BALANCE), do_balance, 1, 1)
+
+
+def do_origin(evm: Evm, stack: List[U256]) -> U256:
     """
     Pushes the address of the original transaction sender to the stack.
     The origin address can only be an EOA.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
-    subtract_gas(evm, GAS_BASE)
-    push(evm.stack, U256.from_be_bytes(evm.env.origin))
-
-    evm.pc += 1
+    return U256.from_be_bytes(evm.env.origin)
 
 
-def caller(evm: Evm) -> None:
+origin = Operation(static_gas(GAS_BASE), do_origin, 0, 1)
+
+
+def do_caller(evm: Evm, stack: List[U256]) -> U256:
     """
     Pushes the address of the caller onto the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
-    subtract_gas(evm, GAS_BASE)
-    push(evm.stack, U256.from_be_bytes(evm.message.caller))
-
-    evm.pc += 1
+    return U256.from_be_bytes(evm.message.caller)
 
 
-def callvalue(evm: Evm) -> None:
+caller = Operation(static_gas(GAS_BASE), do_caller, 0, 1)
+
+
+def do_callvalue(evm: Evm, stack: List[U256]) -> U256:
     """
     Push the value (in wei) sent with the call onto the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
-    subtract_gas(evm, GAS_BASE)
-    push(evm.stack, evm.message.value)
-
-    evm.pc += 1
+    return evm.message.value
 
 
-def calldataload(evm: Evm) -> None:
+callvalue = Operation(static_gas(GAS_BASE), do_callvalue, 0, 1)
+
+
+def do_calldataload(
+    evm: Evm, stack: List[U256], start_index_u256: U256
+) -> U256:
     """
     Push a word (32 bytes) of the input data belonging to the current
     environment onto the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `3`.
     """
-    subtract_gas(evm, GAS_VERY_LOW)
-
     # Converting start_index to Uint from U256 as start_index + 32 can
     # overflow U256.
-    start_index = Uint(pop(evm.stack))
+    start_index = Uint(start_index_u256)
     value = evm.message.data[start_index : start_index + 32]
     # Right pad with 0 so that there are overall 32 bytes.
     value = value.ljust(32, b"\x00")
 
-    push(evm.stack, U256.from_be_bytes(value))
-
-    evm.pc += 1
+    return U256.from_be_bytes(value)
 
 
-def calldatasize(evm: Evm) -> None:
+calldataload = Operation(static_gas(GAS_VERY_LOW), do_calldataload, 1, 1)
+
+
+def do_calldatasize(evm: Evm, stack: List[U256]) -> U256:
     """
     Push the size of input data in current environment onto the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
-    subtract_gas(evm, GAS_BASE)
-    push(evm.stack, U256(len(evm.message.data)))
-
-    evm.pc += 1
+    return U256(len(evm.message.data))
 
 
-def calldatacopy(evm: Evm) -> None:
+calldatasize = Operation(static_gas(GAS_BASE), do_calldatasize, 0, 1)
+
+
+def gas_calldatacopy(
+    evm: Evm,
+    stack: List[U256],
+    size: U256,
+    data_start_index: U256,
+    memory_start_index: U256,
+) -> None:
     """
     Copy a portion of the input data in current environment to memory.
 
     This will also expand the memory, in case that the memory is insufficient
     to store the data.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `3`.
     """
     # Converting below to Uint as though the start indices may belong to U256,
     # the ending indices may overflow U256.
-    memory_start_index = pop(evm.stack)
-    data_start_index = pop(evm.stack)
-    size = pop(evm.stack)
-
     words = ceil32(Uint(size)) // 32
     copy_gas_cost = u256_safe_multiply(
         GAS_COPY,
@@ -231,8 +144,20 @@ def calldatacopy(evm: Evm) -> None:
     subtract_gas(evm, total_gas_cost)
     touch_memory(evm, memory_start_index, size)
 
-    evm.pc += 1
 
+def do_calldatacopy(
+    evm: Evm,
+    stack: List[U256],
+    size: U256,
+    data_start_index: U256,
+    memory_start_index: U256,
+) -> None:
+    """
+    Copy a portion of the input data in current environment to memory.
+
+    This will also expand the memory, in case that the memory is insufficient
+    to store the data.
+    """
     if size == 0:
         return
 
@@ -246,49 +171,32 @@ def calldatacopy(evm: Evm) -> None:
     memory_write(evm, memory_start_index, value)
 
 
-def codesize(evm: Evm) -> None:
+calldatacopy = Operation(gas_calldatacopy, do_calldatacopy, 3, 0)
+
+
+def do_codesize(evm: Evm, stack: List[U256]) -> U256:
     """
     Push the size of code running in current environment onto the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
-    subtract_gas(evm, GAS_BASE)
-    push(evm.stack, U256(len(evm.code)))
-
-    evm.pc += 1
+    return U256(len(evm.code))
 
 
-def codecopy(evm: Evm) -> None:
+codesize = Operation(static_gas(GAS_BASE), do_codesize, 0, 1)
+
+
+def gas_codecopy(
+    evm: Evm,
+    stack: List[U256],
+    size: U256,
+    code_start_index: U256,
+    memory_start_index: U256,
+) -> None:
     """
     Copy a portion of the code in current environment to memory.
 
     This will also expand the memory, in case that the memory is insufficient
     to store the data.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `3`.
     """
-    # Converting below to Uint as though the start indices may belong to U256,
-    # the ending indices may not belong to U256.
-    memory_start_index = pop(evm.stack)
-    code_start_index = pop(evm.stack)
-    size = pop(evm.stack)
-
     words = ceil32(Uint(size)) // 32
     copy_gas_cost = u256_safe_multiply(
         GAS_COPY,
@@ -303,8 +211,20 @@ def codecopy(evm: Evm) -> None:
     subtract_gas(evm, total_gas_cost)
     touch_memory(evm, memory_start_index, size)
 
-    evm.pc += 1
 
+def do_codecopy(
+    evm: Evm,
+    stack: List[U256],
+    size: U256,
+    code_start_index: U256,
+    memory_start_index: U256,
+) -> None:
+    """
+    Copy a portion of the code in current environment to memory.
+
+    This will also expand the memory, in case that the memory is insufficient
+    to store the data.
+    """
     if size == 0:
         return
 
@@ -317,78 +237,41 @@ def codecopy(evm: Evm) -> None:
     memory_write(evm, memory_start_index, value)
 
 
-def gasprice(evm: Evm) -> None:
+codecopy = Operation(gas_codecopy, do_codecopy, 3, 0)
+
+
+def do_gasprice(evm: Evm, stack: List[U256]) -> U256:
     """
     Push the gas price used in current environment onto the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
-    subtract_gas(evm, GAS_BASE)
-    push(evm.stack, evm.env.gas_price)
-
-    evm.pc += 1
+    return evm.env.gas_price
 
 
-def extcodesize(evm: Evm) -> None:
+gasprice = Operation(static_gas(GAS_BASE), do_gasprice, 0, 1)
+
+
+def do_extcodesize(evm: Evm, stack: List[U256], address: U256) -> U256:
     """
     Push the code size of a given account onto the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `20`.
     """
-    # TODO: There are no test cases against this function. Need to write
-    # custom test cases.
-    subtract_gas(evm, GAS_EXTERNAL)
-
-    address = to_address(pop(evm.stack))
-
     # Non-existent accounts default to EMPTY_ACCOUNT, which has empty code.
-    codesize = U256(len(get_account(evm.env.state, address).code))
-
-    push(evm.stack, codesize)
-
-    evm.pc += 1
+    return U256(len(get_account(evm.env.state, to_address(address)).code))
 
 
-def extcodecopy(evm: Evm) -> None:
+extcodesize = Operation(static_gas(GAS_EXTERNAL), do_extcodesize, 1, 1)
+
+
+def gas_extcodecopy(
+    evm: Evm,
+    stack: List[U256],
+    size: U256,
+    code_start_index: U256,
+    memory_start_index: U256,
+    address: U256,
+) -> None:
     """
     Copy a portion of an account's code to memory.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `4`.
     """
-    # TODO: There are no test cases against this function. Need to write
-    # custom test cases.
-
-    address = to_address(pop(evm.stack))
-    memory_start_index = pop(evm.stack)
-    code_start_index = pop(evm.stack)
-    size = pop(evm.stack)
-
     words = ceil32(Uint(size)) // 32
     copy_gas_cost = u256_safe_multiply(
         GAS_COPY,
@@ -403,13 +286,23 @@ def extcodecopy(evm: Evm) -> None:
     subtract_gas(evm, total_gas_cost)
     touch_memory(evm, memory_start_index, size)
 
-    evm.pc += 1
 
+def do_extcodecopy(
+    evm: Evm,
+    stack: List[U256],
+    size: U256,
+    code_start_index: U256,
+    memory_start_index: U256,
+    address: U256,
+) -> None:
+    """
+    Copy a portion of an account's code to memory.
+    """
     if size == 0:
         return
 
     # Non-existent accounts default to EMPTY_ACCOUNT, which has empty code.
-    code = get_account(evm.env.state, address).code
+    code = get_account(evm.env.state, to_address(address)).code
 
     value = code[code_start_index : Uint(code_start_index) + Uint(size)]
     # But it is possible that code_start_index + size won't exist in evm.code
@@ -417,3 +310,6 @@ def extcodecopy(evm: Evm) -> None:
     value = value.ljust(size, b"\x00")
 
     memory_write(evm, memory_start_index, value)
+
+
+extcodecopy = Operation(gas_extcodecopy, do_extcodecopy, 4, 0)

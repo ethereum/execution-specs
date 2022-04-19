@@ -11,174 +11,84 @@ Introduction
 
 Implementations of the EVM Comparison instructions.
 """
+from typing import List
 
 from ethereum.base_types import U256
 
 from .. import Evm
-from ..gas import GAS_VERY_LOW, subtract_gas
-from ..stack import pop, push
+from ..gas import GAS_VERY_LOW
+from ..operation import Operation, static_gas
 
 
-def less_than(evm: Evm) -> None:
+def do_less_than(evm: Evm, stack: List[U256], right: U256, left: U256) -> U256:
     """
     Checks if the top element is less than the next top element. Pushes the
     result back on the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    subtract_gas(evm, GAS_VERY_LOW)
-
-    left = pop(evm.stack)
-    right = pop(evm.stack)
-    result = U256(left < right)
-
-    push(evm.stack, result)
-
-    evm.pc += 1
+    return U256(left < right)
 
 
-def signed_less_than(evm: Evm) -> None:
+less_than = Operation(static_gas(GAS_VERY_LOW), do_less_than, 2, 1)
+
+
+def do_signed_less_than(
+    evm: Evm, stack: List[U256], right: U256, left: U256
+) -> U256:
     """
     Signed less-than comparison.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    subtract_gas(evm, GAS_VERY_LOW)
-
-    left = pop(evm.stack).to_signed()
-    right = pop(evm.stack).to_signed()
-    result = U256(left < right)
-
-    push(evm.stack, result)
-
-    evm.pc += 1
+    return U256(left.to_signed() < right.to_signed())
 
 
-def greater_than(evm: Evm) -> None:
+signed_less_than = Operation(
+    static_gas(GAS_VERY_LOW), do_signed_less_than, 2, 1
+)
+
+
+def do_greater_than(
+    evm: Evm, stack: List[U256], right: U256, left: U256
+) -> U256:
     """
     Checks if the top element is greater than the next top element. Pushes
     the result back on the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    subtract_gas(evm, GAS_VERY_LOW)
-
-    left = pop(evm.stack)
-    right = pop(evm.stack)
-    result = U256(left > right)
-
-    push(evm.stack, result)
-
-    evm.pc += 1
+    return U256(left > right)
 
 
-def signed_greater_than(evm: Evm) -> None:
+greater_than = Operation(static_gas(GAS_VERY_LOW), do_greater_than, 2, 1)
+
+
+def do_signed_greater_than(
+    evm: Evm, stack: List[U256], right: U256, left: U256
+) -> U256:
     """
     Signed greater-than comparison.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    subtract_gas(evm, GAS_VERY_LOW)
-
-    left = pop(evm.stack).to_signed()
-    right = pop(evm.stack).to_signed()
-    result = U256(left > right)
-
-    push(evm.stack, result)
-
-    evm.pc += 1
+    return U256(left.to_signed() > right.to_signed())
 
 
-def equal(evm: Evm) -> None:
+signed_greater_than = Operation(
+    static_gas(GAS_VERY_LOW), do_signed_greater_than, 2, 1
+)
+
+
+def do_equal(evm: Evm, stack: List[U256], right: U256, left: U256) -> U256:
     """
     Checks if the top element is equal to the next top element. Pushes
     the result back on the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    subtract_gas(evm, GAS_VERY_LOW)
-
-    left = pop(evm.stack)
-    right = pop(evm.stack)
-    result = U256(left == right)
-
-    push(evm.stack, result)
-
-    evm.pc += 1
+    return U256(left == right)
 
 
-def is_zero(evm: Evm) -> None:
+equal = Operation(static_gas(GAS_VERY_LOW), do_equal, 2, 1)
+
+
+def do_is_zero(evm: Evm, stack: List[U256], x: U256) -> U256:
     """
     Checks if the top element is equal to 0. Pushes the result back on the
     stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
-    subtract_gas(evm, GAS_VERY_LOW)
+    return U256(x == 0)
 
-    x = pop(evm.stack)
-    result = U256(x == 0)
 
-    push(evm.stack, result)
-
-    evm.pc += 1
+is_zero = Operation(static_gas(GAS_VERY_LOW), do_is_zero, 1, 1)

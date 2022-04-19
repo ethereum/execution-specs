@@ -11,6 +11,9 @@ Introduction
 
 Implementations of the EVM storage related instructions.
 """
+from typing import List
+
+from ethereum.base_types import U256
 
 from ...state import get_storage, set_storage
 from .. import Evm
@@ -21,71 +24,51 @@ from ..gas import (
     GAS_STORAGE_UPDATE,
     subtract_gas,
 )
-from ..stack import pop, push
+from ..operation import Operation, static_gas
 
 
-def sload(evm: Evm) -> None:
+def do_sload(evm: Evm, stack: List[U256], key: U256) -> U256:
     """
     Loads to the stack, the value corresponding to a certain key from the
     storage of the current account.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~:py:class:`~ethereum.frontier.vm.error.StackUnderflowError``
-        If `len(stack)` is less than `1`.
-    :py:class:`~:py:class:`~ethereum.frontier.vm.error.OutOfGasError``
-        If `evm.gas_left` is less than `50`.
     """
-    subtract_gas(evm, GAS_SLOAD)
-
-    key = pop(evm.stack).to_be_bytes32()
-    value = get_storage(evm.env.state, evm.message.current_target, key)
-
-    push(evm.stack, value)
-
-    evm.pc += 1
+    return get_storage(
+        evm.env.state, evm.message.current_target, key.to_be_bytes32()
+    )
 
 
-def sstore(evm: Evm) -> None:
+sload = Operation(static_gas(GAS_SLOAD), do_sload, 1, 1)
+
+
+def gas_sstore(
+    evm: Evm, stack: List[U256], new_value: U256, key: U256
+) -> None:
     """
     Stores a value at a certain key in the current context's storage.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `20000`.
     """
-    key = pop(evm.stack).to_be_bytes32()
-    new_value = pop(evm.stack)
-    current_value = get_storage(evm.env.state, evm.message.current_target, key)
+    current_value = get_storage(
+        evm.env.state, evm.message.current_target, key.to_be_bytes32()
+    )
 
-    # TODO: SSTORE gas usage hasn't been tested yet. Testing this needs
-    # other opcodes to be implemented.
-    # Calculating the gas needed for the storage
     if new_value != 0 and current_value == 0:
-        gas_cost = GAS_STORAGE_SET
+        subtract_gas(evm, GAS_STORAGE_SET)
     else:
-        gas_cost = GAS_STORAGE_UPDATE
+        subtract_gas(evm, GAS_STORAGE_UPDATE)
 
-    subtract_gas(evm, gas_cost)
-
-    # TODO: Refund counter hasn't been tested yet. Testing this needs other
-    # Opcodes to be implemented
     if new_value == 0 and current_value != 0:
         evm.refund_counter += GAS_STORAGE_CLEAR_REFUND
 
-    set_storage(evm.env.state, evm.message.current_target, key, new_value)
 
-    evm.pc += 1
+def do_sstore(evm: Evm, stack: List[U256], new_value: U256, key: U256) -> None:
+    """
+    Stores a value at a certain key in the current context's storage.
+    """
+    set_storage(
+        evm.env.state,
+        evm.message.current_target,
+        key.to_be_bytes32(),
+        new_value,
+    )
+
+
+sstore = Operation(gas_sstore, do_sstore, 2, 0)

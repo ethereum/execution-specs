@@ -12,6 +12,7 @@ Introduction
 Implementations of the EVM logging instructions.
 """
 from functools import partial
+from typing import List
 
 from ethereum.base_types import U256
 from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
@@ -21,38 +22,26 @@ from ...vm.error import OutOfGasError
 from .. import Evm
 from ..gas import GAS_LOG, GAS_LOG_DATA, GAS_LOG_TOPIC, subtract_gas
 from ..memory import memory_read_bytes, touch_memory
-from ..stack import pop
+from ..operation import Operation
 
 
-def log_n(evm: Evm, num_topics: U256) -> None:
+def gas_log_n(
+    num_topics: int, evm: Evm, stack: List[U256], *args: U256
+) -> None:
     """
     Appends a log entry, having `num_topics` topics, to the evm logs.
 
     This will also expand the memory if the data (required by the log entry)
     corresponding to the memory is not accessible.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-    num_topics :
-        The number of topics to be included in the log entry.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2 + num_topics`.
     """
-    # Converting memory_start_index to Uint as memory_start_index + size - 1
-    # can overflow U256.
-    memory_start_index = pop(evm.stack)
-    size = pop(evm.stack)
+    memory_start_index = args[-1]
+    size = args[-2]
 
     gas_cost_log_data = u256_safe_multiply(
         GAS_LOG_DATA, size, exception_type=OutOfGasError
     )
     gas_cost_log_topic = u256_safe_multiply(
-        GAS_LOG_TOPIC, num_topics, exception_type=OutOfGasError
+        GAS_LOG_TOPIC, U256(num_topics), exception_type=OutOfGasError
     )
     gas_cost = u256_safe_add(
         GAS_LOG,
@@ -63,23 +52,39 @@ def log_n(evm: Evm, num_topics: U256) -> None:
     subtract_gas(evm, gas_cost)
     touch_memory(evm, memory_start_index, size)
 
-    topics = []
-    for _ in range(num_topics):
-        topic = pop(evm.stack).to_be_bytes32()
-        topics.append(topic)
+
+def do_log_n(
+    num_topics: int, evm: Evm, stack: List[U256], *args: U256
+) -> None:
+    """
+    Appends a log entry, having `num_topics` topics, to the evm logs.
+
+    This will also expand the memory if the data (required by the log entry)
+    corresponding to the memory is not accessible.
+    """
+    memory_start_index = args[-1]
+    size = args[-2]
+    topics = reversed(args[:-2])
+
     log_entry = Log(
         address=evm.message.current_target,
-        topics=tuple(topics),
+        topics=tuple((topic.to_be_bytes32() for topic in topics)),
         data=memory_read_bytes(evm, memory_start_index, size),
     )
 
     evm.logs = evm.logs + (log_entry,)
 
-    evm.pc += 1
 
+def log_n(num_topics: int) -> Operation:
+    """
+    Appends a log entry, having `num_topics` topics, to the evm logs.
 
-log0 = partial(log_n, num_topics=0)
-log1 = partial(log_n, num_topics=1)
-log2 = partial(log_n, num_topics=2)
-log3 = partial(log_n, num_topics=3)
-log4 = partial(log_n, num_topics=4)
+    This will also expand the memory if the data (required by the log entry)
+    corresponding to the memory is not accessible.
+    """
+    return Operation(
+        partial(gas_log_n, num_topics),
+        partial(do_log_n, num_topics),
+        num_topics + 2,
+        0,
+    )

@@ -12,7 +12,9 @@ Introduction
 Implementations of the EVM Arithmetic instructions.
 """
 
-from ethereum.base_types import U255_CEIL_VALUE, U256, U256_CEIL_VALUE, Uint
+from typing import List
+
+from ethereum.base_types import U255_CEIL_VALUE, U256, U256_CEIL_VALUE
 from ethereum.utils.numeric import get_sign
 
 from .. import Evm
@@ -24,306 +26,144 @@ from ..gas import (
     GAS_VERY_LOW,
     subtract_gas,
 )
-from ..stack import pop, push
+from ..operation import Operation, static_gas
 
 
-def add(evm: Evm) -> None:
+def do_add(evm: Evm, stack: List[U256], y: U256, x: U256) -> U256:
     """
     Adds the top two elements of the stack together, and pushes the result back
     on the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `3`.
     """
-    subtract_gas(evm, GAS_VERY_LOW)
-
-    x = pop(evm.stack)
-    y = pop(evm.stack)
-    result = x.wrapping_add(y)
-
-    push(evm.stack, result)
-
-    evm.pc += 1
+    return x.wrapping_add(y)
 
 
-def sub(evm: Evm) -> None:
+add = Operation(static_gas(GAS_VERY_LOW), do_add, 2, 1)
+
+
+def do_sub(evm: Evm, stack: List[U256], y: U256, x: U256) -> U256:
     """
     Subtracts the top two elements of the stack, and pushes the result back
     on the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `3`.
     """
-    subtract_gas(evm, GAS_VERY_LOW)
-
-    x = pop(evm.stack)
-    y = pop(evm.stack)
-    result = x.wrapping_sub(y)
-
-    push(evm.stack, result)
-
-    evm.pc += 1
+    return x.wrapping_sub(y)
 
 
-def mul(evm: Evm) -> None:
+sub = Operation(static_gas(GAS_VERY_LOW), do_sub, 2, 1)
+
+
+def do_mul(evm: Evm, stack: List[U256], y: U256, x: U256) -> U256:
     """
     Multiply the top two elements of the stack, and pushes the result back
     on the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `5`.
     """
-    subtract_gas(evm, GAS_LOW)
-
-    x = pop(evm.stack)
-    y = pop(evm.stack)
-    result = x.wrapping_mul(y)
-
-    push(evm.stack, result)
-
-    evm.pc += 1
+    return x.wrapping_mul(y)
 
 
-def div(evm: Evm) -> None:
+mul = Operation(static_gas(GAS_LOW), do_mul, 2, 1)
+
+
+def do_div(evm: Evm, stack: List[U256], divisor: U256, dividend: U256) -> U256:
     """
     Integer division of the top two elements of the stack. Pushes the result
     back on the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `5`.
     """
-    subtract_gas(evm, GAS_LOW)
-
-    dividend = pop(evm.stack)
-    divisor = pop(evm.stack)
     if divisor == 0:
-        quotient = U256(0)
+        return U256(0)
     else:
-        quotient = dividend // divisor
-
-    push(evm.stack, quotient)
-
-    evm.pc += 1
+        return dividend // divisor
 
 
-def sdiv(evm: Evm) -> None:
+div = Operation(static_gas(GAS_LOW), do_div, 2, 1)
+
+
+def do_sdiv(
+    evm: Evm,
+    stack: List[U256],
+    divisor_u256: U256,
+    dividend_u256: U256,
+) -> U256:
     """
     Signed integer division of the top two elements of the stack. Pushes the
     result back on the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `5`.
     """
-    subtract_gas(evm, GAS_LOW)
-
-    dividend = pop(evm.stack).to_signed()
-    divisor = pop(evm.stack).to_signed()
-
+    dividend, divisor = dividend_u256.to_signed(), divisor_u256.to_signed()
     if divisor == 0:
-        quotient = 0
+        return U256(0)
     elif dividend == -U255_CEIL_VALUE and divisor == -1:
-        quotient = -U255_CEIL_VALUE
+        return U256.from_signed(-U255_CEIL_VALUE)
     else:
-        sign = get_sign(dividend * divisor)
-        quotient = sign * (abs(dividend) // abs(divisor))
-
-    push(evm.stack, U256.from_signed(quotient))
-
-    evm.pc += 1
+        sign = get_sign(dividend) * get_sign(divisor)
+        return U256.from_signed(sign * (abs(dividend) // abs(divisor)))
 
 
-def mod(evm: Evm) -> None:
+sdiv = Operation(static_gas(GAS_LOW), do_sdiv, 2, 1)
+
+
+def do_mod(evm: Evm, stack: List[U256], y: U256, x: U256) -> U256:
     """
     Modulo remainder of the top two elements of the stack. Pushes the result
     back on the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `5`.
     """
-    subtract_gas(evm, GAS_LOW)
-
-    x = pop(evm.stack)
-    y = pop(evm.stack)
     if y == 0:
-        remainder = U256(0)
+        return U256(0)
     else:
-        remainder = x % y
-
-    push(evm.stack, remainder)
-
-    evm.pc += 1
+        return x % y
 
 
-def smod(evm: Evm) -> None:
+mod = Operation(static_gas(GAS_LOW), do_mod, 2, 1)
+
+
+def do_smod(evm: Evm, stack: List[U256], y: U256, x: U256) -> U256:
     """
     Signed modulo remainder of the top two elements of the stack. Pushes the
     result back on the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `5`.
     """
-    subtract_gas(evm, GAS_LOW)
-
-    x = pop(evm.stack).to_signed()
-    y = pop(evm.stack).to_signed()
-
     if y == 0:
-        remainder = 0
+        return U256(0)
     else:
-        remainder = get_sign(x) * (abs(x) % abs(y))
+        remainder = get_sign(x.to_signed()) * (
+            abs(x.to_signed()) % abs(y.to_signed())
+        )
 
-    push(evm.stack, U256.from_signed(remainder))
-
-    evm.pc += 1
+    return U256.from_signed(remainder)
 
 
-def addmod(evm: Evm) -> None:
+smod = Operation(static_gas(GAS_LOW), do_smod, 2, 1)
+
+
+def do_addmod(evm: Evm, stack: List[U256], z: U256, y: U256, x: U256) -> U256:
     """
     Modulo addition of the top 2 elements with the 3rd element. Pushes the
     result back on the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `3`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `8`.
     """
-    subtract_gas(evm, GAS_MID)
-
-    x = Uint(pop(evm.stack))
-    y = Uint(pop(evm.stack))
-    z = Uint(pop(evm.stack))
-
     if z == 0:
-        result = U256(0)
+        return U256(0)
     else:
-        result = U256((x + y) % z)
-
-    push(evm.stack, result)
-
-    evm.pc += 1
+        return U256((int(x) + int(y)) % int(z))
 
 
-def mulmod(evm: Evm) -> None:
+addmod = Operation(static_gas(GAS_MID), do_addmod, 3, 1)
+
+
+def do_mulmod(evm: Evm, stack: List[U256], z: U256, y: U256, x: U256) -> U256:
     """
     Modulo multiplication of the top 2 elements with the 3rd element. Pushes
     the result back on the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `3`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `8`.
     """
-    subtract_gas(evm, GAS_MID)
-
-    x = Uint(pop(evm.stack))
-    y = Uint(pop(evm.stack))
-    z = Uint(pop(evm.stack))
-
     if z == 0:
-        result = U256(0)
+        return U256(0)
     else:
-        result = U256((x * y) % z)
-
-    push(evm.stack, result)
-
-    evm.pc += 1
+        return U256((int(x) * int(y)) % int(z))
 
 
-def exp(evm: Evm) -> None:
+mulmod = Operation(static_gas(GAS_MID), do_mulmod, 3, 1)
+
+
+def gas_exp(evm: Evm, stack: List[U256], exponent: U256, base: U256) -> None:
     """
     Exponential operation of the top 2 elements. Pushes the result back on
     the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
     """
-    base = Uint(pop(evm.stack))
-    exponent = Uint(pop(evm.stack))
-
     gas_used = GAS_EXPONENTIATION
     if exponent != 0:
         # This is equivalent to 1 + floor(log(y, 256)). But in python the log
@@ -333,39 +173,28 @@ def exp(evm: Evm) -> None:
         gas_used += GAS_EXPONENTIATION_PER_BYTE * exponent_bytes
     subtract_gas(evm, gas_used)
 
-    result = U256(pow(base, exponent, U256_CEIL_VALUE))
 
-    push(evm.stack, result)
+def do_exp(evm: Evm, stack: List[U256], exponent: U256, base: U256) -> U256:
+    """
+    Exponential operation of the top 2 elements. Pushes the result back on
+    the stack.
+    """
+    return U256(pow(base, exponent, U256_CEIL_VALUE))
 
-    evm.pc += 1
+
+exp = Operation(gas_exp, do_exp, 2, 1)
 
 
-def signextend(evm: Evm) -> None:
+def do_signextend(
+    evm: Evm, stack: List[U256], value: U256, byte_num: U256
+) -> U256:
     """
     Sign extend operation. In other words, extend a signed number which
     fits in N bytes to 32 bytes.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `5`.
     """
-    subtract_gas(evm, GAS_LOW)
-
-    # byte_num would be 0-indexed when inserted to the stack.
-    byte_num = pop(evm.stack)
-    value = pop(evm.stack)
-
     if byte_num > 31:
         # Can't extend any further
-        result = value
+        return value
     else:
         # U256(0).to_be_bytes() gives b'' instead b'\x00'. # noqa: SC100
         value_bytes = bytes(value.to_be_bytes32())
@@ -374,13 +203,12 @@ def signextend(evm: Evm) -> None:
         value_bytes = value_bytes[31 - int(byte_num) :]
         sign_bit = value_bytes[0] >> 7
         if sign_bit == 0:
-            result = U256.from_be_bytes(value_bytes)
+            return U256.from_be_bytes(value_bytes)
         else:
             num_bytes_prepend = 32 - (byte_num + 1)
-            result = U256.from_be_bytes(
+            return U256.from_be_bytes(
                 bytearray([0xFF] * num_bytes_prepend) + value_bytes
             )
 
-    push(evm.stack, result)
 
-    evm.pc += 1
+signextend = Operation(static_gas(GAS_LOW), do_signextend, 2, 1)

@@ -11,124 +11,93 @@ Introduction
 
 Implementations of the EVM Memory instructions.
 """
+from typing import List
+
 from ethereum.base_types import U8_MAX_VALUE, U256
 
 from .. import Evm
 from ..gas import GAS_BASE, GAS_VERY_LOW, subtract_gas
 from ..memory import memory_read_bytes, memory_write, touch_memory
-from ..stack import pop, push
+from ..operation import Operation, static_gas
 
 
-def mstore(evm: Evm) -> None:
+def gas_mstore(
+    evm: Evm, stack: List[U256], value: U256, start_position: U256
+) -> None:
     """
     Stores a word to memory.
     This also expands the memory, if the memory is
     insufficient to store the word.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than
-        `3` + gas needed to extend memeory.
     """
-    start_position = pop(evm.stack)
-    value = pop(evm.stack).to_be_bytes32()
-
     subtract_gas(evm, GAS_VERY_LOW)
-    touch_memory(evm, start_position, U256(len(value)))
-
-    memory_write(evm, start_position, value)
-
-    evm.pc += 1
+    touch_memory(evm, start_position, U256(32))
 
 
-def mstore8(evm: Evm) -> None:
+def do_mstore(
+    evm: Evm, stack: List[U256], value: U256, start_position: U256
+) -> None:
+    """
+    Stores a word to memory.
+    This also expands the memory, if the memory is
+    insufficient to store the word.
+    """
+    memory_write(evm, start_position, value.to_be_bytes32())
+
+
+mstore = Operation(gas_mstore, do_mstore, 2, 0)
+
+
+def gas_mstore8(
+    evm: Evm, stack: List[U256], value: U256, start_position: U256
+) -> None:
     """
     Stores a byte to memory.
     This also expands the memory, if the memory is
     insufficient to store the word.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than
-        `3` + gas needed to extend memory.
     """
-    # convert to Uint as start_position + size_to_extend can overflow.
-    start_position = pop(evm.stack)
-    value = pop(evm.stack)
-    # make sure that value doesn't exceed 1 byte
-    normalized_bytes_value = (value & U8_MAX_VALUE).to_bytes(1, "big")
-
     subtract_gas(evm, GAS_VERY_LOW)
     touch_memory(evm, start_position, U256(1))
 
+
+def do_mstore8(
+    evm: Evm, stack: List[U256], value: U256, start_position: U256
+) -> None:
+    """
+    Stores a byte to memory.
+    This also expands the memory, if the memory is
+    insufficient to store the word.
+    """
+    # make sure that value doesn't exceed 1 byte
+    normalized_bytes_value = (value & U8_MAX_VALUE).to_bytes(1, "big")
     memory_write(evm, start_position, normalized_bytes_value)
 
-    evm.pc += 1
+
+mstore8 = Operation(gas_mstore8, do_mstore8, 2, 0)
 
 
-def mload(evm: Evm) -> None:
+def gas_mload(evm: Evm, stack: List[U256], start_position: U256) -> None:
     """
     Load word from memory.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than
-        `3` + gas needed to extend memory.
     """
-    # convert to Uint as start_position + size_to_extend can overflow.
-    start_position = pop(evm.stack)
     subtract_gas(evm, GAS_VERY_LOW)
     touch_memory(evm, start_position, U256(32))
 
-    # extend memory and subtract gas for allocating 32 bytes of memory
-    value = U256.from_be_bytes(
-        memory_read_bytes(evm, start_position, U256(32))
-    )
-    push(evm.stack, value)
 
-    evm.pc += 1
+def do_mload(evm: Evm, stack: List[U256], start_position: U256) -> U256:
+    """
+    Load word from memory.
+    """
+    return U256.from_be_bytes(memory_read_bytes(evm, start_position, U256(32)))
 
 
-def msize(evm: Evm) -> None:
+mload = Operation(gas_mload, do_mload, 1, 1)
+
+
+def do_msize(evm: Evm, stack: List[U256]) -> U256:
     """
     Push the size of active memory in bytes onto the stack.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.OutOfGasError`
-        If `evm.gas_left` is less than `2`
     """
-    subtract_gas(evm, GAS_BASE)
-    memory_size = U256(len(evm.memory))
-    push(evm.stack, memory_size)
+    return U256(len(evm.memory))
 
-    evm.pc += 1
+
+msize = Operation(static_gas(GAS_BASE), do_msize, 0, 1)

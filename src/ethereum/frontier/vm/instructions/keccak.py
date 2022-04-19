@@ -11,6 +11,7 @@ Introduction
 
 Implementations of the EVM keccak instructions.
 """
+from typing import List
 
 from ethereum.base_types import U256, Uint
 from ethereum.crypto.hash import keccak256
@@ -21,29 +22,18 @@ from ...vm.error import OutOfGasError
 from .. import Evm
 from ..gas import GAS_KECCAK256, GAS_KECCAK256_WORD, subtract_gas
 from ..memory import memory_read_bytes, touch_memory
-from ..stack import pop, push
+from ..operation import Operation
 
 
-def keccak(evm: Evm) -> None:
+def gas_keccak(
+    evm: Evm, stack: List[U256], size: U256, memory_start_index: U256
+) -> None:
     """
     Pushes to the stack the Keccak-256 hash of a region of memory.
 
     This also expands the memory, in case the memory is insufficient to
     access the data's memory location.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
-        If `len(stack)` is less than `2`.
     """
-    memory_start_index = pop(evm.stack)
-    size = pop(evm.stack)
-
     words = ceil32(Uint(size)) // 32
     word_gas_cost = u256_safe_multiply(
         GAS_KECCAK256_WORD,
@@ -58,9 +48,18 @@ def keccak(evm: Evm) -> None:
     subtract_gas(evm, total_gas_cost)
     touch_memory(evm, memory_start_index, size)
 
+
+def do_keccak(
+    evm: Evm, stack: List[U256], size: U256, memory_start_index: U256
+) -> U256:
+    """
+    Pushes to the stack the Keccak-256 hash of a region of memory.
+
+    This also expands the memory, in case the memory is insufficient to
+    access the data's memory location.
+    """
     data = memory_read_bytes(evm, memory_start_index, size)
-    hash = keccak256(data)
+    return U256.from_be_bytes(keccak256(data))
 
-    push(evm.stack, U256.from_be_bytes(hash))
 
-    evm.pc += 1
+keccak = Operation(gas_keccak, do_keccak, 2, 1)

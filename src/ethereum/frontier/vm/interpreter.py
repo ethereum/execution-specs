@@ -13,7 +13,7 @@ A straightforward interpreter that executes EVM code.
 """
 from dataclasses import dataclass
 from itertools import chain
-from typing import Set, Tuple, Union
+from typing import Any, List, Set, Tuple, Union
 
 from ethereum import evm_trace
 from ethereum.base_types import U256, Bytes0, Uint
@@ -41,6 +41,7 @@ from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
 from .instructions import Ops, op_implementation
 from .runtime import get_valid_jump_destinations
+from .stack import pop, push
 
 STACK_DEPTH_LIMIT = U256(1024)
 
@@ -236,7 +237,25 @@ def execute_code(message: Message, env: Environment) -> Evm:
                 raise InvalidOpcode(evm.code[evm.pc])
 
             evm_trace(evm, op)
-            op_implementation[op](evm)
+            operation = op_implementation[op]
+
+            evm.pc += operation.length
+            args: List[Any] = []
+            for _ in range(operation.args):
+                args.append(pop(evm.stack))
+            args.append(evm.stack)
+            args.reverse()
+
+            operation.charge_gas(evm, *args)
+            result = operation.do(evm, *args)
+
+            if operation.results == 0:
+                pass
+            elif operation.results == 1:
+                push(evm.stack, result)
+            else:
+                for item in result:
+                    push(evm.stack, item)
 
     except ExceptionalHalt:
         evm.gas_left = U256(0)
