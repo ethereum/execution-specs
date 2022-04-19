@@ -460,7 +460,7 @@ class FixedUInt(int):
             if not isinstance(modulo, int):
                 return NotImplemented
 
-            if modulo < 0 or modulo > self.MAX_VALUE:
+            if modulo < 0 or modulo > int(self.MAX_VALUE) + 1:
                 raise ValueError()
 
         if not isinstance(right, int):
@@ -478,7 +478,7 @@ class FixedUInt(int):
             if not isinstance(modulo, int):
                 return NotImplemented
 
-            if modulo < 0 or modulo > self.MAX_VALUE:
+            if modulo < 0 or modulo > int(self.MAX_VALUE) + 1:
                 raise ValueError()
 
         if not isinstance(right, int):
