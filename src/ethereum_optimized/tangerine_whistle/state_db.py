@@ -223,7 +223,7 @@ def commit_transaction(state: State) -> None:
         state._dirty_accounts[-1][address] = account
     state._destroyed_accounts[-2] |= state._destroyed_accounts[-1]
     for address in state._destroyed_accounts.pop():
-        state._dirty_storage[-2].pop(address)
+        state._dirty_storage[-2].pop(address, None)
     for (address, cache) in state._dirty_storage.pop().items():
         if address not in state._dirty_storage[-1]:
             state._dirty_storage[-1][address] = {}
@@ -335,13 +335,13 @@ def set_account(
         state._dirty_accounts[-1][address] = account
 
 
-def destroy_account(state: State, address: Address) -> None:
+def destroy_storage(state: State, address: Address) -> None:
     """
     See `ethereum.tangerine_whistle.state`.
     """
     state._destroyed_accounts[-1].add(address)
     state._dirty_storage[-1].pop(address, None)
-    state._dirty_accounts[-1][address] = None
+    state._dirty_accounts[-1][address] = get_account_optional(state, address)
 
 
 def clear_destroyed_account(state: State, address: Bytes) -> None:
