@@ -23,7 +23,7 @@ from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 
 from .. import rlp
-from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint
+from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint, Uint64
 from . import MAINNET_FORK_BLOCK, vm
 from .bloom import logs_bloom
 from .dao import DAO_ACCOUNTS, DAO_RECOVERY
@@ -71,6 +71,7 @@ class BlockChain:
 
     blocks: List[Block]
     state: State
+    chain_id: Uint64
 
 
 def apply_fork(old: BlockChain) -> BlockChain:

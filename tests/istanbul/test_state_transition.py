@@ -47,9 +47,6 @@ INCORRECT_UPSTREAM_STATE_TESTS = (
     # The test considers a scenario that cannot be reached by following the
     # rules of consensus.
     "stSStoreTest/InitCollision.json",
-    "chainId_d0g0v0_Istanbul",  # TODO: remove after EIP-1344
-    "chainIdGasCost_d0g0v0_Istanbul",  # TODO: remove after EIP-1344
-    "badOpcodes_d21g0v0_Istanbul",  # TODO: remove after EIP-1344
 )
 
 
@@ -68,6 +65,26 @@ def test_general_state_tests(test_case: Dict) -> None:
     except KeyError:
         # FIXME: Handle tests that don't have post state
         pytest.xfail(f"{test_case} doesn't have post state")
+
+
+# @pytest.mark.parametrize(
+#     "test_case",
+#     fetch_istanbul_tests(
+#         test_dir,
+#         only_in=[
+#             "stChainId/chainId.json",
+#             "stChainId/chainIdGasCost.json",
+#             "stBadOpcode/badOpcodes.json",
+#         ],
+#     ),
+#     ids=idfn,
+# )
+# def test_chain_id(test_case: Dict) -> None:
+#     try:
+#         run_istanbul_blockchain_st_tests(test_case)
+#     except KeyError:
+#         # FIXME: Handle tests that don't have post state
+#         pytest.xfail(f"{test_case} doesn't have post state")
 
 
 # Run legacy valid block tests

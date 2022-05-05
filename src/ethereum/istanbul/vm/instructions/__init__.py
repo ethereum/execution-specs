@@ -94,6 +94,7 @@ class Ops(enum.Enum):
     NUMBER = 0x43
     DIFFICULTY = 0x44
     GASLIMIT = 0x45
+    CHAINID = 0x46
     SELFBALANCE = 0x47
 
     # Control Flow Ops
@@ -241,6 +242,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.NUMBER: block_instructions.number,
     Ops.DIFFICULTY: block_instructions.difficulty,
     Ops.GASLIMIT: block_instructions.gas_limit,
+    Ops.CHAINID: block_instructions.chain_id,
     Ops.MLOAD: memory_instructions.mload,
     Ops.MSTORE: memory_instructions.mstore,
     Ops.MSTORE8: memory_instructions.mstore8,

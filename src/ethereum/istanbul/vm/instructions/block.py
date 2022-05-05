@@ -178,3 +178,25 @@ def gas_limit(evm: Evm) -> None:
     push(evm.stack, U256(evm.env.gas_limit))
 
     evm.pc += 1
+
+
+def chain_id(evm: Evm) -> None:
+    """
+    Push the chain id onto the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Raises
+    ------
+    :py:class:`~ethereum.istanbul.vm.error.StackOverflowError`
+        If `len(stack)` is equal to `1024`.
+    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+        If `evm.gas_left` is less than `2`.
+    """
+    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    push(evm.stack, U256(evm.env.chain_id))
+
+    evm.pc += 1

@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, TypeVar, Union
 from urllib import request
 
 from ethereum import rlp
-from ethereum.base_types import U256, Bytes0, Bytes256, Uint
+from ethereum.base_types import U256, Bytes0, Bytes256, Uint, Uint64
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -146,6 +146,7 @@ class Sync:
                 self.chain = self.module("spec").BlockChain(
                     blocks=[],
                     state=state,
+                    chain_id=None,
                 )
                 self.set_initial_fork(0)
                 self.chain = self.module("spec").apply_fork(self.chain)
@@ -157,6 +158,7 @@ class Sync:
             self.chain = self.module("spec").BlockChain(
                 blocks=self.fetch_initial_blocks(persisted_block),
                 state=state,
+                chain_id=self.fetch_chain_id(state),
             )
 
     def set_initial_fork(self, block_number: int) -> None:
@@ -168,12 +170,18 @@ class Sync:
 
     def persist(self) -> None:
         """
-        Save the block list and state to file.
+        Save the block list, state and chain id to file.
         """
         if self.options.persist is None:
             return
 
         self.log.debug("persisting blocks and state...")
+
+        self.active_fork.optimized_module("state_db").set_metadata(
+            self.chain.state,
+            b"chain_id",
+            str(self.chain.chain_id).encode(),
+        )
 
         start = time.monotonic()
 
@@ -283,6 +291,19 @@ class Sync:
                 k: tuple(x for (_, x) in sorted(v.items()))
                 for (k, v) in ommers.items()
             }
+
+    def fetch_chain_id(self, state: Any) -> Uint64:
+        """
+        Fetch the persisted chain id from the database.
+        """
+        chain_id = self.active_fork.optimized_module("state_db").get_metadata(
+            state, b"chain_id"
+        )
+
+        if chain_id is not None:
+            chain_id = Uint64(chain_id)
+
+        return chain_id
 
     def fetch_initial_blocks(self, block_number: int) -> List[Any]:
         """
@@ -499,6 +520,36 @@ class Sync:
                     except Full:
                         pass
 
+    def download_chain_id(self) -> Uint64:
+        """
+        Fetch the chain id of the executing chain from the rpc provider.
+        """
+        call = [
+            {
+                "jsonrpc": "2.0",
+                "id": hex(2),
+                "method": "eth_chainId",
+                "params": [],
+            }
+        ]
+        data = json.dumps(call).encode("utf-8")
+
+        post = request.Request(
+            self.options.rpc_url,
+            data=data,
+            headers={
+                "Content-Length": str(len(data)),
+                "Content-Type": "application/json",
+            },
+        )
+
+        with request.urlopen(post) as response:
+            reply = json.load(response)[0]
+            assert reply["id"] == hex(2)
+            chain_id = Uint64(int(reply["result"], 16))
+
+        return chain_id
+
     def download_state(self, block_number: int, state: Any) -> Any:
         """
         Fetch the state at `block_number`. Return a chain object.
@@ -564,6 +615,7 @@ class Sync:
         chain = self.module("spec").BlockChain(
             blocks=self.fetch_initial_blocks(block_number),
             state=state,
+            chain_id=self.download_chain_id(),
         )
 
         blockhash_str = "0x" + rlp.rlp_hash(chain.blocks[-1].header).hex()

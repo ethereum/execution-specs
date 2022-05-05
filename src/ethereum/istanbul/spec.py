@@ -23,7 +23,7 @@ from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 
 from .. import rlp
-from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint
+from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint, Uint64
 from . import CHAIN_ID, vm
 from .bloom import logs_bloom
 from .eth_types import (
@@ -73,6 +73,7 @@ class BlockChain:
 
     blocks: List[Block]
     state: State
+    chain_id: Uint64
 
 
 def apply_fork(old: BlockChain) -> BlockChain:
@@ -160,6 +161,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.header.difficulty,
         block.transactions,
         block.ommers,
+        chain.chain_id,
     )
     ensure(gas_used == block.header.gas_used, InvalidBlock)
     ensure(transactions_root == block.header.transactions_root, InvalidBlock)
@@ -294,6 +296,7 @@ def apply_body(
     block_difficulty: Uint,
     transactions: Tuple[Transaction, ...],
     ommers: Tuple[Header, ...],
+    chain_id: Uint64,
 ) -> Tuple[Uint, Root, Root, Bloom, State]:
     """
     Executes a block.
@@ -320,6 +323,8 @@ def apply_body(
     ommers :
         Headers of ancestor blocks which are not direct parents (formerly
         uncles.)
+    chain_id :
+        ID of the executing chain.
 
     Returns
     -------
@@ -361,6 +366,7 @@ def apply_body(
             time=block_time,
             difficulty=block_difficulty,
             state=state,
+            chain_id=chain_id,
         )
 
         gas_used, logs, has_erred = process_transaction(env, tx)

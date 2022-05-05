@@ -22,6 +22,7 @@ from typing import Any, Callable, Optional, Tuple, Type, TypeVar
 U8_MAX_VALUE = (2**8) - 1
 UINT32_MAX_VALUE = (2**32) - 1
 UINT32_CEIL_VALUE = 2**32
+UINT64_MAX_VALUE = (2**64) - 1
 U255_MAX_VALUE = (2**255) - 1
 U255_CEIL_VALUE = 2**255
 U256_MAX_VALUE = (2**256) - 1
@@ -682,6 +683,39 @@ class Uint32(FixedUInt):
 
 
 Uint32.MAX_VALUE = int.__new__(Uint32, UINT32_MAX_VALUE)
+
+
+class Uint64(FixedUInt):
+    """
+    Unsigned positive integer, which can represent `0` to `2 ** 64 - 1`,
+    inclusive.
+    """
+
+    MAX_VALUE: "Uint64"
+
+    __slots__ = ()
+
+    @classmethod
+    def from_le_bytes(cls: Type, buffer: "Bytes") -> "Uint64":
+        """
+        Converts a sequence of bytes into an arbitrarily sized unsigned integer
+        from its little endian representation.
+        """
+        if len(buffer) > 8:
+            raise ValueError()
+
+        return cls(int.from_bytes(buffer, "little"))
+
+    def to_le_bytes8(self) -> "Bytes8":
+        return Bytes8(self.to_bytes(8, "little"))
+
+    def to_le_bytes(self) -> "Bytes":
+        bit_length = self.bit_length()
+        byte_length = (bit_length + 7) // 8
+        return self.to_bytes(byte_length, "little")
+
+
+Uint64.MAX_VALUE = int.__new__(Uint64, UINT64_MAX_VALUE)
 
 
 B = TypeVar("B", bound="FixedBytes")
