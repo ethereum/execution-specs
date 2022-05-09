@@ -12,8 +12,6 @@ Introduction
 Integer and array types which are used by—but not unique to—Ethereum.
 """
 
-# flake8: noqa
-
 from __future__ import annotations
 
 from dataclasses import replace
@@ -54,6 +52,9 @@ class Uint(int):
 
     @classmethod
     def from_le_bytes(cls: Type, buffer: "Bytes") -> "Uint":
+        """
+        Convert a series of little endian bytes to an unsigned integer.
+        """
         return cls(int.from_bytes(buffer, "little"))
 
     def __init__(self, value: int) -> None:
@@ -268,6 +269,21 @@ class Uint(int):
         return self.to_bytes(byte_length, "big")
 
     def to_le_bytes(self, number_bytes: int = None) -> "Bytes":
+        """
+        Converts this arbitrarily sized unsigned integer into its little endian
+        representation.
+
+        Parameters
+        ----------
+        number_bytes :
+            Exact number of bytes to return (defaults to the fewest that can
+            represent this number.)
+
+        Returns
+        -------
+        little_endian : `Bytes`
+            Little endian (most significant bits last) representation.
+        """
         if number_bytes is None:
             bit_length = self.bit_length()
             number_bytes = (bit_length + 7) // 8
@@ -309,6 +325,21 @@ class FixedUInt(int):
         return int.__new__(self.__class__, result)
 
     def wrapping_add(self: T, right: int) -> T:
+        """
+        Return a new instance containing `self + right (mod N)`.
+
+        Parameters
+        ----------
+
+        right :
+            Other operand for addition.
+
+        Returns
+        -------
+
+        sum : T
+            The result of adding `self` and `right`, wrapped.
+        """
         if not isinstance(right, int):
             return NotImplemented
 
@@ -333,6 +364,21 @@ class FixedUInt(int):
         return int.__new__(self.__class__, int.__sub__(self, right))
 
     def wrapping_sub(self: T, right: int) -> T:
+        """
+        Return a new instance containing `self - right (mod N)`.
+
+        Parameters
+        ----------
+
+        right :
+            Subtrahend operand for subtraction.
+
+        Returns
+        -------
+
+        difference : T
+            The result of subtracting `right` from `self`, wrapped.
+        """
         if not isinstance(right, int):
             return NotImplemented
 
@@ -368,6 +414,21 @@ class FixedUInt(int):
         return int.__new__(self.__class__, result)
 
     def wrapping_mul(self: T, right: int) -> T:
+        """
+        Return a new instance containing `self * right (mod N)`.
+
+        Parameters
+        ----------
+
+        right :
+            Other operand for multiplication.
+
+        Returns
+        -------
+
+        product : T
+            The result of multiplying `self` by `right`, wrapped.
+        """
         if not isinstance(right, int):
             return NotImplemented
 
@@ -475,6 +536,24 @@ class FixedUInt(int):
         return int.__new__(self.__class__, result)
 
     def wrapping_pow(self: T, right: int, modulo: Optional[int] = None) -> T:
+        """
+        Return a new instance containing `self ** right (mod modulo)`.
+
+        Parameters
+        ----------
+
+        right :
+            Exponent operand.
+
+        modulo :
+            Optional modulus (defaults to `MAX_VALUE + 1`.)
+
+        Returns
+        -------
+
+        power : T
+            The result of raising `self` to the power of `right`, wrapped.
+        """
         if modulo is not None:
             if not isinstance(modulo, int):
                 return NotImplemented
@@ -674,9 +753,27 @@ class Uint32(FixedUInt):
         return cls(int.from_bytes(buffer, "little"))
 
     def to_le_bytes4(self) -> "Bytes4":
+        """
+        Converts this fixed sized unsigned integer into its little endian
+        representation, with exactly 4 bytes.
+
+        Returns
+        -------
+        little_endian : `Bytes4`
+            Little endian (most significant bits last) representation.
+        """
         return Bytes4(self.to_bytes(4, "little"))
 
     def to_le_bytes(self) -> "Bytes":
+        """
+        Converts this fixed sized unsigned integer into its little endian
+        representation, in the fewest bytes possible.
+
+        Returns
+        -------
+        little_endian : `Bytes`
+            Little endian (most significant bits last) representation.
+        """
         bit_length = self.bit_length()
         byte_length = (bit_length + 7) // 8
         return self.to_bytes(byte_length, "little")
@@ -707,9 +804,27 @@ class Uint64(FixedUInt):
         return cls(int.from_bytes(buffer, "little"))
 
     def to_le_bytes8(self) -> "Bytes8":
+        """
+        Converts this fixed sized unsigned integer into its little endian
+        representation, with exactly 8 bytes.
+
+        Returns
+        -------
+        little_endian : `Bytes8`
+            Little endian (most significant bits last) representation.
+        """
         return Bytes8(self.to_bytes(8, "little"))
 
     def to_le_bytes(self) -> "Bytes":
+        """
+        Converts this fixed sized unsigned integer into its little endian
+        representation, in the fewest bytes possible.
+
+        Returns
+        -------
+        little_endian : `Bytes`
+            Little endian (most significant bits last) representation.
+        """
         bit_length = self.bit_length()
         byte_length = (bit_length + 7) // 8
         return self.to_bytes(byte_length, "little")
@@ -732,6 +847,9 @@ class FixedBytes(bytes):
     __slots__ = ()
 
     def __new__(cls: Type[B], *args: Any, **kwargs: Any) -> B:
+        """
+        Create a new instance, ensuring the result has the correct length.
+        """
         result = super(FixedBytes, cls).__new__(cls, *args, **kwargs)
         if len(result) != cls.LENGTH:
             raise ValueError(
