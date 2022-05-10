@@ -540,7 +540,6 @@ def self_balance(evm: Evm) -> None:
 
     address = evm.message.current_target
 
-    # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
     balance = get_account(evm.env.state, address).balance
 
     push(evm.stack, balance)

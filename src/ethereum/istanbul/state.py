@@ -497,3 +497,31 @@ def create_ether(state: State, address: Address, amount: U256) -> None:
         account.balance += amount
 
     modify_state(state, address, increase_balance)
+
+
+def get_storage_original(state: State, address: Address, key: Bytes) -> U256:
+    """
+    Get the original value in a storage slot i.e. the value before the current
+    transaction began. This function reads the value from the snapshots taken
+    before executing the transaction.
+
+    Parameters
+    ----------
+    state:
+        The current state.
+    address:
+        Address of the account to read the value from.
+    key:
+        Key of the storage slot.
+    """
+    _, original_trie = state._snapshots[0]
+    original_account_trie = original_trie.get(address)
+
+    if original_account_trie is None:
+        original_value = U256(0)
+    else:
+        original_value = trie_get(original_account_trie, key)
+
+    assert isinstance(original_value, U256)
+
+    return original_value

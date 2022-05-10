@@ -67,26 +67,6 @@ def test_general_state_tests(test_case: Dict) -> None:
         pytest.xfail(f"{test_case} doesn't have post state")
 
 
-# @pytest.mark.parametrize(
-#     "test_case",
-#     fetch_istanbul_tests(
-#         test_dir,
-#         only_in=[
-#             "stChainId/chainId.json",
-#             "stChainId/chainIdGasCost.json",
-#             "stBadOpcode/badOpcodes.json",
-#         ],
-#     ),
-#     ids=idfn,
-# )
-# def test_chain_id(test_case: Dict) -> None:
-#     try:
-#         run_istanbul_blockchain_st_tests(test_case)
-#     except KeyError:
-#         # FIXME: Handle tests that don't have post state
-#         pytest.xfail(f"{test_case} doesn't have post state")
-
-
 # Run legacy valid block tests
 test_dir = "tests/fixtures/BlockchainTests/ValidBlocks/"
 

@@ -9,7 +9,7 @@ from typing import List, Tuple
 from ethereum.base_types import Uint
 
 
-def get_words_from_le_bytes(data: bytes, start: int, num_words: int) -> List:
+def spit_le_to_uint(data: bytes, start: int, num_words: int) -> List[Uint]:
     """
     Extracts 8 byte words from a given data.
 
@@ -124,11 +124,16 @@ class Blake2:
         """
         Extract the parameters required in the Blake2 compression function
         from the provided bytes data.
+
+        Parameters
+        ----------
+        data :
+            The bytes data that has been passed in the message.
         """
         rounds = Uint.from_be_bytes(data[:4])
-        h = get_words_from_le_bytes(data, 4, 8)
-        m = get_words_from_le_bytes(data, 68, 16)
-        t_0, t_1 = get_words_from_le_bytes(data, 196, 2)
+        h = spit_le_to_uint(data, 4, 8)
+        m = spit_le_to_uint(data, 68, 16)
+        t_0, t_1 = spit_le_to_uint(data, 196, 2)
         f = Uint.from_be_bytes(data[212:])
 
         return (rounds, h, m, t_0, t_1, f)
@@ -139,6 +144,15 @@ class Blake2:
         """
         The mixing function used in Blake2
         https://datatracker.ietf.org/doc/html/rfc7693#section-3.1
+
+        Parameters
+        ----------
+        v :
+            The working vector to be mixed.
+        a, b, c, d :
+            Indexes within v of the words to be mixed.
+        x, y :
+            The two input words for the mixing.
         """
         v[a] = (v[a] + v[b] + x) % self.max_word
         v[d] = ((v[d] ^ v[a]) >> self.R1) ^ (
@@ -163,11 +177,30 @@ class Blake2:
         return v
 
     def compress(
-        self, num_rounds: int, h: List, m: List, t_0: Uint, t_1: Uint, f: bool
+        self,
+        num_rounds: Uint,
+        h: List[Uint],
+        m: List[Uint],
+        t_0: Uint,
+        t_1: Uint,
+        f: bool,
     ) -> bytes:
         """
         'F Compression' from section 3.2 of RFC 7693:
         https://tools.ietf.org/html/rfc7693#section-3.2
+
+        Parameters
+        ----------
+        num_rounds :
+            The number of rounds. A 32-bit unsigned big-endian word
+        h :
+            The state vector. 8 unsigned 64-bit little-endian words
+        m :
+            The message block vector. 16 unsigned 64-bit little-endian words
+        t_0, t_1 :
+            Offset counters. 2 unsigned 64-bit little-endian words
+        f:
+            The final block indicator flag. An 8-bit word
         """
         # Initialize local work vector v[0..15]
         v = [0] * 16

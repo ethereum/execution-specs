@@ -11,11 +11,9 @@ Introduction
 
 Implementations of the EVM storage related instructions.
 """
-from ethereum.base_types import U256
 from ethereum.utils.ensure import ensure
 
-from ...state import get_storage, set_storage
-from ...trie import trie_get
+from ...state import get_storage, get_storage_original, set_storage
 from .. import Evm
 from ..error import OutOfGasError, WriteInStaticContext
 from ..gas import (
@@ -79,15 +77,9 @@ def sstore(evm: Evm) -> None:
     new_value = pop(evm.stack)
     current_value = get_storage(evm.env.state, evm.message.current_target, key)
 
-    _, original_trie = evm.env.state._snapshots[0]
-    original_account_trie = original_trie.get(evm.message.current_target)
-
-    if original_account_trie is None:
-        original_value = U256(0)
-    else:
-        original_value = trie_get(original_account_trie, key)
-
-    assert isinstance(original_value, U256)
+    original_value = get_storage_original(
+        evm.env.state, evm.message.current_target, key
+    )
 
     # Gas Cost Calculation
     gas_cost = GAS_SLOAD
