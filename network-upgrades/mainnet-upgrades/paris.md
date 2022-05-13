@@ -20,10 +20,9 @@ This network upgrade requires changes to both Ethereum's execution and consensus
 
 | Network | Terminal Total Difficulty (`TTD`) | Expected Date | Fork Hash    |
 |---------|------------|---------------|--------------|
-| Ropsten | TBD | TBD | TBD |
+| Ropsten | `43531756765713534` | June 8, 2022 | TBD |
 | Goerli  | TBD | TBD | TBD |
-| Rinkeby | TBD | TBD | TBD |
-| Kovan   | TBD | TBD | TBD |
+| Sepolia | TBD | TBD | TBD |
 | Mainnet | TBD | TBD | TBD |
 
 ### Readiness Checklist
@@ -42,6 +41,16 @@ See https://github.com/ethereum/pm/blob/master/Merge/mainnet-readiness.md
     - [devnet-1](https://github.com/parithosh/consensus-deployment-ansible/tree/master/merge-devnet-1)
     - [devnet-2](https://github.com/parithosh/consensus-deployment-ansible/tree/master/merge-devnet-2)
     - [devnet-3](https://github.com/parithosh/consensus-deployment-ansible/tree/master/merge-devnet-3)
+  - [Kiln](https://kiln.themerge.dev/)
+  - [Goerli Shadow Fork 1](https://github.com/parithosh/consensus-deployment-ansible/tree/master/goerli-shadow-fork)
+  - [Goerli Shadow Fork 2](https://github.com/parithosh/consensus-deployment-ansible/tree/master/goerli-shadow-fork-2)
+  - [Goerli Shadow Fork 3](https://github.com/parithosh/consensus-deployment-ansible/tree/master/goerli-shadow-fork-3)
+  - [Goerli Shadow Fork 4](https://github.com/parithosh/consensus-deployment-ansible/tree/master/goerli-shadow-fork-4)
+  - [Mainnet Shadow Fork 1](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-1)
+  - [Mainnet Shadow Fork 2](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-2)
+  - [Mainnet Shadow Fork 3](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-3)
+  - [Mainnet Shadow Fork 4](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-4)
+
 
 ### Client Releases
 
