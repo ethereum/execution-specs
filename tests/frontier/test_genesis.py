@@ -6,6 +6,7 @@ import pytest
 from ethereum import rlp
 from ethereum.base_types import U256, Bytes
 from ethereum.frontier.genesis import genesis_configuration
+from ethereum.utils.byte import left_pad_zero_bytes
 
 MAINNET_GENESIS_CONFIGURATION = genesis_configuration("mainnet.json")
 
@@ -40,7 +41,7 @@ def test_rlp_decode_mainnet_alloc_rlp_encoding(
         List[List[Bytes]], rlp.decode(mainnet_alloc_rlp_encoding)
     )
     obtained_alloc = {
-        addr.rjust(20, b"\x00"): U256.from_be_bytes(balance)
+        left_pad_zero_bytes(addr, 20): U256.from_be_bytes(balance)
         for (addr, balance) in decoded_alloc
     }
 
