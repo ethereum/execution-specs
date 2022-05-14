@@ -12,6 +12,7 @@ Introduction
 Implementation of the `MODEXP` precompiled contract.
 """
 from ethereum.base_types import U256, Bytes, Uint
+from ethereum.utils.byte import right_pad_zero_bytes
 
 from ...vm import Evm
 from ...vm.error import OutOfGasError
@@ -26,9 +27,9 @@ def modexp(evm: Evm) -> None:
     `modulus`. The return value is the same length as the modulus.
     """
     data = evm.message.data
-    base_length = U256.from_be_bytes(data[0:32].ljust(32, b"\x00"))
-    exp_length = U256.from_be_bytes(data[32:64].ljust(32, b"\x00"))
-    modulus_length = U256.from_be_bytes(data[64:96].ljust(32, b"\x00"))
+    base_length = U256.from_be_bytes(right_pad_zero_bytes(data[:32], 32))
+    exp_length = U256.from_be_bytes(right_pad_zero_bytes(data[32:64], 32))
+    modulus_length = U256.from_be_bytes(right_pad_zero_bytes(data[64:96], 32))
 
     if base_length == 0 and modulus_length == 0:
         evm.output = Bytes()
@@ -50,17 +51,16 @@ def modexp(evm: Evm) -> None:
         raise OutOfGasError()
 
     pointer = 96
-    base_data = data[pointer : pointer + base_length].ljust(
-        base_length, b"\x00"
-    )
+    base_data = right_pad_zero_bytes(
+        data[pointer: pointer + base_length], base_length)
     base = Uint.from_be_bytes(base_data)
     pointer += base_length
-    exp_data = data[pointer : pointer + exp_length].ljust(exp_length, b"\x00")
+    exp_data = right_pad_zero_bytes(
+        data[pointer: pointer + exp_length], exp_length)
     exp = Uint.from_be_bytes(exp_data)
     pointer += exp_length
-    modulus_data = data[pointer : pointer + modulus_length].ljust(
-        modulus_length, b"\x00"
-    )
+    modulus_data = right_pad_zero_bytes(
+        data[pointer: pointer + modulus_length], modulus_length)
     modulus = Uint.from_be_bytes(modulus_data)
 
     adjusted_exp_length = Uint(
