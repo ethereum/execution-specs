@@ -17,7 +17,14 @@ import pkgutil
 from dataclasses import dataclass
 from typing import Dict, cast
 
-from ethereum.base_types import U256, Bytes, Bytes8, Uint, slotted_freezable
+from ethereum.base_types import (
+    U256,
+    Bytes,
+    Bytes8,
+    Uint,
+    Uint64,
+    slotted_freezable,
+)
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -39,6 +46,7 @@ class GenesisConfiguration:
     the fields of the genesis block.
     """
 
+    chain_id: Uint64
     difficulty: Uint
     extra_data: Bytes
     gas_limit: Uint
@@ -76,6 +84,7 @@ def genesis_configuration(genesis_file: str) -> GenesisConfiguration:
     }
 
     return GenesisConfiguration(
+        chain_id=Uint64(genesis_data["config"]["chainId"]),
         difficulty=hex_to_uint(genesis_data["difficulty"]),
         extra_data=hex_to_bytes(genesis_data["extraData"]),
         gas_limit=hex_to_uint(genesis_data["gasLimit"]),

@@ -12,7 +12,7 @@ import pytest
 from _pytest.mark.structures import ParameterSet
 
 from ethereum import rlp
-from ethereum.base_types import U256, Bytes0
+from ethereum.base_types import U256, Bytes0, Uint64
 from ethereum.crypto.hash import Hash32
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
@@ -234,6 +234,7 @@ def load_test(test_case: Dict, load: BaseLoad) -> Dict:
         "test_file": test_case["test_file"],
         "test_key": test_case["test_key"],
         "genesis_header": load.json_to_header(json_data["genesisBlockHeader"]),
+        "chain_id": Uint64(json_data["genesisBlockHeader"].get("chainId", 1)),
         "genesis_header_hash": hex_to_bytes(
             json_data["genesisBlockHeader"]["hash"]
         ),
@@ -268,6 +269,7 @@ def run_blockchain_st_test(test_case: Dict, load: BaseLoad) -> None:
     chain = load.BlockChain(
         blocks=[genesis_block],
         state=test_data["pre_state"],
+        chain_id=test_data["chain_id"],
     )
 
     if not test_data["ignore_pow_validation"]:

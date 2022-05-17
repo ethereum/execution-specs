@@ -6,7 +6,7 @@ from importlib import import_module
 from typing import Any, List, TypeVar
 
 from ethereum import rlp
-from ethereum.base_types import U256, Uint
+from ethereum.base_types import U256, Uint, Uint64
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
@@ -137,6 +137,7 @@ class VmTestLoader:
         chain = self.BlockChain(
             blocks=[],
             state=current_state,
+            chain_id=Uint64(1),
         )
 
         return self.Environment(
