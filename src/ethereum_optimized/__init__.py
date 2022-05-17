@@ -30,6 +30,7 @@ def monkey_patch(state_path: Optional[str]) -> None:
         frontier,
         homestead,
         istanbul,
+        muir_glacier,
         spurious_dragon,
         tangerine_whistle,
     )
@@ -42,3 +43,4 @@ def monkey_patch(state_path: Optional[str]) -> None:
     byzantium.monkey_patch(state_path)
     constantinople.monkey_patch(state_path)
     istanbul.monkey_patch(state_path)
+    muir_glacier.monkey_patch(state_path)
