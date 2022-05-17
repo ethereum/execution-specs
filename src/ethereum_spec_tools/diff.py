@@ -6,7 +6,8 @@ Generates diffs between Ethereum hardforks documentation.
 
 import os.path
 import pickle
-from typing import Iterator, List, TypeVar
+from copy import deepcopy
+from typing import Any, Iterator, List, TypeVar
 
 import rstdiff
 from docutils import SettingsSpec
@@ -37,12 +38,44 @@ def find_pickles(path: str, fork: Hardfork) -> Iterator[str]:
                 yield file_path
 
 
+def meaningful_diffs(
+    pub: rstdiff.Publisher3Args,
+    old: Any,
+    new: Any,
+) -> bool:
+    """Find if there are meaningful differences between the docs"""
+    realDebug = pub.settings.debug
+    pub.settings.debug = pub.settings.dump_rstdiff
+    reporter = new_reporter("RSTDIFF", pub.settings)
+    pub.settings.debug = realDebug
+    dispatcher = rstdiff.DocutilsDispatcher(reporter)
+    opcodes = rstdiff.doDiff(dispatcher, old, new)
+
+    opcode_counter = rstdiff.OpcodeCounter(opcodes)
+    opcode_counter.count()
+
+    if (
+        opcode_counter.replace
+        == opcode_counter.delete
+        == opcode_counter.insert
+        == 0
+    ):
+        return False
+    else:
+        return True
+
+
 def diff(
     output_path: str, input_path: str, old: Hardfork, new: Hardfork
 ) -> Iterator[str]:
     """
     Calculate the structured diff between two hardforks.
     """
+    trivial_changes = [
+        (old.short_name, new.short_name),
+        (old.title_case_name, new.title_case_name),
+    ]
+
     old_path = old.name.replace(".", os.sep)
     old_path = os.path.join(input_path, old_path)
 
@@ -109,6 +142,15 @@ def diff(
 
         new_doc.settings = pub.settings
         new_doc.reporter = new_reporter("RSTDIFF", pub.settings)
+
+        old_modified_doc = deepcopy(old_doc)
+        old_modified_doc.settings = pub.settings
+        old_modified_doc.reporter = new_reporter("RSTDIFF", pub.settings)
+
+        rstdiff.TextReplacer(old_modified_doc, trivial_changes).apply()
+
+        if not meaningful_diffs(pub, old_modified_doc, new_doc):
+            continue
 
         rstdiff.Text2Words(old_doc).apply()
         rstdiff.Text2Words(new_doc).apply()

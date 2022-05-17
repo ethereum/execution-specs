@@ -80,6 +80,13 @@ class Hardfork:
         """
         return self.mod.__name__
 
+    @property
+    def title_case_name(self) -> str:
+        """
+        Name of the hard fork.
+        """
+        return self.short_name.replace("_", " ").title()
+
     def __repr__(self) -> str:
         """
         Return repr(self).
