@@ -29,6 +29,7 @@ def monkey_patch(state_path: Optional[str]) -> None:
         dao_fork,
         frontier,
         homestead,
+        istanbul,
         spurious_dragon,
         tangerine_whistle,
     )
@@ -40,3 +41,4 @@ def monkey_patch(state_path: Optional[str]) -> None:
     spurious_dragon.monkey_patch(state_path)
     byzantium.monkey_patch(state_path)
     constantinople.monkey_patch(state_path)
+    istanbul.monkey_patch(state_path)

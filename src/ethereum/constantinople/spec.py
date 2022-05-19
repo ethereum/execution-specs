@@ -23,8 +23,8 @@ from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 
 from .. import rlp
-from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint
-from . import CHAIN_ID, vm
+from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint, Uint64
+from . import vm
 from .bloom import logs_bloom
 from .eth_types import (
     TX_BASE_COST,
@@ -73,6 +73,7 @@ class BlockChain:
 
     blocks: List[Block]
     state: State
+    chain_id: Uint64
 
 
 def apply_fork(old: BlockChain) -> BlockChain:
@@ -160,6 +161,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.header.difficulty,
         block.transactions,
         block.ommers,
+        chain.chain_id,
     )
     ensure(gas_used == block.header.gas_used, InvalidBlock)
     ensure(transactions_root == block.header.transactions_root, InvalidBlock)
@@ -294,6 +296,7 @@ def apply_body(
     block_difficulty: Uint,
     transactions: Tuple[Transaction, ...],
     ommers: Tuple[Header, ...],
+    chain_id: Uint64,
 ) -> Tuple[Uint, Root, Root, Bloom, State]:
     """
     Executes a block.
@@ -320,6 +323,8 @@ def apply_body(
     ommers :
         Headers of ancestor blocks which are not direct parents (formerly
         uncles.)
+    chain_id :
+        ID of the executing chain.
 
     Returns
     -------
@@ -348,7 +353,7 @@ def apply_body(
         trie_set(transactions_trie, rlp.encode(Uint(i)), tx)
 
         ensure(tx.gas <= gas_available, InvalidBlock)
-        sender_address = recover_sender(tx)
+        sender_address = recover_sender(chain_id, tx)
 
         env = vm.Environment(
             caller=sender_address,
@@ -619,7 +624,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     return Uint(TX_BASE_COST + data_cost + create_cost)
 
 
-def recover_sender(tx: Transaction) -> Address:
+def recover_sender(chain_id: Uint64, tx: Transaction) -> Address:
     """
     Extracts the sender address from a transaction.
 
@@ -627,6 +632,8 @@ def recover_sender(tx: Transaction) -> Address:
     ----------
     tx :
         Transaction of interest.
+    chain_id :
+        ID of the executing chain.
 
     Returns
     -------
@@ -641,10 +648,10 @@ def recover_sender(tx: Transaction) -> Address:
     if v == 27 or v == 28:
         public_key = secp256k1_recover(r, s, v - 27, signing_hash_pre155(tx))
     else:
+        ensure(v == 35 + chain_id * 2 or v == 36 + chain_id * 2, InvalidBlock)
         public_key = secp256k1_recover(
-            r, s, v - 35 - CHAIN_ID * 2, signing_hash_155(tx)
+            r, s, v - 35 - chain_id * 2, signing_hash_155(tx)
         )
-        ensure(v == 35 + CHAIN_ID * 2 or v == 36 + CHAIN_ID * 2, InvalidBlock)
     return Address(keccak256(public_key)[12:32])
 
 

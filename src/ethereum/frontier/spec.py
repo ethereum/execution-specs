@@ -22,7 +22,7 @@ from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 
 from .. import rlp
-from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint
+from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint, Uint64
 from . import vm
 from .bloom import logs_bloom
 from .eth_types import (
@@ -68,6 +68,7 @@ class BlockChain:
 
     blocks: List[Block]
     state: State
+    chain_id: Uint64
 
 
 def apply_fork(old: BlockChain) -> BlockChain:
@@ -115,6 +116,7 @@ def apply_fork(old: BlockChain) -> BlockChain:
     )
 
     old.blocks.append(genesis_block)
+    old.chain_id = genesis.chain_id
 
     return old
 
