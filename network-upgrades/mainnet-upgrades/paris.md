@@ -20,7 +20,7 @@ This network upgrade requires changes to both Ethereum's execution and consensus
 
 | Network | Terminal Total Difficulty (`TTD`) | Expected Date | Fork Hash    |
 |---------|------------|---------------|--------------|
-| Ropsten | `43531756765713534` | June 8, 2022 | TBD |
+| Ropsten | `43531756765713534` | June 8, 2022 | `0x7119B6B3` (unchanged from [London](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/london.md)) |
 | Goerli  | TBD | TBD | TBD |
 | Sepolia | TBD | TBD | TBD |
 | Mainnet | TBD | TBD | TBD |
