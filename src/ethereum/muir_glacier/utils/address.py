@@ -16,6 +16,7 @@ from typing import Union
 
 from ethereum.base_types import U256, Bytes32, Uint
 from ethereum.crypto.hash import keccak256
+from ethereum.utils.byte import left_pad_zero_bytes
 
 from ... import rlp
 from ..eth_types import Address
@@ -57,7 +58,7 @@ def compute_contract_address(address: Address, nonce: Uint) -> Address:
     """
     computed_address = keccak256(rlp.encode([address, nonce]))
     canonical_address = computed_address[-20:]
-    padded_address = canonical_address.rjust(20, b"\x00")
+    padded_address = left_pad_zero_bytes(canonical_address, 20)
     return Address(padded_address)
 
 
