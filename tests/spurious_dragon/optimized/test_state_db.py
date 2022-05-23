@@ -102,7 +102,7 @@ def test_resurrection() -> None:
         impl.set_account(obj, ADDRESS_FOO, EMPTY_ACCOUNT)
         impl.set_storage(obj, ADDRESS_FOO, b"", U256(42))
         impl.state_root(obj)
-        impl.destroy_account(obj, ADDRESS_FOO)
+        impl.destroy_storage(obj, ADDRESS_FOO)
         impl.state_root(obj)
         impl.set_account(obj, ADDRESS_FOO, EMPTY_ACCOUNT)
         return obj

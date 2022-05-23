@@ -182,8 +182,7 @@ def destroy_account(state: State, address: Address) -> None:
     address : `Address`
         Address of account to destroy.
     """
-    if address in state._storage_tries:
-        del state._storage_tries[address]
+    destroy_storage(state, address)
     set_account(state, address, None)
 
 
