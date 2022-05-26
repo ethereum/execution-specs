@@ -52,15 +52,18 @@ def modexp(evm: Evm) -> None:
 
     pointer = 96
     base_data = right_pad_zero_bytes(
-        data[pointer: pointer + base_length], base_length)
+        data[pointer : pointer + base_length], base_length
+    )
     base = Uint.from_be_bytes(base_data)
     pointer += base_length
     exp_data = right_pad_zero_bytes(
-        data[pointer: pointer + exp_length], exp_length)
+        data[pointer : pointer + exp_length], exp_length
+    )
     exp = Uint.from_be_bytes(exp_data)
     pointer += exp_length
     modulus_data = right_pad_zero_bytes(
-        data[pointer: pointer + modulus_length], modulus_length)
+        data[pointer : pointer + modulus_length], modulus_length
+    )
     modulus = Uint.from_be_bytes(modulus_data)
 
     adjusted_exp_length = Uint(
