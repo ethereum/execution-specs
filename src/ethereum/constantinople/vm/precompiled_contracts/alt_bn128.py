@@ -22,6 +22,7 @@ from ethereum.crypto.alt_bn128 import (
     BNP2,
     pairing,
 )
+from ethereum.utils.byte import right_pad_zero_bytes
 from ethereum.utils.ensure import ensure
 
 from ...vm import Evm
@@ -38,13 +39,13 @@ def alt_bn128_add(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    x0_bytes = evm.message.data[0:32].ljust(32, b"\x00")
+    x0_bytes = right_pad_zero_bytes(evm.message.data[:32], 32)
     x0_value = U256.from_be_bytes(x0_bytes)
-    y0_bytes = evm.message.data[32:64].ljust(32, b"\x00")
+    y0_bytes = right_pad_zero_bytes(evm.message.data[32:64], 32)
     y0_value = U256.from_be_bytes(y0_bytes)
-    x1_bytes = evm.message.data[64:96].ljust(32, b"\x00")
+    x1_bytes = right_pad_zero_bytes(evm.message.data[64:96], 32)
     x1_value = U256.from_be_bytes(x1_bytes)
-    y1_bytes = evm.message.data[96:128].ljust(32, b"\x00")
+    y1_bytes = right_pad_zero_bytes(evm.message.data[96:128], 32)
     y1_value = U256.from_be_bytes(y1_bytes)
 
     for i in (x0_value, y0_value, x1_value, y1_value):
@@ -72,11 +73,11 @@ def alt_bn128_mul(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    x0_bytes = evm.message.data[0:32].ljust(32, b"\x00")
+    x0_bytes = right_pad_zero_bytes(evm.message.data[:32], 32)
     x0_value = U256.from_be_bytes(x0_bytes)
-    y0_bytes = evm.message.data[32:64].ljust(32, b"\x00")
+    y0_bytes = right_pad_zero_bytes(evm.message.data[32:64], 32)
     y0_value = U256.from_be_bytes(y0_bytes)
-    n = U256.from_be_bytes(evm.message.data[64:96].ljust(32, b"\x00"))
+    n = U256.from_be_bytes(right_pad_zero_bytes(evm.message.data[64:96], 32))
 
     for i in (x0_value, y0_value):
         if i >= ALT_BN128_PRIME:

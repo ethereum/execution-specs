@@ -14,6 +14,7 @@ Implementations of the EVM environment related instructions.
 
 from ethereum.base_types import U256, Uint
 from ethereum.crypto.hash import keccak256
+from ethereum.utils.byte import right_pad_zero_bytes
 from ethereum.utils.ensure import ensure
 from ethereum.utils.numeric import ceil32
 from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
@@ -173,7 +174,7 @@ def calldataload(evm: Evm) -> None:
     start_index = Uint(pop(evm.stack))
     value = evm.message.data[start_index : start_index + 32]
     # Right pad with 0 so that there are overall 32 bytes.
-    value = value.ljust(32, b"\x00")
+    value = right_pad_zero_bytes(value, 32)
 
     push(evm.stack, U256.from_be_bytes(value))
 
@@ -250,7 +251,7 @@ def calldatacopy(evm: Evm) -> None:
     value = evm.message.data[data_start_index : data_start_index + size]
     # But it is possible that data_start_index + size won't exist in evm.data
     # in which case we need to right pad the above obtained bytes with 0.
-    value = value.ljust(size, b"\x00")
+    value = right_pad_zero_bytes(value, size)
 
     memory_write(evm.memory, memory_start_index, value)
 
@@ -326,7 +327,7 @@ def codecopy(evm: Evm) -> None:
     # But it is possible that code_start_index + size - 1 won't exist in
     # evm.code in which case we need to right pad the above obtained bytes
     # with 0.
-    value = value.ljust(size, b"\x00")
+    value = right_pad_zero_bytes(value, size)
 
     memory_write(evm.memory, memory_start_index, value)
 
@@ -434,7 +435,7 @@ def extcodecopy(evm: Evm) -> None:
     value = code[code_start_index : code_start_index + size]
     # But it is possible that code_start_index + size won't exist in evm.code
     # in which case we need to right pad the above obtained bytes with 0.
-    value = value.ljust(size, b"\x00")
+    value = right_pad_zero_bytes(value, size)
 
     memory_write(evm.memory, memory_start_index, value)
 
