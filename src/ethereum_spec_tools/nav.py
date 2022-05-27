@@ -2,7 +2,7 @@
 Sphinx extension to collect navigation metadata for hard forks.
 """
 
-import os.path
+import os
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
@@ -104,6 +104,15 @@ class HardforkIndex(Index):
                 doc_name = (
                     f"diffs/{prev_fork.short_name}_{fork.short_name}/{module}"
                 )
+
+                diff_file_path = os.path.join(
+                    os.getcwd(), "doc", doc_name + ".pickle64"
+                )
+
+                if not os.path.isfile(diff_file_path):
+                    # diff tool did not find any meaningful differences
+                    continue
+
                 content[fork].comparisons.append(
                     IndexEntry(
                         rel_name,

@@ -327,6 +327,9 @@ linefunc
 metavar
 const
 keepends
+Replacer
+Publisher3
+isfile
 
 blake2
 blake2b

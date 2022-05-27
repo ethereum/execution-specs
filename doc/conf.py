@@ -33,7 +33,6 @@ extensions = [
     'autoapi.extension',
     'undocinclude.extension',
     'picklebuilder.picklebuilder',
-    'ethereum_spec_tools.nav',
 ]
 
 autoapi_type = 'python'
@@ -70,6 +69,8 @@ if tags.has('stage0'):
 elif tags.has('stage1'):
     root_doc = 'index'
     exclude_patterns.append('stage0.rst')
+
+    extensions.append('ethereum_spec_tools.nav')
 else:
     raise Exception("Pass either `-t stage0` or `-t stage1` to sphinx-build")
 

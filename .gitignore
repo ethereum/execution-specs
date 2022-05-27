@@ -35,6 +35,9 @@ venv/
 # pycharm
 .idea/
 
+# VS Code
+.vscode
+
 *.manifest
 *.spec
 
