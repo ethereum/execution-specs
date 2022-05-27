@@ -54,15 +54,11 @@ def meaningful_diffs(
     opcode_counter = rstdiff.OpcodeCounter(opcodes)
     opcode_counter.count()
 
-    if (
+    return bool(
         opcode_counter.replace
-        == opcode_counter.delete
-        == opcode_counter.insert
-        == 0
-    ):
-        return False
-    else:
-        return True
+        or opcode_counter.delete
+        or opcode_counter.insert
+    )
 
 
 def diff(
