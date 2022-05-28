@@ -96,17 +96,29 @@ def test_uncles_correctness(test_case: Dict) -> None:
 # Run legacy invalid block tests
 test_dir = "tests/fixtures/BlockchainTests/InvalidBlocks"
 
-# TODO: Investigate why some of the below tests pass
+# TODO: Handle once https://github.com/ethereum/tests/issues/1037
+# is resolved
 # All except GasLimitHigherThan2p63m1_Istanbul
 xfail_candidates = (
-    "timestampTooLow_Istanbul",
-    "timestampTooHigh_Istanbul",
-    "wrongStateRoot_Istanbul",
-    "incorrectUncleTimestamp4_Istanbul",
-    "incorrectUncleTimestamp5_Istanbul",
-    "futureUncleTimestamp3_Istanbul",
-    "GasLimitHigherThan2p63m1_Istanbul",
+    ("bcUncleHeaderValidity", "timestampTooLow_Istanbul"),
+    ("bcUncleHeaderValidity", "timestampTooHigh_Istanbul"),
+    ("bcUncleHeaderValidity", "wrongStateRoot_Istanbul"),
+    ("bcUncleHeaderValidity", "incorrectUncleTimestamp4_Istanbul"),
+    ("bcUncleHeaderValidity", "incorrectUncleTimestamp5_Istanbul"),
+    ("bcUncleSpecialTests", "futureUncleTimestamp3_Istanbul"),
+    ("bcInvalidHeaderTest", "GasLimitHigherThan2p63m1_Istanbul"),
 )
+
+
+def is_in_xfail(test_case: Dict) -> bool:
+    for _dir, _test_key in xfail_candidates:
+        if (
+            _dir in test_case["test_file"]
+            and test_case["test_key"] == _test_key
+        ):
+            return True
+
+    return False
 
 
 @pytest.mark.parametrize(
@@ -119,7 +131,7 @@ def test_invalid_block_tests(test_case: Dict) -> None:
         # Ideally correct.json should not have been in the InvalidBlocks folder
         if test_case["test_key"] == "correct_Istanbul":
             run_istanbul_blockchain_st_tests(test_case)
-        elif test_case["test_key"] in xfail_candidates:
+        elif is_in_xfail(test_case):
             # Unclear where this failed requirement comes from
             pytest.xfail()
         else:
