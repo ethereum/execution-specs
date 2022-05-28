@@ -52,11 +52,24 @@ INCORRECT_UPSTREAM_STATE_TESTS = (
     "stSStoreTest/InitCollision_d3g0v0.json",
 )
 
+BIG_MEMORY_TESTS = (
+    "static_Call50000_d1g0v0_ConstantinopleFix",
+    "static_Call50000_ecrec_d1g0v0_ConstantinopleFix",
+    "static_Call50000_sha256_d0g0v0_ConstantinopleFix",
+    "static_Call50000_sha256_d1g0v0_ConstantinopleFix",
+    "static_Call50000_rip160_d1g0v0_ConstantinopleFix",
+    "static_Call50000_rip160_d0g0v0_ConstantinopleFix",
+    "Return50000_d0g1v0_ConstantinopleFix",
+    "Return50000_2_d0g1v0_ConstantinopleFix",
+)
+
 
 @pytest.mark.parametrize(
     "test_case",
     fetch_constantinople_tests(
-        test_dir, ignore_list=INCORRECT_UPSTREAM_STATE_TESTS
+        test_dir,
+        ignore_list=INCORRECT_UPSTREAM_STATE_TESTS,
+        big_memory_list=BIG_MEMORY_TESTS,
     ),
     ids=idfn,
 )
