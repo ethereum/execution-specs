@@ -15,8 +15,8 @@ from ethereum.base_types import U256, Bytes, Uint
 from ethereum.utils.byte import right_pad_zero_bytes
 
 from ...vm import Evm
-from ...vm.error import OutOfGasError
 from ...vm.gas import subtract_gas
+from ..exceptions import OutOfGasError
 
 GQUADDIVISOR = 20
 

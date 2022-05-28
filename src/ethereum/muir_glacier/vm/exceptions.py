@@ -1,6 +1,6 @@
 """
-Ethereum Virtual Machine (EVM) Errors
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Exceptions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -9,7 +9,7 @@ Ethereum Virtual Machine (EVM) Errors
 Introduction
 ------------
 
-Errors which cause the EVM to halt exceptionally.
+Exceptions which cause the EVM to halt exceptionally.
 """
 
 from ethereum.exceptions import EthereumException
@@ -108,6 +108,14 @@ class OutOfBoundsRead(ExceptionalHalt):
     """
     Raised when an attempt was made to read data beyond the
     boundaries of the buffer.
+    """
+
+    pass
+
+
+class InvalidParameter(ExceptionalHalt):
+    """
+    Raised when invalid parameters are passed.
     """
 
     pass

@@ -15,8 +15,8 @@ from ethereum.crypto.blake2 import Blake2b
 from ethereum.utils.ensure import ensure
 
 from ...vm import Evm
-from ...vm.error import InvalidParameter
 from ...vm.gas import GAS_BLAKE2_PER_ROUND, subtract_gas
+from ..exceptions import InvalidParameter
 
 
 def blake2f(evm: Evm) -> None:

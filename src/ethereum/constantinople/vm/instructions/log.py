@@ -18,9 +18,8 @@ from ethereum.utils.ensure import ensure
 from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
 from ...eth_types import Log
-from ...vm.error import OutOfGasError
 from .. import Evm
-from ..error import WriteInStaticContext
+from ..exceptions import OutOfGasError, WriteInStaticContext
 from ..gas import (
     GAS_LOG,
     GAS_LOG_DATA,
@@ -48,7 +47,7 @@ def log_n(evm: Evm, num_topics: U256) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2 + num_topics`.
     """
     ensure(not evm.message.is_static, WriteInStaticContext)

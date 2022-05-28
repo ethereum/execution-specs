@@ -39,9 +39,9 @@ def add(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -67,9 +67,9 @@ def sub(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -95,9 +95,9 @@ def mul(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
@@ -123,9 +123,9 @@ def div(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
@@ -154,9 +154,9 @@ def sdiv(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
@@ -189,9 +189,9 @@ def mod(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
@@ -220,9 +220,9 @@ def smod(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)
@@ -252,9 +252,9 @@ def addmod(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `3`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `8`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_MID)
@@ -285,9 +285,9 @@ def mulmod(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `3`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `8`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_MID)
@@ -318,7 +318,7 @@ def exp(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
     """
     base = Uint(pop(evm.stack))
@@ -352,9 +352,9 @@ def signextend(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `5`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_LOW)

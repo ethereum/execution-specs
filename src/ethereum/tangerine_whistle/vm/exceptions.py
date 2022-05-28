@@ -1,6 +1,6 @@
 """
-Ethereum Virtual Machine (EVM) Errors
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Ethereum Virtual Machine (EVM) Exceptions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
     :backlinks: none
@@ -9,7 +9,7 @@ Ethereum Virtual Machine (EVM) Errors
 Introduction
 ------------
 
-Errors which cause the EVM to halt exceptionally.
+Exceptions which cause the EVM to halt exceptionally.
 """
 
 from ethereum.exceptions import EthereumException
@@ -20,17 +20,6 @@ class ExceptionalHalt(EthereumException):
     Indicates that the EVM has experienced an exceptional halt. This causes
     execution to immediately end with all gas being consumed.
     """
-
-
-class Revert(EthereumException):
-    """
-    Raised by the `REVERT` opcode.
-
-    Unlike other EVM exceptions this does not result in the consumption of all
-    gas.
-    """
-
-    pass
 
 
 class StackUnderflowError(ExceptionalHalt):
@@ -90,32 +79,6 @@ class InsufficientFunds(ExceptionalHalt):
     """
     Raised when an account has insufficient funds to transfer the
     requested value.
-    """
-
-    pass
-
-
-class WriteInStaticContext(ExceptionalHalt):
-    """
-    Raised when an attempt is made to modify the state while operating inside
-    of a STATICCALL context.
-    """
-
-    pass
-
-
-class OutOfBoundsRead(ExceptionalHalt):
-    """
-    Raised when an attempt was made to read data beyond the
-    boundaries of the buffer.
-    """
-
-    pass
-
-
-class InvalidParameter(ExceptionalHalt):
-    """
-    Raised when invalid parameters are passed.
     """
 
     pass

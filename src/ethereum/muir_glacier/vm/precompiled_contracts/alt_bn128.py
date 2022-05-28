@@ -26,8 +26,8 @@ from ethereum.utils.byte import right_pad_zero_bytes
 from ethereum.utils.ensure import ensure
 
 from ...vm import Evm
-from ...vm.error import OutOfGasError
 from ...vm.gas import subtract_gas
+from ..exceptions import OutOfGasError
 
 
 def alt_bn128_add(evm: Evm) -> None:

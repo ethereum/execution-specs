@@ -30,15 +30,15 @@ from ..state import (
     touch_account,
 )
 from ..vm import Message
-from ..vm.error import (
+from ..vm.gas import GAS_CODE_DEPOSIT, REFUND_SELF_DESTRUCT, subtract_gas
+from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
+from . import Environment, Evm
+from .exceptions import (
     ExceptionalHalt,
     InsufficientFunds,
     InvalidOpcode,
     StackDepthLimitError,
 )
-from ..vm.gas import GAS_CODE_DEPOSIT, REFUND_SELF_DESTRUCT, subtract_gas
-from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import Environment, Evm
 from .instructions import Ops, op_implementation
 from .runtime import get_valid_jump_destinations
 
