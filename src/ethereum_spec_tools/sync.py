@@ -301,7 +301,7 @@ class Sync:
         )
 
         if chain_id is not None:
-            chain_id = Uint64(chain_id)
+            chain_id = Uint64(int(chain_id))
 
         return chain_id
 
