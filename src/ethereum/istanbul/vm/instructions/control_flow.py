@@ -14,9 +14,9 @@ Implementations of the EVM control flow instructions.
 
 from ethereum.base_types import U256, Uint
 
-from ...vm.error import InvalidJumpDestError
 from ...vm.gas import GAS_BASE, GAS_HIGH, GAS_JUMPDEST, GAS_MID, subtract_gas
 from .. import Evm
+from ..exceptions import InvalidJumpDestError
 from ..stack import pop, push
 
 
@@ -44,15 +44,15 @@ def jump(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.InvalidJumpDestError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.InvalidJumpDestError`
         If the jump destination doesn't meet any of the following criteria:
             * The jump destination is less than the length of the code.
             * The jump destination should have the `JUMPDEST` opcode (0x5B).
             * The jump destination shouldn't be part of the data corresponding
             to `PUSH-N` opcodes.
-    :py:class:`~ethereum.istanbul.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `8`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_MID)
@@ -77,15 +77,15 @@ def jumpi(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.InvalidJumpDestError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.InvalidJumpDestError`
         If the jump destination doesn't meet any of the following criteria:
             * The jump destination is less than the length of the code.
             * The jump destination should have the `JUMPDEST` opcode (0x5B).
             * The jump destination shouldn't be part of the data corresponding
             to `PUSH-N` opcodes.
-    :py:class:`~ethereum.istanbul.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `10`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_HIGH)
@@ -115,9 +115,9 @@ def pc(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackOverflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackOverflowError`
         If `len(stack)` is more than `1023`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -137,9 +137,9 @@ def gas_left(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackOverflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackOverflowError`
         If `len(stack)` is more than `1023`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -160,7 +160,7 @@ def jumpdest(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `1`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_JUMPDEST)

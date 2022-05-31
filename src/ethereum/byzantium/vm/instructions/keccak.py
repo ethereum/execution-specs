@@ -17,8 +17,8 @@ from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
-from ...vm.error import OutOfGasError
 from .. import Evm
+from ..exceptions import OutOfGasError
 from ..gas import (
     GAS_KECCAK256,
     GAS_KECCAK256_WORD,
@@ -43,7 +43,7 @@ def keccak(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
     """
     # Converting memory_start_index to Uint as memory_end_index can

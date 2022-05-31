@@ -17,7 +17,7 @@ from ethereum.utils.safe_arithmetic import u256_safe_add
 
 from ..eth_types import Address
 from ..state import State, account_exists
-from .error import OutOfGasError
+from .exceptions import OutOfGasError
 
 GAS_JUMPDEST = U256(1)
 GAS_BASE = U256(2)
@@ -71,7 +71,7 @@ def subtract_gas(gas_left: U256, amount: U256) -> U256:
 
     Raises
     ------
-    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
+    :py:class:`~ethereum.dao_fork.vm.exceptions.OutOfGasError`
         If `gas_left` is less than `amount`.
     """
     if gas_left < amount:

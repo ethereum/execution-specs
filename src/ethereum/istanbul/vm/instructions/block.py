@@ -31,9 +31,9 @@ def block_hash(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `20`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BLOCK_HASH)
@@ -68,9 +68,9 @@ def coinbase(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackOverflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackOverflowError`
         If `len(stack)` is equal to `1024`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -94,9 +94,9 @@ def timestamp(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackOverflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackOverflowError`
         If `len(stack)` is equal to `1024`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -119,9 +119,9 @@ def number(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackOverflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackOverflowError`
         If `len(stack)` is equal to `1024`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -144,9 +144,9 @@ def difficulty(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackOverflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackOverflowError`
         If `len(stack)` is equal to `1024`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -169,9 +169,9 @@ def gas_limit(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackOverflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackOverflowError`
         If `len(stack)` is equal to `1024`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -191,9 +191,9 @@ def chain_id(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.istanbul.vm.error.StackOverflowError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.StackOverflowError`
         If `len(stack)` is equal to `1024`.
-    :py:class:`~ethereum.istanbul.vm.error.OutOfGasError`
+    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)

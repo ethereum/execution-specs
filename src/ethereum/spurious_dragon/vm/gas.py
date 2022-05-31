@@ -15,7 +15,7 @@ from ethereum.base_types import U256, Uint
 from ethereum.utils.numeric import ceil32
 from ethereum.utils.safe_arithmetic import u256_safe_add
 
-from .error import OutOfGasError
+from .exceptions import OutOfGasError
 
 GAS_JUMPDEST = U256(1)
 GAS_BASE = U256(2)
@@ -71,7 +71,7 @@ def subtract_gas(gas_left: U256, amount: U256) -> U256:
 
     Raises
     ------
-    :py:class:`~ethereum.spurious_dragon.vm.error.OutOfGasError`
+    :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `gas_left` is less than `amount`.
     """
     if gas_left < amount:

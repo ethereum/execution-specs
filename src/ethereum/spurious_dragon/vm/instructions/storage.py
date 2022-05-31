@@ -36,9 +36,9 @@ def sload(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.spurious_dragon.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.spurious_dragon.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.spurious_dragon.vm.error.OutOfGasError`
+    :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `50`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_SLOAD)
@@ -62,9 +62,9 @@ def sstore(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.spurious_dragon.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.spurious_dragon.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.spurious_dragon.vm.error.OutOfGasError`
+    :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `20000`.
     """
     key = pop(evm.stack).to_be_bytes32()

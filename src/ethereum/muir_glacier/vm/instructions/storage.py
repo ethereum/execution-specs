@@ -15,7 +15,7 @@ from ethereum.utils.ensure import ensure
 
 from ...state import get_storage, get_storage_original, set_storage
 from .. import Evm
-from ..error import OutOfGasError, WriteInStaticContext
+from ..exceptions import OutOfGasError, WriteInStaticContext
 from ..gas import (
     GAS_CALL_STIPEND,
     GAS_SLOAD,
@@ -39,9 +39,9 @@ def sload(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.muir_glacier.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.muir_glacier.vm.error.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `50`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_SLOAD)
@@ -65,9 +65,9 @@ def sstore(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.muir_glacier.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.muir_glacier.vm.error.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `20000`.
     """
     ensure(evm.gas_left > GAS_CALL_STIPEND, OutOfGasError)

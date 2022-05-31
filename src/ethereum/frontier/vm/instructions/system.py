@@ -21,8 +21,8 @@ from ...state import (
     set_account_balance,
 )
 from ...utils.address import compute_contract_address, to_address
-from ...vm.error import OutOfGasError
 from .. import Evm, Message
+from ..exceptions import OutOfGasError
 from ..gas import (
     GAS_CREATE,
     GAS_ZERO,

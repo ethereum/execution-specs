@@ -14,8 +14,8 @@ Implementations of the EVM Memory instructions.
 from ethereum.base_types import U8_MAX_VALUE, U256, Uint
 from ethereum.utils.safe_arithmetic import u256_safe_add
 
-from ...vm.error import OutOfGasError
 from .. import Evm
+from ..exceptions import OutOfGasError
 from ..gas import (
     GAS_BASE,
     GAS_VERY_LOW,
@@ -39,9 +39,9 @@ def mstore(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.dao_fork.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
+    :py:class:`~ethereum.dao_fork.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than
         `3` + gas needed to extend memeory.
     """
@@ -79,9 +79,9 @@ def mstore8(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.dao_fork.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
+    :py:class:`~ethereum.dao_fork.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than
         `3` + gas needed to extend memory.
     """
@@ -119,9 +119,9 @@ def mload(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.dao_fork.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.dao_fork.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
+    :py:class:`~ethereum.dao_fork.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than
         `3` + gas needed to extend memory.
     """
@@ -159,7 +159,7 @@ def msize(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.dao_fork.vm.error.OutOfGasError`
+    :py:class:`~ethereum.dao_fork.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)

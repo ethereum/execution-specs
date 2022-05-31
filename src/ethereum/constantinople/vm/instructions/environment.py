@@ -22,9 +22,9 @@ from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 from ...eth_types import EMPTY_ACCOUNT
 from ...state import get_account
 from ...utils.address import to_address
-from ...vm.error import OutOfBoundsRead, OutOfGasError
 from ...vm.memory import extend_memory, memory_write
 from .. import Evm
+from ..exceptions import OutOfBoundsRead, OutOfGasError
 from ..gas import (
     GAS_BALANCE,
     GAS_BASE,
@@ -50,7 +50,7 @@ def address(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.error.OutOfGasError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -70,9 +70,9 @@ def balance(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.constantinople.vm.error.OutOfGasError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `20`.
     """
     # TODO: There are no test cases against this function. Need to write
@@ -101,7 +101,7 @@ def origin(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.error.OutOfGasError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -121,7 +121,7 @@ def caller(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.error.OutOfGasError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -141,7 +141,7 @@ def callvalue(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.error.OutOfGasError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -162,9 +162,9 @@ def calldataload(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.constantinople.vm.error.OutOfGasError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -192,7 +192,7 @@ def calldatasize(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.error.OutOfGasError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -215,7 +215,7 @@ def calldatacopy(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `3`.
     """
     # Converting below to Uint as though the start indices may belong to U256,
@@ -267,7 +267,7 @@ def codesize(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.error.OutOfGasError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -290,7 +290,7 @@ def codecopy(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `3`.
     """
     # Converting below to Uint as though the start indices may belong to U256,
@@ -343,7 +343,7 @@ def gasprice(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.error.OutOfGasError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
@@ -363,9 +363,9 @@ def extcodesize(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.constantinople.vm.error.OutOfGasError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `20`.
     """
     # TODO: There are no test cases against this function. Need to write
@@ -393,7 +393,7 @@ def extcodecopy(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `4`.
     """
     # TODO: There are no test cases against this function. Need to write

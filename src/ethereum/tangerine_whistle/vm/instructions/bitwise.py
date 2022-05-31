@@ -31,9 +31,9 @@ def bitwise_and(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.tangerine_whistle.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.tangerine_whistle.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
+    :py:class:`~ethereum.tangerine_whistle.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -56,9 +56,9 @@ def bitwise_or(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.tangerine_whistle.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.tangerine_whistle.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
+    :py:class:`~ethereum.tangerine_whistle.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -81,9 +81,9 @@ def bitwise_xor(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.tangerine_whistle.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.tangerine_whistle.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
+    :py:class:`~ethereum.tangerine_whistle.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -106,9 +106,9 @@ def bitwise_not(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.tangerine_whistle.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.tangerine_whistle.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
+    :py:class:`~ethereum.tangerine_whistle.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -131,9 +131,9 @@ def get_byte(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.tangerine_whistle.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.tangerine_whistle.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.tangerine_whistle.vm.error.OutOfGasError`
+    :py:class:`~ethereum.tangerine_whistle.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)

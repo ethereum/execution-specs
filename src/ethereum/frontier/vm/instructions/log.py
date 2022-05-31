@@ -17,8 +17,8 @@ from ethereum.base_types import U256, Uint
 from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
 from ...eth_types import Log
-from ...vm.error import OutOfGasError
 from .. import Evm
+from ..exceptions import OutOfGasError
 from ..gas import (
     GAS_LOG,
     GAS_LOG_DATA,
@@ -46,7 +46,7 @@ def log_n(evm: Evm, num_topics: U256) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.frontier.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.frontier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2 + num_topics`.
     """
     # Converting memory_start_index to Uint as memory_start_index + size - 1

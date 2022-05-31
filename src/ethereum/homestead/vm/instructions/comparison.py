@@ -31,9 +31,9 @@ def less_than(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.homestead.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.homestead.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.homestead.vm.error.OutOfGasError`
+    :py:class:`~ethereum.homestead.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -58,9 +58,9 @@ def signed_less_than(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.homestead.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.homestead.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.homestead.vm.error.OutOfGasError`
+    :py:class:`~ethereum.homestead.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -86,9 +86,9 @@ def greater_than(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.homestead.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.homestead.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.homestead.vm.error.OutOfGasError`
+    :py:class:`~ethereum.homestead.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -113,9 +113,9 @@ def signed_greater_than(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.homestead.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.homestead.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.homestead.vm.error.OutOfGasError`
+    :py:class:`~ethereum.homestead.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -141,9 +141,9 @@ def equal(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.homestead.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.homestead.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.homestead.vm.error.OutOfGasError`
+    :py:class:`~ethereum.homestead.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
@@ -169,9 +169,9 @@ def is_zero(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.homestead.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.homestead.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.homestead.vm.error.OutOfGasError`
+    :py:class:`~ethereum.homestead.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)

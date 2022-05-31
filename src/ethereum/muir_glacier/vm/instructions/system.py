@@ -29,8 +29,8 @@ from ...utils.address import (
     compute_create2_contract_address,
     to_address,
 )
-from ...vm.error import OutOfGasError, Revert, WriteInStaticContext
 from .. import Evm, Message
+from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
     GAS_CALL,
     GAS_CALL_VALUE,

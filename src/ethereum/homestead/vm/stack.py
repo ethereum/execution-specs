@@ -16,7 +16,7 @@ from typing import List
 
 from ethereum.base_types import U256
 
-from .error import StackOverflowError, StackUnderflowError
+from .exceptions import StackOverflowError, StackUnderflowError
 
 
 def pop(stack: List[U256]) -> U256:
@@ -35,7 +35,7 @@ def pop(stack: List[U256]) -> U256:
 
     Raises
     ------
-    :py:class:`~ethereum.homestead.vm.error.StackUnderflowError`
+    :py:class:`~ethereum.homestead.vm.exceptions.StackUnderflowError`
         If `stack` is empty.
     """
     if len(stack) == 0:
@@ -58,7 +58,7 @@ def push(stack: List[U256], value: U256) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.homestead.vm.error.StackOverflowError`
+    :py:class:`~ethereum.homestead.vm.exceptions.StackOverflowError`
         If `len(stack)` is `1024`.
     """
     if len(stack) == 1024:
