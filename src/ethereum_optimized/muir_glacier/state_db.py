@@ -14,7 +14,6 @@ This module contains functions can be monkey patched into
 """
 import logging
 from dataclasses import dataclass
-from tempfile import TemporaryDirectory
 from typing import Any, ClassVar, Dict, List, Optional, Set
 
 import rust_pyspec_glue
