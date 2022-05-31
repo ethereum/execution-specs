@@ -23,7 +23,7 @@ def pytest_addoption(parser: Parser) -> None:
         default=False,
         action="store_const",
         const=True,
-        help="Use optimized state and ethash"
+        help="Use optimized state and ethash",
     )
 
 
@@ -37,4 +37,5 @@ def pytest_configure(config: Config) -> None:
         setattr(ethereum, "evm_trace", evm_trace)
     if config.getoption("optimized"):
         import ethereum_optimized
+
         ethereum_optimized.monkey_patch(None)

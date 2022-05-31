@@ -768,7 +768,7 @@ class Sync:
                 # regular DB commits
                 if block_number % 100 == 0:
                     self.persist()
-            elif block_number % 1000 == 0:
+            elif block_number % 10000 == 0:
                 self.persist()
 
 
