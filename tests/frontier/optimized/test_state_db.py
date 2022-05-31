@@ -58,7 +58,6 @@ def test_resurrection() -> None:
     state_normal = actions(state)
     state_optimized = actions(state_db)
     state_db.state_root(state_optimized)
-    state_optimized.db.debug_dump()
     assert state.get_storage(
         state_normal, ADDRESS_FOO, STORAGE_FOO
     ) == state_db.get_storage(state_optimized, ADDRESS_FOO, STORAGE_FOO)
