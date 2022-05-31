@@ -338,10 +338,12 @@ def fetch_state_test_files(
     network: str,
     only_in: Tuple[str, ...] = (),
     slow_list: Tuple[str, ...] = (),
+    big_memory_list: Tuple[str, ...] = (),
     ignore_list: Tuple[str, ...] = (),
 ) -> Generator[Union[Dict, ParameterSet], None, None]:
 
     all_slow = [re.compile(x) for x in slow_list]
+    all_big_memory = [re.compile(x) for x in big_memory_list]
     all_ignore = [re.compile(x) for x in ignore_list]
 
     # Get all the files to iterate over
@@ -382,6 +384,8 @@ def fetch_state_test_files(
                     continue
                 elif any(x.search(_identifier) for x in all_slow):
                     yield pytest.param(_test_case, marks=pytest.mark.slow)
+                elif any(x.search(_identifier) for x in all_big_memory):
+                    yield pytest.param(_test_case, marks=pytest.mark.bigmem)
                 else:
                     yield _test_case
         except KeyError:

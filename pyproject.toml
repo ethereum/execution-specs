@@ -13,4 +13,5 @@ line-length = 79
 [tool.pytest.ini_options]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "bigmem: marks tests as big memory (deselect with '-m \"not bigmem\"')",
 ]

@@ -34,11 +34,23 @@ INCORRECT_UPSTREAM_STATE_TESTS = (
     "stRevertTest/RevertInCreateInInit_d0g0v0.json",
 )
 
+BIG_MEMORY_TESTS = (
+    "static_Call50000_d1g0v0_Byzantium",
+    "static_Call50000_ecrec_d1g0v0_Byzantium",
+    "static_Call50000_sha256_d1g0v0_Byzantium",
+    "static_Call50000_sha256_d0g0v0_Byzantium",
+    "static_Call50000_rip160_d1g0v0_Byzantium",
+    "static_Call50000_rip160_d0g0v0_Byzantium",
+    "Return50000_d0g1v0_Byzantium",
+)
+
 
 @pytest.mark.parametrize(
     "test_case",
     fetch_byzantium_tests(
-        test_dir, ignore_list=INCORRECT_UPSTREAM_STATE_TESTS
+        test_dir,
+        ignore_list=INCORRECT_UPSTREAM_STATE_TESTS,
+        big_memory_list=BIG_MEMORY_TESTS,
     ),
     ids=idfn,
 )
