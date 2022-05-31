@@ -17,6 +17,14 @@ def pytest_addoption(parser: Parser) -> None:
         const=10,
         help="Run trace",
     )
+    parser.addoption(
+        "--optimized",
+        dest="optimized",
+        default=False,
+        action="store_const",
+        const=True,
+        help="Use optimized state and ethash"
+    )
 
 
 def pytest_configure(config: Config) -> None:
@@ -27,3 +35,6 @@ def pytest_configure(config: Config) -> None:
         config.option.__dict__["log_cli_level"] = "10"
         config.option.__dict__["log_format"] = "%(message)s"
         setattr(ethereum, "evm_trace", evm_trace)
+    if config.getoption("optimized"):
+        import ethereum_optimized
+        ethereum_optimized.monkey_patch(None)
