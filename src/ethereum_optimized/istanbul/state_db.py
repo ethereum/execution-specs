@@ -179,6 +179,8 @@ def begin_transaction(state: State) -> None:
     """
     See `ethereum.istanbul.state`.
     """
+    if len(state.tx_restore_points) == 0:
+        flush(state)
     state.tx_restore_points.append(len(state.journal))
 
 
@@ -189,6 +191,7 @@ def commit_transaction(state: State) -> None:
     state.tx_restore_points.pop()
     if len(state.tx_restore_points) == 0:
         state.journal = []
+        flush(state)
 
 
 def rollback_transaction(state: State) -> None:
@@ -219,6 +222,13 @@ def get_storage(state: State, address: Address, key: Bytes) -> U256:
     """
     if address in state.dirty_storage and key in state.dirty_storage[address]:
         return state.dirty_storage[address][key]
+    return U256(state.db.get_storage(address, key))
+
+
+def get_storage_original(state: State, address: Address, key: Bytes) -> U256:
+    """
+    See `ethereum.istanbul.state`.
+    """
     return U256(state.db.get_storage(address, key))
 
 
@@ -271,4 +281,4 @@ def destroy_storage(state: State, address: Address) -> None:
     """
     state.journal.append((address, state.dirty_storage.pop(address, {})))
     state.destroyed_accounts.add(address)
-    set_account(state, address, None)
+    set_account(state, address, get_account_optional(state, address))
