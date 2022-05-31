@@ -111,11 +111,8 @@ xfail_candidates = (
 
 
 def is_in_xfail(test_case: Dict) -> bool:
-    for _dir, _test_key in xfail_candidates:
-        if (
-            _dir in test_case["test_file"]
-            and test_case["test_key"] == _test_key
-        ):
+    for dir, test_key in xfail_candidates:
+        if dir in test_case["test_file"] and test_case["test_key"] == test_key:
             return True
 
     return False
