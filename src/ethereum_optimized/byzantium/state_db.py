@@ -15,46 +15,23 @@ This module contains functions can be monkey patched into
 import logging
 from dataclasses import dataclass
 from tempfile import TemporaryDirectory
-from typing import Any, ClassVar, Dict, List, Optional, Set, Tuple
+from typing import Any, ClassVar, Dict, List, Optional, Set
 
-from ethereum import rlp
+import rust_pyspec_glue
+
 from ethereum.base_types import U256, Bytes, Uint
-from ethereum.byzantium.eth_types import (
-    EMPTY_ACCOUNT,
-    Account,
-    Address,
-    Root,
-    encode_account,
-)
-from ethereum.byzantium.trie import (
-    EMPTY_TRIE_ROOT,
-    BranchNode,
-    ExtensionNode,
-    InternalNode,
-    LeafNode,
-    Node,
-    bytes_to_nibble_list,
-    common_prefix_length,
-    encode_internal_node,
-)
-from ethereum.crypto.hash import keccak256
+from ethereum.byzantium.eth_types import Account, Address, Root
 
-from .trie_utils import decode_to_internal_node, encode_internal_node_nohash
 
-try:
-    import lmdb
-except ImportError as e:
-    # Add a message, but keep it an ImportError.
-    raise e from Exception(
-        "Install with `pip install 'ethereum[optimized]'` to enable this "
-        "package"
-    )
+class UnmodifiedType:
+    """
+    Sentinal type to represent a value that hasn't been modified.
+    """
 
-# 0x0 : Metadata
-# 0x1 : Accounts and storage
-# 0x2 : Internal Nodes
+    pass
 
-DB_VERSION = b"1"
+
+Unmodified = UnmodifiedType()
 
 
 @dataclass
@@ -68,44 +45,26 @@ class State:
 
     default_path: ClassVar[Optional[str]] = None
 
-    _db: Any
-    _current_tx: Any
-    _tx_stack: List[Any]
-    _dirty_accounts: List[Dict[Address, Optional[Account]]]
-    _dirty_storage: List[Dict[Address, Dict[Bytes, Optional[U256]]]]
-    _destroyed_accounts: List[Set[Address]]
-    _root: Root
+    db: Any
+    dirty_accounts: Dict[Address, Optional[Account]]
+    dirty_storage: Dict[Address, Dict[Bytes, U256]]
+    destroyed_accounts: Set[Address]
+    tx_restore_points: List[int]
+    journal: List[Any]
 
     def __init__(self, path: Optional[str] = None) -> None:
+        logging.info("using optimized state db at %s", path)
+
         if path is None:
             path = State.default_path
 
-            if path is None:
-                # Reference kept so directory won't be deleted until State is
-                self._tempdir = TemporaryDirectory()
-                path = self._tempdir.name
-
-        logging.info("using optimized state db at %s", path)
-
-        self._db = lmdb.open(path, map_size=2**40)
-        self._current_tx = None
-        self._tx_stack = []
-        self._dirty_accounts = [{}]
-        self._dirty_storage = [{}]
-        self._destroyed_accounts = [set()]
-        begin_db_transaction(self)
-        version = get_metadata(self, b"version")
-        if version is None:
-            if self._db.stat()["entries"] != 0:
-                raise Exception("State DB is missing version")
-            else:
-                set_metadata(self, b"version", DB_VERSION)
-        elif version != DB_VERSION:
-            raise Exception(
-                f"State DB version mismatch"
-                f" (expected: {DB_VERSION.decode('ascii')},"
-                f" got: {version.decode('ascii')})"
-            )
+        self.db = rust_pyspec_glue.DB(path)
+        self.dirty_accounts = {}
+        self.dirty_storage = {}
+        self.destroyed_accounts = set()
+        self.tx_restore_points = []
+        self.journal = []
+        self.db.begin_mutable()
 
     def __eq__(self, other: object) -> bool:
         """
@@ -117,162 +76,151 @@ class State:
 
     def __enter__(self) -> "State":
         """Support with statements"""
-        # This is actually noop, but call it anyway for correctness
-        self._db.__enter__()
         return self
 
-    def __exit__(self, *args: Any) -> bool:
+    def __exit__(self, *args: Any) -> None:
         """Support with statements"""
-        return self._db.__exit__(*args)
+        close_state(self)
 
 
 def close_state(state: State) -> None:
     """Close a state, releasing all resources it holds"""
-    state._db.close()
-    del state._current_tx
-    del state._tx_stack
-    del state._dirty_accounts
-    del state._dirty_storage
-    del state._destroyed_accounts
+    state.db.close()
+    state.db = None
+    del state.dirty_accounts
+    del state.dirty_storage
+    del state.destroyed_accounts
+    del state.journal
 
 
 def get_metadata(state: State, key: Bytes) -> Optional[Bytes]:
     """Get a piece of metadata"""
-    return state._current_tx.get(b"\x00" + key)
+    return state.db.get_metadata(key)
 
 
 def set_metadata(state: State, key: Bytes, value: Bytes) -> None:
     """Set a piece of metadata"""
-    return state._current_tx.put(b"\x00" + key, value)
+    return state.db.set_metadata(key, value)
 
 
 def begin_db_transaction(state: State) -> None:
     """
     Start a database transaction. A transaction is automatically started when a
-    `State` is created and the entire stack of transactions must be committed
-    for any permanent changes to be made to the database.
-
-    Database transactions are more expensive than normal transactions, but the
-    state root can be calculated while in them.
+    `State` is created. Nesting of DB transactions is not supported (unlike
+    non-db transactions).
 
     No operations are supported when not in a transaction.
     """
-    if state._tx_stack == []:
-        state._tx_stack.append(lmdb.Transaction(state._db, write=True))
-    elif state._tx_stack[-1] is None:
-        raise Exception(
-            "Non db transactions cannot have db transactions as children"
-        )
-    else:
-        state_root(state)
-        state._tx_stack.append(
-            lmdb.Transaction(state._db, parent=state._tx_stack[-1], write=True)
-        )
-    state._current_tx = state._tx_stack[-1]
+    state.db.begin_mutable()
+    state.tx_restore_points = []
+    state.journal = []
 
 
 def commit_db_transaction(state: State) -> None:
     """
     Commit the current database transaction.
     """
-    if state._tx_stack[-1] is None:
-        raise Exception("Current transaction is not a db transaction")
-    state_root(state)
-    state._tx_stack.pop().commit()
-    if state._tx_stack != []:
-        state._current_tx = state._tx_stack[-1]
-    else:
-        state._current_tx = None
+    if len(state.tx_restore_points) != 0:
+        raise Exception("In a non-db transaction")
+    flush(state)
+    state.db.commit_mutable()
+
+
+def state_root(state: State) -> Root:
+    """
+    See `ethereum.byzantium.state`.
+    """
+    if len(state.tx_restore_points) != 0:
+        raise Exception("In a non-db transaction")
+    flush(state)
+    return state.db.state_root()
+
+
+def storage_root(state: State, address: Address) -> Root:
+    """
+    See `ethereum.byzantium.state`.
+    """
+    if len(state.tx_restore_points) != 0:
+        raise Exception("In a non-db transaction")
+    flush(state)
+    return state.db.storage_root(address)
+
+
+def flush(state: State) -> None:
+    """
+    Send everything in the internal caches to the Rust layer.
+    """
+    if len(state.tx_restore_points) != 0:
+        raise Exception("In a non-db transaction")
+    for address in state.destroyed_accounts:
+        state.db.destroy_storage(address)
+    for address, account in state.dirty_accounts.items():
+        state.db.set_account(address, account)
+    for address, storage in state.dirty_storage.items():
+        for key, value in storage.items():
+            state.db.set_storage(address, key, value)
+    state.destroyed_accounts = set()
+    state.dirty_accounts = {}
+    state.dirty_storage = {}
 
 
 def rollback_db_transaction(state: State) -> None:
     """
     Rollback the current database transaction.
     """
-    if state._tx_stack[-1] is None:
-        raise Exception("Current transaction is not a db transaction")
-    state._tx_stack.pop().abort()
-    state._dirty_accounts = [{}]
-    state._dirty_storage = [{}]
-    state._destroyed_accounts = [set()]
-    if state._tx_stack != []:
-        state._current_tx = state._tx_stack[-1]
-    else:
-        state._current_tx = None
+    if len(state.tx_restore_points) != 0:
+        raise Exception("In a non-db transaction")
+    state.db.rollback_mutable()
+    state.dirty_accounts = {}
+    state.dirty_storage = {}
+    state.destroyed_accounts = set()
 
 
 def begin_transaction(state: State) -> None:
     """
     See `ethereum.byzantium.state`.
     """
-    if state._tx_stack == []:
-        raise Exception("First transaction must be a db transaction")
-    state._tx_stack.append(None)
-    state._dirty_accounts.append({})
-    state._dirty_storage.append({})
-    state._destroyed_accounts.append(set())
+    state.tx_restore_points.append(len(state.journal))
 
 
 def commit_transaction(state: State) -> None:
     """
     See `ethereum.byzantium.state`.
     """
-    if state._tx_stack[-1] is not None:
-        raise Exception("Current transaction is a db transaction")
-    for (address, account) in state._dirty_accounts.pop().items():
-        state._dirty_accounts[-1][address] = account
-    state._destroyed_accounts[-2] |= state._destroyed_accounts[-1]
-    for address in state._destroyed_accounts.pop():
-        state._dirty_storage[-2].pop(address, None)
-    for (address, cache) in state._dirty_storage.pop().items():
-        if address not in state._dirty_storage[-1]:
-            state._dirty_storage[-1][address] = {}
-        for (key, value) in cache.items():
-            state._dirty_storage[-1][address][key] = value
-    state._tx_stack.pop()
+    state.tx_restore_points.pop()
+    if len(state.tx_restore_points) == 0:
+        state.journal = []
 
 
 def rollback_transaction(state: State) -> None:
     """
     See `ethereum.byzantium.state`.
     """
-    if state._tx_stack[-1] is not None:
-        raise Exception("Current transaction is a db transaction")
-    state._tx_stack.pop()
-    state._dirty_accounts.pop()
-    state._dirty_storage.pop()
-    state._destroyed_accounts.pop()
-
-
-def get_internal_key(key: Bytes) -> Bytes:
-    """
-    Convert a key to the form used internally inside the trie.
-    """
-    return bytes_to_nibble_list(keccak256(key))
+    restore_point = state.tx_restore_points.pop()
+    while len(state.journal) > restore_point:
+        item = state.journal.pop()
+        if len(item) == 3:
+            if item[2] is Unmodified:
+                del state.dirty_storage[item[0]][item[1]]
+            else:
+                state.dirty_storage[item[0]][item[1]] = item[2]
+        elif type(item[1]) is dict:
+            state.destroyed_accounts.remove(item[0])
+            state.dirty_storage[item[0]] = item[1]
+        else:
+            if item[1] is Unmodified:
+                del state.dirty_accounts[item[0]]
+            else:
+                state.dirty_accounts[item[0]] = item[1]
 
 
 def get_storage(state: State, address: Address, key: Bytes) -> U256:
     """
     See `ethereum.byzantium.state`.
     """
-    for i in range(len(state._tx_stack) - 1, -1, -1):
-        if address in state._dirty_storage[i]:
-            if key in state._dirty_storage[i][address]:
-                cached_res = state._dirty_storage[i][address][key]
-                if cached_res is None:
-                    return U256(0)
-                else:
-                    return cached_res
-            if key in state._destroyed_accounts[i]:
-                # Higher levels refer to the account prior to destruction
-                return U256(0)
-    res = state._current_tx.get(b"\x01" + address + b"\x00" + key)
-    if res is None:
-        return U256(0)
-    else:
-        res = rlp.decode(res)
-        assert isinstance(res, bytes)
-        return U256.from_be_bytes(res)
+    if address in state.dirty_storage and key in state.dirty_storage[address]:
+        return state.dirty_storage[address][key]
+    return U256(state.db.get_storage(address, key))
 
 
 def set_storage(
@@ -281,46 +229,28 @@ def set_storage(
     """
     See `ethereum.byzantium.state`.
     """
-    if address not in state._dirty_accounts[-1]:
-        state._dirty_accounts[-1][address] = get_account_optional(
-            state, address
-        )
-    if address not in state._dirty_storage[-1]:
-        state._dirty_storage[-1][address] = {}
-    if value == 0:
-        state._dirty_storage[-1][address][key] = None
+    if address not in state.dirty_accounts:
+        state.dirty_accounts[address] = get_account_optional(state, address)
+    if address not in state.dirty_storage:
+        state.dirty_storage[address] = {}
+    if key not in state.dirty_storage[address]:
+        state.journal.append((address, key, Unmodified))
     else:
-        state._dirty_storage[-1][address][key] = value
+        state.journal.append((address, key, state.dirty_storage[address][key]))
+    state.dirty_storage[address][key] = value
 
 
 def get_account_optional(state: State, address: Address) -> Optional[Account]:
     """
     See `ethereum.byzantium.state`.
     """
-    for cache in reversed(state._dirty_accounts):
-        if address in cache:
-            return cache[address]
-    internal_address = get_internal_key(address)
-    res = state._current_tx.get(b"\x01" + internal_address)
-    if res is None:
+    if address in state.dirty_accounts:
+        return state.dirty_accounts[address]
+    account = state.db.get_account_optional(address)
+    if account is not None:
+        return Account(Uint(account[0]), U256(account[1]), account[2])
+    else:
         return None
-    else:
-        data = rlp.decode(res)
-        assert isinstance(data, list)
-        return Account(
-            Uint.from_be_bytes(data[0]), U256.from_be_bytes(data[1]), data[2]
-        )
-
-
-def get_account(state: State, address: Address) -> Account:
-    """
-    See `ethereum.byzantium.state`.
-    """
-    res = get_account_optional(state, address)
-    if res is None:
-        return EMPTY_ACCOUNT
-    else:
-        return res
 
 
 def set_account(
@@ -329,537 +259,17 @@ def set_account(
     """
     See `ethereum.byzantium.state`.
     """
-    if account is None:
-        state._dirty_accounts[-1][address] = None
-    else:
-        state._dirty_accounts[-1][address] = account
+    if address not in state.dirty_accounts:
+        state.journal.append((address, Unmodified))
+    if address in state.dirty_accounts:
+        state.journal.append((address, state.dirty_accounts[address]))
+    state.dirty_accounts[address] = account
 
 
 def destroy_storage(state: State, address: Address) -> None:
     """
     See `ethereum.byzantium.state`.
     """
-    state._destroyed_accounts[-1].add(address)
-    state._dirty_storage[-1].pop(address, None)
-    state._dirty_accounts[-1][address] = get_account_optional(state, address)
-
-
-def clear_destroyed_account(state: State, address: Bytes) -> None:
-    """
-    Remove every storage key associated to a destroyed account from the
-    database.
-    """
-    internal_address = get_internal_key(address)
-    cursor = state._current_tx.cursor()
-    cursor.set_range(b"\x01" + address + b"\x00")
-    while cursor.key().startswith(b"\x01" + address):
-        cursor.delete()
-    cursor.set_range(b"\x02" + internal_address + b"\x00")
-    while cursor.key().startswith(b"\x02" + internal_address):
-        cursor.delete()
-
-
-def make_node(
-    state: State, node_key: Bytes, value: Node, cursor: Any
-) -> rlp.RLP:
-    """
-    Given a node, get its `RLP` representation. This function calculates the
-    storage root if the node is an `Account`.
-    """
-    if isinstance(value, Account):
-        res = cursor.get(b"\x02" + node_key + b"\x00")
-        if res is None:
-            account_storage_root = EMPTY_TRIE_ROOT
-        else:
-            account_storage_root = keccak256(res)
-        return encode_account(value, account_storage_root)
-    elif isinstance(value, Bytes):
-        return value
-    else:
-        assert value is not None
-        return rlp.encode(value)
-
-
-def write_internal_node(
-    cursor: Any,
-    trie_prefix: Bytes,
-    node_key: Bytes,
-    node: Optional[InternalNode],
-) -> None:
-    """
-    Write an internal node into the database.
-    """
-    if node is None:
-        if cursor.set_key(b"\x02" + trie_prefix + node_key):
-            cursor.delete()
-    else:
-        cursor.put(
-            b"\x02" + trie_prefix + node_key,
-            encode_internal_node_nohash(node),
-        )
-
-
-def state_root(
-    state: State,
-) -> Root:
-    """
-    Calculate the state root.
-    """
-    if state._current_tx is None:
-        raise Exception("Cannot compute state root inside non db transaction")
-    for address, account in state._dirty_accounts[-1].items():
-        internal_address = get_internal_key(address)
-        if account is None:
-            state._current_tx.delete(b"\x01" + internal_address)
-        elif isinstance(account, Bytes):  # Testing only
-            state._current_tx.put(
-                b"\x01" + internal_address,
-                account,
-            )
-        elif isinstance(account, Account):
-            state._current_tx.put(
-                b"\x01" + internal_address,
-                rlp.encode([account.nonce, account.balance, account.code]),
-            )
-        else:
-            raise Exception(
-                f"Invalid object of type {type(account)} stored in state"
-            )
-    for address in state._destroyed_accounts[-1]:
-        clear_destroyed_account(state, address)
-    state._destroyed_accounts[-1] = set()
-    for address in list(state._dirty_storage[-1]):
-        storage_root(state, address)
-    dirty_list: List[Tuple[Bytes, Node]] = list(
-        sorted(
-            (
-                (get_internal_key(address), account)
-                for address, account in state._dirty_accounts[-1].items()
-            ),
-            reverse=True,
-        )
-    )
-    root_node = walk(
-        state,
-        b"",
-        b"",
-        dirty_list,
-        state._current_tx.cursor(),
-    )
-    write_internal_node(state._current_tx.cursor(), b"", b"", root_node)
-    state._dirty_accounts[-1] = {}
-    if root_node is None:
-        return EMPTY_TRIE_ROOT
-    else:
-        root = encode_internal_node(root_node)
-        if isinstance(root, Bytes):
-            return Root(root)
-        else:
-            return keccak256(rlp.encode(root))
-
-
-def storage_root(state: State, address: Address) -> Root:
-    """
-    Calculate the storage root.
-    """
-    if state._current_tx is None:
-        raise Exception(
-            "Cannot compute storage root inside non db transaction"
-        )
-    return _storage_root(state, address, state._current_tx.cursor())
-
-
-def _storage_root(state: State, address: Address, cursor: Any) -> Root:
-    """
-    Calculate the storage root.
-    """
-    dirty_storage = state._dirty_storage[-1].pop(address, {}).items()
-    for key, value in dirty_storage:
-        if value is None:
-            state._current_tx.delete(b"\x01" + address + b"\x00" + key)
-        else:
-            state._current_tx.put(
-                b"\x01" + address + b"\x00" + key,
-                rlp.encode(value),
-            )
-
-    internal_address = get_internal_key(address)
-    storage_prefix = internal_address + b"\x00"
-    dirty_list: List[Tuple[Bytes, Node]] = list(
-        sorted(
-            (
-                (get_internal_key(key), account)
-                for key, account in dirty_storage
-            ),
-            reverse=True,
-        )
-    )
-    root_node = walk(
-        state,
-        storage_prefix,
-        b"",
-        dirty_list,
-        cursor,
-    )
-    write_internal_node(cursor, storage_prefix, b"", root_node)
-    if root_node is None:
-        return EMPTY_TRIE_ROOT
-    else:
-        root = encode_internal_node(root_node)
-        if isinstance(root, Bytes):
-            return Root(root)
-        else:
-            return keccak256(rlp.encode(root))
-
-
-def walk(
-    state: State,
-    trie_prefix: Bytes,
-    node_key: Bytes,
-    dirty_list: List[Tuple[Bytes, Node]],
-    cursor: Any,
-) -> Optional[InternalNode]:
-    """
-    Visit the internal node at `node_key` and update all its subnodes as
-    required by `dirty_list`.
-
-    This function returns the new value of the visited node, but does not write
-    it to the database.
-    """
-    res = cursor.get(b"\x02" + trie_prefix + node_key)
-    if res is None:
-        current_node = None
-    else:
-        current_node = decode_to_internal_node(res)
-    while dirty_list and dirty_list[-1][0].startswith(node_key):
-        if current_node is None:
-            current_node = walk_empty(
-                state, trie_prefix, node_key, dirty_list, cursor
-            )
-        elif isinstance(current_node, LeafNode):
-            current_node = walk_leaf(
-                state,
-                trie_prefix,
-                node_key,
-                current_node,
-                dirty_list,
-                cursor,
-            )
-        elif isinstance(current_node, ExtensionNode):
-            current_node = walk_extension(
-                state,
-                trie_prefix,
-                node_key,
-                current_node,
-                dirty_list,
-                cursor,
-            )
-        elif isinstance(current_node, BranchNode):
-            current_node = walk_branch(
-                state,
-                trie_prefix,
-                node_key,
-                current_node,
-                dirty_list,
-                cursor,
-            )
-        else:
-            raise AssertionError()  # Invalid internal node type
-    return current_node
-
-
-def walk_empty(
-    state: State,
-    trie_prefix: Bytes,
-    node_key: Bytes,
-    dirty_list: List[Tuple[Bytes, Node]],
-    cursor: Any,
-) -> Optional[InternalNode]:
-    """
-    Consume the last element of `dirty_list` and create a `LeafNode` pointing
-    to it at `node_key`.
-
-    This function returns the new value of the visited node, but does not write
-    it to the database.
-    """
-    key, value = dirty_list.pop()
-    if value is not None:
-        return LeafNode(
-            key[len(node_key) :], make_node(state, key, value, cursor)
-        )
-    else:
-        return None
-
-
-def walk_leaf(
-    state: State,
-    trie_prefix: Bytes,
-    node_key: Bytes,
-    leaf_node: LeafNode,
-    dirty_list: List[Tuple[Bytes, Node]],
-    cursor: Any,
-) -> Optional[InternalNode]:
-    """
-    Consume the last element of `dirty_list` and update the `LeafNode` at
-    `node_key`, potentially turning it into `ExtensionNode` -> `BranchNode`
-    -> `LeafNode`.
-
-    This function returns the new value of the visited node, but does not write
-    it to the database.
-    """
-    key, value = dirty_list[-1]
-    if key[len(node_key) :] == leaf_node.rest_of_key:
-        dirty_list.pop()
-        if value is None:
-            return None
-        else:
-            return LeafNode(
-                leaf_node.rest_of_key,
-                make_node(state, key, value, cursor),
-            )
-    else:
-        prefix_length = common_prefix_length(
-            leaf_node.rest_of_key, key[len(node_key) :]
-        )
-        prefix = leaf_node.rest_of_key[:prefix_length]
-        assert (
-            len(leaf_node.rest_of_key) != prefix_length
-        )  # Keys must be same length
-        new_leaf_node = LeafNode(
-            leaf_node.rest_of_key[prefix_length + 1 :],
-            leaf_node.value,
-        )
-        write_internal_node(
-            cursor,
-            trie_prefix,
-            node_key + leaf_node.rest_of_key[: prefix_length + 1],
-            LeafNode(
-                leaf_node.rest_of_key[prefix_length + 1 :],
-                leaf_node.value,
-            ),
-        )
-        current_node = split_branch(
-            state,
-            trie_prefix,
-            node_key + prefix,
-            leaf_node.rest_of_key[prefix_length],
-            encode_internal_node(new_leaf_node),
-            dirty_list,
-            cursor,
-        )
-        if prefix_length != 0:
-            return make_extension_node(
-                state,
-                trie_prefix,
-                node_key,
-                node_key + prefix,
-                current_node,
-                cursor,
-            )
-        else:
-            return current_node
-
-
-def walk_extension(
-    state: State,
-    trie_prefix: Bytes,
-    node_key: Bytes,
-    extension_node: ExtensionNode,
-    dirty_list: List[Tuple[Bytes, Node]],
-    cursor: Any,
-) -> Optional[InternalNode]:
-    """
-    Consume the last element of `dirty_list` and update the `ExtensionNode` at
-    `node_key`, potentially turning it into `ExtensionNode` -> `BranchNode`
-    -> `ExtensionNode`.
-
-    This function returns the new value of the visited node, but does not write
-    it to the database.
-    """
-    key, value = dirty_list[-1]
-    if key[len(node_key) :].startswith(extension_node.key_segment):
-        target_node = walk(
-            state,
-            trie_prefix,
-            node_key + extension_node.key_segment,
-            dirty_list,
-            cursor,
-        )
-        return make_extension_node(
-            state,
-            trie_prefix,
-            node_key,
-            node_key + extension_node.key_segment,
-            target_node,
-            cursor,
-        )
-    prefix_length = common_prefix_length(
-        extension_node.key_segment, key[len(node_key) :]
-    )
-    prefix = extension_node.key_segment[:prefix_length]
-    if prefix_length != len(extension_node.key_segment) - 1:
-        new_extension_node = ExtensionNode(
-            extension_node.key_segment[prefix_length + 1 :],
-            extension_node.subnode,
-        )
-        write_internal_node(
-            cursor,
-            trie_prefix,
-            node_key + extension_node.key_segment[: prefix_length + 1],
-            new_extension_node,
-        )
-        encoded_new_extension_node = encode_internal_node(new_extension_node)
-    else:
-        encoded_new_extension_node = extension_node.subnode
-    node = split_branch(
-        state,
-        trie_prefix,
-        node_key + prefix,
-        extension_node.key_segment[prefix_length],
-        encoded_new_extension_node,
-        dirty_list,
-        cursor,
-    )
-    if prefix_length != 0:
-        return make_extension_node(
-            state, trie_prefix, node_key, node_key + prefix, node, cursor
-        )
-    else:
-        return node
-
-
-def walk_branch(
-    state: State,
-    trie_prefix: Bytes,
-    node_key: Bytes,
-    current_node: BranchNode,
-    dirty_list: List[Tuple[Bytes, Node]],
-    cursor: Any,
-) -> Optional[InternalNode]:
-    """
-    Consume the last element of `dirty_list` and update the `BranchNode` at
-    `node_key`, potentially turning it into `ExtensionNode` or a `LeafNode`.
-
-    This function returns the new value of the visited node, but does not write
-    it to the database.
-    """
-    assert dirty_list[-1][0] != node_key  # All keys must be the same length
-
-    # The copy here is probably unnecessary, but the optimization isn't worth
-    # the risk.
-    encoded_subnodes = current_node.subnodes[:]
-    if dirty_list[-1][0].startswith(node_key):
-        for i in range(16):
-            if (
-                dirty_list
-                and dirty_list[-1][0].startswith(node_key)
-                and dirty_list[-1][0][len(node_key)] == i
-            ):
-                subnode = walk(
-                    state,
-                    trie_prefix,
-                    node_key + bytes([i]),
-                    dirty_list,
-                    cursor,
-                )
-                write_internal_node(
-                    cursor, trie_prefix, node_key + bytes([i]), subnode
-                )
-                encoded_subnodes[i] = encode_internal_node(subnode)
-
-    number_of_subnodes = 16 - encoded_subnodes.count(b"")
-
-    if number_of_subnodes == 0:
-        return None
-    elif number_of_subnodes == 1:
-        for i in range(16):
-            if encoded_subnodes[i] != b"":
-                subnode_index = i
-                break
-        subnode = decode_to_internal_node(
-            cursor.get(
-                b"\x02" + trie_prefix + node_key + bytes([subnode_index])
-            )
-        )
-        return make_extension_node(
-            state,
-            trie_prefix,
-            node_key,
-            node_key + bytes([subnode_index]),
-            subnode,
-            cursor,
-        )
-    else:
-        return BranchNode(encoded_subnodes, b"")
-
-
-def make_extension_node(
-    state: State,
-    trie_prefix: Bytes,
-    node_key: Bytes,
-    target_key: Bytes,
-    target_node: Optional[InternalNode],
-    cursor: Any,
-) -> Optional[InternalNode]:
-    """
-    Make an extension node at `node_key` pointing at `target_key`. This
-    function will correctly replace `ExtensionNode -> LeafNode` with `LeafNode`
-    and `ExtensionNode -> ExtensionNode` with `ExtensionNode`.
-
-    This function returns the new value of the visited node, but does not write
-    it to the database.
-    """
-    assert node_key != target_key
-    if target_node is None:
-        write_internal_node(cursor, trie_prefix, target_key, None)
-        return None
-    elif isinstance(target_node, LeafNode):
-        write_internal_node(cursor, trie_prefix, target_key, None)
-        return LeafNode(
-            target_key[len(node_key) :] + target_node.rest_of_key,
-            target_node.value,
-        )
-    elif isinstance(target_node, ExtensionNode):
-        write_internal_node(cursor, trie_prefix, target_key, None)
-        return ExtensionNode(
-            target_key[len(node_key) :] + target_node.key_segment,
-            target_node.subnode,
-        )
-    elif isinstance(target_node, BranchNode):
-        write_internal_node(cursor, trie_prefix, target_key, target_node)
-        return ExtensionNode(
-            target_key[len(node_key) :], encode_internal_node(target_node)
-        )
-    else:
-        raise AssertionError()  # Invalid internal node type
-
-
-def split_branch(
-    state: State,
-    trie_prefix: Bytes,
-    node_key: Bytes,
-    key: int,
-    encoded_subnode: rlp.RLP,
-    dirty_list: List[Tuple[Bytes, Node]],
-    cursor: Any,
-) -> Optional[InternalNode]:
-    """
-    Make a branch node with `encoded_subnode` as its only child and then
-    consume all `dirty_list` elements under it.
-
-    This function takes a `encoded_node` to avoid a database read in some
-    situations.
-
-    This function returns the new value of the visited node, but does not write
-    it to the database.
-    """
-    encoded_subnodes: List[rlp.RLP] = [b""] * 16
-    encoded_subnodes[key] = encoded_subnode
-    return walk_branch(
-        state,
-        trie_prefix,
-        node_key,
-        BranchNode(encoded_subnodes, b""),
-        dirty_list,
-        cursor,
-    )
+    state.journal.append((address, state.dirty_storage.pop(address, {})))
+    state.destroyed_accounts.add(address)
+    set_account(state, address, None)

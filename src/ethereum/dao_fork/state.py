@@ -120,7 +120,7 @@ def get_account(state: State, address: Address) -> Account:
     account : `Account`
         Account at address.
     """
-    account = trie_get(state._main_trie, address)
+    account = get_account_optional(state, address)
     if isinstance(account, Account):
         return account
     else:
