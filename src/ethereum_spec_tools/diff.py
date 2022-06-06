@@ -79,7 +79,23 @@ def diff(
     new_path = os.path.join(input_path, new_path)
 
     diff_path = old.short_name + "_" + new.short_name
+    diff_index_file = diff_path + ".rst"
     diff_path = os.path.join(output_path, diff_path)
+
+    diff_index_path = os.path.join(output_path, diff_index_file)
+    diff_index_title = old.short_name + " => " + new.short_name
+
+    index_path = os.path.join(output_path, "index.rst")
+
+    with open(index_path, "a") as f:
+        f.write(f"   {diff_index_file}\n")
+
+    with open(diff_index_path, "w") as f:
+        f.write("=" * len(diff_index_title) + "\n")
+        f.write(diff_index_title + "\n")
+        f.write("=" * len(diff_index_title) + "\n\n")
+
+        f.write(".. toctree::\n\n")
 
     old_pickles = set(find_pickles(old_path, old))
     new_pickles = set(find_pickles(new_path, new))
@@ -162,7 +178,8 @@ def diff(
         pub.writer.write(diff_doc, pub.destination)
         pub.writer.assemble_parts()
 
-        yield os.path.abspath(diff_pickle_path)
+        with open(diff_index_path, "a") as f:
+            f.write(f"   {os.path.relpath(diff_pickle_path, output_path)}\n")
 
 
 def main() -> None:
@@ -180,11 +197,6 @@ def main() -> None:
 
     forks = Hardfork.discover()
 
-    diffs = (diff(output_path, input_path, o, n) for o, n in window(forks))
-    paths = (item for inner in diffs for item in inner)
-    paths = (os.path.relpath(d, output_path) for d in paths)
-    paths = (os.path.splitext(d)[0] for d in paths)
-
     index_path = os.path.join(output_path, "index.rst")
 
     with open(index_path, "w") as f:
@@ -195,5 +207,5 @@ def main() -> None:
         f.write(".. toctree::\n")
         f.write("   :maxdepth: 1\n\n")
 
-        for item in paths:
-            f.write(f"   {item}\n")
+    for o, n in window(forks):
+        diff(output_path, input_path, o, n)
