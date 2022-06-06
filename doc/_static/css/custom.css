@@ -70,21 +70,21 @@ dl.field-list > dt {
 
 /* Stability warning */
 #disclaimer {
-    background: #ffa501;
+    background: grey;
     color: white;
-    border-bottom: 1px solid #f5a005;
+    border-bottom: 1px solid grey;
     padding: 0.5em;
     text-align: center;
     font-family: sans-serif;
     box-shadow: 0px 3px 2px -2px rgba(0,0,0,0.3);
+    width: 80%;
     top: 0;
-    left: 0;
     right: 0;
     z-index: 2;
 }
 
 #disclaimer a, #disclaimer a:visited {
-    color: white;
+    color: #000;
 }
 
 @media (min-width: 876px) {
