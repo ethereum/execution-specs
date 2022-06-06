@@ -6,7 +6,7 @@ The Paris specification corresponds to the execution layers changes associated w
 Specifies changes included in the network upgrade.
 
   - [x] [EIP-3675: Upgrade consensus to Proof-of-Stake](https://eips.ethereum.org/EIPS/eip-3675)
-  - [x] [EIP-4399: Supplant DIFFICULTY opcode with RANDOM](https://eips.ethereum.org/EIPS/eip-4399)
+  - [x] [EIP-4399: Supplant DIFFICULTY opcode with PREVRANDAO](https://eips.ethereum.org/EIPS/eip-4399)
 
 ### Engine API
 
