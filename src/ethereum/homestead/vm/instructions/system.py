@@ -385,7 +385,7 @@ def delegatecall(evm: Evm) -> None:
         evm.memory, memory_input_start_position, memory_input_size
     )
 
-    call_gas_fee = GAS_CALL + gas
+    call_gas_fee = u256_safe_add(GAS_CALL, gas, exception_type=OutOfGasError)
     message_call_gas_fee = gas
     evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
 
