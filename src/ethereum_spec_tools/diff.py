@@ -63,7 +63,7 @@ def meaningful_diffs(
 
 def diff(
     output_path: str, input_path: str, old: Hardfork, new: Hardfork
-) -> Iterator[str]:
+) -> None:
     """
     Calculate the structured diff between two hardforks.
     """
@@ -83,7 +83,7 @@ def diff(
     diff_path = os.path.join(output_path, diff_path)
 
     diff_index_path = os.path.join(output_path, diff_index_file)
-    diff_index_title = old.short_name + " => " + new.short_name
+    diff_index_title = old.short_name + " \u2192 " + new.short_name
 
     index_path = os.path.join(output_path, "index.rst")
 
@@ -95,7 +95,8 @@ def diff(
         f.write(diff_index_title + "\n")
         f.write("=" * len(diff_index_title) + "\n\n")
 
-        f.write(".. toctree::\n\n")
+        f.write(".. toctree::\n")
+        f.write("   :maxdepth: 1\n\n")
 
     old_pickles = set(find_pickles(old_path, old))
     new_pickles = set(find_pickles(new_path, new))
@@ -178,8 +179,19 @@ def diff(
         pub.writer.write(diff_doc, pub.destination)
         pub.writer.assemble_parts()
 
+        index_entry_file_name = os.path.relpath(diff_pickle_path, output_path)
+        # Split the index_entry, discard the first and last items,
+        # since those are just the fork name and index file name
+        # then join the remaining parts of the path with a "."
+        # to get the page title
+        index_entry_title = ".".join(index_entry_file_name.split("/")[1:-1])
+        if not index_entry_title:
+            # top-level __init__.py file
+            index_entry_title = "__init__"
+        index_entry = index_entry_title + " <" + index_entry_file_name + ">"
+
         with open(diff_index_path, "a") as f:
-            f.write(f"   {os.path.relpath(diff_pickle_path, output_path)}\n")
+            f.write(f"   {index_entry}\n")
 
 
 def main() -> None:
