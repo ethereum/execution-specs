@@ -24,6 +24,7 @@ def monkey_patch(state_path: Optional[str]) -> None:
     Apply all monkey patches to the specification.
     """
     from . import (
+        berlin,
         byzantium,
         constantinople,
         dao_fork,
@@ -44,3 +45,4 @@ def monkey_patch(state_path: Optional[str]) -> None:
     constantinople.monkey_patch(state_path)
     istanbul.monkey_patch(state_path)
     muir_glacier.monkey_patch(state_path)
+    berlin.monkey_patch(state_path)
