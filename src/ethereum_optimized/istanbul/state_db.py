@@ -16,7 +16,6 @@ import logging
 from dataclasses import dataclass
 from typing import Any, ClassVar, Dict, List, Optional, Set
 
-
 try:
     import rust_pyspec_glue
 except ImportError as e:
