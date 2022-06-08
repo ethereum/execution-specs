@@ -166,7 +166,7 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
     elif isinstance(node, Bytes):
         return node
     else:
-        return ethereum.constantinople.trie.encode_node(node, storage_root)
+        return ethereum.istanbul.trie.encode_node(node, storage_root)
 
 
 @dataclass
