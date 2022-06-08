@@ -16,7 +16,15 @@ import logging
 from dataclasses import dataclass
 from typing import Any, ClassVar, Dict, List, Optional, Set
 
-import rust_pyspec_glue
+
+try:
+    import rust_pyspec_glue
+except ImportError as e:
+    # Add a message, but keep it an ImportError.
+    raise e from Exception(
+        "Install with `pip install 'ethereum[optimized]'` to enable this "
+        "package"
+    )
 
 from ethereum.base_types import U256, Bytes, Uint
 from ethereum.dao_fork.eth_types import Account, Address, Root
@@ -119,7 +127,7 @@ def commit_db_transaction(state: State) -> None:
     """
     Commit the current database transaction.
     """
-    if len(state.tx_restore_points) != 0:
+    if state.tx_restore_points:
         raise Exception("In a non-db transaction")
     flush(state)
     state.db.commit_mutable()
@@ -129,7 +137,7 @@ def state_root(state: State) -> Root:
     """
     See `ethereum.dao_fork.state`.
     """
-    if len(state.tx_restore_points) != 0:
+    if state.tx_restore_points:
         raise Exception("In a non-db transaction")
     flush(state)
     return state.db.state_root()
@@ -139,7 +147,7 @@ def storage_root(state: State, address: Address) -> Root:
     """
     See `ethereum.dao_fork.state`.
     """
-    if len(state.tx_restore_points) != 0:
+    if state.tx_restore_points:
         raise Exception("In a non-db transaction")
     flush(state)
     return state.db.storage_root(address)
@@ -149,7 +157,7 @@ def flush(state: State) -> None:
     """
     Send everything in the internal caches to the Rust layer.
     """
-    if len(state.tx_restore_points) != 0:
+    if state.tx_restore_points:
         raise Exception("In a non-db transaction")
     for address in state.destroyed_accounts:
         state.db.destroy_storage(address)
@@ -159,19 +167,19 @@ def flush(state: State) -> None:
         for key, value in storage.items():
             state.db.set_storage(address, key, value)
     state.destroyed_accounts = set()
-    state.dirty_accounts = {}
-    state.dirty_storage = {}
+    state.dirty_accounts.clear()
+    state.dirty_storage.clear()
 
 
 def rollback_db_transaction(state: State) -> None:
     """
     Rollback the current database transaction.
     """
-    if len(state.tx_restore_points) != 0:
+    if state.tx_restore_points:
         raise Exception("In a non-db transaction")
     state.db.rollback_mutable()
-    state.dirty_accounts = {}
-    state.dirty_storage = {}
+    state.dirty_accounts.clear()
+    state.dirty_storage.clear()
     state.destroyed_accounts = set()
 
 
@@ -179,7 +187,7 @@ def begin_transaction(state: State) -> None:
     """
     See `ethereum.dao_fork.state`.
     """
-    if len(state.tx_restore_points) == 0:
+    if not state.tx_restore_points:
         flush(state)
     state.tx_restore_points.append(len(state.journal))
 
@@ -189,8 +197,8 @@ def commit_transaction(state: State) -> None:
     See `ethereum.dao_fork.state`.
     """
     state.tx_restore_points.pop()
-    if len(state.tx_restore_points) == 0:
-        state.journal = []
+    if not state.tx_restore_points:
+        state.journal.clear()
         flush(state)
 
 
@@ -202,14 +210,17 @@ def rollback_transaction(state: State) -> None:
     while len(state.journal) > restore_point:
         item = state.journal.pop()
         if len(item) == 3:
+            # Revert a storage key write
             if item[2] is Unmodified:
                 del state.dirty_storage[item[0]][item[1]]
             else:
                 state.dirty_storage[item[0]][item[1]] = item[2]
         elif type(item[1]) is dict:
+            # Restore storage that was destroyed by `destroy_storage()`
             state.destroyed_accounts.remove(item[0])
             state.dirty_storage[item[0]] = item[1]
         else:
+            # Revert a change to an account
             if item[1] is Unmodified:
                 del state.dirty_accounts[item[0]]
             else:
