@@ -24,11 +24,11 @@ def monkey_patch_optimized_state_db(state_path: Optional[str]) -> None:
 
     optimized_state_db_patches = {
         "State": fast_state.State,
-        "get_account": fast_state.get_account,
         "get_account_optional": fast_state.get_account_optional,
         "set_account": fast_state.set_account,
         "destroy_storage": fast_state.destroy_storage,
         "get_storage": fast_state.get_storage,
+        "get_storage_original": fast_state.get_storage_original,
         "set_storage": fast_state.set_storage,
         "state_root": fast_state.state_root,
         "storage_root": fast_state.storage_root,

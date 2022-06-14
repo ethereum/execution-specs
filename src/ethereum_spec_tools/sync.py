@@ -301,7 +301,7 @@ class Sync:
         )
 
         if chain_id is not None:
-            chain_id = Uint64(chain_id)
+            chain_id = Uint64(int(chain_id))
 
         return chain_id
 
@@ -768,7 +768,7 @@ class Sync:
                 # regular DB commits
                 if block_number % 100 == 0:
                     self.persist()
-            elif block_number % 1000 == 0:
+            elif block_number % 10000 == 0:
                 self.persist()
 
 
