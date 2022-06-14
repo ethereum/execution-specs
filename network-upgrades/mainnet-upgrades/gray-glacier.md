@@ -9,7 +9,7 @@ Specifies changes included in the Network Upgrade.
 
 | Network | Block      | Expected Date | Fork Hash    |
 | --------|------------|---------------|--------------|
-| Mainnet | 15050000 | June 29, 2022 | TBA |
+| Mainnet | 15050000 | June 29, 2022 | `0xf0afd0e3` |
 
 ### Client Releases
 
