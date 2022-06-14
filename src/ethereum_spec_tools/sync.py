@@ -90,7 +90,7 @@ class Sync:
             "--gas-per-commit",
             help="commit to db each time this much gas is consumed",
             type=int,
-            default=10000000000,
+            default=1_000_000_000,
         )
 
         parser.add_argument(
