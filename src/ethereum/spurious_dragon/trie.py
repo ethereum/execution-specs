@@ -29,8 +29,8 @@ from typing import (
     cast,
 )
 
-import ethereum.tangerine_whistle.trie
 from ethereum.crypto.hash import keccak256
+from ethereum.tangerine_whistle import trie as previous_trie
 from ethereum.utils.ensure import ensure
 from ethereum.utils.hexadecimal import hex_to_bytes
 
@@ -166,7 +166,7 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
     elif isinstance(node, Bytes):
         return node
     else:
-        return ethereum.tangerine_whistle.trie.encode_node(node, storage_root)
+        return previous_trie.encode_node(node, storage_root)
 
 
 @dataclass
