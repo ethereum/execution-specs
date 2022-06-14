@@ -14,12 +14,13 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('../src'))
 
+import sphinx_rtd_theme
 
 # -- Project information -----------------------------------------------------
 
-project = 'Ethereum Specification'
-copyright = '2021, Ethereum'
-author = 'Ethereum'
+project = "Ethereum Specification"
+copyright = "2021, Ethereum"
+author = "Ethereum"
 
 # -- General configuration ---------------------------------------------------
 
@@ -27,23 +28,24 @@ author = 'Ethereum'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.coverage',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.autodoc',
-    'autoapi.extension',
-    'undocinclude.extension',
-    'picklebuilder.picklebuilder',
+    "sphinx.ext.coverage",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.autodoc",
+    "autoapi.extension",
+    "undocinclude.extension",
+    "picklebuilder.picklebuilder",
+    "sphinx_rtd_theme",
 ]
 
-autoapi_type = 'python'
-autoapi_dirs = ['../src/ethereum']
-autoapi_template_dir = '_templates/autoapi'
+autoapi_type = "python"
+autoapi_dirs = ["../src/ethereum"]
+autoapi_template_dir = "_templates/autoapi"
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # The default language to highlight source code in.
-highlight_language = 'python3'
+highlight_language = "python3"
 
 # A boolean that decides whether module names are prepended to all object
 # names (for object types where a "module" of some kind is defined), e.g.
@@ -51,26 +53,26 @@ highlight_language = 'python3'
 add_module_names = False
 
 # This value controls how to represent typehints (PEP 484.)
-autodoc_typehints = 'signature'
+autodoc_typehints = "signature"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
 
-if tags.has('stage0'):
-    root_doc = 'stage0'
-    exclude_patterns.append('index.rst')
-    exclude_patterns.append('diffs/**')
+if tags.has("stage0"):
+    root_doc = "stage0"
+    exclude_patterns.append("index.rst")
+    exclude_patterns.append("diffs/**")
 
     # Avoid generating nodes that'll always differ between hard forks to reduce
     # noise in the diffs.
-    autodoc_typehints = 'none'
-elif tags.has('stage1'):
-    root_doc = 'index'
-    exclude_patterns.append('stage0.rst')
+    autodoc_typehints = "none"
+elif tags.has("stage1"):
+    root_doc = "index"
+    exclude_patterns.append("stage0.rst")
 
-    extensions.append('ethereum_spec_tools.nav')
+    extensions.append("ethereum_spec_tools.nav")
 else:
     raise Exception("Pass either `-t stage0` or `-t stage1` to sphinx-build")
 
@@ -80,16 +82,24 @@ else:
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = "sphinx_rtd_theme"
+
+html_theme_options = {
+    "collapse_navigation": False,
+    "sticky_navigation": True,
+    "navigation_depth": 3,
+    "includehidden": True,
+    "titles_only": False,
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
 html_css_files = [
-    'css/dropdown.css',
-    'css/custom.css',
+    "css/dropdown.css",
+    "css/custom.css",
 ]
 
 
