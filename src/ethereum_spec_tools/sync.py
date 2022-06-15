@@ -6,9 +6,10 @@ Using an RPC provider, fetch each block and validate it with the specification.
 """
 
 import argparse
-import base64
 import json
 import logging
+import os
+import shutil
 import time
 from queue import Empty, Full, Queue
 from threading import Thread
@@ -16,7 +17,7 @@ from typing import Any, Dict, List, Optional, TypeVar, Union
 from urllib import request
 
 from ethereum import rlp
-from ethereum.base_types import U256, Bytes0, Bytes256, Uint, Uint64
+from ethereum.base_types import Bytes0, Bytes256, Uint64
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -63,14 +64,14 @@ class Sync:
         )
 
         parser.add_argument(
-            "--optimized",
-            help="replace parts of the specification with optimized versions",
+            "--unoptimized",
+            help="don't use the optimized state/ethash (extremely slow)",
             action="store_true",
         )
 
         parser.add_argument(
             "--persist",
-            help="save the block list and state periodically to this file",
+            help="store the state in a db in this file",
         )
 
         parser.add_argument(
@@ -80,10 +81,25 @@ class Sync:
         )
 
         parser.add_argument(
-            "--start",
-            help="Start syncing from this block",
+            "--reset",
+            help="delete the db and start from scratch",
+            action="store_true",
+        )
+
+        parser.add_argument(
+            "--gas-per-commit",
+            help="commit to db each time this much gas is consumed",
             type=int,
-            default=None,
+            default=1_000_000_000,
+        )
+
+        parser.add_argument(
+            "--initial-state",
+            help="start from the state in this db, rather than genesis",
+        )
+
+        parser.add_argument(
+            "--stop-at", help="after syncing this block, exit successfully"
         )
 
         return parser.parse_args()
@@ -120,14 +136,51 @@ class Sync:
         self.forks = Hardfork.discover()
         self.active_fork_index = 0
 
-        if self.options.optimized:
+        if not self.options.unoptimized:
             import ethereum_optimized
 
             ethereum_optimized.monkey_patch(state_path=self.options.persist)
         else:
             if self.options.persist is not None:
-                self.log.error("--perist is not supported without --optimized")
+                self.log.error("--persist is not supported with --unoptimized")
                 exit(1)
+            if self.options.initial_state is not None:
+                self.log.error(
+                    "--initial-state is not supported with --unoptimized"
+                )
+                exit(1)
+            if self.options.reset:
+                self.log.error("--reset is not supported with --unoptimized")
+                exit(1)
+
+        if self.options.persist is None:
+            if self.options.initial_state is not None:
+                self.log.error(
+                    "--initial_state is not supported without --persist"
+                )
+                exit(1)
+            if self.options.reset:
+                self.log.error("--reset is not supported without --persist")
+                exit(1)
+
+        if self.options.reset:
+            import rust_pyspec_glue
+
+            rust_pyspec_glue.DB.delete(self.options.persist)
+
+        if self.options.initial_state is not None:
+            assert self.options.persist is not None
+            if not os.path.exists(
+                os.path.join(self.options.persist, "mdbx.dat")
+            ):
+                try:
+                    os.mkdir(self.options.persist)
+                except FileExistsError:
+                    pass
+                shutil.copy(
+                    os.path.join(self.options.initial_state, "mdbx.dat"),
+                    self.options.persist,
+                )
 
         state = self.module("state").State()
 
@@ -142,17 +195,13 @@ class Sync:
             persisted_block = None
 
         if persisted_block is None:
-            if self.options.start is None:
-                self.chain = self.module("spec").BlockChain(
-                    blocks=[],
-                    state=state,
-                    chain_id=None,
-                )
-                self.set_initial_fork(0)
-                self.chain = self.module("spec").apply_fork(self.chain)
-            else:
-                self.set_initial_fork(self.options.start)
-                self.chain = self.download_state(self.options.start, state)
+            self.chain = self.module("spec").BlockChain(
+                blocks=[],
+                state=state,
+                chain_id=None,
+            )
+            self.set_initial_fork(0)
+            self.chain = self.module("spec").apply_fork(self.chain)
         else:
             self.set_initial_fork(persisted_block)
             self.chain = self.module("spec").BlockChain(
@@ -191,7 +240,7 @@ class Sync:
 
         end = time.monotonic()
         self.log.info(
-            "persisted state and %s blocks (took %ss)",
+            "persisted state and %d blocks (took %.3f)",
             len(self.chain.blocks),
             end - start,
         )
@@ -247,7 +296,7 @@ class Sync:
         data = json.dumps(calls).encode("utf-8")
 
         self.log.debug(
-            "fetching ommers [%s, %s]...",
+            "fetching ommers [%d, %d]...",
             min(ommers_needed),
             max(ommers_needed),
         )
@@ -282,7 +331,7 @@ class Sync:
                     )
 
             self.log.info(
-                "ommers [%s, %s] fetched",
+                "ommers [%d, %d] fetched",
                 min(ommers_needed),
                 max(ommers_needed),
             )
@@ -352,7 +401,7 @@ class Sync:
 
         data = json.dumps(calls).encode("utf-8")
 
-        self.log.debug("fetching blocks [%s, %s)...", first, first + count)
+        self.log.debug("fetching blocks [%d, %d)...", first, first + count)
 
         post = request.Request(
             self.options.rpc_url,
@@ -386,7 +435,7 @@ class Sync:
                     f"expected {count} blocks but only got {len(blocks)}"
                 )
 
-            self.log.info("blocks [%s, %s) fetched", first, first + count)
+            self.log.info("blocks [%d, %d) fetched", first, first + count)
 
             return [v for (_, v) in sorted(blocks.items())]
 
@@ -416,7 +465,7 @@ class Sync:
 
         data = json.dumps(calls).encode("utf-8")
 
-        self.log.debug("fetching blocks [%s, %s)...", first, first + count)
+        self.log.debug("fetching blocks [%d, %d)...", first, first + count)
 
         post = request.Request(
             self.options.rpc_url,
@@ -483,7 +532,7 @@ class Sync:
                     f"expected {count} blocks but only got {len(blocks)}"
                 )
 
-            self.log.info("blocks [%s, %s) fetched", first, first + count)
+            self.log.info("blocks [%d, %d) fetched", first, first + count)
 
             return [v for (_, v) in sorted(blocks.items())]
 
@@ -550,147 +599,6 @@ class Sync:
 
         return chain_id
 
-    def download_state(self, block_number: int, state: Any) -> Any:
-        """
-        Fetch the state at `block_number`. Return a chain object.
-        """
-        next_token = ""
-        with_storage = []
-        while True:
-            call = [
-                {
-                    "jsonrpc": "2.0",
-                    "id": hex(1),
-                    "method": "debug_accountRange",
-                    "params": [
-                        hex(block_number),
-                        next_token,
-                        256,
-                        False,
-                        True,
-                        False,
-                    ],
-                }
-            ]
-            data = json.dumps(call).encode("utf-8")
-
-            post = request.Request(
-                self.options.rpc_url,
-                data=data,
-                headers={
-                    "Content-Length": str(len(data)),
-                    "Content-Type": "application/json",
-                },
-            )
-
-            with request.urlopen(post) as response:
-                reply = json.load(response)[0]
-                assert reply["id"] == hex(1)
-                for address, account in reply["result"]["accounts"].items():
-                    if account["root"] != EMPTY_TRIE_ROOT_STR:
-                        with_storage.append(address)
-                    address = self.module("utils.hexadecimal").hex_to_address(
-                        address
-                    )
-                    account = self.module("eth_types").Account(
-                        nonce=Uint(account["nonce"]),
-                        balance=U256(int(account["balance"])),
-                        code=hex_to_bytes(account["code"])
-                        if "code" in account
-                        else bytes(),
-                    )
-                    self.module("state").set_account(state, address, account)
-
-                if "next" in reply["result"]:
-                    next_token = reply["result"]["next"]
-                    self.log.info(
-                        "downloading accounts (%.2f%%)",
-                        int.from_bytes(base64.b64decode(next_token), "big")
-                        / 2**256
-                        * 100,
-                    )
-                else:
-                    break
-
-        chain = self.module("spec").BlockChain(
-            blocks=self.fetch_initial_blocks(block_number),
-            state=state,
-            chain_id=self.download_chain_id(),
-        )
-
-        blockhash_str = "0x" + rlp.rlp_hash(chain.blocks[-1].header).hex()
-        self.download_storage(blockhash_str, state, with_storage)
-
-        assert (
-            self.module("state").state_root(chain.state)
-            == chain.blocks[-1].header.state_root
-        )
-        return chain
-
-    def download_storage(
-        self, blockhash_str: str, state: Any, with_storage: List[str]
-    ) -> None:
-        """
-        Fetch all the storage keys in the accounts in `with_storage`.
-        """
-        count = 0
-        next_tokens = []
-        while with_storage != []:
-            for _ in range(min(64, len(with_storage))):
-                next_tokens.append([with_storage.pop(), ""])
-            while next_tokens != []:
-                calls = [
-                    {
-                        "jsonrpc": "2.0",
-                        "id": hex(i),
-                        "method": "debug_storageRangeAt",
-                        "params": [
-                            blockhash_str,
-                            0,
-                            address_str,
-                            next_token,
-                            256 // len(next_tokens),
-                        ],
-                    }
-                    for i, (address_str, next_token) in enumerate(next_tokens)
-                ]
-                data = json.dumps(calls).encode("utf-8")
-
-                post = request.Request(
-                    self.options.rpc_url,
-                    data=data,
-                    headers={
-                        "Content-Length": str(len(data)),
-                        "Content-Type": "application/json",
-                    },
-                )
-
-                with request.urlopen(post) as response:
-                    for reply in json.load(response):
-                        reply_id = int(reply["id"], base=16)
-                        for slot in reply["result"]["storage"].values():
-                            count += 1
-                            self.module("state").set_storage(
-                                state,
-                                self.module(
-                                    "utils.hexadecimal"
-                                ).hex_to_address(next_tokens[reply_id][0]),
-                                hex_to_bytes32(slot["key"]),
-                                hex_to_u256(slot["value"]),
-                            )
-
-                        if reply["result"]["nextKey"] is not None:
-                            next_tokens[reply_id][1] = reply["result"][
-                                "nextKey"
-                            ]
-                        else:
-                            next_tokens[reply_id] = ["", ""]
-                next_tokens = [x for x in next_tokens if x != ["", ""]]
-                self.log.info(
-                    "downloading storage (%d remaining)",
-                    len(with_storage) + len(next_tokens),
-                )
-
     def take_block(self) -> Optional[Any]:
         """
         Pop a block of the download queue.
@@ -706,6 +614,7 @@ class Sync:
         """
         Validate blocks that have been fetched.
         """
+        gas_since_last_commit = 0
         while True:
             block = self.take_block()
 
@@ -724,7 +633,7 @@ class Sync:
                 self.chain = self.module("spec").apply_fork(self.chain)
                 end = time.monotonic()
                 self.log.info(
-                    "applied %s fork (took %ss)",
+                    "applied %s fork (took %.3f)",
                     self.active_fork.name,
                     end - start,
                 )
@@ -739,11 +648,15 @@ class Sync:
                     f"but got {block.header.number}"
                 )
 
-            self.log.debug("applying block %s...", block_number)
+            self.log.debug("applying block %d...", block_number)
 
             start = time.monotonic()
             self.module("spec").state_transition(self.chain, block)
             end = time.monotonic()
+
+            # Additional gas to account for block overhead
+            gas_since_last_commit += 30000
+            gas_since_last_commit += block.header.gas_used
 
             if self.options.persist is not None:
                 self.active_fork.optimized_module("state_db").set_metadata(
@@ -753,23 +666,30 @@ class Sync:
                 )
 
             self.log.info(
-                "block %s applied (took %ss)",
+                "block %d applied (took %.3fs)",
                 block_number,
                 end - start,
             )
 
+            if block_number == self.options.stop_at:
+                self.persist()
+                return
+
             if block_number > 2220000 and block_number < 2463000:
                 # Excessive DB load due to the Shanghai DOS attacks, requires
                 # more regular DB commits
-                if block_number % 100 == 0:
+                if gas_since_last_commit > self.options.gas_per_commit / 10:
                     self.persist()
-            if block_number > 2675000 and block_number < 2700598:
+                    gas_since_last_commit = 0
+            elif block_number > 2675000 and block_number < 2700598:
                 # Excessive DB load due to state clearing, requires more
                 # regular DB commits
-                if block_number % 100 == 0:
+                if gas_since_last_commit > self.options.gas_per_commit / 10:
                     self.persist()
-            elif block_number % 10000 == 0:
+                    gas_since_last_commit = 0
+            elif gas_since_last_commit > self.options.gas_per_commit:
                 self.persist()
+                gas_since_last_commit = 0
 
 
 def main() -> None:
