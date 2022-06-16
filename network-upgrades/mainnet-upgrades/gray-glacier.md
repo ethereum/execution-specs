@@ -14,8 +14,7 @@ Specifies changes included in the Network Upgrade.
 ### Client Releases
 
  - [ ]  Mainnet
-   - [ ]  Geth
-   - [ ]  Besu
-   - [ ]  Nethermind
-   - [ ]  Erigon
-   - [ ]  EthereumJS
+   - [x]  Geth: https://github.com/ethereum/go-ethereum/releases/tag/v1.10.19
+   - [ ]  Besu:
+   - [x]  Nethermind: https://github.com/NethermindEth/nethermind/releases/tag/1.13.3
+   - [ ]  Erigon:
