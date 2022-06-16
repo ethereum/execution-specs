@@ -18,7 +18,7 @@ This network upgrade requires changes to both Ethereum's execution and consensus
 
 ### Upgrade Schedule
 
-| Network | Terminal Total Difficulty (`TTD`) | Expected Date | Fork Hash    |
+| Network | Terminal Total Difficulty | Expected Date | Fork Hash    |
 |---------|------------|---------------|--------------|
 | Ropsten | 50000000000000000 | June 8, 2022 | `0x7119B6B3` (unchanged from [London](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/london.md)) |
 | Goerli  | TBD | TBD | TBD |
@@ -54,4 +54,11 @@ See https://github.com/ethereum/pm/blob/master/Merge/mainnet-readiness.md
 
 ### Client Releases
 
- - TBA
+ - Ropsten:
+    - [Besu](https://github.com/hyperledger/besu/releases/tag/22.4.2)
+    - [Erigon](https://github.com/ledgerwatch/erigon/releases/tag/v2022.05.08)
+    - [go-ethereum (geth)](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.18)
+    - [Nethermind](https://github.com/NethermindEth/nethermind/releases/tag/1.13.1)
+- Sepolia
+- Goerli
+- Mainnet 
