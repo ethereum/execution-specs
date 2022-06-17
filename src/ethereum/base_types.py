@@ -729,6 +729,7 @@ class U256(FixedUInt):
 
 
 U256.MAX_VALUE = int.__new__(U256, U256_MAX_VALUE)
+"""autoapi_noindex"""
 
 
 class Uint32(FixedUInt):
@@ -780,6 +781,7 @@ class Uint32(FixedUInt):
 
 
 Uint32.MAX_VALUE = int.__new__(Uint32, UINT32_MAX_VALUE)
+"""autoapi_noindex"""
 
 
 class Uint64(FixedUInt):
@@ -831,6 +833,7 @@ class Uint64(FixedUInt):
 
 
 Uint64.MAX_VALUE = int.__new__(Uint64, UINT64_MAX_VALUE)
+"""autoapi_noindex"""
 
 
 B = TypeVar("B", bound="FixedBytes")

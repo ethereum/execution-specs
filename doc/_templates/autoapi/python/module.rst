@@ -102,7 +102,9 @@ Attributes
 .. autoapisummary::
 
 {% for attribute in visible_attributes %}
-   {{ attribute.id }}
+{%+ if attribute.docstring != "autoapi_noindex" -%}
+{{ attribute.id|indent(3, True) }}
+{% endif %}
 {% endfor %}
 
 
