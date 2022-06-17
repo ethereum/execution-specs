@@ -343,3 +343,8 @@ pyspec
 unoptimized
 
 starmap
+
+astroid
+autoapi
+attrname
+expr
