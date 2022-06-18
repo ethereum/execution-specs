@@ -9,7 +9,7 @@ B.x = 5
 Both instances are treated as `test.x` instead of `test.A.x` & `test.B.x`
 This could incorrectly lead to duplicates.
 
-This tool is uased as a patch.
+This tool is used as a patch.
 """
 
 from typing import Any
