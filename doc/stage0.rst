@@ -2,7 +2,8 @@ Ethereum Specification
 ======================
 
 .. toctree::
-   :maxdepth: 4
+   :titlesonly:
+   :maxdepth: 2
    :caption: Contents:
 
    autoapi/index
