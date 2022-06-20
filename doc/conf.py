@@ -39,6 +39,7 @@ extensions = [
     "undocinclude.extension",
     "picklebuilder.picklebuilder",
     "sphinx_rtd_theme",
+    "ethereum_spec_tools.doc.toctree",
 ]
 
 autoapi_type = "python"
