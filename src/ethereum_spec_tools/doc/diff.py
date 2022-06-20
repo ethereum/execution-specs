@@ -186,7 +186,7 @@ def diff(
     diff_path = os.path.join(output_path, diff_path)
 
     diff_index_path = os.path.join(output_path, diff_index_file)
-    diff_index_title = old.short_name + " \u2192 " + new.short_name
+    diff_index_title = old.title_case_name + " \u2192 " + new.title_case_name
 
     index_path = os.path.join(output_path, "index.rst")
 

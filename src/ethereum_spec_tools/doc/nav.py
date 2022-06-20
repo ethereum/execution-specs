@@ -11,7 +11,7 @@ from sphinx.domains import Index, IndexEntry
 
 import ethereum
 
-from .forks import Hardfork
+from ethereum_spec_tools.forks import Hardfork
 
 BASE_FORKS = "autoapi/ethereum"
 
