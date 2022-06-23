@@ -31,7 +31,6 @@ def add_to_bloom(bloom: bytearray, bloom_entry: bytes) -> None:
     bloom_entry :
         An entry which is to be added to bloom filter.
     """
-    # TODO: This functionality hasn't been tested rigorously yet.
     hash = keccak256(bloom_entry)
 
     for idx in (0, 2, 4):
@@ -64,8 +63,6 @@ def logs_bloom(logs: Tuple[Log, ...]) -> Bloom:
         The logs bloom obtained which is 256 bytes with some bits set as per
         the caller address and the log topics.
     """
-    # TODO: Logs bloom functionality hasn't been tested rigorously yet. The
-    # required test cases need `CALL` opcode to be implemented.
     bloom: bytearray = bytearray(b"\x00" * 256)
 
     for log in logs:
