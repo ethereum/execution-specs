@@ -6,7 +6,7 @@
 
 {% if module is none %}
 .. py:{{ obj.type }}:: {{ obj.name }}
-   {%+ if obj.docstring == "autoapi_noindex" -%}
+   {%+ if "autoapi_noindex" in obj.docstring -%}
    :noindex:
    {% endif %}
    {%+ if obj.value is not none or obj.annotation is not none -%}
@@ -42,7 +42,7 @@
    {% endif %}
 {% else %}
 .. py:{{ obj.type }}:: {{ obj.name }}
-   {%+ if obj.docstring == "autoapi_noindex" -%}
+   {%+ if "autoapi_noindex" in obj.docstring -%}
    :noindex:
    {% endif %}
 

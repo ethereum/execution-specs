@@ -27,7 +27,7 @@ author = "Ethereum"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-from ethereum_spec_tools.doc.autoapi_patch import apply_patch
+from ethereum_spec_tools.autoapi_patch import apply_patch
 apply_patch()
 
 
@@ -39,7 +39,7 @@ extensions = [
     "undocinclude.extension",
     "picklebuilder.picklebuilder",
     "sphinx_rtd_theme",
-    "ethereum_spec_tools.doc.toctree",
+    "ethereum_spec_tools.toctree",
 ]
 
 autoapi_type = "python"
@@ -77,7 +77,7 @@ elif tags.has("stage1"):
     root_doc = "index"
     exclude_patterns.append("stage0.rst")
 
-    extensions.append("ethereum_spec_tools.doc.nav")
+    extensions.append("ethereum_spec_tools.nav")
 else:
     raise Exception("Pass either `-t stage0` or `-t stage1` to sphinx-build")
 
