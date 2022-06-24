@@ -341,3 +341,5 @@ R4
 
 pyspec
 unoptimized
+
+starmap
