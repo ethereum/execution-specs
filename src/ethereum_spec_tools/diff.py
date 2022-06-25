@@ -7,7 +7,8 @@ Generates diffs between Ethereum hardforks documentation.
 import os.path
 import pickle
 from copy import deepcopy
-from typing import Any, Iterator, List, TypeVar
+from multiprocessing import Pool
+from typing import Any, Iterator, List, Tuple, TypeVar
 
 import rstdiff
 from docutils import SettingsSpec
@@ -61,6 +62,108 @@ def meaningful_diffs(
     )
 
 
+def _diff(
+    trivial_changes: List[Tuple[str, str]],
+    old_path: str,
+    new_path: str,
+    diff_path: str,
+    input_path: str,
+    output_path: str,
+    diff_index_path: str,
+    pickles_len: int,
+    count: int,
+    pickle_path: str,
+) -> None:
+    old_pickle_path = os.path.join(old_path, pickle_path)
+    new_pickle_path = os.path.join(new_path, pickle_path)
+    diff_pickle_path = os.path.join(diff_path, pickle_path + "64")
+
+    diff_dir_path = os.path.dirname(diff_pickle_path)
+
+    os.makedirs(diff_dir_path, exist_ok=True)
+
+    try:
+        with open(old_pickle_path, "rb") as old_file:
+            old_doc = pickle.load(old_file)
+    except FileNotFoundError:
+        old_doc = new_document(old_pickle_path)
+        old_pickle_path = os.devnull
+
+    try:
+        with open(new_pickle_path, "rb") as new_file:
+            new_doc = pickle.load(new_file)
+    except FileNotFoundError:
+        new_doc = new_document(new_pickle_path)
+        new_pickle_path = os.devnull
+
+    print(
+        f"[{count}/{pickles_len}] diff",
+        old_pickle_path[len(input_path) :],
+        "->",
+        new_pickle_path[len(input_path) :],
+    )
+
+    pub = rstdiff.processCommandLine()
+
+    pub.set_writer("picklebuilder.writers.pickle64")
+
+    settings_spec = SettingsSpec()
+    settings_spec.settings_spec = rstdiff.settings_spec
+    settings_spec.settings_defaults = rstdiff.settings_defaults
+    pub.process_command_line(
+        usage=rstdiff.usage,
+        description=rstdiff.description,
+        settings_spec=settings_spec,
+        config_section=rstdiff.config_section,
+    )
+    pub.set_destination(destination_path=diff_pickle_path)
+    pub.set_reader("standalone", None, "restructuredtext")
+    pub.settings.language_code = "en"  # TODO
+
+    old_doc.settings = pub.settings
+    old_doc.reporter = new_reporter("RSTDIFF", pub.settings)
+
+    new_doc.settings = pub.settings
+    new_doc.reporter = new_reporter("RSTDIFF", pub.settings)
+
+    old_modified_doc = deepcopy(old_doc)
+    old_modified_doc.settings = pub.settings
+    old_modified_doc.reporter = new_reporter("RSTDIFF", pub.settings)
+
+    rstdiff.TextReplacer(old_modified_doc, trivial_changes).apply()
+
+    if not meaningful_diffs(pub, old_modified_doc, new_doc):
+        return
+
+    rstdiff.Text2Words(old_doc).apply()
+    rstdiff.Text2Words(new_doc).apply()
+
+    try:
+        diff_doc = rstdiff.createDiff(pub, old_doc, new_doc)
+    except rstdiff.DocumentUnchanged:
+        return
+
+    rstdiff.Words2Text(diff_doc).apply()
+    rstdiff.Generated2Inline(diff_doc).apply()
+
+    pub.writer.write(diff_doc, pub.destination)
+    pub.writer.assemble_parts()
+
+    index_entry_file_name = os.path.relpath(diff_pickle_path, output_path)
+    # Split the index_entry, discard the first and last items,
+    # since those are just the fork name and index file name
+    # then join the remaining parts of the path with a "."
+    # to get the page title
+    index_entry_title = ".".join(index_entry_file_name.split("/")[1:-1])
+    if not index_entry_title:
+        # top-level __init__.py file
+        index_entry_title = "__init__"
+    index_entry = index_entry_title + " <" + index_entry_file_name + ">"
+
+    with open(diff_index_path, "a") as f:
+        f.write(f"   {index_entry}\n")
+
+
 def diff(
     output_path: str, input_path: str, old: Hardfork, new: Hardfork
 ) -> None:
@@ -103,95 +206,25 @@ def diff(
 
     pickles = old_pickles | new_pickles
 
-    for count, pickle_path in enumerate(pickles, start=1):
-        old_pickle_path = os.path.join(old_path, pickle_path)
-        new_pickle_path = os.path.join(new_path, pickle_path)
-        diff_pickle_path = os.path.join(diff_path, pickle_path + "64")
+    with Pool() as pool:
 
-        diff_dir_path = os.path.dirname(diff_pickle_path)
-
-        os.makedirs(diff_dir_path, exist_ok=True)
-
-        try:
-            with open(old_pickle_path, "rb") as old_file:
-                old_doc = pickle.load(old_file)
-        except FileNotFoundError:
-            old_doc = new_document(old_pickle_path)
-            old_pickle_path = os.devnull
-
-        try:
-            with open(new_pickle_path, "rb") as new_file:
-                new_doc = pickle.load(new_file)
-        except FileNotFoundError:
-            new_doc = new_document(new_pickle_path)
-            new_pickle_path = os.devnull
-
-        print(
-            f"[{count}/{len(pickles)}] diff",
-            old_pickle_path[len(input_path) :],
-            "->",
-            new_pickle_path[len(input_path) :],
+        args = (
+            (
+                trivial_changes,
+                old_path,
+                new_path,
+                diff_path,
+                input_path,
+                output_path,
+                diff_index_path,
+                len(pickles),
+                c,
+                p,
+            )
+            for (c, p) in enumerate(pickles, start=1)
         )
 
-        pub = rstdiff.processCommandLine()
-
-        pub.set_writer("picklebuilder.writers.pickle64")
-
-        settings_spec = SettingsSpec()
-        settings_spec.settings_spec = rstdiff.settings_spec
-        settings_spec.settings_defaults = rstdiff.settings_defaults
-        pub.process_command_line(
-            usage=rstdiff.usage,
-            description=rstdiff.description,
-            settings_spec=settings_spec,
-            config_section=rstdiff.config_section,
-        )
-        pub.set_destination(destination_path=diff_pickle_path)
-        pub.set_reader("standalone", None, "restructuredtext")
-        pub.settings.language_code = "en"  # TODO
-
-        old_doc.settings = pub.settings
-        old_doc.reporter = new_reporter("RSTDIFF", pub.settings)
-
-        new_doc.settings = pub.settings
-        new_doc.reporter = new_reporter("RSTDIFF", pub.settings)
-
-        old_modified_doc = deepcopy(old_doc)
-        old_modified_doc.settings = pub.settings
-        old_modified_doc.reporter = new_reporter("RSTDIFF", pub.settings)
-
-        rstdiff.TextReplacer(old_modified_doc, trivial_changes).apply()
-
-        if not meaningful_diffs(pub, old_modified_doc, new_doc):
-            continue
-
-        rstdiff.Text2Words(old_doc).apply()
-        rstdiff.Text2Words(new_doc).apply()
-
-        try:
-            diff_doc = rstdiff.createDiff(pub, old_doc, new_doc)
-        except rstdiff.DocumentUnchanged:
-            continue
-
-        rstdiff.Words2Text(diff_doc).apply()
-        rstdiff.Generated2Inline(diff_doc).apply()
-
-        pub.writer.write(diff_doc, pub.destination)
-        pub.writer.assemble_parts()
-
-        index_entry_file_name = os.path.relpath(diff_pickle_path, output_path)
-        # Split the index_entry, discard the first and last items,
-        # since those are just the fork name and index file name
-        # then join the remaining parts of the path with a "."
-        # to get the page title
-        index_entry_title = ".".join(index_entry_file_name.split("/")[1:-1])
-        if not index_entry_title:
-            # top-level __init__.py file
-            index_entry_title = "__init__"
-        index_entry = index_entry_title + " <" + index_entry_file_name + ">"
-
-        with open(diff_index_path, "a") as f:
-            f.write(f"   {index_entry}\n")
+        pool.starmap(_diff, args)
 
 
 def main() -> None:
