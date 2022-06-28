@@ -1,15 +1,17 @@
 """
 Ethereum Specification
 ^^^^^^^^^^^^^^^^^^^^^^
-Seeing as internet connections have been vastly expanding across the world,
-spreading information has become as cheap as ever. Bitcoin, for example, has demontrated
-the possibility of creating a decentralized, and practically free, trade system that is
-accessible around the world. Namecoin is another system that built off of Bitcoin's currency
-structure to create other simple technological applications.
+Seeing as internet connections have been vastly expanding across the
+world, spreading information has become as cheap as ever. Bitcoin,
+for example, has demonstrated the possibility of creating a decentralized,
+and practically free, trade system that is accessible around the world.
+Namecoin is another system that built off of Bitcoin's currency structure
+to create other simple technological applications.
 
-Ethereum's goal is to create a cryptographically secure system in which any and all types
-of transaction-based concepts can be built. It provides an exceptionally accessible and
-decentralized system to build software and execute transactions.
+Ethereum's goal is to create a cryptographically secure system in which
+any and all types of transaction-based concepts can be built. It provides
+an exceptionally accessible and decentralized system to build software
+and execute transactions.
 
 Core specifications for Ethereum clients.
 """
