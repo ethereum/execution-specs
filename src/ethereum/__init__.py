@@ -2,8 +2,8 @@
 Ethereum Specification
 ^^^^^^^^^^^^^^^^^^^^^^
 Seeing as internet connections have been vastly expanding across the
-world, spreading information has become as cheap as ever. Bitcoin,
-for example, has demonstrated the possibility of creating a decentralized,
+world, spreading information has become as cheap as ever. Bitcoin, for
+example, has demonstrated the possibility of creating a decentralized,
 and practically free, trade system that is accessible around the world.
 Namecoin is another system that built off of Bitcoin's currency structure
 to create other simple technological applications.
