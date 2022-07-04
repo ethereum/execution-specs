@@ -39,3 +39,6 @@ jobs:
       - name: Build docs
         if: ${{ matrix.python != 'pypy-3.8' }}
         run: tox -e doc
+      - name: Run Tox (optimized state/ethash)
+        if: ${{ matrix.python != 'pypy-3.8' }}
+        run: tox -e optimized
