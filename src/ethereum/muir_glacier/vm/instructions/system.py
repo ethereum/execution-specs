@@ -83,6 +83,8 @@ def create(evm: Evm) -> None:
 
     evm.pc += 1
 
+    evm.return_data = b""
+
     if sender.balance < endowment:
         push(evm.stack, U256(0))
         return None
@@ -134,7 +136,6 @@ def create(evm: Evm) -> None:
     else:
         evm.logs += child_evm.logs
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
-        evm.return_data = b""
     evm.gas_left += child_evm.gas_left
     child_evm.gas_left = U256(0)
 
@@ -183,6 +184,8 @@ def create2(evm: Evm) -> None:
     sender = get_account(evm.env.state, sender_address)
 
     evm.pc += 1
+
+    evm.return_data = b""
 
     if sender.balance < endowment:
         push(evm.stack, U256(0))
@@ -236,7 +239,6 @@ def create2(evm: Evm) -> None:
     else:
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
         evm.logs += child_evm.logs
-        evm.return_data = b""
     evm.gas_left += child_evm.gas_left
     child_evm.gas_left = U256(0)
 
@@ -324,15 +326,15 @@ def call(evm: Evm) -> None:
 
     evm.pc += 1
 
+    evm.return_data = b""
+
     if sender_balance < value:
         push(evm.stack, U256(0))
         evm.gas_left += message_call_gas_fee
-        evm.return_data = b""
         return None
     if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
         push(evm.stack, U256(0))
         evm.gas_left += message_call_gas_fee
-        evm.return_data = b""
         return None
 
     code = get_account(evm.env.state, to).code
@@ -356,8 +358,6 @@ def call(evm: Evm) -> None:
         push(evm.stack, U256(0))
         if isinstance(child_evm.error, Revert):
             evm.return_data = child_evm.output
-        else:
-            evm.return_data = b""
     else:
         evm.logs += child_evm.logs
         push(evm.stack, U256(1))
@@ -424,15 +424,15 @@ def callcode(evm: Evm) -> None:
 
     evm.pc += 1
 
+    evm.return_data = b""
+
     if sender_balance < value:
         push(evm.stack, U256(0))
         evm.gas_left += message_call_gas_fee
-        evm.return_data = b""
         return None
     if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
         push(evm.stack, U256(0))
         evm.gas_left += message_call_gas_fee
-        evm.return_data = b""
         return None
 
     code = get_account(evm.env.state, code_address).code
@@ -456,8 +456,6 @@ def callcode(evm: Evm) -> None:
         push(evm.stack, U256(0))
         if isinstance(child_evm.error, Revert):
             evm.return_data = child_evm.output
-        else:
-            evm.return_data = b""
     else:
         evm.logs += child_evm.logs
         push(evm.stack, U256(1))
@@ -560,11 +558,11 @@ def delegatecall(evm: Evm) -> None:
     evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
 
     evm.pc += 1
+    evm.return_data = b""
 
     if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
         push(evm.stack, U256(0))
         evm.gas_left += message_call_gas_fee
-        evm.return_data = b""
         return None
 
     code = get_account(evm.env.state, code_address).code
@@ -588,8 +586,6 @@ def delegatecall(evm: Evm) -> None:
         push(evm.stack, U256(0))
         if isinstance(child_evm.error, Revert):
             evm.return_data = child_evm.output
-        else:
-            evm.return_data = b""
     else:
         evm.logs += child_evm.logs
         push(evm.stack, U256(1))
@@ -655,10 +651,11 @@ def staticcall(evm: Evm) -> None:
 
     evm.pc += 1
 
+    evm.return_data = b""
+
     if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
         push(evm.stack, U256(0))
         evm.gas_left += message_call_gas_fee
-        evm.return_data = b""
         return None
 
     code = get_account(evm.env.state, to).code
@@ -682,8 +679,6 @@ def staticcall(evm: Evm) -> None:
         push(evm.stack, U256(0))
         if isinstance(child_evm.error, Revert):
             evm.return_data = child_evm.output
-        else:
-            evm.return_data = b""
     else:
         push(evm.stack, U256(1))
         evm.return_data = child_evm.output
