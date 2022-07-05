@@ -14,10 +14,14 @@ forks = Hardfork.discover()
 
 def modify_toctree(
     app: Any, what: Any, name: Any, obj: Any, skip: Any, options: Any
-) -> None:
+) -> bool:
     """
-    Autoapi is mapping some constants with similar names to the same TOC entry.
+    The function can be used to modify the toctree in any way.
+    Currently handles the following modifications
+    1. Re-order the packages in the order of the hardforks
+    2. Change the visibility of any items that are marked as autoapi_noshow
     """
+    # Re-order the packages in the order of the hardforks
     if what == "package" and name == "ethereum":
 
         fork_name_list = [x.name for x in forks]
@@ -33,6 +37,12 @@ def modify_toctree(
             ordered_list[package_index] = package
 
         obj.subpackages = ordered_list
+
+    # Change the visibility of any items that are marked for no show
+    if "autoapi_noshow" in obj._docstring:
+        skip = True
+
+    return skip
 
 
 def setup(sphinx: Any) -> None:
