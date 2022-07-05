@@ -6,6 +6,9 @@
 
 {% if module is none %}
 .. py:{{ obj.type }}:: {{ obj.name }}
+   {%+ if "autoapi_noindex" in obj.docstring -%}
+   :noindex:
+   {% endif %}
    {%+ if obj.value is not none or obj.annotation is not none -%}
    :annotation:
         {%- if obj.annotation %} :{{ obj.annotation }}
@@ -34,11 +37,18 @@
     {% endif %}
 
 
+   {%+ if obj.docstring != "autoapi_noindex" -%}
    {{ obj.docstring|indent(3) }}
+   {% endif %}
 {% else %}
 .. py:{{ obj.type }}:: {{ obj.name }}
+   {%+ if "autoapi_noindex" in obj.docstring -%}
+   :noindex:
+   {% endif %}
 
+   {%+ if obj.docstring != "autoapi_noindex" -%}
    {{ obj.docstring|indent(3) }}
+   {% endif %}
 
 .. undocinclude:: /../src/{{ module.obj.relative_path }}
    :language: {{ module.language }}

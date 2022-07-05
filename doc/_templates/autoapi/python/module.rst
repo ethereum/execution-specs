@@ -6,9 +6,6 @@
 :orphan:
 
 {% endif %}
-:mod:`{{ obj.name }}`
-======={{ "=" * obj.name|length }}
-
 .. py:module:: {{ obj.name }}
 
 {% if obj.docstring %}
@@ -102,7 +99,9 @@ Attributes
 .. autoapisummary::
 
 {% for attribute in visible_attributes %}
-   {{ attribute.id }}
+{%+ if attribute.docstring != "autoapi_noindex" -%}
+{{ attribute.id|indent(3, True) }}
+{% endif %}
 {% endfor %}
 
 

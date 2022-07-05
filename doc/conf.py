@@ -27,6 +27,10 @@ author = "Ethereum"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
+from ethereum_spec_tools.autoapi_patch import apply_patch
+apply_patch()
+
+
 extensions = [
     "sphinx.ext.coverage",
     "sphinx.ext.napoleon",
@@ -35,6 +39,7 @@ extensions = [
     "undocinclude.extension",
     "picklebuilder.picklebuilder",
     "sphinx_rtd_theme",
+    "ethereum_spec_tools.toctree",
 ]
 
 autoapi_type = "python"
@@ -101,22 +106,3 @@ html_css_files = [
     "css/dropdown.css",
     "css/custom.css",
 ]
-
-
-def skip_duplicates(app, what, name, obj, skip, options):
-    """
-    Autoapi is mapping some constants with similar names to the same TOC entry.
-    """
-    if what == "data" and "base_types" in name and "MAX_VALUE" in name:
-        skip = True
-
-    constants = (".FROBENIUS_COEFFICIENTS", ".i_plus_9")
-
-    if any(name.endswith(constant) for constant in constants):
-        skip = True
-
-    return skip
-
-
-def setup(sphinx):
-    sphinx.connect("autoapi-skip-member", skip_duplicates)

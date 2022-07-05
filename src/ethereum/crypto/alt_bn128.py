@@ -42,8 +42,13 @@ class BNF2(finite_field.GaloisField):
 
 
 BNF2.FROBENIUS_COEFFICIENTS = BNF2.calculate_frobenius_coefficients()
+"""autoapi_noindex"""
+
 BNF2.i = BNF2((0, 1))
+"""autoapi_noindex"""
+
 BNF2.i_plus_9 = BNF2((9, 1))
+"""autoapi_noindex"""
 
 
 class BNP2(elliptic_curve.EllipticCurve):
@@ -90,8 +95,13 @@ class BNF12(finite_field.GaloisField):
 
 
 BNF12.FROBENIUS_COEFFICIENTS = BNF12.calculate_frobenius_coefficients()
+"""autoapi_noindex"""
+
 BNF12.w = BNF12((0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+"""autoapi_noindex"""
+
 BNF12.i_plus_9 = BNF12.w**6
+"""autoapi_noindex"""
 
 
 class BNP12(elliptic_curve.EllipticCurve):
