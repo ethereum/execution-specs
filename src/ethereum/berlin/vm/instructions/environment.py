@@ -26,14 +26,13 @@ from ...vm.memory import extend_memory, memory_write
 from .. import Evm
 from ..exceptions import OutOfBoundsRead, OutOfGasError
 from ..gas import (
-    GAS_BALANCE,
     GAS_BASE,
-    GAS_CODE_HASH,
+    GAS_COLD_ACCOUNT_ACCESS,
     GAS_COPY,
-    GAS_EXTERNAL,
     GAS_FAST_STEP,
     GAS_RETURN_DATA_COPY,
     GAS_VERY_LOW,
+    GAS_WARM_ACCESS,
     calculate_gas_extend_memory,
     subtract_gas,
 )
@@ -78,9 +77,14 @@ def balance(evm: Evm) -> None:
     """
     # TODO: There are no test cases against this function. Need to write
     # custom test cases.
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BALANCE)
 
     address = to_address(pop(evm.stack))
+
+    if address in evm.accessed_addresses:
+        evm.gas_left = subtract_gas(evm.gas_left, GAS_WARM_ACCESS)
+    else:
+        evm.accessed_addresses.add(address)
+        evm.gas_left = subtract_gas(evm.gas_left, GAS_COLD_ACCOUNT_ACCESS)
 
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
     balance = get_account(evm.env.state, address).balance
@@ -371,9 +375,13 @@ def extcodesize(evm: Evm) -> None:
     """
     # TODO: There are no test cases against this function. Need to write
     # custom test cases.
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_EXTERNAL)
-
     address = to_address(pop(evm.stack))
+
+    if address in evm.accessed_addresses:
+        evm.gas_left = subtract_gas(evm.gas_left, GAS_WARM_ACCESS)
+    else:
+        evm.accessed_addresses.add(address)
+        evm.gas_left = subtract_gas(evm.gas_left, GAS_COLD_ACCOUNT_ACCESS)
 
     # Non-existent accounts default to EMPTY_ACCOUNT, which has empty code.
     codesize = U256(len(get_account(evm.env.state, address).code))
@@ -415,8 +423,15 @@ def extcodecopy(evm: Evm) -> None:
     memory_extend_gas_cost = calculate_gas_extend_memory(
         evm.memory, memory_start_index, size
     )
+
+    if address in evm.accessed_addresses:
+        access_gas_cost = GAS_WARM_ACCESS
+    else:
+        evm.accessed_addresses.add(address)
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+
     total_gas_cost = u256_safe_add(
-        GAS_EXTERNAL,
+        access_gas_cost,
         copy_gas_cost,
         memory_extend_gas_cost,
         exception_type=OutOfGasError,
@@ -509,7 +524,11 @@ def extcodehash(evm: Evm) -> None:
     """
     address = to_address(pop(evm.stack))
 
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_CODE_HASH)
+    if address in evm.accessed_addresses:
+        evm.gas_left = subtract_gas(evm.gas_left, GAS_WARM_ACCESS)
+    else:
+        evm.accessed_addresses.add(address)
+        evm.gas_left = subtract_gas(evm.gas_left, GAS_COLD_ACCOUNT_ACCESS)
 
     evm.pc += 1
 

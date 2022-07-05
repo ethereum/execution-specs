@@ -39,9 +39,9 @@ from ..base_types import U256, Bytes, Uint, slotted_freezable
 from .eth_types import (
     Account,
     Address,
+    LegacyTransaction,
     Receipt,
     Root,
-    Transaction,
     encode_account,
 )
 
@@ -64,15 +64,15 @@ EMPTY_TRIE_ROOT = Root(
     )
 )
 
-Node = Union[Account, Bytes, Transaction, Receipt, Uint, U256, None]
+Node = Union[Account, Bytes, LegacyTransaction, Receipt, Uint, U256, None]
 K = TypeVar("K", bound=Bytes)
 V = TypeVar(
     "V",
     Optional[Account],
     Optional[Bytes],
     Bytes,
-    Optional[Transaction],
-    Optional[Receipt],
+    Optional[Union[LegacyTransaction, Bytes]],
+    Optional[Union[Receipt, Bytes]],
     Uint,
     U256,
 )
@@ -161,7 +161,7 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
     if isinstance(node, Account):
         assert storage_root is not None
         return encode_account(node, storage_root)
-    elif isinstance(node, (Transaction, Receipt, U256)):
+    elif isinstance(node, (LegacyTransaction, Receipt, U256)):
         return rlp.encode(cast(rlp.RLP, node))
     elif isinstance(node, Bytes):
         return node

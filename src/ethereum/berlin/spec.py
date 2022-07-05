@@ -13,7 +13,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, Union
 
 from ethereum.base_types import Bytes0
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
@@ -27,19 +27,25 @@ from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint, Uint64
 from . import vm
 from .bloom import logs_bloom
 from .eth_types import (
+    TX_ACCESS_LIST_ADDRESS_COST,
+    TX_ACCESS_LIST_STORAGE_KEY_COST,
     TX_BASE_COST,
     TX_CREATE_COST,
     TX_DATA_COST_PER_NON_ZERO,
     TX_DATA_COST_PER_ZERO,
+    AccessListTransaction,
     Address,
     Block,
     Bloom,
     Hash32,
     Header,
+    LegacyTransaction,
     Log,
     Receipt,
     Root,
     Transaction,
+    decode_transaction,
+    encode_transaction,
 )
 from .state import (
     State,
@@ -294,7 +300,7 @@ def apply_body(
     block_gas_limit: Uint,
     block_time: U256,
     block_difficulty: Uint,
-    transactions: Tuple[Transaction, ...],
+    transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
     ommers: Tuple[Header, ...],
     chain_id: Uint64,
 ) -> Tuple[Uint, Root, Root, Bloom, State]:
@@ -341,16 +347,18 @@ def apply_body(
         State after all transactions have been executed.
     """
     gas_available = block_gas_limit
-    transactions_trie: Trie[Bytes, Optional[Transaction]] = Trie(
-        secured=False, default=None
-    )
-    receipts_trie: Trie[Bytes, Optional[Receipt]] = Trie(
+    transactions_trie: Trie[
+        Bytes, Optional[Union[Bytes, LegacyTransaction]]
+    ] = Trie(secured=False, default=None)
+    receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]] = Trie(
         secured=False, default=None
     )
     block_logs: Tuple[Log, ...] = ()
 
-    for i, tx in enumerate(transactions):
-        trie_set(transactions_trie, rlp.encode(Uint(i)), tx)
+    for i, tx in enumerate(map(decode_transaction, transactions)):
+        trie_set(
+            transactions_trie, rlp.encode(Uint(i)), encode_transaction(tx)
+        )
 
         ensure(tx.gas <= gas_available, InvalidBlock)
         sender_address = recover_sender(chain_id, tx)
@@ -372,16 +380,22 @@ def apply_body(
         gas_used, logs, has_erred = process_transaction(env, tx)
         gas_available -= gas_used
 
+        receipt: Union[Bytes, Receipt] = Receipt(
+            succeeded=not has_erred,
+            cumulative_gas_used=(block_gas_limit - gas_available),
+            bloom=logs_bloom(logs),
+            logs=logs,
+        )
+
+        if isinstance(tx, AccessListTransaction):
+            receipt = b"\x01" + rlp.encode(receipt)
+
         trie_set(
             receipts_trie,
             rlp.encode(Uint(i)),
-            Receipt(
-                succeeded=not has_erred,
-                cumulative_gas_used=(block_gas_limit - gas_available),
-                bloom=logs_bloom(logs),
-                logs=logs,
-            ),
+            receipt,
         )
+
         block_logs += logs
 
     pay_rewards(state, block_number, coinbase, ommers)
@@ -533,6 +547,14 @@ def process_transaction(
     sender_balance_after_gas_fee = sender_account.balance - gas_fee
     set_account_balance(env.state, sender, sender_balance_after_gas_fee)
 
+    preaccessed_addresses = set()
+    preaccessed_storage_keys = set()
+    if isinstance(tx, AccessListTransaction):
+        for (address, keys) in tx.access_list:
+            preaccessed_addresses.add(address)
+            for key in keys:
+                preaccessed_storage_keys.add((address, key))
+
     message = prepare_message(
         sender,
         tx.to,
@@ -540,6 +562,8 @@ def process_transaction(
         tx.data,
         gas,
         env,
+        preaccessed_addresses=frozenset(preaccessed_addresses),
+        preaccessed_storage_keys=frozenset(preaccessed_storage_keys),
     )
 
     output = process_message_call(message, env)
@@ -622,7 +646,13 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     else:
         create_cost = 0
 
-    return Uint(TX_BASE_COST + data_cost + create_cost)
+    access_list_cost = 0
+    if isinstance(tx, AccessListTransaction):
+        for (_address, keys) in tx.access_list:
+            access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
+            access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
+
+    return Uint(TX_BASE_COST + data_cost + create_cost + access_list_cost)
 
 
 def recover_sender(chain_id: Uint64, tx: Transaction) -> Address:
@@ -646,13 +676,21 @@ def recover_sender(chain_id: Uint64, tx: Transaction) -> Address:
     ensure(0 < r and r < SECP256K1N, InvalidBlock)
     ensure(0 < s and s <= SECP256K1N // 2, InvalidBlock)
 
-    if v == 27 or v == 28:
-        public_key = secp256k1_recover(r, s, v - 27, signing_hash_pre155(tx))
-    else:
-        ensure(v == 35 + chain_id * 2 or v == 36 + chain_id * 2, InvalidBlock)
-        public_key = secp256k1_recover(
-            r, s, v - 35 - chain_id * 2, signing_hash_155(tx)
-        )
+    if isinstance(tx, LegacyTransaction):
+        if v == 27 or v == 28:
+            public_key = secp256k1_recover(
+                r, s, v - 27, signing_hash_pre155(tx)
+            )
+        else:
+            ensure(
+                v == 35 + chain_id * 2 or v == 36 + chain_id * 2, InvalidBlock
+            )
+            public_key = secp256k1_recover(
+                r, s, v - 35 - chain_id * 2, signing_hash_155(tx)
+            )
+    elif isinstance(tx, AccessListTransaction):
+        public_key = secp256k1_recover(r, s, v, signing_hash_2930(tx))
+
     return Address(keccak256(public_key)[12:32])
 
 
@@ -710,6 +748,37 @@ def signing_hash_155(tx: Transaction) -> Hash32:
                 Uint(1),
                 Uint(0),
                 Uint(0),
+            )
+        )
+    )
+
+
+def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
+    """
+    Compute the hash of a transaction used in a EIP 2930 signature.
+
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `eth1spec.eth_types.Hash32`
+        Hash of the transaction.
+    """
+    return keccak256(
+        b"\x01"
+        + rlp.encode(
+            (
+                tx.chain_id,
+                tx.nonce,
+                tx.gas_price,
+                tx.gas,
+                tx.to,
+                tx.value,
+                tx.data,
+                tx.access_list,
             )
         )
     )

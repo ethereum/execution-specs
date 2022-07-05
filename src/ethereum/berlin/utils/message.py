@@ -12,13 +12,14 @@ Introduction
 Message specific functions used in this berlin version of
 specification.
 """
-from typing import Optional, Union
+from typing import FrozenSet, Optional, Tuple, Union
 
-from ethereum.base_types import U256, Bytes, Bytes0, Uint
+from ethereum.base_types import U256, Bytes, Bytes0, Bytes32, Uint
 
 from ..eth_types import Address
 from ..state import get_account
 from ..vm import Environment, Message
+from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .address import compute_contract_address
 
 
@@ -32,6 +33,10 @@ def prepare_message(
     code_address: Optional[Address] = None,
     should_transfer_value: bool = True,
     is_static: bool = False,
+    preaccessed_addresses: FrozenSet[Address] = frozenset(),
+    preaccessed_storage_keys: FrozenSet[
+        Tuple[(Address, Bytes32)]
+    ] = frozenset(),
 ) -> Message:
     """
     Execute a transaction against the provided environment.
@@ -59,6 +64,11 @@ def prepare_message(
     is_static:
         if True then it prevents all state-changing operations from being
         executed.
+    preaccessed_addresses:
+        Addresses that should be marked as accessed prior to the message call
+    preaccessed_storage_keys:
+        Storage keys that should be marked as accessed prior to the message
+        call
 
     Returns
     -------
@@ -81,6 +91,12 @@ def prepare_message(
     else:
         raise AssertionError("Target must be address or empty bytes")
 
+    accessed_addresses = set()
+    accessed_addresses.add(current_target)
+    accessed_addresses.add(caller)
+    accessed_addresses.update(PRE_COMPILED_CONTRACTS.keys())
+    accessed_addresses.update(preaccessed_addresses)
+
     return Message(
         caller=caller,
         target=target,
@@ -93,4 +109,6 @@ def prepare_message(
         code_address=code_address,
         should_transfer_value=should_transfer_value,
         is_static=is_static,
+        accessed_addresses=accessed_addresses,
+        accessed_storage_keys=set(preaccessed_storage_keys),
     )

@@ -292,6 +292,8 @@ def execute_code(message: Message, env: Environment) -> Evm:
         children=[],
         return_data=b"",
         error=None,
+        accessed_addresses=message.accessed_addresses,
+        accessed_storage_keys=message.accessed_storage_keys,
     )
     try:
 

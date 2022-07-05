@@ -3,7 +3,7 @@ from functools import partial
 import pytest
 
 from ethereum import rlp
-from ethereum.berlin.eth_types import Transaction
+from ethereum.berlin.eth_types import LegacyTransaction
 from ethereum.berlin.spec import calculate_intrinsic_cost, validate_transaction
 from ethereum.utils.hexadecimal import hex_to_uint
 
@@ -25,7 +25,7 @@ load_berlin_transaction = partial(load_test_transaction, network="Berlin")
 def test_high_nonce(test_file_high_nonce: str) -> None:
     test = load_berlin_transaction(test_dir, test_file_high_nonce)
 
-    tx = rlp.decode_to(Transaction, test["tx_rlp"])
+    tx = rlp.decode_to(LegacyTransaction, test["tx_rlp"])
 
     assert validate_transaction(tx) == False
 
@@ -40,7 +40,7 @@ def test_high_nonce(test_file_high_nonce: str) -> None:
 def test_nonce(test_file_nonce: str) -> None:
     test = load_berlin_transaction(test_dir, test_file_nonce)
 
-    tx = rlp.decode_to(Transaction, test["tx_rlp"])
+    tx = rlp.decode_to(LegacyTransaction, test["tx_rlp"])
 
     result_intrinsic_gas_cost = hex_to_uint(
         test["test_result"]["intrinsicGas"]

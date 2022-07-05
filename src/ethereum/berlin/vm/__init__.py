@@ -16,7 +16,7 @@ The abstract computer which runs the code stored in an
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Set, Tuple, Union
 
-from ethereum.base_types import U256, Bytes, Bytes0, Uint, Uint64
+from ethereum.base_types import U256, Bytes, Bytes0, Bytes32, Uint, Uint64
 from ethereum.crypto.hash import Hash32
 
 from ..eth_types import Address, Log
@@ -61,6 +61,8 @@ class Message:
     depth: Uint
     should_transfer_value: bool
     is_static: bool
+    accessed_addresses: Set[Address]
+    accessed_storage_keys: Set[Tuple[Address, Bytes32]]
 
 
 @dataclass
@@ -84,3 +86,5 @@ class Evm:
     children: List["Evm"]
     return_data: Bytes
     error: Optional[Exception]
+    accessed_addresses: Set[Address]
+    accessed_storage_keys: Set[Tuple[Address, Bytes32]]

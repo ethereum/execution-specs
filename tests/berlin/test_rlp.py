@@ -1,8 +1,18 @@
 import pytest
 
 import ethereum.rlp as rlp
-from ethereum.base_types import U256, Bytes, Bytes0, Bytes8, Uint
-from ethereum.berlin.eth_types import Block, Header, Log, Receipt, Transaction
+from ethereum.base_types import U256, Bytes, Bytes0, Bytes8, Uint, Uint64
+from ethereum.berlin.eth_types import (
+    AccessListTransaction,
+    Block,
+    Header,
+    LegacyTransaction,
+    Log,
+    Receipt,
+    Transaction,
+    decode_transaction,
+    encode_transaction,
+)
 from ethereum.berlin.utils.hexadecimal import hex_to_address
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes256
@@ -31,7 +41,7 @@ bloom = hex_to_bytes256(
     "0c84201661040200201c0004b8490ad588804"
 )
 
-transaction1 = Transaction(
+legacy_transaction = LegacyTransaction(
     U256(1),
     U256(2),
     U256(3),
@@ -43,13 +53,15 @@ transaction1 = Transaction(
     U256(6),
 )
 
-transaction2 = Transaction(
+access_list_transaction = AccessListTransaction(
+    Uint64(1),
     U256(1),
     U256(2),
     U256(3),
     Bytes0(),
     U256(4),
-    Bytes(b"foo"),
+    Bytes(b"bar"),
+    ((address1, (hash1, hash2)), (address2, tuple())),
     U256(27),
     U256(5),
     U256(6),
@@ -75,7 +87,10 @@ header = Header(
 
 block = Block(
     header=header,
-    transactions=(transaction1, transaction2),
+    transactions=(
+        encode_transaction(legacy_transaction),
+        encode_transaction(access_list_transaction),
+    ),
     ommers=(header,),
 )
 
@@ -101,8 +116,22 @@ receipt = Receipt(
 
 @pytest.mark.parametrize(
     "rlp_object",
-    [transaction1, transaction2, header, block, log1, log2, receipt],
+    [
+        legacy_transaction,
+        access_list_transaction,
+        header,
+        block,
+        log1,
+        log2,
+        receipt,
+    ],
 )
 def test_berlin_rlp(rlp_object: rlp.RLP) -> None:
     encoded = rlp.encode(rlp_object)
     assert rlp.decode_to(type(rlp_object), encoded) == rlp_object
+
+
+@pytest.mark.parametrize("tx", [legacy_transaction, access_list_transaction])
+def test_transaction_encoding(tx: Transaction) -> None:
+    encoded = encode_transaction(tx)
+    assert decode_transaction(encoded) == tx

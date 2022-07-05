@@ -25,9 +25,12 @@ from ..base_types import (
     Bytes32,
     Bytes256,
     Uint,
+    Uint64,
     slotted_freezable,
 )
 from ..crypto.hash import Hash32, keccak256
+from ..exceptions import InvalidBlock
+from ..utils.ensure import ensure
 
 Address = Bytes20
 Root = Hash32
@@ -38,11 +41,13 @@ TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 16
 TX_DATA_COST_PER_ZERO = 4
 TX_CREATE_COST = 32000
+TX_ACCESS_LIST_ADDRESS_COST = 2400
+TX_ACCESS_LIST_STORAGE_KEY_COST = 1900
 
 
 @slotted_freezable
 @dataclass
-class Transaction:
+class LegacyTransaction:
     """
     Atomic operation performed on the block chain.
     """
@@ -56,6 +61,52 @@ class Transaction:
     v: U256
     r: U256
     s: U256
+
+
+@slotted_freezable
+@dataclass
+class AccessListTransaction:
+    """
+    The transaction type added in the Berlin hardfork to support access lists.
+    """
+
+    chain_id: Uint64
+    nonce: U256
+    gas_price: U256
+    gas: U256
+    to: Union[Bytes0, Address]
+    value: U256
+    data: Bytes
+    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    v: U256
+    r: U256
+    s: U256
+
+
+Transaction = Union[LegacyTransaction, AccessListTransaction]
+
+
+def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
+    """
+    Encode a transaction. Needed because non-legacy transactions aren't RLP.
+    """
+    if isinstance(tx, LegacyTransaction):
+        return tx
+    elif isinstance(tx, AccessListTransaction):
+        return b"\x01" + rlp.encode(tx)
+    else:
+        raise Exception(f"Unable to encode transaction of type {type(tx)}")
+
+
+def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
+    """
+    Decode a transaction. Needed because non-legacy transactions aren't RLP.
+    """
+    if isinstance(tx, Bytes):
+        ensure(tx[0] == 1, InvalidBlock)
+        return rlp.decode_to(AccessListTransaction, tx[1:])
+    else:
+        return tx
 
 
 @slotted_freezable
@@ -126,7 +177,7 @@ class Block:
     """
 
     header: Header
-    transactions: Tuple[Transaction, ...]
+    transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
     ommers: Tuple[Header, ...]
 
 
