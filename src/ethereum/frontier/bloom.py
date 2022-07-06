@@ -58,19 +58,19 @@ def add_to_bloom(bloom: bytearray, bloom_entry: bytes) -> None:
 
 def logs_bloom(logs: Tuple[Log, ...]) -> Bloom:
     """
-    Calculate the Bloom filter for a set of logs.
+    Obtain the logs bloom from a list of log entries.
 
     The address and each topic of a log are added to the bloom filter.
 
     Parameters
     ----------
     logs :
-        List of logs for which the logs bloom is to be calculated.
+        List of logs for which the logs bloom is to be obtained.
 
     Returns
     -------
     logs_bloom : `Bloom`
-        The logs bloom calculated which is 256 bytes with some bits set as per
+        The logs bloom obtained which is 256 bytes with some bits set as per
         the caller address and the log topics.
     """
     bloom: bytearray = bytearray(b"\x00" * 256)
