@@ -21,8 +21,8 @@ This network upgrade requires changes to both Ethereum's execution and consensus
 | Network | Terminal Total Difficulty | Expected Date | Fork Hash    |
 |---------|------------|---------------|--------------|
 | Ropsten | 50000000000000000 | June 8, 2022 | `0x7119B6B3` (unchanged from [London](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/london.md)) |
+| Sepolia | 17000000000000000 | July 6, 2022 | `0xfe3366e7` (unchanged from [Genesis](https://github.com/ethereum/go-ethereum/pull/23730)) |
 | Goerli  | TBD | TBD | TBD |
-| Sepolia | TBD | TBD | TBD |
 | Mainnet | TBD | TBD | TBD |
 
 ### Readiness Checklist
@@ -41,6 +41,8 @@ See https://github.com/ethereum/pm/blob/master/Merge/mainnet-readiness.md
     - [devnet-1](https://github.com/parithosh/consensus-deployment-ansible/tree/master/merge-devnet-1)
     - [devnet-2](https://github.com/parithosh/consensus-deployment-ansible/tree/master/merge-devnet-2)
     - [devnet-3](https://github.com/parithosh/consensus-deployment-ansible/tree/master/merge-devnet-3)
+    - [devnet-4](https://github.com/parithosh/consensus-deployment-ansible/tree/master/merge-devnet-4)
+    - [devnet-5](https://github.com/parithosh/consensus-deployment-ansible/tree/master/merge-devnet-5)
   - [Kiln](https://kiln.themerge.dev/)
   - [Goerli Shadow Fork 1](https://github.com/parithosh/consensus-deployment-ansible/tree/master/goerli-shadow-fork)
   - [Goerli Shadow Fork 2](https://github.com/parithosh/consensus-deployment-ansible/tree/master/goerli-shadow-fork-2)
@@ -50,6 +52,10 @@ See https://github.com/ethereum/pm/blob/master/Merge/mainnet-readiness.md
   - [Mainnet Shadow Fork 2](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-2)
   - [Mainnet Shadow Fork 3](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-3)
   - [Mainnet Shadow Fork 4](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-4)
+  - [Mainnet Shadow Fork 5](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-5)
+  - [Mainnet Shadow Fork 6](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-6)
+  - [Mainnet Shadow Fork 7](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-7)
+  - [Mainnet Shadow Fork 8](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-8)
 
 
 ### Client Releases
@@ -60,5 +66,9 @@ See https://github.com/ethereum/pm/blob/master/Merge/mainnet-readiness.md
     - [go-ethereum (geth)](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.18)
     - [Nethermind](https://github.com/NethermindEth/nethermind/releases/tag/1.13.1)
 - Sepolia
+    - [Besu](https://github.com/hyperledger/besu/releases/tag/22.7.0-RC1)
+    - [Erigon](https://github.com/ledgerwatch/erigon/releases/tag/v2022.07.01)
+    - [go-ethereum (geth)] TBD
+    - [Nethermind](https://github.com/NethermindEth/nethermind/releases/tag/1.13.4)
 - Goerli
 - Mainnet 
