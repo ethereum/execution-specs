@@ -350,3 +350,10 @@ attrname
 expr
 subpackages
 toctree
+
+cffi
+ffi
+FFI
+cdef
+dlopen
+OSSL
