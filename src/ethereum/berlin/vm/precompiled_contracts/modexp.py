@@ -18,7 +18,7 @@ from ...vm import Evm
 from ...vm.gas import subtract_gas
 from ..exceptions import OutOfGasError
 
-GQUADDIVISOR = 20
+GQUADDIVISOR = 3
 
 
 def modexp(evm: Evm) -> None:
@@ -31,24 +31,22 @@ def modexp(evm: Evm) -> None:
     exp_length = U256.from_be_bytes(right_pad_zero_bytes(data[32:64], 32))
     modulus_length = U256.from_be_bytes(right_pad_zero_bytes(data[64:96], 32))
 
+    exponent_head_start = 96 + base_length
+    exponent_head_end = exponent_head_start + min(32, exp_length)
+
+    exponent_head_bytes = data[exponent_head_start:exponent_head_end]
+    exponent_head = Uint.from_be_bytes(exponent_head_bytes)
+
+    gas_used = gas_cost(base_length, modulus_length, exp_length, exponent_head)
+
+    if gas_used > U256.MAX_VALUE:
+        raise OutOfGasError
+    else:
+        evm.gas_left = subtract_gas(evm.gas_left, U256(gas_used))
+
     if base_length == 0 and modulus_length == 0:
         evm.output = Bytes()
         return
-
-    mult_complexity = get_mult_complexity(
-        Uint(max(base_length, modulus_length))
-    )
-    # This is an estimate of the bit length of exp
-    adjusted_exp_length = Uint(8 * max(0, int(exp_length) - 32))
-
-    if (
-        evm.gas_left
-        < mult_complexity * max(1, adjusted_exp_length) // GQUADDIVISOR
-    ):
-        # This check must be done now to prevent loading of absurdly long
-        # arguments. It is an underestimate, because adjusted_exp_length may
-        # increase later.
-        raise OutOfGasError()
 
     pointer = 96
     base_data = right_pad_zero_bytes(
@@ -66,16 +64,6 @@ def modexp(evm: Evm) -> None:
     )
     modulus = Uint.from_be_bytes(modulus_data)
 
-    adjusted_exp_length = Uint(
-        max(adjusted_exp_length, int(exp.bit_length()) - 1)
-    )
-    gas_used = mult_complexity * max(1, adjusted_exp_length) // GQUADDIVISOR
-
-    # NOTE: It is in principle possible for the conversion to U256 to overflow
-    # here. However, for this to happen without triggering the earlier check
-    # would require providing more than 2**250 gas, which is obviously
-    # not realistic.
-    evm.gas_left = subtract_gas(evm.gas_left, U256(gas_used))
     if modulus == 0:
         evm.output = Bytes(b"\x00") * modulus_length
     else:
@@ -84,13 +72,105 @@ def modexp(evm: Evm) -> None:
         )
 
 
-def get_mult_complexity(x: Uint) -> Uint:
+def complexity(base_length: U256, modulus_length: U256) -> Uint:
     """
-    Estimate the complexity of performing Karatsuba multiplication.
+    Estimate the complexity of performing a modular exponentiation.
+
+    Parameters
+    ----------
+
+    base_length :
+        Length of the array representing the base integer.
+
+    modulus_length :
+        Length of the array representing the modulus integer.
+
+    Returns
+    -------
+
+    complexity : `Uint`
+        Complexity of performing the operation.
     """
-    if x <= 64:
-        return x**2
-    elif x <= 1024:
-        return x**2 // 4 + 96 * x - 3072
+    max_length = max(Uint(base_length), Uint(modulus_length))
+    words = (max_length + 7) // 8
+    return words**2
+
+
+def iterations(exponent_length: U256, exponent_head: Uint) -> Uint:
+    """
+    Calculate the number of iterations required to perform a modular
+    exponentiation.
+
+    Parameters
+    ----------
+
+    exponent_length :
+        Length of the array representing the exponent integer.
+
+    exponent_head :
+        First 32 bytes of the exponent (with leading zero padding if it is
+        shorter than 32 bytes), as an unsigned integer.
+
+    Returns
+    -------
+
+    iterations : `Uint`
+        Number of iterations.
+    """
+    if exponent_length <= 32 and exponent_head == 0:
+        count = Uint(0)
+    elif exponent_length <= 32:
+        bit_length = Uint(exponent_head.bit_length())
+
+        if bit_length > 0:
+            bit_length -= 1
+
+        count = bit_length
     else:
-        return x**2 // 16 + 480 * x - 199680
+        length_part = 8 * (Uint(exponent_length) - 32)
+        bits_part = Uint(exponent_head.bit_length())
+
+        if bits_part > 0:
+            bits_part -= 1
+
+        count = length_part + bits_part
+
+    return max(count, Uint(1))
+
+
+def gas_cost(
+    base_length: U256,
+    modulus_length: U256,
+    exponent_length: U256,
+    exponent_head: Uint,
+) -> Uint:
+    """
+    Calculate the gas cost of performing a modular exponentiation.
+
+    Parameters
+    ----------
+
+    base_length :
+        Length of the array representing the base integer.
+
+    modulus_length :
+        Length of the array representing the modulus integer.
+
+    exponent_length :
+        Length of the array representing the exponent integer.
+
+    exponent_head :
+        First 32 bytes of the exponent (with leading zero padding if it is
+        shorter than 32 bytes), as an unsigned integer.
+
+    Returns
+    -------
+
+    gas_cost : `Uint`
+        Gas required for performing the operation.
+    """
+    multiplication_complexity = complexity(base_length, modulus_length)
+    iteration_count = iterations(exponent_length, exponent_head)
+    cost = multiplication_complexity * iteration_count
+    cost //= GQUADDIVISOR
+    return max(Uint(200), cost)
