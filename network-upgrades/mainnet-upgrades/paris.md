@@ -22,7 +22,7 @@ This network upgrade requires changes to both Ethereum's execution and consensus
 |---------|------------|---------------|--------------|
 | Ropsten | 50000000000000000 | June 8, 2022 | `0x7119B6B3` (unchanged from [London](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/london.md)) |
 | Sepolia | 17000000000000000 | July 6, 2022 | `0xfe3366e7` (unchanged from [Genesis](https://github.com/ethereum/go-ethereum/pull/23730)) |
-| Goerli  | TBD | TBD | TBD |
+| Goerli  | 10790000 | August 10, 2022 | TBD |
 | Mainnet | TBD | TBD | TBD |
 
 ### Readiness Checklist
