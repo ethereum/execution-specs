@@ -30,6 +30,7 @@ sys.setrecursionlimit(max(EVM_RECURSION_LIMIT, sys.getrecursionlimit()))
 
 def evm_trace(evm: Any, op: Any) -> None:
     """
+    autoapi_noshow
     Placeholder for an evm trace function. The spec does not trace evm by
     default. EVM tracing will be injected if the user requests it.
     """
