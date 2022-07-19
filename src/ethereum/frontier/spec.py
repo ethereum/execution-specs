@@ -124,9 +124,11 @@ def apply_fork(old: BlockChain) -> BlockChain:
 def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     """
     Obtain the list of hashes of the previous 256 blocks in order of increasing
-    block number.
+    block number in order to ...
 
     This function will return less hashes for the first 256 blocks.
+
+    - Blockhash needs to access the last hash on the chain, so there needs to be a function that retrieves that
 
     Parameters
     ----------
@@ -160,7 +162,18 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
 
 def state_transition(chain: BlockChain, block: Block) -> None:
     """
-    Attempts to apply a block to an existing block chain.
+    Attempts to apply a block to an existing block chain. In order to do so,
+    all parts of the block's contents need to be verified before being added
+    to the chain. Blocks are verified by ensuring that the contents of the 
+    block make logical sense with the contents of the parent block. The 
+    information in the block's header must also match the corresponding
+    information in the block. 
+
+    According the Ethereum protocol, it's only required for cient's to
+    store the last 255 blocks of the chain in order to not use too much
+    storage...IDK if that's right
+
+    As far as execution is concerned we only need the last 255 blocks bc we dont need to deal with reorgs...
 
     Parameters
     ----------
@@ -204,7 +217,21 @@ def state_transition(chain: BlockChain, block: Block) -> None:
 
 def validate_header(header: Header, parent_header: Header) -> None:
     """
-    Verifies a block header.
+    Verifies a block header. 
+    
+    In order to consider a block's header valid,
+    the logic for the quantities in the header should match the logic for
+    the block itself. Therefore, by validating the header of a block, you
+    validate the actual information stored in the block by checking that 
+    the logic adheres to the blockchain. For example the header timestamp
+    should be greater than the block's parent timestamp because the block
+    was created *after* the parent block. Additionally, the block's number
+    should be directly folowing the parent block's number since it is the 
+    next block in the sequence.
+
+    A block can also only be considered valid if the extra data stored in it
+    is less than 32 bits in order to... limit data capacity? 
+
 
     Parameters
     ----------
@@ -238,24 +265,12 @@ def validate_header(header: Header, parent_header: Header) -> None:
 def generate_header_hash_for_pow(header: Header) -> Hash32:
     """
     Generate rlp hash of the header which is to be used for Proof-of-Work
-    verification. This hash is generated with the following header fields:
-
-      * `parent_hash`
-      * `ommers_hash`
-      * `coinbase`
-      * `state_root`
-      * `transactions_root`
-      * `receipt_root`
-      * `bloom`
-      * `difficulty`
-      * `number`
-      * `gas_limit`
-      * `gas_used`
-      * `timestamp`
-      * `extra_data`
+    verification. 
 
     In other words, the PoW artefacts `mix_digest` and `nonce` are ignored
     while calculating this hash.
+
+    A particular pow is valid for a single hash, that has is computed by this function.
 
     Parameters
     ----------
@@ -497,7 +512,16 @@ def pay_rewards(
     ommers: Tuple[Header, ...],
 ) -> None:
     """
-    Pay rewards to the block miner as well as the ommers miners.
+    Pay rewards to the block miner as well as the ommers miners. The
+    miner of the cannonical block is rewarded with the predetermined block
+    reward, ``BLOCK_REWARD``, plus a multiple of a fraction of the reward 
+    that is based off of the amount of ommer blocks that were mined around
+    the same time. An ommer block is a block that wasn't cannonically added
+    to the blockchain if it wasn't validated as fast as the cannonical but
+    was mined at the same time. Although not all blocks that are mined are
+    added to the blockchain, miners are still paid a reward for their
+    efforts. This reward is called an ommer reward and is calculated based
+    on the number associated with the ommer block that they mined.
 
     Parameters
     ----------
@@ -592,7 +616,13 @@ def process_transaction(
 
 def validate_transaction(tx: Transaction) -> bool:
     """
-    Verifies a transaction.
+    Verifies a transaction. 
+    
+    The gas in a transaction gets used to pay for the intrinsic cost of
+    operations, therefore if there is insufficient gas then it would not
+    be possible to execute a transaction and it will be declared invalid.
+
+    
 
     Parameters
     ----------
@@ -609,17 +639,24 @@ def validate_transaction(tx: Transaction) -> bool:
 
 def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     """
-    Calculates the intrinsic cost of the transaction that is charged before
-    execution is instantiated.
+    Calculates the gas that is charged before execution is started.
+    
+    The intrinsic cost of the transaction is charged before execution is instantiated. Functions/operations in the EVM cost money to
+    execute so this intrinsic cost is for the operations that need to be 
+    paid for as part of the transaction. Data transfer, for example, is
+    part of this intrinsic cost. It costs ether to send data over the wire
+    and that ether is accounted for in the intrinsic cost calculated in 
+    this function. This intrinsic cost must be calculated and paid for
+    before execution in order for all operations to be implemented.
 
     Parameters
     ----------
-    tx :
+    tx 
         Transaction to compute the intrinsic cost of.
 
     Returns
     -------
-    verified : `eth1spec.base_types.Uint`
+    verified : `ethereum.base_types.Uint`
         The intrinsic cost of the transaction.
     """
     data_cost = 0
@@ -671,7 +708,7 @@ def signing_hash(tx: Transaction) -> Hash32:
 
     Returns
     -------
-    hash : `eth1spec.eth_types.Hash32`
+    hash : `ethereum.eth_types.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -690,7 +727,10 @@ def signing_hash(tx: Transaction) -> Hash32:
 
 def compute_header_hash(header: Header) -> Hash32:
     """
-    Computes the hash of a block header.
+    Computes the hash of a block header. 
+    
+    The header hash of a block is the canonical hash that is used to refer
+    to a specific block and completely distinguishes a block from another. 
 
     Parameters
     ----------
@@ -707,7 +747,18 @@ def compute_header_hash(header: Header) -> Hash32:
 
 def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
     """
-    Validates the gas limit for a block.
+    Validates the gas limit for a block. 
+    
+    The bounds of the gas limit, ``max_adjustment_delta``, is set as the
+    quotient of the parent block's gas limit and the
+    ``GAS_LIMIT_ADJUSTMENT_FACTOR``. Therefore, if the gas limit that is 
+    passed through as a parameter is greater than or equal to the *sum* of
+    the parent's gas and the adjustment delta then the limit for gas is too
+    high and fails this function's check. Similarly, if the limit is less
+    than or equal to the *difference* of the parent's gas and the adjustment
+    delta *or* the predefined ``GAS_LIMIT_MINIMUM`` then this function's
+    check fails because the gas limit doesn't allow for a sufficient or
+    reasonable amount of gas to be used on a block.
 
     Parameters
     ----------
@@ -740,7 +791,19 @@ def calculate_block_difficulty(
     parent_difficulty: Uint,
 ) -> Uint:
     """
-    Computes difficulty of a block using its header and parent header.
+    Computes the difficulty of a block using its header and
+    parent header.
+    
+    Since the genesis block is the first on the chain and has no parent,
+    its difficulty is a predefined value stored as ``GENESIS_DIFFICULTY``.
+    For all other blocks the difficulty is determined by the time the
+    block was created after its parent. If a block's timestamp is more
+    than 13 seconds after its parent block then its difficulty is set
+    as the difference between the parent's difficulty and the
+    ``max_adjustment_delta``. Otherwise, if the time between parent and 
+    child blocks is too small (under 13 seconds) then, to avoid mass 
+    forking, the block's difficulty is set to the sum of the delta and
+    the parent's difficulty.
 
     Parameters
     ----------
