@@ -16,7 +16,6 @@ from ethereum.utils.byte import right_pad_zero_bytes
 
 from ...vm import Evm
 from ...vm.gas import subtract_gas
-from ..exceptions import OutOfGasError
 
 GQUADDIVISOR = 3
 
@@ -40,9 +39,9 @@ def modexp(evm: Evm) -> None:
     gas_used = gas_cost(base_length, modulus_length, exp_length, exponent_head)
 
     if gas_used > U256.MAX_VALUE:
-        raise OutOfGasError
-    else:
-        evm.gas_left = subtract_gas(evm.gas_left, U256(gas_used))
+        gas_used = Uint(U256.MAX_VALUE)
+
+    evm.gas_left = subtract_gas(evm.gas_left, U256(gas_used))
 
     if base_length == 0 and modulus_length == 0:
         evm.output = Bytes()
