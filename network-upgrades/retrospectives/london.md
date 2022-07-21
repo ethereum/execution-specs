@@ -85,7 +85,7 @@ July 22, 2021
 assert sender.balance >= gasLimit * transaction.max_fee_per_gas
 ```
 
-A few lines above (L207), though, `sender.balance` is modified to substract from it the transaction's amount (`sender.balance -= transaction.amount`). This led to confusion, as some client teams used the full `sender.balance` (i.e. pre-subtraction of `transactiion.amount`) when checking the assertion defined on line 217, rather than the updated value. 
+A few lines above (L207), though, `sender.balance` is modified to substract from it the transaction's amount (`sender.balance -= transaction.amount`). This led to confusion, as some client teams used the full `sender.balance` (i.e. pre-subtraction of `transaction.amount`) when checking the assertion defined on line 217, rather than the updated value. 
 
 One suggested fix is to move this assertion closer to when the `sender.balance` value is updated, similarly to the other assertion on line 208. 
 
