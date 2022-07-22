@@ -23,6 +23,10 @@
         </li>
     </ol>
 </nav>
+{% elif "diffs/" in pagename %}
+<nav class="menu">
+    <button class="diff-toggle" onclick="toggleElements()">Only Show Diffs</button>
+</nav>
 {% endif %}
 
 {{ super() }}
