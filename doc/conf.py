@@ -106,3 +106,7 @@ html_css_files = [
     "css/dropdown.css",
     "css/custom.css",
 ]
+
+html_js_files = [
+    "js/toggle_diffs.js",
+]

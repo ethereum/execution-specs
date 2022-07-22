@@ -91,6 +91,11 @@ dl.field-list > dt {
     top: 4em;
 }
 
+.hideElement {
+    visibility: "hidden";
+    display: none;
+}
+
 @media (min-width: 876px) {
     #disclaimer {
         position: fixed;
