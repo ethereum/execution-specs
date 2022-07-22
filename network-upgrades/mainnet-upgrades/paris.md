@@ -8,6 +8,9 @@ Specifies changes included in the network upgrade.
   - [x] [EIP-3675: Upgrade consensus to Proof-of-Stake](https://eips.ethereum.org/EIPS/eip-3675)
   - [x] [EIP-4399: Supplant DIFFICULTY opcode with PREVRANDAO](https://eips.ethereum.org/EIPS/eip-4399)
 
+In addition to the EIPs listed above, an [EIP-2124](https://eips.ethereum.org/EIPS/eip-2124) `FORK_NEXT` value must be set for the Paris upgrade to allow nodes to disconnect stale peers. In typical upgrades, this happens on the fork block. Because Paris uses a [Terminal Total Difficulty](https://eips.ethereum.org/EIPS/eip-3675#total-difficulty-triggering-the-upgrade) instead of a block number to trigger the proof-of-work to proof-of-stake transition, this value must be set after the transition has completed. See the [FORK NEXT Upgrade](#fork-next-upgrade) section for more details. 
+
+
 ### Engine API
 
 A new set of APIs is introduced as part of The Merge for the execution layer clients to communicate with the consensus layer. The specification for it is available [here](https://github.com/ethereum/execution-apis/tree/main/src/engine).
@@ -18,12 +21,27 @@ This network upgrade requires changes to both Ethereum's execution and consensus
 
 ### Upgrade Schedule
 
+#### Proof-of-Work to Proof-of-Stake Transition 
+
 | Network | Terminal Total Difficulty | Expected Date | Fork Hash    |
 |---------|------------|---------------|--------------|
 | Ropsten | 50000000000000000 | June 8, 2022 | `0x7119B6B3` (unchanged from [London](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/london.md)) |
 | Sepolia | 17000000000000000 | July 6, 2022 | `0xfe3366e7` (unchanged from [Genesis](https://github.com/ethereum/go-ethereum/pull/23730)) |
-| Goerli  | 10790000 | August 10, 2022 | TBD |
+| Goerli  | 10790000 | August 10, 2022 | `0xB8C6299D` (unchanged from [London](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/london.md))  |
 | Mainnet | TBD | TBD | TBD |
+
+#### FORK NEXT Upgrade 
+
+Once the proof-of-work to proof-of-stake transition has completed, an additional upgrade is required to add an [EIP-2124](https://eips.ethereum.org/EIPS/eip-2124) `FORK_NEXT` value to clients on the network in order to disconnect stale peers. 
+
+| Network | Block Number / `FORK_NEXT` | Expected Date | Fork Hash |
+|---------|------------|---------------|--------------|
+| Ropsten | N/A | N/A | N/A | 
+| Sepolia | 1735371 | August 17, 2022 | `0xb96cbd13` | 
+| Goerli  | TBD | TBD | TBD | 
+| Mainnet | TBD | TBD | TBD |  
+
+Note that [Ropsten has been deprecated](https://blog.ethereum.org/2022/06/21/testnet-deprecation/) and will not be upgraded with a `FORK_NEXT` value. 
 
 ### Readiness Checklist
 
