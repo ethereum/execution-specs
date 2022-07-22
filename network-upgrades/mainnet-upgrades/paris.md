@@ -36,10 +36,10 @@ Once the proof-of-work to proof-of-stake transition has completed, an additional
 
 | Network | Block Number / `FORK_NEXT` | Expected Date | Fork Hash |
 |---------|------------|---------------|--------------|
-| Ropsten | N/A | N/A | N/A | N/A |
-| Sepolia | 1735371 | August 17, 2022 | TBD | TBD | 
-| Goerli  | TBD | TBD | TBD | TBD |
-| Mainnet | TBD | TBD | TBD | TBD | 
+| Ropsten | N/A | N/A | N/A | 
+| Sepolia | 1735371 | August 17, 2022 | `0xb96cbd13` | 
+| Goerli  | TBD | TBD | TBD | 
+| Mainnet | TBD | TBD | TBD |  
 
 Note that [Ropsten has been deprecated](https://blog.ethereum.org/2022/06/21/testnet-deprecation/) and will not be upgraded with a `FORK_NEXT` value. 
 
