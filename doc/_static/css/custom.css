@@ -96,6 +96,11 @@ dl.field-list > dt {
     display: none;
 }
 
+.toctree-l3 .change-replaced, .toctree-l3 .change-replacement {
+    background-color: #c9c9c9;
+    border-color: #c9c9c9;
+}
+
 @media (min-width: 876px) {
     #disclaimer {
         position: fixed;

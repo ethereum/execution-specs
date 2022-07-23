@@ -150,18 +150,9 @@ def _diff(
     pub.writer.assemble_parts()
 
     index_entry_file_name = os.path.relpath(diff_pickle_path, output_path)
-    # Split the index_entry, discard the first and last items,
-    # since those are just the fork name and index file name
-    # then join the remaining parts of the path with a "."
-    # to get the page title
-    index_entry_title = ".".join(index_entry_file_name.split("/")[1:-1])
-    if not index_entry_title:
-        # top-level __init__.py file
-        index_entry_title = "__init__"
-    index_entry = index_entry_title + " <" + index_entry_file_name + ">"
 
     with open(diff_index_path, "a") as f:
-        f.write(f"   {index_entry}\n")
+        f.write(f"   {index_entry_file_name}\n")
 
 
 def diff(

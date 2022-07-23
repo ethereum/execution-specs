@@ -1,6 +1,6 @@
 """
-Homestead Utility Functions
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Hardfork Utility Functions
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
     :backlinks: none
