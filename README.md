@@ -151,4 +151,4 @@ The following will have to however, be updated manually
  2. Any absolute package imports from other forks eg. in trie.py
  3. Package names under setup.cfg
  4. Add the new fork to the monkey_patch() function in src/ethereum_optimized/__init__.py
- 5. Adjust the underline in fork/__init__.py as well as __init__.py, address.py, message.py in fork/utils
+ 5. Adjust the underline in fork/__init__.py
