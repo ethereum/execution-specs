@@ -142,20 +142,68 @@ class Load(BaseLoad):
                 )
         return state
 
+    def json_to_access_list(self, raw: Any) -> Any:
+        access_list = []
+        for sublist in raw:
+            access_list.append(
+                (
+                    self.hex_to_address(sublist.get("address")),
+                    [
+                        hex_to_bytes32(key)
+                        for key in sublist.get("storageKeys")
+                    ],
+                )
+            )
+        return access_list
+
     def json_to_tx(self, raw: Any) -> Any:
-        return self._module("eth_types").Transaction(
-            hex_to_u256(raw.get("nonce")),
-            hex_to_u256(raw.get("gasPrice")),
-            hex_to_u256(raw.get("gasLimit")),
-            Bytes0(b"")
-            if raw.get("to") == ""
-            else self.hex_to_address(raw.get("to")),
-            hex_to_u256(raw.get("value")),
-            hex_to_bytes(raw.get("data")),
-            hex_to_u256(raw.get("v")),
-            hex_to_u256(raw.get("r")),
-            hex_to_u256(raw.get("s")),
-        )
+        if hasattr(self._module("eth_types"), "LegacyTransaction"):
+            if "accessList" in raw:
+                return b"\x01" + rlp.encode(
+                    self._module("eth_types").AccessListTransaction(
+                        Uint64(1),
+                        hex_to_u256(raw.get("nonce")),
+                        hex_to_u256(raw.get("gasPrice")),
+                        hex_to_u256(raw.get("gasLimit")),
+                        Bytes0(b"")
+                        if raw.get("to") == ""
+                        else self.hex_to_address(raw.get("to")),
+                        hex_to_u256(raw.get("value")),
+                        hex_to_bytes(raw.get("data")),
+                        self.json_to_access_list(raw.get("accessList")),
+                        hex_to_u256(raw.get("v")),
+                        hex_to_u256(raw.get("r")),
+                        hex_to_u256(raw.get("s")),
+                    )
+                )
+            else:
+                return self._module("eth_types").LegacyTransaction(
+                    hex_to_u256(raw.get("nonce")),
+                    hex_to_u256(raw.get("gasPrice")),
+                    hex_to_u256(raw.get("gasLimit")),
+                    Bytes0(b"")
+                    if raw.get("to") == ""
+                    else self.hex_to_address(raw.get("to")),
+                    hex_to_u256(raw.get("value")),
+                    hex_to_bytes(raw.get("data")),
+                    hex_to_u256(raw.get("v")),
+                    hex_to_u256(raw.get("r")),
+                    hex_to_u256(raw.get("s")),
+                )
+        else:
+            return self._module("eth_types").Transaction(
+                hex_to_u256(raw.get("nonce")),
+                hex_to_u256(raw.get("gasPrice")),
+                hex_to_u256(raw.get("gasLimit")),
+                Bytes0(b"")
+                if raw.get("to") == ""
+                else self.hex_to_address(raw.get("to")),
+                hex_to_u256(raw.get("value")),
+                hex_to_bytes(raw.get("data")),
+                hex_to_u256(raw.get("v")),
+                hex_to_u256(raw.get("r")),
+                hex_to_u256(raw.get("s")),
+            )
 
     def json_to_blocks(
         self,

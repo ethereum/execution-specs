@@ -831,6 +831,40 @@ class Uint64(FixedUInt):
         byte_length = (bit_length + 7) // 8
         return self.to_bytes(byte_length, "little")
 
+    def to_be_bytes(self) -> "Bytes":
+        """
+        Converts this unsigned 64 bit integer into its big endian
+        representation.
+
+        Returns
+        -------
+        big_endian : `Bytes`
+            Big endian (most significant bits first) representation.
+        """
+        bit_length = self.bit_length()
+        byte_length = (bit_length + 7) // 8
+        return self.to_bytes(byte_length, "big")
+
+    @classmethod
+    def from_be_bytes(cls: Type, buffer: "Bytes") -> "Uint64":
+        """
+        Converts a sequence of bytes into an unsigned 64 bit integer from its
+        big endian representation.
+
+        Parameters
+        ----------
+        buffer :
+            Bytes to decode.
+        Returns
+        -------
+        self : `Uint64`
+            Unsigned integer decoded from `buffer`.
+        """
+        if len(buffer) > 8:
+            raise ValueError()
+
+        return cls(int.from_bytes(buffer, "big"))
+
 
 Uint64.MAX_VALUE = int.__new__(Uint64, UINT64_MAX_VALUE)
 """autoapi_noindex"""

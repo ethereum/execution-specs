@@ -21,7 +21,7 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import RLPDecodingError, RLPEncodingError
 from ethereum.utils.ensure import ensure
 
-from .base_types import U256, Bytes, Bytes0, Bytes20, Uint
+from .base_types import U256, Bytes, Bytes0, Bytes20, Uint, Uint64
 
 RLP = Any
 
@@ -48,7 +48,7 @@ def encode(raw_data: RLP) -> Bytes:
     """
     if isinstance(raw_data, (bytearray, bytes)):
         return encode_bytes(raw_data)
-    elif isinstance(raw_data, (Uint, U256)):
+    elif isinstance(raw_data, (Uint, U256, Uint64)):
         return encode(raw_data.to_be_bytes())
     elif isinstance(raw_data, str):
         return encode_bytes(raw_data.encode())
@@ -207,8 +207,8 @@ def decode_to(cls: Type[T], encoded_data: Bytes) -> T:
 def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
     """
     Decode the rlp structure in `encoded_data` to an object of type `cls`.
-    `cls` can be a `Bytes` subclass, a dataclass, `Uint`, `U256` or
-    `Tuple[cls]`.
+    `cls` can be a `Bytes` subclass, a dataclass, `Uint`, `U256`,
+    `Tuple[cls, ...]`, `Tuple[cls1, cls2]` or `Union[Bytes, cls]`.
 
     Parameters
     ----------
@@ -224,10 +224,16 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
     """
     if isinstance(cls, type(Tuple[Uint, ...])) and cls._name == "Tuple":  # type: ignore # noqa: E501
         ensure(type(raw_rlp) == list, RLPDecodingError)
-        args = []
-        for raw_item in raw_rlp:
-            args.append(_decode_to(cls.__args__[0], raw_item))  # type: ignore
-        return tuple(args)  # type: ignore
+        if cls.__args__[1] == ...:  # type: ignore
+            args = []
+            for raw_item in raw_rlp:
+                args.append(_decode_to(cls.__args__[0], raw_item))  # type: ignore # noqa: E501
+            return tuple(args)  # type: ignore
+        else:
+            args = []
+            for (t, raw_item) in zip(cls.__args__, raw_rlp):  # type: ignore
+                args.append(_decode_to(t, raw_item))
+            return tuple(args)  # type: ignore
     elif cls == Union[Bytes0, Bytes20]:
         # We can't support Union types in general, so we support this one
         # (which appears in the Transaction type) as a special case
@@ -240,6 +246,23 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
             raise RLPDecodingError(
                 "RLP Decoding to type {} is not supported".format(cls)
             )
+    elif isinstance(cls, type(List[Bytes])) and cls._name == "List":  # type: ignore # noqa: E501
+        ensure(type(raw_rlp) == list, RLPDecodingError)
+        items = []
+        for raw_item in raw_rlp:
+            items.append(_decode_to(cls.__args__[0], raw_item))  # type: ignore
+        return items  # type: ignore
+    elif isinstance(cls, type(Union[Bytes, List[Bytes]])) and cls.__origin__ == Union:  # type: ignore # noqa: E501
+        if len(cls.__args__) != 2 or Bytes not in cls.__args__:  # type: ignore
+            raise RLPDecodingError(
+                "RLP Decoding to type {} is not supported".format(cls)
+            )
+        if isinstance(raw_rlp, Bytes):
+            return raw_rlp  # type: ignore
+        elif cls.__args__[0] == Bytes:  # type: ignore
+            return _decode_to(cls.__args__[1], raw_rlp)  # type: ignore
+        else:
+            return _decode_to(cls.__args__[0], raw_rlp)  # type: ignore
     elif issubclass(cls, bool):
         if raw_rlp == b"\x01":
             return cls(True)  # type: ignore
@@ -250,7 +273,7 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
     elif issubclass(cls, Bytes):
         ensure(type(raw_rlp) == Bytes, RLPDecodingError)
         return raw_rlp
-    elif issubclass(cls, (Uint, U256)):
+    elif issubclass(cls, (Uint, U256, Uint64)):
         ensure(type(raw_rlp) == Bytes, RLPDecodingError)
         return cls.from_be_bytes(raw_rlp)  # type: ignore
     elif is_dataclass(cls):
