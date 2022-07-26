@@ -23,9 +23,9 @@
         </li>
     </ol>
 </nav>
-{% elif "diffs/" in pagename %}
+{% elif "diffs/" in pagename and "/index" in pagename %}
 <nav class="menu">
-    <button class="diff-toggle" onclick="toggleElements()">Only Show Diffs</button>
+    <button id="diff-toggle">Only Show Diffs</button>
 </nav>
 {% endif %}
 
