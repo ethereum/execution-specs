@@ -49,19 +49,8 @@ INCORRECT_UPSTREAM_STATE_TESTS = (
     "stSStoreTest/InitCollision.json",
 )
 
-BIG_MEMORY_TESTS = (
-    "static_Return50000_2_d0g0v0_Istanbul",
-    "static_Call50000_d1g0v0_Istanbul",
-    "static_Call50000_identity2_d0g0v0_Istanbul",
-    "static_Call50000_identity2_d1g0v0_Istanbul",
-    "static_Call50000_ecrec_d1g0v0_Istanbul",
-    "static_Call50000_d0g0v0_Istanbul",
-    "Return50000_d0g1v0_Istanbul",
-    "Return50000_2_d0g1v0_Istanbul",
-    "static_Call50000_rip160_d1g0v0_Istanbul",
-    "static_Call50000_rip160_d0g0v0_Istanbul",
-    "static_Call50000_ecrec_d0g0v0_Istanbul",
-)
+# All tests that recursively create a large number of frames (50000)
+BIG_MEMORY_TESTS = ("50000_",)
 
 
 @pytest.mark.parametrize(
