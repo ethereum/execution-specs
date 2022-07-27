@@ -86,7 +86,7 @@ See https://github.com/ethereum/pm/blob/master/Merge/mainnet-readiness.md
 - Sepolia
     - [Besu](https://github.com/hyperledger/besu/releases/tag/22.7.0-RC1)
     - [Erigon](https://github.com/ledgerwatch/erigon/releases/tag/v2022.07.01)
-    - [go-ethereum (geth)] TBD
+    - [go-ethereum (geth)] (https://github.com/ethereum/go-ethereum/releases/tag/v1.10.21)
     - [Nethermind](https://github.com/NethermindEth/nethermind/releases/tag/1.13.4)
 - Goerli
 - Mainnet 
