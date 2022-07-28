@@ -7,6 +7,7 @@ Plug-in that modifies/re-orders the toc-tree before writing.
 
 from typing import Any
 
+import ethereum
 from ethereum_spec_tools.forks import Hardfork
 
 forks = Hardfork.discover()
@@ -45,8 +46,14 @@ def modify_toctree(
     return skip
 
 
-def setup(sphinx: Any) -> None:
+def setup(sphinx: Any) -> Any:
     """
     Update documentation structure before writing the files
     """
     sphinx.connect("autoapi-skip-member", modify_toctree)
+
+    return {
+        "version": ethereum.__version__,
+        "parallel_read_safe": True,
+        "parallel_write_safe": True,
+    }
