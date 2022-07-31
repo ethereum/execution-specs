@@ -1,5 +1,5 @@
 """
-Frontier Utility Functions
+Hardfork Utility Functions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
