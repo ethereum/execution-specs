@@ -714,24 +714,7 @@ def calculate_block_difficulty(
     parent_difficulty: Uint,
 ) -> Uint:
     """
-    Computes the difficulty of a block using its header and
-    parent header. The difficulty is determined by the
-    time the block was created after its parent. The ``offset`` is
-    calculated using the parent block's difficulty, ``parent_difficulty``,
-    and the timestamp between blocks. This offset is then added to
-    the parent difficulty and is stored as the ``difficulty`` variable.
-    If the time between the block and its parent is too short, the offset
-    will result in a positive number thus making the sum of 
-    ``parent_difficulty`` and ``offset`` to be a greater value in order to
-    avoid mass forking. But, if the time is long enough, then the offset 
-    results in a negative value making the block less difficult than
-    its parent.
-
-    The base standard for a block's difficulty is the predefined value
-    set for the genesis block since it has no parent. So, a block 
-    can't be less difficult than the genesis block, therefore each block's
-    difficulty is set to the maximum value between the calculated 
-    difficulty and the ``GENESIS_DIFFICULTY``.
+    Computes the difficulty of a block using its header and parent header.
 
     Parameters
     ----------
