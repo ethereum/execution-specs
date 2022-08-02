@@ -19,7 +19,7 @@ from ..gas import (
     GAS_STORAGE_CLEAR_REFUND,
     GAS_STORAGE_SET,
     GAS_STORAGE_UPDATE,
-    subtract_gas,
+    charge_gas,
 )
 from ..stack import pop, push
 
@@ -41,13 +41,18 @@ def sload(evm: Evm) -> None:
     :py:class:`~:py:class:`~ethereum.frontier.vm.exceptions.OutOfGasError``
         If `evm.gas_left` is less than `50`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_SLOAD)
-
+    # STACK
     key = pop(evm.stack).to_be_bytes32()
+
+    # GAS
+    charge_gas(evm, GAS_SLOAD)
+
+    # OPERATION
     value = get_storage(evm.env.state, evm.message.current_target, key)
 
     push(evm.stack, value)
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -67,25 +72,24 @@ def sstore(evm: Evm) -> None:
     :py:class:`~ethereum.frontier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `20000`.
     """
+    # STACK
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
-    current_value = get_storage(evm.env.state, evm.message.current_target, key)
 
-    # TODO: SSTORE gas usage hasn't been tested yet. Testing this needs
-    # other opcodes to be implemented.
-    # Calculating the gas needed for the storage
+    # GAS
+    current_value = get_storage(evm.env.state, evm.message.current_target, key)
     if new_value != 0 and current_value == 0:
         gas_cost = GAS_STORAGE_SET
     else:
         gas_cost = GAS_STORAGE_UPDATE
 
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
+    charge_gas(evm, gas_cost)
 
-    # TODO: Refund counter hasn't been tested yet. Testing this needs other
-    # Opcodes to be implemented
     if new_value == 0 and current_value != 0:
         evm.refund_counter += GAS_STORAGE_CLEAR_REFUND
 
+    # OPERATION
     set_storage(evm.env.state, evm.message.current_target, key, new_value)
 
+    # PROGRAM COUNTER
     evm.pc += 1
