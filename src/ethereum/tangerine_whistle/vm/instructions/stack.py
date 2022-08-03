@@ -19,7 +19,8 @@ from ethereum.utils.ensure import ensure
 
 from .. import Evm, stack
 from ..exceptions import StackUnderflowError
-from ..gas import GAS_BASE, GAS_VERY_LOW, subtract_gas
+from ..gas import GAS_BASE, GAS_VERY_LOW, charge_gas
+from ..memory import buffer_read
 
 
 def pop(evm: Evm) -> None:
@@ -38,9 +39,16 @@ def pop(evm: Evm) -> None:
     :py:class:`~ethereum.tangerine_whistle.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    # STACK
     stack.pop(evm.stack)
 
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
+    pass
+
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -64,13 +72,19 @@ def push_n(evm: Evm, num_bytes: int) -> None:
     :py:class:`~ethereum.tangerine_whistle.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    # STACK
+    pass
 
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
+
+    # OPERATION
     data_to_push = U256.from_be_bytes(
-        evm.code[evm.pc + 1 : evm.pc + num_bytes + 1]
+        buffer_read(evm.code, U256(evm.pc + 1), U256(num_bytes))
     )
     stack.push(evm.stack, data_to_push)
 
+    # PROGRAM COUNTER
     evm.pc += 1 + num_bytes
 
 
@@ -92,12 +106,18 @@ def dup_n(evm: Evm, item_number: int) -> None:
     :py:class:`~ethereum.tangerine_whistle.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
-    ensure(item_number < len(evm.stack), StackUnderflowError)
+    # STACK
+    pass
 
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
+
+    # OPERATION
+    ensure(item_number < len(evm.stack), StackUnderflowError)
     data_to_duplicate = evm.stack[len(evm.stack) - 1 - item_number]
     stack.push(evm.stack, data_to_duplicate)
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -123,16 +143,20 @@ def swap_n(evm: Evm, item_number: int) -> None:
     :py:class:`~ethereum.tangerine_whistle.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
-    ensure(item_number < len(evm.stack), StackUnderflowError)
+    # STACK
+    pass
 
-    top_element_idx = len(evm.stack) - 1
-    nth_element_idx = len(evm.stack) - 1 - item_number
-    evm.stack[top_element_idx], evm.stack[nth_element_idx] = (
-        evm.stack[nth_element_idx],
-        evm.stack[top_element_idx],
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
+
+    # OPERATION
+    ensure(item_number < len(evm.stack), StackUnderflowError)
+    evm.stack[-1], evm.stack[-1 - item_number] = (
+        evm.stack[-1 - item_number],
+        evm.stack[-1],
     )
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
