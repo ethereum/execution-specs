@@ -77,9 +77,9 @@ def apply_fork(old: BlockChain) -> BlockChain:
     chain object for this hard fork and returns it.
 
     When forks need to implement an irregular state transition, this function
-    is used to handle the irregularity. An example of an unusual fork is the DAO Fork which
-    happened as a result of the 2016 DAO Hack. This function handled it by
-    manually fixing the accounts that were affected.
+    is used to handle the irregularity. An example of an unusual fork is the
+    DAO Fork which happened as a result of the 2016 DAO Hack. This function
+    handled it by manually fixing the accounts that were affected.
 
     Parameters
     ----------
@@ -133,7 +133,7 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
 
     This function will return less hashes for the first 256 blocks.
 
-    The `BLOCKHASH` opcode needs to access the latest hashes on the chain,
+    The ``BLOCKHASH`` opcode needs to access the latest hashes on the chain,
     therefore this function retrieves them.
 
     Parameters
