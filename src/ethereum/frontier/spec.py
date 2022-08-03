@@ -76,8 +76,8 @@ def apply_fork(old: BlockChain) -> BlockChain:
     Transforms the state from the previous hard fork (`old`) into the block
     chain object for this hard fork and returns it.
 
-    When irregular forks occur this function is used to handle the
-    irregularity. An example of an unusual fork is the DAO Fork which
+    When forks need to implement an irregular state transition, this function
+    is used to handle the irregularity. An example of an unusual fork is the DAO Fork which
     happened as a result of the 2016 DAO Hack. This function handled it by
     manually fixing the accounts that were affected.
 
@@ -133,8 +133,8 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
 
     This function will return less hashes for the first 256 blocks.
 
-    BLOCKHASH is an opcode that needs to access the last hash on the chain,
-    therefore this function retrieves it.
+    The `BLOCKHASH` opcode needs to access the latest hashes on the chain,
+    therefore this function retrieves them.
 
     Parameters
     ----------
@@ -176,10 +176,10 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     information in the block's header must also match the corresponding
     information in the block.
 
-    According the Ethereum protocol, it's only required for client's to
-    store the last 255 blocks of the chain and as far as execution is
-    concerned, only the last 255 blocks are used because we don't need to
-    handle reorgs.
+    To implement Ethereum, in theory clients are only required to store the
+    most recent 255 blocks of the chain since as far as execution is
+    concerned, only those blocks are accessed. Practically, however, clients
+    should store more blocks to handle reorgs.
 
     Parameters
     ----------
@@ -227,13 +227,10 @@ def validate_header(header: Header, parent_header: Header) -> None:
 
     In order to consider a block's header valid, the logic for the
     quantities in the header should match the logic for the block itself.
-    Therefore, by validating the header of a block, you validate the actual
-    information stored in the block by checking that the logic adheres to
-    the blockchain. For example the header timestamp should be greater than
-    the block's parent timestamp because the block was created *after* the
-    parent block. Additionally, the block's number should be directly
-    folowing the parent block's number since it is the next block in the
-    sequence.
+    For example the header timestamp should be greater than the block's parent
+    timestamp because the block was created *after* the parent block.
+    Additionally, the block's number should be directly folowing the parent
+    block's number since it is the next block in the sequence.
 
     Parameters
     ----------
@@ -273,8 +270,9 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
     while calculating this hash.
 
     A particular PoW is valid for a single hash, that hash is computed by
-    this function. The `nonce` and `mix_digest` are ignored because they are
-    being changed by the miners in order to validate their PoW.
+    this function. The `nonce` and `mix_digest` are omitted from this hash
+    because they are being changed by miners in their search for a sufficient
+    proof-of-work.
 
     Parameters
     ----------
@@ -309,12 +307,11 @@ def validate_proof_of_work(header: Header) -> None:
     """
     Validates the Proof of Work constraints.
 
-    In order to verify that a miner did proof-of-work on the correct block,
-    a ``mix_digest`` and ``result`` are calulated using the
-    ``hashimoto_light`` hash function. The mix digest is a hash of the header
-    and the nonce that is passed through and it confirms whether or not
-    proof-of-work was done on the correct block. And the result is the actual
-    hash value of the block.
+    In order to verify that a miner's proof-of-work is valid for a block, a
+    ``mix-digest`` and ``result`` are calculated using the ``hashimoto_light``
+    hash function. The mix digest is a hash of the header and the nonce that
+    is passed through and it confirms whether or not proof-of-work was done
+    on the correct block. The result is the actual hash value of the block.
 
     Parameters
     ----------
@@ -353,8 +350,9 @@ def apply_body(
     Many of the contents of a block are stored in data structures called
     tries. There is a transactions trie which is similar to a ledger of the
     transactions stored in the current block. There is also a receipts trie
-    which stores the information of the block, like the post state and gas
-    used. This function creates the block that is to be added to the chain.
+    which stores the results of executing a transaction, like the post state
+    and gas used. This function creates and executes the block that is to be
+    added to the chain.
 
     Parameters
     ----------
@@ -457,14 +455,14 @@ def validate_ommers(
     """
     Validates the ommers mentioned in the block.
 
-    An ommer block is a block that wasn't cannonically added to the
-    blockchain because it wasn't validated as fast as the cannonical block
+    An ommer block is a block that wasn't canonically added to the
+    blockchain because it wasn't validated as fast as the canonical block
     but was mined at the same time.
 
     To be considered valid, the ommers must adhere to the rules defined in
-    the Ethereum protocol. For example, the maximum amount of ommers is 2 per
-    block and there cannot be duplicate ommers of a block. Many of the other
-    ommer contraints are listed in the in-line comments of this function.
+    the Ethereum protocol. The maximum amount of ommers is 2 per block and
+    there cannot be duplicate ommers in a block. Many of the other ommer
+    contraints are listed in the in-line comments of this function.
 
     Parameters
     ----------
@@ -540,15 +538,16 @@ def pay_rewards(
     """
     Pay rewards to the block miner as well as the ommers miners.
 
-    The miner of the cannonical block is rewarded with the predetermined
-    block reward, ``BLOCK_REWARD``, plus a multiple of a fraction of the
-    reward that is based off of the amount of ommer blocks that were mined
-    around the same time. An ommer block is a block that wasn't cannonically
-    added to the blockchain because it wasn't validated as fast as the
-    cannonical but was mined at the same time. Although not all blocks that
-    are mined are added to the blockchain, miners are still paid a reward for
-    their efforts. This reward is called an ommer reward and is calculated
-    based on the number associated with the ommer block that they mined.
+    The miner of the canonical block is rewarded with the predetermined
+    block reward, ``BLOCK_REWARD``, plus a variable award based off of the
+    number of ommer blocks that were mined around the same time, and included
+    in the canonical block's header. An ommer block is a block that wasn't
+    added to the canonical blockchain because it wasn't validated as fast as
+    the accepted block but was mined at the same time. Although not all blocks
+    that are mined are added to the canonical chain, miners are still paid a
+    reward for their efforts. This reward is called an ommer reward and is
+    calculated based on the number associated with the ommer block that they
+    mined.
 
     Parameters
     ----------
@@ -577,13 +576,11 @@ def process_transaction(
     """
     Execute a transaction against the provided environment.
 
-    This function processes the background functions needed to executed a
-    transaction. It decrements the sender's account after calculating the gas
-    fee and refunds the proper amount to the sender after execution.
-
-    Calling contracts, deploying code, and incrementing nonces are all
-    examples of actions that happen within this function or from a call made
-    within this function.
+    This function processes the actions needed to execute a transaction.
+    It decrements the sender's account after calculating the gas fee and
+    refunds them the proper amount after execution. Calling contracts,
+    deploying code, and incrementing nonces are all examples of actions that
+    happen within this function or from a call made within this function.
 
     Accounts that are marked for deletion are processed and destroyed after
     execution.
@@ -662,8 +659,10 @@ def validate_transaction(tx: Transaction) -> bool:
 
     Additionally, the nonce of a transaction must not equal or exceed the
     limit defined in `EIP-2681 <https://eips.ethereum.org/EIPS/eip-2681>`_.
-    A nonce greater than or equal to 2**64-1 would be too large and cost an
-    unreasonable amount of gas.
+    In practice, defining the limit as ``2**64-1`` has no impact because
+    sending ``2**64-1`` transactions is improbable. It's not strictly
+    impossible though, ``2**64-1`` transactions is the entire capacity of the
+    Ethereum blockchain at 2022 gas limits for a little over 22 years.
 
     Parameters
     ----------
@@ -682,18 +681,18 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     """
     Calculates the gas that is charged before execution is started.
 
-    The intrinsic cost of the transaction is charged before execution is
-    instantiated. Functions/operations in the EVM cost money to
-    execute so this intrinsic cost is for the operations that need to be
-    paid for as part of the transaction. Data transfer, for example, is
-    part of this intrinsic cost. It costs ether to send data over the wire
-    and that ether is accounted for in the intrinsic cost calculated in
-    this function. This intrinsic cost must be calculated and paid for
-    before execution in order for all operations to be implemented.
+    The intrinsic cost of the transaction is charged before execution has
+    begun. Functions/operations in the EVM cost money to execute so this
+    intrinsic cost is for the operations that need to be paid for as part of
+    the transaction. Data transfer, for example, is part of this intrinsic
+    cost. It costs ether to send data over the wire and that ether is
+    accounted for in the intrinsic cost calculated in this function. This
+    intrinsic cost must be calculated and paid for before execution in order
+    for all operations to be implemented.
 
     Parameters
     ----------
-    tx
+    tx :
         Transaction to compute the intrinsic cost of.
 
     Returns
@@ -716,11 +715,11 @@ def recover_sender(tx: Transaction) -> Address:
     """
     Extracts the sender address from a transaction.
 
-    The v, r, and s values are the three components that make up the
-    signature of a transaction. In order to recover the sender of a
-    transaction the two components needed are the signature and the signing
-    hash of the transaction. The sender's public key can be obtained with
-    these two values and therefore the sender address can be retrieved.
+    The v, r, and s values are the three parts that make up the signature
+    of a transaction. In order to recover the sender of a transaction the two
+    components needed are the signature (``v``, ``r``, and ``s``) and the
+    signing hash of the transaction. The sender's public key can be obtained
+    with these two values and therefore the sender address can be retrieved.
 
     Parameters
     ----------
@@ -785,7 +784,7 @@ def compute_header_hash(header: Header) -> Hash32:
     to a specific block and completely distinguishes a block from another.
 
     ``keccak256`` is a function that produces a 256 bit hash of any input.
-    It also takes in any number of items as an input and produces a single
+    It also takes in any number of bytes as an input and produces a single
     hash for them. A hash is a completely unique output for a single input.
     So an input corresponds to one unique hash that can be used to identify
     the input exactly.
@@ -793,12 +792,11 @@ def compute_header_hash(header: Header) -> Hash32:
     Prior to using the ``keccak256`` hash function, the header must be
     encoded using the recursive-length prefix (RLP) serialization format.
     RLP encoding the header converts it into a space-efficient format that
-    allows for easy transfer of data between nodes. Ethereum.org states, "The
-    purpose of RLP is to encode arbitrarily nested arrays of binary data, and
-    RLP is the primary encoding method used to serialize objects in
-    Ethereum's execution layer.  The only purpose of RLP is to encode
-    structure; encoding specific data types (e.g. strings, floats) is left
-    up to higher-order protocols..."
+    allows for easy transfer of data between nodes. The purpose of RLP is to
+    encode arbitrarily nested arrays of binary data, and RLP is the primary
+    encoding method used to serialize objects in Ethereum's execution layer.
+    The only purpose of RLP is to encode structure; encoding specific data
+    types (e.g. strings, floats) is left up to higher-order protocols.
 
     Parameters
     ----------
@@ -859,7 +857,7 @@ def calculate_block_difficulty(
     parent_difficulty: Uint,
 ) -> Uint:
     """
-    Computes the difficulty of a block using its header and
+    Computes difficulty of a block using its header and
     parent header.
 
     Since the genesis block is the first on the chain and has no parent,

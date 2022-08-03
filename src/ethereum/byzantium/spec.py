@@ -767,7 +767,7 @@ def calculate_block_difficulty(
     parent_has_ommers: bool,
 ) -> Uint:
     """
-    Computes the difficulty of a block using its header and parent header.
+    Computes difficulty of a block using its header and parent header.
 
     Parameters
     ----------
