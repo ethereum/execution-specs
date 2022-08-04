@@ -77,9 +77,8 @@ def apply_fork(old: BlockChain) -> BlockChain:
     chain object for this hard fork and returns it.
 
     When forks need to implement an irregular state transition, this function
-    is used to handle the irregularity. An example of an unusual fork is the
-    DAO Fork which happened as a result of the 2016 DAO Hack. This function
-    handled it by manually fixing the accounts that were affected.
+    is used to handle the irregularity. See the :ref:`DAO Fork <dao-fork>` for
+    an example.
 
     Parameters
     ----------
@@ -790,7 +789,7 @@ def compute_header_hash(header: Header) -> Hash32:
     the input exactly.
 
     Prior to using the ``keccak256`` hash function, the header must be
-    encoded using the recursive-length prefix (RLP) serialization format.
+    encoded using the Recursive-Length Prefix. See :ref:`rlp`.
     RLP encoding the header converts it into a space-efficient format that
     allows for easy transfer of data between nodes. The purpose of RLP is to
     encode arbitrarily nested arrays of binary data, and RLP is the primary

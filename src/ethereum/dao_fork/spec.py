@@ -1,4 +1,6 @@
 """
+.. _dao-fork:
+
 Ethereum Specification
 ^^^^^^^^^^^^^^^^^^^^^^
 
