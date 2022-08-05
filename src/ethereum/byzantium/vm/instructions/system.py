@@ -35,10 +35,9 @@ from ..gas import (
     GAS_SELF_DESTRUCT_NEW_ACCOUNT,
     GAS_ZERO,
     calculate_call_gas_cost,
-    calculate_gas_extend_memory,
     calculate_message_call_gas_stipend,
+    charge_gas,
     max_message_call_gas,
-    subtract_gas,
 )
 from ..memory import extend_memory, memory_read_bytes, memory_write
 from ..stack import pop, push
@@ -143,18 +142,82 @@ def return_(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    memory_start_position = Uint(pop(evm.stack))
+    # STACK
+    memory_start_position = pop(evm.stack)
     memory_size = pop(evm.stack)
-    gas_cost = GAS_ZERO + calculate_gas_extend_memory(
-        evm.memory, memory_start_position, memory_size
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
-    extend_memory(evm.memory, memory_start_position, memory_size)
+
+    # GAS
+    extend_memory(evm, memory_start_position, memory_size)
+    charge_gas(evm, GAS_ZERO)
+
+    # OPERATION
     evm.output = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
     )
-    # HALT the execution
+
     evm.running = False
+
+    # PROGRAM COUNTER
+    pass
+
+
+def do_call(
+    evm: Evm,
+    gas: Uint,
+    value: U256,
+    caller: Address,
+    to: Address,
+    code_address: Address,
+    should_transfer_value: bool,
+    memory_input_start_position: U256,
+    memory_input_size: U256,
+    memory_output_start_position: U256,
+    memory_output_size: U256,
+) -> None:
+    """
+    Do a message-call. Used by all the `CALL*` opcode family.
+    """
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
+
+    if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
+        evm.gas_left += gas
+        push(evm.stack, U256(0))
+    else:
+        call_data = memory_read_bytes(
+            evm.memory, memory_input_start_position, memory_input_size
+        )
+        code = get_account(evm.env.state, code_address).code
+        child_message = Message(
+            caller=caller,
+            target=to,
+            gas=U256(gas),
+            value=value,
+            data=call_data,
+            code=code,
+            current_target=to,
+            depth=evm.message.depth + 1,
+            code_address=code_address,
+            should_transfer_value=should_transfer_value,
+        )
+        child_evm = process_message(child_message, evm.env)
+        evm.children.append(child_evm)
+
+        if child_evm.has_erred:
+            push(evm.stack, U256(0))
+        else:
+            evm.logs += child_evm.logs
+            push(evm.stack, U256(1))
+
+        actual_output_size = min(
+            memory_output_size, U256(len(child_evm.output))
+        )
+        memory_write(
+            evm.memory,
+            memory_output_start_position,
+            child_evm.output[:actual_output_size],
+        )
+        evm.gas_left += child_evm.gas_left
+        child_evm.gas_left = U256(0)
 
 
 def call(evm: Evm) -> None:

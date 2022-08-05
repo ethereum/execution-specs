@@ -89,6 +89,7 @@ def log_n(evm: Evm, num_topics: U256) -> None:
 
     evm.logs = evm.logs + (log_entry,)
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 

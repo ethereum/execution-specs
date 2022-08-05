@@ -21,7 +21,7 @@ from ..gas import (
     GAS_STORAGE_CLEAR_REFUND,
     GAS_STORAGE_SET,
     GAS_STORAGE_UPDATE,
-    subtract_gas,
+    charge_gas,
 )
 from ..stack import pop, push
 
@@ -43,13 +43,18 @@ def sload(evm: Evm) -> None:
     :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `50`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_SLOAD)
-
+    # STACK
     key = pop(evm.stack).to_be_bytes32()
+
+    # GAS
+    charge_gas(evm, GAS_SLOAD)
+
+    # OPERATION
     value = get_storage(evm.env.state, evm.message.current_target, key)
 
     push(evm.stack, value)
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
