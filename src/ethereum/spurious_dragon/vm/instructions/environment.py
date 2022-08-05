@@ -13,23 +13,19 @@ Implementations of the EVM environment related instructions.
 """
 
 from ethereum.base_types import U256, Uint
-from ethereum.utils.byte import right_pad_zero_bytes
 from ethereum.utils.numeric import ceil32
-from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
 from ...state import get_account
 from ...utils.address import to_address
-from ...vm.memory import extend_memory, memory_write
+from ...vm.memory import buffer_read, extend_memory, memory_write
 from .. import Evm
-from ..exceptions import OutOfGasError
 from ..gas import (
     GAS_BALANCE,
     GAS_BASE,
     GAS_COPY,
     GAS_EXTERNAL,
     GAS_VERY_LOW,
-    calculate_gas_extend_memory,
-    subtract_gas,
+    charge_gas,
 )
 from ..stack import pop, push
 
@@ -48,9 +44,16 @@ def address(evm: Evm) -> None:
     :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.current_target))
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -70,17 +73,19 @@ def balance(evm: Evm) -> None:
     :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `20`.
     """
-    # TODO: There are no test cases against this function. Need to write
-    # custom test cases.
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BALANCE)
-
+    # STACK
     address = to_address(pop(evm.stack))
 
+    # GAS
+    charge_gas(evm, GAS_BALANCE)
+
+    # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
     balance = get_account(evm.env.state, address).balance
 
     push(evm.stack, balance)
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -99,9 +104,16 @@ def origin(evm: Evm) -> None:
     :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.env.origin))
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -119,9 +131,16 @@ def caller(evm: Evm) -> None:
     :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
     push(evm.stack, U256.from_be_bytes(evm.message.caller))
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -139,9 +158,16 @@ def callvalue(evm: Evm) -> None:
     :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
     push(evm.stack, evm.message.value)
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -162,17 +188,18 @@ def calldataload(evm: Evm) -> None:
     :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    # STACK
+    start_index = pop(evm.stack)
 
-    # Converting start_index to Uint from U256 as start_index + 32 can
-    # overflow U256.
-    start_index = Uint(pop(evm.stack))
-    value = evm.message.data[start_index : start_index + 32]
-    # Right pad with 0 so that there are overall 32 bytes.
-    value = right_pad_zero_bytes(value, 32)
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
+
+    # OPERATION
+    value = buffer_read(evm.message.data, start_index, U256(32))
 
     push(evm.stack, U256.from_be_bytes(value))
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -190,9 +217,16 @@ def calldatasize(evm: Evm) -> None:
     :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
     push(evm.stack, U256(len(evm.message.data)))
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -213,42 +247,23 @@ def calldatacopy(evm: Evm) -> None:
     :py:class:`~ethereum.spurious_dragon.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `3`.
     """
-    # Converting below to Uint as though the start indices may belong to U256,
-    # the ending indices may overflow U256.
-    memory_start_index = Uint(pop(evm.stack))
-    data_start_index = Uint(pop(evm.stack))
+    # STACK
+    memory_start_index = pop(evm.stack)
+    data_start_index = pop(evm.stack)
     size = pop(evm.stack)
 
+    # GAS
     words = ceil32(Uint(size)) // 32
-    copy_gas_cost = u256_safe_multiply(
-        GAS_COPY,
-        words,
-        exception_type=OutOfGasError,
-    )
-    memory_extend_gas_cost = calculate_gas_extend_memory(
-        evm.memory, memory_start_index, size
-    )
-    total_gas_cost = u256_safe_add(
-        GAS_VERY_LOW,
-        copy_gas_cost,
-        memory_extend_gas_cost,
-        exception_type=OutOfGasError,
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+    copy_gas_cost = GAS_COPY * words
+    extend_memory(evm, memory_start_index, size)
+    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost)
 
-    evm.pc += 1
-
-    if size == 0:
-        return
-
-    extend_memory(evm.memory, memory_start_index, size)
-
-    value = evm.message.data[data_start_index : data_start_index + size]
-    # But it is possible that data_start_index + size won't exist in evm.data
-    # in which case we need to right pad the above obtained bytes with 0.
-    value = right_pad_zero_bytes(value, size)
-
+    # OPERATION
+    value = buffer_read(evm.message.data, data_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
+
+    # PROGRAM COUNTER
+    evm.pc += 1
 
 
 def codesize(evm: Evm) -> None:
@@ -265,9 +280,16 @@ def codesize(evm: Evm) -> None:
     :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
     push(evm.stack, U256(len(evm.code)))
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -288,43 +310,23 @@ def codecopy(evm: Evm) -> None:
     :py:class:`~ethereum.spurious_dragon.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `3`.
     """
-    # Converting below to Uint as though the start indices may belong to U256,
-    # the ending indices may not belong to U256.
-    memory_start_index = Uint(pop(evm.stack))
-    code_start_index = Uint(pop(evm.stack))
+    # STACK
+    memory_start_index = pop(evm.stack)
+    code_start_index = pop(evm.stack)
     size = pop(evm.stack)
 
+    # GAS
     words = ceil32(Uint(size)) // 32
-    copy_gas_cost = u256_safe_multiply(
-        GAS_COPY,
-        words,
-        exception_type=OutOfGasError,
-    )
-    memory_extend_gas_cost = calculate_gas_extend_memory(
-        evm.memory, memory_start_index, size
-    )
-    total_gas_cost = u256_safe_add(
-        GAS_VERY_LOW,
-        copy_gas_cost,
-        memory_extend_gas_cost,
-        exception_type=OutOfGasError,
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+    copy_gas_cost = GAS_COPY * words
+    extend_memory(evm, memory_start_index, size)
+    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost)
 
-    evm.pc += 1
-
-    if size == 0:
-        return
-
-    extend_memory(evm.memory, memory_start_index, size)
-
-    value = evm.code[code_start_index : code_start_index + size]
-    # But it is possible that code_start_index + size - 1 won't exist in
-    # evm.code in which case we need to right pad the above obtained bytes
-    # with 0.
-    value = right_pad_zero_bytes(value, size)
-
+    # OPERATION
+    value = buffer_read(evm.code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
+
+    # PROGRAM COUNTER
+    evm.pc += 1
 
 
 def gasprice(evm: Evm) -> None:
@@ -341,9 +343,16 @@ def gasprice(evm: Evm) -> None:
     :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
     push(evm.stack, evm.env.gas_price)
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -363,17 +372,19 @@ def extcodesize(evm: Evm) -> None:
     :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `20`.
     """
-    # TODO: There are no test cases against this function. Need to write
-    # custom test cases.
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_EXTERNAL)
-
+    # STACK
     address = to_address(pop(evm.stack))
 
+    # GAS
+    charge_gas(evm, GAS_EXTERNAL)
+
+    # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has empty code.
     codesize = U256(len(get_account(evm.env.state, address).code))
 
     push(evm.stack, codesize)
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -391,45 +402,22 @@ def extcodecopy(evm: Evm) -> None:
     :py:class:`~ethereum.spurious_dragon.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `4`.
     """
-    # TODO: There are no test cases against this function. Need to write
-    # custom test cases.
-
+    # STACK
     address = to_address(pop(evm.stack))
-
-    memory_start_index = Uint(pop(evm.stack))
-    code_start_index = Uint(pop(evm.stack))
+    memory_start_index = pop(evm.stack)
+    code_start_index = pop(evm.stack)
     size = pop(evm.stack)
 
+    # GAS
     words = ceil32(Uint(size)) // 32
-    copy_gas_cost = u256_safe_multiply(
-        GAS_COPY,
-        words,
-        exception_type=OutOfGasError,
-    )
-    memory_extend_gas_cost = calculate_gas_extend_memory(
-        evm.memory, memory_start_index, size
-    )
-    total_gas_cost = u256_safe_add(
-        GAS_EXTERNAL,
-        copy_gas_cost,
-        memory_extend_gas_cost,
-        exception_type=OutOfGasError,
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
+    copy_gas_cost = GAS_COPY * words
+    extend_memory(evm, memory_start_index, size)
+    charge_gas(evm, GAS_EXTERNAL + copy_gas_cost)
 
-    evm.pc += 1
-
-    if size == 0:
-        return
-
-    # Non-existent accounts default to EMPTY_ACCOUNT, which has empty code.
+    # OPERATION
     code = get_account(evm.env.state, address).code
-
-    extend_memory(evm.memory, memory_start_index, size)
-
-    value = code[code_start_index : code_start_index + size]
-    # But it is possible that code_start_index + size won't exist in evm.code
-    # in which case we need to right pad the above obtained bytes with 0.
-    value = right_pad_zero_bytes(value, size)
-
+    value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
+
+    # PROGRAM COUNTER
+    evm.pc += 1

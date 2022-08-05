@@ -93,7 +93,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> U256:
 
     Returns
     -------
-    total_gas_cost : `ethereum.base_types.U256`
+    total_gas_cost : `ethereum.base_types.Uint`
         The gas cost for storing data in memory.
     """
     size_in_words = ceil32(size_in_bytes) // 32
@@ -101,14 +101,14 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> U256:
     quadratic_cost = size_in_words**2 // 512
     total_gas_cost = linear_cost + quadratic_cost
     try:
-        return U256(total_gas_cost)
+        return Uint(total_gas_cost)
     except ValueError:
         raise OutOfGasError
 
 
 def calculate_gas_extend_memory(
-    memory: bytearray, start_position: Uint, size: U256
-) -> U256:
+    memory: bytearray, start_position: U256, size: U256
+) -> Uint:
     """
     Calculates the gas amount to extend memory
 
@@ -123,18 +123,18 @@ def calculate_gas_extend_memory(
 
     Returns
     -------
-    to_be_paid : `ethereum.base_types.U256`
+    to_be_paid : `ethereum.base_types.Uint`
         returns `0` if size=0 or if the
         size after extending memory is less than the size before extending
         else it returns the amount that needs to be paid for extendinng memory.
     """
     if size == 0:
-        return U256(0)
+        return Uint(0)
     memory_size = Uint(len(memory))
     before_size = ceil32(memory_size)
-    after_size = ceil32(start_position + size)
+    after_size = ceil32(Uint(start_position) + Uint(size))
     if after_size <= before_size:
-        return U256(0)
+        return Uint(0)
     already_paid = calculate_memory_gas_cost(before_size)
     total_cost = calculate_memory_gas_cost(after_size)
     to_be_paid = total_cost - already_paid
@@ -142,8 +142,8 @@ def calculate_gas_extend_memory(
 
 
 def calculate_call_gas_cost(
-    gas: U256, gas_left: U256, extra_gas: U256
-) -> U256:
+    gas: Uint, gas_left: Uint, extra_gas: Uint
+) -> Uint:
     """
     Calculates the gas amount for executing Opcodes `CALL` and `CALLCODE`.
 
@@ -159,7 +159,7 @@ def calculate_call_gas_cost(
 
     Returns
     -------
-    call_gas_cost: `ethereum.base_types.U256`
+    call_gas_cost: `ethereum.base_types.Uint`
         The total gas amount for executing Opcodes `CALL` and `CALLCODE`.
     """
     if gas_left < extra_gas:
@@ -167,24 +167,19 @@ def calculate_call_gas_cost(
 
     gas = min(gas, max_message_call_gas(gas_left - extra_gas))
 
-    return u256_safe_add(
-        gas,
-        extra_gas,
-        exception_type=OutOfGasError,
-    )
+    return gas + extra_gas
 
 
 def calculate_message_call_gas_stipend(
     value: U256,
-    gas: U256,
-    gas_left: U256,
-    extra_gas: U256,
-    call_stipend: U256 = GAS_CALL_STIPEND,
-) -> U256:
+    gas: Uint,
+    gas_left: Uint,
+    extra_gas: Uint,
+    call_stipend: Uint = GAS_CALL_STIPEND,
+) -> Uint:
     """
     Calculates the gas stipend for making the message call
     with the given value.
-
     Parameters
     ----------
     value:
@@ -199,36 +194,29 @@ def calculate_message_call_gas_stipend(
     call_stipend :
         The amount of stipend provided to a message call to execute code while
         transferring value(ETH).
-
     Returns
     -------
-    message_call_gas_stipend : `ethereum.base_types.U256`
+    message_call_gas_stipend : `ethereum.base_types.Uint`
         The gas stipend for making the message-call.
     """
     if gas_left < extra_gas:
         raise OutOfGasError
 
     gas = min(gas, max_message_call_gas(gas_left - extra_gas))
-    call_stipend = U256(0) if value == 0 else call_stipend
-    return u256_safe_add(
-        gas,
-        call_stipend,
-        exception_type=OutOfGasError,
-    )
+    call_stipend = Uint(0) if value == 0 else call_stipend
+    return gas + call_stipend
 
 
-def max_message_call_gas(gas: U256) -> U256:
+def max_message_call_gas(gas: Uint) -> Uint:
     """
     Calculates the maximum gas that is allowed for making a message call
-
     Parameters
     ----------
     gas :
         The amount of gas provided to the message-call.
-
     Returns
     -------
-    max_allowed_message_call_gas: `ethereum.base_types.U256`
+    max_allowed_message_call_gas: `ethereum.base_types.Uint`
         The maximum gas allowed for making the message-call.
     """
     return gas - (gas // 64)
