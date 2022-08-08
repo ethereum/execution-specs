@@ -31,9 +31,9 @@ def bitwise_and(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
@@ -62,9 +62,9 @@ def bitwise_or(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
@@ -93,9 +93,9 @@ def bitwise_xor(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
@@ -124,9 +124,9 @@ def bitwise_not(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
@@ -155,9 +155,9 @@ def get_byte(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.constantinople.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
@@ -188,68 +188,77 @@ def bitwise_shl(evm: Evm) -> None:
     """
     Logical shift left (SHL) operation of the top 2 elements of the stack.
     Pushes the result back on the stack.
-
     Parameters
     ----------
     evm :
         The current EVM frame.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    # STACK
     shift = pop(evm.stack)
     value = pop(evm.stack)
 
-    evm.pc += 1
-    shifted_value = 0
-    if shift < 256:
-        shifted_value = (value << shift) % U256_CEIL_VALUE
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
 
-    push(evm.stack, U256(shifted_value))
+    # OPERATION
+    if shift < 256:
+        push(evm.stack, U256((value << shift) % U256_CEIL_VALUE))
+    else:
+        push(evm.stack, U256(0))
+
+    # PROGRAM COUNTER
+    evm.pc += 1
 
 
 def bitwise_shr(evm: Evm) -> None:
     """
     Logical shift right (SHR) operation of the top 2 elements of the stack.
     Pushes the result back on the stack.
-
     Parameters
     ----------
     evm :
         The current EVM frame.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    # STACK
     shift = pop(evm.stack)
     value = pop(evm.stack)
 
-    evm.pc += 1
-    shifted_value = U256(0)
-    if shift < 256:
-        shifted_value = value >> shift
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
 
-    push(evm.stack, shifted_value)
+    # OPERATION
+    if shift < 256:
+        push(evm.stack, value >> shift)
+    else:
+        push(evm.stack, U256(0))
+
+    # PROGRAM COUNTER
+    evm.pc += 1
 
 
 def bitwise_sar(evm: Evm) -> None:
     """
     Arithmetic shift right (SAR) operation of the top 2 elements of the stack.
     Pushes the result back on the stack.
-
     Parameters
     ----------
     evm :
         The current EVM frame.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_VERY_LOW)
+    # STACK
     shift = pop(evm.stack)
-    value = pop(evm.stack)
+    signed_value = pop(evm.stack).to_signed()
 
-    signed_value = value.to_signed()
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
 
-    evm.pc += 1
+    # OPERATION
     if shift < 256:
-        shifted_value = signed_value >> shift
+        push(evm.stack, U256.from_signed(signed_value >> shift))
     elif signed_value >= 0:
-        shifted_value = 0
+        push(evm.stack, U256(0))
     else:
-        shifted_value = U256.MAX_VALUE
+        push(evm.stack, U256(U256.MAX_VALUE))
 
-    push(evm.stack, U256.from_signed(shifted_value))
+    # PROGRAM COUNTER
+    evm.pc += 1
