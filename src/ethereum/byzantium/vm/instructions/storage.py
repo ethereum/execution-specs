@@ -38,9 +38,9 @@ def sload(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.spurious_dragon.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `50`.
     """
     # STACK
@@ -69,31 +69,30 @@ def sstore(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.spurious_dragon.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.spurious_dragon.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `20000`.
     """
-    ensure(not evm.message.is_static, WriteInStaticContext)
+    # STACK
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
-    current_value = get_storage(evm.env.state, evm.message.current_target, key)
 
-    # TODO: SSTORE gas usage hasn't been tested yet. Testing this needs
-    # other opcodes to be implemented.
-    # Calculating the gas needed for the storage
+    # GAS
+    current_value = get_storage(evm.env.state, evm.message.current_target, key)
     if new_value != 0 and current_value == 0:
         gas_cost = GAS_STORAGE_SET
     else:
         gas_cost = GAS_STORAGE_UPDATE
 
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
+    charge_gas(evm, gas_cost)
 
-    # TODO: Refund counter hasn't been tested yet. Testing this needs other
-    # Opcodes to be implemented
     if new_value == 0 and current_value != 0:
         evm.refund_counter += GAS_STORAGE_CLEAR_REFUND
 
+    # OPERATION
+    ensure(not evm.message.is_static, WriteInStaticContext)
     set_storage(evm.env.state, evm.message.current_target, key, new_value)
 
+    # PROGRAM COUNTER
     evm.pc += 1
