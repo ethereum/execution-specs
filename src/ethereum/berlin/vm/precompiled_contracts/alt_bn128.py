@@ -11,7 +11,7 @@ Introduction
 
 Implementation of the ALT_BN128 precompiled contracts.
 """
-from ethereum.base_types import U256
+from ethereum.base_types import U256, Uint
 from ethereum.crypto.alt_bn128 import (
     ALT_BN128_CURVE_ORDER,
     ALT_BN128_PRIME,
@@ -22,11 +22,11 @@ from ethereum.crypto.alt_bn128 import (
     BNP2,
     pairing,
 )
-from ethereum.utils.byte import right_pad_zero_bytes
 from ethereum.utils.ensure import ensure
 
 from ...vm import Evm
-from ...vm.gas import subtract_gas
+from ...vm.gas import charge_gas
+from ...vm.memory import buffer_read
 from ..exceptions import OutOfGasError
 
 
@@ -39,13 +39,19 @@ def alt_bn128_add(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    x0_bytes = right_pad_zero_bytes(evm.message.data[:32], 32)
+    data = evm.message.data
+
+    # GAS
+    charge_gas(evm, Uint(150))
+
+    # OPERATION
+    x0_bytes = buffer_read(data, U256(0), U256(32))
     x0_value = U256.from_be_bytes(x0_bytes)
-    y0_bytes = right_pad_zero_bytes(evm.message.data[32:64], 32)
+    y0_bytes = buffer_read(data, U256(32), U256(32))
     y0_value = U256.from_be_bytes(y0_bytes)
-    x1_bytes = right_pad_zero_bytes(evm.message.data[64:96], 32)
+    x1_bytes = buffer_read(data, U256(64), U256(32))
     x1_value = U256.from_be_bytes(x1_bytes)
-    y1_bytes = right_pad_zero_bytes(evm.message.data[96:128], 32)
+    y1_bytes = buffer_read(data, U256(96), U256(32))
     y1_value = U256.from_be_bytes(y1_bytes)
 
     for i in (x0_value, y0_value, x1_value, y1_value):
@@ -60,7 +66,6 @@ def alt_bn128_add(evm: Evm) -> None:
 
     p = p0 + p1
 
-    evm.gas_left = subtract_gas(evm.gas_left, U256(150))
     evm.output = p.x.to_be_bytes32() + p.y.to_be_bytes32()
 
 
@@ -73,11 +78,17 @@ def alt_bn128_mul(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    x0_bytes = right_pad_zero_bytes(evm.message.data[:32], 32)
+    data = evm.message.data
+
+    # GAS
+    charge_gas(evm, Uint(6000))
+
+    # OPERATION
+    x0_bytes = buffer_read(data, U256(0), U256(32))
     x0_value = U256.from_be_bytes(x0_bytes)
-    y0_bytes = right_pad_zero_bytes(evm.message.data[32:64], 32)
+    y0_bytes = buffer_read(data, U256(32), U256(32))
     y0_value = U256.from_be_bytes(y0_bytes)
-    n = U256.from_be_bytes(right_pad_zero_bytes(evm.message.data[64:96], 32))
+    n = U256.from_be_bytes(buffer_read(data, U256(64), U256(32)))
 
     for i in (x0_value, y0_value):
         if i >= ALT_BN128_PRIME:
@@ -90,7 +101,6 @@ def alt_bn128_mul(evm: Evm) -> None:
 
     p = p0.mul_by(n)
 
-    evm.gas_left = subtract_gas(evm.gas_left, U256(6000))
     evm.output = p.x.to_be_bytes32() + p.y.to_be_bytes32()
 
 
@@ -103,17 +113,20 @@ def alt_bn128_pairing_check(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    if len(evm.message.data) % 192 != 0:
+    data = evm.message.data
+
+    # GAS
+    charge_gas(evm, Uint(34000 * (len(data) // 192) + 45000))
+
+    # OPERATION
+    if len(data) % 192 != 0:
         raise OutOfGasError
-    evm.gas_left = subtract_gas(
-        evm.gas_left, U256(34000 * (len(evm.message.data) // 192) + 45000)
-    )
     result = BNF12.from_int(1)
-    for i in range(len(evm.message.data) // 192):
+    for i in range(len(data) // 192):
         values = []
         for j in range(6):
             value = U256.from_be_bytes(
-                evm.message.data[i * 192 + 32 * j : i * 192 + 32 * (j + 1)]
+                data[i * 192 + 32 * j : i * 192 + 32 * (j + 1)]
             )
             if value >= ALT_BN128_PRIME:
                 raise OutOfGasError
