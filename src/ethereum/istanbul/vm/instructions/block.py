@@ -235,7 +235,14 @@ def chain_id(evm: Evm) -> None:
     :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
     push(evm.stack, U256(evm.env.chain_id))
 
+    # PROGRAM COUNTER
     evm.pc += 1
