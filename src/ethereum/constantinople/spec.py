@@ -526,6 +526,7 @@ def process_transaction(
     gas_fee = tx.gas * tx.gas_price
     ensure(sender_account.nonce == tx.nonce, InvalidBlock)
     ensure(sender_account.balance >= gas_fee, InvalidBlock)
+    ensure(sender_account.code == bytearray(), InvalidBlock)
 
     gas = tx.gas - calculate_intrinsic_cost(tx)
     increment_nonce(env.state, sender)
