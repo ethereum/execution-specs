@@ -12,10 +12,10 @@ Introduction
 Implementation of the `MODEXP` precompiled contract.
 """
 from ethereum.base_types import U256, Bytes, Uint
-from ethereum.utils.byte import right_pad_zero_bytes
 
 from ...vm import Evm
-from ...vm.gas import subtract_gas
+from ...vm.gas import charge_gas
+from ..memory import buffer_read
 
 GQUADDIVISOR = 3
 
@@ -26,42 +26,34 @@ def modexp(evm: Evm) -> None:
     `modulus`. The return value is the same length as the modulus.
     """
     data = evm.message.data
-    base_length = U256.from_be_bytes(right_pad_zero_bytes(data[:32], 32))
-    exp_length = U256.from_be_bytes(right_pad_zero_bytes(data[32:64], 32))
-    modulus_length = U256.from_be_bytes(right_pad_zero_bytes(data[64:96], 32))
 
-    exponent_head_start = 96 + base_length
-    exponent_head_end = exponent_head_start + min(32, exp_length)
+    # GAS
+    base_length = U256.from_be_bytes(buffer_read(data, U256(0), U256(32)))
+    exp_length = U256.from_be_bytes(buffer_read(data, U256(32), U256(32)))
+    modulus_length = U256.from_be_bytes(buffer_read(data, U256(64), U256(32)))
 
-    exponent_head_bytes = data[exponent_head_start:exponent_head_end]
-    exponent_head = Uint.from_be_bytes(exponent_head_bytes)
+    exp_start = U256(96) + base_length
+    modulus_start = exp_start + exp_length
 
-    gas_used = gas_cost(base_length, modulus_length, exp_length, exponent_head)
+    exp_head = Uint.from_be_bytes(
+        buffer_read(data, exp_start, min(U256(32), exp_length))
+    )
 
-    if gas_used > U256.MAX_VALUE:
-        gas_used = Uint(U256.MAX_VALUE)
+    charge_gas(
+        evm,
+        gas_cost(base_length, modulus_length, exp_length, exp_head),
+    )
 
-    evm.gas_left = subtract_gas(evm.gas_left, U256(gas_used))
-
+    # OPERATION
     if base_length == 0 and modulus_length == 0:
         evm.output = Bytes()
         return
 
-    pointer = 96
-    base_data = right_pad_zero_bytes(
-        data[pointer : pointer + base_length], base_length
+    base = Uint.from_be_bytes(buffer_read(data, U256(96), base_length))
+    exp = Uint.from_be_bytes(buffer_read(data, exp_start, exp_length))
+    modulus = Uint.from_be_bytes(
+        buffer_read(data, modulus_start, modulus_length)
     )
-    base = Uint.from_be_bytes(base_data)
-    pointer += base_length
-    exp_data = right_pad_zero_bytes(
-        data[pointer : pointer + exp_length], exp_length
-    )
-    exp = Uint.from_be_bytes(exp_data)
-    pointer += exp_length
-    modulus_data = right_pad_zero_bytes(
-        data[pointer : pointer + modulus_length], modulus_length
-    )
-    modulus = Uint.from_be_bytes(modulus_data)
 
     if modulus == 0:
         evm.output = Bytes(b"\x00") * modulus_length
