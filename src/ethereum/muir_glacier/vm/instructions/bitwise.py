@@ -31,9 +31,9 @@ def bitwise_and(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
@@ -62,9 +62,9 @@ def bitwise_or(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
@@ -93,9 +93,9 @@ def bitwise_xor(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
@@ -124,9 +124,9 @@ def bitwise_not(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
@@ -155,9 +155,9 @@ def get_byte(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK

@@ -402,7 +402,7 @@ def extcodecopy(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.tangerine_whistle.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `4`.
     """
     # STACK

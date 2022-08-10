@@ -48,7 +48,7 @@ def address(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     # STACK
@@ -75,9 +75,9 @@ def balance(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `20`.
     """
     # STACK
@@ -108,7 +108,7 @@ def origin(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     # STACK
@@ -135,7 +135,7 @@ def caller(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     # STACK
@@ -162,7 +162,7 @@ def callvalue(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     # STACK
@@ -190,9 +190,9 @@ def calldataload(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `3`.
     """
     # STACK
@@ -221,7 +221,7 @@ def calldatasize(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     # STACK
@@ -251,7 +251,7 @@ def calldatacopy(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `3`.
     """
     # STACK
@@ -284,7 +284,7 @@ def codesize(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     # STACK
@@ -314,7 +314,7 @@ def codecopy(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `3`.
     """
     # STACK
@@ -347,7 +347,7 @@ def gasprice(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
     # STACK
@@ -374,9 +374,9 @@ def extcodesize(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `20`.
     """
     # STACK
@@ -406,7 +406,7 @@ def extcodecopy(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.tangerine_whistle.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `4`.
     """
     # STACK
@@ -524,9 +524,9 @@ def self_balance(evm: Evm) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.byzantium.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.byzantium.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `20`.
     """
     # STACK

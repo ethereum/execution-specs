@@ -40,7 +40,7 @@ def log_n(evm: Evm, num_topics: U256) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.tangerine_whistle.vm.exceptions.StackUnderflowError`
+    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
         If `len(stack)` is less than `2 + num_topics`.
     """
     # STACK

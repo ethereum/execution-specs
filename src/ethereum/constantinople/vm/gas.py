@@ -73,7 +73,7 @@ def charge_gas(evm: Evm, amount: Uint) -> None:
 
     Raises
     ------
-    :py:class:`~ethereum.homestead.vm.exceptions.OutOfGasError`
+    :py:class:`~ethereum.constantinople.vm.exceptions.OutOfGasError`
         If `gas_left` is less than `amount`.
     """
     if evm.gas_left < amount:
