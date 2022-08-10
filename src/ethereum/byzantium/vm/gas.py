@@ -181,6 +181,7 @@ def calculate_message_call_gas_stipend(
     """
     Calculates the gas stipend for making the message call
     with the given value.
+
     Parameters
     ----------
     value:
@@ -195,6 +196,7 @@ def calculate_message_call_gas_stipend(
     call_stipend :
         The amount of stipend provided to a message call to execute code while
         transferring value(ETH).
+
     Returns
     -------
     message_call_gas_stipend : `ethereum.base_types.Uint`
@@ -211,10 +213,12 @@ def calculate_message_call_gas_stipend(
 def max_message_call_gas(gas: Uint) -> Uint:
     """
     Calculates the maximum gas that is allowed for making a message call
+
     Parameters
     ----------
     gas :
         The amount of gas provided to the message-call.
+
     Returns
     -------
     max_allowed_message_call_gas: `ethereum.base_types.Uint`
