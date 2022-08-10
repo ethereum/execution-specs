@@ -22,7 +22,6 @@ from ...state import (
 )
 from ...utils.address import compute_contract_address, to_address
 from .. import Evm, Message
-from ..exceptions import ExceptionalHalt
 from ..gas import (
     GAS_CALL,
     GAS_CREATE,
@@ -77,7 +76,8 @@ def create(evm: Evm) -> None:
         push(evm.stack, U256(0))
         evm.gas_left += create_message_gas
     elif account_has_code_or_nonce(evm.env.state, contract_address):
-        raise ExceptionalHalt
+        increment_nonce(evm.env.state, evm.message.current_target)
+        push(evm.stack, U256(0))
     else:
         call_data = memory_read_bytes(
             evm.memory, memory_start_position, memory_size
