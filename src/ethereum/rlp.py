@@ -1,4 +1,6 @@
 """
+.. _rlp:
+
 Recursive Length Prefix (RLP) Encoding
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
