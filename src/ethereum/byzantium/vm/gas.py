@@ -102,7 +102,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
     quadratic_cost = size_in_words**2 // 512
     total_gas_cost = linear_cost + quadratic_cost
     try:
-        return Uint(total_gas_cost)
+        return total_gas_cost
     except ValueError:
         raise OutOfGasError
 

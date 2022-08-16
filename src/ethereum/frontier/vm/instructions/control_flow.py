@@ -66,18 +66,16 @@ def jump(evm: Evm) -> None:
         If `evm.gas_left` is less than `8`.
     """
     # STACK
-    jump_dest = pop(evm.stack)
+    jump_dest = Uint(pop(evm.stack))
 
     # GAS
     charge_gas(evm, GAS_MID)
 
     # OPERATION
-    pass
-
-    # PROGRAM COUNTER
     if jump_dest not in evm.valid_jump_destinations:
         raise InvalidJumpDestError
 
+    # PROGRAM COUNTER
     evm.pc = Uint(jump_dest)
 
 
@@ -106,23 +104,22 @@ def jumpi(evm: Evm) -> None:
         If `evm.gas_left` is less than `10`.
     """
     # STACK
-    jump_dest = pop(evm.stack)
+    jump_dest = Uint(pop(evm.stack))
     conditional_value = pop(evm.stack)
 
     # GAS
     charge_gas(evm, GAS_HIGH)
 
     # OPERATION
-    pass
+    if conditional_value == 0:
+        destination = evm.pc + 1
+    elif jump_dest not in evm.valid_jump_destinations:
+        raise InvalidJumpDestError
+    else:
+        destination = jump_dest
 
     # PROGRAM COUNTER
-    if conditional_value == 0:
-        evm.pc += 1
-    else:
-        if jump_dest not in evm.valid_jump_destinations:
-            raise InvalidJumpDestError
-
-        evm.pc = Uint(jump_dest)
+    evm.pc = Uint(destination)
 
 
 def pc(evm: Evm) -> None:
