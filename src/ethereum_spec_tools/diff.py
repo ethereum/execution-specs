@@ -6,7 +6,7 @@ Generates diffs between Ethereum hardforks documentation.
 
 import os.path
 import pickle
-from copy import deepcopy
+import re
 from multiprocessing import Pool
 from typing import Any, Iterator, List, Tuple, TypeVar
 
@@ -39,31 +39,27 @@ def find_pickles(path: str, fork: Hardfork) -> Iterator[str]:
                 yield file_path
 
 
+pattern = re.compile(r"[\n\t\s]")
+
+
 def meaningful_diffs(
-    pub: rstdiff.Publisher3Args,
     old: Any,
     new: Any,
+    trivial_changes: List[Tuple[str, str, re.RegexFlag]],
 ) -> bool:
     """Find if there are meaningful differences between the docs"""
-    realDebug = pub.settings.debug
-    pub.settings.debug = pub.settings.dump_rstdiff
-    reporter = new_reporter("RSTDIFF", pub.settings)
-    pub.settings.debug = realDebug
-    dispatcher = rstdiff.DocutilsDispatcher(reporter)
-    opcodes = rstdiff.doDiff(dispatcher, old, new)
+    old = pattern.sub(" ", str(old))
+    new = pattern.sub(" ", str(new))
 
-    opcode_counter = rstdiff.OpcodeCounter(opcodes)
-    opcode_counter.count()
+    for old_word, new_word, flag in trivial_changes:
+        old = re.sub(old_word, "", old, flags=flag)
+        new = re.sub(new_word, "", new, flags=flag)
 
-    return bool(
-        opcode_counter.replace
-        or opcode_counter.delete
-        or opcode_counter.insert
-    )
+    return old != new
 
 
 def _diff(
-    trivial_changes: List[Tuple[str, str]],
+    trivial_changes: List[Tuple[str, str, re.RegexFlag]],
     old_path: str,
     new_path: str,
     diff_path: str,
@@ -76,11 +72,6 @@ def _diff(
 ) -> None:
     old_pickle_path = os.path.join(old_path, pickle_path)
     new_pickle_path = os.path.join(new_path, pickle_path)
-    diff_pickle_path = os.path.join(diff_path, pickle_path + "64")
-
-    diff_dir_path = os.path.dirname(diff_pickle_path)
-
-    os.makedirs(diff_dir_path, exist_ok=True)
 
     try:
         with open(old_pickle_path, "rb") as old_file:
@@ -96,8 +87,17 @@ def _diff(
         new_doc = new_document(new_pickle_path)
         new_pickle_path = os.devnull
 
+    if not meaningful_diffs(old_doc, new_doc, trivial_changes):
+        return
+
+    diff_pickle_path = os.path.join(diff_path, pickle_path + "64")
+
+    diff_dir_path = os.path.dirname(diff_pickle_path)
+
+    os.makedirs(diff_dir_path, exist_ok=True)
+
     print(
-        f"[{count}/{pickles_len}] diff",
+        "diff",
         old_pickle_path[len(input_path) :],
         "->",
         new_pickle_path[len(input_path) :],
@@ -126,15 +126,6 @@ def _diff(
     new_doc.settings = pub.settings
     new_doc.reporter = new_reporter("RSTDIFF", pub.settings)
 
-    old_modified_doc = deepcopy(old_doc)
-    old_modified_doc.settings = pub.settings
-    old_modified_doc.reporter = new_reporter("RSTDIFF", pub.settings)
-
-    rstdiff.TextReplacer(old_modified_doc, trivial_changes).apply()
-
-    if not meaningful_diffs(pub, old_modified_doc, new_doc):
-        return
-
     rstdiff.Text2Words(old_doc).apply()
     rstdiff.Text2Words(new_doc).apply()
 
@@ -162,8 +153,11 @@ def diff(
     Calculate the structured diff between two hardforks.
     """
     trivial_changes = [
-        (old.short_name, new.short_name),
-        (old.title_case_name, new.title_case_name),
+        (
+            old.short_name.replace("_", ".*?"),
+            new.short_name.replace("_", ".*?"),
+            re.I,
+        ),
     ]
 
     old_path = old.name.replace(".", os.sep)
