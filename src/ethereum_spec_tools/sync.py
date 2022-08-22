@@ -16,7 +16,7 @@ from threading import Thread
 from typing import Any, Dict, List, Optional, TypeVar, Union
 from urllib import request
 
-from ethereum import rlp
+from ethereum import genesis, rlp
 from ethereum.base_types import Bytes0, Bytes256, Uint64
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
@@ -50,8 +50,8 @@ class ForkTracking:
     block_number: int
     active_fork_index: int
 
-    def __init__(self, block_number: int):
-        self.forks = Hardfork.discover()
+    def __init__(self, hardforks: List[Hardfork], block_number: int):
+        self.forks = hardforks
         self.set_block(block_number)
 
     @property
@@ -102,9 +102,14 @@ class BlockDownloader(ForkTracking):
     geth: bool
 
     def __init__(
-        self, log: logging.Logger, rpc_url: str, geth: bool, first_block: int
+        self,
+        log: logging.Logger,
+        rpc_url: str,
+        geth: bool,
+        hardforks: List[Hardfork],
+        first_block: int,
     ) -> None:
-        ForkTracking.__init__(self, first_block)
+        ForkTracking.__init__(self, hardforks, first_block)
 
         self.queue = Queue(maxsize=512)
         self.log = log
@@ -602,7 +607,12 @@ class Sync(ForkTracking):
                 self.log.error("--reset is not supported without --persist")
                 exit(1)
 
-        ForkTracking.__init__(self, 0)
+        # This import must happen after monkey patching
+        import ethereum.hardforks
+
+        self.hardforks = Hardfork.load(ethereum.hardforks.mainnet)
+
+        ForkTracking.__init__(self, self.hardforks, 0)
 
         if self.options.reset:
             import rust_pyspec_glue
@@ -636,15 +646,24 @@ class Sync(ForkTracking):
             persisted_block = None
 
         if persisted_block is None:
-            self.set_block(0)
             self.downloader = BlockDownloader(
-                self.log, self.options.rpc_url, self.options.geth, 1
+                self.log,
+                self.options.rpc_url,
+                self.options.geth,
+                self.hardforks,
+                1,
             )
             self.chain = self.module("spec").BlockChain(
                 blocks=[],
                 state=state,
                 chain_id=None,
             )
+            genesis.add_genesis_block(
+                self.hardforks[0].mod,
+                self.chain,
+                genesis.get_genesis_configuration("mainnet.json"),
+            )
+            self.set_block(0)
         else:
             self.set_block(persisted_block)
             if persisted_block < 256:
@@ -655,6 +674,7 @@ class Sync(ForkTracking):
                 self.log,
                 self.options.rpc_url,
                 self.options.geth,
+                self.hardforks,
                 persisted_block - initial_blocks_length + 1,
             )
             blocks = []
@@ -713,7 +733,7 @@ class Sync(ForkTracking):
         """
         gas_since_last_commit = 0
         while True:
-            if self.advance_block() or self.block_number == 1:
+            if self.advance_block():
                 self.log.debug("applying %s fork...", self.active_fork.name)
                 start = time.monotonic()
                 self.chain = self.module("spec").apply_fork(self.chain)

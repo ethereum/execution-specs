@@ -9,7 +9,7 @@ import importlib
 import pkgutil
 from pkgutil import ModuleInfo
 from types import ModuleType
-from typing import Any, Iterator, List, Optional, Type, TypeVar
+from typing import Any, Dict, Iterator, List, Optional, Type, TypeVar
 
 import ethereum
 
@@ -43,21 +43,27 @@ class Hardfork:
             if block is None:
                 continue
 
-            forks.append(cls(mod))
+            forks.append(cls(mod, block))
 
         forks.sort(key=lambda fork: fork.block)
 
         return forks
 
-    def __init__(self, mod: ModuleType) -> None:
-        self.mod = mod
+    @classmethod
+    def load(cls: Type[H], hardforks: Dict[int, ModuleType]) -> List[H]:
+        """
+        Find packages which contain Ethereum hardfork specifications.
+        """
+        forks: List[H] = []
 
-    @property
-    def block(self) -> int:
-        """
-        Block number of the first block in this hard fork.
-        """
-        return getattr(self.mod, "MAINNET_FORK_BLOCK")  # noqa: B009
+        for (block, hardfork) in sorted(hardforks.items()):
+            forks.append(cls(hardfork, block))
+
+        return forks
+
+    def __init__(self, mod: ModuleType, block: int) -> None:
+        self.mod = mod
+        self.block = block
 
     @property
     def path(self) -> Optional[str]:

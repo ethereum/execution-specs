@@ -362,3 +362,6 @@ sublist
 
 x00
 codehash
+
+eip155
+eip158

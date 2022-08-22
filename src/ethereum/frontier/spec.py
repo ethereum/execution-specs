@@ -39,7 +39,6 @@ from .eth_types import (
     Root,
     Transaction,
 )
-from .genesis import genesis_configuration
 from .state import (
     State,
     create_ether,
@@ -90,38 +89,6 @@ def apply_fork(old: BlockChain) -> BlockChain:
     new : `BlockChain`
         Upgraded block chain object for this hard fork.
     """
-    genesis = genesis_configuration("mainnet.json")
-
-    for account, balance in genesis.initial_balances.items():
-        create_ether(old.state, account, balance)
-
-    genesis_header = Header(
-        parent_hash=Hash32(b"\0" * 32),
-        ommers_hash=rlp.rlp_hash(()),
-        coinbase=Address(b"\0" * 20),
-        state_root=state_root(old.state),
-        transactions_root=root(Trie(False, None)),
-        receipt_root=root(Trie(False, None)),
-        bloom=Bloom(b"\0" * 256),
-        difficulty=genesis.difficulty,
-        number=Uint(0),
-        gas_limit=genesis.gas_limit,
-        gas_used=Uint(0),
-        timestamp=genesis.timestamp,
-        extra_data=genesis.extra_data,
-        mix_digest=Hash32(b"\0" * 32),
-        nonce=genesis.nonce,
-    )
-
-    genesis_block = Block(
-        header=genesis_header,
-        transactions=(),
-        ommers=(),
-    )
-
-    old.blocks.append(genesis_block)
-    old.chain_id = genesis.chain_id
-
     return old
 
 
