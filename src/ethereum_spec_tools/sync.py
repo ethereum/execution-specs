@@ -236,6 +236,73 @@ class BlockDownloader(ForkTracking):
 
             return [v for (_, v) in sorted(blocks.items())]
 
+    def load_transaction(self, t: Any) -> Any:
+        """
+        Turn a json transaction into a `Transaction`.
+        """
+        if hasattr(self.module("eth_types"), "LegacyTransaction"):
+            if t["type"] == "0x1":
+                access_list = []
+                for sublist in t.get("accessList", []):
+                    access_list.append(
+                        (
+                            self.module("utils.hexadecimal").hex_to_address(
+                                sublist.get("address")
+                            ),
+                            [
+                                hex_to_bytes32(key)
+                                for key in sublist.get("storageKeys")
+                            ],
+                        )
+                    )
+                return b"\x01" + rlp.encode(
+                    self.module("eth_types").AccessListTransaction(
+                        Uint64(1),
+                        hex_to_u256(t["nonce"]),
+                        hex_to_u256(t["gasPrice"]),
+                        hex_to_u256(t["gas"]),
+                        self.module("utils.hexadecimal").hex_to_address(
+                            t["to"]
+                        )
+                        if t["to"]
+                        else Bytes0(b""),
+                        hex_to_u256(t["value"]),
+                        hex_to_bytes(t["input"]),
+                        access_list,
+                        hex_to_u256(t["v"]),
+                        hex_to_u256(t["r"]),
+                        hex_to_u256(t["s"]),
+                    )
+                )
+            else:
+                return self.module("eth_types").LegacyTransaction(
+                    hex_to_u256(t["nonce"]),
+                    hex_to_u256(t["gasPrice"]),
+                    hex_to_u256(t["gas"]),
+                    self.module("utils.hexadecimal").hex_to_address(t["to"])
+                    if t["to"]
+                    else Bytes0(b""),
+                    hex_to_u256(t["value"]),
+                    hex_to_bytes(t["input"]),
+                    hex_to_u256(t["v"]),
+                    hex_to_u256(t["r"]),
+                    hex_to_u256(t["s"]),
+                )
+        else:
+            return self.module("eth_types").Transaction(
+                hex_to_u256(t["nonce"]),
+                hex_to_u256(t["gasPrice"]),
+                hex_to_u256(t["gas"]),
+                self.module("utils.hexadecimal").hex_to_address(t["to"])
+                if t["to"]
+                else Bytes0(b""),
+                hex_to_u256(t["value"]),
+                hex_to_bytes(t["input"]),
+                hex_to_u256(t["v"]),
+                hex_to_u256(t["r"]),
+                hex_to_u256(t["s"]),
+            )
+
     def fetch_blocks_eth(
         self,
         first: int,
@@ -296,87 +363,8 @@ class BlockDownloader(ForkTracking):
                     headers[reply_id] = self.make_header(res)
                     transactions = []
                     for t in res["transactions"]:
-                        if not hasattr(
-                            self.module("eth_types"), "LegacyTransaction"
-                        ):
-                            transactions.append(
-                                self.module("eth_types").Transaction(
-                                    hex_to_u256(t["nonce"]),
-                                    hex_to_u256(t["gasPrice"]),
-                                    hex_to_u256(t["gas"]),
-                                    self.module(
-                                        "utils.hexadecimal"
-                                    ).hex_to_address(t["to"])
-                                    if t["to"]
-                                    else Bytes0(b""),
-                                    hex_to_u256(t["value"]),
-                                    hex_to_bytes(t["input"]),
-                                    hex_to_u256(t["v"]),
-                                    hex_to_u256(t["r"]),
-                                    hex_to_u256(t["s"]),
-                                )
-                            )
-                        else:
-                            if t["type"] == "0x1":
-                                access_list = []
-                                for sublist in t.get("accessList", []):
-                                    access_list.append(
-                                        (
-                                            self.module(
-                                                "utils.hexadecimal"
-                                            ).hex_to_address(
-                                                sublist.get("address")
-                                            ),
-                                            [
-                                                hex_to_bytes32(key)
-                                                for key in sublist.get(
-                                                    "storageKeys"
-                                                )
-                                            ],
-                                        )
-                                    )
-                                transactions.append(
-                                    b"\x01"
-                                    + rlp.encode(
-                                        self.module(
-                                            "eth_types"
-                                        ).AccessListTransaction(
-                                            Uint64(1),
-                                            hex_to_u256(t["nonce"]),
-                                            hex_to_u256(t["gasPrice"]),
-                                            hex_to_u256(t["gas"]),
-                                            self.module(
-                                                "utils.hexadecimal"
-                                            ).hex_to_address(t["to"])
-                                            if t["to"]
-                                            else Bytes0(b""),
-                                            hex_to_u256(t["value"]),
-                                            hex_to_bytes(t["input"]),
-                                            access_list,
-                                            hex_to_u256(t["v"]),
-                                            hex_to_u256(t["r"]),
-                                            hex_to_u256(t["s"]),
-                                        )
-                                    )
-                                )
-                            else:
-                                transactions.append(
-                                    self.module("eth_types").LegacyTransaction(
-                                        hex_to_u256(t["nonce"]),
-                                        hex_to_u256(t["gasPrice"]),
-                                        hex_to_u256(t["gas"]),
-                                        self.module(
-                                            "utils.hexadecimal"
-                                        ).hex_to_address(t["to"])
-                                        if t["to"]
-                                        else Bytes0(b""),
-                                        hex_to_u256(t["value"]),
-                                        hex_to_bytes(t["input"]),
-                                        hex_to_u256(t["v"]),
-                                        hex_to_u256(t["r"]),
-                                        hex_to_u256(t["s"]),
-                                    )
-                                )
+                        transactions.append(self.load_transaction(t))
+
                     transaction_lists[reply_id] = transactions
                     ommers_needed[reply_id] = len(res["uncles"])
 
