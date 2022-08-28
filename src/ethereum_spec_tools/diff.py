@@ -27,13 +27,13 @@ def window(forks: List[T], window_size: int = 2) -> Iterator[List[T]]:
         yield forks[i : i + window_size]
 
 
-def find_pickles(path: str, fork: Hardfork) -> Iterator[str]:
+def find_pickles(path: str, extension: str) -> Iterator[str]:
     """
-    Find files ending with :code:`.pickle`.
+    Find files ending with :code:`extension`.
     """
     for directory, _, filenames in os.walk(path):
         for filename in filenames:
-            if filename.endswith(".pickle"):
+            if filename.endswith(extension):
                 file_path = os.path.join(directory, filename)
                 file_path = file_path[len(path) + 1 :]
                 yield file_path
@@ -140,11 +140,6 @@ def _diff(
     pub.writer.write(diff_doc, pub.destination)
     pub.writer.assemble_parts()
 
-    index_entry_file_name = os.path.relpath(diff_pickle_path, output_path)
-
-    with open(diff_index_path, "a") as f:
-        f.write(f"   {index_entry_file_name}\n")
-
 
 def diff(
     output_path: str, input_path: str, old: Hardfork, new: Hardfork
@@ -178,16 +173,8 @@ def diff(
     with open(index_path, "a") as f:
         f.write(f"   {diff_index_file}\n")
 
-    with open(diff_index_path, "w") as f:
-        f.write("=" * len(diff_index_title) + "\n")
-        f.write(diff_index_title + "\n")
-        f.write("=" * len(diff_index_title) + "\n\n")
-
-        f.write(".. toctree::\n")
-        f.write("   :maxdepth: 1\n\n")
-
-    old_pickles = set(find_pickles(old_path, old))
-    new_pickles = set(find_pickles(new_path, new))
+    old_pickles = set(find_pickles(old_path, ".pickle"))
+    new_pickles = set(find_pickles(new_path, ".pickle"))
 
     pickles = old_pickles | new_pickles
 
@@ -210,6 +197,19 @@ def diff(
         )
 
         pool.starmap(_diff, args)
+
+    with open(diff_index_path, "w") as f:
+        f.write("=" * len(diff_index_title) + "\n")
+        f.write(diff_index_title + "\n")
+        f.write("=" * len(diff_index_title) + "\n\n")
+
+        f.write(".. toctree::\n")
+        f.write("   :maxdepth: 1\n\n")
+
+        for diff_file in find_pickles(diff_path, ".pickle64"):
+            f.write(
+                f"   {os.path.join(os.path.basename(diff_path), diff_file)}\n"
+            )
 
 
 def main() -> None:
