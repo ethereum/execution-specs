@@ -638,7 +638,7 @@ class Sync(ForkTracking):
         if persisted_block is None:
             self.set_block(0)
             self.downloader = BlockDownloader(
-                self.log, self.options.rpc_url, self.options.geth, 0
+                self.log, self.options.rpc_url, self.options.geth, 1
             )
             self.chain = self.module("spec").BlockChain(
                 blocks=[],
