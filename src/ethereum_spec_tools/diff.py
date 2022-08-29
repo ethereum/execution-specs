@@ -206,7 +206,7 @@ def diff(
         f.write(".. toctree::\n")
         f.write("   :maxdepth: 1\n\n")
 
-        for diff_file in find_pickles(diff_path, ".pickle64"):
+        for diff_file in sorted(list(find_pickles(diff_path, ".pickle64"))):
             f.write(
                 f"   {os.path.join(os.path.basename(diff_path), diff_file)}\n"
             )
