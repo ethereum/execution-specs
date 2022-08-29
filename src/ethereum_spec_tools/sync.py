@@ -26,6 +26,7 @@ from ethereum.utils.hexadecimal import (
     hex_to_uint,
 )
 
+from . import clique
 from .forks import Hardfork
 
 T = TypeVar("T")
@@ -569,6 +570,13 @@ class Sync(ForkTracking):
             "--stop-at", help="after syncing this block, exit successfully"
         )
 
+        parser.add_argument(
+            "--network",
+            help="ethereum network to sync",
+            choices=["mainnet", "goerli"],
+            default="mainnet",
+        )
+
         return parser.parse_args()
 
     downloader: BlockDownloader
@@ -610,7 +618,10 @@ class Sync(ForkTracking):
         # This import must happen after monkey patching
         import ethereum.hardforks
 
-        self.hardforks = Hardfork.load(ethereum.hardforks.mainnet)
+        if self.options.network == "mainnet":
+            self.hardforks = Hardfork.load(ethereum.hardforks.mainnet)
+        elif self.options.network == "goerli":
+            self.hardforks = Hardfork.load(ethereum.hardforks.goerli)
 
         ForkTracking.__init__(self, self.hardforks, 0)
 
@@ -653,15 +664,27 @@ class Sync(ForkTracking):
                 self.hardforks,
                 1,
             )
+            if self.options.network == "mainnet":
+                chain_id = Uint64(1)
+            elif self.options.network == "goerli":
+                chain_id = Uint64(5)
             self.chain = self.module("spec").BlockChain(
                 blocks=[],
                 state=state,
-                chain_id=None,
+                chain_id=chain_id,
             )
+            if self.options.network == "mainnet":
+                genesis_configuration = genesis.get_genesis_configuration(
+                    "mainnet.json"
+                )
+            elif self.options.network == "goerli":
+                genesis_configuration = genesis.get_genesis_configuration(
+                    "goerli.json"
+                )
             genesis.add_genesis_block(
                 self.hardforks[0].mod,
                 self.chain,
-                genesis.get_genesis_configuration("mainnet.json"),
+                genesis_configuration,
             )
             self.set_block(0)
         else:
@@ -768,7 +791,10 @@ class Sync(ForkTracking):
             self.log.debug("applying block %d...", self.block_number)
 
             start = time.monotonic()
-            self.module("spec").state_transition(self.chain, block)
+            if self.options.network == "mainnet":
+                self.module("spec").state_transition(self.chain, block)
+            elif self.options.network == "goerli":
+                clique.state_transition(self.active_fork, self.chain, block)
             end = time.monotonic()
 
             # Additional gas to account for block overhead

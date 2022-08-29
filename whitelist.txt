@@ -365,3 +365,4 @@ codehash
 
 eip155
 eip158
+goerli

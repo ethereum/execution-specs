@@ -37,3 +37,10 @@ mainnet = {
     9200000: muir_glacier,
     12244000: berlin,
 }
+
+goerli = {
+    1: constantinople,
+    1561651: istanbul,
+    4460644: berlin,
+    #    5062605: london,
+}
