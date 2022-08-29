@@ -770,7 +770,7 @@ def recover_sender(chain_id: Uint64, tx: Transaction) -> Address:
                 v == 35 + chain_id * 2 or v == 36 + chain_id * 2, InvalidBlock
             )
             public_key = secp256k1_recover(
-                r, s, v - 35 - chain_id * 2, signing_hash_155(tx)
+                r, s, v - 35 - chain_id * 2, signing_hash_155(tx, chain_id)
             )
     elif isinstance(tx, AccessListTransaction):
         public_key = secp256k1_recover(r, s, v, signing_hash_2930(tx))
@@ -806,7 +806,7 @@ def signing_hash_pre155(tx: Transaction) -> Hash32:
     )
 
 
-def signing_hash_155(tx: Transaction) -> Hash32:
+def signing_hash_155(tx: Transaction, chain_id: Uint64) -> Hash32:
     """
     Compute the hash of a transaction used in a EIP 155 signature.
 
@@ -814,6 +814,8 @@ def signing_hash_155(tx: Transaction) -> Hash32:
     ----------
     tx :
         Transaction of interest.
+    chain_id:
+        The current chain id.
 
     Returns
     -------
@@ -829,7 +831,7 @@ def signing_hash_155(tx: Transaction) -> Hash32:
                 tx.to,
                 tx.value,
                 tx.data,
-                Uint(1),
+                chain_id,
                 Uint(0),
                 Uint(0),
             )
