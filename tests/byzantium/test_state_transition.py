@@ -60,24 +60,56 @@ test_dir = (
     "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/ValidBlocks/"
 )
 
-only_in = (
-    "bcUncleTest/oneUncle.json",
-    "bcUncleTest/oneUncleGeneration2.json",
-    "bcUncleTest/oneUncleGeneration3.json",
-    "bcUncleTest/oneUncleGeneration4.json",
-    "bcUncleTest/oneUncleGeneration5.json",
-    "bcUncleTest/oneUncleGeneration6.json",
-    "bcUncleTest/twoUncle.json",
+only_in_incorrect = (
+    "bcForkStressTest/ForkStressTest.json",
+    "bcGasPricerTest/RPC_API_Test.json",
+)
+
+# Every test below takes more than  60s to run and
+# hence they've been marked as slow
+SLOW_TESTS = (
+    "bcForkStressTest/ForkStressTest.json",
+    "bcGasPricerTest/RPC_API_Test.json",
 )
 
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_byzantium_tests(test_dir, only_in=only_in),
+    fetch_byzantium_tests(
+        test_dir,
+        only_in=only_in_incorrect,
+        slow_list=SLOW_TESTS,
+    ),
     ids=idfn,
 )
-def test_uncles_correctness(test_case: Dict) -> None:
-    run_byzantium_blockchain_st_tests(test_case)
+def test_valid_block_incorrect(test_case: Dict) -> None:
+    with pytest.raises(InvalidBlock):
+        run_byzantium_blockchain_st_tests(test_case)
+
+
+# Every test below takes more than  60s to run and
+# hence they've been marked as slow
+SLOW_TESTS = ("bcExploitTest/DelegateCallSpam.json",)  # type: ignore
+
+BIG_MEMORY_TESTS = ("randomStatetest94_",)
+
+
+@pytest.mark.parametrize(
+    "test_case",
+    fetch_byzantium_tests(
+        test_dir,
+        ignore_list=only_in_incorrect,
+        slow_list=SLOW_TESTS,
+        big_memory_list=BIG_MEMORY_TESTS,
+    ),
+    ids=idfn,
+)
+def test_valid_block_correct(test_case: Dict) -> None:
+    try:
+        run_byzantium_blockchain_st_tests(test_case)
+    except KeyError:
+        # FIXME: Handle tests that don't have post state
+        pytest.xfail(f"{test_case} doesn't have post state")
 
 
 # Run legacy invalid block tests
