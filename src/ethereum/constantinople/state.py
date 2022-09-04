@@ -369,6 +369,33 @@ def is_account_empty(state: State, address: Address) -> bool:
     )
 
 
+def is_account_alive(state: State, address: Address) -> bool:
+    """
+    Check whether is an account is both in the state and non empty.
+
+    Parameters
+    ----------
+    state:
+        The state
+    address:
+        Address of the account that needs to be checked.
+
+    Returns
+    -------
+    is_alive : `bool`
+        True if the account is alive.
+    """
+    account = get_account_optional(state, address)
+    if account is None:
+        return False
+    else:
+        return not (
+            account.nonce == Uint(0)
+            and account.code == b""
+            and account.balance == 0
+        )
+
+
 def modify_state(
     state: State, address: Address, f: Callable[[Account], None]
 ) -> None:

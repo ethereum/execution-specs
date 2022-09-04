@@ -21,7 +21,7 @@ from ...state import (
     account_has_code_or_nonce,
     get_account,
     increment_nonce,
-    is_account_empty,
+    is_account_alive,
     set_account_balance,
 )
 from ...utils.address import (
@@ -312,9 +312,6 @@ def call(evm: Evm) -> None:
     # GAS
     extend_memory(evm, memory_input_start_position, memory_input_size)
     extend_memory(evm, memory_output_start_position, memory_output_size)
-    is_account_alive = account_exists(
-        evm.env.state, to
-    ) and not is_account_empty(evm.env.state, to)
 
     if to in evm.accessed_addresses:
         access_gas_cost = GAS_WARM_ACCESS
@@ -323,7 +320,9 @@ def call(evm: Evm) -> None:
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
     create_gas_cost = (
-        Uint(0) if is_account_alive or value == 0 else GAS_NEW_ACCOUNT
+        Uint(0)
+        if is_account_alive(evm.env.state, to) or value == 0
+        else GAS_NEW_ACCOUNT
     )
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
     call_gas_fee = calculate_call_gas_cost(
@@ -459,12 +458,8 @@ def selfdestruct(evm: Evm) -> None:
         evm.accessed_addresses.add(beneficiary)
         charge_gas(evm, GAS_COLD_ACCOUNT_ACCESS)
 
-    is_dead_account = not account_exists(
-        evm.env.state, beneficiary
-    ) or is_account_empty(evm.env.state, beneficiary)
-
     if (
-        is_dead_account
+        not is_account_alive(evm.env.state, beneficiary)
         and get_account(evm.env.state, evm.message.current_target).balance != 0
     ):
         charge_gas(evm, GAS_SELF_DESTRUCT + GAS_SELF_DESTRUCT_NEW_ACCOUNT)
