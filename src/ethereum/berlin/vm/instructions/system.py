@@ -17,7 +17,6 @@ from ethereum.utils.numeric import ceil32
 
 from ...eth_types import Address
 from ...state import (
-    account_exists,
     account_has_code_or_nonce,
     get_account,
     increment_nonce,
@@ -390,7 +389,6 @@ def callcode(evm: Evm) -> None:
 
     extend_memory(evm, memory_input_start_position, memory_input_size)
     extend_memory(evm, memory_output_start_position, memory_output_size)
-    _account_exists = account_exists(evm.env.state, to)
 
     if code_address in evm.accessed_addresses:
         access_gas_cost = GAS_WARM_ACCESS
@@ -398,18 +396,17 @@ def callcode(evm: Evm) -> None:
         evm.accessed_addresses.add(code_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    create_gas_cost = Uint(0) if _account_exists else GAS_NEW_ACCOUNT
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
     call_gas_fee = calculate_call_gas_cost(
         gas,
         Uint(evm.gas_left),
-        access_gas_cost + create_gas_cost + transfer_gas_cost,
+        access_gas_cost + transfer_gas_cost,
     )
     message_call_gas = calculate_message_call_gas_stipend(
         value,
         gas,
         Uint(evm.gas_left),
-        access_gas_cost + create_gas_cost + transfer_gas_cost,
+        access_gas_cost + transfer_gas_cost,
     )
     charge_gas(evm, call_gas_fee)
 

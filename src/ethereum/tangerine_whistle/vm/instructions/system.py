@@ -289,17 +289,15 @@ def callcode(evm: Evm) -> None:
 
     extend_memory(evm, memory_input_start_position, memory_input_size)
     extend_memory(evm, memory_output_start_position, memory_output_size)
-    _account_exists = account_exists(evm.env.state, to)
-    create_gas_cost = Uint(0) if _account_exists else GAS_NEW_ACCOUNT
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
     call_gas_fee = calculate_call_gas_cost(
-        gas, Uint(evm.gas_left), GAS_CALL + create_gas_cost + transfer_gas_cost
+        gas, Uint(evm.gas_left), GAS_CALL + transfer_gas_cost
     )
     message_call_gas = calculate_message_call_gas_stipend(
         value,
         gas,
         Uint(evm.gas_left),
-        GAS_CALL + create_gas_cost + transfer_gas_cost,
+        GAS_CALL + transfer_gas_cost,
     )
     charge_gas(evm, call_gas_fee)
 
