@@ -202,9 +202,11 @@ def bitwise_shl(evm: Evm) -> None:
 
     # OPERATION
     if shift < 256:
-        push(evm.stack, U256((value << shift) % U256_CEIL_VALUE))
+        result = U256((value << shift) % U256_CEIL_VALUE)
     else:
-        push(evm.stack, U256(0))
+        result = U256(0)
+
+    push(evm.stack, result)
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -228,9 +230,11 @@ def bitwise_shr(evm: Evm) -> None:
 
     # OPERATION
     if shift < 256:
-        push(evm.stack, value >> shift)
+        result = value >> shift
     else:
-        push(evm.stack, U256(0))
+        result = U256(0)
+
+    push(evm.stack, result)
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -254,11 +258,13 @@ def bitwise_sar(evm: Evm) -> None:
 
     # OPERATION
     if shift < 256:
-        push(evm.stack, U256.from_signed(signed_value >> shift))
+        result = U256.from_signed(signed_value >> shift)
     elif signed_value >= 0:
-        push(evm.stack, U256(0))
+        result = U256(0)
     else:
-        push(evm.stack, U256(U256.MAX_VALUE))
+        result = U256(U256.MAX_VALUE)
+
+    push(evm.stack, result)
 
     # PROGRAM COUNTER
     evm.pc += 1

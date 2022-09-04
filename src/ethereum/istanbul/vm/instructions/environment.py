@@ -505,9 +505,11 @@ def extcodehash(evm: Evm) -> None:
     account = get_account(evm.env.state, address)
 
     if account == EMPTY_ACCOUNT:
-        push(evm.stack, U256(0))
+        codehash = U256(0)
     else:
-        push(evm.stack, U256.from_be_bytes(keccak256(account.code)))
+        codehash = U256.from_be_bytes(keccak256(account.code))
+
+    push(evm.stack, codehash)
 
     # PROGRAM COUNTER
     evm.pc += 1

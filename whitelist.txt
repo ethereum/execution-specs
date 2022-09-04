@@ -358,3 +358,4 @@ Downloader
 sublist
 
 x00
+codehash
