@@ -50,7 +50,7 @@ from ..memory import extend_memory, memory_read_bytes, memory_write
 from ..stack import pop, push
 
 
-def do_create(
+def generic_create(
     evm: Evm,
     endowment: U256,
     contract_address: Address,
@@ -58,7 +58,7 @@ def do_create(
     memory_size: U256,
 ) -> None:
     """
-    Common code shared between both types of CREATE*.
+    Core logic used by the `CREATE* family of opcodes.
     """
     # This import causes a circular import error
     # if it's not moved inside this method
@@ -80,47 +80,48 @@ def do_create(
         or sender.nonce == Uint(2**64 - 1)
         or evm.message.depth + 1 > STACK_DEPTH_LIMIT
     ):
-        push(evm.stack, U256(0))
         evm.gas_left += create_message_gas
-    elif account_has_code_or_nonce(evm.env.state, contract_address):
+        push(evm.stack, U256(0))
+        return
+
+    if account_has_code_or_nonce(evm.env.state, contract_address):
         increment_nonce(evm.env.state, evm.message.current_target)
         push(evm.stack, U256(0))
+        return
+
+    call_data = memory_read_bytes(
+        evm.memory, memory_start_position, memory_size
+    )
+
+    increment_nonce(evm.env.state, evm.message.current_target)
+
+    child_message = Message(
+        caller=evm.message.current_target,
+        target=Bytes0(),
+        gas=U256(create_message_gas),
+        value=endowment,
+        data=b"",
+        code=call_data,
+        current_target=contract_address,
+        depth=evm.message.depth + 1,
+        code_address=None,
+        should_transfer_value=True,
+        is_static=False,
+        accessed_addresses=evm.accessed_addresses.copy(),
+        accessed_storage_keys=evm.accessed_storage_keys.copy(),
+    )
+    child_evm = process_create_message(child_message, evm.env)
+    evm.children.append(child_evm)
+    if child_evm.has_erred:
+        push(evm.stack, U256(0))
+        evm.return_data = child_evm.output
     else:
-        call_data = memory_read_bytes(
-            evm.memory, memory_start_position, memory_size
-        )
-
-        increment_nonce(evm.env.state, evm.message.current_target)
-
-        child_message = Message(
-            caller=evm.message.current_target,
-            target=Bytes0(),
-            gas=U256(create_message_gas),
-            value=endowment,
-            data=b"",
-            code=call_data,
-            current_target=contract_address,
-            depth=evm.message.depth + 1,
-            code_address=None,
-            should_transfer_value=True,
-            is_static=False,
-            accessed_addresses=evm.accessed_addresses.copy(),
-            accessed_storage_keys=evm.accessed_storage_keys.copy(),
-        )
-        child_evm = process_create_message(child_message, evm.env)
-        evm.children.append(child_evm)
-        if child_evm.has_erred:
-            push(evm.stack, U256(0))
-            evm.return_data = child_evm.output
-        else:
-            evm.logs += child_evm.logs
-            evm.accessed_addresses = child_evm.accessed_addresses
-            evm.accessed_storage_keys = child_evm.accessed_storage_keys
-            push(
-                evm.stack, U256.from_be_bytes(child_evm.message.current_target)
-            )
-        evm.gas_left += child_evm.gas_left
-        child_evm.gas_left = U256(0)
+        evm.logs += child_evm.logs
+        evm.accessed_addresses = child_evm.accessed_addresses
+        evm.accessed_storage_keys = child_evm.accessed_storage_keys
+        push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
+    evm.gas_left += child_evm.gas_left
+    child_evm.gas_left = U256(0)
 
 
 def create(evm: Evm) -> None:
@@ -147,7 +148,7 @@ def create(evm: Evm) -> None:
         get_account(evm.env.state, evm.message.current_target).nonce,
     )
 
-    do_create(
+    generic_create(
         evm, endowment, contract_address, memory_start_position, memory_size
     )
 
@@ -185,7 +186,7 @@ def create2(evm: Evm) -> None:
         memory_read_bytes(evm.memory, memory_start_position, memory_size),
     )
 
-    do_create(
+    generic_create(
         evm, endowment, contract_address, memory_start_position, memory_size
     )
 
@@ -221,7 +222,7 @@ def return_(evm: Evm) -> None:
     pass
 
 
-def do_call(
+def generic_call(
     evm: Evm,
     gas: Uint,
     value: U256,
@@ -236,7 +237,7 @@ def do_call(
     memory_output_size: U256,
 ) -> None:
     """
-    Do a message-call. Used by all the `CALL*` opcode family.
+    Perform the core logic of the `CALL*` family of opcodes.
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
@@ -245,50 +246,49 @@ def do_call(
     if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
         evm.gas_left += gas
         push(evm.stack, U256(0))
-    else:
-        call_data = memory_read_bytes(
-            evm.memory, memory_input_start_position, memory_input_size
-        )
-        code = get_account(evm.env.state, code_address).code
-        child_message = Message(
-            caller=caller,
-            target=to,
-            gas=U256(gas),
-            value=value,
-            data=call_data,
-            code=code,
-            current_target=to,
-            depth=evm.message.depth + 1,
-            code_address=code_address,
-            should_transfer_value=should_transfer_value,
-            is_static=True if is_staticcall else evm.message.is_static,
-            accessed_addresses=evm.accessed_addresses.copy(),
-            accessed_storage_keys=evm.accessed_storage_keys.copy(),
-        )
-        child_evm = process_message(child_message, evm.env)
-        evm.children.append(child_evm)
+        return
 
-        if child_evm.has_erred:
-            push(evm.stack, U256(0))
-            if isinstance(child_evm.error, Revert):
-                evm.return_data = child_evm.output
-        else:
-            evm.logs += child_evm.logs
-            evm.accessed_addresses = child_evm.accessed_addresses
-            evm.accessed_storage_keys = child_evm.accessed_storage_keys
-            push(evm.stack, U256(1))
+    call_data = memory_read_bytes(
+        evm.memory, memory_input_start_position, memory_input_size
+    )
+    code = get_account(evm.env.state, code_address).code
+    child_message = Message(
+        caller=caller,
+        target=to,
+        gas=U256(gas),
+        value=value,
+        data=call_data,
+        code=code,
+        current_target=to,
+        depth=evm.message.depth + 1,
+        code_address=code_address,
+        should_transfer_value=should_transfer_value,
+        is_static=True if is_staticcall else evm.message.is_static,
+        accessed_addresses=evm.accessed_addresses.copy(),
+        accessed_storage_keys=evm.accessed_storage_keys.copy(),
+    )
+    child_evm = process_message(child_message, evm.env)
+    evm.children.append(child_evm)
+
+    if child_evm.has_erred:
+        push(evm.stack, U256(0))
+        if isinstance(child_evm.error, Revert):
             evm.return_data = child_evm.output
+    else:
+        evm.logs += child_evm.logs
+        evm.accessed_addresses = child_evm.accessed_addresses
+        evm.accessed_storage_keys = child_evm.accessed_storage_keys
+        push(evm.stack, U256(1))
+        evm.return_data = child_evm.output
 
-        actual_output_size = min(
-            memory_output_size, U256(len(child_evm.output))
-        )
-        memory_write(
-            evm.memory,
-            memory_output_start_position,
-            child_evm.output[:actual_output_size],
-        )
-        evm.gas_left += child_evm.gas_left
-        child_evm.gas_left = U256(0)
+    actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
+    memory_write(
+        evm.memory,
+        memory_output_start_position,
+        child_evm.output[:actual_output_size],
+    )
+    evm.gas_left += child_evm.gas_left
+    child_evm.gas_left = U256(0)
 
 
 def call(evm: Evm) -> None:
@@ -349,7 +349,7 @@ def call(evm: Evm) -> None:
         evm.return_data = b""
         evm.gas_left += message_call_gas
     else:
-        do_call(
+        generic_call(
             evm,
             message_call_gas,
             value,
@@ -423,7 +423,7 @@ def callcode(evm: Evm) -> None:
         evm.return_data = b""
         evm.gas_left += message_call_gas
     else:
-        do_call(
+        generic_call(
             evm,
             message_call_gas,
             value,
@@ -533,7 +533,7 @@ def delegatecall(evm: Evm) -> None:
     charge_gas(evm, call_gas_fee)
 
     # OPERATION
-    do_call(
+    generic_call(
         evm,
         message_call_gas,
         evm.message.value,
@@ -591,7 +591,7 @@ def staticcall(evm: Evm) -> None:
     charge_gas(evm, call_gas_fee)
 
     # OPERATION
-    do_call(
+    generic_call(
         evm,
         message_call_gas,
         U256(0),
