@@ -11,7 +11,7 @@ Introduction
 
 Implementations of the EVM Memory instructions.
 """
-from ethereum.base_types import U8_MAX_VALUE, U256
+from ethereum.base_types import U8_MAX_VALUE, U256, Bytes
 
 from .. import Evm
 from ..gas import GAS_BASE, GAS_VERY_LOW, charge_gas
@@ -81,7 +81,7 @@ def mstore8(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW)
 
     # OPERATION
-    normalized_bytes_value = (value & U8_MAX_VALUE).to_bytes(1, "big")
+    normalized_bytes_value = Bytes([value & U8_MAX_VALUE])
     memory_write(evm.memory, start_position, normalized_bytes_value)
 
     # PROGRAM COUNTER
