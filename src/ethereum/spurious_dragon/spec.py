@@ -59,7 +59,7 @@ from .vm.interpreter import process_message_call
 BLOCK_REWARD = U256(5 * 10**18)
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
-GENESIS_DIFFICULTY = Uint(131072)
+MINIMUM_DIFFICULTY = Uint(131072)
 MAX_OMMER_DEPTH = 6
 
 
@@ -923,8 +923,13 @@ def calculate_block_difficulty(
     # See https://github.com/ethereum/go-ethereum/pull/1588
     num_bomb_periods = (int(block_number) // 100000) - 2
     if num_bomb_periods >= 0:
-        return Uint(
-            max(difficulty + 2**num_bomb_periods, GENESIS_DIFFICULTY)
-        )
-    else:
-        return Uint(max(difficulty, GENESIS_DIFFICULTY))
+        difficulty += 2**num_bomb_periods
+
+    # The Ethereum specification does not permit the difficulty to fall below
+    # `MINIMUM_DIFFICULTY`. Unfortunately, there is no consistency about
+    # whether the difficulty is raised back to `MINIMUM_DIFFICULTY` before or
+    # after the bomb.
+    # In practice the question is moot. On Mainnet, it is impossible to reach
+    # `MINIMUM_DIFFICULTY` after block 800,000 due to the bomb itself. On
+    # testnets the bomb doesn't exist, so the issue doesn't arise.
+    return Uint(max(difficulty, MINIMUM_DIFFICULTY))
