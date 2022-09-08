@@ -11,7 +11,7 @@ Introduction
 
 Implementations of the EVM storage related instructions.
 """
-from ethereum.base_types import U256
+from ethereum.base_types import Uint
 from ethereum.utils.ensure import ensure
 
 from ...state import get_storage, get_storage_original, set_storage
@@ -24,7 +24,7 @@ from ..gas import (
     GAS_STORAGE_SET,
     GAS_STORAGE_UPDATE,
     GAS_WARM_ACCESS,
-    subtract_gas,
+    charge_gas,
 )
 from ..stack import pop, push
 
@@ -46,17 +46,22 @@ def sload(evm: Evm) -> None:
     :py:class:`~ethereum.berlin.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `50`.
     """
+    # STACK
     key = pop(evm.stack).to_be_bytes32()
-    value = get_storage(evm.env.state, evm.message.current_target, key)
 
+    # GAS
     if (evm.message.current_target, key) in evm.accessed_storage_keys:
-        evm.gas_left = subtract_gas(evm.gas_left, GAS_WARM_ACCESS)
+        charge_gas(evm, GAS_WARM_ACCESS)
     else:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
-        evm.gas_left = subtract_gas(evm.gas_left, GAS_COLD_SLOAD)
+        charge_gas(evm, GAS_COLD_SLOAD)
+
+    # OPERATION
+    value = get_storage(evm.env.state, evm.message.current_target, key)
 
     push(evm.stack, value)
 
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -76,19 +81,20 @@ def sstore(evm: Evm) -> None:
     :py:class:`~ethereum.berlin.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `20000`.
     """
-    ensure(evm.gas_left > GAS_CALL_STIPEND, OutOfGasError)
-    ensure(not evm.message.is_static, WriteInStaticContext)
-
+    # STACK
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
-    current_value = get_storage(evm.env.state, evm.message.current_target, key)
+
+    # GAS
+    ensure(evm.gas_left > GAS_CALL_STIPEND, OutOfGasError)
 
     original_value = get_storage_original(
         evm.env.state, evm.message.current_target, key
     )
+    current_value = get_storage(evm.env.state, evm.message.current_target, key)
 
-    # Gas Cost Calculation
-    gas_cost = U256(0)
+    gas_cost = Uint(0)
+
     if (evm.message.current_target, key) not in evm.accessed_storage_keys:
         evm.accessed_storage_keys.add((evm.message.current_target, key))
         gas_cost += GAS_COLD_SLOAD
@@ -100,6 +106,8 @@ def sstore(evm: Evm) -> None:
             gas_cost += GAS_STORAGE_UPDATE - GAS_COLD_SLOAD
     else:
         gas_cost += GAS_WARM_ACCESS
+
+    charge_gas(evm, gas_cost)
 
     # Refund Counter Calculation
     if current_value != new_value:
@@ -122,8 +130,9 @@ def sstore(evm: Evm) -> None:
                     GAS_STORAGE_UPDATE - GAS_COLD_SLOAD - GAS_WARM_ACCESS
                 )
 
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
-
+    # OPERATION
+    ensure(not evm.message.is_static, WriteInStaticContext)
     set_storage(evm.env.state, evm.message.current_target, key, new_value)
 
+    # PROGRAM COUNTER
     evm.pc += 1

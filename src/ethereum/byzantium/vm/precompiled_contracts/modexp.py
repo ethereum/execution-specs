@@ -12,13 +12,12 @@ Introduction
 Implementation of the `MODEXP` precompiled contract.
 """
 from ethereum.base_types import U256, Bytes, Uint
-from ethereum.utils.byte import right_pad_zero_bytes
 
 from ...vm import Evm
-from ...vm.gas import subtract_gas
-from ..exceptions import OutOfGasError
+from ...vm.gas import charge_gas
+from ..memory import buffer_read
 
-GQUADDIVISOR = 20
+GQUADDIVISOR = Uint(20)
 
 
 def modexp(evm: Evm) -> None:
@@ -27,55 +26,45 @@ def modexp(evm: Evm) -> None:
     `modulus`. The return value is the same length as the modulus.
     """
     data = evm.message.data
-    base_length = U256.from_be_bytes(right_pad_zero_bytes(data[:32], 32))
-    exp_length = U256.from_be_bytes(right_pad_zero_bytes(data[32:64], 32))
-    modulus_length = U256.from_be_bytes(right_pad_zero_bytes(data[64:96], 32))
 
+    # GAS
+    base_length = U256.from_be_bytes(buffer_read(data, U256(0), U256(32)))
+    exp_length = U256.from_be_bytes(buffer_read(data, U256(32), U256(32)))
+    modulus_length = U256.from_be_bytes(buffer_read(data, U256(64), U256(32)))
+
+    exp_start = U256(96) + base_length
+    modulus_start = exp_start + exp_length
+
+    exp_head = U256.from_be_bytes(
+        buffer_read(data, exp_start, min(U256(32), exp_length))
+    )
+    if exp_length < 32:
+        adjusted_exp_length = Uint(max(0, exp_head.bit_length() - 1))
+    else:
+        adjusted_exp_length = Uint(
+            8 * (int(exp_length) - 32) + max(0, exp_head.bit_length() - 1)
+        )
+
+    charge_gas(
+        evm,
+        (
+            get_mult_complexity(Uint(max(base_length, modulus_length)))
+            * max(adjusted_exp_length, Uint(1))
+        )
+        // GQUADDIVISOR,
+    )
+
+    # OPERATION
     if base_length == 0 and modulus_length == 0:
         evm.output = Bytes()
         return
 
-    mult_complexity = get_mult_complexity(
-        Uint(max(base_length, modulus_length))
+    base = Uint.from_be_bytes(buffer_read(data, U256(96), base_length))
+    exp = Uint.from_be_bytes(buffer_read(data, exp_start, exp_length))
+    modulus = Uint.from_be_bytes(
+        buffer_read(data, modulus_start, modulus_length)
     )
-    # This is an estimate of the bit length of exp
-    adjusted_exp_length = Uint(8 * max(0, int(exp_length) - 32))
 
-    if (
-        evm.gas_left
-        < mult_complexity * max(1, adjusted_exp_length) // GQUADDIVISOR
-    ):
-        # This check must be done now to prevent loading of absurdly long
-        # arguments. It is an underestimate, because adjusted_exp_length may
-        # increase later.
-        raise OutOfGasError()
-
-    pointer = 96
-    base_data = right_pad_zero_bytes(
-        data[pointer : pointer + base_length], base_length
-    )
-    base = Uint.from_be_bytes(base_data)
-    pointer += base_length
-    exp_data = right_pad_zero_bytes(
-        data[pointer : pointer + exp_length], exp_length
-    )
-    exp = Uint.from_be_bytes(exp_data)
-    pointer += exp_length
-    modulus_data = right_pad_zero_bytes(
-        data[pointer : pointer + modulus_length], modulus_length
-    )
-    modulus = Uint.from_be_bytes(modulus_data)
-
-    adjusted_exp_length = Uint(
-        max(adjusted_exp_length, int(exp.bit_length()) - 1)
-    )
-    gas_used = mult_complexity * max(1, adjusted_exp_length) // GQUADDIVISOR
-
-    # NOTE: It is in principle possible for the conversion to U256 to overflow
-    # here. However, for this to happen without triggering the earlier check
-    # would require providing more than 2**250 gas, which is obviously
-    # not realistic.
-    evm.gas_left = subtract_gas(evm.gas_left, U256(gas_used))
     if modulus == 0:
         evm.output = Bytes(b"\x00") * modulus_length
     else:

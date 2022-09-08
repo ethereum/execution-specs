@@ -34,7 +34,7 @@ from ..state import (
 )
 from ..utils.address import to_address
 from ..vm import Message
-from ..vm.gas import GAS_CODE_DEPOSIT, REFUND_SELF_DESTRUCT, subtract_gas
+from ..vm.gas import GAS_CODE_DEPOSIT, REFUND_SELF_DESTRUCT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
 from .exceptions import (
@@ -144,46 +144,6 @@ def process_create_message(message: Message, env: Environment) -> Evm:
     # take snapshot of state before processing the message
     begin_transaction(env.state)
 
-    increment_nonce(env.state, message.current_target)
-    evm = process_message(message, env)
-    if not evm.has_erred:
-        contract_code = evm.output
-        contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
-        try:
-            evm.gas_left = subtract_gas(evm.gas_left, contract_code_gas)
-            ensure(len(contract_code) <= MAX_CODE_SIZE, OutOfGasError)
-        except ExceptionalHalt:
-            rollback_transaction(env.state)
-            evm.gas_left = U256(0)
-            evm.output = b""
-            evm.has_erred = True
-        else:
-            set_code(env.state, message.current_target, contract_code)
-            commit_transaction(env.state)
-    else:
-        rollback_transaction(env.state)
-    return evm
-
-
-def process_create2_message(message: Message, env: Environment) -> Evm:
-    """
-    Executes a call to create a smart contract via CREATE2 opcode.
-
-    Parameters
-    ----------
-    message :
-        Transaction specific items.
-    env :
-        External items required for EVM execution.
-
-    Returns
-    -------
-    evm: :py:class:`~ethereum.constantinople.vm.Evm`
-        Items containing execution specific objects.
-    """
-    # take snapshot of state before processing the message
-    begin_transaction(env.state)
-
     # It's expected that the creation operation works on empty storage. Hence
     # we delete the storage and restore the account's state if there is an
     # error in the initialization code execution.
@@ -195,9 +155,9 @@ def process_create2_message(message: Message, env: Environment) -> Evm:
         contract_code = evm.output
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         try:
-            evm.gas_left = subtract_gas(evm.gas_left, contract_code_gas)
+            charge_gas(evm, contract_code_gas)
             ensure(len(contract_code) <= MAX_CODE_SIZE, OutOfGasError)
-        except OutOfGasError:
+        except ExceptionalHalt:
             rollback_transaction(env.state)
             evm.gas_left = U256(0)
             evm.output = b""

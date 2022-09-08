@@ -14,7 +14,7 @@ Implementations of the EVM control flow instructions.
 
 from ethereum.base_types import U256, Uint
 
-from ...vm.gas import GAS_BASE, GAS_HIGH, GAS_JUMPDEST, GAS_MID, subtract_gas
+from ...vm.gas import GAS_BASE, GAS_HIGH, GAS_JUMPDEST, GAS_MID, charge_gas
 from .. import Evm
 from ..exceptions import InvalidJumpDestError
 from ..stack import pop, push
@@ -29,7 +29,17 @@ def stop(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
+    # STACK
+    pass
+
+    # GAS
+    pass
+
+    # OPERATION
     evm.running = False
+
+    # PROGRAM COUNTER
+    evm.pc += 1
 
 
 def jump(evm: Evm) -> None:
@@ -55,12 +65,17 @@ def jump(evm: Evm) -> None:
     :py:class:`~ethereum.homestead.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `8`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_MID)
-    jump_dest = pop(evm.stack)
+    # STACK
+    jump_dest = Uint(pop(evm.stack))
 
+    # GAS
+    charge_gas(evm, GAS_MID)
+
+    # OPERATION
     if jump_dest not in evm.valid_jump_destinations:
         raise InvalidJumpDestError
 
+    # PROGRAM COUNTER
     evm.pc = Uint(jump_dest)
 
 
@@ -88,19 +103,23 @@ def jumpi(evm: Evm) -> None:
     :py:class:`~ethereum.homestead.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `10`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_HIGH)
-
-    jump_dest = pop(evm.stack)
+    # STACK
+    jump_dest = Uint(pop(evm.stack))
     conditional_value = pop(evm.stack)
 
+    # GAS
+    charge_gas(evm, GAS_HIGH)
+
+    # OPERATION
     if conditional_value == 0:
-        evm.pc += 1
-        return
-
-    if jump_dest not in evm.valid_jump_destinations:
+        destination = evm.pc + 1
+    elif jump_dest not in evm.valid_jump_destinations:
         raise InvalidJumpDestError
+    else:
+        destination = jump_dest
 
-    evm.pc = Uint(jump_dest)
+    # PROGRAM COUNTER
+    evm.pc = Uint(destination)
 
 
 def pc(evm: Evm) -> None:
@@ -120,8 +139,16 @@ def pc(evm: Evm) -> None:
     :py:class:`~ethereum.homestead.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
     push(evm.stack, U256(evm.pc))
+
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -142,8 +169,16 @@ def gas_left(evm: Evm) -> None:
     :py:class:`~ethereum.homestead.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `2`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_BASE)
-    push(evm.stack, evm.gas_left)
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
+    push(evm.stack, U256(evm.gas_left))
+
+    # PROGRAM COUNTER
     evm.pc += 1
 
 
@@ -163,5 +198,14 @@ def jumpdest(evm: Evm) -> None:
     :py:class:`~ethereum.homestead.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `1`.
     """
-    evm.gas_left = subtract_gas(evm.gas_left, GAS_JUMPDEST)
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_JUMPDEST)
+
+    # OPERATION
+    pass
+
+    # PROGRAM COUNTER
     evm.pc += 1

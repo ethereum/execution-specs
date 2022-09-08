@@ -14,14 +14,13 @@ Implementations of the EVM system related instructions.
 from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.utils.ensure import ensure
 from ethereum.utils.numeric import ceil32
-from ethereum.utils.safe_arithmetic import u256_safe_add, u256_safe_multiply
 
+from ...eth_types import Address
 from ...state import (
-    account_exists,
     account_has_code_or_nonce,
     get_account,
     increment_nonce,
-    is_account_empty,
+    is_account_alive,
     set_account_balance,
 )
 from ...utils.address import (
@@ -30,7 +29,7 @@ from ...utils.address import (
     to_address,
 )
 from .. import Evm, Message
-from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
+from ..exceptions import Revert, WriteInStaticContext
 from ..gas import (
     GAS_CALL_VALUE,
     GAS_COLD_ACCOUNT_ACCESS,
@@ -42,68 +41,52 @@ from ..gas import (
     GAS_WARM_ACCESS,
     GAS_ZERO,
     calculate_call_gas_cost,
-    calculate_gas_extend_memory,
     calculate_message_call_gas_stipend,
+    charge_gas,
     max_message_call_gas,
-    subtract_gas,
 )
 from ..memory import extend_memory, memory_read_bytes, memory_write
 from ..stack import pop, push
 
 
-def create(evm: Evm) -> None:
+def generic_create(
+    evm: Evm,
+    endowment: U256,
+    contract_address: Address,
+    memory_start_position: U256,
+    memory_size: U256,
+) -> None:
     """
-    Creates a new account with associated code.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
+    Core logic used by the `CREATE*` family of opcodes.
     """
     # This import causes a circular import error
     # if it's not moved inside this method
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
 
-    ensure(not evm.message.is_static, WriteInStaticContext)
-    endowment = pop(evm.stack)
-    memory_start_position = Uint(pop(evm.stack))
-    memory_size = pop(evm.stack)
+    evm.accessed_addresses.add(contract_address)
 
-    extend_memory_gas_cost = calculate_gas_extend_memory(
-        evm.memory, memory_start_position, memory_size
-    )
-    total_gas_cost = u256_safe_add(
-        GAS_CREATE,
-        extend_memory_gas_cost,
-        exception_type=OutOfGasError,
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
-    extend_memory(evm.memory, memory_start_position, memory_size)
+    create_message_gas = max_message_call_gas(Uint(evm.gas_left))
+    evm.gas_left -= U256(create_message_gas)
+
+    ensure(not evm.message.is_static, WriteInStaticContext)
+    evm.return_data = b""
+
     sender_address = evm.message.current_target
     sender = get_account(evm.env.state, sender_address)
 
-    evm.pc += 1
-
-    evm.return_data = b""
-
-    contract_address = compute_contract_address(
-        evm.message.current_target,
-        get_account(evm.env.state, evm.message.current_target).nonce,
-    )
-
-    evm.accessed_addresses.add(contract_address)
-
-    if sender.balance < endowment:
+    if (
+        sender.balance < endowment
+        or sender.nonce == Uint(2**64 - 1)
+        or evm.message.depth + 1 > STACK_DEPTH_LIMIT
+    ):
+        evm.gas_left += create_message_gas
         push(evm.stack, U256(0))
-        return None
+        return
 
-    if sender.nonce == Uint(2**64 - 1):
+    if account_has_code_or_nonce(evm.env.state, contract_address):
+        increment_nonce(evm.env.state, evm.message.current_target)
         push(evm.stack, U256(0))
-        return None
-
-    if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
-        push(evm.stack, U256(0))
-        return None
+        return
 
     call_data = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
@@ -111,18 +94,10 @@ def create(evm: Evm) -> None:
 
     increment_nonce(evm.env.state, evm.message.current_target)
 
-    create_message_gas = max_message_call_gas(evm.gas_left)
-    evm.gas_left = subtract_gas(evm.gas_left, create_message_gas)
-
-    is_collision = account_has_code_or_nonce(evm.env.state, contract_address)
-    if is_collision:
-        push(evm.stack, U256(0))
-        return
-
     child_message = Message(
         caller=evm.message.current_target,
         target=Bytes0(),
-        gas=create_message_gas,
+        gas=U256(create_message_gas),
         value=endowment,
         data=b"",
         code=call_data,
@@ -148,6 +123,38 @@ def create(evm: Evm) -> None:
     child_evm.gas_left = U256(0)
 
 
+def create(evm: Evm) -> None:
+    """
+    Creates a new account with associated code.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    endowment = pop(evm.stack)
+    memory_start_position = pop(evm.stack)
+    memory_size = pop(evm.stack)
+
+    # GAS
+    extend_memory(evm, memory_start_position, memory_size)
+    charge_gas(evm, GAS_CREATE)
+
+    # OPERATION
+    contract_address = compute_contract_address(
+        evm.message.current_target,
+        get_account(evm.env.state, evm.message.current_target).nonce,
+    )
+
+    generic_create(
+        evm, endowment, contract_address, memory_start_position, memory_size
+    )
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
 def create2(evm: Evm) -> None:
     """
     Creates a new account with associated code.
@@ -160,102 +167,30 @@ def create2(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    # This import causes a circular import error
-    # if it's not moved inside this method
-    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create2_message
-
-    ensure(not evm.message.is_static, WriteInStaticContext)
-
+    # STACK
     endowment = pop(evm.stack)
-    memory_start_position = Uint(pop(evm.stack))
+    memory_start_position = pop(evm.stack)
     memory_size = pop(evm.stack)
     salt = pop(evm.stack).to_be_bytes32()
 
-    extend_memory_gas_cost = calculate_gas_extend_memory(
-        evm.memory, memory_start_position, memory_size
-    )
+    # GAS
+    extend_memory(evm, memory_start_position, memory_size)
     call_data_words = ceil32(Uint(memory_size)) // 32
-    hash_cost = u256_safe_multiply(
-        GAS_KECCAK256_WORD,
-        call_data_words,
-        exception_type=OutOfGasError,
-    )
-    total_gas_cost = u256_safe_add(
-        GAS_CREATE,
-        extend_memory_gas_cost,
-        hash_cost,
-        exception_type=OutOfGasError,
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, total_gas_cost)
-    extend_memory(evm.memory, memory_start_position, memory_size)
-    sender_address = evm.message.current_target
-    sender = get_account(evm.env.state, sender_address)
+    charge_gas(evm, GAS_CREATE + GAS_KECCAK256_WORD * call_data_words)
 
-    evm.pc += 1
-
-    evm.return_data = b""
-
-    call_data = memory_read_bytes(
-        evm.memory, memory_start_position, memory_size
-    )
-
+    # OPERATION
     contract_address = compute_create2_contract_address(
         evm.message.current_target,
         salt,
-        call_data,
+        memory_read_bytes(evm.memory, memory_start_position, memory_size),
     )
 
-    evm.accessed_addresses.add(contract_address)
-
-    if sender.balance < endowment:
-        push(evm.stack, U256(0))
-        return None
-
-    if sender.nonce == Uint(2**64 - 1):
-        push(evm.stack, U256(0))
-        return None
-
-    if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
-        push(evm.stack, U256(0))
-        return None
-
-    increment_nonce(evm.env.state, evm.message.current_target)
-
-    create_message_gas = max_message_call_gas(evm.gas_left)
-    evm.gas_left = subtract_gas(evm.gas_left, create_message_gas)
-
-    is_collision = account_has_code_or_nonce(evm.env.state, contract_address)
-    if is_collision:
-        push(evm.stack, U256(0))
-        return
-
-    child_message = Message(
-        caller=evm.message.current_target,
-        target=Bytes0(),
-        gas=create_message_gas,
-        value=endowment,
-        data=b"",
-        code=call_data,
-        current_target=contract_address,
-        depth=evm.message.depth + 1,
-        code_address=None,
-        should_transfer_value=True,
-        is_static=False,
-        accessed_addresses=evm.accessed_addresses.copy(),
-        accessed_storage_keys=evm.accessed_storage_keys.copy(),
+    generic_create(
+        evm, endowment, contract_address, memory_start_position, memory_size
     )
-    child_evm = process_create2_message(child_message, evm.env)
-    evm.children.append(child_evm)
-    if child_evm.has_erred:
-        push(evm.stack, U256(0))
-        evm.return_data = child_evm.output
-    else:
-        push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
-        evm.logs += child_evm.logs
-        evm.accessed_addresses = child_evm.accessed_addresses
-        evm.accessed_storage_keys = child_evm.accessed_storage_keys
-    evm.gas_left += child_evm.gas_left
-    child_evm.gas_left = U256(0)
+
+    # PROGRAM COUNTER
+    evm.pc += 1
 
 
 def return_(evm: Evm) -> None:
@@ -267,18 +202,92 @@ def return_(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    memory_start_position = Uint(pop(evm.stack))
+    # STACK
+    memory_start_position = pop(evm.stack)
     memory_size = pop(evm.stack)
-    gas_cost = GAS_ZERO + calculate_gas_extend_memory(
-        evm.memory, memory_start_position, memory_size
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_cost)
-    extend_memory(evm.memory, memory_start_position, memory_size)
+
+    # GAS
+    extend_memory(evm, memory_start_position, memory_size)
+    charge_gas(evm, GAS_ZERO)
+
+    # OPERATION
     evm.output = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
     )
-    # HALT the execution
+
     evm.running = False
+
+    # PROGRAM COUNTER
+    pass
+
+
+def generic_call(
+    evm: Evm,
+    gas: Uint,
+    value: U256,
+    caller: Address,
+    to: Address,
+    code_address: Address,
+    should_transfer_value: bool,
+    is_staticcall: bool,
+    memory_input_start_position: U256,
+    memory_input_size: U256,
+    memory_output_start_position: U256,
+    memory_output_size: U256,
+) -> None:
+    """
+    Perform the core logic of the `CALL*` family of opcodes.
+    """
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
+
+    evm.return_data = b""
+
+    if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
+        evm.gas_left += gas
+        push(evm.stack, U256(0))
+        return
+
+    call_data = memory_read_bytes(
+        evm.memory, memory_input_start_position, memory_input_size
+    )
+    code = get_account(evm.env.state, code_address).code
+    child_message = Message(
+        caller=caller,
+        target=to,
+        gas=U256(gas),
+        value=value,
+        data=call_data,
+        code=code,
+        current_target=to,
+        depth=evm.message.depth + 1,
+        code_address=code_address,
+        should_transfer_value=should_transfer_value,
+        is_static=True if is_staticcall else evm.message.is_static,
+        accessed_addresses=evm.accessed_addresses.copy(),
+        accessed_storage_keys=evm.accessed_storage_keys.copy(),
+    )
+    child_evm = process_message(child_message, evm.env)
+    evm.children.append(child_evm)
+
+    if child_evm.has_erred:
+        push(evm.stack, U256(0))
+        if isinstance(child_evm.error, Revert):
+            evm.return_data = child_evm.output
+    else:
+        evm.logs += child_evm.logs
+        evm.accessed_addresses = child_evm.accessed_addresses
+        evm.accessed_storage_keys = child_evm.accessed_storage_keys
+        push(evm.stack, U256(1))
+        evm.return_data = child_evm.output
+
+    actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
+    memory_write(
+        evm.memory,
+        memory_output_start_position,
+        child_evm.output[:actual_output_size],
+    )
+    evm.gas_left += child_evm.gas_left
+    child_evm.gas_left = U256(0)
 
 
 def call(evm: Evm) -> None:
@@ -290,111 +299,71 @@ def call(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
-
-    gas = pop(evm.stack)
+    # STACK
+    gas = Uint(pop(evm.stack))
     to = to_address(pop(evm.stack))
     value = pop(evm.stack)
-    memory_input_start_position = Uint(pop(evm.stack))
+    memory_input_start_position = pop(evm.stack)
     memory_input_size = pop(evm.stack)
-    memory_output_start_position = Uint(pop(evm.stack))
+    memory_output_start_position = pop(evm.stack)
     memory_output_size = pop(evm.stack)
-    ensure(not evm.message.is_static or value == U256(0), WriteInStaticContext)
 
-    gas_input_memory = calculate_gas_extend_memory(
-        evm.memory, memory_input_start_position, memory_input_size
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_input_memory)
-    extend_memory(evm.memory, memory_input_start_position, memory_input_size)
-    gas_output_memory = calculate_gas_extend_memory(
-        evm.memory, memory_output_start_position, memory_output_size
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_output_memory)
-    extend_memory(evm.memory, memory_output_start_position, memory_output_size)
-    call_data = memory_read_bytes(
-        evm.memory, memory_input_start_position, memory_input_size
-    )
+    # GAS
+    extend_memory(evm, memory_input_start_position, memory_input_size)
+    extend_memory(evm, memory_output_start_position, memory_output_size)
 
     if to in evm.accessed_addresses:
         access_gas_cost = GAS_WARM_ACCESS
     else:
-        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
         evm.accessed_addresses.add(to)
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    is_account_alive = account_exists(
-        evm.env.state, to
-    ) and not is_account_empty(evm.env.state, to)
     create_gas_cost = (
-        U256(0) if is_account_alive or value == 0 else GAS_NEW_ACCOUNT
+        Uint(0)
+        if is_account_alive(evm.env.state, to) or value == 0
+        else GAS_NEW_ACCOUNT
     )
-    transfer_gas_cost = U256(0) if value == 0 else GAS_CALL_VALUE
-    extra_gas = u256_safe_add(
-        access_gas_cost,
-        create_gas_cost,
-        transfer_gas_cost,
-        exception_type=OutOfGasError,
+    transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
+    call_gas_fee = calculate_call_gas_cost(
+        gas,
+        Uint(evm.gas_left),
+        access_gas_cost + create_gas_cost + transfer_gas_cost,
     )
-    call_gas_fee = calculate_call_gas_cost(gas, evm.gas_left, extra_gas)
-    message_call_gas_fee = calculate_message_call_gas_stipend(
-        value, gas, evm.gas_left, extra_gas
+    message_call_gas = calculate_message_call_gas_stipend(
+        value,
+        gas,
+        Uint(evm.gas_left),
+        access_gas_cost + create_gas_cost + transfer_gas_cost,
     )
+    charge_gas(evm, call_gas_fee)
 
-    evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
+    # OPERATION
+    ensure(not evm.message.is_static or value == U256(0), WriteInStaticContext)
     sender_balance = get_account(
         evm.env.state, evm.message.current_target
     ).balance
-
-    evm.pc += 1
-
-    evm.return_data = b""
-
     if sender_balance < value:
         push(evm.stack, U256(0))
-        evm.gas_left += message_call_gas_fee
-        return None
-    if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
-        push(evm.stack, U256(0))
-        evm.gas_left += message_call_gas_fee
-        return None
-
-    code = get_account(evm.env.state, to).code
-    child_message = Message(
-        caller=evm.message.current_target,
-        target=to,
-        gas=message_call_gas_fee,
-        value=value,
-        data=call_data,
-        code=code,
-        current_target=to,
-        depth=evm.message.depth + 1,
-        code_address=to,
-        should_transfer_value=True,
-        is_static=evm.message.is_static,
-        accessed_addresses=evm.accessed_addresses.copy(),
-        accessed_storage_keys=evm.accessed_storage_keys.copy(),
-    )
-    child_evm = process_message(child_message, evm.env)
-    evm.children.append(child_evm)
-
-    if child_evm.has_erred:
-        push(evm.stack, U256(0))
-        if isinstance(child_evm.error, Revert):
-            evm.return_data = child_evm.output
+        evm.return_data = b""
+        evm.gas_left += message_call_gas
     else:
-        evm.logs += child_evm.logs
-        evm.accessed_addresses = child_evm.accessed_addresses
-        evm.accessed_storage_keys = child_evm.accessed_storage_keys
-        push(evm.stack, U256(1))
-        evm.return_data = child_evm.output
+        generic_call(
+            evm,
+            message_call_gas,
+            value,
+            evm.message.current_target,
+            to,
+            to,
+            True,
+            False,
+            memory_input_start_position,
+            memory_input_size,
+            memory_output_start_position,
+            memory_output_size,
+        )
 
-    actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
-    memory_write(
-        evm.memory,
-        memory_output_start_position,
-        child_evm.output[:actual_output_size],
-    )
-    evm.gas_left += child_evm.gas_left
-    child_evm.gas_left = U256(0)
+    # PROGRAM COUNTER
+    evm.pc += 1
 
 
 def callcode(evm: Evm) -> None:
@@ -406,104 +375,67 @@ def callcode(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
-
-    gas = pop(evm.stack)
+    # STACK
+    gas = Uint(pop(evm.stack))
     code_address = to_address(pop(evm.stack))
     value = pop(evm.stack)
-    memory_input_start_position = Uint(pop(evm.stack))
+    memory_input_start_position = pop(evm.stack)
     memory_input_size = pop(evm.stack)
-    memory_output_start_position = Uint(pop(evm.stack))
+    memory_output_start_position = pop(evm.stack)
     memory_output_size = pop(evm.stack)
+
+    # GAS
     to = evm.message.current_target
 
-    gas_input_memory = calculate_gas_extend_memory(
-        evm.memory, memory_input_start_position, memory_input_size
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_input_memory)
-    extend_memory(evm.memory, memory_input_start_position, memory_input_size)
-    gas_output_memory = calculate_gas_extend_memory(
-        evm.memory, memory_output_start_position, memory_output_size
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_output_memory)
-    extend_memory(evm.memory, memory_output_start_position, memory_output_size)
-    call_data = memory_read_bytes(
-        evm.memory, memory_input_start_position, memory_input_size
-    )
+    extend_memory(evm, memory_input_start_position, memory_input_size)
+    extend_memory(evm, memory_output_start_position, memory_output_size)
 
     if code_address in evm.accessed_addresses:
         access_gas_cost = GAS_WARM_ACCESS
     else:
-        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
         evm.accessed_addresses.add(code_address)
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    transfer_gas_cost = U256(0) if value == 0 else GAS_CALL_VALUE
-    extra_gas = u256_safe_add(
-        transfer_gas_cost,
-        access_gas_cost,
-        exception_type=OutOfGasError,
+    transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
+    call_gas_fee = calculate_call_gas_cost(
+        gas,
+        Uint(evm.gas_left),
+        access_gas_cost + transfer_gas_cost,
     )
-    call_gas_fee = calculate_call_gas_cost(gas, evm.gas_left, extra_gas)
-    message_call_gas_fee = calculate_message_call_gas_stipend(
-        value, gas, evm.gas_left, extra_gas
+    message_call_gas = calculate_message_call_gas_stipend(
+        value,
+        gas,
+        Uint(evm.gas_left),
+        access_gas_cost + transfer_gas_cost,
     )
+    charge_gas(evm, call_gas_fee)
 
-    evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
-
+    # OPERATION
     sender_balance = get_account(
         evm.env.state, evm.message.current_target
     ).balance
-
-    evm.pc += 1
-
-    evm.return_data = b""
-
     if sender_balance < value:
         push(evm.stack, U256(0))
-        evm.gas_left += message_call_gas_fee
-        return None
-    if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
-        push(evm.stack, U256(0))
-        evm.gas_left += message_call_gas_fee
-        return None
-
-    code = get_account(evm.env.state, code_address).code
-    child_message = Message(
-        caller=evm.message.current_target,
-        target=to,
-        gas=message_call_gas_fee,
-        value=value,
-        data=call_data,
-        code=code,
-        current_target=to,
-        depth=evm.message.depth + 1,
-        code_address=code_address,
-        should_transfer_value=True,
-        is_static=evm.message.is_static,
-        accessed_addresses=evm.accessed_addresses.copy(),
-        accessed_storage_keys=evm.accessed_storage_keys.copy(),
-    )
-
-    child_evm = process_message(child_message, evm.env)
-    evm.children.append(child_evm)
-    if child_evm.has_erred:
-        push(evm.stack, U256(0))
-        if isinstance(child_evm.error, Revert):
-            evm.return_data = child_evm.output
+        evm.return_data = b""
+        evm.gas_left += message_call_gas
     else:
-        evm.logs += child_evm.logs
-        evm.accessed_addresses = child_evm.accessed_addresses
-        evm.accessed_storage_keys = child_evm.accessed_storage_keys
-        push(evm.stack, U256(1))
-        evm.return_data = child_evm.output
-    actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
-    memory_write(
-        evm.memory,
-        memory_output_start_position,
-        child_evm.output[:actual_output_size],
-    )
-    evm.gas_left += child_evm.gas_left
-    child_evm.gas_left = U256(0)
+        generic_call(
+            evm,
+            message_call_gas,
+            value,
+            evm.message.current_target,
+            to,
+            code_address,
+            True,
+            False,
+            memory_input_start_position,
+            memory_input_size,
+            memory_output_start_position,
+            memory_output_size,
+        )
+
+    # PROGRAM COUNTER
+    evm.pc += 1
 
 
 def selfdestruct(evm: Evm) -> None:
@@ -515,29 +447,28 @@ def selfdestruct(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    ensure(not evm.message.is_static, WriteInStaticContext)
+    # STACK
     beneficiary = to_address(pop(evm.stack))
 
+    # GAS
     if beneficiary not in evm.accessed_addresses:
         evm.accessed_addresses.add(beneficiary)
-        evm.gas_left = subtract_gas(
-            evm.gas_left, GAS_COLD_ACCOUNT_ACCESS + GAS_SELF_DESTRUCT
-        )
+        charge_gas(evm, GAS_COLD_ACCOUNT_ACCESS)
+
+    if (
+        not is_account_alive(evm.env.state, beneficiary)
+        and get_account(evm.env.state, evm.message.current_target).balance != 0
+    ):
+        charge_gas(evm, GAS_SELF_DESTRUCT + GAS_SELF_DESTRUCT_NEW_ACCOUNT)
     else:
-        evm.gas_left = subtract_gas(evm.gas_left, GAS_SELF_DESTRUCT)
+        charge_gas(evm, GAS_SELF_DESTRUCT)
+
+    # OPERATION
+    ensure(not evm.message.is_static, WriteInStaticContext)
 
     originator = evm.message.current_target
     beneficiary_balance = get_account(evm.env.state, beneficiary).balance
     originator_balance = get_account(evm.env.state, originator).balance
-
-    is_dead_account = not account_exists(
-        evm.env.state, beneficiary
-    ) or is_account_empty(evm.env.state, beneficiary)
-
-    if is_dead_account and originator_balance != 0:
-        evm.gas_left = subtract_gas(
-            evm.gas_left, GAS_SELF_DESTRUCT_NEW_ACCOUNT
-        )
 
     # First Transfer to beneficiary
     set_account_balance(
@@ -554,224 +485,143 @@ def selfdestruct(evm: Evm) -> None:
     # HALT the execution
     evm.running = False
 
+    # PROGRAM COUNTER
+    pass
+
 
 def delegatecall(evm: Evm) -> None:
     """
-    Message-call into this account with an alternative account’s code,
-    but persisting the current values for sender.
+    Message-call into an account.
 
     Parameters
     ----------
     evm :
         The current EVM frame.
     """
-    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
-
-    gas = pop(evm.stack)
+    # STACK
+    gas = Uint(pop(evm.stack))
     code_address = to_address(pop(evm.stack))
-    memory_input_start_position = Uint(pop(evm.stack))
+    memory_input_start_position = pop(evm.stack)
     memory_input_size = pop(evm.stack)
-    memory_output_start_position = Uint(pop(evm.stack))
+    memory_output_start_position = pop(evm.stack)
     memory_output_size = pop(evm.stack)
-    value = evm.message.value
-    to = evm.message.current_target
 
-    gas_input_memory = calculate_gas_extend_memory(
-        evm.memory, memory_input_start_position, memory_input_size
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_input_memory)
-    extend_memory(evm.memory, memory_input_start_position, memory_input_size)
-    gas_output_memory = calculate_gas_extend_memory(
-        evm.memory, memory_output_start_position, memory_output_size
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_output_memory)
-    extend_memory(evm.memory, memory_output_start_position, memory_output_size)
-    call_data = memory_read_bytes(
-        evm.memory, memory_input_start_position, memory_input_size
-    )
+    # GAS
+    extend_memory(evm, memory_input_start_position, memory_input_size)
+    extend_memory(evm, memory_output_start_position, memory_output_size)
 
     if code_address in evm.accessed_addresses:
         access_gas_cost = GAS_WARM_ACCESS
     else:
-        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
         evm.accessed_addresses.add(code_address)
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    extra_gas = access_gas_cost
-    call_gas_fee = calculate_call_gas_cost(gas, evm.gas_left, extra_gas)
-    message_call_gas_fee = calculate_message_call_gas_stipend(
-        value, gas, evm.gas_left, extra_gas, call_stipend=U256(0)
+    call_gas_fee = calculate_call_gas_cost(
+        gas, Uint(evm.gas_left), access_gas_cost
     )
-
-    evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
-
-    evm.pc += 1
-    evm.return_data = b""
-
-    if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
-        push(evm.stack, U256(0))
-        evm.gas_left += message_call_gas_fee
-        return None
-
-    code = get_account(evm.env.state, code_address).code
-    child_message = Message(
-        caller=evm.message.caller,
-        target=to,
-        gas=message_call_gas_fee,
-        value=value,
-        data=call_data,
-        code=code,
-        current_target=to,
-        depth=evm.message.depth + 1,
-        code_address=code_address,
-        should_transfer_value=False,
-        is_static=evm.message.is_static,
-        accessed_addresses=evm.accessed_addresses.copy(),
-        accessed_storage_keys=evm.accessed_storage_keys.copy(),
+    message_call_gas = calculate_message_call_gas_stipend(
+        U256(0), gas, Uint(evm.gas_left), access_gas_cost
     )
+    charge_gas(evm, call_gas_fee)
 
-    child_evm = process_message(child_message, evm.env)
-    evm.children.append(child_evm)
-    if child_evm.has_erred:
-        push(evm.stack, U256(0))
-        if isinstance(child_evm.error, Revert):
-            evm.return_data = child_evm.output
-    else:
-        evm.logs += child_evm.logs
-        evm.accessed_addresses = child_evm.accessed_addresses
-        evm.accessed_storage_keys = child_evm.accessed_storage_keys
-        push(evm.stack, U256(1))
-        evm.return_data = child_evm.output
-    actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
-    memory_write(
-        evm.memory,
+    # OPERATION
+    generic_call(
+        evm,
+        message_call_gas,
+        evm.message.value,
+        evm.message.caller,
+        evm.message.current_target,
+        code_address,
+        False,
+        False,
+        memory_input_start_position,
+        memory_input_size,
         memory_output_start_position,
-        child_evm.output[:actual_output_size],
+        memory_output_size,
     )
-    evm.gas_left += child_evm.gas_left
-    child_evm.gas_left = U256(0)
+
+    # PROGRAM COUNTER
+    evm.pc += 1
 
 
 def staticcall(evm: Evm) -> None:
     """
-    Make a static message-call into an account that prevents all
-    state modifying operations.
+    Message-call into an account.
 
     Parameters
     ----------
     evm :
         The current EVM frame.
     """
-    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
-
-    gas = pop(evm.stack)
+    # STACK
+    gas = Uint(pop(evm.stack))
     to = to_address(pop(evm.stack))
-    memory_input_start_position = Uint(pop(evm.stack))
+    memory_input_start_position = pop(evm.stack)
     memory_input_size = pop(evm.stack)
-    memory_output_start_position = Uint(pop(evm.stack))
+    memory_output_start_position = pop(evm.stack)
     memory_output_size = pop(evm.stack)
 
-    gas_input_memory = calculate_gas_extend_memory(
-        evm.memory, memory_input_start_position, memory_input_size
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_input_memory)
-    extend_memory(evm.memory, memory_input_start_position, memory_input_size)
-    gas_output_memory = calculate_gas_extend_memory(
-        evm.memory, memory_output_start_position, memory_output_size
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, gas_output_memory)
-    extend_memory(evm.memory, memory_output_start_position, memory_output_size)
-    call_data = memory_read_bytes(
-        evm.memory, memory_input_start_position, memory_input_size
-    )
+    # GAS
+    extend_memory(evm, memory_input_start_position, memory_input_size)
+    extend_memory(evm, memory_output_start_position, memory_output_size)
 
     if to in evm.accessed_addresses:
         access_gas_cost = GAS_WARM_ACCESS
     else:
-        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
         evm.accessed_addresses.add(to)
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    create_gas_cost = U256(0)
-    transfer_gas_cost = U256(0)
-    extra_gas = u256_safe_add(
+    call_gas_fee = calculate_call_gas_cost(
+        gas, Uint(evm.gas_left), access_gas_cost
+    )
+    message_call_gas = calculate_message_call_gas_stipend(
+        U256(0),
+        gas,
+        Uint(evm.gas_left),
         access_gas_cost,
-        create_gas_cost,
-        transfer_gas_cost,
-        exception_type=OutOfGasError,
     )
-    call_gas_fee = calculate_call_gas_cost(gas, evm.gas_left, extra_gas)
-    message_call_gas_fee = calculate_message_call_gas_stipend(
-        U256(0), gas, evm.gas_left, extra_gas
-    )
+    charge_gas(evm, call_gas_fee)
 
-    evm.gas_left = subtract_gas(evm.gas_left, call_gas_fee)
-
-    evm.pc += 1
-
-    evm.return_data = b""
-
-    if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
-        push(evm.stack, U256(0))
-        evm.gas_left += message_call_gas_fee
-        return None
-
-    code = get_account(evm.env.state, to).code
-    child_message = Message(
-        caller=evm.message.current_target,
-        target=to,
-        gas=message_call_gas_fee,
-        value=U256(0),
-        data=call_data,
-        code=code,
-        current_target=to,
-        depth=evm.message.depth + 1,
-        code_address=to,
-        should_transfer_value=True,
-        is_static=True,
-        accessed_addresses=evm.accessed_addresses.copy(),
-        accessed_storage_keys=evm.accessed_storage_keys.copy(),
-    )
-    child_evm = process_message(child_message, evm.env)
-    evm.children.append(child_evm)
-
-    if child_evm.has_erred:
-        push(evm.stack, U256(0))
-        if isinstance(child_evm.error, Revert):
-            evm.return_data = child_evm.output
-    else:
-        evm.accessed_addresses = child_evm.accessed_addresses
-        evm.accessed_storage_keys = child_evm.accessed_storage_keys
-        push(evm.stack, U256(1))
-        evm.return_data = child_evm.output
-
-    actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
-    memory_write(
-        evm.memory,
+    # OPERATION
+    generic_call(
+        evm,
+        message_call_gas,
+        U256(0),
+        evm.message.current_target,
+        to,
+        to,
+        True,
+        True,
+        memory_input_start_position,
+        memory_input_size,
         memory_output_start_position,
-        child_evm.output[:actual_output_size],
+        memory_output_size,
     )
-    evm.gas_left += child_evm.gas_left
-    child_evm.gas_left = U256(0)
+
+    # PROGRAM COUNTER
+    evm.pc += 1
 
 
 def revert(evm: Evm) -> None:
     """
     Stop execution and revert state changes, without consuming all provided gas
     and also has the ability to return a reason
-
     Parameters
     ----------
     evm :
         The current EVM frame.
     """
-    memory_start_index = Uint(pop(evm.stack))
+    # STACK
+    memory_start_index = pop(evm.stack)
     size = pop(evm.stack)
 
-    memory_extend_gas_cost = calculate_gas_extend_memory(
-        evm.memory, memory_start_index, size
-    )
-    evm.gas_left = subtract_gas(evm.gas_left, memory_extend_gas_cost)
-    extend_memory(evm.memory, memory_start_index, size)
+    # GAS
+    extend_memory(evm, memory_start_index, size)
 
+    # OPERATION
     output = memory_read_bytes(evm.memory, memory_start_index, size)
     evm.output = bytes(output)
     raise Revert
+
+    # PROGRAM COUNTER
+    pass

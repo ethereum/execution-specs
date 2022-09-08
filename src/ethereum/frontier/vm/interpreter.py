@@ -30,7 +30,7 @@ from ..state import (
     touch_account,
 )
 from ..vm import Message
-from ..vm.gas import GAS_CODE_DEPOSIT, REFUND_SELF_DESTRUCT, subtract_gas
+from ..vm.gas import GAS_CODE_DEPOSIT, REFUND_SELF_DESTRUCT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
 from .exceptions import (
@@ -133,7 +133,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         contract_code = evm.output
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         try:
-            evm.gas_left = subtract_gas(evm.gas_left, contract_code_gas)
+            charge_gas(evm, contract_code_gas)
         except ExceptionalHalt:
             evm.output = b""
         else:

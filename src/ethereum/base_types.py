@@ -15,7 +15,7 @@ Integer and array types which are used by—but not unique to—Ethereum.
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Any, Callable, Optional, Tuple, Type, TypeVar
+from typing import Any, Callable, ClassVar, Optional, Tuple, Type, TypeVar
 
 U8_MAX_VALUE = (2**8) - 1
 UINT32_MAX_VALUE = (2**32) - 1
@@ -299,7 +299,7 @@ class FixedUInt(int):
     directly, but rather to be subclassed.
     """
 
-    MAX_VALUE: "FixedUInt"
+    MAX_VALUE: ClassVar["FixedUInt"]
 
     __slots__ = ()
 
@@ -649,6 +649,8 @@ class U256(FixedUInt):
     inclusive.
     """
 
+    MAX_VALUE: ClassVar["U256"]
+
     __slots__ = ()
 
     @classmethod
@@ -738,7 +740,7 @@ class Uint32(FixedUInt):
     inclusive.
     """
 
-    MAX_VALUE: "Uint32"
+    MAX_VALUE: ClassVar["Uint32"]
 
     __slots__ = ()
 
@@ -790,7 +792,7 @@ class Uint64(FixedUInt):
     inclusive.
     """
 
-    MAX_VALUE: "Uint64"
+    MAX_VALUE: ClassVar["Uint64"]
 
     __slots__ = ()
 
