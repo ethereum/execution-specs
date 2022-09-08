@@ -163,8 +163,7 @@ def calculate_call_gas_cost(
     call_gas_cost: `ethereum.base_types.Uint`
         The total gas amount for executing Opcodes `CALL` and `CALLCODE`.
     """
-    _account_exists = account_exists(state, to)
-    create_gas_cost = Uint(0) if _account_exists else GAS_NEW_ACCOUNT
+    create_gas_cost = Uint(0) if account_exists(state, to) else GAS_NEW_ACCOUNT
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
     return GAS_CALL + gas + create_gas_cost + transfer_gas_cost
 
