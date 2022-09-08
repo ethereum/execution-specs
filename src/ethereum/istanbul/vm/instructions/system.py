@@ -56,7 +56,7 @@ def generic_create(
     memory_size: U256,
 ) -> None:
     """
-    Core logic used by the `CREATE* family of opcodes.
+    Core logic used by the `CREATE*` family of opcodes.
     """
     # This import causes a circular import error
     # if it's not moved inside this method

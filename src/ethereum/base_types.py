@@ -649,6 +649,8 @@ class U256(FixedUInt):
     inclusive.
     """
 
+    MAX_VALUE: "U256"
+
     __slots__ = ()
 
     @classmethod

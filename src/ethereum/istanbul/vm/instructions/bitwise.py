@@ -262,7 +262,7 @@ def bitwise_sar(evm: Evm) -> None:
     elif signed_value >= 0:
         result = U256(0)
     else:
-        result = U256(U256.MAX_VALUE)
+        result = U256.MAX_VALUE
 
     push(evm.stack, result)
 
