@@ -34,7 +34,7 @@ from ..state import (
 )
 from ..utils.address import to_address
 from ..vm import Message
-from ..vm.gas import GAS_CODE_DEPOSIT, REFUND_SELF_DESTRUCT, charge_gas
+from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
 from .exceptions import (
@@ -154,7 +154,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         try:
             if len(contract_code) > 0:
-                ensure(contract_code[0] != 0xef, ContractCodeError)
+                ensure(contract_code[0] != 0xEF, ContractCodeError)
             charge_gas(evm, contract_code_gas)
             ensure(len(contract_code) <= MAX_CODE_SIZE, OutOfGasError)
         except ExceptionalHalt:

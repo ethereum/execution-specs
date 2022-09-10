@@ -2,6 +2,7 @@ import pytest
 
 import ethereum.rlp as rlp
 from ethereum.base_types import U256, Bytes, Bytes0, Bytes8, Uint, Uint64
+from ethereum.crypto.hash import keccak256
 from ethereum.london.eth_types import (
     AccessListTransaction,
     Block,
@@ -15,7 +16,6 @@ from ethereum.london.eth_types import (
     encode_transaction,
 )
 from ethereum.london.utils.hexadecimal import hex_to_address
-from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes256
 
 hash1 = keccak256(b"foo")
@@ -151,7 +151,9 @@ def test_london_rlp(rlp_object: rlp.RLP) -> None:
     assert rlp.decode_to(type(rlp_object), encoded) == rlp_object
 
 
-@pytest.mark.parametrize("tx", [legacy_transaction, access_list_transaction, transaction_1559])
+@pytest.mark.parametrize(
+    "tx", [legacy_transaction, access_list_transaction, transaction_1559]
+)
 def test_transaction_encoding(tx: Transaction) -> None:
     encoded = encode_transaction(tx)
     assert decode_transaction(encoded) == tx

@@ -232,19 +232,24 @@ class Load(BaseLoad):
             parameters.insert(0, Uint64(1))
             parameters.insert(2, hex_to_u256(raw.get("maxPriorityFeePerGas")))
             parameters.insert(3, hex_to_u256(raw.get("maxFeePerGas")))
-            parameters.insert(8, self.json_to_access_list(raw.get("accessList")))
+            parameters.insert(
+                8, self.json_to_access_list(raw.get("accessList"))
+            )
             return b"\x02" + rlp.encode(
-                self._module("eth_types").Transaction1559(*parameters))
+                self._module("eth_types").Transaction1559(*parameters)
+            )
 
-        
         parameters.insert(1, hex_to_u256(raw.get("gasPrice")))
         # Access List Transaction
         if "accessList" in raw:
             parameters.insert(0, Uint64(1))
-            parameters.insert(7, self.json_to_access_list(raw.get("accessList")))
+            parameters.insert(
+                7, self.json_to_access_list(raw.get("accessList"))
+            )
             return b"\x01" + rlp.encode(
-                self._module("eth_types").AccessListTransaction(*parameters))
-        
+                self._module("eth_types").AccessListTransaction(*parameters)
+            )
+
         # Legacy Transaction
         if hasattr(self._module("eth_types"), "LegacyTransaction"):
             return self._module("eth_types").LegacyTransaction(*parameters)
@@ -293,7 +298,8 @@ class Load(BaseLoad):
         return blocks, block_header_hashes, block_rlps
 
     def json_to_header(self, raw: Any) -> Any:
-        parameters = [            hex_to_hash(raw.get("parentHash")),
+        parameters = [
+            hex_to_hash(raw.get("parentHash")),
             hex_to_hash(raw.get("uncleHash") or raw.get("sha3Uncles")),
             self.hex_to_address(raw.get("coinbase") or raw.get("miner")),
             self.hex_to_root(raw.get("stateRoot")),

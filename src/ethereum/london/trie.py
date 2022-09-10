@@ -29,8 +29,8 @@ from typing import (
     cast,
 )
 
-from ethereum.crypto.hash import keccak256
 from ethereum.berlin import trie as previous_trie
+from ethereum.crypto.hash import keccak256
 from ethereum.utils.ensure import ensure
 from ethereum.utils.hexadecimal import hex_to_bytes
 

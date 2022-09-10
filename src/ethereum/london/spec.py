@@ -24,7 +24,7 @@ from ethereum.utils.ensure import ensure
 
 from .. import rlp
 from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint, Uint64
-from . import vm, MAINNET_FORK_BLOCK
+from . import MAINNET_FORK_BLOCK, vm
 from .bloom import logs_bloom
 from .eth_types import (
     TX_ACCESS_LIST_ADDRESS_COST,
@@ -235,8 +235,14 @@ def validate_header(header: Header, parent_header: Header) -> None:
 
     ensure(header.gas_used <= header.gas_limit, InvalidBlock)
     ensure(header.gas_limit >= 5000, InvalidBlock)
-    ensure(header.gas_limit < parent_gas_limit + parent_gas_limit // 1024, InvalidBlock)
-    ensure(header.gas_limit > parent_gas_limit - parent_gas_limit // 1024, InvalidBlock)
+    ensure(
+        header.gas_limit < parent_gas_limit + parent_gas_limit // 1024,
+        InvalidBlock,
+    )
+    ensure(
+        header.gas_limit > parent_gas_limit - parent_gas_limit // 1024,
+        InvalidBlock,
+    )
 
     # check if the base fee is correct
     if header.number == MAINNET_FORK_BLOCK:
@@ -245,12 +251,27 @@ def validate_header(header: Header, parent_header: Header) -> None:
         expected_base_fee_per_gas = parent_base_fee_per_gas
     elif parent_gas_used > parent_gas_target:
         gas_used_delta = parent_gas_used - parent_gas_target
-        base_fee_per_gas_delta = max(parent_base_fee_per_gas * gas_used_delta // parent_gas_target // BASE_FEE_MAX_CHANGE_DENOMINATOR, 1)
-        expected_base_fee_per_gas = parent_base_fee_per_gas + base_fee_per_gas_delta
+        base_fee_per_gas_delta = max(
+            parent_base_fee_per_gas
+            * gas_used_delta
+            // parent_gas_target
+            // BASE_FEE_MAX_CHANGE_DENOMINATOR,
+            1,
+        )
+        expected_base_fee_per_gas = (
+            parent_base_fee_per_gas + base_fee_per_gas_delta
+        )
     else:
         gas_used_delta = parent_gas_target - parent_gas_used
-        base_fee_per_gas_delta = parent_base_fee_per_gas * gas_used_delta // parent_gas_target // BASE_FEE_MAX_CHANGE_DENOMINATOR
-        expected_base_fee_per_gas = parent_base_fee_per_gas - base_fee_per_gas_delta
+        base_fee_per_gas_delta = (
+            parent_base_fee_per_gas
+            * gas_used_delta
+            // parent_gas_target
+            // BASE_FEE_MAX_CHANGE_DENOMINATOR
+        )
+        expected_base_fee_per_gas = (
+            parent_base_fee_per_gas - base_fee_per_gas_delta
+        )
 
     ensure(expected_base_fee_per_gas == header.base_fee_per_gas, InvalidBlock)
 
@@ -384,6 +405,8 @@ def apply_body(
         Address of account which receives block reward and transaction fees.
     block_number :
         Position of the block within the chain.
+    base_fee_per_gas :
+        Base fee per gas of within the block.
     block_gas_limit :
         Initial amount of gas available for execution in this block.
     block_time :
@@ -433,11 +456,12 @@ def apply_body(
         if isinstance(tx, Transaction1559):
             ensure(tx.gas_price >= tx.max_priority_fee_per_gas, InvalidBlock)
 
-            priority_fee_per_gas = min(tx.max_priority_fee_per_gas, tx.gas_price - base_fee_per_gas)
+            priority_fee_per_gas = min(
+                tx.max_priority_fee_per_gas, tx.gas_price - base_fee_per_gas
+            )
             effective_gas_price = priority_fee_per_gas + base_fee_per_gas
         else:
             effective_gas_price = tx.gas_price
-
 
         env = vm.Environment(
             caller=sender_address,
@@ -683,11 +707,13 @@ def process_transaction(
     gas_used = tx.gas - output.gas_left
     gas_refund = min(gas_used // 5, output.refund_counter)
     gas_refund_amount = (output.gas_left + gas_refund) * env.gas_price
-    
+
     # For non-1559 transactions env.gas_price == tx.gas_price
     priority_fee_per_gas = env.gas_price - env.base_fee_per_gas
-    transaction_fee = (tx.gas - output.gas_left - gas_refund) * priority_fee_per_gas
-    
+    transaction_fee = (
+        tx.gas - output.gas_left - gas_refund
+    ) * priority_fee_per_gas
+
     total_gas_used = gas_used - gas_refund
 
     # refund gas
@@ -925,7 +951,6 @@ def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
             )
         )
     )
-
 
 
 def signing_hash_1559(tx: Transaction1559) -> Hash32:
