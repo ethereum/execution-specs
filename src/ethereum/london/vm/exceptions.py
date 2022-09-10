@@ -119,3 +119,11 @@ class InvalidParameter(ExceptionalHalt):
     """
 
     pass
+
+
+class ContractCodeError(ExceptionalHalt):
+    """
+    Raised when the new contract code starts with 0xEF.
+    """
+
+    pass
