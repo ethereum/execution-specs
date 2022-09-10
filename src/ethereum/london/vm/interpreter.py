@@ -111,10 +111,7 @@ def process_message_call(
         evm = process_message(message, env)
 
     accounts_to_delete = collect_accounts_to_delete(evm)
-    refund_counter = U256(
-        calculate_gas_refund(evm)
-        + len(accounts_to_delete) * REFUND_SELF_DESTRUCT
-    )
+    refund_counter = U256(calculate_gas_refund(evm))
 
     return MessageCallOutput(
         gas_left=evm.gas_left,
