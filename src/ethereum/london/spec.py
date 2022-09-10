@@ -24,7 +24,7 @@ from ethereum.utils.ensure import ensure
 
 from .. import rlp
 from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint, Uint64
-from . import vm
+from . import vm, MAINNET_FORK_BLOCK
 from .bloom import logs_bloom
 from .eth_types import (
     TX_ACCESS_LIST_ADDRESS_COST,
@@ -44,6 +44,7 @@ from .eth_types import (
     Receipt,
     Root,
     Transaction,
+    Transaction1559,
     decode_transaction,
     encode_transaction,
 )
@@ -63,9 +64,12 @@ from .utils.message import prepare_message
 from .vm.interpreter import process_message_call
 
 BLOCK_REWARD = U256(2 * 10**18)
+BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
+ELASTICITY_MULTIPLIER = 2
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
 GENESIS_DIFFICULTY = Uint(131072)
+INITIAL_BASE_FEE = 1000000000
 MAX_OMMER_DEPTH = 6
 BOMB_DELAY_BLOCKS = 9000000
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
@@ -180,6 +184,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         get_last_256_block_hashes(chain),
         block.header.coinbase,
         block.header.number,
+        block.header.base_fee_per_gas,
         block.header.gas_limit,
         block.header.timestamp,
         block.header.difficulty,
@@ -218,6 +223,37 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_header :
         Parent Header of the header to check for correctness
     """
+    if header.number == MAINNET_FORK_BLOCK:
+        parent_gas_limit = parent_header.gas_limit * ELASTICITY_MULTIPLIER
+        parent_gas_target = parent_header.gas_limit
+    else:
+        parent_gas_limit = parent_header.gas_limit
+        parent_gas_target = parent_header.gas_limit // ELASTICITY_MULTIPLIER
+
+    parent_base_fee_per_gas = parent_header.base_fee_per_gas
+    parent_gas_used = parent_header.gas_used
+
+    ensure(header.gas_used <= header.gas_limit, InvalidBlock)
+    ensure(header.gas_limit >= 5000, InvalidBlock)
+    ensure(header.gas_limit < parent_gas_limit + parent_gas_limit // 1024, InvalidBlock)
+    ensure(header.gas_limit > parent_gas_limit - parent_gas_limit // 1024, InvalidBlock)
+
+    # check if the base fee is correct
+    if header.number == MAINNET_FORK_BLOCK:
+        expected_base_fee_per_gas = INITIAL_BASE_FEE
+    elif parent_gas_used == parent_gas_target:
+        expected_base_fee_per_gas = parent_base_fee_per_gas
+    elif parent_gas_used > parent_gas_target:
+        gas_used_delta = parent_gas_used - parent_gas_target
+        base_fee_per_gas_delta = max(parent_base_fee_per_gas * gas_used_delta // parent_gas_target // BASE_FEE_MAX_CHANGE_DENOMINATOR, 1)
+        expected_base_fee_per_gas = parent_base_fee_per_gas + base_fee_per_gas_delta
+    else:
+        gas_used_delta = parent_gas_target - parent_gas_used
+        base_fee_per_gas_delta = parent_base_fee_per_gas * gas_used_delta // parent_gas_target // BASE_FEE_MAX_CHANGE_DENOMINATOR
+        expected_base_fee_per_gas = parent_base_fee_per_gas - base_fee_per_gas_delta
+
+    ensure(expected_base_fee_per_gas == header.base_fee_per_gas, InvalidBlock)
+
     parent_has_ommers = parent_header.ommers_hash != EMPTY_OMMER_HASH
     ensure(header.timestamp > parent_header.timestamp, InvalidBlock)
     ensure(header.number == parent_header.number + 1, InvalidBlock)
@@ -319,6 +355,7 @@ def apply_body(
     block_hashes: List[Hash32],
     coinbase: Address,
     block_number: Uint,
+    base_fee_per_gas: Uint,
     block_gas_limit: Uint,
     block_time: U256,
     block_difficulty: Uint,
@@ -392,6 +429,16 @@ def apply_body(
         ensure(tx.gas <= gas_available, InvalidBlock)
         sender_address = recover_sender(chain_id, tx)
 
+        ensure(tx.gas_price >= base_fee_per_gas, InvalidBlock)
+        if isinstance(tx, Transaction1559):
+            ensure(tx.gas_price >= tx.max_priority_fee_per_gas, InvalidBlock)
+
+            priority_fee_per_gas = min(tx.max_priority_fee_per_gas, tx.gas_price - base_fee_per_gas)
+            effective_gas_price = priority_fee_per_gas + base_fee_per_gas
+        else:
+            effective_gas_price = tx.gas_price
+
+
         env = vm.Environment(
             caller=sender_address,
             origin=sender_address,
@@ -399,7 +446,8 @@ def apply_body(
             coinbase=coinbase,
             number=block_number,
             gas_limit=block_gas_limit,
-            gas_price=tx.gas_price,
+            base_fee_per_gas=base_fee_per_gas,
+            gas_price=effective_gas_price,
             time=block_time,
             difficulty=block_difficulty,
             state=state,
@@ -418,6 +466,8 @@ def apply_body(
 
         if isinstance(tx, AccessListTransaction):
             receipt = b"\x01" + rlp.encode(receipt)
+        if isinstance(tx, Transaction1559):
+            receipt = b"\x02" + rlp.encode(receipt)
 
         trie_set(
             receipts_trie,
@@ -601,14 +651,17 @@ def process_transaction(
     ensure(sender_account.balance >= gas_fee, InvalidBlock)
     ensure(sender_account.code == bytearray(), InvalidBlock)
 
+    effective_gas_fee = tx.gas * env.gas_price
+
     gas = tx.gas - calculate_intrinsic_cost(tx)
     increment_nonce(env.state, sender)
-    sender_balance_after_gas_fee = sender_account.balance - gas_fee
+
+    sender_balance_after_gas_fee = sender_account.balance - effective_gas_fee
     set_account_balance(env.state, sender, sender_balance_after_gas_fee)
 
     preaccessed_addresses = set()
     preaccessed_storage_keys = set()
-    if isinstance(tx, AccessListTransaction):
+    if isinstance(tx, (AccessListTransaction, Transaction1559)):
         for (address, keys) in tx.access_list:
             preaccessed_addresses.add(address)
             for key in keys:
@@ -629,8 +682,12 @@ def process_transaction(
 
     gas_used = tx.gas - output.gas_left
     gas_refund = min(gas_used // 2, output.refund_counter)
-    gas_refund_amount = (output.gas_left + gas_refund) * tx.gas_price
-    transaction_fee = (tx.gas - output.gas_left - gas_refund) * tx.gas_price
+    gas_refund_amount = (output.gas_left + gas_refund) * env.gas_price
+    
+    # For non-1559 transactions env.gas_price == tx.gas_price
+    priority_fee_per_gas = env.gas_price - env.base_fee_per_gas
+    transaction_fee = (tx.gas - output.gas_left - gas_refund) * priority_fee_per_gas
+    
     total_gas_used = gas_used - gas_refund
 
     # refund gas
@@ -725,7 +782,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
         create_cost = 0
 
     access_list_cost = 0
-    if isinstance(tx, AccessListTransaction):
+    if isinstance(tx, (AccessListTransaction, Transaction1559)):
         for (_address, keys) in tx.access_list:
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
             access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
@@ -774,6 +831,8 @@ def recover_sender(chain_id: Uint64, tx: Transaction) -> Address:
             )
     elif isinstance(tx, AccessListTransaction):
         public_key = secp256k1_recover(r, s, v, signing_hash_2930(tx))
+    elif isinstance(tx, Transaction1559):
+        public_key = secp256k1_recover(r, s, v, signing_hash_1559(tx))
 
     return Address(keccak256(public_key)[12:32])
 
@@ -857,6 +916,39 @@ def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
             (
                 tx.chain_id,
                 tx.nonce,
+                tx.gas_price,
+                tx.gas,
+                tx.to,
+                tx.value,
+                tx.data,
+                tx.access_list,
+            )
+        )
+    )
+
+
+
+def signing_hash_1559(tx: Transaction1559) -> Hash32:
+    """
+    Compute the hash of a transaction used in a EIP 1559 signature.
+
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `eth1spec.eth_types.Hash32`
+        Hash of the transaction.
+    """
+    return keccak256(
+        b"\x02"
+        + rlp.encode(
+            (
+                tx.chain_id,
+                tx.nonce,
+                tx.max_priority_fee_per_gas,
                 tx.gas_price,
                 tx.gas,
                 tx.to,

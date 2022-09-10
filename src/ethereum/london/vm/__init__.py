@@ -36,6 +36,7 @@ class Environment:
     origin: Address
     coinbase: Address
     number: Uint
+    base_fee_per_gas: Uint
     gas_limit: Uint
     gas_price: U256
     time: U256

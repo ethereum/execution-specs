@@ -83,7 +83,28 @@ class AccessListTransaction:
     s: U256
 
 
-Transaction = Union[LegacyTransaction, AccessListTransaction]
+@slotted_freezable
+@dataclass
+class Transaction1559:
+    """
+    The transaction type added in the London hardfork.
+    """
+
+    chain_id: Uint64
+    nonce: U256
+    max_priority_fee_per_gas: U256
+    gas_price: U256
+    gas: U256
+    to: Union[Bytes0, Address]
+    value: U256
+    data: Bytes
+    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    v: U256
+    r: U256
+    s: U256
+
+
+Transaction = Union[LegacyTransaction, AccessListTransaction, Transaction1559]
 
 
 def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
@@ -94,6 +115,8 @@ def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
         return tx
     elif isinstance(tx, AccessListTransaction):
         return b"\x01" + rlp.encode(tx)
+    elif isinstance(tx, Transaction1559):
+        return b"\x02" + rlp.encode(tx)
     else:
         raise Exception(f"Unable to encode transaction of type {type(tx)}")
 
@@ -103,8 +126,11 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
     Decode a transaction. Needed because non-legacy transactions aren't RLP.
     """
     if isinstance(tx, Bytes):
-        ensure(tx[0] == 1, InvalidBlock)
-        return rlp.decode_to(AccessListTransaction, tx[1:])
+        ensure(tx[0] in (1, 2), InvalidBlock)
+        if tx[0] == 1:
+            return rlp.decode_to(AccessListTransaction, tx[1:])
+        else:
+            return rlp.decode_to(Transaction1559, tx[1:])
     else:
         return tx
 
@@ -167,6 +193,7 @@ class Header:
     extra_data: Bytes
     mix_digest: Bytes32
     nonce: Bytes8
+    base_fee_per_gas: Uint
 
 
 @slotted_freezable
