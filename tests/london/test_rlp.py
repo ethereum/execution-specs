@@ -10,6 +10,7 @@ from ethereum.london.eth_types import (
     Log,
     Receipt,
     Transaction,
+    Transaction1559,
     decode_transaction,
     encode_transaction,
 )
@@ -67,6 +68,22 @@ access_list_transaction = AccessListTransaction(
     U256(6),
 )
 
+transaction_1559 = Transaction1559(
+    Uint64(1),
+    U256(1),
+    U256(7),
+    U256(2),
+    U256(3),
+    Bytes0(),
+    U256(4),
+    Bytes(b"bar"),
+    ((address1, (hash1, hash2)), (address2, tuple())),
+    U256(27),
+    U256(5),
+    U256(6),
+)
+
+
 header = Header(
     parent_hash=hash1,
     ommers_hash=hash2,
@@ -83,6 +100,7 @@ header = Header(
     extra_data=Bytes(b"foobar"),
     mix_digest=hash6,
     nonce=Bytes8(b"12345678"),
+    base_fee_per_gas=Uint(6),
 )
 
 block = Block(
@@ -90,6 +108,7 @@ block = Block(
     transactions=(
         encode_transaction(legacy_transaction),
         encode_transaction(access_list_transaction),
+        encode_transaction(transaction_1559),
     ),
     ommers=(header,),
 )
@@ -119,6 +138,7 @@ receipt = Receipt(
     [
         legacy_transaction,
         access_list_transaction,
+        transaction_1559,
         header,
         block,
         log1,
@@ -131,7 +151,7 @@ def test_london_rlp(rlp_object: rlp.RLP) -> None:
     assert rlp.decode_to(type(rlp_object), encoded) == rlp_object
 
 
-@pytest.mark.parametrize("tx", [legacy_transaction, access_list_transaction])
+@pytest.mark.parametrize("tx", [legacy_transaction, access_list_transaction, transaction_1559])
 def test_transaction_encoding(tx: Transaction) -> None:
     encoded = encode_transaction(tx)
     assert decode_transaction(encoded) == tx

@@ -214,53 +214,42 @@ class Load(BaseLoad):
         return access_list
 
     def json_to_tx(self, raw: Any) -> Any:
+        parameters = [
+            hex_to_u256(raw.get("nonce")),
+            hex_to_u256(raw.get("gasLimit")),
+            Bytes0(b"")
+            if raw.get("to") == ""
+            else self.hex_to_address(raw.get("to")),
+            hex_to_u256(raw.get("value")),
+            hex_to_bytes(raw.get("data")),
+            hex_to_u256(raw.get("v")),
+            hex_to_u256(raw.get("r")),
+            hex_to_u256(raw.get("s")),
+        ]
+
+        # London and beyond
+        if "maxFeePerGas" in raw and "maxPriorityFeePerGas" in raw:
+            parameters.insert(0, Uint64(1))
+            parameters.insert(2, hex_to_u256(raw.get("maxPriorityFeePerGas")))
+            parameters.insert(3, hex_to_u256(raw.get("maxFeePerGas")))
+            parameters.insert(8, self.json_to_access_list(raw.get("accessList")))
+            return b"\x02" + rlp.encode(
+                self._module("eth_types").Transaction1559(*parameters))
+
+        
+        parameters.insert(1, hex_to_u256(raw.get("gasPrice")))
+        # Access List Transaction
+        if "accessList" in raw:
+            parameters.insert(0, Uint64(1))
+            parameters.insert(7, self.json_to_access_list(raw.get("accessList")))
+            return b"\x01" + rlp.encode(
+                self._module("eth_types").AccessListTransaction(*parameters))
+        
+        # Legacy Transaction
         if hasattr(self._module("eth_types"), "LegacyTransaction"):
-            if "accessList" in raw:
-                return b"\x01" + rlp.encode(
-                    self._module("eth_types").AccessListTransaction(
-                        Uint64(1),
-                        hex_to_u256(raw.get("nonce")),
-                        hex_to_u256(raw.get("gasPrice")),
-                        hex_to_u256(raw.get("gasLimit")),
-                        Bytes0(b"")
-                        if raw.get("to") == ""
-                        else self.hex_to_address(raw.get("to")),
-                        hex_to_u256(raw.get("value")),
-                        hex_to_bytes(raw.get("data")),
-                        self.json_to_access_list(raw.get("accessList")),
-                        hex_to_u256(raw.get("v")),
-                        hex_to_u256(raw.get("r")),
-                        hex_to_u256(raw.get("s")),
-                    )
-                )
-            else:
-                return self._module("eth_types").LegacyTransaction(
-                    hex_to_u256(raw.get("nonce")),
-                    hex_to_u256(raw.get("gasPrice")),
-                    hex_to_u256(raw.get("gasLimit")),
-                    Bytes0(b"")
-                    if raw.get("to") == ""
-                    else self.hex_to_address(raw.get("to")),
-                    hex_to_u256(raw.get("value")),
-                    hex_to_bytes(raw.get("data")),
-                    hex_to_u256(raw.get("v")),
-                    hex_to_u256(raw.get("r")),
-                    hex_to_u256(raw.get("s")),
-                )
+            return self._module("eth_types").LegacyTransaction(*parameters)
         else:
-            return self._module("eth_types").Transaction(
-                hex_to_u256(raw.get("nonce")),
-                hex_to_u256(raw.get("gasPrice")),
-                hex_to_u256(raw.get("gasLimit")),
-                Bytes0(b"")
-                if raw.get("to") == ""
-                else self.hex_to_address(raw.get("to")),
-                hex_to_u256(raw.get("value")),
-                hex_to_bytes(raw.get("data")),
-                hex_to_u256(raw.get("v")),
-                hex_to_u256(raw.get("r")),
-                hex_to_u256(raw.get("s")),
-            )
+            return self._module("eth_types").Transaction(*parameters)
 
     def json_to_blocks(
         self,
@@ -304,8 +293,7 @@ class Load(BaseLoad):
         return blocks, block_header_hashes, block_rlps
 
     def json_to_header(self, raw: Any) -> Any:
-        return self.Header(
-            hex_to_hash(raw.get("parentHash")),
+        parameters = [            hex_to_hash(raw.get("parentHash")),
             hex_to_hash(raw.get("uncleHash") or raw.get("sha3Uncles")),
             self.hex_to_address(raw.get("coinbase") or raw.get("miner")),
             self.hex_to_root(raw.get("stateRoot")),
@@ -324,7 +312,13 @@ class Load(BaseLoad):
             hex_to_bytes(raw.get("extraData")),
             hex_to_bytes32(raw.get("mixHash")),
             hex_to_bytes8(raw.get("nonce")),
-        )
+        ]
+
+        if "baseFeePerGas" in raw:
+            base_fee_per_gas = hex_to_uint(raw.get("baseFeePerGas"))
+            parameters.append(base_fee_per_gas)
+
+        return self.Header(*parameters)
 
 
 def load_test(test_case: Dict, load: BaseLoad) -> Dict:
