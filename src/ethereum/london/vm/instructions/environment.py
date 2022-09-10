@@ -561,3 +561,30 @@ def self_balance(evm: Evm) -> None:
 
     # PROGRAM COUNTER
     evm.pc += 1
+
+
+def base_fee(evm: Evm) -> None:
+    """
+    Pushes the base fee of the current block on to the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Raises
+    ------
+    :py:class:`~ethereum.london.vm.exceptions.OutOfGasError`
+        If `evm.gas_left` is less than GAS_BASE.
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
+    push(evm.stack, U256(evm.env.base_fee_per_gas))
+
+    # PROGRAM COUNTER
+    evm.pc += 1

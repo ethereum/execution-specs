@@ -96,6 +96,7 @@ class Ops(enum.Enum):
     GASLIMIT = 0x45
     CHAINID = 0x46
     SELFBALANCE = 0x47
+    BASEFEE = 0x48
 
     # Control Flow Ops
     STOP = 0x00
@@ -264,6 +265,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.RETURNDATACOPY: environment_instructions.returndatacopy,
     Ops.EXTCODEHASH: environment_instructions.extcodehash,
     Ops.SELFBALANCE: environment_instructions.self_balance,
+    Ops.BASEFEE: environment_instructions.base_fee,
     Ops.SSTORE: storage_instructions.sstore,
     Ops.JUMP: control_flow_instructions.jump,
     Ops.JUMPI: control_flow_instructions.jumpi,
