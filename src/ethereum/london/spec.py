@@ -452,15 +452,18 @@ def apply_body(
         ensure(tx.gas <= gas_available, InvalidBlock)
         sender_address = recover_sender(chain_id, tx)
 
-        ensure(tx.gas_price >= base_fee_per_gas, InvalidBlock)
         if isinstance(tx, Transaction1559):
-            ensure(tx.gas_price >= tx.max_priority_fee_per_gas, InvalidBlock)
+            ensure(
+                tx.max_fee_per_gas >= tx.max_priority_fee_per_gas, InvalidBlock
+            )
 
             priority_fee_per_gas = min(
-                tx.max_priority_fee_per_gas, tx.gas_price - base_fee_per_gas
+                tx.max_priority_fee_per_gas,
+                tx.max_fee_per_gas - base_fee_per_gas,
             )
             effective_gas_price = priority_fee_per_gas + base_fee_per_gas
         else:
+            ensure(tx.gas_price >= base_fee_per_gas, InvalidBlock)
             effective_gas_price = tx.gas_price
 
         env = vm.Environment(
@@ -670,7 +673,12 @@ def process_transaction(
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
-    gas_fee = tx.gas * tx.gas_price
+
+    if isinstance(tx, Transaction1559):
+        gas_fee = tx.gas * tx.max_fee_per_gas
+    else:
+        gas_fee = tx.gas * tx.gas_price
+
     ensure(sender_account.nonce == tx.nonce, InvalidBlock)
     ensure(sender_account.balance >= gas_fee, InvalidBlock)
     ensure(sender_account.code == bytearray(), InvalidBlock)
@@ -863,7 +871,7 @@ def recover_sender(chain_id: Uint64, tx: Transaction) -> Address:
     return Address(keccak256(public_key)[12:32])
 
 
-def signing_hash_pre155(tx: Transaction) -> Hash32:
+def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:
     """
     Compute the hash of a transaction used in a legacy (pre EIP 155) signature.
 
@@ -891,7 +899,7 @@ def signing_hash_pre155(tx: Transaction) -> Hash32:
     )
 
 
-def signing_hash_155(tx: Transaction) -> Hash32:
+def signing_hash_155(tx: LegacyTransaction) -> Hash32:
     """
     Compute the hash of a transaction used in a EIP 155 signature.
 
@@ -974,7 +982,7 @@ def signing_hash_1559(tx: Transaction1559) -> Hash32:
                 tx.chain_id,
                 tx.nonce,
                 tx.max_priority_fee_per_gas,
-                tx.gas_price,
+                tx.max_fee_per_gas,
                 tx.gas,
                 tx.to,
                 tx.value,

@@ -30,7 +30,6 @@ from ..base_types import (
 )
 from ..crypto.hash import Hash32, keccak256
 from ..exceptions import InvalidBlock
-from ..utils.ensure import ensure
 
 Address = Bytes20
 Root = Hash32
@@ -93,7 +92,7 @@ class Transaction1559:
     chain_id: Uint64
     nonce: U256
     max_priority_fee_per_gas: U256
-    gas_price: U256
+    max_fee_per_gas: U256
     gas: U256
     to: Union[Bytes0, Address]
     value: U256
@@ -126,11 +125,12 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
     Decode a transaction. Needed because non-legacy transactions aren't RLP.
     """
     if isinstance(tx, Bytes):
-        ensure(tx[0] in (1, 2), InvalidBlock)
         if tx[0] == 1:
             return rlp.decode_to(AccessListTransaction, tx[1:])
-        else:
+        elif tx[0] == 2:
             return rlp.decode_to(Transaction1559, tx[1:])
+        else:
+            raise InvalidBlock
     else:
         return tx
 
