@@ -356,5 +356,3 @@ Transaction2930
 downloader
 Downloader
 sublist
-
-testnets

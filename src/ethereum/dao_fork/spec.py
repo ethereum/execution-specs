@@ -897,15 +897,11 @@ def calculate_block_difficulty(
     # bomb has no effect prior to block 200000 we pretend it existed from
     # genesis.
     # See https://github.com/ethereum/go-ethereum/pull/1588
-    num_bomb_periods = (int(block_number) // 100000) - 2
+    num_bomb_periods = int(block_number) // 100000 - 2
     if num_bomb_periods >= 0:
         difficulty += 2**num_bomb_periods
 
-    # The Ethereum specification does not permit the difficulty to fall below
-    # `MINIMUM_DIFFICULTY`. Unfortunately, there is no consistency about
-    # whether the difficulty is raised back to `MINIMUM_DIFFICULTY` before or
-    # after the bomb.
-    # In practice the question is moot. On Mainnet, it is impossible to reach
-    # `MINIMUM_DIFFICULTY` after block 800,000 due to the bomb itself. On
-    # testnets the bomb doesn't exist, so the issue doesn't arise.
+    # Some clients raise the difficulty to `MINIMUM_DIFFICULTY` prior to adding
+    # the bomb. This bug does not matter because the difficulty is always much
+    # greater than `MINIMUM_DIFFICULTY` on Mainnet.
     return Uint(max(difficulty, MINIMUM_DIFFICULTY))
