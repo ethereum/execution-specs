@@ -229,18 +229,13 @@ def validate_header(header: Header, parent_header: Header) -> None:
     else:
         parent_gas_limit = parent_header.gas_limit
         parent_gas_target = parent_header.gas_limit // ELASTICITY_MULTIPLIER
+        parent_base_fee_per_gas = parent_header.base_fee_per_gas
 
-    parent_base_fee_per_gas = parent_header.base_fee_per_gas
     parent_gas_used = parent_header.gas_used
 
     ensure(header.gas_used <= header.gas_limit, InvalidBlock)
-    ensure(header.gas_limit >= 5000, InvalidBlock)
     ensure(
-        header.gas_limit < parent_gas_limit + parent_gas_limit // 1024,
-        InvalidBlock,
-    )
-    ensure(
-        header.gas_limit > parent_gas_limit - parent_gas_limit // 1024,
+        check_gas_limit(header.gas_limit, parent_gas_limit),
         InvalidBlock,
     )
 
@@ -278,10 +273,6 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_has_ommers = parent_header.ommers_hash != EMPTY_OMMER_HASH
     ensure(header.timestamp > parent_header.timestamp, InvalidBlock)
     ensure(header.number == parent_header.number + 1, InvalidBlock)
-    ensure(
-        check_gas_limit(header.gas_limit, parent_header.gas_limit),
-        InvalidBlock,
-    )
     ensure(len(header.extra_data) <= 32, InvalidBlock)
 
     block_difficulty = calculate_block_difficulty(
@@ -336,6 +327,7 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
         header.gas_used,
         header.timestamp,
         header.extra_data,
+        header.base_fee_per_gas,
     ]
 
     return rlp.rlp_hash(header_data_without_pow_artefacts)
