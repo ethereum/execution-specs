@@ -73,12 +73,3 @@ class StackDepthLimitError(ExceptionalHalt):
     """
 
     pass
-
-
-class InsufficientFunds(ExceptionalHalt):
-    """
-    Raised when an account has insufficient funds to transfer the
-    requested value.
-    """
-
-    pass

@@ -25,7 +25,6 @@ from ..state import (
     begin_transaction,
     commit_transaction,
     destroy_storage,
-    get_account,
     increment_nonce,
     move_ether,
     rollback_transaction,
@@ -39,7 +38,6 @@ from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
 from .exceptions import (
     ExceptionalHalt,
-    InsufficientFunds,
     InvalidOpcode,
     OutOfGasError,
     Revert,
@@ -234,14 +232,7 @@ def process_message(message: Message, env: Environment) -> Evm:
 
     touch_account(env.state, message.current_target)
 
-    sender_balance = get_account(env.state, message.caller).balance
-
     if message.should_transfer_value and message.value != 0:
-        if sender_balance < message.value:
-            rollback_transaction(env.state)
-            raise InsufficientFunds(
-                f"Insufficient funds: {sender_balance} < {message.value}"
-            )
         move_ether(
             env.state, message.caller, message.current_target, message.value
         )
