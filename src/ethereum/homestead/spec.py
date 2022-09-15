@@ -877,7 +877,7 @@ def calculate_block_difficulty(
     # bomb has no effect prior to block 200000 we pretend it existed from
     # genesis.
     # See https://github.com/ethereum/go-ethereum/pull/1588
-    num_bomb_periods = int(block_number) // 100000 - 2
+    num_bomb_periods = (int(block_number) // 100000) - 2
     if num_bomb_periods >= 0:
         difficulty += 2**num_bomb_periods
 
