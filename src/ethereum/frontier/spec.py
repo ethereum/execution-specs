@@ -56,7 +56,7 @@ from .vm.interpreter import process_message_call
 BLOCK_REWARD = U256(5 * 10**18)
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
-GENESIS_DIFFICULTY = Uint(131072)
+MINIMUM_DIFFICULTY = Uint(131072)
 MAX_OMMER_DEPTH = 6
 
 
@@ -860,12 +860,10 @@ def calculate_block_difficulty(
     Computes difficulty of a block using its header and
     parent header.
 
-    Since the genesis block is the first on the chain and has no parent,
-    its difficulty is a predefined value stored as ``GENESIS_DIFFICULTY``.
-    For all other blocks the difficulty is determined by the time the
-    block was created after its parent. If a block's timestamp is more
-    than 13 seconds after its parent block then its difficulty is set
-    as the difference between the parent's difficulty and the
+    The difficulty of a block is determined by the time the block was
+    created after its parent. If a block's timestamp is more than 13
+    seconds after its parent block then its difficulty is set as the
+    difference between the parent's difficulty and the
     ``max_adjustment_delta``. Otherwise, if the time between parent and
     child blocks is too small (under 13 seconds) then, to avoid mass
     forking, the block's difficulty is set to the sum of the delta and
@@ -888,9 +886,7 @@ def calculate_block_difficulty(
         Computed difficulty for a block.
     """
     max_adjustment_delta = parent_difficulty // Uint(2048)
-    if block_number == 0:
-        return GENESIS_DIFFICULTY
-    elif block_timestamp < parent_timestamp + 13:
+    if block_timestamp < parent_timestamp + 13:
         difficulty = parent_difficulty + max_adjustment_delta
     else:  # block_timestamp >= parent_timestamp + 13
         difficulty = parent_difficulty - max_adjustment_delta
@@ -900,7 +896,11 @@ def calculate_block_difficulty(
     # bomb has no effect prior to block 200000 we pretend it existed from
     # genesis.
     # See https://github.com/ethereum/go-ethereum/pull/1588
-    num_bomb_periods = int(block_number) // 100000 - 2
+    num_bomb_periods = (int(block_number) // 100000) - 2
     if num_bomb_periods >= 0:
         difficulty += 2**num_bomb_periods
-    return Uint(max(difficulty, GENESIS_DIFFICULTY))
+
+    # Some clients raise the difficulty to `MINIMUM_DIFFICULTY` prior to adding
+    # the bomb. This bug does not matter because the difficulty is always much
+    # greater than `MINIMUM_DIFFICULTY` on Mainnet.
+    return max(difficulty, MINIMUM_DIFFICULTY)
