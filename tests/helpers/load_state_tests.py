@@ -42,7 +42,37 @@ class BaseLoad(ABC):
 
     @property
     @abstractmethod
+    def Environment(self) -> Any:
+        pass
+
+    @property
+    @abstractmethod
+    def LegacyTransaction(self) -> Any:
+        pass
+
+    @property
+    @abstractmethod
+    def Account(self) -> Any:
+        pass
+
+    @property
+    @abstractmethod
+    def State(self) -> Any:
+        pass
+
+    @property
+    @abstractmethod
+    def set_account(self) -> Any:
+        pass
+
+    @property
+    @abstractmethod
     def BlockChain(self) -> Any:
+        pass
+
+    @property
+    @abstractmethod
+    def process_transaction(self) -> Any:
         pass
 
     @property
@@ -93,8 +123,36 @@ class Load(BaseLoad):
         return self._module("eth_types").Header
 
     @property
+    def Environment(self) -> Any:
+        return self._module("vm").Environment
+
+    @property
+    def LegacyTransaction(self) -> Any:
+        mod = self._module("eth_types")
+        try:
+            return mod.LegacyTransaction
+        except AttributeError:
+            return mod.Transaction
+
+    @property
+    def Account(self) -> Any:
+        return self._module("eth_types").Account
+
+    @property
+    def State(self) -> Any:
+        return self._module("state").State
+
+    @property
+    def set_account(self) -> Any:
+        return self._module("state").set_account
+
+    @property
     def state_transition(self) -> Any:
         return self._module("spec").state_transition
+
+    @property
+    def process_transaction(self) -> Any:
+        return self._module("spec").process_transaction
 
     @property
     def BlockChain(self) -> Any:
@@ -120,18 +178,17 @@ class Load(BaseLoad):
         return importlib.import_module(f"ethereum.{self._fork_module}.{name}")
 
     def json_to_state(self, raw: Any) -> Any:
-        state = self._module("state").State()
-        set_account = self._module("state").set_account
+        state = self.State()
         set_storage = self._module("state").set_storage
 
         for (addr_hex, acc_state) in raw.items():
             addr = self.hex_to_address(addr_hex)
-            account = self._module("eth_types").Account(
+            account = self.Account(
                 nonce=hex_to_uint(acc_state.get("nonce", "0x0")),
                 balance=U256(hex_to_uint(acc_state.get("balance", "0x0"))),
                 code=hex_to_bytes(acc_state.get("code", "")),
             )
-            set_account(state, addr, account)
+            self.set_account(state, addr, account)
 
             for (k, v) in acc_state.get("storage", {}).items():
                 set_storage(
