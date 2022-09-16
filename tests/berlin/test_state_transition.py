@@ -74,42 +74,12 @@ def test_general_state_tests(test_case: Dict) -> None:
 # Run legacy valid block tests
 test_dir = "tests/fixtures/BlockchainTests/ValidBlocks/"
 
-only_in_incorrect = (
+IGNORE_LIST = (
     "bcForkStressTest/ForkStressTest.json",
     "bcGasPricerTest/RPC_API_Test.json",
-    "bcMultiChainTest/CallContractFromNotBestBlock.json",
-    "bcMultiChainTest/ChainAtoChainB_BlockHash.json",
-    "bcMultiChainTest/ChainAtoChainB_difficultyB.json",
-    "bcMultiChainTest/ChainAtoChainB.json",
-    "bcMultiChainTest/ChainAtoChainBCallContractFormA.json",
-    "bcMultiChainTest/ChainAtoChainBtoChainA.json",
-    "bcMultiChainTest/ChainAtoChainBtoChainAtoChainB.json",
-    "bcTotalDifficultyTest/lotsOfBranchesOverrideAtTheEnd.json",
-    "bcTotalDifficultyTest/lotsOfBranchesOverrideAtTheMiddle.json",
-    "bcTotalDifficultyTest/lotsOfLeafs.json",
-    "bcTotalDifficultyTest/newChainFrom4Block.json",
-    "bcTotalDifficultyTest/newChainFrom5Block.json",
-    "bcTotalDifficultyTest/newChainFrom6Block.json",
-    "bcTotalDifficultyTest/sideChainWithMoreTransactions.json",
-    "bcTotalDifficultyTest/sideChainWithMoreTransactions2.json",
-    "bcTotalDifficultyTest/sideChainWithNewMaxDifficultyStartingFromBlock3AfterBlock4.json",
-    "bcTotalDifficultyTest/uncleBlockAtBlock3AfterBlock3.json",
-    "bcTotalDifficultyTest/uncleBlockAtBlock3afterBlock4.json",
+    "bcMultiChainTest",
+    "bcTotalDifficultyTest",
 )
-
-
-@pytest.mark.parametrize(
-    "test_case",
-    fetch_berlin_tests(
-        test_dir,
-        only_in=only_in_incorrect,
-    ),
-    ids=idfn,
-)
-def test_valid_block_incorrect(test_case: Dict) -> None:
-    with pytest.raises(InvalidBlock):
-        run_berlin_blockchain_st_tests(test_case)
-
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
@@ -120,12 +90,12 @@ SLOW_TESTS = ("bcExploitTest/DelegateCallSpam.json",)  # type: ignore
     "test_case",
     fetch_berlin_tests(
         test_dir,
-        ignore_list=only_in_incorrect,
+        ignore_list=IGNORE_LIST,
         slow_list=SLOW_TESTS,
     ),
     ids=idfn,
 )
-def test_valid_block_correct(test_case: Dict) -> None:
+def test_valid_block_tests(test_case: Dict) -> None:
     try:
         run_berlin_blockchain_st_tests(test_case)
     except KeyError:

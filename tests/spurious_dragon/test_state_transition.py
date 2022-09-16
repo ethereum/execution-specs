@@ -45,26 +45,12 @@ test_dir = (
     "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/ValidBlocks/"
 )
 
-only_in_incorrect = ("bcGasPricerTest/RPC_API_Test.json",)
-
-# Every test below takes more than  60s to run and
-# hence they've been marked as slow
-SLOW_TESTS = ("bcGasPricerTest/RPC_API_Test.json",)
-
-
-@pytest.mark.parametrize(
-    "test_case",
-    fetch_spurious_dragon_tests(
-        test_dir,
-        only_in=only_in_incorrect,
-        slow_list=SLOW_TESTS,
-    ),
-    ids=idfn,
+IGNORE_LIST = (
+    "bcForkStressTest/ForkStressTest.json",
+    "bcGasPricerTest/RPC_API_Test.json",
+    "bcMultiChainTest",
+    "bcTotalDifficultyTest",
 )
-def test_valid_block_incorrect(test_case: Dict) -> None:
-    with pytest.raises(InvalidBlock):
-        run_spurious_dragon_blockchain_st_tests(test_case)
-
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
@@ -75,12 +61,12 @@ SLOW_TESTS = ("bcExploitTest/DelegateCallSpam.json",)
     "test_case",
     fetch_spurious_dragon_tests(
         test_dir,
-        ignore_list=only_in_incorrect,
+        ignore_list=IGNORE_LIST,
         slow_list=SLOW_TESTS,
     ),
     ids=idfn,
 )
-def test_valid_block_correct(test_case: Dict) -> None:
+def test_valid_block_tests(test_case: Dict) -> None:
     try:
         run_spurious_dragon_blockchain_st_tests(test_case)
     except KeyError:

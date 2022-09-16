@@ -78,57 +78,16 @@ test_dir = (
     "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/ValidBlocks/"
 )
 
-only_in_incorrect = (
+IGNORE_LIST = (
     "bcForkStressTest/ForkStressTest.json",
     "bcGasPricerTest/RPC_API_Test.json",
-    "bcMultiChainTest/CallContractFromNotBestBlock.json",
-    "bcMultiChainTest/ChainAtoChainB_BlockHash.json",
-    "bcMultiChainTest/ChainAtoChainB_difficultyB.json",
-    "bcMultiChainTest/ChainAtoChainB.json",
-    "bcMultiChainTest/ChainAtoChainBCallContractFormA.json",
-    "bcMultiChainTest/ChainAtoChainBtoChainA.json",
-    "bcMultiChainTest/ChainAtoChainBtoChainAtoChainB.json",
-    "bcTotalDifficultyTest/lotsOfBranchesOverrideAtTheEnd.json",
-    "bcTotalDifficultyTest/lotsOfBranchesOverrideAtTheMiddle.json",
-    "bcTotalDifficultyTest/lotsOfLeafs.json",
-    "bcTotalDifficultyTest/newChainFrom4Block.json",
-    "bcTotalDifficultyTest/newChainFrom5Block.json",
-    "bcTotalDifficultyTest/newChainFrom6Block.json",
-    "bcTotalDifficultyTest/sideChainWithMoreTransactions.json",
-    "bcTotalDifficultyTest/sideChainWithMoreTransactions2.json",
-    "bcTotalDifficultyTest/sideChainWithNewMaxDifficultyStartingFromBlock3AfterBlock4.json",
-    "bcTotalDifficultyTest/uncleBlockAtBlock3AfterBlock3.json",
-    "bcTotalDifficultyTest/uncleBlockAtBlock3afterBlock4.json",
+    "bcMultiChainTest",
+    "bcTotalDifficultyTest",
 )
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
-SLOW_TESTS = (
-    "bcForkStressTest/ForkStressTest.json",
-    "bcGasPricerTest/RPC_API_Test.json",
-    "bcTotalDifficultyTest/newChainFrom4Block.json",
-    "bcTotalDifficultyTest/newChainFrom5Block.json",
-    "bcTotalDifficultyTest/newChainFrom6Block.json",
-)
-
-
-@pytest.mark.parametrize(
-    "test_case",
-    fetch_constantinople_tests(
-        test_dir,
-        only_in=only_in_incorrect,
-        slow_list=SLOW_TESTS,
-    ),
-    ids=idfn,
-)
-def test_valid_block_incorrect(test_case: Dict) -> None:
-    with pytest.raises(InvalidBlock):
-        run_constantinople_blockchain_st_tests(test_case)
-
-
-# Every test below takes more than  60s to run and
-# hence they've been marked as slow
-SLOW_TESTS = ("bcExploitTest/DelegateCallSpam.json",)  # type: ignore
+SLOW_TESTS = ("bcExploitTest/DelegateCallSpam.json",)
 
 BIG_MEMORY_TESTS = ("randomStatetest94_",)
 
@@ -137,13 +96,13 @@ BIG_MEMORY_TESTS = ("randomStatetest94_",)
     "test_case",
     fetch_constantinople_tests(
         test_dir,
-        ignore_list=only_in_incorrect,
+        ignore_list=IGNORE_LIST,
         slow_list=SLOW_TESTS,
         big_memory_list=BIG_MEMORY_TESTS,
     ),
     ids=idfn,
 )
-def test_valid_block_correct(test_case: Dict) -> None:
+def test_valid_block_tests(test_case: Dict) -> None:
     try:
         run_constantinople_blockchain_st_tests(test_case)
     except KeyError:
