@@ -86,15 +86,6 @@ class StackDepthLimitError(ExceptionalHalt):
     pass
 
 
-class InsufficientFunds(ExceptionalHalt):
-    """
-    Raised when an account has insufficient funds to transfer the
-    requested value.
-    """
-
-    pass
-
-
 class WriteInStaticContext(ExceptionalHalt):
     """
     Raised when an attempt is made to modify the state while operating inside
