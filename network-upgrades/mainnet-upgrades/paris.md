@@ -90,3 +90,4 @@ See https://github.com/ethereum/pm/blob/master/Merge/mainnet-readiness.md
     - [Nethermind](https://github.com/NethermindEth/nethermind/releases/tag/1.13.4)
 - Goerli
 - Mainnet 
+    - [go-ethereum (geth)](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.23)
