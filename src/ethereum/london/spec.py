@@ -68,7 +68,7 @@ BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
 ELASTICITY_MULTIPLIER = 2
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
-GENESIS_DIFFICULTY = Uint(131072)
+MINIMUM_DIFFICULTY = Uint(131072)
 INITIAL_BASE_FEE = 1000000000
 MAX_OMMER_DEPTH = 6
 BOMB_DELAY_BLOCKS = 9700000
@@ -1121,8 +1121,9 @@ def calculate_block_difficulty(
     # See https://github.com/ethereum/go-ethereum/pull/1588
     num_bomb_periods = ((int(block_number) - BOMB_DELAY_BLOCKS) // 100000) - 2
     if num_bomb_periods >= 0:
-        return Uint(
-            max(difficulty + 2**num_bomb_periods, GENESIS_DIFFICULTY)
-        )
-    else:
-        return Uint(max(difficulty, GENESIS_DIFFICULTY))
+        difficulty += 2**num_bomb_periods
+
+    # Some clients raise the difficulty to `MINIMUM_DIFFICULTY` prior to adding
+    # the bomb. This bug does not matter because the difficulty is always much
+    # greater than `MINIMUM_DIFFICULTY` on Mainnet.
+    return Uint(max(difficulty, MINIMUM_DIFFICULTY))
