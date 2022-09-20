@@ -28,7 +28,7 @@ This network upgrade requires changes to both Ethereum's execution and consensus
 | Ropsten | 50000000000000000 | June 8, 2022 | `0x7119B6B3` (unchanged from [London](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/london.md)) |
 | Sepolia | 17000000000000000 | July 6, 2022 | `0xfe3366e7` (unchanged from [Genesis](https://github.com/ethereum/go-ethereum/pull/23730)) |
 | Goerli  | 10790000 | August 10, 2022 | `0xB8C6299D` (unchanged from [London](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/london.md))  |
-| Mainnet | 58750000000000000000000 | September 15, 2022 | TBD |
+| Mainnet | 58750000000000000000000 | September 15, 2022 | `0xf0afd0e3` (unchanged from [Gray Glacier](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/gray-glacier.md)) |
 
 #### FORK NEXT Upgrade 
 
@@ -36,12 +36,36 @@ Once the proof-of-work to proof-of-stake transition has completed, an additional
 
 | Network | Block Number / `FORK_NEXT` | Expected Date | Fork Hash |
 |---------|------------|---------------|--------------|
-| Ropsten | N/A | N/A | N/A | 
+| Ropsten (deprecated) | N/A  | N/A | N/A | 
 | Sepolia | 1735371 | August 17, 2022 | `0xb96cbd13` | 
 | Goerli  | TBD | TBD | TBD | 
 | Mainnet | TBD | TBD | TBD |  
 
 Note that [Ropsten has been deprecated](https://blog.ethereum.org/2022/06/21/testnet-deprecation/) and will not be upgraded with a `FORK_NEXT` value. 
+
+### Client Releases
+
+ - Ropsten:
+    - [Besu](https://github.com/hyperledger/besu/releases/tag/22.4.2)
+    - [Erigon](https://github.com/ledgerwatch/erigon/releases/tag/v2022.05.08)
+    - [go-ethereum (geth)](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.18)
+    - [Nethermind](https://github.com/NethermindEth/nethermind/releases/tag/1.13.1)
+- Sepolia
+    - [Besu](https://github.com/hyperledger/besu/releases/tag/22.7.0-RC1)
+    - [Erigon](https://github.com/ledgerwatch/erigon/releases/tag/v2022.07.01)
+    - [go-ethereum (geth)](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.21)
+    - [Nethermind](https://github.com/NethermindEth/nethermind/releases/tag/1.13.4)
+- Goerli
+    - [Besu](https://github.com/hyperledger/besu/releases/tag/22.7.0-RC3)
+    - [Erigon](https://github.com/ledgerwatch/erigon/releases/tag/v2022.07.04)
+    - [go-ethereum (geth)](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.21)
+    - [Nethermind](https://github.com/NethermindEth/nethermind/releases/tag/1.13.5)
+- Mainnet 
+    - [Besu](https://github.com/hyperledger/besu/releases/tag/22.7.2)
+    - [Erigon](https://github.com/ledgerwatch/erigon/releases/tag/v2022.09.01)
+    - [go-ethereum (geth)](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.23)
+    - [Nethermind](https://github.com/NethermindEth/nethermind/releases/tag/1.14.1)
+
 
 ### Readiness Checklist
 
@@ -66,6 +90,8 @@ See https://github.com/ethereum/pm/blob/master/Merge/mainnet-readiness.md
   - [Goerli Shadow Fork 2](https://github.com/parithosh/consensus-deployment-ansible/tree/master/goerli-shadow-fork-2)
   - [Goerli Shadow Fork 3](https://github.com/parithosh/consensus-deployment-ansible/tree/master/goerli-shadow-fork-3)
   - [Goerli Shadow Fork 4](https://github.com/parithosh/consensus-deployment-ansible/tree/master/goerli-shadow-fork-4)
+  - [Goerli Shadow Fork 5](https://github.com/parithosh/consensus-deployment-ansible/tree/master/goerli-shadow-fork-5)
+  - [Goerli Shadow Fork 6](https://github.com/parithosh/consensus-deployment-ansible/tree/master/goerli-shadow-fork-6)
   - [Mainnet Shadow Fork 1](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-1)
   - [Mainnet Shadow Fork 2](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-2)
   - [Mainnet Shadow Fork 3](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-3)
@@ -74,20 +100,8 @@ See https://github.com/ethereum/pm/blob/master/Merge/mainnet-readiness.md
   - [Mainnet Shadow Fork 6](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-6)
   - [Mainnet Shadow Fork 7](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-7)
   - [Mainnet Shadow Fork 8](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-8)
-
-
-### Client Releases
-
- - Ropsten:
-    - [Besu](https://github.com/hyperledger/besu/releases/tag/22.4.2)
-    - [Erigon](https://github.com/ledgerwatch/erigon/releases/tag/v2022.05.08)
-    - [go-ethereum (geth)](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.18)
-    - [Nethermind](https://github.com/NethermindEth/nethermind/releases/tag/1.13.1)
-- Sepolia
-    - [Besu](https://github.com/hyperledger/besu/releases/tag/22.7.0-RC1)
-    - [Erigon](https://github.com/ledgerwatch/erigon/releases/tag/v2022.07.01)
-    - [go-ethereum (geth)](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.21)
-    - [Nethermind](https://github.com/NethermindEth/nethermind/releases/tag/1.13.4)
-- Goerli
-- Mainnet 
-    - [go-ethereum (geth)](https://github.com/ethereum/go-ethereum/releases/tag/v1.10.23)
+  - [Mainnet Shadow Fork 9](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-9)
+  - [Mainnet Shadow Fork 10](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-10)
+  - [Mainnet Shadow Fork 11](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-11)
+  - [Mainnet Shadow Fork 12](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-12)  
+  - [Mainnet Shadow Fork 13](https://github.com/parithosh/consensus-deployment-ansible/tree/master/mainnet-shadow-fork-13)  
