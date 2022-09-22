@@ -16,6 +16,7 @@ copytree
 coinbase
 coincurve
 crypto
+E501
 encodings
 endian
 eth
@@ -23,6 +24,7 @@ ethash
 ethereum
 evm
 exc
+fmt
 formatter
 getsource
 Hash32
@@ -352,6 +354,7 @@ subpackages
 toctree
 preaccessed
 Transaction2930
+Transaction1559
 
 downloader
 Downloader
