@@ -37,8 +37,8 @@ from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
 from .exceptions import (
-    ContractCodeError,
     ExceptionalHalt,
+    InvalidContractPrefix,
     InvalidOpcode,
     OutOfGasError,
     Revert,
@@ -152,7 +152,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         try:
             if len(contract_code) > 0:
-                ensure(contract_code[0] != 0xEF, ContractCodeError)
+                ensure(contract_code[0] != 0xEF, InvalidContractPrefix)
             charge_gas(evm, contract_code_gas)
             ensure(len(contract_code) <= MAX_CODE_SIZE, OutOfGasError)
         except ExceptionalHalt:

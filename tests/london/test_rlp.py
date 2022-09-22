@@ -6,12 +6,12 @@ from ethereum.crypto.hash import keccak256
 from ethereum.london.eth_types import (
     AccessListTransaction,
     Block,
+    FeeMarketTransaction,
     Header,
     LegacyTransaction,
     Log,
     Receipt,
     Transaction,
-    Transaction1559,
     decode_transaction,
     encode_transaction,
 )
@@ -68,7 +68,7 @@ access_list_transaction = AccessListTransaction(
     U256(6),
 )
 
-transaction_1559 = Transaction1559(
+transaction_1559 = FeeMarketTransaction(
     Uint64(1),
     U256(1),
     U256(7),

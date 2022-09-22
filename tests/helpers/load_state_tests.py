@@ -236,7 +236,7 @@ class Load(BaseLoad):
                 8, self.json_to_access_list(raw.get("accessList"))
             )
             return b"\x02" + rlp.encode(
-                self._module("eth_types").Transaction1559(*parameters)
+                self._module("eth_types").FeeMarketTransaction(*parameters)
             )
 
         parameters.insert(1, hex_to_u256(raw.get("gasPrice")))

@@ -37,6 +37,7 @@ from .eth_types import (
     Address,
     Block,
     Bloom,
+    FeeMarketTransaction,
     Hash32,
     Header,
     LegacyTransaction,
@@ -44,7 +45,6 @@ from .eth_types import (
     Receipt,
     Root,
     Transaction,
-    Transaction1559,
     decode_transaction,
     encode_transaction,
 )
@@ -246,24 +246,22 @@ def validate_header(header: Header, parent_header: Header) -> None:
         expected_base_fee_per_gas = parent_base_fee_per_gas
     elif parent_gas_used > parent_gas_target:
         gas_used_delta = parent_gas_used - parent_gas_target
+        # fmt: off
         base_fee_per_gas_delta = max(
-            parent_base_fee_per_gas
-            * gas_used_delta
-            // parent_gas_target
-            // BASE_FEE_MAX_CHANGE_DENOMINATOR,
+            parent_base_fee_per_gas * gas_used_delta // parent_gas_target // BASE_FEE_MAX_CHANGE_DENOMINATOR,  # noqa: E501
             1,
         )
+        # fmt: on
         expected_base_fee_per_gas = (
             parent_base_fee_per_gas + base_fee_per_gas_delta
         )
     else:
         gas_used_delta = parent_gas_target - parent_gas_used
+        # fmt: off
         base_fee_per_gas_delta = (
-            parent_base_fee_per_gas
-            * gas_used_delta
-            // parent_gas_target
-            // BASE_FEE_MAX_CHANGE_DENOMINATOR
+            parent_base_fee_per_gas * gas_used_delta // parent_gas_target // BASE_FEE_MAX_CHANGE_DENOMINATOR  # noqa: E501
         )
+        # fmt: on
         expected_base_fee_per_gas = (
             parent_base_fee_per_gas - base_fee_per_gas_delta
         )
@@ -444,7 +442,7 @@ def apply_body(
         ensure(tx.gas <= gas_available, InvalidBlock)
         sender_address = recover_sender(chain_id, tx)
 
-        if isinstance(tx, Transaction1559):
+        if isinstance(tx, FeeMarketTransaction):
             ensure(
                 tx.max_fee_per_gas >= tx.max_priority_fee_per_gas, InvalidBlock
             )
@@ -485,7 +483,7 @@ def apply_body(
 
         if isinstance(tx, AccessListTransaction):
             receipt = b"\x01" + rlp.encode(receipt)
-        if isinstance(tx, Transaction1559):
+        if isinstance(tx, FeeMarketTransaction):
             receipt = b"\x02" + rlp.encode(receipt)
 
         trie_set(
@@ -666,7 +664,7 @@ def process_transaction(
     sender = env.origin
     sender_account = get_account(env.state, sender)
 
-    if isinstance(tx, Transaction1559):
+    if isinstance(tx, FeeMarketTransaction):
         gas_fee = tx.gas * tx.max_fee_per_gas
     else:
         gas_fee = tx.gas * tx.gas_price
@@ -685,7 +683,7 @@ def process_transaction(
 
     preaccessed_addresses = set()
     preaccessed_storage_keys = set()
-    if isinstance(tx, (AccessListTransaction, Transaction1559)):
+    if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
         for (address, keys) in tx.access_list:
             preaccessed_addresses.add(address)
             for key in keys:
@@ -808,7 +806,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
         create_cost = 0
 
     access_list_cost = 0
-    if isinstance(tx, (AccessListTransaction, Transaction1559)):
+    if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
         for (_address, keys) in tx.access_list:
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
             access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
@@ -857,7 +855,7 @@ def recover_sender(chain_id: Uint64, tx: Transaction) -> Address:
             )
     elif isinstance(tx, AccessListTransaction):
         public_key = secp256k1_recover(r, s, v, signing_hash_2930(tx))
-    elif isinstance(tx, Transaction1559):
+    elif isinstance(tx, FeeMarketTransaction):
         public_key = secp256k1_recover(r, s, v, signing_hash_1559(tx))
 
     return Address(keccak256(public_key)[12:32])
@@ -953,7 +951,7 @@ def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
     )
 
 
-def signing_hash_1559(tx: Transaction1559) -> Hash32:
+def signing_hash_1559(tx: FeeMarketTransaction) -> Hash32:
     """
     Compute the hash of a transaction used in a EIP 1559 signature.
 

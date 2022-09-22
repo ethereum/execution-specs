@@ -84,7 +84,7 @@ class AccessListTransaction:
 
 @slotted_freezable
 @dataclass
-class Transaction1559:
+class FeeMarketTransaction:
     """
     The transaction type added in the London hardfork.
     """
@@ -103,7 +103,9 @@ class Transaction1559:
     s: U256
 
 
-Transaction = Union[LegacyTransaction, AccessListTransaction, Transaction1559]
+Transaction = Union[
+    LegacyTransaction, AccessListTransaction, FeeMarketTransaction
+]
 
 
 def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
@@ -114,7 +116,7 @@ def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
         return tx
     elif isinstance(tx, AccessListTransaction):
         return b"\x01" + rlp.encode(tx)
-    elif isinstance(tx, Transaction1559):
+    elif isinstance(tx, FeeMarketTransaction):
         return b"\x02" + rlp.encode(tx)
     else:
         raise Exception(f"Unable to encode transaction of type {type(tx)}")
@@ -128,7 +130,7 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
         if tx[0] == 1:
             return rlp.decode_to(AccessListTransaction, tx[1:])
         elif tx[0] == 2:
-            return rlp.decode_to(Transaction1559, tx[1:])
+            return rlp.decode_to(FeeMarketTransaction, tx[1:])
         else:
             raise InvalidBlock
     else:

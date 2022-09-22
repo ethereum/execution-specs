@@ -112,7 +112,7 @@ class InvalidParameter(ExceptionalHalt):
     pass
 
 
-class ContractCodeError(ExceptionalHalt):
+class InvalidContractPrefix(ExceptionalHalt):
     """
     Raised when the new contract code starts with 0xEF.
     """
