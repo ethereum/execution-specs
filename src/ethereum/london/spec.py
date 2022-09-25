@@ -246,22 +246,28 @@ def validate_header(header: Header, parent_header: Header) -> None:
         expected_base_fee_per_gas = parent_base_fee_per_gas
     elif parent_gas_used > parent_gas_target:
         gas_used_delta = parent_gas_used - parent_gas_target
-        # fmt: off
+
+        parent_fee_gas_delta = parent_base_fee_per_gas * gas_used_delta
+        target_fee_gas_delta = parent_fee_gas_delta // parent_gas_target
+
         base_fee_per_gas_delta = max(
-            parent_base_fee_per_gas * gas_used_delta // parent_gas_target // BASE_FEE_MAX_CHANGE_DENOMINATOR,  # noqa: E501
+            target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR,
             1,
         )
-        # fmt: on
+
         expected_base_fee_per_gas = (
             parent_base_fee_per_gas + base_fee_per_gas_delta
         )
     else:
         gas_used_delta = parent_gas_target - parent_gas_used
-        # fmt: off
+
+        parent_fee_gas_delta = parent_base_fee_per_gas * gas_used_delta
+        target_fee_gas_delta = parent_fee_gas_delta // parent_gas_target
+
         base_fee_per_gas_delta = (
-            parent_base_fee_per_gas * gas_used_delta // parent_gas_target // BASE_FEE_MAX_CHANGE_DENOMINATOR  # noqa: E501
+            target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR
         )
-        # fmt: on
+
         expected_base_fee_per_gas = (
             parent_base_fee_per_gas - base_fee_per_gas_delta
         )
