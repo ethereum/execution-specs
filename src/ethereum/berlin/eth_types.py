@@ -67,7 +67,7 @@ class LegacyTransaction:
 @dataclass
 class AccessListTransaction:
     """
-    The transaction type added in the Berlin hardfork to support access lists.
+    The transaction type added in EIP-2930 to support access lists.
     """
 
     chain_id: Uint64

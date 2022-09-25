@@ -66,7 +66,7 @@ class LegacyTransaction:
 @dataclass
 class AccessListTransaction:
     """
-    The transaction type added in the London hardfork to support access lists.
+    The transaction type added in EIP-2930 to support access lists.
     """
 
     chain_id: Uint64
@@ -86,7 +86,7 @@ class AccessListTransaction:
 @dataclass
 class FeeMarketTransaction:
     """
-    The transaction type added in the London hardfork.
+    The transaction type added in EIP-1559.
     """
 
     chain_id: Uint64
