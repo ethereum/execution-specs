@@ -20,8 +20,7 @@ from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
-
-from .forks import Hardfork
+from ethereum_spec_tools.forks import Hardfork
 
 
 def validate_header(

@@ -18,6 +18,7 @@ from urllib import request
 
 from ethereum import genesis, rlp
 from ethereum.base_types import Bytes0, Bytes256, Uint64
+from ethereum.testnets import clique
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -26,7 +27,6 @@ from ethereum.utils.hexadecimal import (
     hex_to_uint,
 )
 
-from . import clique
 from .forks import Hardfork
 
 T = TypeVar("T")
@@ -615,13 +615,15 @@ class Sync(ForkTracking):
                 self.log.error("--reset is not supported without --persist")
                 exit(1)
 
-        # This import must happen after monkey patching
-        import ethereum.hardforks
-
         if self.options.network == "mainnet":
+            # This import must happen after monkey patching
+            import ethereum.hardforks
+
             self.hardforks = Hardfork.load(ethereum.hardforks.mainnet)
         elif self.options.network == "goerli":
-            self.hardforks = Hardfork.load(ethereum.hardforks.goerli)
+            import ethereum.testnets.hardforks
+
+            self.hardforks = Hardfork.load(ethereum.testnets.hardforks.goerli)
 
         ForkTracking.__init__(self, self.hardforks, 0)
 

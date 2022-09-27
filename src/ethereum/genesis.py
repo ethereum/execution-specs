@@ -102,10 +102,10 @@ def add_genesis_block(
     """
     Adds the genesis block to an empty blockchain.
 
-    The genesis block is an entirely sui generis block that is not governed by
-    the general rules applying to all other Ethereum blocks. Instead, the only
-    consensus requirement is that it must be identical to the block added by
-    this function.
+    The genesis block is an entirely sui generis block (unique) that is not
+    governed by the general rules applying to all other Ethereum blocks.
+    Instead, the only consensus requirement is that it must be identical to
+    the block added by this function.
 
     The mainnet genesis configuration was originally created using the
     `mk_genesis_block.py` script. It is long since defunct, but is still

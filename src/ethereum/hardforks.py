@@ -9,7 +9,7 @@ Hardforks
 Introduction
 ------------
 
-Lists of hardfork blocks for Ethereum and its various testnets.
+List of hardfork blocks for Ethereum.
 """
 
 from ethereum import (
@@ -20,13 +20,14 @@ from ethereum import (
     frontier,
     homestead,
     istanbul,
+    london,
     muir_glacier,
     spurious_dragon,
     tangerine_whistle,
 )
 
 mainnet = {
-    1: frontier,
+    0: frontier,
     1150000: homestead,
     1920000: dao_fork,
     2463000: tangerine_whistle,
@@ -36,11 +37,5 @@ mainnet = {
     9069000: istanbul,
     9200000: muir_glacier,
     12244000: berlin,
-}
-
-goerli = {
-    1: constantinople,
-    1561651: istanbul,
-    4460644: berlin,
-    #    5062605: london,
+    12965000: london,
 }
