@@ -60,6 +60,7 @@ def meaningful_diffs(
 
 def _diff(
     trivial_changes: List[Tuple[str, str, re.RegexFlag]],
+    ignore_in_name: List[str],
     old_path: str,
     new_path: str,
     diff_path: str,
@@ -119,6 +120,7 @@ def _diff(
     pub.set_destination(destination_path=diff_pickle_path)
     pub.set_reader("standalone", None, "restructuredtext")
     pub.settings.language_code = "en"  # TODO
+    pub.settings.ignore_in_section_name = ignore_in_name
 
     old_doc.settings = pub.settings
     old_doc.reporter = new_reporter("RSTDIFF", pub.settings)
@@ -155,6 +157,8 @@ def diff(
         ),
     ]
 
+    ignore_in_name = old.short_name.split("_") + new.short_name.split("_")
+
     old_path = old.name.replace(".", os.sep)
     old_path = os.path.join(input_path, old_path)
 
@@ -183,6 +187,7 @@ def diff(
         args = (
             (
                 trivial_changes,
+                ignore_in_name,
                 old_path,
                 new_path,
                 diff_path,
