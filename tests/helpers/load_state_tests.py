@@ -378,6 +378,7 @@ def run_blockchain_st_test(test_case: Dict, load: BaseLoad) -> None:
     )
 
     if not test_data["ignore_pow_validation"] or load.fork_module == "paris":
+        # FIXME: Test for a POS hardfork properly, rather than `== "paris"`
         add_blocks_to_chain(chain, test_data, load)
     else:
         with patch(

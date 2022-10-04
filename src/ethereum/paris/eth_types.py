@@ -193,7 +193,7 @@ class Header:
     gas_used: Uint
     timestamp: U256
     extra_data: Bytes
-    mix_digest: Bytes32
+    prev_randao: Bytes32
     nonce: Bytes8
     base_fee_per_gas: Uint
 

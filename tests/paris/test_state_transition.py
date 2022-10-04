@@ -150,7 +150,7 @@ def test_transaction_with_insufficient_balance_for_value() -> None:
         gas_used=Uint(0x00),
         timestamp=U256(0x54C98C81),
         extra_data=Bytes([0x42]),
-        mix_digest=Bytes32([0] * 32),
+        prev_randao=Bytes32([0] * 32),
         nonce=Bytes8([0] * 8),
         base_fee_per_gas=Uint(16),
     )
@@ -204,7 +204,7 @@ def test_transaction_with_insufficient_balance_for_value() -> None:
         gas_limit=genesis_block.header.gas_limit,
         gas_price=tx.gas_price,
         time=genesis_block.header.timestamp,
-        prev_randao=U256.from_be_bytes(genesis_block.header.mix_digest),
+        prev_randao=U256.from_be_bytes(genesis_block.header.prev_randao),
         state=state,
         chain_id=Uint(1),
         base_fee_per_gas=Uint(16),

@@ -1,7 +1,15 @@
 import pytest
 
 import ethereum.rlp as rlp
-from ethereum.base_types import U256, Bytes, Bytes0, Bytes8, Uint, Uint64
+from ethereum.base_types import (
+    U256,
+    Bytes,
+    Bytes0,
+    Bytes8,
+    Bytes32,
+    Uint,
+    Uint64,
+)
 from ethereum.crypto.hash import keccak256
 from ethereum.paris.eth_types import (
     AccessListTransaction,
@@ -98,7 +106,7 @@ header = Header(
     gas_used=Uint(4),
     timestamp=U256(5),
     extra_data=Bytes(b"foobar"),
-    mix_digest=hash6,
+    prev_randao=Bytes32(b"1234567890abcdef1234567890abcdef"),
     nonce=Bytes8(b"12345678"),
     base_fee_per_gas=Uint(6),
 )

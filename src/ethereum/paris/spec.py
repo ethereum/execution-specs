@@ -181,7 +181,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.header.base_fee_per_gas,
         block.header.gas_limit,
         block.header.timestamp,
-        U256.from_be_bytes(block.header.mix_digest),
+        U256.from_be_bytes(block.header.prev_randao),
         block.transactions,
         chain.chain_id,
     )
