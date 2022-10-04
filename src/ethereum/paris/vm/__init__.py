@@ -40,7 +40,7 @@ class Environment:
     gas_limit: Uint
     gas_price: U256
     time: U256
-    difficulty: Uint
+    prev_randao: U256
     state: State
     chain_id: Uint64
 

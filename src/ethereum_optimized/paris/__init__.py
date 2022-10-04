@@ -45,21 +45,6 @@ def monkey_patch_optimized_state_db(state_path: Optional[str]) -> None:
         fast_state.State.default_path = state_path
 
 
-def monkey_patch_optimized_spec() -> None:
-    """
-    Replace the ethash implementation with one that supports higher
-    performance.
-
-    This function must be called before the spec interface is imported
-    anywhere.
-    """
-    import ethereum.paris.spec as slow_spec
-
-    from . import spec as fast_spec
-
-    slow_spec.validate_proof_of_work = fast_spec.validate_proof_of_work
-
-
 def monkey_patch(state_path: Optional[str]) -> None:
     """
     Apply all monkey patches to swap in high performance implementations.
@@ -68,4 +53,3 @@ def monkey_patch(state_path: Optional[str]) -> None:
     imported anywhere.
     """
     monkey_patch_optimized_state_db(state_path)
-    monkey_patch_optimized_spec()

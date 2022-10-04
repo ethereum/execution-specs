@@ -377,7 +377,7 @@ def run_blockchain_st_test(test_case: Dict, load: BaseLoad) -> None:
         chain_id=test_data["chain_id"],
     )
 
-    if not test_data["ignore_pow_validation"]:
+    if not test_data["ignore_pow_validation"] or load.fork_module == "paris":
         add_blocks_to_chain(chain, test_data, load)
     else:
         with patch(

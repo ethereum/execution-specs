@@ -155,12 +155,12 @@ def number(evm: Evm) -> None:
     evm.pc += 1
 
 
-def difficulty(evm: Evm) -> None:
+def prev_randao(evm: Evm) -> None:
     """
-    Push the current block's difficulty onto the stack.
+    Push the `prev_randao` value onto the stack.
 
-    Here the current block refers to the block in which the currently
-    executing transaction/call resides.
+    The `prev_randao` value is the random output of the beaconchain's
+    randomness oracle for the previous block.
 
     Parameters
     ----------
@@ -181,7 +181,7 @@ def difficulty(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256(evm.env.difficulty))
+    push(evm.stack, evm.env.prev_randao)
 
     # PROGRAM COUNTER
     evm.pc += 1

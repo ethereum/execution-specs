@@ -92,7 +92,7 @@ class Ops(enum.Enum):
     COINBASE = 0x41
     TIMESTAMP = 0x42
     NUMBER = 0x43
-    DIFFICULTY = 0x44
+    PREVRANDAO = 0x44
     GASLIMIT = 0x45
     CHAINID = 0x46
     SELFBALANCE = 0x47
@@ -241,7 +241,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.COINBASE: block_instructions.coinbase,
     Ops.TIMESTAMP: block_instructions.timestamp,
     Ops.NUMBER: block_instructions.number,
-    Ops.DIFFICULTY: block_instructions.difficulty,
+    Ops.PREVRANDAO: block_instructions.prev_randao,
     Ops.GASLIMIT: block_instructions.gas_limit,
     Ops.CHAINID: block_instructions.chain_id,
     Ops.MLOAD: memory_instructions.mload,

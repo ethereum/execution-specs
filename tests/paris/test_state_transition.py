@@ -77,29 +77,6 @@ def test_general_state_tests(test_case: Dict) -> None:
 # Run legacy valid block tests
 test_dir = "tests/fixtures/BlockchainTests/ValidBlocks/"
 
-only_in = (
-    "bcUncleTest/oneUncle.json",
-    "bcUncleTest/oneUncleGeneration2.json",
-    "bcUncleTest/oneUncleGeneration3.json",
-    "bcUncleTest/oneUncleGeneration4.json",
-    "bcUncleTest/oneUncleGeneration5.json",
-    "bcUncleTest/oneUncleGeneration6.json",
-    "bcUncleTest/twoUncle.json",
-    "bcUncleTest/uncleHeaderAtBlock2.json",
-    "bcUncleSpecialTests/uncleBloomNot0.json",
-    "bcUncleSpecialTests/futureUncleTimestampDifficultyDrop.json",
-)
-
-
-@pytest.mark.parametrize(
-    "test_case",
-    fetch_paris_tests(test_dir, only_in=only_in),
-    ids=idfn,
-)
-def test_uncles_correctness(test_case: Dict) -> None:
-    run_paris_blockchain_st_tests(test_case)
-
-
 # Run legacy invalid block tests
 test_dir = "tests/fixtures/BlockchainTests/InvalidBlocks"
 
@@ -133,7 +110,7 @@ def is_in_xfail(test_case: Dict) -> bool:
 def test_invalid_block_tests(test_case: Dict) -> None:
     try:
         # Ideally correct.json should not have been in the InvalidBlocks folder
-        if test_case["test_key"] == "correct_Merge":
+        if test_case["test_key"] in "DifficultyIsZero_Merge":
             run_paris_blockchain_st_tests(test_case)
         elif is_in_xfail(test_case):
             # Unclear where this failed requirement comes from
@@ -227,7 +204,7 @@ def test_transaction_with_insufficient_balance_for_value() -> None:
         gas_limit=genesis_block.header.gas_limit,
         gas_price=tx.gas_price,
         time=genesis_block.header.timestamp,
-        difficulty=genesis_block.header.difficulty,
+        prev_randao=U256.from_be_bytes(genesis_block.header.mix_digest),
         state=state,
         chain_id=Uint(1),
         base_fee_per_gas=Uint(16),

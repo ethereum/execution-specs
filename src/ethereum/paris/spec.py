@@ -13,18 +13,17 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 from ethereum.base_types import Bytes0
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
-from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 
 from .. import rlp
-from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint, Uint64
-from . import MAINNET_FORK_BLOCK, vm
+from ..base_types import U256, Bytes, Uint, Uint64
+from . import vm
 from .bloom import logs_bloom
 from .eth_types import (
     TX_ACCESS_LIST_ADDRESS_COST,
@@ -51,7 +50,6 @@ from .eth_types import (
 from .state import (
     State,
     account_exists,
-    create_ether,
     destroy_account,
     get_account,
     increment_nonce,
@@ -63,14 +61,10 @@ from .trie import Trie, root, trie_set
 from .utils.message import prepare_message
 from .vm.interpreter import process_message_call
 
-BLOCK_REWARD = U256(2 * 10**18)
 BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
 ELASTICITY_MULTIPLIER = 2
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
-MINIMUM_DIFFICULTY = Uint(131072)
-INITIAL_BASE_FEE = 1000000000
-MAX_OMMER_DEPTH = 6
 BOMB_DELAY_BLOCKS = 9700000
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 
@@ -172,7 +166,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     """
     parent_header = chain.blocks[-1].header
     validate_header(block.header, parent_header)
-    validate_ommers(block.ommers, block.header, chain)
+    ensure(block.ommers == (), InvalidBlock)
     (
         gas_used,
         transactions_root,
@@ -187,9 +181,8 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.header.base_fee_per_gas,
         block.header.gas_limit,
         block.header.timestamp,
-        block.header.difficulty,
+        U256.from_be_bytes(block.header.mix_digest),
         block.transactions,
-        block.ommers,
         chain.chain_id,
     )
     ensure(gas_used == block.header.gas_used, InvalidBlock)
@@ -223,13 +216,9 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_header :
         Parent Header of the header to check for correctness
     """
-    if header.number == MAINNET_FORK_BLOCK:
-        parent_gas_limit = parent_header.gas_limit * ELASTICITY_MULTIPLIER
-        parent_gas_target = parent_header.gas_limit
-    else:
-        parent_gas_limit = parent_header.gas_limit
-        parent_gas_target = parent_header.gas_limit // ELASTICITY_MULTIPLIER
-        parent_base_fee_per_gas = parent_header.base_fee_per_gas
+    parent_gas_limit = parent_header.gas_limit
+    parent_gas_target = parent_header.gas_limit // ELASTICITY_MULTIPLIER
+    parent_base_fee_per_gas = parent_header.base_fee_per_gas
 
     parent_gas_used = parent_header.gas_used
 
@@ -240,9 +229,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
     )
 
     # check if the base fee is correct
-    if header.number == MAINNET_FORK_BLOCK:
-        expected_base_fee_per_gas = INITIAL_BASE_FEE
-    elif parent_gas_used == parent_gas_target:
+    if parent_gas_used == parent_gas_target:
         expected_base_fee_per_gas = parent_base_fee_per_gas
     elif parent_gas_used > parent_gas_target:
         gas_used_delta = parent_gas_used - parent_gas_target
@@ -274,97 +261,16 @@ def validate_header(header: Header, parent_header: Header) -> None:
 
     ensure(expected_base_fee_per_gas == header.base_fee_per_gas, InvalidBlock)
 
-    parent_has_ommers = parent_header.ommers_hash != EMPTY_OMMER_HASH
     ensure(header.timestamp > parent_header.timestamp, InvalidBlock)
     ensure(header.number == parent_header.number + 1, InvalidBlock)
     ensure(len(header.extra_data) <= 32, InvalidBlock)
 
-    block_difficulty = calculate_block_difficulty(
-        header.number,
-        header.timestamp,
-        parent_header.timestamp,
-        parent_header.difficulty,
-        parent_has_ommers,
-    )
-    ensure(header.difficulty == block_difficulty, InvalidBlock)
+    ensure(header.difficulty == 0, InvalidBlock)
+    ensure(header.nonce == b"\x00\x00\x00\x00\x00\x00\x00\x00", InvalidBlock)
+    ensure(header.ommers_hash == EMPTY_OMMER_HASH, InvalidBlock)
 
     block_parent_hash = keccak256(rlp.encode(parent_header))
     ensure(header.parent_hash == block_parent_hash, InvalidBlock)
-
-    validate_proof_of_work(header)
-
-
-def generate_header_hash_for_pow(header: Header) -> Hash32:
-    """
-    Generate rlp hash of the header which is to be used for Proof-of-Work
-    verification.
-
-    In other words, the PoW artefacts `mix_digest` and `nonce` are ignored
-    while calculating this hash.
-
-    A particular PoW is valid for a single hash, that hash is computed by
-    this function. The `nonce` and `mix_digest` are omitted from this hash
-    because they are being changed by miners in their search for a sufficient
-    proof-of-work.
-
-    Parameters
-    ----------
-    header :
-        The header object for which the hash is to be generated.
-
-    Returns
-    -------
-    hash : `Hash32`
-        The PoW valid rlp hash of the passed in header.
-    """
-    header_data_without_pow_artefacts = [
-        header.parent_hash,
-        header.ommers_hash,
-        header.coinbase,
-        header.state_root,
-        header.transactions_root,
-        header.receipt_root,
-        header.bloom,
-        header.difficulty,
-        header.number,
-        header.gas_limit,
-        header.gas_used,
-        header.timestamp,
-        header.extra_data,
-        header.base_fee_per_gas,
-    ]
-
-    return rlp.rlp_hash(header_data_without_pow_artefacts)
-
-
-def validate_proof_of_work(header: Header) -> None:
-    """
-    Validates the Proof of Work constraints.
-
-    In order to verify that a miner's proof-of-work is valid for a block, a
-    ``mix-digest`` and ``result`` are calculated using the ``hashimoto_light``
-    hash function. The mix digest is a hash of the header and the nonce that
-    is passed through and it confirms whether or not proof-of-work was done
-    on the correct block. The result is the actual hash value of the block.
-
-    Parameters
-    ----------
-    header :
-        Header of interest.
-    """
-    header_hash = generate_header_hash_for_pow(header)
-    # TODO: Memoize this somewhere and read from that data instead of
-    # calculating cache for every block validation.
-    cache = generate_cache(header.number)
-    mix_digest, result = hashimoto_light(
-        header_hash, header.nonce, cache, dataset_size(header.number)
-    )
-
-    ensure(mix_digest == header.mix_digest, InvalidBlock)
-    ensure(
-        Uint.from_be_bytes(result) <= (U256_CEIL_VALUE // header.difficulty),
-        InvalidBlock,
-    )
 
 
 def apply_body(
@@ -375,9 +281,8 @@ def apply_body(
     base_fee_per_gas: Uint,
     block_gas_limit: Uint,
     block_time: U256,
-    block_difficulty: Uint,
+    prev_randao: U256,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
-    ommers: Tuple[Header, ...],
     chain_id: Uint64,
 ) -> Tuple[Uint, Root, Root, Bloom, State]:
     """
@@ -407,8 +312,8 @@ def apply_body(
         Initial amount of gas available for execution in this block.
     block_time :
         Time the block was produced, measured in seconds since the epoch.
-    block_difficulty :
-        Difficulty of the block.
+    prev_randao :
+        The previous randao from the beacon chain.
     transactions :
         Transactions included in the block.
     ommers :
@@ -472,7 +377,7 @@ def apply_body(
             base_fee_per_gas=base_fee_per_gas,
             gas_price=effective_gas_price,
             time=block_time,
-            difficulty=block_difficulty,
+            prev_randao=prev_randao,
             state=state,
             chain_id=chain_id,
         )
@@ -500,8 +405,6 @@ def apply_body(
 
         block_logs += logs
 
-    pay_rewards(state, block_number, coinbase, ommers)
-
     gas_remaining = block_gas_limit - gas_available
 
     block_logs_bloom = logs_bloom(block_logs)
@@ -513,127 +416,6 @@ def apply_body(
         block_logs_bloom,
         state,
     )
-
-
-def validate_ommers(
-    ommers: Tuple[Header, ...], block_header: Header, chain: BlockChain
-) -> None:
-    """
-    Validates the ommers mentioned in the block.
-
-    An ommer block is a block that wasn't canonically added to the
-    blockchain because it wasn't validated as fast as the canonical block
-    but was mined at the same time.
-
-    To be considered valid, the ommers must adhere to the rules defined in
-    the Ethereum protocol. The maximum amount of ommers is 2 per block and
-    there cannot be duplicate ommers in a block. Many of the other ommer
-    contraints are listed in the in-line comments of this function.
-
-    Parameters
-    ----------
-    ommers :
-        List of ommers mentioned in the current block.
-    block_header:
-        The header of current block.
-    chain :
-        History and current state.
-    """
-    block_hash = rlp.rlp_hash(block_header)
-
-    ensure(rlp.rlp_hash(ommers) == block_header.ommers_hash, InvalidBlock)
-
-    if len(ommers) == 0:
-        # Nothing to validate
-        return
-
-    # Check that each ommer satisfies the constraints of a header
-    for ommer in ommers:
-        ensure(1 <= ommer.number < block_header.number, InvalidBlock)
-        ommer_parent_header = chain.blocks[
-            -(block_header.number - ommer.number) - 1
-        ].header
-        validate_header(ommer, ommer_parent_header)
-
-    # Check that there can be only at most 2 ommers for a block.
-    ensure(len(ommers) <= 2, InvalidBlock)
-
-    ommers_hashes = [rlp.rlp_hash(ommer) for ommer in ommers]
-    # Check that there are no duplicates in the ommers of current block
-    ensure(len(ommers_hashes) == len(set(ommers_hashes)), InvalidBlock)
-
-    recent_canonical_blocks = chain.blocks[-(MAX_OMMER_DEPTH + 1) :]
-    recent_canonical_block_hashes = {
-        rlp.rlp_hash(block.header) for block in recent_canonical_blocks
-    }
-    recent_ommers_hashes: Set[Hash32] = set()
-    for block in recent_canonical_blocks:
-        recent_ommers_hashes = recent_ommers_hashes.union(
-            {rlp.rlp_hash(ommer) for ommer in block.ommers}
-        )
-
-    for ommer_index, ommer in enumerate(ommers):
-        ommer_hash = ommers_hashes[ommer_index]
-        # The current block shouldn't be the ommer
-        ensure(ommer_hash != block_hash, InvalidBlock)
-
-        # Ommer shouldn't be one of the recent canonical blocks
-        ensure(ommer_hash not in recent_canonical_block_hashes, InvalidBlock)
-
-        # Ommer shouldn't be one of the uncles mentioned in the recent
-        # canonical blocks
-        ensure(ommer_hash not in recent_ommers_hashes, InvalidBlock)
-
-        # Ommer age with respect to the current block. For example, an age of
-        # 1 indicates that the ommer is a sibling of previous block.
-        ommer_age = block_header.number - ommer.number
-        ensure(1 <= ommer_age <= MAX_OMMER_DEPTH, InvalidBlock)
-
-        ensure(
-            ommer.parent_hash in recent_canonical_block_hashes, InvalidBlock
-        )
-        ensure(ommer.parent_hash != block_header.parent_hash, InvalidBlock)
-
-
-def pay_rewards(
-    state: State,
-    block_number: Uint,
-    coinbase: Address,
-    ommers: Tuple[Header, ...],
-) -> None:
-    """
-    Pay rewards to the block miner as well as the ommers miners.
-
-    The miner of the canonical block is rewarded with the predetermined
-    block reward, ``BLOCK_REWARD``, plus a variable award based off of the
-    number of ommer blocks that were mined around the same time, and included
-    in the canonical block's header. An ommer block is a block that wasn't
-    added to the canonical blockchain because it wasn't validated as fast as
-    the accepted block but was mined at the same time. Although not all blocks
-    that are mined are added to the canonical chain, miners are still paid a
-    reward for their efforts. This reward is called an ommer reward and is
-    calculated based on the number associated with the ommer block that they
-    mined.
-
-    Parameters
-    ----------
-    state :
-        Current account state.
-    block_number :
-        Position of the block within the chain.
-    coinbase :
-        Address of account which receives block reward and transaction fees.
-    ommers :
-        List of ommers mentioned in the current block.
-    """
-    miner_reward = BLOCK_REWARD + (len(ommers) * (BLOCK_REWARD // 32))
-    create_ether(state, coinbase, miner_reward)
-
-    for ommer in ommers:
-        # Ommer age with respect to the current block.
-        ommer_age = U256(block_number - ommer.number)
-        ommer_miner_reward = ((8 - ommer_age) * BLOCK_REWARD) // 8
-        create_ether(state, ommer.coinbase, ommer_miner_reward)
 
 
 def process_transaction(
@@ -730,9 +512,12 @@ def process_transaction(
     coinbase_balance_after_mining_fee = (
         get_account(env.state, env.coinbase).balance + transaction_fee
     )
-    set_account_balance(
-        env.state, env.coinbase, coinbase_balance_after_mining_fee
-    )
+    if coinbase_balance_after_mining_fee != 0:
+        set_account_balance(
+            env.state, env.coinbase, coinbase_balance_after_mining_fee
+        )
+    elif is_account_empty(env.state, env.coinbase):
+        destroy_account(env.state, env.coinbase)
 
     for address in output.accounts_to_delete:
         destroy_account(env.state, address)
@@ -1061,73 +846,3 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
         return False
 
     return True
-
-
-def calculate_block_difficulty(
-    block_number: Uint,
-    block_timestamp: U256,
-    parent_timestamp: U256,
-    parent_difficulty: Uint,
-    parent_has_ommers: bool,
-) -> Uint:
-    """
-    Computes difficulty of a block using its header and parent header.
-
-    The difficulty is determined by the time the block was created after its
-    parent. The ``offset`` is calculated using the parent block's difficulty,
-    ``parent_difficulty``, and the timestamp between blocks. This offset is
-    then added to the parent difficulty and is stored as the ``difficulty``
-    variable. If the time between the block and its parent is too short, the
-    offset will result in a positive number thus making the sum of
-    ``parent_difficulty`` and ``offset`` to be a greater value in order to
-    avoid mass forking. But, if the time is long enough, then the offset
-    results in a negative value making the block less difficult than
-    its parent.
-
-    The base standard for a block's difficulty is the predefined value
-    set for the genesis block since it has no parent. So, a block
-    can't be less difficult than the genesis block, therefore each block's
-    difficulty is set to the maximum value between the calculated
-    difficulty and the ``GENESIS_DIFFICULTY``.
-
-    Parameters
-    ----------
-    block_number :
-        Block number of the block.
-    block_timestamp :
-        Timestamp of the block.
-    parent_timestamp :
-        Timestamp of the parent block.
-    parent_difficulty :
-        difficulty of the parent block.
-    parent_has_ommers:
-        does the parent have ommers.
-
-    Returns
-    -------
-    difficulty : `ethereum.base_types.Uint`
-        Computed difficulty for a block.
-    """
-    offset = (
-        int(parent_difficulty)
-        // 2048
-        * max(
-            (2 if parent_has_ommers else 1)
-            - int(block_timestamp - parent_timestamp) // 9,
-            -99,
-        )
-    )
-    difficulty = int(parent_difficulty) + offset
-    # Historical Note: The difficulty bomb was not present in Ethereum at the
-    # start of Frontier, but was added shortly after launch. However since the
-    # bomb has no effect prior to block 200000 we pretend it existed from
-    # genesis.
-    # See https://github.com/ethereum/go-ethereum/pull/1588
-    num_bomb_periods = ((int(block_number) - BOMB_DELAY_BLOCKS) // 100000) - 2
-    if num_bomb_periods >= 0:
-        difficulty += 2**num_bomb_periods
-
-    # Some clients raise the difficulty to `MINIMUM_DIFFICULTY` prior to adding
-    # the bomb. This bug does not matter because the difficulty is always much
-    # greater than `MINIMUM_DIFFICULTY` on Mainnet.
-    return Uint(max(difficulty, MINIMUM_DIFFICULTY))
