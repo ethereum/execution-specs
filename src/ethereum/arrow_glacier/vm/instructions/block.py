@@ -29,12 +29,6 @@ def block_hash(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `20`.
     """
     # STACK
     block_number = pop(evm.stack)
@@ -70,12 +64,6 @@ def coinbase(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.StackOverflowError`
-        If `len(stack)` is equal to `1024`.
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass
@@ -103,12 +91,6 @@ def timestamp(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.StackOverflowError`
-        If `len(stack)` is equal to `1024`.
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass
@@ -135,12 +117,6 @@ def number(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.StackOverflowError`
-        If `len(stack)` is equal to `1024`.
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass
@@ -167,12 +143,6 @@ def difficulty(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.StackOverflowError`
-        If `len(stack)` is equal to `1024`.
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass
@@ -199,12 +169,6 @@ def gas_limit(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.StackOverflowError`
-        If `len(stack)` is equal to `1024`.
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass
@@ -228,12 +192,6 @@ def chain_id(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.StackOverflowError`
-        If `len(stack)` is equal to `1024`.
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass

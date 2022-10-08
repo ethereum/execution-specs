@@ -37,12 +37,6 @@ def sload(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `50`.
     """
     # STACK
     key = pop(evm.stack).to_be_bytes32()
@@ -68,12 +62,6 @@ def sstore(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `20000`.
     """
     # STACK
     key = pop(evm.stack).to_be_bytes32()

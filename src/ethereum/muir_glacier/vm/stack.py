@@ -33,10 +33,6 @@ def pop(stack: List[U256]) -> U256:
     value : `U256`
         The top element on the stack.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
-        If `stack` is empty.
     """
     if len(stack) == 0:
         raise StackUnderflowError
@@ -56,10 +52,6 @@ def push(stack: List[U256], value: U256) -> None:
     value :
         Item to be pushed onto `stack`.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackOverflowError`
-        If `len(stack)` is `1024`.
     """
     if len(stack) == 1024:
         raise StackOverflowError

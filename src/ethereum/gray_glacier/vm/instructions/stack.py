@@ -32,12 +32,6 @@ def pop(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.gray_glacier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.gray_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     stack.pop(evm.stack)
@@ -65,12 +59,6 @@ def push_n(evm: Evm, num_bytes: int) -> None:
         The number of immediate bytes to be read from the code and pushed to
         the stack.
 
-    Raises
-    ------
-    :py:class:`~ethereum.gray_glacier.vm.exceptions.StackOverflowError`
-        If `len(stack)` is equals `1024`.
-    :py:class:`~ethereum.gray_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `3`.
     """
     # STACK
     pass
@@ -101,10 +89,6 @@ def dup_n(evm: Evm, item_number: int) -> None:
         The stack item number (0-indexed from top of stack) to be duplicated
         to the top of stack.
 
-    Raises
-    ------
-    :py:class:`~ethereum.gray_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `3`.
     """
     # STACK
     pass
@@ -138,10 +122,6 @@ def swap_n(evm: Evm, item_number: int) -> None:
         The stack item number (0-indexed from top of stack) to be swapped
         with the top of stack element.
 
-    Raises
-    ------
-    :py:class:`~ethereum.gray_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `3`.
     """
     # STACK
     pass

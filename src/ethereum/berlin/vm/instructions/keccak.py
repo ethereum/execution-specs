@@ -34,10 +34,6 @@ def keccak(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.berlin.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
     """
     # STACK
     memory_start_index = pop(evm.stack)

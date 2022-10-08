@@ -46,10 +46,6 @@ def address(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass
@@ -73,12 +69,6 @@ def balance(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `20`.
     """
     # STACK
     address = to_address(pop(evm.stack))
@@ -106,10 +96,6 @@ def origin(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass
@@ -133,10 +119,6 @@ def caller(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass
@@ -160,10 +142,6 @@ def callvalue(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass
@@ -188,12 +166,6 @@ def calldataload(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `3`.
     """
     # STACK
     start_index = pop(evm.stack)
@@ -219,10 +191,6 @@ def calldatasize(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass
@@ -249,10 +217,6 @@ def calldatacopy(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `3`.
     """
     # STACK
     memory_start_index = pop(evm.stack)
@@ -282,10 +246,6 @@ def codesize(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass
@@ -312,10 +272,6 @@ def codecopy(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `3`.
     """
     # STACK
     memory_start_index = pop(evm.stack)
@@ -345,10 +301,6 @@ def gasprice(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass
@@ -372,12 +324,6 @@ def extcodesize(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `20`.
     """
     # STACK
     address = to_address(pop(evm.stack))
@@ -404,10 +350,6 @@ def extcodecopy(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `4`.
     """
     # STACK
     address = to_address(pop(evm.stack))
@@ -524,12 +466,6 @@ def self_balance(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.muir_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `20`.
     """
     # STACK
     pass

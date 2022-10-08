@@ -30,13 +30,6 @@ def mstore(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than
-        `3` + gas needed to extend memeory.
     """
     # STACK
     start_position = pop(evm.stack)
@@ -64,13 +57,6 @@ def mstore8(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.frontier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than
-        `3` + gas needed to extend memory.
     """
     # STACK
     start_position = pop(evm.stack)
@@ -97,13 +83,6 @@ def mload(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.frontier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than
-        `3` + gas needed to extend memory.
     """
     # STACK
     start_position = pop(evm.stack)
@@ -131,10 +110,6 @@ def msize(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`
     """
     # STACK
     pass

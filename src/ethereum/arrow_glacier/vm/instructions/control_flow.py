@@ -52,18 +52,6 @@ def jump(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.InvalidJumpDestError`
-        If the jump destination doesn't meet any of the following criteria:
-            * The jump destination is less than the length of the code.
-            * The jump destination should have the `JUMPDEST` opcode (0x5B).
-            * The jump destination shouldn't be part of the data corresponding
-            to `PUSH-N` opcodes.
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `8`.
     """
     # STACK
     jump_dest = Uint(pop(evm.stack))
@@ -90,18 +78,6 @@ def jumpi(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.InvalidJumpDestError`
-        If the jump destination doesn't meet any of the following criteria:
-            * The jump destination is less than the length of the code.
-            * The jump destination should have the `JUMPDEST` opcode (0x5B).
-            * The jump destination shouldn't be part of the data corresponding
-            to `PUSH-N` opcodes.
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `10`.
     """
     # STACK
     jump_dest = Uint(pop(evm.stack))
@@ -132,12 +108,6 @@ def pc(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.StackOverflowError`
-        If `len(stack)` is more than `1023`.
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass
@@ -162,12 +132,6 @@ def gas_left(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.StackOverflowError`
-        If `len(stack)` is more than `1023`.
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `2`.
     """
     # STACK
     pass
@@ -193,10 +157,6 @@ def jumpdest(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.arrow_glacier.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `1`.
     """
     # STACK
     pass
