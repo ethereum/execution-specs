@@ -69,10 +69,6 @@ def charge_gas(evm: Evm, amount: Uint) -> None:
     amount :
         The amount of gas the current operation requires.
 
-    Raises
-    ------
-    :py:class:`~ethereum.frontier.vm.exceptions.OutOfGasError`
-        If `gas_left` is less than `amount`.
     """
     if evm.gas_left < amount:
         raise OutOfGasError

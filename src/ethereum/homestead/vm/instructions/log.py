@@ -36,10 +36,6 @@ def log_n(evm: Evm, num_topics: U256) -> None:
     num_topics :
         The number of topics to be included in the log entry.
 
-    Raises
-    ------
-    :py:class:`~ethereum.homestead.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2 + num_topics`.
     """
     # STACK
     memory_start_index = pop(evm.stack)

@@ -37,12 +37,6 @@ def add(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.berlin.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.berlin.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `3`.
     """
     # STACK
     x = pop(evm.stack)
@@ -70,12 +64,6 @@ def sub(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.berlin.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.berlin.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `3`.
     """
     # STACK
     x = pop(evm.stack)
@@ -103,12 +91,6 @@ def mul(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.berlin.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.berlin.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `5`.
     """
     # STACK
     x = pop(evm.stack)
@@ -136,12 +118,6 @@ def div(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.berlin.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.berlin.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `5`.
     """
     # STACK
     dividend = pop(evm.stack)
@@ -172,12 +148,6 @@ def sdiv(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.berlin.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.berlin.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `5`.
     """
     # STACK
     dividend = pop(evm.stack).to_signed()
@@ -211,12 +181,6 @@ def mod(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.berlin.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.berlin.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `5`.
     """
     # STACK
     x = pop(evm.stack)
@@ -247,12 +211,6 @@ def smod(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.berlin.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.berlin.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `5`.
     """
     # STACK
     x = pop(evm.stack).to_signed()
@@ -283,12 +241,6 @@ def addmod(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.berlin.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `3`.
-    :py:class:`~ethereum.berlin.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `8`.
     """
     # STACK
     x = Uint(pop(evm.stack))
@@ -320,12 +272,6 @@ def mulmod(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.berlin.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `3`.
-    :py:class:`~ethereum.berlin.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `8`.
     """
     # STACK
     x = Uint(pop(evm.stack))
@@ -357,10 +303,6 @@ def exp(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.berlin.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
     """
     # STACK
     base = Uint(pop(evm.stack))
@@ -394,12 +336,6 @@ def signextend(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.berlin.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.berlin.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `5`.
     """
     # STACK
     byte_num = pop(evm.stack)

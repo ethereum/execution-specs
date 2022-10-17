@@ -29,12 +29,6 @@ def less_than(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
     left = pop(evm.stack)
@@ -61,12 +55,6 @@ def signed_less_than(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
     left = pop(evm.stack).to_signed()
@@ -94,12 +82,6 @@ def greater_than(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
     left = pop(evm.stack)
@@ -126,12 +108,6 @@ def signed_greater_than(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
     left = pop(evm.stack).to_signed()
@@ -159,12 +135,6 @@ def equal(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
     left = pop(evm.stack)
@@ -192,12 +162,6 @@ def is_zero(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.istanbul.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.istanbul.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
     x = pop(evm.stack)
