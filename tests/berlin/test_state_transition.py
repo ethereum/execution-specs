@@ -24,7 +24,7 @@ test_dir = "tests/fixtures/BlockchainTests/GeneralStateTests/"
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
-SLOW_TESTS = (
+GENERAL_STATE_SLOW_TESTS = (
     "stTimeConsuming/CALLBlake2f_MaxRounds.json",
     "stTimeConsuming/static_Call50000_sha256.json",
     "vmPerformance/loopExp.json",
@@ -58,7 +58,7 @@ BIG_MEMORY_TESTS = ("50000_",)
     fetch_berlin_tests(
         test_dir,
         ignore_list=INCORRECT_UPSTREAM_STATE_TESTS,
-        slow_list=SLOW_TESTS,
+        slow_list=GENERAL_STATE_SLOW_TESTS,
         big_memory_list=BIG_MEMORY_TESTS,
     ),
     ids=idfn,
@@ -83,7 +83,7 @@ IGNORE_LIST = (
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
-SLOW_TESTS = ("bcExploitTest/DelegateCallSpam.json",)  # type: ignore
+VALID_BLOCKS_SLOW_TESTS = ("bcExploitTest/DelegateCallSpam.json",)
 
 
 @pytest.mark.parametrize(
@@ -91,7 +91,7 @@ SLOW_TESTS = ("bcExploitTest/DelegateCallSpam.json",)  # type: ignore
     fetch_berlin_tests(
         test_dir,
         ignore_list=IGNORE_LIST,
-        slow_list=SLOW_TESTS,
+        slow_list=VALID_BLOCKS_SLOW_TESTS,
     ),
     ids=idfn,
 )

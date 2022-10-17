@@ -28,7 +28,7 @@ test_dir = (
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
-SLOW_TESTS = (
+GENERAL_STATE_SLOW_TESTS = (
     "stRandom/randomStatetest177_d0g0v0.json",
     "stQuadraticComplexityTest/Call50000_d0g1v0.json",
     "stQuadraticComplexityTest/Call50000_sha256_d0g1v0.json",
@@ -113,7 +113,7 @@ INCORRECT_UPSTREAM_STATE_TESTS = ()
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_homestead_tests(test_dir, slow_list=SLOW_TESTS),
+    fetch_homestead_tests(test_dir, slow_list=GENERAL_STATE_SLOW_TESTS),
     ids=idfn,
 )
 def test_general_state_tests(test_case: Dict) -> None:
@@ -138,7 +138,7 @@ IGNORE_LIST = (
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
-SLOW_TESTS = ("bcExploitTest/DelegateCallSpam.json",)  # type: ignore
+VALID_BLOCKS_SLOW_TESTS = ("bcExploitTest/DelegateCallSpam.json",)
 
 BIG_MEMORY_TESTS = ("randomStatetest94_",)
 
@@ -148,7 +148,7 @@ BIG_MEMORY_TESTS = ("randomStatetest94_",)
     fetch_homestead_tests(
         test_dir,
         ignore_list=IGNORE_LIST,
-        slow_list=SLOW_TESTS,
+        slow_list=VALID_BLOCKS_SLOW_TESTS,
         big_memory_list=BIG_MEMORY_TESTS,
     ),
     ids=idfn,
