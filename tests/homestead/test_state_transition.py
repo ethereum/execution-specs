@@ -31,7 +31,7 @@ test_dir = (
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
-SLOW_TESTS = (
+GENERAL_STATE_SLOW_TESTS = (
     "stRandom/randomStatetest177_d0g0v0.json",
     "stQuadraticComplexityTest/Call50000_d0g1v0.json",
     "stQuadraticComplexityTest/Call50000_sha256_d0g1v0.json",
@@ -116,7 +116,7 @@ INCORRECT_UPSTREAM_STATE_TESTS = ()
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_homestead_tests(test_dir, slow_list=SLOW_TESTS),
+    fetch_homestead_tests(test_dir, slow_list=GENERAL_STATE_SLOW_TESTS),
     ids=idfn,
 )
 def test_general_state_tests(test_case: Dict) -> None:
@@ -132,26 +132,36 @@ test_dir = (
     "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/ValidBlocks/"
 )
 
-only_in = (
-    "bcUncleTest/oneUncle.json",
-    "bcUncleTest/oneUncleGeneration2.json",
-    "bcUncleTest/oneUncleGeneration3.json",
-    "bcUncleTest/oneUncleGeneration4.json",
-    "bcUncleTest/oneUncleGeneration5.json",
-    "bcUncleTest/oneUncleGeneration6.json",
-    "bcUncleTest/twoUncle.json",
-    "bcUncleTest/uncleHeaderAtBlock2.json",
-    "bcUncleSpecialTests/uncleBloomNot0.json",
+IGNORE_LIST = (
+    "bcForkStressTest/ForkStressTest.json",
+    "bcGasPricerTest/RPC_API_Test.json",
+    "bcMultiChainTest/",
+    "bcTotalDifficultyTest/",
 )
+
+# Every test below takes more than  60s to run and
+# hence they've been marked as slow
+VALID_BLOCKS_SLOW_TESTS = ("bcExploitTest/DelegateCallSpam.json",)
+
+BIG_MEMORY_TESTS = ("randomStatetest94_",)
 
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_homestead_tests(test_dir, only_in=only_in),
+    fetch_homestead_tests(
+        test_dir,
+        ignore_list=IGNORE_LIST,
+        slow_list=VALID_BLOCKS_SLOW_TESTS,
+        big_memory_list=BIG_MEMORY_TESTS,
+    ),
     ids=idfn,
 )
-def test_uncles_correctness(test_case: Dict) -> None:
-    run_homestead_blockchain_st_tests(test_case)
+def test_valid_block_tests(test_case: Dict) -> None:
+    try:
+        run_homestead_blockchain_st_tests(test_case)
+    except KeyError:
+        # FIXME: Handle tests that don't have post state
+        pytest.xfail(f"{test_case} doesn't have post state")
 
 
 # Run legacy invalid block tests

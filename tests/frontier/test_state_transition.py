@@ -48,27 +48,28 @@ test_dir = (
     "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/ValidBlocks/"
 )
 
-only_in = (
-    "bcUncleTest/oneUncle.json",
-    "bcUncleTest/oneUncleGeneration2.json",
-    "bcUncleTest/oneUncleGeneration3.json",
-    "bcUncleTest/oneUncleGeneration4.json",
-    "bcUncleTest/oneUncleGeneration5.json",
-    "bcUncleTest/oneUncleGeneration6.json",
-    "bcUncleTest/twoUncle.json",
-    "bcUncleTest/uncleHeaderAtBlock2.json",
-    "bcUncleSpecialTests/uncleBloomNot0.json",
-    "bcUncleSpecialTests/futureUncleTimestampDifficultyDrop.json",
+IGNORE_LIST = (
+    "bcForkStressTest/ForkStressTest.json",
+    "bcGasPricerTest/RPC_API_Test.json",
+    "bcMultiChainTest/",
+    "bcTotalDifficultyTest/",
 )
 
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_frontier_tests(test_dir, only_in=only_in),
+    fetch_frontier_tests(
+        test_dir,
+        ignore_list=IGNORE_LIST,
+    ),
     ids=idfn,
 )
-def test_uncles_correctness(test_case: Dict) -> None:
-    run_frontier_blockchain_st_tests(test_case)
+def test_valid_block_tests(test_case: Dict) -> None:
+    try:
+        run_frontier_blockchain_st_tests(test_case)
+    except KeyError:
+        # FIXME: Handle tests that don't have post state
+        pytest.xfail(f"{test_case} doesn't have post state")
 
 
 # Run legacy invalid block tests
