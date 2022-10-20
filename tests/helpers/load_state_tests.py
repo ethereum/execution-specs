@@ -24,6 +24,19 @@ from ethereum.utils.hexadecimal import (
 )
 
 
+class NoTestsFound(Exception):
+    """
+    An exception thrown when the test for a particular fork isn't
+    available in the json fixture
+    """
+
+
+class NoPostState(Exception):
+    """
+    An exception thrown when the test does not have a postState defined.
+    """
+
+
 class BaseLoad(ABC):
     @property
     @abstractmethod
@@ -335,6 +348,11 @@ def load_test(test_case: Dict, load: BaseLoad) -> Dict:
         json_data["blocks"]
     )
 
+    try:
+        post_state = load.json_to_state(json_data["postState"])
+    except KeyError:
+        raise NoPostState
+
     return {
         "test_file": test_case["test_file"],
         "test_key": test_case["test_key"],
@@ -346,7 +364,7 @@ def load_test(test_case: Dict, load: BaseLoad) -> Dict:
         "genesis_block_rlp": hex_to_bytes(json_data["genesisRLP"]),
         "last_block_hash": hex_to_bytes(json_data["lastblockhash"]),
         "pre_state": load.json_to_state(json_data["pre"]),
-        "expected_post_state": load.json_to_state(json_data["postState"]),
+        "expected_post_state": post_state,
         "blocks": blocks,
         "block_header_hashes": block_header_hashes,
         "block_rlps": block_rlps,
@@ -428,7 +446,7 @@ def load_json_fixture(test_file: str, network: str) -> Generator:
         found_keys = list(filter(keys_to_search.match, data.keys()))
 
         if not any(found_keys):
-            raise KeyError
+            raise NoTestsFound
 
         for _key in found_keys:
             yield {
@@ -493,7 +511,7 @@ def fetch_state_test_files(
                     yield pytest.param(_test_case, marks=pytest.mark.bigmem)
                 else:
                     yield _test_case
-        except KeyError:
+        except NoTestsFound:
             # file doesn't contain tests for the given fork
             continue
 

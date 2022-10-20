@@ -9,6 +9,7 @@ from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import InvalidBlock
 from tests.helpers.load_state_tests import (
     Load,
+    NoPostState,
     fetch_state_test_files,
     idfn,
     run_blockchain_st_test,
@@ -76,7 +77,7 @@ GENERAL_STATE_BIG_MEMORY_TESTS = (
 def test_general_state_tests(test_case: Dict) -> None:
     try:
         run_berlin_blockchain_st_tests(test_case)
-    except KeyError:
+    except NoPostState:
         # FIXME: Handle tests that don't have post state
         pytest.xfail(f"{test_case} doesn't have post state")
 
@@ -108,7 +109,7 @@ VALID_BLOCKS_SLOW_TESTS = ("bcExploitTest/DelegateCallSpam.json",)
 def test_valid_block_tests(test_case: Dict) -> None:
     try:
         run_berlin_blockchain_st_tests(test_case)
-    except KeyError:
+    except NoPostState:
         # FIXME: Handle tests that don't have post state
         pytest.xfail(f"{test_case} doesn't have post state")
 
@@ -154,7 +155,7 @@ def test_invalid_block_tests(test_case: Dict) -> None:
         else:
             with pytest.raises(InvalidBlock):
                 run_berlin_blockchain_st_tests(test_case)
-    except KeyError:
+    except NoPostState:
         # FIXME: Handle tests that don't have post state
         pytest.xfail(
             "{} doesn't have post state".format(test_case["test_key"])
