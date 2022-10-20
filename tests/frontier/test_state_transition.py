@@ -29,10 +29,20 @@ test_dir = (
     "GeneralStateTests/"
 )
 
+GENERAL_STATE_BIG_MEMORY_TESTS = (
+    "/stQuadraticComplexityTest/",
+    "/stRandom2/",
+    "/stRandom/",
+    "/stSpecialTest/",
+)
+
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_frontier_tests(test_dir),
+    fetch_frontier_tests(
+        test_dir,
+        big_memory_list=GENERAL_STATE_BIG_MEMORY_TESTS,
+    ),
     ids=idfn,
 )
 def test_general_state_tests(test_case: Dict) -> None:
@@ -53,6 +63,7 @@ IGNORE_LIST = (
     "bcGasPricerTest/RPC_API_Test.json",
     "bcMultiChainTest/",
     "bcTotalDifficultyTest/",
+    "stTimeConsuming/",
 )
 
 

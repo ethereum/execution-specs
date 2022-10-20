@@ -53,7 +53,14 @@ INCORRECT_UPSTREAM_STATE_TESTS = (
 )
 
 # All tests that recursively create a large number of frames (50000)
-BIG_MEMORY_TESTS = ("50000_",)
+GENERAL_STATE_BIG_MEMORY_TESTS = (
+    "50000_",
+    "/stQuadraticComplexityTest/",
+    "/stRandom2/",
+    "/stRandom/",
+    "/stSpecialTest/",
+    "stTimeConsuming/",
+)
 
 
 @pytest.mark.parametrize(
@@ -62,7 +69,7 @@ BIG_MEMORY_TESTS = ("50000_",)
         test_dir,
         ignore_list=INCORRECT_UPSTREAM_STATE_TESTS,
         slow_list=GENERAL_STATE_SLOW_TESTS,
-        big_memory_list=BIG_MEMORY_TESTS,
+        big_memory_list=GENERAL_STATE_BIG_MEMORY_TESTS,
     ),
     ids=idfn,
 )
