@@ -3,6 +3,7 @@ Test suite for `ethereum_test` module.
 """
 
 import json
+from typing import Generator
 
 from ethereum_test import (
     Account,
@@ -49,12 +50,14 @@ def test_fill_state_test():
 
     post = {
         "0x1000000000000000000000000000000000000000": Account(
-            code="0x46600155", storage={"0x01": "0x01"}
+            code="0x4660015500", storage={"0x01": "0x01"}
         ),
     }
 
-    test = StateTest(env, pre, post, [tx])
-    fixture = fill_state_test(test, ["Istanbul"], "NoProof")
+    def generator(_) -> Generator[StateTest, None, None]:
+        yield StateTest(env, pre, post, [tx])
+
+    fixture = fill_state_test(generator, ["Istanbul"], "NoProof")
 
     with open("tests/ethereum_test/fixtures/chainid_filled.json") as f:
         expected = json.load(f)

@@ -3,6 +3,7 @@ alloc
 b11r
 big0
 big1
+bytecode
 bytes8
 bytes20
 bytes32
@@ -17,19 +18,29 @@ evm
 fn
 geth
 hash32
-listdir
 ispkg
+listdir
 ommer
 ommers
 pathlib
 petersburg
 rlp
+t8n
 trie
 txs
-t8n
-utils
 u256
+utils
 
+delitem
+fromhex
+getitem
+radd
+setitem
+
+lll
+lllc
+solc
+yul
 
 sha3
 

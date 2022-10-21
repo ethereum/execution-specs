@@ -5,7 +5,7 @@ import json
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import Any, List, Mapping, Tuple
+from typing import Any, Callable, Generator, List, Mapping, Tuple
 
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
@@ -59,6 +59,45 @@ class StateTest:
 
         return genesis
 
+    def verify_post_alloc(self, alloc):
+        """
+        Verify that an allocation matches the expected post in the test.
+        Raises exception on unexpected values.
+        """
+        for account in self.post:
+            if self.post[account] is None:
+                # If an account is None in post, it must not exist in the
+                # alloc.
+                if account in alloc:
+                    raise Exception(f"found unexpected account: {account}")
+            else:
+                if account in alloc:
+                    self.post[account].check_alloc(account, alloc[account])
+                else:
+                    raise Exception(f"expected account not found: {account}")
+
+    def verify_txs(self, result):
+        """
+        Verify rejected transactions (if any) against the expected outcome.
+        Raises exception on unexpected rejections or unexpected successful txs.
+        """
+        rejected_txs = {}
+        if "rejected" in result:
+            for rejected_tx in result["rejected"]:
+                if "index" not in rejected_tx or "error" not in rejected_tx:
+                    raise Exception("badly formatted result")
+                rejected_txs[rejected_tx["index"]] = rejected_tx["error"]
+
+        for i, tx in enumerate(self.txs):
+            error = rejected_txs[i] if i in rejected_txs else None
+            if tx.error and not error:
+                raise Exception("tx expected to fail succeeded")
+            elif not tx.error and error:
+                raise Exception(f"tx unexpectedly failed: {error}")
+
+            # TODO: Also we need a way to check we actually got the
+            # correct error
+
     def make_block(
         self,
         b11r: BlockBuilder,
@@ -69,6 +108,8 @@ class StateTest:
     ) -> Tuple[str, str]:
         """
         Create a block from the state test definition.
+        Performs checks against the expected behavior of the test.
+        Raises exception on invalid test behavior.
         """
         pre = json.loads(json.dumps(self.pre, cls=JSONEncoder))
         txs = json.loads(json.dumps(self.txs, cls=JSONEncoder))
@@ -76,7 +117,7 @@ class StateTest:
 
         with tempfile.TemporaryDirectory() as directory:
             txsRlp = os.path.join(directory, "txs.rlp")
-            (_, result) = t8n.evaluate(
+            (alloc, result) = t8n.evaluate(
                 pre,
                 txs,
                 env,
@@ -87,6 +128,9 @@ class StateTest:
             )
             with open(txsRlp, "r") as file:
                 txs = file.read().strip('"')
+
+        self.verify_txs(result)
+        self.verify_post_alloc(alloc)
 
         header = result | {
             "parentHash": self.env.previous,
@@ -104,3 +148,6 @@ class StateTest:
             header["baseFeePerGas"] = str(self.env.base_fee)
 
         return b11r.build(header, txs, [], None)
+
+
+StateTestSpec = Callable[[str], Generator[StateTest, None, None]]

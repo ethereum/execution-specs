@@ -7,6 +7,8 @@ __pycache__
 __pycache__/
 *.py[cod]
 *$py.class
+venv/
+fixtures/
 
 # C extensions
 *.so
@@ -44,3 +46,7 @@ pip-delete-this-directory.txt
 /doc/_autosummary
 
 .coverage
+
+# misc
+
+*.code-workspace
