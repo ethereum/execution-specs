@@ -23,7 +23,7 @@ Code merged into Participating Clients:
 |------------------|------|------|------|------|------|------|
 | **Geth**         | [Not merged](https://github.com/ethereum/go-ethereum/pull/22958) | | [Not merged](https://github.com/ethereum/go-ethereum/pull/24090) | [Merged](https://github.com/ethereum/go-ethereum/pull/24039) | [Not merged](https://github.com/ethereum/go-ethereum/pull/23847) | |
 | **Besu**         | | | | | | |
-| **Nethermind**   | | | | | | |
+| **Nethermind**   | [Not merged](https://github.com/NethermindEth/nethermind/pull/4608)| [Merged](https://github.com/NethermindEth/nethermind/pull/4594)|[Not merged](https://github.com/NethermindEth/nethermind/pull/4609)|[Merged](https://github.com/NethermindEth/nethermind/pull/4599) |[Not merged](https://github.com/NethermindEth/nethermind/pull/4740) |[Not merged](https://github.com/NethermindEth/nethermind/pull/4731) |
 | **Erigon**    | | | | [Merged](https://github.com/ledgerwatch/erigon/pull/5256) | | |
 | **EthereumJS**   | | | | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1616) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1619) | |
 
