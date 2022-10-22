@@ -19,8 +19,14 @@ from ethereum.utils.ensure import ensure
 from ...eth_types import Log
 from .. import Evm
 from ..exceptions import WriteInStaticContext
-from ..gas import GAS_LOG, GAS_LOG_DATA, GAS_LOG_TOPIC, charge_gas
-from ..memory import extend_memory, memory_read_bytes
+from ..gas import (
+    GAS_LOG,
+    GAS_LOG_DATA,
+    GAS_LOG_TOPIC,
+    calculate_gas_extend_memory,
+    charge_gas,
+)
+from ..memory import memory_read_bytes
 from ..stack import pop
 
 
@@ -49,10 +55,19 @@ def log_n(evm: Evm, num_topics: U256) -> None:
         topics.append(topic)
 
     # GAS
-    extend_memory(evm, memory_start_index, size)
-    charge_gas(evm, GAS_LOG + GAS_LOG_DATA * size + GAS_LOG_TOPIC * num_topics)
+    memory_cost, size_to_extend = calculate_gas_extend_memory(
+        evm.memory, [(memory_start_index, size)]
+    )
+    charge_gas(
+        evm,
+        GAS_LOG
+        + GAS_LOG_DATA * size
+        + GAS_LOG_TOPIC * num_topics
+        + memory_cost,
+    )
 
     # OPERATION
+    evm.memory += b"\x00" * size_to_extend
     ensure(not evm.message.is_static, WriteInStaticContext)
     log_entry = Log(
         address=evm.message.current_target,
