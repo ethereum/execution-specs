@@ -349,9 +349,10 @@ def load_test(test_case: Dict, load: BaseLoad) -> Dict:
     )
 
     try:
-        post_state = load.json_to_state(json_data["postState"])
+        raw_post_state = json_data["postState"]
     except KeyError:
         raise NoPostState
+    post_state = load.json_to_state(raw_post_state)
 
     return {
         "test_file": test_case["test_file"],
