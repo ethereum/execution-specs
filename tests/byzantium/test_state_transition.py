@@ -9,6 +9,7 @@ from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import InvalidBlock
 from tests.helpers.load_state_tests import (
     Load,
+    NoPostState,
     fetch_state_test_files,
     idfn,
     run_blockchain_st_test,
@@ -38,7 +39,14 @@ INCORRECT_UPSTREAM_STATE_TESTS = (
 )
 
 # All tests that recursively create a large number of frames (50000)
-BIG_MEMORY_TESTS = ("50000_",)
+GENERAL_STATE_BIG_MEMORY_TESTS = (
+    "50000_",
+    "/stQuadraticComplexityTest/",
+    "/stRandom2/",
+    "/stRandom/",
+    "/stSpecialTest/",
+    "stTimeConsuming/",
+)
 
 
 @pytest.mark.parametrize(
@@ -46,14 +54,14 @@ BIG_MEMORY_TESTS = ("50000_",)
     fetch_byzantium_tests(
         test_dir,
         ignore_list=INCORRECT_UPSTREAM_STATE_TESTS,
-        big_memory_list=BIG_MEMORY_TESTS,
+        big_memory_list=GENERAL_STATE_BIG_MEMORY_TESTS,
     ),
     ids=idfn,
 )
 def test_general_state_tests(test_case: Dict) -> None:
     try:
         run_byzantium_blockchain_st_tests(test_case)
-    except KeyError:
+    except NoPostState:
         # FIXME: Handle tests that don't have post state
         pytest.xfail(f"{test_case} doesn't have post state")
 
@@ -74,7 +82,7 @@ IGNORE_LIST = (
 # hence they've been marked as slow
 SLOW_TESTS = ("bcExploitTest/DelegateCallSpam.json",)
 
-BIG_MEMORY_TESTS = ("randomStatetest94_",)
+VALID_BLOCKS_BIG_MEMORY_TESTS = ("randomStatetest94_",)
 
 
 @pytest.mark.parametrize(
@@ -83,14 +91,14 @@ BIG_MEMORY_TESTS = ("randomStatetest94_",)
         test_dir,
         ignore_list=IGNORE_LIST,
         slow_list=SLOW_TESTS,
-        big_memory_list=BIG_MEMORY_TESTS,
+        big_memory_list=VALID_BLOCKS_BIG_MEMORY_TESTS,
     ),
     ids=idfn,
 )
 def test_valid_block_tests(test_case: Dict) -> None:
     try:
         run_byzantium_blockchain_st_tests(test_case)
-    except KeyError:
+    except NoPostState:
         # FIXME: Handle tests that don't have post state
         pytest.xfail(f"{test_case} doesn't have post state")
 
@@ -119,7 +127,7 @@ def test_invalid_block_tests(test_case: Dict) -> None:
         else:
             with pytest.raises(InvalidBlock):
                 run_byzantium_blockchain_st_tests(test_case)
-    except KeyError:
+    except NoPostState:
         # FIXME: Handle tests that don't have post state
         pytest.xfail(
             "{} doesn't have post state".format(test_case["test_key"])
