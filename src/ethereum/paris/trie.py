@@ -30,7 +30,7 @@ from typing import (
 )
 
 from ethereum.crypto.hash import keccak256
-from ethereum.london import trie as previous_trie
+from ethereum.gray_glacier import trie as previous_trie
 from ethereum.utils.ensure import ensure
 from ethereum.utils.hexadecimal import hex_to_bytes
 

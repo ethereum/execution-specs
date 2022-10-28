@@ -159,7 +159,7 @@ def prev_randao(evm: Evm) -> None:
     """
     Push the `prev_randao` value onto the stack.
 
-    The `prev_randao` value is the random output of the beaconchain's
+    The `prev_randao` value is the random output of the beacon chain's
     randomness oracle for the previous block.
 
     Parameters
@@ -181,7 +181,7 @@ def prev_randao(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, evm.env.prev_randao)
+    push(evm.stack, U256.from_be_bytes(evm.env.prev_randao))
 
     # PROGRAM COUNTER
     evm.pc += 1

@@ -15,7 +15,7 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
 
-from ethereum.base_types import Bytes0
+from ethereum.base_types import Bytes0, Bytes32
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock
@@ -65,7 +65,6 @@ BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
 ELASTICITY_MULTIPLIER = 2
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
-BOMB_DELAY_BLOCKS = 9700000
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 
 
@@ -181,7 +180,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.header.base_fee_per_gas,
         block.header.gas_limit,
         block.header.timestamp,
-        U256.from_be_bytes(block.header.prev_randao),
+        block.header.prev_randao,
         block.transactions,
         chain.chain_id,
     )
@@ -281,7 +280,7 @@ def apply_body(
     base_fee_per_gas: Uint,
     block_gas_limit: Uint,
     block_time: U256,
-    prev_randao: U256,
+    prev_randao: Bytes32,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
     chain_id: Uint64,
 ) -> Tuple[Uint, Root, Root, Bloom, State]:
