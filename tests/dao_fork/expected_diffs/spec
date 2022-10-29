@@ -1,0 +1,19 @@
+
+
+< from . import vm
+
+> from . import MAINNET_FORK_BLOCK, vm
+
+> from .dao import DAO_ACCOUNTS, DAO_RECOVERY
+
+>     move_ether,
+
+>     for address in DAO_ACCOUNTS:
+>         balance = get_account(old.state, address).balance
+>         move_ether(old.state, address, DAO_RECOVERY, balance)
+
+>     if (
+>         header.number >= MAINNET_FORK_BLOCK
+>         and header.number < MAINNET_FORK_BLOCK + 10
+>     ):
+>         ensure(header.extra_data == b"dao-hard-fork", InvalidBlock)

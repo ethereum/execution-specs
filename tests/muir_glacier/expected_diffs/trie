@@ -1,0 +1,5 @@
+
+
+< from ethereum.constantinople import trie as previous_trie
+
+> from ethereum.istanbul import trie as previous_trie
