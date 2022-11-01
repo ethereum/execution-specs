@@ -1,15 +1,15 @@
 # Contribution Guidelines
 
-Help is always welcome and there are plenty of options to contribute to EELS.
+Help is always welcome and there are plenty of options to contribute to the Ethereum Execution Layer Specifications (EELS).
 
 In particular, we appreciate support in the following areas:
 
 - Reporting issues
-- Fixing and responding to [issues](https://github.com/ethereum/execution-specs/issues), especially those tagged as [good first issue](https://github.com/ethereum/execution-specs/labels/good%20first%20issue) which are meant as introductory issues for external contributors.
+- Fixing and responding to [issues](https://github.com/ethereum/execution-specs/issues), especially those tagged as [E-easy](https://github.com/ethereum/execution-specs/labels/E-easy) which are meant as introductory issues for external contributors.
 - Improving the documentation.
 
 
-For details about the Execution Specifications usage and building, please refer the [README](https://github.com/ethereum/execution-specs/blob/master/README.md#usage)
+For details about EELS usage and building, please refer the [README](https://github.com/ethereum/execution-specs/blob/master/README.md#usage)
 
 
 ## Contribution Guidelines
@@ -20,20 +20,21 @@ This specification aims to be:
 2. **Complete** - Capture the entirety of _consensus critical_ parts of Ethereum.
 3. **Accessible** - Prioritize readability, clarity, and plain language over performance and brevity.
 
-### Spelling
+### Spelling and Naming
 
-Attempt to use descriptive English words (or _very common_ abbreviations) in documentation and identifiers. If necessary, there is a custom dictionary `whitelist.txt`.
+- Attempt to use descriptive English words (or _very common_ abbreviations) in documentation and identifiers.
+- Avoid using EIP numbers in identifiers.
+- If necessary, there is a custom dictionary `whitelist.txt`. 
 
 
 ### Development
 
 Running the tests necessary to merge into the repository requires:
 
- * Python 3.8.x (not 3.9 or later), and
+ * Python 3.9.x, and
  * [PyPy 7.3.x](https://www.pypy.org/).
  * `geth` installed and present in `$PATH`
 
-These version ranges are necessary because, at the time of writing, PyPy is only compatible with Python 3.7.
 
 `execution-specs` depends on a submodule that contains common tests that are run across all clients, so we need to clone the repo with the --recursive flag. Example:
 ```bash
@@ -77,7 +78,7 @@ pytest tests/frontier/test_state_transition.py -k 'test_general_state_tests_new'
 
 ## CLI Utilities `ethereum_spec_tools`
 
-The execution specs repository has various CLI utilities that can help in the development process.
+The EELS repository has various CLI utilities that can help in the development process.
 
 ### New Fork Tool
 -----------------
@@ -96,19 +97,19 @@ ethereum-spec-new-fork --from_fork="Tangerine Whistle" --to_fork="Spurious Drago
 ```
 
 The following will have to however, be updated manually
- 1. The fork number and MAINNET_FORK_BLOCK in __init__.py
- 2. Any absolute package imports from other forks eg. in trie.py
- 3. Package names under setup.cfg
- 4. Add the new fork to the monkey_patch() function in src/ethereum_optimized/__init__.py
- 5. Adjust the underline in fork/__init__.py
+ 1. The fork number and `MAINNET_FORK_BLOCK` in `__init__.py`
+ 2. Any absolute package imports from other forks eg. in `trie.py`
+ 3. Package names under `setup.cfg`
+ 4. Add the new fork to the `monkey_patch()` function in `src/ethereum_optimized/__init__.py`
+ 5. Adjust the underline in `fork/__init__.py`
 
 
 ### Sync Tool
 -------------
-The sync tool allows one to use an RPC provider to fetch and validate blocks against the specifications.
+The sync tool allows one to use an RPC provider to fetch and validate blocks against EELS.
 The state can also be stored in a local DB after validation. Since syncing directly with the specs can be
 very slow, one can also leverage the optimized module. This contains alternative implementations of routines
-in the spec that have been optimized for speed rather than clarity/readability.
+in EELS that have been optimized for speed rather than clarity/readability.
 
 
 The tool can be called using the `ethereum-spec-sync` command which takes the following arguments
@@ -145,7 +146,7 @@ python src/ethereum_spec_tools/patch_tool.py frontier homestead tangerine_whistl
 
 ### Lint Tool
 -------------
-This tool checks for style and formatting issues specific to the Ethereum specification and emits diagnostics
+This tool checks for style and formatting issues specific to EELS and emits diagnostics
 when issues are found
 
 The tool currently performs the following checks

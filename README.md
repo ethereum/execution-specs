@@ -65,3 +65,7 @@ A live preview of the documentation can be viewed locally on port `8000` with th
 ```bash
 $ tox -e doc-autobuild
 ```
+
+# License
+
+The Ethereum Execution Layer Specification code is licensed under the [Creative Commons Zero v1.0 Universal](https://github.com/ethereum/execution-specs/blob/master/LICENSE.md).  
