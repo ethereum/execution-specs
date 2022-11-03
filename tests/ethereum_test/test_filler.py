@@ -392,7 +392,12 @@ def test_fill_london_blockchain_test_valid_txs():
     fixture = fill_test(t8n, b11r, generator, ["London"], "NoProof")
 
     with open(
-        "tests/ethereum_test/test_fixtures/blockchain_london_valid_filled.json"
+        os.path.join(
+            "tests",
+            "ethereum_test",
+            "test_fixtures",
+            "blockchain_london_valid_filled.json",
+        )
     ) as f:
         expected = json.load(f)
 
@@ -713,8 +718,12 @@ def test_fill_london_blockchain_test_invalid_txs():
     fixture = fill_test(t8n, b11r, generator, ["London"], "NoProof")
 
     with open(
-        "tests/ethereum_test/test_fixtures/"
-        + "blockchain_london_invalid_filled.json"
+        os.path.join(
+            "tests",
+            "ethereum_test",
+            "test_fixtures",
+            "blockchain_london_invalid_filled.json",
+        )
     ) as f:
         expected = json.load(f)
 
