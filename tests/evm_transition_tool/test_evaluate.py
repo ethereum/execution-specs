@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Union
 
 import pytest
 
@@ -10,17 +10,10 @@ from evm_transition_tool import EvmTransitionTool, TransitionTool
 FIXTURES_ROOT = Path(os.path.join("tests", "evm_transition_tool", "fixtures"))
 
 
-class TestEnv:
-    base_fee: Optional[int]
-
-    def __init__(self, base_fee: Optional[int] = None):
-        self.base_fee = base_fee
-
-
 @pytest.mark.parametrize("t8n", [EvmTransitionTool()])
 @pytest.mark.parametrize("fork", ["London", "Istanbul"])
 @pytest.mark.parametrize(
-    "alloc,env,hash",
+    "alloc,base_fee,hash",
     [
         (
             {
@@ -31,7 +24,7 @@ class TestEnv:
                     "storage": {},
                 },
             },
-            TestEnv(7),
+            7,
             "0x51e7c7508e76dca0",
         ),
         (
@@ -40,7 +33,7 @@ class TestEnv:
                     "balance": "0x0BA1A9CE0BA1A9CE",
                 },
             },
-            TestEnv(),
+            None,
             "0x51e7c7508e76dca0",
         ),
         (
@@ -52,7 +45,7 @@ class TestEnv:
                     "storage": {},
                 },
             },
-            TestEnv(),
+            None,
             "0x37c2dedbdea6b3af",
         ),
         (
@@ -64,14 +57,23 @@ class TestEnv:
                     },
                 },
             },
-            TestEnv(),
+            None,
             "0x096122e88929baec",
         ),
     ],
 )
 def test_calc_state_root(
-    t8n: TransitionTool, fork: str, alloc: Dict, env: TestEnv, hash: str
+    t8n: TransitionTool,
+    fork: str,
+    alloc: Dict,
+    base_fee: Union[int, None],
+    hash: str,
 ) -> None:
+    class TestEnv:
+        base_fee: Union[int, None]
+
+    env = TestEnv()
+    env.base_fee = base_fee
     assert t8n.calc_state_root(env, alloc, fork).startswith(hash)
 
 
