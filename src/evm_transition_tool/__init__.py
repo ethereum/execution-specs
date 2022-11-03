@@ -29,12 +29,28 @@ class TransitionTool:
         pass
 
     @abstractmethod
-    def calc_state_root(self, env: Any, alloc: Any, fork: str) -> str:
-        pass
-
-    @abstractmethod
     def version(self) -> str:
         pass
+
+    def calc_state_root(self, env: Any, alloc: Any, fork: str) -> str:
+        """
+        Calculate the state root for the given `alloc`.
+        """
+        base_fee = env.base_fee
+        env = {
+            "currentCoinbase": "0x0000000000000000000000000000000000000000",
+            "currentDifficulty": "0x0",
+            "currentGasLimit": "0x0",
+            "currentNumber": "0",
+            "currentTimestamp": "0",
+        }
+        if base_fee is not None:
+            env["currentBaseFee"] = str(base_fee)
+        elif base_fee_required(fork):
+            env["currentBaseFee"] = "7"
+
+        (_, result) = self.evaluate(alloc, [], env, fork)
+        return result.get("stateRoot")
 
 
 class EvmTransitionTool(TransitionTool):
@@ -110,26 +126,6 @@ class EvmTransitionTool(TransitionTool):
             Exception("malformed result")
 
         return (output["alloc"], output["result"])
-
-    def calc_state_root(self, env: Any, alloc: Any, fork: str) -> str:
-        """
-        Calculate the state root for the given `alloc`.
-        """
-        base_fee = env.base_fee
-        env = {
-            "currentCoinbase": "0x0000000000000000000000000000000000000000",
-            "currentDifficulty": "0x0",
-            "currentGasLimit": "0x0",
-            "currentNumber": "0",
-            "currentTimestamp": "0",
-        }
-        if base_fee is not None:
-            env["currentBaseFee"] = str(base_fee)
-        elif base_fee_required(fork):
-            env["currentBaseFee"] = "7"
-
-        (_, result) = self.evaluate(alloc, [], env, fork)
-        return result.get("stateRoot")
 
     def version(self) -> str:
         """
