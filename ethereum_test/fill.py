@@ -6,25 +6,22 @@ from typing import List, Mapping
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool, map_fork
 
-from .fork import is_london
-from .state_test import StateTestSpec
+from .base_test import TestSpec
 from .types import Fixture
 
 
-def fill_state_test(
-    test_spec: StateTestSpec, forks: List[str], engine: str
+def fill_test(
+    test_spec: TestSpec, forks: List[str], engine: str
 ) -> Mapping[str, Fixture]:
     """
     Fills fixtures for certain forks.
     """
-    fixtures = []
+    fixtures: List[Fixture] = []
     for fork in forks:
         b11r = BlockBuilder()
         t8n = TransitionTool()
 
         for test in test_spec(fork):
-            if is_london(fork) and test.env.base_fee is None:
-                test.env.base_fee = 7
 
             mapped = map_fork(fork)
             if mapped is None:
@@ -35,14 +32,14 @@ def fill_state_test(
                 # Fork not supported by hive, skip
                 continue
 
-            genesis = test.make_genesis(b11r, t8n, test.env, fork)
-            (block, head) = test.make_block(
-                b11r, t8n, fork, reward=2000000000000000000
+            genesis = test.make_genesis(b11r, t8n, fork)
+            (blocks, head) = test.make_blocks(
+                b11r, t8n, genesis, fork, reward=2000000000000000000
             )
 
             fixtures.append(
                 Fixture(
-                    blocks=[block],
+                    blocks=blocks,
                     genesis=genesis,
                     head=head,
                     fork=fork,

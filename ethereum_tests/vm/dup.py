@@ -103,4 +103,4 @@ def test_dup(fork):
 
         post[account] = Account(storage=s)
 
-    yield StateTest(env, pre, post, txs)
+    yield StateTest(env=env, pre=pre, post=post, txs=txs)
