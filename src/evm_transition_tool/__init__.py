@@ -26,10 +26,16 @@ class TransitionTool:
         reward: int = 0,
         txsPath: Optional[str] = None,
     ) -> Tuple[Any, Any]:
+        """
+        Simulate a state transition with specified parameters
+        """
         pass
 
     @abstractmethod
     def version(self) -> str:
+        """
+        Return name and version of tool used to state transition
+        """
         pass
 
     def calc_state_root(self, env: Any, alloc: Any, fork: str) -> str:

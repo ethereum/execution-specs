@@ -25,10 +25,16 @@ class BlockBuilder:
         ethash: bool = False,
         ethashMode: str = "normal",
     ) -> Tuple[str, str]:
+        """
+        Build a block with specified parameters and return RLP and hash
+        """
         pass
 
     @abstractmethod
     def version(self) -> str:
+        """
+        Return name and version of tool used to build the block
+        """
         pass
 
 
