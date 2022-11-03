@@ -88,6 +88,7 @@ The Blockchain tests span multiple blocks which can contain or not transactions,
 
 - Verify system-level operations such as coinbase balance updates or withdrawals
 - Verify fork transitions
+- Verify blocks with invalid transactions/properties are rejected
 
 ### Adding a New Test
 
@@ -230,6 +231,19 @@ To avoid these scenarios, it is important to have a separate verification to
 check that test is effective. E.g. when a transaction is supposed to fail, it
 is necessary to check that the failure error is actually the one expected by
 the test.
+
+### Failing or invalid transactions
+
+Transactions included in a StateTest are expected to be intrinsically valid,
+i.e. the account sending the transaction must have enough funds to cover the
+gas costs, the max fee of the transaction must be equal or higher than the
+base fee of the block, etc.
+
+An intrinsically valid transaction can still revert during its execution.
+
+Blocks in a BlockchainTest can contain intrinsically invalid transactions but
+in this case the block is expected to be completely rejected, along with all
+transactions in it, including other valid transactions.
 
 [t8n]: https://github.com/ethereum/go-ethereum/tree/master/cmd/evm
 [b11r]: https://github.com/ethereum/go-ethereum/pull/23843
