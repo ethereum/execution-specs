@@ -594,7 +594,10 @@ class Fixture:
     seal_engine: str
     info: Dict[str, str] = field(default_factory=dict)
 
-    def set_info(self, t8n: TransitionTool, b11r: BlockBuilder):
+    def fill_info(self, t8n: TransitionTool, b11r: BlockBuilder):
+        """
+        Fill the info field for this fixture
+        """
         self.info["filling-transition-tool"] = t8n.version()
         self.info["filling-block-build-tool"] = b11r.version()
 

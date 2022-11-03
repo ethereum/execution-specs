@@ -48,7 +48,7 @@ def fill_test(
                 post_state=None,
                 seal_engine=engine,
             )
-            fixture.set_info(t8n, b11r)
+            fixture.fill_info(t8n, b11r)
             fixtures.append(fixture)
 
     out = {}
