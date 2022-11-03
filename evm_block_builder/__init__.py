@@ -38,6 +38,7 @@ class EvmBlockBuilder(BlockBuilder):
     """
 
     binary: Path
+    cached_version: Optional[str] = None
 
     def __init__(self, binary: Optional[Path] = None):
         if binary is None:
@@ -103,4 +104,21 @@ class EvmBlockBuilder(BlockBuilder):
         return (output["rlp"], output["hash"])
 
     def version(self) -> str:
-        return ""
+        """
+        Gets `evm` binary version.
+        """
+        if self.cached_version is None:
+
+            result = subprocess.run(
+                [str(self.binary), "-v"],
+                stdout=subprocess.PIPE,
+            )
+
+            if result.returncode != 0:
+                raise Exception(
+                    "failed to evaluate: " + result.stderr.decode()
+                )
+
+            self.cached_version = result.stdout.decode().strip()
+
+        return self.cached_version

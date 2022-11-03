@@ -6,6 +6,9 @@ from copy import copy, deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Tuple, Type, Union
 
+from evm_block_builder import BlockBuilder
+from evm_transition_tool import TransitionTool
+
 from .code import Code, code_to_hex
 from .common import AddrAA, TestPrivateKey
 
@@ -589,6 +592,11 @@ class Fixture:
     pre_state: Mapping[str, Account]
     post_state: Optional[Mapping[str, Account]]
     seal_engine: str
+    info: Dict[str, str] = field(default_factory=dict)
+
+    def set_info(self, t8n: TransitionTool, b11r: BlockBuilder):
+        self.info["filling-transition-tool"] = t8n.version()
+        self.info["filling-block-build-tool"] = b11r.version()
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -707,7 +715,7 @@ class JSONEncoder(json.JSONEncoder):
             return b
         elif isinstance(obj, Fixture):
             f = {
-                "_info": {},
+                "_info": obj.info,
                 "blocks": [
                     json.loads(json.dumps(b, cls=JSONEncoder))
                     for b in obj.blocks

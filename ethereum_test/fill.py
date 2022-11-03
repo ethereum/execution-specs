@@ -39,17 +39,17 @@ def fill_test(
                 b11r, t8n, genesis, fork, reward=2000000000000000000
             )
 
-            fixtures.append(
-                Fixture(
-                    blocks=blocks,
-                    genesis=genesis,
-                    head=head,
-                    fork=fork,
-                    pre_state=test.pre,
-                    post_state=None,
-                    seal_engine=engine,
-                )
+            fixture = Fixture(
+                blocks=blocks,
+                genesis=genesis,
+                head=head,
+                fork=fork,
+                pre_state=test.pre,
+                post_state=None,
+                seal_engine=engine,
             )
+            fixture.set_info(t8n, b11r)
+            fixtures.append(fixture)
 
     out = {}
     for fixture in fixtures:
