@@ -4,6 +4,7 @@ Python wrapper for the `evm t8n` tool.
 
 import json
 import subprocess
+from abc import abstractmethod
 from pathlib import Path
 from shutil import which
 from typing import Any, Optional, Tuple
@@ -12,6 +13,33 @@ from typing import Any, Optional, Tuple
 class TransitionTool:
     """
     Transition tool frontend.
+    """
+
+    @abstractmethod
+    def evaluate(
+        self,
+        alloc: Any,
+        txs: Any,
+        env: Any,
+        fork: str,
+        chain_id: int = 1,
+        reward: int = 0,
+        txsPath: Optional[str] = None,
+    ) -> Tuple[Any, Any]:
+        pass
+
+    @abstractmethod
+    def calc_state_root(self, env: Any, alloc: Any, fork: str) -> str:
+        pass
+
+    @abstractmethod
+    def version(self) -> str:
+        pass
+
+
+class EvmTransitionTool(TransitionTool):
+    """
+    Go-ethereum `evm` Transition tool frontend.
     """
 
     binary: Path
@@ -101,6 +129,9 @@ class TransitionTool:
 
         (_, result) = self.evaluate(alloc, [], env, fork)
         return result.get("stateRoot")
+
+    def version(self) -> str:
+        return ""
 
 
 fork_map = {

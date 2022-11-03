@@ -12,7 +12,9 @@ from .types import Fixture
 def test_from_until(
     fork_from: str,
     fork_until: str,
-) -> Callable[[StateTestSpec], Callable[[str], Mapping[str, Fixture]]]:
+) -> Callable[
+    [StateTestSpec], Callable[[Any, Any, str], Mapping[str, Fixture]]
+]:
     """
     Decorator that takes a test generator and fills it for all forks after the
     specified fork.
@@ -20,10 +22,12 @@ def test_from_until(
     fork_from = fork_from.capitalize()
     fork_until = fork_until.capitalize()
 
-    def decorator(fn: StateTestSpec) -> Callable[[str], Mapping[str, Fixture]]:
-        def inner(engine) -> Mapping[str, Fixture]:
+    def decorator(
+        fn: StateTestSpec,
+    ) -> Callable[[Any, Any, str], Mapping[str, Fixture]]:
+        def inner(t8n, b11r, engine) -> Mapping[str, Fixture]:
             return fill_test(
-                fn, forks_from_until(fork_from, fork_until), engine
+                t8n, b11r, fn, forks_from_until(fork_from, fork_until), engine
             )
 
         cast(Any, inner).__filler_metadata__ = {
@@ -38,16 +42,20 @@ def test_from_until(
 
 def test_from(
     fork: str,
-) -> Callable[[StateTestSpec], Callable[[str], Mapping[str, Fixture]]]:
+) -> Callable[
+    [StateTestSpec], Callable[[Any, Any, str], Mapping[str, Fixture]]
+]:
     """
     Decorator that takes a test generator and fills it for all forks after the
     specified fork.
     """
     fork = fork.capitalize()
 
-    def decorator(fn: StateTestSpec) -> Callable[[str], Mapping[str, Fixture]]:
-        def inner(engine) -> Mapping[str, Fixture]:
-            return fill_test(fn, forks_from(fork), engine)
+    def decorator(
+        fn: StateTestSpec,
+    ) -> Callable[[Any, Any, str], Mapping[str, Fixture]]:
+        def inner(t8n, b11r, engine) -> Mapping[str, Fixture]:
+            return fill_test(t8n, b11r, fn, forks_from(fork), engine)
 
         cast(Any, inner).__filler_metadata__ = {
             "fork": fork,
@@ -61,16 +69,20 @@ def test_from(
 
 def test_only(
     fork: str,
-) -> Callable[[StateTestSpec], Callable[[str], Mapping[str, Fixture]]]:
+) -> Callable[
+    [StateTestSpec], Callable[[Any, Any, str], Mapping[str, Fixture]]
+]:
     """
     Decorator that takes a test generator and fills it only for the specified
     fork.
     """
     fork = fork.capitalize()
 
-    def decorator(fn: StateTestSpec) -> Callable[[str], Mapping[str, Fixture]]:
-        def inner(engine) -> Mapping[str, Fixture]:
-            return fill_test(fn, [fork], engine)
+    def decorator(
+        fn: StateTestSpec,
+    ) -> Callable[[Any, Any, str], Mapping[str, Fixture]]:
+        def inner(t8n, b11r, engine) -> Mapping[str, Fixture]:
+            return fill_test(t8n, b11r, fn, [fork], engine)
 
         cast(Any, inner).__filler_metadata__ = {
             "fork": fork,

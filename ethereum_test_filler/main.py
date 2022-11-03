@@ -16,6 +16,8 @@ import pkgutil
 import setuptools
 
 from ethereum_test.types import JSONEncoder
+from evm_block_builder import EvmBlockBuilder
+from evm_transition_tool import EvmTransitionTool
 
 
 class Filler:
@@ -105,6 +107,9 @@ class Filler:
 
         os.makedirs(self.options.output, exist_ok=True)
 
+        t8n = EvmTransitionTool()
+        b11r = EvmBlockBuilder()
+
         for filler in fillers:
             name = filler.__filler_metadata__["name"]
             output_dir = os.path.join(
@@ -115,7 +120,7 @@ class Filler:
             path = os.path.join(output_dir, f"{name}.json")
 
             self.log.debug(f"filling {name}")
-            fixture = filler("NoProof")
+            fixture = filler(t8n, b11r, "NoProof")
 
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(

@@ -4,6 +4,7 @@ Python wrapper for the `evm b11r` tool.
 
 import json
 import subprocess
+from abc import abstractmethod
 from pathlib import Path
 from shutil import which
 from typing import Any, Optional, Tuple
@@ -11,7 +12,29 @@ from typing import Any, Optional, Tuple
 
 class BlockBuilder:
     """
-    Block builder frontend.
+    Generic Block builder frontend.
+    """
+
+    @abstractmethod
+    def build(
+        self,
+        header: Any,
+        txs: Any,
+        ommers: Any,
+        clique: Optional[Any] = None,
+        ethash: bool = False,
+        ethashMode: str = "normal",
+    ) -> Tuple[str, str]:
+        pass
+
+    @abstractmethod
+    def version(self) -> str:
+        pass
+
+
+class EvmBlockBuilder(BlockBuilder):
+    """
+    Go-ethereum `evm` Block builder frontend.
     """
 
     binary: Path
@@ -78,3 +101,6 @@ class BlockBuilder:
             Exception("malformed result")
 
         return (output["rlp"], output["hash"])
+
+    def version(self) -> str:
+        return ""
