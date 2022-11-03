@@ -3,7 +3,7 @@ Decorators for expanding filler definitions.
 """
 from typing import Any, Callable, Mapping, cast
 
-from .fill import fill_state_test
+from .fill import fill_test
 from .fork import forks_from, forks_from_until
 from .state_test import StateTestSpec
 from .types import Fixture
@@ -22,7 +22,7 @@ def test_from_until(
 
     def decorator(fn: StateTestSpec) -> Callable[[str], Mapping[str, Fixture]]:
         def inner(engine) -> Mapping[str, Fixture]:
-            return fill_state_test(
+            return fill_test(
                 fn, forks_from_until(fork_from, fork_until), engine
             )
 
@@ -47,7 +47,7 @@ def test_from(
 
     def decorator(fn: StateTestSpec) -> Callable[[str], Mapping[str, Fixture]]:
         def inner(engine) -> Mapping[str, Fixture]:
-            return fill_state_test(fn, forks_from(fork), engine)
+            return fill_test(fn, forks_from(fork), engine)
 
         cast(Any, inner).__filler_metadata__ = {
             "fork": fork,
@@ -70,7 +70,7 @@ def test_only(
 
     def decorator(fn: StateTestSpec) -> Callable[[str], Mapping[str, Fixture]]:
         def inner(engine) -> Mapping[str, Fixture]:
-            return fill_state_test(fn, [fork], engine)
+            return fill_test(fn, [fork], engine)
 
         cast(Any, inner).__filler_metadata__ = {
             "fork": fork,

@@ -30,7 +30,7 @@ def TestCode(
     }
     post = {AddrAA: Account(nonce=1, balance=0, code=code, storage=expected)}
     tx = Transaction(ty=0, to=AddrAA, gas_limit=gas_limit)
-    return StateTest(env, pre, post, [tx])
+    return StateTest(env=env, pre=pre, post=post, txs=[tx])
 
 
 def to_address(input: Union[int, str]) -> str:

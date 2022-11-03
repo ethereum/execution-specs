@@ -3,6 +3,7 @@ alloc
 b11r
 big0
 big1
+blockchain
 bytecode
 bytes8
 bytes20
@@ -24,6 +25,7 @@ ommer
 ommers
 pathlib
 petersburg
+randao
 rlp
 t8n
 trie
@@ -71,6 +73,7 @@ byte
 shl
 shr
 sar
+rjust
 
 keccak256
 

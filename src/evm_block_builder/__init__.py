@@ -5,6 +5,7 @@ Python wrapper for the `evm b11r` tool.
 import json
 import subprocess
 from pathlib import Path
+from shutil import which
 from typing import Any, Optional, Tuple
 
 
@@ -13,7 +14,20 @@ class BlockBuilder:
     Block builder frontend.
     """
 
-    binary: Path = Path("evm")
+    binary: Path
+
+    def __init__(self, binary: Optional[Path] = None):
+        if binary is None:
+            which_path = which("evm")
+            if which_path is not None:
+                binary = Path(which_path)
+        if binary is None or not binary.exists():
+            raise Exception(
+                """`evm` binary executable is not accessible, please refer to
+                https://github.com/ethereum/go-ethereum on how to compile and
+                install the full suite of utilities including the `evm` tool"""
+            )
+        self.binary = binary
 
     def build(
         self,

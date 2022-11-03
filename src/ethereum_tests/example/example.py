@@ -51,12 +51,12 @@ def test_yul(fork):
 
     post = {
         "0x1000000000000000000000000000000000000000": Account(
-            code="""0x6011565b600082820190505b92915050565b
-                      601b600260016003565b60005560206000f3""",
+            code="""0x6010565b6000828201905092915050565b
+                      601a600260016003565b60005560206000f3""",
             storage={
                 0x00: 0x03,
             },
         ),
     }
 
-    yield StateTest(env, pre, post, [tx])
+    yield StateTest(env=env, pre=pre, post=post, txs=[tx])

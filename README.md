@@ -1,18 +1,35 @@
-# Testing Tools
+# Execution Spec Tests
 
 This repository provides tools and libraries for generating cross-client
 Ethereum tests.
 
 ## Quick Start
 
-Relies on Python `3.10.0`, `geth` `v1.10.13`, `solc` `v0.8.5` or later. 
+Relies on Python `3.10.0`, `geth` `v1.10.13`, `solc` `v0.8.17` or later. 
 
 ```console
-$ git clone https://github.com/lightclient/testing-tools
-$ cd testing-tools
+$ git clone https://github.com/ethereum/execution-spec-tests
+$ cd execution-spec-tests
 $ pip install -e .
 $ tf --output="fixtures"
 ```
+
+It is recommended to use a virtual environment to run the tests:
+```console
+$ git clone https://github.com/ethereum/execution-spec-tests
+$ cd execution-spec-tests
+$ python -m venv ./venv/
+$ source ./venv/bin/activate
+$ pip install -e .
+$ tf --output="fixtures"
+```
+
+Go-ethereum's `evm` command must be accessible in the `PATH`
+to be able to successfully produce the tests. See
+https://github.com/ethereum/go-ethereum#building-the-source for information on
+how to build go-ethereum utilities.
+
+`solc` compiler must also be accessible in the `PATH`.
 
 ## Overview 
 
@@ -42,29 +59,60 @@ Contains all the Ethereum consensus tests available in this repository.
 
 ## Writing Tests
 
+### Purpose of test specs in this repository
+
+The goal of the test specs included in this repository is to generate test vectors that can be consumed by any Execution client, and to verify that all of the clients agree on the same output after executing each test.
+
+Consensus is the most important aspect of any blockchain network, therefore, anything that modifies the state of the blockchain must be tested by at least one test in this repository.
+
+The tests focus on the EVM execution, therefore before being able to properly write a test, it is important to understand what the Ethereum Virtual Machine is and how it works.
+
+
+### Types of tests
+
+At the moment there are only two types of tests that can be produced by each test spec:
+
+- State Tests
+- Blockchain Tests
+
+The State tests span a single block and, ideally, a single transaction.
+
+Examples of State tests:
+
+- Test a single opcode behavior
+- Verify opcode gas costs
+- Test interactions between multiple smart contracts
+- Test creation of smart contracts
+
+The Blockchain tests span multiple blocks which can contain or not transactions, and mainly focus on the block to block effects to the Ethereum state.
+
+- Verify system-level operations such as coinbase balance updates or withdrawals
+- Verify fork transitions
+
 ### Adding a New Test
 
 All currently implemented tests can be found in the `src/ethereum_tests`
 directory, which is composed of many subdirectories, and each one represents a
 different test category.
 
-Source files included in each category contain one or multiple test functions,
-and each can in turn create one or many test vectors.
+Source files included in each category contain one or multiple test specs
+represented as python functions, and each can in turn produce one or many test
+vectors.
 
 A new test can be added by either:
 
-- Adding a new `test_` function to an existing file in any of the existing
-  category subdirectories within `src/ethereum_tests`.
+- Adding a new `test_` python function to an existing file in any of the
+  existing category subdirectories within `src/ethereum_tests`.
 - Creating a new source file in an existing category, and populating it with
   the new test function(s).
 - Creating an entirely new category by adding a subdirectory in
   `src/ethereum_tests` with the appropriate source files and test functions.
 
-### Test Generator Functions
+### Test Spec Generator Functions
 
-Every test function is a generator which can perform a single or multiple
-`yield` operations during its runtime to each time yield a single `StateTest` 
-object.
+Every test spec is a python generator function which can perform a single or
+multiple `yield` operations during its runtime to each time yield a single
+`StateTest`/`BlockchainTest` object.
 
 The test vector's generator function _must_ be decorated by only one of the
 following decorators:
@@ -92,6 +140,17 @@ following attributes:
 - post: Post-State containing the information of all Ethereum accounts that are
     created or modified after all transactions are executed.
 - txs: All transactions to be executed during the test vector runtime.
+
+### `BlockchainTest` Object
+
+The `BlockchainTest` object represents a single test vector that evaluates the
+Ethereum VM by attempting to append multiple blocks to the chain:
+
+- pre: Pre-State containing the information of all Ethereum accounts that exist
+    before any block is executed.
+- post: Post-State containing the information of all Ethereum accounts that are
+    created or modified after all blocks are executed.
+- blocks: All blocks to be appended to the blockchain during the test.
 
 
 ### Pre/Post State of the Test
