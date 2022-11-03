@@ -3,7 +3,8 @@ Test suite for `ethereum_test` module.
 """
 
 import json
-from typing import Generator, List
+import os
+from typing import Any, Dict, Generator, List
 
 import pytest
 
@@ -21,6 +22,12 @@ from ethereum_test.blockchain_test import BlockchainTest
 from ethereum_test.yul import Yul
 from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool
+
+
+def remove_info(fixture_json: Dict[str, Any]):
+    for t in fixture_json:
+        if "_info" in fixture_json[t]:
+            del fixture_json[t]["_info"]
 
 
 @pytest.mark.parametrize(
@@ -58,7 +65,14 @@ def test_make_genesis(fork: str, hash: str):
     assert genesis.hash.startswith(hash)
 
 
-def test_fill_state_test():
+@pytest.mark.parametrize(
+    "fork,expected_json_file",
+    [
+        ("Istanbul", "chainid_istanbul_filled.json"),
+        ("London", "chainid_london_filled.json"),
+    ],
+)
+def test_fill_state_test(fork: str, expected_json_file: str):
     """
     Test `ethereum_test.filler.fill_fixtures` with `StateTest`.
     """
@@ -96,28 +110,20 @@ def test_fill_state_test():
     }
 
     def generator(_) -> Generator[StateTest, None, None]:
-        """
-        Test test test
-        """
         yield StateTest(env=env, pre=pre, post=post, txs=[tx])
 
     b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
 
-    fixture = fill_test(t8n, b11r, generator, ["London"], "NoProof")
+    fixture = fill_test(t8n, b11r, generator, [fork], "NoProof")
     with open(
-        "tests/ethereum_test/test_fixtures/chainid_london_filled.json"
+        os.path.join(
+            "tests", "ethereum_test", "test_fixtures", expected_json_file
+        )
     ) as f:
         expected = json.load(f)
     fixture_json = json.loads(json.dumps(fixture, cls=JSONEncoder))
-    assert fixture_json == expected
-
-    fixture = fill_test(t8n, b11r, generator, ["Istanbul"], "NoProof")
-    with open(
-        "tests/ethereum_test/test_fixtures/chainid_istanbul_filled.json"
-    ) as f:
-        expected = json.load(f)
-    fixture_json = json.loads(json.dumps(fixture, cls=JSONEncoder))
+    remove_info(fixture_json)
     assert fixture_json == expected
 
 
@@ -391,6 +397,7 @@ def test_fill_london_blockchain_test_valid_txs():
         expected = json.load(f)
 
     fixture_json = json.loads(json.dumps(fixture, cls=JSONEncoder))
+    remove_info(fixture_json)
     assert fixture_json == expected
 
 
@@ -712,4 +719,5 @@ def test_fill_london_blockchain_test_invalid_txs():
         expected = json.load(f)
 
     fixture_json = json.loads(json.dumps(fixture, cls=JSONEncoder))
+    remove_info(fixture_json)
     assert fixture_json == expected
