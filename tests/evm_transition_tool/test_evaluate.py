@@ -2,13 +2,15 @@ import json
 import os
 from pathlib import Path
 
-from evm_transition_tool import TransitionTool
+import pytest
 
-FIXTURES_ROOT = Path("tests/evm_transition_tool/fixtures")
+from evm_transition_tool import EvmTransitionTool, TransitionTool
+
+FIXTURES_ROOT = Path(os.path.join("tests", "evm_transition_tool", "fixtures"))
 
 
-def test_t8n() -> None:
-    t8n = TransitionTool()
+@pytest.mark.parametrize("t8n", [EvmTransitionTool()])
+def test_evm_t8n(t8n: TransitionTool) -> None:
 
     for test_dir in os.listdir(path=FIXTURES_ROOT):
         alloc_path = Path(FIXTURES_ROOT, test_dir, "alloc.json")

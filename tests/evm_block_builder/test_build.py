@@ -2,13 +2,15 @@ import json
 import os
 from pathlib import Path
 
-from evm_block_builder import BlockBuilder
+import pytest
 
-FIXTURES_ROOT = Path("tests/evm_block_builder/fixtures")
+from evm_block_builder import BlockBuilder, EvmBlockBuilder
+
+FIXTURES_ROOT = Path(os.path.join("tests", "evm_block_builder", "fixtures"))
 
 
-def test_simple() -> None:
-    b11r = BlockBuilder()
+@pytest.mark.parametrize("b11r", [EvmBlockBuilder()])
+def test_evm_simple(b11r: BlockBuilder) -> None:
 
     for test_dir in os.listdir(path=FIXTURES_ROOT):
         env_path = Path(FIXTURES_ROOT, test_dir, "header.json")

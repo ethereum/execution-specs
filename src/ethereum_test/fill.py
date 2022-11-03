@@ -11,15 +11,17 @@ from .types import Fixture
 
 
 def fill_test(
-    test_spec: TestSpec, forks: List[str], engine: str
+    t8n: TransitionTool,
+    b11r: BlockBuilder,
+    test_spec: TestSpec,
+    forks: List[str],
+    engine: str,
 ) -> Mapping[str, Fixture]:
     """
     Fills fixtures for certain forks.
     """
     fixtures: List[Fixture] = []
     for fork in forks:
-        b11r = BlockBuilder()
-        t8n = TransitionTool()
 
         for test in test_spec(fork):
 

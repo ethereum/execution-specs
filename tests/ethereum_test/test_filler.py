@@ -5,6 +5,8 @@ Test suite for `ethereum_test` module.
 import json
 from typing import Generator, List
 
+import pytest
+
 from ethereum_test import (
     Account,
     Block,
@@ -17,11 +19,14 @@ from ethereum_test import (
 )
 from ethereum_test.blockchain_test import BlockchainTest
 from ethereum_test.yul import Yul
-from evm_block_builder import BlockBuilder
-from evm_transition_tool import TransitionTool
+from evm_block_builder import EvmBlockBuilder
+from evm_transition_tool import EvmTransitionTool
 
 
-def test_make_genesis():
+@pytest.mark.parametrize(
+    "fork,hash", [("Berlin", "0x87c5fa7cef8b"), ("London", "0xe3c84688fa32")]
+)
+def test_make_genesis(fork: str, hash: str):
     env = Environment()
 
     pre = {
@@ -43,17 +48,14 @@ def test_make_genesis():
         TestAddress: Account(balance=0x0BA1A9CE0BA1A9CE),
     }
 
-    b11r = BlockBuilder()
-    t8n = TransitionTool()
+    b11r = EvmBlockBuilder()
+    t8n = EvmTransitionTool()
 
-    london_genesis = StateTest(env=env, pre=pre, post={}, txs=[]).make_genesis(
-        b11r, t8n, "London"
+    genesis = StateTest(env=env, pre=pre, post={}, txs=[]).make_genesis(
+        b11r, t8n, fork
     )
-    assert london_genesis.hash.startswith("0xe3c84688fa32")
-    berlin_genesis = StateTest(env=env, pre=pre, post={}, txs=[]).make_genesis(
-        b11r, t8n, "Berlin"
-    )
-    assert berlin_genesis.hash.startswith("0x87c5fa7cef8b")
+    assert genesis.hash is not None
+    assert genesis.hash.startswith(hash)
 
 
 def test_fill_state_test():
@@ -94,9 +96,15 @@ def test_fill_state_test():
     }
 
     def generator(_) -> Generator[StateTest, None, None]:
+        """
+        Test test test
+        """
         yield StateTest(env=env, pre=pre, post=post, txs=[tx])
 
-    fixture = fill_test(generator, ["London"], "NoProof")
+    b11r = EvmBlockBuilder()
+    t8n = EvmTransitionTool()
+
+    fixture = fill_test(t8n, b11r, generator, ["London"], "NoProof")
     with open(
         "tests/ethereum_test/test_fixtures/chainid_london_filled.json"
     ) as f:
@@ -104,7 +112,7 @@ def test_fill_state_test():
     fixture_json = json.loads(json.dumps(fixture, cls=JSONEncoder))
     assert fixture_json == expected
 
-    fixture = fill_test(generator, ["Istanbul"], "NoProof")
+    fixture = fill_test(t8n, b11r, generator, ["Istanbul"], "NoProof")
     with open(
         "tests/ethereum_test/test_fixtures/chainid_istanbul_filled.json"
     ) as f:
@@ -372,7 +380,10 @@ def test_fill_london_blockchain_test_valid_txs():
             genesis_environment=genesis_environment,
         )
 
-    fixture = fill_test(generator, ["London"], "NoProof")
+    b11r = EvmBlockBuilder()
+    t8n = EvmTransitionTool()
+
+    fixture = fill_test(t8n, b11r, generator, ["London"], "NoProof")
 
     with open(
         "tests/ethereum_test/test_fixtures/blockchain_london_valid_filled.json"
@@ -689,7 +700,10 @@ def test_fill_london_blockchain_test_invalid_txs():
             genesis_environment=genesis_environment,
         )
 
-    fixture = fill_test(generator, ["London"], "NoProof")
+    b11r = EvmBlockBuilder()
+    t8n = EvmTransitionTool()
+
+    fixture = fill_test(t8n, b11r, generator, ["London"], "NoProof")
 
     with open(
         "tests/ethereum_test/test_fixtures/"
