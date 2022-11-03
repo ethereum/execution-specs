@@ -572,6 +572,8 @@ class FixtureBlock:
     rlp: str
     block_header: Optional[FixtureHeader] = None
     expected_exception: Optional[str] = None
+    block_number: Optional[int] = None
+    chain_name: Optional[str] = None
 
 
 @dataclass(kw_only=True)
@@ -696,6 +698,12 @@ class JSONEncoder(json.JSONEncoder):
                 b["blockHeader"] = json.loads(
                     json.dumps(obj.block_header, cls=JSONEncoder)
                 )
+            if obj.expected_exception is not None:
+                b["expectException"] = obj.expected_exception
+            if obj.block_number is not None:
+                b["blocknumber"] = str(obj.block_number)
+            if obj.chain_name is not None:
+                b["chainname"] = obj.chain_name
             return b
         elif isinstance(obj, Fixture):
             f = {

@@ -145,10 +145,14 @@ class BlockchainTest(BaseTest):
                 txs_rlp = txs_rlp_file.read().decode().strip('"')
 
             rejected_txs = verify_transactions(block.txs, result)
-            if len(rejected_txs) > 0:
-                # TODO: This block is invalid because it contains intrinsically
-                #       invalid transactions
-                pass
+            if len(rejected_txs) > 0 and block.exception is None:
+                raise Exception(
+                    "one or more transactions in `BlockchainTest` are "
+                    + "intrinsically invalid, but the block was not expected "
+                    + "to be invalid. Please verify whether the transaction "
+                    + "was indeed expected to fail and add the proper "
+                    + "`block.exception`"
+                )
 
             header = FixtureHeader.from_dict(
                 result
@@ -186,6 +190,7 @@ class BlockchainTest(BaseTest):
                     FixtureBlock(
                         rlp=rlp,
                         block_header=header,
+                        block_number=header.number,
                     ),
                     env.apply_new_parent(header),
                     next_alloc,
@@ -196,6 +201,7 @@ class BlockchainTest(BaseTest):
                     FixtureBlock(
                         rlp=rlp,
                         expected_exception=block.exception,
+                        block_number=header.number,
                     ),
                     previous_env,
                     previous_alloc,

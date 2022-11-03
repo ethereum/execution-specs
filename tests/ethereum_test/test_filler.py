@@ -3,7 +3,6 @@ Test suite for `ethereum_test` module.
 """
 
 import json
-import tempfile
 from typing import Generator, List
 
 from ethereum_test import (
@@ -376,14 +375,11 @@ def test_fill_london_blockchain_test_valid_txs():
     fixture = fill_test(generator, ["London"], "NoProof")
 
     with open(
-        "tests/ethereum_test/test_fixtures/blockchain_london_filled.json"
+        "tests/ethereum_test/test_fixtures/blockchain_london_valid_filled.json"
     ) as f:
         expected = json.load(f)
 
     fixture_json = json.loads(json.dumps(fixture, cls=JSONEncoder))
-    fixture_tmp_output_file = tempfile.NamedTemporaryFile()
-    with open(fixture_tmp_output_file.name, "w") as f:
-        json.dump(fixture, f, cls=JSONEncoder)
     assert fixture_json == expected
 
 
@@ -520,6 +516,20 @@ def test_fill_london_blockchain_test_invalid_txs():
                     to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD",
                     error="TR_TipGtFeeCap",
                 ),
+            ],
+            exception="invalid transaction",
+        ),
+        Block(
+            coinbase="0xba5e000000000000000000000000000000000000",
+            txs=[
+                Transaction(
+                    data="0x0301",
+                    nonce=4,
+                    gas_limit=1000000,
+                    max_priority_fee_per_gas=1000,
+                    max_fee_per_gas=1000,
+                    to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+                ),
                 Transaction(
                     data="0x0303",
                     nonce=5,
@@ -557,6 +567,20 @@ def test_fill_london_blockchain_test_invalid_txs():
                     max_fee_per_gas=1000,
                     to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD",
                     error="TR_TipGtFeeCap",
+                ),
+            ],
+            exception="invalid transaction",
+        ),
+        Block(
+            coinbase="0xba5e000000000000000000000000000000000000",
+            txs=[
+                Transaction(
+                    data="0x0401",
+                    nonce=7,
+                    gas_limit=1000000,
+                    max_priority_fee_per_gas=1000,
+                    max_fee_per_gas=1000,
+                    to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
                 ),
                 Transaction(
                     data="0x0403",
@@ -665,17 +689,13 @@ def test_fill_london_blockchain_test_invalid_txs():
             genesis_environment=genesis_environment,
         )
 
-    # TODO: Test needs to be fixed according to new behavior where invalid txs
-    #       produce block rejection.
-    fill_test(generator, ["London"], "NoProof")
+    fixture = fill_test(generator, ["London"], "NoProof")
 
-    # with open(
-    #     "tests/ethereum_test/test_fixtures/blockchain_london_filled.json"
-    # ) as f:
-    #     expected = json.load(f)
+    with open(
+        "tests/ethereum_test/test_fixtures/"
+        + "blockchain_london_invalid_filled.json"
+    ) as f:
+        expected = json.load(f)
 
-    # fixture_json = json.loads(json.dumps(fixture, cls=JSONEncoder))
-    # fixture_tmp_output_file = tempfile.NamedTemporaryFile()
-    # with open(fixture_tmp_output_file.name, "w") as f:
-    #     json.dump(fixture, f, cls=JSONEncoder)
-    # assert fixture_json == expected
+    fixture_json = json.loads(json.dumps(fixture, cls=JSONEncoder))
+    assert fixture_json == expected

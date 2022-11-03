@@ -124,9 +124,12 @@ class StateTest(BaseTest):
 
         rejected_txs = verify_transactions(self.txs, result)
         if len(rejected_txs) > 0:
-            # TODO: This block is invalid because it contains intrinsically
-            #       invalid transactions
-            pass
+            raise Exception(
+                "one or more transactions in `StateTest` are "
+                + "intrinsically invalid, which are not allowed. "
+                + "Use `BlockchainTest` to verify rejection of blocks "
+                + "that include invalid transactions."
+            )
 
         verify_post_alloc(self.post, alloc)
 
