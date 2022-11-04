@@ -7,7 +7,7 @@ import subprocess
 from abc import abstractmethod
 from pathlib import Path
 from shutil import which
-from typing import Any, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 
 class TransitionTool:
@@ -38,22 +38,23 @@ class TransitionTool:
         """
         pass
 
-    def calc_state_root(self, env: Any, alloc: Any, fork: str) -> str:
+    def calc_state_root(self, alloc: Any, fork: str) -> str:
         """
         Calculate the state root for the given `alloc`.
         """
-        base_fee = env.base_fee
-        env = {
+        env: Dict[str, Any] = {
             "currentCoinbase": "0x0000000000000000000000000000000000000000",
             "currentDifficulty": "0x0",
             "currentGasLimit": "0x0",
             "currentNumber": "0",
             "currentTimestamp": "0",
         }
-        if base_fee is not None:
-            env["currentBaseFee"] = str(base_fee)
-        elif base_fee_required(fork):
+
+        if base_fee_required(fork):
             env["currentBaseFee"] = "7"
+
+        if random_required(fork):
+            env["currentRandom"] = "0"
 
         (_, result) = self.evaluate(alloc, [], env, fork)
         return result.get("stateRoot")
@@ -168,6 +169,7 @@ fork_map = {
     "berlin": "Berlin",
     "london": "London",
     "arrow glacier": "ArrowGlacier",
+    "merged": "Merged",
 }
 
 fork_list = list(fork_map.keys())
@@ -178,6 +180,13 @@ def base_fee_required(fork: str) -> bool:
     Return true if the fork requires baseFee in the block.
     """
     return fork_list.index(fork.lower()) >= fork_list.index("london")
+
+
+def random_required(fork: str) -> bool:
+    """
+    Return true if the fork requires currentRandom in the block.
+    """
+    return fork_list.index(fork.lower()) >= fork_list.index("merged")
 
 
 def map_fork(fork: str) -> Optional[str]:
