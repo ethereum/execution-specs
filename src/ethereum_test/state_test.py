@@ -1,8 +1,6 @@
 """
 State test filler.
 """
-import json
-import os
 import tempfile
 from dataclasses import dataclass
 from typing import Callable, Generator, List, Mapping, Tuple
@@ -12,20 +10,15 @@ from evm_transition_tool import TransitionTool
 
 from .base_test import BaseTest, verify_post_alloc, verify_transactions
 from .common import EmptyTrieRoot
-from .fork import is_london
+from .fork import set_fork_requirements
 from .types import (
     Account,
     Environment,
     FixtureBlock,
     FixtureHeader,
-    JSONEncoder,
     Transaction,
+    to_json,
 )
-
-default_base_fee = 7
-"""
-Default base_fee used in the genesis and block 1 for the StateTests.
-"""
 
 
 @dataclass(kw_only=True)
@@ -48,39 +41,32 @@ class StateTest(BaseTest):
         """
         Create a genesis block from the state test definition.
         """
-        base_fee = self.env.base_fee
-        if is_london(fork) and base_fee is None:
-            # If there is no base fee specified in the environment, we use a
-            # default.
-            base_fee = default_base_fee
-        elif not is_london(fork) and base_fee is not None:
-            base_fee = None
+        env = set_fork_requirements(self.env, fork)
 
         genesis = FixtureHeader(
             parent_hash="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
             ommers_hash="0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",  # noqa: E501
             coinbase="0x0000000000000000000000000000000000000000",
             state_root=t8n.calc_state_root(
-                self.env,
-                json.loads(json.dumps(self.pre, cls=JSONEncoder)),
+                to_json(self.pre),
                 fork,
             ),
             transactions_root=EmptyTrieRoot,
             receipt_root=EmptyTrieRoot,
             bloom="0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
             difficulty=0x20000,
-            number=self.env.number - 1,
-            gas_limit=self.env.gas_limit,
+            number=env.number - 1,
+            gas_limit=env.gas_limit,
             # We need the base fee to remain unchanged from the genesis
             # to block 1.
             # To do that we set the gas used to exactly half of the limit
             # so the base fee is unchanged.
-            gas_used=self.env.gas_limit // 2,
+            gas_used=env.gas_limit // 2,
             timestamp=0,
             extra_data="0x00",
             mix_digest="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
             nonce="0x0000000000000000",
-            base_fee=base_fee,
+            base_fee=env.base_fee,
         )
 
         (_, h) = b11r.build(genesis.to_geth_dict(), "", [])
@@ -103,24 +89,20 @@ class StateTest(BaseTest):
         Raises exception on invalid test behavior.
         """
         env = self.env.apply_new_parent(genesis)
-        if env.base_fee is None and is_london(fork):
-            env.base_fee = default_base_fee
-        pre = json.loads(json.dumps(self.pre, cls=JSONEncoder))
-        txs = json.loads(json.dumps(self.txs, cls=JSONEncoder))
 
-        with tempfile.TemporaryDirectory() as directory:
-            txsRlp = os.path.join(directory, "txs.rlp")
+        env = set_fork_requirements(env, fork)
+
+        with tempfile.NamedTemporaryFile() as txs_rlp_file:
             (alloc, result) = t8n.evaluate(
-                pre,
-                txs,
-                json.loads(json.dumps(env, cls=JSONEncoder)),
+                to_json(self.pre),
+                to_json(self.txs),
+                to_json(env),
                 fork,
-                txsPath=txsRlp,
+                txsPath=txs_rlp_file.name,
                 chain_id=chain_id,
                 reward=reward,
             )
-            with open(txsRlp, "r") as file:
-                txs = file.read().strip('"')
+            txs_rlp = txs_rlp_file.read().decode().strip('"')
 
         rejected_txs = verify_transactions(self.txs, result)
         if len(rejected_txs) > 0:
@@ -133,30 +115,36 @@ class StateTest(BaseTest):
 
         verify_post_alloc(self.post, alloc)
 
-        header = result | {
-            "parentHash": genesis.hash,
-            "miner": env.coinbase,
-            "transactionsRoot": result.get("txRoot"),
-            "difficulty": hex(env.difficulty)
-            if env.difficulty is not None
-            else result.get("currentDifficulty"),
-            "number": str(env.number),
-            "gasLimit": str(env.gas_limit),
-            "timestamp": str(env.timestamp),
-            "extraData": "0x00",
-            "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",  # noqa: E501
-            "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-            "nonce": "0x0000000000000000",
-        }
-        if env.base_fee is not None:
-            header["baseFeePerGas"] = str(env.base_fee)
-        block, head = b11r.build(header, txs, [], None)
-        header["hash"] = head
+        header = FixtureHeader.from_dict(
+            result
+            | {
+                "parentHash": genesis.hash,
+                "miner": env.coinbase,
+                "transactionsRoot": result.get("txRoot"),
+                "difficulty": hex(env.difficulty)
+                if env.difficulty is not None
+                else result.get("currentDifficulty"),
+                "number": str(env.number),
+                "gasLimit": str(env.gas_limit),
+                "timestamp": str(env.timestamp),
+                "extraData": "0x00",
+                "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",  # noqa: E501
+                "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
+                "nonce": "0x0000000000000000",
+                "baseFeePerGas": result.get("currentBaseFee"),
+            }
+        )
+        block, head = b11r.build(
+            header=header.to_geth_dict(),
+            txs=txs_rlp,
+            ommers=[],
+        )
+        header.hash = head
         return (
             [
                 FixtureBlock(
                     rlp=block,
-                    block_header=FixtureHeader.from_dict(header),
+                    block_header=header,
                 )
             ],
             head,

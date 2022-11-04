@@ -74,7 +74,7 @@ def test_calc_state_root(
 
     env = TestEnv()
     env.base_fee = base_fee
-    assert t8n.calc_state_root(env, alloc, fork).startswith(hash)
+    assert t8n.calc_state_root(alloc, fork).startswith(hash)
 
 
 @pytest.mark.parametrize("t8n", [EvmTransitionTool()])

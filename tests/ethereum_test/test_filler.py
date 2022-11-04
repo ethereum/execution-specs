@@ -11,15 +11,15 @@ import pytest
 from ethereum_test import (
     Account,
     Block,
+    BlockchainTest,
     Environment,
     JSONEncoder,
     StateTest,
     TestAddress,
     Transaction,
+    Yul,
     fill_test,
 )
-from ethereum_test.blockchain_test import BlockchainTest
-from ethereum_test.yul import Yul
 from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool
 

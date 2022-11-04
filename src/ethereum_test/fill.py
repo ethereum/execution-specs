@@ -7,6 +7,7 @@ from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool, map_fork
 
 from .base_test import TestSpec
+from .fork import get_reward
 from .types import Fixture
 
 
@@ -36,7 +37,7 @@ def fill_test(
 
             genesis = test.make_genesis(b11r, t8n, fork)
             (blocks, head) = test.make_blocks(
-                b11r, t8n, genesis, fork, reward=2000000000000000000
+                b11r, t8n, genesis, fork, reward=get_reward(fork)
             )
 
             fixture = Fixture(
