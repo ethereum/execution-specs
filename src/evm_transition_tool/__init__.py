@@ -4,6 +4,7 @@ Python wrapper for the `evm t8n` tool.
 
 import json
 import subprocess
+from abc import abstractmethod
 from pathlib import Path
 from shutil import which
 from typing import Any, Optional, Tuple
@@ -14,7 +15,57 @@ class TransitionTool:
     Transition tool frontend.
     """
 
+    @abstractmethod
+    def evaluate(
+        self,
+        alloc: Any,
+        txs: Any,
+        env: Any,
+        fork: str,
+        chain_id: int = 1,
+        reward: int = 0,
+        txsPath: Optional[str] = None,
+    ) -> Tuple[Any, Any]:
+        """
+        Simulate a state transition with specified parameters
+        """
+        pass
+
+    @abstractmethod
+    def version(self) -> str:
+        """
+        Return name and version of tool used to state transition
+        """
+        pass
+
+    def calc_state_root(self, env: Any, alloc: Any, fork: str) -> str:
+        """
+        Calculate the state root for the given `alloc`.
+        """
+        base_fee = env.base_fee
+        env = {
+            "currentCoinbase": "0x0000000000000000000000000000000000000000",
+            "currentDifficulty": "0x0",
+            "currentGasLimit": "0x0",
+            "currentNumber": "0",
+            "currentTimestamp": "0",
+        }
+        if base_fee is not None:
+            env["currentBaseFee"] = str(base_fee)
+        elif base_fee_required(fork):
+            env["currentBaseFee"] = "7"
+
+        (_, result) = self.evaluate(alloc, [], env, fork)
+        return result.get("stateRoot")
+
+
+class EvmTransitionTool(TransitionTool):
+    """
+    Go-ethereum `evm` Transition tool frontend.
+    """
+
     binary: Path
+    cached_version: Optional[str] = None
 
     def __init__(self, binary: Optional[Path] = None):
         if binary is None:
@@ -82,25 +133,25 @@ class TransitionTool:
 
         return (output["alloc"], output["result"])
 
-    def calc_state_root(self, env: Any, alloc: Any, fork: str) -> str:
+    def version(self) -> str:
         """
-        Calculate the state root for the given `alloc`.
+        Gets `evm` binary version.
         """
-        base_fee = env.base_fee
-        env = {
-            "currentCoinbase": "0x0000000000000000000000000000000000000000",
-            "currentDifficulty": "0x0",
-            "currentGasLimit": "0x0",
-            "currentNumber": "0",
-            "currentTimestamp": "0",
-        }
-        if base_fee is not None:
-            env["currentBaseFee"] = str(base_fee)
-        elif base_fee_required(fork):
-            env["currentBaseFee"] = "7"
+        if self.cached_version is None:
 
-        (_, result) = self.evaluate(alloc, [], env, fork)
-        return result.get("stateRoot")
+            result = subprocess.run(
+                [str(self.binary), "-v"],
+                stdout=subprocess.PIPE,
+            )
+
+            if result.returncode != 0:
+                raise Exception(
+                    "failed to evaluate: " + result.stderr.decode()
+                )
+
+            self.cached_version = result.stdout.decode().strip()
+
+        return self.cached_version
 
 
 fork_map = {

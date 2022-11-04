@@ -4,6 +4,7 @@ Python wrapper for the `evm b11r` tool.
 
 import json
 import subprocess
+from abc import abstractmethod
 from pathlib import Path
 from shutil import which
 from typing import Any, Optional, Tuple
@@ -11,10 +12,39 @@ from typing import Any, Optional, Tuple
 
 class BlockBuilder:
     """
-    Block builder frontend.
+    Generic Block builder frontend.
+    """
+
+    @abstractmethod
+    def build(
+        self,
+        header: Any,
+        txs: Any,
+        ommers: Any,
+        clique: Optional[Any] = None,
+        ethash: bool = False,
+        ethashMode: str = "normal",
+    ) -> Tuple[str, str]:
+        """
+        Build a block with specified parameters and return RLP and hash
+        """
+        pass
+
+    @abstractmethod
+    def version(self) -> str:
+        """
+        Return name and version of tool used to build the block
+        """
+        pass
+
+
+class EvmBlockBuilder(BlockBuilder):
+    """
+    Go-ethereum `evm` Block builder frontend.
     """
 
     binary: Path
+    cached_version: Optional[str] = None
 
     def __init__(self, binary: Optional[Path] = None):
         if binary is None:
@@ -78,3 +108,23 @@ class BlockBuilder:
             Exception("malformed result")
 
         return (output["rlp"], output["hash"])
+
+    def version(self) -> str:
+        """
+        Gets `evm` binary version.
+        """
+        if self.cached_version is None:
+
+            result = subprocess.run(
+                [str(self.binary), "-v"],
+                stdout=subprocess.PIPE,
+            )
+
+            if result.returncode != 0:
+                raise Exception(
+                    "failed to evaluate: " + result.stderr.decode()
+                )
+
+            self.cached_version = result.stdout.decode().strip()
+
+        return self.cached_version
