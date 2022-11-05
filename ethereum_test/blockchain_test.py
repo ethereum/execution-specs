@@ -18,6 +18,7 @@ from .types import (
     Environment,
     FixtureBlock,
     FixtureHeader,
+    str_or_none,
     to_json,
     to_json_or_none,
 )
@@ -145,9 +146,9 @@ class BlockchainTest(BaseTest):
                     "parentHash": env.parent_hash(),
                     "miner": env.coinbase,
                     "transactionsRoot": result.get("txRoot"),
-                    "difficulty": result.get("currentDifficulty")
-                    if result.get("currentDifficulty") is not None
-                    else "0",
+                    "difficulty": str_or_none(
+                        result.get("currentDifficulty"), "0"
+                    ),
                     "number": str(env.number),
                     "gasLimit": str(env.gas_limit),
                     "timestamp": str(env.timestamp),

@@ -17,6 +17,7 @@ from .types import (
     FixtureBlock,
     FixtureHeader,
     Transaction,
+    str_or_none,
     to_json,
 )
 
@@ -121,9 +122,9 @@ class StateTest(BaseTest):
                 "parentHash": genesis.hash,
                 "miner": env.coinbase,
                 "transactionsRoot": result.get("txRoot"),
-                "difficulty": hex(env.difficulty)
-                if env.difficulty is not None
-                else result.get("currentDifficulty"),
+                "difficulty": str_or_none(
+                    env.difficulty, result.get("currentDifficulty")
+                ),
                 "number": str(env.number),
                 "gasLimit": str(env.gas_limit),
                 "timestamp": str(env.timestamp),
