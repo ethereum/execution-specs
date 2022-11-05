@@ -11,9 +11,43 @@ import inspect
 import pkgutil
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
+from itertools import zip_longest
 from typing import Generator, List, Optional, Sequence, Tuple
 
 from ..forks import Hardfork
+
+
+def compare_ast(old: ast.AST, new: ast.AST) -> bool:
+    """
+    Check if two nodes are the equal.
+    """
+    if type(old) is not type(new):
+        return False
+
+    if isinstance(old, ast.Expr):
+        return True
+
+    if isinstance(old, ast.AST):
+        for k, v in vars(old).items():
+            if k in {
+                "lineno",
+                "end_lineno",
+                "col_offset",
+                "end_col_offset",
+                "ctx",
+            }:
+                continue
+            if not compare_ast(v, getattr(new, k)):
+                return False
+        return True
+
+    elif isinstance(old, list) and isinstance(new, list):
+        return all(
+            compare_ast(old_item, new_item)
+            for old_item, new_item in zip_longest(old, new)
+        )
+    else:
+        return old == new
 
 
 def walk_sources(fork: Hardfork) -> Generator[Tuple[str, str], None, None]:
@@ -57,6 +91,15 @@ class Lint(metaclass=ABCMeta):
         position :
             The particular hardfork to lint.
         """
+
+    def add_diagnostic(
+        self, diagnostics: List[Diagnostic], message: str
+    ) -> None:
+        """
+        Adds a new diagnostic message.
+        """
+        diagnostic = Diagnostic(message=message)
+        diagnostics.append(diagnostic)
 
     def _parse(
         self, source: str, visitor: ast.NodeVisitor, attr: str
