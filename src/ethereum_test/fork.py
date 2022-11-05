@@ -2,7 +2,10 @@
 List of all Ethereum forks.
 """
 
+from copy import copy
 from typing import List
+
+from .types import Environment
 
 forks = [
     "frontier",
@@ -18,6 +21,7 @@ forks = [
     "berlin",
     "london",
     "arrow glacier",
+    "merged",
 ]
 
 
@@ -46,8 +50,74 @@ def is_london(fork: str) -> bool:
     """
     Returns `True` if `fork` is London-compatible, `False` otherwise.
     """
-    try:
-        i = forks.index(fork.lower())
-    except ValueError:
+    fork_lower = fork.lower()
+    if fork_lower not in forks:
         return False
+
+    i = forks.index(fork_lower)
     return i >= forks.index("london")
+
+
+def is_merged(fork: str) -> bool:
+    """
+    Returns `True` if `fork` is Merge-compatible, `False` otherwise.
+    """
+    fork_lower = fork.lower()
+    if fork_lower not in forks:
+        return False
+
+    i = forks.index(fork_lower)
+    return i >= forks.index("merged")
+
+
+def get_reward(fork: str) -> int:
+    """
+    Returns the expected reward amount in wei of a given fork
+    """
+    return 0 if is_merged(fork) else 2000000000000000000
+
+
+def must_have_zero_difficulty(fork: str) -> bool:
+    """
+    Returns `True` if the environment is expected to have `difficulty==0`
+    """
+    return is_merged(fork)
+
+
+def must_contain_prev_randao(fork: str) -> bool:
+    """
+    Returns `True` if the environment is expected to have `currentRandom` value
+    """
+    return is_merged(fork)
+
+
+def must_contain_base_fee(fork: str) -> bool:
+    """
+    Returns `True` if the environment is expected to have `currentBaseFee`
+    value
+    """
+    return is_london(fork)
+
+
+default_base_fee = 7
+
+
+def set_fork_requirements(env: Environment, fork: str) -> Environment:
+    """
+    Fills the required fields in an environment depending on the fork.
+    """
+    res = copy(env)
+    if must_contain_prev_randao(fork) and res.prev_randao is None:
+        res.prev_randao = 0
+
+    if (
+        must_contain_base_fee(fork)
+        and res.base_fee is None
+        and res.parent_base_fee is None
+    ):
+        res.base_fee = default_base_fee
+
+    if must_have_zero_difficulty(fork):
+        res.difficulty = 0
+
+    return res

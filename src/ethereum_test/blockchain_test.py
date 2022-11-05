@@ -2,30 +2,26 @@
 Blockchain test filler.
 """
 
-import json
 import tempfile
 from dataclasses import dataclass
 from typing import Any, Callable, Generator, List, Mapping, Tuple
 
-from ethereum_test.fork import is_london
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
 
 from .base_test import BaseTest, verify_post_alloc, verify_transactions
 from .common import EmptyTrieRoot
+from .fork import set_fork_requirements
 from .types import (
     Account,
     Block,
     Environment,
     FixtureBlock,
     FixtureHeader,
-    JSONEncoder,
+    str_or_none,
+    to_json,
+    to_json_or_none,
 )
-
-default_base_fee = 7
-"""
-Default base_fee used in the genesis and block 1 for the BlockchainTests.
-"""
 
 
 @dataclass(kw_only=True)
@@ -48,18 +44,14 @@ class BlockchainTest(BaseTest):
         """
         Create a genesis block from the state test definition.
         """
-        base_fee = self.genesis_environment.base_fee
-        if is_london(fork) and base_fee is None:
-            base_fee = default_base_fee
-        elif not is_london(fork) and base_fee is not None:
-            base_fee = None
+        env = set_fork_requirements(self.genesis_environment, fork)
+
         genesis = FixtureHeader(
             parent_hash="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
             ommers_hash="0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",  # noqa: E501
             coinbase="0x0000000000000000000000000000000000000000",
             state_root=t8n.calc_state_root(
-                self.genesis_environment,
-                json.loads(json.dumps(self.pre, cls=JSONEncoder)),
+                to_json(self.pre),
                 fork,
             ),
             transactions_root=EmptyTrieRoot,
@@ -67,13 +59,13 @@ class BlockchainTest(BaseTest):
             bloom="0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
             difficulty=0x20000,
             number=0,
-            gas_limit=self.genesis_environment.gas_limit,
+            gas_limit=env.gas_limit,
             gas_used=0,
             timestamp=0,
             extra_data="0x00",
             mix_digest="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
             nonce="0x0000000000000000",
-            base_fee=base_fee,
+            base_fee=env.base_fee,
         )
 
         (_, h) = b11r.build(genesis.to_geth_dict(), "", [])
@@ -124,19 +116,13 @@ class BlockchainTest(BaseTest):
             # based on the transactions to be included in the block.
             # Set the environment according to the block to execute.
             env = block.set_environment(previous_env)
+            env = set_fork_requirements(env, fork)
 
             with tempfile.NamedTemporaryFile() as txs_rlp_file:
                 (next_alloc, result) = t8n.evaluate(
                     previous_alloc,
-                    json.loads(
-                        json.dumps(
-                            block.txs,
-                            cls=JSONEncoder,
-                        )
-                    )
-                    if block.txs is not None
-                    else [],
-                    json.loads(json.dumps(env, cls=JSONEncoder)),
+                    to_json_or_none(block.txs),
+                    to_json(env),
                     fork,
                     txsPath=txs_rlp_file.name,
                     chain_id=chain_id,
@@ -160,7 +146,9 @@ class BlockchainTest(BaseTest):
                     "parentHash": env.parent_hash(),
                     "miner": env.coinbase,
                     "transactionsRoot": result.get("txRoot"),
-                    "difficulty": result.get("currentDifficulty"),
+                    "difficulty": str_or_none(
+                        result.get("currentDifficulty"), "0"
+                    ),
                     "number": str(env.number),
                     "gasLimit": str(env.gas_limit),
                     "timestamp": str(env.timestamp),
@@ -181,7 +169,7 @@ class BlockchainTest(BaseTest):
                 header = header.join(block.rlp_modifier)
 
             rlp, header.hash = b11r.build(
-                header.to_geth_dict(), txs_rlp, [], None
+                header=header.to_geth_dict(), txs=txs_rlp, ommers=[]
             )
 
             if block.exception is None:
@@ -232,9 +220,7 @@ class BlockchainTest(BaseTest):
         Performs checks against the expected behavior of the test.
         Raises exception on invalid test behavior.
         """
-        alloc: Mapping[str, Any] = json.loads(
-            json.dumps(self.pre, cls=JSONEncoder)
-        )
+        alloc = to_json(self.pre)
         env = Environment.from_parent_header(genesis)
         blocks: List[FixtureBlock] = []
         head = (

@@ -40,6 +40,24 @@ def int_or_none(input: Any, default=None) -> Union[int, None]:
     return int(input, 0)
 
 
+def to_json_or_none(
+    input: Any, default=None
+) -> Union[Mapping[str, Any], None]:
+    """
+    Converts a value to its json representation or returns a default (None).
+    """
+    if input is None:
+        return default
+    return json.loads(json.dumps(input, cls=JSONEncoder))
+
+
+def to_json(input: Any) -> Mapping[str, Any]:
+    """
+    Converts a value to its json representation or returns a default (None).
+    """
+    return json.loads(json.dumps(input, cls=JSONEncoder))
+
+
 class Storage:
     """
     Definition of a storage in pre or post state of a test
@@ -147,12 +165,14 @@ class Storage:
         """
         for k in other.data:
             if k not in self.data:
-                raise Exception(
-                    "key {0} not found in storage".format(
-                        Storage.key_value_to_string(k)
+                # storage[k]==0 is equal to missing storage
+                if other[k] != 0:
+                    raise Exception(
+                        "key {0} not found in storage".format(
+                            Storage.key_value_to_string(k)
+                        )
                     )
-                )
-            if self.data[k] != other.data[k]:
+            elif self.data[k] != other.data[k]:
                 raise Exception(
                     "incorrect value for key {0}: {1}!={2}".format(
                         Storage.key_value_to_string(k),
