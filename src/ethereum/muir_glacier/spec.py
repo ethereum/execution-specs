@@ -619,9 +619,12 @@ def process_transaction(
     coinbase_balance_after_mining_fee = (
         get_account(env.state, env.coinbase).balance + transaction_fee
     )
-    set_account_balance(
-        env.state, env.coinbase, coinbase_balance_after_mining_fee
-    )
+    if coinbase_balance_after_mining_fee != 0:
+        set_account_balance(
+            env.state, env.coinbase, coinbase_balance_after_mining_fee
+        )
+    elif is_account_empty(env.state, env.coinbase):
+        destroy_account(env.state, env.coinbase)
 
     for address in output.accounts_to_delete:
         destroy_account(env.state, address)

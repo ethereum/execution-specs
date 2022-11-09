@@ -362,3 +362,6 @@ sublist
 
 x00
 codehash
+
+randao
+prevrandao
