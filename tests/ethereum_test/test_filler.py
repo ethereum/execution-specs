@@ -58,9 +58,9 @@ def test_make_genesis(fork: str, hash: str):
     b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
 
-    genesis = StateTest(env=env, pre=pre, post={}, txs=[]).make_genesis(
-        b11r, t8n, fork
-    )
+    genesis = StateTest(
+        env=env, pre=pre, post={}, txs=[], name="some_state_test"
+    ).make_genesis(b11r, t8n, fork)
     assert genesis.hash is not None
     assert genesis.hash.startswith(hash)
 
@@ -110,7 +110,9 @@ def test_fill_state_test(fork: str, expected_json_file: str):
     }
 
     def generator(_) -> Generator[StateTest, None, None]:
-        yield StateTest(env=env, pre=pre, post=post, txs=[tx])
+        yield StateTest(
+            env=env, pre=pre, post=post, txs=[tx], name="my_chain_id_test"
+        )
 
     b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
@@ -384,6 +386,7 @@ def test_fill_london_blockchain_test_valid_txs():
             post=post,
             blocks=blocks,
             genesis_environment=genesis_environment,
+            name="my_blockchain_test",
         )
 
     b11r = EvmBlockBuilder()
@@ -710,6 +713,7 @@ def test_fill_london_blockchain_test_invalid_txs():
             post=post,
             blocks=blocks,
             genesis_environment=genesis_environment,
+            name="my_blockchain_test",
         )
 
     b11r = EvmBlockBuilder()

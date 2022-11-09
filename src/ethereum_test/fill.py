@@ -24,7 +24,7 @@ def fill_test(
     fixtures: List[Fixture] = []
     for fork in forks:
 
-        for test in test_spec(fork):
+        for index, test in enumerate(test_spec(fork)):
 
             mapped = map_fork(fork)
             if mapped is None:
@@ -48,12 +48,18 @@ def fill_test(
                 pre_state=test.pre,
                 post_state=None,
                 seal_engine=engine,
+                name=test.name,
+                index=index + 1,
             )
             fixture.fill_info(t8n, b11r)
             fixtures.append(fixture)
 
     out = {}
     for fixture in fixtures:
-        out[fixture.fork.lower()] = fixture
+        outname = str(fixture.index).zfill(3)
+        if fixture.name:
+            outname += "_" + fixture.name.replace(" ", "_")
+        outname += "_" + fixture.fork.lower()
+        out[outname] = fixture
 
     return out

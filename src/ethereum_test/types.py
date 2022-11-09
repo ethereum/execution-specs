@@ -689,6 +689,8 @@ class Fixture:
     post_state: Optional[Mapping[str, Account]]
     seal_engine: str
     info: Dict[str, str] = field(default_factory=dict)
+    name: str = ""
+    index: int = 0
 
     def fill_info(self, t8n: TransitionTool, b11r: BlockBuilder):
         """
