@@ -32,6 +32,7 @@ class StateTest(BaseTest):
     pre: Mapping[str, Account]
     post: Mapping[str, Account]
     txs: List[Transaction]
+    name: str = ""
 
     def make_genesis(
         self,
