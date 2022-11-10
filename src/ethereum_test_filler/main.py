@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import pkgutil
+from pathlib import Path
 
 import setuptools
 
@@ -36,7 +37,8 @@ class Filler:
             "--evm-bin",
             help="path to evm executable that provides `t8n` and `b11r` "
             + "subcommands",
-            default="evm",
+            default=None,
+            type=Path,
         )
 
         parser.add_argument(
@@ -107,8 +109,8 @@ class Filler:
 
         os.makedirs(self.options.output, exist_ok=True)
 
-        t8n = EvmTransitionTool()
-        b11r = EvmBlockBuilder()
+        t8n = EvmTransitionTool(binary=self.options.evm_bin)
+        b11r = EvmBlockBuilder(binary=self.options.evm_bin)
 
         for filler in fillers:
             name = filler.__filler_metadata__["name"]
