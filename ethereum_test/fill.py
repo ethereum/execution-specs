@@ -56,10 +56,10 @@ def fill_test(
 
     out = {}
     for fixture in fixtures:
-        outname = str(fixture.index).zfill(3)
+        name = str(fixture.index).zfill(3)
         if fixture.name:
-            outname += "_" + fixture.name.replace(" ", "_")
-        outname += "_" + fixture.fork.lower()
-        out[outname] = fixture
+            name += "_" + fixture.name.replace(" ", "_")
+        name += "_" + fixture.fork.lower()
+        out[name] = fixture
 
     return out
