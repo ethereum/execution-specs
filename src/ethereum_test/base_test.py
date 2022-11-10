@@ -98,7 +98,7 @@ class BaseTest:
         fork: str,
         chain_id: int = 1,
         reward: int = 0,
-    ) -> Tuple[List[FixtureBlock], str]:
+    ) -> Tuple[List[FixtureBlock], str, Dict[str, Any]]:
         """
         Generate the blockchain that must be executed sequentially during test.
         """
