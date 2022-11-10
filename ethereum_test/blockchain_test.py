@@ -4,7 +4,7 @@ Blockchain test filler.
 
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Callable, Generator, List, Mapping, Tuple
+from typing import Any, Callable, Dict, Generator, List, Mapping, Tuple
 
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
@@ -81,11 +81,11 @@ class BlockchainTest(BaseTest):
         fork: str,
         block: Block,
         previous_env: Environment,
-        previous_alloc: Mapping[str, Any],
+        previous_alloc: Dict[str, Any],
         previous_head: str,
         chain_id=1,
         reward=0,
-    ) -> Tuple[FixtureBlock, Environment, Mapping[str, Any], str]:
+    ) -> Tuple[FixtureBlock, Environment, Dict[str, Any], str]:
         """
         Produces a block based on the previous environment and allocation.
         If the block is an invalid block, the environment and allocation
@@ -98,7 +98,7 @@ class BlockchainTest(BaseTest):
             Environment: Environment for the next block to produce.
                 If the produced block is invalid, this is exactly the same
                 environment as the one passed as parameter.
-            Mapping[str, Any]: Allocation for the next block to produce.
+            Dict[str, Any]: Allocation for the next block to produce.
                 If the produced block is invalid, this is exactly the same
                 allocation as the one passed as parameter.
             str: Hash of the head of the chain, only updated if the produced
@@ -215,7 +215,7 @@ class BlockchainTest(BaseTest):
         fork: str,
         chain_id=1,
         reward=0,
-    ) -> Tuple[List[FixtureBlock], str]:
+    ) -> Tuple[List[FixtureBlock], str, Dict[str, Any]]:
         """
         Create a block list from the blockchain test definition.
         Performs checks against the expected behavior of the test.
@@ -245,7 +245,7 @@ class BlockchainTest(BaseTest):
 
         verify_post_alloc(self.post, alloc)
 
-        return (blocks, head)
+        return (blocks, head, alloc)
 
 
 BlockchainTestSpec = Callable[[str], Generator[BlockchainTest, None, None]]

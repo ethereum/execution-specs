@@ -49,7 +49,7 @@ def str_or_none(input: Any, default=None) -> str | None:
     return str(input)
 
 
-def to_json_or_none(input: Any, default=None) -> Mapping[str, Any] | None:
+def to_json_or_none(input: Any, default=None) -> Dict[str, Any] | None:
     """
     Converts a value to its json representation or returns a default (None).
     """
@@ -58,7 +58,7 @@ def to_json_or_none(input: Any, default=None) -> Mapping[str, Any] | None:
     return json.loads(json.dumps(input, cls=JSONEncoder))
 
 
-def to_json(input: Any) -> Mapping[str, Any]:
+def to_json(input: Any) -> Dict[str, Any]:
     """
     Converts a value to its json representation or returns a default (None).
     """
@@ -509,7 +509,7 @@ class FixtureHeader:
     hash: Optional[str] = None
 
     @staticmethod
-    def from_dict(source: Dict[str, str]) -> "FixtureHeader":
+    def from_dict(source: Dict[str, Any]) -> "FixtureHeader":
         """
         Creates a FixedHeader object from a Dict.
         """

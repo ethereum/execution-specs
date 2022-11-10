@@ -36,7 +36,7 @@ def fill_test(
                 continue
 
             genesis = test.make_genesis(b11r, t8n, fork)
-            (blocks, head) = test.make_blocks(
+            (blocks, head, alloc) = test.make_blocks(
                 b11r, t8n, genesis, fork, reward=get_reward(fork)
             )
 
@@ -46,7 +46,7 @@ def fill_test(
                 head=head,
                 fork=fork,
                 pre_state=test.pre,
-                post_state=None,
+                post_state=alloc,
                 seal_engine=engine,
                 name=test.name,
                 index=index + 1,

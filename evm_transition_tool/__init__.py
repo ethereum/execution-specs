@@ -25,7 +25,7 @@ class TransitionTool:
         chain_id: int = 1,
         reward: int = 0,
         txsPath: Optional[str] = None,
-    ) -> Tuple[Any, Any]:
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Simulate a state transition with specified parameters
         """
@@ -57,7 +57,10 @@ class TransitionTool:
             env["currentRandom"] = "0"
 
         (_, result) = self.evaluate(alloc, [], env, fork)
-        return result.get("stateRoot")
+        state_root = result.get("stateRoot")
+        if state_root is None or not isinstance(state_root, str):
+            raise Exception("Unable to calculate state root")
+        return state_root
 
 
 class EvmTransitionTool(TransitionTool):
@@ -90,7 +93,7 @@ class EvmTransitionTool(TransitionTool):
         chain_id: int = 1,
         reward: int = 0,
         txsPath: Optional[str] = None,
-    ) -> Tuple[Any, Any]:
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Executes `evm t8n` with the specified arguments.
         """
@@ -130,7 +133,7 @@ class EvmTransitionTool(TransitionTool):
         output = json.loads(result.stdout)
 
         if "alloc" not in output or "result" not in output:
-            Exception("malformed result")
+            raise Exception("malformed result")
 
         return (output["alloc"], output["result"])
 
