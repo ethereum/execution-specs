@@ -4,7 +4,7 @@ Useful types for generating Ethereum tests.
 import json
 from copy import copy, deepcopy
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Mapping, Optional, Tuple, Type, Union
+from typing import Any, ClassVar, Dict, List, Mapping, Optional, Tuple, Type
 
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
@@ -13,7 +13,16 @@ from .code import Code, code_to_hex
 from .common import AddrAA, TestPrivateKey
 
 
-def hex_or_none(input: Union[int, None], default=None) -> Union[str, None]:
+def code_or_none(input: str | bytes | Code, default=None) -> str | None:
+    """
+    Converts an int to hex or returns a default (None).
+    """
+    if input is None:
+        return default
+    return code_to_hex(input)
+
+
+def hex_or_none(input: int | None, default=None) -> str | None:
     """
     Converts an int to hex or returns a default (None).
     """
@@ -22,16 +31,7 @@ def hex_or_none(input: Union[int, None], default=None) -> Union[str, None]:
     return hex(input)
 
 
-def str_or_none(input: Any, default=None) -> Union[str, None]:
-    """
-    Converts a value to string or returns a default (None).
-    """
-    if input is None:
-        return default
-    return str(input)
-
-
-def int_or_none(input: Any, default=None) -> Union[int, None]:
+def int_or_none(input: Any, default=None) -> int | None:
     """
     Converts a value to int or returns a default (None).
     """
@@ -40,9 +40,16 @@ def int_or_none(input: Any, default=None) -> Union[int, None]:
     return int(input, 0)
 
 
-def to_json_or_none(
-    input: Any, default=None
-) -> Union[Mapping[str, Any], None]:
+def str_or_none(input: Any, default=None) -> str | None:
+    """
+    Converts a value to string or returns a default (None).
+    """
+    if input is None:
+        return default
+    return str(input)
+
+
+def to_json_or_none(input: Any, default=None) -> Mapping[str, Any] | None:
     """
     Converts a value to its json representation or returns a default (None).
     """
@@ -66,7 +73,7 @@ class Storage:
     data: Dict[int, int]
 
     @staticmethod
-    def parse_key_value(input: Union[str, int]) -> int:
+    def parse_key_value(input: str | int) -> int:
         """
         Parses a key or value to a valid int key for storage.
         """
@@ -87,7 +94,7 @@ class Storage:
         """
         return "0x" + value.to_bytes(32, "big").hex()
 
-    def __init__(self, input: Dict[Union[str, int], Union[str, int]]):
+    def __init__(self, input: Dict[str | int, str | int]):
         """
         Initializes the storage using a given mapping which can have
         keys and values either as string or int.
@@ -105,27 +112,25 @@ class Storage:
         """Returns number of elements in the storage"""
         return len(self.data)
 
-    def __contains__(self, key: Union[str, int]) -> bool:
+    def __contains__(self, key: str | int) -> bool:
         """Checks for an item in the storage"""
         key = Storage.parse_key_value(key)
         return key in self.data
 
-    def __getitem__(self, key: Union[str, int]) -> int:
+    def __getitem__(self, key: str | int) -> int:
         """Returns an item from the storage"""
         key = Storage.parse_key_value(key)
         if key not in self.data:
             raise KeyError()
         return self.data[key]
 
-    def __setitem__(
-        self, key: Union[str, int], value: Union[str, int]  # noqa: SC200
-    ):
+    def __setitem__(self, key: str | int, value: str | int):  # noqa: SC200
         """Sets an item in the storage"""
         self.data[Storage.parse_key_value(key)] = Storage.parse_key_value(
             value
         )
 
-    def __delitem__(self, key: Union[str, int]):
+    def __delitem__(self, key: str | int):
         """Deletes an item from the storage"""
         del self.data[Storage.parse_key_value(key)]
 
@@ -181,6 +186,38 @@ class Storage:
                     )
                 )
 
+    def must_be_equal(self, other: "Storage"):
+        """
+        Succeeds only if "self" is equal to "other" storage.
+        """
+        # Test keys contained in both storage objects
+        for k in self.data.keys() & other.data.keys():
+            if self.data[k] != other.data[k]:
+                raise Exception(
+                    "incorrect value for key {0}: {1}!={2}".format(
+                        Storage.key_value_to_string(k),
+                        Storage.key_value_to_string(self.data[k]),
+                        Storage.key_value_to_string(other.data[k]),
+                    )
+                )
+        # Test keys contained in either one of the storage objects
+        for k in self.data.keys() ^ other.data.keys():
+            if k in self.data:
+                if self.data[k] != 0:
+                    raise Exception(
+                        "expected key {0}={1} not found in storage".format(
+                            Storage.key_value_to_string(k),
+                            Storage.key_value_to_string(self.data[k]),
+                        )
+                    )
+            elif other.data[k] != 0:
+                raise Exception(
+                    "unexpected key {0}={1} found in storage".format(
+                        Storage.key_value_to_string(k),
+                        Storage.key_value_to_string(other.data[k]),
+                    )
+                )
+
 
 @dataclass(kw_only=True)
 class Account:
@@ -188,12 +225,30 @@ class Account:
     State associated with an address.
     """
 
-    nonce: Optional[int] = None
-    balance: Optional[int] = None
-    code: Optional[Union[bytes, str, Code]] = None
-    storage: Optional[
-        Union[Storage, Dict[Union[str, int], Union[str, int]]]
-    ] = None
+    nonce: int | None = None
+    """
+    The scalar value equal to a) the number of transactions sent by
+    an Externally Owned Account, b) the amount of contracts created by a
+    contract.
+    """
+    balance: int | None = None
+    """
+    The amount of Wei (10<sup>-18</sup> Eth) the account has.
+    """
+    code: str | bytes | Code | None = None
+    """
+    Bytecode contained by the account.
+    """
+    storage: Storage | Dict[str | int, str | int] | None = None
+    """
+    Storage within a contract.
+    """
+
+    NONEXISTENT: ClassVar[object] = object()
+    """
+    Sentinel object used to specify when an account should not exist in the
+    state.
+    """
 
     def __post_init__(self) -> None:
         """Automatically init account members"""
@@ -206,41 +261,46 @@ class Account:
         Raises exception on failure.
         """
         if self.nonce is not None:
-            if "nonce" not in alloc:
-                raise Exception(f"nonce not found for account {account}")
-            nonce = int(alloc["nonce"], 16)
-            if self.nonce != nonce:
+            actual_nonce = int_or_none(alloc.get("nonce"), 0)
+            if self.nonce != actual_nonce:
                 raise Exception(
-                    f"unexpected nonce value found for account {account}: "
-                    + f"{nonce}, expected {self.nonce}"
+                    f"unexpected nonce for account {account}: "
+                    + f"{actual_nonce}, expected {self.nonce}"
                 )
+
         if self.balance is not None:
-            if "balance" not in alloc:
-                raise Exception(f"balance not found for account {account}")
-            balance = int(alloc["balance"], 16)
-            if self.balance != balance:
+            actual_balance = int_or_none(alloc.get("balance"), 0)
+            if self.balance != actual_balance:
                 raise Exception(
-                    f"unexpected balance value found for account {account}: "
-                    + f"{balance}, expected {self.balance}"
+                    "unexpected balance for account "
+                    + f"{account}: {actual_balance}, "
+                    + f"expected {self.balance}"
                 )
+
         if self.code is not None:
-            if "code" not in alloc:
-                raise Exception(f"code not found for account {account}")
             expected_code = code_to_hex(self.code)
-            if expected_code != alloc["code"]:
-                actual_code = alloc["code"]
+            actual_code = str_or_none(alloc.get("code"), "0x")
+            if expected_code != actual_code:
                 raise Exception(
-                    f"unexpected code found for account {account}: "
+                    f"unexpected code for account {account}: "
                     + f"{actual_code}, expected {expected_code}"
                 )
+
         if self.storage is not None:
-            if "storage" not in alloc:
-                raise Exception(f"storage not found for account {account}")
-            assert type(self.storage) is Storage
-            Storage(alloc["storage"]).must_contain(self.storage)
+            expected_storage = (
+                self.storage
+                if isinstance(self.storage, Storage)
+                else Storage(self.storage)
+            )
+            actual_storage = (
+                Storage(alloc["storage"])
+                if "storage" in alloc
+                else Storage({})
+            )
+            expected_storage.must_be_equal(actual_storage)
 
     @classmethod
-    def with_code(cls: Type, code: Union[bytes, str, Code]) -> "Account":
+    def with_code(cls: Type, code: bytes | str | Code) -> "Account":
         """
         Create account with provided `code` and nonce of `1`.
         """
@@ -334,7 +394,7 @@ class Transaction:
     nonce: int = 0
     to: Optional[str] = AddrAA
     value: int = 0
-    data: Union[bytes, str, Code] = bytes()
+    data: bytes | str | Code = bytes()
     gas_limit: int = 21000
     access_list: Optional[List[Tuple[str, List[str]]]] = None
 
@@ -381,6 +441,22 @@ class Transaction:
                 self.ty = 1
             else:
                 self.ty = 0
+
+    def with_error(self, error: str) -> "Transaction":
+        """
+        Create a copy of the transaction with an added error.
+        """
+        tx = copy(self)
+        tx.error = error
+        return tx
+
+    def with_nonce(self, nonce: int) -> "Transaction":
+        """
+        Create a copy of the transaction with a modified nonce.
+        """
+        tx = copy(self)
+        tx.nonce = nonce
+        return tx
 
 
 @dataclass(kw_only=True)
@@ -639,10 +715,8 @@ class JSONEncoder(json.JSONEncoder):
                 "balance": hex_or_none(
                     obj.balance, hex(ACCOUNT_DEFAULTS.balance)
                 ),
-                "code": code_to_hex(obj.code),
-                "storage": json.loads(json.dumps(obj.storage, cls=JSONEncoder))
-                if obj.storage is not None
-                else {},
+                "code": code_or_none(obj.code, "0x"),
+                "storage": to_json_or_none(obj.storage, {}),
             }
             return account
         elif isinstance(obj, Transaction):

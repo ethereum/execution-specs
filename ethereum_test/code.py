@@ -11,9 +11,9 @@ class Code(str):
     Generic code object.
     """
 
-    bytecode: Union[bytes, None] = None
+    bytecode: bytes | None = None
 
-    def __init__(self, code: Union[bytes, str, None]):
+    def __init__(self, code: bytes | str | None):
         if code is not None:
             if type(code) is bytes:
                 self.bytecode = code
@@ -46,12 +46,12 @@ class Code(str):
         return Code(code_to_bytes(other) + code_to_bytes(self))
 
 
-def code_to_bytes(code: Union[str, bytes, Code, None]) -> bytes:
+def code_to_bytes(code: str | bytes | Code) -> bytes:
     """
     Converts multiple types into bytecode.
     """
     if code is None:
-        return bytes()
+        raise Exception("Cannot convert `None` code to bytes")
 
     if isinstance(code, Code):
         return code.assemble()
@@ -70,12 +70,12 @@ def code_to_bytes(code: Union[str, bytes, Code, None]) -> bytes:
     raise Exception("invalid type for `code`")
 
 
-def code_to_hex(code: Union[str, bytes, Code, None]) -> str:
+def code_to_hex(code: str | bytes | Code) -> str:
     """
     Converts multiple types into a bytecode hex string.
     """
     if code is None:
-        return "0x"
+        raise Exception("Cannot convert `None` code to hex")
 
     if isinstance(code, Code):
         return "0x" + code.assemble().hex()
