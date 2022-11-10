@@ -159,14 +159,8 @@ Ethereum VM by attempting to append multiple blocks to the chain:
 The `pre` and `post` states are elemental to setup and then verify the outcome
 of the state test.
 
-Both `pre` and `post` are mappings of account addresses to `account` structures:
-```
-class Account:
-    nonce: int
-    balance: int
-    code: Union[bytes, str, Code]
-    storage: Storage
-```
+Both `pre` and `post` are mappings of account addresses to `account` structures (see [more info](#the-account-object)).
+
 
 A single test vector can contain as many accounts in the `pre` and `post` states
 as required, and they can be also filled dynamically.
@@ -213,12 +207,69 @@ Currently supported built-in compilable objects are:
 
 `Code` objects can be concatenated together by using the `+` operator.
 
+### Verifying the accounts' Post State
+
+The state of the accounts after all blocks/transactions have been executed is
+the way of verifying that the execution client actually behaves like the test
+expects.
+
+During their filling process, all tests automatically verify that the accounts
+specified in their `post` property actually match what was returned by the
+transition tool.
+
+Within the `post` dictionary object, an account address can be:
+- `None`: The account will not be checked for absence or existance in the
+  result returned by the transition tool.
+- `Account` object: The test expects that this account exist and also has
+  properties equal to the properties specified by the `Account` object.
+- `Account.NONEXISTENT`: The test expects that this account does not exist in
+  the result returned by the transition tool, and if the account exists,
+  it results in error.
+  E.g. when the transaction creating a contract is expected to fail and the
+  test wants to verify that the address where the contract was supposed to be
+  created is indeed empty.
+
+### The `Account` object
+
+The `Account` object is used to specify the properties of an account to be
+verified in the post state.
+
+It has the following Python representation.
+```
+class Account:
+    nonce: int | None
+    balance: int | None
+    code: bytes | str | Code | None
+    storage: Storage | None
+```
+
+It can verify the following properties of an account:
+- `nonce`: the scalar value equal to a) the number of transactions sent by
+  an Externally Owned Account, b) the amount of contracts created by a contract.
+- `balance`: the amount of Wei (10<sup>-18</sup> Eth) the account has.
+- `code`: Bytecode contained by the account. To verify that an account contains
+  no code, this property needs to be set to "0x" or "".
+- `storage`: Storage within the account represented as a `dict` object.
+  All storage keys that are expected to be set must be specified, and if a
+  key is skipped, it is implied that its expected value is zero.
+  Setting this property to `{}` (empty `dict`), means that all the keys in the
+  account must be unset (equal to zero).
+
+All account's properties are optional, and they can be skipped or set to `None`,
+which means that no check will be performed on that specific account property.
+
 ### Verifying correctness of the new test
 
 A well written test performs a single verification output at a time.
 
 A verification output can be a single storage slot, the balance of an account,
 or a newly created contract.
+
+It is not recommended to use balance changes to verify test correctness, as it
+can be easily affected by gas cost changes in future EIPs.
+
+The best way to verify a transaction/block execution outcome is to check its
+storage.
 
 A test can be written as a negative verification. E.g. a contract is not
 created, or a transaction fails to execute or runs out of gas.

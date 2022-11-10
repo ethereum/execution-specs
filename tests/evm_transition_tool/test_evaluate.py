@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Dict, Union
+from typing import Dict
 
 import pytest
 
@@ -66,11 +66,11 @@ def test_calc_state_root(
     t8n: TransitionTool,
     fork: str,
     alloc: Dict,
-    base_fee: Union[int, None],
+    base_fee: int | None,
     hash: str,
 ) -> None:
     class TestEnv:
-        base_fee: Union[int, None]
+        base_fee: int | None
 
     env = TestEnv()
     env.base_fee = base_fee

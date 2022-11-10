@@ -2,7 +2,7 @@
 Generic Ethereum test base class
 """
 from abc import abstractmethod
-from typing import Any, Callable, Dict, Generator, List, Mapping, Tuple, Union
+from typing import Any, Callable, Dict, Generator, List, Mapping, Tuple
 
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
@@ -25,9 +25,7 @@ def normalize_address(address: str) -> str:
     return "0x" + address
 
 
-def verify_transactions(
-    txs: Union[List[Transaction], None], result
-) -> List[int]:
+def verify_transactions(txs: List[Transaction] | None, result) -> List[int]:
     """
     Verify rejected transactions (if any) against the expected outcome.
     Raises exception on unexpected rejections or unexpected successful txs.
@@ -59,16 +57,15 @@ def verify_post_alloc(post: Mapping[str, Account], alloc: Mapping[str, Any]):
     """
     for address, account in post.items():
         address = normalize_address(address)
-        if account is None:
-            # If an account is None in post, it must not exist in the
-            # alloc.
-            if address in alloc:
-                raise Exception(f"found unexpected account: {address}")
-        else:
-            if address in alloc:
-                account.check_alloc(address, alloc[address])
+        if account is not None:
+            if account == Account.NONEXISTENT:
+                if address in alloc:
+                    raise Exception(f"found unexpected account: {address}")
             else:
-                raise Exception(f"expected account not found: {address}")
+                if address in alloc:
+                    account.check_alloc(address, alloc[address])
+                else:
+                    raise Exception(f"expected account not found: {address}")
 
 
 class BaseTest:
