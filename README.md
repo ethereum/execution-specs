@@ -207,7 +207,7 @@ Currently supported built-in compilable objects are:
 
 `Code` objects can be concatenated together by using the `+` operator.
 
-### Verifying the accounts' Post State
+### Verifying the Accounts' Post State
 
 The state of the accounts after all blocks/transactions have been executed is
 the way of verifying that the execution client actually behaves like the test
@@ -234,14 +234,7 @@ Within the `post` dictionary object, an account address can be:
 The `Account` object is used to specify the properties of an account to be
 verified in the post state.
 
-It has the following Python representation.
-```
-class Account:
-    nonce: int | None
-    balance: int | None
-    code: bytes | str | Code | None
-    storage: Storage | None
-```
+The python representation can be found in [src/ethereum_test/types.py](src/ethereum_test/types.py).
 
 It can verify the following properties of an account:
 - `nonce`: the scalar value equal to a) the number of transactions sent by

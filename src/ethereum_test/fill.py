@@ -49,7 +49,7 @@ def fill_test(
                 post_state=alloc,
                 seal_engine=engine,
                 name=test.name,
-                index=index + 1,
+                index=index,
             )
             fixture.fill_info(t8n, b11r)
             fixtures.append(fixture)

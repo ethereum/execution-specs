@@ -50,20 +50,22 @@ def verify_transactions(txs: List[Transaction] | None, result) -> List[int]:
     return list(rejected_txs.keys())
 
 
-def verify_post_alloc(post: Mapping[str, Account], alloc: Mapping[str, Any]):
+def verify_post_alloc(
+    expected_post: Mapping[str, Account], got_alloc: Mapping[str, Any]
+):
     """
     Verify that an allocation matches the expected post in the test.
     Raises exception on unexpected values.
     """
-    for address, account in post.items():
+    for address, account in expected_post.items():
         address = normalize_address(address)
         if account is not None:
             if account == Account.NONEXISTENT:
-                if address in alloc:
+                if address in got_alloc:
                     raise Exception(f"found unexpected account: {address}")
             else:
-                if address in alloc:
-                    account.check_alloc(address, alloc[address])
+                if address in got_alloc:
+                    account.check_alloc(address, got_alloc[address])
                 else:
                     raise Exception(f"expected account not found: {address}")
 
