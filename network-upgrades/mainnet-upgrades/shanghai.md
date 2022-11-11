@@ -11,6 +11,7 @@ Specifies changes included in the Network Upgrade.
 ### EIPs Considered for Inclusion
 Specifies changes potentially included in the Network Upgrade, pending successful deployment on Client Integration Testnets.
 
+* [EIP-1153: Transient storage opcodes](https://eips.ethereum.org/EIPS/eip-1153)
 * [EIP-3540: EVM Object Format (EOF) v1](https://eips.ethereum.org/EIPS/eip-3540)
 * [EIP-3670: EOF - Code Validation](https://eips.ethereum.org/EIPS/eip-3670)
 
@@ -20,13 +21,13 @@ Specifies changes potentially included in the Network Upgrade, pending successfu
 
 Code merged into Participating Clients:
 
-| EIP | [EIP-3540](https://eips.ethereum.org/EIPS/eip-3540) | [EIP-3651](https://eips.ethereum.org/EIPS/eip-3651) | [EIP-3670](https://eips.ethereum.org/EIPS/eip-3670) | [EIP-3855](https://eips.ethereum.org/EIPS/eip-3855) | [EIP-3860](https://eips.ethereum.org/EIPS/eip-3860) | [EIP-4895](https://eips.ethereum.org/EIPS/eip-4895) |
-|------------------|------|------|------|------|------|------|
-| **Geth**         | [Not merged](https://github.com/ethereum/go-ethereum/pull/22958) | | [Not merged](https://github.com/ethereum/go-ethereum/pull/24090) | [Merged](https://github.com/ethereum/go-ethereum/pull/24039) | [Not merged](https://github.com/ethereum/go-ethereum/pull/23847) | |
-| **Besu**         | | | | | | [Not merged](https://github.com/hyperledger/besu/pull/4552)|
-| **Nethermind**   | [Not merged](https://github.com/NethermindEth/nethermind/pull/4608)| [Merged](https://github.com/NethermindEth/nethermind/pull/4594)|[Not merged](https://github.com/NethermindEth/nethermind/pull/4609)|[Merged](https://github.com/NethermindEth/nethermind/pull/4599) |[Not merged](https://github.com/NethermindEth/nethermind/pull/4740) |[Not merged](https://github.com/NethermindEth/nethermind/pull/4731) |
-| **Erigon**    | | | | [Merged](https://github.com/ledgerwatch/erigon/pull/5256) | | |
-| **EthereumJS**   | | | | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1616) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1619) | |
+| EIP | [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153) | [EIP-3540](https://eips.ethereum.org/EIPS/eip-3540) | [EIP-3651](https://eips.ethereum.org/EIPS/eip-3651) | [EIP-3670](https://eips.ethereum.org/EIPS/eip-3670) | [EIP-3855](https://eips.ethereum.org/EIPS/eip-3855) | [EIP-3860](https://eips.ethereum.org/EIPS/eip-3860) | [EIP-4895](https://eips.ethereum.org/EIPS/eip-4895) |
+|------|------|------|------|------|------|------|------|
+| **Geth**         | | [Not merged](https://github.com/ethereum/go-ethereum/pull/22958) | | [Not merged](https://github.com/ethereum/go-ethereum/pull/24090) | [Merged](https://github.com/ethereum/go-ethereum/pull/24039) | [Not merged](https://github.com/ethereum/go-ethereum/pull/23847) | |
+| **Besu**         | | | | | | | [Not merged](https://github.com/hyperledger/besu/pull/4552)|
+| **Nethermind**   | | [Not merged](https://github.com/NethermindEth/nethermind/pull/4608)| [Merged](https://github.com/NethermindEth/nethermind/pull/4594)|[Not merged](https://github.com/NethermindEth/nethermind/pull/4609)|[Merged](https://github.com/NethermindEth/nethermind/pull/4599) |[Not merged](https://github.com/NethermindEth/nethermind/pull/4740) |[Not merged](https://github.com/NethermindEth/nethermind/pull/4731) |
+| **Erigon**       | | | | | [Merged](https://github.com/ledgerwatch/erigon/pull/5256) | | |
+| **EthereumJS**   | | | | | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1616) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1619) | |
 
  Tasks
 - [ ] Client Integration Testing
