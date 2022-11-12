@@ -24,7 +24,13 @@ def compare_ast(old: ast.AST, new: ast.AST) -> bool:
     if type(old) is not type(new):
         return False
 
-    if isinstance(old, ast.Expr):
+    # This is a way to identify comments in the current specs code
+    # Returns true irrespective of what the comment is
+    if (
+        isinstance(old, ast.Expr)
+        and isinstance(old.value, ast.Constant)
+        and isinstance(old.value.value, str)
+    ):
         return True
 
     if isinstance(old, ast.AST):
@@ -91,15 +97,6 @@ class Lint(metaclass=ABCMeta):
         position :
             The particular hardfork to lint.
         """
-
-    def add_diagnostic(
-        self, diagnostics: List[Diagnostic], message: str
-    ) -> None:
-        """
-        Adds a new diagnostic message.
-        """
-        diagnostic = Diagnostic(message=message)
-        diagnostics.append(diagnostic)
 
     def _parse(
         self, source: str, visitor: ast.NodeVisitor, attr: str

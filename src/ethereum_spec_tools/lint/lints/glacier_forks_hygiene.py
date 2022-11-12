@@ -16,6 +16,14 @@ from ethereum_spec_tools.lint import (
 )
 
 
+def add_diagnostic(diagnostics: List[Diagnostic], message: str) -> None:
+    """
+    Adds a new diagnostic message.
+    """
+    diagnostic = Diagnostic(message=message)
+    diagnostics.append(diagnostic)
+
+
 class GlacierForksHygiene(Lint):
     """
     Ensures that the glacier forks have changes only in BOMB_DELAY_BLOCKS.
@@ -35,8 +43,8 @@ class GlacierForksHygiene(Lint):
         Walks the sources for each hardfork and emits Diagnostic messages.
         """
         fork_name = forks[position].short_name
-        if not fork_name.endswith("_glacier"):
-            # Nothing to compare against!
+        if not fork_name.endswith("_glacier") or position == 0:
+            # Nothing to compare against or non-glacier fork!
             return []
 
         diagnostics: List[Diagnostic] = []
@@ -47,16 +55,18 @@ class GlacierForksHygiene(Lint):
         all_files = set(all_previous.keys()) | set(all_current.keys())
         for file in all_files:
             if file not in all_previous:
-                self.add_diagnostic(
+                add_diagnostic(
                     diagnostics,
-                    (f"the file `{file}` is added to `{fork_name}`."),
+                    f"the file `{file}` is added to `{fork_name}`."
+                    "Glacier forks may only differ in difficulty block.",
                 )
                 continue
 
             if file not in all_current:
-                self.add_diagnostic(
+                add_diagnostic(
                     diagnostics,
-                    (f"the file `{file}` is deleted from `{fork_name}`."),
+                    f"the file `{file}` is deleted from `{fork_name}`."
+                    "Glacier forks may only differ in difficulty block.",
                 )
                 continue
 
@@ -86,16 +96,20 @@ class GlacierForksHygiene(Lint):
             try:
                 previous_item = previous[item]
             except KeyError:
-                self.add_diagnostic(
-                    diagnostics, f"{item} in {name} has been added"
+                add_diagnostic(
+                    diagnostics,
+                    f"{item} in {name} has been added."
+                    "Glacier forks may only differ in difficulty block.",
                 )
                 continue
 
             try:
                 current_item = current[item]
             except KeyError:
-                self.add_diagnostic(
-                    diagnostics, f"{item} in {name} has been deleted"
+                add_diagnostic(
+                    diagnostics,
+                    f"{item} in {name} has been deleted."
+                    "Glacier forks may only differ in difficulty block.",
                 )
                 continue
 
@@ -103,8 +117,10 @@ class GlacierForksHygiene(Lint):
                 previous_item.value.value = self.delay_blocks[fork_name]
 
             if not compare_ast(previous_item, current_item):
-                self.add_diagnostic(
-                    diagnostics, f"the item `{item}` in `{name}` has changed"
+                add_diagnostic(
+                    diagnostics,
+                    f"the item `{item}` in `{name}` has changed."
+                    "Glacier forks may only differ in difficulty block.",
                 )
 
         return diagnostics
@@ -128,7 +144,9 @@ class _Visitor(ast.NodeVisitor):
         Called if no explicit visitor function exists for a node.
         Do not visit any child nodes.
         """
-        sys.exit(f"No visit function defined for {node}")
+        sys.exit(
+            f"No visit function defined for {node}. Please implement one."
+        )
 
     def _insert(self, name: str, node: ast.AST) -> None:
         item = ".".join(self.path + [name])
@@ -148,9 +166,32 @@ class _Visitor(ast.NodeVisitor):
         Visit a python module.
         """
         for item in module.__dict__["body"]:
-            if type(item) in (ast.Expr, ast.Import, ast.ImportFrom):
-                continue
             self.visit(item)
+
+    def visit_Import(self, import_: ast.Import) -> None:
+        """
+        Visit an Import
+        """
+        pass
+
+    def visit_ImportFrom(self, import_from: ast.ImportFrom) -> None:
+        """
+        Visit an Import From
+        """
+        pass
+
+    def visit_Expr(self, expr: ast.Expr) -> None:
+        """
+        Visit an Expression
+        """
+        # This is a way to identify comments in the current specs code
+        # ignore comments
+        if isinstance(expr.value, ast.Constant) and isinstance(
+            expr.value.value, str
+        ):
+            return
+
+        print(f"The expression {type(expr)} has been ignored.")
 
     def visit_AsyncFunctionDef(self, function: ast.AsyncFunctionDef) -> None:
         """
@@ -174,10 +215,22 @@ class _Visitor(ast.NodeVisitor):
         """
         Visit an assignment.
         """
-        self._insert(assign.targets[0].id, assign)  # type: ignore
+        if isinstance(assign.targets[0], ast.Name):
+            self._insert(assign.targets[0].id, assign)
+        else:
+            print(
+                "Assign node with target of type "
+                f"{type(assign.targets[0])} has been ignored."
+            )
 
     def visit_AnnAssign(self, assign: ast.AnnAssign) -> None:
         """
         Visit an annotated assignment.
         """
-        self._insert(assign.target.id, assign)  # type: ignore
+        if isinstance(assign.target, ast.Name):
+            self._insert(assign.target.id, assign)
+        else:
+            print(
+                f"AnnAssign node with target of type {type(assign.target)}"
+                " has been ignored."
+            )
