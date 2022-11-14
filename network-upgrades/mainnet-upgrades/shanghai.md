@@ -21,6 +21,7 @@ Specifies changes potentially included in the Network Upgrade, pending successfu
 
 Code merged into Participating Clients:
 
+
 | EIP | [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153) | [EIP-3540](https://eips.ethereum.org/EIPS/eip-3540) | [EIP-3651](https://eips.ethereum.org/EIPS/eip-3651) | [EIP-3670](https://eips.ethereum.org/EIPS/eip-3670) | [EIP-3855](https://eips.ethereum.org/EIPS/eip-3855) | [EIP-3860](https://eips.ethereum.org/EIPS/eip-3860) | [EIP-4895](https://eips.ethereum.org/EIPS/eip-4895) |
 |------|------|------|------|------|------|------|------|
 | **Geth**         | [Not merged](https://github.com/ethereum/go-ethereum/pull/26003) | [Not merged](https://github.com/ethereum/go-ethereum/pull/22958) | | [Not merged](https://github.com/ethereum/go-ethereum/pull/24090) | [Merged](https://github.com/ethereum/go-ethereum/pull/24039) | [Not merged](https://github.com/ethereum/go-ethereum/pull/23847) | |
