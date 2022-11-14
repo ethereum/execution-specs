@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         python: ['3.10']
-        golang: [1.17]
+        golang: [1.18]
         solc: ['0.8.17']
     steps:
       - uses: actions/checkout@v2
