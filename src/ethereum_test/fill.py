@@ -24,7 +24,7 @@ def fill_test(
     fixtures: List[Fixture] = []
     for fork in forks:
 
-        for test in test_spec(fork):
+        for index, test in enumerate(test_spec(fork)):
 
             mapped = map_fork(fork)
             if mapped is None:
@@ -36,7 +36,7 @@ def fill_test(
                 continue
 
             genesis = test.make_genesis(b11r, t8n, fork)
-            (blocks, head) = test.make_blocks(
+            (blocks, head, alloc) = test.make_blocks(
                 b11r, t8n, genesis, fork, reward=get_reward(fork)
             )
 
@@ -46,14 +46,20 @@ def fill_test(
                 head=head,
                 fork=fork,
                 pre_state=test.pre,
-                post_state=None,
+                post_state=alloc,
                 seal_engine=engine,
+                name=test.name,
+                index=index,
             )
             fixture.fill_info(t8n, b11r)
             fixtures.append(fixture)
 
     out = {}
     for fixture in fixtures:
-        out[fixture.fork.lower()] = fixture
+        name = str(fixture.index).zfill(3)
+        if fixture.name:
+            name += "_" + fixture.name.replace(" ", "_")
+        name += "_" + fixture.fork.lower()
+        out[name] = fixture
 
     return out

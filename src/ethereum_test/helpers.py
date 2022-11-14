@@ -2,7 +2,7 @@
 Helper functions for generating Ethereum tests.
 """
 
-from typing import Dict, Union
+from typing import Dict
 
 from .code import Code
 from .common import AddrAA, TestAddress
@@ -12,7 +12,7 @@ from .types import Account, Environment, Transaction
 
 def TestCode(
     code: Code,
-    expected: Dict[Union[str, int], Union[str, int]],
+    expected: Dict[str | int, str | int],
     gas_limit: int = 100000,
 ):
     """
@@ -33,16 +33,25 @@ def TestCode(
     return StateTest(env=env, pre=pre, post=post, txs=[tx])
 
 
-def to_address(input: Union[int, str]) -> str:
+def to_address(input: int | str) -> str:
     """
     Converts an int or str into proper address 20-byte hex string.
     """
     if type(input) is str:
         # Convert to int
-        if input.startswith("0x"):
-            input = int(input, 16)
-        else:
-            input = int(input)
+        input = int(input, 0)
     if type(input) is int:
         return "0x" + input.to_bytes(20, "big").hex()
-    raise Exception("invalid type to convert into account address")
+    raise Exception("invalid type to convert to account address")
+
+
+def to_hash(input: int | str) -> str:
+    """
+    Converts an int or str into proper address 20-byte hex string.
+    """
+    if type(input) is str:
+        # Convert to int
+        input = int(input, 0)
+    if type(input) is int:
+        return "0x" + input.to_bytes(32, "big").hex()
+    raise Exception("invalid type to convert to hash")

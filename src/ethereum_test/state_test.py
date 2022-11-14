@@ -3,7 +3,7 @@ State test filler.
 """
 import tempfile
 from dataclasses import dataclass
-from typing import Callable, Generator, List, Mapping, Tuple
+from typing import Any, Callable, Dict, Generator, List, Mapping, Tuple
 
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
@@ -32,6 +32,7 @@ class StateTest(BaseTest):
     pre: Mapping[str, Account]
     post: Mapping[str, Account]
     txs: List[Transaction]
+    name: str = ""
 
     def make_genesis(
         self,
@@ -83,7 +84,7 @@ class StateTest(BaseTest):
         fork: str,
         chain_id=1,
         reward=0,
-    ) -> Tuple[List[FixtureBlock], str]:
+    ) -> Tuple[List[FixtureBlock], str, Dict[str, Any]]:
         """
         Create a block from the state test definition.
         Performs checks against the expected behavior of the test.
@@ -149,6 +150,7 @@ class StateTest(BaseTest):
                 )
             ],
             head,
+            alloc,
         )
 
 

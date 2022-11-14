@@ -39,6 +39,7 @@ fromhex
 getitem
 radd
 setitem
+zfill
 
 lll
 lllc

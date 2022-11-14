@@ -8,6 +8,9 @@ from .fork import forks_from, forks_from_until
 from .state_test import StateTestSpec
 from .types import Fixture
 
+TESTS_PREFIX = "test_"
+TESTS_PREFIX_LEN = len(TESTS_PREFIX)
+
 
 def test_from_until(
     fork_from: str,
@@ -30,9 +33,12 @@ def test_from_until(
                 t8n, b11r, fn, forks_from_until(fork_from, fork_until), engine
             )
 
+        name = fn.__name__
+        assert name.startswith(TESTS_PREFIX)
+
         cast(Any, inner).__filler_metadata__ = {
             "fork": fork_from,
-            "name": fn.__name__.lstrip("test_"),
+            "name": name[TESTS_PREFIX_LEN:],
         }
 
         return inner
@@ -57,9 +63,12 @@ def test_from(
         def inner(t8n, b11r, engine) -> Mapping[str, Fixture]:
             return fill_test(t8n, b11r, fn, forks_from(fork), engine)
 
+        name = fn.__name__
+        assert name.startswith(TESTS_PREFIX)
+
         cast(Any, inner).__filler_metadata__ = {
             "fork": fork,
-            "name": fn.__name__.lstrip("test_"),
+            "name": name[TESTS_PREFIX_LEN:],
         }
 
         return inner
@@ -84,9 +93,12 @@ def test_only(
         def inner(t8n, b11r, engine) -> Mapping[str, Fixture]:
             return fill_test(t8n, b11r, fn, [fork], engine)
 
+        name = fn.__name__
+        assert name.startswith(TESTS_PREFIX)
+
         cast(Any, inner).__filler_metadata__ = {
             "fork": fork,
-            "name": fn.__name__.lstrip("test_"),
+            "name": name[TESTS_PREFIX_LEN:],
         }
 
         return inner
