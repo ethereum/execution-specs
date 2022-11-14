@@ -27,7 +27,7 @@ Code merged into Participating Clients:
 | **Besu**         | [Not merged](https://github.com/hyperledger/besu/pull/4118) | | | | | | [Not merged](https://github.com/hyperledger/besu/pull/4552)|
 | **Nethermind**   | [Merged](https://github.com/NethermindEth/nethermind/pull/4126V) | [Not merged](https://github.com/NethermindEth/nethermind/pull/4608)| [Merged](https://github.com/NethermindEth/nethermind/pull/4594)|[Not merged](https://github.com/NethermindEth/nethermind/pull/4609)|[Merged](https://github.com/NethermindEth/nethermind/pull/4599) |[Not merged](https://github.com/NethermindEth/nethermind/pull/4740) |[Not merged](https://github.com/NethermindEth/nethermind/pull/4731) |
 | **Erigon**       | | | | | [Merged](https://github.com/ledgerwatch/erigon/pull/5256) | | |
-| **EthereumJS**   | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1860) | | | | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1616) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1619) | |
+| **EthereumJS**   | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1860) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1719) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1814) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1743) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1616) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1619) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2353) |
 
  Tasks
 - [ ] Client Integration Testing
