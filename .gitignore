@@ -8,7 +8,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 venv/
-fixtures/
+/fixtures/
 
 # C extensions
 *.so
