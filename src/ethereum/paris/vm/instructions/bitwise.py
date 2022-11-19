@@ -29,12 +29,6 @@ def bitwise_and(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.paris.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.paris.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
     x = pop(evm.stack)
@@ -60,12 +54,6 @@ def bitwise_or(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.paris.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.paris.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
     x = pop(evm.stack)
@@ -91,12 +79,6 @@ def bitwise_xor(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.paris.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.paris.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
     x = pop(evm.stack)
@@ -122,12 +104,6 @@ def bitwise_not(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.paris.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `1`.
-    :py:class:`~ethereum.paris.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
     x = pop(evm.stack)
@@ -153,12 +129,6 @@ def get_byte(evm: Evm) -> None:
     evm :
         The current EVM frame.
 
-    Raises
-    ------
-    :py:class:`~ethereum.paris.vm.exceptions.StackUnderflowError`
-        If `len(stack)` is less than `2`.
-    :py:class:`~ethereum.paris.vm.exceptions.OutOfGasError`
-        If `evm.gas_left` is less than `GAS_VERY_LOW`.
     """
     # STACK
     byte_index = pop(evm.stack)
