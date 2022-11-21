@@ -125,8 +125,8 @@ following decorators:
 These decorators specify the forks on which the test vector is supposed to run.
 
 They also automatically append necessary information for the
-`ethereum_test_filler` to process when the generator is being executed to fill
-the tests.
+`ethereum_test_filling_tool` to process when the generator is being executed to
+fill the tests.
 
 The test vector function must take only one `str` parameter: the fork name.
 
