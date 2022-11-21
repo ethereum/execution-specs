@@ -1,7 +1,7 @@
 """
 Decorators for expanding filler definitions.
 """
-from typing import Any, Callable, Mapping, cast
+from typing import Any, Callable, List, Mapping, Optional, cast
 
 from ..common import Fixture
 from ..spec import TestSpec
@@ -15,6 +15,7 @@ TESTS_PREFIX_LEN = len(TESTS_PREFIX)
 def test_from_until(
     fork_from: str,
     fork_until: str,
+    eips: Optional[List[int]] = None,
 ) -> Callable[[TestSpec], Callable[[Any, Any, str], Mapping[str, Fixture]]]:
     """
     Decorator that takes a test generator and fills it for all forks after the
@@ -28,7 +29,12 @@ def test_from_until(
     ) -> Callable[[Any, Any, str], Mapping[str, Fixture]]:
         def inner(t8n, b11r, engine) -> Mapping[str, Fixture]:
             return fill_test(
-                t8n, b11r, fn, forks_from_until(fork_from, fork_until), engine
+                t8n,
+                b11r,
+                fn,
+                forks_from_until(fork_from, fork_until),
+                engine,
+                eips=eips,
             )
 
         name = fn.__name__
@@ -46,6 +52,7 @@ def test_from_until(
 
 def test_from(
     fork: str,
+    eips: Optional[List[int]] = None,
 ) -> Callable[[TestSpec], Callable[[Any, Any, str], Mapping[str, Fixture]]]:
     """
     Decorator that takes a test generator and fills it for all forks after the
@@ -57,7 +64,9 @@ def test_from(
         fn: TestSpec,
     ) -> Callable[[Any, Any, str], Mapping[str, Fixture]]:
         def inner(t8n, b11r, engine) -> Mapping[str, Fixture]:
-            return fill_test(t8n, b11r, fn, forks_from(fork), engine)
+            return fill_test(
+                t8n, b11r, fn, forks_from(fork), engine, eips=eips
+            )
 
         name = fn.__name__
         assert name.startswith(TESTS_PREFIX)
@@ -74,6 +83,7 @@ def test_from(
 
 def test_only(
     fork: str,
+    eips: Optional[List[int]] = None,
 ) -> Callable[[TestSpec], Callable[[Any, Any, str], Mapping[str, Fixture]]]:
     """
     Decorator that takes a test generator and fills it only for the specified
@@ -85,7 +95,7 @@ def test_only(
         fn: TestSpec,
     ) -> Callable[[Any, Any, str], Mapping[str, Fixture]]:
         def inner(t8n, b11r, engine) -> Mapping[str, Fixture]:
-            return fill_test(t8n, b11r, fn, [fork], engine)
+            return fill_test(t8n, b11r, fn, [fork], engine, eips=eips)
 
         name = fn.__name__
         assert name.startswith(TESTS_PREFIX)
