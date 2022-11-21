@@ -1,3 +1,0 @@
-"""
-Ethereum cross-client tests.
-"""

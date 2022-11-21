@@ -33,17 +33,18 @@ how to build go-ethereum utilities.
 
 ## Overview 
 
-### `ethereum_test`
+### `ethereum_test_tools`
 
-The `ethereum_test` package provides primitives and helpers to allow developers
-to easily test the consensus logic of Ethereum clients. 
+The `ethereum_test_tools` package provides primitives and helpers to allow
+developers to easily test the consensus logic of Ethereum clients. 
 
-### `ethereum_test_filler`
+### `ethereum_test_filling_tool`
 
-The `ethereum_test_filler` pacakge is a CLI application that recursively searches
-a given directory for Python modules that export test filler functions generated
-using `ethereum_test`. It then processes the fillers using the transition tool
-and the block builder tool, and writes the resulting fixture to file.
+The `ethereum_test_filling_tool` pacakge is a CLI application that recursively
+searches a given directory for Python modules that export test filler functions
+generated using `ethereum_test_tools`.
+It then processes the fillers using the transition tool and the block builder
+tool, and writes the resulting fixture to file.
 
 ### `evm_block_builder`
 
@@ -53,7 +54,7 @@ This is a wrapper around the [block builder][b11r] (b11r) tool.
 
 This is a wrapper around the [transaction][t8n] (t8n) tool.
 
-### `ethereum_tests`
+### `fillers`
 
 Contains all the Ethereum consensus tests available in this repository.
 
@@ -92,7 +93,7 @@ The Blockchain tests span multiple blocks which can contain or not transactions,
 
 ### Adding a New Test
 
-All currently implemented tests can be found in the `src/ethereum_tests`
+All currently implemented tests can be found in the `fillers`
 directory, which is composed of many subdirectories, and each one represents a
 different test category.
 
@@ -103,11 +104,11 @@ vectors.
 A new test can be added by either:
 
 - Adding a new `test_` python function to an existing file in any of the
-  existing category subdirectories within `src/ethereum_tests`.
+  existing category subdirectories within `fillers`.
 - Creating a new source file in an existing category, and populating it with
   the new test function(s).
 - Creating an entirely new category by adding a subdirectory in
-  `src/ethereum_tests` with the appropriate source files and test functions.
+  `fillers` with the appropriate source files and test functions.
 
 ### Test Spec Generator Functions
 
@@ -124,8 +125,8 @@ following decorators:
 These decorators specify the forks on which the test vector is supposed to run.
 
 They also automatically append necessary information for the
-`ethereum_test_filler` to process when the generator is being executed to fill
-the tests.
+`ethereum_test_filling_tool` to process when the generator is being executed to
+fill the tests.
 
 The test vector function must take only one `str` parameter: the fork name.
 
@@ -234,7 +235,7 @@ Within the `post` dictionary object, an account address can be:
 The `Account` object is used to specify the properties of an account to be
 verified in the post state.
 
-The python representation can be found in [src/ethereum_test/types.py](src/ethereum_test/types.py).
+The python representation can be found in [src/ethereum_test_tools/common/types.py](src/ethereum_test_tools/common/types.py).
 
 It can verify the following properties of an account:
 - `nonce`: the scalar value equal to a) the number of transactions sent by

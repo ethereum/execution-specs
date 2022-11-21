@@ -33,8 +33,10 @@ txs
 u256
 utils
 validator
+vm
 
 delitem
+dirname
 fromhex
 getitem
 radd
