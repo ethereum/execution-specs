@@ -12,6 +12,8 @@ calc
 coinbase
 crypto
 dao
+eip
+eips
 eth
 ethash
 ethereum

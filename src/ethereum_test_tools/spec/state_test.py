@@ -3,7 +3,16 @@ State test filler.
 """
 import tempfile
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generator, List, Mapping, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+)
 
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
@@ -84,6 +93,7 @@ class StateTest(BaseTest):
         fork: str,
         chain_id=1,
         reward=0,
+        eips: Optional[List[int]] = None,
     ) -> Tuple[List[FixtureBlock], str, Dict[str, Any]]:
         """
         Create a block from the state test definition.
@@ -100,9 +110,10 @@ class StateTest(BaseTest):
                 to_json(self.txs),
                 to_json(env),
                 fork,
-                txsPath=txs_rlp_file.name,
+                txs_path=txs_rlp_file.name,
                 chain_id=chain_id,
                 reward=reward,
+                eips=eips,
             )
             txs_rlp = txs_rlp_file.read().decode().strip('"')
 

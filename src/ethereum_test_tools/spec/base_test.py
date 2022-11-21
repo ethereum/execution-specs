@@ -2,7 +2,16 @@
 Generic Ethereum test base class
 """
 from abc import abstractmethod
-from typing import Any, Callable, Dict, Generator, List, Mapping, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+)
 
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
@@ -100,6 +109,7 @@ class BaseTest:
         fork: str,
         chain_id: int = 1,
         reward: int = 0,
+        eips: Optional[List[int]] = None,
     ) -> Tuple[List[FixtureBlock], str, Dict[str, Any]]:
         """
         Generate the blockchain that must be executed sequentially during test.
