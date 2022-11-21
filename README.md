@@ -33,16 +33,16 @@ how to build go-ethereum utilities.
 
 ## Overview 
 
-### `ethereum_tests_library`
+### `ethereum_test_tools`
 
-The `ethereum_tests_library` package provides primitives and helpers to allow
+The `ethereum_test_tools` package provides primitives and helpers to allow
 developers to easily test the consensus logic of Ethereum clients. 
 
-### `ethereum_tests_filling_tool`
+### `ethereum_test_filling_tool`
 
-The `ethereum_tests_filling_tool` pacakge is a CLI application that recursively
+The `ethereum_test_filling_tool` pacakge is a CLI application that recursively
 searches a given directory for Python modules that export test filler functions
-generated using `ethereum_tests_library`.
+generated using `ethereum_test_tools`.
 It then processes the fillers using the transition tool and the block builder
 tool, and writes the resulting fixture to file.
 
@@ -235,7 +235,7 @@ Within the `post` dictionary object, an account address can be:
 The `Account` object is used to specify the properties of an account to be
 verified in the post state.
 
-The python representation can be found in [src/execution_tests_library/common/types.py](src/execution_tests_library/common/types.py).
+The python representation can be found in [src/ethereum_test_tools/common/types.py](src/ethereum_test_tools/common/types.py).
 
 It can verify the following properties of an account:
 - `nonce`: the scalar value equal to a) the number of transactions sent by

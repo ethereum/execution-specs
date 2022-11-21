@@ -2,7 +2,7 @@
 Test DUP opcodes
 """
 
-from execution_tests_library import (
+from ethereum_test_tools import (
     Account,
     Environment,
     StateTest,
