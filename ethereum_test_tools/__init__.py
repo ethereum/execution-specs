@@ -1,5 +1,6 @@
 """
-Library for generating cross-client Ethereum execution layer tests.
+Module containing tools for generating cross-client Ethereum execution layer
+tests.
 """
 
 from .code import Code, Yul

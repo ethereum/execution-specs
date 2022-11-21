@@ -15,9 +15,9 @@ from pkgutil import iter_modules
 
 from setuptools import find_packages
 
+from ethereum_test_tools import JSONEncoder
 from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool
-from execution_tests_library import JSONEncoder
 
 
 class Filler:

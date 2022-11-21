@@ -121,7 +121,7 @@ def test_fill_state_test(fork: str, expected_json_file: str):
     with open(
         os.path.join(
             "src",
-            "execution_tests_library",
+            "ethereum_test_tools",
             "tests",
             "test_fixtures",
             expected_json_file,
@@ -401,7 +401,7 @@ def test_fill_london_blockchain_test_valid_txs():
     with open(
         os.path.join(
             "src",
-            "execution_tests_library",
+            "ethereum_test_tools",
             "tests",
             "test_fixtures",
             "blockchain_london_valid_filled.json",
@@ -729,7 +729,7 @@ def test_fill_london_blockchain_test_invalid_txs():
     with open(
         os.path.join(
             "src",
-            "execution_tests_library",
+            "ethereum_test_tools",
             "tests",
             "test_fixtures",
             "blockchain_london_invalid_filled.json",
