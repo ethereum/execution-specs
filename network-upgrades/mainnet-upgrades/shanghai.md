@@ -1,7 +1,7 @@
 ## Shanghai Network Upgrade Specification
 
 ### Included EIPs
-Specifies changes included in the Network Upgrade.
+Changes included in the Network Upgrade.
 
 * [EIP-3651: Warm COINBASE](https://eips.ethereum.org/EIPS/eip-3651)
 * [EIP-3855: PUSH0 instruction](https://eips.ethereum.org/EIPS/eip-3855)
@@ -9,7 +9,7 @@ Specifies changes included in the Network Upgrade.
 * [EIP-4895: Beacon chain push withdrawals as operations](https://eips.ethereum.org/EIPS/eip-4895)
 
 ### EIPs Considered for Inclusion
-Specifies changes potentially included in the Network Upgrade, pending successful deployment on Client Integration Testnets.
+Changes [Considered for Inclusion](https://github.com/ethereum/execution-specs/tree/master/network-upgrades#definitions) as part of this upgrade, or potentially future ones. 
 
 * [EIP-1153: Transient storage opcodes](https://eips.ethereum.org/EIPS/eip-1153)
 * [EIP-2537: Precompile for BLS12-381 curve operations](https://eips.ethereum.org/EIPS/eip-2537)
