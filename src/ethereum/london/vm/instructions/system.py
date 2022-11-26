@@ -46,9 +46,8 @@ from ..gas import (
     GAS_SELF_DESTRUCT_NEW_ACCOUNT,
     GAS_WARM_ACCESS,
     GAS_ZERO,
-    calculate_call_gas_cost,
     calculate_gas_extend_memory,
-    calculate_message_call_gas_stipend,
+    calculate_message_call_gas,
     charge_gas,
     max_message_call_gas,
 )
@@ -343,20 +342,14 @@ def call(evm: Evm) -> None:
         else GAS_NEW_ACCOUNT
     )
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
-    call_gas_fee = calculate_call_gas_cost(
-        gas,
-        Uint(evm.gas_left),
-        extend_memory.cost,
-        access_gas_cost + create_gas_cost + transfer_gas_cost,
-    )
-    message_call_gas = calculate_message_call_gas_stipend(
+    message_call_gas = calculate_message_call_gas(
         value,
         gas,
         Uint(evm.gas_left),
         extend_memory.cost,
         access_gas_cost + create_gas_cost + transfer_gas_cost,
     )
-    charge_gas(evm, call_gas_fee + extend_memory.cost)
+    charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
     # OPERATION
     ensure(not evm.message.is_static or value == U256(0), WriteInStaticContext)
@@ -367,11 +360,11 @@ def call(evm: Evm) -> None:
     if sender_balance < value:
         push(evm.stack, U256(0))
         evm.return_data = b""
-        evm.gas_left += message_call_gas
+        evm.gas_left += message_call_gas.stipend
     else:
         generic_call(
             evm,
-            message_call_gas,
+            message_call_gas.stipend,
             value,
             evm.message.current_target,
             to,
@@ -424,20 +417,14 @@ def callcode(evm: Evm) -> None:
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
-    call_gas_fee = calculate_call_gas_cost(
-        gas,
-        Uint(evm.gas_left),
-        extend_memory.cost,
-        access_gas_cost + transfer_gas_cost,
-    )
-    message_call_gas = calculate_message_call_gas_stipend(
+    message_call_gas = calculate_message_call_gas(
         value,
         gas,
         Uint(evm.gas_left),
         extend_memory.cost,
         access_gas_cost + transfer_gas_cost,
     )
-    charge_gas(evm, call_gas_fee + extend_memory.cost)
+    charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.size
@@ -447,11 +434,11 @@ def callcode(evm: Evm) -> None:
     if sender_balance < value:
         push(evm.stack, U256(0))
         evm.return_data = b""
-        evm.gas_left += message_call_gas
+        evm.gas_left += message_call_gas.stipend
     else:
         generic_call(
             evm,
-            message_call_gas,
+            message_call_gas.stipend,
             value,
             evm.message.current_target,
             to,
@@ -555,19 +542,16 @@ def delegatecall(evm: Evm) -> None:
         evm.accessed_addresses.add(code_address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    call_gas_fee = calculate_call_gas_cost(
-        gas, Uint(evm.gas_left), extend_memory.cost, access_gas_cost
-    )
-    message_call_gas = calculate_message_call_gas_stipend(
+    message_call_gas = calculate_message_call_gas(
         U256(0), gas, Uint(evm.gas_left), extend_memory.cost, access_gas_cost
     )
-    charge_gas(evm, call_gas_fee + extend_memory.cost)
+    charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.size
     generic_call(
         evm,
-        message_call_gas,
+        message_call_gas.stipend,
         evm.message.value,
         evm.message.caller,
         evm.message.current_target,
@@ -616,23 +600,20 @@ def staticcall(evm: Evm) -> None:
         evm.accessed_addresses.add(to)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    call_gas_fee = calculate_call_gas_cost(
-        gas, Uint(evm.gas_left), extend_memory.cost, access_gas_cost
-    )
-    message_call_gas = calculate_message_call_gas_stipend(
+    message_call_gas = calculate_message_call_gas(
         U256(0),
         gas,
         Uint(evm.gas_left),
         extend_memory.cost,
         access_gas_cost,
     )
-    charge_gas(evm, call_gas_fee + extend_memory.cost)
+    charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.size
     generic_call(
         evm,
-        message_call_gas,
+        message_call_gas.stipend,
         U256(0),
         evm.message.current_target,
         to,

@@ -77,6 +77,21 @@ class ExtendMemory:
     size: Uint
 
 
+@dataclass
+class MessageCallGas:
+    """
+    Define the gas cost and stipend for executing the call opcodes.
+
+    `cost`: `ethereum.base_types.Uint`
+        The gas amount for executing the Opcodes.
+    `stipend`: `ethereum.base_types.Uint`
+        The gas stipend for executing the Opcodes.
+    """
+
+    cost: Uint
+    stipend: Uint
+
+
 def charge_gas(evm: Evm, amount: Uint) -> None:
     """
     Subtracts `amount` from `evm.gas_left`.
@@ -160,48 +175,17 @@ def calculate_gas_extend_memory(
     return ExtendMemory(to_be_paid, size_to_extend)
 
 
-def calculate_call_gas_cost(
-    gas: Uint, gas_left: Uint, memory_cost: Uint, extra_gas: Uint
-) -> Uint:
-    """
-    Calculates the gas amount for executing Opcodes `CALL` and `CALLCODE`.
-
-    Parameters
-    ----------
-    gas :
-        The amount of gas provided to the message-call.
-    gas_left :
-        The amount of gas left in the current frame.
-    memory_cost :
-        The amount needed to extend the memory in the current frame.
-    extra_gas :
-        The amount of gas needed for transferring value + creating a new
-        account inside a message call.
-
-    Returns
-    -------
-    call_gas_cost: `ethereum.base_types.Uint`
-        The total gas amount for executing Opcodes `CALL` and `CALLCODE`.
-    """
-    if gas_left < extra_gas + memory_cost:
-        return gas + extra_gas
-
-    gas = min(gas, max_message_call_gas(gas_left - extra_gas - memory_cost))
-
-    return gas + extra_gas
-
-
-def calculate_message_call_gas_stipend(
+def calculate_message_call_gas(
     value: U256,
     gas: Uint,
     gas_left: Uint,
     memory_cost: Uint,
     extra_gas: Uint,
     call_stipend: Uint = GAS_CALL_STIPEND,
-) -> Uint:
+) -> MessageCallGas:
     """
-    Calculates the gas stipend for making the message call
-    with the given value.
+    Calculates the MessageCallGas (cost and stipend) for
+    executing call Opcodes.
 
     Parameters
     ----------
@@ -222,15 +206,15 @@ def calculate_message_call_gas_stipend(
 
     Returns
     -------
-    message_call_gas_stipend : `ethereum.base_types.Uint`
-        The gas stipend for making the message-call.
+    message_call_gas: `MessageCallGas`
     """
     call_stipend = Uint(0) if value == 0 else call_stipend
     if gas_left < extra_gas + memory_cost:
-        return gas + call_stipend
+        return MessageCallGas(gas + extra_gas, gas + call_stipend)
 
-    gas = min(gas, max_message_call_gas(gas_left - extra_gas - memory_cost))
-    return gas + call_stipend
+    gas = min(gas, max_message_call_gas(gas_left - memory_cost - extra_gas))
+
+    return MessageCallGas(gas + extra_gas, gas + call_stipend)
 
 
 def max_message_call_gas(gas: Uint) -> Uint:
