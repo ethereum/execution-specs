@@ -11,6 +11,7 @@ Introduction
 
 EVM gas constants and calculators.
 """
+from dataclasses import dataclass
 from typing import List, Tuple
 
 from ethereum.base_types import U256, Uint
@@ -61,6 +62,21 @@ GAS_COLD_ACCOUNT_ACCESS = Uint(2600)
 GAS_WARM_ACCESS = Uint(100)
 
 
+@dataclass
+class ExtendMemory:
+    """
+    Define the parameters for memory extension in opcodes
+
+    `cost`: `ethereum.base_types.Uint`
+        The gas required to perform the extension
+    `size`: `ethereum.base_types.Uint`
+        The size by which the memory will be extended
+    """
+
+    cost: Uint
+    size: Uint
+
+
 def charge_gas(evm: Evm, amount: Uint) -> None:
     """
     Subtracts `amount` from `evm.gas_left`.
@@ -107,7 +123,7 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
 
 def calculate_gas_extend_memory(
     memory: bytearray, extensions: List[Tuple[U256, U256]]
-) -> Tuple[Uint, Uint]:
+) -> ExtendMemory:
     """
     Calculates the gas amount to extend memory
 
@@ -121,14 +137,7 @@ def calculate_gas_extend_memory(
 
     Returns
     -------
-    to_be_paid : `ethereum.base_types.Uint`
-        returns `0` if size=0 or if the
-        size after extending memory is less than the size before extending
-        else it returns the amount that needs to be paid for extendinng memory.
-    size_to_extend : `ethereum.base_types.Uint`
-        returns `0` if size=0 or if the
-        size after extending memory is less than the size before extending
-        else it returns the size to be extended.
+    extend_memory: `ExtendMemory`
     """
     size_to_extend = Uint(0)
     to_be_paid = Uint(0)
@@ -148,7 +157,7 @@ def calculate_gas_extend_memory(
 
         current_size = after_size
 
-    return to_be_paid, size_to_extend
+    return ExtendMemory(to_be_paid, size_to_extend)
 
 
 def calculate_call_gas_cost(

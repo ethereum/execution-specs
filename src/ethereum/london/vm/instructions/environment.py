@@ -230,13 +230,13 @@ def calldatacopy(evm: Evm) -> None:
     # GAS
     words = ceil32(Uint(size)) // 32
     copy_gas_cost = GAS_COPY * words
-    memory_cost, size_to_extend = calculate_gas_extend_memory(
+    extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
-    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + memory_cost)
+    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
 
     # OPERATION
-    evm.memory += b"\x00" * size_to_extend
+    evm.memory += b"\x00" * extend_memory.size
     value = buffer_read(evm.message.data, data_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 
@@ -288,13 +288,13 @@ def codecopy(evm: Evm) -> None:
     # GAS
     words = ceil32(Uint(size)) // 32
     copy_gas_cost = GAS_COPY * words
-    memory_cost, size_to_extend = calculate_gas_extend_memory(
+    extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
-    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + memory_cost)
+    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
 
     # OPERATION
-    evm.memory += b"\x00" * size_to_extend
+    evm.memory += b"\x00" * extend_memory.size
     value = buffer_read(evm.code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 
@@ -374,18 +374,20 @@ def extcodecopy(evm: Evm) -> None:
     # GAS
     words = ceil32(Uint(size)) // 32
     copy_gas_cost = GAS_COPY * words
-    memory_cost, size_to_extend = calculate_gas_extend_memory(
+    extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
 
     if address in evm.accessed_addresses:
-        charge_gas(evm, GAS_WARM_ACCESS + copy_gas_cost + memory_cost)
+        charge_gas(evm, GAS_WARM_ACCESS + copy_gas_cost + extend_memory.cost)
     else:
         evm.accessed_addresses.add(address)
-        charge_gas(evm, GAS_COLD_ACCOUNT_ACCESS + copy_gas_cost + memory_cost)
+        charge_gas(
+            evm, GAS_COLD_ACCOUNT_ACCESS + copy_gas_cost + extend_memory.cost
+        )
 
     # OPERATION
-    evm.memory += b"\x00" * size_to_extend
+    evm.memory += b"\x00" * extend_memory.size
     code = get_account(evm.env.state, address).code
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
@@ -433,10 +435,10 @@ def returndatacopy(evm: Evm) -> None:
     # GAS
     words = ceil32(Uint(size)) // 32
     copy_gas_cost = GAS_RETURN_DATA_COPY * words
-    memory_cost, size_to_extend = calculate_gas_extend_memory(
+    extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
-    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + memory_cost)
+    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
 
     # OPERATION
     ensure(
@@ -444,7 +446,7 @@ def returndatacopy(evm: Evm) -> None:
         OutOfBoundsRead,
     )
 
-    evm.memory += b"\x00" * size_to_extend
+    evm.memory += b"\x00" * extend_memory.size
     value = evm.return_data[
         return_data_start_position : return_data_start_position + size
     ]

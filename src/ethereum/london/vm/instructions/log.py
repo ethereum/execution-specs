@@ -55,7 +55,7 @@ def log_n(evm: Evm, num_topics: U256) -> None:
         topics.append(topic)
 
     # GAS
-    memory_cost, size_to_extend = calculate_gas_extend_memory(
+    extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
     charge_gas(
@@ -63,11 +63,11 @@ def log_n(evm: Evm, num_topics: U256) -> None:
         GAS_LOG
         + GAS_LOG_DATA * size
         + GAS_LOG_TOPIC * num_topics
-        + memory_cost,
+        + extend_memory.cost,
     )
 
     # OPERATION
-    evm.memory += b"\x00" * size_to_extend
+    evm.memory += b"\x00" * extend_memory.size
     ensure(not evm.message.is_static, WriteInStaticContext)
     log_entry = Log(
         address=evm.message.current_target,

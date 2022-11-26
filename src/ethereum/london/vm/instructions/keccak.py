@@ -47,13 +47,13 @@ def keccak(evm: Evm) -> None:
     # GAS
     words = ceil32(Uint(size)) // 32
     word_gas_cost = GAS_KECCAK256_WORD * words
-    memory_cost, size_to_extend = calculate_gas_extend_memory(
+    extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
-    charge_gas(evm, GAS_KECCAK256 + word_gas_cost + memory_cost)
+    charge_gas(evm, GAS_KECCAK256 + word_gas_cost + extend_memory.cost)
 
     # OPERATION
-    evm.memory += b"\x00" * size_to_extend
+    evm.memory += b"\x00" * extend_memory.size
     data = memory_read_bytes(evm.memory, memory_start_index, size)
     hash = keccak256(data)
 

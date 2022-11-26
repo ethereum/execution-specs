@@ -41,14 +41,14 @@ def mstore(evm: Evm) -> None:
     value = pop(evm.stack).to_be_bytes32()
 
     # GAS
-    memory_cost, size_to_extend = calculate_gas_extend_memory(
+    extend_memory = calculate_gas_extend_memory(
         evm.memory, [(start_position, U256(len(value)))]
     )
 
-    charge_gas(evm, GAS_VERY_LOW + memory_cost)
+    charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
 
     # OPERATION
-    evm.memory += b"\x00" * size_to_extend
+    evm.memory += b"\x00" * extend_memory.size
     memory_write(evm.memory, start_position, value)
 
     # PROGRAM COUNTER
@@ -72,14 +72,14 @@ def mstore8(evm: Evm) -> None:
     value = pop(evm.stack)
 
     # GAS
-    memory_cost, size_to_extend = calculate_gas_extend_memory(
+    extend_memory = calculate_gas_extend_memory(
         evm.memory, [(start_position, U256(1))]
     )
 
-    charge_gas(evm, GAS_VERY_LOW + memory_cost)
+    charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
 
     # OPERATION
-    evm.memory += b"\x00" * size_to_extend
+    evm.memory += b"\x00" * extend_memory.size
     normalized_bytes_value = Bytes([value & U8_MAX_VALUE])
     memory_write(evm.memory, start_position, normalized_bytes_value)
 
@@ -101,13 +101,13 @@ def mload(evm: Evm) -> None:
     start_position = pop(evm.stack)
 
     # GAS
-    memory_cost, size_to_extend = calculate_gas_extend_memory(
+    extend_memory = calculate_gas_extend_memory(
         evm.memory, [(start_position, U256(32))]
     )
-    charge_gas(evm, GAS_VERY_LOW + memory_cost)
+    charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
 
     # OPERATION
-    evm.memory += b"\x00" * size_to_extend
+    evm.memory += b"\x00" * extend_memory.size
     value = U256.from_be_bytes(
         memory_read_bytes(evm.memory, start_position, U256(32))
     )
