@@ -19,7 +19,7 @@ from typing import Callable, Dict
 from . import arithmetic as arithmetic_instructions
 from . import bitwise as bitwise_instructions
 from . import block as block_instructions
-from . import comshanghaion as comshanghaion_instructions
+from . import comparison as comparison_instructions
 from . import control_flow as control_flow_instructions
 from . import environment as environment_instructions
 from . import keccak as keccak_instructions
@@ -48,7 +48,7 @@ class Ops(enum.Enum):
     EXP = 0x0A
     SIGNEXTEND = 0x0B
 
-    # Comshanghaion Ops
+    # Comparison Ops
     LT = 0x10
     GT = 0x11
     SLT = 0x12
@@ -221,12 +221,12 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.MULMOD: arithmetic_instructions.mulmod,
     Ops.EXP: arithmetic_instructions.exp,
     Ops.SIGNEXTEND: arithmetic_instructions.signextend,
-    Ops.LT: comshanghaion_instructions.less_than,
-    Ops.GT: comshanghaion_instructions.greater_than,
-    Ops.SLT: comshanghaion_instructions.signed_less_than,
-    Ops.SGT: comshanghaion_instructions.signed_greater_than,
-    Ops.EQ: comshanghaion_instructions.equal,
-    Ops.ISZERO: comshanghaion_instructions.is_zero,
+    Ops.LT: comparison_instructions.less_than,
+    Ops.GT: comparison_instructions.greater_than,
+    Ops.SLT: comparison_instructions.signed_less_than,
+    Ops.SGT: comparison_instructions.signed_greater_than,
+    Ops.EQ: comparison_instructions.equal,
+    Ops.ISZERO: comparison_instructions.is_zero,
     Ops.AND: bitwise_instructions.bitwise_and,
     Ops.OR: bitwise_instructions.bitwise_or,
     Ops.XOR: bitwise_instructions.bitwise_xor,

@@ -1,5 +1,5 @@
 """
-Ethereum Virtual Machine (EVM) Comshanghaion Instructions
+Ethereum Virtual Machine (EVM) Comparison Instructions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. contents:: Table of Contents
@@ -9,7 +9,7 @@ Ethereum Virtual Machine (EVM) Comshanghaion Instructions
 Introduction
 ------------
 
-Implementations of the EVM Comshanghaion instructions.
+Implementations of the EVM Comparison instructions.
 """
 
 from ethereum.base_types import U256
@@ -48,7 +48,7 @@ def less_than(evm: Evm) -> None:
 
 def signed_less_than(evm: Evm) -> None:
     """
-    Signed less-than comshanghaion.
+    Signed less-than comparison.
 
     Parameters
     ----------
@@ -101,7 +101,7 @@ def greater_than(evm: Evm) -> None:
 
 def signed_greater_than(evm: Evm) -> None:
     """
-    Signed greater-than comshanghaion.
+    Signed greater-than comparison.
 
     Parameters
     ----------
