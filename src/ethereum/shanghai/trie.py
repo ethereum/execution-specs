@@ -30,7 +30,7 @@ from typing import (
 )
 
 from ethereum.crypto.hash import keccak256
-from ethereum.gray_glacier import trie as previous_trie
+from ethereum.paris import trie as previous_trie
 from ethereum.utils.ensure import ensure
 from ethereum.utils.hexadecimal import hex_to_bytes
 
@@ -441,7 +441,7 @@ def patricialize(
 
     # if extension node
     if prefix_length > 0:
-        prefix = arbitrary_key[level : level + prefix_length]
+        prefix = arbitrary_key[level: level + prefix_length]
         return ExtensionNode(
             prefix,
             encode_internal_node(patricialize(obj, level + prefix_length)),
