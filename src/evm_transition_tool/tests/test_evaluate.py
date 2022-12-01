@@ -97,7 +97,7 @@ def test_evm_t8n(t8n: TransitionTool, test_dir: str) -> None:
         env = json.load(env)
         expected = json.load(exp)
 
-        (result_alloc, result) = t8n.evaluate(alloc, txs, env, "Berlin")
+        (result_alloc, result, _, _) = t8n.evaluate(alloc, txs, env, "Berlin")
         print(result)
         assert result_alloc == expected.get("alloc")
         assert result == expected.get("result")

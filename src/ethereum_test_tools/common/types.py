@@ -84,6 +84,7 @@ class Storage:
             self.v = v
 
         def __str__(self):
+            """Print exception string"""
             return f"invalid type for key/value: {self.v}"
 
     class MissingKey(Exception):
@@ -98,6 +99,7 @@ class Storage:
             self.k = k
 
         def __str__(self):
+            """Print exception string"""
             return "key {0} not found in storage".format(
                 Storage.key_value_to_string(self.k)
             )
@@ -119,6 +121,7 @@ class Storage:
             self.got = got
 
         def __str__(self):
+            """Print exception string"""
             return "incorrect value for key {0}: want {1}, got{2}".format(
                 Storage.key_value_to_string(self.k),
                 Storage.key_value_to_string(self.want),
@@ -298,6 +301,7 @@ class Account:
             self.got = got
 
         def __str__(self):
+            """Print exception string"""
             return (
                 f"unexpected nonce for account {self.account}: "
                 + f"want {self.want}, got {self.got}"
@@ -322,6 +326,7 @@ class Account:
             self.got = got
 
         def __str__(self):
+            """Print exception string"""
             return (
                 f"unexpected balance for account {self.account}: "
                 + f"want {self.want}, got {self.got}"
@@ -346,6 +351,7 @@ class Account:
             self.got = got
 
         def __str__(self):
+            """Print exception string"""
             return (
                 f"unexpected code for account {self.account}: "
                 + f"want {self.want}, got {self.got}"
@@ -516,6 +522,7 @@ class Transaction:
         """
 
         def __str__(self):
+            """Print exception string"""
             return (
                 "only one type of fee payment field can be used in a single tx"
             )
@@ -527,6 +534,7 @@ class Transaction:
         """
 
         def __str__(self):
+            """Print exception string"""
             return "can't define both 'signature' and 'private_key'"
 
     def __post_init__(self) -> None:

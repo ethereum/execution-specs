@@ -102,7 +102,7 @@ class EvmTransitionTool(TransitionTool):
         if eips is not None:
             fork = "+".join([fork] + [str(eip) for eip in eips])
 
-        tmp_dir = tempfile.TemporaryDirectory()
+        temp_dir = tempfile.TemporaryDirectory()
 
         args = [
             str(self.binary),
@@ -113,7 +113,7 @@ class EvmTransitionTool(TransitionTool):
             "--output.result=stdout",
             "--output.alloc=stdout",
             "--output.body=txs.rlp",
-            f"--output.basedir={tmp_dir.name}",
+            f"--output.basedir={temp_dir.name}",
             f"--state.fork={fork}",
             f"--state.chainid={chain_id}",
             f"--state.reward={reward}",
@@ -142,7 +142,7 @@ class EvmTransitionTool(TransitionTool):
         if "alloc" not in output or "result" not in output:
             raise Exception("malformed result")
 
-        with open(os.path.join(tmp_dir.name, "txs.rlp"), "r") as txs_rlp_file:
+        with open(os.path.join(temp_dir.name, "txs.rlp"), "r") as txs_rlp_file:
             txs_rlp = txs_rlp_file.read().strip('"')
 
         receipts: List[Any] = output["result"]["receipts"]
@@ -151,14 +151,14 @@ class EvmTransitionTool(TransitionTool):
             h = r["transactionHash"]
             trace_file_name = f"trace-{i}-{h}.jsonl"
             with open(
-                os.path.join(tmp_dir.name, trace_file_name), "r"
-            ) as trace_jsonl_file:
+                os.path.join(temp_dir.name, trace_file_name), "r"
+            ) as trace_file:
                 tx_traces: List[Dict] = []
-                for trace_line in trace_jsonl_file.readlines():
+                for trace_line in trace_file.readlines():
                     tx_traces.append(json.loads(trace_line))
                 traces.append(tx_traces)
 
-        tmp_dir.cleanup()
+        temp_dir.cleanup()
 
         return (output["alloc"], output["result"], txs_rlp, traces)
 
