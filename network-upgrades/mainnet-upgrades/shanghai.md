@@ -20,11 +20,9 @@ Changes [Considered for Inclusion](https://github.com/ethereum/execution-specs/t
 * [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844)
 * [EIP-5450: EOF - Stack Validation](https://eips.ethereum.org/EIPS/eip-5450)
 
-### Readiness Checklist
+### Implementation Progresss
 
-**List of outstanding items before deployment.**
-
-Code merged into Participating Clients:
+Implementation status of Included & CFI'd EIPs across participating clients.
 
 
 | EIP | [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153) | [EIP-2537](https://eips.ethereum.org/EIPS/eip-2537) | [EIP-3540](https://eips.ethereum.org/EIPS/eip-3540) | [EIP-3651](https://eips.ethereum.org/EIPS/eip-3651) | [EIP-3670](https://eips.ethereum.org/EIPS/eip-3670) | [EIP-3855](https://eips.ethereum.org/EIPS/eip-3855) | [EIP-3860](https://eips.ethereum.org/EIPS/eip-3860) | [EIP-4200](https://eips.ethereum.org/EIPS/eip-4200) | [EIP-4750](https://eips.ethereum.org/EIPS/eip-4750) | [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844) | [EIP-4895](https://eips.ethereum.org/EIPS/eip-4895) | [EIP-5450](https://eips.ethereum.org/EIPS/eip-5450) |
@@ -35,7 +33,10 @@ Code merged into Participating Clients:
 | **Erigon**       | [Not merged](https://github.com/ledgerwatch/erigon/pull/6133) | | | [Merged](https://github.com/ledgerwatch/erigon/pull/5745) | | [Merged](https://github.com/ledgerwatch/erigon/pull/5256) | [Merged](https://github.com/ledgerwatch/erigon/pull/5892) | | | | [Not merged](https://github.com/ledgerwatch/erigon/pull/6009) | |
 | **EthereumJS**   | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1860) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/785) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1719) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1814) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1743) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1616) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1619) | | | [Not merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2349) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2353) | |
 
- Tasks
+### Readiness Checklist
+
+**List of outstanding items before deployment.**
+
 - [ ] Client Integration Testing
   - [ ] Deploy a Client Integration Testnet
   - [ ] Integration Tests
