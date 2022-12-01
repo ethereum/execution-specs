@@ -29,12 +29,8 @@ from ..common import (
     to_json_or_none,
 )
 from ..vm import set_fork_requirements
-from .base_test import (
-    BaseTest,
-    print_traces,
-    verify_post_alloc,
-    verify_transactions,
-)
+from .base_test import BaseTest, verify_post_alloc, verify_transactions
+from .debugging import print_traces
 
 
 @dataclass(kw_only=True)
@@ -99,7 +95,9 @@ class BlockchainTest(BaseTest):
         chain_id=1,
         reward=0,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[FixtureBlock, Environment, Dict[str, Any], str, List[Dict]]:
+    ) -> Tuple[
+        FixtureBlock, Environment, Dict[str, Any], str, List[List[Dict]]
+    ]:
         """
         Produces a block based on the previous environment and allocation.
         If the block is an invalid block, the environment and allocation

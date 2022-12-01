@@ -27,12 +27,8 @@ from ..common import (
     to_json,
 )
 from ..vm import set_fork_requirements
-from .base_test import (
-    BaseTest,
-    print_traces,
-    verify_post_alloc,
-    verify_transactions,
-)
+from .base_test import BaseTest, verify_post_alloc, verify_transactions
+from .debugging import print_traces
 
 
 @dataclass(kw_only=True)

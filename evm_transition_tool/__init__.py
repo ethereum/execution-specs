@@ -27,7 +27,7 @@ class TransitionTool:
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any], str, List[Dict]]:
+    ) -> Tuple[Dict[str, Any], Dict[str, Any], str, List[List[Dict]]]:
         """
         Simulate a state transition with specified parameters
         """
@@ -95,7 +95,7 @@ class EvmTransitionTool(TransitionTool):
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any], str, List[Dict]]:
+    ) -> Tuple[Dict[str, Any], Dict[str, Any], str, List[List[Dict]]]:
         """
         Executes `evm t8n` with the specified arguments.
         """
@@ -146,16 +146,17 @@ class EvmTransitionTool(TransitionTool):
             txs_rlp = txs_rlp_file.read().strip('"')
 
         receipts: List[Any] = output["result"]["receipts"]
-        traces: List[Dict] = []
+        traces: List[List[Dict]] = []
         for i, r in enumerate(receipts):
             h = r["transactionHash"]
             trace_file_name = f"trace-{i}-{h}.jsonl"
             with open(
                 os.path.join(tmp_dir.name, trace_file_name), "r"
             ) as trace_jsonl_file:
-
+                tx_traces: List[Dict] = []
                 for trace_line in trace_jsonl_file.readlines():
-                    traces.append(json.loads(trace_line))
+                    tx_traces.append(json.loads(trace_line))
+                traces.append(tx_traces)
 
         tmp_dir.cleanup()
 
