@@ -72,6 +72,59 @@ class Storage:
 
     data: Dict[int, int]
 
+    class InvalidType(Exception):
+        """
+        Invalid type used when describing test's expected storage.
+        """
+
+        v: Any
+
+        def __init__(self, v: Any, *args):
+            super().__init__(args)
+            self.v = v
+
+        def __str__(self):
+            return f"invalid type for key/value: {self.v}"
+
+    class MissingKey(Exception):
+        """
+        Test expected to find a storage key set but key was missing.
+        """
+
+        k: int
+
+        def __init__(self, k: int, *args):
+            super().__init__(args)
+            self.k = k
+
+        def __str__(self):
+            return "key {0} not found in storage".format(
+                Storage.key_value_to_string(self.k)
+            )
+
+    class KeyValueMismatch(Exception):
+        """
+        Test expected a certain value in a storage key but value found
+        was different.
+        """
+
+        k: int
+        want: int
+        got: int
+
+        def __init__(self, k: int, want: int, got: int, *args):
+            super().__init__(args)
+            self.k = k
+            self.want = want
+            self.got = got
+
+        def __str__(self):
+            return "incorrect value for key {0}: want {1}, got{2}".format(
+                Storage.key_value_to_string(self.k),
+                Storage.key_value_to_string(self.want),
+                Storage.key_value_to_string(self.got),
+            )
+
     @staticmethod
     def parse_key_value(input: str | int) -> int:
         """
@@ -85,7 +138,7 @@ class Storage:
         elif type(input) is int:
             return input
 
-        raise Exception("invalid type for key/value of storage")
+        raise Storage.InvalidType(input)
 
     @staticmethod
     def key_value_to_string(value: int) -> str:
@@ -172,19 +225,9 @@ class Storage:
             if k not in self.data:
                 # storage[k]==0 is equal to missing storage
                 if other[k] != 0:
-                    raise Exception(
-                        "key {0} not found in storage".format(
-                            Storage.key_value_to_string(k)
-                        )
-                    )
+                    raise Storage.MissingKey(k)
             elif self.data[k] != other.data[k]:
-                raise Exception(
-                    "incorrect value for key {0}: want {1}, got{2}".format(
-                        Storage.key_value_to_string(k),
-                        Storage.key_value_to_string(self.data[k]),
-                        Storage.key_value_to_string(other.data[k]),
-                    )
-                )
+                raise Storage.KeyValueMismatch(k, self.data[k], other.data[k])
 
     def must_be_equal(self, other: "Storage"):
         """
@@ -193,30 +236,16 @@ class Storage:
         # Test keys contained in both storage objects
         for k in self.data.keys() & other.data.keys():
             if self.data[k] != other.data[k]:
-                raise Exception(
-                    "incorrect value for key {0}: want {1}, got {2}".format(
-                        Storage.key_value_to_string(k),
-                        Storage.key_value_to_string(self.data[k]),
-                        Storage.key_value_to_string(other.data[k]),
-                    )
-                )
+                raise Storage.KeyValueMismatch(k, self.data[k], other.data[k])
+
         # Test keys contained in either one of the storage objects
         for k in self.data.keys() ^ other.data.keys():
             if k in self.data:
                 if self.data[k] != 0:
-                    raise Exception(
-                        "expected key {0}={1} not found in storage".format(
-                            Storage.key_value_to_string(k),
-                            Storage.key_value_to_string(self.data[k]),
-                        )
-                    )
+                    raise Storage.KeyValueMismatch(k, self.data[k], 0)
+
             elif other.data[k] != 0:
-                raise Exception(
-                    "unexpected key {0}={1} found in storage".format(
-                        Storage.key_value_to_string(k),
-                        Storage.key_value_to_string(other.data[k]),
-                    )
-                )
+                raise Storage.KeyValueMismatch(k, 0, other.data[k])
 
 
 @dataclass(kw_only=True)
@@ -250,6 +279,78 @@ class Account:
     state.
     """
 
+    class NonceMismatch(Exception):
+        """
+        Test expected a certain nonce value for an account but a different
+        value was found.
+        """
+
+        account: str
+        want: int | None
+        got: int | None
+
+        def __init__(
+            self, account: str, want: int | None, got: int | None, *args
+        ):
+            super().__init__(args)
+            self.account = account
+            self.want = want
+            self.got = got
+
+        def __str__(self):
+            return (
+                f"unexpected nonce for account {self.account}: "
+                + f"want {self.want}, got {self.got}"
+            )
+
+    class BalanceMismatch(Exception):
+        """
+        Test expected a certain balance for an account but a different
+        value was found.
+        """
+
+        account: str
+        want: int | None
+        got: int | None
+
+        def __init__(
+            self, account: str, want: int | None, got: int | None, *args
+        ):
+            super().__init__(args)
+            self.account = account
+            self.want = want
+            self.got = got
+
+        def __str__(self):
+            return (
+                f"unexpected balance for account {self.account}: "
+                + f"want {self.want}, got {self.got}"
+            )
+
+    class CodeMismatch(Exception):
+        """
+        Test expected a certain bytecode for an account but a different
+        one was found.
+        """
+
+        account: str
+        want: str | None
+        got: str | None
+
+        def __init__(
+            self, account: str, want: str | None, got: str | None, *args
+        ):
+            super().__init__(args)
+            self.account = account
+            self.want = want
+            self.got = got
+
+        def __str__(self):
+            return (
+                f"unexpected code for account {self.account}: "
+                + f"want {self.want}, got {self.got}"
+            )
+
     def __post_init__(self) -> None:
         """Automatically init account members"""
         if self.storage is not None and type(self.storage) is dict:
@@ -263,27 +364,29 @@ class Account:
         if self.nonce is not None:
             actual_nonce = int_or_none(alloc.get("nonce"), 0)
             if self.nonce != actual_nonce:
-                raise Exception(
-                    f"unexpected nonce for account {account}: "
-                    + f"{actual_nonce}, expected {self.nonce}"
+                raise Account.NonceMismatch(
+                    account=account,
+                    want=self.nonce,
+                    got=actual_nonce,
                 )
 
         if self.balance is not None:
             actual_balance = int_or_none(alloc.get("balance"), 0)
             if self.balance != actual_balance:
-                raise Exception(
-                    "unexpected balance for account "
-                    + f"{account}: {actual_balance}, "
-                    + f"expected {self.balance}"
+                raise Account.BalanceMismatch(
+                    account=account,
+                    want=self.balance,
+                    got=actual_balance,
                 )
 
         if self.code is not None:
             expected_code = code_to_hex(self.code)
             actual_code = str_or_none(alloc.get("code"), "0x")
             if expected_code != actual_code:
-                raise Exception(
-                    f"unexpected code for account {account}: "
-                    + f"{actual_code}, expected {expected_code}"
+                raise Account.CodeMismatch(
+                    account=account,
+                    want=expected_code,
+                    got=actual_code,
                 )
 
         if self.storage is not None:
@@ -407,6 +510,25 @@ class Transaction:
     protected: bool = True
     error: Optional[str] = None
 
+    class InvalidFeePayment(Exception):
+        """
+        Transaction described more than one fee payment type.
+        """
+
+        def __str__(self):
+            return (
+                "only one type of fee payment field can be used in a single tx"
+            )
+
+    class InvalidSignaturePrivateKey(Exception):
+        """
+        Transaction describes both the signature and private key of
+        source account.
+        """
+
+        def __str__(self):
+            return "can't define both 'signature' and 'private_key'"
+
     def __post_init__(self) -> None:
         """
         Ensures the transaction has no conflicting properties.
@@ -416,9 +538,7 @@ class Transaction:
             and self.max_fee_per_gas is not None
             and self.max_priority_fee_per_gas is not None
         ):
-            raise Exception(
-                "only one type of fee payment field can be used in a single tx"
-            )
+            raise Transaction.InvalidFeePayment()
 
         if (
             self.gas_price is None
@@ -428,7 +548,7 @@ class Transaction:
             self.gas_price = 10
 
         if self.signature is not None and self.secret_key is not None:
-            raise Exception("can't define both 'signature' and 'private_key'")
+            raise Transaction.InvalidSignaturePrivateKey()
 
         if self.signature is None and self.secret_key is None:
             self.secret_key = TestPrivateKey
