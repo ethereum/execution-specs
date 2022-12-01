@@ -179,7 +179,7 @@ class Storage:
                     )
             elif self.data[k] != other.data[k]:
                 raise Exception(
-                    "incorrect value for key {0}: {1}!={2}".format(
+                    "incorrect value for key {0}: want {1}, got{2}".format(
                         Storage.key_value_to_string(k),
                         Storage.key_value_to_string(self.data[k]),
                         Storage.key_value_to_string(other.data[k]),
@@ -194,7 +194,7 @@ class Storage:
         for k in self.data.keys() & other.data.keys():
             if self.data[k] != other.data[k]:
                 raise Exception(
-                    "incorrect value for key {0}: {1}!={2}".format(
+                    "incorrect value for key {0}: want {1}, got {2}".format(
                         Storage.key_value_to_string(k),
                         Storage.key_value_to_string(self.data[k]),
                         Storage.key_value_to_string(other.data[k]),

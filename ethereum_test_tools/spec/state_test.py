@@ -1,7 +1,6 @@
 """
 State test filler.
 """
-import tempfile
 from dataclasses import dataclass
 from typing import (
     Any,
@@ -28,7 +27,12 @@ from ..common import (
     to_json,
 )
 from ..vm import set_fork_requirements
-from .base_test import BaseTest, verify_post_alloc, verify_transactions
+from .base_test import (
+    BaseTest,
+    print_traces,
+    verify_post_alloc,
+    verify_transactions,
+)
 
 
 @dataclass(kw_only=True)
@@ -104,18 +108,15 @@ class StateTest(BaseTest):
 
         env = set_fork_requirements(env, fork)
 
-        with tempfile.NamedTemporaryFile() as txs_rlp_file:
-            (alloc, result) = t8n.evaluate(
-                to_json(self.pre),
-                to_json(self.txs),
-                to_json(env),
-                fork,
-                txs_path=txs_rlp_file.name,
-                chain_id=chain_id,
-                reward=reward,
-                eips=eips,
-            )
-            txs_rlp = txs_rlp_file.read().decode().strip('"')
+        (alloc, result, txs_rlp, traces) = t8n.evaluate(
+            to_json(self.pre),
+            to_json(self.txs),
+            to_json(env),
+            fork,
+            chain_id=chain_id,
+            reward=reward,
+            eips=eips,
+        )
 
         rejected_txs = verify_transactions(self.txs, result)
         if len(rejected_txs) > 0:
@@ -126,7 +127,11 @@ class StateTest(BaseTest):
                 + "that include invalid transactions."
             )
 
-        verify_post_alloc(self.post, alloc)
+        try:
+            verify_post_alloc(self.post, alloc)
+        except Exception as e:
+            print_traces(traces=[traces])
+            raise e
 
         header = FixtureHeader.from_dict(
             result
