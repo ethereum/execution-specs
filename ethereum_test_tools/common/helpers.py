@@ -59,6 +59,9 @@ class CodeGasMeasure(Code):
     """
 
     def assemble(self) -> bytes:
+        """
+        Assemble the bytecode that measures gas usage.
+        """
         res = bytes()
         res += bytes(
             [
