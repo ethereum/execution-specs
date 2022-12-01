@@ -1,6 +1,7 @@
 """
 Generic Ethereum test base class
 """
+import pprint
 from abc import abstractmethod
 from typing import (
     Any,
@@ -17,6 +18,14 @@ from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
 
 from ..common import Account, FixtureBlock, FixtureHeader, Transaction
+
+
+def print_traces(traces: List[List[Dict]]):
+    print("Printing traces for debugging purposes:")
+    pp = pprint.PrettyPrinter(indent=4)
+    for number, block in enumerate(traces):
+        print(f"Block {number}:")
+        pp.pprint(block)
 
 
 def normalize_address(address: str) -> str:

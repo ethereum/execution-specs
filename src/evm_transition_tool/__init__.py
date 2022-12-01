@@ -3,7 +3,9 @@ Python wrapper for the `evm t8n` tool.
 """
 
 import json
+import os
 import subprocess
+import tempfile
 from abc import abstractmethod
 from pathlib import Path
 from shutil import which
@@ -24,9 +26,8 @@ class TransitionTool:
         fork: str,
         chain_id: int = 1,
         reward: int = 0,
-        txs_path: Optional[str] = None,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    ) -> Tuple[Dict[str, Any], Dict[str, Any], str, List[Dict]]:
         """
         Simulate a state transition with specified parameters
         """
@@ -57,7 +58,7 @@ class TransitionTool:
         if random_required(fork):
             env["currentRandom"] = "0"
 
-        (_, result) = self.evaluate(alloc, [], env, fork)
+        (_, result, _, _) = self.evaluate(alloc, [], env, fork)
         state_root = result.get("stateRoot")
         if state_root is None or not isinstance(state_root, str):
             raise Exception("Unable to calculate state root")
@@ -93,14 +94,16 @@ class EvmTransitionTool(TransitionTool):
         fork: str,
         chain_id: int = 1,
         reward: int = 0,
-        txs_path: Optional[str] = None,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    ) -> Tuple[Dict[str, Any], Dict[str, Any], str, List[Dict]]:
         """
         Executes `evm t8n` with the specified arguments.
         """
         if eips is not None:
             fork = "+".join([fork] + [str(eip) for eip in eips])
+
+        tmp_dir = tempfile.TemporaryDirectory()
+
         args = [
             str(self.binary),
             "t8n",
@@ -109,13 +112,13 @@ class EvmTransitionTool(TransitionTool):
             "--input.env=stdin",
             "--output.result=stdout",
             "--output.alloc=stdout",
+            "--output.body=txs.rlp",
+            f"--output.basedir={tmp_dir.name}",
             f"--state.fork={fork}",
             f"--state.chainid={chain_id}",
             f"--state.reward={reward}",
+            "--trace",
         ]
-
-        if txs_path is not None:
-            args.append(f"--output.body={txs_path}")
 
         stdin = {
             "alloc": alloc,
@@ -139,7 +142,24 @@ class EvmTransitionTool(TransitionTool):
         if "alloc" not in output or "result" not in output:
             raise Exception("malformed result")
 
-        return (output["alloc"], output["result"])
+        with open(os.path.join(tmp_dir.name, "txs.rlp"), "r") as txs_rlp_file:
+            txs_rlp = txs_rlp_file.read().strip('"')
+
+        receipts: List[Any] = output["result"]["receipts"]
+        traces: List[Dict] = []
+        for i, r in enumerate(receipts):
+            h = r["transactionHash"]
+            trace_file_name = f"trace-{i}-{h}.jsonl"
+            with open(
+                os.path.join(tmp_dir.name, trace_file_name), "r"
+            ) as trace_jsonl_file:
+
+                for trace_line in trace_jsonl_file.readlines():
+                    traces.append(json.loads(trace_line))
+
+        tmp_dir.cleanup()
+
+        return (output["alloc"], output["result"], txs_rlp, traces)
 
     def version(self) -> str:
         """
