@@ -28,6 +28,10 @@ def add_to_bloom(bloom: bytearray, bloom_entry: bytes) -> None:
     """
     Add a bloom entry to the bloom filter (`bloom`).
 
+    The number of hash functions used is 3. They are calculated by taking the
+    least significant 11 bits from the first 3 16-bit words of the
+    `keccak_256()` hash of `bloom_entry`.
+
     Parameters
     ----------
     bloom :
@@ -55,6 +59,8 @@ def add_to_bloom(bloom: bytearray, bloom_entry: bytes) -> None:
 def logs_bloom(logs: Tuple[Log, ...]) -> Bloom:
     """
     Obtain the logs bloom from a list of log entries.
+
+    The address and each topic of a log are added to the bloom filter.
 
     Parameters
     ----------

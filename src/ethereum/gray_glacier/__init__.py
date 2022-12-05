@@ -2,7 +2,7 @@
 Ethereum Gray Glacier Hardfork
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The Eleventh Ethereum hardfork.
+The Thirteenth Ethereum hardfork.
 """
 
 MAINNET_FORK_BLOCK = 15050000
