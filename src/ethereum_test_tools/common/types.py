@@ -74,34 +74,34 @@ class Storage:
 
     class InvalidType(Exception):
         """
-        Invalid type used when describing test's expected storage.
+        Invalid type used when describing test's expected storage key or value.
         """
 
-        v: Any
+        key_or_value: Any
 
-        def __init__(self, v: Any, *args):
+        def __init__(self, key_or_value: Any, *args):
             super().__init__(args)
-            self.v = v
+            self.key_or_value = key_or_value
 
         def __str__(self):
             """Print exception string"""
-            return f"invalid type for key/value: {self.v}"
+            return f"invalid type for key/value: {self.key_or_value}"
 
     class MissingKey(Exception):
         """
         Test expected to find a storage key set but key was missing.
         """
 
-        k: int
+        key: int
 
-        def __init__(self, k: int, *args):
+        def __init__(self, key: int, *args):
             super().__init__(args)
-            self.k = k
+            self.key = key
 
         def __str__(self):
             """Print exception string"""
             return "key {0} not found in storage".format(
-                Storage.key_value_to_string(self.k)
+                Storage.key_value_to_string(self.key)
             )
 
     class KeyValueMismatch(Exception):
@@ -110,20 +110,20 @@ class Storage:
         was different.
         """
 
-        k: int
+        key: int
         want: int
         got: int
 
-        def __init__(self, k: int, want: int, got: int, *args):
+        def __init__(self, key: int, want: int, got: int, *args):
             super().__init__(args)
-            self.k = k
+            self.key = key
             self.want = want
             self.got = got
 
         def __str__(self):
             """Print exception string"""
             return "incorrect value for key {0}: want {1}, got {2}".format(
-                Storage.key_value_to_string(self.k),
+                Storage.key_value_to_string(self.key),
                 Storage.key_value_to_string(self.want),
                 Storage.key_value_to_string(self.got),
             )
@@ -158,10 +158,10 @@ class Storage:
         numbers.
         """
         self.data = {}
-        for k in input:
-            v = Storage.parse_key_value(input[k])
-            k = Storage.parse_key_value(k)
-            self.data[k] = v
+        for key in input:
+            value = Storage.parse_key_value(input[key])
+            key = Storage.parse_key_value(key)
+            self.data[key] = value
         pass
 
     def __len__(self) -> int:
@@ -196,10 +196,10 @@ class Storage:
         hex string formatting.
         """
         res = {}
-        for k in self.data:
-            res[Storage.key_value_to_string(k)] = Storage.key_value_to_string(
-                self.data[k]
-            )
+        for key in self.data:
+            res[
+                Storage.key_value_to_string(key)
+            ] = Storage.key_value_to_string(self.data[key])
         return res
 
     def contains(self, other: "Storage") -> bool:
@@ -209,10 +209,10 @@ class Storage:
         Used for comparison with test expected post state and alloc returned
         by the transition tool.
         """
-        for k in other.data:
-            if k not in self.data:
+        for key in other.data:
+            if key not in self.data:
                 return False
-            if self.data[k] != other.data[k]:
+            if self.data[key] != other.data[key]:
                 return False
         return True
 
@@ -224,31 +224,35 @@ class Storage:
         by the transition tool.
         Raises detailed exception when a difference is found.
         """
-        for k in other.data:
-            if k not in self.data:
-                # storage[k]==0 is equal to missing storage
-                if other[k] != 0:
-                    raise Storage.MissingKey(k)
-            elif self.data[k] != other.data[k]:
-                raise Storage.KeyValueMismatch(k, self.data[k], other.data[k])
+        for key in other.data:
+            if key not in self.data:
+                # storage[key]==0 is equal to missing storage
+                if other[key] != 0:
+                    raise Storage.MissingKey(key)
+            elif self.data[key] != other.data[key]:
+                raise Storage.KeyValueMismatch(
+                    key, self.data[key], other.data[key]
+                )
 
     def must_be_equal(self, other: "Storage"):
         """
         Succeeds only if "self" is equal to "other" storage.
         """
         # Test keys contained in both storage objects
-        for k in self.data.keys() & other.data.keys():
-            if self.data[k] != other.data[k]:
-                raise Storage.KeyValueMismatch(k, self.data[k], other.data[k])
+        for key in self.data.keys() & other.data.keys():
+            if self.data[key] != other.data[key]:
+                raise Storage.KeyValueMismatch(
+                    key, self.data[key], other.data[key]
+                )
 
         # Test keys contained in either one of the storage objects
-        for k in self.data.keys() ^ other.data.keys():
-            if k in self.data:
-                if self.data[k] != 0:
-                    raise Storage.KeyValueMismatch(k, self.data[k], 0)
+        for key in self.data.keys() ^ other.data.keys():
+            if key in self.data:
+                if self.data[key] != 0:
+                    raise Storage.KeyValueMismatch(key, self.data[key], 0)
 
-            elif other.data[k] != 0:
-                raise Storage.KeyValueMismatch(k, 0, other.data[k])
+            elif other.data[key] != 0:
+                raise Storage.KeyValueMismatch(key, 0, other.data[key])
 
 
 @dataclass(kw_only=True)
@@ -288,22 +292,22 @@ class Account:
         value was found.
         """
 
-        account: str
+        address: str
         want: int | None
         got: int | None
 
         def __init__(
-            self, account: str, want: int | None, got: int | None, *args
+            self, address: str, want: int | None, got: int | None, *args
         ):
             super().__init__(args)
-            self.account = account
+            self.address = address
             self.want = want
             self.got = got
 
         def __str__(self):
             """Print exception string"""
             return (
-                f"unexpected nonce for account {self.account}: "
+                f"unexpected nonce for account {self.address}: "
                 + f"want {self.want}, got {self.got}"
             )
 
@@ -313,22 +317,22 @@ class Account:
         value was found.
         """
 
-        account: str
+        address: str
         want: int | None
         got: int | None
 
         def __init__(
-            self, account: str, want: int | None, got: int | None, *args
+            self, address: str, want: int | None, got: int | None, *args
         ):
             super().__init__(args)
-            self.account = account
+            self.address = address
             self.want = want
             self.got = got
 
         def __str__(self):
             """Print exception string"""
             return (
-                f"unexpected balance for account {self.account}: "
+                f"unexpected balance for account {self.address}: "
                 + f"want {self.want}, got {self.got}"
             )
 
@@ -338,22 +342,22 @@ class Account:
         one was found.
         """
 
-        account: str
+        address: str
         want: str | None
         got: str | None
 
         def __init__(
-            self, account: str, want: str | None, got: str | None, *args
+            self, address: str, want: str | None, got: str | None, *args
         ):
             super().__init__(args)
-            self.account = account
+            self.address = address
             self.want = want
             self.got = got
 
         def __str__(self):
             """Print exception string"""
             return (
-                f"unexpected code for account {self.account}: "
+                f"unexpected code for account {self.address}: "
                 + f"want {self.want}, got {self.got}"
             )
 
@@ -362,7 +366,7 @@ class Account:
         if self.storage is not None and type(self.storage) is dict:
             self.storage = Storage(self.storage)
 
-    def check_alloc(self: "Account", account: str, alloc: dict):
+    def check_alloc(self: "Account", address: str, alloc: dict):
         """
         Checks the returned alloc against an expected account in post state.
         Raises exception on failure.
@@ -371,7 +375,7 @@ class Account:
             actual_nonce = int_or_none(alloc.get("nonce"), 0)
             if self.nonce != actual_nonce:
                 raise Account.NonceMismatch(
-                    account=account,
+                    address=address,
                     want=self.nonce,
                     got=actual_nonce,
                 )
@@ -380,7 +384,7 @@ class Account:
             actual_balance = int_or_none(alloc.get("balance"), 0)
             if self.balance != actual_balance:
                 raise Account.BalanceMismatch(
-                    account=account,
+                    address=address,
                     want=self.balance,
                     got=actual_balance,
                 )
@@ -390,7 +394,7 @@ class Account:
             actual_code = str_or_none(alloc.get("code"), "0x")
             if expected_code != actual_code:
                 raise Account.CodeMismatch(
-                    account=account,
+                    address=address,
                     want=expected_code,
                     got=actual_code,
                 )
