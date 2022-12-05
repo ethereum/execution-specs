@@ -8,7 +8,7 @@ from .constants import (
     TestAddress,
     TestPrivateKey,
 )
-from .helpers import to_address, to_hash
+from .helpers import CodeGasMeasure, to_address, to_hash
 from .types import (
     Account,
     Block,
@@ -29,6 +29,7 @@ __all__ = (
     "AddrAA",
     "AddrBB",
     "Block",
+    "CodeGasMeasure",
     "EmptyTrieRoot",
     "Environment",
     "Fixture",
