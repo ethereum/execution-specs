@@ -36,7 +36,10 @@ def fill_test(
                 # Fork not supported by hive, skip
                 continue
 
+            t8n.reset_traces()
+
             genesis = test.make_genesis(b11r, t8n, fork)
+
             (blocks, head, alloc) = test.make_blocks(
                 b11r, t8n, genesis, fork, reward=get_reward(fork), eips=eips
             )

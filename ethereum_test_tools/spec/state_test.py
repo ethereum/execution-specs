@@ -104,7 +104,7 @@ class StateTest(BaseTest):
 
         env = set_fork_requirements(env, fork)
 
-        (alloc, result, txs_rlp, traces) = t8n.evaluate(
+        (alloc, result, txs_rlp) = t8n.evaluate(
             to_json(self.pre),
             to_json(self.txs),
             to_json(env),
@@ -126,7 +126,7 @@ class StateTest(BaseTest):
         try:
             verify_post_alloc(self.post, alloc)
         except Exception as e:
-            print_traces(traces=[traces])
+            print_traces(traces=t8n.get_traces())
             raise e
 
         header = FixtureHeader.from_dict(
