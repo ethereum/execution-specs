@@ -37,13 +37,14 @@ class CodeGasMeasure(Code):
     Helper class used to generate bytecode that measures gas usage of a
     bytecode, taking into account and subtracting any extra overhead gas costs
     required to execute.
+    By default, the result gas calculation is saved to storage key 0.
     """
 
     code: bytes | str | Code
     """
     Bytecode to be executed to measure the gas usage.
     """
-    overhead_cost: int
+    overhead_cost: int = 0
     """
     Extra gas cost to be subtracted from extra operations.
     """
