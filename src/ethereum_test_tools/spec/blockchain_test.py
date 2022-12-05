@@ -95,9 +95,7 @@ class BlockchainTest(BaseTest):
         chain_id=1,
         reward=0,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[
-        FixtureBlock, Environment, Dict[str, Any], str, List[List[Dict]]
-    ]:
+    ) -> Tuple[FixtureBlock, Environment, Dict[str, Any], str]:
         """
         Produces a block based on the previous environment and allocation.
         If the block is an invalid block, the environment and allocation
@@ -131,7 +129,7 @@ class BlockchainTest(BaseTest):
             env = block.set_environment(previous_env)
             env = set_fork_requirements(env, fork)
 
-            (next_alloc, result, txs_rlp, traces) = t8n.evaluate(
+            (next_alloc, result, txs_rlp) = t8n.evaluate(
                 previous_alloc,
                 to_json_or_none(block.txs),
                 to_json(env),
@@ -194,7 +192,6 @@ class BlockchainTest(BaseTest):
                     env.apply_new_parent(header),
                     next_alloc,
                     header.hash,
-                    traces,
                 )
             else:
                 return (
@@ -206,7 +203,6 @@ class BlockchainTest(BaseTest):
                     previous_env,
                     previous_alloc,
                     previous_head,
-                    traces,
                 )
         else:
             return (
@@ -217,7 +213,6 @@ class BlockchainTest(BaseTest):
                 previous_env,
                 previous_alloc,
                 previous_head,
-                [],
             )
 
     def make_blocks(
@@ -243,9 +238,8 @@ class BlockchainTest(BaseTest):
             if genesis.hash is not None
             else "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
         )
-        block_traces = []
         for block in self.blocks:
-            fixture_block, env, alloc, head, traces = self.make_block(
+            fixture_block, env, alloc, head = self.make_block(
                 b11r=b11r,
                 t8n=t8n,
                 fork=fork,
@@ -258,12 +252,11 @@ class BlockchainTest(BaseTest):
                 eips=eips,
             )
             blocks.append(fixture_block)
-            block_traces.append(traces)
 
         try:
             verify_post_alloc(self.post, alloc)
         except Exception as e:
-            print_traces(block_traces)
+            print_traces(t8n.get_traces())
             raise e
 
         return (blocks, head, alloc)

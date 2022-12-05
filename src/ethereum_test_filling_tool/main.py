@@ -68,6 +68,13 @@ class Filler:
             help="limit to filling only tests with matching name",
         )
 
+        parser.add_argument(
+            "--traces",
+            action="store_true",
+            help="collect traces of the execution information from the "
+            + "transition tool",
+        )
+
         return parser.parse_args()
 
     options: argparse.Namespace
@@ -115,7 +122,9 @@ class Filler:
 
         os.makedirs(self.options.output, exist_ok=True)
 
-        t8n = EvmTransitionTool(binary=self.options.evm_bin)
+        t8n = EvmTransitionTool(
+            binary=self.options.evm_bin, trace=self.options.traces
+        )
         b11r = EvmBlockBuilder(binary=self.options.evm_bin)
 
         for filler in fillers:
