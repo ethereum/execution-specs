@@ -7,6 +7,7 @@ from .code import Code, Yul
 from .common import (
     Account,
     Block,
+    CodeGasMeasure,
     Environment,
     JSONEncoder,
     TestAddress,
@@ -23,6 +24,7 @@ __all__ = (
     "Block",
     "BlockchainTest",
     "Code",
+    "CodeGasMeasure",
     "Environment",
     "JSONEncoder",
     "StateTest",
