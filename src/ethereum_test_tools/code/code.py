@@ -6,7 +6,7 @@ from re import sub
 from typing import Union
 
 
-class Code(str):
+class Code(object):
     """
     Generic code object.
     """

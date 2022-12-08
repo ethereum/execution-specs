@@ -1,7 +1,7 @@
 """
 Filler object definitions.
 """
-from typing import List, Mapping
+from typing import List, Mapping, Optional
 
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool, map_fork
@@ -17,6 +17,7 @@ def fill_test(
     test_spec: TestSpec,
     forks: List[str],
     engine: str,
+    eips: Optional[List[int]] = None,
 ) -> Mapping[str, Fixture]:
     """
     Fills fixtures for certain forks.
@@ -35,16 +36,21 @@ def fill_test(
                 # Fork not supported by hive, skip
                 continue
 
+            t8n.reset_traces()
+
             genesis = test.make_genesis(b11r, t8n, fork)
+
             (blocks, head, alloc) = test.make_blocks(
-                b11r, t8n, genesis, fork, reward=get_reward(fork)
+                b11r, t8n, genesis, fork, reward=get_reward(fork), eips=eips
             )
 
             fixture = Fixture(
                 blocks=blocks,
                 genesis=genesis,
                 head=head,
-                fork=fork,
+                fork="+".join([fork] + [str(eip) for eip in eips])
+                if eips is not None
+                else fork,
                 pre_state=test.pre,
                 post_state=alloc,
                 seal_engine=engine,

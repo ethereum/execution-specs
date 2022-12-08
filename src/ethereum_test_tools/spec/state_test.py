@@ -1,9 +1,17 @@
 """
 State test filler.
 """
-import tempfile
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generator, List, Mapping, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+)
 
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
@@ -20,6 +28,7 @@ from ..common import (
 )
 from ..vm import set_fork_requirements
 from .base_test import BaseTest, verify_post_alloc, verify_transactions
+from .debugging import print_traces
 
 
 @dataclass(kw_only=True)
@@ -84,6 +93,7 @@ class StateTest(BaseTest):
         fork: str,
         chain_id=1,
         reward=0,
+        eips: Optional[List[int]] = None,
     ) -> Tuple[List[FixtureBlock], str, Dict[str, Any]]:
         """
         Create a block from the state test definition.
@@ -94,17 +104,15 @@ class StateTest(BaseTest):
 
         env = set_fork_requirements(env, fork)
 
-        with tempfile.NamedTemporaryFile() as txs_rlp_file:
-            (alloc, result) = t8n.evaluate(
-                to_json(self.pre),
-                to_json(self.txs),
-                to_json(env),
-                fork,
-                txsPath=txs_rlp_file.name,
-                chain_id=chain_id,
-                reward=reward,
-            )
-            txs_rlp = txs_rlp_file.read().decode().strip('"')
+        (alloc, result, txs_rlp) = t8n.evaluate(
+            to_json(self.pre),
+            to_json(self.txs),
+            to_json(env),
+            fork,
+            chain_id=chain_id,
+            reward=reward,
+            eips=eips,
+        )
 
         rejected_txs = verify_transactions(self.txs, result)
         if len(rejected_txs) > 0:
@@ -115,7 +123,11 @@ class StateTest(BaseTest):
                 + "that include invalid transactions."
             )
 
-        verify_post_alloc(self.post, alloc)
+        try:
+            verify_post_alloc(self.post, alloc)
+        except Exception as e:
+            print_traces(traces=t8n.get_traces())
+            raise e
 
         header = FixtureHeader.from_dict(
             result

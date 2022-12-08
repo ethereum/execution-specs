@@ -2,9 +2,17 @@
 Blockchain test filler.
 """
 
-import tempfile
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generator, List, Mapping, Tuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+)
 
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
@@ -22,6 +30,7 @@ from ..common import (
 )
 from ..vm import set_fork_requirements
 from .base_test import BaseTest, verify_post_alloc, verify_transactions
+from .debugging import print_traces
 
 
 @dataclass(kw_only=True)
@@ -85,6 +94,7 @@ class BlockchainTest(BaseTest):
         previous_head: str,
         chain_id=1,
         reward=0,
+        eips: Optional[List[int]] = None,
     ) -> Tuple[FixtureBlock, Environment, Dict[str, Any], str]:
         """
         Produces a block based on the previous environment and allocation.
@@ -119,17 +129,15 @@ class BlockchainTest(BaseTest):
             env = block.set_environment(previous_env)
             env = set_fork_requirements(env, fork)
 
-            with tempfile.NamedTemporaryFile() as txs_rlp_file:
-                (next_alloc, result) = t8n.evaluate(
-                    previous_alloc,
-                    to_json_or_none(block.txs),
-                    to_json(env),
-                    fork,
-                    txsPath=txs_rlp_file.name,
-                    chain_id=chain_id,
-                    reward=reward,
-                )
-                txs_rlp = txs_rlp_file.read().decode().strip('"')
+            (next_alloc, result, txs_rlp) = t8n.evaluate(
+                previous_alloc,
+                to_json_or_none(block.txs),
+                to_json(env),
+                fork,
+                chain_id=chain_id,
+                reward=reward,
+                eips=eips,
+            )
 
             rejected_txs = verify_transactions(block.txs, result)
             if len(rejected_txs) > 0 and block.exception is None:
@@ -215,6 +223,7 @@ class BlockchainTest(BaseTest):
         fork: str,
         chain_id=1,
         reward=0,
+        eips: Optional[List[int]] = None,
     ) -> Tuple[List[FixtureBlock], str, Dict[str, Any]]:
         """
         Create a block list from the blockchain test definition.
@@ -240,10 +249,15 @@ class BlockchainTest(BaseTest):
                 previous_head=head,
                 chain_id=chain_id,
                 reward=reward,
+                eips=eips,
             )
             blocks.append(fixture_block)
 
-        verify_post_alloc(self.post, alloc)
+        try:
+            verify_post_alloc(self.post, alloc)
+        except Exception as e:
+            print_traces(t8n.get_traces())
+            raise e
 
         return (blocks, head, alloc)
 

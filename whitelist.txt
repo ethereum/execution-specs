@@ -12,6 +12,8 @@ calc
 coinbase
 crypto
 dao
+eip
+eips
 eth
 ethash
 ethereum
@@ -125,6 +127,7 @@ push
 dup
 log
 
+push0
 push1
 push2
 push3
