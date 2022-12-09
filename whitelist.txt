@@ -51,6 +51,7 @@ lllc
 solc
 yul
 
+keccak
 sha3
 
 stop
