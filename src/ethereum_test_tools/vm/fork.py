@@ -71,6 +71,18 @@ def is_merged(fork: str) -> bool:
     return i >= forks.index("merged")
 
 
+def is_shanghai(fork: str) -> bool:
+    """
+    Returns `True` if `fork` is Shanghai-compatible, `False` otherwise.
+    """
+    fork_lower = fork.lower()
+    if fork_lower not in forks:
+        return False
+
+    i = forks.index(fork_lower)
+    return i >= forks.index("shanghai")
+
+
 def is_fork(fork: str, which: str) -> bool:
     """
     Returns `True` if `fork` is `which` or beyond, `False otherwise.
@@ -112,6 +124,13 @@ def must_contain_base_fee(fork: str) -> bool:
     return is_london(fork)
 
 
+def must_contain_withdrawals(fork: str) -> bool:
+    """
+    Returns `True` if the environment is expected to have withdrawals
+    """
+    return is_shanghai(fork)
+
+
 default_base_fee = 7
 
 
@@ -120,8 +139,12 @@ def set_fork_requirements(env: Environment, fork: str) -> Environment:
     Fills the required fields in an environment depending on the fork.
     """
     res = copy(env)
+
     if must_contain_prev_randao(fork) and res.prev_randao is None:
         res.prev_randao = 0
+
+    if must_contain_withdrawals(fork) and res.withdrawals is None:
+        res.withdrawals = []
 
     if (
         must_contain_base_fee(fork)

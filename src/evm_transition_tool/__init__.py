@@ -80,11 +80,47 @@ class TransitionTool:
         if random_required(fork):
             env["currentRandom"] = "0"
 
+        if withdrawals_required(fork):
+            env["withdrawals"] = []
+
         (_, result, _) = self.evaluate(alloc, [], env, fork)
         state_root = result.get("stateRoot")
         if state_root is None or not isinstance(state_root, str):
             raise Exception("Unable to calculate state root")
         return state_root
+
+    def calc_withdrawals_root(self, withdrawals: Any, fork: str) -> str:
+        """
+        Calculate the state root for the given `alloc`.
+        """
+        env: Dict[str, Any] = {
+            "currentCoinbase": "0x0000000000000000000000000000000000000000",
+            "currentDifficulty": "0x0",
+            "currentGasLimit": "0x0",
+            "currentNumber": "0",
+            "currentTimestamp": "0",
+            "withdrawals": withdrawals,
+        }
+
+        if base_fee_required(fork):
+            env["currentBaseFee"] = "7"
+
+        if random_required(fork):
+            env["currentRandom"] = "0"
+
+        (_, result, _) = self.evaluate({}, [], env, fork)
+        withdrawals_root = result.get("withdrawalsRoot")
+        if withdrawals_root is None:
+            raise Exception(
+                "Unable to calculate withdrawals root:"
+                + "no value returned from transition tool"
+            )
+        if withdrawals_root is not str:
+            raise Exception(
+                "Unable to calculate withdrawals root:"
+                + "incorrect type returned from transition tool"
+            )
+        return withdrawals_root
 
 
 class EvmTransitionTool(TransitionTool):
@@ -248,6 +284,13 @@ def random_required(fork: str) -> bool:
     Return true if the fork requires currentRandom in the block.
     """
     return fork_list.index(fork.lower()) >= fork_list.index("merged")
+
+
+def withdrawals_required(fork: str) -> bool:
+    """
+    Return true if the fork requires withdrawals in the block.
+    """
+    return fork_list.index(fork.lower()) >= fork_list.index("shanghai")
 
 
 def map_fork(fork: str) -> Optional[str]:
