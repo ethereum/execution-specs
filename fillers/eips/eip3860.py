@@ -32,6 +32,7 @@ General constants used for testing purposes
 
 MAX_INITCODE_SIZE = 0xC000
 INITCODE_WORD_COST = 0x02
+KECCAK_WORD_COST = 0x06
 INITCODE_RESULTING_DEPLOYED_CODE = bytes([0x00])
 
 BASE_TRANSACTION_GAS = 0x5208
@@ -56,10 +57,9 @@ def calculate_initcode_word_cost(length: int) -> int:
 def calculate_create2_word_cost(length: int) -> int:
     """
     Calculates the added word cost on contract creation added by the
-    length of the initcode based on the formula:
-    INITCODE_WORD_COST * ceil(len(initcode) / 32)
+    hashing of the initcode during create2 contract creation.
     """
-    return 6 * ceiling_division(length, 32)
+    return KECCAK_WORD_COST * ceiling_division(length, 32)
 
 
 def calculate_create_tx_intrinsic_cost(
