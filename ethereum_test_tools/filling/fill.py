@@ -1,6 +1,7 @@
 """
 Filler object definitions.
 """
+from copy import copy
 from typing import List, Mapping, Optional
 
 from evm_block_builder import BlockBuilder
@@ -60,7 +61,7 @@ def fill_test(
                 fork="+".join([fork] + [str(eip) for eip in eips])
                 if eips is not None
                 else fork,
-                pre_state=test.pre,
+                pre_state=copy(test.pre),
                 post_state=alloc,
                 seal_engine=engine,
                 name=test.name,
