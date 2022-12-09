@@ -22,6 +22,7 @@ forks = [
     "london",
     "arrow glacier",
     "merged",
+    "shanghai",
 ]
 
 
