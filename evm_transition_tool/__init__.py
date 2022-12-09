@@ -112,12 +112,12 @@ class TransitionTool:
         withdrawals_root = result.get("withdrawalsRoot")
         if withdrawals_root is None:
             raise Exception(
-                "Unable to calculate withdrawals root:"
+                "Unable to calculate withdrawals root: "
                 + "no value returned from transition tool"
             )
         if withdrawals_root is not str:
             raise Exception(
-                "Unable to calculate withdrawals root:"
+                "Unable to calculate withdrawals root: "
                 + "incorrect type returned from transition tool"
             )
         return withdrawals_root
