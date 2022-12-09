@@ -40,9 +40,18 @@ def fill_test(
 
             genesis = test.make_genesis(b11r, t8n, fork)
 
-            (blocks, head, alloc) = test.make_blocks(
-                b11r, t8n, genesis, fork, reward=get_reward(fork), eips=eips
-            )
+            try:
+                (blocks, head, alloc) = test.make_blocks(
+                    b11r,
+                    t8n,
+                    genesis,
+                    fork,
+                    reward=get_reward(fork),
+                    eips=eips,
+                )
+            except Exception as e:
+                print(f"Exception during test '{test.name}'")
+                raise e
 
             fixture = Fixture(
                 blocks=blocks,
