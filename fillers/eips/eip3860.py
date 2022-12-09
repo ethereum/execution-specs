@@ -210,10 +210,14 @@ def generate_tx_initcode_limit_test_cases(
     block = Block(txs=[tx])
 
     if len(initcode.assemble()) > MAX_INITCODE_SIZE and eip_3860_active:
+        # Initcode is above the max size, tx inclusion in the block makes
+        # it invalid.
         post[created_contract_address] = Account.NONEXISTENT
         tx.error = "max initcode size exceeded"
         block.exception = "max initcode size exceeded"
     else:
+        # Initcode is at or below the max size, tx inclusion in the block
+        # is ok and the contract is successfully created.
         post[created_contract_address] = Account(code="0x00")
 
     yield BlockchainTest(
@@ -264,7 +268,7 @@ def generate_gas_cost_test_cases(
            but tx is valid.
         4) Test with exact execution gas, contract create succeeds.
 
-    Initcode must be withing valid EIP-3860 length.
+    Initcode must be within valid EIP-3860 length.
     """
     # Common setup to all test cases
     env = Environment()
