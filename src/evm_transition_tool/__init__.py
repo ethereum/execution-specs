@@ -115,10 +115,11 @@ class TransitionTool:
                 "Unable to calculate withdrawals root: "
                 + "no value returned from transition tool"
             )
-        if withdrawals_root is not str:
+        if type(withdrawals_root) is not str:
             raise Exception(
                 "Unable to calculate withdrawals root: "
-                + "incorrect type returned from transition tool"
+                + "incorrect type returned from transition tool: "
+                + f"{withdrawals_root}"
             )
         return withdrawals_root
 
