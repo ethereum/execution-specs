@@ -122,10 +122,15 @@ class Storage:
 
         def __str__(self):
             """Print exception string"""
-            return "incorrect value for key {0}: want {1}, got {2}".format(
+            return (
+                "incorrect value for key {0}: want {1} (dec:{2}),"
+                + " got {3} (dec:{4})"
+            ).format(
                 Storage.key_value_to_string(self.key),
                 Storage.key_value_to_string(self.want),
+                self.want,
                 Storage.key_value_to_string(self.got),
+                self.got,
             )
 
     @staticmethod
