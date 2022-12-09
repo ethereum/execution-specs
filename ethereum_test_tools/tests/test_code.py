@@ -2,23 +2,29 @@
 Test suite for `ethereum_test.code` module.
 """
 
-from ..code import Code, Yul
+import pytest
+
+from ..code import Code, Initcode, Yul, code_to_bytes
 
 
 def test_code():
     """
     Test `ethereum_test.types.code`.
     """
-    assert Code("").assemble() == bytes()
-    assert Code("0x").assemble() == bytes()
-    assert Code("0x01").assemble() == bytes.fromhex("01")
-    assert Code("01").assemble() == bytes.fromhex("01")
+    assert code_to_bytes("") == bytes()
+    assert code_to_bytes("0x") == bytes()
+    assert code_to_bytes("0x01") == bytes.fromhex("01")
+    assert code_to_bytes("01") == bytes.fromhex("01")
 
-    assert (Code("0x01") + "0x02").assemble() == bytes.fromhex("0102")
-    assert ("0x01" + Code("0x02")).assemble() == bytes.fromhex("0102")
-    assert ("0x01" + Code("0x02") + "0x03").assemble() == bytes.fromhex(
-        "010203"
-    )
+    assert (
+        Code(bytecode=code_to_bytes("0x01")) + "0x02"
+    ).assemble() == bytes.fromhex("0102")
+    assert (
+        "0x01" + Code(bytecode=code_to_bytes("0x02"))
+    ).assemble() == bytes.fromhex("0102")
+    assert (
+        "0x01" + Code(bytecode=code_to_bytes("0x02")) + "0x03"
+    ).assemble() == bytes.fromhex("010203")
 
 
 def test_yul():
@@ -99,3 +105,69 @@ def test_yul():
         expected_bytecode += bytes.fromhex("55")
 
     assert Yul(long_code).assemble() == expected_bytecode
+
+
+@pytest.mark.parametrize(
+    "initcode,bytecode",
+    [
+        (
+            Initcode(deploy_code=bytes()),
+            bytes(
+                [
+                    0x61,
+                    0x00,
+                    0x00,
+                    0x60,
+                    0x00,
+                    0x81,
+                    0x60,
+                    0x0B,
+                    0x82,
+                    0x39,
+                    0xF3,
+                ]
+            ),
+        ),
+        (
+            Initcode(deploy_code=bytes(), initcode_length=20),
+            bytes(
+                [
+                    0x61,
+                    0x00,
+                    0x00,
+                    0x60,
+                    0x00,
+                    0x81,
+                    0x60,
+                    0x0B,
+                    0x82,
+                    0x39,
+                    0xF3,
+                ]
+                + [0x00] * 9  # padding
+            ),
+        ),
+        (
+            Initcode(deploy_code=bytes([0x00]), initcode_length=20),
+            bytes(
+                [
+                    0x61,
+                    0x00,
+                    0x01,
+                    0x60,
+                    0x00,
+                    0x81,
+                    0x60,
+                    0x0B,
+                    0x82,
+                    0x39,
+                    0xF3,
+                ]
+                + [0x00]
+                + [0x00] * 8  # padding
+            ),
+        ),
+    ],
+)
+def test_initcode(initcode: Initcode, bytecode: bytes):
+    assert initcode.assemble() == bytecode
