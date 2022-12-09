@@ -37,6 +37,7 @@ utils
 validator
 vm
 
+byteorder
 delitem
 dirname
 fromhex
@@ -88,6 +89,7 @@ balance
 origin
 caller
 callvalue
+calldata
 calldataload
 calldatasize
 calldatacopy
@@ -96,6 +98,7 @@ codecopy
 gasprice
 extcodesize
 extcodecopy
+initcode
 returndatasize
 returndatacopy
 extcodehash

@@ -29,7 +29,6 @@ __all__ = (
     "AddrAA",
     "AddrBB",
     "Block",
-    "CodeGasMeasure",
     "EmptyTrieRoot",
     "Environment",
     "Fixture",
