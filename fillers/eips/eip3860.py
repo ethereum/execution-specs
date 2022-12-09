@@ -63,7 +63,7 @@ def calculate_create2_word_cost(length: int) -> int:
 
 
 def calculate_create_tx_intrinsic_cost(
-    initcode: Initcode, eip_active: bool
+    initcode: Initcode, eip_3860_active: bool
 ) -> int:
     """
     Calcultes the intrinsic gas cost of a transaction that contains initcode
@@ -76,14 +76,14 @@ def calculate_create_tx_intrinsic_cost(
             initcode.assemble()
         )  # Transaction calldata cost
     )
-    if eip_active:
+    if eip_3860_active:
         cost += calculate_initcode_word_cost(len(initcode.assemble()))
     return cost
 
 
 def calculate_create_tx_execution_cost(
     initcode: Initcode,
-    eip_active: bool,
+    eip_3860_active: bool,
 ) -> int:
     """
     Calculates the minimum total execution gas cost of a transaction that
@@ -91,7 +91,7 @@ def calculate_create_tx_execution_cost(
     successfully deployed
     """
     cost = calculate_create_tx_intrinsic_cost(
-        initcode=initcode, eip_active=eip_active
+        initcode=initcode, eip_3860_active=eip_3860_active
     )
     cost += initcode.deployment_gas
     cost += initcode.execution_gas
