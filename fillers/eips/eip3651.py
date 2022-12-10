@@ -10,6 +10,7 @@ from ethereum_test_tools import (
     CodeGasMeasure,
     Environment,
     StateTest,
+    TestAddress,
     Transaction,
     Yul,
     is_fork,
@@ -106,9 +107,7 @@ def test_warm_coinbase_call_out_of_gas(fork):
     )
 
     pre = {
-        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
-            balance=1000000000000000000000
-        ),
+        TestAddress: Account(balance=1000000000000000000000),
         "0xcccccccccccccccccccccccccccccccccccccccc": Account(
             code=caller_code
         ),
@@ -304,9 +303,7 @@ def test_warm_coinbase_gas_usage(fork):
     for opcode in gas_measured_opcodes:
         measure_address = to_address(0x100)
         pre = {
-            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
-                balance=1000000000000000000000
-            ),
+            TestAddress: Account(balance=1000000000000000000000),
             measure_address: Account(
                 code=gas_measured_opcodes[opcode],
             ),

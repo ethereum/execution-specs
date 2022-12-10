@@ -30,15 +30,15 @@ from ethereum_test_tools import (
 General constants used for testing purposes
 """
 
-MAX_INITCODE_SIZE = 0xC000
-INITCODE_WORD_COST = 0x02
-KECCAK_WORD_COST = 0x06
+MAX_INITCODE_SIZE = 49152
+INITCODE_WORD_COST = 2
+KECCAK_WORD_COST = 6
 INITCODE_RESULTING_DEPLOYED_CODE = bytes([0x00])
 
-BASE_TRANSACTION_GAS = 0x5208
-CREATE_CONTRACT_BASE_GAS = 0x7D00
-GAS_OPCODE_GAS = 0x02
-PUSH_DUP_OPCODE_GAS = 0x03
+BASE_TRANSACTION_GAS = 21000
+CREATE_CONTRACT_BASE_GAS = 32000
+GAS_OPCODE_GAS = 2
+PUSH_DUP_OPCODE_GAS = 3
 
 """
 Helper functions
@@ -86,9 +86,8 @@ def calculate_create_tx_execution_cost(
     eip_3860_active: bool,
 ) -> int:
     """
-    Calculates the minimum total execution gas cost of a transaction that
-    contains initcode and creates a contract for the contract to be
-    successfully deployed
+    Calculates the total execution gas cost of a transaction that
+    contains initcode and creates a contract
     """
     cost = calculate_create_tx_intrinsic_cost(
         initcode=initcode, eip_3860_active=eip_3860_active

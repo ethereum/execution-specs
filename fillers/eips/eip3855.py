@@ -9,6 +9,7 @@ from ethereum_test_tools import (
     CodeGasMeasure,
     Environment,
     StateTest,
+    TestAddress,
     Transaction,
     Yul,
     test_from,
@@ -24,23 +25,23 @@ def test_push0(fork):
     env = Environment()
 
     pre = {
-        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
-            balance=1000000000000000000000
-        ),
+        TestAddress: Account(balance=1000000000000000000000),
     }
 
     post = {}
 
+    code_address = to_address(0x100)
+
     # Entry point for all test cases this address
     tx = Transaction(
-        to=to_address(0x100),
+        to=code_address,
         gas_limit=100000,
     )
 
     """
     Test case 1: Simple PUSH0 as key to SSTORE
     """
-    pre[to_address(0x100)] = Account(
+    pre[code_address] = Account(
         code=bytes(
             [
                 0x60,  # PUSH1
@@ -51,7 +52,7 @@ def test_push0(fork):
         ),
     )
 
-    post[to_address(0x100)] = Account(
+    post[code_address] = Account(
         storage={
             0x00: 0x01,
         }
@@ -65,7 +66,7 @@ def test_push0(fork):
     Test case 2: Fill stack with PUSH0, then OR all values and save using
     SSTORE
     """
-    pre[to_address(0x100)] = Account(
+    pre[code_address] = Account(
         code=bytes(
             [
                 0x5F,  # PUSH0
@@ -88,7 +89,7 @@ def test_push0(fork):
         ),
     )
 
-    post[to_address(0x100)] = Account(
+    post[code_address] = Account(
         storage={
             0x00: 0x01,
         }
@@ -101,7 +102,7 @@ def test_push0(fork):
     """
     Test case 3: Stack overflow by using PUSH0 1025 times
     """
-    pre[to_address(0x100)] = Account(
+    pre[code_address] = Account(
         code=Yul("{ sstore(0, 1) }")
         + bytes(
             [
@@ -111,7 +112,7 @@ def test_push0(fork):
         ),
     )
 
-    post[to_address(0x100)] = Account(
+    post[code_address] = Account(
         storage={
             0x00: 0x00,
         }
@@ -124,7 +125,7 @@ def test_push0(fork):
     """
     Test case 4: Update already existing storage value
     """
-    pre[to_address(0x100)] = Account(
+    pre[code_address] = Account(
         code=bytes(
             [
                 0x60,  # PUSH1
@@ -143,7 +144,7 @@ def test_push0(fork):
         },
     )
 
-    post[to_address(0x100)] = Account(
+    post[code_address] = Account(
         storage={
             0x00: 0x02,
             0x01: 0x00,
@@ -158,7 +159,7 @@ def test_push0(fork):
     Test case 5: PUSH0 during staticcall
     """
 
-    pre[to_address(0x100)] = Account(
+    pre[code_address] = Account(
         code=Yul(
             """
             {
@@ -185,7 +186,7 @@ def test_push0(fork):
             ]
         ),
     )
-    post[to_address(0x100)] = Account(
+    post[code_address] = Account(
         storage={
             0x00: 0x01,
             0x01: 0xFF,
@@ -201,7 +202,7 @@ def test_push0(fork):
     """
     Test case 6: Jump to a JUMPDEST next to a PUSH0, must succeed.
     """
-    pre[to_address(0x100)] = Account(
+    pre[code_address] = Account(
         code=bytes(
             [
                 0x60,  # PUSH1
@@ -218,7 +219,7 @@ def test_push0(fork):
         ),
     )
 
-    post[to_address(0x100)] = Account(
+    post[code_address] = Account(
         storage={
             0x00: 0x01,
         }
@@ -231,7 +232,7 @@ def test_push0(fork):
     """
     Test case 7: PUSH0 gas cost
     """
-    pre[to_address(0x100)] = Account(
+    pre[code_address] = Account(
         code=CodeGasMeasure(
             code=bytes(
                 [
@@ -242,7 +243,7 @@ def test_push0(fork):
         ),
     )
 
-    post[to_address(0x100)] = Account(
+    post[code_address] = Account(
         storage={
             0x00: 0x02,
         }
