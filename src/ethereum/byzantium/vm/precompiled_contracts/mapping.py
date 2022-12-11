@@ -22,13 +22,22 @@ from .modexp import modexp
 from .ripemd160 import ripemd160
 from .sha256 import sha256
 
+ECRECOVER_ADDRESS = hex_to_address("0x01")
+SHA256_ADDRESS = hex_to_address("0x02")
+RIPEMD160_ADDRESS = hex_to_address("0x03")
+IDENTITY_ADDRESS = hex_to_address("0x04")
+MODEXP_ADDRESS = hex_to_address("0x05")
+ALT_BN128_ADD_ADDRESS = hex_to_address("0x06")
+ALT_BN128_MUL_ADDRESS = hex_to_address("0x07")
+ALT_BN128_PAIRING_CHECK_ADDRESS = hex_to_address("0x08")
+
 PRE_COMPILED_CONTRACTS: Dict[Address, Callable] = {
-    hex_to_address("0x01"): ecrecover,
-    hex_to_address("0x02"): sha256,
-    hex_to_address("0x03"): ripemd160,
-    hex_to_address("0x04"): identity,
-    hex_to_address("0x05"): modexp,
-    hex_to_address("0x06"): alt_bn128_add,
-    hex_to_address("0x07"): alt_bn128_mul,
-    hex_to_address("0x08"): alt_bn128_pairing_check,
+    ECRECOVER_ADDRESS: ecrecover,
+    SHA256_ADDRESS: sha256,
+    RIPEMD160_ADDRESS: ripemd160,
+    IDENTITY_ADDRESS: identity,
+    MODEXP_ADDRESS: modexp,
+    ALT_BN128_ADD_ADDRESS: alt_bn128_add,
+    ALT_BN128_MUL_ADDRESS: alt_bn128_mul,
+    ALT_BN128_PAIRING_CHECK_ADDRESS: alt_bn128_pairing_check,
 }

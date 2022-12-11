@@ -30,10 +30,12 @@ from ..state import (
     set_code,
     touch_account,
 )
-from ..utils.address import to_address
 from ..vm import Message
 from ..vm.gas import GAS_CODE_DEPOSIT, REFUND_SELF_DESTRUCT, charge_gas
-from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
+from ..vm.precompiled_contracts.mapping import (
+    PRE_COMPILED_CONTRACTS,
+    RIPEMD160_ADDRESS,
+)
 from . import Environment, Evm
 from .exceptions import (
     ExceptionalHalt,
@@ -46,7 +48,6 @@ from .runtime import get_valid_jump_destinations
 
 STACK_DEPTH_LIMIT = U256(1024)
 MAX_CODE_SIZE = 0x6000
-RIPEMD160_ADDRESS = to_address(Uint(3))
 
 
 @dataclass
