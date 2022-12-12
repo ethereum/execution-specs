@@ -2,9 +2,77 @@
 Helper functions/classes used to generate Ethereum tests.
 """
 
-from dataclasses import dataclass
+from ethereum.crypto.hash import keccak256
+from ethereum.rlp import encode
 
-from ..code import Code, code_to_bytes
+"""
+Helper functions
+"""
+
+
+def ceiling_division(a: int, b: int) -> int:
+    """
+    Calculates the ceil without using floating point.
+    Used by many of the EVM's formulas
+    """
+    return -(a // -b)
+
+
+def compute_create_address(address: str | int, nonce: int) -> str:
+    """
+    Compute address of the resulting contract created using a transaction
+    or the `CREATE` opcode.
+    """
+    if type(address) is str:
+        if address.startswith("0x"):
+            address = address[2:]
+        address_bytes = bytes.fromhex(address)
+    elif type(address) is int:
+        address_bytes = address.to_bytes(length=20, byteorder="big")
+    if nonce == 0:
+        nonce_bytes = bytes()
+    else:
+        nonce_bytes = nonce.to_bytes(length=1, byteorder="big")
+    hash = keccak256(encode([address_bytes, nonce_bytes]))
+    return "0x" + hash[-20:].hex()
+
+
+def compute_create2_address(
+    address: str | int, salt: int, initcode: bytes
+) -> str:
+    """
+    Compute address of the resulting contract created using the `CREATE2`
+    opcode.
+    """
+    ff = bytes([0xFF])
+    if type(address) is str:
+        if address.startswith("0x"):
+            address = address[2:]
+        address_bytes = bytes.fromhex(address)
+    elif type(address) is int:
+        address_bytes = address.to_bytes(length=20, byteorder="big")
+    salt_bytes = salt.to_bytes(length=32, byteorder="big")
+    initcode_hash = keccak256(initcode)
+    hash = keccak256(ff + address_bytes + salt_bytes + initcode_hash)
+    return "0x" + hash[-20:].hex()
+
+
+def eip_2028_transaction_data_cost(data: bytes | str) -> int:
+    """
+    Calculates the cost of a given data as part of a transaction, based on the
+    costs specified in EIP-2028: https://eips.ethereum.org/EIPS/eip-2028
+    """
+    if type(data) is str:
+        if data.startswith("0x"):
+            data = data[2:]
+        data = bytes.fromhex(data)
+    cost = 0
+    for b in data:
+        if b == 0:
+            cost += 4
+        else:
+            cost += 16
+    return cost
 
 
 def to_address(input: int | str) -> str:
@@ -29,75 +97,3 @@ def to_hash(input: int | str) -> str:
     if type(input) is int:
         return "0x" + input.to_bytes(32, "big").hex()
     raise Exception("invalid type to convert to hash")
-
-
-@dataclass(kw_only=True)
-class CodeGasMeasure(Code):
-    """
-    Helper class used to generate bytecode that measures gas usage of a
-    bytecode, taking into account and subtracting any extra overhead gas costs
-    required to execute.
-    By default, the result gas calculation is saved to storage key 0.
-    """
-
-    code: bytes | str | Code
-    """
-    Bytecode to be executed to measure the gas usage.
-    """
-    overhead_cost: int = 0
-    """
-    Extra gas cost to be subtracted from extra operations.
-    """
-    extra_stack_items: int = 0
-    """
-    Extra stack items that remain at the end of the execution.
-    To be considered when subtracting the value of the previous GAS operation,
-    and to be popped at the end of the execution.
-    """
-    sstore_key: int = 0
-    """
-    Storage key to save the gas used.
-    """
-
-    def assemble(self) -> bytes:
-        """
-        Assemble the bytecode that measures gas usage.
-        """
-        res = bytes()
-        res += bytes(
-            [
-                0x5A,  # GAS
-            ]
-        )
-        res += code_to_bytes(self.code)  # Execute code to measure its gas cost
-        res += bytes(
-            [
-                0x5A,  # GAS
-            ]
-        )
-        # We need to swap and pop for each extra stack item that remained from
-        # the execution of the code
-        res += (
-            bytes(
-                [
-                    0x90,  # SWAP1
-                    0x50,  # POP
-                ]
-            )
-            * self.extra_stack_items
-        )
-        res += bytes(
-            [
-                0x90,  # SWAP1
-                0x03,  # SUB
-                0x60,  # PUSH1
-                self.overhead_cost + 2,  # Overhead cost + GAS opcode price
-                0x90,  # SWAP1
-                0x03,  # SUB
-                0x60,  # PUSH1
-                self.sstore_key,  # -> SSTORE key
-                0x55,  # SSTORE
-                0x00,  # STOP
-            ]
-        )
-        return res

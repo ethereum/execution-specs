@@ -2,31 +2,31 @@
 Code object that is an interface to different
 assembler/compiler backends.
 """
+from dataclasses import dataclass
 from re import sub
-from typing import Union
+from typing import Optional, Union
 
 
-class Code(object):
+@dataclass(kw_only=True)
+class Code:
     """
     Generic code object.
     """
 
-    bytecode: bytes | None = None
-
-    def __init__(self, code: bytes | str | None):
-        if code is not None:
-            if type(code) is bytes:
-                self.bytecode = code
-            elif type(code) is str:
-                if code.startswith("0x"):
-                    code = code[2:]
-                self.bytecode = bytes.fromhex(code)
-            else:
-                raise TypeError("code has invalid type")
+    bytecode: Optional[bytes] = None
+    """
+    bytes array that represents the bytecode of this object.
+    """
+    name: Optional[str] = None
+    """
+    Name used to describe this code.
+    Usually used to add extra information to a test case.
+    """
 
     def assemble(self) -> bytes:
         """
-        Assembles using `eas`.
+        Transform the Code object into bytes.
+        Normally will be overriden by the classes that inherit this class.
         """
         if self.bytecode is None:
             return bytes()
@@ -37,13 +37,13 @@ class Code(object):
         """
         Adds two code objects together, by converting both to bytes first.
         """
-        return Code(code_to_bytes(self) + code_to_bytes(other))
+        return Code(bytecode=(code_to_bytes(self) + code_to_bytes(other)))
 
     def __radd__(self, other: Union[str, bytes, "Code"]) -> "Code":
         """
         Adds two code objects together, by converting both to bytes first.
         """
-        return Code(code_to_bytes(other) + code_to_bytes(self))
+        return Code(bytecode=(code_to_bytes(other) + code_to_bytes(self)))
 
 
 def code_to_bytes(code: str | bytes | Code) -> bytes:

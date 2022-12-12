@@ -1,6 +1,7 @@
 """
 Filler object definitions.
 """
+from copy import copy
 from typing import List, Mapping, Optional
 
 from evm_block_builder import BlockBuilder
@@ -40,9 +41,18 @@ def fill_test(
 
             genesis = test.make_genesis(b11r, t8n, fork)
 
-            (blocks, head, alloc) = test.make_blocks(
-                b11r, t8n, genesis, fork, reward=get_reward(fork), eips=eips
-            )
+            try:
+                (blocks, head, alloc) = test.make_blocks(
+                    b11r,
+                    t8n,
+                    genesis,
+                    fork,
+                    reward=get_reward(fork),
+                    eips=eips,
+                )
+            except Exception as e:
+                print(f"Exception during test '{test.name}'")
+                raise e
 
             fixture = Fixture(
                 blocks=blocks,
@@ -51,7 +61,7 @@ def fill_test(
                 fork="+".join([fork] + [str(eip) for eip in eips])
                 if eips is not None
                 else fork,
-                pre_state=test.pre,
+                pre_state=copy(test.pre),
                 post_state=alloc,
                 seal_engine=engine,
                 name=test.name,

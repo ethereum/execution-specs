@@ -22,6 +22,7 @@ forks = [
     "london",
     "arrow glacier",
     "merged",
+    "shanghai",
 ]
 
 
@@ -68,6 +69,18 @@ def is_merged(fork: str) -> bool:
 
     i = forks.index(fork_lower)
     return i >= forks.index("merged")
+
+
+def is_fork(fork: str, which: str) -> bool:
+    """
+    Returns `True` if `fork` is `which` or beyond, `False otherwise.
+    """
+    fork_lower = fork.lower()
+    if fork_lower not in forks:
+        return False
+
+    i = forks.index(fork_lower)
+    return i >= forks.index(which.lower())
 
 
 def get_reward(fork: str) -> int:

@@ -8,7 +8,14 @@ from .constants import (
     TestAddress,
     TestPrivateKey,
 )
-from .helpers import CodeGasMeasure, to_address, to_hash
+from .helpers import (
+    ceiling_division,
+    compute_create2_address,
+    compute_create_address,
+    eip_2028_transaction_data_cost,
+    to_address,
+    to_hash,
+)
 from .types import (
     Account,
     Block,
@@ -29,7 +36,6 @@ __all__ = (
     "AddrAA",
     "AddrBB",
     "Block",
-    "CodeGasMeasure",
     "EmptyTrieRoot",
     "Environment",
     "Fixture",
@@ -40,6 +46,10 @@ __all__ = (
     "TestAddress",
     "TestPrivateKey",
     "Transaction",
+    "ceiling_division",
+    "compute_create2_address",
+    "compute_create_address",
+    "eip_2028_transaction_data_cost",
     "str_or_none",
     "to_address",
     "to_hash",
