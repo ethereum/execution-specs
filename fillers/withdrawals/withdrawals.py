@@ -12,6 +12,7 @@ from ethereum_test_tools import (
     Transaction,
     Withdrawal,
     Yul,
+    compute_create_address,
     test_from,
     to_address,
     to_hash,
@@ -404,7 +405,7 @@ def test_withdrawals_newly_created_contract(_):
     """
     Test Withdrawing to a newly created contract.
     """
-    created_contract = "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
+    created_contract = compute_create_address(TestAddress, 0)
 
     pre = {
         TestAddress: Account(balance=1000000000000000000000, nonce=0),
@@ -537,26 +538,10 @@ def test_withdrawals_no_evm_execution(_):
     ]
 
     post = {
-        to_address(0x100): Account(
-            storage={
-                2: 1,
-            }
-        ),
-        to_address(0x200): Account(
-            storage={
-                2: 1,
-            }
-        ),
-        to_address(0x300): Account(
-            storage={
-                1: 1,
-            }
-        ),
-        to_address(0x400): Account(
-            storage={
-                1: 1,
-            }
-        ),
+        to_address(0x100): Account(storage={2: 1}),
+        to_address(0x200): Account(storage={2: 1}),
+        to_address(0x300): Account(storage={1: 1}),
+        to_address(0x400): Account(storage={1: 1}),
     }
 
     yield BlockchainTest(pre=pre, post=post, blocks=blocks)
