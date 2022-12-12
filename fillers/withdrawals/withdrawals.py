@@ -348,8 +348,9 @@ def test_withdrawals_many_withdrawals(_):
 @test_from(WITHDRAWALS_FORK)
 def test_withdrawals_self_destructing_account(_):
     """
-    Test Withdrawals can be done to the same address multiple times in
-    the same block.
+    Test Withdrawals can be done to self-destructed accounts.
+    Account `0x100` self-destructs and sends all its balance to `0x200`.
+    Then, a withdrawal is received at `0x100` with 99 wei.
     """
     pre = {
         TestAddress: Account(balance=1000000000000000000000, nonce=0),
@@ -401,7 +402,7 @@ def test_withdrawals_self_destructing_account(_):
 @test_from(WITHDRAWALS_FORK)
 def test_withdrawals_newly_created_contract(_):
     """
-    Test Withdrawals where one of the withdrawal has a zero amount.
+    Test Withdrawing to a newly created contract.
     """
     created_contract = "0x6295ee1b4f6dd65047762f924ecd367c17eabf8f"
 
