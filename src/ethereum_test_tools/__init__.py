@@ -21,6 +21,7 @@ from .common import (
 from .filling.decorators import test_from, test_only
 from .filling.fill import fill_test
 from .spec import BlockchainTest, StateTest
+from .vm import Opcode, Opcodes
 from .vm.fork import is_fork
 
 __all__ = (
@@ -32,6 +33,8 @@ __all__ = (
     "Environment",
     "Initcode",
     "JSONEncoder",
+    "Opcode",
+    "Opcodes",
     "StateTest",
     "Storage",
     "TestAddress",
