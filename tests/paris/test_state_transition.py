@@ -61,6 +61,8 @@ GENERAL_STATE_BIG_MEMORY_TESTS = (
     "/stRandom/",
     "/stSpecialTest/",
     "stTimeConsuming/",
+    "stBadOpcode/",
+    "stStaticCall/",
 )
 
 
