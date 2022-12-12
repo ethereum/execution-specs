@@ -15,6 +15,7 @@ from ethereum_test_tools import (
     test_from,
     to_address,
 )
+from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
 @test_from(fork="shanghai", eips=[3855])
@@ -39,14 +40,7 @@ def test_push0(fork):
     """
     Test case 1: Simple PUSH0 as key to SSTORE
     """
-    code = bytes(
-        [
-            0x60,  # PUSH1
-            0x01,
-            0x5F,  # PUSH0
-            0x55,  # SSTORE
-        ]
-    )
+    code = Op.PUSH1(1) + Op.PUSH0 + Op.SSTORE
 
     pre[addr_1] = Account(code=code)
     post[addr_1] = Account(storage={0x00: 0x01})
@@ -59,16 +53,9 @@ def test_push0(fork):
     Test case 2: Fill stack with PUSH0, then OR all values and save using
     SSTORE
     """
-    code = bytes([0x5F] * 1024)  # PUSH0
-    code += bytes([0x17] * 1023)  # OR
-    code += bytes(
-        [
-            0x60,  # PUSH1
-            0x01,
-            0x90,  # SWAP1
-            0x55,  # SSTORE
-        ]
-    )
+    code = Op.PUSH0 * 1024
+    code += Op.OR * 1023
+    code += Op.PUSH1(1) + Op.SWAP1 + Op.SSTORE
 
     pre[addr_1] = Account(code=code)
     post[addr_1] = Account(storage={0x00: 0x01})
@@ -80,15 +67,8 @@ def test_push0(fork):
     """
     Test case 3: Stack overflow by using PUSH0 1025 times
     """
-    code = bytes(
-        [
-            0x60,  # PUSH1
-            0x01,
-            0x5F,  # PUSH0
-            0x55,  # SSTORE
-        ]
-    )
-    code += bytes([0x5F] * 1025)  # PUSH0, stack overflow
+    code = Op.PUSH1(1) + Op.PUSH0 + Op.SSTORE
+    code += Op.PUSH0 * 1025
 
     pre[addr_1] = Account(code=code)
     post[addr_1] = Account(storage={0x00: 0x00})
@@ -100,17 +80,8 @@ def test_push0(fork):
     """
     Test case 4: Update already existing storage value
     """
-    code = bytes(
-        [
-            0x60,  # PUSH1
-            0x02,
-            0x5F,  # PUSH0
-            0x55,  # SSTORE
-            0x5F,  # PUSH0
-            0x60,  # PUSH1
-            0x01,
-            0x55,  # SSTORE
-        ]
+    code = (
+        Op.PUSH1(2) + Op.PUSH0 + Op.SSTORE + Op.PUSH0 + Op.PUSH1(1) + Op.SSTORE
     )
 
     pre[addr_1] = Account(code=code, storage={0x00: 0x0A, 0x01: 0x0A})
@@ -133,18 +104,13 @@ def test_push0(fork):
         }
         """
     )
-    code_2 = bytes(
-        [
-            0x60,  # PUSH1
-            0xFF,
-            0x5F,  # PUSH0
-            0x53,  # MSTORE8
-            0x60,  # PUSH1
-            0x01,
-            0x60,  # PUSH1
-            0x00,
-            0xF3,  # RETURN
-        ]
+    code_2 = (
+        Op.PUSH1(0xFF)
+        + Op.PUSH0
+        + Op.MSTORE8
+        + Op.PUSH1(1)
+        + Op.PUSH1(0)
+        + Op.RETURN
     )
 
     pre[addr_1] = Account(code=code_1)
@@ -160,19 +126,15 @@ def test_push0(fork):
     """
     Test case 6: Jump to a JUMPDEST next to a PUSH0, must succeed.
     """
-    code = bytes(
-        [
-            0x60,  # PUSH1
-            0x04,
-            0x56,  # JUMP
-            0x5F,  # PUSH0
-            0x5B,  # JUMPDEST
-            0x60,  # PUSH1
-            0x01,
-            0x5F,  # PUSH0
-            0x55,  # SSTORE
-            0x00,  # STOP
-        ]
+    code = (
+        Op.PUSH1(4)
+        + Op.JUMP
+        + Op.PUSH0
+        + Op.JUMPDEST
+        + Op.PUSH1(1)
+        + Op.PUSH0
+        + Op.SSTORE
+        + Op.STOP
     )
 
     pre[addr_1] = Account(code=code)
@@ -186,7 +148,7 @@ def test_push0(fork):
     Test case 7: PUSH0 gas cost
     """
     code = CodeGasMeasure(
-        code=bytes([0x5F]),  # PUSH0
+        code=Op.PUSH0,
         extra_stack_items=1,
     )
 
