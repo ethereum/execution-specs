@@ -388,14 +388,12 @@ def account_exists_and_is_empty(state: State, address: Address) -> bool:
         balance, False otherwise.
     """
     account = get_account_optional(state, address)
-    if account is None:
-        return False
-    else:
-        return (
-            account.nonce == Uint(0)
-            and account.code == b""
-            and account.balance == 0
-        )
+    return (
+        account is not None
+        and account.nonce == Uint(0)
+        and account.code == b""
+        and account.balance == 0
+    )
 
 
 def is_account_alive(state: State, address: Address) -> bool:

@@ -108,16 +108,21 @@ def process_message_call(
         if account_exists_and_is_empty(env.state, Address(message.target)):
             evm.touched_accounts.add(Address(message.target))
 
+    if evm.has_erred:
+        logs = set()
+        accounts_to_delete = set()
+        touched_accounts = set()
+    else:
+        logs = evm.logs
+        accounts_to_delete = evm.accounts_to_delete
+        touched_accounts = evm.touched_accounts
+
     return MessageCallOutput(
         gas_left=evm.gas_left,
-        refund_counter=U256(evm.refund_counter)
-        if not evm.has_erred
-        else U256(0),
-        logs=evm.logs if not evm.has_erred else (),
-        accounts_to_delete=evm.accounts_to_delete
-        if not evm.has_erred
-        else set(),
-        touched_accounts=evm.touched_accounts if not evm.has_erred else set(),
+        refund_counter=U256(evm.refund_counter),
+        logs=logs,
+        accounts_to_delete=accounts_to_delete,
+        touched_accounts=touched_accounts,
         has_erred=evm.has_erred,
     )
 

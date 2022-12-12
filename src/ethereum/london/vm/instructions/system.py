@@ -32,8 +32,8 @@ from ...utils.address import (
 from .. import (
     Evm,
     Message,
-    incorporate_child_evm_error,
-    incorporate_child_evm_successful,
+    incorporate_child_on_error,
+    incorporate_child_on_success,
 )
 from ..exceptions import Revert, WriteInStaticContext
 from ..gas import (
@@ -118,11 +118,11 @@ def generic_create(
     child_evm = process_create_message(child_message, evm.env)
 
     if child_evm.has_erred:
-        incorporate_child_evm_error(evm, child_evm)
+        incorporate_child_on_error(evm, child_evm)
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:
-        incorporate_child_evm_successful(evm, child_evm)
+        incorporate_child_on_success(evm, child_evm)
         evm.return_data = b""
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
 
@@ -273,11 +273,11 @@ def generic_call(
     child_evm = process_message(child_message, evm.env)
 
     if child_evm.has_erred:
-        incorporate_child_evm_error(evm, child_evm)
+        incorporate_child_on_error(evm, child_evm)
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
     else:
-        incorporate_child_evm_successful(evm, child_evm)
+        incorporate_child_on_success(evm, child_evm)
         evm.return_data = child_evm.output
         push(evm.stack, U256(1))
 

@@ -94,7 +94,7 @@ class Evm:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
 
 
-def incorporate_child_evm_successful(evm: Evm, child_evm: Evm) -> None:
+def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     """
     Incorporate the state of a successful `child_evm` into the parent `evm`.
 
@@ -118,7 +118,7 @@ def incorporate_child_evm_successful(evm: Evm, child_evm: Evm) -> None:
     evm.accessed_storage_keys.update(child_evm.accessed_storage_keys)
 
 
-def incorporate_child_evm_error(evm: Evm, child_evm: Evm) -> None:
+def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
     """
     Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
 
@@ -138,11 +138,9 @@ def incorporate_child_evm_error(evm: Evm, child_evm: Evm) -> None:
     # reverted in order to preserve this historical behaviour.
     if RIPEMD160_ADDRESS in child_evm.touched_accounts:
         evm.touched_accounts.add(RIPEMD160_ADDRESS)
-    if (
-        child_evm.message.current_target == RIPEMD160_ADDRESS
-        and account_exists_and_is_empty(
+    if child_evm.message.current_target == RIPEMD160_ADDRESS:
+        if account_exists_and_is_empty(
             evm.env.state, child_evm.message.current_target
-        )
-    ):
-        evm.touched_accounts.add(RIPEMD160_ADDRESS)
+        ):
+            evm.touched_accounts.add(RIPEMD160_ADDRESS)
     evm.gas_left += child_evm.gas_left
