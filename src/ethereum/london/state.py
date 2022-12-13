@@ -369,33 +369,6 @@ def is_account_empty(state: State, address: Address) -> bool:
     )
 
 
-def account_exists_and_is_empty(state: State, address: Address) -> bool:
-    """
-    Checks if an account exists and has zero nonce, empty code and zero
-    balance.
-
-    Parameters
-    ----------
-    state:
-        The state
-    address:
-        Address of the account that needs to be checked.
-
-    Returns
-    -------
-    exists_and_is_empty : `bool`
-        True if an account exists and has zero nonce, empty code and zero
-        balance, False otherwise.
-    """
-    account = get_account_optional(state, address)
-    return (
-        account is not None
-        and account.nonce == Uint(0)
-        and account.code == b""
-        and account.balance == 0
-    )
-
-
 def is_account_alive(state: State, address: Address) -> bool:
     """
     Check whether is an account is both in the state and non empty.
