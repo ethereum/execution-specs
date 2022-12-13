@@ -28,6 +28,10 @@ def add_to_bloom(bloom: bytearray, bloom_entry: bytes) -> None:
     """
     Add a bloom entry to the bloom filter (`bloom`).
 
+    The number of hash functions used is 3. They are calculated by taking the
+    least significant 11 bits from the first 3 16-bit words of the
+    `keccak_256()` hash of `bloom_entry`.
+
     Parameters
     ----------
     bloom :
@@ -35,7 +39,6 @@ def add_to_bloom(bloom: bytearray, bloom_entry: bytes) -> None:
     bloom_entry :
         An entry which is to be added to bloom filter.
     """
-    # TODO: This functionality hasn't been tested rigorously yet.
     hash = keccak256(bloom_entry)
 
     for idx in (0, 2, 4):
@@ -57,6 +60,8 @@ def logs_bloom(logs: Tuple[Log, ...]) -> Bloom:
     """
     Obtain the logs bloom from a list of log entries.
 
+    The address and each topic of a log are added to the bloom filter.
+
     Parameters
     ----------
     logs :
@@ -68,8 +73,6 @@ def logs_bloom(logs: Tuple[Log, ...]) -> Bloom:
         The logs bloom obtained which is 256 bytes with some bits set as per
         the caller address and the log topics.
     """
-    # TODO: Logs bloom functionality hasn't been tested rigorously yet. The
-    # required test cases need `CALL` opcode to be implemented.
     bloom: bytearray = bytearray(b"\x00" * 256)
 
     for log in logs:
