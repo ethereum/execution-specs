@@ -56,8 +56,8 @@ def code_to_bytes(code: str | bytes | Code) -> bytes:
     if isinstance(code, Code):
         return code.assemble()
 
-    if type(code) is bytes:
-        return code
+    if isinstance(code, bytes):
+        return bytes(code)
 
     if type(code) is str:
         # We can have a hex representation of bytecode with spaces for
@@ -80,7 +80,7 @@ def code_to_hex(code: str | bytes | Code) -> str:
     if isinstance(code, Code):
         return "0x" + code.assemble().hex()
 
-    if type(code) is bytes:
+    if isinstance(code, bytes):
         return "0x" + code.hex()
 
     if type(code) is str:
