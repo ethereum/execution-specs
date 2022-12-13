@@ -18,6 +18,7 @@ from ethereum_test_tools import (
     to_address,
     to_hash,
 )
+from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
 @test_from(fork="merged")
@@ -170,131 +171,50 @@ def test_warm_coinbase_gas_usage(fork):
     # List of opcodes that are affected by
     gas_measured_opcodes: Dict[str, CodeGasMeasure] = {
         "EXTCODESIZE": CodeGasMeasure(
-            code=bytes(
-                [
-                    0x41,  # addr: COINBASE
-                    0x3B,  # EXTCODESIZE
-                ]
-            ),
+            code=Op.COINBASE + Op.EXTCODESIZE,
             overhead_cost=2,
             extra_stack_items=1,
         ),
         "EXTCODECOPY": CodeGasMeasure(
-            code=bytes(
-                [
-                    0x60,  # length
-                    0x00,
-                    0x60,  # offset
-                    0x00,
-                    0x60,  # offset
-                    0x00,
-                    0x41,  # addr: COINBASE
-                    0x3C,  # EXTCODECOPY
-                ]
-            ),
+            code=Op.PUSH1(0x00) * 3 + Op.COINBASE + Op.EXTCODECOPY,
             overhead_cost=2 + 3 + 3 + 3,
         ),
         "EXTCODEHASH": CodeGasMeasure(
-            code=bytes(
-                [
-                    0x41,  # addr: COINBASE
-                    0x3F,  # EXTCODEHASH
-                ]
-            ),
+            code=Op.COINBASE + Op.EXTCODEHASH,
             overhead_cost=2,
             extra_stack_items=1,
         ),
         "BALANCE": CodeGasMeasure(
-            code=bytes(
-                [
-                    0x41,  # addr: COINBASE
-                    0x31,  # BALANCE
-                ]
-            ),
+            code=Op.COINBASE + Op.BALANCE,
             overhead_cost=2,
             extra_stack_items=1,
         ),
         "CALL": CodeGasMeasure(
-            code=bytes(
-                [
-                    0x60,  # returnLength
-                    0x00,
-                    0x60,  # returnOffset
-                    0x00,
-                    0x60,  # argsLength
-                    0x00,
-                    0x60,  # argsOffset
-                    0x00,
-                    0x60,  # value
-                    0x00,
-                    0x41,  # addr: COINBASE
-                    0x60,  # gas
-                    0xFF,
-                    0xF1,  # CALL
-                ]
-            ),
+            code=Op.PUSH1(0x00) * 5 + Op.COINBASE + Op.PUSH1(0xFF) + Op.CALL,
             overhead_cost=3 + 2 + 3 + 3 + 3 + 3 + 3,
             extra_stack_items=1,
         ),
         "CALLCODE": CodeGasMeasure(
-            code=bytes(
-                [
-                    0x60,  # returnLength
-                    0x00,
-                    0x60,  # returnOffset
-                    0x00,
-                    0x60,  # argsLength
-                    0x00,
-                    0x60,  # argsOffset
-                    0x00,
-                    0x60,  # value
-                    0x00,
-                    0x41,  # addr: COINBASE
-                    0x60,  # gas
-                    0xFF,
-                    0xF2,  # CALLCODE
-                ]
-            ),
+            code=Op.PUSH1(0x00) * 5
+            + Op.COINBASE
+            + Op.PUSH1(0xFF)
+            + Op.CALLCODE,
             overhead_cost=3 + 2 + 3 + 3 + 3 + 3 + 3,
             extra_stack_items=1,
         ),
         "DELEGATECALL": CodeGasMeasure(
-            code=bytes(
-                [
-                    0x60,  # returnLength
-                    0x00,
-                    0x60,  # returnOffset
-                    0x00,
-                    0x60,  # argsLength
-                    0x00,
-                    0x60,  # argsOffset
-                    0x00,
-                    0x41,  # addr: COINBASE
-                    0x60,  # gas
-                    0xFF,
-                    0xF4,  # DELEGATECALL
-                ]
-            ),
+            code=Op.PUSH1(0x00) * 4
+            + Op.COINBASE
+            + Op.PUSH1(0xFF)
+            + Op.DELEGATECALL,
             overhead_cost=3 + 2 + 3 + 3 + 3 + 3,
             extra_stack_items=1,
         ),
         "STATICCALL": CodeGasMeasure(
-            code=bytes(
-                [
-                    0x60,  # returnLength
-                    0x00,
-                    0x60,  # returnOffset
-                    0x00,
-                    0x60,  # argsLength
-                    0x00,
-                    0x60,  # argsOffset
-                    0x00,
-                    0x41,  # addr: COINBASE
-                    0x60,  # gas
-                    0xFF,
-                    0xFA,  # STATICCALL
-                ]
-            ),
+            code=Op.PUSH1(0x00) * 4
+            + Op.COINBASE
+            + Op.PUSH1(0xFF)
+            + Op.STATICCALL,
             overhead_cost=3 + 2 + 3 + 3 + 3 + 3,
             extra_stack_items=1,
         ),

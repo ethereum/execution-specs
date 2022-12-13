@@ -25,6 +25,7 @@ from ethereum_test_tools import (
     test_from,
     to_address,
 )
+from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 """
 General constants used for testing purposes
@@ -33,7 +34,7 @@ General constants used for testing purposes
 MAX_INITCODE_SIZE = 49152
 INITCODE_WORD_COST = 2
 KECCAK_WORD_COST = 6
-INITCODE_RESULTING_DEPLOYED_CODE = bytes([0x00])
+INITCODE_RESULTING_DEPLOYED_CODE = Op.STOP
 
 BASE_TRANSACTION_GAS = 21000
 CREATE_CONTRACT_BASE_GAS = 32000
@@ -168,7 +169,7 @@ SINGLE_BYTE_INITCODE = Initcode(
     deploy_code=bytes(),
     name="single_byte_initcode",
 )
-SINGLE_BYTE_INITCODE.bytecode = bytes([0x00])
+SINGLE_BYTE_INITCODE.bytecode = Op.STOP
 SINGLE_BYTE_INITCODE.deployment_gas = 0
 SINGLE_BYTE_INITCODE.execution_gas = 0
 
@@ -217,7 +218,7 @@ def generate_tx_initcode_limit_test_cases(
     else:
         # Initcode is at or below the max size, tx inclusion in the block
         # is ok and the contract is successfully created.
-        post[created_contract_address] = Account(code="0x00")
+        post[created_contract_address] = Account(code=Op.STOP)
 
     yield BlockchainTest(
         pre=pre,

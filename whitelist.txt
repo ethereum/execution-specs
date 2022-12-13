@@ -113,19 +113,25 @@ chainid
 selfbalance
 basefee
 ommer
+prevrandao
 
-pop
+authcall
+callf
+jumpdest
+jumpi
 mload
+msize
 mstore
 mstore8
+pc
+retf
+rjump
+rjumpi
+sendall
 sload
 sstore
-jump
-jumpi
-pc
-msize
-gas
-jumpdest
+tload
+tstore
 
 push
 dup
