@@ -112,14 +112,16 @@ def process_message_call(
         logs: Tuple[Log, ...] = ()
         accounts_to_delete = set()
         touched_accounts = set()
+        refund_counter = U256(0)
     else:
         logs = evm.logs
         accounts_to_delete = evm.accounts_to_delete
         touched_accounts = evm.touched_accounts
+        refund_counter = U256(evm.refund_counter)
 
     return MessageCallOutput(
         gas_left=evm.gas_left,
-        refund_counter=U256(evm.refund_counter),
+        refund_counter=refund_counter,
         logs=logs,
         accounts_to_delete=accounts_to_delete,
         touched_accounts=touched_accounts,
