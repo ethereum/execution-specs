@@ -93,6 +93,10 @@ class TransitionTool:
         """
         Calculate the state root for the given `alloc`.
         """
+        if type(withdrawals) is list and len(withdrawals) == 0:
+            # Optimize returning the empty root immediately
+            return "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"  # noqa: E501
+
         env: Dict[str, Any] = {
             "currentCoinbase": "0x0000000000000000000000000000000000000000",
             "currentDifficulty": "0x0",
