@@ -21,6 +21,7 @@ class BlockBuilder:
         header: Any,
         txs: Any,
         ommers: Any,
+        withdrawals: Optional[Any] = None,
         clique: Optional[Any] = None,
         ethash: bool = False,
         ethashMode: str = "normal",
@@ -64,6 +65,7 @@ class EvmBlockBuilder(BlockBuilder):
         header: Any,
         txs: Any,
         ommers: Any,
+        withdrawals: Optional[Any] = None,
         clique: Optional[Any] = None,
         ethash: bool = False,
         ethashMode: str = "normal",
@@ -91,6 +93,8 @@ class EvmBlockBuilder(BlockBuilder):
             "uncles": ommers,
             "clique": clique,
         }
+        if withdrawals is not None:
+            stdin["withdrawals"] = withdrawals
 
         result = subprocess.run(
             args,

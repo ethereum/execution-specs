@@ -25,6 +25,7 @@ from ..common import (
     Transaction,
     str_or_none,
     to_json,
+    to_json_or_none,
 )
 from ..vm import set_fork_requirements
 from .base_test import BaseTest, verify_post_alloc, verify_transactions
@@ -78,6 +79,9 @@ class StateTest(BaseTest):
             mix_digest="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
             nonce="0x0000000000000000",
             base_fee=env.base_fee,
+            withdrawals_root=t8n.calc_withdrawals_root(env.withdrawals, fork)
+            if env.withdrawals is not None
+            else None,
         )
 
         (_, h) = b11r.build(genesis.to_geth_dict(), "", [])
@@ -152,6 +156,7 @@ class StateTest(BaseTest):
             header=header.to_geth_dict(),
             txs=txs_rlp,
             ommers=[],
+            withdrawals=to_json_or_none(env.withdrawals),
         )
         header.hash = head
         return (

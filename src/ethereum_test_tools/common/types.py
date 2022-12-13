@@ -429,6 +429,19 @@ ACCOUNT_DEFAULTS = Account(nonce=0, balance=0, code=bytes(), storage={})
 
 
 @dataclass(kw_only=True)
+class Withdrawal:
+    """
+    Structure to represent a single withdrawal of a validator's balance from
+    the beacon chain.
+    """
+
+    index: int
+    validator: int
+    address: str
+    amount: int
+
+
+@dataclass(kw_only=True)
 class Environment:
     """
     Structure used to keep track of the context in which a block
@@ -449,6 +462,7 @@ class Environment:
     parent_gas_used: Optional[int] = None
     parent_gas_limit: Optional[int] = None
     parent_ommers_hash: Optional[str] = None
+    withdrawals: Optional[List[Withdrawal]] = None
 
     @staticmethod
     def from_parent_header(parent: "FixtureHeader") -> "Environment":
@@ -643,6 +657,7 @@ class FixtureHeader:
     mix_digest: str
     nonce: str
     base_fee: Optional[int] = None
+    withdrawals_root: Optional[str] = None
     hash: Optional[str] = None
 
     @staticmethod
@@ -670,6 +685,7 @@ class FixtureHeader:
             mix_digest=source["mixHash"],
             nonce=source["nonce"],
             base_fee=int_or_none(source.get("baseFeePerGas")),
+            withdrawals_root=str_or_none(source.get("withdrawalsRoot")),
             hash=source.get("hash"),
         )
 
@@ -698,6 +714,8 @@ class FixtureHeader:
         }
         if self.base_fee is not None:
             header["baseFeePerGas"] = hex(self.base_fee)
+        if self.withdrawals_root is not None:
+            header["withdrawalsRoot"] = self.withdrawals_root
         return header
 
     def join(self, modifier: Header) -> "FixtureHeader":
@@ -743,6 +761,10 @@ class Block(Header):
     """
     List of ommer headers included in the block.
     """
+    withdrawals: Optional[List[Withdrawal]] = None
+    """
+    List of withdrawals to perform for this block.
+    """
 
     def set_environment(self, env: Environment) -> Environment:
         """
@@ -768,6 +790,7 @@ class Block(Header):
             else environment_default.gas_limit
         )
         new_env.base_fee = self.base_fee
+        new_env.withdrawals = self.withdrawals
 
         """
         These values are required, but they depend on the previous environment,
@@ -887,6 +910,13 @@ class JSONEncoder(json.JSONEncoder):
                 tx["s"] = obj.signature[2]
 
             return {k: v for (k, v) in tx.items() if v is not None}
+        elif isinstance(obj, Withdrawal):
+            return {
+                "index": hex(obj.index),
+                "validatorIndex": hex(obj.validator),
+                "address": obj.address,
+                "amount": hex(obj.amount),
+            }
         elif isinstance(obj, Environment):
             env = {
                 "currentCoinbase": obj.coinbase,
@@ -904,6 +934,7 @@ class JSONEncoder(json.JSONEncoder):
                     str(k): v for (k, v) in obj.block_hashes.items()
                 },
                 "ommers": [],
+                "withdrawals": to_json_or_none(obj.withdrawals),
                 "parentUncleHash": obj.parent_ommers_hash,
                 "currentBaseFee": str_or_none(obj.base_fee),
             }
@@ -933,6 +964,8 @@ class JSONEncoder(json.JSONEncoder):
                 header["baseFeePerGas"] = hex(obj.base_fee)
             if obj.hash is not None:
                 header["hash"] = obj.hash
+            if obj.withdrawals_root is not None:
+                header["withdrawalsRoot"] = obj.withdrawals_root
             return header
         elif isinstance(obj, FixtureBlock):
             b = {
