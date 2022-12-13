@@ -12,7 +12,7 @@ Introduction
 A straightforward interpreter that executes EVM code.
 """
 from dataclasses import dataclass
-from typing import Iterable, Set, Tuple, Union
+from typing import Iterable, Set, Tuple
 
 from ethereum import evm_trace
 from ethereum.base_types import U256, Bytes0, Uint
@@ -33,10 +33,7 @@ from ..state import (
 )
 from ..vm import Message
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
-from ..vm.precompiled_contracts.mapping import (
-    PRE_COMPILED_CONTRACTS,
-    RIPEMD160_ADDRESS,
-)
+from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
 from .exceptions import (
     ExceptionalHalt,
@@ -70,7 +67,7 @@ class MessageCallOutput:
 
     gas_left: U256
     refund_counter: U256
-    logs: Union[Tuple[()], Tuple[Log, ...]]
+    logs: Tuple[Log, ...]
     accounts_to_delete: Set[Address]
     touched_accounts: Iterable[Address]
     has_erred: bool
@@ -112,7 +109,7 @@ def process_message_call(
             evm.touched_accounts.add(Address(message.target))
 
     if evm.has_erred:
-        logs = set()
+        logs: Tuple[Log, ...] = ()
         accounts_to_delete = set()
         touched_accounts = set()
     else:
