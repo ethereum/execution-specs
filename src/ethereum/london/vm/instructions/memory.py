@@ -48,7 +48,7 @@ def mstore(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
 
     # OPERATION
-    evm.memory += b"\x00" * extend_memory.size
+    evm.memory += b"\x00" * extend_memory.expand_by
     memory_write(evm.memory, start_position, value)
 
     # PROGRAM COUNTER
@@ -79,7 +79,7 @@ def mstore8(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
 
     # OPERATION
-    evm.memory += b"\x00" * extend_memory.size
+    evm.memory += b"\x00" * extend_memory.expand_by
     normalized_bytes_value = Bytes([value & U8_MAX_VALUE])
     memory_write(evm.memory, start_position, normalized_bytes_value)
 
@@ -107,7 +107,7 @@ def mload(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
 
     # OPERATION
-    evm.memory += b"\x00" * extend_memory.size
+    evm.memory += b"\x00" * extend_memory.expand_by
     value = U256.from_be_bytes(
         memory_read_bytes(evm.memory, start_position, U256(32))
     )

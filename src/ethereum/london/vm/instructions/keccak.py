@@ -53,7 +53,7 @@ def keccak(evm: Evm) -> None:
     charge_gas(evm, GAS_KECCAK256 + word_gas_cost + extend_memory.cost)
 
     # OPERATION
-    evm.memory += b"\x00" * extend_memory.size
+    evm.memory += b"\x00" * extend_memory.expand_by
     data = memory_read_bytes(evm.memory, memory_start_index, size)
     hash = keccak256(data)
 

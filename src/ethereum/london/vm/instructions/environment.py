@@ -236,7 +236,7 @@ def calldatacopy(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
 
     # OPERATION
-    evm.memory += b"\x00" * extend_memory.size
+    evm.memory += b"\x00" * extend_memory.expand_by
     value = buffer_read(evm.message.data, data_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 
@@ -294,7 +294,7 @@ def codecopy(evm: Evm) -> None:
     charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
 
     # OPERATION
-    evm.memory += b"\x00" * extend_memory.size
+    evm.memory += b"\x00" * extend_memory.expand_by
     value = buffer_read(evm.code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 
@@ -387,7 +387,7 @@ def extcodecopy(evm: Evm) -> None:
         )
 
     # OPERATION
-    evm.memory += b"\x00" * extend_memory.size
+    evm.memory += b"\x00" * extend_memory.expand_by
     code = get_account(evm.env.state, address).code
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
@@ -446,7 +446,7 @@ def returndatacopy(evm: Evm) -> None:
         OutOfBoundsRead,
     )
 
-    evm.memory += b"\x00" * extend_memory.size
+    evm.memory += b"\x00" * extend_memory.expand_by
     value = evm.return_data[
         return_data_start_position : return_data_start_position + size
     ]

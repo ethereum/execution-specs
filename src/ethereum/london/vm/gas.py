@@ -69,12 +69,12 @@ class ExtendMemory:
 
     `cost`: `ethereum.base_types.Uint`
         The gas required to perform the extension
-    `size`: `ethereum.base_types.Uint`
+    `expand_by`: `ethereum.base_types.Uint`
         The size by which the memory will be extended
     """
 
     cost: Uint
-    size: Uint
+    expand_by: Uint
 
 
 @dataclass
@@ -83,9 +83,11 @@ class MessageCallGas:
     Define the gas cost and stipend for executing the call opcodes.
 
     `cost`: `ethereum.base_types.Uint`
-        The gas amount for executing the Opcodes.
+        The non-refundable portion of gas reserved for executing the
+        call opcode.
     `stipend`: `ethereum.base_types.Uint`
-        The gas stipend for executing the Opcodes.
+        The portion of gas available to sub-calls that is refundable
+        if not consumed
     """
 
     cost: Uint
