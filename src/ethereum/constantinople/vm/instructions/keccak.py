@@ -17,8 +17,13 @@ from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 
 from .. import Evm
-from ..gas import GAS_KECCAK256, GAS_KECCAK256_WORD, charge_gas
-from ..memory import extend_memory, memory_read_bytes
+from ..gas import (
+    GAS_KECCAK256,
+    GAS_KECCAK256_WORD,
+    calculate_gas_extend_memory,
+    charge_gas,
+)
+from ..memory import memory_read_bytes
 from ..stack import pop, push
 
 
@@ -42,10 +47,13 @@ def keccak(evm: Evm) -> None:
     # GAS
     words = ceil32(Uint(size)) // 32
     word_gas_cost = GAS_KECCAK256_WORD * words
-    extend_memory(evm, memory_start_index, size)
-    charge_gas(evm, GAS_KECCAK256 + word_gas_cost)
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(memory_start_index, size)]
+    )
+    charge_gas(evm, GAS_KECCAK256 + word_gas_cost + extend_memory.cost)
 
     # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
     data = memory_read_bytes(evm.memory, memory_start_index, size)
     hash = keccak256(data)
 
