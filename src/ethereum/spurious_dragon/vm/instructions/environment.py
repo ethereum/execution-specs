@@ -17,7 +17,7 @@ from ethereum.utils.numeric import ceil32
 
 from ...state import get_account
 from ...utils.address import to_address
-from ...vm.memory import buffer_read, extend_memory, memory_write
+from ...vm.memory import buffer_read, memory_write
 from .. import Evm
 from ..gas import (
     GAS_BALANCE,
@@ -25,6 +25,7 @@ from ..gas import (
     GAS_COPY,
     GAS_EXTERNAL,
     GAS_VERY_LOW,
+    calculate_gas_extend_memory,
     charge_gas,
 )
 from ..stack import pop, push
@@ -219,10 +220,13 @@ def calldatacopy(evm: Evm) -> None:
     # GAS
     words = ceil32(Uint(size)) // 32
     copy_gas_cost = GAS_COPY * words
-    extend_memory(evm, memory_start_index, size)
-    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost)
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(memory_start_index, size)]
+    )
+    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
 
     # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
     value = buffer_read(evm.message.data, data_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 
@@ -274,10 +278,13 @@ def codecopy(evm: Evm) -> None:
     # GAS
     words = ceil32(Uint(size)) // 32
     copy_gas_cost = GAS_COPY * words
-    extend_memory(evm, memory_start_index, size)
-    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost)
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(memory_start_index, size)]
+    )
+    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
 
     # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
     value = buffer_read(evm.code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 
@@ -353,10 +360,13 @@ def extcodecopy(evm: Evm) -> None:
     # GAS
     words = ceil32(Uint(size)) // 32
     copy_gas_cost = GAS_COPY * words
-    extend_memory(evm, memory_start_index, size)
-    charge_gas(evm, GAS_EXTERNAL + copy_gas_cost)
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(memory_start_index, size)]
+    )
+    charge_gas(evm, GAS_EXTERNAL + copy_gas_cost + extend_memory.cost)
 
     # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
     code = get_account(evm.env.state, address).code
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
