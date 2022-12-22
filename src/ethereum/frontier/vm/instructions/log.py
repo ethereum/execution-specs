@@ -63,7 +63,7 @@ def log_n(evm: Evm, num_topics: U256) -> None:
         + GAS_LOG_TOPIC * num_topics
         + extend_memory.cost,
     )
-  
+
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     log_entry = Log(

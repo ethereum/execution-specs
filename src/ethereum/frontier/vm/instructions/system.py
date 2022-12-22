@@ -229,7 +229,9 @@ def call(evm: Evm) -> None:
             (memory_output_start_position, memory_output_size),
         ],
     )
-    message_call_gas = calculate_message_call_gas(evm.env.state, gas, to, value)
+    message_call_gas = calculate_message_call_gas(
+        evm.env.state, gas, to, value
+    )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
     # OPERATION
@@ -286,7 +288,9 @@ def callcode(evm: Evm) -> None:
             (memory_output_start_position, memory_output_size),
         ],
     )
-    message_call_gas = calculate_message_call_gas(evm.env.state, gas, to, value)
+    message_call_gas = calculate_message_call_gas(
+        evm.env.state, gas, to, value
+    )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
 
     # OPERATION
