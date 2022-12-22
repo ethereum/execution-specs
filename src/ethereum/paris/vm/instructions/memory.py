@@ -14,8 +14,13 @@ Implementations of the EVM Memory instructions.
 from ethereum.base_types import U8_MAX_VALUE, U256, Bytes
 
 from .. import Evm
-from ..gas import GAS_BASE, GAS_VERY_LOW, charge_gas
-from ..memory import extend_memory, memory_read_bytes, memory_write
+from ..gas import (
+    GAS_BASE,
+    GAS_VERY_LOW,
+    calculate_gas_extend_memory,
+    charge_gas,
+)
+from ..memory import memory_read_bytes, memory_write
 from ..stack import pop, push
 
 
@@ -36,10 +41,14 @@ def mstore(evm: Evm) -> None:
     value = pop(evm.stack).to_be_bytes32()
 
     # GAS
-    extend_memory(evm, start_position, U256(len(value)))
-    charge_gas(evm, GAS_VERY_LOW)
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(start_position, U256(len(value)))]
+    )
+
+    charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
 
     # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
     memory_write(evm.memory, start_position, value)
 
     # PROGRAM COUNTER
@@ -63,10 +72,14 @@ def mstore8(evm: Evm) -> None:
     value = pop(evm.stack)
 
     # GAS
-    extend_memory(evm, start_position, U256(1))
-    charge_gas(evm, GAS_VERY_LOW)
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(start_position, U256(1))]
+    )
+
+    charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
 
     # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
     normalized_bytes_value = Bytes([value & U8_MAX_VALUE])
     memory_write(evm.memory, start_position, normalized_bytes_value)
 
@@ -88,10 +101,13 @@ def mload(evm: Evm) -> None:
     start_position = pop(evm.stack)
 
     # GAS
-    extend_memory(evm, start_position, U256(32))
-    charge_gas(evm, GAS_VERY_LOW)
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(start_position, U256(32))]
+    )
+    charge_gas(evm, GAS_VERY_LOW + extend_memory.cost)
 
     # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
     value = U256.from_be_bytes(
         memory_read_bytes(evm.memory, start_position, U256(32))
     )
