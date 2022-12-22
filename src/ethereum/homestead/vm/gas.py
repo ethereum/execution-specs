@@ -11,6 +11,9 @@ Introduction
 
 EVM gas constants and calculators.
 """
+from dataclasses import dataclass
+from typing import List, Tuple
+
 from ethereum.base_types import U256, Uint
 from ethereum.utils.numeric import ceil32
 
@@ -58,6 +61,38 @@ GAS_IDENTITY = Uint(15)
 GAS_IDENTITY_WORD = Uint(3)
 
 
+@dataclass
+class ExtendMemory:
+    """
+    Define the parameters for memory extension in opcodes
+
+    `cost`: `ethereum.base_types.Uint`
+        The gas required to perform the extension
+    `expand_by`: `ethereum.base_types.Uint`
+        The size by which the memory will be extended
+    """
+
+    cost: Uint
+    expand_by: Uint
+
+
+@dataclass
+class MessageCallGas:
+    """
+    Define the gas cost and stipend for executing the call opcodes.
+
+    `cost`: `ethereum.base_types.Uint`
+        The non-refundable portion of gas reserved for executing the
+        call opcode.
+    `stipend`: `ethereum.base_types.Uint`
+        The portion of gas available to sub-calls that is refundable
+        if not consumed
+    """
+
+    cost: Uint
+    stipend: Uint
+
+
 def charge_gas(evm: Evm, amount: Uint) -> None:
     """
     Subtracts `amount` from `evm.gas_left`.
@@ -103,8 +138,8 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
 
 
 def calculate_gas_extend_memory(
-    memory: bytearray, start_position: U256, size: U256
-) -> Uint:
+    memory: bytearray, extensions: List[Tuple[U256, U256]]
+) -> ExtendMemory:
     """
     Calculates the gas amount to extend memory
 
@@ -112,34 +147,38 @@ def calculate_gas_extend_memory(
     ----------
     memory :
         Memory contents of the EVM.
-    start_position :
-        Starting pointer to the memory.
-    size:
-        Amount of bytes by which the memory needs to be extended.
+    extensions:
+        List of extensions to be made to the memory.
+        Consists of a tuple of start position and size.
 
     Returns
     -------
-    to_be_paid : `ethereum.base_types.Uint`
-        returns `0` if size=0 or if the
-        size after extending memory is less than the size before extending
-        else it returns the amount that needs to be paid for extendinng memory.
+    extend_memory: `ExtendMemory`
     """
-    if size == 0:
-        return Uint(0)
-    memory_size = Uint(len(memory))
-    before_size = ceil32(memory_size)
-    after_size = ceil32(Uint(start_position) + Uint(size))
-    if after_size <= before_size:
-        return Uint(0)
-    already_paid = calculate_memory_gas_cost(before_size)
-    total_cost = calculate_memory_gas_cost(after_size)
-    to_be_paid = total_cost - already_paid
-    return to_be_paid
+    size_to_extend = Uint(0)
+    to_be_paid = Uint(0)
+    current_size = Uint(len(memory))
+    for start_position, size in extensions:
+        if size == 0:
+            continue
+        before_size = ceil32(current_size)
+        after_size = ceil32(Uint(start_position) + Uint(size))
+        if after_size <= before_size:
+            continue
+
+        size_to_extend += after_size - before_size
+        already_paid = calculate_memory_gas_cost(before_size)
+        total_cost = calculate_memory_gas_cost(after_size)
+        to_be_paid += total_cost - already_paid
+
+        current_size = after_size
+
+    return ExtendMemory(to_be_paid, size_to_extend)
 
 
-def calculate_call_gas_cost(
+def calculate_message_call_gas(
     state: State, gas: Uint, to: Address, value: U256
-) -> Uint:
+) -> MessageCallGas:
     """
     Calculates the gas amount for executing Opcodes `CALL` and `CALLCODE`.
 
@@ -156,26 +195,10 @@ def calculate_call_gas_cost(
 
     Returns
     -------
-    call_gas_cost: `ethereum.base_types.Uint`
-        The total gas amount for executing Opcodes `CALL` and `CALLCODE`.
+    message_call_gas: `MessageCallGas`
     """
     create_gas_cost = Uint(0) if account_exists(state, to) else GAS_NEW_ACCOUNT
     transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
-    return GAS_CALL + gas + create_gas_cost + transfer_gas_cost
-
-
-def calculate_message_call_gas_stipend(value: U256) -> Uint:
-    """
-    Calculates the gas stipend for making the message call
-    with the given value.
-
-    Parameters
-    ----------
-    value:
-        The amount of `ETH` that needs to be transferred.
-    Returns
-    -------
-    message_call_gas_stipend : `ethereum.base_types.Uint`
-        The gas stipend for making the message-call.
-    """
-    return Uint(0) if value == 0 else GAS_CALL_STIPEND
+    cost = GAS_CALL + gas + create_gas_cost + transfer_gas_cost
+    stipend = gas if value == 0 else GAS_CALL_STIPEND + gas
+    return MessageCallGas(cost, stipend)
