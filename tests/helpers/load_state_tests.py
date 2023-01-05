@@ -22,6 +22,7 @@ from ethereum.utils.hexadecimal import (
     hex_to_u256,
     hex_to_uint,
 )
+from ethereum_spec_tools.forks import Hardfork
 
 
 class NoTestsFound(Exception):
@@ -46,6 +47,11 @@ class BaseLoad(ABC):
     @property
     @abstractmethod
     def network(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def pos_fork(self) -> bool:
         pass
 
     @property
@@ -122,6 +128,17 @@ class Load(BaseLoad):
     @property
     def network(self) -> str:
         return self._network
+
+    @property
+    def pos_fork(self) -> bool:
+        forks = Hardfork.discover()
+        merge_fork_found = False
+        for fork in forks:
+            if fork.name == "ethereum.paris":
+                merge_fork_found = True
+            if fork.name == "ethereum." + self._fork_module:
+                break
+        return merge_fork_found
 
     @property
     def Block(self) -> Any:
@@ -396,8 +413,7 @@ def run_blockchain_st_test(test_case: Dict, load: BaseLoad) -> None:
         chain_id=test_data["chain_id"],
     )
 
-    if not test_data["ignore_pow_validation"] or load.fork_module == "paris":
-        # FIXME: Test for a POS hardfork properly, rather than `== "paris"`
+    if not test_data["ignore_pow_validation"] or load.pos_fork:
         add_blocks_to_chain(chain, test_data, load)
     else:
         with patch(
