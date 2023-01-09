@@ -51,7 +51,7 @@ class BaseLoad(ABC):
 
     @property
     @abstractmethod
-    def pos_fork(self) -> bool:
+    def proof_of_stake(self) -> bool:
         pass
 
     @property
@@ -130,7 +130,7 @@ class Load(BaseLoad):
         return self._network
 
     @property
-    def pos_fork(self) -> bool:
+    def proof_of_stake(self) -> bool:
         forks = Hardfork.discover()
         merge_fork_found = False
         for fork in forks:
@@ -413,7 +413,7 @@ def run_blockchain_st_test(test_case: Dict, load: BaseLoad) -> None:
         chain_id=test_data["chain_id"],
     )
 
-    if not test_data["ignore_pow_validation"] or load.pos_fork:
+    if not test_data["ignore_pow_validation"] or load.proof_of_stake:
         add_blocks_to_chain(chain, test_data, load)
     else:
         with patch(
