@@ -17,8 +17,14 @@ from ethereum.base_types import U256
 
 from ...eth_types import Log
 from .. import Evm
-from ..gas import GAS_LOG, GAS_LOG_DATA, GAS_LOG_TOPIC, charge_gas
-from ..memory import extend_memory, memory_read_bytes
+from ..gas import (
+    GAS_LOG,
+    GAS_LOG_DATA,
+    GAS_LOG_TOPIC,
+    calculate_gas_extend_memory,
+    charge_gas,
+)
+from ..memory import memory_read_bytes
 from ..stack import pop
 
 
@@ -47,10 +53,19 @@ def log_n(evm: Evm, num_topics: U256) -> None:
         topics.append(topic)
 
     # GAS
-    extend_memory(evm, memory_start_index, size)
-    charge_gas(evm, GAS_LOG + GAS_LOG_DATA * size + GAS_LOG_TOPIC * num_topics)
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(memory_start_index, size)]
+    )
+    charge_gas(
+        evm,
+        GAS_LOG
+        + GAS_LOG_DATA * size
+        + GAS_LOG_TOPIC * num_topics
+        + extend_memory.cost,
+    )
 
     # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
     log_entry = Log(
         address=evm.message.current_target,
         topics=tuple(topics),
