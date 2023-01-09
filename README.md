@@ -5,33 +5,59 @@ Ethereum tests.
 
 ## Quick Start
 
-Relies on Python `3.10.0`, `geth` `v1.10.13`, `solc` `v0.8.17` or later. 
+### Prerequisites
 
-```console
-$ git clone https://github.com/ethereum/execution-spec-tests
-$ cd execution-spec-tests
-$ pip install -e .
-$ tf --output="fixtures"
-```
+The following are required to either generate or develop tests:
 
-It is recommended to use a virtual environment to run the tests:
+1. Python `3.10.0`.
+2. [`go-ethereum`](https://github.com/ethereum/go-ethereum) `v1.10.13` for `geth`'s `evm` utility which must be accessible in the `PATH`. See https://github.com/ethereum/go-ethereum#building-the-source for information on how to build go-ethereum utilities.
+3. [`solc`](https://github.com/ethereum/solidity) >= `v0.8.17`; `solc` must be in accessible in the `PATH`.
+
+### Generating the Execution Spec Tests For Use With Clients
+
+To generate tests from the test "fillers", it's necessary to install the Python packages provided by `execution-spec-tests` (it's recommended to use a virtual environment for the installation):
+
 ```console
 $ git clone https://github.com/ethereum/execution-spec-tests
 $ cd execution-spec-tests
 $ python -m venv ./venv/
 $ source ./venv/bin/activate
 $ pip install -e .
+```
+
+To generate all the tests defined in the `./fillers` sub-directory, run the `tf` command:
+```console
 $ tf --output="fixtures"
 ```
 
-Go-ethereum's `evm` command must be accessible in the `PATH`
-to be able to successfully produce the tests. See
-https://github.com/ethereum/go-ethereum#building-the-source for information on
-how to build go-ethereum utilities.
+Note that the test `post` conditions are tested against the output of the `geth` `evm` utility during test generation.
 
-`solc` compiler must also be accessible in the `PATH`.
+To generate all the tests in the `./fillers/vm` sub-directory (category), for example, run:
+```console
+tf --output="fixtures" --test-categories vm
+```
 
-## Overview 
+To generate all the tests in the `./fillers/*/dup.py` modules, for example, run:
+```console
+tf --output="fixtures" --test-module dup
+```
+
+To generate specific tests, such as `./fillers/*/*.py::test_dup`, for example, run (remove the `test_` prefix from the test case's function name):
+```console
+tf --output="fixtures" --test-case dup
+```
+
+### Testing the Execution Spec Tests Framework
+
+The Python packages provided by the execution spec tests framework have their own test suite that can be ran via `tox`:
+```console
+$ python -m venv ./venv/
+$ source ./venv/bin/activate
+$ pip install tox
+$ tox -e py3
+```
+
+## Execution Spec Tests Package Overview 
 
 ### `ethereum_test_tools`
 
@@ -40,7 +66,7 @@ developers to easily test the consensus logic of Ethereum clients.
 
 ### `ethereum_test_filling_tool`
 
-The `ethereum_test_filling_tool` pacakge is a CLI application that recursively
+The `ethereum_test_filling_tool` package is a CLI application that recursively
 searches a given directory for Python modules that export test filler functions
 generated using `ethereum_test_tools`.
 It then processes the fillers using the transition tool and the block builder
@@ -85,7 +111,7 @@ Examples of State tests:
 - Test interactions between multiple smart contracts
 - Test creation of smart contracts
 
-The Blockchain tests span multiple blocks which can contain or not transactions, and mainly focus on the block to block effects to the Ethereum state.
+The Blockchain tests span multiple blocks which may or may not contain transactions and mainly focus on the block to block effects to the Ethereum state.
 
 - Verify system-level operations such as coinbase balance updates or withdrawals
 - Verify fork transitions
@@ -118,9 +144,9 @@ multiple `yield` operations during its runtime to each time yield a single
 
 The test vector's generator function _must_ be decorated by only one of the
 following decorators:
-- test_from
-- test_from_until
-- test_only
+- `test_from`
+- `test_from_until`
+- `test_only`
 
 These decorators specify the forks on which the test vector is supposed to run.
 
@@ -219,7 +245,7 @@ specified in their `post` property actually match what was returned by the
 transition tool.
 
 Within the `post` dictionary object, an account address can be:
-- `None`: The account will not be checked for absence or existance in the
+- `None`: The account will not be checked for absence or existence in the
   result returned by the transition tool.
 - `Account` object: The test expects that this account exist and also has
   properties equal to the properties specified by the `Account` object.
