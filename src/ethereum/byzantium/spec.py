@@ -43,12 +43,11 @@ from .eth_types import (
 )
 from .state import (
     State,
-    account_exists,
+    account_exists_and_is_empty,
     create_ether,
     destroy_account,
     get_account,
     increment_nonce,
-    is_account_empty,
     set_account_balance,
     state_root,
 )
@@ -622,17 +621,14 @@ def process_transaction(
         set_account_balance(
             env.state, env.coinbase, coinbase_balance_after_mining_fee
         )
-    elif is_account_empty(env.state, env.coinbase):
+    elif account_exists_and_is_empty(env.state, env.coinbase):
         destroy_account(env.state, env.coinbase)
 
     for address in output.accounts_to_delete:
         destroy_account(env.state, address)
 
     for address in output.touched_accounts:
-        should_delete = account_exists(
-            env.state, address
-        ) and is_account_empty(env.state, address)
-        if should_delete:
+        if account_exists_and_is_empty(env.state, address):
             destroy_account(env.state, address)
 
     return total_gas_used, output.logs, output.has_erred
