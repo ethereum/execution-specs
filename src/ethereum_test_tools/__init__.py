@@ -19,7 +19,7 @@ from .common import (
     to_address,
     to_hash,
 )
-from .filling.decorators import test_from, test_only
+from .filling.decorators import test_from, test_from_until, test_only
 from .filling.fill import fill_test
 from .spec import BlockchainTest, StateTest
 from .vm import Opcode, Opcodes
@@ -48,6 +48,7 @@ __all__ = (
     "fill_test",
     "is_fork",
     "test_from",
+    "test_from_until",
     "test_only",
     "to_address",
     "to_hash",
