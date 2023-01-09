@@ -459,7 +459,7 @@ def load_json_fixture(test_file: str, network: str) -> Generator:
         # Some newer test files have patterns like _d0g0v0_
         # between test_name and network
         keys_to_search = re.compile(
-            f"{re.escape(test_name)}.*{re.escape(network)}"
+            f"^{re.escape(test_name)}.*{re.escape(network)}$"
         )
         found_keys = list(filter(keys_to_search.match, data.keys()))
 
@@ -536,6 +536,7 @@ def fetch_state_test_files(
 
 # Test case Identifier
 def idfn(test_case: Dict) -> str:
-    folder_name = test_case["test_file"].split("/")[-2]
-    # Assign Folder name and test_key to identify tests in output
-    return folder_name + " - " + test_case["test_key"]
+    if isinstance(test_case, dict):
+        folder_name = test_case["test_file"].split("/")[-2]
+        # Assign Folder name and test_key to identify tests in output
+        return folder_name + " - " + test_case["test_key"]
