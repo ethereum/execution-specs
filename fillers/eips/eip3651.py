@@ -155,7 +155,7 @@ def test_warm_coinbase_call_out_of_gas(fork):
         yield StateTest(env=env, pre=pre, post=post, txs=[tx])
 
 
-@test_from(fork="merged")
+@test_from(fork="shanghai")
 def test_warm_coinbase_gas_usage(fork):
     """
     Test gas usage of different opcodes assuming warm coinbase.
