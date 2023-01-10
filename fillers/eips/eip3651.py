@@ -21,7 +21,7 @@ from ethereum_test_tools import (
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
-@test_from(fork="merged")
+@test_from(fork="shanghai")
 def test_warm_coinbase_call_out_of_gas(fork):
     """
     Test warm coinbase.
