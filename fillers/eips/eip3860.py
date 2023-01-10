@@ -483,7 +483,7 @@ def generate_create_opcode_initcode_test_cases(
                 let contract_length := calldatasize()
                 calldatacopy(0, 0, contract_length)
                 let gas1 := gas()
-                let res := create2(0, 0, contract_length, 0)
+                let res := create2(0, 0, contract_length, 0xdeadbeef)
                 let gas2 := gas()
                 sstore(0, res)
                 sstore(1, sub(gas1, gas2))
