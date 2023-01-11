@@ -229,7 +229,7 @@ def generate_tx_initcode_limit_test_cases(
     )
 
 
-@test_from(fork="shanghai", eips=[3860])
+@test_from(fork="shanghai")
 def test_initcode_limit_contract_creating_tx(fork):
     """
     Test creating a contract using a transaction using an initcode that is
@@ -392,7 +392,7 @@ def generate_gas_cost_test_cases(
     )
 
 
-@test_from(fork="shanghai", eips=[3860])
+@test_from(fork="shanghai")
 def test_initcode_limit_contract_creating_tx_gas_usage(fork):
     """
     Test EIP-3860 Limit Initcode Gas Usage for a contract
@@ -570,7 +570,7 @@ def generate_create_opcode_initcode_test_cases(
     )
 
 
-@test_from(fork="shanghai", eips=[3860])
+@test_from(fork="shanghai")
 def test_initcode_limit_create_opcode(fork):
     """
     Test creating a contract using the CREATE opcode with an initcode that is
@@ -637,7 +637,7 @@ def test_initcode_limit_create_opcode(fork):
     )
 
 
-@test_from(fork="shanghai", eips=[3860])
+@test_from(fork="shanghai")
 def test_initcode_limit_create2_opcode(fork):
     """
     Test creating a contract using the CREATE2 opcode with an initcode that is

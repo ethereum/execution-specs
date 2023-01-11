@@ -18,7 +18,7 @@ from ethereum_test_tools import (
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
-@test_from(fork="shanghai", eips=[3855])
+@test_from(fork="shanghai")
 def test_push0(fork):
     """
     Test push0 opcode.
