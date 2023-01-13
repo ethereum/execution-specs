@@ -457,6 +457,18 @@ def generate_create_opcode_initcode_test_cases(
     """
     env = Environment()
 
+    call_code = Yul(
+        """
+        {
+            calldatacopy(0, 0, calldatasize())
+            let call_result := call(5000000, \
+                0x0000000000000000000000000000000000000100, \
+                0, 0, calldatasize(), 0, 0)
+            sstore(call_result, 1)
+        }
+        """
+    )
+
     if opcode == "create":
         code = Yul(
             """
@@ -483,7 +495,7 @@ def generate_create_opcode_initcode_test_cases(
                 let contract_length := calldatasize()
                 calldatacopy(0, 0, contract_length)
                 let gas1 := gas()
-                let res := create2(0, 0, contract_length, 0xdeadbeef)
+                let res := create2(0, 0, contract_length, 0xDEADBEEF)
                 let gas2 := gas()
                 sstore(0, res)
                 sstore(1, sub(gas1, gas2))
@@ -492,9 +504,10 @@ def generate_create_opcode_initcode_test_cases(
         )
         created_contract_address = compute_create2_address(
             address=0x100,
-            salt=0,
+            salt=0xDEADBEEF,
             initcode=initcode.assemble(),
         )
+
     else:
         raise Exception("invalid opcode for generator")
 
@@ -504,13 +517,17 @@ def generate_create_opcode_initcode_test_cases(
             code=code,
             nonce=1,
         ),
+        to_address(0x200): Account(
+            code=call_code,
+            nonce=1,
+        ),
     }
 
     post: Dict[Any, Any] = {}
 
     tx = Transaction(
         nonce=0,
-        to=to_address(0x100),
+        to=to_address(0x200),
         data=initcode,
         gas_limit=10000000,
         gas_price=10,
@@ -525,14 +542,24 @@ def generate_create_opcode_initcode_test_cases(
         expected_gas_usage += PUSH_DUP_OPCODE_GAS
 
     if len(initcode.assemble()) > MAX_INITCODE_SIZE and eip_3860_active:
+        # Call returns 0 as out of gas s[0]==1
+        post[to_address(0x200)] = Account(
+            nonce=1,
+            storage={
+                0: 1,
+                1: 0,
+            },
+        )
+
         post[created_contract_address] = Account.NONEXISTENT
         post[to_address(0x100)] = Account(
             nonce=1,
             storage={
                 0: 0,
-                1: expected_gas_usage,
+                1: 0,
             },
         )
+
     else:
         # The initcode is only executed if the length check succeeds
         expected_gas_usage += initcode.execution_gas
@@ -551,6 +578,15 @@ def generate_create_opcode_initcode_test_cases(
             expected_gas_usage += calculate_initcode_word_cost(
                 len(initcode.assemble())
             )
+
+        # Call returns 1 as valid initcode length s[0]==1 && s[1]==1
+        post[to_address(0x200)] = Account(
+            nonce=1,
+            storage={
+                0: 0,
+                1: 1,
+            },
+        )
 
         post[created_contract_address] = Account(code=initcode.deploy_code)
         post[to_address(0x100)] = Account(
