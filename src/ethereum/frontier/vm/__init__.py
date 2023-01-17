@@ -21,11 +21,8 @@ from ethereum.crypto.hash import Hash32
 
 from ..eth_types import Address, Log
 from ..state import State
-from ..utils.address import to_address
 
 __all__ = ("Environment", "Evm", "Message")
-
-RIPEMD160_ADDRESS = to_address(Uint(3))
 
 
 @dataclass
