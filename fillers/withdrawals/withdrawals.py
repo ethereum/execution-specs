@@ -20,6 +20,8 @@ from ethereum_test_tools import (
 
 WITHDRAWALS_FORK = "shanghai"
 
+ONE_GWEI = 10**9
+
 # Common contracts across withdrawals tests
 SET_STORAGE = Yul(
     """
@@ -67,7 +69,7 @@ def test_withdrawals_use_value_in_tx(_):
     tx = Transaction(
         # Transaction sent from the `TestAddress`, which has 0 balance at start
         nonce=0,
-        gas_price=10,
+        gas_price=ONE_GWEI,
         gas_limit=21000,
         to=to_address(0x100),
         data="0x",
@@ -77,7 +79,7 @@ def test_withdrawals_use_value_in_tx(_):
         index=0,
         validator=0,
         address=TestAddress,
-        amount=tx.gas_price * tx.gas_limit + 1,
+        amount=tx.gas_limit + 1,
     )
 
     blocks = [
@@ -100,7 +102,7 @@ def test_withdrawals_use_value_in_tx(_):
         ),
     ]
     post = {
-        TestAddress: Account(balance=1),
+        TestAddress: Account(balance=ONE_GWEI),
     }
 
     yield BlockchainTest(pre=pre, post=post, blocks=blocks)
@@ -111,17 +113,17 @@ def test_withdrawals_use_value_in_contract(_):
     """
     Test sending value from contract that has not received a withdrawal
     """
-    SEND_ONE_WEI = Yul(
+    SEND_ONE_GWEI = Yul(
         """
         {
-            let ret := call(gas(), 0x200, 1, 0, 0, 0, 0)
+            let ret := call(gas(), 0x200, 1000000000, 0, 0, 0, 0)
             sstore(number(), ret)
         }
         """
     )
     pre = {
         TestAddress: Account(balance=1000000000000000000000, nonce=0),
-        to_address(0x100): Account(balance=0, code=SEND_ONE_WEI),
+        to_address(0x100): Account(balance=0, code=SEND_ONE_GWEI),
         to_address(0x200): Account(balance=0),
     }
     tx = Transaction(
@@ -157,7 +159,7 @@ def test_withdrawals_use_value_in_contract(_):
             }
         ),
         to_address(0x200): Account(
-            balance=1,
+            balance=ONE_GWEI,
         ),
     }
 
@@ -184,7 +186,7 @@ def test_withdrawals_balance_within_block(_):
             code=SAVE_BALANCE_ON_BLOCK_NUMBER,
         ),
         to_address(0x200): Account(
-            balance=1,
+            balance=ONE_GWEI,
         ),
     }
     blocks = [
@@ -202,7 +204,7 @@ def test_withdrawals_balance_within_block(_):
                     index=0,
                     validator=0,
                     address=to_address(0x200),
-                    amount=10**9,
+                    amount=1,
                 )
             ],
         ),
@@ -221,8 +223,8 @@ def test_withdrawals_balance_within_block(_):
     post = {
         to_address(0x100): Account(
             storage={
-                1: 1,
-                2: 10**9 + 1,
+                1: ONE_GWEI,
+                2: 2 * ONE_GWEI,
             }
         )
     }
@@ -267,7 +269,7 @@ def test_withdrawals_multiple_withdrawals_same_address(_):
                     index=i,
                     validator=0,
                     address=ADDRESSES[i % len(ADDRESSES)],
-                    amount=10**9,
+                    amount=1,
                 )
                 for i in range(len(ADDRESSES) * 16)
             ],
@@ -278,7 +280,7 @@ def test_withdrawals_multiple_withdrawals_same_address(_):
 
     for addr in ADDRESSES:
         post[addr] = Account(
-            balance=16 * 10**9,
+            balance=16 * ONE_GWEI,
             storage={},
         )
 
@@ -294,7 +296,7 @@ def test_withdrawals_multiple_withdrawals_same_address(_):
                     index=i * 16 + j,
                     validator=i,
                     address=ADDRESSES[i],
-                    amount=10**9,
+                    amount=1,
                 )
                 for j in range(16)
             ],
@@ -319,7 +321,7 @@ def test_withdrawals_many_withdrawals(_):
     post = {}
     for i in range(N):
         addr = to_address(0x100 * i)
-        amount = i * 10**9
+        amount = i * 1
         pre[addr] = Account(
             code=SET_STORAGE,
         )
@@ -333,7 +335,7 @@ def test_withdrawals_many_withdrawals(_):
         )
         post[addr] = Account(
             code=SET_STORAGE,
-            balance=amount,
+            balance=amount * ONE_GWEI,
             storage={},
         )
 
@@ -357,7 +359,7 @@ def test_withdrawals_self_destructing_account(_):
         TestAddress: Account(balance=1000000000000000000000, nonce=0),
         to_address(0x100): Account(
             code=SELFDESTRUCT,
-            balance=100,
+            balance=(100 * ONE_GWEI),
         ),
         to_address(0x200): Account(
             balance=0,
@@ -378,7 +380,7 @@ def test_withdrawals_self_destructing_account(_):
         index=0,
         validator=0,
         address=to_address(0x100),
-        amount=99,
+        amount=(99),
     )
 
     block = Block(
@@ -389,11 +391,11 @@ def test_withdrawals_self_destructing_account(_):
     post = {
         to_address(0x100): Account(
             code=None,
-            balance=99,
+            balance=(99 * ONE_GWEI),
         ),
         to_address(0x200): Account(
             code=None,
-            balance=100,
+            balance=(100 * ONE_GWEI),
         ),
     }
 
@@ -444,7 +446,7 @@ def test_withdrawals_newly_created_contract(_):
     post = {
         created_contract: Account(
             code="0x00",
-            balance=1,
+            balance=ONE_GWEI,
         ),
     }
 
@@ -452,8 +454,8 @@ def test_withdrawals_newly_created_contract(_):
 
     # Same test but include value in the contract creating transaction
 
-    tx.value = 1
-    post[created_contract].balance = 2
+    tx.value = ONE_GWEI
+    post[created_contract].balance = 2 * ONE_GWEI
 
     yield BlockchainTest(pre=pre, post=post, blocks=[block])
 
@@ -497,13 +499,13 @@ def test_withdrawals_no_evm_execution(_):
                     index=0,
                     validator=0,
                     address=to_address(0x100),
-                    amount=10**9,
+                    amount=1,
                 ),
                 Withdrawal(
                     index=1,
                     validator=1,
                     address=to_address(0x200),
-                    amount=10**9,
+                    amount=1,
                 ),
             ],
         ),
@@ -525,13 +527,13 @@ def test_withdrawals_no_evm_execution(_):
                     index=0,
                     validator=0,
                     address=to_address(0x300),
-                    amount=10**9,
+                    amount=1,
                 ),
                 Withdrawal(
                     index=1,
                     validator=1,
                     address=to_address(0x400),
-                    amount=10**9,
+                    amount=1,
                 ),
             ],
         ),
@@ -562,6 +564,10 @@ def test_withdrawals_zero_amount(_):
             code="0x00",
             balance=0,
         ),
+        to_address(0x300): Account(
+            code="0x00",
+            balance=0,
+        ),
     }
 
     withdrawal_1 = Withdrawal(
@@ -584,6 +590,10 @@ def test_withdrawals_zero_amount(_):
             code="0x00",
             balance=0,
         ),
+        to_address(0x300): Account(
+            code="0x00",
+            balance=0,
+        ),
     }
 
     yield BlockchainTest(pre=pre, post=post, blocks=[block])
@@ -597,7 +607,19 @@ def test_withdrawals_zero_amount(_):
         amount=1,
     )
     block.withdrawals.append(withdrawal_2)
-    post[to_address(0x200)].balance = 1
+    post[to_address(0x200)].balance = ONE_GWEI
+    yield BlockchainTest(pre=pre, post=post, blocks=[block])
+
+    # Same test but add another withdrawal with max amount in same
+    # block.
+    withdrawal_3 = Withdrawal(
+        index=2,
+        validator=0,
+        address=to_address(0x300),
+        amount=2**64 - 1,
+    )
+    block.withdrawals.append(withdrawal_3)
+    post[to_address(0x300)].balance = (2**64 - 1) * ONE_GWEI
     yield BlockchainTest(pre=pre, post=post, blocks=[block])
 
     # Same test but reverse order of withdrawals.

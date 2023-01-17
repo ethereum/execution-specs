@@ -36,6 +36,8 @@ u256
 utils
 validator
 vm
+gwei
+wei
 
 byteorder
 delitem
