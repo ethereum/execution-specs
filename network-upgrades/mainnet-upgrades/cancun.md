@@ -10,19 +10,22 @@ Changes [Considered for Inclusion](https://github.com/ethereum/execution-specs/t
 
 * [EIP-1153: Transient storage opcodes](https://eips.ethereum.org/EIPS/eip-1153)
 * [EIP-2537: Precompile for BLS12-381 curve operations](https://eips.ethereum.org/EIPS/eip-2537)
+* [EIP-6188: Nonce Cap](https://eips.ethereum.org/EIPS/eip-6188)
+* [EIP-6189: Alias Contracts](https://eips.ethereum.org/EIPS/eip-6189)
+* [EIP-6190: Verkle-compatible SELFDESTRUCT](https://eips.ethereum.org/EIPS/eip-6190)
 
 ### Implementation Progresss
 
 Implementation status of Included & CFI'd EIPs across participating clients.
 
 
-| EIP            | [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153)                   | [EIP-2537](https://eips.ethereum.org/EIPS/eip-2537)                  | [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844)                       |
-|----------------|-----------------------------------------------------------------------|----------------------------------------------------------------------|---------------------------------------------------------------------------|
-| **Geth**       | [Merged](https://github.com/ethereum/go-ethereum/pull/26003)          | [Merged](https://github.com/ethereum/go-ethereum/pull/21018)         | [Not merged](https://github.com/ethereum/go-ethereum/pull/26283)          |
-| **Besu**       | [Not merged](https://github.com/hyperledger/besu/pull/4118)           | [Merged](https://github.com/hyperledger/besu/pull/964)               |                                                                           |
-| **Nethermind** | [Merged](https://github.com/NethermindEth/nethermind/pull/4126)       |                                                                      | [Not merged](https://github.com/NethermindEth/nethermind/pull/4858)       |
-| **Erigon**     | [Not merged](https://github.com/ledgerwatch/erigon/pull/6133)         |                                                                      |                                                                           |
-| **EthereumJS** | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1860) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/785) | [Not merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2349) |
+| EIP            | [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153)                   | [EIP-2537](https://eips.ethereum.org/EIPS/eip-2537)                  | [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844)                       | [EIP-6188](https://eips.ethereum.org/EIPS/eip-6188) | [EIP-6189](https://eips.ethereum.org/EIPS/eip-6189) | [EIP-6190](https://eips.ethereum.org/EIPS/eip-6190) |
+|----------------|-----------------------------------------------------------------------|----------------------------------------------------------------------|---------------------------------------------------------------------------|-|-|-|
+| **Geth**       | [Merged](https://github.com/ethereum/go-ethereum/pull/26003)          | [Merged](https://github.com/ethereum/go-ethereum/pull/21018)         | [Not merged](https://github.com/ethereum/go-ethereum/pull/26283)          | | | |
+| **Besu**       | [Not merged](https://github.com/hyperledger/besu/pull/4118)           | [Merged](https://github.com/hyperledger/besu/pull/964)               |                                                                           | | | |
+| **Nethermind** | [Merged](https://github.com/NethermindEth/nethermind/pull/4126)       |                                                                      | [Not merged](https://github.com/NethermindEth/nethermind/pull/4858)       | | | |
+| **Erigon**     | [Not merged](https://github.com/ledgerwatch/erigon/pull/6133)         |                                                                      |                                                                           | | | |
+| **EthereumJS** | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1860) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/785) | [Not merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2349) | | | |
 
 
 ### Readiness Checklist
