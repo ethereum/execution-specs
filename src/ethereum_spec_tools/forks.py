@@ -35,17 +35,31 @@ class Hardfork:
         modules = pkgutil.iter_modules(path, ethereum.__name__ + ".")
         modules = (module for module in modules if module.ispkg)
         forks: List[H] = []
+        new_package = None
 
         for pkg in modules:
             mod = importlib.import_module(pkg.name)
-            block = getattr(mod, "MAINNET_FORK_BLOCK", None)
+            block = getattr(mod, "MAINNET_FORK_BLOCK", -1)
 
+            if block == -1:
+                continue
+
+            # If the fork block is unknown, for example in a
+            # new improvement proposal, it will be set as None.
             if block is None:
+                if new_package is not None:
+                    raise ValueError(
+                        "cannot have more than 1 new fork package."
+                    )
+                else:
+                    new_package = cls(mod)
                 continue
 
             forks.append(cls(mod))
 
         forks.sort(key=lambda fork: fork.block)
+        if new_package:
+            forks.append(new_package)
 
         return forks
 
