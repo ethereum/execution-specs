@@ -270,7 +270,7 @@ fork_map = {
     "berlin": "Berlin",
     "london": "London",
     "arrow glacier": "ArrowGlacier",
-    "merged": "Merged",
+    "merge": "Merge",
     "shanghai": "Shanghai",
 }
 
@@ -288,7 +288,7 @@ def random_required(fork: str) -> bool:
     """
     Return true if the fork requires currentRandom in the block.
     """
-    return fork_list.index(fork.lower()) >= fork_list.index("merged")
+    return fork_list.index(fork.lower()) >= fork_list.index("merge")
 
 
 def withdrawals_required(fork: str) -> bool:
