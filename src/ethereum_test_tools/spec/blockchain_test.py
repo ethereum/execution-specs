@@ -50,7 +50,7 @@ class BlockchainTest(BaseTest):
         b11r: BlockBuilder,
         t8n: TransitionTool,
         fork: str,
-    ) -> FixtureHeader:
+    ) -> Tuple[str, FixtureHeader]:
         """
         Create a genesis block from the state test definition.
         """
@@ -67,7 +67,7 @@ class BlockchainTest(BaseTest):
             transactions_root=EmptyTrieRoot,
             receipt_root=EmptyTrieRoot,
             bloom="0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-            difficulty=0x20000,
+            difficulty=0x20000 if env.difficulty is None else env.difficulty,
             number=0,
             gas_limit=env.gas_limit,
             gas_used=0,
@@ -81,10 +81,10 @@ class BlockchainTest(BaseTest):
             else None,
         )
 
-        (_, h) = b11r.build(genesis.to_geth_dict(), "", [])
+        (genesis_rlp, h) = b11r.build(genesis.to_geth_dict(), "", [])
         genesis.hash = h
 
-        return genesis
+        return genesis_rlp, genesis
 
     def make_block(
         self,

@@ -39,7 +39,7 @@ def fill_test(
 
             t8n.reset_traces()
 
-            genesis = test.make_genesis(b11r, t8n, fork)
+            genesis_rlp, genesis = test.make_genesis(b11r, t8n, fork)
 
             try:
                 (blocks, head, alloc) = test.make_blocks(
@@ -57,6 +57,7 @@ def fill_test(
             fixture = Fixture(
                 blocks=blocks,
                 genesis=genesis,
+                genesis_rlp=genesis_rlp,
                 head=head,
                 fork="+".join([fork] + [str(eip) for eip in eips])
                 if eips is not None
