@@ -21,7 +21,7 @@ forks = [
     "berlin",
     "london",
     "arrow glacier",
-    "merged",
+    "merge",
     "shanghai",
 ]
 
@@ -59,7 +59,7 @@ def is_london(fork: str) -> bool:
     return i >= forks.index("london")
 
 
-def is_merged(fork: str) -> bool:
+def is_merge(fork: str) -> bool:
     """
     Returns `True` if `fork` is Merge-compatible, `False` otherwise.
     """
@@ -68,7 +68,7 @@ def is_merged(fork: str) -> bool:
         return False
 
     i = forks.index(fork_lower)
-    return i >= forks.index("merged")
+    return i >= forks.index("merge")
 
 
 def is_shanghai(fork: str) -> bool:
@@ -99,21 +99,21 @@ def get_reward(fork: str) -> int:
     """
     Returns the expected reward amount in wei of a given fork
     """
-    return 0 if is_merged(fork) else 2000000000000000000
+    return 0 if is_merge(fork) else 2000000000000000000
 
 
 def must_have_zero_difficulty(fork: str) -> bool:
     """
     Returns `True` if the environment is expected to have `difficulty==0`
     """
-    return is_merged(fork)
+    return is_merge(fork)
 
 
 def must_contain_prev_randao(fork: str) -> bool:
     """
     Returns `True` if the environment is expected to have `currentRandom` value
     """
-    return is_merged(fork)
+    return is_merge(fork)
 
 
 def must_contain_base_fee(fork: str) -> bool:
