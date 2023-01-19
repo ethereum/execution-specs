@@ -58,7 +58,7 @@ def test_make_genesis(fork: str, hash: str):
     b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
 
-    genesis = StateTest(
+    _, genesis = StateTest(
         env=env, pre=pre, post={}, txs=[], name="some_state_test"
     ).make_genesis(b11r, t8n, fork)
     assert genesis.hash is not None

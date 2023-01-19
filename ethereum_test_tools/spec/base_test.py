@@ -94,7 +94,7 @@ class BaseTest:
         b11r: BlockBuilder,
         t8n: TransitionTool,
         fork: str,
-    ) -> FixtureHeader:
+    ) -> Tuple[str, FixtureHeader]:
         """
         Create a genesis block from the test definition.
         """
