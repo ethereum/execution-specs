@@ -843,6 +843,7 @@ class Fixture:
 
     blocks: List[FixtureBlock]
     genesis: FixtureHeader
+    genesis_rlp: str
     head: str
     fork: str
     pre_state: Mapping[str, Account]
@@ -990,6 +991,7 @@ class JSONEncoder(json.JSONEncoder):
                     for b in obj.blocks
                 ],
                 "genesisBlockHeader": self.default(obj.genesis),
+                "genesisRLP": obj.genesis_rlp,
                 "lastblockhash": obj.head,
                 "network": obj.fork,
                 "pre": json.loads(json.dumps(obj.pre_state, cls=JSONEncoder)),

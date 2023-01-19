@@ -49,7 +49,7 @@ class StateTest(BaseTest):
         b11r: BlockBuilder,
         t8n: TransitionTool,
         fork: str,
-    ) -> FixtureHeader:
+    ) -> Tuple[str, FixtureHeader]:
         """
         Create a genesis block from the state test definition.
         """
@@ -84,10 +84,10 @@ class StateTest(BaseTest):
             else None,
         )
 
-        (_, h) = b11r.build(genesis.to_geth_dict(), "", [])
+        (genesis_rlp, h) = b11r.build(genesis.to_geth_dict(), "", [])
         genesis.hash = h
 
-        return genesis
+        return genesis_rlp, genesis
 
     def make_blocks(
         self,
