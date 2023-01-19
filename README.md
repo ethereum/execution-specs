@@ -266,9 +266,15 @@ The python representation can be found in [src/ethereum_test_tools/common/types.
 It can verify the following properties of an account:
 - `nonce`: the scalar value equal to a) the number of transactions sent by
   an Externally Owned Account, b) the amount of contracts created by a contract.
+  
 - `balance`: the amount of Wei (10<sup>-18</sup> Eth) the account has.
+
 - `code`: Bytecode contained by the account. To verify that an account contains
   no code, this property needs to be set to "0x" or "".
+  
+  It is not recommended to verify Yul compiled code in the output account,
+  because the bytecode can change from version to version.
+
 - `storage`: Storage within the account represented as a `dict` object.
   All storage keys that are expected to be set must be specified, and if a
   key is skipped, it is implied that its expected value is zero.
