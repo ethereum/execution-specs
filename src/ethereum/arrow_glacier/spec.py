@@ -366,6 +366,97 @@ def validate_proof_of_work(header: Header) -> None:
     )
 
 
+def check_transaction(
+    tx: Transaction,
+    base_fee_per_gas: Uint,
+    gas_available: Uint,
+    chain_id: Uint64,
+) -> Tuple[Address, U256]:
+    """
+    Check if the transaction is includable in the block.
+
+    Parameters
+    ----------
+    tx :
+        The transaction.
+    base_fee_per_gas :
+        The block base fee.
+    gas_available :
+        The gas remaining in the block.
+    chain_id :
+        The ID of the current chain.
+
+    Returns
+    -------
+    sender_address :
+        The sender of the transaction.
+    effective_gas_price :
+        The price to charge for gas when the transaction is executed.
+
+    Raises
+    ------
+    InvalidBlock :
+        If the transaction is not includable.
+    """
+    ensure(tx.gas <= gas_available, InvalidBlock)
+    sender_address = recover_sender(chain_id, tx)
+
+    if isinstance(tx, FeeMarketTransaction):
+        ensure(tx.max_fee_per_gas >= tx.max_priority_fee_per_gas, InvalidBlock)
+
+        priority_fee_per_gas = min(
+            tx.max_priority_fee_per_gas,
+            tx.max_fee_per_gas - base_fee_per_gas,
+        )
+        effective_gas_price = priority_fee_per_gas + base_fee_per_gas
+    else:
+        ensure(tx.gas_price >= base_fee_per_gas, InvalidBlock)
+        effective_gas_price = tx.gas_price
+
+    return sender_address, effective_gas_price
+
+
+def make_receipt(
+    tx: Transaction,
+    has_erred: bool,
+    cumulative_gas_used: Uint,
+    logs: Tuple[Log, ...],
+) -> Union[Bytes, Receipt]:
+    """
+    Make the receipt for a transaction that was executed.
+
+    Parameters
+    ----------
+    tx :
+        The executed transaction.
+    has_erred :
+        Whether the top level frame of the transaction exited with an error.
+    cumulative_gas_used :
+        The total gas used so far in the block after the transaction was
+        executed.
+    logs :
+        The logs produced by the transaction.
+
+    Returns
+    -------
+    receipt :
+        The receipt for the transaction.
+    """
+    receipt = Receipt(
+        succeeded=not has_erred,
+        cumulative_gas_used=cumulative_gas_used,
+        bloom=logs_bloom(logs),
+        logs=logs,
+    )
+
+    if isinstance(tx, AccessListTransaction):
+        return b"\x01" + rlp.encode(receipt)
+    if isinstance(tx, FeeMarketTransaction):
+        return b"\x02" + rlp.encode(receipt)
+    else:
+        return receipt
+
+
 def apply_body(
     state: State,
     block_hashes: List[Hash32],
@@ -444,22 +535,9 @@ def apply_body(
             transactions_trie, rlp.encode(Uint(i)), encode_transaction(tx)
         )
 
-        ensure(tx.gas <= gas_available, InvalidBlock)
-        sender_address = recover_sender(chain_id, tx)
-
-        if isinstance(tx, FeeMarketTransaction):
-            ensure(
-                tx.max_fee_per_gas >= tx.max_priority_fee_per_gas, InvalidBlock
-            )
-
-            priority_fee_per_gas = min(
-                tx.max_priority_fee_per_gas,
-                tx.max_fee_per_gas - base_fee_per_gas,
-            )
-            effective_gas_price = priority_fee_per_gas + base_fee_per_gas
-        else:
-            ensure(tx.gas_price >= base_fee_per_gas, InvalidBlock)
-            effective_gas_price = tx.gas_price
+        sender_address, effective_gas_price = check_transaction(
+            tx, base_fee_per_gas, gas_available, chain_id
+        )
 
         env = vm.Environment(
             caller=sender_address,
@@ -479,17 +557,9 @@ def apply_body(
         gas_used, logs, has_erred = process_transaction(env, tx)
         gas_available -= gas_used
 
-        receipt: Union[Bytes, Receipt] = Receipt(
-            succeeded=not has_erred,
-            cumulative_gas_used=(block_gas_limit - gas_available),
-            bloom=logs_bloom(logs),
-            logs=logs,
+        receipt = make_receipt(
+            tx, has_erred, (block_gas_limit - gas_available), logs
         )
-
-        if isinstance(tx, AccessListTransaction):
-            receipt = b"\x01" + rlp.encode(receipt)
-        if isinstance(tx, FeeMarketTransaction):
-            receipt = b"\x02" + rlp.encode(receipt)
 
         trie_set(
             receipts_trie,

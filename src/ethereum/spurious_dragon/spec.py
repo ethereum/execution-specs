@@ -23,7 +23,7 @@ from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 
 from .. import rlp
-from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
+from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Bytes32, Uint
 from . import vm
 from .bloom import logs_bloom
 from .eth_types import (
@@ -303,6 +303,75 @@ def validate_proof_of_work(header: Header) -> None:
     )
 
 
+def check_transaction(
+    tx: Transaction,
+    gas_available: Uint,
+    chain_id: U64,
+) -> Address:
+    """
+    Check if the transaction is includable in the block.
+
+    Parameters
+    ----------
+    tx :
+        The transaction.
+    gas_available :
+        The gas remaining in the block.
+    chain_id :
+        The ID of the current chain.
+
+    Returns
+    -------
+    sender_address :
+        The sender of the transaction.
+
+    Raises
+    ------
+    InvalidBlock :
+        If the transaction is not includable.
+    """
+    ensure(tx.gas <= gas_available, InvalidBlock)
+    sender_address = recover_sender(chain_id, tx)
+
+    return sender_address
+
+
+def make_receipt(
+    tx: Transaction,
+    post_state: Bytes32,
+    cumulative_gas_used: Uint,
+    logs: Tuple[Log, ...],
+) -> Receipt:
+    """
+    Make the receipt for a transaction that was executed.
+
+    Parameters
+    ----------
+    tx :
+        The executed transaction.
+    post_state :
+        The state root immediately after this transaction.
+    cumulative_gas_used :
+        The total gas used so far in the block after the transaction was
+        executed.
+    logs :
+        The logs produced by the transaction.
+
+    Returns
+    -------
+    receipt :
+        The receipt for the transaction.
+    """
+    receipt = Receipt(
+        post_state=post_state,
+        cumulative_gas_used=cumulative_gas_used,
+        bloom=logs_bloom(logs),
+        logs=logs,
+    )
+
+    return receipt
+
+
 def apply_body(
     state: State,
     block_hashes: List[Hash32],
@@ -376,8 +445,7 @@ def apply_body(
     for i, tx in enumerate(transactions):
         trie_set(transactions_trie, rlp.encode(Uint(i)), tx)
 
-        ensure(tx.gas <= gas_available, InvalidBlock)
-        sender_address = recover_sender(chain_id, tx)
+        sender_address = check_transaction(tx, gas_available, chain_id)
 
         env = vm.Environment(
             caller=sender_address,
@@ -395,16 +463,16 @@ def apply_body(
         gas_used, logs = process_transaction(env, tx)
         gas_available -= gas_used
 
+        receipt = make_receipt(
+            tx, state_root(state), (block_gas_limit - gas_available), logs
+        )
+
         trie_set(
             receipts_trie,
             rlp.encode(Uint(i)),
-            Receipt(
-                post_state=state_root(state),
-                cumulative_gas_used=(block_gas_limit - gas_available),
-                bloom=logs_bloom(logs),
-                logs=logs,
-            ),
+            receipt,
         )
+
         block_logs += logs
 
     pay_rewards(state, block_number, coinbase, ommers)
