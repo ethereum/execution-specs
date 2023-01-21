@@ -295,8 +295,8 @@ class Load(BaseLoad):
         block_rlps = []
 
         for json_block in json_blocks:
-            if "blockHeader" not in json_block and "rlp" in json_block:
-                # Some blocks are represented by only the RLP and not the block details
+            if "rlp" in json_block:
+                # Always decode from rlp
                 block_rlp = hex_to_bytes(json_block["rlp"])
                 block = rlp.decode_to(self.Block, block_rlp)
                 blocks.append(block)

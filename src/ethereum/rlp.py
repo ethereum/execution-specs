@@ -282,7 +282,7 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
         ensure(type(raw_rlp) == list, RLPDecodingError)
         assert isinstance(raw_rlp, list)
         args = []
-        # FIXME: Add length check
+        ensure(len(fields(cls)) == len(raw_rlp), RLPDecodingError)
         for (field, rlp_item) in zip(fields(cls), raw_rlp):
             args.append(_decode_to(field.type, rlp_item))
         return cls(*args)
