@@ -359,7 +359,13 @@ class Load(BaseLoad):
 
 def load_test(test_case: Dict, load: BaseLoad) -> Dict:
 
-    json_data = test_case["test_data"]
+    test_file = test_case["test_file"]
+    test_key = test_case["test_key"]
+
+    with open(test_file, "r") as fp:
+        data = json.load(fp)
+
+    json_data = data[test_key]
 
     blocks, block_header_hashes, block_rlps = load.json_to_blocks(
         json_data["blocks"]
@@ -470,7 +476,6 @@ def load_json_fixture(test_file: str, network: str) -> Generator:
             yield {
                 "test_file": test_file,
                 "test_key": _key,
-                "test_data": data[_key],
             }
 
 
