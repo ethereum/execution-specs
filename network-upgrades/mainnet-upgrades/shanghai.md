@@ -7,6 +7,7 @@ Changes included in the Network Upgrade.
 * [EIP-3855: PUSH0 instruction](https://eips.ethereum.org/EIPS/eip-3855)
 * [EIP-3860: Limit and meter initcode](https://eips.ethereum.org/EIPS/eip-3860)
 * [EIP-4895: Beacon chain push withdrawals as operations](https://eips.ethereum.org/EIPS/eip-4895)
+* [EIP-6049: Deprecate SELFDESTRUCT](https://eips.ethereum.org/EIPS/eip-6049)
 
 ### Implementation Progresss
 
