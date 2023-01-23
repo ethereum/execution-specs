@@ -7,6 +7,8 @@ Changes included in the Network Upgrade.
 * [EIP-3855: PUSH0 instruction](https://eips.ethereum.org/EIPS/eip-3855)
 * [EIP-3860: Limit and meter initcode](https://eips.ethereum.org/EIPS/eip-3860)
 * [EIP-4895: Beacon chain push withdrawals as operations](https://eips.ethereum.org/EIPS/eip-4895)
+* [EIP-6049: Deprecate SELFDESTRUCT](https://eips.ethereum.org/EIPS/eip-6049)
+    * **Note: EIP-6049 does not change the behavior of `SELFDESTRUCT` in and of itself, but formally announces client developers' intention of changing it in future upgrades. It is recommended that software which exposes the `SELFDESTRUCT` opcode to users warn them about an upcoming change in semantics.**
 
 ### Implementation Progresss
 
