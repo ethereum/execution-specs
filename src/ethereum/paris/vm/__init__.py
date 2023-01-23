@@ -21,11 +21,9 @@ from ethereum.crypto.hash import Hash32
 
 from ..eth_types import Address, Log
 from ..state import State, account_exists_and_is_empty
-from ..utils.address import to_address
+from .precompiled_contracts import RIPEMD160_ADDRESS
 
 __all__ = ("Environment", "Evm", "Message")
-
-RIPEMD160_ADDRESS = to_address(Uint(3))
 
 
 @dataclass
