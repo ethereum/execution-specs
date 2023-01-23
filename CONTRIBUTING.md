@@ -97,7 +97,7 @@ ethereum-spec-new-fork --from_fork="Tangerine Whistle" --to_fork="Spurious Drago
 ```
 
 The following will have to however, be updated manually
- 1. The fork number and `MAINNET_FORK_BLOCK` in `__init__.py`
+ 1. The fork number and `MAINNET_FORK_BLOCK` in `__init__.py`. If you are proposing a new EIP, please set `MAINNET_FORK_BLOCK` to `None`.
  2. Any absolute package imports from other forks eg. in `trie.py`
  3. Package names under `setup.cfg`
  4. Add the new fork to the `monkey_patch()` function in `src/ethereum_optimized/__init__.py`
