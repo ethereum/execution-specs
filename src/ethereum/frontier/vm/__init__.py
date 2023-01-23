@@ -78,4 +78,34 @@ class Evm:
     output: Bytes
     accounts_to_delete: Set[Address]
     has_erred: bool
-    children: List["Evm"]
+
+
+def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
+    """
+    Incorporate the state of a successful `child_evm` into the parent `evm`.
+
+    Parameters
+    ----------
+    evm :
+        The parent `EVM`.
+    child_evm :
+        The child evm to incorporate.
+    """
+    evm.gas_left += child_evm.gas_left
+    evm.logs += child_evm.logs
+    evm.refund_counter += child_evm.refund_counter
+    evm.accounts_to_delete.update(child_evm.accounts_to_delete)
+
+
+def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
+    """
+    Incorporate the state of an unsuccessful `child_evm` into the parent `evm`.
+
+    Parameters
+    ----------
+    evm :
+        The parent `EVM`.
+    child_evm :
+        The child evm to incorporate.
+    """
+    evm.gas_left += child_evm.gas_left
