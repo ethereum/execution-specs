@@ -10,6 +10,12 @@ Changes [Considered for Inclusion](https://github.com/ethereum/execution-specs/t
 
 * [EIP-1153: Transient storage opcodes](https://eips.ethereum.org/EIPS/eip-1153)
 * [EIP-2537: Precompile for BLS12-381 curve operations](https://eips.ethereum.org/EIPS/eip-2537)
+* [EIP-3540: EVM Object Format (EOF) v1](https://eips.ethereum.org/EIPS/eip-3540)
+* [EIP-3670: EOF - Code Validation](https://eips.ethereum.org/EIPS/eip-3670)
+* [EIP-4200: EOF - Static relative jumps](https://eips.ethereum.org/EIPS/eip-4200)
+* [EIP-4750: EOF - Functions](https://eips.ethereum.org/EIPS/eip-4750)
+* [EIP-5450: EOF - Stack Validation](https://eips.ethereum.org/EIPS/eip-5450)
+
 
 ### Implementation Progresss
 
