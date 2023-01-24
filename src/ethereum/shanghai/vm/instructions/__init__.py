@@ -114,6 +114,7 @@ class Ops(enum.Enum):
     POP = 0x50
 
     # Push Operations
+    PUSH0 = 0x5F
     PUSH1 = 0x60
     PUSH2 = 0x61
     PUSH3 = 0x62
@@ -273,6 +274,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.GAS: control_flow_instructions.gas_left,
     Ops.JUMPDEST: control_flow_instructions.jumpdest,
     Ops.POP: stack_instructions.pop,
+    Ops.PUSH0: stack_instructions.push0,
     Ops.PUSH1: stack_instructions.push1,
     Ops.PUSH2: stack_instructions.push2,
     Ops.PUSH3: stack_instructions.push3,

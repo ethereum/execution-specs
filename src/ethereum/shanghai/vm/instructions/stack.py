@@ -48,7 +48,7 @@ def pop(evm: Evm) -> None:
 
 def push_n(evm: Evm, num_bytes: int) -> None:
     """
-    Pushes a N-byte immediate onto the stack.
+    Pushes a N-byte immediate onto the stack. Push zero if num_bytes is zero.
 
     Parameters
     ----------
@@ -57,14 +57,17 @@ def push_n(evm: Evm, num_bytes: int) -> None:
 
     num_bytes :
         The number of immediate bytes to be read from the code and pushed to
-        the stack.
+        the stack. Push zero if num_bytes is zero.
 
     """
     # STACK
     pass
 
     # GAS
-    charge_gas(evm, GAS_VERY_LOW)
+    if num_bytes == 0:
+        charge_gas(evm, GAS_BASE)
+    else:
+        charge_gas(evm, GAS_VERY_LOW)
 
     # OPERATION
     data_to_push = U256.from_be_bytes(
@@ -140,6 +143,7 @@ def swap_n(evm: Evm, item_number: int) -> None:
     evm.pc += 1
 
 
+push0 = partial(push_n, num_bytes=0)
 push1 = partial(push_n, num_bytes=1)
 push2 = partial(push_n, num_bytes=2)
 push3 = partial(push_n, num_bytes=3)

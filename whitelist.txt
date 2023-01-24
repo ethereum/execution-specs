@@ -169,6 +169,7 @@ push
 dup
 log
 
+push0
 push1
 push2
 push3
