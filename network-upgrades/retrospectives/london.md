@@ -107,14 +107,14 @@ Solution: Do a `debug.setHead{X-1)` to jump to before the fork. This internally 
 
 You are syncing a `geth`-node,  and a fork has occurred at block `X`. Since the fork has already happened, and the erroneous chain has higher TD, you will most likely wind up on the 'wrong' side of the chain, with a pivot block `X+M`. If this happens, you _do not have_ any state for blocks `<X+M`, so you _cannot_ do `debug.setHead` to to resolve the situation. 
 
-In this case, a resync is required. However, you need to prevent geth from winding up on the wrong side of the fork. This can be done with the `whitelist` command line parmeter. 
+In this case, a resync is required. However, you need to prevent geth from winding up on the wrong side of the fork. This can be done with the `whitelist` command line parameter. 
 ```
 $ geth -h | grep white
   --whitelist value                   Comma separated block number-to-hash mappings to enforce (<number>=<hash>)
 ```
 So you'd do `geth --whitelist 123123=0x2342fafa9af9af9af9af9af9` 
 
-The whitelist means that geth, when peering with another peer, will ask the peer "what's your block `123123`". If it gets a header back with a hash that doesn't match the whitelist, it willl disconnect from that peer. So essentially, the node will isolate itself from peers on the wrong chain, and only connect to peers that will deliver blocks from the shorter (but correct) chain. 
+The whitelist means that geth, when peering with another peer, will ask the peer "what's your block `123123`". If it gets a header back with a hash that doesn't match the whitelist, it will disconnect from that peer. So essentially, the node will isolate itself from peers on the wrong chain, and only connect to peers that will deliver blocks from the shorter (but correct) chain. 
 
 ### Upgrade summary
 * Date and time (in UTC): Aug-05-2021 12:33:42 PM +UTC
