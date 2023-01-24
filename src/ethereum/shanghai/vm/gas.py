@@ -60,6 +60,7 @@ GAS_BLAKE2_PER_ROUND = Uint(1)
 GAS_COLD_SLOAD = Uint(2100)
 GAS_COLD_ACCOUNT_ACCESS = Uint(2600)
 GAS_WARM_ACCESS = Uint(100)
+GAS_INIT_CODE_WORD_COST = 2
 
 
 @dataclass
@@ -234,3 +235,22 @@ def max_message_call_gas(gas: Uint) -> Uint:
         The maximum gas allowed for making the message-call.
     """
     return gas - (gas // 64)
+
+
+def init_code_cost(init_code_length: Uint) -> Uint:
+    """
+    Calculates the gas to be charged for the init code in CREAT*
+    opcodes as well as create transactions.
+
+    Parameters
+    ----------
+    init_code_length :
+        The length of the init code provided to the opcode
+        or a create transaction
+
+    Returns
+    -------
+    init_code_gas: `ethereum.base_types.Uint`
+        The gas to be charged for the init code.
+    """
+    return GAS_INIT_CODE_WORD_COST * ceil32(init_code_length) // 32

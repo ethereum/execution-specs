@@ -60,7 +60,8 @@ from .state import (
 )
 from .trie import Trie, root, trie_set
 from .utils.message import prepare_message
-from .vm.interpreter import process_message_call
+from .vm.gas import init_code_cost
+from .vm.interpreter import MAX_CODE_SIZE, process_message_call
 
 BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
 ELASTICITY_MULTIPLIER = 2
@@ -573,7 +574,15 @@ def validate_transaction(tx: Transaction) -> bool:
     verified : `bool`
         True if the transaction can be executed, or False otherwise.
     """
-    return calculate_intrinsic_cost(tx) <= tx.gas and tx.nonce < 2**64 - 1
+    valid_transaction = True
+    if calculate_intrinsic_cost(tx) > tx.gas:
+        valid_transaction = False
+    if tx.nonce >= 2**64 - 1:
+        valid_transaction = False
+    if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
+        valid_transaction = False
+
+    return valid_transaction
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Uint:
@@ -608,7 +617,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
             data_cost += TX_DATA_COST_PER_NON_ZERO
 
     if tx.to == Bytes0(b""):
-        create_cost = TX_CREATE_COST
+        create_cost = TX_CREATE_COST + int(init_code_cost(Uint(len(tx.data))))
     else:
         create_cost = 0
 

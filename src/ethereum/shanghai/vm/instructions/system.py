@@ -35,7 +35,7 @@ from .. import (
     incorporate_child_on_error,
     incorporate_child_on_success,
 )
-from ..exceptions import Revert, WriteInStaticContext
+from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
     GAS_CALL_VALUE,
     GAS_COLD_ACCOUNT_ACCESS,
@@ -49,6 +49,7 @@ from ..gas import (
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
+    init_code_cost,
     max_message_call_gas,
 )
 from ..memory import memory_read_bytes, memory_write
@@ -61,13 +62,18 @@ def generic_create(
     contract_address: Address,
     memory_start_position: U256,
     memory_size: U256,
+    init_code_gas: Uint,
 ) -> None:
     """
     Core logic used by the `CREATE*` family of opcodes.
     """
     # This import causes a circular import error
     # if it's not moved inside this method
-    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
+    from ...vm.interpreter import (
+        MAX_CODE_SIZE,
+        STACK_DEPTH_LIMIT,
+        process_create_message,
+    )
 
     evm.accessed_addresses.add(contract_address)
 
@@ -97,6 +103,8 @@ def generic_create(
     call_data = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
     )
+
+    ensure(len(call_data) <= 2 * MAX_CODE_SIZE, OutOfGasError)
 
     increment_nonce(evm.env.state, evm.message.current_target)
 
@@ -145,8 +153,9 @@ def create(evm: Evm) -> None:
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_position, memory_size)]
     )
+    init_code_gas = init_code_cost(Uint(memory_size))
 
-    charge_gas(evm, GAS_CREATE + extend_memory.cost)
+    charge_gas(evm, GAS_CREATE + extend_memory.cost + init_code_gas)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -156,7 +165,12 @@ def create(evm: Evm) -> None:
     )
 
     generic_create(
-        evm, endowment, contract_address, memory_start_position, memory_size
+        evm,
+        endowment,
+        contract_address,
+        memory_start_position,
+        memory_size,
+        init_code_gas,
     )
 
     # PROGRAM COUNTER
@@ -186,9 +200,13 @@ def create2(evm: Evm) -> None:
         evm.memory, [(memory_start_position, memory_size)]
     )
     call_data_words = ceil32(Uint(memory_size)) // 32
+    init_code_gas = init_code_cost(Uint(memory_size))
     charge_gas(
         evm,
-        GAS_CREATE + GAS_KECCAK256_WORD * call_data_words + extend_memory.cost,
+        GAS_CREATE
+        + GAS_KECCAK256_WORD * call_data_words
+        + extend_memory.cost
+        + init_code_gas,
     )
 
     # OPERATION
@@ -200,7 +218,12 @@ def create2(evm: Evm) -> None:
     )
 
     generic_create(
-        evm, endowment, contract_address, memory_start_position, memory_size
+        evm,
+        endowment,
+        contract_address,
+        memory_start_position,
+        memory_size,
+        init_code_gas,
     )
 
     # PROGRAM COUNTER
