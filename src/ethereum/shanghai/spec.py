@@ -44,6 +44,7 @@ from .eth_types import (
     Receipt,
     Root,
     Transaction,
+    Withdrawal,
     decode_transaction,
     encode_transaction,
 )
@@ -53,6 +54,7 @@ from .state import (
     destroy_account,
     get_account,
     increment_nonce,
+    process_withdrawal,
     set_account_balance,
     state_root,
 )
@@ -171,6 +173,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         receipt_root,
         block_logs_bloom,
         state,
+        withdrawals_root,
     ) = apply_body(
         chain.state,
         get_last_256_block_hashes(chain),
@@ -182,12 +185,14 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.header.prev_randao,
         block.transactions,
         chain.chain_id,
+        block.withdrawals,
     )
     ensure(gas_used == block.header.gas_used, InvalidBlock)
     ensure(transactions_root == block.header.transactions_root, InvalidBlock)
     ensure(state_root(state) == block.header.state_root, InvalidBlock)
     ensure(receipt_root == block.header.receipt_root, InvalidBlock)
     ensure(block_logs_bloom == block.header.bloom, InvalidBlock)
+    ensure(withdrawals_root == block.header.withdrawals_root, InvalidBlock)
 
     chain.blocks.append(block)
     if len(chain.blocks) > 255:
@@ -282,7 +287,8 @@ def apply_body(
     prev_randao: Bytes32,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
     chain_id: Uint64,
-) -> Tuple[Uint, Root, Root, Bloom, State]:
+    withdrawals: Tuple[Withdrawal, ...],
+) -> Tuple[Uint, Root, Root, Bloom, State, Root]:
     """
     Executes a block.
 
@@ -319,6 +325,8 @@ def apply_body(
         uncles.)
     chain_id :
         ID of the executing chain.
+    withdrawals :
+        Withdrawals to be processed in the current block.
 
     Returns
     -------
@@ -339,6 +347,9 @@ def apply_body(
         Bytes, Optional[Union[Bytes, LegacyTransaction]]
     ] = Trie(secured=False, default=None)
     receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]] = Trie(
+        secured=False, default=None
+    )
+    withdrawals_trie: Trie[Bytes, Optional[Union[Bytes, Withdrawal]]] = Trie(
         secured=False, default=None
     )
     block_logs: Tuple[Log, ...] = ()
@@ -407,12 +418,21 @@ def apply_body(
 
     block_logs_bloom = logs_bloom(block_logs)
 
+    for i, wd in enumerate(withdrawals):
+        trie_set(withdrawals_trie, rlp.encode(Uint(i)), rlp.encode(wd))
+
+        process_withdrawal(state, wd)
+
+        if account_exists_and_is_empty(state, wd.address):
+            destroy_account(state, wd.address)
+
     return (
         gas_remaining,
         root(transactions_trie),
         root(receipts_trie),
         block_logs_bloom,
         state,
+        root(withdrawals_trie),
     )
 
 

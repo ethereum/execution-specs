@@ -175,6 +175,19 @@ def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
 
 @slotted_freezable
 @dataclass
+class Withdrawal:
+    """
+    Withdrawals that have been validated on the consensus layer.
+    """
+
+    index: Uint64
+    validator_index: Uint64
+    address: Address
+    amount: U256
+
+
+@slotted_freezable
+@dataclass
 class Header:
     """
     Header portion of a block on the chain.
@@ -196,6 +209,7 @@ class Header:
     prev_randao: Bytes32
     nonce: Bytes8
     base_fee_per_gas: Uint
+    withdrawals_root: Root
 
 
 @slotted_freezable
@@ -208,6 +222,7 @@ class Block:
     header: Header
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
     ommers: Tuple[Header, ...]
+    withdrawals: Tuple[Withdrawal, ...]
 
 
 @slotted_freezable

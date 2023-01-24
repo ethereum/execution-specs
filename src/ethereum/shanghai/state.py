@@ -22,7 +22,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 from ethereum.base_types import U256, Bytes, Uint, modify
 from ethereum.utils.ensure import ensure
 
-from .eth_types import EMPTY_ACCOUNT, Account, Address, Root
+from .eth_types import EMPTY_ACCOUNT, Account, Address, Root, Withdrawal
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
 
@@ -451,6 +451,20 @@ def move_ether(
 
     modify_state(state, sender_address, reduce_sender_balance)
     modify_state(state, recipient_address, increase_recipient_balance)
+
+
+def process_withdrawal(
+    state: State,
+    wd: Withdrawal,
+) -> None:
+    """
+    Increase the balance of the withdrawing account.
+    """
+
+    def increase_recipient_balance(recipient: Account) -> None:
+        recipient.balance += wd.amount * 10**9
+
+    modify_state(state, wd.address, increase_recipient_balance)
 
 
 def set_account_balance(state: State, address: Address, amount: U256) -> None:

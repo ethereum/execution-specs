@@ -42,6 +42,7 @@ from .eth_types import (
     LegacyTransaction,
     Receipt,
     Root,
+    Withdrawal,
     encode_account,
 )
 
@@ -64,7 +65,9 @@ EMPTY_TRIE_ROOT = Root(
     )
 )
 
-Node = Union[Account, Bytes, LegacyTransaction, Receipt, Uint, U256, None]
+Node = Union[
+    Account, Bytes, LegacyTransaction, Receipt, Uint, U256, Withdrawal, None
+]
 K = TypeVar("K", bound=Bytes)
 V = TypeVar(
     "V",
@@ -73,6 +76,7 @@ V = TypeVar(
     Bytes,
     Optional[Union[LegacyTransaction, Bytes]],
     Optional[Union[Receipt, Bytes]],
+    Optional[Union[Withdrawal, Bytes]],
     Uint,
     U256,
 )
@@ -161,7 +165,7 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
     if isinstance(node, Account):
         assert storage_root is not None
         return encode_account(node, storage_root)
-    elif isinstance(node, (LegacyTransaction, Receipt, U256)):
+    elif isinstance(node, (LegacyTransaction, Receipt, Withdrawal, U256)):
         return rlp.encode(cast(rlp.RLP, node))
     elif isinstance(node, Bytes):
         return node

@@ -1,12 +1,12 @@
 from functools import partial
-from typing import Dict
+from typing import Dict, Tuple
 
 import pytest
 
 from ethereum import rlp
 from ethereum.base_types import U256, Bytes, Bytes8, Bytes32, Uint
 from ethereum.crypto.hash import Hash32
-from ethereum.exceptions import InvalidBlock
+from ethereum.exceptions import InvalidBlock, RLPDecodingError
 from tests.helpers.load_state_tests import (
     Load,
     NoPostState,
@@ -23,93 +23,33 @@ run_shanghai_blockchain_st_tests = partial(
     run_blockchain_st_test, load=FIXTURES_LOADER
 )
 
-# Run legacy general state tests
-test_dir = "tests/fixtures/BlockchainTests/GeneralStateTests/"
 
-# Every test below takes more than  60s to run and
-# hence they've been marked as slow
-SLOW_TESTS = (
-    "stTimeConsuming/CALLBlake2f_MaxRounds.json",
-    "stTimeConsuming/static_Call50000_sha256.json",
-    "vmPerformance/loopExp.json",
-    "vmPerformance/loopMul.json",
-    "QuadraticComplexitySolidity_CallDataCopy_d0g1v0_Shanghai",
-    "CALLBlake2f_d9g0v0_Shanghai",
-    "CALLCODEBlake2f_d9g0v0",
-)
-
-# These are tests that are considered to be incorrect,
-# Please provide an explanation when adding entries
-INCORRECT_UPSTREAM_STATE_TESTS = (
-    # The test considers a scenario that cannot be reached by following the
-    # rules of consensus. For more details, read:
-    # https://github.com/ethereum/py-evm/pull/1224#issuecomment-418775512
-    "stRevertTest/RevertInCreateInInit.json",
-    # The test considers a scenario that cannot be reached by following the
-    # rules of consensus.
-    "stCreate2/RevertInCreateInInitCreate2.json",
-    # The test considers a scenario that cannot be reached by following the
-    # rules of consensus.
-    "stSStoreTest/InitCollision.json",
-)
-
-# All tests that recursively create a large number of frames (50000)
-GENERAL_STATE_BIG_MEMORY_TESTS = (
-    "50000_",
-    "/stQuadraticComplexityTest/",
-    "/stRandom2/",
-    "/stRandom/",
-    "/stSpecialTest/",
-    "stTimeConsuming/",
-    "stBadOpcode/",
-    "stStaticCall/",
-)
-
-
-@pytest.mark.parametrize(
-    "test_case",
-    fetch_shanghai_tests(
-        test_dir,
-        ignore_list=INCORRECT_UPSTREAM_STATE_TESTS,
-        slow_list=SLOW_TESTS,
-        big_memory_list=GENERAL_STATE_BIG_MEMORY_TESTS,
-    ),
-    ids=idfn,
-)
-def test_general_state_tests(test_case: Dict) -> None:
-    try:
-        run_shanghai_blockchain_st_tests(test_case)
-    except NoPostState:
-        # FIXME: Handle tests that don't have post state
-        pytest.xfail(f"{test_case} doesn't have post state")
-
-
-# Run legacy valid block tests
-test_dir = "tests/fixtures/BlockchainTests/ValidBlocks/"
-
-# Run legacy invalid block tests
-test_dir = "tests/fixtures/BlockchainTests/InvalidBlocks"
-
-# TODO: Handle once https://github.com/ethereum/tests/issues/1037
-# is resolved
-# All except GasLimitHigherThan2p63m1_Shanghai
-xfail_candidates = (
-    ("bcUncleHeaderValidity", "timestampTooLow_Shanghai"),
-    ("bcUncleHeaderValidity", "timestampTooHigh_Shanghai"),
-    ("bcUncleHeaderValidity", "wrongStateRoot_Shanghai"),
-    ("bcUncleHeaderValidity", "incorrectUncleTimestamp4_Shanghai"),
-    ("bcUncleHeaderValidity", "incorrectUncleTimestamp5_Shanghai"),
-    ("bcUncleSpecialTests", "futureUncleTimestamp3_Shanghai"),
-    ("bcInvalidHeaderTest", "GasLimitHigherThan2p63m1_Shanghai"),
-)
-
-
-def is_in_xfail(test_case: Dict) -> bool:
-    for dir, test_key in xfail_candidates:
-        if dir in test_case["test_file"] and test_case["test_key"] == test_key:
+def is_in_list(test_case: Dict, test_list: Tuple) -> bool:
+    for test in test_list:
+        if test in test_case["test_file"]:
             return True
 
     return False
+
+
+# Run EIP-4895 tests
+test_dir = "tests/fixtures/BlockchainTests/EIPTests/"
+
+invalid_rlp_tests = (
+    "bc4895-withdrawals/withdrawalsRLPlessElements.json",
+    "bc4895-withdrawals/withdrawalsRLPmoreElements.json",
+    "bc4895-withdrawals/shanghaiWithoutWithdrawalsRLP.json",
+    "bc4895-withdrawals/withdrawalsRLPnotAList.json",
+)
+
+invalid_bounds_tests = (
+    "bc4895-withdrawals/withdrawalsAmountBounds.json",
+    "bc4895-withdrawals/withdrawalsAddressBounds.json",
+    "bc4895-withdrawals/withdrawalsIndexBounds.json",
+    "bc4895-withdrawals/withdrawalsValidatorIndexBounds.json",
+)
+
+invalid_block_tests = ("bc4895-withdrawals/incorrectWithdrawalsRoot.json",)
 
 
 @pytest.mark.parametrize(
@@ -117,108 +57,86 @@ def is_in_xfail(test_case: Dict) -> bool:
     fetch_shanghai_tests(test_dir),
     ids=idfn,
 )
-def test_invalid_block_tests(test_case: Dict) -> None:
+def test_general_state_tests_4895(test_case: Dict) -> None:
     try:
-        # Ideally correct.json should not have been in the InvalidBlocks folder
-        if test_case["test_key"] in "DifficultyIsZero_Shanghai":
-            run_shanghai_blockchain_st_tests(test_case)
-        elif is_in_xfail(test_case):
-            # Unclear where this failed requirement comes from
-            pytest.xfail()
-        else:
+        if is_in_list(test_case, invalid_rlp_tests):
+            with pytest.raises(RLPDecodingError):
+                run_shanghai_blockchain_st_tests(test_case)
+
+        elif is_in_list(test_case, invalid_bounds_tests):
+            with pytest.raises(ValueError):
+                run_shanghai_blockchain_st_tests(test_case)
+
+        elif is_in_list(test_case, invalid_block_tests):
             with pytest.raises(InvalidBlock):
                 run_shanghai_blockchain_st_tests(test_case)
+
+        else:
+            run_shanghai_blockchain_st_tests(test_case)
     except NoPostState:
         # FIXME: Handle tests that don't have post state
-        pytest.xfail(
-            "{} doesn't have post state".format(test_case["test_key"])
-        )
+        pytest.xfail(f"{test_case} doesn't have post state")
 
 
-def test_transaction_with_insufficient_balance_for_value() -> None:
-    genesis_header = FIXTURES_LOADER.Header(
-        parent_hash=Hash32([0] * 32),
-        ommers_hash=Hash32.fromhex(
-            "1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
-        ),
-        coinbase=FIXTURES_LOADER.hex_to_address(
-            "8888f1f195afa192cfee860698584c030f4c9db1"
-        ),
-        state_root=FIXTURES_LOADER.hex_to_root(
-            "d84598d90e2a72125c111171717f5508fd40ed0d0cd067ceb4e734d4da3a810a"
-        ),
-        transactions_root=FIXTURES_LOADER.hex_to_root(
-            "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
-        ),
-        receipt_root=FIXTURES_LOADER.hex_to_root(
-            "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
-        ),
-        bloom=FIXTURES_LOADER.Bloom([0] * 256),
-        difficulty=Uint(0x020000),
-        number=Uint(0x00),
-        gas_limit=Uint(0x2FEFD8),
-        gas_used=Uint(0x00),
-        timestamp=U256(0x54C98C81),
-        extra_data=Bytes([0x42]),
-        prev_randao=Bytes32([0] * 32),
-        nonce=Bytes8([0] * 8),
-        base_fee_per_gas=Uint(16),
-    )
+# Run EIP-3860 tests
+test_dir = (
+    "tests/fixtures/BlockchainTests/GeneralStateTests/EIPTests/stEIP3860"
+)
 
-    genesis_header_hash = bytes.fromhex(
-        "4a62c29ca7f3a61e5519eabbf57a40bb28ee1f164839b3160281c30d2443a69e"
-    )
 
-    assert rlp.rlp_hash(genesis_header) == genesis_header_hash
+@pytest.mark.parametrize(
+    "test_case",
+    fetch_shanghai_tests(test_dir),
+    ids=idfn,
+)
+def test_general_state_tests_3860(test_case: Dict) -> None:
+    try:
+        run_shanghai_blockchain_st_tests(test_case)
+    except NoPostState:
+        # FIXME: Handle tests that don't have post state
+        pytest.xfail(f"{test_case} doesn't have post state")
 
-    genesis_block = FIXTURES_LOADER.Block(
-        genesis_header,
-        (),
-        (),
-    )
 
-    state = FIXTURES_LOADER.State()
+# Run execution-spec-generated-tests
+test_dir = "tests/execution-spec-generated-tests/withdrawals"
 
-    address = FIXTURES_LOADER.hex_to_address(
-        "a94f5374fce5edbc8e2a8697c15331677e6ebf0b"
-    )
+invalid_rlp_spec_tests = (
+    "withdrawals/withdrawals_balance_within_block.json",
+    "withdrawals/withdrawals_use_value_in_contract.json",
+)
 
-    account = FIXTURES_LOADER.Account(
-        nonce=Uint(0),
-        balance=U256(0x056BC75E2D63100000),
-        code=Bytes(),
-    )
+invalid_bounds_spec_tests = (
+    "withdrawals/withdrawals_overflowing_balance.json",
+)
 
-    FIXTURES_LOADER.set_account(state, address, account)
+invalid_block_spec_tests = ("withdrawals/withdrawals_use_value_in_tx.json",)
 
-    tx = FIXTURES_LOADER.LegacyTransaction(
-        nonce=U256(0x00),
-        gas_price=U256(1000),
-        gas=U256(150000),
-        to=FIXTURES_LOADER.hex_to_address(
-            "c94f5374fce5edbc8e2a8697c15331677e6ebf0b"
-        ),
-        value=U256(1000000000000000000000),
-        data=Bytes(),
-        v=U256(0),
-        r=U256(0),
-        s=U256(0),
-    )
 
-    env = FIXTURES_LOADER.Environment(
-        caller=address,
-        origin=address,
-        block_hashes=[genesis_header_hash],
-        coinbase=genesis_block.header.coinbase,
-        number=genesis_block.header.number + 1,
-        gas_limit=genesis_block.header.gas_limit,
-        gas_price=tx.gas_price,
-        time=genesis_block.header.timestamp,
-        prev_randao=U256.from_be_bytes(genesis_block.header.prev_randao),
-        state=state,
-        chain_id=Uint(1),
-        base_fee_per_gas=Uint(16),
-    )
+@pytest.mark.parametrize(
+    "test_case",
+    fetch_shanghai_tests(test_dir),
+    ids=idfn,
+)
+def test_execution_specs_generated_tests(test_case: Dict) -> None:
+    try:
+        if is_in_list(test_case, invalid_rlp_spec_tests):
+            try:
+                run_shanghai_blockchain_st_tests(test_case)
+            except:
+                # FIXME: This should be changed once the issue is fixed
+                # https://github.com/ethereum/execution-spec-tests/issues/36
+                pytest.xfail(f"{test_case} currently has rlp issues")
 
-    with pytest.raises(InvalidBlock):
-        FIXTURES_LOADER.process_transaction(env, tx)
+        elif is_in_list(test_case, invalid_bounds_spec_tests):
+            with pytest.raises(ValueError):
+                run_shanghai_blockchain_st_tests(test_case)
+
+        elif is_in_list(test_case, invalid_block_spec_tests):
+            with pytest.raises(InvalidBlock):
+                run_shanghai_blockchain_st_tests(test_case)
+
+        else:
+            run_shanghai_blockchain_st_tests(test_case)
+    except NoPostState:
+        # FIXME: Handle tests that don't have post state
+        pytest.xfail(f"{test_case} doesn't have post state")
