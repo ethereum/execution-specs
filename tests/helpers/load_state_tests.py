@@ -19,6 +19,7 @@ from ethereum.utils.hexadecimal import (
     hex_to_bytes8,
     hex_to_bytes32,
     hex_to_hash,
+    hex_to_u64,
     hex_to_u256,
     hex_to_uint,
 )
@@ -286,6 +287,16 @@ class Load(BaseLoad):
         else:
             return self._module("eth_types").Transaction(*parameters)
 
+    def json_to_withdrawals(self, raw: Any) -> Any:
+        parameters = [
+            hex_to_u64(raw.get("index")),
+            hex_to_u64(raw.get("validatorIndex")),
+            self.hex_to_address(raw.get("address")),
+            hex_to_u256(raw.get("amount")),
+        ]
+
+        return self._module("eth_types").Withdrawal(*parameters)
+
     def json_to_blocks(
         self,
         json_blocks: Any,
@@ -313,13 +324,27 @@ class Load(BaseLoad):
                 for uncle in json_block["uncleHeaders"]
             )
 
-            blocks.append(
-                self.Block(
-                    header,
-                    transactions,
-                    uncles,
+            if "withdrawals" in json_block:
+                withdrawals = tuple(
+                    self.json_to_withdrawals(wd)
+                    for wd in json_block["withdrawals"]
                 )
-            )
+                blocks.append(
+                    self.Block(
+                        header,
+                        transactions,
+                        uncles,
+                        withdrawals,
+                    )
+                )
+            else:
+                blocks.append(
+                    self.Block(
+                        header,
+                        transactions,
+                        uncles,
+                    )
+                )
             block_header_hashes.append(
                 Hash32(hex_to_bytes(json_block["blockHeader"]["hash"]))
             )
@@ -353,6 +378,10 @@ class Load(BaseLoad):
         if "baseFeePerGas" in raw:
             base_fee_per_gas = hex_to_uint(raw.get("baseFeePerGas"))
             parameters.append(base_fee_per_gas)
+
+        if "withdrawalsRoot" in raw:
+            withdrawals_root = self.hex_to_root(raw.get("withdrawalsRoot"))
+            parameters.append(withdrawals_root)
 
         return self.Header(*parameters)
 
@@ -401,17 +430,25 @@ def run_blockchain_st_test(test_case: Dict, load: BaseLoad) -> None:
     test_data = load_test(test_case, load)
 
     genesis_header = test_data["genesis_header"]
-    genesis_block = load.Block(
-        genesis_header,
-        (),
-        (),
-    )
+    if hasattr(genesis_header, "withdrawals_root"):
+        genesis_block = load.Block(
+            genesis_header,
+            (),
+            (),
+            (),
+        )
+    else:
+        genesis_block = load.Block(
+            genesis_header,
+            (),
+            (),
+        )
 
-    assert rlp.rlp_hash(genesis_header) == test_data["genesis_header_hash"]
-    assert (
-        rlp.encode(cast(rlp.RLP, genesis_block))
-        == test_data["genesis_block_rlp"]
-    )
+        assert rlp.rlp_hash(genesis_header) == test_data["genesis_header_hash"]
+        assert (
+            rlp.encode(cast(rlp.RLP, genesis_block))
+            == test_data["genesis_block_rlp"]
+        )
 
     chain = load.BlockChain(
         blocks=[genesis_block],
