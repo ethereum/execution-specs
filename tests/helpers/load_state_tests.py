@@ -462,12 +462,14 @@ def load_json_fixture(test_file: str, network: str) -> Generator:
     with open(test_file, "r") as fp:
         data = json.load(fp)
 
-        # Some newer test files have patterns like _d0g0v0_
-        # between test_name and network
-        keys_to_search = re.compile(
-            f"^{re.escape(test_name)}.*{re.escape(network)}$"
-        )
-        found_keys = list(filter(keys_to_search.match, data.keys()))
+        # Search tests by looking at the `network` attribute
+        found_keys = []
+        for key, test in data.items():
+            if "network" not in test:
+                continue
+
+            if test["network"] == network:
+                found_keys.append(key)
 
         if not any(found_keys):
             raise NoTestsFound

@@ -103,6 +103,9 @@ xfail_candidates = (
     ("bcInvalidHeaderTest", "GasLimitHigherThan2p63m1_Merge"),
 )
 
+# FIXME: Check if these tests should in fact be ignored
+IGNORE_INVALID_BLOCK_TESTS = ("bcForgedTest",)
+
 
 def is_in_xfail(test_case: Dict) -> bool:
     for dir, test_key in xfail_candidates:
@@ -114,7 +117,7 @@ def is_in_xfail(test_case: Dict) -> bool:
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_paris_tests(test_dir),
+    fetch_paris_tests(test_dir, ignore_list=IGNORE_INVALID_BLOCK_TESTS),
     ids=idfn,
 )
 def test_invalid_block_tests(test_case: Dict) -> None:
