@@ -89,7 +89,12 @@ def test_withdrawals_use_value_in_tx(_):
                 withdrawal,
             ],
             exception="Transaction without funds",
-        ),
+        )
+    ]
+
+    yield BlockchainTest(pre=pre, post={}, blocks=blocks)
+
+    blocks = [
         Block(
             txs=[],
             withdrawals=[
