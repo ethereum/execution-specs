@@ -184,7 +184,7 @@ class BlockchainTest(BaseTest):
                 header=header.to_geth_dict(),
                 txs=txs_rlp,
                 ommers=[],
-                withdrawals=to_json_or_none(block.withdrawals),
+                withdrawals=to_json_or_none(env.withdrawals),
             )
 
             if block.exception is None:
