@@ -664,3 +664,44 @@ def test_withdrawals_overflowing_balance(_):
         ),
     }
     yield BlockchainTest(pre=pre, post=post, blocks=blocks)
+
+
+@test_from(WITHDRAWALS_FORK)
+def test_large_withdrawals(_: str):
+    """
+    Test Withdrawals that have a large gwei amount, so that (gwei * 1e9)
+    could overflow uint64 but not uint256.
+    """
+    pre = {
+        TestAddress: Account(balance=1000000000000000000000, nonce=0),
+    }
+
+    withdrawals: List[Withdrawal] = []
+    amounts: List[int] = [
+        (2**35),
+        (2**64) - 1,
+        (2**63) + 1,
+        (2**63),
+        (2**63) - 1,
+    ]
+
+    post = {}
+
+    for i, amount in enumerate(amounts):
+        addr = to_address(0x100 * (i + 1))
+        withdrawals.append(
+            Withdrawal(
+                index=i,
+                validator=i,
+                address=addr,
+                amount=amount,
+            )
+        )
+        post[addr] = Account(balance=(amount * ONE_GWEI))
+
+    blocks = [
+        Block(
+            withdrawals=withdrawals,
+        )
+    ]
+    yield BlockchainTest(pre=pre, post=post, blocks=blocks)
