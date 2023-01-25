@@ -546,26 +546,6 @@ def set_code(state: State, address: Address, code: Bytes) -> None:
     modify_state(state, address, write_code)
 
 
-def create_ether(state: State, address: Address, amount: U256) -> None:
-    """
-    Add newly created ether to an account.
-
-    Parameters
-    ----------
-    state:
-        The current state.
-    address:
-        Address of the account to which ether is added.
-    amount:
-        The amount of ether to be added to the account of interest.
-    """
-
-    def increase_balance(account: Account) -> None:
-        account.balance += amount
-
-    modify_state(state, address, increase_balance)
-
-
 def get_storage_original(state: State, address: Address, key: Bytes) -> U256:
     """
     Get the original value in a storage slot i.e. the value before the current

@@ -574,15 +574,14 @@ def validate_transaction(tx: Transaction) -> bool:
     verified : `bool`
         True if the transaction can be executed, or False otherwise.
     """
-    valid_transaction = True
     if calculate_intrinsic_cost(tx) > tx.gas:
-        valid_transaction = False
+        return False
     if tx.nonce >= 2**64 - 1:
-        valid_transaction = False
+        return False
     if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
-        valid_transaction = False
+        return False
 
-    return valid_transaction
+    return True
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Uint:
