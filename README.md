@@ -18,16 +18,17 @@ The following are required to either generate or develop tests:
 To generate tests from the test "fillers", it's necessary to install the Python packages provided by `execution-spec-tests` (it's recommended to use a virtual environment for the installation):
 
 ```console
-$ git clone https://github.com/ethereum/execution-spec-tests
-$ cd execution-spec-tests
-$ python -m venv ./venv/
-$ source ./venv/bin/activate
-$ pip install -e .
+git clone https://github.com/ethereum/execution-spec-tests
+cd execution-spec-tests
+python -m venv ./venv/
+source ./venv/bin/activate
+pip install -e .
 ```
 
 To generate all the tests defined in the `./fillers` sub-directory, run the `tf` command:
+
 ```console
-$ tf --output="fixtures"
+tf --output="fixtures"
 ```
 
 Note that the test `post` conditions are tested against the output of the `geth` `evm` utility during test generation.
@@ -50,11 +51,12 @@ tf --output="fixtures" --test-case dup
 ### Testing the Execution Spec Tests Framework
 
 The Python packages provided by the execution spec tests framework have their own test suite that can be ran via `tox`:
+
 ```console
-$ python -m venv ./venv/
-$ source ./venv/bin/activate
-$ pip install tox
-$ tox -e py3
+python -m venv ./venv/
+source ./venv/bin/activate
+pip install tox
+tox -e py3
 ```
 
 ## Execution Spec Tests Package Overview 
