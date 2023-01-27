@@ -42,7 +42,7 @@ class Yul(Code):
             )
 
             if result.returncode != 0:
-                raise Exception("failed to compile yul source")
+                raise Exception("failed to compile yul source: " + self.source)
 
             lines = result.stdout.decode().split("\n")
 
