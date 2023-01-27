@@ -15,6 +15,13 @@ implementations.
 
 from ...utils.hexadecimal import hex_to_address
 
+__all__ = (
+    "ECRECOVER_ADDRESS",
+    "SHA256_ADDRESS",
+    "RIPEMD160_ADDRESS",
+    "IDENTITY_ADDRESS",
+)
+
 ECRECOVER_ADDRESS = hex_to_address("0x01")
 SHA256_ADDRESS = hex_to_address("0x02")
 RIPEMD160_ADDRESS = hex_to_address("0x03")
