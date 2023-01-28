@@ -13,9 +13,9 @@ It is assumed you have know or have several things:
 
 ## Sample tests
 
-We will start by going through a couple of tests in the repository line by line.
+The best way to learn how to write tests is to go through a couple of simple examples.
 
-### example.py
+### Yul
 
 The source code for this test is [here](fillers/example/example.py).
 This is the spec_test version of [this static test](https://github.com/ethereum/tests/blob/develop/src/GeneralStateTestsFiller/stExample/yulExampleFiller.yml).
@@ -185,4 +185,204 @@ It is `yield`, rather than `return`, because a single function can return multip
 
 ```python
     yield StateTest(env=env, pre=pre, post=post, txs=[tx])
+```
+
+### Bad Opcode
+
+The source code for this test is [here](fillers/vm/opcode_tests.py).
+We will only go over the parts that are new.
+
+We use [Python string templates](https://docs.python.org/3/library/string.html#template-strings), so we need to import that library.
+
+```python
+from string import Template
+```
+
+In this test we need a couple of addresses, so we create them here.
+Python lets us specify `<string>*<number>` when we need a string repeated multiple times, which makes for more readable code that `0x00...000c0de`.
+
+```python
+    codeAddr = "0x" + "0"*(40-4) + "c0de"
+    goatAddr = "0x" + "0"*(40-4) + "60A7"
+```
+
+We create `env` and `tx` first because they are constant.
+This function will `yield` multiple tests, but always with the same `env` and `tx` values.
+
+```python
+    env = Environment()
+
+    tx = Transaction(
+           .
+           .
+           .
+        )
+```
+
+Here we create two post states.
+We will use whichever one is appropriate to the test we create.
+
+```python
+    postValid = {
+       codeAddr: Account(
+         storage={0x00: 1},
+       ),
+    }
+
+    postInvalid = {
+       codeAddr: Account(
+         storage={0x00: 0},
+       ),
+    }
+```
+
+Here we define a function (`opcValid`) inside another function.
+Python supports this, and it has two advantages:
+
+- Avoid namespace pollution by restricting the function to where it is needed.
+- Functions defined inside other functions can use the parameters and local variables of those functions.
+  In this case, we need to use `fork`.
+
+```python
+    # Check if an Opcode is valid
+    def opcValid(opc):
+        """
+        Return whether opc will be evaluated as valid by the test or not.
+        Note that some opcodes are evaluated as invalid because the way they act
+        """
+```
+
+This is the syntax for Python comments, `# <rest of the line>`. 
+
+```python
+        # PUSH0 is only valid Shanghai and later
+```
+
+Opcode 0x5F (`PUSH0`) is only valid starting with the Shangai fork.
+We don't know what will be the fork names after Shanghai, so it is easiest to specify that prior to Shanghai it is invalid.
+We don't need to worry about forks prior to London because the decorator for this test says it is only valid from London.
+
+Python has a [set data structure](https://docs.python.org/3/tutorial/datastructures.html#sets).
+We use this structure when the order of the values is irrelevant, and we just want to be able to check if something is a member or not.
+
+Note that [`if` statements](https://docs.python.org/3/tutorial/controlflow.html#if-statements) are also followed by a colon (`:`) and the code inside them indented.
+That is the general Python syntax.
+
+```python
+        if fork in {"london", "merge"} and opc==0x5F:
+```
+
+Boolean values in Python are either `True` or `False`.
+
+```python
+            return False
+```
+
+The way this test works is it runs an opcode and then does a [`SSTORE`](https://www.evm.codes/#55?fork=merge).
+Opcodes that terminate execution, such as [`STOP`](https://www.evm.codes/#00?fork=merge) and [`RETURN`](https://www.evm.codes/#f3?fork=merge) also cause the `SSTORE` not to happen, so they must be treated as invalid.
+The same is true for [`JUMP`](https://www.evm.codes/#56?fork=merge)
+
+```python
+        # Valid opcodes, but they are terminal, and so cause
+        # the SSTORE not to happen
+        if opc in {0x00, 0xF3, 0xFD, 0xFF}:
+            return False
+
+
+        # Jumps. If you jump to a random location, you skip the SSTORE
+        if opc in {0x56}:
+            return False
+```
+
+
+
+```python
+        # Opcodes that aren't part of a range
+        # 0x20 - SHA3
+        # 0xFA - STATICCALL
+        if opc in {0x20, 0xFA}:
+            return True
+
+        # Arithmetic opcodes
+        if 0x01 <= opc <= 0x0b:
+            return True
+
+        # Logical opcodes
+        if 0x10 <= opc <= 0x1d:
+            return True
+
+        # Current status opcodes
+        if 0x30 <= opc <= 0x48:
+            return True
+
+        # Data and state manipulation opcodes
+        if 0x50 <= opc <= 0x5B:
+            return True
+
+        # Stack manipulation opcodes (SWAP and DUP)
+        if 0x5F <= opc <= 0x9F:
+            return True
+
+        # LOG opcodes
+        if 0xA0 <= opc <= 0xA4:
+            return True
+
+        # CALLs and CREATEs
+        if 0xF0 <= opc <= 0xF5:
+            return True
+
+        return False
+        # End of opcValid
+
+
+    # For every possible opcode
+    for opc in range(256):
+        # We can't check SELFDESTRUCT using this technique
+        if opc in {0xFF}:
+           continue
+
+        opcHex = hex(opc)[2:]
+        print(fork, opcHex)
+        if len(opcHex) == 1:
+          opcHex = "0" + opcHex
+        yulCode = Template("""
+        {
+           pop(call(gas(), 0x60A7, 0, 0,0, 0,0))
+
+           // fails on opcodes with >20 inputs
+           // (currently dup16, at 17 inputs, is the
+           // one that goes deepest)
+           //
+           // Follow with 32 NOPs (0x5B) to handle PUSH, which has an immediate
+           // operand
+           verbatim_20i_0o(hex"${opcode}${nop32}",
+              0x00, 0x00, 0x00, 0xFF, 0xFF,
+              0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+              0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+              0xFF, 0xFF, 0xFF, 0xFF, 0xFF)
+
+           // We only get here is the opcode is legit (and it doesn't terminate
+           // execution like STOP and RETURN)
+           let zero := 0
+           let one := 1
+           sstore(zero, one)
+        }
+        """).substitute(opcode=opcHex, nop32="5b"*32)
+        pre = {
+           TestAddress: Account(balance=0x0BA1A9CE0BA1A9CE),
+           codeAddr: Account(
+		balance=0,
+		nonce=1,
+		code=Yul(yulCode)
+           ),
+           goatAddr: Account(
+                balance=0,
+                nonce=1,
+                code=Yul("{ return(0,0x100) }"),
+           )
+        }
+        yield StateTest(env=env,
+                        pre=pre,
+                        txs=[tx],
+                        post= postValid if opcValid(opc) else postInvalid)
 ```
