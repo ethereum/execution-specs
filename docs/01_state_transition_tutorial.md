@@ -435,7 +435,7 @@ Note the syntax `let <var> := <value>`. This is how you specify variables in Yul
         }
 ```
 
-Replace `opcode` with the one byte hex code, and `nop32` with 32 copies of `5b` (for NOP).
+Replace `${opcode}` with the one byte hex code, and `${nop32}` with 32 copies of `5b` (for NOP).
 
 
 ```python
