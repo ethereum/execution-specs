@@ -1,12 +1,14 @@
-# Writing Execution Spec Tests
+# Writing State Transition Execution Spec Tests
 
-In this tutorial you learn how to write an execution spec test.
+In this tutorial you learn how to write state transition execution spec test.
+This kind of test checks that if the blockchain is at a specific pre-state, and receives certain transactions, it gets to a specified post-state.
+
 
 ## Prerequisites
 
-It is assumed you have know or have several things:
+It is assumed you know or have done several things:
 
-- Setup and run an execution spec test, [as explained here](README.md#quick-start).
+- Setup and run an execution spec test, [as explained here](../README.md#quick-start).
 - Understand how to read a [static state transition test](https://ethereum-tests.readthedocs.io/en/latest/state-transition-tutorial.html#the-source-code).
 - Know the basics of [Yul](https://docs.soliditylang.org/en/latest/yul.html), which is an EVM assembly language.
 - Know the basics of [Python](https://docs.python.org/3/tutorial/).
@@ -15,9 +17,9 @@ It is assumed you have know or have several things:
 
 The best way to learn how to write tests is to go through a couple of simple examples.
 
-### Yul
+### Yul Test
 
-The source code for this test is [here](fillers/example/example.py).
+The source code for this test is [here](../fillers/example/example.py).
 This is the spec_test version of [this static test](https://github.com/ethereum/tests/blob/develop/src/GeneralStateTestsFiller/stExample/yulExampleFiller.yml).
 
 ```python
@@ -80,7 +82,7 @@ As with files, by convention functions start with a string that explains what th
 
 This line specifies that `env` is an `Environment` object, and that we just use the default parameters.
 If necessary we can modify the environment to have different block gas limits, block numbers, etc.
-For most tests the defaults are good enough, but if you need to change them [see here for the class definition](src/ethereum_test_tools/common/types.py#L445).
+For most tests the defaults are good enough, but if you need to change them [see here for the class definition](../src/ethereum_test_tools/common/types.py#L445).
 For more informration, [see the static test documentation](https://ethereum-tests.readthedocs.io/en/latest/test_filler/state_filler.html#env)
 
 ```python
@@ -89,7 +91,7 @@ For more informration, [see the static test documentation](https://ethereum-test
 
 Here we define the pre-state section, the one that tells us what is on the "blockchain" before the test.
 It is a [dictionary](https://docs.python.org/3/tutorial/datastructures.html#dictionaries), which is the Python term for an associative array.
-The keys of the dictionary are addresses (as strings), and the values are [`Account` objects](src/ethereum_test_tools/common/types.py#L264).
+The keys of the dictionary are addresses (as strings), and the values are [`Account` objects](../src/ethereum_test_tools/common/types.py#L264).
 You can read most about address fields [in the static test documentation](https://ethereum-tests.readthedocs.io/en/latest/test_filler/state_filler.html#address-fields), but note that LLL and Solidity are not supported in spec tests yet.
 
 ```python
@@ -151,7 +153,7 @@ Of course, this contract also needs a balance to be able to issue transactions.
     }
 ```
 
-Here we specify the [`Transaction`](src/ethereum_test_tools/common/types.py#L516).
+Here we specify the [`Transaction`](../src/ethereum_test_tools/common/types.py#L516).
 For more informration, [see the static test documentation](https://ethereum-tests.readthedocs.io/en/latest/test_filler/state_filler.html#transaction)
 
 ```python
@@ -187,9 +189,9 @@ It is `yield`, rather than `return`, because a single function can return multip
     yield StateTest(env=env, pre=pre, post=post, txs=[tx])
 ```
 
-### Bad Opcode
+### Bad Opcode Test
 
-The source code for this test is [here](fillers/vm/opcode_tests.py).
+The source code for this test is [here](../fillers/vm/opcode_tests.py).
 We will only go over the parts that are new.
 
 We use [Python string templates](https://docs.python.org/3/library/string.html#template-strings), so we need to import that library.
@@ -294,7 +296,7 @@ The same is true for [`JUMP`](https://www.evm.codes/#56?fork=merge)
             return False
 ```
 
-
+Next we return `True` for supported opcodes.
 
 ```python
         # Opcodes that aren't part of a range
@@ -303,50 +305,87 @@ The same is true for [`JUMP`](https://www.evm.codes/#56?fork=merge)
         if opc in {0x20, 0xFA}:
             return True
 
+```
+
+In Python, as in math, you can use `a < b < c` for `a < b and b < c`.
+
+
+```python
         # Arithmetic opcodes
         if 0x01 <= opc <= 0x0b:
             return True
 
-        # Logical opcodes
-        if 0x10 <= opc <= 0x1d:
-            return True
+        .
+        .
+        .
+```
 
-        # Current status opcodes
-        if 0x30 <= opc <= 0x48:
-            return True
+The last part of the function returns `False`.
+If we got here, then this is not a valid opcode.
 
-        # Data and state manipulation opcodes
-        if 0x50 <= opc <= 0x5B:
-            return True
-
-        # Stack manipulation opcodes (SWAP and DUP)
-        if 0x5F <= opc <= 0x9F:
-            return True
-
-        # LOG opcodes
-        if 0xA0 <= opc <= 0xA4:
-            return True
-
-        # CALLs and CREATEs
-        if 0xF0 <= opc <= 0xF5:
-            return True
-
+```python
         return False
         # End of opcValid
+```
 
+Because this is the end of the function, the next code line is unindented (compared to the function definition code).
 
+This is a [`for` loop](https://docs.python.org/3/tutorial/controlflow.html#for-statements).
+For loops iterate over a sequnce, and the [`range`](https://docs.python.org/3/tutorial/controlflow.html#the-range-function) function, in this case, gives us the range 0..255.
+As with functions and `if` statements, the `for` loop has a colon and includes the indented code.
+
+```python
     # For every possible opcode
     for opc in range(256):
+```
+
+We have two post states. 
+One, `postValid`, has the value of `1` in storage location `0`.
+The other, `postInvalid` has the value of `0` in storage location `0`.
+But `SELFDESTRUCT` destroys the contract so there is no longer an account at that address. 
+Neither is valid, so we just skip that test case.
+
+```python
         # We can't check SELFDESTRUCT using this technique
         if opc in {0xFF}:
            continue
+```
 
+The need the opcode in hexacedimal. 
+The function [`hex`](https://docs.python.org/3/library/functions.html#hex) gives us the hexadecimal number in hex.
+However, it also gives us a `0x` prefix, which we don't want, so we use a [slice](https://www.w3schools.com/python/gloss_python_string_slice.asp) to remove the first two characters.
+
+```python
         opcHex = hex(opc)[2:]
-        print(fork, opcHex)
+```
+
+The purpose of this `print` so to help debugging.
+It is currently commented out.
+
+```python
+        # print(fork, opcHex)
+```
+
+We need `opcHex` to be two characters.
+If the length is only one, prepend a zero.
+
+```python
         if len(opcHex) == 1:
           opcHex = "0" + opcHex
+```
+
+This is a [`Template` string](https://docs.python.org/3/library/string.html#template-strings).
+This means we'll be able to substitute template variables (`${<var name>}`) with values to produce the actual code.
+
+```python
         yulCode = Template("""
         {
+```
+
+We start with a call `0x00...0060A7` (a.k.a. `goatAddr`) so we'll have some return data.
+Otherwise, [`RETURNDATACOPY`](https://www.evm.codes/#3e?fork=merge) will fail and appear like it is not an opcode.
+
+```python
            pop(call(gas(), 0x60A7, 0, 0,0, 0,0))
 
            // fails on opcodes with >20 inputs
@@ -355,18 +394,51 @@ The same is true for [`JUMP`](https://www.evm.codes/#56?fork=merge)
            //
            // Follow with 32 NOPs (0x5B) to handle PUSH, which has an immediate
            // operand
+```
+
+Opcodes can have two types of operands:
+
+- Immediate operands, which are part of the bytecode.
+  For example, `6001` is [`PUSH1`](https://www.evm.codes/#60?fork=merge) with the value `0x01`.
+- Implied operands (a.k.a. stack operands), which come from the stack.
+
+This [`verbatim`](https://docs.soliditylang.org/en/v0.8.17/yul.html#verbatim) code provides both operand types.
+The code, `${opcode}${nop32}` is the opcode we are testing, followed by 32 copies of 0x5B.
+When `0x5B` is not used as an operand, it is [`JUMPDEST`](https://www.evm.codes/#5b?fork=merge) and does nothing.
+
+The syntax `${<name>}` 
+```python
            verbatim_20i_0o(hex"${opcode}${nop32}",
+```
+
+The opcode string is followed by the input parameters (in this case, twenty of them).
+These can be Yul expressions, but for the sake of simplicity here we just use constant values.
+
+```python
               0x00, 0x00, 0x00, 0xFF, 0xFF,
               0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
               0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
               0xFF, 0xFF, 0xFF, 0xFF, 0xFF)
+```
 
+If the opcode terminates the smart contract execution (as invalid opcodes do), we don't get here.
+If we do get here, write to storage cell 0 to record that fact.
+
+Note the syntax `let <var> := <value>`. This is how you specify variables in Yul.
+
+```python
            // We only get here is the opcode is legit (and it doesn't terminate
            // execution like STOP and RETURN)
            let zero := 0
            let one := 1
            sstore(zero, one)
         }
+```
+
+Replace `opcode` with the one byte hex code, and `nop32` with 32 copies of `5b` (for NOP).
+
+
+```python
         """).substitute(opcode=opcHex, nop32="5b"*32)
         pre = {
            TestAddress: Account(balance=0x0BA1A9CE0BA1A9CE),
@@ -375,14 +447,38 @@ The same is true for [`JUMP`](https://www.evm.codes/#56?fork=merge)
 		nonce=1,
 		code=Yul(yulCode)
            ),
+```
+
+This is the account for `0x00..0060A7`. 
+It just returns data (all zeros).
+
+```python
            goatAddr: Account(
                 balance=0,
                 nonce=1,
                 code=Yul("{ return(0,0x100) }"),
            )
         }
+```
+
+Every time the `for` loop gets here, it [`yield`s](https://docs.python.org/3/reference/expressions.html#yieldexpr) a separate test. 
+Over the entire for loop, is yields 255 different tests.
+
+```python
         yield StateTest(env=env,
                         pre=pre,
                         txs=[tx],
+```
+
+The Python format for the [ternary operation](https://en.wikipedia.org/wiki/Ternary_conditional_operator) is a bit different from C-like languages.
+In C like languages the syntax is `<condition> ? <yes value> : <no value>`.
+In Python it is `<yes value> if <condition> else <no value>`. 
+
+
+```python
                         post= postValid if opcValid(opc) else postInvalid)
 ```
+
+## Conclusion
+
+At this point you should be able to write exec spec tests for state transitions within a single block.
