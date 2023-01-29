@@ -145,7 +145,7 @@ As you will see a bit later, the test runner looks at the contract storage to se
 
 [`TestAddress`](https://github.com/ethereum/execution-spec-tests/blob/main/src/ethereum_test_tools/common/constants.py#L8) is an address for which the test runner has the private key.
 This means that the test runner can issue a transaction as that contract.
-Of course, this contract also needs a balance to be able to issue transactions.
+Of course, this address also needs a balance to be able to issue transactions.
 
 
 ```python
