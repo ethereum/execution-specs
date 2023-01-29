@@ -20,7 +20,7 @@ The best way to learn how to write tests is to go through a couple of simple exa
 ### Yul Test
 
 The source code for this test is [here](../fillers/example/example.py).
-This is the spec_test version of [this static test](https://github.com/ethereum/tests/blob/develop/src/GeneralStateTestsFiller/stExample/yulExampleFiller.yml).
+This is the spec test version of [this static test](https://github.com/ethereum/tests/blob/develop/src/GeneralStateTestsFiller/stExample/yulExampleFiller.yml).
 
 ```python
 """
