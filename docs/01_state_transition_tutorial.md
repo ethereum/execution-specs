@@ -53,7 +53,7 @@ We will go over these packages as we come across them.
 ```
 
 In Python this kind of definition is called a [*decorator*](https://docs.python.org/3/search.html?q=decorator).
-It modifies the function of the function after it.
+It modifies the action of the function after it.
 In this case, it specifies to the test running code that the following function is only a valid test for the [Berlin fork](https://ethereum.org/en/history/#berlin) and the forks after it.
 
 ```python
