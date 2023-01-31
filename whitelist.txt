@@ -51,6 +51,7 @@ pickler
 rlp
 rpc
 trie
+typeshed
 U256
 U255
 U64
