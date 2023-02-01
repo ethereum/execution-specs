@@ -10,7 +10,7 @@ Introduction
 ------------
 
 The state trie is the structure responsible for storing
-`eth1spec.fork_types.Account` objects.
+`.fork_types.Account` objects.
 """
 
 import copy
@@ -339,7 +339,7 @@ def _prepare_trie(
 
     Returns
     -------
-    out : `Mapping[eth1spec.base_types.Bytes, Node]`
+    out : `Mapping[ethereum.base_types.Bytes, Node]`
         Object with keys mapped to nibble-byte form.
     """
     mapped: MutableMapping[Bytes, Bytes] = {}

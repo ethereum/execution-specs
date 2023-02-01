@@ -1036,7 +1036,7 @@ def signing_hash_1559(tx: FeeMarketTransaction) -> Hash32:
 
     Returns
     -------
-    hash : `eth1spec.fork_types.Hash32`
+    hash : `.fork_types.Hash32`
         Hash of the transaction.
     """
     return keccak256(

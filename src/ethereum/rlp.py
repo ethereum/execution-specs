@@ -45,7 +45,7 @@ def encode(raw_data: RLP) -> Bytes:
 
     Returns
     -------
-    encoded : `eth1spec.base_types.Bytes`
+    encoded : `ethereum.base_types.Bytes`
         The RLP encoded bytes representing `raw_data`.
     """
     if isinstance(raw_data, (bytearray, bytes)):
@@ -80,7 +80,7 @@ def encode_bytes(raw_bytes: Bytes) -> Bytes:
 
     Returns
     -------
-    encoded : `eth1spec.base_types.Bytes`
+    encoded : `ethereum.base_types.Bytes`
         The RLP encoded bytes representing `raw_bytes`.
     """
     len_raw_data = Uint(len(raw_bytes))
@@ -110,7 +110,7 @@ def encode_sequence(raw_sequence: Sequence[RLP]) -> Bytes:
 
     Returns
     -------
-    encoded : `eth1spec.base_types.Bytes`
+    encoded : `ethereum.base_types.Bytes`
         The RLP encoded bytes representing `raw_sequence`.
     """
     joined_encodings = get_joined_encodings(raw_sequence)
@@ -139,7 +139,7 @@ def get_joined_encodings(raw_sequence: Sequence[RLP]) -> Bytes:
 
     Returns
     -------
-    joined_encodings : `eth1spec.base_types.Bytes`
+    joined_encodings : `ethereum.base_types.Bytes`
         The concatenated RLP encoded bytes for each item in sequence
         raw_sequence.
     """
@@ -312,7 +312,7 @@ def decode_to_bytes(encoded_bytes: Bytes) -> Bytes:
 
     Returns
     -------
-    decoded : `eth1spec.base_types.Bytes`
+    decoded : `ethereum.base_types.Bytes`
         RLP decoded Bytes data
     """
     if len(encoded_bytes) == 1 and encoded_bytes[0] < 0x80:

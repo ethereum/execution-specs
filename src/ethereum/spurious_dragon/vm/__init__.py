@@ -10,7 +10,7 @@ Introduction
 ------------
 
 The abstract computer which runs the code stored in an
-`eth1spec.fork_types.Account`.
+`.fork_types.Account`.
 """
 
 from dataclasses import dataclass
