@@ -17,7 +17,7 @@ from typing import List, Tuple
 from ethereum.base_types import U256, Uint
 from ethereum.utils.numeric import ceil32
 
-from ..eth_types import Address
+from ..fork_types import Address
 from ..state import State, account_exists
 from . import Evm
 from .exceptions import OutOfGasError

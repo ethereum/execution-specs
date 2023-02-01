@@ -26,7 +26,7 @@ from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
 from . import MAINNET_FORK_BLOCK, vm
 from .bloom import logs_bloom
-from .eth_types import (
+from .fork_types import (
     TX_ACCESS_LIST_ADDRESS_COST,
     TX_ACCESS_LIST_STORAGE_KEY_COST,
     TX_BASE_COST,
@@ -69,7 +69,7 @@ GAS_LIMIT_MINIMUM = 5000
 MINIMUM_DIFFICULTY = Uint(131072)
 INITIAL_BASE_FEE = 1000000000
 MAX_OMMER_DEPTH = 6
-BOMB_DELAY_BLOCKS = 10700000
+BOMB_DELAY_BLOCKS = 9700000
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 
 
@@ -510,14 +510,14 @@ def apply_body(
     -------
     gas_available : `ethereum.base_types.Uint`
         Remaining gas after all transactions have been executed.
-    transactions_root : `ethereum.eth_types.Root`
+    transactions_root : `ethereum.fork_types.Root`
         Trie root of all the transactions in the block.
-    receipt_root : `ethereum.eth_types.Root`
+    receipt_root : `ethereum.fork_types.Root`
         Trie root of all the receipts in the block.
     block_logs_bloom : `Bloom`
         Logs bloom of all the logs included in all the transactions of the
         block.
-    state : `ethereum.eth_types.State`
+    state : `ethereum.fork_types.State`
         State after all transactions have been executed.
     """
     gas_available = block_gas_limit
@@ -730,7 +730,7 @@ def process_transaction(
     -------
     gas_left : `ethereum.base_types.U256`
         Remaining gas after execution.
-    logs : `Tuple[ethereum.eth_types.Log, ...]`
+    logs : `Tuple[ethereum.fork_types.Log, ...]`
         Logs generated during execution.
     """
     ensure(validate_transaction(tx), InvalidBlock)
@@ -907,7 +907,7 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
 
     Returns
     -------
-    sender : `ethereum.eth_types.Address`
+    sender : `ethereum.fork_types.Address`
         The address of the account that signed the transaction.
     """
     v, r, s = tx.v, tx.r, tx.s
@@ -946,7 +946,7 @@ def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -974,7 +974,7 @@ def signing_hash_155(tx: LegacyTransaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -1005,7 +1005,7 @@ def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -1036,7 +1036,7 @@ def signing_hash_1559(tx: FeeMarketTransaction) -> Hash32:
 
     Returns
     -------
-    hash : `eth1spec.eth_types.Hash32`
+    hash : `eth1spec.fork_types.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -1086,7 +1086,7 @@ def compute_header_hash(header: Header) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the header.
     """
     return keccak256(rlp.encode(header))

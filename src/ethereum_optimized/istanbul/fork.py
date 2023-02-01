@@ -10,13 +10,13 @@ Introduction
 ------------
 
 This module contains functions can be monkey patched into
-`ethereum.muir_glacier.spec` to use alternate optimized implementations.
+`ethereum.istanbul.fork` to use alternate optimized implementations.
 """
 from ethereum.base_types import U256_CEIL_VALUE
 from ethereum.ethash import epoch
 from ethereum.exceptions import InvalidBlock
-from ethereum.muir_glacier.eth_types import Header
-from ethereum.muir_glacier.spec import generate_header_hash_for_pow
+from ethereum.istanbul.fork import generate_header_hash_for_pow
+from ethereum.istanbul.fork_types import Header
 from ethereum.utils.ensure import ensure
 
 try:
@@ -31,7 +31,7 @@ except ImportError as e:
 
 def validate_proof_of_work(header: Header) -> None:
     """
-    See `ethereum.muir_glacier.spec.validate_proof_of_work`.
+    See `ethereum.istanbul.fork.validate_proof_of_work`.
     """
     epoch_number = epoch(header.number)
     header_hash = generate_header_hash_for_pow(header)

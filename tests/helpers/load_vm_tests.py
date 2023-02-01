@@ -26,10 +26,10 @@ class VmTestLoader:
         self.network = network
         self.fork_name = fork_name
 
-        # Import relevant items from spec
-        self.spec = self._module("spec")
-        self.BlockChain = self.spec.BlockChain
-        self.get_last_256_block_hashes = self.spec.get_last_256_block_hashes
+        # Import relevant items from fork
+        self.fork = self._module("fork")
+        self.BlockChain = self.fork.BlockChain
+        self.get_last_256_block_hashes = self.fork.get_last_256_block_hashes
 
         self.state = self._module("state")
         self.State = self.state.State
@@ -38,9 +38,9 @@ class VmTestLoader:
         self.set_storage = self.state.set_storage
         self.storage_root = self.state.storage_root
 
-        self.eth_types = self._module("eth_types")
-        self.Account = self.eth_types.Account
-        self.Address = self.eth_types.Address
+        self.fork_types = self._module("fork_types")
+        self.Account = self.fork_types.Account
+        self.Address = self.fork_types.Address
 
         self.hexadecimal = self._module("utils.hexadecimal")
         self.hex_to_address = self.hexadecimal.hex_to_address

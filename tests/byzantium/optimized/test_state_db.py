@@ -5,7 +5,7 @@ import pytest
 
 import ethereum.byzantium.state as state
 from ethereum.base_types import U256
-from ethereum.byzantium.eth_types import EMPTY_ACCOUNT
+from ethereum.byzantium.fork_types import EMPTY_ACCOUNT
 from ethereum.byzantium.utils.hexadecimal import hex_to_address
 
 try:

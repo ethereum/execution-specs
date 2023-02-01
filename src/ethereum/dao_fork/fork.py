@@ -1,4 +1,6 @@
 """
+.. _dao-fork:
+
 Ethereum Specification
 ^^^^^^^^^^^^^^^^^^^^^^
 
@@ -24,9 +26,10 @@ from ethereum.utils.ensure import ensure
 
 from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Bytes32, Uint
-from . import vm
+from . import MAINNET_FORK_BLOCK, vm
 from .bloom import logs_bloom
-from .eth_types import (
+from .dao import DAO_ACCOUNTS, DAO_RECOVERY
+from .fork_types import (
     TX_BASE_COST,
     TX_CREATE_COST,
     TX_DATA_COST_PER_NON_ZERO,
@@ -46,6 +49,7 @@ from .state import (
     destroy_account,
     get_account,
     increment_nonce,
+    move_ether,
     set_account_balance,
     state_root,
 )
@@ -77,8 +81,15 @@ def apply_fork(old: BlockChain) -> BlockChain:
     chain object for this hard fork and returns it.
 
     When forks need to implement an irregular state transition, this function
-    is used to handle the irregularity. See the :ref:`DAO Fork <dao-fork>` for
-    an example.
+    is used to handle the irregularity.
+
+    The DAO-Fork occured as a result of the `2016 DAO Hacks
+    <https://www.gemini.com/cryptopedia/the-dao-hack-makerdao>`_ in which an
+    unknown entity managed to drain more than 3.6 million ether causing the
+    price of ether to drop by nearly 35%. This fork was the solution to the
+    hacks and manually reset the affected parties' accounts to their state
+    prior to the attack. This fork essentially rewrote the history of the
+    Ethereum network.
 
     Parameters
     ----------
@@ -90,6 +101,9 @@ def apply_fork(old: BlockChain) -> BlockChain:
     new : `BlockChain`
         Upgraded block chain object for this hard fork.
     """
+    for address in DAO_ACCOUNTS:
+        balance = get_account(old.state, address).balance
+        move_ether(old.state, address, DAO_RECOVERY, balance)
     return old
 
 
@@ -224,6 +238,12 @@ def validate_header(header: Header, parent_header: Header) -> None:
 
     block_parent_hash = keccak256(rlp.encode(parent_header))
     ensure(header.parent_hash == block_parent_hash, InvalidBlock)
+
+    if (
+        header.number >= MAINNET_FORK_BLOCK
+        and header.number < MAINNET_FORK_BLOCK + 10
+    ):
+        ensure(header.extra_data == b"dao-hard-fork", InvalidBlock)
 
     validate_proof_of_work(header)
 
@@ -414,14 +434,14 @@ def apply_body(
     -------
     gas_available : `ethereum.base_types.Uint`
         Remaining gas after all transactions have been executed.
-    transactions_root : `ethereum.eth_types.Root`
+    transactions_root : `ethereum.fork_types.Root`
         Trie root of all the transactions in the block.
-    receipt_root : `ethereum.eth_types.Root`
+    receipt_root : `ethereum.fork_types.Root`
         Trie root of all the receipts in the block.
     block_logs_bloom : `Bloom`
         Logs bloom of all the logs included in all the transactions of the
         block.
-    state : `ethereum.eth_types.State`
+    state : `ethereum.fork_types.State`
         State after all transactions have been executed.
     """
     gas_available = block_gas_limit
@@ -628,7 +648,7 @@ def process_transaction(
     -------
     gas_left : `ethereum.base_types.U256`
         Remaining gas after execution.
-    logs : `Tuple[ethereum.eth_types.Log, ...]`
+    logs : `Tuple[ethereum.fork_types.Log, ...]`
         Logs generated during execution.
     """
     ensure(validate_transaction(tx), InvalidBlock)
@@ -766,7 +786,7 @@ def recover_sender(tx: Transaction) -> Address:
 
     Returns
     -------
-    sender : `ethereum.eth_types.Address`
+    sender : `ethereum.fork_types.Address`
         The address of the account that signed the transaction.
     """
     v, r, s = tx.v, tx.r, tx.s
@@ -797,7 +817,7 @@ def signing_hash(tx: Transaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -843,7 +863,7 @@ def compute_header_hash(header: Header) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the header.
     """
     return keccak256(rlp.encode(header))

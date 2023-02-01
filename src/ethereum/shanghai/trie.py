@@ -10,7 +10,7 @@ Introduction
 ------------
 
 The state trie is the structure responsible for storing
-`eth1spec.eth_types.Account` objects.
+`eth1spec.fork_types.Account` objects.
 """
 
 import copy
@@ -36,7 +36,7 @@ from ethereum.utils.hexadecimal import hex_to_bytes
 
 from .. import rlp
 from ..base_types import U256, Bytes, Uint, slotted_freezable
-from .eth_types import (
+from .fork_types import (
     Account,
     Address,
     LegacyTransaction,
@@ -386,7 +386,7 @@ def root(
 
     Returns
     -------
-    root : `eth1spec.eth_types.Root`
+    root : `eth1spec.fork_types.Root`
         MPT root of the underlying key-value pairs.
     """
     obj = _prepare_trie(trie, get_storage_root)

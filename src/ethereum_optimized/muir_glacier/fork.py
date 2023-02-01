@@ -10,13 +10,13 @@ Introduction
 ------------
 
 This module contains functions can be monkey patched into
-`ethereum.homestead.spec` to use alternate optimized implementations.
+`ethereum.muir_glacier.fork` to use alternate optimized implementations.
 """
 from ethereum.base_types import U256_CEIL_VALUE
 from ethereum.ethash import epoch
 from ethereum.exceptions import InvalidBlock
-from ethereum.homestead.eth_types import Header
-from ethereum.homestead.spec import generate_header_hash_for_pow
+from ethereum.muir_glacier.fork import generate_header_hash_for_pow
+from ethereum.muir_glacier.fork_types import Header
 from ethereum.utils.ensure import ensure
 
 try:
@@ -31,7 +31,7 @@ except ImportError as e:
 
 def validate_proof_of_work(header: Header) -> None:
     """
-    See `ethereum.homestead.spec.validate_proof_of_work`.
+    See `ethereum.muir_glacier.fork.validate_proof_of_work`.
     """
     epoch_number = epoch(header.number)
     header_hash = generate_header_hash_for_pow(header)

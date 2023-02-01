@@ -2,7 +2,7 @@ import pytest
 
 import ethereum.rlp as rlp
 from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes8, Uint
-from ethereum.berlin.eth_types import (
+from ethereum.berlin.fork_types import (
     AccessListTransaction,
     Block,
     Header,

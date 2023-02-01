@@ -14,7 +14,7 @@ Byzantium types.
 """
 from ethereum.utils.hexadecimal import remove_hex_prefix
 
-from ..eth_types import Address, Bloom, Root
+from ..fork_types import Address, Bloom, Root
 
 
 def hex_to_root(hex_string: str) -> Root:

@@ -10,7 +10,7 @@ Introduction
 ------------
 
 The abstract computer which runs the code stored in an
-`eth1spec.eth_types.Account`.
+`eth1spec.fork_types.Account`.
 """
 
 from dataclasses import dataclass
@@ -19,7 +19,7 @@ from typing import List, Optional, Set, Tuple, Union
 from ethereum.base_types import U64, U256, Bytes, Bytes0, Uint
 from ethereum.crypto.hash import Hash32
 
-from ..eth_types import Address, Log
+from ..fork_types import Address, Log
 from ..state import State, account_exists_and_is_empty
 from .precompiled_contracts import RIPEMD160_ADDRESS
 

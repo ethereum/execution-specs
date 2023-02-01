@@ -13,7 +13,7 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, Union
 
 from ethereum.base_types import Bytes0
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
@@ -24,21 +24,28 @@ from ethereum.utils.ensure import ensure
 
 from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
-from . import vm
+from . import MAINNET_FORK_BLOCK, vm
 from .bloom import logs_bloom
-from .eth_types import (
+from .fork_types import (
+    TX_ACCESS_LIST_ADDRESS_COST,
+    TX_ACCESS_LIST_STORAGE_KEY_COST,
     TX_BASE_COST,
     TX_CREATE_COST,
     TX_DATA_COST_PER_NON_ZERO,
     TX_DATA_COST_PER_ZERO,
+    AccessListTransaction,
     Address,
     Block,
     Bloom,
+    FeeMarketTransaction,
     Header,
+    LegacyTransaction,
     Log,
     Receipt,
     Root,
     Transaction,
+    decode_transaction,
+    encode_transaction,
 )
 from .state import (
     State,
@@ -55,11 +62,14 @@ from .utils.message import prepare_message
 from .vm.interpreter import process_message_call
 
 BLOCK_REWARD = U256(2 * 10**18)
+BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
+ELASTICITY_MULTIPLIER = 2
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
 MINIMUM_DIFFICULTY = Uint(131072)
+INITIAL_BASE_FEE = 1000000000
 MAX_OMMER_DEPTH = 6
-BOMB_DELAY_BLOCKS = 5000000
+BOMB_DELAY_BLOCKS = 11400000
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 
 
@@ -172,6 +182,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         get_last_256_block_hashes(chain),
         block.header.coinbase,
         block.header.number,
+        block.header.base_fee_per_gas,
         block.header.gas_limit,
         block.header.timestamp,
         block.header.difficulty,
@@ -210,13 +221,60 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_header :
         Parent Header of the header to check for correctness
     """
+    if header.number == MAINNET_FORK_BLOCK:
+        parent_gas_limit = parent_header.gas_limit * ELASTICITY_MULTIPLIER
+        parent_gas_target = parent_header.gas_limit
+    else:
+        parent_gas_limit = parent_header.gas_limit
+        parent_gas_target = parent_header.gas_limit // ELASTICITY_MULTIPLIER
+        parent_base_fee_per_gas = parent_header.base_fee_per_gas
+
+    parent_gas_used = parent_header.gas_used
+
+    ensure(header.gas_used <= header.gas_limit, InvalidBlock)
+    ensure(
+        check_gas_limit(header.gas_limit, parent_gas_limit),
+        InvalidBlock,
+    )
+
+    # check if the base fee is correct
+    if header.number == MAINNET_FORK_BLOCK:
+        expected_base_fee_per_gas = INITIAL_BASE_FEE
+    elif parent_gas_used == parent_gas_target:
+        expected_base_fee_per_gas = parent_base_fee_per_gas
+    elif parent_gas_used > parent_gas_target:
+        gas_used_delta = parent_gas_used - parent_gas_target
+
+        parent_fee_gas_delta = parent_base_fee_per_gas * gas_used_delta
+        target_fee_gas_delta = parent_fee_gas_delta // parent_gas_target
+
+        base_fee_per_gas_delta = max(
+            target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR,
+            1,
+        )
+
+        expected_base_fee_per_gas = (
+            parent_base_fee_per_gas + base_fee_per_gas_delta
+        )
+    else:
+        gas_used_delta = parent_gas_target - parent_gas_used
+
+        parent_fee_gas_delta = parent_base_fee_per_gas * gas_used_delta
+        target_fee_gas_delta = parent_fee_gas_delta // parent_gas_target
+
+        base_fee_per_gas_delta = (
+            target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR
+        )
+
+        expected_base_fee_per_gas = (
+            parent_base_fee_per_gas - base_fee_per_gas_delta
+        )
+
+    ensure(expected_base_fee_per_gas == header.base_fee_per_gas, InvalidBlock)
+
     parent_has_ommers = parent_header.ommers_hash != EMPTY_OMMER_HASH
     ensure(header.timestamp > parent_header.timestamp, InvalidBlock)
     ensure(header.number == parent_header.number + 1, InvalidBlock)
-    ensure(
-        check_gas_limit(header.gas_limit, parent_header.gas_limit),
-        InvalidBlock,
-    )
     ensure(len(header.extra_data) <= 32, InvalidBlock)
 
     block_difficulty = calculate_block_difficulty(
@@ -271,6 +329,7 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
         header.gas_used,
         header.timestamp,
         header.extra_data,
+        header.base_fee_per_gas,
     ]
 
     return rlp.rlp_hash(header_data_without_pow_artefacts)
@@ -308,9 +367,10 @@ def validate_proof_of_work(header: Header) -> None:
 
 def check_transaction(
     tx: Transaction,
+    base_fee_per_gas: Uint,
     gas_available: Uint,
     chain_id: U64,
-) -> Address:
+) -> Tuple[Address, U256]:
     """
     Check if the transaction is includable in the block.
 
@@ -318,6 +378,8 @@ def check_transaction(
     ----------
     tx :
         The transaction.
+    base_fee_per_gas :
+        The block base fee.
     gas_available :
         The gas remaining in the block.
     chain_id :
@@ -327,6 +389,8 @@ def check_transaction(
     -------
     sender_address :
         The sender of the transaction.
+    effective_gas_price :
+        The price to charge for gas when the transaction is executed.
 
     Raises
     ------
@@ -336,7 +400,19 @@ def check_transaction(
     ensure(tx.gas <= gas_available, InvalidBlock)
     sender_address = recover_sender(chain_id, tx)
 
-    return sender_address
+    if isinstance(tx, FeeMarketTransaction):
+        ensure(tx.max_fee_per_gas >= tx.max_priority_fee_per_gas, InvalidBlock)
+
+        priority_fee_per_gas = min(
+            tx.max_priority_fee_per_gas,
+            tx.max_fee_per_gas - base_fee_per_gas,
+        )
+        effective_gas_price = priority_fee_per_gas + base_fee_per_gas
+    else:
+        ensure(tx.gas_price >= base_fee_per_gas, InvalidBlock)
+        effective_gas_price = tx.gas_price
+
+    return sender_address, effective_gas_price
 
 
 def make_receipt(
@@ -344,7 +420,7 @@ def make_receipt(
     has_erred: bool,
     cumulative_gas_used: Uint,
     logs: Tuple[Log, ...],
-) -> Receipt:
+) -> Union[Bytes, Receipt]:
     """
     Make the receipt for a transaction that was executed.
 
@@ -372,7 +448,12 @@ def make_receipt(
         logs=logs,
     )
 
-    return receipt
+    if isinstance(tx, AccessListTransaction):
+        return b"\x01" + rlp.encode(receipt)
+    if isinstance(tx, FeeMarketTransaction):
+        return b"\x02" + rlp.encode(receipt)
+    else:
+        return receipt
 
 
 def apply_body(
@@ -380,10 +461,11 @@ def apply_body(
     block_hashes: List[Hash32],
     coinbase: Address,
     block_number: Uint,
+    base_fee_per_gas: Uint,
     block_gas_limit: Uint,
     block_time: U256,
     block_difficulty: Uint,
-    transactions: Tuple[Transaction, ...],
+    transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
     ommers: Tuple[Header, ...],
     chain_id: U64,
 ) -> Tuple[Uint, Root, Root, Bloom, State]:
@@ -408,6 +490,8 @@ def apply_body(
         Address of account which receives block reward and transaction fees.
     block_number :
         Position of the block within the chain.
+    base_fee_per_gas :
+        Base fee per gas of within the block.
     block_gas_limit :
         Initial amount of gas available for execution in this block.
     block_time :
@@ -426,29 +510,33 @@ def apply_body(
     -------
     gas_available : `ethereum.base_types.Uint`
         Remaining gas after all transactions have been executed.
-    transactions_root : `ethereum.eth_types.Root`
+    transactions_root : `ethereum.fork_types.Root`
         Trie root of all the transactions in the block.
-    receipt_root : `ethereum.eth_types.Root`
+    receipt_root : `ethereum.fork_types.Root`
         Trie root of all the receipts in the block.
     block_logs_bloom : `Bloom`
         Logs bloom of all the logs included in all the transactions of the
         block.
-    state : `ethereum.eth_types.State`
+    state : `ethereum.fork_types.State`
         State after all transactions have been executed.
     """
     gas_available = block_gas_limit
-    transactions_trie: Trie[Bytes, Optional[Transaction]] = Trie(
-        secured=False, default=None
-    )
-    receipts_trie: Trie[Bytes, Optional[Receipt]] = Trie(
+    transactions_trie: Trie[
+        Bytes, Optional[Union[Bytes, LegacyTransaction]]
+    ] = Trie(secured=False, default=None)
+    receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]] = Trie(
         secured=False, default=None
     )
     block_logs: Tuple[Log, ...] = ()
 
-    for i, tx in enumerate(transactions):
-        trie_set(transactions_trie, rlp.encode(Uint(i)), tx)
+    for i, tx in enumerate(map(decode_transaction, transactions)):
+        trie_set(
+            transactions_trie, rlp.encode(Uint(i)), encode_transaction(tx)
+        )
 
-        sender_address = check_transaction(tx, gas_available, chain_id)
+        sender_address, effective_gas_price = check_transaction(
+            tx, base_fee_per_gas, gas_available, chain_id
+        )
 
         env = vm.Environment(
             caller=sender_address,
@@ -457,10 +545,12 @@ def apply_body(
             coinbase=coinbase,
             number=block_number,
             gas_limit=block_gas_limit,
-            gas_price=tx.gas_price,
+            base_fee_per_gas=base_fee_per_gas,
+            gas_price=effective_gas_price,
             time=block_time,
             difficulty=block_difficulty,
             state=state,
+            chain_id=chain_id,
         )
 
         gas_used, logs, has_erred = process_transaction(env, tx)
@@ -640,22 +730,38 @@ def process_transaction(
     -------
     gas_left : `ethereum.base_types.U256`
         Remaining gas after execution.
-    logs : `Tuple[ethereum.eth_types.Log, ...]`
+    logs : `Tuple[ethereum.fork_types.Log, ...]`
         Logs generated during execution.
     """
     ensure(validate_transaction(tx), InvalidBlock)
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
-    gas_fee = tx.gas * tx.gas_price
+
+    if isinstance(tx, FeeMarketTransaction):
+        gas_fee = tx.gas * tx.max_fee_per_gas
+    else:
+        gas_fee = tx.gas * tx.gas_price
+
     ensure(sender_account.nonce == tx.nonce, InvalidBlock)
     ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
     ensure(sender_account.code == bytearray(), InvalidBlock)
 
+    effective_gas_fee = tx.gas * env.gas_price
+
     gas = tx.gas - calculate_intrinsic_cost(tx)
     increment_nonce(env.state, sender)
-    sender_balance_after_gas_fee = sender_account.balance - gas_fee
+
+    sender_balance_after_gas_fee = sender_account.balance - effective_gas_fee
     set_account_balance(env.state, sender, sender_balance_after_gas_fee)
+
+    preaccessed_addresses = set()
+    preaccessed_storage_keys = set()
+    if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
+        for (address, keys) in tx.access_list:
+            preaccessed_addresses.add(address)
+            for key in keys:
+                preaccessed_storage_keys.add((address, key))
 
     message = prepare_message(
         sender,
@@ -664,14 +770,22 @@ def process_transaction(
         tx.data,
         gas,
         env,
+        preaccessed_addresses=frozenset(preaccessed_addresses),
+        preaccessed_storage_keys=frozenset(preaccessed_storage_keys),
     )
 
     output = process_message_call(message, env)
 
     gas_used = tx.gas - output.gas_left
-    gas_refund = min(gas_used // 2, output.refund_counter)
-    gas_refund_amount = (output.gas_left + gas_refund) * tx.gas_price
-    transaction_fee = (tx.gas - output.gas_left - gas_refund) * tx.gas_price
+    gas_refund = min(gas_used // 5, output.refund_counter)
+    gas_refund_amount = (output.gas_left + gas_refund) * env.gas_price
+
+    # For non-1559 transactions env.gas_price == tx.gas_price
+    priority_fee_per_gas = env.gas_price - env.base_fee_per_gas
+    transaction_fee = (
+        tx.gas - output.gas_left - gas_refund
+    ) * priority_fee_per_gas
+
     total_gas_used = gas_used - gas_refund
 
     # refund gas
@@ -765,7 +879,13 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     else:
         create_cost = 0
 
-    return Uint(TX_BASE_COST + data_cost + create_cost)
+    access_list_cost = 0
+    if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
+        for (_address, keys) in tx.access_list:
+            access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
+            access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
+
+    return Uint(TX_BASE_COST + data_cost + create_cost + access_list_cost)
 
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:
@@ -787,7 +907,7 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
 
     Returns
     -------
-    sender : `ethereum.eth_types.Address`
+    sender : `ethereum.fork_types.Address`
         The address of the account that signed the transaction.
     """
     v, r, s = tx.v, tx.r, tx.s
@@ -795,17 +915,27 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     ensure(0 < r and r < SECP256K1N, InvalidBlock)
     ensure(0 < s and s <= SECP256K1N // 2, InvalidBlock)
 
-    if v == 27 or v == 28:
-        public_key = secp256k1_recover(r, s, v - 27, signing_hash_pre155(tx))
-    else:
-        ensure(v == 35 + chain_id * 2 or v == 36 + chain_id * 2, InvalidBlock)
-        public_key = secp256k1_recover(
-            r, s, v - 35 - chain_id * 2, signing_hash_155(tx)
-        )
+    if isinstance(tx, LegacyTransaction):
+        if v == 27 or v == 28:
+            public_key = secp256k1_recover(
+                r, s, v - 27, signing_hash_pre155(tx)
+            )
+        else:
+            ensure(
+                v == 35 + chain_id * 2 or v == 36 + chain_id * 2, InvalidBlock
+            )
+            public_key = secp256k1_recover(
+                r, s, v - 35 - chain_id * 2, signing_hash_155(tx)
+            )
+    elif isinstance(tx, AccessListTransaction):
+        public_key = secp256k1_recover(r, s, v, signing_hash_2930(tx))
+    elif isinstance(tx, FeeMarketTransaction):
+        public_key = secp256k1_recover(r, s, v, signing_hash_1559(tx))
+
     return Address(keccak256(public_key)[12:32])
 
 
-def signing_hash_pre155(tx: Transaction) -> Hash32:
+def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:
     """
     Compute the hash of a transaction used in a legacy (pre EIP 155) signature.
 
@@ -816,7 +946,7 @@ def signing_hash_pre155(tx: Transaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -833,7 +963,7 @@ def signing_hash_pre155(tx: Transaction) -> Hash32:
     )
 
 
-def signing_hash_155(tx: Transaction) -> Hash32:
+def signing_hash_155(tx: LegacyTransaction) -> Hash32:
     """
     Compute the hash of a transaction used in a EIP 155 signature.
 
@@ -844,7 +974,7 @@ def signing_hash_155(tx: Transaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -859,6 +989,69 @@ def signing_hash_155(tx: Transaction) -> Hash32:
                 Uint(1),
                 Uint(0),
                 Uint(0),
+            )
+        )
+    )
+
+
+def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
+    """
+    Compute the hash of a transaction used in a EIP 2930 signature.
+
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `ethereum.fork_types.Hash32`
+        Hash of the transaction.
+    """
+    return keccak256(
+        b"\x01"
+        + rlp.encode(
+            (
+                tx.chain_id,
+                tx.nonce,
+                tx.gas_price,
+                tx.gas,
+                tx.to,
+                tx.value,
+                tx.data,
+                tx.access_list,
+            )
+        )
+    )
+
+
+def signing_hash_1559(tx: FeeMarketTransaction) -> Hash32:
+    """
+    Compute the hash of a transaction used in a EIP 1559 signature.
+
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `eth1spec.fork_types.Hash32`
+        Hash of the transaction.
+    """
+    return keccak256(
+        b"\x02"
+        + rlp.encode(
+            (
+                tx.chain_id,
+                tx.nonce,
+                tx.max_priority_fee_per_gas,
+                tx.max_fee_per_gas,
+                tx.gas,
+                tx.to,
+                tx.value,
+                tx.data,
+                tx.access_list,
             )
         )
     )
@@ -893,7 +1086,7 @@ def compute_header_hash(header: Header) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the header.
     """
     return keccak256(rlp.encode(header))

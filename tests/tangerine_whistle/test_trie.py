@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from ethereum.tangerine_whistle.eth_types import Bytes
+from ethereum.tangerine_whistle.fork_types import Bytes
 from ethereum.tangerine_whistle.trie import Trie, root, trie_set
 from ethereum.utils.hexadecimal import (
     has_hex_prefix,

@@ -10,13 +10,13 @@ Introduction
 ------------
 
 This module contains functions can be monkey patched into
-`ethereum.tangerine_whistle.spec` to use alternate optimized implementations.
+`ethereum.gray_glacier.fork` to use alternate optimized implementations.
 """
 from ethereum.base_types import U256_CEIL_VALUE
 from ethereum.ethash import epoch
 from ethereum.exceptions import InvalidBlock
-from ethereum.tangerine_whistle.eth_types import Header
-from ethereum.tangerine_whistle.spec import generate_header_hash_for_pow
+from ethereum.gray_glacier.fork import generate_header_hash_for_pow
+from ethereum.gray_glacier.fork_types import Header
 from ethereum.utils.ensure import ensure
 
 try:
@@ -31,7 +31,7 @@ except ImportError as e:
 
 def validate_proof_of_work(header: Header) -> None:
     """
-    See `ethereum.tangerine_whistle.spec.validate_proof_of_work`.
+    See `ethereum.gray_glacier.fork.validate_proof_of_work`.
     """
     epoch_number = epoch(header.number)
     header_hash = generate_header_hash_for_pow(header)

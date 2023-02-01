@@ -5,7 +5,7 @@ import pytest
 
 import ethereum.london.state as state
 from ethereum.base_types import U256
-from ethereum.london.eth_types import EMPTY_ACCOUNT
+from ethereum.london.fork_types import EMPTY_ACCOUNT
 from ethereum.london.utils.hexadecimal import hex_to_address
 
 try:

@@ -10,11 +10,11 @@ Introduction
 ------------
 
 This module contains functions can be monkey patched into
-`ethereum.berlin.spec` to use alternate optimized implementations.
+`ethereum.dao_fork.fork` to use alternate optimized implementations.
 """
 from ethereum.base_types import U256_CEIL_VALUE
-from ethereum.berlin.eth_types import Header
-from ethereum.berlin.spec import generate_header_hash_for_pow
+from ethereum.dao_fork.fork import generate_header_hash_for_pow
+from ethereum.dao_fork.fork_types import Header
 from ethereum.ethash import epoch
 from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
@@ -31,7 +31,7 @@ except ImportError as e:
 
 def validate_proof_of_work(header: Header) -> None:
     """
-    See `ethereum.berlin.spec.validate_proof_of_work`.
+    See `ethereum.dao_fork.fork.validate_proof_of_work`.
     """
     epoch_number = epoch(header.number)
     header_hash = generate_header_hash_for_pow(header)

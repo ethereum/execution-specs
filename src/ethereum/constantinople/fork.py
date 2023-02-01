@@ -23,10 +23,10 @@ from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 
 from .. import rlp
-from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Bytes32, Uint
+from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
 from . import vm
 from .bloom import logs_bloom
-from .eth_types import (
+from .fork_types import (
     TX_BASE_COST,
     TX_CREATE_COST,
     TX_DATA_COST_PER_NON_ZERO,
@@ -54,11 +54,13 @@ from .trie import Trie, root, trie_set
 from .utils.message import prepare_message
 from .vm.interpreter import process_message_call
 
-BLOCK_REWARD = U256(5 * 10**18)
+BLOCK_REWARD = U256(2 * 10**18)
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
 MINIMUM_DIFFICULTY = Uint(131072)
 MAX_OMMER_DEPTH = 6
+BOMB_DELAY_BLOCKS = 5000000
+EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 
 
 @dataclass
@@ -208,6 +210,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_header :
         Parent Header of the header to check for correctness
     """
+    parent_has_ommers = parent_header.ommers_hash != EMPTY_OMMER_HASH
     ensure(header.timestamp > parent_header.timestamp, InvalidBlock)
     ensure(header.number == parent_header.number + 1, InvalidBlock)
     ensure(
@@ -221,6 +224,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
         header.timestamp,
         parent_header.timestamp,
         parent_header.difficulty,
+        parent_has_ommers,
     )
     ensure(header.difficulty == block_difficulty, InvalidBlock)
 
@@ -337,7 +341,7 @@ def check_transaction(
 
 def make_receipt(
     tx: Transaction,
-    post_state: Bytes32,
+    has_erred: bool,
     cumulative_gas_used: Uint,
     logs: Tuple[Log, ...],
 ) -> Receipt:
@@ -348,8 +352,8 @@ def make_receipt(
     ----------
     tx :
         The executed transaction.
-    post_state :
-        The state root immediately after this transaction.
+    has_erred :
+        Whether the top level frame of the transaction exited with an error.
     cumulative_gas_used :
         The total gas used so far in the block after the transaction was
         executed.
@@ -362,7 +366,7 @@ def make_receipt(
         The receipt for the transaction.
     """
     receipt = Receipt(
-        post_state=post_state,
+        succeeded=not has_erred,
         cumulative_gas_used=cumulative_gas_used,
         bloom=logs_bloom(logs),
         logs=logs,
@@ -422,14 +426,14 @@ def apply_body(
     -------
     gas_available : `ethereum.base_types.Uint`
         Remaining gas after all transactions have been executed.
-    transactions_root : `ethereum.eth_types.Root`
+    transactions_root : `ethereum.fork_types.Root`
         Trie root of all the transactions in the block.
-    receipt_root : `ethereum.eth_types.Root`
+    receipt_root : `ethereum.fork_types.Root`
         Trie root of all the receipts in the block.
     block_logs_bloom : `Bloom`
         Logs bloom of all the logs included in all the transactions of the
         block.
-    state : `ethereum.eth_types.State`
+    state : `ethereum.fork_types.State`
         State after all transactions have been executed.
     """
     gas_available = block_gas_limit
@@ -459,11 +463,11 @@ def apply_body(
             state=state,
         )
 
-        gas_used, logs = process_transaction(env, tx)
+        gas_used, logs, has_erred = process_transaction(env, tx)
         gas_available -= gas_used
 
         receipt = make_receipt(
-            tx, state_root(state), (block_gas_limit - gas_available), logs
+            tx, has_erred, (block_gas_limit - gas_available), logs
         )
 
         trie_set(
@@ -612,7 +616,7 @@ def pay_rewards(
 
 def process_transaction(
     env: vm.Environment, tx: Transaction
-) -> Tuple[U256, Tuple[Log, ...]]:
+) -> Tuple[U256, Tuple[Log, ...], bool]:
     """
     Execute a transaction against the provided environment.
 
@@ -636,7 +640,7 @@ def process_transaction(
     -------
     gas_left : `ethereum.base_types.U256`
         Remaining gas after execution.
-    logs : `Tuple[ethereum.eth_types.Log, ...]`
+    logs : `Tuple[ethereum.fork_types.Log, ...]`
         Logs generated during execution.
     """
     ensure(validate_transaction(tx), InvalidBlock)
@@ -694,7 +698,7 @@ def process_transaction(
         if account_exists_and_is_empty(env.state, address):
             destroy_account(env.state, address)
 
-    return total_gas_used, output.logs
+    return total_gas_used, output.logs, output.has_erred
 
 
 def validate_transaction(tx: Transaction) -> bool:
@@ -783,7 +787,7 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
 
     Returns
     -------
-    sender : `ethereum.eth_types.Address`
+    sender : `ethereum.fork_types.Address`
         The address of the account that signed the transaction.
     """
     v, r, s = tx.v, tx.r, tx.s
@@ -812,7 +816,7 @@ def signing_hash_pre155(tx: Transaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -840,7 +844,7 @@ def signing_hash_155(tx: Transaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -889,7 +893,7 @@ def compute_header_hash(header: Header) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the header.
     """
     return keccak256(rlp.encode(header))
@@ -939,6 +943,7 @@ def calculate_block_difficulty(
     block_timestamp: U256,
     parent_timestamp: U256,
     parent_difficulty: Uint,
+    parent_has_ommers: bool,
 ) -> Uint:
     """
     Computes difficulty of a block using its header and parent header.
@@ -970,6 +975,8 @@ def calculate_block_difficulty(
         Timestamp of the parent block.
     parent_difficulty :
         difficulty of the parent block.
+    parent_has_ommers:
+        does the parent have ommers.
 
     Returns
     -------
@@ -979,7 +986,11 @@ def calculate_block_difficulty(
     offset = (
         int(parent_difficulty)
         // 2048
-        * max(1 - int(block_timestamp - parent_timestamp) // 10, -99)
+        * max(
+            (2 if parent_has_ommers else 1)
+            - int(block_timestamp - parent_timestamp) // 9,
+            -99,
+        )
     )
     difficulty = int(parent_difficulty) + offset
     # Historical Note: The difficulty bomb was not present in Ethereum at the
@@ -987,7 +998,7 @@ def calculate_block_difficulty(
     # bomb has no effect prior to block 200000 we pretend it existed from
     # genesis.
     # See https://github.com/ethereum/go-ethereum/pull/1588
-    num_bomb_periods = (int(block_number) // 100000) - 2
+    num_bomb_periods = ((int(block_number) - BOMB_DELAY_BLOCKS) // 100000) - 2
     if num_bomb_periods >= 0:
         difficulty += 2**num_bomb_periods
 

@@ -15,7 +15,7 @@ from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.utils.ensure import ensure
 from ethereum.utils.numeric import ceil32
 
-from ...eth_types import Address
+from ...fork_types import Address
 from ...state import (
     account_exists_and_is_empty,
     account_has_code_or_nonce,

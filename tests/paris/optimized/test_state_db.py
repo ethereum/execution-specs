@@ -5,7 +5,7 @@ import pytest
 
 import ethereum.paris.state as state
 from ethereum.base_types import U256
-from ethereum.paris.eth_types import EMPTY_ACCOUNT
+from ethereum.paris.fork_types import EMPTY_ACCOUNT
 from ethereum.paris.utils.hexadecimal import hex_to_address
 
 try:

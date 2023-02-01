@@ -31,8 +31,8 @@ class DifficultyTestLoader:
         except:
             self.test_files = []
 
-        self.spec = self._module("spec")
-        self.calculate_block_difficulty = self.spec.calculate_block_difficulty
+        self.fork = self._module("fork")
+        self.calculate_block_difficulty = self.fork.calculate_block_difficulty
 
     def _module(self, name: str) -> Any:
         return import_module(f"ethereum.{self.fork_name}.{name}")

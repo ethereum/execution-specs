@@ -5,7 +5,7 @@ import pytest
 
 import ethereum.spurious_dragon.state as state
 from ethereum.base_types import U256
-from ethereum.spurious_dragon.eth_types import EMPTY_ACCOUNT
+from ethereum.spurious_dragon.fork_types import EMPTY_ACCOUNT
 from ethereum.spurious_dragon.utils.hexadecimal import hex_to_address
 
 try:

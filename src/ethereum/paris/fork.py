@@ -13,37 +13,42 @@ Entry point for the Ethereum specification.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Tuple, Union
 
-from ethereum.base_types import Bytes0
+from ethereum.base_types import Bytes0, Bytes32
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 
 from .. import rlp
-from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
+from ..base_types import U64, U256, Bytes, Uint
 from . import vm
 from .bloom import logs_bloom
-from .eth_types import (
+from .fork_types import (
+    TX_ACCESS_LIST_ADDRESS_COST,
+    TX_ACCESS_LIST_STORAGE_KEY_COST,
     TX_BASE_COST,
     TX_CREATE_COST,
     TX_DATA_COST_PER_NON_ZERO,
     TX_DATA_COST_PER_ZERO,
+    AccessListTransaction,
     Address,
     Block,
     Bloom,
+    FeeMarketTransaction,
     Header,
+    LegacyTransaction,
     Log,
     Receipt,
     Root,
     Transaction,
+    decode_transaction,
+    encode_transaction,
 )
 from .state import (
     State,
     account_exists_and_is_empty,
-    create_ether,
     destroy_account,
     get_account,
     increment_nonce,
@@ -54,12 +59,10 @@ from .trie import Trie, root, trie_set
 from .utils.message import prepare_message
 from .vm.interpreter import process_message_call
 
-BLOCK_REWARD = U256(3 * 10**18)
+BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
+ELASTICITY_MULTIPLIER = 2
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
-MINIMUM_DIFFICULTY = Uint(131072)
-MAX_OMMER_DEPTH = 6
-BOMB_DELAY_BLOCKS = 3000000
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 
 
@@ -160,7 +163,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     """
     parent_header = chain.blocks[-1].header
     validate_header(block.header, parent_header)
-    validate_ommers(block.ommers, block.header, chain)
+    ensure(block.ommers == (), InvalidBlock)
     (
         gas_used,
         transactions_root,
@@ -172,11 +175,11 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         get_last_256_block_hashes(chain),
         block.header.coinbase,
         block.header.number,
+        block.header.base_fee_per_gas,
         block.header.gas_limit,
         block.header.timestamp,
-        block.header.difficulty,
+        block.header.prev_randao,
         block.transactions,
-        block.ommers,
         chain.chain_id,
     )
     ensure(gas_used == block.header.gas_used, InvalidBlock)
@@ -210,107 +213,69 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_header :
         Parent Header of the header to check for correctness
     """
-    parent_has_ommers = parent_header.ommers_hash != EMPTY_OMMER_HASH
-    ensure(header.timestamp > parent_header.timestamp, InvalidBlock)
-    ensure(header.number == parent_header.number + 1, InvalidBlock)
+    parent_gas_limit = parent_header.gas_limit
+    parent_gas_target = parent_header.gas_limit // ELASTICITY_MULTIPLIER
+    parent_base_fee_per_gas = parent_header.base_fee_per_gas
+
+    parent_gas_used = parent_header.gas_used
+
+    ensure(header.gas_used <= header.gas_limit, InvalidBlock)
     ensure(
-        check_gas_limit(header.gas_limit, parent_header.gas_limit),
+        check_gas_limit(header.gas_limit, parent_gas_limit),
         InvalidBlock,
     )
+
+    # check if the base fee is correct
+    if parent_gas_used == parent_gas_target:
+        expected_base_fee_per_gas = parent_base_fee_per_gas
+    elif parent_gas_used > parent_gas_target:
+        gas_used_delta = parent_gas_used - parent_gas_target
+
+        parent_fee_gas_delta = parent_base_fee_per_gas * gas_used_delta
+        target_fee_gas_delta = parent_fee_gas_delta // parent_gas_target
+
+        base_fee_per_gas_delta = max(
+            target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR,
+            1,
+        )
+
+        expected_base_fee_per_gas = (
+            parent_base_fee_per_gas + base_fee_per_gas_delta
+        )
+    else:
+        gas_used_delta = parent_gas_target - parent_gas_used
+
+        parent_fee_gas_delta = parent_base_fee_per_gas * gas_used_delta
+        target_fee_gas_delta = parent_fee_gas_delta // parent_gas_target
+
+        base_fee_per_gas_delta = (
+            target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR
+        )
+
+        expected_base_fee_per_gas = (
+            parent_base_fee_per_gas - base_fee_per_gas_delta
+        )
+
+    ensure(expected_base_fee_per_gas == header.base_fee_per_gas, InvalidBlock)
+
+    ensure(header.timestamp > parent_header.timestamp, InvalidBlock)
+    ensure(header.number == parent_header.number + 1, InvalidBlock)
     ensure(len(header.extra_data) <= 32, InvalidBlock)
 
-    block_difficulty = calculate_block_difficulty(
-        header.number,
-        header.timestamp,
-        parent_header.timestamp,
-        parent_header.difficulty,
-        parent_has_ommers,
-    )
-    ensure(header.difficulty == block_difficulty, InvalidBlock)
+    ensure(header.difficulty == 0, InvalidBlock)
+    ensure(header.nonce == b"\x00\x00\x00\x00\x00\x00\x00\x00", InvalidBlock)
+    ensure(header.ommers_hash == EMPTY_OMMER_HASH, InvalidBlock)
 
     block_parent_hash = keccak256(rlp.encode(parent_header))
     ensure(header.parent_hash == block_parent_hash, InvalidBlock)
 
-    validate_proof_of_work(header)
-
-
-def generate_header_hash_for_pow(header: Header) -> Hash32:
-    """
-    Generate rlp hash of the header which is to be used for Proof-of-Work
-    verification.
-
-    In other words, the PoW artefacts `mix_digest` and `nonce` are ignored
-    while calculating this hash.
-
-    A particular PoW is valid for a single hash, that hash is computed by
-    this function. The `nonce` and `mix_digest` are omitted from this hash
-    because they are being changed by miners in their search for a sufficient
-    proof-of-work.
-
-    Parameters
-    ----------
-    header :
-        The header object for which the hash is to be generated.
-
-    Returns
-    -------
-    hash : `Hash32`
-        The PoW valid rlp hash of the passed in header.
-    """
-    header_data_without_pow_artefacts = [
-        header.parent_hash,
-        header.ommers_hash,
-        header.coinbase,
-        header.state_root,
-        header.transactions_root,
-        header.receipt_root,
-        header.bloom,
-        header.difficulty,
-        header.number,
-        header.gas_limit,
-        header.gas_used,
-        header.timestamp,
-        header.extra_data,
-    ]
-
-    return rlp.rlp_hash(header_data_without_pow_artefacts)
-
-
-def validate_proof_of_work(header: Header) -> None:
-    """
-    Validates the Proof of Work constraints.
-
-    In order to verify that a miner's proof-of-work is valid for a block, a
-    ``mix-digest`` and ``result`` are calculated using the ``hashimoto_light``
-    hash function. The mix digest is a hash of the header and the nonce that
-    is passed through and it confirms whether or not proof-of-work was done
-    on the correct block. The result is the actual hash value of the block.
-
-    Parameters
-    ----------
-    header :
-        Header of interest.
-    """
-    header_hash = generate_header_hash_for_pow(header)
-    # TODO: Memoize this somewhere and read from that data instead of
-    # calculating cache for every block validation.
-    cache = generate_cache(header.number)
-    mix_digest, result = hashimoto_light(
-        header_hash, header.nonce, cache, dataset_size(header.number)
-    )
-
-    ensure(mix_digest == header.mix_digest, InvalidBlock)
-    ensure(
-        Uint.from_be_bytes(result) <= (U256_CEIL_VALUE // header.difficulty),
-        InvalidBlock,
-    )
-
 
 def check_transaction(
     tx: Transaction,
+    base_fee_per_gas: Uint,
     gas_available: Uint,
     chain_id: U64,
-) -> Address:
+) -> Tuple[Address, U256]:
     """
     Check if the transaction is includable in the block.
 
@@ -318,6 +283,8 @@ def check_transaction(
     ----------
     tx :
         The transaction.
+    base_fee_per_gas :
+        The block base fee.
     gas_available :
         The gas remaining in the block.
     chain_id :
@@ -327,6 +294,8 @@ def check_transaction(
     -------
     sender_address :
         The sender of the transaction.
+    effective_gas_price :
+        The price to charge for gas when the transaction is executed.
 
     Raises
     ------
@@ -336,7 +305,19 @@ def check_transaction(
     ensure(tx.gas <= gas_available, InvalidBlock)
     sender_address = recover_sender(chain_id, tx)
 
-    return sender_address
+    if isinstance(tx, FeeMarketTransaction):
+        ensure(tx.max_fee_per_gas >= tx.max_priority_fee_per_gas, InvalidBlock)
+
+        priority_fee_per_gas = min(
+            tx.max_priority_fee_per_gas,
+            tx.max_fee_per_gas - base_fee_per_gas,
+        )
+        effective_gas_price = priority_fee_per_gas + base_fee_per_gas
+    else:
+        ensure(tx.gas_price >= base_fee_per_gas, InvalidBlock)
+        effective_gas_price = tx.gas_price
+
+    return sender_address, effective_gas_price
 
 
 def make_receipt(
@@ -344,7 +325,7 @@ def make_receipt(
     has_erred: bool,
     cumulative_gas_used: Uint,
     logs: Tuple[Log, ...],
-) -> Receipt:
+) -> Union[Bytes, Receipt]:
     """
     Make the receipt for a transaction that was executed.
 
@@ -372,7 +353,12 @@ def make_receipt(
         logs=logs,
     )
 
-    return receipt
+    if isinstance(tx, AccessListTransaction):
+        return b"\x01" + rlp.encode(receipt)
+    if isinstance(tx, FeeMarketTransaction):
+        return b"\x02" + rlp.encode(receipt)
+    else:
+        return receipt
 
 
 def apply_body(
@@ -380,11 +366,11 @@ def apply_body(
     block_hashes: List[Hash32],
     coinbase: Address,
     block_number: Uint,
+    base_fee_per_gas: Uint,
     block_gas_limit: Uint,
     block_time: U256,
-    block_difficulty: Uint,
-    transactions: Tuple[Transaction, ...],
-    ommers: Tuple[Header, ...],
+    prev_randao: Bytes32,
+    transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
     chain_id: U64,
 ) -> Tuple[Uint, Root, Root, Bloom, State]:
     """
@@ -408,12 +394,14 @@ def apply_body(
         Address of account which receives block reward and transaction fees.
     block_number :
         Position of the block within the chain.
+    base_fee_per_gas :
+        Base fee per gas of within the block.
     block_gas_limit :
         Initial amount of gas available for execution in this block.
     block_time :
         Time the block was produced, measured in seconds since the epoch.
-    block_difficulty :
-        Difficulty of the block.
+    prev_randao :
+        The previous randao from the beacon chain.
     transactions :
         Transactions included in the block.
     ommers :
@@ -426,29 +414,33 @@ def apply_body(
     -------
     gas_available : `ethereum.base_types.Uint`
         Remaining gas after all transactions have been executed.
-    transactions_root : `ethereum.eth_types.Root`
+    transactions_root : `ethereum.fork_types.Root`
         Trie root of all the transactions in the block.
-    receipt_root : `ethereum.eth_types.Root`
+    receipt_root : `ethereum.fork_types.Root`
         Trie root of all the receipts in the block.
     block_logs_bloom : `Bloom`
         Logs bloom of all the logs included in all the transactions of the
         block.
-    state : `ethereum.eth_types.State`
+    state : `ethereum.fork_types.State`
         State after all transactions have been executed.
     """
     gas_available = block_gas_limit
-    transactions_trie: Trie[Bytes, Optional[Transaction]] = Trie(
-        secured=False, default=None
-    )
-    receipts_trie: Trie[Bytes, Optional[Receipt]] = Trie(
+    transactions_trie: Trie[
+        Bytes, Optional[Union[Bytes, LegacyTransaction]]
+    ] = Trie(secured=False, default=None)
+    receipts_trie: Trie[Bytes, Optional[Union[Bytes, Receipt]]] = Trie(
         secured=False, default=None
     )
     block_logs: Tuple[Log, ...] = ()
 
-    for i, tx in enumerate(transactions):
-        trie_set(transactions_trie, rlp.encode(Uint(i)), tx)
+    for i, tx in enumerate(map(decode_transaction, transactions)):
+        trie_set(
+            transactions_trie, rlp.encode(Uint(i)), encode_transaction(tx)
+        )
 
-        sender_address = check_transaction(tx, gas_available, chain_id)
+        sender_address, effective_gas_price = check_transaction(
+            tx, base_fee_per_gas, gas_available, chain_id
+        )
 
         env = vm.Environment(
             caller=sender_address,
@@ -457,10 +449,12 @@ def apply_body(
             coinbase=coinbase,
             number=block_number,
             gas_limit=block_gas_limit,
-            gas_price=tx.gas_price,
+            base_fee_per_gas=base_fee_per_gas,
+            gas_price=effective_gas_price,
             time=block_time,
-            difficulty=block_difficulty,
+            prev_randao=prev_randao,
             state=state,
+            chain_id=chain_id,
         )
 
         gas_used, logs, has_erred = process_transaction(env, tx)
@@ -478,8 +472,6 @@ def apply_body(
 
         block_logs += logs
 
-    pay_rewards(state, block_number, coinbase, ommers)
-
     gas_remaining = block_gas_limit - gas_available
 
     block_logs_bloom = logs_bloom(block_logs)
@@ -491,127 +483,6 @@ def apply_body(
         block_logs_bloom,
         state,
     )
-
-
-def validate_ommers(
-    ommers: Tuple[Header, ...], block_header: Header, chain: BlockChain
-) -> None:
-    """
-    Validates the ommers mentioned in the block.
-
-    An ommer block is a block that wasn't canonically added to the
-    blockchain because it wasn't validated as fast as the canonical block
-    but was mined at the same time.
-
-    To be considered valid, the ommers must adhere to the rules defined in
-    the Ethereum protocol. The maximum amount of ommers is 2 per block and
-    there cannot be duplicate ommers in a block. Many of the other ommer
-    contraints are listed in the in-line comments of this function.
-
-    Parameters
-    ----------
-    ommers :
-        List of ommers mentioned in the current block.
-    block_header:
-        The header of current block.
-    chain :
-        History and current state.
-    """
-    block_hash = rlp.rlp_hash(block_header)
-
-    ensure(rlp.rlp_hash(ommers) == block_header.ommers_hash, InvalidBlock)
-
-    if len(ommers) == 0:
-        # Nothing to validate
-        return
-
-    # Check that each ommer satisfies the constraints of a header
-    for ommer in ommers:
-        ensure(1 <= ommer.number < block_header.number, InvalidBlock)
-        ommer_parent_header = chain.blocks[
-            -(block_header.number - ommer.number) - 1
-        ].header
-        validate_header(ommer, ommer_parent_header)
-
-    # Check that there can be only at most 2 ommers for a block.
-    ensure(len(ommers) <= 2, InvalidBlock)
-
-    ommers_hashes = [rlp.rlp_hash(ommer) for ommer in ommers]
-    # Check that there are no duplicates in the ommers of current block
-    ensure(len(ommers_hashes) == len(set(ommers_hashes)), InvalidBlock)
-
-    recent_canonical_blocks = chain.blocks[-(MAX_OMMER_DEPTH + 1) :]
-    recent_canonical_block_hashes = {
-        rlp.rlp_hash(block.header) for block in recent_canonical_blocks
-    }
-    recent_ommers_hashes: Set[Hash32] = set()
-    for block in recent_canonical_blocks:
-        recent_ommers_hashes = recent_ommers_hashes.union(
-            {rlp.rlp_hash(ommer) for ommer in block.ommers}
-        )
-
-    for ommer_index, ommer in enumerate(ommers):
-        ommer_hash = ommers_hashes[ommer_index]
-        # The current block shouldn't be the ommer
-        ensure(ommer_hash != block_hash, InvalidBlock)
-
-        # Ommer shouldn't be one of the recent canonical blocks
-        ensure(ommer_hash not in recent_canonical_block_hashes, InvalidBlock)
-
-        # Ommer shouldn't be one of the uncles mentioned in the recent
-        # canonical blocks
-        ensure(ommer_hash not in recent_ommers_hashes, InvalidBlock)
-
-        # Ommer age with respect to the current block. For example, an age of
-        # 1 indicates that the ommer is a sibling of previous block.
-        ommer_age = block_header.number - ommer.number
-        ensure(1 <= ommer_age <= MAX_OMMER_DEPTH, InvalidBlock)
-
-        ensure(
-            ommer.parent_hash in recent_canonical_block_hashes, InvalidBlock
-        )
-        ensure(ommer.parent_hash != block_header.parent_hash, InvalidBlock)
-
-
-def pay_rewards(
-    state: State,
-    block_number: Uint,
-    coinbase: Address,
-    ommers: Tuple[Header, ...],
-) -> None:
-    """
-    Pay rewards to the block miner as well as the ommers miners.
-
-    The miner of the canonical block is rewarded with the predetermined
-    block reward, ``BLOCK_REWARD``, plus a variable award based off of the
-    number of ommer blocks that were mined around the same time, and included
-    in the canonical block's header. An ommer block is a block that wasn't
-    added to the canonical blockchain because it wasn't validated as fast as
-    the accepted block but was mined at the same time. Although not all blocks
-    that are mined are added to the canonical chain, miners are still paid a
-    reward for their efforts. This reward is called an ommer reward and is
-    calculated based on the number associated with the ommer block that they
-    mined.
-
-    Parameters
-    ----------
-    state :
-        Current account state.
-    block_number :
-        Position of the block within the chain.
-    coinbase :
-        Address of account which receives block reward and transaction fees.
-    ommers :
-        List of ommers mentioned in the current block.
-    """
-    miner_reward = BLOCK_REWARD + (len(ommers) * (BLOCK_REWARD // 32))
-    create_ether(state, coinbase, miner_reward)
-
-    for ommer in ommers:
-        # Ommer age with respect to the current block.
-        ommer_age = U256(block_number - ommer.number)
-        ommer_miner_reward = ((8 - ommer_age) * BLOCK_REWARD) // 8
-        create_ether(state, ommer.coinbase, ommer_miner_reward)
 
 
 def process_transaction(
@@ -640,22 +511,38 @@ def process_transaction(
     -------
     gas_left : `ethereum.base_types.U256`
         Remaining gas after execution.
-    logs : `Tuple[ethereum.eth_types.Log, ...]`
+    logs : `Tuple[ethereum.fork_types.Log, ...]`
         Logs generated during execution.
     """
     ensure(validate_transaction(tx), InvalidBlock)
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
-    gas_fee = tx.gas * tx.gas_price
+
+    if isinstance(tx, FeeMarketTransaction):
+        gas_fee = tx.gas * tx.max_fee_per_gas
+    else:
+        gas_fee = tx.gas * tx.gas_price
+
     ensure(sender_account.nonce == tx.nonce, InvalidBlock)
     ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
     ensure(sender_account.code == bytearray(), InvalidBlock)
 
+    effective_gas_fee = tx.gas * env.gas_price
+
     gas = tx.gas - calculate_intrinsic_cost(tx)
     increment_nonce(env.state, sender)
-    sender_balance_after_gas_fee = sender_account.balance - gas_fee
+
+    sender_balance_after_gas_fee = sender_account.balance - effective_gas_fee
     set_account_balance(env.state, sender, sender_balance_after_gas_fee)
+
+    preaccessed_addresses = set()
+    preaccessed_storage_keys = set()
+    if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
+        for (address, keys) in tx.access_list:
+            preaccessed_addresses.add(address)
+            for key in keys:
+                preaccessed_storage_keys.add((address, key))
 
     message = prepare_message(
         sender,
@@ -664,14 +551,22 @@ def process_transaction(
         tx.data,
         gas,
         env,
+        preaccessed_addresses=frozenset(preaccessed_addresses),
+        preaccessed_storage_keys=frozenset(preaccessed_storage_keys),
     )
 
     output = process_message_call(message, env)
 
     gas_used = tx.gas - output.gas_left
-    gas_refund = min(gas_used // 2, output.refund_counter)
-    gas_refund_amount = (output.gas_left + gas_refund) * tx.gas_price
-    transaction_fee = (tx.gas - output.gas_left - gas_refund) * tx.gas_price
+    gas_refund = min(gas_used // 5, output.refund_counter)
+    gas_refund_amount = (output.gas_left + gas_refund) * env.gas_price
+
+    # For non-1559 transactions env.gas_price == tx.gas_price
+    priority_fee_per_gas = env.gas_price - env.base_fee_per_gas
+    transaction_fee = (
+        tx.gas - output.gas_left - gas_refund
+    ) * priority_fee_per_gas
+
     total_gas_used = gas_used - gas_refund
 
     # refund gas
@@ -765,7 +660,13 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     else:
         create_cost = 0
 
-    return Uint(TX_BASE_COST + data_cost + create_cost)
+    access_list_cost = 0
+    if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
+        for (_address, keys) in tx.access_list:
+            access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
+            access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
+
+    return Uint(TX_BASE_COST + data_cost + create_cost + access_list_cost)
 
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:
@@ -787,7 +688,7 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
 
     Returns
     -------
-    sender : `ethereum.eth_types.Address`
+    sender : `ethereum.fork_types.Address`
         The address of the account that signed the transaction.
     """
     v, r, s = tx.v, tx.r, tx.s
@@ -795,17 +696,27 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     ensure(0 < r and r < SECP256K1N, InvalidBlock)
     ensure(0 < s and s <= SECP256K1N // 2, InvalidBlock)
 
-    if v == 27 or v == 28:
-        public_key = secp256k1_recover(r, s, v - 27, signing_hash_pre155(tx))
-    else:
-        ensure(v == 35 + chain_id * 2 or v == 36 + chain_id * 2, InvalidBlock)
-        public_key = secp256k1_recover(
-            r, s, v - 35 - chain_id * 2, signing_hash_155(tx)
-        )
+    if isinstance(tx, LegacyTransaction):
+        if v == 27 or v == 28:
+            public_key = secp256k1_recover(
+                r, s, v - 27, signing_hash_pre155(tx)
+            )
+        else:
+            ensure(
+                v == 35 + chain_id * 2 or v == 36 + chain_id * 2, InvalidBlock
+            )
+            public_key = secp256k1_recover(
+                r, s, v - 35 - chain_id * 2, signing_hash_155(tx)
+            )
+    elif isinstance(tx, AccessListTransaction):
+        public_key = secp256k1_recover(r, s, v, signing_hash_2930(tx))
+    elif isinstance(tx, FeeMarketTransaction):
+        public_key = secp256k1_recover(r, s, v, signing_hash_1559(tx))
+
     return Address(keccak256(public_key)[12:32])
 
 
-def signing_hash_pre155(tx: Transaction) -> Hash32:
+def signing_hash_pre155(tx: LegacyTransaction) -> Hash32:
     """
     Compute the hash of a transaction used in a legacy (pre EIP 155) signature.
 
@@ -816,7 +727,7 @@ def signing_hash_pre155(tx: Transaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -833,7 +744,7 @@ def signing_hash_pre155(tx: Transaction) -> Hash32:
     )
 
 
-def signing_hash_155(tx: Transaction) -> Hash32:
+def signing_hash_155(tx: LegacyTransaction) -> Hash32:
     """
     Compute the hash of a transaction used in a EIP 155 signature.
 
@@ -844,7 +755,7 @@ def signing_hash_155(tx: Transaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -859,6 +770,69 @@ def signing_hash_155(tx: Transaction) -> Hash32:
                 Uint(1),
                 Uint(0),
                 Uint(0),
+            )
+        )
+    )
+
+
+def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
+    """
+    Compute the hash of a transaction used in a EIP 2930 signature.
+
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `ethereum.fork_types.Hash32`
+        Hash of the transaction.
+    """
+    return keccak256(
+        b"\x01"
+        + rlp.encode(
+            (
+                tx.chain_id,
+                tx.nonce,
+                tx.gas_price,
+                tx.gas,
+                tx.to,
+                tx.value,
+                tx.data,
+                tx.access_list,
+            )
+        )
+    )
+
+
+def signing_hash_1559(tx: FeeMarketTransaction) -> Hash32:
+    """
+    Compute the hash of a transaction used in a EIP 1559 signature.
+
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `eth1spec.fork_types.Hash32`
+        Hash of the transaction.
+    """
+    return keccak256(
+        b"\x02"
+        + rlp.encode(
+            (
+                tx.chain_id,
+                tx.nonce,
+                tx.max_priority_fee_per_gas,
+                tx.max_fee_per_gas,
+                tx.gas,
+                tx.to,
+                tx.value,
+                tx.data,
+                tx.access_list,
             )
         )
     )
@@ -893,7 +867,7 @@ def compute_header_hash(header: Header) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.fork_types.Hash32`
         Hash of the header.
     """
     return keccak256(rlp.encode(header))
@@ -936,73 +910,3 @@ def check_gas_limit(gas_limit: Uint, parent_gas_limit: Uint) -> bool:
         return False
 
     return True
-
-
-def calculate_block_difficulty(
-    block_number: Uint,
-    block_timestamp: U256,
-    parent_timestamp: U256,
-    parent_difficulty: Uint,
-    parent_has_ommers: bool,
-) -> Uint:
-    """
-    Computes difficulty of a block using its header and parent header.
-
-    The difficulty is determined by the time the block was created after its
-    parent. The ``offset`` is calculated using the parent block's difficulty,
-    ``parent_difficulty``, and the timestamp between blocks. This offset is
-    then added to the parent difficulty and is stored as the ``difficulty``
-    variable. If the time between the block and its parent is too short, the
-    offset will result in a positive number thus making the sum of
-    ``parent_difficulty`` and ``offset`` to be a greater value in order to
-    avoid mass forking. But, if the time is long enough, then the offset
-    results in a negative value making the block less difficult than
-    its parent.
-
-    The base standard for a block's difficulty is the predefined value
-    set for the genesis block since it has no parent. So, a block
-    can't be less difficult than the genesis block, therefore each block's
-    difficulty is set to the maximum value between the calculated
-    difficulty and the ``GENESIS_DIFFICULTY``.
-
-    Parameters
-    ----------
-    block_number :
-        Block number of the block.
-    block_timestamp :
-        Timestamp of the block.
-    parent_timestamp :
-        Timestamp of the parent block.
-    parent_difficulty :
-        difficulty of the parent block.
-    parent_has_ommers:
-        does the parent have ommers.
-
-    Returns
-    -------
-    difficulty : `ethereum.base_types.Uint`
-        Computed difficulty for a block.
-    """
-    offset = (
-        int(parent_difficulty)
-        // 2048
-        * max(
-            (2 if parent_has_ommers else 1)
-            - int(block_timestamp - parent_timestamp) // 9,
-            -99,
-        )
-    )
-    difficulty = int(parent_difficulty) + offset
-    # Historical Note: The difficulty bomb was not present in Ethereum at the
-    # start of Frontier, but was added shortly after launch. However since the
-    # bomb has no effect prior to block 200000 we pretend it existed from
-    # genesis.
-    # See https://github.com/ethereum/go-ethereum/pull/1588
-    num_bomb_periods = ((int(block_number) - BOMB_DELAY_BLOCKS) // 100000) - 2
-    if num_bomb_periods >= 0:
-        difficulty += 2**num_bomb_periods
-
-    # Some clients raise the difficulty to `MINIMUM_DIFFICULTY` prior to adding
-    # the bomb. This bug does not matter because the difficulty is always much
-    # greater than `MINIMUM_DIFFICULTY` on Mainnet.
-    return Uint(max(difficulty, MINIMUM_DIFFICULTY))
