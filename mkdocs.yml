@@ -1,0 +1,28 @@
+site_name: Ethereum Execution Spec Tests
+site_url: https://execution-spec-tests.readthedocs.io/
+
+project: 'Ethereum Execution Spec Tests'
+copyright: 'Copyright: 2023, Ethereum Community'
+author: 'Ethereum Community'
+
+nav:
+- Home: 'index.md'
+- Getting Started:
+  - Quick Start: 'getting_started/01_quick_start.md'
+  - Package Overview: 'getting_started/02_package_overview.md'
+  - Writing Tests: 'getting_started/03_writing_tests.md'
+- Tutorials:
+  - State Transition Tests: 'tutorials/01_state_transition.md'
+
+plugins:
+  - glightbox
+
+theme: readthedocs
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: "#"
+      toc_depth: 4 
+  - admonition
