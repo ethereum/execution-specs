@@ -1,8 +1,27 @@
+import os
+import tarfile
+import time
+import urllib.request
+
+import git
 from _pytest.config import Config
 from _pytest.config.argparsing import Parser
+from pytest import Session
 
 import ethereum
 from ethereum_spec_tools.evm_trace import evm_trace
+
+# Update the links and commit has in order to consume
+# newer/other tests
+test_fixtures = {
+    "execution-spec-generated-tests": {
+        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/v0.2.1/fixtures.tar.gz",
+    },
+    "fixtures": {
+        "url": "https://github.com/ethereum/tests.git",
+        "commit_hash": "afba21c63bcfb9b1ba3bd7cc1db95aef9452384e",
+    },
+}
 
 
 def pytest_addoption(parser: Parser) -> None:
@@ -39,3 +58,87 @@ def pytest_configure(config: Config) -> None:
         import ethereum_optimized
 
         ethereum_optimized.monkey_patch(None)
+
+
+def download_fixtures(url: str, location: str) -> None:
+
+    # xdist processes will all try to download the fixtures.
+    # The signal file will indicate whether some other
+    # process is already running this. That way it can
+    # be parallel safe
+    signal_file = f"{location}.txt"
+
+    if not os.path.exists(signal_file):
+        # Create signal file to stop other processes
+        # from running the same code
+        with open(signal_file, "w") as f:
+            f.write(f"Downloading {location}...")
+
+        if not os.path.exists(location):
+
+            print(f"Downloading {location}...")
+            urllib.request.urlretrieve(url, "temp.tar.gz")
+
+            with tarfile.open("temp.tar.gz", "r:gz") as tar:
+                tar.extractall(location)
+
+            os.remove("temp.tar.gz")
+        else:
+            print(f"{location} already available.")
+
+        os.remove(signal_file)
+    else:
+        # Some other process is downloading the fixtures
+        # already
+        while os.path.exists(signal_file):
+            time.sleep(1)
+
+
+def git_clone_fixtures(url: str, commit_hash: str, location: str) -> None:
+
+    # xdist processes will all try to download the fixtures.
+    # The signal file will indicate whether some other
+    # process is already running this. That way it can
+    # be parallel safe
+    signal_file = f"{location}.txt"
+
+    if not os.path.exists(signal_file):
+        # Create signal file to stop other processes
+        # from running the same code
+        with open(signal_file, "w") as f:
+            f.write(f"Downloading {location}...")
+
+        if not os.path.exists(location):
+            print(f"Cloning {location}...")
+            repo = git.Repo.clone_from(url, to_path=location)
+        else:
+            print(f"{location} already available.")
+            repo = git.Repo(location)
+
+        print(f"Checking out the correct commit {commit_hash}...")
+        branch = repo.heads["develop"]
+        repo.remotes.origin.pull(branch.name)
+        repo.git.checkout(commit_hash)
+
+        repo.submodule_update(init=True, recursive=True)
+        os.remove(signal_file)
+    else:
+        # Some other process is cloning the fixtures
+        # already
+        while os.path.exists(signal_file):
+            time.sleep(1)
+
+
+def pytest_sessionstart(session: Session) -> None:
+
+    fixtures_location = "tests"
+
+    for idx, props in test_fixtures.items():
+        fixture_path = f"{fixtures_location}/{idx}"
+
+        if "commit_hash" in props:
+            git_clone_fixtures(
+                props["url"], props["commit_hash"], fixture_path
+            )
+        else:
+            download_fixtures(props["url"], fixture_path)
