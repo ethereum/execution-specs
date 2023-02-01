@@ -24,7 +24,7 @@ class BlockBuilder:
         withdrawals: Optional[Any] = None,
         clique: Optional[Any] = None,
         ethash: bool = False,
-        ethashMode: str = "normal",
+        ethash_mode: str = "normal",
     ) -> Tuple[str, str]:
         """
         Build a block with specified parameters and return RLP and hash
@@ -68,7 +68,7 @@ class EvmBlockBuilder(BlockBuilder):
         withdrawals: Optional[Any] = None,
         clique: Optional[Any] = None,
         ethash: bool = False,
-        ethashMode: str = "normal",
+        ethash_mode: str = "normal",
     ) -> Tuple[str, str]:
         """
         Executes `evm b11r` with the specified arguments.
@@ -85,7 +85,7 @@ class EvmBlockBuilder(BlockBuilder):
 
         if ethash:
             args.append("--seal.ethash")
-            args.append("--seal.ethash.mode=" + ethashMode)
+            args.append("--seal.ethash.mode=" + ethash_mode)
 
         stdin = {
             "header": header,
@@ -118,7 +118,6 @@ class EvmBlockBuilder(BlockBuilder):
         Gets `evm` binary version.
         """
         if self.cached_version is None:
-
             result = subprocess.run(
                 [str(self.binary), "-v"],
                 stdout=subprocess.PIPE,
