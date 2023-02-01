@@ -19,7 +19,7 @@ from typing import List, Optional, Set, Tuple
 
 from ethereum.base_types import Bytes0
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
-from ethereum.crypto.hash import keccak256
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
@@ -37,7 +37,6 @@ from .eth_types import (
     Address,
     Block,
     Bloom,
-    Hash32,
     Header,
     Log,
     Receipt,
