@@ -1,9 +1,6 @@
 site_name: Ethereum Execution Spec Tests
 site_url: https://execution-spec-tests.readthedocs.io/
-
-project: 'Ethereum Execution Spec Tests'
 copyright: 'Copyright: 2023, Ethereum Community'
-author: 'Ethereum Community'
 
 nav:
 - Home: 'index.md'

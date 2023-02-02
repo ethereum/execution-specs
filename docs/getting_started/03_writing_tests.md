@@ -175,7 +175,7 @@ Within the `post` dictionary object, an account address can be:
 The `Account` object is used to specify the properties of an account to be
 verified in the post state.
 
-The python representation can be found in [src/ethereum_test_tools/common/types.py](src/ethereum_test_tools/common/types.py).
+The python representation can be found in [src/ethereum_test_tools/common/types.py](https://github.com/ethereum/execution-spec-tests/blob/main/src/ethereum_test_tools/common/types.py).
 
 It can verify the following properties of an account:
 - `nonce`: the scalar value equal to a) the number of transactions sent by
