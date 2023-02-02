@@ -6,6 +6,7 @@ import urllib.request
 import git
 from _pytest.config import Config
 from _pytest.config.argparsing import Parser
+from filelock import SoftFileLock
 from pytest import Session
 
 import ethereum
@@ -63,70 +64,53 @@ def pytest_configure(config: Config) -> None:
 def download_fixtures(url: str, location: str) -> None:
 
     # xdist processes will all try to download the fixtures.
-    # The signal file will indicate whether some other
-    # process is already running this. That way it can
-    # be parallel safe
-    signal_file = f"{location}.txt"
+    # Using lockfile to make ir parallel safe
+    with SoftFileLock(f"{location}.lock"):
 
-    if not os.path.exists(signal_file):
-        # Create signal file to stop other processes
-        # from running the same code
-        with open(signal_file, "w") as f:
-            f.write(f"Downloading {location}...")
+        try:
+            if not os.path.exists(location):
 
-        if not os.path.exists(location):
+                print(f"Downloading {location}...")
+                urllib.request.urlretrieve(url, "temp.tar.gz")
 
-            print(f"Downloading {location}...")
-            urllib.request.urlretrieve(url, "temp.tar.gz")
+                with tarfile.open("temp.tar.gz", "r:gz") as tar:
+                    tar.extractall(location)
 
-            with tarfile.open("temp.tar.gz", "r:gz") as tar:
-                tar.extractall(location)
+                os.remove("temp.tar.gz")
+            else:
+                print(f"{location} already available.")
 
-            os.remove("temp.tar.gz")
-        else:
-            print(f"{location} already available.")
-
-        os.remove(signal_file)
-    else:
-        # Some other process is downloading the fixtures
-        # already
-        while os.path.exists(signal_file):
-            time.sleep(1)
+        finally:
+            # Prevent stale lock files in
+            # the event of a crash
+            os.remove(f"{location}.lock")
 
 
 def git_clone_fixtures(url: str, commit_hash: str, location: str) -> None:
 
     # xdist processes will all try to download the fixtures.
-    # The signal file will indicate whether some other
-    # process is already running this. That way it can
-    # be parallel safe
-    signal_file = f"{location}.txt"
+    # Using lockfile to make ir parallel safe
+    with SoftFileLock(f"{location}.lock"):
 
-    if not os.path.exists(signal_file):
-        # Create signal file to stop other processes
-        # from running the same code
-        with open(signal_file, "w") as f:
-            f.write(f"Downloading {location}...")
+        try:
+            if not os.path.exists(location):
+                print(f"Cloning {location}...")
+                repo = git.Repo.clone_from(url, to_path=location)
+            else:
+                print(f"{location} already available.")
+                repo = git.Repo(location)
 
-        if not os.path.exists(location):
-            print(f"Cloning {location}...")
-            repo = git.Repo.clone_from(url, to_path=location)
-        else:
-            print(f"{location} already available.")
-            repo = git.Repo(location)
+            print(f"Checking out the correct commit {commit_hash}...")
+            branch = repo.heads["develop"]
+            repo.remotes.origin.pull(branch.name)
+            repo.git.checkout(commit_hash)
 
-        print(f"Checking out the correct commit {commit_hash}...")
-        branch = repo.heads["develop"]
-        repo.remotes.origin.pull(branch.name)
-        repo.git.checkout(commit_hash)
+            repo.submodule_update(init=True, recursive=True)
 
-        repo.submodule_update(init=True, recursive=True)
-        os.remove(signal_file)
-    else:
-        # Some other process is cloning the fixtures
-        # already
-        while os.path.exists(signal_file):
-            time.sleep(1)
+        finally:
+            # Prevent stale lock files in
+            # the event of a crash
+            os.remove(f"{location}.lock")
 
 
 def pytest_sessionstart(session: Session) -> None:
