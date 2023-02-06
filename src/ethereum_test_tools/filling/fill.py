@@ -7,7 +7,7 @@ from typing import List, Mapping, Optional
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool, map_fork
 
-from ..common import Fixture
+from ..common import Fixture, alloc_to_accounts
 from ..spec import TestSpec
 from ..vm.fork import get_reward
 
@@ -63,7 +63,7 @@ def fill_test(
                 if eips is not None
                 else fork,
                 pre_state=copy(test.pre),
-                post_state=alloc,
+                post_state=alloc_to_accounts(alloc),
                 seal_engine=engine,
                 name=test.name,
                 index=index,

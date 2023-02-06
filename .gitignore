@@ -48,5 +48,8 @@ pip-delete-this-directory.txt
 .coverage
 
 # misc
-
+.vscode
 *.code-workspace
+
+# docs
+_readthedocs

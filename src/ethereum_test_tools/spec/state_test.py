@@ -105,7 +105,6 @@ class StateTest(BaseTest):
         Raises exception on invalid test behavior.
         """
         env = self.env.apply_new_parent(genesis)
-
         env = set_fork_requirements(env, fork)
 
         (alloc, result, txs_rlp) = t8n.evaluate(
@@ -152,6 +151,7 @@ class StateTest(BaseTest):
                 "baseFeePerGas": result.get("currentBaseFee"),
             }
         )
+
         block, head = b11r.build(
             header=header.to_geth_dict(),
             txs=txs_rlp,
@@ -159,11 +159,15 @@ class StateTest(BaseTest):
             withdrawals=to_json_or_none(env.withdrawals),
         )
         header.hash = head
+
         return (
             [
                 FixtureBlock(
                     rlp=block,
                     block_header=header,
+                    txs=self.txs if self.txs is not None else [],
+                    ommers=[],
+                    withdrawals=env.withdrawals,
                 )
             ],
             head,
