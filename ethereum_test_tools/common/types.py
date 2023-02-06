@@ -260,6 +260,15 @@ class Storage:
                 raise Storage.KeyValueMismatch(key, 0, other.data[key])
 
 
+def storage_padding(storage: Dict) -> Dict:
+    """
+    Adds even padding to each storage element.
+    """
+    return {
+        key_value_padding(k): key_value_padding(v) for k, v in storage.items()
+    }
+
+
 @dataclass(kw_only=True)
 class Account:
     """
@@ -423,6 +432,22 @@ class Account:
         Create account with provided `code` and nonce of `1`.
         """
         return Account(nonce=1, code=code)
+
+
+def alloc_to_accounts(got_alloc: Dict[str, Any]) -> Mapping[str, Account]:
+    """
+    Converts the post state alloc returned from t8n to a mapping of accounts.
+    """
+    accounts = {}
+    for address, value in got_alloc.items():
+        account = Account(
+            nonce=int_or_none(value.get("nonce", None)),
+            balance=int_or_none(value.get("balance", None)),
+            code=value.get("code", None),
+            storage=value.get("storage", None),
+        )
+        accounts[address] = account
+    return accounts
 
 
 ACCOUNT_DEFAULTS = Account(nonce=0, balance=0, code=bytes(), storage={})
@@ -832,7 +857,9 @@ class FixtureBlock:
     block_header: Optional[FixtureHeader] = None
     expected_exception: Optional[str] = None
     block_number: Optional[int] = None
-    chain_name: Optional[str] = None
+    txs: Optional[List[Transaction]] = None
+    ommers: Optional[List[Header]] = None
+    withdrawals: Optional[List[Withdrawal]] = None
 
 
 @dataclass(kw_only=True)
@@ -879,9 +906,9 @@ class JSONEncoder(json.JSONEncoder):
                     obj.balance, hex(ACCOUNT_DEFAULTS.balance)
                 ),
                 "code": code_or_none(obj.code, "0x"),
-                "storage": to_json_or_none(obj.storage, {}),
+                "storage": storage_padding(to_json_or_none(obj.storage, {})),
             }
-            return account
+            return even_padding(account, excluded=["storage"])
         elif isinstance(obj, Transaction):
             tx = {
                 "type": hex(obj.ty),
@@ -912,12 +939,13 @@ class JSONEncoder(json.JSONEncoder):
 
             return {k: v for (k, v) in tx.items() if v is not None}
         elif isinstance(obj, Withdrawal):
-            return {
+            withdrawal = {
                 "index": hex(obj.index),
                 "validatorIndex": hex(obj.validator),
                 "address": obj.address,
                 "amount": hex(obj.amount),
             }
+            return withdrawal
         elif isinstance(obj, Environment):
             env = {
                 "currentCoinbase": obj.coinbase,
@@ -967,11 +995,52 @@ class JSONEncoder(json.JSONEncoder):
                 header["hash"] = obj.hash
             if obj.withdrawals_root is not None:
                 header["withdrawalsRoot"] = obj.withdrawals_root
-            return header
+            return even_padding(
+                header,
+                excluded=[
+                    "parentHash",
+                    "uncleHash",
+                    "coinbase",
+                    "transactionsTrie",
+                    "receiptTrie",
+                    "bloom",
+                    "nonce",
+                    "mixHash",
+                    "hash",
+                    "withdrawalsRoot",
+                ],
+            )
         elif isinstance(obj, FixtureBlock):
-            b = {
-                "rlp": obj.rlp,
-            }
+            # Format Fixture Block Txs
+            b_txs = [
+                even_padding(
+                    to_json(
+                        {
+                            "nonce": hex(tx.nonce),
+                            "to": tx.to if tx.to is not None else "",
+                            "value": hex(tx.value),
+                            "data": code_to_hex(tx.data),
+                            "gasLimit": hex_or_none(tx.gas_limit),
+                            "gasPrice": hex(tx.gas_price)
+                            if tx.gas_price is not None
+                            else "0x0A",
+                            "secretKey": tx.secret_key,
+                        }
+                    ),
+                    excluded=["to"],
+                )
+                for tx in obj.txs or []
+            ]
+
+            # Format Fixture Block Withdrawals
+            b_wds = []
+            if obj.withdrawals:
+                b_wds = [
+                    even_padding(to_json(wd), excluded=["address"])
+                    for wd in obj.withdrawals
+                ]
+
+            b = {"rlp": obj.rlp}
             if obj.block_header is not None:
                 b["blockHeader"] = json.loads(
                     json.dumps(obj.block_header, cls=JSONEncoder)
@@ -980,8 +1049,12 @@ class JSONEncoder(json.JSONEncoder):
                 b["expectException"] = obj.expected_exception
             if obj.block_number is not None:
                 b["blocknumber"] = str(obj.block_number)
-            if obj.chain_name is not None:
-                b["chainname"] = obj.chain_name
+            if obj.txs is not None:
+                b["transactions"] = b_txs
+            if obj.ommers is not None:
+                b["uncleHeaders"] = obj.ommers
+            if obj.withdrawals is not None:
+                b["withdrawals"] = b_wds
             return b
         elif isinstance(obj, Fixture):
             f = {
@@ -1005,3 +1078,32 @@ class JSONEncoder(json.JSONEncoder):
             return f
         else:
             return super().default(obj)
+
+
+def even_padding(input: Dict, excluded: List[Any | None]) -> Dict:
+    """
+    Adds even padding to each field in the input (nested) dictionary.
+    """
+    for key, value in input.items():
+        if key not in excluded:
+            if isinstance(value, dict):
+                even_padding(value, excluded)
+            elif value != "0x" and value is not None:
+                input[key] = key_value_padding(value)
+            else:
+                input[key] = "0x"
+    return input
+
+
+def key_value_padding(value: str) -> str:
+    """
+    Adds even padding to a dictionary key or value string.
+    """
+    if value is not None:
+        new_value = value.lstrip("0x").lstrip("0")
+        new_value = "00" if new_value == "" else new_value
+        if len(new_value) % 2 == 1:
+            new_value = "0" + new_value
+        return "0x" + new_value
+    else:
+        return "0x"
