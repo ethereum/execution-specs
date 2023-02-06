@@ -12,7 +12,7 @@ import pytest
 from _pytest.mark.structures import ParameterSet
 
 from ethereum import rlp
-from ethereum.base_types import U256, Bytes0, Uint64
+from ethereum.base_types import U64, U256, Bytes0
 from ethereum.crypto.hash import Hash32
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
@@ -260,7 +260,7 @@ class Load(BaseLoad):
 
         # London and beyond
         if "maxFeePerGas" in raw and "maxPriorityFeePerGas" in raw:
-            parameters.insert(0, Uint64(1))
+            parameters.insert(0, U64(1))
             parameters.insert(2, hex_to_u256(raw.get("maxPriorityFeePerGas")))
             parameters.insert(3, hex_to_u256(raw.get("maxFeePerGas")))
             parameters.insert(
@@ -273,7 +273,7 @@ class Load(BaseLoad):
         parameters.insert(1, hex_to_u256(raw.get("gasPrice")))
         # Access List Transaction
         if "accessList" in raw:
-            parameters.insert(0, Uint64(1))
+            parameters.insert(0, U64(1))
             parameters.insert(
                 7, self.json_to_access_list(raw.get("accessList"))
             )
@@ -410,7 +410,7 @@ def load_test(test_case: Dict, load: BaseLoad) -> Dict:
         "test_file": test_case["test_file"],
         "test_key": test_case["test_key"],
         "genesis_header": load.json_to_header(json_data["genesisBlockHeader"]),
-        "chain_id": Uint64(json_data["genesisBlockHeader"].get("chainId", 1)),
+        "chain_id": U64(json_data["genesisBlockHeader"].get("chainId", 1)),
         "genesis_header_hash": hex_to_bytes(
             json_data["genesisBlockHeader"]["hash"]
         ),

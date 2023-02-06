@@ -16,7 +16,7 @@ The abstract computer which runs the code stored in an
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple, Union
 
-from ethereum.base_types import U256, Bytes, Bytes0, Uint, Uint64
+from ethereum.base_types import U64, U256, Bytes, Bytes0, Uint
 from ethereum.crypto.hash import Hash32
 
 from ..eth_types import Address, Log
@@ -42,7 +42,7 @@ class Environment:
     time: U256
     difficulty: Uint
     state: State
-    chain_id: Uint64
+    chain_id: U64
 
 
 @dataclass
