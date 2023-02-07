@@ -852,7 +852,7 @@ def signing_hash_pre155(tx: Transaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.fork_types.Hash32`
+    hash : `ethereum.crypto.hash.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -880,7 +880,7 @@ def signing_hash_155(tx: Transaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.fork_types.Hash32`
+    hash : `ethereum.crypto.hash.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -911,7 +911,7 @@ def signing_hash_2930(tx: AccessListTransaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.fork_types.Hash32`
+    hash : `ethereum.crypto.hash.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -960,7 +960,7 @@ def compute_header_hash(header: Header) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.fork_types.Hash32`
+    hash : `ethereum.crypto.hash.Hash32`
         Hash of the header.
     """
     return keccak256(rlp.encode(header))
