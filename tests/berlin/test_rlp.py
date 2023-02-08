@@ -1,7 +1,7 @@
 import pytest
 
 import ethereum.rlp as rlp
-from ethereum.base_types import U256, Bytes, Bytes0, Bytes8, Uint, Uint64
+from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes8, Uint
 from ethereum.berlin.eth_types import (
     AccessListTransaction,
     Block,
@@ -54,7 +54,7 @@ legacy_transaction = LegacyTransaction(
 )
 
 access_list_transaction = AccessListTransaction(
-    Uint64(1),
+    U64(1),
     U256(1),
     U256(2),
     U256(3),

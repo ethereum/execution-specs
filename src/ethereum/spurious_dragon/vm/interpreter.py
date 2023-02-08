@@ -12,8 +12,7 @@ Introduction
 A straightforward interpreter that executes EVM code.
 """
 from dataclasses import dataclass
-from itertools import chain
-from typing import Iterable, Set, Tuple, Union
+from typing import Iterable, Set, Tuple
 
 from ethereum import evm_trace
 from ethereum.base_types import U256, Bytes0, Uint
@@ -21,6 +20,7 @@ from ethereum.utils.ensure import ensure
 
 from ..eth_types import Address, Log
 from ..state import (
+    account_exists_and_is_empty,
     account_has_code_or_nonce,
     begin_transaction,
     commit_transaction,
@@ -32,10 +32,7 @@ from ..state import (
 )
 from ..vm import Message
 from ..vm.gas import GAS_CODE_DEPOSIT, REFUND_SELF_DESTRUCT, charge_gas
-from ..vm.precompiled_contracts.mapping import (
-    PRE_COMPILED_CONTRACTS,
-    RIPEMD160_ADDRESS,
-)
+from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
 from .exceptions import (
     ExceptionalHalt,
@@ -67,7 +64,7 @@ class MessageCallOutput:
 
     gas_left: U256
     refund_counter: U256
-    logs: Union[Tuple[()], Tuple[Log, ...]]
+    logs: Tuple[Log, ...]
     accounts_to_delete: Set[Address]
     touched_accounts: Iterable[Address]
     has_erred: bool
@@ -105,19 +102,28 @@ def process_message_call(
             evm = process_create_message(message, env)
     else:
         evm = process_message(message, env)
+        if account_exists_and_is_empty(env.state, Address(message.target)):
+            evm.touched_accounts.add(Address(message.target))
 
-    accounts_to_delete = collect_accounts_to_delete(evm)
-    refund_counter = (
-        calculate_gas_refund(evm)
-        + len(accounts_to_delete) * REFUND_SELF_DESTRUCT
-    )
+    if evm.has_erred:
+        logs: Tuple[Log, ...] = ()
+        accounts_to_delete = set()
+        touched_accounts = set()
+        refund_counter = U256(0)
+    else:
+        logs = evm.logs
+        accounts_to_delete = evm.accounts_to_delete
+        touched_accounts = evm.touched_accounts
+        refund_counter = evm.refund_counter + REFUND_SELF_DESTRUCT * len(
+            evm.accounts_to_delete
+        )
 
     return MessageCallOutput(
         gas_left=evm.gas_left,
         refund_counter=refund_counter,
-        logs=evm.logs if not evm.has_erred else (),
+        logs=logs,
         accounts_to_delete=accounts_to_delete,
-        touched_accounts=collect_touched_accounts(evm),
+        touched_accounts=touched_accounts,
         has_erred=evm.has_erred,
     )
 
@@ -231,9 +237,9 @@ def execute_code(message: Message, env: Environment) -> Evm:
         running=True,
         message=message,
         output=b"",
-        accounts_to_delete=dict(),
+        accounts_to_delete=set(),
+        touched_accounts=set(),
         has_erred=False,
-        children=[],
     )
     try:
 
@@ -255,109 +261,3 @@ def execute_code(message: Message, env: Environment) -> Evm:
         evm.gas_left = U256(0)
         evm.has_erred = True
     return evm
-
-
-def collect_touched_accounts(
-    evm: Evm, ancestor_had_error: bool = False
-) -> Iterable[Address]:
-    """
-    Collect all of the accounts that *may* need to be deleted based on
-    `EIP-161 <https://eips.ethereum.org/EIPS/eip-161>`_.
-    Checking whether they *do* need to be deleted happens in the caller.
-    See also: https://github.com/ethereum/EIPs/issues/716
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-    ancestor_had_error :
-        True if the ancestors of the evm object erred else False
-
-    Returns
-    -------
-    touched_accounts: `typing.Iterable`
-        returns all the accounts that were touched and may need to be deleted.
-    """
-    # collect the coinbase account if it was touched via zero-fee transfer
-    if (evm.message.caller == evm.env.origin) and evm.env.gas_price == 0:
-        yield evm.env.coinbase
-
-    # collect those explicitly marked for deletion
-    # ("beneficiary" is of SELFDESTRUCT)
-    for beneficiary in sorted(set(evm.accounts_to_delete.values())):
-        if evm.has_erred or ancestor_had_error:
-            # Special case to account for geth+parity bug
-            # https://github.com/ethereum/EIPs/issues/716
-            if beneficiary == RIPEMD160_ADDRESS:
-                yield beneficiary
-            continue
-        else:
-            yield beneficiary
-
-    # collect account directly addressed
-    if not isinstance(evm.message.target, Bytes0):
-        if evm.has_erred or ancestor_had_error:
-            # collect RIPEMD160 precompile even if ancestor evm had error.
-            # otherwise, skip collection from children of erred-out evm objects
-            if evm.message.target == RIPEMD160_ADDRESS:
-                yield evm.message.target
-        else:
-            yield evm.message.target
-
-    # recurse into nested computations
-    # (even erred ones, since looking for RIPEMD160)
-    for child in evm.children:
-        yield from collect_touched_accounts(
-            child, ancestor_had_error=(evm.has_erred or ancestor_had_error)
-        )
-
-
-def collect_accounts_to_delete(evm: Evm) -> Set[Address]:
-    """
-    Collects all the accounts that were marked for deletion by the
-    `SELFDESTRUCT` opcode.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Returns
-    -------
-    accounts_to_delete: `set`
-        returns all the accounts need marked for deletion by the
-        `SELFDESTRUCT` opcode.
-    """
-    if evm.has_erred:
-        return set()
-    else:
-        return set(
-            chain(
-                evm.accounts_to_delete.keys(),
-                *(collect_accounts_to_delete(child) for child in evm.children),
-            )
-        )
-
-
-def calculate_gas_refund(evm: Evm) -> U256:
-    """
-    Adds up the gas that was refunded in each execution frame during the
-    message call.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Returns
-    -------
-    gas_refund: `ethereum.base_types.U256`
-        returns the total gas that needs to be refunded after executing the
-        message call.
-    """
-    if evm.has_erred:
-        return U256(0)
-    else:
-        return evm.refund_counter + sum(
-            calculate_gas_refund(child_evm) for child_evm in evm.children
-        )

@@ -14,7 +14,17 @@ Mapping of precompiled contracts their implementations.
 from typing import Callable, Dict
 
 from ...eth_types import Address
-from ...utils.hexadecimal import hex_to_address
+from . import (
+    ALT_BN128_ADD_ADDRESS,
+    ALT_BN128_MUL_ADDRESS,
+    ALT_BN128_PAIRING_CHECK_ADDRESS,
+    BLAKE2F_ADDRESS,
+    ECRECOVER_ADDRESS,
+    IDENTITY_ADDRESS,
+    MODEXP_ADDRESS,
+    RIPEMD160_ADDRESS,
+    SHA256_ADDRESS,
+)
 from .alt_bn128 import alt_bn128_add, alt_bn128_mul, alt_bn128_pairing_check
 from .blake2f import blake2f
 from .ecrecover import ecrecover
@@ -22,16 +32,6 @@ from .identity import identity
 from .modexp import modexp
 from .ripemd160 import ripemd160
 from .sha256 import sha256
-
-ECRECOVER_ADDRESS = hex_to_address("0x01")
-SHA256_ADDRESS = hex_to_address("0x02")
-RIPEMD160_ADDRESS = hex_to_address("0x03")
-IDENTITY_ADDRESS = hex_to_address("0x04")
-MODEXP_ADDRESS = hex_to_address("0x05")
-ALT_BN128_ADD_ADDRESS = hex_to_address("0x06")
-ALT_BN128_MUL_ADDRESS = hex_to_address("0x07")
-ALT_BN128_PAIRING_CHECK_ADDRESS = hex_to_address("0x08")
-BLAKE2F_ADDRESS = hex_to_address("0x09")
 
 PRE_COMPILED_CONTRACTS: Dict[Address, Callable] = {
     ECRECOVER_ADDRESS: ecrecover,

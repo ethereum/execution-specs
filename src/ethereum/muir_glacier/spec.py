@@ -23,7 +23,7 @@ from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 
 from .. import rlp
-from ..base_types import U256, U256_CEIL_VALUE, Bytes, Uint, Uint64
+from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
 from . import vm
 from .bloom import logs_bloom
 from .eth_types import (
@@ -43,12 +43,11 @@ from .eth_types import (
 )
 from .state import (
     State,
-    account_exists,
+    account_exists_and_is_empty,
     create_ether,
     destroy_account,
     get_account,
     increment_nonce,
-    is_account_empty,
     set_account_balance,
     state_root,
 )
@@ -73,7 +72,7 @@ class BlockChain:
 
     blocks: List[Block]
     state: State
-    chain_id: Uint64
+    chain_id: U64
 
 
 def apply_fork(old: BlockChain) -> BlockChain:
@@ -318,7 +317,7 @@ def apply_body(
     block_difficulty: Uint,
     transactions: Tuple[Transaction, ...],
     ommers: Tuple[Header, ...],
-    chain_id: Uint64,
+    chain_id: U64,
 ) -> Tuple[Uint, Root, Root, Bloom, State]:
     """
     Executes a block.
@@ -623,17 +622,14 @@ def process_transaction(
         set_account_balance(
             env.state, env.coinbase, coinbase_balance_after_mining_fee
         )
-    elif is_account_empty(env.state, env.coinbase):
+    elif account_exists_and_is_empty(env.state, env.coinbase):
         destroy_account(env.state, env.coinbase)
 
     for address in output.accounts_to_delete:
         destroy_account(env.state, address)
 
     for address in output.touched_accounts:
-        should_delete = account_exists(
-            env.state, address
-        ) and is_account_empty(env.state, address)
-        if should_delete:
+        if account_exists_and_is_empty(env.state, address):
             destroy_account(env.state, address)
 
     return total_gas_used, output.logs, output.has_erred
@@ -706,7 +702,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     return Uint(TX_BASE_COST + data_cost + create_cost)
 
 
-def recover_sender(chain_id: Uint64, tx: Transaction) -> Address:
+def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     """
     Extracts the sender address from a transaction.
 
