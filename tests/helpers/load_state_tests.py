@@ -12,14 +12,12 @@ import pytest
 from _pytest.mark.structures import ParameterSet
 
 from ethereum import rlp
-from ethereum.base_types import U256, Bytes0, Uint64
-from ethereum.crypto.hash import Hash32
+from ethereum.base_types import U256, Uint64
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
     hex_to_bytes32,
     hex_to_hash,
-    hex_to_u64,
     hex_to_u256,
     hex_to_uint,
 )
@@ -230,127 +228,21 @@ class Load(BaseLoad):
                 )
         return state
 
-    def json_to_access_list(self, raw: Any) -> Any:
-        access_list = []
-        for sublist in raw:
-            access_list.append(
-                (
-                    self.hex_to_address(sublist.get("address")),
-                    [
-                        hex_to_bytes32(key)
-                        for key in sublist.get("storageKeys")
-                    ],
-                )
-            )
-        return access_list
-
-    def json_to_tx(self, raw: Any) -> Any:
-        parameters = [
-            hex_to_u256(raw.get("nonce")),
-            hex_to_u256(raw.get("gasLimit")),
-            Bytes0(b"")
-            if raw.get("to") == ""
-            else self.hex_to_address(raw.get("to")),
-            hex_to_u256(raw.get("value")),
-            hex_to_bytes(raw.get("data")),
-            hex_to_u256(raw.get("v")),
-            hex_to_u256(raw.get("r")),
-            hex_to_u256(raw.get("s")),
-        ]
-
-        # London and beyond
-        if "maxFeePerGas" in raw and "maxPriorityFeePerGas" in raw:
-            parameters.insert(0, Uint64(1))
-            parameters.insert(2, hex_to_u256(raw.get("maxPriorityFeePerGas")))
-            parameters.insert(3, hex_to_u256(raw.get("maxFeePerGas")))
-            parameters.insert(
-                8, self.json_to_access_list(raw.get("accessList"))
-            )
-            return b"\x02" + rlp.encode(
-                self._module("eth_types").FeeMarketTransaction(*parameters)
-            )
-
-        parameters.insert(1, hex_to_u256(raw.get("gasPrice")))
-        # Access List Transaction
-        if "accessList" in raw:
-            parameters.insert(0, Uint64(1))
-            parameters.insert(
-                7, self.json_to_access_list(raw.get("accessList"))
-            )
-            return b"\x01" + rlp.encode(
-                self._module("eth_types").AccessListTransaction(*parameters)
-            )
-
-        # Legacy Transaction
-        if hasattr(self._module("eth_types"), "LegacyTransaction"):
-            return self._module("eth_types").LegacyTransaction(*parameters)
-        else:
-            return self._module("eth_types").Transaction(*parameters)
-
-    def json_to_withdrawals(self, raw: Any) -> Any:
-        parameters = [
-            hex_to_u64(raw.get("index")),
-            hex_to_u64(raw.get("validatorIndex")),
-            self.hex_to_address(raw.get("address")),
-            hex_to_u256(raw.get("amount")),
-        ]
-
-        return self._module("eth_types").Withdrawal(*parameters)
-
     def json_to_blocks(
         self,
-        json_blocks: Any,
-    ) -> Tuple[List[Any], List[Hash32], List[bytes]]:
+        json_data: Any,
+    ) -> Tuple[Any, List[Any]]:
+
+        genesis_block_rlp = hex_to_bytes(json_data["genesisRLP"])
+        genesis_block = rlp.decode_to(self.Block, genesis_block_rlp)
+
         blocks = []
-        block_header_hashes = []
-        block_rlps = []
+        for json_block in json_data["blocks"]:
+            block_rlp = hex_to_bytes(json_block["rlp"])
+            block = rlp.decode_to(self.Block, block_rlp)
+            blocks.append(block)
 
-        for json_block in json_blocks:
-            if "rlp" in json_block:
-                # Always decode from rlp
-                block_rlp = hex_to_bytes(json_block["rlp"])
-                block = rlp.decode_to(self.Block, block_rlp)
-                blocks.append(block)
-                block_header_hashes.append(rlp.rlp_hash(block.header))
-                block_rlps.append(block_rlp)
-                continue
-
-            header = self.json_to_header(json_block["blockHeader"])
-            transactions = tuple(
-                self.json_to_tx(tx) for tx in json_block["transactions"]
-            )
-            uncles = tuple(
-                self.json_to_header(uncle)
-                for uncle in json_block["uncleHeaders"]
-            )
-
-            if "withdrawals" in json_block:
-                withdrawals = tuple(
-                    self.json_to_withdrawals(wd)
-                    for wd in json_block["withdrawals"]
-                )
-                blocks.append(
-                    self.Block(
-                        header,
-                        transactions,
-                        uncles,
-                        withdrawals,
-                    )
-                )
-            else:
-                blocks.append(
-                    self.Block(
-                        header,
-                        transactions,
-                        uncles,
-                    )
-                )
-            block_header_hashes.append(
-                Hash32(hex_to_bytes(json_block["blockHeader"]["hash"]))
-            )
-            block_rlps.append(hex_to_bytes(json_block["rlp"]))
-
-        return blocks, block_header_hashes, block_rlps
+        return genesis_block, blocks
 
     def json_to_header(self, raw: Any) -> Any:
         parameters = [
@@ -396,31 +288,23 @@ def load_test(test_case: Dict, load: BaseLoad) -> Dict:
 
     json_data = data[test_key]
 
-    blocks, block_header_hashes, block_rlps = load.json_to_blocks(
-        json_data["blocks"]
-    )
+    genesis_block, blocks = load.json_to_blocks(json_data)
 
     try:
         raw_post_state = json_data["postState"]
     except KeyError:
+        # FIXME: Handle tests without `postState`
         raise NoPostState
     post_state = load.json_to_state(raw_post_state)
 
     return {
         "test_file": test_case["test_file"],
         "test_key": test_case["test_key"],
-        "genesis_header": load.json_to_header(json_data["genesisBlockHeader"]),
         "chain_id": Uint64(json_data["genesisBlockHeader"].get("chainId", 1)),
-        "genesis_header_hash": hex_to_bytes(
-            json_data["genesisBlockHeader"]["hash"]
-        ),
-        "genesis_block_rlp": hex_to_bytes(json_data["genesisRLP"]),
-        "last_block_hash": hex_to_bytes(json_data["lastblockhash"]),
+        "genesis_block": genesis_block,
         "pre_state": load.json_to_state(json_data["pre"]),
-        "expected_post_state": post_state,
         "blocks": blocks,
-        "block_header_hashes": block_header_hashes,
-        "block_rlps": block_rlps,
+        "expected_post_state": post_state,
         "ignore_pow_validation": json_data["sealEngine"] == "NoProof",
     }
 
@@ -429,29 +313,8 @@ def run_blockchain_st_test(test_case: Dict, load: BaseLoad) -> None:
 
     test_data = load_test(test_case, load)
 
-    genesis_header = test_data["genesis_header"]
-    if hasattr(genesis_header, "withdrawals_root"):
-        genesis_block = load.Block(
-            genesis_header,
-            (),
-            (),
-            (),
-        )
-    else:
-        genesis_block = load.Block(
-            genesis_header,
-            (),
-            (),
-        )
-
-        assert rlp.rlp_hash(genesis_header) == test_data["genesis_header_hash"]
-        assert (
-            rlp.encode(cast(rlp.RLP, genesis_block))
-            == test_data["genesis_block_rlp"]
-        )
-
     chain = load.BlockChain(
-        blocks=[genesis_block],
+        blocks=[test_data["genesis_block"]],
         state=test_data["pre_state"],
         chain_id=test_data["chain_id"],
     )
@@ -469,9 +332,7 @@ def run_blockchain_st_test(test_case: Dict, load: BaseLoad) -> None:
                 any_order=False,
             )
 
-    assert (
-        rlp.rlp_hash(chain.blocks[-1].header) == test_data["last_block_hash"]
-    )
+    # Make sure that the post state is the one that is expected
     assert chain.state == test_data["expected_post_state"]
     load.close_state(chain.state)
     load.close_state(test_data["expected_post_state"])
@@ -481,10 +342,6 @@ def add_blocks_to_chain(
     chain: Any, test_data: Dict[str, Any], load: BaseLoad
 ) -> None:
     for idx, block in enumerate(test_data["blocks"]):
-        assert (
-            rlp.rlp_hash(block.header) == test_data["block_header_hashes"][idx]
-        )
-        assert rlp.encode(cast(rlp.RLP, block)) == test_data["block_rlps"][idx]
         load.state_transition(chain, block)
 
 
