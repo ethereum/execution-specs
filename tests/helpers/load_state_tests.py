@@ -12,13 +12,14 @@ import pytest
 from _pytest.mark.structures import ParameterSet
 
 from ethereum import rlp
-from ethereum.base_types import U256, Bytes0, Uint64
+from ethereum.base_types import U64, U256, Bytes0
 from ethereum.crypto.hash import Hash32
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
     hex_to_bytes32,
     hex_to_hash,
+    hex_to_u64,
     hex_to_u256,
     hex_to_uint,
 )
@@ -259,7 +260,7 @@ class Load(BaseLoad):
 
         # London and beyond
         if "maxFeePerGas" in raw and "maxPriorityFeePerGas" in raw:
-            parameters.insert(0, Uint64(1))
+            parameters.insert(0, U64(1))
             parameters.insert(2, hex_to_u256(raw.get("maxPriorityFeePerGas")))
             parameters.insert(3, hex_to_u256(raw.get("maxFeePerGas")))
             parameters.insert(
@@ -272,7 +273,7 @@ class Load(BaseLoad):
         parameters.insert(1, hex_to_u256(raw.get("gasPrice")))
         # Access List Transaction
         if "accessList" in raw:
-            parameters.insert(0, Uint64(1))
+            parameters.insert(0, U64(1))
             parameters.insert(
                 7, self.json_to_access_list(raw.get("accessList"))
             )
@@ -286,6 +287,16 @@ class Load(BaseLoad):
         else:
             return self._module("eth_types").Transaction(*parameters)
 
+    def json_to_withdrawals(self, raw: Any) -> Any:
+        parameters = [
+            hex_to_u64(raw.get("index")),
+            hex_to_u64(raw.get("validatorIndex")),
+            self.hex_to_address(raw.get("address")),
+            hex_to_u256(raw.get("amount")),
+        ]
+
+        return self._module("eth_types").Withdrawal(*parameters)
+
     def json_to_blocks(
         self,
         json_blocks: Any,
@@ -295,8 +306,8 @@ class Load(BaseLoad):
         block_rlps = []
 
         for json_block in json_blocks:
-            if "blockHeader" not in json_block and "rlp" in json_block:
-                # Some blocks are represented by only the RLP and not the block details
+            if "rlp" in json_block:
+                # Always decode from rlp
                 block_rlp = hex_to_bytes(json_block["rlp"])
                 block = rlp.decode_to(self.Block, block_rlp)
                 blocks.append(block)
@@ -313,13 +324,27 @@ class Load(BaseLoad):
                 for uncle in json_block["uncleHeaders"]
             )
 
-            blocks.append(
-                self.Block(
-                    header,
-                    transactions,
-                    uncles,
+            if "withdrawals" in json_block:
+                withdrawals = tuple(
+                    self.json_to_withdrawals(wd)
+                    for wd in json_block["withdrawals"]
                 )
-            )
+                blocks.append(
+                    self.Block(
+                        header,
+                        transactions,
+                        uncles,
+                        withdrawals,
+                    )
+                )
+            else:
+                blocks.append(
+                    self.Block(
+                        header,
+                        transactions,
+                        uncles,
+                    )
+                )
             block_header_hashes.append(
                 Hash32(hex_to_bytes(json_block["blockHeader"]["hash"]))
             )
@@ -354,12 +379,22 @@ class Load(BaseLoad):
             base_fee_per_gas = hex_to_uint(raw.get("baseFeePerGas"))
             parameters.append(base_fee_per_gas)
 
+        if "withdrawalsRoot" in raw:
+            withdrawals_root = self.hex_to_root(raw.get("withdrawalsRoot"))
+            parameters.append(withdrawals_root)
+
         return self.Header(*parameters)
 
 
 def load_test(test_case: Dict, load: BaseLoad) -> Dict:
 
-    json_data = test_case["test_data"]
+    test_file = test_case["test_file"]
+    test_key = test_case["test_key"]
+
+    with open(test_file, "r") as fp:
+        data = json.load(fp)
+
+    json_data = data[test_key]
 
     blocks, block_header_hashes, block_rlps = load.json_to_blocks(
         json_data["blocks"]
@@ -375,7 +410,7 @@ def load_test(test_case: Dict, load: BaseLoad) -> Dict:
         "test_file": test_case["test_file"],
         "test_key": test_case["test_key"],
         "genesis_header": load.json_to_header(json_data["genesisBlockHeader"]),
-        "chain_id": Uint64(json_data["genesisBlockHeader"].get("chainId", 1)),
+        "chain_id": U64(json_data["genesisBlockHeader"].get("chainId", 1)),
         "genesis_header_hash": hex_to_bytes(
             json_data["genesisBlockHeader"]["hash"]
         ),
@@ -395,17 +430,25 @@ def run_blockchain_st_test(test_case: Dict, load: BaseLoad) -> None:
     test_data = load_test(test_case, load)
 
     genesis_header = test_data["genesis_header"]
-    genesis_block = load.Block(
-        genesis_header,
-        (),
-        (),
-    )
+    if hasattr(genesis_header, "withdrawals_root"):
+        genesis_block = load.Block(
+            genesis_header,
+            (),
+            (),
+            (),
+        )
+    else:
+        genesis_block = load.Block(
+            genesis_header,
+            (),
+            (),
+        )
 
-    assert rlp.rlp_hash(genesis_header) == test_data["genesis_header_hash"]
-    assert (
-        rlp.encode(cast(rlp.RLP, genesis_block))
-        == test_data["genesis_block_rlp"]
-    )
+        assert rlp.rlp_hash(genesis_header) == test_data["genesis_header_hash"]
+        assert (
+            rlp.encode(cast(rlp.RLP, genesis_block))
+            == test_data["genesis_block_rlp"]
+        )
 
     chain = load.BlockChain(
         blocks=[genesis_block],
@@ -456,12 +499,14 @@ def load_json_fixture(test_file: str, network: str) -> Generator:
     with open(test_file, "r") as fp:
         data = json.load(fp)
 
-        # Some newer test files have patterns like _d0g0v0_
-        # between test_name and network
-        keys_to_search = re.compile(
-            f"^{re.escape(test_name)}.*{re.escape(network)}$"
-        )
-        found_keys = list(filter(keys_to_search.match, data.keys()))
+        # Search tests by looking at the `network` attribute
+        found_keys = []
+        for key, test in data.items():
+            if "network" not in test:
+                continue
+
+            if test["network"] == network:
+                found_keys.append(key)
 
         if not any(found_keys):
             raise NoTestsFound
@@ -470,7 +515,6 @@ def load_json_fixture(test_file: str, network: str) -> Generator:
             yield {
                 "test_file": test_file,
                 "test_key": _key,
-                "test_data": data[_key],
             }
 
 

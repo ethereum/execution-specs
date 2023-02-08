@@ -17,7 +17,7 @@ from typing import Any, Dict, List, Optional, TypeVar, Union
 from urllib import request
 
 from ethereum import rlp
-from ethereum.base_types import Bytes0, Bytes256, Uint64
+from ethereum.base_types import U64, Bytes0, Bytes256
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -257,7 +257,7 @@ class BlockDownloader(ForkTracking):
                     )
                 return b"\x01" + rlp.encode(
                     self.module("eth_types").AccessListTransaction(
-                        Uint64(1),
+                        U64(1),
                         hex_to_u256(t["nonce"]),
                         hex_to_u256(t["gasPrice"]),
                         hex_to_u256(t["gas"]),
@@ -475,7 +475,7 @@ class BlockDownloader(ForkTracking):
             hex_to_bytes8(json["nonce"]),
         )
 
-    def download_chain_id(self) -> Uint64:
+    def download_chain_id(self) -> U64:
         """
         Fetch the chain id of the executing chain from the rpc provider.
         """
@@ -501,7 +501,7 @@ class BlockDownloader(ForkTracking):
         with request.urlopen(post) as response:
             reply = json.load(response)[0]
             assert reply["id"] == hex(2)
-            chain_id = Uint64(int(reply["result"], 16))
+            chain_id = U64(int(reply["result"], 16))
 
         return chain_id
 
@@ -694,7 +694,7 @@ class Sync(ForkTracking):
             end - start,
         )
 
-    def fetch_chain_id(self, state: Any) -> Uint64:
+    def fetch_chain_id(self, state: Any) -> U64:
         """
         Fetch the persisted chain id from the database.
         """
@@ -703,7 +703,7 @@ class Sync(ForkTracking):
         )
 
         if chain_id is not None:
-            chain_id = Uint64(int(chain_id))
+            chain_id = U64(int(chain_id))
 
         return chain_id
 

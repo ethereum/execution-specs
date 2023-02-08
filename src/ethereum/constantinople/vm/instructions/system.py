@@ -17,6 +17,7 @@ from ethereum.utils.numeric import ceil32
 
 from ...eth_types import Address
 from ...state import (
+    account_exists_and_is_empty,
     account_has_code_or_nonce,
     get_account,
     increment_nonce,
@@ -28,7 +29,12 @@ from ...utils.address import (
     compute_create2_contract_address,
     to_address,
 )
-from .. import Evm, Message
+from .. import (
+    Evm,
+    Message,
+    incorporate_child_on_error,
+    incorporate_child_on_success,
+)
 from ..exceptions import Revert, WriteInStaticContext
 from ..gas import (
     GAS_CALL,
@@ -105,15 +111,15 @@ def generic_create(
         is_static=False,
     )
     child_evm = process_create_message(child_message, evm.env)
-    evm.children.append(child_evm)
+
     if child_evm.has_erred:
-        push(evm.stack, U256(0))
+        incorporate_child_on_error(evm, child_evm)
         evm.return_data = child_evm.output
+        push(evm.stack, U256(0))
     else:
-        evm.logs += child_evm.logs
+        incorporate_child_on_success(evm, child_evm)
+        evm.return_data = b""
         push(evm.stack, U256.from_be_bytes(child_evm.message.current_target))
-    evm.gas_left += child_evm.gas_left
-    child_evm.gas_left = U256(0)
 
 
 def create(evm: Evm) -> None:
@@ -272,16 +278,15 @@ def generic_call(
         is_static=True if is_staticcall else evm.message.is_static,
     )
     child_evm = process_message(child_message, evm.env)
-    evm.children.append(child_evm)
 
     if child_evm.has_erred:
-        push(evm.stack, U256(0))
-        if isinstance(child_evm.error, Revert):
-            evm.return_data = child_evm.output
-    else:
-        evm.logs += child_evm.logs
-        push(evm.stack, U256(1))
+        incorporate_child_on_error(evm, child_evm)
         evm.return_data = child_evm.output
+        push(evm.stack, U256(0))
+    else:
+        incorporate_child_on_success(evm, child_evm)
+        evm.return_data = child_evm.output
+        push(evm.stack, U256(1))
 
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
     memory_write(
@@ -289,8 +294,6 @@ def generic_call(
         memory_output_start_position,
         child_evm.output[:actual_output_size],
     )
-    evm.gas_left += child_evm.gas_left
-    child_evm.gas_left = U256(0)
 
 
 def call(evm: Evm) -> None:
@@ -469,7 +472,11 @@ def selfdestruct(evm: Evm) -> None:
     set_account_balance(evm.env.state, originator, U256(0))
 
     # register account for deletion
-    evm.accounts_to_delete[originator] = beneficiary
+    evm.accounts_to_delete.add(originator)
+
+    # mark beneficiary as touched
+    if account_exists_and_is_empty(evm.env.state, beneficiary):
+        evm.touched_accounts.add(beneficiary)
 
     # HALT the execution
     evm.running = False

@@ -26,8 +26,8 @@ OpenEthereum's postmortem on the consensus issue can be found [here](https://doc
 
 ### Suggested Corrective Action
 [Discord Suggestion](https://discordapp.com/channels/595666850260713488/745077610685661265/832280444967190559):
-> Client tests must be run against mainnet spec **directly**. Having separate test spec and mainnet spec could be the reson for slippage as fuzzing can't catch this bug.
-> It probably increase CI time and extra development effort, since it needs to take into consideration of the whole mainnet genesis block, and will probably have to fake block numbers so that it passes the activation block. But it is important because The test spec or the ropsten spec doesn't have non-active precompile definitions.
+> Client tests must be run against mainnet spec **directly**. Having separate test spec and mainnet spec could be the reason for slippage as fuzzing can't catch this bug.
+> It probably increases CI time and extra development effort, since it needs to take into consideration of the whole mainnet genesis block, and will probably have to fake block numbers so that it passes the activation block. But it is important because The test spec or the ropsten spec doesn't have non-active precompile definitions.
 
 On [AllCoreDevs 110](https://youtu.be/-H8UpqarZ1Y?t=732), a longer conversation about testing process improvements to catch such bugs in the future was had. The idea of having chain configurations on Hive be identical to mainnet was also noted as the only way to catch such an issue.
 
@@ -49,7 +49,7 @@ TBA.
 
 ### Process of EIP selection
 
-Berlin upgrade upgrade was following process described in [Shedding light on the Ethereum Network Upgrade Process](https://medium.com/ethereum-cat-herders/shedding-light-on-the-ethereum-network-upgrade-process-4c6186ed442c).
+Berlin upgrade was following process described in [Shedding light on the Ethereum Network Upgrade Process](https://medium.com/ethereum-cat-herders/shedding-light-on-the-ethereum-network-upgrade-process-4c6186ed442c).
 
 ### Timeline - Backlog check
 - May 15, 2020: Proposal, decision and initial selection of EIPs for Berlin to spin up an [ephemeral testnet YOLO](https://medium.com/ethereum-cat-herders/yolo-an-ephemeral-test-network-for-ethereum-356d43179b1a) in [ACD 87](https://www.youtube.com/watch?v=bGgzALuyY3w&t=4788s)

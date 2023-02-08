@@ -7,8 +7,9 @@ Generates diffs between Ethereum hardforks documentation.
 import os.path
 import pickle
 import re
+from gzip import GzipFile
 from multiprocessing import Pool
-from typing import Any, Iterator, List, Tuple, TypeVar
+from typing import IO, Any, Iterator, List, Tuple, TypeVar, cast
 
 import rstdiff
 from docutils import SettingsSpec
@@ -75,15 +76,15 @@ def _diff(
     new_pickle_path = os.path.join(new_path, pickle_path)
 
     try:
-        with open(old_pickle_path, "rb") as old_file:
-            old_doc = pickle.load(old_file)
+        with GzipFile(old_pickle_path, "rb") as old_file:
+            old_doc = pickle.load(cast(IO[bytes], old_file))  # typeshed/2580
     except FileNotFoundError:
         old_doc = new_document(old_pickle_path)
         old_pickle_path = os.devnull
 
     try:
-        with open(new_pickle_path, "rb") as new_file:
-            new_doc = pickle.load(new_file)
+        with GzipFile(new_pickle_path, "rb") as new_file:
+            new_doc = pickle.load(cast(IO[bytes], new_file))  # typeshed/2580
     except FileNotFoundError:
         new_doc = new_document(new_pickle_path)
         new_pickle_path = os.devnull

@@ -36,6 +36,7 @@ def monkey_patch(state_path: Optional[str]) -> None:
         london,
         muir_glacier,
         paris,
+        shanghai,
         spurious_dragon,
         tangerine_whistle,
     )
@@ -54,3 +55,4 @@ def monkey_patch(state_path: Optional[str]) -> None:
     arrow_glacier.monkey_patch(state_path)
     gray_glacier.monkey_patch(state_path)
     paris.monkey_patch(state_path)
+    shanghai.monkey_patch(state_path)

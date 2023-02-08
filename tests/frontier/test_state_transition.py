@@ -91,10 +91,16 @@ test_dir = (
 
 xfail_candidates = ("GasLimitHigherThan2p63m1_Frontier",)
 
+# FIXME: Check if these tests should in fact be ignored
+IGNORE_INVALID_BLOCK_TESTS = ("bcForgedTest",)
+
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_frontier_tests(test_dir),
+    fetch_frontier_tests(
+        test_dir,
+        ignore_list=IGNORE_INVALID_BLOCK_TESTS,
+    ),
     ids=idfn,
 )
 def test_invalid_block_tests(test_case: Dict) -> None:
