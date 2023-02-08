@@ -98,7 +98,7 @@ def test_general_state_tests_3860(test_case: Dict) -> None:
 
 
 # Run execution-spec-generated-tests
-test_dir = "tests/execution-spec-generated-tests/withdrawals"
+test_dir = "tests/execution-spec-generated-tests/fixtures/withdrawals"
 
 invalid_rlp_spec_tests = (
     "withdrawals/withdrawals_balance_within_block.json",
