@@ -1,7 +1,7 @@
 import pytest
 
 import ethereum.rlp as rlp
-from ethereum.base_types import U256, Bytes, Bytes0, Bytes8, Uint, Uint64
+from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes8, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.london.eth_types import (
     AccessListTransaction,
@@ -55,7 +55,7 @@ legacy_transaction = LegacyTransaction(
 )
 
 access_list_transaction = AccessListTransaction(
-    Uint64(1),
+    U64(1),
     U256(1),
     U256(2),
     U256(3),
@@ -69,7 +69,7 @@ access_list_transaction = AccessListTransaction(
 )
 
 transaction_1559 = FeeMarketTransaction(
-    Uint64(1),
+    U64(1),
     U256(1),
     U256(7),
     U256(2),

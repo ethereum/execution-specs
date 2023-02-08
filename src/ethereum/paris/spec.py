@@ -22,7 +22,7 @@ from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 
 from .. import rlp
-from ..base_types import U256, Bytes, Uint, Uint64
+from ..base_types import U64, U256, Bytes, Uint
 from . import vm
 from .bloom import logs_bloom
 from .eth_types import (
@@ -75,7 +75,7 @@ class BlockChain:
 
     blocks: List[Block]
     state: State
-    chain_id: Uint64
+    chain_id: U64
 
 
 def apply_fork(old: BlockChain) -> BlockChain:
@@ -281,7 +281,7 @@ def apply_body(
     block_time: U256,
     prev_randao: Bytes32,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
-    chain_id: Uint64,
+    chain_id: U64,
 ) -> Tuple[Uint, Root, Root, Bloom, State]:
     """
     Executes a block.
@@ -600,7 +600,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     return Uint(TX_BASE_COST + data_cost + create_cost + access_list_cost)
 
 
-def recover_sender(chain_id: Uint64, tx: Transaction) -> Address:
+def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     """
     Extracts the sender address from a transaction.
 

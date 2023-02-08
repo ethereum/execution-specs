@@ -14,7 +14,7 @@ Ethash algorithm related functionalities.
 
 from typing import Callable, Tuple, Union
 
-from ethereum.base_types import UINT32_MAX_VALUE, Bytes8, Uint, Uint32
+from ethereum.base_types import U32, U32_MAX_VALUE, Bytes8, Uint
 from ethereum.crypto.hash import Hash32, Hash64, keccak256, keccak512
 from ethereum.utils.numeric import (
     is_prime,
@@ -126,7 +126,7 @@ def generate_seed(block_number: Uint) -> Hash32:
     return Hash32(seed)
 
 
-def generate_cache(block_number: Uint) -> Tuple[Tuple[Uint32, ...], ...]:
+def generate_cache(block_number: Uint) -> Tuple[Tuple[U32, ...], ...]:
     """
     Generate the cache for the block identified by `block_number`. This cache
     would later be used to generate the full dataset.
@@ -138,7 +138,7 @@ def generate_cache(block_number: Uint) -> Tuple[Tuple[Uint32, ...], ...]:
 
     Returns
     -------
-    cache : `Tuple[Tuple[Uint32, ...], ...]`
+    cache : `Tuple[Tuple[U32, ...], ...]`
         The cache generated for the passed in block.
     """
     seed = generate_seed(block_number)
@@ -161,7 +161,7 @@ def generate_cache(block_number: Uint) -> Tuple[Tuple[Uint32, ...], ...]:
                 (index - 1 + int(cache_size_words)) % cache_size_words
             ]
             second_cache_item = cache[
-                Uint32.from_le_bytes(cache[index][0:4]) % cache_size_words
+                U32.from_le_bytes(cache[index][0:4]) % cache_size_words
             ]
             result = bytes(
                 [a ^ b for a, b in zip(first_cache_item, second_cache_item)]
@@ -173,7 +173,7 @@ def generate_cache(block_number: Uint) -> Tuple[Tuple[Uint32, ...], ...]:
     )
 
 
-def fnv(a: Union[Uint, Uint32], b: Union[Uint, Uint32]) -> Uint32:
+def fnv(a: Union[Uint, U32], b: Union[Uint, U32]) -> U32:
     """
     FNV algorithm is inspired by the FNV hash, which in some cases is used
     as a non-associative substitute for XOR.
@@ -191,30 +191,30 @@ def fnv(a: Union[Uint, Uint32], b: Union[Uint, Uint32]) -> Uint32:
 
     Returns
     -------
-    modified_mix_integers : `Uint32`
+    modified_mix_integers : `U32`
         The result of performing fnv on the passed in data points.
     """
     # This is a faster way of doing [number % (2 ** 32)]
-    result = ((Uint(a) * 0x01000193) ^ Uint(b)) & UINT32_MAX_VALUE
-    return Uint32(result)
+    result = ((Uint(a) * 0x01000193) ^ Uint(b)) & U32_MAX_VALUE
+    return U32(result)
 
 
 def fnv_hash(
-    mix_integers: Tuple[Uint32, ...], data: Tuple[Uint32, ...]
-) -> Tuple[Uint32, ...]:
+    mix_integers: Tuple[U32, ...], data: Tuple[U32, ...]
+) -> Tuple[U32, ...]:
     """
     FNV Hash mixes in data into mix using the ethash fnv method.
 
     Parameters
     ----------
     mix_integers:
-        Mix data in the form of a sequence of Uint32.
+        Mix data in the form of a sequence of U32.
     data :
-        The data (sequence of Uint32) to be hashed into the mix.
+        The data (sequence of U32) to be hashed into the mix.
 
     Returns
     -------
-    modified_mix_integers : `Tuple[Uint32, ...]`
+    modified_mix_integers : `Tuple[U32, ...]`
         The result of performing the fnv hash on the mix and the passed in
         data.
     """
@@ -224,7 +224,7 @@ def fnv_hash(
 
 
 def generate_dataset_item(
-    cache: Tuple[Tuple[Uint32, ...], ...], index: Uint
+    cache: Tuple[Tuple[U32, ...], ...], index: Uint
 ) -> Hash64:
     """
     Generate a particular dataset item 0-indexed by `index` using `cache`.
@@ -253,7 +253,7 @@ def generate_dataset_item(
     mix_integers = le_bytes_to_uint32_sequence(mix)
 
     for j in range(DATASET_PARENTS):
-        mix_word: Uint32 = mix_integers[j % 16]
+        mix_word: U32 = mix_integers[j % 16]
         cache_index = fnv(index ^ j, mix_word) % len(cache)
         parent = cache[cache_index]
         mix_integers = fnv_hash(mix_integers, parent)
@@ -281,7 +281,7 @@ def generate_dataset(block_number: Uint) -> Tuple[Hash64, ...]:
         The dataset generated for the passed in block.
     """
     dataset_size_bytes: Uint = dataset_size(block_number)
-    cache: Tuple[Tuple[Uint32, ...], ...] = generate_cache(block_number)
+    cache: Tuple[Tuple[U32, ...], ...] = generate_cache(block_number)
 
     # TODO: Parallelize this later on if it adds value
     return tuple(
@@ -294,7 +294,7 @@ def hashimoto(
     header_hash: Hash32,
     nonce: Bytes8,
     dataset_size: Uint,
-    fetch_dataset_item: Callable[[Uint], Tuple[Uint32, ...]],
+    fetch_dataset_item: Callable[[Uint], Tuple[U32, ...]],
 ) -> Tuple[bytes, Hash32]:
     """
     Obtain the mix digest and the final value for a header, by aggregating
@@ -322,17 +322,17 @@ def hashimoto(
     """
     nonce_le = bytes(reversed(nonce))
     seed_hash = keccak512(header_hash + nonce_le)
-    seed_head = Uint32.from_le_bytes(seed_hash[:4])
+    seed_head = U32.from_le_bytes(seed_hash[:4])
 
     rows = dataset_size // 128
     mix = le_bytes_to_uint32_sequence(seed_hash) * (MIX_BYTES // HASH_BYTES)
 
     for i in range(HASHIMOTO_ACCESSES):
-        new_data: Tuple[Uint32, ...] = ()
+        new_data: Tuple[U32, ...] = ()
         parent = fnv(i ^ seed_head, mix[i % len(mix)]) % rows
         for j in range(MIX_BYTES // HASH_BYTES):
-            # Typecasting `parent` from Uint32 to Uint as 2*parent + j may
-            # overflow Uint32.
+            # Typecasting `parent` from U32 to Uint as 2*parent + j may
+            # overflow U32.
             new_data += fetch_dataset_item(2 * Uint(parent) + j)
 
         mix = fnv_hash(mix, new_data)
@@ -352,7 +352,7 @@ def hashimoto(
 def hashimoto_light(
     header_hash: Hash32,
     nonce: Bytes8,
-    cache: Tuple[Tuple[Uint32, ...], ...],
+    cache: Tuple[Tuple[U32, ...], ...],
     dataset_size: Uint,
 ) -> Tuple[bytes, Hash32]:
     """
@@ -380,9 +380,9 @@ def hashimoto_light(
         byte representation) in correspondance with the block difficulty.
     """
 
-    def fetch_dataset_item(index: Uint) -> Tuple[Uint32, ...]:
+    def fetch_dataset_item(index: Uint) -> Tuple[U32, ...]:
         """
-        Generate dataset item (as tuple of Uint32 numbers) from cache.
+        Generate dataset item (as tuple of U32 numbers) from cache.
 
         Parameters
         ----------
@@ -391,7 +391,7 @@ def hashimoto_light(
 
         Returns
         -------
-        dataset_item : `Tuple[Uint32, ...]`
+        dataset_item : `Tuple[U32, ...]`
             The generated dataset item for passed index.
         """
         item: Hash64 = generate_dataset_item(cache, index)

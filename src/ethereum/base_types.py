@@ -18,9 +18,9 @@ from dataclasses import replace
 from typing import Any, Callable, ClassVar, Optional, Tuple, Type, TypeVar
 
 U8_MAX_VALUE = (2**8) - 1
-UINT32_MAX_VALUE = (2**32) - 1
-UINT32_CEIL_VALUE = 2**32
-UINT64_MAX_VALUE = (2**64) - 1
+U32_MAX_VALUE = (2**32) - 1
+U32_CEIL_VALUE = 2**32
+U64_MAX_VALUE = (2**64) - 1
 U255_MAX_VALUE = (2**255) - 1
 U255_CEIL_VALUE = 2**255
 U256_MAX_VALUE = (2**256) - 1
@@ -734,18 +734,18 @@ U256.MAX_VALUE = int.__new__(U256, U256_MAX_VALUE)
 """autoapi_noindex"""
 
 
-class Uint32(FixedUInt):
+class U32(FixedUInt):
     """
     Unsigned positive integer, which can represent `0` to `2 ** 32 - 1`,
     inclusive.
     """
 
-    MAX_VALUE: ClassVar["Uint32"]
+    MAX_VALUE: ClassVar["U32"]
 
     __slots__ = ()
 
     @classmethod
-    def from_le_bytes(cls: Type, buffer: "Bytes") -> "Uint32":
+    def from_le_bytes(cls: Type, buffer: "Bytes") -> "U32":
         """
         Converts a sequence of bytes into an arbitrarily sized unsigned integer
         from its little endian representation.
@@ -782,22 +782,22 @@ class Uint32(FixedUInt):
         return self.to_bytes(byte_length, "little")
 
 
-Uint32.MAX_VALUE = int.__new__(Uint32, UINT32_MAX_VALUE)
+U32.MAX_VALUE = int.__new__(U32, U32_MAX_VALUE)
 """autoapi_noindex"""
 
 
-class Uint64(FixedUInt):
+class U64(FixedUInt):
     """
     Unsigned positive integer, which can represent `0` to `2 ** 64 - 1`,
     inclusive.
     """
 
-    MAX_VALUE: ClassVar["Uint64"]
+    MAX_VALUE: ClassVar["U64"]
 
     __slots__ = ()
 
     @classmethod
-    def from_le_bytes(cls: Type, buffer: "Bytes") -> "Uint64":
+    def from_le_bytes(cls: Type, buffer: "Bytes") -> "U64":
         """
         Converts a sequence of bytes into an arbitrarily sized unsigned integer
         from its little endian representation.
@@ -848,7 +848,7 @@ class Uint64(FixedUInt):
         return self.to_bytes(byte_length, "big")
 
     @classmethod
-    def from_be_bytes(cls: Type, buffer: "Bytes") -> "Uint64":
+    def from_be_bytes(cls: Type, buffer: "Bytes") -> "U64":
         """
         Converts a sequence of bytes into an unsigned 64 bit integer from its
         big endian representation.
@@ -859,7 +859,7 @@ class Uint64(FixedUInt):
             Bytes to decode.
         Returns
         -------
-        self : `Uint64`
+        self : `U64`
             Unsigned integer decoded from `buffer`.
         """
         if len(buffer) > 8:
@@ -868,7 +868,7 @@ class Uint64(FixedUInt):
         return cls(int.from_bytes(buffer, "big"))
 
 
-Uint64.MAX_VALUE = int.__new__(Uint64, UINT64_MAX_VALUE)
+U64.MAX_VALUE = int.__new__(U64, U64_MAX_VALUE)
 """autoapi_noindex"""
 
 
