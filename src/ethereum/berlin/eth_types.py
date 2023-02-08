@@ -17,6 +17,7 @@ from typing import Tuple, Union
 
 from .. import rlp
 from ..base_types import (
+    U64,
     U256,
     Bytes,
     Bytes0,
@@ -25,7 +26,6 @@ from ..base_types import (
     Bytes32,
     Bytes256,
     Uint,
-    Uint64,
     slotted_freezable,
 )
 from ..crypto.hash import Hash32, keccak256
@@ -70,7 +70,7 @@ class AccessListTransaction:
     The transaction type added in EIP-2930 to support access lists.
     """
 
-    chain_id: Uint64
+    chain_id: U64
     nonce: U256
     gas_price: U256
     gas: U256
