@@ -12,7 +12,7 @@ import pytest
 from _pytest.mark.structures import ParameterSet
 
 from ethereum import rlp
-from ethereum.base_types import U256, Uint64
+from ethereum.base_types import U64, U256
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -300,7 +300,7 @@ def load_test(test_case: Dict, load: BaseLoad) -> Dict:
     return {
         "test_file": test_case["test_file"],
         "test_key": test_case["test_key"],
-        "chain_id": Uint64(json_data["genesisBlockHeader"].get("chainId", 1)),
+        "chain_id": U64(json_data["genesisBlockHeader"].get("chainId", 1)),
         "genesis_block": genesis_block,
         "pre_state": load.json_to_state(json_data["pre"]),
         "blocks": blocks,
