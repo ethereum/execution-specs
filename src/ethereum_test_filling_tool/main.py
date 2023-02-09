@@ -157,17 +157,36 @@ def find_modules(root, include_pkg, include_modules):
         root,
         include=include_pkg if include_pkg is not None else ("*",),
     ):
-        for info in iter_modules([os.path.join(root, package)]):
-            if not info.ispkg:
-                module_full_name = package + "." + info.name
-                if module_full_name not in modules:
-                    if not include_modules or include_modules in info.name:
-                        yield (
-                            package,
-                            info.name,
-                            info.module_finder.find_module(module_full_name),
-                        )
-                    modules.add(module_full_name)
+        package = package.replace(
+            ".", "/"
+        )  # sub_package tests i.e 'vm.vm_tests'
+        for info, package_path in recursive_iter_modules(root, package):
+            module_full_name = package_path + "." + info.name
+            if module_full_name not in modules:
+                if not include_modules or include_modules in info.name:
+                    yield (
+                        package,
+                        info.name,
+                        info.module_finder.find_module(module_full_name),
+                    )
+                modules.add(module_full_name)
+
+
+def recursive_iter_modules(root, package):
+    """
+    Helper function for find_packages.
+    Iterates through all sub-packages (packages within a package).
+    Recursively navigates down the package tree until a new module is found.
+    """
+    for info in iter_modules([os.path.join(root, package)]):
+        if info.ispkg:
+            for sub_info in recursive_iter_modules(
+                root, os.path.join(package, info.name)
+            ):
+                yield sub_info
+        else:
+            package_path = package.replace("/", ".")
+            yield info, package_path
 
 
 def main() -> None:

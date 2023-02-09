@@ -49,6 +49,8 @@ A new test can be added by either:
   the new test function(s).
 - Creating an entirely new category by adding a subdirectory in
   `fillers` with the appropriate source files and test functions.
+    - Tests within multiple sub-directories must have a `__init__.py` file
+      within each directory above it (and it own), to ensure the test is found by the test filler `tf`.
 
 ## Test Spec Generator Functions
 
