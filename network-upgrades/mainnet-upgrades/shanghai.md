@@ -10,6 +10,14 @@ Changes included in the Network Upgrade.
 * [EIP-6049: Deprecate SELFDESTRUCT](https://eips.ethereum.org/EIPS/eip-6049)
     * **Note: EIP-6049 does not change the behavior of `SELFDESTRUCT` in and of itself, but formally announces client developers' intention of changing it in future upgrades. It is recommended that software which exposes the `SELFDESTRUCT` opcode to users warn them about an upcoming change in semantics.**
 
+### Upgrade Schedule
+
+| Network | Timestamp  | Date & Time (UTC)  | Fork Hash    | Beacon Chain Epoch |
+|---------|------------|---------------|--------------| ---------- |
+| Sepolia | `1677557088` | 2/28/2023, 4:04:48 AM | `0xf7f9bc08` | 56832 
+| Goerli  | TBA | TBA |  TBA | TBA 
+| Mainnet | TBA | TBA |  TBA | TBA 
+
 ### Implementation Progresss
 
 Implementation status of Included & CFI'd EIPs across participating clients.
@@ -27,11 +35,14 @@ Implementation status of Included & CFI'd EIPs across participating clients.
 
 **List of outstanding items before deployment.**
 
-- [ ] Client Integration Testing
-  - [ ] Deploy a Client Integration Testnet
-  - [ ] Integration Tests
-  - [ ] Fuzz Testing
- - [ ] Select Fork Blocks
+- [x] Client Integration Testing
+  - [x] Deploy a Client Integration Testnet
+  - [x] Integration Tests
+  - [x] Fuzz Testing
+ - [ ] Select Fork Timestamps
+  - [x] Sepolia
+  - [ ] Goerli
+  - [ ] Mainnet 
  - [ ] Deploy Clients
    - [ ]  Geth
    - [ ]  Besu
@@ -39,4 +50,4 @@ Implementation status of Included & CFI'd EIPs across participating clients.
    - [ ]  OpenEthereum
    - [ ]  Erigon
    - [ ]  EthereumJS
- - [ ] Pass Fork Blocks
+ - [ ] Activate Fork
