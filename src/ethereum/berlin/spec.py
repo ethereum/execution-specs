@@ -316,7 +316,7 @@ def validate_proof_of_work(header: Header) -> None:
 def check_transaction(
     tx: Transaction,
     gas_available: Uint,
-    chain_id: Uint64,
+    chain_id: U64,
 ) -> Address:
     """
     Check if the transaction is includable in the block.

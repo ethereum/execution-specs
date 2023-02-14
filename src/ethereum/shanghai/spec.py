@@ -281,7 +281,7 @@ def check_transaction(
     tx: Transaction,
     base_fee_per_gas: Uint,
     gas_available: Uint,
-    chain_id: Uint64,
+    chain_id: U64,
 ) -> Tuple[Address, U256]:
     """
     Check if the transaction is includable in the block.
