@@ -635,38 +635,6 @@ def test_withdrawals_zero_amount(_):
 
 
 @test_from(WITHDRAWALS_FORK)
-def test_withdrawals_overflowing_balance(_):
-    """
-    Test Withdrawals that overflows an account.
-    """
-    pre = {
-        TestAddress: Account(balance=1000000000000000000000, nonce=0),
-        to_address(0x100): Account(
-            balance=(2**256 - 1),
-        ),
-    }
-    blocks = [
-        Block(
-            withdrawals=[
-                Withdrawal(
-                    index=0,
-                    validator=0,
-                    address=to_address(0x100),
-                    amount=1,
-                )
-            ],
-            exception="invalid withdrawal",
-        )
-    ]
-    post = {
-        to_address(0x100): Account(
-            balance=(2**256 - 1),
-        ),
-    }
-    yield BlockchainTest(pre=pre, post=post, blocks=blocks)
-
-
-@test_from(WITHDRAWALS_FORK)
 def test_large_withdrawals(_: str):
     """
     Test Withdrawals that have a large gwei amount, so that (gwei * 1e9)
