@@ -23,7 +23,7 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import RLPDecodingError, RLPEncodingError
 from ethereum.utils.ensure import ensure
 
-from .base_types import U64, U256, Bytes, Bytes0, Bytes20, Uint
+from .base_types import Bytes, Bytes0, Bytes20, FixedBytes, FixedUInt, Uint
 
 RLP = Any
 
@@ -50,8 +50,8 @@ def encode(raw_data: RLP) -> Bytes:
     """
     if isinstance(raw_data, (bytearray, bytes)):
         return encode_bytes(raw_data)
-    elif isinstance(raw_data, (Uint, U256, U64)):
-        return encode(raw_data.to_be_bytes())
+    elif isinstance(raw_data, (Uint, FixedUInt)):
+        return encode(raw_data.to_be_bytes())  # type: ignore
     elif isinstance(raw_data, str):
         return encode_bytes(raw_data.encode())
     elif isinstance(raw_data, bool):
@@ -217,7 +217,7 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
     cls: `Type[T]`
         The type to decode to.
     raw_rlp :
-        A decode rlp structure.
+        A decoded rlp structure.
 
     Returns
     -------
@@ -233,6 +233,7 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
             return tuple(args)  # type: ignore
         else:
             args = []
+            ensure(len(raw_rlp) == len(cls.__args__), RLPDecodingError)  # type: ignore # noqa: E501
             for (t, raw_item) in zip(cls.__args__, raw_rlp):  # type: ignore
                 args.append(_decode_to(t, raw_item))
             return tuple(args)  # type: ignore
@@ -246,7 +247,7 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
             return Bytes20(raw_rlp)  # type: ignore
         else:
             raise RLPDecodingError(
-                "RLP Decoding to type {} is not supported".format(cls)
+                "Bytes has length {}, expected 0 or 20".format(len(raw_rlp))
             )
     elif isinstance(cls, type(List[Bytes])) and cls._name == "List":  # type: ignore # noqa: E501
         ensure(type(raw_rlp) == list, RLPDecodingError)
@@ -272,12 +273,19 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
             return cls(False)  # type: ignore
         else:
             raise TypeError("Cannot decode {} as {}".format(raw_rlp, cls))
+    elif issubclass(cls, FixedBytes):
+        ensure(type(raw_rlp) == Bytes, RLPDecodingError)
+        ensure(len(raw_rlp) == cls.LENGTH, RLPDecodingError)
+        return raw_rlp
     elif issubclass(cls, Bytes):
         ensure(type(raw_rlp) == Bytes, RLPDecodingError)
         return raw_rlp
-    elif issubclass(cls, (Uint, U256, U64)):
+    elif issubclass(cls, (Uint, FixedUInt)):
         ensure(type(raw_rlp) == Bytes, RLPDecodingError)
-        return cls.from_be_bytes(raw_rlp)  # type: ignore
+        try:
+            return cls.from_be_bytes(raw_rlp)  # type: ignore
+        except ValueError:
+            raise RLPDecodingError
     elif is_dataclass(cls):
         ensure(type(raw_rlp) == list, RLPDecodingError)
         assert isinstance(raw_rlp, list)

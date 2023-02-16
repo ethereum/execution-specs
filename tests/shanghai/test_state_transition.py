@@ -64,7 +64,7 @@ def test_general_state_tests_4895(test_case: Dict) -> None:
                 run_shanghai_blockchain_st_tests(test_case)
 
         elif is_in_list(test_case, invalid_bounds_tests):
-            with pytest.raises(ValueError):
+            with pytest.raises(InvalidBlock):
                 run_shanghai_blockchain_st_tests(test_case)
 
         elif is_in_list(test_case, invalid_block_tests):
@@ -120,20 +120,16 @@ invalid_block_spec_tests = ("withdrawals/withdrawals_use_value_in_tx.json",)
 def test_execution_specs_generated_tests(test_case: Dict) -> None:
     try:
         if is_in_list(test_case, invalid_rlp_spec_tests):
-            try:
-                run_shanghai_blockchain_st_tests(test_case)
-            except:
-                # FIXME: This should be changed once the issue is fixed
-                # https://github.com/ethereum/execution-spec-tests/issues/36
-                pytest.xfail(f"{test_case} currently has rlp issues")
-
-        elif is_in_list(test_case, invalid_bounds_spec_tests):
-            with pytest.raises(ValueError):
+            with pytest.raises(RLPDecodingError):
                 run_shanghai_blockchain_st_tests(test_case)
 
         elif is_in_list(test_case, invalid_block_spec_tests):
             with pytest.raises(InvalidBlock):
                 run_shanghai_blockchain_st_tests(test_case)
+
+        elif is_in_list(test_case, invalid_bounds_spec_tests):
+            # FIXME: This test has been removed upstream
+            pytest.xfail(f"{test_case} covers undefined behaviour")
 
         else:
             run_shanghai_blockchain_st_tests(test_case)
