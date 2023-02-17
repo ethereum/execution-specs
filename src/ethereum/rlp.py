@@ -51,7 +51,7 @@ def encode(raw_data: RLP) -> Bytes:
     if isinstance(raw_data, (bytearray, bytes)):
         return encode_bytes(raw_data)
     elif isinstance(raw_data, (Uint, FixedUInt)):
-        return encode(raw_data.to_be_bytes())  # type: ignore
+        return encode(raw_data.to_be_bytes())
     elif isinstance(raw_data, str):
         return encode_bytes(raw_data.encode())
     elif isinstance(raw_data, bool):
