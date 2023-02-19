@@ -484,7 +484,7 @@ def apply_body(
 
         block_logs += logs
 
-    gas_remaining = block_gas_limit - gas_available
+    gas_used = block_gas_limit - gas_available
 
     block_logs_bloom = logs_bloom(block_logs)
 
@@ -497,7 +497,7 @@ def apply_body(
             destroy_account(state, wd.address)
 
     return (
-        gas_remaining,
+        gas_used,
         root(transactions_trie),
         root(receipts_trie),
         block_logs_bloom,
