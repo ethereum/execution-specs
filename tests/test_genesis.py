@@ -5,10 +5,10 @@ import pytest
 
 from ethereum import rlp
 from ethereum.base_types import U256, Bytes
-from ethereum.frontier.genesis import genesis_configuration
+from ethereum.genesis import get_genesis_configuration
 from ethereum.utils.byte import left_pad_zero_bytes
 
-MAINNET_GENESIS_CONFIGURATION = genesis_configuration("mainnet.json")
+MAINNET_GENESIS_CONFIGURATION = get_genesis_configuration("mainnet.json")
 
 
 @pytest.fixture
