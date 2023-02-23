@@ -26,7 +26,7 @@ class InvalidBlock(EthereumException):
     """
 
 
-class RLPDecodingError(EthereumException):
+class RLPDecodingError(InvalidBlock):
     """
     Indicates that RLP decoding failed.
     """

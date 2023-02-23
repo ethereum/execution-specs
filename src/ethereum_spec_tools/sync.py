@@ -16,7 +16,7 @@ from threading import Thread
 from typing import Any, Dict, List, Optional, TypeVar, Union
 from urllib import request
 
-from ethereum import rlp
+from ethereum import genesis, rlp
 from ethereum.base_types import U64, Bytes0, Bytes256
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
@@ -636,7 +636,6 @@ class Sync(ForkTracking):
             persisted_block = None
 
         if persisted_block is None:
-            self.set_block(0)
             self.downloader = BlockDownloader(
                 self.log, self.options.rpc_url, self.options.geth, 1
             )
@@ -645,6 +644,15 @@ class Sync(ForkTracking):
                 state=state,
                 chain_id=None,
             )
+            genesis_configuration = genesis.get_genesis_configuration(
+                "mainnet.json"
+            )
+            genesis.add_genesis_block(
+                self.active_fork.mod,
+                self.chain,
+                genesis_configuration,
+            )
+            self.set_block(0)
         else:
             self.set_block(persisted_block)
             if persisted_block < 256:

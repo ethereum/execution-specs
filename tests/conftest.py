@@ -1,6 +1,7 @@
 import os
+import shutil
 import tarfile
-import time
+import tempfile
 import urllib.request
 
 import git
@@ -64,53 +65,40 @@ def pytest_configure(config: Config) -> None:
 def download_fixtures(url: str, location: str) -> None:
 
     # xdist processes will all try to download the fixtures.
-    # Using lockfile to make ir parallel safe
+    # Using lockfile to make it parallel safe
     with SoftFileLock(f"{location}.lock"):
+        if not os.path.exists(location):
+            print(f"Downloading {location}...")
+            with tempfile.TemporaryFile() as tfile:
+                with urllib.request.urlopen(url) as response:
+                    shutil.copyfileobj(response, tfile)
 
-        try:
-            if not os.path.exists(location):
+                tfile.seek(0)
 
-                print(f"Downloading {location}...")
-                urllib.request.urlretrieve(url, "temp.tar.gz")
-
-                with tarfile.open("temp.tar.gz", "r:gz") as tar:
+                with tarfile.open(fileobj=tfile, mode="r:gz") as tar:
                     tar.extractall(location)
-
-                os.remove("temp.tar.gz")
-            else:
-                print(f"{location} already available.")
-
-        finally:
-            # Prevent stale lock files in
-            # the event of a crash
-            os.remove(f"{location}.lock")
+        else:
+            print(f"{location} already available.")
 
 
 def git_clone_fixtures(url: str, commit_hash: str, location: str) -> None:
 
     # xdist processes will all try to download the fixtures.
-    # Using lockfile to make ir parallel safe
+    # Using lockfile to make it parallel safe
     with SoftFileLock(f"{location}.lock"):
+        if not os.path.exists(location):
+            print(f"Cloning {location}...")
+            repo = git.Repo.clone_from(url, to_path=location)
+        else:
+            print(f"{location} already available.")
+            repo = git.Repo(location)
 
-        try:
-            if not os.path.exists(location):
-                print(f"Cloning {location}...")
-                repo = git.Repo.clone_from(url, to_path=location)
-            else:
-                print(f"{location} already available.")
-                repo = git.Repo(location)
+        print(f"Checking out the correct commit {commit_hash}...")
+        branch = repo.heads["develop"]
+        repo.remotes.origin.fetch(branch.name)
+        repo.git.checkout(commit_hash)
 
-            print(f"Checking out the correct commit {commit_hash}...")
-            branch = repo.heads["develop"]
-            repo.remotes.origin.pull(branch.name)
-            repo.git.checkout(commit_hash)
-
-            repo.submodule_update(init=True, recursive=True)
-
-        finally:
-            # Prevent stale lock files in
-            # the event of a crash
-            os.remove(f"{location}.lock")
+        repo.submodule_update(init=True, recursive=True)
 
 
 def pytest_sessionstart(session: Session) -> None:

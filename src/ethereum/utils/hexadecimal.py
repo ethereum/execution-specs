@@ -16,6 +16,7 @@ from ethereum.base_types import (
     U256,
     Bytes,
     Bytes8,
+    Bytes20,
     Bytes32,
     Bytes256,
     Uint,
@@ -89,10 +90,27 @@ def hex_to_bytes8(hex_string: str) -> Bytes8:
 
     Returns
     -------
-    8_byte_stream : `bytes`
+    8_byte_stream : `Bytes8`
         8-byte stream corresponding to the given hexadecimal string.
     """
     return Bytes8(bytes.fromhex(remove_hex_prefix(hex_string).rjust(16, "0")))
+
+
+def hex_to_bytes20(hex_string: str) -> Bytes20:
+    """
+    Convert hex string to 20 bytes.
+
+    Parameters
+    ----------
+    hex_string :
+        The hexadecimal string to be converted to 20 bytes.
+
+    Returns
+    -------
+    20_byte_stream : `Bytes20`
+        20-byte stream corresponding to the given hexadecimal string.
+    """
+    return Bytes20(bytes.fromhex(remove_hex_prefix(hex_string).rjust(20, "0")))
 
 
 def hex_to_bytes32(hex_string: str) -> Bytes32:
@@ -106,7 +124,7 @@ def hex_to_bytes32(hex_string: str) -> Bytes32:
 
     Returns
     -------
-    32_byte_stream : `bytes`
+    32_byte_stream : `Bytes32`
         32-byte stream corresponding to the given hexadecimal string.
     """
     return Bytes32(bytes.fromhex(remove_hex_prefix(hex_string).rjust(64, "0")))
@@ -123,7 +141,7 @@ def hex_to_bytes256(hex_string: str) -> Bytes256:
 
     Returns
     -------
-    256_byte_stream : `bytes`
+    256_byte_stream : `Bytes256`
         256-byte stream corresponding to the given hexadecimal string.
     """
     return Bytes256(
