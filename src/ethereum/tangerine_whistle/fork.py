@@ -17,7 +17,7 @@ from typing import List, Optional, Set, Tuple
 
 from ethereum.base_types import Bytes0
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
-from ethereum.crypto.hash import keccak256
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
@@ -26,7 +26,7 @@ from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Bytes32, Uint
 from . import vm
 from .bloom import logs_bloom
-from .eth_types import (
+from .fork_types import (
     TX_BASE_COST,
     TX_CREATE_COST,
     TX_DATA_COST_PER_NON_ZERO,
@@ -34,7 +34,6 @@ from .eth_types import (
     Address,
     Block,
     Bloom,
-    Hash32,
     Header,
     Log,
     Receipt,
@@ -43,7 +42,6 @@ from .eth_types import (
 )
 from .state import (
     State,
-    account_exists_and_is_empty,
     create_ether,
     destroy_account,
     get_account,
@@ -176,7 +174,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.header.difficulty,
         block.transactions,
         block.ommers,
-        chain.chain_id,
     )
     ensure(gas_used == block.header.gas_used, InvalidBlock)
     ensure(transactions_root == block.header.transactions_root, InvalidBlock)
@@ -306,7 +303,6 @@ def validate_proof_of_work(header: Header) -> None:
 def check_transaction(
     tx: Transaction,
     gas_available: Uint,
-    chain_id: U64,
 ) -> Address:
     """
     Check if the transaction is includable in the block.
@@ -317,8 +313,6 @@ def check_transaction(
         The transaction.
     gas_available :
         The gas remaining in the block.
-    chain_id :
-        The ID of the current chain.
 
     Returns
     -------
@@ -331,7 +325,7 @@ def check_transaction(
         If the transaction is not includable.
     """
     ensure(tx.gas <= gas_available, InvalidBlock)
-    sender_address = recover_sender(chain_id, tx)
+    sender_address = recover_sender(tx)
 
     return sender_address
 
@@ -382,7 +376,6 @@ def apply_body(
     block_difficulty: Uint,
     transactions: Tuple[Transaction, ...],
     ommers: Tuple[Header, ...],
-    chain_id: U64,
 ) -> Tuple[Uint, Root, Root, Bloom, State]:
     """
     Executes a block.
@@ -416,21 +409,19 @@ def apply_body(
     ommers :
         Headers of ancestor blocks which are not direct parents (formerly
         uncles.)
-    chain_id :
-        ID of the executing chain.
 
     Returns
     -------
     gas_available : `ethereum.base_types.Uint`
         Remaining gas after all transactions have been executed.
-    transactions_root : `ethereum.eth_types.Root`
+    transactions_root : `ethereum.fork_types.Root`
         Trie root of all the transactions in the block.
-    receipt_root : `ethereum.eth_types.Root`
+    receipt_root : `ethereum.fork_types.Root`
         Trie root of all the receipts in the block.
     block_logs_bloom : `Bloom`
         Logs bloom of all the logs included in all the transactions of the
         block.
-    state : `ethereum.eth_types.State`
+    state : `ethereum.fork_types.State`
         State after all transactions have been executed.
     """
     gas_available = block_gas_limit
@@ -445,7 +436,7 @@ def apply_body(
     for i, tx in enumerate(transactions):
         trie_set(transactions_trie, rlp.encode(Uint(i)), tx)
 
-        sender_address = check_transaction(tx, gas_available, chain_id)
+        sender_address = check_transaction(tx, gas_available)
 
         env = vm.Environment(
             caller=sender_address,
@@ -637,7 +628,7 @@ def process_transaction(
     -------
     gas_left : `ethereum.base_types.U256`
         Remaining gas after execution.
-    logs : `Tuple[ethereum.eth_types.Log, ...]`
+    logs : `Tuple[ethereum.fork_types.Log, ...]`
         Logs generated during execution.
     """
     ensure(validate_transaction(tx), InvalidBlock)
@@ -681,19 +672,12 @@ def process_transaction(
     coinbase_balance_after_mining_fee = (
         get_account(env.state, env.coinbase).balance + transaction_fee
     )
-    if coinbase_balance_after_mining_fee != 0:
-        set_account_balance(
-            env.state, env.coinbase, coinbase_balance_after_mining_fee
-        )
-    elif account_exists_and_is_empty(env.state, env.coinbase):
-        destroy_account(env.state, env.coinbase)
+    set_account_balance(
+        env.state, env.coinbase, coinbase_balance_after_mining_fee
+    )
 
     for address in output.accounts_to_delete:
         destroy_account(env.state, address)
-
-    for address in output.touched_accounts:
-        if account_exists_and_is_empty(env.state, address):
-            destroy_account(env.state, address)
 
     return total_gas_used, output.logs
 
@@ -765,7 +749,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     return Uint(TX_BASE_COST + data_cost + create_cost)
 
 
-def recover_sender(chain_id: U64, tx: Transaction) -> Address:
+def recover_sender(tx: Transaction) -> Address:
     """
     Extracts the sender address from a transaction.
 
@@ -779,32 +763,32 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     ----------
     tx :
         Transaction of interest.
-    chain_id :
-        ID of the executing chain.
 
     Returns
     -------
-    sender : `ethereum.eth_types.Address`
+    sender : `ethereum.fork_types.Address`
         The address of the account that signed the transaction.
     """
     v, r, s = tx.v, tx.r, tx.s
 
+    #  if v > 28:
+    #      v = v - (chain_id*2+8)
+
+    ensure(v == 27 or v == 28, InvalidBlock)
     ensure(0 < r and r < SECP256K1N, InvalidBlock)
     ensure(0 < s and s <= SECP256K1N // 2, InvalidBlock)
 
-    if v == 27 or v == 28:
-        public_key = secp256k1_recover(r, s, v - 27, signing_hash_pre155(tx))
-    else:
-        ensure(v == 35 + chain_id * 2 or v == 36 + chain_id * 2, InvalidBlock)
-        public_key = secp256k1_recover(
-            r, s, v - 35 - chain_id * 2, signing_hash_155(tx)
-        )
+    public_key = secp256k1_recover(r, s, v - 27, signing_hash(tx))
     return Address(keccak256(public_key)[12:32])
 
 
-def signing_hash_pre155(tx: Transaction) -> Hash32:
+def signing_hash(tx: Transaction) -> Hash32:
     """
-    Compute the hash of a transaction used in a legacy (pre EIP 155) signature.
+    Compute the hash of a transaction used in the signature.
+
+    The values that are used to compute the signing hash set the rules for a
+    transaction. For example, signing over the gas sets a limit for the
+    amount of money that is allowed to be pulled out of the sender's account.
 
     Parameters
     ----------
@@ -813,7 +797,7 @@ def signing_hash_pre155(tx: Transaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.crypto.hash.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -825,37 +809,6 @@ def signing_hash_pre155(tx: Transaction) -> Hash32:
                 tx.to,
                 tx.value,
                 tx.data,
-            )
-        )
-    )
-
-
-def signing_hash_155(tx: Transaction) -> Hash32:
-    """
-    Compute the hash of a transaction used in a EIP 155 signature.
-
-    Parameters
-    ----------
-    tx :
-        Transaction of interest.
-
-    Returns
-    -------
-    hash : `ethereum.eth_types.Hash32`
-        Hash of the transaction.
-    """
-    return keccak256(
-        rlp.encode(
-            (
-                tx.nonce,
-                tx.gas_price,
-                tx.gas,
-                tx.to,
-                tx.value,
-                tx.data,
-                Uint(1),
-                Uint(0),
-                Uint(0),
             )
         )
     )
@@ -890,7 +843,7 @@ def compute_header_hash(header: Header) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.crypto.hash.Hash32`
         Hash of the header.
     """
     return keccak256(rlp.encode(header))

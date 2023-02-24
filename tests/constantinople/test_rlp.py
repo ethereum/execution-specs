@@ -2,7 +2,7 @@ import pytest
 
 import ethereum.rlp as rlp
 from ethereum.base_types import U256, Bytes, Bytes0, Bytes8, Uint
-from ethereum.constantinople.eth_types import (
+from ethereum.constantinople.fork_types import (
     Block,
     Header,
     Log,

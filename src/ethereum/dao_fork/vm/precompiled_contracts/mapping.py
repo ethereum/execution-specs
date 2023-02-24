@@ -13,7 +13,7 @@ Mapping of precompiled contracts their implementations.
 """
 from typing import Callable, Dict
 
-from ...eth_types import Address
+from ...fork_types import Address
 from . import (
     ECRECOVER_ADDRESS,
     IDENTITY_ADDRESS,

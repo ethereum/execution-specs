@@ -240,7 +240,7 @@ class BlockDownloader(ForkTracking):
         """
         Turn a json transaction into a `Transaction`.
         """
-        if hasattr(self.module("eth_types"), "LegacyTransaction"):
+        if hasattr(self.module("fork_types"), "LegacyTransaction"):
             if t["type"] == "0x1":
                 access_list = []
                 for sublist in t.get("accessList", []):
@@ -256,7 +256,7 @@ class BlockDownloader(ForkTracking):
                         )
                     )
                 return b"\x01" + rlp.encode(
-                    self.module("eth_types").AccessListTransaction(
+                    self.module("fork_types").AccessListTransaction(
                         U64(1),
                         hex_to_u256(t["nonce"]),
                         hex_to_u256(t["gasPrice"]),
@@ -275,7 +275,7 @@ class BlockDownloader(ForkTracking):
                     )
                 )
             else:
-                return self.module("eth_types").LegacyTransaction(
+                return self.module("fork_types").LegacyTransaction(
                     hex_to_u256(t["nonce"]),
                     hex_to_u256(t["gasPrice"]),
                     hex_to_u256(t["gas"]),
@@ -289,7 +289,7 @@ class BlockDownloader(ForkTracking):
                     hex_to_u256(t["s"]),
                 )
         else:
-            return self.module("eth_types").Transaction(
+            return self.module("fork_types").Transaction(
                 hex_to_u256(t["nonce"]),
                 hex_to_u256(t["gasPrice"]),
                 hex_to_u256(t["gas"]),
@@ -370,7 +370,7 @@ class BlockDownloader(ForkTracking):
 
             ommers = self.fetch_ommers(ommers_needed)
             for id in headers:
-                blocks[id] = self.module("eth_types").Block(
+                blocks[id] = self.module("fork_types").Block(
                     headers[id],
                     tuple(transaction_lists[id]),
                     ommers.get(id, ()),
@@ -457,7 +457,7 @@ class BlockDownloader(ForkTracking):
         """
         Create a Header object from JSON describing it.
         """
-        return self.module("eth_types").Header(
+        return self.module("fork_types").Header(
             hex_to_bytes32(json["parentHash"]),
             hex_to_bytes32(json["sha3Uncles"]),
             self.module("utils.hexadecimal").hex_to_address(json["miner"]),
@@ -639,7 +639,7 @@ class Sync(ForkTracking):
             self.downloader = BlockDownloader(
                 self.log, self.options.rpc_url, self.options.geth, 1
             )
-            self.chain = self.module("spec").BlockChain(
+            self.chain = self.module("fork").BlockChain(
                 blocks=[],
                 state=state,
                 chain_id=None,
@@ -668,7 +668,7 @@ class Sync(ForkTracking):
             blocks = []
             for _ in range(initial_blocks_length):
                 blocks.append(self.downloader.take_block())
-            self.chain = self.module("spec").BlockChain(
+            self.chain = self.module("fork").BlockChain(
                 blocks=blocks,
                 state=state,
                 chain_id=self.fetch_chain_id(state),
@@ -724,7 +724,7 @@ class Sync(ForkTracking):
             if self.advance_block() or self.block_number == 1:
                 self.log.debug("applying %s fork...", self.active_fork.name)
                 start = time.monotonic()
-                self.chain = self.module("spec").apply_fork(self.chain)
+                self.chain = self.module("fork").apply_fork(self.chain)
                 end = time.monotonic()
                 self.log.info(
                     "applied %s fork (took %.3f)",
@@ -745,7 +745,7 @@ class Sync(ForkTracking):
 
             if isinstance(block, bytes):
                 # Decode the block using the rules for the active fork.
-                block = rlp.decode_to(self.module("eth_types").Block, block)
+                block = rlp.decode_to(self.module("fork_types").Block, block)
 
             if block.header.number != self.block_number:
                 raise Exception(
@@ -756,7 +756,7 @@ class Sync(ForkTracking):
             self.log.debug("applying block %d...", self.block_number)
 
             start = time.monotonic()
-            self.module("spec").state_transition(self.chain, block)
+            self.module("fork").state_transition(self.chain, block)
             end = time.monotonic()
 
             # Additional gas to account for block overhead

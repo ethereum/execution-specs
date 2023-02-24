@@ -3,14 +3,14 @@ from functools import partial
 import pytest
 
 from ethereum import rlp
-from ethereum.istanbul.eth_types import Transaction
-from ethereum.istanbul.spec import (
+from ethereum.istanbul.fork import (
     calculate_intrinsic_cost,
     validate_transaction,
 )
+from ethereum.istanbul.fork_types import Transaction
 from ethereum.utils.hexadecimal import hex_to_uint
 
-from ..helpers.eth_types_helpers import load_test_transaction
+from ..helpers.fork_types_helpers import load_test_transaction
 
 test_dir = "tests/fixtures/TransactionTests"
 

@@ -5,7 +5,7 @@ import pytest
 
 import ethereum.homestead.state as state
 from ethereum.base_types import U256
-from ethereum.homestead.eth_types import EMPTY_ACCOUNT
+from ethereum.homestead.fork_types import EMPTY_ACCOUNT
 from ethereum.homestead.utils.hexadecimal import hex_to_address
 
 try:

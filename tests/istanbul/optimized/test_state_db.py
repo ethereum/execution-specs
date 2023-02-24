@@ -5,7 +5,7 @@ import pytest
 
 import ethereum.istanbul.state as state
 from ethereum.base_types import U256
-from ethereum.istanbul.eth_types import EMPTY_ACCOUNT
+from ethereum.istanbul.fork_types import EMPTY_ACCOUNT
 from ethereum.istanbul.utils.hexadecimal import hex_to_address
 
 try:

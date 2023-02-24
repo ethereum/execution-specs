@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from ethereum.london.eth_types import Bytes
+from ethereum.london.fork_types import Bytes
 from ethereum.london.trie import Trie, root, trie_set
 from ethereum.utils.hexadecimal import (
     has_hex_prefix,

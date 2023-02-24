@@ -3,7 +3,7 @@ import pytest
 import ethereum.rlp as rlp
 from ethereum.base_types import U256, Bytes, Bytes0, Bytes8, Uint
 from ethereum.crypto.hash import keccak256
-from ethereum.spurious_dragon.eth_types import (
+from ethereum.spurious_dragon.fork_types import (
     Block,
     Header,
     Log,

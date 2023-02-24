@@ -26,7 +26,7 @@ except ImportError as e:
     )
 
 from ethereum.base_types import U256, Bytes, Uint
-from ethereum.shanghai.eth_types import Account, Address, Root
+from ethereum.shanghai.fork_types import Account, Address, Root
 
 
 class UnmodifiedType:

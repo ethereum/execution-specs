@@ -5,7 +5,7 @@ import pytest
 
 import ethereum.berlin.state as state
 from ethereum.base_types import U256
-from ethereum.berlin.eth_types import EMPTY_ACCOUNT
+from ethereum.berlin.fork_types import EMPTY_ACCOUNT
 from ethereum.berlin.utils.hexadecimal import hex_to_address
 
 try:

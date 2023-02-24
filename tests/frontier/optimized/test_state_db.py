@@ -5,7 +5,7 @@ import pytest
 
 import ethereum.frontier.state as state
 from ethereum.base_types import U256
-from ethereum.frontier.eth_types import EMPTY_ACCOUNT
+from ethereum.frontier.fork_types import EMPTY_ACCOUNT
 from ethereum.frontier.utils.hexadecimal import hex_to_address
 
 try:

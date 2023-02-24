@@ -143,15 +143,15 @@ class Load(BaseLoad):
 
     @property
     def Block(self) -> Any:
-        return self._module("eth_types").Block
+        return self._module("fork_types").Block
 
     @property
     def Bloom(self) -> Any:
-        return self._module("eth_types").Bloom
+        return self._module("fork_types").Bloom
 
     @property
     def Header(self) -> Any:
-        return self._module("eth_types").Header
+        return self._module("fork_types").Header
 
     @property
     def Environment(self) -> Any:
@@ -159,7 +159,7 @@ class Load(BaseLoad):
 
     @property
     def LegacyTransaction(self) -> Any:
-        mod = self._module("eth_types")
+        mod = self._module("fork_types")
         try:
             return mod.LegacyTransaction
         except AttributeError:
@@ -167,7 +167,7 @@ class Load(BaseLoad):
 
     @property
     def Account(self) -> Any:
-        return self._module("eth_types").Account
+        return self._module("fork_types").Account
 
     @property
     def State(self) -> Any:
@@ -179,15 +179,15 @@ class Load(BaseLoad):
 
     @property
     def state_transition(self) -> Any:
-        return self._module("spec").state_transition
+        return self._module("fork").state_transition
 
     @property
     def process_transaction(self) -> Any:
-        return self._module("spec").process_transaction
+        return self._module("fork").process_transaction
 
     @property
     def BlockChain(self) -> Any:
-        return self._module("spec").BlockChain
+        return self._module("fork").BlockChain
 
     @property
     def hex_to_address(self) -> Any:
@@ -267,7 +267,7 @@ class Load(BaseLoad):
                 8, self.json_to_access_list(raw.get("accessList"))
             )
             return b"\x02" + rlp.encode(
-                self._module("eth_types").FeeMarketTransaction(*parameters)
+                self._module("fork_types").FeeMarketTransaction(*parameters)
             )
 
         parameters.insert(1, hex_to_u256(raw.get("gasPrice")))
@@ -278,14 +278,14 @@ class Load(BaseLoad):
                 7, self.json_to_access_list(raw.get("accessList"))
             )
             return b"\x01" + rlp.encode(
-                self._module("eth_types").AccessListTransaction(*parameters)
+                self._module("fork_types").AccessListTransaction(*parameters)
             )
 
         # Legacy Transaction
-        if hasattr(self._module("eth_types"), "LegacyTransaction"):
-            return self._module("eth_types").LegacyTransaction(*parameters)
+        if hasattr(self._module("fork_types"), "LegacyTransaction"):
+            return self._module("fork_types").LegacyTransaction(*parameters)
         else:
-            return self._module("eth_types").Transaction(*parameters)
+            return self._module("fork_types").Transaction(*parameters)
 
     def json_to_withdrawals(self, raw: Any) -> Any:
         parameters = [
@@ -295,7 +295,7 @@ class Load(BaseLoad):
             hex_to_u256(raw.get("amount")),
         ]
 
-        return self._module("eth_types").Withdrawal(*parameters)
+        return self._module("fork_types").Withdrawal(*parameters)
 
     def json_to_blocks(
         self,
@@ -460,7 +460,7 @@ def run_blockchain_st_test(test_case: Dict, load: BaseLoad) -> None:
         add_blocks_to_chain(chain, test_data, load)
     else:
         with patch(
-            f"ethereum.{load.fork_module}.spec.validate_proof_of_work",
+            f"ethereum.{load.fork_module}.fork.validate_proof_of_work",
             autospec=True,
         ) as mocked_pow_validator:
             add_blocks_to_chain(chain, test_data, load)

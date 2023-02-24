@@ -16,7 +16,7 @@ from typing import FrozenSet, Optional, Tuple, Union
 
 from ethereum.base_types import U256, Bytes, Bytes0, Bytes32, Uint
 
-from ..eth_types import Address
+from ..fork_types import Address
 from ..state import get_account
 from ..vm import Environment, Message
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS

@@ -18,7 +18,7 @@ from ethereum import evm_trace
 from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.utils.ensure import ensure
 
-from ..eth_types import Address, Log
+from ..fork_types import Address, Log
 from ..state import (
     account_exists_and_is_empty,
     account_has_code_or_nonce,
