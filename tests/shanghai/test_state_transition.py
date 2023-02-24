@@ -100,17 +100,6 @@ def test_general_state_tests_3860(test_case: Dict) -> None:
 # Run execution-spec-generated-tests
 test_dir = "tests/execution-spec-generated-tests/fixtures/withdrawals"
 
-invalid_rlp_spec_tests = (
-    "withdrawals/withdrawals_balance_within_block.json",
-    "withdrawals/withdrawals_use_value_in_contract.json",
-)
-
-invalid_bounds_spec_tests = (
-    "withdrawals/withdrawals_overflowing_balance.json",
-)
-
-invalid_block_spec_tests = ("withdrawals/withdrawals_use_value_in_tx.json",)
-
 
 @pytest.mark.parametrize(
     "test_case",
@@ -119,18 +108,12 @@ invalid_block_spec_tests = ("withdrawals/withdrawals_use_value_in_tx.json",)
 )
 def test_execution_specs_generated_tests(test_case: Dict) -> None:
     try:
-        if is_in_list(test_case, invalid_rlp_spec_tests):
-            with pytest.raises(RLPDecodingError):
-                run_shanghai_blockchain_st_tests(test_case)
-
-        elif is_in_list(test_case, invalid_block_spec_tests):
+        if (
+            "withdrawals_use_value_in_tx" in test_case["test_file"]
+            and test_case["test_key"] == "000_shanghai"
+        ):
             with pytest.raises(InvalidBlock):
                 run_shanghai_blockchain_st_tests(test_case)
-
-        elif is_in_list(test_case, invalid_bounds_spec_tests):
-            # FIXME: This test has been removed upstream
-            pytest.xfail(f"{test_case} covers undefined behaviour")
-
         else:
             run_shanghai_blockchain_st_tests(test_case)
     except NoPostState:
