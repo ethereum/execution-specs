@@ -83,7 +83,7 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
 
     assert rlp.rlp_hash(genesis_header) == test_data["genesis_header_hash"]
     # FIXME: Re-enable this assertion once the genesis block RLP is
-    # correctly encoded fopr Shanghai.
+    # correctly encoded for Shanghai.
     # See https://github.com/ethereum/execution-spec-tests/issues/64
     # assert (
     #     rlp.encode(cast(rlp.RLP, genesis_block))
@@ -100,7 +100,7 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
         add_blocks_to_chain(chain, test_data, load)
     else:
         with patch(
-            f"ethereum.{load.fork_module}.spec.validate_proof_of_work",
+            f"ethereum.{load.fork_module}.fork.validate_proof_of_work",
             autospec=True,
         ) as mocked_pow_validator:
             add_blocks_to_chain(chain, test_data, load)
