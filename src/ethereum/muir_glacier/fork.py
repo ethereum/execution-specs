@@ -481,12 +481,12 @@ def apply_body(
 
     pay_rewards(state, block_number, coinbase, ommers)
 
-    gas_used = block_gas_limit - gas_available
+    block_gas_used = block_gas_limit - gas_available
 
     block_logs_bloom = logs_bloom(block_logs)
 
     return (
-        gas_used,
+        block_gas_used,
         root(transactions_trie),
         root(receipts_trie),
         block_logs_bloom,

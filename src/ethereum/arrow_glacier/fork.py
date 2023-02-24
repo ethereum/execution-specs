@@ -575,7 +575,7 @@ def apply_body(
     block_logs_bloom = logs_bloom(block_logs)
 
     return (
-        gas_used,
+        block_gas_used,
         root(transactions_trie),
         root(receipts_trie),
         block_logs_bloom,
