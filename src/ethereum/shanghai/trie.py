@@ -10,7 +10,7 @@ Introduction
 ------------
 
 The state trie is the structure responsible for storing
-`eth1spec.eth_types.Account` objects.
+`.fork_types.Account` objects.
 """
 
 import copy
@@ -36,7 +36,7 @@ from ethereum.utils.hexadecimal import hex_to_bytes
 
 from .. import rlp
 from ..base_types import U256, Bytes, Uint, slotted_freezable
-from .eth_types import (
+from .fork_types import (
     Account,
     Address,
     LegacyTransaction,
@@ -343,7 +343,7 @@ def _prepare_trie(
 
     Returns
     -------
-    out : `Mapping[eth1spec.base_types.Bytes, Node]`
+    out : `Mapping[ethereum.base_types.Bytes, Node]`
         Object with keys mapped to nibble-byte form.
     """
     mapped: MutableMapping[Bytes, Bytes] = {}
@@ -386,7 +386,7 @@ def root(
 
     Returns
     -------
-    root : `eth1spec.eth_types.Root`
+    root : `.fork_types.Root`
         MPT root of the underlying key-value pairs.
     """
     obj = _prepare_trie(trie, get_storage_root)
@@ -417,7 +417,7 @@ def patricialize(
 
     Returns
     -------
-    node : `eth1spec.base_types.Bytes`
+    node : `ethereum.base_types.Bytes`
         Root node of `obj`.
     """
     if len(obj) == 0:

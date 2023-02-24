@@ -16,7 +16,7 @@ from functools import partial
 from ethereum.base_types import U256
 from ethereum.utils.ensure import ensure
 
-from ...eth_types import Log
+from ...fork_types import Log
 from .. import Evm
 from ..exceptions import WriteInStaticContext
 from ..gas import (

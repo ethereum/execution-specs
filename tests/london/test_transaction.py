@@ -3,11 +3,11 @@ from functools import partial
 import pytest
 
 from ethereum import rlp
-from ethereum.london.eth_types import LegacyTransaction
-from ethereum.london.spec import calculate_intrinsic_cost, validate_transaction
+from ethereum.london.fork import calculate_intrinsic_cost, validate_transaction
+from ethereum.london.fork_types import LegacyTransaction
 from ethereum.utils.hexadecimal import hex_to_uint
 
-from ..helpers.eth_types_helpers import load_test_transaction
+from ..helpers.fork_types_helpers import load_test_transaction
 
 test_dir = "tests/fixtures/TransactionTests"
 

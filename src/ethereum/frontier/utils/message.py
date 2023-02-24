@@ -15,7 +15,7 @@ from typing import Optional, Union
 
 from ethereum.base_types import U256, Bytes, Bytes0, Uint
 
-from ..eth_types import Address
+from ..fork_types import Address
 from ..state import get_account
 from ..vm import Environment, Message
 from .address import compute_contract_address

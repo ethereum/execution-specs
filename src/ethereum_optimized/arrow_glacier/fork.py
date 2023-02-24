@@ -10,10 +10,10 @@ Introduction
 ------------
 
 This module contains functions can be monkey patched into
-`ethereum.arrow_glacier.spec` to use alternate optimized implementations.
+`ethereum.arrow_glacier.fork` to use alternate optimized implementations.
 """
-from ethereum.arrow_glacier.eth_types import Header
-from ethereum.arrow_glacier.spec import generate_header_hash_for_pow
+from ethereum.arrow_glacier.fork import generate_header_hash_for_pow
+from ethereum.arrow_glacier.fork_types import Header
 from ethereum.base_types import U256_CEIL_VALUE
 from ethereum.ethash import epoch
 from ethereum.exceptions import InvalidBlock
@@ -31,7 +31,7 @@ except ImportError as e:
 
 def validate_proof_of_work(header: Header) -> None:
     """
-    See `ethereum.arrow_glacier.spec.validate_proof_of_work`.
+    See `ethereum.arrow_glacier.fork.validate_proof_of_work`.
     """
     epoch_number = epoch(header.number)
     header_hash = generate_header_hash_for_pow(header)

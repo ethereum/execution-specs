@@ -17,7 +17,7 @@ from typing import List, Optional, Set, Tuple
 
 from ethereum.base_types import Bytes0
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
-from ethereum.crypto.hash import keccak256
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
@@ -26,7 +26,7 @@ from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
 from . import vm
 from .bloom import logs_bloom
-from .eth_types import (
+from .fork_types import (
     TX_BASE_COST,
     TX_CREATE_COST,
     TX_DATA_COST_PER_NON_ZERO,
@@ -34,7 +34,6 @@ from .eth_types import (
     Address,
     Block,
     Bloom,
-    Hash32,
     Header,
     Log,
     Receipt,
@@ -60,7 +59,7 @@ GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
 MINIMUM_DIFFICULTY = Uint(131072)
 MAX_OMMER_DEPTH = 6
-BOMB_DELAY_BLOCKS = 9000000
+BOMB_DELAY_BLOCKS = 5000000
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 
 
@@ -427,14 +426,14 @@ def apply_body(
     -------
     gas_available : `ethereum.base_types.Uint`
         Remaining gas after all transactions have been executed.
-    transactions_root : `ethereum.eth_types.Root`
+    transactions_root : `ethereum.fork_types.Root`
         Trie root of all the transactions in the block.
-    receipt_root : `ethereum.eth_types.Root`
+    receipt_root : `ethereum.fork_types.Root`
         Trie root of all the receipts in the block.
     block_logs_bloom : `Bloom`
         Logs bloom of all the logs included in all the transactions of the
         block.
-    state : `ethereum.eth_types.State`
+    state : `ethereum.fork_types.State`
         State after all transactions have been executed.
     """
     gas_available = block_gas_limit
@@ -462,7 +461,6 @@ def apply_body(
             time=block_time,
             difficulty=block_difficulty,
             state=state,
-            chain_id=chain_id,
         )
 
         gas_used, logs, has_erred = process_transaction(env, tx)
@@ -642,7 +640,7 @@ def process_transaction(
     -------
     gas_left : `ethereum.base_types.U256`
         Remaining gas after execution.
-    logs : `Tuple[ethereum.eth_types.Log, ...]`
+    logs : `Tuple[ethereum.fork_types.Log, ...]`
         Logs generated during execution.
     """
     ensure(validate_transaction(tx), InvalidBlock)
@@ -789,7 +787,7 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
 
     Returns
     -------
-    sender : `ethereum.eth_types.Address`
+    sender : `ethereum.fork_types.Address`
         The address of the account that signed the transaction.
     """
     v, r, s = tx.v, tx.r, tx.s
@@ -818,7 +816,7 @@ def signing_hash_pre155(tx: Transaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.crypto.hash.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -846,7 +844,7 @@ def signing_hash_155(tx: Transaction) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.crypto.hash.Hash32`
         Hash of the transaction.
     """
     return keccak256(
@@ -895,7 +893,7 @@ def compute_header_hash(header: Header) -> Hash32:
 
     Returns
     -------
-    hash : `ethereum.eth_types.Hash32`
+    hash : `ethereum.crypto.hash.Hash32`
         Hash of the header.
     """
     return keccak256(rlp.encode(header))

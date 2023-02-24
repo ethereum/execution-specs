@@ -5,7 +5,7 @@ import pytest
 
 import ethereum.constantinople.state as state
 from ethereum.base_types import U256
-from ethereum.constantinople.eth_types import EMPTY_ACCOUNT
+from ethereum.constantinople.fork_types import EMPTY_ACCOUNT
 from ethereum.constantinople.utils.hexadecimal import hex_to_address
 
 try:

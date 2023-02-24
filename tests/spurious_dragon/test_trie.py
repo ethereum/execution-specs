@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from ethereum.spurious_dragon.eth_types import Bytes
+from ethereum.spurious_dragon.fork_types import Bytes
 from ethereum.spurious_dragon.trie import Trie, root, trie_set
 from ethereum.utils.hexadecimal import (
     has_hex_prefix,

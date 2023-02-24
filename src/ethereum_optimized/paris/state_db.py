@@ -26,7 +26,7 @@ except ImportError as e:
     )
 
 from ethereum.base_types import U256, Bytes, Uint
-from ethereum.paris.eth_types import Account, Address, Root
+from ethereum.paris.fork_types import Account, Address, Root
 
 
 class UnmodifiedType:

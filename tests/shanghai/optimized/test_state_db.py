@@ -5,7 +5,7 @@ import pytest
 
 import ethereum.shanghai.state as state
 from ethereum.base_types import U256
-from ethereum.shanghai.eth_types import EMPTY_ACCOUNT
+from ethereum.shanghai.fork_types import EMPTY_ACCOUNT
 from ethereum.shanghai.utils.hexadecimal import hex_to_address
 
 try:

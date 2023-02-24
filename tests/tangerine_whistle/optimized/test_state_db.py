@@ -5,7 +5,7 @@ import pytest
 
 import ethereum.tangerine_whistle.state as state
 from ethereum.base_types import U256
-from ethereum.tangerine_whistle.eth_types import EMPTY_ACCOUNT
+from ethereum.tangerine_whistle.fork_types import EMPTY_ACCOUNT
 from ethereum.tangerine_whistle.utils.hexadecimal import hex_to_address
 
 try:

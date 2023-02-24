@@ -6,7 +6,7 @@ import pytest
 
 from ethereum import rlp
 from ethereum.exceptions import RLPEncodingError
-from ethereum.frontier.eth_types import U256, Bytes, Uint
+from ethereum.frontier.fork_types import U256, Bytes, Uint
 from ethereum.rlp import RLP
 from ethereum.utils.hexadecimal import hex_to_bytes
 

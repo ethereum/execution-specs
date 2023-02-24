@@ -25,7 +25,7 @@ except ImportError as e:
         "package"
     )
 
-from ethereum.arrow_glacier.eth_types import Account, Address, Root
+from ethereum.arrow_glacier.fork_types import Account, Address, Root
 from ethereum.base_types import U256, Bytes, Uint
 
 

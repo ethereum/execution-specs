@@ -53,9 +53,9 @@ def monkey_patch_optimized_spec() -> None:
     This function must be called before the spec interface is imported
     anywhere.
     """
-    import ethereum.arrow_glacier.spec as slow_spec
+    import ethereum.arrow_glacier.fork as slow_spec
 
-    from . import spec as fast_spec
+    from . import fork as fast_spec
 
     slow_spec.validate_proof_of_work = fast_spec.validate_proof_of_work
 

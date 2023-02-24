@@ -17,7 +17,7 @@ from ethereum.crypto.hash import keccak256
 from ethereum.utils.ensure import ensure
 from ethereum.utils.numeric import ceil32
 
-from ...eth_types import EMPTY_ACCOUNT
+from ...fork_types import EMPTY_ACCOUNT
 from ...state import get_account
 from ...utils.address import to_address
 from ...vm.memory import buffer_read, memory_write

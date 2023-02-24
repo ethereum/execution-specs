@@ -19,7 +19,7 @@ from ethereum.crypto.hash import keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
 
 from ... import rlp
-from ..eth_types import Address
+from ..fork_types import Address
 
 
 def to_address(data: Union[Uint, U256]) -> Address:
@@ -80,7 +80,7 @@ def compute_create2_contract_address(
 
     Returns
     -------
-    address: `ethereum.muir_glacier.eth_types.Address`
+    address: `ethereum.muir_glacier.fork_types.Address`
         The computed address of the new account.
     """
     preimage = b"\xff" + address + salt + keccak256(call_data)
