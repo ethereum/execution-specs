@@ -17,11 +17,11 @@ from ethereum_spec_tools.evm_trace import evm_trace
 # newer/other tests
 test_fixtures = {
     "execution-spec-generated-tests": {
-        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/v0.2.1/fixtures.tar.gz",
+        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/v0.2.3/fixtures.tar.gz",
     },
     "fixtures": {
         "url": "https://github.com/ethereum/tests.git",
-        "commit_hash": "afba21c63bcfb9b1ba3bd7cc1db95aef9452384e",
+        "commit_hash": "69c4c2a",
     },
 }
 

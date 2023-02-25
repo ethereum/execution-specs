@@ -49,6 +49,7 @@ ommers
 patricialize
 pickler
 rlp
+rlps
 rpc
 trie
 typeshed
