@@ -472,12 +472,12 @@ def apply_body(
 
         block_logs += logs
 
-    gas_remaining = block_gas_limit - gas_available
+    block_gas_used = block_gas_limit - gas_available
 
     block_logs_bloom = logs_bloom(block_logs)
 
     return (
-        gas_remaining,
+        block_gas_used,
         root(transactions_trie),
         root(receipts_trie),
         block_logs_bloom,
