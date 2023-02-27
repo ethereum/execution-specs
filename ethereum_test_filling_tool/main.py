@@ -91,10 +91,7 @@ class Filler:
         """
         Fill test fixtures.
         """
-        pkg_path = "fillers"
-
-        if self.options.filler_path is not None:
-            pkg_path = self.options.filler_path
+        pkg_path = self.options.filler_path
 
         fillers = []
 
