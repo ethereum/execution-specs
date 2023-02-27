@@ -49,7 +49,8 @@ class Filler:
 
         parser.add_argument(
             "--output",
-            help="directory to store filled test fixtures, default: ./fixtures",
+            help="directory to store filled test fixtures, \
+                  default: ./fixtures",
             default="fixtures",
             type=Path,
         )
