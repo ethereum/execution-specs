@@ -25,9 +25,7 @@ def fill_test(
     """
     fixtures: List[Fixture] = []
     for fork in forks:
-
         for index, test in enumerate(test_spec(fork)):
-
             mapped = map_fork(fork)
             if mapped is None:
                 # Fork not supported by t8n, skip

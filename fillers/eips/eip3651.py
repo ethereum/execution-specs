@@ -121,7 +121,6 @@ def test_warm_coinbase_call_out_of_gas(fork):
     for i, data in enumerate(
         [to_hash(x) for x in range(0x100, 0x400 + 1, 0x100)]
     ):
-
         tx = Transaction(
             ty=0x0,
             data=data,
@@ -152,7 +151,13 @@ def test_warm_coinbase_call_out_of_gas(fork):
                 }
             )
 
-        yield StateTest(env=env, pre=pre, post=post, txs=[tx])
+        yield StateTest(
+            env=env,
+            pre=pre,
+            post=post,
+            txs=[tx],
+            name="warm_coinbase_call_out_of_gas",
+        )
 
 
 @test_from(fork="shanghai")
