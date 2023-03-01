@@ -167,7 +167,7 @@ EMPTY_INITCODE.execution_gas = 0
 
 SINGLE_BYTE_INITCODE = Initcode(
     deploy_code=bytes(),
-    name="single_byte_initcode",
+    name="single_byte",
 )
 SINGLE_BYTE_INITCODE.bytecode = Op.STOP
 SINGLE_BYTE_INITCODE.deployment_gas = 0
