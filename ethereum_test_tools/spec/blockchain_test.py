@@ -43,7 +43,7 @@ class BlockchainTest(BaseTest):
     post: Mapping[str, Account]
     blocks: List[Block]
     genesis_environment: Environment = Environment()
-    name: str = ""
+    tag: str = ""
 
     def make_genesis(
         self,
