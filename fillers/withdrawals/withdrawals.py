@@ -60,7 +60,7 @@ def set_withdrawal_index(
 
 
 @test_from(WITHDRAWALS_FORK)
-def test_withdrawals_use_value_in_tx(_):
+def test_use_value_in_tx(_):
     """
     Test sending a transaction from an address yet to receive a withdrawal
     """
@@ -96,7 +96,6 @@ def test_withdrawals_use_value_in_tx(_):
         pre=pre,
         post={},
         blocks=blocks,
-        name="withdrawals_use_value_in_tx_invalid",
     )
 
     blocks = [
@@ -119,12 +118,11 @@ def test_withdrawals_use_value_in_tx(_):
         pre=pre,
         post=post,
         blocks=blocks,
-        name="withdrawals_use_value_in_tx_valid",
     )
 
 
 @test_from(WITHDRAWALS_FORK)
-def test_withdrawals_use_value_in_contract(_):
+def test_use_value_in_contract(_):
     """
     Test sending value from contract that has not received a withdrawal
     """
@@ -182,12 +180,11 @@ def test_withdrawals_use_value_in_contract(_):
         pre=pre,
         post=post,
         blocks=blocks,
-        name="withdrawals_use_value_in_contract",
     )
 
 
 @test_from(WITHDRAWALS_FORK)
-def test_withdrawals_balance_within_block(_):
+def test_balance_within_block(_):
     """
     Test Withdrawal balance increase within the same block,
     inside contract call.
@@ -253,12 +250,11 @@ def test_withdrawals_balance_within_block(_):
         pre=pre,
         post=post,
         blocks=blocks,
-        name="withdrawals_balance_within_block",
     )
 
 
 @test_from(WITHDRAWALS_FORK)
-def test_withdrawals_multiple_withdrawals_same_address(_):
+def test_multiple_withdrawals_same_address(_):
     """
     Test Withdrawals can be done to the same address multiple times in
     the same block.
@@ -313,7 +309,6 @@ def test_withdrawals_multiple_withdrawals_same_address(_):
         pre=pre,
         post=post,
         blocks=blocks,
-        name="multiple_withdrawals_same_address",
     )
 
     # Similar test but now use multiple blocks each with multiple withdrawals
@@ -338,12 +333,12 @@ def test_withdrawals_multiple_withdrawals_same_address(_):
         pre=pre,
         post=post,
         blocks=blocks,
-        name="multiple_withdrawals_same_address",
+        name="multiple_blocks",
     )
 
 
 @test_from(WITHDRAWALS_FORK)
-def test_withdrawals_many_withdrawals(_):
+def test_many_withdrawals(_):
     """
     Test Withdrawals with a count of N withdrawals in a single block where
     N is a high number not expected to be seen in mainnet.
@@ -380,13 +375,11 @@ def test_withdrawals_many_withdrawals(_):
         ),
     ]
 
-    yield BlockchainTest(
-        pre=pre, post=post, blocks=blocks, name="many_withdrawals"
-    )
+    yield BlockchainTest(pre=pre, post=post, blocks=blocks)
 
 
 @test_from(WITHDRAWALS_FORK)
-def test_withdrawals_self_destructing_account(_):
+def test_self_destructing_account(_):
     """
     Test Withdrawals can be done to self-destructed accounts.
     Account `0x100` self-destructs and sends all its balance to `0x200`.
@@ -440,12 +433,11 @@ def test_withdrawals_self_destructing_account(_):
         pre=pre,
         post=post,
         blocks=[block],
-        name="withdrawals_self_destructing_account",
     )
 
 
 @test_from(WITHDRAWALS_FORK)
-def test_withdrawals_newly_created_contract(_):
+def test_newly_created_contract(_):
     """
     Test Withdrawing to a newly created contract.
     """
@@ -493,7 +485,7 @@ def test_withdrawals_newly_created_contract(_):
     }
 
     yield BlockchainTest(
-        pre=pre, post=post, blocks=[block], name="newly_created_contract"
+        pre=pre, post=post, blocks=[block]
     )
 
     # Same test but include value in the contract creating transaction
@@ -502,12 +494,12 @@ def test_withdrawals_newly_created_contract(_):
     post[created_contract].balance = 2 * ONE_GWEI
 
     yield BlockchainTest(
-        pre=pre, post=post, blocks=[block], name="newly_created_contract"
+        pre=pre, post=post, blocks=[block], name="with_tx_value"
     )
 
 
 @test_from(WITHDRAWALS_FORK)
-def test_withdrawals_no_evm_execution(_):
+def test_no_evm_execution(_):
     """
     Test Withdrawals don't trigger EVM execution.
     """
@@ -592,13 +584,11 @@ def test_withdrawals_no_evm_execution(_):
         to_address(0x400): Account(storage={1: 1}),
     }
 
-    yield BlockchainTest(
-        pre=pre, post=post, blocks=blocks, name="withdrawals_no_evm_execution"
-    )
+    yield BlockchainTest(pre=pre, post=post, blocks=blocks)
 
 
 @test_from(WITHDRAWALS_FORK)
-def test_withdrawals_zero_amount(_):
+def test_zero_amount(_):
     """
     Test Withdrawals where one of the withdrawal has a zero amount.
     """
@@ -644,9 +634,7 @@ def test_withdrawals_zero_amount(_):
         ),
     }
 
-    yield BlockchainTest(
-        pre=pre, post=post, blocks=[block], name="withdrawals_zero_amount"
-    )
+    yield BlockchainTest(pre=pre, post=post, blocks=[block])
 
     # Same test but add another withdrawal with positive amount in same
     # block.
@@ -659,7 +647,7 @@ def test_withdrawals_zero_amount(_):
     block.withdrawals.append(withdrawal_2)
     post[to_address(0x200)].balance = ONE_GWEI
     yield BlockchainTest(
-        pre=pre, post=post, blocks=[block], name="withdrawals_zero_amount"
+        pre=pre, post=post, blocks=[block], name="with_extra_positive_amount"
     )
 
     # Same test but add another withdrawal with max amount in same
@@ -673,17 +661,21 @@ def test_withdrawals_zero_amount(_):
     block.withdrawals.append(withdrawal_3)
     post[to_address(0x300)].balance = (2**64 - 1) * ONE_GWEI
 
+    yield BlockchainTest(
+        pre=pre, post=post, blocks=[block], name="with_extra_max_amount"
+    )
+
     # Same test but reverse order of withdrawals.
     block.withdrawals.reverse()
     set_withdrawal_index(block.withdrawals)
 
     yield BlockchainTest(
-        pre=pre, post=post, blocks=[block], name="withdrawals_zero_amount"
+        pre=pre, post=post, blocks=[block], name="reverse_withdrawal_order"
     )
 
 
 @test_from(WITHDRAWALS_FORK)
-def test_large_withdrawals(_: str):
+def test_large_amount(_: str):
     """
     Test Withdrawals that have a large gwei amount, so that (gwei * 1e9)
     could overflow uint64 but not uint256.
@@ -721,5 +713,7 @@ def test_large_withdrawals(_: str):
         )
     ]
     yield BlockchainTest(
-        pre=pre, post=post, blocks=blocks, name="large_withdrawals"
+        pre=pre,
+        post=post,
+        blocks=blocks,
     )

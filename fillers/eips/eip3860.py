@@ -105,61 +105,61 @@ INITCODE_ONES_MAX_LIMIT = Initcode(
     deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
     initcode_length=MAX_INITCODE_SIZE,
     padding_byte=0x01,
-    name="max_size_ones_initcode",
+    name="max_size_ones",
 )
 
 INITCODE_ZEROS_MAX_LIMIT = Initcode(
     deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
     initcode_length=MAX_INITCODE_SIZE,
     padding_byte=0x00,
-    name="max_size_zeros_initcode",
+    name="max_size_zeros",
 )
 
 INITCODE_ONES_OVER_LIMIT = Initcode(
     deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
     initcode_length=MAX_INITCODE_SIZE + 1,
     padding_byte=0x01,
-    name="over_limit_ones_initcode",
+    name="over_limit_ones",
 )
 
 INITCODE_ZEROS_OVER_LIMIT = Initcode(
     deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
     initcode_length=MAX_INITCODE_SIZE + 1,
     padding_byte=0x00,
-    name="over_limit_zeros_initcode",
+    name="over_limit_zeros",
 )
 
 INITCODE_ZEROS_32_BYTES = Initcode(
     deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
     initcode_length=32,
     padding_byte=0x00,
-    name="32_bytes_initcode",
+    name="32_bytes",
 )
 
 INITCODE_ZEROS_33_BYTES = Initcode(
     deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
     initcode_length=33,
     padding_byte=0x00,
-    name="33_bytes_initcode",
+    name="33_bytes",
 )
 
 INITCODE_ZEROS_49120_BYTES = Initcode(
     deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
     initcode_length=49120,
     padding_byte=0x00,
-    name="49120_bytes_initcode",
+    name="49120_bytes",
 )
 
 INITCODE_ZEROS_49121_BYTES = Initcode(
     deploy_code=INITCODE_RESULTING_DEPLOYED_CODE,
     initcode_length=49121,
     padding_byte=0x00,
-    name="49121_bytes_initcode",
+    name="49121_bytes",
 )
 
 EMPTY_INITCODE = Initcode(
     deploy_code=bytes(),
-    name="empty_initcode",
+    name="empty",
 )
 EMPTY_INITCODE.bytecode = bytes()
 EMPTY_INITCODE.deployment_gas = 0
@@ -167,7 +167,7 @@ EMPTY_INITCODE.execution_gas = 0
 
 SINGLE_BYTE_INITCODE = Initcode(
     deploy_code=bytes(),
-    name="single_byte_initcode",
+    name="single_byte",
 )
 SINGLE_BYTE_INITCODE.bytecode = Op.STOP
 SINGLE_BYTE_INITCODE.deployment_gas = 0
@@ -225,7 +225,7 @@ def generate_tx_initcode_limit_test_cases(
         post=post,
         blocks=[block],
         genesis_environment=env,
-        name=f"initcode_tx_{initcode.name}",
+        name=f"{initcode.name}",
     )
 
 
@@ -315,7 +315,7 @@ def generate_gas_cost_test_cases(
         post=post,
         blocks=[block],
         genesis_environment=env,
-        name=f"{initcode.name}_tx_exact_intrinsic_gas",
+        name=f"{initcode.name}_exact_intrinsic_gas",
     )
 
     """
@@ -341,7 +341,7 @@ def generate_gas_cost_test_cases(
         post=post,
         blocks=[block],
         genesis_environment=env,
-        name=f"{initcode.name}_tx_under_intrinsic_gas",
+        name=f"{initcode.name}_under_intrinsic_gas",
     )
 
     """
@@ -367,7 +367,7 @@ def generate_gas_cost_test_cases(
             post=post,
             blocks=[block],
             genesis_environment=env,
-            name=f"{initcode.name}_tx_under_execution_gas",
+            name=f"{initcode.name}_under_execution_gas",
         )
 
     """
@@ -388,7 +388,7 @@ def generate_gas_cost_test_cases(
         post=post,
         blocks=[block],
         genesis_environment=env,
-        name=f"{initcode.name}_tx_exact_execution_gas",
+        name=f"{initcode.name}_exact_execution_gas",
     )
 
 
@@ -602,7 +602,7 @@ def generate_create_opcode_initcode_test_cases(
         pre=pre,
         post=post,
         txs=[tx],
-        name=f"{opcode}_opcode_{initcode.name}",
+        name=f"{initcode.name}",
     )
 
 

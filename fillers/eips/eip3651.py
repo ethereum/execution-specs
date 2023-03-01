@@ -118,12 +118,16 @@ def test_warm_coinbase_call_out_of_gas(fork):
         to_address(0x400): Account(code=staticcall_code),
     }
 
-    for i, data in enumerate(
-        [to_hash(x) for x in range(0x100, 0x400 + 1, 0x100)]
-    ):
+    opcodes = {
+        "call": 0x100,
+        "callcode": 0x200,
+        "delegatecall": 0x300,
+        "staticcall": 0x400,
+    }
+    for opcode, data in opcodes.items():
         tx = Transaction(
             ty=0x0,
-            data=data,
+            data=to_hash(data),
             chain_id=0x0,
             nonce=0,
             to="0xcccccccccccccccccccccccccccccccccccccccc",
@@ -156,7 +160,7 @@ def test_warm_coinbase_call_out_of_gas(fork):
             pre=pre,
             post=post,
             txs=[tx],
-            name="warm_coinbase_call_out_of_gas",
+            name="opcode_" + opcode,
         )
 
 
@@ -261,5 +265,5 @@ def test_warm_coinbase_gas_usage(fork):
             pre=pre,
             post=post,
             txs=[tx],
-            name="warm_coinbase_opcode_" + opcode.lower(),
+            name="opcode_" + opcode.lower(),
         )
