@@ -69,11 +69,7 @@ class StateTest(BaseTest):
             difficulty=0x20000 if env.difficulty is None else env.difficulty,
             number=env.number - 1,
             gas_limit=env.gas_limit,
-            # We need the base fee to remain unchanged from the genesis
-            # to block 1.
-            # To do that we set the gas used to exactly half of the limit
-            # so the base fee is unchanged.
-            gas_used=env.gas_limit // 2,
+            gas_used=0,
             timestamp=0,
             extra_data="0x00",
             mix_digest="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
