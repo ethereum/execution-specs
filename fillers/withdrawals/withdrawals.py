@@ -333,7 +333,7 @@ def test_multiple_withdrawals_same_address(_):
         pre=pre,
         post=post,
         blocks=blocks,
-        name="multiple_blocks",
+        tag="multiple_blocks",
     )
 
 
@@ -494,7 +494,7 @@ def test_newly_created_contract(_):
     post[created_contract].balance = 2 * ONE_GWEI
 
     yield BlockchainTest(
-        pre=pre, post=post, blocks=[block], name="with_tx_value"
+        pre=pre, post=post, blocks=[block], tag="with_tx_value"
     )
 
 
@@ -647,7 +647,7 @@ def test_zero_amount(_):
     block.withdrawals.append(withdrawal_2)
     post[to_address(0x200)].balance = ONE_GWEI
     yield BlockchainTest(
-        pre=pre, post=post, blocks=[block], name="with_extra_positive_amount"
+        pre=pre, post=post, blocks=[block], tag="with_extra_positive_amount"
     )
 
     # Same test but add another withdrawal with max amount in same
@@ -662,7 +662,7 @@ def test_zero_amount(_):
     post[to_address(0x300)].balance = (2**64 - 1) * ONE_GWEI
 
     yield BlockchainTest(
-        pre=pre, post=post, blocks=[block], name="with_extra_max_amount"
+        pre=pre, post=post, blocks=[block], tag="with_extra_max_amount"
     )
 
     # Same test but reverse order of withdrawals.
@@ -670,7 +670,7 @@ def test_zero_amount(_):
     set_withdrawal_index(block.withdrawals)
 
     yield BlockchainTest(
-        pre=pre, post=post, blocks=[block], name="reverse_withdrawal_order"
+        pre=pre, post=post, blocks=[block], tag="reverse_withdrawal_order"
     )
 
 

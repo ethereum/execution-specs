@@ -49,7 +49,7 @@ def fill_test(
                     eips=eips,
                 )
             except Exception as e:
-                print(f"Exception during test '{test.name}'")
+                print(f"Exception during test '{test.tag}'")
                 raise e
 
             fixture = Fixture(
@@ -63,7 +63,7 @@ def fill_test(
                 pre_state=copy(test.pre),
                 post_state=alloc_to_accounts(alloc),
                 seal_engine=engine,
-                name=test.name,
+                name=test.tag,
                 index=index,
             )
             fixture.fill_info(t8n, b11r)

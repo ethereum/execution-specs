@@ -45,7 +45,7 @@ def test_push0(fork):
     pre[addr_1] = Account(code=code)
     post[addr_1] = Account(storage={0x00: 0x01})
 
-    yield StateTest(env=env, pre=pre, post=post, txs=[tx], name="key_sstore")
+    yield StateTest(env=env, pre=pre, post=post, txs=[tx], tag="key_sstore")
 
     """
     Test case 2: Fill stack with PUSH0, then OR all values and save using
@@ -58,7 +58,7 @@ def test_push0(fork):
     pre[addr_1] = Account(code=code)
     post[addr_1] = Account(storage={0x00: 0x01})
 
-    yield StateTest(env=env, pre=pre, post=post, txs=[tx], name="fill_stack")
+    yield StateTest(env=env, pre=pre, post=post, txs=[tx], tag="fill_stack")
 
     """
     Test case 3: Stack overflow by using PUSH0 1025 times
@@ -70,7 +70,7 @@ def test_push0(fork):
     post[addr_1] = Account(storage={0x00: 0x00})
 
     yield StateTest(
-        env=env, pre=pre, post=post, txs=[tx], name="stack_overflow"
+        env=env, pre=pre, post=post, txs=[tx], tag="stack_overflow"
     )
 
     """
@@ -84,7 +84,7 @@ def test_push0(fork):
     post[addr_1] = Account(storage={0x00: 0x02, 0x01: 0x00})
 
     yield StateTest(
-        env=env, pre=pre, post=post, txs=[tx], name="storage_overwrite"
+        env=env, pre=pre, post=post, txs=[tx], tag="storage_overwrite"
     )
 
     """
@@ -114,7 +114,7 @@ def test_push0(fork):
     post[addr_1] = Account(storage={0x00: 0x01, 0x01: 0xFF})
 
     yield StateTest(
-        env=env, pre=pre, post=post, txs=[tx], name="during_staticcall"
+        env=env, pre=pre, post=post, txs=[tx], tag="during_staticcall"
     )
 
     del pre[addr_2]
@@ -137,7 +137,7 @@ def test_push0(fork):
     post[addr_1] = Account(storage={0x00: 0x01})
 
     yield StateTest(
-        env=env, pre=pre, post=post, txs=[tx], name="before_jumpdest"
+        env=env, pre=pre, post=post, txs=[tx], tag="before_jumpdest"
     )
 
     """
@@ -151,4 +151,4 @@ def test_push0(fork):
     pre[addr_1] = Account(code=code)
     post[addr_1] = Account(storage={0x00: 0x02})
 
-    yield StateTest(env=env, pre=pre, post=post, txs=[tx], name="gas_cost")
+    yield StateTest(env=env, pre=pre, post=post, txs=[tx], tag="gas_cost")

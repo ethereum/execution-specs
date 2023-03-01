@@ -167,7 +167,7 @@ EMPTY_INITCODE.execution_gas = 0
 
 SINGLE_BYTE_INITCODE = Initcode(
     deploy_code=bytes(),
-    name="single_byte",
+    name="single_byte_initcode",
 )
 SINGLE_BYTE_INITCODE.bytecode = Op.STOP
 SINGLE_BYTE_INITCODE.deployment_gas = 0
@@ -225,7 +225,7 @@ def generate_tx_initcode_limit_test_cases(
         post=post,
         blocks=[block],
         genesis_environment=env,
-        name=f"{initcode.name}",
+        tag=f"{initcode.name}",
     )
 
 
@@ -315,7 +315,7 @@ def generate_gas_cost_test_cases(
         post=post,
         blocks=[block],
         genesis_environment=env,
-        name=f"{initcode.name}_exact_intrinsic_gas",
+        tag=f"{initcode.name}_exact_intrinsic_gas",
     )
 
     """
@@ -341,7 +341,7 @@ def generate_gas_cost_test_cases(
         post=post,
         blocks=[block],
         genesis_environment=env,
-        name=f"{initcode.name}_under_intrinsic_gas",
+        tag=f"{initcode.name}_under_intrinsic_gas",
     )
 
     """
@@ -367,7 +367,7 @@ def generate_gas_cost_test_cases(
             post=post,
             blocks=[block],
             genesis_environment=env,
-            name=f"{initcode.name}_under_execution_gas",
+            tag=f"{initcode.name}_under_execution_gas",
         )
 
     """
@@ -388,7 +388,7 @@ def generate_gas_cost_test_cases(
         post=post,
         blocks=[block],
         genesis_environment=env,
-        name=f"{initcode.name}_exact_execution_gas",
+        tag=f"{initcode.name}_exact_execution_gas",
     )
 
 
@@ -602,7 +602,7 @@ def generate_create_opcode_initcode_test_cases(
         pre=pre,
         post=post,
         txs=[tx],
-        name=f"{initcode.name}",
+        tag=f"{initcode.name}",
     )
 
 

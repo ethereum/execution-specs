@@ -160,7 +160,7 @@ def test_warm_coinbase_call_out_of_gas(fork):
             pre=pre,
             post=post,
             txs=[tx],
-            name="opcode_" + opcode,
+            tag="opcode_" + opcode,
         )
 
 
@@ -265,5 +265,5 @@ def test_warm_coinbase_gas_usage(fork):
             pre=pre,
             post=post,
             txs=[tx],
-            name="opcode_" + opcode.lower(),
+            tag="opcode_" + opcode.lower(),
         )
