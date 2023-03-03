@@ -15,7 +15,7 @@ Changes included in the Network Upgrade.
 | Network | Timestamp  | Date & Time (UTC)  | Fork Hash    | Beacon Chain Epoch |
 |---------|------------|---------------|--------------| ---------- |
 | Sepolia | `1677557088` | 2/28/2023, 4:04:48 AM | `0xf7f9bc08` | 56832 
-| Goerli  | `1678832736` | 3/14/2023, 10:25:36 PM	 |  TBA | 162304 
+| Goerli  | `1678832736` | 3/14/2023, 10:25:36 PM	 |  `0xf9843abf` | 162304 
 | Mainnet | TBA | TBA |  TBA | TBA 
 
 ### Implementation Progresss
