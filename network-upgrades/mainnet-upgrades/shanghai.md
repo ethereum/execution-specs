@@ -15,7 +15,7 @@ Changes included in the Network Upgrade.
 | Network | Timestamp  | Date & Time (UTC)  | Fork Hash    | Beacon Chain Epoch |
 |---------|------------|---------------|--------------| ---------- |
 | Sepolia | `1677557088` | 2/28/2023, 4:04:48 AM | `0xf7f9bc08` | 56832 
-| Goerli  | TBA | TBA |  TBA | TBA 
+| Goerli  | `1678832736` | 3/14/2023, 10:25:36 PM	 |  `0xf9843abf` | 162304 
 | Mainnet | TBA | TBA |  TBA | TBA 
 
 ### Implementation Progresss
@@ -40,14 +40,13 @@ Implementation status of Included & CFI'd EIPs across participating clients.
   - [x] Integration Tests
   - [x] Fuzz Testing
  - [ ] Select Fork Timestamps
-  - [x] Sepolia
-  - [ ] Goerli
-  - [ ] Mainnet 
+   - [x] Sepolia
+   - [x] Goerli
+   - [ ] Mainnet 
  - [ ] Deploy Clients
    - [ ]  Geth
    - [ ]  Besu
    - [ ]  Nethermind
-   - [ ]  OpenEthereum
    - [ ]  Erigon
    - [ ]  EthereumJS
  - [ ] Activate Fork
