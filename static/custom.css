@@ -1,0 +1,36 @@
+ins.diff-before, ins.diff-after,
+del.diff-before, del.diff-after {
+    text-decoration: inherit;
+}
+
+.diff-before, .diff-before > * {
+    background: #ffcccc;
+    box-shadow: inset 0px  2px 0px 0px rgba(255,0,0,0.3),
+                inset 0px -2px 0px 0px rgba(255,0,0,0.3);
+}
+
+.diff-after, .diff-after > * {
+    background: #ccffcc;
+    box-shadow: inset 0px  2px 0px 0px rgba(0,255,0,0.3),
+                inset 0px -2px 0px 0px rgba(0,255,0,0.3);
+}
+
+tr.diff-before, tr.diff-before > *,
+tr.diff-after, tr.diff-after > * {
+    box-shadow: none;
+}
+
+tr.diff-before > th {
+    background: #ffe3e3;
+}
+
+tr.diff-after > th {
+    background: #e3ffe3;
+}
+
+.diff-before pre,
+.diff-after pre,
+table.verbatim .diff-before td,
+table.verbatim .diff-after td {
+    background: inherit;
+}

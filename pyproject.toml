@@ -16,3 +16,67 @@ markers = [
     "bigmem: marks tests as big memory (deselect with '-m \"not bigmem\"')",
     "evm_tools: marks tests as evm_tools (deselect with '-m \"not evm_tools\"')",
 ]
+
+[tool.docc]
+context = [
+    "docc.references.context",
+    "docc.search.context",
+    "docc.html.context",
+]
+
+discovery = [
+    "docc.search.discover",
+    "docc.html.discover",
+    "docc.python.discover",
+    "ethereum_spec_tools.docc.discover",
+    "docc.listing.discover",
+    "docc.files.discover",
+]
+
+build = [
+    "docc.search.build",
+    "ethereum_spec_tools.docc.build",
+    "docc.files.build",
+    "docc.listing.build",
+    "docc.resources.build",
+]
+
+transform = [
+    "docc.python.transform",
+    "docc.verbatim.transform",
+    "docc.mistletoe.transform",
+    "ethereum_spec_tools.docc.fix-indexes",
+    "ethereum_spec_tools.docc.minimize-diffs",
+    "docc.references.index",
+    "docc.search.transform",
+    "docc.html.transform",
+]
+
+[tool.docc.plugins."docc.python.transform"]
+excluded_references = [
+    "ethereum_spec_tools.lint.lints",   # This is a namespace package.
+]
+
+[tool.docc.plugins."docc.python.discover"]
+paths = [
+    "src",
+]
+
+excluded_paths = [
+    "src/ethereum_optimized",
+    "src/ethereum_spec_tools",
+]
+
+[tool.docc.plugins."docc.html.context"]
+extra_css = [
+    "static/custom.css",
+]
+
+[tool.docc.plugins."docc.files.discover"]
+files = [
+    "static/custom.css",
+]
+
+[tool.docc.output]
+path = "docs"
+extension = ".html"

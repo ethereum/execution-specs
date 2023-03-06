@@ -6,14 +6,26 @@ Detects Python packages that specify Ethereum hardforks.
 """
 
 import importlib
+import importlib.abc
+import importlib.util
 import pkgutil
 from enum import Enum, auto
+from pathlib import PurePath
 from pkgutil import ModuleInfo
 from types import ModuleType
-from typing import Any, Dict, Iterator, List, Optional, Type, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+)
 
-import ethereum
-from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, ForkCriteria
+if TYPE_CHECKING:
+    from ethereum.fork_criteria import ForkCriteria
 
 
 class ConsensusType(Enum):
@@ -48,10 +60,22 @@ class Hardfork:
     mod: ModuleType
 
     @classmethod
-    def discover(cls: Type[H]) -> List[H]:
+    def discover(cls: Type[H], base: Optional[PurePath] = None) -> List[H]:
         """
         Find packages which contain Ethereum hardfork specifications.
         """
+        if base is None:
+            ethereum = importlib.import_module("ethereum")
+        else:
+            spec = importlib.util.spec_from_file_location(
+                "ethereum", base / "__init__.py", submodule_search_locations=[]
+            )
+            if spec is None:
+                raise ValueError("unable to find module from file")
+            ethereum = importlib.util.module_from_spec(spec)
+            if spec.loader and hasattr(spec.loader, "exec_module"):
+                spec.loader.exec_module(ethereum)  # type: ignore[attr-defined]
+
         path = getattr(ethereum, "__path__", None)
         if path is None:
             raise ValueError("module `ethereum` has no path information")
@@ -61,7 +85,15 @@ class Hardfork:
         forks: List[H] = []
 
         for pkg in modules:
-            mod = importlib.import_module(pkg.name)
+            if isinstance(pkg.module_finder, importlib.abc.MetaPathFinder):
+                found = pkg.module_finder.find_module(pkg.name, None)
+            else:
+                found = pkg.module_finder.find_module(pkg.name)
+
+            if not found:
+                raise Exception(f"unable to load module {pkg.name}")
+
+            mod = found.load_module(pkg.name)
 
             if hasattr(mod, "FORK_CRITERIA"):
                 forks.append(cls(mod))
@@ -72,7 +104,7 @@ class Hardfork:
         return forks
 
     @classmethod
-    def load(cls: Type[H], config_dict: Dict[ForkCriteria, str]) -> List[H]:
+    def load(cls: Type[H], config_dict: Dict["ForkCriteria", str]) -> List[H]:
         """
         Load the forks from a config dict specifying fork blocks and
         timestamps.
@@ -96,6 +128,7 @@ class Hardfork:
         Does not support some forks that only exist on Mainnet. Use
         `discover()` for Mainnet.
         """
+        from ethereum.fork_criteria import ByBlockNumber, ByTimestamp
         c = json["config"]
         config = {
             ByBlockNumber(0): "frontier",
@@ -132,10 +165,11 @@ class Hardfork:
             return ConsensusType.PROOF_OF_STAKE
 
     @property
-    def criteria(self) -> ForkCriteria:
+    def criteria(self) -> "ForkCriteria":
         """
         Criteria to trigger this hardfork.
         """
+        from ethereum.fork_criteria import ForkCriteria
         criteria = self.mod.FORK_CRITERIA  # type: ignore[attr-defined]
         assert isinstance(criteria, ForkCriteria)
         return criteria
@@ -145,6 +179,7 @@ class Hardfork:
         """
         Block number of the first block in this hard fork.
         """
+        from ethereum.fork_criteria import ByBlockNumber
         if isinstance(self.criteria, ByBlockNumber):
             return self.criteria.block_number
         else:
@@ -155,6 +190,7 @@ class Hardfork:
         """
         Block number of the first block in this hard fork.
         """
+        from ethereum.fork_criteria import ByTimestamp
         if isinstance(self.criteria, ByTimestamp):
             return self.criteria.timestamp
         else:
@@ -171,7 +207,15 @@ class Hardfork:
         """
         Path to the module containing this hard fork.
         """
-        return getattr(self.mod, "__path__", None)
+        got = getattr(self.mod, "__path__", None)
+        if got is None or isinstance(got, str):
+            return got
+
+        try:
+            assert isinstance(got[0], str)
+            return got[0]
+        except IndexError:
+            return None
 
     @property
     def short_name(self) -> str:
@@ -245,4 +289,4 @@ class Hardfork:
         if self.path is None:
             raise ValueError(f"cannot walk {self.name}, path is None")
 
-        return pkgutil.walk_packages(self.path, self.name + ".")
+        return pkgutil.walk_packages([self.path], self.name + ".")
