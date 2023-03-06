@@ -13,7 +13,7 @@ Before proceeding with this tutorial, it is assumed that you have prior knowledg
 
 ## Example Tests
 
-The most effective method of learning how to write tests is to study a couple of straightforward examples. In this tutorial we will go over the [Yul](#yul-test) and [Bad Opcode](#bad-opcode-test) state tests.
+The most effective method of learning how to write tests is to study a couple of straightforward examples. In this tutorial we will go over the [Yul](https://github.com/ethereum/execution-spec-tests/blob/main/fillers/example/yul_example.py#L17) and [Bad Opcode](https://github.com/ethereum/execution-spec-tests/blob/main/fillers/example/bad_opcode_example.py) state tests.
 
 ### Yul Test
 
