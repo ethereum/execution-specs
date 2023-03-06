@@ -46,6 +46,7 @@ merkle
 merkleize
 metaclass
 ommers
+pathlib
 patricialize
 pickler
 rlp
@@ -79,6 +80,7 @@ rmod
 imod
 mod
 divmod
+docc
 rdivmod
 rpow
 ipow
@@ -390,3 +392,5 @@ jsons
 mem
 
 checkable
+
+merchantability

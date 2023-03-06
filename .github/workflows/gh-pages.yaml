@@ -9,7 +9,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
-          python-version: "3.8"
+          python-version: "3.11"
 
       - name: Checkout
         uses: actions/checkout@v2.3.1
@@ -19,10 +19,13 @@ jobs:
 
       - name: Sphinx
         run: tox -e doc
+        
+      - name: No Jekyll
+        run: touch .tox/docs/.nojekyll
 
       - name: Deploy
         if: ${{ github.event_name == 'push' && ( github.ref == 'refs/heads/master' ||  github.ref == 'refs/heads/pyspec') }}
         uses: JamesIves/github-pages-deploy-action@4.1.4
         with:
           branch: gh-pages
-          folder: .tox/docs/stage1_out
+          folder: .tox/docs
