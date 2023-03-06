@@ -80,7 +80,7 @@ class Filler:
         )
 
         parser.add_argument(
-            "--no-structure",
+            "--no-output-structure",
             action="store_true",
             help="removes the folder structure from test fixture output",
         )
@@ -139,7 +139,7 @@ class Filler:
             output_dir = os.path.join(
                 self.options.output,
                 *(filler.__filler_metadata__["module_path"])
-                if self.options.no_structure is None
+                if self.options.no_output_structure is None
                 else "",
             )
             os.makedirs(output_dir, exist_ok=True)
