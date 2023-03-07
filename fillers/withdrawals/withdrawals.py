@@ -484,9 +484,7 @@ def test_newly_created_contract(_):
         ),
     }
 
-    yield BlockchainTest(
-        pre=pre, post=post, blocks=[block]
-    )
+    yield BlockchainTest(pre=pre, post=post, blocks=[block])
 
     # Same test but include value in the contract creating transaction
 
