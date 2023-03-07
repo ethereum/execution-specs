@@ -86,7 +86,7 @@ class BaseTest:
     """
 
     pre: Mapping[str, Account]
-    name: str = ""
+    tag: str = ""
 
     @abstractmethod
     def make_genesis(

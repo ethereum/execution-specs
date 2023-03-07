@@ -25,9 +25,7 @@ def fill_test(
     """
     fixtures: List[Fixture] = []
     for fork in forks:
-
         for index, test in enumerate(test_spec(fork)):
-
             mapped = map_fork(fork)
             if mapped is None:
                 # Fork not supported by t8n, skip
@@ -51,7 +49,7 @@ def fill_test(
                     eips=eips,
                 )
             except Exception as e:
-                print(f"Exception during test '{test.name}'")
+                print(f"Exception during test '{test.tag}'")
                 raise e
 
             fixture = Fixture(
@@ -65,7 +63,7 @@ def fill_test(
                 pre_state=copy(test.pre),
                 post_state=alloc_to_accounts(alloc),
                 seal_engine=engine,
-                name=test.name,
+                name=test.tag,
                 index=index,
             )
             fixture.fill_info(t8n, b11r)
@@ -75,8 +73,8 @@ def fill_test(
     for fixture in fixtures:
         name = str(fixture.index).zfill(3)
         if fixture.name:
-            name += "_" + fixture.name.replace(" ", "_")
-        name += "_" + fixture.fork.lower()
+            name += "/" + fixture.name.replace(" ", "/")
+        name += "/" + fixture.fork.lower()
         out[name] = fixture
 
     return out
