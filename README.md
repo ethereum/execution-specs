@@ -9,7 +9,8 @@ Ethereum tests. [Further documentation](https://execution-spec-tests.readthedocs
 
 The following are required to either generate or develop tests:
 
-1. Python `3.10.0`.
+1. Python >=`3.10.0`.
+   - For dists. with the `apt` package manager ensure you have python `-dev` & `-venv` packages installed.
 2. [`go-ethereum`](https://github.com/ethereum/go-ethereum) `geth`'s `evm` utility must be accessible in the `PATH`, typically at the latest version. To get it:
    1. Install [the Go programming language](https://go.dev/doc/install) on your computer.
    2. Clone [the Geth repository](https://github.com/ethereum/go-ethereum).
@@ -36,7 +37,7 @@ After the installation, run this sanity check to ensure tests are generated.
 If everything is OK, you will see the beginning of the JSON format filled test.
 
 ```console
-tf --output="fixtures" --test-case yul
+tf --test-case yul
 head fixtures/example/example/yul.json
 ```
 
@@ -46,24 +47,31 @@ head fixtures/example/example/yul.json
 To generate all the tests defined in the `./fillers` sub-directory, run the `tf` command:
 
 ```console
-tf --output="fixtures"
+tf --filler-path="fillers" --output="fixtures" 
 ```
+
+This is equivalent to running `tf` with no arguments. The paths`fillers/` and `fixtures/` are both defaults for the respective command.
 
 Note that the test `post` conditions are tested against the output of the `geth` `evm` utility during test generation.
 
-To generate all the tests in the `./fillers/vm` sub-directory (category), for example, run:
+To generate all the tests within the `./fillers/vm` directory (category), for example, run:
 ```console
-tf --output="fixtures" --test-categories vm
+tf --test-categories vm
+```
+
+This extends to sub-directories. To generate all specific tests within the `./fillers/vm/vm_arith/vm_add` sub-directory, run:
+```console
+tf --output="fixtures" --test-categories vm/vm_arith/vm_add
 ```
 
 To generate all the tests in the `./fillers/*/dup.py` modules, for example, run:
 ```console
-tf --output="fixtures" --test-module dup
+tf --test-module dup
 ```
 
 To generate specific tests, such as `./fillers/*/*.py::test_dup`, for example, run (remove the `test_` prefix from the test case's function name):
 ```console
-tf --output="fixtures" --test-case dup
+tf --test-case dup
 ```
 
 ### Testing the Execution Spec Tests Framework
@@ -156,6 +164,9 @@ A new test can be added by either:
   the new test function(s).
 - Creating an entirely new category by adding a subdirectory in
   `fillers` with the appropriate source files and test functions.
+    - Tests within multiple sub-directories must have a `__init__.py` file
+      within each directory above it (and it own), to ensure the test is found by the test filler `tf`.
+
 
 ### Test Spec Generator Functions
 
