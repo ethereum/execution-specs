@@ -31,7 +31,7 @@ def remove_info(fixture_json: Dict[str, Any]):
 
 
 @pytest.mark.parametrize(
-    "fork,hash", [("Berlin", "0x87c5fa7cef8b"), ("London", "0xe3c84688fa32")]
+    "fork,hash", [("Berlin", "0x193e550de"), ("London", "0xb053deac0")]
 )
 def test_make_genesis(fork: str, hash: str):
     env = Environment()
@@ -59,7 +59,7 @@ def test_make_genesis(fork: str, hash: str):
     t8n = EvmTransitionTool()
 
     _, genesis = StateTest(
-        env=env, pre=pre, post={}, txs=[], name="some_state_test"
+        env=env, pre=pre, post={}, txs=[], tag="some_state_test"
     ).make_genesis(b11r, t8n, fork)
     assert genesis.hash is not None
     assert genesis.hash.startswith(hash)
@@ -111,7 +111,7 @@ def test_fill_state_test(fork: str, expected_json_file: str):
 
     def generator(_) -> Generator[StateTest, None, None]:
         yield StateTest(
-            env=env, pre=pre, post=post, txs=[tx], name="my_chain_id_test"
+            env=env, pre=pre, post=post, txs=[tx], tag="my_chain_id_test"
         )
 
     b11r = EvmBlockBuilder()
@@ -390,7 +390,7 @@ def test_fill_london_blockchain_test_valid_txs():
             post=post,
             blocks=blocks,
             genesis_environment=genesis_environment,
-            name="my_blockchain_test",
+            tag="my_blockchain_test",
         )
 
     b11r = EvmBlockBuilder()
@@ -718,7 +718,7 @@ def test_fill_london_blockchain_test_invalid_txs():
             post=post,
             blocks=blocks,
             genesis_environment=genesis_environment,
-            name="my_blockchain_test",
+            tag="my_blockchain_test",
         )
 
     b11r = EvmBlockBuilder()
