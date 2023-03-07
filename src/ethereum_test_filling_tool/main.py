@@ -10,6 +10,8 @@ import argparse
 import json
 import logging
 import os
+import time
+import concurrent.futures
 from pathlib import Path
 from pkgutil import iter_modules
 
@@ -85,6 +87,12 @@ class Filler:
             help="removes the folder structure from test fixture output",
         )
 
+        parser.add_argument(
+            "--benchmark",
+            action="store_true",
+            help="logs the timing of the test filler for benchmarking",
+        )
+
         return parser.parse_args()
 
     options: argparse.Namespace
@@ -98,6 +106,9 @@ class Filler:
         """
         Fill test fixtures.
         """
+        if self.options.benchmark:
+            start_time = time.time()
+
         pkg_path = self.options.filler_path
 
         fillers = []
@@ -152,6 +163,92 @@ class Filler:
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(
                     fixture, f, ensure_ascii=False, indent=4, cls=JSONEncoder
+                )
+
+        if self.options.benchmark:
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            self.log.info(
+                f"Filled test fixtures in {elapsed_time:.2f} seconds."
+            )
+
+    def parallel_fill(self) -> None:
+        """
+        Parallel Fill test fixtures.
+        """
+        if self.options.benchmark:
+            start_time = time.time()
+
+        pkg_path = self.options.filler_path
+
+        fillers = []
+
+        for package_name, module_name, module_loader in find_modules(
+            os.path.abspath(pkg_path),
+            self.options.test_categories,
+            self.options.test_module,
+        ):
+            module_full_name = module_loader.name
+            self.log.debug(f"searching {module_full_name} for fillers")
+            module = module_loader.load_module()
+            for obj in module.__dict__.values():
+                if callable(obj):
+                    if hasattr(obj, "__filler_metadata__"):
+                        if (
+                            self.options.test_case
+                            and self.options.test_case
+                            not in obj.__filler_metadata__["name"]
+                        ):
+                            continue
+                        obj.__filler_metadata__["module_path"] = [
+                            package_name,
+                            module_name,
+                        ]
+                        fillers.append(obj)
+
+        self.log.info(f"collected {len(fillers)} fillers")
+
+        os.makedirs(self.options.output, exist_ok=True)
+
+        t8n = EvmTransitionTool(
+            binary=self.options.evm_bin, trace=self.options.traces
+        )
+        b11r = EvmBlockBuilder(binary=self.options.evm_bin)
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = []
+            for filler in fillers:
+                name = filler.__filler_metadata__["name"]
+                output_dir = os.path.join(
+                    self.options.output,
+                    *(filler.__filler_metadata__["module_path"])
+                    if not self.options.no_output_structure
+                    else "",
+                )
+                os.makedirs(output_dir, exist_ok=True)
+                path = os.path.join(output_dir, f"{name}.json")
+
+                name = path[9 : len(path) - 5].replace("/", ".")
+                self.log.debug(f"filling - {name}")
+                future = executor.submit(filler, t8n, b11r, "NoProof")
+                futures.append((future, path))
+
+            for future, path in futures:
+                fixture = future.result()
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(
+                        fixture,
+                        f,
+                        ensure_ascii=False,
+                        indent=4,
+                        cls=JSONEncoder,
+                    )
+
+            if self.options.benchmark:
+                end_time = time.time()
+                elapsed_time = end_time - start_time
+                self.log.info(
+                    f"Filled test fixtures in {elapsed_time:.2f} seconds."
                 )
 
 
