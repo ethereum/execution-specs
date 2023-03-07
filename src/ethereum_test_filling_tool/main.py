@@ -7,11 +7,11 @@ clients.
 """
 
 import argparse
+import concurrent.futures
 import json
 import logging
 import os
 import time
-import concurrent.futures
 from pathlib import Path
 from pkgutil import iter_modules
 
