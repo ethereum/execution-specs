@@ -189,10 +189,9 @@ def recursive_iter_modules(root, package):
     """
     for info in iter_modules([os.path.join(root, package)]):
         if info.ispkg:
-            for sub_info in recursive_iter_modules(
+            yield from recursive_iter_modules(
                 root, os.path.join(package, info.name)
-            ):
-                yield sub_info
+            )
         else:
             package_path = package.replace("/", ".")
             yield info, package_path
