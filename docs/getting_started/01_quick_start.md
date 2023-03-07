@@ -36,7 +36,6 @@ tf --test-case yul
 head fixtures/example/example/yul.json
 ```
 
-
 ## Generating the Execution Spec Tests For Use With Clients
 
 To generate all the tests defined in the `./fillers` sub-directory, run the `tf` command:
