@@ -139,7 +139,7 @@ class Filler:
             output_dir = os.path.join(
                 self.options.output,
                 *(filler.__filler_metadata__["module_path"])
-                if self.options.no_output_structure is None
+                if not self.options.no_output_structure
                 else "",
             )
             os.makedirs(output_dir, exist_ok=True)
