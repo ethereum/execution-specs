@@ -113,7 +113,8 @@ class Filler:
 
         # Only skip if the fixture file already exists, the module
         # has not been modified since the last test filler run, and
-        # the user does not want to overwrite the fixtures (--overwrite).
+        # the user doesn't want to force a refill the
+        # fixtures (--force-refill).
         if (
             os.path.exists(path)
             and not is_module_modified(
