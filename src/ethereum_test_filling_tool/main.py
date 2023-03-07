@@ -85,7 +85,7 @@ def parse_arguments() -> argparse.Namespace:
     )
 
     parser.add_argument(
-        "--overwrite",
+        "--force-refill",
         action="store_true",
         help="fill all test fillers and don't skip any tests \
               overwriting where necessary",
