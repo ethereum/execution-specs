@@ -36,6 +36,9 @@ tf --test-case yul
 head fixtures/example/example/yul.json
 ```
 
+!!! note
+    As our custom test filler package `tf` is under incremental development, be sure to run `pip install -e .` on your local repo after any changes to main are pulled. This ensures that the `tf` package is rebuilt after any change.
+
 
 ## Generating the Execution Spec Tests For Use With Clients
 

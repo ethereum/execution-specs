@@ -21,6 +21,7 @@ The following are required to either generate or develop tests:
    
 3. [`solc`](https://github.com/ethereum/solidity) >= `v0.8.17`; `solc` must be in accessible in the `PATH`.
 
+
 ### Installation
 
 To generate tests from the test "fillers", it's necessary to install the Python packages provided by `execution-spec-tests` (it's recommended to use a virtual environment for the installation):
@@ -40,6 +41,8 @@ If everything is OK, you will see the beginning of the JSON format filled test.
 tf --test-case yul
 head fixtures/example/example/yul.json
 ```
+
+Note: As our custom test filler package `tf` is under incremental development, be sure to run `pip install -e .` on your local repo after any changes to main are pulled. This ensures that the `tf` package is rebuilt after any change.
 
 
 ### Generating the Execution Spec Tests For Use With Clients
