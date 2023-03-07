@@ -101,9 +101,10 @@ class Filler:
         )
 
         parser.add_argument(
-            "--no-skip",
+            "--overwrite",
             action="store_true",
-            help="fill all test fillers and don't skip any tests",
+            help="fill all test fillers and don't skip any tests \
+                  overwriting where necessary",
         )
 
         return parser.parse_args()
@@ -176,8 +177,9 @@ class Filler:
                 full_name = ".".join(module_path + [name])
 
                 if (
-                    skip_filling(path, pkg_path, module_path)
-                    and not self.options.no_skip
+                    os.path.exists(path)
+                    and not is_module_modified(path, pkg_path, module_path)
+                    and not self.options.overwrite
                 ):
                     self.log.debug(f"skipping - {full_name}")
                     continue
@@ -205,12 +207,16 @@ class Filler:
                 )
 
 
-def skip_filling(path, pkg_path, module_path):
-    last_modified_time = os.path.getmtime(
+def is_module_modified(path, pkg_path, module_path):
+    """
+    Returns True if a module was modified more recently than
+    it was filled, False otherwise.
+    """
+    modified_time = os.path.getmtime(
         os.path.join(pkg_path, *module_path) + ".py"
     )
-    last_filled_time = os.path.getmtime(path) if os.path.exists(path) else 0
-    return last_modified_time <= last_filled_time
+    filled_time = os.path.getmtime(path) if os.path.exists(path) else 0
+    return modified_time > filled_time
 
 
 def find_modules(root, include_pkg, include_modules):
