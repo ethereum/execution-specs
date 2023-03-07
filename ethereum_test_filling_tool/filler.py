@@ -119,7 +119,7 @@ class Filler:
             and not is_module_modified(
                 path, self.options.filler_path, module_path
             )
-            and not self.options.overwrite
+            and not self.options.force_refill
         ):
             self.log.debug(f"skipping - {full_name}")
             return
