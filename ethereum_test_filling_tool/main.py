@@ -36,8 +36,8 @@ class Filler:
 
         parser.add_argument(
             "--evm-bin",
-            help="path to evm executable that provides `t8n` and `b11r` "
-            + "subcommands",
+            help="path to evm executable that provides `t8n` and `b11r` \
+                  subcommands",
             default=None,
             type=Path,
         )
@@ -97,7 +97,13 @@ class Filler:
             "--max-workers",
             type=int,
             help="specifies the max number of workers for the test filler \
-                  set to 1 for serial execution.",
+                  set to 1 for serial execution",
+        )
+
+        parser.add_argument(
+            "--no-skip",
+            action="store_true",
+            help="fill all test fillers and don't skip any tests",
         )
 
         return parser.parse_args()
@@ -169,6 +175,13 @@ class Filler:
                 path = os.path.join(output_dir, f"{name}.json")
                 full_name = ".".join(module_path + [name])
 
+                if (
+                    skip_filling(path, pkg_path, module_path)
+                    and not self.options.no_skip
+                ):
+                    self.log.debug(f"skipping - {full_name}")
+                    continue
+
                 future = executor.submit(filler, t8n, b11r, "NoProof")
                 futures.append((future, path, full_name))
 
@@ -190,6 +203,14 @@ class Filler:
                 self.log.info(
                     f"Filled test fixtures in {elapsed_time:.2f} seconds."
                 )
+
+
+def skip_filling(path, pkg_path, module_path):
+    last_modified_time = os.path.getmtime(
+        os.path.join(pkg_path, *module_path) + ".py"
+    )
+    last_filled_time = os.path.getmtime(path) if os.path.exists(path) else 0
+    return last_modified_time <= last_filled_time
 
 
 def find_modules(root, include_pkg, include_modules):
