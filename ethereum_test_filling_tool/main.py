@@ -219,17 +219,18 @@ class Filler:
             futures = []
             for filler in fillers:
                 name = filler.__filler_metadata__["name"]
+                module_path = filler.__filler_metadata__["module_path"]
                 output_dir = os.path.join(
                     self.options.output,
-                    *(filler.__filler_metadata__["module_path"])
+                    *module_path
                     if not self.options.no_output_structure
                     else "",
                 )
                 os.makedirs(output_dir, exist_ok=True)
                 path = os.path.join(output_dir, f"{name}.json")
 
-                name = path[9 : len(path) - 5].replace("/", ".")
-                self.log.debug(f"filling - {name}")
+                full_name = ".".join(module_path + [name])
+                self.log.debug(f"filling - {full_name}")
                 future = executor.submit(filler, t8n, b11r, "NoProof")
                 futures.append((future, path))
 
