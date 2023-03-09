@@ -30,7 +30,7 @@ This repository contains the consensus specifications related to the Ethereum ex
 | Frontier Thawing | 200000 | 2015-09-07 | | | [Blog](https://blog.ethereum.org/2015/08/04/the-thawing-frontier/) |
 | Frontier | 1 | 2015-07-30 | | | [Blog](https://blog.ethereum.org/2015/07/22/frontier-is-coming-what-to-expect-and-how-to-prepare/) |
 
-*Note:* Starting with Paris, updates are not rolled out based on block numbers. Paris was enabled once TTD reached 58750000000000000000000. Updates after Paris are yet to have a decided roll out strategy.
+*Note:* Starting with Paris, updates are not rolled out based on block numbers. Paris was enabled once TTD reached 58750000000000000000000. The roll out strategy for Shanghai will be based on timestamp. Updates after Shanghai will also most likely use this roll out strategy.
 
 Some clarifications were enabled without protocol releases:
 
