@@ -30,7 +30,7 @@ from ethereum.base_types import (
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
-    hex_to_bytes20,
+    hex_to_bytes32,
     hex_to_u256,
     hex_to_uint,
 )
@@ -54,8 +54,7 @@ class GenesisConfiguration:
     gas_limit: Uint
     nonce: Bytes8
     timestamp: U256
-    # Mapping between address and their initial balance
-    initial_balances: Dict[Address, U256]
+    initial_accounts: Dict[str, Dict]
 
 
 def get_genesis_configuration(genesis_file: str) -> GenesisConfiguration:
@@ -80,21 +79,22 @@ def get_genesis_configuration(genesis_file: str) -> GenesisConfiguration:
     ).decode()
     genesis_data = json.loads(genesis_str_data)
 
-    initial_balances = {
-        hex_to_bytes20(address): hex_to_u256(account["balance"])
-        for address, account in genesis_data["alloc"].items()
-    }
-
     return GenesisConfiguration(
         chain_id=U64(genesis_data["config"]["chainId"]),
         difficulty=hex_to_uint(genesis_data["difficulty"]),
         extra_data=hex_to_bytes(genesis_data["extraData"]),
         gas_limit=hex_to_uint(genesis_data["gasLimit"]),
         nonce=hex_to_bytes8(genesis_data["nonce"]),
-        timestamp=hex_to_u256(genesis_data["timestamp"]),
-        initial_balances=initial_balances,
+        timestamp=balance_str_to_u256(genesis_data["timestamp"]),
+        initial_accounts=genesis_data["alloc"],
     )
 
+
+def balance_str_to_u256(balance: str) -> U256:
+    if balance.startswith("0x"):
+        return hex_to_u256(balance)
+    else:
+        return U256(int(balance))
 
 def add_genesis_block(
     hardfork: Any, chain: Any, genesis: GenesisConfiguration
@@ -143,26 +143,50 @@ def add_genesis_block(
     genesis :
         The genesis configuration to use.
     """
-    for account, balance in genesis.initial_balances.items():
-        hardfork.state.create_ether(chain.state, account, balance)
+    for address, account in genesis.initial_accounts.items():
+        address = hardfork.utils.hexadecimal.hex_to_address(address)
+        hardfork.state.set_account(
+            chain.state,
+            address,
+            hardfork.eth_types.Account(
+                Uint(int(account.get("nonce", "0"))),
+                balance_str_to_u256(account.get("balance", 0)),
+                hex_to_bytes(account.get("code", "0x")),
+            ),
+        )
+        for key, value in account.get("storage", {}).items():
+            hardfork.state.set_storage(
+                chain.state, address, hex_to_bytes32(key), hex_to_uint(value)
+            )
 
-    genesis_header = hardfork.eth_types.Header(
-        parent_hash=hardfork.eth_types.Hash32(b"\0" * 32),
-        ommers_hash=rlp.rlp_hash(()),
-        coinbase=Address(b"\0" * 20),
-        state_root=hardfork.state.state_root(chain.state),
-        transactions_root=hardfork.trie.root(hardfork.trie.Trie(False, None)),
-        receipt_root=hardfork.trie.root(hardfork.trie.Trie(False, None)),
-        bloom=hardfork.eth_types.Bloom(b"\0" * 256),
-        difficulty=genesis.difficulty,
-        number=Uint(0),
-        gas_limit=genesis.gas_limit,
-        gas_used=Uint(0),
-        timestamp=genesis.timestamp,
-        extra_data=genesis.extra_data,
-        mix_digest=hardfork.eth_types.Hash32(b"\0" * 32),
-        nonce=genesis.nonce,
-    )
+    fields = {
+        "parent_hash": hardfork.eth_types.Hash32(b"\0" * 32),
+        "ommers_hash": rlp.rlp_hash(()),
+        "coinbase": Address(b"\0" * 20),
+        "state_root": hardfork.state.state_root(chain.state),
+        "transactions_root": hardfork.trie.root(hardfork.trie.Trie(False, None)),
+        "receipt_root": hardfork.trie.root(hardfork.trie.Trie(False, None)),
+        "bloom": hardfork.eth_types.Bloom(b"\0" * 256),
+        "difficulty": genesis.difficulty,
+        "number": Uint(0),
+        "gas_limit": genesis.gas_limit,
+        "gas_used": Uint(0),
+        "timestamp": genesis.timestamp,
+        "extra_data": genesis.extra_data,
+        "nonce": genesis.nonce,
+    }
+
+    print(genesis.timestamp)
+
+    if hasattr(hardfork.eth_types.Header, "mix_digest"):
+        fields["mix_digest"] = hardfork.eth_types.Hash32(b"\0" * 32)
+    else:
+        fields["prev_randao"] = hardfork.eth_types.Hash32(b"\0" * 32)
+
+    if hasattr(hardfork.eth_types.Header, "base_fee_per_gas"):
+        fields["base_fee_per_gas"] = Uint(10**9)
+
+    genesis_header = hardfork.eth_types.Header(**fields)
 
     genesis_block = hardfork.eth_types.Block(
         header=genesis_header,
