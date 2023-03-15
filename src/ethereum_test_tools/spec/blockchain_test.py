@@ -210,7 +210,7 @@ class BlockchainTest(BaseTest):
                         block_number=header.number,
                     ),
                     previous_env,
-                    previous_alloc,
+                    next_alloc,
                     previous_head,
                 )
         else:
