@@ -64,9 +64,7 @@ def test_use_value_in_tx(_):
     """
     Test sending a transaction from an address yet to receive a withdrawal
     """
-    pre = {
-        TestAddress: Account(balance=0)
-    }
+    pre = {TestAddress: Account(balance=0)}
 
     tx = Transaction(
         # Transaction sent from the `TestAddress`, which has 0 balance at start
