@@ -4,7 +4,7 @@
 
 The following are required to either generate or develop tests:
 
-1. Python `3.10.0`.
+1. Python == `3.10.0`.
    - For dists. with the `apt` package manager ensure you have python `-dev` & `-venv` packages installed.
 2. [`go-ethereum`](https://github.com/ethereum/go-ethereum) `geth`'s `evm` utility must be accessible in the `PATH`, typically at the latest version. To get it:
      1. Install [the Go programming language](https://go.dev/doc/install) on your computer.
@@ -23,7 +23,7 @@ To generate tests from the test "fillers", it's necessary to install the Python 
 ```console
 git clone https://github.com/ethereum/execution-spec-tests
 cd execution-spec-tests
-python -m venv ./venv/
+python3.10 -m venv ./venv/
 source ./venv/bin/activate
 pip install -e .
 ```
@@ -33,7 +33,7 @@ If everything is OK, you will see the beginning of the JSON format filled test.
 
 ```console
 tf --test-case yul
-head fixtures/example/example/yul.json
+head fixtures/example/yul_example/yul.json
 ```
 
 ## Generating the Execution Spec Tests For Use With Clients
