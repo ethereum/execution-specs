@@ -16,7 +16,7 @@ Changes included in the Network Upgrade.
 |---------|------------|---------------|--------------| ---------- |
 | Sepolia | `1677557088` | 2/28/2023, 4:04:48 AM | `0xf7f9bc08` | 56832 
 | Goerli  | `1678832736` | 3/14/2023, 10:25:36 PM	 |  `0xf9843abf` | 162304 
-| Mainnet | TBA | TBA |  TBA | TBA 
+| Mainnet | `1681338455` | 4/12/2023, 10:27:35 PM |  `0xdce96c2d` | 194048 
 
 ### Implementation Progresss
 
@@ -39,10 +39,10 @@ Implementation status of Included & CFI'd EIPs across participating clients.
   - [x] Deploy a Client Integration Testnet
   - [x] Integration Tests
   - [x] Fuzz Testing
- - [ ] Select Fork Timestamps
+ - [x] Select Fork Timestamps
    - [x] Sepolia
    - [x] Goerli
-   - [ ] Mainnet 
+   - [x] Mainnet 
  - [ ] Deploy Clients
    - [ ]  Geth
    - [ ]  Besu
