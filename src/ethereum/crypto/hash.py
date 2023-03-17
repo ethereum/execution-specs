@@ -12,7 +12,7 @@ Introduction
 Cryptographic hashing functions.
 """
 
-import sha3
+from Crypto.Hash import keccak
 
 from ..base_types import Bytes, Bytes32, Bytes64
 
@@ -34,7 +34,8 @@ def keccak256(buffer: Bytes) -> Hash32:
     hash : `ethereum.base_types.Hash32`
         Output of the hash function.
     """
-    return sha3.keccak_256(buffer).digest()
+    k = keccak.new(digest_bits=256)
+    return Hash32(k.update(buffer).digest())
 
 
 def keccak512(buffer: Bytes) -> Hash64:
@@ -51,4 +52,5 @@ def keccak512(buffer: Bytes) -> Hash64:
     hash : `ethereum.base_types.Hash32`
         Output of the hash function.
     """
-    return sha3.keccak_512(buffer).digest()
+    k = keccak.new(digest_bits=512)
+    return Hash64(k.update(buffer).digest())
