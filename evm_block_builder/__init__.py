@@ -81,6 +81,7 @@ class EvmBlockBuilder(BlockBuilder):
             "--input.ommers=stdin",
             "--seal.clique=stdin",
             "--output.block=stdout",
+            "--input.withdrawals=stdin" if withdrawals is not None else "",
         ]
 
         if ethash:

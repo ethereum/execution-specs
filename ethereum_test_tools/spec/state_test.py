@@ -80,9 +80,12 @@ class StateTest(BaseTest):
             else None,
         )
 
-        (genesis_rlp, h) = b11r.build(genesis.to_geth_dict(), "", [])
-        genesis.hash = h
-
+        (genesis_rlp, genesis.hash) = b11r.build(
+            header=genesis.to_geth_dict(),
+            txs="",
+            ommers=[],
+            withdrawals=env.withdrawals,
+        )
         return genesis_rlp, genesis
 
     def make_blocks(
@@ -104,10 +107,10 @@ class StateTest(BaseTest):
         env = set_fork_requirements(env, fork)
 
         (alloc, result, txs_rlp) = t8n.evaluate(
-            to_json(self.pre),
-            to_json(self.txs),
-            to_json(env),
-            fork,
+            alloc=to_json(self.pre),
+            txs=to_json(self.txs),
+            env=to_json(env),
+            fork=fork,
             chain_id=chain_id,
             reward=reward,
             eips=eips,

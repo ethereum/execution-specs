@@ -81,9 +81,12 @@ class BlockchainTest(BaseTest):
             else None,
         )
 
-        (genesis_rlp, h) = b11r.build(genesis.to_geth_dict(), "", [])
-        genesis.hash = h
-
+        (genesis_rlp, genesis.hash) = b11r.build(
+            header=genesis.to_geth_dict(),
+            txs="",
+            ommers=[],
+            withdrawals=env.withdrawals,
+        )
         return genesis_rlp, genesis
 
     def make_block(
@@ -133,10 +136,10 @@ class BlockchainTest(BaseTest):
             env = set_fork_requirements(env, fork)
 
             (next_alloc, result, txs_rlp) = t8n.evaluate(
-                previous_alloc,
-                to_json_or_none(block.txs),
-                to_json(env),
-                fork,
+                alloc=previous_alloc,
+                txs=to_json_or_none(block.txs),
+                env=to_json(env),
+                fork=fork,
                 chain_id=chain_id,
                 reward=reward,
                 eips=eips,
