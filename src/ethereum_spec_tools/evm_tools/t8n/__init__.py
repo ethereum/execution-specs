@@ -1,32 +1,25 @@
+"""
+Create a transition tool for the given fork.
+"""
+
 import json
 import sys
-from typing import Any, Tuple
+from typing import Any
 
 from ethereum import rlp
 from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import keccak256
-from ethereum.utils.hexadecimal import (
-    Hash32,
-    hex_to_bytes,
-    hex_to_u256,
-    hex_to_uint,
-)
 from ethereum_spec_tools.forks import Hardfork
 
 from ..fixture_loader import Load
-from ..utils import FatalException, ensure_success, get_module_name, read_hex_or_int
-from .t8n_types import (
-    Alloc,
-    Env,
-    Result,
-    Txs,
-)
+from ..utils import FatalException, get_module_name, read_hex_or_int
+from .t8n_types import Alloc, Env, Result, Txs
 
 
 class T8N(Load):
     """The class that carries out the transition"""
 
-    def __init__(self, options: str) -> None:
+    def __init__(self, options: Any) -> None:
         self.options = options
         self.forks = Hardfork.discover()
 
@@ -94,7 +87,7 @@ class T8N(Load):
                 break
         return return_value
 
-    def check_transaction(self, tx, gas_available, **kwargs) -> Any:
+    def check_transaction(self, tx: Any, gas_available: Any) -> Any:
         """
         Implements the check_transaction function of the fork.
         The arguments to be passed are adjusted according to the fork.
@@ -111,7 +104,7 @@ class T8N(Load):
 
         return self.fork.check_transaction(*arguments)
 
-    def environment(self, tx, gas_available) -> Any:
+    def environment(self, tx: Any, gas_available: Any) -> Any:
         """
         Create the environment for the transaction. The keyword
         arguments are adjusted according to the fork.
@@ -152,7 +145,7 @@ class T8N(Load):
 
         return self.fork_vm.Environment(**kw_arguments)
 
-    def tx_trie_set(self, trie, index, tx) -> Any:
+    def tx_trie_set(self, trie: Any, index: Any, tx: Any) -> Any:
         """Add a transaction to the trie."""
         arguments = [trie, rlp.encode(Uint(index))]
         if self.is_after_fork("ethereum.berlin"):
@@ -163,7 +156,7 @@ class T8N(Load):
         self.fork_trie.trie_set(*arguments)
 
     def make_receipt(
-        self, tx, process_transaction_return, gas_available
+        self, tx: Any, process_transaction_return: Any, gas_available: Any
     ) -> Any:
         """Create a transaction receipt."""
         arguments = [tx]
@@ -196,9 +189,7 @@ class T8N(Load):
 
         for ommer in ommers:
             # Ommer age with respect to the current block.
-            ommer_miner_reward = (
-                (8 - ommer.delta) * self.BLOCK_REWARD
-            ) // 8
+            ommer_miner_reward = ((8 - ommer.delta) * self.BLOCK_REWARD) // 8
             self.fork_state.create_ether(
                 state, ommer.address, ommer_miner_reward
             )
@@ -212,7 +203,7 @@ class T8N(Load):
                 if self.fork_state.account_exists_and_is_empty(state, account):
                     self.fork_state.destroy_account(state, account)
 
-    def backup_state(self):
+    def backup_state(self) -> None:
         """Back up the state in order to restore in case of an error."""
         state = self.alloc.state
         self.alloc.state_backup = (
@@ -223,12 +214,12 @@ class T8N(Load):
             },
         )
 
-    def restore_state(self):
+    def restore_state(self) -> None:
         """Restore the state from the backup."""
         state = self.alloc.state
         state._main_trie, state._storage_tries = self.alloc.state_backup
 
-    def apply_body(self) -> Tuple[Any, ...]:
+    def apply_body(self) -> None:
         """
         The apply body function is seen as the entry point of
         the t8n tool into the designated fork. The function has been
@@ -236,9 +227,7 @@ class T8N(Load):
         transaction processing between the forks. However, the general
         structure of the function is the same.
         """
-
         block_gas_limit = self.env.block_gas_limit
-        coinbase = self.env.coinbase
 
         gas_available = block_gas_limit
         transactions_trie = self.fork_trie.Trie(secured=False, default=None)
@@ -287,7 +276,6 @@ class T8N(Load):
 
         logs_hash = keccak256(rlp.encode(block_logs))
 
-
         self.result.state_root = self.fork_state.state_root(self.alloc.state)
         self.result.tx_root = self.fork_trie.root(transactions_trie)
         self.result.receipt_root = self.fork_trie.root(receipts_trie)
@@ -296,9 +284,13 @@ class T8N(Load):
         self.result.rejected = self.txs.rejected_txs
         self.result.gas_used = block_gas_used
 
-    def run(self):
+    def run(self) -> int:
         """Run the transition and provide the relevant outputs"""
-        self.apply_body()
+        try:
+            self.apply_body()
+        except FatalException as e:
+            print(e, file=sys.stderr)
+            return 1
 
         json_state = self.alloc.to_json()
         json_result = self.result.to_json()
@@ -314,3 +306,5 @@ class T8N(Load):
                 json.dump(json_result, f, indent=4)
         else:
             print(json.dumps(json_result, indent=4), file=sys.stdout)
+
+        return 0

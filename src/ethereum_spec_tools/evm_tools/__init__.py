@@ -43,8 +43,8 @@ t8n_parser.add_argument(
 t8n_parser.add_argument(
     "--state.chainid", dest="state_chainid", type=int, default=1
 )
-# TODO: Check if transition forks (e.g. HomesteadToDaoAt5) can be supported
-# Also check for Fork+EIP combinations. (Eg. Homestead+EIP150)
+# TODO: Check if transition forks can be supported
+# Also check for Fork+EIP combinations. (E.g. Homestead+EIP-150)
 t8n_parser.add_argument(
     "--state.fork", dest="state_fork", type=str, default="Frontier"
 )
@@ -69,11 +69,13 @@ t8n_parser.add_argument(
 )
 
 
-def main() -> None:
+def main() -> int:
+    """Run the tools based on the given options."""
     options = parser.parse_args()
     if options.subparser_name == "t8n":
         t8n_tool = T8N(options)
-        t8n_tool.run()
+        return t8n_tool.run()
     else:
         # TODO: Add support for b11r tool
         parser.print_help()
+        return 0

@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict
+from typing import Any, Dict, List
 
 import pytest
 
@@ -18,7 +18,7 @@ from ethereum_spec_tools.evm_tools.utils import FatalException
 testdata_dir = "tests/t8n_testdata"
 
 
-def find_test_fixtures():
+def find_test_fixtures() -> Any:
     with open(os.path.join(testdata_dir, "commands.json")) as f:
         data = json.load(f)
 
@@ -42,7 +42,7 @@ def idfn(test_case: Dict) -> str:
     return test_case["name"]
 
 
-def get_rejected_indices(rejected):
+def get_rejected_indices(rejected: Dict) -> List[int]:
     rejected_indices = []
     for item in rejected:
         rejected_indices.append(item["index"])

@@ -1,38 +1,52 @@
+"""
+Define the types used by the t8n tool.
+"""
 import json
-from typing import Any, Dict, List
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
-from ethereum.base_types import U64, U256, Uint, Bytes
-from ethereum.crypto.hash import keccak256
+from ethereum import rlp
+from ethereum.base_types import U256, Uint
 from ethereum.crypto.elliptic_curve import secp256k1_sign
-from ethereum.utils.hexadecimal import hex_to_u64, hex_to_u256, hex_to_uint, hex_to_bytes, Hash32
+from ethereum.crypto.hash import keccak256
+from ethereum.utils.hexadecimal import (
+    Hash32,
+    hex_to_bytes,
+    hex_to_u256,
+    hex_to_uint,
+)
 
-from ..utils import FatalException, ensure_success, get_module_name, read_hex_or_int
+from ..utils import FatalException, read_hex_or_int
 
 
 @dataclass
 class Ommer:
+    """The Ommer type for the t8n tool."""
+
     delta: str
     address: Any
 
+
 class Env:
+    """The environment for the transition tool."""
+
     coinbase: Any
     block_gas_limit: Uint
     block_number: Uint
     block_timestamp: U256
     # TODO: Add Withdrawals for Shanghai
-    block_difficulty: Uint = None
+    block_difficulty: Optional[Uint] = None
     # TODO: Add Randao for Paris
-    parent_difficulty: Uint = None
-    parent_timestamp: U256 = None
-    base_fee_per_gas: Uint = None
-    parent_gas_used: Uint = None
-    parent_gas_limit: Uint = None
-    block_hashes: List[Bytes] = None
-    parent_ommers_hash: Hash32 = None
-    ommers: List[Ommer] = None
+    parent_difficulty: Optional[Uint] = None
+    parent_timestamp: Optional[U256] = None
+    base_fee_per_gas: Optional[Uint] = None
+    parent_gas_used: Optional[Uint] = None
+    parent_gas_limit: Optional[Uint] = None
+    block_hashes: Optional[List[Any]] = None
+    parent_ommers_hash: Optional[Hash32] = None
+    ommers: Any = None
 
-    def __init__(self, t8n):
+    def __init__(self, t8n: Any):
         with open(t8n.options.input_env, "r") as f:
             data = json.load(f)
 
@@ -44,26 +58,32 @@ class Env:
         self.read_block_difficulty(data, t8n)
 
         if t8n.is_after_fork("ethereum.london"):
-            self.base_fee_per_gas = read_hex_or_int(data["currentBaseFee"], Uint)
-        # TODO: Check if base fee needs to be derived from parent gas used and gas limit
+            self.base_fee_per_gas = read_hex_or_int(
+                data["currentBaseFee"], Uint
+            )
+        # TODO: Check if base fee needs to be derived from parent gas
+        # used and gas limit
 
         self.read_block_hashes(data)
         self.read_ommers(data, t8n)
 
-
-
-    def read_block_difficulty(self, data, t8n):
+    def read_block_difficulty(self, data: Any, t8n: Any) -> None:
         """
         Read the block difficulty from the data.
         If `currentDifficulty` is present, it is used. Otherwise,
         the difficulty is calculated from the parent block.
         """
-
         if "currentDifficulty" in data:
-            self.block_difficulty = read_hex_or_int(data["currentDifficulty"], Uint)
+            self.block_difficulty = read_hex_or_int(
+                data["currentDifficulty"], Uint
+            )
         else:
-            self.parent_timestamp = read_hex_or_int(data["parentTimestamp"], U256)
-            self.parent_difficulty = read_hex_or_int(data["parentDifficulty"], Uint)
+            self.parent_timestamp = read_hex_or_int(
+                data["parentTimestamp"], U256
+            )
+            self.parent_difficulty = read_hex_or_int(
+                data["parentDifficulty"], Uint
+            )
             args = [
                 self.block_number,
                 self.block_timestamp,
@@ -76,17 +96,20 @@ class Env:
                     self.parent_ommers_hash = Hash32(
                         hex_to_bytes(data["parentUncleHash"])
                     )
-                    parent_has_ommers = self.parent_ommers_hash != EMPTY_OMMER_HASH
+                    parent_has_ommers = (
+                        self.parent_ommers_hash != EMPTY_OMMER_HASH
+                    )
                     args.append(parent_has_ommers)
                 else:
                     args.append(False)
             self.block_difficulty = t8n.fork.calculate_block_difficulty(*args)
 
-
-    def read_block_hashes(self, data):
-
+    def read_block_hashes(self, data: Any) -> None:
+        """
+        Read the block hashes. Returns a maximum of 256 block hashes.
+        """
         # Read the block hashes
-        block_hashes = []
+        block_hashes: List[Any] = []
         # Store a maximum of 256 block hashes.
         max_blockhash_count = min(256, self.block_number)
         for number in range(
@@ -98,12 +121,14 @@ class Env:
                 )
             else:
                 block_hashes.append(None)
-        
+
         self.block_hashes = block_hashes
 
-    def read_ommers(self, data, t8n):
-        # Read the ommers. The ommers data might not have all the details
-        # needed to obtain the Header.
+    def read_ommers(self, data: Any, t8n: Any) -> None:
+        """
+        Read the ommers. The ommers data might not have all the details
+        needed to obtain the Header.
+        """
         ommers = []
         if "ommers" in data:
             for ommer in data["ommers"]:
@@ -117,11 +142,12 @@ class Env:
 
 
 class Alloc:
+    """The alloc (state) type for the t8n tool."""
 
     state: Any
     state_backup: Any = None
 
-    def __init__(self, t8n):
+    def __init__(self, t8n: Any):
         """Read the alloc file and return the state."""
         with open(t8n.options.input_alloc, "r") as f:
             data = json.load(f)
@@ -137,12 +163,12 @@ class Alloc:
 
         self.state = t8n.json_to_state(data)
 
-    def to_json(self):
+    def to_json(self) -> Any:
         """Encode the state to JSON"""
         data = {}
         for address, account in self.state._main_trie._data.items():
 
-            account_data = {}
+            account_data: Dict[str, Any] = {}
 
             if account.balance:
                 account_data["balance"] = hex(account.balance)
@@ -156,7 +182,9 @@ class Alloc:
             if address in self.state._storage_tries:
                 account_data["storage"] = {
                     k.hex(): hex(v)
-                    for k, v in self.state._storage_tries[address]._data.items()
+                    for k, v in self.state._storage_tries[
+                        address
+                    ]._data.items()
                 }
 
             data["0x" + address.hex()] = account_data
@@ -165,16 +193,20 @@ class Alloc:
 
 
 class Txs:
+    """
+    Read the transactions file, sort out the valid transactions and
+    return a list of transactions.
+    """
 
     rejected_txs: Any = None
     t8n: Any = None
 
-    def __init__(self, t8n):
+    def __init__(self, t8n: Any):
         self.t8n = t8n
         self.rejected_txs = {}
 
     @property
-    def transactions(self):
+    def transactions(self) -> Any:
         """
         Read the transactions file and return a list of transactions.
         If a transaction is unsigned but has a `secretKey` field, the
@@ -204,8 +236,8 @@ class Txs:
                     # signed. If a signed unsupported transaction is
                     # provided, it will simply be rejected and the
                     # next transaction is attempted.
-                    # See: https://github.com/ethereum/go-ethereum/issues/26861 
-                    raise FatalException
+                    # See: https://github.com/ethereum/go-ethereum/issues/26861
+                    raise FatalException(e)
 
             try:
                 tx = t8n.json_to_tx(json_tx)
@@ -221,7 +253,7 @@ class Txs:
 
             yield idx, transaction
 
-    def sign_transaction(self, json_tx):
+    def sign_transaction(self, json_tx: Any) -> None:
         """
         Sign a transaction. This function will be invoked if a `secretKey`
         is provided in the transaction.
@@ -271,6 +303,7 @@ class Txs:
 
 
 class Result:
+    """Type that represents the result of a transition execution"""
 
     state_root: Any = None
     tx_root: Any = None
@@ -283,11 +316,11 @@ class Result:
     gas_used: Any = None
     base_fee: Any
 
-    def __init__(self, env):
+    def __init__(self, env: Any):
         self.difficulty = env.block_difficulty
         self.base_fee = env.base_fee_per_gas
 
-    def to_json(self):
+    def to_json(self) -> Any:
         """Encode the result to JSON"""
         data = {}
 
@@ -311,4 +344,3 @@ class Result:
         data["rejected"] = rejected
 
         return data
-
