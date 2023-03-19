@@ -55,3 +55,4 @@ pip-delete-this-directory.txt
 
 tests/execution-spec-generated-tests
 tests/fixtures
+tests/t8n_testdata

@@ -19,6 +19,10 @@ test_fixtures = {
     "execution-spec-generated-tests": {
         "url": "https://github.com/ethereum/execution-spec-tests/releases/download/v0.2.3/fixtures.tar.gz",
     },
+    "t8n_testdata": {
+        "url": "https://github.com/gurukamath/t8n_testdata.git",
+        "commit_hash": "b96feb1",
+    },
     "fixtures": {
         "url": "https://github.com/ethereum/tests.git",
         "commit_hash": "69c4c2a",
