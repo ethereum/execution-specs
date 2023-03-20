@@ -2,6 +2,7 @@
 Utilities for the EVM tools
 """
 
+import logging
 from typing import Any, Callable
 
 from ethereum.base_types import U64, U256, Uint
@@ -67,3 +68,17 @@ def get_module_name(forks: Any, state_fork: str) -> str:
             break
 
     return value
+
+
+def get_stream_logger(name: str) -> Any:
+    """
+    Get a logger that writes to stdout.
+    """
+    logger = logging.getLogger(name)
+    logger.setLevel(level=logging.INFO)
+    stream_handler = logging.StreamHandler()
+    formatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+
+    return logger

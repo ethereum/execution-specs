@@ -12,7 +12,12 @@ from ethereum.crypto.hash import keccak256
 from ethereum_spec_tools.forks import Hardfork
 
 from ..fixture_loader import Load
-from ..utils import FatalException, get_module_name, read_hex_or_int
+from ..utils import (
+    FatalException,
+    get_module_name,
+    get_stream_logger,
+    read_hex_or_int,
+)
 from .t8n_types import Alloc, Env, Result, Txs
 
 
@@ -24,6 +29,8 @@ class T8N(Load):
         self.forks = Hardfork.discover()
 
         fork_module = get_module_name(self.forks, self.options.state_fork)
+
+        self.logger = get_stream_logger("T8N")
 
         super().__init__(
             self.options.state_fork,
@@ -248,6 +255,7 @@ class T8N(Load):
             except Exception as e:
                 self.txs.rejected_txs[tx_idx] = str(e)
                 self.restore_state()
+                self.logger.warning(f"Transaction {tx_idx} failed: {str(e)}")
                 if isinstance(e, FatalException):
                     raise e
             else:
@@ -289,7 +297,7 @@ class T8N(Load):
         try:
             self.apply_body()
         except FatalException as e:
-            print(e, file=sys.stderr)
+            self.logger.error(str(e))
             return 1
 
         json_state = self.alloc.to_json()
@@ -298,12 +306,14 @@ class T8N(Load):
         if self.options.output_alloc != "stdout":
             with open(self.options.output_alloc, "w") as f:
                 json.dump(json_state, f, indent=4)
+            self.logger.info(f"Wrote alloc to {self.options.output_alloc}")
         else:
             print(json.dumps(json_state, indent=4), file=sys.stdout)
 
         if self.options.output_result != "stdout":
             with open(self.options.output_result, "w") as f:
                 json.dump(json_result, f, indent=4)
+            self.logger.info(f"Wrote result to {self.options.output_result}")
         else:
             print(json.dumps(json_result, indent=4), file=sys.stdout)
 

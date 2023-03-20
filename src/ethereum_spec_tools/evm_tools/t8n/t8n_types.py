@@ -237,12 +237,14 @@ class Txs:
                     # provided, it will simply be rejected and the
                     # next transaction is attempted.
                     # See: https://github.com/ethereum/go-ethereum/issues/26861
+                    t8n.logger.error(f"Rejected transaction {idx}")
                     raise FatalException(e)
 
             try:
                 tx = t8n.json_to_tx(json_tx)
 
             except Exception as e:
+                t8n.logger.warning(f"Rejected transaction {idx}: {e}")
                 self.rejected_txs[idx] = str(e)
                 continue
 
