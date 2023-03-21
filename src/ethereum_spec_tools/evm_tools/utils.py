@@ -3,28 +3,22 @@ Utilities for the EVM tools
 """
 
 import logging
-from typing import Any, Callable
+from typing import Any, Callable, Tuple, TypeVar
+
+import coincurve
 
 from ethereum.base_types import U64, U256, Uint
-from ethereum.utils.hexadecimal import hex_to_u64, hex_to_u256, hex_to_uint
+from ethereum.utils.hexadecimal import Hash32
+
+W = TypeVar("W", Uint, U64, U256)
 
 
-def read_hex_or_int(value: str, to_type: Any) -> Any:
+def parse_hex_or_int(value: str, to_type: Callable[[int], W]) -> W:
     """Read a Uint type from a hex string or int"""
     # find the function based on the type
-    to_type_function: Callable[[str], Any]
-    if to_type == Uint:
-        to_type_function = hex_to_uint
-    elif to_type == U256:
-        to_type_function = hex_to_u256
-    elif to_type == U64:
-        to_type_function = hex_to_u64
-    else:
-        raise Exception("Unknown type")
-
     # if the value is a hex string, convert it
     if isinstance(value, str) and value.startswith("0x"):
-        return to_type_function(value)
+        return to_type(int(value[2:], 16))
     # if the value is an str, convert it
     else:
         return to_type(int(value))
@@ -56,13 +50,14 @@ def get_module_name(forks: Any, state_fork: str) -> str:
         "EIP158": "spurious_dragon",
     }
 
-    if state_fork in exception_maps:
+    try:
         return exception_maps[state_fork]
+    except KeyError:
+        pass
 
     for fork in forks:
         value = fork.name.split(".")[-1]
-        key_items = [x.title() for x in value.split("_")]
-        key = "".join(key_items)
+        key = "".join(x.title() for x in value.split("_"))
 
         if key == state_fork:
             break
@@ -82,3 +77,17 @@ def get_stream_logger(name: str) -> Any:
     logger.addHandler(stream_handler)
 
     return logger
+
+
+def secp256k1_sign(msg_hash: Hash32, secret_key: int) -> Tuple[U256, ...]:
+    """
+    Returns the signature of a message hash given the secret key.
+    """
+    private_key = coincurve.PrivateKey.from_int(secret_key)
+    signature = private_key.sign_recoverable(msg_hash, hasher=None)
+
+    return (
+        U256.from_be_bytes(signature[0:32]),
+        U256.from_be_bytes(signature[32:64]),
+        U256(signature[64]),
+    )

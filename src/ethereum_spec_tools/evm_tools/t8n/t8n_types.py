@@ -3,11 +3,10 @@ Define the types used by the t8n tool.
 """
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
 from ethereum.base_types import U256, Uint
-from ethereum.crypto.elliptic_curve import secp256k1_sign
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import (
     Hash32,
@@ -16,7 +15,7 @@ from ethereum.utils.hexadecimal import (
     hex_to_uint,
 )
 
-from ..utils import FatalException, read_hex_or_int
+from ..utils import FatalException, parse_hex_or_int, secp256k1_sign
 
 
 @dataclass
@@ -28,39 +27,45 @@ class Ommer:
 
 
 class Env:
-    """The environment for the transition tool."""
+    """
+    The environment for the transition tool.
+    """
 
     coinbase: Any
     block_gas_limit: Uint
     block_number: Uint
     block_timestamp: U256
     # TODO: Add Withdrawals for Shanghai
-    block_difficulty: Optional[Uint] = None
+    block_difficulty: Optional[Uint]
     # TODO: Add Randao for Paris
-    parent_difficulty: Optional[Uint] = None
-    parent_timestamp: Optional[U256] = None
-    base_fee_per_gas: Optional[Uint] = None
-    parent_gas_used: Optional[Uint] = None
-    parent_gas_limit: Optional[Uint] = None
-    block_hashes: Optional[List[Any]] = None
-    parent_ommers_hash: Optional[Hash32] = None
-    ommers: Any = None
+    parent_difficulty: Optional[Uint]
+    parent_timestamp: Optional[U256]
+    base_fee_per_gas: Optional[Uint]
+    # TODO: Check if base fee needs to be derived from parent gas
+    # used and gas limit
+    # parent_gas_used: Optional[Uint]
+    # parent_gas_limit: Optional[Uint]
+    block_hashes: Optional[List[Any]]
+    parent_ommers_hash: Optional[Hash32]
+    ommers: Any
 
     def __init__(self, t8n: Any):
         with open(t8n.options.input_env, "r") as f:
             data = json.load(f)
 
         self.coinbase = t8n.hex_to_address(data["currentCoinbase"])
-        self.block_gas_limit = read_hex_or_int(data["currentGasLimit"], Uint)
-        self.block_number = read_hex_or_int(data["currentNumber"], Uint)
-        self.block_timestamp = read_hex_or_int(data["currentTimestamp"], U256)
+        self.block_gas_limit = parse_hex_or_int(data["currentGasLimit"], Uint)
+        self.block_number = parse_hex_or_int(data["currentNumber"], Uint)
+        self.block_timestamp = parse_hex_or_int(data["currentTimestamp"], U256)
 
         self.read_block_difficulty(data, t8n)
 
         if t8n.is_after_fork("ethereum.london"):
-            self.base_fee_per_gas = read_hex_or_int(
+            self.base_fee_per_gas = parse_hex_or_int(
                 data["currentBaseFee"], Uint
             )
+        else:
+            self.base_fee_per_gas = None
         # TODO: Check if base fee needs to be derived from parent gas
         # used and gas limit
 
@@ -74,14 +79,17 @@ class Env:
         the difficulty is calculated from the parent block.
         """
         if "currentDifficulty" in data:
-            self.block_difficulty = read_hex_or_int(
+            self.block_difficulty = parse_hex_or_int(
                 data["currentDifficulty"], Uint
             )
+            self.parent_timestamp = None
+            self.parent_difficulty = None
+            self.parent_ommers_hash = None
         else:
-            self.parent_timestamp = read_hex_or_int(
+            self.parent_timestamp = parse_hex_or_int(
                 data["parentTimestamp"], U256
             )
-            self.parent_difficulty = read_hex_or_int(
+            self.parent_difficulty = parse_hex_or_int(
                 data["parentDifficulty"], Uint
             )
             args = [
@@ -142,10 +150,12 @@ class Env:
 
 
 class Alloc:
-    """The alloc (state) type for the t8n tool."""
+    """
+    The alloc (state) type for the t8n tool.
+    """
 
     state: Any
-    state_backup: Any = None
+    state_backup: Any
 
     def __init__(self, t8n: Any):
         """Read the alloc file and return the state."""
@@ -198,26 +208,27 @@ class Txs:
     return a list of transactions.
     """
 
-    rejected_txs: Any = None
-    t8n: Any = None
+    rejected_txs: Dict[int, str]
+    t8n: Any
+    data: Any
 
     def __init__(self, t8n: Any):
         self.t8n = t8n
         self.rejected_txs = {}
+        # TODO: Add support for reading RLP
+        with open(t8n.options.input_txs, "r") as f:
+            self.data = json.load(f)
 
     @property
-    def transactions(self) -> Any:
+    def transactions(self) -> Iterator[Tuple[int, Any]]:
         """
         Read the transactions file and return a list of transactions.
         If a transaction is unsigned but has a `secretKey` field, the
         transaction will be signed.
         """
         t8n = self.t8n
-        # TODO: Add support for reading RLP
-        with open(t8n.options.input_txs, "r") as f:
-            data = json.load(f)
 
-        for idx, json_tx in enumerate(data):
+        for idx, json_tx in enumerate(self.data):
             json_tx["gasLimit"] = json_tx["gas"]
             json_tx["data"] = json_tx["input"]
             if "to" not in json_tx:
@@ -304,9 +315,12 @@ class Txs:
         json_tx["v"] = hex(y + v_addend)
 
 
+@dataclass
 class Result:
     """Type that represents the result of a transition execution"""
 
+    difficulty: Any
+    base_fee: Any
     state_root: Any = None
     tx_root: Any = None
     receipt_root: Any = None
@@ -314,13 +328,7 @@ class Result:
     bloom: Any = None
     # TODO: Add receipts to result
     rejected: Any = None
-    difficulty: Any
     gas_used: Any = None
-    base_fee: Any
-
-    def __init__(self, env: Any):
-        self.difficulty = env.block_difficulty
-        self.base_fee = env.base_fee_per_gas
 
     def to_json(self) -> Any:
         """Encode the result to JSON"""
@@ -334,15 +342,9 @@ class Result:
         data["gasUsed"] = hex(self.gas_used)
         data["currentDifficulty"] = hex(self.difficulty)
 
-        rejected = []
-        for idx, reason in self.rejected.items():
-            rejected.append(
-                {
-                    "index": idx,
-                    "error": reason,
-                }
-            )
-
-        data["rejected"] = rejected
+        data["rejected"] = [
+            {"index": idx, "error": error}
+            for idx, error in self.rejected.items()
+        ]
 
         return data

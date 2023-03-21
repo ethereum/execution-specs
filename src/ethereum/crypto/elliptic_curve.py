@@ -3,7 +3,7 @@ Elliptic Curves
 ^^^^^^^^^^^^^^^
 """
 
-from typing import Generic, Tuple, Type, TypeVar
+from typing import Generic, Type, TypeVar
 
 import coincurve
 
@@ -49,36 +49,6 @@ def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
     )
     public_key = public_key.format(compressed=False)[1:]
     return public_key
-
-
-def secp256k1_sign(msg_hash: Hash32, secret_key: int) -> Tuple[U256, ...]:
-    """
-    Returns the signature of a message hash.
-
-    Parameters
-    ----------
-    msg_hash :
-        Hash of the message being recovered.
-    secret_key :
-        A secret key with which to sign the message.
-
-    Returns
-    -------
-    r : `ethereum.base_types.U256`
-        TODO
-    s : `ethereum.base_types.U256`
-        TODO
-    y_parity : `ethereum.base_types.U256`
-        TODO
-    """
-    private_key = coincurve.PrivateKey.from_int(secret_key)
-    signature = private_key.sign_recoverable(msg_hash, hasher=None)
-
-    return (
-        U256.from_be_bytes(signature[0:32]),
-        U256.from_be_bytes(signature[32:64]),
-        U256(signature[64]),
-    )
 
 
 class EllipticCurve(Generic[F]):

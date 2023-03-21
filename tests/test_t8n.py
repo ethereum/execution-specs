@@ -11,8 +11,8 @@ from ethereum.utils.hexadecimal import (
     hex_to_u256,
     hex_to_uint,
 )
-from ethereum_spec_tools.evm_tools import parser
-from ethereum_spec_tools.evm_tools.t8n import T8N
+from ethereum_spec_tools.evm_tools import parser, subparsers
+from ethereum_spec_tools.evm_tools.t8n import T8N, t8n_arguments
 from ethereum_spec_tools.evm_tools.utils import FatalException
 
 testdata_dir = "tests/t8n_testdata"
@@ -50,6 +50,7 @@ def get_rejected_indices(rejected: Dict) -> List[int]:
 
 
 def t8n_tool_test(test_case: Dict) -> None:
+    t8n_arguments(subparsers)
     options = parser.parse_args(test_case["args"])
 
     try:

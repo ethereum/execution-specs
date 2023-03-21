@@ -2,6 +2,7 @@
 Create a transition tool for the given fork.
 """
 
+import argparse
 import json
 import sys
 from typing import Any
@@ -16,9 +17,69 @@ from ..utils import (
     FatalException,
     get_module_name,
     get_stream_logger,
-    read_hex_or_int,
+    parse_hex_or_int,
 )
 from .t8n_types import Alloc, Env, Result, Txs
+
+
+def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
+    """
+    Adds the arguments for the t8n tool subparser.
+    """
+    t8n_parser = subparsers.add_parser("t8n", help="This is the t8n tool.")
+
+    t8n_parser.add_argument(
+        "--input.alloc", dest="input_alloc", type=str, default="alloc.json"
+    )
+    t8n_parser.add_argument(
+        "--input.env", dest="input_env", type=str, default="env.json"
+    )
+    t8n_parser.add_argument(
+        "--input.txs", dest="input_txs", type=str, default="txs.json"
+    )
+    t8n_parser.add_argument(
+        "--output.alloc", dest="output_alloc", type=str, default="alloc.json"
+    )
+    t8n_parser.add_argument(
+        "--output.basedir", dest="output_basedir", type=str
+    )
+    t8n_parser.add_argument("--output.body", dest="output_body", type=str)
+    t8n_parser.add_argument(
+        "--output.result",
+        dest="output_result",
+        type=str,
+        default="result.json",
+    )
+    t8n_parser.add_argument(
+        "--state.chainid", dest="state_chainid", type=int, default=1
+    )
+    # TODO: Check if transition forks can be supported
+    # Also check for Fork+EIP combinations. (E.g. Homestead+EIP-150)
+    t8n_parser.add_argument(
+        "--state.fork", dest="state_fork", type=str, default="Frontier"
+    )
+    t8n_parser.add_argument(
+        "--state.reward", dest="state_reward", type=int, default=0
+    )
+    # TODO: Add support for the following trace options
+    t8n_parser.add_argument(
+        "--trace.memory", dest="trace_memory", type=bool, default=False
+    )
+    t8n_parser.add_argument(
+        "--trace.nomemory", dest="trace_nomemory", type=bool, default=True
+    )
+    t8n_parser.add_argument(
+        "--trace.noreturndata",
+        dest="trace_noreturndata",
+        type=bool,
+        default=True,
+    )
+    t8n_parser.add_argument(
+        "--trace.nostack ", dest="trace_nostack ", type=bool, default=False
+    )
+    t8n_parser.add_argument(
+        "--trace.returndata", dest="trace_returndata", type=bool, default=False
+    )
 
 
 class T8N(Load):
@@ -37,11 +98,13 @@ class T8N(Load):
             fork_module,
         )
 
-        self.chain_id = read_hex_or_int(self.options.state_chainid, U64)
+        self.chain_id = parse_hex_or_int(self.options.state_chainid, U64)
         self.alloc = Alloc(self)
         self.env = Env(self)
         self.txs = Txs(self)
-        self.result = Result(self.env)
+        self.result = Result(
+            self.env.block_difficulty, self.env.base_fee_per_gas
+        )
 
     @property
     def fork(self) -> Any:
@@ -54,22 +117,22 @@ class T8N(Load):
         return self._module("fork_types")
 
     @property
-    def fork_state(self) -> Any:
+    def state(self) -> Any:
         """The state module of the given fork."""
         return self._module("state")
 
     @property
-    def fork_trie(self) -> Any:
+    def trie(self) -> Any:
         """The trie module of the given fork."""
         return self._module("trie")
 
     @property
-    def fork_bloom(self) -> Any:
+    def bloom(self) -> Any:
         """The bloom module of the given fork."""
         return self._module("bloom")
 
     @property
-    def fork_vm(self) -> Any:
+    def vm(self) -> Any:
         """The vm module of the given fork."""
         return self._module("vm")
 
@@ -150,7 +213,7 @@ class T8N(Load):
             kw_arguments["caller"] = kw_arguments["origin"] = sender_address
             kw_arguments["gas_price"] = tx.gas_price
 
-        return self.fork_vm.Environment(**kw_arguments)
+        return self.vm.Environment(**kw_arguments)
 
     def tx_trie_set(self, trie: Any, index: Any, tx: Any) -> Any:
         """Add a transaction to the trie."""
@@ -160,7 +223,7 @@ class T8N(Load):
         else:
             arguments.append(tx)
 
-        self.fork_trie.trie_set(*arguments)
+        self.trie.trie_set(*arguments)
 
     def make_receipt(
         self, tx: Any, process_transaction_return: Any, gas_available: Any
@@ -171,7 +234,7 @@ class T8N(Load):
         if self.is_after_fork("ethereum.byzantium"):
             arguments.append(process_transaction_return[2])
         else:
-            arguments.append(self.fork_state.state_root(self.alloc.state))
+            arguments.append(self.state.state_root(self.alloc.state))
 
         arguments.append((self.env.block_gas_limit - gas_available))
         arguments.append(process_transaction_return[1])
@@ -191,15 +254,13 @@ class T8N(Load):
         miner_reward = self.BLOCK_REWARD + (
             len(ommers) * (self.BLOCK_REWARD // 32)
         )
-        self.fork_state.create_ether(state, coinbase, miner_reward)
+        self.state.create_ether(state, coinbase, miner_reward)
         touched_accounts = [coinbase]
 
         for ommer in ommers:
             # Ommer age with respect to the current block.
             ommer_miner_reward = ((8 - ommer.delta) * self.BLOCK_REWARD) // 8
-            self.fork_state.create_ether(
-                state, ommer.address, ommer_miner_reward
-            )
+            self.state.create_ether(state, ommer.address, ommer_miner_reward)
             touched_accounts.append(ommer.address)
 
         if self.is_after_fork("ethereum.spurious_dragon"):
@@ -207,16 +268,16 @@ class T8N(Load):
             # paying the rewards. This is only important if
             # the block rewards were zero.
             for account in touched_accounts:
-                if self.fork_state.account_exists_and_is_empty(state, account):
-                    self.fork_state.destroy_account(state, account)
+                if self.state.account_exists_and_is_empty(state, account):
+                    self.state.destroy_account(state, account)
 
     def backup_state(self) -> None:
         """Back up the state in order to restore in case of an error."""
         state = self.alloc.state
         self.alloc.state_backup = (
-            self.fork_trie.copy_trie(state._main_trie),
+            self.trie.copy_trie(state._main_trie),
             {
-                k: self.fork_trie.copy_trie(t)
+                k: self.trie.copy_trie(t)
                 for (k, t) in state._storage_tries.items()
             },
         )
@@ -237,8 +298,8 @@ class T8N(Load):
         block_gas_limit = self.env.block_gas_limit
 
         gas_available = block_gas_limit
-        transactions_trie = self.fork_trie.Trie(secured=False, default=None)
-        receipts_trie = self.fork_trie.Trie(secured=False, default=None)
+        transactions_trie = self.trie.Trie(secured=False, default=None)
+        receipts_trie = self.trie.Trie(secured=False, default=None)
         block_logs = ()
 
         for i, (tx_idx, tx) in enumerate(self.txs.transactions):
@@ -267,7 +328,7 @@ class T8N(Load):
                     tx, process_transaction_return, gas_available
                 )
 
-                self.fork_trie.trie_set(
+                self.trie.trie_set(
                     receipts_trie,
                     rlp.encode(Uint(i)),
                     receipt,
@@ -280,13 +341,13 @@ class T8N(Load):
 
         block_gas_used = block_gas_limit - gas_available
 
-        block_logs_bloom = self.fork_bloom.logs_bloom(block_logs)
+        block_logs_bloom = self.bloom.logs_bloom(block_logs)
 
         logs_hash = keccak256(rlp.encode(block_logs))
 
-        self.result.state_root = self.fork_state.state_root(self.alloc.state)
-        self.result.tx_root = self.fork_trie.root(transactions_trie)
-        self.result.receipt_root = self.fork_trie.root(receipts_trie)
+        self.result.state_root = self.state.state_root(self.alloc.state)
+        self.result.tx_root = self.trie.root(transactions_trie)
+        self.result.receipt_root = self.trie.root(receipts_trie)
         self.result.bloom = block_logs_bloom
         self.result.logs_hash = logs_hash
         self.result.rejected = self.txs.rejected_txs
