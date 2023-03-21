@@ -17,6 +17,7 @@ from .helpers import (
     to_hash,
 )
 from .types import (
+    AccessList,
     Account,
     Block,
     Environment,
@@ -37,6 +38,7 @@ from .types import (
 )
 
 __all__ = (
+    "AccessList",
     "Account",
     "AddrAA",
     "AddrBB",

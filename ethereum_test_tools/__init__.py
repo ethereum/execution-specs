@@ -5,6 +5,7 @@ tests.
 
 from .code import Code, CodeGasMeasure, Initcode, Yul
 from .common import (
+    AccessList,
     Account,
     Block,
     Environment,
@@ -26,6 +27,7 @@ from .vm import Opcode, Opcodes
 from .vm.fork import is_fork
 
 __all__ = (
+    "AccessList",
     "Account",
     "Block",
     "BlockchainTest",
