@@ -59,7 +59,7 @@ def find_replace(dir: str, find: str, replace: str, file_pattern: str) -> None:
             file_path = os.path.join(path, filename)
             with open(file_path, "r+b") as f:
                 s = f.read()
-                find_pattern = (r"\b" + find + r"\b").encode()
+                find_pattern = (r"\b" + re.escape(find) + r"\b").encode()
                 s = re.sub(find_pattern, replace.encode(), s)
                 f.seek(0)
                 f.write(s)
