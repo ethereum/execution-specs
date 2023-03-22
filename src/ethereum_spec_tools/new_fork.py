@@ -5,6 +5,7 @@ Tool to create a new fork using the latest fork
 import argparse
 import fnmatch
 import os
+import re
 from shutil import copytree
 from typing import Tuple
 
@@ -58,7 +59,8 @@ def find_replace(dir: str, find: str, replace: str, file_pattern: str) -> None:
             file_path = os.path.join(path, filename)
             with open(file_path, "r+b") as f:
                 s = f.read()
-                s = s.replace(find.encode(), replace.encode())
+                find_pattern = (r"\b" + re.escape(find) + r"\b").encode()
+                s = re.sub(find_pattern, replace.encode(), s)
                 f.seek(0)
                 f.write(s)
                 f.truncate()
