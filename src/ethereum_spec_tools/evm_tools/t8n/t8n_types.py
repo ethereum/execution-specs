@@ -49,9 +49,13 @@ class Env:
     parent_ommers_hash: Optional[Hash32]
     ommers: Any
 
-    def __init__(self, t8n: Any):
-        with open(t8n.options.input_env, "r") as f:
-            data = json.load(f)
+    def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
+        if t8n.options.input_env == "stdin":
+            assert stdin is not None
+            data = stdin["env"]
+        else:
+            with open(t8n.options.input_env, "r") as f:
+                data = json.load(f)
 
         self.coinbase = t8n.hex_to_address(data["currentCoinbase"])
         self.block_gas_limit = parse_hex_or_int(data["currentGasLimit"], Uint)
@@ -157,10 +161,14 @@ class Alloc:
     state: Any
     state_backup: Any
 
-    def __init__(self, t8n: Any):
+    def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
         """Read the alloc file and return the state."""
-        with open(t8n.options.input_alloc, "r") as f:
-            data = json.load(f)
+        if t8n.options.input_alloc == "stdin":
+            assert stdin is not None
+            data = stdin["alloc"]
+        else:
+            with open(t8n.options.input_alloc, "r") as f:
+                data = json.load(f)
 
         # The json_to_state functions expects the values to hex
         # strings, so we convert them here.
@@ -212,12 +220,17 @@ class Txs:
     t8n: Any
     data: Any
 
-    def __init__(self, t8n: Any):
+    def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
         self.t8n = t8n
         self.rejected_txs = {}
         # TODO: Add support for reading RLP
-        with open(t8n.options.input_txs, "r") as f:
-            self.data = json.load(f)
+
+        if t8n.options.input_txs == "stdin":
+            assert stdin is not None
+            self.data = stdin["txs"]
+        else:
+            with open(t8n.options.input_txs, "r") as f:
+                self.data = json.load(f)
 
     @property
     def transactions(self) -> Iterator[Tuple[int, Any]]:
