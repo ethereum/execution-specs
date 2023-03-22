@@ -20,6 +20,9 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
+REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3651.md"
+REFERENCE_SPEC_VERSION = "cd7d6a465c03d86d852a1d6b5179bc78d760e658"
+
 
 @test_from(fork="shanghai")
 def test_warm_coinbase_call_out_of_gas(fork):

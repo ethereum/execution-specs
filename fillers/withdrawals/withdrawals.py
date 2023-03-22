@@ -18,6 +18,9 @@ from ethereum_test_tools import (
     to_hash,
 )
 
+REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4895.md"
+REFERENCE_SPEC_VERSION = "0966bbc3ff92127c0a729ce5455bbc35fd2075b8"
+
 WITHDRAWALS_FORK = "shanghai"
 
 ONE_GWEI = 10**9

@@ -8,6 +8,7 @@ nav:
   - Quick Start: 'getting_started/01_quick_start.md'
   - Package Overview: 'getting_started/02_package_overview.md'
   - Writing Tests: 'getting_started/03_writing_tests.md'
+  - Adding a Reference Spec: 'getting_started/04_reference_specification.md'
 - Tutorials:
   - State Transition Tests: 'tutorials/01_state_transition.md'
 

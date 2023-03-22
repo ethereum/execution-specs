@@ -27,6 +27,9 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
+REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3860.md"
+REFERENCE_SPEC_VERSION = "51fb6003054b88e069ec46d66b790d159656a2b0"
+
 """
 General constants used for testing purposes
 """

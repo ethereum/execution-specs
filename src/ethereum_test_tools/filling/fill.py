@@ -8,6 +8,7 @@ from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool, map_fork
 
 from ..common import Fixture, alloc_to_accounts
+from ..reference_spec.reference_spec import ReferenceSpec
 from ..spec import TestSpec
 from ..vm.fork import get_reward
 
@@ -18,6 +19,7 @@ def fill_test(
     test_spec: TestSpec,
     forks: List[str],
     engine: str,
+    spec: ReferenceSpec | None,
     eips: Optional[List[int]] = None,
 ) -> Mapping[str, Fixture]:
     """
@@ -66,7 +68,7 @@ def fill_test(
                 name=test.tag,
                 index=index,
             )
-            fixture.fill_info(t8n, b11r)
+            fixture.fill_info(t8n, b11r, spec)
             fixtures.append(fixture)
 
     out = {}
