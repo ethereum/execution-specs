@@ -22,6 +22,7 @@ from .common import (
 )
 from .filling.decorators import test_from, test_from_until, test_only
 from .filling.fill import fill_test
+from .reference_spec import ReferenceSpec, ReferenceSpecTypes
 from .spec import BlockchainTest, StateTest
 from .vm import Opcode, Opcodes
 from .vm.fork import is_fork
@@ -38,6 +39,8 @@ __all__ = (
     "JSONEncoder",
     "Opcode",
     "Opcodes",
+    "ReferenceSpec",
+    "ReferenceSpecTypes",
     "StateTest",
     "Storage",
     "TestAddress",
@@ -45,15 +48,15 @@ __all__ = (
     "Withdrawal",
     "Yul",
     "ceiling_division",
-    "compute_create2_address",
     "compute_create_address",
+    "compute_create2_address",
+    "eip_2028_transaction_data_cost",
     "fill_test",
     "is_fork",
-    "test_from",
     "test_from_until",
+    "test_from",
     "test_only",
     "to_address",
     "to_hash",
-    "eip_2028_transaction_data_cost",
     "verify_post_alloc",
 )

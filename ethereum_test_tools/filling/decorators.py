@@ -4,6 +4,7 @@ Decorators for expanding filler definitions.
 from typing import Any, Callable, List, Mapping, Optional, cast
 
 from ..common import Fixture
+from ..reference_spec.reference_spec import ReferenceSpec
 from ..spec import TestSpec
 from ..vm.fork import forks_from, forks_from_until
 from .fill import fill_test
@@ -16,7 +17,10 @@ def test_from_until(
     fork_from: str,
     fork_until: str,
     eips: Optional[List[int]] = None,
-) -> Callable[[TestSpec], Callable[[Any, Any, str], Mapping[str, Fixture]]]:
+) -> Callable[
+    [TestSpec],
+    Callable[[Any, Any, str, ReferenceSpec | None], Mapping[str, Fixture]],
+]:
     """
     Decorator that takes a test generator and fills it for all forks after the
     specified fork.
@@ -26,14 +30,17 @@ def test_from_until(
 
     def decorator(
         fn: TestSpec,
-    ) -> Callable[[Any, Any, str], Mapping[str, Fixture]]:
-        def inner(t8n, b11r, engine) -> Mapping[str, Fixture]:
+    ) -> Callable[
+        [Any, Any, str, ReferenceSpec | None], Mapping[str, Fixture]
+    ]:
+        def inner(t8n, b11r, engine, spec) -> Mapping[str, Fixture]:
             return fill_test(
                 t8n,
                 b11r,
                 fn,
                 forks_from_until(fork_from, fork_until),
                 engine,
+                spec,
                 eips=eips,
             )
 
@@ -53,7 +60,10 @@ def test_from_until(
 def test_from(
     fork: str,
     eips: Optional[List[int]] = None,
-) -> Callable[[TestSpec], Callable[[Any, Any, str], Mapping[str, Fixture]]]:
+) -> Callable[
+    [TestSpec],
+    Callable[[Any, Any, str, ReferenceSpec | None], Mapping[str, Fixture]],
+]:
     """
     Decorator that takes a test generator and fills it for all forks after the
     specified fork.
@@ -62,10 +72,12 @@ def test_from(
 
     def decorator(
         fn: TestSpec,
-    ) -> Callable[[Any, Any, str], Mapping[str, Fixture]]:
-        def inner(t8n, b11r, engine) -> Mapping[str, Fixture]:
+    ) -> Callable[
+        [Any, Any, str, ReferenceSpec | None], Mapping[str, Fixture]
+    ]:
+        def inner(t8n, b11r, engine, spec) -> Mapping[str, Fixture]:
             return fill_test(
-                t8n, b11r, fn, forks_from(fork), engine, eips=eips
+                t8n, b11r, fn, forks_from(fork), engine, spec, eips=eips
             )
 
         name = fn.__name__
@@ -84,7 +96,10 @@ def test_from(
 def test_only(
     fork: str,
     eips: Optional[List[int]] = None,
-) -> Callable[[TestSpec], Callable[[Any, Any, str], Mapping[str, Fixture]]]:
+) -> Callable[
+    [TestSpec],
+    Callable[[Any, Any, str, ReferenceSpec | None], Mapping[str, Fixture]],
+]:
     """
     Decorator that takes a test generator and fills it only for the specified
     fork.
@@ -93,9 +108,11 @@ def test_only(
 
     def decorator(
         fn: TestSpec,
-    ) -> Callable[[Any, Any, str], Mapping[str, Fixture]]:
-        def inner(t8n, b11r, engine) -> Mapping[str, Fixture]:
-            return fill_test(t8n, b11r, fn, [fork], engine, eips=eips)
+    ) -> Callable[
+        [Any, Any, str, ReferenceSpec | None], Mapping[str, Fixture]
+    ]:
+        def inner(t8n, b11r, engine, spec) -> Mapping[str, Fixture]:
+            return fill_test(t8n, b11r, fn, [fork], engine, spec, eips=eips)
 
         name = fn.__name__
         assert name.startswith(TESTS_PREFIX)
