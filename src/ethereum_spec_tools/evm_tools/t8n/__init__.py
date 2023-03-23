@@ -360,6 +360,23 @@ class T8N(Load):
 
         logs_hash = keccak256(rlp.encode(block_logs))
 
+        if self.is_after_fork("ethereum.shanghai"):
+            withdrawals_trie = self.trie.Trie(secured=False, default=None)
+
+            for i, wd in enumerate(self.env.withdrawals):
+                self.trie.trie_set(
+                    withdrawals_trie, rlp.encode(Uint(i)), rlp.encode(wd)
+                )
+
+                self.state.process_withdrawal(self.alloc.state, wd)
+
+                if self.state.account_exists_and_is_empty(
+                    self.alloc.state, wd.address
+                ):
+                    self.state.destroy_account(self.alloc.state, wd.address)
+
+            self.result.withdrawals_root = self.trie.root(withdrawals_trie)
+
         self.result.state_root = self.state.state_root(self.alloc.state)
         self.result.tx_root = self.trie.root(transactions_trie)
         self.result.receipt_root = self.trie.root(receipts_trie)

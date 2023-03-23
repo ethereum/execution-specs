@@ -17,6 +17,10 @@ from ethereum_spec_tools.evm_tools.utils import FatalException
 
 testdata_dir = "tests/t8n_testdata"
 
+ignore_tests = [
+    "fixtures/expected/26/Merge.json",
+]
+
 
 def find_test_fixtures() -> Any:
     with open(os.path.join(testdata_dir, "commands.json")) as f:
@@ -97,6 +101,10 @@ def t8n_tool_test(test_case: Dict) -> None:
         assert hex_to_uint(json_result["currentDifficulty"]) == hex_to_uint(
             data["result"]["currentDifficulty"]
         )
+    if t8n_tool.is_after_fork("ethereum.shanghai"):
+        assert t8n_tool.hex_to_root(
+            json_result["withdrawalsRoot"]
+        ) == t8n_tool.hex_to_root(data["result"]["withdrawalsRoot"])
 
 
 @pytest.mark.parametrize(
@@ -105,7 +113,9 @@ def t8n_tool_test(test_case: Dict) -> None:
     ids=idfn,
 )
 def test_t8n(test_case: Dict) -> None:
-    if test_case["success"]:
+    if test_case["name"] in ignore_tests:
+        pytest.xfail("Undefined behavior for specs")
+    elif test_case["success"]:
         t8n_tool_test(test_case)
     else:
         with pytest.raises(FatalException):

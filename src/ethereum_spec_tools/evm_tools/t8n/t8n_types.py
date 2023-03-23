@@ -36,7 +36,7 @@ class Env:
     block_gas_limit: Uint
     block_number: Uint
     block_timestamp: U256
-    # TODO: Add Withdrawals for Shanghai
+    withdrawals: Any
     block_difficulty: Optional[Uint]
     prev_randao: Optional[Bytes32]
     parent_difficulty: Optional[Uint]
@@ -77,6 +77,7 @@ class Env:
         self.read_randao(data, t8n)
         self.read_block_hashes(data)
         self.read_ommers(data, t8n)
+        self.read_withdrawals(data, t8n)
 
     def read_randao(self, data: Any, t8n: Any) -> None:
         """
@@ -86,6 +87,16 @@ class Env:
         if t8n.is_after_fork("ethereum.paris"):
             self.prev_randao = Bytes32(
                 left_pad_zero_bytes(hex_to_bytes(data["currentRandom"]), 32)
+            )
+
+    def read_withdrawals(self, data: Any, t8n: Any) -> None:
+        """
+        Read the withdrawals from the data.
+        """
+        self.withdrawals = None
+        if t8n.is_after_fork("ethereum.shanghai"):
+            self.withdrawals = tuple(
+                t8n.json_to_withdrawals(wd) for wd in data["withdrawals"]
             )
 
     def read_block_difficulty(self, data: Any, t8n: Any) -> None:
@@ -352,6 +363,7 @@ class Result:
     state_root: Any = None
     tx_root: Any = None
     receipt_root: Any = None
+    withdrawals_root: Any = None
     logs_hash: Any = None
     bloom: Any = None
     # TODO: Add receipts to result
@@ -365,6 +377,8 @@ class Result:
         data["stateRoot"] = "0x" + self.state_root.hex()
         data["txRoot"] = "0x" + self.tx_root.hex()
         data["receiptsRoot"] = "0x" + self.receipt_root.hex()
+        if self.withdrawals_root:
+            data["withdrawalsRoot"] = "0x" + self.withdrawals_root.hex()
         data["logsHash"] = "0x" + self.logs_hash.hex()
         data["logsBloom"] = "0x" + self.bloom.hex()
         data["gasUsed"] = hex(self.gas_used)
