@@ -93,9 +93,10 @@ def t8n_tool_test(test_case: Dict) -> None:
     assert hex_to_u256(json_result["gasUsed"]) == hex_to_u256(
         data["result"]["gasUsed"]
     )
-    assert hex_to_uint(json_result["currentDifficulty"]) == hex_to_uint(
-        data["result"]["currentDifficulty"]
-    )
+    if not t8n_tool.is_after_fork("ethereum.paris"):
+        assert hex_to_uint(json_result["currentDifficulty"]) == hex_to_uint(
+            data["result"]["currentDifficulty"]
+        )
 
 
 @pytest.mark.parametrize(

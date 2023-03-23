@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
-from ethereum.base_types import U256, Uint
+from ethereum.base_types import U256, Bytes32, Uint
 from ethereum.crypto.hash import keccak256
+from ethereum.utils.byte import left_pad_zero_bytes
 from ethereum.utils.hexadecimal import (
     Hash32,
     hex_to_bytes,
@@ -37,12 +38,12 @@ class Env:
     block_timestamp: U256
     # TODO: Add Withdrawals for Shanghai
     block_difficulty: Optional[Uint]
-    # TODO: Add Randao for Paris
+    prev_randao: Optional[Bytes32]
     parent_difficulty: Optional[Uint]
     parent_timestamp: Optional[U256]
     base_fee_per_gas: Optional[Uint]
-    # TODO: Check if base fee needs to be derived from parent gas
-    # used and gas limit
+    # TODO: Derive base fee from parent gas
+    # used and gas limit. See test data 25
     # parent_gas_used: Optional[Uint]
     # parent_gas_limit: Optional[Uint]
     block_hashes: Optional[List[Any]]
@@ -73,8 +74,19 @@ class Env:
         # TODO: Check if base fee needs to be derived from parent gas
         # used and gas limit
 
+        self.read_randao(data, t8n)
         self.read_block_hashes(data)
         self.read_ommers(data, t8n)
+
+    def read_randao(self, data: Any, t8n: Any) -> None:
+        """
+        Read the randao from the data.
+        """
+        self.prev_randao = None
+        if t8n.is_after_fork("ethereum.paris"):
+            self.prev_randao = Bytes32(
+                left_pad_zero_bytes(hex_to_bytes(data["currentRandom"]), 32)
+            )
 
     def read_block_difficulty(self, data: Any, t8n: Any) -> None:
         """
@@ -82,13 +94,16 @@ class Env:
         If `currentDifficulty` is present, it is used. Otherwise,
         the difficulty is calculated from the parent block.
         """
-        if "currentDifficulty" in data:
+        self.block_difficulty = None
+        self.parent_timestamp = None
+        self.parent_difficulty = None
+        self.parent_ommers_hash = None
+        if t8n.is_after_fork("ethereum.paris"):
+            return
+        elif "currentDifficulty" in data:
             self.block_difficulty = parse_hex_or_int(
                 data["currentDifficulty"], Uint
             )
-            self.parent_timestamp = None
-            self.parent_difficulty = None
-            self.parent_ommers_hash = None
         else:
             self.parent_timestamp = parse_hex_or_int(
                 data["parentTimestamp"], U256
@@ -353,7 +368,10 @@ class Result:
         data["logsHash"] = "0x" + self.logs_hash.hex()
         data["logsBloom"] = "0x" + self.bloom.hex()
         data["gasUsed"] = hex(self.gas_used)
-        data["currentDifficulty"] = hex(self.difficulty)
+        if self.difficulty:
+            data["currentDifficulty"] = hex(self.difficulty)
+        else:
+            data["currentDifficulty"] = None
 
         data["rejected"] = [
             {"index": idx, "error": error}
