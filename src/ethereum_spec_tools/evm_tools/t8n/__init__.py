@@ -98,10 +98,19 @@ class T8N(Load):
             fork_module,
         )
 
+        if "stdin" in (
+            options.input_env,
+            options.input_alloc,
+            options.input_txs,
+        ):
+            stdin = json.load(sys.stdin)
+        else:
+            stdin = None
+
         self.chain_id = parse_hex_or_int(self.options.state_chainid, U64)
-        self.alloc = Alloc(self)
-        self.env = Env(self)
-        self.txs = Txs(self)
+        self.alloc = Alloc(self, stdin)
+        self.env = Env(self, stdin)
+        self.txs = Txs(self, stdin)
         self.result = Result(
             self.env.block_difficulty, self.env.base_fee_per_gas
         )
@@ -364,18 +373,23 @@ class T8N(Load):
         json_state = self.alloc.to_json()
         json_result = self.result.to_json()
 
-        if self.options.output_alloc != "stdout":
+        json_output = {}
+
+        if self.options.output_alloc == "stdout":
+            json_output["alloc"] = json_state
+        else:
             with open(self.options.output_alloc, "w") as f:
                 json.dump(json_state, f, indent=4)
             self.logger.info(f"Wrote alloc to {self.options.output_alloc}")
-        else:
-            print(json.dumps(json_state, indent=4), file=sys.stdout)
 
-        if self.options.output_result != "stdout":
+        if self.options.output_result == "stdout":
+            json_output["result"] = json_result
+        else:
             with open(self.options.output_result, "w") as f:
                 json.dump(json_result, f, indent=4)
             self.logger.info(f"Wrote result to {self.options.output_result}")
-        else:
-            print(json.dumps(json_result, indent=4), file=sys.stdout)
+
+        if json_output:
+            json.dump(json_output, sys.stdout, indent=4)
 
         return 0
