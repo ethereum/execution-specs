@@ -48,6 +48,7 @@ def get_module_name(forks: Any, state_fork: str) -> str:
     exception_maps = {
         "EIP150": "tangerine_whistle",
         "EIP158": "spurious_dragon",
+        "Merge": "paris",
     }
 
     try:

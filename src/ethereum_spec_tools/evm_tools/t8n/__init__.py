@@ -151,7 +151,9 @@ class T8N(Load):
         For the t8n tool, the block reward is
         provided as a command line option
         """
-        if self.options.state_reward < 0:
+        if self.options.state_reward < 0 or self.is_after_fork(
+            "ethereum.paris"
+        ):
             return None
         else:
             return U256(self.options.state_reward)
@@ -194,9 +196,13 @@ class T8N(Load):
             "number": self.env.block_number,
             "gas_limit": self.env.block_gas_limit,
             "time": self.env.block_timestamp,
-            "difficulty": self.env.block_difficulty,
             "state": self.alloc.state,
         }
+
+        if self.is_after_fork("ethereum.paris"):
+            kw_arguments["prev_randao"] = self.env.prev_randao
+        else:
+            kw_arguments["difficulty"] = self.env.block_difficulty
 
         if self.is_after_fork("ethereum.istanbul"):
             kw_arguments["chain_id"] = self.chain_id
@@ -353,6 +359,23 @@ class T8N(Load):
         block_logs_bloom = self.bloom.logs_bloom(block_logs)
 
         logs_hash = keccak256(rlp.encode(block_logs))
+
+        if self.is_after_fork("ethereum.shanghai"):
+            withdrawals_trie = self.trie.Trie(secured=False, default=None)
+
+            for i, wd in enumerate(self.env.withdrawals):
+                self.trie.trie_set(
+                    withdrawals_trie, rlp.encode(Uint(i)), rlp.encode(wd)
+                )
+
+                self.state.process_withdrawal(self.alloc.state, wd)
+
+                if self.state.account_exists_and_is_empty(
+                    self.alloc.state, wd.address
+                ):
+                    self.state.destroy_account(self.alloc.state, wd.address)
+
+            self.result.withdrawals_root = self.trie.root(withdrawals_trie)
 
         self.result.state_root = self.state.state_root(self.alloc.state)
         self.result.tx_root = self.trie.root(transactions_trie)
