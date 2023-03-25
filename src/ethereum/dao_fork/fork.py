@@ -28,7 +28,7 @@ from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Bytes32, Uint
 from . import MAINNET_FORK_BLOCK, vm
 from .bloom import logs_bloom
-from .dao import DAO_ACCOUNTS, DAO_RECOVERY
+from .dao import apply_dao
 from .fork_types import (
     TX_BASE_COST,
     TX_CREATE_COST,
@@ -49,7 +49,6 @@ from .state import (
     destroy_account,
     get_account,
     increment_nonce,
-    move_ether,
     set_account_balance,
     state_root,
 )
@@ -101,9 +100,7 @@ def apply_fork(old: BlockChain) -> BlockChain:
     new : `BlockChain`
         Upgraded block chain object for this hard fork.
     """
-    for address in DAO_ACCOUNTS:
-        balance = get_account(old.state, address).balance
-        move_ether(old.state, address, DAO_RECOVERY, balance)
+    apply_dao(old.state)
     return old
 
 

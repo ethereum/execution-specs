@@ -21,7 +21,7 @@ test_fixtures = {
     },
     "t8n_testdata": {
         "url": "https://github.com/gurukamath/t8n_testdata.git",
-        "commit_hash": "6b6a0fe",
+        "commit_hash": "c6885c6",
     },
     "fixtures": {
         "url": "https://github.com/ethereum/tests.git",
