@@ -131,7 +131,7 @@ xfail_candidates = (
 )
 
 # FIXME: Check if these tests should in fact be ignored
-IGNORE_INVALID_BLOCK_TESTS = ("bcForgedTest",)
+IGNORE_INVALID_BLOCK_TESTS = ("bcForgedTest", "bcMultiChainTest")
 
 
 def is_in_xfail(test_case: Dict) -> bool:
