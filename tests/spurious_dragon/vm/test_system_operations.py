@@ -1,3 +1,4 @@
+import os
 from functools import partial
 
 import pytest
@@ -6,12 +7,18 @@ from ..vm.vm_test_helpers import run_test
 
 run_system_vm_test = partial(
     run_test,
-    "tests/fixtures/LegacyTests/Constantinople/VMTests/vmSystemOperations",
+    os.path.join(
+        os.environ["ETHEREUM_TESTS"],
+        "LegacyTests/Constantinople/VMTests/vmSystemOperations",
+    ),
 )
 
 run_vm_test = partial(
     run_test,
-    "tests/fixtures/LegacyTests/Constantinople/VMTests/vmTests",
+    os.path.join(
+        os.environ["ETHEREUM_TESTS"],
+        "LegacyTests/Constantinople/VMTests/vmTests",
+    ),
 )
 
 

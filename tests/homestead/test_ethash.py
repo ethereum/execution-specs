@@ -1,4 +1,5 @@
 import json
+import os
 import pkgutil
 from typing import Any, Dict, List, cast
 
@@ -59,7 +60,9 @@ def test_ethtest_fixtures() -> None:
 
 def load_pow_test_fixtures() -> List[Dict[str, Any]]:
     with open(
-        "tests/fixtures/PoWTests/ethash_tests.json"
+        os.path.join(
+            os.environ["ETHEREUM_TESTS"], "PoWTests/ethash_tests.json"
+        )
     ) as pow_test_file_handler:
         return [
             {

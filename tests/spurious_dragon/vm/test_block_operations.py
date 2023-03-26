@@ -1,10 +1,14 @@
+import os
 from functools import partial
 
 from ..vm.vm_test_helpers import run_test
 
 run_block_ops_vm_test = partial(
     run_test,
-    "tests/fixtures/LegacyTests/Constantinople/VMTests/vmBlockInfoTest",
+    os.path.join(
+        os.environ["ETHEREUM_TESTS"],
+        "LegacyTests/Constantinople/VMTests/vmBlockInfoTest",
+    ),
 )
 
 

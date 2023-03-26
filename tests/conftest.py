@@ -16,14 +16,14 @@ from ethereum_spec_tools.evm_trace import evm_trace
 # Update the links and commit has in order to consume
 # newer/other tests
 test_fixtures = {
-    "execution-spec-generated-tests": {
+    "execution_spec_generated_tests": {
         "url": "https://github.com/ethereum/execution-spec-tests/releases/download/v0.2.3/fixtures.tar.gz",
     },
     "t8n_testdata": {
         "url": "https://github.com/gurukamath/t8n_testdata.git",
         "commit_hash": "6b6a0fe",
     },
-    "fixtures": {
+    "ethereum_tests": {
         "url": "https://github.com/ethereum/tests.git",
         "commit_hash": "69c4c2a",
     },
@@ -107,10 +107,17 @@ def git_clone_fixtures(url: str, commit_hash: str, location: str) -> None:
 
 def pytest_sessionstart(session: Session) -> None:
 
-    fixtures_location = "tests"
+    fixtures_location = "tests/fixtures"
+
+    if not os.path.exists(fixtures_location):
+        os.mkdir(fixtures_location)
 
     for idx, props in test_fixtures.items():
         fixture_path = f"{fixtures_location}/{idx}"
+
+        # Set the path of the various downloaded fixtures
+        # as environment variables
+        os.environ[idx.upper()] = fixture_path
 
         if "commit_hash" in props:
             git_clone_fixtures(

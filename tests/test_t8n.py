@@ -15,7 +15,7 @@ from ethereum_spec_tools.evm_tools import parser, subparsers
 from ethereum_spec_tools.evm_tools.t8n import T8N, t8n_arguments
 from ethereum_spec_tools.evm_tools.utils import FatalException
 
-testdata_dir = "tests/t8n_testdata"
+testdata_dir = os.environ["T8N_TESTDATA"]
 
 ignore_tests = [
     "fixtures/expected/26/Merge.json",

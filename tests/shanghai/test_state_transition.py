@@ -1,3 +1,4 @@
+import os
 from functools import partial
 from typing import Dict, Tuple
 
@@ -33,7 +34,9 @@ def is_in_list(test_case: Dict, test_list: Tuple) -> bool:
 
 
 # Run EIP-4895 tests
-test_dir = "tests/fixtures/BlockchainTests/EIPTests/"
+test_dir = os.path.join(
+    os.environ["ETHEREUM_TESTS"], "BlockchainTests/EIPTests/"
+)
 
 invalid_rlp_tests = (
     "bc4895-withdrawals/withdrawalsRLPlessElements.json",
@@ -79,8 +82,9 @@ def test_general_state_tests_4895(test_case: Dict) -> None:
 
 
 # Run EIP-3860 tests
-test_dir = (
-    "tests/fixtures/BlockchainTests/GeneralStateTests/EIPTests/stEIP3860"
+test_dir = os.path.join(
+    os.environ["ETHEREUM_TESTS"],
+    "BlockchainTests/GeneralStateTests/EIPTests/stEIP3860",
 )
 
 
@@ -98,7 +102,9 @@ def test_general_state_tests_3860(test_case: Dict) -> None:
 
 
 # Run execution-spec-generated-tests
-test_dir = "tests/execution-spec-generated-tests/fixtures/withdrawals"
+test_dir = os.path.join(
+    os.environ["EXECUTION_SPEC_GENERATED_TESTS"], "fixtures/withdrawals"
+)
 
 
 @pytest.mark.parametrize(

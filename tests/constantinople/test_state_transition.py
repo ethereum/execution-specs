@@ -1,3 +1,4 @@
+import os
 from functools import partial
 from typing import Dict
 
@@ -26,9 +27,9 @@ run_constantinople_blockchain_st_tests = partial(
 )
 
 # Run legacy general state tests
-test_dir = (
-    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
-    "GeneralStateTests/"
+test_dir = os.path.join(
+    os.environ["ETHEREUM_TESTS"],
+    "LegacyTests/Constantinople/BlockchainTests/GeneralStateTests/",
 )
 
 
@@ -85,8 +86,9 @@ def test_general_state_tests(test_case: Dict) -> None:
 
 
 # Run legacy valid block tests
-test_dir = (
-    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/ValidBlocks/"
+test_dir = os.path.join(
+    os.environ["ETHEREUM_TESTS"],
+    "LegacyTests/Constantinople/BlockchainTests/ValidBlocks/",
 )
 
 IGNORE_LIST = (
@@ -122,8 +124,9 @@ def test_valid_block_tests(test_case: Dict) -> None:
 
 
 # Run legacy invalid block tests
-test_dir = (
-    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/InvalidBlocks"
+test_dir = os.path.join(
+    os.environ["ETHEREUM_TESTS"],
+    "LegacyTests/Constantinople/BlockchainTests/InvalidBlocks",
 )
 
 xfail_candidates = ("GasLimitHigherThan2p63m1_ConstantinopleFix",)
@@ -158,7 +161,10 @@ def test_invalid_block_tests(test_case: Dict) -> None:
 
 
 # Run Non-Legacy GeneralStateTests
-test_dir = "tests/fixtures/BlockchainTests/GeneralStateTests/"
+test_dir = os.path.join(
+    os.environ["ETHEREUM_TESTS"],
+    "BlockchainTests/GeneralStateTests/",
+)
 
 non_legacy_only_in = (
     "stCreateTest/CREATE_HighNonce.json",

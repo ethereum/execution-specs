@@ -1,3 +1,4 @@
+import os
 from functools import partial
 from typing import Dict
 
@@ -24,7 +25,9 @@ run_istanbul_blockchain_st_tests = partial(
 )
 
 # Run legacy general state tests
-test_dir = "tests/fixtures/BlockchainTests/GeneralStateTests/"
+test_dir = os.path.join(
+    os.environ["ETHEREUM_TESTS"], "BlockchainTests/GeneralStateTests/"
+)
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
@@ -83,7 +86,9 @@ def test_general_state_tests(test_case: Dict) -> None:
 
 
 # Run legacy valid block tests
-test_dir = "tests/fixtures/BlockchainTests/ValidBlocks/"
+test_dir = os.path.join(
+    os.environ["ETHEREUM_TESTS"], "BlockchainTests/ValidBlocks/"
+)
 
 IGNORE_LIST = (
     "bcForkStressTest/ForkStressTest.json",
@@ -115,7 +120,9 @@ def test_valid_block_tests(test_case: Dict) -> None:
 
 
 # Run legacy invalid block tests
-test_dir = "tests/fixtures/BlockchainTests/InvalidBlocks"
+test_dir = os.path.join(
+    os.environ["ETHEREUM_TESTS"], "BlockchainTests/InvalidBlocks"
+)
 
 # TODO: Handle once https://github.com/ethereum/tests/issues/1037
 # is resolved

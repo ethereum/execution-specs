@@ -1,3 +1,4 @@
+import os
 from functools import partial
 
 import pytest
@@ -12,7 +13,7 @@ from ethereum.utils.hexadecimal import hex_to_uint
 
 from ..helpers.fork_types_helpers import load_test_transaction
 
-test_dir = "tests/fixtures/TransactionTests"
+test_dir = os.path.join(os.environ["ETHEREUM_TESTS"], "TransactionTests")
 
 load_tangerine_whistle_transaction = partial(
     load_test_transaction, network="EIP150"

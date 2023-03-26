@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Any
 
 from ethereum.frontier.fork_types import Bytes
@@ -80,7 +81,9 @@ def test_trie_any_order() -> None:
 
 
 def load_tests(path: str) -> Any:
-    with open("tests/fixtures/TrieTests/" + path) as f:
+    with open(
+        os.path.join(os.environ["ETHEREUM_TESTS"], "TrieTests/", path)
+    ) as f:
         tests = json.load(f)
 
     return tests

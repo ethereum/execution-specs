@@ -357,7 +357,7 @@ def convert_to_rlp_native(
 def ethtest_fixtures_as_pytest_fixtures(
     *test_files: str,
 ) -> List[Tuple[RLP, Bytes]]:
-    base_path = "tests/fixtures/RLPTests/"
+    base_path = os.path.join(os.environ["ETHEREUM_TESTS"], "RLPTests/")
 
     test_data = dict()
     for test_file in test_files:
