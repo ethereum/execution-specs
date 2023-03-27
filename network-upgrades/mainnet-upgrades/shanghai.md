@@ -43,10 +43,10 @@ Implementation status of Included & CFI'd EIPs across participating clients.
    - [x] Sepolia
    - [x] Goerli
    - [x] Mainnet 
- - [ ] Deploy Clients
-   - [ ]  Geth
-   - [ ]  Besu
-   - [ ]  Nethermind
-   - [ ]  Erigon
-   - [ ]  EthereumJS
+ - [x] Deploy Clients
+   - [x]  Geth [v1.11.5](https://github.com/ethereum/go-ethereum/releases/tag/v1.11.5)
+   - [x]  Besu [v23.1.2](https://github.com/hyperledger/besu/releases/tag/23.1.2)
+   - [x]  Nethermind [v1.17.3](https://github.com/NethermindEth/nethermind/releases/tag/1.17.3)
+   - [x]  Erigon [v2.41.0](https://github.com/ledgerwatch/erigon/releases/tag/v2.41.0)
+   - [x]  EthereumJS [vm v6.4.0](https://github.com/ethereumjs/ethereumjs-monorepo/releases/tag/%40ethereumjs%2Fvm%406.4.0)
  - [ ] Activate Fork
