@@ -14,8 +14,9 @@ from ethereum.utils.hexadecimal import (
 from ethereum_spec_tools.evm_tools import parser, subparsers
 from ethereum_spec_tools.evm_tools.t8n import T8N, t8n_arguments
 from ethereum_spec_tools.evm_tools.utils import FatalException
+from tests.helpers import TEST_FIXTURES
 
-testdata_dir = "tests/t8n_testdata"
+T8N_TEST_PATH = TEST_FIXTURES["t8n_testdata"]["fixture_path"]
 
 ignore_tests = [
     "fixtures/expected/26/Merge.json",
@@ -23,7 +24,7 @@ ignore_tests = [
 
 
 def find_test_fixtures() -> Any:
-    with open(os.path.join(testdata_dir, "commands.json")) as f:
+    with open(os.path.join(T8N_TEST_PATH, "commands.json")) as f:
         data = json.load(f)
 
     for key, value in data.items():
@@ -31,13 +32,13 @@ def find_test_fixtures() -> Any:
         final_args = []
         for arg in value["args"]:
             if "__BASEDIR__" in arg:
-                final_args.append(arg.replace("__BASEDIR__", testdata_dir))
+                final_args.append(arg.replace("__BASEDIR__", T8N_TEST_PATH))
             else:
                 final_args.append(arg)
         yield {
             "name": key,
             "args": final_args,
-            "expected": os.path.join(testdata_dir, key),
+            "expected": os.path.join(T8N_TEST_PATH, key),
             "success": value["success"],
         }
 

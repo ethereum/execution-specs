@@ -8,6 +8,9 @@ from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     remove_hex_prefix,
 )
+from tests.helpers import TEST_FIXTURES
+
+ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 
 
 def to_bytes(data: str) -> Bytes:
@@ -80,7 +83,7 @@ def test_trie_any_order() -> None:
 
 
 def load_tests(path: str) -> Any:
-    with open("tests/fixtures/TrieTests/" + path) as f:
+    with open(f"{ETHEREUM_TESTS_PATH}/TrieTests/" + path) as f:
         tests = json.load(f)
 
     return tests

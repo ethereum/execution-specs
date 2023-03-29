@@ -7,6 +7,7 @@ from ethereum import rlp
 from ethereum.base_types import U256, Bytes, Bytes8, Bytes32, Uint
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import InvalidBlock, RLPDecodingError
+from tests.helpers import TEST_FIXTURES
 from tests.helpers.load_state_tests import (
     Load,
     NoPostState,
@@ -23,6 +24,11 @@ run_shanghai_blockchain_st_tests = partial(
     run_blockchain_st_test, load=FIXTURES_LOADER
 )
 
+ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
+ETHEREUM_SPEC_TESTS_PATH = TEST_FIXTURES["execution_spec_tests"][
+    "fixture_path"
+]
+
 
 def is_in_list(test_case: Dict, test_list: Tuple) -> bool:
     for test in test_list:
@@ -33,7 +39,7 @@ def is_in_list(test_case: Dict, test_list: Tuple) -> bool:
 
 
 # Run EIP-4895 tests
-test_dir = "tests/fixtures/BlockchainTests/EIPTests/"
+test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/EIPTests/"
 
 invalid_rlp_tests = (
     "bc4895-withdrawals/withdrawalsRLPlessElements.json",
@@ -79,9 +85,7 @@ def test_general_state_tests_4895(test_case: Dict) -> None:
 
 
 # Run EIP-3860 tests
-test_dir = (
-    "tests/fixtures/BlockchainTests/GeneralStateTests/EIPTests/stEIP3860"
-)
+test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/GeneralStateTests/EIPTests/stEIP3860"
 
 
 @pytest.mark.parametrize(
@@ -98,7 +102,7 @@ def test_general_state_tests_3860(test_case: Dict) -> None:
 
 
 # Run execution-spec-generated-tests
-test_dir = "tests/execution-spec-generated-tests/fixtures/withdrawals"
+test_dir = f"{ETHEREUM_SPEC_TESTS_PATH}/fixtures/withdrawals"
 
 
 @pytest.mark.parametrize(

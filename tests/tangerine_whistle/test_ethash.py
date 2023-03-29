@@ -25,8 +25,10 @@ from ethereum.utils.hexadecimal import (
     hex_to_bytes32,
 )
 from ethereum.utils.numeric import le_uint32_sequence_to_bytes
+from tests.helpers import TEST_FIXTURES
+from tests.helpers.load_state_tests import Load
 
-from ..helpers.load_state_tests import Load
+ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 
 
 def test_ethtest_fixtures() -> None:
@@ -59,7 +61,7 @@ def test_ethtest_fixtures() -> None:
 
 def load_pow_test_fixtures() -> List[Dict[str, Any]]:
     with open(
-        "tests/fixtures/PoWTests/ethash_tests.json"
+        f"{ETHEREUM_TESTS_PATH}/PoWTests/ethash_tests.json"
     ) as pow_test_file_handler:
         return [
             {

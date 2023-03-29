@@ -9,6 +9,10 @@ from ethereum.exceptions import RLPEncodingError
 from ethereum.frontier.fork_types import U256, Bytes, Uint
 from ethereum.rlp import RLP
 from ethereum.utils.hexadecimal import hex_to_bytes
+from tests.helpers import TEST_FIXTURES
+
+ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
+
 
 #
 # Tests for RLP encode
@@ -357,7 +361,7 @@ def convert_to_rlp_native(
 def ethtest_fixtures_as_pytest_fixtures(
     *test_files: str,
 ) -> List[Tuple[RLP, Bytes]]:
-    base_path = "tests/fixtures/RLPTests/"
+    base_path = f"{ETHEREUM_TESTS_PATH}/RLPTests/"
 
     test_data = dict()
     for test_file in test_files:

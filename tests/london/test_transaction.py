@@ -6,10 +6,13 @@ from ethereum import rlp
 from ethereum.london.fork import calculate_intrinsic_cost, validate_transaction
 from ethereum.london.fork_types import LegacyTransaction
 from ethereum.utils.hexadecimal import hex_to_uint
+from tests.helpers import TEST_FIXTURES
 
 from ..helpers.fork_types_helpers import load_test_transaction
 
-test_dir = "tests/fixtures/TransactionTests"
+ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
+
+test_dir = f"{ETHEREUM_TESTS_PATH}/TransactionTests"
 
 load_london_transaction = partial(load_test_transaction, network="London")
 

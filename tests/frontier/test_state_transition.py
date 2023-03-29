@@ -7,6 +7,7 @@ from ethereum import rlp
 from ethereum.base_types import U256, Bytes, Bytes8, Bytes32, Uint
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import InvalidBlock
+from tests.helpers import TEST_FIXTURES
 from tests.helpers.load_state_tests import (
     Load,
     NoPostState,
@@ -23,10 +24,12 @@ run_frontier_blockchain_st_tests = partial(
     run_blockchain_st_test, load=FIXTURES_LOADER
 )
 
+ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
+
 
 # Run legacy general state tests
 test_dir = (
-    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/"
+    f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/BlockchainTests/"
     "GeneralStateTests/"
 )
 
@@ -55,9 +58,7 @@ def test_general_state_tests(test_case: Dict) -> None:
 
 
 # Run legacy valid block tests
-test_dir = (
-    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/ValidBlocks/"
-)
+test_dir = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/BlockchainTests/ValidBlocks/"
 
 IGNORE_LIST = (
     "bcForkStressTest/ForkStressTest.json",
@@ -85,9 +86,7 @@ def test_valid_block_tests(test_case: Dict) -> None:
 
 
 # Run legacy invalid block tests
-test_dir = (
-    "tests/fixtures/LegacyTests/Constantinople/BlockchainTests/InvalidBlocks"
-)
+test_dir = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/BlockchainTests/InvalidBlocks"
 
 xfail_candidates = ("GasLimitHigherThan2p63m1_Frontier",)
 
@@ -122,7 +121,7 @@ def test_invalid_block_tests(test_case: Dict) -> None:
 
 
 # Run Non-Legacy GeneralStateTests
-test_dir = "tests/fixtures/BlockchainTests/GeneralStateTests/"
+test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/GeneralStateTests/"
 
 non_legacy_only_in = (
     "stCreateTest/CREATE_HighNonce.json",
