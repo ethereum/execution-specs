@@ -109,8 +109,10 @@ def pytest_sessionstart(session: Session) -> None:
 
     fixtures_location = "tests/fixtures"
 
-    if not os.path.exists(fixtures_location):
+    try:
         os.mkdir(fixtures_location)
+    except FileExistsError:
+        pass
 
     for idx, props in test_fixtures.items():
         fixture_path = f"{fixtures_location}/{idx}"
