@@ -14,6 +14,7 @@ from ..spec import TestSpec
 
 
 def fill_test(
+    name: str,
     t8n: TransitionTool,
     b11r: BlockBuilder,
     test_spec: TestSpec,
@@ -48,7 +49,8 @@ def fill_test(
                     eips=eips,
                 )
             except Exception as e:
-                print(f"Exception during test '{test.tag}'")
+                name_tag = f"{name} {test.tag}" if test.tag else name
+                print(f"Exception during test '{name_tag}'")
                 raise e
 
             fixture = Fixture(
