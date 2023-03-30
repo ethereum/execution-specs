@@ -4,10 +4,11 @@ Test suite for `ethereum_test` module.
 
 import json
 import os
-from typing import Any, Dict, Generator, List
+from typing import Any, Dict, Generator, List, Type
 
 import pytest
 
+from ethereum_test_forks import Berlin, Fork, Istanbul, London
 from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool
 
@@ -31,9 +32,9 @@ def remove_info(fixture_json: Dict[str, Any]):
 
 
 @pytest.mark.parametrize(
-    "fork,hash", [("Berlin", "0x193e550de"), ("London", "0xb053deac0")]
+    "fork,hash", [(Berlin, "0x193e550de"), (London, "0xb053deac0")]
 )
-def test_make_genesis(fork: str, hash: str):
+def test_make_genesis(fork: Type[Fork], hash: str):
     env = Environment()
 
     pre = {
@@ -68,11 +69,11 @@ def test_make_genesis(fork: str, hash: str):
 @pytest.mark.parametrize(
     "fork,expected_json_file",
     [
-        ("Istanbul", "chainid_istanbul_filled.json"),
-        ("London", "chainid_london_filled.json"),
+        (Istanbul, "chainid_istanbul_filled.json"),
+        (London, "chainid_london_filled.json"),
     ],
 )
-def test_fill_state_test(fork: str, expected_json_file: str):
+def test_fill_state_test(fork: Type[Fork], expected_json_file: str):
     """
     Test `ethereum_test.filler.fill_fixtures` with `StateTest`.
     """
@@ -407,7 +408,7 @@ def test_fill_london_blockchain_test_valid_txs():
         t8n=t8n,
         b11r=b11r,
         test_spec=generator,
-        forks=["London"],
+        forks=[London],
         engine="NoProof",
         spec=None,
     )
@@ -742,7 +743,7 @@ def test_fill_london_blockchain_test_invalid_txs():
         t8n=t8n,
         b11r=b11r,
         test_spec=generator,
-        forks=["London"],
+        forks=[London],
         engine="NoProof",
         spec=None,
     )

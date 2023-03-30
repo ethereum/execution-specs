@@ -1,12 +1,13 @@
 """
 Decorators for expanding filler definitions.
 """
-from typing import Any, Callable, List, Mapping, Optional, cast
+from typing import Any, Callable, List, Mapping, Optional, Type, cast
+
+from ethereum_test_forks import Fork, forks_from, forks_from_until
 
 from ..common import Fixture
 from ..reference_spec.reference_spec import ReferenceSpec
 from ..spec import TestSpec
-from ..vm.fork import forks_from, forks_from_until
 from .fill import fill_test
 
 TESTS_PREFIX = "test_"
@@ -14,8 +15,8 @@ TESTS_PREFIX_LEN = len(TESTS_PREFIX)
 
 
 def test_from_until(
-    fork_from: str,
-    fork_until: str,
+    fork_from: Type[Fork],
+    fork_until: Type[Fork],
     eips: Optional[List[int]] = None,
 ) -> Callable[
     [TestSpec],

@@ -1,10 +1,11 @@
 import json
 import os
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Type
 
 import pytest
 
+from ethereum_test_forks import Berlin, Fork, Istanbul, London
 from evm_transition_tool import EvmTransitionTool, TransitionTool
 
 FIXTURES_ROOT = Path(
@@ -13,7 +14,7 @@ FIXTURES_ROOT = Path(
 
 
 @pytest.mark.parametrize("t8n", [EvmTransitionTool()])
-@pytest.mark.parametrize("fork", ["London", "Istanbul"])
+@pytest.mark.parametrize("fork", [London, Istanbul])
 @pytest.mark.parametrize(
     "alloc,base_fee,hash",
     [
@@ -66,7 +67,7 @@ FIXTURES_ROOT = Path(
 )
 def test_calc_state_root(
     t8n: TransitionTool,
-    fork: str,
+    fork: Type[Fork],
     alloc: Dict,
     base_fee: int | None,
     hash: str,
@@ -97,7 +98,7 @@ def test_evm_t8n(t8n: TransitionTool, test_dir: str) -> None:
         env = json.load(env)
         expected = json.load(exp)
 
-        (result_alloc, result, _) = t8n.evaluate(alloc, txs, env, "Berlin")
+        (result_alloc, result, _) = t8n.evaluate(alloc, txs, env, Berlin)
         print(result)
         assert result_alloc == expected.get("alloc")
         assert result == expected.get("result")
