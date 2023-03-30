@@ -14,6 +14,7 @@ from typing import (
     Tuple,
 )
 
+from ethereum_test_forks import Fork
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
 
@@ -28,7 +29,6 @@ from ..common import (
     to_json,
     to_json_or_none,
 )
-from ..vm import set_fork_requirements
 from .base_test import BaseTest, verify_post_alloc, verify_transactions
 from .debugging import print_traces
 
@@ -49,12 +49,12 @@ class BlockchainTest(BaseTest):
         self,
         b11r: BlockBuilder,
         t8n: TransitionTool,
-        fork: str,
+        fork: Fork,
     ) -> Tuple[str, FixtureHeader]:
         """
         Create a genesis block from the state test definition.
         """
-        env = set_fork_requirements(self.genesis_environment, fork)
+        env = self.genesis_environment.set_fork_requirements(fork)
 
         genesis = FixtureHeader(
             parent_hash="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
@@ -93,13 +93,12 @@ class BlockchainTest(BaseTest):
         self,
         b11r: BlockBuilder,
         t8n: TransitionTool,
-        fork: str,
+        fork: Fork,
         block: Block,
         previous_env: Environment,
         previous_alloc: Dict[str, Any],
         previous_head: str,
         chain_id=1,
-        reward=0,
         eips: Optional[List[int]] = None,
     ) -> Tuple[FixtureBlock, Environment, Dict[str, Any], str]:
         """
@@ -133,7 +132,7 @@ class BlockchainTest(BaseTest):
             # based on the transactions to be included in the block.
             # Set the environment according to the block to execute.
             env = block.set_environment(previous_env)
-            env = set_fork_requirements(env, fork)
+            env = env.set_fork_requirements(fork)
 
             (next_alloc, result, txs_rlp) = t8n.evaluate(
                 alloc=previous_alloc,
@@ -141,7 +140,7 @@ class BlockchainTest(BaseTest):
                 env=to_json(env),
                 fork=fork,
                 chain_id=chain_id,
-                reward=reward,
+                reward=fork.get_reward(env.number, env.timestamp),
                 eips=eips,
             )
 
@@ -232,9 +231,8 @@ class BlockchainTest(BaseTest):
         b11r: BlockBuilder,
         t8n: TransitionTool,
         genesis: FixtureHeader,
-        fork: str,
+        fork: Fork,
         chain_id=1,
-        reward=0,
         eips: Optional[List[int]] = None,
     ) -> Tuple[List[FixtureBlock], str, Dict[str, Any]]:
         """
@@ -260,7 +258,6 @@ class BlockchainTest(BaseTest):
                 previous_alloc=alloc,
                 previous_head=head,
                 chain_id=chain_id,
-                reward=reward,
                 eips=eips,
             )
             blocks.append(fixture_block)

@@ -6,6 +6,7 @@ from copy import copy, deepcopy
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, List, Mapping, Optional, Tuple, Type
 
+from ethereum_test_forks import Fork
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
 
@@ -470,6 +471,9 @@ class Withdrawal:
     amount: int
 
 
+DEFAULT_BASE_FEE = 7
+
+
 @dataclass(kw_only=True)
 class Environment:
     """
@@ -539,6 +543,36 @@ class Environment:
             else "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
         )
         return env
+
+    def set_fork_requirements(self, fork: Fork) -> "Environment":
+        """
+        Fills the required fields in an environment depending on the fork.
+        """
+        res = copy(self)
+
+        if (
+            fork.header_prev_randao_required(self.number, self.timestamp)
+            and res.prev_randao is None
+        ):
+            res.prev_randao = 0
+
+        if (
+            fork.header_withdrawals_required(self.number, self.timestamp)
+            and res.withdrawals is None
+        ):
+            res.withdrawals = []
+
+        if (
+            fork.header_base_fee_required(self.number, self.timestamp)
+            and res.base_fee is None
+            and res.parent_base_fee is None
+        ):
+            res.base_fee = DEFAULT_BASE_FEE
+
+        if fork.header_zero_difficulty_required(self.number, self.timestamp):
+            res.difficulty = 0
+
+        return res
 
 
 @dataclass(kw_only=True)

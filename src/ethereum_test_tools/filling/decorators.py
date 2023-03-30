@@ -3,38 +3,48 @@ Decorators for expanding filler definitions.
 """
 from typing import Any, Callable, List, Mapping, Optional, cast
 
+from ethereum_test_forks import Fork, forks_from, forks_from_until
+from evm_block_builder import BlockBuilder
+from evm_transition_tool import TransitionTool
+
 from ..common import Fixture
 from ..reference_spec.reference_spec import ReferenceSpec
 from ..spec import TestSpec
-from ..vm.fork import forks_from, forks_from_until
 from .fill import fill_test
 
 TESTS_PREFIX = "test_"
 TESTS_PREFIX_LEN = len(TESTS_PREFIX)
 
+FillerReturnType = Mapping[str, Fixture]
+DecoratedFillerType = Callable[
+    [TransitionTool, BlockBuilder, str, ReferenceSpec | None], FillerReturnType
+]
+
 
 def test_from_until(
-    fork_from: str,
-    fork_until: str,
+    fork_from: Fork,
+    fork_until: Fork,
     eips: Optional[List[int]] = None,
-) -> Callable[
-    [TestSpec],
-    Callable[[Any, Any, str, ReferenceSpec | None], Mapping[str, Fixture]],
-]:
+) -> Callable[[TestSpec], DecoratedFillerType]:
     """
     Decorator that takes a test generator and fills it for all forks after the
     specified fork.
     """
-    fork_from = fork_from.capitalize()
-    fork_until = fork_until.capitalize()
 
     def decorator(
         fn: TestSpec,
-    ) -> Callable[
-        [Any, Any, str, ReferenceSpec | None], Mapping[str, Fixture]
-    ]:
-        def inner(t8n, b11r, engine, spec) -> Mapping[str, Fixture]:
+    ) -> DecoratedFillerType:
+        name = fn.__name__
+        assert name.startswith(TESTS_PREFIX)
+
+        def inner(
+            t8n: TransitionTool,
+            b11r: BlockBuilder,
+            engine: str,
+            spec: ReferenceSpec | None,
+        ) -> FillerReturnType:
             return fill_test(
+                name,
                 t8n,
                 b11r,
                 fn,
@@ -43,9 +53,6 @@ def test_from_until(
                 spec,
                 eips=eips,
             )
-
-        name = fn.__name__
-        assert name.startswith(TESTS_PREFIX)
 
         cast(Any, inner).__filler_metadata__ = {
             "fork": fork_from,
@@ -58,30 +65,29 @@ def test_from_until(
 
 
 def test_from(
-    fork: str,
+    fork: Fork,
     eips: Optional[List[int]] = None,
-) -> Callable[
-    [TestSpec],
-    Callable[[Any, Any, str, ReferenceSpec | None], Mapping[str, Fixture]],
-]:
+) -> Callable[[TestSpec], DecoratedFillerType]:
     """
     Decorator that takes a test generator and fills it for all forks after the
     specified fork.
     """
-    fork = fork.capitalize()
 
     def decorator(
         fn: TestSpec,
-    ) -> Callable[
-        [Any, Any, str, ReferenceSpec | None], Mapping[str, Fixture]
-    ]:
-        def inner(t8n, b11r, engine, spec) -> Mapping[str, Fixture]:
-            return fill_test(
-                t8n, b11r, fn, forks_from(fork), engine, spec, eips=eips
-            )
-
+    ) -> DecoratedFillerType:
         name = fn.__name__
         assert name.startswith(TESTS_PREFIX)
+
+        def inner(
+            t8n: TransitionTool,
+            b11r: BlockBuilder,
+            engine: str,
+            spec: ReferenceSpec | None,
+        ) -> FillerReturnType:
+            return fill_test(
+                name, t8n, b11r, fn, forks_from(fork), engine, spec, eips=eips
+            )
 
         cast(Any, inner).__filler_metadata__ = {
             "fork": fork,
@@ -94,28 +100,29 @@ def test_from(
 
 
 def test_only(
-    fork: str,
+    fork: Fork,
     eips: Optional[List[int]] = None,
-) -> Callable[
-    [TestSpec],
-    Callable[[Any, Any, str, ReferenceSpec | None], Mapping[str, Fixture]],
-]:
+) -> Callable[[TestSpec], DecoratedFillerType]:
     """
     Decorator that takes a test generator and fills it only for the specified
     fork.
     """
-    fork = fork.capitalize()
 
     def decorator(
         fn: TestSpec,
-    ) -> Callable[
-        [Any, Any, str, ReferenceSpec | None], Mapping[str, Fixture]
-    ]:
-        def inner(t8n, b11r, engine, spec) -> Mapping[str, Fixture]:
-            return fill_test(t8n, b11r, fn, [fork], engine, spec, eips=eips)
-
+    ) -> DecoratedFillerType:
         name = fn.__name__
         assert name.startswith(TESTS_PREFIX)
+
+        def inner(
+            t8n: TransitionTool,
+            b11r: BlockBuilder,
+            engine: str,
+            spec: ReferenceSpec | None,
+        ) -> FillerReturnType:
+            return fill_test(
+                name, t8n, b11r, fn, [fork], engine, spec, eips=eips
+            )
 
         cast(Any, inner).__filler_metadata__ = {
             "fork": fork,

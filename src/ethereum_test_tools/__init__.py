@@ -25,7 +25,6 @@ from .filling.fill import fill_test
 from .reference_spec import ReferenceSpec, ReferenceSpecTypes
 from .spec import BlockchainTest, StateTest
 from .vm import Opcode, Opcodes
-from .vm.fork import is_fork
 
 __all__ = (
     "AccessList",
@@ -52,7 +51,6 @@ __all__ = (
     "compute_create2_address",
     "eip_2028_transaction_data_cost",
     "fill_test",
-    "is_fork",
     "test_from_until",
     "test_from",
     "test_only",

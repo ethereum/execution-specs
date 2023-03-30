@@ -3,7 +3,7 @@ Test EIP-3855: PUSH0 Instruction
 EIP: https://eips.ethereum.org/EIPS/eip-3855
 Source tests: https://github.com/ethereum/tests/pull/1033
 """
-
+from ethereum_test_forks import Shanghai
 from ethereum_test_tools import (
     Account,
     CodeGasMeasure,
@@ -21,7 +21,7 @@ REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3855.md"
 REFERENCE_SPEC_VERSION = "0820a03563f3b7710c347732a73bcb5b1c925416"
 
 
-@test_from(fork="shanghai")
+@test_from(fork=Shanghai)
 def test_push0(fork):
     """
     Test push0 opcode.

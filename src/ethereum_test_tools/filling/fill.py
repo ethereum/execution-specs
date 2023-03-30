@@ -4,20 +4,21 @@ Filler object definitions.
 from copy import copy
 from typing import List, Mapping, Optional
 
+from ethereum_test_forks import ArrowGlacier, Fork
 from evm_block_builder import BlockBuilder
-from evm_transition_tool import TransitionTool, map_fork
+from evm_transition_tool import TransitionTool
 
 from ..common import Fixture, alloc_to_accounts
 from ..reference_spec.reference_spec import ReferenceSpec
 from ..spec import TestSpec
-from ..vm.fork import get_reward
 
 
 def fill_test(
+    name: str,
     t8n: TransitionTool,
     b11r: BlockBuilder,
     test_spec: TestSpec,
-    forks: List[str],
+    forks: List[Fork],
     engine: str,
     spec: ReferenceSpec | None,
     eips: Optional[List[int]] = None,
@@ -28,12 +29,10 @@ def fill_test(
     fixtures: List[Fixture] = []
     for fork in forks:
         for index, test in enumerate(test_spec(fork)):
-            mapped = map_fork(fork)
-            if mapped is None:
+            if not t8n.is_fork_supported(fork):
                 # Fork not supported by t8n, skip
                 continue
-            fork = str(mapped)
-            if fork == "ArrowGlacier":
+            if fork == ArrowGlacier:
                 # Fork not supported by hive, skip
                 continue
 
@@ -47,11 +46,11 @@ def fill_test(
                     t8n,
                     genesis,
                     fork,
-                    reward=get_reward(fork),
                     eips=eips,
                 )
             except Exception as e:
-                print(f"Exception during test '{test.tag}'")
+                name_tag = f"{name} {test.tag}" if test.tag else name
+                print(f"Exception during test '{name_tag}'")
                 raise e
 
             fixture = Fixture(
@@ -59,9 +58,9 @@ def fill_test(
                 genesis=genesis,
                 genesis_rlp=genesis_rlp,
                 head=head,
-                fork="+".join([fork] + [str(eip) for eip in eips])
+                fork="+".join([fork.__name__] + [str(eip) for eip in eips])
                 if eips is not None
-                else fork,
+                else fork.__name__,
                 pre_state=copy(test.pre),
                 post_state=alloc_to_accounts(alloc),
                 seal_engine=engine,

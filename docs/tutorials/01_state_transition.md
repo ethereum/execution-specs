@@ -42,11 +42,11 @@ from ethereum_test_tools import (
 )
 ```
 
-Next the following constants, types and helper functions are imported from `ethereum_test_tools`. We will go over these as we come across them.
+Next the following constants, types and helper functions are imported from `ethereum_test_tools` and `ethereum_test_forks`. We will go over these as we come across them.
 
 
 ```python
-@test_from("berlin")
+@test_from(Berlin)
 ```
 
 In Python this kind of definition is called a [*decorator*](https://docs.python.org/3/search.html?q=decorator).

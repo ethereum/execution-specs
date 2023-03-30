@@ -11,6 +11,8 @@ from pathlib import Path
 from shutil import which
 from typing import Any, Dict, List, Optional, Tuple
 
+from ethereum_test_forks import Fork
+
 
 class TransitionTool:
     """
@@ -25,7 +27,7 @@ class TransitionTool:
         alloc: Any,
         txs: Any,
         env: Any,
-        fork: str,
+        fork: Fork,
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
@@ -39,6 +41,13 @@ class TransitionTool:
     def version(self) -> str:
         """
         Return name and version of tool used to state transition
+        """
+        pass
+
+    @abstractmethod
+    def is_fork_supported(self, fork: Fork) -> bool:
+        """
+        Returns True if the fork is supported by the tool
         """
         pass
 
@@ -62,7 +71,7 @@ class TransitionTool:
         """
         return self.traces
 
-    def calc_state_root(self, alloc: Any, fork: str) -> str:
+    def calc_state_root(self, alloc: Any, fork: Fork) -> str:
         """
         Calculate the state root for the given `alloc`.
         """
@@ -74,13 +83,13 @@ class TransitionTool:
             "currentTimestamp": "0",
         }
 
-        if base_fee_required(fork):
+        if fork.header_base_fee_required(0, 0):
             env["currentBaseFee"] = "7"
 
-        if random_required(fork):
+        if fork.header_prev_randao_required(0, 0):
             env["currentRandom"] = "0"
 
-        if withdrawals_required(fork):
+        if fork.header_withdrawals_required(0, 0):
             env["withdrawals"] = []
 
         (_, result, _) = self.evaluate(alloc, [], env, fork)
@@ -89,7 +98,7 @@ class TransitionTool:
             raise Exception("Unable to calculate state root")
         return state_root
 
-    def calc_withdrawals_root(self, withdrawals: Any, fork: str) -> str:
+    def calc_withdrawals_root(self, withdrawals: Any, fork: Fork) -> str:
         """
         Calculate the state root for the given `alloc`.
         """
@@ -106,10 +115,10 @@ class TransitionTool:
             "withdrawals": withdrawals,
         }
 
-        if base_fee_required(fork):
+        if fork.header_base_fee_required(0, 0):
             env["currentBaseFee"] = "7"
 
-        if random_required(fork):
+        if fork.header_prev_randao_required(0, 0):
             env["currentRandom"] = "0"
 
         (_, result, _) = self.evaluate({}, [], env, fork)
@@ -160,7 +169,7 @@ class EvmTransitionTool(TransitionTool):
         alloc: Any,
         txs: Any,
         env: Any,
-        fork: str,
+        fork: Fork,
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
@@ -168,8 +177,9 @@ class EvmTransitionTool(TransitionTool):
         """
         Executes `evm t8n` with the specified arguments.
         """
+        fork_name = fork.__name__
         if eips is not None:
-            fork = "+".join([fork] + [str(eip) for eip in eips])
+            fork_name = "+".join([fork_name] + [str(eip) for eip in eips])
 
         temp_dir = tempfile.TemporaryDirectory()
 
@@ -183,7 +193,7 @@ class EvmTransitionTool(TransitionTool):
             "--output.alloc=stdout",
             "--output.body=txs.rlp",
             f"--output.basedir={temp_dir.name}",
-            f"--state.fork={fork}",
+            f"--state.fork={fork_name}",
             f"--state.chainid={chain_id}",
             f"--state.reward={reward}",
         ]
@@ -255,51 +265,8 @@ class EvmTransitionTool(TransitionTool):
 
         return self.cached_version
 
-
-fork_map = {
-    "frontier": "Frontier",
-    "homestead": "Homestead",
-    "dao": None,
-    "tangerine whistle": "EIP150",
-    "spurious dragon": "EIP158",
-    "byzantium": "Byzantium",
-    "constantinople": "Constantinople",
-    "petersburg": "ConstantinopleFix",
-    "istanbul": "Istanbul",
-    "muir glacier": None,
-    "berlin": "Berlin",
-    "london": "London",
-    "arrow glacier": "ArrowGlacier",
-    "merge": "Merge",
-    "shanghai": "Shanghai",
-}
-
-fork_list = list(fork_map.keys())
-
-
-def base_fee_required(fork: str) -> bool:
-    """
-    Return true if the fork requires baseFee in the block.
-    """
-    return fork_list.index(fork.lower()) >= fork_list.index("london")
-
-
-def random_required(fork: str) -> bool:
-    """
-    Return true if the fork requires currentRandom in the block.
-    """
-    return fork_list.index(fork.lower()) >= fork_list.index("merge")
-
-
-def withdrawals_required(fork: str) -> bool:
-    """
-    Return true if the fork requires withdrawals in the block.
-    """
-    return fork_list.index(fork.lower()) >= fork_list.index("shanghai")
-
-
-def map_fork(fork: str) -> Optional[str]:
-    """
-    Map known fork to t8n fork identifier.
-    """
-    return fork_map.get(fork, fork)
+    def is_fork_supported(self, _: Fork) -> bool:
+        """
+        Returns True if the fork is supported by the tool
+        """
+        return True
