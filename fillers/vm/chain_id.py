@@ -2,6 +2,7 @@
 Test EIP-1344 CHAINID opcode
 """
 
+from ethereum_test_forks import Istanbul
 from ethereum_test_tools import (
     Account,
     Environment,
@@ -11,7 +12,7 @@ from ethereum_test_tools import (
 )
 
 
-@test_from("istanbul")
+@test_from(Istanbul)
 def test_chain_id(fork):
     """
     Test CHAINID opcode.

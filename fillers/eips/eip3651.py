@@ -5,6 +5,7 @@ Source tests: https://github.com/ethereum/tests/pull/1082
 """
 from typing import Dict
 
+from ethereum_test_forks import Shanghai, is_fork
 from ethereum_test_tools import (
     Account,
     CodeGasMeasure,
@@ -13,7 +14,6 @@ from ethereum_test_tools import (
     TestAddress,
     Transaction,
     Yul,
-    is_fork,
     test_from,
     to_address,
     to_hash,
@@ -24,7 +24,7 @@ REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3651.md"
 REFERENCE_SPEC_VERSION = "cd7d6a465c03d86d852a1d6b5179bc78d760e658"
 
 
-@test_from(fork="shanghai")
+@test_from(fork=Shanghai)
 def test_warm_coinbase_call_out_of_gas(fork):
     """
     Test warm coinbase.
@@ -141,7 +141,7 @@ def test_warm_coinbase_call_out_of_gas(fork):
 
         post = {}
 
-        if is_fork(fork=fork, which="shanghai"):
+        if is_fork(fork=fork, which=Shanghai):
             post["0xcccccccccccccccccccccccccccccccccccccccc"] = Account(
                 storage={
                     # On shanghai and beyond, calls with only 100 gas to
@@ -167,7 +167,7 @@ def test_warm_coinbase_call_out_of_gas(fork):
         )
 
 
-@test_from(fork="shanghai")
+@test_from(fork=Shanghai)
 def test_warm_coinbase_gas_usage(fork):
     """
     Test gas usage of different opcodes assuming warm coinbase.
@@ -241,7 +241,7 @@ def test_warm_coinbase_gas_usage(fork):
             ),
         }
 
-        if is_fork(fork, "shanghai"):
+        if is_fork(fork, Shanghai):
             expected_gas = 100  # Warm account access cost after EIP-3651
         else:
             expected_gas = 2600  # Cold account access cost before EIP-3651

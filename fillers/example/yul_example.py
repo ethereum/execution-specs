@@ -1,7 +1,7 @@
 """
 Test Yul Source Code Examples
 """
-
+from ethereum_test_forks import Berlin
 from ethereum_test_tools import (
     Account,
     Environment,
@@ -13,7 +13,7 @@ from ethereum_test_tools import (
 )
 
 
-@test_from("berlin")
+@test_from(Berlin)
 def test_yul(fork):
     """
     Test YUL compiled bytecode.

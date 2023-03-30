@@ -2,6 +2,7 @@
 Test DUP opcodes
 """
 
+from ethereum_test_forks import Istanbul
 from ethereum_test_tools import (
     Account,
     Environment,
@@ -12,7 +13,7 @@ from ethereum_test_tools import (
 )
 
 
-@test_from("istanbul")
+@test_from(Istanbul)
 def test_dup(fork):
     """
     Test DUP1-DUP16 opcodes.
