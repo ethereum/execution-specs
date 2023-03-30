@@ -26,8 +26,6 @@ def test_from_until(
     Decorator that takes a test generator and fills it for all forks after the
     specified fork.
     """
-    fork_from = fork_from.capitalize()
-    fork_until = fork_until.capitalize()
 
     def decorator(
         fn: TestSpec,
@@ -59,7 +57,7 @@ def test_from_until(
 
 
 def test_from(
-    fork: str,
+    fork: Type[Fork],
     eips: Optional[List[int]] = None,
 ) -> Callable[
     [TestSpec],
@@ -69,7 +67,6 @@ def test_from(
     Decorator that takes a test generator and fills it for all forks after the
     specified fork.
     """
-    fork = fork.capitalize()
 
     def decorator(
         fn: TestSpec,
@@ -95,7 +92,7 @@ def test_from(
 
 
 def test_only(
-    fork: str,
+    fork: Type[Fork],
     eips: Optional[List[int]] = None,
 ) -> Callable[
     [TestSpec],
@@ -105,7 +102,6 @@ def test_only(
     Decorator that takes a test generator and fills it only for the specified
     fork.
     """
-    fork = fork.capitalize()
 
     def decorator(
         fn: TestSpec,
