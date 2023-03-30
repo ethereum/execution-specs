@@ -15,6 +15,7 @@ Changes [Considered for Inclusion](https://github.com/ethereum/execution-specs/t
 * [EIP-4200: EOF - Static relative jumps](https://eips.ethereum.org/EIPS/eip-4200)
 * [EIP-4750: EOF - Functions](https://eips.ethereum.org/EIPS/eip-4750)
 * [EIP-5450: EOF - Stack Validation](https://eips.ethereum.org/EIPS/eip-5450)
+* [EIP-6780: SELFDESTRUCT only in same transaction](https://eips.ethereum.org/EIPS/eip-6780)
 
 
 ### Implementation Progresss
