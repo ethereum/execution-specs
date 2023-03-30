@@ -97,7 +97,7 @@ class ConstantinopleFix(Constantinople):
 
 class Istanbul(ConstantinopleFix):
     """
-    Istambul fork
+    Istanbul fork
     """
 
     pass
