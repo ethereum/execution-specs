@@ -7,14 +7,9 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
 from ethereum.base_types import U256, Bytes32, Uint
-from ethereum.crypto.hash import keccak256
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
-from ethereum.utils.hexadecimal import (
-    Hash32,
-    hex_to_bytes,
-    hex_to_u256,
-    hex_to_uint,
-)
+from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..utils import FatalException, parse_hex_or_int, secp256k1_sign
 
