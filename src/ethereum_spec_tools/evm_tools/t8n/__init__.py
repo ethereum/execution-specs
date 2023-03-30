@@ -40,6 +40,7 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     t8n_parser.add_argument(
         "--output.alloc", dest="output_alloc", type=str, default="alloc.json"
     )
+    # TODO: Support the base directory and output body options
     t8n_parser.add_argument(
         "--output.basedir", dest="output_basedir", type=str
     )
@@ -53,8 +54,6 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     t8n_parser.add_argument(
         "--state.chainid", dest="state_chainid", type=int, default=1
     )
-    # TODO: Check if transition forks can be supported
-    # Also check for Fork+EIP combinations. (E.g. Homestead+EIP-150)
     t8n_parser.add_argument(
         "--state.fork", dest="state_fork", type=str, default="Frontier"
     )
@@ -89,7 +88,7 @@ class T8N(Load):
         self.options = options
         self.forks = Hardfork.discover()
 
-        fork_module = get_module_name(self.forks, self.options.state_fork)
+        fork_module = get_module_name(self.forks, self.options)
 
         self.logger = get_stream_logger("T8N")
 
@@ -326,7 +325,6 @@ class T8N(Load):
             try:
                 env = self.environment(tx, gas_available)
 
-                # TODO: Check if there is a better way for this.
                 process_transaction_return = self.process_transaction(env, tx)
             except Exception as e:
                 self.txs.rejected_txs[tx_idx] = str(e)

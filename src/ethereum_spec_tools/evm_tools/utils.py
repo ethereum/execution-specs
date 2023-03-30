@@ -2,8 +2,10 @@
 Utilities for the EVM tools
 """
 
+import json
 import logging
-from typing import Any, Callable, Tuple, TypeVar
+import sys
+from typing import Any, Callable, Dict, Optional, Tuple, TypeVar
 
 import coincurve
 
@@ -11,6 +13,39 @@ from ethereum.base_types import U64, U256, Uint
 from ethereum.utils.hexadecimal import Hash32
 
 W = TypeVar("W", Uint, U64, U256)
+
+EXCEPTION_MAPS = {
+    "FrontierToHomesteadAt5": {
+        "fork_blocks": [("frontier", 0), ("homestead", 5)],
+    },
+    "HomesteadToDaoAt5": {
+        "fork_blocks": [("homestead", 0), ("dao_fork", 5)],
+    },
+    "HomesteadToEIP150At5": {
+        "fork_blocks": [("homestead", 0), ("tangerine_whistle", 5)],
+    },
+    "EIP158ToByzantiumAt5": {
+        "fork_blocks": [("spurious_dragon", 0), ("byzantium", 5)],
+    },
+    "ByzantiumToConstantinopleAt5": {
+        "fork_blocks": [("byzantium", 0), ("constantinople", 5)],
+    },
+    "ConstantinopleToIstanbulAt5": {
+        "fork_blocks": [("constantinople", 0), ("istanbul", 5)],
+    },
+    "BerlinToLondonAt5": {
+        "fork_blocks": [("berlin", 0), ("london", 5)],
+    },
+    "EIP150": {
+        "fork_blocks": [("tangerine_whistle", 0)],
+    },
+    "EIP158": {
+        "fork_blocks": [("spurious_dragon", 0)],
+    },
+    "Merge": {
+        "fork_blocks": [("paris", 0)],
+    },
+}
 
 
 def parse_hex_or_int(value: str, to_type: Callable[[int], W]) -> W:
@@ -41,29 +76,39 @@ def ensure_success(f: Callable, *args: Any) -> Any:
         raise FatalException(e)
 
 
-def get_module_name(forks: Any, state_fork: str) -> str:
+def get_module_name(forks: Any, options: Any) -> str:
     """
     Get the module name for the given state fork.
     """
-    exception_maps = {
-        "EIP150": "tangerine_whistle",
-        "EIP158": "spurious_dragon",
-        "Merge": "paris",
-    }
-
+    # If the state fork is an exception, use the exception config.
+    exception_config: Optional[Dict[str, Any]] = None
     try:
-        return exception_maps[state_fork]
+        exception_config = EXCEPTION_MAPS[options.state_fork]
     except KeyError:
         pass
 
+    if exception_config:
+        with open(options.input_env, "r") as f:
+            data = json.load(f)
+
+        block_number = parse_hex_or_int(data["currentNumber"], Uint)
+
+        for fork, fork_block in exception_config["fork_blocks"]:
+            if block_number >= fork_block:
+                fork_module = fork
+
+        return fork_module
+
+    # If the state fork is not an exception, use the fork name.
     for fork in forks:
-        value = fork.name.split(".")[-1]
-        key = "".join(x.title() for x in value.split("_"))
+        fork_module = fork.name.split(".")[-1]
+        key = "".join(x.title() for x in fork_module.split("_"))
 
-        if key == state_fork:
-            break
+        if key == options.state_fork:
+            return fork_module
 
-    return value
+    # Neither in exception nor a standard fork name.
+    sys.exit(f"Unsupported state fork: {options.state_fork}")
 
 
 def get_stream_logger(name: str) -> Any:

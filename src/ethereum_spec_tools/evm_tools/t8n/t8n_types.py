@@ -71,8 +71,6 @@ class Env:
             )
         else:
             self.base_fee_per_gas = None
-        # TODO: Check if base fee needs to be derived from parent gas
-        # used and gas limit
 
         self.read_randao(data, t8n)
         self.read_block_hashes(data)
@@ -205,7 +203,11 @@ class Alloc:
                 elif not value.startswith("0x"):
                     data[address][key] = "0x" + hex(int(value))
 
-        self.state = t8n.json_to_state(data)
+        state = t8n.json_to_state(data)
+        if t8n.fork_module == "dao_fork":
+            t8n.fork.apply_dao(state)
+
+        self.state = state
 
     def to_json(self) -> Any:
         """Encode the state to JSON"""
