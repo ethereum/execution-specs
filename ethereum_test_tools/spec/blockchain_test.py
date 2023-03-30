@@ -12,7 +12,6 @@ from typing import (
     Mapping,
     Optional,
     Tuple,
-    Type,
 )
 
 from ethereum_test_forks import Fork
@@ -50,7 +49,7 @@ class BlockchainTest(BaseTest):
         self,
         b11r: BlockBuilder,
         t8n: TransitionTool,
-        fork: Type[Fork],
+        fork: Fork,
     ) -> Tuple[str, FixtureHeader]:
         """
         Create a genesis block from the state test definition.
@@ -94,7 +93,7 @@ class BlockchainTest(BaseTest):
         self,
         b11r: BlockBuilder,
         t8n: TransitionTool,
-        fork: Type[Fork],
+        fork: Fork,
         block: Block,
         previous_env: Environment,
         previous_alloc: Dict[str, Any],
@@ -232,7 +231,7 @@ class BlockchainTest(BaseTest):
         b11r: BlockBuilder,
         t8n: TransitionTool,
         genesis: FixtureHeader,
-        fork: Type[Fork],
+        fork: Fork,
         chain_id=1,
         eips: Optional[List[int]] = None,
     ) -> Tuple[List[FixtureBlock], str, Dict[str, Any]]:

@@ -11,7 +11,6 @@ from typing import (
     Mapping,
     Optional,
     Tuple,
-    Type,
 )
 
 from ethereum_test_forks import Fork
@@ -95,7 +94,7 @@ class BaseTest:
         self,
         b11r: BlockBuilder,
         t8n: TransitionTool,
-        fork: Type[Fork],
+        fork: Fork,
     ) -> Tuple[str, FixtureHeader]:
         """
         Create a genesis block from the test definition.
@@ -108,7 +107,7 @@ class BaseTest:
         b11r: BlockBuilder,
         t8n: TransitionTool,
         genesis: FixtureHeader,
-        fork: Type[Fork],
+        fork: Fork,
         chain_id: int = 1,
         eips: Optional[List[int]] = None,
     ) -> Tuple[List[FixtureBlock], str, Dict[str, Any]]:
@@ -118,4 +117,4 @@ class BaseTest:
         pass
 
 
-TestSpec = Callable[[Type[Fork]], Generator[BaseTest, None, None]]
+TestSpec = Callable[[Fork], Generator[BaseTest, None, None]]

@@ -544,7 +544,7 @@ class Environment:
         )
         return env
 
-    def set_fork_requirements(self, fork: Type[Fork]) -> "Environment":
+    def set_fork_requirements(self, fork: Fork) -> "Environment":
         """
         Fills the required fields in an environment depending on the fork.
         """
