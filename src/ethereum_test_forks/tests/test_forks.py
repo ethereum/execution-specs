@@ -14,6 +14,9 @@ from ethereum_test_forks import (
 
 
 def test_forks():
+    """
+    Test fork utilities.
+    """
     assert forks_from_until(Berlin, Berlin) == [Berlin]
     assert forks_from_until(Berlin, London) == [Berlin, London]
     assert forks_from_until(Berlin, Merge) == [

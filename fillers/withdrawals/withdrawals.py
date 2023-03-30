@@ -677,7 +677,7 @@ def test_zero_amount(_):
 
 
 @test_from(WITHDRAWALS_FORK)
-def test_large_amount(_: str):
+def test_large_amount(_):
     """
     Test Withdrawals that have a large gwei amount, so that (gwei * 1e9)
     could overflow uint64 but not uint256.

@@ -9,7 +9,7 @@ import tempfile
 from abc import abstractmethod
 from pathlib import Path
 from shutil import which
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple
 
 from ethereum_test_forks import Fork
 
@@ -27,7 +27,7 @@ class TransitionTool:
         alloc: Any,
         txs: Any,
         env: Any,
-        fork: Type[Fork],
+        fork: Fork,
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
@@ -45,7 +45,7 @@ class TransitionTool:
         pass
 
     @abstractmethod
-    def is_fork_supported(self, fork: Type[Fork]) -> bool:
+    def is_fork_supported(self, fork: Fork) -> bool:
         """
         Returns True if the fork is supported by the tool
         """
@@ -71,7 +71,7 @@ class TransitionTool:
         """
         return self.traces
 
-    def calc_state_root(self, alloc: Any, fork: Type[Fork]) -> str:
+    def calc_state_root(self, alloc: Any, fork: Fork) -> str:
         """
         Calculate the state root for the given `alloc`.
         """
@@ -98,7 +98,7 @@ class TransitionTool:
             raise Exception("Unable to calculate state root")
         return state_root
 
-    def calc_withdrawals_root(self, withdrawals: Any, fork: Type[Fork]) -> str:
+    def calc_withdrawals_root(self, withdrawals: Any, fork: Fork) -> str:
         """
         Calculate the state root for the given `alloc`.
         """
@@ -169,7 +169,7 @@ class EvmTransitionTool(TransitionTool):
         alloc: Any,
         txs: Any,
         env: Any,
-        fork: Type[Fork],
+        fork: Fork,
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
@@ -177,8 +177,9 @@ class EvmTransitionTool(TransitionTool):
         """
         Executes `evm t8n` with the specified arguments.
         """
+        fork_name = fork.__name__
         if eips is not None:
-            fork = "+".join([fork] + [str(eip) for eip in eips])
+            fork_name = "+".join([fork_name] + [str(eip) for eip in eips])
 
         temp_dir = tempfile.TemporaryDirectory()
 
@@ -192,7 +193,7 @@ class EvmTransitionTool(TransitionTool):
             "--output.alloc=stdout",
             "--output.body=txs.rlp",
             f"--output.basedir={temp_dir.name}",
-            f"--state.fork={fork.__name__}",
+            f"--state.fork={fork_name}",
             f"--state.chainid={chain_id}",
             f"--state.reward={reward}",
         ]
@@ -264,36 +265,8 @@ class EvmTransitionTool(TransitionTool):
 
         return self.cached_version
 
-    def is_fork_supported(self, _: Type[Fork]) -> bool:
+    def is_fork_supported(self, _: Fork) -> bool:
         """
         Returns True if the fork is supported by the tool
         """
         return True
-
-
-fork_map = {
-    "frontier": "Frontier",
-    "homestead": "Homestead",
-    "dao": None,
-    "tangerine whistle": "EIP150",
-    "spurious dragon": "EIP158",
-    "byzantium": "Byzantium",
-    "constantinople": "Constantinople",
-    "petersburg": "ConstantinopleFix",
-    "istanbul": "Istanbul",
-    "muir glacier": None,
-    "berlin": "Berlin",
-    "london": "London",
-    "arrow glacier": "ArrowGlacier",
-    "merge": "Merge",
-    "shanghai": "Shanghai",
-}
-
-fork_list = list(fork_map.keys())
-
-
-def map_fork(fork: Type[Fork]) -> Optional[str]:
-    """
-    Map known fork to t8n fork identifier.
-    """
-    return fork_map.get(fork, fork)

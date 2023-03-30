@@ -2,7 +2,7 @@
 Filler object definitions.
 """
 from copy import copy
-from typing import List, Mapping, Optional, Type
+from typing import List, Mapping, Optional
 
 from ethereum_test_forks import ArrowGlacier, Fork
 from evm_block_builder import BlockBuilder
@@ -17,7 +17,7 @@ def fill_test(
     t8n: TransitionTool,
     b11r: BlockBuilder,
     test_spec: TestSpec,
-    forks: List[Type[Fork]],
+    forks: List[Fork],
     engine: str,
     spec: ReferenceSpec | None,
     eips: Optional[List[int]] = None,

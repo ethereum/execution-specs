@@ -93,6 +93,7 @@ rjust
 keccak256
 
 address
+at5
 balance
 origin
 caller
@@ -113,6 +114,7 @@ extcodehash
 blockhash
 coinbase
 timestamp
+time15k
 number
 difficulty
 gaslimit

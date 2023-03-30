@@ -1,7 +1,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Dict, Type
+from typing import Dict
 
 import pytest
 
@@ -67,7 +67,7 @@ FIXTURES_ROOT = Path(
 )
 def test_calc_state_root(
     t8n: TransitionTool,
-    fork: Type[Fork],
+    fork: Fork,
     alloc: Dict,
     base_fee: int | None,
     hash: str,

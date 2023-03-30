@@ -4,7 +4,7 @@ Test suite for `ethereum_test` module.
 
 import json
 import os
-from typing import Any, Dict, Generator, List, Type
+from typing import Any, Dict, Generator, List
 
 import pytest
 
@@ -34,7 +34,7 @@ def remove_info(fixture_json: Dict[str, Any]):
 @pytest.mark.parametrize(
     "fork,hash", [(Berlin, "0x193e550de"), (London, "0xb053deac0")]
 )
-def test_make_genesis(fork: Type[Fork], hash: str):
+def test_make_genesis(fork: Fork, hash: str):
     env = Environment()
 
     pre = {
@@ -73,7 +73,7 @@ def test_make_genesis(fork: Type[Fork], hash: str):
         (London, "chainid_london_filled.json"),
     ],
 )
-def test_fill_state_test(fork: Type[Fork], expected_json_file: str):
+def test_fill_state_test(fork: Fork, expected_json_file: str):
     """
     Test `ethereum_test.filler.fill_fixtures` with `StateTest`.
     """
