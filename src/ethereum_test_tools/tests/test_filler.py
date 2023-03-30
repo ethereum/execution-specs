@@ -119,6 +119,7 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
     t8n = EvmTransitionTool()
 
     fixture = fill_test(
+        name="my_chain_id_test",
         t8n=t8n,
         b11r=b11r,
         test_spec=generator,
@@ -405,6 +406,7 @@ def test_fill_london_blockchain_test_valid_txs():
     t8n = EvmTransitionTool()
 
     fixture = fill_test(
+        name="fill_london_blockchain_test_valid_txs",
         t8n=t8n,
         b11r=b11r,
         test_spec=generator,
@@ -740,6 +742,7 @@ def test_fill_london_blockchain_test_invalid_txs():
     t8n = EvmTransitionTool()
 
     fixture = fill_test(
+        name="fill_london_blockchain_test_invalid_txs",
         t8n=t8n,
         b11r=b11r,
         test_spec=generator,
