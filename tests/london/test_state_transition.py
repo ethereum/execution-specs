@@ -7,6 +7,7 @@ from ethereum import rlp
 from ethereum.base_types import U256, Bytes, Bytes8, Bytes32, Uint
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import InvalidBlock
+from tests.helpers import TEST_FIXTURES
 from tests.helpers.load_state_tests import (
     Load,
     NoPostState,
@@ -23,8 +24,10 @@ run_london_blockchain_st_tests = partial(
     run_blockchain_st_test, load=FIXTURES_LOADER
 )
 
+ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
+
 # Run legacy general state tests
-test_dir = "tests/fixtures/BlockchainTests/GeneralStateTests/"
+test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/GeneralStateTests/"
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
@@ -83,7 +86,7 @@ def test_general_state_tests(test_case: Dict) -> None:
 
 
 # Run legacy valid block tests
-test_dir = "tests/fixtures/BlockchainTests/ValidBlocks/"
+test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/ValidBlocks/"
 
 only_in = (
     "bcUncleTest/oneUncle.json",
@@ -109,7 +112,7 @@ def test_uncles_correctness(test_case: Dict) -> None:
 
 
 # Run legacy invalid block tests
-test_dir = "tests/fixtures/BlockchainTests/InvalidBlocks"
+test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/InvalidBlocks"
 
 # TODO: Handle once https://github.com/ethereum/tests/issues/1037
 # is resolved

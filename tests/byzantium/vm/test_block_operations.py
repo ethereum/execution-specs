@@ -1,10 +1,14 @@
 from functools import partial
 
+from tests.helpers import TEST_FIXTURES
+
 from ..vm.vm_test_helpers import run_test
+
+ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 
 run_block_ops_vm_test = partial(
     run_test,
-    "tests/fixtures/LegacyTests/Constantinople/VMTests/vmBlockInfoTest",
+    f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/VMTests/vmBlockInfoTest",
 )
 
 

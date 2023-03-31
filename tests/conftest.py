@@ -12,22 +12,7 @@ from pytest import Session
 
 import ethereum
 from ethereum_spec_tools.evm_trace import evm_trace
-
-# Update the links and commit has in order to consume
-# newer/other tests
-test_fixtures = {
-    "execution-spec-generated-tests": {
-        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/v0.2.3/fixtures.tar.gz",
-    },
-    "t8n_testdata": {
-        "url": "https://github.com/gurukamath/t8n_testdata.git",
-        "commit_hash": "c6885c6",
-    },
-    "fixtures": {
-        "url": "https://github.com/ethereum/tests.git",
-        "commit_hash": "69c4c2a",
-    },
-}
+from tests.helpers import TEST_FIXTURES
 
 
 def pytest_addoption(parser: Parser) -> None:
@@ -109,8 +94,13 @@ def pytest_sessionstart(session: Session) -> None:
 
     fixtures_location = "tests"
 
-    for idx, props in test_fixtures.items():
-        fixture_path = f"{fixtures_location}/{idx}"
+    for _, props in TEST_FIXTURES.items():
+        fixture_path = props["fixture_path"]
+
+        try:
+            os.makedirs(os.path.dirname(fixture_path))
+        except FileExistsError:
+            pass
 
         if "commit_hash" in props:
             git_clone_fixtures(
