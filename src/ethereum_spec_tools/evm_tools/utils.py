@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, TypeVar
 import coincurve
 
 from ethereum.base_types import U64, U256, Uint
-from ethereum.utils.hexadecimal import Hash32
+from ethereum.crypto.hash import Hash32
 
 W = TypeVar("W", Uint, U64, U256)
 
