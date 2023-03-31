@@ -15,6 +15,7 @@ collection of accounts (The Dao and all its children) to a recovery contract.
 The recovery contract was previously created using normal contract deployment.
 """
 
+from .state import State, get_account, move_ether
 from .utils.hexadecimal import hex_to_address
 
 DAO_ACCOUNTS = [
@@ -140,3 +141,17 @@ DAO_ACCOUNTS = [
 ]
 
 DAO_RECOVERY = hex_to_address("0xbf4ed7b27f1d666546e30d74d50d173d20bca754")
+
+
+def apply_dao(state: State) -> None:
+    """
+    Apply the dao fork to the state.
+
+    Parameters
+    ----------
+    state :
+        State before applying the DAO Fork.
+    """
+    for address in DAO_ACCOUNTS:
+        balance = get_account(state, address).balance
+        move_ether(state, address, DAO_RECOVERY, balance)

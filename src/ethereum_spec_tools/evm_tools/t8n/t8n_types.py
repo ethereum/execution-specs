@@ -7,14 +7,9 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
 from ethereum.base_types import U256, Bytes32, Uint
-from ethereum.crypto.hash import keccak256
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
-from ethereum.utils.hexadecimal import (
-    Hash32,
-    hex_to_bytes,
-    hex_to_u256,
-    hex_to_uint,
-)
+from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..utils import FatalException, parse_hex_or_int, secp256k1_sign
 
@@ -71,8 +66,6 @@ class Env:
             )
         else:
             self.base_fee_per_gas = None
-        # TODO: Check if base fee needs to be derived from parent gas
-        # used and gas limit
 
         self.read_randao(data, t8n)
         self.read_block_hashes(data)
@@ -205,7 +198,11 @@ class Alloc:
                 elif not value.startswith("0x"):
                     data[address][key] = "0x" + hex(int(value))
 
-        self.state = t8n.json_to_state(data)
+        state = t8n.json_to_state(data)
+        if t8n.fork_module == "dao_fork":
+            t8n.fork.apply_dao(state)
+
+        self.state = state
 
     def to_json(self) -> Any:
         """Encode the state to JSON"""
