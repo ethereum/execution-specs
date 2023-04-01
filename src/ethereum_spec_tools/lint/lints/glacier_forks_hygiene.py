@@ -15,6 +15,14 @@ from ethereum_spec_tools.lint import (
     walk_sources,
 )
 
+EXCEPTIONAL_DIFFS = [
+    # There are some differences between london and arrow_glacier
+    # in terms of how the fork block is handled.
+    ("arrow_glacier", ".fork", "calculate_base_fee_per_gas"),
+    ("arrow_glacier", ".fork", "validate_header"),
+    ("arrow_glacier", ".fork", "INITIAL_BASE_FEE"),
+]
+
 
 def add_diagnostic(diagnostics: List[Diagnostic], message: str) -> None:
     """
@@ -93,6 +101,8 @@ class GlacierForksHygiene(Lint):
         all_items = set(previous.keys()) | set(current.keys())
 
         for item in all_items:
+            if (fork_name, name, item) in EXCEPTIONAL_DIFFS:
+                continue
             try:
                 previous_item = previous[item]
             except KeyError:
@@ -119,7 +129,7 @@ class GlacierForksHygiene(Lint):
             if not compare_ast(previous_item, current_item):
                 add_diagnostic(
                     diagnostics,
-                    f"the item `{item}` in `{name}` has changed."
+                    f"`{item}` in `{name}` has changed."
                     "Glacier forks may only differ in difficulty block.",
                 )
 

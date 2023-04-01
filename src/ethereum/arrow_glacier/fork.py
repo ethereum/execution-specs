@@ -24,7 +24,7 @@ from ethereum.utils.ensure import ensure
 
 from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
-from . import MAINNET_FORK_BLOCK, vm
+from . import vm
 from .bloom import logs_bloom
 from .fork_types import (
     TX_ACCESS_LIST_ADDRESS_COST,
@@ -67,7 +67,6 @@ ELASTICITY_MULTIPLIER = 2
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
 MINIMUM_DIFFICULTY = Uint(131072)
-INITIAL_BASE_FEE = 1000000000
 MAX_OMMER_DEPTH = 6
 BOMB_DELAY_BLOCKS = 10700000
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
@@ -203,44 +202,39 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         chain.blocks = chain.blocks[-255:]
 
 
-def validate_header(header: Header, parent_header: Header) -> None:
+def calculate_base_fee_per_gas(
+    block_gas_limit: Uint,
+    parent_gas_limit: Uint,
+    parent_gas_used: Uint,
+    parent_base_fee_per_gas: Uint,
+) -> Uint:
     """
-    Verifies a block header.
-
-    In order to consider a block's header valid, the logic for the
-    quantities in the header should match the logic for the block itself.
-    For example the header timestamp should be greater than the block's parent
-    timestamp because the block was created *after* the parent block.
-    Additionally, the block's number should be directly folowing the parent
-    block's number since it is the next block in the sequence.
+    Calculates the base fee per gas for the block.
 
     Parameters
     ----------
-    header :
-        Header to check for correctness.
-    parent_header :
-        Parent Header of the header to check for correctness
+    block_gas_limit :
+        Gas limit of the block for which the base fee is being calculated.
+    parent_gas_limit :
+        Gas limit of the parent block.
+    parent_gas_used :
+        Gas used in the parent block.
+    parent_base_fee_per_gas :
+        Base fee per gas of the parent block.
+
+    Returns
+    -------
+    base_fee_per_gas : `Uint`
+        Base fee per gas for the block.
     """
-    if header.number == MAINNET_FORK_BLOCK:
-        parent_gas_limit = parent_header.gas_limit * ELASTICITY_MULTIPLIER
-        parent_gas_target = parent_header.gas_limit
-    else:
-        parent_gas_limit = parent_header.gas_limit
-        parent_gas_target = parent_header.gas_limit // ELASTICITY_MULTIPLIER
-        parent_base_fee_per_gas = parent_header.base_fee_per_gas
+    parent_gas_target = parent_gas_limit // ELASTICITY_MULTIPLIER
 
-    parent_gas_used = parent_header.gas_used
-
-    ensure(header.gas_used <= header.gas_limit, InvalidBlock)
     ensure(
-        check_gas_limit(header.gas_limit, parent_gas_limit),
+        check_gas_limit(block_gas_limit, parent_gas_limit),
         InvalidBlock,
     )
 
-    # check if the base fee is correct
-    if header.number == MAINNET_FORK_BLOCK:
-        expected_base_fee_per_gas = INITIAL_BASE_FEE
-    elif parent_gas_used == parent_gas_target:
+    if parent_gas_used == parent_gas_target:
         expected_base_fee_per_gas = parent_base_fee_per_gas
     elif parent_gas_used > parent_gas_target:
         gas_used_delta = parent_gas_used - parent_gas_target
@@ -269,6 +263,36 @@ def validate_header(header: Header, parent_header: Header) -> None:
         expected_base_fee_per_gas = (
             parent_base_fee_per_gas - base_fee_per_gas_delta
         )
+
+    return Uint(expected_base_fee_per_gas)
+
+
+def validate_header(header: Header, parent_header: Header) -> None:
+    """
+    Verifies a block header.
+
+    In order to consider a block's header valid, the logic for the
+    quantities in the header should match the logic for the block itself.
+    For example the header timestamp should be greater than the block's parent
+    timestamp because the block was created *after* the parent block.
+    Additionally, the block's number should be directly folowing the parent
+    block's number since it is the next block in the sequence.
+
+    Parameters
+    ----------
+    header :
+        Header to check for correctness.
+    parent_header :
+        Parent Header of the header to check for correctness
+    """
+    ensure(header.gas_used <= header.gas_limit, InvalidBlock)
+
+    expected_base_fee_per_gas = calculate_base_fee_per_gas(
+        header.gas_limit,
+        parent_header.gas_limit,
+        parent_header.gas_used,
+        parent_header.base_fee_per_gas,
+    )
 
     ensure(expected_base_fee_per_gas == header.base_fee_per_gas, InvalidBlock)
 
