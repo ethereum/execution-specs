@@ -1089,7 +1089,7 @@ class JSONEncoder(json.JSONEncoder):
                         },
                         remove_none=True,
                     ),
-                    excluded=["to", "accessList"],
+                    excluded=["to", "data", "accessList"],
                 )
                 for tx in obj.txs or []
             ]
