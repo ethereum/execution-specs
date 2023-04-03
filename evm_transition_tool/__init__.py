@@ -250,7 +250,6 @@ class EvmTransitionTool(TransitionTool):
         Gets `evm` binary version.
         """
         if self.cached_version is None:
-
             result = subprocess.run(
                 [str(self.binary), "-v"],
                 stdout=subprocess.PIPE,
