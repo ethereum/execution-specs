@@ -91,10 +91,15 @@ def get_genesis_configuration(genesis_file: str) -> GenesisConfiguration:
 
 
 def balance_str_to_u256(balance: str) -> U256:
+    """
+    The genesis format can have balances and timestamps as either base 10
+    numbers or 0x prefixed hex. This function supports both.
+    """
     if balance.startswith("0x"):
         return hex_to_u256(balance)
     else:
         return U256(int(balance))
+
 
 def add_genesis_block(
     hardfork: Any, chain: Any, genesis: GenesisConfiguration
@@ -164,7 +169,9 @@ def add_genesis_block(
         "ommers_hash": rlp.rlp_hash(()),
         "coinbase": Address(b"\0" * 20),
         "state_root": hardfork.state.state_root(chain.state),
-        "transactions_root": hardfork.trie.root(hardfork.trie.Trie(False, None)),
+        "transactions_root": hardfork.trie.root(
+            hardfork.trie.Trie(False, None)
+        ),
         "receipt_root": hardfork.trie.root(hardfork.trie.Trie(False, None)),
         "bloom": hardfork.eth_types.Bloom(b"\0" * 256),
         "difficulty": genesis.difficulty,
@@ -175,8 +182,6 @@ def add_genesis_block(
         "extra_data": genesis.extra_data,
         "nonce": genesis.nonce,
     }
-
-    print(genesis.timestamp)
 
     if hasattr(hardfork.eth_types.Header, "mix_digest"):
         fields["mix_digest"] = hardfork.eth_types.Hash32(b"\0" * 32)

@@ -792,13 +792,11 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     ensure(0 < s and s <= SECP256K1N // 2, InvalidBlock)
 
     if v == 27 or v == 28:
-        public_key = secp256k1_recover(
-            r, s, v - 27, signing_hash_pre155(tx, chain_id)
-        )
+        public_key = secp256k1_recover(r, s, v - 27, signing_hash_pre155(tx))
     else:
         ensure(v == 35 + chain_id * 2 or v == 36 + chain_id * 2, InvalidBlock)
         public_key = secp256k1_recover(
-            r, s, v - 35 - chain_id * 2, signing_hash_155(tx)
+            r, s, v - 35 - chain_id * 2, signing_hash_155(tx, chain_id)
         )
     return Address(keccak256(public_key)[12:32])
 
