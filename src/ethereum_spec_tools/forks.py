@@ -9,7 +9,7 @@ import importlib
 import pkgutil
 from pkgutil import ModuleInfo
 from types import ModuleType
-from typing import Any, Iterator, List, Optional, Type, TypeVar
+from typing import Any, Dict, Iterator, List, Optional, Type, TypeVar
 
 import ethereum
 
@@ -63,6 +63,58 @@ class Hardfork:
 
         return forks
 
+    @classmethod
+    def load(cls: Type[H], config_dict: Dict[int, str]) -> List[H]:
+        """
+        Load the forks from a config dict specifying fork blocks and
+        timestamps.
+        """
+        config = sorted(config_dict.items(), key=lambda x: x[0])
+
+        forks = []
+
+        for (block_or_time, name) in config:
+            mod = importlib.import_module("ethereum." + name)
+
+            if block_or_time < 1_000_000_000:
+                mod.MAINNET_FORK_BLOCK = block_or_time  # type: ignore
+            else:
+                mod.MAINNET_FORK_TIMESTAMP = block_or_time  # type: ignore
+
+            forks.append(cls(mod))
+
+        return forks
+
+    @classmethod
+    def load_from_json(cls: Type[H], json: Any) -> List[H]:
+        """
+        Load fork config from the json format used by Geth.
+
+        Does not support some forks that only exist on Mainnet. Use
+        `discover()` for Mainnet.
+        """
+        c = json["config"]
+        config = {
+            0: "frontier",
+            c["homesteadBlock"]: "homestead",
+            c["eip150Block"]: "tangerine_whistle",
+            c["eip155Block"]: "spurious_dragon",
+            c["byzantiumBlock"]: "byzantium",
+            c["constantinopleBlock"]: "constantinople",
+            c["istanbulBlock"]: "istanbul",
+            c["berlinBlock"]: "berlin",
+            c["londonBlock"]: "london",
+            c["mergeForkBlock"]: "paris",
+            c["shanghaiTime"]: "shanghai",
+        }
+
+        if "daoForkBlock" in c:
+            raise Exception(
+                "Hardfork.load_from_json() does not support Mainnet"
+            )
+
+        return cls.load(config)
+
     def __init__(self, mod: ModuleType) -> None:
         self.mod = mod
 
@@ -72,6 +124,13 @@ class Hardfork:
         Block number of the first block in this hard fork.
         """
         return getattr(self.mod, "MAINNET_FORK_BLOCK")  # noqa: B009
+
+    @property
+    def timestamp(self) -> int:
+        """
+        Block number of the first block in this hard fork.
+        """
+        return getattr(self.mod, "MAINNET_FORK_TIMESTAMP")  # noqa: B009
 
     @property
     def path(self) -> Optional[str]:
