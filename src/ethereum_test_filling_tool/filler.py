@@ -144,6 +144,8 @@ class Filler:
                         not in obj.__filler_metadata__["name"]
                     ):
                         continue
+                    if len(obj.__filler_metadata__["forks"]) == 0:
+                        continue
                     obj.__filler_metadata__["module_path"] = [
                         package_name,
                         module_name,
