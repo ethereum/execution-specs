@@ -177,8 +177,11 @@ class Filler:
             return
 
         fixture = filler(t8n, b11r, "NoProof", module_spec)
-        self.log.debug(f"filling - {full_name}")
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(
-                fixture, f, ensure_ascii=False, indent=4, cls=JSONEncoder
-            )
+        if fixture is not None:
+            self.log.debug(f"filled - {full_name}")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(
+                    fixture, f, ensure_ascii=False, indent=4, cls=JSONEncoder
+                )
+        else:
+            self.log.debug(f"skipping - {full_name}")
