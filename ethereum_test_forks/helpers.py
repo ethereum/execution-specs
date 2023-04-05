@@ -62,7 +62,7 @@ def forks_from_until(fork_from: Fork, fork_until: Fork) -> List[Fork]:
         prev_fork = prev_fork.__base__
 
     if prev_fork == BaseFork:
-        raise Exception("Fork not found")
+        return []
 
     forks.insert(0, fork_from)
 
