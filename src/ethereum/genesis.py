@@ -153,7 +153,7 @@ def add_genesis_block(
         hardfork.state.set_account(
             chain.state,
             address,
-            hardfork.eth_types.Account(
+            hardfork.fork_types.Account(
                 Uint(int(account.get("nonce", "0"))),
                 balance_str_to_u256(account.get("balance", 0)),
                 hex_to_bytes(account.get("code", "0x")),
@@ -165,7 +165,7 @@ def add_genesis_block(
             )
 
     fields = {
-        "parent_hash": hardfork.eth_types.Hash32(b"\0" * 32),
+        "parent_hash": hardfork.fork_types.Hash32(b"\0" * 32),
         "ommers_hash": rlp.rlp_hash(()),
         "coinbase": Address(b"\0" * 20),
         "state_root": hardfork.state.state_root(chain.state),
@@ -173,7 +173,7 @@ def add_genesis_block(
             hardfork.trie.Trie(False, None)
         ),
         "receipt_root": hardfork.trie.root(hardfork.trie.Trie(False, None)),
-        "bloom": hardfork.eth_types.Bloom(b"\0" * 256),
+        "bloom": hardfork.fork_types.Bloom(b"\0" * 256),
         "difficulty": genesis.difficulty,
         "number": Uint(0),
         "gas_limit": genesis.gas_limit,
@@ -183,17 +183,17 @@ def add_genesis_block(
         "nonce": genesis.nonce,
     }
 
-    if hasattr(hardfork.eth_types.Header, "mix_digest"):
-        fields["mix_digest"] = hardfork.eth_types.Hash32(b"\0" * 32)
+    if hasattr(hardfork.fork_types.Header, "mix_digest"):
+        fields["mix_digest"] = hardfork.fork_types.Hash32(b"\0" * 32)
     else:
-        fields["prev_randao"] = hardfork.eth_types.Hash32(b"\0" * 32)
+        fields["prev_randao"] = hardfork.fork_types.Hash32(b"\0" * 32)
 
-    if hasattr(hardfork.eth_types.Header, "base_fee_per_gas"):
+    if hasattr(hardfork.fork_types.Header, "base_fee_per_gas"):
         fields["base_fee_per_gas"] = Uint(10**9)
 
-    genesis_header = hardfork.eth_types.Header(**fields)
+    genesis_header = hardfork.fork_types.Header(**fields)
 
-    genesis_block = hardfork.eth_types.Block(
+    genesis_block = hardfork.fork_types.Block(
         header=genesis_header,
         transactions=(),
         ommers=(),

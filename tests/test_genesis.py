@@ -1,7 +1,7 @@
 from ethereum import frontier, rlp
 from ethereum.base_types import U64
 from ethereum.crypto.hash import keccak256
-from ethereum.frontier.spec import BlockChain
+from ethereum.frontier.fork import BlockChain
 from ethereum.frontier.state import State
 from ethereum.genesis import add_genesis_block, get_genesis_configuration
 from ethereum.utils.hexadecimal import hex_to_hash
