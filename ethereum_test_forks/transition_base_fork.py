@@ -25,10 +25,10 @@ def transition_fork(to_fork: Fork):
     """
 
     def decorator(cls) -> Type[TransitionBaseClass]:
-        class NewTransitionClass(cls, TransitionBaseClass):
+        class NewTransitionClass(cls, TransitionBaseClass):  # type: ignore
             pass
 
-        NewTransitionClass.transitions_to = lambda: to_fork
+        NewTransitionClass.transitions_to = lambda: to_fork  # type: ignore
 
         return NewTransitionClass
 
