@@ -4,16 +4,15 @@ Test fork utilities.
 
 from typing import cast
 
-from ethereum_test_forks import (
-    Berlin,
+from ..base_fork import Fork
+from ..forks.forks import Berlin, London, Merge, Shanghai
+from ..forks.transition import (
     BerlinToLondonAt5,
-    Fork,
-    London,
-    Merge,
     MergeToShanghaiAtTime15k,
-    Shanghai,
     ShanghaiToTestOnlyUpcomingFork,
-    TestOnlyUpcomingFork,
+)
+from ..forks.upcoming import TestOnlyUpcomingFork
+from ..helpers import (
     fork_only,
     forks_from,
     forks_from_until,
