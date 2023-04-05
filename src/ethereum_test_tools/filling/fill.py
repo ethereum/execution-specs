@@ -26,6 +26,9 @@ def fill_test(
     """
     Fills fixtures for certain forks.
     """
+    if len(forks) == 0:
+        raise Exception("No forks specified")
+
     fixtures: List[Fixture] = []
     for fork in forks:
         for index, test in enumerate(test_spec(fork)):
