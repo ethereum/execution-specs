@@ -66,6 +66,7 @@ def test_forks():
     assert fork_only(Berlin) == [Berlin]
     # This is an upcoming fork, so it should not be included in the list
     assert fork_only(TestOnlyUpcomingFork) == []
+    assert forks_from(TestOnlyUpcomingFork) == []
 
     # Transition forks should be included in the list, only if they transition
     # to at least the latest fork
