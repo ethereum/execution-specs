@@ -88,7 +88,9 @@ class T8N(Load):
         self.options = options
         self.forks = Hardfork.discover()
 
-        fork_module = get_module_name(self.forks, self.options)
+        fork_module, self.fork_block = get_module_name(
+            self.forks, self.options
+        )
 
         self.logger = get_stream_logger("T8N")
 

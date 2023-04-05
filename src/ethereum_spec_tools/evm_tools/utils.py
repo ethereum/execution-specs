@@ -76,9 +76,9 @@ def ensure_success(f: Callable, *args: Any) -> Any:
         raise FatalException(e)
 
 
-def get_module_name(forks: Any, options: Any) -> str:
+def get_module_name(forks: Any, options: Any) -> Tuple[str, int]:
     """
-    Get the module name for the given state fork.
+    Get the module name and the fork block for the given state fork.
     """
     # If the state fork is an exception, use the exception config.
     exception_config: Optional[Dict[str, Any]] = None
@@ -95,9 +95,10 @@ def get_module_name(forks: Any, options: Any) -> str:
 
         for fork, fork_block in exception_config["fork_blocks"]:
             if block_number >= fork_block:
-                fork_module = fork
+                current_fork_module = fork
+                current_fork_block = fork_block
 
-        return fork_module
+        return current_fork_module, current_fork_block
 
     # If the state fork is not an exception, use the fork name.
     for fork in forks:
@@ -105,7 +106,7 @@ def get_module_name(forks: Any, options: Any) -> str:
         key = "".join(x.title() for x in fork_module.split("_"))
 
         if key == options.state_fork:
-            return fork_module
+            return fork_module, 0
 
     # Neither in exception nor a standard fork name.
     sys.exit(f"Unsupported state fork: {options.state_fork}")
