@@ -14,6 +14,7 @@ import logging
 import os
 import time
 
+import ethereum_test_forks
 from ethereum_test_tools import JSONEncoder, ReferenceSpec, ReferenceSpecTypes
 from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool
@@ -38,6 +39,11 @@ class Filler:
         """
         if self.options.benchmark:
             start_time = time.time()
+
+        if self.options.latest_fork:
+            ethereum_test_forks.set_latest_fork_by_name(
+                self.options.latest_fork
+            )
 
         fillers = self.get_fillers()
         self.log.info(f"collected {len(fillers)} fillers")

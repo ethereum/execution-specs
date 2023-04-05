@@ -59,6 +59,12 @@ def parse_arguments() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--latest-fork",
+        type=str,
+        help="modify the default latest fork to fill newer tests",
+    )
+
+    parser.add_argument(
         "--traces",
         action="store_true",
         help="collect traces of the execution information from the \
