@@ -76,6 +76,7 @@ def test_forks():
     set_latest_fork_by_name("TestOnlyUpcomingFork")
 
     # Now the upcoming fork should be included in the list
+    assert forks_from(Merge) == [Merge, Shanghai, TestOnlyUpcomingFork]
     assert fork_only(TestOnlyUpcomingFork) == [TestOnlyUpcomingFork]
     # Also all transition forks that transition to this new latest fork
     assert fork_only(ShanghaiToTestOnlyUpcomingFork) == [
