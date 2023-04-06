@@ -40,13 +40,14 @@ class Hardfork:
         for pkg in modules:
             mod = importlib.import_module(pkg.name)
             block = getattr(mod, "MAINNET_FORK_BLOCK", -1)
+            timestamp = getattr(mod, "MAINNET_FORK_TIMESTAMP", -1)
 
-            if block == -1:
+            if block == -1 and timestamp == -1:
                 continue
 
             # If the fork block is unknown, for example in a
             # new improvement proposal, it will be set as None.
-            if block is None:
+            if block is None or timestamp is None:
                 if new_package is not None:
                     raise ValueError(
                         "cannot have more than 1 new fork package."
@@ -57,7 +58,12 @@ class Hardfork:
 
             forks.append(cls(mod))
 
-        forks.sort(key=lambda fork: fork.block)
+        # Timestamps are bigger than block numbers, so this always works.
+        forks.sort(
+            key=lambda fork: fork.block
+            if hasattr(fork, "block")
+            else fork.timestamp
+        )
         if new_package:
             forks.append(new_package)
 

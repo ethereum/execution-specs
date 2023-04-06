@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
-from ethereum.base_types import Bytes, Uint
+from ethereum.base_types import U64, Bytes, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
@@ -255,7 +255,9 @@ class Txs:
         if isinstance(tx_decoded, Transaction):
             if t8n.is_after_fork("ethereum.spurious_dragon"):
                 if protected:
-                    signing_hash = t8n.fork.signing_hash_155(tx_decoded)
+                    signing_hash = t8n.fork.signing_hash_155(
+                        tx_decoded, U64(1)
+                    )
                     v_addend = 37  # Assuming chain_id = 1
                 else:
                     signing_hash = t8n.fork.signing_hash_pre155(tx_decoded)
