@@ -21,14 +21,14 @@ class LatestForkResolver:
 latest_fork_resolver = LatestForkResolver()
 
 
-def set_latest_fork(fork: Fork):
+def set_latest_fork(fork: Fork) -> None:
     """
     Sets the latest fork
     """
     latest_fork_resolver.latest_fork = fork
 
 
-def set_latest_fork_by_name(fork_name: str):
+def set_latest_fork_by_name(fork_name: str) -> None:
     """
     Sets the latest fork by name
     """
