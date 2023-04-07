@@ -2,7 +2,25 @@
 Ethereum Virtual Machine opcode definitions.
 """
 from enum import Enum
-from typing import Union
+from typing import List, Union
+
+
+def _get_int_size(n: int) -> int:
+    """
+    Returns the size of an integer in bytes.
+    """
+    if n < 0:
+        # Negative numbers in the EVM are represented as two's complement
+        # of 32 bytes
+        return 32
+    byte_count = 0
+    while n:
+        byte_count += 1
+        n >>= 8
+    return byte_count
+
+
+_push_opcodes_byte_list = [bytes([0x5F + x]) for x in range(33)]
 
 
 class Opcode(bytes):
@@ -48,10 +66,12 @@ class Opcode(bytes):
             obj.data_portion_length = data_portion_length
             return obj
 
-    def __call__(self, data: int = 0) -> bytes:
+    def __call__(self, *args_t: Union[int, bytes, "Opcode"]) -> bytes:
         """
-        Makes all opcode instances callable to return a bytes object containing
-        the opcode byte plus a formatted data portion.
+        Makes all opcode instances callable to return formatted bytecode,
+        which constitutes a data portion, that is located after the opcode
+        byte, and pre-opcode bytecode, which is normally used to set up the
+        stack.
 
         This useful to automatically format, e.g., push opcodes and their
         data sections as `Opcodes.PUSH1(0x00)`.
@@ -61,24 +81,77 @@ class Opcode(bytes):
         `[-2^(data_portion_bits-1), 2^(data_portion_bits)]`
         where:
         `data_portion_bits == data_portion_length * 8`
+
+        For the stack, the arguments are set up in the opposite order they are
+        given, so the first argument is the last item pushed to the stack.
+
+        The resulting stack arrangement does not take into account opcode stack
+        element consumption, so the stack height is not guaranteed to be
+        correct and the user must take this into consideration.
+
+        Integers can also be used as stack elements, in which case they are
+        automatically converted to PUSH operations, and negative numbers always
+        use a PUSH32 operation.
+
+
         """
-        if self.data_portion_length == 0:
-            if data == 0:
-                return self
-            raise OverflowError(
-                "Attempted to append data to an opcode without data portion"
-            )
+        args: List[Union[int, bytes, "Opcode"]] = list(args_t)
+        pre_opcode_bytecode = bytes()
+        data_portion = bytes()
 
-        if data < 0:
-            data_portion = data.to_bytes(
-                length=self.data_portion_length, byteorder="big", signed=True
-            )
-        else:
-            data_portion = data.to_bytes(
-                length=self.data_portion_length, byteorder="big", signed=False
-            )
+        if self.data_portion_length > 0:
+            # For opcodes with a data portion, the first argument is the data
+            # and the rest of the arguments form the stack.
+            if len(args) == 0:
+                raise ValueError(
+                    "Opcode with data portion requires at least one argument"
+                )
+            data = args.pop(0)
+            if isinstance(data, bytes):
+                data_portion = data
+            elif isinstance(data, int):
+                signed = data < 0
+                data_portion = data.to_bytes(
+                    length=self.data_portion_length,
+                    byteorder="big",
+                    signed=signed,
+                )
+            else:
+                raise TypeError(
+                    "Opcode data portion must be either an int or a bytes"
+                )
 
-        return self + data_portion
+        # The rest of the arguments conform the stack.
+        while len(args) > 0:
+            data = args.pop()
+            if isinstance(data, bytes):
+                pre_opcode_bytecode += data
+            elif isinstance(data, int):
+                # We are going to push a constant to the stack.
+                signed = data < 0
+                data_size = _get_int_size(data)
+                if data_size > 32:
+                    raise ValueError(
+                        "Opcode stack data must be less than 32 bytes"
+                    )
+                elif data_size == 0:
+                    # Pushing 0 is done with the PUSH1 opcode for compatibility
+                    # reasons.
+                    data_size = 1
+
+                pre_opcode_bytecode += _push_opcodes_byte_list[data_size]
+                pre_opcode_bytecode += data.to_bytes(
+                    length=data_size,
+                    byteorder="big",
+                    signed=signed,
+                )
+
+            else:
+                raise TypeError(
+                    "Opcode stack data must be either an int or a bytes"
+                )
+
+        return pre_opcode_bytecode + self + data_portion
 
     def __len__(self) -> int:
         """
