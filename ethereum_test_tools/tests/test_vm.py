@@ -58,6 +58,41 @@ from ..vm.opcode import Opcodes as Op
             Op.PUSH32(-1),
             bytes([0x7F] + [0xFF] * 32),
         ),
+        (
+            Op.SSTORE(
+                -1,
+                Op.CALL(
+                    Op.GAS,
+                    Op.ADDRESS,
+                    Op.PUSH1(0x20),
+                    0,
+                    0,
+                    0x20,
+                    0x1234,
+                ),
+            ),
+            bytes(
+                [
+                    0x61,
+                    0x12,
+                    0x34,
+                    0x60,
+                    0x20,
+                    0x60,
+                    0x00,
+                    0x60,
+                    0x00,
+                    0x60,
+                    0x20,
+                    0x30,
+                    0x5A,
+                    0xF1,
+                    0x7F,
+                ]
+                + [0xFF] * 32
+                + [0x55]
+            ),
+        ),
     ],
 )
 def test_opcodes(opcodes: bytes, expected: bytes):
