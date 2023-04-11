@@ -1128,6 +1128,7 @@ class JSONEncoder(json.JSONEncoder):
             return b
         elif isinstance(obj, Fixture):
             if obj._json is not None:
+                obj._json["_info"] = obj.info
                 return obj._json
 
             f = {
