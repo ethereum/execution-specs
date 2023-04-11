@@ -928,6 +928,14 @@ class Fixture:
     name: str = ""
     index: int = 0
 
+    _json: Dict[str, Any] | None = None
+
+    def __post_init__(self):
+        """
+        Post init hook to convert to JSON after instantiation.
+        """
+        self._json = to_json(self)
+
     def fill_info(
         self,
         t8n: TransitionTool,
@@ -1119,6 +1127,10 @@ class JSONEncoder(json.JSONEncoder):
                 b["withdrawals"] = b_wds
             return b
         elif isinstance(obj, Fixture):
+            if obj._json is not None:
+                obj._json["_info"] = obj.info
+                return obj._json
+
             f = {
                 "_info": obj.info,
                 "blocks": [
