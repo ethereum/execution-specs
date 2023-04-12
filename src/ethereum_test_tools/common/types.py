@@ -70,6 +70,10 @@ def to_json(input: Any, remove_none: bool = False) -> Dict[str, Any]:
     return j
 
 
+MAX_STORAGE_KEY_VALUE = 2**256 - 1
+MIN_STORAGE_KEY_VALUE = -(2**255)
+
+
 class Storage:
     """
     Definition of a storage in pre or post state of a test
@@ -91,6 +95,54 @@ class Storage:
         def __str__(self):
             """Print exception string"""
             return f"invalid type for key/value: {self.key_or_value}"
+
+    class InvalidValue(Exception):
+        """
+        Invalid value used when describing test's expected storage key or
+        value.
+        """
+
+        key_or_value: Any
+
+        def __init__(self, key_or_value: Any, *args):
+            super().__init__(args)
+            self.key_or_value = key_or_value
+
+        def __str__(self):
+            """Print exception string"""
+            return f"invalid value for key/value: {self.key_or_value}"
+
+    class AmbiguousKeyValue(Exception):
+        """
+        Key is represented twice in the storage.
+        """
+
+        key_1: str | int
+        val_1: str | int
+        key_2: str | int
+        val_2: str | int
+
+        def __init__(
+            self,
+            key_1: str | int,
+            val_1: str | int,
+            key_2: str | int,
+            val_2: str | int,
+            *args,
+        ):
+            super().__init__(args)
+            self.key_1 = key_1
+            self.val_1 = val_1
+            self.key_2 = key_2
+            self.val_2 = val_2
+
+        def __str__(self):
+            """Print exception string"""
+            return f"""
+            Key is represented twice (due to negative numbers) with different
+            values in storage:
+            s[{self.key_1}] = {self.val_1} and s[{self.key_2}] = {self.val_2}
+            """
 
     class MissingKey(Exception):
         """
@@ -144,21 +196,21 @@ class Storage:
         Parses a key or value to a valid int key for storage.
         """
         if type(input) is str:
-            if input.startswith("0x"):
-                return int(input, 16)
-            else:
-                return int(input)
+            input = int(input, 0)
         elif type(input) is int:
-            return input
-
-        raise Storage.InvalidType(input)
+            pass
+        else:
+            raise Storage.InvalidType(input)
+        if input > MAX_STORAGE_KEY_VALUE or input < MIN_STORAGE_KEY_VALUE:
+            raise Storage.InvalidValue(input)
+        return input
 
     @staticmethod
     def key_value_to_string(value: int) -> str:
         """
         Transforms a key or value into a 32-byte hex string.
         """
-        return "0x" + value.to_bytes(32, "big").hex()
+        return "0x" + value.to_bytes(32, "big", signed=(value < 0)).hex()
 
     def __init__(self, input: Dict[str | int, str | int]):
         """
@@ -205,11 +257,15 @@ class Storage:
         Converts the storage into a string dict with appropriate 32-byte
         hex string formatting.
         """
-        res = {}
+        res: Dict[str, str] = {}
         for key in self.data:
-            res[
-                Storage.key_value_to_string(key)
-            ] = Storage.key_value_to_string(self.data[key])
+            key_repr = Storage.key_value_to_string(key)
+            val_repr = Storage.key_value_to_string(self.data[key])
+            if key_repr in res and val_repr != res[key_repr]:
+                raise Storage.AmbiguousKeyValue(
+                    key_repr, res[key_repr], key, val_repr
+                )
+            res[key_repr] = val_repr
         return res
 
     def contains(self, other: "Storage") -> bool:
