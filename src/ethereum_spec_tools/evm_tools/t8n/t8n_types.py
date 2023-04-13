@@ -39,8 +39,9 @@ class Env:
     base_fee_per_gas: Optional[Uint]
     # TODO: Derive base fee from parent gas
     # used and gas limit. See test data 25
-    # parent_gas_used: Optional[Uint]
-    # parent_gas_limit: Optional[Uint]
+    parent_gas_used: Optional[Uint]
+    parent_gas_limit: Optional[Uint]
+    parent_base_fee_per_gas: Optional[Uint]
     block_hashes: Optional[List[Any]]
     parent_ommers_hash: Optional[Hash32]
     ommers: Any
@@ -59,18 +60,52 @@ class Env:
         self.block_timestamp = parse_hex_or_int(data["currentTimestamp"], U256)
 
         self.read_block_difficulty(data, t8n)
-
-        if t8n.is_after_fork("ethereum.london"):
-            self.base_fee_per_gas = parse_hex_or_int(
-                data["currentBaseFee"], Uint
-            )
-        else:
-            self.base_fee_per_gas = None
-
+        self.read_base_fee_per_gas(data, t8n)
         self.read_randao(data, t8n)
         self.read_block_hashes(data)
         self.read_ommers(data, t8n)
         self.read_withdrawals(data, t8n)
+
+    def read_base_fee_per_gas(self, data: Any, t8n: Any) -> None:
+        """
+        Read the base_fee_per_gas from the data. If the base fee is
+        not present, it is calculated from the parent block parameters.
+        """
+        self.parent_gas_used = None
+        self.parent_gas_limit = None
+        self.parent_base_fee_per_gas = None
+        self.base_fee_per_gas = None
+
+        if t8n.is_after_fork("ethereum.london"):
+            if "currentBaseFee" in data:
+                self.base_fee_per_gas = parse_hex_or_int(
+                    data["currentBaseFee"], Uint
+                )
+            else:
+                self.parent_gas_used = parse_hex_or_int(
+                    data["parentGasUsed"], Uint
+                )
+                self.parent_gas_limit = parse_hex_or_int(
+                    data["parentGasLimit"], Uint
+                )
+                self.parent_base_fee_per_gas = parse_hex_or_int(
+                    data["parentBaseFee"], Uint
+                )
+                parameters = [
+                    self.block_gas_limit,
+                    self.parent_gas_limit,
+                    self.parent_gas_used,
+                    self.parent_base_fee_per_gas,
+                ]
+
+                # TODO: See if this explicit check can be removed. See
+                # https://github.com/ethereum/execution-specs/issues/740
+                if t8n.fork_module == "london":
+                    parameters.append(t8n.fork_block == self.block_number)
+
+                self.base_fee_per_gas = t8n.fork.calculate_base_fee_per_gas(
+                    *parameters
+                )
 
     def read_randao(self, data: Any, t8n: Any) -> None:
         """
