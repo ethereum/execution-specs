@@ -7,9 +7,12 @@ from ethereum_test_tools import (
     Account,
     Environment,
     StateTest,
+    TestAddress,
     Transaction,
     test_from,
+    to_address,
 )
+from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
 @test_from(Istanbul)
@@ -26,26 +29,22 @@ def test_chain_id(fork):
     )
 
     pre = {
-        "0x1000000000000000000000000000000000000000": Account(
-            code="0x4660015500"
-        ),
-        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
-            balance=1000000000000000000000
-        ),
+        to_address(0x100): Account(code=Op.SSTORE(1, Op.CHAINID) + Op.STOP),
+        TestAddress: Account(balance=1000000000000000000000),
     }
 
     tx = Transaction(
         ty=0x0,
         chain_id=0x0,
         nonce=0,
-        to="0x1000000000000000000000000000000000000000",
+        to=to_address(0x100),
         gas_limit=100000000,
         gas_price=10,
         protected=False,
     )
 
     post = {
-        "0x1000000000000000000000000000000000000000": Account(
+        to_address(0x100): Account(
             code="0x4660015500", storage={"0x01": "0x01"}
         ),
     }
