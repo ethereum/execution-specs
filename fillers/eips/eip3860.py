@@ -5,7 +5,7 @@ Source tests: https://github.com/ethereum/tests/pull/990
               https://github.com/ethereum/tests/pull/1012
 """
 
-
+from string import Template
 from typing import Any, Dict
 
 from ethereum_test_forks import Shanghai
@@ -461,31 +461,31 @@ def generate_create_opcode_initcode_test_cases(
     """
     env = Environment()
 
-    call_code = Yul(
+    call_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+    call_code += Op.SSTORE(
+        Op.CALL(5000000, 0x100, 0, 0, Op.CALLDATASIZE, 0, 0),
+        1,
+    )
+
+    create_code = Template(
         """
         {
-            calldatacopy(0, 0, calldatasize())
-            let call_result := call(5000000, \
-                0x0000000000000000000000000000000000000100, \
-                0, 0, calldatasize(), 0, 0)
-            sstore(call_result, 1)
+            let contract_length := calldatasize()
+            calldatacopy(0, 0, contract_length)
+            let gas1 := gas()
+            let res := ${create_instruction}
+            let gas2 := gas()
+            sstore(0, res)
+            sstore(1, sub(gas1, gas2))
         }
         """
     )
 
     if opcode == "create":
         code = Yul(
-            """
-            {
-                let contract_length := calldatasize()
-                calldatacopy(0, 0, contract_length)
-                let gas1 := gas()
-                let res := create(0, 0, contract_length)
-                let gas2 := gas()
-                sstore(0, res)
-                sstore(1, sub(gas1, gas2))
-            }
-            """
+            create_code.substitute(
+                create_instruction="create(0, 0, contract_length)"
+            )
         )
         created_contract_address = compute_create_address(
             address=0x100,
@@ -494,17 +494,9 @@ def generate_create_opcode_initcode_test_cases(
 
     elif opcode == "create2":
         code = Yul(
-            """
-            {
-                let contract_length := calldatasize()
-                calldatacopy(0, 0, contract_length)
-                let gas1 := gas()
-                let res := create2(0, 0, contract_length, 0xDEADBEEF)
-                let gas2 := gas()
-                sstore(0, res)
-                sstore(1, sub(gas1, gas2))
-            }
-            """
+            create_code.substitute(
+                create_instruction="create2(0, 0, contract_length, 0xDEADBEEF)"
+            )
         )
         created_contract_address = compute_create2_address(
             address=0x100,

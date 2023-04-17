@@ -43,7 +43,7 @@ def test_push0(fork):
     """
     Test case 1: Simple PUSH0 as key to SSTORE
     """
-    code = Op.PUSH1(1) + Op.PUSH0 + Op.SSTORE
+    code = Op.SSTORE(Op.PUSH0, 1)
 
     pre[addr_1] = Account(code=code)
     post[addr_1] = Account(storage={0x00: 0x01})
@@ -56,7 +56,7 @@ def test_push0(fork):
     """
     code = Op.PUSH0 * 1024
     code += Op.OR * 1023
-    code += Op.PUSH1(1) + Op.SWAP1 + Op.SSTORE
+    code += Op.SSTORE(Op.SWAP1, 1)
 
     pre[addr_1] = Account(code=code)
     post[addr_1] = Account(storage={0x00: 0x01})
@@ -66,7 +66,7 @@ def test_push0(fork):
     """
     Test case 3: Stack overflow by using PUSH0 1025 times
     """
-    code = Op.PUSH1(1) + Op.PUSH0 + Op.SSTORE
+    code = Op.SSTORE(Op.PUSH0, 1)
     code += Op.PUSH0 * 1025
 
     pre[addr_1] = Account(code=code)
@@ -79,9 +79,7 @@ def test_push0(fork):
     """
     Test case 4: Update already existing storage value
     """
-    code = (
-        Op.PUSH1(2) + Op.PUSH0 + Op.SSTORE + Op.PUSH0 + Op.PUSH1(1) + Op.SSTORE
-    )
+    code = Op.SSTORE(Op.PUSH0, 2) + Op.SSTORE(1, Op.PUSH0)
 
     pre[addr_1] = Account(code=code, storage={0x00: 0x0A, 0x01: 0x0A})
     post[addr_1] = Account(storage={0x00: 0x02, 0x01: 0x00})
@@ -103,14 +101,7 @@ def test_push0(fork):
         }
         """
     )
-    code_2 = (
-        Op.PUSH1(0xFF)
-        + Op.PUSH0
-        + Op.MSTORE8
-        + Op.PUSH1(1)
-        + Op.PUSH1(0)
-        + Op.RETURN
-    )
+    code_2 = Op.MSTORE8(Op.PUSH0, 0xFF) + Op.RETURN(Op.PUSH0, 1)
 
     pre[addr_1] = Account(code=code_1)
     pre[addr_2] = Account(code=code_2)
@@ -130,9 +121,7 @@ def test_push0(fork):
         + Op.JUMP
         + Op.PUSH0
         + Op.JUMPDEST
-        + Op.PUSH1(1)
-        + Op.PUSH0
-        + Op.SSTORE
+        + Op.SSTORE(Op.PUSH0, 1)
         + Op.STOP
     )
 

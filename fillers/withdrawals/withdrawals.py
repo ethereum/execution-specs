@@ -18,6 +18,7 @@ from ethereum_test_tools import (
     to_address,
     to_hash,
 )
+from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4895.md"
 REFERENCE_SPEC_VERSION = "0966bbc3ff92127c0a729ce5455bbc35fd2075b8"
@@ -26,30 +27,8 @@ WITHDRAWALS_FORK = Shanghai
 
 ONE_GWEI = 10**9
 
-# Common contracts across withdrawals tests
-SET_STORAGE = Yul(
-    """
-    {
-        sstore(number(), 1)
-    }
-    """
-)
-"""
-Contract that simply sets a storage value unconditionally on call
-"""
-
-SELFDESTRUCT = Yul(
-    """
-    {
-        let addr := calldataload(0)
-        selfdestruct(addr)
-    }
-    """
-)
-"""
-Contract that selfdestructs and sends all funds to specified
-account.
-"""
+# Common contract that sets a storage value unconditionally on call
+SET_STORAGE = Op.SSTORE(Op.NUMBER, 1)
 
 
 def set_withdrawal_index(
@@ -130,14 +109,11 @@ def test_use_value_in_contract(_):
     """
     Test sending value from contract that has not received a withdrawal
     """
-    SEND_ONE_GWEI = Yul(
-        """
-        {
-            let ret := call(gas(), 0x200, 1000000000, 0, 0, 0, 0)
-            sstore(number(), ret)
-        }
-        """
+    SEND_ONE_GWEI = Op.SSTORE(
+        Op.NUMBER,
+        Op.CALL(Op.GAS, 0x200, 1000000000, 0, 0, 0, 0),
     )
+
     pre = {
         TestAddress: Account(balance=1000000000000000000000, nonce=0),
         to_address(0x100): Account(balance=0, code=SEND_ONE_GWEI),
@@ -193,13 +169,9 @@ def test_balance_within_block(_):
     Test Withdrawal balance increase within the same block,
     inside contract call.
     """
-    SAVE_BALANCE_ON_BLOCK_NUMBER = Yul(
-        """
-        {
-            let addr := calldataload(0)
-            sstore(number(), balance(addr))
-        }
-        """
+    SAVE_BALANCE_ON_BLOCK_NUMBER = Op.SSTORE(
+        Op.NUMBER,
+        Op.BALANCE(Op.CALLDATALOAD(0)),
     )
     pre = {
         TestAddress: Account(balance=1000000000000000000000, nonce=0),
@@ -392,7 +364,7 @@ def test_self_destructing_account(_):
     pre = {
         TestAddress: Account(balance=1000000000000000000000, nonce=0),
         to_address(0x100): Account(
-            code=SELFDESTRUCT,
+            code=Op.SELFDESTRUCT(Op.CALLDATALOAD(0)),
             balance=(100 * ONE_GWEI),
         ),
         to_address(0x200): Account(

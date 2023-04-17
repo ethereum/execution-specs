@@ -74,41 +74,13 @@ def test_warm_coinbase_call_out_of_gas(fork):
         """
     )
 
-    call_code = Yul(
-        """
-        {
-           let cb := coinbase()
-           pop(call(0, cb, 0, 0, 0, 0, 0))
-        }
-        """
-    )
+    call_code = Op.POP(Op.CALL(0, Op.COINBASE, 0, 0, 0, 0, 0))
 
-    callcode_code = Yul(
-        """
-        {
-           let cb := coinbase()
-           pop(callcode(0, cb, 0, 0, 0, 0, 0))
-        }
-        """
-    )
+    callcode_code = Op.POP(Op.CALLCODE(0, Op.COINBASE, 0, 0, 0, 0, 0))
 
-    delegatecall_code = Yul(
-        """
-        {
-           let cb := coinbase()
-           pop(delegatecall(0, cb, 0, 0, 0, 0))
-        }
-        """
-    )
+    delegatecall_code = Op.POP(Op.DELEGATECALL(0, Op.COINBASE, 0, 0, 0, 0))
 
-    staticcall_code = Yul(
-        """
-        {
-           let cb := coinbase()
-           pop(staticcall(0, cb, 0, 0, 0, 0))
-        }
-        """
-    )
+    staticcall_code = Op.POP(Op.STATICCALL(0, Op.COINBASE, 0, 0, 0, 0))
 
     pre = {
         TestAddress: Account(balance=1000000000000000000000),
@@ -183,50 +155,41 @@ def test_warm_coinbase_gas_usage(fork):
     # List of opcodes that are affected by
     gas_measured_opcodes: Dict[str, CodeGasMeasure] = {
         "EXTCODESIZE": CodeGasMeasure(
-            code=Op.COINBASE + Op.EXTCODESIZE,
+            code=Op.EXTCODESIZE(Op.COINBASE),
             overhead_cost=2,
             extra_stack_items=1,
         ),
         "EXTCODECOPY": CodeGasMeasure(
-            code=Op.PUSH1(0x00) * 3 + Op.COINBASE + Op.EXTCODECOPY,
+            code=Op.EXTCODECOPY(Op.COINBASE, 0, 0, 0),
             overhead_cost=2 + 3 + 3 + 3,
         ),
         "EXTCODEHASH": CodeGasMeasure(
-            code=Op.COINBASE + Op.EXTCODEHASH,
+            code=Op.EXTCODEHASH(Op.COINBASE),
             overhead_cost=2,
             extra_stack_items=1,
         ),
         "BALANCE": CodeGasMeasure(
-            code=Op.COINBASE + Op.BALANCE,
+            code=Op.BALANCE(Op.COINBASE),
             overhead_cost=2,
             extra_stack_items=1,
         ),
         "CALL": CodeGasMeasure(
-            code=Op.PUSH1(0x00) * 5 + Op.COINBASE + Op.PUSH1(0xFF) + Op.CALL,
+            code=Op.CALL(0xFF, Op.COINBASE, 0, 0, 0, 0, 0),
             overhead_cost=3 + 2 + 3 + 3 + 3 + 3 + 3,
             extra_stack_items=1,
         ),
         "CALLCODE": CodeGasMeasure(
-            code=Op.PUSH1(0x00) * 5
-            + Op.COINBASE
-            + Op.PUSH1(0xFF)
-            + Op.CALLCODE,
+            code=Op.CALLCODE(0xFF, Op.COINBASE, 0, 0, 0, 0, 0),
             overhead_cost=3 + 2 + 3 + 3 + 3 + 3 + 3,
             extra_stack_items=1,
         ),
         "DELEGATECALL": CodeGasMeasure(
-            code=Op.PUSH1(0x00) * 4
-            + Op.COINBASE
-            + Op.PUSH1(0xFF)
-            + Op.DELEGATECALL,
+            code=Op.DELEGATECALL(0xFF, Op.COINBASE, 0, 0, 0, 0),
             overhead_cost=3 + 2 + 3 + 3 + 3 + 3,
             extra_stack_items=1,
         ),
         "STATICCALL": CodeGasMeasure(
-            code=Op.PUSH1(0x00) * 4
-            + Op.COINBASE
-            + Op.PUSH1(0xFF)
-            + Op.STATICCALL,
+            code=Op.STATICCALL(0xFF, Op.COINBASE, 0, 0, 0, 0),
             overhead_cost=3 + 2 + 3 + 3 + 3 + 3,
             extra_stack_items=1,
         ),
