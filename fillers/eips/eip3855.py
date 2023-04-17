@@ -66,7 +66,6 @@ def test_push0(fork):
     """
     Test case 3: Stack overflow by using PUSH0 1025 times
     """
-    code = Op.PUSH1(1) + Op.PUSH0 + Op.SSTORE
     code = Op.SSTORE(Op.PUSH0, 1)
     code += Op.PUSH0 * 1025
 
