@@ -568,41 +568,34 @@ def test_zero_amount(_):
     """
     pre = {
         TestAddress: Account(balance=1000000000000000000000, nonce=0),
-        to_address(0x100): Account(
-            code="0x00",
-            balance=0,
-        ),
         to_address(0x200): Account(
-            code="0x00",
-            balance=0,
-        ),
-        to_address(0x300): Account(
             code="0x00",
             balance=0,
         ),
     }
 
+    # Untouched account
     withdrawal_1 = Withdrawal(
         index=0,
         validator=0,
         address=to_address(0x100),
         amount=0,
     )
+    # Touched account
+    withdrawal_2 = Withdrawal(
+        index=0,
+        validator=0,
+        address=to_address(0x200),
+        amount=0,
+    )
 
     block = Block(
-        withdrawals=[withdrawal_1],
+        withdrawals=[withdrawal_1, withdrawal_2],
     )
 
     post = {
-        to_address(0x100): Account(
-            code="0x00",
-            balance=0,
-        ),
+        to_address(0x100): Account.NONEXISTENT,
         to_address(0x200): Account(
-            code="0x00",
-            balance=0,
-        ),
-        to_address(0x300): Account(
             code="0x00",
             balance=0,
         ),
@@ -612,28 +605,32 @@ def test_zero_amount(_):
 
     # Same test but add another withdrawal with positive amount in same
     # block.
-    withdrawal_2 = Withdrawal(
+    withdrawal_3 = Withdrawal(
         index=1,
         validator=0,
-        address=to_address(0x200),
+        address=to_address(0x300),
         amount=1,
     )
-    block.withdrawals.append(withdrawal_2)
-    post[to_address(0x200)].balance = ONE_GWEI
+    block.withdrawals.append(withdrawal_3)
+    post[to_address(0x300)] = Account(
+        balance=ONE_GWEI,
+    )
     yield BlockchainTest(
         pre=pre, post=post, blocks=[block], tag="with_extra_positive_amount"
     )
 
     # Same test but add another withdrawal with max amount in same
     # block.
-    withdrawal_3 = Withdrawal(
+    withdrawal_4 = Withdrawal(
         index=2,
         validator=0,
-        address=to_address(0x300),
+        address=to_address(0x400),
         amount=2**64 - 1,
     )
-    block.withdrawals.append(withdrawal_3)
-    post[to_address(0x300)].balance = (2**64 - 1) * ONE_GWEI
+    block.withdrawals.append(withdrawal_4)
+    post[to_address(0x400)] = Account(
+        balance=(2**64 - 1) * ONE_GWEI,
+    )
 
     yield BlockchainTest(
         pre=pre, post=post, blocks=[block], tag="with_extra_max_amount"
