@@ -121,6 +121,9 @@ class TransitionTool:
         if fork.header_prev_randao_required(0, 0):
             env["currentRandom"] = "0"
 
+        if fork.header_excess_data_gas_required(0, 0):
+            env["currentExcessDataGas"] = "0"
+
         (_, result, _) = self.evaluate({}, [], env, fork)
         withdrawals_root = result.get("withdrawalsRoot")
         if withdrawals_root is None:
@@ -177,7 +180,7 @@ class EvmTransitionTool(TransitionTool):
         """
         Executes `evm t8n` with the specified arguments.
         """
-        fork_name = fork.__name__
+        fork_name = fork.name()
         if eips is not None:
             fork_name = "+".join([fork_name] + [str(eip) for eip in eips])
 

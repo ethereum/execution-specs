@@ -55,15 +55,15 @@ def fill_test(
                 name_tag = f"{name} {test.tag}" if test.tag else name
                 print(f"Exception during test '{name_tag}'")
                 raise e
-
+            fork_name = fork.name()
             fixture = Fixture(
                 blocks=blocks,
                 genesis=genesis,
                 genesis_rlp=genesis_rlp,
                 head=head,
-                fork="+".join([fork.__name__] + [str(eip) for eip in eips])
+                fork="+".join([fork_name] + [str(eip) for eip in eips])
                 if eips is not None
-                else fork.__name__,
+                else fork_name,
                 pre_state=copy(test.pre),
                 post_state=alloc_to_accounts(alloc),
                 seal_engine=engine,

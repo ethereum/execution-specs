@@ -25,12 +25,15 @@
                 "blocknumber": "1",
                 "transactions": [
                     {
+                        "type": "0x02",
+                        "chainId": "0x01",
                         "nonce": "0x00",
                         "to": "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
                         "value": "0x00",
                         "data": "0x01",
                         "gasLimit": "0x0f4240",
-                        "gasPrice": "0x0A",
+                        "maxFeePerGas": "0x03e8",
+                        "maxPriorityFeePerGas": "0x01",
                         "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
                     }
                 ],
@@ -60,30 +63,39 @@
                 "blocknumber": "2",
                 "transactions": [
                     {
+                        "type": "0x02",
+                        "chainId": "0x01",
                         "nonce": "0x01",
                         "to": "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
                         "value": "0x00",
                         "data": "0x0201",
                         "gasLimit": "0x0f4240",
-                        "gasPrice": "0x0A",
+                        "maxPriorityFeePerGas": "0x0a",
+                        "maxFeePerGas": "0x03e8",
                         "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
                     },
                     {
+                        "type": "0x02",
+                        "chainId": "0x01",
                         "nonce": "0x02",
                         "to": "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD",
                         "value": "0x00",
                         "data": "0x0202",
                         "gasLimit": "0x0f4240",
-                        "gasPrice": "0x0A",
+                        "maxPriorityFeePerGas": "0x64",
+                        "maxFeePerGas": "0x03e8",
                         "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
                     },
                     {
+                        "type": "0x02",
+                        "chainId": "0x01",
                         "nonce": "0x03",
                         "to": "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE",
                         "value": "0x00",
                         "data": "0x0203",
                         "gasLimit": "0x0f4240",
-                        "gasPrice": "0x0A",
+                        "maxPriorityFeePerGas": "0x64",
+                        "maxFeePerGas": "0x03e8",
                         "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
                     }
                 ],
@@ -118,30 +130,39 @@
                 "blocknumber": "3",
                 "transactions": [
                     {
+                        "type": "0x02",
+                        "chainId": "0x01",
                         "nonce": "0x04",
                         "to": "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
                         "value": "0x00",
                         "data": "0x0301",
                         "gasLimit": "0x0f4240",
-                        "gasPrice": "0x0A",
+                        "maxPriorityFeePerGas": "0x03e8",
+                        "maxFeePerGas": "0x03e8",
                         "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
                     },
                     {
+                        "type": "0x02",
+                        "chainId": "0x01",
                         "nonce": "0x05",
                         "to": "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE",
                         "value": "0x00",
                         "data": "0x0303",
                         "gasLimit": "0x0f4240",
-                        "gasPrice": "0x0A",
+                        "maxPriorityFeePerGas": "0x64",
+                        "maxFeePerGas": "0x03e8",
                         "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
                     },
                     {
+                        "type": "0x02",
+                        "chainId": "0x01",
                         "nonce": "0x06",
                         "to": "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD",
                         "value": "0x00",
                         "data": "0x0304",
                         "gasLimit": "0x0f4240",
-                        "gasPrice": "0x0A",
+                        "maxPriorityFeePerGas": "0x0186a0",
+                        "maxFeePerGas": "0x0186a0",
                         "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
                     }
                 ],
@@ -176,30 +197,39 @@
                 "blocknumber": "4",
                 "transactions": [
                     {
+                        "type": "0x02",
+                        "chainId": "0x01",
                         "nonce": "0x07",
                         "to": "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
                         "value": "0x00",
                         "data": "0x0401",
                         "gasLimit": "0x0f4240",
-                        "gasPrice": "0x0A",
+                        "maxPriorityFeePerGas": "0x03e8",
+                        "maxFeePerGas": "0x03e8",
                         "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
                     },
                     {
+                        "type": "0x02",
+                        "chainId": "0x01",
                         "nonce": "0x08",
                         "to": "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE",
                         "value": "0x00",
                         "data": "0x0403",
                         "gasLimit": "0x0f4240",
-                        "gasPrice": "0x0A",
+                        "maxPriorityFeePerGas": "0x64",
+                        "maxFeePerGas": "0x03e8",
                         "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
                     },
                     {
+                        "type": "0x02",
+                        "chainId": "0x01",
                         "nonce": "0x09",
                         "to": "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD",
                         "value": "0x00",
                         "data": "0x0404",
                         "gasLimit": "0x0f4240",
-                        "gasPrice": "0x0A",
+                        "maxPriorityFeePerGas": "0x0186a0",
+                        "maxFeePerGas": "0x0186a0",
                         "secretKey": "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
                     }
                 ],

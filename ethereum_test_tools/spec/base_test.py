@@ -51,7 +51,9 @@ def verify_transactions(txs: List[Transaction] | None, result) -> List[int]:
         for i, tx in enumerate(txs):
             error = rejected_txs[i] if i in rejected_txs else None
             if tx.error and not error:
-                raise Exception("tx expected to fail succeeded")
+                raise Exception(
+                    f"tx expected to fail succeeded: pos={i}, nonce={tx.nonce}"
+                )
             elif not tx.error and error:
                 raise Exception(f"tx unexpectedly failed: {error}")
 

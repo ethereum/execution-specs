@@ -47,7 +47,7 @@ def find_modules(root, include_pkg, include_modules):
             if module_full_name not in modules:
                 if not include_modules or include_modules in info.name:
                     yield (
-                        package,
+                        package_path,
                         info.name,
                         info.module_finder.find_module(module_full_name),
                     )

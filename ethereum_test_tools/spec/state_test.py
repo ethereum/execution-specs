@@ -75,6 +75,7 @@ class StateTest(BaseTest):
             mix_digest="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
             nonce="0x0000000000000000",
             base_fee=env.base_fee,
+            excess_data_gas=env.excess_data_gas,
             withdrawals_root=t8n.calc_withdrawals_root(env.withdrawals, fork)
             if env.withdrawals is not None
             else None,
@@ -147,6 +148,7 @@ class StateTest(BaseTest):
                 "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
                 "nonce": "0x0000000000000000",
                 "baseFeePerGas": result.get("currentBaseFee"),
+                "excessDataGas": result.get("currentExcessDataGas"),
             }
         )
 

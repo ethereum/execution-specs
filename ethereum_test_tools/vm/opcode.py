@@ -236,6 +236,7 @@ class Opcodes(Opcode, Enum):
     CHAINID = Opcode(0x46, pushed_stack_items=1)
     SELFBALANCE = Opcode(0x47, pushed_stack_items=1)
     BASEFEE = Opcode(0x48, pushed_stack_items=1)
+    DATAHASH = Opcode(0x49, popped_stack_items=1, pushed_stack_items=1)
 
     POP = Opcode(0x50, popped_stack_items=1)
     MLOAD = Opcode(0x51, popped_stack_items=1, pushed_stack_items=1)

@@ -9,6 +9,7 @@ from .common import (
     Account,
     Block,
     Environment,
+    Header,
     JSONEncoder,
     TestAddress,
     Transaction,
@@ -19,6 +20,7 @@ from .common import (
     eip_2028_transaction_data_cost,
     to_address,
     to_hash,
+    to_hash_bytes,
 )
 from .filling.decorators import test_from, test_from_until, test_only
 from .filling.fill import fill_test
@@ -34,6 +36,7 @@ __all__ = (
     "Code",
     "CodeGasMeasure",
     "Environment",
+    "Header",
     "Initcode",
     "JSONEncoder",
     "Opcode",
@@ -56,5 +59,7 @@ __all__ = (
     "test_only",
     "to_address",
     "to_hash",
+    "to_hash_bytes",
+    "eip_2028_transaction_data_cost",
     "verify_post_alloc",
 )
