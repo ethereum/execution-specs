@@ -18,7 +18,11 @@ from .forks.forks import (
     MuirGlacier,
     Shanghai,
 )
-from .forks.transition import BerlinToLondonAt5, MergeToShanghaiAtTime15k
+from .forks.transition import (
+    BerlinToLondonAt5,
+    MergeToShanghaiAtTime15k,
+    ShanghaiToShardingAtTime15k,
+)
 from .forks.upcoming import ShardingFork
 from .helpers import (
     fork_only,
@@ -33,6 +37,7 @@ __all__ = [
     "Fork",
     "ArrowGlacier",
     "Berlin",
+    "BerlinToLondonAt5",
     "Byzantium",
     "Constantinople",
     "ConstantinopleFix",
@@ -42,10 +47,10 @@ __all__ = [
     "Istanbul",
     "London",
     "Merge",
+    "MergeToShanghaiAtTime15k",
     "MuirGlacier",
     "Shanghai",
-    "BerlinToLondonAt5",
-    "MergeToShanghaiAtTime15k",
+    "ShanghaiToShardingAtTime15k",
     "ShardingFork",
     "fork_only",
     "forks_from",

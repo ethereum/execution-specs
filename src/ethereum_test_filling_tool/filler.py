@@ -147,7 +147,7 @@ class Filler:
                     if len(obj.__filler_metadata__["forks"]) == 0:
                         continue
                     obj.__filler_metadata__["module_path"] = [
-                        package_name,
+                        package_name.replace(".", "/"),
                         module_name,
                     ]
                     obj.__filler_metadata__["spec"] = module_spec
@@ -168,12 +168,13 @@ class Filler:
         )
         os.makedirs(output_dir, exist_ok=True)
         path = os.path.join(output_dir, f"{name}.json")
-        full_name = ".".join(module_path + [name])
+        full_name = "/".join(module_path + [name])
 
         # Only skip if the fixture file already exists, the module
         # has not been modified since the last test filler run, and
         # the user doesn't want to force a refill the
         # fixtures (--force-refill).
+
         if (
             os.path.exists(path)
             and not is_module_modified(

@@ -70,6 +70,13 @@ class BaseFork(ABC):
         """
         pass
 
+    @classmethod
+    def name(cls) -> str:
+        """
+        Returns the name of the fork.
+        """
+        return cls.__name__
+
 
 # Fork Type
 Fork = Type[BaseFork]

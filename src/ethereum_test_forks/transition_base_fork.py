@@ -25,8 +25,15 @@ def transition_fork(to_fork: Fork):
     """
 
     def decorator(cls) -> Type[TransitionBaseClass]:
+        transition_name = cls.__name__
+
         class NewTransitionClass(cls, TransitionBaseClass):  # type: ignore
-            pass
+            @classmethod
+            def name(cls) -> str:
+                """
+                Returns the name of the transition fork.
+                """
+                return transition_name
 
         NewTransitionClass.transitions_to = lambda: to_fork  # type: ignore
 

@@ -23,6 +23,8 @@ fn
 geth
 hash32
 ispkg
+kzg
+kzgs
 listdir
 ommer
 ommers
@@ -43,6 +45,7 @@ validator
 vm
 gwei
 wei
+islice
 
 getmtime
 byteorder
@@ -75,6 +78,7 @@ mulmod
 exp
 signextend
 
+ve
 lt
 gt
 slt
@@ -127,6 +131,7 @@ prevrandao
 
 authcall
 callf
+datahash
 jumpdest
 jumpi
 mload

@@ -7,6 +7,9 @@
 
 A new set of tests for ethereum execution clients to test against. The [git repo](https://github.com/ethereum/execution-spec-tests) is updated regulary with new tests.
 
+<h2> Test Case Descriptions </h2>
+- <h3> [EIP-4844](tests/01_eip4844.md) </h3>
+
 <h2> Getting Started </h2>
 - <h3> [Quick Start](getting_started/01_quick_start.md) </h3>
 - <h3> [Package Overview](getting_started/02_package_overview.md) </h3>
@@ -16,3 +19,4 @@ A new set of tests for ethereum execution clients to test against. The [git repo
 <h2> Tutorials </h2>
 - <h3> [State Tests](tutorials/01_state_transition.md) </h3>
 - <h3> [Blockchain Tests](tutorials/02_blockchain.md) </h3>
+

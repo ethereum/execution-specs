@@ -15,6 +15,7 @@ from .helpers import (
     eip_2028_transaction_data_cost,
     to_address,
     to_hash,
+    to_hash_bytes,
 )
 from .types import (
     AccessList,
@@ -24,6 +25,7 @@ from .types import (
     Fixture,
     FixtureBlock,
     FixtureHeader,
+    Header,
     JSONEncoder,
     Storage,
     Transaction,
@@ -48,6 +50,7 @@ __all__ = (
     "Fixture",
     "FixtureBlock",
     "FixtureHeader",
+    "Header",
     "JSONEncoder",
     "Storage",
     "TestAddress",
@@ -65,6 +68,7 @@ __all__ = (
     "str_or_none",
     "to_address",
     "to_hash",
+    "to_hash_bytes",
     "to_json",
     "to_json_or_none",
 )

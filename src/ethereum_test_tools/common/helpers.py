@@ -87,13 +87,20 @@ def to_address(input: int | str) -> str:
     raise Exception("invalid type to convert to account address")
 
 
-def to_hash(input: int | str) -> str:
+def to_hash_bytes(input: int | str) -> bytes:
     """
-    Converts an int or str into proper address 20-byte hex string.
+    Converts an int or str into proper 32-byte hash.
     """
     if type(input) is str:
         # Convert to int
         input = int(input, 0)
     if type(input) is int:
-        return "0x" + input.to_bytes(32, "big").hex()
+        return input.to_bytes(32, "big")
     raise Exception("invalid type to convert to hash")
+
+
+def to_hash(input: int | str) -> str:
+    """
+    Converts an int or str into proper 32-byte hash hex string.
+    """
+    return "0x" + to_hash_bytes(input).hex()
