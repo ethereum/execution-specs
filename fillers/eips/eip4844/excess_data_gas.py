@@ -696,7 +696,9 @@ class InvalidBlobTransactionTestCase:
                 blob_versioned_hashes=[
                     to_hash_bytes(x) for x in range(self.blobs_per_tx)
                 ],
-                error=self.tx_error if tx_i == (self.tx_count - 1) else None,
+                error=self.tx_error
+                if tx_i == (self.tx_count - 1) and self.blobs_per_tx != 0
+                else None,
             )
             txs.append(tx)
             total_account_minimum_balance += tx_exact_cost
@@ -772,15 +774,12 @@ def test_invalid_blob_txs(fork: Fork):
                 tx_count=MAX_BLOBS_PER_BLOCK + 1,
                 blobs_per_tx=1,
             ),
-            # TODO: Enable, at the time of writing this test case, the EIP
-            # does not specify a minimum blob amount for the type 3
-            # transaction.
-            # InvalidBlobTransactionTestCase(
-            #     tag="blob_underflow",
-            #     parent_excess_blobs=10,  # data_gasprice= 1
-            #     tx_error="too_few_blobs",
-            #     blobs_per_tx=0,
-            # ),
+            InvalidBlobTransactionTestCase(
+                tag="blob_underflow",
+                parent_excess_blobs=10,  # data_gasprice= 1
+                tx_error="too_few_blobs",
+                blobs_per_tx=0,
+            ),
         ]
     else:
         # Pre-Sharding, blocks with type 3 txs must be rejected
