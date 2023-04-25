@@ -696,9 +696,7 @@ class InvalidBlobTransactionTestCase:
                 blob_versioned_hashes=[
                     to_hash_bytes(x) for x in range(self.blobs_per_tx)
                 ],
-                error=self.tx_error
-                if tx_i == (self.tx_count - 1) and self.blobs_per_tx != 0
-                else None,
+                error=self.tx_error if tx_i == (self.tx_count - 1) else None,
             )
             txs.append(tx)
             total_account_minimum_balance += tx_exact_cost
