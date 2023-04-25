@@ -6,7 +6,7 @@ import itertools
 from copy import copy
 from typing import Dict, List, Sequence
 
-from ethereum_test_forks import Fork, ShardingFork
+from ethereum_test_forks import Cancun, Fork
 from ethereum_test_tools import (
     Account,
     Block,
@@ -52,7 +52,7 @@ env = Environment(  # Global state test environment
 )
 
 
-@test_from(fork=ShardingFork)
+@test_from(fork=Cancun)
 def test_datahash_opcode_contexts(_: Fork):
     """
     Test DATAHASH opcode called on different contexts.
@@ -430,7 +430,7 @@ def test_datahash_opcode_contexts(_: Fork):
         )
 
 
-@test_from(fork=ShardingFork)
+@test_from(fork=Cancun)
 def test_datahash_gas_cost(_: Fork):
     """
     Test DATAHASH opcode gas cost using a variety of indexes.
@@ -521,7 +521,7 @@ def test_datahash_gas_cost(_: Fork):
     yield BlockchainTest(pre=pre, post=post, blocks=blocks, tag="tx_type_3")
 
 
-@test_from(fork=ShardingFork)
+@test_from(fork=Cancun)
 def test_datahash_blob_versioned_hash(_: Fork):
     """
     Tests that the `DATAHASH` opcode returns the correct versioned hash for
@@ -651,7 +651,7 @@ def test_datahash_blob_versioned_hash(_: Fork):
     )
 
 
-@test_from(fork=ShardingFork)
+@test_from(fork=Cancun)
 def test_datahash_invalid_blob_index(_: Fork):
     """
     Tests that the `DATAHASH` opcode returns a zeroed bytes32 value
@@ -719,7 +719,7 @@ def test_datahash_invalid_blob_index(_: Fork):
     )
 
 
-@test_from(fork=ShardingFork)
+@test_from(fork=Cancun)
 def test_datahash_multiple_txs_in_block(_: Fork):
     """
     Tests that the `DATAHASH` opcode returns the appropriate values

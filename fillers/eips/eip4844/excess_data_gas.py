@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from typing import List, Mapping, Optional
 
 from ethereum_test_forks import (
+    Cancun,
     Fork,
     Shanghai,
-    ShanghaiToShardingAtTime15k,
-    ShardingFork,
+    ShanghaiToCancunAtTime15k,
     is_fork,
 )
 from ethereum_test_tools import (
@@ -182,7 +182,7 @@ class ExcessDataGasCalcTestCase:
         )
 
 
-@test_from(fork=ShardingFork)
+@test_from(fork=Cancun)
 def test_excess_data_gas_calc(_: Fork):
     """
     Test calculation of the excess_data_gas increase/decrease across multiple
@@ -397,7 +397,7 @@ class InvalidExcessDataGasInHeaderTestCase:
         )
 
 
-@test_from(fork=ShardingFork)
+@test_from(fork=Cancun)
 def test_invalid_excess_data_gas_in_header(_: Fork):
     """
     Test rejection of a block with invalid excess_data_gas in the header.
@@ -526,7 +526,7 @@ def test_invalid_excess_data_gas_in_header(_: Fork):
         yield tc.generate()
 
 
-@test_only(fork=ShanghaiToShardingAtTime15k)
+@test_only(fork=ShanghaiToCancunAtTime15k)
 def test_fork_transition_excess_data_gas_in_header(_: Fork):
     """
     Test excess_data_gas calculation in the header when the fork is activated.
@@ -537,7 +537,7 @@ def test_fork_transition_excess_data_gas_in_header(_: Fork):
     }
     destination_account = to_address(0x100)
 
-    # Generate some blocks to reach Sharding fork
+    # Generate some blocks to reach Cancun fork
     FORK_TIMESTAMP = 15_000
     blocks: List[Block] = []
     for t in range(999, FORK_TIMESTAMP, 1_000):
@@ -735,7 +735,7 @@ def test_invalid_blob_txs(fork: Fork):
         - block blob count > MAX_BLOBS_PER_BLOCK
     """
     test_cases: List[InvalidBlobTransactionTestCase] = []
-    if is_fork(fork, ShardingFork):
+    if is_fork(fork, Cancun):
         test_cases = [
             InvalidBlobTransactionTestCase(
                 tag="insufficient_max_fee_per_data_gas",
@@ -783,7 +783,7 @@ def test_invalid_blob_txs(fork: Fork):
             # ),
         ]
     else:
-        # Pre-Sharding, blocks with type 3 txs must be rejected
+        # Pre-Cancun, blocks with type 3 txs must be rejected
         test_cases = [
             InvalidBlobTransactionTestCase(
                 tag="type_3_tx_pre_fork",

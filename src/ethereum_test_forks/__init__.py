@@ -21,9 +21,9 @@ from .forks.forks import (
 from .forks.transition import (
     BerlinToLondonAt5,
     MergeToShanghaiAtTime15k,
-    ShanghaiToShardingAtTime15k,
+    ShanghaiToCancunAtTime15k,
 )
-from .forks.upcoming import ShardingFork
+from .forks.upcoming import Cancun
 from .helpers import (
     fork_only,
     forks_from,
@@ -50,8 +50,8 @@ __all__ = [
     "MergeToShanghaiAtTime15k",
     "MuirGlacier",
     "Shanghai",
-    "ShanghaiToShardingAtTime15k",
-    "ShardingFork",
+    "ShanghaiToCancunAtTime15k",
+    "Cancun",
     "fork_only",
     "forks_from",
     "forks_from_until",
