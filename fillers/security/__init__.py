@@ -1,3 +1,3 @@
 """
-Cross-client Ethereum Virtual Machine Tests
+Cross-client Ethereum Security Tests
 """
