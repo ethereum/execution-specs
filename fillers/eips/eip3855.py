@@ -18,7 +18,7 @@ from ethereum_test_tools import (
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3855.md"
-REFERENCE_SPEC_VERSION = "0820a03563f3b7710c347732a73bcb5b1c925416"
+REFERENCE_SPEC_VERSION = "42034250ae8dd4b21fdc6795773893c6f1e74d3a"
 
 
 @test_from(fork=Shanghai)
