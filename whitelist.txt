@@ -34,6 +34,7 @@ petersburg
 randao
 rlp
 sharding
+cancun
 t8n
 trie
 txs

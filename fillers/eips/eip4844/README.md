@@ -76,7 +76,7 @@ Asserts that blocks with invalid `excess_data_gas` values in the header are igno
 
 **3) 🔴 test_fork_transition_excess_data_gas_in_header():**
 
-Tests that the `excess_data_gas` calculation is correct when transitioning from the Shanghai fork to the Sharding fork, where appended blocks are valid and state changes occur. Each block has a single transaction with `MAX_BLOBS_PER_BLOCK` blobs. The first block during the transition period has a parent of zero `excess_data_gas` in the header. Each block afterwards calculates `excess_data_gas` using the following `calc_excess_data_gas` function such that it continuously increases.
+Tests that the `excess_data_gas` calculation is correct when transitioning from the Shanghai fork to the Cancun fork, where appended blocks are valid and state changes occur. Each block has a single transaction with `MAX_BLOBS_PER_BLOCK` blobs. The first block during the transition period has a parent of zero `excess_data_gas` in the header. Each block afterwards calculates `excess_data_gas` using the following `calc_excess_data_gas` function such that it continuously increases.
 
 **4) 🔴 test_invalid_blob_txs():**
 
@@ -97,6 +97,6 @@ Asserts that blocks with invalid blob transactions are rejected and no state cha
 - `len(blobs)` is zero within a transaction. Valid blob txs (type 3) must have at least one blob within it, obeying the following condition:
   - `len(tx.message.blob_versioned_hashes) > 0`
 
-- Blob transaction type 3 is used in a pre-Sharding fork. This transcation type can only be used in a post-Sharding fork.
+- Blob transaction type 3 is used in a pre-Cancun fork. This transcation type can only be used in a post-Cancun fork.
 
   
