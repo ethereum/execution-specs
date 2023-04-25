@@ -3,9 +3,10 @@ Tests the following consensus-vulnerability.
 
 https://github.com/ethereum/go-ethereum/security/advisories/GHSA-xw37-57qp-9mm4
 
-Requires an geth evm version between >= v1.9.4 and v1.9.20 to fill the test.
+To reproduce the bug fill the test with the most recent geth evm version.
 
-To reproduce use: v1.9.
+Then run the fixture output within a vulnerable geth version:
+v1.9.20 > geth >= v1.9.4
 """
 
 from ethereum_test_forks import Constantinople
