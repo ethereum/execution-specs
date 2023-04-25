@@ -50,7 +50,7 @@ pip-delete-this-directory.txt
 # misc
 .vscode
 *.code-workspace
-verify_kzg_proofs
+verify_kzg_proof
 
 # docs
 _readthedocs
