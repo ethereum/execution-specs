@@ -47,6 +47,7 @@ vm
 gwei
 wei
 islice
+0xaa
 
 getmtime
 byteorder
