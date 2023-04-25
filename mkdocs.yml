@@ -4,6 +4,8 @@ copyright: 'Copyright: 2023, Ethereum Community'
 
 nav:
 - Home: 'index.md'
+- Test Case Descriptions:
+  - EIP-4844: 'tests/01_eip4844.md'
 - Getting Started:
   - Quick Start: 'getting_started/01_quick_start.md'
   - Package Overview: 'getting_started/02_package_overview.md'
