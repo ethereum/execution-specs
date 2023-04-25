@@ -3,7 +3,7 @@ List of all transition fork definitions.
 """
 from ..transition_base_fork import transition_fork
 from .forks import Berlin, London, Merge, Shanghai
-from .upcoming import ShardingFork, TestOnlyUpcomingFork
+from .upcoming import Cancun, TestOnlyUpcomingFork
 
 
 # Transition Forks
@@ -35,16 +35,16 @@ class MergeToShanghaiAtTime15k(Merge):
         return timestamp >= 15_000
 
 
-@transition_fork(to_fork=ShardingFork)
-class ShanghaiToShardingAtTime15k(Shanghai):
+@transition_fork(to_fork=Cancun)
+class ShanghaiToCancunAtTime15k(Shanghai):
     """
-    Shanghai to Sharding transition at Timestamp 15k
+    Shanghai to Cancun transition at Timestamp 15k
     """
 
     @classmethod
     def header_excess_data_gas_required(cls, _: int, timestamp: int) -> bool:
         """
-        Excess data gas is required if transitioning to Sharding.
+        Excess data gas is required if transitioning to Cancun.
         """
         return timestamp >= 15_000
 

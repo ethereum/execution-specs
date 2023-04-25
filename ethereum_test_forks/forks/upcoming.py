@@ -6,9 +6,9 @@ supported by most clients.
 from .forks import Shanghai
 
 
-class ShardingFork(Shanghai):
+class Cancun(Shanghai):
     """
-    Sharding fork
+    Cancun fork
     """
 
     @classmethod
@@ -16,7 +16,7 @@ class ShardingFork(Shanghai):
         cls, block_number: int, timestamp: int
     ) -> bool:
         """
-        Excess data gas is required starting from Sharding.
+        Excess data gas is required starting from Cancun.
         """
         return True
 
