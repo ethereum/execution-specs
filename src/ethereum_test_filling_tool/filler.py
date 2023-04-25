@@ -10,7 +10,6 @@ case within it, and write them to a file in a given output directory.
 import argparse
 import concurrent.futures
 import json
-from logger import setup_logger
 import os
 import time
 
@@ -18,6 +17,7 @@ import ethereum_test_forks
 from ethereum_test_tools import JSONEncoder, ReferenceSpec, ReferenceSpecTypes
 from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool
+from logger import setup_logger
 
 from .modules import find_modules, is_module_modified
 
