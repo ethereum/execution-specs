@@ -8,7 +8,7 @@
 A new set of tests for ethereum execution clients to test against. The [git repo](https://github.com/ethereum/execution-spec-tests) is updated regulary with new tests.
 
 <h2> Test Case Descriptions </h2>
-- <h3> [EIP-4844](tests/eip4844.md) </h3>
+- <h3> [EIP-4844](test_case_descriptions/eip4844.md) </h3>
 
 <h2> Getting Started </h2>
 - <h3> [Quick Start](getting_started/quick_start.md) </h3>

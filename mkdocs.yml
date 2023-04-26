@@ -13,6 +13,7 @@ nav:
   - Adding a Reference Spec: 'getting_started/reference_specification.md'
 - Tutorials:
   - State Transition Tests: 'tutorials/state_transition.md'
+  - Blockchain Tests: 'tutorials/blockchain.md'
 
 plugins:
   - glightbox
