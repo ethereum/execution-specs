@@ -9,3 +9,9 @@ line_length = 79
 
 [tool.black]
 line-length = 79
+
+[tool.pytest.ini_options]
+console_output_style = "count"
+minversion = "7.0"
+testpaths = ["fillers/example"]
+python_files = "*.py"
