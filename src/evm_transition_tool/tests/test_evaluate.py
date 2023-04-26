@@ -83,7 +83,6 @@ def test_calc_state_root(
 @pytest.mark.parametrize("t8n", [EvmTransitionTool()])
 @pytest.mark.parametrize("test_dir", os.listdir(path=FIXTURES_ROOT))
 def test_evm_t8n(t8n: TransitionTool, test_dir: str) -> None:
-
     alloc_path = Path(FIXTURES_ROOT, test_dir, "alloc.json")
     txs_path = Path(FIXTURES_ROOT, test_dir, "txs.json")
     env_path = Path(FIXTURES_ROOT, test_dir, "env.json")
