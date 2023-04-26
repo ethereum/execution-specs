@@ -772,15 +772,12 @@ def test_invalid_blob_txs(fork: Fork):
                 tx_count=MAX_BLOBS_PER_BLOCK + 1,
                 blobs_per_tx=1,
             ),
-            # TODO: Enable, at the time of writing this test case, the EIP
-            # does not specify a minimum blob amount for the type 3
-            # transaction.
-            # InvalidBlobTransactionTestCase(
-            #     tag="blob_underflow",
-            #     parent_excess_blobs=10,  # data_gasprice= 1
-            #     tx_error="too_few_blobs",
-            #     blobs_per_tx=0,
-            # ),
+            InvalidBlobTransactionTestCase(
+                tag="blob_underflow",
+                parent_excess_blobs=10,  # data_gasprice= 1
+                tx_error="too_few_blobs",
+                blobs_per_tx=0,
+            ),
         ]
     else:
         # Pre-Cancun, blocks with type 3 txs must be rejected
