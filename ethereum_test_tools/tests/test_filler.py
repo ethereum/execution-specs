@@ -110,10 +110,9 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
         ),
     }
 
-    def generator(_) -> Generator[StateTest, None, None]:
-        yield StateTest(
-            env=env, pre=pre, post=post, txs=[tx], tag="my_chain_id_test"
-        )
+    state_test = StateTest(
+        env=env, pre=pre, post=post, txs=[tx], tag="my_chain_id_test"
+    )
 
     b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
@@ -122,8 +121,8 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
         name="my_chain_id_test",
         t8n=t8n,
         b11r=b11r,
-        test_spec=generator,
-        forks=[fork],
+        test_spec=state_test,
+        fork=fork,
         engine="NoProof",
         spec=None,
     )
@@ -393,14 +392,13 @@ def test_fill_london_blockchain_test_valid_txs():
         coinbase="0xba5e000000000000000000000000000000000000",
     )
 
-    def generator(_) -> Generator[BlockchainTest, None, None]:
-        yield BlockchainTest(
-            pre=pre,
-            post=post,
-            blocks=blocks,
-            genesis_environment=genesis_environment,
-            tag="my_blockchain_test",
-        )
+    blockchain_test = BlockchainTest(
+        pre=pre,
+        post=post,
+        blocks=blocks,
+        genesis_environment=genesis_environment,
+        tag="my_blockchain_test",
+    )
 
     b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
@@ -409,8 +407,8 @@ def test_fill_london_blockchain_test_valid_txs():
         name="fill_london_blockchain_test_valid_txs",
         t8n=t8n,
         b11r=b11r,
-        test_spec=generator,
-        forks=[London],
+        test_spec=blockchain_test,
+        fork=London,
         engine="NoProof",
         spec=None,
     )
@@ -729,14 +727,13 @@ def test_fill_london_blockchain_test_invalid_txs():
         coinbase="0xba5e000000000000000000000000000000000000",
     )
 
-    def generator(_) -> Generator[BlockchainTest, None, None]:
-        yield BlockchainTest(
-            pre=pre,
-            post=post,
-            blocks=blocks,
-            genesis_environment=genesis_environment,
-            tag="my_blockchain_test",
-        )
+    blockchain_test = BlockchainTest(
+        pre=pre,
+        post=post,
+        blocks=blocks,
+        genesis_environment=genesis_environment,
+        tag="my_blockchain_test",
+    )
 
     b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
@@ -745,8 +742,8 @@ def test_fill_london_blockchain_test_invalid_txs():
         name="fill_london_blockchain_test_invalid_txs",
         t8n=t8n,
         b11r=b11r,
-        test_spec=generator,
-        forks=[London],
+        test_spec=blockchain_test,
+        fork=London,
         engine="NoProof",
         spec=None,
     )
