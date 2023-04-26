@@ -2,14 +2,16 @@
 Test ACL Transaction Source Code Examples
 """
 
-from ethereum_test_forks import Berlin, Fork, London, is_fork
+import pytest
+
+from ethereum_test_forks import Berlin, Fork, London, forks_from_until, is_fork
 from ethereum_test_tools import AccessList, Account, Environment
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTest, Transaction, test_from_until
+from ethereum_test_tools import StateTest, Transaction
 
 
-@test_from_until(Berlin, London)
-def test_access_list(fork: Fork):
+@pytest.mark.parametrize("fork", forks_from_until(Berlin, London))
+def test_access_list(state_test, fork: Fork):
     """
     Test type 1 transaction.
     """
@@ -63,5 +65,4 @@ def test_access_list(fork: Fork):
             nonce=1,
         ),
     }
-
-    yield StateTest(env=env, pre=pre, post=post, txs=[tx])
+    state_test.spec = StateTest(env=env, pre=pre, post=post, txs=[tx])

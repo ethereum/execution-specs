@@ -1,7 +1,10 @@
 """
 Test Yul Source Code Examples
 """
-from ethereum_test_forks import Berlin
+
+import pytest
+
+from ethereum_test_forks import Berlin, Fork, forks_from
 from ethereum_test_tools import (
     Account,
     Environment,
@@ -9,12 +12,11 @@ from ethereum_test_tools import (
     TestAddress,
     Transaction,
     Yul,
-    test_from,
 )
 
 
-@test_from(Berlin)
-def test_yul(fork):
+@pytest.mark.parametrize("fork", forks_from(Berlin))
+def test_yul(state_test, fork: Fork):
     """
     Test YUL compiled bytecode.
     """
@@ -57,4 +59,4 @@ def test_yul(fork):
         ),
     }
 
-    yield StateTest(env=env, pre=pre, post=post, txs=[tx])
+    state_test.spec = StateTest(env=env, pre=pre, post=post, txs=[tx])
