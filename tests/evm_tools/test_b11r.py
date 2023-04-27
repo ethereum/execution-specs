@@ -72,6 +72,7 @@ def b11r_tool_test(test_case: Dict) -> None:
     assert hex_to_bytes(data["hash"]) == b11r_tool.block_hash
 
 
+@pytest.mark.evm_tools
 @pytest.mark.parametrize(
     "test_case",
     find_test_fixtures(),

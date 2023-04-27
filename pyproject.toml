@@ -14,4 +14,5 @@ line-length = 79
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "bigmem: marks tests as big memory (deselect with '-m \"not bigmem\"')",
+    "evm_tools: marks tests as evm_tools (deselect with '-m \"not evm_tools\"')",
 ]

@@ -68,15 +68,18 @@ GENERAL_STATE_BIG_MEMORY_TESTS = (
     "stStaticCall/",
 )
 
+fetch_general_state_tests = partial(
+    fetch_paris_tests,
+    test_dir,
+    ignore_list=INCORRECT_UPSTREAM_STATE_TESTS,
+    slow_list=SLOW_TESTS,
+    big_memory_list=GENERAL_STATE_BIG_MEMORY_TESTS,
+)
+
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_paris_tests(
-        test_dir,
-        ignore_list=INCORRECT_UPSTREAM_STATE_TESTS,
-        slow_list=SLOW_TESTS,
-        big_memory_list=GENERAL_STATE_BIG_MEMORY_TESTS,
-    ),
+    fetch_general_state_tests(),
     ids=idfn,
 )
 def test_general_state_tests(test_case: Dict) -> None:

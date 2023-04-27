@@ -108,6 +108,7 @@ def t8n_tool_test(test_case: Dict) -> None:
         ) == t8n_tool.hex_to_root(data["result"]["withdrawalsRoot"])
 
 
+@pytest.mark.evm_tools
 @pytest.mark.parametrize(
     "test_case",
     find_test_fixtures(),
