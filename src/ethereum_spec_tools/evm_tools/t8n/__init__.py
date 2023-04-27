@@ -88,17 +88,6 @@ class T8N(Load):
         self.options = options
         self.forks = Hardfork.discover()
 
-        fork_module, self.fork_block = get_module_name(
-            self.forks, self.options
-        )
-
-        self.logger = get_stream_logger("T8N")
-
-        super().__init__(
-            self.options.state_fork,
-            fork_module,
-        )
-
         if "stdin" in (
             options.input_env,
             options.input_alloc,
@@ -107,6 +96,17 @@ class T8N(Load):
             stdin = json.load(sys.stdin)
         else:
             stdin = None
+
+        fork_module, self.fork_block = get_module_name(
+            self.forks, self.options, stdin
+        )
+
+        self.logger = get_stream_logger("T8N")
+
+        super().__init__(
+            self.options.state_fork,
+            fork_module,
+        )
 
         self.chain_id = parse_hex_or_int(self.options.state_chainid, U64)
         self.alloc = Alloc(self, stdin)
@@ -335,6 +335,7 @@ class T8N(Load):
                 if isinstance(e, FatalException):
                     raise e
             else:
+                self.txs.add_transaction(tx)
                 gas_available -= process_transaction_return[0]
 
                 self.tx_trie_set(transactions_trie, i, tx)
@@ -350,6 +351,8 @@ class T8N(Load):
                 )
 
                 block_logs += process_transaction_return[1]
+
+                self.alloc.state._snapshots = []
 
         if self.BLOCK_REWARD is not None:
             self.pay_rewards()

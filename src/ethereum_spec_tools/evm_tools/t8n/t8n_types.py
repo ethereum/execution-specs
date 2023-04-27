@@ -275,12 +275,14 @@ class Txs:
     """
 
     rejected_txs: Dict[int, str]
+    successful_txs: List[Any]
     t8n: Any
     data: Any
 
     def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
         self.t8n = t8n
         self.rejected_txs = {}
+        self.successful_txs = []
         # TODO: Add support for reading RLP
 
         if t8n.options.input_txs == "stdin":
@@ -336,6 +338,17 @@ class Txs:
                 transaction = tx
 
             yield idx, transaction
+
+    def add_transaction(self, tx: Any) -> None:
+        """
+        Add a transaction to the list of successful transactions.
+        """
+        if self.t8n.is_after_fork("ethereum.berlin"):
+            self.successful_txs.append(
+                self.t8n.fork_types.encode_transaction(tx)
+            )
+        else:
+            self.successful_txs.append(tx)
 
     def sign_transaction(self, json_tx: Any) -> None:
         """
