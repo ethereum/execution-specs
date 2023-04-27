@@ -3,8 +3,14 @@ Create a block builder tool for the given fork.
 """
 
 import argparse
-from .b11r_types import Header, Body
+import json
+import sys
+from typing import Optional
+
 from ethereum import rlp
+from ethereum.base_types import Bytes32
+
+from .b11r_types import Body, Header
 
 
 def b11r_arguments(subparsers: argparse._SubParsersAction) -> None:
@@ -29,6 +35,9 @@ def b11r_arguments(subparsers: argparse._SubParsersAction) -> None:
     b11r_parser.add_argument(
         "--output.block", dest="output_block", type=str, default="block.json"
     )
+
+    # TODO: POW seal is currently not supported by the specs.
+    # This should be revisited
     b11r_parser.add_argument("--seal.clique", dest="seal_clique", type=str)
     b11r_parser.add_argument(
         "--seal.ethash",
@@ -60,20 +69,30 @@ class B11R:
         Initializes the b11r tool.
         """
         self.options = options
-        # Add functionality for stdin
-        self.body = Body(options)
-        self.header = Header(options, self.body)
-        self.block_rlp = None
-        self.block_hash = None
+        if "stdin" in (
+            options.input_header,
+            options.input_ommers,
+            options.input_txs,
+        ):
+            stdin = json.load(sys.stdin)
+        else:
+            stdin = None
 
-    def run(self) -> int:
+        self.body: Body = Body(options, stdin)
+        self.header: Header = Header(options, self.body, stdin)
+        self.block_rlp: Optional[bytes] = None
+        self.block_hash: Optional[Bytes32] = None
+
+    def build_block(self) -> None:
         """
-        Runs the b11r tool.
+        Builds the block.
         """
         print("Building the block...")
 
         header_to_list = [
-            value for _, value in self.header.__dict__.items() if value is not None
+            value
+            for _, value in self.header.__dict__.items()
+            if value is not None
         ]
 
         block = [
@@ -87,5 +106,26 @@ class B11R:
 
         self.block_rlp = rlp.encode(block)
         self.block_hash = rlp.rlp_hash(header_to_list)
+
+    def run(self) -> int:
+        """
+        Runs the b11r tool.
+        """
+        self.build_block()
+
+        result = {
+            "rlp": "0x" + self.block_rlp.hex() if self.block_rlp else "",
+            "hash": "0x" + self.block_hash.hex() if self.block_hash else "",
+        }
+
+        print("Writing the result...")
+        if self.options.output_block == "stdout":
+            json.dump(result, sys.stdout, indent=4)
+        else:
+            with open(self.options.output_block, "w") as f:
+                json.dump(result, f, indent=4)
+            print(
+                f"The result has been written to {self.options.output_block}."
+            )
 
         return 0

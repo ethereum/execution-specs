@@ -5,13 +5,13 @@ from typing import Any, Dict, List
 import pytest
 
 from ethereum.base_types import U64, U256, Uint
+from ethereum.rlp import decode
 from ethereum.utils.hexadecimal import (
     Hash32,
     hex_to_bytes,
     hex_to_u256,
     hex_to_uint,
 )
-from ethereum.rlp import decode
 from ethereum_spec_tools.evm_tools import parser, subparsers
 from ethereum_spec_tools.evm_tools.b11r import B11R, b11r_arguments
 from ethereum_spec_tools.evm_tools.utils import FatalException
@@ -19,7 +19,7 @@ from tests.helpers import TEST_FIXTURES
 
 B11R_TEST_PATH = TEST_FIXTURES["evm_tools_testdata"]["fixture_path"]
 
-ignore_tests = []
+ignore_tests: List[str] = []
 
 
 def find_test_fixtures() -> Any:
@@ -53,14 +53,6 @@ def get_rejected_indices(rejected: Dict) -> List[int]:
         rejected_indices.append(item["index"])
     return rejected_indices
 
-def to_hex(decoded_rlp) -> Any:
-    # TODO: Remove this function after testing
-    if isinstance(decoded_rlp, list):
-        return [to_hex(item) for item in decoded_rlp]
-    elif isinstance(decoded_rlp, bytes):
-        return "0x" + decoded_rlp.hex()
-    else:
-        return "0x" + decoded_rlp.hex()
 
 def b11r_tool_test(test_case: Dict) -> None:
     b11r_arguments(subparsers)
@@ -68,7 +60,7 @@ def b11r_tool_test(test_case: Dict) -> None:
 
     try:
         b11r_tool = B11R(options)
-        b11r_tool.run()
+        b11r_tool.build_block()
     except Exception as e:
         raise FatalException(e)
 
@@ -78,6 +70,7 @@ def b11r_tool_test(test_case: Dict) -> None:
 
     assert hex_to_bytes(data["rlp"]) == b11r_tool.block_rlp
     assert hex_to_bytes(data["hash"]) == b11r_tool.block_hash
+
 
 @pytest.mark.parametrize(
     "test_case",
