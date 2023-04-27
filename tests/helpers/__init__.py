@@ -5,10 +5,10 @@ TEST_FIXTURES = {
         "url": "https://github.com/ethereum/execution-spec-tests/releases/download/v0.2.3/fixtures.tar.gz",
         "fixture_path": "tests/fixtures/execution_spec_tests",
     },
-    "t8n_testdata": {
-        "url": "https://github.com/gurukamath/t8n_testdata.git",
-        "commit_hash": "bea5c4d",
-        "fixture_path": "tests/fixtures/t8n_testdata",
+    "evm_tools_testdata": {
+        "url": "https://github.com/gurukamath/evm-tools-testdata.git",
+        "commit_hash": "042c0ef",
+        "fixture_path": "tests/fixtures/evm_tools_testdata",
     },
     "ethereum_tests": {
         "url": "https://github.com/ethereum/tests.git",
