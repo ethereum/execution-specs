@@ -34,8 +34,6 @@ class Header:
             data = json.load(f)
 
         self.parent_hash = Hash32(hex_to_bytes(data["parentHash"]))
-        # TODO: Calculate ommers_hash if none are provided and there are ommers
-        # self.ommers_hash = Hash32(hex_to_bytes(data.get("ommersHash", "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347")))
         try:
             self.ommers_hash = Hash32(hex_to_bytes(data["ommersHash"]))
         except KeyError:
@@ -68,10 +66,6 @@ class Header:
         except KeyError:
             self.withdrawals_root = None
 
-
-
-    def to_list(self) -> List[Any]:
-        return [value for _, value in self.__dict__.items() if value is not None]
 
 
 class Body:

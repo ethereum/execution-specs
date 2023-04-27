@@ -54,6 +54,7 @@ def get_rejected_indices(rejected: Dict) -> List[int]:
     return rejected_indices
 
 def to_hex(decoded_rlp) -> Any:
+    # TODO: Remove this function after testing
     if isinstance(decoded_rlp, list):
         return [to_hex(item) for item in decoded_rlp]
     elif isinstance(decoded_rlp, bytes):
@@ -64,8 +65,6 @@ def to_hex(decoded_rlp) -> Any:
 def b11r_tool_test(test_case: Dict) -> None:
     b11r_arguments(subparsers)
     options = parser.parse_args(test_case["args"])
-
-
 
     try:
         b11r_tool = B11R(options)
@@ -78,6 +77,7 @@ def b11r_tool_test(test_case: Dict) -> None:
         data = json.load(f)
 
     assert hex_to_bytes(data["rlp"]) == b11r_tool.block_rlp
+    assert hex_to_bytes(data["hash"]) == b11r_tool.block_hash
 
 @pytest.mark.parametrize(
     "test_case",

@@ -60,6 +60,7 @@ class B11R:
         Initializes the b11r tool.
         """
         self.options = options
+        # Add functionality for stdin
         self.body = Body(options)
         self.header = Header(options, self.body)
         self.block_rlp = None
@@ -71,8 +72,12 @@ class B11R:
         """
         print("Building the block...")
 
+        header_to_list = [
+            value for _, value in self.header.__dict__.items() if value is not None
+        ]
+
         block = [
-            self.header.to_list(),
+            header_to_list,
             self.body.transactions,
             self.body.ommers,
         ]
@@ -81,5 +86,6 @@ class B11R:
             block.append(self.body.withdrawals)
 
         self.block_rlp = rlp.encode(block)
+        self.block_hash = rlp.rlp_hash(header_to_list)
 
         return 0
