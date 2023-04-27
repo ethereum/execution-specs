@@ -3,6 +3,8 @@ Create a block builder tool for the given fork.
 """
 
 import argparse
+from .b11r_types import Header, Body
+from ethereum import rlp
 
 
 def b11r_arguments(subparsers: argparse._SubParsersAction) -> None:
@@ -58,10 +60,26 @@ class B11R:
         Initializes the b11r tool.
         """
         self.options = options
+        self.body = Body(options)
+        self.header = Header(options, self.body)
+        self.block_rlp = None
+        self.block_hash = None
 
     def run(self) -> int:
         """
         Runs the b11r tool.
         """
-        print("This is the b11r tool.")
+        print("Building the block...")
+
+        block = [
+            self.header.to_list(),
+            self.body.transactions,
+            self.body.ommers,
+        ]
+
+        if len(self.body.withdrawals):
+            block.append(self.body.withdrawals)
+
+        self.block_rlp = rlp.encode(block)
+
         return 0
