@@ -53,20 +53,20 @@ def test_warm_coinbase_call_out_of_gas(fork):
 
            switch calladdr
            case 0x100 {
-             // Extra: COINBASE + 6xPUSH1 + DUP6 + 2xPOP
-             callgas := add(callgas, 27)
+             // Extra: COINBASE + 4xPUSH1 + 2xDUP1 + POP
+             callgas := add(callgas, 22)
            }
            case 0x200 {
-             // Extra: COINBASE + 6xPUSH1 + DUP6 + 2xPOP
-             callgas := add(callgas, 27)
+             // Extra: COINBASE + 4xPUSH1 + 2xDUP1 + POP
+             callgas := add(callgas, 22)
            }
            case 0x300 {
-             // Extra: COINBASE + 5xPUSH1 + DUP6 + 2xPOP
-             callgas := add(callgas, 24)
+             // Extra: COINBASE + 3xPUSH1 + 2xDUP1 + POP
+             callgas := add(callgas, 19)
            }
            case 0x400 {
-             // Extra: COINBASE + 5xPUSH1 + DUP6 + 2xPOP
-             callgas := add(callgas, 24)
+             // Extra: COINBASE + 3xPUSH1 + 2xDUP1 + POP
+             callgas := add(callgas, 19)
            }
            // Call and save result
            sstore(0, call(callgas, calladdr, 0, 0, 0, 0, 0))
