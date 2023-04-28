@@ -103,7 +103,7 @@ def output_dir(request):
 @pytest.fixture(autouse=True, scope="session")
 def filler_path(request):
     """
-    Returns the fixture output directory.
+    Returns the directory containing the fillers to execute.
     """
     return request.config.getoption("filler_path")
 
