@@ -30,11 +30,7 @@ def find_test_fixtures() -> Any:
 
         final_args = []
         for arg in value["args"]:
-            if "__BASEDIR__" in arg:
-                final_args.append(arg.replace("__BASEDIR__", B11R_TEST_PATH))
-            else:
-                final_args.append(arg)
-        # if key == "b11r/fixtures/expected/22/exp.json":
+            final_args.append(arg.replace("__BASEDIR__", B11R_TEST_PATH))
         yield {
             "name": key,
             "args": final_args,

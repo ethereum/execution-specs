@@ -2,7 +2,7 @@
 Define the types used by the b11r tool.
 """
 import json
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 from ethereum import rlp
 from ethereum.base_types import (
@@ -26,9 +26,9 @@ class Body:
     A class representing a block body.
     """
 
-    transactions: List
-    ommers: List
-    withdrawals: List
+    transactions: rlp.RLP
+    ommers: rlp.RLP
+    withdrawals: List[Tuple[U64, U64, Bytes20, Uint]]
 
     def __init__(self, options: Any, stdin: Any = None):
         # Parse transactions
@@ -69,12 +69,12 @@ class Body:
         self.withdrawals = []
         for wd in withdrawals_data:
             self.withdrawals.append(
-                [
+                (
                     parse_hex_or_int(wd["index"], U64),
                     parse_hex_or_int(wd["validatorIndex"], U64),
                     Bytes20(hex_to_bytes(wd["address"])),
                     parse_hex_or_int(wd["amount"], Uint),
-                ]
+                )
             )
 
 

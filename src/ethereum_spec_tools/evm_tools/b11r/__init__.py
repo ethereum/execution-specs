@@ -10,6 +10,7 @@ from typing import Optional
 from ethereum import rlp
 from ethereum.base_types import Bytes32
 
+from ..utils import get_stream_logger
 from .b11r_types import Body, Header
 
 
@@ -83,16 +84,16 @@ class B11R:
         self.block_rlp: Optional[bytes] = None
         self.block_hash: Optional[Bytes32] = None
 
+        self.logger = get_stream_logger("B11R")
+
     def build_block(self) -> None:
         """
         Builds the block.
         """
-        print("Building the block...")
+        self.logger.info("Building the block...")
 
         header_to_list = [
-            value
-            for _, value in self.header.__dict__.items()
-            if value is not None
+            value for value in vars(self.header).values() if value is not None
         ]
 
         block = [
@@ -113,18 +114,23 @@ class B11R:
         """
         self.build_block()
 
+        if not self.block_rlp or not self.block_hash:
+            raise ValueError(
+                "Cannot output result. Block RLP or block hash is not built."
+            )
+
         result = {
-            "rlp": "0x" + self.block_rlp.hex() if self.block_rlp else "",
-            "hash": "0x" + self.block_hash.hex() if self.block_hash else "",
+            "rlp": "0x" + self.block_rlp.hex(),
+            "hash": "0x" + self.block_hash.hex(),
         }
 
-        print("Writing the result...")
+        self.logger.info("Writing the result...")
         if self.options.output_block == "stdout":
             json.dump(result, sys.stdout, indent=4)
         else:
             with open(self.options.output_block, "w") as f:
                 json.dump(result, f, indent=4)
-            print(
+            self.logger.info(
                 f"The result has been written to {self.options.output_block}."
             )
 
