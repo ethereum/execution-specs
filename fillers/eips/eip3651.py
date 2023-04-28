@@ -207,13 +207,6 @@ gas_measured_opcodes = [
 ]
 
 
-def idfn(val):
-    if isinstance(val, CodeGasMeasure):
-        return ""
-    else:
-        return val
-
-
 @pytest.mark.parametrize(
     "opcode,code_gas_measure",
     gas_measured_opcodes,
