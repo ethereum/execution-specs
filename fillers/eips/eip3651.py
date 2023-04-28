@@ -30,7 +30,12 @@ GAS_REQUIRED_CALL_WARM_ACCOUNT = 100
 
 
 @pytest.mark.parametrize(
-    "opcode,contract_under_test_code,call_gas",
+    "use_sufficient_gas",
+    [True, False],
+    ids=["sufficient_gas", "insufficient_gas"],
+)
+@pytest.mark.parametrize(
+    "opcode,contract_under_test_code,call_gas_exact",
     [
         (
             "call",
@@ -60,7 +65,12 @@ GAS_REQUIRED_CALL_WARM_ACCOUNT = 100
     ids=["CALL", "CALLCODE", "DELEGATECALL", "STATICCALL"],
 )
 def test_warm_coinbase_call_out_of_gas(
-    state_test, fork, opcode, contract_under_test_code, call_gas
+    state_test,
+    fork,
+    opcode,
+    contract_under_test_code,
+    call_gas_exact,
+    use_sufficient_gas,
 ):
     """
     Test warm coinbase.
@@ -75,9 +85,12 @@ def test_warm_coinbase_call_out_of_gas(
     caller_address = "0xcccccccccccccccccccccccccccccccccccccccc"
     contract_under_test_address = 0x100
 
+    if not use_sufficient_gas:
+        call_gas_exact -= 1
+
     caller_code = Op.SSTORE(
         0,
-        Op.CALL(call_gas, contract_under_test_address, 0, 0, 0, 0, 0),
+        Op.CALL(call_gas_exact, contract_under_test_address, 0, 0, 0, 0, 0),
     )
 
     pre = {
@@ -100,7 +113,7 @@ def test_warm_coinbase_call_out_of_gas(
 
     post = {}
 
-    if is_fork(fork=fork, which=Shanghai):
+    if use_sufficient_gas and is_fork(fork=fork, which=Shanghai):
         post[caller_address] = Account(
             storage={
                 # On shanghai and beyond, calls with only 100 gas to
