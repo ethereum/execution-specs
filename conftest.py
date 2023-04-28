@@ -7,16 +7,13 @@ writes the generated fixtures to file.
 """
 import json
 import os
-from copy import copy
-from typing import List, Optional
 
 import pytest
 
-from ethereum_test_tools import JSONEncoder
+from ethereum_test_tools import JSONEncoder, fill_test
 from ethereum_test_forks import ArrowGlacier
-from ethereum_test_tools import fill_test
-from evm_block_builder import BlockBuilder, EvmBlockBuilder
-from evm_transition_tool import EvmTransitionTool, TransitionTool
+from evm_block_builder import EvmBlockBuilder
+from evm_transition_tool import EvmTransitionTool
 
 
 def pytest_addoption(parser):
