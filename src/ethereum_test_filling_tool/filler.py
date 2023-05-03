@@ -10,7 +10,6 @@ case within it, and write them to a file in a given output directory.
 import argparse
 import concurrent.futures
 import json
-import logging
 import os
 import time
 
@@ -18,6 +17,7 @@ import ethereum_test_forks
 from ethereum_test_tools import JSONEncoder, ReferenceSpec, ReferenceSpecTypes
 from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool
+from logger import setup_logger
 
 from .modules import find_modules, is_module_modified
 
@@ -27,10 +27,9 @@ class Filler:
     A command line tool to process test fillers into full hydrated tests.
     """
 
-    log: logging.Logger
+    log = setup_logger(__name__)
 
     def __init__(self, options: argparse.Namespace) -> None:
-        self.log = logging.getLogger(__name__)
         self.options = options
 
     def fill(self) -> None:
@@ -85,7 +84,7 @@ class Filler:
             self.options.test_module,
         ):
             module_full_name = module_loader.name
-            self.log.debug(f"searching {module_full_name} for fillers")
+            self.log.info(f"searching {module_full_name} for fillers")
             module = module_loader.load_module()
             module_dict = module.__dict__
             module_spec: ReferenceSpec | None = None
@@ -130,7 +129,13 @@ class Filler:
                             )
                     has_reference_spec = True
                     break
-            if not has_reference_spec:
+
+            ref_spec_ignore = module_full_name.split(".")[0] in [
+                "vm",
+                "example",
+                "security",
+            ]
+            if not has_reference_spec and not ref_spec_ignore:
                 self.log.warn(
                     f"""
                     Filler {module_full_name} has no reference spec information
@@ -182,15 +187,15 @@ class Filler:
             )
             and not self.options.force_refill
         ):
-            self.log.debug(f"skipping - {full_name}")
+            self.log.info(f"skipping - {full_name}")
             return
 
         fixture = filler(t8n, b11r, "NoProof", module_spec)
         if fixture is not None:
-            self.log.debug(f"filled - {full_name}")
+            self.log.info(f"filled - {full_name}")
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(
                     fixture, f, ensure_ascii=False, indent=4, cls=JSONEncoder
                 )
         else:
-            self.log.debug(f"skipping - {full_name}")
+            self.log.info(f"skipping - {full_name}")
