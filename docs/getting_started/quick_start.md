@@ -54,7 +54,7 @@ To generate all the tests in the `./fillers/vm` sub-directory (category), for ex
 tf --test-categories vm
 ```
 
-This extends to sub-directories. To generate all specific tests within the `./fillers/vm/vm_arith/vm_add` sub-directory, run:
+This extends to sub-directories. As an example, to generate all specific tests within the `./fillers/vm/vm_arith/vm_add` sub-directory, run:
 ```console
 tf --output="fixtures" --test-categories vm.vm_arith.vm_add
 ```
