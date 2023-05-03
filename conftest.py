@@ -10,8 +10,8 @@ import os
 
 import pytest
 
+from ethereum_test_forks import ArrowGlacier, set_latest_fork_by_name
 from ethereum_test_tools import JSONEncoder, fill_test
-from ethereum_test_forks import ArrowGlacier
 from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool
 
@@ -53,6 +53,24 @@ def pytest_addoption(parser):
         default="./out/",
         help="Directory to store filled test fixtures",
     )
+    group.addoption(
+        "--latest-fork",
+        action="store",
+        dest="latest_fork",
+        default=None,
+        help="Latest fork used to fill tests",
+    )
+
+
+def pytest_configure(config):
+    """
+    Check parameters and make session-wide configuration changes, such as
+    setting the latest fork.
+    """
+    latest_fork = config.getoption("latest_fork")
+    if latest_fork is not None:
+        set_latest_fork_by_name(latest_fork)
+    return None
 
 
 @pytest.fixture(autouse=True, scope="session")
