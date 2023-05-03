@@ -59,9 +59,9 @@ To generate all the tests within the `./fillers/vm` directory (category), for ex
 tf --test-categories vm
 ```
 
-This extends to sub-directories. To generate all specific tests within the `./fillers/vm/vm_arith/vm_add` sub-directory, run:
+This extends to sub-directories. As an example, to generate all specific tests within the `./fillers/vm/vm_arith/vm_add` sub-directory, run:
 ```console
-tf --output="fixtures" --test-categories vm/vm_arith/vm_add
+tf --output="fixtures" --test-categories vm.vm_arith.vm_add
 ```
 
 To generate all the tests in the `./fillers/*/dup.py` modules, for example, run:
@@ -73,6 +73,17 @@ To generate specific tests, such as `./fillers/*/*.py::test_dup`, for example, r
 ```console
 tf --test-case dup
 ```
+
+To overwrite the existing set of fixtures, make sure you run the test filler with the `--force-refill` flag:
+```console
+tf --force-refill
+```
+
+For upcoming forks that are not already upgraded within the Ethereum network, use the `--latest-fork` flag. For example, currently (03/05/23) the next fork being developed is `Cancun`:
+```console
+tf --latest-fork Cancun
+```
+
 
 ### Testing the Execution Spec Tests Framework
 
