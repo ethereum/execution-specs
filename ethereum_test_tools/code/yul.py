@@ -33,7 +33,6 @@ class Yul(Code):
         Assembles using `solc --assemble`.
         """
         if not self.compiled:
-
             result = run(
                 SOLC_ARGS,
                 input=str.encode(self.source),
@@ -42,7 +41,13 @@ class Yul(Code):
             )
 
             if result.returncode != 0:
-                raise Exception("failed to compile yul source: " + self.source)
+                stderr_lines = result.stderr.decode().split("\n")
+                stderr_message = "\n".join(
+                    line.strip() for line in stderr_lines
+                )
+                raise Exception(
+                    f"failed to compile yul source:\n{stderr_message[7:]}"
+                )
 
             lines = result.stdout.decode().split("\n")
 
