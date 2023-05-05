@@ -13,6 +13,7 @@ from typing import (
     Mapping,
     Optional,
     Tuple,
+    Type,
 )
 
 from ethereum_test_forks import Fork
@@ -285,3 +286,4 @@ class BlockchainTest(BaseTest):
 
 
 BlockchainTestSpec = Callable[[str], Generator[BlockchainTest, None, None]]
+BlockchainTestFiller = Type[BlockchainTest]
