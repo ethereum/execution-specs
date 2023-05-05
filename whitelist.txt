@@ -5,6 +5,7 @@ base64
 big0
 big1
 blockchain
+bls
 bytecode
 bytes8
 bytes20
@@ -31,6 +32,7 @@ ommers
 parseable
 pathlib
 petersburg
+precompile
 randao
 rlp
 sharding
@@ -53,6 +55,7 @@ getmtime
 byteorder
 delitem
 dirname
+endianness
 fromhex
 getitem
 metaclass
