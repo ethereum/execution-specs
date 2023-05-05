@@ -185,7 +185,7 @@ class FixtureCollector:
             raise Exception("Could not parse test name: " + item.name)
         name = m.group(1)
         if fixture.name:
-            name += "_" + fixture.name
+            name += "-" + fixture.name
         jsonFixture = json.loads(json.dumps(fixture, cls=JSONEncoder))
         self.all_fixtures[module_dir].append((name, jsonFixture))
 
