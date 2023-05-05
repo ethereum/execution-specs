@@ -15,7 +15,14 @@ from ethereum_test_forks import (
     InvalidForkError,
     set_latest_fork_by_name,
 )
-from ethereum_test_tools import JSONEncoder, fill_test
+from ethereum_test_tools import (
+    BlockchainTest,
+    BlockchainTestFiller,
+    JSONEncoder,
+    StateTest,
+    StateTestFiller,
+    fill_test,
+)
 from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool
 
@@ -180,11 +187,10 @@ def reference_spec():
 
 
 @pytest.fixture(scope="function")
-def state_test():
+def state_test() -> StateTestFiller:
     """
-    This fixture is used to store a StateTest object from within a test
-    function so that it can be filled post test function execution in
-    the pytest_runtest_call() hook.
+    Fixture used to instantiate an auto-fillable StateTest object from within
+    a test function.
 
     Every test that defines a StateTest filler must explicitly specify this
     fixture in its function arguments and set the StateTestWrapper's spec
@@ -192,25 +198,29 @@ def state_test():
 
     Implementation detail: It must be scoped on test function level to avoid
     leakage between tests.
+
+    Proper definition of the StateTestWrapper is done during the
+    pytest_runtest_call.
     """
 
-    class StateTestWrapper:
-        spec = None
+    class StateTestWrapper(StateTest):
+        pass
 
-    return StateTestWrapper()
+    return StateTestWrapper
 
 
 @pytest.fixture(scope="function")
-def blockchain_test():
+def blockchain_test() -> BlockchainTestFiller:
     """
-    A fixture used to held define BlockchainTests analogous to the state_test
-    fixture for StateTests. See the state_test fixture docstring for details.
+    Fixture used to define an auto-fillable BlockchainTest analogous to the
+    state_test fixture for StateTests.
+    See the state_test fixture docstring for details.
     """
 
-    class BlockchainTestWrapper:
-        spec = None
+    class BlockchainTestWrapper(BlockchainTest):
+        pass
 
-    return BlockchainTestWrapper()
+    return BlockchainTestWrapper
 
 
 def convert_pytest_case_name_to_fixture_name(item):
@@ -227,11 +237,6 @@ def pytest_runtest_call(item):
     has executed the test function and created the test spec, we fill
     the test spec and write the generated fixture to file.
     """
-    output = yield  # Execute the test function
-
-    # Process test result; this will stop execution if there was an issue in
-    # the test function and trigger a pytest error or fail for this spec.
-    output.get_result()
 
     # Get config from session-wide fixtures. Note, we could also access these
     # from the pytest config object via item.config
@@ -244,35 +249,57 @@ def pytest_runtest_call(item):
     # Get test-specific params from potentially locally defined fixtures
     eips = item.funcargs["eips"]
     fork = item.funcargs["fork"]
-    if "state_test" in item.funcargs:
-        test_spec = item.funcargs["state_test"].spec
-    elif "blockchain_test" in item.funcargs:
-        test_spec = item.funcargs["blockchain_test"].spec
-    else:
-        # TODO: Raise custom exception instead of fail to trigger a
-        # pytest error
-        pytest.fail(
-            "Invalid test function signature: Test did not use either "
-            " of the 'state_test' or 'blockchain_test' fixtures."
-        )
 
     if not t8n.is_fork_supported(fork):
         pytest.skip(f"Fork '{fork}' not supported by t8n, skipped")
     if fork == ArrowGlacier:
         pytest.skip(f"Fork '{fork}' not supported by hive, skipped")
 
-    fixture_name = convert_pytest_case_name_to_fixture_name(item)
-    fixture_output = fill_test(
-        fixture_name,
-        t8n,
-        b11r,
-        test_spec,
-        fork,
-        engine,
-        reference_spec,
-        eips=eips,
-    )
-    write_fixture_file(item, fixture_output)
+    if "state_test" in item.funcargs:
+
+        class StateTestWrapper(StateTest):
+            def __init__(self, *args, **kwargs):
+                super(StateTestWrapper, self).__init__(*args, **kwargs)
+                fixture_name = convert_pytest_case_name_to_fixture_name(item)
+                fixture_output = fill_test(
+                    fixture_name,
+                    t8n,
+                    b11r,
+                    self,
+                    fork,
+                    engine,
+                    reference_spec,
+                    eips=eips,
+                )
+                write_fixture_file(item, fixture_output)
+
+        item.funcargs["state_test"] = StateTestWrapper
+
+    if "blockchain_test" in item.funcargs:
+
+        class BlockchainTestWrapper(StateTest):
+            def __init__(self, *args, **kwargs):
+                super(BlockchainTestWrapper, self).__init__(*args, **kwargs)
+                fixture_name = convert_pytest_case_name_to_fixture_name(item)
+                fixture_output = fill_test(
+                    fixture_name,
+                    t8n,
+                    b11r,
+                    self,
+                    fork,
+                    engine,
+                    reference_spec,
+                    eips=eips,
+                )
+                write_fixture_file(item, fixture_output)
+
+        item.funcargs["blockchain_test"] = BlockchainTestWrapper
+
+    output = yield  # Execute the test function
+
+    # Process test result; this will stop execution if there was an issue in
+    # the test function and trigger a pytest error or fail for this spec.
+    output.get_result()
 
 
 def write_fixture_file(item, fixture_output):

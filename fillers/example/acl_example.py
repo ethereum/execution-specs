@@ -7,11 +7,11 @@ import pytest
 from ethereum_test_forks import Berlin, Fork, London, forks_from_until, is_fork
 from ethereum_test_tools import AccessList, Account, Environment
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTest, Transaction
+from ethereum_test_tools import StateTestFiller, Transaction
 
 
 @pytest.mark.parametrize("fork", forks_from_until(Berlin, London))
-def test_access_list(state_test, fork: Fork):
+def test_access_list(state_test: StateTestFiller, fork: Fork):
     """
     Test type 1 transaction.
     """
@@ -65,4 +65,4 @@ def test_access_list(state_test, fork: Fork):
             nonce=1,
         ),
     }
-    state_test.spec = StateTest(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, txs=[tx])
