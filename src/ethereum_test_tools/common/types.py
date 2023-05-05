@@ -1264,7 +1264,7 @@ class JSONEncoder(json.JSONEncoder):
                 json_tx["to"] = ""
             return even_padding(
                 json_tx,
-                excluded=["to", "accessList"],
+                excluded=["data", "to", "accessList"],
             )
         elif isinstance(obj, FixtureBlock):
             b = {"rlp": obj.rlp}
