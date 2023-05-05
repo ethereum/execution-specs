@@ -11,6 +11,7 @@ from typing import (
     Mapping,
     Optional,
     Tuple,
+    Type,
 )
 
 from ethereum_test_forks import Fork
@@ -176,3 +177,4 @@ class StateTest(BaseTest):
 
 
 StateTestSpec = Callable[[str], Generator[StateTest, None, None]]
+StateTestFiller = Type[StateTest]
