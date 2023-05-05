@@ -2,7 +2,7 @@
 Filler object definitions.
 """
 from copy import copy
-from typing import List, Mapping, Optional
+from typing import List, Optional
 
 from ethereum_test_forks import Fork
 from evm_block_builder import BlockBuilder
@@ -22,7 +22,7 @@ def fill_test(
     engine: str,
     spec: ReferenceSpec | None,
     eips: Optional[List[int]] = None,
-) -> Mapping[str, Fixture]:
+) -> Fixture:
     """
     Fills fixtures for the specified fork.
     """
@@ -30,18 +30,14 @@ def fill_test(
 
     genesis_rlp, genesis = test_spec.make_genesis(b11r, t8n, fork)
 
-    try:
-        (blocks, head, alloc) = test_spec.make_blocks(
-            b11r,
-            t8n,
-            genesis,
-            fork,
-            eips=eips,
-        )
-    except Exception as e:
-        name_tag = f"{name} {test_spec.tag}" if test_spec.tag else name
-        print(f"Exception during test '{name_tag}'")
-        raise e
+    (blocks, head, alloc) = test_spec.make_blocks(
+        b11r,
+        t8n,
+        genesis,
+        fork,
+        eips=eips,
+    )
+
     fork_name = fork.name()
     fixture = Fixture(
         blocks=blocks,
@@ -55,15 +51,7 @@ def fill_test(
         post_state=alloc_to_accounts(alloc),
         seal_engine=engine,
         name=test_spec.tag,
-        index=0,  # TODO: Pytest refactor: index is always 0
     )
     fixture.fill_info(t8n, b11r, spec)
 
-    out = {}
-    name = str(fixture.index).zfill(3)
-    if fixture.name:
-        name += "/" + fixture.name.replace(" ", "/")
-    name += "/" + fixture.fork.lower()
-    out[name] = fixture
-
-    return out
+    return fixture
