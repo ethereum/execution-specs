@@ -41,6 +41,7 @@ class Opcode(bytes):
     pushed_stack_items: int
     min_stack_height: int
     data_portion_length: int
+    _name_: str
 
     def __new__(
         cls,
@@ -165,6 +166,12 @@ class Opcode(bytes):
         Returns the integer representation of the opcode.
         """
         return int.from_bytes(bytes=self, byteorder="big")
+
+    def __str__(self) -> str:
+        """
+        Return the name of the opcode, assigned at Enum creation.
+        """
+        return self._name_
 
 
 class Opcodes(Opcode, Enum):
