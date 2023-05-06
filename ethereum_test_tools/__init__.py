@@ -11,6 +11,7 @@ from .common import (
     Environment,
     Header,
     JSONEncoder,
+    Storage,
     TestAddress,
     Transaction,
     Withdrawal,
