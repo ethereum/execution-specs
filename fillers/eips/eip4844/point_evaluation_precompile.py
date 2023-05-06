@@ -7,13 +7,14 @@ import json
 import os
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Iterator, List, Literal
+from typing import Dict, Iterator, List, Literal
 
 from ethereum_test_forks import Cancun, Fork, ShanghaiToCancunAtTime15k
 from ethereum_test_tools import (
     Account,
     Block,
     BlockchainTest,
+    Storage,
     TestAddress,
     Transaction,
     test_from,
@@ -78,6 +79,9 @@ def format_point_evaluation_precompile_input(
     return versioned_hash + z + y + kzg_commitment + kzg_proof
 
 
+StorageDictType = Dict[str | int | bytes, str | int | bytes]
+
+
 @dataclass(kw_only=True)
 class KZGPointEvaluation:
     """
@@ -92,8 +96,8 @@ class KZGPointEvaluation:
     versioned_hash: bytes | int | None = None
     endianness: Literal["little", "big"] = "big"
     call_type: Op = Op.CALL
-    gas: int = POINT_EVALUATION_PRECOMPILE_ADDRESS
-    correct: bool
+    gas: int = POINT_EVALUATION_PRECOMPILE_GAS
+    success: bool
 
     def get_precompile_input(self) -> bytes:
         """
@@ -132,6 +136,7 @@ class KZGPointEvaluation:
             self.call_type == Op.DELEGATECALL
             or self.call_type == Op.STATICCALL
         ):
+            # Delegatecall and staticcall use one less argument
             precompile_caller_code += Op.SSTORE(
                 0,
                 self.call_type(
@@ -143,12 +148,17 @@ class KZGPointEvaluation:
                     0x40,
                 ),
             )
-        precompile_caller_code += Op.SSTORE(1, Op.MLOAD(0x00))
-        precompile_caller_code += Op.SSTORE(2, Op.MLOAD(0x20))
-        precompile_caller_code += Op.SSTORE(3, Op.RETURNDATASIZE)
-        precompile_caller_code += Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
-        precompile_caller_code += Op.SSTORE(4, Op.MLOAD(0x00))
-        precompile_caller_code += Op.SSTORE(5, Op.MLOAD(0x20))
+        precompile_caller_code += (
+            # Save the returned values into storage
+            Op.SSTORE(1, Op.MLOAD(0x00))
+            + Op.SSTORE(2, Op.MLOAD(0x20))
+            # Save the returned data length into storage
+            + Op.SSTORE(3, Op.RETURNDATASIZE)
+            # Save the returned data using RETURNDATACOPY into storage
+            + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
+            + Op.SSTORE(4, Op.MLOAD(0x00))
+            + Op.SSTORE(5, Op.MLOAD(0x20))
+        )
 
         precompile_caller_address = to_address(0x100)
 
@@ -162,6 +172,7 @@ class KZGPointEvaluation:
                 code=precompile_caller_code,
             ),
         }
+
         precompile_calldata = self.get_precompile_input()
         tx = Transaction(
             ty=2,
@@ -169,37 +180,35 @@ class KZGPointEvaluation:
             data=precompile_calldata,
             to=precompile_caller_address,
             value=0,
-            gas_limit=POINT_EVALUATION_PRECOMPILE_GAS * 10,
+            gas_limit=POINT_EVALUATION_PRECOMPILE_GAS * 20,
             max_fee_per_gas=7,
             max_priority_fee_per_gas=0,
         )
 
-        expected_storage = {}
-        if self.correct:
+        expected_storage: Storage.StorageDictType = dict()
+        if self.success:
+            # CALL operation success
             expected_storage[0] = 1
+            # Success return values
             expected_storage[1] = FIELD_ELEMENTS_PER_BLOB
             expected_storage[2] = BLS_MODULUS
+            # Success return values size
             expected_storage[3] = 64
+            # Success return values from RETURNDATACOPY
             expected_storage[4] = FIELD_ELEMENTS_PER_BLOB
             expected_storage[5] = BLS_MODULUS
 
         else:
+            # CALL operation failure
             expected_storage[0] = 0
+            # Failure returns zero values
             expected_storage[3] = 0
-            expected_storage[4] = 0
-            expected_storage[5] = 0
 
-            if self.gas >= POINT_EVALUATION_PRECOMPILE_GAS:
-                # The call will execute, and overwrite the memory at 0,
-                # even if the kzg proof is invalid or malformed.
-                expected_storage[1] = 0
-                expected_storage[2] = 0
-            else:
-                # If the gas is insufficient, the call won't even be executed
-                # and therefore the memory at 0 won't be overwritten, leaving
-                # the original parameters untouched.
-                expected_storage[1] = precompile_calldata[0:32]
-                expected_storage[2] = precompile_calldata[32:64]
+            # Input parameters were not overwritten since the CALL failed
+            expected_storage[1] = precompile_calldata[0:32]
+            expected_storage[2] = precompile_calldata[32:64]
+            expected_storage[4] = expected_storage[1]
+            expected_storage[5] = expected_storage[2]
 
         post = {
             precompile_caller_address: Account(
@@ -224,9 +233,9 @@ class KZGPointEvaluation:
         if "output" not in data:
             raise ValueError("Missing 'output' key in data")
         if isinstance(data["output"], bool):
-            correct = data["output"]
+            success = data["output"]
         else:
-            correct = False
+            success = False
         input = data["input"]
         if "commitment" not in input or not isinstance(
             input["commitment"], str
@@ -250,7 +259,7 @@ class KZGPointEvaluation:
             y=y,
             kzg_commitment=commitment,
             kzg_proof=proof,
-            correct=correct,
+            success=success,
         )
 
 
@@ -313,7 +322,7 @@ def test_point_evaluation_precompile(_: Fork):
             y=0,
             kzg_commitment=0,
             kzg_proof=0,
-            correct=False,
+            success=False,
         ),
         KZGPointEvaluation(
             name="out_of_bounds_y",
@@ -321,7 +330,7 @@ def test_point_evaluation_precompile(_: Fork):
             y=BLS_MODULUS,
             kzg_commitment=0,
             kzg_proof=0,
-            correct=False,
+            success=False,
         ),
         KZGPointEvaluation(
             name="correct_proof_1",
@@ -329,7 +338,7 @@ def test_point_evaluation_precompile(_: Fork):
             y=0,
             kzg_commitment=0xC0 << 376,
             kzg_proof=0xC0 << 376,
-            correct=True,
+            success=True,
         ),
         KZGPointEvaluation(
             name="correct_proof_1_input_too_short",
@@ -338,7 +347,7 @@ def test_point_evaluation_precompile(_: Fork):
             kzg_commitment=0xC0 << 376,
             kzg_proof=bytes([0xC0] + [0] * 46),
             versioned_hash=kzg_to_versioned_hash(0xC0 << 376),
-            correct=False,
+            success=False,
         ),
         KZGPointEvaluation(
             name="correct_proof_1_input_too_short_2",
@@ -347,7 +356,7 @@ def test_point_evaluation_precompile(_: Fork):
             kzg_commitment=0xC0 << 376,
             kzg_proof=bytes([0xC0]),
             versioned_hash=kzg_to_versioned_hash(0xC0 << 376),
-            correct=False,
+            success=False,
         ),
         KZGPointEvaluation(
             name="correct_proof_1_input_too_long",
@@ -356,7 +365,7 @@ def test_point_evaluation_precompile(_: Fork):
             kzg_commitment=0xC0 << 376,
             kzg_proof=bytes([0xC0] + [0] * 48),
             versioned_hash=kzg_to_versioned_hash(0xC0 << 376),
-            correct=False,
+            success=False,
         ),
         KZGPointEvaluation(
             name="correct_proof_1_input_extra_long",
@@ -365,7 +374,7 @@ def test_point_evaluation_precompile(_: Fork):
             kzg_commitment=0xC0 << 376,
             kzg_proof=bytes([0xC0] + [0] * 1024),
             versioned_hash=kzg_to_versioned_hash(0xC0 << 376),
-            correct=False,
+            success=False,
         ),
         KZGPointEvaluation(
             name="null_inputs",
@@ -374,7 +383,7 @@ def test_point_evaluation_precompile(_: Fork):
             kzg_commitment=bytes(),
             kzg_proof=bytes(),
             versioned_hash=bytes(),
-            correct=False,
+            success=False,
         ),
         KZGPointEvaluation(
             name="zeros_inputs",
@@ -383,7 +392,7 @@ def test_point_evaluation_precompile(_: Fork):
             kzg_commitment=0,
             kzg_proof=0,
             versioned_hash=0,
-            correct=False,
+            success=False,
         ),
         KZGPointEvaluation(
             name="zeros_inputs_correct_versioned_hash",
@@ -391,7 +400,7 @@ def test_point_evaluation_precompile(_: Fork):
             y=0,
             kzg_commitment=0,
             kzg_proof=0,
-            correct=False,
+            success=False,
         ),
         KZGPointEvaluation(
             name="correct_proof_1_inverted_endianness",
@@ -399,7 +408,7 @@ def test_point_evaluation_precompile(_: Fork):
             y=0,
             kzg_commitment=0xC0 << 376,
             kzg_proof=0xC0 << 376,
-            correct=False,
+            success=False,
             endianness="little",
         ),
         KZGPointEvaluation(
@@ -412,7 +421,7 @@ def test_point_evaluation_precompile(_: Fork):
                 0xC0 << 376,
                 0x00,
             ),
-            correct=False,
+            success=False,
         ),
         KZGPointEvaluation(
             name="correct_proof_1_incorrect_versioned_hash_version_0x02",
@@ -424,7 +433,7 @@ def test_point_evaluation_precompile(_: Fork):
                 0xC0 << 376,
                 0x02,
             ),
-            correct=False,
+            success=False,
         ),
         KZGPointEvaluation(
             name="correct_proof_1_incorrect_versioned_hash_version_0xff",
@@ -436,7 +445,7 @@ def test_point_evaluation_precompile(_: Fork):
                 0xC0 << 376,
                 0xFF,
             ),
-            correct=False,
+            success=False,
         ),
     ]
 
@@ -472,7 +481,7 @@ def test_point_evaluation_precompile_calls(_: Fork):
         kzg_commitment=0xC0 << 376,
         kzg_proof=0xC0 << 376,
         call_type=Op.DELEGATECALL,
-        correct=True,
+        success=True,
     ).generate_blockchain_test()
     yield KZGPointEvaluation(
         name="delegatecall_incorrect",
@@ -481,7 +490,7 @@ def test_point_evaluation_precompile_calls(_: Fork):
         kzg_commitment=0xC0 << 376,
         kzg_proof=0xC0 << 376,
         call_type=Op.DELEGATECALL,
-        correct=False,
+        success=False,
     ).generate_blockchain_test()
 
     # Callcode
@@ -492,7 +501,7 @@ def test_point_evaluation_precompile_calls(_: Fork):
         kzg_commitment=0xC0 << 376,
         kzg_proof=0xC0 << 376,
         call_type=Op.CALLCODE,
-        correct=True,
+        success=True,
     ).generate_blockchain_test()
     yield KZGPointEvaluation(
         name="callcode_incorrect",
@@ -501,7 +510,7 @@ def test_point_evaluation_precompile_calls(_: Fork):
         kzg_commitment=0xC0 << 376,
         kzg_proof=0xC0 << 376,
         call_type=Op.CALLCODE,
-        correct=False,
+        success=False,
     ).generate_blockchain_test()
 
     # Staticcall
@@ -512,7 +521,7 @@ def test_point_evaluation_precompile_calls(_: Fork):
         kzg_commitment=0xC0 << 376,
         kzg_proof=0xC0 << 376,
         call_type=Op.STATICCALL,
-        correct=True,
+        success=True,
     ).generate_blockchain_test()
     yield KZGPointEvaluation(
         name="staticcall_incorrect",
@@ -521,7 +530,7 @@ def test_point_evaluation_precompile_calls(_: Fork):
         kzg_commitment=0xC0 << 376,
         kzg_proof=0xC0 << 376,
         call_type=Op.STATICCALL,
-        correct=False,
+        success=False,
     ).generate_blockchain_test()
 
     # Gas
@@ -532,7 +541,7 @@ def test_point_evaluation_precompile_calls(_: Fork):
         kzg_commitment=0xC0 << 376,
         kzg_proof=0xC0 << 376,
         gas=POINT_EVALUATION_PRECOMPILE_GAS,
-        correct=True,
+        success=True,
     ).generate_blockchain_test()
     yield KZGPointEvaluation(
         name="insufficient_gas",
@@ -541,7 +550,7 @@ def test_point_evaluation_precompile_calls(_: Fork):
         kzg_commitment=0xC0 << 376,
         kzg_proof=0xC0 << 376,
         gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
-        correct=True,
+        success=False,
     ).generate_blockchain_test()
 
 
