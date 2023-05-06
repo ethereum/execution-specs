@@ -38,6 +38,9 @@ def test_forks():
     assert London.name() == "London"
     assert TestOnlyUpcomingFork.name() == "TestOnlyUpcomingFork"
     assert MergeToShanghaiAtTime15k.name() == "MergeToShanghaiAtTime15k"
+    assert f"{London}" == "London"
+    assert f"{TestOnlyUpcomingFork}" == "TestOnlyUpcomingFork"
+    assert f"{MergeToShanghaiAtTime15k}" == "MergeToShanghaiAtTime15k"
 
     # Test some fork properties
     assert Berlin.header_base_fee_required(0, 0) is False
