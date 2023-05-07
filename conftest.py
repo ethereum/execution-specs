@@ -213,8 +213,8 @@ def fixture_collector(request):
     fixture_collector = FixtureCollector(
         output_dir=request.config.getoption("output")
     )
-    request.addfinalizer(fixture_collector.dump_fixtures)
-    return fixture_collector
+    yield fixture_collector
+    fixture_collector.dump_fixtures()
 
 
 @pytest.fixture(autouse=True, scope="session")
