@@ -50,4 +50,4 @@ def test_chain_id(state_test, fork):
         ),
     }
 
-    state_test.spec = StateTest(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, txs=[tx])
