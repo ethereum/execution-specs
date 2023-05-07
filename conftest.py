@@ -322,6 +322,19 @@ def pytest_runtest_call(item):
     """
     Pytest hook called in the context of test execution.
     """
+
+    class InvalidFiller(Exception):
+        def __init__(self, message):
+            super().__init__(message)
+
+    if (
+        "state_test" in item.fixturenames
+        and "blockchain_test" in item.fixturenames
+    ):
+        raise InvalidFiller(
+            "A filler should only implement either a state test or "
+            "a blockchain test; not both."
+        )
     # Get current test item from session-wide and locally scoped fixtures.
     t8n = item.funcargs["t8n"]
     fork = item.funcargs["fork"]
