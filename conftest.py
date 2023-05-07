@@ -205,10 +205,11 @@ class FixtureCollector:
                 json.dump(output_json, f, indent=4)
 
 
-@pytest.fixture(autouse=True, scope="session")
+@pytest.fixture(scope="module")
 def fixture_collector(request):
     """
-    Returns the configured fixture collector instance used for all tests.
+    Returns the configured fixture collector instance used for all tests
+    in one test module.
     """
     fixture_collector = FixtureCollector(
         output_dir=request.config.getoption("output")
