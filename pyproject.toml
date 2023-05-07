@@ -18,5 +18,5 @@ python_files = "*.py"
 addopts = "-p pytest_plugins.latest_fork"
 markers = [
     "state_test: test cases that implement a single state transition test",
-    "blockchain_test: test cases that implement test block transitions",
+    "blockchain_test: test cases that implement block transition tests",
 ]
