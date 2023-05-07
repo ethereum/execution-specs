@@ -252,7 +252,9 @@ def reference_spec():
 
 
 @pytest.fixture(scope="function")
-def state_test() -> StateTestFiller:
+def state_test(
+    request, t8n, b11r, fork, engine, reference_spec, eips, fixture_collector
+) -> StateTestFiller:
     """
     Fixture used to instantiate an auto-fillable StateTest object from within
     a test function.
@@ -263,19 +265,32 @@ def state_test() -> StateTestFiller:
 
     Implementation detail: It must be scoped on test function level to avoid
     leakage between tests.
-
-    Proper definition of the StateTestWrapper is done during the
-    pytest_runtest_call.
     """
 
     class StateTestWrapper(StateTest):
-        pass
+        def __init__(self, *args, **kwargs):
+            super(StateTestWrapper, self).__init__(*args, **kwargs)
+            fixture_collector.add_fixture(
+                request.node,
+                fill_test(
+                    "",
+                    t8n,
+                    b11r,
+                    self,
+                    fork,
+                    engine,
+                    reference_spec,
+                    eips=eips,
+                ),
+            )
 
     return StateTestWrapper
 
 
 @pytest.fixture(scope="function")
-def blockchain_test() -> BlockchainTestFiller:
+def blockchain_test(
+    request, t8n, b11r, fork, engine, reference_spec, eips, fixture_collector
+) -> BlockchainTestFiller:
     """
     Fixture used to define an auto-fillable BlockchainTest analogous to the
     state_test fixture for StateTests.
@@ -283,7 +298,21 @@ def blockchain_test() -> BlockchainTestFiller:
     """
 
     class BlockchainTestWrapper(BlockchainTest):
-        pass
+        def __init__(self, *args, **kwargs):
+            super(BlockchainTestWrapper, self).__init__(*args, **kwargs)
+            fixture_collector.add_fixture(
+                request.node,
+                fill_test(
+                    "",
+                    t8n,
+                    b11r,
+                    self,
+                    fork,
+                    engine,
+                    reference_spec,
+                    eips=eips,
+                ),
+            )
 
     return BlockchainTestWrapper
 
@@ -296,70 +325,14 @@ def pytest_make_parametrize_id(config, val, argname):
     return f"{argname}={val}"
 
 
-@pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_call(item):
     """
-    Pytest hook called in the context of test execution. After pytest
-    has executed the test function and created the test spec, we fill
-    the test spec and write the generated fixture to file.
+    Pytest hook called in the context of test execution.
     """
-
-    # Get config from session-wide fixtures. Note, we could also access these
-    # from the pytest config object via item.config
-    # evm_bin = item.funcargs["evm_bin"]
+    # Get current test item from session-wide and locally scoped fixtures.
     t8n = item.funcargs["t8n"]
-    b11r = item.funcargs["b11r"]
-    engine = item.funcargs["engine"]
-    reference_spec = item.funcargs["reference_spec"]
-    fixture_collector: FixtureCollector = item.funcargs["fixture_collector"]
-
-    # Get test-specific params from potentially locally defined fixtures
-    eips = item.funcargs["eips"]
     fork = item.funcargs["fork"]
-
     if not t8n.is_fork_supported(fork):
         pytest.skip(f"Fork '{fork}' not supported by t8n, skipped")
     if fork == ArrowGlacier:
         pytest.skip(f"Fork '{fork}' not supported by hive, skipped")
-
-    spec_types: Dict[str, Type] = {
-        "state_test": StateTest,
-        "blockchain_test": BlockchainTest,
-    }
-
-    spec_type_count = 0
-    for spec_type, spec_class in spec_types.items():
-        if spec_type in item.funcargs:
-            spec_type_count += 1
-
-            class AutoFillerWrapper(spec_class):
-                def __init__(self, *args, **kwargs):
-                    super(AutoFillerWrapper, self).__init__(*args, **kwargs)
-                    fixture_collector.add_fixture(
-                        item,
-                        fill_test(
-                            "",
-                            t8n,
-                            b11r,
-                            self,
-                            fork,
-                            engine,
-                            reference_spec,
-                            eips=eips,
-                        ),
-                    )
-
-            item.funcargs[spec_type] = AutoFillerWrapper
-
-    if spec_type_count == 0:
-        raise Exception(
-            "Test function must define at least one of the following spec "
-            + "type arguments: "
-            + ", ".join(spec_types.keys())
-        )
-
-    output = yield  # Execute the test function
-
-    # Process test result; this will stop execution if there was an issue in
-    # the test function and trigger a pytest error or fail for this spec.
-    output.get_result()
