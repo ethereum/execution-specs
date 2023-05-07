@@ -199,7 +199,7 @@ class FixtureCollector:
                 name, fixture = name_fixture
                 name = str(index).zfill(3) + "-" + name
                 output_json[name] = fixture
-            file_path = self.output_dir + module_file + ".json"
+            file_path = self.output_dir + os.sep + module_file + ".json"
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
             with open(file_path, "w") as f:
                 json.dump(output_json, f, indent=4)
