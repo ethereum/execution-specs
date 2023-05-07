@@ -82,6 +82,32 @@ def pytest_configure(config):
     return None
 
 
+@pytest.hookimpl(trylast=True)
+def pytest_report_header(config, start_path):
+    """A pytest hook called to obtain the report header."""
+    bold = "\033[1m"
+    warning = "\033[93m"
+    reset = "\033[39;49m"
+    if config.getoption("latest_fork") is None:
+        header = [
+            (
+                bold
+                + warning
+                + "Only executing fillers with stable/deployed forks: "
+                "Specify an upcoming fork via --latest-fork=fork to "
+                "run experimental fillers." + reset
+            )
+        ]
+    else:
+        header = [
+            (
+                bold + "Executing fillers up to and including "
+                f"{config.getoption('latest_fork')}." + reset
+            ),
+        ]
+    return header
+
+
 @pytest.fixture(autouse=True, scope="session")
 def evm_bin(request):
     """
