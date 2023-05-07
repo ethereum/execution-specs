@@ -10,7 +10,11 @@ import os
 
 import pytest
 
-from ethereum_test_forks import ArrowGlacier, set_latest_fork_by_name
+from ethereum_test_forks import (
+    ArrowGlacier,
+    InvalidForkError,
+    set_latest_fork_by_name,
+)
 from ethereum_test_tools import JSONEncoder, fill_test
 from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool
@@ -69,7 +73,12 @@ def pytest_configure(config):
     """
     latest_fork = config.getoption("latest_fork")
     if latest_fork is not None:
-        set_latest_fork_by_name(latest_fork)
+        try:
+            set_latest_fork_by_name(latest_fork)
+        except InvalidForkError as e:
+            pytest.exit(f"Error applying --latest-fork={latest_fork}: {e}.")
+        except Exception as e:
+            raise e
     return None
 
 
