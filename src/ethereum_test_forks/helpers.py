@@ -21,6 +21,11 @@ class LatestForkResolver:
 latest_fork_resolver = LatestForkResolver()
 
 
+class InvalidForkError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
+
 def set_latest_fork(fork: Fork) -> None:
     """
     Sets the latest fork
@@ -37,7 +42,7 @@ def set_latest_fork_by_name(fork_name: str) -> None:
     elif fork_name in upcoming.__dict__:
         set_latest_fork(upcoming.__dict__[fork_name])
     else:
-        raise Exception(f'fork "{fork_name}" not found')
+        raise InvalidForkError(f'fork "{fork_name}" not found')
 
 
 def get_parent_fork(fork: Fork) -> Fork:

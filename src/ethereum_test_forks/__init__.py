@@ -25,6 +25,7 @@ from .forks.transition import (
 )
 from .forks.upcoming import Cancun
 from .helpers import (
+    InvalidForkError,
     fork_only,
     forks_from,
     forks_from_until,
@@ -44,6 +45,7 @@ __all__ = [
     "Frontier",
     "GrayGlacier",
     "Homestead",
+    "InvalidForkError",
     "Istanbul",
     "London",
     "Merge",
