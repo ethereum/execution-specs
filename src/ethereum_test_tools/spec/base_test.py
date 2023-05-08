@@ -118,5 +118,14 @@ class BaseTest:
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def pytest_parameter_name(cls) -> str:
+        """
+        Must return the name of the parameter used in pytest to select this
+        spec type as filler for the test.
+        """
+        pass
+
 
 TestSpec = Callable[[Fork], Generator[BaseTest, None, None]]

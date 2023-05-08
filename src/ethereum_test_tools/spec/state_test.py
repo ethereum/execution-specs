@@ -45,6 +45,13 @@ class StateTest(BaseTest):
     txs: List[Transaction]
     tag: str = ""
 
+    @classmethod
+    def pytest_parameter_name(cls) -> str:
+        """
+        Returns the parameter name used to identify this filler in a test.
+        """
+        return "state_test"
+
     def make_genesis(
         self,
         b11r: BlockBuilder,
