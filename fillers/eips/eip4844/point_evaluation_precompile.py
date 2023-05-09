@@ -403,6 +403,14 @@ def test_point_evaluation_precompile(_: Fork):
     z = 0x623CE31CF9759A5C8DAF3A357992F9F3DD7F9339D8998BC8E68373E54F00B75E
     test_cases: List[KZGPointEvaluation] = [
         KZGPointEvaluation(
+            name="correct_proof_1",
+            z=z,
+            y=0,
+            kzg_commitment=0xC0 << 376,
+            kzg_proof=0xC0 << 376,
+            success=True,
+        ),
+        KZGPointEvaluation(
             name="out_of_bounds_z",
             z=BLS_MODULUS,
             y=0,
@@ -417,14 +425,6 @@ def test_point_evaluation_precompile(_: Fork):
             kzg_commitment=0,
             kzg_proof=0,
             success=False,
-        ),
-        KZGPointEvaluation(
-            name="correct_proof_1",
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=0xC0 << 376,
-            success=True,
         ),
         KZGPointEvaluation(
             name="correct_proof_1_input_too_short",

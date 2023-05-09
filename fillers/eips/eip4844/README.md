@@ -99,4 +99,42 @@ Asserts that blocks with invalid blob transactions are rejected and no state cha
 
 - Blob transaction type 3 is used in a pre-Cancun fork. This transcation type can only be used in a post-Cancun fork.
 
-  
+## 📖 Point Evaluation Precompile
+
+Test Module - `eip4844/point_evaluation_precompile.py`
+
+Verifies correct behavior on calls to the point evaluation precompile introduced by EIP-4844.
+
+**1) 🔴 test_point_evaluation_precompile():**
+
+- Correct Proof, verify call return values are `bytes32(FIELD_ELEMENTS_PER_BLOB) + bytes32(BLS_MODULUS)`
+- Out of bounds Z value (equal to BLS_MODULUS)
+- Out of bounds Y value (equal to BLS_MODULUS)
+- Correct Proof, input lenght 1 byte too short
+- Correct Proof, input lenght 47 bytes too short
+- Correct Proof, input lenght 1 byte too long
+- Correct Proof, input lenght 976 bytes too long
+- Null length input
+- Correct length input, but all zeros
+- Correct length input, but all zeros except for versioned hash (correct)
+- Correct Proof, but inverted endianness
+- Correct Proof, but incorrect versioned hash version (0x00, 0x02, 0xFF)
+
+Test also all vectors included in `eip4844/point_evaluation_vectors` in json format.
+
+**2) 🔴 test_point_evaluation_precompile_calls():**
+Test return values of the precompile contract using different call opcodes, and gas amounts.
+- Test correct and incorrect point evaluations using CALL, DELEGATECALL, CALLCODE, STATICCALL
+- Test using sufficient and insufficient gas (50,000 gas)
+
+**3) 🔴 test_point_evaluation_precompile_gas_usage():**
+Test gas consumption of a call to the precompile:
+- Test 50,000 gas consumption on a correct evaluation
+- Test 50,001+ gas consumption on a incorrect evaluation
+- Test gas consumption using CALL, DELEGATECALL, CALLCODE, and STATICCALL opcodes
+- Test full gas consumption on calls with less than 50,000 gas
+
+**3) 🔴 test_point_evaluation_precompile_before_fork():**
+Test sending an incorrect kzg proof point evaluation to the precompile address before and after the fork:
+- Before the fork, the call must succeed
+- After the fork, the call must fail
