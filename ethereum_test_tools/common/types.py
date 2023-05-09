@@ -693,7 +693,7 @@ class Transaction:
     """
     chain_id: int = 1
     nonce: int = 0
-    to: Optional[str] = AddrAA
+    to: Optional[str | int] = AddrAA
     value: int = 0
     data: bytes | str | Code = bytes()
     gas_limit: int = 21000
@@ -1133,7 +1133,10 @@ class JSONEncoder(json.JSONEncoder):
                 "gas": hex(obj.gas_limit),
                 "value": hex(obj.value),
                 "input": code_to_hex(obj.data),
-                "to": obj.to,
+                "to": "0x"
+                + int.to_bytes(obj.to, length=20, byteorder="big").hex()
+                if obj.to is int
+                else obj.to,
                 "accessList": obj.access_list,
                 "protected": obj.protected,
                 "secretKey": obj.secret_key,
