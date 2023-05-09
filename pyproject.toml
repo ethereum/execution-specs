@@ -15,3 +15,4 @@ console_output_style = "count"
 minversion = "7.0"
 testpaths = ["fillers/example", "fillers/eips/eip3651.py", "fillers/eips/eip3855.py", "fillers/vm/chain_id.py"]
 python_files = "*.py"
+addopts = "-p pytest_plugins.latest_fork"
