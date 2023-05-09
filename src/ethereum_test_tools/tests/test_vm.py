@@ -96,4 +96,16 @@ from ..vm.opcode import Opcodes as Op
     ],
 )
 def test_opcodes(opcodes: bytes, expected: bytes):
+    """
+    Test that the `opcodes` are transformed into bytecode as expected.
+    """
     assert bytes(opcodes) == expected
+
+
+def test_opcodes_repr():
+    """
+    Test that the `repr` of an `Op` is the same as its name.
+    """
+    assert f"{Op.CALL}" == "CALL"
+    assert f"{Op.DELEGATECALL}" == "DELEGATECALL"
+    assert str(Op.ADD) == "ADD"

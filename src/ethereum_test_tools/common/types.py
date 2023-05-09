@@ -14,6 +14,7 @@ from typing import (
     Sequence,
     Tuple,
     Type,
+    TypeAlias,
 )
 
 from ethereum_test_forks import Fork
@@ -99,6 +100,13 @@ class Storage:
     """
 
     data: Dict[int, int]
+
+    StorageDictType: ClassVar[TypeAlias] = Dict[
+        str | int | bytes, str | int | bytes
+    ]
+    """
+    Dictionary type to be used when defining an input to initialize a storage.
+    """
 
     class InvalidType(Exception):
         """
@@ -234,7 +242,7 @@ class Storage:
         """
         return "0x" + value.to_bytes(32, "big", signed=(value < 0)).hex()
 
-    def __init__(self, input: Dict[str | int | bytes, str | int | bytes]):
+    def __init__(self, input: StorageDictType):
         """
         Initializes the storage using a given mapping which can have
         keys and values either as string or int.

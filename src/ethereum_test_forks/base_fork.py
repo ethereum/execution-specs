@@ -1,11 +1,29 @@
 """
 Abstract base class for Ethereum forks
 """
-from abc import ABC, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from typing import Type
 
 
-class BaseFork(ABC):
+class BaseForkMeta(ABCMeta):
+    """
+    Metaclass for BaseFork
+    """
+
+    def name(cls) -> str:
+        """
+        To be implemented by the fork base class.
+        """
+        pass
+
+    def __repr__(cls) -> str:
+        """
+        Used to properly print the name of the fork, instead of the class.
+        """
+        return cls.name()
+
+
+class BaseFork(ABC, metaclass=BaseForkMeta):
     """
     An abstract class representing an Ethereum fork.
 
