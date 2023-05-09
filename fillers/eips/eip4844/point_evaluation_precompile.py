@@ -14,9 +14,11 @@ from ethereum_test_tools import (
     Account,
     Block,
     BlockchainTest,
+    CodeGasMeasure,
     Storage,
     TestAddress,
     Transaction,
+    copy_opcode_cost,
     test_from,
     test_only,
     to_address,
@@ -223,6 +225,97 @@ class KZGPointEvaluation:
             blocks=[Block(txs=[tx])],
         )
 
+    def generate_gas_test(self, expected_gas_usage: int) -> BlockchainTest:
+        """
+        Generate BlockchainTest to measure precompile gas usage.
+        """
+        CALLDATASIZE_COST = 2
+        PUSH_OPERATIONS_COST = 3
+        WARM_STORAGE_READ_COST = 100
+        precompile_calldata = self.get_precompile_input()
+
+        precompile_caller_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        overhead_cost = (
+            WARM_STORAGE_READ_COST
+            + (CALLDATASIZE_COST * 1)
+            + (PUSH_OPERATIONS_COST * 2)
+            + copy_opcode_cost(len(precompile_calldata))
+        )
+        if self.call_type == Op.CALL or self.call_type == Op.CALLCODE:
+            precompile_caller_code += self.call_type(
+                self.gas,
+                POINT_EVALUATION_PRECOMPILE_ADDRESS,
+                0x00,
+                0x00,
+                Op.CALLDATASIZE,
+                0x00,
+                0x00,
+            )
+            overhead_cost += (PUSH_OPERATIONS_COST * 6) + (
+                CALLDATASIZE_COST * 1
+            )
+        elif (
+            self.call_type == Op.DELEGATECALL
+            or self.call_type == Op.STATICCALL
+        ):
+            # Delegatecall and staticcall use one less argument
+            precompile_caller_code += self.call_type(
+                self.gas,
+                POINT_EVALUATION_PRECOMPILE_ADDRESS,
+                0x00,
+                Op.CALLDATASIZE,
+                0x00,
+                0x00,
+            )
+            overhead_cost += (PUSH_OPERATIONS_COST * 5) + (
+                CALLDATASIZE_COST * 1
+            )
+
+        gas_measure_code = CodeGasMeasure(
+            code=precompile_caller_code,
+            overhead_cost=overhead_cost,
+            extra_stack_items=1,
+        )
+
+        precompile_caller_address = to_address(0x100)
+
+        pre = {
+            TestAddress: Account(
+                nonce=0,
+                balance=0x10**18,
+            ),
+            precompile_caller_address: Account(
+                nonce=0,
+                code=gas_measure_code,
+            ),
+        }
+
+        tx = Transaction(
+            ty=2,
+            nonce=0,
+            data=precompile_calldata,
+            to=precompile_caller_address,
+            value=0,
+            gas_limit=POINT_EVALUATION_PRECOMPILE_GAS * 20,
+            max_fee_per_gas=7,
+            max_priority_fee_per_gas=0,
+        )
+
+        post = {
+            precompile_caller_address: Account(
+                storage={
+                    0: expected_gas_usage,
+                },
+            ),
+        }
+
+        return BlockchainTest(
+            tag=self.name,
+            pre=pre,
+            post=post,
+            blocks=[Block(txs=[tx])],
+        )
+
     @classmethod
     def from_dict(cls, data: dict) -> "KZGPointEvaluation":
         """
@@ -296,13 +389,6 @@ def get_point_evaluation_test_files_in_directory(path: str) -> list[str]:
     Get the point evaluation files in a directory.
     """
     return glob.glob(os.path.join(path, "*.json"))
-
-
-# @test_from(fork=Cancun)
-def test_point_evaluation_precompile_gas_usage(_: Fork):
-    """
-    Test Precompile Gas Usage.
-    """
 
 
 @test_from(fork=Cancun)
@@ -473,6 +559,17 @@ def test_point_evaluation_precompile_calls(_: Fork):
     """
     z = 0x623CE31CF9759A5C8DAF3A357992F9F3DD7F9339D8998BC8E68373E54F00B75E
 
+    # Call
+    yield KZGPointEvaluation(
+        name="call_insufficient_gas",
+        z=z,
+        y=0,
+        kzg_commitment=0xC0 << 376,
+        kzg_proof=0xC0 << 376,
+        gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
+        success=False,
+    ).generate_blockchain_test()
+
     # Delegatecall
     yield KZGPointEvaluation(
         name="delegatecall_correct",
@@ -489,6 +586,16 @@ def test_point_evaluation_precompile_calls(_: Fork):
         y=1,
         kzg_commitment=0xC0 << 376,
         kzg_proof=0xC0 << 376,
+        call_type=Op.DELEGATECALL,
+        success=False,
+    ).generate_blockchain_test()
+    yield KZGPointEvaluation(
+        name="delegatecall_insufficient_gas",
+        z=z,
+        y=0,
+        kzg_commitment=0xC0 << 376,
+        kzg_proof=0xC0 << 376,
+        gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
         call_type=Op.DELEGATECALL,
         success=False,
     ).generate_blockchain_test()
@@ -512,6 +619,16 @@ def test_point_evaluation_precompile_calls(_: Fork):
         call_type=Op.CALLCODE,
         success=False,
     ).generate_blockchain_test()
+    yield KZGPointEvaluation(
+        name="callcode_insufficient_gas",
+        z=z,
+        y=0,
+        kzg_commitment=0xC0 << 376,
+        kzg_proof=0xC0 << 376,
+        gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
+        call_type=Op.CALLCODE,
+        success=False,
+    ).generate_blockchain_test()
 
     # Staticcall
     yield KZGPointEvaluation(
@@ -532,26 +649,75 @@ def test_point_evaluation_precompile_calls(_: Fork):
         call_type=Op.STATICCALL,
         success=False,
     ).generate_blockchain_test()
-
-    # Gas
     yield KZGPointEvaluation(
-        name="sufficient_gas",
-        z=z,
-        y=0,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        gas=POINT_EVALUATION_PRECOMPILE_GAS,
-        success=True,
-    ).generate_blockchain_test()
-    yield KZGPointEvaluation(
-        name="insufficient_gas",
+        name="staticcall_insufficient_gas",
         z=z,
         y=0,
         kzg_commitment=0xC0 << 376,
         kzg_proof=0xC0 << 376,
         gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
+        call_type=Op.STATICCALL,
         success=False,
     ).generate_blockchain_test()
+
+
+@test_from(fork=Cancun)
+def test_point_evaluation_precompile_gas_usage(_: Fork):
+    """
+    Test Precompile Gas Usage.
+    """
+    z = 0x623CE31CF9759A5C8DAF3A357992F9F3DD7F9339D8998BC8E68373E54F00B75E
+    call_types = [Op.CALL, Op.DELEGATECALL, Op.CALLCODE, Op.STATICCALL]
+    for call_type in call_types:
+        yield KZGPointEvaluation(
+            name=f"{call_type}_correct_proof_sufficient_gas",
+            z=z,
+            y=0,
+            kzg_commitment=0xC0 << 376,
+            kzg_proof=0xC0 << 376,
+            gas=POINT_EVALUATION_PRECOMPILE_GAS,
+            success=True,
+        ).generate_gas_test(expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS)
+        yield KZGPointEvaluation(
+            name=f"{call_type}_incorrect_proof_sufficient_gas",
+            z=z,
+            y=1,
+            kzg_commitment=0xC0 << 376,
+            kzg_proof=0xC0 << 376,
+            gas=POINT_EVALUATION_PRECOMPILE_GAS,
+            success=False,
+        ).generate_gas_test(expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS)
+        yield KZGPointEvaluation(
+            name=f"{call_type}_correct_proof_extra_gas",
+            z=z,
+            y=0,
+            kzg_commitment=0xC0 << 376,
+            kzg_proof=0xC0 << 376,
+            gas=POINT_EVALUATION_PRECOMPILE_GAS + 1,
+            success=True,
+        ).generate_gas_test(expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS)
+        yield KZGPointEvaluation(
+            name=f"{call_type}_incorrect_proof_extra_gas",
+            z=z,
+            y=1,
+            kzg_commitment=0xC0 << 376,
+            kzg_proof=0xC0 << 376,
+            gas=POINT_EVALUATION_PRECOMPILE_GAS + 1,
+            success=True,
+        ).generate_gas_test(
+            expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS + 1
+        )
+        yield KZGPointEvaluation(
+            name=f"{call_type}_correct_proof_insufficient_gas",
+            z=z,
+            y=0,
+            kzg_commitment=0xC0 << 376,
+            kzg_proof=0xC0 << 376,
+            gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
+            success=False,
+        ).generate_gas_test(
+            expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS - 1
+        )
 
 
 @test_only(fork=ShanghaiToCancunAtTime15k)
