@@ -57,6 +57,34 @@ def compute_create2_address(
     return "0x" + hash[-20:].hex()
 
 
+def cost_memory_bytes(new_bytes: int, previous_bytes: int) -> int:
+    """
+    Calculates the cost of memory expansion, based on the costs specified in
+    the yellow paper: https://ethereum.github.io/yellowpaper/paper.pdf
+    """
+    if new_bytes <= previous_bytes:
+        return 0
+    new_words = ceiling_division(new_bytes, 32)
+    previous_words = ceiling_division(previous_bytes, 32)
+
+    def c(w: int) -> int:
+        g_memory = 3
+        return (g_memory * w) + ((w * w) // 512)
+
+    return c(new_words) - c(previous_words)
+
+
+def copy_opcode_cost(length: int) -> int:
+    """
+    Calculates the cost of the COPY opcodes, assuming memory expansion from
+    empty memory, based on the costs specified in the yellow paper:
+    https://ethereum.github.io/yellowpaper/paper.pdf
+    """
+    return (
+        3 + (ceiling_division(length, 32) * 3) + cost_memory_bytes(length, 0)
+    )
+
+
 def eip_2028_transaction_data_cost(data: bytes | str) -> int:
     """
     Calculates the cost of a given data as part of a transaction, based on the
