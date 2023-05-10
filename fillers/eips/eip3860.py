@@ -8,11 +8,13 @@ Source tests: https://github.com/ethereum/tests/pull/990
 from string import Template
 from typing import Any, Dict
 
-from ethereum_test_forks import Shanghai
+import pytest
+
+from ethereum_test_forks import Fork, Shanghai, forks_from
 from ethereum_test_tools import (
     Account,
     Block,
-    BlockchainTest,
+    BlockchainTestFiller,
     Environment,
     Initcode,
     StateTest,
@@ -23,13 +25,14 @@ from ethereum_test_tools import (
     compute_create2_address,
     compute_create_address,
     eip_2028_transaction_data_cost,
-    test_from,
     to_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3860.md"
 REFERENCE_SPEC_VERSION = "5f8151e19ad1c99da4bafd514ce0e8ab89783c8f"
+
+pytestmark = pytest.mark.parametrize("fork", forks_from(Shanghai))
 
 """
 General constants used for testing purposes
@@ -71,7 +74,7 @@ def calculate_create_tx_intrinsic_cost(
     initcode: Initcode, eip_3860_active: bool
 ) -> int:
     """
-    Calcultes the intrinsic gas cost of a transaction that contains initcode
+    Calculates the intrinsic gas cost of a transaction that contains initcode
     and creates a contract
     """
     cost = (
@@ -182,14 +185,37 @@ Test cases using a contract creating transaction
 """
 
 
-def generate_tx_initcode_limit_test_cases(
-    initcode: Initcode,
-    eip_3860_active: bool,
+def get_initcode_name(val):
+    """
+    Helper function that returns an Initcode object's name to generate test
+    ids.
+    """
+    return val.name
+
+
+@pytest.mark.parametrize(
+    "initcode",
+    [
+        INITCODE_ZEROS_MAX_LIMIT,
+        INITCODE_ONES_MAX_LIMIT,
+        INITCODE_ZEROS_OVER_LIMIT,
+        INITCODE_ONES_OVER_LIMIT,
+    ],
+    ids=get_initcode_name,
+)
+def test_contract_creating_tx(
+    blockchain_test: BlockchainTestFiller, fork: Fork, initcode: Initcode
 ):
     """
-    Generates a BlockchainTest based on the provided `initcode` and
-    its length.
+    Test cases using a contract creating transaction
+
+    Test creating a contract using a transaction using an initcode that is
+    on/over the max allowed limit.
+
+    Generates a BlockchainTest based on the provided `initcode` and its
+    length.
     """
+    eip_3860_active = True
     env = Environment()
 
     pre = {
@@ -224,7 +250,7 @@ def generate_tx_initcode_limit_test_cases(
         # is ok and the contract is successfully created.
         post[created_contract_address] = Account(code=Op.STOP)
 
-    yield BlockchainTest(
+    blockchain_test(
         pre=pre,
         post=post,
         blocks=[block],
@@ -233,216 +259,202 @@ def generate_tx_initcode_limit_test_cases(
     )
 
 
-@test_from(fork=Shanghai)
-def test_initcode_limit_contract_creating_tx(fork):
+@pytest.mark.parametrize(
+    "initcode",
+    [
+        INITCODE_ZEROS_MAX_LIMIT,
+        INITCODE_ONES_MAX_LIMIT,
+        EMPTY_INITCODE,
+        SINGLE_BYTE_INITCODE,
+        INITCODE_ZEROS_32_BYTES,
+        INITCODE_ZEROS_33_BYTES,
+        INITCODE_ZEROS_49120_BYTES,
+        INITCODE_ZEROS_49121_BYTES,
+    ],
+    ids=get_initcode_name,
+)
+@pytest.mark.parametrize(
+    "gas_test_case",
+    [
+        "too_little_intrinsic_gas",
+        "exact_intrinsic_gas",
+        "too_little_execution_gas",
+        "exact_execution_gas",
+    ],
+    ids=lambda x: x,
+)
+class TestContractCreationGasUsage:
     """
-    Test creating a contract using a transaction using an initcode that is
-    on/over the max allowed limit.
-    """
-    yield from generate_tx_initcode_limit_test_cases(
-        initcode=INITCODE_ZEROS_MAX_LIMIT,
-        eip_3860_active=True,
-    )
-    yield from generate_tx_initcode_limit_test_cases(
-        initcode=INITCODE_ONES_MAX_LIMIT,
-        eip_3860_active=True,
-    )
-    yield from generate_tx_initcode_limit_test_cases(
-        initcode=INITCODE_ZEROS_OVER_LIMIT,
-        eip_3860_active=True,
-    )
-    yield from generate_tx_initcode_limit_test_cases(
-        initcode=INITCODE_ONES_OVER_LIMIT,
-        eip_3860_active=True,
-    )
+    Test EIP-3860 Limit Initcode Gas Usage for a contract
+    creating transaction, using different initcode lengths.
 
-
-def generate_gas_cost_test_cases(
-    initcode: Initcode,
-    eip_3860_active: bool,
-):
-    """
-    Generates 4 test cases that verify the intrinsic gas cost of a
+    Generates 4 test cases that verify the gas cost behavior of a
     contract creating transaction:
-        1) Test with exact intrinsic gas, contract create fails,
-           but tx is valid.
-        2) Test with exact intrinsic gas minus one, contract create fails
+        1) Test with exact intrinsic gas minus one, contract create fails
            and tx is invalid.
+        2) Test with exact intrinsic gas, contract create fails,
+           but tx is valid.
         3) Test with exact execution gas minus one, contract create fails,
            but tx is valid.
         4) Test with exact execution gas, contract create succeeds.
 
     Initcode must be within valid EIP-3860 length.
     """
-    # Common setup to all test cases
-    env = Environment()
-    pre = {
-        TestAddress: Account(balance=1000000000000000000000),
-    }
-    post: Dict[Any, Any] = {}
-    created_contract_address = compute_create_address(
-        address=TestAddress,
-        nonce=0,
-    )
 
-    # Calculate both the intrinsic tx gas cost and the total execution
-    # gas cost, used throughout all tests
-    exact_tx_intrinsic_gas = calculate_create_tx_intrinsic_cost(
-        initcode, eip_3860_active
-    )
-    exact_tx_execution_gas = calculate_create_tx_execution_cost(
+    @pytest.fixture
+    def eip_3860_active(self):  # noqa: D102
+        return True
+
+    @pytest.fixture
+    def exact_intrinsic_gas(self, initcode, eip_3860_active):
+        """
+        Calculates the intrinsic tx gas cost.
+        """
+        return calculate_create_tx_intrinsic_cost(initcode, eip_3860_active)
+
+    @pytest.fixture
+    def exact_execution_gas(self, initcode, eip_3860_active):
+        """
+        Calculates the total execution gas cost.
+        """
+        return calculate_create_tx_execution_cost(
+            initcode,
+            eip_3860_active,
+        )
+
+    @pytest.fixture
+    def created_contract_address(self):
+        """
+        Calculates the address of the contract deployed via CREATE.
+        """
+        return compute_create_address(
+            address=TestAddress,
+            nonce=0,
+        )
+
+    @pytest.fixture
+    def env(self) -> Environment:  # noqa: D102
+        return Environment()
+
+    @pytest.fixture
+    def pre(self) -> Dict[Any, Any]:  # noqa: D102
+        return {
+            TestAddress: Account(balance=1000000000000000000000),
+        }
+
+    @pytest.fixture
+    def tx_error(self, gas_test_case) -> str:
+        """
+        Test that the transaction is invalid if too little intrinsic gas is
+        specified, otherwise the tx succeeds.
+        """
+        if gas_test_case == "too_little_intrinsic_gas":
+            return "intrinsic gas too low"
+        return None
+
+    @pytest.fixture
+    def tx(
+        self,
+        gas_test_case,
         initcode,
-        eip_3860_active,
-    )
+        tx_error,
+        exact_intrinsic_gas,
+        exact_execution_gas,
+    ) -> Transaction:
+        """
+        Implement the gas_test_case by setting the gas_limit of the tx
+        appropriately and test whether the tx succeeds or fails with
+        appropriate error.
+        """
+        if gas_test_case == "too_little_intrinsic_gas":
+            gas_limit = exact_intrinsic_gas - 1
+        elif gas_test_case == "exact_intrinsic_gas":
+            gas_limit = exact_intrinsic_gas
+        elif gas_test_case == "too_little_execution_gas":
+            gas_limit = exact_execution_gas - 1
+        elif gas_test_case == "exact_execution_gas":
+            gas_limit = exact_execution_gas
+        else:
+            pytest.fail("Invalid gas test case provided.")
 
-    """
-    Test case 1: Test with exact intrinsic gas, contract create fails,
-                 but tx is valid.
-    """
-    tx = Transaction(
-        nonce=0,
-        to=None,
-        data=initcode,
-        gas_limit=exact_tx_intrinsic_gas,
-        gas_price=10,
-    )
-    block = Block(txs=[tx])
-    if exact_tx_execution_gas == exact_tx_intrinsic_gas:
-        # Special scenario where the execution of the initcode and
-        # gas cost to deploy are zero
-        post[created_contract_address] = Account(code=initcode.deploy_code)
-    else:
-        post[created_contract_address] = Account.NONEXISTENT
-
-    yield BlockchainTest(
-        pre=pre,
-        post=post,
-        blocks=[block],
-        genesis_environment=env,
-        tag=f"{initcode.name}_exact_intrinsic_gas",
-    )
-
-    """
-    Test case 2: Test with exact intrinsic gas minus one, contract create fails
-                 and tx is invalid.
-    """
-    tx = Transaction(
-        nonce=0,
-        to=None,
-        data=initcode,
-        gas_limit=exact_tx_intrinsic_gas - 1,
-        gas_price=10,
-        error="intrinsic gas too low",
-    )
-    block = Block(
-        txs=[tx],
-        exception="intrinsic gas too low",
-    )
-    post[created_contract_address] = Account.NONEXISTENT
-
-    yield BlockchainTest(
-        pre=pre,
-        post=post,
-        blocks=[block],
-        genesis_environment=env,
-        tag=f"{initcode.name}_under_intrinsic_gas",
-    )
-
-    """
-    Test case 3: Test with exact execution gas minus one, contract create
-                 fails, but tx is valid.
-    """
-    if exact_tx_execution_gas == exact_tx_intrinsic_gas:
-        # Test case is virtually equal to previous
-        pass
-    else:
-        tx = Transaction(
+        return Transaction(
             nonce=0,
             to=None,
             data=initcode,
-            gas_limit=exact_tx_execution_gas - 1,
+            gas_limit=gas_limit,
             gas_price=10,
+            error=tx_error,
         )
-        block = Block(txs=[tx])
-        post[created_contract_address] = Account.NONEXISTENT
 
-        yield BlockchainTest(
+    @pytest.fixture
+    def block(self, tx, tx_error) -> Block:
+        """
+        Test that the tx_error is also propagated on the Block for the case of
+        too little intrinsic gas.
+        """
+        return Block(txs=[tx], exception=tx_error)
+
+    @pytest.fixture
+    def post(
+        self,
+        gas_test_case,
+        initcode,
+        created_contract_address,
+        exact_intrinsic_gas,
+        exact_execution_gas,
+    ) -> Dict[Any, Any]:
+        """
+        Test that contract creation fails unless enough execution gas is
+        provided.
+        """
+        if (
+            gas_test_case == "exact_intrinsic_gas"
+            and exact_intrinsic_gas == exact_execution_gas
+        ):
+            # Special scenario where the execution of the initcode and
+            # gas cost to deploy are zero
+            return {
+                created_contract_address: Account(code=initcode.deploy_code)
+            }
+        elif gas_test_case == "exact_execution_gas":
+            return {
+                created_contract_address: Account(code=initcode.deploy_code)
+            }
+        return {created_contract_address: Account.NONEXISTENT}
+
+    def test_gas_usage(
+        self,
+        blockchain_test: BlockchainTestFiller,
+        fork: Fork,
+        gas_test_case: str,
+        initcode: Initcode,
+        exact_intrinsic_gas,
+        exact_execution_gas,
+        env,
+        pre,
+        block,
+        post,
+    ):
+        """
+        Test transaction and contract creation behavior for different gas
+        limits.
+        """
+        if (gas_test_case == "too_little_execution_gas") and (
+            exact_execution_gas == exact_intrinsic_gas
+        ):
+            pytest.skip(
+                "Special case, the execution of the initcode and gas "
+                "cost to deploy are zero: Then this test case is "
+                "equivalent to that of 'test_exact_intrinsic_gas'."
+            )
+
+        blockchain_test(
             pre=pre,
             post=post,
             blocks=[block],
             genesis_environment=env,
-            tag=f"{initcode.name}_under_execution_gas",
+            tag=f"{initcode.name}_{gas_test_case}",
         )
-
-    """
-    Test case 4: Test with exact execution gas, contract create succeeds.
-    """
-    tx = Transaction(
-        nonce=0,
-        to=None,
-        data=initcode,
-        gas_limit=exact_tx_execution_gas,
-        gas_price=10,
-    )
-    block = Block(txs=[tx])
-    post[created_contract_address] = Account(code=initcode.deploy_code)
-
-    yield BlockchainTest(
-        pre=pre,
-        post=post,
-        blocks=[block],
-        genesis_environment=env,
-        tag=f"{initcode.name}_exact_execution_gas",
-    )
-
-
-@test_from(fork=Shanghai)
-def test_initcode_limit_contract_creating_tx_gas_usage(fork):
-    """
-    Test EIP-3860 Limit Initcode Gas Usage for a contract
-    creating transaction, using different initcode lengths.
-    """
-    yield from generate_gas_cost_test_cases(
-        initcode=INITCODE_ZEROS_MAX_LIMIT,
-        eip_3860_active=True,
-    )
-
-    yield from generate_gas_cost_test_cases(
-        initcode=INITCODE_ONES_MAX_LIMIT,
-        eip_3860_active=True,
-    )
-
-    # Test cases to verify the initcode word cost limits
-
-    yield from generate_gas_cost_test_cases(
-        initcode=EMPTY_INITCODE,
-        eip_3860_active=True,
-    )
-
-    yield from generate_gas_cost_test_cases(
-        initcode=SINGLE_BYTE_INITCODE,
-        eip_3860_active=True,
-    )
-
-    yield from generate_gas_cost_test_cases(
-        initcode=INITCODE_ZEROS_32_BYTES,
-        eip_3860_active=True,
-    )
-
-    yield from generate_gas_cost_test_cases(
-        initcode=INITCODE_ZEROS_33_BYTES,
-        eip_3860_active=True,
-    )
-
-    yield from generate_gas_cost_test_cases(
-        initcode=INITCODE_ZEROS_49120_BYTES,
-        eip_3860_active=True,
-    )
-
-    yield from generate_gas_cost_test_cases(
-        initcode=INITCODE_ZEROS_49121_BYTES,
-        eip_3860_active=True,
-    )
 
 
 """
@@ -450,287 +462,191 @@ Test cases using the CREATE opcode
 """
 
 
-def generate_create_opcode_initcode_test_cases(
-    opcode: str,
-    initcode: Initcode,
-    eip_3860_active: bool,
-):
+@pytest.mark.parametrize(
+    "initcode",
+    [
+        INITCODE_ZEROS_MAX_LIMIT,
+        INITCODE_ONES_MAX_LIMIT,
+        INITCODE_ZEROS_OVER_LIMIT,
+        INITCODE_ONES_OVER_LIMIT,
+        EMPTY_INITCODE,
+        SINGLE_BYTE_INITCODE,
+        INITCODE_ZEROS_32_BYTES,
+        INITCODE_ZEROS_33_BYTES,
+        INITCODE_ZEROS_49120_BYTES,
+        INITCODE_ZEROS_49121_BYTES,
+    ],
+    ids=get_initcode_name,
+)
+@pytest.mark.parametrize("opcode", ["create", "create2"], ids=lambda x: x)
+class TestCreateInitcode:
     """
-    Generates a StateTest using the `CREATE`/`CREATE2` opcode based on the
-    provided `initcode`, its executing cost, and the deployed code.
+    Test contract creation via the CREATE/CREATE2 opcodes that have an initcode
+    that is on/over the max allowed limit.
     """
-    env = Environment()
 
-    call_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-    call_code += Op.SSTORE(
-        Op.CALL(5000000, 0x100, 0, 0, Op.CALLDATASIZE, 0, 0),
-        1,
-    )
-
-    create_code = Template(
-        """
-        {
-            let contract_length := calldatasize()
-            calldatacopy(0, 0, contract_length)
-            let gas1 := gas()
-            let res := ${create_instruction}
-            let gas2 := gas()
-            sstore(0, res)
-            sstore(1, sub(gas1, gas2))
-        }
-        """
-    )
-
-    if opcode == "create":
-        code = Yul(
-            create_code.substitute(
-                create_instruction="create(0, 0, contract_length)"
+    @pytest.fixture
+    def create_code(self, opcode: str):  # noqa: D102
+        create_code = Template(
+            """
+            {
+                let contract_length := calldatasize()
+                calldatacopy(0, 0, contract_length)
+                let gas1 := gas()
+                let res := ${create_instruction}
+                let gas2 := gas()
+                sstore(0, res)
+                sstore(1, sub(gas1, gas2))
+            }
+            """
+        )
+        if opcode == "create":
+            return Yul(
+                create_code.substitute(
+                    create_instruction="create(0, 0, contract_length)"
+                )
             )
-        )
-        created_contract_address = compute_create_address(
-            address=0x100,
-            nonce=1,
-        )
-
-    elif opcode == "create2":
-        code = Yul(
-            create_code.substitute(
-                create_instruction="create2(0, 0, contract_length, 0xDEADBEEF)"
+        if opcode == "create2":
+            return Yul(
+                create_code.substitute(
+                    create_instruction=(
+                        "create2(0, 0, contract_length, 0xDEADBEEF)"
+                    )
+                )
             )
-        )
-        created_contract_address = compute_create2_address(
-            address=0x100,
-            salt=0xDEADBEEF,
-            initcode=initcode.assemble(),
-        )
-
-    else:
         raise Exception("invalid opcode for generator")
 
-    pre = {
-        TestAddress: Account(balance=1000000000000000000000),
-        to_address(0x100): Account(
-            code=code,
-            nonce=1,
-        ),
-        to_address(0x200): Account(
-            code=call_code,
-            nonce=1,
-        ),
-    }
-
-    post: Dict[Any, Any] = {}
-
-    tx = Transaction(
-        nonce=0,
-        to=to_address(0x200),
-        data=initcode,
-        gas_limit=10000000,
-        gas_price=10,
-    )
-
-    # Calculate the expected gas of the contract creation operation
-    expected_gas_usage = (
-        CREATE_CONTRACT_BASE_GAS + GAS_OPCODE_GAS + (3 * PUSH_DUP_OPCODE_GAS)
-    )
-    if opcode == "create2":
-        # Extra PUSH operation
-        expected_gas_usage += PUSH_DUP_OPCODE_GAS
-
-    if len(initcode.assemble()) > MAX_INITCODE_SIZE and eip_3860_active:
-        # Call returns 0 as out of gas s[0]==1
-        post[to_address(0x200)] = Account(
-            nonce=1,
-            storage={
-                0: 1,
-                1: 0,
-            },
-        )
-
-        post[created_contract_address] = Account.NONEXISTENT
-        post[to_address(0x100)] = Account(
-            nonce=1,
-            storage={
-                0: 0,
-                1: 0,
-            },
-        )
-
-    else:
-        # The initcode is only executed if the length check succeeds
-        expected_gas_usage += initcode.execution_gas
-        # The code is only deployed if the length check succeeds
-        expected_gas_usage += initcode.deployment_gas
-
+    @pytest.fixture
+    def created_contract_address(  # noqa: D102
+        self, initcode: Initcode, opcode: str
+    ):
+        if opcode == "create":
+            return compute_create_address(
+                address=0x100,
+                nonce=1,
+            )
         if opcode == "create2":
-            # CREATE2 hashing cost should only be deducted if the initcode
-            # does not exceed the max length
-            expected_gas_usage += calculate_create2_word_cost(
-                len(initcode.assemble())
+            return compute_create2_address(
+                address=0x100,
+                salt=0xDEADBEEF,
+                initcode=initcode.assemble(),
             )
+        raise Exception("invalid opcode for generator")
 
-        if eip_3860_active:
-            # Initcode word cost is only deducted if the length check succeeds
-            expected_gas_usage += calculate_initcode_word_cost(
-                len(initcode.assemble())
-            )
+    def test_create_opcode_initcode(
+        self,
+        state_test: StateTest,
+        opcode: str,
+        initcode: Initcode,
+        create_code: Yul,
+        created_contract_address: str,
+    ):
+        """
+        Test contract creation via the CREATE/CREATE2 opcodes that have an
+        initcode that is on/over the max allowed limit.
+        """
+        eip_3860_active = True
+        env = Environment()
 
-        # Call returns 1 as valid initcode length s[0]==1 && s[1]==1
-        post[to_address(0x200)] = Account(
-            nonce=1,
-            storage={
-                0: 0,
-                1: 1,
-            },
+        call_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        call_code += Op.SSTORE(
+            Op.CALL(5000000, 0x100, 0, 0, Op.CALLDATASIZE, 0, 0),
+            1,
         )
 
-        post[created_contract_address] = Account(code=initcode.deploy_code)
-        post[to_address(0x100)] = Account(
-            nonce=2,
-            storage={
-                0: created_contract_address,
-                1: expected_gas_usage,
-            },
+        pre = {
+            TestAddress: Account(balance=1000000000000000000000),
+            to_address(0x100): Account(
+                code=create_code,
+                nonce=1,
+            ),
+            to_address(0x200): Account(
+                code=call_code,
+                nonce=1,
+            ),
+        }
+
+        post: Dict[Any, Any] = {}
+
+        tx = Transaction(
+            nonce=0,
+            to=to_address(0x200),
+            data=initcode,
+            gas_limit=10000000,
+            gas_price=10,
         )
 
-    yield StateTest(
-        env=env,
-        pre=pre,
-        post=post,
-        txs=[tx],
-        tag=f"{initcode.name}",
-    )
+        # Calculate the expected gas of the contract creation operation
+        expected_gas_usage = (
+            CREATE_CONTRACT_BASE_GAS
+            + GAS_OPCODE_GAS
+            + (3 * PUSH_DUP_OPCODE_GAS)
+        )
+        if opcode == "create2":
+            # Extra PUSH operation
+            expected_gas_usage += PUSH_DUP_OPCODE_GAS
 
+        if len(initcode.assemble()) > MAX_INITCODE_SIZE and eip_3860_active:
+            # Call returns 0 as out of gas s[0]==1
+            post[to_address(0x200)] = Account(
+                nonce=1,
+                storage={
+                    0: 1,
+                    1: 0,
+                },
+            )
 
-@test_from(fork=Shanghai)
-def test_initcode_limit_create_opcode(fork):
-    """
-    Test creating a contract using the CREATE opcode with an initcode that is
-    on/over the max allowed limit.
-    """
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create",
-        initcode=INITCODE_ZEROS_MAX_LIMIT,
-        eip_3860_active=True,
-    )
+            post[created_contract_address] = Account.NONEXISTENT
+            post[to_address(0x100)] = Account(
+                nonce=1,
+                storage={
+                    0: 0,
+                    1: 0,
+                },
+            )
 
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create",
-        initcode=INITCODE_ONES_MAX_LIMIT,
-        eip_3860_active=True,
-    )
+        else:
+            # The initcode is only executed if the length check succeeds
+            expected_gas_usage += initcode.execution_gas
+            # The code is only deployed if the length check succeeds
+            expected_gas_usage += initcode.deployment_gas
 
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create",
-        initcode=INITCODE_ZEROS_OVER_LIMIT,
-        eip_3860_active=True,
-    )
+            if opcode == "create2":
+                # CREATE2 hashing cost should only be deducted if the initcode
+                # does not exceed the max length
+                expected_gas_usage += calculate_create2_word_cost(
+                    len(initcode.assemble())
+                )
 
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create",
-        initcode=INITCODE_ONES_OVER_LIMIT,
-        eip_3860_active=True,
-    )
+            if eip_3860_active:
+                # Initcode word cost is only deducted if the length check
+                # succeeds
+                expected_gas_usage += calculate_initcode_word_cost(
+                    len(initcode.assemble())
+                )
 
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create",
-        initcode=EMPTY_INITCODE,
-        eip_3860_active=True,
-    )
+            # Call returns 1 as valid initcode length s[0]==1 && s[1]==1
+            post[to_address(0x200)] = Account(
+                nonce=1,
+                storage={
+                    0: 0,
+                    1: 1,
+                },
+            )
 
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create",
-        initcode=SINGLE_BYTE_INITCODE,
-        eip_3860_active=True,
-    )
+            post[created_contract_address] = Account(code=initcode.deploy_code)
+            post[to_address(0x100)] = Account(
+                nonce=2,
+                storage={
+                    0: created_contract_address,
+                    1: expected_gas_usage,
+                },
+            )
 
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create",
-        initcode=INITCODE_ZEROS_32_BYTES,
-        eip_3860_active=True,
-    )
-
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create",
-        initcode=INITCODE_ZEROS_33_BYTES,
-        eip_3860_active=True,
-    )
-
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create",
-        initcode=INITCODE_ZEROS_49120_BYTES,
-        eip_3860_active=True,
-    )
-
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create",
-        initcode=INITCODE_ZEROS_49121_BYTES,
-        eip_3860_active=True,
-    )
-
-
-@test_from(fork=Shanghai)
-def test_initcode_limit_create2_opcode(fork):
-    """
-    Test creating a contract using the CREATE2 opcode with an initcode that is
-    on/over the max allowed limit.
-    """
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create2",
-        initcode=INITCODE_ZEROS_MAX_LIMIT,
-        eip_3860_active=True,
-    )
-
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create2",
-        initcode=INITCODE_ONES_MAX_LIMIT,
-        eip_3860_active=True,
-    )
-
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create2",
-        initcode=INITCODE_ZEROS_OVER_LIMIT,
-        eip_3860_active=True,
-    )
-
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create2",
-        initcode=INITCODE_ONES_OVER_LIMIT,
-        eip_3860_active=True,
-    )
-
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create2",
-        initcode=EMPTY_INITCODE,
-        eip_3860_active=True,
-    )
-
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create2",
-        initcode=SINGLE_BYTE_INITCODE,
-        eip_3860_active=True,
-    )
-
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create2",
-        initcode=INITCODE_ZEROS_32_BYTES,
-        eip_3860_active=True,
-    )
-
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create2",
-        initcode=INITCODE_ZEROS_33_BYTES,
-        eip_3860_active=True,
-    )
-
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create2",
-        initcode=INITCODE_ZEROS_49120_BYTES,
-        eip_3860_active=True,
-    )
-
-    yield from generate_create_opcode_initcode_test_cases(
-        opcode="create2",
-        initcode=INITCODE_ZEROS_49121_BYTES,
-        eip_3860_active=True,
-    )
+        state_test(
+            env=env,
+            pre=pre,
+            post=post,
+            txs=[tx],
+            tag=f"{initcode.name}_{opcode}",
+        )
