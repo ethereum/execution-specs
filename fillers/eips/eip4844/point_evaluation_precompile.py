@@ -576,95 +576,35 @@ def test_point_evaluation_precompile_calls(_: Fork):
         success=False,
     ).generate_blockchain_test()
 
-    # Delegatecall
-    yield KZGPointEvaluation(
-        name="delegatecall_correct",
-        z=z,
-        y=0,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        call_type=Op.DELEGATECALL,
-        success=True,
-    ).generate_blockchain_test()
-    yield KZGPointEvaluation(
-        name="delegatecall_incorrect",
-        z=z,
-        y=1,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        call_type=Op.DELEGATECALL,
-        success=False,
-    ).generate_blockchain_test()
-    yield KZGPointEvaluation(
-        name="delegatecall_insufficient_gas",
-        z=z,
-        y=0,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
-        call_type=Op.DELEGATECALL,
-        success=False,
-    ).generate_blockchain_test()
-
-    # Callcode
-    yield KZGPointEvaluation(
-        name="callcode_correct",
-        z=z,
-        y=0,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        call_type=Op.CALLCODE,
-        success=True,
-    ).generate_blockchain_test()
-    yield KZGPointEvaluation(
-        name="callcode_incorrect",
-        z=z,
-        y=1,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        call_type=Op.CALLCODE,
-        success=False,
-    ).generate_blockchain_test()
-    yield KZGPointEvaluation(
-        name="callcode_insufficient_gas",
-        z=z,
-        y=0,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
-        call_type=Op.CALLCODE,
-        success=False,
-    ).generate_blockchain_test()
-
-    # Staticcall
-    yield KZGPointEvaluation(
-        name="staticcall_correct",
-        z=z,
-        y=0,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        call_type=Op.STATICCALL,
-        success=True,
-    ).generate_blockchain_test()
-    yield KZGPointEvaluation(
-        name="staticcall_incorrect",
-        z=z,
-        y=1,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        call_type=Op.STATICCALL,
-        success=False,
-    ).generate_blockchain_test()
-    yield KZGPointEvaluation(
-        name="staticcall_insufficient_gas",
-        z=z,
-        y=0,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
-        call_type=Op.STATICCALL,
-        success=False,
-    ).generate_blockchain_test()
+    for call_type in [Op.DELEGATECALL, Op.CALLCODE, Op.STATICCALL]:
+        yield KZGPointEvaluation(
+            name=f"{call_type}_correct".lower(),
+            z=z,
+            y=0,
+            kzg_commitment=0xC0 << 376,
+            kzg_proof=0xC0 << 376,
+            call_type=call_type,
+            success=True,
+        ).generate_blockchain_test()
+        yield KZGPointEvaluation(
+            name=f"{call_type}_incorrect".lower(),
+            z=z,
+            y=1,
+            kzg_commitment=0xC0 << 376,
+            kzg_proof=0xC0 << 376,
+            call_type=call_type,
+            success=False,
+        ).generate_blockchain_test()
+        yield KZGPointEvaluation(
+            name=f"{call_type}_insufficient_gas".lower(),
+            z=z,
+            y=0,
+            kzg_commitment=0xC0 << 376,
+            kzg_proof=0xC0 << 376,
+            gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
+            call_type=call_type,
+            success=False,
+        ).generate_blockchain_test()
 
 
 @test_from(fork=Cancun)
