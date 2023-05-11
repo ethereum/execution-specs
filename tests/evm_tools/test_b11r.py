@@ -19,7 +19,9 @@ from tests.helpers import TEST_FIXTURES
 
 B11R_TEST_PATH = TEST_FIXTURES["evm_tools_testdata"]["fixture_path"]
 
-ignore_tests: List[str] = []
+IGNORE_TESTS: List[str] = []
+
+b11r_arguments(subparsers)
 
 
 def find_test_fixtures() -> Any:
@@ -51,7 +53,6 @@ def get_rejected_indices(rejected: Dict) -> List[int]:
 
 
 def b11r_tool_test(test_case: Dict) -> None:
-    b11r_arguments(subparsers)
     options = parser.parse_args(test_case["args"])
 
     try:
@@ -75,7 +76,7 @@ def b11r_tool_test(test_case: Dict) -> None:
     ids=idfn,
 )
 def test_b11r(test_case: Dict) -> None:
-    if test_case["name"] in ignore_tests:
+    if test_case["name"] in IGNORE_TESTS:
         pytest.xfail("Undefined behavior for specs")
     elif test_case["success"]:
         b11r_tool_test(test_case)

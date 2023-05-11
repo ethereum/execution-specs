@@ -18,9 +18,11 @@ from tests.helpers import TEST_FIXTURES
 
 T8N_TEST_PATH = TEST_FIXTURES["evm_tools_testdata"]["fixture_path"]
 
-ignore_tests = [
+IGNORE_TESTS = [
     "t8n/fixtures/expected/26/Merge.json",
 ]
+
+t8n_arguments(subparsers)
 
 
 def find_test_fixtures() -> Any:
@@ -52,7 +54,6 @@ def get_rejected_indices(rejected: Dict) -> List[int]:
 
 
 def t8n_tool_test(test_case: Dict) -> None:
-    t8n_arguments(subparsers)
     options = parser.parse_args(test_case["args"])
 
     try:
@@ -112,7 +113,7 @@ def t8n_tool_test(test_case: Dict) -> None:
     ids=idfn,
 )
 def test_t8n(test_case: Dict) -> None:
-    if test_case["name"] in ignore_tests:
+    if test_case["name"] in IGNORE_TESTS:
         pytest.xfail("Undefined behavior for specs")
     elif test_case["success"]:
         t8n_tool_test(test_case)

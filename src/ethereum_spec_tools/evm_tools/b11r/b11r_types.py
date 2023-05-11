@@ -20,6 +20,11 @@ from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_bytes8
 
 from ..utils import parse_hex_or_int
 
+DEFAULT_TRIE_ROOT = (
+    "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+)
+DEFAULT_COINBASE = "0x0000000000000000000000000000000000000000"
+
 
 class Body:
     """
@@ -116,17 +121,14 @@ class Header:
             self.ommers_hash = keccak256(rlp.encode(body.ommers))
 
         self.coinbase = Bytes20(
-            hex_to_bytes(
-                data.get("miner", "0x0000000000000000000000000000000000000000")
-            )
+            hex_to_bytes(data.get("miner", DEFAULT_COINBASE))
         )
         self.state_root = Hash32(hex_to_bytes(data["stateRoot"]))
         self.transactions_root = Hash32(
             hex_to_bytes(
                 data.get(
                     "transactionsRoot",
-                    "0x56e81f171bcc55a6ff8345e692c0f86"
-                    "e5b48e01b996cadc001622fb5e363b421",
+                    DEFAULT_TRIE_ROOT,
                 )
             )
         )
@@ -134,8 +136,7 @@ class Header:
             hex_to_bytes(
                 data.get(
                     "receiptsRoot",
-                    "0x56e81f171bcc55a6ff8345e692c0f86"
-                    "e5b48e01b996cadc001622fb5e363b421",
+                    DEFAULT_TRIE_ROOT,
                 )
             )
         )

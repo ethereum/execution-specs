@@ -121,11 +121,12 @@ def get_stream_logger(name: str) -> Any:
     Get a logger that writes to stdout.
     """
     logger = logging.getLogger(name)
-    logger.setLevel(level=logging.INFO)
-    stream_handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
-    stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
+    if not logger.handlers:
+        logger.setLevel(level=logging.INFO)
+        stream_handler = logging.StreamHandler()
+        formatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
 
     return logger
 
