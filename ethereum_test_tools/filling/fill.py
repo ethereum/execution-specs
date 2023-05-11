@@ -14,7 +14,6 @@ from ..spec import BaseTest
 
 
 def fill_test(
-    name: str,
     t8n: TransitionTool,
     b11r: BlockBuilder,
     test_spec: BaseTest,

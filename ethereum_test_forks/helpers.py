@@ -22,6 +22,11 @@ latest_fork_resolver = LatestForkResolver()
 
 
 class InvalidForkError(Exception):
+    """
+    Invalid fork error raised when the fork specified by command-line option
+    --latest-fork is not found.
+    """
+
     def __init__(self, message):
         super().__init__(message)
 

@@ -1,9 +1,11 @@
+"""
+A pytest plugin that allows the user to specify the latest fork to use for
+filling tests via the command-line option --latest-fork=fork. This plugin
+also provides a report header that indicates the latest fork being used.
+"""
 import pytest
 
-from ethereum_test_forks import (
-    InvalidForkError,
-    set_latest_fork_by_name,
-)
+from ethereum_test_forks import InvalidForkError, set_latest_fork_by_name
 
 
 def pytest_addoption(parser):
