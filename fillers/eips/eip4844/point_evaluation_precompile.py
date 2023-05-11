@@ -731,6 +731,7 @@ def test_point_evaluation_precompile_before_fork(_: Fork):
     post = {
         precompile_caller_address: Account(
             storage={b: 1 for b in range(1, len(PRE_FORK_BLOCK_RANGE) + 1)},
+            # The tx in last block succeeds; storage 0 by default.
         ),
         to_address(POINT_EVALUATION_PRECOMPILE_ADDRESS): Account(
             balance=len(PRE_FORK_BLOCK_RANGE),
