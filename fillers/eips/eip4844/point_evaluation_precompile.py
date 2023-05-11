@@ -535,6 +535,8 @@ def test_point_evaluation_precompile(_: Fork):
         ),
     ]
 
+    local_test_case_count = len(test_cases)
+
     # Rest are loaded from the YAML files
     for test_file in get_point_evaluation_test_files_in_directory(
         os.path.join(
@@ -546,6 +548,10 @@ def test_point_evaluation_precompile(_: Fork):
         )
         assert len(file_loaded_tests) > 0
         test_cases += file_loaded_tests
+
+    assert (
+        len(test_cases) > local_test_case_count
+    ), "Failed to load any test cases from file"
 
     for test_case in test_cases:
         yield test_case.generate_blockchain_test()
