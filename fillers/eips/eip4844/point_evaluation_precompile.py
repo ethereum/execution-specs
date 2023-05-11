@@ -670,6 +670,7 @@ def test_point_evaluation_precompile_gas_usage(_: Fork):
             kzg_commitment=0xC0 << 376,
             kzg_proof=0xC0 << 376,
             gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
+            call_type=call_type,
             success=False,
         ).generate_gas_test(
             expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS - 1
