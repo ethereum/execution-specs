@@ -39,7 +39,7 @@ Tests that the `DATAHASH` opcode returns the appropriate values when there is mo
 
 Test Module - `eip4844/excess_data_gas.py`
 
-Predominantly verifies that `excess_data_gas` & `data_gasprice` are calculated correctly ensuring both valid and invalid transactions are processed accordingly. Extra verification is added specifically for invalid blob transactions when the `max_fee_per_data_gas`, number of blobs or transaction type are errorneous. 
+Predominantly verifies that `excess_data_gas` & `data_gasprice` are calculated correctly ensuring both valid and invalid transactions are processed accordingly. Extra verification is added specifically for invalid blob transactions when the `max_fee_per_data_gas`, number of blobs or transaction type are erroneous. 
 
 **1) 🔴 test_excess_data_gas_calculation():**
 
@@ -82,7 +82,7 @@ Tests that the `excess_data_gas` calculation is correct when transitioning from 
 
 Asserts that blocks with invalid blob transactions are rejected and no state changes occur. This is tested across the following scenarios:
 
-- `max_fee_per_data_gas` is less than the required `data_gasprice` for a set number of excess blobs. This is invaild as a valid block must obey the following condition:
+- `max_fee_per_data_gas` is less than the required `data_gasprice` for a set number of excess blobs. This is invalid as a valid block must obey the following condition:
   - `tx.message.max_fee_per_data_gas >= get_data_gasprice(parent(block).header)`
 
 - `max_fee_per_data_gas` is greater than the required `data_gasprice` for a set number of excess blobs but the account doesn't have the required balance to cover the total cost of the transaction. A valid block must prove true for the following condition: 
@@ -97,7 +97,7 @@ Asserts that blocks with invalid blob transactions are rejected and no state cha
 - `len(blobs)` is zero within a transaction. Valid blob txs (type 3) must have at least one blob within it, obeying the following condition:
   - `len(tx.message.blob_versioned_hashes) > 0`
 
-- Blob transaction type 3 is used in a pre-Cancun fork. This transcation type can only be used in a post-Cancun fork.
+- Blob transaction type 3 is used in a pre-Cancun fork. This transaction type can only be used in a post-Cancun fork.
 
 ## 📖 Point Evaluation Precompile
 
@@ -110,10 +110,10 @@ Verifies correct behavior on calls to the point evaluation precompile introduced
 - Correct Proof, verify call return values are `bytes32(FIELD_ELEMENTS_PER_BLOB) + bytes32(BLS_MODULUS)`
 - Out of bounds Z value (equal to BLS_MODULUS)
 - Out of bounds Y value (equal to BLS_MODULUS)
-- Correct Proof, input lenght 1 byte too short
-- Correct Proof, input lenght 47 bytes too short
-- Correct Proof, input lenght 1 byte too long
-- Correct Proof, input lenght 976 bytes too long
+- Correct Proof, input length 1 byte too short
+- Correct Proof, input length 47 bytes too short
+- Correct Proof, input length 1 byte too long
+- Correct Proof, input length 976 bytes too long
 - Null length input
 - Correct length input, but all zeros
 - Correct length input, but all zeros except for versioned hash (correct)

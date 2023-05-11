@@ -1,5 +1,5 @@
 """
-Test EIP-4844: Shard Blob Transactions (Point Evaulation Precompile)
+Test EIP-4844: Shard Blob Transactions (Point Evaluation Precompile)
 EIP: https://eips.ethereum.org/EIPS/eip-4844
 """
 import glob
