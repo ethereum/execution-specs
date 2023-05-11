@@ -4,7 +4,7 @@ Test suite for `ethereum_test` module.
 
 import json
 import os
-from typing import Any, Dict, Generator, List
+from typing import Any, Dict, List
 
 import pytest
 
@@ -117,15 +117,16 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
     b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
 
-    fixture = fill_test(
-        name="my_chain_id_test",
-        t8n=t8n,
-        b11r=b11r,
-        test_spec=state_test,
-        fork=fork,
-        engine="NoProof",
-        spec=None,
-    )
+    fixture = {
+        "my_chain_id_test": fill_test(
+            t8n=t8n,
+            b11r=b11r,
+            test_spec=state_test,
+            fork=fork,
+            engine="NoProof",
+            spec=None,
+        ),
+    }
     with open(
         os.path.join(
             "src",
@@ -145,7 +146,6 @@ def test_fill_london_blockchain_test_valid_txs():
     """
     Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`.
     """
-
     pre = {
         "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
             balance=0x1000000000000000000
@@ -433,7 +433,6 @@ def test_fill_london_blockchain_test_invalid_txs():
     """
     Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`.
     """
-
     pre = {
         "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
             balance=0x1000000000000000000
@@ -501,7 +500,6 @@ def test_fill_london_blockchain_test_invalid_txs():
     blocks: List[Block] = [
         Block(
             coinbase="0xba5e000000000000000000000000000000000000",
-            # base_fee=0x3E8,
             txs=[
                 Transaction(
                     data="0x01",

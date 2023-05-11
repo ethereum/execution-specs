@@ -247,10 +247,14 @@ addoption
 argname
 autouse
 dest
+fixturenames
 funcargs
 getgroup
 getoption
 hookimpl
 hookwrapper
+modifyitems
 originalname
+pytestmark
 runtest
+trylast

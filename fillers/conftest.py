@@ -249,7 +249,6 @@ def state_test(
             fixture_collector.add_fixture(
                 request.node,
                 fill_test(
-                    "",
                     t8n,
                     b11r,
                     self,
@@ -279,7 +278,6 @@ def blockchain_test(
             fixture_collector.add_fixture(
                 request.node,
                 fill_test(
-                    "",
                     t8n,
                     b11r,
                     self,

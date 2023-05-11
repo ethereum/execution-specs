@@ -11,7 +11,7 @@ from ethereum_test_tools import (
     Account,
     CodeGasMeasure,
     Environment,
-    StateTest,
+    StateTestFiller,
     TestAddress,
     Transaction,
     Yul,
@@ -54,7 +54,7 @@ def tx(addr_1):  # noqa: D103
 
 
 def test_push0_key_sstore(
-    state_test: StateTest,
+    state_test: StateTestFiller,
     fork: Fork,
     env: Environment,
     pre: dict,
@@ -74,7 +74,7 @@ def test_push0_key_sstore(
 
 
 def test_push0_fill_stack(
-    state_test: StateTest,
+    state_test: StateTestFiller,
     fork: Fork,
     env: Environment,
     pre: dict,
@@ -96,7 +96,7 @@ def test_push0_fill_stack(
 
 
 def test_push0_stack_overflow(
-    state_test: StateTest,
+    state_test: StateTestFiller,
     fork: Fork,
     env: Environment,
     pre: dict,
@@ -117,7 +117,7 @@ def test_push0_stack_overflow(
 
 
 def test_push0_storage_overwrite(
-    state_test: StateTest,
+    state_test: StateTestFiller,
     fork: Fork,
     env: Environment,
     pre: dict,
@@ -137,7 +137,7 @@ def test_push0_storage_overwrite(
 
 
 def test_push0_during_staticcall(
-    state_test: StateTest,
+    state_test: StateTestFiller,
     fork: Fork,
     env: Environment,
     pre: dict,
@@ -148,7 +148,6 @@ def test_push0_during_staticcall(
     """
     Test PUSH0 during staticcall.
     """
-
     addr_2 = to_address(0x200)
 
     code_1 = Yul(
@@ -171,7 +170,7 @@ def test_push0_during_staticcall(
 
 
 def test_push0_before_jumpdest(
-    state_test: StateTest,
+    state_test: StateTestFiller,
     fork: Fork,
     env: Environment,
     pre: dict,
@@ -198,7 +197,7 @@ def test_push0_before_jumpdest(
 
 
 def test_push0_gas_cost(
-    state_test: StateTest,
+    state_test: StateTestFiller,
     fork: Fork,
     env: Environment,
     pre: dict,

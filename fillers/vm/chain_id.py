@@ -4,11 +4,11 @@ Test EIP-1344 CHAINID opcode
 
 import pytest
 
-from ethereum_test_forks import Istanbul, forks_from
+from ethereum_test_forks import Fork, Istanbul, forks_from
 from ethereum_test_tools import (
     Account,
     Environment,
-    StateTest,
+    StateTestFiller,
     TestAddress,
     Transaction,
     to_address,
@@ -17,7 +17,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
 @pytest.mark.parametrize("fork", forks_from(Istanbul))
-def test_chain_id(state_test, fork):
+def test_chain_id(state_test: StateTestFiller, fork: Fork):
     """
     Test CHAINID opcode.
     """
