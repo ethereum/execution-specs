@@ -1,5 +1,5 @@
 """
-Test EIP-4844: Shard Blob Transactions (Point Evaulation Precompile)
+Test EIP-4844: Shard Blob Transactions (Point Evaluation Precompile)
 EIP: https://eips.ethereum.org/EIPS/eip-4844
 """
 import glob
@@ -535,6 +535,8 @@ def test_point_evaluation_precompile(_: Fork):
         ),
     ]
 
+    local_test_case_count = len(test_cases)
+
     # Rest are loaded from the YAML files
     for test_file in get_point_evaluation_test_files_in_directory(
         os.path.join(
@@ -546,6 +548,10 @@ def test_point_evaluation_precompile(_: Fork):
         )
         assert len(file_loaded_tests) > 0
         test_cases += file_loaded_tests
+
+    assert (
+        len(test_cases) > local_test_case_count
+    ), "Failed to load any test cases from file"
 
     for test_case in test_cases:
         yield test_case.generate_blockchain_test()
@@ -570,95 +576,35 @@ def test_point_evaluation_precompile_calls(_: Fork):
         success=False,
     ).generate_blockchain_test()
 
-    # Delegatecall
-    yield KZGPointEvaluation(
-        name="delegatecall_correct",
-        z=z,
-        y=0,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        call_type=Op.DELEGATECALL,
-        success=True,
-    ).generate_blockchain_test()
-    yield KZGPointEvaluation(
-        name="delegatecall_incorrect",
-        z=z,
-        y=1,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        call_type=Op.DELEGATECALL,
-        success=False,
-    ).generate_blockchain_test()
-    yield KZGPointEvaluation(
-        name="delegatecall_insufficient_gas",
-        z=z,
-        y=0,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
-        call_type=Op.DELEGATECALL,
-        success=False,
-    ).generate_blockchain_test()
-
-    # Callcode
-    yield KZGPointEvaluation(
-        name="callcode_correct",
-        z=z,
-        y=0,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        call_type=Op.CALLCODE,
-        success=True,
-    ).generate_blockchain_test()
-    yield KZGPointEvaluation(
-        name="callcode_incorrect",
-        z=z,
-        y=1,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        call_type=Op.CALLCODE,
-        success=False,
-    ).generate_blockchain_test()
-    yield KZGPointEvaluation(
-        name="callcode_insufficient_gas",
-        z=z,
-        y=0,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
-        call_type=Op.CALLCODE,
-        success=False,
-    ).generate_blockchain_test()
-
-    # Staticcall
-    yield KZGPointEvaluation(
-        name="staticcall_correct",
-        z=z,
-        y=0,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        call_type=Op.STATICCALL,
-        success=True,
-    ).generate_blockchain_test()
-    yield KZGPointEvaluation(
-        name="staticcall_incorrect",
-        z=z,
-        y=1,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        call_type=Op.STATICCALL,
-        success=False,
-    ).generate_blockchain_test()
-    yield KZGPointEvaluation(
-        name="staticcall_insufficient_gas",
-        z=z,
-        y=0,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
-        call_type=Op.STATICCALL,
-        success=False,
-    ).generate_blockchain_test()
+    for call_type in [Op.DELEGATECALL, Op.CALLCODE, Op.STATICCALL]:
+        yield KZGPointEvaluation(
+            name=f"{call_type}_correct".lower(),
+            z=z,
+            y=0,
+            kzg_commitment=0xC0 << 376,
+            kzg_proof=0xC0 << 376,
+            call_type=call_type,
+            success=True,
+        ).generate_blockchain_test()
+        yield KZGPointEvaluation(
+            name=f"{call_type}_incorrect".lower(),
+            z=z,
+            y=1,
+            kzg_commitment=0xC0 << 376,
+            kzg_proof=0xC0 << 376,
+            call_type=call_type,
+            success=False,
+        ).generate_blockchain_test()
+        yield KZGPointEvaluation(
+            name=f"{call_type}_insufficient_gas".lower(),
+            z=z,
+            y=0,
+            kzg_commitment=0xC0 << 376,
+            kzg_proof=0xC0 << 376,
+            gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
+            call_type=call_type,
+            success=False,
+        ).generate_blockchain_test()
 
 
 @test_from(fork=Cancun)
@@ -676,6 +622,7 @@ def test_point_evaluation_precompile_gas_usage(_: Fork):
             kzg_commitment=0xC0 << 376,
             kzg_proof=0xC0 << 376,
             gas=POINT_EVALUATION_PRECOMPILE_GAS,
+            call_type=call_type,
             success=True,
         ).generate_gas_test(expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS)
         yield KZGPointEvaluation(
@@ -685,6 +632,7 @@ def test_point_evaluation_precompile_gas_usage(_: Fork):
             kzg_commitment=0xC0 << 376,
             kzg_proof=0xC0 << 376,
             gas=POINT_EVALUATION_PRECOMPILE_GAS,
+            call_type=call_type,
             success=False,
         ).generate_gas_test(expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS)
         yield KZGPointEvaluation(
@@ -694,6 +642,7 @@ def test_point_evaluation_precompile_gas_usage(_: Fork):
             kzg_commitment=0xC0 << 376,
             kzg_proof=0xC0 << 376,
             gas=POINT_EVALUATION_PRECOMPILE_GAS + 1,
+            call_type=call_type,
             success=True,
         ).generate_gas_test(expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS)
         yield KZGPointEvaluation(
@@ -703,6 +652,7 @@ def test_point_evaluation_precompile_gas_usage(_: Fork):
             kzg_commitment=0xC0 << 376,
             kzg_proof=0xC0 << 376,
             gas=POINT_EVALUATION_PRECOMPILE_GAS + 1,
+            call_type=call_type,
             success=True,
         ).generate_gas_test(
             expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS + 1
@@ -781,6 +731,7 @@ def test_point_evaluation_precompile_before_fork(_: Fork):
     post = {
         precompile_caller_address: Account(
             storage={b: 1 for b in range(1, len(PRE_FORK_BLOCK_RANGE) + 1)},
+            # The tx in last block succeeds; storage 0 by default.
         ),
         to_address(POINT_EVALUATION_PRECOMPILE_ADDRESS): Account(
             balance=len(PRE_FORK_BLOCK_RANGE),
