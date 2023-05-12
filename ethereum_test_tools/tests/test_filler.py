@@ -397,14 +397,13 @@ def test_fill_london_blockchain_test_valid_txs():
         post=post,
         blocks=blocks,
         genesis_environment=genesis_environment,
-        tag="my_blockchain_test",
+        tag="fill_london_blockchain_test_valid_txs",
     )
 
     b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
 
     fixture = fill_test(
-        name="fill_london_blockchain_test_valid_txs",
         t8n=t8n,
         b11r=b11r,
         test_spec=blockchain_test,
@@ -730,14 +729,13 @@ def test_fill_london_blockchain_test_invalid_txs():
         post=post,
         blocks=blocks,
         genesis_environment=genesis_environment,
-        tag="my_blockchain_test",
+        tag="fill_london_blockchain_test_invalid_txs",
     )
 
     b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
 
     fixture = fill_test(
-        name="fill_london_blockchain_test_invalid_txs",
         t8n=t8n,
         b11r=b11r,
         test_spec=blockchain_test,
