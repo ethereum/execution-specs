@@ -40,25 +40,25 @@ GAS_REQUIRED_CALL_WARM_ACCOUNT = 100
         (
             "call",
             Op.POP(Op.CALL(0, Op.COINBASE, 0, 0, 0, 0, 0)),
-            # Extra gas: COINBASE + 4xPUSH1 + 2xDUP1 + POP
+            # Extra gas: COINBASE + 4*PUSH1 + 2*DUP1 + POP
             GAS_REQUIRED_CALL_WARM_ACCOUNT + 22,
         ),
         (
             "callcode",
             Op.POP(Op.CALLCODE(0, Op.COINBASE, 0, 0, 0, 0, 0)),
-            # Extra gas: COINBASE + 4xPUSH1 + 2xDUP1 + POP
+            # Extra gas: COINBASE + 4*PUSH1 + 2*DUP1 + POP
             GAS_REQUIRED_CALL_WARM_ACCOUNT + 22,
         ),
         (
             "delegatecall",
             Op.POP(Op.DELEGATECALL(0, Op.COINBASE, 0, 0, 0, 0)),
-            # Extra: COINBASE + 3xPUSH1 + 2xDUP1 + POP
+            # Extra: COINBASE + 3*PUSH1 + 2*DUP1 + POP
             GAS_REQUIRED_CALL_WARM_ACCOUNT + 19,
         ),
         (
             "staticcall",
             Op.POP(Op.STATICCALL(0, Op.COINBASE, 0, 0, 0, 0)),
-            # Extra: COINBASE + 3xPUSH1 + 2xDUP1 + POP
+            # Extra: COINBASE + 3*PUSH1 + 2*DUP1 + POP
             GAS_REQUIRED_CALL_WARM_ACCOUNT + 19,
         ),
     ],
@@ -139,7 +139,7 @@ def test_warm_coinbase_call_out_of_gas(
     )
 
 
-# List of opcodes that are affected by eip3651
+# List of opcodes that are affected by EIP-3651
 gas_measured_opcodes = [
     (
         "EXTCODESIZE",
