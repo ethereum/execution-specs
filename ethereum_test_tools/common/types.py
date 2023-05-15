@@ -1191,7 +1191,7 @@ class JSONEncoder(json.JSONEncoder):
                 "parentBaseFee": str_or_none(obj.parent_base_fee),
                 "parentGasUsed": str_or_none(obj.parent_gas_used),
                 "parentGasLimit": str_or_none(obj.parent_gas_limit),
-                "parentTimstamp": str_or_none(obj.parent_timestamp),
+                "parentTimestamp": str_or_none(obj.parent_timestamp),
                 "blockHashes": {
                     str(k): v for (k, v) in obj.block_hashes.items()
                 },
