@@ -2,7 +2,10 @@ import json
 
 
 def change_endian(hex_string):
-    return "0x" + hex_string[2:].zfill(64)[::-1]
+    reversed_bytes = "".join(
+        reversed([hex_string[i : i + 2] for i in range(2, len(hex_string), 2)])
+    )
+    return "0x" + reversed_bytes
 
 
 def main(path, filename, toggle_endian=True):
