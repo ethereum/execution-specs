@@ -458,8 +458,16 @@ class TestContractCreationGasUsage:
 
 
 """
-Test cases using the CREATE opcode
+Test cases using the CREATE and CREATE2 opcodes
 """
+
+
+def get_create_id(opcode: Op):  # noqa: D103
+    if opcode == Op.CREATE:
+        return "create"
+    if opcode == Op.CREATE2:
+        return "create2"
+    raise Exception("Invalid opcode specified for test.")
 
 
 @pytest.mark.parametrize(
@@ -478,7 +486,7 @@ Test cases using the CREATE opcode
     ],
     ids=get_initcode_name,
 )
-@pytest.mark.parametrize("opcode", ["create", "create2"], ids=lambda x: x)
+@pytest.mark.parametrize("opcode", [Op.CREATE, Op.CREATE2], ids=get_create_id)
 class TestCreateInitcode:
     """
     Test contract creation via the CREATE/CREATE2 opcodes that have an initcode
@@ -486,7 +494,7 @@ class TestCreateInitcode:
     """
 
     @pytest.fixture
-    def create_code(self, opcode: str):  # noqa: D102
+    def create_code(self, opcode: Op):  # noqa: D102
         create_code = Template(
             """
             {
@@ -500,13 +508,13 @@ class TestCreateInitcode:
             }
             """
         )
-        if opcode == "create":
+        if opcode == Op.CREATE:
             return Yul(
                 create_code.substitute(
                     create_instruction="create(0, 0, contract_length)"
                 )
             )
-        if opcode == "create2":
+        if opcode == Op.CREATE2:
             return Yul(
                 create_code.substitute(
                     create_instruction=(
@@ -518,14 +526,14 @@ class TestCreateInitcode:
 
     @pytest.fixture
     def created_contract_address(  # noqa: D102
-        self, initcode: Initcode, opcode: str
+        self, initcode: Initcode, opcode: Op
     ):
-        if opcode == "create":
+        if opcode == Op.CREATE:
             return compute_create_address(
                 address=0x100,
                 nonce=1,
             )
-        if opcode == "create2":
+        if opcode == Op.CREATE2:
             return compute_create2_address(
                 address=0x100,
                 salt=0xDEADBEEF,
@@ -536,7 +544,7 @@ class TestCreateInitcode:
     def test_create_opcode_initcode(
         self,
         state_test: StateTestFiller,
-        opcode: str,
+        opcode: Op,
         initcode: Initcode,
         create_code: Yul,
         created_contract_address: str,
@@ -582,7 +590,7 @@ class TestCreateInitcode:
             + GAS_OPCODE_GAS
             + (3 * PUSH_DUP_OPCODE_GAS)
         )
-        if opcode == "create2":
+        if opcode == Op.CREATE2:
             # Extra PUSH operation
             expected_gas_usage += PUSH_DUP_OPCODE_GAS
 
@@ -611,7 +619,7 @@ class TestCreateInitcode:
             # The code is only deployed if the length check succeeds
             expected_gas_usage += initcode.deployment_gas
 
-            if opcode == "create2":
+            if opcode == Op.CREATE2:
                 # CREATE2 hashing cost should only be deducted if the initcode
                 # does not exceed the max length
                 expected_gas_usage += calculate_create2_word_cost(
