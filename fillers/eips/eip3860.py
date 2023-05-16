@@ -17,7 +17,7 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     Environment,
     Initcode,
-    StateTest,
+    StateTestFiller,
     TestAddress,
     Transaction,
     Yul,
@@ -535,7 +535,7 @@ class TestCreateInitcode:
 
     def test_create_opcode_initcode(
         self,
-        state_test: StateTest,
+        state_test: StateTestFiller,
         opcode: str,
         initcode: Initcode,
         create_code: Yul,
