@@ -5,7 +5,6 @@ Source tests: https://github.com/ethereum/tests/pull/990
               https://github.com/ethereum/tests/pull/1012
 """
 
-from string import Template
 from typing import Any, Dict
 
 import pytest
@@ -47,6 +46,7 @@ BASE_TRANSACTION_GAS = 21000
 CREATE_CONTRACT_BASE_GAS = 32000
 GAS_OPCODE_GAS = 2
 PUSH_DUP_OPCODE_GAS = 3
+CALLDATASIZE_OPCODE_GAS = 2
 
 """
 Helper functions
@@ -494,35 +494,29 @@ class TestCreateInitcode:
     """
 
     @pytest.fixture
-    def create_code(self, opcode: Op):  # noqa: D102
-        create_code = Template(
-            """
-            {
-                let contract_length := calldatasize()
-                calldatacopy(0, 0, contract_length)
-                let gas1 := gas()
-                let res := ${create_instruction}
-                let gas2 := gas()
-                sstore(0, res)
-                sstore(1, sub(gas1, gas2))
-            }
-            """
-        )
+    def create_code(self, opcode: Op, initcode: Initcode):  # noqa: D102
         if opcode == Op.CREATE:
-            return Yul(
-                create_code.substitute(
-                    create_instruction="create(0, 0, contract_length)"
-                )
-            )
-        if opcode == Op.CREATE2:
-            return Yul(
-                create_code.substitute(
-                    create_instruction=(
-                        "create2(0, 0, contract_length, 0xDEADBEEF)"
-                    )
-                )
-            )
-        raise Exception("invalid opcode for generator")
+            create_call = Op.CREATE(0, 0, Op.CALLDATASIZE)
+        elif opcode == Op.CREATE2:
+            create_call = Op.CREATE2(0, 0, Op.CALLDATASIZE, 0xDEADBEEF)
+        else:
+            raise Exception("Invalid opcode specified for test.")
+        return (
+            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+            + Op.GAS
+            + create_call
+            + Op.GAS
+            # stack: [Gas 2, Call Result, Gas 1]
+            + Op.SWAP1
+            # stack: [Call Result, Gas 2, Gas 1]
+            + Op.SSTORE(0)
+            # stack: [Gas 2, Gas 1]
+            + Op.SWAP1
+            # stack: [Gas 1, Gas 2]
+            + Op.SUB
+            # stack: [Gas 1 - Gas 2]
+            + Op.SSTORE(1)
+        )
 
     @pytest.fixture
     def created_contract_address(  # noqa: D102
@@ -588,7 +582,8 @@ class TestCreateInitcode:
         expected_gas_usage = (
             CREATE_CONTRACT_BASE_GAS
             + GAS_OPCODE_GAS
-            + (3 * PUSH_DUP_OPCODE_GAS)
+            + (2 * PUSH_DUP_OPCODE_GAS)
+            + CALLDATASIZE_OPCODE_GAS
         )
         if opcode == Op.CREATE2:
             # Extra PUSH operation
