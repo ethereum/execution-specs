@@ -19,7 +19,6 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     Fixture,
     JSONEncoder,
-    ReferenceSpecTypes,
     StateTest,
     StateTestFiller,
     fill_test,
@@ -197,28 +196,6 @@ def eips():
     EIPs should be activated for the fillers in scope.
     """
     return []
-
-
-@pytest.fixture(autouse=True, scope="module")
-def reference_spec(request):
-    """
-    Returns the reference spec used for the generated test fixtures in a given
-    module.
-    """
-    module_dict = request.module.__dict__
-    parseable_ref_specs = [
-        ref_spec_type
-        for ref_spec_type in ReferenceSpecTypes
-        if ref_spec_type.parseable_from_module(module_dict)
-    ]
-    if len(parseable_ref_specs) > 0:
-        spec_obj = parseable_ref_specs[0].parse_from_module(module_dict)
-        # TODO: actually raise a warning if the reference spec is outdated
-        return spec_obj
-    else:
-        # TODO: raise a warning if no reference spec is found
-        pass
-    return None
 
 
 SPEC_TYPES: List[Type[BaseTest]] = [StateTest, BlockchainTest]
