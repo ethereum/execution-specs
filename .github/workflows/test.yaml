@@ -27,6 +27,8 @@ jobs:
       - name: Run Tox (PyPy)
         if: ${{ matrix.python == 'pypy-3.8' }}
         run: tox -e pypy3
+        env:
+          PYTEST_XDIST_WORKERS: 1
       - name: Run Tox (CPython)
         if: ${{ matrix.python != 'pypy-3.8' }}
         run: tox -e py3
