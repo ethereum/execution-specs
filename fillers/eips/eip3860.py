@@ -343,7 +343,7 @@ class TestContractCreationGasUsage:
         }
 
     @pytest.fixture
-    def tx_error(self, gas_test_case) -> str:
+    def tx_error(self, gas_test_case) -> str | None:
         """
         Test that the transaction is invalid if too little intrinsic gas is
         specified, otherwise the tx succeeds.
