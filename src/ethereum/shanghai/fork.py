@@ -590,8 +590,8 @@ def process_transaction(
 
     preaccessed_addresses = set()
     preaccessed_storage_keys = set()
+    preaccessed_addresses.add(env.coinbase)
     if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
-        preaccessed_addresses.add(env.coinbase)
         for (address, keys) in tx.access_list:
             preaccessed_addresses.add(address)
             for key in keys:

@@ -2,7 +2,7 @@
 # newer/other tests
 TEST_FIXTURES = {
     "execution_spec_tests": {
-        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/v0.2.3/fixtures.tar.gz",
+        "url": "https://github.com/ethereum/execution-spec-tests/releases/download/v0.2.5/fixtures.tar.gz",
         "fixture_path": "tests/fixtures/execution_spec_tests",
     },
     "t8n_testdata": {
@@ -12,7 +12,7 @@ TEST_FIXTURES = {
     },
     "ethereum_tests": {
         "url": "https://github.com/ethereum/tests.git",
-        "commit_hash": "69c4c2a",
+        "commit_hash": "b25623d",
         "fixture_path": "tests/fixtures/ethereum_tests",
     },
 }
