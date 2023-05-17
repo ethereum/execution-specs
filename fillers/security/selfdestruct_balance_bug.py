@@ -8,23 +8,25 @@ To reproduce the bug fill the test with the most recent geth evm version.
 Then run the fixture output within a vulnerable geth version:
 v1.9.20 > geth >= v1.9.4
 """
+import pytest
 
-from ethereum_test_forks import Constantinople
+from ethereum_test_forks import Constantinople, Fork, forks_from
 from ethereum_test_tools import (
     Account,
     Block,
-    BlockchainTest,
+    BlockchainTestFiller,
     TestAddress,
     Transaction,
     Yul,
-    test_from,
     to_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
-@test_from(fork=Constantinople)
-def test_tx_selfdestruct_balance_bug(_):
+@pytest.mark.parametrize("fork", forks_from(Constantinople))
+def test_tx_selfdestruct_balance_bug(
+    blockchain_test: BlockchainTestFiller, fork: Fork
+):
     """
     Checks balance of 0xaa after executing specific txs:
 
@@ -133,4 +135,4 @@ def test_tx_selfdestruct_balance_bug(_):
         to_address(0xAA): Account(storage={0: 0}),
     }
 
-    yield BlockchainTest(pre=pre, post=post, blocks=blocks)
+    blockchain_test(pre=pre, post=post, blocks=blocks)
