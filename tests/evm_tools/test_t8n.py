@@ -16,25 +16,24 @@ from ethereum_spec_tools.evm_tools.t8n import T8N, t8n_arguments
 from ethereum_spec_tools.evm_tools.utils import FatalException
 from tests.helpers import TEST_FIXTURES
 
-T8N_TEST_PATH = TEST_FIXTURES["t8n_testdata"]["fixture_path"]
+T8N_TEST_PATH = TEST_FIXTURES["evm_tools_testdata"]["fixture_path"]
 
-ignore_tests = [
-    "fixtures/expected/26/Merge.json",
+IGNORE_TESTS = [
+    "t8n/fixtures/expected/26/Merge.json",
 ]
+
+t8n_arguments(subparsers)
 
 
 def find_test_fixtures() -> Any:
-    with open(os.path.join(T8N_TEST_PATH, "commands.json")) as f:
+    with open(os.path.join(T8N_TEST_PATH, "t8n_commands.json")) as f:
         data = json.load(f)
 
     for key, value in data.items():
 
         final_args = []
         for arg in value["args"]:
-            if "__BASEDIR__" in arg:
-                final_args.append(arg.replace("__BASEDIR__", T8N_TEST_PATH))
-            else:
-                final_args.append(arg)
+            final_args.append(arg.replace("__BASEDIR__", T8N_TEST_PATH))
         yield {
             "name": key,
             "args": final_args,
@@ -55,14 +54,13 @@ def get_rejected_indices(rejected: Dict) -> List[int]:
 
 
 def t8n_tool_test(test_case: Dict) -> None:
-    t8n_arguments(subparsers)
     options = parser.parse_args(test_case["args"])
 
     try:
         t8n_tool = T8N(options)
         t8n_tool.apply_body()
     except Exception as e:
-        raise FatalException
+        raise FatalException(e)
 
     json_result = t8n_tool.result.to_json()
     with open(test_case["expected"], "r") as f:
@@ -108,13 +106,14 @@ def t8n_tool_test(test_case: Dict) -> None:
         ) == t8n_tool.hex_to_root(data["result"]["withdrawalsRoot"])
 
 
+@pytest.mark.evm_tools
 @pytest.mark.parametrize(
     "test_case",
     find_test_fixtures(),
     ids=idfn,
 )
 def test_t8n(test_case: Dict) -> None:
-    if test_case["name"] in ignore_tests:
+    if test_case["name"] in IGNORE_TESTS:
         pytest.xfail("Undefined behavior for specs")
     elif test_case["success"]:
         t8n_tool_test(test_case)

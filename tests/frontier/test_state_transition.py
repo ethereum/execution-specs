@@ -40,13 +40,16 @@ GENERAL_STATE_BIG_MEMORY_TESTS = (
     "/stSpecialTest/",
 )
 
+fetch_general_state_tests = partial(
+    fetch_frontier_tests,
+    test_dir,
+    big_memory_list=GENERAL_STATE_BIG_MEMORY_TESTS,
+)
+
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_frontier_tests(
-        test_dir,
-        big_memory_list=GENERAL_STATE_BIG_MEMORY_TESTS,
-    ),
+    fetch_general_state_tests(),
     ids=idfn,
 )
 def test_general_state_tests(test_case: Dict) -> None:

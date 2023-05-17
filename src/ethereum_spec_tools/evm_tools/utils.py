@@ -76,7 +76,7 @@ def ensure_success(f: Callable, *args: Any) -> Any:
         raise FatalException(e)
 
 
-def get_module_name(forks: Any, options: Any) -> Tuple[str, int]:
+def get_module_name(forks: Any, options: Any, stdin: Any) -> Tuple[str, int]:
     """
     Get the module name and the fork block for the given state fork.
     """
@@ -88,8 +88,12 @@ def get_module_name(forks: Any, options: Any) -> Tuple[str, int]:
         pass
 
     if exception_config:
-        with open(options.input_env, "r") as f:
-            data = json.load(f)
+        if options.input_env == "stdin":
+            assert stdin is not None
+            data = stdin["env"]
+        else:
+            with open(options.input_env, "r") as f:
+                data = json.load(f)
 
         block_number = parse_hex_or_int(data["currentNumber"], Uint)
 
@@ -117,11 +121,12 @@ def get_stream_logger(name: str) -> Any:
     Get a logger that writes to stdout.
     """
     logger = logging.getLogger(name)
-    logger.setLevel(level=logging.INFO)
-    stream_handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
-    stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
+    if not logger.handlers:
+        logger.setLevel(level=logging.INFO)
+        stream_handler = logging.StreamHandler()
+        formatter = logging.Formatter("%(levelname)s:%(name)s:%(message)s")
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
 
     return logger
 

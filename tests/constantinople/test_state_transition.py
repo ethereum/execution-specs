@@ -69,14 +69,17 @@ GENERAL_STATE_BIG_MEMORY_TESTS = (
     "stTimeConsuming/",
 )
 
+fetch_general_state_tests = partial(
+    fetch_constantinople_tests,
+    test_dir,
+    ignore_list=INCORRECT_UPSTREAM_STATE_TESTS,
+    big_memory_list=GENERAL_STATE_BIG_MEMORY_TESTS,
+)
+
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_constantinople_tests(
-        test_dir,
-        ignore_list=INCORRECT_UPSTREAM_STATE_TESTS,
-        big_memory_list=GENERAL_STATE_BIG_MEMORY_TESTS,
-    ),
+    fetch_general_state_tests(),
     ids=idfn,
 )
 def test_general_state_tests(test_case: Dict) -> None:
