@@ -17,6 +17,7 @@ from ethereum_test_tools import (
     TestAddress,
     Transaction,
     Yul,
+    add_kzg_version,
     compute_create2_address,
     compute_create_address,
     test_from,
@@ -28,6 +29,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
 REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
 
+BLOB_COMMITMENT_VERSION_KZG = 1
 DATAHASH_GAS_COST = 3
 MAX_BLOB_PER_BLOCK = 4
 BLOB_HASHES = [
@@ -199,9 +201,10 @@ def test_datahash_opcode_contexts(_: Fork):
         initcode_datahash_sstore_bytecode.assemble(),
     )
 
-    b_hashes: Sequence[bytes] = [
-        to_hash_bytes(1 << x) for x in range(MAX_BLOB_PER_BLOCK)
-    ]
+    b_hashes: Sequence[bytes] = add_kzg_version(
+        [(1 << x) for x in range(MAX_BLOB_PER_BLOCK)],
+        BLOB_COMMITMENT_VERSION_KZG,
+    )
 
     tags = [
         "at_top_level_call_stack",
@@ -485,7 +488,7 @@ def test_datahash_gas_cost(_: Fork):
                 to=address,
                 nonce=i,
                 max_priority_fee_per_gas=10,
-                blob_versioned_hashes=[BLOB_HASHES[i % MAX_BLOB_PER_BLOCK]],
+                access_list=[],
             )
         )
         txs_type_3.append(
@@ -494,7 +497,10 @@ def test_datahash_gas_cost(_: Fork):
                 to=address,
                 nonce=i,
                 max_priority_fee_per_gas=10,
-                blob_versioned_hashes=[BLOB_HASHES[i % MAX_BLOB_PER_BLOCK]],
+                blob_versioned_hashes=add_kzg_version(
+                    [BLOB_HASHES[i % MAX_BLOB_PER_BLOCK]],
+                    BLOB_COMMITMENT_VERSION_KZG,
+                ),
             )
         )
         post[address] = Account(storage={0: DATAHASH_GAS_COST})
@@ -537,11 +543,14 @@ def test_datahash_blob_versioned_hash(_: Fork):
 
     # Create an arbitrary repeated list of blob hashes
     # with length MAX_BLOB_PER_BLOCK * TOTAL_BLOCKS
-    b_hashes = list(
-        itertools.islice(
-            itertools.cycle(BLOB_HASHES),
-            MAX_BLOB_PER_BLOCK * TOTAL_BLOCKS,
-        )
+    b_hashes = add_kzg_version(
+        list(
+            itertools.islice(
+                itertools.cycle(BLOB_HASHES),
+                MAX_BLOB_PER_BLOCK * TOTAL_BLOCKS,
+            )
+        ),
+        BLOB_COMMITMENT_VERSION_KZG,
     )
 
     # `DATAHASH` sstore template helper
@@ -678,7 +687,10 @@ def test_datahash_invalid_blob_index(_: Fork):
         address = to_address(0x100 + i * 0x100)
         pre[address] = Account(code=datahash_invalid_calls)
         blob_per_block = (i % MAX_BLOB_PER_BLOCK) + 1
-        blob_hashes = [BLOB_HASHES[blob] for blob in range(blob_per_block)]
+        blob_hashes = add_kzg_version(
+            [BLOB_HASHES[blob] for blob in range(blob_per_block)],
+            BLOB_COMMITMENT_VERSION_KZG,
+        )
         blocks.append(
             Block(
                 txs=[
@@ -735,6 +747,10 @@ def test_datahash_multiple_txs_in_block(_: Fork):
     }
     pre[TestAddress] = Account(balance=10000000000000000000000)
 
+    b_hashes = add_kzg_version(
+        BLOB_HASHES[0:MAX_BLOB_PER_BLOCK], BLOB_COMMITMENT_VERSION_KZG
+    )
+
     tx = Transaction(
         data=to_hash_bytes(0),
         gas_limit=3000000,
@@ -742,7 +758,7 @@ def test_datahash_multiple_txs_in_block(_: Fork):
         max_priority_fee_per_gas=10,
         max_fee_per_data_gas=10,
         access_list=[],
-        blob_versioned_hashes=BLOB_HASHES[0:MAX_BLOB_PER_BLOCK],
+        blob_versioned_hashes=b_hashes,
     )
 
     blocks = [
@@ -768,7 +784,7 @@ def test_datahash_multiple_txs_in_block(_: Fork):
 
     post = {
         to_address(address): Account(
-            storage={i: BLOB_HASHES[i] for i in range(MAX_BLOB_PER_BLOCK)}
+            storage={i: b_hashes[i] for i in range(MAX_BLOB_PER_BLOCK)}
         )
         if address in (0x200, 0x400)
         else Account(storage={i: 0 for i in range(MAX_BLOB_PER_BLOCK)})
