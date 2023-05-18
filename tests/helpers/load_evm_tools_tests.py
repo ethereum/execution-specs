@@ -128,25 +128,27 @@ def load_evm_tools_test(
             pass
 
         if t8n.result.withdrawals_root:
-            header["withdrawalsRoot"] = "0x" + t8n.result.withdrawals_root.hex()
+            header["withdrawalsRoot"] = (
+                "0x" + t8n.result.withdrawals_root.hex()
+            )
 
         ommers: List[Any] = []
 
         stdin_data = {
-                "header": header,
-                "ommers": ommers,
-                "txs": "0x" + txs_rlp.hex(),
-            }
+            "header": header,
+            "ommers": ommers,
+            "txs": "0x" + txs_rlp.hex(),
+        }
 
         b11r_args = [
-                "b11r",
-                "--input.header",
-                "stdin",
-                "--input.ommers",
-                "stdin",
-                "--input.txs",
-                "stdin",
-            ]
+            "b11r",
+            "--input.header",
+            "stdin",
+            "--input.ommers",
+            "stdin",
+            "--input.txs",
+            "stdin",
+        ]
 
         if t8n.result.withdrawals_root:
             b11r_args += ["--input.withdrawals", "stdin"]

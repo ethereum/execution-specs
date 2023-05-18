@@ -334,14 +334,15 @@ class Txs:
                     transaction = t8n.fork_types.decode_transaction(tx)
                     self.all_txs.append(tx)
                 else:
-                    transaction = rlp.decode_to(t8n.fork_types.LegacyTransaction, tx_rlp)
+                    transaction = rlp.decode_to(
+                        t8n.fork_types.LegacyTransaction, tx_rlp
+                    )
                     self.all_txs.append(transaction)
             else:
                 transaction = rlp.decode_to(t8n.fork_types.Transaction, tx_rlp)
                 self.all_txs.append(transaction)
 
             yield idx, transaction
-
 
     def parse_json_tx(self) -> Iterator[Tuple[int, Any]]:
         """
@@ -357,7 +358,7 @@ class Txs:
             if "to" not in json_tx:
                 json_tx["to"] = ""
 
-            # tf tool might provide None instead of 0x00
+            # tf tool might provide None instead of 0
             # for v, r, s
             if not json_tx["v"]:
                 json_tx["v"] = "0x00"

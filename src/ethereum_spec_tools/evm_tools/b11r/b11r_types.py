@@ -74,7 +74,7 @@ class Body:
 
         if options.input_withdrawals == "stdin":
             assert stdin is not None
-             # The tf tool does not pass empty list when there
+            # The tf tool does not pass empty list when there
             # are no withdrawals.
             withdrawals_data = stdin.get("withdrawals", [])
         else:
