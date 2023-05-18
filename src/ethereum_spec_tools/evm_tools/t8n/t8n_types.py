@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
-from ethereum.base_types import U256, Bytes32, Uint
+from ethereum.base_types import U256, Bytes, Bytes32, Uint
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
@@ -278,22 +278,48 @@ class Txs:
     successful_txs: List[Any]
     t8n: Any
     data: Any
+    rlp_input: bool
 
     def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
         self.t8n = t8n
         self.rejected_txs = {}
         self.successful_txs = []
-        # TODO: Add support for reading RLP
+        self.rlp_input = False
 
         if t8n.options.input_txs == "stdin":
             assert stdin is not None
             self.data = stdin["txs"]
         else:
+            if t8n.options.input_txs.endswith(".rlp"):
+                self.rlp_input = True
             with open(t8n.options.input_txs, "r") as f:
                 self.data = json.load(f)
 
     @property
     def transactions(self) -> Iterator[Tuple[int, Any]]:
+        if self.rlp_input:
+            return self.parse_rlp_tx()
+        else:
+            return self.parse_json_tx()
+
+    def parse_rlp_tx(self) -> Iterator[Tuple[int, Any]]:
+        t8n = self.t8n
+
+        txs = rlp.decode(hex_to_bytes(self.data))
+        for idx, tx in enumerate(txs):
+            tx_rlp = rlp.encode(tx)
+            if t8n.is_after_fork("ethereum.berlin"):
+                if isinstance(tx, Bytes):
+                    transaction = t8n.fork_types.decode_transaction(tx)
+                else:
+                    transaction = rlp.decode_to(t8n.fork_types.LegacyTransaction, tx_rlp)
+            else:
+                transaction = rlp.decode_to(t8n.fork_types.Transaction, tx_rlp)
+
+            yield idx, transaction
+
+
+    def parse_json_tx(self) -> Iterator[Tuple[int, Any]]:
         """
         Read the transactions file and return a list of transactions.
         If a transaction is unsigned but has a `secretKey` field, the
