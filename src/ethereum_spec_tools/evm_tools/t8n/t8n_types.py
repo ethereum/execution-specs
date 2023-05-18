@@ -112,8 +112,19 @@ class Env:
         """
         self.prev_randao = None
         if t8n.is_after_fork("ethereum.paris"):
+            # tf tool might not always provide an
+            # even number of nibbles in the randao
+            # This could create issues in the
+            # hex_to_bytes function
+            current_random = data["currentRandom"]
+            if current_random.startswith("0x"):
+                current_random = current_random[2:]
+
+            if len(current_random) % 2 == 1:
+                current_random = "0" + current_random
+
             self.prev_randao = Bytes32(
-                left_pad_zero_bytes(hex_to_bytes(data["currentRandom"]), 32)
+                left_pad_zero_bytes(hex_to_bytes(current_random), 32)
             )
 
     def read_withdrawals(self, data: Any, t8n: Any) -> None:
@@ -252,11 +263,11 @@ class Alloc:
                 account_data["nonce"] = hex(account.nonce)
 
             if account.code:
-                account_data["code"] = account.code.hex()
+                account_data["code"] = "0x" + account.code.hex()
 
             if address in self.state._storage_tries:
                 account_data["storage"] = {
-                    k.hex(): hex(v)
+                    "0x" + k.hex(): hex(v)
                     for k, v in self.state._storage_tries[
                         address
                     ]._data.items()
@@ -290,6 +301,8 @@ class Txs:
         if t8n.options.input_txs == "stdin":
             assert stdin is not None
             self.data = stdin["txs"]
+            if self.data is None:
+                self.data = []
         else:
             if t8n.options.input_txs.endswith(".rlp"):
                 self.rlp_input = True
@@ -343,6 +356,15 @@ class Txs:
             json_tx["data"] = json_tx["input"]
             if "to" not in json_tx:
                 json_tx["to"] = ""
+
+            # tf tool might provide None instead of 0x00
+            # for v, r, s
+            if not json_tx["v"]:
+                json_tx["v"] = "0x00"
+            if not json_tx["r"]:
+                json_tx["r"] = "0x00"
+            if not json_tx["s"]:
+                json_tx["s"] = "0x00"
 
             v = hex_to_u256(json_tx["v"])
             r = hex_to_u256(json_tx["r"])
@@ -475,6 +497,11 @@ class Result:
             data["currentDifficulty"] = hex(self.difficulty)
         else:
             data["currentDifficulty"] = None
+
+        if self.base_fee:
+            data["currentBaseFee"] = hex(self.base_fee)
+        else:
+            data["currentBaseFee"] = None
 
         data["rejected"] = [
             {"index": idx, "error": error}

@@ -25,6 +25,15 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
 )
 
+# Add -v option to parser to show the version of the tool
+parser.add_argument(
+    "-v",
+    "--version",
+    action="version",
+    version="%(prog)s 0.1.0",
+    help="Show the version of the tool.",
+)
+
 
 # Add options to the t8n tool
 subparsers = parser.add_subparsers(dest="evm_tool")
@@ -35,7 +44,7 @@ def main() -> int:
     t8n_arguments(subparsers)
     b11r_arguments(subparsers)
 
-    options = parser.parse_args()
+    options, _ = parser.parse_known_args()
 
     if options.evm_tool == "t8n":
         t8n_tool = T8N(options)

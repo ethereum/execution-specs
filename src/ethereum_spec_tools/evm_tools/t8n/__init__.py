@@ -329,7 +329,9 @@ class T8N(Load):
 
                 process_transaction_return = self.process_transaction(env, tx)
             except Exception as e:
-                self.txs.rejected_txs[tx_idx] = str(e)
+                # The tf tools expects some non-blank error message
+                # even in case e is blank.
+                self.txs.rejected_txs[tx_idx] = f"Failed transaction: {str(e)}"
                 self.restore_state()
                 self.logger.warning(f"Transaction {tx_idx} failed: {str(e)}")
                 if isinstance(e, FatalException):
