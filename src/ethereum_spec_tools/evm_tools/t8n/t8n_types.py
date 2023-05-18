@@ -11,6 +11,7 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
+from ..fixture_loader import UnsupportedTx
 from ..utils import FatalException, parse_hex_or_int, secp256k1_sign
 
 
@@ -37,8 +38,6 @@ class Env:
     parent_difficulty: Optional[Uint]
     parent_timestamp: Optional[U256]
     base_fee_per_gas: Optional[Uint]
-    # TODO: Derive base fee from parent gas
-    # used and gas limit. See test data 25
     parent_gas_used: Optional[Uint]
     parent_gas_limit: Optional[Uint]
     parent_base_fee_per_gas: Optional[Uint]
@@ -276,6 +275,7 @@ class Txs:
 
     rejected_txs: Dict[int, str]
     successful_txs: List[Any]
+    all_txs: List[Any]
     t8n: Any
     data: Any
     rlp_input: bool
@@ -285,6 +285,7 @@ class Txs:
         self.rejected_txs = {}
         self.successful_txs = []
         self.rlp_input = False
+        self.all_txs = []
 
         if t8n.options.input_txs == "stdin":
             assert stdin is not None
@@ -297,12 +298,19 @@ class Txs:
 
     @property
     def transactions(self) -> Iterator[Tuple[int, Any]]:
+        """
+        Read the transactions file and return a list of transactions.
+        Can read from JSON or RLP.
+        """
         if self.rlp_input:
             return self.parse_rlp_tx()
         else:
             return self.parse_json_tx()
 
     def parse_rlp_tx(self) -> Iterator[Tuple[int, Any]]:
+        """
+        Read transactions from RLP.
+        """
         t8n = self.t8n
 
         txs = rlp.decode(hex_to_bytes(self.data))
@@ -311,17 +319,20 @@ class Txs:
             if t8n.is_after_fork("ethereum.berlin"):
                 if isinstance(tx, Bytes):
                     transaction = t8n.fork_types.decode_transaction(tx)
+                    self.all_txs.append(tx)
                 else:
                     transaction = rlp.decode_to(t8n.fork_types.LegacyTransaction, tx_rlp)
+                    self.all_txs.append(transaction)
             else:
                 transaction = rlp.decode_to(t8n.fork_types.Transaction, tx_rlp)
+                self.all_txs.append(transaction)
 
             yield idx, transaction
 
 
     def parse_json_tx(self) -> Iterator[Tuple[int, Any]]:
         """
-        Read the transactions file and return a list of transactions.
+        Read the transactions from json.
         If a transaction is unsigned but has a `secretKey` field, the
         transaction will be signed.
         """
@@ -353,10 +364,17 @@ class Txs:
             try:
                 tx = t8n.json_to_tx(json_tx)
 
-            except Exception as e:
-                t8n.logger.warning(f"Rejected transaction {idx}: {e}")
-                self.rejected_txs[idx] = str(e)
+            except UnsupportedTx as e:
+                t8n.logger.warning(
+                    f"Unsupported transaction type {idx}: {e.error_message}"
+                )
+                self.rejected_txs[
+                    idx
+                ] = f"Unsupported transaction type: {e.error_message}"
+                self.all_txs.append(e.encoded_params)
                 continue
+            else:
+                self.all_txs.append(tx)
 
             if t8n.is_after_fork("ethereum.berlin"):
                 transaction = t8n.fork_types.decode_transaction(tx)
