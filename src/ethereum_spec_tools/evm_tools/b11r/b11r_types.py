@@ -61,7 +61,7 @@ class Body:
 
         # Parse withdrawals
         if options.input_withdrawals is None:
-            self.withdrawals = []
+            self.withdrawals = None
             return
 
         if options.input_withdrawals == "stdin":

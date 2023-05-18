@@ -59,6 +59,7 @@ def load_evm_tools_test(
             # field of the fixture. T8N will just ignore it if it is
             # before paris
             env["currentRandom"] = block["blockHeader"]["mixHash"]
+            env["withdrawals"] = block["withdrawals"]
         except KeyError:
             pass
 
@@ -126,21 +127,18 @@ def load_evm_tools_test(
         except KeyError:
             pass
 
+        if t8n.result.withdrawals_root:
+            header["withdrawalsRoot"] = "0x" + t8n.result.withdrawals_root.hex()
+
         ommers: List[Any] = []
 
-        sys.stdin = StringIO(
-            json.dumps(
-                {
-                    "header": header,
-                    "ommers": ommers,
-                    "txs": "0x" + txs_rlp.hex(),
-                }
-            )
-        )
+        stdin_data = {
+                "header": header,
+                "ommers": ommers,
+                "txs": "0x" + txs_rlp.hex(),
+            }
 
-        # Run the b11r tool
-        b11r_options = parser.parse_args(
-            [
+        b11r_args = [
                 "b11r",
                 "--input.header",
                 "stdin",
@@ -149,7 +147,15 @@ def load_evm_tools_test(
                 "--input.txs",
                 "stdin",
             ]
-        )
+
+        if t8n.result.withdrawals_root:
+            b11r_args += ["--input.withdrawals", "stdin"]
+            stdin_data["withdrawals"] = t8n.env.withdrawals
+
+        sys.stdin = StringIO(json.dumps(stdin_data))
+
+        # Run the b11r tool
+        b11r_options = parser.parse_args(b11r_args)
 
         b11r = B11R(b11r_options)
         b11r.build_block()

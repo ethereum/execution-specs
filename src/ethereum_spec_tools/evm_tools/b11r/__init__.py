@@ -102,7 +102,7 @@ class B11R:
             self.body.ommers,
         ]
 
-        if len(self.body.withdrawals):
+        if self.body.withdrawals is not None:
             block.append(self.body.withdrawals)
 
         self.block_rlp = rlp.encode(block)
