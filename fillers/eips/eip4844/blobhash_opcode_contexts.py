@@ -10,20 +10,18 @@ import pytest
 # from copy import copy
 from typing import Dict, List
 
-from ethereum_test_forks import Cancun, Fork, forks_from
+from ethereum_test_forks import Cancun, forks_from
 from ethereum_test_tools import (
     Account,
     Block,
     BlockchainTestFiller,
-    # CodeGasMeasure,
     Environment,
-    # StateTest,
     TestAddress,
     Transaction,
     Yul,
+    add_kzg_version,
     compute_create2_address,
     compute_create_address,
-    # test_from,
     to_address,
     to_hash_bytes,
 )
@@ -38,7 +36,7 @@ DATAHASH_GAS_COST = 3
 MAX_BLOB_PER_BLOCK = 4
 BLOB_COMMITMENT_VERSION_KZG = bytes([0x01])
 
-env = Environment(  # Global state test environment
+env = Environment(
     coinbase="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
     difficulty=0x20000,
     gas_limit=300000000,
@@ -188,17 +186,21 @@ create2_opcode_created_contract = compute_create2_address(
     initcode_datahash_sstore_bytecode.assemble(),
 )
 
-b_hashes: List[bytes] = [
-    to_hash_bytes(1 << x) for x in range(MAX_BLOB_PER_BLOCK)
-]
+b_hashes: List[bytes] = add_kzg_version(
+    [(1 << x) for x in range(MAX_BLOB_PER_BLOCK)],
+    BLOB_COMMITMENT_VERSION_KZG,
+)
 
-tx = Transaction(  # Transaction template
-    nonce=0,
+tx_type_3 = Transaction(  # Blob transaction template
+    ty=3,
     data=to_hash_bytes(0),
     gas_limit=3000000,
     max_fee_per_gas=10,
+    max_priority_fee_per_gas=10,
     max_fee_per_data_gas=10,
     access_list=[],
+    blob_commitment_version_kzg=BLOB_COMMITMENT_VERSION_KZG,
+    blob_versioned_hashes=b_hashes,
 )
 
 
@@ -206,6 +208,16 @@ tx = Transaction(  # Transaction template
     params=[
         'BLOBHASH_on_top_level_call_stack',
         'BLOBHASH_on_max_value',
+        'BLOBHASH_on_CALL',
+        'BLOBHASH_on_DELEGATECALL',
+        'BLOBHASH_on_STATICCALL',
+        'BLOBHASH_on_CALLCODE',
+        'BLOBHASH_on_INITCODE',
+        'BLOBHASH_on_CREATE',
+        'BLOBHASH_on_CREATE2',
+        'BLOBHASH_on_type_2_tx',
+        'BLOBHASH_on_type_1_tx',
+        'BLOBHASH_on_type_0_tx',
     ]
 )
 def opcode_context(request):
@@ -219,19 +231,15 @@ def opcode_context(request):
                     code=datahash_sstore_bytecode
                 ),
             },
-            'tx': tx.with_fields(
-                ty=3,
+            'tx': tx_type_3.with_fields(
                 to=datahash_sstore_bytecode_address,
-                max_priority_fee_per_gas=10,
-                blob_commitment_version_kzg=BLOB_COMMITMENT_VERSION_KZG,
                 blob_versioned_hashes=b_hashes[:1],
             ),
             'post':
             {
                 datahash_sstore_bytecode_address: Account(
                     storage={
-                        0: BLOB_COMMITMENT_VERSION_KZG 
-                        + b_hashes[0][1:]
+                        0: b_hashes[0]
                     }
                 ),
             },
@@ -244,17 +252,224 @@ def opcode_context(request):
                     code=datahash_sstore_bytecode
                 ),
             },
-            'tx': tx.with_fields(
-                ty=3,
+            'tx': tx_type_3.with_fields(
                 data=to_hash_bytes(2**256 - 1) + to_hash_bytes(2**256 - 1),
                 to=datahash_sstore_bytecode_address,
-                max_priority_fee_per_gas=10,
-                blob_commitment_version_kzg=BLOB_COMMITMENT_VERSION_KZG,
-                blob_versioned_hashes=b_hashes[:1],
             ),
             'post':
             {
                 datahash_sstore_bytecode_address: Account(storage={}),
+            },
+        },
+        'BLOBHASH_on_CALL': {
+            'pre':
+            {
+                TestAddress: Account(balance=1000000000000000000000),
+                call_bytecode_address: Account(code=call_bytecode),
+                datahash_sstore_bytecode_address: Account(
+                    code=datahash_sstore_bytecode
+                ),
+            },
+            'tx': tx_type_3.with_fields(
+                data=to_hash_bytes(1) + to_hash_bytes(1),
+                to=call_bytecode_address,
+                blob_versioned_hashes=b_hashes[:2],
+            ),
+            'post':
+            {
+                datahash_sstore_bytecode_address: Account(
+                    storage={
+                        1: b_hashes[1]
+                    }
+                ),
+            },
+        },
+        'BLOBHASH_on_DELEGATECALL': {
+            'pre':
+            {
+                TestAddress: Account(balance=1000000000000000000000),
+                delegatecall_bytecode_address: Account(
+                    code=delegatecall_bytecode
+                ),
+                datahash_sstore_bytecode_address: Account(
+                    code=datahash_sstore_bytecode
+                ),
+            },
+            'tx': tx_type_3.with_fields(
+                data=to_hash_bytes(0) + to_hash_bytes(3),
+                to=delegatecall_bytecode_address,
+            ),
+            'post':
+            {
+                delegatecall_bytecode_address: Account(
+                    storage={
+                        k: v for (k, v) in zip(range(len(b_hashes)), b_hashes)
+                    }
+                ),
+            },
+        },
+        'BLOBHASH_on_STATICCALL': {
+            'pre':
+            {
+                TestAddress: Account(balance=1000000000000000000000),
+                staticcall_bytecode_address: Account(code=staticcall_bytecode),
+                datahash_return_bytecode_address: Account(
+                    code=datahash_return_bytecode
+                ),
+            },
+            'tx': tx_type_3.with_fields(
+                data=to_hash_bytes(0) + to_hash_bytes(3),
+                to=staticcall_bytecode_address,
+            ),
+            'post':
+            {
+                staticcall_bytecode_address: Account(
+                    storage={
+                        k: v for (k, v) in zip(range(len(b_hashes)), b_hashes)
+                    }
+                ),
+            },
+        },
+        'BLOBHASH_on_CALLCODE': {
+            'pre':
+            {
+                TestAddress: Account(balance=1000000000000000000000),
+                callcode_bytecode_address: Account(code=callcode_bytecode),
+                datahash_return_bytecode_address: Account(
+                    code=datahash_return_bytecode
+                ),
+            },
+            'tx': tx_type_3.with_fields(
+                data=to_hash_bytes(0) + to_hash_bytes(3),
+                to=callcode_bytecode_address,
+            ),
+            'post':
+            {
+                callcode_bytecode_address: Account(
+                    storage={
+                        k: v for (k, v) in zip(range(len(b_hashes)), b_hashes)
+                    }
+                ),
+            },
+        },
+        'BLOBHASH_on_INITCODE': {
+            'pre': 
+            {
+                TestAddress: Account(balance=1000000000000000000000),
+            },
+            'tx': tx_type_3.with_fields(
+                data=initcode_datahash_sstore_bytecode,
+                to=None,
+            ),
+            'post':
+            {
+                tx_created_contract_address: Account(
+                    storage={
+                        k: v for (k, v) in zip(range(len(b_hashes)), b_hashes)
+                    }
+                ),
+            },
+        },
+        'BLOBHASH_on_CREATE': {
+            'pre':
+            {
+                TestAddress: Account(balance=1000000000000000000000),
+                create_bytecode_address: Account(code=create_bytecode),
+            },
+            'tx': tx_type_3.with_fields(
+                data=initcode_datahash_sstore_bytecode,
+                to=create_bytecode_address,
+            ),
+            'post':
+            {
+                create_opcode_created_contract: Account(
+                    storage={
+                        k: v for (k, v) in zip(range(len(b_hashes)), b_hashes)
+                    }
+                ),
+            },
+        },
+        'BLOBHASH_on_CREATE2': {
+            'pre':
+            {
+                TestAddress: Account(balance=1000000000000000000000),
+                create2_bytecode_address: Account(code=create2_bytecode),
+            },
+            'tx': tx_type_3.with_fields(
+                data=initcode_datahash_sstore_bytecode,
+                to=create2_bytecode_address,
+            ),
+            'post':
+            {
+                create2_opcode_created_contract: Account(
+                    storage={
+                        k: v for (k, v) in zip(range(len(b_hashes)), b_hashes)
+                    }
+                ),
+            },
+        },
+        'BLOBHASH_on_type_2_tx': {
+            'pre':
+            {
+                TestAddress: Account(balance=1000000000000000000000),
+                datahash_sstore_bytecode_address: Account(
+                    code=datahash_sstore_bytecode
+                ),
+            },
+            'tx': Transaction(
+                ty=2,
+                data=to_hash_bytes(0),
+                to=datahash_sstore_bytecode_address,
+                gas_limit=3000000,
+                max_fee_per_gas=10,
+                max_priority_fee_per_gas=10,
+                access_list=[],
+            ),
+            'post':
+            {
+                datahash_sstore_bytecode_address: Account(storage={0: 0}),
+            },
+        },
+        'BLOBHASH_on_type_1_tx': {
+            'pre':
+            {
+                TestAddress: Account(balance=1000000000000000000000),
+                datahash_sstore_bytecode_address: Account(
+                    code=datahash_sstore_bytecode
+                ),
+            },
+            'tx': Transaction(
+                ty=1,
+                data=to_hash_bytes(0),
+                to=datahash_sstore_bytecode_address,
+                gas_limit=3000000,
+                gas_price=10,
+                access_list=[],
+            ),
+            'post':
+            {
+                datahash_sstore_bytecode_address: Account(storage={0: 0}),
+            },
+        },
+        'BLOBHASH_on_type_0_tx': {
+            'pre':
+            {
+                TestAddress: Account(balance=1000000000000000000000),
+                datahash_sstore_bytecode_address: Account(
+                    code=datahash_sstore_bytecode
+                ),
+            },
+            'tx': Transaction(
+                ty=0,
+                data=to_hash_bytes(0),
+                to=datahash_sstore_bytecode_address,
+                gas_limit=3000000,
+                gas_price=10,
+                access_list=[],
+            ),
+            'post':
+            {
+                datahash_sstore_bytecode_address: Account(storage={0: 0}),
             },
         },
     }
@@ -268,9 +483,7 @@ def opcode_context(request):
 def test_datahash_opcode_contexts(
     opcode_context: Dict,
     blockchain_test: BlockchainTestFiller,
-    fork: Fork
 ):
-    print(opcode_context['pre'])
     blockchain_test(
         pre=opcode_context['pre'],
         post=opcode_context['post'],
