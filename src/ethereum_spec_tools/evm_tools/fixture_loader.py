@@ -27,6 +27,7 @@ class UnsupportedTx(Exception):
     """Exception for unsupported transactions"""
 
     def __init__(self, encoded_params: bytes, error_message: str) -> None:
+        super().__init__(error_message)
         self.encoded_params = encoded_params
         self.error_message = error_message
 
@@ -306,7 +307,9 @@ class Load(BaseLoad):
                     )
                 )
             except AttributeError as e:
-                raise UnsupportedTx(b"\x02" + rlp.encode(parameters), str(e))
+                raise UnsupportedTx(
+                    b"\x02" + rlp.encode(parameters), str(e)
+                ) from e
 
         parameters.insert(1, hex_to_u256(raw.get("gasPrice")))
         # Access List Transaction
@@ -322,7 +325,9 @@ class Load(BaseLoad):
                     )
                 )
             except AttributeError as e:
-                raise UnsupportedTx(b"\x01" + rlp.encode(parameters), str(e))
+                raise UnsupportedTx(
+                    b"\x01" + rlp.encode(parameters), str(e)
+                ) from e
 
         # Legacy Transaction
         if hasattr(self._module("fork_types"), "LegacyTransaction"):
