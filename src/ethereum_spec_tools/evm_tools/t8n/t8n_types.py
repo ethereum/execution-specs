@@ -6,11 +6,12 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
-from ethereum.base_types import U256, Bytes32, Uint
+from ethereum.base_types import U256, Bytes, Bytes32, Uint
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
+from ..fixture_loader import UnsupportedTx
 from ..utils import FatalException, parse_hex_or_int, secp256k1_sign
 
 
@@ -37,8 +38,6 @@ class Env:
     parent_difficulty: Optional[Uint]
     parent_timestamp: Optional[U256]
     base_fee_per_gas: Optional[Uint]
-    # TODO: Derive base fee from parent gas
-    # used and gas limit. See test data 25
     parent_gas_used: Optional[Uint]
     parent_gas_limit: Optional[Uint]
     parent_base_fee_per_gas: Optional[Uint]
@@ -113,8 +112,19 @@ class Env:
         """
         self.prev_randao = None
         if t8n.is_after_fork("ethereum.paris"):
+            # tf tool might not always provide an
+            # even number of nibbles in the randao
+            # This could create issues in the
+            # hex_to_bytes function
+            current_random = data["currentRandom"]
+            if current_random.startswith("0x"):
+                current_random = current_random[2:]
+
+            if len(current_random) % 2 == 1:
+                current_random = "0" + current_random
+
             self.prev_randao = Bytes32(
-                left_pad_zero_bytes(hex_to_bytes(data["currentRandom"]), 32)
+                left_pad_zero_bytes(hex_to_bytes(current_random), 32)
             )
 
     def read_withdrawals(self, data: Any, t8n: Any) -> None:
@@ -253,11 +263,11 @@ class Alloc:
                 account_data["nonce"] = hex(account.nonce)
 
             if account.code:
-                account_data["code"] = account.code.hex()
+                account_data["code"] = "0x" + account.code.hex()
 
             if address in self.state._storage_tries:
                 account_data["storage"] = {
-                    k.hex(): hex(v)
+                    "0x" + k.hex(): hex(v)
                     for k, v in self.state._storage_tries[
                         address
                     ]._data.items()
@@ -276,19 +286,26 @@ class Txs:
 
     rejected_txs: Dict[int, str]
     successful_txs: List[Any]
+    all_txs: List[Any]
     t8n: Any
     data: Any
+    rlp_input: bool
 
     def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
         self.t8n = t8n
         self.rejected_txs = {}
         self.successful_txs = []
-        # TODO: Add support for reading RLP
+        self.rlp_input = False
+        self.all_txs = []
 
         if t8n.options.input_txs == "stdin":
             assert stdin is not None
             self.data = stdin["txs"]
+            if self.data is None:
+                self.data = []
         else:
+            if t8n.options.input_txs.endswith(".rlp"):
+                self.rlp_input = True
             with open(t8n.options.input_txs, "r") as f:
                 self.data = json.load(f)
 
@@ -296,6 +313,40 @@ class Txs:
     def transactions(self) -> Iterator[Tuple[int, Any]]:
         """
         Read the transactions file and return a list of transactions.
+        Can read from JSON or RLP.
+        """
+        if self.rlp_input:
+            return self.parse_rlp_tx()
+        else:
+            return self.parse_json_tx()
+
+    def parse_rlp_tx(self) -> Iterator[Tuple[int, Any]]:
+        """
+        Read transactions from RLP.
+        """
+        t8n = self.t8n
+
+        txs = rlp.decode(hex_to_bytes(self.data))
+        for idx, tx in enumerate(txs):
+            tx_rlp = rlp.encode(tx)
+            if t8n.is_after_fork("ethereum.berlin"):
+                if isinstance(tx, Bytes):
+                    transaction = t8n.fork_types.decode_transaction(tx)
+                    self.all_txs.append(tx)
+                else:
+                    transaction = rlp.decode_to(
+                        t8n.fork_types.LegacyTransaction, tx_rlp
+                    )
+                    self.all_txs.append(transaction)
+            else:
+                transaction = rlp.decode_to(t8n.fork_types.Transaction, tx_rlp)
+                self.all_txs.append(transaction)
+
+            yield idx, transaction
+
+    def parse_json_tx(self) -> Iterator[Tuple[int, Any]]:
+        """
+        Read the transactions from json.
         If a transaction is unsigned but has a `secretKey` field, the
         transaction will be signed.
         """
@@ -306,6 +357,15 @@ class Txs:
             json_tx["data"] = json_tx["input"]
             if "to" not in json_tx:
                 json_tx["to"] = ""
+
+            # tf tool might provide None instead of 0
+            # for v, r, s
+            if not json_tx["v"]:
+                json_tx["v"] = "0x00"
+            if not json_tx["r"]:
+                json_tx["r"] = "0x00"
+            if not json_tx["s"]:
+                json_tx["s"] = "0x00"
 
             v = hex_to_u256(json_tx["v"])
             r = hex_to_u256(json_tx["r"])
@@ -327,10 +387,17 @@ class Txs:
             try:
                 tx = t8n.json_to_tx(json_tx)
 
-            except Exception as e:
-                t8n.logger.warning(f"Rejected transaction {idx}: {e}")
-                self.rejected_txs[idx] = str(e)
+            except UnsupportedTx as e:
+                t8n.logger.warning(
+                    f"Unsupported transaction type {idx}: {e.error_message}"
+                )
+                self.rejected_txs[
+                    idx
+                ] = f"Unsupported transaction type: {e.error_message}"
+                self.all_txs.append(e.encoded_params)
                 continue
+            else:
+                self.all_txs.append(tx)
 
             if t8n.is_after_fork("ethereum.berlin"):
                 transaction = t8n.fork_types.decode_transaction(tx)
@@ -431,6 +498,11 @@ class Result:
             data["currentDifficulty"] = hex(self.difficulty)
         else:
             data["currentDifficulty"] = None
+
+        if self.base_fee:
+            data["currentBaseFee"] = hex(self.base_fee)
+        else:
+            data["currentBaseFee"] = None
 
         data["rejected"] = [
             {"index": idx, "error": error}

@@ -23,6 +23,15 @@ from ethereum.utils.hexadecimal import (
 from ethereum_spec_tools.forks import Hardfork
 
 
+class UnsupportedTx(Exception):
+    """Exception for unsupported transactions"""
+
+    def __init__(self, encoded_params: bytes, error_message: str) -> None:
+        super().__init__(error_message)
+        self.encoded_params = encoded_params
+        self.error_message = error_message
+
+
 class BaseLoad(ABC):
     """Base class for loading json fixtures"""
 
@@ -291,9 +300,16 @@ class Load(BaseLoad):
             parameters.insert(
                 8, self.json_to_access_list(raw.get("accessList"))
             )
-            return b"\x02" + rlp.encode(
-                self._module("fork_types").FeeMarketTransaction(*parameters)
-            )
+            try:
+                return b"\x02" + rlp.encode(
+                    self._module("fork_types").FeeMarketTransaction(
+                        *parameters
+                    )
+                )
+            except AttributeError as e:
+                raise UnsupportedTx(
+                    b"\x02" + rlp.encode(parameters), str(e)
+                ) from e
 
         parameters.insert(1, hex_to_u256(raw.get("gasPrice")))
         # Access List Transaction
@@ -302,9 +318,16 @@ class Load(BaseLoad):
             parameters.insert(
                 7, self.json_to_access_list(raw.get("accessList"))
             )
-            return b"\x01" + rlp.encode(
-                self._module("fork_types").AccessListTransaction(*parameters)
-            )
+            try:
+                return b"\x01" + rlp.encode(
+                    self._module("fork_types").AccessListTransaction(
+                        *parameters
+                    )
+                )
+            except AttributeError as e:
+                raise UnsupportedTx(
+                    b"\x01" + rlp.encode(parameters), str(e)
+                ) from e
 
         # Legacy Transaction
         if hasattr(self._module("fork_types"), "LegacyTransaction"):

@@ -4,6 +4,7 @@ Create a transition tool for the given fork.
 
 import argparse
 import json
+import os
 import sys
 from typing import Any
 
@@ -40,9 +41,8 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     t8n_parser.add_argument(
         "--output.alloc", dest="output_alloc", type=str, default="alloc.json"
     )
-    # TODO: Support the base directory and output body options
     t8n_parser.add_argument(
-        "--output.basedir", dest="output_basedir", type=str
+        "--output.basedir", dest="output_basedir", type=str, default="."
     )
     t8n_parser.add_argument("--output.body", dest="output_body", type=str)
     t8n_parser.add_argument(
@@ -329,7 +329,9 @@ class T8N(Load):
 
                 process_transaction_return = self.process_transaction(env, tx)
             except Exception as e:
-                self.txs.rejected_txs[tx_idx] = str(e)
+                # The tf tools expects some non-blank error message
+                # even in case e is blank.
+                self.txs.rejected_txs[tx_idx] = f"Failed transaction: {str(e)}"
                 self.restore_state()
                 self.logger.warning(f"Transaction {tx_idx} failed: {str(e)}")
                 if isinstance(e, FatalException):
@@ -399,21 +401,39 @@ class T8N(Load):
         json_state = self.alloc.to_json()
         json_result = self.result.to_json()
 
+        if self.options.output_body:
+            txs_rlp_path = os.path.join(
+                self.options.output_basedir,
+                self.options.output_body,
+            )
+            txs_rlp = "0x" + rlp.encode(self.txs.all_txs).hex()
+            with open(txs_rlp_path, "w") as f:
+                json.dump(txs_rlp, f)
+            self.logger.info(f"Wrote transaction rlp to {txs_rlp_path}")
+
         json_output = {}
 
         if self.options.output_alloc == "stdout":
             json_output["alloc"] = json_state
         else:
-            with open(self.options.output_alloc, "w") as f:
+            alloc_output_path = os.path.join(
+                self.options.output_basedir,
+                self.options.output_alloc,
+            )
+            with open(alloc_output_path, "w") as f:
                 json.dump(json_state, f, indent=4)
-            self.logger.info(f"Wrote alloc to {self.options.output_alloc}")
+            self.logger.info(f"Wrote alloc to {alloc_output_path}")
 
         if self.options.output_result == "stdout":
             json_output["result"] = json_result
         else:
-            with open(self.options.output_result, "w") as f:
+            result_output_path = os.path.join(
+                self.options.output_basedir,
+                self.options.output_result,
+            )
+            with open(result_output_path, "w") as f:
                 json.dump(json_result, f, indent=4)
-            self.logger.info(f"Wrote result to {self.options.output_result}")
+            self.logger.info(f"Wrote result to {result_output_path}")
 
         if json_output:
             json.dump(json_output, sys.stdout, indent=4)

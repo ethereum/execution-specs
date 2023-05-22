@@ -33,7 +33,7 @@ class Body:
 
     transactions: rlp.RLP
     ommers: rlp.RLP
-    withdrawals: List[Tuple[U64, U64, Bytes20, Uint]]
+    withdrawals: Optional[List[Tuple[U64, U64, Bytes20, Uint]]]
 
     def __init__(self, options: Any, stdin: Any = None):
         # Parse transactions
@@ -44,12 +44,20 @@ class Body:
             with open(options.input_txs) as f:
                 txs_data = json.load(f)
 
-        self.transactions = rlp.decode(hex_to_bytes(txs_data))
+        # The tf tool inputs "" when there are no transactions
+        if txs_data == "":
+            self.transactions = []
+        else:
+            self.transactions = rlp.decode(hex_to_bytes(txs_data))
 
         # Parse ommers
         if options.input_ommers == "stdin":
             assert stdin is not None
-            ommers_data = stdin["ommers"]
+            # The tests use "ommers" whereas the tf tool uses "uncles"
+            try:
+                ommers_data = stdin["ommers"]
+            except KeyError:
+                ommers_data = stdin["uncles"]
         else:
             with open(options.input_ommers) as f:
                 ommers_data = json.load(f)
@@ -61,12 +69,14 @@ class Body:
 
         # Parse withdrawals
         if options.input_withdrawals is None:
-            self.withdrawals = []
+            self.withdrawals = None
             return
 
         if options.input_withdrawals == "stdin":
             assert stdin is not None
-            withdrawals_data = stdin["withdrawals"]
+            # The tf tool does not pass empty list when there
+            # are no withdrawals.
+            withdrawals_data = stdin.get("withdrawals", [])
         else:
             with open(options.input_withdrawals) as f:
                 withdrawals_data = json.load(f)

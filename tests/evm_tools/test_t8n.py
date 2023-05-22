@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 
 import pytest
 
+from ethereum import rlp
 from ethereum.base_types import U64, U256, Uint
 from ethereum.utils.hexadecimal import (
     Hash32,
@@ -96,6 +97,7 @@ def t8n_tool_test(test_case: Dict) -> None:
     assert hex_to_u256(json_result["gasUsed"]) == hex_to_u256(
         data["result"]["gasUsed"]
     )
+    assert rlp.encode(t8n_tool.txs.all_txs) == hex_to_bytes(data["txs_rlp"])
     if not t8n_tool.is_after_fork("ethereum.paris"):
         assert hex_to_uint(json_result["currentDifficulty"]) == hex_to_uint(
             data["result"]["currentDifficulty"]

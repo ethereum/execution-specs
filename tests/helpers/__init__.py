@@ -7,7 +7,7 @@ TEST_FIXTURES = {
     },
     "evm_tools_testdata": {
         "url": "https://github.com/gurukamath/evm-tools-testdata.git",
-        "commit_hash": "d84fcd1",
+        "commit_hash": "3a6f09a",
         "fixture_path": "tests/fixtures/evm_tools_testdata",
     },
     "ethereum_tests": {
