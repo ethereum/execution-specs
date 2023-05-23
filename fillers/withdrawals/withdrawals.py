@@ -25,7 +25,6 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4895.md"
 REFERENCE_SPEC_VERSION = "81af3b60b632bc9c03513d1d137f25410e3f4d34"
 
-WITHDRAWALS_FORK = Shanghai
 pytestmark = pytest.mark.parametrize("fork", forks_from(Shanghai))
 
 ONE_GWEI = 10**9
