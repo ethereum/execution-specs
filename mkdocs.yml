@@ -36,7 +36,7 @@ plugins:
   - glightbox
   - search
   - mkdocstrings
-
+  - git-authors
 
 theme: 
   name: material
