@@ -28,6 +28,7 @@ nav:
 
 plugins:
   - glightbox
+  - search
   - mkdocstrings
 
 theme: readthedocs
