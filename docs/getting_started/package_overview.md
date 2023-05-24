@@ -15,11 +15,11 @@ tool, and writes the resulting fixture to file.
 
 #### `evm_block_builder`
 
-This is a wrapper around the [block builder][b11r] (b11r) tool.
+This is a wrapper around the block builder (b11r) tool.
 
 #### `evm_transition_tool`
 
-This is a wrapper around the [transaction][t8n] (t8n) tool.
+This is a wrapper around the transaction (t8n) tool.
 
 #### `fillers`
 
