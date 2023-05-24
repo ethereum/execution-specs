@@ -102,3 +102,9 @@ markdown_extensions:
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.tilde
+
+# Todo: Enable versioning in CI/CD
+# https://squidfunk.github.io/mkdocs-material/setup/setting-up-versioning/#usage
+# extra:
+#  version:
+#    provider: mike
