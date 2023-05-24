@@ -1,5 +1,8 @@
 site_name: Ethereum Execution Spec Tests
 site_url: https://execution-spec-tests.readthedocs.io/
+repo_url: https://github.com/ethereum/execution-spec-tests
+repo_name: execution-spec-tests
+edit_uri: edit/main/docs/
 copyright: 'Copyright: 2023, Ethereum Community'
 
 nav:
@@ -34,11 +37,41 @@ plugins:
   - search
   - mkdocstrings
 
-theme: readthedocs
+
+theme: 
+  name: material
+  logo: img/ETH-logo-icon.svg
+  favicon: img/ETH-logo-icon.svg
+  language: en
+  features:
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default 
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
 
 markdown_extensions:
   - attr_list
   - md_in_html
+  - def_list
+  - admonition
   - toc:
       permalink: "#"
       toc_depth: 4 
