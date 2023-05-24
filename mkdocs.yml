@@ -9,6 +9,9 @@ nav:
     - Package Overview: 'getting_started/package_overview.md'
     - Writing Tests: 'getting_started/writing_tests.md'
     - Adding a Reference Spec: 'getting_started/reference_specification.md'
+  - Developer Doc:
+    - Overview: 'dev/dev.md'
+    - Documentation: 'dev/docs.md'
   - Tutorials:
     - State Transition Tests: 'tutorials/state_transition.md'
     - Blockchain Tests: 'tutorials/blockchain.md'
