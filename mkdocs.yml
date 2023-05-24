@@ -68,11 +68,33 @@ theme:
         name: Switch to system preference
 
 markdown_extensions:
+  - abbr
+  - admonition
   - attr_list
-  - md_in_html
   - def_list
-  - admonition
+  - footnotes
+  - md_in_html
   - toc:
-      permalink: "#"
-      toc_depth: 4 
-  - admonition
+      permalink: true
+      toc_depth: 4
+  # Python Markdown Extensions
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
