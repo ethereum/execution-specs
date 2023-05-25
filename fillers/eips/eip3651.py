@@ -3,7 +3,6 @@ Test EIP-3651: Warm COINBASE
 EIP: https://eips.ethereum.org/EIPS/eip-3651
 Source tests: https://github.com/ethereum/tests/pull/1082
 """
-from typing import Dict
 
 import pytest
 
@@ -12,7 +11,6 @@ from ethereum_test_tools import (
     Account,
     CodeGasMeasure,
     Environment,
-    StateTest,
     TestAddress,
     Transaction,
     to_address,
