@@ -62,6 +62,7 @@ metaclass
 radd
 setitem
 splitext
+textwrap
 zfill
 
 lll
@@ -259,3 +260,6 @@ originalname
 pytestmark
 runtest
 trylast
+
+mkdocs
+nav
