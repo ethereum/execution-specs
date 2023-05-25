@@ -33,6 +33,7 @@ theme:
     - search.highlight
     - content.tabs.link
     - navigation.indexes
+    - navigation.instant
     - navigation.tabs
   palette:
     # Palette toggle for automatic mode
