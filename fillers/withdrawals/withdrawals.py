@@ -289,7 +289,7 @@ class TestMultipleWithdrawalsSameAddress:
                     withdrawals=[
                         Withdrawal(
                             index=i,
-                            validator=0,
+                            validator=i,
                             address=self.ADDRESSES[i % len(self.ADDRESSES)],
                             amount=1,
                         )
