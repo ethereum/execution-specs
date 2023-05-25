@@ -5,7 +5,6 @@ Changes included in the Network Upgrade.
 
 * [EIP-1153: Transient storage opcodes](https://eips.ethereum.org/EIPS/eip-1153)
 * [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844)
-* [EIP-6475: SSZ Optional](https://eips.ethereum.org/EIPS/eip-6475)
 * [EIP-6780: SELFDESTRUCT only in same transaction](https://eips.ethereum.org/EIPS/eip-6780)
 
 ### EIPs Considered for Inclusion
@@ -13,7 +12,9 @@ Changes [Considered for Inclusion](https://github.com/ethereum/execution-specs/t
 
 * [EIP-2537: Precompile for BLS12-381 curve operations](https://eips.ethereum.org/EIPS/eip-2537)
 * [EIP-4788: Beacon block root in the EVM ](https://eips.ethereum.org/EIPS/eip-4788)
-* [EIP-6493: SSZ Transaction Signature Scheme](https://eips.ethereum.org/EIPS/eip-6493)
+* [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656)
+* [EIP-5920: PAY opcode](https://eips.ethereum.org/EIPS/eip-5920)
+* [To be merged] [EIP-7069: Revamped CALL instructions](https://github.com/ethereum/EIPs/pull/7069)
 
 ### Implementation Progresss
 
