@@ -32,6 +32,7 @@ theme:
     - search.suggest
     - search.highlight
     - content.tabs.link
+    - navigation.indexes
   palette:
     # Palette toggle for automatic mode
     - media: "(prefers-color-scheme)"
