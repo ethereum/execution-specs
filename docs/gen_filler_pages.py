@@ -21,7 +21,7 @@ MARKDOWN_TEMPLATE = Template(
             ```
 
         ::: $package_name
-    """
+        """
     )
 )
 
@@ -39,6 +39,16 @@ def create_top_level_readme():  # noqa: D103
             "- Don't manually add files to this directory.\n"
             "- Don't edit files in this directory.\n"
         )
+
+
+def create_fillers_pages_file():
+    """
+    Write a .pages file to be used by the mkdocs-awesome-pages-plugin
+    so that the material tabs bar links to index.md and the "first"
+    test module.
+    """
+    with open(target_dir / ".pages", "w") as f:
+        f.write("nav:\n" "  - Home: index.md\n" "  - ...")
 
 
 def apply_name_filters(input_string: str):  # noqa: D103
@@ -64,6 +74,7 @@ if os.path.exists(target_dir):
 os.makedirs(target_dir)
 
 create_top_level_readme()
+create_fillers_pages_file()
 
 for root, _, files in os.walk(source_directory):
     if "__pycache__" in root:
