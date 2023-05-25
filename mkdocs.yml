@@ -15,7 +15,12 @@ plugins:
       exclude:
         - _auto_gen_fillers/*
   - glightbox
-  - mkdocstrings
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            members_order: source
+            group_by_category: false
   - search
   - social
   - gen-files:

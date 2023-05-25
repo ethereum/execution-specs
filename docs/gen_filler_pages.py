@@ -10,6 +10,8 @@ import textwrap
 from pathlib import Path
 from string import Template
 
+# mkdocstrings filter doc:
+# https://mkdocstrings.github.io/python/usage/configuration/members/#filters
 MARKDOWN_TEMPLATE = Template(
     textwrap.dedent(
         """
