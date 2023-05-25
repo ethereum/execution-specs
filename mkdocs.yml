@@ -22,6 +22,9 @@ plugins:
       scripts:
         - docs/gen_filler_pages.py
 
+watch:
+  - src/
+
 theme: 
   name: material
   logo: img/Ethereum-logo-600px.png
