@@ -1,3 +1,8 @@
+"""
+Utility Module: BLOBHASH Opcode Contexts
+Test: fillers/eips/eip4844/blobhash_opcode_contexts.py
+"""
+
 from ethereum_test_tools import (
     TestAddress,
     Yul,
@@ -9,8 +14,16 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
 class BlobhashContext:
+    """
+    A utility class for mapping common EVM opcodes in different contexts
+    to specific bytecode (with BLOBHASH), addresses and contracts.
+    """
+
     @staticmethod
     def _get_blobhash_verbatim():
+        """
+        Returns the BLOBHASH verbatim as a formatted string.
+        """
         return "verbatim_{}i_{}o".format(
             Op.BLOBHASH.popped_stack_items,
             Op.BLOBHASH.pushed_stack_items,
@@ -18,6 +31,9 @@ class BlobhashContext:
 
     @classmethod
     def address(cls, context_name):
+        """
+        Maps an opcode context to a specific address.
+        """
         addresses = {
             "blobhash_sstore": to_address(0x100),
             "blobhash_return": to_address(0x600),
@@ -32,6 +48,9 @@ class BlobhashContext:
 
     @classmethod
     def code(cls, context_name):
+        """
+        Maps an opcode context to bytecode that utilizes the BLOBHASH opcode.
+        """
         blobhash_verbatim = cls._get_blobhash_verbatim()
 
         code = {
@@ -42,10 +61,12 @@ class BlobhashContext:
                    let end := calldataload(32)
                    for {{}} lt(pos, end) {{ pos := add(pos, 1) }}
                    {{
-                    let blobhash := {blobhash_verbatim}(hex"{Op.BLOBHASH.hex()}", pos)
+                    let blobhash := {blobhash_verbatim}
+                        (hex"{Op.BLOBHASH.hex()}", pos)
                     sstore(pos, blobhash)
                    }}
-                   let blobhash := {blobhash_verbatim}(hex"{Op.BLOBHASH.hex()}", end)
+                   let blobhash := {blobhash_verbatim}
+                        (hex"{Op.BLOBHASH.hex()}", end)
                    sstore(end, blobhash)
                    return(0, 0)
                 }}
@@ -55,7 +76,8 @@ class BlobhashContext:
                 f"""
                 {{
                    let pos := calldataload(0)
-                   let blobhash := {blobhash_verbatim}(hex"{Op.BLOBHASH.hex()}", pos)
+                   let blobhash := {blobhash_verbatim}
+                        (hex"{Op.BLOBHASH.hex()}", pos)
                    mstore(0, blobhash)
                    return(0, 32)
                 }}
@@ -85,13 +107,15 @@ class BlobhashContext:
                     for {{ }} lt(pos, end) {{ pos := add(pos, 1) }}
                     {{
                     mstore(0, pos)
-                    pop(callcode(gas(), {cls.address("blobhash_return")}, 0, 0, 32, 0, 32))
+                    pop(callcode(gas(),
+                        {cls.address("blobhash_return")}, 0, 0, 32, 0, 32))
                     let blobhash := mload(0)
                     sstore(pos, blobhash)
                     }}
 
                     mstore(0, end)
-                    pop(callcode(gas(), {cls.address("blobhash_return")}, 0, 0, 32, 0, 32))
+                    pop(callcode(gas(),
+                        {cls.address("blobhash_return")}, 0, 0, 32, 0, 32))
                     let blobhash := mload(0)
                     sstore(end, blobhash)
                     return(0, 0)
@@ -106,13 +130,15 @@ class BlobhashContext:
                     for {{ }} lt(pos, end) {{ pos := add(pos, 1) }}
                     {{
                     mstore(0, pos)
-                    pop(staticcall(gas(), {cls.address("blobhash_return")}, 0, 32, 0, 32))
+                    pop(staticcall(gas(),
+                        {cls.address("blobhash_return")}, 0, 32, 0, 32))
                     let blobhash := mload(0)
                     sstore(pos, blobhash)
                     }}
 
                     mstore(0, end)
-                    pop(staticcall(gas(), {cls.address("blobhash_return")}, 0, 32, 0, 32))
+                    pop(staticcall(gas(),
+                        {cls.address("blobhash_return")}, 0, 32, 0, 32))
                     let blobhash := mload(0)
                     sstore(end, blobhash)
                     return(0, 0)
@@ -140,7 +166,8 @@ class BlobhashContext:
                 {{
                    for {{ let pos := 0 }} lt(pos, 10) {{ pos := add(pos, 1) }}
                    {{
-                    let blobhash := {blobhash_verbatim}(hex"{Op.BLOBHASH.hex()}", pos)
+                    let blobhash := {blobhash_verbatim}
+                        (hex"{Op.BLOBHASH.hex()}", pos)
                     sstore(pos, blobhash)
                    }}
                    return(0, 0)
@@ -152,16 +179,17 @@ class BlobhashContext:
 
     @classmethod
     def created_contract(cls, context_name):
+        """
+        Maps contract creation to a specific context to a specific address.
+        """
         contract = {
             "tx_created_contract": compute_create_address(TestAddress, 0),
             "create": compute_create_address(
-                # BlobhashContext.address("create"),
-                to_address(0x400),
+                BlobhashContext.address("create"),
                 0,
             ),
             "create2": compute_create2_address(
-                # BlobhashContext.address("create2"),
-                to_address(0x500),
+                BlobhashContext.address("create2"),
                 0,
                 BlobhashContext.code("initcode").assemble(),
             ),

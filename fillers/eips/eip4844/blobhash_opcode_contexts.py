@@ -1,5 +1,5 @@
 """
-Test EIP-4844: Shard Blob Transactions (BLOBHASH Opcode)
+Test EIP-4844: BLOBHASH Opcode Contexts
 EIP: https://eips.ethereum.org/EIPS/eip-4844
 """
 
@@ -28,13 +28,13 @@ REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
 MAX_BLOB_PER_BLOCK = 4
 BLOB_COMMITMENT_VERSION_KZG = bytes([0x01])
 
-# Blob versioned hashes ranging from 1-4
-b_hashes: List[bytes] = add_kzg_version(
+# Blob versioned hashes ranging from bytes32(1 to 4)
+blob_hashes: List[bytes] = add_kzg_version(
     [(1 << x) for x in range(MAX_BLOB_PER_BLOCK)],
     BLOB_COMMITMENT_VERSION_KZG,
 )
 
-# Blob transaction template
+# Blob transaction (type 3) template
 tx_type_3 = Transaction(
     ty=3,
     data=to_hash_bytes(0),
@@ -44,15 +44,25 @@ tx_type_3 = Transaction(
     max_fee_per_data_gas=10,
     access_list=[],
     blob_commitment_version_kzg=BLOB_COMMITMENT_VERSION_KZG,
-    blob_versioned_hashes=b_hashes,
+    blob_versioned_hashes=blob_hashes,
 )
 
 
 def create_opcode_context(pre, tx, post):
-    pre = {TestAddress: Account(balance=1000000000000000000000), **pre}
-    return {"pre": pre, "tx": tx, "post": post}
+    """
+    Generates an opcode context based on the key provided by the
+    opcode_contexts dictionary.
+    """
+    return {
+        "pre": {TestAddress: Account(balance=1000000000000000000000), **pre},
+        "tx": tx,
+        "post": post,
+    }
 
 
+# Dictionary of BLOBHASH opcode use cases. Each context is given a
+# pre state, tx & post state respectively, and utilized
+# directly within the context pytest fixture.
 opcode_contexts = {
     "BLOBHASH_on_top_level_call_stack": create_opcode_context(
         {
@@ -62,11 +72,11 @@ opcode_contexts = {
         },
         tx_type_3.with_fields(
             to=BlobhashContext.address("blobhash_sstore"),
-            blob_versioned_hashes=b_hashes[:1],
+            blob_versioned_hashes=blob_hashes[:1],
         ),
         {
             BlobhashContext.address("blobhash_sstore"): Account(
-                storage={0: b_hashes[0]}
+                storage={0: blob_hashes[0]}
             ),
         },
     ),
@@ -96,11 +106,11 @@ opcode_contexts = {
         tx_type_3.with_fields(
             data=to_hash_bytes(1) + to_hash_bytes(1),
             to=BlobhashContext.address("call"),
-            blob_versioned_hashes=b_hashes[:2],
+            blob_versioned_hashes=blob_hashes[:2],
         ),
         {
             BlobhashContext.address("blobhash_sstore"): Account(
-                storage={1: b_hashes[1]}
+                storage={1: blob_hashes[1]}
             ),
         },
     ),
@@ -120,7 +130,8 @@ opcode_contexts = {
         {
             BlobhashContext.address("delegatecall"): Account(
                 storage={
-                    k: v for (k, v) in zip(range(len(b_hashes)), b_hashes)
+                    k: v
+                    for (k, v) in zip(range(len(blob_hashes)), blob_hashes)
                 }
             ),
         },
@@ -141,7 +152,8 @@ opcode_contexts = {
         {
             BlobhashContext.address("staticcall"): Account(
                 storage={
-                    k: v for (k, v) in zip(range(len(b_hashes)), b_hashes)
+                    k: v
+                    for (k, v) in zip(range(len(blob_hashes)), blob_hashes)
                 }
             ),
         },
@@ -162,7 +174,8 @@ opcode_contexts = {
         {
             BlobhashContext.address("callcode"): Account(
                 storage={
-                    k: v for (k, v) in zip(range(len(b_hashes)), b_hashes)
+                    k: v
+                    for (k, v) in zip(range(len(blob_hashes)), blob_hashes)
                 }
             ),
         },
@@ -176,7 +189,8 @@ opcode_contexts = {
         {
             BlobhashContext.created_contract("tx_created_contract"): Account(
                 storage={
-                    k: v for (k, v) in zip(range(len(b_hashes)), b_hashes)
+                    k: v
+                    for (k, v) in zip(range(len(blob_hashes)), blob_hashes)
                 }
             ),
         },
@@ -194,7 +208,8 @@ opcode_contexts = {
         {
             BlobhashContext.created_contract("create"): Account(
                 storage={
-                    k: v for (k, v) in zip(range(len(b_hashes)), b_hashes)
+                    k: v
+                    for (k, v) in zip(range(len(blob_hashes)), blob_hashes)
                 }
             ),
         },
@@ -212,7 +227,8 @@ opcode_contexts = {
         {
             BlobhashContext.created_contract("create2"): Account(
                 storage={
-                    k: v for (k, v) in zip(range(len(b_hashes)), b_hashes)
+                    k: v
+                    for (k, v) in zip(range(len(blob_hashes)), blob_hashes)
                 }
             ),
         },
@@ -284,7 +300,7 @@ opcode_contexts = {
 @pytest.fixture
 def env():
     """
-    Fixture for environment setup.
+    Fixture for the environment setup.
     """
     return Environment(
         coinbase="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
@@ -295,11 +311,13 @@ def env():
     )
 
 
-@pytest.fixture(params=opcode_contexts.values(), ids=opcode_contexts.keys())
+@pytest.fixture(
+    params=list(opcode_contexts.values()), ids=list(opcode_contexts.keys())
+)
 def context(request):
     """
     Fixture that is parameterized to each value of the opcode_contexts
-    dictionary, with each key being used as the test ID.
+    dictionary, with each key set as the test ID.
     """
     return request.param
 
@@ -309,7 +327,7 @@ def pre(context):
     """
     Fixture for the pre state of the given context.
     """
-    return context["pre"]
+    return context.get("pre")
 
 
 @pytest.fixture
@@ -317,7 +335,7 @@ def tx(context):
     """
     Fixture of the transaction for the given context.
     """
-    return context["tx"]
+    return context.get("tx")
 
 
 @pytest.fixture
@@ -325,7 +343,7 @@ def post(context):
     """
     Fixture for the post state of the given context.
     """
-    return context["post"]
+    return context.get("post")
 
 
 def test_blobhash_opcode_contexts(
