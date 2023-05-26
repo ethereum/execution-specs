@@ -10,8 +10,12 @@ from _pytest.mark.structures import ParameterSet
 
 from ethereum import rlp
 from ethereum.base_types import U64
+from ethereum.exceptions import InvalidBlock
 from ethereum.utils.hexadecimal import hex_to_bytes
-from ethereum_spec_tools.evm_tools.fixture_loader import Load
+from ethereum_spec_tools.evm_tools.fixture_loader import (
+    ExpectedRLPException,
+    Load,
+)
 
 
 class NoTestsFound(Exception):
@@ -21,13 +25,7 @@ class NoTestsFound(Exception):
     """
 
 
-class NoPostState(Exception):
-    """
-    An exception thrown when the test does not have a postState defined.
-    """
-
-
-def load_test(test_case: Dict, load: Load) -> Dict:
+def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
 
     test_file = test_case["test_file"]
     test_key = test_case["test_key"]
@@ -37,40 +35,7 @@ def load_test(test_case: Dict, load: Load) -> Dict:
 
     json_data = data[test_key]
 
-    blocks, block_header_hashes, block_rlps = load.json_to_blocks(
-        json_data["blocks"]
-    )
-
-    try:
-        raw_post_state = json_data["postState"]
-    except KeyError:
-        raise NoPostState
-    post_state = load.json_to_state(raw_post_state)
-
-    return {
-        "test_file": test_case["test_file"],
-        "test_key": test_case["test_key"],
-        "genesis_header": load.json_to_header(json_data["genesisBlockHeader"]),
-        "chain_id": U64(json_data["genesisBlockHeader"].get("chainId", 1)),
-        "genesis_header_hash": hex_to_bytes(
-            json_data["genesisBlockHeader"]["hash"]
-        ),
-        "genesis_block_rlp": hex_to_bytes(json_data["genesisRLP"]),
-        "last_block_hash": hex_to_bytes(json_data["lastblockhash"]),
-        "pre_state": load.json_to_state(json_data["pre"]),
-        "expected_post_state": post_state,
-        "blocks": blocks,
-        "block_header_hashes": block_header_hashes,
-        "block_rlps": block_rlps,
-        "ignore_pow_validation": json_data["sealEngine"] == "NoProof",
-    }
-
-
-def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
-
-    test_data = load_test(test_case, load)
-
-    genesis_header = test_data["genesis_header"]
+    genesis_header = load.json_to_header(json_data["genesisBlockHeader"])
     parameters = [
         genesis_header,
         (),
@@ -81,7 +46,8 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
 
     genesis_block = load.Block(*parameters)
 
-    assert rlp.rlp_hash(genesis_header) == test_data["genesis_header_hash"]
+    genesis_header_hash = hex_to_bytes(json_data["genesisBlockHeader"]["hash"])
+    assert rlp.rlp_hash(genesis_header) == genesis_header_hash
     # FIXME: Re-enable this assertion once the genesis block RLP is
     # correctly encoded for Shanghai.
     # See https://github.com/ethereum/execution-spec-tests/issues/64
@@ -92,40 +58,59 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
 
     chain = load.BlockChain(
         blocks=[genesis_block],
-        state=test_data["pre_state"],
-        chain_id=test_data["chain_id"],
+        state=load.json_to_state(json_data["pre"]),
+        chain_id=U64(json_data["genesisBlockHeader"].get("chainId", 1)),
     )
 
-    if not test_data["ignore_pow_validation"] or load.proof_of_stake:
-        add_blocks_to_chain(chain, test_data, load)
+    for json_block in json_data["blocks"]:
+        try:
+            (
+                block,
+                block_header_hash,
+                block_rlp,
+                block_exception,
+            ) = load.json_to_block(json_block)
+        except ExpectedRLPException as e:
+            return
+
+        assert rlp.rlp_hash(block.header) == block_header_hash
+        assert rlp.encode(cast(rlp.RLP, block)) == block_rlp
+
+        mock_pow = (
+            json_data["sealEngine"] == "NoProof" and not load.proof_of_stake
+        )
+        if block_exception is None:
+            add_block_to_chain(chain, block, load, mock_pow)
+        else:
+            with pytest.raises(InvalidBlock):
+                add_block_to_chain(chain, block, load, mock_pow)
+            return
+
+    last_block_hash = hex_to_bytes(json_data["lastblockhash"])
+    assert rlp.rlp_hash(chain.blocks[-1].header) == last_block_hash
+    if "postState" not in json_data:
+        pytest.xfail(f"{test_case} doesn't have post state")
+    expected_post_state = load.json_to_state(json_data["postState"])
+    assert chain.state == expected_post_state
+    load.close_state(chain.state)
+    load.close_state(expected_post_state)
+
+
+def add_block_to_chain(
+    chain: Any, block: Any, load: Load, mock_pow: bool
+) -> None:
+    if not mock_pow:
+        load.state_transition(chain, block)
     else:
         with patch(
             f"ethereum.{load.fork_module}.fork.validate_proof_of_work",
             autospec=True,
         ) as mocked_pow_validator:
-            add_blocks_to_chain(chain, test_data, load)
+            load.state_transition(chain, block)
             mocked_pow_validator.assert_has_calls(
-                [call(block.header) for block in test_data["blocks"]],
+                [call(block.header)],
                 any_order=False,
             )
-
-    assert (
-        rlp.rlp_hash(chain.blocks[-1].header) == test_data["last_block_hash"]
-    )
-    assert chain.state == test_data["expected_post_state"]
-    load.close_state(chain.state)
-    load.close_state(test_data["expected_post_state"])
-
-
-def add_blocks_to_chain(
-    chain: Any, test_data: Dict[str, Any], load: Load
-) -> None:
-    for idx, block in enumerate(test_data["blocks"]):
-        assert (
-            rlp.rlp_hash(block.header) == test_data["block_header_hashes"][idx]
-        )
-        assert rlp.encode(cast(rlp.RLP, block)) == test_data["block_rlps"][idx]
-        load.state_transition(chain, block)
 
 
 # Functions that fetch individual test cases
