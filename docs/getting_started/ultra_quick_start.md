@@ -39,7 +39,7 @@ Become a [command-line test power-user](./executing_tests_command_line.md).
 Optionally, learn how to configure VS Code for test execution and debugging:
 
 - [Configure VS Code](./setup_vs_code.md) to auto-format and lint your Python code.
-- Learn how to [execute tests in VS Code's debugger](../tutorials/debug_vs_code.md).
+- Learn how to [execute tests in VS Code's debugger](./executing_tests_vs_code.md).
 
 Take a deep dive in to test writing:
 

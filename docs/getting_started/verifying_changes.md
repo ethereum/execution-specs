@@ -1,6 +1,6 @@
 # Verifying Changes
 
-The `tox` tool can be used to lint, type check, test and verify that documentation is correctly generated. The `tox` tool can be executed locally to check that committed won't cause Github Actions Checks to fail.
+The `tox` tool can be used to lint, type check, test and verify that documentation is correctly generated. The `tox` tool can be executed locally to check that local changes won't cause Github Actions Checks to fail.
 
 There are two tox environments available, one for the fillers/test cases (`fillers`) and one for the framework (`py3`).
 
