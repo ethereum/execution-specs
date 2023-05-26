@@ -6,8 +6,9 @@ from typing import Any, Dict, List
 import pytest
 
 from ethereum import rlp
-from ethereum.base_types import Uint
-from ethereum.utils.hexadecimal import hex_to_bytes
+from ethereum.base_types import U256, Bytes20, Bytes32, Bytes256, Uint
+from ethereum.crypto.hash import Hash32
+from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_bytes8
 from ethereum_spec_tools.evm_tools import parser, subparsers
 from ethereum_spec_tools.evm_tools.b11r import B11R, b11r_arguments
 from ethereum_spec_tools.evm_tools.t8n import T8N, t8n_arguments
@@ -15,6 +16,50 @@ from ethereum_spec_tools.evm_tools.utils import parse_hex_or_int
 
 t8n_arguments(subparsers)
 b11r_arguments(subparsers)
+
+
+def get_uncle_rlps(uncles: List[Dict[str, Any]]) -> List[str]:
+    uncles_rlp = []
+    for uncle in uncles:
+
+        header = [
+            Hash32(hex_to_bytes(uncle["parentHash"])),
+            Hash32(hex_to_bytes(uncle["uncleHash"])),
+            Bytes20(hex_to_bytes(uncle["coinbase"])),
+            Hash32(hex_to_bytes(uncle["stateRoot"])),
+            Hash32(hex_to_bytes(uncle["transactionsTrie"])),
+            Hash32(hex_to_bytes(uncle["receiptTrie"])),
+            Bytes256(hex_to_bytes(uncle["bloom"])),
+            parse_hex_or_int(uncle["difficulty"], Uint),
+            parse_hex_or_int(uncle["number"], Uint),
+            parse_hex_or_int(uncle["gasLimit"], Uint),
+            parse_hex_or_int(uncle["gasUsed"], Uint),
+            parse_hex_or_int(uncle["timestamp"], U256),
+            hex_to_bytes(uncle.get("extraData", "0x")),
+            Bytes32(hex_to_bytes(uncle["mixHash"])),
+            hex_to_bytes8(uncle.get("nonce", "0x0000000000000000")),
+        ]
+
+        uncle_block = [
+            header,
+            [],
+            [],
+        ]
+
+        try:
+            header.append(hex_to_bytes(uncle["baseFeePerGas"]))
+        except KeyError:
+            pass
+
+        try:
+            header.append(hex_to_bytes(uncle["withdrawalsRoot"]))
+            uncle_block.append([])
+        except KeyError:
+            pass
+
+        uncles_rlp.append("0x" + rlp.encode(uncle_block).hex())
+
+    return uncles_rlp
 
 
 def load_evm_tools_test(
@@ -35,6 +80,9 @@ def load_evm_tools_test(
     block_hashes = {}
 
     for block in json_data["blocks"]:
+
+        if "blockHeader" not in block:
+            pytest.skip("Skipping test case with no block header")
 
         # Assemble the environment for the t8n tool
         current_number = block["blockHeader"]["number"]
@@ -62,6 +110,21 @@ def load_evm_tools_test(
             env["withdrawals"] = block["withdrawals"]
         except KeyError:
             pass
+
+        env_ommers = []
+        for uncle in block["uncleHeaders"]:
+            delta = parse_hex_or_int(
+                block["blockHeader"]["number"], Uint
+            ) - parse_hex_or_int(uncle["number"], Uint)
+            env_ommers.append(
+                {
+                    "delta": delta,
+                    "address": uncle["coinbase"],
+                }
+            )
+
+        if len(env_ommers):
+            env["ommers"] = env_ommers
 
         # Assemble the transactions for the t8n tool
         txs = []
@@ -132,7 +195,7 @@ def load_evm_tools_test(
                 "0x" + t8n.result.withdrawals_root.hex()
             )
 
-        ommers: List[Any] = []
+        ommers: List[Any] = get_uncle_rlps(block["uncleHeaders"])
 
         stdin_data = {
             "header": header,
@@ -152,7 +215,7 @@ def load_evm_tools_test(
 
         if t8n.result.withdrawals_root:
             b11r_args += ["--input.withdrawals", "stdin"]
-            stdin_data["withdrawals"] = t8n.env.withdrawals
+            stdin_data["withdrawals"] = env["withdrawals"]
 
         sys.stdin = StringIO(json.dumps(stdin_data))
 
