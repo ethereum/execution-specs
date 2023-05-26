@@ -1,6 +1,6 @@
 # Repository Overview 
 
-The most relevant folders in the repo are:
+The most relevant folders and file in the repo are:
 ```
 📁 execution-test-specs/
 ├─╴📁 fillers/                   # test cases
@@ -15,12 +15,16 @@ The most relevant folders in the repo are:
 │   ├── 📁 ethereum_test_fork/
 │   ├── 📁 ethereum_test_tools/
 │   └── 📁 ...
-└── 📁 docs/                     # markdown documentation
-    ├── 📁 getting_started
-    ├── 📁 dev
-    └── 📁 ...
+├─╴📁 docs/                      # markdown documentation
+│   ├── 📁 getting_started
+│   ├── 📁 dev
+│   └── 📁 ...
+├─╴📁 .vscode/                   # visual studio code config
+│   ├── 📄 settings.recommended.json # copy to settings.json
+│   ├── 📄 launch.recommended.json
+│   └── 📄 extensions.json
+└── 📄 whitelist.txt             # spellcheck dictionary
 ```
-
 
 #### `fillers/`
 
@@ -33,3 +37,7 @@ Contains various packages that help to define test cases and to interface with t
 #### `docs/`
 
 Contains documentation configuration and source files.
+
+#### `.vscode/`
+
+See [VS Code Setup](./setup_vs_code.md).

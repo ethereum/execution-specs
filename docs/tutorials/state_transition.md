@@ -6,7 +6,7 @@ This tutorial teaches you to create a state transition execution specification t
 
 Before proceeding with this tutorial, it is assumed that you have prior knowledge and experience with the following:
 
-- Set up and run an execution specification test as outlined in the [quick start guide](../getting_started/quick_start.md).
+- Set up and run an execution specification test as outlined in the [quick start guide](../getting_started/ultra_quick_start.md).
 - Understand how to read a [static state transition test](https://ethereum-tests.readthedocs.io/en/latest/state-transition-tutorial.html#the-source-code).
 - Know the basics of [Yul](https://docs.soliditylang.org/en/latest/yul.html), which is an EVM assembly language.
 - Familiarity with [Python](https://docs.python.org/3/tutorial/).
