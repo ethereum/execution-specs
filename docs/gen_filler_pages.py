@@ -81,7 +81,7 @@ def create_fillers_pages_file():
     test module.
     """
     with open(target_dir / ".pages", "w") as f:
-        f.write("nav:\n" "  - Home: index.md\n" "  - ...")
+        f.write("nav:\n" "  - Test Case Reference: index.md\n" "  - ...")
 
 
 def apply_name_filters(input_string: str):  # noqa: D103
