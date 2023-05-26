@@ -19,8 +19,8 @@ title: Test Fixture Generation with execution-spec-tests
 flowchart LR
   style C stroke:#333,stroke-width:2px
   style D stroke:#333,stroke-width:2px
-  style F stroke:#F9A825,stroke-width:2px
   style G stroke:#F9A825,stroke-width:2px
+  style H stroke:#F9A825,stroke-width:2px
   
   subgraph ethereum/go-ethereum
     C[<code>evm t8n / evm b11r</code>\nexternal executable]
@@ -30,24 +30,29 @@ flowchart LR
     D[<code>solc</code>\nexternal executable]
   end
 
-  subgraph ethereum/execution-spec-tests
+  subgraph ethereum/specs
+    E(<code>markdown blob hash</code>\nEIP spec version)
+  end
+
+  subgraph "ethereum/execution-spec-tests"
     A(<code>./fillers/**/*.py</code>\nPython Test Cases)
     B([<code>$ pytest ./fillers/</code>\nPython Framework])
   end
 
   subgraph Test Fixture Consumers
     subgraph ethereum/hive
-      F([<code>$ hive ...</code>\nGo Test Framework])
+      G([<code>$ hive ...</code>\nGo Test Framework])
     end
-    G([Client executables])
+    H([Client executables])
   end
 
   C <-.-> B  
-  A --> B
   D <-.-> B
-  B -->|output| E(<code>./out/**/*.json</code>\nJSON Test Fixtures)
-  E -->|input| F
-  E -->|input| G
+  A --> B
+  E <-.-> |retrieve latest spec version\ncheck tested spec version| B
+  B -->|output| F(<code>./out/**/*.json</code>\nJSON Test Fixtures)
+  F -->|input| G
+  F -->|input| H
 ```
 
 The generated test fixtures can be used:
