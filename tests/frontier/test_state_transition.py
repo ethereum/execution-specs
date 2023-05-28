@@ -10,7 +10,6 @@ from ethereum.exceptions import InvalidBlock
 from tests.helpers import TEST_FIXTURES
 from tests.helpers.load_state_tests import (
     Load,
-    NoPostState,
     fetch_state_test_files,
     idfn,
     run_blockchain_st_test,
@@ -67,11 +66,7 @@ fetch_legacy_state_tests = partial(
     ids=idfn,
 )
 def test_legacy_state_tests(test_case: Dict) -> None:
-    try:
-        run_frontier_blockchain_st_tests(test_case)
-    except NoPostState:
-        # FIXME: Handle tests that don't have post state
-        pytest.xfail(f"{test_case} doesn't have post state")
+    run_frontier_blockchain_st_tests(test_case)
 
 
 # Run Non-Legacy Tests

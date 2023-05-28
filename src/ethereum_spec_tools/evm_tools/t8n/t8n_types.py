@@ -360,11 +360,11 @@ class Txs:
 
             # tf tool might provide None instead of 0
             # for v, r, s
-            if not json_tx["v"]:
+            if not json_tx.get("v"):
                 json_tx["v"] = "0x00"
-            if not json_tx["r"]:
+            if not json_tx.get("r"):
                 json_tx["r"] = "0x00"
-            if not json_tx["s"]:
+            if not json_tx.get("s"):
                 json_tx["s"] = "0x00"
 
             v = hex_to_u256(json_tx["v"])
