@@ -12,7 +12,12 @@ The Python code in the tests subdirectory `./fillers` must fulfill the following
 
 While this seems like a long list, a correctly configured editor (see [VS Code Setup](../getting_started/setup_vs_code.md)) essentially assures:
 
-1. 1, 2 and 3 are automatically covered.
-2. 4 & 5 are mostly covered. Additionally, if you skip type hints, they won't be checked; we can help you add these in the PR.
+1. Points 2 and 3 are automatically covered.
+2. Points 1, 4 & 5 are mostly covered. Additionally, if you skip type hints, they won't be checked; we can help you add these in the PR.
 
-These checks must pass in order for the execution-spec-tests Github Actions to pass upon pushing to remote. In order to help verify these checks, the `tox` tool can be used locally, see [Verifying Changes](./verifying_changes.md).
+These checks must pass in order for the execution-spec-tests Github Actions to pass upon pushing to remote. 
+
+!!! info "Running the checks with tox"
+    All these checks can be executed locally in a single command, `tox`, see [Verifying Changes](./verifying_changes.md). 
+    
+    If you need help, [get in touch](../getting_help/index.md)!

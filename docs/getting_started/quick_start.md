@@ -80,19 +80,9 @@ The following requires a Python 3.10 installation.
         1. The versions of the `evm` and `solc` tools are as expected (your versions may differ from those in the highlighted box).
         2. The fixture file `out/example/acl_example/test_access_list.json` has been generated.
 
-## Optional Next Steps:
+## Next Steps:
 
 1. Learn [useful command-line flags](./executing_tests_command_line.md).
-2. [Configure VS Code](./setup_vs_code.md) to auto-format and lint your Python code.
-3. [Execute tests in VS Code's debugger](./executing_tests_vs_code.md#executing-and-debugging-test-cases).
-4. Implement tests cases in an appropriate `fillers/` sub-directory and Python module, see [Writing Tests](../writing_tests/index.md).
-5. [Execute tests for features under development](./executing_tests_dev_fork.md) via the `--latest-fork` flag.
-6. [Run checks](../writing_tests/verifying_changes.md) (lint, spell-check, type-check, tests, docs):
-   ```console
-   tox -e fillers
-   ```
-   If `tox` congratulates you, Github actions CI/CD should pass upon pushing to remote.
-7. Take a deep dive in to test writing:
-
-    - Tutorial: [Writing a State Test](../tutorials/state_transition.md).
-    - Tutorial: [Writing a Blockchain Test](../tutorials/blockchain.md).
+2. [Execute tests for features under development](./executing_tests_dev_fork.md) via the `--latest-fork` flag.
+3. _Optional:_ [Configure VS Code](./setup_vs_code.md) to auto-format Python code and [execute tests within VS Code](./executing_tests_vs_code.md#executing-and-debugging-test-cases).
+4. Implement a new test case, see [Writing Tests](../writing_tests/index.md).
