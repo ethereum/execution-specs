@@ -84,8 +84,7 @@ The following requires a Python 3.10 installation.
 
 1. Learn [useful command-line flags](./executing_tests_command_line.md).
 2. [Configure VS Code](./setup_vs_code.md) to auto-format and lint your Python code.
-3. Learn how to [execute tests in VS Code's debugger](./executing_tests_vs_code.md).
-
+3. [Execute tests in VS Code's debugger](./executing_tests_vs_code.md#executing-and-debugging-test-cases).
 4. Implement tests cases in an appropriate `fillers/` sub-directory and Python module, see [Writing Tests](../writing_tests/index.md).
 5. [Execute tests for features under development](./executing_tests_dev_fork.md) via the `--latest-fork` flag.
 6. [Run checks](../writing_tests/verifying_changes.md) (lint, spell-check, type-check, tests, docs):

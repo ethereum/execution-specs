@@ -1,8 +1,24 @@
 # Adding a New Test
 
-All test cases are located in the `fillers` directory, which is composed of many subdirectories, each one represents a different test category.
+All test cases are located in the `fillers` directory, which is composed of many subdirectories, each one represents a different test category. The sub-directories may contain sub-categories, if necessary.
 
-Each category/sub-directory may have multiple Python test modules (`*.py`) which in turn may contain many test functions. The test functions themselves are always parametrized by fork, although when new tests are added for features under development, they will only be valid for the fork under active development.
+```
+📁 execution-test-specs/
+├─╴📁 fillers/                   # test cases
+│   ├── 📁 eips/
+│   |    ├── 📁 eip4844/
+|   |    |    ├── 📄 datahash_opcode.py
+|   |    |    └── 📄 excess_data_gas.py
+|   |    ├── 📄 eip3855.py
+|   |    └── 📄 eip3860.py
+│   ├── 📁 example/
+│   ├── 📁 security/
+│   ├── 📁 vm/
+│   ├── 📁 withdrawals/
+│   └── 📁 ...
+```
+
+Each category/sub-directory may have multiple Python test modules (`*.py`) which in turn may contain many test functions. The test functions themselves are always parametrized by fork, although when new tests are added for a feature under development, they will only be valid for the fork under active development.
 
 Look for a relevant test category and add new tests to this category, if appropriate.
 

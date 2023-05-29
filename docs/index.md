@@ -30,8 +30,8 @@ flowchart LR
     D[<code>solc</code>\nexternal executable]
   end
 
-  subgraph ethereum/specs
-    E(<code>markdown blob hash</code>\nEIP spec version)
+  subgraph ethereum/EIPs
+    E(<code>EIPS/EIP-*.md</code>\nSHA digest via Github API)
   end
 
   subgraph "ethereum/execution-spec-tests"

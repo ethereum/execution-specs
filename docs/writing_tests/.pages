@@ -4,5 +4,6 @@ nav:
   - types_of_tests.md
   - adding_a_new_test.md
   - writing_a_new_test.md
+  - reference_specification.md
   - verifying_changes.md
   

@@ -2,9 +2,10 @@
 
 VS Code setup is optional, but does offer the following advantages:
 
-- Auto-format your Python code to conform to the repository's code standards ([black](https://black.readthedocs.io/en/stable/)).
+- Auto-format your Python code to conform to the repository's [code standards](../writing_tests/code_standards.md) ([black](https://black.readthedocs.io/en/stable/)).
+- Inline linting and auto-completion (thanks to Python type hints).
 - Spell-check your code and docs.
-- Graphical exploration of test cases and easy execution/debug.
+- Graphical exploration of test cases and easy test execution/debug.
 
 ## Installation
 
