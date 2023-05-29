@@ -9,6 +9,7 @@ import re
 import shutil
 import sys
 import textwrap
+import time
 from pathlib import Path
 from string import Template
 
@@ -154,3 +155,5 @@ for root, _, files in os.walk(source_directory):
                     pytest_test_path=pytest_test_path,
                 )
             )
+
+time.sleep(0.5)
