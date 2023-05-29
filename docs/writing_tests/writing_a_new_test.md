@@ -10,7 +10,7 @@ Every test function _must_:
 2. Call the `state_test` respectively `blockchain_test` object within the test function body.
 3. Be parametrized by the forks for which it is to be tested.
 
-If the test module is located underneath the `./fillers/eips/` directory, the test module _should_:
+If the test module is located underneath the `./fillers/eips/` directory, the test module _must_ additionally:
 
 4. Add a reference version of the EIP spec under test, see [Referencing an EIP Spec Version](./reference_specification.md).
 

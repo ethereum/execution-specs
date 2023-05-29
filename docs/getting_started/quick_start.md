@@ -1,8 +1,8 @@
 # Quick Start
 
 
-!!! info "Deployed forks vs forks under active development"
-    The EVM features under test must be implemented in the `evm` tool and `solc` executables that are used by execution-spec-tests. The following installs stable versions of these tools. 
+!!! info "Testing features under active development"
+    The EVM features under test must be implemented in the `evm` tool and `solc` executables that are used by the execution-spec-tests framework. The following guide installs stable versions of these tools. 
 
     To test features under active development, start with this base configuration and then follow the steps in [executing tests for features under development](./executing_tests_dev_fork.md). 
 
@@ -77,7 +77,7 @@ The following requires a Python 3.10 installation.
         </figure>
         Check:
        
-        1. The versions of the `evm` and `solc` tools are as expected (the versions may differ from those in the highlighted box).
+        1. The versions of the `evm` and `solc` tools are as expected (your versions may differ from those in the highlighted box).
         2. The fixture file `out/example/acl_example/test_access_list.json` has been generated.
 
 ## Optional Next Steps:

@@ -1,6 +1,8 @@
 # Referencing an EIP Spec Version
 
-An Ethereum Improvement Proposal (EIP) and its SHA digest can be directly referenced within a python test module in order to check whether the test implementation is out-dated. If the spec version changes, the test framework will issue a summary in its warning section.
+An Ethereum Improvement Proposal (from [ethereum/EIPs](https://github.com/ethereum/EIPs/tree/master/EIPS)) and its SHA digest can be directly referenced within a python test module in order to check whether the test implementation is out-dated. If the spec version changes, the test framework will issue a summary in its warning section.
+
+Test cases located underneath `./fillers/eips/` _must_ define a reference spec version.
 
 <figure markdown>
  ![Examples of warnings in the test framework's console output when an EIP is outdated or not specified](./img/reference_spec_warning_console_output.png){ width=auto align=center}
