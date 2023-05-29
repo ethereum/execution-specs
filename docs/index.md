@@ -1,7 +1,7 @@
 # Execution Spec Tests
 
 <figure markdown>
- ![Execution Spec Tests Logo](img/execution_spec_tests.png){ width="200" align=right}
+ ![Execution Spec Tests Logo](img/execution_spec_tests.png){ width="400" align=right}
 </figure>
 
 
