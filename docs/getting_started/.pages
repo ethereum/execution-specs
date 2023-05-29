@@ -1,9 +1,8 @@
 nav:
-  - ultra_quick_start.md
-  - setup.md
+  - quick_start.md
   - setup_vs_code.md
   - repository_overview.md
   - executing_tests_command_line.md
   - executing_tests_vs_code.md
-  - writing_tests.md
+  - executing_tests_dev_fork.md
   - ...

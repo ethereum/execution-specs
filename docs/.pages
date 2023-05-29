@@ -1,6 +1,7 @@
 nav:
     - Overview: index.md
     - getting_started
+    - writing_tests
     - tutorials
     - Test Case Reference: _auto_gen_fillers
     - Library Reference: library

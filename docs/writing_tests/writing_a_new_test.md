@@ -1,4 +1,75 @@
-# Writing Tests
+# Writing a New Test
+
+The best way to get started is using one of the examples, for example, [fillers.example.acl_example.test_access_list](../../_auto_gen_fillers/example/acl_example/#fillers.example.acl_example.test_access_list). Please read on for more explanation.
+
+## Test Functions
+
+Every test spec is a python function that defines a single `StateTest`/`BlockchainTest` object.
+
+Every test function _must_:
+
+1. Use one of `state_test` or `blockchain_test` in its function arguments.
+2. Call the `state_test` respectively `blockchain_test` object within the test function body.
+3. Be parametrized by the forks for which it is to be tested.
+
+
+### The `state_test` and `blockchain_test` test function arguments.
+
+The test function's signature _must_ contain exactly one of either a `state_test` or `blockchain_test` argument.
+
+For example, for state tests:
+```python
+def test_access_list(state_test: StateTestFiller):
+```
+and for blockchain tests:
+```python
+def test_contract_creating_tx(
+    blockchain_test: BlockchainTestFiller, fork: Fork, initcode: Initcode
+):
+```
+
+The `state_test` and `blockchain_test` objects are actually wrapper definitions to `StateTest`, respectively `BlockchainTest` objects, that once called actually instantiate a new instance of these objects and fill the test case using the `evm` tool according to the pre and post states and the transactions defined within the test.
+
+### Parametrization over forks
+
+The test function must be parametrized by the forks for which it is to be tested. This is achieved by applying the `pytest.mark.parametrize` decorator on either the test function, test class or test module level:
+
+=== "Function"
+
+    ```python
+    import pytest
+
+    from ethereum_test_forks import forks_from_until, Berlin, London
+
+    @pytest.mark.parametrize("fork", forks_from_until(Berlin, London))
+    def test_access_list(state_test: StateTestFiller, fork: Fork):
+    ```
+
+=== "Class"
+
+    ```python
+    import pytest
+
+    from ethereum_test_forks import ShanghaiToCancunAtTime15k
+
+    @pytest.mark.parametrize("fork", ShanghaiToCancunAtTime15k)
+    class TestMultipleWithdrawalsSameAddress:
+    ```
+
+=== "Module"
+
+    ```python
+    import pytest
+
+    from ethereum_test_forks import forks_from_until, Shanghai
+
+    pytestmark = pytest.mark.parametrize("fork", forks_from(Shanghai))
+    ```
+
+The [`ethereum_test_forks`](../library/ethereum_test_forks.md) package defines the available forks and provides the following helpers that return all forks within the specified range:
+
+- [forks_from](../library/ethereum_test_forks.md#ethereum_test_forks.forks_from)
+- [forks_from_until](../library/ethereum_test_forks.md#ethereum_test_forks.forks_from_until)
 
 ## Purpose of test specs in this repository
 

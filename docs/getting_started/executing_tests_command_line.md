@@ -36,13 +36,13 @@ To generate all the test fixtures in the `./fillers/eips/eip3651.py` module, for
 pytest ./fillers/eips/eip3651.py
 ```
 
-To generate specific test fixtures, such as `./fillers/eips/eip3651.py::test_warm_coinbase_call_out_of_gas`, for example, run
+To generate specific test fixtures, such as those from the test function `test_warm_coinbase_call_out_of_gas()`, for example, run:
 ```console
-pytest ./fillers/eips/eip3651.py -k test_warm_coinbase_call_out_of_gas
+pytest -k "test_warm_coinbase_call_out_of_gas"
 ```
-or
-```
-pytest -k test_warm_coinbase_call_out_of_gas
+or, additionally, only for the for Shanghai fork:
+```console
+pytest -k "test_warm_coinbase_call_out_of_gas and shanghai"
 ```
 
 ## Execution for Development Forks 
@@ -56,6 +56,8 @@ pytest -k test_warm_coinbase_call_out_of_gas
     ```console
     pytest --latest-fork Cancun
     ```
+
+    See: [Executing Tests for Features under Development](./executing_tests_dev_fork.md).
 
 ## Useful pytest Command-Line Options
 
