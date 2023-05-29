@@ -1216,8 +1216,6 @@ class JSONEncoder(json.JSONEncoder):
             if "gas" in json_tx:
                 json_tx["gasLimit"] = json_tx["gas"]
                 del json_tx["gas"]
-            if "protected" in json_tx:
-                del json_tx["protected"]
             if "to" not in json_tx:
                 json_tx["to"] = ""
             return even_padding(
