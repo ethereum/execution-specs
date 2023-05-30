@@ -101,20 +101,13 @@ class ForkTracking:
     def advance_block(self, timestamp: U64) -> bool:
         """Increment the block number, return `True` if the fork changed."""
         self.block_number += 1
-        if self.next_fork:
-            if (
-                hasattr(self.next_fork, "block")
-                and self.block_number >= self.next_fork.block
-            ):
-                self.active_fork_index += 1
-                return True
-            elif (
-                hasattr(self.next_fork, "timestamp")
-                and timestamp >= self.next_fork.timestamp
-            ):
-                self.active_fork_index += 1
-                return True
-        return False
+        if self.next_fork is not None and self.next_fork.has_activated(
+            self.block_number, timestamp
+        ):
+            self.active_fork_index += 1
+            return True
+        else:
+            return False
 
 
 class BlockDownloader(ForkTracking):
@@ -240,6 +233,7 @@ class BlockDownloader(ForkTracking):
             headers={
                 "Content-Length": str(len(data)),
                 "Content-Type": "application/json",
+                "User-Agent": "ethereum-spec-sync",
             },
         )
 
@@ -407,6 +401,7 @@ class BlockDownloader(ForkTracking):
             headers={
                 "Content-Length": str(len(data)),
                 "Content-Type": "application/json",
+                "User-Agent": "ethereum-spec-sync",
             },
         )
 
@@ -483,6 +478,7 @@ class BlockDownloader(ForkTracking):
             headers={
                 "Content-Length": str(len(data)),
                 "Content-Type": "application/json",
+                "User-Agent": "ethereum-spec-sync",
             },
         )
 
@@ -541,7 +537,6 @@ class BlockDownloader(ForkTracking):
         if hasattr(self.module("fork_types").Header, "base_fee_per_gas"):
             fields.append(hex_to_uint(json["baseFeePerGas"]))
         if hasattr(self.module("fork_types").Header, "withdrawals_root"):
-            print(json)
             fields.append(hex_to_bytes32(json["withdrawalsRoot"]))
         return self.module("fork_types").Header(*fields)
 
@@ -599,6 +594,7 @@ class BlockDownloader(ForkTracking):
             headers={
                 "Content-Length": str(len(data)),
                 "Content-Type": "application/json",
+                "User-Agent": "ethereum-spec-sync",
             },
         )
 
@@ -779,7 +775,7 @@ class Sync(ForkTracking):
             persisted_block = None
 
         if persisted_block is None:
-            self.chain = self.module("spec").BlockChain(
+            self.chain = self.module("fork").BlockChain(
                 blocks=[],
                 state=state,
                 chain_id=None,
@@ -818,7 +814,7 @@ class Sync(ForkTracking):
             blocks = []
             for _ in range(initial_blocks_length):
                 blocks.append(self.downloader.take_block())
-            self.chain = self.module("spec").BlockChain(
+            self.chain = self.module("fork").BlockChain(
                 blocks=blocks,
                 state=state,
                 chain_id=self.fetch_chain_id(state),
@@ -882,7 +878,7 @@ class Sync(ForkTracking):
             ):
                 self.log.debug("applying %s fork...", self.active_fork.name)
                 start = time.monotonic()
-                self.chain = self.module("spec").apply_fork(self.chain)
+                self.chain = self.module("fork").apply_fork(self.chain)
                 end = time.monotonic()
                 self.log.info(
                     "applied %s fork (took %.3f)",
@@ -905,7 +901,7 @@ class Sync(ForkTracking):
             self.log.debug("applying block %d...", self.block_number)
 
             start = time.monotonic()
-            self.module("spec").state_transition(self.chain, block)
+            self.module("fork").state_transition(self.chain, block)
             end = time.monotonic()
 
             # Additional gas to account for block overhead

@@ -16,12 +16,70 @@ import ethereum
 H = TypeVar("H", bound="Hardfork")
 
 
+class ForkCriteria:
+    """
+    Type that represents the condition required for a fork to occur.
+    """
+
+    block_number: Optional[int]
+    timestamp: Optional[int]
+
+    def __init__(self) -> None:
+        raise Exception("Can't be instantiated by __init__()")
+
+    @classmethod
+    def from_block_number(
+        cls: Type["ForkCriteria"], block_number: int
+    ) -> "ForkCriteria":
+        """
+        Criteria for a block number based fork.
+        """
+        self = ForkCriteria.__new__(cls)
+        self.block_number = block_number
+        self.timestamp = None
+        return self
+
+    @classmethod
+    def from_timestamp(
+        cls: Type["ForkCriteria"], timestamp: int
+    ) -> "ForkCriteria":
+        """
+        Criteria for a timestamp based fork.
+        """
+        self = ForkCriteria.__new__(cls)
+        self.block_number = None
+        self.timestamp = timestamp
+        return self
+
+    @classmethod
+    def never(cls: Type["ForkCriteria"]) -> "ForkCriteria":
+        """
+        Criteria for a fork that is not scheduled to happen.
+        """
+        self = ForkCriteria.__new__(cls)
+        self.block_number = None
+        self.timestamp = None
+        return self
+
+    def check(self, block_number: int, timestamp: int) -> bool:
+        """
+        Check whether fork criteria have been met.
+        """
+        if self.block_number is not None:
+            return block_number >= self.block_number
+        elif self.timestamp is not None:
+            return timestamp >= self.timestamp
+        else:
+            return False
+
+
 class Hardfork:
     """
     Metadata associated with an Ethereum hardfork.
     """
 
     mod: ModuleType
+    criteria: ForkCriteria
 
     @classmethod
     def discover(cls: Type[H]) -> List[H]:
@@ -53,10 +111,13 @@ class Hardfork:
                         "cannot have more than 1 new fork package."
                     )
                 else:
-                    new_package = cls(mod)
+                    new_package = cls(mod, ForkCriteria.never())
                 continue
 
-            forks.append(cls(mod))
+            if block is not None:
+                forks.append(cls(mod, ForkCriteria.from_block_number(block)))
+            else:
+                forks.append(cls(mod, ForkCriteria.from_timestamp(timestamp)))
 
         # Timestamps are bigger than block numbers, so this always works.
         forks.sort(
@@ -64,7 +125,7 @@ class Hardfork:
             if hasattr(fork, "block")
             else fork.timestamp
         )
-        if new_package:
+        if new_package is not None:
             forks.append(new_package)
 
         return forks
@@ -82,12 +143,16 @@ class Hardfork:
         for (block_or_time, name) in config:
             mod = importlib.import_module("ethereum." + name)
 
-            if block_or_time < 1_000_000_000:
+            if hasattr(mod, "MAINNET_FORK_BLOCK"):
+                assert block_or_time < 1_000_000_000
                 mod.MAINNET_FORK_BLOCK = block_or_time  # type: ignore
+                criteria = ForkCriteria.from_block_number(block_or_time)
             else:
+                assert block_or_time > 1_000_000_000
                 mod.MAINNET_FORK_TIMESTAMP = block_or_time  # type: ignore
+                criteria = ForkCriteria.from_timestamp(block_or_time)
 
-            forks.append(cls(mod))
+            forks.append(cls(mod, criteria))
 
         return forks
 
@@ -121,8 +186,9 @@ class Hardfork:
 
         return cls.load(config)
 
-    def __init__(self, mod: ModuleType) -> None:
+    def __init__(self, mod: ModuleType, criteria: ForkCriteria) -> None:
         self.mod = mod
+        self.criteria = criteria
 
     @property
     def block(self) -> int:
@@ -137,6 +203,12 @@ class Hardfork:
         Block number of the first block in this hard fork.
         """
         return getattr(self.mod, "MAINNET_FORK_TIMESTAMP")  # noqa: B009
+
+    def has_activated(self, block_number: int, timestamp: int) -> bool:
+        """
+        Check whether this fork has activated.
+        """
+        return self.criteria.check(block_number, timestamp)
 
     @property
     def path(self) -> Optional[str]:
