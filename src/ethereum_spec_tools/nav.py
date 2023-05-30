@@ -124,9 +124,7 @@ class HardforkIndex(Index):
                     )
                 )
 
-        entries = sorted(
-            content.items(), key=lambda i: (i[0].block is None, i[0].block)
-        )
+        entries = sorted(content.items(), key=lambda i: i[0].criteria)
 
         result = []
 

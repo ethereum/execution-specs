@@ -5,6 +5,7 @@ Ethereum Forks
 Detects Python packages that specify Ethereum hardforks.
 """
 
+import functools
 import importlib
 import pkgutil
 from pkgutil import ModuleInfo
@@ -16,6 +17,7 @@ import ethereum
 H = TypeVar("H", bound="Hardfork")
 
 
+@functools.total_ordering
 class ForkCriteria:
     """
     Type that represents the condition required for a fork to occur.
@@ -26,6 +28,38 @@ class ForkCriteria:
 
     def __init__(self) -> None:
         raise Exception("Can't be instantiated by __init__()")
+
+    def __eq__(self, other: object) -> bool:
+        """
+        Equality for fork criteria.
+        """
+        if not isinstance(other, ForkCriteria):
+            return NotImplemented
+        return (
+            self.block_number == other.block_number
+            and self.timestamp == other.timestamp
+        )
+
+    def __lt__(self, other: object) -> bool:
+        """
+        Ordering for fork criteria. Block number forks are before timestamp
+        forks and scheduled forks are before unscheduled forks.
+        """
+        if not isinstance(other, ForkCriteria):
+            return NotImplemented
+        if self.block_number is not None:
+            if other.block_number is None:
+                return True
+            else:
+                return self.block_number < other.block_number
+        if self.timestamp is not None:
+            if other.block_number is not None:
+                return False
+            elif other.timestamp is None:
+                return True
+            else:
+                return self.timestamp < other.timestamp
+        return False
 
     @classmethod
     def from_block_number(
