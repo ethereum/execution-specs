@@ -8,3 +8,7 @@ We encourage contributions and recognize that Python is not everyone's  primary 
 * Dan (`danceratopz#6962`)
 * Spencer Taylor-Brown
 * Mario Vega
+
+<figure markdown>
+ ![ukiyo-e style design of 3 furry happy pandas playfully doing experiments on ethereum in a laboratory](img/testing_pandas.png){ width="400" align=right}
+</figure>
