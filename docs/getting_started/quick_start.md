@@ -80,7 +80,7 @@ The following requires a Python 3.10 installation.
         1. The versions of the `evm` and `solc` tools are as expected (your versions may differ from those in the highlighted box).
         2. The fixture file `out/example/acl_example/test_access_list.json` has been generated.
 
-## Next Steps:
+## Next Steps
 
 1. Learn [useful command-line flags](./executing_tests_command_line.md).
 2. [Execute tests for features under development](./executing_tests_dev_fork.md) via the `--latest-fork` flag.
