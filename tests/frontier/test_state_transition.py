@@ -52,10 +52,17 @@ LEGACY_BIG_MEMORY_TESTS = (
     "/stSpecialTest/",
 )
 
+SLOW_LIST = (
+    # InvalidBlockTest
+    "bcUncleHeaderValidity/nonceWrong.json",
+    "bcUncleHeaderValidity/wrongMixHash.json",
+)
+
 fetch_legacy_state_tests = partial(
     fetch_frontier_tests,
     legacy_test_dir,
     ignore_list=LEGACY_IGNORE_LIST,
+    slow_list=SLOW_LIST,
     big_memory_list=LEGACY_BIG_MEMORY_TESTS,
 )
 

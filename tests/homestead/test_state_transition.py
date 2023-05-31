@@ -107,8 +107,13 @@ LEGACY_SLOW_TESTS = (
     "stCallDelegateCodesHomestead/callcallcodecall_010_OOGMAfter_d0g0v0.json",
     "stCallDelegateCodesHomestead/callcallcode_01_OOGE_d0g0v0.json",
     "stCallDelegateCodesHomestead/callcodecallcodecallcode_ABCB_RECURSIVE_d0g0v0.json",
+    "stSpecialTest/JUMPDEST_AttackwithJump_d0g0v0.json",
+    "stSpecialTest/JUMPDEST_Attack_d0g0v0.json",
     # ValidBlockTests
     "bcExploitTest/DelegateCallSpam.json",
+    # InvalidBlockTests
+    "bcUncleHeaderValidity/nonceWrong.json",
+    "bcUncleHeaderValidity/wrongMixHash.json",
 )
 
 

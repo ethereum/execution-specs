@@ -60,8 +60,14 @@ LEGACY_BIG_MEMORY_TESTS = (
 )
 
 LEGACY_SLOW_TESTS = (
-    # ValidBlockTests
+    # GeneralStateTests
+    "stRandom/randomStatetest177.json",
+    "stCreateTest/CreateOOGafterMaxCodesize.json",
+    # ValidBlockTest
     "bcExploitTest/DelegateCallSpam.json",
+    # InvalidBlockTest
+    "bcUncleHeaderValidity/nonceWrong.json",
+    "bcUncleHeaderValidity/wrongMixHash.json",
 )
 
 fetch_legacy_state_tests = partial(

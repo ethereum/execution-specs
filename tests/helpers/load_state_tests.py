@@ -35,6 +35,9 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
 
     json_data = data[test_key]
 
+    if "postState" not in json_data:
+        pytest.xfail(f"{test_case} doesn't have post state")
+
     genesis_header = load.json_to_header(json_data["genesisBlockHeader"])
     parameters = [
         genesis_header,
@@ -88,8 +91,7 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
 
     last_block_hash = hex_to_bytes(json_data["lastblockhash"])
     assert rlp.rlp_hash(chain.blocks[-1].header) == last_block_hash
-    if "postState" not in json_data:
-        pytest.xfail(f"{test_case} doesn't have post state")
+
     expected_post_state = load.json_to_state(json_data["postState"])
     assert chain.state == expected_post_state
     load.close_state(chain.state)

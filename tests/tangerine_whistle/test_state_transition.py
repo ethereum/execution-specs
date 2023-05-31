@@ -32,8 +32,13 @@ ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 test_dir = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/BlockchainTests/"
 
 LEGACY_SLOW_TESTS = (
-    # ValidBlockTests
+    "stRandom/randomStatetest177.json",
+    "stCreateTest/CreateOOGafterMaxCodesize.json",
+    # ValidBlockTest
     "bcExploitTest/DelegateCallSpam.json",
+    # InvalidBlockTest
+    "bcUncleHeaderValidity/nonceWrong.json",
+    "bcUncleHeaderValidity/wrongMixHash.json",
 )
 
 LEGACY_BIG_MEMORY_TESTS = (

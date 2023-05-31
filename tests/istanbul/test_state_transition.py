@@ -39,13 +39,19 @@ SLOW_TESTS = (
     "QuadraticComplexitySolidity_CallDataCopy_d0g1v0_Istanbul",
     "CALLBlake2f_d9g0v0_Istanbul",
     "CALLCODEBlake2f_d9g0v0",
+    # GeneralStateTests
+    "stRandom/randomStatetest177.json",
+    "stCreateTest/CreateOOGafterMaxCodesize.json",
     # ValidBlockTest
     "bcExploitTest/DelegateCallSpam.json",
+    # InvalidBlockTest
+    "bcUncleHeaderValidity/nonceWrong.json",
+    "bcUncleHeaderValidity/wrongMixHash.json",
 )
 
 # These are tests that are considered to be incorrect,
 # Please provide an explanation when adding entries
-IGNORE_LIST = (
+IGNORE_TESTS = (
     # The test considers a scenario that cannot be reached by following the
     # rules of consensus. For more details, read:
     # https://github.com/ethereum/py-evm/pull/1224#issuecomment-418775512
@@ -87,7 +93,7 @@ BIG_MEMORY_TESTS = (
 fetch_state_tests = partial(
     fetch_istanbul_tests,
     test_dir,
-    ignore_list=IGNORE_LIST,
+    ignore_list=IGNORE_TESTS,
     slow_list=SLOW_TESTS,
     big_memory_list=BIG_MEMORY_TESTS,
 )
