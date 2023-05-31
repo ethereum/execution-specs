@@ -82,6 +82,7 @@ class Txs:
 
     rejected_txs: Dict[int, str]
     successful_txs: List[Any]
+    successful_receipts: List[Any]
     all_txs: List[Any]
     t8n: Any
     data: Any
@@ -91,6 +92,7 @@ class Txs:
         self.t8n = t8n
         self.rejected_txs = {}
         self.successful_txs = []
+        self.successful_receipts = []
         self.rlp_input = False
         self.all_txs = []
 
@@ -210,6 +212,17 @@ class Txs:
         else:
             self.successful_txs.append(tx)
 
+    def add_receipt(self, tx: Any) -> None:
+        """
+        Add t8n receipt info for valid tx
+        """
+        data = {
+            "transactionHash": "hash",
+            "blockHash": "hash",
+            "gasUsed": 0
+        }
+        self.successful_receipts.append(data)
+
     def sign_transaction(self, json_tx: Any) -> None:
         """
         Sign a transaction. This function will be invoked if a `secretKey`
@@ -271,7 +284,7 @@ class Result:
     withdrawals_root: Any = None
     logs_hash: Any = None
     bloom: Any = None
-    # TODO: Add receipts to result
+    receipts: Any = None
     rejected: Any = None
     gas_used: Any = None
 
@@ -300,6 +313,11 @@ class Result:
         data["rejected"] = [
             {"index": idx, "error": error}
             for idx, error in self.rejected.items()
+        ]
+
+        data["receipts"] = [
+            {"transactionHash": item["transactionHash"], "blockHash": item["blockHash"], "gasUsed": item["gasUsed"]}
+            for item in self.receipts
         ]
 
         return data

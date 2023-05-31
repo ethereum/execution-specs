@@ -353,6 +353,8 @@ class T8N(Load):
                     receipt,
                 )
 
+                self.txs.add_receipt(tx)
+
                 block_logs += process_transaction_return[1]
 
                 self.alloc.state._snapshots = []
@@ -389,6 +391,7 @@ class T8N(Load):
         self.result.bloom = block_logs_bloom
         self.result.logs_hash = logs_hash
         self.result.rejected = self.txs.rejected_txs
+        self.result.receipts = self.txs.successful_receipts
         self.result.gas_used = block_gas_used
 
     def run(self) -> int:
