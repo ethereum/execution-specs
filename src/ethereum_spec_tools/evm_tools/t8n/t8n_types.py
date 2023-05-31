@@ -216,11 +216,7 @@ class Txs:
         """
         Add t8n receipt info for valid tx
         """
-        data = {
-            "transactionHash": "hash",
-            "blockHash": "hash",
-            "gasUsed": 0
-        }
+        data = {"transactionHash": "hash", "blockHash": "hash", "gasUsed": 0}
         self.successful_receipts.append(data)
 
     def sign_transaction(self, json_tx: Any) -> None:
@@ -316,7 +312,11 @@ class Result:
         ]
 
         data["receipts"] = [
-            {"transactionHash": item["transactionHash"], "blockHash": item["blockHash"], "gasUsed": item["gasUsed"]}
+            {
+                "transactionHash": item["transactionHash"],
+                "blockHash": item["blockHash"],
+                "gasUsed": item["gasUsed"],
+            }
             for item in self.receipts
         ]
 
