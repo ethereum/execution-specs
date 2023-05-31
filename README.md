@@ -92,7 +92,7 @@ This guide installs stable versions of the required external `evm` and `solc` ex
        ```
        Expected console output:
        <figure markdown>
-         ![Screenshot of pytest test collection console output](docs/img/pytest_collect_only.png){align=center}
+         ![Screenshot of pytest test collection console output](docs/getting_started/img/pytest_collect_only.png){align=center}
        </figure>
        
     2. Execute the test cases (verbosely) in the `./fillers/example/acl_example.py` module:
@@ -101,20 +101,26 @@ This guide installs stable versions of the required external `evm` and `solc` ex
         ```
         Expected console output:
         <figure markdown>
-          ![Screenshot of pytest test collection console output](docs/img/pytest_run_example.png){align=center}
+          ![Screenshot of pytest test collection console output](docs/getting_started/img/pytest_run_example.png){align=center}
         </figure>
         Check:
        
         1. The versions of the `evm` and `solc` tools are as expected (your versions may differ from those in the highlighted box).
         2. The fixture file `out/example/acl_example/test_access_list.json` has been generated.
 
-See the [online documentation](https://danceratopz.github.io/execution-spec-tests/) for potential next steps:
+## Usage
+
+See the [online documentation](https://danceratopz.github.io/execution-spec-tests/) for further help with working with this codebase:
 1. Learn [useful command-line flags](https://danceratopz.github.io/execution-spec-tests/getting_started/executing_tests_command_line/).
 2. [Execute tests for features under development](https://danceratopz.github.io/execution-spec-tests/getting_started/executing_tests_dev_fork/) via the `--latest-fork` flag.
 3. _Optional:_ [Configure VS Code](https://danceratopz.github.io/execution-spec-tests/getting_started/setup_vs_code/) to auto-format Python code and [execute tests within VS Code](https://danceratopz.github.io/execution-spec-tests/getting_started/executing_tests_vs_code/#executing-and-debugging-test-cases).
 4. Implement a new test case, see [Writing Tests](https://danceratopz.github.io/execution-spec-tests/writing_tests/).
 
 
-## Implementing New Tests
+## Contributing
 
 Please see the [online documentation](https://danceratopz.github.io/execution-spec-tests/writing_tests/) for this repositories coding standards and help on how to implement new tests.
+
+## License 
+
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE) file for details.
