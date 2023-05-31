@@ -29,7 +29,7 @@ def test_contract_creating_tx(
 ):
 ```
 
-The `state_test` and `blockchain_test` objects are actually wrapper definitions to `StateTest`, respectively `BlockchainTest` objects, that once called actually instantiate a new instance of these objects and fill the test case using the `evm` tool according to the pre and post states and the transactions defined within the test.
+The `state_test` and `blockchain_test` objects are actually wrapper classes to the `StateTest`, respectively `BlockchainTest` objects, that once called actually instantiate a new instance of these objects and fill the test case using the `evm` tool according to the pre and post states and the transactions defined within the test.
 
 ### Parametrization By Fork
 
