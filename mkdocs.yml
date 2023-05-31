@@ -8,13 +8,10 @@ edit_uri: edit/main/docs/
 copyright: 'Copyright: 2023, Ethereum Community'
 
 plugins:
-  - awesome-pages:
-        order: asc
-        sort_type: natural
-        order_by: title
   - git-authors:
       exclude:
-        - _auto_gen_fillers/*
+        - fillers/*
+        - navigation.md
   - glightbox
   - mkdocstrings:
       handlers:
@@ -27,9 +24,12 @@ plugins:
   - gen-files:
       scripts:
         - docs/gen_filler_pages.py
+  - literate-nav:
+      nav_file: navigation.md
 
 watch:
   - src/
+  - fillers/
 
 theme: 
   name: material

@@ -21,7 +21,7 @@ This check accomplished by adding two global variables anywhere in the Python so
 
 ## Example
 
-Here is an example from [./fillers/eips/eip3651.py](../_auto_gen_fillers/EIPS/eip3651.md):
+Here is an example from [./fillers/eips/eip3651.py](../fillers/EIPs/eip3651.md):
 
 ```python
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3651.md"
