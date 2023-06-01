@@ -85,7 +85,8 @@ MAX_STORAGE_KEY_VALUE = 2**256 - 1
 MIN_STORAGE_KEY_VALUE = -(2**255)
 
 
-class REMOVABLE:
+# Sentinel classes
+class Removable:
     """
     Sentinel class to detect if a parameter should be removed.
     (`None` normally means "do not modify")
@@ -94,6 +95,18 @@ class REMOVABLE:
     pass
 
 
+class Auto:
+    """
+    Class to use as a sentinel value for parameters that should be
+    automatically calculated.
+    """
+
+    def __repr__(self) -> str:
+        """Print the correct test id."""
+        return "auto"
+
+
+# Common Types
 class Storage:
     """
     Definition of a storage in pre or post state of a test
@@ -830,12 +843,12 @@ class Header:
     extra_data: Optional[str] = None
     mix_digest: Optional[str] = None
     nonce: Optional[str] = None
-    base_fee: Optional[int | REMOVABLE] = None
-    withdrawals_root: Optional[str | REMOVABLE] = None
-    excess_data_gas: Optional[int | REMOVABLE] = None
+    base_fee: Optional[int | Removable] = None
+    withdrawals_root: Optional[str | Removable] = None
+    excess_data_gas: Optional[int | Removable] = None
     hash: Optional[str] = None
 
-    REMOVE_FIELD: ClassVar[REMOVABLE] = REMOVABLE()
+    REMOVE_FIELD: ClassVar[Removable] = Removable()
     """
     Sentinel object used to specify that a header field should be removed.
     """
@@ -1002,10 +1015,10 @@ class Block(Header):
             if self.gas_limit is not None
             else environment_default.gas_limit
         )
-        if not isinstance(self.base_fee, REMOVABLE):
+        if not isinstance(self.base_fee, Removable):
             new_env.base_fee = self.base_fee
         new_env.withdrawals = self.withdrawals
-        if not isinstance(self.excess_data_gas, REMOVABLE):
+        if not isinstance(self.excess_data_gas, Removable):
             new_env.excess_data_gas = self.excess_data_gas
 
         """

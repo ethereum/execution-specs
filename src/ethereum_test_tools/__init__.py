@@ -7,6 +7,7 @@ from .code import Code, CodeGasMeasure, Initcode, Yul
 from .common import (
     AccessList,
     Account,
+    Auto,
     Block,
     Environment,
     Fixture,
@@ -46,6 +47,7 @@ from .vm import Opcode, Opcodes
 __all__ = (
     "AccessList",
     "Account",
+    "Auto",
     "BaseTest",
     "Block",
     "BlockchainTest",

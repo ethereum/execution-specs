@@ -23,6 +23,7 @@ from .helpers import (
 from .types import (
     AccessList,
     Account,
+    Auto,
     Block,
     Environment,
     Fixture,
@@ -47,6 +48,7 @@ __all__ = (
     "Account",
     "AddrAA",
     "AddrBB",
+    "Auto",
     "Block",
     "EmptyTrieRoot",
     "Environment",

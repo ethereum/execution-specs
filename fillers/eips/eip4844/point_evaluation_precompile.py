@@ -5,22 +5,27 @@ EIP: https://eips.ethereum.org/EIPS/eip-4844
 import glob
 import json
 import os
-from dataclasses import dataclass
 from hashlib import sha256
 from typing import Dict, Iterator, List, Literal
 
-from ethereum_test_forks import Cancun, Fork, ShanghaiToCancunAtTime15k
+import pytest
+
+from ethereum_test_forks import (
+    Cancun,
+    Fork,
+    ShanghaiToCancunAtTime15k,
+    fork_only,
+    forks_from,
+)
 from ethereum_test_tools import (
     Account,
+    Auto,
     Block,
-    BlockchainTest,
-    CodeGasMeasure,
+    BlockchainTestFiller,
     Storage,
     TestAddress,
     Transaction,
-    copy_opcode_cost,
-    test_from,
-    test_only,
+    eip_2028_transaction_data_cost,
     to_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
@@ -40,6 +45,17 @@ FIELD_ELEMENTS_PER_BLOB = 4096
 FIELD_ELEMENTS_PER_BLOB_BYTES = FIELD_ELEMENTS_PER_BLOB.to_bytes(32, "big")
 
 
+# TODO: Update once https://github.com/ethereum/EIPs/pull/7020 is merged.
+Z_Y_VALID_ENDIANNESS: Literal["little", "big"] = "little"
+Z_Y_INVALID_ENDIANNESS: Literal["little", "big"] = "big"
+
+Z = 0x623CE31CF9759A5C8DAF3A357992F9F3DD7F9339D8998BC8E68373E54F00B75E
+INF_POINT = (0xC0 << 376).to_bytes(48, byteorder="big")
+
+
+auto = Auto()
+
+
 def kzg_to_versioned_hash(
     kzg_commitment: bytes | int,  # 48 bytes
     blob_commitment_version_kzg: bytes | int = BLOB_COMMITMENT_VERSION_KZG,
@@ -56,313 +72,321 @@ def kzg_to_versioned_hash(
     return blob_commitment_version_kzg + sha256(kzg_commitment).digest()[1:]
 
 
-def format_point_evaluation_precompile_input(
-    versioned_hash: bytes | int,  # 32 bytes
-    z: bytes | int,  # 32 bytes
-    y: bytes | int,  # 32 bytes
-    kzg_commitment: bytes | int,  # 48 bytes
-    kzg_proof: bytes | int,  # 48 bytes
-    endianness: Literal["little", "big"] = "big",
+StorageDictType = Dict[str | int | bytes, str | int | bytes]
+
+
+@pytest.fixture
+def precompile_input(
+    versioned_hash: bytes | int | Auto,
+    kzg_commitment: bytes | int,
+    z: bytes | int,
+    y: bytes | int,
+    kzg_proof: bytes | int,
 ) -> bytes:
     """
     Format the input for the point evaluation precompile.
     """
-    if isinstance(versioned_hash, int):
-        versioned_hash = versioned_hash.to_bytes(32, endianness)
     if isinstance(z, int):
-        z = z.to_bytes(32, endianness)
+        z = z.to_bytes(32, Z_Y_VALID_ENDIANNESS)
     if isinstance(y, int):
-        y = y.to_bytes(32, endianness)
+        y = y.to_bytes(32, Z_Y_VALID_ENDIANNESS)
     if isinstance(kzg_commitment, int):
-        kzg_commitment = kzg_commitment.to_bytes(48, endianness)
+        kzg_commitment = kzg_commitment.to_bytes(48, "big")
     if isinstance(kzg_proof, int):
-        kzg_proof = kzg_proof.to_bytes(48, endianness)
+        kzg_proof = kzg_proof.to_bytes(48, "big")
+    if isinstance(versioned_hash, Auto):
+        versioned_hash = kzg_to_versioned_hash(kzg_commitment)
+    elif isinstance(versioned_hash, int):
+        versioned_hash = versioned_hash.to_bytes(32, "big")
 
     return versioned_hash + z + y + kzg_commitment + kzg_proof
 
 
-StorageDictType = Dict[str | int | bytes, str | int | bytes]
-
-
-@dataclass(kw_only=True)
-class KZGPointEvaluation:
+@pytest.fixture
+def call_type() -> Op:
     """
-    KZG Point Evaluation.
+    Type of call to use to call the precompile.
+
+    Defaults to Op.CALL, but can be parametrized to use other opcode types.
     """
+    return Op.CALL
 
-    name: str = ""
-    z: bytes | int
-    y: bytes | int
-    kzg_commitment: bytes | int
-    kzg_proof: bytes | int
-    versioned_hash: bytes | int | None = None
-    endianness: Literal["little", "big"] = "big"
-    call_type: Op = Op.CALL
-    gas: int = POINT_EVALUATION_PRECOMPILE_GAS
-    success: bool
 
-    def get_precompile_input(self) -> bytes:
-        """
-        Get the input for the point evaluation precompile.
-        """
-        return format_point_evaluation_precompile_input(
-            self.versioned_hash
-            if self.versioned_hash is not None
-            else kzg_to_versioned_hash(self.kzg_commitment),
-            self.z,
-            self.y,
-            self.kzg_commitment,
-            self.kzg_proof,
-            self.endianness,
-        )
+@pytest.fixture
+def call_gas() -> int:
+    """
+    Amount of gas to pass to the precompile.
 
-    def generate_blockchain_test(self) -> BlockchainTest:
-        """
-        Generate BlockchainTest.
-        """
-        precompile_caller_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        if self.call_type == Op.CALL or self.call_type == Op.CALLCODE:
-            precompile_caller_code += Op.SSTORE(
-                0,
-                self.call_type(
-                    self.gas,
-                    POINT_EVALUATION_PRECOMPILE_ADDRESS,
-                    0x00,
-                    0x00,
-                    Op.CALLDATASIZE,
-                    0x00,
-                    0x40,
-                ),
-            )  # Store the result of the precompile call in storage slot 0
-        elif (
-            self.call_type == Op.DELEGATECALL
-            or self.call_type == Op.STATICCALL
-        ):
-            # Delegatecall and staticcall use one less argument
-            precompile_caller_code += Op.SSTORE(
-                0,
-                self.call_type(
-                    self.gas,
-                    POINT_EVALUATION_PRECOMPILE_ADDRESS,
-                    0x00,
-                    Op.CALLDATASIZE,
-                    0x00,
-                    0x40,
-                ),
-            )
-        precompile_caller_code += (
-            # Save the returned values into storage
-            Op.SSTORE(1, Op.MLOAD(0x00))
-            + Op.SSTORE(2, Op.MLOAD(0x20))
-            # Save the returned data length into storage
-            + Op.SSTORE(3, Op.RETURNDATASIZE)
-            # Save the returned data using RETURNDATACOPY into storage
-            + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
-            + Op.SSTORE(4, Op.MLOAD(0x00))
-            + Op.SSTORE(5, Op.MLOAD(0x20))
-        )
+    Defaults to POINT_EVALUATION_PRECOMPILE_GAS, but can be parametrized to
+    test different amounts.
+    """
+    return POINT_EVALUATION_PRECOMPILE_GAS
 
-        precompile_caller_address = to_address(0x100)
 
-        pre = {
-            TestAddress: Account(
-                nonce=0,
-                balance=0x10**18,
-            ),
-            precompile_caller_address: Account(
-                nonce=0,
-                code=precompile_caller_code,
-            ),
-        }
-
-        precompile_calldata = self.get_precompile_input()
-        tx = Transaction(
-            ty=2,
-            nonce=0,
-            data=precompile_calldata,
-            to=precompile_caller_address,
-            value=0,
-            gas_limit=POINT_EVALUATION_PRECOMPILE_GAS * 20,
-            max_fee_per_gas=7,
-            max_priority_fee_per_gas=0,
-        )
-
-        expected_storage: Storage.StorageDictType = dict()
-        if self.success:
-            # CALL operation success
-            expected_storage[0] = 1
-            # Success return values
-            expected_storage[1] = FIELD_ELEMENTS_PER_BLOB
-            expected_storage[2] = BLS_MODULUS
-            # Success return values size
-            expected_storage[3] = 64
-            # Success return values from RETURNDATACOPY
-            expected_storage[4] = FIELD_ELEMENTS_PER_BLOB
-            expected_storage[5] = BLS_MODULUS
-
-        else:
-            # CALL operation failure
-            expected_storage[0] = 0
-            # Failure returns zero values
-            expected_storage[3] = 0
-
-            # Input parameters were not overwritten since the CALL failed
-            expected_storage[1] = precompile_calldata[0:32]
-            expected_storage[2] = precompile_calldata[32:64]
-            expected_storage[4] = expected_storage[1]
-            expected_storage[5] = expected_storage[2]
-
-        post = {
-            precompile_caller_address: Account(
-                storage=expected_storage,
-            ),
-        }
-
-        return BlockchainTest(
-            tag=self.name,
-            pre=pre,
-            post=post,
-            blocks=[Block(txs=[tx])],
-        )
-
-    def generate_gas_test(self, expected_gas_usage: int) -> BlockchainTest:
-        """
-        Generate BlockchainTest to measure precompile gas usage.
-        """
-        CALLDATASIZE_COST = 2
-        PUSH_OPERATIONS_COST = 3
-        WARM_STORAGE_READ_COST = 100
-        precompile_calldata = self.get_precompile_input()
-
-        precompile_caller_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-        overhead_cost = (
-            WARM_STORAGE_READ_COST
-            + (CALLDATASIZE_COST * 1)
-            + (PUSH_OPERATIONS_COST * 2)
-            + copy_opcode_cost(len(precompile_calldata))
-        )
-        if self.call_type == Op.CALL or self.call_type == Op.CALLCODE:
-            precompile_caller_code += self.call_type(
-                self.gas,
+@pytest.fixture
+def precompile_caller_account(call_type: Op, call_gas: int) -> Account:
+    """
+    Code to call the point evaluation precompile.
+    """
+    precompile_caller_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+    if call_type == Op.CALL or call_type == Op.CALLCODE:
+        precompile_caller_code += Op.SSTORE(
+            0,
+            call_type(
+                call_gas,
                 POINT_EVALUATION_PRECOMPILE_ADDRESS,
                 0x00,
                 0x00,
                 Op.CALLDATASIZE,
                 0x00,
-                0x00,
-            )
-            overhead_cost += (PUSH_OPERATIONS_COST * 6) + (
-                CALLDATASIZE_COST * 1
-            )
-        elif (
-            self.call_type == Op.DELEGATECALL
-            or self.call_type == Op.STATICCALL
-        ):
-            # Delegatecall and staticcall use one less argument
-            precompile_caller_code += self.call_type(
-                self.gas,
+                0x40,
+            ),
+        )  # Store the result of the precompile call in storage slot 0
+    elif call_type == Op.DELEGATECALL or call_type == Op.STATICCALL:
+        # Delegatecall and staticcall use one less argument
+        precompile_caller_code += Op.SSTORE(
+            0,
+            call_type(
+                call_gas,
                 POINT_EVALUATION_PRECOMPILE_ADDRESS,
                 0x00,
                 Op.CALLDATASIZE,
                 0x00,
-                0x00,
-            )
-            overhead_cost += (PUSH_OPERATIONS_COST * 5) + (
-                CALLDATASIZE_COST * 1
-            )
-
-        gas_measure_code = CodeGasMeasure(
-            code=precompile_caller_code,
-            overhead_cost=overhead_cost,
-            extra_stack_items=1,
+                0x40,
+            ),
         )
+    precompile_caller_code += (
+        # Save the returned values into storage
+        Op.SSTORE(1, Op.MLOAD(0x00))
+        + Op.SSTORE(2, Op.MLOAD(0x20))
+        # Save the returned data length into storage
+        + Op.SSTORE(3, Op.RETURNDATASIZE)
+        # Save the returned data using RETURNDATACOPY into storage
+        + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
+        + Op.SSTORE(4, Op.MLOAD(0x00))
+        + Op.SSTORE(5, Op.MLOAD(0x20))
+    )
+    return Account(
+        nonce=0,
+        code=precompile_caller_code,
+        balance=0x10**18,
+    )
 
-        precompile_caller_address = to_address(0x100)
 
-        pre = {
-            TestAddress: Account(
-                nonce=0,
-                balance=0x10**18,
-            ),
-            precompile_caller_address: Account(
-                nonce=0,
-                code=gas_measure_code,
-            ),
-        }
+@pytest.fixture
+def precompile_caller_address() -> str:
+    """
+    Address of the precompile caller account.
+    """
+    return to_address(0x100)
 
-        tx = Transaction(
-            ty=2,
+
+@pytest.fixture
+def pre(
+    precompile_caller_account: Account,
+    precompile_caller_address: str,
+) -> Dict:
+    """
+    Prepares the pre state of all test cases, by setting the balance of the
+    source account of all test transactions, and the precompile caller account.
+    """
+    return {
+        TestAddress: Account(
             nonce=0,
-            data=precompile_calldata,
-            to=precompile_caller_address,
-            value=0,
-            gas_limit=POINT_EVALUATION_PRECOMPILE_GAS * 20,
-            max_fee_per_gas=7,
-            max_priority_fee_per_gas=0,
-        )
+            balance=0x10**18,
+        ),
+        precompile_caller_address: precompile_caller_account,
+    }
 
-        post = {
-            precompile_caller_address: Account(
-                storage={
-                    0: expected_gas_usage,
-                },
-            ),
-        }
 
-        return BlockchainTest(
-            tag=self.name,
-            pre=pre,
-            post=post,
-            blocks=[Block(txs=[tx])],
-        )
+@pytest.fixture
+def tx(
+    precompile_caller_address: str,
+    precompile_input: bytes,
+) -> Transaction:
+    """
+    Prepares transaction used to call the precompile caller account.
+    """
+    return Transaction(
+        ty=2,
+        nonce=0,
+        data=precompile_input,
+        to=precompile_caller_address,
+        value=0,
+        gas_limit=POINT_EVALUATION_PRECOMPILE_GAS * 20,
+        max_fee_per_gas=7,
+        max_priority_fee_per_gas=0,
+    )
 
-    @classmethod
-    def from_dict(cls, data: dict) -> "KZGPointEvaluation":
-        """
-        Create a KZGPointEvaluation from a dictionary.
-        """
-        if "input" not in data:
-            raise ValueError("Missing 'input' key in data")
-        if "output" not in data:
-            raise ValueError("Missing 'output' key in data")
-        if isinstance(data["output"], bool):
-            success = data["output"]
-        else:
-            success = False
-        input = data["input"]
-        if "commitment" not in input or not isinstance(
-            input["commitment"], str
-        ):
-            raise ValueError("Missing 'commitment' key in data['input']")
-        commitment = bytes.fromhex(input["commitment"][2:])
-        if "proof" not in input or not isinstance(input["proof"], str):
-            raise ValueError("Missing 'proof' key in data['input']")
-        proof = bytes.fromhex(input["proof"][2:])
-        if "z" not in input or not isinstance(input["z"], str):
-            raise ValueError("Missing 'z' key in data['input']")
-        z = bytes.fromhex(input["z"][2:])
-        if "y" not in input or not isinstance(input["y"], str):
-            raise ValueError("Missing 'y' key in data['input']")
-        y = bytes.fromhex(input["y"][2:])
 
-        name = data["name"] if "name" in data else ""
-        return cls(
-            name=name,
-            z=z,
-            y=y,
-            kzg_commitment=commitment,
-            kzg_proof=proof,
-            success=success,
-        )
+@pytest.fixture
+def post(
+    success: bool,
+    precompile_caller_address: str,
+    precompile_input: bytes,
+) -> Dict:
+    """
+    Prepares expected post for each test, depending on the success or
+    failure of the precompile call.
+    """
+    expected_storage: Storage.StorageDictType = dict()
+    if success:
+        # CALL operation success
+        expected_storage[0] = 1
+        # Success return values
+        expected_storage[1] = FIELD_ELEMENTS_PER_BLOB
+        expected_storage[2] = BLS_MODULUS
+        # Success return values size
+        expected_storage[3] = 64
+        # Success return values from RETURNDATACOPY
+        expected_storage[4] = FIELD_ELEMENTS_PER_BLOB
+        expected_storage[5] = BLS_MODULUS
+
+    else:
+        # CALL operation failure
+        expected_storage[0] = 0
+        # Failure returns zero values
+        expected_storage[3] = 0
+
+        # Input parameters were not overwritten since the CALL failed
+        expected_storage[1] = precompile_input[0:32]
+        expected_storage[2] = precompile_input[32:64]
+        expected_storage[4] = expected_storage[1]
+        expected_storage[5] = expected_storage[2]
+    return {
+        precompile_caller_address: Account(
+            storage=expected_storage,
+        ),
+    }
+
+
+@pytest.mark.parametrize(
+    "z,y,kzg_commitment,kzg_proof,versioned_hash",
+    [
+        pytest.param(
+            BLS_MODULUS - 1, 0, INF_POINT, INF_POINT, auto, id="in_bounds_z"
+        ),
+    ],
+)
+@pytest.mark.parametrize("success", [True])
+@pytest.mark.parametrize("fork", forks_from(Cancun))
+def test_valid_precompile_calls(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict,
+    tx: Transaction,
+    post: Dict,
+    fork: Fork,
+):
+    """
+    Test invalid precompile calls:
+    - Out of bounds inputs
+    - Invalid calldata length
+    - Invalid versioned hashes
+    """
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=[Block(txs=[tx])],
+    )
+
+
+@pytest.mark.parametrize(
+    "z,y,kzg_commitment,kzg_proof,versioned_hash",
+    [
+        (BLS_MODULUS, 0, INF_POINT, INF_POINT, auto),
+        (0, BLS_MODULUS, INF_POINT, INF_POINT, auto),
+        (Z, 0, INF_POINT, INF_POINT[:-1], auto),
+        (Z, 0, INF_POINT, INF_POINT[0:1], auto),
+        (Z, 0, INF_POINT, INF_POINT + bytes([0]), auto),
+        (Z, 0, INF_POINT, INF_POINT + bytes([0] * 1023), auto),
+        (bytes(), bytes(), bytes(), bytes(), bytes()),
+        (0, 0, 0, 0, 0),
+        (0, 0, 0, 0, auto),
+        (Z, 0, INF_POINT, INF_POINT, kzg_to_versioned_hash(0xC0 << 376, 0x00)),
+        (Z, 0, INF_POINT, INF_POINT, kzg_to_versioned_hash(0xC0 << 376, 0x02)),
+        (Z, 0, INF_POINT, INF_POINT, kzg_to_versioned_hash(0xC0 << 376, 0xFF)),
+    ],
+    ids=[
+        "out_of_bounds_z",
+        "out_of_bounds_y",
+        "correct_proof_1_input_too_short",
+        "correct_proof_1_input_too_short_2",
+        "correct_proof_1_input_too_long",
+        "correct_proof_1_input_extra_long",
+        "null_inputs",
+        "zeros_inputs",
+        "zeros_inputs_correct_versioned_hash",
+        "correct_proof_1_incorrect_versioned_hash_version_0x00",
+        "correct_proof_1_incorrect_versioned_hash_version_0x02",
+        "correct_proof_1_incorrect_versioned_hash_version_0xff",
+    ],
+)
+@pytest.mark.parametrize("success", [False])
+@pytest.mark.parametrize("fork", forks_from(Cancun))
+def test_invalid_precompile_calls(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict,
+    tx: Transaction,
+    post: Dict,
+    fork: Fork,
+):
+    """
+    Test invalid precompile calls:
+    - Out of bounds inputs
+    - Invalid calldata length
+    - Invalid versioned hashes
+    """
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=[Block(txs=[tx])],
+    )
+
+
+def kzg_point_evaluation_vector_from_dict(data: dict):
+    """
+    Create a KZGPointEvaluation from a dictionary.
+    """
+    if "input" not in data:
+        raise ValueError("Missing 'input' key in data")
+    if "output" not in data:
+        raise ValueError("Missing 'output' key in data")
+    if isinstance(data["output"], bool):
+        success = data["output"]
+    else:
+        success = False
+    input = data["input"]
+    if "commitment" not in input or not isinstance(input["commitment"], str):
+        raise ValueError("Missing 'commitment' key in data['input']")
+    commitment = bytes.fromhex(input["commitment"][2:])
+    if "proof" not in input or not isinstance(input["proof"], str):
+        raise ValueError("Missing 'proof' key in data['input']")
+    proof = bytes.fromhex(input["proof"][2:])
+    if "z" not in input or not isinstance(input["z"], str):
+        raise ValueError("Missing 'z' key in data['input']")
+    z = bytes.fromhex(input["z"][2:])
+    if "y" not in input or not isinstance(input["y"], str):
+        raise ValueError("Missing 'y' key in data['input']")
+    y = bytes.fromhex(input["y"][2:])
+
+    name = data["name"] if "name" in data else ""
+    return pytest.param(
+        z,
+        y,
+        commitment,
+        proof,
+        success,
+        id=name,
+    )
 
 
 def load_kzg_point_evaluation_test_vectors_from_file(
     file_path: str,
-) -> list[KZGPointEvaluation]:
+) -> List:
     """
     Load KZG Point Evaluations from a directory.
     """
-    test_vectors: list[KZGPointEvaluation] = []
+    test_vectors = []
 
     # Load the json file as a dictionary
     with open(file_path, "r") as file:
@@ -372,7 +396,7 @@ def load_kzg_point_evaluation_test_vectors_from_file(
         for item in data:
             if not isinstance(item, dict):
                 continue
-            test_vectors.append(KZGPointEvaluation.from_dict(item))
+            test_vectors.append(kzg_point_evaluation_vector_from_dict(item))
 
     return test_vectors
 
@@ -391,163 +415,13 @@ def get_point_evaluation_test_files_in_directory(path: str) -> list[str]:
     return glob.glob(os.path.join(path, "*.json"))
 
 
-@test_from(fork=Cancun)
-def test_point_evaluation_precompile(_: Fork):
-    """
-    Tests for the Point Evaluation Precompile.
-    Verify p(z) = y given commitment that corresponds to the polynomial p(x)
-    and a KZG proof.
-    Also verify that the provided commitment matches the provided
-    versioned_hash.
-    """
-    z = 0x623CE31CF9759A5C8DAF3A357992F9F3DD7F9339D8998BC8E68373E54F00B75E
-    test_cases: List[KZGPointEvaluation] = [
-        KZGPointEvaluation(
-            name="correct_proof_1",
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=0xC0 << 376,
-            success=True,
-        ),
-        KZGPointEvaluation(
-            name="out_of_bounds_z",
-            z=BLS_MODULUS,
-            y=0,
-            kzg_commitment=0,
-            kzg_proof=0,
-            success=False,
-        ),
-        KZGPointEvaluation(
-            name="out_of_bounds_y",
-            z=0,
-            y=BLS_MODULUS,
-            kzg_commitment=0,
-            kzg_proof=0,
-            success=False,
-        ),
-        KZGPointEvaluation(
-            name="correct_proof_1_input_too_short",
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=bytes([0xC0] + [0] * 46),
-            versioned_hash=kzg_to_versioned_hash(0xC0 << 376),
-            success=False,
-        ),
-        KZGPointEvaluation(
-            name="correct_proof_1_input_too_short_2",
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=bytes([0xC0]),
-            versioned_hash=kzg_to_versioned_hash(0xC0 << 376),
-            success=False,
-        ),
-        KZGPointEvaluation(
-            name="correct_proof_1_input_too_long",
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=bytes([0xC0] + [0] * 48),
-            versioned_hash=kzg_to_versioned_hash(0xC0 << 376),
-            success=False,
-        ),
-        KZGPointEvaluation(
-            name="correct_proof_1_input_extra_long",
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=bytes([0xC0] + [0] * 1024),
-            versioned_hash=kzg_to_versioned_hash(0xC0 << 376),
-            success=False,
-        ),
-        KZGPointEvaluation(
-            name="null_inputs",
-            z=bytes(),
-            y=bytes(),
-            kzg_commitment=bytes(),
-            kzg_proof=bytes(),
-            versioned_hash=bytes(),
-            success=False,
-        ),
-        KZGPointEvaluation(
-            name="zeros_inputs",
-            z=0,
-            y=0,
-            kzg_commitment=0,
-            kzg_proof=0,
-            versioned_hash=0,
-            success=False,
-        ),
-        KZGPointEvaluation(
-            name="zeros_inputs_correct_versioned_hash",
-            z=0,
-            y=0,
-            kzg_commitment=0,
-            kzg_proof=0,
-            success=False,
-        ),
-        KZGPointEvaluation(
-            name="correct_proof_1_inverted_endianness",
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=0xC0 << 376,
-            success=False,
-            endianness="little",
-        ),
-        KZGPointEvaluation(
-            name="correct_proof_1_incorrect_versioned_hash_version_0x00",
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=0xC0 << 376,
-            versioned_hash=kzg_to_versioned_hash(
-                0xC0 << 376,
-                0x00,
-            ),
-            success=False,
-        ),
-        KZGPointEvaluation(
-            name="correct_proof_1_incorrect_versioned_hash_version_0x02",
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=0xC0 << 376,
-            versioned_hash=kzg_to_versioned_hash(
-                0xC0 << 376,
-                0x02,
-            ),
-            success=False,
-        ),
-        KZGPointEvaluation(
-            name="correct_proof_1_incorrect_versioned_hash_version_0xff",
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=0xC0 << 376,
-            versioned_hash=kzg_to_versioned_hash(
-                0xC0 << 376,
-                0xFF,
-            ),
-            success=False,
-        ),
-    ]
-
-    for test_case in test_cases:
-        yield test_case.generate_blockchain_test()
-
-
-@test_from(fork=Cancun)
-def test_point_evaluation_precompile_external_vectors(_: Fork):
+def all_external_vectors() -> List:
     """
     Tests for the Point Evaluation Precompile from external sources,
     contained in ./point_evaluation_vectors/.
     """
-    test_cases: List[KZGPointEvaluation] = []
+    test_cases = []
 
-    # Rest are loaded from the YAML files
     for test_file in get_point_evaluation_test_files_in_directory(
         os.path.join(
             current_python_script_directory(), "point_evaluation_vectors"
@@ -559,126 +433,167 @@ def test_point_evaluation_precompile_external_vectors(_: Fork):
         assert len(file_loaded_tests) > 0
         test_cases += file_loaded_tests
 
-    for test_case in test_cases:
-        yield test_case.generate_blockchain_test()
+    return test_cases
 
 
-@test_from(fork=Cancun)
-def test_point_evaluation_precompile_calls(_: Fork):
+@pytest.mark.parametrize(
+    "z,y,kzg_commitment,kzg_proof,success",
+    all_external_vectors(),
+)
+@pytest.mark.parametrize("versioned_hash", [auto])
+@pytest.mark.parametrize("fork", forks_from(Cancun))
+def test_point_evaluation_precompile_external_vectors(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict,
+    tx: Transaction,
+    post: Dict,
+    fork: Fork,
+):
+    """
+    Test invalid precompile calls:
+    - Out of bounds inputs
+    - Invalid calldata length
+    - Invalid versioned hashes
+    """
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=[Block(txs=[tx])],
+    )
+
+
+@pytest.mark.parametrize(
+    "call_gas,y,success",
+    [
+        (POINT_EVALUATION_PRECOMPILE_GAS, 0, True),
+        (POINT_EVALUATION_PRECOMPILE_GAS, 1, False),
+        (POINT_EVALUATION_PRECOMPILE_GAS - 1, 0, False),
+    ],
+    ids=["correct", "incorrect", "insufficient_gas"],
+)
+@pytest.mark.parametrize(
+    "call_type",
+    [
+        Op.CALL,
+        Op.DELEGATECALL,
+        Op.CALLCODE,
+        Op.STATICCALL,
+    ],
+)
+@pytest.mark.parametrize(
+    "z,kzg_commitment,kzg_proof,versioned_hash",
+    [[Z, INF_POINT, INF_POINT, auto]],
+    ids=[""],
+)
+@pytest.mark.parametrize("fork", forks_from(Cancun))
+def test_point_evaluation_precompile_calls(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict,
+    tx: Transaction,
+    post: Dict,
+    fork: Fork,
+):
     """
     Test calling the Point Evaluation Precompile with different call types, gas
     and parameter configuration.
     """
-    z = 0x623CE31CF9759A5C8DAF3A357992F9F3DD7F9339D8998BC8E68373E54F00B75E
-
-    # Call
-    yield KZGPointEvaluation(
-        name="call_insufficient_gas",
-        z=z,
-        y=0,
-        kzg_commitment=0xC0 << 376,
-        kzg_proof=0xC0 << 376,
-        gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
-        success=False,
-    ).generate_blockchain_test()
-
-    for call_type in [Op.DELEGATECALL, Op.CALLCODE, Op.STATICCALL]:
-        yield KZGPointEvaluation(
-            name=f"{call_type}_correct".lower(),
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=0xC0 << 376,
-            call_type=call_type,
-            success=True,
-        ).generate_blockchain_test()
-        yield KZGPointEvaluation(
-            name=f"{call_type}_incorrect".lower(),
-            z=z,
-            y=1,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=0xC0 << 376,
-            call_type=call_type,
-            success=False,
-        ).generate_blockchain_test()
-        yield KZGPointEvaluation(
-            name=f"{call_type}_insufficient_gas".lower(),
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=0xC0 << 376,
-            gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
-            call_type=call_type,
-            success=False,
-        ).generate_blockchain_test()
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=[Block(txs=[tx])],
+    )
 
 
-@test_from(fork=Cancun)
-def test_point_evaluation_precompile_gas_usage(_: Fork):
+@pytest.mark.parametrize(
+    "call_gas",
+    [
+        (POINT_EVALUATION_PRECOMPILE_GAS),
+        (POINT_EVALUATION_PRECOMPILE_GAS + 1),
+        (POINT_EVALUATION_PRECOMPILE_GAS - 1),
+    ],
+    ids=["exact_gas", "extra_gas", "insufficient_gas"],
+)
+@pytest.mark.parametrize(
+    "z,y,kzg_commitment,kzg_proof,versioned_hash,proof_correct",
+    [
+        [Z, 0, INF_POINT, INF_POINT, auto, True],
+        [Z, 1, INF_POINT, INF_POINT, auto, False],
+    ],
+    ids=["correct_proof", "incorrect_proof"],
+)
+@pytest.mark.parametrize("fork", forks_from(Cancun))
+def test_point_evaluation_precompile_gas_tx_to(
+    blockchain_test: BlockchainTestFiller,
+    precompile_input: bytes,
+    call_gas: int,
+    proof_correct: bool,
+    fork: Fork,
+):
     """
-    Test Precompile Gas Usage.
+    Test calling the Point Evaluation Precompile directly as
+    transaction entry point, and measure the gas consumption.
     """
-    z = 0x623CE31CF9759A5C8DAF3A357992F9F3DD7F9339D8998BC8E68373E54F00B75E
-    call_types = [Op.CALL, Op.DELEGATECALL, Op.CALLCODE, Op.STATICCALL]
-    for call_type in call_types:
-        yield KZGPointEvaluation(
-            name=f"{call_type}_correct_proof_sufficient_gas",
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=0xC0 << 376,
-            gas=POINT_EVALUATION_PRECOMPILE_GAS,
-            call_type=call_type,
-            success=True,
-        ).generate_gas_test(expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS)
-        yield KZGPointEvaluation(
-            name=f"{call_type}_incorrect_proof_sufficient_gas",
-            z=z,
-            y=1,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=0xC0 << 376,
-            gas=POINT_EVALUATION_PRECOMPILE_GAS,
-            call_type=call_type,
-            success=False,
-        ).generate_gas_test(expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS)
-        yield KZGPointEvaluation(
-            name=f"{call_type}_correct_proof_extra_gas",
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=0xC0 << 376,
-            gas=POINT_EVALUATION_PRECOMPILE_GAS + 1,
-            call_type=call_type,
-            success=True,
-        ).generate_gas_test(expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS)
-        yield KZGPointEvaluation(
-            name=f"{call_type}_incorrect_proof_extra_gas",
-            z=z,
-            y=1,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=0xC0 << 376,
-            gas=POINT_EVALUATION_PRECOMPILE_GAS + 1,
-            call_type=call_type,
-            success=True,
-        ).generate_gas_test(
-            expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS + 1
+    start_balance = 10**18
+    pre = {
+        TestAddress: Account(
+            nonce=0,
+            balance=start_balance,
         )
-        yield KZGPointEvaluation(
-            name=f"{call_type}_correct_proof_insufficient_gas",
-            z=z,
-            y=0,
-            kzg_commitment=0xC0 << 376,
-            kzg_proof=0xC0 << 376,
-            gas=POINT_EVALUATION_PRECOMPILE_GAS - 1,
-            call_type=call_type,
-            success=False,
-        ).generate_gas_test(
-            expected_gas_usage=POINT_EVALUATION_PRECOMPILE_GAS - 1
+    }
+
+    # Gas is appended the intrinsic gas cost of the transaction
+    intrinsic_gas_cost = 21_000 + eip_2028_transaction_data_cost(
+        precompile_input
+    )
+
+    # Consumed gas will only be the precompile gas if the proof is correct and
+    # the call gas is sufficient.
+    # Otherwise, the call gas will be consumed in full.
+    consumed_gas = (
+        POINT_EVALUATION_PRECOMPILE_GAS
+        if call_gas >= POINT_EVALUATION_PRECOMPILE_GAS and proof_correct
+        else call_gas
+    ) + intrinsic_gas_cost
+
+    fee_per_gas = 7
+
+    tx = Transaction(
+        ty=2,
+        nonce=0,
+        data=precompile_input,
+        to=to_address(POINT_EVALUATION_PRECOMPILE_ADDRESS),
+        value=0,
+        gas_limit=call_gas + intrinsic_gas_cost,
+        max_fee_per_gas=7,
+        max_priority_fee_per_gas=0,
+    )
+
+    post = {
+        TestAddress: Account(
+            nonce=1,
+            balance=start_balance - (consumed_gas * fee_per_gas),
         )
+    }
+
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=[Block(txs=[tx])],
+    )
 
 
-@test_only(fork=ShanghaiToCancunAtTime15k)
-def test_point_evaluation_precompile_before_fork(_: Fork):
+@pytest.mark.parametrize(
+    "z,y,kzg_commitment,kzg_proof,versioned_hash",
+    [[Z, 0, INF_POINT, INF_POINT, auto]],
+    ids=["correct_proof"],
+)
+@pytest.mark.parametrize("fork", fork_only(ShanghaiToCancunAtTime15k))
+def test_point_evaluation_precompile_before_fork(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict,
+    tx: Transaction,
+    fork: Fork,
+):
     """
     Test calling the Point Evaluation Precompile before the appropriate fork.
     """
@@ -711,17 +626,8 @@ def test_point_evaluation_precompile_before_fork(_: Fork):
     def tx_generator() -> Iterator[Transaction]:
         nonce = 0  # Initial value
         while True:
-            tx = Transaction(
-                ty=2,
-                nonce=nonce,
-                to=precompile_caller_address,
-                value=0,
-                gas_limit=POINT_EVALUATION_PRECOMPILE_GAS * 10,
-                max_fee_per_gas=7,
-                max_priority_fee_per_gas=0,
-            )
+            yield tx.with_nonce(nonce)
             nonce = nonce + 1
-            yield tx
 
     iter_tx = tx_generator()
 
@@ -745,7 +651,7 @@ def test_point_evaluation_precompile_before_fork(_: Fork):
         ),
     }
 
-    yield BlockchainTest(
+    blockchain_test(
         tag="point_evaluation_precompile_before_fork",
         pre=pre,
         post=post,

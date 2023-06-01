@@ -1,0 +1,249 @@
+"""
+Test EIP-4844: Shard Blob Transactions (Point Evaluation Precompile)
+EIP: https://eips.ethereum.org/EIPS/eip-4844
+"""
+from hashlib import sha256
+from typing import Dict, Literal
+
+import pytest
+
+from ethereum_test_forks import Cancun, Fork, forks_from
+from ethereum_test_tools import (
+    Account,
+    Block,
+    BlockchainTestFiller,
+    CodeGasMeasure,
+    TestAddress,
+    Transaction,
+    copy_opcode_cost,
+    to_address,
+)
+from ethereum_test_tools.vm.opcode import Opcodes as Op
+
+REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
+REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
+
+POINT_EVALUATION_PRECOMPILE_ADDRESS = 20
+POINT_EVALUATION_PRECOMPILE_GAS = 50_000
+BLOB_COMMITMENT_VERSION_KZG = b"\x01"
+
+Z = 0x623CE31CF9759A5C8DAF3A357992F9F3DD7F9339D8998BC8E68373E54F00B75E
+INF_POINT = (0xC0 << 376).to_bytes(48, byteorder="big")
+
+
+def kzg_to_versioned_hash(
+    kzg_commitment: bytes | int,  # 48 bytes
+    blob_commitment_version_kzg: bytes | int = BLOB_COMMITMENT_VERSION_KZG,
+) -> bytes:
+    """
+    Calculates the versioned hash for a given KZG commitment.
+    """
+    if isinstance(kzg_commitment, int):
+        kzg_commitment = kzg_commitment.to_bytes(48, "big")
+    if isinstance(blob_commitment_version_kzg, int):
+        blob_commitment_version_kzg = blob_commitment_version_kzg.to_bytes(
+            1, "big"
+        )
+    return blob_commitment_version_kzg + sha256(kzg_commitment).digest()[1:]
+
+
+@pytest.fixture
+def precompile_input(proof: Literal["correct", "incorrect"]) -> bytes:
+    """
+    Format depending on whether we want a correct proof or not.
+    """
+    kzg_commitment = INF_POINT
+    kzg_proof = INF_POINT
+    z = Z
+    # INF_POINT commitment and proof evaluate to 0 on all z values
+    y = 0 if proof == "correct" else 1
+
+    versioned_hash = kzg_to_versioned_hash(kzg_commitment)
+    return (
+        versioned_hash
+        + z.to_bytes(32, "little")
+        + y.to_bytes(32, "little")
+        + kzg_commitment
+        + kzg_proof
+    )
+
+
+@pytest.fixture
+def call_type() -> Op:
+    """
+    Type of call to use to call the precompile.
+
+    Defaults to Op.CALL, but can be parametrized to use other opcode types.
+    """
+    return Op.CALL
+
+
+@pytest.fixture
+def call_gas() -> int:
+    """
+    Amount of gas to pass to the precompile.
+
+    Defaults to POINT_EVALUATION_PRECOMPILE_GAS, but can be parametrized to
+    test different amounts.
+    """
+    return POINT_EVALUATION_PRECOMPILE_GAS
+
+
+@pytest.fixture
+def precompile_caller_account(
+    call_type: Op,
+    call_gas: int,
+    precompile_input: bytes,
+) -> Account:
+    """
+    Code to call the point evaluation precompile and evaluate gas usage.
+    """
+    CALLDATASIZE_COST = 2
+    PUSH_OPERATIONS_COST = 3
+    WARM_STORAGE_READ_COST = 100
+
+    precompile_caller_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+    overhead_cost = (
+        WARM_STORAGE_READ_COST
+        + (CALLDATASIZE_COST * 1)
+        + (PUSH_OPERATIONS_COST * 2)
+        + copy_opcode_cost(len(precompile_input))
+    )
+    if call_type == Op.CALL or call_type == Op.CALLCODE:
+        precompile_caller_code += call_type(
+            call_gas,
+            POINT_EVALUATION_PRECOMPILE_ADDRESS,
+            0x00,
+            0x00,
+            Op.CALLDATASIZE,
+            0x00,
+            0x00,
+        )
+        overhead_cost += (PUSH_OPERATIONS_COST * 6) + (CALLDATASIZE_COST * 1)
+    elif call_type == Op.DELEGATECALL or call_type == Op.STATICCALL:
+        # Delegatecall and staticcall use one less argument
+        precompile_caller_code += call_type(
+            call_gas,
+            POINT_EVALUATION_PRECOMPILE_ADDRESS,
+            0x00,
+            Op.CALLDATASIZE,
+            0x00,
+            0x00,
+        )
+        overhead_cost += (PUSH_OPERATIONS_COST * 5) + (CALLDATASIZE_COST * 1)
+
+    gas_measure_code = CodeGasMeasure(
+        code=precompile_caller_code,
+        overhead_cost=overhead_cost,
+        extra_stack_items=1,
+    )
+
+    return Account(
+        nonce=0,
+        code=gas_measure_code,
+    )
+
+
+@pytest.fixture
+def precompile_caller_address() -> str:
+    """
+    Address of the precompile caller account.
+    """
+    return to_address(0x100)
+
+
+@pytest.fixture
+def pre(
+    precompile_caller_account: Account,
+    precompile_caller_address: str,
+) -> Dict:
+    """
+    Prepares the pre state of all test cases, by setting the balance of the
+    source account of all test transactions, and the precompile caller account.
+    """
+    return {
+        TestAddress: Account(
+            nonce=0,
+            balance=0x10**18,
+        ),
+        precompile_caller_address: precompile_caller_account,
+    }
+
+
+@pytest.fixture
+def tx(
+    precompile_caller_address: str,
+    precompile_input: bytes,
+) -> Transaction:
+    """
+    Prepares transaction used to call the precompile caller account.
+    """
+    return Transaction(
+        ty=2,
+        nonce=0,
+        data=precompile_input,
+        to=precompile_caller_address,
+        value=0,
+        gas_limit=POINT_EVALUATION_PRECOMPILE_GAS * 20,
+        max_fee_per_gas=7,
+        max_priority_fee_per_gas=0,
+    )
+
+
+@pytest.fixture
+def post(
+    precompile_caller_address: str,
+    proof: Literal["correct", "incorrect"],
+    call_gas: int,
+) -> Dict:
+    """
+    Prepares expected post for each test, depending on the success or
+    failure of the precompile call and the gas usage.
+    """
+    if proof == "correct":
+        expected_gas_usage = (
+            call_gas
+            if call_gas < POINT_EVALUATION_PRECOMPILE_GAS
+            else POINT_EVALUATION_PRECOMPILE_GAS
+        )
+    else:
+        expected_gas_usage = call_gas
+    return {
+        precompile_caller_address: Account(
+            storage={
+                0: expected_gas_usage,
+            },
+        ),
+    }
+
+
+@pytest.mark.parametrize(
+    "call_type",
+    [Op.CALL, Op.DELEGATECALL, Op.CALLCODE, Op.STATICCALL],
+)
+@pytest.mark.parametrize(
+    "call_gas",
+    [
+        POINT_EVALUATION_PRECOMPILE_GAS,
+        POINT_EVALUATION_PRECOMPILE_GAS - 1,
+        POINT_EVALUATION_PRECOMPILE_GAS + 1,
+    ],
+    ids=["exact_gas", "insufficient_gas", "extra_gas"],
+)
+@pytest.mark.parametrize("proof", ["correct", "incorrect"])
+@pytest.mark.parametrize("fork", forks_from(Cancun))
+def test_point_evaluation_precompile_gas_usage(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict,
+    tx: Transaction,
+    post: Dict,
+    fork: Fork,
+):
+    """
+    Test Precompile Gas Usage.
+    """
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=[Block(txs=[tx])],
+    )

@@ -258,6 +258,8 @@ hookwrapper
 modifyitems
 originalname
 parametrized
+param
+parametrize
 pytestmark
 runtest
 trylast
