@@ -1,100 +1,100 @@
-# Writing Tests
+# Writing a New Test
 
-## Purpose of test specs in this repository
+## Test Functions
 
-The goal of the test specs included in this repository is to generate test vectors that can be consumed by any Execution client, and to verify that all of the clients agree on the same output after executing each test.
+Every test spec is a python function that defines a single `StateTest`/`BlockchainTest` object.
 
-Consensus is the most important aspect of any blockchain network, therefore, anything that modifies the state of the blockchain must be tested by at least one test in this repository.
+Every test function _must_:
 
-The tests focus on the EVM execution, therefore before being able to properly write a test, it is important to understand what the Ethereum Virtual Machine is and how it works.
+1. Use one of `state_test` or `blockchain_test` in its function arguments.
+2. Call the `state_test` respectively `blockchain_test` object within the test function body.
+3. Be parametrized by the forks for which it is to be tested.
 
+If the test module is located underneath the `./fillers/eips/` directory, the test module _must_ additionally:
 
-## Types of tests
+4. Add a reference version of the EIP spec under test, see [Referencing an EIP Spec Version](./reference_specification.md).
 
-At the moment there are only two types of tests that can be produced by each test spec:
+### The `state_test` and `blockchain_test` test function arguments.
 
-- State Tests
-- Blockchain Tests
+The test function's signature _must_ contain exactly one of either a `state_test` or `blockchain_test` argument.
 
-The State tests span a single block and, ideally, a single transaction.
+For example, for state tests:
+```python
+def test_access_list(state_test: StateTestFiller):
+```
+and for blockchain tests:
+```python
+def test_contract_creating_tx(
+    blockchain_test: BlockchainTestFiller, fork: Fork, initcode: Initcode
+):
+```
 
-Examples of State tests:
+The `state_test` and `blockchain_test` objects are actually wrapper classes to the `StateTest`, respectively `BlockchainTest` objects, that once called actually instantiate a new instance of these objects and fill the test case using the `evm` tool according to the pre and post states and the transactions defined within the test.
 
-- Test a single opcode behavior
-- Verify opcode gas costs
-- Test interactions between multiple smart contracts
-- Test creation of smart contracts
+### Parametrization By Fork
 
-The Blockchain tests span multiple blocks which may or may not contain transactions and mainly focus on the block to block effects to the Ethereum state.
+The test function must be parametrized by the forks for which it is to be tested. This is achieved by applying the `pytest.mark.parametrize` decorator on either the test function, test class or test module level:
 
-- Verify system-level operations such as coinbase balance updates or withdrawals
-- Verify fork transitions
-- Verify blocks with invalid transactions/properties are rejected
+=== "Function"
 
-## Adding a New Test
+    ```python
+    import pytest
 
-All currently implemented tests can be found in the `fillers`
-directory, which is composed of many subdirectories, and each one represents a
-different test category.
+    from ethereum_test_forks import forks_from_until, Berlin, London
 
-Source files included in each category contain one or multiple test specs
-represented as python functions, and each can in turn produce one or many test
-vectors.
+    @pytest.mark.parametrize("fork", forks_from_until(Berlin, London))
+    def test_access_list(state_test: StateTestFiller, fork: Fork):
+    ```
 
-A new test can be added by either:
+=== "Class"
 
-- Adding a new `test_` python function to an existing file in any of the
-  existing category subdirectories within `fillers`.
-- Creating a new source file in an existing category, and populating it with
-  the new test function(s).
-- Creating an entirely new category by adding a subdirectory in
-  `fillers` with the appropriate source files and test functions.
-    - Tests within multiple sub-directories must have a `__init__.py` file
-      within each directory above it (and it own), to ensure the test is found by the test filler `tf`.
+    ```python
+    import pytest
 
-## Test Spec Generator Functions
+    from ethereum_test_forks import ShanghaiToCancunAtTime15k
 
-Every test spec is a python generator function which can perform a single or
-multiple `yield` operations during its runtime to each time yield a single
-`StateTest`/`BlockchainTest` object.
+    @pytest.mark.parametrize("fork", ShanghaiToCancunAtTime15k)
+    class TestMultipleWithdrawalsSameAddress:
+    ```
 
-The test vector's generator function _must_ be decorated by only one of the
-following decorators:
-- `test_from`
-- `test_from_until`
-- `test_only`
+=== "Module"
 
-These decorators specify the forks on which the test vector is supposed to run.
+    ```python
+    import pytest
 
-They also automatically append necessary information for the
-`ethereum_test_filling_tool` to process when the generator is being executed to
-fill the tests.
+    from ethereum_test_forks import forks_from_until, Shanghai
 
-The test vector function must take only one `str` parameter: the fork name.
+    pytestmark = pytest.mark.parametrize("fork", forks_from(Shanghai))
+    ```
+
+The [`ethereum_test_forks`](../library/ethereum_test_forks.md) package defines the available forks and provides the following helpers that return all forks within the specified range:
+
+- [forks_from](../library/ethereum_test_forks.md#ethereum_test_forks.forks_from)
+- [forks_from_until](../library/ethereum_test_forks.md#ethereum_test_forks.forks_from_until)
 
 ## `StateTest` Object
 
 The `StateTest` object represents a single test vector, and contains the
 following attributes:
 
-- env: Environment object which describes the global state of the blockchain
+- `env`: Environment object which describes the global state of the blockchain
     before the test starts.
-- pre: Pre-State containing the information of all Ethereum accounts that exist
+- `pre`: Pre-State containing the information of all Ethereum accounts that exist
     before any transaction is executed.
-- post: Post-State containing the information of all Ethereum accounts that are
+- `post`: Post-State containing the information of all Ethereum accounts that are
     created or modified after all transactions are executed.
-- txs: All transactions to be executed during the test vector runtime.
+- `txs`: All transactions to be executed during test execution.
 
 ## `BlockchainTest` Object
 
 The `BlockchainTest` object represents a single test vector that evaluates the
 Ethereum VM by attempting to append multiple blocks to the chain:
 
-- pre: Pre-State containing the information of all Ethereum accounts that exist
+- `pre`: Pre-State containing the information of all Ethereum accounts that exist
     before any block is executed.
-- post: Post-State containing the information of all Ethereum accounts that are
+- `post`: Post-State containing the information of all Ethereum accounts that are
     created or modified after all blocks are executed.
-- blocks: All blocks to be appended to the blockchain during the test.
+- `blocks`: All blocks to be appended to the blockchain during the test.
 
 
 ## Pre/Post State of the Test
@@ -140,17 +140,18 @@ field of the `account` object, or the `data` field of the `tx` object if the
 bytecode is meant to be treated as init code or call data.
 
 The code can be in either of the following formats:
-- `bytes` object, representing the raw opcodes in binary format
-- `str`, representing an hexadecimal format of the opcodes
-- `Code` compilable object
+
+- `bytes` object, representing the raw opcodes in binary format.
+- `str`, representing an hexadecimal format of the opcodes.
+- `Code` compilable object.
 
 Currently supported built-in compilable objects are:
 
-- `Yul` object containing [Yul source code][yul]
+- `Yul` object containing [Yul source code][yul].
 
 `Code` objects can be concatenated together by using the `+` operator.
 
-## Verifying the Accounts' Post State
+## Verifying the Accounts' Post States
 
 The state of the accounts after all blocks/transactions have been executed is
 the way of verifying that the execution client actually behaves like the test
@@ -161,9 +162,10 @@ specified in their `post` property actually match what was returned by the
 transition tool.
 
 Within the `post` dictionary object, an account address can be:
+
 - `None`: The account will not be checked for absence or existence in the
   result returned by the transition tool.
-- `Account` object: The test expects that this account exist and also has
+- `Account` object: The test expects that this account exists and also has
   properties equal to the properties specified by the `Account` object.
 - `Account.NONEXISTENT`: The test expects that this account does not exist in
   the result returned by the transition tool, and if the account exists,
@@ -180,6 +182,7 @@ verified in the post state.
 The python representation can be found in [src/ethereum_test_tools/common/types.py](https://github.com/ethereum/execution-spec-tests/blob/main/src/ethereum_test_tools/common/types.py).
 
 It can verify the following properties of an account:
+
 - `nonce`: the scalar value equal to a) the number of transactions sent by
   an Externally Owned Account, b) the amount of contracts created by a contract.
   

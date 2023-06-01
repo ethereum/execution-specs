@@ -1,92 +1,88 @@
 # Quick Start
 
-## Prerequisites
 
-The following are required to either generate or develop tests:
+!!! info "Testing features under active development"
+    The EVM features under test must be implemented in the `evm` tool and `solc` executables that are used by the execution-spec-tests framework. The following guide installs stable versions of these tools. 
 
-1. Python >= `3.10.0` < `3.11`.
-   - For dists. with the `apt` package manager ensure you have python `-dev` & `-venv` packages installed.
-2. [`go-ethereum`](https://github.com/ethereum/go-ethereum) `geth`'s `evm` utility must be accessible in the `PATH`, typically at the latest version. To get it:
-     1. Install [the Go programming language](https://go.dev/doc/install) on your computer.
-     2. Clone [the Geth repository](https://github.com/ethereum/go-ethereum).
-     3. Run `make all`.
-     4. Copy `build/bin/evm` to a directory on the path.
-   
-    **Note:** To update to a different Geth branch (for example one that supports a specific EIP) all you need to do is to change the `evm` in the path.
-   
-3. [`solc`](https://github.com/ethereum/solidity) >= `v0.8.17`; `solc` must be in accessible in the `PATH`.
-
-## Installation
-
-To generate tests from the test "fillers", it's necessary to install the Python packages provided by `execution-spec-tests` (it's recommended to use a virtual environment for the installation):
-
-```console
-git clone https://github.com/ethereum/execution-spec-tests
-cd execution-spec-tests
-python3.10 -m venv ./venv/
-source ./venv/bin/activate
-pip install -e .
-```
-
-After the installation, run this sanity check to ensure tests are generated.
-If everything is OK, you will see the beginning of the JSON format filled test.
-
-```console
-tf --test-case yul
-head fixtures/example/yul_example/yul.json
-```
-
-## Generating the Execution Spec Tests For Use With Clients
-
-To generate all the tests defined in the `./fillers` sub-directory, run the `tf` command:
-
-```console
-tf --filler-path="fillers" --output="fixtures" 
-```
-
-This is equivalent to running `tf` with no arguments. The paths`fillers/` and `fixtures/` are both defaults for the respective command.
-
-!!! note
-    The test `post` conditions are tested against the output of the `geth` `evm` utility during test generation.
-
-To generate all the tests in the `./fillers/vm` sub-directory (category), for example, run:
-```console
-tf --test-categories vm
-```
-
-This extends to sub-directories. As an example, to generate all specific tests within the `./fillers/vm/vm_arith/vm_add` sub-directory, run:
-```console
-tf --output="fixtures" --test-categories vm.vm_arith.vm_add
-```
-
-To generate all the tests in the `./fillers/*/dup.py` modules, for example, run:
-```console
-tf --test-module dup
-```
-
-To generate specific tests, such as `./fillers/*/*.py::test_dup`, for example, run (remove the `test_` prefix from the test case's function name):
-```console
-tf --test-case dup
-```
-
-To overwrite the existing set of fixtures, make sure you run the test filler with the `--force-refill` flag:
-```console
-tf --force-refill
-```
-
-For upcoming forks that are not already upgraded within the Ethereum network, use the `--latest-fork` flag. For example, currently (03/05/23) the next fork being developed is `Cancun`:
-```console
-tf --latest-fork Cancun
-```
+    To test features under active development, start with this base configuration and then follow the steps in [executing tests for features under development](./executing_tests_dev_fork.md). 
 
 
-## Testing the Execution Spec Tests Framework
+The following requires a Python 3.10 installation.
 
-The Python packages provided by the execution spec tests framework have their own test suite that can be ran via `tox`:
+1. Ensure go-ethereum's `evm` tool and `solc` are in your path. Either build the required versions, or alternatively:
 
-```console
-python -m venv ./venv/
-source ./venv/bin/activate
-pip install tox
-tox -e py3
-```
+    === "Ubuntu"
+
+          ```console
+          sudo add-apt-repository -y ppa:ethereum/ethereum
+          sudo apt-get update
+          sudo apt-get install ethereum solc
+          ```
+          More help:
+
+          - [geth installation doc](https://geth.ethereum.org/docs/getting-started/installing-geth#ubuntu-via-ppas).
+          - [solc installation doc](https://docs.soliditylang.org/en/latest/installing-solidity.html#linux-packages).
+
+    === "macos"
+
+          ```console
+          brew update
+          brew upgrade
+          brew tap ethereum/ethereum
+          brew install ethereum solidity
+          ```
+          More help:
+
+          - [geth installation doc](https://geth.ethereum.org/docs/getting-started/installing-geth#macos-via-homebrew).
+          - [solc installation doc](https://docs.soliditylang.org/en/latest/installing-solidity.html#macos-packages).
+
+    === "Windows"
+
+          Binaries available here:
+
+          - [geth](https://geth.ethereum.org/downloads) (binary or installer).
+          - [solc](https://github.com/ethereum/solidity/releases).
+
+          More help:
+
+          - [geth installation doc](https://geth.ethereum.org/docs/getting-started/installing-geth#windows).
+          - [solc static binaries doc](https://docs.soliditylang.org/en/latest/installing-solidity.html#static-binaries).
+          
+
+2. Clone the [execution-spec-tests](https://github.com/ethereum/execution-spec-tests) repo and install its and dependencies (it's recommended to use a virtual environment for the installation):
+   ```console
+   git clone https://github.com/ethereum/execution-spec-tests
+   cd execution-spec-tests
+   python3 -m venv ./venv/
+   source ./venv/bin/activate
+   pip install -e .[docs,lint,test]
+   ```
+3. Verify installation:
+    1. Explore test cases:
+       ```console
+       pytest --collect-only
+       ```
+       Expected console output:
+       <figure markdown>
+         ![Screenshot of pytest test collection console output](./img/pytest_collect_only.png){align=center}
+       </figure>
+       
+    2. Execute the test cases (verbosely) in the `./fillers/example/acl_example.py` module:
+        ```console
+        pytest -v fillers/example/acl_example.py
+        ```
+        Expected console output:
+        <figure markdown>
+          ![Screenshot of pytest test collection console output](./img/pytest_run_example.png){align=center}
+        </figure>
+        Check:
+       
+        1. The versions of the `evm` and `solc` tools are as expected (your versions may differ from those in the highlighted box).
+        2. The fixture file `out/example/acl_example/test_access_list.json` has been generated.
+
+## Next Steps
+
+1. Learn [useful command-line flags](./executing_tests_command_line.md).
+2. [Execute tests for features under development](./executing_tests_dev_fork.md) via the `--latest-fork` flag.
+3. _Optional:_ [Configure VS Code](./setup_vs_code.md) to auto-format Python code and [execute tests within VS Code](./executing_tests_vs_code.md#executing-and-debugging-test-cases).
+4. Implement a new test case, see [Writing Tests](../writing_tests/index.md).
