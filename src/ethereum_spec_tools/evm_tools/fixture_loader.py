@@ -6,7 +6,7 @@ testing framework.
 
 import importlib
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Tuple
+from typing import Any, Tuple
 
 from ethereum import rlp
 from ethereum.base_types import U64, U256, Bytes0
@@ -22,14 +22,6 @@ from ethereum.utils.hexadecimal import (
 )
 from ethereum_spec_tools.forks import Hardfork
 
-RLP_DECODING_EXCEPTIONS = (
-    "RLP_VALUESIZE_MORE_AVAILABLEINPUTLENGTH",
-    "RLP_ExpectedAsList",
-    "INPUT_UNMARSHAL_SIZE_ERROR",
-    "RLP_BODY_UNMARSHAL_ERROR",
-    "INPUT_UNMARSHAL_ERROR",
-)
-
 
 class UnsupportedTx(Exception):
     """Exception for unsupported transactions"""
@@ -38,12 +30,6 @@ class UnsupportedTx(Exception):
         super().__init__(error_message)
         self.encoded_params = encoded_params
         self.error_message = error_message
-
-
-class ExpectedRLPException(Exception):
-    """Expected RLP exceptions"""
-
-    pass
 
 
 class BaseLoad(ABC):
@@ -363,25 +349,14 @@ class Load(BaseLoad):
     def json_to_block(
         self,
         json_block: Any,
-    ) -> Tuple[Any, Hash32, bytes, Optional[str]]:
+    ) -> Tuple[Any, Hash32, bytes]:
         """Converts json block data to a block object"""
-        block_exception = None
-        for key, value in json_block.items():
-            if key.startswith("expectException"):
-                block_exception = value
-                break
-
         if "rlp" in json_block:
             # Always decode from rlp
             block_rlp = hex_to_bytes(json_block["rlp"])
-            try:
-                block = rlp.decode_to(self.Block, block_rlp)
-            except Exception as e:
-                if block_exception in RLP_DECODING_EXCEPTIONS:
-                    raise ExpectedRLPException from e
-                raise e
+            block = rlp.decode_to(self.Block, block_rlp)
             block_header_hash = rlp.rlp_hash(block.header)
-            return block, block_header_hash, block_rlp, block_exception
+            return block, block_header_hash, block_rlp
 
         header = self.json_to_header(json_block["blockHeader"])
         transactions = tuple(
@@ -410,7 +385,7 @@ class Load(BaseLoad):
         )
         block_rlp = hex_to_bytes(json_block["rlp"])
 
-        return block, block_header_hash, block_rlp, block_exception
+        return block, block_header_hash, block_rlp
 
     def json_to_header(self, raw: Any) -> Any:
         """Converts json header data to a header object"""

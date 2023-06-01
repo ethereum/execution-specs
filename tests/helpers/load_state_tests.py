@@ -10,11 +10,16 @@ from _pytest.mark.structures import ParameterSet
 
 from ethereum import rlp
 from ethereum.base_types import U64
-from ethereum.exceptions import InvalidBlock
+from ethereum.exceptions import InvalidBlock, RLPDecodingError
 from ethereum.utils.hexadecimal import hex_to_bytes
-from ethereum_spec_tools.evm_tools.fixture_loader import (
-    ExpectedRLPException,
-    Load,
+from ethereum_spec_tools.evm_tools.fixture_loader import Load
+
+RLP_DECODING_EXCEPTIONS = (
+    "RLP_VALUESIZE_MORE_AVAILABLEINPUTLENGTH",
+    "RLP_ExpectedAsList",
+    "INPUT_UNMARSHAL_SIZE_ERROR",
+    "RLP_BODY_UNMARSHAL_ERROR",
+    "INPUT_UNMARSHAL_ERROR",
 )
 
 
@@ -66,15 +71,22 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
     )
 
     for json_block in json_data["blocks"]:
-        try:
+        block_exception = None
+        for key, value in json_block.items():
+            if key.startswith("expectException"):
+                block_exception = value
+                break
+
+        if block_exception in RLP_DECODING_EXCEPTIONS:
+            with pytest.raises(RLPDecodingError):
+                load.json_to_block(json_block)
+            return
+        else:
             (
                 block,
                 block_header_hash,
                 block_rlp,
-                block_exception,
             ) = load.json_to_block(json_block)
-        except ExpectedRLPException as e:
-            return
 
         assert rlp.rlp_hash(block.header) == block_header_hash
         assert rlp.encode(cast(rlp.RLP, block)) == block_rlp
