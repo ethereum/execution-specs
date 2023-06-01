@@ -10,7 +10,7 @@ import importlib
 import pkgutil
 from pkgutil import ModuleInfo
 from types import ModuleType
-from typing import Any, Dict, Iterator, List, Optional, Type, TypeVar
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, TypeVar
 
 import ethereum
 
@@ -23,8 +23,11 @@ class ForkCriteria:
     Type that represents the condition required for a fork to occur.
     """
 
-    block_number: Optional[int]
-    timestamp: Optional[int]
+    BLOCK_NUMBER = 0
+    TIMESTAMP = 1
+    UNSCHEDULED = 2
+
+    internal: Tuple[int, int]
 
     def __init__(self) -> None:
         raise Exception("Can't be instantiated by __init__()")
@@ -33,33 +36,18 @@ class ForkCriteria:
         """
         Equality for fork criteria.
         """
-        if not isinstance(other, ForkCriteria):
-            return NotImplemented
-        return (
-            self.block_number == other.block_number
-            and self.timestamp == other.timestamp
-        )
+        if isinstance(other, ForkCriteria):
+            return self.internal == other.internal
+        return NotImplemented
 
     def __lt__(self, other: object) -> bool:
         """
         Ordering for fork criteria. Block number forks are before timestamp
         forks and scheduled forks are before unscheduled forks.
         """
-        if not isinstance(other, ForkCriteria):
-            return NotImplemented
-        if self.block_number is not None:
-            if other.block_number is None:
-                return True
-            else:
-                return self.block_number < other.block_number
-        if self.timestamp is not None:
-            if other.block_number is not None:
-                return False
-            elif other.timestamp is None:
-                return True
-            else:
-                return self.timestamp < other.timestamp
-        return False
+        if isinstance(other, ForkCriteria):
+            return self.internal < other.internal
+        return NotImplemented
 
     @classmethod
     def from_block_number(
@@ -69,8 +57,7 @@ class ForkCriteria:
         Criteria for a block number based fork.
         """
         self = ForkCriteria.__new__(cls)
-        self.block_number = block_number
-        self.timestamp = None
+        self.internal = (cls.BLOCK_NUMBER, block_number)
         return self
 
     @classmethod
@@ -81,8 +68,7 @@ class ForkCriteria:
         Criteria for a timestamp based fork.
         """
         self = ForkCriteria.__new__(cls)
-        self.block_number = None
-        self.timestamp = timestamp
+        self.internal = (cls.TIMESTAMP, timestamp)
         return self
 
     @classmethod
@@ -91,18 +77,17 @@ class ForkCriteria:
         Criteria for a fork that is not scheduled to happen.
         """
         self = ForkCriteria.__new__(cls)
-        self.block_number = None
-        self.timestamp = None
+        self.internal = (cls.UNSCHEDULED, 0)
         return self
 
     def check(self, block_number: int, timestamp: int) -> bool:
         """
         Check whether fork criteria have been met.
         """
-        if self.block_number is not None:
-            return block_number >= self.block_number
-        elif self.timestamp is not None:
-            return timestamp >= self.timestamp
+        if self.internal[0] == self.BLOCK_NUMBER:
+            return block_number >= self.internal[1]
+        elif self.internal[0] == self.TIMESTAMP:
+            return timestamp >= self.internal[1]
         else:
             return False
 
