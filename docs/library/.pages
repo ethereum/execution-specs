@@ -1,7 +1,0 @@
-nav:
-  - Home: index.md
-  - evm_transition_tool.md
-  - evm_block_builder.md
-  - ethereum_test_tools.md
-  - ethereum_test_forks.md
-  - pytest_plugins.md
