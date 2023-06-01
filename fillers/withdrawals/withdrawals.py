@@ -29,9 +29,6 @@ pytestmark = pytest.mark.parametrize("fork", forks_from(Shanghai))
 
 ONE_GWEI = 10**9
 
-# Common contract that sets a storage value unconditionally on call
-SET_STORAGE = Op.SSTORE(Op.NUMBER, 1)
-
 
 def set_withdrawal_index(
     withdrawals: List[Withdrawal], start_index: int = 0
@@ -332,7 +329,8 @@ class TestMultipleWithdrawalsSameAddress:
         }
         for addr in self.ADDRESSES:
             pre[addr] = Account(
-                code=SET_STORAGE,
+                # set a storage value unconditionally on call
+                code=Op.SSTORE(Op.NUMBER, 1),
             )
 
         # Expected post is the same for both test cases.
@@ -361,7 +359,7 @@ def test_many_withdrawals(blockchain_test: BlockchainTestFiller, fork: Fork):
         addr = to_address(0x100 * i)
         amount = i * 1
         pre[addr] = Account(
-            code=SET_STORAGE,
+            code=Op.SSTORE(Op.NUMBER, 1),
         )
         withdrawals.append(
             Withdrawal(
@@ -372,7 +370,7 @@ def test_many_withdrawals(blockchain_test: BlockchainTestFiller, fork: Fork):
             )
         )
         post[addr] = Account(
-            code=SET_STORAGE,
+            code=Op.SSTORE(Op.NUMBER, 1),
             balance=amount * ONE_GWEI,
             storage={},
         )
@@ -512,16 +510,16 @@ def test_no_evm_execution(blockchain_test: BlockchainTestFiller, fork: Fork):
     pre = {
         TestAddress: Account(balance=1000000000000000000000, nonce=0),
         to_address(0x100): Account(
-            code=SET_STORAGE,
+            code=Op.SSTORE(Op.NUMBER, 1),
         ),
         to_address(0x200): Account(
-            code=SET_STORAGE,
+            code=Op.SSTORE(Op.NUMBER, 1),
         ),
         to_address(0x300): Account(
-            code=SET_STORAGE,
+            code=Op.SSTORE(Op.NUMBER, 1),
         ),
         to_address(0x400): Account(
-            code=SET_STORAGE,
+            code=Op.SSTORE(Op.NUMBER, 1),
         ),
     }
     blocks = [
