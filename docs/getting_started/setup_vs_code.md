@@ -52,4 +52,4 @@ Trust the `execution-specs-test` repository when opening in VS Code to be prompt
 
 ## Configuration for Testing EVM Features Under Active Development
 
-An additional step is required to enable fixture generations for features from forks that are under active development and have not been deployed to mainnet, see [Executing Tests for Features under Development](./setup_vs_code.md#configuration-for-testing-evm-features-under-active-development).
+An additional step is required to enable fixture generations for features from forks that are under active development and have not been deployed to mainnet, see [Executing Tests for Features under Development](./executing_tests_dev_fork.md#vs-code-setup).
