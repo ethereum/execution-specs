@@ -246,6 +246,7 @@ selfdestruct
 addoption
 argname
 autouse
+callspec
 dest
 fixturenames
 funcargs

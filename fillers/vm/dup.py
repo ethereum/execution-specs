@@ -1,20 +1,21 @@
 """
 Test DUP opcodes
 """
+import pytest
 
-from ethereum_test_forks import Istanbul
+from ethereum_test_forks import Fork, Istanbul, forks_from
 from ethereum_test_tools import (
     Account,
     Environment,
-    StateTest,
+    StateTestFiller,
+    Storage,
     Transaction,
-    test_from,
     to_address,
 )
 
 
-@test_from(Istanbul)
-def test_dup(fork):
+@pytest.mark.parametrize("fork", forks_from(Istanbul))
+def test_dup(state_test: StateTestFiller, fork: Fork):
     """
     Test DUP1-DUP16 opcodes.
     Based on ethereum/tests: GeneralStateTests/VMTests/vmTests/dup
@@ -99,9 +100,9 @@ def test_dup(fork):
         DUP1 copies the first element of the stack (0x10).
         DUP16 copies the 16th element of the stack (0x01).
         """
-        s = dict(zip(range(1, 17), range(16, 0, -1)))
+        s: Storage.StorageDictType = dict(zip(range(1, 17), range(16, 0, -1)))
         s[0] = 16 - i
 
         post[account] = Account(storage=s)
 
-    yield StateTest(env=env, pre=pre, post=post, txs=txs)
+    state_test(env=env, pre=pre, post=post, txs=txs)
