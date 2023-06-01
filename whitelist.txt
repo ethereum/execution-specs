@@ -257,6 +257,7 @@ hookimpl
 hookwrapper
 modifyitems
 originalname
+parametrized
 pytestmark
 runtest
 trylast

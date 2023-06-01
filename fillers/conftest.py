@@ -131,7 +131,7 @@ class FixtureCollector:
         module_dir = get_module_dir(item) + "/" + item.originalname
         if module_dir not in self.all_fixtures:
             self.all_fixtures[module_dir] = []
-        m = re.match(r".*\[(.*)\]", item.name)
+        m = re.match(r".*?\[(.*)\]", item.name)
         if not m:
             raise Exception("Could not parse test name: " + item.name)
         name = m.group(1)
