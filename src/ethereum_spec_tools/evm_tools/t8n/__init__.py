@@ -20,7 +20,8 @@ from ..utils import (
     get_stream_logger,
     parse_hex_or_int,
 )
-from .t8n_types import Alloc, Env, Result, Txs
+from .env import Env
+from .t8n_types import Alloc, Result, Txs
 
 
 def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
