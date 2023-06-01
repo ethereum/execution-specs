@@ -3,7 +3,7 @@ Test Withdrawal system-level operation
 """
 
 from enum import Enum, unique
-from typing import Dict, List
+from typing import Dict, List, Mapping
 
 import pytest
 
@@ -608,116 +608,108 @@ class ZeroAmountTestCases(Enum):  # noqa: D101
     [case for case in ZeroAmountTestCases],
     ids=[case.value for case in ZeroAmountTestCases],
 )
-class TestZeroAmount:
+def test_zero_amount(
+    blockchain_test: BlockchainTestFiller,
+    fork: Fork,
+    test_case: ZeroAmountTestCases,
+):
     """
     Test withdrawals with zero amount for the following cases, all withdrawals
     are included in one block:
 
     1. Two withdrawals of zero amount to two different addresses; one to an
        untouched account, one to an account with a balance.
-
     2. As 1., but with an additional withdrawal with positive value.
-
     3. As 2., but with an additional withdrawal containing the maximum value
        possible.
-
     4. As 3., but with order of withdrawals in the block reversed.
 
     """
+    pre = {
+        TestAddress: Account(balance=1000000000000000000000, nonce=0),
+        to_address(0x200): Account(
+            code="0x00",
+            balance=0,
+        ),
+    }
 
-    @pytest.fixture(scope="function")
-    def test_case_parameters(self, test_case):  # noqa: D102
-        withdrawals = [
-            # No value, untouched account
-            Withdrawal(
-                index=0,
-                validator=0,
-                address=to_address(0x100),
-                amount=0,
-            ),
-            # No value, touched account
-            Withdrawal(
-                index=0,
-                validator=0,
-                address=to_address(0x200),
-                amount=0,
-            ),
-            # Withdrawal with value
-            Withdrawal(
-                index=1,
-                validator=0,
-                address=to_address(0x300),
-                amount=1,
-            ),
-            # Withdrawal with maximum amount
-            Withdrawal(
-                index=2,
-                validator=0,
-                address=to_address(0x400),
-                amount=2**64 - 1,
-            ),
-        ]
+    all_withdrawals = [
+        # No value, untouched account
+        Withdrawal(
+            index=0,
+            validator=0,
+            address=to_address(0x100),
+            amount=0,
+        ),
+        # No value, touched account
+        Withdrawal(
+            index=0,
+            validator=0,
+            address=to_address(0x200),
+            amount=0,
+        ),
+        # Withdrawal with value
+        Withdrawal(
+            index=1,
+            validator=0,
+            address=to_address(0x300),
+            amount=1,
+        ),
+        # Withdrawal with maximum amount
+        Withdrawal(
+            index=2,
+            validator=0,
+            address=to_address(0x400),
+            amount=2**64 - 1,
+        ),
+    ]
+    all_post = {
+        to_address(0x100): Account.NONEXISTENT,
+        to_address(0x200): Account(code="0x00", balance=0),
+        to_address(0x300): Account(balance=ONE_GWEI),
+        to_address(0x400): Account(balance=(2**64 - 1) * ONE_GWEI),
+    }
+
+    withdrawals: List[Withdrawal] = []
+    post: Mapping[str, Account | object] = {}
+    if test_case == ZeroAmountTestCases.TWO_ZERO:
+        withdrawals = all_withdrawals[0:2]
         post = {
-            to_address(0x100): Account.NONEXISTENT,
-            to_address(0x200): Account(code="0x00", balance=0),
-            to_address(0x300): Account(balance=ONE_GWEI),
-            to_address(0x400): Account(balance=(2**64 - 1) * ONE_GWEI),
+            account: all_post[account]
+            for account in post
+            if account in [to_address(0x100), to_address(0x200)]
         }
-        if test_case == ZeroAmountTestCases.TWO_ZERO:
-            return {
-                "withdrawals": withdrawals[0:2],
-                "post": {
-                    account: post[account]
-                    for account in post
-                    if account in [to_address(0x100), to_address(0x200)]
-                },
-            }
-        if test_case == ZeroAmountTestCases.THREE_ONE_WITH_VALUE:
-            return {
-                "withdrawals": withdrawals[0:3],
-                "post": {
-                    account: post[account]
-                    for account in post
-                    if account
-                    in [
-                        to_address(0x100),
-                        to_address(0x200),
-                        to_address(0x300),
-                    ]
-                },
-            }
-        if test_case == ZeroAmountTestCases.FOUR_ONE_WITH_MAX:
-            return {"withdrawals": withdrawals, "post": post}
-        if test_case == ZeroAmountTestCases.FOUR_ONE_WITH_MAX_REVERSED:
-            withdrawals.reverse()
-            set_withdrawal_index(withdrawals)
-            return {"withdrawals": withdrawals, "post": post}
+    elif test_case == ZeroAmountTestCases.THREE_ONE_WITH_VALUE:
+        withdrawals = all_withdrawals[0:3]
+        post = {
+            account: all_post[account]
+            for account in post
+            if account
+            in [
+                to_address(0x100),
+                to_address(0x200),
+                to_address(0x300),
+            ]
+        }
+    elif test_case == ZeroAmountTestCases.FOUR_ONE_WITH_MAX:
+        withdrawals = all_withdrawals
+        post = all_post
+    elif test_case == ZeroAmountTestCases.FOUR_ONE_WITH_MAX_REVERSED:
+        withdrawals = all_withdrawals
+        withdrawals.reverse()
+        set_withdrawal_index(withdrawals)
+        post = all_post
+    else:
         raise Exception("Unknown test case.")
 
-    def test_zero_amount(
-        self,
-        blockchain_test: BlockchainTestFiller,
-        fork: Fork,
-        test_case: ZeroAmountTestCases,
-        test_case_parameters: Dict,
-    ):
-        """
-        Test Withdrawals where one of the withdrawal has a zero amount.
-        """
-        pre = {
-            TestAddress: Account(balance=1000000000000000000000, nonce=0),
-            to_address(0x200): Account(
-                code="0x00",
-                balance=0,
-            ),
-        }
-
-        blockchain_test(
-            pre=pre,
-            post=test_case_parameters["post"],
-            blocks=[Block(withdrawals=test_case_parameters["withdrawals"])],
-            tag=test_case.value,
-        )
+    blockchain_test(
+        pre=pre,
+        # TODO: Fix in BlockchainTest? post: Mapping[str, Account | object]
+        # to allow for Account.NONEXISTENT
+        post=post,  # type: ignore
+        blocks=[Block(withdrawals=withdrawals)],
+        tag=test_case.value,
+    )
 
 
 def test_large_amount(blockchain_test: BlockchainTestFiller, fork: Fork):
