@@ -6,7 +6,6 @@ from typing import List, Mapping
 
 import pytest
 
-from ethereum_test_forks import ShanghaiToCancunAtTime15k, fork_only
 from ethereum_test_tools import (
     Account,
     Block,
@@ -24,9 +23,7 @@ REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
 REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
 
 # All tests run on the transition fork from Shanghai to Cancun
-pytestmark = pytest.mark.parametrize(
-    "fork", fork_only(ShanghaiToCancunAtTime15k)
-)
+pytestmark = pytest.mark.valid_from("ShanghaiToCancunAtTime15k")
 
 BLOB_COMMITMENT_VERSION_KZG = 1
 BLOBHASH_GAS_COST = 3

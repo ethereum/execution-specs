@@ -10,13 +10,6 @@ from typing import Dict, Iterator, List, Literal
 
 import pytest
 
-from ethereum_test_forks import (
-    Cancun,
-    Fork,
-    ShanghaiToCancunAtTime15k,
-    fork_only,
-    forks_from,
-)
 from ethereum_test_tools import (
     Account,
     Auto,
@@ -267,13 +260,12 @@ def post(
     ],
 )
 @pytest.mark.parametrize("success", [True])
-@pytest.mark.parametrize("fork", forks_from(Cancun))
+@pytest.mark.valid_from("Cancun")
 def test_valid_precompile_calls(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     tx: Transaction,
     post: Dict,
-    fork: Fork,
 ):
     """
     Test invalid precompile calls:
@@ -320,13 +312,12 @@ def test_valid_precompile_calls(
     ],
 )
 @pytest.mark.parametrize("success", [False])
-@pytest.mark.parametrize("fork", forks_from(Cancun))
+@pytest.mark.valid_from("Cancun")
 def test_invalid_precompile_calls(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     tx: Transaction,
     post: Dict,
-    fork: Fork,
 ):
     """
     Test invalid precompile calls:
@@ -439,13 +430,12 @@ def all_external_vectors() -> List:
     all_external_vectors(),
 )
 @pytest.mark.parametrize("versioned_hash", [auto])
-@pytest.mark.parametrize("fork", forks_from(Cancun))
+@pytest.mark.valid_from("Cancun")
 def test_point_evaluation_precompile_external_vectors(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     tx: Transaction,
     post: Dict,
-    fork: Fork,
 ):
     """
     Test invalid precompile calls:
@@ -483,13 +473,12 @@ def test_point_evaluation_precompile_external_vectors(
     [[Z, INF_POINT, INF_POINT, auto]],
     ids=[""],
 )
-@pytest.mark.parametrize("fork", forks_from(Cancun))
+@pytest.mark.valid_from("Cancun")
 def test_point_evaluation_precompile_calls(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     tx: Transaction,
     post: Dict,
-    fork: Fork,
 ):
     """
     Test calling the Point Evaluation Precompile with different call types, gas
@@ -519,13 +508,12 @@ def test_point_evaluation_precompile_calls(
     ],
     ids=["correct_proof", "incorrect_proof"],
 )
-@pytest.mark.parametrize("fork", forks_from(Cancun))
+@pytest.mark.valid_from("Cancun")
 def test_point_evaluation_precompile_gas_tx_to(
     blockchain_test: BlockchainTestFiller,
     precompile_input: bytes,
     call_gas: int,
     proof_correct: bool,
-    fork: Fork,
 ):
     """
     Test calling the Point Evaluation Precompile directly as
@@ -585,12 +573,11 @@ def test_point_evaluation_precompile_gas_tx_to(
     [[Z, 0, INF_POINT, INF_POINT, auto]],
     ids=["correct_proof"],
 )
-@pytest.mark.parametrize("fork", fork_only(ShanghaiToCancunAtTime15k))
+@pytest.mark.valid_from("ShanghaiToCancunAtTime15k")
 def test_point_evaluation_precompile_before_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     tx: Transaction,
-    fork: Fork,
 ):
     """
     Test calling the Point Evaluation Precompile before the appropriate fork.

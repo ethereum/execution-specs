@@ -7,7 +7,6 @@ from typing import Dict, List, Mapping
 
 import pytest
 
-from ethereum_test_forks import Fork, Shanghai, forks_from
 from ethereum_test_tools import (
     Account,
     Block,
@@ -25,7 +24,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4895.md"
 REFERENCE_SPEC_VERSION = "81af3b60b632bc9c03513d1d137f25410e3f4d34"
 
-pytestmark = pytest.mark.parametrize("fork", forks_from(Shanghai))
+pytestmark = pytest.mark.valid_from("Shanghai")
 
 ONE_GWEI = 10**9
 
@@ -133,9 +132,7 @@ class TestUseValueInTx:
         blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
-def test_use_value_in_contract(
-    blockchain_test: BlockchainTestFiller, fork: Fork
-):
+def test_use_value_in_contract(blockchain_test: BlockchainTestFiller):
     """
     Test sending value from contract that has not received a withdrawal
     """
@@ -189,9 +186,7 @@ def test_use_value_in_contract(
     blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
-def test_balance_within_block(
-    blockchain_test: BlockchainTestFiller, fork: Fork
-):
+def test_balance_within_block(blockchain_test: BlockchainTestFiller):
     """
     Test Withdrawal balance increase within the same block,
     inside contract call.
@@ -316,7 +311,6 @@ class TestMultipleWithdrawalsSameAddress:
     def test_multiple_withdrawals_same_address(
         self,
         blockchain_test: BlockchainTestFiller,
-        fork: Fork,
         test_case: str,
         blocks: List[Block],
     ):
@@ -344,7 +338,7 @@ class TestMultipleWithdrawalsSameAddress:
         blockchain_test(pre=pre, post=post, blocks=blocks, tag=test_case)
 
 
-def test_many_withdrawals(blockchain_test: BlockchainTestFiller, fork: Fork):
+def test_many_withdrawals(blockchain_test: BlockchainTestFiller):
     """
     Test Withdrawals with a count of N withdrawals in a single block where
     N is a high number not expected to be seen in mainnet.
@@ -384,9 +378,7 @@ def test_many_withdrawals(blockchain_test: BlockchainTestFiller, fork: Fork):
     blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
-def test_self_destructing_account(
-    blockchain_test: BlockchainTestFiller, fork: Fork
-):
+def test_self_destructing_account(blockchain_test: BlockchainTestFiller):
     """
     Test withdrawals can be done to self-destructed accounts.
     Account `0x100` self-destructs and sends all its balance to `0x200`.
@@ -446,7 +438,6 @@ def test_self_destructing_account(
 )
 def test_newly_created_contract(
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
     include_value_in_tx: bool,
     request,
 ):
@@ -503,7 +494,7 @@ def test_newly_created_contract(
     blockchain_test(pre=pre, post=post, blocks=[block], tag=tag)
 
 
-def test_no_evm_execution(blockchain_test: BlockchainTestFiller, fork: Fork):
+def test_no_evm_execution(blockchain_test: BlockchainTestFiller):
     """
     Test Withdrawals don't trigger EVM execution.
     """
@@ -608,7 +599,6 @@ class ZeroAmountTestCases(Enum):  # noqa: D101
 )
 def test_zero_amount(
     blockchain_test: BlockchainTestFiller,
-    fork: Fork,
     test_case: ZeroAmountTestCases,
 ):
     """
@@ -710,7 +700,7 @@ def test_zero_amount(
     )
 
 
-def test_large_amount(blockchain_test: BlockchainTestFiller, fork: Fork):
+def test_large_amount(blockchain_test: BlockchainTestFiller):
     """
     Test Withdrawals that have a large gwei amount, so that (gwei * 1e9)
     could overflow uint64 but not uint256.

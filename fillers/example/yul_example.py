@@ -4,7 +4,6 @@ Test Yul Source Code Examples
 
 import pytest
 
-from ethereum_test_forks import Berlin, Fork, forks_from
 from ethereum_test_tools import (
     Account,
     Environment,
@@ -15,8 +14,8 @@ from ethereum_test_tools import (
 )
 
 
-@pytest.mark.parametrize("fork", forks_from(Berlin))
-def test_yul(state_test: StateTestFiller, fork: Fork):
+@pytest.mark.valid_from("Berlin")
+def test_yul(state_test: StateTestFiller):
     """
     Test YUL compiled bytecode.
     """

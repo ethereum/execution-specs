@@ -10,7 +10,6 @@ v1.9.20 > geth >= v1.9.4
 """
 import pytest
 
-from ethereum_test_forks import Constantinople, Fork, forks_from
 from ethereum_test_tools import (
     Account,
     Block,
@@ -23,10 +22,8 @@ from ethereum_test_tools import (
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
-@pytest.mark.parametrize("fork", forks_from(Constantinople))
-def test_tx_selfdestruct_balance_bug(
-    blockchain_test: BlockchainTestFiller, fork: Fork
-):
+@pytest.mark.valid_from("Constantinople")
+def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller):
     """
     Checks balance of 0xaa after executing specific txs:
 

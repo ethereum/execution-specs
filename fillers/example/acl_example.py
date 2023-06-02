@@ -4,13 +4,14 @@ Test ACL Transaction Source Code Examples
 
 import pytest
 
-from ethereum_test_forks import Berlin, Fork, London, forks_from_until, is_fork
+from ethereum_test_forks import Fork, London, is_fork
 from ethereum_test_tools import AccessList, Account, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, Transaction
 
 
-@pytest.mark.parametrize("fork", forks_from_until(Berlin, London))
+@pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_until("London")
 def test_access_list(state_test: StateTestFiller, fork: Fork):
     """
     Test type 1 transaction.

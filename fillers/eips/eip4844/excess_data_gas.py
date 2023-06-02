@@ -7,7 +7,6 @@ from typing import List, Mapping, Optional
 
 import pytest
 
-from ethereum_test_forks import Cancun, forks_from
 from ethereum_test_tools import (
     Account,
     Block,
@@ -43,7 +42,7 @@ REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
 REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
 
 # All tests run from Cancun fork
-pytestmark = pytest.mark.parametrize("fork", forks_from(Cancun))
+pytestmark = pytest.mark.valid_from("Cancun")
 
 BLOB_COMMITMENT_VERSION_KZG = 1
 BLOBHASH_GAS_COST = 3

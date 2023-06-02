@@ -7,7 +7,6 @@ from typing import Dict, List, Optional, Tuple
 
 import pytest
 
-from ethereum_test_forks import Cancun, Fork, Shanghai, fork_only, forks_from
 from ethereum_test_tools import (
     Account,
     Block,
@@ -388,13 +387,12 @@ def invalid_blob_combinations() -> List[Tuple[int, ...]]:
     "blobs_per_tx",
     all_valid_blob_combinations(),
 )
-@pytest.mark.parametrize("fork", forks_from(Cancun))
+@pytest.mark.valid_from("Cancun")
 def test_valid_blob_tx_combinations(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     env: Environment,
     blocks: List[Block],
-    fork: Fork,
 ):
     """
     Test all valid blob combinations in a single block.
@@ -425,13 +423,12 @@ def test_valid_blob_tx_combinations(
     ],
     ids=["insufficient_max_fee_per_data_gas", "invalid_max_fee_per_data_gas"],
 )
-@pytest.mark.parametrize("fork", forks_from(Cancun))
+@pytest.mark.valid_from("Cancun")
 def test_invalid_tx_max_fee_per_data_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     env: Environment,
     blocks: List[Block],
-    fork: Fork,
 ):
     """
     Reject blocks with invalid blob txs due to:
@@ -458,13 +455,12 @@ def test_invalid_tx_max_fee_per_data_gas(
     ],
     ids=["insufficient_max_fee_per_gas"],
 )
-@pytest.mark.parametrize("fork", forks_from(Cancun))
+@pytest.mark.valid_from("Cancun")
 def test_invalid_normal_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     env: Environment,
     blocks: List[Block],
-    fork: Fork,
 ):
     """
     Reject blocks with invalid blob txs due to:
@@ -483,13 +479,12 @@ def test_invalid_normal_gas(
     invalid_blob_combinations(),
 )
 @pytest.mark.parametrize("tx_error", ["invalid_blob_count"])
-@pytest.mark.parametrize("fork", forks_from(Cancun))
+@pytest.mark.valid_from("Cancun")
 def test_invalid_block_blob_count(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     env: Environment,
     blocks: List[Block],
-    fork: Fork,
 ):
     """
     Reject blocks where block blob count > MAX_BLOBS_PER_BLOCK, across all txs
@@ -510,13 +505,12 @@ def test_invalid_block_blob_count(
 @pytest.mark.parametrize(
     "tx_error", ["insufficient_account_balance"], ids=[""]
 )
-@pytest.mark.parametrize("fork", forks_from(Cancun))
+@pytest.mark.valid_from("Cancun")
 def test_insufficient_balance_blob_tx(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     env: Environment,
     blocks: List[Block],
-    fork: Fork,
 ):
     """
     Reject blocks where user cannot afford the data gas specified (but
@@ -540,13 +534,12 @@ def test_insufficient_balance_blob_tx(
 @pytest.mark.parametrize(
     "tx_error", ["insufficient_account_balance"], ids=[""]
 )
-@pytest.mark.parametrize("fork", forks_from(Cancun))
+@pytest.mark.valid_from("Cancun")
 def test_insufficient_balance_blob_tx_combinations(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     env: Environment,
     blocks: List[Block],
-    fork: Fork,
 ):
     """
     Reject blocks with invalid blob txs due to:
@@ -569,13 +562,12 @@ def test_insufficient_balance_blob_tx_combinations(
     ],
     ids=["too_few_blobs", "too_many_blobs"],
 )
-@pytest.mark.parametrize("fork", forks_from(Cancun))
+@pytest.mark.valid_from("Cancun")
 def test_invalid_tx_blob_count(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     env: Environment,
     blocks: List[Block],
-    fork: Fork,
 ):
     """
     Reject blocks that include blob transactions with invalid blob counts:
@@ -635,13 +627,12 @@ def test_invalid_tx_blob_count(
     ],
 )
 @pytest.mark.parametrize("tx_error", ["invalid_versioned_hash"], ids=[""])
-@pytest.mark.parametrize("fork", forks_from(Cancun))
+@pytest.mark.valid_from("Cancun")
 def test_invalid_blob_hash_versioning(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     env: Environment,
     blocks: List[Block],
-    fork: Fork,
 ):
     """
     Reject blocks that include blob transactions with invalid blob hash
@@ -668,13 +659,12 @@ def test_invalid_blob_hash_versioning(
     ],
     ids=["no_blob_tx", "one_blob_tx"],
 )
-@pytest.mark.parametrize("fork", fork_only(Shanghai))
+@pytest.mark.valid_from("Shanghai")
 def test_blob_type_tx_pre_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     env: Environment,
     blocks: List[Block],
-    fork: Fork,
 ):
     """
     Reject blocks with blobs before blobs fork

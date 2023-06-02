@@ -7,7 +7,6 @@ from typing import Dict, Literal
 
 import pytest
 
-from ethereum_test_forks import Cancun, Fork, forks_from
 from ethereum_test_tools import (
     Account,
     Block,
@@ -231,13 +230,12 @@ def post(
     ids=["exact_gas", "insufficient_gas", "extra_gas"],
 )
 @pytest.mark.parametrize("proof", ["correct", "incorrect"])
-@pytest.mark.parametrize("fork", forks_from(Cancun))
+@pytest.mark.valid_from("Cancun")
 def test_point_evaluation_precompile_gas_usage(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     tx: Transaction,
     post: Dict,
-    fork: Fork,
 ):
     """
     Test Precompile Gas Usage.

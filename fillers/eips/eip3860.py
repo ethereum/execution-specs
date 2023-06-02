@@ -9,7 +9,6 @@ from typing import Any, Dict
 
 import pytest
 
-from ethereum_test_forks import Fork, Shanghai, forks_from
 from ethereum_test_tools import (
     Account,
     Block,
@@ -31,7 +30,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3860.md"
 REFERENCE_SPEC_VERSION = "5f8151e19ad1c99da4bafd514ce0e8ab89783c8f"
 
-pytestmark = pytest.mark.parametrize("fork", forks_from(Shanghai))
+pytestmark = pytest.mark.valid_from("Shanghai")
 
 """
 General constants used for testing purposes
@@ -204,7 +203,7 @@ def get_initcode_name(val):
     ids=get_initcode_name,
 )
 def test_contract_creating_tx(
-    blockchain_test: BlockchainTestFiller, fork: Fork, initcode: Initcode
+    blockchain_test: BlockchainTestFiller, initcode: Initcode
 ):
     """
     Test cases using a contract creating transaction
@@ -425,7 +424,6 @@ class TestContractCreationGasUsage:
     def test_gas_usage(
         self,
         blockchain_test: BlockchainTestFiller,
-        fork: Fork,
         gas_test_case: str,
         initcode: Initcode,
         exact_intrinsic_gas,

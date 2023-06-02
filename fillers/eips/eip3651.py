@@ -6,7 +6,7 @@ Source tests: https://github.com/ethereum/tests/pull/1082
 
 import pytest
 
-from ethereum_test_forks import Shanghai, forks_from, is_fork
+from ethereum_test_forks import Shanghai, is_fork
 from ethereum_test_tools import (
     Account,
     CodeGasMeasure,
@@ -20,7 +20,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3651.md"
 REFERENCE_SPEC_VERSION = "d94c694c6f12291bb6626669c3e8587eef3adff1"
 
-pytestmark = pytest.mark.parametrize("fork", forks_from(Shanghai))
+pytestmark = pytest.mark.valid_from("Shanghai")
 
 # Amount of gas required to make a call to a warm account.
 # Calling a cold account with this amount of gas results in exception.

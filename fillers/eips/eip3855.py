@@ -6,7 +6,6 @@ Source tests: https://github.com/ethereum/tests/pull/1033
 
 import pytest
 
-from ethereum_test_forks import Fork, Shanghai, forks_from
 from ethereum_test_tools import (
     Account,
     CodeGasMeasure,
@@ -22,7 +21,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3855.md"
 REFERENCE_SPEC_VERSION = "42034250ae8dd4b21fdc6795773893c6f1e74d3a"
 
-pytestmark = pytest.mark.parametrize("fork", forks_from(Shanghai))
+pytestmark = pytest.mark.valid_from("Shanghai")
 
 
 @pytest.fixture
@@ -55,7 +54,6 @@ def tx(addr_1):  # noqa: D103
 
 def test_push0_key_sstore(
     state_test: StateTestFiller,
-    fork: Fork,
     env: Environment,
     pre: dict,
     post: dict,
@@ -75,7 +73,6 @@ def test_push0_key_sstore(
 
 def test_push0_fill_stack(
     state_test: StateTestFiller,
-    fork: Fork,
     env: Environment,
     pre: dict,
     post: dict,
@@ -97,7 +94,6 @@ def test_push0_fill_stack(
 
 def test_push0_stack_overflow(
     state_test: StateTestFiller,
-    fork: Fork,
     env: Environment,
     pre: dict,
     post: dict,
@@ -118,7 +114,6 @@ def test_push0_stack_overflow(
 
 def test_push0_storage_overwrite(
     state_test: StateTestFiller,
-    fork: Fork,
     env: Environment,
     pre: dict,
     post: dict,
@@ -138,7 +133,6 @@ def test_push0_storage_overwrite(
 
 def test_push0_during_staticcall(
     state_test: StateTestFiller,
-    fork: Fork,
     env: Environment,
     pre: dict,
     post: dict,
@@ -171,7 +165,6 @@ def test_push0_during_staticcall(
 
 def test_push0_before_jumpdest(
     state_test: StateTestFiller,
-    fork: Fork,
     env: Environment,
     pre: dict,
     post: dict,
@@ -198,7 +191,6 @@ def test_push0_before_jumpdest(
 
 def test_push0_gas_cost(
     state_test: StateTestFiller,
-    fork: Fork,
     env: Environment,
     pre: dict,
     post: dict,
