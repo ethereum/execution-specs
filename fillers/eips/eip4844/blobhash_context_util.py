@@ -19,6 +19,17 @@ class BlobhashContext:
     to specific bytecode (with BLOBHASH), addresses and contracts.
     """
 
+    addresses = {
+        "blobhash_sstore": to_address(0x100),
+        "blobhash_return": to_address(0x600),
+        "call": to_address(0x200),
+        "delegatecall": to_address(0x300),
+        "callcode": to_address(0x800),
+        "staticcall": to_address(0x700),
+        "create": to_address(0x400),
+        "create2": to_address(0x500),
+    }
+
     @staticmethod
     def _get_blobhash_verbatim():
         """
@@ -34,17 +45,10 @@ class BlobhashContext:
         """
         Maps an opcode context to a specific address.
         """
-        addresses = {
-            "blobhash_sstore": to_address(0x100),
-            "blobhash_return": to_address(0x600),
-            "call": to_address(0x200),
-            "delegatecall": to_address(0x300),
-            "callcode": to_address(0x800),
-            "staticcall": to_address(0x700),
-            "create": to_address(0x400),
-            "create2": to_address(0x500),
-        }
-        return addresses.get(context_name)
+        address = cls.addresses.get(context_name)
+        if address is None:
+            raise ValueError(f"Invalid scenario: {context_name}")
+        return address
 
     @classmethod
     def code(cls, context_name):
@@ -175,7 +179,10 @@ class BlobhashContext:
                 """
             ),
         }
-        return code.get(context_name)
+        code = code.get(context_name)
+        if code is None:
+            raise ValueError(f"Invalid scenario: {context_name}")
+        return code
 
     @classmethod
     def created_contract(cls, context_name):
@@ -185,13 +192,66 @@ class BlobhashContext:
         contract = {
             "tx_created_contract": compute_create_address(TestAddress, 0),
             "create": compute_create_address(
-                BlobhashContext.address("create"),
+                cls.address("create"),
                 0,
             ),
             "create2": compute_create2_address(
-                BlobhashContext.address("create2"),
+                cls.address("create2"),
                 0,
-                BlobhashContext.code("initcode").assemble(),
+                cls.code("initcode").assemble(),
             ),
         }
-        return contract.get(context_name)
+        contract = contract.get(context_name)
+        if contract is None:
+            raise ValueError(f"Invalid scenario: {context_name}")
+        return contract
+
+
+class BlobhashScenario:
+    """
+    A utility class for generating blobhash calls.
+    """
+
+    MAX_BLOB_PER_BLOCK = 4
+
+    @staticmethod
+    def blobhash_sstore(index: int):
+        """
+        Returns an BLOBHASH sstore to the given index.
+        """
+        return Op.SSTORE(index, Op.BLOBHASH(index))
+
+    @classmethod
+    def generate_blobhash_calls(cls, scenario_name: str) -> bytes:
+        """
+        Returns BLOBHASH bytecode calls for the given scenario.
+        """
+        scenario = {
+            "single_valid": lambda: b"".join(
+                cls.blobhash_sstore(i) for i in range(cls.MAX_BLOB_PER_BLOCK)
+            ),
+            "repeated_valid": lambda: b"".join(
+                b"".join(cls.blobhash_sstore(i) for _ in range(10))
+                for i in range(cls.MAX_BLOB_PER_BLOCK)
+            ),
+            "valid_invalid": lambda: b"".join(
+                cls.blobhash_sstore(i)
+                + cls.blobhash_sstore(cls.MAX_BLOB_PER_BLOCK)
+                + cls.blobhash_sstore(i)
+                for i in range(cls.MAX_BLOB_PER_BLOCK)
+            ),
+            "varied_valid": lambda: b"".join(
+                cls.blobhash_sstore(i)
+                + cls.blobhash_sstore(i + 1)
+                + cls.blobhash_sstore(i)
+                for i in range(cls.MAX_BLOB_PER_BLOCK - 1)
+            ),
+            "invalid_calls": lambda: b"".join(
+                cls.blobhash_sstore(i)
+                for i in range(-5, cls.MAX_BLOB_PER_BLOCK + 5)
+            ),
+        }
+        scenario = scenario.get(scenario_name)
+        if scenario is None:
+            raise ValueError(f"Invalid scenario: {scenario_name}")
+        return scenario
