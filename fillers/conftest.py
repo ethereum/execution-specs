@@ -78,23 +78,23 @@ def evm_bin(request):
 
 
 @pytest.fixture(autouse=True, scope="session")
-def t8n(request):
+def t8n(request, evm_bin):
     """
     Returns the configured transition tool.
     """
     t8n = EvmTransitionTool(
-        binary=request.config.getoption("evm_bin"),
+        binary=evm_bin,
         trace=request.config.getoption("evm_collect_traces"),
     )
     return t8n
 
 
 @pytest.fixture(autouse=True, scope="session")
-def b11r(request):
+def b11r(request, evm_bin):
     """
     Returns the configured block builder tool.
     """
-    b11r = EvmBlockBuilder(binary=request.config.getoption("evm_bin"))
+    b11r = EvmBlockBuilder(binary=evm_bin)
     return b11r
 
 
