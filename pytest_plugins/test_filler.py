@@ -63,8 +63,8 @@ def pytest_addoption(parser):
         "--output",
         action="store",
         dest="output",
-        default="./out/",
-        help="Directory to store filled test fixtures",
+        default="./fixtures/",
+        help="Directory to store the generated test fixtures. Can be deleted.",
     )
 
 
