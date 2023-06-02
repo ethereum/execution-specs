@@ -8,6 +8,7 @@ writes the generated fixtures to file.
 import json
 import os
 import re
+import subprocess
 from typing import Any, Dict, List, Tuple, Type
 
 import pytest
@@ -66,6 +67,31 @@ def pytest_addoption(parser):
         default="./fixtures/",
         help="Directory to store the generated test fixtures. Can be deleted.",
     )
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_report_header(config, start_path):
+    """Add lines to pytest's console output header"""
+    t8n = EvmTransitionTool(
+        binary=config.getoption("evm_bin"),
+        trace=config.getoption("evm_collect_traces"),
+    )
+    result = subprocess.run(
+        ["solc", "--version"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    solc_output = result.stdout.decode().split("\n")
+
+    version_pattern = r"0\.\d+\.\d+\+\S+"
+    solc_version_string = None
+
+    for line in solc_output:
+        match = re.search(version_pattern, line)
+        if match:
+            solc_version_string = match.group(0)
+            break
+    return [f"{t8n.version()}, solc version {solc_version_string}"]
 
 
 @pytest.fixture(autouse=True, scope="session")
