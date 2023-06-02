@@ -49,7 +49,7 @@ class BlobhashContext:
         """
         address = cls.addresses.get(context_name)
         if address is None:
-            raise ValueError(f"Invalid scenario: {context_name}")
+            raise ValueError(f"Invalid context: {context_name}")
         return address
 
     @classmethod
@@ -183,7 +183,7 @@ class BlobhashContext:
         }
         code = code.get(context_name)
         if code is None:
-            raise ValueError(f"Invalid scenario: {context_name}")
+            raise ValueError(f"Invalid context: {context_name}")
         return code
 
     @classmethod
@@ -205,7 +205,7 @@ class BlobhashContext:
         }
         contract = contract.get(context_name)
         if contract is None:
-            raise ValueError(f"Invalid scenario: {context_name}")
+            raise ValueError(f"Invalid contract: {context_name}")
         return contract
 
 
