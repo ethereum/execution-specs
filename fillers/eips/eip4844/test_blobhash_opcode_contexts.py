@@ -3,7 +3,6 @@ Test EIP-4844: BLOBHASH Opcode Contexts
 EIP: https://eips.ethereum.org/EIPS/eip-4844
 """
 
-from typing import List
 
 import pytest
 
@@ -15,27 +14,18 @@ from ethereum_test_tools import (
     Environment,
     TestAddress,
     Transaction,
-    add_kzg_version,
     to_hash_bytes,
 )
 
-from .blobhash_util import BlobhashContext
+from .blobhash_util import BlobhashContext, simple_blob_hashes
 
 pytestmark = pytest.mark.parametrize("fork", forks_from(Cancun))
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
 REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
 
-MAX_BLOB_PER_BLOCK = 4
-BLOB_COMMITMENT_VERSION_KZG = bytes([0x01])
 
-# Blob versioned hashes ranging from bytes32(1 to 4)
-blob_hashes: List[bytes] = add_kzg_version(
-    [(1 << x) for x in range(MAX_BLOB_PER_BLOCK)],
-    BLOB_COMMITMENT_VERSION_KZG,
-)
-
-# Blob transaction (type 3) template
+# Blob transaction template
 tx_type_3 = Transaction(
     ty=3,
     data=to_hash_bytes(0),
@@ -44,8 +34,7 @@ tx_type_3 = Transaction(
     max_priority_fee_per_gas=10,
     max_fee_per_data_gas=10,
     access_list=[],
-    blob_commitment_version_kzg=BLOB_COMMITMENT_VERSION_KZG,
-    blob_versioned_hashes=blob_hashes,
+    blob_versioned_hashes=simple_blob_hashes,
 )
 
 
@@ -64,7 +53,6 @@ def create_opcode_context(pre, tx, post):
 # Dictionary of BLOBHASH opcode use cases. Each context is given a
 # pre state, tx & post state respectively, and utilized
 # directly within the context pytest fixture.
-
 opcode_contexts = [
     (
         "BLOBHASH_on_top_level_call_stack",
@@ -76,11 +64,11 @@ opcode_contexts = [
             },
             tx_type_3.with_fields(
                 to=BlobhashContext.address("blobhash_sstore"),
-                blob_versioned_hashes=blob_hashes[:1],
+                blob_versioned_hashes=simple_blob_hashes[:1],
             ),
             {
                 BlobhashContext.address("blobhash_sstore"): Account(
-                    storage={0: blob_hashes[0]}
+                    storage={0: simple_blob_hashes[0]}
                 ),
             },
         ),
@@ -118,11 +106,11 @@ opcode_contexts = [
             tx_type_3.with_fields(
                 data=to_hash_bytes(1) + to_hash_bytes(1),
                 to=BlobhashContext.address("call"),
-                blob_versioned_hashes=blob_hashes[:2],
+                blob_versioned_hashes=simple_blob_hashes[:2],
             ),
             {
                 BlobhashContext.address("blobhash_sstore"): Account(
-                    storage={1: blob_hashes[1]}
+                    storage={1: simple_blob_hashes[1]}
                 ),
             },
         ),
@@ -146,7 +134,9 @@ opcode_contexts = [
                 BlobhashContext.address("delegatecall"): Account(
                     storage={
                         k: v
-                        for (k, v) in zip(range(len(blob_hashes)), blob_hashes)
+                        for (k, v) in zip(
+                            range(len(simple_blob_hashes)), simple_blob_hashes
+                        )
                     }
                 ),
             },
@@ -171,7 +161,9 @@ opcode_contexts = [
                 BlobhashContext.address("staticcall"): Account(
                     storage={
                         k: v
-                        for (k, v) in zip(range(len(blob_hashes)), blob_hashes)
+                        for (k, v) in zip(
+                            range(len(simple_blob_hashes)), simple_blob_hashes
+                        )
                     }
                 ),
             },
@@ -196,7 +188,9 @@ opcode_contexts = [
                 BlobhashContext.address("callcode"): Account(
                     storage={
                         k: v
-                        for (k, v) in zip(range(len(blob_hashes)), blob_hashes)
+                        for (k, v) in zip(
+                            range(len(simple_blob_hashes)), simple_blob_hashes
+                        )
                     }
                 ),
             },
@@ -216,7 +210,9 @@ opcode_contexts = [
                 ): Account(
                     storage={
                         k: v
-                        for (k, v) in zip(range(len(blob_hashes)), blob_hashes)
+                        for (k, v) in zip(
+                            range(len(simple_blob_hashes)), simple_blob_hashes
+                        )
                     }
                 ),
             },
@@ -238,7 +234,9 @@ opcode_contexts = [
                 BlobhashContext.created_contract("create"): Account(
                     storage={
                         k: v
-                        for (k, v) in zip(range(len(blob_hashes)), blob_hashes)
+                        for (k, v) in zip(
+                            range(len(simple_blob_hashes)), simple_blob_hashes
+                        )
                     }
                 ),
             },
@@ -260,7 +258,9 @@ opcode_contexts = [
                 BlobhashContext.created_contract("create2"): Account(
                     storage={
                         k: v
-                        for (k, v) in zip(range(len(blob_hashes)), blob_hashes)
+                        for (k, v) in zip(
+                            range(len(simple_blob_hashes)), simple_blob_hashes
+                        )
                     }
                 ),
             },
@@ -349,10 +349,7 @@ def context(request):
 
 
 @pytest.fixture
-def env():
-    """
-    Fixture for the environment setup.
-    """
+def env():  # noqa: D103
     return Environment()
 
 
@@ -360,7 +357,15 @@ def test_blobhash_opcode_contexts(
     context, env, blockchain_test: BlockchainTestFiller
 ):
     """
-    Test function for each opcode context, in the opcode_contexts dictionary.
+    Tests that the BLOBHASH opcode functions correctly when called in different
+    contexts including:
+
+    - BLOBHASH opcode on the top level of the call stack.
+    - BLOBHASH opcode on the max value.
+    - BLOBHASH opcode on `CALL`, `DELEGATECALL`, `STATICCALL`, and `CALLCODE`.
+    - BLOBHASH opcode on Initcode.
+    - BLOBHASH opcode on `CREATE` and `CREATE2`.
+    - BLOBHASH opcode on transaction types 0, 1 and 2.
     """
     blockchain_test(
         genesis_environment=env,
