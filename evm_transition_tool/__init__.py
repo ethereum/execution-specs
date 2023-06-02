@@ -166,6 +166,17 @@ class EvmTransitionTool(TransitionTool):
             )
         self.binary = binary
         self.trace = trace
+        args = [str(self.binary), "t8n", "--help"]
+        try:
+            result = subprocess.run(args, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+            raise Exception(
+                "evm process unexpectedly returned a non-zero status code: "
+                f"{e}."
+            )
+        except Exception as e:
+            raise Exception(f"Unexpected exception calling evm tool: {e}.")
+        self.help_string = result.stdout
 
     def evaluate(
         self,
@@ -267,8 +278,8 @@ class EvmTransitionTool(TransitionTool):
 
         return self.cached_version
 
-    def is_fork_supported(self, _: Fork) -> bool:
+    def is_fork_supported(self, fork: Fork) -> bool:
         """
         Returns True if the fork is supported by the tool
         """
-        return True
+        return fork().name() in self.help_string
