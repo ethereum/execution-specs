@@ -193,7 +193,7 @@ def pytest_report_header(config, start_path):
             (
                 bold
                 + warning
-                + "Only executing fillers with stable/deployed forks: "
+                + "Only executing tests with stable/deployed forks: "
                 "Specify an upcoming fork via --until=fork to "
                 "add forks under development." + reset
             )
