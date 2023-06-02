@@ -30,6 +30,7 @@ from .helpers import (
     forks_from,
     forks_from_until,
     is_fork,
+    latest_fork_resolver,
     set_latest_fork,
     set_latest_fork_by_name,
 )
@@ -58,6 +59,7 @@ __all__ = [
     "forks_from",
     "forks_from_until",
     "is_fork",
+    "latest_fork_resolver",
     "set_latest_fork",
     "set_latest_fork_by_name",
 ]
