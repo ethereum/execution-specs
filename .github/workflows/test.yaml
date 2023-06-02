@@ -4,7 +4,7 @@ on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: self-hosted
     strategy:
       matrix:
         python: [3.8, pypy-3.8]
@@ -14,7 +14,7 @@ jobs:
         with:
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python }}
       - name: Install Tox and any other packages
@@ -27,8 +27,6 @@ jobs:
       - name: Run Tox (PyPy)
         if: ${{ matrix.python == 'pypy-3.8' }}
         run: tox -e pypy3
-        env:
-          PYTEST_XDIST_WORKERS: 1
       - name: Run Tox (CPython)
         if: ${{ matrix.python != 'pypy-3.8' }}
         run: tox -e py3
