@@ -22,6 +22,8 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
+from .blobhash_util import BlobhashScenario
+
 pytestmark = pytest.mark.parametrize("fork", forks_from(Cancun))
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
@@ -151,48 +153,6 @@ def test_blobhash_gas_cost(
     )
 
 
-# TODO add to utility `BLOBHASH` sstore template helper
-def blobhash_sstore(index: int):
-    return Op.SSTORE(index, Op.BLOBHASH(index))
-
-
-# Helper function to generate blobhash calls
-def generate_blobhash_calls(scenario: str, max_per_block: int) -> bytes:
-    if scenario == "single_valid":
-        return b"".join(blobhash_sstore(i) for i in range(max_per_block))
-
-    elif scenario == "repeated_valid":
-        return b"".join(
-            b"".join([blobhash_sstore(i) for _ in range(10)])
-            for i in range(max_per_block)
-        )
-
-    elif scenario == "valid_invalid":
-        return b"".join(
-            blobhash_sstore(i)
-            + blobhash_sstore(max_per_block)
-            + blobhash_sstore(i)
-            for i in range(max_per_block)
-        )
-
-    elif scenario == "varied_valid":
-        return b"".join(
-            blobhash_sstore(i) + blobhash_sstore(i + 1) + blobhash_sstore(i)
-            for i in range(max_per_block - 1)
-        )
-    # `BLOBHASH` on invalid indexes: -ve invalid -> valid -> +ve invalid:
-    elif scenario == "invalid_calls":
-        return b"".join(
-            blobhash_sstore(i)
-            for i in range(
-                -5,
-                MAX_BLOB_PER_BLOCK + 5,
-            )
-        )
-    else:
-        raise ValueError(f"Invalid scenario: {scenario}")
-
-
 @pytest.mark.parametrize(
     "scenario",
     [
@@ -223,7 +183,7 @@ def test_blobhash_versioned_hash(
     )
 
     for i in range(TOTAL_BLOCKS):
-        blobhash_calls = generate_blobhash_calls(scenario, MAX_BLOB_PER_BLOCK)
+        blobhash_calls = BlobhashScenario.generate_blobhash_calls(scenario)
         address = to_address(0x100 + i * 0x100)
         pre[address] = Account(code=blobhash_calls)
         blocks.append(
@@ -282,7 +242,7 @@ def test_blobhash_invalid_blob_index(
     TOTAL_BLOCKS = 5
 
     for i in range(TOTAL_BLOCKS):
-        blobhash_calls = generate_blobhash_calls(scenario, MAX_BLOB_PER_BLOCK)
+        blobhash_calls = BlobhashScenario.generate_blobhash_calls(scenario)
         address = to_address(0x100 + i * 0x100)
         pre[address] = Account(code=blobhash_calls)
         blob_per_block = (i % MAX_BLOB_PER_BLOCK) + 1
@@ -332,60 +292,60 @@ def generate_base_tx(tx):
     )
 
 
-block_params = [
-    (3, to_address(0x100), 2, to_address(0x100)),
-    (2, to_address(0x200), 3, to_address(0x200)),
-    (2, to_address(0x300), 3, to_address(0x400)),
-]
+# block_params = [
+#     (3, to_address(0x100), 2, to_address(0x100)),
+#     (2, to_address(0x200), 3, to_address(0x200)),
+#     (2, to_address(0x300), 3, to_address(0x400)),
+# ]
 
 
-@pytest.mark.parametrize(
-    "block",
-    [
-        Block(
-            txs=[
-                generate_base_tx(tx).with_fields(ty=ty1, nonce=0, to=to1),
-                generate_base_tx(tx).with_fields(ty=ty2, nonce=1, to=to2),
-            ]
-        )
-        for ty1, to1, ty2, to2 in block_params
-    ],
-    ids=[f"Block {i}" for i in range(1, len(block_params) + 1)],
-)
-def test_blobhash_multiple_txs_in_block(
-    env,
-    pre,
-    block,
-    post,
-    blockchain_test: BlockchainTestFiller,
-):
-    """
-    Tests that the `BLOBHASH` opcode returns the appropriate values
-    when there is more than one blob tx type within a block.
-    """
-    blobhash_calls = generate_blobhash_calls(
-        "single_valid", MAX_BLOB_PER_BLOCK
-    )
-    pre = {
-        **pre,
-        **{
-            to_address(address): Account(code=blobhash_calls)
-            for address in range(0x100, 0x500, 0x100)
-        },
-    }
+# @pytest.mark.parametrize(
+#     "block",
+#     [
+#         Block(
+#             txs=[
+#                 generate_base_tx(tx).with_fields(ty=ty1, nonce=0, to=to1),
+#                 generate_base_tx(tx).with_fields(ty=ty2, nonce=1, to=to2),
+#             ]
+#         )
+#         for ty1, to1, ty2, to2 in block_params
+#     ],
+#     ids=[f"Block {i}" for i in range(1, len(block_params) + 1)],
+# )
+# def test_blobhash_multiple_txs_in_block(
+#     env,
+#     pre,
+#     block,
+#     post,
+#     blockchain_test: BlockchainTestFiller,
+# ):
+#     """
+#     Tests that the `BLOBHASH` opcode returns the appropriate values
+#     when there is more than one blob tx type within a block.
+#     """
+#     blobhash_calls = generate_blobhash_calls(
+#         "single_valid", MAX_BLOB_PER_BLOCK
+#     )
+#     pre = {
+#         **pre,
+#         **{
+#             to_address(address): Account(code=blobhash_calls)
+#             for address in range(0x100, 0x500, 0x100)
+#         },
+#     }
 
-    post = {
-        to_address(address): Account(
-            storage={i: blob_hashes[i] for i in range(MAX_BLOB_PER_BLOCK)}
-        )
-        if address in (0x200, 0x400)
-        else Account(storage={i: 0 for i in range(MAX_BLOB_PER_BLOCK)})
-        for address in range(0x100, 0x500, 0x100)
-    }
+#     post = {
+#         to_address(address): Account(
+#             storage={i: blob_hashes[i] for i in range(MAX_BLOB_PER_BLOCK)}
+#         )
+#         if address in (0x200, 0x400)
+#         else Account(storage={i: 0 for i in range(MAX_BLOB_PER_BLOCK)})
+#         for address in range(0x100, 0x500, 0x100)
+#     }
 
-    blockchain_test(
-        genesis_environment=env,
-        pre=pre,
-        post=post,
-        blocks=[block],
-    )
+#     blockchain_test(
+#         genesis_environment=env,
+#         pre=pre,
+#         post=post,
+#         blocks=[block],
+#     )

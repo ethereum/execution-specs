@@ -1,6 +1,8 @@
 """
-Utility Module: BLOBHASH Opcode Contexts
-Test: fillers/eips/eip4844/blobhash_opcode_contexts.py
+Utility Module: BLOBHASH Opcode
+Tests: fillers/eips/eip4844/
+    > blobhash_opcode_contexts.py
+    > blobhash_opcode.py
 """
 
 from ethereum_test_tools import (
@@ -226,7 +228,7 @@ class BlobhashScenario:
         """
         Returns BLOBHASH bytecode calls for the given scenario.
         """
-        scenario = {
+        scenarios = {
             "single_valid": lambda: b"".join(
                 cls.blobhash_sstore(i) for i in range(cls.MAX_BLOB_PER_BLOCK)
             ),
@@ -251,7 +253,7 @@ class BlobhashScenario:
                 for i in range(-5, cls.MAX_BLOB_PER_BLOCK + 5)
             ),
         }
-        scenario = scenario.get(scenario_name)
+        scenario = scenarios.get(scenario_name)
         if scenario is None:
             raise ValueError(f"Invalid scenario: {scenario_name}")
-        return scenario
+        return scenario()

@@ -6,7 +6,6 @@ EIP: https://eips.ethereum.org/EIPS/eip-4844
 from typing import List
 
 import pytest
-from blobhash_context_util import BlobhashContext
 
 from ethereum_test_forks import Cancun, forks_from
 from ethereum_test_tools import (
@@ -19,6 +18,8 @@ from ethereum_test_tools import (
     add_kzg_version,
     to_hash_bytes,
 )
+
+from .blobhash_util import BlobhashContext
 
 pytestmark = pytest.mark.parametrize("fork", forks_from(Cancun))
 
