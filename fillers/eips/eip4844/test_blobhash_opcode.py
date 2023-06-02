@@ -13,7 +13,6 @@ from ethereum_test_tools import (
     Block,
     BlockchainTestFiller,
     CodeGasMeasure,
-    Environment,
     TestAddress,
     Transaction,
     to_address,
@@ -34,20 +33,6 @@ pytestmark = pytest.mark.parametrize("fork", forks_from(Cancun))
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
 REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
-
-
-@pytest.fixture(params=blobhash_index_values, ids=lambda x: f"index={hex(x)}")
-def blobhash_index(request):
-    """
-    Fixture that provides a set of parameterized blobhash index values.
-    Display in hex format for better readability.
-    """
-    return request.param
-
-
-@pytest.fixture
-def env():  # noqa: D103
-    return Environment()
 
 
 @pytest.fixture
@@ -95,9 +80,17 @@ def blob_tx(template_tx):
     return _blob_tx
 
 
+@pytest.fixture(params=blobhash_index_values, ids=lambda x: f"index={hex(x)}")
+def blobhash_index(request):
+    """
+    Fixture that provides a set of parameterized blobhash index values.
+    Display in hex format for better readability.
+    """
+    return request.param
+
+
 @pytest.mark.parametrize("tx_type", [0, 1, 2, 3])
 def test_blobhash_gas_cost(
-    env,
     pre,
     template_tx,
     blocks,
@@ -142,7 +135,6 @@ def test_blobhash_gas_cost(
     )
     post[address] = Account(storage={0: BLOBHASH_GAS_COST})
     blockchain_test(
-        genesis_environment=env,
         pre=pre,
         blocks=blocks,
         post=post,
@@ -159,7 +151,6 @@ def test_blobhash_gas_cost(
     ],
 )
 def test_blobhash_versioned_hash(
-    env,
     pre,
     template_tx,
     blocks,
@@ -212,7 +203,6 @@ def test_blobhash_versioned_hash(
             }
         )
     blockchain_test(
-        genesis_environment=env,
         pre=pre,
         blocks=blocks,
         post=post,
@@ -226,7 +216,6 @@ def test_blobhash_versioned_hash(
     ],
 )
 def test_blobhash_invalid_blob_index(
-    env,
     pre,
     template_tx,
     blocks,
@@ -280,7 +269,6 @@ def test_blobhash_invalid_blob_index(
             }
         )
     blockchain_test(
-        genesis_environment=env,
         pre=pre,
         blocks=blocks,
         post=post,
@@ -288,7 +276,6 @@ def test_blobhash_invalid_blob_index(
 
 
 def test_blobhash_multiple_txs_in_block(
-    env,
     pre,
     blob_tx,
     post,
@@ -340,7 +327,6 @@ def test_blobhash_multiple_txs_in_block(
         for address in range(0x100, 0x500, 0x100)
     }
     blockchain_test(
-        genesis_environment=env,
         pre=pre,
         blocks=blocks,
         post=post,

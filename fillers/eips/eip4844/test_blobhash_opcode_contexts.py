@@ -11,7 +11,6 @@ from ethereum_test_tools import (
     Account,
     Block,
     BlockchainTestFiller,
-    Environment,
     TestAddress,
     Transaction,
     to_hash_bytes,
@@ -348,13 +347,8 @@ def context(request):
     return request.param[1]
 
 
-@pytest.fixture
-def env():  # noqa: D103
-    return Environment()
-
-
 def test_blobhash_opcode_contexts(
-    context, env, blockchain_test: BlockchainTestFiller
+    context, blockchain_test: BlockchainTestFiller
 ):
     """
     Tests that the BLOBHASH opcode functions correctly when called in different
@@ -368,7 +362,6 @@ def test_blobhash_opcode_contexts(
     - BLOBHASH opcode on transaction types 0, 1 and 2.
     """
     blockchain_test(
-        genesis_environment=env,
         pre=context.get("pre"),
         blocks=[Block(txs=[context.get("tx")])],
         post=context.get("post"),
