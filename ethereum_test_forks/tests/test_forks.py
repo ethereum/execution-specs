@@ -18,7 +18,22 @@ from ..helpers import (
     forks_from_until,
     is_fork,
     set_latest_fork_by_name,
+    transition_fork_from_to,
+    transition_fork_to,
 )
+
+
+def test_transition_forks():
+    """
+    Test transition fork utilities.
+    """
+    assert transition_fork_from_to(Berlin, London) == BerlinToLondonAt5
+    assert transition_fork_from_to(Berlin, Merge) is None
+    assert transition_fork_to(Shanghai) == [MergeToShanghaiAtTime15k]
+
+    # Test forks transitioned to and from
+    assert BerlinToLondonAt5.transitions_to() == London
+    assert BerlinToLondonAt5.transitions_from() == Berlin
 
 
 def test_forks():

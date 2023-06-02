@@ -26,6 +26,7 @@ from .forks.transition import (
 from .forks.upcoming import Cancun
 from .helpers import (
     InvalidForkError,
+    all_transition_forks,
     fork_only,
     forks_from,
     forks_from_until,
@@ -33,6 +34,8 @@ from .helpers import (
     latest_fork_resolver,
     set_latest_fork,
     set_latest_fork_by_name,
+    transition_fork_from_to,
+    transition_fork_to,
 )
 
 __all__ = [
@@ -55,6 +58,7 @@ __all__ = [
     "Shanghai",
     "ShanghaiToCancunAtTime15k",
     "Cancun",
+    "all_transition_forks",
     "fork_only",
     "forks_from",
     "forks_from_until",
@@ -62,4 +66,6 @@ __all__ = [
     "latest_fork_resolver",
     "set_latest_fork",
     "set_latest_fork_by_name",
+    "transition_fork_from_to",
+    "transition_fork_to",
 ]
