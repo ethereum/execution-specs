@@ -18,6 +18,13 @@ class TransitionBaseClass:
         """
         raise Exception("Not implemented")
 
+    @classmethod
+    def transitions_from(cls) -> Fork:
+        """
+        Returns the fork where the transition starts.
+        """
+        raise Exception("Not implemented")
+
 
 def transition_fork(to_fork: Fork):
     """
@@ -36,6 +43,9 @@ def transition_fork(to_fork: Fork):
                 return transition_name
 
         NewTransitionClass.transitions_to = lambda: to_fork  # type: ignore
+        NewTransitionClass.transitions_from = (  # type: ignore
+            lambda: cls.__bases__[0]
+        )
 
         return NewTransitionClass
 

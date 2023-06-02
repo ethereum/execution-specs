@@ -4,7 +4,7 @@ Helper methods to resolve forks during test filling
 from typing import List
 
 from .base_fork import BaseFork, Fork
-from .forks import forks, upcoming
+from .forks import forks, transition, upcoming
 from .transition_base_fork import TransitionBaseClass
 
 
@@ -55,6 +55,54 @@ def get_parent_fork(fork: Fork) -> Fork:
     Returns the parent fork of the specified fork
     """
     return fork.__base__
+
+
+def all_transition_forks() -> List[Fork]:
+    """
+    Returns all the transition forks
+    """
+    transition_forks: List[Fork] = []
+
+    for fork_name in transition.__dict__:
+        fork = transition.__dict__[fork_name]
+        if not isinstance(fork, type):
+            continue
+        if issubclass(fork, TransitionBaseClass) and issubclass(
+            fork, BaseFork
+        ):
+            transition_forks.append(fork)
+
+    return transition_forks
+
+
+def transition_fork_from_to(fork_from: Fork, fork_to: Fork) -> Fork | None:
+    """
+    Returns the transition fork that transition to and from the specified forks
+    """
+    for transition_fork in all_transition_forks():
+        if not issubclass(transition_fork, TransitionBaseClass):
+            continue
+        if (
+            transition_fork.transitions_to() == fork_to
+            and transition_fork.transitions_from() == fork_from
+        ):
+            return transition_fork
+
+    return None
+
+
+def transition_fork_to(fork_to: Fork) -> List[Fork]:
+    """
+    Returns the transition fork that transition to and from the specified forks
+    """
+    transition_forks: List[Fork] = []
+    for transition_fork in all_transition_forks():
+        if not issubclass(transition_fork, TransitionBaseClass):
+            continue
+        if transition_fork.transitions_to() == fork_to:
+            transition_forks.append(transition_fork)
+
+    return transition_forks
 
 
 def forks_from_until(fork_from: Fork, fork_until: Fork) -> List[Fork]:
