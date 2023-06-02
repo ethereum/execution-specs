@@ -1,8 +1,6 @@
 """
 Test DUP opcodes
 """
-import pytest
-
 from ethereum_test_tools import (
     Account,
     Environment,
@@ -13,7 +11,6 @@ from ethereum_test_tools import (
 )
 
 
-@pytest.mark.valid_from("Istanbul")
 def test_dup(state_test: StateTestFiller):
     """
     Test DUP1-DUP16 opcodes.
