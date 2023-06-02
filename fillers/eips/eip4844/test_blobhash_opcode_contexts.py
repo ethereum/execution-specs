@@ -55,7 +55,7 @@ def create_opcode_context(pre, tx, post):
 # directly within the context pytest fixture.
 opcode_contexts = [
     (
-        "BLOBHASH_on_top_level_call_stack",
+        "on_top_level_call_stack",
         create_opcode_context(
             {
                 BlobhashContext.address("blobhash_sstore"): Account(
@@ -74,7 +74,7 @@ opcode_contexts = [
         ),
     ),
     (
-        "BLOBHASH_on_max_value",
+        "on_max_value",
         create_opcode_context(
             {
                 BlobhashContext.address("blobhash_sstore"): Account(
@@ -93,7 +93,7 @@ opcode_contexts = [
         ),
     ),
     (
-        "BLOBHASH_on_CALL",
+        "on_CALL",
         create_opcode_context(
             {
                 BlobhashContext.address("call"): Account(
@@ -116,7 +116,7 @@ opcode_contexts = [
         ),
     ),
     (
-        "BLOBHASH_on_DELEGATECALL",
+        "on_DELEGATECALL",
         create_opcode_context(
             {
                 BlobhashContext.address("delegatecall"): Account(
@@ -143,7 +143,7 @@ opcode_contexts = [
         ),
     ),
     (
-        "BLOBHASH_on_STATICCALL",
+        "on_STATICCALL",
         create_opcode_context(
             {
                 BlobhashContext.address("staticcall"): Account(
@@ -170,7 +170,7 @@ opcode_contexts = [
         ),
     ),
     (
-        "BLOBHASH_on_CALLCODE",
+        "on_CALLCODE",
         create_opcode_context(
             {
                 BlobhashContext.address("callcode"): Account(
@@ -197,7 +197,7 @@ opcode_contexts = [
         ),
     ),
     (
-        "BLOBHASH_on_INITCODE",
+        "on_INITCODE",
         create_opcode_context(
             {},
             tx_type_3.with_fields(
@@ -219,7 +219,7 @@ opcode_contexts = [
         ),
     ),
     (
-        "BLOBHASH_on_CREATE",
+        "on_CREATE",
         create_opcode_context(
             {
                 BlobhashContext.address("create"): Account(
@@ -243,7 +243,7 @@ opcode_contexts = [
         ),
     ),
     (
-        "BLOBHASH_on_CREATE2",
+        "on_CREATE2",
         create_opcode_context(
             {
                 BlobhashContext.address("create2"): Account(
@@ -267,7 +267,7 @@ opcode_contexts = [
         ),
     ),
     (
-        "BLOBHASH_on_type_2_tx",
+        "on_type_2_tx",
         create_opcode_context(
             {
                 BlobhashContext.address("blobhash_sstore"): Account(
@@ -291,7 +291,7 @@ opcode_contexts = [
         ),
     ),
     (
-        "BLOBHASH_on_type_1_tx",
+        "on_type_1_tx",
         create_opcode_context(
             {
                 BlobhashContext.address("blobhash_sstore"): Account(
@@ -314,7 +314,7 @@ opcode_contexts = [
         ),
     ),
     (
-        "BLOBHASH_on_type_0_tx",
+        "on_type_0_tx",
         create_opcode_context(
             {
                 BlobhashContext.address("blobhash_sstore"): Account(
