@@ -6,13 +6,12 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
-from ethereum.base_types import U256, Bytes, Bytes32, Uint
-from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.utils.byte import left_pad_zero_bytes
+from ethereum.base_types import Bytes
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..fixture_loader import UnsupportedTx
-from ..utils import FatalException, parse_hex_or_int, secp256k1_sign
+from ..utils import FatalException, secp256k1_sign
+
 
 class Alloc:
     """

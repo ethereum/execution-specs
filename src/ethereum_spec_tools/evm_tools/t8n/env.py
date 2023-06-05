@@ -1,12 +1,18 @@
+"""
+Define t8n Env class
+"""
 import json
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
+
 from ethereum import rlp
-from typing import Any, Dict, Iterator, List, Optional, Tuple
-from ethereum.base_types import U256, Bytes, Bytes32, Uint
+from ethereum.base_types import U256, Bytes32, Uint
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
-from ..utils import FatalException, parse_hex_or_int, secp256k1_sign
-from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
+from ethereum.utils.hexadecimal import hex_to_bytes
+
+from ..utils import parse_hex_or_int
+
 
 @dataclass
 class Ommer:
