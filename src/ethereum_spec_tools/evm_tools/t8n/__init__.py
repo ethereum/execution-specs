@@ -339,7 +339,8 @@ class T8N(Load):
                     raise e
             else:
                 self.txs.add_transaction(tx)
-                gas_available -= process_transaction_return[0]
+                gas_consumed = process_transaction_return[0]
+                gas_available -= gas_consumed
 
                 self.tx_trie_set(transactions_trie, i, tx)
 
@@ -353,7 +354,7 @@ class T8N(Load):
                     receipt,
                 )
 
-                self.txs.add_receipt(tx)
+                self.txs.add_receipt(tx, gas_consumed)
 
                 block_logs += process_transaction_return[1]
 
