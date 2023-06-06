@@ -77,7 +77,7 @@ def all_transition_forks() -> List[Fork]:
 
 def transition_fork_from_to(fork_from: Fork, fork_to: Fork) -> Fork | None:
     """
-    Returns the transition fork that transition to and from the specified forks
+    Returns the transition fork that transitions to and from the specified forks.
     """
     for transition_fork in all_transition_forks():
         if not issubclass(transition_fork, TransitionBaseClass):
@@ -93,7 +93,7 @@ def transition_fork_from_to(fork_from: Fork, fork_to: Fork) -> Fork | None:
 
 def transition_fork_to(fork_to: Fork) -> List[Fork]:
     """
-    Returns the transition fork that transition to and from the specified forks
+    Returns the transition fork that transitions to the specified fork.
     """
     transition_forks: List[Fork] = []
     for transition_fork in all_transition_forks():
