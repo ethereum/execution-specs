@@ -573,7 +573,7 @@ def test_point_evaluation_precompile_gas_tx_to(
     [[Z, 0, INF_POINT, INF_POINT, auto]],
     ids=["correct_proof"],
 )
-@pytest.mark.fork_transition_test("Cancun")
+@pytest.mark.valid_at_transition_to("Cancun")
 def test_point_evaluation_precompile_before_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,

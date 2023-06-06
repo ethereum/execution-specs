@@ -23,7 +23,7 @@ REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
 REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
 
 # All tests run on the transition fork from Shanghai to Cancun
-pytestmark = pytest.mark.fork_transition_test("Cancun")
+pytestmark = pytest.mark.valid_at_transition_to("Cancun")
 
 BLOB_COMMITMENT_VERSION_KZG = 1
 BLOBHASH_GAS_COST = 3

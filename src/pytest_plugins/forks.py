@@ -213,10 +213,10 @@ def pytest_generate_tests(metafunc):
     """
     Pytest hook used to dynamically generate test cases.
     """
-    fork_transition_test = [
+    valid_at_transition_to = [
         marker.args[0]
         for marker in metafunc.definition.iter_markers(
-            name="fork_transition_test"
+            name="valid_at_transition_to"
         )
     ]
     valid_from = [
@@ -227,23 +227,23 @@ def pytest_generate_tests(metafunc):
         marker.args[0]
         for marker in metafunc.definition.iter_markers(name="valid_until")
     ]
-    if fork_transition_test and (valid_from or valid_until):
+    if valid_at_transition_to and (valid_from or valid_until):
         pytest.fail(
             "The test function "
             f"{metafunc.function.__name__} specifies both a "
-            "pytest.mark.fork_transition_test and a pytest.mark.valid_from or "
+            "pytest.mark.valid_at_transition_to and a pytest.mark.valid_from or "
             "pytest.mark.valid_until marker. "
         )
 
     intersection_range = []
 
-    if fork_transition_test:
-        fork_to = fork_transition_test[0]
+    if valid_at_transition_to:
+        fork_to = valid_at_transition_to[0]
         if fork_to not in metafunc.config.fork_names:
             pytest.fail(
                 "The test function "
                 f"{metafunc.function.__name__} specifies an invalid fork "
-                f"{fork_to} to the pytest.mark.fork_transition_test marker. "
+                f"{fork_to} to the pytest.mark.valid_at_transition_to marker. "
             )
         if fork_to in metafunc.config.fork_range:
             to_fork = metafunc.config.fork_map[fork_to]
