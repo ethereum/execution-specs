@@ -44,8 +44,6 @@ BLS_MODULUS_BYTES = BLS_MODULUS.to_bytes(32, "big")
 FIELD_ELEMENTS_PER_BLOB = 4096
 FIELD_ELEMENTS_PER_BLOB_BYTES = FIELD_ELEMENTS_PER_BLOB.to_bytes(32, "big")
 
-
-# TODO: Update once https://github.com/ethereum/EIPs/pull/7020 is merged.
 Z_Y_VALID_ENDIANNESS: Literal["little", "big"] = "big"
 Z_Y_INVALID_ENDIANNESS: Literal["little", "big"] = "little"
 
