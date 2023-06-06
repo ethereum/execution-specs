@@ -29,7 +29,7 @@ from .util_blobhash import (
     random_blob_hashes,
 )
 
-# TODO: uncomment post fork improvement merged
+# TODO: un-comment post fork improvement merged
 # pytestmark = pytest.mark.valid_from("Cancun")
 pytestmark = pytest.mark.parametrize("fork", forks_from(Cancun))
 

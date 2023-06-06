@@ -18,7 +18,7 @@ from ethereum_test_tools import (
 
 from .util_blobhash import BlobhashContext, simple_blob_hashes
 
-# TODO: uncomment post fork improvement merged
+# TODO: un-comment post fork improvement merged
 # pytestmark = pytest.mark.valid_from("Cancun")
 pytestmark = pytest.mark.parametrize("fork", forks_from(Cancun))
 
