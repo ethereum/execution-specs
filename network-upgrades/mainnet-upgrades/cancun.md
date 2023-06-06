@@ -14,7 +14,7 @@ Changes [Considered for Inclusion](https://github.com/ethereum/execution-specs/t
 * [EIP-4788: Beacon block root in the EVM ](https://eips.ethereum.org/EIPS/eip-4788)
 * [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656)
 * [EIP-5920: PAY opcode](https://eips.ethereum.org/EIPS/eip-5920)
-* [To be merged] [EIP-7069: Revamped CALL instructions](https://github.com/ethereum/EIPs/pull/7069)
+* [EIP-7069: Revamped CALL instructions](https://eips.ethereum.org/EIPS/eip-7069)
 
 ### Implementation Progresss
 
