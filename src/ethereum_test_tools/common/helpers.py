@@ -136,7 +136,9 @@ def to_hash(input: int | str) -> str:
     return "0x" + to_hash_bytes(input).hex()
 
 
-def add_kzg_version(b_hashes: List[bytes], kzg_version: int) -> List[bytes]:
+def add_kzg_version(
+    b_hashes: List[bytes | int | str], kzg_version: int
+) -> List[bytes]:
     """
     Adds the Kzg Version to each blob hash.
     """
