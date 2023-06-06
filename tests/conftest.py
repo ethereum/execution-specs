@@ -8,6 +8,7 @@ import git
 from _pytest.config import Config
 from _pytest.config.argparsing import Parser
 from filelock import SoftFileLock
+from git.exc import GitCommandError, InvalidGitRepositoryError
 from pytest import Session
 
 import ethereum
@@ -84,10 +85,31 @@ def git_clone_fixtures(url: str, commit_hash: str, location: str) -> None:
 
         print(f"Checking out the correct commit {commit_hash}...")
         branch = repo.heads["develop"]
-        repo.remotes.origin.fetch(branch.name)
-        repo.git.checkout(commit_hash)
+        # Try to checkout the relevant commit hash and if that fails
+        # fetch the latest changes and checkout the commit hash
+        try:
+            repo.git.checkout(commit_hash)
+        except GitCommandError:
+            repo.remotes.origin.fetch(branch.name)
+            repo.git.checkout(commit_hash)
 
-        repo.submodule_update(init=True, recursive=True)
+        # Check if the submodule head matches the parent commit
+        # If not, update the submodule
+        for submodule in repo.submodules:
+            # Initialize the submodule if not already initialized
+            try:
+                submodule_repo = submodule.module()
+            except InvalidGitRepositoryError:
+                submodule.update(init=True, recursive=True)
+                continue
+
+            # Commit expected by the parent repo
+            parent_commit = submodule.hexsha
+
+            # Actual submodule head
+            submodule_head = submodule_repo.head.commit.hexsha
+            if parent_commit != submodule_head:
+                submodule.update(init=True, recursive=True)
 
 
 def pytest_sessionstart(session: Session) -> None:
