@@ -231,8 +231,8 @@ def pytest_generate_tests(metafunc):
         pytest.fail(
             "The test function "
             f"{metafunc.function.__name__} specifies both a "
-            "pytest.mark.valid_at_transition_to and a pytest.mark.valid_from or "
-            "pytest.mark.valid_until marker. "
+            "pytest.mark.valid_at_transition_to and a pytest.mark.valid_from "
+            "or pytest.mark.valid_until marker. "
         )
 
     intersection_range = []
