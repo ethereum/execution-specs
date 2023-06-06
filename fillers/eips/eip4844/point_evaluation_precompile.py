@@ -46,8 +46,8 @@ FIELD_ELEMENTS_PER_BLOB_BYTES = FIELD_ELEMENTS_PER_BLOB.to_bytes(32, "big")
 
 
 # TODO: Update once https://github.com/ethereum/EIPs/pull/7020 is merged.
-Z_Y_VALID_ENDIANNESS: Literal["little", "big"] = "little"
-Z_Y_INVALID_ENDIANNESS: Literal["little", "big"] = "big"
+Z_Y_VALID_ENDIANNESS: Literal["little", "big"] = "big"
+Z_Y_INVALID_ENDIANNESS: Literal["little", "big"] = "little"
 
 Z = 0x623CE31CF9759A5C8DAF3A357992F9F3DD7F9339D8998BC8E68373E54F00B75E
 INF_POINT = (0xC0 << 376).to_bytes(48, byteorder="big")

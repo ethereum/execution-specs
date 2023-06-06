@@ -18,7 +18,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 BLOBHASH_GAS_COST = 3
 TARGET_BLOB_PER_BLOCK = 2
 MAX_BLOB_PER_BLOCK = 4
-BLOB_COMMITMENT_VERSION_KZG = bytes([0x01])
+BLOB_COMMITMENT_VERSION_KZG = 1
 
 
 # Simple list of blob versioned hashes ranging from bytes32(1 to 4)

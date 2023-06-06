@@ -7,7 +7,7 @@ All test cases are located in the `fillers` directory, which is composed of many
 ├─╴📁 fillers/                   # test cases
 │   ├── 📁 eips/
 │   |    ├── 📁 eip4844/
-|   |    |    ├── 📄 datahash_opcode.py
+|   |    |    ├── 📄 blobhash_opcode.py
 |   |    |    └── 📄 excess_data_gas.py
 |   |    ├── 📄 eip3855.py
 |   |    └── 📄 eip3860.py
