@@ -69,6 +69,24 @@ def pytest_addoption(parser):
     )
 
 
+@pytest.hookimpl(tryfirst=True)
+def pytest_configure(config):
+    """
+    Register the plugin's custom markers and process command-line options.
+
+    Custom marker registration:
+    https://docs.pytest.org/en/7.1.x/how-to/writing_plugins.html#registering-custom-markers
+    """
+    config.addinivalue_line(
+        "markers",
+        "state_test: test cases that implement a single state transition test",
+    )
+    config.addinivalue_line(
+        "markers",
+        "blockchain_test: test cases that implement block transition tests",
+    )
+
+
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config, start_path):
     """Add lines to pytest's console output header"""

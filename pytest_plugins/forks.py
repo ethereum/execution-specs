@@ -54,10 +54,30 @@ def pytest_addoption(parser):
     )
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
     """
-    Process command-line options.
+    Register the plugin's custom markers and process command-line options.
+
+    Custom marker registration:
+    https://docs.pytest.org/en/7.1.x/how-to/writing_plugins.html#registering-custom-markers
     """
+    config.addinivalue_line(
+        "markers",
+        (
+            "valid_at_transition_to(fork): specifies a test case is valid "
+            "only at fork transition boundary to the specified fork"
+        ),
+    )
+    config.addinivalue_line(
+        "markers",
+        "valid_from(fork): specifies from which fork a test case is valid",
+    )
+    config.addinivalue_line(
+        "markers",
+        "valid_until(fork): specifies until which fork a test case is valid",
+    )
+
     single_fork = config.getoption("single_fork")
     forks_from = config.getoption("forks_from")
     forks_until = config.getoption("forks_until")
