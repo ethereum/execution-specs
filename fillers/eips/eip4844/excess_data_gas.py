@@ -644,7 +644,7 @@ def test_invalid_excess_data_gas_change(
 @pytest.mark.parametrize(
     "header_excess_data_gas",
     [
-        (2**256 + (x * DATA_GAS_PER_BLOB))
+        (2**64 + (x * DATA_GAS_PER_BLOB))
         for x in range(-TARGET_BLOBS_PER_BLOCK, 0)
     ],
 )

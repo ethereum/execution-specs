@@ -7,6 +7,7 @@ import itertools
 
 import pytest
 
+from ethereum_test_forks import Cancun, forks_from
 from ethereum_test_tools import (
     Account,
     Block,
@@ -28,7 +29,9 @@ from .blobhash_util import (
     random_blob_hashes,
 )
 
-pytestmark = pytest.mark.valid_from("Cancun")
+# TODO: uncomment post fork improvement merged
+# pytestmark = pytest.mark.valid_from("Cancun")
+pytestmark = pytest.mark.parametrize("fork", forks_from(Cancun))
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
 REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
