@@ -10,7 +10,6 @@ from ethereum.exceptions import InvalidBlock
 from tests.helpers import TEST_FIXTURES
 from tests.helpers.load_state_tests import (
     Load,
-    NoPostState,
     fetch_state_test_files,
     idfn,
     run_blockchain_st_test,
@@ -29,13 +28,21 @@ run_tangerine_whistle_blockchain_st_tests = partial(
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 
 
-# Run legacy general state tests
-test_dir = (
-    f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/BlockchainTests/"
-    "GeneralStateTests/"
+# Run legacy state tests
+test_dir = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/BlockchainTests/"
+
+LEGACY_SLOW_TESTS = (
+    "stRandom/randomStatetest177.json",
+    "stCreateTest/CreateOOGafterMaxCodesize.json",
+    # ValidBlockTest
+    "bcExploitTest/DelegateCallSpam.json",
+    # InvalidBlockTest
+    "bcUncleHeaderValidity/nonceWrong.json",
+    "bcUncleHeaderValidity/wrongMixHash.json",
 )
 
-GENERAL_STATE_BIG_MEMORY_TESTS = (
+LEGACY_BIG_MEMORY_TESTS = (
+    # GeneralStateTests
     "/stQuadraticComplexityTest/",
     "/stRandom2/",
     "/stRandom/",
@@ -43,94 +50,37 @@ GENERAL_STATE_BIG_MEMORY_TESTS = (
     "stTimeConsuming/",
 )
 
-fetch_general_state_tests = partial(
-    fetch_tangerine_whistle_tests,
-    test_dir,
-    big_memory_list=GENERAL_STATE_BIG_MEMORY_TESTS,
-)
-
-
-@pytest.mark.parametrize(
-    "test_case",
-    fetch_general_state_tests(),
-    ids=idfn,
-)
-def test_general_state_tests(test_case: Dict) -> None:
-    try:
-        run_tangerine_whistle_blockchain_st_tests(test_case)
-    except NoPostState:
-        # FIXME: Handle tests that don't have post state
-        pytest.xfail(f"{test_case} doesn't have post state")
-
-
-# Run legacy valid block tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/BlockchainTests/ValidBlocks/"
-
-IGNORE_LIST = (
+LEGACY_IGNORE_LIST = (
+    # ValidBlockTests
     "bcForkStressTest/ForkStressTest.json",
     "bcGasPricerTest/RPC_API_Test.json",
     "bcMultiChainTest",
     "bcTotalDifficultyTest",
+    # InvalidBlockTests
+    "bcForgedTest",
+    "bcMultiChainTest",
+    "GasLimitHigherThan2p63m1_EIP150",
 )
 
-# Every test below takes more than  60s to run and
-# hence they've been marked as slow
-SLOW_TESTS = ("bcExploitTest/DelegateCallSpam.json",)
+fetch_legacy_state_tests = partial(
+    fetch_tangerine_whistle_tests,
+    test_dir,
+    ignore_list=LEGACY_IGNORE_LIST,
+    slow_list=LEGACY_SLOW_TESTS,
+    big_memory_list=LEGACY_BIG_MEMORY_TESTS,
+)
 
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_tangerine_whistle_tests(
-        test_dir,
-        ignore_list=IGNORE_LIST,
-        slow_list=SLOW_TESTS,
-    ),
+    fetch_legacy_state_tests(),
     ids=idfn,
 )
-def test_valid_block_tests(test_case: Dict) -> None:
-    try:
-        run_tangerine_whistle_blockchain_st_tests(test_case)
-    except NoPostState:
-        # FIXME: Handle tests that don't have post state
-        pytest.xfail(f"{test_case} doesn't have post state")
+def test_legacy_state_tests(test_case: Dict) -> None:
+    run_tangerine_whistle_blockchain_st_tests(test_case)
 
 
-# Run legacy invalid block tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/BlockchainTests/InvalidBlocks"
-
-xfail_candidates = ("GasLimitHigherThan2p63m1_EIP150",)
-
-# FIXME: Check if these tests should in fact be ignored
-IGNORE_INVALID_BLOCK_TESTS = ("bcForgedTest", "bcMultiChainTest")
-
-
-@pytest.mark.parametrize(
-    "test_case",
-    fetch_tangerine_whistle_tests(
-        test_dir,
-        ignore_list=IGNORE_INVALID_BLOCK_TESTS,
-    ),
-    ids=idfn,
-)
-def test_invalid_block_tests(test_case: Dict) -> None:
-    try:
-        # Ideally correct.json should not have been in the InvalidBlocks folder
-        if test_case["test_key"] == "correct_EIP150":
-            run_tangerine_whistle_blockchain_st_tests(test_case)
-        elif test_case["test_key"] in xfail_candidates:
-            # Unclear where this failed requirement comes from
-            pytest.xfail()
-        else:
-            with pytest.raises(InvalidBlock):
-                run_tangerine_whistle_blockchain_st_tests(test_case)
-    except NoPostState:
-        # FIXME: Handle tests that don't have post state
-        pytest.xfail(
-            "{} doesn't have post state".format(test_case["test_key"])
-        )
-
-
-# Run Non-Legacy GeneralStateTests
+# Run Non-Legacy State Tests
 test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/GeneralStateTests/"
 
 non_legacy_only_in = (
@@ -144,7 +94,7 @@ non_legacy_only_in = (
     fetch_tangerine_whistle_tests(test_dir, only_in=non_legacy_only_in),
     ids=idfn,
 )
-def test_general_state_tests_new(test_case: Dict) -> None:
+def test_non_legacy_state_tests(test_case: Dict) -> None:
     run_tangerine_whistle_blockchain_st_tests(test_case)
 
 

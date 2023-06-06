@@ -6,7 +6,7 @@ testing framework.
 
 import importlib
 from abc import ABC, abstractmethod
-from typing import Any, List, Tuple
+from typing import Any, Tuple
 
 from ethereum import rlp
 from ethereum.base_types import U64, U256, Bytes0
@@ -124,7 +124,7 @@ class BaseLoad(ABC):
         pass
 
     @abstractmethod
-    def json_to_blocks(self, json_data: Any) -> Any:
+    def json_to_block(self, json_data: Any) -> Any:
         """Converts json block data to a list of blocks"""
         pass
 
@@ -346,55 +346,46 @@ class Load(BaseLoad):
 
         return self._module("fork_types").Withdrawal(*parameters)
 
-    def json_to_blocks(
+    def json_to_block(
         self,
-        json_blocks: Any,
-    ) -> Tuple[List[Any], List[Hash32], List[bytes]]:
+        json_block: Any,
+    ) -> Tuple[Any, Hash32, bytes]:
         """Converts json block data to a block object"""
-        blocks = []
-        block_header_hashes = []
-        block_rlps = []
+        if "rlp" in json_block:
+            # Always decode from rlp
+            block_rlp = hex_to_bytes(json_block["rlp"])
+            block = rlp.decode_to(self.Block, block_rlp)
+            block_header_hash = rlp.rlp_hash(block.header)
+            return block, block_header_hash, block_rlp
 
-        for json_block in json_blocks:
-            if "rlp" in json_block:
-                # Always decode from rlp
-                block_rlp = hex_to_bytes(json_block["rlp"])
-                block = rlp.decode_to(self.Block, block_rlp)
-                blocks.append(block)
-                block_header_hashes.append(rlp.rlp_hash(block.header))
-                block_rlps.append(block_rlp)
-                continue
+        header = self.json_to_header(json_block["blockHeader"])
+        transactions = tuple(
+            self.json_to_tx(tx) for tx in json_block["transactions"]
+        )
+        uncles = tuple(
+            self.json_to_header(uncle) for uncle in json_block["uncleHeaders"]
+        )
 
-            header = self.json_to_header(json_block["blockHeader"])
-            transactions = tuple(
-                self.json_to_tx(tx) for tx in json_block["transactions"]
+        parameters = [
+            header,
+            transactions,
+            uncles,
+        ]
+
+        if "withdrawals" in json_block:
+            withdrawals = tuple(
+                self.json_to_withdrawals(wd)
+                for wd in json_block["withdrawals"]
             )
-            uncles = tuple(
-                self.json_to_header(uncle)
-                for uncle in json_block["uncleHeaders"]
-            )
+            parameters.append(withdrawals)
 
-            parameters = [
-                header,
-                transactions,
-                uncles,
-            ]
+        block = self.Block(*parameters)
+        block_header_hash = Hash32(
+            hex_to_bytes(json_block["blockHeader"]["hash"])
+        )
+        block_rlp = hex_to_bytes(json_block["rlp"])
 
-            if "withdrawals" in json_block:
-                withdrawals = tuple(
-                    self.json_to_withdrawals(wd)
-                    for wd in json_block["withdrawals"]
-                )
-                parameters.append(withdrawals)
-
-            block = self.Block(*parameters)
-
-            block_header_hashes.append(
-                Hash32(hex_to_bytes(json_block["blockHeader"]["hash"]))
-            )
-            block_rlps.append(hex_to_bytes(json_block["rlp"]))
-
-        return blocks, block_header_hashes, block_rlps
+        return block, block_header_hash, block_rlp
 
     def json_to_header(self, raw: Any) -> Any:
         """Converts json header data to a header object"""

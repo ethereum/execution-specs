@@ -10,7 +10,6 @@ from ethereum.exceptions import InvalidBlock
 from tests.helpers import TEST_FIXTURES
 from tests.helpers.load_state_tests import (
     Load,
-    NoPostState,
     fetch_state_test_files,
     idfn,
     run_blockchain_st_test,
@@ -26,12 +25,13 @@ run_paris_blockchain_st_tests = partial(
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 
-# Run legacy general state tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/GeneralStateTests/"
+# Run state tests
+test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/"
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
 SLOW_TESTS = (
+    # GeneralStateTests
     "stTimeConsuming/CALLBlake2f_MaxRounds.json",
     "stTimeConsuming/static_Call50000_sha256.json",
     "vmPerformance/loopExp.json",
@@ -39,11 +39,19 @@ SLOW_TESTS = (
     "QuadraticComplexitySolidity_CallDataCopy_d0g1v0_Merge",
     "CALLBlake2f_d9g0v0_Merge",
     "CALLCODEBlake2f_d9g0v0",
+    # GeneralStateTests
+    "stRandom/randomStatetest177.json",
+    "stCreateTest/CreateOOGafterMaxCodesize.json",
+    # ValidBlockTest
+    "bcExploitTest/DelegateCallSpam.json",
+    # InvalidBlockTest
+    "bcUncleHeaderValidity/nonceWrong.json",
+    "bcUncleHeaderValidity/wrongMixHash.json",
 )
 
 # These are tests that are considered to be incorrect,
 # Please provide an explanation when adding entries
-INCORRECT_UPSTREAM_STATE_TESTS = (
+IGNORE_TESTS = (
     # The test considers a scenario that cannot be reached by following the
     # rules of consensus. For more details, read:
     # https://github.com/ethereum/py-evm/pull/1224#issuecomment-418775512
@@ -54,94 +62,51 @@ INCORRECT_UPSTREAM_STATE_TESTS = (
     # The test considers a scenario that cannot be reached by following the
     # rules of consensus.
     "stSStoreTest/InitCollision.json",
+    # ValidBlockTest
+    "bcForkStressTest/ForkStressTest.json",
+    "bcGasPricerTest/RPC_API_Test.json",
+    "bcMultiChainTest",
+    "bcTotalDifficultyTest",
+    # InvalidBlockTest
+    "bcForgedTest",
+    "bcMultiChainTest",
+    "GasLimitHigherThan2p63m1_Merge",
+    # TODO: The below tests are being ignored due to a bug in
+    # upstream repo. They should be removed from the ignore list
+    # once the bug is resolved
+    # See: https://github.com/ethereum/execution-spec-tests/pull/134
+    "Pyspecs/vm/dup.json",
+    "Pyspecs/vm/chain_id.json",
+    "Pyspecs/example/yul.json",
 )
 
 # All tests that recursively create a large number of frames (50000)
-GENERAL_STATE_BIG_MEMORY_TESTS = (
+BIG_MEMORY_TESTS = (
+    # GeneralStateTests
     "50000_",
     "/stQuadraticComplexityTest/",
     "/stRandom2/",
     "/stRandom/",
     "/stSpecialTest/",
     "stTimeConsuming/",
-    "stBadOpcode/",
-    "stStaticCall/",
 )
 
-fetch_general_state_tests = partial(
+fetch_state_tests = partial(
     fetch_paris_tests,
     test_dir,
-    ignore_list=INCORRECT_UPSTREAM_STATE_TESTS,
+    ignore_list=IGNORE_TESTS,
     slow_list=SLOW_TESTS,
-    big_memory_list=GENERAL_STATE_BIG_MEMORY_TESTS,
+    big_memory_list=BIG_MEMORY_TESTS,
 )
 
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_general_state_tests(),
+    fetch_state_tests(),
     ids=idfn,
 )
-def test_general_state_tests(test_case: Dict) -> None:
-    try:
-        run_paris_blockchain_st_tests(test_case)
-    except NoPostState:
-        # FIXME: Handle tests that don't have post state
-        pytest.xfail(f"{test_case} doesn't have post state")
-
-
-# Run legacy valid block tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/ValidBlocks/"
-
-# Run legacy invalid block tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/InvalidBlocks"
-
-# TODO: Handle once https://github.com/ethereum/tests/issues/1037
-# is resolved
-# All except GasLimitHigherThan2p63m1_Merge
-xfail_candidates = (
-    ("bcUncleHeaderValidity", "timestampTooLow_Merge"),
-    ("bcUncleHeaderValidity", "timestampTooHigh_Merge"),
-    ("bcUncleHeaderValidity", "wrongStateRoot_Merge"),
-    ("bcUncleHeaderValidity", "incorrectUncleTimestamp4_Merge"),
-    ("bcUncleHeaderValidity", "incorrectUncleTimestamp5_Merge"),
-    ("bcUncleSpecialTests", "futureUncleTimestamp3_Merge"),
-    ("bcInvalidHeaderTest", "GasLimitHigherThan2p63m1_Merge"),
-)
-
-# FIXME: Check if these tests should in fact be ignored
-IGNORE_INVALID_BLOCK_TESTS = ("bcForgedTest", "bcMultiChainTest")
-
-
-def is_in_xfail(test_case: Dict) -> bool:
-    for dir, test_key in xfail_candidates:
-        if dir in test_case["test_file"] and test_case["test_key"] == test_key:
-            return True
-
-    return False
-
-
-@pytest.mark.parametrize(
-    "test_case",
-    fetch_paris_tests(test_dir, ignore_list=IGNORE_INVALID_BLOCK_TESTS),
-    ids=idfn,
-)
-def test_invalid_block_tests(test_case: Dict) -> None:
-    try:
-        # Ideally correct.json should not have been in the InvalidBlocks folder
-        if test_case["test_key"] in "DifficultyIsZero_Merge":
-            run_paris_blockchain_st_tests(test_case)
-        elif is_in_xfail(test_case):
-            # Unclear where this failed requirement comes from
-            pytest.xfail()
-        else:
-            with pytest.raises(InvalidBlock):
-                run_paris_blockchain_st_tests(test_case)
-    except NoPostState:
-        # FIXME: Handle tests that don't have post state
-        pytest.xfail(
-            "{} doesn't have post state".format(test_case["test_key"])
-        )
+def test_state_tests(test_case: Dict) -> None:
+    run_paris_blockchain_st_tests(test_case)
 
 
 def test_transaction_with_insufficient_balance_for_value() -> None:
