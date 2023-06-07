@@ -66,6 +66,7 @@ def blob_tx(template_tx):
     Blob transaction factory fixture.
     Used to define blob txs with a specified to address, nonce & type.
     """
+
     def _blob_tx(address, type, nonce):
         return template_tx.with_fields(
             ty=type,
@@ -75,6 +76,7 @@ def blob_tx(template_tx):
             max_priority_fee_per_gas=10,
             blob_versioned_hashes=random_blob_hashes[0:MAX_BLOB_PER_BLOCK],
         )
+
     return _blob_tx
 
 
@@ -156,7 +158,7 @@ def test_blobhash_scenarios(
     Covers various scenarios with random blob_versioned_hash values within
     the valid range `[0, 2**256-1]`.
     """
-    TOTAL_BLOCKS = 5 
+    TOTAL_BLOCKS = 5
     b_hashes_list = BlobhashScenario.create_blob_hashes_list(
         length=TOTAL_BLOCKS
     )
@@ -173,7 +175,7 @@ def test_blobhash_scenarios(
                         to=address,
                         access_list=[],
                         max_priority_fee_per_gas=10,
-                        blob_versioned_hashes=b_hashes_list[i]
+                        blob_versioned_hashes=b_hashes_list[i],
                     )
                 ]
             )
@@ -243,8 +245,7 @@ def test_blobhash_invalid_blob_index(
                 )
                 for index in range(
                     -TOTAL_BLOCKS,
-                    blob_per_block
-                    + (TOTAL_BLOCKS - (i % MAX_BLOB_PER_BLOCK)),
+                    blob_per_block + (TOTAL_BLOCKS - (i % MAX_BLOB_PER_BLOCK)),
                 )
             }
         )

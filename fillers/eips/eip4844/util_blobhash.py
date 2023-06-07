@@ -253,6 +253,7 @@ class BlobhashScenario:
     """
     A utility class for generating blobhash calls.
     """
+
     @staticmethod
     def create_blob_hashes_list(length: int) -> list[list[str]]:
         """
@@ -269,7 +270,7 @@ class BlobhashScenario:
         # Split list into smaller chunks of MAX_BLOB_PER_BLOCK
         # -> [[0x01, 0x02, 0x03, 0x04], ..., [0x0a, 0x0b, 0x0c, 0x0d]]
         return [
-            b_hashes[i:i + MAX_BLOB_PER_BLOCK]
+            b_hashes[i : i + MAX_BLOB_PER_BLOCK]
             for i in range(0, len(b_hashes), MAX_BLOB_PER_BLOCK)
         ]
 
@@ -294,8 +295,7 @@ class BlobhashScenario:
         """
         scenarios = {
             "single_valid": b"".join(
-                cls.blobhash_sstore(i)
-                for i in range(MAX_BLOB_PER_BLOCK)
+                cls.blobhash_sstore(i) for i in range(MAX_BLOB_PER_BLOCK)
             ),
             "repeated_valid": b"".join(
                 b"".join(cls.blobhash_sstore(i) for _ in range(10))
