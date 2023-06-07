@@ -7,9 +7,9 @@ import pytest
 
 from ethereum_test_forks import (
     ArrowGlacier,
-    all_transition_forks,
     get_deployed_forks,
     get_forks,
+    get_transition_forks,
     transition_fork_to,
 )
 from evm_transition_tool import EvmTransitionTool
@@ -94,7 +94,7 @@ def pytest_configure(config):
     available_forks_help += textwrap.dedent(
         f"""\
         Available transition forks:
-        {", ".join([fork.name() for fork in all_transition_forks()])}
+        {", ".join([fork.name() for fork in get_transition_forks()])}
         """
     )
     dev_forks_help = textwrap.dedent(
