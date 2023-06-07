@@ -4,7 +4,6 @@ Tests: fillers/eips/eip4844/
     > blobhash_opcode_contexts.py
     > blobhash_opcode.py
 """
-
 from ethereum_test_tools import (
     TestAddress,
     Yul,
@@ -254,47 +253,72 @@ class BlobhashScenario:
     """
     A utility class for generating blobhash calls.
     """
-
-    MAX_BLOB_PER_BLOCK = 4
+    @staticmethod
+    def create_blob_hashes_list(length: int) -> list[list[str]]:
+        """
+        Creates an arbitrary list of MAX_BLOB_PER_BLOCK blob hashes
+        using `random_blob_hashes`.
+        """
+        # Cycle over rnd_b_hashes to get a large list of
+        # length: MAX_BLOB_PER_BLOCK * length
+        # -> [0x01, 0x02, 0x03, 0x04, ..., 0x0A, 0x0B, 0x0C, 0x0D]
+        b_hashes = [
+            random_blob_hashes[i % len(random_blob_hashes)]
+            for i in range(MAX_BLOB_PER_BLOCK * length)
+        ]
+        # Split list into smaller chunks of MAX_BLOB_PER_BLOCK
+        # -> [[0x01, 0x02, 0x03, 0x04], ..., [0x0a, 0x0b, 0x0c, 0x0d]]
+        return [
+            b_hashes[i:i + MAX_BLOB_PER_BLOCK]
+            for i in range(0, len(b_hashes), MAX_BLOB_PER_BLOCK)
+        ]
 
     @staticmethod
     def blobhash_sstore(index: int):
         """
         Returns an BLOBHASH sstore to the given index.
+
+        If the index is out of the valid bounds, 0x01 is written
+        in storage, as we later check it is overwritten by
+        the BLOBHASH sstore.
         """
+        invalidity_check = Op.SSTORE(index, 0x01)
+        if index < 0 or index >= MAX_BLOB_PER_BLOCK:
+            return invalidity_check + Op.SSTORE(index, Op.BLOBHASH(index))
         return Op.SSTORE(index, Op.BLOBHASH(index))
 
     @classmethod
-    def generate_blobhash_calls(cls, scenario_name: str) -> bytes:
+    def generate_blobhash_bytecode(cls, scenario_name: str) -> bytes:
         """
-        Returns BLOBHASH bytecode calls for the given scenario.
+        Returns BLOBHASH bytecode for the given scenario.
         """
         scenarios = {
-            "single_valid": lambda: b"".join(
-                cls.blobhash_sstore(i) for i in range(cls.MAX_BLOB_PER_BLOCK)
-            ),
-            "repeated_valid": lambda: b"".join(
-                b"".join(cls.blobhash_sstore(i) for _ in range(10))
-                for i in range(cls.MAX_BLOB_PER_BLOCK)
-            ),
-            "valid_invalid": lambda: b"".join(
+            "single_valid": b"".join(
                 cls.blobhash_sstore(i)
-                + cls.blobhash_sstore(cls.MAX_BLOB_PER_BLOCK)
-                + cls.blobhash_sstore(i)
-                for i in range(cls.MAX_BLOB_PER_BLOCK)
+                for i in range(MAX_BLOB_PER_BLOCK)
             ),
-            "varied_valid": lambda: b"".join(
+            "repeated_valid": b"".join(
+                b"".join(cls.blobhash_sstore(i) for _ in range(10))
+                for i in range(MAX_BLOB_PER_BLOCK)
+            ),
+            "valid_invalid": b"".join(
+                cls.blobhash_sstore(i)
+                + cls.blobhash_sstore(MAX_BLOB_PER_BLOCK)
+                + cls.blobhash_sstore(i)
+                for i in range(MAX_BLOB_PER_BLOCK)
+            ),
+            "varied_valid": b"".join(
                 cls.blobhash_sstore(i)
                 + cls.blobhash_sstore(i + 1)
                 + cls.blobhash_sstore(i)
-                for i in range(cls.MAX_BLOB_PER_BLOCK - 1)
+                for i in range(MAX_BLOB_PER_BLOCK - 1)
             ),
-            "invalid_calls": lambda: b"".join(
+            "invalid_calls": b"".join(
                 cls.blobhash_sstore(i)
-                for i in range(-5, cls.MAX_BLOB_PER_BLOCK + 5)
+                for i in range(-5, MAX_BLOB_PER_BLOCK + 5)
             ),
         }
         scenario = scenarios.get(scenario_name)
         if scenario is None:
             raise ValueError(f"Invalid scenario: {scenario_name}")
-        return scenario()
+        return scenario

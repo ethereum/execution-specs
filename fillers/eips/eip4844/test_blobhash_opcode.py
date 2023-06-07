@@ -3,7 +3,6 @@ Test EIP-4844: BLOBHASH Opcode
 EIP: https://eips.ethereum.org/EIPS/eip-4844
 """
 
-import itertools
 
 import pytest
 
@@ -152,7 +151,7 @@ def test_blobhash_gas_cost(
         "varied_valid",
     ],
 )
-def test_blobhash_versioned_hash(
+def test_blobhash_scenarios(
     pre,
     template_tx,
     blocks,
@@ -169,16 +168,12 @@ def test_blobhash_versioned_hash(
     """
     TOTAL_BLOCKS = 10
 
-    # Create an arbitrary repeated list of blob hashes
-    # with length MAX_BLOB_PER_BLOCK * TOTAL_BLOCKS
-    b_hashes = list(
-        itertools.islice(
-            itertools.cycle(random_blob_hashes),
-            MAX_BLOB_PER_BLOCK * TOTAL_BLOCKS,
-        )
+    b_hashes_list = BlobhashScenario.create_blob_hashes_list(
+        length=TOTAL_BLOCKS
     )
+
+    blobhash_calls = BlobhashScenario.generate_blobhash_bytecode(scenario)
     for i in range(TOTAL_BLOCKS):
-        blobhash_calls = BlobhashScenario.generate_blobhash_calls(scenario)
         address = to_address(0x100 + i * 0x100)
         pre[address] = Account(code=blobhash_calls)
         blocks.append(
@@ -190,20 +185,18 @@ def test_blobhash_versioned_hash(
                         to=address,
                         access_list=[],
                         max_priority_fee_per_gas=10,
-                        blob_versioned_hashes=b_hashes[
-                            (i * MAX_BLOB_PER_BLOCK) : (i + 1)
-                            * MAX_BLOB_PER_BLOCK
-                        ],
+                        blob_versioned_hashes=b_hashes_list[i]
                     )
                 ]
             )
         )
         post[address] = Account(
             storage={
-                index: b_hashes[i * MAX_BLOB_PER_BLOCK + index]
+                index: b_hashes_list[i][index]
                 for index in range(MAX_BLOB_PER_BLOCK)
             }
         )
+
     blockchain_test(
         pre=pre,
         blocks=blocks,
@@ -235,11 +228,10 @@ def test_blobhash_invalid_blob_index(
 
     It confirms that the returned value is a zeroed `bytes32 for each case.
     """
-    INVALID_DEPTH_FACTOR = 5
     TOTAL_BLOCKS = 5
 
+    blobhash_calls = BlobhashScenario.generate_blobhash_bytecode(scenario)
     for i in range(TOTAL_BLOCKS):
-        blobhash_calls = BlobhashScenario.generate_blobhash_calls(scenario)
         address = to_address(0x100 + i * 0x100)
         pre[address] = Account(code=blobhash_calls)
         blob_per_block = (i % MAX_BLOB_PER_BLOCK) + 1
@@ -264,9 +256,9 @@ def test_blobhash_invalid_blob_index(
                     0 if index < 0 or index >= blob_per_block else blobs[index]
                 )
                 for index in range(
-                    -INVALID_DEPTH_FACTOR,
+                    -TOTAL_BLOCKS,
                     blob_per_block
-                    + (INVALID_DEPTH_FACTOR - (i % MAX_BLOB_PER_BLOCK)),
+                    + (TOTAL_BLOCKS - (i % MAX_BLOB_PER_BLOCK)),
                 )
             }
         )
@@ -290,11 +282,13 @@ def test_blobhash_multiple_txs_in_block(
     Scenarios involve tx type 3 followed by tx type 2 running the same code
     within a block, including the opposite.
     """
-    blobhash_calls = BlobhashScenario.generate_blobhash_calls("single_valid")
+    blobhash_bytecode = BlobhashScenario.generate_blobhash_bytecode(
+        "single_valid"
+    )
     pre = {
         **pre,
         **{
-            to_address(address): Account(code=blobhash_calls)
+            to_address(address): Account(code=blobhash_bytecode)
             for address in range(0x100, 0x500, 0x100)
         },
     }
