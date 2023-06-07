@@ -26,12 +26,12 @@ from .forks.transition import (
 )
 from .helpers import (
     InvalidForkError,
-    all_transition_forks,
     forks_from,
     forks_from_until,
     get_deployed_forks,
     get_development_forks,
     get_forks,
+    get_transition_forks,
     is_fork,
     transition_fork_from_to,
     transition_fork_to,
@@ -57,7 +57,7 @@ __all__ = [
     "Shanghai",
     "ShanghaiToCancunAtTime15k",
     "Cancun",
-    "all_transition_forks",
+    "get_transition_forks",
     "forks_from",
     "forks_from_until",
     "get_deployed_forks",

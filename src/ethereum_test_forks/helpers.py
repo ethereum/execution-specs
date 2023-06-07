@@ -57,7 +57,7 @@ def get_parent_fork(fork: Fork) -> Fork:
     return fork.__base__
 
 
-def all_transition_forks() -> List[Fork]:
+def get_transition_forks() -> List[Fork]:
     """
     Returns all the transition forks
     """
@@ -80,7 +80,7 @@ def transition_fork_from_to(fork_from: Fork, fork_to: Fork) -> Fork | None:
     Returns the transition fork that transitions to and from the specified
     forks.
     """
-    for transition_fork in all_transition_forks():
+    for transition_fork in get_transition_forks():
         if not issubclass(transition_fork, TransitionBaseClass):
             continue
         if (
@@ -97,7 +97,7 @@ def transition_fork_to(fork_to: Fork) -> List[Fork]:
     Returns the transition fork that transitions to the specified fork.
     """
     transition_forks: List[Fork] = []
-    for transition_fork in all_transition_forks():
+    for transition_fork in get_transition_forks():
         if not issubclass(transition_fork, TransitionBaseClass):
             continue
         if transition_fork.transitions_to() == fork_to:
