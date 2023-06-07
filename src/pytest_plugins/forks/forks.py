@@ -6,7 +6,7 @@ import textwrap
 import pytest
 
 from ethereum_test_forks import (
-    ArrowGlacier,
+    forks_from_until,
     get_deployed_forks,
     get_forks,
     get_transition_forks,
@@ -81,7 +81,9 @@ def pytest_configure(config):
     forks_until = config.getoption("forks_until")
     show_fork_help = config.getoption("show_fork_help")
 
-    config.all_forks = get_forks()
+    all_forks = get_forks()
+    # TODO: Tricky, this removes the *Glacier forks.
+    config.all_forks = forks_from_until(all_forks[0], all_forks[-1])
     config.fork_map = {fork.name(): fork for fork in config.all_forks}
     config.fork_names = list(config.fork_map.keys())
 
@@ -311,12 +313,3 @@ def pytest_generate_tests(metafunc):
 
     if "fork" in metafunc.fixturenames:
         metafunc.parametrize("fork", intersection_range, scope="function")
-
-
-def pytest_runtest_call(item):
-    """
-    Pytest hook called in the context of test execution.
-    """
-    fork = item.funcargs["fork"]
-    if fork == ArrowGlacier:
-        pytest.skip(f"Fork '{fork}' not supported by hive, skipped")

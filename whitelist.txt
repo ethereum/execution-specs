@@ -259,6 +259,7 @@ getgroup
 getoption
 hookimpl
 hookwrapper
+makepyfile
 metafunc
 modifyitems
 originalname
@@ -266,7 +267,9 @@ parametrized
 param
 params
 parametrize
+pytester
 pytestmark
+runpytest
 runtest
 tryfirst
 trylast
