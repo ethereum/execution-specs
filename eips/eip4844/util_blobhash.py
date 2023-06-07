@@ -296,9 +296,7 @@ class BlobhashScenario:
         Returns BLOBHASH bytecode for the given scenario.
         """
         scenarios = {
-            "single_valid": b"".join(
-                cls.blobhash_sstore(i) for i in range(MAX_BLOB_PER_BLOCK)
-            ),
+            "single_valid": b"".join(cls.blobhash_sstore(i) for i in range(MAX_BLOB_PER_BLOCK)),
             "repeated_valid": b"".join(
                 b"".join(cls.blobhash_sstore(i) for _ in range(10))
                 for i in range(MAX_BLOB_PER_BLOCK)
@@ -310,14 +308,11 @@ class BlobhashScenario:
                 for i in range(MAX_BLOB_PER_BLOCK)
             ),
             "varied_valid": b"".join(
-                cls.blobhash_sstore(i)
-                + cls.blobhash_sstore(i + 1)
-                + cls.blobhash_sstore(i)
+                cls.blobhash_sstore(i) + cls.blobhash_sstore(i + 1) + cls.blobhash_sstore(i)
                 for i in range(MAX_BLOB_PER_BLOCK - 1)
             ),
             "invalid_calls": b"".join(
-                cls.blobhash_sstore(i)
-                for i in range(-5, MAX_BLOB_PER_BLOCK + 5)
+                cls.blobhash_sstore(i) for i in range(-5, MAX_BLOB_PER_BLOCK + 5)
             ),
         }
         scenario = scenarios.get(scenario_name)

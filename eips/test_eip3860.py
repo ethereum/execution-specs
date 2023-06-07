@@ -69,9 +69,7 @@ def calculate_create2_word_cost(length: int) -> int:
     return KECCAK_WORD_COST * ceiling_division(length, 32)
 
 
-def calculate_create_tx_intrinsic_cost(
-    initcode: Initcode, eip_3860_active: bool
-) -> int:
+def calculate_create_tx_intrinsic_cost(initcode: Initcode, eip_3860_active: bool) -> int:
     """
     Calculates the intrinsic gas cost of a transaction that contains initcode
     and creates a contract
@@ -79,9 +77,7 @@ def calculate_create_tx_intrinsic_cost(
     cost = (
         BASE_TRANSACTION_GAS  # G_transaction
         + CREATE_CONTRACT_BASE_GAS  # G_transaction_create
-        + eip_2028_transaction_data_cost(
-            initcode.assemble()
-        )  # Transaction calldata cost
+        + eip_2028_transaction_data_cost(initcode.assemble())  # Transaction calldata cost
     )
     if eip_3860_active:
         cost += calculate_initcode_word_cost(len(initcode.assemble()))
@@ -96,9 +92,7 @@ def calculate_create_tx_execution_cost(
     Calculates the total execution gas cost of a transaction that
     contains initcode and creates a contract
     """
-    cost = calculate_create_tx_intrinsic_cost(
-        initcode=initcode, eip_3860_active=eip_3860_active
-    )
+    cost = calculate_create_tx_intrinsic_cost(initcode=initcode, eip_3860_active=eip_3860_active)
     cost += initcode.deployment_gas
     cost += initcode.execution_gas
     return cost
@@ -202,9 +196,7 @@ def get_initcode_name(val):
     ],
     ids=get_initcode_name,
 )
-def test_contract_creating_tx(
-    blockchain_test: BlockchainTestFiller, initcode: Initcode
-):
+def test_contract_creating_tx(blockchain_test: BlockchainTestFiller, initcode: Initcode):
     """
     Test cases using a contract creating transaction
 
@@ -406,19 +398,12 @@ class TestContractCreationGasUsage:
         Test that contract creation fails unless enough execution gas is
         provided.
         """
-        if (
-            gas_test_case == "exact_intrinsic_gas"
-            and exact_intrinsic_gas == exact_execution_gas
-        ):
+        if gas_test_case == "exact_intrinsic_gas" and exact_intrinsic_gas == exact_execution_gas:
             # Special scenario where the execution of the initcode and
             # gas cost to deploy are zero
-            return {
-                created_contract_address: Account(code=initcode.deploy_code)
-            }
+            return {created_contract_address: Account(code=initcode.deploy_code)}
         elif gas_test_case == "exact_execution_gas":
-            return {
-                created_contract_address: Account(code=initcode.deploy_code)
-            }
+            return {created_contract_address: Account(code=initcode.deploy_code)}
         return {created_contract_address: Account.NONEXISTENT}
 
     def test_gas_usage(
@@ -517,9 +502,7 @@ class TestCreateInitcode:
         )
 
     @pytest.fixture
-    def created_contract_address(  # noqa: D102
-        self, initcode: Initcode, opcode: Op
-    ):
+    def created_contract_address(self, initcode: Initcode, opcode: Op):  # noqa: D102
         if opcode == Op.CREATE:
             return compute_create_address(
                 address=0x100,
@@ -615,16 +598,12 @@ class TestCreateInitcode:
             if opcode == Op.CREATE2:
                 # CREATE2 hashing cost should only be deducted if the initcode
                 # does not exceed the max length
-                expected_gas_usage += calculate_create2_word_cost(
-                    len(initcode.assemble())
-                )
+                expected_gas_usage += calculate_create2_word_cost(len(initcode.assemble()))
 
             if eip_3860_active:
                 # Initcode word cost is only deducted if the length check
                 # succeeds
-                expected_gas_usage += calculate_initcode_word_cost(
-                    len(initcode.assemble())
-                )
+                expected_gas_usage += calculate_initcode_word_cost(len(initcode.assemble()))
 
             # Call returns 1 as valid initcode length s[0]==1 && s[1]==1
             post[to_address(0x200)] = Account(

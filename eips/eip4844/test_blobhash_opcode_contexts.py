@@ -84,9 +84,7 @@ opcode_contexts = [
                 to=BlobhashContext.address("blobhash_sstore"),
             ),
             {
-                BlobhashContext.address("blobhash_sstore"): Account(
-                    storage={}
-                ),
+                BlobhashContext.address("blobhash_sstore"): Account(storage={}),
             },
         ),
     ),
@@ -94,9 +92,7 @@ opcode_contexts = [
         "on_CALL",
         create_opcode_context(
             {
-                BlobhashContext.address("call"): Account(
-                    code=BlobhashContext.code("call")
-                ),
+                BlobhashContext.address("call"): Account(code=BlobhashContext.code("call")),
                 BlobhashContext.address("blobhash_sstore"): Account(
                     code=BlobhashContext.code("blobhash_sstore")
                 ),
@@ -131,10 +127,7 @@ opcode_contexts = [
             {
                 BlobhashContext.address("delegatecall"): Account(
                     storage={
-                        k: v
-                        for (k, v) in zip(
-                            range(len(simple_blob_hashes)), simple_blob_hashes
-                        )
+                        k: v for (k, v) in zip(range(len(simple_blob_hashes)), simple_blob_hashes)
                     }
                 ),
             },
@@ -158,10 +151,7 @@ opcode_contexts = [
             {
                 BlobhashContext.address("staticcall"): Account(
                     storage={
-                        k: v
-                        for (k, v) in zip(
-                            range(len(simple_blob_hashes)), simple_blob_hashes
-                        )
+                        k: v for (k, v) in zip(range(len(simple_blob_hashes)), simple_blob_hashes)
                     }
                 ),
             },
@@ -185,10 +175,7 @@ opcode_contexts = [
             {
                 BlobhashContext.address("callcode"): Account(
                     storage={
-                        k: v
-                        for (k, v) in zip(
-                            range(len(simple_blob_hashes)), simple_blob_hashes
-                        )
+                        k: v for (k, v) in zip(range(len(simple_blob_hashes)), simple_blob_hashes)
                     }
                 ),
             },
@@ -203,14 +190,9 @@ opcode_contexts = [
                 to=None,
             ),
             {
-                BlobhashContext.created_contract(
-                    "tx_created_contract"
-                ): Account(
+                BlobhashContext.created_contract("tx_created_contract"): Account(
                     storage={
-                        k: v
-                        for (k, v) in zip(
-                            range(len(simple_blob_hashes)), simple_blob_hashes
-                        )
+                        k: v for (k, v) in zip(range(len(simple_blob_hashes)), simple_blob_hashes)
                     }
                 ),
             },
@@ -220,9 +202,7 @@ opcode_contexts = [
         "on_CREATE",
         create_opcode_context(
             {
-                BlobhashContext.address("create"): Account(
-                    code=BlobhashContext.code("create")
-                ),
+                BlobhashContext.address("create"): Account(code=BlobhashContext.code("create")),
             },
             tx_type_3.with_fields(
                 data=BlobhashContext.code("initcode"),
@@ -231,10 +211,7 @@ opcode_contexts = [
             {
                 BlobhashContext.created_contract("create"): Account(
                     storage={
-                        k: v
-                        for (k, v) in zip(
-                            range(len(simple_blob_hashes)), simple_blob_hashes
-                        )
+                        k: v for (k, v) in zip(range(len(simple_blob_hashes)), simple_blob_hashes)
                     }
                 ),
             },
@@ -244,9 +221,7 @@ opcode_contexts = [
         "on_CREATE2",
         create_opcode_context(
             {
-                BlobhashContext.address("create2"): Account(
-                    code=BlobhashContext.code("create2")
-                ),
+                BlobhashContext.address("create2"): Account(code=BlobhashContext.code("create2")),
             },
             tx_type_3.with_fields(
                 data=BlobhashContext.code("initcode"),
@@ -255,10 +230,7 @@ opcode_contexts = [
             {
                 BlobhashContext.created_contract("create2"): Account(
                     storage={
-                        k: v
-                        for (k, v) in zip(
-                            range(len(simple_blob_hashes)), simple_blob_hashes
-                        )
+                        k: v for (k, v) in zip(range(len(simple_blob_hashes)), simple_blob_hashes)
                     }
                 ),
             },
@@ -282,9 +254,7 @@ opcode_contexts = [
                 access_list=[],
             ),
             {
-                BlobhashContext.address("blobhash_sstore"): Account(
-                    storage={0: 0}
-                ),
+                BlobhashContext.address("blobhash_sstore"): Account(storage={0: 0}),
             },
         ),
     ),
@@ -305,9 +275,7 @@ opcode_contexts = [
                 access_list=[],
             ),
             {
-                BlobhashContext.address("blobhash_sstore"): Account(
-                    storage={0: 0}
-                ),
+                BlobhashContext.address("blobhash_sstore"): Account(storage={0: 0}),
             },
         ),
     ),
@@ -328,9 +296,7 @@ opcode_contexts = [
                 access_list=[],
             ),
             {
-                BlobhashContext.address("blobhash_sstore"): Account(
-                    storage={0: 0}
-                ),
+                BlobhashContext.address("blobhash_sstore"): Account(storage={0: 0}),
             },
         ),
     ),
@@ -346,9 +312,7 @@ def context(request):
     return request.param[1]
 
 
-def test_blobhash_opcode_contexts(
-    context, blockchain_test: BlockchainTestFiller
-):
+def test_blobhash_opcode_contexts(context, blockchain_test: BlockchainTestFiller):
     """
     Tests that the BLOBHASH opcode functions correctly when called in different
     contexts including:

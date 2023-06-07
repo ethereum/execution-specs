@@ -18,11 +18,7 @@ def test_dup(state_test: StateTestFiller):
     Original test by: Ori Pomerantz qbzzt1@gmail.com
     """
     env = Environment()
-    pre = {
-        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
-            balance=1000000000000000000000
-        )
-    }
+    pre = {"0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(balance=1000000000000000000000)}
     txs = []
     post = {}
 

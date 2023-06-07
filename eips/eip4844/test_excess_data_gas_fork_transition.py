@@ -45,9 +45,7 @@ def fake_exponential(factor: int, numerator: int, denominator: int) -> int:
     numerator_accumulator = factor * denominator
     while numerator_accumulator > 0:
         output += numerator_accumulator
-        numerator_accumulator = (numerator_accumulator * numerator) // (
-            denominator * i
-        )
+        numerator_accumulator = (numerator_accumulator * numerator) // (denominator * i)
         i += 1
     return output // denominator
 
@@ -105,11 +103,7 @@ def calc_excess_data_gas(parent_excess_data_gas: int, new_blobs: int) -> int:
     if parent_excess_data_gas + consumed_data_gas < TARGET_DATA_GAS_PER_BLOCK:
         return 0
     else:
-        return (
-            parent_excess_data_gas
-            + consumed_data_gas
-            - TARGET_DATA_GAS_PER_BLOCK
-        )
+        return parent_excess_data_gas + consumed_data_gas - TARGET_DATA_GAS_PER_BLOCK
 
 
 @pytest.fixture
@@ -176,10 +170,7 @@ def post_fork_blocks(
                     max_fee_per_data_gas=100,
                     access_list=[],
                     blob_versioned_hashes=add_kzg_version(
-                        [
-                            to_hash_bytes(x)
-                            for x in range(blob_count_per_block)
-                        ],
+                        [to_hash_bytes(x) for x in range(blob_count_per_block)],
                         BLOB_COMMITMENT_VERSION_KZG,
                     ),
                 )
@@ -268,9 +259,7 @@ def test_invalid_post_fork_block_without_excess_data_gas(
     "post_fork_block_count,blob_count_per_block",
     [
         (
-            BLOBS_TO_DATA_GAS_COST_INCREASE
-            // (MAX_BLOBS_PER_BLOCK - TARGET_BLOBS_PER_BLOCK)
-            + 2,
+            BLOBS_TO_DATA_GAS_COST_INCREASE // (MAX_BLOBS_PER_BLOCK - TARGET_BLOBS_PER_BLOCK) + 2,
             MAX_BLOBS_PER_BLOCK,
         ),
         (10, 0),

@@ -64,9 +64,9 @@ def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller):
         """
     )
 
-    cc_code = Op.SSTORE(
-        0xCA1101, Op.CALL(100000, 0xAA, 0, 0, 0, 0, 0)
-    ) + Op.CALL(100000, 0xAA, 1, 0, 0, 0, 0)
+    cc_code = Op.SSTORE(0xCA1101, Op.CALL(100000, 0xAA, 0, 0, 0, 0, 0)) + Op.CALL(
+        100000, 0xAA, 1, 0, 0, 0, 0
+    )
 
     balance_code = Op.SSTORE(0xBA1AA, Op.BALANCE(0xAA))
 

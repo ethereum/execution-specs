@@ -42,11 +42,11 @@ def test_access_list(state_test: StateTestFiller, fork: Fork):
             AccessList(
                 address="0x0000000000000000000000000000000000000000",
                 storage_keys=[
-                    "0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
+                    "0x0000000000000000000000000000000000000000000000000000000000000000",
                 ],
             )
         ],
-        secret_key="0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",  # noqa: E501
+        secret_key="0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8",
         protected=True,
     )
 
@@ -57,9 +57,7 @@ def test_access_list(state_test: StateTestFiller, fork: Fork):
             nonce=1,
         ),
         "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba": Account(
-            balance=0x1BC16D674EC80000
-            if is_fork(fork, London)
-            else 0x1BC16D674ECB26CE,
+            balance=0x1BC16D674EC80000 if is_fork(fork, London) else 0x1BC16D674ECB26CE,
         ),
         "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
             balance=0x2CD931,

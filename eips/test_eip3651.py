@@ -94,9 +94,7 @@ def test_warm_coinbase_call_out_of_gas(
     pre = {
         TestAddress: Account(balance=1000000000000000000000),
         caller_address: Account(code=caller_code),
-        to_address(contract_under_test_address): Account(
-            code=contract_under_test_code
-        ),
+        to_address(contract_under_test_address): Account(code=contract_under_test_code),
     }
 
     tx = Transaction(

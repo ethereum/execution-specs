@@ -174,14 +174,7 @@ def test_push0_before_jumpdest(
     """
     Jump to a JUMPDEST next to a PUSH0, must succeed.
     """
-    code = (
-        Op.PUSH1(4)
-        + Op.JUMP
-        + Op.PUSH0
-        + Op.JUMPDEST
-        + Op.SSTORE(Op.PUSH0, 1)
-        + Op.STOP
-    )
+    code = Op.PUSH1(4) + Op.JUMP + Op.PUSH0 + Op.JUMPDEST + Op.SSTORE(Op.PUSH0, 1) + Op.STOP
 
     pre[addr_1] = Account(code=code)
     post[addr_1] = Account(storage={0x00: 0x01})

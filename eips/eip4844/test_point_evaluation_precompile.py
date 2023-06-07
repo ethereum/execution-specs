@@ -30,9 +30,7 @@ POINT_EVALUATION_PRECOMPILE_ADDRESS = 20
 POINT_EVALUATION_PRECOMPILE_GAS = 50_000
 BLOB_COMMITMENT_VERSION_KZG = b"\x01"
 
-BLS_MODULUS = (
-    0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001
-)
+BLS_MODULUS = 0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001
 BLS_MODULUS_BYTES = BLS_MODULUS.to_bytes(32, "big")
 FIELD_ELEMENTS_PER_BLOB = 4096
 FIELD_ELEMENTS_PER_BLOB_BYTES = FIELD_ELEMENTS_PER_BLOB.to_bytes(32, "big")
@@ -57,9 +55,7 @@ def kzg_to_versioned_hash(
     if isinstance(kzg_commitment, int):
         kzg_commitment = kzg_commitment.to_bytes(48, "big")
     if isinstance(blob_commitment_version_kzg, int):
-        blob_commitment_version_kzg = blob_commitment_version_kzg.to_bytes(
-            1, "big"
-        )
+        blob_commitment_version_kzg = blob_commitment_version_kzg.to_bytes(1, "big")
     return blob_commitment_version_kzg + sha256(kzg_commitment).digest()[1:]
 
 
@@ -254,9 +250,7 @@ def post(
 @pytest.mark.parametrize(
     "z,y,kzg_commitment,kzg_proof,versioned_hash",
     [
-        pytest.param(
-            BLS_MODULUS - 1, 0, INF_POINT, INF_POINT, auto, id="in_bounds_z"
-        ),
+        pytest.param(BLS_MODULUS - 1, 0, INF_POINT, INF_POINT, auto, id="in_bounds_z"),
     ],
 )
 @pytest.mark.parametrize("success", [True])
@@ -412,13 +406,9 @@ def all_external_vectors() -> List:
     test_cases = []
 
     for test_file in get_point_evaluation_test_files_in_directory(
-        os.path.join(
-            current_python_script_directory(), "point_evaluation_vectors"
-        )
+        os.path.join(current_python_script_directory(), "point_evaluation_vectors")
     ):
-        file_loaded_tests = load_kzg_point_evaluation_test_vectors_from_file(
-            test_file
-        )
+        file_loaded_tests = load_kzg_point_evaluation_test_vectors_from_file(test_file)
         assert len(file_loaded_tests) > 0
         test_cases += file_loaded_tests
 
@@ -528,9 +518,7 @@ def test_point_evaluation_precompile_gas_tx_to(
     }
 
     # Gas is appended the intrinsic gas cost of the transaction
-    intrinsic_gas_cost = 21_000 + eip_2028_transaction_data_cost(
-        precompile_input
-    )
+    intrinsic_gas_cost = 21_000 + eip_2028_transaction_data_cost(precompile_input)
 
     # Consumed gas will only be the precompile gas if the proof is correct and
     # the call gas is sufficient.
@@ -620,9 +608,7 @@ def test_point_evaluation_precompile_before_fork(
     PRE_FORK_BLOCK_RANGE = range(999, FORK_TIMESTAMP, 1_000)
 
     # Blocks before fork
-    blocks = [
-        Block(timestamp=t, txs=[next(iter_tx)]) for t in PRE_FORK_BLOCK_RANGE
-    ]
+    blocks = [Block(timestamp=t, txs=[next(iter_tx)]) for t in PRE_FORK_BLOCK_RANGE]
     # Block after fork
     blocks += [Block(timestamp=FORK_TIMESTAMP, txs=[next(iter_tx)])]
 

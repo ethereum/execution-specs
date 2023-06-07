@@ -29,9 +29,7 @@ pytestmark = pytest.mark.valid_from("Shanghai")
 ONE_GWEI = 10**9
 
 
-def set_withdrawal_index(
-    withdrawals: List[Withdrawal], start_index: int = 0
-) -> None:
+def set_withdrawal_index(withdrawals: List[Withdrawal], start_index: int = 0) -> None:
     """
     Automatically set the index of each withdrawal in a list in sequential
     order.
@@ -79,17 +77,11 @@ class TestUseValueInTx:
         )
 
     @pytest.fixture
-    def blocks(  # noqa: D102
-        self, tx: Transaction, withdrawal: Withdrawal, test_case
-    ):
+    def blocks(self, tx: Transaction, withdrawal: Withdrawal, test_case):  # noqa: D102
         if test_case == "tx_in_withdrawals_block":
             return [
                 Block(
-                    txs=[
-                        tx.with_error(
-                            "intrinsic gas too low: have 0, want 21000"
-                        )
-                    ],
+                    txs=[tx.with_error("intrinsic gas too low: have 0, want 21000")],
                     withdrawals=[
                         withdrawal,
                     ],
@@ -587,9 +579,7 @@ class ZeroAmountTestCases(Enum):  # noqa: D101
     TWO_ZERO = "two_withdrawals_no_value"
     THREE_ONE_WITH_VALUE = "three_withdrawals_one_with_value"
     FOUR_ONE_WITH_MAX = "four_withdrawals_one_with_value_one_with_max"
-    FOUR_ONE_WITH_MAX_REVERSED = (
-        "four_withdrawals_one_with_value_one_with_max_reversed_order"
-    )
+    FOUR_ONE_WITH_MAX_REVERSED = "four_withdrawals_one_with_value_one_with_max_reversed_order"
 
 
 @pytest.mark.parametrize(

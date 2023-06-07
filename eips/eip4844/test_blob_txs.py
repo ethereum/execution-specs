@@ -58,9 +58,7 @@ def fake_exponential(factor: int, numerator: int, denominator: int) -> int:
     numerator_accumulator = factor * denominator
     while numerator_accumulator > 0:
         output += numerator_accumulator
-        numerator_accumulator = (numerator_accumulator * numerator) // (
-            denominator * i
-        )
+        numerator_accumulator = (numerator_accumulator * numerator) // (denominator * i)
         i += 1
     return output // denominator
 
@@ -201,9 +199,7 @@ def total_account_minimum_balance(  # noqa: D103
     for tx_blob_count in [len(x) for x in blob_hashes_per_tx]:
         data_cost = data_gasprice * DATA_GAS_PER_BLOB * tx_blob_count
         total_cost += (
-            (tx_gas * (block_fee_per_gas + tx_max_priority_fee_per_gas))
-            + tx_value
-            + data_cost
+            (tx_gas * (block_fee_per_gas + tx_max_priority_fee_per_gas)) + tx_value + data_cost
         )
     return total_cost
 
@@ -304,9 +300,7 @@ def pre(  # noqa: D103
     blocks.
     """
     return {
-        TestAddress: Account(
-            balance=total_account_minimum_balance + account_balance_modifier
-        ),
+        TestAddress: Account(balance=total_account_minimum_balance + account_balance_modifier),
     }
 
 
@@ -349,8 +343,7 @@ def all_valid_blob_combinations() -> List[Tuple[int, ...]]:
         for seq in itertools.combinations_with_replacement(
             range(1, MAX_BLOBS_PER_BLOCK + 1), i
         )  # We iterate through all possible combinations
-        if sum(seq)
-        <= MAX_BLOBS_PER_BLOCK  # And we only keep the ones that are valid
+        if sum(seq) <= MAX_BLOBS_PER_BLOCK  # And we only keep the ones that are valid
     ]
     # We also add the reversed version of each combination, only if it's not
     # already in the list. E.g. (2, 1, 1) is added from (1, 1, 2) but not
@@ -372,8 +365,7 @@ def invalid_blob_combinations() -> List[Tuple[int, ...]]:
         for seq in itertools.combinations_with_replacement(
             range(1, MAX_BLOBS_PER_BLOCK + 2), i
         )  # We iterate through all possible combinations
-        if sum(seq)
-        == MAX_BLOBS_PER_BLOCK + 1  # And we only keep the ones that match the
+        if sum(seq) == MAX_BLOBS_PER_BLOCK + 1  # And we only keep the ones that match the
         # expected invalid blob count
     ]
     # We also add the reversed version of each combination, only if it's not
@@ -499,12 +491,8 @@ def test_invalid_block_blob_count(
 
 @pytest.mark.parametrize("tx_max_priority_fee_per_gas", [0, 8])
 @pytest.mark.parametrize("tx_value", [0, 1])
-@pytest.mark.parametrize(
-    "account_balance_modifier", [-1], ids=["exact_balance_minus_1"]
-)
-@pytest.mark.parametrize(
-    "tx_error", ["insufficient_account_balance"], ids=[""]
-)
+@pytest.mark.parametrize("account_balance_modifier", [-1], ids=["exact_balance_minus_1"])
+@pytest.mark.parametrize("tx_error", ["insufficient_account_balance"], ids=[""])
 @pytest.mark.valid_from("Cancun")
 def test_insufficient_balance_blob_tx(
     blockchain_test: BlockchainTestFiller,
@@ -528,12 +516,8 @@ def test_insufficient_balance_blob_tx(
     "blobs_per_tx",
     all_valid_blob_combinations(),
 )
-@pytest.mark.parametrize(
-    "account_balance_modifier", [-1], ids=["exact_balance_minus_1"]
-)
-@pytest.mark.parametrize(
-    "tx_error", ["insufficient_account_balance"], ids=[""]
-)
+@pytest.mark.parametrize("account_balance_modifier", [-1], ids=["exact_balance_minus_1"])
+@pytest.mark.parametrize("tx_error", ["insufficient_account_balance"], ids=[""])
 @pytest.mark.valid_from("Cancun")
 def test_insufficient_balance_blob_tx_combinations(
     blockchain_test: BlockchainTestFiller,
@@ -588,14 +572,8 @@ def test_invalid_tx_blob_count(
     [
         [[to_hash_bytes(1)]],
         [[to_hash_bytes(x) for x in range(2)]],
-        [
-            add_kzg_version([to_hash_bytes(1)], BLOB_COMMITMENT_VERSION_KZG)
-            + [to_hash_bytes(2)]
-        ],
-        [
-            [to_hash_bytes(1)]
-            + add_kzg_version([to_hash_bytes(2)], BLOB_COMMITMENT_VERSION_KZG)
-        ],
+        [add_kzg_version([to_hash_bytes(1)], BLOB_COMMITMENT_VERSION_KZG) + [to_hash_bytes(2)]],
+        [[to_hash_bytes(1)] + add_kzg_version([to_hash_bytes(2)], BLOB_COMMITMENT_VERSION_KZG)],
         [
             add_kzg_version([to_hash_bytes(1)], BLOB_COMMITMENT_VERSION_KZG),
             [to_hash_bytes(2)],
@@ -606,8 +584,7 @@ def test_invalid_tx_blob_count(
         ],
         [
             add_kzg_version([to_hash_bytes(1)], BLOB_COMMITMENT_VERSION_KZG),
-            [to_hash_bytes(2)]
-            + add_kzg_version([to_hash_bytes(3)], BLOB_COMMITMENT_VERSION_KZG),
+            [to_hash_bytes(2)] + add_kzg_version([to_hash_bytes(3)], BLOB_COMMITMENT_VERSION_KZG),
         ],
         [
             add_kzg_version([to_hash_bytes(1)], BLOB_COMMITMENT_VERSION_KZG),

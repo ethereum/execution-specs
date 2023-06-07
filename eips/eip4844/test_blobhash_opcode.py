@@ -114,9 +114,7 @@ def test_blobhash_gas_cost(
                         gas_price=10 if tx_type < 2 else None,
                         access_list=[] if tx_type >= 2 else None,
                         max_priority_fee_per_gas=10 if tx_type >= 2 else None,
-                        blob_versioned_hashes=random_blob_hashes[
-                            0:TARGET_BLOB_PER_BLOCK
-                        ]
+                        blob_versioned_hashes=random_blob_hashes[0:TARGET_BLOB_PER_BLOCK]
                         if tx_type >= 3
                         else None,
                     )
@@ -156,9 +154,7 @@ def test_blobhash_scenarios(
     the valid range `[0, 2**256-1]`.
     """
     TOTAL_BLOCKS = 5
-    b_hashes_list = BlobhashScenario.create_blob_hashes_list(
-        length=TOTAL_BLOCKS
-    )
+    b_hashes_list = BlobhashScenario.create_blob_hashes_list(length=TOTAL_BLOCKS)
     blobhash_calls = BlobhashScenario.generate_blobhash_bytecode(scenario)
     for i in range(TOTAL_BLOCKS):
         address = to_address(0x100 + i * 0x100)
@@ -178,10 +174,7 @@ def test_blobhash_scenarios(
             )
         )
         post[address] = Account(
-            storage={
-                index: b_hashes_list[i][index]
-                for index in range(MAX_BLOB_PER_BLOCK)
-            }
+            storage={index: b_hashes_list[i][index] for index in range(MAX_BLOB_PER_BLOCK)}
         )
     blockchain_test(
         pre=pre,
@@ -237,9 +230,7 @@ def test_blobhash_invalid_blob_index(
         )
         post[address] = Account(
             storage={
-                index: (
-                    0 if index < 0 or index >= blob_per_block else blobs[index]
-                )
+                index: (0 if index < 0 or index >= blob_per_block else blobs[index])
                 for index in range(
                     -TOTAL_BLOCKS,
                     blob_per_block + (TOTAL_BLOCKS - (i % MAX_BLOB_PER_BLOCK)),
@@ -266,9 +257,7 @@ def test_blobhash_multiple_txs_in_block(
     Scenarios involve tx type 3 followed by tx type 2 running the same code
     within a block, including the opposite.
     """
-    blobhash_bytecode = BlobhashScenario.generate_blobhash_bytecode(
-        "single_valid"
-    )
+    blobhash_bytecode = BlobhashScenario.generate_blobhash_bytecode("single_valid")
     pre = {
         **pre,
         **{
@@ -298,9 +287,7 @@ def test_blobhash_multiple_txs_in_block(
     ]
     post = {
         to_address(address): Account(
-            storage={
-                i: random_blob_hashes[i] for i in range(MAX_BLOB_PER_BLOCK)
-            }
+            storage={i: random_blob_hashes[i] for i in range(MAX_BLOB_PER_BLOCK)}
         )
         if address in (0x200, 0x400)
         else Account(storage={i: 0 for i in range(MAX_BLOB_PER_BLOCK)})

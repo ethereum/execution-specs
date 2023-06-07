@@ -40,9 +40,7 @@ def kzg_to_versioned_hash(
     if isinstance(kzg_commitment, int):
         kzg_commitment = kzg_commitment.to_bytes(48, "big")
     if isinstance(blob_commitment_version_kzg, int):
-        blob_commitment_version_kzg = blob_commitment_version_kzg.to_bytes(
-            1, "big"
-        )
+        blob_commitment_version_kzg = blob_commitment_version_kzg.to_bytes(1, "big")
     return blob_commitment_version_kzg + sha256(kzg_commitment).digest()[1:]
 
 
