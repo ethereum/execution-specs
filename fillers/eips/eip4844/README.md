@@ -2,37 +2,37 @@
 
 **Note:** *This is still a WIP but the tests can still be used by any client team. The priority levels (🔴, 🟠, 🟡, 🟢) represent very high, high, medium, low  priorities respectively.*
 
-## 📖 Datahash Opcode
+## 📖 Blobhash Opcode
 
-Test Module - `eip4844/datahash_opcode.py`
+Test Module - `eip4844/blobhash_opcode.py`
 
-Verifies that the `DATAHASH` opcode, works as intended for a variety of contexts, retrieves the blob versioned hash correctly for a given index, returns the correct zeroed `bytes32` value for out-of-range indices, and consumes the correct amount of gas.
+Verifies that the `BLOBHASH` opcode, works as intended for a variety of contexts, retrieves the blob versioned hash correctly for a given index, returns the correct zeroed `bytes32` value for out-of-range indices, and consumes the correct amount of gas.
 
-**1) 🔴 test_datahash_opcode_contexts():**
+**1) 🔴 test_blobhash_opcode_contexts():**
 
-Tests that the `DATAHASH` opcode functions correctly when called in different contexts including:
-- `DATAHASH` opcode on the top level of the call stack.
-- `DATAHASH` opcode on the max value.
-- `DATAHASH` opcode on `CALL`, `DELEGATECALL`, `STATICCALL`, and `CALLCODE`.
-- `DATAHASH` opcode on Initcode.
-- `DATAHASH` opcode on `CREATE` and `CREATE2`.
-- `DATAHASH` opcode on transaction types 0, 1 and 2.
+Tests that the `BLOBHASH` opcode functions correctly when called in different contexts including:
+- `BLOBHASH` opcode on the top level of the call stack.
+- `BLOBHASH` opcode on the max value.
+- `BLOBHASH` opcode on `CALL`, `DELEGATECALL`, `STATICCALL`, and `CALLCODE`.
+- `BLOBHASH` opcode on Initcode.
+- `BLOBHASH` opcode on `CREATE` and `CREATE2`.
+- `BLOBHASH` opcode on transaction types 0, 1 and 2.
 
-**2) 🔴 test_datahash_blob_versioned_hash():**
+**2) 🔴 test_blobhash_blob_versioned_hash():**
 
-Tests that the `DATAHASH` opcode returns the correct versioned hash for various valid indexes. This test covers various scenarios with random `blob_versioned_hash` values within the valid range `[0, 2**256-1]`.
+Tests that the `BLOBHASH` opcode returns the correct versioned hash for various valid indexes. This test covers various scenarios with random `blob_versioned_hash` values within the valid range `[0, 2**256-1]`.
 
-**3) 🔴 test_datahash_invalid_blob_index():**
+**3) 🔴 test_blobhash_invalid_blob_index():**
 
-Tests that the `DATAHASH` opcode returns a zeroed `bytes32` value for invalid indexes. This test includes cases where the index is negative (`index < 0`) or exceeds the maximum number of `blob_versioned_hash` values stored (`index >= len(tx.message.blob_versioned_hashes)`). It confirms that the returned value is a zeroed `bytes32` value for these cases.
+Tests that the `BLOBHASH` opcode returns a zeroed `bytes32` value for invalid indexes. This test includes cases where the index is negative (`index < 0`) or exceeds the maximum number of `blob_versioned_hash` values stored (`index >= len(tx.message.blob_versioned_hashes)`). It confirms that the returned value is a zeroed `bytes32` value for these cases.
 
-**4) 🟠 test_datahash_gas_cost():**
+**4) 🟠 test_blobhash_gas_cost():**
 
-Asserts the gas consumption of the `DATAHASH` opcode is correct by ensuring it matches `HASH_OPCODE_GAS = 3`. It includes both valid and invalid random index sizes from the range `[0, 2**256-1]`, for tx types 2 and 3.
+Asserts the gas consumption of the `BLOBHASH` opcode is correct by ensuring it matches `HASH_OPCODE_GAS = 3`. It includes both valid and invalid random index sizes from the range `[0, 2**256-1]`, for tx types 2 and 3.
 
-**5) 🟡 test_datahash_multiple_txs_in_block():**
+**5) 🟡 test_blobhash_multiple_txs_in_block():**
 
-Tests that the `DATAHASH` opcode returns the appropriate values when there is more than one blob tx type within a block (for tx types 2 and 3). Scenarios involve tx type 3 followed by tx type 2 running the same code within a block. In this case `DATAHASH` returns 0, but for the opposite scenario `DATAHASH` returns the correct `blob_versioned_hash`.
+Tests that the `BLOBHASH` opcode returns the appropriate values when there is more than one blob tx type within a block (for tx types 2 and 3). Scenarios involve tx type 3 followed by tx type 2 running the same code within a block. In this case `BLOBHASH` returns 0, but for the opposite scenario `BLOBHASH` returns the correct `blob_versioned_hash`.
 
 
 ## 💽⛽💸 Excess Data Gas

@@ -44,6 +44,7 @@ wd
 wds
 u256
 utils
+util
 validator
 vm
 gwei
@@ -139,7 +140,7 @@ prevrandao
 
 authcall
 callf
-datahash
+blobhash
 jumpdest
 jumpi
 mload
@@ -259,6 +260,7 @@ modifyitems
 originalname
 parametrized
 param
+params
 parametrize
 pytestmark
 runtest

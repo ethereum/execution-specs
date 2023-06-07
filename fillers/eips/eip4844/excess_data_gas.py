@@ -46,7 +46,7 @@ REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
 pytestmark = pytest.mark.parametrize("fork", forks_from(Cancun))
 
 BLOB_COMMITMENT_VERSION_KZG = 1
-DATAHASH_GAS_COST = 3
+BLOBHASH_GAS_COST = 3
 MIN_DATA_GASPRICE = 1
 DATA_GAS_PER_BLOB = 2**17
 MAX_DATA_GAS_PER_BLOCK = 2**19
@@ -644,7 +644,7 @@ def test_invalid_excess_data_gas_change(
 @pytest.mark.parametrize(
     "header_excess_data_gas",
     [
-        (2**256 + (x * DATA_GAS_PER_BLOB))
+        (2**64 + (x * DATA_GAS_PER_BLOB))
         for x in range(-TARGET_BLOBS_PER_BLOCK, 0)
     ],
 )
