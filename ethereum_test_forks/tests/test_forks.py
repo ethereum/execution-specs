@@ -5,15 +5,23 @@ Test fork utilities.
 from typing import cast
 
 from ..base_fork import Fork
-from ..forks.forks import Berlin, London, Merge, Shanghai
+from ..forks.forks import Berlin, Cancun, Frontier, London, Merge, Shanghai
 from ..forks.transition import BerlinToLondonAt5, MergeToShanghaiAtTime15k
 from ..helpers import (
     forks_from,
     forks_from_until,
+    get_deployed_forks,
+    get_development_forks,
+    get_forks,
     is_fork,
     transition_fork_from_to,
     transition_fork_to,
 )
+
+FIRST_DEPLOYED = Frontier
+LAST_DEPLOYED = Shanghai
+LAST_DEVELOPMENT = Cancun
+DEVELOPMENT_FORKS = [Cancun]
 
 
 def test_transition_forks():
@@ -29,6 +37,15 @@ def test_transition_forks():
     assert BerlinToLondonAt5.transitions_from() == Berlin
 
 
+def test_forks_from():  # noqa: D103
+    assert forks_from(Merge) == [Merge, LAST_DEPLOYED]
+    assert forks_from(Merge, deployed_only=True) == [Merge, LAST_DEPLOYED]
+    assert (
+        forks_from(Merge, deployed_only=False)
+        == [Merge, LAST_DEPLOYED] + DEVELOPMENT_FORKS
+    )
+
+
 def test_forks():
     """
     Test fork utilities.
@@ -40,7 +57,6 @@ def test_forks():
         London,
         Merge,
     ]
-    assert forks_from(Merge) == [Merge, Shanghai]
 
     # Test fork names
     assert London.name() == "London"
@@ -74,3 +90,19 @@ def test_forks():
     assert is_fork(Berlin, Berlin) is True
     assert is_fork(London, Berlin) is True
     assert is_fork(Berlin, Merge) is False
+
+
+def test_get_forks():  # noqa: D103
+    all_forks = get_forks()
+    assert all_forks[0] == FIRST_DEPLOYED
+    assert all_forks[-1] == LAST_DEVELOPMENT
+
+
+def test_development_forks():  # noqa: D103
+    assert get_development_forks() == DEVELOPMENT_FORKS
+
+
+def test_deployed_forks():  # noqa: D103
+    deployed_forks = get_deployed_forks()
+    assert deployed_forks[0] == FIRST_DEPLOYED
+    assert deployed_forks[-1] == LAST_DEPLOYED
