@@ -1,5 +1,5 @@
 """
-Test filling methods and decorators.
+Test filling methods.
 """
 from .fill import fill_test
 
