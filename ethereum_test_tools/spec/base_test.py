@@ -2,16 +2,7 @@
 Generic Ethereum test base class
 """
 from abc import abstractmethod
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generator,
-    List,
-    Mapping,
-    Optional,
-    Tuple,
-)
+from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple
 
 from ethereum_test_forks import Fork
 from evm_block_builder import BlockBuilder
@@ -51,9 +42,7 @@ def verify_transactions(txs: List[Transaction] | None, result) -> List[int]:
         for i, tx in enumerate(txs):
             error = rejected_txs[i] if i in rejected_txs else None
             if tx.error and not error:
-                raise Exception(
-                    f"tx expected to fail succeeded: pos={i}, nonce={tx.nonce}"
-                )
+                raise Exception(f"tx expected to fail succeeded: pos={i}, nonce={tx.nonce}")
             elif not tx.error and error:
                 raise Exception(f"tx unexpectedly failed: {error}")
 
@@ -62,9 +51,7 @@ def verify_transactions(txs: List[Transaction] | None, result) -> List[int]:
     return list(rejected_txs.keys())
 
 
-def verify_post_alloc(
-    expected_post: Mapping[str, Account], got_alloc: Mapping[str, Any]
-):
+def verify_post_alloc(expected_post: Mapping[str, Account], got_alloc: Mapping[str, Any]):
     """
     Verify that an allocation matches the expected post in the test.
     Raises exception on unexpected values.

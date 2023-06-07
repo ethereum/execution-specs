@@ -30,13 +30,7 @@ from .common import (
 )
 from .filling.fill import fill_test
 from .reference_spec import ReferenceSpec, ReferenceSpecTypes
-from .spec import (
-    BaseTest,
-    BlockchainTest,
-    BlockchainTestFiller,
-    StateTest,
-    StateTestFiller,
-)
+from .spec import BaseTest, BlockchainTest, BlockchainTestFiller, StateTest, StateTestFiller
 from .vm import Opcode, Opcodes
 
 __all__ = (

@@ -32,9 +32,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def header_base_fee_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_base_fee_required(cls, block_number: int, timestamp: int) -> bool:
         """
         Returns true if the header must contain base fee
         """
@@ -42,9 +40,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def header_prev_randao_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_prev_randao_required(cls, block_number: int, timestamp: int) -> bool:
         """
         Returns true if the header must contain Prev Randao value
         """
@@ -52,9 +48,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def header_zero_difficulty_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_zero_difficulty_required(cls, block_number: int, timestamp: int) -> bool:
         """
         Returns true if the header must have difficulty zero
         """
@@ -62,9 +56,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def header_withdrawals_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_withdrawals_required(cls, block_number: int, timestamp: int) -> bool:
         """
         Returns true if the header must contain withdrawals
         """
@@ -72,9 +64,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def header_excess_data_gas_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_excess_data_gas_required(cls, block_number: int, timestamp: int) -> bool:
         """
         Returns true if the header must contain excess data gas
         """

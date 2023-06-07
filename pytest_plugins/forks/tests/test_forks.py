@@ -4,12 +4,7 @@ Test the forks plugin.
 
 import pytest
 
-from ethereum_test_forks import (
-    ArrowGlacier,
-    forks_from_until,
-    get_deployed_forks,
-    get_forks,
-)
+from ethereum_test_forks import ArrowGlacier, forks_from_until, get_deployed_forks, get_forks
 
 pytest_plugin_args = (
     "-p",
@@ -50,9 +45,7 @@ def test_no_options_no_validity_marker(pytester):
     all_forks = get_deployed_forks()
     forks_under_test = forks_from_until(all_forks[0], all_forks[-1])
     for fork in forks_under_test:
-        assert f":test_all_forks[fork={fork}]" in "\n".join(
-            result.stdout.lines
-        )
+        assert f":test_all_forks[fork={fork}]" in "\n".join(result.stdout.lines)
     result.assert_outcomes(
         passed=len(forks_under_test),
         failed=0,
@@ -86,9 +79,7 @@ def test_from_london_option_no_validity_marker(pytester, fork_map, fork):
     all_forks = get_deployed_forks()
     forks_under_test = forks_from_until(fork_map[fork], all_forks[-1])
     for fork_under_test in forks_under_test:
-        assert f":test_all_forks[fork={fork_under_test}]" in "\n".join(
-            result.stdout.lines
-        )
+        assert f":test_all_forks[fork={fork_under_test}]" in "\n".join(result.stdout.lines)
     result.assert_outcomes(
         passed=len(forks_under_test),
         failed=0,
@@ -97,9 +88,7 @@ def test_from_london_option_no_validity_marker(pytester, fork_map, fork):
     )
 
 
-def test_from_london_until_shanghai_option_no_validity_marker(
-    pytester, fork_map
-):
+def test_from_london_until_shanghai_option_no_validity_marker(pytester, fork_map):
     """
     Test test parametrization with:
     - --from London command-line option,
@@ -117,15 +106,11 @@ def test_from_london_until_shanghai_option_no_validity_marker(
     result = pytester.runpytest(
         *pytest_plugin_args, "-v", "--from", "London", "--until", "Shanghai"
     )
-    forks_under_test = forks_from_until(
-        fork_map["London"], fork_map["Shanghai"]
-    )
+    forks_under_test = forks_from_until(fork_map["London"], fork_map["Shanghai"])
     if ArrowGlacier in forks_under_test:
         forks_under_test.remove(ArrowGlacier)
     for fork_under_test in forks_under_test:
-        assert f":test_all_forks[fork={fork_under_test}]" in "\n".join(
-            result.stdout.lines
-        )
+        assert f":test_all_forks[fork={fork_under_test}]" in "\n".join(result.stdout.lines)
     result.assert_outcomes(
         passed=len(forks_under_test),
         failed=0,

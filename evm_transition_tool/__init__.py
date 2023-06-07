@@ -104,7 +104,7 @@ class TransitionTool:
         """
         if type(withdrawals) is list and len(withdrawals) == 0:
             # Optimize returning the empty root immediately
-            return "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"  # noqa: E501
+            return "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
 
         env: Dict[str, Any] = {
             "currentCoinbase": "0x0000000000000000000000000000000000000000",
@@ -128,8 +128,7 @@ class TransitionTool:
         withdrawals_root = result.get("withdrawalsRoot")
         if withdrawals_root is None:
             raise Exception(
-                "Unable to calculate withdrawals root: "
-                + "no value returned from transition tool"
+                "Unable to calculate withdrawals root: no value returned from transition tool"
             )
         if type(withdrawals_root) is not str:
             raise Exception(
@@ -170,10 +169,7 @@ class EvmTransitionTool(TransitionTool):
         try:
             result = subprocess.run(args, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
-            raise Exception(
-                "evm process unexpectedly returned a non-zero status code: "
-                f"{e}."
-            )
+            raise Exception("evm process unexpectedly returned a non-zero status code: " f"{e}.")
         except Exception as e:
             raise Exception(f"Unexpected exception calling evm tool: {e}.")
         self.help_string = result.stdout
@@ -246,9 +242,7 @@ class EvmTransitionTool(TransitionTool):
             for i, r in enumerate(receipts):
                 h = r["transactionHash"]
                 trace_file_name = f"trace-{i}-{h}.jsonl"
-                with open(
-                    os.path.join(temp_dir.name, trace_file_name), "r"
-                ) as trace_file:
+                with open(os.path.join(temp_dir.name, trace_file_name), "r") as trace_file:
                     tx_traces: List[Dict] = []
                     for trace_line in trace_file.readlines():
                         tx_traces.append(json.loads(trace_line))
@@ -270,9 +264,7 @@ class EvmTransitionTool(TransitionTool):
             )
 
             if result.returncode != 0:
-                raise Exception(
-                    "failed to evaluate: " + result.stderr.decode()
-                )
+                raise Exception("failed to evaluate: " + result.stderr.decode())
 
             self.cached_version = result.stdout.decode().strip()
 

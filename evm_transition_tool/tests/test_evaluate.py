@@ -8,9 +8,7 @@ import pytest
 from ethereum_test_forks import Berlin, Fork, Istanbul, London
 from evm_transition_tool import EvmTransitionTool, TransitionTool
 
-FIXTURES_ROOT = Path(
-    os.path.join("src", "evm_transition_tool", "tests", "fixtures")
-)
+FIXTURES_ROOT = Path(os.path.join("src", "evm_transition_tool", "tests", "fixtures"))
 
 
 @pytest.mark.parametrize("t8n", [EvmTransitionTool()])

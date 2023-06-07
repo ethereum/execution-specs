@@ -6,9 +6,7 @@ import pytest
 
 from evm_block_builder import BlockBuilder, EvmBlockBuilder
 
-FIXTURES_ROOT = Path(
-    os.path.join("src", "evm_block_builder", "tests", "fixtures")
-)
+FIXTURES_ROOT = Path(os.path.join("src", "evm_block_builder", "tests", "fixtures"))
 
 
 @pytest.mark.parametrize("b11r", [EvmBlockBuilder()])

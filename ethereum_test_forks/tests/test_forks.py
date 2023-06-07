@@ -40,10 +40,7 @@ def test_transition_forks():
 def test_forks_from():  # noqa: D103
     assert forks_from(Merge) == [Merge, LAST_DEPLOYED]
     assert forks_from(Merge, deployed_only=True) == [Merge, LAST_DEPLOYED]
-    assert (
-        forks_from(Merge, deployed_only=False)
-        == [Merge, LAST_DEPLOYED] + DEVELOPMENT_FORKS
-    )
+    assert forks_from(Merge, deployed_only=False) == [Merge, LAST_DEPLOYED] + DEVELOPMENT_FORKS
 
 
 def test_forks():
@@ -70,22 +67,10 @@ def test_forks():
     assert Merge.header_base_fee_required(0, 0) is True
 
     # Transition forks too
-    assert (
-        cast(Fork, BerlinToLondonAt5).header_base_fee_required(4, 0) is False
-    )
+    assert cast(Fork, BerlinToLondonAt5).header_base_fee_required(4, 0) is False
     assert cast(Fork, BerlinToLondonAt5).header_base_fee_required(5, 0) is True
-    assert (
-        cast(Fork, MergeToShanghaiAtTime15k).header_withdrawals_required(
-            0, 14_999
-        )
-        is False
-    )
-    assert (
-        cast(Fork, MergeToShanghaiAtTime15k).header_withdrawals_required(
-            0, 15_000
-        )
-        is True
-    )
+    assert cast(Fork, MergeToShanghaiAtTime15k).header_withdrawals_required(0, 14_999) is False
+    assert cast(Fork, MergeToShanghaiAtTime15k).header_withdrawals_required(0, 15_000) is True
 
     assert is_fork(Berlin, Berlin) is True
     assert is_fork(London, Berlin) is True

@@ -43,9 +43,7 @@ def transition_fork(to_fork: Fork):
                 return transition_name
 
         NewTransitionClass.transitions_to = lambda: to_fork  # type: ignore
-        NewTransitionClass.transitions_from = (  # type: ignore
-            lambda: cls.__bases__[0]
-        )
+        NewTransitionClass.transitions_from = lambda: cls.__bases__[0]  # type: ignore
 
         return NewTransitionClass
 

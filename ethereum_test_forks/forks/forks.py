@@ -11,45 +11,35 @@ class Frontier(BaseFork):
     """
 
     @classmethod
-    def header_base_fee_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_base_fee_required(cls, block_number: int, timestamp: int) -> bool:
         """
         At genesis, header must not contain base fee
         """
         return False
 
     @classmethod
-    def header_prev_randao_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_prev_randao_required(cls, block_number: int, timestamp: int) -> bool:
         """
         At genesis, header must not contain Prev Randao value
         """
         return False
 
     @classmethod
-    def header_zero_difficulty_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_zero_difficulty_required(cls, block_number: int, timestamp: int) -> bool:
         """
         At genesis, header must not have difficulty zero
         """
         return False
 
     @classmethod
-    def header_withdrawals_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_withdrawals_required(cls, block_number: int, timestamp: int) -> bool:
         """
         At genesis, header must not contain withdrawals
         """
         return False
 
     @classmethod
-    def header_excess_data_gas_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_excess_data_gas_required(cls, block_number: int, timestamp: int) -> bool:
         """
         At genesis, header must not contain excess data gas
         """
@@ -139,9 +129,7 @@ class London(Berlin):
     """
 
     @classmethod
-    def header_base_fee_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_base_fee_required(cls, block_number: int, timestamp: int) -> bool:
         """
         Base Fee is required starting from London.
         """
@@ -171,18 +159,14 @@ class Merge(London):
     """
 
     @classmethod
-    def header_prev_randao_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_prev_randao_required(cls, block_number: int, timestamp: int) -> bool:
         """
         Prev Randao is required starting from Merge.
         """
         return True
 
     @classmethod
-    def header_zero_difficulty_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_zero_difficulty_required(cls, block_number: int, timestamp: int) -> bool:
         """
         Zero difficulty is required starting from Merge.
         """
@@ -202,9 +186,7 @@ class Shanghai(Merge):
     """
 
     @classmethod
-    def header_withdrawals_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_withdrawals_required(cls, block_number: int, timestamp: int) -> bool:
         """
         Withdrawals are required starting from Shanghai.
         """
@@ -225,9 +207,7 @@ class Cancun(Shanghai):
         return False
 
     @classmethod
-    def header_excess_data_gas_required(
-        cls, block_number: int, timestamp: int
-    ) -> bool:
+    def header_excess_data_gas_required(cls, block_number: int, timestamp: int) -> bool:
         """
         Excess data gas is required starting from Cancun.
         """

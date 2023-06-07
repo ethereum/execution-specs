@@ -125,9 +125,7 @@ class EvmBlockBuilder(BlockBuilder):
             )
 
             if result.returncode != 0:
-                raise Exception(
-                    "failed to evaluate: " + result.stderr.decode()
-                )
+                raise Exception("failed to evaluate: " + result.stderr.decode())
 
             self.cached_version = result.stdout.decode().strip()
 

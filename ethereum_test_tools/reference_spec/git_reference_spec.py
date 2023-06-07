@@ -9,11 +9,7 @@ from typing import Any, Dict
 
 import requests
 
-from .reference_spec import (
-    NoLatestKnownVersion,
-    ParseModuleError,
-    ReferenceSpec,
-)
+from .reference_spec import NoLatestKnownVersion, ParseModuleError, ReferenceSpec
 
 
 def _decode_base64_content(encoded_data: str) -> str:

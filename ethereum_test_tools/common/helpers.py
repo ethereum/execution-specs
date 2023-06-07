@@ -39,9 +39,7 @@ def compute_create_address(address: str | int, nonce: int) -> str:
     return "0x" + hash[-20:].hex()
 
 
-def compute_create2_address(
-    address: str | int, salt: int, initcode: bytes
-) -> str:
+def compute_create2_address(address: str | int, salt: int, initcode: bytes) -> str:
     """
     Compute address of the resulting contract created using the `CREATE2`
     opcode.
@@ -82,9 +80,7 @@ def copy_opcode_cost(length: int) -> int:
     empty memory, based on the costs specified in the yellow paper:
     https://ethereum.github.io/yellowpaper/paper.pdf
     """
-    return (
-        3 + (ceiling_division(length, 32) * 3) + cost_memory_bytes(length, 0)
-    )
+    return 3 + (ceiling_division(length, 32) * 3) + cost_memory_bytes(length, 0)
 
 
 def eip_2028_transaction_data_cost(data: bytes | str) -> int:
@@ -136,9 +132,7 @@ def to_hash(input: int | str) -> str:
     return "0x" + to_hash_bytes(input).hex()
 
 
-def add_kzg_version(
-    b_hashes: List[bytes | int | str], kzg_version: int
-) -> List[bytes]:
+def add_kzg_version(b_hashes: List[bytes | int | str], kzg_version: int) -> List[bytes]:
     """
     Adds the Kzg Version to each blob hash.
     """
@@ -147,13 +141,9 @@ def add_kzg_version(
 
     for hash in b_hashes:
         if isinstance(hash, int) or isinstance(hash, str):
-            kzg_versioned_hashes.append(
-                kzg_version_hex + to_hash_bytes(hash)[1:]
-            )
+            kzg_versioned_hashes.append(kzg_version_hex + to_hash_bytes(hash)[1:])
         elif isinstance(hash, bytes):
             kzg_versioned_hashes.append(kzg_version_hex + hash[1:])
         else:
-            raise TypeError(
-                "Blob hash must be either an integer, string or bytes"
-            )
+            raise TypeError("Blob hash must be either an integer, string or bytes")
     return kzg_versioned_hashes

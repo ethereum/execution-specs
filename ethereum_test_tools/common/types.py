@@ -4,18 +4,7 @@ Useful types for generating Ethereum tests.
 import json
 from copy import copy, deepcopy
 from dataclasses import dataclass, field
-from typing import (
-    Any,
-    ClassVar,
-    Dict,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Tuple,
-    Type,
-    TypeAlias,
-)
+from typing import Any, ClassVar, Dict, List, Mapping, Optional, Sequence, Tuple, Type, TypeAlias
 
 from ethereum_test_forks import Fork
 from evm_block_builder import BlockBuilder
@@ -114,9 +103,7 @@ class Storage:
 
     data: Dict[int, int]
 
-    StorageDictType: ClassVar[TypeAlias] = Dict[
-        str | int | bytes, str | int | bytes
-    ]
+    StorageDictType: ClassVar[TypeAlias] = Dict[str | int | bytes, str | int | bytes]
     """
     Dictionary type to be used when defining an input to initialize a storage.
     """
@@ -197,9 +184,7 @@ class Storage:
 
         def __str__(self):
             """Print exception string"""
-            return "key {0} not found in storage".format(
-                Storage.key_value_to_string(self.key)
-            )
+            return "key {0} not found in storage".format(Storage.key_value_to_string(self.key))
 
     class KeyValueMismatch(Exception):
         """
@@ -220,8 +205,7 @@ class Storage:
         def __str__(self):
             """Print exception string"""
             return (
-                "incorrect value for key {0}: want {1} (dec:{2}),"
-                + " got {3} (dec:{4})"
+                "incorrect value for key {0}: want {1} (dec:{2})," + " got {3} (dec:{4})"
             ).format(
                 Storage.key_value_to_string(self.key),
                 Storage.key_value_to_string(self.want),
@@ -287,9 +271,7 @@ class Storage:
 
     def __setitem__(self, key: str | int, value: str | int):  # noqa: SC200
         """Sets an item in the storage"""
-        self.data[Storage.parse_key_value(key)] = Storage.parse_key_value(
-            value
-        )
+        self.data[Storage.parse_key_value(key)] = Storage.parse_key_value(value)
 
     def __delitem__(self, key: str | int):
         """Deletes an item from the storage"""
@@ -305,9 +287,7 @@ class Storage:
             key_repr = Storage.key_value_to_string(key)
             val_repr = Storage.key_value_to_string(self.data[key])
             if key_repr in res and val_repr != res[key_repr]:
-                raise Storage.AmbiguousKeyValue(
-                    key_repr, res[key_repr], key, val_repr
-                )
+                raise Storage.AmbiguousKeyValue(key_repr, res[key_repr], key, val_repr)
             res[key_repr] = val_repr
         return res
 
@@ -339,9 +319,7 @@ class Storage:
                 if other[key] != 0:
                     raise Storage.MissingKey(key)
             elif self.data[key] != other.data[key]:
-                raise Storage.KeyValueMismatch(
-                    key, self.data[key], other.data[key]
-                )
+                raise Storage.KeyValueMismatch(key, self.data[key], other.data[key])
 
     def must_be_equal(self, other: "Storage"):
         """
@@ -350,9 +328,7 @@ class Storage:
         # Test keys contained in both storage objects
         for key in self.data.keys() & other.data.keys():
             if self.data[key] != other.data[key]:
-                raise Storage.KeyValueMismatch(
-                    key, self.data[key], other.data[key]
-                )
+                raise Storage.KeyValueMismatch(key, self.data[key], other.data[key])
 
         # Test keys contained in either one of the storage objects
         for key in self.data.keys() ^ other.data.keys():
@@ -368,9 +344,7 @@ def storage_padding(storage: Dict) -> Dict:
     """
     Adds even padding to each storage element.
     """
-    return {
-        key_value_padding(k): key_value_padding(v) for k, v in storage.items()
-    }
+    return {key_value_padding(k): key_value_padding(v) for k, v in storage.items()}
 
 
 @dataclass(kw_only=True)
@@ -414,9 +388,7 @@ class Account:
         want: int | None
         got: int | None
 
-        def __init__(
-            self, address: str, want: int | None, got: int | None, *args
-        ):
+        def __init__(self, address: str, want: int | None, got: int | None, *args):
             super().__init__(args)
             self.address = address
             self.want = want
@@ -439,9 +411,7 @@ class Account:
         want: int | None
         got: int | None
 
-        def __init__(
-            self, address: str, want: int | None, got: int | None, *args
-        ):
+        def __init__(self, address: str, want: int | None, got: int | None, *args):
             super().__init__(args)
             self.address = address
             self.want = want
@@ -464,9 +434,7 @@ class Account:
         want: str | None
         got: str | None
 
-        def __init__(
-            self, address: str, want: str | None, got: str | None, *args
-        ):
+        def __init__(self, address: str, want: str | None, got: str | None, *args):
             super().__init__(args)
             self.address = address
             self.want = want
@@ -519,15 +487,9 @@ class Account:
 
         if self.storage is not None:
             expected_storage = (
-                self.storage
-                if isinstance(self.storage, Storage)
-                else Storage(self.storage)
+                self.storage if isinstance(self.storage, Storage) else Storage(self.storage)
             )
-            actual_storage = (
-                Storage(alloc["storage"])
-                if "storage" in alloc
-                else Storage({})
-            )
+            actual_storage = Storage(alloc["storage"]) if "storage" in alloc else Storage({})
             expected_storage.must_be_equal(actual_storage)
 
     @classmethod
@@ -614,7 +576,7 @@ class Environment:
             block_hashes={
                 parent.number: parent.hash
                 if parent.hash is not None
-                else "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+                else "0x0000000000000000000000000000000000000000000000000000000000000000"
             },
         )
 
@@ -624,7 +586,8 @@ class Environment:
         `block_hashes`.
         """
         if len(self.block_hashes) == 0:
-            return "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+            return "0x0000000000000000000000000000000000000000000000000000000000000000"
+
         last_index = max(self.block_hashes.keys())
         return self.block_hashes[last_index]
 
@@ -643,7 +606,7 @@ class Environment:
         env.block_hashes[new_parent.number] = (
             new_parent.hash
             if new_parent.hash is not None
-            else "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+            else "0x0000000000000000000000000000000000000000000000000000000000000000"
         )
         return env
 
@@ -735,9 +698,7 @@ class Transaction:
 
         def __str__(self):
             """Print exception string"""
-            return (
-                "only one type of fee payment field can be used in a single tx"
-            )
+            return "only one type of fee payment field can be used in a single tx"
 
     class InvalidSignaturePrivateKey(Exception):
         """
@@ -887,7 +848,7 @@ class FixtureHeader:
         """
         ommers_hash = source.get("sha3Uncles")
         if ommers_hash is None:
-            ommers_hash = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"  # noqa: E501
+            ommers_hash = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
         return FixtureHeader(
             parent_hash=source["parentHash"],
             ommers_hash=ommers_hash,
@@ -927,9 +888,7 @@ class FixtureHeader:
             "gasLimit": hex(self.gas_limit),
             "gasUsed": hex(self.gas_used),
             "timestamp": hex(self.timestamp),
-            "extraData": self.extra_data
-            if len(self.extra_data) != 0
-            else "0x",  # noqa: E501
+            "extraData": self.extra_data if len(self.extra_data) != 0 else "0x",
             "mixHash": self.mix_digest,
             "nonce": self.nonce,
         }
@@ -1006,14 +965,10 @@ class Block(Header):
         environment_default = Environment()
         new_env.difficulty = self.difficulty
         new_env.coinbase = (
-            self.coinbase
-            if self.coinbase is not None
-            else environment_default.coinbase
+            self.coinbase if self.coinbase is not None else environment_default.coinbase
         )
         new_env.gas_limit = (
-            self.gas_limit
-            if self.gas_limit is not None
-            else environment_default.gas_limit
+            self.gas_limit if self.gas_limit is not None else environment_default.gas_limit
         )
         if not isinstance(self.base_fee, Removable):
             new_env.base_fee = self.base_fee
@@ -1121,9 +1076,7 @@ class JSONEncoder(json.JSONEncoder):
         elif isinstance(obj, Account):
             account = {
                 "nonce": hex_or_none(obj.nonce, hex(ACCOUNT_DEFAULTS.nonce)),
-                "balance": hex_or_none(
-                    obj.balance, hex(ACCOUNT_DEFAULTS.balance)
-                ),
+                "balance": hex_or_none(obj.balance, hex(ACCOUNT_DEFAULTS.balance)),
                 "code": code_or_none(obj.code, "0x"),
                 "storage": storage_padding(to_json_or_none(obj.storage, {})),
             }
@@ -1139,15 +1092,12 @@ class JSONEncoder(json.JSONEncoder):
                 "chainId": hex(obj.chain_id),
                 "nonce": hex(obj.nonce),
                 "gasPrice": hex_or_none(obj.gas_price),
-                "maxPriorityFeePerGas": hex_or_none(
-                    obj.max_priority_fee_per_gas
-                ),
+                "maxPriorityFeePerGas": hex_or_none(obj.max_priority_fee_per_gas),
                 "maxFeePerGas": hex_or_none(obj.max_fee_per_gas),
                 "gas": hex(obj.gas_limit),
                 "value": hex(obj.value),
                 "input": code_to_hex(obj.data),
-                "to": "0x"
-                + int.to_bytes(obj.to, length=20, byteorder="big").hex()
+                "to": "0x" + int.to_bytes(obj.to, length=20, byteorder="big").hex()
                 if obj.to is int
                 else obj.to,
                 "accessList": obj.access_list,
@@ -1163,14 +1113,10 @@ class JSONEncoder(json.JSONEncoder):
                         hashes.append(h)
                     elif type(h) is bytes:
                         if len(h) != 32:
-                            raise TypeError(
-                                "improper byte size for blob_versioned_hashes"
-                            )
+                            raise TypeError("improper byte size for blob_versioned_hashes")
                         hashes.append("0x" + h.hex())
                     else:
-                        raise TypeError(
-                            "improper type for blob_versioned_hashes"
-                        )
+                        raise TypeError("improper type for blob_versioned_hashes")
                 tx["blobVersionedHashes"] = hashes
 
             if obj.secret_key is None:
@@ -1205,9 +1151,7 @@ class JSONEncoder(json.JSONEncoder):
                 "parentGasUsed": str_or_none(obj.parent_gas_used),
                 "parentGasLimit": str_or_none(obj.parent_gas_limit),
                 "parentTimestamp": str_or_none(obj.parent_timestamp),
-                "blockHashes": {
-                    str(k): v for (k, v) in obj.block_hashes.items()
-                },
+                "blockHashes": {str(k): v for (k, v) in obj.block_hashes.items()},
                 "ommers": [],
                 "withdrawals": to_json_or_none(obj.withdrawals),
                 "parentUncleHash": obj.parent_ommers_hash,
@@ -1231,9 +1175,7 @@ class JSONEncoder(json.JSONEncoder):
                 "gasLimit": hex(obj.gas_limit),
                 "gasUsed": hex(obj.gas_used),
                 "timestamp": hex(obj.timestamp),
-                "extraData": obj.extra_data
-                if len(obj.extra_data) != 0
-                else "0x",  # noqa: E501
+                "extraData": obj.extra_data if len(obj.extra_data) != 0 else "0x",
                 "mixHash": obj.mix_digest,
                 "nonce": obj.nonce,
             }
@@ -1285,23 +1227,18 @@ class JSONEncoder(json.JSONEncoder):
         elif isinstance(obj, FixtureBlock):
             b = {"rlp": obj.rlp}
             if obj.block_header is not None:
-                b["blockHeader"] = json.loads(
-                    json.dumps(obj.block_header, cls=JSONEncoder)
-                )
+                b["blockHeader"] = json.loads(json.dumps(obj.block_header, cls=JSONEncoder))
             if obj.expected_exception is not None:
                 b["expectException"] = obj.expected_exception
             if obj.block_number is not None:
                 b["blocknumber"] = str(obj.block_number)
             if obj.txs is not None:
-                b["transactions"] = [
-                    FixtureTransaction(tx=tx) for tx in obj.txs
-                ]
+                b["transactions"] = [FixtureTransaction(tx=tx) for tx in obj.txs]
             if obj.ommers is not None:
                 b["uncleHeaders"] = obj.ommers
             if obj.withdrawals is not None:
                 b["withdrawals"] = [
-                    even_padding(to_json(wd), excluded=["address"])
-                    for wd in obj.withdrawals
+                    even_padding(to_json(wd), excluded=["address"]) for wd in obj.withdrawals
                 ]
             return b
         elif isinstance(obj, Fixture):
@@ -1311,18 +1248,13 @@ class JSONEncoder(json.JSONEncoder):
 
             f = {
                 "_info": obj.info,
-                "blocks": [
-                    json.loads(json.dumps(b, cls=JSONEncoder))
-                    for b in obj.blocks
-                ],
+                "blocks": [json.loads(json.dumps(b, cls=JSONEncoder)) for b in obj.blocks],
                 "genesisBlockHeader": self.default(obj.genesis),
                 "genesisRLP": obj.genesis_rlp,
                 "lastblockhash": obj.head,
                 "network": obj.fork,
                 "pre": json.loads(json.dumps(obj.pre_state, cls=JSONEncoder)),
-                "postState": json.loads(
-                    json.dumps(obj.post_state, cls=JSONEncoder)
-                ),
+                "postState": json.loads(json.dumps(obj.post_state, cls=JSONEncoder)),
                 "sealEngine": obj.seal_engine,
             }
             if f["postState"] is None:

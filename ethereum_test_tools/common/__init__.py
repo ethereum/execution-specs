@@ -1,13 +1,7 @@
 """
 Common definitions and types.
 """
-from .constants import (
-    AddrAA,
-    AddrBB,
-    EmptyTrieRoot,
-    TestAddress,
-    TestPrivateKey,
-)
+from .constants import AddrAA, AddrBB, EmptyTrieRoot, TestAddress, TestPrivateKey
 from .helpers import (
     add_kzg_version,
     ceiling_division,

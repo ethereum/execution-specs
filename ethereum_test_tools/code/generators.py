@@ -101,15 +101,11 @@ class Initcode(Code):
             if len(pre_padding_bytes) > initcode_length:
                 raise Exception("Invalid specified length for initcode")
 
-            padding_bytes = bytes(
-                [padding_byte] * (initcode_length - len(pre_padding_bytes))
-            )
+            padding_bytes = bytes([padding_byte] * (initcode_length - len(pre_padding_bytes)))
         else:
             padding_bytes = bytes()
 
-        self.deployment_gas = GAS_PER_DEPLOYED_CODE_BYTE * len(
-            deploy_code_bytes
-        )
+        self.deployment_gas = GAS_PER_DEPLOYED_CODE_BYTE * len(deploy_code_bytes)
 
         super().__init__(bytecode=pre_padding_bytes + padding_bytes, name=name)
 

@@ -42,12 +42,8 @@ class Yul(Code):
 
             if result.returncode != 0:
                 stderr_lines = result.stderr.decode().split("\n")
-                stderr_message = "\n".join(
-                    line.strip() for line in stderr_lines
-                )
-                raise Exception(
-                    f"failed to compile yul source:\n{stderr_message[7:]}"
-                )
+                stderr_message = "\n".join(line.strip() for line in stderr_lines)
+                raise Exception(f"failed to compile yul source:\n{stderr_message[7:]}")
 
             lines = result.stdout.decode().split("\n")
 

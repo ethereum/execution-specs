@@ -13,14 +13,7 @@ from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool
 
 from ..code import Yul
-from ..common import (
-    Account,
-    Block,
-    Environment,
-    JSONEncoder,
-    TestAddress,
-    Transaction,
-)
+from ..common import Account, Block, Environment, JSONEncoder, TestAddress, Transaction
 from ..filling import fill_test
 from ..spec import BlockchainTest, StateTest
 
@@ -31,9 +24,7 @@ def remove_info(fixture_json: Dict[str, Any]):
             del fixture_json[t]["_info"]
 
 
-@pytest.mark.parametrize(
-    "fork,hash", [(Berlin, "0x193e550de"), (London, "0xb053deac0")]
-)
+@pytest.mark.parametrize("fork,hash", [(Berlin, "0x193e550de"), (London, "0xb053deac0")])
 def test_make_genesis(fork: Fork, hash: str):
     env = Environment()
 
@@ -59,9 +50,9 @@ def test_make_genesis(fork: Fork, hash: str):
     b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
 
-    _, genesis = StateTest(
-        env=env, pre=pre, post={}, txs=[], tag="some_state_test"
-    ).make_genesis(b11r, t8n, fork)
+    _, genesis = StateTest(env=env, pre=pre, post={}, txs=[], tag="some_state_test").make_genesis(
+        b11r, t8n, fork
+    )
     assert genesis.hash is not None
     assert genesis.hash.startswith(hash)
 
@@ -86,12 +77,8 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
     )
 
     pre = {
-        "0x1000000000000000000000000000000000000000": Account(
-            code="0x4660015500"
-        ),
-        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
-            balance=1000000000000000000000
-        ),
+        "0x1000000000000000000000000000000000000000": Account(code="0x4660015500"),
+        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(balance=1000000000000000000000),
     }
 
     tx = Transaction(
@@ -110,9 +97,7 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
         ),
     }
 
-    state_test = StateTest(
-        env=env, pre=pre, post=post, txs=[tx], tag="my_chain_id_test"
-    )
+    state_test = StateTest(env=env, pre=pre, post=post, txs=[tx], tag="my_chain_id_test")
 
     b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
@@ -147,9 +132,7 @@ def test_fill_london_blockchain_test_valid_txs():
     Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`.
     """
     pre = {
-        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
-            balance=0x1000000000000000000
-        ),
+        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(balance=0x1000000000000000000),
         "0xd02d72E067e77158444ef2020Ff2d325f929B363": Account(
             balance=0x1000000000000000000, nonce=1
         ),
@@ -435,9 +418,7 @@ def test_fill_london_blockchain_test_invalid_txs():
     Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`.
     """
     pre = {
-        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
-            balance=0x1000000000000000000
-        ),
+        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(balance=0x1000000000000000000),
         "0xd02d72E067e77158444ef2020Ff2d325f929B363": Account(
             balance=0x1000000000000000000, nonce=1
         ),

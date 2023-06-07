@@ -48,8 +48,7 @@ class UnableToCheckReferenceSpec(Warning):
 
     def __init__(self, filler_module: str, error: Exception):
         super().__init__(
-            f"Reference spec could not be determined for "
-            f"{filler_module}: {error}."
+            f"Reference spec could not be determined for " f"{filler_module}: {error}."
         )
 
 

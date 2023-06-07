@@ -2,17 +2,7 @@
 State test filler.
 """
 from dataclasses import dataclass
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generator,
-    List,
-    Mapping,
-    Optional,
-    Tuple,
-    Type,
-)
+from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Type
 
 from ethereum_test_forks import Fork
 from evm_block_builder import BlockBuilder
@@ -64,8 +54,8 @@ class StateTest(BaseTest):
         env = self.env.set_fork_requirements(fork)
 
         genesis = FixtureHeader(
-            parent_hash="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-            ommers_hash="0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",  # noqa: E501
+            parent_hash="0x0000000000000000000000000000000000000000000000000000000000000000",
+            ommers_hash="0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
             coinbase="0x0000000000000000000000000000000000000000",
             state_root=t8n.calc_state_root(
                 to_json(self.pre),
@@ -80,7 +70,7 @@ class StateTest(BaseTest):
             gas_used=0,
             timestamp=0,
             extra_data="0x00",
-            mix_digest="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
+            mix_digest="0x0000000000000000000000000000000000000000000000000000000000000000",
             nonce="0x0000000000000000",
             base_fee=env.base_fee,
             excess_data_gas=env.excess_data_gas,
@@ -145,15 +135,13 @@ class StateTest(BaseTest):
                 "parentHash": genesis.hash,
                 "miner": env.coinbase,
                 "transactionsRoot": result.get("txRoot"),
-                "difficulty": str_or_none(
-                    env.difficulty, result.get("currentDifficulty")
-                ),
+                "difficulty": str_or_none(env.difficulty, result.get("currentDifficulty")),
                 "number": str(env.number),
                 "gasLimit": str(env.gas_limit),
                 "timestamp": str(env.timestamp),
                 "extraData": "0x00",
-                "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",  # noqa: E501
-                "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
+                "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+                "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
                 "nonce": "0x0000000000000000",
                 "baseFeePerGas": result.get("currentBaseFee"),
                 "excessDataGas": result.get("currentExcessDataGas"),

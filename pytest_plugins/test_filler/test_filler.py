@@ -31,9 +31,7 @@ def pytest_addoption(parser):
     """
     Adds command-line options to pytest.
     """
-    evm_group = parser.getgroup(
-        "evm", "Arguments defining evm executable behavior"
-    )
+    evm_group = parser.getgroup("evm", "Arguments defining evm executable behavior")
     evm_group.addoption(
         "--evm-bin",
         action="store",
@@ -46,13 +44,10 @@ def pytest_addoption(parser):
         action="store_true",
         dest="evm_collect_traces",
         default=None,
-        help="Collect traces of the execution information from the "
-        + "transition tool",
+        help="Collect traces of the execution information from the " + "transition tool",
     )
 
-    test_group = parser.getgroup(
-        "tests", "Arguments defining filler location and output"
-    )
+    test_group = parser.getgroup("tests", "Arguments defining filler location and output")
     test_group.addoption(
         "--filler-path",
         action="store",
@@ -219,9 +214,7 @@ def fixture_collector(request):
     Returns the configured fixture collector instance used for all tests
     in one test module.
     """
-    fixture_collector = FixtureCollector(
-        output_dir=request.config.getoption("output")
-    )
+    fixture_collector = FixtureCollector(output_dir=request.config.getoption("output"))
     yield fixture_collector
     fixture_collector.dump_fixtures()
 
@@ -256,9 +249,7 @@ def eips():
 
 
 SPEC_TYPES: List[Type[BaseTest]] = [StateTest, BlockchainTest]
-SPEC_TYPES_PARAMETERS: List[str] = [
-    s.pytest_parameter_name() for s in SPEC_TYPES
-]
+SPEC_TYPES_PARAMETERS: List[str] = [s.pytest_parameter_name() for s in SPEC_TYPES]
 
 
 @pytest.fixture(scope="function")
@@ -359,13 +350,9 @@ def pytest_runtest_call(item):
         def __init__(self, message):
             super().__init__(message)
 
-    if (
-        "state_test" in item.fixturenames
-        and "blockchain_test" in item.fixturenames
-    ):
+    if "state_test" in item.fixturenames and "blockchain_test" in item.fixturenames:
         raise InvalidFiller(
-            "A filler should only implement either a state test or "
-            "a blockchain test; not both."
+            "A filler should only implement either a state test or " "a blockchain test; not both."
         )
 
     # Check that the test defines either test type as parameter.

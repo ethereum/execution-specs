@@ -6,13 +6,7 @@ from typing import Any, Dict, List
 
 import pytest
 
-from ..common import (
-    Account,
-    Storage,
-    even_padding,
-    key_value_padding,
-    storage_padding,
-)
+from ..common import Account, Storage, even_padding, key_value_padding, storage_padding
 
 
 def test_storage():
@@ -246,9 +240,7 @@ def test_storage():
         ),
     ],
 )
-def test_account_check_alloc(
-    account: Account, alloc: Dict[Any, Any], should_pass: bool
-):
+def test_account_check_alloc(account: Account, alloc: Dict[Any, Any], should_pass: bool):
     if should_pass:
         account.check_alloc("test", alloc)
     else:

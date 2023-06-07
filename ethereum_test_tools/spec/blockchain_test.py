@@ -4,17 +4,7 @@ Blockchain test filler.
 
 from dataclasses import dataclass
 from pprint import pprint
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generator,
-    List,
-    Mapping,
-    Optional,
-    Tuple,
-    Type,
-)
+from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Type
 
 from ethereum_test_forks import Fork
 from evm_block_builder import BlockBuilder
@@ -66,8 +56,8 @@ class BlockchainTest(BaseTest):
         env = self.genesis_environment.set_fork_requirements(fork)
 
         genesis = FixtureHeader(
-            parent_hash="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-            ommers_hash="0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",  # noqa: E501
+            parent_hash="0x0000000000000000000000000000000000000000000000000000000000000000",
+            ommers_hash="0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
             coinbase="0x0000000000000000000000000000000000000000",
             state_root=t8n.calc_state_root(
                 to_json(self.pre),
@@ -82,7 +72,7 @@ class BlockchainTest(BaseTest):
             gas_used=0,
             timestamp=0,
             extra_data="0x00",
-            mix_digest="0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
+            mix_digest="0x0000000000000000000000000000000000000000000000000000000000000000",
             nonce="0x0000000000000000",
             base_fee=env.base_fee,
             excess_data_gas=env.excess_data_gas,
@@ -178,15 +168,12 @@ class BlockchainTest(BaseTest):
                     "parentHash": env.parent_hash(),
                     "miner": env.coinbase,
                     "transactionsRoot": result.get("txRoot"),
-                    "difficulty": str_or_none(
-                        result.get("currentDifficulty"), "0"
-                    ),
+                    "difficulty": str_or_none(result.get("currentDifficulty"), "0"),
                     "number": str(env.number),
                     "gasLimit": str(env.gas_limit),
                     "timestamp": str(env.timestamp),
                     "extraData": block.extra_data
-                    if block.extra_data is not None
-                    and len(block.extra_data) != 0
+                    if block.extra_data is not None and len(block.extra_data) != 0
                     else "0x",
                     "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",  # noqa: E501
                     "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
@@ -267,7 +254,7 @@ class BlockchainTest(BaseTest):
         head = (
             genesis.hash
             if genesis.hash is not None
-            else "0x0000000000000000000000000000000000000000000000000000000000000000"  # noqa: E501
+            else "0x0000000000000000000000000000000000000000000000000000000000000000"
         )
         for block in self.blocks:
             fixture_block, env, alloc, head = self.make_block(

@@ -50,7 +50,7 @@ class Opcode(bytes):
         popped_stack_items: int = 0,
         pushed_stack_items: int = 0,
         min_stack_height: int = 0,
-        data_portion_length: int = 0
+        data_portion_length: int = 0,
     ):
         """
         Creates a new opcode instance.
@@ -104,9 +104,7 @@ class Opcode(bytes):
             # For opcodes with a data portion, the first argument is the data
             # and the rest of the arguments form the stack.
             if len(args) == 0:
-                raise ValueError(
-                    "Opcode with data portion requires at least one argument"
-                )
+                raise ValueError("Opcode with data portion requires at least one argument")
             data = args.pop(0)
             if isinstance(data, bytes):
                 data_portion = data
@@ -118,9 +116,7 @@ class Opcode(bytes):
                     signed=signed,
                 )
             else:
-                raise TypeError(
-                    "Opcode data portion must be either an int or a bytes"
-                )
+                raise TypeError("Opcode data portion must be either an int or a bytes")
 
         # The rest of the arguments conform the stack.
         while len(args) > 0:
@@ -132,9 +128,7 @@ class Opcode(bytes):
                 signed = data < 0
                 data_size = _get_int_size(data)
                 if data_size > 32:
-                    raise ValueError(
-                        "Opcode stack data must be less than 32 bytes"
-                    )
+                    raise ValueError("Opcode stack data must be less than 32 bytes")
                 elif data_size == 0:
                     # Pushing 0 is done with the PUSH1 opcode for compatibility
                     # reasons.
@@ -148,9 +142,7 @@ class Opcode(bytes):
                 )
 
             else:
-                raise TypeError(
-                    "Opcode stack data must be either an int or a bytes"
-                )
+                raise TypeError("Opcode stack data must be either an int or a bytes")
 
         return pre_opcode_bytecode + self + data_portion
 

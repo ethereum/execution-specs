@@ -4,11 +4,7 @@ Test suite for `ethereum_test.helpers` module.
 
 import pytest
 
-from ..common import (
-    compute_create2_address,
-    compute_create_address,
-    to_address,
-)
+from ..common import compute_create2_address, compute_create_address, to_address
 
 
 def test_to_address():
@@ -20,10 +16,7 @@ def test_to_address():
     assert to_address(1) == "0x0000000000000000000000000000000000000001"
     assert to_address("10") == "0x000000000000000000000000000000000000000a"
     assert to_address("0x10") == "0x0000000000000000000000000000000000000010"
-    assert (
-        to_address(2 ** (20 * 8) - 1)
-        == "0xffffffffffffffffffffffffffffffffffffffff"
-    )
+    assert to_address(2 ** (20 * 8) - 1) == "0xffffffffffffffffffffffffffffffffffffffff"
 
 
 @pytest.mark.parametrize(
@@ -59,15 +52,12 @@ def test_to_address():
             "0x06012c8cf97bead5deae237070f9587f8e7a266d",
             id="large-nonce-0x-str-address",
             marks=pytest.mark.xfail(
-                reason="Nonce too large to convert with hard-coded to_bytes "
-                "length of 1"
+                reason="Nonce too large to convert with hard-coded to_bytes " "length of 1"
             ),
         ),
     ],
 )
-def test_compute_create_address(
-    address: str | int, nonce: int, expected_contract_address: str
-):
+def test_compute_create_address(address: str | int, nonce: int, expected_contract_address: str):
     """
     Test `ethereum_test.helpers.compute_create_address` with some famous
     contracts:
