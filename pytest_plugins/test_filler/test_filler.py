@@ -51,13 +51,13 @@ def pytest_addoption(parser):
     )
 
     test_group = parser.getgroup(
-        "fillers", "Arguments defining filler location and output"
+        "tests", "Arguments defining filler location and output"
     )
     test_group.addoption(
         "--filler-path",
         action="store",
         dest="filler_path",
-        default="./fillers/",
+        default="./tests/",
         help="Path to filler directives",
     )
     test_group.addoption(
@@ -237,7 +237,7 @@ def engine():
 @pytest.fixture(autouse=True, scope="session")
 def filler_path(request):
     """
-    Returns the directory containing the fillers to execute.
+    Returns the directory containing the tests to execute.
     """
     return request.config.getoption("filler_path")
 
@@ -246,11 +246,11 @@ def filler_path(request):
 def eips():
     """
     A fixture specifying that, by default, no EIPs should be activated for
-    fillers.
+    tests.
 
     This fixture (function) may be redefined in test filler modules in order
     to overwrite this default and return a list of integers specifying which
-    EIPs should be activated for the fillers in scope.
+    EIPs should be activated for the tests in scope.
     """
     return []
 

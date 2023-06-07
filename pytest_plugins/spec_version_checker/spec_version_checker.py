@@ -9,9 +9,9 @@ import pytest
 from ethereum_test_tools import ReferenceSpec, ReferenceSpecTypes
 
 IGNORE_PACKAGES = [
-    "fillers.vm.",
-    "fillers.example.",
-    "fillers.security.",
+    "tests.vm.",
+    "tests.example.",
+    "tests.security.",
 ]
 
 
