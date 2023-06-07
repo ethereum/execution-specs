@@ -209,3 +209,26 @@ class Shanghai(Merge):
         Withdrawals are required starting from Shanghai.
         """
         return True
+
+
+class Cancun(Shanghai):
+    """
+    Cancun fork
+    """
+
+    @classmethod
+    def is_deployed(cls):
+        """
+        Flags that Cancun has not been deployed to mainnet; it is under active
+        development.
+        """
+        return False
+
+    @classmethod
+    def header_excess_data_gas_required(
+        cls, block_number: int, timestamp: int
+    ) -> bool:
+        """
+        Excess data gas is required starting from Cancun.
+        """
+        return True

@@ -4,21 +4,8 @@ Helper methods to resolve forks during test filling
 from typing import List
 
 from .base_fork import BaseFork, Fork
-from .forks import forks, transition, upcoming
+from .forks import forks, transition
 from .transition_base_fork import TransitionBaseClass
-
-
-class LatestForkResolver:
-    """
-    Latest fork
-    """
-
-    def __init__(self):
-        latest_fork_name = list(forks.__dict__.keys())[-1]
-        self.latest_fork = forks.__dict__[latest_fork_name]
-
-
-latest_fork_resolver = LatestForkResolver()
 
 
 class InvalidForkError(Exception):
@@ -31,23 +18,36 @@ class InvalidForkError(Exception):
         super().__init__(message)
 
 
-def set_latest_fork(fork: Fork) -> None:
+def get_forks() -> List[Fork]:
     """
-    Sets the latest fork
+    Returns a list of all the fork classes implemented by
+    `ethereum_test_forks` ordered chronologically by deployment.
     """
-    latest_fork_resolver.latest_fork = fork
+    all_forks: List[Fork] = []
+    for fork_name in forks.__dict__:
+        fork = forks.__dict__[fork_name]
+        if not isinstance(fork, type):
+            continue
+        if issubclass(fork, BaseFork) and fork is not BaseFork:
+            all_forks.append(fork)
+    return all_forks
 
 
-def set_latest_fork_by_name(fork_name: str) -> None:
+def get_deployed_forks():
     """
-    Sets the latest fork by name
+    Returns a list of all the fork classes implemented by `ethereum_test_forks`
+    that have been deployed to mainnet, chronologically ordered by deployment.
     """
-    if fork_name in forks.__dict__:
-        set_latest_fork(forks.__dict__[fork_name])
-    elif fork_name in upcoming.__dict__:
-        set_latest_fork(upcoming.__dict__[fork_name])
-    else:
-        raise InvalidForkError(f'fork "{fork_name}" not found')
+    return [fork for fork in get_forks() if fork.is_deployed()]
+
+
+def get_development_forks():
+    """
+    Returns a list of all the fork classes implemented by `ethereum_test_forks`
+    that have been not yet deployed to mainnet and are currently under
+    development. The list is ordered by their planned deployment date.
+    """
+    return [fork for fork in get_forks() if not fork.is_deployed()]
 
 
 def get_parent_fork(fork: Fork) -> Fork:
@@ -128,11 +128,15 @@ def forks_from_until(fork_from: Fork, fork_until: Fork) -> List[Fork]:
     return forks
 
 
-def forks_from(fork: Fork) -> List[Fork]:
+def forks_from(fork: Fork, deployed_only: bool = True) -> List[Fork]:
     """
-    Returns the specified fork and all forks after it
+    Returns the specified fork and all forks after it.
     """
-    return forks_from_until(fork, latest_fork_resolver.latest_fork)
+    if deployed_only:
+        latest_fork = get_deployed_forks()[-1]
+    else:
+        latest_fork = get_forks()[-1]
+    return forks_from_until(fork, latest_fork)
 
 
 def is_fork(fork: Fork, which: Fork) -> bool:
@@ -148,19 +152,3 @@ def is_fork(fork: Fork, which: Fork) -> bool:
         prev_fork = prev_fork.__base__
 
     return False
-
-
-def fork_only(fork: Fork) -> List[Fork]:
-    """
-    Returns the specified fork only if it's a fork that precedes the latest
-    """
-    if issubclass(fork, TransitionBaseClass):
-        if fork.transitions_to() is not None:
-            if is_fork(
-                latest_fork_resolver.latest_fork, fork.transitions_to()
-            ):
-                return [fork]
-        return []
-    if is_fork(latest_fork_resolver.latest_fork, fork):
-        return [fork]
-    return []

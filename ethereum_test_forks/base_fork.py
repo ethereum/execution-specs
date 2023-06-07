@@ -95,6 +95,16 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         """
         return cls.__name__
 
+    @classmethod
+    def is_deployed(cls) -> bool:
+        """
+        Returns whether the fork has been deployed to mainnet, or not.
+
+        Must be overridden and return False for forks that are still under
+        development.
+        """
+        return True
+
 
 # Fork Type
 Fork = Type[BaseFork]
