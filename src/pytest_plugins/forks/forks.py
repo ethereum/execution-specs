@@ -7,11 +7,9 @@ import pytest
 
 from ethereum_test_forks import (
     ArrowGlacier,
-    Cancun,
-    Frontier,
     all_transition_forks,
-    forks_from_until,
-    latest_fork_resolver,
+    get_deployed_forks,
+    get_forks,
     transition_fork_to,
 )
 from evm_transition_tool import EvmTransitionTool
@@ -49,7 +47,7 @@ def pytest_addoption(parser):
         "--until",
         action="store",
         dest="forks_until",
-        default=None,
+        default=get_deployed_forks()[-1].name(),
         help="Fill tests until and including the specified fork.",
     )
 
@@ -83,12 +81,8 @@ def pytest_configure(config):
     forks_until = config.getoption("forks_until")
     show_fork_help = config.getoption("show_fork_help")
 
-    first_fork = Frontier
-    last_fork = Cancun
-    config.implemented_forks = forks_from_until(first_fork, last_fork)
-    config.fork_map = {
-        fork().name(): fork for fork in config.implemented_forks
-    }
+    config.all_forks = get_forks()
+    config.fork_map = {fork.name(): fork for fork in config.all_forks}
     config.fork_names = list(config.fork_map.keys())
 
     available_forks_help = textwrap.dedent(
@@ -108,7 +102,7 @@ def pytest_configure(config):
         "specified explicitly via --forks-until=FORK.\n"
         "Tests are only "
         f"ran for deployed mainnet forks by default, i.e., until "
-        f"{latest_fork_resolver.latest_fork().name()}.\n"
+        f"{get_deployed_forks()[-1].name()}.\n"
     )
     if show_fork_help:
         print(available_forks_help)
@@ -132,10 +126,7 @@ def pytest_configure(config):
         forks_until = single_fork
     else:
         if not forks_from:
-            forks_from = first_fork().name()
-        if not forks_until:
-            # latest deployed fork
-            forks_until = latest_fork_resolver.latest_fork().name()
+            forks_from = config.fork_names[0]
 
     if forks_from not in config.fork_map.keys():
         print(
@@ -314,6 +305,9 @@ def pytest_generate_tests(metafunc):
         intersection_range = [
             metafunc.config.fork_map[fork] for fork in intersection_range
         ]
+
+    # TODO: skip: test is not valid for any forks in the configured range
+    # (from, until).
 
     if "fork" in metafunc.fixturenames:
         metafunc.parametrize("fork", intersection_range, scope="function")

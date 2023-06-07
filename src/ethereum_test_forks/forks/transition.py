@@ -2,8 +2,7 @@
 List of all transition fork definitions.
 """
 from ..transition_base_fork import transition_fork
-from .forks import Berlin, London, Merge, Shanghai
-from .upcoming import Cancun, TestOnlyUpcomingFork
+from .forks import Berlin, Cancun, London, Merge, Shanghai
 
 
 # Transition Forks
@@ -47,15 +46,3 @@ class ShanghaiToCancunAtTime15k(Shanghai):
         Excess data gas is required if transitioning to Cancun.
         """
         return timestamp >= 15_000
-
-
-# Test-only transition forks
-
-
-@transition_fork(to_fork=TestOnlyUpcomingFork)
-class ShanghaiToTestOnlyUpcomingFork(Shanghai):
-    """
-    Test-only transition fork
-    """
-
-    pass
