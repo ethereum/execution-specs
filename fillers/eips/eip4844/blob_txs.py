@@ -659,6 +659,7 @@ def test_invalid_blob_hash_versioning(
     ],
     ids=["no_blob_tx", "one_blob_tx"],
 )
+@pytest.mark.valid_until("Shanghai")
 @pytest.mark.valid_from("Shanghai")
 def test_blob_type_tx_pre_fork(
     blockchain_test: BlockchainTestFiller,

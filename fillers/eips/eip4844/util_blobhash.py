@@ -255,20 +255,22 @@ class BlobhashScenario:
     """
 
     @staticmethod
-    def create_blob_hashes_list(length: int) -> list[list[str]]:
+    def create_blob_hashes_list(length: int) -> list[list[bytes]]:
         """
-        Creates an arbitrary list of MAX_BLOB_PER_BLOCK blob hashes
+        Creates a list of MAX_BLOB_PER_BLOCK blob hashes
         using `random_blob_hashes`.
+
+        Cycle over random_blob_hashes to get a large list of
+        length: MAX_BLOB_PER_BLOCK * length
+        -> [0x01, 0x02, 0x03, 0x04, ..., 0x0A, 0x0B, 0x0C, 0x0D]
+
+        Then split list into smaller chunks of MAX_BLOB_PER_BLOCK
+        -> [[0x01, 0x02, 0x03, 0x04], ..., [0x0a, 0x0b, 0x0c, 0x0d]]
         """
-        # Cycle over rnd_b_hashes to get a large list of
-        # length: MAX_BLOB_PER_BLOCK * length
-        # -> [0x01, 0x02, 0x03, 0x04, ..., 0x0A, 0x0B, 0x0C, 0x0D]
         b_hashes = [
             random_blob_hashes[i % len(random_blob_hashes)]
             for i in range(MAX_BLOB_PER_BLOCK * length)
         ]
-        # Split list into smaller chunks of MAX_BLOB_PER_BLOCK
-        # -> [[0x01, 0x02, 0x03, 0x04], ..., [0x0a, 0x0b, 0x0c, 0x0d]]
         return [
             b_hashes[i : i + MAX_BLOB_PER_BLOCK]
             for i in range(0, len(b_hashes), MAX_BLOB_PER_BLOCK)
