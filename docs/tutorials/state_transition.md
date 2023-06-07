@@ -119,7 +119,7 @@ This field is the balance: the amount of Wei that the account has. It usually do
 
 Here we define the [Yul](https://docs.soliditylang.org/en/v0.8.17/yul.html) code for the contract. It is defined as a multi-line string and starts and ends with curly braces (`{ <yul> }`).
 
-When running the test filler `tf` the solidity compiler `solc` will automatically translate the Yul to EVM opcode at runtime. 
+When running the test filler `fill`, the solidity compiler `solc` will automatically translate the Yul to EVM opcode at runtime.
 
 !!! note
     Currently Yul and direct EVM opcode are supported in execution spec tests. LLL and Solidity may be supported in the future.
