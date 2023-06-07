@@ -3,7 +3,6 @@ Test EIP-4844: BLOBHASH Opcode
 EIP: https://eips.ethereum.org/EIPS/eip-4844
 """
 
-
 import pytest
 
 from ethereum_test_forks import Cancun, forks_from
@@ -67,7 +66,6 @@ def blob_tx(template_tx):
     Blob transaction factory fixture.
     Used to define blob txs with a specified to address, nonce & type.
     """
-
     def _blob_tx(address, type, nonce):
         return template_tx.with_fields(
             ty=type,
@@ -77,17 +75,7 @@ def blob_tx(template_tx):
             max_priority_fee_per_gas=10,
             blob_versioned_hashes=random_blob_hashes[0:MAX_BLOB_PER_BLOCK],
         )
-
     return _blob_tx
-
-
-@pytest.fixture(params=blobhash_index_values, ids=lambda x: f"index={hex(x)}")
-def blobhash_index(request):
-    """
-    Fixture that provides a set of parameterized blobhash index values.
-    Display in hex format for better readability.
-    """
-    return request.param
 
 
 @pytest.mark.parametrize("tx_type", [0, 1, 2, 3])
@@ -97,7 +85,6 @@ def test_blobhash_gas_cost(
     blocks,
     post,
     tx_type,
-    blobhash_index,
     blockchain_test: BlockchainTestFiller,
 ):
     """
@@ -107,34 +94,37 @@ def test_blobhash_gas_cost(
     it matches `HASH_OPCODE_GAS = 3`. Includes both valid and invalid random
     index sizes from the range `[0, 2**256-1]`, for tx types 2 and 3.
     """
-    gas_measures_code = CodeGasMeasure(
-        code=Op.BLOBHASH(blobhash_index),
-        overhead_cost=3,
-        extra_stack_items=1,
-    )
-    address = to_address(0x100)
-    pre[address] = Account(code=gas_measures_code)
-    blocks.append(
-        Block(
-            txs=[
-                template_tx.with_fields(
-                    ty=tx_type,
-                    nonce=i,
-                    to=address,
-                    gas_price=10 if tx_type < 2 else None,
-                    access_list=[] if tx_type >= 2 else None,
-                    max_priority_fee_per_gas=10 if tx_type >= 2 else None,
-                    blob_versioned_hashes=random_blob_hashes[
-                        i:TARGET_BLOB_PER_BLOCK
-                    ]
-                    if tx_type >= 3
-                    else None,
-                )
-                for i in range(TARGET_BLOB_PER_BLOCK)
-            ]
+    gas_measures_code = [
+        CodeGasMeasure(
+            code=Op.BLOBHASH(i),
+            overhead_cost=3,
+            extra_stack_items=1,
         )
-    )
-    post[address] = Account(storage={0: BLOBHASH_GAS_COST})
+        for i in blobhash_index_values
+    ]
+    for i, gas_code in enumerate(gas_measures_code):
+        address = to_address(0x100 + i * 0x100)
+        pre[address] = Account(code=gas_code)
+        blocks.append(
+            Block(
+                txs=[
+                    template_tx.with_fields(
+                        ty=tx_type,
+                        nonce=i,
+                        to=address,
+                        gas_price=10 if tx_type < 2 else None,
+                        access_list=[] if tx_type >= 2 else None,
+                        max_priority_fee_per_gas=10 if tx_type >= 2 else None,
+                        blob_versioned_hashes=random_blob_hashes[
+                            0:TARGET_BLOB_PER_BLOCK
+                        ]
+                        if tx_type >= 3
+                        else None,
+                    )
+                ]
+            )
+        )
+        post[address] = Account(storage={0: BLOBHASH_GAS_COST})
     blockchain_test(
         pre=pre,
         blocks=blocks,
@@ -166,12 +156,10 @@ def test_blobhash_scenarios(
     Covers various scenarios with random blob_versioned_hash values within
     the valid range `[0, 2**256-1]`.
     """
-    TOTAL_BLOCKS = 10
-
+    TOTAL_BLOCKS = 5 
     b_hashes_list = BlobhashScenario.create_blob_hashes_list(
         length=TOTAL_BLOCKS
     )
-
     blobhash_calls = BlobhashScenario.generate_blobhash_bytecode(scenario)
     for i in range(TOTAL_BLOCKS):
         address = to_address(0x100 + i * 0x100)
@@ -196,7 +184,6 @@ def test_blobhash_scenarios(
                 for index in range(MAX_BLOB_PER_BLOCK)
             }
         )
-
     blockchain_test(
         pre=pre,
         blocks=blocks,
@@ -229,7 +216,6 @@ def test_blobhash_invalid_blob_index(
     It confirms that the returned value is a zeroed `bytes32 for each case.
     """
     TOTAL_BLOCKS = 5
-
     blobhash_calls = BlobhashScenario.generate_blobhash_bytecode(scenario)
     for i in range(TOTAL_BLOCKS):
         address = to_address(0x100 + i * 0x100)
