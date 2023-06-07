@@ -1,8 +1,8 @@
 """
 Utility Module: BLOBHASH Opcode
 Tests: fillers/eips/eip4844/
-    > blobhash_opcode_contexts.py
-    > blobhash_opcode.py
+    > test_blobhash_opcode_contexts.py
+    > test_blobhash_opcode.py
 """
 from ethereum_test_tools import (
     TestAddress,

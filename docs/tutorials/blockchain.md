@@ -16,7 +16,7 @@ Before proceeding with this tutorial, it is assumed that you have prior knowledg
 
 ## Example Tests
 
-In this tutorial we will go over [test_block_number] in `block_example.py`(https://github.com/ethereum/execution-spec-tests/tree/main/fillers/example/block_example.py#L19).
+In this tutorial we will go over [test_block_number] in `test_block_example.py`(https://github.com/ethereum/execution-spec-tests/tree/main/fillers/example/test_block_example.py#L19).
 
 It is assumed you have already gone through the state transition test tutorial. Only new concepts will be discussed.
 
@@ -81,7 +81,7 @@ Each integer in the `tx_per_block` array is the number of transactions in a bloc
 tx_per_block = [2, 0, 4, 8, 0, 0, 20, 1, 50]
 ```
 
-The code section that creates the blocks is a bit complex in this test. For some simpler definitions of Block creation you can browse tests within [`withdrawals.py`](https://github.com/ethereum/execution-spec-tests/blob/main/fillers/withdrawals/withdrawals.py).
+The code section that creates the blocks is a bit complex in this test. For some simpler definitions of Block creation you can browse tests within [`test_withdrawals.py`](https://github.com/ethereum/execution-spec-tests/blob/main/fillers/withdrawals/test_withdrawals.py).
 
 ```python
 blocks = map(

@@ -35,7 +35,7 @@ This check accomplished by adding the following two global variables anywhere in
 
 ## Example
 
-Here is an example from [./fillers/eips/eip3651.py](../fillers/EIPs/eip3651.md):
+Here is an example from [./fillers/eips/test_eip3651.py](../fillers/EIPs/eip3651.md):
 
 ```python
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3651.md"

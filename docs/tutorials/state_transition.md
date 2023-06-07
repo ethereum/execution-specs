@@ -13,11 +13,11 @@ Before proceeding with this tutorial, it is assumed that you have prior knowledg
 
 ## Example Tests
 
-The most effective method of learning how to write tests is to study a couple of straightforward examples. In this tutorial we will go over the [Yul](https://github.com/ethereum/execution-spec-tests/blob/main/fillers/example/yul_example.py#L17) state test.
+The most effective method of learning how to write tests is to study a couple of straightforward examples. In this tutorial we will go over the [Yul](https://github.com/ethereum/execution-spec-tests/blob/main/fillers/example/test_yul_example.py#L17) state test.
 
 ### Yul Test
 
-You can find the source code for the Yul test [here](https://github.com/ethereum/execution-spec-tests/tree/main/fillers/example/example.py).
+You can find the source code for the Yul test [here](https://github.com/ethereum/execution-spec-tests/tree/main/fillers/example/test_example.py).
 It is the spec test equivalent of this [static test](https://github.com/ethereum/tests/blob/develop/src/GeneralStateTestsFiller/stExample/yulExampleFiller.yml). 
 
 Lets examine each section.

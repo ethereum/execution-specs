@@ -31,9 +31,9 @@ To generate all the test fixtures in the `./fillers/eips/` sub-directory (catego
 pytest fillers/eips
 ```
 
-To generate all the test fixtures in the `./fillers/eips/eip3651.py` module, for example, run:
+To generate all the test fixtures in the `./fillers/eips/test_eip3651.py` module, for example, run:
 ```console
-pytest ./fillers/eips/eip3651.py
+pytest ./fillers/eips/test_eip3651.py
 ```
 
 To generate specific test fixtures, such as those from the test function `test_warm_coinbase_call_out_of_gas()`, for example, run:

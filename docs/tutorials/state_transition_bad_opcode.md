@@ -1,6 +1,6 @@
 ### Bad Opcode Test
 
-The source code for this test is [here](https://github.com/ethereum/execution-spec-tests/tree/main/fillers/vm/opcode_tests.py).
+The source code for this test is [here](https://github.com/ethereum/execution-spec-tests/tree/main/fillers/vm/test_opcode_tests.py).
 We will only go over the parts that are new.
 
 We use [Python string templates](https://docs.python.org/3/library/string.html#template-strings), so we need to import that library.

@@ -67,9 +67,9 @@ The following requires a Python 3.10 installation.
          ![Screenshot of pytest test collection console output](./img/pytest_collect_only.png){align=center}
        </figure>
        
-    2. Execute the test cases (verbosely) in the `./fillers/example/acl_example.py` module:
+    2. Execute the test cases (verbosely) in the `./fillers/example/test_acl_example.py` module:
         ```console
-        pytest -v fillers/example/acl_example.py
+        pytest -v fillers/example/test_acl_example.py
         ```
         Expected console output:
         <figure markdown>

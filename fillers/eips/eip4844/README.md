@@ -4,7 +4,7 @@
 
 ## 📖 Blobhash Opcode
 
-Test Module - `eip4844/blobhash_opcode.py`
+Test Module - `eip4844/test_blobhash_opcode.py`
 
 Verifies that the `BLOBHASH` opcode, works as intended for a variety of contexts, retrieves the blob versioned hash correctly for a given index, returns the correct zeroed `bytes32` value for out-of-range indices, and consumes the correct amount of gas.
 
@@ -37,7 +37,7 @@ Tests that the `BLOBHASH` opcode returns the appropriate values when there is mo
 
 ## 💽⛽💸 Excess Data Gas
 
-Test Module - `eip4844/excess_data_gas.py`
+Test Module - `eip4844/test_excess_data_gas.py`
 
 Predominantly verifies that `excess_data_gas` & `data_gasprice` are calculated correctly ensuring both valid and invalid transactions are processed accordingly. Extra verification is added specifically for invalid blob transactions when the `max_fee_per_data_gas`, number of blobs or transaction type are erroneous. 
 
@@ -101,7 +101,7 @@ Asserts that blocks with invalid blob transactions are rejected and no state cha
 
 ## 📖 Point Evaluation Precompile
 
-Test Module - `eip4844/point_evaluation_precompile.py`
+Test Module - `eip4844/test_point_evaluation_precompile.py`
 
 Verifies correct behavior on calls to the point evaluation precompile introduced by EIP-4844.
 
