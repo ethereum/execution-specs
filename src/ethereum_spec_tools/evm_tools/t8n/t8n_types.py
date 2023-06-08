@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
-from ethereum.base_types import Bytes
+from ethereum.base_types import Bytes, Uint
+from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..fixture_loader import UnsupportedTx
@@ -49,7 +50,6 @@ class Alloc:
         """Encode the state to JSON"""
         data = {}
         for address, account in self.state._main_trie._data.items():
-
             account_data: Dict[str, Any] = {}
 
             if account.balance:
@@ -225,7 +225,7 @@ class Txs:
 
         data = {
             "transactionHash": "0x" + tx_hash.hex(),
-            "gasUsed": hex(gas_consumed)
+            "gasUsed": hex(gas_consumed),
         }
         self.successful_receipts.append(data)
 
