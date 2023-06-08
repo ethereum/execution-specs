@@ -20,6 +20,15 @@ from ethereum_test_tools import (
     to_hash_bytes,
 )
 
+from .utils import (
+    BLOB_COMMITMENT_VERSION_KZG,
+    DATA_GAS_PER_BLOB,
+    MAX_BLOBS_PER_BLOCK,
+    TARGET_BLOBS_PER_BLOCK,
+    calc_excess_data_gas,
+    get_data_gasprice,
+)
+
 # * Adding a new test *
 # Add a function that is named `test_<test_name>` and takes the following
 # arguments:
@@ -43,80 +52,6 @@ REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
 
 # All tests run from Cancun fork
 pytestmark = pytest.mark.valid_from("Cancun")
-
-BLOB_COMMITMENT_VERSION_KZG = 1
-BLOBHASH_GAS_COST = 3
-MIN_DATA_GASPRICE = 1
-DATA_GAS_PER_BLOB = 2**17
-MAX_DATA_GAS_PER_BLOCK = 2**19
-TARGET_DATA_GAS_PER_BLOCK = 2**18
-MAX_BLOBS_PER_BLOCK = MAX_DATA_GAS_PER_BLOCK // DATA_GAS_PER_BLOB
-TARGET_BLOBS_PER_BLOCK = TARGET_DATA_GAS_PER_BLOCK // DATA_GAS_PER_BLOB
-DATA_GASPRICE_UPDATE_FRACTION = 2225652
-
-
-def fake_exponential(factor: int, numerator: int, denominator: int) -> int:
-    """
-    Used to calculate the data gas cost.
-    """
-    i = 1
-    output = 0
-    numerator_accumulator = factor * denominator
-    while numerator_accumulator > 0:
-        output += numerator_accumulator
-        numerator_accumulator = (numerator_accumulator * numerator) // (denominator * i)
-        i += 1
-    return output // denominator
-
-
-def calc_data_fee(tx: Transaction, excess_data_gas: int) -> int:
-    """
-    Calculate the data fee for a transaction.
-    """
-    return get_total_data_gas(tx) * get_data_gasprice(excess_data_gas)
-
-
-def get_total_data_gas(tx: Transaction) -> int:
-    """
-    Calculate the total data gas for a transaction.
-    """
-    if tx.blob_versioned_hashes is None:
-        return 0
-    return DATA_GAS_PER_BLOB * len(tx.blob_versioned_hashes)
-
-
-def get_data_gasprice_from_blobs(excess_blobs: int) -> int:
-    """
-    Calculate the data gas price from the excess blob count.
-    """
-    return fake_exponential(
-        MIN_DATA_GASPRICE,
-        excess_blobs * DATA_GAS_PER_BLOB,
-        DATA_GASPRICE_UPDATE_FRACTION,
-    )
-
-
-def get_data_gasprice(excess_data_gas: int) -> int:
-    """
-    Calculate the data gas price from the excess.
-    """
-    return fake_exponential(
-        MIN_DATA_GASPRICE,
-        excess_data_gas,
-        DATA_GASPRICE_UPDATE_FRACTION,
-    )
-
-
-def calc_excess_data_gas(parent_excess_data_gas: int, parent_blobs: int) -> int:
-    """
-    Calculate the excess data gas for a block given the parent excess data gas
-    and the number of blobs in the block.
-    """
-    parent_consumed_data_gas = parent_blobs * DATA_GAS_PER_BLOB
-    if parent_excess_data_gas + parent_consumed_data_gas < TARGET_DATA_GAS_PER_BLOCK:
-        return 0
-    else:
-        return parent_excess_data_gas + parent_consumed_data_gas - TARGET_DATA_GAS_PER_BLOCK
 
 
 @pytest.fixture
@@ -316,7 +251,7 @@ def blocks(  # noqa: D103
 
 @pytest.mark.parametrize("parent_blobs", range(0, MAX_BLOBS_PER_BLOCK + 1))
 @pytest.mark.parametrize("parent_excess_blobs", range(0, TARGET_BLOBS_PER_BLOCK + 1))
-@pytest.mark.parametrize("new_blobs", [0])
+@pytest.mark.parametrize("new_blobs", [1])
 def test_correct_excess_data_gas_calculation(
     blockchain_test: BlockchainTestFiller,
     env: Environment,

@@ -19,6 +19,13 @@ from ethereum_test_tools import (
     to_hash_bytes,
 )
 
+from .utils import (
+    BLOB_COMMITMENT_VERSION_KZG,
+    DATA_GAS_PER_BLOB,
+    MAX_BLOBS_PER_BLOCK,
+    get_data_gasprice,
+)
+
 # * Adding a new test *
 # Add a function that is named `test_<test_name>` and takes the following
 # arguments:
@@ -37,41 +44,6 @@ from ethereum_test_tools import (
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
 REFERENCE_SPEC_VERSION = "b33e063530f0a114635dd4f89d3cca90f8cac28f"
-
-BLOB_COMMITMENT_VERSION_KZG = 1
-BLOBHASH_GAS_COST = 3
-MIN_DATA_GASPRICE = 1
-DATA_GAS_PER_BLOB = 2**17
-MAX_DATA_GAS_PER_BLOCK = 2**19
-TARGET_DATA_GAS_PER_BLOCK = 2**18
-MAX_BLOBS_PER_BLOCK = MAX_DATA_GAS_PER_BLOCK // DATA_GAS_PER_BLOB
-TARGET_BLOBS_PER_BLOCK = TARGET_DATA_GAS_PER_BLOCK // DATA_GAS_PER_BLOB
-DATA_GASPRICE_UPDATE_FRACTION = 2225652
-
-
-def fake_exponential(factor: int, numerator: int, denominator: int) -> int:
-    """
-    Used to calculate the data gas cost.
-    """
-    i = 1
-    output = 0
-    numerator_accumulator = factor * denominator
-    while numerator_accumulator > 0:
-        output += numerator_accumulator
-        numerator_accumulator = (numerator_accumulator * numerator) // (denominator * i)
-        i += 1
-    return output // denominator
-
-
-def get_data_gasprice(excess_data_gas: int) -> int:
-    """
-    Calculate the data gas price from the excess.
-    """
-    return fake_exponential(
-        MIN_DATA_GASPRICE,
-        excess_data_gas,
-        DATA_GASPRICE_UPDATE_FRACTION,
-    )
 
 
 @pytest.fixture

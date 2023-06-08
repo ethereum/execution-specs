@@ -4,11 +4,14 @@ Tests: tests/eips/eip4844/
     > test_blobhash_opcode_contexts.py
     > test_blobhash_opcode.py
 """
-from typing import Union
+from hashlib import sha256
+from typing import Literal, Union
 
 from ethereum_test_tools import (
+    Auto,
     TestAddress,
     YulCompiler,
+    Transaction,
     add_kzg_version,
     compute_create2_address,
     compute_create_address,
@@ -16,10 +19,109 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-BLOBHASH_GAS_COST = 3
-TARGET_BLOB_PER_BLOCK = 2
-MAX_BLOB_PER_BLOCK = 4
+auto = Auto()
+
+
+# Constants
 BLOB_COMMITMENT_VERSION_KZG = 1
+BLOBHASH_GAS_COST = 3
+BLS_MODULUS = 0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001
+BLS_MODULUS_BYTES = BLS_MODULUS.to_bytes(32, "big")
+DATA_GAS_PER_BLOB = 2**17
+DATA_GASPRICE_UPDATE_FRACTION = 2225652
+FIELD_ELEMENTS_PER_BLOB = 4096
+FIELD_ELEMENTS_PER_BLOB_BYTES = FIELD_ELEMENTS_PER_BLOB.to_bytes(32, "big")
+INF_POINT = (0xC0 << 376).to_bytes(48, byteorder="big")
+MAX_BLOB_PER_BLOCK = 4
+MAX_DATA_GAS_PER_BLOCK = 2**19
+MAX_BLOBS_PER_BLOCK = MAX_DATA_GAS_PER_BLOCK // DATA_GAS_PER_BLOB
+MIN_DATA_GASPRICE = 1
+POINT_EVALUATION_PRECOMPILE_ADDRESS = 20
+POINT_EVALUATION_PRECOMPILE_GAS = 50_000
+TARGET_BLOB_PER_BLOCK = 2
+TARGET_DATA_GAS_PER_BLOCK = 2**18
+TARGET_BLOBS_PER_BLOCK = TARGET_DATA_GAS_PER_BLOCK // DATA_GAS_PER_BLOB
+Z = 0x623CE31CF9759A5C8DAF3A357992F9F3DD7F9339D8998BC8E68373E54F00B75E
+Z_Y_INVALID_ENDIANNESS: Literal["little", "big"] = "little"
+Z_Y_VALID_ENDIANNESS: Literal["little", "big"] = "big"
+
+
+def fake_exponential(factor: int, numerator: int, denominator: int) -> int:
+    """
+    Used to calculate the data gas cost.
+    """
+    i = 1
+    output = 0
+    numerator_accumulator = factor * denominator
+    while numerator_accumulator > 0:
+        output += numerator_accumulator
+        numerator_accumulator = (numerator_accumulator * numerator) // (denominator * i)
+        i += 1
+    return output // denominator
+
+
+def calc_data_fee(tx: Transaction, excess_data_gas: int) -> int:
+    """
+    Calculate the data fee for a transaction.
+    """
+    return get_total_data_gas(tx) * get_data_gasprice(excess_data_gas)
+
+
+def get_total_data_gas(tx: Transaction) -> int:
+    """
+    Calculate the total data gas for a transaction.
+    """
+    if tx.blob_versioned_hashes is None:
+        return 0
+    return DATA_GAS_PER_BLOB * len(tx.blob_versioned_hashes)
+
+
+def get_data_gasprice_from_blobs(excess_blobs: int) -> int:
+    """
+    Calculate the data gas price from the excess blob count.
+    """
+    return fake_exponential(
+        MIN_DATA_GASPRICE,
+        excess_blobs * DATA_GAS_PER_BLOB,
+        DATA_GASPRICE_UPDATE_FRACTION,
+    )
+
+
+def get_data_gasprice(excess_data_gas: int) -> int:
+    """
+    Calculate the data gas price from the excess.
+    """
+    return fake_exponential(
+        MIN_DATA_GASPRICE,
+        excess_data_gas,
+        DATA_GASPRICE_UPDATE_FRACTION,
+    )
+
+
+def calc_excess_data_gas(parent_excess_data_gas: int, parent_blobs: int) -> int:
+    """
+    Calculate the excess data gas for a block given the parent excess data gas
+    and the number of blobs in the block.
+    """
+    parent_consumed_data_gas = parent_blobs * DATA_GAS_PER_BLOB
+    if parent_excess_data_gas + parent_consumed_data_gas < TARGET_DATA_GAS_PER_BLOCK:
+        return 0
+    else:
+        return parent_excess_data_gas + parent_consumed_data_gas - TARGET_DATA_GAS_PER_BLOCK
+
+
+def kzg_to_versioned_hash(
+    kzg_commitment: bytes | int,  # 48 bytes
+    blob_commitment_version_kzg: bytes | int = BLOB_COMMITMENT_VERSION_KZG,
+) -> bytes:
+    """
+    Calculates the versioned hash for a given KZG commitment.
+    """
+    if isinstance(kzg_commitment, int):
+        kzg_commitment = kzg_commitment.to_bytes(48, "big")
+    if isinstance(blob_commitment_version_kzg, int):
+        blob_commitment_version_kzg = blob_commitment_version_kzg.to_bytes(1, "big")
+    return blob_commitment_version_kzg + sha256(kzg_commitment).digest()[1:]
 
 
 # Simple list of blob versioned hashes ranging from bytes32(1 to 4)

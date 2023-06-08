@@ -17,7 +17,7 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-from .util_blobhash import (
+from .utils import (
     BLOBHASH_GAS_COST,
     MAX_BLOB_PER_BLOCK,
     TARGET_BLOB_PER_BLOCK,

@@ -2,7 +2,6 @@
 Test EIP-4844: Shard Blob Transactions (Point Evaluation Precompile)
 EIP: https://eips.ethereum.org/EIPS/eip-4844
 """
-from hashlib import sha256
 from typing import Dict, Literal
 
 import pytest
@@ -19,29 +18,16 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
+from .utils import (
+    INF_POINT,
+    POINT_EVALUATION_PRECOMPILE_ADDRESS,
+    POINT_EVALUATION_PRECOMPILE_GAS,
+    Z,
+    kzg_to_versioned_hash,
+)
+
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
 REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
-
-POINT_EVALUATION_PRECOMPILE_ADDRESS = 20
-POINT_EVALUATION_PRECOMPILE_GAS = 50_000
-BLOB_COMMITMENT_VERSION_KZG = b"\x01"
-
-Z = 0x623CE31CF9759A5C8DAF3A357992F9F3DD7F9339D8998BC8E68373E54F00B75E
-INF_POINT = (0xC0 << 376).to_bytes(48, byteorder="big")
-
-
-def kzg_to_versioned_hash(
-    kzg_commitment: bytes | int,  # 48 bytes
-    blob_commitment_version_kzg: bytes | int = BLOB_COMMITMENT_VERSION_KZG,
-) -> bytes:
-    """
-    Calculates the versioned hash for a given KZG commitment.
-    """
-    if isinstance(kzg_commitment, int):
-        kzg_commitment = kzg_commitment.to_bytes(48, "big")
-    if isinstance(blob_commitment_version_kzg, int):
-        blob_commitment_version_kzg = blob_commitment_version_kzg.to_bytes(1, "big")
-    return blob_commitment_version_kzg + sha256(kzg_commitment).digest()[1:]
 
 
 @pytest.fixture

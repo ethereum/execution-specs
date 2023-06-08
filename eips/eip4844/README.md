@@ -46,12 +46,17 @@ Predominantly verifies that `excess_data_gas` & `data_gasprice` are calculated c
 Tests that the `excess_data_gas` is calculated correctly within a single block for various contexts, where the `parent.excess_data_gas` and the proposed block `excess_data_gas` have a variety of values. The excess data gas is calculated using the following formula:
 
 ```python
-def calc_excess_data_gas(parent: Header, new_blobs: int) -> int:
-    consumed_data_gas = new_blobs * DATA_GAS_PER_BLOB
-    if parent.excess_data_gas + consumed_data_gas < TARGET_DATA_GAS_PER_BLOCK:
+def calc_excess_data_gas(parent_excess_data_gas: int, parent_blobs: int) -> int:
+    """
+    Calculate the excess data gas for a block given the parent excess data gas
+    and the number of blobs in the block.
+    """
+    parent_consumed_data_gas = parent_blobs * DATA_GAS_PER_BLOB
+    if parent_excess_data_gas + parent_consumed_data_gas < TARGET_DATA_GAS_PER_BLOCK:
         return 0
     else:
-        return parent.excess_data_gas + consumed_data_gas - TARGET_DATA_GAS_PER_BLOCK
+        return parent_excess_data_gas + parent_consumed_data_gas - TARGET_DATA_GAS_PER_BLOCK
+
 ```
 
 For blocks to be valid in these contexts they must meet the following conditions of the EIP:
