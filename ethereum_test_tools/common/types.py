@@ -557,8 +557,10 @@ class Environment:
     parent_gas_limit: Optional[int] = None
     parent_ommers_hash: Optional[str] = None
     withdrawals: Optional[List[Withdrawal]] = None
-    excess_data_gas: Optional[int] = None
+    parent_data_gas_used: Optional[int] = None
     parent_excess_data_gas: Optional[int] = None
+    excess_data_gas: Optional[int] = None
+    data_gas_used: Optional[int] = None
 
     @staticmethod
     def from_parent_header(parent: "FixtureHeader") -> "Environment":
@@ -569,6 +571,7 @@ class Environment:
             parent_difficulty=parent.difficulty,
             parent_timestamp=parent.timestamp,
             parent_base_fee=parent.base_fee,
+            parent_data_gas_used=parent.data_gas_used,
             parent_excess_data_gas=parent.excess_data_gas,
             parent_gas_used=parent.gas_used,
             parent_gas_limit=parent.gas_limit,
@@ -599,6 +602,7 @@ class Environment:
         env.parent_difficulty = new_parent.difficulty
         env.parent_timestamp = new_parent.timestamp
         env.parent_base_fee = new_parent.base_fee
+        env.parent_data_gas_used = new_parent.data_gas_used
         env.parent_excess_data_gas = new_parent.excess_data_gas
         env.parent_gas_used = new_parent.gas_used
         env.parent_gas_limit = new_parent.gas_limit
@@ -637,12 +641,6 @@ class Environment:
 
         if fork.header_zero_difficulty_required(self.number, self.timestamp):
             res.difficulty = 0
-
-        if (
-            fork.header_excess_data_gas_required(self.number, self.timestamp)
-            and res.excess_data_gas is None
-        ):
-            res.excess_data_gas = 0
 
         return res
 
@@ -806,6 +804,7 @@ class Header:
     nonce: Optional[str] = None
     base_fee: Optional[int | Removable] = None
     withdrawals_root: Optional[str | Removable] = None
+    data_gas_used: Optional[int | Removable] = None
     excess_data_gas: Optional[int | Removable] = None
     hash: Optional[str] = None
 
@@ -838,6 +837,7 @@ class FixtureHeader:
     nonce: str
     base_fee: Optional[int] = None
     withdrawals_root: Optional[str] = None
+    data_gas_used: Optional[int] = None
     excess_data_gas: Optional[int] = None
     hash: Optional[str] = None
 
@@ -867,6 +867,7 @@ class FixtureHeader:
             nonce=source["nonce"],
             base_fee=int_or_none(source.get("baseFeePerGas")),
             withdrawals_root=str_or_none(source.get("withdrawalsRoot")),
+            data_gas_used=int_or_none(source.get("dataGasUsed")),
             excess_data_gas=int_or_none(source.get("excessDataGas")),
             hash=source.get("hash"),
         )
@@ -896,6 +897,8 @@ class FixtureHeader:
             header["baseFeePerGas"] = hex(self.base_fee)
         if self.withdrawals_root is not None:
             header["withdrawalsRoot"] = self.withdrawals_root
+        if self.data_gas_used is not None:
+            header["dataGasUsed"] = hex(self.data_gas_used)
         if self.excess_data_gas is not None:
             header["excessDataGas"] = hex(self.excess_data_gas)
         return header
@@ -975,7 +978,8 @@ class Block(Header):
         new_env.withdrawals = self.withdrawals
         if not isinstance(self.excess_data_gas, Removable):
             new_env.excess_data_gas = self.excess_data_gas
-
+        if not isinstance(self.data_gas_used, Removable):
+            new_env.data_gas_used = self.data_gas_used
         """
         These values are required, but they depend on the previous environment,
         so they can be calculated here.
@@ -1156,8 +1160,10 @@ class JSONEncoder(json.JSONEncoder):
                 "withdrawals": to_json_or_none(obj.withdrawals),
                 "parentUncleHash": obj.parent_ommers_hash,
                 "currentBaseFee": str_or_none(obj.base_fee),
+                "parentDataGasUsed": str_or_none(obj.parent_data_gas_used),
                 "parentExcessDataGas": str_or_none(obj.parent_excess_data_gas),
                 "currentExcessDataGas": str_or_none(obj.excess_data_gas),
+                "currentDataGasUsed": str_or_none(obj.data_gas_used),
             }
 
             return {k: v for (k, v) in env.items() if v is not None}
@@ -1185,6 +1191,8 @@ class JSONEncoder(json.JSONEncoder):
                 header["hash"] = obj.hash
             if obj.withdrawals_root is not None:
                 header["withdrawalsRoot"] = obj.withdrawals_root
+            if obj.data_gas_used is not None:
+                header["dataGasUsed"] = hex(obj.data_gas_used)
             if obj.excess_data_gas is not None:
                 header["excessDataGas"] = hex(obj.excess_data_gas)
             return even_padding(

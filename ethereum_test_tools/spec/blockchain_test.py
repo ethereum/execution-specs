@@ -75,6 +75,7 @@ class BlockchainTest(BaseTest):
             mix_digest="0x0000000000000000000000000000000000000000000000000000000000000000",
             nonce="0x0000000000000000",
             base_fee=env.base_fee,
+            data_gas_used=env.data_gas_used,
             excess_data_gas=env.excess_data_gas,
             withdrawals_root=t8n.calc_withdrawals_root(env.withdrawals, fork)
             if env.withdrawals is not None
