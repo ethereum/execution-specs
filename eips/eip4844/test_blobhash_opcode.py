@@ -19,8 +19,8 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .utils import (
     BLOBHASH_GAS_COST,
-    MAX_BLOB_PER_BLOCK,
-    TARGET_BLOB_PER_BLOCK,
+    MAX_BLOBS_PER_BLOCK,
+    TARGET_BLOBS_PER_BLOCK,
     BlobhashScenario,
     blobhash_index_values,
     random_blob_hashes,
@@ -71,7 +71,7 @@ def blob_tx(template_tx):
             to=address,
             access_list=[],
             max_priority_fee_per_gas=10,
-            blob_versioned_hashes=random_blob_hashes[0:MAX_BLOB_PER_BLOCK],
+            blob_versioned_hashes=random_blob_hashes[0:MAX_BLOBS_PER_BLOCK],
         )
 
     return _blob_tx
@@ -114,7 +114,7 @@ def test_blobhash_gas_cost(
                         gas_price=10 if tx_type < 2 else None,
                         access_list=[] if tx_type >= 2 else None,
                         max_priority_fee_per_gas=10 if tx_type >= 2 else None,
-                        blob_versioned_hashes=random_blob_hashes[0:TARGET_BLOB_PER_BLOCK]
+                        blob_versioned_hashes=random_blob_hashes[0:TARGET_BLOBS_PER_BLOCK]
                         if tx_type >= 3
                         else None,
                     )
@@ -174,7 +174,7 @@ def test_blobhash_scenarios(
             )
         )
         post[address] = Account(
-            storage={index: b_hashes_list[i][index] for index in range(MAX_BLOB_PER_BLOCK)}
+            storage={index: b_hashes_list[i][index] for index in range(MAX_BLOBS_PER_BLOCK)}
         )
     blockchain_test(
         pre=pre,
@@ -212,7 +212,7 @@ def test_blobhash_invalid_blob_index(
     for i in range(TOTAL_BLOCKS):
         address = to_address(0x100 + i * 0x100)
         pre[address] = Account(code=blobhash_calls)
-        blob_per_block = (i % MAX_BLOB_PER_BLOCK) + 1
+        blob_per_block = (i % MAX_BLOBS_PER_BLOCK) + 1
         blobs = [random_blob_hashes[blob] for blob in range(blob_per_block)]
         blocks.append(
             Block(
@@ -233,7 +233,7 @@ def test_blobhash_invalid_blob_index(
                 index: (0 if index < 0 or index >= blob_per_block else blobs[index])
                 for index in range(
                     -TOTAL_BLOCKS,
-                    blob_per_block + (TOTAL_BLOCKS - (i % MAX_BLOB_PER_BLOCK)),
+                    blob_per_block + (TOTAL_BLOCKS - (i % MAX_BLOBS_PER_BLOCK)),
                 )
             }
         )
@@ -287,10 +287,10 @@ def test_blobhash_multiple_txs_in_block(
     ]
     post = {
         to_address(address): Account(
-            storage={i: random_blob_hashes[i] for i in range(MAX_BLOB_PER_BLOCK)}
+            storage={i: random_blob_hashes[i] for i in range(MAX_BLOBS_PER_BLOCK)}
         )
         if address in (0x200, 0x400)
-        else Account(storage={i: 0 for i in range(MAX_BLOB_PER_BLOCK)})
+        else Account(storage={i: 0 for i in range(MAX_BLOBS_PER_BLOCK)})
         for address in range(0x100, 0x500, 0x100)
     }
     blockchain_test(
