@@ -23,6 +23,8 @@ from .utils import (
     BLOB_COMMITMENT_VERSION_KZG,
     DATA_GAS_PER_BLOB,
     MAX_BLOBS_PER_BLOCK,
+    TARGET_BLOBS_PER_BLOCK,
+    calc_excess_data_gas,
     get_data_gasprice,
 )
 
@@ -85,6 +87,16 @@ def parent_excess_blobs() -> Optional[int]:
     return 10  # Defaults to a data gas price of 1.
 
 
+@pytest.fixture(autouse=True)
+def parent_blobs() -> Optional[int]:
+    """
+    Default data blobs of the parent blob.
+
+    Can be overloaded by a test case to provide a custom parent blob count.
+    """
+    return 0
+
+
 @pytest.fixture
 def parent_excess_data_gas(
     parent_excess_blobs: Optional[int],
@@ -100,13 +112,20 @@ def parent_excess_data_gas(
 @pytest.fixture
 def data_gasprice(
     parent_excess_data_gas: Optional[int],
+    parent_blobs: Optional[int],
 ) -> Optional[int]:
     """
     Data gas price for the block of the test.
     """
-    if parent_excess_data_gas is None:
+    if parent_excess_data_gas is None or parent_blobs is None:
         return None
-    return get_data_gasprice(excess_data_gas=parent_excess_data_gas)
+
+    return get_data_gasprice(
+        excess_data_gas=calc_excess_data_gas(
+            parent_excess_data_gas=parent_excess_data_gas,
+            parent_blobs=parent_blobs,
+        ),
+    )
 
 
 @pytest.fixture
@@ -279,11 +298,16 @@ def pre(  # noqa: D103
 @pytest.fixture
 def env(
     parent_excess_data_gas: Optional[int],
+    parent_blobs: Optional[int],
 ) -> Environment:
     """
     Prepare the environment for all test cases.
     """
-    return Environment(excess_data_gas=parent_excess_data_gas)
+    if parent_blobs is None:
+        parent_blobs = 0
+    return Environment(
+        excess_data_gas=parent_excess_data_gas, data_gas_used=parent_blobs * DATA_GAS_PER_BLOB
+    )
 
 
 @pytest.fixture
@@ -370,17 +394,19 @@ def test_valid_blob_tx_combinations(
 
 
 @pytest.mark.parametrize(
-    "parent_excess_blobs,tx_max_fee_per_data_gas,tx_error",
+    "parent_excess_blobs,parent_blobs,tx_max_fee_per_data_gas,tx_error",
     [
         # tx max_data_gas_cost of the transaction is not enough
         (
-            12,  # data gas price is 2
+            11,  # data gas price is 2
+            TARGET_BLOBS_PER_BLOCK + 1,  # data gas cost increases to 2
             1,  # tx max_data_gas_cost is 1
             "insufficient max fee per data gas",
         ),
         # tx max_data_gas_cost of the transaction is zero, which is invalid
         (
             0,  # data gas price is 1
+            0,  # data gas cost stays put at 1
             0,  # tx max_data_gas_cost is 0
             "invalid max fee per data gas",
         ),
