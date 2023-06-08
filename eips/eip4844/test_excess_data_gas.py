@@ -107,16 +107,16 @@ def get_data_gasprice(excess_data_gas: int) -> int:
     )
 
 
-def calc_excess_data_gas(parent_excess_data_gas: int, new_blobs: int) -> int:
+def calc_excess_data_gas(parent_excess_data_gas: int, parent_blobs: int) -> int:
     """
     Calculate the excess data gas for a block given the parent excess data gas
     and the number of blobs in the block.
     """
-    consumed_data_gas = new_blobs * DATA_GAS_PER_BLOB
-    if parent_excess_data_gas + consumed_data_gas < TARGET_DATA_GAS_PER_BLOCK:
+    parent_consumed_data_gas = parent_blobs * DATA_GAS_PER_BLOB
+    if parent_excess_data_gas + parent_consumed_data_gas < TARGET_DATA_GAS_PER_BLOCK:
         return 0
     else:
-        return parent_excess_data_gas + consumed_data_gas - TARGET_DATA_GAS_PER_BLOCK
+        return parent_excess_data_gas + parent_consumed_data_gas - TARGET_DATA_GAS_PER_BLOCK
 
 
 @pytest.fixture
@@ -135,11 +135,11 @@ def parent_excess_data_gas(parent_excess_blobs: int) -> int:  # noqa: D103
 @pytest.fixture
 def correct_excess_data_gas(  # noqa: D103
     parent_excess_data_gas: int,
-    new_blobs: int,
+    parent_blobs: int,
 ) -> int:
     return calc_excess_data_gas(
         parent_excess_data_gas=parent_excess_data_gas,
-        new_blobs=new_blobs,
+        parent_blobs=parent_blobs,
     )
 
 
@@ -167,10 +167,15 @@ def header_excess_data_gas(  # noqa: D103
 
 
 @pytest.fixture
+def header_data_gas_used() -> Optional[int]:  # noqa: D103
+    return None
+
+
+@pytest.fixture
 def fee_per_data_gas(  # noqa: D103
-    parent_excess_data_gas: int,
+    correct_excess_data_gas: int,
 ) -> int:
-    return get_data_gasprice(excess_data_gas=parent_excess_data_gas)
+    return get_data_gasprice(excess_data_gas=correct_excess_data_gas)
 
 
 @pytest.fixture
@@ -188,10 +193,12 @@ def block_base_fee() -> int:  # noqa: D103
 @pytest.fixture
 def env(  # noqa: D103
     parent_excess_data_gas: int,
+    parent_blobs: int,
     block_base_fee: int,
 ) -> Environment:
     return Environment(
         excess_data_gas=parent_excess_data_gas,
+        data_gas_used=parent_blobs * DATA_GAS_PER_BLOB,
         base_fee=block_base_fee,
     )
 
@@ -282,20 +289,34 @@ def tx(  # noqa: D103
 def blocks(  # noqa: D103
     tx: Transaction,
     header_excess_data_gas: Optional[int],
+    header_data_gas_used: Optional[int],
 ):
     if header_excess_data_gas is not None:
         return [
             Block(
                 txs=[tx],
-                rlp_modifier=Header(excess_data_gas=header_excess_data_gas),
+                rlp_modifier=Header(
+                    excess_data_gas=header_excess_data_gas,
+                ),
                 exception="invalid excess data gas",
+            )
+        ]
+    if header_data_gas_used is not None:
+        return [
+            Block(
+                txs=[tx],
+                rlp_modifier=Header(
+                    data_gas_used=header_data_gas_used,
+                ),
+                exception="invalid data gas used",
             )
         ]
     return [Block(txs=[tx])]
 
 
-@pytest.mark.parametrize("new_blobs", range(0, MAX_BLOBS_PER_BLOCK + 1))
+@pytest.mark.parametrize("parent_blobs", range(0, MAX_BLOBS_PER_BLOCK + 1))
 @pytest.mark.parametrize("parent_excess_blobs", range(0, TARGET_BLOBS_PER_BLOCK + 1))
+@pytest.mark.parametrize("new_blobs", [0])
 def test_correct_excess_data_gas_calculation(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -334,7 +355,8 @@ def test_correct_excess_data_gas_calculation(
         820,
     ],
 )
-@pytest.mark.parametrize("new_blobs", [TARGET_BLOBS_PER_BLOCK + 1])
+@pytest.mark.parametrize("parent_blobs", [TARGET_BLOBS_PER_BLOCK + 1])
+@pytest.mark.parametrize("new_blobs", [1])
 def test_correct_increasing_data_gas_costs(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -371,7 +393,8 @@ def test_correct_increasing_data_gas_costs(
         754,
     ],
 )
-@pytest.mark.parametrize("new_blobs", [TARGET_BLOBS_PER_BLOCK - 1])
+@pytest.mark.parametrize("parent_blobs", [TARGET_BLOBS_PER_BLOCK - 1])
+@pytest.mark.parametrize("new_blobs", [1])
 def test_correct_decreasing_data_gas_costs(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -394,7 +417,8 @@ def test_correct_decreasing_data_gas_costs(
 
 
 @pytest.mark.parametrize("header_excess_data_gas", [0])
-@pytest.mark.parametrize("new_blobs", range(0, MAX_BLOBS_PER_BLOCK + 1))
+@pytest.mark.parametrize("new_blobs", [0, 1])
+@pytest.mark.parametrize("parent_blobs", range(0, MAX_BLOBS_PER_BLOCK + 1))
 def test_invalid_zero_excess_data_gas_in_header(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
@@ -423,6 +447,68 @@ def test_invalid_zero_excess_data_gas_in_header(
             [
                 f"correct:{hex(correct_excess_data_gas)}",
                 f"header:{hex(header_excess_data_gas)}",
+            ]
+        ),
+    )
+
+
+@pytest.mark.parametrize("header_data_gas_used", [0])
+@pytest.mark.parametrize("new_blobs", range(1, MAX_BLOBS_PER_BLOCK + 1))
+@pytest.mark.parametrize("parent_blobs", [0])
+def test_invalid_zero_data_gas_used_in_header(
+    blockchain_test: BlockchainTestFiller,
+    env: Environment,
+    pre: Mapping[str, Account],
+    blocks: List[Block],
+    new_blobs: int,
+    header_data_gas_used: Optional[int],
+):
+    """
+    Test rejection of blocks where the data_gas_used in the header is zero in
+    a block with data blobs.
+    """
+    if header_data_gas_used is None:
+        raise Exception("test case is badly formatted")
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=blocks,
+        genesis_environment=env,
+        tag="-".join(
+            [
+                f"correct:{hex(new_blobs * DATA_GAS_PER_BLOB)}",
+                f"header:{hex(header_data_gas_used)}",
+            ]
+        ),
+    )
+
+
+@pytest.mark.parametrize("header_data_gas_used", [DATA_GAS_PER_BLOB])
+@pytest.mark.parametrize("new_blobs", [1])
+@pytest.mark.parametrize("parent_blobs", [0])
+def test_invalid_non_zero_data_gas_used_in_header(
+    blockchain_test: BlockchainTestFiller,
+    env: Environment,
+    pre: Mapping[str, Account],
+    blocks: List[Block],
+    new_blobs: int,
+    header_data_gas_used: Optional[int],
+):
+    """
+    Test rejection of blocks where the data_gas_used in the header is zero in
+    a block with data blobs.
+    """
+    if header_data_gas_used is None:
+        raise Exception("test case is badly formatted")
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=blocks,
+        genesis_environment=env,
+        tag="-".join(
+            [
+                f"correct:{hex(new_blobs * DATA_GAS_PER_BLOB)}",
+                f"header:{hex(header_data_gas_used)}",
             ]
         ),
     )
