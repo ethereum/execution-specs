@@ -47,18 +47,18 @@ class EvmBlockBuilder(BlockBuilder):
     binary: Path
     cached_version: Optional[str] = None
 
-    def __init__(self, binary: Optional[Path] = None):
+    def __init__(self, binary: Optional[Path | str] = None):
         if binary is None:
             which_path = which("evm")
             if which_path is not None:
                 binary = Path(which_path)
-        if binary is None or not binary.exists():
+        if binary is None or not Path(binary).exists():
             raise Exception(
                 """`evm` binary executable is not accessible, please refer to
                 https://github.com/ethereum/go-ethereum on how to compile and
                 install the full suite of utilities including the `evm` tool"""
             )
-        self.binary = binary
+        self.binary = Path(binary)
 
     def build(
         self,
