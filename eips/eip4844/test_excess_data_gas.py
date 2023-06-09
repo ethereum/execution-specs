@@ -395,6 +395,7 @@ def all_invalid_data_gas_used_combinations() -> Iterator[Tuple[int, int]]:
         for header_data_gas_used in range(0, MAX_BLOBS_PER_BLOCK + 1):
             if new_blobs != header_data_gas_used:
                 yield (new_blobs, header_data_gas_used * DATA_GAS_PER_BLOB)
+        yield (new_blobs, 2**64 - 1)
 
 
 @pytest.mark.parametrize(
