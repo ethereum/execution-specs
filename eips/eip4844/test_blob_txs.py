@@ -7,14 +7,14 @@ from typing import Dict, List, Optional, Tuple
 
 import pytest
 
+from ethereum_test_tools import Account, Block, BlockchainTestFiller, Environment
+from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
-    Account,
-    Block,
-    BlockchainTestFiller,
-    Environment,
+    Storage,
     TestAddress,
     Transaction,
     add_kzg_version,
+    eip_2028_transaction_data_cost,
     to_address,
     to_hash_bytes,
 )
@@ -68,6 +68,12 @@ def tx_value() -> int:
 def tx_gas() -> int:
     """Default gas allocated to transactions sent during test."""
     return 21000
+
+
+@pytest.fixture
+def tx_calldata() -> bytes:
+    """Default calldata in transactions sent during test."""
+    return b""
 
 
 @pytest.fixture
@@ -174,7 +180,8 @@ def blob_hashes_per_tx(blobs_per_tx: List[int]) -> List[List[bytes]]:
 def total_account_minimum_balance(  # noqa: D103
     tx_gas: int,
     tx_value: int,
-    block_fee_per_gas: int,
+    tx_calldata: bytes,
+    tx_max_fee_per_gas: int,
     tx_max_priority_fee_per_gas: int,
     data_gasprice: Optional[int],
     blob_hashes_per_tx: List[List[bytes]],
@@ -190,7 +197,10 @@ def total_account_minimum_balance(  # noqa: D103
     for tx_blob_count in [len(x) for x in blob_hashes_per_tx]:
         data_cost = data_gasprice * DATA_GAS_PER_BLOB * tx_blob_count
         total_cost += (
-            (tx_gas * (block_fee_per_gas + tx_max_priority_fee_per_gas)) + tx_value + data_cost
+            (tx_gas * (tx_max_fee_per_gas + tx_max_priority_fee_per_gas))
+            + tx_value
+            + eip_2028_transaction_data_cost(tx_calldata)
+            + data_cost
         )
     return total_cost
 
@@ -226,26 +236,27 @@ def tx_max_fee_per_data_gas(  # noqa: D103
 
 
 @pytest.fixture
-def tx_error() -> str:
+def tx_error() -> Optional[str]:
     """
     Default expected error produced by the block transactions (no error).
 
     Can be overloaded on test cases where the transactions are expected
     to fail.
     """
-    return ""
+    return None
 
 
 @pytest.fixture(autouse=True)
 def txs(  # noqa: D103
-    destination_account: str,
+    destination_account: Optional[str],
     tx_gas: int,
     tx_value: int,
+    tx_calldata: bytes,
     tx_max_fee_per_gas: int,
     tx_max_fee_per_data_gas: int,
     tx_max_priority_fee_per_gas: int,
     blob_hashes_per_tx: List[List[bytes]],
-    tx_error: str,
+    tx_error: Optional[str],
 ) -> List[Transaction]:
     """
     Prepare the list of transactions that are sent during the test.
@@ -257,6 +268,7 @@ def txs(  # noqa: D103
             to=destination_account,
             value=tx_value,
             gas_limit=tx_gas,
+            data=tx_calldata,
             max_fee_per_gas=tx_max_fee_per_gas,
             max_priority_fee_per_gas=tx_max_priority_fee_per_gas,
             max_fee_per_data_gas=tx_max_fee_per_data_gas,
@@ -311,9 +323,9 @@ def env(
 
 
 @pytest.fixture
-def blocks(  # noqa: D103
+def blocks(
     txs: List[Transaction],
-    tx_error: str,
+    tx_error: Optional[str],
 ) -> List[Block]:
     """
     Prepare the list of blocks for all test cases.
@@ -489,6 +501,11 @@ def test_invalid_block_blob_count(
 
 @pytest.mark.parametrize("tx_max_priority_fee_per_gas", [0, 8])
 @pytest.mark.parametrize("tx_value", [0, 1])
+@pytest.mark.parametrize(
+    "tx_calldata",
+    [b"", b"\x00", b"\x01"],
+    ids=["no_calldata", "single_zero_calldata", "single_one_calldata"],
+)
 @pytest.mark.parametrize("account_balance_modifier", [-1], ids=["exact_balance_minus_1"])
 @pytest.mark.parametrize("tx_error", ["insufficient_account_balance"], ids=[""])
 @pytest.mark.valid_from("Cancun")
@@ -616,6 +633,230 @@ def test_invalid_blob_hash_versioning(
     blockchain_test(
         pre=pre,
         post={},
+        blocks=blocks,
+        genesis_environment=env,
+    )
+
+
+@pytest.mark.parametrize(
+    "destination_account,tx_error", [(None, "no_contract_creating_blob_txs")], ids=[""]
+)
+@pytest.mark.valid_from("Cancun")
+def test_invalid_blob_tx_contract_creation(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict,
+    env: Environment,
+    blocks: List[Block],
+):
+    """
+    Reject blocks that include blob transactions that have nil to value (contract creating).
+    """
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=blocks,
+        genesis_environment=env,
+    )
+
+
+# ----------------------------------------
+# Opcode Tests in Blob Transaction Context
+# ----------------------------------------
+
+
+@pytest.fixture
+def opcode(
+    request,
+    tx_calldata: bytes,
+    block_fee_per_gas: int,
+    tx_max_fee_per_gas: int,
+    tx_max_priority_fee_per_gas: int,
+    tx_value: int,
+) -> Tuple[bytes, Storage.StorageDictType]:
+    """
+    Build bytecode and post to test each opcode that accesses transaction information.
+    """
+    if request.param == Op.ORIGIN:
+        return (
+            Op.SSTORE(0, Op.ORIGIN),
+            {0: TestAddress},
+        )
+    elif request.param == Op.CALLER:
+        return (
+            Op.SSTORE(0, Op.CALLER),
+            {0: TestAddress},
+        )
+    elif request.param == Op.CALLVALUE:
+        return (
+            Op.SSTORE(0, Op.CALLVALUE),
+            {0: tx_value},
+        )
+    elif request.param == Op.CALLDATALOAD:
+        return (
+            Op.SSTORE(0, Op.CALLDATALOAD(0)),
+            {0: tx_calldata.ljust(32, b"\x00")},
+        )
+    elif request.param == Op.CALLDATASIZE:
+        return (
+            Op.SSTORE(0, Op.CALLDATASIZE),
+            {0: len(tx_calldata)},
+        )
+    elif request.param == Op.CALLDATACOPY:
+        return (
+            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.SSTORE(0, Op.MLOAD(0)),
+            {0: tx_calldata.ljust(32, b"\x00")},
+        )
+    elif request.param == Op.GASPRICE:
+        assert tx_max_fee_per_gas >= block_fee_per_gas
+        return (
+            Op.SSTORE(0, Op.GASPRICE),
+            {
+                0: min(tx_max_priority_fee_per_gas, tx_max_fee_per_gas - block_fee_per_gas)
+                + block_fee_per_gas
+            },
+        )
+    raise Exception("Unknown opcode")
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [Op.ORIGIN, Op.CALLER],
+    indirect=["opcode"],
+)
+@pytest.mark.parametrize("tx_gas", [500_000])
+@pytest.mark.valid_from("Cancun")
+def test_blob_tx_attribute_opcodes(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict,
+    opcode: Tuple[bytes, Storage.StorageDictType],
+    env: Environment,
+    blocks: List[Block],
+    destination_account: str,
+):
+    """
+    Test opcodes that read transaction attributes work properly for blob txs.
+    """
+    code, storage = opcode
+    pre[destination_account] = Account(code=code)
+    post = {
+        destination_account: Account(
+            storage=storage,
+        )
+    }
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=blocks,
+        genesis_environment=env,
+    )
+
+
+@pytest.mark.parametrize("opcode", [Op.CALLVALUE], indirect=["opcode"])
+@pytest.mark.parametrize("tx_value", [0, 1, int(1e18)])
+@pytest.mark.parametrize("tx_gas", [500_000])
+@pytest.mark.valid_from("Cancun")
+def test_blob_tx_attribute_value_opcode(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict,
+    opcode: Tuple[bytes, Storage.StorageDictType],
+    env: Environment,
+    blocks: List[Block],
+    tx_value: int,
+    destination_account: str,
+):
+    """
+    Test the VALUE opcode with different blob tx value amounts.
+    """
+    code, storage = opcode
+    pre[destination_account] = Account(code=code)
+    post = {
+        destination_account: Account(
+            storage=storage,
+            balance=tx_value,
+        )
+    }
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=blocks,
+        genesis_environment=env,
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        Op.CALLDATALOAD,
+        Op.CALLDATASIZE,
+        Op.CALLDATACOPY,
+    ],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "tx_calldata",
+    [
+        b"",
+        b"\x01",
+        b"\x00\x01" * 16,
+    ],
+    ids=["empty", "single_byte", "word"],
+)
+@pytest.mark.parametrize("tx_gas", [500_000])
+@pytest.mark.valid_from("Cancun")
+def test_blob_tx_attribute_calldata_opcodes(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict,
+    opcode: Tuple[bytes, Storage.StorageDictType],
+    env: Environment,
+    blocks: List[Block],
+    destination_account: str,
+):
+    """
+    Test calldata related opcodes to verify their behavior is not affected by blobs.
+    """
+    code, storage = opcode
+    pre[destination_account] = Account(code=code)
+    post = {
+        destination_account: Account(
+            storage=storage,
+        )
+    }
+    blockchain_test(
+        pre=pre,
+        post=post,
+        blocks=blocks,
+        genesis_environment=env,
+    )
+
+
+@pytest.mark.parametrize("tx_max_priority_fee_per_gas", [0, 2])  # always below data fee
+@pytest.mark.parametrize("tx_max_fee_per_data_gas", [1, 3])  # normal and above priority fee
+@pytest.mark.parametrize("tx_max_fee_per_gas", [100])  # always above priority fee
+@pytest.mark.parametrize("opcode", [Op.GASPRICE], indirect=True)
+@pytest.mark.parametrize("tx_gas", [500_000])
+@pytest.mark.valid_from("Cancun")
+def test_blob_tx_attribute_gasprice_opcode(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict,
+    opcode: Tuple[bytes, Storage.StorageDictType],
+    env: Environment,
+    blocks: List[Block],
+    destination_account: str,
+):
+    """
+    Test GASPRICE opcode to sanity check that the data fee per gas does not affect
+    its calculation.
+    """
+    code, storage = opcode
+    pre[destination_account] = Account(code=code)
+    post = {
+        destination_account: Account(
+            storage=storage,
+        )
+    }
+    blockchain_test(
+        pre=pre,
+        post=post,
         blocks=blocks,
         genesis_environment=env,
     )
