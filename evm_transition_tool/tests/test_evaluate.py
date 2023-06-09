@@ -1,11 +1,13 @@
 import json
 import os
 from pathlib import Path
+from shutil import which
 from typing import Dict
 
 import pytest
 
 from ethereum_test_forks import Berlin, Fork, Istanbul, London
+from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool, TransitionTool
 
 FIXTURES_ROOT = Path(os.path.join("src", "evm_transition_tool", "tests", "fixtures"))
@@ -76,6 +78,25 @@ def test_calc_state_root(
     env = TestEnv()
     env.base_fee = base_fee
     assert t8n.calc_state_root(alloc, fork).startswith(hash)
+
+
+@pytest.mark.parametrize("evm_tool", [EvmTransitionTool, EvmBlockBuilder])
+@pytest.mark.parametrize("binary_arg", ["no_binary_arg", "path_type", "str_type"])
+def test_evm_tool_binary_arg(evm_tool, binary_arg):
+    if binary_arg == "no_binary_arg":
+        evm_tool().version()
+        return
+    elif binary_arg == "path_type":
+        evm_bin = which("evm")
+        if not evm_bin:
+            # typing: Path can not take None; but if it is None, we may as well fail explicitly.
+            raise Exception("Failed to find 'evm' in the PATH via which")
+        evm_tool(binary=Path(evm_bin)).version()
+        return
+    elif binary_arg == "str_type":
+        evm_tool(binary=str(which("evm"))).version()
+        return
+    raise Exception("unknown test parameter")
 
 
 @pytest.mark.parametrize("t8n", [EvmTransitionTool()])
