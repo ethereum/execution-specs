@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, Tuple
 
 import pytest
 
-from ethereum_test_tools import Account, Block, BlockchainTestFiller, Environment
+from ethereum_test_tools import Account, Block, BlockchainTestFiller, Environment, Header
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
     Storage,
@@ -330,11 +330,20 @@ def blocks(
     """
     Prepare the list of blocks for all test cases.
     """
-    return [
-        Block(
-            txs=txs,
-            exception=tx_error,
+    header_data_gas_used = 0
+    if len(txs) > 0:
+        header_data_gas_used = (
+            sum(
+                [
+                    len(tx.blob_versioned_hashes)
+                    for tx in txs
+                    if tx.blob_versioned_hashes is not None
+                ]
+            )
+            * DATA_GAS_PER_BLOB
         )
+    return [
+        Block(txs=txs, exception=tx_error, rlp_modifier=Header(data_gas_used=header_data_gas_used))
     ]
 
 
