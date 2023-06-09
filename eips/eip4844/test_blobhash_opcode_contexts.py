@@ -191,21 +191,6 @@ def opcode_context(yul: YulCompiler, request):
                 ),
             },
         )
-    elif test_case == "on_INITCODE":
-        return create_opcode_context(
-            {},
-            tx_type_3.with_fields(
-                data=BlobhashContext.code("initcode"),
-                to=None,
-            ),
-            {
-                BlobhashContext.created_contract("tx_created_contract"): Account(
-                    storage={
-                        k: v for (k, v) in zip(range(len(simple_blob_hashes)), simple_blob_hashes)
-                    }
-                ),
-            },
-        )
     elif test_case == "on_CREATE":
         return create_opcode_context(
             {
