@@ -31,7 +31,6 @@ def find_test_fixtures() -> Any:
         data = json.load(f)
 
     for key, value in data.items():
-
         final_args = []
         for arg in value["args"]:
             final_args.append(arg.replace("__BASEDIR__", T8N_TEST_PATH))
@@ -106,6 +105,17 @@ def t8n_tool_test(test_case: Dict) -> None:
         assert t8n_tool.hex_to_root(
             json_result["withdrawalsRoot"]
         ) == t8n_tool.hex_to_root(data["result"]["withdrawalsRoot"])
+
+    if "receipts" in data["result"]:
+        assert len(json_result["receipts"]) == len(data["result"]["receipts"])
+        for t8n_receipt, expected_receipt in zip(
+            json_result["receipts"], data["result"]["receipts"]
+        ):
+            assert t8n_receipt["gasUsed"] == expected_receipt["gasUsed"]
+            assert (
+                t8n_receipt["transactionHash"]
+                == expected_receipt["transactionHash"]
+            )
 
 
 @pytest.mark.evm_tools
