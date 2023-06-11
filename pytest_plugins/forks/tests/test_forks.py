@@ -6,15 +6,6 @@ import pytest
 
 from ethereum_test_forks import ArrowGlacier, forks_from_until, get_deployed_forks, get_forks
 
-pytest_plugin_args = (
-    "-p",
-    "pytest_plugins.forks.forks",
-    "-p",
-    "pytest_plugins.test_filler.test_filler",
-    "-p",
-    "pytest_plugins.spec_version_checker.spec_version_checker",
-)
-
 
 @pytest.fixture
 def fork_map():
@@ -38,10 +29,8 @@ def test_no_options_no_validity_marker(pytester):
             pass
         """
     )
-    result = pytester.runpytest(
-        *pytest_plugin_args,
-        "-v",
-    )
+    pytester.copy_example(name="pytest.ini")
+    result = pytester.runpytest("-v")
     all_forks = get_deployed_forks()
     forks_under_test = forks_from_until(all_forks[0], all_forks[-1])
     for fork in forks_under_test:
@@ -70,12 +59,8 @@ def test_from_london_option_no_validity_marker(pytester, fork_map, fork):
             pass
         """
     )
-    result = pytester.runpytest(
-        *pytest_plugin_args,
-        "-v",
-        "--from",
-        fork,
-    )
+    pytester.copy_example(name="pytest.ini")
+    result = pytester.runpytest("-v", "--from", fork)
     all_forks = get_deployed_forks()
     forks_under_test = forks_from_until(fork_map[fork], all_forks[-1])
     for fork_under_test in forks_under_test:
@@ -103,9 +88,8 @@ def test_from_london_until_shanghai_option_no_validity_marker(pytester, fork_map
             pass
         """
     )
-    result = pytester.runpytest(
-        *pytest_plugin_args, "-v", "--from", "London", "--until", "Shanghai"
-    )
+    pytester.copy_example(name="pytest.ini")
+    result = pytester.runpytest("-v", "--from", "London", "--until", "Shanghai")
     forks_under_test = forks_from_until(fork_map["London"], fork_map["Shanghai"])
     if ArrowGlacier in forks_under_test:
         forks_under_test.remove(ArrowGlacier)
