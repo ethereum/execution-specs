@@ -4,6 +4,7 @@ Pytest plugin to enable fork range configuration for the test session.
 import textwrap
 
 import pytest
+from pytest import Metafunc
 
 from ethereum_test_forks import (
     forks_from_until,
@@ -204,63 +205,95 @@ def fork(request):
     pass
 
 
+def get_validity_marker_args(
+    metafunc: Metafunc,
+    validity_marker_name: str,
+    test_name: str,
+) -> str | None:
+    """Check and return the arguments specified to validity markers.
+
+    Check that the validity markers:
+
+    - `pytest.mark.valid_from`
+    - `pytest.mark.valid_until`
+    - `pytest.mark.valid_at_transition_to`
+
+    are applied at most once and have been provided with exactly one
+    argument which is a valid fork name.
+
+    Args:
+        metafunc: Pytest's metafunc object.
+        validity_marker_name: Name of the validity marker to validate
+            and return.
+        test_name: The name of the test being parametrized by
+            `pytest_generate_tests`.
+
+    Returns:
+        The name of the fork specified to the validity marker.
+    """
+    validity_markers = [
+        marker for marker in metafunc.definition.iter_markers(validity_marker_name)
+    ]
+    if not validity_markers:
+        return None
+    if len(validity_markers) > 1:
+        pytest.fail(f"'{test_name}': Too many '{validity_marker_name}' markers applied to test. ")
+    if len(validity_markers[0].args) == 0:
+        pytest.fail(f"'{test_name}': Missing fork argument with '{validity_marker_name}' marker. ")
+    if len(validity_markers[0].args) > 1:
+        pytest.fail(
+            f"'{test_name}': Too many arguments specified to '{validity_marker_name}' marker. "
+        )
+    fork_name = validity_markers[0].args[0]
+    if fork_name not in metafunc.config.fork_names:  # type: ignore
+        pytest.fail(
+            f"'{test_name}' specifies an invalid fork '{fork_name}' to the "
+            f"'{validity_marker_name}'. "
+        )
+
+    return fork_name
+
+
 def pytest_generate_tests(metafunc):
     """
     Pytest hook used to dynamically generate test cases.
     """
-    valid_at_transition_to = [
-        marker.args[0]
-        for marker in metafunc.definition.iter_markers(name="valid_at_transition_to")
-    ]
-    valid_from = [marker.args[0] for marker in metafunc.definition.iter_markers(name="valid_from")]
-    valid_until = [
-        marker.args[0] for marker in metafunc.definition.iter_markers(name="valid_until")
-    ]
-    if valid_at_transition_to and (valid_from or valid_until):
+    test_name = metafunc.function.__name__
+    valid_at_transition_to = get_validity_marker_args(
+        metafunc, "valid_at_transition_to", test_name
+    )
+    valid_from = get_validity_marker_args(metafunc, "valid_from", test_name)
+    valid_until = get_validity_marker_args(metafunc, "valid_until", test_name)
+
+    if valid_at_transition_to and valid_from:
         pytest.fail(
-            "The test function "
-            f"{metafunc.function.__name__} specifies both a "
-            "pytest.mark.valid_at_transition_to and a pytest.mark.valid_from "
-            "or pytest.mark.valid_until marker. "
+            f"'{test_name}': "
+            "The markers 'valid_from' and 'valid_at_transition_to' can't be combined. "
+        )
+    if valid_at_transition_to and valid_until:
+        pytest.fail(
+            f"'{test_name}': "
+            "The markers 'valid_until' and 'valid_at_transition_to' can't be combined. "
         )
 
     intersection_range = []
 
     if valid_at_transition_to:
-        fork_to = valid_at_transition_to[0]
-        if fork_to not in metafunc.config.fork_names:
-            pytest.fail(
-                "The test function "
-                f"{metafunc.function.__name__} specifies an invalid fork "
-                f"{fork_to} to the pytest.mark.valid_at_transition_to marker. "
-            )
-        if fork_to in metafunc.config.fork_range:
-            to_fork = metafunc.config.fork_map[fork_to]
+        to_fork = metafunc.config.fork_map[valid_at_transition_to]
+        if to_fork in metafunc.config.fork_range:
             intersection_range = transition_fork_to(to_fork)
 
     else:
         if not valid_from:
-            valid_from = [metafunc.config.fork_names[0]]
+            valid_from = metafunc.config.fork_names[0]
 
-        if valid_from[0] not in metafunc.config.fork_names:
-            pytest.fail(
-                "The test function "
-                f"{metafunc.function.__name__} specifies an invalid fork "
-                f"{valid_from[0]} to the pytest.mark.valid_from marker. "
-            )
-        if valid_until and valid_until[0] not in metafunc.config.fork_names:
-            pytest.fail(
-                "The test function "
-                f"{metafunc.function.__name__} specifies an invalid fork "
-                f"{valid_until[0]} to the pytest.mark.valid_until marker. "
-            )
         if not valid_until:
-            valid_until = [metafunc.config.fork_names[-1]]
+            valid_until = metafunc.config.fork_names[-1]
 
         test_fork_range = set(
             metafunc.config.fork_names[
-                metafunc.config.fork_names.index(valid_from[0]) : metafunc.config.fork_names.index(
-                    valid_until[0]
+                metafunc.config.fork_names.index(valid_from) : metafunc.config.fork_names.index(
+                    valid_until
                 )
                 + 1
             ]
@@ -269,10 +302,10 @@ def pytest_generate_tests(metafunc):
         if not test_fork_range:
             pytest.fail(
                 "The test function's "
-                f"{metafunc.function.__name__} fork validity markers generate "
+                f"'{test_name}' fork validity markers generate "
                 "an empty fork range. Please check the arguments to it's "
-                f"markers:  @pytest.mark.valid_from ({valid_from[0]}) and "
-                f"@pytest.mark.valid_until ({valid_until[0]})."
+                f"markers:  @pytest.mark.valid_from ({valid_from}) and "
+                f"@pytest.mark.valid_until ({valid_until})."
             )
 
         intersection_range = list(set(metafunc.config.fork_range) & test_fork_range)
