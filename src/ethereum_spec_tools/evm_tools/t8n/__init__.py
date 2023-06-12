@@ -339,7 +339,8 @@ class T8N(Load):
                     raise e
             else:
                 self.txs.add_transaction(tx)
-                gas_available -= process_transaction_return[0]
+                gas_consumed = process_transaction_return[0]
+                gas_available -= gas_consumed
 
                 self.tx_trie_set(transactions_trie, i, tx)
 
@@ -352,6 +353,8 @@ class T8N(Load):
                     rlp.encode(Uint(i)),
                     receipt,
                 )
+
+                self.txs.add_receipt(tx, gas_consumed)
 
                 block_logs += process_transaction_return[1]
 
@@ -389,6 +392,7 @@ class T8N(Load):
         self.result.bloom = block_logs_bloom
         self.result.logs_hash = logs_hash
         self.result.rejected = self.txs.rejected_txs
+        self.result.receipts = self.txs.successful_receipts
         self.result.gas_used = block_gas_used
 
     def run(self) -> int:

@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
-from ethereum.base_types import Bytes
+from ethereum.base_types import Bytes, Uint
+from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..fixture_loader import UnsupportedTx
@@ -49,7 +50,6 @@ class Alloc:
         """Encode the state to JSON"""
         data = {}
         for address, account in self.state._main_trie._data.items():
-
             account_data: Dict[str, Any] = {}
 
             if account.balance:
@@ -82,6 +82,7 @@ class Txs:
 
     rejected_txs: Dict[int, str]
     successful_txs: List[Any]
+    successful_receipts: List[Any]
     all_txs: List[Any]
     t8n: Any
     data: Any
@@ -91,6 +92,7 @@ class Txs:
         self.t8n = t8n
         self.rejected_txs = {}
         self.successful_txs = []
+        self.successful_receipts = []
         self.rlp_input = False
         self.all_txs = []
 
@@ -210,6 +212,23 @@ class Txs:
         else:
             self.successful_txs.append(tx)
 
+    def add_receipt(self, tx: Any, gas_consumed: Uint) -> None:
+        """
+        Add t8n receipt info for valid tx
+        """
+        if self.t8n.is_after_fork("ethereum.berlin") and not isinstance(
+            tx, self.t8n.fork_types.LegacyTransaction
+        ):
+            tx_hash = keccak256(self.t8n.fork_types.encode_transaction(tx))
+        else:
+            tx_hash = keccak256(rlp.encode(tx))
+
+        data = {
+            "transactionHash": "0x" + tx_hash.hex(),
+            "gasUsed": hex(gas_consumed),
+        }
+        self.successful_receipts.append(data)
+
     def sign_transaction(self, json_tx: Any) -> None:
         """
         Sign a transaction. This function will be invoked if a `secretKey`
@@ -271,7 +290,7 @@ class Result:
     withdrawals_root: Any = None
     logs_hash: Any = None
     bloom: Any = None
-    # TODO: Add receipts to result
+    receipts: Any = None
     rejected: Any = None
     gas_used: Any = None
 
@@ -300,6 +319,14 @@ class Result:
         data["rejected"] = [
             {"index": idx, "error": error}
             for idx, error in self.rejected.items()
+        ]
+
+        data["receipts"] = [
+            {
+                "transactionHash": item["transactionHash"],
+                "gasUsed": item["gasUsed"],
+            }
+            for item in self.receipts
         ]
 
         return data
