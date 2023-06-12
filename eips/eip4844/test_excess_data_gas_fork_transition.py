@@ -19,7 +19,12 @@ from ethereum_test_tools import (
     to_hash_bytes,
 )
 
-from .utils import BLOB_COMMITMENT_VERSION_KZG, MAX_BLOBS_PER_BLOCK, TARGET_BLOBS_PER_BLOCK
+from .utils import (
+    BLOB_COMMITMENT_VERSION_KZG,
+    MAX_BLOBS_PER_BLOCK,
+    TARGET_BLOBS_PER_BLOCK,
+    get_min_excess_data_blobs_for_data_gas_price,
+)
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
 REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
@@ -30,8 +35,6 @@ pytestmark = pytest.mark.valid_at_transition_to("Cancun")
 
 # Timestamp of the fork
 FORK_TIMESTAMP = 15_000
-# Data gas cost increases from 1 to 2 at this amount of excess blobs
-BLOBS_TO_DATA_GAS_COST_INCREASE = 12
 
 
 @pytest.fixture
@@ -59,7 +62,9 @@ def post_fork_block_count() -> int:
     """
     Amount of blocks to produce with the post-fork rules.
     """
-    return 12
+    return get_min_excess_data_blobs_for_data_gas_price(2) // (
+        MAX_BLOBS_PER_BLOCK - TARGET_BLOBS_PER_BLOCK
+    )
 
 
 @pytest.fixture
@@ -187,7 +192,9 @@ def test_invalid_post_fork_block_without_excess_data_gas(
     "post_fork_block_count,blob_count_per_block",
     [
         (
-            BLOBS_TO_DATA_GAS_COST_INCREASE // (MAX_BLOBS_PER_BLOCK - TARGET_BLOBS_PER_BLOCK) + 2,
+            get_min_excess_data_blobs_for_data_gas_price(2)
+            // (MAX_BLOBS_PER_BLOCK - TARGET_BLOBS_PER_BLOCK)
+            + 2,
             MAX_BLOBS_PER_BLOCK,
         ),
         (10, 0),

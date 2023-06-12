@@ -28,16 +28,16 @@ BLOBHASH_GAS_COST = 3
 BLS_MODULUS = 0x73EDA753299D7D483339D80809A1D80553BDA402FFFE5BFEFFFFFFFF00000001
 BLS_MODULUS_BYTES = BLS_MODULUS.to_bytes(32, "big")
 DATA_GAS_PER_BLOB = 2**17
-DATA_GASPRICE_UPDATE_FRACTION = 2225652
+DATA_GASPRICE_UPDATE_FRACTION = 3338477
 FIELD_ELEMENTS_PER_BLOB = 4096
 FIELD_ELEMENTS_PER_BLOB_BYTES = FIELD_ELEMENTS_PER_BLOB.to_bytes(32, "big")
 INF_POINT = (0xC0 << 376).to_bytes(48, byteorder="big")
-MAX_DATA_GAS_PER_BLOCK = 2**19
+MAX_DATA_GAS_PER_BLOCK = 786432
 MAX_BLOBS_PER_BLOCK = MAX_DATA_GAS_PER_BLOCK // DATA_GAS_PER_BLOB
 MIN_DATA_GASPRICE = 1
 POINT_EVALUATION_PRECOMPILE_ADDRESS = 20
 POINT_EVALUATION_PRECOMPILE_GAS = 50_000
-TARGET_DATA_GAS_PER_BLOCK = 2**18
+TARGET_DATA_GAS_PER_BLOCK = 393216
 TARGET_BLOBS_PER_BLOCK = TARGET_DATA_GAS_PER_BLOCK // DATA_GAS_PER_BLOB
 Z = 0x623CE31CF9759A5C8DAF3A357992F9F3DD7F9339D8998BC8E68373E54F00B75E
 Z_Y_INVALID_ENDIANNESS: Literal["little", "big"] = "little"
@@ -76,6 +76,25 @@ def get_data_gasprice(*, excess_data_gas: int) -> int:
         excess_data_gas,
         DATA_GASPRICE_UPDATE_FRACTION,
     )
+
+
+def get_min_excess_data_gas_for_data_gas_price(data_gas_price: int) -> int:
+    """
+    Gets the minimum required excess data gas value to get a given data gas cost in a block
+    """
+    current_excess_data_gas = 0
+    current_data_gas_price = 1
+    while current_data_gas_price < data_gas_price:
+        current_excess_data_gas += DATA_GAS_PER_BLOB
+        current_data_gas_price = get_data_gasprice(excess_data_gas=current_excess_data_gas)
+    return current_excess_data_gas
+
+
+def get_min_excess_data_blobs_for_data_gas_price(data_gas_price: int) -> int:
+    """
+    Gets the minimum required excess data blobs to get a given data gas cost in a block
+    """
+    return get_min_excess_data_gas_for_data_gas_price(data_gas_price) // DATA_GAS_PER_BLOB
 
 
 def calc_excess_data_gas(*, parent_excess_data_gas: int, parent_blobs: int) -> int:

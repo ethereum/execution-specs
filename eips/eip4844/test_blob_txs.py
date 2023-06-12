@@ -26,6 +26,7 @@ from .utils import (
     TARGET_BLOBS_PER_BLOCK,
     calc_excess_data_gas,
     get_data_gasprice,
+    get_min_excess_data_blobs_for_data_gas_price,
 )
 
 # * Adding a new test *
@@ -419,7 +420,7 @@ def test_valid_blob_tx_combinations(
     [
         # tx max_data_gas_cost of the transaction is not enough
         (
-            11,  # data gas price is 2
+            get_min_excess_data_blobs_for_data_gas_price(2) - 1,  # data gas price is 1
             TARGET_BLOBS_PER_BLOCK + 1,  # data gas cost increases to 2
             1,  # tx max_data_gas_cost is 1
             "insufficient max fee per data gas",

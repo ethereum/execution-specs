@@ -27,6 +27,7 @@ from .utils import (
     TARGET_BLOBS_PER_BLOCK,
     calc_excess_data_gas,
     get_data_gasprice,
+    get_min_excess_data_blobs_for_data_gas_price,
 )
 
 # * Adding a new test *
@@ -95,7 +96,12 @@ def header_excess_data_gas(  # noqa: D103
     header_excess_data_gas_delta: Optional[int],
 ) -> Optional[int]:
     if header_excess_blobs_delta is not None:
-        return correct_excess_data_gas + (header_excess_blobs_delta * DATA_GAS_PER_BLOB)
+        modified_excess_data_gas = correct_excess_data_gas + (
+            header_excess_blobs_delta * DATA_GAS_PER_BLOB
+        )
+        if modified_excess_data_gas < 0:
+            modified_excess_data_gas = 2**64 + (modified_excess_data_gas)
+        return modified_excess_data_gas
     if header_excess_data_gas_delta is not None:
         return correct_excess_data_gas + header_excess_data_gas_delta
     return None
@@ -273,22 +279,24 @@ def test_correct_excess_data_gas_calculation(
     )
 
 
+DATA_GAS_COST_INCREASES = [
+    get_min_excess_data_blobs_for_data_gas_price(i)
+    for i in [
+        2,  # First data gas cost increase
+        2**32 // DATA_GAS_PER_BLOB,  # Data tx wei cost 2^32
+        2**32,  # Data gas cost 2^32
+        2**64 // DATA_GAS_PER_BLOB,  # Data tx wei cost 2^64
+        2**64,  # Data gas cost 2^64
+        (
+            120_000_000 * (10**18) // DATA_GAS_PER_BLOB
+        ),  # Data tx wei is current total Ether supply
+    ]
+]
+
+
 @pytest.mark.parametrize(
     "parent_excess_blobs",
-    [
-        # Data gas cost increase to 2
-        11,
-        # Data tx wei cost increase to 2^32
-        176,
-        # Data gas cost increase to 2^32
-        376,
-        # Data tx wei cost increase to 2^64
-        553,
-        # Data gas cost increase to 2^64
-        753,
-        # Data tx wei cost increase to main net current total Ether supply
-        820,
-    ],
+    [g - 1 for g in DATA_GAS_COST_INCREASES],
 )
 @pytest.mark.parametrize("parent_blobs", [TARGET_BLOBS_PER_BLOCK + 1])
 @pytest.mark.parametrize("new_blobs", [1])
@@ -315,18 +323,7 @@ def test_correct_increasing_data_gas_costs(
 
 @pytest.mark.parametrize(
     "parent_excess_blobs",
-    [
-        # Data gas cost decrease to 1
-        12,
-        # Data tx wei cost decrease from 2^32
-        177,
-        # Data gas cost decrease from 2^32
-        377,
-        # Data tx wei cost decrease from 2^64
-        554,
-        # Data gas cost decrease from 2^64
-        754,
-    ],
+    [g for g in DATA_GAS_COST_INCREASES],
 )
 @pytest.mark.parametrize("parent_blobs", [TARGET_BLOBS_PER_BLOCK - 1])
 @pytest.mark.parametrize("new_blobs", [1])
