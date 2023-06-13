@@ -51,16 +51,6 @@ SLOW_TESTS = (
 # These are tests that are considered to be incorrect,
 # Please provide an explanation when adding entries
 IGNORE_TESTS = (
-    # The test considers a scenario that cannot be reached by following the
-    # rules of consensus. For more details, read:
-    # https://github.com/ethereum/py-evm/pull/1224#issuecomment-418775512
-    "stRevertTest/RevertInCreateInInit.json",
-    # The test considers a scenario that cannot be reached by following the
-    # rules of consensus.
-    "stCreate2/RevertInCreateInInitCreate2.json",
-    # The test considers a scenario that cannot be reached by following the
-    # rules of consensus.
-    "stSStoreTest/InitCollision.json",
     # ValidBlockTest
     "bcForkStressTest/ForkStressTest.json",
     "bcGasPricerTest/RPC_API_Test.json",
