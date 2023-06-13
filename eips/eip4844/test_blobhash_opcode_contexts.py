@@ -16,7 +16,7 @@ from ethereum_test_tools import (
     to_hash_bytes,
 )
 
-from .utils import BlobhashContext, MAX_BLOBS_PER_BLOCK, simple_blob_hashes
+from .utils import MAX_BLOBS_PER_BLOCK, BlobhashContext, simple_blob_hashes
 
 pytestmark = pytest.mark.valid_from("Cancun")
 
