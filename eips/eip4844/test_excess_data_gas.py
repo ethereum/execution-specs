@@ -485,6 +485,7 @@ def test_invalid_static_excess_data_gas(
     but the parent blobs included are not TARGET_BLOBS_PER_BLOCK.
     """
     blocks[0].rlp_modifier = Header(excess_data_gas=parent_excess_data_gas)
+    blocks[0].exception = "invalid excessDataGas"
     blockchain_test(
         pre=pre,
         post={},
