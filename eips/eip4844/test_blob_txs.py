@@ -889,7 +889,6 @@ def test_blob_tx_attribute_gasprice_opcode(
 def test_blob_type_tx_pre_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
-    env: Environment,
     blocks: List[Block],
 ):
     """
@@ -899,5 +898,5 @@ def test_blob_type_tx_pre_fork(
         pre=pre,
         post={},
         blocks=blocks,
-        genesis_environment=env,
+        genesis_environment=Environment(),  # `env` fixture has blob fields
     )
