@@ -1,6 +1,7 @@
 """
 Pytest plugin to enable fork range configuration for the test session.
 """
+import sys
 import textwrap
 
 import pytest
@@ -111,13 +112,15 @@ def pytest_configure(config):
         pytest.exit("After displaying help.", returncode=0)
 
     if single_fork and single_fork not in config.fork_map.keys():
-        print("Error: Unsupported fork provided to --fork:", single_fork, "\n")
-        print(available_forks_help)
-        pytest.exit("Invalid command-line options.", returncode=1)
+        print("Error: Unsupported fork provided to --fork:", single_fork, "\n", file=sys.stderr)
+        print(available_forks_help, file=sys.stderr)
+        pytest.exit("Invalid command-line options.", returncode=pytest.ExitCode.USAGE_ERROR)
 
     if single_fork and (forks_from or forks_until):
-        print("Error: --fork cannot be used in combination with --forks-from or " "--forks-until")
-        pytest.exit("Invalid command-line options.", returncode=1)
+        print(
+            "Error: --fork cannot be used in combination with --from or --until", file=sys.stderr
+        )
+        pytest.exit("Invalid command-line options.", returncode=pytest.ExitCode.USAGE_ERROR)
 
     if single_fork:
         forks_from = single_fork
@@ -127,22 +130,14 @@ def pytest_configure(config):
             forks_from = config.fork_names[0]
 
     if forks_from not in config.fork_map.keys():
-        print(
-            "Error: Unsupported fork provided to --forks-from:",
-            forks_from,
-            "\n",
-        )
-        print(available_forks_help)
-        pytest.exit("Invalid command-line options.", returncode=1)
+        print(f"Error: Unsupported fork provided to --from: {forks_from}\n", file=sys.stderr)
+        print(available_forks_help, file=sys.stderr)
+        pytest.exit("Invalid command-line options.", returncode=pytest.ExitCode.USAGE_ERROR)
 
     if forks_until not in config.fork_map.keys():
-        print(
-            "Error: Unsupported fork provided to --forks-until:",
-            forks_until,
-            "\n",
-        )
-        print(available_forks_help)
-        pytest.exit("Invalid command-line options.", returncode=1)
+        print(f"Error: Unsupported fork provided to --until: {forks_until}\n", file=sys.stderr)
+        print(available_forks_help, file=sys.stderr)
+        pytest.exit("Invalid command-line options.", returncode=pytest.ExitCode.USAGE_ERROR)
 
     config.fork_range = config.fork_names[
         config.fork_names.index(forks_from) : config.fork_names.index(forks_until) + 1
@@ -150,10 +145,13 @@ def pytest_configure(config):
 
     if not config.fork_range:
         print(
-            f"Error: --forks-from {forks_from} --forks-until {forks_until} "
-            "creates an empty fork range."
+            f"Error: --from {forks_from} --until {forks_until} creates an empty fork range.",
+            file=sys.stderr,
         )
-        pytest.exit("Command-line options produce empty fork range.", returncode=1)
+        pytest.exit(
+            "Command-line options produce empty fork range.",
+            returncode=pytest.ExitCode.USAGE_ERROR,
+        )
 
     # with --collect-only, we don't have access to these config options
     if config.option.collectonly:
@@ -168,13 +166,17 @@ def pytest_configure(config):
     if unsupported_forks:
         print(
             "Error: The configured evm tool doesn't support the following "
-            f"forks: {', '.join(unsupported_forks)}."
+            f"forks: {', '.join(unsupported_forks)}.",
+            file=sys.stderr,
         )
         print(
             "\nPlease specify a version of the evm tool which supports these "
-            "forks or use --until FORK to specify a supported fork.\n"
+            "forks or use --until FORK to specify a supported fork.\n",
+            file=sys.stderr,
         )
-        pytest.exit("Incompatible evm tool with fork range.", returncode=1)
+        pytest.exit(
+            "Incompatible evm tool with fork range.", returncode=pytest.ExitCode.USAGE_ERROR
+        )
 
 
 @pytest.hookimpl(trylast=True)
