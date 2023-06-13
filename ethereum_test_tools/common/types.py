@@ -642,6 +642,20 @@ class Environment:
         if fork.header_zero_difficulty_required(self.number, self.timestamp):
             res.difficulty = 0
 
+        if (
+            fork.header_excess_data_gas_required(self.number, self.timestamp)
+            and res.excess_data_gas is None
+            and res.parent_excess_data_gas is None
+        ):
+            res.excess_data_gas = 0
+
+        if (
+            fork.header_data_gas_used_required(self.number, self.timestamp)
+            and res.data_gas_used is None
+            and res.parent_data_gas_used is None
+        ):
+            res.data_gas_used = 0
+
         return res
 
 
