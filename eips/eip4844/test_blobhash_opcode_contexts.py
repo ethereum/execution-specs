@@ -16,7 +16,7 @@ from ethereum_test_tools import (
     to_hash_bytes,
 )
 
-from .utils import BlobhashContext, simple_blob_hashes
+from .utils import BlobhashContext, MAX_BLOBS_PER_BLOCK, simple_blob_hashes
 
 pytestmark = pytest.mark.valid_from("Cancun")
 
@@ -136,7 +136,7 @@ def opcode_context(yul: YulCompiler, request):
                 ),
             },
             tx_type_3.with_fields(
-                data=to_hash_bytes(0) + to_hash_bytes(3),
+                data=to_hash_bytes(0) + to_hash_bytes(MAX_BLOBS_PER_BLOCK - 1),
                 to=BlobhashContext.address("delegatecall"),
             ),
             {
@@ -158,7 +158,7 @@ def opcode_context(yul: YulCompiler, request):
                 ),
             },
             tx_type_3.with_fields(
-                data=to_hash_bytes(0) + to_hash_bytes(3),
+                data=to_hash_bytes(0) + to_hash_bytes(MAX_BLOBS_PER_BLOCK - 1),
                 to=BlobhashContext.address("staticcall"),
             ),
             {
@@ -180,7 +180,7 @@ def opcode_context(yul: YulCompiler, request):
                 ),
             },
             tx_type_3.with_fields(
-                data=to_hash_bytes(0) + to_hash_bytes(3),
+                data=to_hash_bytes(0) + to_hash_bytes(MAX_BLOBS_PER_BLOCK - 1),
                 to=BlobhashContext.address("callcode"),
             ),
             {
