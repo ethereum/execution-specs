@@ -46,6 +46,13 @@ class Frontier(BaseFork):
         return False
 
     @classmethod
+    def header_data_gas_used_required(cls, block_number: int, timestamp: int) -> bool:
+        """
+        At genesis, header must not contain data gas used
+        """
+        return False
+
+    @classmethod
     def get_reward(cls, block_number: int, timestamp: int) -> int:
         """
         At Genesis the expected reward amount in wei is
@@ -210,5 +217,12 @@ class Cancun(Shanghai):
     def header_excess_data_gas_required(cls, block_number: int, timestamp: int) -> bool:
         """
         Excess data gas is required starting from Cancun.
+        """
+        return True
+
+    @classmethod
+    def header_data_gas_used_required(cls, block_number: int, timestamp: int) -> bool:
+        """
+        Data gas used is required starting from Cancun.
         """
         return True

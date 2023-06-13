@@ -14,7 +14,7 @@ class BaseForkMeta(ABCMeta):
         """
         To be implemented by the fork base class.
         """
-        pass
+        return ""
 
     def __repr__(cls) -> str:
         """
@@ -67,6 +67,14 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     def header_excess_data_gas_required(cls, block_number: int, timestamp: int) -> bool:
         """
         Returns true if the header must contain excess data gas
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def header_data_gas_used_required(cls, block_number: int, timestamp: int) -> bool:
+        """
+        Returns true if the header must contain data gas used
         """
         pass
 
