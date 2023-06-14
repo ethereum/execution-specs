@@ -2,6 +2,7 @@
 Yul frontend
 """
 
+import re
 from pathlib import Path
 from shutil import which
 from subprocess import PIPE, run
@@ -96,6 +97,25 @@ class Yul(Code):
 
             self.compiled = bytes.fromhex(hex_str)
         return self.compiled
+
+    def version(self) -> str:
+        """
+        Return solc's version string
+        """
+        result = run(
+            [self.binary, "--version"],
+            stdout=PIPE,
+            stderr=PIPE,
+        )
+        solc_output = result.stdout.decode().split("\n")
+        version_pattern = r"0\.\d+\.\d+\+\S+"
+        solc_version_string = None
+        for line in solc_output:
+            match = re.search(version_pattern, line)
+            if match:
+                solc_version_string = match.group(0)
+                break
+        return solc_version_string
 
 
 YulCompiler = Type[Yul]

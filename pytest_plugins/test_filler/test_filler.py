@@ -115,26 +115,7 @@ def pytest_report_header(config, start_path):
         binary=config.getoption("evm_bin"),
         trace=config.getoption("evm_collect_traces"),
     )
-    if config.getoption("solc_bin"):
-        solc_bin = config.getoption("solc_bin")
-    else:
-        solc_bin = which("solc")
-
-    result = subprocess.run(
-        [solc_bin, "--version"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    solc_output = result.stdout.decode().split("\n")
-
-    version_pattern = r"0\.\d+\.\d+\+\S+"
-    solc_version_string = None
-
-    for line in solc_output:
-        match = re.search(version_pattern, line)
-        if match:
-            solc_version_string = match.group(0)
-            break
+    solc_version_string = Yul("", binary=config.getoption("solc_bin")).version()
     return [f"{t8n.version()}, solc version {solc_version_string}"]
 
 
