@@ -108,17 +108,10 @@ def header_excess_data_gas(  # noqa: D103
 
 
 @pytest.fixture
-def fee_per_data_gas(  # noqa: D103
+def block_fee_per_data_gas(  # noqa: D103
     correct_excess_data_gas: int,
 ) -> int:
     return get_data_gasprice(excess_data_gas=correct_excess_data_gas)
-
-
-@pytest.fixture
-def tx_max_fee_per_data_gas(  # noqa: D103
-    fee_per_data_gas: int,
-) -> int:
-    return fee_per_data_gas
 
 
 @pytest.fixture
@@ -140,25 +133,25 @@ def env(  # noqa: D103
 
 
 @pytest.fixture
-def tx_max_fee(  # noqa: D103
+def tx_max_fee_per_gas(  # noqa: D103
     block_base_fee: int,
 ) -> int:
     return block_base_fee
 
 
 @pytest.fixture
-def tx_max_fee_per_data(  # noqa: D103
-    fee_per_data_gas: int,
+def tx_max_fee_per_data_gas(  # noqa: D103
+    block_fee_per_data_gas: int,
 ) -> int:
-    return fee_per_data_gas
+    return block_fee_per_data_gas
 
 
 @pytest.fixture
 def tx_data_cost(  # noqa: D103
-    tx_max_fee_per_data: int,
+    tx_max_fee_per_data_gas: int,
     new_blobs: int,
 ) -> int:
-    return tx_max_fee_per_data * DATA_GAS_PER_BLOB * new_blobs
+    return tx_max_fee_per_data_gas * DATA_GAS_PER_BLOB * new_blobs
 
 
 @pytest.fixture
@@ -167,9 +160,9 @@ def tx_value() -> int:  # noqa: D103
 
 
 @pytest.fixture
-def tx_exact_cost(tx_value: int, tx_max_fee: int, tx_data_cost: int) -> int:  # noqa: D103
+def tx_exact_cost(tx_value: int, tx_max_fee_per_gas: int, tx_data_cost: int) -> int:  # noqa: D103
     tx_gas = 21000
-    return (tx_gas * tx_max_fee) + tx_value + tx_data_cost
+    return (tx_gas * tx_max_fee_per_gas) + tx_value + tx_data_cost
 
 
 @pytest.fixture
@@ -194,8 +187,8 @@ def post(destination_account: str, tx_value: int) -> Mapping[str, Account]:  # n
 @pytest.fixture
 def tx(  # noqa: D103
     new_blobs: int,
-    tx_max_fee: int,
-    tx_max_fee_per_data: int,
+    tx_max_fee_per_gas: int,
+    tx_max_fee_per_data_gas: int,
     destination_account: str,
 ):
     if new_blobs == 0:
@@ -206,7 +199,7 @@ def tx(  # noqa: D103
             to=destination_account,
             value=1,
             gas_limit=21000,
-            max_fee_per_gas=tx_max_fee,
+            max_fee_per_gas=tx_max_fee_per_gas,
             max_priority_fee_per_gas=0,
             access_list=[],
         )
@@ -217,9 +210,9 @@ def tx(  # noqa: D103
             to=destination_account,
             value=1,
             gas_limit=21000,
-            max_fee_per_gas=tx_max_fee,
+            max_fee_per_gas=tx_max_fee_per_gas,
             max_priority_fee_per_gas=0,
-            max_fee_per_data_gas=tx_max_fee_per_data,
+            max_fee_per_data_gas=tx_max_fee_per_data_gas,
             access_list=[],
             blob_versioned_hashes=add_kzg_version(
                 [to_hash_bytes(x) for x in range(new_blobs)],
