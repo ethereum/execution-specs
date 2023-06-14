@@ -10,12 +10,12 @@ from ethereum_test_tools import (
     StateTestFiller,
     TestAddress,
     Transaction,
-    Yul,
+    YulCompiler,
 )
 
 
 @pytest.mark.valid_from("Berlin")
-def test_yul(state_test: StateTestFiller):
+def test_yul(state_test: StateTestFiller, yul: YulCompiler):
     """
     Test YUL compiled bytecode.
     """
@@ -24,7 +24,7 @@ def test_yul(state_test: StateTestFiller):
     pre = {
         "0x1000000000000000000000000000000000000000": Account(
             balance=0x0BA1A9CE0BA1A9CE,
-            code=Yul(
+            code=yul(
                 """
             {
                 function f(a, b) -> c {

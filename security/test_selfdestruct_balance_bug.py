@@ -16,14 +16,15 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     TestAddress,
     Transaction,
-    Yul,
+    YulCompiler,
     to_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
+@pytest.mark.compile_yul_with("Merge")  # Shanghai refuses to compile SELFDESTRUCT
 @pytest.mark.valid_from("Constantinople")
-def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller):
+def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller, yul: YulCompiler):
     """
     Checks balance of 0xaa after executing specific txs:
 
@@ -47,7 +48,7 @@ def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller):
             - during tx 2, code in 0xaa does not execute,
               hence self-destruct mechanism does not trigger.
     """
-    aa_code = Yul(
+    aa_code = yul(
         """
         {
             /* 1st entrance is self-destruct */

@@ -12,6 +12,7 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     TestAddress,
     Transaction,
+    YulCompiler,
     to_hash_bytes,
 )
 
@@ -48,13 +49,33 @@ def create_opcode_context(pre, tx, post):
     }
 
 
-# Dictionary of BLOBHASH opcode use cases. Each context is given a
-# pre state, tx & post state respectively, and utilized
-# directly within the context pytest fixture.
-opcode_contexts = [
-    (
+@pytest.fixture(
+    params=[
         "on_top_level_call_stack",
-        create_opcode_context(
+        "on_max_value",
+        "on_CALL",
+        "on_DELEGATECALL",
+        "on_STATICCALL",
+        "on_CALLCODE",
+        "on_INITCODE",
+        "on_CREATE",
+        "on_CREATE2",
+        "on_type_2_tx",
+        "on_type_1_tx",
+        "on_type_0_tx",
+    ]
+)
+def opcode_context(yul: YulCompiler, request):
+    """
+    Fixture that is parameterized by each BLOBHASH opcode test case
+    in order to return the corresponding constructed opcode context.
+
+    Each context is given a pre state, tx & post state respectively
+    """
+    BlobhashContext.yul_compiler = yul
+    test_case = request.param
+    if test_case == "on_top_level_call_stack":
+        return create_opcode_context(
             {
                 BlobhashContext.address("blobhash_sstore"): Account(
                     code=BlobhashContext.code("blobhash_sstore")
@@ -69,11 +90,9 @@ opcode_contexts = [
                     storage={0: simple_blob_hashes[0]}
                 ),
             },
-        ),
-    ),
-    (
-        "on_max_value",
-        create_opcode_context(
+        )
+    elif test_case == "on_max_value":
+        return create_opcode_context(
             {
                 BlobhashContext.address("blobhash_sstore"): Account(
                     code=BlobhashContext.code("blobhash_sstore")
@@ -86,11 +105,9 @@ opcode_contexts = [
             {
                 BlobhashContext.address("blobhash_sstore"): Account(storage={}),
             },
-        ),
-    ),
-    (
-        "on_CALL",
-        create_opcode_context(
+        )
+    elif test_case == "on_CALL":
+        return create_opcode_context(
             {
                 BlobhashContext.address("call"): Account(code=BlobhashContext.code("call")),
                 BlobhashContext.address("blobhash_sstore"): Account(
@@ -107,11 +124,9 @@ opcode_contexts = [
                     storage={1: simple_blob_hashes[1]}
                 ),
             },
-        ),
-    ),
-    (
-        "on_DELEGATECALL",
-        create_opcode_context(
+        )
+    elif test_case == "on_DELEGATECALL":
+        return create_opcode_context(
             {
                 BlobhashContext.address("delegatecall"): Account(
                     code=BlobhashContext.code("delegatecall")
@@ -131,11 +146,9 @@ opcode_contexts = [
                     }
                 ),
             },
-        ),
-    ),
-    (
-        "on_STATICCALL",
-        create_opcode_context(
+        )
+    elif test_case == "on_STATICCALL":
+        return create_opcode_context(
             {
                 BlobhashContext.address("staticcall"): Account(
                     code=BlobhashContext.code("staticcall")
@@ -155,11 +168,9 @@ opcode_contexts = [
                     }
                 ),
             },
-        ),
-    ),
-    (
-        "on_CALLCODE",
-        create_opcode_context(
+        )
+    elif test_case == "on_CALLCODE":
+        return create_opcode_context(
             {
                 BlobhashContext.address("callcode"): Account(
                     code=BlobhashContext.code("callcode")
@@ -179,11 +190,9 @@ opcode_contexts = [
                     }
                 ),
             },
-        ),
-    ),
-    (
-        "on_INITCODE",
-        create_opcode_context(
+        )
+    elif test_case == "on_INITCODE":
+        return create_opcode_context(
             {},
             tx_type_3.with_fields(
                 data=BlobhashContext.code("initcode"),
@@ -196,11 +205,9 @@ opcode_contexts = [
                     }
                 ),
             },
-        ),
-    ),
-    (
-        "on_CREATE",
-        create_opcode_context(
+        )
+    elif test_case == "on_CREATE":
+        return create_opcode_context(
             {
                 BlobhashContext.address("create"): Account(code=BlobhashContext.code("create")),
             },
@@ -215,11 +222,9 @@ opcode_contexts = [
                     }
                 ),
             },
-        ),
-    ),
-    (
-        "on_CREATE2",
-        create_opcode_context(
+        )
+    elif test_case == "on_CREATE2":
+        return create_opcode_context(
             {
                 BlobhashContext.address("create2"): Account(code=BlobhashContext.code("create2")),
             },
@@ -234,11 +239,9 @@ opcode_contexts = [
                     }
                 ),
             },
-        ),
-    ),
-    (
-        "on_type_2_tx",
-        create_opcode_context(
+        )
+    elif test_case == "on_type_2_tx":
+        return create_opcode_context(
             {
                 BlobhashContext.address("blobhash_sstore"): Account(
                     code=BlobhashContext.code("blobhash_sstore")
@@ -256,11 +259,9 @@ opcode_contexts = [
             {
                 BlobhashContext.address("blobhash_sstore"): Account(storage={0: 0}),
             },
-        ),
-    ),
-    (
-        "on_type_1_tx",
-        create_opcode_context(
+        )
+    elif test_case == "on_type_1_tx":
+        return create_opcode_context(
             {
                 BlobhashContext.address("blobhash_sstore"): Account(
                     code=BlobhashContext.code("blobhash_sstore")
@@ -277,11 +278,9 @@ opcode_contexts = [
             {
                 BlobhashContext.address("blobhash_sstore"): Account(storage={0: 0}),
             },
-        ),
-    ),
-    (
-        "on_type_0_tx",
-        create_opcode_context(
+        )
+    elif test_case == "on_type_0_tx":
+        return create_opcode_context(
             {
                 BlobhashContext.address("blobhash_sstore"): Account(
                     code=BlobhashContext.code("blobhash_sstore")
@@ -298,21 +297,13 @@ opcode_contexts = [
             {
                 BlobhashContext.address("blobhash_sstore"): Account(storage={0: 0}),
             },
-        ),
-    ),
-]
+        )
+    else:
+        raise Exception(f"Unknown test case {test_case}")
 
 
-@pytest.fixture(params=opcode_contexts, ids=[op[0] for op in opcode_contexts])
-def context(request):
-    """
-    Fixture that is parameterized to each value of the opcode_contexts
-    list of tuples, with the first item in each tuple set as the test ID.
-    """
-    return request.param[1]
-
-
-def test_blobhash_opcode_contexts(context, blockchain_test: BlockchainTestFiller):
+@pytest.mark.compile_yul_with("Shanghai")
+def test_blobhash_opcode_contexts(opcode_context, blockchain_test: BlockchainTestFiller):
     """
     Tests that the BLOBHASH opcode functions correctly when called in different
     contexts including:
@@ -325,7 +316,7 @@ def test_blobhash_opcode_contexts(context, blockchain_test: BlockchainTestFiller
     - BLOBHASH opcode on transaction types 0, 1 and 2.
     """
     blockchain_test(
-        pre=context.get("pre"),
-        blocks=[Block(txs=[context.get("tx")])],
-        post=context.get("post"),
+        pre=opcode_context.get("pre"),
+        blocks=[Block(txs=[opcode_context.get("tx")])],
+        post=opcode_context.get("post"),
     )

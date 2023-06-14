@@ -4,9 +4,11 @@ Tests: tests/eips/eip4844/
     > test_blobhash_opcode_contexts.py
     > test_blobhash_opcode.py
 """
+from typing import Union
+
 from ethereum_test_tools import (
     TestAddress,
-    Yul,
+    YulCompiler,
     add_kzg_version,
     compute_create2_address,
     compute_create_address,
@@ -61,6 +63,7 @@ class BlobhashContext:
     to specific bytecode (with BLOBHASH), addresses and contracts.
     """
 
+    yul_compiler: Union[YulCompiler, None] = None
     addresses = {
         "blobhash_sstore": to_address(0x100),
         "blobhash_return": to_address(0x600),
@@ -100,7 +103,7 @@ class BlobhashContext:
         blobhash_verbatim = cls._get_blobhash_verbatim()
 
         code = {
-            "blobhash_sstore": Yul(
+            "blobhash_sstore": cls.yul_compiler(
                 f"""
                 {{
                    let pos := calldataload(0)
@@ -118,7 +121,7 @@ class BlobhashContext:
                 }}
                 """
             ),
-            "blobhash_return": Yul(
+            "blobhash_return": cls.yul_compiler(
                 f"""
                 {{
                    let pos := calldataload(0)
@@ -129,7 +132,7 @@ class BlobhashContext:
                 }}
                 """
             ),
-            "call": Yul(
+            "call": cls.yul_compiler(
                 """
                 {
                     calldatacopy(0, 0, calldatasize())
@@ -137,7 +140,7 @@ class BlobhashContext:
                 }
                 """
             ),
-            "delegatecall": Yul(
+            "delegatecall": cls.yul_compiler(
                 """
                 {
                     calldatacopy(0, 0, calldatasize())
@@ -145,7 +148,7 @@ class BlobhashContext:
                 }
                 """
             ),
-            "callcode": Yul(
+            "callcode": cls.yul_compiler(
                 f"""
                 {{
                     let pos := calldataload(0)
@@ -168,7 +171,7 @@ class BlobhashContext:
                 }}
                 """
             ),
-            "staticcall": Yul(
+            "staticcall": cls.yul_compiler(
                 f"""
                 {{
                     let pos := calldataload(0)
@@ -191,7 +194,7 @@ class BlobhashContext:
                 }}
                 """
             ),
-            "create": Yul(
+            "create": cls.yul_compiler(
                 """
                 {
                     calldatacopy(0, 0, calldatasize())
@@ -199,7 +202,7 @@ class BlobhashContext:
                 }
                 """
             ),
-            "create2": Yul(
+            "create2": cls.yul_compiler(
                 """
                 {
                     calldatacopy(0, 0, calldatasize())
@@ -207,7 +210,7 @@ class BlobhashContext:
                 }
                 """
             ),
-            "initcode": Yul(
+            "initcode": cls.yul_compiler(
                 f"""
                 {{
                    for {{ let pos := 0 }} lt(pos, 10) {{ pos := add(pos, 1) }}
