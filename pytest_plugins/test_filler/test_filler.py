@@ -9,6 +9,7 @@ import json
 import os
 import re
 import subprocess
+from shutil import which
 from typing import Any, Dict, List, Tuple, Type
 
 import pytest
@@ -39,7 +40,10 @@ def pytest_addoption(parser):
         action="store",
         dest="evm_bin",
         default=None,
-        help="Path to evm executable that provides `t8n` and `b11r` ",
+        help=(
+            "Path to an evm executable that provides `t8n` and `b11r.` "
+            "Default: First 'evm' entry in PATH"
+        ),
     )
     evm_group.addoption(
         "--traces",
@@ -47,6 +51,18 @@ def pytest_addoption(parser):
         dest="evm_collect_traces",
         default=None,
         help="Collect traces of the execution information from the " + "transition tool",
+    )
+
+    solc_group = parser.getgroup("solc", "Arguments defining the solc executable")
+    solc_group.addoption(
+        "--solc-bin",
+        action="store",
+        dest="solc_bin",
+        default=None,
+        help=(
+            "Path to a solc executable (for Yul source compilation). "
+            "Default: First 'solc' entry in PATH"
+        ),
     )
 
     test_group = parser.getgroup("tests", "Arguments defining filler location and output")
@@ -99,8 +115,13 @@ def pytest_report_header(config, start_path):
         binary=config.getoption("evm_bin"),
         trace=config.getoption("evm_collect_traces"),
     )
+    if config.getoption("solc_bin"):
+        solc_bin = config.getoption("solc_bin")
+    else:
+        solc_bin = which("solc")
+
     result = subprocess.run(
-        ["solc", "--version"],
+        [solc_bin, "--version"],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -123,6 +144,14 @@ def evm_bin(request):
     Returns the configured evm tool binary path.
     """
     return request.config.getoption("evm_bin")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def solc_bin(request):
+    """
+    Returns the configured solc binary path.
+    """
+    return request.config.getoption("solc_bin")
 
 
 @pytest.fixture(autouse=True, scope="session")
