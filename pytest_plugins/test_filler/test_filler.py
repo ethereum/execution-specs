@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Tuple, Type
 
 import pytest
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     BaseTest,
     BlockchainTest,
@@ -21,6 +22,7 @@ from ethereum_test_tools import (
     JSONEncoder,
     StateTest,
     StateTestFiller,
+    Yul,
     fill_test,
 )
 from evm_block_builder import EvmBlockBuilder
@@ -74,11 +76,19 @@ def pytest_configure(config):
     """
     config.addinivalue_line(
         "markers",
-        "state_test: test cases that implement a single state transition test",
+        "state_test: a test case that implement a single state transition test.",
     )
     config.addinivalue_line(
         "markers",
-        "blockchain_test: test cases that implement block transition tests",
+        "blockchain_test: a test case that implements a block transition test.",
+    )
+    config.addinivalue_line(
+        "markers",
+        "yul_test: a test case that compiles Yul code.",
+    )
+    config.addinivalue_line(
+        "markers",
+        "compile_yul_with(fork): Always compile Yul source using the corresponding evm version.",
     )
 
 
@@ -248,6 +258,34 @@ def eips():
     return []
 
 
+@pytest.fixture
+def yul(fork: Fork, request):
+    """
+    A fixture that allows contract code to be defined with Yul code.
+
+    This fixture defines a class that wraps the ::ethereum_test_tools.Yul
+    class so that upon instantiation within the test case, it provides the
+    test case's current fork parameter. The forks is then available for use
+    in solc's arguments for the Yul code compilation.
+
+    Test cases can override the default value by specifying a fixed version
+    with the @pytest.mark.compile_yul_with(FORK) marker.
+    """
+    marker = request.node.get_closest_marker("compile_yul_with")
+    if marker:
+        if not marker.args[0]:
+            pytest.fail(
+                f"{request.node.name}: Expected one argument in 'compile_yul_with' marker."
+            )
+        fork = request.config.fork_map[marker.args[0]]
+
+    class YulWrapper(Yul):
+        def __init__(self, *args, **kwargs):
+            super(YulWrapper, self).__init__(*args, **kwargs, fork=fork)
+
+    return YulWrapper
+
+
 SPEC_TYPES: List[Type[BaseTest]] = [StateTest, BlockchainTest]
 SPEC_TYPES_PARAMETERS: List[str] = [s.pytest_parameter_name() for s in SPEC_TYPES]
 
@@ -330,6 +368,9 @@ def pytest_collection_modifyitems(items, config):
             item.add_marker(marker)
         elif "blockchain_test" in item.fixturenames:
             marker = pytest.mark.blockchain_test()
+            item.add_marker(marker)
+        if "yul" in item.fixturenames:
+            marker = pytest.mark.yul_test()
             item.add_marker(marker)
 
 

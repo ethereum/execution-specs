@@ -3,7 +3,7 @@ Module containing tools for generating cross-client Ethereum execution layer
 tests.
 """
 
-from .code import Code, CodeGasMeasure, Initcode, Yul
+from .code import Code, CodeGasMeasure, Initcode, Yul, YulCompiler
 from .common import (
     AccessList,
     Account,
@@ -59,6 +59,7 @@ __all__ = (
     "Transaction",
     "Withdrawal",
     "Yul",
+    "YulCompiler",
     "add_kzg_version",
     "ceiling_division",
     "compute_create_address",
