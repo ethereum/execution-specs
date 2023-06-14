@@ -573,7 +573,8 @@ def get_storage_original(state: State, address: Address, key: Bytes) -> U256:
     key:
         Key of the storage slot.
     """
-    # When an account is created, preexisting storage is ignored.
+    # In the transaction where an account is created, its preexisting storage
+    # is ignored.
     if address in state._created_accounts:
         return U256(0)
 
