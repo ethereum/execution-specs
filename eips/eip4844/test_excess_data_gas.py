@@ -128,12 +128,10 @@ def block_base_fee() -> int:  # noqa: D103
 @pytest.fixture
 def env(  # noqa: D103
     parent_excess_data_gas: int,
-    parent_blobs: int,
     block_base_fee: int,
 ) -> Environment:
     return Environment(
         excess_data_gas=parent_excess_data_gas + TARGET_DATA_GAS_PER_BLOCK,
-        data_gas_used=parent_blobs * DATA_GAS_PER_BLOB,
         base_fee=block_base_fee,
     )
 
@@ -175,7 +173,7 @@ def tx_exact_cost(tx_value: int, tx_max_fee_per_gas: int, tx_data_cost: int) -> 
 def pre(tx_exact_cost: int) -> Mapping[str, Account]:  # noqa: D103
     return {
         TestAddress: Account(balance=tx_exact_cost),
-        TestAddress2: Account(balance=10**30),
+        TestAddress2: Account(balance=10**40),
     }
 
 
@@ -235,7 +233,7 @@ def block_intermediate(  # noqa: D103
     parent_excess_data_gas: int,
     parent_blobs: int,
     tx_max_fee: int,
-    tx_data_cost: int,
+    tx_max_fee_per_data: int,
 ):
     return Block(
         excess_data_gas=parent_excess_data_gas,
@@ -249,7 +247,7 @@ def block_intermediate(  # noqa: D103
                 gas_limit=21000,
                 max_fee_per_gas=tx_max_fee,
                 max_priority_fee_per_gas=0,
-                max_fee_per_data_gas=tx_data_cost,
+                max_fee_per_data_gas=tx_max_fee_per_data,
                 access_list=[],
                 blob_versioned_hashes=add_kzg_version(
                     [to_hash_bytes(x) for x in range(TARGET_BLOBS_PER_BLOCK)],
