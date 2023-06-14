@@ -275,7 +275,7 @@ def storage_root(state: State, address: Address) -> Root:
     root : `Root`
         Storage root of the account.
     """
-    assert state._snapshots == []
+    assert not state._snapshots
     if address in state._storage_tries:
         return root(state._storage_tries[address])
     else:
@@ -296,7 +296,7 @@ def state_root(state: State) -> Root:
     root : `Root`
         The state root.
     """
-    assert state._snapshots == []
+    assert not state._snapshots
 
     def get_storage_root(address: Address) -> Root:
         return storage_root(state, address)
