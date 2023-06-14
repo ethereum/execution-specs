@@ -24,6 +24,7 @@ from ..state import (
     account_has_code_or_nonce,
     begin_transaction,
     commit_transaction,
+    destroy_storage,
     increment_nonce,
     move_ether,
     rollback_transaction,
@@ -146,6 +147,14 @@ def process_create_message(message: Message, env: Environment) -> Evm:
     """
     # take snapshot of state before processing the message
     begin_transaction(env.state)
+
+    # If the address where the account is being created has storage, it is
+    # destroyed. This can only happen in the following highly unlikely
+    # circumstances:
+    # * The address created by two `CREATE` calls collide.
+    # * The first `CREATE` happened before Spurious Dragon and left empty
+    #   code.
+    destroy_storage(env.state, message.current_target)
 
     increment_nonce(env.state, message.current_target)
     evm = process_message(message, env)

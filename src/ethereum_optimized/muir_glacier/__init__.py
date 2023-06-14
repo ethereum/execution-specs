@@ -27,6 +27,7 @@ def monkey_patch_optimized_state_db(state_path: Optional[str]) -> None:
         "get_account_optional": fast_state.get_account_optional,
         "set_account": fast_state.set_account,
         "destroy_storage": fast_state.destroy_storage,
+        "mark_account_created": fast_state.mark_account_created,
         "get_storage": fast_state.get_storage,
         "get_storage_original": fast_state.get_storage_original,
         "set_storage": fast_state.set_storage,

@@ -57,6 +57,7 @@ class State:
     destroyed_accounts: Set[Address]
     tx_restore_points: List[int]
     journal: List[Any]
+    created_accounts: Set[Address]
 
     def __init__(self, path: Optional[str] = None) -> None:
         logging.info("using optimized state db at %s", path)
@@ -70,6 +71,7 @@ class State:
         self.destroyed_accounts = set()
         self.tx_restore_points = []
         self.journal = []
+        self.created_accounts = set()
         self.db.begin_mutable()
 
     def __eq__(self, other: object) -> bool:
@@ -97,6 +99,7 @@ def close_state(state: State) -> None:
     del state.dirty_storage
     del state.destroyed_accounts
     del state.journal
+    del state.created_accounts
 
 
 def get_metadata(state: State, key: Bytes) -> Optional[Bytes]:
@@ -198,6 +201,7 @@ def commit_transaction(state: State) -> None:
     state.tx_restore_points.pop()
     if not state.tx_restore_points:
         state.journal.clear()
+        state.created_accounts.clear()
         flush(state)
 
 
@@ -225,6 +229,9 @@ def rollback_transaction(state: State) -> None:
             else:
                 state.dirty_accounts[item[0]] = item[1]
 
+    if not state.tx_restore_points:
+        state.created_accounts.clear()
+
 
 def get_storage(state: State, address: Address, key: Bytes) -> U256:
     """
@@ -232,14 +239,21 @@ def get_storage(state: State, address: Address, key: Bytes) -> U256:
     """
     if address in state.dirty_storage and key in state.dirty_storage[address]:
         return state.dirty_storage[address][key]
-    return U256(state.db.get_storage(address, key))
+
+    if address in state.destroyed_accounts:
+        return U256(0)
+    else:
+        return U256(state.db.get_storage(address, key))
 
 
 def get_storage_original(state: State, address: Address, key: Bytes) -> U256:
     """
     See `ethereum.istanbul.state`.
     """
-    return U256(state.db.get_storage(address, key))
+    if address in state.created_accounts:
+        return U256(0)
+    else:
+        return U256(state.db.get_storage(address, key))
 
 
 def set_storage(
@@ -292,3 +306,10 @@ def destroy_storage(state: State, address: Address) -> None:
     state.journal.append((address, state.dirty_storage.pop(address, {})))
     state.destroyed_accounts.add(address)
     set_account(state, address, get_account_optional(state, address))
+
+
+def mark_account_created(state: State, address: Address) -> None:
+    """
+    See `ethereum.frontier.state`.
+    """
+    state.created_accounts.add(address)

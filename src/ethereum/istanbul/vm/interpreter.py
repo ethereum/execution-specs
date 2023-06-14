@@ -26,6 +26,7 @@ from ..state import (
     commit_transaction,
     destroy_storage,
     increment_nonce,
+    mark_account_created,
     move_ether,
     rollback_transaction,
     set_code,
@@ -149,10 +150,19 @@ def process_create_message(message: Message, env: Environment) -> Evm:
     # take snapshot of state before processing the message
     begin_transaction(env.state)
 
-    # It's expected that the creation operation works on empty storage. Hence
-    # we delete the storage and restore the account's state if there is an
-    # error in the initialization code execution.
+    # If the address where the account is being created has storage, it is
+    # destroyed. This can only happen in the following highly unlikely
+    # circumstances:
+    # * The address created by a `CREATE` call collides with a subsequent
+    #   `CREATE` or `CREATE2` call.
+    # * The first `CREATE` happened before Spurious Dragon and left empty
+    #   code.
     destroy_storage(env.state, message.current_target)
+
+    # In the previously mentioned edge case the preexisting storage is ignored
+    # for gas refund purposes. In order to do this we must track created
+    # accounts.
+    mark_account_created(env.state, message.current_target)
 
     increment_nonce(env.state, message.current_target)
     evm = process_message(message, env)
