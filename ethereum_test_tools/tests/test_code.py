@@ -4,6 +4,8 @@ Test suite for `ethereum_test.code` module.
 
 import pytest
 
+from ethereum_test_forks import Merge
+
 from ..code import Code, Initcode, Yul, code_to_bytes
 
 
@@ -96,7 +98,8 @@ def test_yul():
         expected_bytecode += bytes.fromhex("80")
         expected_bytecode += bytes.fromhex("55")
 
-    assert Yul(long_code).assemble() == expected_bytecode
+    # TODO(dan): workaround until it's understood why Shanghai takes so long to compile
+    assert Yul(long_code, fork=Merge).assemble() == expected_bytecode
 
 
 @pytest.mark.parametrize(
