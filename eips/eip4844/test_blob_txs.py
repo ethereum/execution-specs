@@ -184,19 +184,16 @@ def total_account_minimum_balance(  # noqa: D103
     tx_calldata: bytes,
     tx_max_fee_per_gas: int,
     tx_max_priority_fee_per_gas: int,
-    data_gasprice: Optional[int],
+    tx_max_fee_per_data_gas: int,
     blob_hashes_per_tx: List[List[bytes]],
 ) -> int:
     """
     Calculates the minimum balance required for the account to be able to send
     the transactions in the block of the test.
     """
-    if data_gasprice is None:
-        # When fork transitioning, the default data gas price is 1.
-        data_gasprice = 1
     total_cost = 0
     for tx_blob_count in [len(x) for x in blob_hashes_per_tx]:
-        data_cost = data_gasprice * DATA_GAS_PER_BLOB * tx_blob_count
+        data_cost = tx_max_fee_per_data_gas * DATA_GAS_PER_BLOB * tx_blob_count
         total_cost += (
             (tx_gas * (tx_max_fee_per_gas + tx_max_priority_fee_per_gas))
             + tx_value
@@ -223,7 +220,7 @@ def tx_max_fee_per_gas(
 
 @pytest.fixture
 def tx_max_fee_per_data_gas(  # noqa: D103
-    data_gasprice: int,
+    data_gasprice: Optional[int],
 ) -> int:
     """
     Default max fee per data gas for transactions sent during test.
@@ -233,6 +230,9 @@ def tx_max_fee_per_data_gas(  # noqa: D103
     Can be overloaded by a test case to test rejection of transactions where
     the max fee per data gas is insufficient.
     """
+    if data_gasprice is None:
+        # When fork transitioning, the default data gas price is 1.
+        return 1
     return data_gasprice
 
 
@@ -516,6 +516,7 @@ def test_invalid_block_blob_count(
     [b"", b"\x00", b"\x01"],
     ids=["no_calldata", "single_zero_calldata", "single_one_calldata"],
 )
+@pytest.mark.parametrize("tx_max_fee_per_data_gas", [1, 100, 10000])
 @pytest.mark.parametrize("account_balance_modifier", [-1], ids=["exact_balance_minus_1"])
 @pytest.mark.parametrize("tx_error", ["insufficient_account_balance"], ids=[""])
 @pytest.mark.valid_from("Cancun")
