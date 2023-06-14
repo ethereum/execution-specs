@@ -34,6 +34,9 @@ from ethereum_test_tools import (
     Environment,
     Header,
     TestAddress,
+    TestAddress2,
+    TestPrivateKey,
+    TestPrivateKey2,
     Transaction,
     add_kzg_version,
     to_address,
@@ -45,6 +48,7 @@ from .utils import (
     DATA_GAS_PER_BLOB,
     MAX_BLOBS_PER_BLOCK,
     TARGET_BLOBS_PER_BLOCK,
+    TARGET_DATA_GAS_PER_BLOCK,
     calc_excess_data_gas,
     get_data_gasprice,
     get_min_excess_data_blobs_for_data_gas_price,
@@ -128,7 +132,7 @@ def env(  # noqa: D103
     block_base_fee: int,
 ) -> Environment:
     return Environment(
-        excess_data_gas=parent_excess_data_gas,
+        excess_data_gas=parent_excess_data_gas + TARGET_DATA_GAS_PER_BLOCK,
         data_gas_used=parent_blobs * DATA_GAS_PER_BLOB,
         base_fee=block_base_fee,
     )
@@ -171,6 +175,7 @@ def tx_exact_cost(tx_value: int, tx_max_fee_per_gas: int, tx_data_cost: int) -> 
 def pre(tx_exact_cost: int) -> Mapping[str, Account]:  # noqa: D103
     return {
         TestAddress: Account(balance=tx_exact_cost),
+        TestAddress2: Account(balance=10**30),
     }
 
 
@@ -204,6 +209,7 @@ def tx(  # noqa: D103
             max_fee_per_gas=tx_max_fee_per_gas,
             max_priority_fee_per_gas=0,
             access_list=[],
+            secret_key=TestPrivateKey,
         )
     else:
         return Transaction(
@@ -220,7 +226,39 @@ def tx(  # noqa: D103
                 [to_hash_bytes(x) for x in range(new_blobs)],
                 BLOB_COMMITMENT_VERSION_KZG,
             ),
+            secret_key=TestPrivateKey,
         )
+
+
+@pytest.fixture
+def block_intermediate(  # noqa: D103
+    parent_excess_data_gas: int,
+    parent_blobs: int,
+    tx_max_fee: int,
+    tx_data_cost: int,
+):
+    return Block(
+        excess_data_gas=parent_excess_data_gas,
+        data_gas_used=parent_blobs * DATA_GAS_PER_BLOB,
+        txs=[
+            Transaction(
+                ty=3,
+                nonce=0,
+                to=to_address(0x200),
+                value=1,
+                gas_limit=21000,
+                max_fee_per_gas=tx_max_fee,
+                max_priority_fee_per_gas=0,
+                max_fee_per_data_gas=tx_data_cost,
+                access_list=[],
+                blob_versioned_hashes=add_kzg_version(
+                    [to_hash_bytes(x) for x in range(TARGET_BLOBS_PER_BLOCK)],
+                    BLOB_COMMITMENT_VERSION_KZG,
+                ),
+                secret_key=TestPrivateKey2,
+            )
+        ],
+    )
 
 
 @pytest.fixture
@@ -233,28 +271,31 @@ def blocks(  # noqa: D103
     tx: Transaction,
     header_excess_data_gas: Optional[int],
     header_data_gas_used: Optional[int],
+    block_intermediate: Block,
 ):
     if header_excess_data_gas is not None:
         return [
+            block_intermediate,
             Block(
                 txs=[tx],
                 rlp_modifier=Header(
                     excess_data_gas=header_excess_data_gas,
                 ),
                 exception="invalid excess data gas",
-            )
+            ),
         ]
     if header_data_gas_used is not None:
         return [
+            block_intermediate,
             Block(
                 txs=[tx],
                 rlp_modifier=Header(
                     data_gas_used=header_data_gas_used,
                 ),
                 exception="invalid data gas used",
-            )
+            ),
         ]
-    return [Block(txs=[tx])]
+    return [block_intermediate, Block(txs=[tx])]
 
 
 @pytest.mark.parametrize("parent_blobs", range(0, MAX_BLOBS_PER_BLOCK + 1))
