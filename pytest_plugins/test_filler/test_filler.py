@@ -8,8 +8,6 @@ writes the generated fixtures to file.
 import json
 import os
 import re
-import subprocess
-from shutil import which
 from typing import Any, Dict, List, Tuple, Type
 
 import pytest
