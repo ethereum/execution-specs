@@ -3,6 +3,7 @@ Yul frontend
 """
 
 import re
+import warnings
 from pathlib import Path
 from shutil import which
 from subprocess import PIPE, run
@@ -115,6 +116,9 @@ class Yul(Code):
             if match:
                 solc_version_string = match.group(0)
                 break
+        if not solc_version_string:
+            warnings.warn("Unable to determine solc version.")
+            solc_version_string = "unknown"
         return solc_version_string
 
 
