@@ -10,8 +10,8 @@ from typing import Literal, Union
 from ethereum_test_tools import (
     Auto,
     TestAddress,
-    YulCompiler,
     Transaction,
+    YulCompiler,
     add_kzg_version,
     compute_create2_address,
     compute_create_address,
