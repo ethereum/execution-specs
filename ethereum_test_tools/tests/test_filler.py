@@ -41,7 +41,8 @@ def test_make_genesis(fork: Fork, hash: str):
                 sstore(0, f(1, 2))
                 return(0, 32)
             }
-            """
+            """,
+                fork=fork,
             ),
         ),
         TestAddress: Account(balance=0x0BA1A9CE0BA1A9CE),
@@ -127,7 +128,8 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
     assert fixture_json == expected
 
 
-def test_fill_london_blockchain_test_valid_txs():
+@pytest.mark.parametrize("fork", [London])
+def test_fill_london_blockchain_test_valid_txs(fork: Fork):
     """
     Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`.
     """
@@ -147,7 +149,8 @@ def test_fill_london_blockchain_test_valid_txs():
                     sstore(add(number(), 0x2000), selfbalance())
                     stop()
                 }
-            """
+                """,
+                fork=fork,
             ),
         ),
         "0xcccccccccccccccccccccccccccccccccccccccd": Account(
@@ -160,7 +163,8 @@ def test_fill_london_blockchain_test_valid_txs():
                       0xcccccccccccccccccccccccccccccccccccccccc,
                       0, 0, 0, 0)
                 }
-            """
+                """,
+                fork=fork,
             ),
         ),
         "0x000000000000000000000000000000000000c0de": Account(
@@ -173,7 +177,8 @@ def test_fill_london_blockchain_test_valid_txs():
                             0xcccccccccccccccccccccccccccccccccccccccc,
                             0, 0, 0, 0)
                 }
-            """
+                """,
+                fork=fork,
             ),
         ),
         "0xccccccccccccccccccccccccccccccccccccccce": Account(
@@ -188,7 +193,8 @@ def test_fill_london_blockchain_test_valid_txs():
                             0xcccccccccccccccccccccccccccccccccccccccc,
                             0, 0, 0, 0)
                 }
-            """
+                """,
+                fork=fork,
             ),
         ),
     }
@@ -387,11 +393,11 @@ def test_fill_london_blockchain_test_valid_txs():
     t8n = EvmTransitionTool()
 
     fixture = {
-        f"000/my_blockchain_test/{London}": fill_test(
+        f"000/my_blockchain_test/{fork.name()}": fill_test(
             t8n=t8n,
             b11r=b11r,
             test_spec=blockchain_test,
-            fork=London,
+            fork=fork,
             engine="NoProof",
             spec=None,
         )
@@ -413,7 +419,8 @@ def test_fill_london_blockchain_test_valid_txs():
     assert fixture_json == expected
 
 
-def test_fill_london_blockchain_test_invalid_txs():
+@pytest.mark.parametrize("fork", [London])
+def test_fill_london_blockchain_test_invalid_txs(fork):
     """
     Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`.
     """
@@ -433,7 +440,8 @@ def test_fill_london_blockchain_test_invalid_txs():
                     sstore(add(number(), 0x2000), selfbalance())
                     stop()
                 }
-            """
+                """,
+                fork=fork,
             ),
         ),
         "0xcccccccccccccccccccccccccccccccccccccccd": Account(
@@ -446,7 +454,8 @@ def test_fill_london_blockchain_test_invalid_txs():
                       0xcccccccccccccccccccccccccccccccccccccccc,
                       0, 0, 0, 0)
                 }
-            """
+                """,
+                fork=fork,
             ),
         ),
         "0x000000000000000000000000000000000000c0de": Account(
@@ -459,7 +468,8 @@ def test_fill_london_blockchain_test_invalid_txs():
                             0xcccccccccccccccccccccccccccccccccccccccc,
                             0, 0, 0, 0)
                 }
-            """
+                """,
+                fork=fork,
             ),
         ),
         "0xccccccccccccccccccccccccccccccccccccccce": Account(
@@ -474,7 +484,8 @@ def test_fill_london_blockchain_test_invalid_txs():
                             0xcccccccccccccccccccccccccccccccccccccccc,
                             0, 0, 0, 0)
                 }
-            """
+                """,
+                fork=fork,
             ),
         ),
     }
@@ -719,11 +730,11 @@ def test_fill_london_blockchain_test_invalid_txs():
     t8n = EvmTransitionTool()
 
     fixture = {
-        f"000/my_blockchain_test/{London}": fill_test(
+        f"000/my_blockchain_test/{fork.name()}": fill_test(
             t8n=t8n,
             b11r=b11r,
             test_spec=blockchain_test,
-            fork=London,
+            fork=fork,
             engine="NoProof",
             spec=None,
         )
