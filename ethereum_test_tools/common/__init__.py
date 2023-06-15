@@ -1,7 +1,15 @@
 """
 Common definitions and types.
 """
-from .constants import AddrAA, AddrBB, EmptyTrieRoot, TestAddress, TestPrivateKey
+from .constants import (
+    AddrAA,
+    AddrBB,
+    EmptyTrieRoot,
+    TestAddress,
+    TestPrivateKey,
+    TestAddress2,
+    TestPrivateKey2,
+)
 from .helpers import (
     add_kzg_version,
     ceiling_division,
@@ -54,6 +62,8 @@ __all__ = (
     "Storage",
     "TestAddress",
     "TestPrivateKey",
+    "TestAddress2",
+    "TestPrivateKey2",
     "Transaction",
     "Withdrawal",
     "add_kzg_version",
