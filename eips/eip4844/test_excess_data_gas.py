@@ -232,8 +232,8 @@ def tx(  # noqa: D103
 def block_intermediate(  # noqa: D103
     parent_excess_data_gas: int,
     parent_blobs: int,
-    tx_max_fee: int,
-    tx_max_fee_per_data: int,
+    tx_max_fee_per_gas: int,
+    tx_max_fee_per_data_gas: int,
 ):
     return Block(
         excess_data_gas=parent_excess_data_gas,
@@ -245,9 +245,9 @@ def block_intermediate(  # noqa: D103
                 to=to_address(0x200),
                 value=1,
                 gas_limit=21000,
-                max_fee_per_gas=tx_max_fee,
+                max_fee_per_gas=tx_max_fee_per_gas,
                 max_priority_fee_per_gas=0,
-                max_fee_per_data_gas=tx_max_fee_per_data,
+                max_fee_per_data_gas=tx_max_fee_per_data_gas,
                 access_list=[],
                 blob_versioned_hashes=add_kzg_version(
                     [to_hash_bytes(x) for x in range(TARGET_BLOBS_PER_BLOCK)],
