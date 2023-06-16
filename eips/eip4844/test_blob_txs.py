@@ -510,7 +510,6 @@ def test_invalid_tx_max_fee_per_data_gas(
     if parent_blobs is not None:
         pre[TestAddress2] = Account(balance=10**9)
         blocks.insert(0, block_intermediate)
-        # env.excess_data_gas = env.excess_data_gas + TARGET_DATA_GAS_PER_BLOCK
         if env.excess_data_gas is not None:
             env.excess_data_gas += TARGET_DATA_GAS_PER_BLOCK
     blockchain_test(
