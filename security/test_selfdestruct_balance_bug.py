@@ -1,13 +1,15 @@
 """
-Tests the following consensus-vulnerability.
+bug: Tests the Consensus Flaw During Block Processing related to SELFDESTRUCT
+    Tests the consensus-vulnerability reported in
+    [go-ethereum/security/advisories/GHSA-xw37-57qp-9mm4](https://github.com/ethereum/go-ethereum/security/advisories/GHSA-xw37-57qp-9mm4).
 
-https://github.com/ethereum/go-ethereum/security/advisories/GHSA-xw37-57qp-9mm4
+To reproduce the issue with this test case:
 
-To reproduce the bug fill the test with the most recent geth evm version.
-
-Then run the fixture output within a vulnerable geth version:
-v1.9.20 > geth >= v1.9.4
+1. Fill the test with the most recent geth evm version.
+2. Run the fixture output within a vulnerable geth version: v1.9.20 > geth >=
+    v1.9.4.
 """
+
 import pytest
 
 from ethereum_test_tools import (
@@ -26,27 +28,28 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 @pytest.mark.valid_from("Constantinople")
 def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller, yul: YulCompiler):
     """
-    Checks balance of 0xaa after executing specific txs:
+    Test that the vulnerability is not present by checking the balance of the
+    `0xaa` contract after executing specific transactions:
 
-        1. Start contract 0xaa that has initial balance of 3 wei.
-           0xaa contract code simply performs a self-destruct to itself.
+    1. Start with contract `0xaa` which has initial balance of 3 wei.
+        `0xaa` contract code simply performs a self-destruct to itself.
 
-        2. Send a transaction (tx 1) to invoke caller contract (with
-           1 wei balance), which in turn invokes 0xaa with a 1 wei call.
+    2. Send a transaction (tx 1) to invoke caller contract `0xcc` (which
+        has a balance of 1 wei), which in turn invokes `0xaa` with a 1 wei call.
 
-        3. Store the balance of 0xaa after the first transaction
-           is processed. 0xaa self-destructed. Expected outcome: 0 wei.
+    3. Store the balance of `0xaa` after the first transaction
+        is processed. `0xaa` self-destructed. Expected outcome: 0 wei.
 
-        4. Send another transaction (tx 2) to call 0xaa with 5 wei.
+    4. Send another transaction (tx 2) to call 0xaa with 5 wei.
 
-        5. Store the balance of 0xaa after the second transaction
-           is processed. No self-destruct. Expected outcome: 5 wei.
+    5. Store the balance of `0xaa` after the second transaction
+        is processed. No self-destruct. Expected outcome: 5 wei.
 
-        6. Verify that:
-            - call within tx 1 is successful, i.e 0xaa self-destructed.
-            - the balances of 0xaa after each tx are correct.
-            - during tx 2, code in 0xaa does not execute,
-              hence self-destruct mechanism does not trigger.
+    6. Verify that:
+        - Call within tx 1 is successful, i.e `0xaa` self-destructed.
+        - The balances of `0xaa` after each tx are correct.
+        - During tx 2, code in `0xaa` does not execute,
+            hence self-destruct mechanism does not trigger.
     """
     aa_code = yul(
         """

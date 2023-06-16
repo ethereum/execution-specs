@@ -1,5 +1,8 @@
 """
-Test Withdrawal system-level operation
+abstract: Tests [EIP-4895: Beacon chain withdrawals](https://eips.ethereum.org/EIPS/eip-4895)
+
+    Test cases for [EIP-4895: Beacon chain push withdrawals as
+    operations](https://eips.ethereum.org/EIPS/eip-4895).
 """
 
 from enum import Enum, unique
@@ -47,13 +50,11 @@ class TestUseValueInTx:
     """
     Test that the value from a withdrawal can be used in a transaction:
 
-    1. tx_in_withdrawals_block:
-      Test that the withdrawal value can not be used by a transaction in
-      the same block as the withdrawal.
+    1. `tx_in_withdrawals_block`: Test that the withdrawal value can not be used by a transaction
+        in the same block as the withdrawal.
 
-    2. tx_after_withdrawals_block:
-      Test that the withdrawal value can be used by a transaction in the
-      subsequent block.
+    2. `tx_after_withdrawals_block`: Test that the withdrawal value can be used by a transaction
+        in the subsequent block.
     """
 
     @pytest.fixture

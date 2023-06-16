@@ -1,7 +1,11 @@
 """
-Test EIP-3855: PUSH0 Instruction
-EIP: https://eips.ethereum.org/EIPS/eip-3855
-Source tests: https://github.com/ethereum/tests/pull/1033
+abstract: Tests [EIP-3855: PUSH0 Instruction](https://eips.ethereum.org/EIPS/eip-3855)
+
+    Tests for [EIP-3855: PUSH0 Instruction](https://eips.ethereum.org/EIPS/eip-3855).
+
+note: Tests ported from:
+
+    - [ethereum/tests/pull/1033](https://github.com/ethereum/tests/pull/1033).
 """
 
 import pytest
@@ -141,7 +145,7 @@ def test_push0_during_staticcall(
     yul: YulCompiler,
 ):
     """
-    Test PUSH0 during staticcall.
+    Test PUSH0 during STATICCALL.
     """
     addr_2 = to_address(0x200)
 

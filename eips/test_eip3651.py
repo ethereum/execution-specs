@@ -1,7 +1,11 @@
 """
-Test EIP-3651: Warm COINBASE
-EIP: https://eips.ethereum.org/EIPS/eip-3651
-Source tests: https://github.com/ethereum/tests/pull/1082
+abstract: Tests [EIP-3651: Warm COINBASE](https://eips.ethereum.org/EIPS/eip-3651)
+
+    Tests for [EIP-3651: Warm COINBASE](https://eips.ethereum.org/EIPS/eip-3651).
+
+note: Tests ported from:
+
+    - [ethereum/tests/pull/1082](https://github.com/ethereum/tests/pull/1082).
 """
 
 import pytest
@@ -71,7 +75,13 @@ def test_warm_coinbase_call_out_of_gas(
     use_sufficient_gas,
 ):
     """
-    Test warm coinbase.
+    Test that the coinbase is warm by accessing the COINBASE with each
+    of the following opcodes:
+
+    - CALL
+    - CALLCODE
+    - DELEGATECALL
+    - STATICCALL
     """
     env = Environment(
         coinbase="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
@@ -211,7 +221,16 @@ gas_measured_opcodes = [
 )
 def test_warm_coinbase_gas_usage(state_test, fork, opcode, code_gas_measure):
     """
-    Test gas usage of different opcodes assuming warm coinbase.
+    Test the gas usage of opcodes affected by assuming a warm coinbase:
+
+    - EXTCODESIZE
+    - EXTCODECOPY
+    - EXTCODEHASH
+    - BALANCE
+    - CALL
+    - CALLCODE
+    - DELEGATECALL
+    - STATICCALL
     """
     env = Environment(
         coinbase="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
