@@ -14,7 +14,7 @@ from ethereum_test_tools import (
 )
 
 
-@pytest.mark.valid_from("Berlin")
+@pytest.mark.valid_from("Homestead")
 def test_yul(state_test: StateTestFiller, yul: YulCompiler):
     """
     Test YUL compiled bytecode.
