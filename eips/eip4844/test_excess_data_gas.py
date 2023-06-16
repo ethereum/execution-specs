@@ -35,7 +35,6 @@ from ethereum_test_tools import (
     Header,
     TestAddress,
     TestAddress2,
-    TestPrivateKey2,
     Transaction,
     add_kzg_version,
     to_address,
@@ -223,43 +222,6 @@ def tx(  # noqa: D103
                 BLOB_COMMITMENT_VERSION_KZG,
             ),
         )
-
-
-@pytest.fixture
-def block_intermediate(  # noqa: D103
-    parent_blobs: int,
-    parent_excess_data_gas: int,
-    tx_max_fee_per_gas: int,
-):
-    return Block(
-        txs=[
-            Transaction(
-                ty=3,
-                nonce=0,
-                to=to_address(0x200),
-                value=1,
-                gas_limit=21000,
-                max_fee_per_gas=tx_max_fee_per_gas,
-                max_priority_fee_per_gas=0,
-                max_fee_per_data_gas=get_data_gasprice(
-                    excess_data_gas=calc_excess_data_gas(
-                        parent_excess_data_gas=(
-                            parent_excess_data_gas + TARGET_DATA_GAS_PER_BLOCK
-                        ),
-                        parent_blobs=0,
-                    ),
-                ),
-                access_list=[],
-                blob_versioned_hashes=add_kzg_version(
-                    [to_hash_bytes(x) for x in range(parent_blobs)],
-                    BLOB_COMMITMENT_VERSION_KZG,
-                ),
-                secret_key=TestPrivateKey2,
-            )
-        ]
-        if parent_blobs != 0
-        else [],
-    )
 
 
 @pytest.fixture
