@@ -256,7 +256,9 @@ def block_intermediate(  # noqa: D103
                 ),
                 secret_key=TestPrivateKey2,
             )
-        ] if parent_blobs != 0 else [],
+        ]
+        if parent_blobs != 0
+        else [],
     )
 
 
