@@ -30,7 +30,10 @@ def get_evm_version_from_fork(fork: Fork | None):
     """
     if not fork:
         return None
-    fork_to_evm_version_map: Mapping[str, str] = {"Merge": "paris"}
+    fork_to_evm_version_map: Mapping[str, str] = {
+        "Merge": "paris",
+        "ConstantinopleFix": "constantinople",
+    }
     if fork.name() in fork_to_evm_version_map:
         return fork_to_evm_version_map[fork.name()]
     return fork.name().lower()
