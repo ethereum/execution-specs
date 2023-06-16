@@ -203,6 +203,7 @@ gas_measured_opcodes = [
 ]
 
 
+@pytest.mark.valid_from("Merge")  # these tests fill for fork >= Berlin
 @pytest.mark.parametrize(
     "opcode,code_gas_measure",
     gas_measured_opcodes,
@@ -229,7 +230,7 @@ def test_warm_coinbase_gas_usage(state_test, fork, opcode, code_gas_measure):
     }
 
     if is_fork(fork, Shanghai):
-        expected_gas = 100  # Warm account access cost after EIP-3651
+        expected_gas = GAS_REQUIRED_CALL_WARM_ACCOUNT  # Warm account access cost after EIP-3651
     else:
         expected_gas = 2600  # Cold account access cost before EIP-3651
 
