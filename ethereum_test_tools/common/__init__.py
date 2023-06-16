@@ -6,8 +6,8 @@ from .constants import (
     AddrBB,
     EmptyTrieRoot,
     TestAddress,
-    TestPrivateKey,
     TestAddress2,
+    TestPrivateKey,
     TestPrivateKey2,
 )
 from .helpers import (
@@ -61,8 +61,8 @@ __all__ = (
     "JSONEncoder",
     "Storage",
     "TestAddress",
-    "TestPrivateKey",
     "TestAddress2",
+    "TestPrivateKey",
     "TestPrivateKey2",
     "Transaction",
     "Withdrawal",
