@@ -26,6 +26,8 @@ from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
     Storage,
     TestAddress,
+    TestAddress2,
+    TestPrivateKey2,
     Transaction,
     add_kzg_version,
     eip_2028_transaction_data_cost,
@@ -38,6 +40,7 @@ from .utils import (
     DATA_GAS_PER_BLOB,
     MAX_BLOBS_PER_BLOCK,
     TARGET_BLOBS_PER_BLOCK,
+    TARGET_DATA_GAS_PER_BLOCK,
     calc_excess_data_gas,
     get_data_gasprice,
     get_min_excess_data_blobs_for_data_gas_price,
@@ -309,15 +312,64 @@ def pre(  # noqa: D103
 @pytest.fixture
 def env(
     parent_excess_data_gas: Optional[int],
-    parent_blobs: Optional[int],
 ) -> Environment:
     """
     Prepare the environment for all test cases.
     """
-    if parent_blobs is None:
-        parent_blobs = 0
     return Environment(
-        excess_data_gas=parent_excess_data_gas, data_gas_used=parent_blobs * DATA_GAS_PER_BLOB
+        excess_data_gas=parent_excess_data_gas,
+        data_gas_used=0,
+    )
+
+
+@pytest.fixture
+def block_intermediate(
+    parent_blobs: int,
+    parent_excess_data_gas: int,
+    tx_max_fee_per_gas: int,
+):
+    """
+    For test cases with a non-zero dataGasUsed field in the
+    original genesis block header we must instead utilize an
+    intermediate block to act on its behalf.
+
+    Genesis blocks with a non-zero dataGasUsed field are invalid as
+    they do not have any blob txs.
+
+    For the intermediate block to align with default genesis values,
+    we must add TARGET_DATA_GAS_PER_BLOCK to the excessDataGas of the
+    genesis value, expecting an appropriate drop to the intermediate block.
+    Similarly, we must add parent_blobs to the intermediate block within
+    a blob tx such that an equivalent dataGasUsed field is wrote.
+    """
+    return Block(
+        txs=[
+            Transaction(
+                ty=3,
+                nonce=0,
+                to=to_address(0x200),
+                value=1,
+                gas_limit=21000,
+                max_fee_per_gas=tx_max_fee_per_gas,
+                max_priority_fee_per_gas=0,
+                max_fee_per_data_gas=get_data_gasprice(
+                    excess_data_gas=calc_excess_data_gas(
+                        parent_excess_data_gas=(
+                            parent_excess_data_gas + TARGET_DATA_GAS_PER_BLOCK
+                        ),
+                        parent_blobs=0,
+                    ),
+                ),
+                access_list=[],
+                blob_versioned_hashes=add_kzg_version(
+                    [to_hash_bytes(x) for x in range(parent_blobs)],
+                    BLOB_COMMITMENT_VERSION_KZG,
+                ),
+                secret_key=TestPrivateKey2,
+            )
+        ]
+        if parent_blobs != 0
+        else [],
     )
 
 
@@ -447,6 +499,7 @@ def test_invalid_tx_max_fee_per_data_gas(
     pre: Dict,
     env: Environment,
     blocks: List[Block],
+    block_intermediate: Block,
 ):
     """
     Reject blocks with invalid blob txs due to:
@@ -454,6 +507,10 @@ def test_invalid_tx_max_fee_per_data_gas(
     - tx max_fee_per_data_gas is barely not enough
     - tx max_fee_per_data_gas is zero
     """
+    if parent_blobs is not None:
+        pre[TestAddress2] = Account(balance=10**9)
+        blocks.insert(0, block_intermediate)
+        env.excess_data_gas += TARGET_DATA_GAS_PER_BLOCK
     blockchain_test(
         pre=pre,
         post={},
