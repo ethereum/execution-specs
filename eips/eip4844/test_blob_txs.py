@@ -27,7 +27,6 @@ from ethereum_test_tools import (
     Storage,
     TestAddress,
     TestAddress2,
-    TestPrivateKey2,
     Transaction,
     add_kzg_version,
     eip_2028_transaction_data_cost,
@@ -35,10 +34,12 @@ from ethereum_test_tools import (
     to_hash_bytes,
 )
 
-from .utils import (
+from .common import (
     BLOB_COMMITMENT_VERSION_KZG,
     DATA_GAS_PER_BLOB,
     MAX_BLOBS_PER_BLOCK,
+    REF_SPEC_4844_GIT_PATH,
+    REF_SPEC_4844_VERSION,
     TARGET_BLOBS_PER_BLOCK,
     TARGET_DATA_GAS_PER_BLOCK,
     calc_excess_data_gas,
@@ -46,8 +47,8 @@ from .utils import (
     get_min_excess_data_blobs_for_data_gas_price,
 )
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
-REFERENCE_SPEC_VERSION = "b33e063530f0a114635dd4f89d3cca90f8cac28f"
+REFERENCE_SPEC_GIT_PATH = REF_SPEC_4844_GIT_PATH
+REFERENCE_SPEC_VERSION = REF_SPEC_4844_VERSION
 
 
 @pytest.fixture

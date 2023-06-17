@@ -41,10 +41,12 @@ from ethereum_test_tools import (
     to_hash_bytes,
 )
 
-from .utils import (
+from .common import (
     BLOB_COMMITMENT_VERSION_KZG,
     DATA_GAS_PER_BLOB,
     MAX_BLOBS_PER_BLOCK,
+    REF_SPEC_4844_GIT_PATH,
+    REF_SPEC_4844_VERSION,
     TARGET_BLOBS_PER_BLOCK,
     TARGET_DATA_GAS_PER_BLOCK,
     calc_excess_data_gas,
@@ -52,8 +54,8 @@ from .utils import (
     get_min_excess_data_blobs_for_data_gas_price,
 )
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
-REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
+REFERENCE_SPEC_GIT_PATH = REF_SPEC_4844_GIT_PATH
+REFERENCE_SPEC_VERSION = REF_SPEC_4844_VERSION
 
 # All tests run from Cancun fork
 pytestmark = pytest.mark.valid_from("Cancun")

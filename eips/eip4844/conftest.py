@@ -1,5 +1,5 @@
 """
-Pytest (plugin) definitions local to the EIP-4844 tests.
+Pytest (plugin) definitions local to EIP-4844 tests.
 """
 import pytest
 
@@ -12,7 +12,7 @@ from ethereum_test_tools import (
     to_hash_bytes,
 )
 
-from .utils import (
+from .common import (
     BLOB_COMMITMENT_VERSION_KZG,
     TARGET_DATA_GAS_PER_BLOCK,
     calc_excess_data_gas,

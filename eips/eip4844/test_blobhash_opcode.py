@@ -33,19 +33,21 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-from .utils import (
+from .common import (
     BLOBHASH_GAS_COST,
     MAX_BLOBS_PER_BLOCK,
+    REF_SPEC_4844_GIT_PATH,
+    REF_SPEC_4844_VERSION,
     TARGET_BLOBS_PER_BLOCK,
     BlobhashScenario,
     blobhash_index_values,
     random_blob_hashes,
 )
 
-pytestmark = pytest.mark.valid_from("Cancun")
+REFERENCE_SPEC_GIT_PATH = REF_SPEC_4844_GIT_PATH
+REFERENCE_SPEC_VERSION = REF_SPEC_4844_VERSION
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
-REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
+pytestmark = pytest.mark.valid_from("Cancun")
 
 
 @pytest.fixture
