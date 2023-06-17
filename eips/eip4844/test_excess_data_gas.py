@@ -513,8 +513,8 @@ def test_invalid_static_excess_data_gas(
 
     Test is parametrized to `MAX_BLOBS_PER_BLOCK` and `TARGET_BLOBS_PER_BLOCK`.
     """
-    blocks[0].rlp_modifier = Header(excess_data_gas=parent_excess_data_gas)
-    blocks[0].exception = "invalid excessDataGas"
+    blocks[1].rlp_modifier = Header(excess_data_gas=parent_excess_data_gas)
+    blocks[1].exception = "invalid excessDataGas"
     blockchain_test(
         pre=pre,
         post={},
