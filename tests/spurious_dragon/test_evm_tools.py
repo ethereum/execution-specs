@@ -4,27 +4,32 @@ from typing import Dict
 
 import pytest
 
-from tests.helpers.load_evm_tools_tests import idfn, load_evm_tools_test
+from tests.helpers import TEST_FIXTURES
+from tests.helpers.load_evm_tools_tests import (
+    fetch_evm_tools_tests,
+    idfn,
+    load_evm_tools_test,
+)
 
+ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
+TEST_DIR = (
+    f"{ETHEREUM_TESTS_PATH}/LegacyTests/Constantinople/GeneralStateTests/"
+)
 FORK_NAME = "EIP158"
-FORK_PACKAGE = "spurious_dragon"
-
-block_reward = importlib.import_module(
-    f"ethereum.{FORK_PACKAGE}.fork"
-).BLOCK_REWARD  # type: ignore
-fetch_legacy_state_tests = importlib.import_module(
-    f"tests.{FORK_PACKAGE}.test_state_transition"
-).fetch_legacy_state_tests  # type: ignore
 
 run_evm_tools_test = partial(
-    load_evm_tools_test, fork_name=FORK_NAME, block_reward=block_reward
+    load_evm_tools_test,
+    fork_name=FORK_NAME,
 )
 
 
 @pytest.mark.evm_tools
 @pytest.mark.parametrize(
     "test_case",
-    fetch_legacy_state_tests(),
+    fetch_evm_tools_tests(
+        TEST_DIR,
+        FORK_NAME,
+    ),
     ids=idfn,
 )
 def test_evm_tools(test_case: Dict) -> None:
