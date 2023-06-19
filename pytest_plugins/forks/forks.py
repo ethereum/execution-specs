@@ -252,7 +252,7 @@ def get_validity_marker_args(
         pytest.fail(
             f"'{test_name}' specifies an invalid fork '{fork_name}' to the "
             f"'{validity_marker_name}'. "
-            f"List of valid forks: {', '.join(metafunc.config.fork_names)}"
+            f"List of valid forks: {', '.join(metafunc.config.fork_names)}"  # type: ignore
         )
 
     return fork_name
