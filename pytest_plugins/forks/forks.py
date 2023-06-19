@@ -316,8 +316,10 @@ def pytest_generate_tests(metafunc):
         intersection_range.sort(key=metafunc.config.fork_range.index)
         intersection_range = [metafunc.config.fork_map[fork] for fork in intersection_range]
 
-    # TODO: skip: test is not valid for any forks in the configured range
-    # (from, until).
-
     if "fork" in metafunc.fixturenames:
-        metafunc.parametrize("fork", intersection_range, scope="function")
+        if not intersection_range:
+            pytest.skip(  # this reason is not reported on the command-line
+                f"{test_name} is not valid for any any of forks specified on the command-line."
+            )
+        else:
+            metafunc.parametrize("fork", intersection_range, scope="function")
