@@ -252,6 +252,7 @@ def get_validity_marker_args(
         pytest.fail(
             f"'{test_name}' specifies an invalid fork '{fork_name}' to the "
             f"'{validity_marker_name}'. "
+            f"List of valid forks: {', '.join(metafunc.config.fork_names)}"
         )
 
     return fork_name
@@ -306,7 +307,7 @@ def pytest_generate_tests(metafunc):
             pytest.fail(
                 "The test function's "
                 f"'{test_name}' fork validity markers generate "
-                "an empty fork range. Please check the arguments to it's "
+                "an empty fork range. Please check the arguments to its "
                 f"markers:  @pytest.mark.valid_from ({valid_from}) and "
                 f"@pytest.mark.valid_until ({valid_until})."
             )
