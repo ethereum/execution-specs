@@ -13,7 +13,6 @@ from ethereum_test_tools import (
     StateTestFiller,
     TestAddress,
     Transaction,
-    YulCompiler,
     to_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
@@ -138,22 +137,17 @@ def test_push0_during_staticcall(
     post: dict,
     tx: Transaction,
     addr_1: str,
-    yul: YulCompiler,
 ):
     """
     Test PUSH0 during staticcall.
     """
     addr_2 = to_address(0x200)
 
-    code_1 = yul(
-        """
-        {
-            sstore(0, staticcall(100000, 0x200, 0, 0, 0, 0))
-            sstore(0, 1)
-            returndatacopy(0x1f, 0, 1)
-            sstore(1, mload(0))
-        }
-        """
+    code_1 = (
+        Op.SSTORE(0, Op.STATICCALL(100000, 0x200, 0, 0, 0, 0))
+        + Op.SSTORE(0, 1)
+        + Op.RETURNDATACOPY(0x1F, 0, 1)
+        + Op.SSTORE(1, Op.MLOAD(0))
     )
     code_2 = Op.MSTORE8(Op.PUSH0, 0xFF) + Op.RETURN(Op.PUSH0, 1)
 
