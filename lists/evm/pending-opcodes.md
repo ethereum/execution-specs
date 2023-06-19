@@ -12,7 +12,7 @@ next or subsuquent hard fork.
 |   0x5D   | TSTORE          | Transient data store                            | [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153)                          |
 |   0x5E   | MCOPY           | Memory copy                                     | [EIP-5656](https://eips.ethereum.org/EIPS/eip-5656)                          |
 |   0xE0   | RJUMP           | relative jump                                   | [EIP-4200](https://eips.ethereum.org/EIPS/eip-4200)                          |
-|   0xE1   | RJUMI           | relative conditional jump                       | [EIP-4200](https://eips.ethereum.org/EIPS/eip-4200)                          |
+|   0xE1   | RJUMPI           | relative conditional jump                       | [EIP-4200](https://eips.ethereum.org/EIPS/eip-4200)                          |
 |   0xE2   | RJUMV           | relative jump table                             | [EIP-4200](https://eips.ethereum.org/EIPS/eip-4200)                          |
 |   0xE3   | CALLF           | EOF Subroutine Call                             | [EIP-4750](https://eips.ethereum.org/EIPS/eip-4750)                          |
 |   0xE4   | RETF            | EOF Subroutine return                           | [EIP-4750](https://eips.ethereum.org/EIPS/eip-4750)                          |
