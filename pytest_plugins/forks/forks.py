@@ -47,7 +47,7 @@ def pytest_addoption(parser):
         "--until",
         action="store",
         dest="forks_until",
-        default=get_deployed_forks()[-1].name(),
+        default=None,
         help="Fill tests until and including the specified fork.",
     )
 
@@ -102,9 +102,8 @@ def pytest_configure(config):
     dev_forks_help = textwrap.dedent(
         "To run tests for a fork under active development, it must be "
         "specified explicitly via --forks-until=FORK.\n"
-        "Tests are only "
-        f"ran for deployed mainnet forks by default, i.e., until "
-        f"{get_deployed_forks()[-1].name()}.\n"
+        "Tests are only ran for deployed mainnet forks by default, i.e., "
+        f"until {get_deployed_forks()[-1].name()}.\n"
     )
     if show_fork_help:
         print(available_forks_help)
@@ -128,6 +127,8 @@ def pytest_configure(config):
     else:
         if not forks_from:
             forks_from = config.fork_names[0]
+        if not forks_until:
+            forks_until = get_deployed_forks()[-1].name()
 
     if forks_from not in config.fork_map.keys():
         print(f"Error: Unsupported fork provided to --from: {forks_from}\n", file=sys.stderr)
