@@ -57,7 +57,6 @@ def create_opcode_context(pre, tx, post):
         "on_DELEGATECALL",
         "on_STATICCALL",
         "on_CALLCODE",
-        "on_INITCODE",
         "on_CREATE",
         "on_CREATE2",
         "on_type_2_tx",
