@@ -335,8 +335,6 @@ class T8N(Load):
                 self.txs.rejected_txs[tx_idx] = f"Failed transaction: {str(e)}"
                 self.restore_state()
                 self.logger.warning(f"Transaction {tx_idx} failed: {str(e)}")
-                if isinstance(e, FatalException):
-                    raise e
             else:
                 self.txs.add_transaction(tx)
                 gas_consumed = process_transaction_return[0]

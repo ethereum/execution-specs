@@ -6,10 +6,10 @@ from typing import Dict, Generator, Tuple
 
 import pytest
 
+from ethereum import rlp
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools import parser, subparsers
 from ethereum_spec_tools.evm_tools.t8n import T8N, t8n_arguments
-from ethereum_spec_tools.evm_tools.utils import FatalException
 
 t8n_arguments(subparsers)
 
@@ -35,22 +35,13 @@ def fetch_evm_tools_tests(
                 for key, test in tests.items():
                     slow = True if key in slow_tests else False
                     if fork_name in test["post"]:
-                        for transition in test["post"][fork_name]:
-                            post_hash = transition["hash"]
-                            exception = transition.get("expectException")
-                            indexes = transition["indexes"]
-                            d = indexes["data"]
-                            g = indexes["gas"]
-                            v = indexes["value"]
-
+                        for idx, transition in enumerate(
+                            test["post"][fork_name]
+                        ):
                             test_case = {
                                 "test_file": test_file_path,
                                 "test_key": key,
-                                "d": d,
-                                "g": g,
-                                "v": v,
-                                "post_hash": post_hash,
-                                "exception": exception,
+                                "index": idx,
                             }
                             if slow:
                                 yield pytest.param(
@@ -66,11 +57,9 @@ def idfn(test_case: Dict) -> str:
     if isinstance(test_case, dict):
         folder_name = test_case["test_file"].split("/")[-2]
         test_key = test_case["test_key"]
-        d = test_case["d"]
-        g = test_case["g"]
-        v = test_case["v"]
+        index = test_case["index"]
 
-        return f"{folder_name} - {test_key} - d{d}g{g}v{v}"
+        return f"{folder_name} - {test_key} - {index}"
 
 
 def load_evm_tools_test(test_case: Dict[str, str], fork_name: str) -> None:
@@ -79,20 +68,24 @@ def load_evm_tools_test(test_case: Dict[str, str], fork_name: str) -> None:
     """
     test_file = test_case["test_file"]
     test_key = test_case["test_key"]
-    post_hash = test_case["post_hash"]
-    exception = test_case.get("exception")
-    d = test_case["d"]
-    g = test_case["g"]
-    v = test_case["v"]
+    index = test_case["index"]
     with open(test_file) as f:
-        test = json.load(f)
+        tests = json.load(f)
 
-    env = test[test_key]["env"]
+    env = tests[test_key]["env"]
     env["blockHashes"] = {"0": env["previousHash"]}
     env["withdrawals"] = []
 
+    alloc = tests[test_key]["pre"]
+
+    post = tests[test_key]["post"][fork_name][index]
+    post_hash = post["hash"]
+    d = post["indexes"]["data"]
+    g = post["indexes"]["gas"]
+    v = post["indexes"]["value"]
+
     tx = {}
-    for k, value in test[test_key]["transaction"].items():
+    for k, value in tests[test_key]["transaction"].items():
         if k == "data":
             tx["input"] = value[d]
         elif k == "gasLimit":
@@ -105,12 +98,14 @@ def load_evm_tools_test(test_case: Dict[str, str], fork_name: str) -> None:
         else:
             tx[k] = value
 
+    txs = [tx]
+
     sys.stdin = StringIO(
         json.dumps(
             {
                 "env": env,
-                "alloc": test[test_key]["pre"],
-                "txs": [tx],
+                "alloc": alloc,
+                "txs": txs,
             }
         )
     )
@@ -130,11 +125,6 @@ def load_evm_tools_test(test_case: Dict[str, str], fork_name: str) -> None:
     t8n_options = parser.parse_args(t8n_args)
 
     t8n = T8N(t8n_options)
-    # An unsupported transaction cannot be signed
-    # so the t8n tool throws an exception
-    if exception == "TR_TypeNotSupported":
-        with pytest.raises(FatalException):
-            t8n.apply_body()
-    else:
-        t8n.apply_body()
-        assert hex_to_bytes(post_hash) == t8n.result.state_root
+    t8n.apply_body()
+
+    assert hex_to_bytes(post_hash) == t8n.result.state_root

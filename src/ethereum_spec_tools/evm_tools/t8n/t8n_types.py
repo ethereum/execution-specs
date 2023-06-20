@@ -98,14 +98,18 @@ class Txs:
 
         if t8n.options.input_txs == "stdin":
             assert stdin is not None
-            self.data = stdin["txs"]
-            if self.data is None:
-                self.data = []
+            data = stdin["txs"]
         else:
-            if t8n.options.input_txs.endswith(".rlp"):
-                self.rlp_input = True
             with open(t8n.options.input_txs, "r") as f:
-                self.data = json.load(f)
+                data = json.load(f)
+
+        if data is None:
+            self.data = []
+        elif isinstance(data, str):
+            self.rlp_input = True
+            self.data = rlp.decode(hex_to_bytes(data))
+        else:
+            self.data = data
 
     @property
     def transactions(self) -> Iterator[Tuple[int, Any]]:
@@ -113,36 +117,53 @@ class Txs:
         Read the transactions file and return a list of transactions.
         Can read from JSON or RLP.
         """
-        if self.rlp_input:
-            return self.parse_rlp_tx()
-        else:
-            return self.parse_json_tx()
+        for idx, raw_tx in enumerate(self.data):
+            try:
+                if self.rlp_input:
+                    yield idx, self.parse_rlp_tx(raw_tx)
+                else:
+                    yield idx, self.parse_json_tx(raw_tx)
+            except Exception as e:
+                if isinstance(e, UnsupportedTx):
+                    self.t8n.logger.warning(
+                        f"Unsupported transaction type {idx}: "
+                        f"{e.error_message}"
+                    )
+                    self.rejected_txs[
+                        idx
+                    ] = f"Unsupported transaction type: {e.error_message}"
+                    self.all_txs.append(e.encoded_params)
+                else:
+                    self.t8n.logger.warning(
+                        f"Failed to parse transaction {idx}: {str(e)}"
+                    )
+                    self.rejected_txs[
+                        idx
+                    ] = f"Failed to parse transaction {idx}: {str(e)}"
 
-    def parse_rlp_tx(self) -> Iterator[Tuple[int, Any]]:
+    def parse_rlp_tx(self, raw_tx: Any) -> Any:
         """
         Read transactions from RLP.
         """
         t8n = self.t8n
 
-        txs = rlp.decode(hex_to_bytes(self.data))
-        for idx, tx in enumerate(txs):
-            tx_rlp = rlp.encode(tx)
-            if t8n.is_after_fork("ethereum.berlin"):
-                if isinstance(tx, Bytes):
-                    transaction = t8n.fork_types.decode_transaction(tx)
-                    self.all_txs.append(tx)
-                else:
-                    transaction = rlp.decode_to(
-                        t8n.fork_types.LegacyTransaction, tx_rlp
-                    )
-                    self.all_txs.append(transaction)
+        tx_rlp = rlp.encode(raw_tx)
+        if t8n.is_after_fork("ethereum.berlin"):
+            if isinstance(raw_tx, Bytes):
+                transaction = t8n.fork_types.decode_transaction(raw_tx)
+                self.all_txs.append(raw_tx)
             else:
-                transaction = rlp.decode_to(t8n.fork_types.Transaction, tx_rlp)
+                transaction = rlp.decode_to(
+                    t8n.fork_types.LegacyTransaction, tx_rlp
+                )
                 self.all_txs.append(transaction)
+        else:
+            transaction = rlp.decode_to(t8n.fork_types.Transaction, tx_rlp)
+            self.all_txs.append(transaction)
 
-            yield idx, transaction
+        return transaction
 
-    def parse_json_tx(self) -> Iterator[Tuple[int, Any]]:
+    def parse_json_tx(self, raw_tx: Any) -> Any:
         """
         Read the transactions from json.
         If a transaction is unsigned but has a `secretKey` field, the
@@ -150,56 +171,34 @@ class Txs:
         """
         t8n = self.t8n
 
-        for idx, json_tx in enumerate(self.data):
-            json_tx["gasLimit"] = json_tx["gas"]
-            json_tx["data"] = json_tx["input"]
-            if "to" not in json_tx:
-                json_tx["to"] = ""
+        # for idx, json_tx in enumerate(self.data):
+        raw_tx["gasLimit"] = raw_tx["gas"]
+        raw_tx["data"] = raw_tx["input"]
+        if "to" not in raw_tx:
+            raw_tx["to"] = ""
 
-            # tf tool might provide None instead of 0
-            # for v, r, s
-            json_tx["v"] = json_tx.get("v") or "0x00"
-            json_tx["r"] = json_tx.get("r") or "0x00"
-            json_tx["s"] = json_tx.get("s") or "0x00"
+        # tf tool might provide None instead of 0
+        # for v, r, s
+        raw_tx["v"] = raw_tx.get("v") or "0x00"
+        raw_tx["r"] = raw_tx.get("r") or "0x00"
+        raw_tx["s"] = raw_tx.get("s") or "0x00"
 
-            v = hex_to_u256(json_tx["v"])
-            r = hex_to_u256(json_tx["r"])
-            s = hex_to_u256(json_tx["s"])
+        v = hex_to_u256(raw_tx["v"])
+        r = hex_to_u256(raw_tx["r"])
+        s = hex_to_u256(raw_tx["s"])
 
-            if "secretKey" in json_tx and v == r == s == 0:
-                try:
-                    self.sign_transaction(json_tx)
-                except Exception as e:
-                    # A fatal exception is only raised if an
-                    # unsupported transaction type is attempted to be
-                    # signed. If a signed unsupported transaction is
-                    # provided, it will simply be rejected and the
-                    # next transaction is attempted.
-                    # See: https://github.com/ethereum/go-ethereum/issues/26861
-                    t8n.logger.error(f"Rejected transaction {idx}")
-                    raise FatalException(e)
+        if "secretKey" in raw_tx and v == r == s == 0:
+            self.sign_transaction(raw_tx)
 
-            try:
-                tx = t8n.json_to_tx(json_tx)
+        tx = t8n.json_to_tx(raw_tx)
+        self.all_txs.append(tx)
 
-            except UnsupportedTx as e:
-                t8n.logger.warning(
-                    f"Unsupported transaction type {idx}: {e.error_message}"
-                )
-                self.rejected_txs[
-                    idx
-                ] = f"Unsupported transaction type: {e.error_message}"
-                self.all_txs.append(e.encoded_params)
-                continue
-            else:
-                self.all_txs.append(tx)
+        if t8n.is_after_fork("ethereum.berlin"):
+            transaction = t8n.fork_types.decode_transaction(tx)
+        else:
+            transaction = tx
 
-            if t8n.is_after_fork("ethereum.berlin"):
-                transaction = t8n.fork_types.decode_transaction(tx)
-            else:
-                transaction = tx
-
-            yield idx, transaction
+        return transaction
 
     def add_transaction(self, tx: Any) -> None:
         """
