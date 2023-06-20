@@ -1,7 +1,23 @@
 """
-Test EIP-4844: BLOBHASH Opcode
-EIP: https://eips.ethereum.org/EIPS/eip-4844
-"""
+abstract: Tests `BLOBHASH` opcode in [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844)
+
+    Test cases for the `BLOBHASH` opcode in
+    [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844).
+
+note: Adding a new test
+
+    Add a function that is named `test_<test_name>` and takes at least the following arguments:
+
+    - blockchain_test
+    - pre
+    - tx
+    - post
+
+    Additional custom `pytest.fixture` fixtures can be added and parametrized for new test cases.
+
+    There is no specific structure to follow within this test module.
+
+"""  # noqa: E501
 
 import pytest
 
@@ -61,7 +77,7 @@ def template_tx():  # noqa: D103
 def blob_tx(template_tx):
     """
     Blob transaction factory fixture.
-    Used to define blob txs with a specified to address, nonce & type.
+    Used to define blob txs with a specified destination address, nonce & type.
     """
 
     def _blob_tx(address, type, nonce):
@@ -87,9 +103,9 @@ def test_blobhash_gas_cost(
     blockchain_test: BlockchainTestFiller,
 ):
     """
-    Test BLOBHASH opcode gas cost using a variety of indexes.
+    Tests `BLOBHASH` opcode gas cost using a variety of indexes.
 
-    Asserts the gas consumption of the BLOBHASH opcode is correct by ensuring
+    Asserts that the gas consumption of the `BLOBHASH` opcode is correct by ensuring
     it matches `HASH_OPCODE_GAS = 3`. Includes both valid and invalid random
     index sizes from the range `[0, 2**256-1]`, for tx types 2 and 3.
     """
@@ -147,10 +163,10 @@ def test_blobhash_scenarios(
     blockchain_test: BlockchainTestFiller,
 ):
     """
-    Tests that the BLOBHASH opcode returns the correct versioned hash for
+    Tests that the `BLOBHASH` opcode returns the correct versioned hash for
     various valid indexes.
 
-    Covers various scenarios with random blob_versioned_hash values within
+    Covers various scenarios with random `blob_versioned_hash` values within
     the valid range `[0, 2**256-1]`.
     """
     TOTAL_BLOCKS = 5
@@ -198,7 +214,7 @@ def test_blobhash_invalid_blob_index(
     scenario,
 ):
     """
-    Tests that the BLOBHASH opcode returns a zeroed `bytes32` value for invalid
+    Tests that the `BLOBHASH` opcode returns a zeroed `bytes32` value for invalid
     indexes.
 
     Includes cases where the index is negative (`index < 0`) or
@@ -251,7 +267,7 @@ def test_blobhash_multiple_txs_in_block(
     blockchain_test: BlockchainTestFiller,
 ):
     """
-    Tests that the BLOBHASH opcode returns the appropriate values when there
+    Tests that the `BLOBHASH` opcode returns the appropriate values when there
     is more than 1 blob tx type within a block (for tx types 2 and 3).
 
     Scenarios involve tx type 3 followed by tx type 2 running the same code
