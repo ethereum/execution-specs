@@ -24,13 +24,12 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3651.md"
 REFERENCE_SPEC_VERSION = "d94c694c6f12291bb6626669c3e8587eef3adff1"
 
-pytestmark = pytest.mark.valid_from("Shanghai")
-
 # Amount of gas required to make a call to a warm account.
 # Calling a cold account with this amount of gas results in exception.
 GAS_REQUIRED_CALL_WARM_ACCOUNT = 100
 
 
+@pytest.mark.valid_from("Shanghai")
 @pytest.mark.parametrize(
     "use_sufficient_gas",
     [True, False],
