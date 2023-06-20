@@ -371,7 +371,6 @@ def pytest_collection_modifyitems(items, config):
     Here we dynamically apply "state_test" or "blockchain_test" markers
     to a test if the test function uses the corresponding fixture.
     """
-
     for item in items:
         if isinstance(item, EIPSpecTestItem):
             continue
@@ -398,7 +397,6 @@ def pytest_runtest_call(item):
     """
     Pytest hook called in the context of test execution.
     """
-
     if isinstance(item, EIPSpecTestItem):
         return
 
