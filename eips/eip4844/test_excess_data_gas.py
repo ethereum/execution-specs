@@ -129,9 +129,12 @@ def block_base_fee() -> int:  # noqa: D103
 def env(  # noqa: D103
     parent_excess_data_gas: int,
     block_base_fee: int,
+    parent_blobs: int,
 ) -> Environment:
     return Environment(
-        excess_data_gas=parent_excess_data_gas + TARGET_DATA_GAS_PER_BLOCK,
+        excess_data_gas=parent_excess_data_gas
+        if parent_blobs == 0
+        else parent_excess_data_gas + TARGET_DATA_GAS_PER_BLOCK,
         base_fee=block_base_fee,
     )
 
@@ -238,9 +241,9 @@ def blocks(  # noqa: D103
     header_data_gas_used: Optional[int],
     block_intermediate: Block,
 ):
+    blocks = [] if block_intermediate is None else [block_intermediate]
     if header_excess_data_gas is not None:
-        return [
-            block_intermediate,
+        blocks.append(
             Block(
                 txs=[tx],
                 rlp_modifier=Header(
@@ -248,10 +251,9 @@ def blocks(  # noqa: D103
                 ),
                 exception="invalid excess data gas",
             ),
-        ]
-    if header_data_gas_used is not None:
-        return [
-            block_intermediate,
+        )
+    elif header_data_gas_used is not None:
+        blocks.append(
             Block(
                 txs=[tx],
                 rlp_modifier=Header(
@@ -259,8 +261,10 @@ def blocks(  # noqa: D103
                 ),
                 exception="invalid data gas used",
             ),
-        ]
-    return [block_intermediate, Block(txs=[tx])]
+        )
+    else:
+        blocks.append(Block(txs=[tx]))
+    return blocks
 
 
 @pytest.mark.parametrize("parent_blobs", range(0, MAX_BLOBS_PER_BLOCK + 1))
