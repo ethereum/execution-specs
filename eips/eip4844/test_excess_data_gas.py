@@ -50,7 +50,6 @@ from .utils import (
     get_min_excess_data_blobs_for_data_gas_price,
 )
 
-
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
 REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
 
