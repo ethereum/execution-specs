@@ -1,7 +1,21 @@
 """
-Test EIP-4844: Shard Blob Transactions (Excess Data Tests)
-EIP: https://eips.ethereum.org/EIPS/eip-4844
-"""
+abstract: Tests blob type transactions for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844)
+
+    Test blob type transactions for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844).
+
+
+note: Adding a new test
+
+    Add a function that is named `test_<test_name>` and takes at least the following arguments:
+
+    - blockchain_test
+    - pre
+    - env
+    - blocks
+
+    All other `pytest.fixture` fixtures can be parametrized to generate new combinations and test cases.
+
+"""  # noqa: E501
 import itertools
 from typing import Dict, List, Optional, Tuple
 
@@ -28,22 +42,6 @@ from .utils import (
     get_data_gasprice,
     get_min_excess_data_blobs_for_data_gas_price,
 )
-
-# * Adding a new test *
-# Add a function that is named `test_<test_name>` and takes the following
-# arguments:
-#   - blockchain_test
-#   - pre
-#   - env
-#   - blocks
-#   - fork
-#
-# The following arguments *need* to be parametrized or the test will not be
-# generated:
-# - fork
-#
-# All other `pytest.fixture` fixtures can be parametrized to generate new
-# combinations and test cases.
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
 REFERENCE_SPEC_VERSION = "b33e063530f0a114635dd4f89d3cca90f8cac28f"
@@ -405,7 +403,15 @@ def test_valid_blob_tx_combinations(
     blocks: List[Block],
 ):
     """
-    Test all valid blob combinations in a single block.
+    Test all valid blob combinations in a single block, assuming a given value of
+    `MAX_BLOBS_PER_BLOCK`.
+
+    This assumes a block can include from 1 and up to `MAX_BLOBS_PER_BLOCK` transactions where all
+    transactions contain at least 1 blob, and the sum of all blobs in a block is at
+    most `MAX_BLOBS_PER_BLOCK`.
+
+    This test is parametrized with all valid blob transaction combinations for a given block, and
+    therefore if value of `MAX_BLOBS_PER_BLOCK` changes, this test is automatically updated.
     """
     blockchain_test(
         pre=pre,
@@ -444,9 +450,9 @@ def test_invalid_tx_max_fee_per_data_gas(
 ):
     """
     Reject blocks with invalid blob txs due to:
-        -
-        - tx max_fee_per_data_gas is not enough
-        - tx max_fee_per_data_gas is zero
+
+    - tx max_fee_per_data_gas is barely not enough
+    - tx max_fee_per_data_gas is zero
     """
     blockchain_test(
         pre=pre,
@@ -476,7 +482,8 @@ def test_invalid_normal_gas(
 ):
     """
     Reject blocks with invalid blob txs due to:
-        - insufficient max fee per gas, but sufficient max fee per data gas
+
+    - Sufficient max fee per data gas, but insufficient max fee per gas
     """
     blockchain_test(
         pre=pre,
@@ -499,7 +506,12 @@ def test_invalid_block_blob_count(
     blocks: List[Block],
 ):
     """
-    Reject blocks where block blob count > MAX_BLOBS_PER_BLOCK, across all txs
+    Test all invalid blob combinations in a single block, where the sum of all blobs in a block is
+    at `MAX_BLOBS_PER_BLOCK + 1`.
+
+    This test is parametrized with all blob transaction combinations exceeding
+    `MAX_BLOBS_PER_BLOCK` by one for a given block, and
+    therefore if value of `MAX_BLOBS_PER_BLOCK` changes, this test is automatically updated.
     """
     blockchain_test(
         pre=pre,
@@ -528,7 +540,12 @@ def test_insufficient_balance_blob_tx(
 ):
     """
     Reject blocks where user cannot afford the data gas specified (but
-    max_fee_per_gas would be enough for current block)
+    max_fee_per_gas would be enough for current block), including:
+
+    - Transactions with and without priority fee
+    - Transactions with and without value
+    - Transactions with and without calldata
+    - Transactions with max fee per data gas lower or higher than the priority fee
     """
     blockchain_test(
         pre=pre,
@@ -552,8 +569,9 @@ def test_insufficient_balance_blob_tx_combinations(
     blocks: List[Block],
 ):
     """
-    Reject blocks with invalid blob txs due to:
-        - The amount of blobs is correct but the user cannot afford the
+    Reject all valid blob transaction combinations in a block, but block is invalid due to:
+
+    - The amount of blobs is correct but the user cannot afford the
             transaction total cost
     """
     blockchain_test(
@@ -581,9 +599,9 @@ def test_invalid_tx_blob_count(
 ):
     """
     Reject blocks that include blob transactions with invalid blob counts:
-    - blob count = 0 in type 3 transaction
-    - blob count > MAX_BLOBS_PER_TX in type 3 transaction
-    - blob count > MAX_BLOBS_PER_BLOCK in type 3 transaction
+
+    - `blob count == 0` in type 3 transaction
+    - `blob count > MAX_BLOBS_PER_BLOCK` in type 3 transaction
     """
     blockchain_test(
         pre=pre,
@@ -639,7 +657,14 @@ def test_invalid_blob_hash_versioning(
 ):
     """
     Reject blocks that include blob transactions with invalid blob hash
-    version.
+    version, including:
+
+    - Single blob transaction with single blob with invalid version
+    - Single blob transaction with multiple blobs all with invalid version
+    - Single blob transaction with multiple blobs either with invalid version
+    - Multiple blob transactions with single blob all with invalid version
+    - Multiple blob transactions with multiple blobs all with invalid version
+    - Multiple blob transactions with multiple blobs only one with invalid version
     """
     blockchain_test(
         pre=pre,
@@ -745,7 +770,10 @@ def test_blob_tx_attribute_opcodes(
     destination_account: str,
 ):
     """
-    Test opcodes that read transaction attributes work properly for blob txs.
+    Test opcodes that read transaction attributes work properly for blob type transactions:
+
+    - ORIGIN
+    - CALLER
     """
     code, storage = opcode
     pre[destination_account] = Account(code=code)
@@ -776,7 +804,7 @@ def test_blob_tx_attribute_value_opcode(
     destination_account: str,
 ):
     """
-    Test the VALUE opcode with different blob tx value amounts.
+    Test the VALUE opcode with different blob type transaction value amounts.
     """
     code, storage = opcode
     pre[destination_account] = Account(code=code)
@@ -823,7 +851,11 @@ def test_blob_tx_attribute_calldata_opcodes(
     destination_account: str,
 ):
     """
-    Test calldata related opcodes to verify their behavior is not affected by blobs.
+    Test calldata related opcodes to verify their behavior is not affected by blobs:
+
+    - CALLDATALOAD
+    - CALLDATASIZE
+    - CALLDATACOPY
     """
     code, storage = opcode
     pre[destination_account] = Account(code=code)
@@ -856,7 +888,11 @@ def test_blob_tx_attribute_gasprice_opcode(
 ):
     """
     Test GASPRICE opcode to sanity check that the data fee per gas does not affect
-    its calculation.
+    its calculation:
+
+    - No priority fee
+    - Priority fee below data fee
+    - Priority fee above data fee
     """
     code, storage = opcode
     pre[destination_account] = Account(code=code)
@@ -893,7 +929,7 @@ def test_blob_type_tx_pre_fork(
     blocks: List[Block],
 ):
     """
-    Reject blocks with blobs before blobs fork
+    Reject blocks with blob type transactions before Cancun fork
     """
     blockchain_test(
         pre=pre,

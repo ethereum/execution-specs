@@ -1,7 +1,9 @@
 """
-Test EIP-4844: Shard Blob Transactions (Point Evaluation Precompile)
-EIP: https://eips.ethereum.org/EIPS/eip-4844
-"""
+abstract: Tests gas usage on point evaluation precompile for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844)
+
+    Test gas usage on point evaluation precompile for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844).
+
+"""  # noqa: E501
 from typing import Dict, Literal
 
 import pytest
@@ -222,7 +224,11 @@ def test_point_evaluation_precompile_gas_usage(
     post: Dict,
 ):
     """
-    Test Precompile Gas Usage.
+    Test point evaluation precompile gas usage under different call contexts and gas limits:
+
+    - Test using all call types (CALL, DELEGATECALL, CALLCODE, STATICCALL)
+    - Test using different gas limits (exact gas, insufficient gas, extra gas)
+    - Test using correct and incorrect proofs
     """
     blockchain_test(
         pre=pre,
