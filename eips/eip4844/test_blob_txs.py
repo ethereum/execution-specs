@@ -26,6 +26,7 @@ from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
     Storage,
     TestAddress,
+    TestAddress2,
     Transaction,
     add_kzg_version,
     eip_2028_transaction_data_cost,
@@ -33,18 +34,21 @@ from ethereum_test_tools import (
     to_hash_bytes,
 )
 
-from .utils import (
+from .common import (
     BLOB_COMMITMENT_VERSION_KZG,
     DATA_GAS_PER_BLOB,
     MAX_BLOBS_PER_BLOCK,
+    REF_SPEC_4844_GIT_PATH,
+    REF_SPEC_4844_VERSION,
     TARGET_BLOBS_PER_BLOCK,
+    TARGET_DATA_GAS_PER_BLOCK,
     calc_excess_data_gas,
     get_data_gasprice,
     get_min_excess_data_blobs_for_data_gas_price,
 )
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
-REFERENCE_SPEC_VERSION = "b33e063530f0a114635dd4f89d3cca90f8cac28f"
+REFERENCE_SPEC_GIT_PATH = REF_SPEC_4844_GIT_PATH
+REFERENCE_SPEC_VERSION = REF_SPEC_4844_VERSION
 
 
 @pytest.fixture
@@ -309,15 +313,13 @@ def pre(  # noqa: D103
 @pytest.fixture
 def env(
     parent_excess_data_gas: Optional[int],
-    parent_blobs: Optional[int],
 ) -> Environment:
     """
     Prepare the environment for all test cases.
     """
-    if parent_blobs is None:
-        parent_blobs = 0
     return Environment(
-        excess_data_gas=parent_excess_data_gas, data_gas_used=parent_blobs * DATA_GAS_PER_BLOB
+        excess_data_gas=parent_excess_data_gas,
+        data_gas_used=0,
     )
 
 
@@ -447,6 +449,8 @@ def test_invalid_tx_max_fee_per_data_gas(
     pre: Dict,
     env: Environment,
     blocks: List[Block],
+    parent_blobs: int,
+    block_intermediate: Block,
 ):
     """
     Reject blocks with invalid blob txs due to:
@@ -454,6 +458,11 @@ def test_invalid_tx_max_fee_per_data_gas(
     - tx max_fee_per_data_gas is barely not enough
     - tx max_fee_per_data_gas is zero
     """
+    if parent_blobs:
+        pre[TestAddress2] = Account(balance=10**9)
+        blocks.insert(0, block_intermediate)
+        if env.excess_data_gas is not None:
+            env.excess_data_gas += TARGET_DATA_GAS_PER_BLOCK
     blockchain_test(
         pre=pre,
         post={},

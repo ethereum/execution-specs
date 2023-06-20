@@ -34,24 +34,28 @@ from ethereum_test_tools import (
     Environment,
     Header,
     TestAddress,
+    TestAddress2,
     Transaction,
     add_kzg_version,
     to_address,
     to_hash_bytes,
 )
 
-from .utils import (
+from .common import (
     BLOB_COMMITMENT_VERSION_KZG,
     DATA_GAS_PER_BLOB,
     MAX_BLOBS_PER_BLOCK,
+    REF_SPEC_4844_GIT_PATH,
+    REF_SPEC_4844_VERSION,
     TARGET_BLOBS_PER_BLOCK,
+    TARGET_DATA_GAS_PER_BLOCK,
     calc_excess_data_gas,
     get_data_gasprice,
     get_min_excess_data_blobs_for_data_gas_price,
 )
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
-REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
+REFERENCE_SPEC_GIT_PATH = REF_SPEC_4844_GIT_PATH
+REFERENCE_SPEC_VERSION = REF_SPEC_4844_VERSION
 
 # All tests run from Cancun fork
 pytestmark = pytest.mark.valid_from("Cancun")
@@ -124,12 +128,13 @@ def block_base_fee() -> int:  # noqa: D103
 @pytest.fixture
 def env(  # noqa: D103
     parent_excess_data_gas: int,
-    parent_blobs: int,
     block_base_fee: int,
+    parent_blobs: int,
 ) -> Environment:
     return Environment(
-        excess_data_gas=parent_excess_data_gas,
-        data_gas_used=parent_blobs * DATA_GAS_PER_BLOB,
+        excess_data_gas=parent_excess_data_gas
+        if parent_blobs == 0
+        else parent_excess_data_gas + TARGET_DATA_GAS_PER_BLOCK,
         base_fee=block_base_fee,
     )
 
@@ -171,6 +176,7 @@ def tx_exact_cost(tx_value: int, tx_max_fee_per_gas: int, tx_data_cost: int) -> 
 def pre(tx_exact_cost: int) -> Mapping[str, Account]:  # noqa: D103
     return {
         TestAddress: Account(balance=tx_exact_cost),
+        TestAddress2: Account(balance=10**40),
     }
 
 
@@ -233,28 +239,32 @@ def blocks(  # noqa: D103
     tx: Transaction,
     header_excess_data_gas: Optional[int],
     header_data_gas_used: Optional[int],
+    block_intermediate: Block,
 ):
+    blocks = [] if block_intermediate is None else [block_intermediate]
     if header_excess_data_gas is not None:
-        return [
+        blocks.append(
             Block(
                 txs=[tx],
                 rlp_modifier=Header(
                     excess_data_gas=header_excess_data_gas,
                 ),
                 exception="invalid excess data gas",
-            )
-        ]
-    if header_data_gas_used is not None:
-        return [
+            ),
+        )
+    elif header_data_gas_used is not None:
+        blocks.append(
             Block(
                 txs=[tx],
                 rlp_modifier=Header(
                     data_gas_used=header_data_gas_used,
                 ),
                 exception="invalid data gas used",
-            )
-        ]
-    return [Block(txs=[tx])]
+            ),
+        )
+    else:
+        blocks.append(Block(txs=[tx]))
+    return blocks
 
 
 @pytest.mark.parametrize("parent_blobs", range(0, MAX_BLOBS_PER_BLOCK + 1))
@@ -507,8 +517,8 @@ def test_invalid_static_excess_data_gas(
 
     Test is parametrized to `MAX_BLOBS_PER_BLOCK` and `TARGET_BLOBS_PER_BLOCK`.
     """
-    blocks[0].rlp_modifier = Header(excess_data_gas=parent_excess_data_gas)
-    blocks[0].exception = "invalid excessDataGas"
+    blocks[-1].rlp_modifier = Header(excess_data_gas=parent_excess_data_gas)
+    blocks[-1].exception = "invalid excessDataGas"
     blockchain_test(
         pre=pre,
         post={},

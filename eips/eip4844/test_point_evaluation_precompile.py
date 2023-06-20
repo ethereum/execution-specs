@@ -48,20 +48,23 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-from .utils import (
+from .common import (
     BLS_MODULUS,
     FIELD_ELEMENTS_PER_BLOB,
     INF_POINT,
     POINT_EVALUATION_PRECOMPILE_ADDRESS,
     POINT_EVALUATION_PRECOMPILE_GAS,
+    REF_SPEC_4844_GIT_PATH,
+    REF_SPEC_4844_VERSION,
     Z_Y_VALID_ENDIANNESS,
     Z,
-    auto,
     kzg_to_versioned_hash,
 )
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
-REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
+REFERENCE_SPEC_GIT_PATH = REF_SPEC_4844_GIT_PATH
+REFERENCE_SPEC_VERSION = REF_SPEC_4844_VERSION
+
+auto = Auto()
 
 
 @pytest.fixture
