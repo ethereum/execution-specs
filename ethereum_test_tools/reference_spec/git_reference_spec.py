@@ -44,11 +44,17 @@ class GitReferenceSpec(ReferenceSpec):
         """
         return self.SpecVersion
 
-    def _get_latest_known_spec(self) -> Dict | None:
-        response = requests.get(
+    def api_url(self) -> str:
+        """
+        The URL used to retrieve the version via the Github API.
+        """
+        return (
             f"https://api.github.com/repos/{self.RepositoryOwner}/"
-            + f"{self.RepositoryName}/git/blobs/{self.SpecVersion}"
+            f"{self.RepositoryName}/contents/{self.SpecPath}"
         )
+
+    def _get_latest_known_spec(self) -> Dict | None:
+        response = requests.get(self.api_url())
         if response.status_code != 200:
             return None
         content = json.loads(response.content)
@@ -58,10 +64,7 @@ class GitReferenceSpec(ReferenceSpec):
     def _get_latest_spec(self) -> Dict | None:
         if self._latest_spec is not None:
             return self._latest_spec
-        response = requests.get(
-            f"https://api.github.com/repos/{self.RepositoryOwner}/"
-            + f"{self.RepositoryName}/contents/{self.SpecPath}"
-        )
+        response = requests.get(self.api_url())
         if response.status_code != 200:
             return None
         content = json.loads(response.content)
