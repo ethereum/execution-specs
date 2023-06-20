@@ -26,6 +26,7 @@ from ethereum_test_tools import (
 )
 from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool
+from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
 
 def pytest_addoption(parser):
@@ -370,7 +371,10 @@ def pytest_collection_modifyitems(items, config):
     Here we dynamically apply "state_test" or "blockchain_test" markers
     to a test if the test function uses the corresponding fixture.
     """
+
     for item in items:
+        if isinstance(item, EIPSpecTestItem):
+            continue
         if "state_test" in item.fixturenames:
             marker = pytest.mark.state_test()
             item.add_marker(marker)
@@ -394,6 +398,9 @@ def pytest_runtest_call(item):
     """
     Pytest hook called in the context of test execution.
     """
+
+    if isinstance(item, EIPSpecTestItem):
+        return
 
     class InvalidFiller(Exception):
         def __init__(self, message):
