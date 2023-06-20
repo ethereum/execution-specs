@@ -449,6 +449,7 @@ def test_invalid_tx_max_fee_per_data_gas(
     pre: Dict,
     env: Environment,
     blocks: List[Block],
+    parent_blobs: int,
     block_intermediate: Block,
 ):
     """
