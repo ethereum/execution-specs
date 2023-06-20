@@ -85,12 +85,12 @@ def get_genesis_configuration(genesis_file: str) -> GenesisConfiguration:
         extra_data=hex_to_bytes(genesis_data["extraData"]),
         gas_limit=hex_to_uint(genesis_data["gasLimit"]),
         nonce=hex_to_bytes8(genesis_data["nonce"]),
-        timestamp=balance_str_to_u256(genesis_data["timestamp"]),
+        timestamp=hex_or_base_10_str_to_u256(genesis_data["timestamp"]),
         initial_accounts=genesis_data["alloc"],
     )
 
 
-def balance_str_to_u256(balance: str) -> U256:
+def hex_or_base_10_str_to_u256(balance: str) -> U256:
     """
     The genesis format can have balances and timestamps as either base 10
     numbers or 0x prefixed hex. This function supports both.
@@ -155,7 +155,7 @@ def add_genesis_block(
             address,
             hardfork.fork_types.Account(
                 Uint(int(account.get("nonce", "0"))),
-                balance_str_to_u256(account.get("balance", 0)),
+                hex_or_base_10_str_to_u256(account.get("balance", 0)),
                 hex_to_bytes(account.get("code", "0x")),
             ),
         )
