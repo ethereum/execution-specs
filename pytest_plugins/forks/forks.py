@@ -283,8 +283,8 @@ def pytest_generate_tests(metafunc):
     intersection_range = []
 
     if valid_at_transition_to:
-        to_fork = metafunc.config.fork_map[valid_at_transition_to]
-        if to_fork in metafunc.config.fork_range:
+        if valid_at_transition_to in metafunc.config.fork_range:
+            to_fork = metafunc.config.fork_map[valid_at_transition_to]
             intersection_range = transition_fork_to(to_fork)
 
     else:
