@@ -4,5 +4,6 @@ Ethereum Muir Glacier Hardfork
 
 The Ninth Ethereum hardfork.
 """
+from ethereum.fork_criteria import ByBlockNumber
 
-MAINNET_FORK_BLOCK = 9200000
+FORK_CRITERIA = ByBlockNumber(9200000)

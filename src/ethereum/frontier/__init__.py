@@ -5,4 +5,6 @@ Ethereum Frontier Hardfork
 The first Ethereum hardfork.
 """
 
-MAINNET_FORK_BLOCK = 0
+from ethereum.fork_criteria import ByBlockNumber
+
+FORK_CRITERIA = ByBlockNumber(0)

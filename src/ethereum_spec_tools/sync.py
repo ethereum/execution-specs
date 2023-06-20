@@ -85,16 +85,8 @@ class ForkTracking:
         """Set the block number and switch to the correct fork."""
         self.block_number = block_number
         self.active_fork_index = 0
-        while (
-            self.next_fork
-            and hasattr(self.next_fork, "block")
-            and block_number >= self.next_fork.block
-        ):
-            self.active_fork_index += 1
-        while (
-            self.next_fork
-            and hasattr(self.next_fork, "timestamp")
-            and block_timestamp >= self.next_fork.timestamp
+        while self.next_fork is not None and self.next_fork.has_activated(
+            block_number, block_timestamp
         ):
             self.active_fork_index += 1
 

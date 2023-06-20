@@ -5,4 +5,6 @@ Ethereum Shanghai Hardfork
 The Fourteenth Ethereum hardfork.
 """
 
-MAINNET_FORK_TIMESTAMP = None
+from ethereum.fork_criteria import ByTimestamp
+
+MAINNET_FORK_TIMESTAMP = ByTimestamp(1681338455)

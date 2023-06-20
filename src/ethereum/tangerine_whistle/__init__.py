@@ -5,4 +5,6 @@ Ethereum Tangerine Whistle Hardfork
 The fourth Ethereum hardfork.
 """
 
-MAINNET_FORK_BLOCK = 2463000
+from ethereum.fork_criteria import ByBlockNumber
+
+FORK_CRITERIA = ByBlockNumber(2463000)

@@ -5,4 +5,6 @@ Ethereum Spurious Dragon Hardfork
 The fifth Ethereum hardfork.
 """
 
-MAINNET_FORK_BLOCK = 2675000
+from ethereum.fork_criteria import ByBlockNumber
+
+FORK_CRITERIA = ByBlockNumber(2675000)

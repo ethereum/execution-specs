@@ -5,91 +5,16 @@ Ethereum Forks
 Detects Python packages that specify Ethereum hardforks.
 """
 
-import functools
 import importlib
 import pkgutil
 from pkgutil import ModuleInfo
 from types import ModuleType
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Type, TypeVar
+from typing import Any, Dict, Iterator, List, Optional, Type, TypeVar
 
 import ethereum
+from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, ForkCriteria
 
 H = TypeVar("H", bound="Hardfork")
-
-
-@functools.total_ordering
-class ForkCriteria:
-    """
-    Type that represents the condition required for a fork to occur.
-    """
-
-    BLOCK_NUMBER = 0
-    TIMESTAMP = 1
-    UNSCHEDULED = 2
-
-    internal: Tuple[int, int]
-
-    def __init__(self) -> None:
-        raise Exception("Can't be instantiated by __init__()")
-
-    def __eq__(self, other: object) -> bool:
-        """
-        Equality for fork criteria.
-        """
-        if isinstance(other, ForkCriteria):
-            return self.internal == other.internal
-        return NotImplemented
-
-    def __lt__(self, other: object) -> bool:
-        """
-        Ordering for fork criteria. Block number forks are before timestamp
-        forks and scheduled forks are before unscheduled forks.
-        """
-        if isinstance(other, ForkCriteria):
-            return self.internal < other.internal
-        return NotImplemented
-
-    @classmethod
-    def from_block_number(
-        cls: Type["ForkCriteria"], block_number: int
-    ) -> "ForkCriteria":
-        """
-        Criteria for a block number based fork.
-        """
-        self = ForkCriteria.__new__(cls)
-        self.internal = (cls.BLOCK_NUMBER, block_number)
-        return self
-
-    @classmethod
-    def from_timestamp(
-        cls: Type["ForkCriteria"], timestamp: int
-    ) -> "ForkCriteria":
-        """
-        Criteria for a timestamp based fork.
-        """
-        self = ForkCriteria.__new__(cls)
-        self.internal = (cls.TIMESTAMP, timestamp)
-        return self
-
-    @classmethod
-    def never(cls: Type["ForkCriteria"]) -> "ForkCriteria":
-        """
-        Criteria for a fork that is not scheduled to happen.
-        """
-        self = ForkCriteria.__new__(cls)
-        self.internal = (cls.UNSCHEDULED, 0)
-        return self
-
-    def check(self, block_number: int, timestamp: int) -> bool:
-        """
-        Check whether fork criteria have been met.
-        """
-        if self.internal[0] == self.BLOCK_NUMBER:
-            return block_number >= self.internal[1]
-        elif self.internal[0] == self.TIMESTAMP:
-            return timestamp >= self.internal[1]
-        else:
-            return False
 
 
 class Hardfork:
@@ -98,7 +23,6 @@ class Hardfork:
     """
 
     mod: ModuleType
-    criteria: ForkCriteria
 
     @classmethod
     def discover(cls: Type[H]) -> List[H]:
@@ -112,45 +36,20 @@ class Hardfork:
         modules = pkgutil.iter_modules(path, ethereum.__name__ + ".")
         modules = (module for module in modules if module.ispkg)
         forks: List[H] = []
-        new_package = None
 
         for pkg in modules:
             mod = importlib.import_module(pkg.name)
-            block = getattr(mod, "MAINNET_FORK_BLOCK", -1)
-            timestamp = getattr(mod, "MAINNET_FORK_TIMESTAMP", -1)
 
-            if block == -1 and timestamp == -1:
-                continue
-
-            # If the fork block is unknown, for example in a
-            # new improvement proposal, it will be set as None.
-            if block is None or timestamp is None:
-                if new_package is not None:
-                    raise ValueError(
-                        "cannot have more than 1 new fork package."
-                    )
-                else:
-                    new_package = cls(mod, ForkCriteria.never())
-                continue
-
-            if block is not None:
-                forks.append(cls(mod, ForkCriteria.from_block_number(block)))
-            else:
-                forks.append(cls(mod, ForkCriteria.from_timestamp(timestamp)))
+            if hasattr(mod, "FORK_CRITERIA"):
+                forks.append(cls(mod))
 
         # Timestamps are bigger than block numbers, so this always works.
-        forks.sort(
-            key=lambda fork: fork.block
-            if hasattr(fork, "block")
-            else fork.timestamp
-        )
-        if new_package is not None:
-            forks.append(new_package)
+        forks.sort(key=lambda fork: fork.criteria)
 
         return forks
 
     @classmethod
-    def load(cls: Type[H], config_dict: Dict[int, str]) -> List[H]:
+    def load(cls: Type[H], config_dict: Dict[ForkCriteria, str]) -> List[H]:
         """
         Load the forks from a config dict specifying fork blocks and
         timestamps.
@@ -159,19 +58,10 @@ class Hardfork:
 
         forks = []
 
-        for (block_or_time, name) in config:
+        for (criteria, name) in config:
             mod = importlib.import_module("ethereum." + name)
-
-            if hasattr(mod, "MAINNET_FORK_BLOCK"):
-                assert block_or_time < 1_000_000_000
-                mod.MAINNET_FORK_BLOCK = block_or_time  # type: ignore
-                criteria = ForkCriteria.from_block_number(block_or_time)
-            else:
-                assert block_or_time > 1_000_000_000
-                mod.MAINNET_FORK_TIMESTAMP = block_or_time  # type: ignore
-                criteria = ForkCriteria.from_timestamp(block_or_time)
-
-            forks.append(cls(mod, criteria))
+            mod.FORK_CRITERIA = criteria  # type: ignore
+            forks.append(cls(mod))
 
         return forks
 
@@ -185,17 +75,17 @@ class Hardfork:
         """
         c = json["config"]
         config = {
-            0: "frontier",
-            c["homesteadBlock"]: "homestead",
-            c["eip150Block"]: "tangerine_whistle",
-            c["eip155Block"]: "spurious_dragon",
-            c["byzantiumBlock"]: "byzantium",
-            c["constantinopleBlock"]: "constantinople",
-            c["istanbulBlock"]: "istanbul",
-            c["berlinBlock"]: "berlin",
-            c["londonBlock"]: "london",
-            c["mergeForkBlock"]: "paris",
-            c["shanghaiTime"]: "shanghai",
+            ByBlockNumber(0): "frontier",
+            ByBlockNumber(c["homesteadBlock"]): "homestead",
+            ByBlockNumber(c["eip150Block"]): "tangerine_whistle",
+            ByBlockNumber(c["eip155Block"]): "spurious_dragon",
+            ByBlockNumber(c["byzantiumBlock"]): "byzantium",
+            ByBlockNumber(c["constantinopleBlock"]): "constantinople",
+            ByBlockNumber(c["istanbulBlock"]): "istanbul",
+            ByBlockNumber(c["berlinBlock"]): "berlin",
+            ByBlockNumber(c["londonBlock"]): "london",
+            ByBlockNumber(c["mergeForkBlock"]): "paris",
+            ByTimestamp(c["shanghaiTime"]): "shanghai",
         }
 
         if "daoForkBlock" in c:
@@ -205,23 +95,35 @@ class Hardfork:
 
         return cls.load(config)
 
-    def __init__(self, mod: ModuleType, criteria: ForkCriteria) -> None:
+    def __init__(self, mod: ModuleType) -> None:
         self.mod = mod
-        self.criteria = criteria
+
+    @property
+    def criteria(self) -> ForkCriteria:
+        """
+        Criteria to trigger this hardfork.
+        """
+        return self.mod.FORK_CRITERIA  # type: ignore
 
     @property
     def block(self) -> int:
         """
         Block number of the first block in this hard fork.
         """
-        return getattr(self.mod, "MAINNET_FORK_BLOCK")  # noqa: B009
+        if isinstance(self.criteria, ByBlockNumber):
+            return self.criteria.block_number
+        else:
+            raise AttributeError
 
     @property
     def timestamp(self) -> int:
         """
         Block number of the first block in this hard fork.
         """
-        return getattr(self.mod, "MAINNET_FORK_TIMESTAMP")  # noqa: B009
+        if isinstance(self.criteria, ByTimestamp):
+            return self.criteria.timestamp
+        else:
+            raise AttributeError
 
     def has_activated(self, block_number: int, timestamp: int) -> bool:
         """

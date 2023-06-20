@@ -24,7 +24,7 @@ from ethereum.utils.ensure import ensure
 
 from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
-from . import MAINNET_FORK_BLOCK, vm
+from . import FORK_CRITERIA, vm
 from .bloom import logs_bloom
 from .fork_types import (
     TX_ACCESS_LIST_ADDRESS_COST,
@@ -293,7 +293,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
     """
     ensure(header.gas_used <= header.gas_limit, InvalidBlock)
 
-    is_fork_block = header.number == MAINNET_FORK_BLOCK
+    is_fork_block = header.number == FORK_CRITERIA.block_number
     expected_base_fee_per_gas = calculate_base_fee_per_gas(
         header.gas_limit,
         parent_header.gas_limit,

@@ -5,4 +5,6 @@ Ethereum Arrow Glacier Hardfork
 The Twelfth Ethereum hardfork.
 """
 
-MAINNET_FORK_BLOCK = 13773000
+from ethereum.fork_criteria import ByBlockNumber
+
+FORK_CRITERIA = ByBlockNumber(13773000)

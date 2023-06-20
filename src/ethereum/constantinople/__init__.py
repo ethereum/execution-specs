@@ -5,4 +5,6 @@ Ethereum Constantinople Hardfork
 The Seventh Ethereum hardfork.
 """
 
-MAINNET_FORK_BLOCK = 7280000
+from ethereum.fork_criteria import ByBlockNumber
+
+FORK_CRITERIA = ByBlockNumber(7280000)

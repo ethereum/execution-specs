@@ -5,4 +5,6 @@ Ethereum London Hardfork
 The Eleventh Ethereum hardfork.
 """
 
-MAINNET_FORK_BLOCK = 12965000
+from ethereum.fork_criteria import ByBlockNumber
+
+FORK_CRITERIA = ByBlockNumber(12965000)
