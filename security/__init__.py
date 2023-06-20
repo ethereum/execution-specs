@@ -1,3 +1,3 @@
 """
-Cross-client Ethereum Security Tests
+Ethereum execution client tests related to security issues.
 """
