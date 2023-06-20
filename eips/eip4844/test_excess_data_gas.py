@@ -269,7 +269,7 @@ def test_correct_excess_data_gas_calculation(
     correct_excess_data_gas: int,
 ):
     """
-    Test calculation of the excess_data_gas increase/decrease across
+    Test calculation of the `excessDataGas` increase/decrease across
     multiple blocks with and without blobs:
 
     - With parent block containing `[0, MAX_BLOBS_PER_BLOCK]` blobs
@@ -314,7 +314,7 @@ def test_correct_increasing_data_gas_costs(
     correct_excess_data_gas: int,
 ):
     """
-    Test calculation of the excess_data_gas and data gas tx costs at
+    Test calculation of the `excessDataGas` and data gas tx costs at
     value points where the cost increases to interesting amounts:
 
     - At the first data gas cost increase (1 to 2)
@@ -348,7 +348,7 @@ def test_correct_decreasing_data_gas_costs(
     correct_excess_data_gas: int,
 ):
     """
-    Test calculation of the excess_data_gas and data gas tx costs at
+    Test calculation of the `excessDataGas` and data gas tx costs at
     value points where the cost decreases to interesting amounts.
 
     See test_correct_increasing_data_gas_costs.
@@ -374,9 +374,9 @@ def test_invalid_zero_excess_data_gas_in_header(
     header_excess_data_gas: Optional[int],
 ):
     """
-    Test rejection of blocks where the excess_data_gas in the header drops to
-    zero in a block with or without data blobs, but the parent_excess_blobs is
-    greater than target in the previous block.
+    Test rejection of blocks where the `excessDataGas` in the header drops to
+    zero in a block with or without data blobs, but the excess blobs in the parent are
+    greater than target.
     """
     if header_excess_data_gas is None:
         raise Exception("test case is badly formatted")
@@ -464,8 +464,8 @@ def test_invalid_excess_data_gas_above_target_change(
     """
     Test rejection of blocks where the `excessDataGas`
 
-    - decreases more than TARGET_DATA_GAS_PER_BLOCK in a single block with zero blobs
-    - increases more than TARGET_DATA_GAS_PER_BLOCK in a single block with max blobs
+    - decreases more than `TARGET_DATA_GAS_PER_BLOCK` in a single block with zero blobs
+    - increases more than `TARGET_DATA_GAS_PER_BLOCK` in a single block with max blobs
     """
     if header_excess_data_gas is None:
         raise Exception("test case is badly formatted")
@@ -503,7 +503,7 @@ def test_invalid_static_excess_data_gas(
 ):
     """
     Test rejection of blocks where the `excessDataGas` remains unchanged
-    but the parent blobs included are not TARGET_BLOBS_PER_BLOCK.
+    but the parent blobs included are not `TARGET_BLOBS_PER_BLOCK`.
 
     Test is parametrized to `MAX_BLOBS_PER_BLOCK` and `TARGET_BLOBS_PER_BLOCK`.
     """

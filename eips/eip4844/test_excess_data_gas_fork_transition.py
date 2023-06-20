@@ -153,7 +153,7 @@ def test_invalid_pre_fork_block_with_blob_fields(
     data_gas_used_present: bool,
 ):
     """
-    Test block rejection when `excessDataGas` and/or `dataGasUsed fields are present on a pre-fork
+    Test block rejection when `excessDataGas` and/or `dataGasUsed` fields are present on a pre-fork
     block.
     """
     header_modifier = Header()
@@ -194,8 +194,8 @@ def test_invalid_post_fork_block_without_blob_fields(
     data_gas_used_missing: bool,
 ):
     """
-    Test block rejection when `excessDataGas` and/or `dataGasUsed fields are missing on a post-fork
-    block.
+    Test block rejection when `excessDataGas` and/or `dataGasUsed` fields are missing on a
+    post-fork block.
     """
     header_modifier = Header()
     if excess_data_gas_missing:
@@ -241,7 +241,7 @@ def test_fork_transition_excess_data_gas(
     post: Mapping[str, Account],
 ):
     """
-    Test excess_data_gas calculation in the header when the fork is activated.
+    Test `excessDataGas` calculation in the header when the fork is activated.
 
     Also produce enough blocks to test the data gas price increase when the block is full with
     `MAX_BLOBS_PER_BLOCK` blobs.
