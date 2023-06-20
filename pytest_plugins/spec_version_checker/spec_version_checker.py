@@ -13,6 +13,20 @@ from _pytest.python import Module
 from ethereum_test_tools import ReferenceSpec, ReferenceSpecTypes
 
 
+@pytest.hookimpl(tryfirst=True)
+def pytest_configure(config):
+    """
+    Register the plugin's custom markers and process command-line options.
+
+    Custom marker registration:
+    https://docs.pytest.org/en/7.1.x/how-to/writing_plugins.html#registering-custom-markers
+    """
+    config.addinivalue_line(
+        "markers",
+        "eip_version_check: a test that tests the reference spec defined in an EIP test module.",
+    )
+
+
 def get_ref_spec_from_module(module: ModuleType) -> None | ReferenceSpec:
     """
     Return the reference spec object defined in a module.
@@ -136,6 +150,8 @@ def pytest_collection_modifyitems(session, config, items):
         for module in modules
         if is_test_for_an_eip(str(module.path))
     ]
+    for item in new_test_eip_spec_version_items:
+        item.add_marker("eip_version_check", append=True)
     items.extend(new_test_eip_spec_version_items)
     # this gives a nice ordering for the new tests added here, but re-orders the entire
     # default pytest item ordering which based on ordering of test functions in test modules
