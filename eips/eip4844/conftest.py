@@ -25,7 +25,7 @@ def block_intermediate(
     parent_blobs: int,
     parent_excess_data_gas: int,
     tx_max_fee_per_gas: int,
-):
+) -> Block | None:
     """
     For test cases with a non-zero dataGasUsed field in the
     original genesis block header we must instead utilize an

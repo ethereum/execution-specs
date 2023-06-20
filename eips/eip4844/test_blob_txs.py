@@ -458,7 +458,7 @@ def test_invalid_tx_max_fee_per_data_gas(
     - tx max_fee_per_data_gas is barely not enough
     - tx max_fee_per_data_gas is zero
     """
-    if parent_blobs is not None:
+    if parent_blobs:
         pre[TestAddress2] = Account(balance=10**9)
         blocks.insert(0, block_intermediate)
         if env.excess_data_gas is not None:
