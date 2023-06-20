@@ -1,7 +1,9 @@
 """
-Test EIP-4844: Shard Blob Transactions (Excess Data Tests at Transition)
-EIP: https://eips.ethereum.org/EIPS/eip-4844
-"""
+abstract: Tests `excessDataGas` and `dataGasUsed` block fields for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844) at fork transition.
+
+    Test `excessDataGas` and `dataGasUsed` block fields for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844) at fork
+    transition.
+"""  # noqa: E501
 from typing import List, Mapping
 
 import pytest
@@ -134,17 +136,31 @@ def post(  # noqa: D103
     }
 
 
-def test_invalid_pre_fork_block_with_excess_data_gas(
+@pytest.mark.parametrize(
+    "excess_data_gas_present,data_gas_used_present",
+    [
+        (True, False),
+        (False, True),
+        (True, True),
+    ],
+)
+def test_invalid_pre_fork_block_with_blob_fields(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
     pre: Mapping[str, Account],
     pre_fork_blocks: List[Block],
+    excess_data_gas_present: bool,
+    data_gas_used_present: bool,
 ):
     """
-    Test block rejection when excess_data_gas field is present on a pre-fork
+    Test block rejection when `excessDataGas` and/or `dataGasUsed` fields are present on a pre-fork
     block.
     """
-    # Try to append a block on the previous fork with excess data gas field set
+    header_modifier = Header()
+    if excess_data_gas_present:
+        header_modifier.excess_data_gas = 0
+    if data_gas_used_present:
+        header_modifier.data_gas_used = 0
     blockchain_test(
         pre=pre,
         post={},
@@ -152,8 +168,8 @@ def test_invalid_pre_fork_block_with_excess_data_gas(
         + [
             Block(
                 timestamp=(FORK_TIMESTAMP - 1),
-                rlp_modifier=Header(excess_data_gas=0),
-                exception="invalid ExcessDataGas",
+                rlp_modifier=header_modifier,
+                exception="invalid field",
             )
         ],
         genesis_environment=env,
@@ -161,17 +177,31 @@ def test_invalid_pre_fork_block_with_excess_data_gas(
     )
 
 
-def test_invalid_post_fork_block_without_excess_data_gas(
+@pytest.mark.parametrize(
+    "excess_data_gas_missing,data_gas_used_missing",
+    [
+        (True, False),
+        (False, True),
+        (True, True),
+    ],
+)
+def test_invalid_post_fork_block_without_blob_fields(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
     pre: Mapping[str, Account],
     pre_fork_blocks: List[Block],
+    excess_data_gas_missing: bool,
+    data_gas_used_missing: bool,
 ):
     """
-    Test block rejection when excess_data_gas field is missing on a post-fork
-    block.
+    Test block rejection when `excessDataGas` and/or `dataGasUsed` fields are missing on a
+    post-fork block.
     """
-    # Try to append a post-fork block with excess data gas field removed
+    header_modifier = Header()
+    if excess_data_gas_missing:
+        header_modifier.excess_data_gas = Header.REMOVE_FIELD
+    if data_gas_used_missing:
+        header_modifier.data_gas_used = Header.REMOVE_FIELD
     blockchain_test(
         pre=pre,
         post={},
@@ -179,8 +209,8 @@ def test_invalid_post_fork_block_without_excess_data_gas(
         + [
             Block(
                 timestamp=FORK_TIMESTAMP,
-                rlp_modifier=Header(excess_data_gas=Header.REMOVE_FIELD),
-                exception="missing ExcessDataGas",
+                rlp_modifier=header_modifier,
+                exception="missing field",
             )
         ],
         genesis_environment=env,
@@ -211,7 +241,10 @@ def test_fork_transition_excess_data_gas(
     post: Mapping[str, Account],
 ):
     """
-    Test excess_data_gas calculation in the header when the fork is activated.
+    Test `excessDataGas` calculation in the header when the fork is activated.
+
+    Also produce enough blocks to test the data gas price increase when the block is full with
+    `MAX_BLOBS_PER_BLOCK` blobs.
     """
     blockchain_test(
         pre=pre,

@@ -1,7 +1,11 @@
 """
-Test EIP-3651: Warm COINBASE
-EIP: https://eips.ethereum.org/EIPS/eip-3651
-Source tests: https://github.com/ethereum/tests/pull/1082
+abstract: Tests [EIP-3651: Warm COINBASE](https://eips.ethereum.org/EIPS/eip-3651)
+
+    Tests for [EIP-3651: Warm COINBASE](https://eips.ethereum.org/EIPS/eip-3651).
+
+note: Tests ported from:
+
+    - [ethereum/tests/pull/1082](https://github.com/ethereum/tests/pull/1082).
 """
 
 import pytest
@@ -20,13 +24,12 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3651.md"
 REFERENCE_SPEC_VERSION = "d94c694c6f12291bb6626669c3e8587eef3adff1"
 
-pytestmark = pytest.mark.valid_from("Shanghai")
-
 # Amount of gas required to make a call to a warm account.
 # Calling a cold account with this amount of gas results in exception.
 GAS_REQUIRED_CALL_WARM_ACCOUNT = 100
 
 
+@pytest.mark.valid_from("Shanghai")
 @pytest.mark.parametrize(
     "use_sufficient_gas",
     [True, False],
@@ -71,7 +74,13 @@ def test_warm_coinbase_call_out_of_gas(
     use_sufficient_gas,
 ):
     """
-    Test warm coinbase.
+    Test that the coinbase is warm by accessing the COINBASE with each
+    of the following opcodes:
+
+    - CALL
+    - CALLCODE
+    - DELEGATECALL
+    - STATICCALL
     """
     env = Environment(
         coinbase="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
@@ -203,6 +212,7 @@ gas_measured_opcodes = [
 ]
 
 
+@pytest.mark.valid_from("Merge")  # these tests fill for fork >= Berlin
 @pytest.mark.parametrize(
     "opcode,code_gas_measure",
     gas_measured_opcodes,
@@ -210,7 +220,16 @@ gas_measured_opcodes = [
 )
 def test_warm_coinbase_gas_usage(state_test, fork, opcode, code_gas_measure):
     """
-    Test gas usage of different opcodes assuming warm coinbase.
+    Test the gas usage of opcodes affected by assuming a warm coinbase:
+
+    - EXTCODESIZE
+    - EXTCODECOPY
+    - EXTCODEHASH
+    - BALANCE
+    - CALL
+    - CALLCODE
+    - DELEGATECALL
+    - STATICCALL
     """
     env = Environment(
         coinbase="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
@@ -229,7 +248,7 @@ def test_warm_coinbase_gas_usage(state_test, fork, opcode, code_gas_measure):
     }
 
     if is_fork(fork, Shanghai):
-        expected_gas = 100  # Warm account access cost after EIP-3651
+        expected_gas = GAS_REQUIRED_CALL_WARM_ACCOUNT  # Warm account access cost after EIP-3651
     else:
         expected_gas = 2600  # Cold account access cost before EIP-3651
 

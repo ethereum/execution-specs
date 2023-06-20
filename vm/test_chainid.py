@@ -1,5 +1,7 @@
 """
-Test EIP-1344 CHAINID opcode
+abstract: Tests [EIP-1344: CHAINID opcode](https://eips.ethereum.org/EIPS/eip-1344)
+
+    Test cases for [EIP-1344: CHAINID opcode](https://eips.ethereum.org/EIPS/eip-1344).
 """
 
 import pytest
@@ -16,7 +18,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
 @pytest.mark.valid_from("Istanbul")
-def test_chain_id(state_test: StateTestFiller):
+def test_chainid(state_test: StateTestFiller):
     """
     Test CHAINID opcode.
     """

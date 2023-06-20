@@ -1,7 +1,33 @@
 """
-Test EIP-4844: Shard Blob Transactions (Point Evaluation Precompile)
-EIP: https://eips.ethereum.org/EIPS/eip-4844
-"""
+abstract: Tests point evaluation precompile for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844)
+
+    Test point evaluation precompile for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844).
+
+note: Adding a new test
+
+    Add a function that is named `test_<test_name>` and takes at least the following arguments:
+
+    - blockchain_test
+    - pre
+    - tx
+    - post
+
+    The following arguments *need* to be parametrized or the test will not be generated:
+
+    - versioned_hash
+    - kzg_commitment
+    - z
+    - y
+    - kzg_proof
+    - success
+
+    These values correspond to a single call of the precompile, and `success` refers to
+    whether the call should succeed or fail.
+
+    All other `pytest.fixture` fixtures can be parametrized to generate new combinations and test
+    cases.
+
+"""  # noqa: E501
 import glob
 import json
 import os
@@ -238,10 +264,10 @@ def test_valid_precompile_calls(
     post: Dict,
 ):
     """
-    Test invalid precompile calls:
-    - Out of bounds inputs
-    - Invalid calldata length
-    - Invalid versioned hashes
+    Test valid sanity precompile calls that are expected to succeed.
+
+    - `kzg_commitment` and `kzg_proof` are set to values such that `p(z)==0` for all values of `z`,
+    hence `y` is tested to be zero, and call to be succesful.
     """
     blockchain_test(
         pre=pre,
@@ -291,9 +317,12 @@ def test_invalid_precompile_calls(
 ):
     """
     Test invalid precompile calls:
-    - Out of bounds inputs
-    - Invalid calldata length
-    - Invalid versioned hashes
+
+    - Out of bounds inputs `z` and `y`
+    - Correct proof, commitment, z and y, but incorrect lengths
+    - Null inputs
+    - Zero inputs
+    - Correct proof, commitment, z and y, but incorrect version versioned hash
     """
     blockchain_test(
         pre=pre,
@@ -404,10 +433,10 @@ def test_point_evaluation_precompile_external_vectors(
     post: Dict,
 ):
     """
-    Test invalid precompile calls:
-    - Out of bounds inputs
-    - Invalid calldata length
-    - Invalid versioned hashes
+    Test precompile calls using external test vectors compiled from different sources:
+
+    - `go_kzg_4844_verify_kzg_proof.json`: test vectors from the
+    [go-kzg-4844](https://github.com/crate-crypto/go-kzg-4844) repository.
     """
     blockchain_test(
         pre=pre,
@@ -448,7 +477,11 @@ def test_point_evaluation_precompile_calls(
 ):
     """
     Test calling the Point Evaluation Precompile with different call types, gas
-    and parameter configuration.
+    and parameter configuration:
+
+    - Using CALL, DELEGATECALL, CALLCODE and STATICCALL.
+    - Using correct and incorrect proofs
+    - Using barely insufficient gas
     """
     blockchain_test(
         pre=pre,
@@ -484,6 +517,9 @@ def test_point_evaluation_precompile_gas_tx_to(
     """
     Test calling the Point Evaluation Precompile directly as
     transaction entry point, and measure the gas consumption.
+
+    - Using `gas_limit` with exact necessary gas, insufficient gas and extra gas.
+    - Using correct and incorrect proofs
     """
     start_balance = 10**18
     pre = {

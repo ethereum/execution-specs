@@ -1,8 +1,12 @@
 """
-Test EIP-3860: Limit and meter initcode
-EIP: https://eips.ethereum.org/EIPS/eip-3860
-Source tests: https://github.com/ethereum/tests/pull/990
-              https://github.com/ethereum/tests/pull/1012
+abstract: Test [EIP-3860: Limit and meter initcode](https://eips.ethereum.org/EIPS/eip-3860)
+
+    Tests for  [EIP-3860: Limit and meter initcode](https://eips.ethereum.org/EIPS/eip-3860).
+
+note: Tests ported from:
+
+    - [ethereum/tests/pull/990](https://github.com/ethereum/tests/pull/990)
+    - [ethereum/tests/pull/1012](https://github.com/ethereum/tests/pull/990)
 """
 
 from typing import Any, Dict
@@ -281,13 +285,14 @@ class TestContractCreationGasUsage:
 
     Generates 4 test cases that verify the gas cost behavior of a
     contract creating transaction:
-        1) Test with exact intrinsic gas minus one, contract create fails
-           and tx is invalid.
-        2) Test with exact intrinsic gas, contract create fails,
-           but tx is valid.
-        3) Test with exact execution gas minus one, contract create fails,
-           but tx is valid.
-        4) Test with exact execution gas, contract create succeeds.
+
+    1. Test with exact intrinsic gas minus one, contract create fails
+        and tx is invalid.
+    2. Test with exact intrinsic gas, contract create fails,
+        but tx is valid.
+    3. Test with exact execution gas minus one, contract create fails,
+        but tx is valid.
+    4. Test with exact execution gas, contract create succeeds.
 
     Initcode must be within valid EIP-3860 length.
     """

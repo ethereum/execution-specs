@@ -1,8 +1,10 @@
 """
-Test EIP-4844: BLOBHASH Opcode Contexts
-EIP: https://eips.ethereum.org/EIPS/eip-4844
-"""
+abstract: Tests `BLOBHASH` opcode in [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844)
 
+    Test case for `BLOBHASH` opcode calls across different contexts
+    in [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844).
+
+"""  # noqa: E501
 
 import pytest
 
@@ -57,7 +59,6 @@ def create_opcode_context(pre, tx, post):
         "on_DELEGATECALL",
         "on_STATICCALL",
         "on_CALLCODE",
-        "on_INITCODE",
         "on_CREATE",
         "on_CREATE2",
         "on_type_2_tx",
@@ -70,7 +71,7 @@ def opcode_context(yul: YulCompiler, request):
     Fixture that is parameterized by each BLOBHASH opcode test case
     in order to return the corresponding constructed opcode context.
 
-    Each context is given a pre state, tx & post state respectively
+    Each context is given a pre state, tx & post state respectively.
     """
     BlobhashContext.yul_compiler = yul
     test_case = request.param
@@ -290,15 +291,15 @@ def opcode_context(yul: YulCompiler, request):
 @pytest.mark.compile_yul_with("Shanghai")
 def test_blobhash_opcode_contexts(opcode_context, blockchain_test: BlockchainTestFiller):
     """
-    Tests that the BLOBHASH opcode functions correctly when called in different
+    Tests that the `BLOBHASH` opcode functions correctly when called in different
     contexts including:
 
-    - BLOBHASH opcode on the top level of the call stack.
-    - BLOBHASH opcode on the max value.
-    - BLOBHASH opcode on `CALL`, `DELEGATECALL`, `STATICCALL`, and `CALLCODE`.
-    - BLOBHASH opcode on Initcode.
-    - BLOBHASH opcode on `CREATE` and `CREATE2`.
-    - BLOBHASH opcode on transaction types 0, 1 and 2.
+    - `BLOBHASH` opcode on the top level of the call stack.
+    - `BLOBHASH` opcode on the max value.
+    - `BLOBHASH` opcode on `CALL`, `DELEGATECALL`, `STATICCALL`, and `CALLCODE`.
+    - `BLOBHASH` opcode on Initcode.
+    - `BLOBHASH` opcode on `CREATE` and `CREATE2`.
+    - `BLOBHASH` opcode on transaction types 0, 1 and 2.
     """
     blockchain_test(
         pre=opcode_context.get("pre"),

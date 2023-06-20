@@ -1,5 +1,8 @@
 """
-Test DUP opcodes
+abstract: Test DUP
+
+    Test the DUP opcodes.
+
 """
 from ethereum_test_tools import (
     Account,
@@ -13,10 +16,13 @@ from ethereum_test_tools import (
 
 def test_dup(state_test: StateTestFiller):
     """
-    Test DUP1-DUP16 opcodes.
-    Based on ethereum/tests: GeneralStateTests/VMTests/vmTests/dup
-    Original test by: Ori Pomerantz qbzzt1@gmail.com
-    """
+    Test the DUP1-DUP16 opcodes.
+
+    note: Test case ported from:
+
+        - [ethereum/tests/GeneralStateTests/VMTests/vmTests/dup.json](https://github.com/ethereum/tests/blob/develop/GeneralStateTests/VMTests/vmTests/dup.json)
+        by Ori Pomerantz.
+    """  # noqa: E501
     env = Environment()
     pre = {"0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(balance=1000000000000000000000)}
     txs = []

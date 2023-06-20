@@ -1,7 +1,27 @@
 """
-Test EIP-4844: Shard Blob Transactions (Excess Data Tests)
-EIP: https://eips.ethereum.org/EIPS/eip-4844
-"""
+abstract: Tests `excessDataGas` and `dataGasUsed` block fields for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844)
+
+    Test `excessDataGas` and `dataGasUsed` block fields for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844).
+
+note: Adding a new test
+
+    Add a function that is named `test_<test_name>` and takes at least the following arguments:
+
+    - blockchain_test
+    - env
+    - pre
+    - blocks
+    - post
+    - correct_excess_data_gas
+
+    The following arguments *need* to be parametrized or the test will not be generated:
+
+     - new_blobs
+
+    All other `pytest.fixture` fixtures can be parametrized to generate new combinations and test
+    cases.
+
+"""  # noqa: E501
 import itertools
 from typing import Iterator, List, Mapping, Optional, Tuple
 
@@ -29,24 +49,6 @@ from .utils import (
     get_data_gasprice,
     get_min_excess_data_blobs_for_data_gas_price,
 )
-
-# * Adding a new test *
-# Add a function that is named `test_<test_name>` and takes the following
-# arguments:
-#   - blockchain_test
-#   - env
-#   - pre
-#   - blocks
-#   - post
-#   - correct_excess_data_gas
-#
-# The following arguments *need* to be parametrized or the test will not be
-# generated:
-# - new_blobs
-#
-# All other `pytest.fixture` fixtures can be parametrized to generate new
-# combinations and test cases.
-
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4844.md"
 REFERENCE_SPEC_VERSION = "ac003985b9be74ff48bd897770e6d5f2e4318715"
@@ -267,9 +269,12 @@ def test_correct_excess_data_gas_calculation(
     correct_excess_data_gas: int,
 ):
     """
-    Test calculation of the excess_data_gas increase/decrease across
-    multiple blocks with and without blobs.
-    """
+    Test calculation of the `excessDataGas` increase/decrease across
+    multiple blocks with and without blobs:
+
+    - With parent block containing `[0, MAX_BLOBS_PER_BLOCK]` blobs
+    - With parent block containing `[0, TARGET_BLOBS_PER_BLOCK]` equivalent value of excess data gas
+    """  # noqa: E501
     blockchain_test(
         pre=pre,
         post=post,
@@ -309,8 +314,15 @@ def test_correct_increasing_data_gas_costs(
     correct_excess_data_gas: int,
 ):
     """
-    Test calculation of the excess_data_gas and data gas tx costs at
-    value points where the cost increases to interesting amounts.
+    Test calculation of the `excessDataGas` and data gas tx costs at
+    value points where the cost increases to interesting amounts:
+
+    - At the first data gas cost increase (1 to 2)
+    - At total transaction data cost increase to `> 2^32`
+    - At data gas wei cost increase to `> 2^32`
+    - At total transaction data cost increase to `> 2^64`
+    - At data gas wei cost increase to `> 2^64`
+    - At data gas wei cost increase of around current total Ether supply
     """
     blockchain_test(
         pre=pre,
@@ -336,8 +348,10 @@ def test_correct_decreasing_data_gas_costs(
     correct_excess_data_gas: int,
 ):
     """
-    Test calculation of the excess_data_gas and data gas tx costs at
+    Test calculation of the `excessDataGas` and data gas tx costs at
     value points where the cost decreases to interesting amounts.
+
+    See test_correct_increasing_data_gas_costs.
     """
     blockchain_test(
         pre=pre,
@@ -360,9 +374,9 @@ def test_invalid_zero_excess_data_gas_in_header(
     header_excess_data_gas: Optional[int],
 ):
     """
-    Test rejection of blocks where the excess_data_gas in the header drops to
-    zero in a block with or without data blobs, but the parent_excess_blobs is
-    greater than target in the previous block.
+    Test rejection of blocks where the `excessDataGas` in the header drops to
+    zero in a block with or without data blobs, but the excess blobs in the parent are
+    greater than target.
     """
     if header_excess_data_gas is None:
         raise Exception("test case is badly formatted")
@@ -409,8 +423,10 @@ def test_invalid_data_gas_used_in_header(
     header_data_gas_used: Optional[int],
 ):
     """
-    Test rejection of blocks where the data_gas_used in the header is zero in
-    a block with data blobs.
+    Test rejection of blocks where the `dataGasUsed` in the header is invalid:
+
+    - `dataGasUsed` is not equal to the number of data blobs in the block
+    - `dataGasUsed` is the max uint64 value
     """
     if header_data_gas_used is None:
         raise Exception("test case is badly formatted")
@@ -430,7 +446,10 @@ def test_invalid_data_gas_used_in_header(
 
 @pytest.mark.parametrize(
     "header_excess_blobs_delta,parent_blobs",
-    [(-1, 0), (1, MAX_BLOBS_PER_BLOCK)],
+    [
+        (-1, 0),
+        (+1, MAX_BLOBS_PER_BLOCK),
+    ],
     ids=["zero_blobs_decrease_more_than_expected", "max_blobs_increase_more_than_expected"],
 )
 @pytest.mark.parametrize("new_blobs", [1])
@@ -443,8 +462,10 @@ def test_invalid_excess_data_gas_above_target_change(
     header_excess_data_gas: Optional[int],
 ):
     """
-    Test rejection of blocks where the excess_data_gas decreases or increases
-    more than TARGET_DATA_GAS_PER_BLOCK in a single block.
+    Test rejection of blocks where the `excessDataGas`
+
+    - decreases more than `TARGET_DATA_GAS_PER_BLOCK` in a single block with zero blobs
+    - increases more than `TARGET_DATA_GAS_PER_BLOCK` in a single block with max blobs
     """
     if header_excess_data_gas is None:
         raise Exception("test case is badly formatted")
@@ -481,8 +502,10 @@ def test_invalid_static_excess_data_gas(
     parent_excess_data_gas: int,
 ):
     """
-    Test rejection of blocks where the excess_data_gas remains unchanged
-    but the parent blobs included are not TARGET_BLOBS_PER_BLOCK.
+    Test rejection of blocks where the `excessDataGas` remains unchanged
+    but the parent blobs included are not `TARGET_BLOBS_PER_BLOCK`.
+
+    Test is parametrized to `MAX_BLOBS_PER_BLOCK` and `TARGET_BLOBS_PER_BLOCK`.
     """
     blocks[0].rlp_modifier = Header(excess_data_gas=parent_excess_data_gas)
     blocks[0].exception = "invalid excessDataGas"
@@ -513,8 +536,10 @@ def test_invalid_excess_data_gas_target_blobs_increase_from_zero(
     header_excess_data_gas: Optional[int],
 ):
     """
-    Test rejection of blocks where the excess_data_gas increases from zero,
+    Test rejection of blocks where the `excessDataGas` increases from zero,
     even when the included blobs are on or below target.
+
+    Test is parametrized according to `[0, TARGET_BLOBS_PER_BLOCK]` new blobs.
     """
     if header_excess_data_gas is None:
         raise Exception("test case is badly formatted")
@@ -551,8 +576,10 @@ def test_invalid_static_excess_data_gas_from_zero_on_blobs_above_target(
     header_excess_data_gas: Optional[int],
 ):
     """
-    Test rejection of blocks where the excess_data_gas does not increase from
+    Test rejection of blocks where the `excessDataGas` does not increase from
     zero, even when the included blobs is above target.
+
+    Test is parametrized to `[TARGET_BLOBS_PER_BLOCK+1, MAX_BLOBS_PER_BLOCK]` new blobs.
     """
     if header_excess_data_gas is None:
         raise Exception("test case is badly formatted")
@@ -593,8 +620,12 @@ def test_invalid_excess_data_gas_change(
     header_excess_data_gas: Optional[int],
 ):
     """
-    Test rejection of blocks where the excess_data_gas changes to an invalid
+    Test rejection of blocks where the `excessDataGas` changes to an invalid
     value.
+
+    Given a parent block containing `[0, MAX_BLOBS_PER_BLOCK]` blobs, test an invalid
+    `excessDataGas` value by changing it by `[-TARGET_BLOBS_PER_BLOCK, TARGET_BLOBS_PER_BLOCK]`
+    from the correct value.
     """
     if header_excess_data_gas is None:
         raise Exception("test case is badly formatted")
@@ -632,8 +663,11 @@ def test_invalid_negative_excess_data_gas(
     header_excess_data_gas: Optional[int],
 ):
     """
-    Test rejection of blocks where the excess_data_gas changes to the two's
+    Test rejection of blocks where the `excessDataGas` changes to the two's
     complement equivalent of the negative value after subtracting target blobs.
+
+    Reasoning is that the `excessDataGas` is a `uint64`, so it cannot be negative, and
+    we test for a potential underflow here.
     """
     if header_excess_data_gas is None:
         raise Exception("test case is badly formatted")
@@ -675,8 +709,11 @@ def test_invalid_non_multiple_excess_data_gas(
     header_excess_data_gas: Optional[int],
 ):
     """
-    Test rejection of blocks where the excess_data_gas changes to a value that
-    is not a multiple of DATA_GAS_PER_BLOB.
+    Test rejection of blocks where the `excessDataGas` changes to a value that
+    is not a multiple of `DATA_GAS_PER_BLOB`:
+
+    - Parent block contains `TARGET_BLOBS_PER_BLOCK + 1` blobs, but `excessDataGas` is off by +/-1
+    - Parent block contains `TARGET_BLOBS_PER_BLOCK - 1` blobs, but `excessDataGas` is off by +/-1
     """
     if header_excess_data_gas is None:
         raise Exception("test case is badly formatted")
