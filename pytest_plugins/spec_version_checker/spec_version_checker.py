@@ -97,7 +97,6 @@ def test_eip_spec_version(module: ModuleType):
         f"Latest version: {ref_spec.latest_version()}. The "
         f"version was retrieved from {ref_spec.api_url()}."
     )
-    return
     try:
         is_up_to_date = not ref_spec.is_outdated()
     except Exception as e:
