@@ -9,6 +9,9 @@ from ethereum_test_tools import AccessList, Account, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, Transaction
 
+REFERENCE_SPEC_GIT_PATH = "EIPS/eip-2930.md"
+REFERENCE_SPEC_VERSION = "c9db53a936c5c9cbe2db32ba0d1b86c4c6e73534"
+
 
 @pytest.mark.valid_from("Berlin")
 @pytest.mark.valid_until("London")

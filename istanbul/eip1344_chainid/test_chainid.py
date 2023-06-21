@@ -16,6 +16,9 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
+REFERENCE_SPEC_GIT_PATH = "EIPS/eip-1344.md"
+REFERENCE_SPEC_VERSION = "02e46aebc80e6e5006ab4d2daa41876139f9a9e2"
+
 
 @pytest.mark.valid_from("Istanbul")
 def test_chainid(state_test: StateTestFiller):
