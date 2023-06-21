@@ -55,6 +55,13 @@ class ReferenceSpec:
         pass
 
     @abstractmethod
+    def api_url(self) -> str:
+        """
+        Returns the URL required to poll the version from an API, if needed.
+        """
+        pass
+
+    @abstractmethod
     def latest_version(self) -> str:
         """
         Returns a digest that points to the latest version of the spec.
