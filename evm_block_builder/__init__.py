@@ -19,7 +19,7 @@ class BlockBuilder:
     def build(
         self,
         header: Any,
-        txs: Any,
+        serialized_txs: bytes,
         ommers: Any,
         withdrawals: Optional[Any] = None,
         clique: Optional[Any] = None,
@@ -63,7 +63,7 @@ class EvmBlockBuilder(BlockBuilder):
     def build(
         self,
         header: Any,
-        txs: Any,
+        serialized_txs: bytes,
         ommers: Any,
         withdrawals: Optional[Any] = None,
         clique: Optional[Any] = None,
@@ -90,7 +90,7 @@ class EvmBlockBuilder(BlockBuilder):
 
         stdin = {
             "header": header,
-            "txs": txs,
+            "txs": "0x" + serialized_txs.hex() if len(serialized_txs) > 0 else "",
             "uncles": ommers,
             "clique": clique,
         }

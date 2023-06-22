@@ -31,7 +31,7 @@ class TransitionTool:
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any], str]:
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Simulate a state transition with specified parameters
         """
@@ -92,7 +92,7 @@ class TransitionTool:
         if fork.header_withdrawals_required(0, 0):
             env["withdrawals"] = []
 
-        (_, result, _) = self.evaluate(alloc, [], env, fork)
+        _, result = self.evaluate(alloc, [], env, fork)
         state_root = result.get("stateRoot")
         if state_root is None or not isinstance(state_root, str):
             raise Exception("Unable to calculate state root")
@@ -124,7 +124,7 @@ class TransitionTool:
         if fork.header_excess_data_gas_required(0, 0):
             env["currentExcessDataGas"] = "0"
 
-        (_, result, _) = self.evaluate({}, [], env, fork)
+        _, result = self.evaluate({}, [], env, fork)
         withdrawals_root = result.get("withdrawalsRoot")
         if withdrawals_root is None:
             raise Exception(
@@ -183,7 +183,7 @@ class EvmTransitionTool(TransitionTool):
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any], str]:
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Executes `evm t8n` with the specified arguments.
         """
@@ -235,9 +235,6 @@ class EvmTransitionTool(TransitionTool):
         if "alloc" not in output or "result" not in output:
             raise Exception("malformed result")
 
-        with open(os.path.join(temp_dir.name, "txs.rlp"), "r") as txs_rlp_file:
-            txs_rlp = txs_rlp_file.read().strip('"')
-
         if self.trace:
             receipts: List[Any] = output["result"]["receipts"]
             traces: List[List[Dict]] = []
@@ -253,7 +250,7 @@ class EvmTransitionTool(TransitionTool):
 
         temp_dir.cleanup()
 
-        return (output["alloc"], output["result"], txs_rlp)
+        return output["alloc"], output["result"]
 
     def version(self) -> str:
         """

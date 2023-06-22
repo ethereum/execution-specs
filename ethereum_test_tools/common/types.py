@@ -6,13 +6,81 @@ from copy import copy, deepcopy
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Dict, List, Mapping, Optional, Sequence, Tuple, Type, TypeAlias
 
+from coincurve.keys import PrivateKey, PublicKey
+from ethereum import rlp as eth_rlp
+from ethereum.base_types import Uint
+from ethereum.crypto.hash import keccak256
+
 from ethereum_test_forks import Fork
 from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
 
-from ..code import Code, code_to_hex
+from ..code import Code, code_to_bytes, code_to_hex
 from ..reference_spec.reference_spec import ReferenceSpec
 from .constants import AddrAA, TestPrivateKey
+
+
+def address_to_bytes(input: str | bytes | int | None) -> bytes:
+    """
+    Converts an address string or int to bytes.
+    """
+    if input is None:
+        return bytes()
+    elif type(input) == int:
+        return int.to_bytes(input, length=20, byteorder="big")
+    elif type(input) == str:
+        if input.startswith("0x"):
+            input = input[2:]
+        if len(input) % 2 != 0:
+            input = "0" + input
+        b = bytes.fromhex(input)
+        if len(b) > 20:
+            raise ValueError(f"Address is too long: {input}")
+        return b.rjust(20, b"\x00")
+    elif type(input) == bytes:
+        if len(input) > 20:
+            raise ValueError(f"Address is too long: {input.hex()}")
+        return input.rjust(20, b"\x00")
+    raise ValueError(f"Invalid address type: {type(input)}")
+
+
+def hash_to_bytes(input: str | bytes | int | None) -> bytes:
+    """
+    Converts a hash string or int to bytes.
+    """
+    if input is None:
+        return bytes()
+    elif type(input) == int:
+        return int.to_bytes(input, length=32, byteorder="big")
+    elif type(input) == str:
+        if input.startswith("0x"):
+            input = input[2:]
+        if len(input) % 2 != 0:
+            input = "0" + input
+        b = bytes.fromhex(input)
+        if len(b) > 32:
+            raise ValueError(f"Hash is too long: {input}")
+        return b.rjust(32, b"\x00")
+    elif type(input) == bytes:
+        if len(input) > 32:
+            raise ValueError(f"Hash is too long: {input.hex()}")
+        return input.rjust(32, b"\x00")
+    raise ValueError(f"Invalid hash type: {type(input)}")
+
+
+def hash_to_int(input: str | bytes | int | None) -> int:
+    """
+    Converts a hash bytes, string or int to int.
+    """
+    if input is None:
+        return 0
+    elif type(input) == int:
+        return input
+    elif type(input) == str:
+        return int(input, 0)
+    elif type(input) == bytes:
+        return int.from_bytes(input, byteorder="big")
+    raise ValueError(f"Invalid hash type: {type(input)}")
 
 
 def code_or_none(input: str | bytes | Code, default=None) -> str | None:
@@ -659,14 +727,31 @@ class Environment:
         return res
 
 
-@dataclass(kw_only=True)
 class AccessList:
     """
     Access List for transactions.
     """
 
-    address: str
-    storage_keys: List[str] = field(default_factory=list)
+    address: bytes
+    storage_keys: List[bytes]
+
+    def __init__(
+        self,
+        *,
+        address: str | int | bytes,
+        storage_keys: List[str | int | bytes],
+    ) -> None:
+        """
+        Ensures the access list has the correct byte length for each field.
+        """
+        self.address = address_to_bytes(address)
+        self.storage_keys = [hash_to_bytes(key) for key in storage_keys]
+
+    def to_list(self) -> List[bytes | List[bytes]]:
+        """
+        Returns the access list as a list of serializable elements.
+        """
+        return [self.address, self.storage_keys]
 
 
 @dataclass(kw_only=True)
@@ -694,12 +779,14 @@ class Transaction:
     max_fee_per_data_gas: Optional[int] = None
     blob_versioned_hashes: Optional[Sequence[str | bytes]] = None
 
-    blob_kzgs: Optional[Sequence[bytes]] = None
-    blobs: Optional[Sequence[Sequence[int]]] = None
-    kzg_aggregated_proof: Optional[str | bytes] = None
+    network_version: bool = False
+    blobs: Optional[Sequence[bytes]] = None
+    blob_kzg_commitments: Optional[Sequence[bytes]] = None
+    blob_kzg_proofs: Optional[Sequence[bytes]] = None
 
-    signature: Optional[Tuple[str, str, str]] = None
+    signature: Optional[Tuple[int, int, int]] = None
     secret_key: Optional[str] = None
+    sender: Optional[str | bytes] = None
     protected: bool = True
     error: Optional[str] = None
 
@@ -749,7 +836,7 @@ class Transaction:
         if self.ty is None:
             # Try to deduce transaction type from included fields
             if self.max_fee_per_data_gas is not None:
-                self.ty = 5
+                self.ty = 3
             elif self.max_fee_per_gas is not None:
                 self.ty = 2
             elif self.access_list is not None:
@@ -784,6 +871,316 @@ class Transaction:
             else:
                 raise ValueError(f"Invalid field '{key}' for Transaction")
         return tx
+
+    def payload_body(self) -> List[Any]:
+        """
+        Returns the list of values included in the transaction body.
+        """
+        if self.signature is None:
+            raise ValueError("signature must be set before serializing any tx type")
+
+        if self.gas_limit is None:
+            raise ValueError("gas_limit must be set for all tx types")
+        to = address_to_bytes(self.to)
+
+        if self.ty == 3:
+            # EIP-4844: https://eips.ethereum.org/EIPS/eip-4844
+            if self.max_priority_fee_per_gas is None:
+                raise ValueError("max_priority_fee_per_gas must be set for type 3 tx")
+            if self.max_fee_per_gas is None:
+                raise ValueError("max_fee_per_gas must be set for type 3 tx")
+            if self.max_fee_per_data_gas is None:
+                raise ValueError("max_fee_per_data_gas must be set for type 3 tx")
+            if self.blob_versioned_hashes is None:
+                raise ValueError("blob_versioned_hashes must be set for type 3 tx")
+
+            if self.network_version:
+                if self.blobs is None:
+                    raise ValueError("blobs must be set for network version of type 3 tx")
+                if self.blob_kzg_commitments is None:
+                    raise ValueError(
+                        "blob_kzg_commitments must be set for network version of type 3 tx"
+                    )
+                if self.blob_kzg_proofs is None:
+                    raise ValueError(
+                        "blob_kzg_proofs must be set for network version of type 3 tx"
+                    )
+
+                return [
+                    [
+                        Uint(self.chain_id),
+                        Uint(self.nonce),
+                        Uint(self.max_priority_fee_per_gas),
+                        Uint(self.max_fee_per_gas),
+                        Uint(self.gas_limit),
+                        to,
+                        Uint(self.value),
+                        code_to_bytes(self.data),
+                        [a.to_list() for a in self.access_list]
+                        if self.access_list is not None
+                        else [],
+                        Uint(self.max_fee_per_data_gas),
+                        [hash_to_bytes(h) for h in self.blob_versioned_hashes],
+                        Uint(self.signature[0]),
+                        Uint(self.signature[1]),
+                        Uint(self.signature[2]),
+                    ],
+                    self.blobs,
+                    self.blob_kzg_commitments,
+                    self.blob_kzg_proofs,
+                ]
+            else:
+                return [
+                    Uint(self.chain_id),
+                    Uint(self.nonce),
+                    Uint(self.max_priority_fee_per_gas),
+                    Uint(self.max_fee_per_gas),
+                    Uint(self.gas_limit),
+                    to,
+                    Uint(self.value),
+                    code_to_bytes(self.data),
+                    [a.to_list() for a in self.access_list]
+                    if self.access_list is not None
+                    else [],
+                    Uint(self.max_fee_per_data_gas),
+                    [hash_to_bytes(h) for h in self.blob_versioned_hashes],
+                    Uint(self.signature[0]),
+                    Uint(self.signature[1]),
+                    Uint(self.signature[2]),
+                ]
+        elif self.ty == 2:
+            # EIP-1559: https://eips.ethereum.org/EIPS/eip-1559
+            if self.max_priority_fee_per_gas is None:
+                raise ValueError("max_priority_fee_per_gas must be set for type 3 tx")
+            if self.max_fee_per_gas is None:
+                raise ValueError("max_fee_per_gas must be set for type 3 tx")
+            return [
+                Uint(self.chain_id),
+                Uint(self.nonce),
+                Uint(self.max_priority_fee_per_gas),
+                Uint(self.max_fee_per_gas),
+                Uint(self.gas_limit),
+                to,
+                Uint(self.value),
+                code_to_bytes(self.data),
+                [a.to_list() for a in self.access_list] if self.access_list is not None else [],
+                Uint(self.signature[0]),
+                Uint(self.signature[1]),
+                Uint(self.signature[2]),
+            ]
+        elif self.ty == 1:
+            # EIP-2930: https://eips.ethereum.org/EIPS/eip-2930
+            if self.gas_price is None:
+                raise ValueError("gas_price must be set for type 1 tx")
+
+            return [
+                Uint(self.chain_id),
+                Uint(self.nonce),
+                Uint(self.gas_price),
+                Uint(self.gas_limit),
+                to,
+                Uint(self.value),
+                code_to_bytes(self.data),
+                [a.to_list() for a in self.access_list] if self.access_list is not None else [],
+                Uint(self.signature[0]),
+                Uint(self.signature[1]),
+                Uint(self.signature[2]),
+            ]
+        elif self.ty == 0:
+            if self.gas_price is None:
+                raise ValueError("gas_price must be set for type 0 tx")
+            # EIP-155: https://eips.ethereum.org/EIPS/eip-155
+            return [
+                Uint(self.nonce),
+                Uint(self.gas_price),
+                Uint(self.gas_limit),
+                to,
+                Uint(self.value),
+                code_to_bytes(self.data),
+                Uint(self.signature[0]),
+                Uint(self.signature[1]),
+                Uint(self.signature[2]),
+            ]
+
+        raise NotImplementedError(f"serialized_bytes not implemented for tx type {self.ty}")
+
+    def serialized_bytes(self) -> bytes:
+        """
+        Returns bytes of the serialized representation of the transaction,
+        which is almost always RLP encoding.
+        """
+        if self.ty is None:
+            raise ValueError("ty must be set for all tx types")
+
+        if self.ty > 0:
+            return bytes([self.ty]) + eth_rlp.encode(self.payload_body())
+        else:
+            return eth_rlp.encode(self.payload_body())
+
+    def signing_envelope(self) -> List[Any]:
+        """
+        Returns the list of values included in the envelope used for signing.
+        """
+        if self.gas_limit is None:
+            raise ValueError("gas_limit must be set for all tx types")
+        to = address_to_bytes(self.to)
+
+        if self.ty == 3:
+            # EIP-4844: https://eips.ethereum.org/EIPS/eip-4844
+            if self.max_priority_fee_per_gas is None:
+                raise ValueError("max_priority_fee_per_gas must be set for type 3 tx")
+            if self.max_fee_per_gas is None:
+                raise ValueError("max_fee_per_gas must be set for type 3 tx")
+            if self.max_fee_per_data_gas is None:
+                raise ValueError("max_fee_per_data_gas must be set for type 3 tx")
+            if self.blob_versioned_hashes is None:
+                raise ValueError("blob_versioned_hashes must be set for type 3 tx")
+            return [
+                Uint(self.chain_id),
+                Uint(self.nonce),
+                Uint(self.max_priority_fee_per_gas),
+                Uint(self.max_fee_per_gas),
+                Uint(self.gas_limit),
+                to,
+                Uint(self.value),
+                code_to_bytes(self.data),
+                [a.to_list() for a in self.access_list] if self.access_list is not None else [],
+                Uint(self.max_fee_per_data_gas),
+                [hash_to_bytes(h) for h in self.blob_versioned_hashes],
+            ]
+        elif self.ty == 2:
+            # EIP-1559: https://eips.ethereum.org/EIPS/eip-1559
+            if self.max_priority_fee_per_gas is None:
+                raise ValueError("max_priority_fee_per_gas must be set for type 3 tx")
+            if self.max_fee_per_gas is None:
+                raise ValueError("max_fee_per_gas must be set for type 3 tx")
+            return [
+                Uint(self.chain_id),
+                Uint(self.nonce),
+                Uint(self.max_priority_fee_per_gas),
+                Uint(self.max_fee_per_gas),
+                Uint(self.gas_limit),
+                to,
+                Uint(self.value),
+                code_to_bytes(self.data),
+                [a.to_list() for a in self.access_list] if self.access_list is not None else [],
+            ]
+        elif self.ty == 1:
+            # EIP-2930: https://eips.ethereum.org/EIPS/eip-2930
+            if self.gas_price is None:
+                raise ValueError("gas_price must be set for type 1 tx")
+
+            return [
+                Uint(self.chain_id),
+                Uint(self.nonce),
+                Uint(self.gas_price),
+                Uint(self.gas_limit),
+                to,
+                Uint(self.value),
+                code_to_bytes(self.data),
+                [a.to_list() for a in self.access_list] if self.access_list is not None else [],
+            ]
+        elif self.ty == 0:
+            if self.gas_price is None:
+                raise ValueError("gas_price must be set for type 0 tx")
+
+            if self.protected:
+                # EIP-155: https://eips.ethereum.org/EIPS/eip-155
+                return [
+                    Uint(self.nonce),
+                    Uint(self.gas_price),
+                    Uint(self.gas_limit),
+                    to,
+                    Uint(self.value),
+                    code_to_bytes(self.data),
+                    Uint(self.chain_id),
+                    Uint(0),
+                    Uint(0),
+                ]
+            else:
+                return [
+                    Uint(self.nonce),
+                    Uint(self.gas_price),
+                    Uint(self.gas_limit),
+                    to,
+                    Uint(self.value),
+                    code_to_bytes(self.data),
+                ]
+        raise NotImplementedError("sigining for transaction type {self.ty} not implemented")
+
+    def signing_bytes(self) -> bytes:
+        """
+        Returns the serialized bytes of the transaction used for signing.
+        """
+        if self.ty is None:
+            raise ValueError("ty must be set for all tx types")
+
+        if self.ty > 0:
+            return bytes([self.ty]) + eth_rlp.encode(self.signing_envelope())
+        else:
+            return eth_rlp.encode(self.signing_envelope())
+
+    def with_signature_and_sender(self) -> "Transaction":
+        """
+        Returns a signed version of the transaction using the private key.
+        """
+        tx = copy(self)
+
+        if tx.signature is not None:
+            # Transaction already signed
+            if tx.sender is None:
+                # TODO: We need to recover the sender from the signature
+                raise NotImplementedError("recovering sender from signature not implemented")
+            return tx
+
+        if tx.secret_key is None:
+            raise ValueError("secret_key must be set to sign a transaction")
+
+        # Get the signing bytes
+        signing_hash = keccak256(tx.signing_bytes())
+
+        # Sign the bytes
+        private_key = PrivateKey.from_int(hash_to_int(tx.secret_key))
+        signature_bytes = private_key.sign_recoverable(signing_hash, hasher=None)
+        public_key = PublicKey.from_signature_and_message(
+            signature_bytes, signing_hash, hasher=None
+        )
+        tx.sender = keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
+
+        v, r, s = (
+            signature_bytes[64],
+            int.from_bytes(signature_bytes[0:32], byteorder="big"),
+            int.from_bytes(signature_bytes[32:64], byteorder="big"),
+        )
+        if tx.ty == 0:
+            if tx.protected:
+                v += 35 + (tx.chain_id * 2)
+            else:  # not protected
+                v += 27
+
+        tx.signature = (v, r, s)
+
+        # Remove the secret key because otherwise we might attempt to sign again (?)
+        tx.secret_key = None
+        return tx
+
+
+def serialize_transactions(input_txs: List[Transaction] | None) -> bytes:
+    """
+    Serialize a list of transactions into a single byte string, usually RLP encoded.
+    """
+    if input_txs is None:
+        return eth_rlp.encode([])
+    txs: List[Any] = []
+    for tx in input_txs:
+        if tx.ty is None:
+            raise ValueError("ty must be set for all tx types")
+
+        if tx.ty > 0:
+            txs.append(tx.serialized_bytes())
+        else:
+            txs.append(tx.payload_body())
+    return eth_rlp.encode(txs)
 
 
 @dataclass
@@ -1100,9 +1497,11 @@ class JSONEncoder(json.JSONEncoder):
             }
             return even_padding(account, excluded=["storage"])
         elif isinstance(obj, AccessList):
-            access_list = {"address": obj.address}
+            access_list = {"address": "0x" + obj.address.hex()}
             if obj.storage_keys is not None:
-                access_list["storageKeys"] = obj.storage_keys
+                access_list["storageKeys"] = [
+                    "0x" + hash_to_bytes(k).hex() for k in obj.storage_keys
+                ]
             return access_list
         elif isinstance(obj, Transaction):
             tx = {
@@ -1115,9 +1514,7 @@ class JSONEncoder(json.JSONEncoder):
                 "gas": hex(obj.gas_limit),
                 "value": hex(obj.value),
                 "input": code_to_hex(obj.data),
-                "to": "0x" + int.to_bytes(obj.to, length=20, byteorder="big").hex()
-                if obj.to is int
-                else obj.to,
+                "to": "0x" + address_to_bytes(obj.to).hex() if obj.to is not None else None,
                 "accessList": obj.access_list,
                 "protected": obj.protected,
                 "secretKey": obj.secret_key,
@@ -1125,28 +1522,23 @@ class JSONEncoder(json.JSONEncoder):
             }
 
             if obj.blob_versioned_hashes is not None:
-                hashes: List[str] = []
-                for h in obj.blob_versioned_hashes:
-                    if type(h) is str:
-                        hashes.append(h)
-                    elif type(h) is bytes:
-                        if len(h) != 32:
-                            raise TypeError("improper byte size for blob_versioned_hashes")
-                        hashes.append("0x" + h.hex())
-                    else:
-                        raise TypeError("improper type for blob_versioned_hashes")
-                tx["blobVersionedHashes"] = hashes
+                tx["blobVersionedHashes"] = [
+                    "0x" + hash_to_bytes(h).hex() for h in obj.blob_versioned_hashes
+                ]
 
             if obj.secret_key is None:
                 assert obj.signature is not None
                 assert len(obj.signature) == 3
-                tx["v"] = obj.signature[0]
-                tx["r"] = obj.signature[1]
-                tx["s"] = obj.signature[2]
+                tx["v"] = hex(obj.signature[0])
+                tx["r"] = hex(obj.signature[1])
+                tx["s"] = hex(obj.signature[2])
             else:
                 tx["v"] = ""
                 tx["r"] = ""
                 tx["s"] = ""
+
+            if obj.sender is not None:
+                tx["sender"] = "0x" + address_to_bytes(obj.sender).hex()
             return {k: v for (k, v) in tx.items() if v is not None}
         elif isinstance(obj, Withdrawal):
             withdrawal = {

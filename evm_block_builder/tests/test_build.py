@@ -12,7 +12,6 @@ FIXTURES_ROOT = Path(os.path.join("src", "evm_block_builder", "tests", "fixtures
 @pytest.mark.parametrize("b11r", [EvmBlockBuilder()])
 @pytest.mark.parametrize("test_dir", os.listdir(path=FIXTURES_ROOT))
 def test_evm_simple(b11r: BlockBuilder, test_dir: str) -> None:
-
     env_path = Path(FIXTURES_ROOT, test_dir, "header.json")
     txs_path = Path(FIXTURES_ROOT, test_dir, "txs.rlp")
     ommers_path = Path(FIXTURES_ROOT, test_dir, "ommers.json")
@@ -22,10 +21,10 @@ def test_evm_simple(b11r: BlockBuilder, test_dir: str) -> None:
         ommers_path, "r"
     ) as ommers, open(expected_path, "r") as exp:
         env = json.load(env)
-        txs = json.load(txs)
+        txs_bytes = bytes.fromhex(json.load(txs)[2:])
         ommers = json.load(ommers)
         expected = json.load(exp)
 
-        (rlp, h) = b11r.build(env, txs, ommers, None)
+        (rlp, h) = b11r.build(env, txs_bytes, ommers, None)
         assert rlp == expected.get("rlp")
         assert h == expected.get("hash")

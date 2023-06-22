@@ -15,6 +15,7 @@ from ..common import (
     FixtureBlock,
     FixtureHeader,
     Transaction,
+    serialize_transactions,
     str_or_none,
     to_json,
     to_json_or_none,
@@ -82,7 +83,7 @@ class StateTest(BaseTest):
 
         (genesis_rlp, genesis.hash) = b11r.build(
             header=genesis.to_geth_dict(),
-            txs="",
+            serialized_txs=bytes(),
             ommers=[],
             withdrawals=env.withdrawals,
         )
@@ -105,9 +106,11 @@ class StateTest(BaseTest):
         env = self.env.apply_new_parent(genesis)
         env = env.set_fork_requirements(fork)
 
-        (alloc, result, txs_rlp) = t8n.evaluate(
+        txs = [tx.with_signature_and_sender() for tx in self.txs] if self.txs is not None else []
+
+        alloc, result = t8n.evaluate(
             alloc=to_json(self.pre),
-            txs=to_json(self.txs),
+            txs=to_json(txs),
             env=to_json(env),
             fork=fork,
             chain_id=chain_id,
@@ -115,7 +118,7 @@ class StateTest(BaseTest):
             eips=eips,
         )
 
-        rejected_txs = verify_transactions(self.txs, result)
+        rejected_txs = verify_transactions(txs, result)
         if len(rejected_txs) > 0:
             raise Exception(
                 "one or more transactions in `StateTest` are "
@@ -151,7 +154,7 @@ class StateTest(BaseTest):
 
         block, head = b11r.build(
             header=header.to_geth_dict(),
-            txs=txs_rlp,
+            serialized_txs=serialize_transactions(txs),
             ommers=[],
             withdrawals=to_json_or_none(env.withdrawals),
         )
@@ -162,7 +165,7 @@ class StateTest(BaseTest):
                 FixtureBlock(
                     rlp=block,
                     block_header=header,
-                    txs=self.txs if self.txs is not None else [],
+                    txs=txs,
                     ommers=[],
                     withdrawals=env.withdrawals,
                 )

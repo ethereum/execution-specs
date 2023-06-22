@@ -17,6 +17,7 @@ from ..common import (
     Environment,
     FixtureBlock,
     FixtureHeader,
+    serialize_transactions,
     str_or_none,
     to_json,
     to_json_or_none,
@@ -84,7 +85,7 @@ class BlockchainTest(BaseTest):
 
         (genesis_rlp, genesis.hash) = b11r.build(
             header=genesis.to_geth_dict(),
-            txs="",
+            serialized_txs=bytes(),
             ommers=[],
             withdrawals=env.withdrawals,
         )
@@ -135,9 +136,15 @@ class BlockchainTest(BaseTest):
             env = block.set_environment(previous_env)
             env = env.set_fork_requirements(fork)
 
-            (next_alloc, result, txs_rlp) = t8n.evaluate(
+            txs = (
+                [tx.with_signature_and_sender() for tx in block.txs]
+                if block.txs is not None
+                else []
+            )
+
+            next_alloc, result = t8n.evaluate(
                 alloc=previous_alloc,
-                txs=to_json_or_none(block.txs),
+                txs=to_json_or_none(txs),
                 env=to_json(env),
                 fork=fork,
                 chain_id=chain_id,
@@ -145,7 +152,7 @@ class BlockchainTest(BaseTest):
                 eips=eips,
             )
             try:
-                rejected_txs = verify_transactions(block.txs, result)
+                rejected_txs = verify_transactions(txs, result)
             except Exception as e:
                 print_traces(t8n.get_traces())
                 pprint(result)
@@ -193,7 +200,7 @@ class BlockchainTest(BaseTest):
 
             rlp, header.hash = b11r.build(
                 header=header.to_geth_dict(),
-                txs=txs_rlp,
+                serialized_txs=serialize_transactions(txs),
                 ommers=[],
                 withdrawals=to_json_or_none(env.withdrawals),
             )
@@ -205,7 +212,7 @@ class BlockchainTest(BaseTest):
                         rlp=rlp,
                         block_header=header,
                         block_number=header.number,
-                        txs=block.txs if block.txs is not None else [],
+                        txs=txs,
                         ommers=[],
                         withdrawals=env.withdrawals,
                     ),
