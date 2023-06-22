@@ -652,7 +652,10 @@ def process_transaction(
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
-    gas_fee = tx.gas * tx.gas_price
+    try:
+        gas_fee = tx.gas * tx.gas_price
+    except ValueError as e:
+        raise InvalidBlock from e
     ensure(sender_account.nonce == tx.nonce, InvalidBlock)
     ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
     ensure(sender_account.code == bytearray(), InvalidBlock)

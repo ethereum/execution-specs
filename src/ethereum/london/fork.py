@@ -434,6 +434,7 @@ def check_transaction(
 
     if isinstance(tx, FeeMarketTransaction):
         ensure(tx.max_fee_per_gas >= tx.max_priority_fee_per_gas, InvalidBlock)
+        ensure(tx.max_fee_per_gas >= base_fee_per_gas, InvalidBlock)
 
         priority_fee_per_gas = min(
             tx.max_priority_fee_per_gas,
@@ -770,10 +771,13 @@ def process_transaction(
     sender = env.origin
     sender_account = get_account(env.state, sender)
 
-    if isinstance(tx, FeeMarketTransaction):
-        gas_fee = tx.gas * tx.max_fee_per_gas
-    else:
-        gas_fee = tx.gas * tx.gas_price
+    try:
+        if isinstance(tx, FeeMarketTransaction):
+            gas_fee = tx.gas * tx.max_fee_per_gas
+        else:
+            gas_fee = tx.gas * tx.gas_price
+    except ValueError as e:
+        raise InvalidBlock from e
 
     ensure(sender_account.nonce == tx.nonce, InvalidBlock)
     ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
