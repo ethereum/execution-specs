@@ -10,7 +10,7 @@ def main():  # noqa: D103
     print(
         "The `tf` command-line tool has been superseded by `fill`, please "
         "see the docs for help running `fill`:\n"
-        "https://danceratopz.github.io/execution-spec-tests/getting_started/executing_tests_command_line/"  # noqa: E501
+        "https://ethereum.github.io/execution-spec-tests/getting_started/executing_tests_command_line/"  # noqa: E501
     )
     sys.exit(1)
 
