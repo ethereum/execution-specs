@@ -71,7 +71,7 @@ class TransitionTool:
         """
         return self.traces
 
-    def calc_state_root(self, alloc: Any, fork: Fork) -> str:
+    def calc_state_root(self, alloc: Any, fork: Fork) -> bytes:
         """
         Calculate the state root for the given `alloc`.
         """
@@ -96,15 +96,17 @@ class TransitionTool:
         state_root = result.get("stateRoot")
         if state_root is None or not isinstance(state_root, str):
             raise Exception("Unable to calculate state root")
-        return state_root
+        return bytes.fromhex(state_root[2:])
 
-    def calc_withdrawals_root(self, withdrawals: Any, fork: Fork) -> str:
+    def calc_withdrawals_root(self, withdrawals: Any, fork: Fork) -> bytes:
         """
         Calculate the state root for the given `alloc`.
         """
         if type(withdrawals) is list and len(withdrawals) == 0:
             # Optimize returning the empty root immediately
-            return "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+            return bytes.fromhex(
+                "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+            )
 
         env: Dict[str, Any] = {
             "currentCoinbase": "0x0000000000000000000000000000000000000000",
@@ -136,7 +138,7 @@ class TransitionTool:
                 + "incorrect type returned from transition tool: "
                 + f"{withdrawals_root}"
             )
-        return withdrawals_root
+        return bytes.fromhex(withdrawals_root[2:])
 
 
 class EvmTransitionTool(TransitionTool):

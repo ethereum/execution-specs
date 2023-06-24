@@ -7,7 +7,6 @@ from typing import Dict
 import pytest
 
 from ethereum_test_forks import Berlin, Fork, Istanbul, London
-from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool, TransitionTool
 
 FIXTURES_ROOT = Path(os.path.join("src", "evm_transition_tool", "tests", "fixtures"))
@@ -28,7 +27,7 @@ FIXTURES_ROOT = Path(os.path.join("src", "evm_transition_tool", "tests", "fixtur
                 },
             },
             7,
-            "0x51e7c7508e76dca0",
+            bytes.fromhex("51e7c7508e76dca0"),
         ),
         (
             {
@@ -37,7 +36,7 @@ FIXTURES_ROOT = Path(os.path.join("src", "evm_transition_tool", "tests", "fixtur
                 },
             },
             None,
-            "0x51e7c7508e76dca0",
+            bytes.fromhex("51e7c7508e76dca0"),
         ),
         (
             {
@@ -49,7 +48,7 @@ FIXTURES_ROOT = Path(os.path.join("src", "evm_transition_tool", "tests", "fixtur
                 },
             },
             None,
-            "0x37c2dedbdea6b3af",
+            bytes.fromhex("37c2dedbdea6b3af"),
         ),
         (
             {
@@ -61,7 +60,7 @@ FIXTURES_ROOT = Path(os.path.join("src", "evm_transition_tool", "tests", "fixtur
                 },
             },
             None,
-            "0x096122e88929baec",
+            bytes.fromhex("096122e88929baec"),
         ),
     ],
 )
@@ -70,7 +69,7 @@ def test_calc_state_root(
     fork: Fork,
     alloc: Dict,
     base_fee: int | None,
-    hash: str,
+    hash: bytes,
 ) -> None:
     class TestEnv:
         base_fee: int | None
@@ -80,7 +79,7 @@ def test_calc_state_root(
     assert t8n.calc_state_root(alloc, fork).startswith(hash)
 
 
-@pytest.mark.parametrize("evm_tool", [EvmTransitionTool, EvmBlockBuilder])
+@pytest.mark.parametrize("evm_tool", [EvmTransitionTool])
 @pytest.mark.parametrize("binary_arg", ["no_binary_arg", "path_type", "str_type"])
 def test_evm_tool_binary_arg(evm_tool, binary_arg):
     if binary_arg == "no_binary_arg":
