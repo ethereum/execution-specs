@@ -5,7 +5,6 @@ from copy import copy
 from typing import List, Optional
 
 from ethereum_test_forks import Fork
-from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
 
 from ..common import Fixture, alloc_to_accounts
@@ -15,7 +14,6 @@ from ..spec import BaseTest
 
 def fill_test(
     t8n: TransitionTool,
-    b11r: BlockBuilder,
     test_spec: BaseTest,
     fork: Fork,
     engine: str,
@@ -27,10 +25,9 @@ def fill_test(
     """
     t8n.reset_traces()
 
-    genesis_rlp, genesis = test_spec.make_genesis(b11r, t8n, fork)
+    genesis_rlp, genesis = test_spec.make_genesis(t8n, fork)
 
     (blocks, head, alloc) = test_spec.make_blocks(
-        b11r,
         t8n,
         genesis,
         fork,
@@ -49,6 +46,6 @@ def fill_test(
         seal_engine=engine,
         name=test_spec.tag,
     )
-    fixture.fill_info(t8n, b11r, spec)
+    fixture.fill_info(t8n, spec)
 
     return fixture

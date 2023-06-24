@@ -6,7 +6,8 @@ from typing import Any, Dict, List
 
 import pytest
 
-from ..common import Account, Storage, even_padding, key_value_padding, storage_padding
+from ..common import Account, Storage, even_padding
+from ..common.types import key_value_padding
 
 
 def test_storage():
@@ -293,29 +294,3 @@ def test_even_padding(input: Dict, excluded: List[str | None], expected: Dict):
 )
 def test_key_value_padding(value: str, expected: str):
     assert key_value_padding(value) == expected
-
-
-# Storage Padding Test
-@pytest.mark.parametrize(
-    ["storage", "expected"],
-    [
-        (
-            {"0x0000000012346": "0x0000000deadbef"},
-            {"0x012346": "0x0deadbef"},
-        ),
-        (
-            {},
-            {},
-        ),
-        (
-            {"0x0003": "0x001"},
-            {"0x03": "0x01"},
-        ),
-        (
-            {"0x": "0x"},
-            {"0x00": "0x00"},
-        ),
-    ],
-)
-def test_storage_padding(storage: Dict, expected: Dict):
-    assert storage_padding(storage) == expected

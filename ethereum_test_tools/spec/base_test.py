@@ -5,7 +5,6 @@ from abc import abstractmethod
 from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple
 
 from ethereum_test_forks import Fork
-from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
 
 from ..common import Account, FixtureBlock, FixtureHeader, Transaction
@@ -81,10 +80,9 @@ class BaseTest:
     @abstractmethod
     def make_genesis(
         self,
-        b11r: BlockBuilder,
         t8n: TransitionTool,
         fork: Fork,
-    ) -> Tuple[str, FixtureHeader]:
+    ) -> Tuple[bytes, FixtureHeader]:
         """
         Create a genesis block from the test definition.
         """
@@ -93,13 +91,12 @@ class BaseTest:
     @abstractmethod
     def make_blocks(
         self,
-        b11r: BlockBuilder,
         t8n: TransitionTool,
         genesis: FixtureHeader,
         fork: Fork,
         chain_id: int = 1,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[List[FixtureBlock], str, Dict[str, Any]]:
+    ) -> Tuple[List[FixtureBlock], bytes, Dict[str, Any]]:
         """
         Generate the blockchain that must be executed sequentially during test.
         """

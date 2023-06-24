@@ -7,7 +7,6 @@ from pprint import pprint
 from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Type
 
 from ethereum_test_forks import Fork
-from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
 
 from ..common import (
@@ -17,11 +16,11 @@ from ..common import (
     Environment,
     FixtureBlock,
     FixtureHeader,
-    serialize_transactions,
     str_or_none,
     to_json,
     to_json_or_none,
 )
+from ..common.constants import EmptyBloom, EmptyHash, EmptyNonce, EmptyOmmersRoot, ZeroAddress
 from .base_test import BaseTest, verify_post_alloc, verify_transactions
 from .debugging import print_traces
 
@@ -47,34 +46,33 @@ class BlockchainTest(BaseTest):
 
     def make_genesis(
         self,
-        b11r: BlockBuilder,
         t8n: TransitionTool,
         fork: Fork,
-    ) -> Tuple[str, FixtureHeader]:
+    ) -> Tuple[bytes, FixtureHeader]:
         """
         Create a genesis block from the state test definition.
         """
         env = self.genesis_environment.set_fork_requirements(fork)
 
         genesis = FixtureHeader(
-            parent_hash="0x0000000000000000000000000000000000000000000000000000000000000000",
-            ommers_hash="0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-            coinbase="0x0000000000000000000000000000000000000000",
+            parent_hash=EmptyHash,
+            ommers_hash=EmptyOmmersRoot,
+            coinbase=ZeroAddress,
             state_root=t8n.calc_state_root(
                 to_json(self.pre),
                 fork,
             ),
             transactions_root=EmptyTrieRoot,
             receipt_root=EmptyTrieRoot,
-            bloom="0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
+            bloom=EmptyBloom,
             difficulty=0x20000 if env.difficulty is None else env.difficulty,
             number=0,
             gas_limit=env.gas_limit,
             gas_used=0,
             timestamp=0,
-            extra_data="0x00",
-            mix_digest="0x0000000000000000000000000000000000000000000000000000000000000000",
-            nonce="0x0000000000000000",
+            extra_data=bytes([0]),
+            mix_digest=EmptyHash,
+            nonce=EmptyNonce,
             base_fee=env.base_fee,
             data_gas_used=env.data_gas_used,
             excess_data_gas=env.excess_data_gas,
@@ -83,26 +81,25 @@ class BlockchainTest(BaseTest):
             else None,
         )
 
-        (genesis_rlp, genesis.hash) = b11r.build(
-            header=genesis.to_geth_dict(),
-            serialized_txs=bytes(),
+        genesis_rlp, genesis.hash = genesis.build(
+            txs=[],
             ommers=[],
             withdrawals=env.withdrawals,
         )
+
         return genesis_rlp, genesis
 
     def make_block(
         self,
-        b11r: BlockBuilder,
         t8n: TransitionTool,
         fork: Fork,
         block: Block,
         previous_env: Environment,
         previous_alloc: Dict[str, Any],
-        previous_head: str,
+        previous_head: bytes,
         chain_id=1,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[FixtureBlock, Environment, Dict[str, Any], str]:
+    ) -> Tuple[FixtureBlock, Environment, Dict[str, Any], bytes]:
         """
         Produces a block based on the previous environment and allocation.
         If the block is an invalid block, the environment and allocation
@@ -191,18 +188,17 @@ class BlockchainTest(BaseTest):
                 }
             )
 
-            assert len(header.state_root) == 66
+            assert len(header.state_root) == 32
 
             if block.rlp_modifier is not None:
                 # Modify any parameter specified in the `rlp_modifier` after
                 # transition tool processing.
                 header = header.join(block.rlp_modifier)
 
-            rlp, header.hash = b11r.build(
-                header=header.to_geth_dict(),
-                serialized_txs=serialize_transactions(txs),
+            rlp, header.hash = header.build(
+                txs=txs,
                 ommers=[],
-                withdrawals=to_json_or_none(env.withdrawals),
+                withdrawals=env.withdrawals,
             )
 
             if block.exception is None:
@@ -244,13 +240,12 @@ class BlockchainTest(BaseTest):
 
     def make_blocks(
         self,
-        b11r: BlockBuilder,
         t8n: TransitionTool,
         genesis: FixtureHeader,
         fork: Fork,
         chain_id=1,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[List[FixtureBlock], str, Dict[str, Any]]:
+    ) -> Tuple[List[FixtureBlock], bytes, Dict[str, Any]]:
         """
         Create a block list from the blockchain test definition.
         Performs checks against the expected behavior of the test.
@@ -259,14 +254,9 @@ class BlockchainTest(BaseTest):
         alloc = to_json(self.pre)
         env = Environment.from_parent_header(genesis)
         blocks: List[FixtureBlock] = []
-        head = (
-            genesis.hash
-            if genesis.hash is not None
-            else "0x0000000000000000000000000000000000000000000000000000000000000000"
-        )
+        head = genesis.hash if genesis.hash is not None else bytes([0] * 32)
         for block in self.blocks:
             fixture_block, env, alloc, head = self.make_block(
-                b11r=b11r,
                 t8n=t8n,
                 fork=fork,
                 block=block,

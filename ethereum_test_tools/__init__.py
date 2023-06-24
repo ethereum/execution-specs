@@ -78,5 +78,4 @@ __all__ = (
     "to_address",
     "to_hash_bytes",
     "to_hash",
-    "verify_post_alloc",
 )

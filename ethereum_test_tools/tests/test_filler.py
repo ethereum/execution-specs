@@ -9,7 +9,6 @@ from typing import Any, Dict, List
 import pytest
 
 from ethereum_test_forks import Berlin, Fork, Istanbul, London
-from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool
 
 from ..code import Yul
@@ -24,8 +23,20 @@ def remove_info(fixture_json: Dict[str, Any]):
             del fixture_json[t]["_info"]
 
 
-@pytest.mark.parametrize("fork,hash", [(Berlin, "0x193e550de"), (London, "0xb053deac0")])
-def test_make_genesis(fork: Fork, hash: str):
+@pytest.mark.parametrize(
+    "fork,hash",
+    [
+        (
+            Berlin,
+            bytes.fromhex("193e550de3"),
+        ),
+        (
+            London,
+            bytes.fromhex("b053deac0e"),
+        ),
+    ],
+)
+def test_make_genesis(fork: Fork, hash: bytes):
     env = Environment()
 
     pre = {
@@ -48,11 +59,11 @@ def test_make_genesis(fork: Fork, hash: str):
         TestAddress: Account(balance=0x0BA1A9CE0BA1A9CE),
     }
 
-    b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
 
     _, genesis = StateTest(env=env, pre=pre, post={}, txs=[], tag="some_state_test").make_genesis(
-        b11r, t8n, fork
+        t8n,
+        fork,
     )
     assert genesis.hash is not None
     assert genesis.hash.startswith(hash)
@@ -100,13 +111,11 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
 
     state_test = StateTest(env=env, pre=pre, post=post, txs=[tx], tag="my_chain_id_test")
 
-    b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
 
     fixture = {
         f"000/my_chain_id_test/{fork}": fill_test(
             t8n=t8n,
-            b11r=b11r,
             test_spec=state_test,
             fork=fork,
             engine="NoProof",
@@ -389,13 +398,11 @@ def test_fill_london_blockchain_test_valid_txs(fork: Fork):
         tag="fill_london_blockchain_test_valid_txs",
     )
 
-    b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
 
     fixture = {
         f"000/my_blockchain_test/{fork.name()}": fill_test(
             t8n=t8n,
-            b11r=b11r,
             test_spec=blockchain_test,
             fork=fork,
             engine="NoProof",
@@ -726,13 +733,11 @@ def test_fill_london_blockchain_test_invalid_txs(fork):
         tag="fill_london_blockchain_test_invalid_txs",
     )
 
-    b11r = EvmBlockBuilder()
     t8n = EvmTransitionTool()
 
     fixture = {
         f"000/my_blockchain_test/{fork.name()}": fill_test(
             t8n=t8n,
-            b11r=b11r,
             test_spec=blockchain_test,
             fork=fork,
             engine="NoProof",

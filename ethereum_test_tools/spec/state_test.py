@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Type
 
 from ethereum_test_forks import Fork
-from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
 
 from ..common import (
@@ -15,11 +14,10 @@ from ..common import (
     FixtureBlock,
     FixtureHeader,
     Transaction,
-    serialize_transactions,
     str_or_none,
     to_json,
-    to_json_or_none,
 )
+from ..common.constants import EmptyBloom, EmptyHash, EmptyNonce, EmptyOmmersRoot, ZeroAddress
 from .base_test import BaseTest, verify_post_alloc, verify_transactions
 from .debugging import print_traces
 
@@ -45,34 +43,33 @@ class StateTest(BaseTest):
 
     def make_genesis(
         self,
-        b11r: BlockBuilder,
         t8n: TransitionTool,
         fork: Fork,
-    ) -> Tuple[str, FixtureHeader]:
+    ) -> Tuple[bytes, FixtureHeader]:
         """
         Create a genesis block from the state test definition.
         """
         env = self.env.set_fork_requirements(fork)
 
         genesis = FixtureHeader(
-            parent_hash="0x0000000000000000000000000000000000000000000000000000000000000000",
-            ommers_hash="0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-            coinbase="0x0000000000000000000000000000000000000000",
+            parent_hash=EmptyHash,
+            ommers_hash=EmptyOmmersRoot,
+            coinbase=ZeroAddress,
             state_root=t8n.calc_state_root(
                 to_json(self.pre),
                 fork,
             ),
             transactions_root=EmptyTrieRoot,
             receipt_root=EmptyTrieRoot,
-            bloom="0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
+            bloom=EmptyBloom,
             difficulty=0x20000 if env.difficulty is None else env.difficulty,
             number=env.number - 1,
             gas_limit=env.gas_limit,
             gas_used=0,
             timestamp=0,
-            extra_data="0x00",
-            mix_digest="0x0000000000000000000000000000000000000000000000000000000000000000",
-            nonce="0x0000000000000000",
+            extra_data=bytes([0]),
+            mix_digest=EmptyHash,
+            nonce=EmptyNonce,
             base_fee=env.base_fee,
             data_gas_used=env.data_gas_used,
             excess_data_gas=env.excess_data_gas,
@@ -81,23 +78,22 @@ class StateTest(BaseTest):
             else None,
         )
 
-        (genesis_rlp, genesis.hash) = b11r.build(
-            header=genesis.to_geth_dict(),
-            serialized_txs=bytes(),
+        genesis_rlp, genesis.hash = genesis.build(
+            txs=[],
             ommers=[],
             withdrawals=env.withdrawals,
         )
+
         return genesis_rlp, genesis
 
     def make_blocks(
         self,
-        b11r: BlockBuilder,
         t8n: TransitionTool,
         genesis: FixtureHeader,
         fork: Fork,
         chain_id=1,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[List[FixtureBlock], str, Dict[str, Any]]:
+    ) -> Tuple[List[FixtureBlock], bytes, Dict[str, Any]]:
         """
         Create a block from the state test definition.
         Performs checks against the expected behavior of the test.
@@ -152,13 +148,11 @@ class StateTest(BaseTest):
             }
         )
 
-        block, head = b11r.build(
-            header=header.to_geth_dict(),
-            serialized_txs=serialize_transactions(txs),
+        block, header.hash = header.build(
+            txs=txs,
             ommers=[],
-            withdrawals=to_json_or_none(env.withdrawals),
+            withdrawals=env.withdrawals,
         )
-        header.hash = head
 
         return (
             [
@@ -170,7 +164,7 @@ class StateTest(BaseTest):
                     withdrawals=env.withdrawals,
                 )
             ],
-            head,
+            header.hash,
             alloc,
         )
 

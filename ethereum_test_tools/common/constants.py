@@ -11,4 +11,9 @@ TestPrivateKey2 = "0x9e7645d0cfd9c3a04eb7a9db59a4eb7d359f2e75c9164a9d6b9a7d54e1b
 AddrAA = "0x00000000000000000000000000000000000000aa"
 AddrBB = "0x00000000000000000000000000000000000000bb"
 
-EmptyTrieRoot = "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
+EmptyBloom = bytes([0] * 256)
+EmptyOmmersRoot = bytes.fromhex("1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347")
+EmptyTrieRoot = bytes.fromhex("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421")
+EmptyHash = bytes([0] * 32)
+EmptyNonce = bytes([0] * 8)
+ZeroAddress = bytes([0] * 20)

@@ -24,7 +24,6 @@ from ethereum_test_tools import (
     Yul,
     fill_test,
 )
-from evm_block_builder import EvmBlockBuilder
 from evm_transition_tool import EvmTransitionTool
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
@@ -40,8 +39,7 @@ def pytest_addoption(parser):
         dest="evm_bin",
         default=None,
         help=(
-            "Path to an evm executable that provides `t8n` and `b11r.` "
-            "Default: First 'evm' entry in PATH"
+            "Path to an evm executable that provides `t8n`. " "Default: First 'evm' entry in PATH"
         ),
     )
     evm_group.addoption(
@@ -151,15 +149,6 @@ def t8n(request, evm_bin):
         trace=request.config.getoption("evm_collect_traces"),
     )
     return t8n
-
-
-@pytest.fixture(autouse=True, scope="session")
-def b11r(request, evm_bin):
-    """
-    Returns the configured block builder tool.
-    """
-    b11r = EvmBlockBuilder(binary=evm_bin)
-    return b11r
 
 
 def strip_test_prefix(name: str) -> str:
@@ -319,7 +308,7 @@ SPEC_TYPES_PARAMETERS: List[str] = [s.pytest_parameter_name() for s in SPEC_TYPE
 
 @pytest.fixture(scope="function")
 def state_test(
-    request, t8n, b11r, fork, engine, reference_spec, eips, fixture_collector
+    request, t8n, fork, engine, reference_spec, eips, fixture_collector
 ) -> StateTestFiller:
     """
     Fixture used to instantiate an auto-fillable StateTest object from within
@@ -340,7 +329,6 @@ def state_test(
                 request.node,
                 fill_test(
                     t8n,
-                    b11r,
                     self,
                     fork,
                     engine,
@@ -354,7 +342,7 @@ def state_test(
 
 @pytest.fixture(scope="function")
 def blockchain_test(
-    request, t8n, b11r, fork, engine, reference_spec, eips, fixture_collector
+    request, t8n, fork, engine, reference_spec, eips, fixture_collector
 ) -> BlockchainTestFiller:
     """
     Fixture used to define an auto-fillable BlockchainTest analogous to the
@@ -369,7 +357,6 @@ def blockchain_test(
                 request.node,
                 fill_test(
                     t8n,
-                    b11r,
                     self,
                     fork,
                     engine,

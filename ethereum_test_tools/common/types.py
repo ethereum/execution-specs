@@ -12,111 +12,23 @@ from ethereum.base_types import Uint
 from ethereum.crypto.hash import keccak256
 
 from ethereum_test_forks import Fork
-from evm_block_builder import BlockBuilder
 from evm_transition_tool import TransitionTool
 
 from ..code import Code, code_to_bytes, code_to_hex
 from ..reference_spec.reference_spec import ReferenceSpec
-from .constants import AddrAA, TestPrivateKey
-
-
-def address_to_bytes(input: str | bytes | int | None) -> bytes:
-    """
-    Converts an address string or int to bytes.
-    """
-    if input is None:
-        return bytes()
-    elif type(input) == int:
-        return int.to_bytes(input, length=20, byteorder="big")
-    elif type(input) == str:
-        if input.startswith("0x"):
-            input = input[2:]
-        if len(input) % 2 != 0:
-            input = "0" + input
-        b = bytes.fromhex(input)
-        if len(b) > 20:
-            raise ValueError(f"Address is too long: {input}")
-        return b.rjust(20, b"\x00")
-    elif type(input) == bytes:
-        if len(input) > 20:
-            raise ValueError(f"Address is too long: {input.hex()}")
-        return input.rjust(20, b"\x00")
-    raise ValueError(f"Invalid address type: {type(input)}")
-
-
-def hash_to_bytes(input: str | bytes | int | None) -> bytes:
-    """
-    Converts a hash string or int to bytes.
-    """
-    if input is None:
-        return bytes()
-    elif type(input) == int:
-        return int.to_bytes(input, length=32, byteorder="big")
-    elif type(input) == str:
-        if input.startswith("0x"):
-            input = input[2:]
-        if len(input) % 2 != 0:
-            input = "0" + input
-        b = bytes.fromhex(input)
-        if len(b) > 32:
-            raise ValueError(f"Hash is too long: {input}")
-        return b.rjust(32, b"\x00")
-    elif type(input) == bytes:
-        if len(input) > 32:
-            raise ValueError(f"Hash is too long: {input.hex()}")
-        return input.rjust(32, b"\x00")
-    raise ValueError(f"Invalid hash type: {type(input)}")
-
-
-def hash_to_int(input: str | bytes | int | None) -> int:
-    """
-    Converts a hash bytes, string or int to int.
-    """
-    if input is None:
-        return 0
-    elif type(input) == int:
-        return input
-    elif type(input) == str:
-        return int(input, 0)
-    elif type(input) == bytes:
-        return int.from_bytes(input, byteorder="big")
-    raise ValueError(f"Invalid hash type: {type(input)}")
-
-
-def code_or_none(input: str | bytes | Code, default=None) -> str | None:
-    """
-    Converts an int to hex or returns a default (None).
-    """
-    if input is None:
-        return default
-    return code_to_hex(input)
-
-
-def hex_or_none(input: int | None, default=None) -> str | None:
-    """
-    Converts an int to hex or returns a default (None).
-    """
-    if input is None:
-        return default
-    return hex(input)
-
-
-def int_or_none(input: Any, default=None) -> int | None:
-    """
-    Converts a value to int or returns a default (None).
-    """
-    if input is None:
-        return default
-    return int(input, 0)
-
-
-def str_or_none(input: Any, default=None) -> str | None:
-    """
-    Converts a value to string or returns a default (None).
-    """
-    if input is None:
-        return default
-    return str(input)
+from .constants import AddrAA, EmptyOmmersRoot, TestPrivateKey
+from .conversions import (
+    address_string,
+    address_to_bytes,
+    bytes_or_none,
+    code_or_none,
+    hash_string,
+    hash_to_bytes,
+    hash_to_int,
+    hex_or_none,
+    int_or_none,
+    str_or_none,
+)
 
 
 def to_json_or_none(input: Any, default=None) -> Dict[str, Any] | None:
@@ -303,9 +215,14 @@ class Storage:
     @staticmethod
     def key_value_to_string(value: int) -> str:
         """
-        Transforms a key or value into a 32-byte hex string.
+        Transforms a key or value into an hex string.
         """
-        return "0x" + value.to_bytes(32, "big", signed=(value < 0)).hex()
+        hex_str = value.to_bytes(32, "big", signed=(value < 0)).hex().lstrip("0")
+        if hex_str == "":
+            hex_str = "00"
+        if len(hex_str) % 2 != 0:
+            hex_str = "0" + hex_str
+        return "0x" + hex_str
 
     def __init__(self, input: StorageDictType):
         """
@@ -408,14 +325,6 @@ class Storage:
                 raise Storage.KeyValueMismatch(key, 0, other.data[key])
 
 
-def storage_padding(storage: Dict) -> Dict:
-    """
-    Adds even padding to each storage element.
-    """
-    return {key_value_padding(k): key_value_padding(v) for k, v in storage.items()}
-
-
-@dataclass(kw_only=True)
 class Account:
     """
     State associated with an address.
@@ -435,7 +344,7 @@ class Account:
     """
     Bytecode contained by the account.
     """
-    storage: Storage | Dict[str | int | bytes, str | int | bytes] | None = None
+    storage: Storage | None = None
     """
     Storage within a contract.
     """
@@ -515,10 +424,20 @@ class Account:
                 + f"want {self.want}, got {self.got}"
             )
 
-    def __post_init__(self) -> None:
-        """Automatically init account members"""
-        if self.storage is not None and type(self.storage) is dict:
-            self.storage = Storage(self.storage)
+    def __init__(
+        self,
+        *,
+        nonce: int | None = None,
+        balance: int | None = None,
+        code: str | bytes | Code | None = None,
+        storage: Storage | Dict[str | int | bytes, str | int | bytes] | None = None,
+    ) -> None:
+        """Init account members"""
+        self.nonce = nonce
+        self.balance = balance
+        self.code = code
+        if storage is not None and type(storage) is dict:
+            self.storage = Storage(storage)
 
     def check_alloc(self: "Account", address: str, alloc: dict):
         """
@@ -584,9 +503,6 @@ def alloc_to_accounts(got_alloc: Dict[str, Any]) -> Mapping[str, Account]:
     return accounts
 
 
-ACCOUNT_DEFAULTS = Account(nonce=0, balance=0, code=bytes(), storage={})
-
-
 @dataclass(kw_only=True)
 class Withdrawal:
     """
@@ -599,6 +515,18 @@ class Withdrawal:
     address: str
     amount: int
 
+    def to_serializable_list(self) -> List[Any]:
+        """
+        Returns a list of the withdrawal's attributes in the order they should
+        be serialized.
+        """
+        return [
+            Uint(self.index),
+            Uint(self.validator),
+            bytes.fromhex(self.address[2:]),
+            Uint(self.amount),
+        ]
+
 
 DEFAULT_BASE_FEE = 7
 
@@ -610,20 +538,20 @@ class Environment:
     must be executed.
     """
 
-    coinbase: str = "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba"
+    coinbase: str | bytes = "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba"
     gas_limit: int = 100000000000000000
     number: int = 1
     timestamp: int = 1000
     difficulty: Optional[int] = None
     prev_randao: Optional[int] = None
-    block_hashes: Dict[int, str] = field(default_factory=dict)
+    block_hashes: Dict[int, bytes] = field(default_factory=dict)
     base_fee: Optional[int] = None
     parent_difficulty: Optional[int] = None
     parent_timestamp: Optional[int] = None
     parent_base_fee: Optional[int] = None
     parent_gas_used: Optional[int] = None
     parent_gas_limit: Optional[int] = None
-    parent_ommers_hash: Optional[str] = None
+    parent_ommers_hash: Optional[str | bytes] = None
     withdrawals: Optional[List[Withdrawal]] = None
     parent_data_gas_used: Optional[int] = None
     parent_excess_data_gas: Optional[int] = None
@@ -645,19 +573,17 @@ class Environment:
             parent_gas_limit=parent.gas_limit,
             parent_ommers_hash=parent.ommers_hash,
             block_hashes={
-                parent.number: parent.hash
-                if parent.hash is not None
-                else "0x0000000000000000000000000000000000000000000000000000000000000000"
+                parent.number: parent.hash if parent.hash is not None else bytes([0] * 32)
             },
         )
 
-    def parent_hash(self) -> str:
+    def parent_hash(self) -> bytes:
         """
         Obtjains the latest hash according to the highest block number in
         `block_hashes`.
         """
         if len(self.block_hashes) == 0:
-            return "0x0000000000000000000000000000000000000000000000000000000000000000"
+            return bytes([0] * 32)
 
         last_index = max(self.block_hashes.keys())
         return self.block_hashes[last_index]
@@ -676,9 +602,7 @@ class Environment:
         env.parent_gas_limit = new_parent.gas_limit
         env.parent_ommers_hash = new_parent.ommers_hash
         env.block_hashes[new_parent.number] = (
-            new_parent.hash
-            if new_parent.hash is not None
-            else "0x0000000000000000000000000000000000000000000000000000000000000000"
+            new_parent.hash if new_parent.hash is not None else bytes([0] * 32)
         )
         return env
 
@@ -1165,12 +1089,13 @@ class Transaction:
         return tx
 
 
-def serialize_transactions(input_txs: List[Transaction] | None) -> bytes:
+def transaction_list_to_serializable_list(input_txs: List[Transaction] | None) -> List[Any]:
     """
-    Serialize a list of transactions into a single byte string, usually RLP encoded.
+    Returns the transaction list as a list of serializable objects.
     """
     if input_txs is None:
-        return eth_rlp.encode([])
+        return []
+
     txs: List[Any] = []
     for tx in input_txs:
         if tx.ty is None:
@@ -1180,7 +1105,14 @@ def serialize_transactions(input_txs: List[Transaction] | None) -> bytes:
             txs.append(tx.serialized_bytes())
         else:
             txs.append(tx.payload_body())
-    return eth_rlp.encode(txs)
+    return txs
+
+
+def serialize_transactions(input_txs: List[Transaction] | None) -> bytes:
+    """
+    Serialize a list of transactions into a single byte string, usually RLP encoded.
+    """
+    return eth_rlp.encode(transaction_list_to_serializable_list(input_txs))
 
 
 @dataclass
@@ -1198,26 +1130,26 @@ class Header:
     Header type used to describe block header properties in test specs.
     """
 
-    parent_hash: Optional[str] = None
-    ommers_hash: Optional[str] = None
-    coinbase: Optional[str] = None
-    state_root: Optional[str] = None
-    transactions_root: Optional[str] = None
-    receipt_root: Optional[str] = None
-    bloom: Optional[str] = None
+    parent_hash: Optional[bytes] = None
+    ommers_hash: Optional[bytes] = None
+    coinbase: Optional[bytes | str] = None
+    state_root: Optional[bytes] = None
+    transactions_root: Optional[bytes] = None
+    receipt_root: Optional[bytes] = None
+    bloom: Optional[bytes] = None
     difficulty: Optional[int] = None
     number: Optional[int] = None
     gas_limit: Optional[int] = None
     gas_used: Optional[int] = None
     timestamp: Optional[int] = None
-    extra_data: Optional[str] = None
-    mix_digest: Optional[str] = None
-    nonce: Optional[str] = None
+    extra_data: Optional[bytes] = None
+    mix_digest: Optional[bytes] = None
+    nonce: Optional[bytes] = None
     base_fee: Optional[int | Removable] = None
-    withdrawals_root: Optional[str | Removable] = None
+    withdrawals_root: Optional[bytes | Removable] = None
     data_gas_used: Optional[int | Removable] = None
     excess_data_gas: Optional[int | Removable] = None
-    hash: Optional[str] = None
+    hash: Optional[bytes] = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """
@@ -1231,88 +1163,82 @@ class FixtureHeader:
     Representation of an Ethereum header within a test Fixture.
     """
 
-    parent_hash: str
-    ommers_hash: str
-    coinbase: str
-    state_root: str
-    transactions_root: str
-    receipt_root: str
-    bloom: str
+    parent_hash: bytes
+    ommers_hash: bytes
+    coinbase: bytes
+    state_root: bytes
+    transactions_root: bytes
+    receipt_root: bytes
+    bloom: bytes
     difficulty: int
     number: int
     gas_limit: int
     gas_used: int
     timestamp: int
-    extra_data: str
-    mix_digest: str
-    nonce: str
+    extra_data: bytes
+    mix_digest: bytes
+    nonce: bytes
     base_fee: Optional[int] = None
-    withdrawals_root: Optional[str] = None
+    withdrawals_root: Optional[bytes] = None
     data_gas_used: Optional[int] = None
     excess_data_gas: Optional[int] = None
-    hash: Optional[str] = None
+    hash: Optional[bytes] = None
 
     @staticmethod
     def from_dict(source: Dict[str, Any]) -> "FixtureHeader":
         """
         Creates a FixedHeader object from a Dict.
         """
-        ommers_hash = source.get("sha3Uncles")
+        ommers_hash = bytes_or_none(source.get("sha3Uncles"))
         if ommers_hash is None:
-            ommers_hash = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
+            ommers_hash = EmptyOmmersRoot
+
+        parent_hash = bytes_or_none(source.get("parentHash"))
+        assert parent_hash is not None, "parentHash is required"
+
+        state_root = bytes_or_none(source["stateRoot"])
+        assert state_root is not None, "stateRoot is required"
+
+        transactions_root = bytes_or_none(source["transactionsRoot"])
+        assert transactions_root is not None, "transactionsRoot is required"
+
+        receipt_root = bytes_or_none(source["receiptsRoot"])
+        assert receipt_root is not None, "receiptsRoot is required"
+
+        bloom = bytes_or_none(source["logsBloom"])
+        assert bloom is not None, "logsBloom is required"
+
+        extra_data = bytes_or_none(source["extraData"])
+        assert extra_data is not None, "extraData is required"
+
+        mix_digest = bytes_or_none(source["mixHash"])
+        assert mix_digest is not None, "mixHash is required"
+
+        nonce = bytes_or_none(source["nonce"])
+        assert nonce is not None, "nonce is required"
+
         return FixtureHeader(
-            parent_hash=source["parentHash"],
+            parent_hash=parent_hash,
             ommers_hash=ommers_hash,
-            coinbase=source["miner"],
-            state_root=source["stateRoot"],
-            transactions_root=source["transactionsRoot"],
-            receipt_root=source["receiptsRoot"],
-            bloom=source["logsBloom"],
+            coinbase=address_to_bytes(source["miner"]),
+            state_root=state_root,
+            transactions_root=transactions_root,
+            receipt_root=receipt_root,
+            bloom=bloom,
             difficulty=int(source["difficulty"], 0),
             number=int(source["number"], 0),
             gas_limit=int(source["gasLimit"], 0),
             gas_used=int(source["gasUsed"], 0),
             timestamp=int(source["timestamp"], 0),
-            extra_data=source["extraData"],
-            mix_digest=source["mixHash"],
-            nonce=source["nonce"],
+            extra_data=extra_data,
+            mix_digest=mix_digest,
+            nonce=nonce,
             base_fee=int_or_none(source.get("baseFeePerGas")),
-            withdrawals_root=str_or_none(source.get("withdrawalsRoot")),
+            withdrawals_root=bytes_or_none(source.get("withdrawalsRoot")),
             data_gas_used=int_or_none(source.get("dataGasUsed")),
             excess_data_gas=int_or_none(source.get("excessDataGas")),
-            hash=source.get("hash"),
+            hash=bytes_or_none(source.get("hash")),
         )
-
-    def to_geth_dict(self) -> Mapping[str, Any]:
-        """
-        Outputs a dict that can be marshalled to JSON and ingested by geth.
-        """
-        header = {
-            "parentHash": self.parent_hash,
-            "sha3Uncles": self.ommers_hash,
-            "miner": self.coinbase,
-            "stateRoot": self.state_root,
-            "transactionsRoot": self.transactions_root,
-            "receiptsRoot": self.receipt_root,
-            "logsBloom": self.bloom,
-            "difficulty": hex(self.difficulty),
-            "number": hex(self.number),
-            "gasLimit": hex(self.gas_limit),
-            "gasUsed": hex(self.gas_used),
-            "timestamp": hex(self.timestamp),
-            "extraData": self.extra_data if len(self.extra_data) != 0 else "0x",
-            "mixHash": self.mix_digest,
-            "nonce": self.nonce,
-        }
-        if self.base_fee is not None:
-            header["baseFeePerGas"] = hex(self.base_fee)
-        if self.withdrawals_root is not None:
-            header["withdrawalsRoot"] = self.withdrawals_root
-        if self.data_gas_used is not None:
-            header["dataGasUsed"] = hex(self.data_gas_used)
-        if self.excess_data_gas is not None:
-            header["excessDataGas"] = hex(self.excess_data_gas)
-        return header
 
     def join(self, modifier: Header) -> "FixtureHeader":
         """
@@ -1325,8 +1251,59 @@ class FixtureHeader:
                 if value is Header.REMOVE_FIELD:
                     setattr(new_fixture_header, header_field, None)
                 else:
+                    if header_field == "coinbase":
+                        value = bytes_or_none(value)
                     setattr(new_fixture_header, header_field, value)
         return new_fixture_header
+
+    def build(
+        self,
+        *,
+        txs: List[Transaction],
+        ommers: List[Header],
+        withdrawals: List[Withdrawal] | None,
+    ) -> Tuple[bytes, bytes]:
+        """
+        Returns the serialized version of the block and its hash.
+        """
+        header = [
+            self.parent_hash,
+            self.ommers_hash,
+            self.coinbase,
+            self.state_root,
+            self.transactions_root,
+            self.receipt_root,
+            self.bloom,
+            Uint(self.difficulty),
+            Uint(self.number),
+            Uint(self.gas_limit),
+            Uint(self.gas_used),
+            Uint(self.timestamp),
+            self.extra_data,
+            self.mix_digest,
+            self.nonce,
+        ]
+        if self.base_fee is not None:
+            header.append(Uint(self.base_fee))
+        if self.withdrawals_root is not None:
+            header.append(self.withdrawals_root)
+        if self.data_gas_used is not None:
+            header.append(Uint(self.data_gas_used))
+        if self.excess_data_gas is not None:
+            header.append(Uint(self.excess_data_gas))
+
+        block = [
+            header,
+            transaction_list_to_serializable_list(txs),
+            ommers,  # TODO: This is incorrect, and we probably need to serialize the ommers
+        ]
+
+        if withdrawals is not None:
+            block.append([w.to_serializable_list() for w in withdrawals])
+
+        serialized_bytes = eth_rlp.encode(block)
+
+        return serialized_bytes, keccak256(eth_rlp.encode(header))
 
 
 @dataclass(kw_only=True)
@@ -1335,10 +1312,10 @@ class Block(Header):
     Block type used to describe block properties in test specs
     """
 
-    rlp: Optional[str] = None
+    rlp: Optional[bytes] = None
     """
-    If set, blockchain test will skip generating the block using
-    `evm_block_builder`, and will pass this value directly to the Fixture.
+    If set, blockchain test will skip generating the block and will pass this value directly to
+    the Fixture.
 
     Only meant to be used to simulate blocks with bad formats, and therefore
     requires the block to produce an exception.
@@ -1412,7 +1389,7 @@ class Block(Header):
 
         return new_env
 
-    def copy_with_rlp(self, rlp) -> "Block":
+    def copy_with_rlp(self, rlp: bytes) -> "Block":
         """
         Creates a copy of the block and adds the specified RLP.
         """
@@ -1427,7 +1404,7 @@ class FixtureBlock:
     Representation of an Ethereum block within a test Fixture.
     """
 
-    rlp: str
+    rlp: bytes
     block_header: Optional[FixtureHeader] = None
     expected_exception: Optional[str] = None
     block_number: Optional[int] = None
@@ -1444,15 +1421,14 @@ class Fixture:
 
     blocks: List[FixtureBlock]
     genesis: FixtureHeader
-    genesis_rlp: str
-    head: str
+    genesis_rlp: bytes
+    head: bytes
     fork: str
     pre_state: Mapping[str, Account]
     post_state: Optional[Mapping[str, Account]]
     seal_engine: str
     info: Dict[str, str] = field(default_factory=dict)
     name: str = ""
-    index: int = 0
 
     _json: Dict[str, Any] | None = None
 
@@ -1465,16 +1441,28 @@ class Fixture:
     def fill_info(
         self,
         t8n: TransitionTool,
-        b11r: BlockBuilder,
         ref_spec: ReferenceSpec | None,
     ):
         """
         Fill the info field for this fixture
         """
         self.info["filling-transition-tool"] = t8n.version()
-        self.info["filling-block-build-tool"] = b11r.version()
         if ref_spec is not None:
             ref_spec.write_info(self.info)
+
+
+JSONEncoderSupportedType: TypeAlias = (
+    AccessList
+    | Account
+    | Environment
+    | Fixture
+    | FixtureBlock
+    | FixtureHeader
+    | FixtureTransaction
+    | Storage
+    | Transaction
+    | Withdrawal
+)
 
 
 class JSONEncoder(json.JSONEncoder):
@@ -1482,7 +1470,7 @@ class JSONEncoder(json.JSONEncoder):
     Custom JSON encoder for `ethereum_test` types.
     """
 
-    def default(self, obj):
+    def default(self, obj: JSONEncoderSupportedType) -> Any:
         """
         Enocdes types defined in this module using basic python facilities.
         """
@@ -1490,21 +1478,22 @@ class JSONEncoder(json.JSONEncoder):
             return obj.to_dict()
         elif isinstance(obj, Account):
             account = {
-                "nonce": hex_or_none(obj.nonce, hex(ACCOUNT_DEFAULTS.nonce)),
-                "balance": hex_or_none(obj.balance, hex(ACCOUNT_DEFAULTS.balance)),
+                "nonce": hex_or_none(obj.nonce, hex(0)),
+                "balance": hex_or_none(obj.balance, hex(0)),
                 "code": code_or_none(obj.code, "0x"),
-                "storage": storage_padding(to_json_or_none(obj.storage, {})),
+                "storage": to_json_or_none(obj.storage, {}),
             }
             return even_padding(account, excluded=["storage"])
         elif isinstance(obj, AccessList):
-            access_list = {"address": "0x" + obj.address.hex()}
+            access_list: Dict[str, Any] = {"address": "0x" + obj.address.hex()}
             if obj.storage_keys is not None:
                 access_list["storageKeys"] = [
                     "0x" + hash_to_bytes(k).hex() for k in obj.storage_keys
                 ]
             return access_list
         elif isinstance(obj, Transaction):
-            tx = {
+            assert obj.ty is not None, "Transaction type must be set"
+            tx: Dict[str, Any] = {
                 "type": hex(obj.ty),
                 "chainId": hex(obj.chain_id),
                 "nonce": hex(obj.nonce),
@@ -1549,8 +1538,8 @@ class JSONEncoder(json.JSONEncoder):
             }
             return withdrawal
         elif isinstance(obj, Environment):
-            env = {
-                "currentCoinbase": obj.coinbase,
+            env: Dict[str, Any] = {
+                "currentCoinbase": address_string(obj.coinbase),
                 "currentGasLimit": str_or_none(obj.gas_limit),
                 "currentNumber": str_or_none(obj.number),
                 "currentTimestamp": str_or_none(obj.timestamp),
@@ -1561,10 +1550,10 @@ class JSONEncoder(json.JSONEncoder):
                 "parentGasUsed": str_or_none(obj.parent_gas_used),
                 "parentGasLimit": str_or_none(obj.parent_gas_limit),
                 "parentTimestamp": str_or_none(obj.parent_timestamp),
-                "blockHashes": {str(k): v for (k, v) in obj.block_hashes.items()},
+                "blockHashes": {str(k): "0x" + v.hex() for (k, v) in obj.block_hashes.items()},
                 "ommers": [],
                 "withdrawals": to_json_or_none(obj.withdrawals),
-                "parentUncleHash": obj.parent_ommers_hash,
+                "parentUncleHash": hash_string(obj.parent_ommers_hash),
                 "currentBaseFee": str_or_none(obj.base_fee),
                 "parentDataGasUsed": str_or_none(obj.parent_data_gas_used),
                 "parentExcessDataGas": str_or_none(obj.parent_excess_data_gas),
@@ -1575,28 +1564,28 @@ class JSONEncoder(json.JSONEncoder):
             return {k: v for (k, v) in env.items() if v is not None}
         elif isinstance(obj, FixtureHeader):
             header = {
-                "parentHash": obj.parent_hash,
-                "uncleHash": obj.ommers_hash,
-                "coinbase": obj.coinbase,
-                "stateRoot": obj.state_root,
-                "transactionsTrie": obj.transactions_root,
-                "receiptTrie": obj.receipt_root,
-                "bloom": obj.bloom,
+                "parentHash": hex_or_none(obj.parent_hash),
+                "uncleHash": hex_or_none(obj.ommers_hash),
+                "coinbase": hex_or_none(obj.coinbase),
+                "stateRoot": hex_or_none(obj.state_root),
+                "transactionsTrie": hex_or_none(obj.transactions_root),
+                "receiptTrie": hex_or_none(obj.receipt_root),
+                "bloom": hex_or_none(obj.bloom),
                 "difficulty": hex(obj.difficulty),
                 "number": hex(obj.number),
                 "gasLimit": hex(obj.gas_limit),
                 "gasUsed": hex(obj.gas_used),
                 "timestamp": hex(obj.timestamp),
-                "extraData": obj.extra_data if len(obj.extra_data) != 0 else "0x",
-                "mixHash": obj.mix_digest,
-                "nonce": obj.nonce,
+                "extraData": hex_or_none(obj.extra_data),
+                "mixHash": hex_or_none(obj.mix_digest),
+                "nonce": hex_or_none(obj.nonce),
             }
             if obj.base_fee is not None:
                 header["baseFeePerGas"] = hex(obj.base_fee)
             if obj.hash is not None:
-                header["hash"] = obj.hash
+                header["hash"] = "0x" + obj.hash.hex()
             if obj.withdrawals_root is not None:
-                header["withdrawalsRoot"] = obj.withdrawals_root
+                header["withdrawalsRoot"] = hex_or_none(obj.withdrawals_root)
             if obj.data_gas_used is not None:
                 header["dataGasUsed"] = hex(obj.data_gas_used)
             if obj.excess_data_gas is not None:
@@ -1637,7 +1626,7 @@ class JSONEncoder(json.JSONEncoder):
                 excluded=["data", "to", "accessList"],
             )
         elif isinstance(obj, FixtureBlock):
-            b = {"rlp": obj.rlp}
+            b: Dict[str, Any] = {"rlp": hex_or_none(obj.rlp)}
             if obj.block_header is not None:
                 b["blockHeader"] = json.loads(json.dumps(obj.block_header, cls=JSONEncoder))
             if obj.expected_exception is not None:
@@ -1662,8 +1651,8 @@ class JSONEncoder(json.JSONEncoder):
                 "_info": obj.info,
                 "blocks": [json.loads(json.dumps(b, cls=JSONEncoder)) for b in obj.blocks],
                 "genesisBlockHeader": self.default(obj.genesis),
-                "genesisRLP": obj.genesis_rlp,
-                "lastblockhash": obj.head,
+                "genesisRLP": hex_or_none(obj.genesis_rlp),
+                "lastblockhash": hex_or_none(obj.head),
                 "network": obj.fork,
                 "pre": json.loads(json.dumps(obj.pre_state, cls=JSONEncoder)),
                 "postState": json.loads(json.dumps(obj.post_state, cls=JSONEncoder)),
@@ -1696,11 +1685,11 @@ def key_value_padding(value: str) -> str:
     """
     Adds even padding to a dictionary key or value string.
     """
-    if value is not None:
-        new_value = value.lstrip("0x").lstrip("0")
-        new_value = "00" if new_value == "" else new_value
-        if len(new_value) % 2 == 1:
-            new_value = "0" + new_value
-        return "0x" + new_value
-    else:
+    if value is None:
         return "0x"
+
+    new_value = value.lstrip("0x").lstrip("0")
+    new_value = "00" if new_value == "" else new_value
+    if len(new_value) % 2 == 1:
+        new_value = "0" + new_value
+    return "0x" + new_value
