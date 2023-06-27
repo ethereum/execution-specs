@@ -5,4 +5,6 @@ Ethereum Byzantium Hardfork
 The sixth Ethereum hardfork.
 """
 
-MAINNET_FORK_BLOCK = 4370000
+from ethereum.fork_criteria import ByBlockNumber
+
+FORK_CRITERIA = ByBlockNumber(4370000)

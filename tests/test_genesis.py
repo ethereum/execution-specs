@@ -1,62 +1,18 @@
-import pkgutil
-from typing import List, cast
-
-import pytest
-
-from ethereum import rlp
-from ethereum.base_types import U256, Bytes
-from ethereum.genesis import get_genesis_configuration
-from ethereum.utils.byte import left_pad_zero_bytes
+from ethereum import frontier, rlp
+from ethereum.base_types import U64
+from ethereum.crypto.hash import keccak256
+from ethereum.frontier.fork import BlockChain
+from ethereum.frontier.state import State
+from ethereum.genesis import add_genesis_block, get_genesis_configuration
+from ethereum.utils.hexadecimal import hex_to_hash
 
 MAINNET_GENESIS_CONFIGURATION = get_genesis_configuration("mainnet.json")
 
 
-@pytest.fixture
-def mainnet_alloc_rlp_encoding() -> bytes:
-    rlp_encoding_hex = cast(
-        bytes,
-        pkgutil.get_data("ethereum", "assets/mainnet_genesis_alloc_rlp.hex"),
-    ).decode()
+def test_genesis_block_hash() -> None:
+    chain = BlockChain([], State(), U64(1))
+    add_genesis_block(frontier, chain, MAINNET_GENESIS_CONFIGURATION)
 
-    return bytes.fromhex(rlp_encoding_hex)
-
-
-def test_mainnet_alloc_rlp_encoding(mainnet_alloc_rlp_encoding: bytes) -> None:
-    # Test RLP encoding of alloc is expected hex value
-    alloc_rlp_encoding = rlp.encode(
-        [
-            [U256.from_be_bytes(address), balance]
-            for address, balance in MAINNET_GENESIS_CONFIGURATION.initial_balances.items()
-        ]
+    assert keccak256(rlp.encode(chain.blocks[0].header)) == hex_to_hash(
+        "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3"
     )
-
-    assert alloc_rlp_encoding == mainnet_alloc_rlp_encoding
-
-
-def test_rlp_decode_mainnet_alloc_rlp_encoding(
-    mainnet_alloc_rlp_encoding: bytes,
-) -> None:
-    # Test RLP decoding of the hex is the expected alloc
-    decoded_alloc = cast(
-        List[List[Bytes]], rlp.decode(mainnet_alloc_rlp_encoding)
-    )
-    obtained_alloc = {
-        left_pad_zero_bytes(addr, 20): U256.from_be_bytes(balance)
-        for (addr, balance) in decoded_alloc
-    }
-
-    assert obtained_alloc == MAINNET_GENESIS_CONFIGURATION.initial_balances
-
-
-def test_mainnet_genesis_config() -> None:
-    # Test that mainnet genesis parameters are as expected
-    assert MAINNET_GENESIS_CONFIGURATION.difficulty == int("400000000", 16)
-    assert MAINNET_GENESIS_CONFIGURATION.extra_data == bytes.fromhex(
-        "11bbe8db4e347b4e8c937c1c8370e4b5ed33adb3db69cbdb7a38e1e50b1b82fa"
-    )
-    assert MAINNET_GENESIS_CONFIGURATION.gas_limit == 5000
-    assert (
-        MAINNET_GENESIS_CONFIGURATION.nonce
-        == b"\x00\x00\x00\x00\x00\x00\x00\x42"
-    )
-    assert MAINNET_GENESIS_CONFIGURATION.timestamp == 0

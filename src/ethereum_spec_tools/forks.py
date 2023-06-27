@@ -9,9 +9,10 @@ import importlib
 import pkgutil
 from pkgutil import ModuleInfo
 from types import ModuleType
-from typing import Any, Iterator, List, Optional, Type, TypeVar
+from typing import Any, Dict, Iterator, List, Optional, Type, TypeVar
 
 import ethereum
+from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, ForkCriteria
 
 H = TypeVar("H", bound="Hardfork")
 
@@ -35,43 +36,100 @@ class Hardfork:
         modules = pkgutil.iter_modules(path, ethereum.__name__ + ".")
         modules = (module for module in modules if module.ispkg)
         forks: List[H] = []
-        new_package = None
 
         for pkg in modules:
             mod = importlib.import_module(pkg.name)
-            block = getattr(mod, "MAINNET_FORK_BLOCK", -1)
 
-            if block == -1:
-                continue
+            if hasattr(mod, "FORK_CRITERIA"):
+                forks.append(cls(mod))
 
-            # If the fork block is unknown, for example in a
-            # new improvement proposal, it will be set as None.
-            if block is None:
-                if new_package is not None:
-                    raise ValueError(
-                        "cannot have more than 1 new fork package."
-                    )
-                else:
-                    new_package = cls(mod)
-                continue
-
-            forks.append(cls(mod))
-
-        forks.sort(key=lambda fork: fork.block)
-        if new_package:
-            forks.append(new_package)
+        # Timestamps are bigger than block numbers, so this always works.
+        forks.sort(key=lambda fork: fork.criteria)
 
         return forks
 
+    @classmethod
+    def load(cls: Type[H], config_dict: Dict[ForkCriteria, str]) -> List[H]:
+        """
+        Load the forks from a config dict specifying fork blocks and
+        timestamps.
+        """
+        config = sorted(config_dict.items(), key=lambda x: x[0])
+
+        forks = []
+
+        for (criteria, name) in config:
+            mod = importlib.import_module("ethereum." + name)
+            mod.FORK_CRITERIA = criteria  # type: ignore
+            forks.append(cls(mod))
+
+        return forks
+
+    @classmethod
+    def load_from_json(cls: Type[H], json: Any) -> List[H]:
+        """
+        Load fork config from the json format used by Geth.
+
+        Does not support some forks that only exist on Mainnet. Use
+        `discover()` for Mainnet.
+        """
+        c = json["config"]
+        config = {
+            ByBlockNumber(0): "frontier",
+            ByBlockNumber(c["homesteadBlock"]): "homestead",
+            ByBlockNumber(c["eip150Block"]): "tangerine_whistle",
+            ByBlockNumber(c["eip155Block"]): "spurious_dragon",
+            ByBlockNumber(c["byzantiumBlock"]): "byzantium",
+            ByBlockNumber(c["constantinopleBlock"]): "constantinople",
+            ByBlockNumber(c["istanbulBlock"]): "istanbul",
+            ByBlockNumber(c["berlinBlock"]): "berlin",
+            ByBlockNumber(c["londonBlock"]): "london",
+            ByBlockNumber(c["mergeForkBlock"]): "paris",
+            ByTimestamp(c["shanghaiTime"]): "shanghai",
+        }
+
+        if "daoForkBlock" in c:
+            raise Exception(
+                "Hardfork.load_from_json() does not support Mainnet"
+            )
+
+        return cls.load(config)
+
     def __init__(self, mod: ModuleType) -> None:
         self.mod = mod
+
+    @property
+    def criteria(self) -> ForkCriteria:
+        """
+        Criteria to trigger this hardfork.
+        """
+        return self.mod.FORK_CRITERIA  # type: ignore
 
     @property
     def block(self) -> int:
         """
         Block number of the first block in this hard fork.
         """
-        return getattr(self.mod, "MAINNET_FORK_BLOCK")  # noqa: B009
+        if isinstance(self.criteria, ByBlockNumber):
+            return self.criteria.block_number
+        else:
+            raise AttributeError
+
+    @property
+    def timestamp(self) -> int:
+        """
+        Block number of the first block in this hard fork.
+        """
+        if isinstance(self.criteria, ByTimestamp):
+            return self.criteria.timestamp
+        else:
+            raise AttributeError
+
+    def has_activated(self, block_number: int, timestamp: int) -> bool:
+        """
+        Check whether this fork has activated.
+        """
+        return self.criteria.check(block_number, timestamp)
 
     @property
     def path(self) -> Optional[str]:

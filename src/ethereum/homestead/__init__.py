@@ -5,4 +5,6 @@ Ethereum Homestead Hardfork
 The second Ethereum hardfork.
 """
 
-MAINNET_FORK_BLOCK = 1150000
+from ethereum.fork_criteria import ByBlockNumber
+
+FORK_CRITERIA = ByBlockNumber(1150000)

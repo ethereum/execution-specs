@@ -26,7 +26,7 @@ from ethereum.utils.ensure import ensure
 
 from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Bytes32, Uint
-from . import MAINNET_FORK_BLOCK, vm
+from . import FORK_CRITERIA, vm
 from .bloom import logs_bloom
 from .dao import apply_dao
 from .fork_types import (
@@ -237,8 +237,8 @@ def validate_header(header: Header, parent_header: Header) -> None:
     ensure(header.parent_hash == block_parent_hash, InvalidBlock)
 
     if (
-        header.number >= MAINNET_FORK_BLOCK
-        and header.number < MAINNET_FORK_BLOCK + 10
+        header.number >= FORK_CRITERIA.block_number
+        and header.number < FORK_CRITERIA.block_number + 10
     ):
         ensure(header.extra_data == b"dao-hard-fork", InvalidBlock)
 

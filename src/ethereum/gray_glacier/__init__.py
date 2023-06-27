@@ -5,4 +5,6 @@ Ethereum Gray Glacier Hardfork
 The Thirteenth Ethereum hardfork.
 """
 
-MAINNET_FORK_BLOCK = 15050000
+from ethereum.fork_criteria import ByBlockNumber
+
+FORK_CRITERIA = ByBlockNumber(15050000)
