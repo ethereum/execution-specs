@@ -1639,6 +1639,8 @@ class JSONEncoder(json.JSONEncoder):
             b: Dict[str, Any] = {"rlp": hex_or_none(obj.rlp)}
             if obj.block_header is not None:
                 b["blockHeader"] = json.loads(json.dumps(obj.block_header, cls=JSONEncoder))
+            if obj.execution_payload is not None:
+                b["executionPayload"] = json.loads(json.dumps(obj.execution_payload, cls=JSONEncoder))
             if obj.expected_exception is not None:
                 b["expectException"] = obj.expected_exception
             if obj.block_number is not None:
