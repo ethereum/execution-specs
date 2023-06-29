@@ -1116,6 +1116,22 @@ def serialize_transactions(input_txs: List[Transaction] | None) -> bytes:
     return eth_rlp.encode(transaction_list_to_serializable_list(input_txs))
 
 
+def blob_versioned_hashes_from_transactions(input_txs: List[Transaction] | None) -> List[bytes]:
+    """
+    Gets a list of ordered blob versioned hashes from a list of transactions.
+    """
+    versioned_hashes: List[bytes] = []
+
+    if input_txs is None:
+        return versioned_hashes
+
+    for tx in input_txs:
+        if tx.blob_versioned_hashes is not None:
+            versioned_hashes.extend([hash_to_bytes(vh) for vh in tx.blob_versioned_hashes])
+
+    return versioned_hashes
+
+
 @dataclass
 class FixtureTransaction:
     """
@@ -1411,6 +1427,48 @@ class FixtureExecutionPayload:
 
 
 @dataclass(kw_only=True)
+class FixtureEngineNewPayload:
+    """
+    Representation of the `engine_newPayloadVX` information to be
+    sent using the block information.
+    """
+
+    payload: FixtureExecutionPayload
+    version: int
+    blob_versioned_hashes: Optional[List[bytes]] = None
+
+    @classmethod
+    def from_fixture_header(
+        cls,
+        fork: Fork,
+        header: FixtureHeader,
+        transactions: List[Transaction],
+        withdrawals: Optional[List[Withdrawal]],
+    ) -> Optional["FixtureEngineNewPayload"]:
+        """
+        Creates a `FixtureEngineNewPayload` from a `FixtureHeader`.
+        """
+        new_payload_version = fork.engine_new_payload_version(header.number, header.timestamp)
+
+        if new_payload_version is None:
+            return None
+
+        new_payload = cls(
+            payload=FixtureExecutionPayload(
+                header=header, transactions=transactions, withdrawals=withdrawals
+            ),
+            version=new_payload_version,
+        )
+
+        if fork.engine_new_payload_blob_hashes(header.number, header.timestamp):
+            new_payload.blob_versioned_hashes = blob_versioned_hashes_from_transactions(
+                transactions
+            )
+
+        return new_payload
+
+
+@dataclass(kw_only=True)
 class FixtureBlock:
     """
     Representation of an Ethereum block within a test Fixture.
@@ -1418,7 +1476,7 @@ class FixtureBlock:
 
     rlp: bytes
     block_header: Optional[FixtureHeader] = None
-    execution_payload: Optional[FixtureExecutionPayload] = None
+    new_payload: Optional[FixtureEngineNewPayload] = None
     expected_exception: Optional[str] = None
     block_number: Optional[int] = None
     txs: Optional[List[Transaction]] = None
@@ -1635,25 +1693,6 @@ class JSONEncoder(json.JSONEncoder):
                 json_tx,
                 excluded=["data", "to", "accessList"],
             )
-        elif isinstance(obj, FixtureBlock):
-            b: Dict[str, Any] = {"rlp": hex_or_none(obj.rlp)}
-            if obj.block_header is not None:
-                b["blockHeader"] = json.loads(json.dumps(obj.block_header, cls=JSONEncoder))
-            if obj.execution_payload is not None:
-                b["executionPayload"] = json.loads(json.dumps(obj.execution_payload, cls=JSONEncoder))
-            if obj.expected_exception is not None:
-                b["expectException"] = obj.expected_exception
-            if obj.block_number is not None:
-                b["blocknumber"] = str(obj.block_number)
-            if obj.txs is not None:
-                b["transactions"] = [FixtureTransaction(tx=tx) for tx in obj.txs]
-            if obj.ommers is not None:
-                b["uncleHeaders"] = obj.ommers
-            if obj.withdrawals is not None:
-                b["withdrawals"] = [
-                    even_padding(to_json(wd), excluded=["address"]) for wd in obj.withdrawals
-                ]
-            return b
         elif isinstance(obj, FixtureExecutionPayload):
             payload: Dict[str, Any] = {
                 "parentHash": hex_or_none(obj.header.parent_hash),
@@ -1686,6 +1725,37 @@ class JSONEncoder(json.JSONEncoder):
                 payload["excessDataGas"] = hex(obj.header.excess_data_gas)
 
             return payload
+        elif isinstance(obj, FixtureEngineNewPayload):
+            new_payload: Dict[str, Any] = {
+                "payload": to_json(obj.payload),
+                "version": str_or_none(obj.version),
+            }
+            if obj.blob_versioned_hashes is not None:
+                new_payload["blobVersionedHashes"] = [
+                    "0x" + hash_to_bytes(h).hex() for h in obj.blob_versioned_hashes
+                ]
+            return new_payload
+
+        elif isinstance(obj, FixtureBlock):
+            b: Dict[str, Any] = {"rlp": hex_or_none(obj.rlp)}
+            if obj.block_header is not None:
+                b["blockHeader"] = json.loads(json.dumps(obj.block_header, cls=JSONEncoder))
+            if obj.new_payload is not None:
+                b["engineNewPayload"] = to_json_or_none(obj.new_payload)
+            if obj.expected_exception is not None:
+                b["expectException"] = obj.expected_exception
+            if obj.block_number is not None:
+                b["blocknumber"] = str(obj.block_number)
+            if obj.txs is not None:
+                b["transactions"] = [FixtureTransaction(tx=tx) for tx in obj.txs]
+            if obj.ommers is not None:
+                b["uncleHeaders"] = obj.ommers
+            if obj.withdrawals is not None:
+                b["withdrawals"] = [
+                    even_padding(to_json(wd), excluded=["address"]) for wd in obj.withdrawals
+                ]
+            return b
+
         elif isinstance(obj, Fixture):
             if obj._json is not None:
                 obj._json["_info"] = obj.info
