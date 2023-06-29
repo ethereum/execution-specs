@@ -12,6 +12,7 @@ from ..common import (
     EmptyTrieRoot,
     Environment,
     FixtureBlock,
+    FixtureEngineNewPayload,
     FixtureHeader,
     Transaction,
     str_or_none,
@@ -154,10 +155,18 @@ class StateTest(BaseTest):
             withdrawals=env.withdrawals,
         )
 
+        new_payload = FixtureEngineNewPayload.from_fixture_header(
+            fork=fork,
+            header=header,
+            transactions=txs,
+            withdrawals=env.withdrawals,
+        )
+
         return (
             [
                 FixtureBlock(
                     rlp=block,
+                    new_payload=new_payload,
                     block_header=header,
                     txs=txs,
                     ommers=[],
