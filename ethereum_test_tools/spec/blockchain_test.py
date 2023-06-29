@@ -15,6 +15,7 @@ from ..common import (
     EmptyTrieRoot,
     Environment,
     FixtureBlock,
+    FixtureExecutionPayload,
     FixtureHeader,
     str_or_none,
     to_json,
@@ -201,11 +202,16 @@ class BlockchainTest(BaseTest):
                 withdrawals=env.withdrawals,
             )
 
+            payload = FixtureExecutionPayload(
+                header=header, transactions=txs, withdrawals=env.withdrawals
+            )
+
             if block.exception is None:
                 # Return environment and allocation of the following block
                 return (
                     FixtureBlock(
                         rlp=rlp,
+                        execution_payload=payload,
                         block_header=header,
                         block_number=header.number,
                         txs=txs,
@@ -220,6 +226,7 @@ class BlockchainTest(BaseTest):
                 return (
                     FixtureBlock(
                         rlp=rlp,
+                        execution_payload=payload,
                         expected_exception=block.exception,
                         block_number=header.number,
                     ),

@@ -1400,6 +1400,17 @@ class Block(Header):
 
 
 @dataclass(kw_only=True)
+class FixtureExecutionPayload:
+    """
+    Representation of the execution payload of a block within a test fixture.
+    """
+
+    header: FixtureHeader
+    transactions: Optional[List[Transaction]]
+    withdrawals: Optional[List[Withdrawal]]
+
+
+@dataclass(kw_only=True)
 class FixtureBlock:
     """
     Representation of an Ethereum block within a test Fixture.
@@ -1407,6 +1418,7 @@ class FixtureBlock:
 
     rlp: bytes
     block_header: Optional[FixtureHeader] = None
+    execution_payload: Optional[FixtureExecutionPayload] = None
     expected_exception: Optional[str] = None
     block_number: Optional[int] = None
     txs: Optional[List[Transaction]] = None
@@ -1640,6 +1652,38 @@ class JSONEncoder(json.JSONEncoder):
                     even_padding(to_json(wd), excluded=["address"]) for wd in obj.withdrawals
                 ]
             return b
+        elif isinstance(obj, FixtureExecutionPayload):
+            payload: Dict[str, Any] = {
+                "parentHash": hex_or_none(obj.header.parent_hash),
+                "feeRecipient": hex_or_none(obj.header.coinbase),
+                "stateRoot": hex_or_none(obj.header.state_root),
+                "receiptsRoot": hex_or_none(obj.header.receipt_root),
+                "logsBloom": hex_or_none(obj.header.bloom),
+                "prevRandao": hex_or_none(obj.header.mix_digest),
+                "blockNumber": hex(obj.header.number),
+                "gasLimit": hex(obj.header.gas_limit),
+                "gasUsed": hex(obj.header.gas_used),
+                "timestamp": hex(obj.header.timestamp),
+                "extraData": hex_or_none(obj.header.extra_data),
+            }
+            if obj.header.base_fee is not None:
+                payload["baseFeePerGas"] = hex(obj.header.base_fee)
+            if obj.header.hash is not None:
+                payload["blockHash"] = "0x" + obj.header.hash.hex()
+
+            if obj.transactions is not None:
+                payload["transactions"] = [
+                    hex_or_none(tx.serialized_bytes()) for tx in obj.transactions
+                ]
+            if obj.withdrawals is not None:
+                payload["withdrawals"] = obj.withdrawals
+
+            if obj.header.data_gas_used is not None:
+                payload["dataGasUsed"] = hex(obj.header.data_gas_used)
+            if obj.header.excess_data_gas is not None:
+                payload["excessDataGas"] = hex(obj.header.excess_data_gas)
+
+            return payload
         elif isinstance(obj, Fixture):
             if obj._json is not None:
                 obj._json["_info"] = obj.info
