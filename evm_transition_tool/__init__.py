@@ -193,6 +193,8 @@ class EvmTransitionTool(TransitionTool):
 
         temp_dir = tempfile.TemporaryDirectory()
 
+        if int(env["currentNumber"], 0) == 0:
+            reward = -1
         args = [
             str(self.binary),
             "t8n",
