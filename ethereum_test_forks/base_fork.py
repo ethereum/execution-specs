@@ -2,7 +2,7 @@
 Abstract base class for Ethereum forks
 """
 from abc import ABC, ABCMeta, abstractmethod
-from typing import Type
+from typing import Optional, Type
 
 
 class BaseForkMeta(ABCMeta):
@@ -30,6 +30,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     Must contain all the methods used by every fork.
     """
 
+    # Header information abstract methods
     @classmethod
     @abstractmethod
     def header_base_fee_required(cls, block_number: int, timestamp: int) -> bool:
@@ -86,6 +87,25 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         """
         pass
 
+    # Engine API information abstract methods
+    @classmethod
+    @abstractmethod
+    def engine_new_payload_version(cls, block_number: int, timestamp: int) -> Optional[int]:
+        """
+        Returns `None` if this fork's payloads cannot be sent over the engine API,
+        or the payload version if it can.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def engine_new_payload_blob_hashes(cls, block_number: int, timestamp: int) -> bool:
+        """
+        Returns true if the engine api version requires new payload calls to include blob hashes.
+        """
+        pass
+
+    # Meta information about the fork
     @classmethod
     def name(cls) -> str:
         """

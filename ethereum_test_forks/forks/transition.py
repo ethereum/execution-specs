@@ -4,6 +4,8 @@ List of all transition fork definitions.
 from ..transition_base_fork import transition_fork
 from .forks import Berlin, Cancun, London, Merge, Shanghai
 
+from typing import Optional
+
 
 # Transition Forks
 @transition_fork(to_fork=London)
@@ -33,6 +35,13 @@ class MergeToShanghaiAtTime15k(Merge):
         """
         return timestamp >= 15_000
 
+    @classmethod
+    def engine_new_payload_version(cls, block_number: int, timestamp: int) -> Optional[int]:
+        """
+        Starting at Shanghai, new payload calls must use version 2
+        """
+        return 2 if timestamp >= 15_000 else 1
+
 
 @transition_fork(to_fork=Cancun)
 class ShanghaiToCancunAtTime15k(Shanghai):
@@ -44,5 +53,19 @@ class ShanghaiToCancunAtTime15k(Shanghai):
     def header_excess_data_gas_required(cls, _: int, timestamp: int) -> bool:
         """
         Excess data gas is required if transitioning to Cancun.
+        """
+        return timestamp >= 15_000
+
+    @classmethod
+    def engine_new_payload_version(cls, block_number: int, timestamp: int) -> Optional[int]:
+        """
+        Starting at Cancun, new payload calls must use version 3
+        """
+        return 3 if timestamp >= 15_000 else 2
+
+    @classmethod
+    def engine_new_payload_blob_hashes(cls, block_number: int, timestamp: int) -> bool:
+        """
+        Starting at Cancun, payloads must have blob hashes.
         """
         return timestamp >= 15_000
