@@ -16,12 +16,13 @@ from evm_transition_tool import TransitionTool
 
 from ..code import Code, code_to_bytes, code_to_hex
 from ..reference_spec.reference_spec import ReferenceSpec
-from .constants import AddrAA, EmptyOmmersRoot, TestPrivateKey
+from .constants import AddrAA, EmptyOmmersRoot, TestPrivateKey, ZeroAddress
 from .conversions import (
-    address_string,
+    address_or_none,
     address_to_bytes,
     bytes_or_none,
     code_or_none,
+    even_padding,
     hash_string,
     hash_to_bytes,
     hash_to_int,
@@ -703,7 +704,7 @@ class Transaction:
     max_fee_per_data_gas: Optional[int] = None
     blob_versioned_hashes: Optional[Sequence[str | bytes]] = None
 
-    network_version: bool = False
+    wrapped_blob_transaction: bool = False
     blobs: Optional[Sequence[bytes]] = None
     blob_kzg_commitments: Optional[Sequence[bytes]] = None
     blob_kzg_proofs: Optional[Sequence[bytes]] = None
@@ -818,7 +819,7 @@ class Transaction:
             if self.blob_versioned_hashes is None:
                 raise ValueError("blob_versioned_hashes must be set for type 3 tx")
 
-            if self.network_version:
+            if self.wrapped_blob_transaction:
                 if self.blobs is None:
                     raise ValueError("blobs must be set for network version of type 3 tx")
                 if self.blob_kzg_commitments is None:
@@ -1485,11 +1486,11 @@ class JSONEncoder(json.JSONEncoder):
             }
             return even_padding(account, excluded=["storage"])
         elif isinstance(obj, AccessList):
-            access_list: Dict[str, Any] = {"address": "0x" + obj.address.hex()}
+            access_list: Dict[str, Any] = {
+                "address": address_or_none(obj.address, "0x" + ZeroAddress.hex())
+            }
             if obj.storage_keys is not None:
-                access_list["storageKeys"] = [
-                    "0x" + hash_to_bytes(k).hex() for k in obj.storage_keys
-                ]
+                access_list["storageKeys"] = [hex_or_none(k) for k in obj.storage_keys]
             return access_list
         elif isinstance(obj, Transaction):
             assert obj.ty is not None, "Transaction type must be set"
@@ -1503,17 +1504,16 @@ class JSONEncoder(json.JSONEncoder):
                 "gas": hex(obj.gas_limit),
                 "value": hex(obj.value),
                 "input": code_to_hex(obj.data),
-                "to": "0x" + address_to_bytes(obj.to).hex() if obj.to is not None else None,
+                "to": address_or_none(obj.to),
                 "accessList": obj.access_list,
                 "protected": obj.protected,
                 "secretKey": obj.secret_key,
                 "maxFeePerDataGas": hex_or_none(obj.max_fee_per_data_gas),
+                "sender": address_or_none(obj.sender),
             }
 
             if obj.blob_versioned_hashes is not None:
-                tx["blobVersionedHashes"] = [
-                    "0x" + hash_to_bytes(h).hex() for h in obj.blob_versioned_hashes
-                ]
+                tx["blobVersionedHashes"] = [hash_string(h) for h in obj.blob_versioned_hashes]
 
             if obj.secret_key is None:
                 assert obj.signature is not None
@@ -1526,8 +1526,6 @@ class JSONEncoder(json.JSONEncoder):
                 tx["r"] = ""
                 tx["s"] = ""
 
-            if obj.sender is not None:
-                tx["sender"] = "0x" + address_to_bytes(obj.sender).hex()
             return {k: v for (k, v) in tx.items() if v is not None}
         elif isinstance(obj, Withdrawal):
             withdrawal = {
@@ -1539,7 +1537,7 @@ class JSONEncoder(json.JSONEncoder):
             return withdrawal
         elif isinstance(obj, Environment):
             env: Dict[str, Any] = {
-                "currentCoinbase": address_string(obj.coinbase),
+                "currentCoinbase": address_or_none(obj.coinbase, "0x" + ZeroAddress.hex()),
                 "currentGasLimit": str_or_none(obj.gas_limit),
                 "currentNumber": str_or_none(obj.number),
                 "currentTimestamp": str_or_none(obj.timestamp),
@@ -1550,7 +1548,7 @@ class JSONEncoder(json.JSONEncoder):
                 "parentGasUsed": str_or_none(obj.parent_gas_used),
                 "parentGasLimit": str_or_none(obj.parent_gas_limit),
                 "parentTimestamp": str_or_none(obj.parent_timestamp),
-                "blockHashes": {str(k): "0x" + v.hex() for (k, v) in obj.block_hashes.items()},
+                "blockHashes": {str(k): hex_or_none(v) for (k, v) in obj.block_hashes.items()},
                 "ommers": [],
                 "withdrawals": to_json_or_none(obj.withdrawals),
                 "parentUncleHash": hash_string(obj.parent_ommers_hash),
@@ -1663,33 +1661,3 @@ class JSONEncoder(json.JSONEncoder):
             return f
         else:
             return super().default(obj)
-
-
-def even_padding(input: Dict, excluded: List[Any | None]) -> Dict:
-    """
-    Adds even padding to each field in the input (nested) dictionary.
-    """
-    for key, value in input.items():
-        if key not in excluded:
-            if isinstance(value, dict):
-                even_padding(value, excluded)
-            elif isinstance(value, str | None):
-                if value != "0x" and value is not None:
-                    input[key] = key_value_padding(value)
-                else:
-                    input[key] = "0x"
-    return input
-
-
-def key_value_padding(value: str) -> str:
-    """
-    Adds even padding to a dictionary key or value string.
-    """
-    if value is None:
-        return "0x"
-
-    new_value = value.lstrip("0x").lstrip("0")
-    new_value = "00" if new_value == "" else new_value
-    if len(new_value) % 2 == 1:
-        new_value = "0" + new_value
-    return "0x" + new_value

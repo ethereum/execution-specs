@@ -1,7 +1,7 @@
 """
 Common conversion methods.
 """
-from typing import Any
+from typing import Any, Dict, List
 
 from ..code import Code, code_to_hex
 
@@ -30,12 +30,12 @@ def address_to_bytes(input: str | bytes | int | None) -> bytes:
     raise ValueError(f"Invalid address type: {type(input)}")
 
 
-def address_string(input: str | bytes | int | None) -> str:
+def address_or_none(input: str | bytes | int | None, default=None) -> str | None:
     """
     Converts the input into an address hex string.
     """
     if input is None:
-        return "0x" + "00" * 20
+        return default
 
     if type(input) == int:
         input = int.to_bytes(input, length=20, byteorder="big")
@@ -52,9 +52,39 @@ def address_string(input: str | bytes | int | None) -> str:
     return "0x" + input.rjust(20, b"\x00").hex()
 
 
+def even_padding(input: Dict, excluded: List[Any | None]) -> Dict:
+    """
+    Adds even padding to each field in the input (nested) dictionary.
+    """
+    for key, value in input.items():
+        if key not in excluded:
+            if isinstance(value, dict):
+                even_padding(value, excluded)
+            elif isinstance(value, str | None):
+                if value != "0x" and value is not None:
+                    input[key] = key_value_padding(value)
+                else:
+                    input[key] = "0x"
+    return input
+
+
+def key_value_padding(value: str) -> str:
+    """
+    Adds even padding to a dictionary key or value string.
+    """
+    if value is None:
+        return "0x"
+
+    new_value = value.lstrip("0x").lstrip("0")
+    new_value = "00" if new_value == "" else new_value
+    if len(new_value) % 2 == 1:
+        new_value = "0" + new_value
+    return "0x" + new_value
+
+
 def hash_string(input: str | bytes | int | None) -> str:
     """
-    Converts the input into an address hash string.
+    Converts the input into a hash string.
     """
     if input is None:
         return "0x" + "00" * 64
@@ -96,7 +126,7 @@ def hash_to_bytes(input: str | bytes | int | None) -> bytes:
     Converts a hash string or int to bytes.
     """
     if input is None:
-        return bytes()
+        return bytes(32)
     elif type(input) == int:
         return int.to_bytes(input, length=32, byteorder="big")
     elif type(input) == str:

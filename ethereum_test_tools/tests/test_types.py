@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 import pytest
 
 from ..common import Account, Storage, even_padding
-from ..common.types import key_value_padding
+from ..common.conversions import key_value_padding
 
 
 def test_storage():
