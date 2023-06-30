@@ -16,7 +16,7 @@ from evm_transition_tool import TransitionTool
 
 from ..code import Code, code_to_bytes, code_to_hex
 from ..reference_spec.reference_spec import ReferenceSpec
-from .constants import AddrAA, EmptyOmmersRoot, TestPrivateKey, ZeroAddress
+from .constants import AddrAA, EmptyOmmersRoot, EngineAPIError, TestPrivateKey, ZeroAddress
 from .conversions import (
     address_or_none,
     address_to_bytes,
@@ -1346,6 +1346,10 @@ class Block(Header):
     """
     If set, the block is expected to be rejected by the client.
     """
+    engine_api_error_code: Optional[EngineAPIError] = None
+    """
+    If set, the block is expected to produce an error response from the Engine API.
+    """
     txs: Optional[List[Transaction]] = None
     """
     List of transactions included in the block.
@@ -1436,6 +1440,7 @@ class FixtureEngineNewPayload:
     payload: FixtureExecutionPayload
     version: int
     blob_versioned_hashes: Optional[List[bytes]] = None
+    error_code: Optional[EngineAPIError] = None
 
     @classmethod
     def from_fixture_header(
@@ -1444,6 +1449,7 @@ class FixtureEngineNewPayload:
         header: FixtureHeader,
         transactions: List[Transaction],
         withdrawals: Optional[List[Withdrawal]],
+        error_code: Optional[EngineAPIError],
     ) -> Optional["FixtureEngineNewPayload"]:
         """
         Creates a `FixtureEngineNewPayload` from a `FixtureHeader`.
@@ -1458,6 +1464,7 @@ class FixtureEngineNewPayload:
                 header=header, transactions=transactions, withdrawals=withdrawals
             ),
             version=new_payload_version,
+            error_code=error_code,
         )
 
         if fork.engine_new_payload_blob_hashes(header.number, header.timestamp):
@@ -1734,6 +1741,8 @@ class JSONEncoder(json.JSONEncoder):
                 new_payload["blobVersionedHashes"] = [
                     "0x" + hash_to_bytes(h).hex() for h in obj.blob_versioned_hashes
                 ]
+            if obj.error_code is not None:
+                new_payload["errorCode"] = str(int(obj.error_code))
             return new_payload
 
         elif isinstance(obj, FixtureBlock):

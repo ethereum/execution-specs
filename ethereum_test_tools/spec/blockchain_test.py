@@ -207,6 +207,7 @@ class BlockchainTest(BaseTest):
                 header=header,
                 transactions=txs,
                 withdrawals=env.withdrawals,
+                error_code=block.engine_api_error_code,
             )
 
             if block.exception is None:

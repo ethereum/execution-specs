@@ -18,7 +18,14 @@ from ..common import (
     str_or_none,
     to_json,
 )
-from ..common.constants import EmptyBloom, EmptyHash, EmptyNonce, EmptyOmmersRoot, ZeroAddress
+from ..common.constants import (
+    EmptyBloom,
+    EmptyHash,
+    EmptyNonce,
+    EmptyOmmersRoot,
+    EngineAPIError,
+    ZeroAddress,
+)
 from .base_test import BaseTest, verify_post_alloc, verify_transactions
 from .debugging import print_traces
 
@@ -33,6 +40,7 @@ class StateTest(BaseTest):
     pre: Mapping[str, Account]
     post: Mapping[str, Account]
     txs: List[Transaction]
+    engine_api_error_code: Optional[EngineAPIError] = None
     tag: str = ""
 
     @classmethod
@@ -160,6 +168,7 @@ class StateTest(BaseTest):
             header=header,
             transactions=txs,
             withdrawals=env.withdrawals,
+            error_code=self.engine_api_error_code,
         )
 
         return (
