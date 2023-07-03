@@ -1,10 +1,10 @@
 """
 List of all transition fork definitions.
 """
+from typing import Optional
+
 from ..transition_base_fork import transition_fork
 from .forks import Berlin, Cancun, London, Merge, Shanghai
-
-from typing import Optional
 
 
 # Transition Forks

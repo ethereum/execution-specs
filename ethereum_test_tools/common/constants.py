@@ -21,8 +21,11 @@ EmptyNonce = bytes([0] * 8)
 ZeroAddress = bytes([0] * 20)
 
 
-# Engine API Errors
 class EngineAPIError(IntEnum):
+    """
+    List of Engine API errors
+    """
+
     ParseError = -32700
     InvalidRequest = -32600
     MethodNotFound = -32601

@@ -1,8 +1,9 @@
 """
 All Ethereum fork class definitions.
 """
-from ..base_fork import BaseFork
 from typing import Optional
+
+from ..base_fork import BaseFork
 
 
 # All forks must be listed here !!! in the order they were introduced !!!

@@ -1127,7 +1127,7 @@ def blob_versioned_hashes_from_transactions(input_txs: List[Transaction] | None)
 
     for tx in input_txs:
         if tx.blob_versioned_hashes is not None:
-            versioned_hashes.extend([hash_to_bytes(vh) for vh in tx.blob_versioned_hashes])
+            versioned_hashes.extend([hash_to_bytes(h) for h in tx.blob_versioned_hashes])
 
     return versioned_hashes
 
