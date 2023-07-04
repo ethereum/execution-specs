@@ -1506,7 +1506,6 @@ class JSONEncoder(json.JSONEncoder):
                 "input": code_to_hex(obj.data),
                 "to": address_or_none(obj.to),
                 "accessList": obj.access_list,
-                "protected": obj.protected,
                 "secretKey": obj.secret_key,
                 "maxFeePerDataGas": hex_or_none(obj.max_fee_per_data_gas),
                 "sender": address_or_none(obj.sender),
