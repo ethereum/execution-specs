@@ -17,7 +17,6 @@ from ethereum_test_tools import (
     TestAddress,
     Transaction,
     Withdrawal,
-    YulCompiler,
     compute_create_address,
     to_address,
     to_hash,
@@ -432,7 +431,6 @@ def test_self_destructing_account(blockchain_test: BlockchainTestFiller):
 def test_newly_created_contract(
     blockchain_test: BlockchainTestFiller,
     include_value_in_tx: bool,
-    yul: YulCompiler,
     request,
 ):
     """
@@ -444,13 +442,7 @@ def test_newly_created_contract(
         TestAddress: Account(balance=1000000000000000000000, nonce=0),
     }
 
-    initcode = yul(
-        """
-        {
-            return(0, 1)
-        }
-        """
-    )
+    initcode = Op.RETURN(0, 1)
 
     tx = Transaction(
         # Transaction sent from the `TestAddress`, that creates a
