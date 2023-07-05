@@ -1,6 +1,8 @@
 """
 All Ethereum fork class definitions.
 """
+from typing import Optional
+
 from ..base_fork import BaseFork
 
 
@@ -49,6 +51,20 @@ class Frontier(BaseFork):
     def header_data_gas_used_required(cls, block_number: int, timestamp: int) -> bool:
         """
         At genesis, header must not contain data gas used
+        """
+        return False
+
+    @classmethod
+    def engine_new_payload_version(cls, block_number: int, timestamp: int) -> Optional[int]:
+        """
+        At genesis, payloads cannot be sent through the engine API
+        """
+        return None
+
+    @classmethod
+    def engine_new_payload_blob_hashes(cls, block_number: int, timestamp: int) -> bool:
+        """
+        At genesis, payloads do not have blob hashes.
         """
         return False
 
@@ -186,6 +202,13 @@ class Merge(London):
         """
         return 0
 
+    @classmethod
+    def engine_new_payload_version(cls, block_number: int, timestamp: int) -> Optional[int]:
+        """
+        Starting at the merge, payloads can be sent through the engine API
+        """
+        return 1
+
 
 class Shanghai(Merge):
     """
@@ -198,6 +221,13 @@ class Shanghai(Merge):
         Withdrawals are required starting from Shanghai.
         """
         return True
+
+    @classmethod
+    def engine_new_payload_version(cls, block_number: int, timestamp: int) -> Optional[int]:
+        """
+        Starting at Shanghai, new payload calls must use version 2
+        """
+        return 2
 
 
 class Cancun(Shanghai):
@@ -224,5 +254,19 @@ class Cancun(Shanghai):
     def header_data_gas_used_required(cls, block_number: int, timestamp: int) -> bool:
         """
         Data gas used is required starting from Cancun.
+        """
+        return True
+
+    @classmethod
+    def engine_new_payload_version(cls, block_number: int, timestamp: int) -> Optional[int]:
+        """
+        Starting at Cancun, new payload calls must use version 3
+        """
+        return 3
+
+    @classmethod
+    def engine_new_payload_blob_hashes(cls, block_number: int, timestamp: int) -> bool:
+        """
+        Starting at Cancun, payloads must have blob hashes.
         """
         return True

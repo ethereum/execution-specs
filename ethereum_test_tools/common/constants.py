@@ -2,6 +2,8 @@
 Common values used in Ethereum tests.
 """
 
+from enum import IntEnum
+
 TestAddress = "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"
 TestAddress2 = "0x8a0A19589531694250d570040a0c4B74576919B8"
 
@@ -17,3 +19,21 @@ EmptyTrieRoot = bytes.fromhex("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc00
 EmptyHash = bytes([0] * 32)
 EmptyNonce = bytes([0] * 8)
 ZeroAddress = bytes([0] * 20)
+
+
+class EngineAPIError(IntEnum):
+    """
+    List of Engine API errors
+    """
+
+    ParseError = -32700
+    InvalidRequest = -32600
+    MethodNotFound = -32601
+    InvalidParams = -32602
+    InternalError = -32603
+    ServerError = -32000
+    UnknownPayload = -38001
+    InvalidForkchoiceState = -38002
+    InvalidPayloadAttributes = -38003
+    TooLargeRequest = -38004
+    UnsupportedFork = -38005
