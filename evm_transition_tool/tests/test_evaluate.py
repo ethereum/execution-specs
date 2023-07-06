@@ -7,12 +7,12 @@ from typing import Dict
 import pytest
 
 from ethereum_test_forks import Berlin, Fork, Istanbul, London
-from evm_transition_tool import EvmTransitionTool, TransitionTool
+from evm_transition_tool import GethTransitionTool, TransitionTool
 
 FIXTURES_ROOT = Path(os.path.join("src", "evm_transition_tool", "tests", "fixtures"))
 
 
-@pytest.mark.parametrize("t8n", [EvmTransitionTool()])
+@pytest.mark.parametrize("t8n", [GethTransitionTool()])
 @pytest.mark.parametrize("fork", [London, Istanbul])
 @pytest.mark.parametrize(
     "alloc,base_fee,hash",
@@ -79,7 +79,7 @@ def test_calc_state_root(
     assert t8n.calc_state_root(alloc, fork).startswith(hash)
 
 
-@pytest.mark.parametrize("evm_tool", [EvmTransitionTool])
+@pytest.mark.parametrize("evm_tool", [GethTransitionTool])
 @pytest.mark.parametrize("binary_arg", ["no_binary_arg", "path_type", "str_type"])
 def test_evm_tool_binary_arg(evm_tool, binary_arg):
     if binary_arg == "no_binary_arg":
@@ -98,7 +98,7 @@ def test_evm_tool_binary_arg(evm_tool, binary_arg):
     raise Exception("unknown test parameter")
 
 
-@pytest.mark.parametrize("t8n", [EvmTransitionTool()])
+@pytest.mark.parametrize("t8n", [GethTransitionTool()])
 @pytest.mark.parametrize("test_dir", os.listdir(path=FIXTURES_ROOT))
 def test_evm_t8n(t8n: TransitionTool, test_dir: str) -> None:
     alloc_path = Path(FIXTURES_ROOT, test_dir, "alloc.json")

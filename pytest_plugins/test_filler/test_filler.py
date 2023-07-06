@@ -8,6 +8,7 @@ writes the generated fixtures to file.
 import json
 import os
 import re
+from pathlib import Path
 from typing import Any, Dict, List, Tuple, Type
 
 import pytest
@@ -24,7 +25,7 @@ from ethereum_test_tools import (
     Yul,
     fill_test,
 )
-from evm_transition_tool import EvmTransitionTool
+from evm_transition_tool import TransitionTool
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
 
@@ -37,6 +38,7 @@ def pytest_addoption(parser):
         "--evm-bin",
         action="store",
         dest="evm_bin",
+        type=Path,
         default=None,
         help=(
             "Path to an evm executable that provides `t8n`. " "Default: First 'evm' entry in PATH"
@@ -110,21 +112,28 @@ def pytest_configure(config):
         "markers",
         "compile_yul_with(fork): Always compile Yul source using the corresponding evm version.",
     )
+    if config.option.collectonly:
+        return
+    # Instantiate the transition tool here to check that the binary path/trace option is valid.
+    # This ensures we only raise an error once, if appropriate, instead of for every test.
+    TransitionTool.from_binary_path(
+        binary_path=config.getoption("evm_bin"), trace=config.getoption("evm_collect_traces")
+    )
 
 
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config, start_path):
     """Add lines to pytest's console output header"""
-    t8n = EvmTransitionTool(
-        binary=config.getoption("evm_bin"),
-        trace=config.getoption("evm_collect_traces"),
-    )
+    if config.option.collectonly:
+        return
+    binary_path = config.getoption("evm_bin")
+    t8n = TransitionTool.from_binary_path(binary_path=binary_path)
     solc_version_string = Yul("", binary=config.getoption("solc_bin")).version()
     return [f"{t8n.version()}, solc version {solc_version_string}"]
 
 
 @pytest.fixture(autouse=True, scope="session")
-def evm_bin(request):
+def evm_bin(request) -> Path:
     """
     Returns the configured evm tool binary path.
     """
@@ -140,15 +149,13 @@ def solc_bin(request):
 
 
 @pytest.fixture(autouse=True, scope="session")
-def t8n(request, evm_bin):
+def t8n(request, evm_bin: Path) -> TransitionTool:
     """
     Returns the configured transition tool.
     """
-    t8n = EvmTransitionTool(
-        binary=evm_bin,
-        trace=request.config.getoption("evm_collect_traces"),
+    return TransitionTool.from_binary_path(
+        binary_path=evm_bin, trace=request.config.getoption("evm_collect_traces")
     )
-    return t8n
 
 
 def strip_test_prefix(name: str) -> str:

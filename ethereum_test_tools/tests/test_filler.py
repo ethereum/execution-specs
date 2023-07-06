@@ -9,7 +9,7 @@ from typing import Any, Dict, List
 import pytest
 
 from ethereum_test_forks import Berlin, Fork, Istanbul, London
-from evm_transition_tool import EvmTransitionTool
+from evm_transition_tool import GethTransitionTool
 
 from ..code import Yul
 from ..common import Account, Block, Environment, JSONEncoder, TestAddress, Transaction
@@ -59,7 +59,7 @@ def test_make_genesis(fork: Fork, hash: bytes):
         TestAddress: Account(balance=0x0BA1A9CE0BA1A9CE),
     }
 
-    t8n = EvmTransitionTool()
+    t8n = GethTransitionTool()
 
     _, genesis = StateTest(env=env, pre=pre, post={}, txs=[], tag="some_state_test").make_genesis(
         t8n,
@@ -111,7 +111,7 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
 
     state_test = StateTest(env=env, pre=pre, post=post, txs=[tx], tag="my_chain_id_test")
 
-    t8n = EvmTransitionTool()
+    t8n = GethTransitionTool()
 
     fixture = {
         f"000/my_chain_id_test/{fork}": fill_test(
@@ -398,7 +398,7 @@ def test_fill_london_blockchain_test_valid_txs(fork: Fork):
         tag="fill_london_blockchain_test_valid_txs",
     )
 
-    t8n = EvmTransitionTool()
+    t8n = GethTransitionTool()
 
     fixture = {
         f"000/my_blockchain_test/{fork.name()}": fill_test(
@@ -733,7 +733,7 @@ def test_fill_london_blockchain_test_invalid_txs(fork):
         tag="fill_london_blockchain_test_invalid_txs",
     )
 
-    t8n = EvmTransitionTool()
+    t8n = GethTransitionTool()
 
     fixture = {
         f"000/my_blockchain_test/{fork.name()}": fill_test(
