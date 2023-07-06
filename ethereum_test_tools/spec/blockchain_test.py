@@ -2,7 +2,7 @@
 Blockchain test filler.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pprint import pprint
 from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Type
 
@@ -35,7 +35,7 @@ class BlockchainTest(BaseTest):
     pre: Mapping[str, Account]
     post: Mapping[str, Account]
     blocks: List[Block]
-    genesis_environment: Environment = Environment()
+    genesis_environment: Environment = field(default_factory=Environment)
     tag: str = ""
 
     @classmethod
