@@ -284,7 +284,6 @@ def opcode_context(yul: YulCompiler, request):
                 to=BlobhashContext.address("blobhash_sstore"),
                 gas_limit=3000000,
                 gas_price=10,
-                access_list=[],
             ),
             {
                 BlobhashContext.address("blobhash_sstore"): Account(storage={0: 0}),

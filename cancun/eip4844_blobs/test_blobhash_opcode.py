@@ -71,7 +71,6 @@ def template_tx():  # noqa: D103
         data=to_hash_bytes(0),
         gas_limit=3000000,
         max_fee_per_gas=10,
-        max_fee_per_data_gas=10,
     )
 
 
@@ -87,9 +86,11 @@ def blob_tx(template_tx):
             ty=type,
             nonce=nonce,
             to=address,
-            access_list=[],
+            gas_price=10 if type < 2 else None,
+            access_list=[] if type >= 1 else None,
             max_priority_fee_per_gas=10,
-            blob_versioned_hashes=random_blob_hashes[0:MAX_BLOBS_PER_BLOCK],
+            max_fee_per_data_gas=10 if type >= 3 else None,
+            blob_versioned_hashes=random_blob_hashes[0:MAX_BLOBS_PER_BLOCK] if type >= 3 else None,
         )
 
     return _blob_tx
@@ -130,8 +131,9 @@ def test_blobhash_gas_cost(
                         nonce=i,
                         to=address,
                         gas_price=10 if tx_type < 2 else None,
-                        access_list=[] if tx_type >= 2 else None,
+                        access_list=[] if tx_type >= 1 else None,
                         max_priority_fee_per_gas=10 if tx_type >= 2 else None,
+                        max_fee_per_data_gas=10 if tx_type >= 3 else None,
                         blob_versioned_hashes=random_blob_hashes[0:TARGET_BLOBS_PER_BLOCK]
                         if tx_type >= 3
                         else None,
@@ -186,6 +188,7 @@ def test_blobhash_scenarios(
                         to=address,
                         access_list=[],
                         max_priority_fee_per_gas=10,
+                        max_fee_per_data_gas=10,
                         blob_versioned_hashes=b_hashes_list[i],
                     )
                 ]
@@ -241,6 +244,7 @@ def test_blobhash_invalid_blob_index(
                         to=address,
                         access_list=[],
                         max_priority_fee_per_gas=10,
+                        max_fee_per_data_gas=10,
                         blob_versioned_hashes=blobs,
                     )
                 ]
