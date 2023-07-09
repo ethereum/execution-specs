@@ -394,7 +394,7 @@ def check_transaction(
     base_fee_per_gas: Uint,
     gas_available: Uint,
     chain_id: U64,
-) -> Tuple[Address, U256]:
+) -> Tuple[Address, Uint]:
     """
     Check if the transaction is includable in the block.
 
@@ -731,7 +731,7 @@ def pay_rewards(
 
 def process_transaction(
     env: vm.Environment, tx: Transaction
-) -> Tuple[U256, Tuple[Log, ...], bool]:
+) -> Tuple[Uint, Tuple[Log, ...], bool]:
     """
     Execute a transaction against the provided environment.
 
@@ -763,13 +763,10 @@ def process_transaction(
     sender = env.origin
     sender_account = get_account(env.state, sender)
 
-    try:
-        if isinstance(tx, FeeMarketTransaction):
-            gas_fee = tx.gas * tx.max_fee_per_gas
-        else:
-            gas_fee = tx.gas * tx.gas_price
-    except ValueError as e:
-        raise InvalidBlock from e
+    if isinstance(tx, FeeMarketTransaction):
+        gas_fee = tx.gas * tx.max_fee_per_gas
+    else:
+        gas_fee = tx.gas * tx.gas_price
 
     ensure(sender_account.nonce == tx.nonce, InvalidBlock)
     ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)

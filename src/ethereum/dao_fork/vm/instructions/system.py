@@ -60,7 +60,7 @@ def create(evm: Evm) -> None:
     charge_gas(evm, GAS_CREATE + extend_memory.cost)
 
     create_message_gas = evm.gas_left
-    evm.gas_left = U256(0)
+    evm.gas_left = Uint(0)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -111,7 +111,7 @@ def create(evm: Evm) -> None:
                 evm.stack, U256.from_be_bytes(child_evm.message.current_target)
             )
         evm.gas_left = child_evm.gas_left
-        child_evm.gas_left = U256(0)
+        child_evm.gas_left = Uint(0)
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -179,7 +179,7 @@ def generic_call(
     child_message = Message(
         caller=caller,
         target=to,
-        gas=U256(gas),
+        gas=gas,
         value=value,
         data=call_data,
         code=code,
@@ -204,7 +204,7 @@ def generic_call(
         child_evm.output[:actual_output_size],
     )
     evm.gas_left += child_evm.gas_left
-    child_evm.gas_left = U256(0)
+    child_evm.gas_left = Uint(0)
 
 
 def call(evm: Evm) -> None:

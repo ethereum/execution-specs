@@ -39,8 +39,8 @@ bloom = hex_to_bytes256(
 
 transaction1 = Transaction(
     U256(1),
-    U256(2),
-    U256(3),
+    Uint(2),
+    Uint(3),
     Bytes0(),
     U256(4),
     Bytes(b"foo"),
@@ -51,8 +51,8 @@ transaction1 = Transaction(
 
 transaction2 = Transaction(
     U256(1),
-    U256(2),
-    U256(3),
+    Uint(2),
+    Uint(3),
     Bytes0(),
     U256(4),
     Bytes(b"foo"),

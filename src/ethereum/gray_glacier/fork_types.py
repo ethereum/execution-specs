@@ -52,8 +52,8 @@ class LegacyTransaction:
     """
 
     nonce: U256
-    gas_price: U256
-    gas: U256
+    gas_price: Uint
+    gas: Uint
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes
@@ -71,8 +71,8 @@ class AccessListTransaction:
 
     chain_id: U64
     nonce: U256
-    gas_price: U256
-    gas: U256
+    gas_price: Uint
+    gas: Uint
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes
@@ -91,9 +91,9 @@ class FeeMarketTransaction:
 
     chain_id: U64
     nonce: U256
-    max_priority_fee_per_gas: U256
-    max_fee_per_gas: U256
-    gas: U256
+    max_priority_fee_per_gas: Uint
+    max_fee_per_gas: Uint
+    gas: Uint
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes

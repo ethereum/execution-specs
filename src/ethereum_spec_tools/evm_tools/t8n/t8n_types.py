@@ -123,23 +123,22 @@ class Txs:
                     yield idx, self.parse_rlp_tx(raw_tx)
                 else:
                     yield idx, self.parse_json_tx(raw_tx)
+            except UnsupportedTx as e:
+                self.t8n.logger.warning(
+                    f"Unsupported transaction type {idx}: "
+                    f"{e.error_message}"
+                )
+                self.rejected_txs[
+                    idx
+                ] = f"Unsupported transaction type: {e.error_message}"
+                self.all_txs.append(e.encoded_params)
             except Exception as e:
-                if isinstance(e, UnsupportedTx):
-                    self.t8n.logger.warning(
-                        f"Unsupported transaction type {idx}: "
-                        f"{e.error_message}"
-                    )
-                    self.rejected_txs[
-                        idx
-                    ] = f"Unsupported transaction type: {e.error_message}"
-                    self.all_txs.append(e.encoded_params)
-                else:
-                    self.t8n.logger.warning(
-                        f"Failed to parse transaction {idx}: {str(e)}"
-                    )
-                    self.rejected_txs[
-                        idx
-                    ] = f"Failed to parse transaction {idx}: {str(e)}"
+                self.t8n.logger.warning(
+                    f"Failed to parse transaction {idx}: {str(e)}"
+                )
+                self.rejected_txs[
+                    idx
+                ] = f"Failed to parse transaction {idx}: {str(e)}"
 
     def parse_rlp_tx(self, raw_tx: Any) -> Any:
         """

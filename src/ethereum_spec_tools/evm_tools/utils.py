@@ -50,7 +50,7 @@ EXCEPTION_MAPS = {
     },
 }
 
-UNSUPPORTED_FORKS = ("CONSTANTINOPLE",)
+UNSUPPORTED_FORKS = ("constantinople",)
 
 
 def parse_hex_or_int(value: str, to_type: Callable[[int], W]) -> W:
@@ -85,7 +85,7 @@ def get_module_name(forks: Any, options: Any, stdin: Any) -> Tuple[str, int]:
     """
     Get the module name and the fork block for the given state fork.
     """
-    if options.state_fork.upper() in UNSUPPORTED_FORKS:
+    if options.state_fork.casefold() in UNSUPPORTED_FORKS:
         sys.exit(f"Unsupported state fork: {options.state_fork}")
     # If the state fork is an exception, use the exception config.
     exception_config: Optional[Dict[str, Any]] = None

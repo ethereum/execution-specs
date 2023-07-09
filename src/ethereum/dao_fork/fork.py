@@ -621,7 +621,7 @@ def pay_rewards(
 
 def process_transaction(
     env: vm.Environment, tx: Transaction
-) -> Tuple[U256, Tuple[Log, ...]]:
+) -> Tuple[Uint, Tuple[Log, ...]]:
     """
     Execute a transaction against the provided environment.
 
@@ -652,10 +652,7 @@ def process_transaction(
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
-    try:
-        gas_fee = tx.gas * tx.gas_price
-    except ValueError as e:
-        raise InvalidBlock from e
+    gas_fee = tx.gas * tx.gas_price
     ensure(sender_account.nonce == tx.nonce, InvalidBlock)
     ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
     ensure(sender_account.code == bytearray(), InvalidBlock)

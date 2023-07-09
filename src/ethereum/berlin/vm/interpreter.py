@@ -65,7 +65,7 @@ class MessageCallOutput:
           6. `has_erred`: True if execution has caused an error.
     """
 
-    gas_left: U256
+    gas_left: Uint
     refund_counter: U256
     logs: Tuple[Log, ...]
     accounts_to_delete: Set[Address]
@@ -99,7 +99,7 @@ def process_message_call(
         )
         if is_collision:
             return MessageCallOutput(
-                U256(0), U256(0), tuple(), set(), set(), True
+                Uint(0), U256(0), tuple(), set(), set(), True
             )
         else:
             evm = process_create_message(message, env)
@@ -174,7 +174,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
             ensure(len(contract_code) <= MAX_CODE_SIZE, OutOfGasError)
         except ExceptionalHalt:
             rollback_transaction(env.state)
-            evm.gas_left = U256(0)
+            evm.gas_left = Uint(0)
             evm.output = b""
             evm.has_erred = True
         else:
@@ -280,7 +280,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
             op_implementation[op](evm)
 
     except ExceptionalHalt:
-        evm.gas_left = U256(0)
+        evm.gas_left = Uint(0)
         evm.output = b""
         evm.has_erred = True
     except Revert as e:
