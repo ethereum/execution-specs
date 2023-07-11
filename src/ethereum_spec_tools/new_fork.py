@@ -79,7 +79,6 @@ class ForkCreator:
         to_test_names: str,
     ):
         self.package_folder = "src/ethereum"
-        self.optimized_package_folder = "src/ethereum_optimized"
         self.test_folder = "tests"
 
         # Get the fork specific data for from fork
@@ -87,7 +86,6 @@ class ForkCreator:
             self.from_fork,
             self.from_package,
             self.from_path,
-            self.from_optimized_path,
             self.from_test_path,
         ) = self.get_fork_paths(from_fork)
 
@@ -96,7 +94,6 @@ class ForkCreator:
             self.to_fork,
             self.to_package,
             self.to_path,
-            self.to_optimized_path,
             self.to_test_path,
         ) = self.get_fork_paths(to_fork)
 
@@ -110,16 +107,14 @@ class ForkCreator:
         name = fork
         package = name.replace(" ", "_").lower()
         path = os.path.join(self.package_folder, package)
-        optimized_path = os.path.join(self.optimized_package_folder, package)
         test_path = os.path.join(self.test_folder, package)
-        return (name, package, path, optimized_path, test_path)
+        return (name, package, path, test_path)
 
     def duplicate_fork(self) -> None:
         """
         Copy the relevant files/folders from the old fork
         """
         copytree(self.from_path, self.to_path)
-        copytree(self.from_optimized_path, self.to_optimized_path)
         copytree(self.from_test_path, self.to_test_path)
 
     def update_new_fork_contents(self) -> None:
@@ -135,20 +130,6 @@ class ForkCreator:
         find_replace(self.to_path, self.from_package, self.to_package, "*.py")
         find_replace(
             self.to_path, self.from_fork.lower(), self.to_fork.lower(), "*.py"
-        )
-
-        # Update optimized source code
-        find_replace(
-            self.to_optimized_path, self.from_fork, self.to_fork, "*.py"
-        )
-        find_replace(
-            self.to_optimized_path, self.from_package, self.to_package, "*.py"
-        )
-        find_replace(
-            self.to_optimized_path,
-            self.from_fork.lower(),
-            self.to_fork.lower(),
-            "*.py",
         )
 
         # Update test files starting with the names used in the test fixtures

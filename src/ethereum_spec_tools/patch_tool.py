@@ -17,14 +17,6 @@ parser = argparse.ArgumentParser(description=DESCRIPTION)
 parser.add_argument("source_fork", metavar="SOURCE_FORK", type=str, nargs=1)
 parser.add_argument("targets", metavar="TARGET_FORK", type=str, nargs="*")
 parser.add_argument(
-    "--optimized",
-    action="store_const",
-    const="src/ethereum_optimized/",
-    dest="prefix",
-    default="src/ethereum/",
-    help="Patch the optimized code instead",
-)
-parser.add_argument(
     "--tests",
     action="store_const",
     const="tests/",
