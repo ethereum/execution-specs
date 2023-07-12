@@ -1,5 +1,5 @@
 """
-Evmone Transition tool frontend.
+Evmone Transition tool interface.
 """
 import json
 import os
@@ -24,7 +24,7 @@ def write_json_file(data: Dict[str, Any], file_path: str) -> None:
 
 class EvmOneTransitionTool(TransitionTool):
     """
-    Evmone `evmone-t8n` Transition tool frontend wrapper class.
+    Evmone `evmone-t8n` Transition tool interface wrapper class.
     """
 
     default_binary = Path("evmone-t8n")

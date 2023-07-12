@@ -1,5 +1,5 @@
 """
-Go-ethereum Transition tool frontend.
+Go-ethereum Transition tool interface.
 """
 
 import json
@@ -17,7 +17,7 @@ from .transition_tool import TransitionTool
 
 class GethTransitionTool(TransitionTool):
     """
-    Go-ethereum `evm` Transition tool frontend wrapper class.
+    Go-ethereum `evm` Transition tool interface wrapper class.
     """
 
     default_binary = Path("evm")
