@@ -27,7 +27,7 @@ def prepare_message(
     target: Union[Bytes0, Address],
     value: U256,
     data: Bytes,
-    gas: U256,
+    gas: Uint,
     env: Environment,
     code_address: Optional[Address] = None,
     should_transfer_value: bool = True,

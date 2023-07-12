@@ -38,7 +38,7 @@ class Environment:
     coinbase: Address
     number: Uint
     gas_limit: Uint
-    gas_price: U256
+    gas_price: Uint
     time: U256
     difficulty: Uint
     state: State
@@ -54,7 +54,7 @@ class Message:
     caller: Address
     target: Union[Bytes0, Address]
     current_target: Address
-    gas: U256
+    gas: Uint
     value: U256
     data: Bytes
     code_address: Optional[Address]
@@ -74,7 +74,7 @@ class Evm:
     stack: List[U256]
     memory: bytearray
     code: Bytes
-    gas_left: U256
+    gas_left: Uint
     env: Environment
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]

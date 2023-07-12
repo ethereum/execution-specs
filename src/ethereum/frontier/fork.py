@@ -602,7 +602,7 @@ def pay_rewards(
 
 def process_transaction(
     env: vm.Environment, tx: Transaction
-) -> Tuple[U256, Tuple[Log, ...]]:
+) -> Tuple[Uint, Tuple[Log, ...]]:
     """
     Execute a transaction against the provided environment.
 

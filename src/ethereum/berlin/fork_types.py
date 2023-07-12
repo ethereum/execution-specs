@@ -53,8 +53,8 @@ class LegacyTransaction:
     """
 
     nonce: U256
-    gas_price: U256
-    gas: U256
+    gas_price: Uint
+    gas: Uint
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes
@@ -72,8 +72,8 @@ class AccessListTransaction:
 
     chain_id: U64
     nonce: U256
-    gas_price: U256
-    gas: U256
+    gas_price: Uint
+    gas: Uint
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes

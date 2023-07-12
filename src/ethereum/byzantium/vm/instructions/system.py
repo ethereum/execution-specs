@@ -74,7 +74,7 @@ def create(evm: Evm) -> None:
     charge_gas(evm, GAS_CREATE + extend_memory.cost)
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
-    evm.gas_left -= U256(create_message_gas)
+    evm.gas_left -= create_message_gas
 
     # OPERATION
     ensure(not evm.message.is_static, WriteInStaticContext)
@@ -109,7 +109,7 @@ def create(evm: Evm) -> None:
         child_message = Message(
             caller=evm.message.current_target,
             target=Bytes0(),
-            gas=U256(create_message_gas),
+            gas=create_message_gas,
             value=endowment,
             data=b"",
             code=call_data,
@@ -201,7 +201,7 @@ def generic_call(
     child_message = Message(
         caller=caller,
         target=to,
-        gas=U256(gas),
+        gas=gas,
         value=value,
         data=call_data,
         code=code,

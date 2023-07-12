@@ -64,7 +64,7 @@ def create(evm: Evm) -> None:
     charge_gas(evm, GAS_CREATE + extend_memory.cost)
 
     create_message_gas = evm.gas_left
-    evm.gas_left = U256(0)
+    evm.gas_left = Uint(0)
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -180,7 +180,7 @@ def generic_call(
     child_message = Message(
         caller=caller,
         target=to,
-        gas=U256(gas),
+        gas=gas,
         value=value,
         data=call_data,
         code=code,

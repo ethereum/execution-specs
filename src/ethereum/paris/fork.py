@@ -306,7 +306,7 @@ def check_transaction(
     base_fee_per_gas: Uint,
     gas_available: Uint,
     chain_id: U64,
-) -> Tuple[Address, U256]:
+) -> Tuple[Address, Uint]:
     """
     Check if the transaction is includable in the block.
 
@@ -338,6 +338,7 @@ def check_transaction(
 
     if isinstance(tx, FeeMarketTransaction):
         ensure(tx.max_fee_per_gas >= tx.max_priority_fee_per_gas, InvalidBlock)
+        ensure(tx.max_fee_per_gas >= base_fee_per_gas, InvalidBlock)
 
         priority_fee_per_gas = min(
             tx.max_priority_fee_per_gas,
@@ -518,7 +519,7 @@ def apply_body(
 
 def process_transaction(
     env: vm.Environment, tx: Transaction
-) -> Tuple[U256, Tuple[Log, ...], bool]:
+) -> Tuple[Uint, Tuple[Log, ...], bool]:
     """
     Execute a transaction against the provided environment.
 

@@ -10,17 +10,9 @@ from _pytest.mark.structures import ParameterSet
 
 from ethereum import rlp
 from ethereum.base_types import U64
-from ethereum.exceptions import InvalidBlock, RLPDecodingError
+from ethereum.exceptions import InvalidBlock
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.fixture_loader import Load
-
-RLP_DECODING_EXCEPTIONS = (
-    "RLP_VALUESIZE_MORE_AVAILABLEINPUTLENGTH",
-    "RLP_ExpectedAsList",
-    "INPUT_UNMARSHAL_SIZE_ERROR",
-    "RLP_BODY_UNMARSHAL_ERROR",
-    "INPUT_UNMARSHAL_ERROR",
-)
 
 
 class NoTestsFound(Exception):
@@ -70,6 +62,8 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
         chain_id=U64(json_data["genesisBlockHeader"].get("chainId", 1)),
     )
 
+    mock_pow = json_data["sealEngine"] == "NoProof" and not load.proof_of_stake
+
     for json_block in json_data["blocks"]:
         block_exception = None
         for key, value in json_block.items():
@@ -77,29 +71,12 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
                 block_exception = value
                 break
 
-        if block_exception in RLP_DECODING_EXCEPTIONS:
-            with pytest.raises(RLPDecodingError):
-                load.json_to_block(json_block)
-            return
-        else:
-            (
-                block,
-                block_header_hash,
-                block_rlp,
-            ) = load.json_to_block(json_block)
-
-        assert rlp.rlp_hash(block.header) == block_header_hash
-        assert rlp.encode(cast(rlp.RLP, block)) == block_rlp
-
-        mock_pow = (
-            json_data["sealEngine"] == "NoProof" and not load.proof_of_stake
-        )
-        if block_exception is None:
-            add_block_to_chain(chain, block, load, mock_pow)
-        else:
+        if block_exception:
             with pytest.raises(InvalidBlock):
-                add_block_to_chain(chain, block, load, mock_pow)
+                add_block_to_chain(chain, json_block, load, mock_pow)
             return
+        else:
+            add_block_to_chain(chain, json_block, load, mock_pow)
 
     last_block_hash = hex_to_bytes(json_data["lastblockhash"])
     assert rlp.rlp_hash(chain.blocks[-1].header) == last_block_hash
@@ -111,8 +88,18 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
 
 
 def add_block_to_chain(
-    chain: Any, block: Any, load: Load, mock_pow: bool
+    chain: Any, json_block: Any, load: Load, mock_pow: bool
 ) -> None:
+
+    (
+        block,
+        block_header_hash,
+        block_rlp,
+    ) = load.json_to_block(json_block)
+
+    assert rlp.rlp_hash(block.header) == block_header_hash
+    assert rlp.encode(cast(rlp.RLP, block)) == block_rlp
+
     if not mock_pow:
         load.state_transition(chain, block)
     else:
