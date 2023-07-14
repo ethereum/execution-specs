@@ -12,6 +12,8 @@ import coincurve
 from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import Hash32
 
+from ..forks import Hardfork
+
 W = TypeVar("W", Uint, U64, U256)
 
 EXCEPTION_MAPS = {
@@ -121,6 +123,27 @@ def get_module_name(forks: Any, options: Any, stdin: Any) -> Tuple[str, int]:
 
     # Neither in exception nor a standard fork name.
     sys.exit(f"Unsupported state fork: {options.state_fork}")
+
+
+def get_supported_forks() -> str:
+    """
+    Get the supported forks.
+    """
+    supported_forks = [
+        fork.title_case_name.replace(" ", "") for fork in Hardfork.discover()
+    ]
+
+    # Add the exception forks
+    supported_forks.extend(EXCEPTION_MAPS.keys())
+
+    # Remove the unsupported forks
+    supported_forks = [
+        fork
+        for fork in supported_forks
+        if fork.casefold() not in UNSUPPORTED_FORKS
+    ]
+
+    return "\n".join(supported_forks)
 
 
 def get_stream_logger(name: str) -> Any:
