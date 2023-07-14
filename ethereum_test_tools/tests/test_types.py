@@ -65,6 +65,18 @@ def test_storage():
     with pytest.raises(Storage.AmbiguousKeyValue):
         s.to_dict()
 
+    # Check store counter
+    s = Storage({})
+    s.store_next(0x100)
+    s.store_next("0x200")
+    s.store_next(b"\x03\x00".rjust(32, b"\x00"))
+    d = s.to_dict()
+    assert d == {
+        "0x00": ("0x0100"),
+        "0x01": ("0x0200"),
+        "0x02": ("0x0300"),
+    }
+
 
 @pytest.mark.parametrize(
     ["account", "alloc", "should_pass"],

@@ -20,6 +20,15 @@ from ..vm.opcode import Opcodes as Op
             ),
         ),
         (
+            Op.PUSH1("0x01"),
+            bytes(
+                [
+                    0x60,
+                    0x01,
+                ]
+            ),
+        ),
+        (
             Op.PUSH1(0xFF),
             bytes(
                 [
@@ -48,6 +57,10 @@ from ..vm.opcode import Opcodes as Op
         ),
         (
             Op.PUSH20(0x01),
+            bytes([0x73] + [0x00] * 19 + [0x01]),
+        ),
+        (
+            Op.PUSH20("0x01"),
             bytes([0x73] + [0x00] * 19 + [0x01]),
         ),
         (

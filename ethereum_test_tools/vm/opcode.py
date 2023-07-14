@@ -67,7 +67,7 @@ class Opcode(bytes):
             obj.data_portion_length = data_portion_length
             return obj
 
-    def __call__(self, *args_t: Union[int, bytes, "Opcode"]) -> bytes:
+    def __call__(self, *args_t: Union[int, bytes, str, "Opcode"]) -> bytes:
         """
         Makes all opcode instances callable to return formatted bytecode,
         which constitutes a data portion, that is located after the opcode
@@ -94,9 +94,10 @@ class Opcode(bytes):
         automatically converted to PUSH operations, and negative numbers always
         use a PUSH32 operation.
 
+        Hex-strings will automatically be converted to bytes.
 
         """
-        args: List[Union[int, bytes, "Opcode"]] = list(args_t)
+        args: List[Union[int, bytes, str, "Opcode"]] = list(args_t)
         pre_opcode_bytecode = bytes()
         data_portion = bytes()
 
@@ -106,8 +107,13 @@ class Opcode(bytes):
             if len(args) == 0:
                 raise ValueError("Opcode with data portion requires at least one argument")
             data = args.pop(0)
-            if isinstance(data, bytes):
-                data_portion = data
+            if isinstance(data, bytes) or isinstance(data, str):
+                if isinstance(data, str):
+                    if data.startswith("0x"):
+                        data = data[2:]
+                    data = bytes.fromhex(data)
+                assert len(data) <= self.data_portion_length
+                data_portion = data.rjust(self.data_portion_length, b"\x00")
             elif isinstance(data, int):
                 signed = data < 0
                 data_portion = data.to_bytes(
@@ -116,12 +122,16 @@ class Opcode(bytes):
                     signed=signed,
                 )
             else:
-                raise TypeError("Opcode data portion must be either an int or a bytes")
+                raise TypeError("Opcode data portion must be either an int or bytes/hex string")
 
         # The rest of the arguments conform the stack.
         while len(args) > 0:
             data = args.pop()
-            if isinstance(data, bytes):
+            if isinstance(data, bytes) or isinstance(data, str):
+                if isinstance(data, str):
+                    if data.startswith("0x"):
+                        data = data[2:]
+                    data = bytes.fromhex(data)
                 pre_opcode_bytecode += data
             elif isinstance(data, int):
                 # We are going to push a constant to the stack.
@@ -142,7 +152,7 @@ class Opcode(bytes):
                 )
 
             else:
-                raise TypeError("Opcode stack data must be either an int or a bytes")
+                raise TypeError("Opcode stack data must be either an int or a bytes/hex string")
 
         return pre_opcode_bytecode + self + data_portion
 

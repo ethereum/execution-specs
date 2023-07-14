@@ -45,6 +45,12 @@ class Code:
         """
         return Code(bytecode=(code_to_bytes(other) + code_to_bytes(self)))
 
+    def __len__(self) -> int:
+        """
+        Returns the length of the bytecode.
+        """
+        return len(self.assemble())
+
 
 def code_to_bytes(code: str | bytes | Code) -> bytes:
     """

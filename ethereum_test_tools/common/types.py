@@ -4,7 +4,20 @@ Useful types for generating Ethereum tests.
 import json
 from copy import copy, deepcopy
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Dict, List, Mapping, Optional, Sequence, Tuple, Type, TypeAlias
+from itertools import count
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    Type,
+    TypeAlias,
+)
 
 from coincurve.keys import PrivateKey, PublicKey
 from ethereum import rlp as eth_rlp
@@ -83,6 +96,8 @@ class Storage:
     """
 
     data: Dict[int, int]
+
+    current_slot: Iterator[int]
 
     StorageDictType: ClassVar[TypeAlias] = Dict[str | int | bytes, str | int | bytes]
     """
@@ -204,7 +219,7 @@ class Storage:
             input = int(input, 0)
         elif type(input) is int:
             pass
-        elif type(input) is bytes:
+        elif isinstance(input, bytes):
             input = int.from_bytes(input, "big")
         else:
             raise Storage.InvalidType(input)
@@ -225,7 +240,7 @@ class Storage:
             hex_str = "0" + hex_str
         return "0x" + hex_str
 
-    def __init__(self, input: StorageDictType):
+    def __init__(self, input: StorageDictType = {}, start_slot: int = 0):
         """
         Initializes the storage using a given mapping which can have
         keys and values either as string or int.
@@ -237,31 +252,41 @@ class Storage:
             value = Storage.parse_key_value(input[key])
             key = Storage.parse_key_value(key)
             self.data[key] = value
-        pass
+        self.current_slot = count(start_slot)
 
     def __len__(self) -> int:
         """Returns number of elements in the storage"""
         return len(self.data)
 
-    def __contains__(self, key: str | int) -> bool:
+    def __contains__(self, key: str | int | bytes) -> bool:
         """Checks for an item in the storage"""
         key = Storage.parse_key_value(key)
         return key in self.data
 
-    def __getitem__(self, key: str | int) -> int:
+    def __getitem__(self, key: str | int | bytes) -> int:
         """Returns an item from the storage"""
         key = Storage.parse_key_value(key)
         if key not in self.data:
             raise KeyError()
         return self.data[key]
 
-    def __setitem__(self, key: str | int, value: str | int):  # noqa: SC200
+    def __setitem__(self, key: str | int | bytes, value: str | int | bytes):  # noqa: SC200
         """Sets an item in the storage"""
         self.data[Storage.parse_key_value(key)] = Storage.parse_key_value(value)
 
-    def __delitem__(self, key: str | int):
+    def __delitem__(self, key: str | int | bytes):
         """Deletes an item from the storage"""
         del self.data[Storage.parse_key_value(key)]
+
+    def store_next(self, value: str | int | bytes) -> int:
+        """
+        Stores a value in the storage and returns the key where the value is stored.
+
+        Increments the key counter so the next time this function is called,
+        the next key is used.
+        """
+        self[slot := next(self.current_slot)] = value
+        return slot
 
     def to_dict(self) -> Mapping[str, str]:
         """
