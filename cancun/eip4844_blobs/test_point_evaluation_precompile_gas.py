@@ -20,18 +20,11 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-from .common import (
-    INF_POINT,
-    POINT_EVALUATION_PRECOMPILE_ADDRESS,
-    POINT_EVALUATION_PRECOMPILE_GAS,
-    REF_SPEC_4844_GIT_PATH,
-    REF_SPEC_4844_VERSION,
-    Z,
-    kzg_to_versioned_hash,
-)
+from .common import INF_POINT, Spec, Z
+from .spec import ref_spec_4844
 
-REFERENCE_SPEC_GIT_PATH = REF_SPEC_4844_GIT_PATH
-REFERENCE_SPEC_VERSION = REF_SPEC_4844_VERSION
+REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
+REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 
 @pytest.fixture
@@ -45,7 +38,7 @@ def precompile_input(proof: Literal["correct", "incorrect"]) -> bytes:
     # INF_POINT commitment and proof evaluate to 0 on all z values
     y = 0 if proof == "correct" else 1
 
-    versioned_hash = kzg_to_versioned_hash(kzg_commitment)
+    versioned_hash = Spec.kzg_to_versioned_hash(kzg_commitment)
     return (
         versioned_hash
         + z.to_bytes(32, "little")
@@ -73,7 +66,7 @@ def call_gas() -> int:
     Defaults to POINT_EVALUATION_PRECOMPILE_GAS, but can be parametrized to
     test different amounts.
     """
-    return POINT_EVALUATION_PRECOMPILE_GAS
+    return Spec.POINT_EVALUATION_PRECOMPILE_GAS
 
 
 @pytest.fixture
@@ -99,7 +92,7 @@ def precompile_caller_account(
     if call_type == Op.CALL or call_type == Op.CALLCODE:
         precompile_caller_code += call_type(
             call_gas,
-            POINT_EVALUATION_PRECOMPILE_ADDRESS,
+            Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
             0x00,
             0x00,
             Op.CALLDATASIZE,
@@ -111,7 +104,7 @@ def precompile_caller_account(
         # Delegatecall and staticcall use one less argument
         precompile_caller_code += call_type(
             call_gas,
-            POINT_EVALUATION_PRECOMPILE_ADDRESS,
+            Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
             0x00,
             Op.CALLDATASIZE,
             0x00,
@@ -171,7 +164,7 @@ def tx(
         data=precompile_input,
         to=precompile_caller_address,
         value=0,
-        gas_limit=POINT_EVALUATION_PRECOMPILE_GAS * 20,
+        gas_limit=Spec.POINT_EVALUATION_PRECOMPILE_GAS * 20,
         max_fee_per_gas=7,
         max_priority_fee_per_gas=0,
     )
@@ -190,8 +183,8 @@ def post(
     if proof == "correct":
         expected_gas_usage = (
             call_gas
-            if call_gas < POINT_EVALUATION_PRECOMPILE_GAS
-            else POINT_EVALUATION_PRECOMPILE_GAS
+            if call_gas < Spec.POINT_EVALUATION_PRECOMPILE_GAS
+            else Spec.POINT_EVALUATION_PRECOMPILE_GAS
         )
     else:
         expected_gas_usage = call_gas
@@ -211,9 +204,9 @@ def post(
 @pytest.mark.parametrize(
     "call_gas",
     [
-        POINT_EVALUATION_PRECOMPILE_GAS,
-        POINT_EVALUATION_PRECOMPILE_GAS - 1,
-        POINT_EVALUATION_PRECOMPILE_GAS + 1,
+        Spec.POINT_EVALUATION_PRECOMPILE_GAS,
+        Spec.POINT_EVALUATION_PRECOMPILE_GAS - 1,
+        Spec.POINT_EVALUATION_PRECOMPILE_GAS + 1,
     ],
     ids=["exact_gas", "insufficient_gas", "extra_gas"],
 )

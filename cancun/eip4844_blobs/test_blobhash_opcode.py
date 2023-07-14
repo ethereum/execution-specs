@@ -33,19 +33,11 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-from .common import (
-    BLOBHASH_GAS_COST,
-    MAX_BLOBS_PER_BLOCK,
-    REF_SPEC_4844_GIT_PATH,
-    REF_SPEC_4844_VERSION,
-    TARGET_BLOBS_PER_BLOCK,
-    BlobhashScenario,
-    blobhash_index_values,
-    random_blob_hashes,
-)
+from .common import BlobhashScenario, blobhash_index_values, random_blob_hashes
+from .spec import Spec, SpecHelpers, ref_spec_4844
 
-REFERENCE_SPEC_GIT_PATH = REF_SPEC_4844_GIT_PATH
-REFERENCE_SPEC_VERSION = REF_SPEC_4844_VERSION
+REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
+REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 pytestmark = pytest.mark.valid_from("Cancun")
 
@@ -90,7 +82,9 @@ def blob_tx(template_tx):
             access_list=[] if type >= 1 else None,
             max_priority_fee_per_gas=10,
             max_fee_per_data_gas=10 if type >= 3 else None,
-            blob_versioned_hashes=random_blob_hashes[0:MAX_BLOBS_PER_BLOCK] if type >= 3 else None,
+            blob_versioned_hashes=random_blob_hashes[0 : SpecHelpers.max_blobs_per_block()]
+            if type >= 3
+            else None,
         )
 
     return _blob_tx
@@ -112,6 +106,9 @@ def test_blobhash_gas_cost(
     it matches `HASH_OPCODE_GAS = 3`. Includes both valid and invalid random
     index sizes from the range `[0, 2**256-1]`, for tx types 2 and 3.
     """
+    assert (
+        Op.BLOBHASH.int() == Spec.HASH_OPCODE_BYTE
+    ), "Opcodes blobhash byte doesn't match that defined in the spec"
     gas_measures_code = [
         CodeGasMeasure(
             code=Op.BLOBHASH(i),
@@ -134,14 +131,16 @@ def test_blobhash_gas_cost(
                         access_list=[] if tx_type >= 1 else None,
                         max_priority_fee_per_gas=10 if tx_type >= 2 else None,
                         max_fee_per_data_gas=10 if tx_type >= 3 else None,
-                        blob_versioned_hashes=random_blob_hashes[0:TARGET_BLOBS_PER_BLOCK]
+                        blob_versioned_hashes=random_blob_hashes[
+                            0 : SpecHelpers.target_blobs_per_block()
+                        ]
                         if tx_type >= 3
                         else None,
                     )
                 ]
             )
         )
-        post[address] = Account(storage={0: BLOBHASH_GAS_COST})
+        post[address] = Account(storage={0: Spec.HASH_GAS_COST})
     blockchain_test(
         pre=pre,
         blocks=blocks,
@@ -183,7 +182,7 @@ def test_blobhash_scenarios(
             Block(
                 txs=[
                     template_tx.with_fields(
-                        ty=3,
+                        ty=Spec.BLOB_TX_TYPE,
                         nonce=i,
                         to=address,
                         access_list=[],
@@ -195,7 +194,10 @@ def test_blobhash_scenarios(
             )
         )
         post[address] = Account(
-            storage={index: b_hashes_list[i][index] for index in range(MAX_BLOBS_PER_BLOCK)}
+            storage={
+                index: b_hashes_list[i][index]
+                for index in range(SpecHelpers.max_blobs_per_block())
+            }
         )
     blockchain_test(
         pre=pre,
@@ -226,20 +228,20 @@ def test_blobhash_invalid_blob_index(
     exceeds the maximum number of `blob_versioned_hash` values stored:
     (`index >= len(tx.message.blob_versioned_hashes)`).
 
-    It confirms that the returned value is a zeroed `bytes32 for each case.
+    It confirms that the returned value is a zeroed `bytes32` for each case.
     """
     TOTAL_BLOCKS = 5
     blobhash_calls = BlobhashScenario.generate_blobhash_bytecode(scenario)
     for i in range(TOTAL_BLOCKS):
         address = to_address(0x100 + i * 0x100)
         pre[address] = Account(code=blobhash_calls)
-        blob_per_block = (i % MAX_BLOBS_PER_BLOCK) + 1
+        blob_per_block = (i % SpecHelpers.max_blobs_per_block()) + 1
         blobs = [random_blob_hashes[blob] for blob in range(blob_per_block)]
         blocks.append(
             Block(
                 txs=[
                     template_tx.with_fields(
-                        ty=3,
+                        ty=Spec.BLOB_TX_TYPE,
                         nonce=i,
                         to=address,
                         access_list=[],
@@ -255,7 +257,7 @@ def test_blobhash_invalid_blob_index(
                 index: (0 if index < 0 or index >= blob_per_block else blobs[index])
                 for index in range(
                     -TOTAL_BLOCKS,
-                    blob_per_block + (TOTAL_BLOCKS - (i % MAX_BLOBS_PER_BLOCK)),
+                    blob_per_block + (TOTAL_BLOCKS - (i % SpecHelpers.max_blobs_per_block())),
                 )
             }
         )
@@ -309,10 +311,10 @@ def test_blobhash_multiple_txs_in_block(
     ]
     post = {
         to_address(address): Account(
-            storage={i: random_blob_hashes[i] for i in range(MAX_BLOBS_PER_BLOCK)}
+            storage={i: random_blob_hashes[i] for i in range(SpecHelpers.max_blobs_per_block())}
         )
         if address in (0x200, 0x400)
-        else Account(storage={i: 0 for i in range(MAX_BLOBS_PER_BLOCK)})
+        else Account(storage={i: 0 for i in range(SpecHelpers.max_blobs_per_block())})
         for address in range(0x100, 0x500, 0x100)
     }
     blockchain_test(

@@ -34,21 +34,10 @@ from ethereum_test_tools import (
     to_hash_bytes,
 )
 
-from .common import (
-    BLOB_COMMITMENT_VERSION_KZG,
-    DATA_GAS_PER_BLOB,
-    MAX_BLOBS_PER_BLOCK,
-    REF_SPEC_4844_GIT_PATH,
-    REF_SPEC_4844_VERSION,
-    TARGET_BLOBS_PER_BLOCK,
-    TARGET_DATA_GAS_PER_BLOCK,
-    calc_excess_data_gas,
-    get_data_gasprice,
-    get_min_excess_data_blobs_for_data_gas_price,
-)
+from .spec import Spec, SpecHelpers, ref_spec_4844
 
-REFERENCE_SPEC_GIT_PATH = REF_SPEC_4844_GIT_PATH
-REFERENCE_SPEC_VERSION = REF_SPEC_4844_VERSION
+REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
+REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 
 @pytest.fixture
@@ -111,11 +100,11 @@ def parent_excess_data_gas(
     parent_excess_blobs: Optional[int],
 ) -> Optional[int]:
     """
-    Calculates the excess data gas of the paraent block from the excess blobs.
+    Calculates the excess data gas of the parent block from the excess blobs.
     """
     if parent_excess_blobs is None:
         return None
-    return parent_excess_blobs * DATA_GAS_PER_BLOB
+    return parent_excess_blobs * Spec.DATA_GAS_PER_BLOB
 
 
 @pytest.fixture
@@ -129,10 +118,10 @@ def data_gasprice(
     if parent_excess_data_gas is None or parent_blobs is None:
         return None
 
-    return get_data_gasprice(
-        excess_data_gas=calc_excess_data_gas(
+    return Spec.get_data_gasprice(
+        excess_data_gas=SpecHelpers.calc_excess_data_gas_from_blob_count(
             parent_excess_data_gas=parent_excess_data_gas,
-            parent_blobs=parent_blobs,
+            parent_blob_count=parent_blobs,
         ),
     )
 
@@ -173,7 +162,7 @@ def blob_hashes_per_tx(blobs_per_tx: List[int]) -> List[List[bytes]]:
     return [
         add_kzg_version(
             [to_hash_bytes(x) for x in range(blob_count)],
-            BLOB_COMMITMENT_VERSION_KZG,
+            Spec.BLOB_COMMITMENT_VERSION_KZG,
         )
         for blob_count in blobs_per_tx
     ]
@@ -195,7 +184,7 @@ def total_account_minimum_balance(  # noqa: D103
     """
     total_cost = 0
     for tx_blob_count in [len(x) for x in blob_hashes_per_tx]:
-        data_cost = tx_max_fee_per_data_gas * DATA_GAS_PER_BLOB * tx_blob_count
+        data_cost = tx_max_fee_per_data_gas * Spec.DATA_GAS_PER_BLOB * tx_blob_count
         total_cost += (
             (tx_gas * (tx_max_fee_per_gas + tx_max_priority_fee_per_gas))
             + tx_value
@@ -266,7 +255,7 @@ def txs(  # noqa: D103
     """
     return [
         Transaction(
-            ty=3,
+            ty=Spec.BLOB_TX_TYPE,
             nonce=tx_i,
             to=destination_account,
             value=tx_value,
@@ -341,7 +330,7 @@ def blocks(
                     if tx.blob_versioned_hashes is not None
                 ]
             )
-            * DATA_GAS_PER_BLOB
+            * Spec.DATA_GAS_PER_BLOB
         )
     return [
         Block(txs=txs, exception=tx_error, rlp_modifier=Header(data_gas_used=header_data_gas_used))
@@ -356,12 +345,13 @@ def all_valid_blob_combinations() -> List[Tuple[int, ...]]:
     all = [
         seq
         for i in range(
-            MAX_BLOBS_PER_BLOCK, 0, -1
+            SpecHelpers.max_blobs_per_block(), 0, -1
         )  # We can have from 1 to at most MAX_BLOBS_PER_BLOCK blobs per block
         for seq in itertools.combinations_with_replacement(
-            range(1, MAX_BLOBS_PER_BLOCK + 1), i
+            range(1, SpecHelpers.max_blobs_per_block() + 1), i
         )  # We iterate through all possible combinations
-        if sum(seq) <= MAX_BLOBS_PER_BLOCK  # And we only keep the ones that are valid
+        if sum(seq)
+        <= SpecHelpers.max_blobs_per_block()  # And we only keep the ones that are valid
     ]
     # We also add the reversed version of each combination, only if it's not
     # already in the list. E.g. (2, 1, 1) is added from (1, 1, 2) but not
@@ -378,12 +368,13 @@ def invalid_blob_combinations() -> List[Tuple[int, ...]]:
     all = [
         seq
         for i in range(
-            MAX_BLOBS_PER_BLOCK + 1, 0, -1
+            SpecHelpers.max_blobs_per_block() + 1, 0, -1
         )  # We can have from 1 to at most MAX_BLOBS_PER_BLOCK blobs per block
         for seq in itertools.combinations_with_replacement(
-            range(1, MAX_BLOBS_PER_BLOCK + 2), i
+            range(1, SpecHelpers.max_blobs_per_block() + 2), i
         )  # We iterate through all possible combinations
-        if sum(seq) == MAX_BLOBS_PER_BLOCK + 1  # And we only keep the ones that match the
+        if sum(seq)
+        == SpecHelpers.max_blobs_per_block() + 1  # And we only keep the ones that match the
         # expected invalid blob count
     ]
     # We also add the reversed version of each combination, only if it's not
@@ -428,8 +419,8 @@ def test_valid_blob_tx_combinations(
     [
         # tx max_data_gas_cost of the transaction is not enough
         (
-            get_min_excess_data_blobs_for_data_gas_price(2) - 1,  # data gas price is 1
-            TARGET_BLOBS_PER_BLOCK + 1,  # data gas cost increases to 2
+            SpecHelpers.get_min_excess_data_blobs_for_data_gas_price(2) - 1,  # data gas price is 1
+            SpecHelpers.target_blobs_per_block() + 1,  # data gas cost increases to 2
             1,  # tx max_data_gas_cost is 1
             "insufficient max fee per data gas",
         ),
@@ -450,7 +441,7 @@ def test_invalid_tx_max_fee_per_data_gas(
     env: Environment,
     blocks: List[Block],
     parent_blobs: int,
-    block_intermediate: Block,
+    non_zero_data_gas_used_genesis_block: Block,
 ):
     """
     Reject blocks with invalid blob txs due to:
@@ -460,9 +451,9 @@ def test_invalid_tx_max_fee_per_data_gas(
     """
     if parent_blobs:
         pre[TestAddress2] = Account(balance=10**9)
-        blocks.insert(0, block_intermediate)
+        blocks.insert(0, non_zero_data_gas_used_genesis_block)
         if env.excess_data_gas is not None:
-            env.excess_data_gas += TARGET_DATA_GAS_PER_BLOCK
+            env.excess_data_gas += Spec.TARGET_DATA_GAS_PER_BLOCK
     blockchain_test(
         pre=pre,
         post={},
@@ -595,7 +586,7 @@ def test_insufficient_balance_blob_tx_combinations(
     "blobs_per_tx,tx_error",
     [
         ([0], "zero_blob_tx"),
-        ([MAX_BLOBS_PER_BLOCK + 1], "too_many_blobs_tx"),
+        ([SpecHelpers.max_blobs_per_block() + 1], "too_many_blobs_tx"),
     ],
     ids=["too_few_blobs", "too_many_blobs"],
 )
@@ -625,23 +616,30 @@ def test_invalid_tx_blob_count(
     [
         [[to_hash_bytes(1)]],
         [[to_hash_bytes(x) for x in range(2)]],
-        [add_kzg_version([to_hash_bytes(1)], BLOB_COMMITMENT_VERSION_KZG) + [to_hash_bytes(2)]],
-        [[to_hash_bytes(1)] + add_kzg_version([to_hash_bytes(2)], BLOB_COMMITMENT_VERSION_KZG)],
         [
-            add_kzg_version([to_hash_bytes(1)], BLOB_COMMITMENT_VERSION_KZG),
+            add_kzg_version([to_hash_bytes(1)], Spec.BLOB_COMMITMENT_VERSION_KZG)
+            + [to_hash_bytes(2)]
+        ],
+        [
+            [to_hash_bytes(1)]
+            + add_kzg_version([to_hash_bytes(2)], Spec.BLOB_COMMITMENT_VERSION_KZG)
+        ],
+        [
+            add_kzg_version([to_hash_bytes(1)], Spec.BLOB_COMMITMENT_VERSION_KZG),
             [to_hash_bytes(2)],
         ],
         [
-            add_kzg_version([to_hash_bytes(1)], BLOB_COMMITMENT_VERSION_KZG),
+            add_kzg_version([to_hash_bytes(1)], Spec.BLOB_COMMITMENT_VERSION_KZG),
             [to_hash_bytes(x) for x in range(1, 3)],
         ],
         [
-            add_kzg_version([to_hash_bytes(1)], BLOB_COMMITMENT_VERSION_KZG),
-            [to_hash_bytes(2)] + add_kzg_version([to_hash_bytes(3)], BLOB_COMMITMENT_VERSION_KZG),
+            add_kzg_version([to_hash_bytes(1)], Spec.BLOB_COMMITMENT_VERSION_KZG),
+            [to_hash_bytes(2)]
+            + add_kzg_version([to_hash_bytes(3)], Spec.BLOB_COMMITMENT_VERSION_KZG),
         ],
         [
-            add_kzg_version([to_hash_bytes(1)], BLOB_COMMITMENT_VERSION_KZG),
-            add_kzg_version([to_hash_bytes(2)], BLOB_COMMITMENT_VERSION_KZG),
+            add_kzg_version([to_hash_bytes(1)], Spec.BLOB_COMMITMENT_VERSION_KZG),
+            add_kzg_version([to_hash_bytes(2)], Spec.BLOB_COMMITMENT_VERSION_KZG),
             [to_hash_bytes(3)],
         ],
     ],

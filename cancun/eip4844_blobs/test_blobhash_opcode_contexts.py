@@ -18,23 +18,18 @@ from ethereum_test_tools import (
     to_hash_bytes,
 )
 
-from .common import (
-    MAX_BLOBS_PER_BLOCK,
-    REF_SPEC_4844_GIT_PATH,
-    REF_SPEC_4844_VERSION,
-    BlobhashContext,
-    simple_blob_hashes,
-)
+from .common import BlobhashContext, simple_blob_hashes
+from .spec import Spec, SpecHelpers, ref_spec_4844
 
-REFERENCE_SPEC_GIT_PATH = REF_SPEC_4844_GIT_PATH
-REFERENCE_SPEC_VERSION = REF_SPEC_4844_VERSION
+REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
+REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 pytestmark = pytest.mark.valid_from("Cancun")
 
 
 # Blob transaction template
 tx_type_3 = Transaction(
-    ty=3,
+    ty=Spec.BLOB_TX_TYPE,
     data=to_hash_bytes(0),
     gas_limit=3000000,
     max_fee_per_gas=10,
@@ -143,7 +138,7 @@ def opcode_context(yul: YulCompiler, request):
                 ),
             },
             tx_type_3.with_fields(
-                data=to_hash_bytes(0) + to_hash_bytes(MAX_BLOBS_PER_BLOCK - 1),
+                data=to_hash_bytes(0) + to_hash_bytes(SpecHelpers.max_blobs_per_block() - 1),
                 to=BlobhashContext.address("delegatecall"),
             ),
             {
@@ -165,7 +160,7 @@ def opcode_context(yul: YulCompiler, request):
                 ),
             },
             tx_type_3.with_fields(
-                data=to_hash_bytes(0) + to_hash_bytes(MAX_BLOBS_PER_BLOCK - 1),
+                data=to_hash_bytes(0) + to_hash_bytes(SpecHelpers.max_blobs_per_block() - 1),
                 to=BlobhashContext.address("staticcall"),
             ),
             {
@@ -187,7 +182,7 @@ def opcode_context(yul: YulCompiler, request):
                 ),
             },
             tx_type_3.with_fields(
-                data=to_hash_bytes(0) + to_hash_bytes(MAX_BLOBS_PER_BLOCK - 1),
+                data=to_hash_bytes(0) + to_hash_bytes(SpecHelpers.max_blobs_per_block() - 1),
                 to=BlobhashContext.address("callcode"),
             ),
             {

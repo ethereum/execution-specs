@@ -19,21 +19,11 @@ from ethereum_test_tools import (
     to_address,
 )
 
-from .common import (
-    BYTES_PER_FIELD_ELEMENT,
-    DATA_GAS_PER_BLOB,
-    FIELD_ELEMENTS_PER_BLOB,
-    INF_POINT,
-    MAX_BLOBS_PER_BLOCK,
-    REF_SPEC_4844_GIT_PATH,
-    REF_SPEC_4844_VERSION,
-    Blob,
-    calc_excess_data_gas,
-    get_data_gasprice,
-)
+from .common import INF_POINT, Blob
+from .spec import Spec, SpecHelpers, ref_spec_4844
 
-REFERENCE_SPEC_GIT_PATH = REF_SPEC_4844_GIT_PATH
-REFERENCE_SPEC_VERSION = REF_SPEC_4844_VERSION
+REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
+REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 
 @pytest.fixture
@@ -96,9 +86,9 @@ def parent_excess_data_gas(
     parent_excess_blobs: int,
 ) -> int:
     """
-    Calculates the excess data gas of the paraent block from the excess blobs.
+    Calculates the excess data gas of the parent block from the excess blobs.
     """
-    return parent_excess_blobs * DATA_GAS_PER_BLOB
+    return parent_excess_blobs * Spec.DATA_GAS_PER_BLOB
 
 
 @pytest.fixture
@@ -109,10 +99,10 @@ def data_gasprice(
     """
     Data gas price for the block of the test.
     """
-    return get_data_gasprice(
-        excess_data_gas=calc_excess_data_gas(
+    return Spec.get_data_gasprice(
+        excess_data_gas=SpecHelpers.calc_excess_data_gas_from_blob_count(
             parent_excess_data_gas=parent_excess_data_gas,
-            parent_blobs=parent_blobs,
+            parent_blob_count=parent_blobs,
         ),
     )
 
@@ -207,7 +197,7 @@ def txs(  # noqa: D103
         blobs_info = Blob.blobs_to_transaction_input(tx_blobs)
         txs.append(
             Transaction(
-                ty=3,
+                ty=Spec.BLOB_TX_TYPE,
                 nonce=nonce,
                 to=destination_account,
                 value=tx_value,
@@ -271,7 +261,7 @@ def blocks(
                     if tx.blob_versioned_hashes is not None
                 ]
             )
-            * DATA_GAS_PER_BLOB
+            * Spec.DATA_GAS_PER_BLOB
         )
     return [
         Block(txs=txs, exception=tx_error, rlp_modifier=Header(data_gas_used=header_data_gas_used))
@@ -285,7 +275,9 @@ def blocks(
             [  # Txs
                 [  # Blobs per transaction
                     Blob(
-                        blob=bytes(FIELD_ELEMENTS_PER_BLOB * BYTES_PER_FIELD_ELEMENT),
+                        blob=bytes(
+                            Spec.FIELD_ELEMENTS_PER_BLOB * SpecHelpers.BYTES_PER_FIELD_ELEMENT
+                        ),
                         kzg_commitment=INF_POINT,
                         kzg_proof=INF_POINT,
                     ),
@@ -297,27 +289,31 @@ def blocks(
             [  # Txs
                 [  # Blobs per transaction
                     Blob(
-                        blob=bytes(FIELD_ELEMENTS_PER_BLOB * BYTES_PER_FIELD_ELEMENT),
+                        blob=bytes(
+                            Spec.FIELD_ELEMENTS_PER_BLOB * SpecHelpers.BYTES_PER_FIELD_ELEMENT
+                        ),
                         kzg_commitment=INF_POINT,
                         kzg_proof=INF_POINT,
                     )
                 ]
-                for _ in range(MAX_BLOBS_PER_BLOCK)
+                for _ in range(SpecHelpers.max_blobs_per_block())
             ],
-            [True] + ([False] * (MAX_BLOBS_PER_BLOCK - 1)),
+            [True] + ([False] * (SpecHelpers.max_blobs_per_block() - 1)),
         ),
         (
             [  # Txs
                 [  # Blobs per transaction
                     Blob(
-                        blob=bytes(FIELD_ELEMENTS_PER_BLOB * BYTES_PER_FIELD_ELEMENT),
+                        blob=bytes(
+                            Spec.FIELD_ELEMENTS_PER_BLOB * SpecHelpers.BYTES_PER_FIELD_ELEMENT
+                        ),
                         kzg_commitment=INF_POINT,
                         kzg_proof=INF_POINT,
                     )
                 ]
-                for _ in range(MAX_BLOBS_PER_BLOCK)
+                for _ in range(SpecHelpers.max_blobs_per_block())
             ],
-            ([False] * (MAX_BLOBS_PER_BLOCK - 1)) + [True],
+            ([False] * (SpecHelpers.max_blobs_per_block() - 1)) + [True],
         ),
     ],
     ids=[

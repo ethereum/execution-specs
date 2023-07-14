@@ -48,21 +48,11 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-from .common import (
-    BLS_MODULUS,
-    FIELD_ELEMENTS_PER_BLOB,
-    INF_POINT,
-    POINT_EVALUATION_PRECOMPILE_ADDRESS,
-    POINT_EVALUATION_PRECOMPILE_GAS,
-    REF_SPEC_4844_GIT_PATH,
-    REF_SPEC_4844_VERSION,
-    Z_Y_VALID_ENDIANNESS,
-    Z,
-    kzg_to_versioned_hash,
-)
+from .common import INF_POINT, Z_Y_VALID_ENDIANNESS, Z
+from .spec import Spec, ref_spec_4844
 
-REFERENCE_SPEC_GIT_PATH = REF_SPEC_4844_GIT_PATH
-REFERENCE_SPEC_VERSION = REF_SPEC_4844_VERSION
+REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
+REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 auto = Auto()
 
@@ -87,7 +77,7 @@ def precompile_input(
     if isinstance(kzg_proof, int):
         kzg_proof = kzg_proof.to_bytes(48, "big")
     if isinstance(versioned_hash, Auto):
-        versioned_hash = kzg_to_versioned_hash(kzg_commitment)
+        versioned_hash = Spec.kzg_to_versioned_hash(kzg_commitment)
     elif isinstance(versioned_hash, int):
         versioned_hash = versioned_hash.to_bytes(32, "big")
 
@@ -109,10 +99,10 @@ def call_gas() -> int:
     """
     Amount of gas to pass to the precompile.
 
-    Defaults to POINT_EVALUATION_PRECOMPILE_GAS, but can be parametrized to
+    Defaults to Spec.POINT_EVALUATION_PRECOMPILE_GAS, but can be parametrized to
     test different amounts.
     """
-    return POINT_EVALUATION_PRECOMPILE_GAS
+    return Spec.POINT_EVALUATION_PRECOMPILE_GAS
 
 
 @pytest.fixture
@@ -126,7 +116,7 @@ def precompile_caller_account(call_type: Op, call_gas: int) -> Account:
             0,
             call_type(
                 call_gas,
-                POINT_EVALUATION_PRECOMPILE_ADDRESS,
+                Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
                 0x00,
                 0x00,
                 Op.CALLDATASIZE,
@@ -140,7 +130,7 @@ def precompile_caller_account(call_type: Op, call_gas: int) -> Account:
             0,
             call_type(
                 call_gas,
-                POINT_EVALUATION_PRECOMPILE_ADDRESS,
+                Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
                 0x00,
                 Op.CALLDATASIZE,
                 0x00,
@@ -205,7 +195,7 @@ def tx(
         data=precompile_input,
         to=precompile_caller_address,
         value=0,
-        gas_limit=POINT_EVALUATION_PRECOMPILE_GAS * 20,
+        gas_limit=Spec.POINT_EVALUATION_PRECOMPILE_GAS * 20,
         max_fee_per_gas=7,
         max_priority_fee_per_gas=0,
     )
@@ -226,13 +216,13 @@ def post(
         # CALL operation success
         expected_storage[0] = 1
         # Success return values
-        expected_storage[1] = FIELD_ELEMENTS_PER_BLOB
-        expected_storage[2] = BLS_MODULUS
+        expected_storage[1] = Spec.FIELD_ELEMENTS_PER_BLOB
+        expected_storage[2] = Spec.BLS_MODULUS
         # Success return values size
         expected_storage[3] = 64
         # Success return values from RETURNDATACOPY
-        expected_storage[4] = FIELD_ELEMENTS_PER_BLOB
-        expected_storage[5] = BLS_MODULUS
+        expected_storage[4] = Spec.FIELD_ELEMENTS_PER_BLOB
+        expected_storage[5] = Spec.BLS_MODULUS
 
     else:
         # CALL operation failure
@@ -255,7 +245,7 @@ def post(
 @pytest.mark.parametrize(
     "z,y,kzg_commitment,kzg_proof,versioned_hash",
     [
-        pytest.param(BLS_MODULUS - 1, 0, INF_POINT, INF_POINT, auto, id="in_bounds_z"),
+        pytest.param(Spec.BLS_MODULUS - 1, 0, INF_POINT, INF_POINT, auto, id="in_bounds_z"),
     ],
 )
 @pytest.mark.parametrize("success", [True])
@@ -270,7 +260,7 @@ def test_valid_precompile_calls(
     Test valid sanity precompile calls that are expected to succeed.
 
     - `kzg_commitment` and `kzg_proof` are set to values such that `p(z)==0` for all values of `z`,
-    hence `y` is tested to be zero, and call to be succesful.
+    hence `y` is tested to be zero, and call to be successful.
     """
     blockchain_test(
         pre=pre,
@@ -282,8 +272,8 @@ def test_valid_precompile_calls(
 @pytest.mark.parametrize(
     "z,y,kzg_commitment,kzg_proof,versioned_hash",
     [
-        (BLS_MODULUS, 0, INF_POINT, INF_POINT, auto),
-        (0, BLS_MODULUS, INF_POINT, INF_POINT, auto),
+        (Spec.BLS_MODULUS, 0, INF_POINT, INF_POINT, auto),
+        (0, Spec.BLS_MODULUS, INF_POINT, INF_POINT, auto),
         (Z, 0, INF_POINT, INF_POINT[:-1], auto),
         (Z, 0, INF_POINT, INF_POINT[0:1], auto),
         (Z, 0, INF_POINT, INF_POINT + bytes([0]), auto),
@@ -291,9 +281,9 @@ def test_valid_precompile_calls(
         (bytes(), bytes(), bytes(), bytes(), bytes()),
         (0, 0, 0, 0, 0),
         (0, 0, 0, 0, auto),
-        (Z, 0, INF_POINT, INF_POINT, kzg_to_versioned_hash(0xC0 << 376, 0x00)),
-        (Z, 0, INF_POINT, INF_POINT, kzg_to_versioned_hash(0xC0 << 376, 0x02)),
-        (Z, 0, INF_POINT, INF_POINT, kzg_to_versioned_hash(0xC0 << 376, 0xFF)),
+        (Z, 0, INF_POINT, INF_POINT, Spec.kzg_to_versioned_hash(0xC0 << 376, 0x00)),
+        (Z, 0, INF_POINT, INF_POINT, Spec.kzg_to_versioned_hash(0xC0 << 376, 0x02)),
+        (Z, 0, INF_POINT, INF_POINT, Spec.kzg_to_versioned_hash(0xC0 << 376, 0xFF)),
     ],
     ids=[
         "out_of_bounds_z",
@@ -451,9 +441,9 @@ def test_point_evaluation_precompile_external_vectors(
 @pytest.mark.parametrize(
     "call_gas,y,success",
     [
-        (POINT_EVALUATION_PRECOMPILE_GAS, 0, True),
-        (POINT_EVALUATION_PRECOMPILE_GAS, 1, False),
-        (POINT_EVALUATION_PRECOMPILE_GAS - 1, 0, False),
+        (Spec.POINT_EVALUATION_PRECOMPILE_GAS, 0, True),
+        (Spec.POINT_EVALUATION_PRECOMPILE_GAS, 1, False),
+        (Spec.POINT_EVALUATION_PRECOMPILE_GAS - 1, 0, False),
     ],
     ids=["correct", "incorrect", "insufficient_gas"],
 )
@@ -496,9 +486,9 @@ def test_point_evaluation_precompile_calls(
 @pytest.mark.parametrize(
     "call_gas",
     [
-        (POINT_EVALUATION_PRECOMPILE_GAS),
-        (POINT_EVALUATION_PRECOMPILE_GAS + 1),
-        (POINT_EVALUATION_PRECOMPILE_GAS - 1),
+        (Spec.POINT_EVALUATION_PRECOMPILE_GAS),
+        (Spec.POINT_EVALUATION_PRECOMPILE_GAS + 1),
+        (Spec.POINT_EVALUATION_PRECOMPILE_GAS - 1),
     ],
     ids=["exact_gas", "extra_gas", "insufficient_gas"],
 )
@@ -539,8 +529,8 @@ def test_point_evaluation_precompile_gas_tx_to(
     # the call gas is sufficient.
     # Otherwise, the call gas will be consumed in full.
     consumed_gas = (
-        POINT_EVALUATION_PRECOMPILE_GAS
-        if call_gas >= POINT_EVALUATION_PRECOMPILE_GAS and proof_correct
+        Spec.POINT_EVALUATION_PRECOMPILE_GAS
+        if call_gas >= Spec.POINT_EVALUATION_PRECOMPILE_GAS and proof_correct
         else call_gas
     ) + intrinsic_gas_cost
 
@@ -550,7 +540,7 @@ def test_point_evaluation_precompile_gas_tx_to(
         ty=2,
         nonce=0,
         data=precompile_input,
-        to=to_address(POINT_EVALUATION_PRECOMPILE_ADDRESS),
+        to=to_address(Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS),
         value=0,
         gas_limit=call_gas + intrinsic_gas_cost,
         max_fee_per_gas=7,
@@ -589,7 +579,7 @@ def test_point_evaluation_precompile_before_fork(
         Op.NUMBER,
         Op.CALL(
             Op.GAS,
-            POINT_EVALUATION_PRECOMPILE_ADDRESS,
+            Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
             1,  # Value
             0,  # Zero-length calldata
             0,
@@ -632,7 +622,7 @@ def test_point_evaluation_precompile_before_fork(
             storage={b: 1 for b in range(1, len(PRE_FORK_BLOCK_RANGE) + 1)},
             # The tx in last block succeeds; storage 0 by default.
         ),
-        to_address(POINT_EVALUATION_PRECOMPILE_ADDRESS): Account(
+        to_address(Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS): Account(
             balance=len(PRE_FORK_BLOCK_RANGE),
         ),
     }

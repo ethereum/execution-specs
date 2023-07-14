@@ -21,17 +21,10 @@ from ethereum_test_tools import (
     to_hash_bytes,
 )
 
-from .common import (
-    BLOB_COMMITMENT_VERSION_KZG,
-    MAX_BLOBS_PER_BLOCK,
-    REF_SPEC_4844_GIT_PATH,
-    REF_SPEC_4844_VERSION,
-    TARGET_BLOBS_PER_BLOCK,
-    get_min_excess_data_blobs_for_data_gas_price,
-)
+from .spec import Spec, SpecHelpers, ref_spec_4844
 
-REFERENCE_SPEC_GIT_PATH = REF_SPEC_4844_GIT_PATH
-REFERENCE_SPEC_VERSION = REF_SPEC_4844_VERSION
+REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
+REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 # All tests run on the transition fork from Shanghai to Cancun
 pytestmark = pytest.mark.valid_at_transition_to("Cancun")
@@ -66,8 +59,8 @@ def post_fork_block_count() -> int:
     """
     Amount of blocks to produce with the post-fork rules.
     """
-    return get_min_excess_data_blobs_for_data_gas_price(2) // (
-        MAX_BLOBS_PER_BLOCK - TARGET_BLOBS_PER_BLOCK
+    return SpecHelpers.get_min_excess_data_blobs_for_data_gas_price(2) // (
+        SpecHelpers.max_blobs_per_block() - SpecHelpers.target_blobs_per_block()
     )
 
 
@@ -97,7 +90,7 @@ def post_fork_blocks(
         Block(
             txs=[
                 Transaction(
-                    ty=3,
+                    ty=Spec.BLOB_TX_TYPE,
                     nonce=b,
                     to=destination_account,
                     value=1,
@@ -108,7 +101,7 @@ def post_fork_blocks(
                     access_list=[],
                     blob_versioned_hashes=add_kzg_version(
                         [to_hash_bytes(x) for x in range(blob_count_per_block)],
-                        BLOB_COMMITMENT_VERSION_KZG,
+                        Spec.BLOB_COMMITMENT_VERSION_KZG,
                     ),
                 )
                 if blob_count_per_block > 0
@@ -224,13 +217,13 @@ def test_invalid_post_fork_block_without_blob_fields(
     "post_fork_block_count,blob_count_per_block",
     [
         (
-            get_min_excess_data_blobs_for_data_gas_price(2)
-            // (MAX_BLOBS_PER_BLOCK - TARGET_BLOBS_PER_BLOCK)
+            SpecHelpers.get_min_excess_data_blobs_for_data_gas_price(2)
+            // (SpecHelpers.max_blobs_per_block() - SpecHelpers.target_blobs_per_block())
             + 2,
-            MAX_BLOBS_PER_BLOCK,
+            SpecHelpers.max_blobs_per_block(),
         ),
         (10, 0),
-        (10, TARGET_BLOBS_PER_BLOCK),
+        (10, SpecHelpers.target_blobs_per_block()),
     ],
     ids=["max_blobs", "no_blobs", "target_blobs"],
 )
@@ -246,7 +239,7 @@ def test_fork_transition_excess_data_gas(
     Test `excessDataGas` calculation in the header when the fork is activated.
 
     Also produce enough blocks to test the data gas price increase when the block is full with
-    `MAX_BLOBS_PER_BLOCK` blobs.
+    `SpecHelpers.max_blobs_per_block()bs_per_block()` blobs.
     """
     blockchain_test(
         pre=pre,
