@@ -19,7 +19,6 @@ from ethereum_test_tools import (
     BlockchainTest,
     BlockchainTestFiller,
     Fixture,
-    JSONEncoder,
     StateTest,
     StateTestFiller,
     Yul,
@@ -217,7 +216,7 @@ class FixtureCollector:
         name = m.group(1)
         if fixture.name:
             name += "-" + fixture.name
-        jsonFixture = json.loads(json.dumps(fixture, cls=JSONEncoder))
+        jsonFixture = fixture.to_json()
         self.all_fixtures[module_dir].append((name, jsonFixture))
 
     def dump_fixtures(self) -> None:

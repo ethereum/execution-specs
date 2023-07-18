@@ -14,7 +14,7 @@ def test_to_address():
     assert to_address("0x0") == "0x0000000000000000000000000000000000000000"
     assert to_address(0) == "0x0000000000000000000000000000000000000000"
     assert to_address(1) == "0x0000000000000000000000000000000000000001"
-    assert to_address("10") == "0x000000000000000000000000000000000000000a"
+    assert to_address(10) == "0x000000000000000000000000000000000000000a"
     assert to_address("0x10") == "0x0000000000000000000000000000000000000010"
     assert to_address(2 ** (20 * 8) - 1) == "0xffffffffffffffffffffffffffffffffffffffff"
 
@@ -130,7 +130,7 @@ def test_compute_create2_address(
     test cases from:
     https://github.com/ethereum/go-ethereum/blob/2189773093b2fe6d161b6477589f964470ff5bce/core/vm/instructions_test.go
 
-    Note: `compute_create2_address` does not generate checksum addresses; s
+    Note: `compute_create2_address` does not generate checksum addresses.
     """
     salt_as_int = int(salt, 16)
     initcode_as_bytes = bytes.fromhex(initcode[2:])

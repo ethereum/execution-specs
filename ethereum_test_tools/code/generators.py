@@ -3,10 +3,11 @@ Code generating classes and functions.
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, SupportsBytes
 
+from ..common.conversions import to_bytes
 from ..common.helpers import ceiling_division
-from .code import Code, code_to_bytes
+from .code import Code
 
 GAS_PER_DEPLOYED_CODE_BYTE = 0xC8
 
@@ -26,7 +27,7 @@ class Initcode(Code):
     costs.
     """
 
-    deploy_code: bytes | str | Code
+    deploy_code: str | bytes | SupportsBytes
     """
     Bytecode to be deployed by the initcode.
     """
@@ -43,7 +44,7 @@ class Initcode(Code):
     def __init__(
         self,
         *,
-        deploy_code: str | bytes | Code,
+        deploy_code: str | bytes | SupportsBytes,
         initcode_length: Optional[int] = None,
         padding_byte: int = 0x00,
         name: Optional[str] = None,
@@ -54,7 +55,7 @@ class Initcode(Code):
         """
         self.execution_gas = 0
         self.deploy_code = deploy_code
-        deploy_code_bytes = code_to_bytes(self.deploy_code)
+        deploy_code_bytes = to_bytes(self.deploy_code)
         code_length = len(deploy_code_bytes)
 
         initcode = bytearray()
@@ -107,7 +108,7 @@ class Initcode(Code):
 
         self.deployment_gas = GAS_PER_DEPLOYED_CODE_BYTE * len(deploy_code_bytes)
 
-        super().__init__(bytecode=pre_padding_bytes + padding_bytes, name=name)
+        super().__init__(pre_padding_bytes + padding_bytes, name=name)
 
 
 @dataclass(kw_only=True)
@@ -119,7 +120,7 @@ class CodeGasMeasure(Code):
     By default, the result gas calculation is saved to storage key 0.
     """
 
-    code: bytes | str | Code
+    code: str | bytes | SupportsBytes
     """
     Bytecode to be executed to measure the gas usage.
     """
@@ -138,7 +139,7 @@ class CodeGasMeasure(Code):
     Storage key to save the gas used.
     """
 
-    def assemble(self) -> bytes:
+    def __post_init__(self):
         """
         Assemble the bytecode that measures gas usage.
         """
@@ -148,7 +149,7 @@ class CodeGasMeasure(Code):
                 0x5A,  # GAS
             ]
         )
-        res += code_to_bytes(self.code)  # Execute code to measure its gas cost
+        res += to_bytes(self.code)  # Execute code to measure its gas cost
         res += bytes(
             [
                 0x5A,  # GAS
@@ -179,4 +180,4 @@ class CodeGasMeasure(Code):
                 0x00,  # STOP
             ]
         )
-        return res
+        self.bytecode = res

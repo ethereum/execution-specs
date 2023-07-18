@@ -12,7 +12,7 @@ from ethereum_test_forks import Berlin, Fork, Istanbul, London
 from evm_transition_tool import GethTransitionTool
 
 from ..code import Yul
-from ..common import Account, Block, Environment, JSONEncoder, TestAddress, Transaction
+from ..common import Account, Block, Environment, TestAddress, Transaction, to_json
 from ..filling import fill_test
 from ..spec import BlockchainTest, StateTest
 
@@ -89,7 +89,7 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
     )
 
     pre = {
-        "0x1000000000000000000000000000000000000000": Account(code="0x4660015500"),
+        0x1000000000000000000000000000000000000000: Account(code="0x4660015500"),
         "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(balance=1000000000000000000000),
     }
 
@@ -132,7 +132,7 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
         )
     ) as f:
         expected = json.load(f)
-    fixture_json = json.loads(json.dumps(fixture, cls=JSONEncoder))
+    fixture_json = to_json(fixture)
     remove_info(fixture_json)
     assert fixture_json == expected
 
@@ -176,7 +176,7 @@ def test_fill_london_blockchain_test_valid_txs(fork: Fork):
                 fork=fork,
             ),
         ),
-        "0x000000000000000000000000000000000000c0de": Account(
+        0xC0DE: Account(
             balance=0,
             nonce=1,
             code=Yul(
@@ -365,7 +365,7 @@ def test_fill_london_blockchain_test_valid_txs(fork: Fork):
                 0x2004: 0x01FFFFFFD000,
             }
         ),
-        "0x000000000000000000000000000000000000C0DE": Account(
+        0xC0DE: Account(
             storage={
                 # Block 2
                 0x0002: 766,
@@ -421,13 +421,13 @@ def test_fill_london_blockchain_test_valid_txs(fork: Fork):
     ) as f:
         expected = json.load(f)
 
-    fixture_json = json.loads(json.dumps(fixture, cls=JSONEncoder))
+    fixture_json = to_json(fixture)
     remove_info(fixture_json)
     assert fixture_json == expected
 
 
 @pytest.mark.parametrize("fork", [London])
-def test_fill_london_blockchain_test_invalid_txs(fork):
+def test_fill_london_blockchain_test_invalid_txs(fork: Fork):
     """
     Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`.
     """
@@ -465,7 +465,7 @@ def test_fill_london_blockchain_test_invalid_txs(fork):
                 fork=fork,
             ),
         ),
-        "0x000000000000000000000000000000000000c0de": Account(
+        0xC0DE: Account(
             balance=0,
             nonce=1,
             code=Yul(
@@ -700,7 +700,7 @@ def test_fill_london_blockchain_test_invalid_txs(fork):
                 0x2004: 0x01FFFFFFD000,
             }
         ),
-        "0x000000000000000000000000000000000000C0DE": Account(
+        0xC0DE: Account(
             storage={
                 # Block 2
                 0x0002: 766,
@@ -756,6 +756,6 @@ def test_fill_london_blockchain_test_invalid_txs(fork):
     ) as f:
         expected = json.load(f)
 
-    fixture_json = json.loads(json.dumps(fixture, cls=JSONEncoder))
+    fixture_json = to_json(fixture)
     remove_info(fixture_json)
     assert fixture_json == expected

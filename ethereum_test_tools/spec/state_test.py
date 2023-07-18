@@ -8,24 +8,24 @@ from ethereum_test_forks import Fork
 from evm_transition_tool import TransitionTool
 
 from ..common import (
-    Account,
+    Address,
+    Alloc,
+    Bloom,
+    Bytes,
     EmptyTrieRoot,
     Environment,
     FixtureBlock,
     FixtureEngineNewPayload,
     FixtureHeader,
+    Hash,
+    HeaderNonce,
+    Number,
     Transaction,
+    ZeroPaddedHexNumber,
     str_or_none,
     to_json,
 )
-from ..common.constants import (
-    EmptyBloom,
-    EmptyHash,
-    EmptyNonce,
-    EmptyOmmersRoot,
-    EngineAPIError,
-    ZeroAddress,
-)
+from ..common.constants import EmptyOmmersRoot, EngineAPIError
 from .base_test import BaseTest, verify_post_alloc, verify_transactions
 from .debugging import print_traces
 
@@ -37,8 +37,8 @@ class StateTest(BaseTest):
     """
 
     env: Environment
-    pre: Mapping[str, Account]
-    post: Mapping[str, Account]
+    pre: Mapping
+    post: Mapping
     txs: List[Transaction]
     engine_api_error_code: Optional[EngineAPIError] = None
     tag: str = ""
@@ -54,37 +54,41 @@ class StateTest(BaseTest):
         self,
         t8n: TransitionTool,
         fork: Fork,
-    ) -> Tuple[bytes, FixtureHeader]:
+    ) -> Tuple[Bytes, FixtureHeader]:
         """
         Create a genesis block from the state test definition.
         """
         env = self.env.set_fork_requirements(fork)
 
         genesis = FixtureHeader(
-            parent_hash=EmptyHash,
-            ommers_hash=EmptyOmmersRoot,
-            coinbase=ZeroAddress,
-            state_root=t8n.calc_state_root(
-                to_json(self.pre),
-                fork,
+            parent_hash=Hash(0),
+            ommers_hash=Hash(EmptyOmmersRoot),
+            coinbase=Address(0),
+            state_root=Hash(
+                t8n.calc_state_root(
+                    to_json(Alloc(self.pre)),
+                    fork,
+                )
             ),
-            transactions_root=EmptyTrieRoot,
-            receipt_root=EmptyTrieRoot,
-            bloom=EmptyBloom,
-            difficulty=0x20000 if env.difficulty is None else env.difficulty,
-            number=env.number - 1,
-            gas_limit=env.gas_limit,
+            transactions_root=Hash(EmptyTrieRoot),
+            receipt_root=Hash(EmptyTrieRoot),
+            bloom=Bloom(0),
+            difficulty=ZeroPaddedHexNumber(0x20000 if env.difficulty is None else env.difficulty),
+            number=ZeroPaddedHexNumber(Number(env.number) - 1),
+            gas_limit=ZeroPaddedHexNumber(env.gas_limit),
             gas_used=0,
             timestamp=0,
-            extra_data=bytes([0]),
-            mix_digest=EmptyHash,
-            nonce=EmptyNonce,
-            base_fee=env.base_fee,
-            data_gas_used=env.data_gas_used,
-            excess_data_gas=env.excess_data_gas,
-            withdrawals_root=t8n.calc_withdrawals_root(env.withdrawals, fork)
-            if env.withdrawals is not None
-            else None,
+            extra_data=Bytes([0]),
+            mix_digest=Hash(0),
+            nonce=HeaderNonce(0),
+            base_fee=ZeroPaddedHexNumber.or_none(env.base_fee),
+            data_gas_used=ZeroPaddedHexNumber.or_none(env.data_gas_used),
+            excess_data_gas=ZeroPaddedHexNumber.or_none(env.excess_data_gas),
+            withdrawals_root=Hash.or_none(
+                t8n.calc_withdrawals_root(env.withdrawals, fork)
+                if env.withdrawals is not None
+                else None
+            ),
         )
 
         genesis_rlp, genesis.hash = genesis.build(
@@ -102,7 +106,7 @@ class StateTest(BaseTest):
         fork: Fork,
         chain_id=1,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[List[FixtureBlock], bytes, Dict[str, Any]]:
+    ) -> Tuple[List[FixtureBlock], Hash, Dict[str, Any]]:
         """
         Create a block from the state test definition.
         Performs checks against the expected behavior of the test.
@@ -114,12 +118,12 @@ class StateTest(BaseTest):
         txs = [tx.with_signature_and_sender() for tx in self.txs] if self.txs is not None else []
 
         alloc, result = t8n.evaluate(
-            alloc=to_json(self.pre),
+            alloc=to_json(Alloc(self.pre)),
             txs=to_json(txs),
             env=to_json(env),
             fork=fork,
             chain_id=chain_id,
-            reward=fork.get_reward(env.number, env.timestamp),
+            reward=fork.get_reward(Number(env.number), Number(env.timestamp)),
             eips=eips,
         )
 

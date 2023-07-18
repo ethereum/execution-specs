@@ -7,10 +7,11 @@ import warnings
 from pathlib import Path
 from shutil import which
 from subprocess import PIPE, run
-from typing import Mapping, Optional, Tuple, Type, Union
+from typing import Mapping, Optional, Sized, SupportsBytes, Tuple, Type, Union
 
 from ethereum_test_forks import Fork
 
+from ..common.conversions import to_bytes
 from .code import Code
 
 DEFAULT_SOLC_ARGS = ("--assemble", "-")
@@ -39,7 +40,7 @@ def get_evm_version_from_fork(fork: Fork | None):
     return fork.name().lower()
 
 
-class Yul(Code):
+class Yul(SupportsBytes, Sized):
     """
     Yul compiler.
     Compiles Yul source code into bytecode.
@@ -68,7 +69,7 @@ class Yul(Code):
             )
         self.binary = Path(binary)
 
-    def assemble(self) -> bytes:
+    def __bytes__(self) -> bytes:
         """
         Assembles using `solc --assemble`.
         """
@@ -101,6 +102,24 @@ class Yul(Code):
 
             self.compiled = bytes.fromhex(hex_str)
         return self.compiled
+
+    def __len__(self) -> int:
+        """
+        Get the length of the Yul bytecode.
+        """
+        return len(bytes(self))
+
+    def __add__(self, other: str | bytes | SupportsBytes) -> Code:
+        """
+        Adds two code objects together, by converting both to bytes first.
+        """
+        return Code(bytes(self) + to_bytes(other))
+
+    def __radd__(self, other: str | bytes | SupportsBytes) -> Code:
+        """
+        Adds two code objects together, by converting both to bytes first.
+        """
+        return Code(to_bytes(other) + bytes(self))
 
     def version(self) -> str:
         """

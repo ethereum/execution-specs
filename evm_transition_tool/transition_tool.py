@@ -216,7 +216,7 @@ class TransitionTool:
         """
         Calculate the state root for the given `alloc`.
         """
-        if type(withdrawals) is list and len(withdrawals) == 0:
+        if isinstance(withdrawals, list) and len(withdrawals) == 0:
             # Optimize returning the empty root immediately
             return bytes.fromhex(
                 "56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"
@@ -246,7 +246,7 @@ class TransitionTool:
             raise Exception(
                 "Unable to calculate withdrawals root: no value returned from transition tool"
             )
-        if type(withdrawals_root) is not str:
+        if not isinstance(withdrawals_root, str):
             raise Exception(
                 "Unable to calculate withdrawals root: "
                 + "incorrect type returned from transition tool: "

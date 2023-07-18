@@ -5,7 +5,7 @@ Common values used in Ethereum tests.
 from enum import IntEnum
 
 TestAddress = "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"
-TestAddress2 = "0x8a0A19589531694250d570040a0c4B74576919B8"
+TestAddress2 = "0x8a0a19589531694250d570040a0c4b74576919b8"
 
 TestPrivateKey = "0x45a915e4d060149eb4365960e6a7a45f334393093061116b197e3240065ff2d8"
 TestPrivateKey2 = "0x9e7645d0cfd9c3a04eb7a9db59a4eb7d359f2e75c9164a9d6b9a7d54e1b6a36f"

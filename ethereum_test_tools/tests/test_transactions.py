@@ -39,6 +39,24 @@ from ..common import AccessList, Transaction
                 ty=0,
                 nonce=0,
                 gas_price=1000000000,
+                protected=False,
+                to=None,
+            ),
+            (
+                27,
+                69580953802627422387708984158392304322597795331978871908970340300185024633230,
+                9987437858655471264845875982426404737641514329900923987672173898100072610198,
+            ),
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "0xf84f80843b9aca008252088080801ba099d56c9a276e7b5c29f433bdc5ee0d551a242542445d2f"
+            "f793be942cd4cc998ea01614b083596de05d65f22e0319d969a8465732ce5ad199c41c17fd72a651"
+            "7996",
+        ),
+        (
+            Transaction(
+                ty=0,
+                nonce=0,
+                gas_price=1000000000,
                 protected=True,
             ),
             (
@@ -105,6 +123,26 @@ from ..common import AccessList, Transaction
         ),
         (
             Transaction(
+                ty=1,
+                nonce=0,
+                gas_price=1000000000,
+                to=None,
+                access_list=[AccessList(address="0x123", storage_keys=["0x456", "0x789"])],
+            ),
+            (
+                0,
+                16814800520830332761874524721118962980778925570205706327283408113434790879234,
+                38982159227826105391951884315531363239837729091757253660549724931098838198780,
+            ),
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "0x01f8ad0180843b9aca00825208808080f85bf85994000000000000000000000000000000000000"
+            "0123f842a00000000000000000000000000000000000000000000000000000000000000456a00000"
+            "00000000000000000000000000000000000000000000000000000000078980a0252cd6ff24fb485a"
+            "50aa3cc4e11947e257c325213a6d5c6ae2ea70cb68b26002a0562f1ec7bfd17a0cc72ae25192b8a7"
+            "450b315a4a8bcea8f60281d3e72bd669fc",
+        ),
+        (
+            Transaction(
                 ty=2,
                 nonce=0,
                 access_list=[AccessList(address="0x123", storage_keys=["0x456", "0x789"])],
@@ -122,6 +160,27 @@ from ..common import AccessList, Transaction
             "0000000000000000000000000456a000000000000000000000000000000000000000000000000000"
             "0000000000078980a0cad8994ac160fd7e167715bbe20212939abdd5cd5a1f6c4dd6e5612cd8b332"
             "20a062a44d12b176bbd669d09d20d26281b5a693d8a52ab02a9d130201ee5db113dd",
+        ),
+        (
+            Transaction(
+                ty=2,
+                nonce=0,
+                to=None,
+                access_list=[AccessList(address="0x123", storage_keys=["0x456", "0x789"])],
+                max_fee_per_gas=10,
+                max_priority_fee_per_gas=5,
+            ),
+            (
+                0,
+                90322080068302816931882206183311797596224841408506356995778410737685074239457,
+                11150681916082931632476906514672946504836769153730288987778622018872414351162,
+            ),
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            "0x02f8aa0180050a825208808080f85bf859940000000000000000000000000000000000000123f8"
+            "42a00000000000000000000000000000000000000000000000000000000000000456a00000000000"
+            "00000000000000000000000000000000000000000000000000078980a0c7b07c5552829e585f68e2"
+            "eed4495ed6dfbe8cb1453edb2dc1e959d1087f5fe1a018a70ff379958b47e85172bc93fe5e47dc23"
+            "d13e3b0e4a800f1f3a0766a0af3a",
         ),
         (
             Transaction(
@@ -172,11 +231,14 @@ from ..common import AccessList, Transaction
     ],
     ids=[
         "type-0-not-protected",
+        "type-0-protected-contract-creation",
         "type-0-protected",
         "type-1",
         "type-1-access-list-empty",
         "type-1-access-list-filled",
+        "type-1-access-list-filled-contract-creation",
         "type-2",
+        "type-2-contract-creation",
         "type-3-minimal-empty-blobs",
         "type-3-minimal-two-blobs",
     ],
@@ -192,7 +254,7 @@ def test_transaction_signing(
     Test that transaction signing / serialization works as expected.
     """
     tx = tx.with_signature_and_sender()
-    signature = tx.signature
+    signature = (tx.v, tx.r, tx.s)
     assert signature is not None
 
     assert signature == expected_signature

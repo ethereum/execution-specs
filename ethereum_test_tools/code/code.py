@@ -2,13 +2,12 @@
 Code object that is an interface to different
 assembler/compiler backends.
 """
-from dataclasses import dataclass
-from re import sub
-from typing import Optional, Union
+from typing import Optional, Sized, SupportsBytes
+
+from ..common.conversions import to_bytes
 
 
-@dataclass(kw_only=True)
-class Code:
+class Code(SupportsBytes, Sized):
     """
     Generic code object.
     """
@@ -23,78 +22,45 @@ class Code:
     Usually used to add extra information to a test case.
     """
 
-    def assemble(self) -> bytes:
+    def __init__(
+        self,
+        code: Optional[str | bytes | SupportsBytes] = None,
+        *,
+        name: Optional[str] = None,
+    ):
+        """
+        Create a new Code object.
+        """
+        if code is not None:
+            self.bytecode = to_bytes(code)
+        self.name = name
+
+    def __bytes__(self) -> bytes:
         """
         Transform the Code object into bytes.
-        Normally will be overriden by the classes that inherit this class.
         """
         if self.bytecode is None:
             return bytes()
         else:
             return self.bytecode
 
-    def __add__(self, other: Union[str, bytes, "Code"]) -> "Code":
-        """
-        Adds two code objects together, by converting both to bytes first.
-        """
-        return Code(bytecode=(code_to_bytes(self) + code_to_bytes(other)))
-
-    def __radd__(self, other: Union[str, bytes, "Code"]) -> "Code":
-        """
-        Adds two code objects together, by converting both to bytes first.
-        """
-        return Code(bytecode=(code_to_bytes(other) + code_to_bytes(self)))
-
     def __len__(self) -> int:
         """
-        Returns the length of the bytecode.
+        Get the length of the Code object.
         """
-        return len(self.assemble())
+        if self.bytecode is None:
+            return 0
+        else:
+            return len(self.bytecode)
 
+    def __add__(self, other: str | bytes | SupportsBytes) -> "Code":
+        """
+        Adds two code objects together, by converting both to bytes first.
+        """
+        return Code(to_bytes(self) + to_bytes(other))
 
-def code_to_bytes(code: str | bytes | Code) -> bytes:
-    """
-    Converts multiple types into bytecode.
-    """
-    if code is None:
-        raise Exception("Cannot convert `None` code to bytes")
-
-    if isinstance(code, Code):
-        return code.assemble()
-
-    if isinstance(code, bytes):
-        return bytes(code)
-
-    if type(code) is str:
-        # We can have a hex representation of bytecode with spaces for
-        # readability
-        code = sub(r"\s+", "", code)
-        if code.startswith("0x"):
-            return bytes.fromhex(code[2:])
-        return bytes.fromhex(code)
-
-    raise Exception("invalid type for `code`")
-
-
-def code_to_hex(code: str | bytes | Code) -> str:
-    """
-    Converts multiple types into a bytecode hex string.
-    """
-    if code is None:
-        raise Exception("Cannot convert `None` code to hex")
-
-    if isinstance(code, Code):
-        return "0x" + code.assemble().hex()
-
-    if isinstance(code, bytes):
-        return "0x" + code.hex()
-
-    if type(code) is str:
-        # We can have a hex representation of bytecode with spaces for
-        # readability
-        code = sub(r"\s+", "", code)
-        if code.startswith("0x"):
-            return code
-        return "0x" + code
-
-    raise Exception("invalid type for `code`")
+    def __radd__(self, other: str | bytes | SupportsBytes) -> "Code":
+        """
+        Adds two code objects together, by converting both to bytes first.
+        """
+        return Code(to_bytes(other) + to_bytes(self))

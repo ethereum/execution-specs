@@ -2,42 +2,59 @@
 Test suite for `ethereum_test.code` module.
 """
 
+from typing import SupportsBytes
+
 import pytest
 
 from ethereum_test_forks import Merge
 
-from ..code import Code, Initcode, Yul, code_to_bytes
+from ..code import Code, Initcode, Yul
 
 
-def test_code():
+@pytest.mark.parametrize(
+    "code,expected_bytes",
+    [
+        ("", bytes()),
+        ("0x", bytes()),
+        ("0x01", bytes.fromhex("01")),
+        ("01", bytes.fromhex("01")),
+    ],
+)
+def test_code_init(code: str | bytes | SupportsBytes, expected_bytes: bytes):
     """
     Test `ethereum_test.types.code`.
     """
-    assert code_to_bytes("") == bytes()
-    assert code_to_bytes("0x") == bytes()
-    assert code_to_bytes("0x01") == bytes.fromhex("01")
-    assert code_to_bytes("01") == bytes.fromhex("01")
-
-    assert (Code(bytecode=code_to_bytes("0x01")) + "0x02").assemble() == bytes.fromhex("0102")
-    assert ("0x01" + Code(bytecode=code_to_bytes("0x02"))).assemble() == bytes.fromhex("0102")
-    assert ("0x01" + Code(bytecode=code_to_bytes("0x02")) + "0x03").assemble() == bytes.fromhex(
-        "010203"
-    )
+    assert bytes(Code(code)) == expected_bytes
 
 
-def test_yul():
-    assert (
-        Yul(
-            """
+@pytest.mark.parametrize(
+    "code,expected_bytes",
+    [
+        (Code("0x01") + "0x02", bytes.fromhex("0102")),
+        ("0x01" + Code("0x02"), bytes.fromhex("0102")),
+        ("0x01" + Code("0x02") + "0x03", bytes.fromhex("010203")),
+    ],
+)
+def test_code_operations(code: Code, expected_bytes: bytes):
+    """
+    Test `ethereum_test.types.code`.
+    """
+    assert bytes(code) == expected_bytes
+
+
+@pytest.mark.parametrize(
+    "yul_code,expected_bytes",
+    [
+        (
+            Yul(
+                """
             {
                 sstore(1, 2)
             }
             """
-        ).assemble()
-        == bytes.fromhex("6002600155")
-    )
-
-    assert (
+            ),
+            bytes.fromhex("6002600155"),
+        ),
         (
             Yul(
                 """
@@ -46,12 +63,9 @@ def test_yul():
                 }
                 """
             )
-            + "0x00"
-        ).assemble()
-        == bytes.fromhex("600260015500")
-    )
-
-    assert (
+            + "0x00",
+            bytes.fromhex("600260015500"),
+        ),
         (
             "0x00"
             + Yul(
@@ -60,12 +74,9 @@ def test_yul():
                     sstore(1, 2)
                 }
                 """
-            )
-        ).assemble()
-        == bytes.fromhex("006002600155")
-    )
-
-    assert (
+            ),
+            bytes.fromhex("006002600155"),
+        ),
         (
             Yul(
                 """
@@ -80,26 +91,29 @@ def test_yul():
                     sstore(3, 4)
                 }
                 """
-            )
-        ).assemble()
-        == bytes.fromhex("60026001556004600355")
-    )
-
-    long_code = "{\n" + "\n".join(["sstore({0}, {0})".format(i) for i in range(5000)]) + "\n}"
-
-    expected_bytecode = bytes()
-    for i in range(5000):
-        if i < 256:
-            b = bytes.fromhex("60") + i.to_bytes(1, "big")
-        else:
-            b = bytes.fromhex("61") + i.to_bytes(2, "big")
-        expected_bytecode += b
-        # solc 0.8.7+ uses DUP1 here to optimize
-        expected_bytecode += bytes.fromhex("80")
-        expected_bytecode += bytes.fromhex("55")
-
-    # TODO(dan): workaround until it's understood why Shanghai takes so long to compile
-    assert Yul(long_code, fork=Merge).assemble() == expected_bytecode
+            ),
+            bytes.fromhex("60026001556004600355"),
+        ),
+        (
+            Yul(
+                "{\n" + "\n".join(["sstore({0}, {0})".format(i) for i in range(5000)]) + "\n}",
+                # TODO(dan): workaround until it's understood why Shanghai takes so long to compile
+                fork=Merge,
+            ),
+            b"".join([b"\x60" + i.to_bytes(1, "big") + b"\x80\x55" for i in range(256)])
+            + b"".join([b"\x61" + i.to_bytes(2, "big") + b"\x80\x55" for i in range(256, 5000)]),
+        ),
+    ],
+    ids=[
+        "simple",
+        "simple with padding",
+        "simple with padding 2",
+        "multiple",
+        "large",
+    ],
+)
+def test_yul(yul_code: SupportsBytes, expected_bytes: bytes):
+    assert bytes(yul_code) == expected_bytes
 
 
 @pytest.mark.parametrize(
@@ -165,4 +179,4 @@ def test_yul():
     ],
 )
 def test_initcode(initcode: Initcode, bytecode: bytes):
-    assert initcode.assemble() == bytecode
+    assert bytes(initcode) == bytecode

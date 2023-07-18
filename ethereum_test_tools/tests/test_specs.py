@@ -17,7 +17,7 @@ from ..spec import verify_post_alloc
         (
             {"0x0": Account.NONEXISTENT},
             {
-                "0x0": {
+                "0x00": {
                     "nonce": "1",
                     "code": "0x123",
                     "balance": "1",
@@ -28,27 +28,27 @@ from ..spec import verify_post_alloc
         ),
         # Account should not exist but contained in alloc
         (
-            {"0x0": Account.NONEXISTENT},
+            {"0x00": Account.NONEXISTENT},
             {"0x0": {"nonce": "1"}},
             False,
         ),
         # Account should not exist but contained in alloc
         (
-            {"0x0": Account.NONEXISTENT},
-            {"0x0": {"balance": "1"}},
+            {"0x1": Account.NONEXISTENT},
+            {"0x01": {"balance": "1"}},
             False,
         ),
         # Account should not exist but contained in alloc
         (
-            {"0x0": Account.NONEXISTENT},
-            {"0x0": {"code": "0x00"}},
+            {"0x0a": Account.NONEXISTENT},
+            {"0x0A": {"code": "0x00"}},
             False,
         ),
         # Account should exist but not in alloc
         (
-            {"0x0": Account()},
+            {"0x0A": Account()},
             {
-                "0x1": {
+                "0x0B": {
                     "nonce": "1",
                     "code": "0x123",
                     "balance": "1",
