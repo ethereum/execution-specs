@@ -176,6 +176,9 @@ class Opcode(bytes):
         return self._name_
 
 
+OpcodeCallArg = Union[int, bytes, Opcode]
+
+
 class Opcodes(Opcode, Enum):
     """
     Enum containing all known opcodes.
@@ -261,7 +264,7 @@ class Opcodes(Opcode, Enum):
     JUMPDEST = Opcode(0x5B)
     RJUMP = Opcode(0x5C, data_portion_length=2)
     RJUMPI = Opcode(0x5D, popped_stack_items=1, data_portion_length=2)
-    CALLF = Opcode(0x5E, data_portion_length=2)
+    MCOPY = Opcode(0x5E, popped_stack_items=3)
     RETF = Opcode(0x49)
 
     PUSH0 = Opcode(0x5F, pushed_stack_items=1)
