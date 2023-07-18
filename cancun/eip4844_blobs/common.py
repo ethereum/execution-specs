@@ -280,7 +280,7 @@ class BlobhashContext:
             "create2": compute_create2_address(
                 cls.address("create2"),
                 0,
-                cls.code("initcode").assemble(),
+                cls.code("initcode"),
             ),
         }
         contract = contract.get(context_name)

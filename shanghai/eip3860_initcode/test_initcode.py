@@ -81,10 +81,10 @@ def calculate_create_tx_intrinsic_cost(initcode: Initcode, eip_3860_active: bool
     cost = (
         BASE_TRANSACTION_GAS  # G_transaction
         + CREATE_CONTRACT_BASE_GAS  # G_transaction_create
-        + eip_2028_transaction_data_cost(initcode.assemble())  # Transaction calldata cost
+        + eip_2028_transaction_data_cost(initcode)  # Transaction calldata cost
     )
     if eip_3860_active:
-        cost += calculate_initcode_word_cost(len(initcode.assemble()))
+        cost += calculate_initcode_word_cost(len(initcode))
     return cost
 
 
@@ -234,7 +234,7 @@ def test_contract_creating_tx(blockchain_test: BlockchainTestFiller, initcode: I
 
     block = Block(txs=[tx])
 
-    if len(initcode.assemble()) > MAX_INITCODE_SIZE and eip_3860_active:
+    if len(initcode) > MAX_INITCODE_SIZE and eip_3860_active:
         # Initcode is above the max size, tx inclusion in the block makes
         # it invalid.
         post[created_contract_address] = Account.NONEXISTENT
@@ -517,7 +517,7 @@ class TestCreateInitcode:
             return compute_create2_address(
                 address=0x100,
                 salt=0xDEADBEEF,
-                initcode=initcode.assemble(),
+                initcode=initcode,
             )
         raise Exception("invalid opcode for generator")
 
@@ -575,7 +575,7 @@ class TestCreateInitcode:
             # Extra PUSH operation
             expected_gas_usage += PUSH_DUP_OPCODE_GAS
 
-        if len(initcode.assemble()) > MAX_INITCODE_SIZE and eip_3860_active:
+        if len(initcode) > MAX_INITCODE_SIZE and eip_3860_active:
             # Call returns 0 as out of gas s[0]==1
             post[to_address(0x200)] = Account(
                 nonce=1,
@@ -603,12 +603,12 @@ class TestCreateInitcode:
             if opcode == Op.CREATE2:
                 # CREATE2 hashing cost should only be deducted if the initcode
                 # does not exceed the max length
-                expected_gas_usage += calculate_create2_word_cost(len(initcode.assemble()))
+                expected_gas_usage += calculate_create2_word_cost(len(initcode))
 
             if eip_3860_active:
                 # Initcode word cost is only deducted if the length check
                 # succeeds
-                expected_gas_usage += calculate_initcode_word_cost(len(initcode.assemble()))
+                expected_gas_usage += calculate_initcode_word_cost(len(initcode))
 
             # Call returns 1 as valid initcode length s[0]==1 && s[1]==1
             post[to_address(0x200)] = Account(

@@ -453,6 +453,7 @@ def test_invalid_tx_max_fee_per_data_gas(
         pre[TestAddress2] = Account(balance=10**9)
         blocks.insert(0, non_zero_data_gas_used_genesis_block)
         if env.excess_data_gas is not None:
+            assert isinstance(env.excess_data_gas, int)
             env.excess_data_gas += Spec.TARGET_DATA_GAS_PER_BLOCK
     blockchain_test(
         pre=pre,
