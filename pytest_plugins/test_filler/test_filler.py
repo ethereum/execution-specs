@@ -16,6 +16,7 @@ import pytest
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     BaseTest,
+    BaseTestConfig,
     BlockchainTest,
     BlockchainTestFiller,
     Fixture,
@@ -84,6 +85,13 @@ def pytest_addoption(parser):
         dest="flat_output",
         default=False,
         help="Output each test case in the directory without the folder structure.",
+    )
+    test_group.addoption(
+        "--disable-hive",
+        action="store_true",
+        dest="disable_hive",
+        default=False,
+        help="Output tests skipping hive-related properties.",
     )
 
 
@@ -155,6 +163,16 @@ def t8n(request, evm_bin: Path) -> TransitionTool:
     return TransitionTool.from_binary_path(
         binary_path=evm_bin, trace=request.config.getoption("evm_collect_traces")
     )
+
+
+@pytest.fixture(autouse=True, scope="session")
+def base_test_config(request) -> BaseTestConfig:
+    """
+    Returns the base test configuration that all tests must use.
+    """
+    config = BaseTestConfig()
+    config.disable_hive = request.config.getoption("disable_hive")
+    return config
 
 
 def strip_test_prefix(name: str) -> str:
@@ -314,7 +332,7 @@ SPEC_TYPES_PARAMETERS: List[str] = [s.pytest_parameter_name() for s in SPEC_TYPE
 
 @pytest.fixture(scope="function")
 def state_test(
-    request, t8n, fork, engine, reference_spec, eips, fixture_collector
+    request, t8n, fork, engine, reference_spec, eips, fixture_collector, base_test_config
 ) -> StateTestFiller:
     """
     Fixture used to instantiate an auto-fillable StateTest object from within
@@ -330,6 +348,7 @@ def state_test(
 
     class StateTestWrapper(StateTest):
         def __init__(self, *args, **kwargs):
+            kwargs["base_test_config"] = base_test_config
             super(StateTestWrapper, self).__init__(*args, **kwargs)
             fixture_collector.add_fixture(
                 request.node,
@@ -348,7 +367,7 @@ def state_test(
 
 @pytest.fixture(scope="function")
 def blockchain_test(
-    request, t8n, fork, engine, reference_spec, eips, fixture_collector
+    request, t8n, fork, engine, reference_spec, eips, fixture_collector, base_test_config
 ) -> BlockchainTestFiller:
     """
     Fixture used to define an auto-fillable BlockchainTest analogous to the
@@ -358,6 +377,7 @@ def blockchain_test(
 
     class BlockchainTestWrapper(BlockchainTest):
         def __init__(self, *args, **kwargs):
+            kwargs["base_test_config"] = base_test_config
             super(BlockchainTestWrapper, self).__init__(*args, **kwargs)
             fixture_collector.add_fixture(
                 request.node,

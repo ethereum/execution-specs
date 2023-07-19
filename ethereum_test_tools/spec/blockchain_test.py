@@ -212,13 +212,15 @@ class BlockchainTest(BaseTest):
                 withdrawals=env.withdrawals,
             )
 
-            new_payload = FixtureEngineNewPayload.from_fixture_header(
-                fork=fork,
-                header=header,
-                transactions=txs,
-                withdrawals=env.withdrawals,
-                error_code=block.engine_api_error_code,
-            )
+            new_payload: FixtureEngineNewPayload | None = None
+            if not self.base_test_config.disable_hive:
+                new_payload = FixtureEngineNewPayload.from_fixture_header(
+                    fork=fork,
+                    header=header,
+                    transactions=txs,
+                    withdrawals=env.withdrawals,
+                    error_code=block.engine_api_error_code,
+                )
 
             if block.exception is None:
                 # Return environment and allocation of the following block

@@ -2,6 +2,7 @@
 Generic Ethereum test base class
 """
 from abc import abstractmethod
+from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple
 
 from ethereum_test_forks import Fork
@@ -56,6 +57,19 @@ def verify_post_alloc(expected_post: Mapping, got_alloc: Mapping):
                     raise Exception(f"expected account not found: {address}")
 
 
+@dataclass(kw_only=True)
+class BaseTestConfig:
+    """
+    General configuration that all tests must support.
+    """
+
+    disable_hive: bool = False
+    """
+    Disable any hive-related properties that the output could contain.
+    """
+
+
+@dataclass(kw_only=True)
 class BaseTest:
     """
     Represents a base Ethereum test which must return a genesis and a
@@ -64,6 +78,7 @@ class BaseTest:
 
     pre: Mapping
     tag: str = ""
+    base_test_config: BaseTestConfig = field(default_factory=BaseTestConfig)
 
     @abstractmethod
     def make_genesis(

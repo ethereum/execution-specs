@@ -167,13 +167,15 @@ class StateTest(BaseTest):
             withdrawals=env.withdrawals,
         )
 
-        new_payload = FixtureEngineNewPayload.from_fixture_header(
-            fork=fork,
-            header=header,
-            transactions=txs,
-            withdrawals=env.withdrawals,
-            error_code=self.engine_api_error_code,
-        )
+        new_payload: FixtureEngineNewPayload | None = None
+        if not self.base_test_config.disable_hive:
+            new_payload = FixtureEngineNewPayload.from_fixture_header(
+                fork=fork,
+                header=header,
+                transactions=txs,
+                withdrawals=env.withdrawals,
+                error_code=self.engine_api_error_code,
+            )
 
         return (
             [
