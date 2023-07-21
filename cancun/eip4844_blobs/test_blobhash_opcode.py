@@ -129,6 +129,7 @@ def test_blobhash_gas_cost(
                         to=address,
                         gas_price=10 if tx_type < 2 else None,
                         access_list=[] if tx_type >= 1 else None,
+                        max_fee_per_gas=10 if tx_type >= 2 else None,
                         max_priority_fee_per_gas=10 if tx_type >= 2 else None,
                         max_fee_per_data_gas=10 if tx_type >= 3 else None,
                         blob_versioned_hashes=random_blob_hashes[
