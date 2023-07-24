@@ -89,6 +89,14 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def header_beacon_root_required(cls, block_number: int, timestamp: int) -> bool:
+        """
+        Returns true if the header must contain parent beacon block root
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def get_reward(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """
         Returns the expected reward amount in wei of a given fork
@@ -112,6 +120,15 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     def engine_new_payload_blob_hashes(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         Returns true if the engine api version requires new payload calls to include blob hashes.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def engine_new_payload_beacon_root(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+        """
+        Returns true if the engine api version requires new payload calls to include a parent
+        beacon block root.
         """
         pass
 

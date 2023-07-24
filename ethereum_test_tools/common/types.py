@@ -948,6 +948,13 @@ class Environment:
             cast_type=Number,
         ),
     )
+    beacon_root: Optional[FixedSizeBytesConvertible] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="beaconRoot",
+            cast_type=Hash,
+        ),
+    )
     extra_data: Optional[BytesConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
@@ -1035,6 +1042,9 @@ class Environment:
             and res.parent_blob_gas_used is None
         ):
             res.blob_gas_used = 0
+
+        if fork.header_beacon_root_required(number, timestamp) and res.beacon_root is None:
+            res.beacon_root = 0
 
         return res
 
@@ -1798,6 +1808,7 @@ class Header:
     withdrawals_root: Optional[FixedSizeBytesConvertible | Removable] = None
     blob_gas_used: Optional[NumberConvertible | Removable] = None
     excess_blob_gas: Optional[NumberConvertible | Removable] = None
+    beacon_root: Optional[FixedSizeBytesConvertible | Removable] = None
     hash: Optional[FixedSizeBytesConvertible] = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
@@ -2075,6 +2086,16 @@ class FixtureHeader:
         json_encoder=JSONEncoder.Field(name="excessBlobGas", cast_type=ZeroPaddedHexNumber),
     )
 
+    beacon_root: Optional[Hash] = header_field(
+        default=None,
+        source=HeaderFieldSource(
+            parse_type=Hash,
+            fork_requirement_check="header_beacon_root_required",
+            source_environment="beacon_root",
+        ),
+        json_encoder=JSONEncoder.Field(name="beaconRoot"),
+    )
+
     hash: Optional[Hash] = header_field(
         default=None,
         source=HeaderFieldSource(
@@ -2172,6 +2193,8 @@ class FixtureHeader:
             header.append(Uint(int(self.blob_gas_used)))
         if self.excess_blob_gas is not None:
             header.append(Uint(self.excess_blob_gas))
+        if self.beacon_root is not None:
+            header.append(self.beacon_root)
 
         block = [
             header,
@@ -2253,6 +2276,8 @@ class Block(Header):
             new_env.excess_blob_gas = self.excess_blob_gas
         if not isinstance(self.blob_gas_used, Removable):
             new_env.blob_gas_used = self.blob_gas_used
+        if not isinstance(self.beacon_root, Removable):
+            new_env.beacon_root = self.beacon_root
         """
         These values are required, but they depend on the previous environment,
         so they can be calculated here.
@@ -2422,6 +2447,14 @@ class FixtureEngineNewPayload:
     version: int = field(
         json_encoder=JSONEncoder.Field(),
     )
+    beacon_root: Optional[FixedSizeBytesConvertible] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="parentBeaconBlockRoot",
+            cast_type=Hash,
+            to_json=True,
+        ),
+    )
     error_code: Optional[EngineAPIError] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
@@ -2459,6 +2492,9 @@ class FixtureEngineNewPayload:
             new_payload.blob_versioned_hashes = blob_versioned_hashes_from_transactions(
                 transactions
             )
+
+        if fork.engine_new_payload_beacon_root(header.number, header.timestamp):
+            new_payload.beacon_root = header.beacon_root
 
         return new_payload
 
