@@ -36,6 +36,24 @@ def test_transition_forks():
     assert BerlinToLondonAt5.transitions_to() == London
     assert BerlinToLondonAt5.transitions_from() == Berlin
 
+    assert BerlinToLondonAt5.fork(4, 0) == "Berlin"
+    assert BerlinToLondonAt5.fork(5, 0) == "London"
+    # Default values of transition forks is the transition block
+    assert BerlinToLondonAt5.fork() == "London"
+
+    assert MergeToShanghaiAtTime15k.fork(0, 14_999) == "Merge"
+    assert MergeToShanghaiAtTime15k.fork(0, 15_000) == "Shanghai"
+    assert MergeToShanghaiAtTime15k.fork() == "Shanghai"
+
+    assert BerlinToLondonAt5.header_base_fee_required(4, 0) is False
+    assert BerlinToLondonAt5.header_base_fee_required(5, 0) is True
+
+    assert MergeToShanghaiAtTime15k.header_withdrawals_required(0, 14_999) is False
+    assert MergeToShanghaiAtTime15k.header_withdrawals_required(0, 15_000) is True
+
+    assert MergeToShanghaiAtTime15k.engine_new_payload_version(0, 14_999) == 1
+    assert MergeToShanghaiAtTime15k.engine_new_payload_version(0, 15_000) == 2
+
 
 def test_forks_from():  # noqa: D103
     assert forks_from(Merge) == [Merge, LAST_DEPLOYED]
@@ -65,12 +83,15 @@ def test_forks():
     assert Berlin.header_base_fee_required(0, 0) is False
     assert London.header_base_fee_required(0, 0) is True
     assert Merge.header_base_fee_required(0, 0) is True
+    # Default values of normal forks if the genesis block
+    assert Merge.header_base_fee_required() is True
 
     # Transition forks too
     assert cast(Fork, BerlinToLondonAt5).header_base_fee_required(4, 0) is False
     assert cast(Fork, BerlinToLondonAt5).header_base_fee_required(5, 0) is True
     assert cast(Fork, MergeToShanghaiAtTime15k).header_withdrawals_required(0, 14_999) is False
     assert cast(Fork, MergeToShanghaiAtTime15k).header_withdrawals_required(0, 15_000) is True
+    assert cast(Fork, MergeToShanghaiAtTime15k).header_withdrawals_required() is True
 
     assert is_fork(Berlin, Berlin) is True
     assert is_fork(London, Berlin) is True

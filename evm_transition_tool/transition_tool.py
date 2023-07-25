@@ -150,10 +150,11 @@ class TransitionTool:
     @abstractmethod
     def evaluate(
         self,
+        *,
         alloc: Any,
         txs: Any,
         env: Any,
-        fork: Fork,
+        fork_name: str,
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
@@ -178,7 +179,7 @@ class TransitionTool:
         """
         pass
 
-    def shutdown(self) -> str:
+    def shutdown(self):
         """
         Perform any cleanup tasks related to the tested tool.
         """
@@ -225,7 +226,13 @@ class TransitionTool:
         if fork.header_withdrawals_required(0, 0):
             env["withdrawals"] = []
 
-        _, result = self.evaluate(alloc, [], env, fork, debug_output_path=debug_output_path)
+        _, result = self.evaluate(
+            alloc=alloc,
+            txs=[],
+            env=env,
+            fork_name=fork.fork(block_number=0, timestamp=0),
+            debug_output_path=debug_output_path,
+        )
         state_root = result.get("stateRoot")
         if state_root is None or not isinstance(state_root, str):
             raise Exception("Unable to calculate state root")
@@ -261,7 +268,13 @@ class TransitionTool:
         if fork.header_excess_data_gas_required(0, 0):
             env["currentExcessDataGas"] = "0"
 
-        _, result = self.evaluate({}, [], env, fork, debug_output_path=debug_output_path)
+        _, result = self.evaluate(
+            alloc={},
+            txs=[],
+            env=env,
+            fork_name=fork.fork(block_number=0, timestamp=0),
+            debug_output_path=debug_output_path,
+        )
         withdrawals_root = result.get("withdrawalsRoot")
         if withdrawals_root is None:
             raise Exception(

@@ -112,10 +112,18 @@ def test_evm_t8n(t8n: TransitionTool, test_dir: str) -> None:
         print(expected_path)
         alloc = json.load(alloc)
         txs = json.load(txs)
-        env = json.load(env)
+        env_json = json.load(env)
         expected = json.load(exp)
 
-        result_alloc, result = t8n.evaluate(alloc, txs, env, Berlin)
+        result_alloc, result = t8n.evaluate(
+            alloc=alloc,
+            txs=txs,
+            env=env_json,
+            fork_name=Berlin.fork(
+                block_number=int(env_json["currentNumber"], 0),
+                timestamp=int(env_json["currentTimestamp"], 0),
+            ),
+        )
         print(result)
         assert result_alloc == expected.get("alloc")
         assert result == expected.get("result")

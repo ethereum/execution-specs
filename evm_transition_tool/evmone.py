@@ -46,10 +46,11 @@ class EvmOneTransitionTool(TransitionTool):
 
     def evaluate(
         self,
+        *,
         alloc: Any,
         txs: Any,
         env: Any,
-        fork: Fork,
+        fork_name: str,
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
@@ -58,7 +59,6 @@ class EvmOneTransitionTool(TransitionTool):
         """
         Executes `evmone-t8n` with the specified arguments.
         """
-        fork_name = fork.name()
         if eips is not None:
             fork_name = "+".join([fork_name] + [str(eip) for eip in eips])
 

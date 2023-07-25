@@ -45,10 +45,11 @@ class GethTransitionTool(TransitionTool):
 
     def evaluate(
         self,
+        *,
         alloc: Any,
         txs: Any,
         env: Any,
-        fork: Fork,
+        fork_name: str,
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
@@ -57,7 +58,6 @@ class GethTransitionTool(TransitionTool):
         """
         Executes `evm t8n` with the specified arguments.
         """
-        fork_name = fork.name()
         if eips is not None:
             fork_name = "+".join([fork_name] + [str(eip) for eip in eips])
 
@@ -162,6 +162,8 @@ class GethTransitionTool(TransitionTool):
 
     def is_fork_supported(self, fork: Fork) -> bool:
         """
-        Returns True if the fork is supported by the tool
+        Returns True if the fork is supported by the tool.
+
+        If the fork is a transition fork, we want to check the fork it transitions to.
         """
-        return fork().name() in self.help_string
+        return fork.fork() in self.help_string

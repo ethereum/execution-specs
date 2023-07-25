@@ -30,10 +30,18 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     Must contain all the methods used by every fork.
     """
 
+    @classmethod
+    @abstractmethod
+    def fork(cls, block_number: int = 0, timestamp: int = 0) -> str:
+        """
+        Returns fork name as it's meant to be passed to the transition tool for execution.
+        """
+        pass
+
     # Header information abstract methods
     @classmethod
     @abstractmethod
-    def header_base_fee_required(cls, block_number: int, timestamp: int) -> bool:
+    def header_base_fee_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         Returns true if the header must contain base fee
         """
@@ -41,7 +49,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def header_prev_randao_required(cls, block_number: int, timestamp: int) -> bool:
+    def header_prev_randao_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         Returns true if the header must contain Prev Randao value
         """
@@ -49,7 +57,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def header_zero_difficulty_required(cls, block_number: int, timestamp: int) -> bool:
+    def header_zero_difficulty_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         Returns true if the header must have difficulty zero
         """
@@ -57,7 +65,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def header_withdrawals_required(cls, block_number: int, timestamp: int) -> bool:
+    def header_withdrawals_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         Returns true if the header must contain withdrawals
         """
@@ -65,7 +73,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def header_excess_data_gas_required(cls, block_number: int, timestamp: int) -> bool:
+    def header_excess_data_gas_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         Returns true if the header must contain excess data gas
         """
@@ -73,7 +81,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def header_data_gas_used_required(cls, block_number: int, timestamp: int) -> bool:
+    def header_data_gas_used_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         Returns true if the header must contain data gas used
         """
@@ -81,7 +89,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def get_reward(cls, block_number: int, timestamp: int) -> int:
+    def get_reward(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """
         Returns the expected reward amount in wei of a given fork
         """
@@ -90,7 +98,9 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     # Engine API information abstract methods
     @classmethod
     @abstractmethod
-    def engine_new_payload_version(cls, block_number: int, timestamp: int) -> Optional[int]:
+    def engine_new_payload_version(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> Optional[int]:
         """
         Returns `None` if this fork's payloads cannot be sent over the engine API,
         or the payload version if it can.
@@ -99,7 +109,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def engine_new_payload_blob_hashes(cls, block_number: int, timestamp: int) -> bool:
+    def engine_new_payload_blob_hashes(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         Returns true if the engine api version requires new payload calls to include blob hashes.
         """

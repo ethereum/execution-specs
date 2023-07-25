@@ -126,7 +126,7 @@ class StateTest(BaseTest):
             alloc=to_json(Alloc(self.pre)),
             txs=to_json(txs),
             env=to_json(env),
-            fork=fork,
+            fork_name=fork.fork(block_number=Number(env.number), timestamp=Number(env.timestamp)),
             chain_id=chain_id,
             reward=fork.get_reward(Number(env.number), Number(env.timestamp)),
             eips=eips,
