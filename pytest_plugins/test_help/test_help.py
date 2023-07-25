@@ -54,9 +54,13 @@ def show_test_help(config):
                 # Works for 'store', 'store_true', and 'store_false'.
                 kwargs = {
                     "default": action.default,
-                    "type": action.type,
                     "help": action.help,
+                    "required": action.required,
                 }
+                if isinstance(action, argparse._StoreTrueAction):
+                    kwargs["action"] = "store_true"
+                else:
+                    kwargs["type"] = action.type
                 if action.nargs is not None and action.nargs != 0:
                     kwargs["nargs"] = action.nargs
                 new_group.add_argument(*action.option_strings, **kwargs)

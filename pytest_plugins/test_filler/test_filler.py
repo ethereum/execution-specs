@@ -41,7 +41,7 @@ def pytest_addoption(parser):
         type=Path,
         default=None,
         help=(
-            "Path to an evm executable that provides `t8n`. " "Default: First 'evm' entry in PATH"
+            "Path to an evm executable that provides `t8n`. Default: First 'evm' entry in PATH."
         ),
     )
     evm_group.addoption(
@@ -49,7 +49,7 @@ def pytest_addoption(parser):
         action="store_true",
         dest="evm_collect_traces",
         default=None,
-        help="Collect traces of the execution information from the " + "transition tool",
+        help="Collect traces of the execution information from the transition tool.",
     )
 
     solc_group = parser.getgroup("solc", "Arguments defining the solc executable")
@@ -60,7 +60,7 @@ def pytest_addoption(parser):
         default=None,
         help=(
             "Path to a solc executable (for Yul source compilation). "
-            "Default: First 'solc' entry in PATH"
+            "Default: First 'solc' entry in PATH."
         ),
     )
 
