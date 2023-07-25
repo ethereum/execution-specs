@@ -40,12 +40,11 @@ def test_chainid(state_test: StateTestFiller):
 
     tx = Transaction(
         ty=0x0,
-        chain_id=0x0,
+        chain_id=0x01,
         nonce=0,
         to=to_address(0x100),
         gas_limit=100000000,
         gas_price=10,
-        protected=False,
     )
 
     post = {

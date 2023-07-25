@@ -4,6 +4,7 @@ Test Yul Source Code Examples
 
 import pytest
 
+from ethereum_test_forks import Fork, Frontier, Homestead
 from ethereum_test_tools import (
     Account,
     Environment,
@@ -15,7 +16,7 @@ from ethereum_test_tools import (
 
 
 @pytest.mark.valid_from("Homestead")
-def test_yul(state_test: StateTestFiller, yul: YulCompiler):
+def test_yul(state_test: StateTestFiller, yul: YulCompiler, fork: Fork):
     """
     Test YUL compiled bytecode.
     """
@@ -42,12 +43,12 @@ def test_yul(state_test: StateTestFiller, yul: YulCompiler):
 
     tx = Transaction(
         ty=0x0,
-        chain_id=0x0,
+        chain_id=0x01,
         nonce=0,
         to="0x1000000000000000000000000000000000000000",
         gas_limit=500000,
         gas_price=10,
-        protected=False,
+        protected=False if fork in [Frontier, Homestead] else True,
     )
 
     post = {
