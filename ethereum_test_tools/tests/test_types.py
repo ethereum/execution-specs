@@ -16,7 +16,7 @@ from ..common import (
     Withdrawal,
     to_json,
 )
-from ..common.constants import TestAddress2
+from ..common.constants import TestPrivateKey
 from ..common.types import (
     Address,
     Bloom,
@@ -518,7 +518,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "s": "0x2020cb35f5d7731ab540d62614503a7f2344301a86342f67daf011c1341551ff",
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
-            id="fixture_transaction_1",
+            id="fixture_transaction_type_0_default_values",
         ),
         pytest.param(
             FixtureTransaction.from_transaction(
@@ -540,7 +540,77 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "s": "0x0cbe2d029f52dbf93ade486625bed0603945d2c7358b31de99fe8786c00f13da",
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
-            id="fixture_transaction_2",
+            id="fixture_transaction_type_0_contract_creation",
+        ),
+        pytest.param(
+            FixtureTransaction.from_transaction(Transaction(ty=1).with_signature_and_sender()),
+            {
+                "type": "0x01",
+                "chainId": "0x01",
+                "nonce": "0x00",
+                "to": "0x00000000000000000000000000000000000000aa",
+                "value": "0x00",
+                "data": "0x",
+                "gasLimit": "0x5208",
+                "gasPrice": "0x0a",
+                "accessList": [],
+                "v": "0x01",
+                "r": "0x58b4ddaa529492d32b6bc8327eb8ee0bc8b535c3bfc0f4f1db3d7c16b51d1851",
+                "s": "0x5ef19167661b14d06dfc785bf62693e6f9e5a44e7c11e0320efed27b27294970",
+                "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            },
+            id="fixture_transaction_type_1_default_values",
+        ),
+        pytest.param(
+            FixtureTransaction.from_transaction(
+                Transaction(ty=2, max_fee_per_gas=7).with_signature_and_sender()
+            ),
+            {
+                "type": "0x02",
+                "chainId": "0x01",
+                "nonce": "0x00",
+                "to": "0x00000000000000000000000000000000000000aa",
+                "value": "0x00",
+                "data": "0x",
+                "gasLimit": "0x5208",
+                "maxPriorityFeePerGas": "0x00",
+                "maxFeePerGas": "0x07",
+                "accessList": [],
+                "v": "0x00",
+                "r": "0x33fc39081d01f8e7f0ce5426d4a00a7b07c2edea064d24a8cac8e4b1f0c08298",
+                "s": "0x4635e1c45238697db38e37070d4fce27fb5684f9dec4046466ea42a9834bad0a",
+                "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            },
+            id="fixture_transaction_type_2_default_values",
+        ),
+        pytest.param(
+            FixtureTransaction.from_transaction(
+                Transaction(
+                    ty=3,
+                    max_fee_per_gas=7,
+                    max_fee_per_data_gas=1,
+                    blob_versioned_hashes=[],
+                ).with_signature_and_sender()
+            ),
+            {
+                "type": "0x03",
+                "chainId": "0x01",
+                "nonce": "0x00",
+                "to": "0x00000000000000000000000000000000000000aa",
+                "value": "0x00",
+                "data": "0x",
+                "gasLimit": "0x5208",
+                "maxPriorityFeePerGas": "0x00",
+                "maxFeePerGas": "0x07",
+                "maxFeePerDataGas": "0x01",
+                "accessList": [],
+                "blobVersionedHashes": [],
+                "v": "0x01",
+                "r": "0x8978475a00bf155bf5687dfda89c2df55ef6c341cdfd689aeaa6c519569a530a",
+                "s": "0x66fc34935cdd191441a12a2e7b1f224cb40b928afb9bc89c8ddb2b78c19342cc",
+                "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            },
+            id="fixture_transaction_type_3_default_values",
         ),
         pytest.param(
             FixtureTransaction.from_transaction(
@@ -949,3 +1019,109 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
 )
 def test_json_conversions(obj: Any, expected_json: str | Dict[str, Any]):
     assert to_json(obj) == expected_json
+
+
+@pytest.mark.parametrize(
+    ["invalid_tx_args", "expected_exception", "expected_exception_substring"],
+    [
+        pytest.param(
+            {"gas_price": 1, "max_fee_per_gas": 2},
+            Transaction.InvalidFeePayment,
+            "only one type of fee payment field can be used",
+            id="gas-price-and-max-fee-per-gas",
+        ),
+        pytest.param(
+            {"gas_price": 1, "max_priority_fee_per_gas": 2},
+            Transaction.InvalidFeePayment,
+            "only one type of fee payment field can be used",
+            id="gas-price-and-max-priority-fee-per-gas",
+        ),
+        pytest.param(
+            {"gas_price": 1, "max_fee_per_data_gas": 2},
+            Transaction.InvalidFeePayment,
+            "only one type of fee payment field can be used",
+            id="gas-price-and-max-fee-per-data-gas",
+        ),
+        pytest.param(
+            {"ty": 0, "v": 1, "secret_key": 2},
+            Transaction.InvalidSignaturePrivateKey,
+            "can't define both 'signature' and 'private_key'",
+            id="type0-signature-and-secret-key",
+        ),
+    ],
+)
+def test_transaction_post_init_invalid_arg_combinations(  # noqa: D103
+    invalid_tx_args, expected_exception, expected_exception_substring
+):
+    """
+    Test that Transaction.__post_init__ raises the expected exceptions for
+    invalid constructor argument combinations.
+    """
+    with pytest.raises(expected_exception) as exc_info:
+        Transaction(**invalid_tx_args)
+    assert expected_exception_substring in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    ["tx_args", "expected_attributes_and_values"],
+    [
+        pytest.param(
+            {"max_fee_per_data_gas": 10},
+            [
+                ("ty", 3),
+            ],
+            id="max_fee_per_data_gas-adds-ty-3",
+        ),
+        pytest.param(
+            {},
+            [
+                ("gas_price", 10),
+            ],
+            id="no-fees-adds-gas_price",
+        ),
+        pytest.param(
+            {},
+            [
+                ("secret_key", TestPrivateKey),
+            ],
+            id="no-signature-adds-secret_key",
+        ),
+        pytest.param(
+            {"max_fee_per_gas": 10},
+            [
+                ("ty", 2),
+            ],
+            id="max_fee_per_gas-adds-ty-2",
+        ),
+        pytest.param(
+            {"access_list": [AccessList(address=0x1234, storage_keys=[0, 1])]},
+            [
+                ("ty", 1),
+            ],
+            id="access_list-adds-ty-1",
+        ),
+        pytest.param(
+            {"ty": 1},
+            [
+                ("access_list", []),
+            ],
+            id="ty-1-adds-empty-access_list",
+        ),
+        pytest.param(
+            {"ty": 2},
+            [
+                ("max_priority_fee_per_gas", 0),
+            ],
+            id="ty-2-adds-max_priority_fee_per_gas",
+        ),
+    ],
+)
+def test_transaction_post_init_defaults(tx_args, expected_attributes_and_values):
+    """
+    Test that Transaction.__post_init__ sets the expected default values for
+    missing fields.
+    """
+    tx = Transaction(**tx_args)
+    for attr, val in expected_attributes_and_values:
+        assert hasattr(tx, attr)
+        assert getattr(tx, attr) == val

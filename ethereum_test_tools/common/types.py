@@ -349,12 +349,14 @@ class Storage(SupportsJSON):
         was different.
         """
 
+        address: str
         key: int
         want: int
         got: int
 
-        def __init__(self, key: int, want: int, got: int, *args):
+        def __init__(self, address: str, key: int, want: int, got: int, *args):
             super().__init__(args)
+            self.address = address
             self.key = key
             self.want = want
             self.got = got
@@ -362,13 +364,10 @@ class Storage(SupportsJSON):
         def __str__(self):
             """Print exception string"""
             return (
-                "incorrect value for key {0}: want {1} (dec:{2})," + " got {3} (dec:{4})"
-            ).format(
-                Storage.key_value_to_string(self.key),
-                Storage.key_value_to_string(self.want),
-                self.want,
-                Storage.key_value_to_string(self.got),
-                self.got,
+                f"incorrect value in address {self.address} for "
+                + f"key {Storage.key_value_to_string(self.key)}:"
+                + f" want {Storage.key_value_to_string(self.want)} (dec:{self.want}),"
+                + f" got {Storage.key_value_to_string(self.got)} (dec:{self.got})"
             )
 
     @staticmethod
@@ -477,7 +476,7 @@ class Storage(SupportsJSON):
                 return False
         return True
 
-    def must_contain(self, other: "Storage"):
+    def must_contain(self, address: str, other: "Storage"):
         """
         Succeeds only if self contains all keys with equal value as
         contained by second storage.
@@ -491,25 +490,25 @@ class Storage(SupportsJSON):
                 if other[key] != 0:
                     raise Storage.MissingKey(key)
             elif self.data[key] != other.data[key]:
-                raise Storage.KeyValueMismatch(key, self.data[key], other.data[key])
+                raise Storage.KeyValueMismatch(address, key, self.data[key], other.data[key])
 
-    def must_be_equal(self, other: "Storage"):
+    def must_be_equal(self, address: str, other: "Storage"):
         """
         Succeeds only if "self" is equal to "other" storage.
         """
         # Test keys contained in both storage objects
         for key in self.data.keys() & other.data.keys():
             if self.data[key] != other.data[key]:
-                raise Storage.KeyValueMismatch(key, self.data[key], other.data[key])
+                raise Storage.KeyValueMismatch(address, key, self.data[key], other.data[key])
 
         # Test keys contained in either one of the storage objects
         for key in self.data.keys() ^ other.data.keys():
             if key in self.data:
                 if self.data[key] != 0:
-                    raise Storage.KeyValueMismatch(key, self.data[key], 0)
+                    raise Storage.KeyValueMismatch(address, key, self.data[key], 0)
 
             elif other.data[key] != 0:
-                raise Storage.KeyValueMismatch(key, 0, other.data[key])
+                raise Storage.KeyValueMismatch(address, key, 0, other.data[key])
 
 
 @dataclass(kw_only=True)
@@ -681,7 +680,7 @@ class Account:
                 self.storage if isinstance(self.storage, Storage) else Storage(self.storage)
             )
             actual_storage = Storage(alloc["storage"]) if "storage" in alloc else Storage({})
-            expected_storage.must_be_equal(actual_storage)
+            expected_storage.must_be_equal(address=address, other=actual_storage)
 
     @classmethod
     def with_code(cls: Type, code: BytesConvertible) -> "Account":
@@ -1249,10 +1248,10 @@ class Transaction:
         """
         Ensures the transaction has no conflicting properties.
         """
-        if (
-            self.gas_price is not None
-            and self.max_fee_per_gas is not None
-            and self.max_priority_fee_per_gas is not None
+        if self.gas_price is not None and (
+            self.max_fee_per_gas is not None
+            or self.max_priority_fee_per_gas is not None
+            or self.max_fee_per_data_gas is not None
         ):
             raise Transaction.InvalidFeePayment()
 
@@ -1260,6 +1259,7 @@ class Transaction:
             self.gas_price is None
             and self.max_fee_per_gas is None
             and self.max_priority_fee_per_gas is None
+            and self.max_fee_per_data_gas is None
         ):
             self.gas_price = 10
 
@@ -1279,6 +1279,13 @@ class Transaction:
                 self.ty = 1
             else:
                 self.ty = 0
+
+        # Set default values for fields that are required for certain tx types
+        if self.ty >= 1 and self.access_list is None:
+            self.access_list = []
+
+        if self.ty >= 2 and self.max_priority_fee_per_gas is None:
+            self.max_priority_fee_per_gas = 0
 
     def with_error(self, error: str) -> "Transaction":
         """
@@ -1329,6 +1336,8 @@ class Transaction:
                 raise ValueError("max_fee_per_data_gas must be set for type 3 tx")
             if self.blob_versioned_hashes is None:
                 raise ValueError("blob_versioned_hashes must be set for type 3 tx")
+            if self.access_list is None:
+                raise ValueError("access_list must be set for type 3 tx")
 
             if self.wrapped_blob_transaction:
                 if self.blobs is None:
@@ -1352,9 +1361,7 @@ class Transaction:
                         to,
                         Uint(self.value),
                         Bytes(self.data),
-                        [a.to_list() for a in self.access_list]
-                        if self.access_list is not None
-                        else [],
+                        [a.to_list() for a in self.access_list],
                         Uint(self.max_fee_per_data_gas),
                         [Hash(h) for h in self.blob_versioned_hashes],
                         Uint(self.v),
@@ -1375,9 +1382,7 @@ class Transaction:
                     to,
                     Uint(self.value),
                     Bytes(self.data),
-                    [a.to_list() for a in self.access_list]
-                    if self.access_list is not None
-                    else [],
+                    [a.to_list() for a in self.access_list],
                     Uint(self.max_fee_per_data_gas),
                     [Hash(h) for h in self.blob_versioned_hashes],
                     Uint(self.v),
@@ -1387,9 +1392,11 @@ class Transaction:
         elif self.ty == 2:
             # EIP-1559: https://eips.ethereum.org/EIPS/eip-1559
             if self.max_priority_fee_per_gas is None:
-                raise ValueError("max_priority_fee_per_gas must be set for type 3 tx")
+                raise ValueError("max_priority_fee_per_gas must be set for type 2 tx")
             if self.max_fee_per_gas is None:
-                raise ValueError("max_fee_per_gas must be set for type 3 tx")
+                raise ValueError("max_fee_per_gas must be set for type 2 tx")
+            if self.access_list is None:
+                raise ValueError("access_list must be set for type 2 tx")
             return [
                 Uint(self.chain_id),
                 Uint(self.nonce),
@@ -1399,7 +1406,7 @@ class Transaction:
                 to,
                 Uint(self.value),
                 Bytes(self.data),
-                [a.to_list() for a in self.access_list] if self.access_list is not None else [],
+                [a.to_list() for a in self.access_list],
                 Uint(self.v),
                 Uint(self.r),
                 Uint(self.s),
@@ -1408,6 +1415,8 @@ class Transaction:
             # EIP-2930: https://eips.ethereum.org/EIPS/eip-2930
             if self.gas_price is None:
                 raise ValueError("gas_price must be set for type 1 tx")
+            if self.access_list is None:
+                raise ValueError("access_list must be set for type 1 tx")
 
             return [
                 Uint(self.chain_id),
@@ -1417,7 +1426,7 @@ class Transaction:
                 to,
                 Uint(self.value),
                 Bytes(self.data),
-                [a.to_list() for a in self.access_list] if self.access_list is not None else [],
+                [a.to_list() for a in self.access_list],
                 Uint(self.v),
                 Uint(self.r),
                 Uint(self.s),
@@ -1487,9 +1496,9 @@ class Transaction:
         elif self.ty == 2:
             # EIP-1559: https://eips.ethereum.org/EIPS/eip-1559
             if self.max_priority_fee_per_gas is None:
-                raise ValueError("max_priority_fee_per_gas must be set for type 3 tx")
+                raise ValueError("max_priority_fee_per_gas must be set for type 2 tx")
             if self.max_fee_per_gas is None:
-                raise ValueError("max_fee_per_gas must be set for type 3 tx")
+                raise ValueError("max_fee_per_gas must be set for type 2 tx")
             return [
                 Uint(self.chain_id),
                 Uint(self.nonce),
