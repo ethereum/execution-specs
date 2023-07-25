@@ -6,8 +6,10 @@ import argparse
 
 from .b11r import B11R, b11r_arguments
 from .t8n import T8N, t8n_arguments
+from .utils import get_supported_forks
 
-DESCRIPTION = """
+DESCRIPTION = (
+    """
 This is the EVM tool for execution specs. The EVM tool
 provides a few useful subcommands to facilitate testing
 at the EVM layer.
@@ -18,7 +20,12 @@ https://github.com/ethereum/go-ethereum/blob/master/cmd/evm/README.md
 You can use this to run the following tools:
     1. t8n: A stateless state transition utility.
     2. b11r: The tool is used to assemble and seal full block rlps.
+
+
+The following forks are supported:
 """
+    + get_supported_forks()
+)
 
 parser = argparse.ArgumentParser(
     description=DESCRIPTION,
