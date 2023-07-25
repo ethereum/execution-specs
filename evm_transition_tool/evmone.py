@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ethereum_test_forks import Fork
 
-from .transition_tool import TransitionTool
+from .transition_tool import TransitionTool, dump_files_to_directory
 
 
 def write_json_file(data: Dict[str, Any], file_path: str) -> None:
@@ -53,6 +53,7 @@ class EvmOneTransitionTool(TransitionTool):
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
+        debug_output_path: str = "",
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Executes `evmone-t8n` with the specified arguments.
@@ -105,6 +106,18 @@ class EvmOneTransitionTool(TransitionTool):
             stderr=subprocess.PIPE,
         )
 
+        if debug_output_path:
+            dump_files_to_directory(
+                debug_output_path,
+                input_contents
+                | {
+                    "args": args,
+                    "stdout": result.stdout.decode(),
+                    "stderr": result.stderr.decode(),
+                    "returncode": result.returncode,
+                },
+            )
+
         if result.returncode != 0:
             raise Exception("failed to evaluate: " + result.stderr.decode())
 
@@ -123,6 +136,15 @@ class EvmOneTransitionTool(TransitionTool):
                 output_contents[key] = contents
 
         temp_dir.cleanup()
+
+        if debug_output_path:
+            dump_files_to_directory(
+                debug_output_path,
+                {
+                    "output_alloc": output_contents["alloc"],
+                    "output_result": output_contents["result"],
+                },
+            )
 
         return output_contents["alloc"], output_contents["result"]
 

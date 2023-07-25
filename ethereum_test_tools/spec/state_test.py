@@ -66,8 +66,9 @@ class StateTest(BaseTest):
             coinbase=Address(0),
             state_root=Hash(
                 t8n.calc_state_root(
-                    to_json(Alloc(self.pre)),
-                    fork,
+                    alloc=to_json(Alloc(self.pre)),
+                    fork=fork,
+                    debug_output_path=self.get_next_transition_tool_output_path(),
                 )
             ),
             transactions_root=Hash(EmptyTrieRoot),
@@ -85,7 +86,11 @@ class StateTest(BaseTest):
             data_gas_used=ZeroPaddedHexNumber.or_none(env.data_gas_used),
             excess_data_gas=ZeroPaddedHexNumber.or_none(env.excess_data_gas),
             withdrawals_root=Hash.or_none(
-                t8n.calc_withdrawals_root(env.withdrawals, fork)
+                t8n.calc_withdrawals_root(
+                    withdrawals=env.withdrawals,
+                    fork=fork,
+                    debug_output_path=self.get_next_transition_tool_output_path(),
+                )
                 if env.withdrawals is not None
                 else None
             ),
@@ -125,6 +130,7 @@ class StateTest(BaseTest):
             chain_id=chain_id,
             reward=fork.get_reward(Number(env.number), Number(env.timestamp)),
             eips=eips,
+            debug_output_path=self.get_next_transition_tool_output_path(),
         )
 
         rejected_txs = verify_transactions(txs, result)

@@ -94,6 +94,15 @@ def pytest_addoption(parser):
         help="Output tests skipping hive-related properties.",
     )
 
+    debug_group = parser.getgroup("debug", "Arguments defining debug behavior")
+    debug_group.addoption(
+        "--t8n-dump-dir",
+        action="store",
+        dest="t8n_dump_dir",
+        default="",
+        help="Path to dump the transition tool debug output.",
+    )
+
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
@@ -194,6 +203,13 @@ def strip_test_prefix(name: str) -> str:
     if name.startswith(TEST_PREFIX):
         return name[len(TEST_PREFIX) :]
     return name
+
+
+def convert_test_name_to_path(name: str) -> str:
+    """
+    Converts a test name to a path.
+    """
+    return re.sub(r"[\[=\-]", "_", name).replace("]", "")
 
 
 class FixtureCollector:
@@ -360,6 +376,10 @@ def state_test(
     class StateTestWrapper(StateTest):
         def __init__(self, *args, **kwargs):
             kwargs["base_test_config"] = base_test_config
+            if t8n_dump_dir := request.config.getoption("t8n_dump_dir"):
+                kwargs["t8n_dump_dir"] = os.path.join(
+                    t8n_dump_dir, convert_test_name_to_path(request.node.name)
+                )
             super(StateTestWrapper, self).__init__(*args, **kwargs)
             fixture_collector.add_fixture(
                 request.node,

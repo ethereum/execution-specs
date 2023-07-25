@@ -3,7 +3,9 @@ Generic Ethereum test base class
 """
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple
+from itertools import count
+from os import path
+from typing import Any, Callable, Dict, Generator, Iterator, List, Mapping, Optional, Tuple
 
 from ethereum_test_forks import Fork
 from evm_transition_tool import TransitionTool
@@ -80,6 +82,10 @@ class BaseTest:
     tag: str = ""
     base_test_config: BaseTestConfig = field(default_factory=BaseTestConfig)
 
+    # Transition tool specific fields
+    t8n_dump_dir: Optional[str] = ""
+    t8n_call_counter: Iterator[int] = field(init=False, default_factory=count)
+
     @abstractmethod
     def make_genesis(
         self,
@@ -113,6 +119,17 @@ class BaseTest:
         spec type as filler for the test.
         """
         pass
+
+    def get_next_transition_tool_output_path(self) -> str:
+        """
+        Returns the path to the next transition tool output file.
+        """
+        if not self.t8n_dump_dir:
+            return ""
+        return path.join(
+            self.t8n_dump_dir,
+            str(next(self.t8n_call_counter)),
+        )
 
 
 TestSpec = Callable[[Fork], Generator[BaseTest, None, None]]

@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ethereum_test_forks import Fork
 
-from .transition_tool import TransitionTool
+from .transition_tool import TransitionTool, dump_files_to_directory
 
 
 class GethTransitionTool(TransitionTool):
@@ -52,6 +52,7 @@ class GethTransitionTool(TransitionTool):
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
+        debug_output_path: str = "",
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Executes `evm t8n` with the specified arguments.
@@ -96,6 +97,18 @@ class GethTransitionTool(TransitionTool):
             stderr=subprocess.PIPE,
         )
 
+        if debug_output_path:
+            dump_files_to_directory(
+                debug_output_path,
+                stdin
+                | {
+                    "args": args,
+                    "stdout": result.stdout.decode(),
+                    "stderr": result.stderr.decode(),
+                    "returncode": result.returncode,
+                },
+            )
+
         if result.returncode != 0:
             raise Exception("failed to evaluate: " + result.stderr.decode())
 
@@ -118,6 +131,15 @@ class GethTransitionTool(TransitionTool):
             self.append_traces(traces)
 
         temp_dir.cleanup()
+
+        if debug_output_path:
+            dump_files_to_directory(
+                debug_output_path,
+                {
+                    "output_alloc": output["alloc"],
+                    "output_result": output["result"],
+                },
+            )
 
         return output["alloc"], output["result"]
 

@@ -6,6 +6,7 @@ import os
 import shutil
 from abc import abstractmethod
 from itertools import groupby
+from json import dump
 from pathlib import Path
 from re import Pattern
 from typing import Any, Dict, List, Optional, Tuple, Type
@@ -26,6 +27,17 @@ class TransitionToolNotFoundInPath(Exception):
         if binary:
             message = f"{message} ({binary})"
         super().__init__(message)
+
+
+def dump_files_to_directory(output_path: str, files: Dict[str, Any]) -> None:
+    """
+    Dump the files to the given directory.
+    """
+    os.makedirs(output_path, exist_ok=True)
+    for file_name, file_contents in files.items():
+        file_path = os.path.join(output_path, file_name)
+        with open(file_path, "w") as f:
+            dump(file_contents, f, ensure_ascii=True, indent=4)
 
 
 class TransitionTool:
@@ -145,6 +157,7 @@ class TransitionTool:
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
+        debug_output_path: str = "",
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Simulate a state transition with specified parameters
@@ -191,7 +204,7 @@ class TransitionTool:
         """
         return self.traces
 
-    def calc_state_root(self, alloc: Any, fork: Fork) -> bytes:
+    def calc_state_root(self, *, alloc: Any, fork: Fork, debug_output_path: str = "") -> bytes:
         """
         Calculate the state root for the given `alloc`.
         """
@@ -212,13 +225,15 @@ class TransitionTool:
         if fork.header_withdrawals_required(0, 0):
             env["withdrawals"] = []
 
-        _, result = self.evaluate(alloc, [], env, fork)
+        _, result = self.evaluate(alloc, [], env, fork, debug_output_path=debug_output_path)
         state_root = result.get("stateRoot")
         if state_root is None or not isinstance(state_root, str):
             raise Exception("Unable to calculate state root")
         return bytes.fromhex(state_root[2:])
 
-    def calc_withdrawals_root(self, withdrawals: Any, fork: Fork) -> bytes:
+    def calc_withdrawals_root(
+        self, *, withdrawals: Any, fork: Fork, debug_output_path: str = ""
+    ) -> bytes:
         """
         Calculate the state root for the given `alloc`.
         """
@@ -246,7 +261,7 @@ class TransitionTool:
         if fork.header_excess_data_gas_required(0, 0):
             env["currentExcessDataGas"] = "0"
 
-        _, result = self.evaluate({}, [], env, fork)
+        _, result = self.evaluate({}, [], env, fork, debug_output_path=debug_output_path)
         withdrawals_root = result.get("withdrawalsRoot")
         if withdrawals_root is None:
             raise Exception(
