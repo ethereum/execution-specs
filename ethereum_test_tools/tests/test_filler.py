@@ -7,6 +7,7 @@ import os
 from typing import Any, Dict, List
 
 import pytest
+from packaging import version
 
 from ethereum_test_forks import Berlin, Fork, Istanbul, London
 from evm_transition_tool import GethTransitionTool
@@ -23,18 +24,32 @@ def remove_info(fixture_json: Dict[str, Any]):
             del fixture_json[t]["_info"]
 
 
+@pytest.fixture()
+def hash(request: pytest.FixtureRequest, solc_version: version.Version):
+    """
+    Set the hash based on the fork and solc version.
+    """
+    if solc_version == version.parse("0.8.20"):
+        if request.node.funcargs["fork"] == Berlin:
+            return bytes.fromhex("193e550de3")
+        elif request.node.funcargs["fork"] == London:
+            return bytes.fromhex("b053deac0e")
+    elif solc_version == version.parse("0.8.21"):
+        if request.node.funcargs["fork"] == Berlin:
+            return bytes.fromhex("f3a35d34f6")
+        elif request.node.funcargs["fork"] == London:
+            return bytes.fromhex("c5fa75d7f6")
+    else:
+        raise Exception("Unsupported solc version: {}".format(solc_version))
+
+
 @pytest.mark.parametrize(
     "fork,hash",
     [
-        (
-            Berlin,
-            bytes.fromhex("193e550de3"),
-        ),
-        (
-            London,
-            bytes.fromhex("b053deac0e"),
-        ),
+        (Berlin, "set using indirect & hash fixture"),
+        (London, "set using indirect & hash fixture"),
     ],
+    indirect=["hash"],
 )
 def test_make_genesis(fork: Fork, hash: bytes):
     env = Environment()
@@ -138,7 +153,7 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
 
 
 @pytest.mark.parametrize("fork", [London])
-def test_fill_london_blockchain_test_valid_txs(fork: Fork):
+def test_fill_london_blockchain_test_valid_txs(fork: Fork, solc_version: str):
     """
     Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`.
     """
@@ -423,11 +438,12 @@ def test_fill_london_blockchain_test_valid_txs(fork: Fork):
 
     fixture_json = to_json(fixture)
     remove_info(fixture_json)
-    assert fixture_json == expected
+
+    assert fixture_json == expected[f"solc={solc_version}"]
 
 
 @pytest.mark.parametrize("fork", [London])
-def test_fill_london_blockchain_test_invalid_txs(fork: Fork):
+def test_fill_london_blockchain_test_invalid_txs(fork: Fork, solc_version: str):
     """
     Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`.
     """
@@ -758,4 +774,5 @@ def test_fill_london_blockchain_test_invalid_txs(fork: Fork):
 
     fixture_json = to_json(fixture)
     remove_info(fixture_json)
-    assert fixture_json == expected
+
+    assert fixture_json == expected[f"solc={solc_version}"]
