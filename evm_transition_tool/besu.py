@@ -12,7 +12,7 @@ import requests
 
 from ethereum_test_forks import Fork
 
-from .transition_tool import TransitionTool
+from .transition_tool import TransitionTool, dump_files_to_directory
 
 
 class BesuTransitionTool(TransitionTool):
@@ -99,24 +99,44 @@ class BesuTransitionTool(TransitionTool):
         if self.trace:
             raise Exception("Besu `t8n-server` does not support tracing.")
 
+        input_json = {
+            "alloc": alloc,
+            "txs": txs,
+            "env": env,
+        }
+        state_json = {
+            "fork": fork_name,
+            "chainid": chain_id,
+            "reward": reward,
+        }
+        if debug_output_path:
+            dump_files_to_directory(
+                debug_output_path,
+                input_json
+                | {
+                    "state": state_json,
+                },
+            )
+
         response = requests.post(
             self.server_url,
             json={
-                "state": {
-                    "fork": fork_name,
-                    "chainid": chain_id,
-                    "reward": reward,
-                },
-                "input": {
-                    "alloc": alloc,
-                    "txs": txs,
-                    "env": env,
-                },
+                "state": state_json,
+                "input": input_json,
             },
             timeout=5,
         )
         response.raise_for_status()  # exception visible in pytest failure output
         output = response.json()
+
+        if debug_output_path:
+            dump_files_to_directory(
+                debug_output_path,
+                {
+                    "output_alloc": output["alloc"],
+                    "output_result": output["result"],
+                },
+            )
 
         return output["alloc"], output["result"]
 

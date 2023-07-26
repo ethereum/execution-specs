@@ -43,6 +43,7 @@ def show_test_help(config):
         "solc",
         "fork range",
         "filler location",
+        "defining debug",  # the "debug" group in test_filler plugin.
     ]
 
     test_parser = argparse.ArgumentParser()
