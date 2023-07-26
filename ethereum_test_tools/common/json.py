@@ -142,6 +142,7 @@ def field(*args, json_encoder: Optional[JSONEncoder.Field] = None, **kwargs) -> 
         metadata = kwargs["metadata"]
     else:
         metadata = {}
+    assert isinstance(metadata, dict)
 
     if json_encoder is not None:
         metadata["json_encoder"] = json_encoder

@@ -24,7 +24,6 @@ from ..common import (
     HeaderNonce,
     Number,
     ZeroPaddedHexNumber,
-    str_or_none,
     to_json,
 )
 from ..common.constants import EmptyOmmersRoot
@@ -185,29 +184,12 @@ class BlockchainTest(BaseTest):
                     + "was indeed expected to fail and add the proper "
                     + "`block.exception`"
                 )
-
-            header = FixtureHeader.from_dict(
-                result
-                | {
-                    "parentHash": env.parent_hash(),
-                    "miner": env.coinbase,
-                    "transactionsRoot": result.get("txRoot"),
-                    "difficulty": str_or_none(result.get("currentDifficulty"), "0"),
-                    "number": str(env.number),
-                    "gasLimit": str(env.gas_limit),
-                    "timestamp": str(env.timestamp),
-                    "extraData": block.extra_data
-                    if block.extra_data is not None and len(Bytes(block.extra_data)) != 0
-                    else "0x",
-                    "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",  # noqa: E501
-                    "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",  # noqa: E501
-                    "nonce": "0x0000000000000000",
-                    "baseFeePerGas": result.get("currentBaseFee"),
-                    "excessDataGas": result.get("currentExcessDataGas"),
-                }
+            env.extra_data = block.extra_data
+            header = FixtureHeader.collect(
+                fork=fork,
+                transition_tool_result=result,
+                environment=env,
             )
-
-            assert len(header.state_root) == 32
 
             if block.rlp_modifier is not None:
                 # Modify any parameter specified in the `rlp_modifier` after

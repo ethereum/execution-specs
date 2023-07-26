@@ -22,7 +22,6 @@ from ..common import (
     Number,
     Transaction,
     ZeroPaddedHexNumber,
-    str_or_none,
     to_json,
 )
 from ..common.constants import EmptyOmmersRoot, EngineAPIError
@@ -148,23 +147,11 @@ class StateTest(BaseTest):
             print_traces(traces=t8n.get_traces())
             raise e
 
-        header = FixtureHeader.from_dict(
-            result
-            | {
-                "parentHash": genesis.hash,
-                "miner": env.coinbase,
-                "transactionsRoot": result.get("txRoot"),
-                "difficulty": str_or_none(env.difficulty, result.get("currentDifficulty")),
-                "number": str(env.number),
-                "gasLimit": str(env.gas_limit),
-                "timestamp": str(env.timestamp),
-                "extraData": "0x00",
-                "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
-                "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-                "nonce": "0x0000000000000000",
-                "baseFeePerGas": result.get("currentBaseFee"),
-                "excessDataGas": result.get("currentExcessDataGas"),
-            }
+        env.extra_data = b"\x00"
+        header = FixtureHeader.collect(
+            fork=fork,
+            transition_tool_result=result,
+            environment=env,
         )
 
         block, header.hash = header.build(
