@@ -20,6 +20,8 @@ from ethereum.ethash import epoch
 from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 
+from .utils import add_item
+
 try:
     import ethash
 except ImportError as e:
@@ -37,9 +39,12 @@ def get_optimized_pow_patches(_fork_name: str) -> Dict[str, Any]:
     Get a dictionary of patches to be patched into the fork to make it
     optimized.
     """
-    _mod = cast(Any, import_module("ethereum." + _fork_name + ".fork"))
-    generate_header_hash_for_pow = _mod.generate_header_hash_for_pow
+    patches: Dict[str, Any] = {}
 
+    mod = cast(Any, import_module("ethereum." + _fork_name + ".fork"))
+    generate_header_hash_for_pow = mod.generate_header_hash_for_pow
+
+    @add_item(patches)
     def validate_proof_of_work(header: Header_) -> None:
         """
         See `validate_proof_of_work`.
@@ -57,4 +62,4 @@ def get_optimized_pow_patches(_fork_name: str) -> Dict[str, Any]:
 
         ensure(result, InvalidBlock)
 
-    return {k: v for (k, v) in locals().items() if not k.startswith("_")}
+    return patches

@@ -29,6 +29,8 @@ except ImportError as e:
 from ethereum.base_types import U256, Bytes, Bytes20, Uint
 from ethereum.crypto.hash import Hash32
 
+from .utils import add_item
+
 Address = Bytes20
 Root = Hash32
 Account_ = Any
@@ -50,9 +52,12 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
     Get a dictionary of functions/objects to be monkey patched into the state
     to make it optimized.
     """
+    patches: Dict[str, Any] = {}
+
     mod = cast(Any, import_module("ethereum." + fork + ".fork_types"))
     Account = mod.Account
 
+    @add_item(patches)
     @dataclass
     class State:
         """
@@ -103,6 +108,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             """Support with statements"""
             close_state(self)
 
+    @add_item(patches)
     def close_state(state: State) -> None:
         """Close a state, releasing all resources it holds"""
         state.db.close()
@@ -113,14 +119,17 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         del state.journal
         del state.created_accounts
 
+    @add_item(patches)
     def get_metadata(state: State, key: Bytes) -> Optional[Bytes]:
         """Get a piece of metadata"""
         return state.db.get_metadata(key)
 
+    @add_item(patches)
     def set_metadata(state: State, key: Bytes, value: Bytes) -> None:
         """Set a piece of metadata"""
         return state.db.set_metadata(key, value)
 
+    @add_item(patches)
     def begin_db_transaction(state: State) -> None:
         """
         Start a database transaction. A transaction is automatically started
@@ -133,6 +142,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         state.tx_restore_points = []
         state.journal = []
 
+    @add_item(patches)
     def commit_db_transaction(state: State) -> None:
         """
         Commit the current database transaction.
@@ -142,6 +152,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         flush(state)
         state.db.commit_mutable()
 
+    @add_item(patches)
     def state_root(state: State) -> Root:
         """
         See `state`.
@@ -151,6 +162,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         flush(state)
         return state.db.state_root()
 
+    @add_item(patches)
     def storage_root(state: State, address: Address) -> Root:
         """
         See `state`.
@@ -160,6 +172,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         flush(state)
         return state.db.storage_root(address)
 
+    @add_item(patches)
     def flush(state: State) -> None:
         """
         Send everything in the internal caches to the Rust layer.
@@ -177,6 +190,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         state.dirty_accounts.clear()
         state.dirty_storage.clear()
 
+    @add_item(patches)
     def rollback_db_transaction(state: State) -> None:
         """
         Rollback the current database transaction.
@@ -188,6 +202,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         state.dirty_storage.clear()
         state.destroyed_accounts = set()
 
+    @add_item(patches)
     def begin_transaction(state: State) -> None:
         """
         See `state`.
@@ -196,6 +211,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             flush(state)
         state.tx_restore_points.append(len(state.journal))
 
+    @add_item(patches)
     def commit_transaction(state: State) -> None:
         """
         See `state`.
@@ -206,6 +222,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             state.created_accounts.clear()
             flush(state)
 
+    @add_item(patches)
     def rollback_transaction(state: State) -> None:
         """
         See `state`.
@@ -233,6 +250,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         if not state.tx_restore_points:
             state.created_accounts.clear()
 
+    @add_item(patches)
     def get_storage(state: State, address: Address, key: Bytes) -> U256:
         """
         See `state`.
@@ -248,6 +266,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         else:
             return U256(state.db.get_storage(address, key))
 
+    @add_item(patches)
     def get_storage_original(
         state: State, address: Address, key: Bytes
     ) -> U256:
@@ -259,6 +278,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         else:
             return U256(state.db.get_storage(address, key))
 
+    @add_item(patches)
     def set_storage(
         state: State, address: Address, key: Bytes, value: U256
     ) -> None:
@@ -279,6 +299,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             )
         state.dirty_storage[address][key] = value
 
+    @add_item(patches)
     def get_account_optional(
         state: State, address: Address
     ) -> Optional[Account_]:
@@ -293,6 +314,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         else:
             return None
 
+    @add_item(patches)
     def set_account(
         state: State, address: Address, account: Optional[Account_]
     ) -> None:
@@ -305,6 +327,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             state.journal.append((address, state.dirty_accounts[address]))
         state.dirty_accounts[address] = account
 
+    @add_item(patches)
     def destroy_storage(state: State, address: Address) -> None:
         """
         See `state`.
@@ -313,10 +336,11 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         state.destroyed_accounts.add(address)
         set_account(state, address, get_account_optional(state, address))
 
+    @add_item(patches)
     def mark_account_created(state: State, address: Address) -> None:
         """
         See `state`.
         """
         state.created_accounts.add(address)
 
-    return locals()
+    return patches
