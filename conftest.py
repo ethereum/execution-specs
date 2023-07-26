@@ -12,7 +12,7 @@ def pytest_collection_modifyitems(items, config):
 
     Here we override the default behavior of the `yul` fixture so that
     solc compiles with shanghai instead of cancun (which is unavailable
-    in solc 0.8.20).
+    in solc 0.8.20/0.8.21).
     """
     for item in items:
         if "Cancun" in item.name and "yul" in item.fixturenames:
