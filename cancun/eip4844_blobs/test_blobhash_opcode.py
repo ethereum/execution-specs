@@ -81,7 +81,7 @@ def blob_tx(template_tx):
             gas_price=10 if type < 2 else None,
             access_list=[] if type >= 1 else None,
             max_priority_fee_per_gas=10,
-            max_fee_per_data_gas=10 if type >= 3 else None,
+            max_fee_per_blob_gas=10 if type >= 3 else None,
             blob_versioned_hashes=random_blob_hashes[0 : SpecHelpers.max_blobs_per_block()]
             if type >= 3
             else None,
@@ -131,7 +131,7 @@ def test_blobhash_gas_cost(
                         access_list=[] if tx_type >= 1 else None,
                         max_fee_per_gas=10 if tx_type >= 2 else None,
                         max_priority_fee_per_gas=10 if tx_type >= 2 else None,
-                        max_fee_per_data_gas=10 if tx_type >= 3 else None,
+                        max_fee_per_blob_gas=10 if tx_type >= 3 else None,
                         blob_versioned_hashes=random_blob_hashes[
                             0 : SpecHelpers.target_blobs_per_block()
                         ]
@@ -188,7 +188,7 @@ def test_blobhash_scenarios(
                         to=address,
                         access_list=[],
                         max_priority_fee_per_gas=10,
-                        max_fee_per_data_gas=10,
+                        max_fee_per_blob_gas=10,
                         blob_versioned_hashes=b_hashes_list[i],
                     )
                 ]
@@ -247,7 +247,7 @@ def test_blobhash_invalid_blob_index(
                         to=address,
                         access_list=[],
                         max_priority_fee_per_gas=10,
-                        max_fee_per_data_gas=10,
+                        max_fee_per_blob_gas=10,
                         blob_versioned_hashes=blobs,
                     )
                 ]

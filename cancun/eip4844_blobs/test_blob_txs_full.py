@@ -68,7 +68,7 @@ def parent_excess_blobs() -> int:
     Can be overloaded by a test case to provide a custom parent excess blob
     count.
     """
-    return 10  # Defaults to a data gas price of 1.
+    return 10  # Defaults to a blob gas price of 1.
 
 
 @pytest.fixture(autouse=True)
@@ -82,26 +82,26 @@ def parent_blobs() -> int:
 
 
 @pytest.fixture
-def parent_excess_data_gas(
+def parent_excess_blob_gas(
     parent_excess_blobs: int,
 ) -> int:
     """
-    Calculates the excess data gas of the parent block from the excess blobs.
+    Calculates the excess blob gas of the parent block from the excess blobs.
     """
-    return parent_excess_blobs * Spec.DATA_GAS_PER_BLOB
+    return parent_excess_blobs * Spec.GAS_PER_BLOB
 
 
 @pytest.fixture
-def data_gasprice(
-    parent_excess_data_gas: int,
+def blob_gasprice(
+    parent_excess_blob_gas: int,
     parent_blobs: int,
 ) -> int:
     """
-    Data gas price for the block of the test.
+    Blob gas price for the block of the test.
     """
-    return Spec.get_data_gasprice(
-        excess_data_gas=SpecHelpers.calc_excess_data_gas_from_blob_count(
-            parent_excess_data_gas=parent_excess_data_gas,
+    return Spec.get_blob_gasprice(
+        excess_blob_gas=SpecHelpers.calc_excess_blob_gas_from_blob_count(
+            parent_excess_blob_gas=parent_excess_blob_gas,
             parent_blob_count=parent_blobs,
         ),
     )
@@ -142,21 +142,21 @@ def tx_max_fee_per_gas(
 
 
 @pytest.fixture
-def tx_max_fee_per_data_gas(  # noqa: D103
-    data_gasprice: Optional[int],
+def tx_max_fee_per_blob_gas(  # noqa: D103
+    blob_gasprice: Optional[int],
 ) -> int:
     """
-    Default max fee per data gas for transactions sent during test.
+    Default max fee per blob gas for transactions sent during test.
 
-    By default, it is set to the data gas price of the block.
+    By default, it is set to the blob gas price of the block.
 
     Can be overloaded by a test case to test rejection of transactions where
-    the max fee per data gas is insufficient.
+    the max fee per blob gas is insufficient.
     """
-    if data_gasprice is None:
-        # When fork transitioning, the default data gas price is 1.
+    if blob_gasprice is None:
+        # When fork transitioning, the default blob gas price is 1.
         return 1
-    return data_gasprice
+    return blob_gasprice
 
 
 @pytest.fixture
@@ -177,7 +177,7 @@ def txs(  # noqa: D103
     tx_value: int,
     tx_calldata: bytes,
     tx_max_fee_per_gas: int,
-    tx_max_fee_per_data_gas: int,
+    tx_max_fee_per_blob_gas: int,
     tx_max_priority_fee_per_gas: int,
     txs_versioned_hashes: List[List[bytes]],
     tx_error: Optional[str],
@@ -205,7 +205,7 @@ def txs(  # noqa: D103
                 data=tx_calldata,
                 max_fee_per_gas=tx_max_fee_per_gas,
                 max_priority_fee_per_gas=tx_max_priority_fee_per_gas,
-                max_fee_per_data_gas=tx_max_fee_per_data_gas,
+                max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
                 access_list=[],
                 blob_versioned_hashes=tx_versioned_hashes,
                 error=tx_error,
@@ -232,14 +232,14 @@ def pre() -> Dict:
 
 @pytest.fixture
 def env(
-    parent_excess_data_gas: int,
+    parent_excess_blob_gas: int,
 ) -> Environment:
     """
     Prepare the environment for all test cases.
     """
     return Environment(
-        excess_data_gas=parent_excess_data_gas,
-        data_gas_used=0,
+        excess_blob_gas=parent_excess_blob_gas,
+        blob_gas_used=0,
     )
 
 
@@ -251,9 +251,9 @@ def blocks(
     """
     Prepare the list of blocks for all test cases.
     """
-    header_data_gas_used = 0
+    header_blob_gas_used = 0
     if len(txs) > 0:
-        header_data_gas_used = (
+        header_blob_gas_used = (
             sum(
                 [
                     len(tx.blob_versioned_hashes)
@@ -261,10 +261,10 @@ def blocks(
                     if tx.blob_versioned_hashes is not None
                 ]
             )
-            * Spec.DATA_GAS_PER_BLOB
+            * Spec.GAS_PER_BLOB
         )
     return [
-        Block(txs=txs, exception=tx_error, rlp_modifier=Header(data_gas_used=header_data_gas_used))
+        Block(txs=txs, exception=tx_error, rlp_modifier=Header(blob_gas_used=header_blob_gas_used))
     ]
 
 

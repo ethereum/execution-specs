@@ -20,13 +20,13 @@ ref_spec_4844 = ReferenceSpec("EIPS/eip-4844.md", "f0eb6a364aaf5ccb43516fa2c269a
 
 
 @dataclass(frozen=True)
-class BlockHeaderDataGasFields:
+class BlockHeaderBlobGasFields:
     """
-    A helper class for the data gas fields in a block header.
+    A helper class for the blob gas fields in a block header.
     """
 
-    excess_data_gas: int
-    data_gas_used: int
+    excess_blob_gas: int
+    blob_gas_used: int
 
 
 # Constants
@@ -46,17 +46,17 @@ class Spec:
     BLOB_COMMITMENT_VERSION_KZG = 1
     POINT_EVALUATION_PRECOMPILE_ADDRESS = 10
     POINT_EVALUATION_PRECOMPILE_GAS = 50_000
-    MAX_DATA_GAS_PER_BLOCK = 786432
-    TARGET_DATA_GAS_PER_BLOCK = 393216
-    MIN_DATA_GASPRICE = 1
-    DATA_GASPRICE_UPDATE_FRACTION = 3338477
+    MAX_BLOB_GAS_PER_BLOCK = 786432
+    TARGET_BLOB_GAS_PER_BLOCK = 393216
+    MIN_BLOB_GASPRICE = 1
+    BLOB_GASPRICE_UPDATE_FRACTION = 3338477
     # MAX_VERSIONED_HASHES_LIST_SIZE = 2**24
     # MAX_CALLDATA_SIZE = 2**24
     # MAX_ACCESS_LIST_SIZE = 2**24
     # MAX_ACCESS_LIST_STORAGE_KEYS = 2**24
     # MAX_TX_WRAP_COMMITMENTS = 2**12
     # LIMIT_BLOBS_PER_TX = 2**12
-    DATA_GAS_PER_BLOB = 2**17
+    GAS_PER_BLOB = 2**17
     HASH_OPCODE_BYTE = 0x49
     HASH_GAS_COST = 3
 
@@ -80,7 +80,7 @@ class Spec:
     @classmethod
     def fake_exponential(cls, factor: int, numerator: int, denominator: int) -> int:
         """
-        Used to calculate the data gas cost.
+        Used to calculate the blob gas cost.
         """
         i = 1
         output = 0
@@ -92,35 +92,35 @@ class Spec:
         return output // denominator
 
     @classmethod
-    def calc_excess_data_gas(cls, parent: BlockHeaderDataGasFields) -> int:
+    def calc_excess_blob_gas(cls, parent: BlockHeaderBlobGasFields) -> int:
         """
-        Calculate the excess data gas for a block given the excess data gas
-        and data gas used from the parent block header.
+        Calculate the excess blob gas for a block given the excess blob gas
+        and blob gas used from the parent block header.
         """
-        if parent.excess_data_gas + parent.data_gas_used < cls.TARGET_DATA_GAS_PER_BLOCK:
+        if parent.excess_blob_gas + parent.blob_gas_used < cls.TARGET_BLOB_GAS_PER_BLOCK:
             return 0
         else:
-            return parent.excess_data_gas + parent.data_gas_used - cls.TARGET_DATA_GAS_PER_BLOCK
+            return parent.excess_blob_gas + parent.blob_gas_used - cls.TARGET_BLOB_GAS_PER_BLOCK
 
     # Note: Currently unused.
     # @classmethod
-    # def get_total_data_gas(cls, tx: Transaction) -> int:
+    # def get_total_blob_gas(cls, tx: Transaction) -> int:
     #     """
-    #     Calculate the total data gas for a transaction.
+    #     Calculate the total blob gas for a transaction.
     #     """
     #     if tx.blob_versioned_hashes is None:
     #         return 0
-    #     return cls.DATA_GAS_PER_BLOB * len(tx.blob_versioned_hashes)
+    #     return cls.GAS_PER_BLOB * len(tx.blob_versioned_hashes)
 
     @classmethod
-    def get_data_gasprice(cls, *, excess_data_gas: int) -> int:
+    def get_blob_gasprice(cls, *, excess_blob_gas: int) -> int:
         """
-        Calculate the data gas price from the excess.
+        Calculate the blob gas price from the excess.
         """
         return cls.fake_exponential(
-            cls.MIN_DATA_GASPRICE,
-            excess_data_gas,
-            cls.DATA_GASPRICE_UPDATE_FRACTION,
+            cls.MIN_BLOB_GASPRICE,
+            excess_blob_gas,
+            cls.BLOB_GASPRICE_UPDATE_FRACTION,
         )
 
 
@@ -138,48 +138,45 @@ class SpecHelpers:
         """
         Returns the maximum number of blobs per block.
         """
-        return Spec.MAX_DATA_GAS_PER_BLOCK // Spec.DATA_GAS_PER_BLOB
+        return Spec.MAX_BLOB_GAS_PER_BLOCK // Spec.GAS_PER_BLOB
 
     @classmethod
     def target_blobs_per_block(cls) -> int:
         """
         Returns the target number of blobs per block.
         """
-        return Spec.TARGET_DATA_GAS_PER_BLOCK // Spec.DATA_GAS_PER_BLOB
+        return Spec.TARGET_BLOB_GAS_PER_BLOCK // Spec.GAS_PER_BLOB
 
     @classmethod
-    def calc_excess_data_gas_from_blob_count(
-        cls, parent_excess_data_gas: int, parent_blob_count: int
+    def calc_excess_blob_gas_from_blob_count(
+        cls, parent_excess_blob_gas: int, parent_blob_count: int
     ) -> int:
         """
-        Calculate the excess data gas for a block given the parent excess data gas
+        Calculate the excess blob gas for a block given the parent excess blob gas
         and the number of blobs in the block.
         """
-        parent_consumed_data_gas = parent_blob_count * Spec.DATA_GAS_PER_BLOB
-        return Spec.calc_excess_data_gas(
-            BlockHeaderDataGasFields(parent_excess_data_gas, parent_consumed_data_gas)
+        parent_consumed_blob_gas = parent_blob_count * Spec.GAS_PER_BLOB
+        return Spec.calc_excess_blob_gas(
+            BlockHeaderBlobGasFields(parent_excess_blob_gas, parent_consumed_blob_gas)
         )
 
     @classmethod
-    def get_min_excess_data_gas_for_data_gas_price(cls, data_gas_price: int) -> int:
+    def get_min_excess_blob_gas_for_blob_gas_price(cls, blob_gas_price: int) -> int:
         """
-        Gets the minimum required excess data gas value to get a given data gas cost in a block
+        Gets the minimum required excess blob gas value to get a given blob gas cost in a block
         """
-        current_excess_data_gas = 0
-        current_data_gas_price = 1
-        while current_data_gas_price < data_gas_price:
-            current_excess_data_gas += Spec.DATA_GAS_PER_BLOB
-            current_data_gas_price = Spec.get_data_gasprice(
-                excess_data_gas=current_excess_data_gas
+        current_excess_blob_gas = 0
+        current_blob_gas_price = 1
+        while current_blob_gas_price < blob_gas_price:
+            current_excess_blob_gas += Spec.GAS_PER_BLOB
+            current_blob_gas_price = Spec.get_blob_gasprice(
+                excess_blob_gas=current_excess_blob_gas
             )
-        return current_excess_data_gas
+        return current_excess_blob_gas
 
     @classmethod
-    def get_min_excess_data_blobs_for_data_gas_price(cls, data_gas_price: int) -> int:
+    def get_min_excess_blobs_for_blob_gas_price(cls, blob_gas_price: int) -> int:
         """
-        Gets the minimum required excess data blobs to get a given data gas cost in a block
+        Gets the minimum required excess blobs to get a given blob gas cost in a block
         """
-        return (
-            cls.get_min_excess_data_gas_for_data_gas_price(data_gas_price)
-            // Spec.DATA_GAS_PER_BLOB
-        )
+        return cls.get_min_excess_blob_gas_for_blob_gas_price(blob_gas_price) // Spec.GAS_PER_BLOB

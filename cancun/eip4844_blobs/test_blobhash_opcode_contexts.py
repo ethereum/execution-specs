@@ -34,7 +34,7 @@ tx_type_3 = Transaction(
     gas_limit=3000000,
     max_fee_per_gas=10,
     max_priority_fee_per_gas=10,
-    max_fee_per_data_gas=10,
+    max_fee_per_blob_gas=10,
     access_list=[],
     blob_versioned_hashes=simple_blob_hashes,
 )

@@ -82,7 +82,7 @@ def parent_excess_blobs() -> Optional[int]:
     Can be overloaded by a test case to provide a custom parent excess blob
     count.
     """
-    return 10  # Defaults to a data gas price of 1.
+    return 10  # Defaults to a blob gas price of 1.
 
 
 @pytest.fixture(autouse=True)
@@ -96,31 +96,31 @@ def parent_blobs() -> Optional[int]:
 
 
 @pytest.fixture
-def parent_excess_data_gas(
+def parent_excess_blob_gas(
     parent_excess_blobs: Optional[int],
 ) -> Optional[int]:
     """
-    Calculates the excess data gas of the parent block from the excess blobs.
+    Calculates the excess blob gas of the parent block from the excess blobs.
     """
     if parent_excess_blobs is None:
         return None
-    return parent_excess_blobs * Spec.DATA_GAS_PER_BLOB
+    return parent_excess_blobs * Spec.GAS_PER_BLOB
 
 
 @pytest.fixture
-def data_gasprice(
-    parent_excess_data_gas: Optional[int],
+def blob_gasprice(
+    parent_excess_blob_gas: Optional[int],
     parent_blobs: Optional[int],
 ) -> Optional[int]:
     """
-    Data gas price for the block of the test.
+    Blob gas price for the block of the test.
     """
-    if parent_excess_data_gas is None or parent_blobs is None:
+    if parent_excess_blob_gas is None or parent_blobs is None:
         return None
 
-    return Spec.get_data_gasprice(
-        excess_data_gas=SpecHelpers.calc_excess_data_gas_from_blob_count(
-            parent_excess_data_gas=parent_excess_data_gas,
+    return Spec.get_blob_gasprice(
+        excess_blob_gas=SpecHelpers.calc_excess_blob_gas_from_blob_count(
+            parent_excess_blob_gas=parent_excess_blob_gas,
             parent_blob_count=parent_blobs,
         ),
     )
@@ -175,7 +175,7 @@ def total_account_minimum_balance(  # noqa: D103
     tx_calldata: bytes,
     tx_max_fee_per_gas: int,
     tx_max_priority_fee_per_gas: int,
-    tx_max_fee_per_data_gas: int,
+    tx_max_fee_per_blob_gas: int,
     blob_hashes_per_tx: List[List[bytes]],
 ) -> int:
     """
@@ -184,7 +184,7 @@ def total_account_minimum_balance(  # noqa: D103
     """
     total_cost = 0
     for tx_blob_count in [len(x) for x in blob_hashes_per_tx]:
-        data_cost = tx_max_fee_per_data_gas * Spec.DATA_GAS_PER_BLOB * tx_blob_count
+        data_cost = tx_max_fee_per_blob_gas * Spec.GAS_PER_BLOB * tx_blob_count
         total_cost += (
             (tx_gas * (tx_max_fee_per_gas + tx_max_priority_fee_per_gas))
             + tx_value
@@ -210,21 +210,21 @@ def tx_max_fee_per_gas(
 
 
 @pytest.fixture
-def tx_max_fee_per_data_gas(  # noqa: D103
-    data_gasprice: Optional[int],
+def tx_max_fee_per_blob_gas(  # noqa: D103
+    blob_gasprice: Optional[int],
 ) -> int:
     """
-    Default max fee per data gas for transactions sent during test.
+    Default max fee per blob gas for transactions sent during test.
 
-    By default, it is set to the data gas price of the block.
+    By default, it is set to the blob gas price of the block.
 
     Can be overloaded by a test case to test rejection of transactions where
-    the max fee per data gas is insufficient.
+    the max fee per blob gas is insufficient.
     """
-    if data_gasprice is None:
-        # When fork transitioning, the default data gas price is 1.
+    if blob_gasprice is None:
+        # When fork transitioning, the default blob gas price is 1.
         return 1
-    return data_gasprice
+    return blob_gasprice
 
 
 @pytest.fixture
@@ -245,7 +245,7 @@ def txs(  # noqa: D103
     tx_value: int,
     tx_calldata: bytes,
     tx_max_fee_per_gas: int,
-    tx_max_fee_per_data_gas: int,
+    tx_max_fee_per_blob_gas: int,
     tx_max_priority_fee_per_gas: int,
     blob_hashes_per_tx: List[List[bytes]],
     tx_error: Optional[str],
@@ -263,7 +263,7 @@ def txs(  # noqa: D103
             data=tx_calldata,
             max_fee_per_gas=tx_max_fee_per_gas,
             max_priority_fee_per_gas=tx_max_priority_fee_per_gas,
-            max_fee_per_data_gas=tx_max_fee_per_data_gas,
+            max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
             access_list=[],
             blob_versioned_hashes=blob_hashes,
             error=tx_error if tx_i == (len(blob_hashes_per_tx) - 1) else None,
@@ -301,14 +301,14 @@ def pre(  # noqa: D103
 
 @pytest.fixture
 def env(
-    parent_excess_data_gas: Optional[int],
+    parent_excess_blob_gas: Optional[int],
 ) -> Environment:
     """
     Prepare the environment for all test cases.
     """
     return Environment(
-        excess_data_gas=parent_excess_data_gas,
-        data_gas_used=0,
+        excess_blob_gas=parent_excess_blob_gas,
+        blob_gas_used=0,
     )
 
 
@@ -320,9 +320,9 @@ def blocks(
     """
     Prepare the list of blocks for all test cases.
     """
-    header_data_gas_used = 0
+    header_blob_gas_used = 0
     if len(txs) > 0:
-        header_data_gas_used = (
+        header_blob_gas_used = (
             sum(
                 [
                     len(tx.blob_versioned_hashes)
@@ -330,10 +330,10 @@ def blocks(
                     if tx.blob_versioned_hashes is not None
                 ]
             )
-            * Spec.DATA_GAS_PER_BLOB
+            * Spec.GAS_PER_BLOB
         )
     return [
-        Block(txs=txs, exception=tx_error, rlp_modifier=Header(data_gas_used=header_data_gas_used))
+        Block(txs=txs, exception=tx_error, rlp_modifier=Header(blob_gas_used=header_blob_gas_used))
     ]
 
 
@@ -415,46 +415,46 @@ def test_valid_blob_tx_combinations(
 
 
 @pytest.mark.parametrize(
-    "parent_excess_blobs,parent_blobs,tx_max_fee_per_data_gas,tx_error",
+    "parent_excess_blobs,parent_blobs,tx_max_fee_per_blob_gas,tx_error",
     [
-        # tx max_data_gas_cost of the transaction is not enough
+        # tx max_blob_gas_cost of the transaction is not enough
         (
-            SpecHelpers.get_min_excess_data_blobs_for_data_gas_price(2) - 1,  # data gas price is 1
-            SpecHelpers.target_blobs_per_block() + 1,  # data gas cost increases to 2
-            1,  # tx max_data_gas_cost is 1
-            "insufficient max fee per data gas",
+            SpecHelpers.get_min_excess_blobs_for_blob_gas_price(2) - 1,  # blob gas price is 1
+            SpecHelpers.target_blobs_per_block() + 1,  # blob gas cost increases to 2
+            1,  # tx max_blob_gas_cost is 1
+            "insufficient max fee per blob gas",
         ),
-        # tx max_data_gas_cost of the transaction is zero, which is invalid
+        # tx max_blob_gas_cost of the transaction is zero, which is invalid
         (
-            0,  # data gas price is 1
-            0,  # data gas cost stays put at 1
-            0,  # tx max_data_gas_cost is 0
-            "invalid max fee per data gas",
+            0,  # blob gas price is 1
+            0,  # blob gas cost stays put at 1
+            0,  # tx max_blob_gas_cost is 0
+            "invalid max fee per blob gas",
         ),
     ],
-    ids=["insufficient_max_fee_per_data_gas", "invalid_max_fee_per_data_gas"],
+    ids=["insufficient_max_fee_per_blob_gas", "invalid_max_fee_per_blob_gas"],
 )
 @pytest.mark.valid_from("Cancun")
-def test_invalid_tx_max_fee_per_data_gas(
+def test_invalid_tx_max_fee_per_blob_gas(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     env: Environment,
     blocks: List[Block],
     parent_blobs: int,
-    non_zero_data_gas_used_genesis_block: Block,
+    non_zero_blob_gas_used_genesis_block: Block,
 ):
     """
     Reject blocks with invalid blob txs due to:
 
-    - tx max_fee_per_data_gas is barely not enough
-    - tx max_fee_per_data_gas is zero
+    - tx max_fee_per_blob_gas is barely not enough
+    - tx max_fee_per_blob_gas is zero
     """
     if parent_blobs:
         pre[TestAddress2] = Account(balance=10**9)
-        blocks.insert(0, non_zero_data_gas_used_genesis_block)
-        if env.excess_data_gas is not None:
-            assert isinstance(env.excess_data_gas, int)
-            env.excess_data_gas += Spec.TARGET_DATA_GAS_PER_BLOCK
+        blocks.insert(0, non_zero_blob_gas_used_genesis_block)
+        if env.excess_blob_gas is not None:
+            assert isinstance(env.excess_blob_gas, int)
+            env.excess_blob_gas += Spec.TARGET_BLOB_GAS_PER_BLOCK
     blockchain_test(
         pre=pre,
         post={},
@@ -466,7 +466,7 @@ def test_invalid_tx_max_fee_per_data_gas(
 @pytest.mark.parametrize(
     "tx_max_fee_per_gas,tx_error",
     [
-        # max data gas is ok, but max fee per gas is less than base fee per gas
+        # max blob gas is ok, but max fee per gas is less than base fee per gas
         (
             6,
             "insufficient max fee per gas",
@@ -484,7 +484,7 @@ def test_invalid_normal_gas(
     """
     Reject blocks with invalid blob txs due to:
 
-    - Sufficient max fee per data gas, but insufficient max fee per gas
+    - Sufficient max fee per blob gas, but insufficient max fee per gas
     """
     blockchain_test(
         pre=pre,
@@ -529,7 +529,7 @@ def test_invalid_block_blob_count(
     [b"", b"\x00", b"\x01"],
     ids=["no_calldata", "single_zero_calldata", "single_one_calldata"],
 )
-@pytest.mark.parametrize("tx_max_fee_per_data_gas", [1, 100, 10000])
+@pytest.mark.parametrize("tx_max_fee_per_blob_gas", [1, 100, 10000])
 @pytest.mark.parametrize("account_balance_modifier", [-1], ids=["exact_balance_minus_1"])
 @pytest.mark.parametrize("tx_error", ["insufficient_account_balance"], ids=[""])
 @pytest.mark.valid_from("Cancun")
@@ -540,13 +540,13 @@ def test_insufficient_balance_blob_tx(
     blocks: List[Block],
 ):
     """
-    Reject blocks where user cannot afford the data gas specified (but
+    Reject blocks where user cannot afford the blob gas specified (but
     max_fee_per_gas would be enough for current block), including:
 
     - Transactions with and without priority fee
     - Transactions with and without value
     - Transactions with and without calldata
-    - Transactions with max fee per data gas lower or higher than the priority fee
+    - Transactions with max fee per blob gas lower or higher than the priority fee
     """
     blockchain_test(
         pre=pre,
@@ -881,7 +881,7 @@ def test_blob_tx_attribute_calldata_opcodes(
 
 
 @pytest.mark.parametrize("tx_max_priority_fee_per_gas", [0, 2])  # always below data fee
-@pytest.mark.parametrize("tx_max_fee_per_data_gas", [1, 3])  # normal and above priority fee
+@pytest.mark.parametrize("tx_max_fee_per_blob_gas", [1, 3])  # normal and above priority fee
 @pytest.mark.parametrize("tx_max_fee_per_gas", [100])  # always above priority fee
 @pytest.mark.parametrize("opcode", [Op.GASPRICE], indirect=True)
 @pytest.mark.parametrize("tx_gas", [500_000])
@@ -895,7 +895,7 @@ def test_blob_tx_attribute_gasprice_opcode(
     destination_account: str,
 ):
     """
-    Test GASPRICE opcode to sanity check that the data fee per gas does not affect
+    Test GASPRICE opcode to sanity check that the blob gas fee does not affect
     its calculation:
 
     - No priority fee
@@ -921,7 +921,7 @@ def test_blob_tx_attribute_gasprice_opcode(
     [
         "blobs_per_tx",
         "parent_excess_blobs",
-        "tx_max_fee_per_data_gas",
+        "tx_max_fee_per_blob_gas",
         "tx_error",
     ],
     [
