@@ -12,6 +12,7 @@ import pytest
 from evm_transition_tool import (
     EvmOneTransitionTool,
     GethTransitionTool,
+    NimbusTransitionTool,
     TransitionTool,
     TransitionToolNotFoundInPath,
 )
@@ -44,6 +45,12 @@ def test_default_tool():
             "evm",
             "evm version 1.12.1-unstable-c7b099b2-20230627",
             GethTransitionTool,
+        ),
+        (
+            Path("t8n"),
+            "t8n",
+            "Nimbus-t8n 0.1.2\n\x1b[0m",
+            NimbusTransitionTool,
         ),
     ],
 )
