@@ -71,7 +71,7 @@ class Frontier(BaseFork):
         return None
 
     @classmethod
-    def header_beacon_root_required(cls, block_number: int, timestamp: int) -> bool:
+    def header_beacon_root_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         At genesis, header must not contain parent beacon block root
         """
@@ -81,6 +81,13 @@ class Frontier(BaseFork):
     def engine_new_payload_blob_hashes(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         At genesis, payloads do not have blob hashes.
+        """
+        return False
+
+    @classmethod
+    def engine_new_payload_beacon_root(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+        """
+        At genesis, payloads do not have a parent beacon block root.
         """
         return False
 
@@ -278,7 +285,7 @@ class Cancun(Shanghai):
         return True
 
     @classmethod
-    def header_beacon_root_required(cls, block_number: int, timestamp: int) -> bool:
+    def header_beacon_root_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         Parent beacon block root is required starting from Cancun.
         """

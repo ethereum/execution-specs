@@ -1,4 +1,4 @@
-import json
+import json  # noqa: D100
 import os
 from pathlib import Path
 from shutil import which
@@ -64,7 +64,7 @@ FIXTURES_ROOT = Path(os.path.join("src", "evm_transition_tool", "tests", "fixtur
         ),
     ],
 )
-def test_calc_state_root(
+def test_calc_state_root(  # noqa: D103
     t8n: TransitionTool,
     fork: Fork,
     alloc: Dict,
@@ -81,7 +81,7 @@ def test_calc_state_root(
 
 @pytest.mark.parametrize("evm_tool", [GethTransitionTool])
 @pytest.mark.parametrize("binary_arg", ["no_binary_arg", "path_type", "str_type"])
-def test_evm_tool_binary_arg(evm_tool, binary_arg):
+def test_evm_tool_binary_arg(evm_tool, binary_arg):  # noqa: D103
     if binary_arg == "no_binary_arg":
         evm_tool().version()
         return
@@ -100,7 +100,7 @@ def test_evm_tool_binary_arg(evm_tool, binary_arg):
 
 @pytest.mark.parametrize("t8n", [GethTransitionTool()])
 @pytest.mark.parametrize("test_dir", os.listdir(path=FIXTURES_ROOT))
-def test_evm_t8n(t8n: TransitionTool, test_dir: str) -> None:
+def test_evm_t8n(t8n: TransitionTool, test_dir: str) -> None:  # noqa: D103
     alloc_path = Path(FIXTURES_ROOT, test_dir, "alloc.json")
     txs_path = Path(FIXTURES_ROOT, test_dir, "txs.json")
     env_path = Path(FIXTURES_ROOT, test_dir, "env.json")
@@ -125,5 +125,6 @@ def test_evm_t8n(t8n: TransitionTool, test_dir: str) -> None:
             ),
         )
         print(result)
+        print(expected.get("result"))
         assert result_alloc == expected.get("alloc")
         assert result == expected.get("result")
