@@ -377,10 +377,10 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 parent_gas_limit=0xC,
                 parent_ommers_hash=0xD,
                 withdrawals=[Withdrawal(index=0, validator=1, address=0x1234, amount=2)],
-                parent_data_gas_used=0xE,
-                parent_excess_data_gas=0xF,
-                data_gas_used=0x10,
-                excess_data_gas=0x11,
+                parent_blob_gas_used=0xE,
+                parent_excess_blob_gas=0xF,
+                blob_gas_used=0x10,
+                excess_blob_gas=0x11,
                 block_hashes={1: 2, 3: 4},
             ),
             {
@@ -407,10 +407,10 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                         "amount": "0x2",
                     },
                 ],
-                "parentDataGasUsed": "14",
-                "parentExcessDataGas": "15",
-                "currentDataGasUsed": "16",
-                "currentExcessDataGas": "17",
+                "parentBlobGasUsed": "14",
+                "parentExcessBlobGas": "15",
+                "currentBlobGasUsed": "16",
+                "currentExcessBlobGas": "17",
                 "blockHashes": {
                     "1": "0x0000000000000000000000000000000000000000000000000000000000000002",
                     "3": "0x0000000000000000000000000000000000000000000000000000000000000004",
@@ -468,7 +468,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 ],
                 max_priority_fee_per_gas=10,
                 max_fee_per_gas=20,
-                max_fee_per_data_gas=30,
+                max_fee_per_blob_gas=30,
                 blob_versioned_hashes=[0, 1],
             ).with_signature_and_sender(),
             {
@@ -490,7 +490,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "gas": "0x5208",
                 "maxPriorityFeePerGas": "0xa",
                 "maxFeePerGas": "0x14",
-                "maxFeePerDataGas": "0x1e",
+                "maxFeePerBlobGas": "0x1e",
                 "blobVersionedHashes": [
                     "0x0000000000000000000000000000000000000000000000000000000000000000",
                     "0x0000000000000000000000000000000000000000000000000000000000000001",
@@ -588,7 +588,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 Transaction(
                     ty=3,
                     max_fee_per_gas=7,
-                    max_fee_per_data_gas=1,
+                    max_fee_per_blob_gas=1,
                     blob_versioned_hashes=[],
                 ).with_signature_and_sender()
             ),
@@ -602,7 +602,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "gasLimit": "0x5208",
                 "maxPriorityFeePerGas": "0x00",
                 "maxFeePerGas": "0x07",
-                "maxFeePerDataGas": "0x01",
+                "maxFeePerBlobGas": "0x01",
                 "accessList": [],
                 "blobVersionedHashes": [],
                 "v": "0x01",
@@ -625,7 +625,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                     ],
                     max_priority_fee_per_gas=10,
                     max_fee_per_gas=20,
-                    max_fee_per_data_gas=30,
+                    max_fee_per_blob_gas=30,
                     blob_versioned_hashes=[0, 1],
                 ).with_signature_and_sender()
             ),
@@ -648,7 +648,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "gasLimit": "0x5208",
                 "maxPriorityFeePerGas": "0x0a",
                 "maxFeePerGas": "0x14",
-                "maxFeePerDataGas": "0x1e",
+                "maxFeePerBlobGas": "0x1e",
                 "blobVersionedHashes": [
                     "0x0000000000000000000000000000000000000000000000000000000000000000",
                     "0x0000000000000000000000000000000000000000000000000000000000000001",
@@ -716,8 +716,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 nonce=HeaderNonce(14),
                 base_fee=15,
                 withdrawals_root=Hash(16),
-                data_gas_used=17,
-                excess_data_gas=18,
+                blob_gas_used=17,
+                excess_blob_gas=18,
                 hash=Hash(19),
             ),
             {
@@ -738,8 +738,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "nonce": HeaderNonce(14).hex(),
                 "baseFeePerGas": ZeroPaddedHexNumber(15).hex(),
                 "withdrawalsRoot": Hash(16).hex(),
-                "dataGasUsed": ZeroPaddedHexNumber(17).hex(),
-                "excessDataGas": ZeroPaddedHexNumber(18).hex(),
+                "blobGasUsed": ZeroPaddedHexNumber(17).hex(),
+                "excessBlobGas": ZeroPaddedHexNumber(18).hex(),
                 "hash": Hash(19).hex(),
             },
             id="fixture_header_2",
@@ -764,8 +764,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                     nonce=HeaderNonce(14),
                     base_fee=15,
                     withdrawals_root=Hash(16),
-                    data_gas_used=17,
-                    excess_data_gas=18,
+                    blob_gas_used=17,
+                    excess_blob_gas=18,
                     hash=Hash(19),
                 ),
                 transactions=[
@@ -780,7 +780,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                         ],
                         max_priority_fee_per_gas=10,
                         max_fee_per_gas=20,
-                        max_fee_per_data_gas=30,
+                        max_fee_per_blob_gas=30,
                         blob_versioned_hashes=[0, 1],
                     ).with_signature_and_sender(),
                 ],
@@ -799,8 +799,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "extraData": Bytes([12]).hex(),
                 "prevRandao": Hash(13).hex(),
                 "baseFeePerGas": hex(15),
-                "dataGasUsed": hex(17),
-                "excessDataGas": hex(18),
+                "blobGasUsed": hex(17),
+                "excessBlobGas": hex(18),
                 "blockHash": Hash(19).hex(),
                 "transactions": [
                     "0x"
@@ -815,7 +815,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                         ],
                         max_priority_fee_per_gas=10,
                         max_fee_per_gas=20,
-                        max_fee_per_data_gas=30,
+                        max_fee_per_blob_gas=30,
                         blob_versioned_hashes=[0, 1],
                     )
                     .with_signature_and_sender()
@@ -849,8 +849,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                         nonce=HeaderNonce(14),
                         base_fee=15,
                         withdrawals_root=Hash(16),
-                        data_gas_used=17,
-                        excess_data_gas=18,
+                        blob_gas_used=17,
+                        excess_blob_gas=18,
                         hash=Hash(19),
                     ),
                     transactions=[
@@ -865,7 +865,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                             ],
                             max_priority_fee_per_gas=10,
                             max_fee_per_gas=20,
-                            max_fee_per_data_gas=30,
+                            max_fee_per_blob_gas=30,
                             blob_versioned_hashes=[0, 1],
                         ).with_signature_and_sender(),
                     ],
@@ -887,8 +887,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                     "extraData": Bytes([12]).hex(),
                     "prevRandao": Hash(13).hex(),
                     "baseFeePerGas": hex(15),
-                    "dataGasUsed": hex(17),
-                    "excessDataGas": hex(18),
+                    "blobGasUsed": hex(17),
+                    "excessBlobGas": hex(18),
                     "blockHash": Hash(19).hex(),
                     "transactions": [
                         "0x"
@@ -903,7 +903,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                             ],
                             max_priority_fee_per_gas=10,
                             max_fee_per_gas=20,
-                            max_fee_per_data_gas=30,
+                            max_fee_per_blob_gas=30,
                             blob_versioned_hashes=[0, 1],
                         )
                         .with_signature_and_sender()
@@ -939,8 +939,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                         nonce=HeaderNonce(14),
                         base_fee=15,
                         withdrawals_root=Hash(16),
-                        data_gas_used=17,
-                        excess_data_gas=18,
+                        blob_gas_used=17,
+                        excess_blob_gas=18,
                         hash=Hash(19),
                     ),
                     transactions=[
@@ -955,7 +955,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                             ],
                             max_priority_fee_per_gas=10,
                             max_fee_per_gas=20,
-                            max_fee_per_data_gas=30,
+                            max_fee_per_blob_gas=30,
                             blob_versioned_hashes=[0, 1],
                         ).with_signature_and_sender(),
                     ],
@@ -979,8 +979,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                     "extraData": Bytes([12]).hex(),
                     "prevRandao": Hash(13).hex(),
                     "baseFeePerGas": hex(15),
-                    "dataGasUsed": hex(17),
-                    "excessDataGas": hex(18),
+                    "blobGasUsed": hex(17),
+                    "excessBlobGas": hex(18),
                     "blockHash": Hash(19).hex(),
                     "transactions": [
                         "0x"
@@ -995,7 +995,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                             ],
                             max_priority_fee_per_gas=10,
                             max_fee_per_gas=20,
-                            max_fee_per_data_gas=30,
+                            max_fee_per_blob_gas=30,
                             blob_versioned_hashes=[0, 1],
                         )
                         .with_signature_and_sender()
@@ -1037,10 +1037,10 @@ def test_json_conversions(obj: Any, expected_json: str | Dict[str, Any]):
             id="gas-price-and-max-priority-fee-per-gas",
         ),
         pytest.param(
-            {"gas_price": 1, "max_fee_per_data_gas": 2},
+            {"gas_price": 1, "max_fee_per_blob_gas": 2},
             Transaction.InvalidFeePayment,
             "only one type of fee payment field can be used",
-            id="gas-price-and-max-fee-per-data-gas",
+            id="gas-price-and-max-fee-per-blob-gas",
         ),
         pytest.param(
             {"ty": 0, "v": 1, "secret_key": 2},
@@ -1066,11 +1066,11 @@ def test_transaction_post_init_invalid_arg_combinations(  # noqa: D103
     ["tx_args", "expected_attributes_and_values"],
     [
         pytest.param(
-            {"max_fee_per_data_gas": 10},
+            {"max_fee_per_blob_gas": 10},
             [
                 ("ty", 3),
             ],
-            id="max_fee_per_data_gas-adds-ty-3",
+            id="max_fee_per_blob_gas-adds-ty-3",
         ),
         pytest.param(
             {},

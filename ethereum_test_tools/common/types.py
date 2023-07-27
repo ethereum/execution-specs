@@ -920,31 +920,31 @@ class Environment:
             cast_type=Hash,
         ),
     )
-    parent_data_gas_used: Optional[NumberConvertible] = field(
+    parent_blob_gas_used: Optional[NumberConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
-            name="parentDataGasUsed",
+            name="parentBlobGasUsed",
             cast_type=Number,
         ),
     )
-    parent_excess_data_gas: Optional[NumberConvertible] = field(
+    parent_excess_blob_gas: Optional[NumberConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
-            name="parentExcessDataGas",
+            name="parentExcessBlobGas",
             cast_type=Number,
         ),
     )
-    data_gas_used: Optional[NumberConvertible] = field(
+    blob_gas_used: Optional[NumberConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
-            name="currentDataGasUsed",
+            name="currentBlobGasUsed",
             cast_type=Number,
         ),
     )
-    excess_data_gas: Optional[NumberConvertible] = field(
+    excess_blob_gas: Optional[NumberConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
-            name="currentExcessDataGas",
+            name="currentExcessBlobGas",
             cast_type=Number,
         ),
     )
@@ -964,8 +964,8 @@ class Environment:
             parent_difficulty=parent.difficulty,
             parent_timestamp=parent.timestamp,
             parent_base_fee=parent.base_fee,
-            parent_data_gas_used=parent.data_gas_used,
-            parent_excess_data_gas=parent.excess_data_gas,
+            parent_blob_gas_used=parent.blob_gas_used,
+            parent_excess_blob_gas=parent.excess_blob_gas,
             parent_gas_used=parent.gas_used,
             parent_gas_limit=parent.gas_limit,
             parent_ommers_hash=parent.ommers_hash,
@@ -991,8 +991,8 @@ class Environment:
         env.parent_difficulty = new_parent.difficulty
         env.parent_timestamp = new_parent.timestamp
         env.parent_base_fee = new_parent.base_fee
-        env.parent_data_gas_used = new_parent.data_gas_used
-        env.parent_excess_data_gas = new_parent.excess_data_gas
+        env.parent_blob_gas_used = new_parent.blob_gas_used
+        env.parent_excess_blob_gas = new_parent.excess_blob_gas
         env.parent_gas_used = new_parent.gas_used
         env.parent_gas_limit = new_parent.gas_limit
         env.parent_ommers_hash = new_parent.ommers_hash
@@ -1023,18 +1023,18 @@ class Environment:
             res.difficulty = 0
 
         if (
-            fork.header_excess_data_gas_required(number, timestamp)
-            and res.excess_data_gas is None
-            and res.parent_excess_data_gas is None
+            fork.header_excess_blob_gas_required(number, timestamp)
+            and res.excess_blob_gas is None
+            and res.parent_excess_blob_gas is None
         ):
-            res.excess_data_gas = 0
+            res.excess_blob_gas = 0
 
         if (
-            fork.header_data_gas_used_required(number, timestamp)
-            and res.data_gas_used is None
-            and res.parent_data_gas_used is None
+            fork.header_blob_gas_used_required(number, timestamp)
+            and res.blob_gas_used is None
+            and res.parent_blob_gas_used is None
         ):
-            res.data_gas_used = 0
+            res.blob_gas_used = 0
 
         return res
 
@@ -1149,10 +1149,10 @@ class Transaction:
             to_json=True,
         ),
     )
-    max_fee_per_data_gas: Optional[int] = field(
+    max_fee_per_blob_gas: Optional[int] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
-            name="maxFeePerDataGas",
+            name="maxFeePerBlobGas",
             cast_type=HexNumber,
         ),
     )
@@ -1258,7 +1258,7 @@ class Transaction:
         if self.gas_price is not None and (
             self.max_fee_per_gas is not None
             or self.max_priority_fee_per_gas is not None
-            or self.max_fee_per_data_gas is not None
+            or self.max_fee_per_blob_gas is not None
         ):
             raise Transaction.InvalidFeePayment()
 
@@ -1266,7 +1266,7 @@ class Transaction:
             self.gas_price is None
             and self.max_fee_per_gas is None
             and self.max_priority_fee_per_gas is None
-            and self.max_fee_per_data_gas is None
+            and self.max_fee_per_blob_gas is None
         ):
             self.gas_price = 10
 
@@ -1278,7 +1278,7 @@ class Transaction:
 
         if self.ty is None:
             # Try to deduce transaction type from included fields
-            if self.max_fee_per_data_gas is not None:
+            if self.max_fee_per_blob_gas is not None:
                 self.ty = 3
             elif self.max_fee_per_gas is not None:
                 self.ty = 2
@@ -1339,8 +1339,8 @@ class Transaction:
                 raise ValueError("max_priority_fee_per_gas must be set for type 3 tx")
             if self.max_fee_per_gas is None:
                 raise ValueError("max_fee_per_gas must be set for type 3 tx")
-            if self.max_fee_per_data_gas is None:
-                raise ValueError("max_fee_per_data_gas must be set for type 3 tx")
+            if self.max_fee_per_blob_gas is None:
+                raise ValueError("max_fee_per_blob_gas must be set for type 3 tx")
             if self.blob_versioned_hashes is None:
                 raise ValueError("blob_versioned_hashes must be set for type 3 tx")
             if self.access_list is None:
@@ -1369,7 +1369,7 @@ class Transaction:
                         Uint(self.value),
                         Bytes(self.data),
                         [a.to_list() for a in self.access_list],
-                        Uint(self.max_fee_per_data_gas),
+                        Uint(self.max_fee_per_blob_gas),
                         [Hash(h) for h in self.blob_versioned_hashes],
                         Uint(self.v),
                         Uint(self.r),
@@ -1390,7 +1390,7 @@ class Transaction:
                     Uint(self.value),
                     Bytes(self.data),
                     [a.to_list() for a in self.access_list],
-                    Uint(self.max_fee_per_data_gas),
+                    Uint(self.max_fee_per_blob_gas),
                     [Hash(h) for h in self.blob_versioned_hashes],
                     Uint(self.v),
                     Uint(self.r),
@@ -1483,8 +1483,8 @@ class Transaction:
                 raise ValueError("max_priority_fee_per_gas must be set for type 3 tx")
             if self.max_fee_per_gas is None:
                 raise ValueError("max_fee_per_gas must be set for type 3 tx")
-            if self.max_fee_per_data_gas is None:
-                raise ValueError("max_fee_per_data_gas must be set for type 3 tx")
+            if self.max_fee_per_blob_gas is None:
+                raise ValueError("max_fee_per_blob_gas must be set for type 3 tx")
             if self.blob_versioned_hashes is None:
                 raise ValueError("blob_versioned_hashes must be set for type 3 tx")
             return [
@@ -1497,7 +1497,7 @@ class Transaction:
                 Uint(self.value),
                 Bytes(self.data),
                 [a.to_list() for a in self.access_list] if self.access_list is not None else [],
-                Uint(self.max_fee_per_data_gas),
+                Uint(self.max_fee_per_blob_gas),
                 [Hash(h) for h in self.blob_versioned_hashes],
             ]
         elif self.ty == 2:
@@ -1738,10 +1738,10 @@ class FixtureTransaction(Transaction):
             cast_type=Bytes,
         ),
     )
-    max_fee_per_data_gas: Optional[int] = field(
+    max_fee_per_blob_gas: Optional[int] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
-            name="maxFeePerDataGas",
+            name="maxFeePerBlobGas",
             cast_type=ZeroPaddedHexNumber,
         ),
     )
@@ -1796,8 +1796,8 @@ class Header:
     nonce: Optional[FixedSizeBytesConvertible] = None
     base_fee: Optional[NumberConvertible | Removable] = None
     withdrawals_root: Optional[FixedSizeBytesConvertible | Removable] = None
-    data_gas_used: Optional[NumberConvertible | Removable] = None
-    excess_data_gas: Optional[NumberConvertible | Removable] = None
+    blob_gas_used: Optional[NumberConvertible | Removable] = None
+    excess_blob_gas: Optional[NumberConvertible | Removable] = None
     hash: Optional[FixedSizeBytesConvertible] = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
@@ -2055,24 +2055,24 @@ class FixtureHeader:
         json_encoder=JSONEncoder.Field(name="withdrawalsRoot"),
     )
 
-    data_gas_used: Optional[int] = header_field(
+    blob_gas_used: Optional[int] = header_field(
         default=None,
         source=HeaderFieldSource(
             parse_type=Number,
-            fork_requirement_check="header_data_gas_used_required",
-            source_transition_tool="dataGasUsed",
+            fork_requirement_check="header_blob_gas_used_required",
+            source_transition_tool="blobGasUsed",
         ),
-        json_encoder=JSONEncoder.Field(name="dataGasUsed", cast_type=ZeroPaddedHexNumber),
+        json_encoder=JSONEncoder.Field(name="blobGasUsed", cast_type=ZeroPaddedHexNumber),
     )
 
-    excess_data_gas: Optional[int] = header_field(
+    excess_blob_gas: Optional[int] = header_field(
         default=None,
         source=HeaderFieldSource(
             parse_type=Number,
-            fork_requirement_check="header_excess_data_gas_required",
-            source_transition_tool="currentExcessDataGas",
+            fork_requirement_check="header_excess_blob_gas_required",
+            source_transition_tool="currentExcessBlobGas",
         ),
-        json_encoder=JSONEncoder.Field(name="excessDataGas", cast_type=ZeroPaddedHexNumber),
+        json_encoder=JSONEncoder.Field(name="excessBlobGas", cast_type=ZeroPaddedHexNumber),
     )
 
     hash: Optional[Hash] = header_field(
@@ -2168,10 +2168,10 @@ class FixtureHeader:
             header.append(Uint(int(self.base_fee)))
         if self.withdrawals_root is not None:
             header.append(self.withdrawals_root)
-        if self.data_gas_used is not None:
-            header.append(Uint(int(self.data_gas_used)))
-        if self.excess_data_gas is not None:
-            header.append(Uint(self.excess_data_gas))
+        if self.blob_gas_used is not None:
+            header.append(Uint(int(self.blob_gas_used)))
+        if self.excess_blob_gas is not None:
+            header.append(Uint(self.excess_blob_gas))
 
         block = [
             header,
@@ -2249,10 +2249,10 @@ class Block(Header):
         if not isinstance(self.base_fee, Removable):
             new_env.base_fee = self.base_fee
         new_env.withdrawals = self.withdrawals
-        if not isinstance(self.excess_data_gas, Removable):
-            new_env.excess_data_gas = self.excess_data_gas
-        if not isinstance(self.data_gas_used, Removable):
-            new_env.data_gas_used = self.data_gas_used
+        if not isinstance(self.excess_blob_gas, Removable):
+            new_env.excess_blob_gas = self.excess_blob_gas
+        if not isinstance(self.blob_gas_used, Removable):
+            new_env.blob_gas_used = self.blob_gas_used
         """
         These values are required, but they depend on the previous environment,
         so they can be calculated here.
@@ -2359,13 +2359,13 @@ class FixtureExecutionPayload(FixtureHeader):
         default=None,
         json_encoder=JSONEncoder.Field(name="baseFeePerGas", cast_type=HexNumber),
     )
-    data_gas_used: Optional[int] = field(
+    blob_gas_used: Optional[int] = field(
         default=None,
-        json_encoder=JSONEncoder.Field(name="dataGasUsed", cast_type=HexNumber),
+        json_encoder=JSONEncoder.Field(name="blobGasUsed", cast_type=HexNumber),
     )
-    excess_data_gas: Optional[int] = field(
+    excess_blob_gas: Optional[int] = field(
         default=None,
-        json_encoder=JSONEncoder.Field(name="excessDataGas", cast_type=HexNumber),
+        json_encoder=JSONEncoder.Field(name="excessBlobGas", cast_type=HexNumber),
     )
 
     # Fields only used in the Engine API

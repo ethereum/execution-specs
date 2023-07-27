@@ -48,16 +48,16 @@ class Frontier(BaseFork):
         return False
 
     @classmethod
-    def header_excess_data_gas_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_excess_blob_gas_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
-        At genesis, header must not contain excess data gas
+        At genesis, header must not contain excess blob gas
         """
         return False
 
     @classmethod
-    def header_data_gas_used_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_blob_gas_used_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
-        At genesis, header must not contain data gas used
+        At genesis, header must not contain blob gas used
         """
         return False
 
@@ -257,16 +257,16 @@ class Cancun(Shanghai):
         return False
 
     @classmethod
-    def header_excess_data_gas_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_excess_blob_gas_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
-        Excess data gas is required starting from Cancun.
+        Excess blob gas is required starting from Cancun.
         """
         return True
 
     @classmethod
-    def header_data_gas_used_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_blob_gas_used_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
-        Data gas used is required starting from Cancun.
+        Blob gas used is required starting from Cancun.
         """
         return True
 

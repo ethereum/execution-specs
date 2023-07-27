@@ -265,8 +265,8 @@ class TransitionTool:
         if fork.header_prev_randao_required(0, 0):
             env["currentRandom"] = "0"
 
-        if fork.header_excess_data_gas_required(0, 0):
-            env["currentExcessDataGas"] = "0"
+        if fork.header_excess_blob_gas_required(0, 0):
+            env["currentExcessBlobGas"] = "0"
 
         _, result = self.evaluate(
             alloc={},

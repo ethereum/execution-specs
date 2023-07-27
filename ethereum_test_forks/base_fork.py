@@ -73,17 +73,17 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def header_excess_data_gas_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_excess_blob_gas_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
-        Returns true if the header must contain excess data gas
+        Returns true if the header must contain excess blob gas
         """
         pass
 
     @classmethod
     @abstractmethod
-    def header_data_gas_used_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+    def header_blob_gas_used_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
-        Returns true if the header must contain data gas used
+        Returns true if the header must contain blob gas used
         """
         pass
 

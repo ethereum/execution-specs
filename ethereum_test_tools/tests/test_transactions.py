@@ -189,7 +189,7 @@ from ..common import AccessList, Transaction
                 access_list=[AccessList(address="0x123", storage_keys=["0x456", "0x789"])],
                 max_fee_per_gas=10,
                 max_priority_fee_per_gas=5,
-                max_fee_per_data_gas=100,
+                max_fee_per_blob_gas=100,
                 blob_versioned_hashes=[],
             ),
             (
@@ -211,7 +211,7 @@ from ..common import AccessList, Transaction
                 access_list=[AccessList(address="0x123", storage_keys=["0x456", "0x789"])],
                 max_fee_per_gas=10,
                 max_priority_fee_per_gas=5,
-                max_fee_per_data_gas=100,
+                max_fee_per_blob_gas=100,
                 blob_versioned_hashes=[bytes(), bytes([0x01])],
             ),
             (

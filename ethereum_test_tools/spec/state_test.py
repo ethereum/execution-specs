@@ -82,8 +82,8 @@ class StateTest(BaseTest):
             mix_digest=Hash(0),
             nonce=HeaderNonce(0),
             base_fee=ZeroPaddedHexNumber.or_none(env.base_fee),
-            data_gas_used=ZeroPaddedHexNumber.or_none(env.data_gas_used),
-            excess_data_gas=ZeroPaddedHexNumber.or_none(env.excess_data_gas),
+            blob_gas_used=ZeroPaddedHexNumber.or_none(env.blob_gas_used),
+            excess_blob_gas=ZeroPaddedHexNumber.or_none(env.excess_blob_gas),
             withdrawals_root=Hash.or_none(
                 t8n.calc_withdrawals_root(
                     withdrawals=env.withdrawals,
