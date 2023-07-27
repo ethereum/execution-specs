@@ -2,7 +2,7 @@
 Useful types for generating Ethereum tests.
 """
 from copy import copy, deepcopy
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 from itertools import count
 from typing import (
     Any,
@@ -2482,7 +2482,9 @@ class FixtureEngineNewPayload:
 
         new_payload = cls(
             payload=FixtureExecutionPayload.from_fixture_header(
-                header=header, transactions=transactions, withdrawals=withdrawals
+                header=replace(header, beacon_root=None),
+                transactions=transactions,
+                withdrawals=withdrawals,
             ),
             version=new_payload_version,
             error_code=error_code,
