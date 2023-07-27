@@ -19,6 +19,9 @@ function. This must be done before those modules are imported anywhere.
 from importlib import import_module
 from typing import Any, Optional, cast
 
+from ethereum.fork_criteria import ByBlockNumber
+from ethereum_spec_tools.forks import Hardfork
+
 from .fork import get_optimized_pow_patches
 from .state_db import get_optimized_state_patches
 
@@ -64,26 +67,14 @@ def monkey_patch(state_path: Optional[str]) -> None:
     """
     Apply all monkey patches to the specification.
     """
-    for fork_name in (
-        "frontier",
-        "homestead",
-        "dao_fork",
-        "tangerine_whistle",
-        "spurious_dragon",
-        "byzantium",
-        "constantinople",
-        "istanbul",
-        "muir_glacier",
-        "berlin",
-        "london",
-        "arrow_glacier",
-        "gray_glacier",
-    ):
-        monkey_patch_optimized_state_db(fork_name, state_path)
-        monkey_patch_optimized_spec(fork_name)
+    forks = Hardfork.discover()
 
-    for fork_name in (
-        "paris",
-        "shanghai",
-    ):
-        monkey_patch_optimized_state_db(fork_name, state_path)
+    for fork in forks:
+        monkey_patch_optimized_state_db(fork.short_name, state_path)
+
+        # Only patch the POW code on POW forks
+        if (
+            isinstance(fork.criteria, ByBlockNumber)
+            and fork.short_name != "paris"
+        ):
+            monkey_patch_optimized_spec(fork.short_name)
