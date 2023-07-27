@@ -2407,19 +2407,20 @@ class FixtureEngineNewPayload:
 
     payload: FixtureExecutionPayload = field(
         json_encoder=JSONEncoder.Field(
+            name="executionPayload",
             to_json=True,
         )
-    )
-    version: int = field(
-        json_encoder=JSONEncoder.Field(),
     )
     blob_versioned_hashes: Optional[List[FixedSizeBytesConvertible]] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
-            name="blobVersionedHashes",
+            name="expectedBlobVersionedHashes",
             cast_type=lambda hashes: [Hash(hash) for hash in hashes],
             to_json=True,
         ),
+    )
+    version: int = field(
+        json_encoder=JSONEncoder.Field(),
     )
     error_code: Optional[EngineAPIError] = field(
         default=None,
