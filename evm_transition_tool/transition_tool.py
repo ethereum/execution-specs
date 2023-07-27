@@ -4,6 +4,7 @@ Transition tool abstract class.
 
 import os
 import shutil
+import subprocess
 from abc import abstractmethod
 from itertools import groupby
 from json import dump
@@ -129,8 +130,18 @@ class TransitionTool:
             cls.registered_tools, key=lambda x: x.version_flag
         ):
             try:
-                with os.popen(f"{binary} {version_flag}") as f:
-                    binary_output = f.read()
+                result = subprocess.run(
+                    [binary, version_flag], stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                )
+                if result.returncode != 0:
+                    raise Exception(f"Non-zero return code: {result.returncode}")
+
+                if result.stderr:
+                    raise Exception(f"Tool wrote to stderr: {result.stderr.decode()}")
+
+                binary_output = ""
+                if result.stdout:
+                    binary_output = result.stdout.decode().strip()
             except Exception:
                 # If the tool doesn't support the version flag,
                 # we'll get an non-zero exit code.
