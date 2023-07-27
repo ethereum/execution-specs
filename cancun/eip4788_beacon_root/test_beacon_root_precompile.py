@@ -84,7 +84,7 @@ def test_beacon_root_precompile_calls(
     - `DELEGATECALL`
     - `CALLCODE`
     - `STATICCALL`
-    for diffent call gas amounts:
+    for different call gas amounts:
     - exact gas (valid call)
     - extra gas (valid call)
     - insufficient gas (invalid call)

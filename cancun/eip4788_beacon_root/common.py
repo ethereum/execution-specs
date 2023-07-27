@@ -41,7 +41,7 @@ def expected_storage(
     - success or failure of the call
     - validity of the timestamp input used within the call
     """
-    storage: Storage.StorageDictType = dict()
+    storage = Storage()
     # beacon root precompile call is successful
     if valid_call:
         storage[0] = 1
