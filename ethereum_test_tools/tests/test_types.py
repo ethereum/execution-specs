@@ -874,7 +874,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 version=1,
             ),
             {
-                "payload": {
+                "executionPayload": {
                     "parentHash": Hash(0).hex(),
                     "feeRecipient": Address(2).hex(),
                     "stateRoot": Hash(3).hex(),
@@ -966,7 +966,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 error_code=EngineAPIError.InvalidRequest,
             ),
             {
-                "payload": {
+                "executionPayload": {
                     "parentHash": Hash(0).hex(),
                     "feeRecipient": Address(2).hex(),
                     "stateRoot": Hash(3).hex(),
@@ -1007,7 +1007,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                     ],
                 },
                 "version": "1",
-                "blobVersionedHashes": [
+                "expectedBlobVersionedHashes": [
                     "0x0000000000000000000000000000000000000000000000000000000000000000",
                     "0x0000000000000000000000000000000000000000000000000000000000000001",
                 ],
