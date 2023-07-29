@@ -226,6 +226,14 @@ class TransitionTool:
         if fork.header_withdrawals_required(0, 0):
             env["withdrawals"] = []
 
+        if fork.header_excess_blob_gas_required(0, 0):
+            env["currentExcessBlobGas"] = "0"
+
+        if fork.header_beacon_root_required(0, 0):
+            env[
+                "beaconRoot"
+            ] = "0x0000000000000000000000000000000000000000000000000000000000000000"
+
         _, result = self.evaluate(
             alloc=alloc,
             txs=[],
@@ -267,6 +275,11 @@ class TransitionTool:
 
         if fork.header_excess_blob_gas_required(0, 0):
             env["currentExcessBlobGas"] = "0"
+
+        if fork.header_beacon_root_required(0, 0):
+            env[
+                "beaconRoot"
+            ] = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
         _, result = self.evaluate(
             alloc={},
