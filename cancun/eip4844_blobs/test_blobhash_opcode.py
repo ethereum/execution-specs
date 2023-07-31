@@ -26,6 +26,7 @@ from ethereum_test_tools import (
     Block,
     BlockchainTestFiller,
     CodeGasMeasure,
+    HistoryStorageAddress,
     TestAddress,
     Transaction,
     to_address,
@@ -44,7 +45,10 @@ pytestmark = pytest.mark.valid_from("Cancun")
 
 @pytest.fixture
 def pre():  # noqa: D103
-    return {TestAddress: Account(balance=10000000000000000000000)}
+    return {
+        HistoryStorageAddress: Account(balance=1),
+        TestAddress: Account(balance=10000000000000000000000),
+    }
 
 
 @pytest.fixture

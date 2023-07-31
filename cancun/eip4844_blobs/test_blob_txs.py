@@ -21,7 +21,14 @@ from typing import Dict, List, Optional, Tuple
 
 import pytest
 
-from ethereum_test_tools import Account, Block, BlockchainTestFiller, Environment, Header
+from ethereum_test_tools import (
+    Account,
+    Block,
+    BlockchainTestFiller,
+    Environment,
+    Header,
+    HistoryStorageAddress,
+)
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
     Storage,
@@ -295,6 +302,7 @@ def pre(  # noqa: D103
     blocks.
     """
     return {
+        HistoryStorageAddress: Account(balance=1),
         TestAddress: Account(balance=total_account_minimum_balance + account_balance_modifier),
     }
 

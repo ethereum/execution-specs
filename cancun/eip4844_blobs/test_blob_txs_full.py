@@ -14,6 +14,7 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     Environment,
     Header,
+    HistoryStorageAddress,
     TestAddress,
     Transaction,
     to_address,
@@ -226,6 +227,7 @@ def pre() -> Dict:
     source account of all test transactions.
     """
     return {
+        HistoryStorageAddress: Account(balance=1),
         TestAddress: Account(balance=10**40),
     }
 

@@ -40,6 +40,7 @@ from ethereum_test_tools import (
     Auto,
     Block,
     BlockchainTestFiller,
+    HistoryStorageAddress,
     Storage,
     TestAddress,
     Transaction,
@@ -173,6 +174,7 @@ def pre(
     source account of all test transactions, and the precompile caller account.
     """
     return {
+        HistoryStorageAddress: Account(balance=1),
         TestAddress: Account(
             nonce=0,
             balance=0x10**18,
@@ -516,10 +518,11 @@ def test_point_evaluation_precompile_gas_tx_to(
     """
     start_balance = 10**18
     pre = {
+        HistoryStorageAddress: Account(balance=1),
         TestAddress: Account(
             nonce=0,
             balance=start_balance,
-        )
+        ),
     }
 
     # Gas is appended the intrinsic gas cost of the transaction
@@ -590,6 +593,7 @@ def test_point_evaluation_precompile_before_fork(
     precompile_caller_address = to_address(0x100)
 
     pre = {
+        HistoryStorageAddress: Account(balance=1),
         TestAddress: Account(
             nonce=0,
             balance=0x10**18,

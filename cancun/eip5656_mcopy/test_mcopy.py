@@ -9,7 +9,7 @@ from typing import Mapping, Tuple
 import pytest
 from ethereum.crypto.hash import keccak256
 
-from ethereum_test_tools import Account, Environment
+from ethereum_test_tools import Account, Environment, HistoryStorageAddress
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
     StateTestFiller,
@@ -108,6 +108,7 @@ def bytecode_storage(
 @pytest.fixture
 def pre(bytecode_storage: Tuple[bytes, Storage]) -> Mapping:  # noqa: D103
     return {
+        HistoryStorageAddress: Account(balance=1),
         TestAddress: Account(balance=10**40),
         code_address: Account(code=bytecode_storage[0]),
     }

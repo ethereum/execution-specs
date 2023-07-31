@@ -14,6 +14,7 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     Environment,
     Header,
+    HistoryStorageAddress,
     TestAddress,
     Transaction,
     add_kzg_version,
@@ -42,6 +43,7 @@ def env() -> Environment:  # noqa: D103
 @pytest.fixture
 def pre() -> Mapping[str, Account]:  # noqa: D103
     return {
+        HistoryStorageAddress: Account(balance=1),
         TestAddress: Account(balance=10**40),
     }
 
