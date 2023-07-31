@@ -8,6 +8,7 @@ import pytest
 from ethereum_test_tools import (
     Account,
     Environment,
+    HistoryStorageAddress,
     TestAddress,
     Transaction,
     to_address,
@@ -127,6 +128,7 @@ def pre(
     source account of all test transactions, and the precompile caller account.
     """
     return {
+        HistoryStorageAddress: Account(balance=1),
         TestAddress: Account(
             nonce=0,
             balance=0x10**10,
