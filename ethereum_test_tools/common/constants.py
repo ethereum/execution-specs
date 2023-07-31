@@ -20,6 +20,8 @@ EmptyHash = bytes([0] * 32)
 EmptyNonce = bytes([0] * 8)
 ZeroAddress = bytes([0] * 20)
 
+HistoryStorageAddress = "0x000000000000000000000000000000000000000b"
+
 
 class EngineAPIError(IntEnum):
     """
