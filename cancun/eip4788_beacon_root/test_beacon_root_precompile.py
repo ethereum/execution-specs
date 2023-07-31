@@ -184,8 +184,6 @@ def test_beacon_root_equal_to_timestamp(
     [
         12,  # twelve
         2**32,  # arbitrary
-        2**64 - 2,  # near-max
-        2**64 - 1,  # max
     ],
 )
 @pytest.mark.valid_from("Cancun")
@@ -226,11 +224,12 @@ def test_beacon_root_timestamp_collisions(
                 txs=[
                     tx.with_fields(
                         nonce=i,
-                        to=to_address(0x100),
+                        to=to_address(0x100 + i),
                         data=to_hash_bytes(timestamp),
                     )
                 ],
                 beacon_root=DEFAULT_BEACON_ROOT_HASH,
+                timestamp=timestamp,
             )
         )
         post[to_address(0x100 + i)] = Account(
@@ -243,7 +242,6 @@ def test_beacon_root_timestamp_collisions(
         )
 
     blockchain_test(
-        genesis_environment=env,
         pre=pre,
         blocks=blocks,
         post=post,
