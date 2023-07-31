@@ -1,6 +1,7 @@
 """
 State test filler.
 """
+from copy import copy
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Type
 
@@ -57,7 +58,13 @@ class StateTest(BaseTest):
         """
         Create a genesis block from the state test definition.
         """
-        env = self.env.set_fork_requirements(fork)
+        env = copy(self.env)
+
+        # Remove fields that should not be present in the genesis block.
+        env.withdrawals = None
+        env.beacon_root = None
+
+        env = env.set_fork_requirements(fork)
 
         genesis = FixtureHeader(
             parent_hash=Hash(0),
@@ -93,6 +100,7 @@ class StateTest(BaseTest):
                 if env.withdrawals is not None
                 else None
             ),
+            beacon_root=Hash.or_none(env.beacon_root),
         )
 
         genesis_rlp, genesis.hash = genesis.build(

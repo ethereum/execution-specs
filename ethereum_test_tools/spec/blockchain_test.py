@@ -94,6 +94,7 @@ class BlockchainTest(BaseTest):
                 if env.withdrawals is not None
                 else None
             ),
+            beacon_root=Hash.or_none(env.beacon_root),
         )
 
         genesis_rlp, genesis.hash = genesis.build(
