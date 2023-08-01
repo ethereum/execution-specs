@@ -2452,7 +2452,6 @@ class FixtureEngineNewPayload:
         json_encoder=JSONEncoder.Field(
             name="parentBeaconBlockRoot",
             cast_type=Hash,
-            to_json=True,
         ),
     )
     error_code: Optional[EngineAPIError] = field(
