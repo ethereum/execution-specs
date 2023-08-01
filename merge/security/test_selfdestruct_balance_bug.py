@@ -16,9 +16,11 @@ from ethereum_test_tools import (
     Account,
     Block,
     BlockchainTestFiller,
+    Initcode,
     TestAddress,
     Transaction,
     YulCompiler,
+    compute_create_address,
     to_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
@@ -51,8 +53,9 @@ def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller, yul:
         - During tx 2, code in `0xaa` does not execute,
             hence self-destruct mechanism does not trigger.
     """
-    aa_code = yul(
-        """
+    aa_code = Initcode(
+        deploy_code=yul(
+            """
         {
             /* 1st entrance is self-destruct */
             if eq(0, callvalue()) {
@@ -66,25 +69,35 @@ def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller, yul:
             }
         }
         """
+        ),
     )
 
-    cc_code = Op.SSTORE(0xCA1101, Op.CALL(100000, 0xAA, 0, 0, 0, 0, 0)) + Op.CALL(
-        100000, 0xAA, 1, 0, 0, 0, 0
+    aa_location = compute_create_address(0xCC, 1)
+
+    cc_code = (
+        Op.EXTCODECOPY(0xAA, 0, 0, Op.EXTCODESIZE(0xAA))
+        + Op.CREATE(
+            3,  # Initial balance of 3 wei
+            0,
+            Op.EXTCODESIZE(0xAA),
+        )
+        + Op.SSTORE(0xCA1101, Op.CALL(100000, Op.PUSH20(aa_location), 0, 0, 0, 0, 0))
+        + Op.CALL(100000, Op.PUSH20(aa_location), 1, 0, 0, 0, 0)
     )
 
-    balance_code = Op.SSTORE(0xBA1AA, Op.BALANCE(0xAA))
+    balance_code = Op.SSTORE(0xBA1AA, Op.BALANCE(Op.PUSH20(aa_location)))
 
     pre = {
         # sender
         TestAddress: Account(balance=1000000000),
         # caller
-        to_address(0xCC): Account(balance=1000000000, code=cc_code),
-        # initial balance of 3 wei
-        to_address(0xAA): Account(balance=3, code=aa_code),
+        to_address(0xCC): Account(balance=1000000000, code=cc_code, nonce=1),
         # stores balance of 0xaa after each tx 1
         to_address(0xBA11): Account(code=balance_code),
         # stores balance of 0xaa after each tx 2
         to_address(0xBA12): Account(code=balance_code),
+        # Initcode of the self-destruct contract
+        to_address(0xAA): Account(code=aa_code),
     }
 
     blocks = [
@@ -108,7 +121,7 @@ def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller, yul:
                 # Sender calls 0xaa with 5 wei.
                 Transaction(
                     nonce=2,
-                    to=to_address(0xAA),
+                    to=aa_location,
                     gas_limit=100000,
                     gas_price=10,
                     value=5,
@@ -126,14 +139,14 @@ def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller, yul:
 
     post = {
         # Check call from caller has succeeded.
-        to_address(0xCC): Account(storage={0xCA1101: 1}),
+        to_address(0xCC): Account(nonce=2, storage={0xCA1101: 1}),
         # Check balance of 0xaa after tx 1 is 0 wei, i.e self-destructed.
         # Vulnerable versions should return 1 wei.
         to_address(0xBA11): Account(storage={0xBA1AA: 0}),
         # Check that 0xaa exists and balance after tx 2 is 5 wei.
         # Vulnerable versions should return 6 wei.
         to_address(0xBA12): Account(storage={0xBA1AA: 5}),
-        to_address(0xAA): Account(storage={0: 0}),
+        aa_location: Account(storage={0: 0}),
     }
 
     blockchain_test(pre=pre, post=post, blocks=blocks)
