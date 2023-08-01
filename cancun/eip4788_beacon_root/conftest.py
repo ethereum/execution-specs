@@ -53,7 +53,7 @@ def call_gas() -> int:  # noqa: D103
 
 
 @pytest.fixture
-def call_address() -> str:  # noqa: D103
+def caller_address() -> str:  # noqa: D103
     return to_address(0x100)
 
 
@@ -98,7 +98,7 @@ def precompile_call_account(call_type: Op, call_gas: int) -> Account:
     return Account(
         nonce=0,
         code=precompile_call_code,
-        balance=10**10,
+        balance=0x10**10,
     )
 
 
@@ -121,7 +121,7 @@ def valid_input() -> bool:
 @pytest.fixture
 def pre(
     precompile_call_account: Account,
-    call_address: str,
+    caller_address: str,
 ) -> Dict:
     """
     Prepares the pre state of all test cases, by setting the balance of the
@@ -133,13 +133,18 @@ def pre(
             nonce=0,
             balance=0x10**10,
         ),
-        call_address: precompile_call_account,
+        caller_address: precompile_call_account,
     }
 
 
 @pytest.fixture
+def tx_to_address(request, caller_address: Account) -> bytes:  # noqa: D103
+    return request.param if hasattr(request, "param") else caller_address
+
+
+@pytest.fixture
 def tx(
-    call_address: str,
+    tx_to_address: str,
     timestamp: int,
 ) -> Transaction:
     """
@@ -149,7 +154,7 @@ def tx(
         ty=2,
         nonce=0,
         data=to_hash_bytes(timestamp),
-        to=call_address,
+        to=tx_to_address,
         value=0,
         gas_limit=1000000,
         max_fee_per_gas=7,
@@ -159,7 +164,7 @@ def tx(
 
 @pytest.fixture
 def post(
-    call_address: str,
+    caller_address: str,
     beacon_root: bytes,
     timestamp: int,
     valid_call: bool,
@@ -170,7 +175,7 @@ def post(
     failure of the call, and the validity of the timestamp input.
     """
     return {
-        call_address: Account(
+        caller_address: Account(
             storage=expected_storage(
                 beacon_root,
                 timestamp,
