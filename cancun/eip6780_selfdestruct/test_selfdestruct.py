@@ -59,7 +59,6 @@ def env() -> Environment:
     """Default environment for all tests."""
     return Environment(
         coinbase="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
-        gas_limit=10_000_000_000,
     )
 
 
