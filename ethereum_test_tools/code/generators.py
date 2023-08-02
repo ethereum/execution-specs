@@ -7,6 +7,7 @@ from typing import Optional, SupportsBytes
 
 from ..common.conversions import to_bytes
 from ..common.helpers import ceiling_division
+from ..vm.opcode import Opcodes as Op
 from .code import Code
 
 GAS_PER_DEPLOYED_CODE_BYTE = 0xC8
@@ -181,3 +182,51 @@ class CodeGasMeasure(Code):
             ]
         )
         self.bytecode = res
+
+
+@dataclass(kw_only=True)
+class Conditional(Code):
+    """
+    Helper class used to generate conditional bytecode.
+    """
+
+    condition: str | bytes | SupportsBytes
+    """
+    Condition bytecode which must return the true or false condition of the conditional statement.
+    """
+
+    if_true: str | bytes | SupportsBytes
+    """
+    Bytecode to execute if the condition is true.
+    """
+
+    if_false: str | bytes | SupportsBytes
+    """
+    Bytecode to execute if the condition is false.
+    """
+
+    def __post_init__(self):
+        """
+        Assemble the conditional bytecode by generating the necessary jumps and
+        jumpdests surrounding the condition and the two possible execution
+        paths.
+
+        In the future, PC usage should be replaced by using RJUMP and RJUMPI
+        """
+        condition_bytes = to_bytes(self.condition)
+        if_true_bytes = to_bytes(self.if_true)
+        if_false_bytes = to_bytes(self.if_false)
+
+        # First we append a jumpdest to the start of the true branch
+        if_true_bytes = Op.JUMPDEST + if_true_bytes
+
+        # Then we append the unconditional jump to the end of the false branch, used to skip the
+        # true branch
+        if_false_bytes += Op.JUMP(Op.ADD(Op.PC, len(if_true_bytes) + 3))
+
+        # Then we need to do the conditional jump by skipping the false branch
+        condition_bytes = Op.JUMPI(Op.ADD(Op.PC, len(if_false_bytes) + 3), condition_bytes)
+
+        # Finally we append the true and false branches, and the condition, plus the jumpdest at
+        # the very end
+        self.bytecode = condition_bytes + if_false_bytes + if_true_bytes + Op.JUMPDEST

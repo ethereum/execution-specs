@@ -10,7 +10,8 @@ from packaging import version
 
 from ethereum_test_forks import Fork, Homestead, Shanghai, forks_from_until, get_deployed_forks
 
-from ..code import Code, Initcode, Yul
+from ..code import Code, Conditional, Initcode, Yul
+from ..vm.opcode import Opcodes as Op
 
 
 @pytest.mark.parametrize(
@@ -239,3 +240,23 @@ def test_yul(
 )
 def test_initcode(initcode: Initcode, bytecode: bytes):
     assert bytes(initcode) == bytecode
+
+
+@pytest.mark.parametrize(
+    "conditional_bytecode,expected",
+    [
+        (
+            Conditional(
+                condition=Op.CALLDATALOAD(0),
+                if_true=Op.MSTORE(0, Op.SLOAD(0)) + Op.RETURN(0, 32),
+                if_false=Op.SSTORE(0, 69),
+            ),
+            bytes.fromhex("600035600d5801576045600055600f5801565b60005460005260206000f35b"),
+        ),
+    ],
+)
+def test_opcodes_if(conditional_bytecode: bytes, expected: bytes):
+    """
+    Test that the if opcode macro is transformed into bytecode as expected.
+    """
+    assert bytes(conditional_bytecode) == expected

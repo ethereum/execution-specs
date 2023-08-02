@@ -3,7 +3,7 @@ Module containing tools for generating cross-client Ethereum execution layer
 tests.
 """
 
-from .code import Code, CodeGasMeasure, Initcode, Yul, YulCompiler
+from .code import Code, CodeGasMeasure, Conditional, Initcode, Yul, YulCompiler
 from .common import (
     AccessList,
     Account,
@@ -59,6 +59,7 @@ __all__ = (
     "BlockchainTestFiller",
     "Code",
     "CodeGasMeasure",
+    "Conditional",
     "EngineAPIError",
     "Environment",
     "Fixture",
