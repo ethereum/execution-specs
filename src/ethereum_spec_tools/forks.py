@@ -24,6 +24,18 @@ class ConsensusType(Enum):
     PROOF_OF_WORK = auto()
     PROOF_OF_STAKE = auto()
 
+    def is_pow(self) -> bool:
+        """
+        Returns True if self == PROOF_OF_WORK.
+        """
+        return self == ConsensusType.PROOF_OF_WORK
+
+    def is_pos(self) -> bool:
+        """
+        Returns True if self == PROOF_OF_STAKE.
+        """
+        return self == ConsensusType.PROOF_OF_STAKE
+
 
 H = TypeVar("H", bound="Hardfork")
 
