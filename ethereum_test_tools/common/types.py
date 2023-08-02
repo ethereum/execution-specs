@@ -2093,7 +2093,7 @@ class FixtureHeader:
             fork_requirement_check="header_beacon_root_required",
             source_environment="beacon_root",
         ),
-        json_encoder=JSONEncoder.Field(name="beaconRoot"),
+        json_encoder=JSONEncoder.Field(name="parentBeaconBlockRoot"),
     )
 
     hash: Optional[Hash] = header_field(
