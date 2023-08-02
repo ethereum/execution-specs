@@ -149,13 +149,10 @@ class Load(BaseLoad):
     def proof_of_stake(self) -> bool:
         """Whether the fork is proof of stake"""
         forks = Hardfork.discover()
-        merge_fork_found = False
         for fork in forks:
-            if fork.name == "ethereum.paris":
-                merge_fork_found = True
             if fork.name == "ethereum." + self._fork_module:
-                break
-        return merge_fork_found
+                return fork.consensus.is_pos()
+        raise Exception(f"fork {self._fork_module} not discovered")
 
     @property
     def Block(self) -> Any:

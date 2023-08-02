@@ -7,12 +7,35 @@ Detects Python packages that specify Ethereum hardforks.
 
 import importlib
 import pkgutil
+from enum import Enum, auto
 from pkgutil import ModuleInfo
 from types import ModuleType
 from typing import Any, Dict, Iterator, List, Optional, Type, TypeVar
 
 import ethereum
 from ethereum.fork_criteria import ByBlockNumber, ByTimestamp, ForkCriteria
+
+
+class ConsensusType(Enum):
+    """
+    How a fork chooses its canonical chain.
+    """
+
+    PROOF_OF_WORK = auto()
+    PROOF_OF_STAKE = auto()
+
+    def is_pow(self) -> bool:
+        """
+        Returns True if self == PROOF_OF_WORK.
+        """
+        return self == ConsensusType.PROOF_OF_WORK
+
+    def is_pos(self) -> bool:
+        """
+        Returns True if self == PROOF_OF_STAKE.
+        """
+        return self == ConsensusType.PROOF_OF_STAKE
+
 
 H = TypeVar("H", bound="Hardfork")
 
@@ -99,11 +122,23 @@ class Hardfork:
         self.mod = mod
 
     @property
+    def consensus(self) -> ConsensusType:
+        """
+        How this fork chooses its canonical chain.
+        """
+        if hasattr(self.module("fork"), "validate_proof_of_work"):
+            return ConsensusType.PROOF_OF_WORK
+        else:
+            return ConsensusType.PROOF_OF_STAKE
+
+    @property
     def criteria(self) -> ForkCriteria:
         """
         Criteria to trigger this hardfork.
         """
-        return self.mod.FORK_CRITERIA  # type: ignore
+        criteria = self.mod.FORK_CRITERIA  # type: ignore[attr-defined]
+        assert isinstance(criteria, ForkCriteria)
+        return criteria
 
     @property
     def block(self) -> int:
@@ -167,7 +202,7 @@ class Hardfork:
             self.__class__.__name__
             + "("
             + f"name={self.name!r}, "
-            + f"block={self.block}, "
+            + f"criteria={self.criteria}, "
             + "..."
             + ")"
         )
