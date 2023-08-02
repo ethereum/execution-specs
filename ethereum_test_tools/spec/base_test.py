@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, Generator, Iterator, List, Mapping, Opti
 from ethereum_test_forks import Fork
 from evm_transition_tool import TransitionTool
 
-from ..common import Account, Address, Bytes, FixtureBlock, FixtureHeader, Hash, Transaction
+from ..common import Account, Address, Alloc, Bytes, FixtureBlock, FixtureHeader, Hash, Transaction
 
 
 def verify_transactions(txs: List[Transaction] | None, result) -> List[int]:
@@ -91,7 +91,7 @@ class BaseTest:
         self,
         t8n: TransitionTool,
         fork: Fork,
-    ) -> Tuple[Bytes, FixtureHeader]:
+    ) -> Tuple[Alloc, Bytes, FixtureHeader]:
         """
         Create a genesis block from the test definition.
         """
@@ -102,6 +102,7 @@ class BaseTest:
         self,
         t8n: TransitionTool,
         genesis: FixtureHeader,
+        pre: Alloc,
         fork: Fork,
         chain_id: int = 1,
         eips: Optional[List[int]] = None,
