@@ -9,7 +9,7 @@ from typing import Mapping, Tuple
 
 import pytest
 
-from ethereum_test_tools import Account, Environment, HistoryStorageAddress
+from ethereum_test_tools import Account, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
     StateTestFiller,
@@ -134,7 +134,6 @@ def pre(  # noqa: D103
     callee_bytecode: bytes,
 ) -> Mapping:
     return {
-        HistoryStorageAddress: Account(balance=1),
         TestAddress: Account(balance=tx_max_fee_per_gas * tx_gas_limit),
         caller_address: Account(code=bytecode_storage[0]),
         memory_expansion_address: Account(code=callee_bytecode),

@@ -13,7 +13,6 @@ from ethereum_test_tools import (
     Block,
     BlockchainTestFiller,
     CodeGasMeasure,
-    HistoryStorageAddress,
     TestAddress,
     Transaction,
     copy_opcode_cost,
@@ -143,7 +142,6 @@ def pre(
     source account of all test transactions, and the precompile caller account.
     """
     return {
-        HistoryStorageAddress: Account(balance=1),
         TestAddress: Account(
             nonce=0,
             balance=0x10**18,

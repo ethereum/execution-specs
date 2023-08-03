@@ -33,7 +33,6 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     Environment,
     Header,
-    HistoryStorageAddress,
     TestAddress,
     TestAddress2,
     Transaction,
@@ -165,7 +164,6 @@ def tx_exact_cost(tx_value: int, tx_max_fee_per_gas: int, tx_data_cost: int) -> 
 @pytest.fixture
 def pre(tx_exact_cost: int) -> Mapping[str, Account]:  # noqa: D103
     return {
-        HistoryStorageAddress: Account(balance=1),
         TestAddress: Account(balance=tx_exact_cost),
         TestAddress2: Account(balance=10**40),
     }

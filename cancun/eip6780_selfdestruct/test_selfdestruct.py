@@ -17,7 +17,6 @@ from ethereum_test_tools import (
     Block,
     BlockchainTestFiller,
     Environment,
-    HistoryStorageAddress,
     Initcode,
     StateTestFiller,
     Storage,
@@ -186,7 +185,6 @@ def pre(
 ) -> Dict[str, Account]:
     """Pre-state of all tests"""
     pre = {
-        HistoryStorageAddress: Account(balance=1),
         TestAddress: Account(balance=100_000_000_000_000_000_000),
         initcode_copy_from_address: Account(code=selfdestruct_contract_initcode),
     }
