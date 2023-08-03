@@ -693,7 +693,9 @@ def test_invalid_blob_hash_versioning(
 @pytest.mark.parametrize(
     "destination_account,tx_error", [(None, "no_contract_creating_blob_txs")], ids=[""]
 )
-@pytest.mark.valid_from("Cancun")
+# TODO: Uncomment after #242 -> https://github.com/ethereum/execution-spec-tests/issues/242
+# @pytest.mark.valid_from("Cancun")
+@pytest.mark.skip(reason="Unable to fill due to invalid field in transaction")
 def test_invalid_blob_tx_contract_creation(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
