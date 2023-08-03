@@ -42,6 +42,12 @@ def get_optimized_pow_patches(_fork_name: str) -> Dict[str, Any]:
     patches: Dict[str, Any] = {}
 
     mod = cast(Any, import_module("ethereum." + _fork_name + ".fork"))
+
+    if not hasattr(mod, "validate_proof_of_work"):
+        raise Exception(
+            "Attempted to get optimized pow patches for non-pow fork"
+        )
+
     generate_header_hash_for_pow = mod.generate_header_hash_for_pow
 
     @add_item(patches)

@@ -19,7 +19,6 @@ function. This must be done before those modules are imported anywhere.
 from importlib import import_module
 from typing import Any, Optional, cast
 
-from ethereum.fork_criteria import ByBlockNumber
 from ethereum_spec_tools.forks import Hardfork
 
 from .fork import get_optimized_pow_patches
@@ -73,8 +72,5 @@ def monkey_patch(state_path: Optional[str]) -> None:
         monkey_patch_optimized_state_db(fork.short_name, state_path)
 
         # Only patch the POW code on POW forks
-        if (
-            isinstance(fork.criteria, ByBlockNumber)
-            and fork.short_name != "paris"
-        ):
+        if fork.consensus.is_pow():
             monkey_patch_optimized_spec(fork.short_name)
