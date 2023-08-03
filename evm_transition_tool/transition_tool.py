@@ -205,7 +205,9 @@ class TransitionTool:
         """
         return self.traces
 
-    def calc_state_root(self, *, alloc: Any, fork: Fork, debug_output_path: str = "") -> bytes:
+    def calc_state_root(
+        self, *, alloc: Any, fork: Fork, debug_output_path: str = ""
+    ) -> Tuple[Dict[str, Any], bytes]:
         """
         Calculate the state root for the given `alloc`.
         """
@@ -234,7 +236,7 @@ class TransitionTool:
                 "beaconRoot"
             ] = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-        _, result = self.evaluate(
+        new_alloc, result = self.evaluate(
             alloc=alloc,
             txs=[],
             env=env,
@@ -244,7 +246,7 @@ class TransitionTool:
         state_root = result.get("stateRoot")
         if state_root is None or not isinstance(state_root, str):
             raise Exception("Unable to calculate state root")
-        return bytes.fromhex(state_root[2:])
+        return new_alloc, bytes.fromhex(state_root[2:])
 
     def calc_withdrawals_root(
         self, *, withdrawals: Any, fork: Fork, debug_output_path: str = ""

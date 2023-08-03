@@ -54,23 +54,22 @@ class BlockchainTest(BaseTest):
         self,
         t8n: TransitionTool,
         fork: Fork,
-    ) -> Tuple[Bytes, FixtureHeader]:
+    ) -> Tuple[Alloc, Bytes, FixtureHeader]:
         """
         Create a genesis block from the state test definition.
         """
         env = self.genesis_environment.set_fork_requirements(fork)
 
+        new_alloc, state_root = t8n.calc_state_root(
+            alloc=to_json(Alloc(self.pre)),
+            fork=fork,
+            debug_output_path=self.get_next_transition_tool_output_path(),
+        )
         genesis = FixtureHeader(
             parent_hash=Hash(0),
             ommers_hash=Hash(EmptyOmmersRoot),
             coinbase=Address(0),
-            state_root=Hash(
-                t8n.calc_state_root(
-                    alloc=to_json(Alloc(self.pre)),
-                    fork=fork,
-                    debug_output_path=self.get_next_transition_tool_output_path(),
-                )
-            ),
+            state_root=Hash(state_root),
             transactions_root=Hash(EmptyTrieRoot),
             receipt_root=Hash(EmptyTrieRoot),
             bloom=Bloom(0),
@@ -103,7 +102,7 @@ class BlockchainTest(BaseTest):
             withdrawals=env.withdrawals,
         )
 
-        return genesis_rlp, genesis
+        return Alloc(new_alloc), genesis_rlp, genesis
 
     def make_block(
         self,
@@ -256,6 +255,7 @@ class BlockchainTest(BaseTest):
         self,
         t8n: TransitionTool,
         genesis: FixtureHeader,
+        pre: Alloc,
         fork: Fork,
         chain_id=1,
         eips: Optional[List[int]] = None,
@@ -265,7 +265,7 @@ class BlockchainTest(BaseTest):
         Performs checks against the expected behavior of the test.
         Raises exception on invalid test behavior.
         """
-        alloc = to_json(Alloc(self.pre))
+        alloc = to_json(pre)
         env = Environment.from_parent_header(genesis)
         blocks: List[FixtureBlock] = []
         head = genesis.hash if genesis.hash is not None else Hash(0)

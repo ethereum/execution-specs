@@ -1,7 +1,6 @@
 """
 Filler object definitions.
 """
-from copy import copy
 from typing import List, Optional
 
 from ethereum_test_forks import Fork
@@ -25,11 +24,12 @@ def fill_test(
     """
     t8n.reset_traces()
 
-    genesis_rlp, genesis = test_spec.make_genesis(t8n, fork)
+    pre, genesis_rlp, genesis = test_spec.make_genesis(t8n, fork)
 
     (blocks, head, alloc) = test_spec.make_blocks(
         t8n,
         genesis,
+        pre,
         fork,
         eips=eips,
     )
@@ -41,7 +41,7 @@ def fill_test(
         genesis_rlp=genesis_rlp,
         head=head,
         fork="+".join([fork_name] + [str(eip) for eip in eips]) if eips is not None else fork_name,
-        pre_state=copy(test_spec.pre),
+        pre_state=pre,
         post_state=alloc_to_accounts(alloc),
         seal_engine=engine,
         name=test_spec.tag,

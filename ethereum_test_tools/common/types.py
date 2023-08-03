@@ -684,6 +684,15 @@ class Account:
             expected_storage.must_be_equal(address=address, other=actual_storage)
 
     @classmethod
+    def from_dict(cls: Type, data: "Dict | Account") -> "Account":
+        """
+        Create account from dictionary.
+        """
+        if isinstance(data, cls):
+            return data
+        return cls(**data)
+
+    @classmethod
     def with_code(cls: Type, code: BytesConvertible) -> "Account":
         """
         Create account with provided `code` and nonce of `1`.
@@ -691,7 +700,7 @@ class Account:
         return Account(nonce=1, code=code)
 
 
-class Alloc(dict, Mapping[FixedSizeBytesConvertible, Account], SupportsJSON):
+class Alloc(dict, Mapping[FixedSizeBytesConvertible, Account | Dict], SupportsJSON):
     """
     Allocation of accounts in the state, pre and post test execution.
     """
@@ -700,7 +709,9 @@ class Alloc(dict, Mapping[FixedSizeBytesConvertible, Account], SupportsJSON):
         """
         Returns the JSON representation of the allocation.
         """
-        return encoder.default({Address(address): account for address, account in self.items()})
+        return encoder.default(
+            {Address(address): Account.from_dict(account) for address, account in self.items()}
+        )
 
 
 def alloc_to_accounts(got_alloc: Dict[str, Any]) -> Mapping[str, Account]:

@@ -76,7 +76,9 @@ def test_make_genesis(fork: Fork, hash: bytes):
 
     t8n = GethTransitionTool()
 
-    _, genesis = StateTest(env=env, pre=pre, post={}, txs=[], tag="some_state_test").make_genesis(
+    _, _, genesis = StateTest(
+        env=env, pre=pre, post={}, txs=[], tag="some_state_test"
+    ).make_genesis(
         t8n,
         fork,
     )
