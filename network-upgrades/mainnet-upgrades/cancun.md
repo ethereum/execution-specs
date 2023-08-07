@@ -18,7 +18,7 @@ Implementation status of Included EIPs across participating clients.
 | **Geth**       | [Merged](https://github.com/ethereum/go-ethereum/pull/26003) + [Merged](https://github.com/ethereum/go-ethereum/pull/27663)| - | [Not merged](https://github.com/ethereum/go-ethereum/pull/26940) | [Merged](https://github.com/ethereum/go-ethereum/pull/26181) | [Not merged](https://github.com/ethereum/go-ethereum/pull/27189) |
 | **Besu**       | [Merged](https://github.com/hyperledger/besu/pull/4118) | - | [Not Merged](https://github.com/hyperledger/besu/tree/eip-4844-interop) | - | - |
 | **Nethermind** | [Merged](https://github.com/NethermindEth/nethermind/pull/4126) | - | [Not merged](https://github.com/NethermindEth/nethermind/pull/5671) | - | - |
-| **Erigon**     | [Merged](https://github.com/ledgerwatch/erigon/pull/7405) | - | [Merged (many PRs)](https://github.com/ledgerwatch/erigon/pulls?q=is%3Apr+4844) | - | - |
+| **Erigon**     | [Merged](https://github.com/ledgerwatch/erigon/pull/7405) + [Merged](https://github.com/ledgerwatch/erigon/pull/7885) | [Merged (many PRs)](https://github.com/ledgerwatch/erigon/pulls?q=is%3Apr+4788) | [Merged (many PRs)](https://github.com/ledgerwatch/erigon/pulls?q=is%3Apr+4844) | [Merged](https://github.com/ledgerwatch/erigon/pull/7887) | [Merged](https://github.com/ledgerwatch/erigon/pull/7976) |
 | **EthereumJS** | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1860) | - | [Merged (many PRs)](https://github.com/ethereumjs/ethereumjs-monorepo/pulls?q=is%3Apr+4844) | - | - |
 
 
