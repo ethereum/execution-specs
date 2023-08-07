@@ -2,7 +2,9 @@
 Abstract base class for Ethereum forks
 """
 from abc import ABC, ABCMeta, abstractmethod
-from typing import Optional, Type
+from typing import Mapping, Optional, Type
+
+from .base_decorators import prefer_transition_to_method
 
 
 class BaseForkMeta(ABCMeta):
@@ -100,6 +102,18 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     def get_reward(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """
         Returns the expected reward amount in wei of a given fork
+        """
+        pass
+
+    @classmethod
+    @prefer_transition_to_method
+    @abstractmethod
+    def pre_allocation(cls, block_number: int = 0, timestamp: int = 0) -> Mapping:
+        """
+        Returns required pre-allocation of accounts.
+
+        This method must always call the `fork_to` method when transitioning, because the
+        allocation can only be set at genesis, and thus cannot be changed at transition time.
         """
         pass
 

@@ -51,12 +51,14 @@ def transition_fork(to_fork: Fork, at_block: int = 0, at_timestamp: int = 0):
 
         NewTransitionClass.name = lambda: transition_name  # type: ignore
 
-        def make_transition_method(from_fork_method, to_fork_method):
+        def make_transition_method(base_method, from_fork_method, to_fork_method):
             def transition_method(
                 cls,
                 block_number: int = ALWAYS_TRANSITIONED_BLOCK_NUMBER,
                 timestamp: int = ALWAYS_TRANSITIONED_BLOCK_TIMESTAMP,
             ):
+                if getattr(base_method, "__prefer_transition_to_method__", False):
+                    return to_fork_method(block_number, timestamp)
                 return (
                     to_fork_method(block_number, timestamp)
                     if block_number >= at_block and timestamp >= at_timestamp
@@ -70,6 +72,7 @@ def transition_fork(to_fork: Fork, at_block: int = 0, at_timestamp: int = 0):
                 NewTransitionClass,
                 method_name,
                 make_transition_method(
+                    getattr(BaseFork, method_name),
                     getattr(from_fork, method_name),
                     getattr(to_fork, method_name),
                 ),

@@ -2,7 +2,7 @@
 Test fork utilities.
 """
 
-from typing import cast
+from typing import Mapping, cast
 
 from ..base_fork import Fork
 from ..forks.forks import Berlin, Cancun, Frontier, London, Merge, Shanghai
@@ -17,6 +17,7 @@ from ..helpers import (
     transition_fork_from_to,
     transition_fork_to,
 )
+from ..transition_base_fork import transition_fork
 
 FIRST_DEPLOYED = Frontier
 LAST_DEPLOYED = Shanghai
@@ -112,3 +113,53 @@ def test_deployed_forks():  # noqa: D103
     deployed_forks = get_deployed_forks()
     assert deployed_forks[0] == FIRST_DEPLOYED
     assert deployed_forks[-1] == LAST_DEPLOYED
+
+
+class PrePreAllocFork(Shanghai):
+    """
+    Dummy fork used for testing.
+    """
+
+    @classmethod
+    def pre_allocation(cls, block_number: int = 0, timestamp: int = 0) -> Mapping:
+        """
+        Return some starting point for allocation.
+        """
+        return {"test": "test"}
+
+
+class PreAllocFork(PrePreAllocFork):
+    """
+    Dummy fork used for testing.
+    """
+
+    @classmethod
+    def pre_allocation(cls, block_number: int = 0, timestamp: int = 0) -> Mapping:
+        """
+        Add allocation to the pre-existing one from previous fork.
+        """
+        return {"test2": "test2"} | super(PreAllocFork, cls).pre_allocation(
+            block_number, timestamp
+        )
+
+
+@transition_fork(to_fork=PreAllocFork, at_timestamp=15_000)
+class PreAllocTransitionFork(PrePreAllocFork):
+    """
+    PrePreAllocFork to PreAllocFork transition at Timestamp 15k
+    """
+
+    pass
+
+
+def test_pre_alloc():
+    assert PrePreAllocFork.pre_allocation() == {"test": "test"}
+    assert PreAllocFork.pre_allocation() == {"test": "test", "test2": "test2"}
+    assert PreAllocTransitionFork.pre_allocation() == {
+        "test": "test",
+        "test2": "test2",
+    }
+    assert PreAllocTransitionFork.pre_allocation(block_number=0, timestamp=0) == {
+        "test": "test",
+        "test2": "test2",
+    }
