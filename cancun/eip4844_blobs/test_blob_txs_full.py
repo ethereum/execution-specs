@@ -162,10 +162,10 @@ def tx_max_fee_per_blob_gas(  # noqa: D103
 @pytest.fixture
 def tx_error() -> Optional[str]:
     """
-    Default expected error produced by the block transactions (no error).
-
-    Can be overloaded on test cases where the transactions are expected
-    to fail.
+    Even though the final block we are producing in each of these tests is invalid, and some of the
+    transactions will be invalid due to the format in the final block, none of the transactions
+    should be rejected by the transition tool because they are being sent to it with the correct
+    format.
     """
     return None
 
@@ -246,12 +246,15 @@ def env(
 @pytest.fixture
 def blocks(
     txs: List[Transaction],
-    tx_error: Optional[str],
+    txs_wrapped_blobs: List[bool],
 ) -> List[Block]:
     """
     Prepare the list of blocks for all test cases.
     """
     header_blob_gas_used = 0
+    block_error = None
+    if any(txs_wrapped_blobs):
+        block_error = "invalid transaction"
     if len(txs) > 0:
         header_blob_gas_used = (
             sum(
@@ -264,7 +267,9 @@ def blocks(
             * Spec.GAS_PER_BLOB
         )
     return [
-        Block(txs=txs, exception=tx_error, rlp_modifier=Header(blob_gas_used=header_blob_gas_used))
+        Block(
+            txs=txs, exception=block_error, rlp_modifier=Header(blob_gas_used=header_blob_gas_used)
+        )
     ]
 
 
