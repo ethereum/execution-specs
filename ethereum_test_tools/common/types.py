@@ -699,11 +699,53 @@ class Account:
         """
         return Account(nonce=1, code=code)
 
+    @classmethod
+    def merge(
+        cls: Type, account_1: "Dict | Account | None", account_2: "Dict | Account | None"
+    ) -> "Account":
+        """
+        Create a merged account from two sources.
+        """
 
-class Alloc(dict, Mapping[FixedSizeBytesConvertible, Account | Dict], SupportsJSON):
+        def to_kwargs_dict(account: "Dict | Account | None") -> Dict:
+            if account is None:
+                return {}
+            if isinstance(account, dict):
+                return account
+            elif isinstance(account, cls):
+                return {
+                    f.name: v for f in fields(cls) if (v := getattr(account, f.name)) is not None
+                }
+            raise TypeError(f"Unexpected type for account merge: {type(account)}")
+
+        kwargs = to_kwargs_dict(account_1)
+        kwargs.update(to_kwargs_dict(account_2))
+
+        return cls(**kwargs)
+
+
+class Alloc(dict, Mapping[Address, Account], SupportsJSON):
     """
     Allocation of accounts in the state, pre and post test execution.
     """
+
+    def __init__(self, d: Mapping[FixedSizeBytesConvertible, Account | Dict] = {}):
+        for address, account in d.items():
+            address = Address(address)
+            assert address not in self, f"Duplicate address in alloc: {address}"
+            self[address] = Account.from_dict(account)
+
+    @classmethod
+    def merge(cls, alloc_1: "Alloc", alloc_2: "Alloc") -> "Alloc":
+        """
+        Returns the merged allocation of two sources.
+        """
+        merged = alloc_1.copy()
+
+        for address, other_account in alloc_2.items():
+            merged[address] = Account.merge(merged.get(address, None), other_account)
+
+        return Alloc(merged)
 
     def __json__(self, encoder: JSONEncoder) -> Mapping[str, Any]:
         """

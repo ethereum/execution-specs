@@ -207,7 +207,7 @@ class TransitionTool:
 
     def calc_state_root(
         self, *, alloc: Any, fork: Fork, debug_output_path: str = ""
-    ) -> Tuple[Dict[str, Any], bytes]:
+    ) -> Tuple[Dict, bytes]:
         """
         Calculate the state root for the given `alloc`.
         """

@@ -60,8 +60,9 @@ class BlockchainTest(BaseTest):
         """
         env = self.genesis_environment.set_fork_requirements(fork)
 
+        pre_alloc = Alloc(fork.pre_allocation(block_number=0, timestamp=Number(env.timestamp)))
         new_alloc, state_root = t8n.calc_state_root(
-            alloc=to_json(Alloc(self.pre)),
+            alloc=to_json(Alloc.merge(pre_alloc, Alloc(self.pre))),
             fork=fork,
             debug_output_path=self.get_next_transition_tool_output_path(),
         )

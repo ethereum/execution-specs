@@ -19,6 +19,7 @@ from ..common import (
 from ..common.constants import TestPrivateKey
 from ..common.types import (
     Address,
+    Alloc,
     Bloom,
     Bytes,
     FixtureEngineNewPayload,
@@ -280,6 +281,74 @@ def test_account_check_alloc(account: Account, alloc: Dict[Any, Any], should_pas
     else:
         with pytest.raises(Exception) as _:
             account.check_alloc("test", alloc)
+
+
+@pytest.mark.parametrize(
+    ["alloc1", "alloc2", "expected_alloc"],
+    [
+        pytest.param(
+            Alloc(),
+            Alloc(),
+            Alloc(),
+            id="empty_alloc",
+        ),
+        pytest.param(
+            Alloc({0x1: {"nonce": 1}}),
+            Alloc({0x2: {"nonce": 2}}),
+            Alloc({0x1: Account(nonce=1), 0x2: Account(nonce=2)}),
+            id="alloc_different_accounts",
+        ),
+        pytest.param(
+            Alloc({0x2: {"nonce": 1}}),
+            Alloc({"0x02": {"nonce": 2}}),
+            Alloc({0x2: Account(nonce=2)}),
+            id="overwrite_account",
+        ),
+        pytest.param(
+            Alloc({0x2: {"balance": 1}}),
+            Alloc({"0x02": {"nonce": 1}}),
+            Alloc({0x2: Account(balance=1, nonce=1)}),
+            id="mix_account",
+        ),
+    ],
+)
+def test_alloc_append(alloc1: Alloc, alloc2: Alloc, expected_alloc: Alloc):
+    assert Alloc.merge(alloc1, alloc2) == expected_alloc
+
+
+@pytest.mark.parametrize(
+    ["account1", "account2", "expected_account"],
+    [
+        pytest.param(
+            Account(),
+            Account(),
+            Account(),
+            id="empty_accounts",
+        ),
+        pytest.param(
+            None,
+            None,
+            Account(),
+            id="none_accounts",
+        ),
+        pytest.param(
+            Account(nonce=1),
+            Account(code="0x6000"),
+            Account(nonce=1, code="0x6000"),
+            id="accounts_with_different_fields",
+        ),
+        pytest.param(
+            Account(nonce=1),
+            Account(nonce=2),
+            Account(nonce=2),
+            id="accounts_with_different_nonce",
+        ),
+    ],
+)
+def test_account_merge(
+    account1: Account | None, account2: Account | None, expected_account: Account
+):
+    assert Account.merge(account1, account2) == expected_account
 
 
 CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
