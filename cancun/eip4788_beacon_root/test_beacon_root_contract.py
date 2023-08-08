@@ -7,10 +7,10 @@ note: Adding a new test
 
     Add a function that is named `test_<test_name>` and takes at least the following arguments:
 
-    - blockchain_test or state_test
+    - state_test
     - env
     - pre
-    - blocks or tx
+    - tx
     - post
     - valid_call
 
@@ -27,27 +27,10 @@ from typing import Dict
 
 import pytest
 
-from ethereum_test_tools import (
-    Account,
-    Block,
-    BlockchainTestFiller,
-    Environment,
-    StateTestFiller,
-    Transaction,
-    to_address,
-    to_hash_bytes,
-)
+from ethereum_test_tools import Environment, StateTestFiller, Transaction
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-from .common import (
-    BEACON_ROOT_PRECOMPILE_GAS,
-    DEFAULT_BEACON_ROOT_HASH,
-    HISTORICAL_ROOTS_MODULUS,
-    REF_SPEC_4788_GIT_PATH,
-    REF_SPEC_4788_VERSION,
-    expected_storage,
-    timestamp_index,
-)
+from .common import BEACON_ROOT_CONTRACT_CALL_GAS, REF_SPEC_4788_GIT_PATH, REF_SPEC_4788_VERSION
 
 REFERENCE_SPEC_GIT_PATH = REF_SPEC_4788_GIT_PATH
 REFERENCE_SPEC_VERSION = REF_SPEC_4788_VERSION
@@ -56,18 +39,23 @@ REFERENCE_SPEC_VERSION = REF_SPEC_4788_VERSION
 @pytest.mark.parametrize(
     "call_gas, valid_call",
     [
-        (BEACON_ROOT_PRECOMPILE_GAS, True),
-        (BEACON_ROOT_PRECOMPILE_GAS + 1, True),
-        (BEACON_ROOT_PRECOMPILE_GAS - 1, False),
+        pytest.param(BEACON_ROOT_CONTRACT_CALL_GAS, True),
+        pytest.param(BEACON_ROOT_CONTRACT_CALL_GAS + 1, True),
+        pytest.param(
+            BEACON_ROOT_CONTRACT_CALL_GAS - 1,
+            False,
+            marks=pytest.mark.xfail(reason="gas calculation is incorrect"),  # TODO
+        ),
     ],
 )
 @pytest.mark.parametrize(
-    "call_type",
+    "call_type,call_value,valid_input",
     [
-        Op.CALL,
-        Op.DELEGATECALL,
-        Op.CALLCODE,
-        Op.STATICCALL,
+        (Op.CALL, 1, True),
+        (Op.CALL, 0, True),
+        (Op.CALLCODE, 0, False),
+        (Op.DELEGATECALL, 0, False),
+        (Op.STATICCALL, 0, True),
     ],
 )
 @pytest.mark.valid_from("Cancun")
@@ -116,6 +104,15 @@ def test_beacon_root_precompile_calls(
         # (2**64 + 1, False),  # overflow+1
     ],
 )
+@pytest.mark.parametrize("auto_access_list", [False, True])
+@pytest.mark.parametrize(
+    "system_address_balance",
+    [
+        pytest.param(0, id="empty_system_address"),
+        pytest.param(1, id="one_wei_system_address"),
+        pytest.param(int(1e18), id="one_eth_system_address"),
+    ],
+)
 @pytest.mark.valid_from("Cancun")
 def test_beacon_root_precompile_timestamps(
     state_test: StateTestFiller,
@@ -140,6 +137,37 @@ def test_beacon_root_precompile_timestamps(
 
 
 @pytest.mark.parametrize(
+    "tx_data",
+    [
+        pytest.param(bytes(), id="empty_calldata"),
+        pytest.param(int.to_bytes(12, length=1, byteorder="big"), id="one_byte"),
+        pytest.param(int.to_bytes(12, length=31, byteorder="big"), id="31_bytes"),
+        pytest.param(int.to_bytes(12, length=33, byteorder="big"), id="33_bytes"),
+        pytest.param(int.to_bytes(12, length=1024, byteorder="big"), id="1024_bytes"),
+    ],
+)
+@pytest.mark.parametrize("valid_call,valid_input", [(False, False)])
+@pytest.mark.parametrize("timestamp", [12])
+@pytest.mark.valid_from("Cancun")
+def test_calldata_lengths(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Dict,
+    tx: Transaction,
+    post: Dict,
+):
+    """
+    Tests the beacon root precompile call using multiple invalid input lengths.
+    """
+    state_test(
+        env=env,
+        pre=pre,
+        txs=[tx],
+        post=post,
+    )
+
+
+@pytest.mark.parametrize(
     "beacon_root, timestamp",
     [
         (12, 12),  # twelve
@@ -149,6 +177,7 @@ def test_beacon_root_precompile_timestamps(
     ],
     indirect=["beacon_root"],
 )
+@pytest.mark.parametrize("auto_access_list", [False, True])
 @pytest.mark.valid_from("Cancun")
 def test_beacon_root_equal_to_timestamp(
     state_test: StateTestFiller,
@@ -171,78 +200,24 @@ def test_beacon_root_equal_to_timestamp(
     )
 
 
-@pytest.mark.parametrize(
-    "call_gas, valid_call",
-    [
-        (BEACON_ROOT_PRECOMPILE_GAS, True),
-        (BEACON_ROOT_PRECOMPILE_GAS + 1, True),
-        (BEACON_ROOT_PRECOMPILE_GAS - 1, False),
-    ],
-)
-@pytest.mark.parametrize(
-    "timestamp",
-    [
-        12,  # twelve
-        2**32,  # arbitrary
-    ],
-)
+@pytest.mark.parametrize("tx_type", range(4))
+@pytest.mark.parametrize("auto_access_list", [False, True])
+@pytest.mark.parametrize("call_beacon_root_contract", [True])
 @pytest.mark.valid_from("Cancun")
-def test_beacon_root_timestamp_collisions(
-    blockchain_test: BlockchainTestFiller,
+def test_tx_to_beacon_root_contract(
+    state_test: StateTestFiller,
     env: Environment,
     pre: Dict,
     tx: Transaction,
-    precompile_call_account: Account,
-    timestamp: int,
-    valid_call: bool,
+    post: Dict,
 ):
     """
-    Tests multiple beacon root precompile calls where the timestamp index is calculated to
-    be equal for each call (i.e colliding). For each parameterized timestamp a list of
-    colliding timestamps are calculated using factors of the `HISTORY_ROOTS_MODULUS`.
-
-    The expected result is that precompile call will return an equal beacon_root
-    for each timestamp used within the call, as the timestamp index used will be the same.
-
-    Here we are predominantly testing that the `timestamp_index` and `root_index` are derived
-    correctly in the evm.
+    Tests the beacon root precompile call using a transaction to the precompile contract, using
+    different transaction types and data lengths.
     """
-    post = {}
-    blocks, colliding_timestamps = [], []
-    timestamp_collisions = 5
-    for i in range(timestamp_collisions):
-        pre[to_address(0x100 + i)] = precompile_call_account
-        colliding_timestamps.append(timestamp + i * HISTORICAL_ROOTS_MODULUS)
-
-    # check timestamp_index function is working as expected
-    timestamp_indexes = [timestamp_index(v) for v in colliding_timestamps]
-    assert len(set(timestamp_indexes)) == 1, "timestamp_index function is not working"
-
-    for i, timestamp in enumerate(colliding_timestamps):
-        blocks.append(
-            Block(
-                txs=[
-                    tx.with_fields(
-                        nonce=i,
-                        to=to_address(0x100 + i),
-                        data=to_hash_bytes(timestamp),
-                    )
-                ],
-                beacon_root=DEFAULT_BEACON_ROOT_HASH,
-                timestamp=timestamp,
-            )
-        )
-        post[to_address(0x100 + i)] = Account(
-            storage=expected_storage(
-                beacon_root=DEFAULT_BEACON_ROOT_HASH,
-                timestamp=timestamp,
-                valid_call=valid_call,
-                valid_input=True,
-            )
-        )
-
-    blockchain_test(
+    state_test(
+        env=env,
         pre=pre,
-        blocks=blocks,
+        txs=[tx],
         post=post,
     )

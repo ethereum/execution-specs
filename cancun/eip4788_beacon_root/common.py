@@ -7,9 +7,10 @@ from ethereum_test_tools import BeaconRoot, Storage
 REF_SPEC_4788_GIT_PATH = "EIPS/eip-4788.md"
 REF_SPEC_4788_VERSION = "f0eb6a364aaf5ccb43516fa2c269a54fb881ecfd"
 
-BEACON_ROOT_PRECOMPILE_ADDRESS = 0x0B  # HISTORY_STORE_ADDRESS
-BEACON_ROOT_PRECOMPILE_GAS = 4_200  # G_BEACON_ROOT
+BEACON_ROOT_CONTRACT_ADDRESS = 0x0B  # HISTORY_STORE_ADDRESS
+BEACON_ROOT_CONTRACT_CALL_GAS = 100_000
 HISTORICAL_ROOTS_MODULUS = 98_304
+SYSTEM_ADDRESS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
 
 FORK_TIMESTAMP = 15_000  # ShanghaiToCancun timestamp
 DEFAULT_BEACON_ROOT_HASH = BeaconRoot
@@ -30,8 +31,8 @@ def root_index(timestamp: int) -> int:
 
 
 def expected_storage(
+    *,
     beacon_root: bytes,
-    timestamp: int,
     valid_call: bool,
     valid_input: bool,
 ) -> Storage:
@@ -41,23 +42,13 @@ def expected_storage(
     - success or failure of the call
     - validity of the timestamp input used within the call
     """
-    storage = Storage()
-    # beacon root precompile call is successful
-    if valid_call:
+    # By default assume the call is unsuccessful and all keys are zero
+    storage = Storage({k: 0 for k in range(4)})
+    if valid_call and valid_input:
+        # beacon root precompile call is successful
         storage[0] = 1
+        storage[1] = beacon_root
         storage[2] = 32
-        # timestamp precompile input is valid
-        if valid_input:
-            storage[1] = beacon_root
-        else:
-            storage[1] = 0
-        storage[3] = storage[1]
-
-    # beacon root precompile call failed
-    else:
-        storage[0] = 0
-        storage[1] = timestamp  # due to failure, input is not overwritten
-        storage[2] = 0
-        storage[3] = storage[1]
+        storage[3] = beacon_root
 
     return storage
