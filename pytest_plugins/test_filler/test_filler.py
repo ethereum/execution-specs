@@ -409,6 +409,10 @@ def blockchain_test(
     class BlockchainTestWrapper(BlockchainTest):
         def __init__(self, *args, **kwargs):
             kwargs["base_test_config"] = base_test_config
+            if t8n_dump_dir := request.config.getoption("t8n_dump_dir"):
+                kwargs["t8n_dump_dir"] = os.path.join(
+                    t8n_dump_dir, convert_test_name_to_path(request.node.name)
+                )
             super(BlockchainTestWrapper, self).__init__(*args, **kwargs)
             fixture_collector.add_fixture(
                 request.node,
