@@ -26,6 +26,7 @@ def main():
         for path in paths:
             with open(path) as wordlist:
                 whitelist.write(wordlist.read())
+                whitelist.write("\n")
 
 
 if __name__ == "__main__":
