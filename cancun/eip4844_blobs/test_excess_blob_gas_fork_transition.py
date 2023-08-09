@@ -12,6 +12,7 @@ from ethereum_test_tools import (
     Account,
     Block,
     BlockchainTestFiller,
+    EngineAPIError,
     Environment,
     Header,
     TestAddress,
@@ -164,7 +165,8 @@ def test_invalid_pre_fork_block_with_blob_fields(
             Block(
                 timestamp=(FORK_TIMESTAMP - 1),
                 rlp_modifier=header_modifier,
-                exception="invalid field",
+                exception="Invalid params",
+                engine_api_error_code=EngineAPIError.InvalidParams,
             )
         ],
         genesis_environment=env,
@@ -205,7 +207,8 @@ def test_invalid_post_fork_block_without_blob_fields(
             Block(
                 timestamp=FORK_TIMESTAMP,
                 rlp_modifier=header_modifier,
-                exception="missing field",
+                exception="Invalid params",
+                engine_api_error_code=EngineAPIError.InvalidParams,
             )
         ],
         genesis_environment=env,
