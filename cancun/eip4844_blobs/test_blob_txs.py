@@ -21,7 +21,14 @@ from typing import Dict, List, Optional, Tuple
 
 import pytest
 
-from ethereum_test_tools import Account, Block, BlockchainTestFiller, Environment, Header
+from ethereum_test_tools import (
+    Account,
+    Block,
+    BlockchainTestFiller,
+    EngineAPIError,
+    Environment,
+    Header,
+)
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
     Storage,
@@ -313,9 +320,19 @@ def env(
 
 
 @pytest.fixture
+def engine_api_error_code() -> Optional[int]:
+    """
+    Expected Engine API error code to be returned by the client on consumption
+    of the erroneous block in hive.
+    """
+    return None
+
+
+@pytest.fixture
 def blocks(
     txs: List[Transaction],
     tx_error: Optional[str],
+    engine_api_error_code: Optional[int],
 ) -> List[Block]:
     """
     Prepare the list of blocks for all test cases.
@@ -333,7 +350,12 @@ def blocks(
             * Spec.GAS_PER_BLOB
         )
     return [
-        Block(txs=txs, exception=tx_error, rlp_modifier=Header(blob_gas_used=header_blob_gas_used))
+        Block(
+            txs=txs,
+            exception=tx_error,
+            engine_api_error_code=engine_api_error_code,
+            rlp_modifier=Header(blob_gas_used=header_blob_gas_used),
+        )
     ]
 
 
@@ -925,10 +947,11 @@ def test_blob_tx_attribute_gasprice_opcode(
         "parent_excess_blobs",
         "tx_max_fee_per_blob_gas",
         "tx_error",
+        "engine_api_error_code",
     ],
     [
-        ([0], None, 1, "tx_type_3_not_allowed_yet"),
-        ([1], None, 1, "tx_type_3_not_allowed_yet"),
+        ([0], None, 1, "Invalid params", EngineAPIError.InvalidParams),
+        ([1], None, 1, "Invalid params", EngineAPIError.InvalidParams),
     ],
     ids=["no_blob_tx", "one_blob_tx"],
 )
@@ -939,7 +962,10 @@ def test_blob_type_tx_pre_fork(
     blocks: List[Block],
 ):
     """
-    Reject blocks with blob type transactions before Cancun fork
+    Reject blocks with blob type transactions before Cancun fork.
+
+    Blocks sent by NewPayloadV2 (Shanghai) that contain blob type transactions, furthermore blobs
+    field within NewPayloadV2 method must be rejected with the `-32602: Invalid params` error.
     """
     blockchain_test(
         pre=pre,

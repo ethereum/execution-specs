@@ -151,6 +151,9 @@ def test_invalid_pre_fork_block_with_blob_fields(
     """
     Test block rejection when `excessBlobGas` and/or `blobGasUsed` fields are present on a pre-fork
     block.
+
+    Blocks sent by NewPayloadV2 (Shanghai) that contain `excessBlobGas` and `blobGasUsed` fields
+    must be rejected with the `-32602: Invalid params` error.
     """
     header_modifier = Header()
     if excess_blob_gas_present:
@@ -193,6 +196,9 @@ def test_invalid_post_fork_block_without_blob_fields(
     """
     Test block rejection when `excessBlobGas` and/or `blobGasUsed` fields are missing on a
     post-fork block.
+
+    Blocks sent by NewPayloadV3 (Cancun) without `excessBlobGas` and `blobGasUsed` fields must be
+    rejected with the `-32602: Invalid params` error.
     """
     header_modifier = Header()
     if excess_blob_gas_missing:
