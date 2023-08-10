@@ -320,7 +320,7 @@ def env(
 
 
 @pytest.fixture
-def engine_api_error_code() -> Optional[int]:
+def engine_api_error_code() -> Optional[EngineAPIError]:
     """
     Expected Engine API error code to be returned by the client on consumption
     of the erroneous block in hive.
@@ -332,7 +332,7 @@ def engine_api_error_code() -> Optional[int]:
 def blocks(
     txs: List[Transaction],
     tx_error: Optional[str],
-    engine_api_error_code: Optional[int],
+    engine_api_error_code: Optional[EngineAPIError],
 ) -> List[Block]:
     """
     Prepare the list of blocks for all test cases.
