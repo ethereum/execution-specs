@@ -722,3 +722,42 @@ def test_large_amount(blockchain_test: BlockchainTestFiller):
         )
     ]
     blockchain_test(pre=pre, post=post, blocks=blocks)
+
+
+@pytest.mark.parametrize("amount", [0, 1])
+@pytest.mark.with_all_precompiles
+def test_withdrawing_to_precompiles(
+    blockchain_test: BlockchainTestFiller, precompile: int, amount: int
+):
+    """
+    Test withdrawing to all precompiles for a given fork.
+    """
+    pre: Dict = {
+        TestAddress: Account(balance=1000000000000000000000, nonce=0),
+    }
+    post: Dict = {}
+
+    blocks = [
+        # First block performs the withdrawal
+        Block(
+            withdrawals=[
+                Withdrawal(
+                    index=0,
+                    validator=0,
+                    address=to_address(precompile),
+                    amount=amount,
+                )
+            ]
+        ),
+        # Second block sends a transaction to the precompile
+        Block(
+            txs=[
+                Transaction(
+                    nonce=0,
+                    gas_limit=100000,
+                    to=to_address(precompile),
+                ),
+            ],
+        ),
+    ]
+    blockchain_test(pre=pre, post=post, blocks=blocks)

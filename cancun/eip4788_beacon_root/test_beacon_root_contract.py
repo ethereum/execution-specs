@@ -200,9 +200,9 @@ def test_beacon_root_equal_to_timestamp(
     )
 
 
-@pytest.mark.parametrize("tx_type", range(4))
 @pytest.mark.parametrize("auto_access_list", [False, True])
 @pytest.mark.parametrize("call_beacon_root_contract", [True])
+@pytest.mark.with_all_tx_types
 @pytest.mark.valid_from("Cancun")
 def test_tx_to_beacon_root_contract(
     state_test: StateTestFiller,
