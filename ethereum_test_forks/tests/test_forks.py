@@ -163,3 +163,11 @@ def test_pre_alloc():
         "test": "test",
         "test2": "test2",
     }
+
+
+def test_precompiles():
+    Cancun.precompiles() == list(range(11))[1:]
+
+
+def test_tx_types():
+    Cancun.tx_types() == list(range(4))

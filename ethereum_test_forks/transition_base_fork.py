@@ -3,7 +3,7 @@ Base objects used to define transition forks.
 """
 from typing import List, Type
 
-from .base_fork import BaseFork, Fork
+from .base_fork import BaseFork, Fork, ForkAttribute
 
 ALWAYS_TRANSITIONED_BLOCK_NUMBER = 10_000
 ALWAYS_TRANSITIONED_BLOCK_TIMESTAMP = 10_000_000
@@ -51,18 +51,22 @@ def transition_fork(to_fork: Fork, at_block: int = 0, at_timestamp: int = 0):
 
         NewTransitionClass.name = lambda: transition_name  # type: ignore
 
-        def make_transition_method(base_method, from_fork_method, to_fork_method):
+        def make_transition_method(
+            base_method: ForkAttribute,
+            from_fork_method: ForkAttribute,
+            to_fork_method: ForkAttribute,
+        ):
             def transition_method(
                 cls,
                 block_number: int = ALWAYS_TRANSITIONED_BLOCK_NUMBER,
                 timestamp: int = ALWAYS_TRANSITIONED_BLOCK_TIMESTAMP,
             ):
                 if getattr(base_method, "__prefer_transition_to_method__", False):
-                    return to_fork_method(block_number, timestamp)
+                    return to_fork_method(block_number=block_number, timestamp=timestamp)
                 return (
-                    to_fork_method(block_number, timestamp)
+                    to_fork_method(block_number=block_number, timestamp=timestamp)
                     if block_number >= at_block and timestamp >= at_timestamp
-                    else from_fork_method(block_number, timestamp)
+                    else from_fork_method(block_number=block_number, timestamp=timestamp)
                 )
 
             return classmethod(transition_method)

@@ -1,7 +1,7 @@
 """
 All Ethereum fork class definitions.
 """
-from typing import Mapping, Optional
+from typing import List, Mapping, Optional
 
 from ..base_fork import BaseFork
 
@@ -100,6 +100,20 @@ class Frontier(BaseFork):
         return 5_000_000_000_000_000_000
 
     @classmethod
+    def tx_types(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """
+        At Genesis, only legacy transactions are allowed
+        """
+        return [0]
+
+    @classmethod
+    def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """
+        At Genesis, no pre-compiles are allowed
+        """
+        return []
+
+    @classmethod
     def pre_allocation(cls, block_number: int = 0, timestamp: int = 0) -> Mapping:
         """
         Returns whether the fork expects pre-allocation of accounts
@@ -114,7 +128,12 @@ class Homestead(Frontier):
     Homestead fork
     """
 
-    pass
+    @classmethod
+    def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """
+        At Homestead, EC-recover, SHA256, RIPEMD160, and Identity pre-compiles are introduced
+        """
+        return [1, 2, 3, 4] + super(Homestead, cls).precompiles(block_number, timestamp)
 
 
 class Byzantium(Homestead):
@@ -129,6 +148,15 @@ class Byzantium(Homestead):
         3_000_000_000_000_000_000 wei
         """
         return 3_000_000_000_000_000_000
+
+    @classmethod
+    def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """
+        At Byzantium, pre-compiles for bigint modular exponentiation, addition and scalar
+        multiplication on elliptic curve alt_bn128, and optimal ate pairing check on
+        elliptic curve alt_bn128 are introduced
+        """
+        return [5, 6, 7, 8] + super(Byzantium, cls).precompiles(block_number, timestamp)
 
 
 class Constantinople(Byzantium):
@@ -158,7 +186,12 @@ class Istanbul(ConstantinopleFix):
     Istanbul fork
     """
 
-    pass
+    @classmethod
+    def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """
+        At Istanbul, pre-compile for blake2 compression is introduced
+        """
+        return [9] + super(Istanbul, cls).precompiles(block_number, timestamp)
 
 
 # Glacier forks skipped, unless explicitly specified
@@ -175,7 +208,12 @@ class Berlin(Istanbul):
     Berlin fork
     """
 
-    pass
+    @classmethod
+    def tx_types(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """
+        At Berlin, access list transactions are introduced
+        """
+        return [1] + super(Berlin, cls).tx_types(block_number, timestamp)
 
 
 class London(Berlin):
@@ -189,6 +227,13 @@ class London(Berlin):
         Base Fee is required starting from London.
         """
         return True
+
+    @classmethod
+    def tx_types(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """
+        At London, dynamic fee transactions are introduced
+        """
+        return [2] + super(London, cls).tx_types(block_number, timestamp)
 
 
 # Glacier forks skipped, unless explicitly specified
@@ -299,6 +344,20 @@ class Cancun(Shanghai):
         Parent beacon block root is required starting from Cancun.
         """
         return True
+
+    @classmethod
+    def tx_types(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """
+        At Cancun, blob type transactions are introduced
+        """
+        return [3] + super(Cancun, cls).tx_types(block_number, timestamp)
+
+    @classmethod
+    def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """
+        At Cancun, pre-compile for kzg point evaluation is introduced
+        """
+        return [0xA] + super(Cancun, cls).precompiles(block_number, timestamp)
 
     @classmethod
     def pre_allocation(cls, block_number: int = 0, timestamp: int = 0) -> Mapping:

@@ -1,13 +1,18 @@
 """
 Pytest plugin to enable fork range configuration for the test session.
 """
+import itertools
 import sys
 import textwrap
+from dataclasses import dataclass, field
+from typing import Any, List
 
 import pytest
 from pytest import Metafunc
 
 from ethereum_test_forks import (
+    Fork,
+    ForkAttribute,
     forks_from_until,
     get_deployed_forks,
     get_forks,
@@ -52,6 +57,98 @@ def pytest_addoption(parser):
     )
 
 
+@dataclass(kw_only=True)
+class ForkCovariantParameter:
+    """
+    Value list for a fork covariant parameter in a given fork.
+    """
+
+    name: str
+    values: List[Any]
+
+
+@dataclass(kw_only=True)
+class ForkParametrizer:
+    """
+    A parametrizer for a test case that is parametrized by the fork.
+    """
+
+    fork: Fork
+    mark: pytest.MarkDecorator | None = None
+    fork_covariant_parameters: List[ForkCovariantParameter] = field(default_factory=list)
+
+    def get_parameter_names(self) -> List[str]:
+        """
+        Return the parameter names for the test case.
+        """
+        return ["fork"] + [p.name for p in self.fork_covariant_parameters]
+
+    def get_parameter_values(self) -> List[Any]:
+        """
+        Return the parameter values for the test case.
+        """
+        return [
+            pytest.param(*params, marks=[self.mark] if self.mark else [])
+            for params in itertools.product(
+                [self.fork],
+                *[p.values for p in self.fork_covariant_parameters],
+            )
+        ]
+
+
+@dataclass(kw_only=True)
+class CovariantDescriptor:
+    """
+    A descriptor for a parameter that is covariant with the fork:
+    the parametrized values change depending on the fork.
+    """
+
+    marker_name: str
+    description: str
+    fork_attribute_name: str
+    parameter_name: str
+
+    def check_enabled(self, metafunc: Metafunc) -> bool:
+        """
+        Check if the marker is enabled for the given test function.
+        """
+        m = metafunc.definition.iter_markers(self.marker_name)
+        return m is not None and len(list(m)) > 0
+
+    def add_values(self, metafunc: Metafunc, fork_parametrizer: ForkParametrizer) -> None:
+        """
+        Add the values for the covariant parameter to the parametrizer.
+        """
+        if not self.check_enabled(metafunc=metafunc):
+            return
+        fork = fork_parametrizer.fork
+        get_fork_covariant_values: ForkAttribute = getattr(fork, self.fork_attribute_name)
+        values = get_fork_covariant_values(block_number=0, timestamp=0)
+        assert isinstance(values, list)
+        assert len(values) > 0
+        fork_parametrizer.fork_covariant_parameters.append(
+            ForkCovariantParameter(name=self.parameter_name, values=values)
+        )
+
+
+fork_covariant_descriptors = [
+    CovariantDescriptor(
+        marker_name="with_all_tx_types",
+        description="marks a test to be parametrized for all tx types at parameter named tx_type"
+        " of type int",
+        fork_attribute_name="tx_types",
+        parameter_name="tx_type",
+    ),
+    CovariantDescriptor(
+        marker_name="with_all_precompiles",
+        description="marks a test to be parametrized for all precompiles at parameter named"
+        " precompile of type int",
+        fork_attribute_name="precompiles",
+        parameter_name="precompile",
+    ),
+]
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
     """
@@ -75,6 +172,9 @@ def pytest_configure(config):
         "markers",
         "valid_until(fork): specifies until which fork a test case is valid",
     )
+
+    for d in fork_covariant_descriptors:
+        config.addinivalue_line("markers", f"{d.marker_name}: {d.description}")
 
     single_fork = config.getoption("single_fork")
     forks_from = config.getoption("forks_from")
@@ -328,19 +428,45 @@ def pytest_generate_tests(metafunc):
                 )
         else:
             pytest_params = [
-                pytest.param(
-                    fork,
-                    marks=[
-                        pytest.mark.skip(
-                            reason=(
-                                f"Fork '{fork}' unsupported by "
-                                f"'{metafunc.config.getoption('evm_bin')}'."
-                            )
+                ForkParametrizer(
+                    fork=fork,
+                    mark=pytest.mark.skip(
+                        reason=(
+                            f"Fork '{fork}' unsupported by "
+                            f"'{metafunc.config.getoption('evm_bin')}'."
                         )
-                    ],
+                    ),
                 )
                 if fork.name() in metafunc.config.unsupported_forks
-                else pytest.param(fork)
+                else ForkParametrizer(fork=fork)
                 for fork in intersection_range
             ]
-            metafunc.parametrize("fork", pytest_params, scope="function")
+            add_fork_covariant_parameters(metafunc, pytest_params)
+            parametrize_fork(metafunc, pytest_params)
+
+
+def add_fork_covariant_parameters(
+    metafunc: Metafunc, fork_parametrizers: List[ForkParametrizer]
+) -> None:
+    """
+    Iterate over the fork covariant descriptors and add their values to the test function.
+    """
+    for covariant_descriptor in fork_covariant_descriptors:
+        for fork_parametrizer in fork_parametrizers:
+            covariant_descriptor.add_values(metafunc=metafunc, fork_parametrizer=fork_parametrizer)
+
+
+def parametrize_fork(metafunc: Metafunc, fork_parametrizers: List[ForkParametrizer]) -> None:
+    """
+    Add the fork parameters to the test function.
+    """
+    param_names: List[str] = []
+    param_values: List[Any] = []
+
+    for fork_parametrizer in fork_parametrizers:
+        if not param_names:
+            param_names = fork_parametrizer.get_parameter_names()
+        else:
+            assert param_names == fork_parametrizer.get_parameter_names()
+        param_values.extend(fork_parametrizer.get_parameter_values())
+    metafunc.parametrize(param_names, param_values, scope="function")

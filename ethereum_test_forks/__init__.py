@@ -2,7 +2,7 @@
 Ethereum test fork definitions.
 """
 
-from .base_fork import Fork
+from .base_fork import Fork, ForkAttribute
 from .forks.forks import (
     ArrowGlacier,
     Berlin,
@@ -39,6 +39,7 @@ from .helpers import (
 
 __all__ = [
     "Fork",
+    "ForkAttribute",
     "ArrowGlacier",
     "Berlin",
     "BerlinToLondonAt5",
