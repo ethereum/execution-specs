@@ -37,7 +37,10 @@ def dump_files_to_directory(output_path: str, files: Dict[str, Any]) -> None:
     for file_name, file_contents in files.items():
         file_path = os.path.join(output_path, file_name)
         with open(file_path, "w") as f:
-            dump(file_contents, f, ensure_ascii=True, indent=4)
+            if isinstance(file_contents, str):
+                f.write(file_contents)
+            else:
+                dump(file_contents, f, ensure_ascii=True, indent=4)
 
 
 class TransitionTool:
