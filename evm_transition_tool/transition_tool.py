@@ -236,7 +236,7 @@ class TransitionTool:
 
         if fork.header_beacon_root_required(0, 0):
             env[
-                "beaconRoot"
+                "parentBeaconBlockRoot"
             ] = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
         new_alloc, result = self.evaluate(
@@ -283,7 +283,7 @@ class TransitionTool:
 
         if fork.header_beacon_root_required(0, 0):
             env[
-                "beaconRoot"
+                "parentBeaconBlockRoot"
             ] = "0x0000000000000000000000000000000000000000000000000000000000000000"
 
         _, result = self.evaluate(

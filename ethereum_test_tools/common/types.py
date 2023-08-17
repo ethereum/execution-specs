@@ -1004,7 +1004,7 @@ class Environment:
     beacon_root: Optional[FixedSizeBytesConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
-            name="beaconRoot",
+            name="parentBeaconBlockRoot",
             cast_type=Hash,
         ),
     )
