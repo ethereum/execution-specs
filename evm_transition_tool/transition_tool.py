@@ -5,8 +5,10 @@ Transition tool abstract class.
 import json
 import os
 import shutil
+import stat
 import subprocess
 import tempfile
+import textwrap
 from abc import abstractmethod
 from itertools import groupby
 from json import dump
@@ -37,13 +39,21 @@ def dump_files_to_directory(output_path: str, files: Dict[str, Any]) -> None:
     Dump the files to the given directory.
     """
     os.makedirs(output_path, exist_ok=True)
-    for file_name, file_contents in files.items():
+    for file_name_flags, file_contents in files.items():
+        file_name, flags = (
+            file_name_flags.split("+") if "+" in file_name_flags else (file_name_flags, "")
+        )
         file_path = os.path.join(output_path, file_name)
         with open(file_path, "w") as f:
             if isinstance(file_contents, str):
                 f.write(file_contents)
             else:
                 dump(file_contents, f, ensure_ascii=True, indent=4)
+        if flags:
+            file_mode = os.stat(file_path).st_mode
+            if "x" in flags:
+                file_mode |= stat.S_IEXEC
+            os.chmod(file_path, file_mode)
 
 
 class TransitionTool:
@@ -276,11 +286,20 @@ class TransitionTool:
         )
 
         if debug_output_path:
+            t8n_script = textwrap.dedent(
+                f"""\
+                #!/bin/bash
+                mkdir {temp_dir.name}
+                {' '.join(args)} < {debug_output_path}/stdin
+                """
+            )
             dump_files_to_directory(
                 debug_output_path,
                 stdin
                 | {
                     "args": args,
+                    "t8n.sh+x": t8n_script,
+                    "stdin": stdin,
                     "stdout": result.stdout.decode(),
                     "stderr": result.stderr.decode(),
                     "returncode": result.returncode,
