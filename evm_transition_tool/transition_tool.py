@@ -2,9 +2,13 @@
 Transition tool abstract class.
 """
 
+import json
 import os
 import shutil
+import stat
 import subprocess
+import tempfile
+import textwrap
 from abc import abstractmethod
 from itertools import groupby
 from json import dump
@@ -57,6 +61,7 @@ class TransitionTool:
     default_binary: Path
     detect_binary_pattern: Pattern
     version_flag: str = "-v"
+    t8n_subcommand: Optional[str] = None
 
     # Abstract methods that each tool must implement
 
@@ -162,24 +167,6 @@ class TransitionTool:
         return cls.detect_binary_pattern.match(binary_output) is not None
 
     @abstractmethod
-    def evaluate(
-        self,
-        *,
-        alloc: Any,
-        txs: Any,
-        env: Any,
-        fork_name: str,
-        chain_id: int = 1,
-        reward: int = 0,
-        eips: Optional[List[int]] = None,
-        debug_output_path: str = "",
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        """
-        Simulate a state transition with specified parameters
-        """
-        pass
-
-    @abstractmethod
     def version(self) -> str:
         """
         Return name and version of tool used to state transition
@@ -218,6 +205,117 @@ class TransitionTool:
         Returns the accumulated traces
         """
         return self.traces
+
+    def evaluate(
+        self,
+        *,
+        alloc: Any,
+        txs: Any,
+        env: Any,
+        fork_name: str,
+        chain_id: int = 1,
+        reward: int = 0,
+        eips: Optional[List[int]] = None,
+        debug_output_path: str = "",
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """
+        Executes `evm t8n` with the specified arguments.
+
+        If a client's `t8n` tool varies from the default behavior, this method
+        should be overridden.
+        """
+        if eips is not None:
+            fork_name = "+".join([fork_name] + [str(eip) for eip in eips])
+
+        temp_dir = tempfile.TemporaryDirectory()
+
+        if int(env["currentNumber"], 0) == 0:
+            reward = -1
+
+        command: list[str] = [str(self.binary)]
+        if self.t8n_subcommand:
+            command.append(self.t8n_subcommand)
+
+        args = command + [
+            "--input.alloc=stdin",
+            "--input.txs=stdin",
+            "--input.env=stdin",
+            "--output.result=stdout",
+            "--output.alloc=stdout",
+            "--output.body=txs.rlp",
+            f"--output.basedir={temp_dir.name}",
+            f"--state.fork={fork_name}",
+            f"--state.chainid={chain_id}",
+            f"--state.reward={reward}",
+        ]
+
+        if self.trace:
+            args.append("--trace")
+
+        stdin = {
+            "alloc": alloc,
+            "txs": txs,
+            "env": env,
+        }
+
+        encoded_input = str.encode(json.dumps(stdin))
+        result = subprocess.run(
+            args,
+            input=encoded_input,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        if debug_output_path:
+            dump_files_to_directory(
+                debug_output_path,
+                stdin
+                | {
+                    "args": args,
+                    "stdout": result.stdout.decode(),
+                    "stderr": result.stderr.decode(),
+                    "returncode": result.returncode,
+                },
+            )
+
+        if result.returncode != 0:
+            raise Exception("failed to evaluate: " + result.stderr.decode())
+
+        output = json.loads(result.stdout)
+
+        if "alloc" not in output or "result" not in output:
+            raise Exception("malformed result")
+
+        if self.trace:
+            receipts: List[Any] = output["result"]["receipts"]
+            traces: List[List[Dict]] = []
+            for i, r in enumerate(receipts):
+                h = r["transactionHash"]
+                trace_file_name = f"trace-{i}-{h}.jsonl"
+                if debug_output_path:
+                    shutil.copy(
+                        os.path.join(temp_dir.name, trace_file_name),
+                        os.path.join(debug_output_path, trace_file_name),
+                    )
+                with open(os.path.join(temp_dir.name, trace_file_name), "r") as trace_file:
+                    tx_traces: List[Dict] = []
+                    for trace_line in trace_file.readlines():
+                        tx_traces.append(json.loads(trace_line))
+                    traces.append(tx_traces)
+            self.append_traces(traces)
+
+        temp_dir.cleanup()
+
+        if debug_output_path:
+            dump_files_to_directory(
+                debug_output_path,
+                {
+                    "output_alloc": output["alloc"],
+                    "output_result": output["result"],
+                },
+            )
+
+        return output["alloc"], output["result"]
 
     def calc_state_root(
         self, *, alloc: Any, fork: Fork, debug_output_path: str = ""
