@@ -32,7 +32,7 @@ class GethTransitionTool(TransitionTool):
         trace: bool = False,
     ):
         super().__init__(binary=binary, trace=trace)
-        args = [str(self.binary), self.t8n_subcommand, "--help"]
+        args = [str(self.binary), str(self.t8n_subcommand), "--help"]
         try:
             result = subprocess.run(args, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
