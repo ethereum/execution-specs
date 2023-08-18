@@ -5,10 +5,8 @@ Transition tool abstract class.
 import json
 import os
 import shutil
-import stat
 import subprocess
 import tempfile
-import textwrap
 from abc import abstractmethod
 from itertools import groupby
 from json import dump
