@@ -41,23 +41,6 @@ class GethTransitionTool(TransitionTool):
             raise Exception(f"Unexpected exception calling evm tool: {e}.")
         self.help_string = result.stdout
 
-    def version(self) -> str:
-        """
-        Gets `evm` binary version.
-        """
-        if self.cached_version is None:
-            result = subprocess.run(
-                [str(self.binary), "-v"],
-                stdout=subprocess.PIPE,
-            )
-
-            if result.returncode != 0:
-                raise Exception("failed to evaluate: " + result.stderr.decode())
-
-            self.cached_version = result.stdout.decode().strip()
-
-        return self.cached_version
-
     def is_fork_supported(self, fork: Fork) -> bool:
         """
         Returns True if the fork is supported by the tool.

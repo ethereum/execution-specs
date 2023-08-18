@@ -60,6 +60,7 @@ class TransitionTool:
     detect_binary_pattern: Pattern
     version_flag: str = "-v"
     t8n_subcommand: Optional[str] = None
+    cached_version: Optional[str] = None
 
     # Abstract methods that each tool must implement
 
@@ -164,12 +165,22 @@ class TransitionTool:
 
         return cls.detect_binary_pattern.match(binary_output) is not None
 
-    @abstractmethod
     def version(self) -> str:
         """
         Return name and version of tool used to state transition
         """
-        pass
+        if self.cached_version is None:
+            result = subprocess.run(
+                [str(self.binary), self.version_flag],
+                stdout=subprocess.PIPE,
+            )
+
+            if result.returncode != 0:
+                raise Exception("failed to evaluate: " + result.stderr.decode())
+
+            self.cached_version = result.stdout.decode().strip()
+
+        return self.cached_version
 
     @abstractmethod
     def is_fork_supported(self, fork: Fork) -> bool:

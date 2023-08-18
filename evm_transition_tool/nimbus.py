@@ -47,15 +47,7 @@ class NimbusTransitionTool(TransitionTool):
         Gets `evm` binary version.
         """
         if self.cached_version is None:
-            result = subprocess.run(
-                [str(self.binary), "--version"],
-                stdout=subprocess.PIPE,
-            )
-
-            if result.returncode != 0:
-                raise Exception("failed to evaluate: " + result.stderr.decode())
-
-            self.cached_version = re.sub(r"\x1b\[0m", "", result.stdout.decode()).strip()
+            self.cached_version = re.sub(r"\x1b\[0m", "", super().version()).strip()
 
         return self.cached_version
 
