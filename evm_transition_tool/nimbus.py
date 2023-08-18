@@ -5,6 +5,7 @@ Go-ethereum Transition tool interface.
 import json
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -124,6 +125,11 @@ class NimbusTransitionTool(TransitionTool):
             for i, r in enumerate(receipts):
                 h = r["transactionHash"]
                 trace_file_name = f"trace-{i}-{h}.jsonl"
+                if debug_output_path:
+                    shutil.copy(
+                        os.path.join(temp_dir.name, trace_file_name),
+                        os.path.join(debug_output_path, trace_file_name),
+                    )
                 with open(os.path.join(temp_dir.name, trace_file_name), "r") as trace_file:
                     tx_traces: List[Dict] = []
                     for trace_line in trace_file.readlines():
