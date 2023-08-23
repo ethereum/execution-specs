@@ -112,9 +112,11 @@ class BesuTransitionTool(TransitionTool):
         if debug_output_path:
             dump_files_to_directory(
                 debug_output_path,
-                input_json
-                | {
-                    "state": state_json,
+                {
+                    "state.json": state_json,
+                    "input/alloc.json": input_json["alloc"],
+                    "input/env.json": input_json["env"],
+                    "input/txs.json": input_json["txs"],
                 },
             )
 
@@ -133,8 +135,9 @@ class BesuTransitionTool(TransitionTool):
             dump_files_to_directory(
                 debug_output_path,
                 {
-                    "output_alloc": output["alloc"],
-                    "output_result": output["result"],
+                    "output/alloc.json": output["alloc"],
+                    "output/result.json": output["result"],
+                    "output/txs.rlp": output["body"],
                 },
             )
 
