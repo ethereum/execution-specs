@@ -2,8 +2,10 @@
 Hyperledger Besu Transition tool frontend.
 """
 
+import json
 import re
 import subprocess
+import textwrap
 from pathlib import Path
 from re import compile
 from typing import Any, Dict, List, Optional, Tuple
@@ -109,7 +111,22 @@ class BesuTransitionTool(TransitionTool):
             "chainid": chain_id,
             "reward": reward,
         }
+
+        post_data = {"state": state_json, "input": input_json}
+
         if debug_output_path:
+            post_data_string = json.dumps(post_data, indent=4)
+            additional_indent = " " * 16  # for pretty indentation in t8n.sh
+            indented_post_data_string = "{\n" + "\n".join(
+                additional_indent + line for line in post_data_string[1:].splitlines()
+            )
+            t8n_script = textwrap.dedent(
+                f"""\
+                #!/bin/bash
+                curl http://localhost:3000/ -X POST -H "Content-Type: application/json" --data '
+                {indented_post_data_string}'
+                """
+            )
             dump_files_to_directory(
                 debug_output_path,
                 {
@@ -117,17 +134,11 @@ class BesuTransitionTool(TransitionTool):
                     "input/alloc.json": input_json["alloc"],
                     "input/env.json": input_json["env"],
                     "input/txs.json": input_json["txs"],
+                    "t8n.sh+x": t8n_script,
                 },
             )
 
-        response = requests.post(
-            self.server_url,
-            json={
-                "state": state_json,
-                "input": input_json,
-            },
-            timeout=5,
-        )
+        response = requests.post(self.server_url, json=post_data, timeout=5)
         response.raise_for_status()  # exception visible in pytest failure output
         output = response.json()
 
