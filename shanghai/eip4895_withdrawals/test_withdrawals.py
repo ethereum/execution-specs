@@ -22,6 +22,7 @@ from ethereum_test_tools import (
     to_hash,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from evm_transition_tool import TransitionTool
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4895.md"
 REFERENCE_SPEC_VERSION = "81af3b60b632bc9c03513d1d137f25410e3f4d34"
@@ -727,11 +728,13 @@ def test_large_amount(blockchain_test: BlockchainTestFiller):
 @pytest.mark.parametrize("amount", [0, 1])
 @pytest.mark.with_all_precompiles
 def test_withdrawing_to_precompiles(
-    blockchain_test: BlockchainTestFiller, precompile: int, amount: int
+    blockchain_test: BlockchainTestFiller, precompile: int, amount: int, t8n: TransitionTool
 ):
     """
     Test withdrawing to all precompiles for a given fork.
     """
+    if precompile == 3 and str(t8n.default_binary) == "ethereum-spec-evm":
+        pytest.xfail("ethereum-spec-evm doesn't support hash type ripemd160")
     pre: Dict = {
         TestAddress: Account(balance=1000000000000000000000, nonce=0),
     }
