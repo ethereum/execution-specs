@@ -123,8 +123,10 @@ class BesuTransitionTool(TransitionTool):
             t8n_script = textwrap.dedent(
                 f"""\
                 #!/bin/bash
-                curl http://localhost:3000/ -X POST -H "Content-Type: application/json" --data '
-                {indented_post_data_string}'
+                # Use $1 as t8n-server port if provided, else default to 3000
+                PORT=${{1:-3000}}
+                curl http://localhost:${{PORT}}/ -X POST -H "Content-Type: application/json" \\
+                --data '{indented_post_data_string}'
                 """
             )
             dump_files_to_directory(
