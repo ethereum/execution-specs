@@ -151,6 +151,18 @@ class BesuTransitionTool(TransitionTool):
                     "time_elapsed_seconds.txt": response.elapsed.total_seconds(),
                 },
             )
+
+        if response.status_code != 200:
+            raise Exception(
+                f"t8n-server returned status code {response.status_code}, "
+                f"response: {response.text}"
+            )
+        if not all([x in output for x in ["alloc", "result", "body"]]):
+            raise Exception(
+                "Malformed t8n output: missing 'alloc', 'result' or 'body', server response: "
+                f"{response.text}"
+            )
+
         if debug_output_path:
             dump_files_to_directory(
                 debug_output_path,
