@@ -146,6 +146,15 @@ class BesuTransitionTool(TransitionTool):
             dump_files_to_directory(
                 debug_output_path,
                 {
+                    "response.txt": response.text,
+                    "status_code.txt": response.status_code,
+                    "time_elapsed_seconds.txt": response.elapsed.total_seconds(),
+                },
+            )
+        if debug_output_path:
+            dump_files_to_directory(
+                debug_output_path,
+                {
                     "output/alloc.json": output["alloc"],
                     "output/result.json": output["result"],
                     "output/txs.rlp": output["body"],
