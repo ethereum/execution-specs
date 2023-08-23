@@ -3,6 +3,7 @@ Evmone Transition tool interface.
 """
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -41,8 +42,6 @@ class EvmOneTransitionTool(TransitionTool):
         trace: bool = False,
     ):
         super().__init__(binary=binary, trace=trace)
-        if self.trace:
-            raise Exception("`evmone-t8n` does not support tracing.")
 
     def evaluate(
         self,
@@ -100,6 +99,10 @@ class EvmOneTransitionTool(TransitionTool):
             "--state.chainid",
             str(chain_id),
         ]
+
+        if self.trace:
+            args.append("--trace")
+
         result = subprocess.run(
             args,
             stdout=subprocess.PIPE,
@@ -134,6 +137,24 @@ class EvmOneTransitionTool(TransitionTool):
                 json.dump(contents, file, ensure_ascii=False, indent=4)
                 file.truncate()
                 output_contents[key] = contents
+
+        if self.trace:
+            receipts: List[Any] = output_contents["result"]["receipts"]
+            traces: List[List[Dict]] = []
+            for i, r in enumerate(receipts):
+                h = r["transactionHash"]
+                trace_file_name = f"trace-{i}-{h}.jsonl"
+                if debug_output_path:
+                    shutil.copy(
+                        os.path.join(temp_dir.name, trace_file_name),
+                        os.path.join(debug_output_path, trace_file_name),
+                    )
+                with open(os.path.join(temp_dir.name, trace_file_name), "r") as trace_file:
+                    tx_traces: List[Dict] = []
+                    for trace_line in trace_file.readlines():
+                        tx_traces.append(json.loads(trace_line))
+                    traces.append(tx_traces)
+            self.append_traces(traces)
 
         temp_dir.cleanup()
 
