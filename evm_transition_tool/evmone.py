@@ -161,22 +161,7 @@ class EvmOneTransitionTool(TransitionTool):
                 output_contents[key] = json.load(file)
 
         if self.trace:
-            receipts: List[Any] = output_contents["result"]["receipts"]
-            traces: List[List[Dict]] = []
-            for i, r in enumerate(receipts):
-                h = r["transactionHash"]
-                trace_file_name = f"trace-{i}-{h}.jsonl"
-                if debug_output_path:
-                    shutil.copy(
-                        os.path.join(temp_dir.name, trace_file_name),
-                        os.path.join(debug_output_path, trace_file_name),
-                    )
-                with open(os.path.join(temp_dir.name, trace_file_name), "r") as trace_file:
-                    tx_traces: List[Dict] = []
-                    for trace_line in trace_file.readlines():
-                        tx_traces.append(json.loads(trace_line))
-                    traces.append(tx_traces)
-            self.append_traces(traces)
+            self.collect_traces(output_contents["result"]["receipts"], temp_dir, debug_output_path)
 
         temp_dir.cleanup()
 
