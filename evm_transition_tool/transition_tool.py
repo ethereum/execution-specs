@@ -39,11 +39,16 @@ def dump_files_to_directory(output_path: str, files: Dict[str, Any]) -> None:
     Dump the files to the given directory.
     """
     os.makedirs(output_path, exist_ok=True)
-    for file_name_flags, file_contents in files.items():
-        file_name, flags = (
-            file_name_flags.split("+") if "+" in file_name_flags else (file_name_flags, "")
+    for file_rel_path_flags, file_contents in files.items():
+        file_rel_path, flags = (
+            file_rel_path_flags.split("+")
+            if "+" in file_rel_path_flags
+            else (file_rel_path_flags, "")
         )
-        file_path = os.path.join(output_path, file_name)
+        rel_path = os.path.dirname(file_rel_path)
+        if rel_path:
+            os.makedirs(os.path.join(output_path, rel_path), exist_ok=True)
+        file_path = os.path.join(output_path, file_rel_path)
         with open(file_path, "w") as f:
             if isinstance(file_contents, str):
                 f.write(file_contents)
@@ -246,8 +251,6 @@ class TransitionTool:
         if eips is not None:
             fork_name = "+".join([fork_name] + [str(eip) for eip in eips])
 
-        temp_dir = tempfile.TemporaryDirectory()
-
         if int(env["currentNumber"], 0) == 0:
             reward = -1
 
@@ -261,15 +264,16 @@ class TransitionTool:
             "--input.env=stdin",
             "--output.result=stdout",
             "--output.alloc=stdout",
-            "--output.body=txs.rlp",
-            f"--output.basedir={temp_dir.name}",
+            "--output.body=stdout",
             f"--state.fork={fork_name}",
             f"--state.chainid={chain_id}",
             f"--state.reward={reward}",
         ]
 
         if self.trace:
+            temp_dir = tempfile.TemporaryDirectory()
             args.append("--trace")
+            args.append(f"--output.basedir={temp_dir.name}")
 
         stdin = {
             "alloc": alloc,
@@ -286,23 +290,29 @@ class TransitionTool:
         )
 
         if debug_output_path:
+            t8n_call = " ".join(args)
+            t8n_output_base_dir = os.path.join(debug_output_path, "t8n.sh.out")
+            if self.trace:
+                t8n_call = t8n_call.replace(temp_dir.name, t8n_output_base_dir)
             t8n_script = textwrap.dedent(
                 f"""\
                 #!/bin/bash
-                mkdir {temp_dir.name}
-                {' '.join(args)} < {debug_output_path}/stdin
+                mkdir {t8n_output_base_dir}  # unused if tracing is not enabled
+                {t8n_call} < {debug_output_path}/stdin.txt
                 """
             )
             dump_files_to_directory(
                 debug_output_path,
-                stdin
-                | {
-                    "args": args,
+                {
+                    "args.py": args,
+                    "input/alloc.json": stdin["alloc"],
+                    "input/env.json": stdin["env"],
+                    "input/txs.json": stdin["txs"],
+                    "returncode.txt": result.returncode,
+                    "stdin.txt": stdin,
+                    "stdout.txt": result.stdout.decode(),
+                    "stderr.txt": result.stderr.decode(),
                     "t8n.sh+x": t8n_script,
-                    "stdin": stdin,
-                    "stdout": result.stdout.decode(),
-                    "stderr": result.stderr.decode(),
-                    "returncode": result.returncode,
                 },
             )
 
@@ -311,8 +321,18 @@ class TransitionTool:
 
         output = json.loads(result.stdout)
 
-        if "alloc" not in output or "result" not in output:
-            raise Exception("malformed result")
+        if not all([x in output for x in ["alloc", "result", "body"]]):
+            raise Exception("Malformed t8n output: missing 'alloc', 'result' or 'body'.")
+
+        if debug_output_path:
+            dump_files_to_directory(
+                debug_output_path,
+                {
+                    "output/alloc.json": output["alloc"],
+                    "output/result.json": output["result"],
+                    "output/txs.rlp": output["body"],
+                },
+            )
 
         if self.trace:
             receipts: List[Any] = output["result"]["receipts"]
@@ -331,17 +351,7 @@ class TransitionTool:
                         tx_traces.append(json.loads(trace_line))
                     traces.append(tx_traces)
             self.append_traces(traces)
-
-        temp_dir.cleanup()
-
-        if debug_output_path:
-            dump_files_to_directory(
-                debug_output_path,
-                {
-                    "output_alloc": output["alloc"],
-                    "output_result": output["result"],
-                },
-            )
+            temp_dir.cleanup()
 
         return output["alloc"], output["result"]
 
