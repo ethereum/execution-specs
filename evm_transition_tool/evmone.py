@@ -122,7 +122,7 @@ class EvmOneTransitionTool(TransitionTool):
             shutil.copytree(temp_dir.name, debug_output_path)
             t8n_output_base_dir = os.path.join(debug_output_path, "t8n.sh.out")
             t8n_call = " ".join(args)
-            for file_path in input_paths.values():
+            for file_path in input_paths.values():  # update input paths
                 t8n_call = t8n_call.replace(
                     os.path.dirname(file_path), os.path.join(debug_output_path, "input")
                 )
