@@ -25,6 +25,7 @@ from coincurve.keys import PrivateKey, PublicKey
 from ethereum import rlp as eth_rlp
 from ethereum.base_types import Uint
 from ethereum.crypto.hash import keccak256
+from trie import HexaryTrie
 
 from ethereum_test_forks import Fork
 from evm_transition_tool import TransitionTool
@@ -812,6 +813,16 @@ class Withdrawal:
             Address(self.address),
             Uint(Number(self.amount)),
         ]
+
+
+def withdrawals_root(withdrawals: List[Withdrawal]) -> bytes:
+    """
+    Returns the withdrawals root of a list of withdrawals.
+    """
+    t = HexaryTrie(db={})
+    for i, w in enumerate(withdrawals):
+        t.set(eth_rlp.encode(Uint(i)), eth_rlp.encode(w.to_serializable_list()))
+    return t.root_hash
 
 
 @dataclass(kw_only=True)

@@ -52,6 +52,7 @@ from .types import (
     serialize_transactions,
     str_or_none,
     to_json,
+    withdrawals_root,
 )
 
 __all__ = (
@@ -101,4 +102,5 @@ __all__ = (
     "to_hash_bytes",
     "to_hash",
     "to_json",
+    "withdrawals_root",
 )

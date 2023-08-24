@@ -25,6 +25,7 @@ from ..common import (
     Number,
     ZeroPaddedHexNumber,
     to_json,
+    withdrawals_root,
 )
 from ..common.constants import EmptyOmmersRoot
 from .base_test import BaseTest, verify_post_alloc, verify_transactions
@@ -86,13 +87,7 @@ class BlockchainTest(BaseTest):
             blob_gas_used=ZeroPaddedHexNumber.or_none(env.blob_gas_used),
             excess_blob_gas=ZeroPaddedHexNumber.or_none(env.excess_blob_gas),
             withdrawals_root=Hash.or_none(
-                t8n.calc_withdrawals_root(
-                    withdrawals=env.withdrawals,
-                    fork=fork,
-                    debug_output_path=self.get_next_transition_tool_output_path(),
-                )
-                if env.withdrawals is not None
-                else None
+                withdrawals_root(env.withdrawals) if env.withdrawals is not None else None
             ),
             beacon_root=Hash.or_none(env.beacon_root),
         )

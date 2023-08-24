@@ -2,7 +2,7 @@
 Test suite for `ethereum_test` module.
 """
 
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import pytest
 
@@ -15,6 +15,7 @@ from ..common import (
     Transaction,
     Withdrawal,
     to_json,
+    withdrawals_root,
 )
 from ..common.constants import TestPrivateKey
 from ..common.types import (
@@ -1194,3 +1195,68 @@ def test_transaction_post_init_defaults(tx_args, expected_attributes_and_values)
     for attr, val in expected_attributes_and_values:
         assert hasattr(tx, attr)
         assert getattr(tx, attr) == val
+
+
+@pytest.mark.parametrize(
+    ["withdrawals", "expected_root"],
+    [
+        pytest.param(
+            [],
+            bytes.fromhex("56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421"),
+            id="empty-withdrawals",
+        ),
+        pytest.param(
+            [
+                Withdrawal(
+                    index=0,
+                    validator=1,
+                    address=0x1234,
+                    amount=2,
+                )
+            ],
+            bytes.fromhex("dc3ead883fc17ea3802cd0f8e362566b07b223f82e52f94c76cf420444b8ff81"),
+            id="single-withdrawal",
+        ),
+        pytest.param(
+            [
+                Withdrawal(
+                    index=0,
+                    validator=1,
+                    address=0x1234,
+                    amount=2,
+                ),
+                Withdrawal(
+                    index=1,
+                    validator=2,
+                    address=0xABCD,
+                    amount=0,
+                ),
+            ],
+            bytes.fromhex("069ab71e5d228db9b916880f02670c85682c46641bb9c95df84acc5075669e01"),
+            id="multiple-withdrawals",
+        ),
+        pytest.param(
+            [
+                Withdrawal(
+                    index=0,
+                    validator=0,
+                    address=0x100,
+                    amount=0,
+                ),
+                Withdrawal(
+                    index=0,
+                    validator=0,
+                    address=0x200,
+                    amount=0,
+                ),
+            ],
+            bytes.fromhex("daacd8fe889693f7d20436d9c0c044b5e92cc17b57e379997273fc67fd2eb7b8"),
+            id="multiple-withdrawals",
+        ),
+    ],
+)
+def test_withdrawals_root(withdrawals: List[Withdrawal], expected_root: bytes):
+    """
+    Test that withdrawals_root returns the expected hash.
+    """
+    assert withdrawals_root(withdrawals) == expected_root
