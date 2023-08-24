@@ -284,7 +284,7 @@ class Load(BaseLoad):
             else self.hex_to_address(raw.get("to")),
             hex_to_u256(raw.get("value")),
             hex_to_bytes(raw.get("data")),
-            hex_to_u256(raw.get("v")),
+            hex_to_u256(raw.get("y_parity") if "y_parity" in raw else raw.get("v")),
             hex_to_u256(raw.get("r")),
             hex_to_u256(raw.get("s")),
         ]

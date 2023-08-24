@@ -77,7 +77,7 @@ class AccessListTransaction:
     value: U256
     data: Bytes
     access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
-    v: U256
+    y_parity: U256
     r: U256
     s: U256
 
@@ -98,7 +98,7 @@ class FeeMarketTransaction:
     value: U256
     data: Bytes
     access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
-    v: U256
+    y_parity: U256
     r: U256
     s: U256
 
