@@ -1,15 +1,26 @@
 import sys
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
-import ethereum.tangerine_whistle.state as state
+import ethereum.frontier.state as state
 from ethereum.base_types import U256
-from ethereum.tangerine_whistle.fork_types import EMPTY_ACCOUNT
+from ethereum.frontier.fork_types import EMPTY_ACCOUNT
 from ethereum.tangerine_whistle.utils.hexadecimal import hex_to_address
 
 try:
-    import ethereum_optimized.tangerine_whistle.state_db as state_db
+    import ethereum_optimized.state_db as state_db
+
+    class OptimizedState:
+        pass
+
+    optimized_state = cast(Any, OptimizedState())
+
+    for (name, value) in state_db.get_optimized_state_patches(
+        "frontier"
+    ).items():
+        setattr(optimized_state, name, value)
+
 except ImportError:
     pass
 
@@ -19,7 +30,7 @@ STORAGE_FOO = U256(101).to_be_bytes32()
 
 
 @pytest.mark.skipif(
-    "ethereum_optimized.tangerine_whistle.state_db" not in sys.modules,
+    "ethereum_optimized.state_db" not in sys.modules,
     reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
 )
 def test_storage_key() -> None:
@@ -31,17 +42,17 @@ def test_storage_key() -> None:
         return obj
 
     state_normal = actions(state)
-    state_optimized = actions(state_db)
+    state_optimized = actions(optimized_state)
     assert state.get_storage(
         state_normal, ADDRESS_FOO, STORAGE_FOO
-    ) == state_db.get_storage(state_optimized, ADDRESS_FOO, STORAGE_FOO)
-    assert state.state_root(state_normal) == state_db.state_root(
+    ) == optimized_state.get_storage(state_optimized, ADDRESS_FOO, STORAGE_FOO)
+    assert state.state_root(state_normal) == optimized_state.state_root(
         state_optimized
     )
 
 
 @pytest.mark.skipif(
-    "ethereum_optimized.tangerine_whistle.state_db" not in sys.modules,
+    "ethereum_optimized.state_db" not in sys.modules,
     reason="missing dependency (use `pip install 'ethereum[optimized]'`)",
 )
 def test_resurrection() -> None:
@@ -56,11 +67,11 @@ def test_resurrection() -> None:
         return obj
 
     state_normal = actions(state)
-    state_optimized = actions(state_db)
-    state_db.state_root(state_optimized)
+    state_optimized = actions(optimized_state)
+    optimized_state.state_root(state_optimized)
     assert state.get_storage(
         state_normal, ADDRESS_FOO, STORAGE_FOO
-    ) == state_db.get_storage(state_optimized, ADDRESS_FOO, STORAGE_FOO)
-    assert state.state_root(state_normal) == state_db.state_root(
+    ) == optimized_state.get_storage(state_optimized, ADDRESS_FOO, STORAGE_FOO)
+    assert state.state_root(state_normal) == optimized_state.state_root(
         state_optimized
     )

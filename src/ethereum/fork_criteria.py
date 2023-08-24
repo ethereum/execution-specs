@@ -14,7 +14,7 @@ Classes for specifying criteria for Mainnet forks.
 
 import functools
 from abc import ABC, abstractmethod
-from typing import Tuple
+from typing import Final, Tuple
 
 
 # MyPy doesn't support decorators on abstract classes
@@ -25,9 +25,9 @@ class ForkCriteria(ABC):
     Type that represents the condition required for a fork to occur.
     """
 
-    BLOCK_NUMBER = 0
-    TIMESTAMP = 1
-    UNSCHEDULED = 2
+    BLOCK_NUMBER: Final[int] = 0
+    TIMESTAMP: Final[int] = 1
+    UNSCHEDULED: Final[int] = 2
 
     _internal: Tuple[int, int]
 
@@ -61,6 +61,13 @@ class ForkCriteria(ABC):
         """
         ...
 
+    @abstractmethod
+    def __repr__(self) -> str:
+        """
+        String representation of this object.
+        """
+        raise NotImplementedError()
+
 
 class ByBlockNumber(ForkCriteria):
     """
@@ -78,6 +85,12 @@ class ByBlockNumber(ForkCriteria):
         Check whether the block number has been reached.
         """
         return block_number >= self.block_number
+
+    def __repr__(self) -> str:
+        """
+        String representation of this object.
+        """
+        return f"ByBlockNumber({self.block_number})"
 
 
 class ByTimestamp(ForkCriteria):
@@ -97,6 +110,12 @@ class ByTimestamp(ForkCriteria):
         """
         return timestamp >= self.timestamp
 
+    def __repr__(self) -> str:
+        """
+        String representation of this object.
+        """
+        return f"ByTimestamp({self.timestamp})"
+
 
 class Unscheduled(ForkCriteria):
     """
@@ -111,3 +130,9 @@ class Unscheduled(ForkCriteria):
         Unscheduled forks never occur.
         """
         return False
+
+    def __repr__(self) -> str:
+        """
+        String representation of this object.
+        """
+        return "Unscheduled()"
