@@ -331,6 +331,7 @@ class TransitionTool:
             t8n_script = textwrap.dedent(
                 f"""\
                 #!/bin/bash
+                rm -rf {t8n_output_base_dir}
                 mkdir {t8n_output_base_dir}  # unused if tracing is not enabled
                 {t8n_call} < {debug_output_path}/stdin.txt
                 """
