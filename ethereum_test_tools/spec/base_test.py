@@ -10,7 +10,19 @@ from typing import Any, Callable, Dict, Generator, Iterator, List, Mapping, Opti
 from ethereum_test_forks import Fork
 from evm_transition_tool import TransitionTool
 
-from ..common import Account, Address, Alloc, Bytes, FixtureBlock, FixtureHeader, Hash, Transaction
+from ..common import (
+    Account,
+    Address,
+    Alloc,
+    Bytes,
+    Environment,
+    FixtureBlock,
+    FixtureHeader,
+    Hash,
+    Transaction,
+    withdrawals_root,
+)
+from ..common.conversions import to_hex
 
 
 def verify_transactions(txs: List[Transaction] | None, result) -> List[int]:
@@ -57,6 +69,15 @@ def verify_post_alloc(expected_post: Mapping, got_alloc: Mapping):
                     account.check_alloc(address, got_alloc_normalized[address])
                 else:
                     raise Exception(f"expected account not found: {address}")
+
+
+def verify_result(result: Mapping, env: Environment):
+    """
+    Verify that values in the t8n result match the expected values.
+    Raises exception on unexpected values.
+    """
+    if env.withdrawals is not None:
+        assert result["withdrawalsRoot"] == to_hex(withdrawals_root(env.withdrawals))
 
 
 @dataclass(kw_only=True)

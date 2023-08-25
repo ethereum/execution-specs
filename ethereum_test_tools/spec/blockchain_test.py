@@ -28,7 +28,7 @@ from ..common import (
     withdrawals_root,
 )
 from ..common.constants import EmptyOmmersRoot
-from .base_test import BaseTest, verify_post_alloc, verify_transactions
+from .base_test import BaseTest, verify_post_alloc, verify_result, verify_transactions
 from .debugging import print_traces
 
 
@@ -164,6 +164,7 @@ class BlockchainTest(BaseTest):
             )
             try:
                 rejected_txs = verify_transactions(txs, result)
+                verify_result(result, env)
             except Exception as e:
                 print_traces(t8n.get_traces())
                 pprint(result)

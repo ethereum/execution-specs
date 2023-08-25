@@ -27,7 +27,7 @@ from ..common import (
     withdrawals_root,
 )
 from ..common.constants import EmptyOmmersRoot, EngineAPIError
-from .base_test import BaseTest, verify_post_alloc, verify_transactions
+from .base_test import BaseTest, verify_post_alloc, verify_result, verify_transactions
 from .debugging import print_traces
 
 
@@ -148,6 +148,7 @@ class StateTest(BaseTest):
 
         try:
             verify_post_alloc(self.post, alloc)
+            verify_result(result, env)
         except Exception as e:
             print_traces(traces=t8n.get_traces())
             raise e
