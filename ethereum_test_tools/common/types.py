@@ -1070,13 +1070,13 @@ class Environment:
         env.block_hashes[new_parent.number] = new_parent.hash if new_parent.hash is not None else 0
         return env
 
-    def set_fork_requirements(self, fork: Fork) -> "Environment":
+    def set_fork_requirements(self, fork: Fork, in_place: bool = False) -> "Environment":
         """
         Fills the required fields in an environment depending on the fork.
         """
-        res = copy(self)
-        number = Number(self.number)
-        timestamp = Number(self.timestamp)
+        res = self if in_place else copy(self)
+        number = Number(res.number)
+        timestamp = Number(res.timestamp)
         if fork.header_prev_randao_required(number, timestamp) and res.prev_randao is None:
             res.prev_randao = 0
 
