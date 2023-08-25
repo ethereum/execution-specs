@@ -60,6 +60,10 @@ class BlockchainTest(BaseTest):
         Create a genesis block from the state test definition.
         """
         env = self.genesis_environment.set_fork_requirements(fork)
+        if env.withdrawals is not None:
+            assert len(env.withdrawals) == 0, "withdrawals must be empty at genesis"
+        if env.beacon_root is not None:
+            assert Hash(env.beacon_root) == Hash(0), "beacon_root must be empty at genesis"
 
         pre_alloc = Alloc(fork.pre_allocation(block_number=0, timestamp=Number(env.timestamp)))
         new_alloc, state_root = t8n.calc_state_root(
