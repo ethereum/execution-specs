@@ -6,7 +6,7 @@ from string import Template
 from typing import SupportsBytes
 
 import pytest
-from packaging import version
+from semver import Version
 
 from ethereum_test_forks import Fork, Homestead, Shanghai, forks_from_until, get_deployed_forks
 
@@ -72,11 +72,11 @@ def yul_code(request: pytest.FixtureRequest, fork: Fork, padding_before: str, pa
     return compiled_yul_code
 
 
-SOLC_PADDING_VERSION = version.parse("0.8.21")
+SOLC_PADDING_VERSION = Version.parse("0.8.21")
 
 
 @pytest.fixture()
-def expected_bytes(request: pytest.FixtureRequest, solc_version: version.Version, fork: Fork):
+def expected_bytes(request: pytest.FixtureRequest, solc_version: Version, fork: Fork):
     """Return the expected bytes for the test."""
     expected_bytes = request.param
     if isinstance(expected_bytes, Template):

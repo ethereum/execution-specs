@@ -9,6 +9,8 @@ from shutil import which
 from subprocess import PIPE, run
 from typing import Mapping, Optional, Sized, SupportsBytes, Tuple, Type, Union
 
+from semver import Version
+
 from ethereum_test_forks import Fork
 
 from ..common.conversions import to_bytes
@@ -121,7 +123,7 @@ class Yul(SupportsBytes, Sized):
         """
         return Code(to_bytes(other) + bytes(self))
 
-    def version(self) -> str:
+    def version(self) -> Version:
         """
         Return solc's version string
         """
@@ -131,17 +133,18 @@ class Yul(SupportsBytes, Sized):
             stderr=PIPE,
         )
         solc_output = result.stdout.decode().split("\n")
-        version_pattern = r"0\.\d+\.\d+.*\+commit.*"
-        solc_version_string = None
+        version_pattern = r"Version: (.*)"
+        solc_version_string = ""
         for line in solc_output:
-            match = re.search(version_pattern, line)
-            if match:
-                solc_version_string = match.group(0)
+            if match := re.search(version_pattern, line):
+                solc_version_string = match.group(1)
                 break
         if not solc_version_string:
             warnings.warn("Unable to determine solc version.")
-            solc_version_string = "unknown"
-        return solc_version_string
+            return Version(0)
+        # Sanitize
+        solc_version_string = solc_version_string.replace("g++", "gpp")
+        return Version.parse(solc_version_string)
 
 
 YulCompiler = Type[Yul]

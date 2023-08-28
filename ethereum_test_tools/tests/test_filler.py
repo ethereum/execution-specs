@@ -7,7 +7,7 @@ import os
 from typing import Any, Dict, List
 
 import pytest
-from packaging import version
+from semver import Version
 
 from ethereum_test_forks import Berlin, Fork, Istanbul, London
 from evm_transition_tool import GethTransitionTool
@@ -25,16 +25,16 @@ def remove_info(fixture_json: Dict[str, Any]):
 
 
 @pytest.fixture()
-def hash(request: pytest.FixtureRequest, solc_version: version.Version):
+def hash(request: pytest.FixtureRequest, solc_version: Version):
     """
     Set the hash based on the fork and solc version.
     """
-    if solc_version == version.parse("0.8.20"):
+    if solc_version == Version.parse("0.8.20"):
         if request.node.funcargs["fork"] == Berlin:
             return bytes.fromhex("193e550de3")
         elif request.node.funcargs["fork"] == London:
             return bytes.fromhex("b053deac0e")
-    elif solc_version == version.parse("0.8.21"):
+    elif solc_version == Version.parse("0.8.21"):
         if request.node.funcargs["fork"] == Berlin:
             return bytes.fromhex("f3a35d34f6")
         elif request.node.funcargs["fork"] == London:
