@@ -131,7 +131,7 @@ class Yul(SupportsBytes, Sized):
             stderr=PIPE,
         )
         solc_output = result.stdout.decode().split("\n")
-        version_pattern = r"0\.\d+\.\d+\+\S+"
+        version_pattern = r"0\.\d+\.\d+.*\+commit.*"
         solc_version_string = None
         for line in solc_output:
             match = re.search(version_pattern, line)
