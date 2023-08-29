@@ -79,10 +79,9 @@ class EvmOneTransitionTool(TransitionTool):
             write_json_file(input_contents[key], file_path)
 
         output_paths = {
-            output: os.path.join(temp_dir.name, "output", f"{output}.json")
-            for output in ["alloc", "result"]
+            output: os.path.join("output", f"{output}.json") for output in ["alloc", "result"]
         }
-        output_paths["body"] = os.path.join(temp_dir.name, "output", "txs.rlp")
+        output_paths["body"] = os.path.join("output", "txs.rlp")
 
         # Construct args for evmone-t8n binary
         args = [
@@ -119,6 +118,8 @@ class EvmOneTransitionTool(TransitionTool):
         )
 
         if debug_output_path:
+            if os.path.exists(debug_output_path):
+                shutil.rmtree(debug_output_path)
             shutil.copytree(temp_dir.name, debug_output_path)
             t8n_output_base_dir = os.path.join(debug_output_path, "t8n.sh.out")
             t8n_call = " ".join(args)
@@ -152,6 +153,9 @@ class EvmOneTransitionTool(TransitionTool):
 
         if result.returncode != 0:
             raise Exception("failed to evaluate: " + result.stderr.decode())
+
+        for key, file_path in output_paths.items():
+            output_paths[key] = os.path.join(temp_dir.name, file_path)
 
         output_contents = {}
         for key, file_path in output_paths.items():
