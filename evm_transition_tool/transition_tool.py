@@ -302,7 +302,7 @@ class TransitionTool:
             if str(self.default_binary) == "ethereum-spec-evm":
                 raise Exception(
                     "`ethereum-spec-evm` tracing is not currently implemented in "
-                    "execution-test-specs, see "
+                    "execution-spec-tests, see "
                     "https://github.com/ethereum/execution-spec-tests/issues/267."
                 )
             temp_dir = tempfile.TemporaryDirectory()
