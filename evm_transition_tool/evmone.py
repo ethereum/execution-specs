@@ -134,9 +134,8 @@ class EvmOneTransitionTool(TransitionTool):
             t8n_script = textwrap.dedent(
                 f"""\
                 #!/bin/bash
-                output_directory={os.path.join(t8n_output_base_dir, "output")}
-                rm -rf $output_directory
-                mkdir -p $output_directory
+                rm -rf {debug_output_path}/t8n.sh.out  # hard-coded to avoid surprises
+                mkdir -p {debug_output_path}/t8n.sh.out/output
                 {t8n_call}
                 """
             )
