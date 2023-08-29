@@ -7,11 +7,14 @@ https://github.com/ethereum/execution-specs
 from pathlib import Path
 from re import compile
 
-from ethereum_test_forks import ConstantinopleFix, Fork
+from ethereum_test_forks import Constantinople, ConstantinopleFix, Fork
 
 from .geth import GethTransitionTool
 
-UNSUPPORTED_FORKS = (ConstantinopleFix,)
+UNSUPPORTED_FORKS = (
+    Constantinople,
+    ConstantinopleFix,
+)
 
 
 class ExecutionSpecsTransitionTool(GethTransitionTool):
