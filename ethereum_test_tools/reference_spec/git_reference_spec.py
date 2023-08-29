@@ -4,6 +4,7 @@ Reference Specification file located in a github repository.
 
 import base64
 import json
+import warnings
 from dataclasses import dataclass
 from typing import Any, Dict
 
@@ -66,6 +67,10 @@ class GitReferenceSpec(ReferenceSpec):
             return self._latest_spec
         response = requests.get(self.api_url())
         if response.status_code != 200:
+            warnings.warn(
+                f"Unable to get latest version, status code: {response.status_code} - "
+                f"text: {response.text}"
+            )
             return None
         content = json.loads(response.content)
         content["content"] = _decode_base64_content(content["content"])
