@@ -289,14 +289,11 @@ class TransitionTool:
             "--input.env=stdin",
             "--output.result=stdout",
             "--output.alloc=stdout",
+            "--output.body=stdout",
             f"--state.fork={fork_name}",
             f"--state.chainid={chain_id}",
             f"--state.reward={reward}",
         ]
-        if str(self.default_binary) != "ethereum-spec-evm":
-            # See https://github.com/ethereum/execution-spec-tests/issues/268
-            # if enabled for ethereum-spec-evm, it will create a file called stdout in the cwd
-            args.append("--output.body=stdout")
 
         if self.trace:
             if str(self.default_binary) == "ethereum-spec-evm":
@@ -356,22 +353,18 @@ class TransitionTool:
 
         output = json.loads(result.stdout)
 
-        if str(self.default_binary) == "ethereum-spec-evm":
-            expected_outputs = ["alloc", "result"]
-        else:
-            expected_outputs = ["alloc", "result", "body"]
-
-        if not all([x in output for x in expected_outputs]):
-            raise Exception(f"Malformed t8n output: missing {' '.join(expected_outputs)}.")
+        if not all([x in output for x in ["alloc", "result", "body"]]):
+            raise Exception("Malformed t8n output: missing 'alloc', 'result' or 'body'.")
 
         if debug_output_path:
-            output_path_content_map = {
-                "output/alloc.json": output["alloc"],
-                "output/result.json": output["result"],
-            }
-            if str(self.default_binary) != "ethereum-spec-evm":
-                output_path_content_map["output/txs.rlp"] = output["body"]
-            dump_files_to_directory(debug_output_path, output_path_content_map)
+            dump_files_to_directory(
+                debug_output_path,
+                {
+                    "output/alloc.json": output["alloc"],
+                    "output/result.json": output["result"],
+                    "output/txs.rlp": output["body"],
+                },
+            )
 
         if self.trace:
             self.collect_traces(output["result"]["receipts"], temp_dir, debug_output_path)
