@@ -12,6 +12,7 @@ from ethereum_test_forks import Fork, Homestead, Shanghai, forks_from_until, get
 
 from ..code import Code, Conditional, Initcode, Yul
 from ..vm.opcode import Opcodes as Op
+from .conftest import SOLC_PADDING_VERSION
 
 
 @pytest.mark.parametrize(
@@ -72,9 +73,6 @@ def yul_code(request: pytest.FixtureRequest, fork: Fork, padding_before: str, pa
     return compiled_yul_code
 
 
-SOLC_PADDING_VERSION = Version.parse("0.8.21")
-
-
 @pytest.fixture()
 def expected_bytes(request: pytest.FixtureRequest, solc_version: Version, fork: Fork):
     """Return the expected bytes for the test."""
@@ -82,20 +80,17 @@ def expected_bytes(request: pytest.FixtureRequest, solc_version: Version, fork: 
     if isinstance(expected_bytes, Template):
         if solc_version < SOLC_PADDING_VERSION or fork == Homestead:
             solc_padding = ""
-        elif solc_version == SOLC_PADDING_VERSION:
-            solc_padding = "00"
         else:
-            raise Exception("Unsupported solc version: {}".format(solc_version))
+            solc_padding = "00"
         return bytes.fromhex(expected_bytes.substitute(solc_padding=solc_padding))
     if isinstance(expected_bytes, bytes):
         if fork == Shanghai:
             expected_bytes = b"\x5f" + expected_bytes[2:]
         if solc_version < SOLC_PADDING_VERSION or fork == Homestead:
             return expected_bytes
-        elif solc_version == SOLC_PADDING_VERSION:
-            return expected_bytes + b"\x00"
         else:
-            raise Exception("Unsupported solc version: {}".format(solc_version))
+            return expected_bytes + b"\x00"
+
     raise Exception("Unsupported expected_bytes type: {}".format(type(expected_bytes)))
 
 

@@ -16,6 +16,7 @@ from ..code import Yul
 from ..common import Account, Block, Environment, TestAddress, Transaction, to_json
 from ..filling import fill_test
 from ..spec import BlockchainTest, StateTest
+from .conftest import SOLC_PADDING_VERSION
 
 
 def remove_info(fixture_json: Dict[str, Any]):
@@ -34,13 +35,11 @@ def hash(request: pytest.FixtureRequest, solc_version: Version):
             return bytes.fromhex("193e550de3")
         elif request.node.funcargs["fork"] == London:
             return bytes.fromhex("b053deac0e")
-    elif solc_version == Version.parse("0.8.21"):
+    else:
         if request.node.funcargs["fork"] == Berlin:
             return bytes.fromhex("f3a35d34f6")
         elif request.node.funcargs["fork"] == London:
             return bytes.fromhex("c5fa75d7f6")
-    else:
-        raise Exception("Unsupported solc version: {}".format(solc_version))
 
 
 @pytest.mark.parametrize(
@@ -441,7 +440,12 @@ def test_fill_london_blockchain_test_valid_txs(fork: Fork, solc_version: str):
     fixture_json = to_json(fixture)
     remove_info(fixture_json)
 
-    assert fixture_json == expected[f"solc={solc_version}"]
+    if solc_version >= SOLC_PADDING_VERSION:
+        expected = expected["solc=padding_version"]
+    else:
+        expected = expected[f"solc={solc_version}"]
+
+    assert fixture_json == expected
 
 
 @pytest.mark.parametrize("fork", [London])
@@ -777,4 +781,9 @@ def test_fill_london_blockchain_test_invalid_txs(fork: Fork, solc_version: str):
     fixture_json = to_json(fixture)
     remove_info(fixture_json)
 
-    assert fixture_json == expected[f"solc={solc_version}"]
+    if solc_version >= SOLC_PADDING_VERSION:
+        expected = expected["solc=padding_version"]
+    else:
+        expected = expected[f"solc={solc_version}"]
+
+    assert fixture_json == expected

@@ -427,7 +427,7 @@
             "sealEngine": "NoProof"
         }
     },
-    "solc=0.8.21": {
+    "solc=padding_version": {
         "000/my_blockchain_test/London": {
             "blocks": [
                 {
