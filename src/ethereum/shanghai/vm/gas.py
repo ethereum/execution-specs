@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 from ethereum.base_types import U256, Uint
+from ethereum.trace import capture_gas_and_refund
 from ethereum.utils.numeric import ceil32
 
 from . import Evm
@@ -107,6 +108,8 @@ def charge_gas(evm: Evm, amount: Uint) -> None:
         The amount of gas the current operation requires.
 
     """
+    capture_gas_and_refund(evm, amount)
+
     if evm.gas_left < amount:
         raise OutOfGasError
     else:

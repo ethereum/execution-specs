@@ -122,6 +122,7 @@ def generic_create(
         is_static=False,
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        parent_evm=evm,
     )
     child_evm = process_create_message(child_message, evm.env)
 
@@ -306,6 +307,7 @@ def generic_call(
         is_static=True if is_staticcall else evm.message.is_static,
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        parent_evm=evm,
     )
     child_evm = process_message(child_message, evm.env)
 
@@ -491,17 +493,18 @@ def selfdestruct(evm: Evm) -> None:
     beneficiary = to_address(pop(evm.stack))
 
     # GAS
+    gas_cost = GAS_SELF_DESTRUCT
     if beneficiary not in evm.accessed_addresses:
         evm.accessed_addresses.add(beneficiary)
-        charge_gas(evm, GAS_COLD_ACCOUNT_ACCESS)
+        gas_cost += GAS_COLD_ACCOUNT_ACCESS
 
     if (
         not is_account_alive(evm.env.state, beneficiary)
         and get_account(evm.env.state, evm.message.current_target).balance != 0
     ):
-        charge_gas(evm, GAS_SELF_DESTRUCT + GAS_SELF_DESTRUCT_NEW_ACCOUNT)
-    else:
-        charge_gas(evm, GAS_SELF_DESTRUCT)
+        gas_cost += GAS_SELF_DESTRUCT_NEW_ACCOUNT
+
+    charge_gas(evm, gas_cost)
 
     # OPERATION
     ensure(not evm.message.is_static, WriteInStaticContext)

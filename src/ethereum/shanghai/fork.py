@@ -19,6 +19,7 @@ from ethereum.base_types import Bytes0, Bytes32
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidBlock
+from ethereum.trace import output_traces
 from ethereum.utils.ensure import ensure
 
 from .. import rlp
@@ -499,6 +500,7 @@ def apply_body(
             prev_randao=prev_randao,
             state=state,
             chain_id=chain_id,
+            traces=[],
         )
 
         gas_used, logs, has_erred = process_transaction(env, tx)
@@ -610,6 +612,13 @@ def process_transaction(
     )
 
     output = process_message_call(message, env)
+
+    encoded_tx = encode_transaction(tx)
+    if isinstance(encoded_tx, LegacyTransaction):
+        tx_hash = keccak256(rlp.encode(encoded_tx))
+    else:
+        tx_hash = keccak256(encoded_tx)
+    output_traces(output.traces, tx_hash)
 
     gas_used = tx.gas - output.gas_left
     gas_refund = min(gas_used // 5, output.refund_counter)

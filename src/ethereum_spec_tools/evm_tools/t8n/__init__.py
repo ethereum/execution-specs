@@ -6,11 +6,23 @@ import argparse
 import json
 import os
 import sys
+from functools import partial
 from typing import Any
 
-from ethereum import rlp
+from ethereum import rlp, trace
 from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import keccak256
+from ethereum_spec_tools.evm_trace import (
+    capture_evm_stop,
+    capture_gas_and_refund,
+    capture_op_end,
+    capture_op_exception,
+    capture_op_start,
+    capture_precompile_end,
+    capture_precompile_start,
+    capture_tx_end,
+    output_traces,
+)
 from ethereum_spec_tools.forks import Hardfork
 
 from ..fixture_loader import Load
@@ -62,6 +74,7 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
         "--state.reward", dest="state_reward", type=int, default=0
     )
     # TODO: Add support for the following trace options
+    t8n_parser.add_argument("--trace", action="store_true")
     t8n_parser.add_argument(
         "--trace.memory", dest="trace_memory", type=bool, default=False
     )
@@ -101,6 +114,19 @@ class T8N(Load):
         fork_module, self.fork_block = get_module_name(
             self.forks, self.options, stdin
         )
+
+        if self.options.trace:
+            trace.capture_op_start = capture_op_start
+            trace.capture_op_end = capture_op_end
+            trace.capture_op_exception = capture_op_exception
+            trace.capture_gas_and_refund = capture_gas_and_refund
+            trace.capture_tx_end = capture_tx_end
+            trace.output_traces = partial(
+                output_traces, output_basedir=self.options.output_basedir
+            )
+            trace.capture_evm_stop = capture_evm_stop
+            trace.capture_precompile_start = capture_precompile_start
+            trace.capture_precompile_end = capture_precompile_end
 
         self.logger = get_stream_logger("T8N")
 
@@ -229,6 +255,14 @@ class T8N(Load):
             sender_address = self.fork.check_transaction(tx, gas_available)
             kw_arguments["caller"] = kw_arguments["origin"] = sender_address
             kw_arguments["gas_price"] = tx.gas_price
+
+        if self.is_after_fork("ethereum.shanghai"):
+            # TODO: The if condition is temporary since the traces have only
+            # been implemented for the shanghai fork. The evm tools tests
+            # fail without this.
+            # Once the traces are implemented for the earlier forks,
+            # the if condition should be removed.
+            kw_arguments["traces"] = []
 
         return self.vm.Environment(**kw_arguments)
 

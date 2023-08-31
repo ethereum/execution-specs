@@ -12,10 +12,18 @@ Introduction
 A straightforward interpreter that executes EVM code.
 """
 from dataclasses import dataclass
-from typing import Iterable, Set, Tuple, Union
+from typing import Any, Iterable, List, Set, Tuple, Union
 
-from ethereum import evm_trace
 from ethereum.base_types import U256, Bytes0, Uint
+from ethereum.trace import (
+    capture_evm_stop,
+    capture_op_end,
+    capture_op_exception,
+    capture_op_start,
+    capture_precompile_end,
+    capture_precompile_start,
+    capture_tx_end,
+)
 from ethereum.utils.ensure import ensure
 
 from ..fork_types import Address, Log
@@ -64,6 +72,7 @@ class MessageCallOutput:
           4. `accounts_to_delete`: Contracts which have self-destructed.
           5. `touched_accounts`: Accounts that have been touched.
           6. `has_erred`: True if execution has caused an error.
+          7. `traces`: List of traces generated during execution.
     """
 
     gas_left: Uint
@@ -72,6 +81,7 @@ class MessageCallOutput:
     accounts_to_delete: Set[Address]
     touched_accounts: Iterable[Address]
     has_erred: bool
+    traces: List[Any]
 
 
 def process_message_call(
@@ -100,7 +110,7 @@ def process_message_call(
         )
         if is_collision:
             return MessageCallOutput(
-                Uint(0), U256(0), tuple(), set(), set(), True
+                Uint(0), U256(0), tuple(), set(), set(), True, []
             )
         else:
             evm = process_create_message(message, env)
@@ -120,6 +130,8 @@ def process_message_call(
         touched_accounts = evm.touched_accounts
         refund_counter = U256(evm.refund_counter)
 
+    capture_tx_end(env, message.gas - evm.gas_left, evm.output, evm.has_erred)
+
     return MessageCallOutput(
         gas_left=evm.gas_left,
         refund_counter=refund_counter,
@@ -127,6 +139,7 @@ def process_message_call(
         accounts_to_delete=accounts_to_delete,
         touched_accounts=touched_accounts,
         has_erred=evm.has_erred,
+        traces=env.traces,
     )
 
 
@@ -243,6 +256,12 @@ def execute_code(message: Message, env: Environment) -> Evm:
     """
     code = message.code
     valid_jump_destinations = get_valid_jump_destinations(code)
+
+    if message.parent_evm:
+        refund_counter = message.parent_evm.refund_counter
+    else:
+        refund_counter = 0
+
     evm = Evm(
         pc=Uint(0),
         stack=[],
@@ -252,7 +271,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         env=env,
         valid_jump_destinations=valid_jump_destinations,
         logs=(),
-        refund_counter=0,
+        refund_counter=refund_counter,
         running=True,
         message=message,
         output=b"",
@@ -267,8 +286,9 @@ def execute_code(message: Message, env: Environment) -> Evm:
     try:
 
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
-            evm_trace(evm, evm.message.code_address)
+            capture_precompile_start(evm, evm.message.code_address)
             PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
+            capture_precompile_end(evm)
             return evm
 
         while evm.running and evm.pc < len(evm.code):
@@ -277,14 +297,19 @@ def execute_code(message: Message, env: Environment) -> Evm:
             except ValueError:
                 raise InvalidOpcode(evm.code[evm.pc])
 
-            evm_trace(evm, op)
+            capture_op_start(evm, op)
             op_implementation[op](evm)
+            capture_op_end(evm)
+
+        capture_evm_stop(evm, Ops.STOP)
 
     except ExceptionalHalt:
+        capture_op_exception(evm)
         evm.gas_left = Uint(0)
         evm.output = b""
         evm.has_erred = True
     except Revert as e:
+        capture_op_exception(evm)
         evm.error = e
         evm.has_erred = True
     return evm

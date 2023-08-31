@@ -12,7 +12,18 @@ from git.exc import GitCommandError, InvalidGitRepositoryError
 from pytest import Session
 
 import ethereum
-from ethereum_spec_tools.evm_trace import evm_trace
+from ethereum import trace
+from ethereum_spec_tools.evm_trace import (
+    capture_evm_stop,
+    capture_gas_and_refund,
+    capture_op_end,
+    capture_op_exception,
+    capture_op_start,
+    capture_precompile_end,
+    capture_precompile_start,
+    capture_tx_end,
+    output_traces,
+)
 from tests.helpers import TEST_FIXTURES
 
 
@@ -43,9 +54,18 @@ def pytest_configure(config: Config) -> None:
     Configure the ethereum module and log levels to output evm trace.
     """
     if config.getoption("vmtrace", default=1) == 10:
-        config.option.__dict__["log_cli_level"] = "10"
-        config.option.__dict__["log_format"] = "%(message)s"
-        setattr(ethereum, "evm_trace", evm_trace)
+        trace.capture_op_start = capture_op_start
+        trace.capture_op_end = capture_op_end
+        trace.capture_op_exception = capture_op_exception
+        trace.capture_gas_and_refund = capture_gas_and_refund
+        trace.capture_tx_end = capture_tx_end
+        trace.output_traces = output_traces
+        trace.capture_evm_stop = capture_evm_stop
+        trace.capture_precompile_start = capture_precompile_start
+        trace.capture_precompile_end = capture_precompile_end
+        # config.option.__dict__["log_cli_level"] = "10"
+        # config.option.__dict__["log_format"] = "%(message)s"
+        # setattr(ethereum, "evm_trace", evm_trace)
     if config.getoption("optimized"):
         import ethereum_optimized
 
