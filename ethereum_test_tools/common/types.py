@@ -1879,6 +1879,10 @@ class Header:
     """
     Sentinel object used to specify that a header field should be removed.
     """
+    EMPTY_FIELD: ClassVar[Removable] = Removable()
+    """
+    Sentinel object used to specify that a header field must be empty during verification.
+    """
 
 
 @dataclass(kw_only=True)
@@ -2222,6 +2226,30 @@ class FixtureHeader:
                     setattr(new_fixture_header, header_field, value)
         return new_fixture_header
 
+    def verify(self, baseline: Header):
+        """
+        Produces a fixture header copy with the set values from the modifier.
+        """
+        for header_field in fields(self):
+            field_name = header_field.name
+            baseline_value = getattr(baseline, field_name)
+            if baseline_value is not None:
+                assert baseline_value is not Header.REMOVE_FIELD, "invalid baseline header"
+                value = getattr(self, field_name)
+                if baseline_value is Header.EMPTY_FIELD:
+                    assert value is None, f"invalid header field {header_field}"
+                    continue
+                metadata = header_field.metadata
+                assert metadata is not None, f"Field {field_name} has no header field metadata"
+                field_metadata = metadata.get("source")
+                assert isinstance(field_metadata, HeaderFieldSource), (
+                    f"Field {field_name} has invalid header_field " f"metadata: {field_metadata}"
+                )
+
+                if field_metadata.parse_type is not None:
+                    baseline_value = field_metadata.parse_type(baseline_value)
+                assert value == baseline_value, f"invalid header field {header_field}"
+
     def build(
         self,
         *,
@@ -2287,6 +2315,10 @@ class Block(Header):
 
     Only meant to be used to simulate blocks with bad formats, and therefore
     requires the block to produce an exception.
+    """
+    header_verify: Optional[Header] = None
+    """
+    If set, the block header will be verified against the specified values.
     """
     rlp_modifier: Optional[Header] = None
     """
