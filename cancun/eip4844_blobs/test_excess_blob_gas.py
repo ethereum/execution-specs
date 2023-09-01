@@ -245,7 +245,7 @@ def blocks(  # noqa: D103
         else [non_zero_blob_gas_used_genesis_block]
     )
 
-    def add_block(header_modifier: Optional[Dict] = None, exception_message: str = None):
+    def add_block(header_modifier: Optional[Dict] = None, exception_message: Optional[str] = None):
         """
         Utility function to add a block to the blocks list.
         """
