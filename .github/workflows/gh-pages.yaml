@@ -1,31 +1,57 @@
-name: GitHub Pages
+name: render
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+  pull_request:
 
 jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+  build:
+    name: "Build Documentation"
+    runs-on: "ubuntu-latest"
+
     steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: "3.10"
 
-      - name: Checkout
-        uses: actions/checkout@v2.3.1
+      - name: Install Tox
+        run: pip install tox-gh
 
-      - name: Install Tox and any other packages
-        run: pip install tox
+      - name: Build Documentation
+        run: |
+          tox -e doc
+          touch .tox/docs/.nojekyll
 
-      - name: Sphinx
-        run: tox -e doc
-        
-      - name: No Jekyll
-        run: touch .tox/docs/.nojekyll
-
-      - name: Deploy
-        if: ${{ github.event_name == 'push' && ( github.ref == 'refs/heads/master' ||  github.ref == 'refs/heads/pyspec') }}
-        uses: JamesIves/github-pages-deploy-action@4.1.4
+      - name: Upload Pages Artifact
+        id: artifact
+        uses: actions/upload-pages-artifact@v2
         with:
-          branch: gh-pages
-          folder: .tox/docs
+          path: .tox/docs
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    name: "Deploy Documentation"
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v2
