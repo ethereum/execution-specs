@@ -327,7 +327,7 @@ def bytes_to_nibble_list(bytes_: Bytes) -> Bytes:
 
 def _prepare_trie(
     trie: Trie[K, V],
-    get_storage_root: Callable[[Address], Root] = None,
+    get_storage_root: Optional[Callable[[Address], Root]] = None,
 ) -> Mapping[Bytes, Bytes]:
     """
     Prepares the trie for root calculation. Removes values that are empty,
@@ -370,7 +370,7 @@ def _prepare_trie(
 
 def root(
     trie: Trie[K, V],
-    get_storage_root: Callable[[Address], Root] = None,
+    get_storage_root: Optional[Callable[[Address], Root]] = None,
 ) -> Root:
     """
     Computes the root of a modified merkle patricia trie (MPT).
