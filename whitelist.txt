@@ -361,7 +361,6 @@ autoapi
 attrname
 expr
 subpackages
-toctree
 preaccessed
 Transaction2930
 Transaction1559

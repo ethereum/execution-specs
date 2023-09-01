@@ -4,7 +4,7 @@
 
 ## Description
 
-This repository contains the consensus specifications related to the Ethereum execution client, specifically the [pyspec](/src/ethereum/frontier/fork.py) and specifications for [network upgrades](/network-upgrades). The [JSON-RPC API specification](https://github.com/ethereum/execution-apis) can be found in a separate repository.
+This repository contains the specifications related to the Ethereum execution client, specifically the [pyspec](/src/ethereum/frontier/fork.py) and specifications for [network upgrades](/network-upgrades). The [JSON-RPC API specification](https://github.com/ethereum/execution-apis) can be found in a separate repository.
 
 ### Ethereum Protocol Releases
 
@@ -39,9 +39,9 @@ Some clarifications were enabled without protocol releases:
 | [EIP-2681](https://eips.ethereum.org/EIPS/eip-2681) | 0 |
 | [EIP-3607](https://eips.ethereum.org/EIPS/eip-3607) | 0 |
 
-## Consensus Specification (work-in-progress)
+## Execution Specification (work-in-progress)
 
-The consensus specification is a python implementation of Ethereum that prioritizes readability and simplicity. It [will] accompanied by both narrative and API level documentation of the various components written in restructured text and rendered using Sphinx....
+The execution specification is a python implementation of Ethereum that prioritizes readability and simplicity. It will accompanied by both narrative and API level documentation of the various components written in markdown and rendered using docc...
 
  * [Rendered specification](https://ethereum.github.io/execution-specs/)
 
@@ -49,7 +49,7 @@ The consensus specification is a python implementation of Ethereum that prioriti
 
 The Ethereum specification is maintained as a Python library, for better integration with tooling and testing.
 
-Requires Python 3.8+
+Requires Python 3.10+
 
 ### Building
 
@@ -60,14 +60,6 @@ $ tox -e doc
 ```
 
 The path to the generated HTML will be printed to the console.
-
-#### Live Preview
-
-A live preview of the documentation can be viewed locally on port `8000` with the following command:
-
-```bash
-$ tox -e doc-autobuild
-```
 
 # License
 
