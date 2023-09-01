@@ -228,6 +228,7 @@ def blocks(  # noqa: D103
     tx: Transaction,
     header_excess_blob_gas: Optional[int],
     header_blob_gas_used: Optional[int],
+    correct_excess_blob_gas: int,
     non_zero_blob_gas_used_genesis_block: Block,
 ):
     blocks = (
@@ -256,7 +257,9 @@ def blocks(  # noqa: D103
             ),
         )
     else:
-        blocks.append(Block(txs=[tx]))
+        blocks.append(
+            Block(txs=[tx], header_verify=Header(excess_blob_gas=correct_excess_blob_gas))
+        )
     return blocks
 
 
@@ -515,6 +518,7 @@ def test_invalid_static_excess_blob_gas(
     Test is parametrized to `MAX_BLOBS_PER_BLOCK` and `TARGET_BLOBS_PER_BLOCK`.
     """
     blocks[-1].rlp_modifier = Header(excess_blob_gas=parent_excess_blob_gas)
+    blocks[-1].header_verify = None
     blocks[-1].exception = "invalid excessBlobGas"
     blockchain_test(
         pre=pre,
