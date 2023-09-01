@@ -533,7 +533,7 @@ def test_invalid_static_excess_blob_gas(
     """
     blocks[-1].rlp_modifier = Header(excess_blob_gas=parent_excess_blob_gas)
     blocks[-1].header_verify = None
-    blocks[-1].exception = "invalid excessBlobGas"
+    blocks[-1].exception = "invalid excess blob gas"
     blockchain_test(
         pre=pre,
         post={},
