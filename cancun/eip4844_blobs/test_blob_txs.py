@@ -43,7 +43,7 @@ from ethereum_test_tools import (
     to_hash_bytes,
 )
 
-from .spec import BlockHeaderBlobGasFields, Spec, SpecHelpers, ref_spec_4844
+from .spec import Spec, SpecHelpers, ref_spec_4844
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
 REFERENCE_SPEC_VERSION = ref_spec_4844.version
@@ -378,6 +378,7 @@ def expected_blob_gas_used(
 def expected_excess_blob_gas(
     fork: Fork,
     parent_excess_blob_gas: Optional[int],
+    parent_blobs: Optional[int],
     block_number: int,
     block_timestamp: int,
 ) -> Optional[int | Removable]:
@@ -388,11 +389,9 @@ def expected_excess_blob_gas(
         block_number=block_number, timestamp=block_timestamp
     ):
         return Header.EMPTY_FIELD
-    return Spec.calc_excess_blob_gas(
-        BlockHeaderBlobGasFields(
-            excess_blob_gas=parent_excess_blob_gas if parent_excess_blob_gas else 0,
-            blob_gas_used=0,  # Parent blob gas used is always zero
-        )
+    return SpecHelpers.calc_excess_blob_gas_from_blob_count(
+        parent_excess_blob_gas=parent_excess_blob_gas if parent_excess_blob_gas else 0,
+        parent_blob_count=parent_blobs if parent_blobs else 0,
     )
 
 
