@@ -1879,6 +1879,10 @@ class Header:
     """
     Sentinel object used to specify that a header field should be removed.
     """
+    EMPTY_FIELD: ClassVar[Removable] = Removable()
+    """
+    Sentinel object used to specify that a header field must be empty during verification.
+    """
 
 
 @dataclass(kw_only=True)
@@ -2222,6 +2226,26 @@ class FixtureHeader:
                     setattr(new_fixture_header, header_field, value)
         return new_fixture_header
 
+    def verify(self, baseline: Header):
+        """
+        Verifies that the header fields from the baseline are as expected.
+        """
+        for header_field in fields(self):
+            field_name = header_field.name
+            baseline_value = getattr(baseline, field_name)
+            if baseline_value is not None:
+                assert baseline_value is not Header.REMOVE_FIELD, "invalid baseline header"
+                value = getattr(self, field_name)
+                if baseline_value is Header.EMPTY_FIELD:
+                    assert value is None, f"invalid header field {header_field}"
+                    continue
+                metadata = header_field.metadata
+                field_metadata = metadata.get("source")
+                # type check is performed on collect()
+                if field_metadata.parse_type is not None:  # type: ignore
+                    baseline_value = field_metadata.parse_type(baseline_value)  # type: ignore
+                assert value == baseline_value, f"invalid header field {header_field}"
+
     def build(
         self,
         *,
@@ -2287,6 +2311,10 @@ class Block(Header):
 
     Only meant to be used to simulate blocks with bad formats, and therefore
     requires the block to produce an exception.
+    """
+    header_verify: Optional[Header] = None
+    """
+    If set, the block header will be verified against the specified values.
     """
     rlp_modifier: Optional[Header] = None
     """
