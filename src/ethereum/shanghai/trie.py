@@ -348,7 +348,7 @@ def _prepare_trie(
     """
     mapped: MutableMapping[Bytes, Bytes] = {}
 
-    for (preimage, value) in trie._data.items():
+    for preimage, value in trie._data.items():
         if isinstance(value, Account):
             assert get_storage_root is not None
             address = Address(preimage)

@@ -33,7 +33,7 @@ class ImportHygiene(Lint):
         """
         all_sources = dict(walk_sources(forks[position]))
         diagnostics: List[Diagnostic] = []
-        for (name, source) in all_sources.items():
+        for name, source in all_sources.items():
             diagnostics += self.check_import(forks, position, name, source)
 
         return diagnostics

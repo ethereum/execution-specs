@@ -170,7 +170,7 @@ def test_rlp_encode_successfully() -> None:
             ),
         ),
     ]
-    for (raw_data, expected_encoding) in test_cases:
+    for raw_data, expected_encoding in test_cases:
         assert rlp.encode(cast(RLP, raw_data)) == expected_encoding
 
 
@@ -314,7 +314,7 @@ def test_rlp_decode_successfully() -> None:
             [b"hello", [b"how", [b"are", b"you", [b"doing"]]]],
         ),
     ]
-    for (encoding, expected_raw_data) in test_cases:
+    for encoding, expected_raw_data in test_cases:
         assert rlp.decode(encoding) == expected_raw_data
 
 

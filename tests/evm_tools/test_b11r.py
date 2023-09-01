@@ -29,7 +29,6 @@ def find_test_fixtures() -> Any:
         data = json.load(f)
 
     for key, value in data.items():
-
         final_args = []
         for arg in value["args"]:
             final_args.append(arg.replace("__BASEDIR__", B11R_TEST_PATH))
