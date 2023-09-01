@@ -2228,7 +2228,7 @@ class FixtureHeader:
 
     def verify(self, baseline: Header):
         """
-        Produces a fixture header copy with the set values from the modifier.
+        Verifies that the header fields from the baseline are as expected.
         """
         for header_field in fields(self):
             field_name = header_field.name
