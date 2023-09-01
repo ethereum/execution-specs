@@ -74,7 +74,7 @@ class Hardfork:
                 raise ValueError("unable to find module from file")
             ethereum = importlib.util.module_from_spec(spec)
             if spec.loader and hasattr(spec.loader, "exec_module"):
-                spec.loader.exec_module(ethereum)  # type: ignore[attr-defined]
+                spec.loader.exec_module(ethereum)
 
         path = getattr(ethereum, "__path__", None)
         if path is None:
@@ -172,7 +172,7 @@ class Hardfork:
         """
         from ethereum.fork_criteria import ForkCriteria
 
-        criteria = self.mod.FORK_CRITERIA  # type: ignore[attr-defined]
+        criteria = self.mod.FORK_CRITERIA
         assert isinstance(criteria, ForkCriteria)
         return criteria
 

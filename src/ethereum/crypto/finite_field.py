@@ -375,6 +375,9 @@ class GaloisField(tuple, Field):
             exponent //= 2
         return res
 
+    def __ipow__(self: U, right: int) -> U:
+        return self.__pow__(right)
+
     @classmethod
     def calculate_frobenius_coefficients(cls: Type[U]) -> Tuple[U, ...]:
         """

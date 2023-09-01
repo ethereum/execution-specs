@@ -17,7 +17,7 @@ Defines the serialization and deserialization format used throughout Ethereum.
 from __future__ import annotations
 
 from dataclasses import astuple, fields, is_dataclass
-from typing import Any, List, Sequence, Tuple, Type, TypeVar, Union
+from typing import Any, List, Sequence, Tuple, Type, TypeVar, Union, cast
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import RLPDecodingError, RLPEncodingError
@@ -293,7 +293,7 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
         ensure(len(fields(cls)) == len(raw_rlp), RLPDecodingError)
         for field, rlp_item in zip(fields(cls), raw_rlp):
             args.append(_decode_to(field.type, rlp_item))
-        return cls(*args)
+        return cast(T, cls(*args))
     else:
         raise RLPDecodingError(
             "RLP Decoding to type {} is not supported".format(cls)

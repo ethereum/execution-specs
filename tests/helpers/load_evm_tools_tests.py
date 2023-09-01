@@ -2,11 +2,10 @@ import json
 import os
 import sys
 from io import StringIO
-from typing import Dict, Generator, Tuple
+from typing import Dict, Generator, Optional, Tuple
 
 import pytest
 
-from ethereum import rlp
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools import parser, subparsers
 from ethereum_spec_tools.evm_tools.t8n import T8N, t8n_arguments
@@ -17,7 +16,7 @@ t8n_arguments(subparsers)
 def fetch_evm_tools_tests(
     test_dir: str,
     fork_name: str,
-    slow_tests: Tuple[str, ...] = None,
+    slow_tests: Optional[Tuple[str, ...]] = None,
 ) -> Generator:
     """
     Fetches all the general state tests from the given directory
