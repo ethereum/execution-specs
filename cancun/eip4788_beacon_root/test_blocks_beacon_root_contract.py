@@ -24,7 +24,7 @@ note: Adding a new test
 """  # noqa: E501
 
 from itertools import count
-from typing import Dict, Iterable, List
+from typing import Dict, Iterator, List
 
 import pytest
 from ethereum.crypto.hash import keccak256
@@ -56,7 +56,7 @@ REFERENCE_SPEC_VERSION = REF_SPEC_4788_VERSION
 
 
 @pytest.fixture
-def beacon_roots() -> Iterable[bytes]:
+def beacon_roots() -> Iterator[bytes]:
     """
     By default, return an iterator that returns the keccak of an internal counter.
     """
@@ -118,8 +118,8 @@ def beacon_roots() -> Iterable[bytes]:
 @pytest.mark.valid_from("Cancun")
 def test_multi_block_beacon_root_timestamp_calls(
     blockchain_test: BlockchainTestFiller,
-    timestamps: Iterable[int],
-    beacon_roots: Iterable[bytes],
+    timestamps: Iterator[int],
+    beacon_roots: Iterator[bytes],
     block_count: int,
     tx: Transaction,
     call_gas: int,
@@ -247,10 +247,10 @@ def test_multi_block_beacon_root_timestamp_calls(
 )
 @pytest.mark.parametrize("block_count", [20])
 @pytest.mark.valid_at_transition_to("Cancun")
-def test_beacon_root_transition_test(
+def test_beacon_root_transition(
     blockchain_test: BlockchainTestFiller,
-    timestamps: Iterable[int],
-    beacon_roots: Iterable[bytes],
+    timestamps: Iterator[int],
+    beacon_roots: Iterator[bytes],
     block_count: int,
     tx: Transaction,
     call_gas: int,
@@ -364,6 +364,72 @@ def test_beacon_root_transition_test(
             )
         )
 
+    blockchain_test(
+        pre=pre,
+        blocks=blocks,
+        post=post,
+    )
+
+
+@pytest.mark.parametrize("timestamp", [15_000])
+@pytest.mark.valid_at_transition_to("Cancun")
+def test_no_beacon_root_contract_at_transition(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict,
+    beacon_roots: Iterator[bytes],
+    tx: Transaction,
+    timestamp: int,
+    caller_address: str,
+    fork: Fork,
+):
+    """
+    Tests the fork transition to cancun in the case where the beacon root pre-deploy was not
+    deployed in time for the fork.
+    """
+    assert fork.header_beacon_root_required(1, timestamp)
+    blocks: List[Block] = [
+        Block(
+            txs=[tx],
+            beacon_root=next(beacon_roots),
+            timestamp=timestamp,
+            withdrawals=[
+                # Also withdraw to the beacon root contract and the system address
+                Withdrawal(
+                    address=BEACON_ROOT_CONTRACT_ADDRESS,
+                    amount=1,
+                    index=0,
+                    validator=0,
+                ),
+                Withdrawal(
+                    address=SYSTEM_ADDRESS,
+                    amount=1,
+                    index=1,
+                    validator=1,
+                ),
+            ],
+        )
+    ]
+    pre[BEACON_ROOT_CONTRACT_ADDRESS] = Account(
+        code=b"",  # Remove the code that is automatically allocated on Cancun fork
+        nonce=0,
+        balance=0,
+    )
+    post = {
+        BEACON_ROOT_CONTRACT_ADDRESS: Account(
+            storage={
+                timestamp % HISTORICAL_ROOTS_MODULUS: 0,
+                (timestamp % HISTORICAL_ROOTS_MODULUS) + HISTORICAL_ROOTS_MODULUS: 0,
+            },
+            code=b"",
+            nonce=0,
+            balance=int(1e9),
+        ),
+        caller_address: Account(
+            storage={
+                0: 1
+            },  # Successful call because the contract is not there, but nothing else is stored
+        ),
+    }
     blockchain_test(
         pre=pre,
         blocks=blocks,
