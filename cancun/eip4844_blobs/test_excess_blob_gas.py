@@ -23,7 +23,7 @@ note: Adding a new test
 
 """  # noqa: E501
 import itertools
-from typing import Iterator, List, Mapping, Optional, Tuple
+from typing import Dict, Iterator, List, Mapping, Optional, Tuple
 
 import pytest
 
@@ -224,11 +224,19 @@ def header_blob_gas_used() -> Optional[int]:  # noqa: D103
 
 
 @pytest.fixture
+def correct_blob_gas_used(  # noqa: D103
+    tx: Transaction,
+) -> int:
+    return Spec.get_total_blob_gas(tx)
+
+
+@pytest.fixture
 def blocks(  # noqa: D103
     tx: Transaction,
     header_excess_blob_gas: Optional[int],
     header_blob_gas_used: Optional[int],
     correct_excess_blob_gas: int,
+    correct_blob_gas_used: int,
     non_zero_blob_gas_used_genesis_block: Block,
 ):
     blocks = (
@@ -236,30 +244,36 @@ def blocks(  # noqa: D103
         if non_zero_blob_gas_used_genesis_block is None
         else [non_zero_blob_gas_used_genesis_block]
     )
-    if header_excess_blob_gas is not None:
+
+    def add_block(header_modifier: Optional[Dict] = None, exception_message: str = None):
+        """
+        Utility function to add a block to the blocks list.
+        """
         blocks.append(
             Block(
                 txs=[tx],
-                rlp_modifier=Header(
-                    excess_blob_gas=header_excess_blob_gas,
+                rlp_modifier=Header(**header_modifier) if header_modifier else None,
+                header_verify=Header(
+                    excess_blob_gas=correct_excess_blob_gas,
+                    blob_gas_used=correct_blob_gas_used,
                 ),
-                exception="invalid excess blob gas",
-            ),
+                exception=exception_message,
+            )
+        )
+
+    if header_excess_blob_gas is not None:
+        add_block(
+            header_modifier={"excess_blob_gas": header_excess_blob_gas},
+            exception_message="invalid excess blob gas",
         )
     elif header_blob_gas_used is not None:
-        blocks.append(
-            Block(
-                txs=[tx],
-                rlp_modifier=Header(
-                    blob_gas_used=header_blob_gas_used,
-                ),
-                exception="invalid blob gas used",
-            ),
+        add_block(
+            header_modifier={"blob_gas_used": header_blob_gas_used},
+            exception_message="invalid blob gas used",
         )
     else:
-        blocks.append(
-            Block(txs=[tx], header_verify=Header(excess_blob_gas=correct_excess_blob_gas))
-        )
+        add_block()
+
     return blocks
 
 
