@@ -192,14 +192,14 @@ class BlockchainTest(BaseTest):
                 environment=env,
             )
 
+            if block.header_verify is not None:
+                # Verify the header after transition tool processing.
+                header.verify(block.header_verify)
+
             if block.rlp_modifier is not None:
                 # Modify any parameter specified in the `rlp_modifier` after
                 # transition tool processing.
                 header = header.join(block.rlp_modifier)
-
-            if block.header_verify is not None:
-                # Verify the header after transition tool processing.
-                header.verify(block.header_verify)
 
             rlp, header.hash = header.build(
                 txs=txs,
