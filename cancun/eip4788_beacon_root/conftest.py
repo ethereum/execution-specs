@@ -77,15 +77,15 @@ def caller_address() -> str:  # noqa: D103
 
 
 @pytest.fixture
-def precompile_call_account(call_type: Op, call_value: int, call_gas: int) -> Account:
+def contract_call_account(call_type: Op, call_value: int, call_gas: int) -> Account:
     """
-    Code to call the beacon root precompile.
+    Code to call the beacon root contract.
     """
     args_start, args_length, return_start, return_length = 0x20, Op.CALLDATASIZE, 0x00, 0x20
-    precompile_call_code = Op.CALLDATACOPY(args_start, 0x00, args_length)
+    contract_call_code = Op.CALLDATACOPY(args_start, 0x00, args_length)
     if call_type == Op.CALL or call_type == Op.CALLCODE:
-        precompile_call_code += Op.SSTORE(
-            0x00,  # store the result of the precompile call in storage[0]
+        contract_call_code += Op.SSTORE(
+            0x00,  # store the result of the contract call in storage[0]
             call_type(
                 call_gas,
                 BEACON_ROOT_CONTRACT_ADDRESS,
@@ -98,7 +98,7 @@ def precompile_call_account(call_type: Op, call_value: int, call_gas: int) -> Ac
         )
     elif call_type == Op.DELEGATECALL or call_type == Op.STATICCALL:
         # delegatecall and staticcall use one less argument
-        precompile_call_code += Op.SSTORE(
+        contract_call_code += Op.SSTORE(
             0x00,
             call_type(
                 call_gas,
@@ -109,12 +109,12 @@ def precompile_call_account(call_type: Op, call_value: int, call_gas: int) -> Ac
                 return_length,
             ),
         )
-    precompile_call_code += (
-        Op.SSTORE(  # Save the return value of the precompile call
+    contract_call_code += (
+        Op.SSTORE(  # Save the return value of the contract call
             0x01,
             Op.MLOAD(return_start),
         )
-        + Op.SSTORE(  # Save the length of the return value of the precompile call
+        + Op.SSTORE(  # Save the length of the return value of the contract call
             0x02,
             Op.RETURNDATASIZE,
         )
@@ -130,7 +130,7 @@ def precompile_call_account(call_type: Op, call_value: int, call_gas: int) -> Ac
     )
     return Account(
         nonce=0,
-        code=precompile_call_code,
+        code=contract_call_code,
         balance=0x10**10,
     )
 
@@ -138,7 +138,7 @@ def precompile_call_account(call_type: Op, call_value: int, call_gas: int) -> Ac
 @pytest.fixture
 def valid_call() -> bool:
     """
-    Validity of beacon root precompile call: defaults to True.
+    Validity of beacon root contract call: defaults to True.
     """
     return True
 
@@ -146,7 +146,7 @@ def valid_call() -> bool:
 @pytest.fixture
 def valid_input() -> bool:
     """
-    Validity of timestamp input to precompile call: defaults to True.
+    Validity of timestamp input to contract call: defaults to True.
     """
     return True
 
@@ -161,20 +161,20 @@ def system_address_balance() -> int:
 
 @pytest.fixture
 def pre(
-    precompile_call_account: Account,
+    contract_call_account: Account,
     system_address_balance: int,
     caller_address: str,
 ) -> Dict:
     """
     Prepares the pre state of all test cases, by setting the balance of the
-    source account of all test transactions, and the precompile caller account.
+    source account of all test transactions, and the contract caller account.
     """
     return {
         TestAddress: Account(
             nonce=0,
             balance=0x10**10,
         ),
-        caller_address: precompile_call_account,
+        caller_address: contract_call_account,
         SYSTEM_ADDRESS: Account(
             nonce=0,
             balance=system_address_balance,
@@ -198,7 +198,7 @@ def auto_access_list() -> bool:
 @pytest.fixture
 def access_list(auto_access_list: bool, timestamp: int) -> List[AccessList]:
     """
-    Access list included in the transaction to call the beacon root precompile.
+    Access list included in the transaction to call the beacon root contract.
     """
     if auto_access_list:
         return [
@@ -216,7 +216,7 @@ def access_list(auto_access_list: bool, timestamp: int) -> List[AccessList]:
 @pytest.fixture
 def tx_data(timestamp: int) -> bytes:
     """
-    Data included in the transaction to call the beacon root precompile.
+    Data included in the transaction to call the beacon root contract.
     """
     return to_hash_bytes(timestamp)
 
@@ -240,7 +240,7 @@ def tx(
     call_beacon_root_contract: bool,
 ) -> Transaction:
     """
-    Prepares transaction to call the beacon root precompile caller account.
+    Prepares transaction to call the beacon root contract caller account.
     """
     to = BEACON_ROOT_CONTRACT_ADDRESS if call_beacon_root_contract else tx_to_address
     kwargs: Dict = {
@@ -280,7 +280,7 @@ def post(
     call_beacon_root_contract: bool,
 ) -> Dict:
     """
-    Prepares the expected post state for a single precompile call based upon the success or
+    Prepares the expected post state for a single contract call based upon the success or
     failure of the call, and the validity of the timestamp input.
     """
     storage = Storage()

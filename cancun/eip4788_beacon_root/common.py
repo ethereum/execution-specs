@@ -37,7 +37,7 @@ def expected_storage(
     valid_input: bool,
 ) -> Storage:
     """
-    Derives the expected storage for a given beacon root precompile call
+    Derives the expected storage for a given beacon root contract call
     dependent on:
     - success or failure of the call
     - validity of the timestamp input used within the call
@@ -45,7 +45,7 @@ def expected_storage(
     # By default assume the call is unsuccessful and all keys are zero
     storage = Storage({k: 0 for k in range(4)})
     if valid_call and valid_input:
-        # beacon root precompile call is successful
+        # beacon root contract call is successful
         storage[0] = 1
         storage[1] = beacon_root
         storage[2] = 32

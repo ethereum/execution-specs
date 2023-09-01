@@ -59,7 +59,7 @@ REFERENCE_SPEC_VERSION = REF_SPEC_4788_VERSION
     ],
 )
 @pytest.mark.valid_from("Cancun")
-def test_beacon_root_precompile_calls(
+def test_beacon_root_contract_calls(
     state_test: StateTestFiller,
     env: Environment,
     pre: Dict,
@@ -67,7 +67,7 @@ def test_beacon_root_precompile_calls(
     post: Dict,
 ):
     """
-    Tests the beacon root precompile call using various call contexts:
+    Tests the beacon root contract call using various call contexts:
     - `CALL`
     - `DELEGATECALL`
     - `CALLCODE`
@@ -77,7 +77,7 @@ def test_beacon_root_precompile_calls(
     - extra gas (valid call)
     - insufficient gas (invalid call)
 
-    The expected result is that the precompile call will be executed if the gas amount is met
+    The expected result is that the contract call will be executed if the gas amount is met
     and return the correct`parent_beacon_block_root`. Otherwise the call will be invalid, and not
     be executed. This is highlighted within storage by storing the return value of each call
     context.
@@ -114,7 +114,7 @@ def test_beacon_root_precompile_calls(
     ],
 )
 @pytest.mark.valid_from("Cancun")
-def test_beacon_root_precompile_timestamps(
+def test_beacon_root_contract_timestamps(
     state_test: StateTestFiller,
     env: Environment,
     pre: Dict,
@@ -122,9 +122,9 @@ def test_beacon_root_precompile_timestamps(
     post: Dict,
 ):
     """
-    Tests the beacon root precompile call across for various valid and invalid timestamps.
+    Tests the beacon root contract call across for various valid and invalid timestamps.
 
-    The expected result is that the precompile call will return the correct
+    The expected result is that the contract call will return the correct
     `parent_beacon_block_root` for a valid input timestamp and return the zero'd 32 bytes value
     for an invalid input timestamp.
     """
@@ -157,7 +157,7 @@ def test_calldata_lengths(
     post: Dict,
 ):
     """
-    Tests the beacon root precompile call using multiple invalid input lengths.
+    Tests the beacon root contract call using multiple invalid input lengths.
     """
     state_test(
         env=env,
@@ -187,9 +187,9 @@ def test_beacon_root_equal_to_timestamp(
     post: Dict,
 ):
     """
-    Tests the beacon root precompile call where the beacon root is equal to the timestamp.
+    Tests the beacon root contract call where the beacon root is equal to the timestamp.
 
-    The expected result is that the precompile call will return the `parent_beacon_block_root`,
+    The expected result is that the contract call will return the `parent_beacon_block_root`,
     as all timestamps used are valid.
     """
     state_test(
@@ -212,8 +212,7 @@ def test_tx_to_beacon_root_contract(
     post: Dict,
 ):
     """
-    Tests the beacon root precompile call using a transaction to the precompile contract, using
-    different transaction types and data lengths.
+    Tests the beacon root contract using a transaction with different types and data lengths.
     """
     state_test(
         env=env,

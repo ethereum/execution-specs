@@ -128,7 +128,7 @@ def test_multi_block_beacon_root_timestamp_calls(
 ):
     """
     Tests multiple blocks where each block writes a timestamp to storage and contains one
-    transaction that calls the beacon root precompile multiple times.
+    transaction that calls the beacon root contract multiple times.
 
     The blocks might overwrite the historical roots buffer, or not, depending on the `timestamps`,
     and whether they increment in multiples of `HISTORICAL_ROOTS_MODULUS` or not.
