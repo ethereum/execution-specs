@@ -40,7 +40,6 @@ def pytest_configure(config: Config) -> None:
 
 
 def download_fixtures(url: str, location: str) -> None:
-
     # xdist processes will all try to download the fixtures.
     # Using lockfile to make it parallel safe
     with SoftFileLock(f"{location}.lock"):
@@ -59,7 +58,6 @@ def download_fixtures(url: str, location: str) -> None:
 
 
 def git_clone_fixtures(url: str, commit_hash: str, location: str) -> None:
-
     # xdist processes will all try to download the fixtures.
     # Using lockfile to make it parallel safe
     with SoftFileLock(f"{location}.lock"):
@@ -100,7 +98,6 @@ def git_clone_fixtures(url: str, commit_hash: str, location: str) -> None:
 
 
 def pytest_sessionstart(session: Session) -> None:
-
     fixtures_location = "tests"
 
     for _, props in TEST_FIXTURES.items():

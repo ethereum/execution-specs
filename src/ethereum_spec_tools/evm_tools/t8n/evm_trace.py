@@ -303,7 +303,6 @@ def output_traces(
     )
     with open(output_path, "w") as json_file:
         for trace in traces:
-
             if getattr(trace, "precompile", False):
                 # Traces related to pre-compile are not output.
                 continue

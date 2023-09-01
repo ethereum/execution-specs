@@ -113,7 +113,7 @@ class Hardfork:
 
         forks = []
 
-        for (criteria, name) in config:
+        for criteria, name in config:
             mod = importlib.import_module("ethereum." + name)
             mod.FORK_CRITERIA = criteria  # type: ignore
             forks.append(cls(mod))
@@ -129,6 +129,7 @@ class Hardfork:
         `discover()` for Mainnet.
         """
         from ethereum.fork_criteria import ByBlockNumber, ByTimestamp
+
         c = json["config"]
         config = {
             ByBlockNumber(0): "frontier",
@@ -170,6 +171,7 @@ class Hardfork:
         Criteria to trigger this hardfork.
         """
         from ethereum.fork_criteria import ForkCriteria
+
         criteria = self.mod.FORK_CRITERIA  # type: ignore[attr-defined]
         assert isinstance(criteria, ForkCriteria)
         return criteria
@@ -180,6 +182,7 @@ class Hardfork:
         Block number of the first block in this hard fork.
         """
         from ethereum.fork_criteria import ByBlockNumber
+
         if isinstance(self.criteria, ByBlockNumber):
             return self.criteria.block_number
         else:
@@ -191,6 +194,7 @@ class Hardfork:
         Block number of the first block in this hard fork.
         """
         from ethereum.fork_criteria import ByTimestamp
+
         if isinstance(self.criteria, ByTimestamp):
             return self.criteria.timestamp
         else:

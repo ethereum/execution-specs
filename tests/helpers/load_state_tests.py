@@ -23,7 +23,6 @@ class NoTestsFound(Exception):
 
 
 def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
-
     test_file = test_case["test_file"]
     test_key = test_case["test_key"]
 
@@ -90,7 +89,6 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
 def add_block_to_chain(
     chain: Any, json_block: Any, load: Load, mock_pow: bool
 ) -> None:
-
     (
         block,
         block_header_hash,
@@ -151,7 +149,6 @@ def fetch_state_test_files(
     big_memory_list: Tuple[str, ...] = (),
     ignore_list: Tuple[str, ...] = (),
 ) -> Generator[Union[Dict, ParameterSet], None, None]:
-
     all_slow = [re.compile(x) for x in slow_list]
     all_big_memory = [re.compile(x) for x in big_memory_list]
     all_ignore = [re.compile(x) for x in ignore_list]

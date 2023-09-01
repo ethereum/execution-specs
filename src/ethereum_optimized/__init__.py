@@ -39,7 +39,7 @@ def monkey_patch_optimized_state_db(
 
     optimized_state_db_patches = get_optimized_state_patches(fork_name)
 
-    for (name, value) in optimized_state_db_patches.items():
+    for name, value in optimized_state_db_patches.items():
         setattr(slow_state, name, value)
 
     if state_path is not None:
@@ -58,7 +58,7 @@ def monkey_patch_optimized_spec(fork_name: str) -> None:
 
     optimized_pow_patches = get_optimized_pow_patches(fork_name)
 
-    for (name, value) in optimized_pow_patches.items():
+    for name, value in optimized_pow_patches.items():
         setattr(slow_spec, name, value)
 
 

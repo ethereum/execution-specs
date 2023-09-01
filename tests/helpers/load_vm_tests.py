@@ -122,7 +122,6 @@ class VmTestLoader:
         }
 
     def json_to_env(self, json_data: Any) -> Any:
-
         caller_hex_address = json_data["exec"]["caller"]
         # Some tests don't have the caller state defined in the test case. Hence
         # creating a dummy caller state.
@@ -156,7 +155,7 @@ class VmTestLoader:
 
     def json_to_state(self, raw: Any) -> Any:
         state = self.State()
-        for (addr_hex, acc_state) in raw.items():
+        for addr_hex, acc_state in raw.items():
             addr = self.hex_to_address(addr_hex)
             account = self.Account(
                 nonce=hex_to_uint(acc_state.get("nonce", "0x0")),
@@ -165,7 +164,7 @@ class VmTestLoader:
             )
             self.set_account(state, addr, account)
 
-            for (k, v) in acc_state.get("storage", {}).items():
+            for k, v in acc_state.get("storage", {}).items():
                 self.set_storage(
                     state,
                     addr,

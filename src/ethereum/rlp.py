@@ -234,7 +234,7 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
         else:
             args = []
             ensure(len(raw_rlp) == len(cls.__args__), RLPDecodingError)  # type: ignore # noqa: E501
-            for (t, raw_item) in zip(cls.__args__, raw_rlp):  # type: ignore
+            for t, raw_item in zip(cls.__args__, raw_rlp):  # type: ignore
                 args.append(_decode_to(t, raw_item))
             return tuple(args)  # type: ignore
     elif cls == Union[Bytes0, Bytes20]:
@@ -291,7 +291,7 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
         assert isinstance(raw_rlp, list)
         args = []
         ensure(len(fields(cls)) == len(raw_rlp), RLPDecodingError)
-        for (field, rlp_item) in zip(fields(cls), raw_rlp):
+        for field, rlp_item in zip(fields(cls), raw_rlp):
             args.append(_decode_to(field.type, rlp_item))
         return cls(*args)
     else:
