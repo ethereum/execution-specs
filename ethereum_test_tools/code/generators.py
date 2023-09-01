@@ -47,6 +47,8 @@ class Initcode(Code):
         *,
         deploy_code: str | bytes | SupportsBytes,
         initcode_length: Optional[int] = None,
+        initcode_prefix: str | bytes | SupportsBytes = b"",
+        initcode_prefix_execution_gas: int = 0,
         padding_byte: int = 0x00,
         name: Optional[str] = None,
     ):
@@ -54,12 +56,13 @@ class Initcode(Code):
         Generate legacy initcode that inits a contract with the specified code.
         The initcode can be padded to a specified length for testing purposes.
         """
-        self.execution_gas = 0
+        self.execution_gas = initcode_prefix_execution_gas
         self.deploy_code = deploy_code
         deploy_code_bytes = to_bytes(self.deploy_code)
         code_length = len(deploy_code_bytes)
 
-        initcode = bytearray()
+        initcode_prefix_bytes = to_bytes(initcode_prefix)
+        initcode = bytearray(initcode_prefix_bytes)
 
         # PUSH2: length=<bytecode length>
         initcode.append(0x61)
@@ -75,9 +78,11 @@ class Initcode(Code):
         initcode.append(0x81)
         self.execution_gas += 3
 
-        # PUSH1: initcode_length=11 (constant)
+        # PUSH1: initcode_length=11 + len(initcode_prefix_bytes) (constant)
+        no_prefix_length = 0x0B
+        assert no_prefix_length + len(initcode_prefix_bytes) <= 0xFF, "initcode prefix too long"
         initcode.append(0x60)
-        initcode.append(0x0B)
+        initcode.append(no_prefix_length + len(initcode_prefix_bytes))
         self.execution_gas += 3
 
         # DUP3
@@ -97,19 +102,21 @@ class Initcode(Code):
         initcode.append(0xF3)
         self.execution_gas += 0
 
-        pre_padding_bytes = bytes(initcode) + deploy_code_bytes
+        initcode_plus_deploy_code = bytes(initcode) + deploy_code_bytes
+        padding_bytes = bytes()
 
         if initcode_length is not None:
-            if len(pre_padding_bytes) > initcode_length:
-                raise Exception("Invalid specified length for initcode")
+            assert initcode_length >= len(
+                initcode_plus_deploy_code
+            ), "specified invalid lenght for initcode"
 
-            padding_bytes = bytes([padding_byte] * (initcode_length - len(pre_padding_bytes)))
-        else:
-            padding_bytes = bytes()
+            padding_bytes = bytes(
+                [padding_byte] * (initcode_length - len(initcode_plus_deploy_code))
+            )
 
         self.deployment_gas = GAS_PER_DEPLOYED_CODE_BYTE * len(deploy_code_bytes)
 
-        super().__init__(pre_padding_bytes + padding_bytes, name=name)
+        super().__init__(initcode_plus_deploy_code + padding_bytes, name=name)
 
 
 @dataclass(kw_only=True)

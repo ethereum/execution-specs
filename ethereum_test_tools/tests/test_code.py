@@ -174,7 +174,7 @@ def test_yul(
 @pytest.mark.parametrize(
     "initcode,bytecode",
     [
-        (
+        pytest.param(
             Initcode(deploy_code=bytes()),
             bytes(
                 [
@@ -191,8 +191,29 @@ def test_yul(
                     0xF3,
                 ]
             ),
+            id="empty-deployed-code",
         ),
-        (
+        pytest.param(
+            Initcode(deploy_code=bytes(), initcode_prefix=bytes([0x00])),
+            bytes(
+                [
+                    0x00,
+                    0x61,
+                    0x00,
+                    0x00,
+                    0x60,
+                    0x00,
+                    0x81,
+                    0x60,
+                    0x0C,
+                    0x82,
+                    0x39,
+                    0xF3,
+                ]
+            ),
+            id="empty-deployed-code-with-prefix",
+        ),
+        pytest.param(
             Initcode(deploy_code=bytes(), initcode_length=20),
             bytes(
                 [
@@ -210,8 +231,9 @@ def test_yul(
                 ]
                 + [0x00] * 9  # padding
             ),
+            id="empty-deployed-code-with-padding",
         ),
-        (
+        pytest.param(
             Initcode(deploy_code=bytes([0x00]), initcode_length=20),
             bytes(
                 [
@@ -227,9 +249,40 @@ def test_yul(
                     0x39,
                     0xF3,
                 ]
-                + [0x00]
+                + [0x00]  # deployed code
                 + [0x00] * 8  # padding
             ),
+            id="single-byte-deployed-code-with-padding",
+        ),
+        pytest.param(
+            Initcode(
+                deploy_code=bytes([0x00]),
+                initcode_prefix=Op.SSTORE(0, 1),
+                initcode_length=20,
+            ),
+            bytes(
+                [
+                    0x60,
+                    0x01,
+                    0x60,
+                    0x00,
+                    0x55,
+                    0x61,
+                    0x00,
+                    0x01,
+                    0x60,
+                    0x00,
+                    0x81,
+                    0x60,
+                    0x10,
+                    0x82,
+                    0x39,
+                    0xF3,
+                ]
+                + [0x00]  # deployed code
+                + [0x00] * 3  # padding
+            ),
+            id="single-byte-deployed-code-with-padding-and-prefix",
         ),
     ],
 )
