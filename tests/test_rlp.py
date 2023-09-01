@@ -121,7 +121,7 @@ def test_rlp_encode_single_elem_list_uint() -> None:
 
 
 def test_rlp_encode_10_elem_byte_uint_combo() -> None:
-    raw_data = [b"hello"] * 5 + [Uint(35)] * 5  # type: ignore
+    raw_data = [b"hello"] * 5 + [Uint(35)] * 5
     expected = (
         bytearray([0xE3])
         + b"\x85hello\x85hello\x85hello\x85hello\x85hello#####"
@@ -130,7 +130,7 @@ def test_rlp_encode_10_elem_byte_uint_combo() -> None:
 
 
 def test_rlp_encode_20_elem_byte_uint_combo() -> None:
-    raw_data = [Uint(35)] * 10 + [b"hello"] * 10  # type: ignore
+    raw_data = [Uint(35)] * 10 + [b"hello"] * 10
     expected = (
         bytearray([0xF8])
         + b"F"
@@ -159,7 +159,7 @@ def test_rlp_encode_successfully() -> None:
         (Uint(255), b"\x81\xff"),
         ([], bytearray([0xC0])),
         (
-            [b"hello"] * 5 + [Uint(35)] * 5,  # type: ignore
+            [b"hello"] * 5 + [Uint(35)] * 5,
             bytearray([0xE3])
             + bytearray(b"\x85hello\x85hello\x85hello\x85hello\x85hello#####"),
         ),
