@@ -2240,14 +2240,10 @@ class FixtureHeader:
                     assert value is None, f"invalid header field {header_field}"
                     continue
                 metadata = header_field.metadata
-                assert metadata is not None, f"Field {field_name} has no header field metadata"
                 field_metadata = metadata.get("source")
-                assert isinstance(field_metadata, HeaderFieldSource), (
-                    f"Field {field_name} has invalid header_field " f"metadata: {field_metadata}"
-                )
-
-                if field_metadata.parse_type is not None:
-                    baseline_value = field_metadata.parse_type(baseline_value)
+                # type check is performed on collect()
+                if field_metadata.parse_type is not None:  # type: ignore
+                    baseline_value = field_metadata.parse_type(baseline_value)  # type: ignore
                 assert value == baseline_value, f"invalid header field {header_field}"
 
     def build(
