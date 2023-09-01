@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import Optional
 
+from ethereum_test_tools import Transaction
+
 
 @dataclass(frozen=True)
 class ReferenceSpec:
@@ -102,15 +104,14 @@ class Spec:
         else:
             return parent.excess_blob_gas + parent.blob_gas_used - cls.TARGET_BLOB_GAS_PER_BLOCK
 
-    # Note: Currently unused.
-    # @classmethod
-    # def get_total_blob_gas(cls, tx: Transaction) -> int:
-    #     """
-    #     Calculate the total blob gas for a transaction.
-    #     """
-    #     if tx.blob_versioned_hashes is None:
-    #         return 0
-    #     return cls.GAS_PER_BLOB * len(tx.blob_versioned_hashes)
+    @classmethod
+    def get_total_blob_gas(cls, tx: Transaction) -> int:
+        """
+        Calculate the total blob gas for a transaction.
+        """
+        if tx.blob_versioned_hashes is None:
+            return 0
+        return cls.GAS_PER_BLOB * len(tx.blob_versioned_hashes)
 
     @classmethod
     def get_blob_gasprice(cls, *, excess_blob_gas: int) -> int:

@@ -21,6 +21,7 @@ from typing import Dict, List, Optional, Tuple
 
 import pytest
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,
     Block,
@@ -31,6 +32,7 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
+    Removable,
     Storage,
     TestAddress,
     TestAddress2,
@@ -41,7 +43,7 @@ from ethereum_test_tools import (
     to_hash_bytes,
 )
 
-from .spec import Spec, SpecHelpers, ref_spec_4844
+from .spec import BlockHeaderBlobGasFields, Spec, SpecHelpers, ref_spec_4844
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
 REFERENCE_SPEC_VERSION = ref_spec_4844.version
@@ -329,32 +331,91 @@ def engine_api_error_code() -> Optional[EngineAPIError]:
 
 
 @pytest.fixture
-def blocks(
+def block_error(tx_error: Optional[str]) -> Optional[str]:
+    """
+    Default expected error produced by the block transactions (no error).
+
+    Can be overloaded on test cases where the transactions are expected
+    to fail.
+    """
+    return tx_error
+
+
+@pytest.fixture
+def block_number() -> int:
+    """
+    Default number of the first block.
+    """
+    return 1
+
+
+@pytest.fixture
+def block_timestamp() -> int:
+    """
+    Default timestamp of the first block.
+    """
+    return 1
+
+
+@pytest.fixture
+def expected_blob_gas_used(
+    fork: Fork,
     txs: List[Transaction],
-    tx_error: Optional[str],
+    block_number: int,
+    block_timestamp: int,
+) -> Optional[int | Removable]:
+    """
+    Calculates the blob gas used by the test block.
+    """
+    if not fork.header_blob_gas_used_required(
+        block_number=block_number, timestamp=block_timestamp
+    ):
+        return Header.EMPTY_FIELD
+    return sum([Spec.get_total_blob_gas(tx) for tx in txs])
+
+
+@pytest.fixture
+def expected_excess_blob_gas(
+    fork: Fork,
+    parent_excess_blob_gas: Optional[int],
+    block_number: int,
+    block_timestamp: int,
+) -> Optional[int | Removable]:
+    """
+    Calculates the blob gas used by the test block.
+    """
+    if not fork.header_excess_blob_gas_required(
+        block_number=block_number, timestamp=block_timestamp
+    ):
+        return Header.EMPTY_FIELD
+    return Spec.calc_excess_blob_gas(
+        BlockHeaderBlobGasFields(
+            excess_blob_gas=parent_excess_blob_gas if parent_excess_blob_gas else 0,
+            blob_gas_used=0,  # Parent blob gas used is always zero
+        )
+    )
+
+
+@pytest.fixture
+def blocks(
+    expected_blob_gas_used: Optional[int | Removable],
+    expected_excess_blob_gas: Optional[int | Removable],
+    txs: List[Transaction],
+    block_error: Optional[str],
     engine_api_error_code: Optional[EngineAPIError],
 ) -> List[Block]:
     """
     Prepare the list of blocks for all test cases.
     """
-    header_blob_gas_used = 0
-    if len(txs) > 0:
-        header_blob_gas_used = (
-            sum(
-                [
-                    len(tx.blob_versioned_hashes)
-                    for tx in txs
-                    if tx.blob_versioned_hashes is not None
-                ]
-            )
-            * Spec.GAS_PER_BLOB
-        )
     return [
         Block(
             txs=txs,
-            exception=tx_error,
+            exception=block_error,
             engine_api_error_code=engine_api_error_code,
-            rlp_modifier=Header(blob_gas_used=header_blob_gas_used),
+            header_verify=Header(
+                blob_gas_used=expected_blob_gas_used,
+                excess_blob_gas=expected_excess_blob_gas,
+            ),
         )
     ]
 
@@ -520,7 +581,7 @@ def test_invalid_normal_gas(
     "blobs_per_tx",
     invalid_blob_combinations(),
 )
-@pytest.mark.parametrize("tx_error", ["invalid_blob_count"])
+@pytest.mark.parametrize("block_error", ["invalid_blob_count"])
 @pytest.mark.valid_from("Cancun")
 def test_invalid_block_blob_count(
     blockchain_test: BlockchainTestFiller,
@@ -606,10 +667,10 @@ def test_insufficient_balance_blob_tx_combinations(
 
 
 @pytest.mark.parametrize(
-    "blobs_per_tx,tx_error",
+    "blobs_per_tx,tx_error,block_error",
     [
-        ([0], "zero_blob_tx"),
-        ([SpecHelpers.max_blobs_per_block() + 1], "too_many_blobs_tx"),
+        ([0], "zero_blob_tx", "zero_blob_tx"),
+        ([SpecHelpers.max_blobs_per_block() + 1], None, "too_many_blobs"),
     ],
     ids=["too_few_blobs", "too_many_blobs"],
 )
