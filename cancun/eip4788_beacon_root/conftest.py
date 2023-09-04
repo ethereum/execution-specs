@@ -23,7 +23,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 from .common import (
     BEACON_ROOT_CONTRACT_ADDRESS,
     BEACON_ROOT_CONTRACT_CALL_GAS,
-    HISTORICAL_ROOTS_MODULUS,
+    HISTORY_BUFFER_LENGTH,
     SYSTEM_ADDRESS,
     expected_storage,
 )
@@ -226,7 +226,7 @@ def access_list(auto_access_list: bool, timestamp: int) -> List[AccessList]:
                 address=BEACON_ROOT_CONTRACT_ADDRESS,
                 storage_keys=[
                     timestamp,
-                    timestamp + HISTORICAL_ROOTS_MODULUS,
+                    timestamp + HISTORY_BUFFER_LENGTH,
                 ],
             ),
         ]

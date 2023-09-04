@@ -44,7 +44,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .common import (
     BEACON_ROOT_CONTRACT_ADDRESS,
-    HISTORICAL_ROOTS_MODULUS,
+    HISTORY_BUFFER_LENGTH,
     REF_SPEC_4788_GIT_PATH,
     REF_SPEC_4788_VERSION,
     SYSTEM_ADDRESS,
@@ -59,7 +59,7 @@ REFERENCE_SPEC_VERSION = REF_SPEC_4788_VERSION
     [
         pytest.param(
             count(
-                start=HISTORICAL_ROOTS_MODULUS - 5,
+                start=HISTORY_BUFFER_LENGTH - 5,
                 step=1,
             ),
             id="buffer_wraparound",
@@ -67,28 +67,28 @@ REFERENCE_SPEC_VERSION = REF_SPEC_4788_VERSION
         pytest.param(
             count(
                 start=12,
-                step=HISTORICAL_ROOTS_MODULUS,
+                step=HISTORY_BUFFER_LENGTH,
             ),
             id="buffer_wraparound_overwrite",
         ),
         pytest.param(
             count(
                 start=2**32,
-                step=HISTORICAL_ROOTS_MODULUS,
+                step=HISTORY_BUFFER_LENGTH,
             ),
             id="buffer_wraparound_overwrite_high_timestamp",
         ),
         pytest.param(
             count(
                 start=5,
-                step=HISTORICAL_ROOTS_MODULUS - 1,
+                step=HISTORY_BUFFER_LENGTH - 1,
             ),
             id="buffer_wraparound_no_overwrite",
         ),
         pytest.param(
             count(
-                start=HISTORICAL_ROOTS_MODULUS - 3,
-                step=HISTORICAL_ROOTS_MODULUS + 1,
+                start=HISTORY_BUFFER_LENGTH - 3,
+                step=HISTORY_BUFFER_LENGTH + 1,
             ),
             id="buffer_wraparound_no_overwrite_2",
         ),
@@ -111,7 +111,7 @@ def test_multi_block_beacon_root_timestamp_calls(
     transaction that calls the beacon root contract multiple times.
 
     The blocks might overwrite the historical roots buffer, or not, depending on the `timestamps`,
-    and whether they increment in multiples of `HISTORICAL_ROOTS_MODULUS` or not.
+    and whether they increment in multiples of `HISTORY_BUFFER_LENGTH` or not.
 
     By default, the beacon roots are the keccak of the block number.
 
@@ -138,7 +138,7 @@ def test_multi_block_beacon_root_timestamp_calls(
     all_timestamps: List[int] = []
 
     for timestamp, beacon_root, i in zip(timestamps, beacon_roots, range(block_count)):
-        timestamp_index = timestamp % HISTORICAL_ROOTS_MODULUS
+        timestamp_index = timestamp % HISTORY_BUFFER_LENGTH
         timestamps_storage[timestamp_index] = timestamp
         roots_storage[timestamp_index] = beacon_root
 
@@ -157,7 +157,7 @@ def test_multi_block_beacon_root_timestamp_calls(
             current_call_account_code += Op.MSTORE(0, t)
             call_valid = (
                 timestamp_index in timestamps_storage
-                and timestamps_storage[t % HISTORICAL_ROOTS_MODULUS] == t
+                and timestamps_storage[t % HISTORY_BUFFER_LENGTH] == t
             )
             current_call_account_code += Op.SSTORE(
                 current_call_account_expected_storage.store_next(0x01 if call_valid else 0x00),
@@ -174,7 +174,7 @@ def test_multi_block_beacon_root_timestamp_calls(
 
             current_call_account_code += Op.SSTORE(
                 current_call_account_expected_storage.store_next(
-                    roots_storage[t % HISTORICAL_ROOTS_MODULUS] if call_valid else 0x00
+                    roots_storage[t % HISTORY_BUFFER_LENGTH] if call_valid else 0x00
                 ),
                 Op.MLOAD(0x20),
             )
@@ -262,7 +262,7 @@ def test_beacon_root_transition(
     timestamps_in_beacon_root_contract: List[int] = []
 
     for timestamp, beacon_root, i in zip(timestamps, beacon_roots, range(block_count)):
-        timestamp_index = timestamp % HISTORICAL_ROOTS_MODULUS
+        timestamp_index = timestamp % HISTORY_BUFFER_LENGTH
 
         transitioned = fork.header_beacon_root_required(i, timestamp)
         if transitioned:
@@ -287,7 +287,7 @@ def test_beacon_root_transition(
             call_valid = (
                 t in timestamps_in_beacon_root_contract
                 and timestamp_index in timestamps_storage
-                and timestamps_storage[t % HISTORICAL_ROOTS_MODULUS] == t
+                and timestamps_storage[t % HISTORY_BUFFER_LENGTH] == t
             )
             current_call_account_code += Op.SSTORE(
                 current_call_account_expected_storage.store_next(0x01 if call_valid else 0x00),
@@ -304,7 +304,7 @@ def test_beacon_root_transition(
 
             current_call_account_code += Op.SSTORE(
                 current_call_account_expected_storage.store_next(
-                    roots_storage[t % HISTORICAL_ROOTS_MODULUS] if call_valid else 0x00
+                    roots_storage[t % HISTORY_BUFFER_LENGTH] if call_valid else 0x00
                 ),
                 Op.MLOAD(0x20),
             )
@@ -397,8 +397,8 @@ def test_no_beacon_root_contract_at_transition(
     post = {
         BEACON_ROOT_CONTRACT_ADDRESS: Account(
             storage={
-                timestamp % HISTORICAL_ROOTS_MODULUS: 0,
-                (timestamp % HISTORICAL_ROOTS_MODULUS) + HISTORICAL_ROOTS_MODULUS: 0,
+                timestamp % HISTORY_BUFFER_LENGTH: 0,
+                (timestamp % HISTORY_BUFFER_LENGTH) + HISTORY_BUFFER_LENGTH: 0,
             },
             code=b"",
             nonce=0,
@@ -489,9 +489,9 @@ def test_beacon_root_contract_deploy(
                     ],
                 )
             )
-            beacon_root_contract_storage[current_timestamp % HISTORICAL_ROOTS_MODULUS] = 0
+            beacon_root_contract_storage[current_timestamp % HISTORY_BUFFER_LENGTH] = 0
             beacon_root_contract_storage[
-                (current_timestamp % HISTORICAL_ROOTS_MODULUS) + HISTORICAL_ROOTS_MODULUS
+                (current_timestamp % HISTORY_BUFFER_LENGTH) + HISTORY_BUFFER_LENGTH
             ] = 0
         elif i == 1:
             blocks.append(
@@ -517,10 +517,10 @@ def test_beacon_root_contract_deploy(
                 ),
             )
             beacon_root_contract_storage[
-                current_timestamp % HISTORICAL_ROOTS_MODULUS
+                current_timestamp % HISTORY_BUFFER_LENGTH
             ] = current_timestamp
             beacon_root_contract_storage[
-                (current_timestamp % HISTORICAL_ROOTS_MODULUS) + HISTORICAL_ROOTS_MODULUS
+                (current_timestamp % HISTORY_BUFFER_LENGTH) + HISTORY_BUFFER_LENGTH
             ] = beacon_root
         else:
             assert False, "This test should only have two blocks"
