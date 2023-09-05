@@ -99,12 +99,33 @@ class TStorageCallContextTestCases(Enum):
         ),
         "caller_bytecode": (
             Op.TSTORE(0, 420)
-            + Op.DELEGATECALL(Op.GAS(), callee_address, 0, 0, 0, 0)
-            + Op.SSTORE(0, Op.TLOAD(0))
+            + Op.SSTORE(0, Op.DELEGATECALL(Op.GAS(), callee_address, 0, 0, 0, 0))
+            + Op.SSTORE(1, Op.TLOAD(0))
+            + Op.SSTORE(4, Op.TLOAD(1))
         ),
-        "callee_bytecode": Op.SSTORE(1, Op.TLOAD(0)),
-        "expected_caller_storage": {0: 420, 1: 420},
-        "expected_callee_storage": {0: 0, 0: 0},
+        "callee_bytecode": (
+            Op.SSTORE(2, Op.TLOAD(0)) + Op.TSTORE(1, 69) + Op.SSTORE(3, Op.TLOAD(1))
+        ),
+        "expected_caller_storage": {0: 1, 1: 420, 2: 420, 3: 69, 4: 69},
+        "expected_callee_storage": {},
+    }
+    DELEGATECALL_WITH_REVERT = {
+        "pytest_param": pytest.param(id="delegatecall_with_revert"),
+        "description": (
+            "TSTORE0004: Caller and callee contracts share transient storage "
+            "when callee is called via DELEGATECALL. Transient storage usage "
+            "from sub-call upon revert."
+        ),
+        "caller_bytecode": (
+            Op.TSTORE(0, 420)
+            + Op.TSTORE(1, 420)
+            + Op.SSTORE(0, Op.DELEGATECALL(Op.GAS(), callee_address, 0, 0, 0, 0))
+            + Op.SSTORE(1, Op.TLOAD(0))
+            + Op.SSTORE(2, Op.TLOAD(1))
+        ),
+        "callee_bytecode": Op.TSTORE(1, 69) + Op.REVERT(0, 0),
+        "expected_caller_storage": {0: 0, 1: 420, 2: 420},
+        "expected_callee_storage": {},
     }
 
     def __init__(self, test_case):
