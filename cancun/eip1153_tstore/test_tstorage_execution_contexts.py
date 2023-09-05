@@ -5,6 +5,7 @@ abstract: Tests for [EIP-1153: Transient Storage](https://eips.ethereum.org/EIPS
 """  # noqa: E501
 
 from enum import Enum, unique
+from typing import Mapping
 
 import pytest
 
@@ -26,8 +27,34 @@ caller_address = 0x100
 callee_address = 0x200
 
 
+class PytestCases(Enum):
+    """
+    Helper class for defining test cases.
+
+    Contains boiler plate code to construct a pytest_param() from the
+    `test_case` (the actual parameter value) and `test_case_params` a dict
+    that optionally defines `marks` for `pytest.param()`; the test id is
+    set to the lowercase name of the enum member.
+    """
+
+    def __init__(self, test_case_params, test_case):
+        if "pytest_marks" in test_case_params:
+            marks = {"marks": test_case_params["pytest_marks"]}
+        else:
+            marks = {}
+        self.description = test_case_params["description"]
+        self._value_ = pytest.param(test_case, id=self.name.lower(), **marks)
+
+    @property
+    def params(self):
+        """
+        Return the `pytest.param` value for this test case.
+        """
+        return self._value_
+
+
 @unique
-class TStorageCallContextTestCases(Enum):
+class TStorageCallContextTestCases(PytestCases):
     """
     Transient storage test cases for different contract subcall contexts.
     """
@@ -131,7 +158,7 @@ class TStorageCallContextTestCases(Enum):
         "expected_callee_storage": {},
     }
     DELEGATECALL_WITH_REVERT = {
-        "pytest_param": pytest.param(id="delegatecall_with_revert"),
+        # "pytest_marks": pytest.mark.xfail,
         "description": (
             "TSTORE0007: Caller and callee contracts share transient storage "
             "when callee is called via DELEGATECALL. Transient storage usage "
@@ -149,36 +176,30 @@ class TStorageCallContextTestCases(Enum):
         "expected_callee_storage": {},
     }
 
-    def __init__(self, test_case):
-        self._value_ = test_case["pytest_param"]
-        self.description = test_case["description"]
-        self.env = Environment()
-        self.pre = {
-            TestAddress: Account(balance=10**40),
-            caller_address: Account(code=test_case["caller_bytecode"]),
-            callee_address: Account(code=test_case["callee_bytecode"]),
+    def __init__(self, test_case_params):
+        test_case = {
+            "env": Environment(),
+            "pre": {
+                TestAddress: Account(balance=10**40),
+                caller_address: Account(code=test_case_params["caller_bytecode"]),
+                callee_address: Account(code=test_case_params["callee_bytecode"]),
+            },
+            "txs": [
+                Transaction(
+                    to=caller_address,
+                    gas_limit=1_000_000,
+                )
+            ],
+            "post": {
+                caller_address: Account(storage=test_case_params["expected_caller_storage"]),
+                callee_address: Account(storage=test_case_params["expected_callee_storage"]),
+            },
         }
-        self.post = {
-            caller_address: Account(storage=test_case["expected_caller_storage"]),
-            callee_address: Account(storage=test_case["expected_callee_storage"]),
-        }
-        self.txs = [
-            Transaction(
-                to=caller_address,
-                gas_limit=1_000_000,
-            )
-        ]
+        super().__init__(test_case_params, test_case)
 
 
-@pytest.mark.parametrize(
-    "test_case",
-    [case for case in TStorageCallContextTestCases],
-    ids=[case._value_.id for case in TStorageCallContextTestCases],
-)
-def test_tstore_tload(
-    test_case: TStorageCallContextTestCases,
-    state_test: StateTestFiller,
-):
+@pytest.mark.parametrize("test_case", [case.params for case in TStorageCallContextTestCases])
+def test_tstore_tload(state_test: StateTestFiller, test_case: Mapping):
     """
     Test transient storage with a subcall using the following opcodes:
 
@@ -188,8 +209,5 @@ def test_tstore_tload(
     - `STATICCALL`
     """
     state_test(
-        env=test_case.env,
-        pre=test_case.pre,
-        post=test_case.post,
-        txs=test_case.txs,
+        env=test_case["env"], pre=test_case["pre"], post=test_case["post"], txs=test_case["txs"]
     )
