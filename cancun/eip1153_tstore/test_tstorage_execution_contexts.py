@@ -40,14 +40,14 @@ class TStorageCallContextTestCases(Enum):
         ),
         "caller_bytecode": (
             Op.TSTORE(0, 420)
-            + Op.SSTORE(2, Op.CALL(Op.GAS(), callee_address, 0, 0, 0, 0, 0))
-            + Op.SSTORE(0, Op.TLOAD(0))
-            + Op.SSTORE(1, Op.TLOAD(1))
+            + Op.SSTORE(0, Op.CALL(Op.GAS(), callee_address, 0, 0, 0, 0, 0))
+            + Op.SSTORE(1, Op.TLOAD(0))
+            + Op.SSTORE(2, Op.TLOAD(1))
         ),
         "callee_bytecode": (
-            Op.TSTORE(1, 69) + Op.SSTORE(0, Op.TLOAD(0)) + Op.SSTORE(1, Op.TLOAD(1))
+            Op.SSTORE(0, Op.TLOAD(0)) + Op.TSTORE(1, 69) + Op.SSTORE(1, Op.TLOAD(1))
         ),
-        "expected_caller_storage": {0: 420, 1: 0, 2: 1},
+        "expected_caller_storage": {0: 1, 1: 420, 2: 0},
         "expected_callee_storage": {0: 0, 1: 69},
     }
     STATICCALL = {
