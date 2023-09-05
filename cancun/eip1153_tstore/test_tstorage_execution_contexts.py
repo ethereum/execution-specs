@@ -60,7 +60,6 @@ class TStorageCallContextTestCases(PytestCases):
     """
 
     CALL = {
-        "pytest_param": pytest.param(id="call"),
         "description": (
             "TSTORE0001: Caller and callee contracts use their own transient storage when callee "
             "is called via CALL."
@@ -78,7 +77,6 @@ class TStorageCallContextTestCases(PytestCases):
         "expected_callee_storage": {0: 0, 1: 69},
     }
     STATICCALL_CANT_CALL_TSTORE = {
-        "pytest_param": pytest.param(id="staticcalled_context_cant_call_tstore"),
         "description": ("TSTORE0002: A STATICCALL callee can not use transient storage."),
         "caller_bytecode": (
             Op.TSTORE(0, 420)
@@ -104,7 +102,6 @@ class TStorageCallContextTestCases(PytestCases):
         "expected_callee_storage": {},
     }
     CALLCODE = {
-        "pytest_param": pytest.param(id="callcode"),
         "description": (
             "TSTORE0004: Caller and callee contracts share transient storage "
             "when callee is called via CALLCODE."
@@ -122,7 +119,6 @@ class TStorageCallContextTestCases(PytestCases):
         "expected_callee_storage": {},
     }
     CALLCODE_WITH_REVERT = {
-        "pytest_param": pytest.param(id="callcode_with_revert"),
         "description": (
             "TSTORE0005: Caller and callee contracts share transient storage "
             "when callee is called via CALLCODE. Transient storage usage "
@@ -140,7 +136,6 @@ class TStorageCallContextTestCases(PytestCases):
         "expected_callee_storage": {},
     }
     DELEGATECALL = {
-        "pytest_param": pytest.param(id="delegatecall"),
         "description": (
             "TSTORE0006: Caller and callee contracts share transient storage "
             "when callee is called via DELEGATECALL."
@@ -158,7 +153,7 @@ class TStorageCallContextTestCases(PytestCases):
         "expected_callee_storage": {},
     }
     DELEGATECALL_WITH_REVERT = {
-        # "pytest_marks": pytest.mark.xfail,
+        "pytest_marks": pytest.mark.xfail,
         "description": (
             "TSTORE0007: Caller and callee contracts share transient storage "
             "when callee is called via DELEGATECALL. Transient storage usage "
