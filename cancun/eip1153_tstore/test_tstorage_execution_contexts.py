@@ -50,17 +50,31 @@ class TStorageCallContextTestCases(Enum):
         "expected_caller_storage": {0: 1, 1: 420, 2: 0},
         "expected_callee_storage": {0: 0, 1: 69},
     }
-    STATICCALL = {
-        "pytest_param": pytest.param(id="staticcall"),
-        "description": ("TSTORE0002: A STATICCALL caller can not use transient storage."),
+    STATICCALL_CANT_CALL_TSTORE = {
+        "pytest_param": pytest.param(id="staticcalled_context_cant_call_tstore"),
+        "description": ("TSTORE0002: A STATICCALL callee can not use transient storage."),
         "caller_bytecode": (
             Op.TSTORE(0, 420)
-            + Op.STATICCALL(Op.GAS(), callee_address, 0, 0, 0, 0)
-            + Op.SSTORE(0, Op.TLOAD(0))
+            + Op.SSTORE(0, Op.STATICCALL(0xFFFF, callee_address, 0, 0, 0, 0))  # limit gas
+            + Op.SSTORE(1, Op.TLOAD(0))
         ),
-        "callee_bytecode": Op.SSTORE(0, Op.TLOAD(0)),
-        "expected_caller_storage": {0: 0},  # TODO: Should this be 420?
-        "expected_callee_storage": {0: 0},
+        "callee_bytecode": Op.TSTORE(0),  # calling tstore fails
+        "expected_caller_storage": {0: 0, 1: 420},
+        "expected_callee_storage": {},
+    }
+    STATICCALL_CAN_CALL_TLOAD = {
+        # TODO: Not a very useful test; consider removing after implementing ethereum/tests
+        # staticcall tests
+        "pytest_param": pytest.param(id="staticcalled_context_can_call_tload"),
+        "description": ("TSTORE0002: A STATICCALL callee can not use transient storage."),
+        "caller_bytecode": (
+            Op.TSTORE(0, 420)
+            + Op.SSTORE(0, Op.STATICCALL(Op.GAS(), callee_address, 0, 0, 0, 0))
+            + Op.SSTORE(1, Op.TLOAD(0))
+        ),
+        "callee_bytecode": Op.TLOAD(0),  # calling tload does fail the call
+        "expected_caller_storage": {0: 1, 1: 420},
+        "expected_callee_storage": {},
     }
     CALLCODE = {
         "pytest_param": pytest.param(id="callcode"),
