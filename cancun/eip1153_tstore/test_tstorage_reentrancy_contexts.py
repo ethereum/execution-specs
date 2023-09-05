@@ -156,7 +156,7 @@ class TStorageReentrancyTestCases(Enum):
             "expected_callee_storage": {0: 0x00, 1: 0x100, 2: 0x101},
         },
     )
-    """
+
     REVERT_UNDOES_TSTORAGE_AFTER_SUCCESSFUL_CALL = {
         "description": (
             "Revert undoes transient storage writes from inner calls that successfully returned. ",
@@ -167,13 +167,13 @@ class TStorageReentrancyTestCases(Enum):
         ),
         "caller_bytecode": None,
         "callee_bytecode": Conditional(
-            condition=Op.EQ(Op.CALLDATALOAD(0), 0x01),
+            condition=SETUP_CONDITION,
             # setup
             if_true=(
                 Op.TSTORE(0xFF, 0x100)
                 + Op.SSTORE(2, Op.TLOAD(0xFF))
                 + Op.MSTORE(0, 2)
-                + Op.SSTORE(0, Op.CALL(Op.GAS(), callee_address, 0, 0, 32, 0, 0))
+                + Op.SSTORE(0, Op.CALL(Op.GAS(), callee_address, 0, 0, 32, 0, 32))
                 + Op.SSTORE(1, Op.MLOAD(0))  # should be 1 (successful call)
                 + Op.SSTORE(3, Op.TLOAD(0xFF))
             ),
@@ -192,7 +192,6 @@ class TStorageReentrancyTestCases(Enum):
         "expected_caller_storage": None,
         "expected_callee_storage": {0: 0x00, 1: 0x01, 2: 0x100, 3: 0x100},
     }
-    """
 
     def __init__(self, test_case):
         self.test_case_id = self.name.lower()
