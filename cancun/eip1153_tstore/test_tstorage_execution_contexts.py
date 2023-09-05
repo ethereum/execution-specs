@@ -17,7 +17,7 @@ from .spec import ref_spec_1153
 REFERENCE_SPEC_GIT_PATH = ref_spec_1153.git_path
 REFERENCE_SPEC_VERSION = ref_spec_1153.version
 
-pytestmark = [pytest.mark.valid_from("Shanghai")]
+pytestmark = [pytest.mark.valid_from("Cancun")]
 
 # Address used to call the test bytecode on every test case.
 caller_address = 0x100
@@ -66,7 +66,7 @@ class TStorageCallContextTestCases(Enum):
         # TODO: Not a very useful test; consider removing after implementing ethereum/tests
         # staticcall tests
         "pytest_param": pytest.param(id="staticcalled_context_can_call_tload"),
-        "description": ("TSTORE0002: A STATICCALL callee can not use transient storage."),
+        "description": ("TSTORE0003: A STATICCALL callee can not use transient storage."),
         "caller_bytecode": (
             Op.TSTORE(0, 420)
             + Op.SSTORE(0, Op.STATICCALL(Op.GAS(), callee_address, 0, 0, 0, 0))
@@ -115,7 +115,7 @@ class TStorageCallContextTestCases(Enum):
     DELEGATECALL = {
         "pytest_param": pytest.param(id="delegatecall"),
         "description": (
-            "TSTORE0004: Caller and callee contracts share transient storage "
+            "TSTORE0006: Caller and callee contracts share transient storage "
             "when callee is called via DELEGATECALL."
         ),
         "caller_bytecode": (
@@ -133,7 +133,7 @@ class TStorageCallContextTestCases(Enum):
     DELEGATECALL_WITH_REVERT = {
         "pytest_param": pytest.param(id="delegatecall_with_revert"),
         "description": (
-            "TSTORE0004: Caller and callee contracts share transient storage "
+            "TSTORE0007: Caller and callee contracts share transient storage "
             "when callee is called via DELEGATECALL. Transient storage usage "
             "from sub-call upon revert."
         ),
