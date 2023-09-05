@@ -173,8 +173,8 @@ class TestTransientStorageInContractCreation:
             create_call = Op.CREATE2(0, 0, Op.CALLDATASIZE, create2_salt)
         else:
             raise Exception("Invalid opcode specified for test.")
-        contract_call = Op.POP(
-            Op.CALL(Op.GAS(), Op.PUSH20(created_contract_address), 0, 0, 0, 0, 0)
+        contract_call = Op.SSTORE(
+            4, Op.CALL(Op.GAS(), Op.PUSH20(created_contract_address), 0, 0, 0, 0, 0)
         )
         return (
             Op.TSTORE(0, 0x0100)
@@ -192,7 +192,7 @@ class TestTransientStorageInContractCreation:
 
     @pytest.fixture()
     def expected_creator_storage(self) -> dict:  # noqa: D102
-        return {0: 0x0100, 1: 0x0200, 2: 0x0300}
+        return {0: 0x0100, 1: 0x0200, 2: 0x0300, 4: 0x0001}
 
     @pytest.fixture()
     def created_contract_address(  # noqa: D102
