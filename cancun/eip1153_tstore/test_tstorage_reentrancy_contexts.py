@@ -17,11 +17,10 @@ from .spec import ref_spec_1153
 REFERENCE_SPEC_GIT_PATH = ref_spec_1153.git_path
 REFERENCE_SPEC_VERSION = ref_spec_1153.version
 
-pytestmark = [pytest.mark.valid_from("Shanghai")]
+pytestmark = [pytest.mark.valid_from("Cancun")]
 
 # Address of the callee contract
 callee_address = 0x200
-
 
 SETUP_CONDITION: bytes = Op.EQ(Op.CALLDATALOAD(0), 0x01)
 REENTRANT_CALL: bytes = Op.MSTORE(0, 2) + Op.SSTORE(
@@ -42,7 +41,6 @@ class TStorageReentrancyTestCases(Enum):
             ""
             "Based on [ethereum/tests/.../05_tloadReentrancyFiller.yml](https://github.com/ethereum/tests/tree/9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage).",  # noqa: E501
         ),
-        "caller_bytecode": None,
         "callee_bytecode": Conditional(
             condition=SETUP_CONDITION,
             # setup
@@ -50,7 +48,6 @@ class TStorageReentrancyTestCases(Enum):
             # reenter
             if_false=Op.SSTORE(1, Op.TLOAD(0)),
         ),
-        "expected_caller_storage": None,
         "expected_callee_storage": {0: 0x01, 1: 0x100, 2: 0x100},
     }
     TLOAD_AFTER_REENTRANT_TSTORE = {
@@ -60,7 +57,6 @@ class TStorageReentrancyTestCases(Enum):
             ""
             "Based on [ethereum/tests/.../07_tloadAfterReentrancyStoreFiller.yml](https://github.com/ethereum/tests/blob/9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage/07_tloadAfterReentrancyStoreFiller.yml).",  # noqa: E501
         ),
-        "caller_bytecode": None,
         "callee_bytecode": Conditional(
             condition=SETUP_CONDITION,
             # setup
@@ -73,7 +69,6 @@ class TStorageReentrancyTestCases(Enum):
             # reenter
             if_false=Op.TSTORE(0xFF, 0x101),
         ),
-        "expected_caller_storage": None,
         "expected_callee_storage": {0: 0x01, 1: 0x100, 2: 0x101},
     }
     MANIPULATE_IN_REENTRANT_CALL = {
@@ -83,7 +78,6 @@ class TStorageReentrancyTestCases(Enum):
             ""
             "Based on [ethereum/tests/.../06_tstoreInReentrancyCallFiller.yml](https://github.com/ethereum/tests/blob/9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage/06_tstoreInReentrancyCallFiller.yml).",  # noqa: E501
         ),
-        "caller_bytecode": None,
         "callee_bytecode": Conditional(
             condition=SETUP_CONDITION,
             # setup
@@ -96,7 +90,6 @@ class TStorageReentrancyTestCases(Enum):
             # reenter
             if_false=Op.TSTORE(0xFF, 0x101) + Op.SSTORE(2, Op.TLOAD(0xFF)),
         ),
-        "expected_caller_storage": None,
         "expected_callee_storage": {0: 0x01, 1: 0x100, 2: 0x101, 3: 0x101},
     }
     TSTORE_BEFORE_REVERT_HAS_NO_EFFECT = {
@@ -106,7 +99,6 @@ class TStorageReentrancyTestCases(Enum):
             "",
             "Based on [ethereum/tests/.../08_revertUndoesTransientStoreFiller.yml](https://github.com/ethereum/tests/blob/9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage/08_revertUndoesTransientStoreFiller.yml)",  # noqa: E501
         ),
-        "caller_bytecode": None,
         "callee_bytecode": Conditional(
             condition=SETUP_CONDITION,
             # setup
@@ -119,7 +111,6 @@ class TStorageReentrancyTestCases(Enum):
             # reenter
             if_false=Op.TSTORE(0xFF, 0x101) + Op.REVERT(0, 0),
         ),
-        "expected_caller_storage": None,
         "expected_callee_storage": {0: 0x00, 1: 0x100, 2: 0x100},
     }
     REVERT_UNDOES_ALL = (
@@ -131,7 +122,6 @@ class TStorageReentrancyTestCases(Enum):
                 "",
                 "Based on [ethereum/tests/.../09_revertUndoesAllFiller.yml](https://github.com/ethereum/tests/blob/9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage/09_revertUndoesAllFiller.yml).",  # noqa: E501
             ),
-            "caller_bytecode": None,
             "callee_bytecode": Conditional(
                 condition=SETUP_CONDITION,
                 # setup
@@ -152,7 +142,6 @@ class TStorageReentrancyTestCases(Enum):
                     + Op.REVERT(0, 0)
                 ),
             ),
-            "expected_caller_storage": None,
             "expected_callee_storage": {0: 0x00, 1: 0x100, 2: 0x101},
         },
     )
@@ -165,7 +154,6 @@ class TStorageReentrancyTestCases(Enum):
             "",
             "Based on stEIP1153-transientStorage/10_revertUndoesStoreAfterReturnFiller.yml",
         ),
-        "caller_bytecode": None,
         "callee_bytecode": Conditional(
             condition=SETUP_CONDITION,
             # setup
@@ -189,7 +177,6 @@ class TStorageReentrancyTestCases(Enum):
                 if_false=Op.TSTORE(0xFF, 0x101),
             ),
         ),
-        "expected_caller_storage": None,
         "expected_callee_storage": {0: 0x00, 1: 0x01, 2: 0x100, 3: 0x100},
     }
 
