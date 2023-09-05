@@ -178,7 +178,7 @@ class Txs:
 
         # tf tool might provide None instead of 0
         # for v, r, s
-        raw_tx["v"] = raw_tx.get("v") or "0x00" or raw_tx.get("y_parity")
+        raw_tx["v"] = raw_tx.get("v") or raw_tx.get("y_parity") or "0x00"
         raw_tx["r"] = raw_tx.get("r") or "0x00"
         raw_tx["s"] = raw_tx.get("s") or "0x00"
 
