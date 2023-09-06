@@ -44,6 +44,11 @@ def fill_test(
         pre_state=pre,
         post_state=alloc_to_accounts(alloc),
         seal_engine=engine,
+        fcu_version=fork.engine_forkchoice_updated_version(
+            blocks[-1].block_header.number, blocks[-1].block_header.timestamp
+        )
+        if not test_spec.base_test_config.disable_hive and blocks[-1].block_header
+        else None,
         name=test_spec.tag,
     )
     fixture.fill_info(t8n, spec)
