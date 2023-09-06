@@ -34,6 +34,20 @@ def fill_test(
         eips=eips,
     )
 
+    fcu_version: int | None = None
+    if not test_spec.base_test_config.disable_hive:
+        last_valid_block = next(
+            (block.block_header for block in reversed(blocks) if block.expected_exception is None),
+            None,
+        )
+        fcu_version = (
+            fork.engine_forkchoice_updated_version(
+                last_valid_block.number, last_valid_block.timestamp
+            )
+            if last_valid_block
+            else None
+        )
+
     fork_name = fork.name()
     fixture = Fixture(
         blocks=blocks,
@@ -44,12 +58,8 @@ def fill_test(
         pre_state=pre,
         post_state=alloc_to_accounts(alloc),
         seal_engine=engine,
-        fcu_version=fork.engine_forkchoice_updated_version(
-            blocks[-1].block_header.number, blocks[-1].block_header.timestamp
-        )
-        if not test_spec.base_test_config.disable_hive and blocks[-1].block_header
-        else None,
         name=test_spec.tag,
+        fcu_version=fcu_version,
     )
     fixture.fill_info(t8n, spec)
 
