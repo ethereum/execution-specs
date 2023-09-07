@@ -4,7 +4,7 @@ abstract: Tests for [EIP-1153: Transient Storage](https://eips.ethereum.org/EIPS
     Test cases for `TSTORE` and `TLOAD` opcode calls in different execution contexts.
 """  # noqa: E501
 
-from enum import unique
+from enum import EnumMeta, unique
 from typing import List, Mapping
 
 import pytest
@@ -28,15 +28,80 @@ caller_address = 0x100
 callee_address = 0x200
 
 
+class DynamicCallContextTestCases(EnumMeta):
+    """
+    Create dynamic transient storage test cases for contract sub-calls
+    using CALLCODE and DELEGATECALL (these opcodes share the same
+    signatures and test cases).
+    """
+
+    def __new__(cls, name, bases, classdict):  # noqa: D102
+        for opcode in [Op.CALLCODE, Op.DELEGATECALL]:
+            classdict[opcode._name_] = {
+                "description": (
+                    "Caller and callee contracts share transient storage when callee is "
+                    f"called via {opcode._name_}."
+                ),
+                "caller_bytecode": (
+                    Op.TSTORE(0, 420)
+                    + Op.SSTORE(0, opcode(Op.GAS(), callee_address, 0, 0, 0, 0, 0))
+                    + Op.SSTORE(1, Op.TLOAD(0))
+                    + Op.SSTORE(4, Op.TLOAD(1))
+                ),
+                "callee_bytecode": (
+                    Op.SSTORE(2, Op.TLOAD(0)) + Op.TSTORE(1, 69) + Op.SSTORE(3, Op.TLOAD(1))
+                ),
+                "expected_caller_storage": {0: 1, 1: 420, 2: 420, 3: 69, 4: 69},
+                "expected_callee_storage": {},
+            }
+            classdict[f"{opcode._name_}_WITH_REVERT"] = {
+                "description": (
+                    "Caller and callee contracts share transient storage when callee is "
+                    f"called via {opcode._name_} but transient storage usage is discarded "
+                    "from  sub-call upon REVERT."
+                ),
+                "caller_bytecode": (
+                    Op.TSTORE(0, 420)
+                    + Op.TSTORE(1, 420)
+                    + Op.SSTORE(0, opcode(Op.GAS(), callee_address, 0, 0, 0, 0, 0))
+                    + Op.SSTORE(1, Op.TLOAD(0))
+                    + Op.SSTORE(2, Op.TLOAD(1))
+                ),
+                "callee_bytecode": Op.TSTORE(1, 69) + Op.REVERT(0, 0),
+                "expected_caller_storage": {0: 0, 1: 420, 2: 420},
+                "expected_callee_storage": {},
+            }
+            classdict[f"{opcode._name_}_WITH_INVALID"] = (
+                {
+                    "description": (
+                        "Caller and callee contracts share transient storage when callee is "
+                        f"called via {opcode._name_} but transient storage usage is discarded "
+                        "from sub-call upon INVALID. Note: Gas passed to sub-call is capped."
+                    ),
+                    "caller_bytecode": (
+                        Op.TSTORE(0, 420)
+                        + Op.TSTORE(1, 420)
+                        + Op.SSTORE(0, opcode(0xFF, callee_address, 0, 0, 0, 0, 0))
+                        + Op.SSTORE(1, Op.TLOAD(0))
+                        + Op.SSTORE(2, Op.TLOAD(1))
+                    ),
+                    "callee_bytecode": Op.TSTORE(1, 69) + Op.INVALID(),
+                    "expected_caller_storage": {0: 0, 1: 420, 2: 420},
+                    "expected_callee_storage": {},
+                },
+            )
+        return super().__new__(cls, name, bases, classdict)
+
+
 @unique
-class TStorageCallContextTestCases(PytestParameterEnum):
+class CallContextTestCases(PytestParameterEnum, metaclass=DynamicCallContextTestCases):
     """
     Transient storage test cases for different contract subcall contexts.
     """
 
     CALL = {
         "description": (
-            "TSTORE0001: Caller and callee contracts use their own transient storage when callee "
+            "Caller and callee contracts use their own transient storage when callee "
             "is called via CALL."
         ),
         "caller_bytecode": (
@@ -52,7 +117,7 @@ class TStorageCallContextTestCases(PytestParameterEnum):
         "expected_callee_storage": {0: 0, 1: 69},
     }
     STATICCALL_CANT_CALL_TSTORE = {
-        "description": ("TSTORE0002: A STATICCALL callee can not use transient storage."),
+        "description": ("TA STATICCALL callee can not use transient storage."),
         "caller_bytecode": (
             Op.TSTORE(0, 420)
             + Op.SSTORE(0, Op.STATICCALL(0xFFFF, callee_address, 0, 0, 0, 0))  # limit gas
@@ -66,7 +131,7 @@ class TStorageCallContextTestCases(PytestParameterEnum):
         # TODO: Not a very useful test; consider removing after implementing ethereum/tests
         # staticcall tests
         "pytest_param": pytest.param(id="staticcalled_context_can_call_tload"),
-        "description": ("TSTORE0003: A STATICCALL callee can not use transient storage."),
+        "description": ("A STATICCALL callee can not use transient storage."),
         "caller_bytecode": (
             Op.TSTORE(0, 420)
             + Op.SSTORE(0, Op.STATICCALL(Op.GAS(), callee_address, 0, 0, 0, 0))
@@ -74,74 +139,6 @@ class TStorageCallContextTestCases(PytestParameterEnum):
         ),
         "callee_bytecode": Op.TLOAD(0),  # calling tload does fail the call
         "expected_caller_storage": {0: 1, 1: 420},
-        "expected_callee_storage": {},
-    }
-    CALLCODE = {
-        "description": (
-            "TSTORE0004: Caller and callee contracts share transient storage "
-            "when callee is called via CALLCODE."
-        ),
-        "caller_bytecode": (
-            Op.TSTORE(0, 420)
-            + Op.SSTORE(0, Op.CALLCODE(Op.GAS(), callee_address, 0, 0, 0, 0, 0))
-            + Op.SSTORE(1, Op.TLOAD(0))
-            + Op.SSTORE(4, Op.TLOAD(1))
-        ),
-        "callee_bytecode": (
-            Op.SSTORE(2, Op.TLOAD(0)) + Op.TSTORE(1, 69) + Op.SSTORE(3, Op.TLOAD(1))
-        ),
-        "expected_caller_storage": {0: 1, 1: 420, 2: 420, 3: 69, 4: 69},
-        "expected_callee_storage": {},
-    }
-    CALLCODE_WITH_REVERT = {
-        "description": (
-            "TSTORE0005: Caller and callee contracts share transient storage "
-            "when callee is called via CALLCODE. Transient storage usage "
-            "from sub-call upon revert."
-        ),
-        "caller_bytecode": (
-            Op.TSTORE(0, 420)
-            + Op.TSTORE(1, 420)
-            + Op.SSTORE(0, Op.CALLCODE(Op.GAS(), callee_address, 0, 0, 0, 0, 0))
-            + Op.SSTORE(1, Op.TLOAD(0))
-            + Op.SSTORE(2, Op.TLOAD(1))
-        ),
-        "callee_bytecode": Op.TSTORE(1, 69) + Op.REVERT(0, 0),
-        "expected_caller_storage": {0: 0, 1: 420, 2: 420},
-        "expected_callee_storage": {},
-    }
-    DELEGATECALL = {
-        "description": (
-            "TSTORE0006: Caller and callee contracts share transient storage "
-            "when callee is called via DELEGATECALL."
-        ),
-        "caller_bytecode": (
-            Op.TSTORE(0, 420)
-            + Op.SSTORE(0, Op.DELEGATECALL(Op.GAS(), callee_address, 0, 0, 0, 0))
-            + Op.SSTORE(1, Op.TLOAD(0))
-            + Op.SSTORE(4, Op.TLOAD(1))
-        ),
-        "callee_bytecode": (
-            Op.SSTORE(2, Op.TLOAD(0)) + Op.TSTORE(1, 69) + Op.SSTORE(3, Op.TLOAD(1))
-        ),
-        "expected_caller_storage": {0: 1, 1: 420, 2: 420, 3: 69, 4: 69},
-        "expected_callee_storage": {},
-    }
-    DELEGATECALL_WITH_REVERT = {
-        "description": (
-            "TSTORE0007: Caller and callee contracts share transient storage "
-            "when callee is called via DELEGATECALL. Transient storage usage "
-            "from sub-call upon revert."
-        ),
-        "caller_bytecode": (
-            Op.TSTORE(0, 420)
-            + Op.TSTORE(1, 420)
-            + Op.SSTORE(0, Op.DELEGATECALL(Op.GAS(), callee_address, 0, 0, 0, 0))
-            + Op.SSTORE(1, Op.TLOAD(0))
-            + Op.SSTORE(2, Op.TLOAD(1))
-        ),
-        "callee_bytecode": Op.TSTORE(1, 69) + Op.REVERT(0, 0),
-        "expected_caller_storage": {0: 0, 1: 420, 2: 420},
         "expected_callee_storage": {},
     }
 
@@ -171,8 +168,8 @@ class TStorageCallContextTestCases(PytestParameterEnum):
         super().__init__(value, test_case)
 
 
-@pytest.mark.parametrize("env,pre,txs,post", TStorageCallContextTestCases.as_list())
-def test_tstore_tload(
+@pytest.mark.parametrize("env,pre,txs,post", CallContextTestCases.as_list())
+def test_subcall(
     state_test: StateTestFiller,
     env: Environment,
     pre: Mapping,
@@ -187,4 +184,5 @@ def test_tstore_tload(
     - `DELEGATECALL`
     - `STATICCALL`
     """
+    print(pre)
     state_test(env=env, pre=pre, post=post, txs=txs)
