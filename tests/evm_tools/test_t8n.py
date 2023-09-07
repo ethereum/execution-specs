@@ -5,15 +5,9 @@ from typing import Any, Dict, List
 import pytest
 
 from ethereum import rlp
-from ethereum.base_types import U64, U256, Uint
-from ethereum.utils.hexadecimal import (
-    Hash32,
-    hex_to_bytes,
-    hex_to_u256,
-    hex_to_uint,
-)
-from ethereum_spec_tools.evm_tools import parser, subparsers
-from ethereum_spec_tools.evm_tools.t8n import T8N, t8n_arguments
+from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
+from ethereum_spec_tools.evm_tools import parser
+from ethereum_spec_tools.evm_tools.t8n import T8N
 from ethereum_spec_tools.evm_tools.utils import FatalException
 from tests.helpers import TEST_FIXTURES
 
@@ -22,8 +16,6 @@ T8N_TEST_PATH = TEST_FIXTURES["evm_tools_testdata"]["fixture_path"]
 IGNORE_TESTS = [
     "t8n/fixtures/expected/26/Merge.json",
 ]
-
-t8n_arguments(subparsers)
 
 
 def find_test_fixtures() -> Any:
