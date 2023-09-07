@@ -66,9 +66,26 @@ class TStorageInitcodeByteCodeParams(Enum):
         ),
         "expected_created_storage": {0: 0x0000, 1: 0x0000, 2: 0x0001},
     }
-    ACROSS_CONSTRUCTOR_AND_DEPLOYED_CODE = {
+    ACROSS_CONSTRUCTOR_AND_DEPLOYED_CODE_V0 = {
+        "description": ("Test TSTORE behavior across contract constructor and deploy code. "),
+        "constructor_code": (
+            # constructor code should be able to store its own transient storage
+            Op.TSTORE(1, 1)
+        ),
+        "deploy_code": (
+            # test creator's transient storage inaccessible from deployed code
+            Op.SSTORE(0, Op.TLOAD(0))
+            # test deploy code can use its own transient storage stored from constructor code
+            + Op.SSTORE(1, Op.TLOAD(1))
+            # test deploy code can use its own transient storage stored from deployed code
+            + Op.TSTORE(2, 1)
+            + Op.SSTORE(2, Op.TLOAD(2))
+        ),
+        "expected_created_storage": {0: 0x0000, 1: 0x0001, 2: 0x0001},
+    }
+    ACROSS_CONSTRUCTOR_AND_DEPLOYED_CODE_V1 = {
         "description": (
-            "Test TLOAD and TSTORE behavior in across contract constructor and deploy code",
+            "Test TSTORE and TLOAD behavior across contract constructor and deploy code",
         ),
         "constructor_code": (
             # test creator's transient storage inaccessible from constructor
