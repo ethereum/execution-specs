@@ -262,8 +262,8 @@ class Opcodes(Opcode, Enum):
     MSIZE = Opcode(0x59, pushed_stack_items=1)
     GAS = Opcode(0x5A, pushed_stack_items=1)
     JUMPDEST = Opcode(0x5B)
-    RJUMP = Opcode(0x5C, data_portion_length=2)
-    RJUMPI = Opcode(0x5D, popped_stack_items=1, data_portion_length=2)
+    TLOAD = Opcode(0x5C, popped_stack_items=1, pushed_stack_items=1)
+    TSTORE = Opcode(0x5D, popped_stack_items=2)
     MCOPY = Opcode(0x5E, popped_stack_items=3)
     RETF = Opcode(0x49)
 
@@ -341,8 +341,9 @@ class Opcodes(Opcode, Enum):
     LOG3 = Opcode(0xA3, popped_stack_items=5)
     LOG4 = Opcode(0xA4, popped_stack_items=6)
 
-    TLOAD = Opcode(0xB3, popped_stack_items=1, pushed_stack_items=1)
-    TSTORE = Opcode(0xB4, popped_stack_items=2)
+    RJUMP = Opcode(0xE0, data_portion_length=2)
+    RJUMPI = Opcode(0xE1, popped_stack_items=1, data_portion_length=2)
+    RJUMPV = Opcode(0xE2)
 
     CREATE = Opcode(0xF0, popped_stack_items=3, pushed_stack_items=1)
     CALL = Opcode(0xF1, popped_stack_items=7, pushed_stack_items=1)
