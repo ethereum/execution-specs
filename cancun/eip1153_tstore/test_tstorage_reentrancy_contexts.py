@@ -4,7 +4,7 @@ abstract: Tests for [EIP-1153: Transient Storage](https://eips.ethereum.org/EIPS
     Test cases for `TSTORE` and `TLOAD` opcode calls in reentrancy contexts.
 """  # noqa: E501
 
-from enum import Enum, unique
+from enum import unique
 
 import pytest
 
@@ -12,6 +12,7 @@ from ethereum_test_tools import Account, Conditional, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, TestAddress, Transaction, to_hash_bytes
 
+from . import PytestParameterEnum
 from .spec import ref_spec_1153
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_1153.git_path
@@ -29,9 +30,9 @@ REENTRANT_CALL: bytes = Op.MSTORE(0, 2) + Op.SSTORE(
 
 
 @unique
-class TStorageReentrancyTestCases(Enum):
+class ReentrancyTestCases(PytestParameterEnum):
     """
-    Transient storage test cases for different contract reentrancy call contexts.
+    Transient storage test cases for different reentrancy call contexts.
     """
 
     TSTORE_IN_REENTRANT_CALL = {
@@ -41,14 +42,14 @@ class TStorageReentrancyTestCases(Enum):
             ""
             "Based on [ethereum/tests/.../05_tloadReentrancyFiller.yml](https://github.com/ethereum/tests/tree/9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage).",  # noqa: E501
         ),
-        "callee_bytecode": Conditional(
+        "bytecode": Conditional(
             condition=SETUP_CONDITION,
             # setup
             if_true=(Op.TSTORE(0, 0x100) + REENTRANT_CALL + Op.SSTORE(2, Op.TLOAD(0))),
             # reenter
             if_false=Op.SSTORE(1, Op.TLOAD(0)),
         ),
-        "expected_callee_storage": {0: 0x01, 1: 0x100, 2: 0x100},
+        "expected_storage": {0: 0x01, 1: 0x100, 2: 0x100},
     }
     TLOAD_AFTER_REENTRANT_TSTORE = {
         "description": (
@@ -57,7 +58,7 @@ class TStorageReentrancyTestCases(Enum):
             ""
             "Based on [ethereum/tests/.../07_tloadAfterReentrancyStoreFiller.yml](https://github.com/ethereum/tests/blob/9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage/07_tloadAfterReentrancyStoreFiller.yml).",  # noqa: E501
         ),
-        "callee_bytecode": Conditional(
+        "bytecode": Conditional(
             condition=SETUP_CONDITION,
             # setup
             if_true=(
@@ -69,7 +70,7 @@ class TStorageReentrancyTestCases(Enum):
             # reenter
             if_false=Op.TSTORE(0xFF, 0x101),
         ),
-        "expected_callee_storage": {0: 0x01, 1: 0x100, 2: 0x101},
+        "expected_storage": {0: 0x01, 1: 0x100, 2: 0x101},
     }
     MANIPULATE_IN_REENTRANT_CALL = {
         "description": (
@@ -78,7 +79,7 @@ class TStorageReentrancyTestCases(Enum):
             ""
             "Based on [ethereum/tests/.../06_tstoreInReentrancyCallFiller.yml](https://github.com/ethereum/tests/blob/9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage/06_tstoreInReentrancyCallFiller.yml).",  # noqa: E501
         ),
-        "callee_bytecode": Conditional(
+        "bytecode": Conditional(
             condition=SETUP_CONDITION,
             # setup
             if_true=(
@@ -90,7 +91,7 @@ class TStorageReentrancyTestCases(Enum):
             # reenter
             if_false=Op.TSTORE(0xFF, 0x101) + Op.SSTORE(2, Op.TLOAD(0xFF)),
         ),
-        "expected_callee_storage": {0: 0x01, 1: 0x100, 2: 0x101, 3: 0x101},
+        "expected_storage": {0: 0x01, 1: 0x100, 2: 0x101, 3: 0x101},
     }
     TSTORE_BEFORE_REVERT_HAS_NO_EFFECT = {
         "description": (
@@ -99,7 +100,7 @@ class TStorageReentrancyTestCases(Enum):
             "",
             "Based on [ethereum/tests/.../08_revertUndoesTransientStoreFiller.yml](https://github.com/ethereum/tests/blob/9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage/08_revertUndoesTransientStoreFiller.yml)",  # noqa: E501
         ),
-        "callee_bytecode": Conditional(
+        "bytecode": Conditional(
             condition=SETUP_CONDITION,
             # setup
             if_true=(
@@ -111,7 +112,7 @@ class TStorageReentrancyTestCases(Enum):
             # reenter
             if_false=Op.TSTORE(0xFF, 0x101) + Op.REVERT(0, 0),
         ),
-        "expected_callee_storage": {0: 0x00, 1: 0x100, 2: 0x100},
+        "expected_storage": {0: 0x00, 1: 0x100, 2: 0x100},
     }
     REVERT_UNDOES_ALL = (
         {
@@ -122,7 +123,7 @@ class TStorageReentrancyTestCases(Enum):
                 "",
                 "Based on [ethereum/tests/.../09_revertUndoesAllFiller.yml](https://github.com/ethereum/tests/blob/9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage/09_revertUndoesAllFiller.yml).",  # noqa: E501
             ),
-            "callee_bytecode": Conditional(
+            "bytecode": Conditional(
                 condition=SETUP_CONDITION,
                 # setup
                 if_true=(
@@ -142,10 +143,9 @@ class TStorageReentrancyTestCases(Enum):
                     + Op.REVERT(0, 0)
                 ),
             ),
-            "expected_callee_storage": {0: 0x00, 1: 0x100, 2: 0x101},
+            "expected_storage": {0: 0x00, 1: 0x100, 2: 0x101},
         },
     )
-
     REVERT_UNDOES_TSTORAGE_AFTER_SUCCESSFUL_CALL = {
         "description": (
             "Revert undoes transient storage writes from inner calls that successfully returned. ",
@@ -154,7 +154,7 @@ class TStorageReentrancyTestCases(Enum):
             "",
             "Based on stEIP1153-transientStorage/10_revertUndoesStoreAfterReturnFiller.yml",
         ),
-        "callee_bytecode": Conditional(
+        "bytecode": Conditional(
             condition=SETUP_CONDITION,
             # setup
             if_true=(
@@ -177,27 +177,16 @@ class TStorageReentrancyTestCases(Enum):
                 if_false=Op.TSTORE(0xFF, 0x101),
             ),
         ),
-        "expected_callee_storage": {0: 0x00, 1: 0x01, 2: 0x100, 3: 0x100},
+        "expected_storage": {0: 0x00, 1: 0x01, 2: 0x100, 3: 0x100},
     }
 
-    def __init__(self, test_case):
-        self.test_case_id = self.name.lower()
-        self.callee_bytecode = test_case["callee_bytecode"]
-        self.expected_callee_storage = test_case["expected_callee_storage"]
+    def __init__(self, value):
+        test_case = (value["bytecode"], value["expected_storage"])
+        super().__init__(value, test_case)
 
 
-@pytest.mark.parametrize(
-    ["callee_bytecode", "expected_callee_storage"],
-    [
-        (
-            test_case.callee_bytecode,
-            test_case.expected_callee_storage,
-        )
-        for test_case in TStorageReentrancyTestCases
-    ],
-    ids=[test_case.test_case_id for test_case in TStorageReentrancyTestCases],
-)
-def test_call_reentrancy(state_test: StateTestFiller, callee_bytecode, expected_callee_storage):
+@pytest.mark.parametrize("bytecode,expected_storage", ReentrancyTestCases.as_list())
+def test_reentrant_call(state_test: StateTestFiller, bytecode, expected_storage):
     """
     Test transient storage in different reentrancy contexts.
     """
@@ -205,7 +194,7 @@ def test_call_reentrancy(state_test: StateTestFiller, callee_bytecode, expected_
 
     pre = {
         TestAddress: Account(balance=10**40),
-        callee_address: Account(code=callee_bytecode),
+        callee_address: Account(code=bytecode),
     }
 
     tx = Transaction(
@@ -214,5 +203,6 @@ def test_call_reentrancy(state_test: StateTestFiller, callee_bytecode, expected_
         gas_limit=1_000_000,
     )
 
-    post = {callee_address: Account(code=callee_bytecode, storage=expected_callee_storage)}
+    post = {callee_address: Account(code=bytecode, storage=expected_storage)}
+
     state_test(env=env, pre=pre, post=post, txs=[tx])

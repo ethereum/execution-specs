@@ -4,8 +4,8 @@ abstract: Tests for [EIP-1153: Transient Storage](https://eips.ethereum.org/EIPS
     Test cases for `TSTORE` and `TLOAD` opcode calls in different execution contexts.
 """  # noqa: E501
 
-from enum import Enum, unique
-from typing import Mapping
+from enum import unique
+from typing import List, Mapping
 
 import pytest
 
@@ -13,6 +13,7 @@ from ethereum_test_tools import Account, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, TestAddress, Transaction
 
+from . import PytestParameterEnum
 from .spec import ref_spec_1153
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_1153.git_path
@@ -27,34 +28,8 @@ caller_address = 0x100
 callee_address = 0x200
 
 
-class PytestCases(Enum):
-    """
-    Helper class for defining test cases.
-
-    Contains boiler plate code to construct a pytest_param() from the
-    `test_case` (the actual parameter value) and `test_case_params` a dict
-    that optionally defines `marks` for `pytest.param()`; the test id is
-    set to the lowercase name of the enum member.
-    """
-
-    def __init__(self, test_case_params, test_case):
-        if "pytest_marks" in test_case_params:
-            marks = {"marks": test_case_params["pytest_marks"]}
-        else:
-            marks = {}
-        self.description = test_case_params["description"]
-        self._value_ = pytest.param(test_case, id=self.name.lower(), **marks)
-
-    @property
-    def params(self):
-        """
-        Return the `pytest.param` value for this test case.
-        """
-        return self._value_
-
-
 @unique
-class TStorageCallContextTestCases(PytestCases):
+class TStorageCallContextTestCases(PytestParameterEnum):
     """
     Transient storage test cases for different contract subcall contexts.
     """
@@ -153,7 +128,6 @@ class TStorageCallContextTestCases(PytestCases):
         "expected_callee_storage": {},
     }
     DELEGATECALL_WITH_REVERT = {
-        "pytest_marks": pytest.mark.xfail,
         "description": (
             "TSTORE0007: Caller and callee contracts share transient storage "
             "when callee is called via DELEGATECALL. Transient storage usage "
@@ -171,30 +145,40 @@ class TStorageCallContextTestCases(PytestCases):
         "expected_callee_storage": {},
     }
 
-    def __init__(self, test_case_params):
-        test_case = {
-            "env": Environment(),
-            "pre": {
+    def __init__(self, value):
+        test_case = (
+            # env
+            Environment(),
+            # pre
+            {
                 TestAddress: Account(balance=10**40),
-                caller_address: Account(code=test_case_params["caller_bytecode"]),
-                callee_address: Account(code=test_case_params["callee_bytecode"]),
+                caller_address: Account(code=value["caller_bytecode"]),
+                callee_address: Account(code=value["callee_bytecode"]),
             },
-            "txs": [
+            # txs
+            [
                 Transaction(
                     to=caller_address,
                     gas_limit=1_000_000,
                 )
             ],
-            "post": {
-                caller_address: Account(storage=test_case_params["expected_caller_storage"]),
-                callee_address: Account(storage=test_case_params["expected_callee_storage"]),
+            # post
+            {
+                caller_address: Account(storage=value["expected_caller_storage"]),
+                callee_address: Account(storage=value["expected_callee_storage"]),
             },
-        }
-        super().__init__(test_case_params, test_case)
+        )
+        super().__init__(value, test_case)
 
 
-@pytest.mark.parametrize("test_case", [case.params for case in TStorageCallContextTestCases])
-def test_tstore_tload(state_test: StateTestFiller, test_case: Mapping):
+@pytest.mark.parametrize("env,pre,txs,post", TStorageCallContextTestCases.as_list())
+def test_tstore_tload(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Mapping,
+    txs: List[Transaction],
+    post: Mapping,
+):
     """
     Test transient storage with a subcall using the following opcodes:
 
@@ -203,6 +187,4 @@ def test_tstore_tload(state_test: StateTestFiller, test_case: Mapping):
     - `DELEGATECALL`
     - `STATICCALL`
     """
-    state_test(
-        env=test_case["env"], pre=test_case["pre"], post=test_case["post"], txs=test_case["txs"]
-    )
+    state_test(env=env, pre=pre, post=post, txs=txs)

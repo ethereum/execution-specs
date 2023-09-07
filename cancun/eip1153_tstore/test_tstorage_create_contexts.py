@@ -4,7 +4,7 @@ abstract: Tests for [EIP-1153: Transient Storage](https://eips.ethereum.org/EIPS
     Test cases for `TSTORE` and `TLOAD` opcode calls in contract initcode.
 """  # noqa: E501
 
-from enum import Enum, unique
+from enum import unique
 from typing import Optional
 
 import pytest
@@ -19,6 +19,7 @@ from ethereum_test_tools import (
     compute_create_address,
 )
 
+from . import CreateOpcodeParams, PytestParameterEnum
 from .spec import ref_spec_1153
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_1153.git_path
@@ -31,7 +32,7 @@ creator_address = 0x100
 
 
 @unique
-class TStorageInitcodeByteCodeParams(Enum):
+class InitcodeTestCases(PytestParameterEnum):
     """
     Defines test cases for transient storage opcode usage in contract constructor
     and deployed code.
@@ -49,7 +50,7 @@ class TStorageInitcodeByteCodeParams(Enum):
             + Op.SSTORE(1, Op.TLOAD(0))
         ),
         "deploy_code": b"",
-        "expected_created_storage": {0: 0x0000, 1: 0x0001},
+        "expected_storage": {0: 0x0000, 1: 0x0001},
     }
     IN_CONSTRUCTOR_AND_DEPLOYED_CODE = {
         "description": "Test TLOAD and TSTORE behavior in contract constructor and deployed code",
@@ -64,7 +65,7 @@ class TStorageInitcodeByteCodeParams(Enum):
             + Op.TSTORE(1, 1)
             + Op.SSTORE(2, Op.TLOAD(1))
         ),
-        "expected_created_storage": {0: 0x0000, 1: 0x0000, 2: 0x0001},
+        "expected_storage": {0: 0x0000, 1: 0x0000, 2: 0x0001},
     }
     ACROSS_CONSTRUCTOR_AND_DEPLOYED_CODE_V0 = {
         "description": ("Test TSTORE behavior across contract constructor and deploy code. "),
@@ -81,7 +82,7 @@ class TStorageInitcodeByteCodeParams(Enum):
             + Op.TSTORE(2, 1)
             + Op.SSTORE(2, Op.TLOAD(2))
         ),
-        "expected_created_storage": {0: 0x0000, 1: 0x0001, 2: 0x0001},
+        "expected_storage": {0: 0x0000, 1: 0x0001, 2: 0x0001},
     }
     ACROSS_CONSTRUCTOR_AND_DEPLOYED_CODE_V1 = {
         "description": (
@@ -104,7 +105,7 @@ class TStorageInitcodeByteCodeParams(Enum):
             + Op.TSTORE(2, 1)
             + Op.SSTORE(4, Op.TLOAD(2))
         ),
-        "expected_created_storage": {0: 0x0000, 1: 0x0001, 2: 0x0000, 3: 0x0001, 4: 0x0001},
+        "expected_storage": {0: 0x0000, 1: 0x0001, 2: 0x0000, 3: 0x0001, 4: 0x0001},
     }
     NO_CONSTRUCTOR_CODE = {
         "description": (
@@ -118,43 +119,18 @@ class TStorageInitcodeByteCodeParams(Enum):
             + Op.TSTORE(0, 1)
             + Op.SSTORE(1, Op.TLOAD(0))
         ),
-        "expected_created_storage": {0: 0x0000, 1: 0x0001},
+        "expected_storage": {0: 0x0000, 1: 0x0001},
     }
 
-    def __init__(self, test_case):
+    def __init__(self, value):
         self.test_case_id = self.name.lower()
-        self.constructor_code = test_case["constructor_code"]
-        self.deploy_code = test_case["deploy_code"]
-        self.expected_created_storage = test_case["expected_created_storage"]
+        test_case = (value["constructor_code"], value["deploy_code"], value["expected_storage"])
+        super().__init__(value, test_case)
 
 
-@unique
-class TStorageInitcodeCreateOpCodeParams(Enum):
-    """
-    Test cases for transient storage opcodes use in contract initcode.
-    """
-
-    CREATE = {"pytest_param": pytest.param(Op.CREATE, id="create")}
-    CREATE2 = {"pytest_param": pytest.param(Op.CREATE2, id="create2")}
-
-    def __init__(self, test_case):
-        self.pytest_param = test_case["pytest_param"]
-
-
+@pytest.mark.parametrize("opcode", CreateOpcodeParams.as_list())
 @pytest.mark.parametrize(
-    "opcode", [test_case.pytest_param for test_case in TStorageInitcodeCreateOpCodeParams]
-)
-@pytest.mark.parametrize(
-    ["constructor_code", "deploy_code", "expected_created_storage"],
-    [
-        (
-            test_case.constructor_code,
-            test_case.deploy_code,
-            test_case.expected_created_storage,
-        )
-        for test_case in TStorageInitcodeByteCodeParams
-    ],
-    ids=[test_case.test_case_id for test_case in TStorageInitcodeByteCodeParams],
+    "constructor_code,deploy_code,expected_storage", InitcodeTestCases.as_list()
 )
 class TestTransientStorageInContractCreation:
     """
@@ -231,7 +207,7 @@ class TestTransientStorageInContractCreation:
         initcode: bytes,
         deploy_code: bytes,
         expected_creator_storage: dict,
-        expected_created_storage: dict,
+        expected_storage: dict,
     ) -> None:
         """
         Test transient storage in contract creation contexts.
@@ -260,7 +236,7 @@ class TestTransientStorageInContractCreation:
             created_contract_address: Account(
                 nonce=1,
                 code=deploy_code,
-                storage=expected_created_storage,
+                storage=expected_storage,
             ),
         }
 
