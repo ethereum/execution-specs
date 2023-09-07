@@ -123,7 +123,18 @@ class CallContextTestCases(PytestParameterEnum, metaclass=DynamicCallContextTest
             + Op.SSTORE(0, Op.STATICCALL(0xFFFF, callee_address, 0, 0, 0, 0))  # limit gas
             + Op.SSTORE(1, Op.TLOAD(0))
         ),
-        "callee_bytecode": Op.TSTORE(0),  # calling tstore fails
+        "callee_bytecode": Op.TSTORE(0, 69),  # calling tstore fails
+        "expected_caller_storage": {0: 0, 1: 420},
+        "expected_callee_storage": {},
+    }
+    STATICCALL_CANT_CALL_TSTORE_WITH_STACK_UNDERFLOW = {
+        "description": ("TA STATICCALL callee can not use transient storage."),
+        "caller_bytecode": (
+            Op.TSTORE(0, 420)
+            + Op.SSTORE(0, Op.STATICCALL(0xFFFF, callee_address, 0, 0, 0, 0))  # limit gas
+            + Op.SSTORE(1, Op.TLOAD(0))
+        ),
+        "callee_bytecode": Op.TSTORE(0),  # calling with stack underflow still fails
         "expected_caller_storage": {0: 0, 1: 420},
         "expected_callee_storage": {},
     }
