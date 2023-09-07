@@ -210,16 +210,22 @@ class Txs:
         else:
             self.successful_txs.append(tx)
 
-    def add_receipt(self, tx: Any, gas_consumed: Uint) -> None:
+    def get_tx_hash(self, tx: Any) -> bytes:
         """
-        Add t8n receipt info for valid tx
+        Get the transaction hash of a transaction.
         """
         if self.t8n.is_after_fork("ethereum.berlin") and not isinstance(
             tx, self.t8n.fork_types.LegacyTransaction
         ):
-            tx_hash = keccak256(self.t8n.fork_types.encode_transaction(tx))
+            return keccak256(self.t8n.fork_types.encode_transaction(tx))
         else:
-            tx_hash = keccak256(rlp.encode(tx))
+            return keccak256(rlp.encode(tx))
+
+    def add_receipt(self, tx: Any, gas_consumed: Uint) -> None:
+        """
+        Add t8n receipt info for valid tx
+        """
+        tx_hash = self.get_tx_hash(tx)
 
         data = {
             "transactionHash": "0x" + tx_hash.hex(),

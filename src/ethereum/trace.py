@@ -14,73 +14,90 @@ Introduction
 Defines the functions required for creating evm traces during execution.
 """
 
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, Union
 
 
-def capture_tx_start(env: Any) -> None:
-    """
-    Capture the state at the beginning of a transaction.
-    """
+@dataclass
+class TransactionStart:
+    """Trace event that is triggered at the start of a transaction."""
+
     pass
 
 
-def capture_tx_end(
-    env: Any, gas_used: int, output: bytes, has_erred: bool
-) -> None:
-    """
-    Capture the state at the end of a transaction.
-    """
+@dataclass
+class TransactionEnd:
+    """Trace event that is triggered at the end of a transaction."""
+
+    gas_used: int
+    output: bytes
+    has_erred: bool
+
+
+@dataclass
+class PrecompileStart:
+    """Trace event that is triggered before executing a precompile."""
+
+    address: bytes
+
+
+@dataclass
+class PrecompileEnd:
+    """Trace event that is triggered after executing a precompile."""
+
     pass
 
 
-def capture_precompile_start(evm: Any, address: Any) -> None:
-    """
-    Create a new trace instance before precompile execution.
-    """
+@dataclass
+class OpStart:
+    """Trace event that is triggered before executing an opcode."""
+
+    op: Any
+
+
+@dataclass
+class OpEnd:
+    """Trace event that is triggered after executing an opcode."""
+
     pass
 
 
-def capture_precompile_end(evm: Any) -> None:
-    """Capture the state at the end of a precompile execution."""
+@dataclass
+class OpException:
+    """Trace event that is triggered when an opcode raises an exception."""
+
     pass
 
 
-def capture_op_start(evm: Any, op: Any) -> None:
+@dataclass
+class EvmStop:
+    """Trace event that is triggered when the EVM stops."""
+
+    op: object
+
+
+@dataclass
+class GasAndRefund:
+    """Trace event that is triggered when gas is deducted."""
+
+    gas_cost: int
+
+
+TraceEvent = Union[
+    TransactionStart,
+    TransactionEnd,
+    PrecompileStart,
+    PrecompileEnd,
+    OpStart,
+    OpEnd,
+    OpException,
+    EvmStop,
+    GasAndRefund,
+]
+
+
+def evm_trace(evm: object, event: TraceEvent) -> None:
     """
-    Create a new trace instance before opcode execution.
-    """
-    pass
-
-
-def capture_op_end(evm: Any) -> None:
-    """Capture the state at the end of an opcode execution."""
-    pass
-
-
-def capture_op_exception(evm: Any) -> None:
-    """Capture the state in case of exceptions."""
-    pass
-
-
-def output_traces(
-    traces: Any, tx_hash: bytes, output_basedir: str = "."
-) -> None:
-    """
-    Output the traces to a json file.
-    """
-    pass
-
-
-def capture_evm_stop(evm: Any, op: Any) -> None:
-    """
-    Capture the state at the end of an EVM execution.
-    A stop opcode is captured.
-    """
-    pass
-
-
-def capture_gas_and_refund(evm: Any, gas_cost: Any) -> None:
-    """
-    Capture the gas cost and refund during opcode execution.
+    Create a trace of the event.
     """
     pass

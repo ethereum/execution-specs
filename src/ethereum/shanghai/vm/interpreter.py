@@ -16,13 +16,14 @@ from typing import Any, Iterable, List, Set, Tuple, Union
 
 from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.trace import (
-    capture_evm_stop,
-    capture_op_end,
-    capture_op_exception,
-    capture_op_start,
-    capture_precompile_end,
-    capture_precompile_start,
-    capture_tx_end,
+    EvmStop,
+    OpEnd,
+    OpException,
+    OpStart,
+    PrecompileEnd,
+    PrecompileStart,
+    TransactionEnd,
+    evm_trace,
 )
 from ethereum.utils.ensure import ensure
 
@@ -130,7 +131,10 @@ def process_message_call(
         touched_accounts = evm.touched_accounts
         refund_counter = U256(evm.refund_counter)
 
-    capture_tx_end(env, message.gas - evm.gas_left, evm.output, evm.has_erred)
+    tx_end = TransactionEnd(
+        message.gas - evm.gas_left, evm.output, evm.has_erred
+    )
+    evm_trace(evm, tx_end)
 
     return MessageCallOutput(
         gas_left=evm.gas_left,
@@ -286,9 +290,9 @@ def execute_code(message: Message, env: Environment) -> Evm:
     try:
 
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
-            capture_precompile_start(evm, evm.message.code_address)
+            evm_trace(evm, PrecompileStart(evm.message.code_address))
             PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
-            capture_precompile_end(evm)
+            evm_trace(evm, PrecompileEnd())
             return evm
 
         while evm.running and evm.pc < len(evm.code):
@@ -297,19 +301,19 @@ def execute_code(message: Message, env: Environment) -> Evm:
             except ValueError:
                 raise InvalidOpcode(evm.code[evm.pc])
 
-            capture_op_start(evm, op)
+            evm_trace(evm, OpStart(op))
             op_implementation[op](evm)
-            capture_op_end(evm)
+            evm_trace(evm, OpEnd())
 
-        capture_evm_stop(evm, Ops.STOP)
+        evm_trace(evm, EvmStop(Ops.STOP))
 
     except ExceptionalHalt:
-        capture_op_exception(evm)
+        evm_trace(evm, OpException())
         evm.gas_left = Uint(0)
         evm.output = b""
         evm.has_erred = True
     except Revert as e:
-        capture_op_exception(evm)
+        evm_trace(evm, OpException())
         evm.error = e
         evm.has_erred = True
     return evm

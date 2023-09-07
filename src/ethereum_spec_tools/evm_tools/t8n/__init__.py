@@ -6,23 +6,11 @@ import argparse
 import json
 import os
 import sys
-from functools import partial
 from typing import Any
 
 from ethereum import rlp, trace
 from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import keccak256
-from ethereum_spec_tools.evm_trace import (
-    capture_evm_stop,
-    capture_gas_and_refund,
-    capture_op_end,
-    capture_op_exception,
-    capture_op_start,
-    capture_precompile_end,
-    capture_precompile_start,
-    capture_tx_end,
-    output_traces,
-)
 from ethereum_spec_tools.forks import Hardfork
 
 from ..fixture_loader import Load
@@ -33,6 +21,7 @@ from ..utils import (
     parse_hex_or_int,
 )
 from .env import Env
+from .evm_trace import evm_trace, output_traces
 from .t8n_types import Alloc, Result, Txs
 
 
@@ -116,18 +105,7 @@ class T8N(Load):
         )
 
         if self.options.trace:
-            trace.capture_op_start = capture_op_start
-            trace.capture_op_end = capture_op_end
-            trace.capture_op_exception = capture_op_exception
-            trace.capture_gas_and_refund = capture_gas_and_refund
-            trace.capture_tx_end = capture_tx_end
-            trace.output_traces = partial(
-                output_traces, output_basedir=self.options.output_basedir
-            )
-            trace.capture_evm_stop = capture_evm_stop
-            trace.capture_precompile_start = capture_precompile_start
-            trace.capture_precompile_end = capture_precompile_end
-
+            trace.evm_trace = evm_trace
         self.logger = get_stream_logger("T8N")
 
         super().__init__(
@@ -374,6 +352,11 @@ class T8N(Load):
                 gas_consumed = process_transaction_return[0]
                 gas_available -= gas_consumed
 
+                if self.options.trace:
+                    tx_hash = self.txs.get_tx_hash(tx)
+                    output_traces(
+                        env.traces, i, tx_hash, self.options.output_basedir
+                    )
                 self.tx_trie_set(transactions_trie, i, tx)
 
                 receipt = self.make_receipt(
