@@ -184,5 +184,4 @@ def test_subcall(
     - `DELEGATECALL`
     - `STATICCALL`
     """
-    print(pre)
     state_test(env=env, pre=pre, post=post, txs=txs)
