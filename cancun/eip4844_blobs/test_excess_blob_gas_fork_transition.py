@@ -168,12 +168,12 @@ def test_invalid_pre_fork_block_with_blob_fields(
             Block(
                 timestamp=(FORK_TIMESTAMP - 1),
                 rlp_modifier=header_modifier,
-                exception="Invalid params",
+                exception="invalid pre fork blob fields",
                 engine_api_error_code=EngineAPIError.InvalidParams,
             )
         ],
         genesis_environment=env,
-        tag="invalid_pre_fork_excess_blob_gas",
+        tag="invalid_pre_fork_blob_fields",
     )
 
 
@@ -213,12 +213,12 @@ def test_invalid_post_fork_block_without_blob_fields(
             Block(
                 timestamp=FORK_TIMESTAMP,
                 rlp_modifier=header_modifier,
-                exception="Invalid params",
+                exception="blob fields missing post fork",
                 engine_api_error_code=EngineAPIError.InvalidParams,
             )
         ],
         genesis_environment=env,
-        tag="excess_blob_gas_missing_post_fork",
+        tag="blob_fields_missing_post_fork",
     )
 
 
