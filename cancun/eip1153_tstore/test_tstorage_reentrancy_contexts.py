@@ -222,12 +222,8 @@ class ReentrancyTestCases(PytestParameterEnum, metaclass=DynamicReentrancyTestCa
         "expected_storage": {0: 0x01, 1: 0x100, 2: 0x101, 3: 0x101},
     }
 
-    def __init__(self, value):
-        test_case = (value["bytecode"], value["expected_storage"])
-        super().__init__(value, test_case)
 
-
-@pytest.mark.parametrize("bytecode,expected_storage", ReentrancyTestCases.as_list())
+@ReentrancyTestCases.parametrize()
 def test_reentrant_call(state_test: StateTestFiller, bytecode, expected_storage):
     """
     Test transient storage in different reentrancy contexts.

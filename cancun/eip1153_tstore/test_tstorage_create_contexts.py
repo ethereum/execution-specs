@@ -122,16 +122,9 @@ class InitcodeTestCases(PytestParameterEnum):
         "expected_storage": {0: 0x0000, 1: 0x0001},
     }
 
-    def __init__(self, value):
-        self.test_case_id = self.name.lower()
-        test_case = (value["constructor_code"], value["deploy_code"], value["expected_storage"])
-        super().__init__(value, test_case)
 
-
-@pytest.mark.parametrize("opcode", CreateOpcodeParams.as_list())
-@pytest.mark.parametrize(
-    "constructor_code,deploy_code,expected_storage", InitcodeTestCases.as_list()
-)
+@CreateOpcodeParams.parametrize()
+@InitcodeTestCases.parametrize()
 class TestTransientStorageInContractCreation:
     """
     Test transient storage in contract creation contexts:
