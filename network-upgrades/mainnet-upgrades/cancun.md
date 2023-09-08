@@ -1,7 +1,7 @@
 ## Cancun Network Upgrade Specification
 
 ### Included EIPs
-Changes included in the Network Upgrade.
+Execution layer changes included in the Network Upgrade.
 
 * [EIP-1153: Transient storage opcodes](https://eips.ethereum.org/EIPS/eip-1153)
 * [EIP-4788: Beacon block root in the EVM ](https://eips.ethereum.org/EIPS/eip-4788)
@@ -27,16 +27,15 @@ Implementation status of Included EIPs across participating clients.
 
 **List of outstanding items before deployment.**
 
-- [ ] Client Integration Testing
-  - [ ] Deploy a Client Integration Testnet
-  - [ ] Integration Tests
-  - [ ] Fuzz Testing
- - [ ] Select Fork Blocks
- - [ ] Deploy Clients
+- [x] Client Integration Testing
+  - [x] [Devnets](https://github.com/ethpandaops/dencun-testnet)
+  - [x] [Testing suites](https://notes.ethereum.org/@ethpandaops/dencun-testing-overview)
+ - [ ] Select Testnet Fork Blocks
+ - [ ] Select Mainnet Fork Block
+ - [ ] Release Mainnet Compatible Clients
    - [ ]  Geth
    - [ ]  Besu
    - [ ]  Nethermind
    - [ ]  OpenEthereum
    - [ ]  Erigon
    - [ ]  EthereumJS
- - [ ] Pass Fork Blocks
