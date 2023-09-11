@@ -19,6 +19,12 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: "1.69.0"
+            override: true
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
