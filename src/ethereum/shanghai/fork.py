@@ -752,12 +752,13 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     sender : `ethereum.fork_types.Address`
         The address of the account that signed the transaction.
     """
-    v, r, s = tx.v, tx.r, tx.s
+    r, s = tx.r, tx.s
 
     ensure(0 < r and r < SECP256K1N, InvalidBlock)
     ensure(0 < s and s <= SECP256K1N // 2, InvalidBlock)
 
     if isinstance(tx, LegacyTransaction):
+        v = tx.v
         if v == 27 or v == 28:
             public_key = secp256k1_recover(
                 r, s, v - 27, signing_hash_pre155(tx)
@@ -770,9 +771,13 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
                 r, s, v - 35 - chain_id * 2, signing_hash_155(tx, chain_id)
             )
     elif isinstance(tx, AccessListTransaction):
-        public_key = secp256k1_recover(r, s, v, signing_hash_2930(tx))
+        public_key = secp256k1_recover(
+            r, s, tx.y_parity, signing_hash_2930(tx)
+        )
     elif isinstance(tx, FeeMarketTransaction):
-        public_key = secp256k1_recover(r, s, v, signing_hash_1559(tx))
+        public_key = secp256k1_recover(
+            r, s, tx.y_parity, signing_hash_1559(tx)
+        )
 
     return Address(keccak256(public_key)[12:32])
 
