@@ -8,9 +8,9 @@ from enum import EnumMeta, unique
 
 import pytest
 
-from ethereum_test_tools import Account, Conditional, Environment
+from ethereum_test_tools import Account, CalldataCase, Conditional, Environment
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, TestAddress, Transaction, to_hash_bytes
+from ethereum_test_tools import StateTestFiller, Switch, TestAddress, Transaction, to_hash_bytes
 
 from . import PytestParameterEnum
 from .spec import ref_spec_1153
@@ -128,10 +128,8 @@ class DynamicReentrancyTestCases(EnumMeta):
                     "",
                     "Based on [ethereum/tests/.../10_revertUndoesStoreAfterReturnFiller.yml](https://github.com/ethereum/tests/blob/9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage/10_revertUndoesStoreAfterReturnFiller.yml).",  # noqa: E501
                 ),
-                "bytecode": Conditional(
-                    condition=SETUP_CONDITION,
-                    # setup
-                    if_true=(
+                "bytecode": Switch(
+                    default_action=(  # setup; make first reentrant sub-call
                         Op.TSTORE(0xFF, 0x100)
                         + Op.SSTORE(2, Op.TLOAD(0xFF))
                         + Op.MSTORE(0, 2)
@@ -139,17 +137,19 @@ class DynamicReentrancyTestCases(EnumMeta):
                         + Op.SSTORE(1, Op.MLOAD(0))  # should be 1 (successful call)
                         + Op.SSTORE(3, Op.TLOAD(0xFF))
                     ),
-                    # first, reentrant call, which reverts/receives invalid
-                    if_false=Conditional(
-                        condition=Op.EQ(Op.CALLDATALOAD(0), 0x02),
-                        if_true=(
-                            Op.MSTORE(0, 3)
-                            + Op.MSTORE(0, Op.CALL(Op.GAS(), callee_address, 0, 0, 32, 0, 0))
-                            + opcode_call
+                    cases=[
+                        # the first, reentrant call, which reverts/receives invalid
+                        CalldataCase(
+                            value=2,
+                            action=(
+                                Op.MSTORE(0, 3)
+                                + Op.MSTORE(0, Op.CALL(Op.GAS(), callee_address, 0, 0, 32, 0, 0))
+                                + opcode_call
+                            ),
                         ),
-                        # second, successful reentrant call
-                        if_false=Op.TSTORE(0xFF, 0x101),
-                    ),
+                        # the second, reentrant call, which returns successfully
+                        CalldataCase(value=3, action=Op.TSTORE(0xFF, 0x101)),
+                    ],
                 ),
                 "expected_storage": {0: 0x00, 1: 0x01, 2: 0x100, 3: 0x100},
             }
