@@ -1646,6 +1646,24 @@ class Transaction:
         else:
             return eth_rlp.encode(self.signing_envelope())
 
+    def signature_bytes(self) -> bytes:
+        """
+        Returns the serialized bytes of the transaction signature.
+        """
+        assert self.v is not None and self.r is not None and self.s is not None
+        v = self.v
+        if self.ty == 0:
+            if self.protected:
+                assert self.chain_id is not None
+                v -= 35 + (self.chain_id * 2)
+            else:
+                v -= 27
+        return (
+            self.r.to_bytes(32, byteorder="big")
+            + self.s.to_bytes(32, byteorder="big")
+            + bytes([v])
+        )
+
     def with_signature_and_sender(self) -> "Transaction":
         """
         Returns a signed version of the transaction using the private key.
@@ -1655,8 +1673,10 @@ class Transaction:
         if tx.v is not None:
             # Transaction already signed
             if tx.sender is None:
-                # TODO: We need to recover the sender from the signature
-                raise NotImplementedError("recovering sender from signature not implemented")
+                public_key = PublicKey.from_signature_and_message(
+                    tx.signature_bytes(), keccak256(tx.signing_bytes()), hasher=None
+                )
+                tx.sender = keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
             return tx
 
         if tx.secret_key is None:

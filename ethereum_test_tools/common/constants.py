@@ -21,7 +21,6 @@ EmptyNonce = bytes([0] * 8)
 ZeroAddress = bytes([0] * 20)
 
 HistoryStorageAddress = "0x000000000000000000000000000000000000000b"
-BeaconRoot = bytes.fromhex("3e97e493f9123f7455a3be1b388db32876beea7d165a3b63528d8f9a38b7249f")
 
 
 class EngineAPIError(IntEnum):
