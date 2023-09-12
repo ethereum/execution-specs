@@ -14,8 +14,9 @@ Introduction
 Defines the functions required for creating evm traces during execution.
 """
 
+import enum
 from dataclasses import dataclass
-from typing import Any, Union
+from typing import Union
 
 
 @dataclass
@@ -52,7 +53,7 @@ class PrecompileEnd:
 class OpStart:
     """Trace event that is triggered before executing an opcode."""
 
-    op: Any
+    op: enum.Enum
 
 
 @dataclass
@@ -73,7 +74,7 @@ class OpException:
 class EvmStop:
     """Trace event that is triggered when the EVM stops."""
 
-    op: object
+    op: enum.Enum
 
 
 @dataclass

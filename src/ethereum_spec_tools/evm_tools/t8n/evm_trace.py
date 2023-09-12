@@ -4,8 +4,9 @@ The module implements the raw EVM tracer for t8n.
 import json
 import os
 from dataclasses import dataclass, fields
-from typing import Any, List, Optional, Union
+from typing import List, Optional, Protocol, TextIO, Union, runtime_checkable
 
+from ethereum.base_types import U256, Bytes, Uint
 from ethereum.trace import (
     EvmStop,
     GasAndRefund,
@@ -60,10 +61,48 @@ class FinalTrace:
             self.error = ""
 
 
-def evm_trace(evm: Any, event: TraceEvent) -> None:
+@runtime_checkable
+class Environment(Protocol):
+    """
+    The class implements the environment interface for trace.
+    """
+
+    traces: List[Union["Trace", "FinalTrace"]]
+
+
+@runtime_checkable
+class Message(Protocol):
+    """
+    The class implements the message interface for trace.
+    """
+
+    depth: int
+
+
+@runtime_checkable
+class Evm(Protocol):
+    """
+    The class implements the EVM interface for trace.
+    """
+
+    pc: Uint
+    stack: List[U256]
+    memory: bytearray
+    code: Bytes
+    gas_left: Uint
+    env: Environment
+    refund_counter: int
+    running: bool
+    message: Message
+
+
+def evm_trace(evm: object, event: TraceEvent) -> None:
     """
     Create a trace of the event.
     """
+    assert isinstance(evm, Evm)
+    last_trace: Optional[Union[Trace, FinalTrace]]
+
     if isinstance(event, TransactionStart):
         pass
     elif isinstance(event, TransactionEnd):
@@ -86,6 +125,7 @@ def evm_trace(evm: Any, event: TraceEvent) -> None:
         evm.env.traces.append(new_trace)
     elif isinstance(event, PrecompileEnd):
         last_trace = evm.env.traces[-1]
+        assert isinstance(last_trace, Trace)
 
         last_trace.gasCostTraced = True
         last_trace.errorTraced = True
@@ -105,6 +145,7 @@ def evm_trace(evm: Any, event: TraceEvent) -> None:
         evm.env.traces.append(new_trace)
     elif isinstance(event, OpEnd):
         last_trace = evm.env.traces[-1]
+        assert isinstance(last_trace, Trace)
 
         last_trace.gasCostTraced = True
         last_trace.errorTraced = True
@@ -112,6 +153,8 @@ def evm_trace(evm: Any, event: TraceEvent) -> None:
         last_trace = None
         if evm.env.traces:
             last_trace = evm.env.traces[-1]
+        if last_trace is not None:
+            assert isinstance(last_trace, Trace)
         if (
             # The first opcode in the code is an InvalidOpcode.
             # So we add a new trace with InvalidOpcode as op.
@@ -159,6 +202,7 @@ def evm_trace(evm: Any, event: TraceEvent) -> None:
             return
 
         last_trace = evm.env.traces[-1]
+        assert isinstance(last_trace, Trace)
 
         if not last_trace.gasCostTraced:
             last_trace.gasCost = hex(event.gas_cost)
@@ -166,7 +210,9 @@ def evm_trace(evm: Any, event: TraceEvent) -> None:
             last_trace.gasCostTraced = True
 
 
-def output_op_trace(trace: Union[Trace, FinalTrace], json_file: Any) -> None:
+def output_op_trace(
+    trace: Union[Trace, FinalTrace], json_file: TextIO
+) -> None:
     """
     Output a single trace to a json file.
     """

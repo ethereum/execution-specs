@@ -64,24 +64,11 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     )
     # TODO: Add support for the following trace options
     t8n_parser.add_argument("--trace", action="store_true")
-    t8n_parser.add_argument(
-        "--trace.memory", dest="trace_memory", type=bool, default=False
-    )
-    t8n_parser.add_argument(
-        "--trace.nomemory", dest="trace_nomemory", type=bool, default=True
-    )
-    t8n_parser.add_argument(
-        "--trace.noreturndata",
-        dest="trace_noreturndata",
-        type=bool,
-        default=True,
-    )
-    t8n_parser.add_argument(
-        "--trace.nostack ", dest="trace_nostack ", type=bool, default=False
-    )
-    t8n_parser.add_argument(
-        "--trace.returndata", dest="trace_returndata", type=bool, default=False
-    )
+    t8n_parser.add_argument("--trace.memory", action="store_true")
+    t8n_parser.add_argument("--trace.nomemory", action="store_true")
+    t8n_parser.add_argument("--trace.noreturndata", action="store_true")
+    t8n_parser.add_argument("--trace.nostack ", action="store_true")
+    t8n_parser.add_argument("--trace.returndata", action="store_true")
 
 
 class T8N(Load):
