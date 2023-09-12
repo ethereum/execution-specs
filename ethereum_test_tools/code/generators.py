@@ -2,8 +2,8 @@
 Code generating classes and functions.
 """
 
-from dataclasses import dataclass
-from typing import Optional, SupportsBytes
+from dataclasses import dataclass, field
+from typing import List, Optional, SupportsBytes
 
 from ..common.conversions import to_bytes
 from ..common.helpers import ceiling_division
@@ -108,7 +108,7 @@ class Initcode(Code):
         if initcode_length is not None:
             assert initcode_length >= len(
                 initcode_plus_deploy_code
-            ), "specified invalid lenght for initcode"
+            ), "specified invalid length for initcode"
 
             padding_bytes = bytes(
                 [padding_byte] * (initcode_length - len(initcode_plus_deploy_code))
@@ -214,8 +214,8 @@ class Conditional(Code):
 
     def __post_init__(self):
         """
-        Assemble the conditional bytecode by generating the necessary jumps and
-        jumpdests surrounding the condition and the two possible execution
+        Assemble the conditional bytecode by generating the necessary jump and
+        jumpdest opcodes surrounding the condition and the two possible execution
         paths.
 
         In the future, PC usage should be replaced by using RJUMP and RJUMPI
@@ -237,3 +237,129 @@ class Conditional(Code):
         # Finally we append the true and false branches, and the condition, plus the jumpdest at
         # the very end
         self.bytecode = condition_bytes + if_false_bytes + if_true_bytes + Op.JUMPDEST
+
+
+@dataclass
+class Case:
+    """
+    Small helper class to represent a single, generic case in a `Switch` cases
+    list.
+    """
+
+    condition: str | bytes | SupportsBytes
+    action: str | bytes | SupportsBytes
+
+    def __post_init__(self):
+        """
+        Ensure that the condition and action are of type bytes.
+        """
+        self.condition = to_bytes(self.condition)
+        self.action = to_bytes(self.action)
+
+
+@dataclass
+class CalldataCase:
+    """
+    Small helper class to represent a single case whose condition depends
+    on the value of the contract's calldata in a Switch case statement.
+
+    By default the calldata is read from position zero, but this can be
+    overridden using `position`.
+
+    The `condition` is generated automatically based on the `value` (and
+    optionally `position`) and may not be set directly.
+    """
+
+    action: str | bytes | SupportsBytes
+    value: int | str | bytes | SupportsBytes
+    position: int = 0
+    condition: bytes = field(init=False)
+
+    def __post_init__(self):
+        """
+        Generate the condition base on `value` and `position`.
+        """
+        value_as_bytes = self.value
+        if not isinstance(self.value, int):
+            value_as_bytes = Op.PUSH32(to_bytes(self.value))
+        self.condition = Op.EQ(Op.CALLDATALOAD(self.position), value_as_bytes)
+        self.action = to_bytes(self.action)
+
+
+@dataclass(kw_only=True)
+class Switch(Code):
+    """
+    Helper class used to generate switch-case expressions in EVM bytecode.
+
+    Switch-case behavior:
+        - If no condition is met in the list of BytecodeCases conditions,
+            the `default_action` bytecode is executed.
+        - If multiple conditions are met, the action from the first valid
+            condition is the only one executed.
+        - There is no fall through; it is not possible to execute multiple
+            actions.
+    """
+
+    default_action: str | bytes | SupportsBytes
+    """
+    The default bytecode to execute; if no condition is met, this bytecode is
+    executed.
+    """
+
+    cases: List[Case | CalldataCase]
+    """
+    A list of Case or CalldataCase: The first element with a condition that
+    evaluates to a non-zero value is the one that is executed.
+    """
+
+    def __post_init__(self):
+        """
+        Assemble the bytecode by looping over the list of cases and adding
+        the necessary JUMPI and JUMPDEST opcodes in order to replicate
+        switch-case behavior.
+
+        In the future, PC usage should be replaced by using RJUMP and RJUMPI.
+        """
+        # The length required to jump over subsequent actions to the final JUMPDEST at the end
+        # of the switch-case block:
+        # - add 6 per case for the length of the JUMPDEST and JUMP(ADD(PC, action_jump_length))
+        #   bytecode
+        # - add 3 to the total to account for this action's JUMP; the PC within the call
+        #   requires a "correction" of 3.
+        action_jump_length = sum(len(case.action) + 6 for case in self.cases) + 3
+
+        # All conditions get pre-pended to this bytecode; if none are met, we reach the default
+        self.bytecode = to_bytes(self.default_action) + Op.JUMP(Op.ADD(Op.PC, action_jump_length))
+
+        # The length required to jump over the default action and its JUMP bytecode
+        condition_jump_length = len(self.bytecode) + 3
+
+        # Reversed: first case in the list has priority; it will become the outer-most onion layer.
+        # We build up layers around the default_action, after 1 iteration of the loop, a simplified
+        # representation of the bytecode is:
+        #
+        #  JUMPI(case[n-1].condition)
+        #  + default_action + JUMP()
+        #  + JUMPDEST + case[n-1].action + JUMP()
+        #
+        # and after n=len(cases) iterations:
+        #
+        #  JUMPI(case[0].condition)
+        #  + JUMPI(case[1].condition)
+        #    ...
+        #  + JUMPI(case[n-1].condition)
+        #  + default_action + JUMP()
+        #  + JUMPDEST + case[n-1].action + JUMP()
+        #  + ...
+        #  + JUMPDEST + case[1].action + JUMP()
+        #  + JUMPDEST + case[0].action + JUMP()
+        #
+        for case in reversed(self.cases):
+            action_jump_length -= len(case.action) + 6
+            action = Op.JUMPDEST + case.action + Op.JUMP(Op.ADD(Op.PC, action_jump_length))
+            condition = Op.JUMPI(Op.ADD(Op.PC, condition_jump_length), case.condition)
+            # wrap the current case around the onion as its next layer
+            self.bytecode = condition + self.bytecode + action
+            condition_jump_length += len(condition) + len(action)
+
+        self.bytecode += Op.JUMPDEST

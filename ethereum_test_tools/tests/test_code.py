@@ -3,14 +3,18 @@ Test suite for `ethereum_test.code` module.
 """
 
 from string import Template
-from typing import SupportsBytes
+from typing import Mapping, SupportsBytes
 
 import pytest
 from semver import Version
 
 from ethereum_test_forks import Fork, Homestead, Shanghai, forks_from_until, get_deployed_forks
+from evm_transition_tool import GethTransitionTool
 
-from ..code import Code, Conditional, Initcode, Yul
+from ..code import CalldataCase, Case, Code, Conditional, Initcode, Switch, Yul
+from ..common import Account, Environment, TestAddress, Transaction, to_hash_bytes
+from ..filling import fill_test
+from ..spec import StateTest
 from ..vm.opcode import Opcodes as Op
 from .conftest import SOLC_PADDING_VERSION
 
@@ -308,3 +312,346 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes):
     Test that the if opcode macro is transformed into bytecode as expected.
     """
     assert bytes(conditional_bytecode) == expected
+
+
+@pytest.mark.parametrize(
+    "tx_data,switch_bytecode,expected_storage",
+    [
+        pytest.param(
+            to_hash_bytes(1),
+            Switch(
+                cases=[
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                ],
+                default_action=b"",
+            ),
+            {0: 1},
+            id="no-default-action-condition-met",
+        ),
+        pytest.param(
+            to_hash_bytes(1),
+            Switch(
+                cases=[
+                    CalldataCase(value=1, action=Op.SSTORE(0, 1)),
+                    CalldataCase(value=2, action=Op.SSTORE(0, 2)),
+                ],
+                default_action=b"",
+            ),
+            {0: 1},
+            id="no-default-action-condition-met-calldata",
+        ),
+        pytest.param(
+            to_hash_bytes(0),
+            Switch(
+                cases=[
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                ],
+                default_action=b"",
+            ),
+            {0: 0},
+            id="no-default-action-no-condition-met",
+        ),
+        pytest.param(
+            to_hash_bytes(1),
+            Switch(
+                cases=[],
+                default_action=Op.SSTORE(0, 3),
+            ),
+            {0: 3},
+            id="no-cases",
+        ),
+        pytest.param(
+            to_hash_bytes(1),
+            Switch(
+                cases=[Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1))],
+                default_action=Op.SSTORE(0, 3),
+            ),
+            {0: 1},
+            id="one-case-condition-met",
+        ),
+        pytest.param(
+            to_hash_bytes(0),
+            Switch(
+                cases=[Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1))],
+                default_action=Op.SSTORE(0, 3),
+            ),
+            {0: 3},
+            id="one-case-condition-not-met",
+        ),
+        pytest.param(
+            to_hash_bytes(0),
+            Switch(
+                cases=[
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                ],
+                default_action=Op.SSTORE(0, 3),
+            ),
+            {0: 3},
+            id="two-cases-no-condition-met",
+        ),
+        pytest.param(
+            to_hash_bytes(1),
+            Switch(
+                cases=[
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                ],
+                default_action=Op.SSTORE(0, 3),
+            ),
+            {0: 1},
+            id="two-cases-first-condition-met",
+        ),
+        pytest.param(
+            to_hash_bytes(2),
+            Switch(
+                cases=[
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                ],
+                default_action=Op.SSTORE(0, 3),
+            ),
+            {0: 2},
+            id="two-cases-second-condition-met",
+        ),
+        pytest.param(
+            to_hash_bytes(1),
+            Switch(
+                cases=[
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 3), action=Op.SSTORE(0, 3)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 4), action=Op.SSTORE(0, 4)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 5), action=Op.SSTORE(0, 5)),
+                ],
+                default_action=Op.SSTORE(0, 6),
+            ),
+            {0: 1},
+            id="five-cases-first-condition-met",
+        ),
+        pytest.param(
+            to_hash_bytes(1),
+            Switch(
+                cases=[
+                    CalldataCase(value=1, action=Op.SSTORE(0, 1)),
+                    CalldataCase(value=2, action=Op.SSTORE(0, 2)),
+                    CalldataCase(value=3, action=Op.SSTORE(0, 3)),
+                    CalldataCase(value=4, action=Op.SSTORE(0, 4)),
+                    CalldataCase(value=5, action=Op.SSTORE(0, 5)),
+                ],
+                default_action=Op.SSTORE(0, 6),
+            ),
+            {0: 1},
+            id="five-cases-first-condition-met-calldata",
+        ),
+        pytest.param(
+            to_hash_bytes(3),
+            Switch(
+                cases=[
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 3), action=Op.SSTORE(0, 3)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 4), action=Op.SSTORE(0, 4)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 5), action=Op.SSTORE(0, 5)),
+                ],
+                default_action=Op.SSTORE(0, 6),
+            ),
+            {0: 3},
+            id="five-cases-third-condition-met",
+        ),
+        pytest.param(
+            to_hash_bytes(3),
+            Switch(
+                cases=[
+                    CalldataCase(value=1, action=Op.SSTORE(0, 1)),
+                    CalldataCase(value=2, action=Op.SSTORE(0, 2)),
+                    CalldataCase(value=3, action=Op.SSTORE(0, 3)),
+                    CalldataCase(value=4, action=Op.SSTORE(0, 4)),
+                    CalldataCase(value=5, action=Op.SSTORE(0, 5)),
+                ],
+                default_action=Op.SSTORE(0, 6),
+            ),
+            {0: 3},
+            id="five-cases-third-condition-met-calldata",
+        ),
+        pytest.param(
+            to_hash_bytes(5),
+            Switch(
+                cases=[
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 3), action=Op.SSTORE(0, 3)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 4), action=Op.SSTORE(0, 4)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 5), action=Op.SSTORE(0, 5)),
+                ],
+                default_action=Op.SSTORE(0, 6),
+            ),
+            {0: 5},
+            id="five-cases-last-met",
+        ),
+        pytest.param(
+            to_hash_bytes(3),
+            Switch(
+                cases=[
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 3), action=Op.SSTORE(0, 3)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 3), action=Op.SSTORE(0, 4)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 3), action=Op.SSTORE(0, 5)),
+                ],
+                default_action=Op.SSTORE(0, 6),
+            ),
+            {0: 3},
+            id="five-cases-multiple-conditions-met",  # first in list should be evaluated
+        ),
+        pytest.param(
+            to_hash_bytes(9),
+            Switch(
+                cases=[
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 3), action=Op.SSTORE(0, 3)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 4), action=Op.SSTORE(0, 4)),
+                    Case(condition=Op.EQ(Op.CALLDATALOAD(0), 5), action=Op.SSTORE(0, 5)),
+                ],
+                default_action=Op.SSTORE(0, 6),
+            ),
+            {0: 6},
+            id="five-cases-no-condition-met",
+        ),
+        pytest.param(
+            to_hash_bytes(0),
+            Switch(
+                cases=[
+                    Case(condition=Op.EQ(1, 2), action=Op.SSTORE(0, 1)),
+                    Case(condition=Op.EQ(1, 2), action=Op.SSTORE(0, 1)),
+                    Case(condition=Op.EQ(1, 2), action=Op.SSTORE(0, 1)),
+                    Case(condition=Op.EQ(1, 1), action=Op.SSTORE(0, 2)),
+                    Case(condition=Op.EQ(1, 2), action=Op.SSTORE(0, 1)),
+                ],
+                default_action=b"",
+            ),
+            {0: 2},
+            id="no-calldataload-condition-met",
+        ),
+        pytest.param(
+            to_hash_bytes(0),
+            Switch(
+                cases=[
+                    Case(condition=Op.EQ(1, 2), action=Op.SSTORE(0, 1)),
+                    Case(condition=Op.EQ(1, 2), action=Op.SSTORE(0, 1)),
+                    Case(
+                        condition=Op.EQ(1, 2),
+                        action=Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.SSTORE(2, 1),
+                    ),
+                    Case(condition=Op.EQ(1, 1), action=Op.SSTORE(0, 2) + Op.SSTORE(1, 2)),
+                    Case(condition=Op.EQ(1, 2), action=Op.SSTORE(0, 1)),
+                ],
+                default_action=b"",
+            ),
+            {0: 2, 1: 2},
+            id="no-calldataload-condition-met-different-length-actions",
+        ),
+        pytest.param(
+            to_hash_bytes(0),
+            Switch(
+                cases=[
+                    Case(
+                        condition=Op.EQ(1, 2),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(1, 2),
+                        action=Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.SSTORE(2, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(1, 1),
+                        action=Op.SSTORE(0, 2) + Op.SSTORE(1, 2),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                ],
+                default_action=b"",
+            ),
+            {0: 2, 1: 2},
+            id="different-length-conditions-condition-met-different-length-actions",
+        ),
+        pytest.param(
+            to_hash_bytes(0),
+            Op.SSTORE(0x10, 1)
+            + Switch(
+                cases=[
+                    Case(
+                        condition=Op.EQ(1, 2),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(1, 2),
+                        action=Op.SSTORE(0, 1) + Op.SSTORE(1, 1) + Op.SSTORE(2, 1),
+                    ),
+                    Case(
+                        condition=Op.EQ(1, 1),
+                        action=Op.SSTORE(0, 2) + Op.SSTORE(1, 2),
+                    ),
+                    Case(
+                        condition=Op.EQ(Op.CALLDATALOAD(0), 1),
+                        action=Op.SSTORE(0, 1),
+                    ),
+                ],
+                default_action=b"",
+            )
+            + Op.SSTORE(0x11, 1),
+            {0: 2, 1: 2, 0x10: 1, 0x11: 1},
+            id="nested-within-bytecode",
+        ),
+        pytest.param(
+            to_hash_bytes(1),
+            Switch(
+                cases=[Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1))],
+                default_action=Op.PUSH32(2**256 - 1) * 8,
+            ),
+            {0: 1},
+            id="jumpi-larger-than-1-byte",
+        ),
+        pytest.param(
+            to_hash_bytes(1),
+            Switch(
+                cases=[Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1))],
+                default_action=Op.PUSH32(2**256 - 1) * 2048,
+            ),
+            {0: 1},
+            id="jumpi-larger-than-4-bytes",
+        ),
+    ],
+)
+def test_switch(tx_data: bytes, switch_bytecode: bytes, expected_storage: Mapping):
+    """
+    Test that the switch opcode macro gets executed as using the t8n tool.
+    """
+    code_address = 0x100
+    pre = {
+        TestAddress: Account(balance=10_000_000, nonce=0),
+        code_address: Account(code=switch_bytecode),
+    }
+    txs = [Transaction(to=code_address, data=tx_data, gas_limit=1_000_000)]
+    post = {TestAddress: Account(nonce=1), code_address: Account(storage=expected_storage)}
+    state_test = StateTest(env=Environment(), pre=pre, txs=txs, post=post)
+    fill_test(
+        t8n=GethTransitionTool(),
+        test_spec=state_test,
+        fork=Shanghai,
+        engine="NoProof",
+        spec=None,
+    )
