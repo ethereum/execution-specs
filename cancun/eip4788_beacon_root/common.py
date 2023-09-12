@@ -2,32 +2,31 @@
 Common constants, classes & functions local to EIP-4788 tests.
 """
 
-from ethereum_test_tools import BeaconRoot, Storage
+from ethereum_test_tools import Storage
 
 REF_SPEC_4788_GIT_PATH = "EIPS/eip-4788.md"
-REF_SPEC_4788_VERSION = "f0eb6a364aaf5ccb43516fa2c269a54fb881ecfd"
+REF_SPEC_4788_VERSION = "e7608fe8ac8a60934ca874f5aab7d5c1f4ff7782"
 
-BEACON_ROOT_CONTRACT_ADDRESS = 0x0B  # HISTORY_STORE_ADDRESS
+BEACON_ROOT_CONTRACT_ADDRESS = 0xBEAC00DDB15F3B6D645C48263DC93862413A222D
 BEACON_ROOT_CONTRACT_CALL_GAS = 100_000
-HISTORICAL_ROOTS_MODULUS = 98_304
+HISTORY_BUFFER_LENGTH = 98_304
 SYSTEM_ADDRESS = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE
 
 FORK_TIMESTAMP = 15_000  # ShanghaiToCancun timestamp
-DEFAULT_BEACON_ROOT_HASH = BeaconRoot
 
 
 def timestamp_index(timestamp: int) -> int:
     """
     Derive the timestamp index into the timestamp ring buffer.
     """
-    return timestamp % HISTORICAL_ROOTS_MODULUS
+    return timestamp % HISTORY_BUFFER_LENGTH
 
 
 def root_index(timestamp: int) -> int:
     """
     Derive the root index into the root ring buffer.
     """
-    return timestamp_index(timestamp) + HISTORICAL_ROOTS_MODULUS
+    return timestamp_index(timestamp) + HISTORY_BUFFER_LENGTH
 
 
 def expected_storage(

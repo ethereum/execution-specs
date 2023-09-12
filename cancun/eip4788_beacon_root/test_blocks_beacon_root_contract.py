@@ -27,7 +27,6 @@ from itertools import count
 from typing import Dict, Iterator, List
 
 import pytest
-from ethereum.crypto.hash import keccak256
 
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
@@ -45,7 +44,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .common import (
     BEACON_ROOT_CONTRACT_ADDRESS,
-    HISTORICAL_ROOTS_MODULUS,
+    HISTORY_BUFFER_LENGTH,
     REF_SPEC_4788_GIT_PATH,
     REF_SPEC_4788_VERSION,
     SYSTEM_ADDRESS,
@@ -55,31 +54,12 @@ REFERENCE_SPEC_GIT_PATH = REF_SPEC_4788_GIT_PATH
 REFERENCE_SPEC_VERSION = REF_SPEC_4788_VERSION
 
 
-@pytest.fixture
-def beacon_roots() -> Iterator[bytes]:
-    """
-    By default, return an iterator that returns the keccak of an internal counter.
-    """
-
-    class BeaconRoots:
-        def __init__(self) -> None:
-            self._counter = count(1)
-
-        def __iter__(self) -> "BeaconRoots":
-            return self
-
-        def __next__(self) -> bytes:
-            return keccak256(int.to_bytes(next(self._counter), length=8, byteorder="big"))
-
-    return BeaconRoots()
-
-
 @pytest.mark.parametrize(
     "timestamps",
     [
         pytest.param(
             count(
-                start=HISTORICAL_ROOTS_MODULUS - 5,
+                start=HISTORY_BUFFER_LENGTH - 5,
                 step=1,
             ),
             id="buffer_wraparound",
@@ -87,28 +67,28 @@ def beacon_roots() -> Iterator[bytes]:
         pytest.param(
             count(
                 start=12,
-                step=HISTORICAL_ROOTS_MODULUS,
+                step=HISTORY_BUFFER_LENGTH,
             ),
             id="buffer_wraparound_overwrite",
         ),
         pytest.param(
             count(
                 start=2**32,
-                step=HISTORICAL_ROOTS_MODULUS,
+                step=HISTORY_BUFFER_LENGTH,
             ),
             id="buffer_wraparound_overwrite_high_timestamp",
         ),
         pytest.param(
             count(
                 start=5,
-                step=HISTORICAL_ROOTS_MODULUS - 1,
+                step=HISTORY_BUFFER_LENGTH - 1,
             ),
             id="buffer_wraparound_no_overwrite",
         ),
         pytest.param(
             count(
-                start=HISTORICAL_ROOTS_MODULUS - 3,
-                step=HISTORICAL_ROOTS_MODULUS + 1,
+                start=HISTORY_BUFFER_LENGTH - 3,
+                step=HISTORY_BUFFER_LENGTH + 1,
             ),
             id="buffer_wraparound_no_overwrite_2",
         ),
@@ -131,7 +111,7 @@ def test_multi_block_beacon_root_timestamp_calls(
     transaction that calls the beacon root contract multiple times.
 
     The blocks might overwrite the historical roots buffer, or not, depending on the `timestamps`,
-    and whether they increment in multiples of `HISTORICAL_ROOTS_MODULUS` or not.
+    and whether they increment in multiples of `HISTORY_BUFFER_LENGTH` or not.
 
     By default, the beacon roots are the keccak of the block number.
 
@@ -158,7 +138,7 @@ def test_multi_block_beacon_root_timestamp_calls(
     all_timestamps: List[int] = []
 
     for timestamp, beacon_root, i in zip(timestamps, beacon_roots, range(block_count)):
-        timestamp_index = timestamp % HISTORICAL_ROOTS_MODULUS
+        timestamp_index = timestamp % HISTORY_BUFFER_LENGTH
         timestamps_storage[timestamp_index] = timestamp
         roots_storage[timestamp_index] = beacon_root
 
@@ -177,7 +157,7 @@ def test_multi_block_beacon_root_timestamp_calls(
             current_call_account_code += Op.MSTORE(0, t)
             call_valid = (
                 timestamp_index in timestamps_storage
-                and timestamps_storage[t % HISTORICAL_ROOTS_MODULUS] == t
+                and timestamps_storage[t % HISTORY_BUFFER_LENGTH] == t
             )
             current_call_account_code += Op.SSTORE(
                 current_call_account_expected_storage.store_next(0x01 if call_valid else 0x00),
@@ -194,7 +174,7 @@ def test_multi_block_beacon_root_timestamp_calls(
 
             current_call_account_code += Op.SSTORE(
                 current_call_account_expected_storage.store_next(
-                    roots_storage[t % HISTORICAL_ROOTS_MODULUS] if call_valid else 0x00
+                    roots_storage[t % HISTORY_BUFFER_LENGTH] if call_valid else 0x00
                 ),
                 Op.MLOAD(0x20),
             )
@@ -282,7 +262,7 @@ def test_beacon_root_transition(
     timestamps_in_beacon_root_contract: List[int] = []
 
     for timestamp, beacon_root, i in zip(timestamps, beacon_roots, range(block_count)):
-        timestamp_index = timestamp % HISTORICAL_ROOTS_MODULUS
+        timestamp_index = timestamp % HISTORY_BUFFER_LENGTH
 
         transitioned = fork.header_beacon_root_required(i, timestamp)
         if transitioned:
@@ -307,7 +287,7 @@ def test_beacon_root_transition(
             call_valid = (
                 t in timestamps_in_beacon_root_contract
                 and timestamp_index in timestamps_storage
-                and timestamps_storage[t % HISTORICAL_ROOTS_MODULUS] == t
+                and timestamps_storage[t % HISTORY_BUFFER_LENGTH] == t
             )
             current_call_account_code += Op.SSTORE(
                 current_call_account_expected_storage.store_next(0x01 if call_valid else 0x00),
@@ -324,7 +304,7 @@ def test_beacon_root_transition(
 
             current_call_account_code += Op.SSTORE(
                 current_call_account_expected_storage.store_next(
-                    roots_storage[t % HISTORICAL_ROOTS_MODULUS] if call_valid else 0x00
+                    roots_storage[t % HISTORY_BUFFER_LENGTH] if call_valid else 0x00
                 ),
                 Op.MLOAD(0x20),
             )
@@ -417,8 +397,8 @@ def test_no_beacon_root_contract_at_transition(
     post = {
         BEACON_ROOT_CONTRACT_ADDRESS: Account(
             storage={
-                timestamp % HISTORICAL_ROOTS_MODULUS: 0,
-                (timestamp % HISTORICAL_ROOTS_MODULUS) + HISTORICAL_ROOTS_MODULUS: 0,
+                timestamp % HISTORY_BUFFER_LENGTH: 0,
+                (timestamp % HISTORY_BUFFER_LENGTH) + HISTORY_BUFFER_LENGTH: 0,
             },
             code=b"",
             nonce=0,
@@ -430,6 +410,147 @@ def test_no_beacon_root_contract_at_transition(
             },  # Successful call because the contract is not there, but nothing else is stored
         ),
     }
+    blockchain_test(
+        pre=pre,
+        blocks=blocks,
+        post=post,
+    )
+
+
+@pytest.mark.parametrize(
+    "timestamp",
+    [
+        pytest.param(15_000, id="deploy_on_shanghai"),
+        pytest.param(30_000, id="deploy_on_cancun"),
+    ],
+)
+@pytest.mark.valid_at_transition_to("Cancun")
+def test_beacon_root_contract_deploy(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict,
+    beacon_root: bytes,
+    tx: Transaction,
+    timestamp: int,
+    post: Dict,
+    fork: Fork,
+):
+    """
+    Tests the fork transition to cancun deploying the contract during Shanghai and verifying the
+    code deployed and its functionality after Cancun.
+    """
+    assert fork.header_beacon_root_required(1, timestamp)
+    deploy_tx = Transaction(
+        ty=0,
+        nonce=0,
+        to=None,
+        gas_limit=0x27EAC,
+        gas_price=0xE8D4A51000,
+        value=0,
+        data=bytes.fromhex(
+            "60588060095f395ff33373fffffffffffffffffffffffffffffffffffffffe146044576020361460"
+            "24575f5ffd5b620180005f350680545f35146037575f5ffd5b6201800001545f5260205ff35b6201"
+            "800042064281555f359062018000015500"
+        ),
+        v=0x1B,
+        r=0x539,
+        s=0x133700F3A77843802897DB,
+        protected=False,
+    ).with_signature_and_sender()
+    deployer_address = deploy_tx.sender
+    assert deployer_address is not None
+    deployer_required_balance = 0x27EAC * 0xE8D4A51000
+
+    blocks: List[Block] = []
+
+    beacon_root_contract_storage: Dict = {}
+    for i, current_timestamp in enumerate(range(timestamp // 2, timestamp + 1, timestamp // 2)):
+        if i == 0:
+            blocks.append(
+                Block(  # Deployment block
+                    txs=[deploy_tx],
+                    beacon_root=beacon_root
+                    if fork.header_beacon_root_required(1, current_timestamp)
+                    else None,
+                    timestamp=timestamp // 2,
+                    withdrawals=[
+                        # Also withdraw to the beacon root contract and the system address
+                        Withdrawal(
+                            address=BEACON_ROOT_CONTRACT_ADDRESS,
+                            amount=1,
+                            index=0,
+                            validator=0,
+                        ),
+                        Withdrawal(
+                            address=SYSTEM_ADDRESS,
+                            amount=1,
+                            index=1,
+                            validator=1,
+                        ),
+                    ],
+                )
+            )
+            beacon_root_contract_storage[current_timestamp % HISTORY_BUFFER_LENGTH] = 0
+            beacon_root_contract_storage[
+                (current_timestamp % HISTORY_BUFFER_LENGTH) + HISTORY_BUFFER_LENGTH
+            ] = 0
+        elif i == 1:
+            blocks.append(
+                Block(  # Contract already deployed
+                    txs=[tx],
+                    beacon_root=beacon_root,
+                    timestamp=timestamp,
+                    withdrawals=[
+                        # Also withdraw to the beacon root contract and the system address
+                        Withdrawal(
+                            address=BEACON_ROOT_CONTRACT_ADDRESS,
+                            amount=1,
+                            index=2,
+                            validator=0,
+                        ),
+                        Withdrawal(
+                            address=SYSTEM_ADDRESS,
+                            amount=1,
+                            index=3,
+                            validator=1,
+                        ),
+                    ],
+                ),
+            )
+            beacon_root_contract_storage[
+                current_timestamp % HISTORY_BUFFER_LENGTH
+            ] = current_timestamp
+            beacon_root_contract_storage[
+                (current_timestamp % HISTORY_BUFFER_LENGTH) + HISTORY_BUFFER_LENGTH
+            ] = beacon_root
+        else:
+            assert False, "This test should only have two blocks"
+
+    expected_code = fork.pre_allocation(1, timestamp)[BEACON_ROOT_CONTRACT_ADDRESS]["code"]
+    pre[BEACON_ROOT_CONTRACT_ADDRESS] = Account(
+        code=b"",  # Remove the code that is automatically allocated on Cancun fork
+        nonce=0,
+        balance=0,
+    )
+    pre[deployer_address] = Account(
+        balance=deployer_required_balance,
+    )
+
+    post[BEACON_ROOT_CONTRACT_ADDRESS] = Account(
+        storage=beacon_root_contract_storage,
+        code=expected_code,
+        nonce=1,
+        balance=int(2e9),
+    )
+    post[SYSTEM_ADDRESS] = Account(
+        storage={},
+        code=b"",
+        nonce=0,
+        balance=int(2e9),
+    )
+    post[deployer_address] = Account(
+        balance=91366000000000000,  # It doesn't consume all the balance :(
+        nonce=1,
+    )
     blockchain_test(
         pre=pre,
         blocks=blocks,

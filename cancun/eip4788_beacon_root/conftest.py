@@ -1,9 +1,11 @@
 """
 Shared pytest definitions local to EIP-4788 tests.
 """
-from typing import Dict, List
+from itertools import count
+from typing import Dict, Iterator, List
 
 import pytest
+from ethereum.crypto.hash import keccak256
 
 from ethereum_test_tools import (
     AccessList,
@@ -21,8 +23,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 from .common import (
     BEACON_ROOT_CONTRACT_ADDRESS,
     BEACON_ROOT_CONTRACT_CALL_GAS,
-    DEFAULT_BEACON_ROOT_HASH,
-    HISTORICAL_ROOTS_MODULUS,
+    HISTORY_BUFFER_LENGTH,
     SYSTEM_ADDRESS,
     expected_storage,
 )
@@ -36,8 +37,27 @@ def timestamp() -> int:  # noqa: D103
 
 
 @pytest.fixture
-def beacon_root(request) -> bytes:  # noqa: D103
-    return to_hash_bytes(request.param) if hasattr(request, "param") else DEFAULT_BEACON_ROOT_HASH
+def beacon_roots() -> Iterator[bytes]:
+    """
+    By default, return an iterator that returns the keccak of an internal counter.
+    """
+
+    class BeaconRoots:
+        def __init__(self) -> None:
+            self._counter = count(1)
+
+        def __iter__(self) -> "BeaconRoots":
+            return self
+
+        def __next__(self) -> bytes:
+            return keccak256(int.to_bytes(next(self._counter), length=8, byteorder="big"))
+
+    return BeaconRoots()
+
+
+@pytest.fixture
+def beacon_root(request, beacon_roots: Iterator[bytes]) -> bytes:  # noqa: D103
+    return to_hash_bytes(request.param) if hasattr(request, "param") else next(beacon_roots)
 
 
 @pytest.fixture
@@ -206,7 +226,7 @@ def access_list(auto_access_list: bool, timestamp: int) -> List[AccessList]:
                 address=BEACON_ROOT_CONTRACT_ADDRESS,
                 storage_keys=[
                     timestamp,
-                    timestamp + HISTORICAL_ROOTS_MODULUS,
+                    timestamp + HISTORY_BUFFER_LENGTH,
                 ],
             ),
         ]
