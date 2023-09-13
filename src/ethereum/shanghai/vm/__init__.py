@@ -107,7 +107,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     """
     evm.gas_left += child_evm.gas_left
     evm.logs += child_evm.logs
-    evm.refund_counter = child_evm.refund_counter
+    evm.refund_counter += child_evm.refund_counter
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.touched_accounts.update(child_evm.touched_accounts)
     if account_exists_and_is_empty(

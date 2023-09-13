@@ -12,7 +12,7 @@ Introduction
 A straightforward interpreter that executes EVM code.
 """
 from dataclasses import dataclass
-from typing import Any, Iterable, List, Set, Tuple, Union
+from typing import Iterable, Set, Tuple, Union
 
 from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.trace import (
@@ -73,7 +73,6 @@ class MessageCallOutput:
           4. `accounts_to_delete`: Contracts which have self-destructed.
           5. `touched_accounts`: Accounts that have been touched.
           6. `has_erred`: True if execution has caused an error.
-          7. `traces`: List of traces generated during execution.
     """
 
     gas_left: Uint
@@ -82,7 +81,6 @@ class MessageCallOutput:
     accounts_to_delete: Set[Address]
     touched_accounts: Iterable[Address]
     has_erred: bool
-    traces: List[Any]
 
 
 def process_message_call(
@@ -111,7 +109,7 @@ def process_message_call(
         )
         if is_collision:
             return MessageCallOutput(
-                Uint(0), U256(0), tuple(), set(), set(), True, []
+                Uint(0), U256(0), tuple(), set(), set(), True
             )
         else:
             evm = process_create_message(message, env)
@@ -143,7 +141,6 @@ def process_message_call(
         accounts_to_delete=accounts_to_delete,
         touched_accounts=touched_accounts,
         has_erred=evm.has_erred,
-        traces=env.traces,
     )
 
 
@@ -261,11 +258,6 @@ def execute_code(message: Message, env: Environment) -> Evm:
     code = message.code
     valid_jump_destinations = get_valid_jump_destinations(code)
 
-    if message.parent_evm:
-        refund_counter = message.parent_evm.refund_counter
-    else:
-        refund_counter = 0
-
     evm = Evm(
         pc=Uint(0),
         stack=[],
@@ -275,7 +267,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         env=env,
         valid_jump_destinations=valid_jump_destinations,
         logs=(),
-        refund_counter=refund_counter,
+        refund_counter=0,
         running=True,
         message=message,
         output=b"",
