@@ -6,15 +6,16 @@ abstract: Tests [EIP-1153: Transient Storage Opcodes](https://eips.ethereum.org/
     [ethereum/tests/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage/](https://github.com/ethereum/tests/blob/9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage)
 """  # noqa: E501
 
-# from typing import Mapping
+from enum import unique
 
 import pytest
 
-from ethereum_test_tools import Account, Environment
+from ethereum_test_tools import Account, Code, CodeGasMeasure, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, TestAddress, Transaction
 
-from .spec import ref_spec_1153
+from . import PytestParameterEnum
+from .spec import Spec, ref_spec_1153
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_1153.git_path
 REFERENCE_SPEC_VERSION = ref_spec_1153.version
@@ -96,6 +97,52 @@ def test_tload_after_tstore(state_test: StateTestFiller):
     )
 
 
+def test_tload_after_sstore(state_test: StateTestFiller):
+    """
+    Loading after storing returns the stored value: TSTORE(x, y), TLOAD(x)
+    returns y.
+
+    Based on [ethereum/tests/.../18_tloadAfterStoreFiller.yml](https://github.com/ethereum/tests/blob/9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage/18_tloadAfterStoreFiller.yml)",  # noqa: E501
+    """
+    env = Environment()
+
+    slots_under_test = [1, 3, 2**128, 2**256 - 1]
+    code = b"".join(
+        [
+            Op.SSTORE(slot - 1, 0xFF) + Op.SSTORE(slot, Op.TLOAD(slot - 1))
+            for slot in slots_under_test
+        ]
+    )
+
+    pre = {
+        TestAddress: Account(balance=10_000_000),
+        code_address: Account(code=code, storage={slot: 1 for slot in slots_under_test}),
+    }
+
+    txs = [
+        Transaction(
+            to=code_address,
+            data=b"",
+            gas_limit=1_000_000,
+        )
+    ]
+
+    post = {
+        code_address: Account(
+            code=code,
+            storage={slot - 1: 0xFF for slot in slots_under_test}
+            | {slot: 0 for slot in slots_under_test},
+        )
+    }
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        txs=txs,
+    )
+
+
 def test_tload_after_tstore_is_zero(state_test: StateTestFiller):
     """
     Test that tload returns zero after tstore is called with zero.
@@ -139,3 +186,73 @@ def test_tload_after_tstore_is_zero(state_test: StateTestFiller):
         post=post,
         txs=txs,
     )
+
+
+@unique
+class GasMeasureTestCases(PytestParameterEnum):
+    """
+    Test cases for gas measurement.
+    """
+
+    TLOAD = {
+        "description": "Test that tload() of an empty slot consumes the expected gas.",
+        "bytecode": Op.TLOAD(10),
+        "overhead_cost": 3,  # 1 x PUSH1
+        "extra_stack_items": 1,
+        "expected_gas": Spec.TLOAD_GAS_COST,
+    }
+    TSTORE_TLOAD = {
+        "description": "Test that tload() of a used slot consumes the expected gas.",
+        "bytecode": Op.TSTORE(10, 10) + Op.TLOAD(10),
+        "overhead_cost": 3 * 3,  # 3 x PUSH1
+        "extra_stack_items": 1,
+        "expected_gas": Spec.TSTORE_GAS_COST + Spec.TLOAD_GAS_COST,
+    }
+    TSTORE_COLD = {
+        "description": "Test that tstore() of a previously unused slot consumes the expected gas.",
+        "bytecode": Op.TSTORE(10, 10),
+        "overhead_cost": 2 * 3,  # 2 x PUSH1
+        "extra_stack_items": 0,
+        "expected_gas": Spec.TSTORE_GAS_COST,
+    }
+    TSTORE_WARM = {
+        "description": "Test that tstore() of a previously used slot consumes the expected gas.",
+        "bytecode": Op.TSTORE(10, 10) + Op.TSTORE(10, 11),
+        "overhead_cost": 4 * 3,  # 4 x PUSH1
+        "extra_stack_items": 0,
+        "expected_gas": 2 * Spec.TSTORE_GAS_COST,
+    }
+
+
+@GasMeasureTestCases.parametrize()
+def test_gas_usage(
+    state_test: StateTestFiller,
+    bytecode: Code,
+    expected_gas: int,
+    overhead_cost: int,
+    extra_stack_items: int,
+):
+    """
+    Test that tstore and tload consume the expected gas.
+    """
+    gas_measure_bytecode = CodeGasMeasure(
+        code=bytecode, overhead_cost=overhead_cost, extra_stack_items=extra_stack_items
+    )
+
+    env = Environment()
+    pre = {
+        TestAddress: Account(balance=10_000_000, nonce=0),
+        code_address: Account(code=gas_measure_bytecode),
+    }
+    txs = [
+        Transaction(
+            to=code_address,
+            data=b"",
+            gas_limit=1_000_000,
+        )
+    ]
+    post = {
+        code_address: Account(code=gas_measure_bytecode, storage={0: expected_gas}),
+        TestAddress: Account(nonce=1),
+    }
+    state_test(env=env, pre=pre, txs=txs, post=post)

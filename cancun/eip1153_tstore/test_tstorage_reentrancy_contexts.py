@@ -42,7 +42,7 @@ class DynamicReentrancyTestCases(EnumMeta):
                 subcall_gas = Op.GAS()
             elif opcode == Op.INVALID:
                 opcode_call = Op.INVALID()
-                subcall_gas = 0xFF
+                subcall_gas = 0xFFFF
             else:
                 raise ValueError(f"Unknown opcode: {opcode}.")
 
@@ -112,15 +112,14 @@ class DynamicReentrancyTestCases(EnumMeta):
 
             if opcode == Op.REVERT:
                 opcode_call = Op.REVERT(0, 32)
-                pytest_marks = []
+                second_call_return_value = 1
             elif opcode == Op.INVALID:
                 opcode_call = Op.INVALID()
-                pytest_marks = pytest.mark.xfail
+                second_call_return_value = 0
             else:
                 raise ValueError(f"Unknown opcode: {opcode}.")
 
             classdict[f"{opcode._name_}_UNDOES_TSTORAGE_AFTER_SUCCESSFUL_CALL"] = {
-                "pytest_marks": pytest_marks,
                 "description": (
                     f"{opcode._name_} undoes transient storage writes from inner calls that "
                     "successfully returned. TSTORE(x, y), CALL(self, ...), CALL(self, ...), "
@@ -133,8 +132,8 @@ class DynamicReentrancyTestCases(EnumMeta):
                         Op.TSTORE(0xFF, 0x100)
                         + Op.SSTORE(2, Op.TLOAD(0xFF))
                         + Op.MSTORE(0, 2)
-                        + Op.SSTORE(0, Op.CALL(subcall_gas, callee_address, 0, 0, 32, 0, 32))
-                        + Op.SSTORE(1, Op.MLOAD(0))  # should be 1 (successful call)
+                        + Op.SSTORE(0, Op.CALL(subcall_gas, callee_address, 0, 0, 32, 32, 32))
+                        + Op.SSTORE(1, Op.MLOAD(32))  # should be 1 (successful call)
                         + Op.SSTORE(3, Op.TLOAD(0xFF))
                     ),
                     cases=[
@@ -148,10 +147,13 @@ class DynamicReentrancyTestCases(EnumMeta):
                             ),
                         ),
                         # the second, reentrant call, which returns successfully
-                        CalldataCase(value=3, action=Op.TSTORE(0xFF, 0x101)),
+                        CalldataCase(
+                            value=3,
+                            action=Op.TSTORE(0xFF, 0x101),
+                        ),
                     ],
                 ),
-                "expected_storage": {0: 0x00, 1: 0x01, 2: 0x100, 3: 0x100},
+                "expected_storage": {0: 0x00, 1: second_call_return_value, 2: 0x100, 3: 0x100},
             }
 
         return super().__new__(cls, name, bases, classdict)
@@ -221,6 +223,40 @@ class ReentrancyTestCases(PytestParameterEnum, metaclass=DynamicReentrancyTestCa
         ),
         "expected_storage": {0: 0x01, 1: 0x100, 2: 0x101, 3: 0x101},
     }
+    TSTORE_IN_CALL_THEN_TLOAD_RETURN_IN_STATICCALL = {
+        "description": (
+            "A reentrant call followed by a reentrant subcall can call tload correctly: "
+            "TSTORE(x, y), CALL(self, ...), STATICCALL(self, ...), TLOAD(x), RETURN returns y."
+            "Based on [ethereum/tests/.../10_revertUndoesStoreAfterReturnFiller.yml](https://github.com/ethereum/tests/blob/9b00b68593f5869eb51a6659e1cc983e875e616b/src/EIPTestsFiller/StateTests/stEIP1153-transientStorage/10_revertUndoesStoreAfterReturnFiller.yml).",  # noqa: E501
+        ),
+        "bytecode": Switch(
+            default_action=(  # setup; make first reentrant sub-call
+                Op.TSTORE(0xFF, 0x100)
+                + Op.SSTORE(2, Op.TLOAD(0xFF))
+                + Op.MSTORE(0, 2)
+                + Op.SSTORE(0, Op.CALL(Op.GAS(), callee_address, 0, 0, 32, 0, 0))
+                + Op.SSTORE(4, Op.TLOAD(0xFE))
+            ),
+            cases=[
+                # the first, reentrant call which calls tstore and a further reentrant staticcall
+                CalldataCase(
+                    value=2,
+                    action=(
+                        Op.TSTORE(0xFE, 0x101)
+                        + Op.MSTORE(0, 3)
+                        + Op.SSTORE(1, Op.STATICCALL(Op.GAS(), callee_address, 0, 32, 0, 32))
+                        + Op.SSTORE(3, Op.MLOAD(0))
+                    ),
+                ),
+                # the second, reentrant call, which calls tload and return returns successfully
+                CalldataCase(
+                    value=3,
+                    action=Op.MSTORE(0, Op.TLOAD(0xFE)) + Op.RETURN(0, 32),
+                ),
+            ],
+        ),
+        "expected_storage": {0: 0x01, 1: 0x01, 2: 0x100, 3: 0x101, 4: 0x101},
+    }
 
 
 @ReentrancyTestCases.parametrize()
@@ -238,7 +274,7 @@ def test_reentrant_call(state_test: StateTestFiller, bytecode, expected_storage)
     tx = Transaction(
         to=callee_address,
         data=to_hash_bytes(1),
-        gas_limit=1_000_000,
+        gas_limit=10_000_000,
     )
 
     post = {callee_address: Account(code=bytecode, storage=expected_storage)}

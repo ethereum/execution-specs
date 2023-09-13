@@ -39,6 +39,12 @@ class DynamicCallContextTestCases(EnumMeta):
 
     def __new__(cls, name, bases, classdict):  # noqa: D102
         for opcode in [Op.CALLCODE, Op.DELEGATECALL]:
+            if opcode == Op.DELEGATECALL:
+                contract_call = opcode(Op.GAS(), callee_address, 0, 0, 0, 0)
+            elif opcode == Op.CALLCODE:
+                contract_call = opcode(Op.GAS(), callee_address, 0, 0, 0, 0, 0)
+            else:
+                raise ValueError("Unexpected opcode.")
             classdict[opcode._name_] = {
                 "description": (
                     "Caller and callee contracts share transient storage when callee is "
@@ -46,7 +52,7 @@ class DynamicCallContextTestCases(EnumMeta):
                 ),
                 "caller_bytecode": (
                     Op.TSTORE(0, 420)
-                    + Op.SSTORE(0, opcode(Op.GAS(), callee_address, 0, 0, 0, 0, 0))
+                    + Op.SSTORE(0, contract_call)
                     + Op.SSTORE(1, Op.TLOAD(0))
                     + Op.SSTORE(4, Op.TLOAD(1))
                 ),
@@ -56,16 +62,23 @@ class DynamicCallContextTestCases(EnumMeta):
                 "expected_caller_storage": {0: 1, 1: 420, 2: 420, 3: 69, 4: 69},
                 "expected_callee_storage": {},
             }
+
+        for opcode in [Op.CALL, Op.CALLCODE, Op.DELEGATECALL]:
+            if opcode == Op.DELEGATECALL:
+                contract_call = opcode(Op.GAS(), callee_address, 0, 0, 0, 0)
+            elif opcode in [Op.CALL, Op.CALLCODE]:
+                contract_call = opcode(Op.GAS(), callee_address, 0, 0, 0, 0, 0)
+            else:
+                raise ValueError("Unexpected opcode.")
             classdict[f"{opcode._name_}_WITH_REVERT"] = {
                 "description": (
-                    "Caller and callee contracts share transient storage when callee is "
-                    f"called via {opcode._name_} but transient storage usage is discarded "
-                    "from  sub-call upon REVERT."
+                    f"Transient storage usage is discarded from sub-call with {opcode._name_} "
+                    "upon REVERT."
                 ),
                 "caller_bytecode": (
                     Op.TSTORE(0, 420)
                     + Op.TSTORE(1, 420)
-                    + Op.SSTORE(0, opcode(Op.GAS(), callee_address, 0, 0, 0, 0, 0))
+                    + Op.SSTORE(0, contract_call)
                     + Op.SSTORE(1, Op.TLOAD(0))
                     + Op.SSTORE(2, Op.TLOAD(1))
                 ),
@@ -73,16 +86,22 @@ class DynamicCallContextTestCases(EnumMeta):
                 "expected_caller_storage": {0: 0, 1: 420, 2: 420},
                 "expected_callee_storage": {},
             }
+
+            if opcode == Op.DELEGATECALL:
+                contract_call = opcode(0xFF, callee_address, 0, 0, 0, 0)
+            elif opcode in [Op.CALL, Op.CALLCODE]:
+                contract_call = opcode(0xFF, callee_address, 0, 0, 0, 0, 0)
+            else:
+                raise ValueError("Unexpected opcode.")
             classdict[f"{opcode._name_}_WITH_INVALID"] = {
                 "description": (
-                    "Caller and callee contracts share transient storage when callee is "
-                    f"called via {opcode._name_} but transient storage usage is discarded "
-                    "from sub-call upon INVALID. Note: Gas passed to sub-call is capped."
+                    f"Transient storage usage is discarded from sub-call with {opcode._name_} "
+                    "upon REVERT. Note: Gas passed to sub-call is capped."
                 ),
                 "caller_bytecode": (
                     Op.TSTORE(0, 420)
                     + Op.TSTORE(1, 420)
-                    + Op.SSTORE(0, opcode(0xFF, callee_address, 0, 0, 0, 0, 0))
+                    + Op.SSTORE(0, contract_call)
                     + Op.SSTORE(1, Op.TLOAD(0))
                     + Op.SSTORE(2, Op.TLOAD(1))
                 ),
@@ -90,16 +109,22 @@ class DynamicCallContextTestCases(EnumMeta):
                 "expected_caller_storage": {0: 0, 1: 420, 2: 420},
                 "expected_callee_storage": {},
             }
+
+            if opcode == Op.DELEGATECALL:
+                contract_call = opcode(0xFFFF, callee_address, 0, 0, 0, 0)
+            elif opcode in [Op.CALL, Op.CALLCODE]:
+                contract_call = opcode(0xFFFF, callee_address, 0, 0, 0, 0, 0)
+            else:
+                raise ValueError("Unexpected opcode.")
             classdict[f"{opcode._name_}_WITH_STACK_OVERFLOW"] = {
                 "description": (
-                    "Caller and callee contracts share transient storage when callee is "
-                    f"called via {opcode._name_} but transient storage usage is discarded "
-                    "from sub-call upon stack overflow."
+                    f"Transient storage usage is discarded from sub-call with {opcode._name_} "
+                    "upon stack overflow."
                 ),
                 "caller_bytecode": (
                     Op.TSTORE(0, 420)
                     + Op.TSTORE(1, 420)
-                    + Op.SSTORE(0, opcode(0xFFFF, callee_address, 0, 0, 0, 0, 0))
+                    + Op.SSTORE(0, contract_call)
                     + Op.SSTORE(1, Op.TLOAD(0))
                     + Op.SSTORE(2, Op.TLOAD(1))
                 ),
@@ -109,14 +134,13 @@ class DynamicCallContextTestCases(EnumMeta):
             }
             classdict[f"{opcode._name_}_WITH_TSTORE_STACK_UNDERFLOW"] = {
                 "description": (
-                    "Caller and callee contracts share transient storage when callee is "
-                    f"called via {opcode._name_} but transient storage usage is discarded "
-                    "from sub-call upon stack underflow because of TSTORE parameters (1)."
+                    f"Transient storage usage is discarded from sub-call with {opcode._name_} "
+                    "upon stack underflow because of TSTORE parameters (1)."
                 ),
                 "caller_bytecode": (
                     Op.TSTORE(0, 420)
                     + Op.TSTORE(1, 420)
-                    + Op.SSTORE(0, opcode(0xFFFF, callee_address, 0, 0, 0, 0, 0))
+                    + Op.SSTORE(0, contract_call)
                     + Op.SSTORE(1, Op.TLOAD(0))
                     + Op.SSTORE(2, Op.TLOAD(1))
                 ),
@@ -126,14 +150,13 @@ class DynamicCallContextTestCases(EnumMeta):
             }
             classdict[f"{opcode._name_}_WITH_TSTORE_STACK_UNDERFLOW_2"] = {
                 "description": (
-                    "Caller and callee contracts share transient storage when callee is "
-                    f"called via {opcode._name_} but transient storage usage is discarded "
-                    "from sub-call upon stack underflow because of TSTORE parameters (0)."
+                    f"Transient storage usage is discarded from sub-call with {opcode._name_} "
+                    " upon stack underflow because of TSTORE parameters (0)."
                 ),
                 "caller_bytecode": (
                     Op.TSTORE(0, 420)
                     + Op.TSTORE(1, 420)
-                    + Op.SSTORE(0, opcode(0xFFFF, callee_address, 0, 0, 0, 0, 0))
+                    + Op.SSTORE(0, contract_call)
                     + Op.SSTORE(1, Op.TLOAD(0))
                     + Op.SSTORE(2, Op.TLOAD(1))
                 ),
@@ -143,14 +166,13 @@ class DynamicCallContextTestCases(EnumMeta):
             }
             classdict[f"{opcode._name_}_WITH_TLOAD_STACK_UNDERFLOW"] = {
                 "description": (
-                    "Caller and callee contracts share transient storage when callee is "
-                    f"called via {opcode._name_} but transient storage usage is discarded "
-                    "from sub-call upon stack underflow because of TLOAD parameters (0)."
+                    f"Transient storage usage is discarded from sub-call with {opcode._name_} "
+                    "upon stack underflow because of TLOAD parameters (0)."
                 ),
                 "caller_bytecode": (
                     Op.TSTORE(0, 420)
                     + Op.TSTORE(1, 420)
-                    + Op.SSTORE(0, opcode(0xFFFF, callee_address, 0, 0, 0, 0, 0))
+                    + Op.SSTORE(0, contract_call)
                     + Op.SSTORE(1, Op.TLOAD(0))
                     + Op.SSTORE(2, Op.TLOAD(1))
                 ),
@@ -158,12 +180,22 @@ class DynamicCallContextTestCases(EnumMeta):
                 "expected_caller_storage": {0: 0, 1: 420, 2: 420},
                 "expected_callee_storage": {},
             }
+
+            gas_limit = Spec.TSTORE_GAS_COST + (PUSH_OPCODE_COST * 2) - 1
+            if opcode == Op.DELEGATECALL:
+                contract_call = opcode(
+                    opcode(gas_limit, callee_address, 0, 0, 0, 0),
+                )
+            elif opcode in [Op.CALL, Op.CALLCODE]:
+                contract_call = opcode(
+                    opcode(gas_limit, callee_address, 0, 0, 0, 0, 0),
+                )
+            else:
+                raise ValueError("Unexpected opcode.")
             classdict[f"{opcode._name_}_WITH_OUT_OF_GAS"] = {
                 "description": (
-                    "Caller and callee contracts share transient storage when callee is "
-                    f"called via {opcode._name_} but transient storage usage is discarded "
-                    "from sub-call upon out of gas during TSTORE. Note: Gas passed to sub-call is "
-                    "capped."
+                    f"Transient storage usage is discarded from sub-call with {opcode._name_} "
+                    "upon out of gas during TSTORE. Note: Gas passed to sub-call is capped."
                 ),
                 "caller_bytecode": (
                     Op.TSTORE(0, 420)
@@ -187,17 +219,22 @@ class DynamicCallContextTestCases(EnumMeta):
                 "expected_caller_storage": {0: 0, 1: 420, 2: 420},
                 "expected_callee_storage": {},
             }
+
+            if opcode == Op.DELEGATECALL:
+                contract_call = opcode(0xFF, callee_address, 0, 0, 0, 0)
+            elif opcode in [Op.CALL, Op.CALLCODE]:
+                contract_call = opcode(0xFF, callee_address, 0, 0, 0, 0, 0)
+            else:
+                raise ValueError("Unexpected opcode.")
             classdict[f"{opcode._name_}_WITH_OUT_OF_GAS_2"] = {
                 "description": (
-                    "Caller and callee contracts share transient storage when callee is "
-                    f"called via {opcode._name_} but transient storage usage is discarded "
-                    "from sub-call upon out of gas after TSTORE. Note: Gas passed to sub-call is "
-                    "capped."
+                    f"Transient storage usage is discarded from sub-call with {opcode._name_} "
+                    "upon out of gas after TSTORE. Note: Gas passed to sub-call is capped."
                 ),
                 "caller_bytecode": (
                     Op.TSTORE(0, 420)
                     + Op.TSTORE(1, 420)
-                    + Op.SSTORE(0, opcode(0xFF, callee_address, 0, 0, 0, 0, 0))
+                    + Op.SSTORE(0, contract_call)
                     + Op.SSTORE(1, Op.TLOAD(0))
                     + Op.SSTORE(2, Op.TLOAD(1))
                 ),
@@ -264,7 +301,7 @@ class CallContextTestCases(PytestParameterEnum, metaclass=DynamicCallContextTest
             + Op.SSTORE(0, Op.STATICCALL(Op.GAS(), callee_address, 0, 0, 0, 0))
             + Op.SSTORE(1, Op.TLOAD(0))
         ),
-        "callee_bytecode": Op.TLOAD(0),  # calling tload does fail the call
+        "callee_bytecode": Op.TLOAD(0),  # calling tload does not cause the call to fail
         "expected_caller_storage": {0: 1, 1: 420},
         "expected_callee_storage": {},
     }
