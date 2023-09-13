@@ -643,7 +643,7 @@ def test_insufficient_balance_blob_tx(
     all_valid_blob_combinations(),
 )
 @pytest.mark.parametrize("account_balance_modifier", [-1], ids=["exact_balance_minus_1"])
-@pytest.mark.parametrize("tx_error", ["insufficient_account_balance"], ids=[""])
+@pytest.mark.parametrize("tx_error", ["insufficient account balance"], ids=[""])
 @pytest.mark.valid_from("Cancun")
 def test_insufficient_balance_blob_tx_combinations(
     blockchain_test: BlockchainTestFiller,
@@ -668,8 +668,8 @@ def test_insufficient_balance_blob_tx_combinations(
 @pytest.mark.parametrize(
     "blobs_per_tx,tx_error,block_error",
     [
-        ([0], "zero_blob_tx", "zero_blob_tx"),
-        ([SpecHelpers.max_blobs_per_block() + 1], None, "too_many_blobs"),
+        ([0], "zero blob tx", "zero blob tx"),
+        ([SpecHelpers.max_blobs_per_block() + 1], None, "too many blobs"),
     ],
     ids=["too_few_blobs", "too_many_blobs"],
 )
@@ -737,7 +737,7 @@ def test_invalid_tx_blob_count(
         "multiple_txs_multiple_blobs_single_bad_hash_2",
     ],
 )
-@pytest.mark.parametrize("tx_error", ["invalid_versioned_hash"], ids=[""])
+@pytest.mark.parametrize("tx_error", ["invalid blob versioned hash"], ids=[""])
 @pytest.mark.valid_from("Cancun")
 def test_invalid_blob_hash_versioning(
     blockchain_test: BlockchainTestFiller,
@@ -1010,8 +1010,8 @@ def test_blob_tx_attribute_gasprice_opcode(
         "engine_api_error_code",
     ],
     [
-        ([0], None, 1, "Invalid params", EngineAPIError.InvalidParams),
-        ([1], None, 1, "Invalid params", EngineAPIError.InvalidParams),
+        ([0], None, 1, "tx type 3 not allowed pre-Cancun", EngineAPIError.InvalidParams),
+        ([1], None, 1, "tx type 3 not allowed pre-Cancun", EngineAPIError.InvalidParams),
     ],
     ids=["no_blob_tx", "one_blob_tx"],
 )
