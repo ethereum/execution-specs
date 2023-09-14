@@ -404,7 +404,12 @@ class T8N(Load):
         json_state = self.alloc.to_json()
         json_result = self.result.to_json()
 
-        if self.options.output_body:
+        json_output = {}
+
+        if self.options.output_body == "stdout":
+            txs_rlp = "0x" + rlp.encode(self.txs.all_txs).hex()
+            json_output["body"] = txs_rlp
+        elif self.options.output_body is not None:
             txs_rlp_path = os.path.join(
                 self.options.output_basedir,
                 self.options.output_body,
@@ -413,8 +418,6 @@ class T8N(Load):
             with open(txs_rlp_path, "w") as f:
                 json.dump(txs_rlp, f)
             self.logger.info(f"Wrote transaction rlp to {txs_rlp_path}")
-
-        json_output = {}
 
         if self.options.output_alloc == "stdout":
             json_output["alloc"] = json_state
