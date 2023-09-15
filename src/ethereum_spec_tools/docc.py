@@ -473,7 +473,7 @@ class _DoccAdapter(Adapter[Node]):
                 )
             case spans.Link:
                 return (
-                    lhs.src == rhs.src
+                    lhs.target == rhs.target
                     and lhs.title == rhs.title
                     and lhs.label == rhs.label
                 )
@@ -531,7 +531,9 @@ class _DoccAdapter(Adapter[Node]):
                 result = ()
             case spans.RawText | spans.HTMLSpan:
                 result = (token.content,)
-            case spans.Image | spans.Link:
+            case spans.Link:
+                result = (token.target, token.title, token.label)
+            case spans.Image:
                 result = (token.src, token.title, token.label)
             case blocks.Heading | blocks.SetextHeading:
                 result = (token.level,)
