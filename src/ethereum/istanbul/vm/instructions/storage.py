@@ -83,8 +83,6 @@ def sstore(evm: Evm) -> None:
     else:
         gas_cost = GAS_SLOAD
 
-    charge_gas(evm, gas_cost)
-
     # Refund Counter Calculation
     if current_value != new_value:
         if original_value != 0 and current_value != 0 and new_value == 0:
@@ -103,6 +101,8 @@ def sstore(evm: Evm) -> None:
             else:
                 # Slot was originally non-empty and was UPDATED earlier
                 evm.refund_counter += int(GAS_STORAGE_UPDATE - GAS_SLOAD)
+
+    charge_gas(evm, gas_cost)
 
     # OPERATION
     ensure(not evm.message.is_static, WriteInStaticContext)

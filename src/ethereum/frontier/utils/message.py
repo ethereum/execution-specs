@@ -83,4 +83,5 @@ def prepare_message(
         depth=Uint(0),
         current_target=current_target,
         code_address=code_address,
+        parent_evm=None,
     )

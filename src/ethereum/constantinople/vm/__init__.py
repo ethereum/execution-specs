@@ -42,6 +42,7 @@ class Environment:
     time: U256
     difficulty: Uint
     state: State
+    traces: List[dict]
 
 
 @dataclass
@@ -61,6 +62,7 @@ class Message:
     depth: Uint
     should_transfer_value: bool
     is_static: bool
+    parent_evm: Optional["Evm"]
 
 
 @dataclass

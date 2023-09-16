@@ -77,6 +77,7 @@ class Message(Protocol):
     """
 
     depth: int
+    parent_evm: Optional["Evm"]
 
 
 @runtime_checkable
@@ -103,6 +104,12 @@ def evm_trace(evm: object, event: TraceEvent) -> None:
     assert isinstance(evm, Evm)
     last_trace: Optional[Union[Trace, FinalTrace]]
 
+    refund_counter = evm.refund_counter
+    parent_evm = evm.message.parent_evm
+    while parent_evm is not None:
+        refund_counter += parent_evm.refund_counter
+        parent_evm = parent_evm.message.parent_evm
+
     if isinstance(event, TransactionStart):
         pass
     elif isinstance(event, TransactionEnd):
@@ -117,7 +124,7 @@ def evm_trace(evm: object, event: TraceEvent) -> None:
             memSize=len(evm.memory),
             stack=[hex(i) for i in evm.stack],
             depth=evm.message.depth + 1,
-            refund=evm.refund_counter,
+            refund=refund_counter,
             opName="0x" + event.address.hex().lstrip("0"),
             precompile=True,
         )
@@ -138,7 +145,7 @@ def evm_trace(evm: object, event: TraceEvent) -> None:
             memSize=len(evm.memory),
             stack=[hex(i) for i in evm.stack],
             depth=evm.message.depth + 1,
-            refund=evm.refund_counter,
+            refund=refund_counter,
             opName=str(event.op).split(".")[-1],
         )
 
@@ -176,7 +183,7 @@ def evm_trace(evm: object, event: TraceEvent) -> None:
                 memSize=len(evm.memory),
                 stack=[hex(i) for i in evm.stack],
                 depth=evm.message.depth + 1,
-                refund=evm.refund_counter,
+                refund=refund_counter,
                 opName="InvalidOpcode",
                 gasCostTraced=True,
                 errorTraced=True,
@@ -206,7 +213,7 @@ def evm_trace(evm: object, event: TraceEvent) -> None:
 
         if not last_trace.gasCostTraced:
             last_trace.gasCost = hex(event.gas_cost)
-            last_trace.refund = evm.refund_counter
+            last_trace.refund = refund_counter
             last_trace.gasCostTraced = True
 
 

@@ -43,6 +43,7 @@ class Environment:
     difficulty: Uint
     state: State
     chain_id: U64
+    traces: List[dict]
 
 
 @dataclass
@@ -62,6 +63,7 @@ class Message:
     depth: Uint
     should_transfer_value: bool
     is_static: bool
+    parent_evm: Optional["Evm"]
 
 
 @dataclass

@@ -14,8 +14,17 @@ A straightforward interpreter that executes EVM code.
 from dataclasses import dataclass
 from typing import Iterable, Set, Tuple
 
-from ethereum import evm_trace
 from ethereum.base_types import U256, Bytes0, Uint
+from ethereum.trace import (
+    EvmStop,
+    OpEnd,
+    OpException,
+    OpStart,
+    PrecompileEnd,
+    PrecompileStart,
+    TransactionEnd,
+    evm_trace,
+)
 from ethereum.utils.ensure import ensure
 
 from ..fork_types import Address, Log
@@ -119,6 +128,11 @@ def process_message_call(
         accounts_to_delete = evm.accounts_to_delete
         touched_accounts = evm.touched_accounts
         refund_counter = U256(evm.refund_counter)
+
+    tx_end = TransactionEnd(
+        message.gas - evm.gas_left, evm.output, evm.has_erred
+    )
+    evm_trace(evm, tx_end)
 
     return MessageCallOutput(
         gas_left=evm.gas_left,
@@ -243,6 +257,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
     """
     code = message.code
     valid_jump_destinations = get_valid_jump_destinations(code)
+
     evm = Evm(
         pc=Uint(0),
         stack=[],
@@ -267,8 +282,9 @@ def execute_code(message: Message, env: Environment) -> Evm:
     try:
 
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
-            evm_trace(evm, evm.message.code_address)
+            evm_trace(evm, PrecompileStart(evm.message.code_address))
             PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
+            evm_trace(evm, PrecompileEnd())
             return evm
 
         while evm.running and evm.pc < len(evm.code):
@@ -277,14 +293,19 @@ def execute_code(message: Message, env: Environment) -> Evm:
             except ValueError:
                 raise InvalidOpcode(evm.code[evm.pc])
 
-            evm_trace(evm, op)
+            evm_trace(evm, OpStart(op))
             op_implementation[op](evm)
+            evm_trace(evm, OpEnd())
+
+        evm_trace(evm, EvmStop(Ops.STOP))
 
     except ExceptionalHalt:
+        evm_trace(evm, OpException())
         evm.gas_left = Uint(0)
         evm.output = b""
         evm.has_erred = True
     except Revert as e:
+        evm_trace(evm, OpException())
         evm.error = e
         evm.has_erred = True
     return evm

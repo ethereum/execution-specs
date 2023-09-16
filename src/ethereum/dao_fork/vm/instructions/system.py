@@ -21,11 +21,17 @@ from ...state import (
     set_account_balance,
 )
 from ...utils.address import compute_contract_address, to_address
-from .. import Evm, Message
+from .. import (
+    Evm,
+    Message,
+    incorporate_child_on_error,
+    incorporate_child_on_success,
+)
 from ..gas import (
     GAS_CALL,
     GAS_CREATE,
     GAS_ZERO,
+    REFUND_SELF_DESTRUCT,
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
@@ -100,18 +106,18 @@ def create(evm: Evm) -> None:
             depth=evm.message.depth + 1,
             code_address=None,
             should_transfer_value=True,
+            parent_evm=evm,
         )
         child_evm = process_create_message(child_message, evm.env)
-        evm.children.append(child_evm)
+
         if child_evm.has_erred:
+            incorporate_child_on_error(evm, child_evm)
             push(evm.stack, U256(0))
         else:
-            evm.logs += child_evm.logs
+            incorporate_child_on_success(evm, child_evm)
             push(
                 evm.stack, U256.from_be_bytes(child_evm.message.current_target)
             )
-        evm.gas_left = child_evm.gas_left
-        child_evm.gas_left = Uint(0)
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -187,14 +193,15 @@ def generic_call(
         depth=evm.message.depth + 1,
         code_address=code_address,
         should_transfer_value=should_transfer_value,
+        parent_evm=evm,
     )
     child_evm = process_message(child_message, evm.env)
-    evm.children.append(child_evm)
 
     if child_evm.has_erred:
+        incorporate_child_on_error(evm, child_evm)
         push(evm.stack, U256(0))
     else:
-        evm.logs += child_evm.logs
+        incorporate_child_on_success(evm, child_evm)
         push(evm.stack, U256(1))
 
     actual_output_size = min(memory_output_size, U256(len(child_evm.output)))
@@ -203,8 +210,6 @@ def generic_call(
         memory_output_start_position,
         child_evm.output[:actual_output_size],
     )
-    evm.gas_left += child_evm.gas_left
-    child_evm.gas_left = Uint(0)
 
 
 def call(evm: Evm) -> None:
@@ -338,10 +343,22 @@ def selfdestruct(evm: Evm) -> None:
     beneficiary = to_address(pop(evm.stack))
 
     # GAS
-    pass
+    gas_cost = GAS_ZERO
+
+    originator = evm.message.current_target
+
+    refunded_accounts = evm.accounts_to_delete
+    parent_evm = evm.message.parent_evm
+    while parent_evm is not None:
+        refunded_accounts.update(parent_evm.accounts_to_delete)
+        parent_evm = parent_evm.message.parent_evm
+
+    if originator not in refunded_accounts:
+        evm.refund_counter += REFUND_SELF_DESTRUCT
+
+    charge_gas(evm, gas_cost)
 
     # OPERATION
-    originator = evm.message.current_target
     beneficiary_balance = get_account(evm.env.state, beneficiary).balance
     originator_balance = get_account(evm.env.state, originator).balance
 

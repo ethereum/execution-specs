@@ -221,13 +221,7 @@ class T8N(Load):
             kw_arguments["caller"] = kw_arguments["origin"] = sender_address
             kw_arguments["gas_price"] = tx.gas_price
 
-        if self.is_after_fork("ethereum.shanghai"):
-            # TODO: The if condition is temporary since the traces have only
-            # been implemented for the shanghai fork. The evm tools tests
-            # fail without this.
-            # Once the traces are implemented for the earlier forks,
-            # the if condition should be removed.
-            kw_arguments["traces"] = []
+        kw_arguments["traces"] = []
 
         return self.vm.Environment(**kw_arguments)
 

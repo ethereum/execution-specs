@@ -93,4 +93,5 @@ def prepare_message(
         code_address=code_address,
         should_transfer_value=should_transfer_value,
         is_static=is_static,
+        parent_evm=None,
     )
