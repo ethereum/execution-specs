@@ -104,7 +104,6 @@ def test_multi_block_beacon_root_timestamp_calls(
     tx: Transaction,
     call_gas: int,
     call_value: int,
-    system_address_balance: int,
 ):
     """
     Tests multiple blocks where each block writes a timestamp to storage and contains one
@@ -124,10 +123,6 @@ def test_multi_block_beacon_root_timestamp_calls(
         TestAddress: Account(
             nonce=0,
             balance=0x10**10,
-        ),
-        SYSTEM_ADDRESS: Account(
-            nonce=0,
-            balance=system_address_balance,
         ),
     }
     post = {}
@@ -235,7 +230,6 @@ def test_beacon_root_transition(
     tx: Transaction,
     call_gas: int,
     call_value: int,
-    system_address_balance: int,
     fork: Fork,
 ):
     """
@@ -247,10 +241,6 @@ def test_beacon_root_transition(
         TestAddress: Account(
             nonce=0,
             balance=0x10**10,
-        ),
-        SYSTEM_ADDRESS: Account(
-            nonce=0,
-            balance=system_address_balance,
         ),
     }
     post = {}

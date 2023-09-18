@@ -189,17 +189,19 @@ def pre(
     Prepares the pre state of all test cases, by setting the balance of the
     source account of all test transactions, and the contract caller account.
     """
-    return {
+    pre_alloc = {
         TestAddress: Account(
             nonce=0,
             balance=0x10**10,
         ),
         caller_address: contract_call_account,
-        SYSTEM_ADDRESS: Account(
-            nonce=0,
-            balance=system_address_balance,
-        ),
     }
+    if system_address_balance > 0:
+        pre_alloc[to_address(SYSTEM_ADDRESS)] = Account(
+            nonce=1,
+            balance=system_address_balance,
+        )
+    return pre_alloc
 
 
 @pytest.fixture
