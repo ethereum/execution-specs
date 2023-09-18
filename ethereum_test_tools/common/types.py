@@ -676,6 +676,7 @@ class Account:
                     want=expected_code,
                     got=actual_code,
                 )
+
         if self.storage is not None:
             expected_storage = (
                 self.storage if isinstance(self.storage, Storage) else Storage(self.storage)
@@ -688,10 +689,10 @@ class Account:
         Returns true if an account deemed empty.
         """
         return (
-            (self.nonce == 0 or self.nonce is None) and
-            (self.balance == 0 or self.balance is None) and
-            (not self.code and self.code is None) and
-            (not self.storage or self.storage == {} or self.storage is None)
+            (self.nonce == 0 or self.nonce is None)
+            and (self.balance == 0 or self.balance is None)
+            and (not self.code and self.code is None)
+            and (not self.storage or self.storage == {} or self.storage is None)
         )
 
     @classmethod
