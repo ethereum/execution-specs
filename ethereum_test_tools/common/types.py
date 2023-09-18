@@ -2631,7 +2631,8 @@ class FixtureBlock:
     Representation of an Ethereum block within a test Fixture.
     """
 
-    rlp: Bytes = field(
+    rlp: Optional[Bytes] = field(
+        default=None,
         json_encoder=JSONEncoder.Field(),
     )
     block_header: Optional[FixtureHeader] = field(

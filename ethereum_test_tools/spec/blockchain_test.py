@@ -208,7 +208,7 @@ class BlockchainTest(BaseTest):
             )
 
             new_payload: FixtureEngineNewPayload | None = None
-            if not self.base_test_config.disable_hive:
+            if self.base_test_config.enable_hive:
                 new_payload = FixtureEngineNewPayload.from_fixture_header(
                     fork=fork,
                     header=header,
@@ -218,29 +218,45 @@ class BlockchainTest(BaseTest):
                 )
 
             if block.exception is None:
-                # Return environment and allocation of the following block
-                return (
+                fixture_block = (
                     FixtureBlock(
                         rlp=rlp,
-                        new_payload=new_payload,
                         block_header=header,
                         block_number=Number(header.number),
                         txs=txs,
                         ommers=[],
                         withdrawals=env.withdrawals,
-                    ),
+                    )
+                    if not self.base_test_config.enable_hive
+                    else (
+                        FixtureBlock(
+                            new_payload=new_payload,
+                        )
+                    )
+                )
+                # Return environment and allocation of the following block
+                return (
+                    fixture_block,
                     env.apply_new_parent(header),
                     next_alloc,
                     header.hash,
                 )
             else:
-                return (
+                fixture_block = (
                     FixtureBlock(
                         rlp=rlp,
-                        new_payload=new_payload,
-                        expected_exception=block.exception,
                         block_number=Number(header.number),
-                    ),
+                    )
+                    if not self.base_test_config.enable_hive
+                    else (
+                        FixtureBlock(
+                            new_payload=new_payload,
+                            expected_exception=block.exception,
+                        )
+                    )
+                )
+                return (
+                    fixture_block,
                     previous_env,
                     previous_alloc,
                     previous_head,

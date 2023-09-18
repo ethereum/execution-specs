@@ -87,11 +87,11 @@ def pytest_addoption(parser):
         help="Output each test case in the directory without the folder structure.",
     )
     test_group.addoption(
-        "--disable-hive",
+        "--enable-hive",
         action="store_true",
-        dest="disable_hive",
+        dest="enable_hive",
         default=False,
-        help="Output tests skipping hive-related properties.",
+        help="Output test fixtures with the hive-specific properties.",
     )
 
     debug_group = parser.getgroup("debug", "Arguments defining debug behavior")
@@ -191,7 +191,7 @@ def base_test_config(request) -> BaseTestConfig:
     Returns the base test configuration that all tests must use.
     """
     config = BaseTestConfig()
-    config.disable_hive = request.config.getoption("disable_hive")
+    config.enable_hive = request.config.getoption("enable_hive")
     return config
 
 

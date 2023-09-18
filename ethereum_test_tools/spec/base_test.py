@@ -86,9 +86,9 @@ class BaseTestConfig:
     General configuration that all tests must support.
     """
 
-    disable_hive: bool = False
+    enable_hive: bool = False
     """
-    Disable any hive-related properties that the output could contain.
+    Enable any hive-related properties that the output could contain.
     """
 
 

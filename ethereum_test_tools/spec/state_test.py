@@ -181,7 +181,7 @@ class StateTest(BaseTest):
         # Hive specific fields
         new_payload: FixtureEngineNewPayload | None = None
         fcu_version: int | None = None
-        if not self.base_test_config.disable_hive:
+        if self.base_test_config.enable_hive:
             new_payload = FixtureEngineNewPayload.from_fixture_header(
                 fork=fork,
                 header=header,
@@ -191,17 +191,20 @@ class StateTest(BaseTest):
             )
             fcu_version = fork.engine_forkchoice_updated_version(header.number, header.timestamp)
 
+        fixture_block = (
+            FixtureBlock(
+                rlp=block,
+                block_header=header,
+                txs=txs,
+                ommers=[],
+                withdrawals=env.withdrawals,
+            )
+            if not self.base_test_config.enable_hive
+            else (FixtureBlock(new_payload=new_payload))
+        )
+
         return (
-            [
-                FixtureBlock(
-                    rlp=block,
-                    new_payload=new_payload,
-                    block_header=header,
-                    txs=txs,
-                    ommers=[],
-                    withdrawals=env.withdrawals,
-                )
-            ],
+            [fixture_block],
             header.hash,
             alloc,
             fcu_version,
