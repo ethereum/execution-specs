@@ -198,7 +198,7 @@ def pre(
     }
     if system_address_balance > 0:
         pre_alloc[to_address(SYSTEM_ADDRESS)] = Account(
-            nonce=1,
+            nonce=0,
             balance=system_address_balance,
         )
     return pre_alloc
