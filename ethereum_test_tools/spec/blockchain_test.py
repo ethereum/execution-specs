@@ -246,6 +246,7 @@ class BlockchainTest(BaseTest):
                     FixtureBlock(
                         rlp=rlp,
                         block_number=Number(header.number),
+                        expected_exception=block.exception,
                     )
                     if not self.base_test_config.enable_hive
                     else (
