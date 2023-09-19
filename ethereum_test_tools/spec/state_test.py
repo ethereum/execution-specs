@@ -127,7 +127,7 @@ class StateTest(BaseTest):
         fork: Fork,
         chain_id=1,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[List[FixtureBlock], Hash, Dict[str, Any]]:
+    ) -> Tuple[List[FixtureBlock], Hash, Dict[str, Any], Optional[int]]:
         """
         Create a block from the state test definition.
         Performs checks against the expected behavior of the test.
@@ -178,15 +178,18 @@ class StateTest(BaseTest):
             withdrawals=env.withdrawals,
         )
 
+        # Hive specific fields
         new_payload: FixtureEngineNewPayload | None = None
+        fcu_version: int | None = None
         if not self.base_test_config.disable_hive:
             new_payload = FixtureEngineNewPayload.from_fixture_header(
                 fork=fork,
                 header=header,
                 transactions=txs,
                 withdrawals=env.withdrawals,
-                error_code=self.engine_api_error_code,
+                error_code=None,
             )
+            fcu_version = fork.engine_forkchoice_updated_version(header.number, header.timestamp)
 
         return (
             [
@@ -201,6 +204,7 @@ class StateTest(BaseTest):
             ],
             header.hash,
             alloc,
+            fcu_version,
         )
 
 

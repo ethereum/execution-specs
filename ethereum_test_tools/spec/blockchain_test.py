@@ -264,7 +264,7 @@ class BlockchainTest(BaseTest):
         fork: Fork,
         chain_id=1,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[List[FixtureBlock], Hash, Dict[str, Any]]:
+    ) -> Tuple[List[FixtureBlock], Hash, Dict[str, Any], Optional[int]]:
         """
         Create a block list from the blockchain test definition.
         Performs checks against the expected behavior of the test.
@@ -273,6 +273,9 @@ class BlockchainTest(BaseTest):
         alloc = to_json(pre)
         env = Environment.from_parent_header(genesis)
         blocks: List[FixtureBlock] = []
+        fcu_version: Optional[int] = None
+        last_valid: Optional[FixtureHeader] = None
+
         head = genesis.hash if genesis.hash is not None else Hash(0)
         for block in self.blocks:
             fixture_block, env, alloc, head = self.make_block(
@@ -286,6 +289,14 @@ class BlockchainTest(BaseTest):
                 eips=eips,
             )
             blocks.append(fixture_block)
+            if block.exception is None:
+                last_valid = fixture_block.block_header
+
+        if not self.base_test_config.disable_hive and last_valid is not None:
+            fcu_version = fork.engine_forkchoice_updated_version(
+                block_number=last_valid.number,
+                timestamp=last_valid.timestamp,
+            )
 
         try:
             verify_post_alloc(self.post, alloc)
@@ -293,7 +304,7 @@ class BlockchainTest(BaseTest):
             print_traces(t8n.get_traces())
             raise e
 
-        return (blocks, head, alloc)
+        return (blocks, head, alloc, fcu_version)
 
 
 BlockchainTestSpec = Callable[[str], Generator[BlockchainTest, None, None]]

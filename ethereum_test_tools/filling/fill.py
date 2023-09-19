@@ -26,27 +26,13 @@ def fill_test(
 
     pre, genesis_rlp, genesis = test_spec.make_genesis(t8n, fork)
 
-    (blocks, head, alloc) = test_spec.make_blocks(
+    (blocks, head, alloc, fcu_version) = test_spec.make_blocks(
         t8n,
         genesis,
         pre,
         fork,
         eips=eips,
     )
-
-    fcu_version: int | None = None
-    if not test_spec.base_test_config.disable_hive:
-        last_valid_block = next(
-            (block.block_header for block in reversed(blocks) if block.expected_exception is None),
-            None,
-        )
-        fcu_version = (
-            fork.engine_forkchoice_updated_version(
-                last_valid_block.number, last_valid_block.timestamp
-            )
-            if last_valid_block
-            else None
-        )
 
     fork_name = fork.name()
     fixture = Fixture(
