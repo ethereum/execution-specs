@@ -309,7 +309,7 @@ class BlockchainTest(BaseTest):
             if block.exception is None:
                 last_valid = fixture_block.block_header
 
-        if not self.base_test_config.disable_hive and last_valid is not None:
+        if self.base_test_config.enable_hive and last_valid is not None:
             fcu_version = fork.engine_forkchoice_updated_version(
                 block_number=last_valid.number,
                 timestamp=last_valid.timestamp,
