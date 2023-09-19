@@ -27,22 +27,29 @@ from typing import Dict
 
 import pytest
 
-from ethereum_test_tools import Environment, StateTestFiller, Transaction
+from ethereum_test_tools import (
+    Account,
+    Environment,
+    StateTestFiller,
+    Storage,
+    Transaction,
+    to_address,
+)
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-from .common import BEACON_ROOT_CONTRACT_CALL_GAS, REF_SPEC_4788_GIT_PATH, REF_SPEC_4788_VERSION
+from .spec import Spec, ref_spec_4788
 
-REFERENCE_SPEC_GIT_PATH = REF_SPEC_4788_GIT_PATH
-REFERENCE_SPEC_VERSION = REF_SPEC_4788_VERSION
+REFERENCE_SPEC_GIT_PATH = ref_spec_4788.git_path
+REFERENCE_SPEC_VERSION = ref_spec_4788.version
 
 
 @pytest.mark.parametrize(
     "call_gas, valid_call",
     [
-        pytest.param(BEACON_ROOT_CONTRACT_CALL_GAS, True),
-        pytest.param(BEACON_ROOT_CONTRACT_CALL_GAS + 1, True),
+        pytest.param(Spec.BEACON_ROOTS_CALL_GAS, True),
+        pytest.param(Spec.BEACON_ROOTS_CALL_GAS + 1, True),
         pytest.param(
-            BEACON_ROOT_CONTRACT_CALL_GAS - 1,
+            Spec.BEACON_ROOTS_CALL_GAS - 1,
             False,
             marks=pytest.mark.xfail(reason="gas calculation is incorrect"),  # TODO
         ),
@@ -218,5 +225,68 @@ def test_tx_to_beacon_root_contract(
         env=env,
         pre=pre,
         txs=[tx],
+        post=post,
+    )
+
+
+@pytest.mark.parametrize(
+    "tx_data",
+    [
+        pytest.param(int.to_bytes(0, length=32, byteorder="big"), id="zero_calldata"),
+    ],
+)
+@pytest.mark.parametrize("valid_call,valid_input", [(False, False)])
+@pytest.mark.parametrize("timestamp", [12])
+@pytest.mark.valid_from("Cancun")
+def test_invalid_beacon_root_calldata_value(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Dict,
+    tx: Transaction,
+    post: Dict,
+):
+    """
+    Tests the beacon root contract call using invalid input values:
+    - zero calldata.
+
+    Contract should revert.
+    """
+    state_test(
+        env=env,
+        pre=pre,
+        txs=[tx],
+        post=post,
+    )
+
+
+@pytest.mark.parametrize("timestamp", [12])
+@pytest.mark.valid_from("Cancun")
+def test_beacon_root_selfdestruct(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Dict,
+    tx: Transaction,
+    post: Dict,
+):
+    """
+    Tests that self destructing the beacon root address transfers actors balance correctly.
+    """
+    # self destruct actor
+    pre[to_address(0x1337)] = Account(
+        code=Op.SELFDESTRUCT(Spec.BEACON_ROOTS_ADDRESS),
+        balance=0xBA1,
+    )
+    # self destruct caller
+    pre[to_address(0xCC)] = Account(
+        code=Op.CALL(100000, Op.PUSH20(to_address(0x1337)), 0, 0, 0, 0, 0)
+        + Op.SSTORE(0, Op.BALANCE(Spec.BEACON_ROOTS_ADDRESS)),
+    )
+    post[to_address(0xCC)] = Account(
+        storage=Storage({0: 0xBA1}),
+    )
+    state_test(
+        env=env,
+        pre=pre,
+        txs=[tx, Transaction(nonce=1, to=to_address(0xCC), gas_limit=100000, gas_price=10)],
         post=post,
     )
