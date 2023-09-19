@@ -27,12 +27,9 @@ from typing import Dict, Iterator, List, Mapping, Optional, Tuple
 
 import pytest
 
+from ethereum_test_tools import Account, Block, BlockchainTestFiller, Environment, Header
+from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
-    Account,
-    Block,
-    BlockchainTestFiller,
-    Environment,
-    Header,
     TestAddress,
     TestAddress2,
     Transaction,
@@ -156,17 +153,21 @@ def tx_value() -> int:  # noqa: D103
 
 
 @pytest.fixture
-def tx_exact_cost(tx_value: int, tx_max_fee_per_gas: int, tx_data_cost: int) -> int:  # noqa: D103
-    tx_gas = 21000
-    return (tx_gas * tx_max_fee_per_gas) + tx_value + tx_data_cost
+def tx_gas_limit() -> int:  # noqa: D103
+    return 45000
 
 
 @pytest.fixture
-def pre(tx_exact_cost: int) -> Mapping[str, Account]:  # noqa: D103
-    return {
-        TestAddress: Account(balance=tx_exact_cost),
-        TestAddress2: Account(balance=10**40),
-    }
+def tx_exact_cost(  # noqa: D103
+    tx_value: int, tx_max_fee_per_gas: int, tx_data_cost: int, tx_gas_limit: int
+) -> int:
+    return (tx_gas_limit * tx_max_fee_per_gas) + tx_value + tx_data_cost
+
+
+@pytest.fixture
+def destination_account_bytecode() -> bytes:  # noqa: D103
+    # Verify that the BLOBBASEFEE opcode reflects the current blob gas cost
+    return Op.SSTORE(0, Op.BLOBBASEFEE)
 
 
 @pytest.fixture
@@ -175,9 +176,25 @@ def destination_account() -> str:  # noqa: D103
 
 
 @pytest.fixture
-def post(destination_account: str, tx_value: int) -> Mapping[str, Account]:  # noqa: D103
+def pre(  # noqa: D103
+    destination_account: str, destination_account_bytecode: bytes, tx_exact_cost: int
+) -> Mapping[str, Account]:
     return {
-        destination_account: Account(balance=tx_value),
+        TestAddress: Account(balance=tx_exact_cost),
+        TestAddress2: Account(balance=10**40),
+        destination_account: Account(balance=0, code=destination_account_bytecode),
+    }
+
+
+@pytest.fixture
+def post(  # noqa: D103
+    destination_account: str, tx_value: int, block_fee_per_blob_gas: int
+) -> Mapping[str, Account]:
+    return {
+        destination_account: Account(
+            storage={0: block_fee_per_blob_gas},
+            balance=tx_value,
+        ),
     }
 
 
@@ -186,6 +203,7 @@ def tx(  # noqa: D103
     new_blobs: int,
     tx_max_fee_per_gas: int,
     tx_max_fee_per_blob_gas: int,
+    tx_gas_limit: int,
     destination_account: str,
 ):
     if new_blobs == 0:
@@ -195,7 +213,7 @@ def tx(  # noqa: D103
             nonce=0,
             to=destination_account,
             value=1,
-            gas_limit=21000,
+            gas_limit=tx_gas_limit,
             max_fee_per_gas=tx_max_fee_per_gas,
             max_priority_fee_per_gas=0,
             access_list=[],
@@ -206,7 +224,7 @@ def tx(  # noqa: D103
             nonce=0,
             to=destination_account,
             value=1,
-            gas_limit=21000,
+            gas_limit=tx_gas_limit,
             max_fee_per_gas=tx_max_fee_per_gas,
             max_priority_fee_per_gas=0,
             max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
