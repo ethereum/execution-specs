@@ -2707,6 +2707,11 @@ class Fixture:
             to_json=True,
         ),
     )
+    fcu_version: Optional[int] = field(
+        json_encoder=JSONEncoder.Field(
+            name="engineFcuVersion",
+        ),
+    )
     genesis: FixtureHeader = field(
         json_encoder=JSONEncoder.Field(
             name="genesisBlockHeader",

@@ -174,6 +174,16 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         """
         pass
 
+    @classmethod
+    @abstractmethod
+    def engine_forkchoice_updated_version(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> Optional[int]:
+        """
+        Returns `None` if the forks canonical chain cannot be set using the forkchoice method.
+        """
+        pass
+
     # Meta information about the fork
     @classmethod
     def name(cls) -> str:

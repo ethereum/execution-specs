@@ -92,6 +92,15 @@ class Frontier(BaseFork):
         return False
 
     @classmethod
+    def engine_forkchoice_updated_version(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> Optional[int]:
+        """
+        At genesis, forkchoice updates cannot be sent through the engine API.
+        """
+        return cls.engine_new_payload_version(block_number, timestamp)
+
+    @classmethod
     def get_reward(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """
         At Genesis the expected reward amount in wei is

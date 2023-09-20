@@ -26,7 +26,7 @@ def fill_test(
 
     pre, genesis_rlp, genesis = test_spec.make_genesis(t8n, fork)
 
-    (blocks, head, alloc) = test_spec.make_blocks(
+    (blocks, head, alloc, fcu_version) = test_spec.make_blocks(
         t8n,
         genesis,
         pre,
@@ -45,6 +45,7 @@ def fill_test(
         post_state=alloc_to_accounts(alloc),
         seal_engine=engine,
         name=test_spec.tag,
+        fcu_version=fcu_version,
     )
     fixture.fill_info(t8n, spec)
 
