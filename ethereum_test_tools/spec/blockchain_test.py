@@ -54,7 +54,7 @@ class BlockchainTest(BaseTest):
     @property
     def hive_enabled(self) -> bool:
         """
-        Returns the true if hive fixture generation is enabled, false otherwise.
+        Returns true if hive fixture generation is enabled, false otherwise.
         """
         return self.base_test_config.enable_hive
 

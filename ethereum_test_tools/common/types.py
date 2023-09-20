@@ -2569,15 +2569,15 @@ class FixtureEngineNewPayload:
             to_json=True,
         ),
     )
-    version: int = field(
-        json_encoder=JSONEncoder.Field(),
-    )
     beacon_root: Optional[FixedSizeBytesConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
             name="parentBeaconBlockRoot",
             cast_type=Hash,
         ),
+    )
+    version: int = field(
+        json_encoder=JSONEncoder.Field(),
     )
     error_code: Optional[EngineAPIError] = field(
         default=None,
@@ -2631,8 +2631,7 @@ class FixtureBlock:
     Representation of an Ethereum block within a test Fixture.
     """
 
-    rlp: Optional[Bytes] = field(
-        default=None,
+    rlp: Bytes = field(
         json_encoder=JSONEncoder.Field(),
     )
     block_header: Optional[FixtureHeader] = field(
