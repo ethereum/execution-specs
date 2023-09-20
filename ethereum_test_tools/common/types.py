@@ -2642,13 +2642,6 @@ class FixtureBlock:
             to_json=True,
         ),
     )
-    new_payload: Optional[FixtureEngineNewPayload] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="engineNewPayload",
-            to_json=True,
-        ),
-    )
     expected_exception: Optional[str] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
@@ -2690,9 +2683,9 @@ class FixtureBlock:
 
 
 @dataclass(kw_only=True)
-class Fixture:
+class BaseFixture:
     """
-    Cross-client compatible Ethereum test fixture.
+    Base Ethereum test fixture class.
     """
 
     info: Dict[str, str] = field(
@@ -2702,56 +2695,9 @@ class Fixture:
             to_json=True,
         ),
     )
-    blocks: List[FixtureBlock] = field(
-        json_encoder=JSONEncoder.Field(
-            name="blocks",
-            to_json=True,
-        ),
-    )
-    fcu_version: Optional[int] = field(
-        json_encoder=JSONEncoder.Field(
-            name="engineFcuVersion",
-        ),
-    )
-    genesis: FixtureHeader = field(
-        json_encoder=JSONEncoder.Field(
-            name="genesisBlockHeader",
-            to_json=True,
-        ),
-    )
-    genesis_rlp: Bytes = field(
-        json_encoder=JSONEncoder.Field(
-            name="genesisRLP",
-        ),
-    )
-    head: Hash = field(
-        json_encoder=JSONEncoder.Field(
-            name="lastblockhash",
-        ),
-    )
     fork: str = field(
         json_encoder=JSONEncoder.Field(
             name="network",
-        ),
-    )
-    pre_state: Mapping[str, Account] = field(
-        json_encoder=JSONEncoder.Field(
-            name="pre",
-            cast_type=Alloc,
-            to_json=True,
-        ),
-    )
-    post_state: Optional[Mapping[str, Account]] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="postState",
-            cast_type=Alloc,
-            to_json=True,
-        ),
-    )
-    seal_engine: str = field(
-        json_encoder=JSONEncoder.Field(
-            name="sealEngine",
         ),
     )
     name: str = field(
@@ -2760,7 +2706,6 @@ class Fixture:
             skip=True,
         ),
     )
-
     _json: Dict[str, Any] | None = field(
         default=None,
         json_encoder=JSONEncoder.Field(
@@ -2793,3 +2738,96 @@ class Fixture:
         self.info["filling-transition-tool"] = t8n.version()
         if ref_spec is not None:
             ref_spec.write_info(self.info)
+
+
+@dataclass(kw_only=True)
+class Fixture(BaseFixture):
+    """
+    Cross-client specific test fixture information.
+    """
+
+    genesis_rlp: Bytes = field(
+        json_encoder=JSONEncoder.Field(
+            name="genesisRLP",
+        ),
+    )
+    genesis: FixtureHeader = field(
+        json_encoder=JSONEncoder.Field(
+            name="genesisBlockHeader",
+            to_json=True,
+        ),
+    )
+    blocks: Optional[List[FixtureBlock]] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="blocks",
+            to_json=True,
+        ),
+    )
+    head: Hash = field(
+        json_encoder=JSONEncoder.Field(
+            name="lastblockhash",
+        ),
+    )
+    pre_state: Mapping[str, Account] = field(
+        json_encoder=JSONEncoder.Field(
+            name="pre",
+            cast_type=Alloc,
+            to_json=True,
+        ),
+    )
+    post_state: Optional[Mapping[str, Account]] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="postState",
+            cast_type=Alloc,
+            to_json=True,
+        ),
+    )
+    seal_engine: str = field(
+        json_encoder=JSONEncoder.Field(
+            name="sealEngine",
+        ),
+    )
+
+
+@dataclass(kw_only=True)
+class HiveFixture(BaseFixture):
+    """
+    Hive specific test fixture information.
+    """
+
+    genesis: FixtureHeader = field(
+        json_encoder=JSONEncoder.Field(
+            name="genesisBlockHeader",
+            to_json=True,
+        ),
+    )
+    payloads: Optional[List[Optional[FixtureEngineNewPayload]]] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="engineNewPayloads",
+            to_json=True,
+        ),
+    )
+    fcu_version: Optional[int] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="engineFcuVersion",
+        ),
+    )
+    pre_state: Mapping[str, Account] = field(
+        json_encoder=JSONEncoder.Field(
+            name="pre",
+            cast_type=Alloc,
+            to_json=True,
+        ),
+    )
+    post_state: Optional[Mapping[str, Account]] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="postState",
+            cast_type=Alloc,
+            to_json=True,
+        ),
+    )

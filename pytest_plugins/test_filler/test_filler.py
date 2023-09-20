@@ -9,7 +9,7 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Tuple, Type
+from typing import Any, Dict, Generator, List, Optional, Tuple, Type, Union
 
 import pytest
 
@@ -20,6 +20,7 @@ from ethereum_test_tools import (
     BlockchainTest,
     BlockchainTestFiller,
     Fixture,
+    HiveFixture,
     StateTest,
     StateTestFiller,
     Yul,
@@ -226,10 +227,13 @@ class FixtureCollector:
         self.output_dir = output_dir
         self.flat_output = flat_output
 
-    def add_fixture(self, item, fixture: Fixture) -> None:
+    def add_fixture(self, item, fixture: Optional[Union[Fixture, HiveFixture]]) -> None:
         """
         Adds a fixture to the list of fixtures of a given test case.
         """
+        # TODO: remove this logic. if hive enabled set --from to Merge
+        if fixture is None:
+            return
 
         def get_module_dir(item) -> str:
             """

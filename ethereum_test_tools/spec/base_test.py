@@ -17,6 +17,7 @@ from ..common import (
     Bytes,
     Environment,
     FixtureBlock,
+    FixtureEngineNewPayload,
     FixtureHeader,
     Hash,
     Transaction,
@@ -127,7 +128,13 @@ class BaseTest:
         fork: Fork,
         chain_id: int = 1,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[List[FixtureBlock], Hash, Dict[str, Any], Optional[int]]:
+    ) -> Tuple[
+        Optional[List[FixtureBlock]],
+        Optional[List[Optional[FixtureEngineNewPayload]]],
+        Hash,
+        Dict[str, Any],
+        Optional[int],
+    ]:
         """
         Generate the blockchain that must be executed sequentially during test.
         """

@@ -127,7 +127,13 @@ class StateTest(BaseTest):
         fork: Fork,
         chain_id=1,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[List[FixtureBlock], Hash, Dict[str, Any], Optional[int]]:
+    ) -> Tuple[
+        Optional[List[FixtureBlock]],
+        Optional[List[Optional[FixtureEngineNewPayload]]],
+        Hash,
+        Dict[str, Any],
+        Optional[int],
+    ]:
         """
         Create a block from the state test definition.
         Performs checks against the expected behavior of the test.
@@ -178,33 +184,30 @@ class StateTest(BaseTest):
             withdrawals=env.withdrawals,
         )
 
-        # Hive specific fields
-        new_payload: FixtureEngineNewPayload | None = None
         fcu_version: int | None = None
+        fixture_payload: FixtureEngineNewPayload | None = None
+        fixture_block: FixtureBlock | None = None
         if self.base_test_config.enable_hive:
-            new_payload = FixtureEngineNewPayload.from_fixture_header(
+            fcu_version = fork.engine_forkchoice_updated_version(header.number, header.timestamp)
+            fixture_payload = FixtureEngineNewPayload.from_fixture_header(
                 fork=fork,
                 header=header,
                 transactions=txs,
                 withdrawals=env.withdrawals,
                 error_code=None,
             )
-            fcu_version = fork.engine_forkchoice_updated_version(header.number, header.timestamp)
-
-        fixture_block = (
-            FixtureBlock(
+        else:
+            fixture_block = FixtureBlock(
                 rlp=block,
                 block_header=header,
                 txs=txs,
                 ommers=[],
                 withdrawals=env.withdrawals,
             )
-            if not self.base_test_config.enable_hive
-            else (FixtureBlock(new_payload=new_payload))
-        )
 
         return (
-            [fixture_block],
+            [fixture_block] if fixture_block is not None else None,
+            [fixture_payload] if fixture_payload is not None else None,
             header.hash,
             alloc,
             fcu_version,

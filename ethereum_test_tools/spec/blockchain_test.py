@@ -51,6 +51,13 @@ class BlockchainTest(BaseTest):
         """
         return "blockchain_test"
 
+    @property
+    def hive_enabled(self) -> bool:
+        """
+        Returns the true if hive fixture generation is enabled, false otherwise.
+        """
+        return self.base_test_config.enable_hive
+
     def make_genesis(
         self,
         t8n: TransitionTool,
@@ -114,7 +121,7 @@ class BlockchainTest(BaseTest):
         previous_head: Hash,
         chain_id=1,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[FixtureBlock, Environment, Dict[str, Any], Hash]:
+    ) -> Tuple[FixtureBlock, Optional[FixtureEngineNewPayload], Environment, Dict[str, Any], Hash]:
         """
         Produces a block based on the previous environment and allocation.
         If the block is an invalid block, the environment and allocation
@@ -207,18 +214,20 @@ class BlockchainTest(BaseTest):
                 withdrawals=env.withdrawals,
             )
 
-            new_payload: FixtureEngineNewPayload | None = None
-            if self.base_test_config.enable_hive:
-                new_payload = FixtureEngineNewPayload.from_fixture_header(
+            fixture_payload = (
+                FixtureEngineNewPayload.from_fixture_header(
                     fork=fork,
                     header=header,
                     transactions=txs,
                     withdrawals=env.withdrawals,
                     error_code=block.engine_api_error_code,
                 )
+                if self.hive_enabled
+                else None
+            )
 
             if block.exception is None:
-                fixture_block = (
+                return (
                     FixtureBlock(
                         rlp=rlp,
                         block_header=header,
@@ -226,38 +235,20 @@ class BlockchainTest(BaseTest):
                         txs=txs,
                         ommers=[],
                         withdrawals=env.withdrawals,
-                    )
-                    if not self.base_test_config.enable_hive
-                    else (
-                        FixtureBlock(
-                            new_payload=new_payload,
-                        )
-                    )
-                )
-                # Return environment and allocation of the following block
-                return (
-                    fixture_block,
+                    ),
+                    fixture_payload,
                     env.apply_new_parent(header),
                     next_alloc,
                     header.hash,
                 )
             else:
-                fixture_block = (
+                return (
                     FixtureBlock(
                         rlp=rlp,
                         block_number=Number(header.number),
                         expected_exception=block.exception,
-                    )
-                    if not self.base_test_config.enable_hive
-                    else (
-                        FixtureBlock(
-                            new_payload=new_payload,
-                            expected_exception=block.exception,
-                        )
-                    )
-                )
-                return (
-                    fixture_block,
+                    ),
+                    fixture_payload,
                     previous_env,
                     previous_alloc,
                     previous_head,
@@ -268,6 +259,7 @@ class BlockchainTest(BaseTest):
                     rlp=Bytes(block.rlp),
                     expected_exception=block.exception,
                 ),
+                fixture_payload,
                 previous_env,
                 previous_alloc,
                 previous_head,
@@ -281,7 +273,13 @@ class BlockchainTest(BaseTest):
         fork: Fork,
         chain_id=1,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[List[FixtureBlock], Hash, Dict[str, Any], Optional[int]]:
+    ) -> Tuple[
+        Optional[List[FixtureBlock]],
+        Optional[List[Optional[FixtureEngineNewPayload]]],
+        Hash,
+        Dict[str, Any],
+        Optional[int],
+    ]:
         """
         Create a block list from the blockchain test definition.
         Performs checks against the expected behavior of the test.
@@ -289,13 +287,17 @@ class BlockchainTest(BaseTest):
         """
         alloc = to_json(pre)
         env = Environment.from_parent_header(genesis)
-        blocks: List[FixtureBlock] = []
+        fixture_blocks: List[FixtureBlock] | None = [] if not self.hive_enabled else None
+
+        fixture_payloads: List[Optional[FixtureEngineNewPayload]] | None = (
+            [] if self.hive_enabled else None
+        )
         fcu_version: Optional[int] = None
         last_valid: Optional[FixtureHeader] = None
 
         head = genesis.hash if genesis.hash is not None else Hash(0)
         for block in self.blocks:
-            fixture_block, env, alloc, head = self.make_block(
+            fixture_block, fixture_payload, env, alloc, head = self.make_block(
                 t8n=t8n,
                 fork=fork,
                 block=block,
@@ -305,11 +307,14 @@ class BlockchainTest(BaseTest):
                 chain_id=chain_id,
                 eips=eips,
             )
-            blocks.append(fixture_block)
+            if not self.hive_enabled and fixture_blocks is not None:
+                fixture_blocks.append(fixture_block)
+            if self.hive_enabled and fixture_payloads is not None:
+                fixture_payloads.append(fixture_payload)
             if block.exception is None:
                 last_valid = fixture_block.block_header
 
-        if self.base_test_config.enable_hive and last_valid is not None:
+        if self.hive_enabled and last_valid:
             fcu_version = fork.engine_forkchoice_updated_version(
                 block_number=last_valid.number,
                 timestamp=last_valid.timestamp,
@@ -321,7 +326,13 @@ class BlockchainTest(BaseTest):
             print_traces(t8n.get_traces())
             raise e
 
-        return (blocks, head, alloc, fcu_version)
+        return (
+            fixture_blocks,
+            fixture_payloads,
+            head,
+            alloc,
+            fcu_version,
+        )
 
 
 BlockchainTestSpec = Callable[[str], Generator[BlockchainTest, None, None]]
