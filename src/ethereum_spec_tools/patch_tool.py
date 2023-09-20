@@ -24,47 +24,55 @@ parser.add_argument(
     help="Patch the tests instead",
 )
 
-options = parser.parse_args()
 
-source_fork_path = options.prefix + options.source_fork[0]
+def main() -> None:
+    """
+    Patch the changes from one fork into the others.
+    """
+    options = parser.parse_args()
 
-if options.prefix == "tests/" and "dao_fork" in options.targets:
-    raise Exception("dao_fork has no tests")
+    if not options.prefix:
+        options.prefix = "src/ethereum/"
 
-git_diff = subprocess.run(
-    ["git", "diff", source_fork_path], capture_output=True, text=True
-)
+    source_fork_path = options.prefix + options.source_fork[0]
 
-output_lines = git_diff.stdout.splitlines(keepends=True)
+    if options.prefix == "tests/" and "dao_fork" in options.targets:
+        raise Exception("dao_fork has no tests")
 
-for target in options.targets:
-    patch = ""
-    for line in output_lines:
-        if line.startswith("diff --git"):
-            pass
-        elif line.startswith("index"):
-            pass
-        elif line.startswith("--- a/"):
-            patch += line.replace(
-                "--- a/" + options.prefix + options.source_fork[0],
-                "--- " + options.prefix + target,
-            )
-        elif line.startswith("+++ b/"):
-            patch += line.replace(
-                "+++ b/" + options.prefix + options.source_fork[0],
-                "+++ " + options.prefix + target,
-            )
-        else:
-            patch += line
-
-    subprocess.run(
-        [
-            "patch",
-            "-p0",
-            "--no-backup-if-mismatch",
-        ],
-        input=patch,
-        text=True,
-        stdout=stdout,
-        stderr=stderr,
+    git_diff = subprocess.run(
+        ["git", "diff", source_fork_path], capture_output=True, text=True
     )
+
+    output_lines = git_diff.stdout.splitlines(keepends=True)
+
+    for target in options.targets:
+        patch = ""
+        for line in output_lines:
+            if line.startswith("diff --git"):
+                pass
+            elif line.startswith("index"):
+                pass
+            elif line.startswith("--- a/"):
+                patch += line.replace(
+                    "--- a/" + options.prefix + options.source_fork[0],
+                    "--- " + options.prefix + target,
+                )
+            elif line.startswith("+++ b/"):
+                patch += line.replace(
+                    "+++ b/" + options.prefix + options.source_fork[0],
+                    "+++ " + options.prefix + target,
+                )
+            else:
+                patch += line
+
+        subprocess.run(
+            [
+                "patch",
+                "-p0",
+                "--no-backup-if-mismatch",
+            ],
+            input=patch,
+            text=True,
+            stdout=stdout,
+            stderr=stderr,
+        )
