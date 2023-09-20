@@ -9,17 +9,17 @@ from typing import Any, Dict, List
 import pytest
 from semver import Version
 
-from ethereum_test_forks import Berlin, Fork, Istanbul, London
+from ethereum_test_forks import Berlin, Fork, Istanbul, London, Merge, Shanghai
 from evm_transition_tool import GethTransitionTool
 
 from ..code import Yul
 from ..common import Account, Block, Environment, TestAddress, Transaction, to_json
 from ..filling import fill_test
-from ..spec import BlockchainTest, StateTest
+from ..spec import BaseTestConfig, BlockchainTest, StateTest
 from .conftest import SOLC_PADDING_VERSION
 
 
-def remove_info(fixture_json: Dict[str, Any]):
+def remove_info(fixture_json: Dict[str, Any]):  # noqa: D103
     for t in fixture_json:
         if "_info" in fixture_json[t]:
             del fixture_json[t]["_info"]
@@ -50,7 +50,7 @@ def hash(request: pytest.FixtureRequest, solc_version: Version):
     ],
     indirect=["hash"],
 )
-def test_make_genesis(fork: Fork, hash: bytes):
+def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
     env = Environment()
 
     pre = {
@@ -86,13 +86,15 @@ def test_make_genesis(fork: Fork, hash: bytes):
 
 
 @pytest.mark.parametrize(
-    "fork,expected_json_file",
+    "fork,enable_hive,expected_json_file",
     [
-        (Istanbul, "chainid_istanbul_filled.json"),
-        (London, "chainid_london_filled.json"),
+        (Istanbul, False, "chainid_istanbul_filled.json"),
+        (London, False, "chainid_london_filled.json"),
+        (Merge, True, "chainid_merge_filled_hive.json"),
+        (Shanghai, True, "chainid_shanghai_filled_hive.json"),
     ],
 )
-def test_fill_state_test(fork: Fork, expected_json_file: str):
+def test_fill_state_test(fork: Fork, expected_json_file: str, enable_hive: bool):
     """
     Test `ethereum_test.filler.fill_fixtures` with `StateTest`.
     """
@@ -125,7 +127,14 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
         ),
     }
 
-    state_test = StateTest(env=env, pre=pre, post=post, txs=[tx], tag="my_chain_id_test")
+    state_test = StateTest(
+        env=env,
+        pre=pre,
+        post=post,
+        txs=[tx],
+        tag="my_chain_id_test",
+        base_test_config=BaseTestConfig(enable_hive=enable_hive),
+    )
 
     t8n = GethTransitionTool()
 
@@ -138,6 +147,7 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
             spec=None,
         ),
     }
+
     with open(
         os.path.join(
             "src",
@@ -148,13 +158,24 @@ def test_fill_state_test(fork: Fork, expected_json_file: str):
         )
     ) as f:
         expected = json.load(f)
+
     fixture_json = to_json(fixture)
     remove_info(fixture_json)
+    with open("gen.json", "w") as fr:
+        json.dump(fixture_json, fr, indent=4)
     assert fixture_json == expected
 
 
-@pytest.mark.parametrize("fork", [London])
-def test_fill_london_blockchain_test_valid_txs(fork: Fork, solc_version: str):
+@pytest.mark.parametrize(
+    "fork,enable_hive,expected_json_file",
+    [
+        (London, False, "blockchain_london_valid_filled.json"),
+        (Shanghai, True, "blockchain_shanghai_valid_filled_hive.json"),
+    ],
+)
+def test_fill_blockchain_valid_txs(
+    fork: Fork, solc_version: str, enable_hive: bool, expected_json_file: str
+):
     """
     Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`.
     """
@@ -411,7 +432,8 @@ def test_fill_london_blockchain_test_valid_txs(fork: Fork, solc_version: str):
         post=post,
         blocks=blocks,
         genesis_environment=genesis_environment,
-        tag="fill_london_blockchain_test_valid_txs",
+        tag="my_blockchain_test_valid_txs",
+        base_test_config=BaseTestConfig(enable_hive=enable_hive),
     )
 
     t8n = GethTransitionTool()
@@ -432,7 +454,7 @@ def test_fill_london_blockchain_test_valid_txs(fork: Fork, solc_version: str):
             "ethereum_test_tools",
             "tests",
             "test_fixtures",
-            "blockchain_london_valid_filled.json",
+            expected_json_file,
         )
     ) as f:
         expected = json.load(f)
@@ -448,8 +470,16 @@ def test_fill_london_blockchain_test_valid_txs(fork: Fork, solc_version: str):
     assert fixture_json == expected
 
 
-@pytest.mark.parametrize("fork", [London])
-def test_fill_london_blockchain_test_invalid_txs(fork: Fork, solc_version: str):
+@pytest.mark.parametrize(
+    "fork,enable_hive,expected_json_file",
+    [
+        (London, False, "blockchain_london_invalid_filled.json"),
+        (Shanghai, True, "blockchain_shanghai_invalid_filled_hive.json"),
+    ],
+)
+def test_fill_blockchain_invalid_txs(
+    fork: Fork, solc_version: str, enable_hive: bool, expected_json_file: str
+):
     """
     Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`.
     """
@@ -752,7 +782,7 @@ def test_fill_london_blockchain_test_invalid_txs(fork: Fork, solc_version: str):
         post=post,
         blocks=blocks,
         genesis_environment=genesis_environment,
-        tag="fill_london_blockchain_test_invalid_txs",
+        base_test_config=BaseTestConfig(enable_hive=enable_hive),
     )
 
     t8n = GethTransitionTool()
@@ -773,7 +803,7 @@ def test_fill_london_blockchain_test_invalid_txs(fork: Fork, solc_version: str):
             "ethereum_test_tools",
             "tests",
             "test_fixtures",
-            "blockchain_london_invalid_filled.json",
+            expected_json_file,
         )
     ) as f:
         expected = json.load(f)
