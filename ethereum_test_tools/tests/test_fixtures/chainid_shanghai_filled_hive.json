@@ -42,6 +42,7 @@
                     ],
                     "withdrawals": []
                 },
+                "valid": true,
                 "version": "2"
             }
         ],

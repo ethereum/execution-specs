@@ -941,6 +941,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                     ],
                     withdrawals=[Withdrawal(index=0, validator=1, address=0x1234, amount=2)],
                 ),
+                valid=False,
                 version=1,
             ),
             {
@@ -984,6 +985,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                         to_json(Withdrawal(index=0, validator=1, address=0x1234, amount=2))
                     ],
                 },
+                "valid": False,
                 "version": "1",
             },
             id="fixture_engine_new_payload_1",
@@ -1032,6 +1034,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                     withdrawals=[Withdrawal(index=0, validator=1, address=0x1234, amount=2)],
                 ),
                 version=1,
+                valid=True,
                 blob_versioned_hashes=[bytes([0]), bytes([1])],
                 error_code=EngineAPIError.InvalidRequest,
             ),
@@ -1077,6 +1080,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                     ],
                 },
                 "version": "1",
+                "valid": True,
                 "expectedBlobVersionedHashes": [
                     "0x0000000000000000000000000000000000000000000000000000000000000000",
                     "0x0000000000000000000000000000000000000000000000000000000000000001",
