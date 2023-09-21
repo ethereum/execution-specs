@@ -194,6 +194,7 @@ class StateTest(BaseTest):
                 header=header,
                 transactions=txs,
                 withdrawals=env.withdrawals,
+                valid=True,
                 error_code=None,
             )
         else:

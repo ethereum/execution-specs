@@ -220,6 +220,7 @@ class BlockchainTest(BaseTest):
                     header=header,
                     transactions=txs,
                     withdrawals=env.withdrawals,
+                    valid=block.exception is None,
                     error_code=block.engine_api_error_code,
                 )
                 if self.hive_enabled
@@ -259,7 +260,7 @@ class BlockchainTest(BaseTest):
                     rlp=Bytes(block.rlp),
                     expected_exception=block.exception,
                 ),
-                fixture_payload,
+                None,
                 previous_env,
                 previous_alloc,
                 previous_head,

@@ -2579,6 +2579,11 @@ class FixtureEngineNewPayload:
     version: int = field(
         json_encoder=JSONEncoder.Field(),
     )
+    valid: bool = field(
+        json_encoder=JSONEncoder.Field(
+            skip_string_convert=True,
+        ),
+    )
     error_code: Optional[EngineAPIError] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
@@ -2594,6 +2599,7 @@ class FixtureEngineNewPayload:
         header: FixtureHeader,
         transactions: List[Transaction],
         withdrawals: Optional[List[Withdrawal]],
+        valid: bool,
         error_code: Optional[EngineAPIError],
     ) -> Optional["FixtureEngineNewPayload"]:
         """
@@ -2611,6 +2617,7 @@ class FixtureEngineNewPayload:
                 withdrawals=withdrawals,
             ),
             version=new_payload_version,
+            valid=valid,
             error_code=error_code,
         )
 
