@@ -1007,11 +1007,10 @@ def test_blob_tx_attribute_gasprice_opcode(
         "parent_excess_blobs",
         "tx_max_fee_per_blob_gas",
         "tx_error",
-        "engine_api_error_code",
     ],
     [
-        ([0], None, 1, "tx type 3 not allowed pre-Cancun", EngineAPIError.InvalidParams),
-        ([1], None, 1, "tx type 3 not allowed pre-Cancun", EngineAPIError.InvalidParams),
+        ([0], None, 1, "tx type 3 not allowed pre-Cancun"),
+        ([1], None, 1, "tx type 3 not allowed pre-Cancun"),
     ],
     ids=["no_blob_tx", "one_blob_tx"],
 )
@@ -1025,7 +1024,7 @@ def test_blob_type_tx_pre_fork(
     Reject blocks with blob type transactions before Cancun fork.
 
     Blocks sent by NewPayloadV2 (Shanghai) that contain blob type transactions, furthermore blobs
-    field within NewPayloadV2 method must be rejected with the `-32602: Invalid params` error.
+    field within NewPayloadV2 method must be computed as INVALID, due to an invalid block hash.
     """
     blockchain_test(
         pre=pre,
