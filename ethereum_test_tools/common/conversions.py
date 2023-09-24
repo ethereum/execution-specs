@@ -15,7 +15,7 @@ def int_or_none(input: Any, default: Optional[int] = None) -> int | None:
     """
     if input is None:
         return default
-    if type(input) == int:
+    if isinstance(input, int):
         return input
     return int(input, 0)
 
@@ -26,7 +26,7 @@ def str_or_none(input: Any, default: Optional[str] = None) -> str | None:
     """
     if input is None:
         return default
-    if type(input) == str:
+    if isinstance(input, str):
         return input
     return str(input)
 
