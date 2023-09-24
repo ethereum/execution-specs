@@ -127,7 +127,7 @@ class BesuTransitionTool(TransitionTool):
                 PORT=${{1:-3000}}
                 curl http://localhost:${{PORT}}/ -X POST -H "Content-Type: application/json" \\
                 --data '{indented_post_data_string}'
-                """
+                """  # noqa: E221
             )
             dump_files_to_directory(
                 debug_output_path,
