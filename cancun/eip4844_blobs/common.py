@@ -156,7 +156,7 @@ class BlobhashContext:
                     sstore(end, blobhash)
                     return(0, 0)
                 }}
-                """
+                """  # noqa: E272, E201, E202
             ),
             "blobhash_return": cls.yul_compiler(
                 f"""
@@ -167,7 +167,7 @@ class BlobhashContext:
                     mstore(0, blobhash)
                     return(0, 32)
                 }}
-                """
+                """  # noqa: E272, E201, E202
             ),
             "call": cls.yul_compiler(
                 """
@@ -175,7 +175,7 @@ class BlobhashContext:
                     calldatacopy(0, 0, calldatasize())
                     pop(call(gas(), 0x100, 0, 0, calldatasize(), 0, 0))
                 }
-                """
+                """  # noqa: E272, E201, E202
             ),
             "delegatecall": cls.yul_compiler(
                 """
@@ -183,7 +183,7 @@ class BlobhashContext:
                     calldatacopy(0, 0, calldatasize())
                     pop(delegatecall(gas(), 0x100, 0, calldatasize(), 0, 0))
                 }
-                """
+                """  # noqa: E272, E201, E202
             ),
             "callcode": cls.yul_compiler(
                 f"""
@@ -206,7 +206,7 @@ class BlobhashContext:
                     sstore(end, blobhash)
                     return(0, 0)
                 }}
-                """
+                """  # noqa: E272, E201, E202
             ),
             "staticcall": cls.yul_compiler(
                 f"""
@@ -229,7 +229,7 @@ class BlobhashContext:
                     sstore(end, blobhash)
                     return(0, 0)
                 }}
-                """
+                """  # noqa: E272, E201, E202
             ),
             "create": cls.yul_compiler(
                 """
@@ -237,7 +237,7 @@ class BlobhashContext:
                     calldatacopy(0, 0, calldatasize())
                     pop(create(0, 0, calldatasize()))
                 }
-                """
+                """  # noqa: E272, E201, E202
             ),
             "create2": cls.yul_compiler(
                 """
@@ -245,7 +245,7 @@ class BlobhashContext:
                     calldatacopy(0, 0, calldatasize())
                     pop(create2(0, 0, calldatasize(), 0))
                 }
-                """
+                """  # noqa: E272, E201, E202
             ),
             "initcode": cls.yul_compiler(
                 f"""
@@ -258,7 +258,7 @@ class BlobhashContext:
                     }}
                     return(0, 0)
                 }}
-                """
+                """  # noqa: E272, E201, E202
             ),
         }
         code = code.get(context_name)

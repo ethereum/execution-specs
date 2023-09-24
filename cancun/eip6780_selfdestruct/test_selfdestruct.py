@@ -91,7 +91,7 @@ def selfdestruct_code_preset(
                     sstore(0, 0)
                 }}
             }}
-            """
+            """  # noqa: E272, E201, E202, E221
         )
     else:
         # Hard-code the single only possible recipient address
@@ -107,7 +107,7 @@ def selfdestruct_code_preset(
                 selfdestruct({sendall_recipient_addresses[0]})
                 sstore(0, 0)
             }}
-            """
+            """  # noqa: E272, E201, E202, E221
         )
 
 

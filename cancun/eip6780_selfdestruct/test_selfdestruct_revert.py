@@ -124,7 +124,7 @@ def recursive_revert_contract_code(
                 stop()
             }}
         }}
-        """  # noqa: E501
+        """  # noqa: E272, E201, E202, E221, E501
     )
 
 
@@ -162,7 +162,7 @@ def selfdestruct_with_transfer_contract_code(
                 stop()
             }}
         }}
-        """
+        """  # noqa: E272, E201, E202, E221
     )
 
 

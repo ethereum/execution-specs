@@ -475,7 +475,7 @@ def test_invalid_blob_gas_used_in_header(
         genesis_environment=env,
         tag="-".join(
             [
-                f"correct:{hex(new_blobs *Spec.GAS_PER_BLOB)}",
+                f"correct:{hex(new_blobs * Spec.GAS_PER_BLOB)}",
                 f"header:{hex(header_blob_gas_used)}",
             ]
         ),
