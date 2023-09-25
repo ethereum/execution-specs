@@ -11,8 +11,7 @@ import coincurve
 
 from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import Hash32
-
-from ..forks import Hardfork
+from ethereum_spec_tools.forks import Hardfork
 
 W = TypeVar("W", Uint, U64, U256)
 
