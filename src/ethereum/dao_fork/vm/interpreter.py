@@ -12,11 +12,19 @@ Introduction
 A straightforward interpreter that executes EVM code.
 """
 from dataclasses import dataclass
-from itertools import chain
 from typing import Set, Tuple, Union
 
-from ethereum import evm_trace
 from ethereum.base_types import U256, Bytes0, Uint
+from ethereum.trace import (
+    EvmStop,
+    OpEnd,
+    OpException,
+    OpStart,
+    PrecompileEnd,
+    PrecompileStart,
+    TransactionEnd,
+    evm_trace,
+)
 
 from ..fork_types import Address, Log
 from ..state import (
@@ -29,7 +37,7 @@ from ..state import (
     touch_account,
 )
 from ..vm import Message
-from ..vm.gas import GAS_CODE_DEPOSIT, REFUND_SELF_DESTRUCT, charge_gas
+from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
 from .exceptions import ExceptionalHalt, InvalidOpcode, StackDepthLimitError
@@ -91,16 +99,24 @@ def process_message_call(
     else:
         evm = process_message(message, env)
 
-    accounts_to_delete = collect_accounts_to_delete(evm)
-    refund_counter = (
-        calculate_gas_refund(evm)
-        + len(accounts_to_delete) * REFUND_SELF_DESTRUCT
+    if evm.has_erred:
+        logs: Tuple[Log, ...] = ()
+        accounts_to_delete = set()
+        refund_counter = U256(0)
+    else:
+        logs = evm.logs
+        accounts_to_delete = evm.accounts_to_delete
+        refund_counter = evm.refund_counter
+
+    tx_end = TransactionEnd(
+        message.gas - evm.gas_left, evm.output, evm.has_erred
     )
+    evm_trace(evm, tx_end)
 
     return MessageCallOutput(
         gas_left=evm.gas_left,
         refund_counter=refund_counter,
-        logs=evm.logs if not evm.has_erred else (),
+        logs=logs,
         accounts_to_delete=accounts_to_delete,
         has_erred=evm.has_erred,
     )
@@ -200,6 +216,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
     """
     code = message.code
     valid_jump_destinations = get_valid_jump_destinations(code)
+
     evm = Evm(
         pc=Uint(0),
         stack=[],
@@ -215,13 +232,13 @@ def execute_code(message: Message, env: Environment) -> Evm:
         output=b"",
         accounts_to_delete=set(),
         has_erred=False,
-        children=[],
     )
     try:
 
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
-            evm_trace(evm, evm.message.code_address)
+            evm_trace(evm, PrecompileStart(evm.message.code_address))
             PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)
+            evm_trace(evm, PrecompileEnd())
             return evm
 
         while evm.running and evm.pc < len(evm.code):
@@ -230,61 +247,14 @@ def execute_code(message: Message, env: Environment) -> Evm:
             except ValueError:
                 raise InvalidOpcode(evm.code[evm.pc])
 
-            evm_trace(evm, op)
+            evm_trace(evm, OpStart(op))
             op_implementation[op](evm)
+            evm_trace(evm, OpEnd())
+
+        evm_trace(evm, EvmStop(Ops.STOP))
 
     except ExceptionalHalt:
+        evm_trace(evm, OpException())
         evm.gas_left = Uint(0)
         evm.has_erred = True
     return evm
-
-
-def collect_accounts_to_delete(evm: Evm) -> Set[Address]:
-    """
-    Collects all the accounts that were marked for deletion by the
-    `SELFDESTRUCT` opcode.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Returns
-    -------
-    accounts_to_delete: `set`
-        returns all the accounts need marked for deletion by the
-        `SELFDESTRUCT` opcode.
-    """
-    if evm.has_erred:
-        return set()
-    else:
-        return set(
-            chain(
-                evm.accounts_to_delete,
-                *(collect_accounts_to_delete(child) for child in evm.children),
-            )
-        )
-
-
-def calculate_gas_refund(evm: Evm) -> U256:
-    """
-    Adds up the gas that was refunded in each execution frame during the
-    message call.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Returns
-    -------
-    gas_refund: `ethereum.base_types.U256`
-        returns the total gas that needs to be refunded after executing the
-        message call.
-    """
-    if evm.has_erred:
-        return U256(0)
-    else:
-        return evm.refund_counter + sum(
-            calculate_gas_refund(child_evm) for child_evm in evm.children
-        )

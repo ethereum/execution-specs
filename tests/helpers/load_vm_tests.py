@@ -151,6 +151,7 @@ class VmTestLoader:
             time=hex_to_u256(json_data["env"]["currentTimestamp"]),
             difficulty=hex_to_uint(json_data["env"]["currentDifficulty"]),
             state=current_state,
+            traces=[],
         )
 
     def json_to_state(self, raw: Any) -> Any:

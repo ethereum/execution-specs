@@ -111,4 +111,5 @@ def prepare_message(
         is_static=is_static,
         accessed_addresses=accessed_addresses,
         accessed_storage_keys=set(preaccessed_storage_keys),
+        parent_evm=None,
     )

@@ -41,6 +41,7 @@ class Environment:
     time: U256
     difficulty: Uint
     state: State
+    traces: List[dict]
 
 
 @dataclass
@@ -58,6 +59,7 @@ class Message:
     code_address: Optional[Address]
     code: Bytes
     depth: Uint
+    parent_evm: Optional["Evm"]
 
 
 @dataclass

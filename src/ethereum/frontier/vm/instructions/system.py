@@ -30,6 +30,7 @@ from .. import (
 from ..gas import (
     GAS_CREATE,
     GAS_ZERO,
+    REFUND_SELF_DESTRUCT,
     calculate_gas_extend_memory,
     calculate_message_call_gas,
     charge_gas,
@@ -103,6 +104,7 @@ def create(evm: Evm) -> None:
             current_target=contract_address,
             depth=evm.message.depth + 1,
             code_address=None,
+            parent_evm=evm,
         )
         child_evm = process_create_message(child_message, evm.env)
 
@@ -187,6 +189,7 @@ def generic_call(
         current_target=to,
         depth=evm.message.depth + 1,
         code_address=code_address,
+        parent_evm=evm,
     )
     child_evm = process_message(child_message, evm.env)
 
@@ -334,10 +337,22 @@ def selfdestruct(evm: Evm) -> None:
     beneficiary = to_address(pop(evm.stack))
 
     # GAS
-    pass
+    gas_cost = GAS_ZERO
+
+    originator = evm.message.current_target
+
+    refunded_accounts = evm.accounts_to_delete
+    parent_evm = evm.message.parent_evm
+    while parent_evm is not None:
+        refunded_accounts.update(parent_evm.accounts_to_delete)
+        parent_evm = parent_evm.message.parent_evm
+
+    if originator not in refunded_accounts:
+        evm.refund_counter += REFUND_SELF_DESTRUCT
+
+    charge_gas(evm, gas_cost)
 
     # OPERATION
-    originator = evm.message.current_target
     beneficiary_balance = get_account(evm.env.state, beneficiary).balance
     originator_balance = get_account(evm.env.state, originator).balance
 

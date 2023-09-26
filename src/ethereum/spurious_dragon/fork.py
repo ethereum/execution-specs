@@ -457,6 +457,7 @@ def apply_body(
             time=block_time,
             difficulty=block_difficulty,
             state=state,
+            traces=[],
         )
 
         gas_used, logs = process_transaction(env, tx)

@@ -88,4 +88,5 @@ def prepare_message(
         current_target=current_target,
         code_address=code_address,
         should_transfer_value=should_transfer_value,
+        parent_evm=None,
     )

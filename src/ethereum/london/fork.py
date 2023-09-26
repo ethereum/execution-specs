@@ -584,6 +584,7 @@ def apply_body(
             difficulty=block_difficulty,
             state=state,
             chain_id=chain_id,
+            traces=[],
         )
 
         gas_used, logs, has_erred = process_transaction(env, tx)

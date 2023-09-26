@@ -487,6 +487,7 @@ def apply_body(
             prev_randao=prev_randao,
             state=state,
             chain_id=chain_id,
+            traces=[],
         )
 
         gas_used, logs, has_erred = process_transaction(env, tx)

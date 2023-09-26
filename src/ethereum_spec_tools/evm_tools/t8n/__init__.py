@@ -8,7 +8,7 @@ import os
 import sys
 from typing import Any
 
-from ethereum import rlp
+from ethereum import rlp, trace
 from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum_spec_tools.forks import Hardfork
@@ -21,6 +21,7 @@ from ..utils import (
     parse_hex_or_int,
 )
 from .env import Env
+from .evm_trace import evm_trace, output_traces
 from .t8n_types import Alloc, Result, Txs
 
 
@@ -62,24 +63,12 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
         "--state.reward", dest="state_reward", type=int, default=0
     )
     # TODO: Add support for the following trace options
-    t8n_parser.add_argument(
-        "--trace.memory", dest="trace_memory", type=bool, default=False
-    )
-    t8n_parser.add_argument(
-        "--trace.nomemory", dest="trace_nomemory", type=bool, default=True
-    )
-    t8n_parser.add_argument(
-        "--trace.noreturndata",
-        dest="trace_noreturndata",
-        type=bool,
-        default=True,
-    )
-    t8n_parser.add_argument(
-        "--trace.nostack ", dest="trace_nostack ", type=bool, default=False
-    )
-    t8n_parser.add_argument(
-        "--trace.returndata", dest="trace_returndata", type=bool, default=False
-    )
+    t8n_parser.add_argument("--trace", action="store_true")
+    t8n_parser.add_argument("--trace.memory", action="store_true")
+    t8n_parser.add_argument("--trace.nomemory", action="store_true")
+    t8n_parser.add_argument("--trace.noreturndata", action="store_true")
+    t8n_parser.add_argument("--trace.nostack ", action="store_true")
+    t8n_parser.add_argument("--trace.returndata", action="store_true")
 
 
 class T8N(Load):
@@ -102,6 +91,8 @@ class T8N(Load):
             self.forks, self.options, stdin
         )
 
+        if self.options.trace:
+            trace.evm_trace = evm_trace
         self.logger = get_stream_logger("T8N")
 
         super().__init__(
@@ -230,6 +221,8 @@ class T8N(Load):
             kw_arguments["caller"] = kw_arguments["origin"] = sender_address
             kw_arguments["gas_price"] = tx.gas_price
 
+        kw_arguments["traces"] = []
+
         return self.vm.Environment(**kw_arguments)
 
     def tx_trie_set(self, trie: Any, index: Any, tx: Any) -> Any:
@@ -340,6 +333,11 @@ class T8N(Load):
                 gas_consumed = process_transaction_return[0]
                 gas_available -= gas_consumed
 
+                if self.options.trace:
+                    tx_hash = self.txs.get_tx_hash(tx)
+                    output_traces(
+                        env.traces, i, tx_hash, self.options.output_basedir
+                    )
                 self.tx_trie_set(transactions_trie, i, tx)
 
                 receipt = self.make_receipt(

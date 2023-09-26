@@ -44,6 +44,7 @@ class Environment:
     difficulty: Uint
     state: State
     chain_id: U64
+    traces: List[dict]
 
 
 @dataclass
@@ -65,6 +66,7 @@ class Message:
     is_static: bool
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
+    parent_evm: Optional["Evm"]
 
 
 @dataclass

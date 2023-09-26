@@ -176,6 +176,7 @@ def test_transaction_with_insufficient_balance_for_value() -> None:
         time=genesis_block.header.timestamp,
         difficulty=genesis_block.header.difficulty,
         state=state,
+        traces=[],
     )
 
     with pytest.raises(InvalidBlock):
