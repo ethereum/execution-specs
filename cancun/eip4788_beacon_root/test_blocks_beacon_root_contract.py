@@ -440,7 +440,7 @@ def test_beacon_root_contract_deploy(
         ),
         v=0x1B,
         r=0x539,
-        s=0x1337005F06A8B6A0A0B1F4,
+        s=0x1B9B6EB1F0,
         protected=False,
     ).with_signature_and_sender()
     deployer_address = deploy_tx.sender
