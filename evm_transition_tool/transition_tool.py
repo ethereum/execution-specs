@@ -241,8 +241,7 @@ class TransitionTool:
         """
         traces: List[List[Dict]] = []
         for i, r in enumerate(receipts):
-            h = r["transactionHash"]
-            trace_file_name = f"trace-{i}-{h}.jsonl"
+            trace_file_name = f"trace-{i}-{r['transactionHash']}.jsonl"
             if debug_output_path:
                 shutil.copy(
                     os.path.join(temp_dir.name, trace_file_name),
@@ -296,12 +295,6 @@ class TransitionTool:
         ]
 
         if self.trace:
-            if str(self.default_binary) == "ethereum-spec-evm":
-                raise Exception(
-                    "`ethereum-spec-evm` tracing is not currently implemented in "
-                    "execution-spec-tests, see "
-                    "https://github.com/ethereum/execution-spec-tests/issues/267."
-                )
             temp_dir = tempfile.TemporaryDirectory()
             args.append("--trace")
             args.append(f"--output.basedir={temp_dir.name}")
