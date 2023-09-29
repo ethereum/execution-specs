@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import sys
+from functools import partial
 from typing import Any
 
 from ethereum import rlp, trace
@@ -62,12 +63,11 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     t8n_parser.add_argument(
         "--state.reward", dest="state_reward", type=int, default=0
     )
-    # TODO: Add support for the following trace options
     t8n_parser.add_argument("--trace", action="store_true")
     t8n_parser.add_argument("--trace.memory", action="store_true")
     t8n_parser.add_argument("--trace.nomemory", action="store_true")
     t8n_parser.add_argument("--trace.noreturndata", action="store_true")
-    t8n_parser.add_argument("--trace.nostack ", action="store_true")
+    t8n_parser.add_argument("--trace.nostack", action="store_true")
     t8n_parser.add_argument("--trace.returndata", action="store_true")
 
 
@@ -92,7 +92,15 @@ class T8N(Load):
         )
 
         if self.options.trace:
-            trace.evm_trace = evm_trace
+            trace_memory = getattr(self.options, "trace.memory", False)
+            trace_stack = not getattr(self.options, "trace.nostack", False)
+            trace_return_data = getattr(self.options, "trace.returndata")
+            trace.evm_trace = partial(
+                evm_trace,
+                trace_memory=trace_memory,
+                trace_stack=trace_stack,
+                trace_return_data=trace_return_data,
+            )
         self.logger = get_stream_logger("T8N")
 
         super().__init__(

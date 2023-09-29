@@ -97,7 +97,13 @@ TraceEvent = Union[
 ]
 
 
-def evm_trace(evm: object, event: TraceEvent) -> None:
+def evm_trace(
+    evm: object,
+    event: TraceEvent,
+    trace_memory: bool = False,
+    trace_stack: bool = True,
+    trace_return_data: bool = False,
+) -> None:
     """
     Create a trace of the event.
     """
