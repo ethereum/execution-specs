@@ -4,14 +4,7 @@ The module implements the raw EVM tracer for t8n.
 import json
 import os
 from dataclasses import dataclass, fields
-from typing import (
-    List,
-    Optional,
-    Protocol,
-    TextIO,
-    Union,
-    runtime_checkable,
-)
+from typing import List, Optional, Protocol, TextIO, Union, runtime_checkable
 
 from ethereum.base_types import U256, Bytes, Uint
 from ethereum.trace import (
