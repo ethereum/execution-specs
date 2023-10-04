@@ -20,6 +20,7 @@ from ..common import (
     FixtureHeader,
     Hash,
     HeaderNonce,
+    InvalidFixtureBlock,
     Number,
     Transaction,
     ZeroPaddedHexNumber,
@@ -128,7 +129,7 @@ class StateTest(BaseTest):
         chain_id=1,
         eips: Optional[List[int]] = None,
     ) -> Tuple[
-        Optional[List[FixtureBlock]],
+        Optional[List[FixtureBlock | InvalidFixtureBlock]],
         Optional[List[Optional[FixtureEngineNewPayload]]],
         Hash,
         Dict[str, Any],

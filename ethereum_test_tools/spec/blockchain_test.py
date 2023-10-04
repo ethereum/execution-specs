@@ -22,6 +22,7 @@ from ..common import (
     FixtureHeader,
     Hash,
     HeaderNonce,
+    InvalidFixtureBlock,
     Number,
     ZeroPaddedHexNumber,
     to_json,
@@ -121,7 +122,13 @@ class BlockchainTest(BaseTest):
         previous_head: Hash,
         chain_id=1,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[FixtureBlock, Optional[FixtureEngineNewPayload], Environment, Dict[str, Any], Hash]:
+    ) -> Tuple[
+        FixtureBlock | InvalidFixtureBlock,
+        Optional[FixtureEngineNewPayload],
+        Environment,
+        Dict[str, Any],
+        Hash,
+    ]:
         """
         Produces a block based on the previous environment and allocation.
         If the block is an invalid block, the environment and allocation
@@ -244,10 +251,15 @@ class BlockchainTest(BaseTest):
                 )
             else:
                 return (
-                    FixtureBlock(
+                    InvalidFixtureBlock(
                         rlp=rlp,
-                        block_number=Number(header.number),
                         expected_exception=block.exception,
+                        rlp_decoded=FixtureBlock(
+                            block_header=header,
+                            txs=txs,
+                            ommers=[],
+                            withdrawals=env.withdrawals,
+                        ),
                     ),
                     fixture_payload,
                     previous_env,
@@ -256,7 +268,7 @@ class BlockchainTest(BaseTest):
                 )
         else:
             return (
-                FixtureBlock(
+                InvalidFixtureBlock(
                     rlp=Bytes(block.rlp),
                     expected_exception=block.exception,
                 ),
@@ -275,7 +287,7 @@ class BlockchainTest(BaseTest):
         chain_id=1,
         eips: Optional[List[int]] = None,
     ) -> Tuple[
-        Optional[List[FixtureBlock]],
+        Optional[List[FixtureBlock | InvalidFixtureBlock]],
         Optional[List[Optional[FixtureEngineNewPayload]]],
         Hash,
         Dict[str, Any],
@@ -288,7 +300,9 @@ class BlockchainTest(BaseTest):
         """
         alloc = to_json(pre)
         env = Environment.from_parent_header(genesis)
-        fixture_blocks: List[FixtureBlock] | None = [] if not self.hive_enabled else None
+        fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] | None = (
+            [] if not self.hive_enabled else None
+        )
 
         fixture_payloads: List[Optional[FixtureEngineNewPayload]] | None = (
             [] if self.hive_enabled else None
@@ -312,7 +326,7 @@ class BlockchainTest(BaseTest):
                 fixture_blocks.append(fixture_block)
             if self.hive_enabled and fixture_payloads is not None:
                 fixture_payloads.append(fixture_payload)
-            if block.exception is None:
+            if isinstance(fixture_block, FixtureBlock):
                 last_valid = fixture_block.block_header
 
         if self.hive_enabled and last_valid:

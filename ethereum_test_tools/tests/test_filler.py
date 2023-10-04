@@ -161,8 +161,6 @@ def test_fill_state_test(fork: Fork, expected_json_file: str, enable_hive: bool)
 
     fixture_json = to_json(fixture)
     remove_info(fixture_json)
-    with open("gen.json", "w") as fr:
-        json.dump(fixture_json, fr, indent=4)
     assert fixture_json == expected
 
 

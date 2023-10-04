@@ -20,6 +20,7 @@ from ..common import (
     FixtureEngineNewPayload,
     FixtureHeader,
     Hash,
+    InvalidFixtureBlock,
     Transaction,
     withdrawals_root,
 )
@@ -129,7 +130,7 @@ class BaseTest:
         chain_id: int = 1,
         eips: Optional[List[int]] = None,
     ) -> Tuple[
-        Optional[List[FixtureBlock]],
+        Optional[List[FixtureBlock | InvalidFixtureBlock]],
         Optional[List[Optional[FixtureEngineNewPayload]]],
         Hash,
         Dict[str, Any],

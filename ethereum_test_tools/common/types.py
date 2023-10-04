@@ -2639,6 +2639,7 @@ class FixtureBlock:
     """
 
     rlp: Bytes = field(
+        default=None,
         json_encoder=JSONEncoder.Field(),
     )
     block_header: Optional[FixtureHeader] = field(
@@ -2683,6 +2684,30 @@ class FixtureBlock:
             cast_type=lambda withdrawals: [
                 FixtureWithdrawal.from_withdrawal(w) for w in withdrawals
             ],
+            to_json=True,
+        ),
+    )
+
+
+@dataclass(kw_only=True)
+class InvalidFixtureBlock:
+    """
+    Representation of an invalid Ethereum block within a test Fixture.
+    """
+
+    rlp: Bytes = field(
+        json_encoder=JSONEncoder.Field(),
+    )
+    expected_exception: Optional[str] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="expectException",
+        ),
+    )
+    rlp_decoded: FixtureBlock = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="rlp_decoded",
             to_json=True,
         ),
     )
@@ -2763,7 +2788,7 @@ class Fixture(BaseFixture):
             to_json=True,
         ),
     )
-    blocks: Optional[List[FixtureBlock]] = field(
+    blocks: Optional[List[FixtureBlock | InvalidFixtureBlock]] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
             name="blocks",
