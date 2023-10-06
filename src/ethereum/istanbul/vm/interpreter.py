@@ -131,9 +131,7 @@ def process_message_call(
         #     evm.accounts_to_delete
         # )
 
-    tx_end = TransactionEnd(
-        message.gas - evm.gas_left, evm.output, evm.has_erred
-    )
+    tx_end = TransactionEnd(message.gas - evm.gas_left, evm.output, evm.error)
     evm_trace(evm, tx_end)
 
     return MessageCallOutput(
@@ -187,10 +185,11 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         try:
             charge_gas(evm, contract_code_gas)
             ensure(len(contract_code) <= MAX_CODE_SIZE, OutOfGasError)
-        except ExceptionalHalt:
+        except ExceptionalHalt as error:
             rollback_transaction(env.state)
             evm.gas_left = Uint(0)
             evm.output = b""
+            evm.error = error
             evm.has_erred = True
         else:
             set_code(env.state, message.current_target, contract_code)
@@ -297,13 +296,14 @@ def execute_code(message: Message, env: Environment) -> Evm:
 
         evm_trace(evm, EvmStop(Ops.STOP))
 
-    except ExceptionalHalt:
-        evm_trace(evm, OpException())
+    except ExceptionalHalt as error:
+        evm_trace(evm, OpException(error))
         evm.gas_left = Uint(0)
         evm.output = b""
+        evm.error = error
         evm.has_erred = True
-    except Revert as e:
-        evm_trace(evm, OpException())
-        evm.error = e
+    except Revert as error:
+        evm_trace(evm, OpException(error))
+        evm.error = error
         evm.has_erred = True
     return evm
