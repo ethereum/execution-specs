@@ -296,7 +296,7 @@
                     "storage": {}
                 }
             }
-        }      
+        }
     },
     "solc=padding_version": {
         "000/my_blockchain_test/Shanghai": {
@@ -596,5 +596,5 @@
                 }
             }
         }
-    } 
+    }
 }

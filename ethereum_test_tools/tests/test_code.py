@@ -652,6 +652,5 @@ def test_switch(tx_data: bytes, switch_bytecode: bytes, expected_storage: Mappin
         t8n=GethTransitionTool(),
         test_spec=state_test,
         fork=Shanghai,
-        engine="NoProof",
         spec=None,
     )

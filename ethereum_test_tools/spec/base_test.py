@@ -1,11 +1,11 @@
 """
-Generic Ethereum test base class
+Base test class and helper functions for Ethereum state and blockchain tests.
 """
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from itertools import count
 from os import path
-from typing import Any, Callable, Dict, Generator, Iterator, List, Mapping, Optional, Tuple
+from typing import Any, Callable, Dict, Generator, Iterator, List, Mapping, Optional
 
 from ethereum_test_forks import Fork
 from evm_transition_tool import TransitionTool
@@ -13,14 +13,9 @@ from evm_transition_tool import TransitionTool
 from ..common import (
     Account,
     Address,
-    Alloc,
-    Bytes,
     Environment,
-    FixtureBlock,
-    FixtureEngineNewPayload,
-    FixtureHeader,
-    Hash,
-    InvalidFixtureBlock,
+    Fixture,
+    HiveFixture,
     Transaction,
     withdrawals_root,
 )
@@ -110,32 +105,24 @@ class BaseTest:
     t8n_call_counter: Iterator[int] = field(init=False, default_factory=count)
 
     @abstractmethod
-    def make_genesis(
+    def make_fixture(
         self,
         t8n: TransitionTool,
         fork: Fork,
-    ) -> Tuple[Alloc, Bytes, FixtureHeader]:
+        eips: Optional[List[int]] = None,
+    ) -> Fixture:
         """
-        Create a genesis block from the test definition.
+        Generate  blockchain that must be executed sequentially during test.
         """
         pass
 
     @abstractmethod
-    def make_blocks(
+    def make_hive_fixture(
         self,
         t8n: TransitionTool,
-        genesis: FixtureHeader,
-        pre: Alloc,
         fork: Fork,
-        chain_id: int = 1,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[
-        Optional[List[FixtureBlock | InvalidFixtureBlock]],
-        Optional[List[Optional[FixtureEngineNewPayload]]],
-        Hash,
-        Dict[str, Any],
-        Optional[int],
-    ]:
+    ) -> HiveFixture:
         """
         Generate the blockchain that must be executed sequentially during test.
         """

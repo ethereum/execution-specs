@@ -946,7 +946,6 @@ class Environment:
             to_json=True,
         ),
     )
-
     base_fee: Optional[NumberConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
@@ -961,7 +960,6 @@ class Environment:
             cast_type=Number,
         ),
     )
-
     parent_timestamp: Optional[NumberConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
@@ -1033,7 +1031,7 @@ class Environment:
         ),
     )
     extra_data: Optional[BytesConvertible] = field(
-        default=None,
+        default=b"\x00",
         json_encoder=JSONEncoder.Field(
             skip=True,
         ),
@@ -2028,7 +2026,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="parentHash"),
     )
-
     ommers_hash: Hash = header_field(
         source=HeaderFieldSource(
             parse_type=Hash,
@@ -2037,7 +2034,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="uncleHash"),
     )
-
     coinbase: Address = header_field(
         source=HeaderFieldSource(
             parse_type=Address,
@@ -2045,7 +2041,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(),
     )
-
     state_root: Hash = header_field(
         source=HeaderFieldSource(
             parse_type=Hash,
@@ -2053,7 +2048,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="stateRoot"),
     )
-
     transactions_root: Hash = header_field(
         source=HeaderFieldSource(
             parse_type=Hash,
@@ -2061,7 +2055,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="transactionsTrie"),
     )
-
     receipt_root: Hash = header_field(
         source=HeaderFieldSource(
             parse_type=Hash,
@@ -2069,7 +2062,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="receiptTrie"),
     )
-
     bloom: Bloom = header_field(
         source=HeaderFieldSource(
             parse_type=Bloom,
@@ -2077,7 +2069,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(),
     )
-
     difficulty: int = header_field(
         source=HeaderFieldSource(
             parse_type=Number,
@@ -2087,7 +2078,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(cast_type=ZeroPaddedHexNumber),
     )
-
     number: int = header_field(
         source=HeaderFieldSource(
             parse_type=Number,
@@ -2095,7 +2085,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(cast_type=ZeroPaddedHexNumber),
     )
-
     gas_limit: int = header_field(
         source=HeaderFieldSource(
             parse_type=Number,
@@ -2103,7 +2092,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="gasLimit", cast_type=ZeroPaddedHexNumber),
     )
-
     gas_used: int = header_field(
         source=HeaderFieldSource(
             parse_type=Number,
@@ -2111,7 +2099,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="gasUsed", cast_type=ZeroPaddedHexNumber),
     )
-
     timestamp: int = header_field(
         source=HeaderFieldSource(
             parse_type=Number,
@@ -2119,7 +2106,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(cast_type=ZeroPaddedHexNumber),
     )
-
     extra_data: Bytes = header_field(
         source=HeaderFieldSource(
             parse_type=Bytes,
@@ -2128,7 +2114,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="extraData"),
     )
-
     mix_digest: Hash = header_field(
         source=HeaderFieldSource(
             parse_type=Hash,
@@ -2137,7 +2122,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="mixHash"),
     )
-
     nonce: HeaderNonce = header_field(
         source=HeaderFieldSource(
             parse_type=HeaderNonce,
@@ -2145,7 +2129,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(),
     )
-
     base_fee: Optional[int] = header_field(
         default=None,
         source=HeaderFieldSource(
@@ -2156,7 +2139,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="baseFeePerGas", cast_type=ZeroPaddedHexNumber),
     )
-
     withdrawals_root: Optional[Hash] = header_field(
         default=None,
         source=HeaderFieldSource(
@@ -2166,7 +2148,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="withdrawalsRoot"),
     )
-
     blob_gas_used: Optional[int] = header_field(
         default=None,
         source=HeaderFieldSource(
@@ -2176,7 +2157,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="blobGasUsed", cast_type=ZeroPaddedHexNumber),
     )
-
     excess_blob_gas: Optional[int] = header_field(
         default=None,
         source=HeaderFieldSource(
@@ -2186,7 +2166,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="excessBlobGas", cast_type=ZeroPaddedHexNumber),
     )
-
     beacon_root: Optional[Hash] = header_field(
         default=None,
         source=HeaderFieldSource(
@@ -2196,7 +2175,6 @@ class FixtureHeader:
         ),
         json_encoder=JSONEncoder.Field(name="parentBeaconBlockRoot"),
     )
-
     hash: Optional[Hash] = header_field(
         default=None,
         source=HeaderFieldSource(
@@ -2576,13 +2554,13 @@ class FixtureEngineNewPayload:
             cast_type=Hash,
         ),
     )
-    version: int = field(
-        json_encoder=JSONEncoder.Field(),
-    )
     valid: bool = field(
         json_encoder=JSONEncoder.Field(
             skip_string_convert=True,
         ),
+    )
+    version: int = field(
+        json_encoder=JSONEncoder.Field(),
     )
     error_code: Optional[EngineAPIError] = field(
         default=None,
@@ -2638,6 +2616,14 @@ class FixtureBlock:
     Representation of an Ethereum block within a test Fixture.
     """
 
+    @staticmethod
+    def _txs_encoder(txs: List[Transaction]) -> List[FixtureTransaction]:
+        return [FixtureTransaction.from_transaction(tx) for tx in txs]
+
+    @staticmethod
+    def _withdrawals_encoder(withdrawals: List[Withdrawal]) -> List[FixtureWithdrawal]:
+        return [FixtureWithdrawal.from_withdrawal(w) for w in withdrawals]
+
     rlp: Bytes = field(
         default=None,
         json_encoder=JSONEncoder.Field(),
@@ -2666,7 +2652,7 @@ class FixtureBlock:
         default=None,
         json_encoder=JSONEncoder.Field(
             name="transactions",
-            cast_type=lambda txs: [FixtureTransaction.from_transaction(tx) for tx in txs],
+            cast_type=_txs_encoder,
             to_json=True,
         ),
     )
@@ -2681,9 +2667,7 @@ class FixtureBlock:
         default=None,
         json_encoder=JSONEncoder.Field(
             name="withdrawals",
-            cast_type=lambda withdrawals: [
-                FixtureWithdrawal.from_withdrawal(w) for w in withdrawals
-            ],
+            cast_type=_withdrawals_encoder,
             to_json=True,
         ),
     )
@@ -2716,7 +2700,7 @@ class InvalidFixtureBlock:
 @dataclass(kw_only=True)
 class BaseFixture:
     """
-    Base Ethereum test fixture class.
+    Base Ethereum test fixture fields class.
     """
 
     info: Dict[str, str] = field(
@@ -2726,15 +2710,15 @@ class BaseFixture:
             to_json=True,
         ),
     )
-    fork: str = field(
-        json_encoder=JSONEncoder.Field(
-            name="network",
-        ),
-    )
     name: str = field(
         default="",
         json_encoder=JSONEncoder.Field(
             skip=True,
+        ),
+    )
+    fork: str = field(
+        json_encoder=JSONEncoder.Field(
+            name="network",
         ),
     )
     _json: Dict[str, Any] | None = field(
@@ -2795,7 +2779,7 @@ class Fixture(BaseFixture):
             to_json=True,
         ),
     )
-    head: Hash = field(
+    last_block_hash: Hash = field(
         json_encoder=JSONEncoder.Field(
             name="lastblockhash",
         ),
@@ -2816,6 +2800,7 @@ class Fixture(BaseFixture):
         ),
     )
     seal_engine: str = field(
+        default="NoProof",
         json_encoder=JSONEncoder.Field(
             name="sealEngine",
         ),

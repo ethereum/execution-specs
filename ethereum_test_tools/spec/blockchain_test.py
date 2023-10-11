@@ -1,5 +1,5 @@
 """
-Blockchain test filler.
+Ethereum blockchain test spec definition and filler.
 """
 
 from dataclasses import dataclass, field
@@ -17,14 +17,18 @@ from ..common import (
     Bytes,
     EmptyTrieRoot,
     Environment,
+    Fixture,
     FixtureBlock,
     FixtureEngineNewPayload,
     FixtureHeader,
     Hash,
     HeaderNonce,
+    HiveFixture,
     InvalidFixtureBlock,
     Number,
+    Transaction,
     ZeroPaddedHexNumber,
+    alloc_to_accounts,
     to_json,
     withdrawals_root,
 )
@@ -44,6 +48,7 @@ class BlockchainTest(BaseTest):
     blocks: List[Block]
     genesis_environment: Environment = field(default_factory=Environment)
     tag: str = ""
+    chain_id: int = 1
 
     @classmethod
     def pytest_parameter_name(cls) -> str:
@@ -65,7 +70,7 @@ class BlockchainTest(BaseTest):
         fork: Fork,
     ) -> Tuple[Alloc, Bytes, FixtureHeader]:
         """
-        Create a genesis block from the state test definition.
+        Create a genesis block from the blockchain test definition.
         """
         env = self.genesis_environment.set_fork_requirements(fork)
         if env.withdrawals is not None:
@@ -73,7 +78,10 @@ class BlockchainTest(BaseTest):
         if env.beacon_root is not None:
             assert Hash(env.beacon_root) == Hash(0), "beacon_root must be empty at genesis"
 
-        pre_alloc = Alloc(fork.pre_allocation(block_number=0, timestamp=Number(env.timestamp)))
+        pre_alloc = Alloc(
+            fork.pre_allocation(block_number=0, timestamp=Number(env.timestamp)),
+        )
+
         new_alloc, state_root = t8n.calc_state_root(
             alloc=to_json(Alloc.merge(pre_alloc, Alloc(self.pre))),
             fork=fork,
@@ -112,41 +120,17 @@ class BlockchainTest(BaseTest):
 
         return Alloc(new_alloc), genesis_rlp, genesis
 
-    def make_block(
+    def generate_block_data(
         self,
         t8n: TransitionTool,
         fork: Fork,
         block: Block,
         previous_env: Environment,
         previous_alloc: Dict[str, Any],
-        previous_head: Hash,
-        chain_id=1,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[
-        FixtureBlock | InvalidFixtureBlock,
-        Optional[FixtureEngineNewPayload],
-        Environment,
-        Dict[str, Any],
-        Hash,
-    ]:
+    ) -> Tuple[FixtureHeader, Bytes, List[Transaction], Dict[str, Any], Environment]:
         """
-        Produces a block based on the previous environment and allocation.
-        If the block is an invalid block, the environment and allocation
-        returned are the same as passed as parameters.
-        Raises exception on invalid test behavior.
-
-        Returns
-        -------
-            FixtureBlock: Block to be appended to the fixture.
-            Environment: Environment for the next block to produce.
-                If the produced block is invalid, this is exactly the same
-                environment as the one passed as parameter.
-            Dict[str, Any]: Allocation for the next block to produce.
-                If the produced block is invalid, this is exactly the same
-                allocation as the one passed as parameter.
-            str: Hash of the head of the chain, only updated if the produced
-                block is not invalid.
-
+        Generate common block data for both make_fixture and make_hive_fixture.
         """
         if block.rlp and block.exception is not None:
             raise Exception(
@@ -155,198 +139,199 @@ class BlockchainTest(BaseTest):
                 + "to produce an exception"
             )
 
-        if block.rlp is None:
-            # This is the most common case, the RLP needs to be constructed
-            # based on the transactions to be included in the block.
-            # Set the environment according to the block to execute.
-            env = block.set_environment(previous_env)
-            env = env.set_fork_requirements(fork)
+        env = block.set_environment(previous_env)
+        env = env.set_fork_requirements(fork)
 
-            txs = (
-                [tx.with_signature_and_sender() for tx in block.txs]
-                if block.txs is not None
-                else []
-            )
+        txs = [tx.with_signature_and_sender() for tx in block.txs] if block.txs is not None else []
 
-            next_alloc, result = t8n.evaluate(
-                alloc=previous_alloc,
-                txs=to_json(txs),
-                env=to_json(env),
-                fork_name=fork.fork(
-                    block_number=Number(env.number), timestamp=Number(env.timestamp)
-                ),
-                chain_id=chain_id,
-                reward=fork.get_reward(Number(env.number), Number(env.timestamp)),
-                eips=eips,
-                debug_output_path=self.get_next_transition_tool_output_path(),
-            )
-            try:
-                rejected_txs = verify_transactions(txs, result)
-                verify_result(result, env)
-            except Exception as e:
-                print_traces(t8n.get_traces())
-                pprint(result)
-                pprint(previous_alloc)
-                pprint(next_alloc)
-                raise e
-
-            if len(rejected_txs) > 0 and block.exception is None:
-                print_traces(t8n.get_traces())
-                raise Exception(
-                    "one or more transactions in `BlockchainTest` are "
-                    + "intrinsically invalid, but the block was not expected "
-                    + "to be invalid. Please verify whether the transaction "
-                    + "was indeed expected to fail and add the proper "
-                    + "`block.exception`"
-                )
-            env.extra_data = block.extra_data
-            header = FixtureHeader.collect(
-                fork=fork,
-                transition_tool_result=result,
-                environment=env,
-            )
-
-            if block.header_verify is not None:
-                # Verify the header after transition tool processing.
-                header.verify(block.header_verify)
-
-            if block.rlp_modifier is not None:
-                # Modify any parameter specified in the `rlp_modifier` after
-                # transition tool processing.
-                header = header.join(block.rlp_modifier)
-
-            rlp, header.hash = header.build(
-                txs=txs,
-                ommers=[],
-                withdrawals=env.withdrawals,
-            )
-
-            fixture_payload = (
-                FixtureEngineNewPayload.from_fixture_header(
-                    fork=fork,
-                    header=header,
-                    transactions=txs,
-                    withdrawals=env.withdrawals,
-                    valid=block.exception is None,
-                    error_code=block.engine_api_error_code,
-                )
-                if self.hive_enabled
-                else None
-            )
-
-            if block.exception is None:
-                return (
-                    FixtureBlock(
-                        rlp=rlp,
-                        block_header=header,
-                        block_number=Number(header.number),
-                        txs=txs,
-                        ommers=[],
-                        withdrawals=env.withdrawals,
-                    ),
-                    fixture_payload,
-                    env.apply_new_parent(header),
-                    next_alloc,
-                    header.hash,
-                )
-            else:
-                return (
-                    InvalidFixtureBlock(
-                        rlp=rlp,
-                        expected_exception=block.exception,
-                        rlp_decoded=FixtureBlock(
-                            block_header=header,
-                            txs=txs,
-                            ommers=[],
-                            withdrawals=env.withdrawals,
-                        ),
-                    ),
-                    fixture_payload,
-                    previous_env,
-                    previous_alloc,
-                    previous_head,
-                )
-        else:
-            return (
-                InvalidFixtureBlock(
-                    rlp=Bytes(block.rlp),
-                    expected_exception=block.exception,
-                ),
-                None,
-                previous_env,
-                previous_alloc,
-                previous_head,
-            )
-
-    def make_blocks(
-        self,
-        t8n: TransitionTool,
-        genesis: FixtureHeader,
-        pre: Alloc,
-        fork: Fork,
-        chain_id=1,
-        eips: Optional[List[int]] = None,
-    ) -> Tuple[
-        Optional[List[FixtureBlock | InvalidFixtureBlock]],
-        Optional[List[Optional[FixtureEngineNewPayload]]],
-        Hash,
-        Dict[str, Any],
-        Optional[int],
-    ]:
-        """
-        Create a block list from the blockchain test definition.
-        Performs checks against the expected behavior of the test.
-        Raises exception on invalid test behavior.
-        """
-        alloc = to_json(pre)
-        env = Environment.from_parent_header(genesis)
-        fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] | None = (
-            [] if not self.hive_enabled else None
+        next_alloc, result = t8n.evaluate(
+            alloc=previous_alloc,
+            txs=to_json(txs),
+            env=to_json(env),
+            fork_name=fork.fork(block_number=Number(env.number), timestamp=Number(env.timestamp)),
+            chain_id=self.chain_id,
+            reward=fork.get_reward(Number(env.number), Number(env.timestamp)),
+            eips=eips,
+            debug_output_path=self.get_next_transition_tool_output_path(),
         )
 
-        fixture_payloads: List[Optional[FixtureEngineNewPayload]] | None = (
-            [] if self.hive_enabled else None
+        try:
+            rejected_txs = verify_transactions(txs, result)
+            verify_result(result, env)
+        except Exception as e:
+            print_traces(t8n.get_traces())
+            pprint(result)
+            pprint(previous_alloc)
+            pprint(next_alloc)
+            raise e
+
+        if len(rejected_txs) > 0 and block.exception is None:
+            print_traces(t8n.get_traces())
+            raise Exception(
+                "one or more transactions in `BlockchainTest` are "
+                + "intrinsically invalid, but the block was not expected "
+                + "to be invalid. Please verify whether the transaction "
+                + "was indeed expected to fail and add the proper "
+                + "`block.exception`"
+            )
+
+        env.extra_data = block.extra_data
+        header = FixtureHeader.collect(
+            fork=fork,
+            transition_tool_result=result,
+            environment=env,
         )
-        fcu_version: Optional[int] = None
-        last_valid: Optional[FixtureHeader] = None
 
-        head = genesis.hash if genesis.hash is not None else Hash(0)
-        for block in self.blocks:
-            fixture_block, fixture_payload, env, alloc, head = self.make_block(
-                t8n=t8n,
-                fork=fork,
-                block=block,
-                previous_env=env,
-                previous_alloc=alloc,
-                previous_head=head,
-                chain_id=chain_id,
-                eips=eips,
-            )
-            if not self.hive_enabled and fixture_blocks is not None:
-                fixture_blocks.append(fixture_block)
-            if self.hive_enabled and fixture_payloads is not None:
-                fixture_payloads.append(fixture_payload)
-            if isinstance(fixture_block, FixtureBlock):
-                last_valid = fixture_block.block_header
+        if block.header_verify is not None:
+            # Verify the header after transition tool processing.
+            header.verify(block.header_verify)
 
-        if self.hive_enabled and last_valid:
-            fcu_version = fork.engine_forkchoice_updated_version(
-                block_number=last_valid.number,
-                timestamp=last_valid.timestamp,
-            )
+        if block.rlp_modifier is not None:
+            # Modify any parameter specified in the `rlp_modifier` after
+            # transition tool processing.
+            header = header.join(block.rlp_modifier)
 
+        rlp, header.hash = header.build(
+            txs=txs,
+            ommers=[],
+            withdrawals=env.withdrawals,
+        )
+
+        return header, rlp, txs, next_alloc, env
+
+    def network_info(self, fork, eips=None):
+        """
+        Returns fixture network information for the fork & EIP/s.
+        """
+        return "+".join([fork.name()] + [str(eip) for eip in eips]) if eips else fork.name()
+
+    def verify_post_state(self, t8n, alloc):
+        """
+        Verifies the post alloc after all block/s or payload/s are generated.
+        """
         try:
             verify_post_alloc(self.post, alloc)
         except Exception as e:
             print_traces(t8n.get_traces())
             raise e
 
-        return (
-            fixture_blocks,
-            fixture_payloads,
-            head,
-            alloc,
-            fcu_version,
+    def make_fixture(
+        self,
+        t8n: TransitionTool,
+        fork: Fork,
+        eips: Optional[List[int]] = None,
+    ) -> Fixture:
+        """
+        Create a fixture from the blockchain test definition.
+        """
+        fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] = []
+
+        pre, genesis_rlp, genesis = self.make_genesis(t8n, fork)
+
+        alloc = to_json(pre)
+        env = Environment.from_parent_header(genesis)
+        head = genesis.hash if genesis.hash is not None else Hash(0)
+
+        for block in self.blocks:
+            header, rlp, txs, new_alloc, new_env = self.generate_block_data(
+                t8n=t8n, fork=fork, block=block, previous_env=env, previous_alloc=alloc, eips=eips
+            )
+            if block.rlp is None:
+                # This is the most common case, the RLP needs to be constructed
+                # based on the transactions to be included in the block.
+                # Set the environment according to the block to execute.
+                if block.exception is None:
+                    fixture_blocks.append(
+                        FixtureBlock(
+                            rlp=rlp,
+                            block_header=header,
+                            block_number=Number(header.number),
+                            txs=txs,
+                            ommers=[],
+                            withdrawals=new_env.withdrawals,
+                        ),
+                    )
+                    # Update env, alloc and last block hash for the next block.
+                    alloc = new_alloc
+                    env = new_env.apply_new_parent(header)
+                    head = header.hash if header.hash is not None else Hash(0)
+                else:
+                    fixture_blocks.append(
+                        InvalidFixtureBlock(
+                            rlp=rlp,
+                            expected_exception=block.exception,
+                            rlp_decoded=FixtureBlock(
+                                block_header=header,
+                                txs=txs,
+                                ommers=[],
+                                withdrawals=new_env.withdrawals,
+                            ),
+                        ),
+                    )
+            else:
+                fixture_blocks.append(
+                    InvalidFixtureBlock(
+                        rlp=Bytes(block.rlp),
+                        expected_exception=block.exception,
+                    ),
+                )
+
+        self.verify_post_state(t8n, alloc)
+        return Fixture(
+            fork=self.network_info(fork, eips),
+            genesis=genesis,
+            genesis_rlp=genesis_rlp,
+            blocks=fixture_blocks,
+            last_block_hash=head,
+            pre_state=pre,
+            post_state=alloc_to_accounts(alloc),
+            name=self.tag,
+        )
+
+    def make_hive_fixture(
+        self,
+        t8n: TransitionTool,
+        fork: Fork,
+        eips: Optional[List[int]] = None,
+    ) -> HiveFixture:
+        """
+        Create a hive fixture from the blocktest definition.
+        """
+        fixture_payloads: List[Optional[FixtureEngineNewPayload]] = []
+
+        pre, _, genesis = self.make_genesis(t8n, fork)
+        alloc = to_json(pre)
+        env = Environment.from_parent_header(genesis)
+
+        for block in self.blocks:
+            header, _, txs, new_alloc, new_env = self.generate_block_data(
+                t8n=t8n, fork=fork, block=block, previous_env=env, previous_alloc=alloc, eips=eips
+            )
+            if block.rlp is None:
+                fixture_payloads.append(
+                    FixtureEngineNewPayload.from_fixture_header(
+                        fork=fork,
+                        header=header,
+                        transactions=txs,
+                        withdrawals=new_env.withdrawals,
+                        valid=block.exception is None,
+                        error_code=block.engine_api_error_code,
+                    )
+                )
+                if block.exception is None:
+                    alloc = new_alloc
+                    env = env.apply_new_parent(header)
+        fcu_version = fork.engine_forkchoice_updated_version(header.number, header.timestamp)
+
+        self.verify_post_state(t8n, alloc)
+        return HiveFixture(
+            fork=self.network_info(fork, eips),
+            genesis=genesis,
+            payloads=fixture_payloads,
+            fcu_version=fcu_version,
+            pre_state=pre,
+            post_state=alloc_to_accounts(alloc),
+            name=self.tag,
         )
 
 
