@@ -6,6 +6,7 @@ https://github.com/ethereum/execution-specs
 
 from pathlib import Path
 from re import compile
+from typing import Optional
 
 from ethereum_test_forks import Constantinople, ConstantinopleFix, Fork
 
@@ -89,6 +90,8 @@ class ExecutionSpecsTransitionTool(GethTransitionTool):
 
     default_binary = Path("ethereum-spec-evm")
     detect_binary_pattern = compile(r"^ethereum-spec-evm\b")
+    statetest_subcommand: Optional[str] = None
+    blocktest_subcommand: Optional[str] = None
 
     def is_fork_supported(self, fork: Fork) -> bool:
         """

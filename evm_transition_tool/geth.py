@@ -3,13 +3,14 @@ Go-ethereum Transition tool interface.
 """
 
 import subprocess
+import textwrap
 from pathlib import Path
 from re import compile
 from typing import Optional
 
 from ethereum_test_forks import Fork
 
-from .transition_tool import TransitionTool
+from .transition_tool import FixtureFormats, TransitionTool, dump_files_to_directory
 
 
 class GethTransitionTool(TransitionTool):
@@ -20,6 +21,8 @@ class GethTransitionTool(TransitionTool):
     default_binary = Path("evm")
     detect_binary_pattern = compile(r"^evm version\b")
     t8n_subcommand: Optional[str] = "t8n"
+    statetest_subcommand: Optional[str] = "statetest"
+    blocktest_subcommand: Optional[str] = "blocktest"
 
     binary: Path
     cached_version: Optional[str] = None
@@ -48,3 +51,58 @@ class GethTransitionTool(TransitionTool):
         If the fork is a transition fork, we want to check the fork it transitions to.
         """
         return fork.fork() in self.help_string
+
+    def verify_fixture(
+        self, fixture_format: FixtureFormats, fixture_path: Path, debug_output_path: Optional[Path]
+    ):
+        """
+        Executes `evm [state|block]test` to verify the fixture at `fixture_path`.
+        """
+        command: list[str] = [str(self.binary)]
+
+        if debug_output_path:
+            command += ["--debug", "--json", "--verbosity", "100"]
+
+        if FixtureFormats.is_state_test(fixture_format):
+            assert self.statetest_subcommand, "statetest subcommand not set"
+            command.append(self.statetest_subcommand)
+        elif FixtureFormats.is_blockchain_test(fixture_format):
+            assert self.blocktest_subcommand, "blocktest subcommand not set"
+            command.append(self.blocktest_subcommand)
+        else:
+            raise Exception(f"Invalid test fixture format: {fixture_format}")
+
+        command.append(str(fixture_path))
+
+        result = subprocess.run(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        if debug_output_path:
+            debug_fixture_path = debug_output_path / fixture_path.name
+            # Use the local copy of the fixture in the debug directory
+            verify_fixtures_call = " ".join(command[:-1]) + f" {debug_fixture_path}"
+            verify_fixtures_script = textwrap.dedent(
+                f"""\
+                #!/bin/bash
+                {verify_fixtures_call}
+                """
+            )
+            dump_files_to_directory(
+                str(debug_output_path),
+                {
+                    "verify_fixtures_args.py": command,
+                    "verify_fixtures_returncode.txt": result.returncode,
+                    "verify_fixtures_stdout.txt": result.stdout.decode(),
+                    "verify_fixtures_stderr.txt": result.stderr.decode(),
+                    "verify_fixtures.sh+x": verify_fixtures_script,
+                },
+            )
+
+        if result.returncode != 0:
+            raise Exception(
+                f"Failed to verify fixture via: '{' '.join(command)}'. "
+                f"Error: '{result.stderr.decode()}'"
+            )
