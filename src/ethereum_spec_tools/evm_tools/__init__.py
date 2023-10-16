@@ -3,6 +3,9 @@ Defines EVM tools for use in the Ethereum specification.
 """
 
 import argparse
+import subprocess
+
+from ethereum import __version__
 
 from .b11r import B11R, b11r_arguments
 from .t8n import T8N, t8n_arguments
@@ -32,12 +35,38 @@ parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
 )
 
+
+def get_git_commit_hash() -> str:
+    """
+    Run the 'git rev-parse HEAD' command to get the commit hash
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=True,
+        )
+
+        # Extract and return the commit hash
+        commit_hash = result.stdout.strip()
+        return commit_hash
+    # Handle errors (e.g., Git not found, not in a Git repository)
+    except FileNotFoundError as e:
+        return str(e)
+    except subprocess.CalledProcessError as e:
+        return "Error: " + str(e)
+
+
+commit_hash = get_git_commit_hash()
+
 # Add -v option to parser to show the version of the tool
 parser.add_argument(
     "-v",
     "--version",
     action="version",
-    version="%(prog)s 0.1.0",
+    version=f"%(prog)s {__version__} (Git commit: {commit_hash})",
     help="Show the version of the tool.",
 )
 
