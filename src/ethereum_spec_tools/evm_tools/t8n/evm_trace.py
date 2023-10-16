@@ -147,11 +147,7 @@ def evm_trace(
     len_memory = len(evm.memory)
 
     return_data = None
-    if (
-        isinstance(evm, EvmWithReturnData)
-        and trace_return_data
-        and evm.return_data
-    ):
+    if isinstance(evm, EvmWithReturnData) and trace_return_data:
         return_data = "0x" + evm.return_data.hex()
 
     memory = None
