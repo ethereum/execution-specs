@@ -1,0 +1,2 @@
+# additional requirements for concat_kzg_vectors_to_json.py
+PyYAML
