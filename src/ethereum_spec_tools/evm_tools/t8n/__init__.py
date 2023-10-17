@@ -5,12 +5,11 @@ Create a transition tool for the given fork.
 import argparse
 import json
 import os
-import subprocess
 import sys
 from functools import partial
 from typing import Any
 
-from ethereum import __version__, rlp, trace
+from ethereum import rlp, trace
 from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum_spec_tools.forks import Hardfork
@@ -27,42 +26,11 @@ from .evm_trace import evm_trace, output_traces
 from .t8n_types import Alloc, Result, Txs
 
 
-def get_git_commit_hash() -> str:
-    """
-    Run the 'git rev-parse HEAD' command to get the commit hash
-    """
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=True,
-        )
-
-        # Extract and return the commit hash
-        commit_hash = result.stdout.strip()
-        return commit_hash
-    # Handle errors (e.g., Git not found, not in a Git repository)
-    except FileNotFoundError as e:
-        return str(e)
-    except subprocess.CalledProcessError as e:
-        return "Error: " + str(e)
-
-
 def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     """
     Adds the arguments for the t8n tool subparser.
     """
     t8n_parser = subparsers.add_parser("t8n", help="This is the t8n tool.")
-    commit_hash = get_git_commit_hash()
-    t8n_parser.add_argument(
-        "-v",
-        "--version",
-        action="version",
-        help="show t8n script version and exit",
-        version=f"PYSPECS %(prog)s {__version__} (Git commit: {commit_hash})",
-    )
 
     t8n_parser.add_argument(
         "--input.alloc", dest="input_alloc", type=str, default="alloc.json"
