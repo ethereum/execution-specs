@@ -118,7 +118,7 @@ def generic_create(
     )
     child_evm = process_create_message(child_message, evm.env)
 
-    if child_evm.has_erred:
+    if child_evm.error:
         incorporate_child_on_error(evm, child_evm)
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))
@@ -288,7 +288,7 @@ def generic_call(
     )
     child_evm = process_message(child_message, evm.env)
 
-    if child_evm.has_erred:
+    if child_evm.error:
         incorporate_child_on_error(evm, child_evm)
         evm.return_data = child_evm.output
         push(evm.stack, U256(0))

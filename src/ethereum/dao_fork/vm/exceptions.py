@@ -73,3 +73,11 @@ class StackDepthLimitError(ExceptionalHalt):
     """
 
     pass
+
+
+class AddressCollision(ExceptionalHalt):
+    """
+    Raised when the new contract address has a collision.
+    """
+
+    pass

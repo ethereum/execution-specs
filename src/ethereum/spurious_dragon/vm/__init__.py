@@ -82,7 +82,6 @@ class Evm:
     output: Bytes
     accounts_to_delete: Set[Address]
     touched_accounts: Set[Address]
-    has_erred: bool
     error: Optional[Exception]
 
 

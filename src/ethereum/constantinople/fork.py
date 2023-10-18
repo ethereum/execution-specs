@@ -341,7 +341,7 @@ def check_transaction(
 
 def make_receipt(
     tx: Transaction,
-    has_erred: bool,
+    error: Optional[Exception],
     cumulative_gas_used: Uint,
     logs: Tuple[Log, ...],
 ) -> Receipt:
@@ -352,8 +352,8 @@ def make_receipt(
     ----------
     tx :
         The executed transaction.
-    has_erred :
-        Whether the top level frame of the transaction exited with an error.
+    error :
+        Error in the top level frame of the transaction, if any.
     cumulative_gas_used :
         The total gas used so far in the block after the transaction was
         executed.
@@ -366,7 +366,7 @@ def make_receipt(
         The receipt for the transaction.
     """
     receipt = Receipt(
-        succeeded=not has_erred,
+        succeeded=error is None,
         cumulative_gas_used=cumulative_gas_used,
         bloom=logs_bloom(logs),
         logs=logs,
@@ -464,11 +464,11 @@ def apply_body(
             traces=[],
         )
 
-        gas_used, logs, has_erred = process_transaction(env, tx)
+        gas_used, logs, error = process_transaction(env, tx)
         gas_available -= gas_used
 
         receipt = make_receipt(
-            tx, has_erred, (block_gas_limit - gas_available), logs
+            tx, error, (block_gas_limit - gas_available), logs
         )
 
         trie_set(
@@ -617,7 +617,7 @@ def pay_rewards(
 
 def process_transaction(
     env: vm.Environment, tx: Transaction
-) -> Tuple[Uint, Tuple[Log, ...], bool]:
+) -> Tuple[Uint, Tuple[Log, ...], Optional[Exception]]:
     """
     Execute a transaction against the provided environment.
 
@@ -699,7 +699,7 @@ def process_transaction(
         if account_exists_and_is_empty(env.state, address):
             destroy_account(env.state, address)
 
-    return total_gas_used, output.logs, output.has_erred
+    return total_gas_used, output.logs, output.error
 
 
 def validate_transaction(tx: Transaction) -> bool:

@@ -12,7 +12,7 @@ Introduction
 A straightforward interpreter that executes EVM code.
 """
 from dataclasses import dataclass
-from typing import Iterable, Set, Tuple, Union
+from typing import Iterable, Optional, Set, Tuple, Union
 
 from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.trace import (
@@ -46,6 +46,7 @@ from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
 from .exceptions import (
+    AddressCollision,
     ExceptionalHalt,
     InvalidContractPrefix,
     InvalidOpcode,
@@ -72,7 +73,7 @@ class MessageCallOutput:
           3. `logs`: list of `Log` generated during execution.
           4. `accounts_to_delete`: Contracts which have self-destructed.
           5. `touched_accounts`: Accounts that have been touched.
-          6. `has_erred`: True if execution has caused an error.
+          6. `error`: The error from the execution if any.
     """
 
     gas_left: Uint
@@ -80,7 +81,7 @@ class MessageCallOutput:
     logs: Union[Tuple[()], Tuple[Log, ...]]
     accounts_to_delete: Set[Address]
     touched_accounts: Iterable[Address]
-    has_erred: bool
+    error: Optional[Exception]
 
 
 def process_message_call(
@@ -109,7 +110,7 @@ def process_message_call(
         )
         if is_collision:
             return MessageCallOutput(
-                Uint(0), U256(0), tuple(), set(), set(), True
+                Uint(0), U256(0), tuple(), set(), set(), AddressCollision()
             )
         else:
             evm = process_create_message(message, env)
@@ -118,7 +119,7 @@ def process_message_call(
         if account_exists_and_is_empty(env.state, Address(message.target)):
             evm.touched_accounts.add(Address(message.target))
 
-    if evm.has_erred:
+    if evm.error:
         logs: Tuple[Log, ...] = ()
         accounts_to_delete = set()
         touched_accounts = set()
@@ -138,7 +139,7 @@ def process_message_call(
         logs=logs,
         accounts_to_delete=accounts_to_delete,
         touched_accounts=touched_accounts,
-        has_erred=evm.has_erred,
+        error=evm.error,
     )
 
 
@@ -177,7 +178,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
 
     increment_nonce(env.state, message.current_target)
     evm = process_message(message, env)
-    if not evm.has_erred:
+    if not evm.error:
         contract_code = evm.output
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         try:
@@ -190,7 +191,6 @@ def process_create_message(message: Message, env: Environment) -> Evm:
             evm.gas_left = Uint(0)
             evm.output = b""
             evm.error = error
-            evm.has_erred = True
         else:
             set_code(env.state, message.current_target, contract_code)
             commit_transaction(env.state)
@@ -229,7 +229,7 @@ def process_message(message: Message, env: Environment) -> Evm:
         )
 
     evm = execute_code(message, env)
-    if evm.has_erred:
+    if evm.error:
         # revert state to the last saved checkpoint
         # since the message call resulted in an error
         rollback_transaction(env.state)
@@ -272,7 +272,6 @@ def execute_code(message: Message, env: Environment) -> Evm:
         output=b"",
         accounts_to_delete=set(),
         touched_accounts=set(),
-        has_erred=False,
         return_data=b"",
         error=None,
         accessed_addresses=message.accessed_addresses,
@@ -303,9 +302,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         evm.gas_left = Uint(0)
         evm.output = b""
         evm.error = error
-        evm.has_erred = True
     except Revert as error:
         evm_trace(evm, OpException(error))
         evm.error = error
-        evm.has_erred = True
     return evm

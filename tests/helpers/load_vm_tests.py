@@ -90,7 +90,7 @@ class VmTestLoader:
                     test_data["expected_post_state"], addr
                 ) == self.storage_root(env.state, addr)
         else:
-            assert output.has_erred is True
+            assert output.error is not None
         self.close_state(env.state)
         self.close_state(test_data["expected_post_state"])
 
