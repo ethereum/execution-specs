@@ -56,11 +56,13 @@ class FinalTrace:
     gasUsed: str
     error: Optional[str] = None
 
-    def __init__(self, gas_used: int, output: bytes, has_erred: bool) -> None:
+    def __init__(
+        self, gas_used: int, output: bytes, error: Optional[Exception]
+    ) -> None:
         self.output = output.hex()
         self.gasUsed = hex(gas_used)
-        if has_erred:
-            self.error = ""
+        if error:
+            self.error = type(error).__name__
 
 
 @runtime_checkable
@@ -83,9 +85,26 @@ class Message(Protocol):
 
 
 @runtime_checkable
-class Evm(Protocol):
+class EvmWithoutReturnData(Protocol):
     """
-    The class implements the EVM interface for trace.
+    The class implements the EVM interface for pre-byzantium forks trace.
+    """
+
+    pc: Uint
+    stack: List[U256]
+    memory: bytearray
+    code: Bytes
+    gas_left: Uint
+    env: Environment
+    refund_counter: int
+    running: bool
+    message: Message
+
+
+@runtime_checkable
+class EvmWithReturnData(Protocol):
+    """
+    The class implements the EVM interface for post-byzantium forks trace.
     """
 
     pc: Uint
@@ -100,6 +119,9 @@ class Evm(Protocol):
     return_data: Bytes
 
 
+Evm = Union[EvmWithoutReturnData, EvmWithReturnData]
+
+
 def evm_trace(
     evm: object,
     event: TraceEvent,
@@ -110,7 +132,7 @@ def evm_trace(
     """
     Create a trace of the event.
     """
-    assert isinstance(evm, Evm)
+    assert isinstance(evm, (EvmWithoutReturnData, EvmWithReturnData))
 
     last_trace = None
     if evm.env.traces:
@@ -125,7 +147,7 @@ def evm_trace(
     len_memory = len(evm.memory)
 
     return_data = None
-    if trace_return_data and evm.return_data:
+    if isinstance(evm, EvmWithReturnData) and trace_return_data:
         return_data = "0x" + evm.return_data.hex()
 
     memory = None
@@ -139,7 +161,7 @@ def evm_trace(
     if isinstance(event, TransactionStart):
         pass
     elif isinstance(event, TransactionEnd):
-        final_trace = FinalTrace(event.gas_used, event.output, event.has_erred)
+        final_trace = FinalTrace(event.gas_used, event.output, event.error)
         evm.env.traces.append(final_trace)
     elif isinstance(event, PrecompileStart):
         new_trace = Trace(
@@ -214,14 +236,14 @@ def evm_trace(
                 opName="InvalidOpcode",
                 gasCostTraced=True,
                 errorTraced=True,
-                error="",
+                error=type(event.error).__name__,
             )
 
             evm.env.traces.append(new_trace)
         elif not last_trace.errorTraced:
             # If the error for the last trace is not covered
             # the exception is attributed to the last trace.
-            last_trace.error = ""
+            last_trace.error = type(event.error).__name__
             last_trace.errorTraced = True
     elif isinstance(event, EvmStop):
         if not evm.running:

@@ -80,7 +80,7 @@ class Evm:
     message: Message
     output: Bytes
     accounts_to_delete: Set[Address]
-    has_erred: bool
+    error: Optional[Exception]
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:

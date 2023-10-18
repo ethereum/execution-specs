@@ -16,7 +16,7 @@ Defines the functions required for creating evm traces during execution.
 
 import enum
 from dataclasses import dataclass
-from typing import Union
+from typing import Optional, Union
 
 
 @dataclass
@@ -32,7 +32,7 @@ class TransactionEnd:
 
     gas_used: int
     output: bytes
-    has_erred: bool
+    error: Optional[Exception]
 
 
 @dataclass
@@ -67,7 +67,7 @@ class OpEnd:
 class OpException:
     """Trace event that is triggered when an opcode raises an exception."""
 
-    pass
+    error: Exception
 
 
 @dataclass
