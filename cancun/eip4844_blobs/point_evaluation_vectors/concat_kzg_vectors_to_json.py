@@ -13,7 +13,7 @@ def gather_yaml_data(directory: Path):  # noqa: D103
     all_data = []
 
     # Loop through each directory in the main directory
-    for sub_dir in directory.iterdir():
+    for sub_dir in sorted(directory.iterdir()):
         if sub_dir.is_dir():
             yaml_file_path = sub_dir / "data.yaml"
 
