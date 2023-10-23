@@ -161,6 +161,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
     """
     # take snapshot of state before processing the message
     begin_transaction(env.state)
+    begin_transaction(env.transient_state)
 
     # If the address where the account is being created has storage, it is
     # destroyed. This can only happen in the following highly unlikely
@@ -188,14 +189,17 @@ def process_create_message(message: Message, env: Environment) -> Evm:
             ensure(len(contract_code) <= MAX_CODE_SIZE, OutOfGasError)
         except ExceptionalHalt as error:
             rollback_transaction(env.state)
+            rollback_transaction(env.transient_state)
             evm.gas_left = Uint(0)
             evm.output = b""
             evm.error = error
         else:
             set_code(env.state, message.current_target, contract_code)
             commit_transaction(env.state)
+            commit_transaction(env.transient_state)
     else:
         rollback_transaction(env.state)
+        rollback_transaction(env.transient_state)
     return evm
 
 
@@ -220,6 +224,7 @@ def process_message(message: Message, env: Environment) -> Evm:
 
     # take snapshot of state before processing the message
     begin_transaction(env.state)
+    begin_transaction(env.transient_state)
 
     touch_account(env.state, message.current_target)
 
@@ -233,8 +238,10 @@ def process_message(message: Message, env: Environment) -> Evm:
         # revert state to the last saved checkpoint
         # since the message call resulted in an error
         rollback_transaction(env.state)
+        rollback_transaction(env.transient_state)
     else:
         commit_transaction(env.state)
+        commit_transaction(env.transient_state)
     return evm
 
 

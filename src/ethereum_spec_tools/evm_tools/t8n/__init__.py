@@ -229,6 +229,9 @@ class T8N(Load):
             kw_arguments["caller"] = kw_arguments["origin"] = sender_address
             kw_arguments["gas_price"] = tx.gas_price
 
+        if self.is_after_fork("ethereum.cancun"):
+            kw_arguments["transient_state"] = self.State()
+
         kw_arguments["traces"] = []
 
         return self.vm.Environment(**kw_arguments)

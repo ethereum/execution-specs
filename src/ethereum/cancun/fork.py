@@ -498,6 +498,7 @@ def apply_body(
             time=block_time,
             prev_randao=prev_randao,
             state=state,
+            transient_state=State(),
             chain_id=chain_id,
             traces=[],
         )

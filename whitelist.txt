@@ -390,3 +390,6 @@ jsons
 mem
 
 checkable
+
+tload
+tstore

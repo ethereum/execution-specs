@@ -42,6 +42,7 @@ class Environment:
     gas_price: Uint
     time: U256
     prev_randao: Bytes32
+    transient_state: State
     state: State
     chain_id: U64
     traces: List[dict]

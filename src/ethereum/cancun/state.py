@@ -285,6 +285,33 @@ def set_storage(
         del state._storage_tries[address]
 
 
+def set_transient_storage(
+    state: State, address: Address, key: Bytes, value: U256
+) -> None:
+    """
+    Set a value at a transient storage key on an account. Setting to `U256(0)`
+    deletes the key.
+
+    Parameters
+    ----------
+    state: `State`
+        The state
+    address : `Address`
+        Address of the account.
+    key : `Bytes`
+        Key to set.
+    value : `U256`
+        Value to set at the key.
+    """
+    trie = state._storage_tries.get(address)
+    if trie is None:
+        trie = Trie(secured=True, default=U256(0))
+        state._storage_tries[address] = trie
+    trie_set(trie, key, value)
+    if trie._data == {}:
+        del state._storage_tries[address]
+
+
 def storage_root(state: State, address: Address) -> Root:
     """
     Calculate the storage root of an account.
