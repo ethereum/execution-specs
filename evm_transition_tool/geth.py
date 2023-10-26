@@ -2,6 +2,7 @@
 Go-ethereum Transition tool interface.
 """
 
+import shutil
 import subprocess
 import textwrap
 from pathlib import Path
@@ -81,7 +82,8 @@ class GethTransitionTool(TransitionTool):
         )
 
         if debug_output_path:
-            debug_fixture_path = debug_output_path / fixture_path.name
+            debug_fixture_path = debug_output_path / "fixtures.json"
+            shutil.copyfile(fixture_path, debug_fixture_path)
             # Use the local copy of the fixture in the debug directory
             verify_fixtures_call = " ".join(command[:-1]) + f" {debug_fixture_path}"
             verify_fixtures_script = textwrap.dedent(
