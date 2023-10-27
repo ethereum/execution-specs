@@ -8,12 +8,13 @@ writes the generated fixtures to file.
 import json
 import os
 import re
+import warnings
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Literal, Optional, Tuple, Type, Union
 
 import pytest
 
-from ethereum_test_forks import Fork
+from ethereum_test_forks import Fork, get_development_forks
 from ethereum_test_tools import (
     BaseTest,
     BaseTestConfig,
@@ -678,9 +679,19 @@ def pytest_collection_modifyitems(items, config):
         elif "blockchain_test" in item.fixturenames:
             marker = pytest.mark.blockchain_test()
             item.add_marker(marker)
-        if "yul" in item.fixturenames:
-            marker = pytest.mark.yul_test()
-            item.add_marker(marker)
+
+
+def pytest_runtest_setup(item):
+    """
+    A pytest hook called before setting up each test item.
+    """
+    if "yul" in item.fixturenames:
+        marker = pytest.mark.yul_test()
+        item.add_marker(marker)
+        if any([fork.name() in item.name for fork in get_development_forks()]):
+            if item.config.getoption("verbose") >= 1:
+                warnings.warn("Compiling Yul for with Shanghai, not the target fork.")
+            item.add_marker(pytest.mark.compile_yul_with("Shanghai"))
 
 
 def pytest_make_parametrize_id(config, val, argname):
