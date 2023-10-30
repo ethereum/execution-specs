@@ -11,11 +11,13 @@ Introduction
 
 Implementations of the EVM Memory instructions.
 """
-from ethereum.base_types import U8_MAX_VALUE, U256, Bytes
+from ethereum.base_types import U8_MAX_VALUE, U256, Bytes, Uint
+from ethereum.utils.numeric import ceil32
 
 from .. import Evm
 from ..gas import (
     GAS_BASE,
+    GAS_COPY,
     GAS_VERY_LOW,
     calculate_gas_extend_memory,
     charge_gas,
@@ -135,6 +137,39 @@ def msize(evm: Evm) -> None:
 
     # OPERATION
     push(evm.stack, U256(len(evm.memory)))
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def mcopy(evm: Evm) -> None:
+    """
+    Copy the bytes in memory from one location to another.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    destination = pop(evm.stack)
+    source = pop(evm.stack)
+    length = pop(evm.stack)
+
+    # GAS
+    words = ceil32(Uint(length)) // 32
+    copy_gas_cost = GAS_COPY * words
+
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(source, length), (destination, length)]
+    )
+    charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
+
+    # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
+    value = memory_read_bytes(evm.memory, source, length)
+    memory_write(evm.memory, destination, value)
 
     # PROGRAM COUNTER
     evm.pc += 1

@@ -189,6 +189,7 @@ class Ops(enum.Enum):
     MSTORE = 0x52
     MSTORE8 = 0x53
     MSIZE = 0x59
+    MCOPY = 0x5E
 
     # Log Operations
     LOG0 = 0xA0
@@ -249,6 +250,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.MSTORE: memory_instructions.mstore,
     Ops.MSTORE8: memory_instructions.mstore8,
     Ops.MSIZE: memory_instructions.msize,
+    Ops.MCOPY: memory_instructions.mcopy,
     Ops.ADDRESS: environment_instructions.address,
     Ops.BALANCE: environment_instructions.balance,
     Ops.ORIGIN: environment_instructions.origin,
