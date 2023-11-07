@@ -1,3 +1,4 @@
+import importlib
 import json
 import os.path
 import re
@@ -101,8 +102,12 @@ def add_block_to_chain(
     if not mock_pow:
         load.state_transition(chain, block)
     else:
-        with patch(
-            f"ethereum.{load.fork_module}.fork.validate_proof_of_work",
+        fork_module = importlib.import_module(
+            f"ethereum.{load.fork_module}.fork"
+        )
+        with patch.object(
+            fork_module,
+            "validate_proof_of_work",
             autospec=True,
         ) as mocked_pow_validator:
             load.state_transition(chain, block)
