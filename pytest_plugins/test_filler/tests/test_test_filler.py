@@ -217,18 +217,18 @@ def test_fixture_output_based_on_command_line_args(
     - each fixture file contains the expected number of fixtures.
 
     The modules above generate the following test cases:
-        tests/merge/test_module_merge.py::test_merge_one[fork=Merge] PASSED
-        tests/merge/test_module_merge.py::test_merge_one[fork=Shanghai] PASSED
-        tests/merge/test_module_merge.py::test_merge_two[fork=Merge] PASSED
-        tests/merge/test_module_merge.py::test_merge_two[fork=Shanghai] PASSED
-        tests/shanghai/test_module_shanghai.py::test_shanghai_one[fork=Merge] PASSED
-        tests/shanghai/test_module_shanghai.py::test_shanghai_one[fork=Shanghai] PASSED
-        tests/shanghai/test_module_shanghai.py::test_shanghai_two[fork=Merge-x=1] PASSED
-        tests/shanghai/test_module_shanghai.py::test_shanghai_two[fork=Merge-x=2] PASSED
-        tests/shanghai/test_module_shanghai.py::test_shanghai_two[fork=Merge-x=3] PASSED
-        tests/shanghai/test_module_shanghai.py::test_shanghai_two[fork=Shanghai-x=1] PASSED
-        tests/shanghai/test_module_shanghai.py::test_shanghai_two[fork=Shanghai-x=2] PASSED
-        tests/shanghai/test_module_shanghai.py::test_shanghai_two[fork=Shanghai-x=3] PASSED
+        tests/merge/test_module_merge.py::test_merge_one[fork_Merge] PASSED
+        tests/merge/test_module_merge.py::test_merge_one[fork_Shanghai] PASSED
+        tests/merge/test_module_merge.py::test_merge_two[fork_Merge] PASSED
+        tests/merge/test_module_merge.py::test_merge_two[fork_Shanghai] PASSED
+        tests/shanghai/test_module_shanghai.py::test_shanghai_one[fork_Merge] PASSED
+        tests/shanghai/test_module_shanghai.py::test_shanghai_one[fork_Shanghai] PASSED
+        tests/shanghai/test_module_shanghai.py::test_shanghai_two[fork_Merge-x=1] PASSED
+        tests/shanghai/test_module_shanghai.py::test_shanghai_two[fork_Merge-x=2] PASSED
+        tests/shanghai/test_module_shanghai.py::test_shanghai_two[fork_Merge-x=3] PASSED
+        tests/shanghai/test_module_shanghai.py::test_shanghai_two[fork_Shanghai-x=1] PASSED
+        tests/shanghai/test_module_shanghai.py::test_shanghai_two[fork_Shanghai-x=2] PASSED
+        tests/shanghai/test_module_shanghai.py::test_shanghai_two[fork_Shanghai-x=3] PASSED
     """
     tests_dir = testdir.mkdir("tests")
 
