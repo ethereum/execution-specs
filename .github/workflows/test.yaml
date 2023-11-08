@@ -31,7 +31,7 @@ jobs:
           python-version: ${{ matrix.py }}
 
       - name: Install Tox and any other packages
-        run: pip install tox-gh>=1.3 requests
+        run: "pip install 'tox>=4.11,<5' requests"
 
       - name: Download Geth and add to $PATH
         run: |
@@ -39,8 +39,15 @@ jobs:
           $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
           echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
 
-      - name: Run Tox
-        run: tox
+      - name: Run Tox (CPython)
+        if: "${{ !startsWith(matrix.py, 'pypy') }}"
+        run: tox -e static,optimized,py3
+
+      - name: Run Tox (PyPy)
+        if: "${{ startsWith(matrix.py, 'pypy') }}"
+        run: tox -e pypy3
+        env:
+          PYPY_GC_MAX: "10G"
 
       - name: Upload coverage to Codecov
         if: "${{ !startsWith(matrix.py, 'pypy') }}"
