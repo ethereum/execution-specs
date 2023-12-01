@@ -32,6 +32,13 @@ class UnsupportedTx(Exception):
         self.error_message = error_message
 
 
+class EmptyAccountOnPostMergeFork(Exception):
+    """
+    Exception for tests that are invalid due to empty accounts on post
+    merge forks
+    """
+
+
 class BaseLoad(ABC):
     """Base class for loading json fixtures"""
 
@@ -236,10 +243,15 @@ class Load(BaseLoad):
         """Imports a module from the fork"""
         return importlib.import_module(f"ethereum.{self._fork_module}.{name}")
 
+    def _is_post_merge_fork(self) -> bool:
+        return not hasattr(self._module("fork"), "validate_proof_of_work")
+
     def json_to_state(self, raw: Any) -> Any:
         """Converts json state data to a state object"""
         state = self.State()
         set_storage = self._module("state").set_storage
+        is_post_merge_fork = self._is_post_merge_fork()
+        EMPTY_ACCOUNT = self._module("fork_types").EMPTY_ACCOUNT
 
         for address_hex, account_state in raw.items():
             address = self.hex_to_address(address_hex)
@@ -248,6 +260,8 @@ class Load(BaseLoad):
                 balance=U256(hex_to_uint(account_state.get("balance", "0x0"))),
                 code=hex_to_bytes(account_state.get("code", "")),
             )
+            if is_post_merge_fork and account == EMPTY_ACCOUNT:
+                raise EmptyAccountOnPostMergeFork
             self.set_account(state, address, account)
 
             for k, v in account_state.get("storage", {}).items():
