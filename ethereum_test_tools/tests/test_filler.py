@@ -13,9 +13,10 @@ from ethereum_test_forks import Berlin, Fork, Istanbul, London, Merge, Shanghai
 from evm_transition_tool import GethTransitionTool
 
 from ..code import Yul
-from ..common import Account, Block, Environment, TestAddress, Transaction, to_json
-from ..filling import fill_test
+from ..common import Account, Environment, TestAddress, Transaction, to_json
 from ..spec import BaseTestConfig, BlockchainTest, StateTest
+from ..spec.blockchain.types import Block
+from ..spec.blockchain.types import Fixture as BlockchainFixture
 from .conftest import SOLC_PADDING_VERSION
 
 
@@ -74,15 +75,14 @@ def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
     }
 
     t8n = GethTransitionTool()
+    state_test = StateTest(env=env, pre=pre, post={}, txs=[], tag="some_state_test")
+    fixture = state_test.generate(t8n, fork)
+    assert fixture is not None
+    assert isinstance(fixture, BlockchainFixture)
+    assert fixture.genesis is not None
 
-    _, _, genesis = StateTest(
-        env=env, pre=pre, post={}, txs=[], tag="some_state_test"
-    ).make_genesis(
-        t8n,
-        fork,
-    )
-    assert genesis.hash is not None
-    assert genesis.hash.startswith(hash)
+    assert fixture.genesis.hash is not None
+    assert fixture.genesis.hash.startswith(hash)
 
 
 @pytest.mark.parametrize(
@@ -133,17 +133,18 @@ def test_fill_state_test(fork: Fork, expected_json_file: str, enable_hive: bool)
         post=post,
         txs=[tx],
         tag="my_chain_id_test",
-        base_test_config=BaseTestConfig(enable_hive=enable_hive),
+        base_test_config=BaseTestConfig(
+            blockchain_test=True,
+            enable_hive=enable_hive,
+        ),
     )
 
     t8n = GethTransitionTool()
 
     fixture = {
-        f"000/my_chain_id_test/{fork}": fill_test(
+        f"000/my_chain_id_test/{fork}": state_test.generate(
             t8n=t8n,
-            test_spec=state_test,
             fork=fork,
-            spec=None,
         ),
     }
 
@@ -436,11 +437,9 @@ def test_fill_blockchain_valid_txs(
     t8n = GethTransitionTool()
 
     fixture = {
-        f"000/my_blockchain_test/{fork.name()}": fill_test(
+        f"000/my_blockchain_test/{fork.name()}": blockchain_test.generate(
             t8n=t8n,
-            test_spec=blockchain_test,
             fork=fork,
-            spec=None,
         )
     }
 
@@ -784,11 +783,9 @@ def test_fill_blockchain_invalid_txs(
     t8n = GethTransitionTool()
 
     fixture = {
-        f"000/my_blockchain_test/{fork.name()}": fill_test(
+        f"000/my_blockchain_test/{fork.name()}": blockchain_test.generate(
             t8n=t8n,
-            test_spec=blockchain_test,
             fork=fork,
-            spec=None,
         )
     }
 

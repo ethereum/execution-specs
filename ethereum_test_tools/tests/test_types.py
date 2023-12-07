@@ -23,14 +23,12 @@ from ..common.types import (
     Alloc,
     Bloom,
     Bytes,
-    FixtureEngineNewPayload,
-    FixtureExecutionPayload,
-    FixtureHeader,
     FixtureTransaction,
     Hash,
     HeaderNonce,
     ZeroPaddedHexNumber,
 )
+from ..spec.blockchain.types import FixtureEngineNewPayload, FixtureExecutionPayload, FixtureHeader
 
 
 def test_storage():

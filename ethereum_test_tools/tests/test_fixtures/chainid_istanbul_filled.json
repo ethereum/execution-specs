@@ -41,6 +41,7 @@
                     "nonce": "0x0000000000000000",
                     "hash": "0xc413245fffae8b7c6392bcd3dfbbdee24118e94d9a58722a7abd91a4e1d048b7"
                 },
+                "blocknumber": "1",
                 "transactions": [
                     {
                         "type": "0x00",

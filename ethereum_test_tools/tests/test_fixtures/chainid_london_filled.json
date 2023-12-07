@@ -43,6 +43,7 @@
                     "baseFeePerGas": "0x07",
                     "hash": "0xe05293fe6050385e463d93c310bc52f87715f509aeb036455bbe4597cf36706a"
                 },
+                "blocknumber": "1",
                 "transactions": [
                     {
                         "type": "0x00",

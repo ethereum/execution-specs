@@ -10,16 +10,11 @@ from typing import Any, Callable, Dict, Generator, Iterator, List, Mapping, Opti
 from ethereum_test_forks import Fork
 from evm_transition_tool import TransitionTool
 
-from ..common import (
-    Account,
-    Address,
-    Environment,
-    Fixture,
-    HiveFixture,
-    Transaction,
-    withdrawals_root,
-)
-from ..common.conversions import to_hex
+from ...common import Account, Address, Environment, Transaction, withdrawals_root
+from ...common.conversions import to_hex
+from ...common.json import JSONEncoder
+from ...common.json import field as json_field
+from ...reference_spec.reference_spec import ReferenceSpec
 
 
 def verify_transactions(txs: List[Transaction] | None, result) -> List[int]:
@@ -87,6 +82,51 @@ class BaseTestConfig:
     """
     Enable any hive-related properties that the output could contain.
     """
+    blockchain_test: bool = False
+    """
+    Enable BlockchainTest type tests production.
+    """
+    state_test: bool = False
+    """
+    Enable StateTest type tests production.
+    """
+
+
+@dataclass(kw_only=True)
+class BaseFixture:
+    """
+    Represents a base Ethereum test fixture of any type.
+    """
+
+    info: Dict[str, str] = json_field(
+        default_factory=dict,
+        json_encoder=JSONEncoder.Field(
+            name="_info",
+            to_json=True,
+        ),
+    )
+
+    def fill_info(
+        self,
+        t8n: TransitionTool,
+        ref_spec: ReferenceSpec | None,
+    ):
+        """
+        Fill the info field for this fixture
+        """
+        self.info["filling-transition-tool"] = t8n.version()
+        if ref_spec is not None:
+            ref_spec.write_info(self.info)
+
+    def to_json(self) -> Dict[str, Any]:
+        """
+        Convert to JSON.
+
+        TODO: This has to be replaced in the future to allow for different fixtures to do whatever
+        they want in the output file, and somehow be able to merge themselves automatically with
+        other fixtures of the same type.
+        """
+        pass
 
 
 @dataclass(kw_only=True)
@@ -105,26 +145,14 @@ class BaseTest:
     t8n_call_counter: Iterator[int] = field(init=False, default_factory=count)
 
     @abstractmethod
-    def make_fixture(
+    def generate(
         self,
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
-    ) -> Fixture:
+    ) -> Optional[BaseFixture]:
         """
-        Generate  blockchain that must be executed sequentially during test.
-        """
-        pass
-
-    @abstractmethod
-    def make_hive_fixture(
-        self,
-        t8n: TransitionTool,
-        fork: Fork,
-        eips: Optional[List[int]] = None,
-    ) -> HiveFixture:
-        """
-        Generate the blockchain that must be executed sequentially during test.
+        Generate the test fixture.
         """
         pass
 

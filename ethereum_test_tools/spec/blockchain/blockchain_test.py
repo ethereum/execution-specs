@@ -1,7 +1,7 @@
 """
 Ethereum blockchain test spec definition and filler.
 """
-
+from copy import copy
 from dataclasses import dataclass, field
 from pprint import pprint
 from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Type
@@ -9,33 +9,75 @@ from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tupl
 from ethereum_test_forks import Fork
 from evm_transition_tool import TransitionTool
 
-from ..common import (
+from ...common import (
     Address,
     Alloc,
-    Block,
     Bloom,
     Bytes,
     EmptyTrieRoot,
     Environment,
-    Fixture,
-    FixtureBlock,
-    FixtureEngineNewPayload,
-    FixtureHeader,
     Hash,
     HeaderNonce,
-    HiveFixture,
-    InvalidFixtureBlock,
     Number,
     Transaction,
     ZeroPaddedHexNumber,
     alloc_to_accounts,
-    to_json,
     transaction_list_root,
     withdrawals_root,
 )
-from ..common.constants import EmptyOmmersRoot
-from .base_test import BaseTest, verify_post_alloc, verify_result, verify_transactions
-from .debugging import print_traces
+from ...common.constants import EmptyOmmersRoot
+from ...common.json import to_json
+from ..base.base_test import (
+    BaseFixture,
+    BaseTest,
+    verify_post_alloc,
+    verify_result,
+    verify_transactions,
+)
+from ..debugging import print_traces
+from .types import (
+    Block,
+    Fixture,
+    FixtureBlock,
+    FixtureEngineNewPayload,
+    FixtureHeader,
+    HiveFixture,
+    InvalidFixtureBlock,
+)
+
+
+def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
+    """
+    Instantiates a new environment with the provided header as parent.
+    """
+    return Environment(
+        parent_difficulty=parent.difficulty,
+        parent_timestamp=parent.timestamp,
+        parent_base_fee=parent.base_fee,
+        parent_blob_gas_used=parent.blob_gas_used,
+        parent_excess_blob_gas=parent.excess_blob_gas,
+        parent_gas_used=parent.gas_used,
+        parent_gas_limit=parent.gas_limit,
+        parent_ommers_hash=parent.ommers_hash,
+        block_hashes={parent.number: parent.hash if parent.hash is not None else 0},
+    )
+
+
+def apply_new_parent(env: Environment, new_parent: FixtureHeader) -> "Environment":
+    """
+    Applies a header as parent to a copy of this environment.
+    """
+    env = copy(env)
+    env.parent_difficulty = new_parent.difficulty
+    env.parent_timestamp = new_parent.timestamp
+    env.parent_base_fee = new_parent.base_fee
+    env.parent_blob_gas_used = new_parent.blob_gas_used
+    env.parent_excess_blob_gas = new_parent.excess_blob_gas
+    env.parent_gas_used = new_parent.gas_used
+    env.parent_gas_limit = new_parent.gas_limit
+    env.parent_ommers_hash = new_parent.ommers_hash
+    env.block_hashes[new_parent.number] = new_parent.hash if new_parent.hash is not None else 0
+    return env
 
 
 @dataclass(kw_only=True)
@@ -239,7 +281,7 @@ class BlockchainTest(BaseTest):
         pre, genesis_rlp, genesis = self.make_genesis(t8n, fork)
 
         alloc = to_json(pre)
-        env = Environment.from_parent_header(genesis)
+        env = environment_from_parent_header(genesis)
         head = genesis.hash if genesis.hash is not None else Hash(0)
 
         for block in self.blocks:
@@ -263,7 +305,7 @@ class BlockchainTest(BaseTest):
                     )
                     # Update env, alloc and last block hash for the next block.
                     alloc = new_alloc
-                    env = new_env.apply_new_parent(header)
+                    env = apply_new_parent(new_env, header)
                     head = header.hash if header.hash is not None else Hash(0)
                 else:
                     fixture_blocks.append(
@@ -311,7 +353,7 @@ class BlockchainTest(BaseTest):
 
         pre, _, genesis = self.make_genesis(t8n, fork)
         alloc = to_json(pre)
-        env = Environment.from_parent_header(genesis)
+        env = environment_from_parent_header(genesis)
 
         for block in self.blocks:
             header, _, txs, new_alloc, new_env = self.generate_block_data(
@@ -330,7 +372,7 @@ class BlockchainTest(BaseTest):
                 )
                 if block.exception is None:
                     alloc = new_alloc
-                    env = env.apply_new_parent(header)
+                    env = apply_new_parent(env, header)
         fcu_version = fork.engine_forkchoice_updated_version(header.number, header.timestamp)
 
         self.verify_post_state(t8n, alloc)
@@ -343,6 +385,27 @@ class BlockchainTest(BaseTest):
             post_state=alloc_to_accounts(alloc),
             name=self.tag,
         )
+
+    def generate(
+        self,
+        t8n: TransitionTool,
+        fork: Fork,
+        eips: Optional[List[int]] = None,
+    ) -> Optional[BaseFixture]:
+        """
+        Generate the BlockchainTest fixture.
+        """
+        fixture: Optional[BaseFixture] = None
+        t8n.reset_traces()
+        if self.base_test_config.state_test:
+            return None  # No blockchain tests when generating state tests
+        elif self.base_test_config.enable_hive:
+            if fork.engine_new_payload_version() is None:
+                return None  # pre Merge tests are not supported in Hive
+            fixture = self.make_hive_fixture(t8n, fork, eips)
+        else:
+            fixture = self.make_fixture(t8n, fork, eips)
+        return fixture
 
 
 BlockchainTestSpec = Callable[[str], Generator[BlockchainTest, None, None]]

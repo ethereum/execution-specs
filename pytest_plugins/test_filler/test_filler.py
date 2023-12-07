@@ -10,22 +10,20 @@ import os
 import re
 import warnings
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Literal, Optional, Tuple, Type, Union
+from typing import Any, Dict, Generator, List, Literal, Optional, Tuple, Type
 
 import pytest
 
 from ethereum_test_forks import Fork, get_development_forks
 from ethereum_test_tools import (
+    BaseFixture,
     BaseTest,
     BaseTestConfig,
     BlockchainTest,
     BlockchainTestFiller,
-    Fixture,
-    HiveFixture,
     StateTest,
     StateTestFiller,
     Yul,
-    fill_test,
 )
 from evm_transition_tool import FixtureFormats, TransitionTool
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
@@ -128,6 +126,20 @@ def pytest_addoption(parser):
         dest="enable_hive",
         default=False,
         help="Output test fixtures with the hive-specific properties.",
+    )
+    test_group.addoption(
+        "--blockchain-test",
+        action="store_true",
+        dest="generate_blockchain_tests",
+        default=True,
+        help="Generate BlockchainTest type fixtures.",
+    )
+    test_group.addoption(
+        "--state-test",
+        action="store_true",
+        dest="generate_state_tests",
+        default=False,
+        help="Generate StateTest type fixtures.",
     )
 
     debug_group = parser.getgroup("debug", "Arguments defining debug behavior")
@@ -282,6 +294,19 @@ def base_test_config(request) -> BaseTestConfig:
     """
     config = BaseTestConfig()
     config.enable_hive = request.config.getoption("enable_hive")
+    config.blockchain_test = request.config.getoption("generate_blockchain_tests")
+    config.state_test = request.config.getoption("generate_state_tests")
+    if config.blockchain_test and config.state_test:
+        pytest.exit(
+            "Only one of --blockchain-test or --state-test can be enabled.",
+            returncode=pytest.ExitCode.USAGE_ERROR,
+        )
+    if config.state_test and config.enable_hive:
+        pytest.exit(
+            "Hive fixtures can not be generated with --state-test: "
+            "Remove --enable-hive to generate test fixtures.",
+            returncode=pytest.ExitCode.USAGE_ERROR,
+        )
     return config
 
 
@@ -398,7 +423,7 @@ class FixtureCollector:
         self.json_path_to_test_item = {}
 
     def add_fixture(
-        self, item, fixture: Optional[Union[Fixture, HiveFixture]], fixture_format: FixtureFormats
+        self, item, fixture: Optional[BaseFixture], fixture_format: FixtureFormats
     ) -> None:
         """
         Adds a fixture to the list of fixtures of a given test case.
@@ -597,15 +622,16 @@ def state_test(
             kwargs["base_test_config"] = base_test_config
             kwargs["t8n_dump_dir"] = dump_dir_parameter_level
             super(StateTestWrapper, self).__init__(*args, **kwargs)
+            fixture = self.generate(
+                t8n,
+                fork,
+                eips=eips,
+            )
+            if fixture:
+                fixture.fill_info(t8n, reference_spec)
             fixture_collector.add_fixture(
                 request.node,
-                fill_test(
-                    t8n,
-                    self,
-                    fork,
-                    reference_spec,
-                    eips=eips,
-                ),
+                fixture,
                 fixture_format,
             )
 
@@ -635,15 +661,16 @@ def blockchain_test(
             kwargs["base_test_config"] = base_test_config
             kwargs["t8n_dump_dir"] = dump_dir_parameter_level
             super(BlockchainTestWrapper, self).__init__(*args, **kwargs)
+            fixture = self.generate(
+                t8n,
+                fork,
+                eips=eips,
+            )
+            if fixture:
+                fixture.fill_info(t8n, reference_spec)
             fixture_collector.add_fixture(
                 request.node,
-                fill_test(
-                    t8n,
-                    self,
-                    fork,
-                    reference_spec,
-                    eips=eips,
-                ),
+                fixture,
                 fixture_format,
             )
 
