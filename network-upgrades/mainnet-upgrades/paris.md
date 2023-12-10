@@ -32,7 +32,7 @@ This network upgrade requires changes to both Ethereum's execution and consensus
 
 #### FORK NEXT Upgrade 
 
-Once the proof-of-work to proof-of-stake transition has completed, an additional upgrade is required to add an [EIP-2124](https://eips.ethereum.org/EIPS/eip-2124) `FORK_NEXT` value to clients on the network in order to disconnect stale peers. 
+Once the proof-of-work to proof-of-stake transition has been completed, an additional upgrade is required to add an [EIP-2124](https://eips.ethereum.org/EIPS/eip-2124) `FORK_NEXT` value to clients on the network in order to disconnect stale peers. 
 
 | Network | Block Number / `FORK_NEXT` | Expected Date | Fork Hash |
 |---------|------------|---------------|--------------|
