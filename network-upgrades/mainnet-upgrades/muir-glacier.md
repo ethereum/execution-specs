@@ -18,9 +18,9 @@ This meta-EIP specifies the changes included in the Ethereum hard fork named Mui
 
 Ethereum achieves a consistent block time due to its' difficulty retargeting algorithm. If a block-time is higher than 20 seconds, it reduces the difficulty, and if a block time is lower than 10 seconds, it increases the difficulty. This mechanism reaches typically an equilibrium of around 13-14 seconds. Included within this mechanism is something we refer to as the Difficulty Bomb or the Ice Age. It artificially adds to the difficulty in such a way that the retargeting mechanism, at some point, can not adapt to the increase, and we see increased block times throughout the network. The ice age increments every 100,000 blocks. It at first is barely noticeable, but once it is visible, there is a drastic effect on block-times in the network.
 
-The primary problem with the Ice Age is that it is included in the complex mechanism that targets block times, which is an entirely separate in purpose. What is worse is due to being intwined with that algorithm, it is very difficult to simulate or predict its effect on the network. To predict the impact of the ice age, you must both make assumptions about the difficulty of main-net in the future, and predict the effect of changes in difficulty to the impact on the ice age and thus block-times.
+The primary problem with the Ice Age is that it is included in the complex mechanism that targets block times, which is entirely separate in purpose. What is worse is due to being intwined with that algorithm, it is very difficult to simulate or predict its effect on the network. To predict the impact of the ice age, you must both make assumptions about the difficulty of main-net in the future, and predict the effect of changes in difficulty to the impact on the ice age and thus block-times.
 
-This fork will push back the Iceage as far as far as is reasonable and will give us time to update the Iceage to no longer have these design problems. There are two solutions to consider within that time frame.
+This fork will push back the Iceage as far as is reasonable and will give us time to update the Iceage to no longer have these design problems. There are two solutions to consider within that time frame.
 
  - Update the mechanism so that behavior is predictable.
  - Remove the Iceage entirely
