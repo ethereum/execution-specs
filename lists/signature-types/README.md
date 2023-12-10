@@ -12,7 +12,7 @@ Reserved or Tentative.
 
 | Prefix byte | Specs or Purpose |
 |-------------|------------------|
-| 0x00  | Reserved: indicates legacy (untyped) trancactions |
+| 0x00  | Reserved: indicates legacy (untyped) transactions |
 | 0x01  | Reserved: [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930) *(available in Berlin)* |
 | 0x02  | Reserved: [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) *(available in London)* |
 | 0x03  | Tentative: prevents collision with [EIP-3074](https://eips.ethereum.org/EIPS/eip-3074) |
@@ -29,7 +29,7 @@ authorizing unintended actions.
 
 ### Type 0x00 (0)
 
-The prefix byte `0x00` is reserved to identify transactions which are untyped legacy
+The prefix byte `0x00` is reserved to identify transactions that are untyped legacy
 transactions. It is not prefixed, but allows software to use a numeric enum
 value to indicate a legacy transaction.
 
