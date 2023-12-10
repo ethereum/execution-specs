@@ -41,7 +41,7 @@ Some clarifications were enabled without protocol releases:
 
 ## Consensus Specification (work-in-progress)
 
-The consensus specification is a python implementation of Ethereum that prioritizes readability and simplicity. It [will] accompanied by both narrative and API level documentation of the various components written in restructured text and rendered using Sphinx....
+The consensus specification is a python implementation of Ethereum that prioritizes readability and simplicity. It [will] be accompanied by both narrative and API level documentation of the various components written in restructured text and rendered using Sphinx....
 
  * [Rendered specification](https://ethereum.github.io/execution-specs/)
 
