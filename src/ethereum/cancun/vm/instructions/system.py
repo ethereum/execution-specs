@@ -513,17 +513,24 @@ def selfdestruct(evm: Evm) -> None:
     beneficiary_balance = get_account(evm.env.state, beneficiary).balance
     originator_balance = get_account(evm.env.state, originator).balance
 
-    # First Transfer to beneficiary
-    set_account_balance(
-        evm.env.state, beneficiary, beneficiary_balance + originator_balance
-    )
-    # Next, Zero the balance of the address being deleted (must come after
-    # sending to beneficiary in case the contract named itself as the
-    # beneficiary).
-    set_account_balance(evm.env.state, originator, U256(0))
+    if (
+        originator in evm.env.state._created_accounts
+        or originator != beneficiary
+    ):
+        # First Transfer to beneficiary
+        set_account_balance(
+            evm.env.state,
+            beneficiary,
+            beneficiary_balance + originator_balance,
+        )
+        # Next, Zero the balance of the address being deleted (must come after
+        # sending to beneficiary in case the contract named itself as the
+        # beneficiary).
+        set_account_balance(evm.env.state, originator, U256(0))
 
     # register account for deletion
-    evm.accounts_to_delete.add(originator)
+    if originator in evm.env.state._created_accounts:
+        evm.accounts_to_delete.add(originator)
 
     # mark beneficiary as touched
     if account_exists_and_is_empty(evm.env.state, beneficiary):
