@@ -237,5 +237,5 @@ class TestTransientStorageInContractCreation:
             env=Environment(),
             pre=pre,
             post=post,
-            txs=[tx],
+            tx=tx,
         )

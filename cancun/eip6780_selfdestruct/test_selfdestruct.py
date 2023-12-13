@@ -412,7 +412,7 @@ def test_create_selfdestruct_same_tx(
         protected=False,
     )
 
-    state_test(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
@@ -540,7 +540,7 @@ def test_self_destructing_initcode(
         protected=False,
     )
 
-    state_test(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize("tx_value", [0, 100_000])
@@ -595,7 +595,7 @@ def test_self_destructing_initcode_create_tx(
         protected=False,
     )
 
-    state_test(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize("create_opcode", [Op.CREATE2])  # Can only recreate using CREATE2
@@ -872,7 +872,7 @@ def test_selfdestruct_pre_existing(
         protected=False,
     )
 
-    state_test(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 1])
@@ -1148,7 +1148,7 @@ def test_delegatecall_from_new_contract_to_pre_existing_contract(
         protected=False,
     )
 
-    state_test(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
@@ -1305,4 +1305,4 @@ def test_delegatecall_from_pre_existing_contract_to_new_contract(
         protected=False,
     )
 
-    state_test(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, tx=tx)

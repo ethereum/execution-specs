@@ -215,7 +215,7 @@ def test_mcopy_memory_expansion(
         env=Environment(),
         pre=pre,
         post=post,
-        txs=[tx],
+        tx=tx,
     )
 
 
@@ -276,5 +276,5 @@ def test_mcopy_huge_memory_expansion(
         env=Environment(),
         pre=pre,
         post=post,
-        txs=[tx],
+        tx=tx,
     )

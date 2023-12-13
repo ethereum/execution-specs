@@ -59,4 +59,4 @@ def test_yul(state_test: StateTestFiller, yul: YulCompiler, fork: Fork):
         ),
     }
 
-    state_test(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, tx=tx)

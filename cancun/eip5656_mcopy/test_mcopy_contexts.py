@@ -214,5 +214,5 @@ def test_no_memory_corruption_on_upper_call_stack_levels(
         env=Environment(),
         pre=pre,
         post=post,
-        txs=[tx],
+        tx=tx,
     )

@@ -632,6 +632,6 @@ class TestCreateInitcode:
             env=env,
             pre=pre,
             post=post,
-            txs=[tx],
+            tx=tx,
             tag=f"{initcode.name}_{opcode}",
         )

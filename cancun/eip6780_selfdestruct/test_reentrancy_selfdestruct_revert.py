@@ -154,4 +154,4 @@ def test_reentrancy_selfdestruct_revert(
         value=0,
     )
 
-    state_test(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, tx=tx)

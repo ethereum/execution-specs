@@ -197,7 +197,7 @@ def test_valid_mcopy_operations(
         env=Environment(),
         pre=pre,
         post=post,
-        txs=[tx],
+        tx=tx,
     )
 
 
@@ -219,5 +219,5 @@ def test_mcopy_on_empty_memory(
         env=Environment(),
         pre=pre,
         post=post,
-        txs=[tx],
+        tx=tx,
     )

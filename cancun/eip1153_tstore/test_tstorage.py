@@ -42,13 +42,11 @@ def test_transient_storage_unset_values(state_test: StateTestFiller):
         code_address: Account(code=code, storage={slot: 1 for slot in slots_under_test}),
     }
 
-    txs = [
-        Transaction(
-            to=code_address,
-            data=b"",
-            gas_limit=1_000_000,
-        )
-    ]
+    tx = Transaction(
+        to=code_address,
+        data=b"",
+        gas_limit=1_000_000,
+    )
 
     post = {code_address: Account(storage={slot: 0 for slot in slots_under_test})}
 
@@ -56,7 +54,7 @@ def test_transient_storage_unset_values(state_test: StateTestFiller):
         env=env,
         pre=pre,
         post=post,
-        txs=txs,
+        tx=tx,
     )
 
 
@@ -79,13 +77,11 @@ def test_tload_after_tstore(state_test: StateTestFiller):
         code_address: Account(code=code, storage={slot: 0 for slot in slots_under_test}),
     }
 
-    txs = [
-        Transaction(
-            to=code_address,
-            data=b"",
-            gas_limit=1_000_000,
-        )
-    ]
+    tx = Transaction(
+        to=code_address,
+        data=b"",
+        gas_limit=1_000_000,
+    )
 
     post = {code_address: Account(storage={slot: slot for slot in slots_under_test})}
 
@@ -93,7 +89,7 @@ def test_tload_after_tstore(state_test: StateTestFiller):
         env=env,
         pre=pre,
         post=post,
-        txs=txs,
+        tx=tx,
     )
 
 
@@ -119,13 +115,11 @@ def test_tload_after_sstore(state_test: StateTestFiller):
         code_address: Account(code=code, storage={slot: 1 for slot in slots_under_test}),
     }
 
-    txs = [
-        Transaction(
-            to=code_address,
-            data=b"",
-            gas_limit=1_000_000,
-        )
-    ]
+    tx = Transaction(
+        to=code_address,
+        data=b"",
+        gas_limit=1_000_000,
+    )
 
     post = {
         code_address: Account(
@@ -139,7 +133,7 @@ def test_tload_after_sstore(state_test: StateTestFiller):
         env=env,
         pre=pre,
         post=post,
-        txs=txs,
+        tx=tx,
     )
 
 
@@ -166,13 +160,11 @@ def test_tload_after_tstore_is_zero(state_test: StateTestFiller):
         ),
     }
 
-    txs = [
-        Transaction(
-            to=code_address,
-            data=b"",
-            gas_limit=1_000_000,
-        )
-    ]
+    tx = Transaction(
+        to=code_address,
+        data=b"",
+        gas_limit=1_000_000,
+    )
 
     post = {
         code_address: Account(
@@ -184,7 +176,7 @@ def test_tload_after_tstore_is_zero(state_test: StateTestFiller):
         env=env,
         pre=pre,
         post=post,
-        txs=txs,
+        tx=tx,
     )
 
 
@@ -244,15 +236,13 @@ def test_gas_usage(
         TestAddress: Account(balance=10_000_000, nonce=0),
         code_address: Account(code=gas_measure_bytecode),
     }
-    txs = [
-        Transaction(
-            to=code_address,
-            data=b"",
-            gas_limit=1_000_000,
-        )
-    ]
+    tx = Transaction(
+        to=code_address,
+        data=b"",
+        gas_limit=1_000_000,
+    )
     post = {
         code_address: Account(code=gas_measure_bytecode, storage={0: expected_gas}),
         TestAddress: Account(nonce=1),
     }
-    state_test(env=env, pre=pre, txs=txs, post=post)
+    state_test(env=env, pre=pre, tx=tx, post=post)

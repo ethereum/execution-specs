@@ -279,4 +279,4 @@ def test_reentrant_call(state_test: StateTestFiller, bytecode, expected_storage)
 
     post = {callee_address: Account(code=bytecode, storage=expected_storage)}
 
-    state_test(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, tx=tx)

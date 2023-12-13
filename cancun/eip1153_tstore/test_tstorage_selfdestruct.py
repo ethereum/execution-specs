@@ -249,4 +249,4 @@ def test_reentrant_selfdestructing_call(
     else:
         post[callee_address] = Account.NONEXISTENT
 
-    state_test(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, tx=tx)

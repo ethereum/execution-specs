@@ -5,7 +5,7 @@ abstract: Tests for [EIP-1153: Transient Storage](https://eips.ethereum.org/EIPS
 """  # noqa: E501
 
 from enum import EnumMeta, unique
-from typing import List, Mapping
+from typing import Mapping
 
 import pytest
 
@@ -314,12 +314,10 @@ class CallContextTestCases(PytestParameterEnum, metaclass=DynamicCallContextTest
                 caller_address: Account(code=value["caller_bytecode"]),
                 callee_address: Account(code=value["callee_bytecode"]),
             },
-            "txs": [
-                Transaction(
-                    to=caller_address,
-                    gas_limit=1_000_000,
-                )
-            ],
+            "tx": Transaction(
+                to=caller_address,
+                gas_limit=1_000_000,
+            ),
             "post": {
                 caller_address: Account(storage=value["expected_caller_storage"]),
                 callee_address: Account(storage=value["expected_callee_storage"]),
@@ -333,7 +331,7 @@ def test_subcall(
     state_test: StateTestFiller,
     env: Environment,
     pre: Mapping,
-    txs: List[Transaction],
+    tx: Transaction,
     post: Mapping,
 ):
     """
@@ -344,4 +342,4 @@ def test_subcall(
     - `DELEGATECALL`
     - `STATICCALL`
     """
-    state_test(env=env, pre=pre, post=post, txs=txs)
+    state_test(env=env, pre=pre, post=post, tx=tx)

@@ -51,4 +51,4 @@ def test_chainid(state_test: StateTestFiller):
         to_address(0x100): Account(code="0x4660015500", storage={"0x01": "0x01"}),
     }
 
-    state_test(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, tx=tx)

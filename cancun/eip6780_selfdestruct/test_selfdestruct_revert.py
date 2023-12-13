@@ -300,7 +300,7 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
         protected=False,
     )
 
-    state_test(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.fixture
@@ -415,4 +415,4 @@ def test_selfdestruct_not_created_in_same_tx_with_revert(
         protected=False,
     )
 
-    state_test(env=env, pre=pre, post=post, txs=[tx])
+    state_test(env=env, pre=pre, post=post, tx=tx)

@@ -92,7 +92,7 @@ def test_beacon_root_contract_calls(
     state_test(
         env=env,
         pre=pre,
-        txs=[tx],
+        tx=tx,
         post=post,
     )
 
@@ -138,7 +138,7 @@ def test_beacon_root_contract_timestamps(
     state_test(
         env=env,
         pre=pre,
-        txs=[tx],
+        tx=tx,
         post=post,
     )
 
@@ -169,7 +169,7 @@ def test_calldata_lengths(
     state_test(
         env=env,
         pre=pre,
-        txs=[tx],
+        tx=tx,
         post=post,
     )
 
@@ -202,7 +202,7 @@ def test_beacon_root_equal_to_timestamp(
     state_test(
         env=env,
         pre=pre,
-        txs=[tx],
+        tx=tx,
         post=post,
     )
 
@@ -224,7 +224,7 @@ def test_tx_to_beacon_root_contract(
     state_test(
         env=env,
         pre=pre,
-        txs=[tx],
+        tx=tx,
         post=post,
     )
 
@@ -254,7 +254,7 @@ def test_invalid_beacon_root_calldata_value(
     state_test(
         env=env,
         pre=pre,
-        txs=[tx],
+        tx=tx,
         post=post,
     )
 
@@ -281,12 +281,14 @@ def test_beacon_root_selfdestruct(
         code=Op.CALL(100000, Op.PUSH20(to_address(0x1337)), 0, 0, 0, 0, 0)
         + Op.SSTORE(0, Op.BALANCE(Spec.BEACON_ROOTS_ADDRESS)),
     )
-    post[to_address(0xCC)] = Account(
-        storage=Storage({0: 0xBA1}),
-    )
+    post = {
+        to_address(0xCC): Account(
+            storage=Storage({0: 0xBA1}),
+        )
+    }
     state_test(
         env=env,
         pre=pre,
-        txs=[tx, Transaction(nonce=1, to=to_address(0xCC), gas_limit=100000, gas_price=10)],
+        tx=Transaction(nonce=0, to=to_address(0xCC), gas_limit=100000, gas_price=10),
         post=post,
     )

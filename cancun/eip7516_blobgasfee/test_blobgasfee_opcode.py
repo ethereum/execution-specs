@@ -114,7 +114,7 @@ def test_blobbasefee_stack_overflow(
     state_test(
         env=Environment(),
         pre=pre,
-        txs=[tx],
+        tx=tx,
         post=post,
     )
 
@@ -147,7 +147,7 @@ def test_blobbasefee_out_of_gas(
     state_test(
         env=Environment(),
         pre=pre,
-        txs=[tx],
+        tx=tx,
         post=post,
     )
 
