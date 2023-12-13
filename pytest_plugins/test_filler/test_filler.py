@@ -5,26 +5,14 @@ Top-level pytest configuration file providing:
 and that modifies pytest hooks in order to fill test specs for all tests and
 writes the generated fixtures to file.
 """
-import json
-import os
-import re
 import warnings
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Literal, Optional, Tuple, Type
+from typing import Generator, List, Optional, Type
 
 import pytest
 
-from ethereum_test_forks import Fork, get_development_forks
-from ethereum_test_tools import (
-    BaseFixture,
-    BaseTest,
-    BaseTestConfig,
-    BlockchainTest,
-    BlockchainTestFiller,
-    StateTest,
-    StateTestFiller,
-    Yul,
-)
+from ethereum_test_forks import Fork, Merge, get_development_forks, is_fork
+from ethereum_test_tools import SPEC_TYPES, BaseTest, FixtureCollector, TestInfo, Yul
 from evm_transition_tool import FixtureFormats, TransitionTool
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
@@ -120,27 +108,6 @@ def pytest_addoption(parser):
             "file. This can be used to increase the granularity of --verify-fixtures."
         ),
     )
-    test_group.addoption(
-        "--enable-hive",
-        action="store_true",
-        dest="enable_hive",
-        default=False,
-        help="Output test fixtures with the hive-specific properties.",
-    )
-    test_group.addoption(
-        "--blockchain-test",
-        action="store_true",
-        dest="generate_blockchain_tests",
-        default=True,
-        help="Generate BlockchainTest type fixtures.",
-    )
-    test_group.addoption(
-        "--state-test",
-        action="store_true",
-        dest="generate_state_tests",
-        default=False,
-        help="Generate StateTest type fixtures.",
-    )
 
     debug_group = parser.getgroup("debug", "Arguments defining debug behavior")
     debug_group.addoption(
@@ -161,14 +128,15 @@ def pytest_configure(config):
     Custom marker registration:
     https://docs.pytest.org/en/7.1.x/how-to/writing_plugins.html#registering-custom-markers
     """
-    config.addinivalue_line(
-        "markers",
-        "state_test: a test case that implement a single state transition test.",
-    )
-    config.addinivalue_line(
-        "markers",
-        "blockchain_test: a test case that implements a block transition test.",
-    )
+    for fixture_format in FixtureFormats:
+        config.addinivalue_line(
+            "markers",
+            (
+                f"{fixture_format.name.lower()}: "
+                f"{FixtureFormats.get_format_description(fixture_format)}"
+            ),
+        )
+
     config.addinivalue_line(
         "markers",
         "yul_test: a test case that compiles Yul code.",
@@ -254,12 +222,6 @@ def do_fixture_verification(request, t8n) -> bool:
         do_fixture_verification = True
     if request.config.getoption("verify_fixtures"):
         do_fixture_verification = True
-    if do_fixture_verification and request.config.getoption("enable_hive"):
-        pytest.exit(
-            "Hive fixtures can not be verify using geth's evm tool: "
-            "Remove --enable-hive to verify test fixtures.",
-            returncode=pytest.ExitCode.USAGE_ERROR,
-        )
     return do_fixture_verification
 
 
@@ -287,98 +249,21 @@ def evm_fixture_verification(
     evm_fixture_verification.shutdown()
 
 
-@pytest.fixture(autouse=True, scope="session")
-def base_test_config(request) -> BaseTestConfig:
-    """
-    Returns the base test configuration that all tests must use.
-    """
-    config = BaseTestConfig()
-    config.enable_hive = request.config.getoption("enable_hive")
-    config.blockchain_test = request.config.getoption("generate_blockchain_tests")
-    config.state_test = request.config.getoption("generate_state_tests")
-    if config.blockchain_test and config.state_test:
-        pytest.exit(
-            "Only one of --blockchain-test or --state-test can be enabled.",
-            returncode=pytest.ExitCode.USAGE_ERROR,
-        )
-    if config.state_test and config.enable_hive:
-        pytest.exit(
-            "Hive fixtures can not be generated with --state-test: "
-            "Remove --enable-hive to generate test fixtures.",
-            returncode=pytest.ExitCode.USAGE_ERROR,
-        )
-    return config
-
-
-def strip_test_prefix(name: str) -> str:
-    """
-    Removes the test prefix from a test case name.
-    """
-    TEST_PREFIX = "test_"
-    if name.startswith(TEST_PREFIX):
-        return name[len(TEST_PREFIX) :]
-    return name
-
-
-def convert_test_id_to_test_name_and_parameters(name: str) -> Tuple[str, str]:
-    """
-    Converts a test name to a tuple containing the test name and test parameters.
-
-    Example:
-    test_push0_key_sstore[fork_Shanghai] -> test_push0_key_sstore, fork_Shanghai
-    """
-    test_name, parameters = name.split("[")
-    return test_name, re.sub(r"[\[\-]", "_", parameters).replace("]", "")
-
-
-def get_module_relative_output_dir(test_module: Path, filler_path: Path) -> Path:
-    """
-    Return a directory name for the provided test_module (relative to the
-    base ./tests directory) that can be used for output (within the
-    configured fixtures output path or the base_dump_dir directory).
-
-    Example:
-    tests/shanghai/eip3855_push0/test_push0.py -> shanghai/eip3855_push0/test_push0
-    """
-    basename = test_module.with_suffix("").absolute()
-    basename_relative = basename.relative_to(filler_path.absolute())
-    module_path = basename_relative.parent / basename_relative.stem
-    return module_path
-
-
-def get_dump_dir_path(
-    base_dump_dir: Path,
-    filler_path: Path,
-    node: pytest.Item,
-    level: Literal["test_module", "test_function", "test_parameter"] = "test_parameter",
-) -> Optional[Path]:
-    """
-    The path to dump the debug output as defined by the level to dump at.
-    """
-    if not base_dump_dir:
-        return None
-    test_module_relative_dir = get_module_relative_output_dir(Path(node.path), filler_path)
-    if level == "test_module":
-        return Path(base_dump_dir) / Path(str(test_module_relative_dir).replace(os.sep, "__"))
-    test_name, test_parameter_string = convert_test_id_to_test_name_and_parameters(node.name)
-    flat_path = f"{str(test_module_relative_dir).replace(os.sep, '__')}__{test_name}"
-    if level == "test_function":
-        return Path(base_dump_dir) / flat_path
-    elif level == "test_parameter":
-        return Path(base_dump_dir) / flat_path / test_parameter_string
-    raise Exception("Unexpected level.")
-
-
 @pytest.fixture(scope="session")
-def base_dump_dir(request) -> Path:
+def base_dump_dir(request) -> Optional[Path]:
     """
     The base directory to dump the evm debug output.
     """
-    return request.config.getoption("base_dump_dir")
+    base_dump_dir_str = request.config.getoption("base_dump_dir")
+    if base_dump_dir_str:
+        return Path(base_dump_dir_str)
+    return None
 
 
 @pytest.fixture(scope="function")
-def dump_dir_parameter_level(request, base_dump_dir: Path, filler_path: Path) -> Optional[Path]:
+def dump_dir_parameter_level(
+    request, base_dump_dir: Optional[Path], filler_path: Path
+) -> Optional[Path]:
     """
     The directory to dump evm transition tool debug output on a test parameter
     level.
@@ -386,7 +271,11 @@ def dump_dir_parameter_level(request, base_dump_dir: Path, filler_path: Path) ->
     Example with --evm-dump-dir=/tmp/evm:
     -> /tmp/evm/shanghai__eip3855_push0__test_push0__test_push0_key_sstore/fork_shanghai/
     """
-    return get_dump_dir_path(base_dump_dir, filler_path, request.node, level="test_parameter")
+    return node_to_test_info(request.node).get_dump_dir_path(
+        base_dump_dir,
+        filler_path,
+        level="test_parameter",
+    )
 
 
 def get_fixture_collection_scope(fixture_name, config):
@@ -400,118 +289,13 @@ def get_fixture_collection_scope(fixture_name, config):
     return "module"
 
 
-class FixtureCollector:
-    """
-    Collects all fixtures generated by the test cases.
-    """
-
-    all_fixtures: Dict[Path, Dict[str, Any]]
-    output_dir: str
-    flat_output: bool
-    json_path_to_fixture_type: Dict[Path, FixtureFormats]
-    json_path_to_test_item: Dict[Path, pytest.Item]
-
-    def __init__(
-        self,
-        output_dir: str,
-        flat_output: bool,
-    ) -> None:
-        self.all_fixtures = {}
-        self.output_dir = output_dir
-        self.flat_output = flat_output
-        self.json_path_to_fixture_type = {}
-        self.json_path_to_test_item = {}
-
-    def add_fixture(
-        self, item, fixture: Optional[BaseFixture], fixture_format: FixtureFormats
-    ) -> None:
-        """
-        Adds a fixture to the list of fixtures of a given test case.
-        """
-        # TODO: remove this logic. if hive enabled set --from to Merge
-        if fixture is None:
-            return
-
-        def get_single_test_name(item):
-            test_name, test_parameters = convert_test_id_to_test_name_and_parameters(item.name)
-            return f"{test_name}__{test_parameters}"
-
-        def get_fixture_basename_for_flat_output(self, item):
-            if item.config.getoption("single_fixture_per_file"):
-                return Path(strip_test_prefix(get_single_test_name(item)))
-            return Path(strip_test_prefix(item.originalname))
-
-        def get_fixture_basename_for_nested_output(self, item):
-            relative_fixture_output_dir = Path(item.path).parent / strip_test_prefix(
-                Path(item.path).stem
-            )
-            module_relative_output_dir = get_module_relative_output_dir(
-                relative_fixture_output_dir, item.config.getoption("filler_path")
-            )
-
-            if item.config.getoption("single_fixture_per_file"):
-                return module_relative_output_dir / strip_test_prefix(get_single_test_name(item))
-            return module_relative_output_dir / strip_test_prefix(item.originalname)
-
-        fixture_basename: Path
-        if self.flat_output:
-            fixture_basename = get_fixture_basename_for_flat_output(self, item)
-        else:
-            fixture_basename = get_fixture_basename_for_nested_output(self, item)
-
-        fixture_path = self.output_dir / fixture_basename.with_suffix(".json")
-        if fixture_path not in self.all_fixtures:  # relevant when we group by test function
-            self.all_fixtures[fixture_path] = {}
-            self.json_path_to_fixture_type[fixture_path] = fixture_format
-            self.json_path_to_test_item[fixture_path] = item
-
-        self.all_fixtures[fixture_path][item.nodeid] = fixture.to_json()
-
-    def dump_fixtures(self) -> None:
-        """
-        Dumps all collected fixtures to their respective files.
-        """
-        os.makedirs(self.output_dir, exist_ok=True)
-        for fixture_path, fixtures in self.all_fixtures.items():
-            if not self.flat_output:
-                os.makedirs(fixture_path.parent, exist_ok=True)
-            with open(fixture_path, "w") as f:
-                json.dump(fixtures, f, indent=4)
-
-    def verify_fixture_files(self, evm_fixture_verification: TransitionTool) -> None:
-        """
-        Runs `evm [state|block]test` on each fixture.
-        """
-        for fixture_path, fixture_format in self.json_path_to_fixture_type.items():
-            item = self.json_path_to_test_item[fixture_path]
-            verify_fixtures_dump_dir = self._get_verify_fixtures_dump_dir(item)
-            evm_fixture_verification.verify_fixture(
-                fixture_format, fixture_path, verify_fixtures_dump_dir
-            )
-
-    def _get_verify_fixtures_dump_dir(
-        self,
-        item: pytest.Item,
-    ):
-        """
-        The directory to dump the current test function's fixture.json and fixture
-        verification debug output.
-        """
-        base_dump_dir = item.config.getoption("base_dump_dir")
-        if not base_dump_dir:
-            return None
-        filler_path = item.config.getoption("filler_path")
-        if item.config.getoption("single_fixture_per_file"):
-            return get_dump_dir_path(base_dump_dir, filler_path, item, level="test_parameter")
-        else:
-            return get_dump_dir_path(base_dump_dir, filler_path, item, level="test_function")
-
-
 @pytest.fixture(scope=get_fixture_collection_scope)
 def fixture_collector(
     request,
     do_fixture_verification: bool,
     evm_fixture_verification: TransitionTool,
+    filler_path: Path,
+    base_dump_dir: Optional[Path],
 ):
     """
     Returns the configured fixture collector instance used for all tests
@@ -520,6 +304,9 @@ def fixture_collector(
     fixture_collector = FixtureCollector(
         output_dir=request.config.getoption("output"),
         flat_output=request.config.getoption("flat_output"),
+        single_fixture_per_file=request.config.getoption("single_fixture_per_file"),
+        filler_path=filler_path,
+        base_dump_dir=base_dump_dir,
     )
     yield fixture_collector
     fixture_collector.dump_fixtures()
@@ -576,124 +363,130 @@ def yul(fork: Fork, request):
     return YulWrapper
 
 
-SPEC_TYPES: List[Type[BaseTest]] = [StateTest, BlockchainTest]
 SPEC_TYPES_PARAMETERS: List[str] = [s.pytest_parameter_name() for s in SPEC_TYPES]
 
 
-@pytest.fixture(scope="function")
-def fixture_format(request) -> FixtureFormats:
+def node_to_test_info(node) -> TestInfo:
     """
-    Returns the test format of the current test case.
+    Returns the test info of the current node item.
     """
-    enable_hive = request.config.getoption("enable_hive")
-    has_blockchain_test_format = set(["state_test", "blockchain_test"]) & set(request.fixturenames)
-    if has_blockchain_test_format and enable_hive:
-        return FixtureFormats.BLOCKCHAIN_TEST_HIVE
-    elif has_blockchain_test_format and not enable_hive:
-        return FixtureFormats.BLOCKCHAIN_TEST
-    raise Exception("Unknown fixture format.")
+    return TestInfo(
+        name=node.name,
+        id=node.nodeid,
+        original_name=node.originalname,
+        path=Path(node.path),
+    )
 
 
-@pytest.fixture(scope="function")
-def state_test(
-    request,
-    t8n,
-    fork,
-    reference_spec,
-    eips,
-    dump_dir_parameter_level,
-    fixture_collector,
-    fixture_format,
-    base_test_config,
-) -> StateTestFiller:
+def base_test_parametrizer(cls: Type[BaseTest]):
     """
-    Fixture used to instantiate an auto-fillable StateTest object from within
-    a test function.
+    Generates a pytest.fixture for a given BaseTest subclass.
 
-    Every test that defines a StateTest filler must explicitly specify this
-    fixture in its function arguments.
-
-    Implementation detail: It must be scoped on test function level to avoid
+    Implementation detail: All spec fixtures must be scoped on test function level to avoid
     leakage between tests.
     """
 
-    class StateTestWrapper(StateTest):
-        def __init__(self, *args, **kwargs):
-            kwargs["base_test_config"] = base_test_config
-            kwargs["t8n_dump_dir"] = dump_dir_parameter_level
-            super(StateTestWrapper, self).__init__(*args, **kwargs)
-            fixture = self.generate(
-                t8n,
-                fork,
-                eips=eips,
-            )
-            if fixture:
+    @pytest.fixture(
+        scope="function",
+        name=cls.pytest_parameter_name(),
+    )
+    def base_test_parametrizer_func(
+        request,
+        t8n,
+        fork,
+        reference_spec,
+        eips,
+        dump_dir_parameter_level,
+        fixture_collector,
+    ):
+        """
+        Fixture used to instantiate an auto-fillable BaseTest object from within
+        a test function.
+
+        Every test that defines a test filler must explicitly specify its parameter name
+        (see `pytest_parameter_name` in each implementation of BaseTest) in its function
+        arguments.
+
+        When parametrizing, indirect must be used along with the fixture format as value.
+        """
+        fixture_format = request.param
+        assert isinstance(fixture_format, FixtureFormats)
+
+        class BaseTestWrapper(cls):
+            def __init__(self, *args, **kwargs):
+                kwargs["fixture_format"] = fixture_format
+                kwargs["t8n_dump_dir"] = dump_dir_parameter_level
+                super(BaseTestWrapper, self).__init__(*args, **kwargs)
+                fixture = self.generate(
+                    t8n,
+                    fork,
+                    eips=eips,
+                )
                 fixture.fill_info(t8n, reference_spec)
-            fixture_collector.add_fixture(
-                request.node,
-                fixture,
-                fixture_format,
+
+                fixture_collector.add_fixture(
+                    node_to_test_info(request.node),
+                    fixture,
+                )
+
+        return BaseTestWrapper
+
+    return base_test_parametrizer_func
+
+
+# Dynamically generate a pytest fixture for each test spec type.
+for cls in SPEC_TYPES:
+    # Fixture needs to be defined in the global scope so pytest can detect it.
+    globals()[cls.pytest_parameter_name()] = base_test_parametrizer(cls)
+
+
+def pytest_generate_tests(metafunc):
+    """
+    Pytest hook used to dynamically generate test cases for each fixture format a given
+    test spec supports.
+    """
+    for test_type in SPEC_TYPES:
+        if test_type.pytest_parameter_name() in metafunc.fixturenames:
+            metafunc.parametrize(
+                [test_type.pytest_parameter_name()],
+                [
+                    pytest.param(
+                        fixture_format,
+                        id=fixture_format.name.lower(),
+                        marks=[getattr(pytest.mark, fixture_format.name.lower())],
+                    )
+                    for fixture_format in test_type.fixture_formats()
+                ],
+                scope="function",
+                indirect=True,
             )
 
-    return StateTestWrapper
 
-
-@pytest.fixture(scope="function")
-def blockchain_test(
-    request,
-    t8n,
-    fork,
-    reference_spec,
-    eips,
-    dump_dir_parameter_level,
-    fixture_collector,
-    fixture_format,
-    base_test_config,
-) -> BlockchainTestFiller:
+@pytest.hookimpl(trylast=True)
+def pytest_collection_modifyitems(config, items):
     """
-    Fixture used to define an auto-fillable BlockchainTest analogous to the
-    state_test fixture for StateTests.
-    See the state_test fixture docstring for details.
+    Remove pre-Merge tests parametrized to generate hive type fixtures; these
+    can't be used in the Hive Pyspec Simulator.
+
+    This can't be handled in this plugins pytest_generate_tests() as the fork
+    parametrization occurs in the forks plugin.
     """
-
-    class BlockchainTestWrapper(BlockchainTest):
-        def __init__(self, *args, **kwargs):
-            kwargs["base_test_config"] = base_test_config
-            kwargs["t8n_dump_dir"] = dump_dir_parameter_level
-            super(BlockchainTestWrapper, self).__init__(*args, **kwargs)
-            fixture = self.generate(
-                t8n,
-                fork,
-                eips=eips,
-            )
-            if fixture:
-                fixture.fill_info(t8n, reference_spec)
-            fixture_collector.add_fixture(
-                request.node,
-                fixture,
-                fixture_format,
-            )
-
-    return BlockchainTestWrapper
-
-
-def pytest_collection_modifyitems(items, config):
-    """
-    A pytest hook called during collection, after all items have been
-    collected.
-
-    Here we dynamically apply "state_test" or "blockchain_test" markers
-    to a test if the test function uses the corresponding fixture.
-    """
-    for item in items:
+    for item in items[:]:  # use a copy of the list, as we'll be modifying it
         if isinstance(item, EIPSpecTestItem):
             continue
-        if "state_test" in item.fixturenames:
-            marker = pytest.mark.state_test()
-            item.add_marker(marker)
-        elif "blockchain_test" in item.fixturenames:
-            marker = pytest.mark.blockchain_test()
-            item.add_marker(marker)
+        if not is_fork(item.callspec.params["fork"], Merge):
+            # Even though the `state_test` test spec does not produce a hive STATE_TEST, it does
+            # produce a BLOCKCHAIN_TEST_HIVE, so we need to remove it here.
+            # TODO: Ideally, the logic could be contained in the `FixtureFormat` class, we create
+            # a `fork_supported` method that returns True if the fork is supported.
+            if ("state_test" in item.callspec.params) and item.callspec.params[
+                "state_test"
+            ].name.endswith("HIVE"):
+                items.remove(item)
+            if ("blockchain_test" in item.callspec.params) and item.callspec.params[
+                "blockchain_test"
+            ].name.endswith("HIVE"):
+                items.remove(item)
 
 
 def pytest_runtest_setup(item):

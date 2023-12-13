@@ -1,9 +1,10 @@
 """
 BlockchainTest types
 """
-
+import json
 from copy import copy, deepcopy
 from dataclasses import dataclass, fields, replace
+from pathlib import Path
 from typing import Any, Callable, ClassVar, Dict, List, Mapping, Optional, Tuple
 
 from ethereum import rlp as eth_rlp
@@ -11,6 +12,7 @@ from ethereum.base_types import Uint
 from ethereum.crypto.hash import keccak256
 
 from ethereum_test_forks import Fork
+from evm_transition_tool import FixtureFormats
 
 from ...common.constants import EmptyOmmersRoot, EngineAPIError
 from ...common.conversions import BytesConvertible, FixedSizeBytesConvertible, NumberConvertible
@@ -902,6 +904,18 @@ class FixtureCommon(BaseFixture):
         self._json["_info"] = self.info
         return self._json
 
+    @classmethod
+    def collect_into_file(cls, fixture_file_path: Path, fixtures: Dict[str, "BaseFixture"]):
+        """
+        For BlockchainTest format, we simply join the json fixtures into a single file.
+        """
+        json_fixtures: Dict[str, Dict[str, Any]] = {}
+        for name, fixture in fixtures.items():
+            assert isinstance(fixture, FixtureCommon), f"Invalid fixture type: {type(fixture)}"
+            json_fixtures[name] = fixture.to_json()
+        with open(fixture_file_path, "w") as f:
+            json.dump(json_fixtures, f, indent=4)
+
 
 @dataclass(kw_only=True)
 class Fixture(FixtureCommon):
@@ -954,6 +968,21 @@ class Fixture(FixtureCommon):
         ),
     )
 
+    @classmethod
+    def output_base_dir_name(cls) -> Path:
+        """
+        Returns the name of the subdirectory where this type of fixture should be dumped to.
+        """
+        return Path("blockchain_tests")
+
+    @classmethod
+    def format(cls) -> FixtureFormats:
+        """
+        Returns the fixture format which the evm tool can use to determine how to verify the
+        fixture.
+        """
+        return FixtureFormats.BLOCKCHAIN_TEST
+
 
 @dataclass(kw_only=True)
 class HiveFixture(FixtureCommon):
@@ -995,3 +1024,18 @@ class HiveFixture(FixtureCommon):
             to_json=True,
         ),
     )
+
+    @classmethod
+    def output_base_dir_name(cls) -> Path:
+        """
+        Returns the name of the subdirectory where this type of fixture should be dumped to.
+        """
+        return Path("blockchain_tests_hive")
+
+    @classmethod
+    def format(cls) -> FixtureFormats:
+        """
+        Returns the fixture format which the evm tool can use to determine how to verify the
+        fixture.
+        """
+        return FixtureFormats.BLOCKCHAIN_TEST_HIVE

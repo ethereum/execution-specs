@@ -5,10 +5,11 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from itertools import count
 from os import path
+from pathlib import Path
 from typing import Any, Callable, Dict, Generator, Iterator, List, Mapping, Optional
 
 from ethereum_test_forks import Fork
-from evm_transition_tool import TransitionTool
+from evm_transition_tool import FixtureFormats, TransitionTool
 
 from ...common import Account, Address, Environment, Transaction, withdrawals_root
 from ...common.conversions import to_hex
@@ -73,26 +74,6 @@ def verify_result(result: Mapping, env: Environment):
 
 
 @dataclass(kw_only=True)
-class BaseTestConfig:
-    """
-    General configuration that all tests must support.
-    """
-
-    enable_hive: bool = False
-    """
-    Enable any hive-related properties that the output could contain.
-    """
-    blockchain_test: bool = False
-    """
-    Enable BlockchainTest type tests production.
-    """
-    state_test: bool = False
-    """
-    Enable StateTest type tests production.
-    """
-
-
-@dataclass(kw_only=True)
 class BaseFixture:
     """
     Represents a base Ethereum test fixture of any type.
@@ -118,27 +99,52 @@ class BaseFixture:
         if ref_spec is not None:
             ref_spec.write_info(self.info)
 
-    def to_json(self) -> Dict[str, Any]:
+    @classmethod
+    @abstractmethod
+    def format(cls) -> FixtureFormats:
         """
-        Convert to JSON.
-
-        TODO: This has to be replaced in the future to allow for different fixtures to do whatever
-        they want in the output file, and somehow be able to merge themselves automatically with
-        other fixtures of the same type.
+        Returns the fixture format which the evm tool can use to determine how to verify the
+        fixture.
         """
         pass
+
+    @classmethod
+    @abstractmethod
+    def collect_into_file(cls, fixture_file_path: Path, fixtures: Dict[str, "BaseFixture"]):
+        """
+        Returns the name of the subdirectory where this type of fixture should be dumped to.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def output_base_dir_name(cls) -> Path:
+        """
+        Returns the name of the subdirectory where this type of fixture should be dumped to.
+        """
+        pass
+
+    @classmethod
+    def output_file_extension(cls) -> str:
+        """
+        Returns the file extension for this type of fixture.
+
+        By default, fixtures are dumped as JSON files.
+        """
+        return ".json"
 
 
 @dataclass(kw_only=True)
 class BaseTest:
     """
-    Represents a base Ethereum test which must return a genesis and a
-    blockchain.
+    Represents a base Ethereum test which must return a single test fixture.
     """
 
     pre: Mapping
     tag: str = ""
-    base_test_config: BaseTestConfig = field(default_factory=BaseTestConfig)
+    # Setting a default here is just for type checking, the correct value is automatically set
+    # by pytest.
+    fixture_format: FixtureFormats = FixtureFormats.UNSET_TEST_FORMAT
 
     # Transition tool specific fields
     t8n_dump_dir: Optional[str] = ""
@@ -150,9 +156,9 @@ class BaseTest:
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
-    ) -> Optional[BaseFixture]:
+    ) -> BaseFixture:
         """
-        Generate the test fixture.
+        Generate the list of test fixtures.
         """
         pass
 
@@ -164,6 +170,23 @@ class BaseTest:
         spec type as filler for the test.
         """
         pass
+
+    @classmethod
+    @abstractmethod
+    def fixture_formats(cls) -> List[FixtureFormats]:
+        """
+        Returns a list of fixture formats that can be output to the test spec.
+        """
+        pass
+
+    def __post_init__(self) -> None:
+        """
+        Validate the fixture format.
+        """
+        if self.fixture_format not in self.fixture_formats():
+            raise ValueError(
+                f"Invalid fixture format {self.fixture_format} for {self.__class__.__name__}."
+            )
 
     def get_next_transition_tool_output_path(self) -> str:
         """

@@ -9,7 +9,7 @@ import pytest
 from semver import Version
 
 from ethereum_test_forks import Fork, Homestead, Shanghai, forks_from_until, get_deployed_forks
-from evm_transition_tool import GethTransitionTool
+from evm_transition_tool import FixtureFormats, GethTransitionTool
 
 from ..code import CalldataCase, Case, Code, Conditional, Initcode, Switch, Yul
 from ..common import Account, Environment, TestAddress, Transaction, to_hash_bytes
@@ -646,8 +646,13 @@ def test_switch(tx_data: bytes, switch_bytecode: bytes, expected_storage: Mappin
     }
     txs = [Transaction(to=code_address, data=tx_data, gas_limit=1_000_000)]
     post = {TestAddress: Account(nonce=1), code_address: Account(storage=expected_storage)}
-    state_test = StateTest(env=Environment(), pre=pre, txs=txs, post=post)
-    state_test.base_test_config.blockchain_test = True
+    state_test = StateTest(
+        env=Environment(),
+        pre=pre,
+        txs=txs,
+        post=post,
+        fixture_format=FixtureFormats.BLOCKCHAIN_TEST,
+    )
     state_test.generate(
         t8n=GethTransitionTool(),
         fork=Shanghai,

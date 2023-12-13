@@ -7,7 +7,7 @@ from pprint import pprint
 from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Type
 
 from ethereum_test_forks import Fork
-from evm_transition_tool import TransitionTool
+from evm_transition_tool import FixtureFormats, TransitionTool
 
 from ...common import (
     Address,
@@ -100,12 +100,15 @@ class BlockchainTest(BaseTest):
         """
         return "blockchain_test"
 
-    @property
-    def hive_enabled(self) -> bool:
+    @classmethod
+    def fixture_formats(cls) -> List[FixtureFormats]:
         """
-        Returns true if hive fixture generation is enabled, false otherwise.
+        Returns a list of fixture formats that can be output to the test spec.
         """
-        return self.base_test_config.enable_hive
+        return [
+            FixtureFormats.BLOCKCHAIN_TEST,
+            FixtureFormats.BLOCKCHAIN_TEST_HIVE,
+        ]
 
     def make_genesis(
         self,
@@ -391,21 +394,22 @@ class BlockchainTest(BaseTest):
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
-    ) -> Optional[BaseFixture]:
+    ) -> BaseFixture:
         """
         Generate the BlockchainTest fixture.
         """
-        fixture: Optional[BaseFixture] = None
         t8n.reset_traces()
-        if self.base_test_config.state_test:
-            return None  # No blockchain tests when generating state tests
-        elif self.base_test_config.enable_hive:
-            if fork.engine_new_payload_version() is None:
-                return None  # pre Merge tests are not supported in Hive
-            fixture = self.make_hive_fixture(t8n, fork, eips)
-        else:
-            fixture = self.make_fixture(t8n, fork, eips)
-        return fixture
+        if self.fixture_format == FixtureFormats.BLOCKCHAIN_TEST_HIVE:
+            if fork.engine_forkchoice_updated_version() is None:
+                raise Exception(
+                    "A hive fixture was requested but no forkchoice update is defined. "
+                    "The framework should never try to execute this test case."
+                )
+            return self.make_hive_fixture(t8n, fork, eips)
+        elif self.fixture_format == FixtureFormats.BLOCKCHAIN_TEST:
+            return self.make_fixture(t8n, fork, eips)
+
+        raise Exception(f"Unknown fixture format: {self.fixture_format}")
 
 
 BlockchainTestSpec = Callable[[str], Generator[BlockchainTest, None, None]]
