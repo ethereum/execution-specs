@@ -1070,6 +1070,8 @@ class Environment:
 
         if fork.header_zero_difficulty_required(number, timestamp):
             res.difficulty = 0
+        elif res.difficulty is None and res.parent_difficulty is None:
+            res.difficulty = 0x20000
 
         if (
             fork.header_excess_blob_gas_required(number, timestamp)

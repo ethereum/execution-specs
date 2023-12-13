@@ -5,7 +5,7 @@ import json
 from copy import copy, deepcopy
 from dataclasses import dataclass, fields, replace
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Callable, ClassVar, Dict, List, Mapping, Optional, TextIO, Tuple
 
 from ethereum import rlp as eth_rlp
 from ethereum.base_types import Uint
@@ -865,13 +865,6 @@ class FixtureCommon(BaseFixture):
     Base Ethereum test fixture fields class.
     """
 
-    info: Dict[str, str] = field(
-        default_factory=dict,
-        json_encoder=JSONEncoder.Field(
-            name="_info",
-            to_json=True,
-        ),
-    )
     name: str = field(
         default="",
         json_encoder=JSONEncoder.Field(
@@ -905,7 +898,7 @@ class FixtureCommon(BaseFixture):
         return self._json
 
     @classmethod
-    def collect_into_file(cls, fixture_file_path: Path, fixtures: Dict[str, "BaseFixture"]):
+    def collect_into_file(cls, fd: TextIO, fixtures: Dict[str, "BaseFixture"]):
         """
         For BlockchainTest format, we simply join the json fixtures into a single file.
         """
@@ -913,8 +906,7 @@ class FixtureCommon(BaseFixture):
         for name, fixture in fixtures.items():
             assert isinstance(fixture, FixtureCommon), f"Invalid fixture type: {type(fixture)}"
             json_fixtures[name] = fixture.to_json()
-        with open(fixture_file_path, "w") as f:
-            json.dump(json_fixtures, f, indent=4)
+        json.dump(json_fixtures, fd, indent=4)
 
 
 @dataclass(kw_only=True)

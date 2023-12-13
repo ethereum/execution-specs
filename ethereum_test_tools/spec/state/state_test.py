@@ -5,15 +5,18 @@ from copy import copy
 from dataclasses import dataclass
 from typing import Callable, Generator, List, Mapping, Optional, Type
 
-import pytest
-
-from ethereum_test_forks import Fork
+from ethereum_test_forks import Cancun, Fork, is_fork
 from evm_transition_tool import FixtureFormats, TransitionTool
 
-from ...common import Environment, Number, Transaction
+from ...common import Account, Address, Alloc, Environment, Number, Transaction
 from ...common.constants import EngineAPIError
-from ..base.base_test import BaseFixture, BaseTest
+from ...common.json import to_json
+from ..base.base_test import BaseFixture, BaseTest, verify_post_alloc
 from ..blockchain.blockchain_test import Block, BlockchainTest
+from ..debugging import print_traces
+from .types import Fixture, FixtureForkPost
+
+BEACON_ROOTS_ADDRESS = Address(0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02)
 
 
 @dataclass(kw_only=True)
@@ -25,7 +28,7 @@ class StateTest(BaseTest):
     env: Environment
     pre: Mapping
     post: Mapping
-    txs: List[Transaction]
+    tx: Transaction
     engine_api_error_code: Optional[EngineAPIError] = None
     tag: str = ""
     chain_id: int = 1
@@ -78,7 +81,7 @@ class StateTest(BaseTest):
                 extra_data=self.env.extra_data,
                 withdrawals=self.env.withdrawals,
                 beacon_root=self.env.beacon_root,
-                txs=self.txs,
+                txs=[self.tx],
                 ommers=[],
             )
         ]
@@ -93,6 +96,69 @@ class StateTest(BaseTest):
             post=self.post,
             blocks=self._generate_blockchain_blocks(),
             fixture_format=self.fixture_format,
+            t8n_dump_dir=self.t8n_dump_dir,
+        )
+
+    def make_state_test_fixture(
+        self,
+        t8n: TransitionTool,
+        fork: Fork,
+        eips: Optional[List[int]] = None,
+    ) -> Fixture:
+        """
+        Create a fixture from the state test definition.
+        """
+        env = self.env.set_fork_requirements(fork)
+        tx = self.tx.with_signature_and_sender()
+        pre_alloc = Alloc.merge(
+            Alloc(
+                fork.pre_allocation(block_number=env.number, timestamp=Number(env.timestamp)),
+            ),
+            Alloc(self.pre),
+        )
+
+        next_alloc, result = t8n.evaluate(
+            alloc=to_json(pre_alloc),
+            txs=to_json([tx]),
+            env=to_json(env),
+            fork_name=fork.fork(block_number=Number(env.number), timestamp=Number(env.timestamp)),
+            chain_id=self.chain_id,
+            reward=0,  # Reward on state tests is always zero
+            eips=eips,
+            debug_output_path=self.get_next_transition_tool_output_path(),
+        )
+
+        try:
+            verify_post_alloc(self.post, next_alloc)
+        except Exception as e:
+            print_traces(t8n.get_traces())
+            raise e
+
+        # Perform post state processing required for some forks
+        if is_fork(fork, Cancun):
+            # StateTest does not execute any beacon root contract logic, but we still need to
+            # set the beacon root to the correct value, because most tests assume this happens,
+            # so we copy the beacon root contract storage from the post state into the pre state
+            # and the transaction is executed in isolation properly.
+            if beacon_roots_account := next_alloc.get(str(BEACON_ROOTS_ADDRESS)):
+                if beacon_roots_storage := beacon_roots_account.get("storage"):
+                    pre_alloc = Alloc.merge(
+                        pre_alloc,
+                        Alloc({BEACON_ROOTS_ADDRESS: Account(storage=beacon_roots_storage)}),
+                    )
+
+        return Fixture(
+            env=env,
+            pre_state=pre_alloc,
+            post={
+                fork.fork(block_number=Number(env.number), timestamp=Number(env.timestamp)): [
+                    FixtureForkPost.collect(
+                        transition_tool_result=result,
+                        transaction=tx.with_signature_and_sender(),
+                    )
+                ]
+            },
+            transaction=tx,
         )
 
     def generate(
@@ -107,8 +173,7 @@ class StateTest(BaseTest):
         if self.fixture_format in BlockchainTest.fixture_formats():
             return self.generate_blockchain_test().generate(t8n, fork, eips)
         elif self.fixture_format == FixtureFormats.STATE_TEST:
-            # TODO: append fixture in state format
-            pytest.skip("StateTest fixture format not implemented.")
+            return self.make_state_test_fixture(t8n, fork, eips)
 
         raise Exception(f"Unknown fixture format: {self.fixture_format}")
 

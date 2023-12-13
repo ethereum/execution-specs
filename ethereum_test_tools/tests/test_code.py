@@ -644,12 +644,12 @@ def test_switch(tx_data: bytes, switch_bytecode: bytes, expected_storage: Mappin
         TestAddress: Account(balance=10_000_000, nonce=0),
         code_address: Account(code=switch_bytecode),
     }
-    txs = [Transaction(to=code_address, data=tx_data, gas_limit=1_000_000)]
+    tx = Transaction(to=code_address, data=tx_data, gas_limit=1_000_000)
     post = {TestAddress: Account(nonce=1), code_address: Account(storage=expected_storage)}
     state_test = StateTest(
         env=Environment(),
         pre=pre,
-        txs=txs,
+        tx=tx,
         post=post,
         fixture_format=FixtureFormats.BLOCKCHAIN_TEST,
     )

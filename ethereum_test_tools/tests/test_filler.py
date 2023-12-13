@@ -76,11 +76,11 @@ def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
     }
 
     t8n = GethTransitionTool()
-    fixture = StateTest(
-        env=env,
+    fixture = BlockchainTest(
+        genesis_environment=env,
         pre=pre,
         post={},
-        txs=[],
+        blocks=[],
         tag="some_state_test",
         fixture_format=FixtureFormats.BLOCKCHAIN_TEST,
     ).generate(t8n, fork)
@@ -141,7 +141,7 @@ def test_fill_state_test(fork: Fork, expected_json_file: str, check_hive: bool):
         env=env,
         pre=pre,
         post=post,
-        txs=[tx],
+        tx=tx,
         tag="my_chain_id_test",
         fixture_format=fixture_format,
     ).generate(

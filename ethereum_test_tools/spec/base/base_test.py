@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from itertools import count
 from os import path
 from pathlib import Path
-from typing import Any, Callable, Dict, Generator, Iterator, List, Mapping, Optional
+from typing import Any, Callable, Dict, Generator, Iterator, List, Mapping, Optional, TextIO
 
 from ethereum_test_forks import Fork
 from evm_transition_tool import FixtureFormats, TransitionTool
@@ -110,7 +110,7 @@ class BaseFixture:
 
     @classmethod
     @abstractmethod
-    def collect_into_file(cls, fixture_file_path: Path, fixtures: Dict[str, "BaseFixture"]):
+    def collect_into_file(cls, fd: TextIO, fixtures: Dict[str, "BaseFixture"]):
         """
         Returns the name of the subdirectory where this type of fixture should be dumped to.
         """

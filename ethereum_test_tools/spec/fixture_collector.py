@@ -164,7 +164,8 @@ class FixtureCollector:
             # Get the first fixture to dump to get its type
             fixture = next(iter(fixtures.values()))
             # Call class method to dump all the fixtures
-            fixture.collect_into_file(fixture_path, fixtures)
+            with open(fixture_path, "w") as fd:
+                fixture.collect_into_file(fd, fixtures)
 
     def verify_fixture_files(self, evm_fixture_verification: TransitionTool) -> None:
         """
