@@ -15,7 +15,7 @@ Execution layer changes included in the Network Upgrade.
 | Network | Timestamp    | Date & Time (UTC)       | Fork Hash    | Beacon Chain Epoch |
 |---------|--------------|-------------------------|--------------| ------------------ |
 | Goerli  | `1705473120` | 2024-01-17 06:32:00     | `0x70cc14e2` | 231680 
-| Sepolia | `1706655072` | 2024-01-30 22:51:12     |              | 132608 
+| Sepolia | `1706655072` | 2024-01-30 22:51:12     | `0x88cf81d9` | 132608 
 | Holesky | `1707305664` | 2024-02-07 11:34:24.    |              | 29696 
 | Mainnet |              |                         |              |  
 
