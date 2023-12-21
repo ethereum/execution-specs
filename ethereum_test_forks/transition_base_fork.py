@@ -46,7 +46,14 @@ def transition_fork(to_fork: Fork, at_block: int = 0, at_timestamp: int = 0):
         from_fork = cls.__bases__[0]
         assert issubclass(from_fork, BaseFork)
 
-        class NewTransitionClass(cls, TransitionBaseClass, BaseFork):  # type: ignore
+        class NewTransitionClass(
+            cls,  # type: ignore
+            TransitionBaseClass,
+            BaseFork,
+            transition_tool_name=cls._transition_tool_name,
+            blockchain_test_network_name=cls._blockchain_test_network_name,
+            solc_name=cls._solc_name,
+        ):
             pass
 
         NewTransitionClass.name = lambda: transition_name  # type: ignore

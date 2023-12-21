@@ -148,7 +148,9 @@ class BlockchainTest(BaseTest):
             alloc=previous_alloc,
             txs=to_json(txs),
             env=to_json(env),
-            fork_name=fork.fork(block_number=Number(env.number), timestamp=Number(env.timestamp)),
+            fork_name=fork.transition_tool_name(
+                block_number=Number(env.number), timestamp=Number(env.timestamp)
+            ),
             chain_id=self.chain_id,
             reward=fork.get_reward(Number(env.number), Number(env.timestamp)),
             eips=eips,
@@ -199,11 +201,15 @@ class BlockchainTest(BaseTest):
 
         return header, rlp, txs, next_alloc, env
 
-    def network_info(self, fork, eips=None):
+    def network_info(self, fork: Fork, eips: Optional[List[int]] = None):
         """
         Returns fixture network information for the fork & EIP/s.
         """
-        return "+".join([fork.name()] + [str(eip) for eip in eips]) if eips else fork.name()
+        return (
+            "+".join([fork.blockchain_test_network_name()] + [str(eip) for eip in eips])
+            if eips
+            else fork.blockchain_test_network_name()
+        )
 
     def verify_post_state(self, t8n, alloc):
         """

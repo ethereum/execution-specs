@@ -57,4 +57,4 @@ class NimbusTransitionTool(TransitionTool):
 
         If the fork is a transition fork, we want to check the fork it transitions to.
         """
-        return fork.fork() in self.help_string
+        return fork.transition_tool_name() in self.help_string

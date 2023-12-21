@@ -2,7 +2,7 @@
 Abstract base class for Ethereum forks
 """
 from abc import ABC, ABCMeta, abstractmethod
-from typing import Any, List, Mapping, Optional, Protocol, Type
+from typing import Any, ClassVar, List, Mapping, Optional, Protocol, Type
 
 from .base_decorators import prefer_transition_to_method
 
@@ -68,13 +68,23 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     Must contain all the methods used by every fork.
     """
 
-    @classmethod
-    @abstractmethod
-    def fork(cls, block_number: int = 0, timestamp: int = 0) -> str:
+    _transition_tool_name: ClassVar[Optional[str]] = None
+    _blockchain_test_network_name: ClassVar[Optional[str]] = None
+    _solc_name: ClassVar[Optional[str]] = None
+
+    def __init_subclass__(
+        cls,
+        *,
+        transition_tool_name: Optional[str] = None,
+        blockchain_test_network_name: Optional[str] = None,
+        solc_name: Optional[str] = None,
+    ) -> None:
         """
-        Returns fork name as it's meant to be passed to the transition tool for execution.
+        Initializes the new fork with values that don't carry over to subclass forks.
         """
-        pass
+        cls._transition_tool_name = transition_tool_name
+        cls._blockchain_test_network_name = blockchain_test_network_name
+        cls._solc_name = solc_name
 
     # Header information abstract methods
     @classmethod
@@ -215,6 +225,31 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         Returns the name of the fork.
         """
         return cls.__name__
+
+    @classmethod
+    @abstractmethod
+    def transition_tool_name(cls, block_number: int = 0, timestamp: int = 0) -> str:
+        """
+        Returns fork name as it's meant to be passed to the transition tool for execution.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def solc_name(cls, block_number: int = 0, timestamp: int = 0) -> str:
+        """
+        Returns fork name as it's meant to be passed to the solc compiler.
+        """
+        pass
+
+    @classmethod
+    def blockchain_test_network_name(cls) -> str:
+        """
+        Returns the network configuration name to be used in BlockchainTests for this fork.
+        """
+        if cls._blockchain_test_network_name is not None:
+            return cls._blockchain_test_network_name
+        return cls.name()
 
     @classmethod
     def is_deployed(cls) -> bool:

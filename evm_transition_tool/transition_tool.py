@@ -576,7 +576,7 @@ class TransitionTool:
             alloc=alloc,
             txs=[],
             env=env,
-            fork_name=fork.fork(block_number=0, timestamp=0),
+            fork_name=fork.transition_tool_name(block_number=0, timestamp=0),
             debug_output_path=debug_output_path,
         )
         state_root = result.get("stateRoot")

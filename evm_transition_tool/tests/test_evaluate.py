@@ -119,7 +119,7 @@ def test_evm_t8n(t8n: TransitionTool, test_dir: str) -> None:  # noqa: D103
             alloc=alloc,
             txs=txs,
             env=env_json,
-            fork_name=Berlin.fork(
+            fork_name=Berlin.transition_tool_name(
                 block_number=int(env_json["currentNumber"], 0),
                 timestamp=int(env_json["currentTimestamp"], 0),
             ),

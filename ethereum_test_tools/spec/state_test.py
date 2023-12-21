@@ -122,13 +122,19 @@ class StateTest(BaseTest):
 
     def generate_fixture_data(
         self, t8n: TransitionTool, fork: Fork, eips: Optional[List[int]] = None
-    ) -> Tuple[FixtureHeader, Bytes, Alloc, List[Transaction], Dict, Dict[str, Any], str]:
+    ) -> Tuple[FixtureHeader, Bytes, Alloc, List[Transaction], Dict, Dict[str, Any]]:
         """
         Generate common fixture data for both make_fixture and make_hive_fixture.
         """
         pre, genesis_rlp, genesis = self.make_genesis(t8n, fork)
-        network_info = (
-            "+".join([fork.name()] + [str(eip) for eip in eips]) if eips else fork.name()
+        transition_tool_name = fork.transition_tool_name(
+            block_number=Number(self.env.number),
+            timestamp=Number(self.env.timestamp),
+        )
+        fork_name = (
+            "+".join([transition_tool_name] + [str(eip) for eip in eips])
+            if eips
+            else transition_tool_name
         )
 
         self.env = self.env.apply_new_parent(genesis).set_fork_requirements(fork)
@@ -138,7 +144,7 @@ class StateTest(BaseTest):
             alloc=to_json(pre),
             txs=to_json(txs),
             env=to_json(self.env),
-            fork_name=network_info,
+            fork_name=fork_name,
             chain_id=self.chain_id,
             reward=fork.get_reward(Number(self.env.number), Number(self.env.timestamp)),
             eips=eips,
@@ -160,7 +166,17 @@ class StateTest(BaseTest):
             print_traces(traces=t8n.get_traces())
             raise e
 
-        return genesis, genesis_rlp, pre, txs, t8n_result, t8n_alloc, network_info
+        return genesis, genesis_rlp, pre, txs, t8n_result, t8n_alloc
+
+    def network_info(self, fork: Fork, eips: Optional[List[int]] = None):
+        """
+        Returns fixture network information for the fork & EIP/s.
+        """
+        return (
+            "+".join([fork.blockchain_test_network_name()] + [str(eip) for eip in eips])
+            if eips
+            else fork.blockchain_test_network_name()
+        )
 
     def make_fixture(
         self, t8n: TransitionTool, fork: Fork, eips: Optional[List[int]] = None
@@ -175,7 +191,6 @@ class StateTest(BaseTest):
             txs,
             t8n_result,
             t8n_alloc,
-            network_info,
         ) = self.generate_fixture_data(t8n, fork, eips)
         header = FixtureHeader.collect(
             fork=fork, transition_tool_result=t8n_result, environment=self.env
@@ -183,7 +198,7 @@ class StateTest(BaseTest):
         block, header.hash = header.build(txs=txs, ommers=[], withdrawals=self.env.withdrawals)
 
         return Fixture(
-            fork=network_info,
+            fork=self.network_info(fork, eips),
             genesis=genesis,
             genesis_rlp=genesis_rlp,
             blocks=[
@@ -214,7 +229,6 @@ class StateTest(BaseTest):
             txs,
             t8n_result,
             t8n_alloc,
-            network_info,
         ) = self.generate_fixture_data(t8n, fork, eips)
 
         header = FixtureHeader.collect(
@@ -232,7 +246,7 @@ class StateTest(BaseTest):
         fcu_version = fork.engine_forkchoice_updated_version(header.number, header.timestamp)
 
         return HiveFixture(
-            fork=network_info,
+            fork=self.network_info(fork, eips),
             genesis=genesis,
             payloads=[fixture_payload],
             fcu_version=fcu_version,

@@ -181,4 +181,4 @@ class BesuTransitionTool(TransitionTool):
         """
         Returns True if the fork is supported by the tool
         """
-        return fork.fork() in self.help_string
+        return fork.transition_tool_name() in self.help_string

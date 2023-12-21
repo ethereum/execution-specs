@@ -51,7 +51,7 @@ class GethTransitionTool(TransitionTool):
 
         If the fork is a transition fork, we want to check the fork it transitions to.
         """
-        return fork.fork() in self.help_string
+        return fork.transition_tool_name() in self.help_string
 
     def verify_fixture(
         self, fixture_format: FixtureFormats, fixture_path: Path, debug_output_path: Optional[Path]

@@ -16,7 +16,7 @@ class BerlinToLondonAt5(Berlin):
 
 
 @transition_fork(to_fork=Shanghai, at_timestamp=15_000)
-class MergeToShanghaiAtTime15k(Merge):
+class MergeToShanghaiAtTime15k(Merge, blockchain_test_network_name="MergeToShanghaiAtTime15k"):
     """
     Merge to Shanghai transition at Timestamp 15k
     """
