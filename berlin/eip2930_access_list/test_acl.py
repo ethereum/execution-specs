@@ -4,7 +4,7 @@ Test ACL Transaction Source Code Examples
 
 import pytest
 
-from ethereum_test_forks import Fork, London, is_fork
+from ethereum_test_forks import Fork, London
 from ethereum_test_tools import AccessList, Account, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, Transaction
@@ -60,7 +60,7 @@ def test_access_list(state_test: StateTestFiller, fork: Fork):
             nonce=1,
         ),
         "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba": Account(
-            balance=0x1BC16D674EC80000 if is_fork(fork, London) else 0x1BC16D674ECB26CE,
+            balance=0x1BC16D674EC80000 if fork >= London else 0x1BC16D674ECB26CE,
         ),
         "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(
             balance=0x2CD931,

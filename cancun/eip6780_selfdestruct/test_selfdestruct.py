@@ -11,7 +11,7 @@ from typing import Dict, List, SupportsBytes
 import pytest
 from ethereum.crypto.hash import keccak256
 
-from ethereum_test_forks import Cancun, Fork, is_fork
+from ethereum_test_forks import Cancun, Fork
 from ethereum_test_tools import (
     Account,
     Block,
@@ -50,7 +50,7 @@ NO_SELFDESTRUCT = "0x0"
 @pytest.fixture
 def eip_enabled(fork: Fork) -> bool:
     """Whether the EIP is enabled or not."""
-    return is_fork(fork, SELFDESTRUCT_ENABLE_FORK)
+    return fork >= SELFDESTRUCT_ENABLE_FORK
 
 
 @pytest.fixture

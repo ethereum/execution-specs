@@ -10,7 +10,7 @@ note: Tests ported from:
 
 import pytest
 
-from ethereum_test_forks import Shanghai, is_fork
+from ethereum_test_forks import Shanghai
 from ethereum_test_tools import (
     Account,
     CodeGasMeasure,
@@ -117,7 +117,7 @@ def test_warm_coinbase_call_out_of_gas(
 
     post = {}
 
-    if use_sufficient_gas and is_fork(fork=fork, which=Shanghai):
+    if use_sufficient_gas and fork >= Shanghai:
         post[caller_address] = Account(
             storage={
                 # On shanghai and beyond, calls with only 100 gas to
@@ -244,7 +244,7 @@ def test_warm_coinbase_gas_usage(state_test, fork, opcode, code_gas_measure):
         measure_address: Account(code=code_gas_measure, balance=1000000000000000000000),
     }
 
-    if is_fork(fork, Shanghai):
+    if fork >= Shanghai:
         expected_gas = GAS_REQUIRED_CALL_WARM_ACCOUNT  # Warm account access cost after EIP-3651
     else:
         expected_gas = 2600  # Cold account access cost before EIP-3651
