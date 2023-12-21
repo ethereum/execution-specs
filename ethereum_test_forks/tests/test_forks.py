@@ -13,7 +13,6 @@ from ..helpers import (
     get_deployed_forks,
     get_development_forks,
     get_forks,
-    is_fork,
     transition_fork_from_to,
     transition_fork_to,
 )
@@ -94,9 +93,38 @@ def test_forks():
     assert cast(Fork, MergeToShanghaiAtTime15k).header_withdrawals_required(0, 15_000) is True
     assert cast(Fork, MergeToShanghaiAtTime15k).header_withdrawals_required() is True
 
-    assert is_fork(Berlin, Berlin) is True
-    assert is_fork(London, Berlin) is True
-    assert is_fork(Berlin, Merge) is False
+    # Test fork comparison
+    assert Merge > Berlin
+    assert not Berlin > Merge
+    assert Berlin < Merge
+    assert not Merge < Berlin
+
+    assert Merge >= Berlin
+    assert not Berlin >= Merge
+    assert Berlin <= Merge
+    assert not Merge <= Berlin
+
+    assert London > Berlin
+    assert not Berlin > London
+    assert Berlin < London
+    assert not London < Berlin
+
+    assert London >= Berlin
+    assert not Berlin >= London
+    assert Berlin <= London
+    assert not London <= Berlin
+
+    assert Berlin >= Berlin
+    assert Berlin <= Berlin
+    assert not Berlin > Berlin
+    assert not Berlin < Berlin
+
+    fork = Berlin
+    assert fork >= Berlin
+    assert fork <= Berlin
+    assert not fork > Berlin
+    assert not fork < Berlin
+    assert fork == Berlin
 
 
 def test_get_forks():  # noqa: D103

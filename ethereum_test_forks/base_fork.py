@@ -36,6 +36,30 @@ class BaseForkMeta(ABCMeta):
         """
         return cls.name()
 
+    def __gt__(cls, other: "BaseForkMeta") -> bool:
+        """
+        Compare if a fork is newer than some other fork.
+        """
+        return cls != other and other.__subclasscheck__(cls)
+
+    def __ge__(cls, other: "BaseForkMeta") -> bool:
+        """
+        Compare if a fork is newer than or equal to some other fork.
+        """
+        return other.__subclasscheck__(cls)
+
+    def __lt__(cls, other: "BaseForkMeta") -> bool:
+        """
+        Compare if a fork is older than some other fork.
+        """
+        return cls != other and cls.__subclasscheck__(other)
+
+    def __le__(cls, other: "BaseForkMeta") -> bool:
+        """
+        Compare if a fork is older than or equal to some other fork.
+        """
+        return cls.__subclasscheck__(other)
+
 
 class BaseFork(ABC, metaclass=BaseForkMeta):
     """

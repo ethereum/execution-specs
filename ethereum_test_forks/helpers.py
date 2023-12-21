@@ -135,18 +135,3 @@ def forks_from(fork: Fork, deployed_only: bool = True) -> List[Fork]:
     else:
         latest_fork = get_forks()[-1]
     return forks_from_until(fork, latest_fork)
-
-
-def is_fork(fork: Fork, which: Fork) -> bool:
-    """
-    Returns `True` if `fork` is `which` or beyond, `False otherwise.
-    """
-    prev_fork = fork
-
-    while prev_fork != BaseFork:
-        if prev_fork == which:
-            return True
-
-        prev_fork = prev_fork.__base__
-
-    return False
