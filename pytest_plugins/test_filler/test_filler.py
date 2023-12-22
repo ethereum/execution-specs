@@ -11,7 +11,7 @@ from typing import Generator, List, Optional, Type
 
 import pytest
 
-from ethereum_test_forks import Fork, Merge, get_development_forks, is_fork
+from ethereum_test_forks import Fork, Merge, get_development_forks
 from ethereum_test_tools import SPEC_TYPES, BaseTest, FixtureCollector, TestInfo, Yul
 from evm_transition_tool import FixtureFormats, TransitionTool
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
@@ -474,7 +474,7 @@ def pytest_collection_modifyitems(config, items):
     for item in items[:]:  # use a copy of the list, as we'll be modifying it
         if isinstance(item, EIPSpecTestItem):
             continue
-        if not is_fork(item.callspec.params["fork"], Merge):
+        if item.callspec.params["fork"] < Merge:
             # Even though the `state_test` test spec does not produce a hive STATE_TEST, it does
             # produce a BLOCKCHAIN_TEST_HIVE, so we need to remove it here.
             # TODO: Ideally, the logic could be contained in the `FixtureFormat` class, we create

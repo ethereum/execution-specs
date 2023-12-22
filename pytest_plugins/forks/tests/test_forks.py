@@ -10,7 +10,6 @@ from ethereum_test_forks import (
     forks_from_until,
     get_deployed_forks,
     get_forks,
-    is_fork,
 )
 from ethereum_test_tools import StateTest
 
@@ -45,7 +44,7 @@ def test_no_options_no_validity_marker(pytester):
     stdout = "\n".join(result.stdout.lines)
     for fork in forks_under_test:
         for fixture_format in StateTest.fixture_formats():
-            if fixture_format.name.endswith("HIVE") and not is_fork(fork, Merge):
+            if fixture_format.name.endswith("HIVE") and fork < Merge:
                 expected_passed -= 1
                 assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" not in stdout
                 continue
@@ -83,7 +82,7 @@ def test_from_london_option_no_validity_marker(pytester, fork_map, fork):
     stdout = "\n".join(result.stdout.lines)
     for fork in forks_under_test:
         for fixture_format in StateTest.fixture_formats():
-            if fixture_format.name.endswith("HIVE") and not is_fork(fork, Merge):
+            if fixture_format.name.endswith("HIVE") and fork < Merge:
                 expected_passed -= 1
                 assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" not in stdout
                 continue
@@ -121,7 +120,7 @@ def test_from_london_until_shanghai_option_no_validity_marker(pytester, fork_map
         expected_passed -= len(StateTest.fixture_formats())
     for fork in forks_under_test:
         for fixture_format in StateTest.fixture_formats():
-            if fixture_format.name.endswith("HIVE") and not is_fork(fork, Merge):
+            if fixture_format.name.endswith("HIVE") and fork < Merge:
                 expected_passed -= 1
                 assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" not in stdout
                 continue

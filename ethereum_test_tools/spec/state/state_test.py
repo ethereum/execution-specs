@@ -5,7 +5,7 @@ from copy import copy
 from dataclasses import dataclass
 from typing import Callable, Generator, List, Mapping, Optional, Type
 
-from ethereum_test_forks import Cancun, Fork, is_fork
+from ethereum_test_forks import Cancun, Fork
 from evm_transition_tool import FixtureFormats, TransitionTool
 
 from ...common import Account, Address, Alloc, Environment, Number, Transaction
@@ -116,12 +116,20 @@ class StateTest(BaseTest):
             ),
             Alloc(self.pre),
         )
-
+        transition_tool_name = fork.transition_tool_name(
+            block_number=Number(self.env.number),
+            timestamp=Number(self.env.timestamp),
+        )
+        fork_name = (
+            "+".join([transition_tool_name] + [str(eip) for eip in eips])
+            if eips
+            else transition_tool_name
+        )
         next_alloc, result = t8n.evaluate(
             alloc=to_json(pre_alloc),
             txs=to_json([tx]),
             env=to_json(env),
-            fork_name=fork.fork(block_number=Number(env.number), timestamp=Number(env.timestamp)),
+            fork_name=fork_name,
             chain_id=self.chain_id,
             reward=0,  # Reward on state tests is always zero
             eips=eips,
@@ -135,7 +143,7 @@ class StateTest(BaseTest):
             raise e
 
         # Perform post state processing required for some forks
-        if is_fork(fork, Cancun):
+        if fork >= Cancun:
             # StateTest does not execute any beacon root contract logic, but we still need to
             # set the beacon root to the correct value, because most tests assume this happens,
             # so we copy the beacon root contract storage from the post state into the pre state
@@ -151,7 +159,7 @@ class StateTest(BaseTest):
             env=env,
             pre_state=pre_alloc,
             post={
-                fork.fork(block_number=Number(env.number), timestamp=Number(env.timestamp)): [
+                fork.blockchain_test_network_name(): [
                     FixtureForkPost.collect(
                         transition_tool_result=result,
                         transaction=tx.with_signature_and_sender(),
