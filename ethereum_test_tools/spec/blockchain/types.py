@@ -410,14 +410,19 @@ class FixtureHeader:
                 assert baseline_value is not Header.REMOVE_FIELD, "invalid baseline header"
                 value = getattr(self, field_name)
                 if baseline_value is Header.EMPTY_FIELD:
-                    assert value is None, f"invalid header field {header_field}"
+                    assert (
+                        value is None
+                    ), f"invalid header field {field_name}, got {value}, want None"
                     continue
                 metadata = header_field.metadata
                 field_metadata = metadata.get("source")
                 # type check is performed on collect()
                 if field_metadata.parse_type is not None:  # type: ignore
                     baseline_value = field_metadata.parse_type(baseline_value)  # type: ignore
-                assert value == baseline_value, f"invalid header field {header_field}"
+                assert value == baseline_value, (
+                    f"invalid header field ({field_name}) value, "
+                    + f"got {value}, want {baseline_value}"
+                )
 
     def build(
         self,

@@ -19,10 +19,84 @@ from ...common.types import (
     Environment,
     Hash,
     HexNumber,
+    Number,
+    NumberConvertible,
     Transaction,
     ZeroPaddedHexNumber,
 )
 from ..base.base_test import BaseFixture
+
+
+@dataclass(kw_only=True)
+class FixtureEnvironment:
+    """
+    Type used to describe the environment of a state test.
+    """
+
+    coinbase: FixedSizeBytesConvertible = field(
+        default="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+        json_encoder=JSONEncoder.Field(
+            name="currentCoinbase",
+            cast_type=Address,
+        ),
+    )
+    gas_limit: NumberConvertible = field(
+        default=100000000000000000,
+        json_encoder=JSONEncoder.Field(
+            name="currentGasLimit",
+            cast_type=Number,
+        ),
+    )
+    number: NumberConvertible = field(
+        default=1,
+        json_encoder=JSONEncoder.Field(
+            name="currentNumber",
+            cast_type=Number,
+        ),
+    )
+    timestamp: NumberConvertible = field(
+        default=1000,
+        json_encoder=JSONEncoder.Field(
+            name="currentTimestamp",
+            cast_type=Number,
+        ),
+    )
+    prev_randao: Optional[NumberConvertible] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="currentRandom",
+            cast_type=Number,
+        ),
+    )
+    difficulty: Optional[NumberConvertible] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="currentDifficulty",
+            cast_type=Number,
+        ),
+    )
+    base_fee: Optional[NumberConvertible] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="currentBaseFee",
+            cast_type=Number,
+        ),
+    )
+    excess_blob_gas: Optional[NumberConvertible] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="currentExcessBlobGas",
+            cast_type=Number,
+        ),
+    )
+
+    @classmethod
+    def from_env(cls, env: Environment) -> "FixtureEnvironment":
+        """
+        Returns a FixtureEnvironment from an Environment.
+        """
+        kwargs = {field.name: getattr(env, field.name) for field in fields(cls)}
+        return cls(**kwargs)
 
 
 @dataclass(kw_only=True)
@@ -195,6 +269,7 @@ class FixtureForkPost:
             state_root=state_root,
             logs_hash=logs_hash,
             tx_bytes=transaction.serialized_bytes(),
+            expected_exception=transaction.error,
             indexes=indexes,
         )
 
@@ -207,6 +282,7 @@ class Fixture(BaseFixture):
 
     env: Environment = field(
         json_encoder=JSONEncoder.Field(
+            cast_type=FixtureEnvironment.from_env,
             to_json=True,
         ),
     )
