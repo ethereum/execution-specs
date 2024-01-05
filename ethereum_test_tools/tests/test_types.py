@@ -52,6 +52,10 @@ def test_storage():
     assert 10 in s.data
     assert s.data[10] == 10
 
+    iter_s = iter(Storage({10: 20, "11": "21"}))
+    assert next(iter_s) == 10
+    assert next(iter_s) == 11
+
     s["10"] = "0x10"
     s["0x10"] = "10"
     assert s.data[10] == 16

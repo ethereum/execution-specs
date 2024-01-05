@@ -402,7 +402,7 @@ class Storage(SupportsJSON):
             hex_str = "0" + hex_str
         return "0x" + hex_str
 
-    def __init__(self, input: StorageDictType = {}, start_slot: int = 0):
+    def __init__(self, input: StorageDictType | "Storage" = {}, start_slot: int = 0):
         """
         Initializes the storage using a given mapping which can have
         keys and values either as string or int.
@@ -419,6 +419,10 @@ class Storage(SupportsJSON):
     def __len__(self) -> int:
         """Returns number of elements in the storage"""
         return len(self.data)
+
+    def __iter__(self) -> Iterator[int]:
+        """Returns iterator of the storage"""
+        return iter(self.data)
 
     def __contains__(self, key: str | int | bytes) -> bool:
         """Checks for an item in the storage"""
