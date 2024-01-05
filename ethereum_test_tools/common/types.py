@@ -1727,6 +1727,16 @@ class Transaction:
         return tx
 
 
+def transaction_list_root(input_txs: List[Transaction] | None) -> Hash:
+    """
+    Returns the transactions root of a list of transactions.
+    """
+    t = HexaryTrie(db={})
+    for i, tx in enumerate(input_txs or []):
+        t.set(eth_rlp.encode(Uint(i)), tx.serialized_bytes())
+    return Hash(t.root_hash)
+
+
 def transaction_list_to_serializable_list(input_txs: List[Transaction] | None) -> List[Any]:
     """
     Returns the transaction list as a list of serializable objects.

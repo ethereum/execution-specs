@@ -30,6 +30,7 @@ from ..common import (
     ZeroPaddedHexNumber,
     alloc_to_accounts,
     to_json,
+    transaction_list_root,
     withdrawals_root,
 )
 from ..common.constants import EmptyOmmersRoot
@@ -183,6 +184,9 @@ class BlockchainTest(BaseTest):
             transition_tool_result=result,
             environment=env,
         )
+
+        # Update the transactions root to the one calculated locally.
+        header.transactions_root = transaction_list_root(txs)
 
         if block.header_verify is not None:
             # Verify the header after transition tool processing.

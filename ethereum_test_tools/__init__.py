@@ -45,6 +45,7 @@ from .common import (
     to_address,
     to_hash,
     to_hash_bytes,
+    transaction_list_root,
 )
 from .filling.fill import fill_test
 from .reference_spec import ReferenceSpec, ReferenceSpecTypes
@@ -111,4 +112,5 @@ __all__ = (
     "to_address",
     "to_hash_bytes",
     "to_hash",
+    "transaction_list_root",
 )
