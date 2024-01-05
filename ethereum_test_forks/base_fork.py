@@ -145,6 +145,14 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def blob_gas_per_blob(cls, block_number: int, timestamp: int) -> int:
+        """
+        Returns the amount of blob gas used per each blob for a given fork.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def get_reward(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """
         Returns the expected reward amount in wei of a given fork

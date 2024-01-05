@@ -80,6 +80,15 @@ def apply_new_parent(env: Environment, new_parent: FixtureHeader) -> "Environmen
     return env
 
 
+def count_blobs(txs: List[Transaction]) -> int:
+    """
+    Returns the number of blobs in a list of transactions.
+    """
+    return sum(
+        [len(tx.blob_versioned_hashes) for tx in txs if tx.blob_versioned_hashes is not None]
+    )
+
+
 @dataclass(kw_only=True)
 class BlockchainTest(BaseTest):
     """
@@ -232,6 +241,15 @@ class BlockchainTest(BaseTest):
 
         # Update the transactions root to the one calculated locally.
         header.transactions_root = transaction_list_root(txs)
+
+        # One special case of the invalid transactions is the blob gas used, since this value
+        # is not included in the transition tool result, but it is included in the block header,
+        # and some clients check it before executing the block by simply counting the type-3 txs,
+        # we need to set the correct value by default.
+        if (
+            blob_gas_per_blob := fork.blob_gas_per_blob(Number(env.number), Number(env.timestamp))
+        ) > 0:
+            header.blob_gas_used = blob_gas_per_blob * count_blobs(txs)
 
         if block.header_verify is not None:
             # Verify the header after transition tool processing.

@@ -73,6 +73,13 @@ class Frontier(BaseFork):
         return False
 
     @classmethod
+    def blob_gas_per_blob(cls, block_number: int, timestamp: int) -> int:
+        """
+        Returns the amount of blob gas used per each blob for a given fork.
+        """
+        return 0
+
+    @classmethod
     def engine_new_payload_version(
         cls, block_number: int = 0, timestamp: int = 0
     ) -> Optional[int]:
@@ -369,6 +376,13 @@ class Cancun(Shanghai):
         Parent beacon block root is required starting from Cancun.
         """
         return True
+
+    @classmethod
+    def blob_gas_per_blob(cls, block_number: int, timestamp: int) -> int:
+        """
+        Blobs are enabled started from Cancun.
+        """
+        return 2**17
 
     @classmethod
     def tx_types(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
