@@ -4,6 +4,7 @@ abstract: Tests [EIP-7516: BLOBBASEFEE opcode](https://eips.ethereum.org/EIPS/ei
     Test BLOBGASFEE opcode [EIP-7516: BLOBBASEFEE opcode](https://eips.ethereum.org/EIPS/eip-7516)
 
 """  # noqa: E501
+from dataclasses import replace
 from itertools import count
 from typing import Dict
 
@@ -154,14 +155,47 @@ def test_blobbasefee_out_of_gas(
 
 @pytest.mark.valid_at_transition_to("Cancun")
 def test_blobbasefee_before_fork(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Dict,
     tx: Transaction,
 ):
     """
     Tests that the BLOBBASEFEE opcode results on exception when called before the fork.
     """
-    code_caller_storage = Storage()
+    # Fork happens at timestamp 15_000
+    timestamp = 7_500
+    code_caller_pre_storage = Storage({1: 1})
+    pre[code_caller_address] = replace(pre[code_caller_address], storage=code_caller_pre_storage)
+    post = {
+        code_caller_address: Account(
+            storage={1: 0},
+        ),
+        code_callee_address: Account(
+            balance=0,
+        ),
+    }
+    state_test(
+        env=Environment(
+            timestamp=timestamp,
+        ),
+        pre=pre,
+        tx=tx,
+        post=post,
+    )
+
+
+@pytest.mark.valid_at_transition_to("Cancun")
+def test_blobbasefee_during_fork(
+    blockchain_test: BlockchainTestFiller,
+    pre: Dict,
+    tx: Transaction,
+):
+    """
+    Tests that the BLOBBASEFEE opcode results on exception when called before the fork and
+    succeeds when called after the fork.
+    """
+    code_caller_pre_storage = Storage()
+    code_caller_post_storage = Storage()
 
     nonce = count(0)
 
@@ -169,18 +203,21 @@ def test_blobbasefee_before_fork(
 
     blocks = []
 
-    for number, timestamp in enumerate(timestamps):
+    for block_number, timestamp in enumerate(timestamps, start=1):
         blocks.append(
             Block(
                 txs=[tx.with_nonce(next(nonce))],
                 timestamp=timestamp,
             ),
         )
-        code_caller_storage[number + 1] = 0 if timestamp < 15_000 else 1
+        # pre-set storage just to make sure we detect the change
+        code_caller_pre_storage[block_number] = 1 if timestamp < 15_000 else 0
+        code_caller_post_storage[block_number] = 0 if timestamp < 15_000 else 1
 
+    pre[code_caller_address] = replace(pre[code_caller_address], storage=code_caller_pre_storage)
     post = {
         code_caller_address: Account(
-            storage=code_caller_storage,
+            storage=code_caller_post_storage,
         ),
         code_callee_address: Account(
             balance=0,

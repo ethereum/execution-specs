@@ -589,6 +589,10 @@ def test_valid_blob_tx_combinations(
         ),
     ],
 )
+@pytest.mark.parametrize(
+    "account_balance_modifier",
+    [1_000_000_000],
+)  # Extra balance to cover block blob gas cost
 @pytest.mark.valid_from("Cancun")
 def test_invalid_tx_max_fee_per_blob_gas(
     blockchain_test: BlockchainTestFiller,

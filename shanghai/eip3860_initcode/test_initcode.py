@@ -15,8 +15,6 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
-    Block,
-    BlockchainTestFiller,
     Environment,
     Initcode,
     StateTestFiller,
@@ -200,7 +198,7 @@ def get_initcode_name(val):
     ],
     ids=get_initcode_name,
 )
-def test_contract_creating_tx(blockchain_test: BlockchainTestFiller, initcode: Initcode):
+def test_contract_creating_tx(state_test: StateTestFiller, initcode: Initcode):
     """
     Test cases using a contract creating transaction
 
@@ -232,24 +230,21 @@ def test_contract_creating_tx(blockchain_test: BlockchainTestFiller, initcode: I
         gas_price=10,
     )
 
-    block = Block(txs=[tx])
-
     if len(initcode) > MAX_INITCODE_SIZE and eip_3860_active:
         # Initcode is above the max size, tx inclusion in the block makes
         # it invalid.
         post[created_contract_address] = Account.NONEXISTENT
         tx.error = "max initcode size exceeded"
-        block.exception = "max initcode size exceeded"
     else:
         # Initcode is at or below the max size, tx inclusion in the block
         # is ok and the contract is successfully created.
         post[created_contract_address] = Account(code=Op.STOP)
 
-    blockchain_test(
+    state_test(
         pre=pre,
         post=post,
-        blocks=[block],
-        genesis_environment=env,
+        tx=tx,
+        env=env,
         tag=f"{initcode.name}",
     )
 
@@ -383,14 +378,6 @@ class TestContractCreationGasUsage:
         )
 
     @pytest.fixture
-    def block(self, tx, tx_error) -> Block:
-        """
-        Test that the tx_error is also propagated on the Block for the case of
-        too little intrinsic gas.
-        """
-        return Block(txs=[tx], exception=tx_error)
-
-    @pytest.fixture
     def post(
         self,
         gas_test_case,
@@ -413,14 +400,14 @@ class TestContractCreationGasUsage:
 
     def test_gas_usage(
         self,
-        blockchain_test: BlockchainTestFiller,
+        state_test: StateTestFiller,
         gas_test_case: str,
         initcode: Initcode,
         exact_intrinsic_gas,
         exact_execution_gas,
         env,
         pre,
-        block,
+        tx,
         post,
     ):
         """
@@ -436,11 +423,11 @@ class TestContractCreationGasUsage:
                 "equivalent to that of 'test_exact_intrinsic_gas'."
             )
 
-        blockchain_test(
+        state_test(
             pre=pre,
             post=post,
-            blocks=[block],
-            genesis_environment=env,
+            tx=tx,
+            env=env,
             tag=f"{initcode.name}_{gas_test_case}",
         )
 

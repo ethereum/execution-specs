@@ -7,7 +7,7 @@ note: Adding a new test
 
     Add a function that is named `test_<test_name>` and takes at least the following arguments:
 
-    - blockchain_test
+    - blockchain_test | state_test
     - pre
     - tx
     - post
@@ -31,15 +31,16 @@ note: Adding a new test
 import glob
 import json
 import os
-from typing import Dict, Iterator, List
+from typing import Dict, Iterator, List, Optional
 
 import pytest
 
 from ethereum_test_tools import (
     Account,
-    Auto,
     Block,
     BlockchainTestFiller,
+    Environment,
+    StateTestFiller,
     Storage,
     TestAddress,
     Transaction,
@@ -54,12 +55,10 @@ from .spec import Spec, ref_spec_4844
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
 REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
-auto = Auto()
-
 
 @pytest.fixture
 def precompile_input(
-    versioned_hash: bytes | int | Auto,
+    versioned_hash: Optional[bytes | int],
     kzg_commitment: bytes | int,
     z: bytes | int,
     y: bytes | int,
@@ -76,7 +75,7 @@ def precompile_input(
         kzg_commitment = kzg_commitment.to_bytes(48, "big")
     if isinstance(kzg_proof, int):
         kzg_proof = kzg_proof.to_bytes(48, "big")
-    if isinstance(versioned_hash, Auto):
+    if versioned_hash is None:
         versioned_hash = Spec.kzg_to_versioned_hash(kzg_commitment)
     elif isinstance(versioned_hash, int):
         versioned_hash = versioned_hash.to_bytes(32, "big")
@@ -245,13 +244,13 @@ def post(
 @pytest.mark.parametrize(
     "z,y,kzg_commitment,kzg_proof,versioned_hash",
     [
-        pytest.param(Spec.BLS_MODULUS - 1, 0, INF_POINT, INF_POINT, auto, id="in_bounds_z"),
+        pytest.param(Spec.BLS_MODULUS - 1, 0, INF_POINT, INF_POINT, None, id="in_bounds_z"),
     ],
 )
 @pytest.mark.parametrize("success", [True])
 @pytest.mark.valid_from("Cancun")
 def test_valid_precompile_calls(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Dict,
     tx: Transaction,
     post: Dict,
@@ -262,25 +261,26 @@ def test_valid_precompile_calls(
     - `kzg_commitment` and `kzg_proof` are set to values such that `p(z)==0` for all values of `z`,
     hence `y` is tested to be zero, and call to be successful.
     """
-    blockchain_test(
+    state_test(
+        env=Environment(),
         pre=pre,
         post=post,
-        blocks=[Block(txs=[tx])],
+        tx=tx,
     )
 
 
 @pytest.mark.parametrize(
     "z,y,kzg_commitment,kzg_proof,versioned_hash",
     [
-        (Spec.BLS_MODULUS, 0, INF_POINT, INF_POINT, auto),
-        (0, Spec.BLS_MODULUS, INF_POINT, INF_POINT, auto),
-        (Z, 0, INF_POINT, INF_POINT[:-1], auto),
-        (Z, 0, INF_POINT, INF_POINT[0:1], auto),
-        (Z, 0, INF_POINT, INF_POINT + bytes([0]), auto),
-        (Z, 0, INF_POINT, INF_POINT + bytes([0] * 1023), auto),
+        (Spec.BLS_MODULUS, 0, INF_POINT, INF_POINT, None),
+        (0, Spec.BLS_MODULUS, INF_POINT, INF_POINT, None),
+        (Z, 0, INF_POINT, INF_POINT[:-1], None),
+        (Z, 0, INF_POINT, INF_POINT[0:1], None),
+        (Z, 0, INF_POINT, INF_POINT + bytes([0]), None),
+        (Z, 0, INF_POINT, INF_POINT + bytes([0] * 1023), None),
         (bytes(), bytes(), bytes(), bytes(), bytes()),
         (0, 0, 0, 0, 0),
-        (0, 0, 0, 0, auto),
+        (0, 0, 0, 0, None),
         (Z, 0, INF_POINT, INF_POINT, Spec.kzg_to_versioned_hash(0xC0 << 376, 0x00)),
         (Z, 0, INF_POINT, INF_POINT, Spec.kzg_to_versioned_hash(0xC0 << 376, 0x02)),
         (Z, 0, INF_POINT, INF_POINT, Spec.kzg_to_versioned_hash(0xC0 << 376, 0xFF)),
@@ -303,7 +303,7 @@ def test_valid_precompile_calls(
 @pytest.mark.parametrize("success", [False])
 @pytest.mark.valid_from("Cancun")
 def test_invalid_precompile_calls(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Dict,
     tx: Transaction,
     post: Dict,
@@ -317,10 +317,11 @@ def test_invalid_precompile_calls(
     - Zero inputs
     - Correct proof, commitment, z and y, but incorrect version versioned hash
     """
-    blockchain_test(
+    state_test(
+        env=Environment(),
         pre=pre,
         post=post,
-        blocks=[Block(txs=[tx])],
+        tx=tx,
     )
 
 
@@ -417,10 +418,10 @@ def all_external_vectors() -> List:
     "z,y,kzg_commitment,kzg_proof,success",
     all_external_vectors(),
 )
-@pytest.mark.parametrize("versioned_hash", [auto])
+@pytest.mark.parametrize("versioned_hash", [None])
 @pytest.mark.valid_from("Cancun")
 def test_point_evaluation_precompile_external_vectors(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Dict,
     tx: Transaction,
     post: Dict,
@@ -431,10 +432,11 @@ def test_point_evaluation_precompile_external_vectors(
     - `go_kzg_4844_verify_kzg_proof.json`: test vectors from the
     [go-kzg-4844](https://github.com/crate-crypto/go-kzg-4844) repository.
     """
-    blockchain_test(
+    state_test(
+        env=Environment(),
         pre=pre,
         post=post,
-        blocks=[Block(txs=[tx])],
+        tx=tx,
     )
 
 
@@ -458,12 +460,12 @@ def test_point_evaluation_precompile_external_vectors(
 )
 @pytest.mark.parametrize(
     "z,kzg_commitment,kzg_proof,versioned_hash",
-    [[Z, INF_POINT, INF_POINT, auto]],
+    [[Z, INF_POINT, INF_POINT, None]],
     ids=[""],
 )
 @pytest.mark.valid_from("Cancun")
 def test_point_evaluation_precompile_calls(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Dict,
     tx: Transaction,
     post: Dict,
@@ -476,10 +478,11 @@ def test_point_evaluation_precompile_calls(
     - Using correct and incorrect proofs
     - Using barely insufficient gas
     """
-    blockchain_test(
+    state_test(
+        env=Environment(),
         pre=pre,
         post=post,
-        blocks=[Block(txs=[tx])],
+        tx=tx,
     )
 
 
@@ -495,14 +498,14 @@ def test_point_evaluation_precompile_calls(
 @pytest.mark.parametrize(
     "z,y,kzg_commitment,kzg_proof,versioned_hash,proof_correct",
     [
-        [Z, 0, INF_POINT, INF_POINT, auto, True],
-        [Z, 1, INF_POINT, INF_POINT, auto, False],
+        [Z, 0, INF_POINT, INF_POINT, None, True],
+        [Z, 1, INF_POINT, INF_POINT, None, False],
     ],
     ids=["correct_proof", "incorrect_proof"],
 )
 @pytest.mark.valid_from("Cancun")
 def test_point_evaluation_precompile_gas_tx_to(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     precompile_input: bytes,
     call_gas: int,
     proof_correct: bool,
@@ -554,20 +557,80 @@ def test_point_evaluation_precompile_gas_tx_to(
         )
     }
 
-    blockchain_test(
+    state_test(
+        env=Environment(),
         pre=pre,
         post=post,
-        blocks=[Block(txs=[tx])],
+        tx=tx,
     )
 
 
 @pytest.mark.parametrize(
     "z,y,kzg_commitment,kzg_proof,versioned_hash",
-    [[Z, 0, INF_POINT, INF_POINT, auto]],
+    [[Z, 0, INF_POINT, INF_POINT, None]],
     ids=["correct_proof"],
 )
 @pytest.mark.valid_at_transition_to("Cancun")
 def test_point_evaluation_precompile_before_fork(
+    state_test: StateTestFiller,
+    pre: Dict,
+    tx: Transaction,
+):
+    """
+    Test calling the Point Evaluation Precompile before the appropriate fork.
+    """
+    precompile_caller_code = Op.SSTORE(
+        Op.NUMBER,
+        Op.CALL(
+            Op.GAS,
+            Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
+            1,  # Value
+            0,  # Zero-length calldata
+            0,
+            0,  # Zero-length return
+            0,
+        ),
+    )
+    precompile_caller_address = to_address(0x100)
+
+    pre = {
+        TestAddress: Account(
+            nonce=0,
+            balance=0x10**18,
+        ),
+        precompile_caller_address: Account(
+            nonce=0,
+            code=precompile_caller_code,
+            balance=0x10**18,
+        ),
+    }
+
+    post = {
+        precompile_caller_address: Account(
+            storage={1: 1},
+            # The call succeeds because precompile is not there yet
+        ),
+        to_address(Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS): Account(
+            balance=1,
+        ),
+    }
+
+    state_test(
+        tag="point_evaluation_precompile_before_fork",
+        pre=pre,
+        env=Environment(timestamp=7_500),
+        post=post,
+        tx=tx,
+    )
+
+
+@pytest.mark.parametrize(
+    "z,y,kzg_commitment,kzg_proof,versioned_hash",
+    [[Z, 0, INF_POINT, INF_POINT, None]],
+    ids=["correct_proof"],
+)
+@pytest.mark.valid_at_transition_to("Cancun")
+def test_point_evaluation_precompile_during_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     tx: Transaction,
@@ -620,7 +683,7 @@ def test_point_evaluation_precompile_before_fork(
     post = {
         precompile_caller_address: Account(
             storage={b: 1 for b in range(1, len(PRE_FORK_BLOCK_RANGE) + 1)},
-            # The tx in last block succeeds; storage 0 by default.
+            # Only the call in the last block's tx fails; storage 0 by default.
         ),
         to_address(Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS): Account(
             balance=len(PRE_FORK_BLOCK_RANGE),

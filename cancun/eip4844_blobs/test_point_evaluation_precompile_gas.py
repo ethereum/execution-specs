@@ -10,9 +10,9 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
-    Block,
-    BlockchainTestFiller,
     CodeGasMeasure,
+    Environment,
+    StateTestFiller,
     TestAddress,
     Transaction,
     copy_opcode_cost,
@@ -213,7 +213,7 @@ def post(
 @pytest.mark.parametrize("proof", ["correct", "incorrect"])
 @pytest.mark.valid_from("Cancun")
 def test_point_evaluation_precompile_gas_usage(
-    blockchain_test: BlockchainTestFiller,
+    state_test: StateTestFiller,
     pre: Dict,
     tx: Transaction,
     post: Dict,
@@ -225,8 +225,9 @@ def test_point_evaluation_precompile_gas_usage(
     - Test using different gas limits (exact gas, insufficient gas, extra gas)
     - Test using correct and incorrect proofs
     """
-    blockchain_test(
+    state_test(
+        env=Environment(),
         pre=pre,
         post=post,
-        blocks=[Block(txs=[tx])],
+        tx=tx,
     )
