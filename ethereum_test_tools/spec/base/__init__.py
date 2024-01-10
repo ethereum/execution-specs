@@ -1,3 +1,3 @@
 """
-Base test spec class and utilities
+BaseTest spec class and utilities.
 """

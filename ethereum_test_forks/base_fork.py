@@ -147,7 +147,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     @abstractmethod
     def blob_gas_per_blob(cls, block_number: int, timestamp: int) -> int:
         """
-        Returns the amount of blob gas used per each blob for a given fork.
+        Returns the amount of blob gas used per blob for a given fork.
         """
         pass
 
