@@ -241,7 +241,7 @@ class Load(BaseLoad):
         state = self.State()
         set_storage = self._module("state").set_storage
 
-        for (address_hex, account_state) in raw.items():
+        for address_hex, account_state in raw.items():
             address = self.hex_to_address(address_hex)
             account = self.Account(
                 nonce=hex_to_uint(account_state.get("nonce", "0x0")),
@@ -250,7 +250,7 @@ class Load(BaseLoad):
             )
             self.set_account(state, address, account)
 
-            for (k, v) in account_state.get("storage", {}).items():
+            for k, v in account_state.get("storage", {}).items():
                 set_storage(
                     state,
                     address,

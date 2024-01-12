@@ -375,6 +375,9 @@ class GaloisField(tuple, Field):
             exponent //= 2
         return res
 
+    def __ipow__(self: U, right: int) -> U:
+        return self.__pow__(right)
+
     @classmethod
     def calculate_frobenius_coefficients(cls: Type[U]) -> Tuple[U, ...]:
         """
@@ -396,6 +399,6 @@ class GaloisField(tuple, Field):
         """
         ans = self.from_int(0)
         a: int
-        for (i, a) in enumerate(self):
+        for i, a in enumerate(self):
             ans += cast(U, self.FROBENIUS_COEFFICIENTS[i]).scalar_mul(a)
         return ans

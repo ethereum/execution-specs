@@ -17,7 +17,7 @@ Defines the serialization and deserialization format used throughout Ethereum.
 from __future__ import annotations
 
 from dataclasses import astuple, fields, is_dataclass
-from typing import Any, List, Sequence, Tuple, Type, TypeVar, Union
+from typing import Any, List, Sequence, Tuple, Type, TypeVar, Union, cast
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import RLPDecodingError, RLPEncodingError
@@ -225,7 +225,7 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
         Object decoded from `encoded_data`.
     """
     if isinstance(cls, type(Tuple[Uint, ...])) and cls._name == "Tuple":  # type: ignore # noqa: E501
-        ensure(type(raw_rlp) == list, RLPDecodingError)
+        ensure(isinstance(raw_rlp, list), RLPDecodingError)
         if cls.__args__[1] == ...:  # type: ignore
             args = []
             for raw_item in raw_rlp:
@@ -234,13 +234,13 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
         else:
             args = []
             ensure(len(raw_rlp) == len(cls.__args__), RLPDecodingError)  # type: ignore # noqa: E501
-            for (t, raw_item) in zip(cls.__args__, raw_rlp):  # type: ignore
+            for t, raw_item in zip(cls.__args__, raw_rlp):  # type: ignore
                 args.append(_decode_to(t, raw_item))
             return tuple(args)  # type: ignore
     elif cls == Union[Bytes0, Bytes20]:
         # We can't support Union types in general, so we support this one
         # (which appears in the Transaction type) as a special case
-        ensure(type(raw_rlp) == Bytes, RLPDecodingError)
+        ensure(isinstance(raw_rlp, Bytes), RLPDecodingError)
         if len(raw_rlp) == 0:
             return Bytes0()  # type: ignore
         elif len(raw_rlp) == 20:
@@ -250,7 +250,7 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
                 "Bytes has length {}, expected 0 or 20".format(len(raw_rlp))
             )
     elif isinstance(cls, type(List[Bytes])) and cls._name == "List":  # type: ignore # noqa: E501
-        ensure(type(raw_rlp) == list, RLPDecodingError)
+        ensure(isinstance(raw_rlp, list), RLPDecodingError)
         items = []
         for raw_item in raw_rlp:
             items.append(_decode_to(cls.__args__[0], raw_item))  # type: ignore
@@ -274,26 +274,26 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
         else:
             raise TypeError("Cannot decode {} as {}".format(raw_rlp, cls))
     elif issubclass(cls, FixedBytes):
-        ensure(type(raw_rlp) == Bytes, RLPDecodingError)
+        ensure(isinstance(raw_rlp, Bytes), RLPDecodingError)
         ensure(len(raw_rlp) == cls.LENGTH, RLPDecodingError)
         return raw_rlp
     elif issubclass(cls, Bytes):
-        ensure(type(raw_rlp) == Bytes, RLPDecodingError)
+        ensure(isinstance(raw_rlp, Bytes), RLPDecodingError)
         return raw_rlp
     elif issubclass(cls, (Uint, FixedUInt)):
-        ensure(type(raw_rlp) == Bytes, RLPDecodingError)
+        ensure(isinstance(raw_rlp, Bytes), RLPDecodingError)
         try:
             return cls.from_be_bytes(raw_rlp)  # type: ignore
         except ValueError:
             raise RLPDecodingError
     elif is_dataclass(cls):
-        ensure(type(raw_rlp) == list, RLPDecodingError)
+        ensure(isinstance(raw_rlp, list), RLPDecodingError)
         assert isinstance(raw_rlp, list)
         args = []
         ensure(len(fields(cls)) == len(raw_rlp), RLPDecodingError)
-        for (field, rlp_item) in zip(fields(cls), raw_rlp):
+        for field, rlp_item in zip(fields(cls), raw_rlp):
             args.append(_decode_to(field.type, rlp_item))
-        return cls(*args)
+        return cast(T, cls(*args))
     else:
         raise RLPDecodingError(
             "RLP Decoding to type {} is not supported".format(cls)

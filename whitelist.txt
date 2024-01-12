@@ -46,6 +46,7 @@ merkle
 merkleize
 metaclass
 ommers
+pathlib
 patricialize
 pickler
 rlp
@@ -79,6 +80,7 @@ rmod
 imod
 mod
 divmod
+docc
 rdivmod
 rpow
 ipow
@@ -359,7 +361,6 @@ autoapi
 attrname
 expr
 subpackages
-toctree
 preaccessed
 Transaction2930
 Transaction1559
@@ -390,3 +391,19 @@ jsons
 mem
 
 checkable
+
+merchantability
+
+rhs
+lhs
+befores
+matcher
+util
+submodule
+removeprefix
+src
+fladrif
+listable
+treediff
+strikethrough
+setext

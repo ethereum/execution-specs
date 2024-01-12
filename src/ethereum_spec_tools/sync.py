@@ -255,7 +255,7 @@ class BlockDownloader(ForkTracking):
             self.log.info("blocks [%d, %d) fetched", first, first + count)
 
             blocks: List[Union[RpcError, Any]] = []
-            for (_, block_rlp) in sorted(block_rlps.items()):
+            for _, block_rlp in sorted(block_rlps.items()):
                 if isinstance(block_rlp, RpcError):
                     blocks.append(block_rlp)
                 else:
@@ -442,7 +442,7 @@ class BlockDownloader(ForkTracking):
         """
         calls = []
 
-        for (block_number, num_ommers) in ommers_needed.items():
+        for block_number, num_ommers in ommers_needed.items():
             for i in range(num_ommers):
                 calls.append(
                     {

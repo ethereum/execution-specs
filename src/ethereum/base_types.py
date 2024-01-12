@@ -14,8 +14,28 @@ Integer and array types which are used by—but not unique to—Ethereum.
 
 from __future__ import annotations
 
-from dataclasses import replace
-from typing import Any, Callable, ClassVar, Optional, Tuple, Type, TypeVar
+from dataclasses import is_dataclass, replace
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Optional,
+    Protocol,
+    Tuple,
+    Type,
+    TypeVar,
+    runtime_checkable,
+)
+
+
+@runtime_checkable
+class SlottedFreezable(Protocol):
+    """
+    Represents data classes created with `@slotted_freezable`.
+    """
+
+    _frozen: bool
+
 
 U8_MAX_VALUE = (2**8) - 1
 U32_MAX_VALUE = (2**32) - 1
@@ -186,7 +206,9 @@ class Uint(int):
             int.__new__(self.__class__, result[1]),
         )
 
-    def __pow__(self, right: int, modulo: Optional[int] = None) -> "Uint":
+    def __pow__(  # type: ignore[override]
+        self, right: int, modulo: Optional[int] = None
+    ) -> "Uint":
         if modulo is not None:
             if not isinstance(modulo, int):
                 return NotImplemented
@@ -202,7 +224,9 @@ class Uint(int):
 
         return int.__new__(self.__class__, int.__pow__(self, right, modulo))
 
-    def __rpow__(self, left: int, modulo: Optional[int] = None) -> "Uint":
+    def __rpow__(  # type: ignore[misc]
+        self, left: int, modulo: Optional[int] = None
+    ) -> "Uint":
         if modulo is not None:
             if not isinstance(modulo, int):
                 return NotImplemented
@@ -218,7 +242,9 @@ class Uint(int):
 
         return int.__new__(self.__class__, int.__rpow__(self, left, modulo))
 
-    def __ipow__(self, right: int, modulo: Optional[int] = None) -> "Uint":
+    def __ipow__(  # type: ignore[override]
+        self, right: int, modulo: Optional[int] = None
+    ) -> "Uint":
         return self.__pow__(right, modulo)
 
     def __xor__(self, right: int) -> "Uint":
@@ -268,7 +294,7 @@ class Uint(int):
         byte_length = (bit_length + 7) // 8
         return self.to_bytes(byte_length, "big")
 
-    def to_le_bytes(self, number_bytes: int = None) -> "Bytes":
+    def to_le_bytes(self, number_bytes: Optional[int] = None) -> "Bytes":
         """
         Converts this arbitrarily sized unsigned integer into its little endian
         representation.
@@ -517,7 +543,9 @@ class FixedUInt(int):
             int.__new__(self.__class__, result[1]),
         )
 
-    def __pow__(self: T, right: int, modulo: Optional[int] = None) -> T:
+    def __pow__(  # type: ignore[override]
+        self: T, right: int, modulo: Optional[int] = None
+    ) -> T:
         if modulo is not None:
             if not isinstance(modulo, int):
                 return NotImplemented
@@ -572,7 +600,9 @@ class FixedUInt(int):
             self.__class__, int.__pow__(self, right, modulo) & self.MAX_VALUE
         )
 
-    def __rpow__(self: T, left: int, modulo: Optional[int] = None) -> T:
+    def __rpow__(  # type: ignore[misc]
+        self: T, left: int, modulo: Optional[int] = None
+    ) -> T:
         if modulo is not None:
             if not isinstance(modulo, int):
                 return NotImplemented
@@ -588,7 +618,9 @@ class FixedUInt(int):
 
         return int.__new__(self.__class__, int.__rpow__(self, left, modulo))
 
-    def __ipow__(self: T, right: int, modulo: Optional[int] = None) -> T:
+    def __ipow__(  # type: ignore[override]
+        self: T, right: int, modulo: Optional[int] = None
+    ) -> T:
         return self.__pow__(right, modulo)
 
     def __and__(self: T, right: int) -> T:
@@ -1002,7 +1034,9 @@ def modify(obj: S, f: Callable[[S], None]) -> S:
     new_obj : `S`
         Compact byte array.
     """
+    assert is_dataclass(obj)
+    assert isinstance(obj, SlottedFreezable)
     new_obj = replace(obj, _frozen=False)
     f(new_obj)
-    new_obj._frozen = True  # type: ignore
+    new_obj._frozen = True
     return new_obj

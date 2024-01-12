@@ -17,9 +17,7 @@ from abc import ABC, abstractmethod
 from typing import Final, Tuple
 
 
-# MyPy doesn't support decorators on abstract classes
-# See https://github.com/python/mypy/issues/4717
-@functools.total_ordering  # type: ignore
+@functools.total_ordering
 class ForkCriteria(ABC):
     """
     Type that represents the condition required for a fork to occur.
