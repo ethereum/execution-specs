@@ -17,12 +17,14 @@ note: Adding a new test
 
 """  # noqa: E501
 import itertools
+from dataclasses import replace
 from typing import Dict, List, Optional, Tuple
 
 import pytest
 
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
+    AccessList,
     Account,
     Block,
     BlockchainTestFiller,
@@ -49,6 +51,9 @@ from .spec import Spec, SpecHelpers, ref_spec_4844
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
 REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
+TestPreFundingKey = "0x0b2986cc45bd8a8d028c3fcf6f7a11a52f1df61f3ea5d63f05ca109dd73a3fa0"
+TestPreFundingAddress = "0x97a7cb1de3cc7d556d0aa32433b035067709e1fc"
+
 
 @pytest.fixture
 def destination_account() -> str:
@@ -67,9 +72,21 @@ def tx_value() -> int:
 
 
 @pytest.fixture
-def tx_gas() -> int:
+def tx_gas(
+    tx_calldata: bytes,
+    tx_access_list: List[AccessList],
+) -> int:
     """Default gas allocated to transactions sent during test."""
-    return 21000
+    access_list_gas = 0
+    if tx_access_list:
+        ACCESS_LIST_ADDRESS_COST = 2400
+        ACCESS_LIST_STORAGE_KEY_COST = 1900
+
+        for address in tx_access_list:
+            access_list_gas += ACCESS_LIST_ADDRESS_COST
+            access_list_gas += len(address.storage_keys) * ACCESS_LIST_STORAGE_KEY_COST
+
+    return 21000 + eip_2028_transaction_data_cost(tx_calldata) + access_list_gas
 
 
 @pytest.fixture
@@ -182,9 +199,7 @@ def blob_hashes_per_tx(blobs_per_tx: List[int]) -> List[List[bytes]]:
 def total_account_minimum_balance(  # noqa: D103
     tx_gas: int,
     tx_value: int,
-    tx_calldata: bytes,
     tx_max_fee_per_gas: int,
-    tx_max_priority_fee_per_gas: int,
     tx_max_fee_per_blob_gas: int,
     blob_hashes_per_tx: List[List[bytes]],
 ) -> int:
@@ -195,12 +210,7 @@ def total_account_minimum_balance(  # noqa: D103
     total_cost = 0
     for tx_blob_count in [len(x) for x in blob_hashes_per_tx]:
         data_cost = tx_max_fee_per_blob_gas * Spec.GAS_PER_BLOB * tx_blob_count
-        total_cost += (
-            (tx_gas * (tx_max_fee_per_gas + tx_max_priority_fee_per_gas))
-            + tx_value
-            + eip_2028_transaction_data_cost(tx_calldata)
-            + data_cost
-        )
+        total_cost += (tx_gas * tx_max_fee_per_gas) + tx_value + data_cost
     return total_cost
 
 
@@ -238,6 +248,16 @@ def tx_max_fee_per_blob_gas(  # noqa: D103
 
 
 @pytest.fixture
+def tx_access_list() -> List[AccessList]:
+    """
+    Default access list for transactions sent during test.
+
+    Can be overloaded by a test case to provide a custom access list.
+    """
+    return []
+
+
+@pytest.fixture
 def tx_error() -> Optional[str]:
     """
     Default expected error produced by the block transactions (no error).
@@ -257,6 +277,7 @@ def txs(  # noqa: D103
     tx_max_fee_per_gas: int,
     tx_max_fee_per_blob_gas: int,
     tx_max_priority_fee_per_gas: int,
+    tx_access_list: List[AccessList],
     blob_hashes_per_tx: List[List[bytes]],
     tx_error: Optional[str],
 ) -> List[Transaction]:
@@ -274,7 +295,7 @@ def txs(  # noqa: D103
             max_fee_per_gas=tx_max_fee_per_gas,
             max_priority_fee_per_gas=tx_max_priority_fee_per_gas,
             max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
-            access_list=[],
+            access_list=tx_access_list,
             blob_versioned_hashes=blob_hashes,
             error=tx_error if tx_i == (len(blob_hashes_per_tx) - 1) else None,
         )
@@ -726,7 +747,13 @@ def test_invalid_block_blob_count(
     )
 
 
-@pytest.mark.parametrize("tx_max_priority_fee_per_gas", [0, 8])
+@pytest.mark.parametrize(
+    "tx_access_list",
+    [[], [AccessList(address=100, storage_keys=[100, 200])]],
+    ids=["no_access_list", "access_list"],
+)
+@pytest.mark.parametrize("tx_max_fee_per_gas", [7, 14])
+@pytest.mark.parametrize("tx_max_priority_fee_per_gas", [0, 7])
 @pytest.mark.parametrize("tx_value", [0, 1])
 @pytest.mark.parametrize(
     "tx_calldata",
@@ -747,6 +774,7 @@ def test_insufficient_balance_blob_tx(
     Reject blocks where user cannot afford the blob gas specified (but
     max_fee_per_gas would be enough for current block), including:
 
+    - Transactions with max fee equal or higher than current block base fee
     - Transactions with and without priority fee
     - Transactions with and without value
     - Transactions with and without calldata
@@ -758,6 +786,109 @@ def test_insufficient_balance_blob_tx(
         post={},
         tx=txs[0],
         env=state_env,
+    )
+
+
+@pytest.mark.parametrize(
+    "tx_access_list",
+    [[], [AccessList(address=100, storage_keys=[100, 200])]],
+    ids=["no_access_list", "access_list"],
+)
+@pytest.mark.parametrize("tx_max_fee_per_gas", [7, 14])
+@pytest.mark.parametrize("tx_max_priority_fee_per_gas", [0, 7])
+@pytest.mark.parametrize("tx_value", [0, 1])
+@pytest.mark.parametrize(
+    "tx_calldata",
+    [b"", b"\x00", b"\x01"],
+    ids=["no_calldata", "single_zero_calldata", "single_one_calldata"],
+)
+@pytest.mark.parametrize("tx_max_fee_per_blob_gas", [1, 100, 10000])
+@pytest.mark.valid_from("Cancun")
+def test_sufficient_balance_blob_tx(
+    state_test: StateTestFiller,
+    state_env: Environment,
+    pre: Dict,
+    txs: List[Transaction],
+):
+    """
+    Check that transaction is accepted when user can exactly afford the blob gas specified (and
+    max_fee_per_gas would be enough for current block), including:
+
+    - Transactions with max fee equal or higher than current block base fee
+    - Transactions with and without priority fee
+    - Transactions with and without value
+    - Transactions with and without calldata
+    - Transactions with max fee per blob gas lower or higher than the priority fee
+    """
+    assert len(txs) == 1
+    state_test(
+        pre=pre,
+        post={},
+        tx=txs[0],
+        env=state_env,
+    )
+
+
+@pytest.mark.parametrize(
+    "tx_access_list",
+    [[], [AccessList(address=100, storage_keys=[100, 200])]],
+    ids=["no_access_list", "access_list"],
+)
+@pytest.mark.parametrize("tx_max_fee_per_gas", [7, 14])
+@pytest.mark.parametrize("tx_max_priority_fee_per_gas", [0, 7])
+@pytest.mark.parametrize("tx_value", [0, 1])
+@pytest.mark.parametrize(
+    "tx_calldata",
+    [b"", b"\x00", b"\x01"],
+    ids=["no_calldata", "single_zero_calldata", "single_one_calldata"],
+)
+@pytest.mark.parametrize("tx_max_fee_per_blob_gas", [1, 100, 10000])
+@pytest.mark.valid_from("Cancun")
+def test_sufficient_balance_blob_tx_pre_fund_tx(
+    blockchain_test: BlockchainTestFiller,
+    total_account_minimum_balance: int,
+    env: Environment,
+    pre: Dict,
+    txs: List[Transaction],
+    header_verify: Optional[Header],
+):
+    """
+    Check that transaction is accepted when user can exactly afford the blob gas specified (and
+    max_fee_per_gas would be enough for current block) because a funding transaction is
+    prepended in the same block, including:
+
+    - Transactions with max fee equal or higher than current block base fee
+    - Transactions with and without priority fee
+    - Transactions with and without value
+    - Transactions with and without calldata
+    - Transactions with max fee per blob gas lower or higher than the priority fee
+    """
+    pre = {
+        TestPreFundingAddress: Account(balance=(21_000 * 100) + total_account_minimum_balance),
+    }
+    txs = [
+        Transaction(
+            ty=2,
+            nonce=0,
+            to=TestAddress,
+            value=total_account_minimum_balance,
+            gas_limit=21_000,
+            max_fee_per_gas=100,
+            max_priority_fee_per_gas=0,
+            access_list=[],
+            secret_key=TestPreFundingKey,
+        )
+    ] + txs
+    blockchain_test(
+        pre=pre,
+        post={},
+        blocks=[
+            Block(
+                txs=txs,
+                header_verify=header_verify,
+            )
+        ],
+        genesis_environment=env,
     )
 
 
@@ -925,23 +1056,34 @@ def test_invalid_blob_hash_versioning_multiple_txs(
 
 
 @pytest.mark.parametrize(
-    "destination_account,tx_error", [(None, "no_contract_creating_blob_txs")], ids=[""]
-)
-@pytest.mark.skip(reason="Unable to fill due to invalid field in transaction")
+    "tx_gas", [500_000], ids=[""]
+)  # Increase gas to account for contract creation
 @pytest.mark.valid_from("Cancun")
 def test_invalid_blob_tx_contract_creation(
     blockchain_test: BlockchainTestFiller,
     pre: Dict,
     env: Environment,
-    block: Block,
+    txs: List[Transaction],
+    header_verify: Optional[Header],
 ):
     """
     Reject blocks that include blob transactions that have nil to value (contract creating).
     """
+    assert len(txs) == 1
+    assert txs[0].blob_versioned_hashes is not None and len(txs[0].blob_versioned_hashes) == 1
+    # Replace the transaction with a contract creating one, only in the RLP version
+    contract_creating_tx = replace(txs[0], to=None).with_signature_and_sender()
+    txs[0] = replace(txs[0], rlp=contract_creating_tx.serialized_bytes())
     blockchain_test(
         pre=pre,
         post={},
-        blocks=[block],
+        blocks=[
+            Block(
+                txs=txs,
+                exception="no_contract_creating_blob_txs",
+                header_verify=header_verify,
+            )
+        ],
         genesis_environment=env,
     )
 
