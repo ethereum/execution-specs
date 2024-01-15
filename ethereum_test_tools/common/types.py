@@ -1285,6 +1285,12 @@ class Transaction:
             skip=True,
         ),
     )
+    rlp: Optional[bytes] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            skip=True,
+        ),
+    )
 
     class InvalidFeePayment(Exception):
         """
@@ -1515,6 +1521,9 @@ class Transaction:
         Returns bytes of the serialized representation of the transaction,
         which is almost always RLP encoding.
         """
+        if self.rlp is not None:
+            return self.rlp
+
         if self.ty is None:
             raise ValueError("ty must be set for all tx types")
 
