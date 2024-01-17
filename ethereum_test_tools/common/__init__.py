@@ -13,6 +13,7 @@ from .constants import (
     TestPrivateKey2,
 )
 from .helpers import (
+    TestParameterGroup,
     add_kzg_version,
     ceiling_division,
     compute_create2_address,
@@ -72,6 +73,7 @@ __all__ = (
     "Storage",
     "TestAddress",
     "TestAddress2",
+    "TestParameterGroup",
     "TestPrivateKey",
     "TestPrivateKey2",
     "Transaction",
