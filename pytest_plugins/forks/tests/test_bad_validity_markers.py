@@ -10,8 +10,8 @@ invalid_validity_marker_test_cases = (
         (
             """
             import pytest
-            @pytest.mark.valid_from("Merge")
-            @pytest.mark.valid_from("Merge")
+            @pytest.mark.valid_from("Paris")
+            @pytest.mark.valid_from("Paris")
             def test_case(state_test):
                 assert 0
             """,
@@ -23,8 +23,8 @@ invalid_validity_marker_test_cases = (
         (
             """
             import pytest
-            @pytest.mark.valid_until("Merge")
-            @pytest.mark.valid_until("Merge")
+            @pytest.mark.valid_until("Paris")
+            @pytest.mark.valid_until("Paris")
             def test_case(state_test):
                 assert 0
             """,
@@ -36,8 +36,8 @@ invalid_validity_marker_test_cases = (
         (
             """
             import pytest
-            @pytest.mark.valid_at_transition_to("Merge")
-            @pytest.mark.valid_at_transition_to("Merge")
+            @pytest.mark.valid_at_transition_to("Paris")
+            @pytest.mark.valid_at_transition_to("Paris")
             def test_case(state_test):
                 assert 0
             """,
@@ -85,7 +85,7 @@ invalid_validity_marker_test_cases = (
         (
             """
             import pytest
-            @pytest.mark.valid_from("Merge", "Merge")
+            @pytest.mark.valid_from("Paris", "Paris")
             def test_case(state_test):
                 assert 0
             """,
@@ -97,7 +97,7 @@ invalid_validity_marker_test_cases = (
         (
             """
             import pytest
-            @pytest.mark.valid_until("Merge", "Merge")
+            @pytest.mark.valid_until("Paris", "Paris")
             def test_case(state_test):
                 assert 0
             """,
@@ -109,7 +109,7 @@ invalid_validity_marker_test_cases = (
         (
             """
             import pytest
-            @pytest.mark.valid_at_transition_to("Merge", "Merge")
+            @pytest.mark.valid_at_transition_to("Paris", "Paris")
             def test_case(state_test):
                 assert 0
             """,
@@ -158,7 +158,7 @@ invalid_validity_marker_test_cases = (
             """
             import pytest
             @pytest.mark.valid_at_transition_to("Cancun")
-            @pytest.mark.valid_from("Merge")
+            @pytest.mark.valid_from("Paris")
             def test_case(state_test):
                 assert 0
             """,
@@ -183,7 +183,7 @@ invalid_validity_marker_test_cases = (
         (
             """
             import pytest
-            @pytest.mark.valid_from("Merge")
+            @pytest.mark.valid_from("Paris")
             @pytest.mark.valid_until("Frontier")
             def test_case(state_test):
                 assert 0

@@ -1,5 +1,5 @@
 {
-    "000/my_chain_id_test/Merge": {
+    "000/my_chain_id_test/Paris": {
         "network": "Merge",
         "genesisBlockHeader": {
             "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",

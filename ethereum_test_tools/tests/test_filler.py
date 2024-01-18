@@ -9,7 +9,7 @@ from typing import Any, Dict, List
 import pytest
 from semver import Version
 
-from ethereum_test_forks import Berlin, Fork, Istanbul, London, Merge, Shanghai
+from ethereum_test_forks import Berlin, Fork, Istanbul, London, Paris, Shanghai
 from evm_transition_tool import FixtureFormats, GethTransitionTool
 
 from ..code import Yul
@@ -96,7 +96,7 @@ def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
     [
         (Istanbul, False, "chainid_istanbul_filled.json"),
         (London, False, "chainid_london_filled.json"),
-        (Merge, True, "chainid_merge_filled_hive.json"),
+        (Paris, True, "chainid_paris_filled_hive.json"),
         (Shanghai, True, "chainid_shanghai_filled_hive.json"),
     ],
 )

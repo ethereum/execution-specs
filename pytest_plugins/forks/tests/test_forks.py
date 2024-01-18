@@ -6,7 +6,7 @@ import pytest
 
 from ethereum_test_forks import (
     ArrowGlacier,
-    Merge,
+    Paris,
     forks_from_until,
     get_deployed_forks,
     get_forks,
@@ -44,7 +44,7 @@ def test_no_options_no_validity_marker(pytester):
     stdout = "\n".join(result.stdout.lines)
     for fork in forks_under_test:
         for fixture_format in StateTest.fixture_formats():
-            if fixture_format.name.endswith("HIVE") and fork < Merge:
+            if fixture_format.name.endswith("HIVE") and fork < Paris:
                 expected_passed -= 1
                 assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" not in stdout
                 continue
@@ -58,7 +58,7 @@ def test_no_options_no_validity_marker(pytester):
     )
 
 
-@pytest.mark.parametrize("fork", ["London", "Merge"])
+@pytest.mark.parametrize("fork", ["London", "Paris"])
 def test_from_london_option_no_validity_marker(pytester, fork_map, fork):
     """
     Test test parametrization with:
@@ -82,7 +82,7 @@ def test_from_london_option_no_validity_marker(pytester, fork_map, fork):
     stdout = "\n".join(result.stdout.lines)
     for fork in forks_under_test:
         for fixture_format in StateTest.fixture_formats():
-            if fixture_format.name.endswith("HIVE") and fork < Merge:
+            if fixture_format.name.endswith("HIVE") and fork < Paris:
                 expected_passed -= 1
                 assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" not in stdout
                 continue
@@ -120,10 +120,41 @@ def test_from_london_until_shanghai_option_no_validity_marker(pytester, fork_map
         expected_passed -= len(StateTest.fixture_formats())
     for fork in forks_under_test:
         for fixture_format in StateTest.fixture_formats():
-            if fixture_format.name.endswith("HIVE") and fork < Merge:
+            if fixture_format.name.endswith("HIVE") and fork < Paris:
                 expected_passed -= 1
                 assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" not in stdout
                 continue
+            assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" in stdout
+    result.assert_outcomes(
+        passed=expected_passed,
+        failed=0,
+        skipped=0,
+        errors=0,
+    )
+
+
+def test_from_merge_until_merge_option_no_validity_marker(pytester, fork_map):
+    """
+    Test test parametrization with:
+    - --from Merge command-line option,
+    - --until Merge command-line option,
+    - no fork validity marker.
+    """
+    pytester.makepyfile(
+        f"""
+        import pytest
+
+        def test_all_forks({StateTest.pytest_parameter_name()}):
+            pass
+        """
+    )
+    pytester.copy_example(name="pytest.ini")
+    result = pytester.runpytest("-v", "--from", "Merge", "--until", "Merge")
+    forks_under_test = forks_from_until(fork_map["Paris"], fork_map["Paris"])
+    expected_passed = len(forks_under_test) * len(StateTest.fixture_formats())
+    stdout = "\n".join(result.stdout.lines)
+    for fork in forks_under_test:
+        for fixture_format in StateTest.fixture_formats():
             assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" in stdout
     result.assert_outcomes(
         passed=expected_passed,

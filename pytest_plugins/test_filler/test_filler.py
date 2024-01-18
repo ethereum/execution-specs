@@ -11,7 +11,7 @@ from typing import Generator, List, Optional, Type
 
 import pytest
 
-from ethereum_test_forks import Fork, Merge, get_development_forks
+from ethereum_test_forks import Fork, Paris, get_development_forks
 from ethereum_test_tools import SPEC_TYPES, BaseTest, FixtureCollector, TestInfo, Yul
 from evm_transition_tool import FixtureFormats, TransitionTool
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
@@ -465,7 +465,7 @@ def pytest_generate_tests(metafunc):
 @pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config, items):
     """
-    Remove pre-Merge tests parametrized to generate hive type fixtures; these
+    Remove pre-Paris tests parametrized to generate hive type fixtures; these
     can't be used in the Hive Pyspec Simulator.
 
     This can't be handled in this plugins pytest_generate_tests() as the fork
@@ -474,7 +474,7 @@ def pytest_collection_modifyitems(config, items):
     for item in items[:]:  # use a copy of the list, as we'll be modifying it
         if isinstance(item, EIPSpecTestItem):
             continue
-        if item.callspec.params["fork"] < Merge:
+        if item.callspec.params["fork"] < Paris:
             # Even though the `state_test` test spec does not produce a hive STATE_TEST, it does
             # produce a BLOCKCHAIN_TEST_HIVE, so we need to remove it here.
             # TODO: Ideally, the logic could be contained in the `FixtureFormat` class, we create

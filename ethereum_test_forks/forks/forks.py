@@ -280,34 +280,33 @@ class GrayGlacier(ArrowGlacier):
     pass
 
 
-class Merge(
+class Paris(
     London,
     transition_tool_name="Merge",
     blockchain_test_network_name="Merge",
-    solc_name="Paris",
 ):
     """
-    Merge fork
+    Paris (Merge) fork
     """
 
     @classmethod
     def header_prev_randao_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
-        Prev Randao is required starting from Merge.
+        Prev Randao is required starting from Paris.
         """
         return True
 
     @classmethod
     def header_zero_difficulty_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
-        Zero difficulty is required starting from Merge.
+        Zero difficulty is required starting from Paris.
         """
         return True
 
     @classmethod
     def get_reward(cls, block_number: int = 0, timestamp: int = 0) -> int:
         """
-        Merge updates the reward to 0.
+        Paris updates the reward to 0.
         """
         return 0
 
@@ -316,12 +315,12 @@ class Merge(
         cls, block_number: int = 0, timestamp: int = 0
     ) -> Optional[int]:
         """
-        Starting at the merge, payloads can be sent through the engine API
+        Starting at Paris, payloads can be sent through the engine API
         """
         return 1
 
 
-class Shanghai(Merge):
+class Shanghai(Paris):
     """
     Shanghai fork
     """

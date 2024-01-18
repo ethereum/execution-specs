@@ -2,7 +2,7 @@
 List of all transition fork definitions.
 """
 from ..transition_base_fork import transition_fork
-from .forks import Berlin, Cancun, London, Merge, Shanghai
+from .forks import Berlin, Cancun, London, Paris, Shanghai
 
 
 # Transition Forks
@@ -16,9 +16,9 @@ class BerlinToLondonAt5(Berlin):
 
 
 @transition_fork(to_fork=Shanghai, at_timestamp=15_000)
-class MergeToShanghaiAtTime15k(Merge, blockchain_test_network_name="MergeToShanghaiAtTime15k"):
+class ParisToShanghaiAtTime15k(Paris, blockchain_test_network_name="ParisToShanghaiAtTime15k"):
     """
-    Merge to Shanghai transition at Timestamp 15k
+    Paris to Shanghai transition at Timestamp 15k
     """
 
     pass

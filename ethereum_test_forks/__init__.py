@@ -15,13 +15,13 @@ from .forks.forks import (
     Homestead,
     Istanbul,
     London,
-    Merge,
     MuirGlacier,
+    Paris,
     Shanghai,
 )
 from .forks.transition import (
     BerlinToLondonAt5,
-    MergeToShanghaiAtTime15k,
+    ParisToShanghaiAtTime15k,
     ShanghaiToCancunAtTime15k,
 )
 from .helpers import (
@@ -51,8 +51,8 @@ __all__ = [
     "InvalidForkError",
     "Istanbul",
     "London",
-    "Merge",
-    "MergeToShanghaiAtTime15k",
+    "Paris",
+    "ParisToShanghaiAtTime15k",
     "MuirGlacier",
     "Shanghai",
     "ShanghaiToCancunAtTime15k",

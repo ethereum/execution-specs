@@ -176,9 +176,14 @@ def pytest_configure(config):
     for d in fork_covariant_descriptors:
         config.addinivalue_line("markers", f"{d.marker_name}: {d.description}")
 
-    single_fork = config.getoption("single_fork")
-    forks_from = config.getoption("forks_from")
-    forks_until = config.getoption("forks_until")
+    def get_fork_option(config, option_name):
+        """Post-process get option to allow for external fork conditions."""
+        option = config.getoption(option_name)
+        return "Paris" if option == "Merge" else option
+
+    single_fork = get_fork_option(config, "single_fork")
+    forks_from = get_fork_option(config, "forks_from")
+    forks_until = get_fork_option(config, "forks_until")
     show_fork_help = config.getoption("show_fork_help")
 
     all_forks = get_forks()
