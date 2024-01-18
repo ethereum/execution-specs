@@ -211,7 +211,7 @@ gas_measured_opcodes = [
 ]
 
 
-@pytest.mark.valid_from("Merge")  # these tests fill for fork >= Berlin
+@pytest.mark.valid_from("Paris")  # these tests fill for fork >= Berlin
 @pytest.mark.parametrize(
     "opcode,code_gas_measure",
     gas_measured_opcodes,

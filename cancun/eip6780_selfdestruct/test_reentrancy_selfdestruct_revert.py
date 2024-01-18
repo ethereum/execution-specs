@@ -32,7 +32,7 @@ def env():  # noqa: D103
     )
 
 
-@pytest.mark.valid_from("Merge")
+@pytest.mark.valid_from("Paris")
 @pytest.mark.parametrize("first_suicide", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL])
 @pytest.mark.parametrize("second_suicide", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL])
 def test_reentrancy_selfdestruct_revert(

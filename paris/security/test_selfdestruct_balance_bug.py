@@ -26,7 +26,7 @@ from ethereum_test_tools import (
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 
-@pytest.mark.compile_yul_with("Merge")  # Shanghai refuses to compile SELFDESTRUCT
+@pytest.mark.compile_yul_with("Paris")  # Shanghai refuses to compile SELFDESTRUCT
 @pytest.mark.valid_from("Constantinople")
 def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller, yul: YulCompiler):
     """
