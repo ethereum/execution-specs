@@ -263,6 +263,7 @@ class Storage(SupportsJSON):
     Dictionary type to be used when defining an input to initialize a storage.
     """
 
+    @dataclass(kw_only=True)
     class InvalidType(Exception):
         """
         Invalid type used when describing test's expected storage key or value.
@@ -278,6 +279,7 @@ class Storage(SupportsJSON):
             """Print exception string"""
             return f"invalid type for key/value: {self.key_or_value}"
 
+    @dataclass(kw_only=True)
     class InvalidValue(Exception):
         """
         Invalid value used when describing test's expected storage key or
@@ -294,6 +296,7 @@ class Storage(SupportsJSON):
             """Print exception string"""
             return f"invalid value for key/value: {self.key_or_value}"
 
+    @dataclass(kw_only=True)
     class AmbiguousKeyValue(Exception):
         """
         Key is represented twice in the storage.
@@ -326,6 +329,7 @@ class Storage(SupportsJSON):
             s[{self.key_1}] = {self.val_1} and s[{self.key_2}] = {self.val_2}
             """
 
+    @dataclass(kw_only=True)
     class MissingKey(Exception):
         """
         Test expected to find a storage key set but key was missing.
@@ -341,6 +345,7 @@ class Storage(SupportsJSON):
             """Print exception string"""
             return "key {0} not found in storage".format(Storage.key_value_to_string(self.key))
 
+    @dataclass(kw_only=True)
     class KeyValueMismatch(Exception):
         """
         Test expected a certain value in a storage key but value found
@@ -380,10 +385,10 @@ class Storage(SupportsJSON):
         elif isinstance(input, bytes) or isinstance(input, SupportsBytes):
             input = int.from_bytes(bytes(input), "big")
         else:
-            raise Storage.InvalidType(input)
+            raise Storage.InvalidType(key_or_value=input)
 
         if input > MAX_STORAGE_KEY_VALUE or input < MIN_STORAGE_KEY_VALUE:
-            raise Storage.InvalidValue(input)
+            raise Storage.InvalidValue(key_or_value=input)
         return input
 
     @staticmethod
@@ -460,7 +465,9 @@ class Storage(SupportsJSON):
             key_repr = Storage.key_value_to_string(key)
             val_repr = Storage.key_value_to_string(self.data[key])
             if key_repr in res and val_repr != res[key_repr]:
-                raise Storage.AmbiguousKeyValue(key_repr, res[key_repr], key, val_repr)
+                raise Storage.AmbiguousKeyValue(
+                    key_1=key_repr, val_1=res[key_repr], key_2=key, val_2=val_repr
+                )
             res[key_repr] = val_repr
         return res
 
@@ -490,9 +497,11 @@ class Storage(SupportsJSON):
             if key not in self.data:
                 # storage[key]==0 is equal to missing storage
                 if other[key] != 0:
-                    raise Storage.MissingKey(key)
+                    raise Storage.MissingKey(key=key)
             elif self.data[key] != other.data[key]:
-                raise Storage.KeyValueMismatch(address, key, self.data[key], other.data[key])
+                raise Storage.KeyValueMismatch(
+                    address=address, key=key, got=self.data[key], want=other.data[key]
+                )
 
     def must_be_equal(self, address: str, other: "Storage"):
         """
@@ -501,16 +510,22 @@ class Storage(SupportsJSON):
         # Test keys contained in both storage objects
         for key in self.data.keys() & other.data.keys():
             if self.data[key] != other.data[key]:
-                raise Storage.KeyValueMismatch(address, key, self.data[key], other.data[key])
+                raise Storage.KeyValueMismatch(
+                    address=address, key=key, got=self.data[key], want=other.data[key]
+                )
 
         # Test keys contained in either one of the storage objects
         for key in self.data.keys() ^ other.data.keys():
             if key in self.data:
                 if self.data[key] != 0:
-                    raise Storage.KeyValueMismatch(address, key, self.data[key], 0)
+                    raise Storage.KeyValueMismatch(
+                        address=address, key=key, want=self.data[key], got=0
+                    )
 
             elif other.data[key] != 0:
-                raise Storage.KeyValueMismatch(address, key, 0, other.data[key])
+                raise Storage.KeyValueMismatch(
+                    address=address, key=key, want=0, got=other.data[key]
+                )
 
 
 @dataclass(kw_only=True)
@@ -573,6 +588,7 @@ class Account:
     state.
     """
 
+    @dataclass(kw_only=True)
     class NonceMismatch(Exception):
         """
         Test expected a certain nonce value for an account but a different
@@ -596,6 +612,7 @@ class Account:
                 + f"want {self.want}, got {self.got}"
             )
 
+    @dataclass(kw_only=True)
     class BalanceMismatch(Exception):
         """
         Test expected a certain balance for an account but a different
@@ -619,6 +636,7 @@ class Account:
                 + f"want {self.want}, got {self.got}"
             )
 
+    @dataclass(kw_only=True)
     class CodeMismatch(Exception):
         """
         Test expected a certain bytecode for an account but a different
