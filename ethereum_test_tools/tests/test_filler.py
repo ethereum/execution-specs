@@ -92,15 +92,20 @@ def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
 
 
 @pytest.mark.parametrize(
-    "fork,check_hive,expected_json_file",
+    "fork,fixture_format",
     [
-        (Istanbul, False, "chainid_istanbul_filled.json"),
-        (London, False, "chainid_london_filled.json"),
-        (Paris, True, "chainid_paris_filled_hive.json"),
-        (Shanghai, True, "chainid_shanghai_filled_hive.json"),
+        (Istanbul, FixtureFormats.BLOCKCHAIN_TEST),
+        (London, FixtureFormats.BLOCKCHAIN_TEST),
+        (Paris, FixtureFormats.BLOCKCHAIN_TEST_HIVE),
+        (Shanghai, FixtureFormats.BLOCKCHAIN_TEST_HIVE),
+        (Paris, FixtureFormats.STATE_TEST),
+        (Shanghai, FixtureFormats.STATE_TEST),
     ],
 )
-def test_fill_state_test(fork: Fork, expected_json_file: str, check_hive: bool):
+def test_fill_state_test(
+    fork: Fork,
+    fixture_format: FixtureFormats,
+):
     """
     Test `ethereum_test.filler.fill_fixtures` with `StateTest`.
     """
@@ -134,9 +139,6 @@ def test_fill_state_test(fork: Fork, expected_json_file: str, check_hive: bool):
     }
 
     t8n = GethTransitionTool()
-    fixture_format = (
-        FixtureFormats.BLOCKCHAIN_TEST_HIVE if check_hive else FixtureFormats.BLOCKCHAIN_TEST
-    )
     generated_fixture = StateTest(
         env=env,
         pre=pre,
@@ -149,11 +151,11 @@ def test_fill_state_test(fork: Fork, expected_json_file: str, check_hive: bool):
         fork=fork,
     )
     assert generated_fixture.format() == fixture_format
-    assert isinstance(generated_fixture, BlockchainFixtureCommon)
     fixture = {
         f"000/my_chain_id_test/{fork}": generated_fixture.to_json(),
     }
 
+    expected_json_file = f"chainid_{fork.name().lower()}_{fixture_format.value}.json"
     with open(
         os.path.join(
             "src",

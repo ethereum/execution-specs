@@ -126,7 +126,7 @@ class StateTest(BaseTest):
         Create a fixture from the state test definition.
         """
         env = self.env.set_fork_requirements(fork)
-        tx = self.tx.with_signature_and_sender()
+        tx = self.tx.with_signature_and_sender(keep_secret_key=True)
         pre_alloc = Alloc.merge(
             Alloc(
                 fork.pre_allocation(block_number=env.number, timestamp=Number(env.timestamp)),

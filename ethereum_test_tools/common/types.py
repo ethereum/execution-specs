@@ -1671,7 +1671,7 @@ class Transaction:
             + bytes([v])
         )
 
-    def with_signature_and_sender(self) -> "Transaction":
+    def with_signature_and_sender(self, *, keep_secret_key: bool = False) -> "Transaction":
         """
         Returns a signed version of the transaction using the private key.
         """
@@ -1714,8 +1714,9 @@ class Transaction:
             else:  # not protected
                 tx.v += 27
 
-        # Remove the secret key because otherwise we might attempt to sign again (?)
-        tx.secret_key = None
+        # Remove the secret key if requested
+        if not keep_secret_key:
+            tx.secret_key = None
         return tx
 
 

@@ -12,14 +12,12 @@ from ...common.conversions import BytesConvertible, FixedSizeBytesConvertible
 from ...common.json import JSONEncoder, field, to_json
 from ...common.types import (
     AccessList,
-    AddrAA,
     Address,
     Alloc,
     Bytes,
     Environment,
     Hash,
     HexNumber,
-    Number,
     NumberConvertible,
     Transaction,
     ZeroPaddedHexNumber,
@@ -44,49 +42,56 @@ class FixtureEnvironment:
         default=100000000000000000,
         json_encoder=JSONEncoder.Field(
             name="currentGasLimit",
-            cast_type=Number,
+            cast_type=ZeroPaddedHexNumber,
         ),
     )
     number: NumberConvertible = field(
         default=1,
         json_encoder=JSONEncoder.Field(
             name="currentNumber",
-            cast_type=Number,
+            cast_type=ZeroPaddedHexNumber,
         ),
     )
     timestamp: NumberConvertible = field(
         default=1000,
         json_encoder=JSONEncoder.Field(
             name="currentTimestamp",
-            cast_type=Number,
+            cast_type=ZeroPaddedHexNumber,
         ),
     )
     prev_randao: Optional[NumberConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
             name="currentRandom",
-            cast_type=Number,
+            cast_type=Hash,
         ),
     )
     difficulty: Optional[NumberConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
             name="currentDifficulty",
-            cast_type=Number,
+            cast_type=ZeroPaddedHexNumber,
         ),
     )
     base_fee: Optional[NumberConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
             name="currentBaseFee",
-            cast_type=Number,
+            cast_type=ZeroPaddedHexNumber,
         ),
     )
     excess_blob_gas: Optional[NumberConvertible] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
             name="currentExcessBlobGas",
-            cast_type=Number,
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+    previous_hash: Optional[FixedSizeBytesConvertible] = field(
+        default="0x5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6",
+        json_encoder=JSONEncoder.Field(
+            name="previousHash",
+            cast_type=Hash,
         ),
     )
 
@@ -95,7 +100,11 @@ class FixtureEnvironment:
         """
         Returns a FixtureEnvironment from an Environment.
         """
-        kwargs = {field.name: getattr(env, field.name) for field in fields(cls)}
+        kwargs = {
+            field.name: getattr(env, field.name)
+            for field in fields(cls)
+            if field.name != "previous_hash"  # define this field for state tests only
+        }
         return cls(**kwargs)
 
 
@@ -106,34 +115,29 @@ class FixtureTransaction:
     """
 
     nonce: int = field(
-        default=0,
         json_encoder=JSONEncoder.Field(
             cast_type=ZeroPaddedHexNumber,
         ),
     )
     gas_price: Optional[int] = field(
-        default=None,
         json_encoder=JSONEncoder.Field(
             name="gasPrice",
             cast_type=ZeroPaddedHexNumber,
         ),
     )
     max_priority_fee_per_gas: Optional[int] = field(
-        default=None,
         json_encoder=JSONEncoder.Field(
             name="maxPriorityFeePerGas",
             cast_type=HexNumber,
         ),
     )
     max_fee_per_gas: Optional[int] = field(
-        default=None,
         json_encoder=JSONEncoder.Field(
             name="maxFeePerGas",
             cast_type=HexNumber,
         ),
     )
     gas_limit: int = field(
-        default=21000,
         json_encoder=JSONEncoder.Field(
             name="gasLimit",
             cast_type=lambda x: [ZeroPaddedHexNumber(x)],  # Converted to list
@@ -141,27 +145,24 @@ class FixtureTransaction:
         ),
     )
     to: Optional[FixedSizeBytesConvertible] = field(
-        default=AddrAA,
         json_encoder=JSONEncoder.Field(
+            default_value_skip_cast="",  # Empty string for None
             cast_type=Address,
         ),
     )
     value: int = field(
-        default=0,
         json_encoder=JSONEncoder.Field(
             cast_type=lambda x: [ZeroPaddedHexNumber(x)],  # Converted to list
             to_json=True,
         ),
     )
     data: BytesConvertible = field(
-        default_factory=bytes,
         json_encoder=JSONEncoder.Field(
             cast_type=lambda x: [Bytes(x)],
             to_json=True,
         ),
     )
     access_list: Optional[List[AccessList]] = field(
-        default=None,
         json_encoder=JSONEncoder.Field(
             name="accessLists",
             cast_type=lambda x: [x],  # Converted to list of lists
@@ -169,14 +170,12 @@ class FixtureTransaction:
         ),
     )
     max_fee_per_blob_gas: Optional[int] = field(
-        default=None,
         json_encoder=JSONEncoder.Field(
             name="maxFeePerBlobGas",
             cast_type=HexNumber,
         ),
     )
     blob_versioned_hashes: Optional[Sequence[FixedSizeBytesConvertible]] = field(
-        default=None,
         json_encoder=JSONEncoder.Field(
             name="blobVersionedHashes",
             cast_type=lambda x: [Hash(k) for k in x],
@@ -184,14 +183,12 @@ class FixtureTransaction:
         ),
     )
 
-    sender: Optional[FixedSizeBytesConvertible] = field(
-        default=None,
+    sender: FixedSizeBytesConvertible = field(
         json_encoder=JSONEncoder.Field(
             cast_type=Address,
         ),
     )
     secret_key: Optional[FixedSizeBytesConvertible] = field(
-        default=None,
         json_encoder=JSONEncoder.Field(
             name="secretKey",
             cast_type=Hash,
