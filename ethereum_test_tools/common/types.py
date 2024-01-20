@@ -500,7 +500,7 @@ class Storage(SupportsJSON):
                     raise Storage.MissingKey(key=key)
             elif self.data[key] != other.data[key]:
                 raise Storage.KeyValueMismatch(
-                    address=address, key=key, got=self.data[key], want=other.data[key]
+                    address=address, key=key, want=self.data[key], got=other.data[key]
                 )
 
     def must_be_equal(self, address: str, other: "Storage"):
@@ -511,7 +511,7 @@ class Storage(SupportsJSON):
         for key in self.data.keys() & other.data.keys():
             if self.data[key] != other.data[key]:
                 raise Storage.KeyValueMismatch(
-                    address=address, key=key, got=self.data[key], want=other.data[key]
+                    address=address, key=key, want=self.data[key], got=other.data[key]
                 )
 
         # Test keys contained in either one of the storage objects

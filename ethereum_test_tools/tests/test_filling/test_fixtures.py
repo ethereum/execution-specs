@@ -1,5 +1,5 @@
 """
-Test suite for `ethereum_test` module.
+Test suite for `ethereum_test_tools.filling` fixture generation.
 """
 
 import json
@@ -12,13 +12,13 @@ from semver import Version
 from ethereum_test_forks import Berlin, Fork, Istanbul, London, Paris, Shanghai
 from evm_transition_tool import FixtureFormats, GethTransitionTool
 
-from ..code import Yul
-from ..common import Account, Environment, TestAddress, Transaction, to_json
-from ..spec import BlockchainTest, StateTest
-from ..spec.blockchain.types import Block
-from ..spec.blockchain.types import Fixture as BlockchainFixture
-from ..spec.blockchain.types import FixtureCommon as BlockchainFixtureCommon
-from .conftest import SOLC_PADDING_VERSION
+from ...code import Yul
+from ...common import Account, Environment, TestAddress, Transaction, to_json
+from ...spec import BlockchainTest, StateTest
+from ...spec.blockchain.types import Block
+from ...spec.blockchain.types import Fixture as BlockchainFixture
+from ...spec.blockchain.types import FixtureCommon as BlockchainFixtureCommon
+from ..conftest import SOLC_PADDING_VERSION
 
 
 def remove_info(fixture_json: Dict[str, Any]):  # noqa: D103
@@ -161,7 +161,8 @@ def test_fill_state_test(
             "src",
             "ethereum_test_tools",
             "tests",
-            "test_fixtures",
+            "test_filling",
+            "fixtures",
             expected_json_file,
         )
     ) as f:
@@ -461,7 +462,8 @@ def test_fill_blockchain_valid_txs(
             "src",
             "ethereum_test_tools",
             "tests",
-            "test_fixtures",
+            "test_filling",
+            "fixtures",
             expected_json_file,
         )
     ) as f:
@@ -810,7 +812,8 @@ def test_fill_blockchain_invalid_txs(
             "src",
             "ethereum_test_tools",
             "tests",
-            "test_fixtures",
+            "test_filling",
+            "fixtures",
             expected_json_file,
         )
     ) as f:
