@@ -45,6 +45,7 @@ transform = [
     "docc.python.transform",
     "docc.verbatim.transform",
     "docc.mistletoe.transform",
+    "docc.mistletoe.reference",
     "ethereum_spec_tools.docc.fix-indexes",
     "ethereum_spec_tools.docc.minimize-diffs",
     "docc.references.index",

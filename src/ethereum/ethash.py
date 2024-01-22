@@ -1,15 +1,29 @@
 """
-Ethash Functions
-^^^^^^^^^^^^^^^^
+Ethash is a proof-of-work algorithm designed to be [ASIC] resistant through
+[memory hardness][mem-hard].
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
+To achieve memory hardness, computing Ethash requires access to subsets of a
+large structure. The particular subsets chosen are based on the nonce and block
+header, while the set itself is changed every [`epoch`].
 
-Introduction
-------------
+At a high level, the Ethash algorithm is as follows:
 
-Ethash algorithm related functionalities.
+1. Create a **seed** value, generated with [`generate_seed`] and based on the
+   preceding block numbers.
+1. From the seed, compute a pseudorandom **cache** with [`generate_cache`].
+1. From the cache, generate a **dataset** with [`generate_dataset`]. The
+   dataset grows over time based on [`DATASET_EPOCH_GROWTH_SIZE`].
+1. Miners hash slices of the dataset together, which is where the memory
+   hardness is introduced. Verification of the proof-of-work only requires the
+   cache to be able to recompute a much smaller subset of the full dataset.
+
+[`DATASET_EPOCH_GROWTH_SIZE`]: ref:ethereum.ethash.DATASET_EPOCH_GROWTH_SIZE
+[`generate_dataset`]: ref:ethereum.ethash.generate_dataset
+[`generate_cache`]: ref:ethereum.ethash.generate_cache
+[`generate_seed`]: ref:ethereum.ethash.generate_seed
+[`epoch`]: ref:ethereum.ethash.epoch
+[ASIC]: https://en.wikipedia.org/wiki/Application-specific_integrated_circuit
+[mem-hard]: https://en.wikipedia.org/wiki/Memory-hard_function
 """
 
 from typing import Callable, Tuple, Union
@@ -24,31 +38,95 @@ from ethereum.utils.numeric import (
 )
 
 EPOCH_SIZE = 30000
+"""
+Number of blocks before a dataset needs to be regenerated (known as an
+"epoch".) See [`epoch`].
+
+[`epoch`]: ref:ethereum.ethash.epoch
+"""
+
 INITIAL_CACHE_SIZE = 2**24
+"""
+Size of the cache (in bytes) during the first epoch. Each subsequent epoch's
+cache roughly grows by [`CACHE_EPOCH_GROWTH_SIZE`] bytes. See [`cache_size`].
+
+[`CACHE_EPOCH_GROWTH_SIZE`]: ref:ethereum.ethash.CACHE_EPOCH_GROWTH_SIZE
+[`cache_size`]: ref:ethereum.ethash.cache_size
+"""
+
 CACHE_EPOCH_GROWTH_SIZE = 2**17
+"""
+After the first epoch, the cache size grows by roughly this amount. See
+[`cache_size`].
+
+[`cache_size`]: ref:ethereum.ethash.cache_size
+"""
+
 INITIAL_DATASET_SIZE = 2**30
+"""
+Size of the dataset (in bytes) during the first epoch. Each subsequent epoch's
+dataset roughly grows by [`DATASET_EPOCH_GROWTH_SIZE`] bytes. See
+[`dataset_size`].
+
+[`DATASET_EPOCH_GROWTH_SIZE`]: ref:ethereum.ethash.DATASET_EPOCH_GROWTH_SIZE
+[`dataset_size`]: ref:ethereum.ethash.dataset_size
+"""
+
 DATASET_EPOCH_GROWTH_SIZE = 2**23
+"""
+After the first epoch, the dataset size grows by roughly this amount. See
+[`dataset_size`].
+
+[`dataset_size`]: ref:ethereum.ethash.dataset_size
+"""
+
 HASH_BYTES = 64
+"""
+Length of a hash, in bytes.
+"""
+
 MIX_BYTES = 128
+"""
+Width of mix, in bytes. See [`generate_dataset_item`].
+
+[`generate_dataset_item`]: ref:ethereum.ethash.generate_dataset_item
+"""
+
 CACHE_ROUNDS = 3
+"""
+Number of times to repeat the [`keccak512`] step while generating the hash. See
+[`generate_cache`].
+
+[`keccak512`]: ref:ethereum.crypto.hash.keccak512
+[`generate_cache`]: ref:ethereum.ethash.generate_cache
+"""
+
 DATASET_PARENTS = 256
+"""
+Number of parents of each dataset element. See [`generate_dataset_item`].
+
+[`generate_dataset_item`]: ref:ethereum.ethash.generate_dataset_item
+"""
+
 HASHIMOTO_ACCESSES = 64
+"""
+Number of accesses in the [`hashimoto`] loop.
+
+[`hashimoto`]: ref:ethereum.ethash.hashimoto
+"""
 
 
 def epoch(block_number: Uint) -> Uint:
     """
     Obtain the epoch number to which the block identified by `block_number`
-    belongs.
+    belongs. The first epoch is numbered zero.
 
-    Parameters
-    ----------
-    block_number :
-        The number of the block of interest.
+    An Ethash epoch is a fixed number of blocks ([`EPOCH_SIZE`]) long, during
+    which the dataset remains constant. At the end of each epoch, the dataset
+    is generated anew. See [`generate_dataset`].
 
-    Returns
-    -------
-    epoch_number : `Uint`
-        The epoch number to which the passed in block belongs.
+    [`EPOCH_SIZE`]: ref:ethereum.ethash.EPOCH_SIZE
+    [`generate_dataset`]: ref:ethereum.ethash.generate_dataset
     """
     return block_number // EPOCH_SIZE
 
@@ -58,15 +136,18 @@ def cache_size(block_number: Uint) -> Uint:
     Obtain the cache size (in bytes) of the epoch to which `block_number`
     belongs.
 
-    Parameters
-    ----------
-    block_number :
-        The number of the block of interest.
+    See [`INITIAL_CACHE_SIZE`] and [`CACHE_EPOCH_GROWTH_SIZE`] for the initial
+    size and linear growth rate, respectively. The cache is generated in
+    [`generate_cache`].
 
-    Returns
-    -------
-    cache_size_bytes : `Uint`
-        The cache size in bytes for the passed in block.
+    The actual cache size is smaller than simply multiplying
+    `CACHE_EPOCH_GROWTH_SIZE` by the epoch number to minimize the risk of
+    unintended cyclic behavior. It is defined as the highest prime number below
+    what linear growth would calculate.
+
+    [`INITIAL_CACHE_SIZE`]: ref:ethereum.ethash.INITIAL_CACHE_SIZE
+    [`CACHE_EPOCH_GROWTH_SIZE`]: ref:ethereum.ethash.CACHE_EPOCH_GROWTH_SIZE
+    [`generate_cache`]: ref:ethereum.ethash.generate_cache
     """
     size = INITIAL_CACHE_SIZE + (CACHE_EPOCH_GROWTH_SIZE * epoch(block_number))
     size -= HASH_BYTES
@@ -81,15 +162,20 @@ def dataset_size(block_number: Uint) -> Uint:
     Obtain the dataset size (in bytes) of the epoch to which `block_number`
     belongs.
 
-    Parameters
-    ----------
-    block_number :
-        The number of the block of interest.
+    See [`INITIAL_DATASET_SIZE`] and [`DATASET_EPOCH_GROWTH_SIZE`][ds] for the
+    initial size and linear growth rate, respectively. The complete dataset is
+    generated in [`generate_dataset`], while the slices used in verification
+    are generated in [`generate_dataset_item`].
 
-    Returns
-    -------
-    dataset_size_bytes : `Uint`
-        The dataset size in bytes for the passed in block.
+    The actual dataset size is smaller than simply multiplying
+    `DATASET_EPOCH_GROWTH_SIZE` by the epoch number to minimize the risk of
+    unintended cyclic behavior. It is defined as the highest prime number below
+    what linear growth would calculate.
+
+    [`INITIAL_DATASET_SIZE`]: ref:ethereum.ethash.INITIAL_DATASET_SIZE
+    [ds]: ref:ethereum.ethash.DATASET_EPOCH_GROWTH_SIZE
+    [`generate_dataset`]: ref:ethereum.ethash.generate_dataset
+    [`generate_dataset_item`]: ref:ethereum.ethash.generate_dataset_item
     """
     size = INITIAL_DATASET_SIZE + (
         DATASET_EPOCH_GROWTH_SIZE * epoch(block_number)
@@ -104,17 +190,9 @@ def dataset_size(block_number: Uint) -> Uint:
 def generate_seed(block_number: Uint) -> Hash32:
     """
     Obtain the cache generation seed for the block identified by
-    `block_number`.
+    `block_number`. See [`generate_cache`].
 
-    Parameters
-    ----------
-    block_number :
-        The number of the block of interest.
-
-    Returns
-    -------
-    seed : `Hash32`
-        The cache generation seed for the passed in block.
+    [`generate_cache`]: ref:ethereum.ethash.generate_cache
     """
     epoch_number = epoch(block_number)
 
@@ -128,18 +206,16 @@ def generate_seed(block_number: Uint) -> Hash32:
 
 def generate_cache(block_number: Uint) -> Tuple[Tuple[U32, ...], ...]:
     """
-    Generate the cache for the block identified by `block_number`. This cache
-    would later be used to generate the full dataset.
+    Generate the cache for the block identified by `block_number`. See
+    [`generate_dataset`] for how the cache is used.
 
-    Parameters
-    ----------
-    block_number :
-        The number of the block of interest.
+    The cache is generated in two steps: filling the array with a chain of
+    [`keccak512`] hashes, then running two rounds of Sergio Demian Lerner's
+    [RandMemoHash] on those bytes.
 
-    Returns
-    -------
-    cache : `Tuple[Tuple[U32, ...], ...]`
-        The cache generated for the passed in block.
+    [`keccak512`]: ref:ethereum.crypto.hash.keccak512
+    [`generate_dataset`]: ref:ethereum.ethash.generate_dataset
+    [RandMemoHash]: http://www.hashcash.org/papers/memohash.pdf
     """
     seed = generate_seed(block_number)
     cache_size_bytes = cache_size(block_number)
@@ -147,11 +223,9 @@ def generate_cache(block_number: Uint) -> Tuple[Tuple[U32, ...], ...]:
     cache_size_words = cache_size_bytes // HASH_BYTES
     cache = [keccak512(seed)]
 
-    previous_cache_item = cache[0]
-    for _ in range(1, cache_size_words):
-        cache_item = keccak512(previous_cache_item)
+    for index in range(1, cache_size_words):
+        cache_item = keccak512(cache[index - 1])
         cache.append(cache_item)
-        previous_cache_item = cache_item
 
     for _ in range(CACHE_ROUNDS):
         for index in range(cache_size_words):
@@ -175,26 +249,21 @@ def generate_cache(block_number: Uint) -> Tuple[Tuple[U32, ...], ...]:
 
 def fnv(a: Union[Uint, U32], b: Union[Uint, U32]) -> U32:
     """
-    FNV algorithm is inspired by the FNV hash, which in some cases is used
-    as a non-associative substitute for XOR.
+    A non-associative substitute for XOR, inspired by the [FNV] hash by Fowler,
+    Noll, and Vo. See [`fnv_hash`], [`generate_dataset_item`], and
+    [`hashimoto`].
 
     Note that here we multiply the prime with the full 32-bit input, in
-    contrast with the FNV-1 spec which multiplies the prime with
-    one byte (octet) in turn.
+    contrast with the [FNV-1] spec which multiplies the prime with one byte
+    (octet) in turn.
 
-    Parameters
-    ----------
-    a:
-        The first data point.
-    b :
-        The second data point.
-
-    Returns
-    -------
-    modified_mix_integers : `U32`
-        The result of performing fnv on the passed in data points.
+    [`hashimoto`]: ref:ethereum.ethash.hashimoto
+    [`generate_dataset_item`]: ref:ethereum.ethash.generate_dataset_item
+    [`fnv_hash`]: ref:ethereum.ethash.fnv_hash
+    [FNV]: https://w.wiki/XKZ
+    [FNV-1]: http://www.isthe.com/chongo/tech/comp/fnv/#FNV-1
     """
-    # This is a faster way of doing [number % (2 ** 32)]
+    # This is a faster way of doing `number % (2 ** 32)`.
     result = ((Uint(a) * 0x01000193) ^ Uint(b)) & U32_MAX_VALUE
     return U32(result)
 
@@ -203,20 +272,12 @@ def fnv_hash(
     mix_integers: Tuple[U32, ...], data: Tuple[U32, ...]
 ) -> Tuple[U32, ...]:
     """
-    FNV Hash mixes in data into mix using the ethash fnv method.
+    Combines `data` into `mix_integers` using [`fnv`]. See [`hashimoto`] and
+    [`generate_dataset_item`].
 
-    Parameters
-    ----------
-    mix_integers:
-        Mix data in the form of a sequence of U32.
-    data :
-        The data (sequence of U32) to be hashed into the mix.
-
-    Returns
-    -------
-    modified_mix_integers : `Tuple[U32, ...]`
-        The result of performing the fnv hash on the mix and the passed in
-        data.
+    [`hashimoto`]: ref:ethereum.ethash.hashimoto
+    [`generate_dataset_item`]: ref:ethereum.ethash.generate_dataset_item
+    [`fnv`]: ref:ethereum.ethash.fnv
     """
     return tuple(
         fnv(mix_integers[i], data[i]) for i in range(len(mix_integers))
@@ -227,22 +288,16 @@ def generate_dataset_item(
     cache: Tuple[Tuple[U32, ...], ...], index: Uint
 ) -> Hash64:
     """
-    Generate a particular dataset item 0-indexed by `index` using `cache`.
-    Each dataset item is a byte stream of 64 bytes or a stream of 16 uint32
-    numbers.
+    Generate a particular dataset item 0-indexed by `index` by hashing
+    pseudorandomly-selected entries from `cache` together. See [`fnv`] and
+    [`fnv_hash`] for the digest function, [`generate_cache`] for generating
+    `cache`, and [`generate_dataset`] for the full dataset generation
+    algorithm.
 
-    Parameters
-    ----------
-    cache:
-        The cache from which a subset of items will be used to generate the
-        dataset item.
-    index :
-        The index of the dataset item to generate.
-
-    Returns
-    -------
-    dataset_item : `Hash64`
-        The generated dataset item for passed index.
+    [`fnv`]: ref:ethereum.ethash.fnv
+    [`fnv_hash`]: ref:ethereum.ethash.fnv_hash
+    [`generate_dataset`]: ref:ethereum.ethash.generate_dataset
+    [`generate_cache`]: ref:ethereum.ethash.generate_cache
     """
     mix = keccak512(
         (
@@ -267,18 +322,8 @@ def generate_dataset(block_number: Uint) -> Tuple[Hash64, ...]:
     """
     Generate the full dataset for the block identified by `block_number`.
 
-    This function is present only for demonstration purposes, as it will take
-    a long time to execute.
-
-    Parameters
-    ----------
-    block_number :
-        The number of the block of interest.
-
-    Returns
-    -------
-    dataset : `Tuple[Hash64, ...]`
-        The dataset generated for the passed in block.
+    This function is present only for demonstration purposes. It is not used
+    while validating blocks.
     """
     dataset_size_bytes: Uint = dataset_size(block_number)
     cache: Tuple[Tuple[U32, ...], ...] = generate_cache(block_number)
@@ -300,25 +345,22 @@ def hashimoto(
     Obtain the mix digest and the final value for a header, by aggregating
     data from the full dataset.
 
-    Parameters
-    ----------
-    header_hash :
-        The PoW valid rlp hash of a header.
-    nonce :
-        The propogated nonce for the given block.
-    dataset_size :
-        Dataset size for the epoch to which the current block belongs to.
-    fetch_dataset_item :
-        The function which will be used to obtain a specific dataset item
-        from an index.
+    #### Parameters
 
-    Returns
-    -------
-    mix_digest : `bytes`
-        The mix digest generated from the header hash and propogated nonce.
-    result : `Hash32`
-        The final result obtained which will be checked for leading zeros (in
-        byte representation) in correspondance with the block difficulty.
+    - `header_hash` is a valid [RLP hash] of a block header.
+    - `nonce` is the propagated nonce for the given block.
+    - `dataset_size` is the size of the dataset. See [`dataset_size`].
+    - `fetch_dataset_item` is a function that retrieves a specific dataset item
+      based on its index.
+
+    #### Returns
+
+    - The mix digest generated from the header hash and propagated nonce.
+    - The final result obtained which will be checked for leading zeros (in
+      byte representation) in correspondence with the block difficulty.
+
+    [RLP hash]: ref:ethereum.rlp.rlp_hash
+    [`dataset_size`]: ref:ethereum.ethash.dataset_size
     """
     nonce_le = bytes(reversed(nonce))
     seed_hash = keccak512(header_hash + nonce_le)
@@ -356,44 +398,29 @@ def hashimoto_light(
     dataset_size: Uint,
 ) -> Tuple[bytes, Hash32]:
     """
-    Run the hashimoto algorithm by generating dataset item using the cache
+    Run the [`hashimoto`] algorithm by generating dataset item using the cache
     instead of loading the full dataset into main memory.
 
-    Parameters
-    ----------
-    header_hash :
-        The PoW valid rlp hash of a header.
-    nonce :
-        The propogated nonce for the given block.
-    cache:
-        The generated cache for the epoch to which the current block belongs
-        to.
-    dataset_size :
-        Dataset size for the epoch to which the current block belongs to.
+    #### Parameters
 
-    Returns
-    -------
-    mix_digest : `bytes`
-        The mix digest generated from the header hash and propogated nonce.
-    result : `Hash32`
-        The final result obtained which will be checked for leading zeros (in
-        byte representation) in correspondance with the block difficulty.
+    - `header_hash` is a valid [RLP hash] of a block header.
+    - `nonce` is the propagated nonce for the given block.
+    - `cache` is the cache generated by [`generate_cache`].
+    - `dataset_size` is the size of the dataset. See [`dataset_size`].
+
+    #### Returns
+
+    - The mix digest generated from the header hash and propagated nonce.
+    - The final result obtained which will be checked for leading zeros (in
+      byte representation) in correspondence with the block difficulty.
+
+    [RLP hash]: ref:ethereum.rlp.rlp_hash
+    [`dataset_size`]: ref:ethereum.ethash.dataset_size
+    [`generate_cache`]: ref:ethereum.ethash.generate_cache
+    [`hashimoto`]: ref:ethereum.ethash.hashimoto
     """
 
     def fetch_dataset_item(index: Uint) -> Tuple[U32, ...]:
-        """
-        Generate dataset item (as tuple of U32 numbers) from cache.
-
-        Parameters
-        ----------
-        index :
-            The index of the dataset item to generate.
-
-        Returns
-        -------
-        dataset_item : `Tuple[U32, ...]`
-            The generated dataset item for passed index.
-        """
         item: Hash64 = generate_dataset_item(cache, index)
         return le_bytes_to_uint32_sequence(item)
 
