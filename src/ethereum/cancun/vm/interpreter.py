@@ -29,6 +29,7 @@ from ethereum.utils.ensure import ensure
 
 from ..fork_types import Address, Log
 from ..state import (
+    TransientStorage,
     account_exists_and_is_empty,
     account_has_code_or_nonce,
     begin_transaction,
@@ -219,7 +220,10 @@ def process_message(message: Message, env: Environment) -> Evm:
         raise StackDepthLimitError("Stack depth limit reached")
 
     # take snapshot of state before processing the message
-    begin_transaction(env.state)
+    transient_storage = (
+        message.parent_evm.transient_storage if message.parent_evm else None
+    )
+    begin_transaction(env.state, transient_storage)
 
     touch_account(env.state, message.current_target)
 
@@ -232,7 +236,7 @@ def process_message(message: Message, env: Environment) -> Evm:
     if evm.error:
         # revert state to the last saved checkpoint
         # since the message call resulted in an error
-        rollback_transaction(env.state)
+        rollback_transaction(env.state, evm.transient_storage)
     else:
         commit_transaction(env.state)
     return evm
@@ -256,6 +260,10 @@ def execute_code(message: Message, env: Environment) -> Evm:
     """
     code = message.code
     valid_jump_destinations = get_valid_jump_destinations(code)
+    if message.parent_evm:
+        transient_storage = message.parent_evm.transient_storage
+    else:
+        transient_storage = TransientStorage()
 
     evm = Evm(
         pc=Uint(0),
@@ -276,6 +284,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         error=None,
         accessed_addresses=message.accessed_addresses,
         accessed_storage_keys=message.accessed_storage_keys,
+        transient_storage=transient_storage,
     )
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
