@@ -46,6 +46,19 @@ class State:
     _created_accounts: Set[Address] = field(default_factory=set)
 
 
+@dataclass
+class TransientStorage:
+    """
+    Contains all information that is preserved between message calls
+    within a transaction.
+    """
+
+    _tries: Dict[Address, Trie[Bytes, U256]] = field(default_factory=dict)
+    _snapshots: List[Dict[Address, Trie[Bytes, U256]]] = field(
+        default_factory=list
+    )
+
+
 def close_state(state: State) -> None:
     """
     Free resources held by the state. Used by optimized implementations to
@@ -57,7 +70,9 @@ def close_state(state: State) -> None:
     del state._created_accounts
 
 
-def begin_transaction(state: State) -> None:
+def begin_transaction(
+    state: State, transient_storage: Optional[TransientStorage] = None
+) -> None:
     """
     Start a state transaction.
 
@@ -68,6 +83,8 @@ def begin_transaction(state: State) -> None:
     ----------
     state : State
         The state.
+    transient_storage : TransientStorage
+        The transient storage of the transaction.
     """
     state._snapshots.append(
         (
@@ -75,6 +92,10 @@ def begin_transaction(state: State) -> None:
             {k: copy_trie(t) for (k, t) in state._storage_tries.items()},
         )
     )
+    if transient_storage is not None:
+        transient_storage._snapshots.append(
+            {k: copy_trie(t) for (k, t) in transient_storage._tries.items()}
+        )
 
 
 def commit_transaction(state: State) -> None:
@@ -91,7 +112,9 @@ def commit_transaction(state: State) -> None:
         state._created_accounts.clear()
 
 
-def rollback_transaction(state: State) -> None:
+def rollback_transaction(
+    state: State, transient_storage: Optional[TransientStorage] = None
+) -> None:
     """
     Rollback a state transaction, resetting the state to the point when the
     corresponding `start_transaction()` call was made.
@@ -100,10 +123,15 @@ def rollback_transaction(state: State) -> None:
     ----------
     state : State
         The state.
+    transient_storage : TransientStorage
+        The transient storage of the transaction.
     """
     state._main_trie, state._storage_tries = state._snapshots.pop()
     if not state._snapshots:
         state._created_accounts.clear()
+
+    if transient_storage:
+        transient_storage._tries = transient_storage._snapshots.pop()
 
 
 def get_account(state: State, address: Address) -> Account:
@@ -603,3 +631,61 @@ def get_storage_original(state: State, address: Address, key: Bytes) -> U256:
     assert isinstance(original_value, U256)
 
     return original_value
+
+
+def get_transient_storage(
+    transient_storage: TransientStorage, address: Address, key: Bytes
+) -> U256:
+    """
+    Get a value at a storage key on an account from transient storage.
+    Returns `U256(0)` if the storage key has not been set previously.
+    Parameters
+    ----------
+    transient_storage: `TransientStorage`
+        The transient storage
+    address : `Address`
+        Address of the account.
+    key : `Bytes`
+        Key to lookup.
+    Returns
+    -------
+    value : `U256`
+        Value at the key.
+    """
+    trie = transient_storage._tries.get(address)
+    if trie is None:
+        return U256(0)
+
+    value = trie_get(trie, key)
+
+    assert isinstance(value, U256)
+    return value
+
+
+def set_transient_storage(
+    transient_storage: TransientStorage,
+    address: Address,
+    key: Bytes,
+    value: U256,
+) -> None:
+    """
+    Set a value at a storage key on an account. Setting to `U256(0)` deletes
+    the key.
+    Parameters
+    ----------
+    transient_storage: `TransientStorage`
+        The transient storage
+    address : `Address`
+        Address of the account.
+    key : `Bytes`
+        Key to set.
+    value : `U256`
+        Value to set at the key.
+    """
+    trie = transient_storage._tries.get(address)
+    if trie is None:
+        trie = Trie(secured=True, default=U256(0))
+        transient_storage._tries[address] = trie
+    trie_set(trie, key, value)
+    if trie._data == {}:
+        del transient_storage._tries[address]

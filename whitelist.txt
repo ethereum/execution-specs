@@ -409,3 +409,6 @@ strikethrough
 setext
 orelse
 mcopy
+
+tload
+tstore
