@@ -162,6 +162,7 @@
                             "baseFeePerGas": "0x029f",
                             "hash": "0x0cb9b60de1bb3893d7b7b806562a78aca5e9fbff47bf62893a5f6c0afcc73b48"
                         },
+                        "blocknumber": "3",
                         "transactions": [
                             {
                                 "type": "0x02",
@@ -296,6 +297,7 @@
                             "baseFeePerGas": "0x024c",
                             "hash": "0x1f01f6d8ff3a461486c4c4334c94a05f114d161b1ac082c7374ad7ac51eea7f2"
                         },
+                        "blocknumber": "4",
                         "transactions": [
                             {
                                 "type": "0x02",
@@ -700,6 +702,7 @@
                             "baseFeePerGas": "0x029f",
                             "hash": "0xf3ad606edcdfb24e7b24e32328334b3ddf5149ecd6c45ccbd4d39628a4ef2a85"
                         },
+                        "blocknumber": "3",
                         "transactions": [
                             {
                                 "type": "0x02",
@@ -834,6 +837,7 @@
                             "baseFeePerGas": "0x024c",
                             "hash": "0xc80ae3f610a2adb971179fc1e1bc120f3b38c88ff388cf059809a579be6e5f2c"
                         },
+                        "blocknumber": "4",
                         "transactions": [
                             {
                                 "type": "0x02",

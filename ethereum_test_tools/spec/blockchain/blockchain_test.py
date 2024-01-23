@@ -2,7 +2,7 @@
 Ethereum blockchain test spec definition and filler.
 """
 from copy import copy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pprint import pprint
 from typing import Any, Callable, Dict, Generator, List, Mapping, Optional, Tuple, Type
 
@@ -306,24 +306,28 @@ class BlockchainTest(BaseTest):
         head = genesis.hash if genesis.hash is not None else Hash(0)
 
         for block in self.blocks:
-            header, rlp, txs, new_alloc, new_env = self.generate_block_data(
-                t8n=t8n, fork=fork, block=block, previous_env=env, previous_alloc=alloc, eips=eips
-            )
             if block.rlp is None:
                 # This is the most common case, the RLP needs to be constructed
                 # based on the transactions to be included in the block.
                 # Set the environment according to the block to execute.
+                header, rlp, txs, new_alloc, new_env = self.generate_block_data(
+                    t8n=t8n,
+                    fork=fork,
+                    block=block,
+                    previous_env=env,
+                    previous_alloc=alloc,
+                    eips=eips,
+                )
+                fixture_block = FixtureBlock(
+                    rlp=rlp,
+                    block_header=header,
+                    block_number=Number(header.number),
+                    txs=txs,
+                    ommers=[],
+                    withdrawals=new_env.withdrawals,
+                )
                 if block.exception is None:
-                    fixture_blocks.append(
-                        FixtureBlock(
-                            rlp=rlp,
-                            block_header=header,
-                            block_number=Number(header.number),
-                            txs=txs,
-                            ommers=[],
-                            withdrawals=new_env.withdrawals,
-                        ),
-                    )
+                    fixture_blocks.append(fixture_block)
                     # Update env, alloc and last block hash for the next block.
                     alloc = new_alloc
                     env = apply_new_parent(new_env, header)
@@ -333,15 +337,14 @@ class BlockchainTest(BaseTest):
                         InvalidFixtureBlock(
                             rlp=rlp,
                             expected_exception=block.exception,
-                            rlp_decoded=FixtureBlock(
-                                block_header=header,
-                                txs=txs,
-                                ommers=[],
-                                withdrawals=new_env.withdrawals,
-                            ),
+                            rlp_decoded=replace(fixture_block, rlp=None),
                         ),
                     )
             else:
+                assert block.exception is not None, (
+                    "test correctness: if the block's rlp is hard-coded, "
+                    + "the block is expected to produce an exception"
+                )
                 fixture_blocks.append(
                     InvalidFixtureBlock(
                         rlp=Bytes(block.rlp),
@@ -370,7 +373,7 @@ class BlockchainTest(BaseTest):
         """
         Create a hive fixture from the blocktest definition.
         """
-        fixture_payloads: List[Optional[FixtureEngineNewPayload]] = []
+        fixture_payloads: List[FixtureEngineNewPayload] = []
 
         pre, _, genesis = self.make_genesis(t8n, fork)
         alloc = to_json(pre)
@@ -395,6 +398,10 @@ class BlockchainTest(BaseTest):
                     alloc = new_alloc
                     env = apply_new_parent(env, header)
         fcu_version = fork.engine_forkchoice_updated_version(header.number, header.timestamp)
+        assert (
+            fcu_version is not None
+        ), "A hive fixture was requested but no forkchoice update is defined. The framework should"
+        " never try to execute this test case."
 
         self.verify_post_state(t8n, alloc)
         return HiveFixture(

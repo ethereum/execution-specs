@@ -19,13 +19,12 @@ from ...common.conversions import BytesConvertible, FixedSizeBytesConvertible, N
 from ...common.json import JSONEncoder, field, to_json
 from ...common.types import (
     Account,
+    AddrAA,
     Address,
     Alloc,
     Bloom,
     Bytes,
     Environment,
-    FixtureTransaction,
-    FixtureWithdrawal,
     Hash,
     HeaderNonce,
     HexNumber,
@@ -746,14 +745,13 @@ class FixtureEngineNewPayload:
         withdrawals: Optional[List[Withdrawal]],
         valid: bool,
         error_code: Optional[EngineAPIError],
-    ) -> Optional["FixtureEngineNewPayload"]:
+    ) -> "FixtureEngineNewPayload":
         """
         Creates a `FixtureEngineNewPayload` from a `FixtureHeader`.
         """
         new_payload_version = fork.engine_new_payload_version(header.number, header.timestamp)
 
-        if new_payload_version is None:
-            return None
+        assert new_payload_version is not None, "Invalid header for engine_newPayload"
 
         new_payload = cls(
             payload=FixtureExecutionPayload.from_fixture_header(
@@ -777,54 +775,179 @@ class FixtureEngineNewPayload:
         return new_payload
 
 
+@dataclass
+class FixtureTransaction(Transaction):
+    """
+    Representation of an Ethereum transaction within a test Fixture.
+    """
+
+    ty: Optional[int] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="type",
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+    """
+    Transaction type value.
+    """
+    chain_id: int = field(
+        default=1,
+        json_encoder=JSONEncoder.Field(
+            name="chainId",
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+    nonce: int = field(
+        default=0,
+        json_encoder=JSONEncoder.Field(
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+    gas_price: Optional[int] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="gasPrice",
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+    max_priority_fee_per_gas: Optional[int] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="maxPriorityFeePerGas",
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+    max_fee_per_gas: Optional[int] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="maxFeePerGas",
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+    gas_limit: int = field(
+        default=21000,
+        json_encoder=JSONEncoder.Field(
+            name="gasLimit",
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+    to: Optional[FixedSizeBytesConvertible] = field(
+        default=AddrAA,
+        json_encoder=JSONEncoder.Field(
+            cast_type=Address,
+            default_value_skip_cast="",
+        ),
+    )
+    value: int = field(
+        default=0,
+        json_encoder=JSONEncoder.Field(
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+    data: BytesConvertible = field(
+        default_factory=bytes,
+        json_encoder=JSONEncoder.Field(
+            cast_type=Bytes,
+        ),
+    )
+    max_fee_per_blob_gas: Optional[int] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="maxFeePerBlobGas",
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+    v: Optional[int] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+    r: Optional[int] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+    s: Optional[int] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+
+    @classmethod
+    def from_transaction(cls, tx: Transaction) -> "FixtureTransaction":
+        """
+        Returns a FixtureTransaction from a Transaction.
+        """
+        kwargs = {field.name: getattr(tx, field.name) for field in fields(tx)}
+        return cls(**kwargs)
+
+
+@dataclass(kw_only=True)
+class FixtureWithdrawal(Withdrawal):
+    """
+    Structure to represent a single withdrawal of a validator's balance from
+    the beacon chain in the output fixture.
+    """
+
+    index: NumberConvertible = field(
+        json_encoder=JSONEncoder.Field(
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+    validator: NumberConvertible = field(
+        json_encoder=JSONEncoder.Field(
+            name="validatorIndex",
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+    amount: NumberConvertible = field(
+        json_encoder=JSONEncoder.Field(
+            cast_type=ZeroPaddedHexNumber,
+        ),
+    )
+
+    @classmethod
+    def from_withdrawal(cls, w: Withdrawal) -> "FixtureWithdrawal":
+        """
+        Returns a FixtureWithdrawal from a Withdrawal.
+        """
+        kwargs = {field.name: getattr(w, field.name) for field in fields(w)}
+        return cls(**kwargs)
+
+
 @dataclass(kw_only=True)
 class FixtureBlock:
     """
     Representation of an Ethereum block within a test Fixture.
     """
 
-    @staticmethod
-    def _txs_encoder(txs: List[Transaction]) -> List[FixtureTransaction]:
-        return [FixtureTransaction.from_transaction(tx) for tx in txs]
-
-    @staticmethod
-    def _withdrawals_encoder(withdrawals: List[Withdrawal]) -> List[FixtureWithdrawal]:
-        return [FixtureWithdrawal.from_withdrawal(w) for w in withdrawals]
-
-    rlp: Bytes = field(
-        default=None,
+    rlp: Optional[Bytes] = field(
         json_encoder=JSONEncoder.Field(),
     )
-    block_header: Optional[FixtureHeader] = field(
-        default=None,
+    block_header: FixtureHeader = field(
         json_encoder=JSONEncoder.Field(
             name="blockHeader",
             to_json=True,
         ),
     )
-    expected_exception: Optional[str] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="expectException",
-        ),
-    )
-    block_number: Optional[NumberConvertible] = field(
-        default=None,
+    block_number: NumberConvertible = field(
         json_encoder=JSONEncoder.Field(
             name="blocknumber",
             cast_type=Number,
         ),
     )
-    txs: Optional[List[Transaction]] = field(
-        default=None,
+    txs: List[Transaction] = field(
         json_encoder=JSONEncoder.Field(
             name="transactions",
-            cast_type=_txs_encoder,
+            cast_type=lambda txs: [FixtureTransaction.from_transaction(tx) for tx in txs],
             to_json=True,
         ),
     )
-    ommers: Optional[List[FixtureHeader]] = field(
-        default=None,
+    ommers: List[FixtureHeader] = field(
         json_encoder=JSONEncoder.Field(
             name="uncleHeaders",
             to_json=True,
@@ -834,7 +957,9 @@ class FixtureBlock:
         default=None,
         json_encoder=JSONEncoder.Field(
             name="withdrawals",
-            cast_type=_withdrawals_encoder,
+            cast_type=lambda withdrawals: [
+                FixtureWithdrawal.from_withdrawal(w) for w in withdrawals
+            ],
             to_json=True,
         ),
     )
@@ -849,13 +974,12 @@ class InvalidFixtureBlock:
     rlp: Bytes = field(
         json_encoder=JSONEncoder.Field(),
     )
-    expected_exception: Optional[str] = field(
-        default=None,
+    expected_exception: str = field(
         json_encoder=JSONEncoder.Field(
             name="expectException",
         ),
     )
-    rlp_decoded: FixtureBlock = field(
+    rlp_decoded: Optional[FixtureBlock] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
             name="rlp_decoded",
@@ -931,8 +1055,7 @@ class Fixture(FixtureCommon):
             to_json=True,
         ),
     )
-    blocks: Optional[List[FixtureBlock | InvalidFixtureBlock]] = field(
-        default=None,
+    blocks: List[FixtureBlock | InvalidFixtureBlock] = field(
         json_encoder=JSONEncoder.Field(
             name="blocks",
             to_json=True,
@@ -993,15 +1116,15 @@ class HiveFixture(FixtureCommon):
             to_json=True,
         ),
     )
-    payloads: Optional[List[Optional[FixtureEngineNewPayload]]] = field(
+    payloads: List[FixtureEngineNewPayload] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
             name="engineNewPayloads",
             to_json=True,
         ),
     )
-    fcu_version: Optional[int] = field(
-        default=None,
+    fcu_version: int = field(
+        default=1,
         json_encoder=JSONEncoder.Field(
             name="engineFcuVersion",
         ),

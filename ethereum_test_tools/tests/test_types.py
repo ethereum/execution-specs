@@ -18,17 +18,13 @@ from ..common import (
     withdrawals_root,
 )
 from ..common.constants import TestPrivateKey
-from ..common.types import (
-    Address,
-    Alloc,
-    Bloom,
-    Bytes,
+from ..common.types import Address, Alloc, Bloom, Bytes, Hash, HeaderNonce, ZeroPaddedHexNumber
+from ..spec.blockchain.types import (
+    FixtureEngineNewPayload,
+    FixtureExecutionPayload,
+    FixtureHeader,
     FixtureTransaction,
-    Hash,
-    HeaderNonce,
-    ZeroPaddedHexNumber,
 )
-from ..spec.blockchain.types import FixtureEngineNewPayload, FixtureExecutionPayload, FixtureHeader
 
 
 def test_storage():
