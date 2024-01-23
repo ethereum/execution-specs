@@ -109,6 +109,8 @@ class Ops(enum.Enum):
     # Storage Ops
     SLOAD = 0x54
     SSTORE = 0x55
+    TLOAD = 0x5C
+    TSTORE = 0x5D
 
     # Pop Operation
     POP = 0x50
@@ -270,6 +272,8 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.SELFBALANCE: environment_instructions.self_balance,
     Ops.BASEFEE: environment_instructions.base_fee,
     Ops.SSTORE: storage_instructions.sstore,
+    Ops.TLOAD: storage_instructions.tload,
+    Ops.TSTORE: storage_instructions.tstore,
     Ops.JUMP: control_flow_instructions.jump,
     Ops.JUMPI: control_flow_instructions.jumpi,
     Ops.PC: control_flow_instructions.pc,
