@@ -194,6 +194,11 @@ class Load(BaseLoad):
         return self._module("state").State
 
     @property
+    def get_account(self) -> Any:
+        """get_account function of the fork"""
+        return self._module("state").get_account
+
+    @property
     def set_account(self) -> Any:
         """set_account function of the fork"""
         return self._module("state").set_account

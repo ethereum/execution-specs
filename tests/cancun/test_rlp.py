@@ -105,6 +105,7 @@ header = Header(
     nonce=Bytes8(b"12345678"),
     base_fee_per_gas=Uint(6),
     withdrawals_root=hash6,
+    parent_beacon_block_root=Bytes32(b"1234567890abcdef1234567890abcdef"),
 )
 
 block = Block(

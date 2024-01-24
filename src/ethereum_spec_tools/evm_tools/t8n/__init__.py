@@ -117,6 +117,15 @@ class T8N(Load):
             self.env.block_difficulty, self.env.base_fee_per_gas
         )
 
+        if self.is_after_fork("ethereum.cancun"):
+            self.SYSTEM_ADDRESS = self.hex_to_address(
+                "0xfffffffffffffffffffffffffffffffffffffffe"
+            )
+            self.BEACON_ROOTS_ADDRESS = self.hex_to_address(
+                "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
+            )
+            self.SYSTEM_TRANSACTION_GAS = Uint(30000000)
+
     @property
     def fork(self) -> Any:
         """The fork module of the given fork."""
@@ -156,6 +165,11 @@ class T8N(Load):
     def vm(self) -> Any:
         """The vm module of the given fork."""
         return self._module("vm")
+
+    @property
+    def interpreter(self) -> Any:
+        """The interpreter module of the given fork."""
+        return self._module("vm.interpreter")
 
     @property
     def BLOCK_REWARD(self) -> Any:
@@ -330,6 +344,48 @@ class T8N(Load):
         transactions_trie = self.trie.Trie(secured=False, default=None)
         receipts_trie = self.trie.Trie(secured=False, default=None)
         block_logs = ()
+
+        if self.is_after_fork("ethereum.cancun"):
+            beacon_block_roots_contract_code = self.get_account(
+                self.alloc.state, self.BEACON_ROOTS_ADDRESS
+            ).code
+
+            system_tx_message = self.vm.Message(
+                caller=self.SYSTEM_ADDRESS,
+                target=self.BEACON_ROOTS_ADDRESS,
+                gas=self.SYSTEM_TRANSACTION_GAS,
+                value=U256(0),
+                data=self.env.parent_beacon_block_root,
+                code=beacon_block_roots_contract_code,
+                depth=Uint(0),
+                current_target=self.BEACON_ROOTS_ADDRESS,
+                code_address=self.BEACON_ROOTS_ADDRESS,
+                should_transfer_value=False,
+                is_static=False,
+                accessed_addresses=set(),
+                accessed_storage_keys=set(),
+                parent_evm=None,
+            )
+
+            system_tx_env = self.vm.Environment(
+                caller=self.SYSTEM_ADDRESS,
+                origin=self.SYSTEM_ADDRESS,
+                block_hashes=self.env.block_hashes,
+                coinbase=self.env.coinbase,
+                number=self.env.block_number,
+                gas_limit=self.env.block_gas_limit,
+                base_fee_per_gas=self.env.base_fee_per_gas,
+                gas_price=self.env.base_fee_per_gas,
+                time=self.env.block_timestamp,
+                prev_randao=self.env.prev_randao,
+                state=self.alloc.state,
+                chain_id=self.chain_id,
+                traces=[],
+            )
+
+            self.interpreter.process_message_call(
+                system_tx_message, system_tx_env
+            )
 
         for i, (tx_idx, tx) in enumerate(self.txs.transactions):
             # i is the index among valid transactions

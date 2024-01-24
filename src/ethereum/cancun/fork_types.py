@@ -210,6 +210,7 @@ class Header:
     nonce: Bytes8
     base_fee_per_gas: Uint
     withdrawals_root: Root
+    parent_beacon_block_root: Root
 
 
 @slotted_freezable
