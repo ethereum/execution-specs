@@ -58,7 +58,9 @@ from .state import (
     state_root,
 )
 from .trie import Trie, root, trie_set
+from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
+from .vm import Message
 from .vm.gas import init_code_cost
 from .vm.interpreter import MAX_CODE_SIZE, process_message_call
 
@@ -67,6 +69,11 @@ ELASTICITY_MULTIPLIER = 2
 GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
 GAS_LIMIT_MINIMUM = 5000
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
+SYSTEM_ADDRESS = hex_to_address("0xfffffffffffffffffffffffffffffffffffffffe")
+BEACON_ROOTS_ADDRESS = hex_to_address(
+    "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
+)
+SYSTEM_TRANSACTION_GAS = Uint(30000000)
 
 
 @dataclass
@@ -186,6 +193,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.transactions,
         chain.chain_id,
         block.withdrawals,
+        block.header.parent_beacon_block_root,
     )
     ensure(gas_used == block.header.gas_used, InvalidBlock)
     ensure(transactions_root == block.header.transactions_root, InvalidBlock)
@@ -411,6 +419,7 @@ def apply_body(
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
     chain_id: U64,
     withdrawals: Tuple[Withdrawal, ...],
+    parent_beacon_block_root: Root,
 ) -> Tuple[Uint, Root, Root, Bloom, State, Root]:
     """
     Executes a block.
@@ -450,6 +459,8 @@ def apply_body(
         ID of the executing chain.
     withdrawals :
         Withdrawals to be processed in the current block.
+    parent_beacon_block_root :
+        The root of the beacon block from the parent block.
 
     Returns
     -------
@@ -476,6 +487,45 @@ def apply_body(
         secured=False, default=None
     )
     block_logs: Tuple[Log, ...] = ()
+
+    beacon_block_roots_contract_code = get_account(
+        state, BEACON_ROOTS_ADDRESS
+    ).code
+
+    system_tx_message = Message(
+        caller=SYSTEM_ADDRESS,
+        target=BEACON_ROOTS_ADDRESS,
+        gas=SYSTEM_TRANSACTION_GAS,
+        value=U256(0),
+        data=parent_beacon_block_root,
+        code=beacon_block_roots_contract_code,
+        depth=Uint(0),
+        current_target=BEACON_ROOTS_ADDRESS,
+        code_address=BEACON_ROOTS_ADDRESS,
+        should_transfer_value=False,
+        is_static=False,
+        accessed_addresses=set(),
+        accessed_storage_keys=set(),
+        parent_evm=None,
+    )
+
+    system_tx_env = vm.Environment(
+        caller=SYSTEM_ADDRESS,
+        origin=SYSTEM_ADDRESS,
+        block_hashes=block_hashes,
+        coinbase=coinbase,
+        number=block_number,
+        gas_limit=block_gas_limit,
+        base_fee_per_gas=base_fee_per_gas,
+        gas_price=base_fee_per_gas,
+        time=block_time,
+        prev_randao=prev_randao,
+        state=state,
+        chain_id=chain_id,
+        traces=[],
+    )
+
+    process_message_call(system_tx_message, system_tx_env)
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
         trie_set(
