@@ -20,7 +20,7 @@ from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes32, Uint
 from ethereum.crypto.hash import Hash32
 
 from ..fork_types import Address, Log
-from ..state import State, account_exists_and_is_empty
+from ..state import State, TransientStorage, account_exists_and_is_empty
 from .precompiled_contracts import RIPEMD160_ADDRESS
 
 __all__ = ("Environment", "Evm", "Message")
@@ -91,6 +91,7 @@ class Evm:
     error: Optional[Exception]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
+    transient_storage: TransientStorage
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:

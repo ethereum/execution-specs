@@ -408,3 +408,6 @@ treediff
 strikethrough
 setext
 mcopy
+
+tload
+tstore
