@@ -43,6 +43,7 @@ class Env:
     block_hashes: Optional[List[Any]]
     parent_ommers_hash: Optional[Hash32]
     ommers: Any
+    parent_beacon_block_root: Optional[Hash32]
 
     def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
         if t8n.options.input_env == "stdin":
@@ -63,6 +64,13 @@ class Env:
         self.read_block_hashes(data)
         self.read_ommers(data, t8n)
         self.read_withdrawals(data, t8n)
+
+        if t8n.is_after_fork("ethereum.cancun"):
+            self.parent_beacon_block_root = Bytes32(
+                hex_to_bytes(data["parentBeaconBlockRoot"])
+            )
+        else:
+            self.parent_beacon_block_root = None
 
     def read_base_fee_per_gas(self, data: Any, t8n: Any) -> None:
         """
