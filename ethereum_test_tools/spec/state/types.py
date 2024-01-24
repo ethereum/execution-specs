@@ -87,24 +87,13 @@ class FixtureEnvironment:
             cast_type=ZeroPaddedHexNumber,
         ),
     )
-    previous_hash: Optional[FixedSizeBytesConvertible] = field(
-        default="0x5e20a0453cecd065ea59c37ac63e079ee08998b6045136a8ce6635c7912ec0b6",
-        json_encoder=JSONEncoder.Field(
-            name="previousHash",
-            cast_type=Hash,
-        ),
-    )
 
     @classmethod
     def from_env(cls, env: Environment) -> "FixtureEnvironment":
         """
         Returns a FixtureEnvironment from an Environment.
         """
-        kwargs = {
-            field.name: getattr(env, field.name)
-            for field in fields(cls)
-            if field.name != "previous_hash"  # define this field for state tests only
-        }
+        kwargs = {field.name: getattr(env, field.name) for field in fields(cls)}
         return cls(**kwargs)
 
 
