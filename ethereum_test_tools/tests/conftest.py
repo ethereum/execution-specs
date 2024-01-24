@@ -7,7 +7,9 @@ from semver import Version
 
 from ..code import Yul
 
-SUPPORTED_SOLC_VERSIONS = [Version.parse(v) for v in ["0.8.20", "0.8.21", "0.8.22", "0.8.23"]]
+SUPPORTED_SOLC_VERSIONS = [
+    Version.parse(v) for v in ["0.8.20", "0.8.21", "0.8.22", "0.8.23", "0.8.24"]
+]
 
 SOLC_PADDING_VERSION = Version.parse("0.8.21")
 
