@@ -130,7 +130,7 @@ def rollback_transaction(
     if not state._snapshots:
         state._created_accounts.clear()
 
-    if transient_storage:
+    if transient_storage and transient_storage._snapshots:
         transient_storage._tries = transient_storage._snapshots.pop()
 
 
