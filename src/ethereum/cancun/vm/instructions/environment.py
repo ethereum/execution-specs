@@ -34,6 +34,7 @@ from ..gas import (
     GAS_WARM_ACCESS,
     calculate_gas_extend_memory,
     charge_gas,
+    get_blob_gasprice,
 )
 from ..stack import pop, push
 
@@ -560,6 +561,30 @@ def blob_hash(evm: Evm) -> None:
     else:
         blob_hash = Bytes32(b"\x00" * 32)
     push(evm.stack, U256.from_be_bytes(blob_hash))
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def blob_base_fee(evm: Evm) -> None:
+    """
+    Pushes the blob base fee on to the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
+    blob_base_fee = get_blob_gasprice(evm.env)
+    push(evm.stack, U256(blob_base_fee))
 
     # PROGRAM COUNTER
     evm.pc += 1
