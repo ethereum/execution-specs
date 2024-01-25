@@ -27,6 +27,7 @@ from trie import HexaryTrie
 
 from ethereum_test_forks import Fork
 
+from ..exceptions import ExceptionList, TransactionException
 from .constants import AddrAA, TestPrivateKey
 from .conversions import (
     BytesConvertible,
@@ -1264,7 +1265,7 @@ class Transaction:
             skip=True,
         ),
     )
-    error: Optional[str] = field(
+    error: Optional[TransactionException | ExceptionList] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
             skip=True,
@@ -1339,7 +1340,7 @@ class Transaction:
         if self.ty >= 2 and self.max_priority_fee_per_gas is None:
             self.max_priority_fee_per_gas = 0
 
-    def with_error(self, error: str) -> "Transaction":
+    def with_error(self, error: TransactionException | ExceptionList) -> "Transaction":
         """
         Create a copy of the transaction with an added error.
         """

@@ -15,6 +15,7 @@ from evm_transition_tool import FixtureFormats, GethTransitionTool
 from ... import Header
 from ...code import Yul
 from ...common import Account, Environment, Hash, TestAddress, Transaction, to_json
+from ...exceptions import TransactionException
 from ...spec import BlockchainTest, StateTest
 from ...spec.blockchain.types import Block
 from ...spec.blockchain.types import Fixture as BlockchainFixture
@@ -687,10 +688,10 @@ def test_fill_blockchain_invalid_txs(
                     max_priority_fee_per_gas=100000,
                     max_fee_per_gas=1000,
                     to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD",
-                    error="TR_TipGtFeeCap",
+                    error=TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS,
                 ),
             ],
-            exception="invalid transaction",
+            exception=TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS,
         ),
         Block(
             coinbase="0xba5e000000000000000000000000000000000000",
@@ -739,10 +740,10 @@ def test_fill_blockchain_invalid_txs(
                     max_priority_fee_per_gas=100000,
                     max_fee_per_gas=1000,
                     to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD",
-                    error="TR_TipGtFeeCap",
+                    error=TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS,
                 ),
             ],
-            exception="invalid transaction",
+            exception=TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS,
         ),
         Block(
             coinbase="0xba5e000000000000000000000000000000000000",

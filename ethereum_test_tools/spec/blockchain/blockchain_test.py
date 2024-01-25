@@ -199,6 +199,17 @@ class BlockchainTest(BaseTest):
 
         txs = [tx.with_signature_and_sender() for tx in block.txs] if block.txs is not None else []
 
+        if failing_tx_count := len([tx for tx in txs if tx.error]) > 0:
+            if failing_tx_count > 1:
+                raise Exception(
+                    "test correctness: only one transaction can produce an exception in a block"
+                )
+            if not txs[-1].error:
+                raise Exception(
+                    "test correctness: the transaction that produces an exception "
+                    + "must be the last transaction in the block"
+                )
+
         next_alloc, result = t8n.evaluate(
             alloc=previous_alloc,
             txs=to_json(txs),
@@ -390,7 +401,7 @@ class BlockchainTest(BaseTest):
                         header=header,
                         transactions=txs,
                         withdrawals=new_env.withdrawals,
-                        valid=block.exception is None,
+                        validation_error=block.exception,
                         error_code=block.engine_api_error_code,
                     )
                 )

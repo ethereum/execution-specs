@@ -43,7 +43,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 },
                 {
@@ -68,7 +67,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 },
                 {
@@ -92,7 +90,7 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": false,
+                    "validationError": "TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS",
                     "version": "2"
                 },
                 {
@@ -117,7 +115,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 },
                 {
@@ -141,7 +138,7 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": false,
+                    "validationError": "TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS",
                     "version": "2"
                 },
                 {
@@ -166,7 +163,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 }
             ],
@@ -342,7 +338,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 },
                 {
@@ -367,7 +362,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 },
                 {
@@ -391,7 +385,7 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": false,
+                    "validationError": "TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS",
                     "version": "2"
                 },
                 {
@@ -416,7 +410,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 },
                 {
@@ -440,7 +433,7 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": false,
+                    "validationError": "TransactionException.PRIORITY_GREATER_THAN_MAX_FEE_PER_GAS",
                     "version": "2"
                 },
                 {
@@ -465,7 +458,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 }
             ],

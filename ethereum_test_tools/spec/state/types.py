@@ -22,6 +22,7 @@ from ...common.types import (
     Transaction,
     ZeroPaddedHexNumber,
 )
+from ...exceptions import ExceptionList, TransactionException
 from ..base.base_test import BaseFixture
 
 
@@ -226,7 +227,7 @@ class FixtureForkPost:
             cast_type=Bytes,
         ),
     )
-    expected_exception: Optional[str] = field(
+    expected_exception: Optional[ExceptionList | TransactionException] = field(
         default=None,
         json_encoder=JSONEncoder.Field(
             name="expectException",

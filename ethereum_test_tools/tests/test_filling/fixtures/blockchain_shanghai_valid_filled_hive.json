@@ -43,7 +43,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 },
                 {
@@ -68,7 +67,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 },
                 {
@@ -93,7 +91,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 },
                 {
@@ -118,7 +115,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 }
             ],
@@ -294,7 +290,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 },
                 {
@@ -319,7 +314,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 },
                 {
@@ -344,7 +338,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 },
                 {
@@ -369,7 +362,6 @@
                         ],
                         "withdrawals": []
                     },
-                    "valid": true,
                     "version": "2"
                 }
             ],

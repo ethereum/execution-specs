@@ -42,8 +42,7 @@
                     ],
                     "withdrawals": []
                 },
-                "version": "2",
-                "valid": true
+                "version": "2"
             }
         ],
         "engineFcuVersion": "2",

@@ -43,6 +43,7 @@ from .common import (
     to_hash_bytes,
     transaction_list_root,
 )
+from .exceptions import BlockException, ExceptionList, ExceptionType, TransactionException
 from .reference_spec import ReferenceSpec, ReferenceSpecTypes
 from .spec import (
     SPEC_TYPES,
@@ -68,13 +69,16 @@ __all__ = (
     "Block",
     "BlockchainTest",
     "BlockchainTestFiller",
-    "Case",
+    "BlockException",
     "CalldataCase",
+    "Case",
     "Code",
     "CodeGasMeasure",
     "Conditional",
     "EngineAPIError",
     "Environment",
+    "ExceptionList",
+    "ExceptionType",
     "FixtureCollector",
     "Header",
     "HistoryStorageAddress",
@@ -97,6 +101,7 @@ __all__ = (
     "TestPrivateKey",
     "TestPrivateKey2",
     "Transaction",
+    "TransactionException",
     "Withdrawal",
     "Yul",
     "YulCompiler",
