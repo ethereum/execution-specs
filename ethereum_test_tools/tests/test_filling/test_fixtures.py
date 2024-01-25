@@ -4,7 +4,7 @@ Test suite for `ethereum_test_tools.filling` fixture generation.
 
 import json
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Mapping
 
 import pytest
 from semver import Version
@@ -12,8 +12,9 @@ from semver import Version
 from ethereum_test_forks import Berlin, Fork, Istanbul, London, Paris, Shanghai
 from evm_transition_tool import FixtureFormats, GethTransitionTool
 
+from ... import Header
 from ...code import Yul
-from ...common import Account, Environment, TestAddress, Transaction, to_json
+from ...common import Account, Environment, Hash, TestAddress, Transaction, to_json
 from ...spec import BlockchainTest, StateTest
 from ...spec.blockchain.types import Block
 from ...spec.blockchain.types import Fixture as BlockchainFixture
@@ -173,311 +174,377 @@ def test_fill_state_test(
     assert fixture_json == expected
 
 
-@pytest.mark.parametrize(
-    "fork,check_hive,expected_json_file",
-    [
-        (London, False, "blockchain_london_valid_filled.json"),
-        (Shanghai, True, "blockchain_shanghai_valid_filled_hive.json"),
-    ],
-)
-def test_fill_blockchain_valid_txs(
-    fork: Fork, solc_version: str, check_hive: bool, expected_json_file: str
-):
+class TestFillBlockchainValidTxs:
     """
-    Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`.
+    Test `BlockchainTest.generate()` and blockchain fixtures.
     """
-    pre = {
-        "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(balance=0x1000000000000000000),
-        "0xd02d72E067e77158444ef2020Ff2d325f929B363": Account(
-            balance=0x1000000000000000000, nonce=1
-        ),
-        "0xcccccccccccccccccccccccccccccccccccccccc": Account(
-            balance=0x10000000000,
-            nonce=1,
-            code=Yul(
-                """
-                {
-                    sstore(number(), basefee())
-                    sstore(add(number(), 0x1000), sub(gasprice(), basefee()))
-                    sstore(add(number(), 0x2000), selfbalance())
-                    stop()
-                }
-                """,
-                fork=fork,
+
+    @pytest.fixture
+    def fork(self, request):  # noqa: D102
+        return request.param
+
+    @pytest.fixture
+    def check_hive(self, fork):  # noqa: D102
+        return fork == Shanghai
+
+    @pytest.fixture
+    def expected_json_file(self, fork: Fork, check_hive: bool):  # noqa: D102
+        if fork == London and not check_hive:
+            return "blockchain_london_valid_filled.json"
+        elif fork == Shanghai and check_hive:
+            return "blockchain_shanghai_valid_filled_hive.json"
+        raise ValueError(f"Unexpected fork/check_hive combination: {fork}/{check_hive}")
+
+    @pytest.fixture
+    def pre(self, fork: Fork):  # noqa: D102
+        pre = {
+            "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(balance=0x1000000000000000000),
+            "0xd02d72E067e77158444ef2020Ff2d325f929B363": Account(
+                balance=0x1000000000000000000, nonce=1
             ),
-        ),
-        "0xcccccccccccccccccccccccccccccccccccccccd": Account(
-            balance=0x20000000000,
-            nonce=1,
-            code=Yul(
-                """
-                {
-                    let throwMe := delegatecall(gas(),
-                      0xcccccccccccccccccccccccccccccccccccccccc,
-                      0, 0, 0, 0)
-                }
-                """,
-                fork=fork,
+            "0xcccccccccccccccccccccccccccccccccccccccc": Account(
+                balance=0x10000000000,
+                nonce=1,
+                code=Yul(
+                    """
+                    {
+                        sstore(number(), basefee())
+                        sstore(add(number(), 0x1000), sub(gasprice(), basefee()))
+                        sstore(add(number(), 0x2000), selfbalance())
+                        stop()
+                    }
+                    """,
+                    fork=fork,
+                ),
             ),
-        ),
-        0xC0DE: Account(
-            balance=0,
-            nonce=1,
-            code=Yul(
-                """
-                {
-                    let throwMe := delegatecall(gas(),
+            "0xcccccccccccccccccccccccccccccccccccccccd": Account(
+                balance=0x20000000000,
+                nonce=1,
+                code=Yul(
+                    """
+                    {
+                        let throwMe := delegatecall(gas(),
                             0xcccccccccccccccccccccccccccccccccccccccc,
                             0, 0, 0, 0)
-                }
-                """,
-                fork=fork,
+                    }
+                    """,
+                    fork=fork,
+                ),
             ),
-        ),
-        "0xccccccccccccccccccccccccccccccccccccccce": Account(
-            balance=0x20000000000,
-            nonce=1,
-            code=Yul(
-                """
-                {
-                    let throwMe := call(gas(), 0xC0DE, 0x1000,
-                            0, 0, 0, 0)
-                    throwMe := delegatecall(gas(),
+            0xC0DE: Account(
+                balance=0,
+                nonce=1,
+                code=Yul(
+                    """
+                    {
+                        let throwMe := delegatecall(gas(),
                             0xcccccccccccccccccccccccccccccccccccccccc,
                             0, 0, 0, 0)
-                }
-                """,
-                fork=fork,
+                    }
+                    """,
+                    fork=fork,
+                ),
             ),
-        ),
-    }
+            "0xccccccccccccccccccccccccccccccccccccccce": Account(
+                balance=0x20000000000,
+                nonce=1,
+                code=Yul(
+                    """
+                    {
+                        let throwMe := call(gas(), 0xC0DE, 0x1000,
+                            0, 0, 0, 0)
+                        throwMe := delegatecall(gas(),
+                            0xcccccccccccccccccccccccccccccccccccccccc,
+                            0, 0, 0, 0)
+                    }
+                    """,
+                    fork=fork,
+                ),
+            ),
+        }
+        return pre
 
-    blocks: List[Block] = [
-        Block(
+    @pytest.fixture
+    def blocks(self):  # noqa: D102
+        blocks: List[Block] = [
+            Block(
+                coinbase="0xba5e000000000000000000000000000000000000",
+                txs=[
+                    Transaction(
+                        data="0x01",
+                        nonce=0,
+                        gas_limit=1000000,
+                        max_priority_fee_per_gas=1,
+                        max_fee_per_gas=1000,
+                        to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+                    ),
+                ],
+            ),
+            Block(
+                coinbase="0xba5e000000000000000000000000000000000000",
+                txs=[
+                    Transaction(
+                        data="0x0201",
+                        nonce=1,
+                        gas_limit=1000000,
+                        max_priority_fee_per_gas=10,
+                        max_fee_per_gas=1000,
+                        to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+                    ),
+                    Transaction(
+                        data="0x0202",
+                        nonce=2,
+                        gas_limit=1000000,
+                        max_priority_fee_per_gas=100,
+                        max_fee_per_gas=1000,
+                        to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD",
+                    ),
+                    Transaction(
+                        data="0x0203",
+                        nonce=3,
+                        gas_limit=1000000,
+                        max_priority_fee_per_gas=100,
+                        max_fee_per_gas=1000,
+                        to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE",
+                    ),
+                ],
+            ),
+            Block(
+                coinbase="0xba5e000000000000000000000000000000000000",
+                txs=[
+                    Transaction(
+                        data="0x0301",
+                        nonce=4,
+                        gas_limit=1000000,
+                        max_priority_fee_per_gas=1000,
+                        max_fee_per_gas=1000,
+                        to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+                    ),
+                    Transaction(
+                        data="0x0303",
+                        nonce=5,
+                        gas_limit=1000000,
+                        max_priority_fee_per_gas=100,
+                        max_fee_per_gas=1000,
+                        to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE",
+                    ),
+                    Transaction(
+                        data="0x0304",
+                        nonce=6,
+                        gas_limit=1000000,
+                        max_priority_fee_per_gas=100000,
+                        max_fee_per_gas=100000,
+                        to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD",
+                    ),
+                ],
+            ),
+            Block(
+                coinbase="0xba5e000000000000000000000000000000000000",
+                txs=[
+                    Transaction(
+                        data="0x0401",
+                        nonce=7,
+                        gas_limit=1000000,
+                        max_priority_fee_per_gas=1000,
+                        max_fee_per_gas=1000,
+                        to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+                    ),
+                    Transaction(
+                        data="0x0403",
+                        nonce=8,
+                        gas_limit=1000000,
+                        max_priority_fee_per_gas=100,
+                        max_fee_per_gas=1000,
+                        to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE",
+                    ),
+                    Transaction(
+                        data="0x0404",
+                        nonce=9,
+                        gas_limit=1000000,
+                        max_priority_fee_per_gas=100000,
+                        max_fee_per_gas=100000,
+                        to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD",
+                    ),
+                ],
+            ),
+        ]
+        return blocks
+
+    @pytest.fixture
+    def post(self):  # noqa: D102
+        post = {
+            "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC": Account(
+                storage={
+                    # BASEFEE and the tip in block 1
+                    0x0001: 875,  # BASEFEE
+                    0x1001: 1,  # tip
+                    # Block 2
+                    0x0002: 766,  # BASEFEE
+                    0x1002: 10,  # tip
+                    # Block 3
+                    0x0003: 671,
+                    0x1003: 329,
+                    # Block 4
+                    0x0004: 588,
+                    0x1004: 412,
+                    # SELFBALANCE, always the same
+                    0x2001: 0x010000000000,
+                    0x2002: 0x010000000000,
+                    0x2003: 0x010000000000,
+                    0x2004: 0x010000000000,
+                }
+            ),
+            "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD": Account(
+                storage={
+                    # Block 2
+                    0x0002: 766,  # BASEFEE
+                    0x1002: 100,  # tip
+                    # Block 3
+                    0x0003: 671,
+                    0x1003: 99329,
+                    # Block 4
+                    0x0004: 588,
+                    0x1004: 99412,
+                    # SELFBALANCE, always the same
+                    0x2002: 0x020000000000,
+                    0x2003: 0x020000000000,
+                    0x2004: 0x020000000000,
+                }
+            ),
+            "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE": Account(
+                storage={
+                    # Block 2
+                    0x0002: 766,  # BASEFEE
+                    0x1002: 100,  # tip
+                    0x0003: 671,
+                    0x1003: 100,
+                    0x0004: 588,
+                    0x1004: 100,
+                    # SELFBALANCE
+                    0x2002: 0x01FFFFFFF000,
+                    0x2003: 0x01FFFFFFE000,
+                    0x2004: 0x01FFFFFFD000,
+                }
+            ),
+            0xC0DE: Account(
+                storage={
+                    # Block 2
+                    0x0002: 766,
+                    0x1002: 100,
+                    # Block 3
+                    0x0003: 671,
+                    0x1003: 100,
+                    # Block 4
+                    0x0004: 588,
+                    0x1004: 100,
+                    # SELFBALANCE
+                    0x2002: 0x1000,
+                    0x2003: 0x2000,
+                    0x2004: 0x3000,
+                }
+            ),
+        }
+        return post
+
+    @pytest.fixture
+    def genesis_environment(self):  # noqa: D102
+        return Environment(
+            base_fee=1000,
             coinbase="0xba5e000000000000000000000000000000000000",
-            txs=[
-                Transaction(
-                    data="0x01",
-                    nonce=0,
-                    gas_limit=1000000,
-                    max_priority_fee_per_gas=1,
-                    max_fee_per_gas=1000,
-                    to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
-                ),
-            ],
-        ),
-        Block(
-            coinbase="0xba5e000000000000000000000000000000000000",
-            txs=[
-                Transaction(
-                    data="0x0201",
-                    nonce=1,
-                    gas_limit=1000000,
-                    max_priority_fee_per_gas=10,
-                    max_fee_per_gas=1000,
-                    to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
-                ),
-                Transaction(
-                    data="0x0202",
-                    nonce=2,
-                    gas_limit=1000000,
-                    max_priority_fee_per_gas=100,
-                    max_fee_per_gas=1000,
-                    to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD",
-                ),
-                Transaction(
-                    data="0x0203",
-                    nonce=3,
-                    gas_limit=1000000,
-                    max_priority_fee_per_gas=100,
-                    max_fee_per_gas=1000,
-                    to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE",
-                ),
-            ],
-        ),
-        Block(
-            coinbase="0xba5e000000000000000000000000000000000000",
-            txs=[
-                Transaction(
-                    data="0x0301",
-                    nonce=4,
-                    gas_limit=1000000,
-                    max_priority_fee_per_gas=1000,
-                    max_fee_per_gas=1000,
-                    to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
-                ),
-                Transaction(
-                    data="0x0303",
-                    nonce=5,
-                    gas_limit=1000000,
-                    max_priority_fee_per_gas=100,
-                    max_fee_per_gas=1000,
-                    to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE",
-                ),
-                Transaction(
-                    data="0x0304",
-                    nonce=6,
-                    gas_limit=1000000,
-                    max_priority_fee_per_gas=100000,
-                    max_fee_per_gas=100000,
-                    to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD",
-                ),
-            ],
-        ),
-        Block(
-            coinbase="0xba5e000000000000000000000000000000000000",
-            txs=[
-                Transaction(
-                    data="0x0401",
-                    nonce=7,
-                    gas_limit=1000000,
-                    max_priority_fee_per_gas=1000,
-                    max_fee_per_gas=1000,
-                    to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
-                ),
-                Transaction(
-                    data="0x0403",
-                    nonce=8,
-                    gas_limit=1000000,
-                    max_priority_fee_per_gas=100,
-                    max_fee_per_gas=1000,
-                    to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE",
-                ),
-                Transaction(
-                    data="0x0404",
-                    nonce=9,
-                    gas_limit=1000000,
-                    max_priority_fee_per_gas=100000,
-                    max_fee_per_gas=100000,
-                    to="0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD",
-                ),
-            ],
-        ),
-    ]
-
-    post = {
-        "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC": Account(
-            storage={
-                # BASEFEE and the tip in block 1
-                0x0001: 875,  # BASEFEE
-                0x1001: 1,  # tip
-                # Block 2
-                0x0002: 766,  # BASEFEE
-                0x1002: 10,  # tip
-                # Block 3
-                0x0003: 671,
-                0x1003: 329,
-                # Block 4
-                0x0004: 588,
-                0x1004: 412,
-                # SELFBALANCE, always the same
-                0x2001: 0x010000000000,
-                0x2002: 0x010000000000,
-                0x2003: 0x010000000000,
-                0x2004: 0x010000000000,
-            }
-        ),
-        "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCD": Account(
-            storage={
-                # Block 2
-                0x0002: 766,  # BASEFEE
-                0x1002: 100,  # tip
-                # Block 3
-                0x0003: 671,
-                0x1003: 99329,
-                # Block 4
-                0x0004: 588,
-                0x1004: 99412,
-                # SELFBALANCE, always the same
-                0x2002: 0x020000000000,
-                0x2003: 0x020000000000,
-                0x2004: 0x020000000000,
-            }
-        ),
-        "0xCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCE": Account(
-            storage={
-                # Block 2
-                0x0002: 766,  # BASEFEE
-                0x1002: 100,  # tip
-                0x0003: 671,
-                0x1003: 100,
-                0x0004: 588,
-                0x1004: 100,
-                # SELFBALANCE
-                0x2002: 0x01FFFFFFF000,
-                0x2003: 0x01FFFFFFE000,
-                0x2004: 0x01FFFFFFD000,
-            }
-        ),
-        0xC0DE: Account(
-            storage={
-                # Block 2
-                0x0002: 766,
-                0x1002: 100,
-                # Block 3
-                0x0003: 671,
-                0x1003: 100,
-                # Block 4
-                0x0004: 588,
-                0x1004: 100,
-                # SELFBALANCE
-                0x2002: 0x1000,
-                0x2003: 0x2000,
-                0x2004: 0x3000,
-            }
-        ),
-    }
-
-    # We start genesis with a baseFee of 1000
-    genesis_environment = Environment(
-        base_fee=1000,
-        coinbase="0xba5e000000000000000000000000000000000000",
-    )
-
-    t8n = GethTransitionTool()
-    fixture_format = (
-        FixtureFormats.BLOCKCHAIN_TEST_HIVE if check_hive else FixtureFormats.BLOCKCHAIN_TEST
-    )
-    generated_fixture = BlockchainTest(
-        pre=pre,
-        post=post,
-        blocks=blocks,
-        genesis_environment=genesis_environment,
-        tag="my_blockchain_test_valid_txs",
-        fixture_format=fixture_format,
-    ).generate(
-        t8n=t8n,
-        fork=fork,
-    )
-
-    assert generated_fixture.format() == fixture_format
-    assert isinstance(generated_fixture, BlockchainFixtureCommon)
-
-    fixture = {
-        f"000/my_blockchain_test/{fork.name()}": generated_fixture.to_json(),
-    }
-
-    with open(
-        os.path.join(
-            "src",
-            "ethereum_test_tools",
-            "tests",
-            "test_filling",
-            "fixtures",
-            expected_json_file,
         )
-    ) as f:
-        expected = json.load(f)
 
-    fixture_json = to_json(fixture)
-    remove_info(fixture_json)
+    @pytest.fixture
+    def fixture_format(self, check_hive: bool):  # noqa: D102
+        return (
+            FixtureFormats.BLOCKCHAIN_TEST_HIVE if check_hive else FixtureFormats.BLOCKCHAIN_TEST
+        )
 
-    if solc_version >= SOLC_PADDING_VERSION:
-        expected = expected["solc=padding_version"]
-    else:
-        expected = expected[f"solc={solc_version}"]
+    @pytest.fixture
+    def blockchain_test_fixture(  # noqa: D102
+        self,
+        check_hive: bool,
+        fork: Fork,
+        pre: Mapping[Any, Any],
+        post: Mapping[Any, Any],
+        blocks: List[Block],
+        genesis_environment: Environment,
+        fixture_format: FixtureFormats,
+    ):
+        t8n = GethTransitionTool()
+        return BlockchainTest(
+            pre=pre,
+            post=post,
+            blocks=blocks,
+            genesis_environment=genesis_environment,
+            tag="my_blockchain_test_valid_txs",
+            fixture_format=fixture_format,
+        ).generate(
+            t8n=t8n,
+            fork=fork,
+        )
 
-    assert fixture_json == expected
+    @pytest.mark.parametrize("fork", [London, Shanghai], indirect=True)
+    def test_fill_blockchain_valid_txs(  # noqa: D102
+        self,
+        fork: Fork,
+        solc_version: str,
+        check_hive: bool,
+        fixture_format: FixtureFormats,
+        expected_json_file: str,
+        blockchain_test_fixture: BlockchainFixture,
+    ):
+        assert blockchain_test_fixture.format() == fixture_format
+        assert isinstance(blockchain_test_fixture, BlockchainFixtureCommon)
+
+        fixture = {
+            f"000/my_blockchain_test/{fork.name()}": blockchain_test_fixture.to_json(),
+        }
+
+        with open(
+            os.path.join(
+                "src",
+                "ethereum_test_tools",
+                "tests",
+                "test_filling",
+                "fixtures",
+                expected_json_file,
+            )
+        ) as f:
+            expected = json.load(f)
+
+        fixture_json = to_json(fixture)
+        remove_info(fixture_json)
+
+        if solc_version >= SOLC_PADDING_VERSION:
+            expected = expected["solc=padding_version"]
+        else:
+            expected = expected[f"solc={solc_version}"]
+
+        assert fixture_json == expected
+
+    @pytest.mark.parametrize("fork", [London], indirect=True)
+    def test_fixture_header_join(self, blockchain_test_fixture: BlockchainFixture):
+        """
+        Test `FixtureHeader.join()`.
+        """
+        block = blockchain_test_fixture.blocks[0]
+        new_difficulty = block.block_header.difficulty - 1  # type: ignore
+
+        new_state_root = Hash(12345)
+        # See description of https://github.com/ethereum/execution-spec-tests/pull/398
+        new_transactions_root = "0x100"
+        header_new_fields = Header(
+            difficulty=new_difficulty,
+            state_root=new_state_root,
+            transactions_root=new_transactions_root,
+        )
+
+        updated_block_header = block.block_header.join(header_new_fields)  # type: ignore
+        assert updated_block_header.difficulty == new_difficulty
+        assert updated_block_header.state_root == new_state_root
+        assert updated_block_header.transactions_root == Hash(new_transactions_root)
+        assert updated_block_header.hash == block.block_header.hash  # type: ignore
+        assert isinstance(updated_block_header.transactions_root, Hash)
 
 
 @pytest.mark.parametrize(
@@ -520,8 +587,8 @@ def test_fill_blockchain_invalid_txs(
                 """
                 {
                     let throwMe := delegatecall(gas(),
-                      0xcccccccccccccccccccccccccccccccccccccccc,
-                      0, 0, 0, 0)
+                        0xcccccccccccccccccccccccccccccccccccccccc,
+                        0, 0, 0, 0)
                 }
                 """,
                 fork=fork,

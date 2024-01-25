@@ -389,13 +389,23 @@ class FixtureHeader:
         Produces a fixture header copy with the set values from the modifier.
         """
         new_fixture_header = copy(self)
-        for header_field in self.__dataclass_fields__:
-            value = getattr(modifier, header_field)
+        for header_field in fields(self):
+            field_name = header_field.name
+            value = getattr(modifier, field_name)
             if value is not None:
                 if value is Header.REMOVE_FIELD:
-                    setattr(new_fixture_header, header_field, None)
+                    setattr(new_fixture_header, field_name, None)
                 else:
-                    setattr(new_fixture_header, header_field, value)
+                    metadata = header_field.metadata
+                    assert metadata is not None, f"Field {field_name} has no header field metadata"
+                    field_metadata = metadata.get("source")
+                    assert isinstance(field_metadata, HeaderFieldSource), (
+                        f"Field {field_name} has invalid header_field "
+                        f"metadata: {field_metadata}"
+                    )
+                    if field_metadata.parse_type is not None:
+                        value = field_metadata.parse_type(value)
+                    setattr(new_fixture_header, field_name, value)
         return new_fixture_header
 
     def verify(self, baseline: Header):
