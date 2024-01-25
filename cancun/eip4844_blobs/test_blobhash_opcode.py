@@ -1,11 +1,9 @@
 """
 abstract: Tests `BLOBHASH` opcode in [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844)
-
     Test cases for the `BLOBHASH` opcode in
     [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844).
 
 note: Adding a new test
-
     Add a function that is named `test_<test_name>` and takes at least the following arguments:
 
     - blockchain_test

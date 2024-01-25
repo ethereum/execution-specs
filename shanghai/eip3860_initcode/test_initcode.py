@@ -1,10 +1,8 @@
 """
 abstract: Test [EIP-3860: Limit and meter initcode](https://eips.ethereum.org/EIPS/eip-3860)
-
     Tests for  [EIP-3860: Limit and meter initcode](https://eips.ethereum.org/EIPS/eip-3860).
 
 note: Tests ported from:
-
     - [ethereum/tests/pull/990](https://github.com/ethereum/tests/pull/990)
     - [ethereum/tests/pull/1012](https://github.com/ethereum/tests/pull/990)
 """

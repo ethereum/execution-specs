@@ -1,10 +1,8 @@
 """
 abstract: Tests [EIP-3855: PUSH0 Instruction](https://eips.ethereum.org/EIPS/eip-3855)
-
     Tests for [EIP-3855: PUSH0 Instruction](https://eips.ethereum.org/EIPS/eip-3855).
 
 note: Tests ported from:
-
     - [ethereum/tests/pull/1033](https://github.com/ethereum/tests/pull/1033).
 """
 

@@ -1,6 +1,5 @@
 """
 abstract: Test DUP
-
     Test the DUP opcodes.
 
 """

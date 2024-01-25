@@ -1,6 +1,5 @@
 """
 abstract: Tests the nested CALL/CALLCODE opcode gas consumption with a positive value transfer.
-
     This test is designed to investigate an issue identified in EthereumJS, as reported in:
     https://github.com/ethereumjs/ethereumjs-monorepo/issues/3194.
 

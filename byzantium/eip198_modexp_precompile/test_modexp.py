@@ -1,6 +1,5 @@
 """
 abstract: Test [EIP-198: MODEXP Precompile](https://eips.ethereum.org/EIPS/eip-198)
-
     Tests the MODEXP precompile, located at address 0x0000..0005. Test cases from the EIP are
     labelled with `EIP-198-caseX` in the test id.
 """
