@@ -245,3 +245,52 @@ def test_gas_usage(
         TestAddress: Account(nonce=1),
     }
     state_test(env=env, pre=pre, tx=tx, post=post)
+
+
+@unique
+class LoopRunUntilOutOfGasCases(PytestParameterEnum):
+    """
+    Test cases to run until out of gas.
+    """
+
+    TSTORE = {
+        "description": "Run tstore in loop until out of gas",
+        "repeat_bytecode": Op.TSTORE(Op.GAS, Op.GAS),
+        "bytecode_repeat_times": 1000,
+    }
+    TSTORE_WIDE_ADDRESS_SPACE = {
+        "description": "Run tstore in loop until out of gas, using a wide address space",
+        "repeat_bytecode": Op.TSTORE(Op.ADD(Op.SHL(Op.PC, 1), Op.GAS), Op.GAS),
+        "bytecode_repeat_times": 32,
+    }
+    TSTORE_TLOAD = {
+        "description": "Run tstore and tload in loop until out of gas",
+        "repeat_bytecode": Op.GAS + Op.DUP1 + Op.DUP1 + Op.TSTORE + Op.TLOAD + Op.POP,
+        "bytecode_repeat_times": 1000,
+    }
+
+
+@LoopRunUntilOutOfGasCases.parametrize()
+def test_run_until_out_of_gas(
+    state_test: StateTestFiller,
+    repeat_bytecode: bytes,
+    bytecode_repeat_times: int,
+):
+    """
+    Use TSTORE over and over to different keys until we run out of gas.
+    """
+    bytecode = Op.JUMPDEST + repeat_bytecode * bytecode_repeat_times + Op.JUMP(Op.PUSH0)
+    pre = {
+        TestAddress: Account(balance=10_000_000_000_000, nonce=0),
+        code_address: Account(code=bytecode),
+    }
+    tx = Transaction(
+        to=code_address,
+        data=b"",
+        gas_limit=30_000_000,
+    )
+    post = {
+        code_address: Account(code=bytecode, storage={}),
+        TestAddress: Account(nonce=1),
+    }
+    state_test(env=Environment(), pre=pre, tx=tx, post=post)
