@@ -296,6 +296,32 @@ class Load(BaseLoad):
             hex_to_u256(raw.get("s")),
         ]
 
+        # Cancun and beyond
+        if "maxFeePerBlobGas" in raw:
+            parameters.insert(0, U64(1))
+            parameters.insert(2, hex_to_u256(raw.get("maxPriorityFeePerGas")))
+            parameters.insert(3, hex_to_u256(raw.get("maxFeePerGas")))
+            parameters.insert(
+                8, self.json_to_access_list(raw.get("accessList"))
+            )
+            parameters.insert(9, hex_to_u256(raw.get("maxFeePerBlobGas")))
+            parameters.insert(
+                10,
+                [
+                    hex_to_hash(blob_hash)
+                    for blob_hash in raw.get("blobVersionedHashes")
+                ],
+            )
+
+            try:
+                return b"\x03" + rlp.encode(
+                    self._module("fork_types").BlobTransaction(*parameters)
+                )
+            except AttributeError as e:
+                raise UnsupportedTx(
+                    b"\x03" + rlp.encode(parameters), str(e)
+                ) from e
+
         # London and beyond
         if "maxFeePerGas" in raw and "maxPriorityFeePerGas" in raw:
             parameters.insert(0, U64(1))
@@ -422,5 +448,15 @@ class Load(BaseLoad):
         if "withdrawalsRoot" in raw:
             withdrawals_root = self.hex_to_root(raw.get("withdrawalsRoot"))
             parameters.append(withdrawals_root)
+
+        if "excessBlobGas" in raw:
+            blob_gas_used = hex_to_u64(raw.get("blobGasUsed"))
+            parameters.append(blob_gas_used)
+            excess_blob_gas = hex_to_u64(raw.get("excessBlobGas"))
+            parameters.append(excess_blob_gas)
+            parent_beacon_block_root = self.hex_to_root(
+                raw.get("parentBeaconBlockRoot")
+            )
+            parameters.append(parent_beacon_block_root)
 
         return self.Header(*parameters)
