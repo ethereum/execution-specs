@@ -825,7 +825,9 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
         create_cost = 0
 
     access_list_cost = 0
-    if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
+    if isinstance(
+        tx, (AccessListTransaction, FeeMarketTransaction, BlobTransaction)
+    ):
         for _address, keys in tx.access_list:
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
             access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
