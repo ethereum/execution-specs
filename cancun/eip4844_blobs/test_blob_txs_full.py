@@ -15,6 +15,7 @@ from ethereum_test_tools import (
     Header,
     TestAddress,
     Transaction,
+    TransactionException,
     to_address,
 )
 
@@ -159,7 +160,7 @@ def tx_max_fee_per_blob_gas(  # noqa: D103
 
 
 @pytest.fixture
-def tx_error() -> Optional[str]:
+def tx_error() -> Optional[TransactionException]:
     """
     Even though the final block we are producing in each of these tests is invalid, and some of the
     transactions will be invalid due to the format in the final block, none of the transactions
@@ -179,7 +180,7 @@ def txs(  # noqa: D103
     tx_max_fee_per_blob_gas: int,
     tx_max_priority_fee_per_gas: int,
     txs_versioned_hashes: List[List[bytes]],
-    tx_error: Optional[str],
+    tx_error: Optional[TransactionException],
     txs_blobs: List[List[Blob]],
     txs_wrapped_blobs: List[bool],
 ) -> List[Transaction]:
@@ -253,7 +254,9 @@ def blocks(
     header_blob_gas_used = 0
     block_error = None
     if any(txs_wrapped_blobs):
-        block_error = "invalid transaction"
+        # This is a block exception because the invalid block is only created in the RLP version,
+        # not in the transition tool.
+        block_error = TransactionException.TYPE_3_TX_WITH_FULL_BLOBS
     if len(txs) > 0:
         header_blob_gas_used = (
             sum(

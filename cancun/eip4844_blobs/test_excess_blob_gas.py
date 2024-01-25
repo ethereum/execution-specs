@@ -25,7 +25,15 @@ from typing import Dict, Iterator, List, Mapping, Optional, Tuple
 
 import pytest
 
-from ethereum_test_tools import Account, Block, BlockchainTestFiller, Environment, Header
+from ethereum_test_tools import (
+    Account,
+    Block,
+    BlockchainTestFiller,
+    BlockException,
+    Environment,
+    ExceptionType,
+    Header,
+)
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
     TestAddress,
@@ -261,7 +269,9 @@ def blocks(  # noqa: D103
         else [non_zero_blob_gas_used_genesis_block]
     )
 
-    def add_block(header_modifier: Optional[Dict] = None, exception_message: Optional[str] = None):
+    def add_block(
+        header_modifier: Optional[Dict] = None, exception_message: Optional[ExceptionType] = None
+    ):
         """
         Utility function to add a block to the blocks list.
         """
@@ -280,13 +290,20 @@ def blocks(  # noqa: D103
     if header_excess_blob_gas is not None:
         add_block(
             header_modifier={"excess_blob_gas": header_excess_blob_gas},
-            exception_message="invalid excess blob gas",
+            exception_message=BlockException.INCORRECT_EXCESS_BLOB_GAS,
         )
     elif header_blob_gas_used is not None:
-        add_block(
-            header_modifier={"blob_gas_used": header_blob_gas_used},
-            exception_message="invalid blob gas used",
-        )
+        if header_blob_gas_used > Spec.MAX_BLOB_GAS_PER_BLOCK:
+            add_block(
+                header_modifier={"blob_gas_used": header_blob_gas_used},
+                exception_message=BlockException.BLOB_GAS_USED_ABOVE_LIMIT
+                | BlockException.INCORRECT_BLOB_GAS_USED,
+            )
+        else:
+            add_block(
+                header_modifier={"blob_gas_used": header_blob_gas_used},
+                exception_message=BlockException.INCORRECT_BLOB_GAS_USED,
+            )
     else:
         add_block()
 
@@ -549,7 +566,7 @@ def test_invalid_static_excess_blob_gas(
     """
     blocks[-1].rlp_modifier = Header(excess_blob_gas=parent_excess_blob_gas)
     blocks[-1].header_verify = None
-    blocks[-1].exception = "invalid excess blob gas"
+    blocks[-1].exception = BlockException.INCORRECT_EXCESS_BLOB_GAS
     blockchain_test(
         pre=pre,
         post={},

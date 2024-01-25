@@ -15,6 +15,7 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     TestAddress,
     Transaction,
+    TransactionException,
     Withdrawal,
     compute_create_address,
     to_address,
@@ -81,11 +82,11 @@ class TestUseValueInTx:
         if test_case == "tx_in_withdrawals_block":
             return [
                 Block(
-                    txs=[tx.with_error("intrinsic gas too low: have 0, want 21000")],
+                    txs=[tx.with_error(TransactionException.INSUFFICIENT_ACCOUNT_FUNDS)],
                     withdrawals=[
                         withdrawal,
                     ],
-                    exception="Transaction without funds",
+                    exception=TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
                 )
             ]
         if test_case == "tx_after_withdrawals_block":

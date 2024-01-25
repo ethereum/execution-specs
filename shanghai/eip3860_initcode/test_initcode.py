@@ -18,6 +18,7 @@ from ethereum_test_tools import (
     StateTestFiller,
     TestAddress,
     Transaction,
+    TransactionException,
     Yul,
     ceiling_division,
     compute_create2_address,
@@ -232,7 +233,7 @@ def test_contract_creating_tx(state_test: StateTestFiller, initcode: Initcode):
         # Initcode is above the max size, tx inclusion in the block makes
         # it invalid.
         post[created_contract_address] = Account.NONEXISTENT
-        tx.error = "max initcode size exceeded"
+        tx.error = TransactionException.INITCODE_SIZE_EXCEEDED
     else:
         # Initcode is at or below the max size, tx inclusion in the block
         # is ok and the contract is successfully created.
@@ -332,13 +333,13 @@ class TestContractCreationGasUsage:
         }
 
     @pytest.fixture
-    def tx_error(self, gas_test_case) -> str | None:
+    def tx_error(self, gas_test_case) -> TransactionException | None:
         """
         Test that the transaction is invalid if too little intrinsic gas is
         specified, otherwise the tx succeeds.
         """
         if gas_test_case == "too_little_intrinsic_gas":
-            return "intrinsic gas too low"
+            return TransactionException.INTRINSIC_GAS_TOO_LOW
         return None
 
     @pytest.fixture

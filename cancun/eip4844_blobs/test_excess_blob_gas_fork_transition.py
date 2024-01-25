@@ -11,6 +11,7 @@ from ethereum_test_tools import (
     Account,
     Block,
     BlockchainTestFiller,
+    BlockException,
     EngineAPIError,
     Environment,
     Header,
@@ -152,7 +153,7 @@ def test_invalid_pre_fork_block_with_blob_fields(
     block.
 
     Blocks sent by NewPayloadV2 (Shanghai) that contain `excessBlobGas` and `blobGasUsed` fields
-    must be rejected with the `-32602: Invalid params` error.
+    must be rejected with the appropriate `EngineAPIError.InvalidParams` error error.
     """
     header_modifier = Header()
     if excess_blob_gas_present:
@@ -167,7 +168,7 @@ def test_invalid_pre_fork_block_with_blob_fields(
             Block(
                 timestamp=(FORK_TIMESTAMP - 1),
                 rlp_modifier=header_modifier,
-                exception="invalid pre fork blob fields",
+                exception=BlockException.INCORRECT_BLOCK_FORMAT,
                 engine_api_error_code=EngineAPIError.InvalidParams,
             )
         ],
@@ -197,7 +198,7 @@ def test_invalid_post_fork_block_without_blob_fields(
     post-fork block.
 
     Blocks sent by NewPayloadV3 (Cancun) without `excessBlobGas` and `blobGasUsed` fields must be
-    rejected with the `-32602: Invalid params` error.
+    rejected with the appropriate `EngineAPIError.InvalidParams` error.
     """
     header_modifier = Header()
     if excess_blob_gas_missing:
@@ -212,7 +213,7 @@ def test_invalid_post_fork_block_without_blob_fields(
             Block(
                 timestamp=FORK_TIMESTAMP,
                 rlp_modifier=header_modifier,
-                exception="blob fields missing post fork",
+                exception=BlockException.INCORRECT_BLOCK_FORMAT,
                 engine_api_error_code=EngineAPIError.InvalidParams,
             )
         ],

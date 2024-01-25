@@ -26,6 +26,7 @@ from ethereum_test_tools import (
     Account,
     Block,
     BlockchainTestFiller,
+    BlockException,
     EngineAPIError,
     Environment,
     Header,
@@ -38,6 +39,7 @@ from ethereum_test_tools import (
     TestAddress,
     TestAddress2,
     Transaction,
+    TransactionException,
     add_kzg_version,
     eip_2028_transaction_data_cost,
     to_address,
@@ -256,7 +258,7 @@ def tx_access_list() -> List[AccessList]:
 
 
 @pytest.fixture
-def tx_error() -> Optional[str]:
+def tx_error() -> Optional[TransactionException]:
     """
     Default expected error produced by the block transactions (no error).
 
@@ -277,7 +279,7 @@ def txs(  # noqa: D103
     tx_max_priority_fee_per_gas: int,
     tx_access_list: List[AccessList],
     blob_hashes_per_tx: List[List[bytes]],
-    tx_error: Optional[str],
+    tx_error: Optional[TransactionException],
 ) -> List[Transaction]:
     """
     Prepare the list of transactions that are sent during the test.
@@ -378,7 +380,9 @@ def engine_api_error_code() -> Optional[EngineAPIError]:
 
 
 @pytest.fixture
-def block_error(tx_error: Optional[str]) -> Optional[str]:
+def block_error(
+    tx_error: Optional[TransactionException],
+) -> Optional[TransactionException | BlockException]:
     """
     Default expected error produced by the block transactions (no error).
 
@@ -493,7 +497,7 @@ def rlp_modifier(
 @pytest.fixture
 def block(
     txs: List[Transaction],
-    block_error: Optional[str],
+    block_error: Optional[TransactionException | BlockException],
     engine_api_error_code: Optional[EngineAPIError],
     header_verify: Optional[Header],
     rlp_modifier: Optional[Header],
@@ -595,7 +599,7 @@ def test_valid_blob_tx_combinations(
             SpecHelpers.get_min_excess_blobs_for_blob_gas_price(2) - 1,  # blob gas price is 1
             SpecHelpers.target_blobs_per_block() + 1,  # blob gas cost increases to 2
             1,  # tx max_blob_gas_cost is 1
-            "insufficient max fee per blob gas",
+            TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS,
             id="insufficient_max_fee_per_blob_gas",
         ),
         # tx max_blob_gas_cost of the transaction is zero, which is invalid
@@ -603,7 +607,7 @@ def test_valid_blob_tx_combinations(
             0,  # blob gas price is 1
             0,  # blob gas cost stays put at 1
             0,  # tx max_blob_gas_cost is 0
-            "invalid max fee per blob gas",
+            TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS,
             id="invalid_max_fee_per_blob_gas",
         ),
     ],
@@ -646,7 +650,7 @@ def test_invalid_tx_max_fee_per_blob_gas(
             SpecHelpers.get_min_excess_blobs_for_blob_gas_price(2) - 1,  # blob gas price is 1
             SpecHelpers.target_blobs_per_block() + 1,  # blob gas cost increases to 2
             1,  # tx max_blob_gas_cost is 1
-            "insufficient max fee per blob gas",
+            TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS,
             id="insufficient_max_fee_per_blob_gas",
         ),
         # tx max_blob_gas_cost of the transaction is zero, which is invalid
@@ -654,7 +658,7 @@ def test_invalid_tx_max_fee_per_blob_gas(
             0,  # blob gas price is 1
             0,  # blob gas cost stays put at 1
             0,  # tx max_blob_gas_cost is 0
-            "invalid max fee per blob gas",
+            TransactionException.INSUFFICIENT_MAX_FEE_PER_BLOB_GAS,
             id="invalid_max_fee_per_blob_gas",
         ),
     ],
@@ -687,7 +691,7 @@ def test_invalid_tx_max_fee_per_blob_gas_state(
         # max blob gas is ok, but max fee per gas is less than base fee per gas
         (
             6,
-            "insufficient max fee per gas",
+            TransactionException.INSUFFICIENT_MAX_FEE_PER_GAS,
         ),
     ],
     ids=["insufficient_max_fee_per_gas"],
@@ -721,7 +725,9 @@ def test_invalid_normal_gas(
     "blobs_per_tx",
     invalid_blob_combinations(),
 )
-@pytest.mark.parametrize("tx_error", ["maximum blob gas allowance exceeded"])
+@pytest.mark.parametrize(
+    "tx_error", [TransactionException.TYPE_3_TX_MAX_BLOB_GAS_ALLOWANCE_EXCEEDED], ids=[""]
+)
 @pytest.mark.valid_from("Cancun")
 def test_invalid_block_blob_count(
     blockchain_test: BlockchainTestFiller,
@@ -760,7 +766,7 @@ def test_invalid_block_blob_count(
 )
 @pytest.mark.parametrize("tx_max_fee_per_blob_gas", [1, 100, 10000])
 @pytest.mark.parametrize("account_balance_modifier", [-1], ids=["exact_balance_minus_1"])
-@pytest.mark.parametrize("tx_error", ["insufficient_account_balance"], ids=[""])
+@pytest.mark.parametrize("tx_error", [TransactionException.INSUFFICIENT_ACCOUNT_FUNDS], ids=[""])
 @pytest.mark.valid_from("Cancun")
 def test_insufficient_balance_blob_tx(
     state_test: StateTestFiller,
@@ -895,7 +901,7 @@ def test_sufficient_balance_blob_tx_pre_fund_tx(
     all_valid_blob_combinations(),
 )
 @pytest.mark.parametrize("account_balance_modifier", [-1], ids=["exact_balance_minus_1"])
-@pytest.mark.parametrize("tx_error", ["insufficient account balance"], ids=[""])
+@pytest.mark.parametrize("tx_error", [TransactionException.INSUFFICIENT_ACCOUNT_FUNDS], ids=[""])
 @pytest.mark.valid_from("Cancun")
 def test_insufficient_balance_blob_tx_combinations(
     blockchain_test: BlockchainTestFiller,
@@ -920,8 +926,11 @@ def test_insufficient_balance_blob_tx_combinations(
 @pytest.mark.parametrize(
     "blobs_per_tx,tx_error",
     [
-        ([0], "zero blob tx"),
-        ([SpecHelpers.max_blobs_per_block() + 1], "too many blobs"),
+        ([0], TransactionException.TYPE_3_TX_ZERO_BLOBS),
+        (
+            [SpecHelpers.max_blobs_per_block() + 1],
+            TransactionException.TYPE_3_TX_BLOB_COUNT_EXCEEDED,
+        ),
     ],
     ids=["too_few_blobs", "too_many_blobs"],
 )
@@ -972,7 +981,9 @@ def test_invalid_tx_blob_count(
         "multiple_blobs_single_bad_hash_2",
     ],
 )
-@pytest.mark.parametrize("tx_error", ["invalid blob versioned hash"], ids=[""])
+@pytest.mark.parametrize(
+    "tx_error", [TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH], ids=[""]
+)
 @pytest.mark.valid_from("Cancun")
 def test_invalid_blob_hash_versioning_single_tx(
     state_test: StateTestFiller,
@@ -1029,7 +1040,9 @@ def test_invalid_blob_hash_versioning_single_tx(
         "multiple_blobs_single_bad_hash_2",
     ],
 )
-@pytest.mark.parametrize("tx_error", ["invalid blob versioned hash"], ids=[""])
+@pytest.mark.parametrize(
+    "tx_error", [TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH], ids=[""]
+)
 @pytest.mark.valid_from("Cancun")
 def test_invalid_blob_hash_versioning_multiple_txs(
     blockchain_test: BlockchainTestFiller,
@@ -1078,7 +1091,7 @@ def test_invalid_blob_tx_contract_creation(
         blocks=[
             Block(
                 txs=txs,
-                exception="no_contract_creating_blob_txs",
+                exception=TransactionException.TYPE_3_TX_CONTRACT_CREATION,
                 header_verify=header_verify,
             )
         ],
@@ -1312,8 +1325,13 @@ def test_blob_tx_attribute_gasprice_opcode(
         "tx_error",
     ],
     [
-        ([0], None, 1, "tx type 3 not allowed pre-Cancun"),
-        ([1], None, 1, "tx type 3 not allowed pre-Cancun"),
+        (
+            [0],
+            None,
+            1,
+            TransactionException.TYPE_3_TX_PRE_FORK | TransactionException.TYPE_3_TX_ZERO_BLOBS,
+        ),
+        ([1], None, 1, TransactionException.TYPE_3_TX_PRE_FORK),
     ],
     ids=["no_blob_tx", "one_blob_tx"],
 )
