@@ -126,3 +126,11 @@ class AddressCollision(ExceptionalHalt):
     """
 
     pass
+
+
+class KZGProofError(ExceptionalHalt):
+    """
+    Raised when the point evaluation precompile can't verify a proof.
+    """
+
+    pass

@@ -256,6 +256,9 @@ class T8N(Load):
 
         kw_arguments["traces"] = []
 
+        if self.is_after_fork("ethereum.cancun"):
+            kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
+
         return self.vm.Environment(**kw_arguments)
 
     def tx_trie_set(self, trie: Any, index: Any, tx: Any) -> Any:
@@ -365,6 +368,7 @@ class T8N(Load):
                 accessed_addresses=set(),
                 accessed_storage_keys=set(),
                 parent_evm=None,
+                blob_versioned_hashes=(),
             )
 
             system_tx_env = self.vm.Environment(
@@ -381,6 +385,7 @@ class T8N(Load):
                 state=self.alloc.state,
                 chain_id=self.chain_id,
                 traces=[],
+                excess_blob_gas=self.env.excess_blob_gas,
             )
 
             self.interpreter.process_message_call(

@@ -33,6 +33,7 @@ from ..exceptions import InvalidBlock
 
 Address = Bytes20
 Root = Hash32
+VersionedHash = Hash32
 
 Bloom = Bytes256
 
@@ -103,8 +104,34 @@ class FeeMarketTransaction:
     s: U256
 
 
+@slotted_freezable
+@dataclass
+class BlobTransaction:
+    """
+    The transaction type added in EIP-4844.
+    """
+
+    chain_id: U64
+    nonce: U256
+    max_priority_fee_per_gas: Uint
+    max_fee_per_gas: Uint
+    gas: Uint
+    to: Union[Bytes0, Address]
+    value: U256
+    data: Bytes
+    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    max_fee_per_blob_gas: U256
+    blob_versioned_hashes: Tuple[VersionedHash, ...]
+    y_parity: U256
+    r: U256
+    s: U256
+
+
 Transaction = Union[
-    LegacyTransaction, AccessListTransaction, FeeMarketTransaction
+    LegacyTransaction,
+    AccessListTransaction,
+    FeeMarketTransaction,
+    BlobTransaction,
 ]
 
 
@@ -118,6 +145,8 @@ def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
         return b"\x01" + rlp.encode(tx)
     elif isinstance(tx, FeeMarketTransaction):
         return b"\x02" + rlp.encode(tx)
+    elif isinstance(tx, BlobTransaction):
+        return b"\x03" + rlp.encode(tx)
     else:
         raise Exception(f"Unable to encode transaction of type {type(tx)}")
 
@@ -131,6 +160,8 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
             return rlp.decode_to(AccessListTransaction, tx[1:])
         elif tx[0] == 2:
             return rlp.decode_to(FeeMarketTransaction, tx[1:])
+        elif tx[0] == 3:
+            return rlp.decode_to(BlobTransaction, tx[1:])
         else:
             raise InvalidBlock
     else:
@@ -210,6 +241,8 @@ class Header:
     nonce: Bytes8
     base_fee_per_gas: Uint
     withdrawals_root: Root
+    blob_gas_used: U64
+    excess_blob_gas: U64
     parent_beacon_block_root: Root
 
 

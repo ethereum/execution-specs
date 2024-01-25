@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from ethereum import rlp
-from ethereum.base_types import U256, Bytes32, Uint
+from ethereum.base_types import U64, U256, Bytes32, Uint
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
 from ethereum.utils.hexadecimal import hex_to_bytes
@@ -44,6 +44,7 @@ class Env:
     parent_ommers_hash: Optional[Hash32]
     ommers: Any
     parent_beacon_block_root: Optional[Hash32]
+    excess_blob_gas: Optional[U64]
 
     def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
         if t8n.options.input_env == "stdin":
@@ -69,8 +70,10 @@ class Env:
             self.parent_beacon_block_root = Bytes32(
                 hex_to_bytes(data["parentBeaconBlockRoot"])
             )
+            self.excess_blob_gas = parse_hex_or_int(data["excessBlobGas"], U64)
         else:
             self.parent_beacon_block_root = None
+            self.excess_blob_gas = None
 
     def read_base_fee_per_gas(self, data: Any, t8n: Any) -> None:
         """

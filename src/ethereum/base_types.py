@@ -891,6 +891,14 @@ class Bytes32(FixedBytes):
     """
 
 
+class Bytes48(FixedBytes):
+    """
+    Byte array of exactly 48 elements.
+    """
+
+    LENGTH = 48
+
+
 class Bytes64(FixedBytes):
     """
     Byte array of exactly 64 elements.

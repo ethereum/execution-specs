@@ -278,6 +278,9 @@ class Txs:
         elif isinstance(tx_decoded, t8n.transactions.FeeMarketTransaction):
             signing_hash = t8n.fork.signing_hash_1559(tx_decoded)
             v_addend = 0
+        elif isinstance(tx_decoded, t8n.fork_types.BlobTransaction):
+            signing_hash = t8n.fork.signing_hash_4844(tx_decoded)
+            v_addend = 0
         else:
             raise FatalException("Unknown transaction type")
 
