@@ -573,6 +573,7 @@ def apply_body(
             prev_randao=prev_randao,
             state=state,
             chain_id=chain_id,
+            created_contracts=set(),
             traces=[],
             excess_blob_gas=excess_blob_gas,
         )
