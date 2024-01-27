@@ -76,6 +76,7 @@ def generic_create(
     )
 
     evm.accessed_addresses.add(contract_address)
+    evm.env.created_contracts.add(contract_address)
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
@@ -524,15 +525,18 @@ def selfdestruct(evm: Evm) -> None:
     # beneficiary).
     set_account_balance(evm.env.state, originator, U256(0))
 
-    # register account for deletion
-    evm.accounts_to_delete.add(originator)
+    # Only continue if the contract has been created in the same tx
+    if originator in evm.env.created_contracts:
 
-    # mark beneficiary as touched
-    if account_exists_and_is_empty(evm.env.state, beneficiary):
-        evm.touched_accounts.add(beneficiary)
+        # register account for deletion
+        evm.accounts_to_delete.add(originator)
 
-    # HALT the execution
-    evm.running = False
+        # mark beneficiary as touched
+        if account_exists_and_is_empty(evm.env.state, beneficiary):
+            evm.touched_accounts.add(beneficiary)
+
+        # HALT the execution
+        evm.running = False
 
     # PROGRAM COUNTER
     pass
