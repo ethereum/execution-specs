@@ -44,7 +44,6 @@ class Environment:
     prev_randao: Bytes32
     state: State
     chain_id: U64
-    created_contracts: Set[Address]
     traces: List[dict]
     excess_blob_gas: U64
 
