@@ -76,7 +76,6 @@ def generic_create(
     )
 
     evm.accessed_addresses.add(contract_address)
-    evm.env.created_contracts.add(contract_address)
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
@@ -516,27 +515,31 @@ def selfdestruct(evm: Evm) -> None:
     beneficiary_balance = get_account(evm.env.state, beneficiary).balance
     originator_balance = get_account(evm.env.state, originator).balance
 
-    # First Transfer to beneficiary
-    set_account_balance(
-        evm.env.state, beneficiary, beneficiary_balance + originator_balance
-    )
-    # Next, Zero the balance of the address being deleted (must come after
-    # sending to beneficiary in case the contract named itself as the
-    # beneficiary).
-    set_account_balance(evm.env.state, originator, U256(0))
+    if (
+        originator in evm.env.state._created_accounts
+        or originator != beneficiary
+    ):
+        # First Transfer to beneficiary
+        set_account_balance(
+            evm.env.state,
+            beneficiary,
+            beneficiary_balance + originator_balance,
+        )
+        # Next, Zero the balance of the address being deleted (must come after
+        # sending to beneficiary in case the contract named itself as the
+        # beneficiary).
+        set_account_balance(evm.env.state, originator, U256(0))
 
-    # Only continue if the contract has been created in the same tx
-    if originator in evm.env.created_contracts:
-
-        # register account for deletion
+    # register account for deletion
+    if originator in evm.env.state._created_accounts:
         evm.accounts_to_delete.add(originator)
 
-        # mark beneficiary as touched
-        if account_exists_and_is_empty(evm.env.state, beneficiary):
-            evm.touched_accounts.add(beneficiary)
+    # mark beneficiary as touched
+    if account_exists_and_is_empty(evm.env.state, beneficiary):
+        evm.touched_accounts.add(beneficiary)
 
-        # HALT the execution
-        evm.running = False
+    # HALT the execution
+    evm.running = False
 
     # PROGRAM COUNTER
     pass
