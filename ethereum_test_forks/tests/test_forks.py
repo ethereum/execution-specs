@@ -54,6 +54,13 @@ def test_transition_forks():
     assert ParisToShanghaiAtTime15k.engine_new_payload_version(0, 14_999) == 1
     assert ParisToShanghaiAtTime15k.engine_new_payload_version(0, 15_000) == 2
 
+    assert BerlinToLondonAt5.fork_at(4, 0) == Berlin
+    assert BerlinToLondonAt5.fork_at(5, 0) == London
+    assert ParisToShanghaiAtTime15k.fork_at(0, 14_999) == Paris
+    assert ParisToShanghaiAtTime15k.fork_at(0, 15_000) == Shanghai
+    assert ParisToShanghaiAtTime15k.fork_at() == Paris
+    assert ParisToShanghaiAtTime15k.fork_at(10_000_000, 14_999) == Paris
+
 
 def test_forks_from():  # noqa: D103
     assert forks_from(Paris) == [Paris, LAST_DEPLOYED]

@@ -198,6 +198,9 @@ class StateTest(BaseTest):
         if self.fixture_format in BlockchainTest.fixture_formats():
             return self.generate_blockchain_test().generate(t8n, fork, eips)
         elif self.fixture_format == FixtureFormats.STATE_TEST:
+            # We can't generate a state test fixture that names a transition fork,
+            # so we get the fork at the block number and timestamp of the state test
+            fork = fork.fork_at(Number(self.env.number), Number(self.env.timestamp))
             return self.make_state_test_fixture(t8n, fork, eips)
 
         raise Exception(f"Unknown fixture format: {self.fixture_format}")

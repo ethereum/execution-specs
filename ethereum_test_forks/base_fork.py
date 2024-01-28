@@ -235,6 +235,14 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         return cls.__name__
 
     @classmethod
+    def fork_at(cls, block_number: int = 0, timestamp: int = 0) -> Type["BaseFork"]:
+        """
+        Returns the fork at the given block number and timestamp.
+        Useful only for transition forks, and it's a no-op for normal forks.
+        """
+        return cls
+
+    @classmethod
     @abstractmethod
     def transition_tool_name(cls, block_number: int = 0, timestamp: int = 0) -> str:
         """

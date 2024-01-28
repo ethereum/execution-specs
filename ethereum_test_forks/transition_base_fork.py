@@ -91,6 +91,9 @@ def transition_fork(to_fork: Fork, at_block: int = 0, at_timestamp: int = 0):
 
         NewTransitionClass.transitions_to = lambda: to_fork  # type: ignore
         NewTransitionClass.transitions_from = lambda: from_fork  # type: ignore
+        NewTransitionClass.fork_at = lambda block_number=0, timestamp=0: (  # type: ignore
+            to_fork if block_number >= at_block and timestamp >= at_timestamp else from_fork
+        )
 
         return NewTransitionClass
 
