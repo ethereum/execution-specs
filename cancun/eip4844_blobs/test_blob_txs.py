@@ -207,10 +207,33 @@ def total_account_minimum_balance(  # noqa: D103
     Calculates the minimum balance required for the account to be able to send
     the transactions in the block of the test.
     """
+    minimum_cost = 0
+    for tx_blob_count in [len(x) for x in blob_hashes_per_tx]:
+        blob_cost = tx_max_fee_per_blob_gas * Spec.GAS_PER_BLOB * tx_blob_count
+        minimum_cost += (tx_gas * tx_max_fee_per_gas) + tx_value + blob_cost
+    return minimum_cost
+
+
+@pytest.fixture
+def total_account_transactions_fee(  # noqa: D103
+    tx_gas: int,
+    tx_value: int,
+    blob_gasprice: int,
+    block_fee_per_gas: int,
+    tx_max_fee_per_gas: int,
+    tx_max_priority_fee_per_gas: int,
+    blob_hashes_per_tx: List[List[bytes]],
+) -> int:
+    """
+    Calculates the actual fee for the blob transactions in the block of the test.
+    """
     total_cost = 0
     for tx_blob_count in [len(x) for x in blob_hashes_per_tx]:
-        data_cost = tx_max_fee_per_blob_gas * Spec.GAS_PER_BLOB * tx_blob_count
-        total_cost += (tx_gas * tx_max_fee_per_gas) + tx_value + data_cost
+        blob_cost = blob_gasprice * Spec.GAS_PER_BLOB * tx_blob_count
+        block_producer_fee = (
+            tx_max_fee_per_gas - block_fee_per_gas if tx_max_priority_fee_per_gas else 0
+        )
+        total_cost += (tx_gas * (block_fee_per_gas + block_producer_fee)) + tx_value + blob_cost
     return total_cost
 
 
@@ -464,33 +487,16 @@ def header_verify(
 
 
 @pytest.fixture
-def all_blob_gas_used(
-    fork: Fork,
-    txs: List[Transaction],
-    block_number: int,
-    block_timestamp: int,
-) -> Optional[int | Removable]:
-    """
-    Calculates the blob gas used by the test block taking into account failed transactions.
-    """
-    if not fork.header_blob_gas_used_required(
-        block_number=block_number, timestamp=block_timestamp
-    ):
-        return Header.EMPTY_FIELD
-    return sum([Spec.get_total_blob_gas(tx) for tx in txs])
-
-
-@pytest.fixture
 def rlp_modifier(
-    all_blob_gas_used: Optional[int | Removable],
+    expected_blob_gas_used: Optional[int | Removable],
 ) -> Optional[Header]:
     """
     Header fields to modify on the output block in the BlockchainTest.
     """
-    if all_blob_gas_used == Header.EMPTY_FIELD:
+    if expected_blob_gas_used == Header.EMPTY_FIELD:
         return None
     return Header(
-        blob_gas_used=all_blob_gas_used,
+        blob_gas_used=expected_blob_gas_used,
     )
 
 
@@ -893,6 +899,69 @@ def test_sufficient_balance_blob_tx_pre_fund_tx(
             )
         ],
         genesis_environment=env,
+    )
+
+
+@pytest.mark.parametrize(
+    "tx_access_list",
+    [[], [AccessList(address=100, storage_keys=[100, 200])]],
+    ids=["no_access_list", "access_list"],
+)
+@pytest.mark.parametrize("tx_max_fee_per_gas", [7, 14])
+@pytest.mark.parametrize("tx_max_priority_fee_per_gas", [0, 7])
+@pytest.mark.parametrize("tx_value", [0, 1])
+@pytest.mark.parametrize(
+    "tx_calldata",
+    [b"", b"\x01"],
+    ids=["no_calldata", "single_non_zero_byte_calldata"],
+)
+@pytest.mark.parametrize("tx_max_fee_per_blob_gas", [1, 100])
+@pytest.mark.parametrize(
+    "tx_gas", [500_000], ids=[""]
+)  # Increase gas to account for contract code
+@pytest.mark.parametrize(
+    "mid_tx_send_amount", [100]
+)  # Amount sent by the contract to the sender mid execution
+@pytest.mark.valid_from("Cancun")
+def test_blob_gas_subtraction_tx(
+    state_test: StateTestFiller,
+    state_env: Environment,
+    pre: Dict,
+    txs: List[Transaction],
+    destination_account: str,
+    mid_tx_send_amount: int,
+    total_account_transactions_fee: int,
+):
+    """
+    Check that the blob gas fee for a transaction is subtracted from the sender balance before the
+    transaction is executed, including:
+
+    - Transactions with max fee equal or higher than current block base fee
+    - Transactions with and without value
+    - Transactions with and without calldata
+    - Transactions with max fee per blob gas lower or higher than the priority fee
+    - Transactions where an externally owned account sends funds to the sender mid execution
+    """
+    assert len(txs) == 1
+    pre[destination_account] = Account(
+        balance=mid_tx_send_amount,
+        code=Op.SSTORE(0, Op.BALANCE(Op.ORIGIN))
+        + Op.CALL(Op.GAS, Op.ORIGIN, mid_tx_send_amount, 0, 0, 0, 0)
+        + Op.SSTORE(1, Op.BALANCE(Op.ORIGIN)),
+    )
+    post = {
+        destination_account: Account(
+            storage={
+                0: pre[TestAddress].balance - total_account_transactions_fee,
+                1: pre[TestAddress].balance - total_account_transactions_fee + mid_tx_send_amount,
+            }
+        )
+    }
+    state_test(
+        pre=pre,
+        post=post,
+        tx=txs[0],
+        env=state_env,
     )
 
 
