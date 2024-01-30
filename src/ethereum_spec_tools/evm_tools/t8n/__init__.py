@@ -376,6 +376,13 @@ class T8N(Load):
                 system_tx_message, system_tx_env
             )
 
+        if self.state.account_exists_and_is_empty(
+            self.alloc.state, self.BEACON_ROOTS_ADDRESS
+        ):
+            self.state.destroy_account(
+                self.alloc.state, self.BEACON_ROOTS_ADDRESS
+            )
+
         for i, (tx_idx, tx) in enumerate(self.txs.transactions):
             # i is the index among valid transactions
             # tx_idx is the index among all transactions. tx_idx is only used
