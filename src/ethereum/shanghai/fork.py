@@ -453,7 +453,7 @@ def apply_body(
 
     Returns
     -------
-    gas_used : `ethereum.base_types.Uint`
+    block_gas_used : `ethereum.base_types.Uint`
         Gas used for executing all transactions.
     transactions_root : `ethereum.fork_types.Root`
         Trie root of all the transactions in the block.
