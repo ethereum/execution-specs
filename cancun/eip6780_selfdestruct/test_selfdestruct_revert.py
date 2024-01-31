@@ -146,7 +146,7 @@ def selfdestruct_with_transfer_contract_code(
             let operation := calldataload(0)
 
             switch operation
-            case 0 /* no-op used for transfering value to this contract */ {{
+            case 0 /* no-op used for transferring value to this contract */ {{
                 let times_called := sload(0)
                 times_called := add(times_called, 1)
                 sstore(0, times_called)
