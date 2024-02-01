@@ -7,11 +7,11 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
+    Address,
     Environment,
     StateTestFiller,
     TestAddress,
     Transaction,
-    to_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -33,7 +33,7 @@ def test_chainid(state_test: StateTestFiller):
     )
 
     pre = {
-        to_address(0x100): Account(code=Op.SSTORE(1, Op.CHAINID) + Op.STOP),
+        Address(0x100): Account(code=Op.SSTORE(1, Op.CHAINID) + Op.STOP),
         TestAddress: Account(balance=1000000000000000000000),
     }
 
@@ -41,13 +41,13 @@ def test_chainid(state_test: StateTestFiller):
         ty=0x0,
         chain_id=0x01,
         nonce=0,
-        to=to_address(0x100),
+        to=Address(0x100),
         gas_limit=100000000,
         gas_price=10,
     )
 
     post = {
-        to_address(0x100): Account(code="0x4660015500", storage={"0x01": "0x01"}),
+        Address(0x100): Account(code="0x4660015500", storage={"0x01": "0x01"}),
     }
 
     state_test(env=env, pre=pre, post=post, tx=tx)

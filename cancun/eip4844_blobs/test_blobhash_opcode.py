@@ -21,13 +21,13 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
+    Address,
     Block,
     BlockchainTestFiller,
     CodeGasMeasure,
+    Hash,
     TestAddress,
     Transaction,
-    to_address,
-    to_hash_bytes,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -60,7 +60,7 @@ def blocks():  # noqa: D103
 @pytest.fixture
 def template_tx():  # noqa: D103
     return Transaction(
-        data=to_hash_bytes(0),
+        data=Hash(0),
         gas_limit=3000000,
         max_fee_per_gas=10,
     )
@@ -118,7 +118,7 @@ def test_blobhash_gas_cost(
         for i in blobhash_index_values
     ]
     for i, gas_code in enumerate(gas_measures_code):
-        address = to_address(0x100 + i * 0x100)
+        address = Address(0x100 + i * 0x100)
         pre[address] = Account(code=gas_code)
         blocks.append(
             Block(
@@ -177,7 +177,7 @@ def test_blobhash_scenarios(
     b_hashes_list = BlobhashScenario.create_blob_hashes_list(length=TOTAL_BLOCKS)
     blobhash_calls = BlobhashScenario.generate_blobhash_bytecode(scenario)
     for i in range(TOTAL_BLOCKS):
-        address = to_address(0x100 + i * 0x100)
+        address = Address(0x100 + i * 0x100)
         pre[address] = Account(code=blobhash_calls)
         blocks.append(
             Block(
@@ -234,7 +234,7 @@ def test_blobhash_invalid_blob_index(
     TOTAL_BLOCKS = 5
     blobhash_calls = BlobhashScenario.generate_blobhash_bytecode(scenario)
     for i in range(TOTAL_BLOCKS):
-        address = to_address(0x100 + i * 0x100)
+        address = Address(0x100 + i * 0x100)
         pre[address] = Account(code=blobhash_calls)
         blob_per_block = (i % SpecHelpers.max_blobs_per_block()) + 1
         blobs = [random_blob_hashes[blob] for blob in range(blob_per_block)]
@@ -286,32 +286,32 @@ def test_blobhash_multiple_txs_in_block(
     pre = {
         **pre,
         **{
-            to_address(address): Account(code=blobhash_bytecode)
+            Address(address): Account(code=blobhash_bytecode)
             for address in range(0x100, 0x500, 0x100)
         },
     }
     blocks = [
         Block(
             txs=[
-                blob_tx(address=to_address(0x100), type=3, nonce=0),
-                blob_tx(address=to_address(0x100), type=2, nonce=1),
+                blob_tx(address=Address(0x100), type=3, nonce=0),
+                blob_tx(address=Address(0x100), type=2, nonce=1),
             ]
         ),
         Block(
             txs=[
-                blob_tx(address=to_address(0x200), type=2, nonce=2),
-                blob_tx(address=to_address(0x200), type=3, nonce=3),
+                blob_tx(address=Address(0x200), type=2, nonce=2),
+                blob_tx(address=Address(0x200), type=3, nonce=3),
             ]
         ),
         Block(
             txs=[
-                blob_tx(address=to_address(0x300), type=2, nonce=4),
-                blob_tx(address=to_address(0x400), type=3, nonce=5),
+                blob_tx(address=Address(0x300), type=2, nonce=4),
+                blob_tx(address=Address(0x400), type=3, nonce=5),
             ],
         ),
     ]
     post = {
-        to_address(address): Account(
+        Address(address): Account(
             storage={i: random_blob_hashes[i] for i in range(SpecHelpers.max_blobs_per_block())}
         )
         if address in (0x200, 0x400)

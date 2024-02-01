@@ -10,12 +10,12 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
+    Address,
     CodeGasMeasure,
     Environment,
     StateTestFiller,
     TestAddress,
     Transaction,
-    to_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -42,7 +42,7 @@ def post():  # noqa: D103
 
 @pytest.fixture
 def addr_1():  # noqa: D103
-    return to_address(0x100)
+    return Address(0x100)
 
 
 @pytest.fixture
@@ -143,7 +143,7 @@ def test_push0_during_staticcall(
     """
     Test PUSH0 during STATICCALL.
     """
-    addr_2 = to_address(0x200)
+    addr_2 = Address(0x200)
 
     code_1 = (
         Op.SSTORE(0, Op.STATICCALL(100000, 0x200, 0, 0, 0, 0))

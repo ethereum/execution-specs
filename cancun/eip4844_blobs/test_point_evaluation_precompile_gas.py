@@ -9,13 +9,13 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
+    Address,
     CodeGasMeasure,
     Environment,
     StateTestFiller,
     TestAddress,
     Transaction,
     copy_opcode_cost,
-    to_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -124,17 +124,17 @@ def precompile_caller_account(
 
 
 @pytest.fixture
-def precompile_caller_address() -> str:
+def precompile_caller_address() -> Address:
     """
     Address of the precompile caller account.
     """
-    return to_address(0x100)
+    return Address(0x100)
 
 
 @pytest.fixture
 def pre(
     precompile_caller_account: Account,
-    precompile_caller_address: str,
+    precompile_caller_address: Address,
 ) -> Dict:
     """
     Prepares the pre state of all test cases, by setting the balance of the
@@ -151,7 +151,7 @@ def pre(
 
 @pytest.fixture
 def tx(
-    precompile_caller_address: str,
+    precompile_caller_address: Address,
     precompile_input: bytes,
 ) -> Transaction:
     """
@@ -171,7 +171,7 @@ def tx(
 
 @pytest.fixture
 def post(
-    precompile_caller_address: str,
+    precompile_caller_address: Address,
     proof: Literal["correct", "incorrect"],
     call_gas: int,
 ) -> Dict:

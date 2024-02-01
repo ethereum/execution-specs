@@ -13,6 +13,7 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
+    Address,
     Environment,
     Initcode,
     StateTestFiller,
@@ -24,7 +25,6 @@ from ethereum_test_tools import (
     compute_create2_address,
     compute_create_address,
     eip_2028_transaction_data_cost,
-    to_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -530,11 +530,11 @@ class TestCreateInitcode:
 
         pre = {
             TestAddress: Account(balance=1000000000000000000000),
-            to_address(0x100): Account(
+            Address(0x100): Account(
                 code=create_code,
                 nonce=1,
             ),
-            to_address(0x200): Account(
+            Address(0x200): Account(
                 code=call_code,
                 nonce=1,
             ),
@@ -544,7 +544,7 @@ class TestCreateInitcode:
 
         tx = Transaction(
             nonce=0,
-            to=to_address(0x200),
+            to=Address(0x200),
             data=initcode,
             gas_limit=10000000,
             gas_price=10,
@@ -563,7 +563,7 @@ class TestCreateInitcode:
 
         if len(initcode) > MAX_INITCODE_SIZE and eip_3860_active:
             # Call returns 0 as out of gas s[0]==1
-            post[to_address(0x200)] = Account(
+            post[Address(0x200)] = Account(
                 nonce=1,
                 storage={
                     0: 1,
@@ -572,7 +572,7 @@ class TestCreateInitcode:
             )
 
             post[created_contract_address] = Account.NONEXISTENT
-            post[to_address(0x100)] = Account(
+            post[Address(0x100)] = Account(
                 nonce=1,
                 storage={
                     0: 0,
@@ -597,7 +597,7 @@ class TestCreateInitcode:
                 expected_gas_usage += calculate_initcode_word_cost(len(initcode))
 
             # Call returns 1 as valid initcode length s[0]==1 && s[1]==1
-            post[to_address(0x200)] = Account(
+            post[Address(0x200)] = Account(
                 nonce=1,
                 storage={
                     0: 0,
@@ -606,7 +606,7 @@ class TestCreateInitcode:
             )
 
             post[created_contract_address] = Account(code=initcode.deploy_code)
-            post[to_address(0x100)] = Account(
+            post[Address(0x100)] = Account(
                 nonce=2,
                 storage={
                     0: created_contract_address,

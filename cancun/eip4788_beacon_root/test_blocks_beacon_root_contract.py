@@ -25,14 +25,14 @@ import pytest
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,
+    Address,
     Block,
     BlockchainTestFiller,
+    Hash,
     Storage,
     TestAddress,
     Transaction,
     Withdrawal,
-    to_address,
-    to_hash_bytes,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -131,7 +131,7 @@ def test_multi_block_beacon_root_timestamp_calls(
 
         current_call_account_code = bytes()
         current_call_account_expected_storage = Storage()
-        current_call_account_address = to_address(0x100 + i)
+        current_call_account_address = Address(0x100 + i)
 
         # We are going to call the beacon roots contract once for every timestamp of the current
         # and all previous blocks, and check that the returned beacon root is still correct only
@@ -173,8 +173,8 @@ def test_multi_block_beacon_root_timestamp_calls(
                 txs=[
                     tx.with_fields(
                         nonce=i,
-                        to=to_address(0x100 + i),
-                        data=to_hash_bytes(timestamp),
+                        to=Address(0x100 + i),
+                        data=Hash(timestamp),
                     )
                 ],
                 beacon_root=beacon_root,
@@ -255,7 +255,7 @@ def test_beacon_root_transition(
 
         current_call_account_code = bytes()
         current_call_account_expected_storage = Storage()
-        current_call_account_address = to_address(0x100 + i)
+        current_call_account_address = Address(0x100 + i)
 
         # We are going to call the beacon roots contract once for every timestamp of the current
         # and all previous blocks, and check that the returned beacon root is correct only
@@ -298,8 +298,8 @@ def test_beacon_root_transition(
                 txs=[
                     tx.with_fields(
                         nonce=i,
-                        to=to_address(0x100 + i),
-                        data=to_hash_bytes(timestamp),
+                        to=Address(0x100 + i),
+                        data=Hash(timestamp),
                     )
                 ],
                 beacon_root=beacon_root if transitioned else None,
@@ -337,7 +337,7 @@ def test_no_beacon_root_contract_at_transition(
     beacon_roots: Iterator[bytes],
     tx: Transaction,
     timestamp: int,
-    caller_address: str,
+    caller_address: Address,
     fork: Fork,
 ):
     """
@@ -439,7 +439,7 @@ def test_beacon_root_contract_deploy(
     ).with_signature_and_sender()
     deployer_address = deploy_tx.sender
     assert deployer_address is not None
-    assert deployer_address == int.to_bytes(Spec.BEACON_ROOTS_DEPLOYER_ADDRESS, 20, "big")
+    assert Address(deployer_address) == Spec.BEACON_ROOTS_DEPLOYER_ADDRESS
     blocks: List[Block] = []
 
     beacon_root_contract_storage: Dict = {}

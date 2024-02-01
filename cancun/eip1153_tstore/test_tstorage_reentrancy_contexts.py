@@ -7,9 +7,9 @@ from enum import EnumMeta, unique
 
 import pytest
 
-from ethereum_test_tools import Account, CalldataCase, Conditional, Environment
+from ethereum_test_tools import Account, CalldataCase, Conditional, Environment, Hash
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Switch, TestAddress, Transaction, to_hash_bytes
+from ethereum_test_tools import StateTestFiller, Switch, TestAddress, Transaction
 
 from . import PytestParameterEnum
 from .spec import ref_spec_1153
@@ -272,7 +272,7 @@ def test_reentrant_call(state_test: StateTestFiller, bytecode, expected_storage)
 
     tx = Transaction(
         to=callee_address,
-        data=to_hash_bytes(1),
+        data=Hash(1),
         gas_limit=10_000_000,
     )
 

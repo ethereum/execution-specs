@@ -9,7 +9,7 @@ from typing import Dict
 
 import pytest
 
-from ethereum_test_tools import Account, Block, BlockchainTestFiller, Environment
+from ethereum_test_tools import Account, Address, Block, BlockchainTestFiller, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, Storage, TestAddress, Transaction
 
@@ -17,8 +17,8 @@ REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7516.md"
 REFERENCE_SPEC_VERSION = "2ade0452efe8124378f35284676ddfd16dd56ecd"
 
 # Code address used to call the test bytecode on every test case.
-code_caller_address = 0x100
-code_callee_address = 0x200
+code_caller_address = Address(0x100)
+code_callee_address = Address(0x200)
 
 BLOBBASEFEE_GAS = 2
 
@@ -38,7 +38,7 @@ def caller_code(
     """
     Bytecode used to call the bytecode containing the BLOBBASEFEE opcode.
     """
-    return Op.SSTORE(Op.NUMBER, Op.CALL(call_gas, Op.PUSH20(code_callee_address), 0, 0, 0, 0, 0))
+    return Op.SSTORE(Op.NUMBER, Op.CALL(call_gas, code_callee_address, 0, 0, 0, 0, 0))
 
 
 @pytest.fixture

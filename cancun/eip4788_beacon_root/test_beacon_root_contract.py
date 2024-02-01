@@ -23,11 +23,11 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
+    Address,
     Environment,
     StateTestFiller,
     Storage,
     Transaction,
-    to_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -266,23 +266,23 @@ def test_beacon_root_selfdestruct(
     Tests that self destructing the beacon root address transfers actors balance correctly.
     """
     # self destruct actor
-    pre[to_address(0x1337)] = Account(
+    pre[Address(0x1337)] = Account(
         code=Op.SELFDESTRUCT(Spec.BEACON_ROOTS_ADDRESS),
         balance=0xBA1,
     )
     # self destruct caller
-    pre[to_address(0xCC)] = Account(
-        code=Op.CALL(100000, Op.PUSH20(to_address(0x1337)), 0, 0, 0, 0, 0)
+    pre[Address(0xCC)] = Account(
+        code=Op.CALL(100000, Address(0x1337), 0, 0, 0, 0, 0)
         + Op.SSTORE(0, Op.BALANCE(Spec.BEACON_ROOTS_ADDRESS)),
     )
     post = {
-        to_address(0xCC): Account(
+        Address(0xCC): Account(
             storage=Storage({0: 0xBA1}),
         )
     }
     state_test(
         env=env,
         pre=pre,
-        tx=Transaction(nonce=0, to=to_address(0xCC), gas_limit=100000, gas_price=10),
+        tx=Transaction(nonce=0, to=Address(0xCC), gas_limit=100000, gas_price=10),
         post=post,
     )

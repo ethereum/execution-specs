@@ -24,11 +24,13 @@ from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     AccessList,
     Account,
+    Address,
     Block,
     BlockchainTestFiller,
     BlockException,
     EngineAPIError,
     Environment,
+    Hash,
     Header,
 )
 from ethereum_test_tools import Opcodes as Op
@@ -42,8 +44,6 @@ from ethereum_test_tools import (
     TransactionException,
     add_kzg_version,
     eip_2028_transaction_data_cost,
-    to_address,
-    to_hash_bytes,
 )
 
 from .spec import Spec, SpecHelpers, ref_spec_4844
@@ -56,9 +56,9 @@ TestPreFundingAddress = "0x97a7cb1de3cc7d556d0aa32433b035067709e1fc"
 
 
 @pytest.fixture
-def destination_account() -> str:
+def destination_account() -> Address:
     """Default destination account for the blob transactions."""
-    return to_address(0x100)
+    return Address(0x100)
 
 
 @pytest.fixture
@@ -188,7 +188,7 @@ def blob_hashes_per_tx(blobs_per_tx: List[int]) -> List[List[bytes]]:
     """
     return [
         add_kzg_version(
-            [to_hash_bytes(x) for x in range(blob_count)],
+            [Hash(x) for x in range(blob_count)],
             Spec.BLOB_COMMITMENT_VERSION_KZG,
         )
         for blob_count in blobs_per_tx
@@ -293,7 +293,7 @@ def tx_error() -> Optional[TransactionException]:
 
 @pytest.fixture(autouse=True)
 def txs(  # noqa: D103
-    destination_account: Optional[str],
+    destination_account: Optional[Address],
     tx_gas: int,
     tx_value: int,
     tx_calldata: bytes,
@@ -928,7 +928,7 @@ def test_blob_gas_subtraction_tx(
     state_env: Environment,
     pre: Dict,
     txs: List[Transaction],
-    destination_account: str,
+    destination_account: Address,
     mid_tx_send_amount: int,
     total_account_transactions_fee: int,
 ):
@@ -1032,16 +1032,10 @@ def test_invalid_tx_blob_count(
 @pytest.mark.parametrize(
     "blob_hashes_per_tx",
     [
-        [[to_hash_bytes(1)]],
-        [[to_hash_bytes(x) for x in range(2)]],
-        [
-            add_kzg_version([to_hash_bytes(1)], Spec.BLOB_COMMITMENT_VERSION_KZG)
-            + [to_hash_bytes(2)]
-        ],
-        [
-            [to_hash_bytes(1)]
-            + add_kzg_version([to_hash_bytes(2)], Spec.BLOB_COMMITMENT_VERSION_KZG)
-        ],
+        [[Hash(1)]],
+        [[Hash(x) for x in range(2)]],
+        [add_kzg_version([Hash(1)], Spec.BLOB_COMMITMENT_VERSION_KZG) + [Hash(2)]],
+        [[Hash(1)] + add_kzg_version([Hash(2)], Spec.BLOB_COMMITMENT_VERSION_KZG)],
     ],
     ids=[
         "single_blob",
@@ -1084,22 +1078,21 @@ def test_invalid_blob_hash_versioning_single_tx(
     "blob_hashes_per_tx",
     [
         [
-            add_kzg_version([to_hash_bytes(1)], Spec.BLOB_COMMITMENT_VERSION_KZG),
-            [to_hash_bytes(2)],
+            add_kzg_version([Hash(1)], Spec.BLOB_COMMITMENT_VERSION_KZG),
+            [Hash(2)],
         ],
         [
-            add_kzg_version([to_hash_bytes(1)], Spec.BLOB_COMMITMENT_VERSION_KZG),
-            [to_hash_bytes(x) for x in range(1, 3)],
+            add_kzg_version([Hash(1)], Spec.BLOB_COMMITMENT_VERSION_KZG),
+            [Hash(x) for x in range(1, 3)],
         ],
         [
-            add_kzg_version([to_hash_bytes(1)], Spec.BLOB_COMMITMENT_VERSION_KZG),
-            [to_hash_bytes(2)]
-            + add_kzg_version([to_hash_bytes(3)], Spec.BLOB_COMMITMENT_VERSION_KZG),
+            add_kzg_version([Hash(1)], Spec.BLOB_COMMITMENT_VERSION_KZG),
+            [Hash(2)] + add_kzg_version([Hash(3)], Spec.BLOB_COMMITMENT_VERSION_KZG),
         ],
         [
-            add_kzg_version([to_hash_bytes(1)], Spec.BLOB_COMMITMENT_VERSION_KZG),
-            add_kzg_version([to_hash_bytes(2)], Spec.BLOB_COMMITMENT_VERSION_KZG),
-            [to_hash_bytes(3)],
+            add_kzg_version([Hash(1)], Spec.BLOB_COMMITMENT_VERSION_KZG),
+            add_kzg_version([Hash(2)], Spec.BLOB_COMMITMENT_VERSION_KZG),
+            [Hash(3)],
         ],
     ],
     ids=[
@@ -1240,7 +1233,7 @@ def test_blob_tx_attribute_opcodes(
     opcode: Tuple[bytes, Storage.StorageDictType],
     state_env: Environment,
     txs: List[Transaction],
-    destination_account: str,
+    destination_account: Address,
 ):
     """
     Test opcodes that read transaction attributes work properly for blob type transactions:
@@ -1275,7 +1268,7 @@ def test_blob_tx_attribute_value_opcode(
     state_env: Environment,
     txs: List[Transaction],
     tx_value: int,
-    destination_account: str,
+    destination_account: Address,
 ):
     """
     Test the VALUE opcode with different blob type transaction value amounts.
@@ -1323,7 +1316,7 @@ def test_blob_tx_attribute_calldata_opcodes(
     opcode: Tuple[bytes, Storage.StorageDictType],
     state_env: Environment,
     txs: List[Transaction],
-    destination_account: str,
+    destination_account: Address,
 ):
     """
     Test calldata related opcodes to verify their behavior is not affected by blobs:
@@ -1360,7 +1353,7 @@ def test_blob_tx_attribute_gasprice_opcode(
     opcode: Tuple[bytes, Storage.StorageDictType],
     state_env: Environment,
     txs: List[Transaction],
-    destination_account: str,
+    destination_account: Address,
 ):
     """
     Test GASPRICE opcode to sanity check that the blob gas fee does not affect

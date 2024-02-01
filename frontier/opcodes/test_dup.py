@@ -6,9 +6,9 @@ abstract: Test DUP
 import pytest
 
 from ethereum_test_forks import Frontier, Homestead
-from ethereum_test_tools import Account, Environment
+from ethereum_test_tools import Account, Address, Environment
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Storage, Transaction, to_address
+from ethereum_test_tools import StateTestFiller, Storage, TestAddress, Transaction
 
 
 @pytest.mark.parametrize(
@@ -47,10 +47,10 @@ def test_dup(
         by Ori Pomerantz.
     """  # noqa: E501
     env = Environment()
-    pre = {"0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(balance=1000000000000000000000)}
+    pre = {TestAddress: Account(balance=1000000000000000000000)}
     post = {}
 
-    account = to_address(0x100)
+    account = Address(0x100)
 
     # Push 0x00 - 0x10 onto the stack
     account_code = b"".join([Op.PUSH1(i) for i in range(0x11)])

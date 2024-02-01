@@ -8,12 +8,12 @@ import pytest
 from ethereum_test_forks import Cancun, Fork
 from ethereum_test_tools import (
     Account,
+    Address,
     Environment,
     StateTestFiller,
     TestAddress,
     TestAddress2,
     Transaction,
-    to_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -54,22 +54,22 @@ def test_reentrancy_selfdestruct_revert(
     It is expected the S is self destructed after the transaction.
     """
     address_to = TestAddress2
-    address_s = to_address(0x1000000000000000000000000000000000000001)
-    address_r = to_address(0x1000000000000000000000000000000000000002)
-    suicide_d = to_address(0x03E8)
+    address_s = Address(0x1000000000000000000000000000000000000001)
+    address_r = Address(0x1000000000000000000000000000000000000002)
+    suicide_d = Address(0x03E8)
 
     def construct_call_s(call_type: Op, money: int):
         if call_type in [Op.CALLCODE, Op.CALL]:
-            return call_type(Op.GAS, Op.PUSH20(address_s), money, 0, 0, 0, 0)
+            return call_type(Op.GAS, address_s, money, 0, 0, 0, 0)
         else:
-            return call_type(Op.GAS, Op.PUSH20(address_s), money, 0, 0, 0)
+            return call_type(Op.GAS, address_s, money, 0, 0, 0)
 
     pre = {
         address_to: Account(
             balance=1000000000000000000,
             nonce=0,
             code=Op.SSTORE(1, construct_call_s(first_suicide, 0))
-            + Op.SSTORE(2, Op.CALL(Op.GAS, Op.PUSH20(address_r), 0, 0, 0, 0, 0))
+            + Op.SSTORE(2, Op.CALL(Op.GAS, address_r, 0, 0, 0, 0, 0))
             + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE())
             + Op.SSTORE(3, Op.MLOAD(0)),
             storage={0x01: 0x0100, 0x02: 0x0100, 0x03: 0x0100},

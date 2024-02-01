@@ -8,7 +8,7 @@ from typing import Mapping, Tuple
 import pytest
 from ethereum.crypto.hash import keccak256
 
-from ethereum_test_tools import Account, Environment
+from ethereum_test_tools import Account, Environment, Hash
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
     StateTestFiller,
@@ -16,7 +16,6 @@ from ethereum_test_tools import (
     TestAddress,
     Transaction,
     ceiling_division,
-    to_hash_bytes,
 )
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION, mcopy
@@ -116,7 +115,7 @@ def pre(bytecode_storage: Tuple[bytes, Storage]) -> Mapping:  # noqa: D103
 def tx(dest: int, src: int, length: int) -> Transaction:  # noqa: D103
     return Transaction(
         to=code_address,
-        data=to_hash_bytes(dest) + to_hash_bytes(src) + to_hash_bytes(length),
+        data=Hash(dest) + Hash(src) + Hash(length),
         gas_limit=1_000_000,
     )
 

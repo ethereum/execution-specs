@@ -9,13 +9,13 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
+    Address,
     Environment,
     StateTestFiller,
     TestAddress,
     TestParameterGroup,
     Transaction,
     compute_create_address,
-    to_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -213,7 +213,7 @@ def test_modexp(state_test: StateTestFiller, input: ModExpInput, output: Expecte
     env = Environment()
     pre = {TestAddress: Account(balance=1000000000000000000000)}
 
-    account = to_address(0x100)
+    account = Address(0x100)
 
     pre[account] = Account(
         code=(

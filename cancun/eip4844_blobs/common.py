@@ -5,12 +5,12 @@ from dataclasses import dataclass
 from typing import List, Literal, Tuple, Union
 
 from ethereum_test_tools import (
+    Address,
     TestAddress,
     YulCompiler,
     add_kzg_version,
     compute_create2_address,
     compute_create_address,
-    to_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -100,14 +100,14 @@ class BlobhashContext:
 
     yul_compiler: Union[YulCompiler, None] = None
     addresses = {
-        "blobhash_sstore": to_address(0x100),
-        "blobhash_return": to_address(0x600),
-        "call": to_address(0x200),
-        "delegatecall": to_address(0x300),
-        "callcode": to_address(0x800),
-        "staticcall": to_address(0x700),
-        "create": to_address(0x400),
-        "create2": to_address(0x500),
+        "blobhash_sstore": Address(0x100),
+        "blobhash_return": Address(0x600),
+        "call": Address(0x200),
+        "delegatecall": Address(0x300),
+        "callcode": Address(0x800),
+        "staticcall": Address(0x700),
+        "create": Address(0x400),
+        "create2": Address(0x500),
     }
 
     @staticmethod

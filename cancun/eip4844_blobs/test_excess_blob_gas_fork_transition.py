@@ -9,17 +9,17 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
+    Address,
     Block,
     BlockchainTestFiller,
     BlockException,
     EngineAPIError,
     Environment,
+    Hash,
     Header,
     TestAddress,
     Transaction,
     add_kzg_version,
-    to_address,
-    to_hash_bytes,
 )
 
 from .spec import Spec, SpecHelpers, ref_spec_4844
@@ -41,7 +41,7 @@ def env() -> Environment:  # noqa: D103
 
 
 @pytest.fixture
-def pre() -> Mapping[str, Account]:  # noqa: D103
+def pre() -> Mapping[Address, Account]:  # noqa: D103
     return {
         TestAddress: Account(balance=10**40),
     }
@@ -74,13 +74,13 @@ def blob_count_per_block() -> int:
 
 
 @pytest.fixture
-def destination_account() -> str:  # noqa: D103
-    return to_address(0x100)
+def destination_account() -> Address:  # noqa: D103
+    return Address(0x100)
 
 
 @pytest.fixture
 def post_fork_blocks(
-    destination_account: str,
+    destination_account: Address,
     post_fork_block_count: int,
     blob_count_per_block: int,
 ):
@@ -101,7 +101,7 @@ def post_fork_blocks(
                     max_fee_per_blob_gas=100,
                     access_list=[],
                     blob_versioned_hashes=add_kzg_version(
-                        [to_hash_bytes(x) for x in range(blob_count_per_block)],
+                        [Hash(x) for x in range(blob_count_per_block)],
                         Spec.BLOB_COMMITMENT_VERSION_KZG,
                     ),
                 )
@@ -125,8 +125,8 @@ def post_fork_blocks(
 @pytest.fixture
 def post(  # noqa: D103
     post_fork_block_count: int,
-    destination_account: str,
-) -> Mapping[str, Account]:
+    destination_account: Address,
+) -> Mapping[Address, Account]:
     return {
         destination_account: Account(balance=post_fork_block_count),
     }
@@ -143,7 +143,7 @@ def post(  # noqa: D103
 def test_invalid_pre_fork_block_with_blob_fields(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
-    pre: Mapping[str, Account],
+    pre: Mapping[Address, Account],
     pre_fork_blocks: List[Block],
     excess_blob_gas_present: bool,
     blob_gas_used_present: bool,
@@ -188,7 +188,7 @@ def test_invalid_pre_fork_block_with_blob_fields(
 def test_invalid_post_fork_block_without_blob_fields(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
-    pre: Mapping[str, Account],
+    pre: Mapping[Address, Account],
     pre_fork_blocks: List[Block],
     excess_blob_gas_missing: bool,
     blob_gas_used_missing: bool,
@@ -239,10 +239,10 @@ def test_invalid_post_fork_block_without_blob_fields(
 def test_fork_transition_excess_blob_gas(
     blockchain_test: BlockchainTestFiller,
     env: Environment,
-    pre: Mapping[str, Account],
+    pre: Mapping[Address, Account],
     pre_fork_blocks: List[Block],
     post_fork_blocks: List[Block],
-    post: Mapping[str, Account],
+    post: Mapping[Address, Account],
 ):
     """
     Test `excessBlobGas` calculation in the header when the fork is activated.

@@ -10,13 +10,13 @@ from ethereum.crypto.hash import keccak256
 from ethereum_test_tools import (
     AccessList,
     Account,
+    Address,
     Environment,
+    Hash,
     Storage,
     TestAddress,
     Transaction,
     add_kzg_version,
-    to_address,
-    to_hash_bytes,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -51,7 +51,7 @@ def beacon_roots() -> Iterator[bytes]:
 
 @pytest.fixture
 def beacon_root(request, beacon_roots: Iterator[bytes]) -> bytes:  # noqa: D103
-    return to_hash_bytes(request.param) if hasattr(request, "param") else next(beacon_roots)
+    return Hash(request.param) if hasattr(request, "param") else next(beacon_roots)
 
 
 @pytest.fixture
@@ -86,8 +86,8 @@ def call_gas() -> int:  # noqa: D103
 
 
 @pytest.fixture
-def caller_address() -> str:  # noqa: D103
-    return to_address(0x100)
+def caller_address() -> Address:  # noqa: D103
+    return Address(0x100)
 
 
 @pytest.fixture
@@ -177,7 +177,7 @@ def system_address_balance() -> int:
 def pre(
     contract_call_account: Account,
     system_address_balance: int,
-    caller_address: str,
+    caller_address: Address,
 ) -> Dict:
     """
     Prepares the pre state of all test cases, by setting the balance of the
@@ -191,7 +191,7 @@ def pre(
         caller_address: contract_call_account,
     }
     if system_address_balance > 0:
-        pre_alloc[to_address(Spec.SYSTEM_ADDRESS)] = Account(
+        pre_alloc[Address(Spec.SYSTEM_ADDRESS)] = Account(
             nonce=0,
             balance=system_address_balance,
         )
@@ -199,7 +199,7 @@ def pre(
 
 
 @pytest.fixture
-def tx_to_address(request, caller_address: Account) -> bytes:  # noqa: D103
+def tx_to_address(request, caller_address: Account) -> Address:  # noqa: D103
     return request.param if hasattr(request, "param") else caller_address
 
 
@@ -234,7 +234,7 @@ def tx_data(timestamp: int) -> bytes:
     """
     Data included in the transaction to call the beacon root contract.
     """
-    return to_hash_bytes(timestamp)
+    return Hash(timestamp)
 
 
 @pytest.fixture
@@ -249,7 +249,7 @@ def tx_type() -> int:
 
 @pytest.fixture
 def tx(
-    tx_to_address: str,
+    tx_to_address: Address,
     tx_data: bytes,
     tx_type: int,
     access_list: List[AccessList],
@@ -289,7 +289,7 @@ def tx(
 
 @pytest.fixture
 def post(
-    caller_address: str,
+    caller_address: Address,
     beacon_root: bytes,
     valid_call: bool,
     valid_input: bool,
