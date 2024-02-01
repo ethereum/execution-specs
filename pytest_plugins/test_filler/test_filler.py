@@ -11,7 +11,13 @@ from typing import Generator, List, Optional, Type
 
 import pytest
 
-from ethereum_test_forks import Fork, Paris, get_development_forks
+from ethereum_test_forks import (
+    Fork,
+    Frontier,
+    Paris,
+    get_closest_fork_with_solc_support,
+    get_forks_with_solc_support,
+)
 from ethereum_test_tools import SPEC_TYPES, BaseTest, FixtureCollector, TestInfo, Yul
 from evm_transition_tool import FixtureFormats, TransitionTool
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
@@ -161,6 +167,13 @@ def pytest_configure(config):
             "The Besu t8n tool does not work well with the xdist plugin; use -n=0.",
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
+    config.solc_version = Yul("", binary=config.getoption("solc_bin")).version()
+    if config.solc_version < Frontier.solc_min_version():
+        pytest.exit(
+            f"Unsupported solc version: {config.solc_version}. Minimum required version is "
+            f"{Frontier.solc_min_version()}",
+            returncode=pytest.ExitCode.USAGE_ERROR,
+        )
 
 
 @pytest.hookimpl(trylast=True)
@@ -170,8 +183,7 @@ def pytest_report_header(config, start_path):
         return
     binary_path = config.getoption("evm_bin")
     t8n = TransitionTool.from_binary_path(binary_path=binary_path)
-    solc_version_string = Yul("", binary=config.getoption("solc_bin")).version()
-    return [f"{t8n.version()}, solc version {solc_version_string}"]
+    return [f"{t8n.version()}, solc version {config.solc_version}"]
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -348,17 +360,24 @@ def yul(fork: Fork, request):
     Test cases can override the default value by specifying a fixed version
     with the @pytest.mark.compile_yul_with(FORK) marker.
     """
+    solc_target_fork: Fork | None
     marker = request.node.get_closest_marker("compile_yul_with")
     if marker:
         if not marker.args[0]:
             pytest.fail(
                 f"{request.node.name}: Expected one argument in 'compile_yul_with' marker."
             )
-        fork = request.config.fork_map[marker.args[0]]
+        solc_target_fork = request.config.fork_map[marker.args[0]]
+        assert solc_target_fork in get_forks_with_solc_support(request.config.solc_version)
+    else:
+        solc_target_fork = get_closest_fork_with_solc_support(fork, request.config.solc_version)
+        assert solc_target_fork is not None, "No fork supports provided solc version."
+        if request.config.getoption("verbose") >= 1:
+            warnings.warn(f"Compiling Yul for {solc_target_fork}, not {fork}.")
 
     class YulWrapper(Yul):
         def __init__(self, *args, **kwargs):
-            super(YulWrapper, self).__init__(*args, **kwargs, fork=fork)
+            super(YulWrapper, self).__init__(*args, **kwargs, fork=solc_target_fork)
 
     return YulWrapper
 
@@ -462,7 +481,6 @@ def pytest_generate_tests(metafunc):
             )
 
 
-@pytest.hookimpl(trylast=True)
 def pytest_collection_modifyitems(config, items):
     """
     Remove pre-Paris tests parametrized to generate hive type fixtures; these
@@ -487,19 +505,8 @@ def pytest_collection_modifyitems(config, items):
                 "blockchain_test"
             ].name.endswith("HIVE"):
                 items.remove(item)
-
-
-def pytest_runtest_setup(item):
-    """
-    A pytest hook called before setting up each test item.
-    """
-    if "yul" in item.fixturenames:
-        marker = pytest.mark.yul_test()
-        item.add_marker(marker)
-        if any([fork.name() in item.name for fork in get_development_forks()]):
-            if item.config.getoption("verbose") >= 1:
-                warnings.warn("Compiling Yul for with Shanghai, not the target fork.")
-            item.add_marker(pytest.mark.compile_yul_with("Shanghai"))
+        if "yul" in item.fixturenames:
+            item.add_marker(pytest.mark.yul_test)
 
 
 def pytest_make_parametrize_id(config, val, argname):

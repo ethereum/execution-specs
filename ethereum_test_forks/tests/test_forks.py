@@ -4,15 +4,19 @@ Test fork utilities.
 
 from typing import Mapping, cast
 
+from semver import Version
+
 from ..base_fork import Fork
 from ..forks.forks import Berlin, Cancun, Frontier, London, Paris, Shanghai
 from ..forks.transition import BerlinToLondonAt5, ParisToShanghaiAtTime15k
 from ..helpers import (
     forks_from,
     forks_from_until,
+    get_closest_fork_with_solc_support,
     get_deployed_forks,
     get_development_forks,
     get_forks,
+    get_forks_with_solc_support,
     transition_fork_from_to,
     transition_fork_to,
 )
@@ -214,3 +218,14 @@ def test_precompiles():
 
 def test_tx_types():
     Cancun.tx_types() == list(range(4))
+
+
+def test_solc_versioning():
+    assert len(get_forks_with_solc_support(Version.parse("0.8.20"))) == 13
+    assert len(get_forks_with_solc_support(Version.parse("0.8.24"))) > 13
+
+
+def test_closest_fork_supported_by_solc():
+    assert get_closest_fork_with_solc_support(Paris, Version.parse("0.8.20")) == Paris
+    assert get_closest_fork_with_solc_support(Cancun, Version.parse("0.8.20")) == Shanghai
+    assert get_closest_fork_with_solc_support(Cancun, Version.parse("0.8.24")) == Cancun

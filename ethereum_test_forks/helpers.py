@@ -1,7 +1,9 @@
 """
 Helper methods to resolve forks during test filling
 """
-from typing import List
+from typing import List, Optional
+
+from semver import Version
 
 from .base_fork import BaseFork, Fork
 from .forks import forks, transition
@@ -33,7 +35,7 @@ def get_forks() -> List[Fork]:
     return all_forks
 
 
-def get_deployed_forks():
+def get_deployed_forks() -> List[Fork]:
     """
     Returns a list of all the fork classes implemented by `ethereum_test_forks`
     that have been deployed to mainnet, chronologically ordered by deployment.
@@ -41,7 +43,7 @@ def get_deployed_forks():
     return [fork for fork in get_forks() if fork.is_deployed()]
 
 
-def get_development_forks():
+def get_development_forks() -> List[Fork]:
     """
     Returns a list of all the fork classes implemented by `ethereum_test_forks`
     that have been not yet deployed to mainnet and are currently under
@@ -55,6 +57,34 @@ def get_parent_fork(fork: Fork) -> Fork:
     Returns the parent fork of the specified fork
     """
     return fork.__base__
+
+
+def get_forks_with_solc_support(solc_version: Version) -> List[Fork]:
+    """
+    Returns a list of all fork classes that are supported by solc.
+    """
+    return [fork for fork in get_forks() if solc_version >= fork.solc_min_version()]
+
+
+def get_forks_without_solc_support(solc_version: Version) -> List[Fork]:
+    """
+    Returns a list of all fork classes that aren't supported by solc.
+    """
+    return [fork for fork in get_forks() if solc_version < fork.solc_min_version()]
+
+
+def get_closest_fork_with_solc_support(fork: Fork, solc_version: Version) -> Optional[Fork]:
+    """
+    Returns the closest fork, potentially the provided fork itself, that has
+    solc support.
+    """
+    if fork is BaseFork:
+        return None
+    return (
+        fork
+        if solc_version >= fork.solc_min_version()
+        else get_closest_fork_with_solc_support(get_parent_fork(fork), solc_version)
+    )
 
 
 def get_transition_forks() -> List[Fork]:

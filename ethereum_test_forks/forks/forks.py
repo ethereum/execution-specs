@@ -3,11 +3,13 @@ All Ethereum fork class definitions.
 """
 from typing import List, Mapping, Optional
 
+from semver import Version
+
 from ..base_fork import BaseFork
 
 
 # All forks must be listed here !!! in the order they were introduced !!!
-class Frontier(BaseFork):
+class Frontier(BaseFork, solc_name="homestead"):
     """
     Frontier fork
     """
@@ -22,13 +24,20 @@ class Frontier(BaseFork):
         return cls.name()
 
     @classmethod
-    def solc_name(cls, block_number: int = 0, timestamp: int = 0) -> str:
+    def solc_name(cls) -> str:
         """
         Returns fork name as it's meant to be passed to the solc compiler.
         """
         if cls._solc_name is not None:
             return cls._solc_name
-        return cls.name()
+        return cls.name().lower()
+
+    @classmethod
+    def solc_min_version(cls) -> Version:
+        """
+        Returns the minimum version of solc that supports this fork.
+        """
+        return Version.parse("0.8.20")
 
     @classmethod
     def header_base_fee_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:
@@ -200,7 +209,7 @@ class Constantinople(Byzantium):
         return 2_000_000_000_000_000_000
 
 
-class ConstantinopleFix(Constantinople, solc_name="Constantinople"):
+class ConstantinopleFix(Constantinople, solc_name="constantinople"):
     """
     Constantinople Fix fork
     """
@@ -222,7 +231,7 @@ class Istanbul(ConstantinopleFix):
 
 
 # Glacier forks skipped, unless explicitly specified
-class MuirGlacier(Istanbul):
+class MuirGlacier(Istanbul, solc_name="istanbul"):
     """
     Muir Glacier fork
     """
@@ -264,7 +273,7 @@ class London(Berlin):
 
 
 # Glacier forks skipped, unless explicitly specified
-class ArrowGlacier(London):
+class ArrowGlacier(London, solc_name="london"):
     """
     Arrow Glacier fork
     """
@@ -272,7 +281,7 @@ class ArrowGlacier(London):
     pass
 
 
-class GrayGlacier(ArrowGlacier):
+class GrayGlacier(ArrowGlacier, solc_name="london"):
     """
     Gray Glacier fork
     """
@@ -354,6 +363,13 @@ class Cancun(Shanghai):
         development.
         """
         return False
+
+    @classmethod
+    def solc_min_version(cls) -> Version:
+        """
+        Returns the minimum version of solc that supports this fork.
+        """
+        return Version.parse("0.8.24")
 
     @classmethod
     def header_excess_blob_gas_required(cls, block_number: int = 0, timestamp: int = 0) -> bool:

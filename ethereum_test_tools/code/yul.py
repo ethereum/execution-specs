@@ -33,7 +33,7 @@ def get_evm_version_from_fork(fork: Fork | None):
     """
     if not fork:
         return None
-    return fork.solc_name().lower()
+    return fork.solc_name()
 
 
 class Yul(SupportsBytes, Sized):

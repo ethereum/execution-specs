@@ -8,7 +8,7 @@ from typing import Mapping, SupportsBytes
 import pytest
 from semver import Version
 
-from ethereum_test_forks import Fork, Homestead, Shanghai, forks_from_until, get_deployed_forks
+from ethereum_test_forks import Fork, Homestead, Shanghai, get_deployed_forks
 from evm_transition_tool import FixtureFormats, GethTransitionTool
 
 from ..code import CalldataCase, Case, Code, Conditional, Initcode, Switch, Yul
@@ -49,14 +49,14 @@ def test_code_operations(code: Code, expected_bytes: bytes):
     assert bytes(code) == expected_bytes
 
 
-@pytest.fixture(params=forks_from_until(get_deployed_forks()[1], get_deployed_forks()[-1]))
+@pytest.fixture(params=get_deployed_forks())
 def fork(request: pytest.FixtureRequest):
     """
     Return the target evm-version (fork) for solc compilation.
 
     Note:
-    - get_deployed_forks()[1] (Homestead) is the first fork that solc supports.
-    - forks_from_util: Used to remove the Glacier forks
+    - Homestead.
+    - forks_from_until: Used to remove the Glacier forks
     """
     return request.param
 
@@ -81,7 +81,7 @@ def expected_bytes(request: pytest.FixtureRequest, solc_version: Version, fork: 
     """Return the expected bytes for the test."""
     expected_bytes = request.param
     if isinstance(expected_bytes, Template):
-        if solc_version < SOLC_PADDING_VERSION or fork == Homestead:
+        if solc_version < SOLC_PADDING_VERSION or fork <= Homestead:
             solc_padding = ""
         else:
             solc_padding = "00"
@@ -89,7 +89,7 @@ def expected_bytes(request: pytest.FixtureRequest, solc_version: Version, fork: 
     if isinstance(expected_bytes, bytes):
         if fork == Shanghai:
             expected_bytes = b"\x5f" + expected_bytes[2:]
-        if solc_version < SOLC_PADDING_VERSION or fork == Homestead:
+        if solc_version < SOLC_PADDING_VERSION or fork <= Homestead:
             return expected_bytes
         else:
             return expected_bytes + b"\x00"

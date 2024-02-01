@@ -4,6 +4,8 @@ Abstract base class for Ethereum forks
 from abc import ABC, ABCMeta, abstractmethod
 from typing import Any, ClassVar, List, Mapping, Optional, Protocol, Type
 
+from semver import Version
+
 from .base_decorators import prefer_transition_to_method
 
 
@@ -252,9 +254,17 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def solc_name(cls, block_number: int = 0, timestamp: int = 0) -> str:
+    def solc_name(cls) -> str:
         """
         Returns fork name as it's meant to be passed to the solc compiler.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def solc_min_version(cls) -> Version:
+        """
+        Returns the minimum version of solc that supports this fork.
         """
         pass
 
