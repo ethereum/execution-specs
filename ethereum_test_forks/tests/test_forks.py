@@ -7,7 +7,7 @@ from typing import Mapping, cast
 from semver import Version
 
 from ..base_fork import Fork
-from ..forks.forks import Berlin, Cancun, Frontier, London, Paris, Shanghai
+from ..forks.forks import Berlin, Cancun, Frontier, London, Paris, Prague, Shanghai
 from ..forks.transition import BerlinToLondonAt5, ParisToShanghaiAtTime15k
 from ..helpers import (
     forks_from,
@@ -24,8 +24,8 @@ from ..transition_base_fork import transition_fork
 
 FIRST_DEPLOYED = Frontier
 LAST_DEPLOYED = Shanghai
-LAST_DEVELOPMENT = Cancun
-DEVELOPMENT_FORKS = [Cancun]
+LAST_DEVELOPMENT = Prague
+DEVELOPMENT_FORKS = [Cancun, Prague]
 
 
 def test_transition_forks():
@@ -229,3 +229,4 @@ def test_closest_fork_supported_by_solc():
     assert get_closest_fork_with_solc_support(Paris, Version.parse("0.8.20")) == Paris
     assert get_closest_fork_with_solc_support(Cancun, Version.parse("0.8.20")) == Shanghai
     assert get_closest_fork_with_solc_support(Cancun, Version.parse("0.8.24")) == Cancun
+    assert get_closest_fork_with_solc_support(Prague, Version.parse("0.8.24")) == Cancun

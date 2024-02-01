@@ -450,3 +450,24 @@ class Cancun(Shanghai):
         Starting at Cancun, payloads must have a parent beacon block root.
         """
         return True
+
+
+class Prague(Cancun):
+    """
+    Prague fork
+    """
+
+    @classmethod
+    def is_deployed(cls) -> bool:
+        """
+        Flags that the fork has not been deployed to mainnet; it is under active
+        development.
+        """
+        return False
+
+    @classmethod
+    def solc_min_version(cls) -> Version:
+        """
+        Returns the minimum version of solc that supports this fork.
+        """
+        return Version.parse("1.0.0")  # set a high version; currently unknown
