@@ -8,11 +8,11 @@ import pytest
 from ethereum_test_forks import Fork, get_deployed_forks
 from evm_transition_tool import FixtureFormats, GethTransitionTool
 
-from ...common import Account, Environment, Transaction, to_address
+from ...common import Account, Address, Environment, Transaction
 from ...common.types import Storage
 from ...spec import StateTest
 
-ADDRESS_UNDER_TEST = to_address(0x01)
+ADDRESS_UNDER_TEST = Address(0x01)
 
 
 @pytest.fixture
@@ -206,7 +206,7 @@ def test_post_balance_value_mismatch(pre, post, state_test, t8n, fork):
         ),
         (
             {ADDRESS_UNDER_TEST: Account(balance=1)},
-            {ADDRESS_UNDER_TEST: Account(balance=1), to_address(0x02): Account(balance=1)},
+            {ADDRESS_UNDER_TEST: Account(balance=1), Address(0x02): Account(balance=1)},
             "expected account not found",
         ),
         (

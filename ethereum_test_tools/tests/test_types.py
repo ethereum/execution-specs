@@ -17,8 +17,9 @@ from ..common import (
     to_json,
     withdrawals_root,
 )
+from ..common.base_types import Address, Bloom, Bytes, Hash, HeaderNonce, ZeroPaddedHexNumber
 from ..common.constants import TestPrivateKey
-from ..common.types import Address, Alloc, Bloom, Bytes, Hash, HeaderNonce, ZeroPaddedHexNumber
+from ..common.types import Alloc
 from ..exceptions import BlockException, TransactionException
 from ..spec.blockchain.types import (
     FixtureEngineNewPayload,
@@ -277,10 +278,10 @@ def test_storage():
 )
 def test_account_check_alloc(account: Account, alloc: Dict[Any, Any], should_pass: bool):
     if should_pass:
-        account.check_alloc("test", alloc)
+        account.check_alloc(Address(1), alloc)
     else:
         with pytest.raises(Exception) as _:
-            account.check_alloc("test", alloc)
+            account.check_alloc(Address(1), alloc)
 
 
 @pytest.mark.parametrize(

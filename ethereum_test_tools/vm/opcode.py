@@ -4,6 +4,8 @@ Ethereum Virtual Machine opcode definitions.
 from enum import Enum
 from typing import List, Union
 
+from ..common.base_types import FixedSizeBytes
+
 
 def _get_int_size(n: int) -> int:
     """
@@ -67,7 +69,7 @@ class Opcode(bytes):
             obj.data_portion_length = data_portion_length
             return obj
 
-    def __call__(self, *args_t: Union[int, bytes, str, "Opcode"]) -> bytes:
+    def __call__(self, *args_t: Union[int, bytes, str, "Opcode", FixedSizeBytes]) -> bytes:
         """
         Makes all opcode instances callable to return formatted bytecode,
         which constitutes a data portion, that is located after the opcode
@@ -94,10 +96,14 @@ class Opcode(bytes):
         automatically converted to PUSH operations, and negative numbers always
         use a PUSH32 operation.
 
+        `FixedSizeBytes` can also be used as stack elements, which includes
+        `Address` and `Hash` types, for each of which a PUSH operation is
+        automatically generated, `PUSH20` and `PUSH32` respectively.
+
         Hex-strings will automatically be converted to bytes.
 
         """
-        args: List[Union[int, bytes, str, "Opcode"]] = list(args_t)
+        args: List[Union[int, bytes, str, "Opcode", FixedSizeBytes]] = list(args_t)
         pre_opcode_bytecode = bytes()
         data_portion = bytes()
 
@@ -127,29 +133,36 @@ class Opcode(bytes):
         # The rest of the arguments conform the stack.
         while len(args) > 0:
             data = args.pop()
-            if isinstance(data, bytes) or isinstance(data, str):
+            if isinstance(data, int) or isinstance(data, FixedSizeBytes):
+                # We are going to push a constant to the stack.
+                data_size = 0
+                if isinstance(data, int):
+                    signed = data < 0
+                    data_size = _get_int_size(data)
+                    if data_size > 32:
+                        raise ValueError("Opcode stack data must be less than 32 bytes")
+                    elif data_size == 0:
+                        # Pushing 0 is done with the PUSH1 opcode for compatibility
+                        # reasons.
+                        data_size = 1
+                    data = data.to_bytes(
+                        length=data_size,
+                        byteorder="big",
+                        signed=signed,
+                    )
+                elif isinstance(data, FixedSizeBytes):
+                    data_size = data.byte_length
+
+                assert isinstance(data, bytes)
+                assert data_size > 0
+                pre_opcode_bytecode += _push_opcodes_byte_list[data_size]
+                pre_opcode_bytecode += data
+            elif isinstance(data, bytes) or isinstance(data, str):
                 if isinstance(data, str):
                     if data.startswith("0x"):
                         data = data[2:]
                     data = bytes.fromhex(data)
                 pre_opcode_bytecode += data
-            elif isinstance(data, int):
-                # We are going to push a constant to the stack.
-                signed = data < 0
-                data_size = _get_int_size(data)
-                if data_size > 32:
-                    raise ValueError("Opcode stack data must be less than 32 bytes")
-                elif data_size == 0:
-                    # Pushing 0 is done with the PUSH1 opcode for compatibility
-                    # reasons.
-                    data_size = 1
-
-                pre_opcode_bytecode += _push_opcodes_byte_list[data_size]
-                pre_opcode_bytecode += data.to_bytes(
-                    length=data_size,
-                    byteorder="big",
-                    signed=signed,
-                )
 
             else:
                 raise TypeError("Opcode stack data must be either an int or a bytes/hex string")

@@ -5,7 +5,7 @@ from dataclasses import replace
 
 import pytest
 
-from ..common.types import Address, Bloom, Bytes, Hash, HeaderNonce
+from ..common.base_types import Address, Bloom, Bytes, Hash, HeaderNonce
 from ..spec.blockchain.types import FixtureHeader, Header
 
 fixture_header_ones = FixtureHeader(

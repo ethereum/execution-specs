@@ -16,7 +16,6 @@ from typing import (
     SupportsBytes,
     Type,
     TypeAlias,
-    TypeVar,
 )
 
 from coincurve.keys import PrivateKey, PublicKey
@@ -28,16 +27,14 @@ from trie import HexaryTrie
 from ethereum_test_forks import Fork
 
 from ..exceptions import ExceptionList, TransactionException
-from .constants import AddrAA, TestPrivateKey
+from .base_types import Address, Bytes, Hash, HexNumber, Number, ZeroPaddedHexNumber
+from .constants import TestPrivateKey
 from .conversions import (
     BytesConvertible,
     FixedSizeBytesConvertible,
     NumberConvertible,
     int_or_none,
     str_or_none,
-    to_bytes,
-    to_fixed_size_bytes,
-    to_number,
 )
 from .json import JSONEncoder, SupportsJSON, field
 
@@ -61,187 +58,6 @@ class Auto:
     def __repr__(self) -> str:
         """Print the correct test id."""
         return "auto"
-
-
-# Basic Types
-
-
-N = TypeVar("N", bound="Number")
-
-
-class Number(int, SupportsJSON):
-    """
-    Class that helps represent numbers in tests.
-    """
-
-    def __new__(cls, input: NumberConvertible | N):
-        """
-        Creates a new Number object.
-        """
-        return super(Number, cls).__new__(cls, to_number(input))
-
-    def __str__(self) -> str:
-        """
-        Returns the string representation of the number.
-        """
-        return str(int(self))
-
-    def __json__(self, encoder: JSONEncoder) -> str:
-        """
-        Returns the JSON representation of the number.
-        """
-        return str(self)
-
-    def hex(self) -> str:
-        """
-        Returns the hexadecimal representation of the number.
-        """
-        return hex(self)
-
-    @classmethod
-    def or_none(cls: Type[N], input: N | NumberConvertible | None) -> N | None:
-        """
-        Converts the input to a Number while accepting None.
-        """
-        if input is None:
-            return input
-        return cls(input)
-
-
-class HexNumber(Number):
-    """
-    Class that helps represent an hexadecimal numbers in tests.
-    """
-
-    def __str__(self) -> str:
-        """
-        Returns the string representation of the number.
-        """
-        return self.hex()
-
-
-class ZeroPaddedHexNumber(HexNumber):
-    """
-    Class that helps represent zero padded hexadecimal numbers in tests.
-    """
-
-    def hex(self) -> str:
-        """
-        Returns the hexadecimal representation of the number.
-        """
-        if self == 0:
-            return "0x00"
-        hex_str = hex(self)[2:]
-        if len(hex_str) % 2 == 1:
-            return "0x0" + hex_str
-        return "0x" + hex_str
-
-
-class Bytes(bytes, SupportsJSON):
-    """
-    Class that helps represent bytes of variable length in tests.
-    """
-
-    def __new__(cls, input: BytesConvertible):
-        """
-        Creates a new Bytes object.
-        """
-        return super(Bytes, cls).__new__(cls, to_bytes(input))
-
-    def __str__(self) -> str:
-        """
-        Returns the hexadecimal representation of the bytes.
-        """
-        return self.hex()
-
-    def __json__(self, encoder: JSONEncoder) -> str:
-        """
-        Returns the JSON representation of the bytes.
-        """
-        return str(self)
-
-    def hex(self, *args, **kwargs) -> str:
-        """
-        Returns the hexadecimal representation of the bytes.
-        """
-        return "0x" + super().hex(*args, **kwargs)
-
-    @classmethod
-    def or_none(cls, input: "Bytes | BytesConvertible | None") -> "Bytes | None":
-        """
-        Converts the input to a Bytes while accepting None.
-        """
-        if input is None:
-            return input
-        return cls(input)
-
-
-T = TypeVar("T", bound="FixedSizeBytes")
-
-
-class FixedSizeBytes(Bytes):
-    """
-    Class that helps represent bytes of fixed length in tests.
-    """
-
-    byte_length: ClassVar[int]
-
-    def __class_getitem__(cls, length: int) -> Type["FixedSizeBytes"]:
-        """
-        Creates a new FixedSizeBytes class with the given length.
-        """
-
-        class Sized(cls):  # type: ignore
-            byte_length = length
-
-        return Sized
-
-    def __new__(cls, input: FixedSizeBytesConvertible | T):
-        """
-        Creates a new FixedSizeBytes object.
-        """
-        return super(FixedSizeBytes, cls).__new__(cls, to_fixed_size_bytes(input, cls.byte_length))
-
-    @classmethod
-    def or_none(cls: Type[T], input: T | FixedSizeBytesConvertible | None) -> T | None:
-        """
-        Converts the input to a Fixed Size Bytes while accepting None.
-        """
-        if input is None:
-            return input
-        return cls(input)
-
-
-class Address(FixedSizeBytes[20]):  # type: ignore
-    """
-    Class that helps represent Ethereum addresses in tests.
-    """
-
-    pass
-
-
-class Hash(FixedSizeBytes[32]):  # type: ignore
-    """
-    Class that helps represent hashes in tests.
-    """
-
-    pass
-
-
-class Bloom(FixedSizeBytes[256]):  # type: ignore
-    """
-    Class that helps represent blooms in tests.
-    """
-
-    pass
-
-
-class HeaderNonce(FixedSizeBytes[8]):  # type: ignore
-    """
-    Class that helps represent the header nonce in tests.
-    """
-
-    pass
 
 
 MAX_STORAGE_KEY_VALUE = 2**256 - 1
@@ -353,12 +169,12 @@ class Storage(SupportsJSON):
         was different.
         """
 
-        address: str
+        address: Address
         key: int
         want: int
         got: int
 
-        def __init__(self, address: str, key: int, want: int, got: int, *args):
+        def __init__(self, address: Address, key: int, want: int, got: int, *args):
             super().__init__(args)
             self.address = address
             self.key = key
@@ -486,7 +302,7 @@ class Storage(SupportsJSON):
                 return False
         return True
 
-    def must_contain(self, address: str, other: "Storage"):
+    def must_contain(self, address: Address, other: "Storage"):
         """
         Succeeds only if self contains all keys with equal value as
         contained by second storage.
@@ -504,7 +320,7 @@ class Storage(SupportsJSON):
                     address=address, key=key, want=self.data[key], got=other.data[key]
                 )
 
-    def must_be_equal(self, address: str, other: "Storage"):
+    def must_be_equal(self, address: Address, other: "Storage"):
         """
         Succeeds only if "self" is equal to "other" storage.
         """
@@ -596,11 +412,11 @@ class Account:
         value was found.
         """
 
-        address: str
+        address: Address
         want: int | None
         got: int | None
 
-        def __init__(self, address: str, want: int | None, got: int | None, *args):
+        def __init__(self, address: Address, want: int | None, got: int | None, *args):
             super().__init__(args)
             self.address = address
             self.want = want
@@ -620,11 +436,11 @@ class Account:
         value was found.
         """
 
-        address: str
+        address: Address
         want: int | None
         got: int | None
 
-        def __init__(self, address: str, want: int | None, got: int | None, *args):
+        def __init__(self, address: Address, want: int | None, got: int | None, *args):
             super().__init__(args)
             self.address = address
             self.want = want
@@ -644,11 +460,11 @@ class Account:
         one was found.
         """
 
-        address: str
+        address: Address
         want: str | None
         got: str | None
 
-        def __init__(self, address: str, want: str | None, got: str | None, *args):
+        def __init__(self, address: Address, want: str | None, got: str | None, *args):
             super().__init__(args)
             self.address = address
             self.want = want
@@ -661,7 +477,7 @@ class Account:
                 + f"want {self.want}, got {self.got}"
             )
 
-    def check_alloc(self: "Account", address: str, alloc: dict):
+    def check_alloc(self: "Account", address: Address, alloc: dict):
         """
         Checks the returned alloc against an expected account in post state.
         Raises exception on failure.
@@ -1163,8 +979,8 @@ class Transaction:
             cast_type=HexNumber,
         ),
     )
-    to: Optional[FixedSizeBytesConvertible] = field(
-        default=AddrAA,
+    to: Optional[FixedSizeBytesConvertible | Address] = field(
+        default=Address(0xAA),
         json_encoder=JSONEncoder.Field(
             cast_type=Address,
         ),

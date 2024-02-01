@@ -4,6 +4,7 @@ Test suite for `ethereum_test_tools.vm` module.
 
 import pytest
 
+from ..common.base_types import Address
 from ..vm.opcode import Opcodes as Op
 
 
@@ -105,6 +106,16 @@ from ..vm.opcode import Opcodes as Op
                 + [0xFF] * 32
                 + [0x55]
             ),
+        ),
+        (
+            Op.CALL(Op.GAS, Op.PUSH20(0x1234), 0, 0, 0, 0, 32),
+            b"\x60\x20\x60\x00\x60\x00\x60\x00\x60\x00\x73\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x00\x00\x00\x00\x00\x00\x00\x00\x12\x34\x5A\xF1",
+        ),
+        (
+            Op.CALL(Op.GAS, Address(0x1234), 0, 0, 0, 0, 32),
+            b"\x60\x20\x60\x00\x60\x00\x60\x00\x60\x00\x73\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+            + b"\x00\x00\x00\x00\x00\x00\x00\x00\x12\x34\x5A\xF1",
         ),
     ],
 )

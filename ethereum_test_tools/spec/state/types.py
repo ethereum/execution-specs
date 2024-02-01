@@ -8,20 +8,10 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, TextIO
 
 from evm_transition_tool import FixtureFormats
 
-from ...common.conversions import BytesConvertible, FixedSizeBytesConvertible
+from ...common.base_types import Address, Bytes, Hash, HexNumber, ZeroPaddedHexNumber
+from ...common.conversions import BytesConvertible, FixedSizeBytesConvertible, NumberConvertible
 from ...common.json import JSONEncoder, field, to_json
-from ...common.types import (
-    AccessList,
-    Address,
-    Alloc,
-    Bytes,
-    Environment,
-    Hash,
-    HexNumber,
-    NumberConvertible,
-    Transaction,
-    ZeroPaddedHexNumber,
-)
+from ...common.types import AccessList, Alloc, Environment, Transaction
 from ...exceptions import ExceptionList, TransactionException
 from ..base.base_test import BaseFixture
 

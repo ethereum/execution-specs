@@ -14,25 +14,26 @@ from ethereum.crypto.hash import keccak256
 from ethereum_test_forks import Fork
 from evm_transition_tool import FixtureFormats
 
-from ...common.constants import EmptyOmmersRoot, EngineAPIError
-from ...common.conversions import BytesConvertible, FixedSizeBytesConvertible, NumberConvertible
-from ...common.json import JSONEncoder, field, to_json
-from ...common.types import (
-    Account,
-    AddrAA,
+from ...common.base_types import (
     Address,
-    Alloc,
     Bloom,
     Bytes,
-    Environment,
     Hash,
     HeaderNonce,
     HexNumber,
     Number,
+    ZeroPaddedHexNumber,
+)
+from ...common.constants import AddrAA, EmptyOmmersRoot, EngineAPIError
+from ...common.conversions import BytesConvertible, FixedSizeBytesConvertible, NumberConvertible
+from ...common.json import JSONEncoder, field, to_json
+from ...common.types import (
+    Account,
+    Alloc,
+    Environment,
     Removable,
     Transaction,
     Withdrawal,
-    ZeroPaddedHexNumber,
     blob_versioned_hashes_from_transactions,
     transaction_list_to_serializable_list,
 )

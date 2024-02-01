@@ -48,11 +48,11 @@ def verify_post_alloc(expected_post: Mapping, got_alloc: Mapping):
     Verify that an allocation matches the expected post in the test.
     Raises exception on unexpected values.
     """
-    got_alloc_normalized: Dict[str, Any] = {
-        Address(address).hex(): got_alloc[address] for address in got_alloc
+    got_alloc_normalized: Dict[Address, Any] = {
+        Address(address): got_alloc[address] for address in got_alloc
     }
     for address, account in expected_post.items():
-        address = Address(address).hex()
+        address = Address(address)
         if account is not None:
             if account == Account.NONEXISTENT:
                 if address in got_alloc_normalized:
