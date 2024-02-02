@@ -424,8 +424,8 @@ def apply_body(
 
     Returns
     -------
-    gas_available : `ethereum.base_types.Uint`
-        Remaining gas after all transactions have been executed.
+    block_gas_used : `ethereum.base_types.Uint`
+        Gas used for executing all transactions.
     transactions_root : `ethereum.fork_types.Root`
         Trie root of all the transactions in the block.
     receipt_root : `ethereum.fork_types.Root`
