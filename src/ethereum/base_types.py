@@ -37,7 +37,6 @@ class SlottedFreezable(Protocol):
     _frozen: bool
 
 
-U255_MAX_VALUE = (2**255) - 1
 U255_CEIL_VALUE = 2**255
 U256_MAX_VALUE = (2**256) - 1
 U256_CEIL_VALUE = 2**256
@@ -751,7 +750,7 @@ class U256(FixedUInt):
         signed_int : `int`
             Signed integer obtained from 256-bit unsigned integer.
         """
-        if self <= U255_MAX_VALUE:
+        if self.bit_length() < 256:
             # This means that the sign bit is 0
             return int(self)
 
