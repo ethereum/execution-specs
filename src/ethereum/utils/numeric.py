@@ -167,7 +167,9 @@ def le_uint32_sequence_to_uint(sequence: Sequence[U32]) -> Uint:
     return Uint.from_le_bytes(sequence_as_bytes)
 
 
-def fake_exponential(factor: int, numerator: int, denominator: int) -> int:
+def taylor_exponential(
+    factor: Uint, numerator: Uint, denominator: Uint
+) -> Uint:
     """
     Approximates factor * e ** (numerator / denominator) using
     Taylor expansion.
@@ -183,7 +185,7 @@ def fake_exponential(factor: int, numerator: int, denominator: int) -> int:
 
     Returns
     -------
-    output : `int`
+    output : `ethereum.base_types.Uint`
         The approximation of factor * e ** (numerator / denominator).
 
     """
