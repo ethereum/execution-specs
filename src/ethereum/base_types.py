@@ -37,7 +37,6 @@ class SlottedFreezable(Protocol):
     _frozen: bool
 
 
-U64_MAX_VALUE = (2**64) - 1
 U255_MAX_VALUE = (2**255) - 1
 U255_CEIL_VALUE = 2**255
 U256_MAX_VALUE = (2**256) - 1
@@ -883,8 +882,7 @@ class U64(FixedUInt):
         return cls(int.from_bytes(buffer, "big"))
 
 
-U64.MAX_VALUE = int.__new__(U64, U64_MAX_VALUE)
-"""autoapi_noindex"""
+U64.MAX_VALUE = int.__new__(U64, (2**64) - 1)
 
 
 B = TypeVar("B", bound="FixedBytes")
