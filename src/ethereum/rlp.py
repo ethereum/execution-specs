@@ -21,7 +21,7 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import RLPDecodingError, RLPEncodingError
 from ethereum.utils.ensure import ensure
 
-from .base_types import Bytes, Bytes0, Bytes20, FixedBytes, FixedUInt, Uint
+from .base_types import Bytes, Bytes0, Bytes20, FixedBytes, FixedUint, Uint
 
 RLP = Any
 
@@ -48,7 +48,7 @@ def encode(raw_data: RLP) -> Bytes:
     """
     if isinstance(raw_data, (bytearray, bytes)):
         return encode_bytes(raw_data)
-    elif isinstance(raw_data, (Uint, FixedUInt)):
+    elif isinstance(raw_data, (Uint, FixedUint)):
         return encode(raw_data.to_be_bytes())
     elif isinstance(raw_data, str):
         return encode_bytes(raw_data.encode())
@@ -278,7 +278,7 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
     elif issubclass(cls, Bytes):
         ensure(isinstance(raw_rlp, Bytes), RLPDecodingError)
         return raw_rlp
-    elif issubclass(cls, (Uint, FixedUInt)):
+    elif issubclass(cls, (Uint, FixedUint)):
         ensure(isinstance(raw_rlp, Bytes), RLPDecodingError)
         try:
             return cls.from_be_bytes(raw_rlp)  # type: ignore

@@ -308,16 +308,16 @@ class Uint(int):
         return self.to_bytes(number_bytes, "little")
 
 
-T = TypeVar("T", bound="FixedUInt")
+T = TypeVar("T", bound="FixedUint")
 
 
-class FixedUInt(int):
+class FixedUint(int):
     """
     Superclass for fixed size unsigned integers. Not intended to be used
     directly, but rather to be subclassed.
     """
 
-    MAX_VALUE: ClassVar["FixedUInt"]
+    MAX_VALUE: ClassVar["FixedUint"]
 
     __slots__ = ()
 
@@ -516,7 +516,7 @@ class FixedUInt(int):
         if right < 0 or right > self.MAX_VALUE:
             raise ValueError()
 
-        result = super(FixedUInt, self).__divmod__(right)
+        result = super(FixedUint, self).__divmod__(right)
         return (
             int.__new__(self.__class__, result[0]),
             int.__new__(self.__class__, result[1]),
@@ -529,7 +529,7 @@ class FixedUInt(int):
         if left < 0 or left > self.MAX_VALUE:
             raise ValueError()
 
-        result = super(FixedUInt, self).__rdivmod__(left)
+        result = super(FixedUint, self).__rdivmod__(left)
         return (
             int.__new__(self.__class__, result[0]),
             int.__new__(self.__class__, result[1]),
@@ -681,7 +681,7 @@ class FixedUInt(int):
     # TODO: Implement neg, pos, abs ...
 
 
-class U256(FixedUInt):
+class U256(FixedUint):
     """
     Unsigned positive integer, which can represent `0` to `2 ** 256 - 1`,
     inclusive.
@@ -759,7 +759,7 @@ U256.MAX_VALUE = int.__new__(U256, (2**256) - 1)
 """autoapi_noindex"""
 
 
-class U32(FixedUInt):
+class U32(FixedUint):
     """
     Unsigned positive integer, which can represent `0` to `2 ** 32 - 1`,
     inclusive.
@@ -810,7 +810,7 @@ class U32(FixedUInt):
 U32.MAX_VALUE = int.__new__(U32, (2**32) - 1)
 
 
-class U64(FixedUInt):
+class U64(FixedUint):
     """
     Unsigned positive integer, which can represent `0` to `2 ** 64 - 1`,
     inclusive.
