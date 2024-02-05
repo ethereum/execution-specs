@@ -1,7 +1,7 @@
 import json
 import os
 from importlib import import_module
-from typing import Any, List, TypeVar
+from typing import Any, List
 
 from ethereum import rlp
 from ethereum.base_types import U64, U256, Uint

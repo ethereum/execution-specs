@@ -3,15 +3,7 @@ import os
 from importlib import import_module
 from typing import Any, Dict, List
 
-from ethereum.base_types import U256, Uint
-from ethereum.utils.hexadecimal import (
-    hex_to_bytes,
-    hex_to_bytes8,
-    hex_to_bytes32,
-    hex_to_hash,
-    hex_to_u256,
-    hex_to_uint,
-)
+from ethereum.utils.hexadecimal import hex_to_u256, hex_to_uint
 
 
 class DifficultyTestLoader:
@@ -26,7 +18,7 @@ class DifficultyTestLoader:
         self.test_dir = f"tests/fixtures/DifficultyTests/df{fork_name}"
         try:
             self.test_files = [file for file in os.listdir(self.test_dir)]
-        except:
+        except OSError:
             self.test_files = []
 
         self.fork = self._module("fork")
