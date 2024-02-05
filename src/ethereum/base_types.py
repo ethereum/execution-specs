@@ -37,7 +37,6 @@ class SlottedFreezable(Protocol):
     _frozen: bool
 
 
-U8_MAX_VALUE = (2**8) - 1
 U32_MAX_VALUE = (2**32) - 1
 U32_CEIL_VALUE = 2**32
 U64_MAX_VALUE = (2**64) - 1
