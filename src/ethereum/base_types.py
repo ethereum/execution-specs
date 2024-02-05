@@ -38,7 +38,6 @@ class SlottedFreezable(Protocol):
 
 
 U255_CEIL_VALUE = 2**255
-U256_MAX_VALUE = (2**256) - 1
 U256_CEIL_VALUE = 2**256
 
 
@@ -758,7 +757,7 @@ class U256(FixedUInt):
         return int(self) - U256_CEIL_VALUE
 
 
-U256.MAX_VALUE = int.__new__(U256, U256_MAX_VALUE)
+U256.MAX_VALUE = int.__new__(U256, (2**256) - 1)
 """autoapi_noindex"""
 
 
