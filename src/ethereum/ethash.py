@@ -28,7 +28,7 @@ At a high level, the Ethash algorithm is as follows:
 
 from typing import Callable, Tuple, Union
 
-from ethereum.base_types import U32, U32_MAX_VALUE, Bytes8, Uint
+from ethereum.base_types import U32, Bytes8, Uint
 from ethereum.crypto.hash import Hash32, Hash64, keccak256, keccak512
 from ethereum.utils.numeric import (
     is_prime,
@@ -264,7 +264,7 @@ def fnv(a: Union[Uint, U32], b: Union[Uint, U32]) -> U32:
     [FNV-1]: http://www.isthe.com/chongo/tech/comp/fnv/#FNV-1
     """
     # This is a faster way of doing `number % (2 ** 32)`.
-    result = ((Uint(a) * 0x01000193) ^ Uint(b)) & U32_MAX_VALUE
+    result = ((Uint(a) * 0x01000193) ^ Uint(b)) & U32.MAX_VALUE
     return U32(result)
 
 

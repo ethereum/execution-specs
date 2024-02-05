@@ -37,7 +37,6 @@ class SlottedFreezable(Protocol):
     _frozen: bool
 
 
-U32_MAX_VALUE = (2**32) - 1
 U32_CEIL_VALUE = 2**32
 U64_MAX_VALUE = (2**64) - 1
 U255_MAX_VALUE = (2**255) - 1
@@ -814,8 +813,7 @@ class U32(FixedUInt):
         return self.to_bytes(byte_length, "little")
 
 
-U32.MAX_VALUE = int.__new__(U32, U32_MAX_VALUE)
-"""autoapi_noindex"""
+U32.MAX_VALUE = int.__new__(U32, (2**32) - 1)
 
 
 class U64(FixedUInt):
