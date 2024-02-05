@@ -14,8 +14,6 @@ Introduction
 Defines the serialization and deserialization format used throughout Ethereum.
 """
 
-from __future__ import annotations
-
 from dataclasses import astuple, fields, is_dataclass
 from typing import Any, List, Sequence, Tuple, Type, TypeVar, Union, cast
 

@@ -12,8 +12,6 @@ Introduction
 Integer and array types which are used by—but not unique to—Ethereum.
 """
 
-from __future__ import annotations
-
 from dataclasses import is_dataclass, replace
 from typing import (
     Any,
