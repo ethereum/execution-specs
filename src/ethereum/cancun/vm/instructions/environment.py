@@ -32,9 +32,9 @@ from ..gas import (
     GAS_RETURN_DATA_COPY,
     GAS_VERY_LOW,
     GAS_WARM_ACCESS,
+    calculate_blob_gas_price,
     calculate_gas_extend_memory,
     charge_gas,
-    get_blob_gasprice,
 )
 from ..stack import pop, push
 
@@ -583,7 +583,7 @@ def blob_base_fee(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    blob_base_fee = get_blob_gasprice(evm.env)
+    blob_base_fee = calculate_blob_gas_price(evm.env)
     push(evm.stack, U256(blob_base_fee))
 
     # PROGRAM COUNTER

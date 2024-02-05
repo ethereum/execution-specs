@@ -16,7 +16,7 @@ from typing import List, Tuple
 
 from ethereum.base_types import U64, U256, Uint
 from ethereum.trace import GasAndRefund, evm_trace
-from ethereum.utils.numeric import ceil32, fake_exponential
+from ethereum.utils.numeric import ceil32, taylor_exponential
 
 from ..fork_types import BlobTransaction, Header, Transaction
 from . import Environment, Evm
@@ -68,8 +68,8 @@ GAS_POINT_EVALUATION = Uint(50000)
 
 TARGET_BLOB_GAS_PER_BLOCK = U64(393216)
 GAS_PER_BLOB = Uint(2**17)
-MIN_BLOB_GASPRICE = 1
-BLOB_GASPRICE_UPDATE_FRACTION = 3338477
+MIN_BLOB_GASPRICE = Uint(1)
+BLOB_GASPRICE_UPDATE_FRACTION = Uint(3338477)
 
 
 @dataclass
@@ -282,20 +282,16 @@ def calculate_excess_blob_gas(parent_header: Header) -> U64:
     excess_blob_gas: `ethereum.base_types.U64`
         The excess blob gas for the current block.
     """
-    if (
+    parent_blob_gas = (
         parent_header.excess_blob_gas + parent_header.blob_gas_used
-        < TARGET_BLOB_GAS_PER_BLOCK
-    ):
+    )
+    if parent_blob_gas < TARGET_BLOB_GAS_PER_BLOCK:
         return U64(0)
     else:
-        return (
-            parent_header.excess_blob_gas
-            + parent_header.blob_gas_used
-            - TARGET_BLOB_GAS_PER_BLOCK
-        )
+        return parent_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
 
 
-def get_total_blob_gas(tx: Transaction) -> Uint:
+def calculate_total_blob_gas(tx: Transaction) -> Uint:
     """
     Calculate the total blob gas for a transaction.
 
@@ -315,7 +311,7 @@ def get_total_blob_gas(tx: Transaction) -> Uint:
         return Uint(0)
 
 
-def get_blob_gasprice(env: Environment) -> Uint:
+def calculate_blob_gas_price(env: Environment) -> Uint:
     """
     Calculate the blob gasprice for a block.
 
@@ -329,12 +325,10 @@ def get_blob_gasprice(env: Environment) -> Uint:
     blob_gasprice: `Uint`
         The blob gasprice.
     """
-    return Uint(
-        fake_exponential(
-            MIN_BLOB_GASPRICE,
-            int(env.excess_blob_gas),
-            BLOB_GASPRICE_UPDATE_FRACTION,
-        )
+    return taylor_exponential(
+        MIN_BLOB_GASPRICE,
+        Uint(env.excess_blob_gas),
+        BLOB_GASPRICE_UPDATE_FRACTION,
     )
 
 
@@ -354,4 +348,4 @@ def calculate_data_fee(env: Environment, tx: Transaction) -> Uint:
     data_fee: `Uint`
         The blob data fee.
     """
-    return get_total_blob_gas(tx) * get_blob_gasprice(env)
+    return calculate_total_blob_gas(tx) * calculate_blob_gas_price(env)

@@ -64,10 +64,10 @@ from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
 from .vm import Message
 from .vm.gas import (
+    calculate_blob_gas_price,
     calculate_data_fee,
     calculate_excess_blob_gas,
-    get_blob_gasprice,
-    get_total_blob_gas,
+    calculate_total_blob_gas,
     init_code_cost,
 )
 from .vm.interpreter import MAX_CODE_SIZE, process_message_call
@@ -417,9 +417,9 @@ def make_receipt(
 
     if isinstance(tx, AccessListTransaction):
         return b"\x01" + rlp.encode(receipt)
-    if isinstance(tx, FeeMarketTransaction):
+    elif isinstance(tx, FeeMarketTransaction):
         return b"\x02" + rlp.encode(receipt)
-    if isinstance(tx, BlobTransaction):
+    elif isinstance(tx, BlobTransaction):
         return b"\x03" + rlp.encode(receipt)
     else:
         return receipt
@@ -591,7 +591,7 @@ def apply_body(
         )
 
         block_logs += logs
-        blob_gas_used += get_total_blob_gas(tx)
+        blob_gas_used += calculate_total_blob_gas(tx)
 
     ensure(blob_gas_used <= MAX_BLOB_GAS_PER_BLOCK, InvalidBlock)
     block_gas_used = block_gas_limit - gas_available
@@ -664,9 +664,12 @@ def process_transaction(
                 InvalidBlock,
             )
 
-        ensure(tx.max_fee_per_blob_gas >= get_blob_gasprice(env), InvalidBlock)
+        ensure(
+            tx.max_fee_per_blob_gas >= calculate_blob_gas_price(env),
+            InvalidBlock,
+        )
 
-        max_gas_fee += get_total_blob_gas(tx) * tx.max_fee_per_blob_gas
+        max_gas_fee += calculate_total_blob_gas(tx) * tx.max_fee_per_blob_gas
         blob_gas_fee = calculate_data_fee(env, tx)
     else:
         blob_gas_fee = Uint(0)
@@ -1017,7 +1020,7 @@ def signing_hash_1559(tx: FeeMarketTransaction) -> Hash32:
 
 def signing_hash_4844(tx: BlobTransaction) -> Hash32:
     """
-    Compute the hash of a transaction used in a EIP 4844 signature.
+    Compute the hash of a transaction used in a EIP-4844 signature.
 
     Parameters
     ----------
