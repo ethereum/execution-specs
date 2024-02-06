@@ -1,6 +1,7 @@
 """
 Ethereum state test spec definition and filler.
 """
+
 from copy import copy
 from dataclasses import dataclass
 from typing import Callable, Generator, List, Mapping, Optional, Type
@@ -133,6 +134,8 @@ class StateTest(BaseTest):
             ),
             Alloc(self.pre),
         )
+        if empty_accounts := pre_alloc.empty_accounts():
+            raise Exception(f"Empty accounts in pre state: {empty_accounts}")
         transition_tool_name = fork.transition_tool_name(
             block_number=Number(self.env.number),
             timestamp=Number(self.env.timestamp),

@@ -519,6 +519,12 @@ class Account:
             actual_storage = Storage(alloc["storage"]) if "storage" in alloc else Storage({})
             expected_storage.must_be_equal(address=address, other=actual_storage)
 
+    def has_empty_code(self: "Account") -> bool:
+        """
+        Returns true if an account has no bytecode.
+        """
+        return not self.code or Bytes(self.code) == b""
+
     def is_empty(self: "Account") -> bool:
         """
         Returns true if an account deemed empty.
@@ -526,7 +532,7 @@ class Account:
         return (
             (self.nonce == 0 or self.nonce is None)
             and (self.balance == 0 or self.balance is None)
-            and (not self.code and self.code is None)
+            and self.has_empty_code()
             and (not self.storage or self.storage == {} or self.storage is None)
         )
 
@@ -580,9 +586,7 @@ class Alloc(dict, Mapping[Address, Account], SupportsJSON):
         for address, account in d.items():
             address = Address(address)
             assert address not in self, f"Duplicate address in alloc: {address}"
-            account = Account.from_dict(account)
-            assert not account.is_empty(), f"Empty account: {account} for address: {address}"
-            self[address] = account
+            self[address] = Account.from_dict(account)
 
     @classmethod
     def merge(cls, alloc_1: "Alloc", alloc_2: "Alloc") -> "Alloc":
@@ -592,9 +596,20 @@ class Alloc(dict, Mapping[Address, Account], SupportsJSON):
         merged = alloc_1.copy()
 
         for address, other_account in alloc_2.items():
-            merged[address] = Account.merge(merged.get(address, None), other_account)
+            merged_account = Account.merge(merged.get(address, None), other_account)
+            if merged_account.is_empty():
+                if address in merged:
+                    merged.pop(address, None)
+            else:
+                merged[address] = merged_account
 
         return Alloc(merged)
+
+    def empty_accounts(self) -> List[Address]:
+        """
+        Returns a list of addresses of empty accounts.
+        """
+        return [address for address, account in self.items() if account.is_empty()]
 
     def __json__(self, encoder: JSONEncoder) -> Mapping[str, Any]:
         """

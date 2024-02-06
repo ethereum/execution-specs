@@ -1,6 +1,7 @@
 """
 Ethereum blockchain test spec definition and filler.
 """
+
 from copy import copy
 from dataclasses import dataclass, field, replace
 from pprint import pprint
@@ -133,12 +134,16 @@ class BlockchainTest(BaseTest):
         if env.beacon_root is not None:
             assert Hash(env.beacon_root) == Hash(0), "beacon_root must be empty at genesis"
 
-        pre_alloc = Alloc(
-            fork.pre_allocation(block_number=0, timestamp=Number(env.timestamp)),
+        pre_alloc = Alloc.merge(
+            Alloc(
+                fork.pre_allocation(block_number=0, timestamp=Number(env.timestamp)),
+            ),
+            Alloc(self.pre),
         )
-
+        if empty_accounts := pre_alloc.empty_accounts():
+            raise Exception(f"Empty accounts in pre state: {empty_accounts}")
         new_alloc, state_root = t8n.calc_state_root(
-            alloc=to_json(Alloc.merge(pre_alloc, Alloc(self.pre))),
+            alloc=to_json(pre_alloc),
             fork=fork,
             debug_output_path=self.get_next_transition_tool_output_path(),
         )
