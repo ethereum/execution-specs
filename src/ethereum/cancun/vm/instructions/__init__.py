@@ -97,6 +97,8 @@ class Ops(enum.Enum):
     CHAINID = 0x46
     SELFBALANCE = 0x47
     BASEFEE = 0x48
+    BLOBHASH = 0x49
+    BLOBBASEFEE = 0x4A
 
     # Control Flow Ops
     STOP = 0x00
@@ -271,6 +273,8 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.EXTCODEHASH: environment_instructions.extcodehash,
     Ops.SELFBALANCE: environment_instructions.self_balance,
     Ops.BASEFEE: environment_instructions.base_fee,
+    Ops.BLOBHASH: environment_instructions.blob_hash,
+    Ops.BLOBBASEFEE: environment_instructions.blob_base_fee,
     Ops.SSTORE: storage_instructions.sstore,
     Ops.TLOAD: storage_instructions.tload,
     Ops.TSTORE: storage_instructions.tstore,

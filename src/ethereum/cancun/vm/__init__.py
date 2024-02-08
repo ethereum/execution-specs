@@ -19,7 +19,7 @@ from typing import List, Optional, Set, Tuple, Union
 from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes32, Uint
 from ethereum.crypto.hash import Hash32
 
-from ..fork_types import Address, Log
+from ..fork_types import Address, Log, VersionedHash
 from ..state import State, TransientStorage, account_exists_and_is_empty
 from .precompiled_contracts import RIPEMD160_ADDRESS
 
@@ -45,6 +45,7 @@ class Environment:
     state: State
     chain_id: U64
     traces: List[dict]
+    excess_blob_gas: U64
 
 
 @dataclass
@@ -67,6 +68,7 @@ class Message:
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     parent_evm: Optional["Evm"]
+    blob_versioned_hashes: Tuple[VersionedHash, ...]
 
 
 @dataclass

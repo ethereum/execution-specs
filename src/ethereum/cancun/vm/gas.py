@@ -14,11 +14,12 @@ EVM gas constants and calculators.
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from ethereum.base_types import U256, Uint
+from ethereum.base_types import U64, U256, Uint
 from ethereum.trace import GasAndRefund, evm_trace
-from ethereum.utils.numeric import ceil32
+from ethereum.utils.numeric import ceil32, taylor_exponential
 
-from . import Evm
+from ..fork_types import BlobTransaction, Header, Transaction
+from . import Environment, Evm
 from .exceptions import OutOfGasError
 
 GAS_JUMPDEST = Uint(1)
@@ -62,6 +63,13 @@ GAS_COLD_SLOAD = Uint(2100)
 GAS_COLD_ACCOUNT_ACCESS = Uint(2600)
 GAS_WARM_ACCESS = Uint(100)
 GAS_INIT_CODE_WORD_COST = 2
+GAS_BLOBHASH_OPCODE = Uint(3)
+GAS_POINT_EVALUATION = Uint(50000)
+
+TARGET_BLOB_GAS_PER_BLOCK = U64(393216)
+GAS_PER_BLOB = Uint(2**17)
+MIN_BLOB_GASPRICE = Uint(1)
+BLOB_GASPRICE_UPDATE_FRACTION = Uint(3338477)
 
 
 @dataclass
@@ -257,3 +265,87 @@ def init_code_cost(init_code_length: Uint) -> Uint:
         The gas to be charged for the init code.
     """
     return GAS_INIT_CODE_WORD_COST * ceil32(init_code_length) // 32
+
+
+def calculate_excess_blob_gas(parent_header: Header) -> U64:
+    """
+    Calculated the excess blob gas for the current block based
+    on the gas used in the parent block.
+
+    Parameters
+    ----------
+    parent_header :
+        The parent block of the current block.
+
+    Returns
+    -------
+    excess_blob_gas: `ethereum.base_types.U64`
+        The excess blob gas for the current block.
+    """
+    parent_blob_gas = (
+        parent_header.excess_blob_gas + parent_header.blob_gas_used
+    )
+    if parent_blob_gas < TARGET_BLOB_GAS_PER_BLOCK:
+        return U64(0)
+    else:
+        return parent_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
+
+
+def calculate_total_blob_gas(tx: Transaction) -> Uint:
+    """
+    Calculate the total blob gas for a transaction.
+
+    Parameters
+    ----------
+    tx :
+        The transaction for which the blob gas is to be calculated.
+
+    Returns
+    -------
+    total_blob_gas: `ethereum.base_types.Uint`
+        The total blob gas for the transaction.
+    """
+    if isinstance(tx, BlobTransaction):
+        return GAS_PER_BLOB * len(tx.blob_versioned_hashes)
+    else:
+        return Uint(0)
+
+
+def calculate_blob_gas_price(env: Environment) -> Uint:
+    """
+    Calculate the blob gasprice for a block.
+
+    Parameters
+    ----------
+    env :
+        The execution environment.
+
+    Returns
+    -------
+    blob_gasprice: `Uint`
+        The blob gasprice.
+    """
+    return taylor_exponential(
+        MIN_BLOB_GASPRICE,
+        Uint(env.excess_blob_gas),
+        BLOB_GASPRICE_UPDATE_FRACTION,
+    )
+
+
+def calculate_data_fee(env: Environment, tx: Transaction) -> Uint:
+    """
+    Calculate the blob data fee for a transaction.
+
+    Parameters
+    ----------
+    env :
+        The execution environment.
+    tx :
+        The transaction for which the blob data fee is to be calculated.
+
+    Returns
+    -------
+    data_fee: `Uint`
+        The blob data fee.
+    """
+    return calculate_total_blob_gas(tx) * calculate_blob_gas_price(env)

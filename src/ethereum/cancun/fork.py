@@ -34,6 +34,7 @@ from .fork_types import (
     TX_DATA_COST_PER_ZERO,
     AccessListTransaction,
     Address,
+    BlobTransaction,
     Block,
     Bloom,
     FeeMarketTransaction,
@@ -43,6 +44,7 @@ from .fork_types import (
     Receipt,
     Root,
     Transaction,
+    VersionedHash,
     Withdrawal,
     decode_transaction,
     encode_transaction,
@@ -61,7 +63,13 @@ from .trie import Trie, root, trie_set
 from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
 from .vm import Message
-from .vm.gas import init_code_cost
+from .vm.gas import (
+    calculate_blob_gas_price,
+    calculate_data_fee,
+    calculate_excess_blob_gas,
+    calculate_total_blob_gas,
+    init_code_cost,
+)
 from .vm.interpreter import MAX_CODE_SIZE, process_message_call
 
 BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
@@ -74,6 +82,8 @@ BEACON_ROOTS_ADDRESS = hex_to_address(
     "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
+MAX_BLOB_GAS_PER_BLOCK = 786432
+VERSIONED_HASH_VERSION_KZG = b"\x01"
 
 
 @dataclass
@@ -172,6 +182,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         Block to apply to `chain`.
     """
     parent_header = chain.blocks[-1].header
+    excess_blob_gas = calculate_excess_blob_gas(parent_header)
+    ensure(block.header.excess_blob_gas == excess_blob_gas, InvalidBlock)
+
     validate_header(block.header, parent_header)
     ensure(block.ommers == (), InvalidBlock)
     (
@@ -181,6 +194,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block_logs_bloom,
         state,
         withdrawals_root,
+        blob_gas_used,
     ) = apply_body(
         chain.state,
         get_last_256_block_hashes(chain),
@@ -194,6 +208,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         chain.chain_id,
         block.withdrawals,
         block.header.parent_beacon_block_root,
+        excess_blob_gas,
     )
     ensure(gas_used == block.header.gas_used, InvalidBlock)
     ensure(transactions_root == block.header.transactions_root, InvalidBlock)
@@ -201,6 +216,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     ensure(receipt_root == block.header.receipt_root, InvalidBlock)
     ensure(block_logs_bloom == block.header.bloom, InvalidBlock)
     ensure(withdrawals_root == block.header.withdrawals_root, InvalidBlock)
+    ensure(blob_gas_used == block.header.blob_gas_used, InvalidBlock)
 
     chain.blocks.append(block)
     if len(chain.blocks) > 255:
@@ -350,7 +366,7 @@ def check_transaction(
     ensure(tx.gas <= gas_available, InvalidBlock)
     sender_address = recover_sender(chain_id, tx)
 
-    if isinstance(tx, FeeMarketTransaction):
+    if isinstance(tx, (FeeMarketTransaction, BlobTransaction)):
         ensure(tx.max_fee_per_gas >= tx.max_priority_fee_per_gas, InvalidBlock)
         ensure(tx.max_fee_per_gas >= base_fee_per_gas, InvalidBlock)
 
@@ -401,8 +417,10 @@ def make_receipt(
 
     if isinstance(tx, AccessListTransaction):
         return b"\x01" + rlp.encode(receipt)
-    if isinstance(tx, FeeMarketTransaction):
+    elif isinstance(tx, FeeMarketTransaction):
         return b"\x02" + rlp.encode(receipt)
+    elif isinstance(tx, BlobTransaction):
+        return b"\x03" + rlp.encode(receipt)
     else:
         return receipt
 
@@ -420,7 +438,8 @@ def apply_body(
     chain_id: U64,
     withdrawals: Tuple[Withdrawal, ...],
     parent_beacon_block_root: Root,
-) -> Tuple[Uint, Root, Root, Bloom, State, Root]:
+    excess_blob_gas: U64,
+) -> Tuple[Uint, Root, Root, Bloom, State, Root, Uint]:
     """
     Executes a block.
 
@@ -461,6 +480,8 @@ def apply_body(
         Withdrawals to be processed in the current block.
     parent_beacon_block_root :
         The root of the beacon block from the parent block.
+    excess_blob_gas :
+        Excess blob gas calculated from the previous block.
 
     Returns
     -------
@@ -476,6 +497,7 @@ def apply_body(
     state : `ethereum.fork_types.State`
         State after all transactions have been executed.
     """
+    blob_gas_used = Uint(0)
     gas_available = block_gas_limit
     transactions_trie: Trie[
         Bytes, Optional[Union[Bytes, LegacyTransaction]]
@@ -507,6 +529,7 @@ def apply_body(
         accessed_addresses=set(),
         accessed_storage_keys=set(),
         parent_evm=None,
+        blob_versioned_hashes=(),
     )
 
     system_tx_env = vm.Environment(
@@ -523,6 +546,7 @@ def apply_body(
         state=state,
         chain_id=chain_id,
         traces=[],
+        excess_blob_gas=excess_blob_gas,
     )
 
     process_message_call(system_tx_message, system_tx_env)
@@ -550,6 +574,7 @@ def apply_body(
             state=state,
             chain_id=chain_id,
             traces=[],
+            excess_blob_gas=excess_blob_gas,
         )
 
         gas_used, logs, error = process_transaction(env, tx)
@@ -566,7 +591,9 @@ def apply_body(
         )
 
         block_logs += logs
+        blob_gas_used += calculate_total_blob_gas(tx)
 
+    ensure(blob_gas_used <= MAX_BLOB_GAS_PER_BLOCK, InvalidBlock)
     block_gas_used = block_gas_limit - gas_available
 
     block_logs_bloom = logs_bloom(block_logs)
@@ -586,6 +613,7 @@ def apply_body(
         block_logs_bloom,
         state,
         root(withdrawals_trie),
+        blob_gas_used,
     )
 
 
@@ -623,13 +651,31 @@ def process_transaction(
     sender = env.origin
     sender_account = get_account(env.state, sender)
 
-    if isinstance(tx, FeeMarketTransaction):
-        gas_fee = tx.gas * tx.max_fee_per_gas
+    if isinstance(tx, (FeeMarketTransaction, BlobTransaction)):
+        max_gas_fee = tx.gas * tx.max_fee_per_gas
     else:
-        gas_fee = tx.gas * tx.gas_price
+        max_gas_fee = tx.gas * tx.gas_price
+
+    if isinstance(tx, BlobTransaction):
+        ensure(len(tx.blob_versioned_hashes) > 0, InvalidBlock)
+        for blob_versioned_hash in tx.blob_versioned_hashes:
+            ensure(
+                blob_versioned_hash[0:1] == VERSIONED_HASH_VERSION_KZG,
+                InvalidBlock,
+            )
+
+        ensure(
+            tx.max_fee_per_blob_gas >= calculate_blob_gas_price(env),
+            InvalidBlock,
+        )
+
+        max_gas_fee += calculate_total_blob_gas(tx) * tx.max_fee_per_blob_gas
+        blob_gas_fee = calculate_data_fee(env, tx)
+    else:
+        blob_gas_fee = Uint(0)
 
     ensure(sender_account.nonce == tx.nonce, InvalidBlock)
-    ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
+    ensure(sender_account.balance >= max_gas_fee + tx.value, InvalidBlock)
     ensure(sender_account.code == bytearray(), InvalidBlock)
 
     effective_gas_fee = tx.gas * env.gas_price
@@ -637,17 +683,25 @@ def process_transaction(
     gas = tx.gas - calculate_intrinsic_cost(tx)
     increment_nonce(env.state, sender)
 
-    sender_balance_after_gas_fee = sender_account.balance - effective_gas_fee
+    sender_balance_after_gas_fee = (
+        sender_account.balance - effective_gas_fee - blob_gas_fee
+    )
     set_account_balance(env.state, sender, sender_balance_after_gas_fee)
 
     preaccessed_addresses = set()
     preaccessed_storage_keys = set()
     preaccessed_addresses.add(env.coinbase)
-    if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
+    if isinstance(
+        tx, (AccessListTransaction, FeeMarketTransaction, BlobTransaction)
+    ):
         for address, keys in tx.access_list:
             preaccessed_addresses.add(address)
             for key in keys:
                 preaccessed_storage_keys.add((address, key))
+
+    blob_versioned_hashes: Tuple[VersionedHash, ...] = ()
+    if isinstance(tx, BlobTransaction):
+        blob_versioned_hashes = tx.blob_versioned_hashes
 
     message = prepare_message(
         sender,
@@ -658,6 +712,7 @@ def process_transaction(
         env,
         preaccessed_addresses=frozenset(preaccessed_addresses),
         preaccessed_storage_keys=frozenset(preaccessed_storage_keys),
+        blob_versioned_hashes=blob_versioned_hashes,
     )
 
     output = process_message_call(message, env)
@@ -773,7 +828,9 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
         create_cost = 0
 
     access_list_cost = 0
-    if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
+    if isinstance(
+        tx, (AccessListTransaction, FeeMarketTransaction, BlobTransaction)
+    ):
         for _address, keys in tx.access_list:
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
             access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
@@ -828,6 +885,10 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     elif isinstance(tx, FeeMarketTransaction):
         public_key = secp256k1_recover(
             r, s, tx.y_parity, signing_hash_1559(tx)
+        )
+    elif isinstance(tx, BlobTransaction):
+        public_key = secp256k1_recover(
+            r, s, tx.y_parity, signing_hash_4844(tx)
         )
 
     return Address(keccak256(public_key)[12:32])
@@ -952,6 +1013,40 @@ def signing_hash_1559(tx: FeeMarketTransaction) -> Hash32:
                 tx.value,
                 tx.data,
                 tx.access_list,
+            )
+        )
+    )
+
+
+def signing_hash_4844(tx: BlobTransaction) -> Hash32:
+    """
+    Compute the hash of a transaction used in a EIP-4844 signature.
+
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `ethereum.crypto.hash.Hash32`
+        Hash of the transaction.
+    """
+    return keccak256(
+        b"\x03"
+        + rlp.encode(
+            (
+                tx.chain_id,
+                tx.nonce,
+                tx.max_priority_fee_per_gas,
+                tx.max_fee_per_gas,
+                tx.gas,
+                tx.to,
+                tx.value,
+                tx.data,
+                tx.access_list,
+                tx.max_fee_per_blob_gas,
+                tx.blob_versioned_hashes,
             )
         )
     )

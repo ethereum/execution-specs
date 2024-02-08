@@ -12,7 +12,7 @@ Introduction
 Implementations of the EVM environment related instructions.
 """
 
-from ethereum.base_types import U256, Uint
+from ethereum.base_types import U256, Bytes32, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.ensure import ensure
 from ethereum.utils.numeric import ceil32
@@ -25,12 +25,14 @@ from .. import Evm
 from ..exceptions import OutOfBoundsRead
 from ..gas import (
     GAS_BASE,
+    GAS_BLOBHASH_OPCODE,
     GAS_COLD_ACCOUNT_ACCESS,
     GAS_COPY,
     GAS_FAST_STEP,
     GAS_RETURN_DATA_COPY,
     GAS_VERY_LOW,
     GAS_WARM_ACCESS,
+    calculate_blob_gas_price,
     calculate_gas_extend_memory,
     charge_gas,
 )
@@ -532,6 +534,57 @@ def base_fee(evm: Evm) -> None:
 
     # OPERATION
     push(evm.stack, U256(evm.env.base_fee_per_gas))
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def blob_hash(evm: Evm) -> None:
+    """
+    Pushes the versioned hash at a particular index on to the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    index = pop(evm.stack)
+
+    # GAS
+    charge_gas(evm, GAS_BLOBHASH_OPCODE)
+
+    # OPERATION
+    if index < len(evm.message.blob_versioned_hashes):
+        blob_hash = evm.message.blob_versioned_hashes[index]
+    else:
+        blob_hash = Bytes32(b"\x00" * 32)
+    push(evm.stack, U256.from_be_bytes(blob_hash))
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def blob_base_fee(evm: Evm) -> None:
+    """
+    Pushes the blob base fee on to the stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_BASE)
+
+    # OPERATION
+    blob_base_fee = calculate_blob_gas_price(evm.env)
+    push(evm.stack, U256(blob_base_fee))
 
     # PROGRAM COUNTER
     evm.pc += 1

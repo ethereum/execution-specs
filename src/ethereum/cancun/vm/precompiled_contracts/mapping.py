@@ -22,6 +22,7 @@ from . import (
     ECRECOVER_ADDRESS,
     IDENTITY_ADDRESS,
     MODEXP_ADDRESS,
+    POINT_EVALUATION_ADDRESS,
     RIPEMD160_ADDRESS,
     SHA256_ADDRESS,
 )
@@ -30,6 +31,7 @@ from .blake2f import blake2f
 from .ecrecover import ecrecover
 from .identity import identity
 from .modexp import modexp
+from .point_evaluation import point_evaluation
 from .ripemd160 import ripemd160
 from .sha256 import sha256
 
@@ -43,4 +45,5 @@ PRE_COMPILED_CONTRACTS: Dict[Address, Callable] = {
     ALT_BN128_MUL_ADDRESS: alt_bn128_mul,
     ALT_BN128_PAIRING_CHECK_ADDRESS: alt_bn128_pairing_check,
     BLAKE2F_ADDRESS: blake2f,
+    POINT_EVALUATION_ADDRESS: point_evaluation,
 }

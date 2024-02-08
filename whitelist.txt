@@ -411,3 +411,10 @@ mcopy
 
 tload
 tstore
+
+KZG
+BLOBHASH
+eth2spec
+Bytes48
+BLS
+BLOBBASEFEE
