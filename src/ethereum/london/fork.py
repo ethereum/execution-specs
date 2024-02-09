@@ -483,7 +483,7 @@ def make_receipt(
 
     if isinstance(tx, AccessListTransaction):
         return b"\x01" + rlp.encode(receipt)
-    if isinstance(tx, FeeMarketTransaction):
+    elif isinstance(tx, FeeMarketTransaction):
         return b"\x02" + rlp.encode(receipt)
     else:
         return receipt
