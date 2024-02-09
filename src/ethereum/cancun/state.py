@@ -43,7 +43,7 @@ class State:
             Trie[Address, Optional[Account]], Dict[Address, Trie[Bytes, U256]]
         ]
     ] = field(default_factory=list)
-    _created_accounts: Set[Address] = field(default_factory=set)
+    created_accounts: Set[Address] = field(default_factory=set)
 
 
 @dataclass
@@ -67,7 +67,7 @@ def close_state(state: State) -> None:
     del state._main_trie
     del state._storage_tries
     del state._snapshots
-    del state._created_accounts
+    del state.created_accounts
 
 
 def begin_transaction(
@@ -109,7 +109,7 @@ def commit_transaction(state: State) -> None:
     """
     state._snapshots.pop()
     if not state._snapshots:
-        state._created_accounts.clear()
+        state.created_accounts.clear()
 
 
 def rollback_transaction(
@@ -128,7 +128,7 @@ def rollback_transaction(
     """
     state._main_trie, state._storage_tries = state._snapshots.pop()
     if not state._snapshots:
-        state._created_accounts.clear()
+        state.created_accounts.clear()
 
     if transient_storage and transient_storage._snapshots:
         transient_storage._tries = transient_storage._snapshots.pop()
@@ -252,7 +252,7 @@ def mark_account_created(state: State, address: Address) -> None:
     address : `Address`
         Address of the account that has been created.
     """
-    state._created_accounts.add(address)
+    state.created_accounts.add(address)
 
 
 def get_storage(state: State, address: Address, key: Bytes) -> U256:
@@ -617,7 +617,7 @@ def get_storage_original(state: State, address: Address, key: Bytes) -> U256:
     """
     # In the transaction where an account is created, its preexisting storage
     # is ignored.
-    if address in state._created_accounts:
+    if address in state.created_accounts:
         return U256(0)
 
     _, original_trie = state._snapshots[0]
