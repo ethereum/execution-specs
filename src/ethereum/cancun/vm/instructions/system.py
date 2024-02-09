@@ -22,6 +22,7 @@ from ...state import (
     get_account,
     increment_nonce,
     is_account_alive,
+    move_ether,
     set_account_balance,
 )
 from ...utils.address import (
@@ -512,26 +513,21 @@ def selfdestruct(evm: Evm) -> None:
     ensure(not evm.message.is_static, WriteInStaticContext)
 
     originator = evm.message.current_target
-    beneficiary_balance = get_account(evm.env.state, beneficiary).balance
     originator_balance = get_account(evm.env.state, originator).balance
 
-    if (
-        originator in evm.env.state._created_accounts
-        or originator != beneficiary
-    ):
-        # First Transfer to beneficiary
-        set_account_balance(
-            evm.env.state,
-            beneficiary,
-            beneficiary_balance + originator_balance,
-        )
-        # Next, Zero the balance of the address being deleted (must come after
-        # sending to beneficiary in case the contract named itself as the
-        # beneficiary).
-        set_account_balance(evm.env.state, originator, U256(0))
+    move_ether(
+        evm.env.state,
+        originator,
+        beneficiary,
+        originator_balance,
+    )
 
-    # register account for deletion
-    if originator in evm.env.state._created_accounts:
+    # register account for deletion only if it was created
+    # in the same transaction
+    if originator in evm.env.state.created_accounts:
+        # If beneficiary is the same as originator, then
+        # the ether is burnt.
+        set_account_balance(evm.env.state, originator, U256(0))
         evm.accounts_to_delete.add(originator)
 
     # mark beneficiary as touched
