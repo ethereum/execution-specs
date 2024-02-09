@@ -1,6 +1,7 @@
 """
 Base objects used to define transition forks.
 """
+
 from inspect import signature
 from typing import Callable, List, Type
 
@@ -54,6 +55,7 @@ def transition_fork(to_fork: Fork, at_block: int = 0, at_timestamp: int = 0):
             transition_tool_name=cls._transition_tool_name,
             blockchain_test_network_name=cls._blockchain_test_network_name,
             solc_name=cls._solc_name,
+            ignore=cls._ignore,
         ):
             pass
 

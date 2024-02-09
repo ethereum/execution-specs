@@ -73,6 +73,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     _transition_tool_name: ClassVar[Optional[str]] = None
     _blockchain_test_network_name: ClassVar[Optional[str]] = None
     _solc_name: ClassVar[Optional[str]] = None
+    _ignore: ClassVar[bool] = False
 
     def __init_subclass__(
         cls,
@@ -80,6 +81,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         transition_tool_name: Optional[str] = None,
         blockchain_test_network_name: Optional[str] = None,
         solc_name: Optional[str] = None,
+        ignore: bool = False,
     ) -> None:
         """
         Initializes the new fork with values that don't carry over to subclass forks.
@@ -87,6 +89,7 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         cls._transition_tool_name = transition_tool_name
         cls._blockchain_test_network_name = blockchain_test_network_name
         cls._solc_name = solc_name
+        cls._ignore = ignore
 
     # Header information abstract methods
     @classmethod
@@ -286,6 +289,13 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         development.
         """
         return True
+
+    @classmethod
+    def ignore(cls) -> bool:
+        """
+        Returns whether the fork should be ignored during test generation.
+        """
+        return cls._ignore
 
 
 # Fork Type

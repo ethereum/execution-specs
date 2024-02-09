@@ -231,7 +231,7 @@ class Istanbul(ConstantinopleFix):
 
 
 # Glacier forks skipped, unless explicitly specified
-class MuirGlacier(Istanbul, solc_name="istanbul"):
+class MuirGlacier(Istanbul, solc_name="istanbul", ignore=True):
     """
     Muir Glacier fork
     """
@@ -273,7 +273,7 @@ class London(Berlin):
 
 
 # Glacier forks skipped, unless explicitly specified
-class ArrowGlacier(London, solc_name="london"):
+class ArrowGlacier(London, solc_name="london", ignore=True):
     """
     Arrow Glacier fork
     """
@@ -281,7 +281,7 @@ class ArrowGlacier(London, solc_name="london"):
     pass
 
 
-class GrayGlacier(ArrowGlacier, solc_name="london"):
+class GrayGlacier(ArrowGlacier, solc_name="london", ignore=True):
     """
     Gray Glacier fork
     """

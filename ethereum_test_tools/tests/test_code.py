@@ -53,10 +53,6 @@ def test_code_operations(code: Code, expected_bytes: bytes):
 def fork(request: pytest.FixtureRequest):
     """
     Return the target evm-version (fork) for solc compilation.
-
-    Note:
-    - Homestead.
-    - forks_from_until: Used to remove the Glacier forks
     """
     return request.param
 
