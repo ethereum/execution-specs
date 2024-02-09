@@ -12,6 +12,7 @@ from ethereum_test_tools import (
     Address,
     Block,
     BlockchainTestFiller,
+    BlockException,
     Environment,
     Header,
     TestAddress,
@@ -256,7 +257,9 @@ def blocks(
     if any(txs_wrapped_blobs):
         # This is a block exception because the invalid block is only created in the RLP version,
         # not in the transition tool.
-        block_error = TransactionException.TYPE_3_TX_WITH_FULL_BLOBS
+        block_error = (
+            TransactionException.TYPE_3_TX_WITH_FULL_BLOBS | BlockException.RLP_STRUCTURES_ENCODING
+        )
     if len(txs) > 0:
         header_blob_gas_used = (
             sum(
