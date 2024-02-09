@@ -38,6 +38,7 @@ from ..base.base_test import (
 from ..debugging import print_traces
 from .types import (
     Block,
+    BlockException,
     Fixture,
     FixtureBlock,
     FixtureEngineNewPayload,
@@ -353,7 +354,11 @@ class BlockchainTest(BaseTest):
                         InvalidFixtureBlock(
                             rlp=rlp,
                             expected_exception=block.exception,
-                            rlp_decoded=replace(fixture_block, rlp=None),
+                            rlp_decoded=(
+                                None
+                                if BlockException.RLP_STRUCTURES_ENCODING in block.exception
+                                else replace(fixture_block, rlp=None)
+                            ),
                         ),
                     )
             else:

@@ -43,6 +43,12 @@ class ExceptionBase(Enum):
     Base class for exceptions.
     """
 
+    def __contains__(self, exception) -> bool:
+        """
+        Checks if provided exception is equal to this
+        """
+        return self == exception
+
     def __or__(
         self,
         other: Union["TransactionException", "BlockException", ExceptionList],
@@ -146,6 +152,10 @@ class BlockException(ExceptionBase):
     INCORRECT_EXCESS_BLOB_GAS = auto()
     """
     Block's excess blob gas in header is incorrect.
+    """
+    RLP_STRUCTURES_ENCODING = auto()
+    """
+    Block's rlp encoding is valid but ethereum structures in it are invalid
     """
 
 
