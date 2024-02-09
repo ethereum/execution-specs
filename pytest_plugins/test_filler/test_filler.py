@@ -5,6 +5,7 @@ Top-level pytest configuration file providing:
 and that modifies pytest hooks in order to fill test specs for all tests and
 writes the generated fixtures to file.
 """
+
 import warnings
 from pathlib import Path
 from typing import Generator, List, Optional, Type
@@ -372,8 +373,8 @@ def yul(fork: Fork, request):
     else:
         solc_target_fork = get_closest_fork_with_solc_support(fork, request.config.solc_version)
         assert solc_target_fork is not None, "No fork supports provided solc version."
-        if request.config.getoption("verbose") >= 1:
-            warnings.warn(f"Compiling Yul for {solc_target_fork}, not {fork}.")
+        if solc_target_fork != fork and request.config.getoption("verbose") >= 1:
+            warnings.warn(f"Compiling Yul for {solc_target_fork.name()}, not {fork.name()}.")
 
     class YulWrapper(Yul):
         def __init__(self, *args, **kwargs):
