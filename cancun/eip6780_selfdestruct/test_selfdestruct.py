@@ -238,29 +238,39 @@ def pre(
             id="single_call_self",
         ),
         pytest.param(
-            10,
+            2,
             [Address(0x1000)],
             id="multiple_calls_single_sendall_recipient",
         ),
         pytest.param(
-            10,
+            2,
+            [SELF_ADDRESS],
+            id="multiple_calls_single_self_recipient",
+        ),
+        pytest.param(
+            3,
             [Address(0x1000), Address(0x2000), Address(0x3000)],
             id="multiple_calls_multiple_sendall_recipients",
         ),
         pytest.param(
-            10,
+            3,
             [SELF_ADDRESS, Address(0x2000), Address(0x3000)],
             id="multiple_calls_multiple_sendall_recipients_including_self",
-        ),
-        pytest.param(
-            10,
-            [Address(0x1000), Address(0x2000), SELF_ADDRESS],
-            id="multiple_calls_multiple_sendall_recipients_including_self_different_order",
         ),
         pytest.param(
             3,
             [Address(0x1000), Address(0x2000), SELF_ADDRESS],
             id="multiple_calls_multiple_sendall_recipients_including_self_last",
+        ),
+        pytest.param(
+            6,
+            [SELF_ADDRESS, Address(0x2000), Address(0x3000)],
+            id="multiple_calls_multiple_repeating_sendall_recipients_including_self",
+        ),
+        pytest.param(
+            6,
+            [Address(0x1000), Address(0x2000), SELF_ADDRESS],
+            id="multiple_calls_multiple_repeating_sendall_recipients_including_self_last",
         ),
     ],
 )
@@ -722,32 +732,42 @@ def test_recreate_self_destructed_contract_different_txs(
         pytest.param(
             1,
             [PRE_EXISTING_SELFDESTRUCT_ADDRESS],
-            id="single_call_self_sendall_recipient",
+            id="single_call_self",
         ),
         pytest.param(
-            10,
+            2,
             [Address(0x1000)],
             id="multiple_calls_single_sendall_recipient",
         ),
         pytest.param(
-            10,
+            2,
+            [PRE_EXISTING_SELFDESTRUCT_ADDRESS],
+            id="multiple_calls_single_self_recipient",
+        ),
+        pytest.param(
+            3,
             [Address(0x1000), Address(0x2000), Address(0x3000)],
             id="multiple_calls_multiple_sendall_recipients",
         ),
         pytest.param(
-            10,
+            3,
             [PRE_EXISTING_SELFDESTRUCT_ADDRESS, Address(0x2000), Address(0x3000)],
             id="multiple_calls_multiple_sendall_recipients_including_self",
-        ),
-        pytest.param(
-            10,
-            [Address(0x1000), Address(0x2000), PRE_EXISTING_SELFDESTRUCT_ADDRESS],
-            id="multiple_calls_multiple_sendall_recipients_including_self_different_order",
         ),
         pytest.param(
             3,
             [Address(0x1000), Address(0x2000), PRE_EXISTING_SELFDESTRUCT_ADDRESS],
             id="multiple_calls_multiple_sendall_recipients_including_self_last",
+        ),
+        pytest.param(
+            6,
+            [PRE_EXISTING_SELFDESTRUCT_ADDRESS, Address(0x2000), Address(0x3000)],
+            id="multiple_calls_multiple_repeating_sendall_recipients_including_self",
+        ),
+        pytest.param(
+            6,
+            [Address(0x1000), Address(0x2000), PRE_EXISTING_SELFDESTRUCT_ADDRESS],
+            id="multiple_calls_multiple_repeating_sendall_recipients_including_self_last",
         ),
     ],
 )
