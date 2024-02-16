@@ -1,8 +1,6 @@
 """
-Ethereum Arrow Glacier Hardfork
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-The Twelfth Ethereum hardfork.
+The Arrow Glacier fork delays the difficulty bomb. There are no other changes
+in this fork.
 """
 
 from ethereum.fork_criteria import ByBlockNumber
