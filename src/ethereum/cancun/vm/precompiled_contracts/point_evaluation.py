@@ -11,7 +11,7 @@ Introduction
 
 Implementation of the POINT EVALUATION precompiled contract.
 """
-from eth2spec.deneb.mainnet import (  # type: ignore
+from eth2spec.deneb.mainnet import (
     KZGCommitment,
     kzg_commitment_to_versioned_hash,
     verify_kzg_proof,
