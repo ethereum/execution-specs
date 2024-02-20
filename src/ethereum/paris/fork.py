@@ -553,12 +553,12 @@ def process_transaction(
     sender_account = get_account(env.state, sender)
 
     if isinstance(tx, FeeMarketTransaction):
-        gas_fee = tx.gas * tx.max_fee_per_gas
+        max_gas_fee = tx.gas * tx.max_fee_per_gas
     else:
-        gas_fee = tx.gas * tx.gas_price
+        max_gas_fee = tx.gas * tx.gas_price
 
     ensure(sender_account.nonce == tx.nonce, InvalidBlock)
-    ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
+    ensure(sender_account.balance >= max_gas_fee + tx.value, InvalidBlock)
     ensure(sender_account.code == bytearray(), InvalidBlock)
 
     effective_gas_fee = tx.gas * env.gas_price
