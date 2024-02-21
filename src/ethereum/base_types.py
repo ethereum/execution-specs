@@ -668,7 +668,7 @@ class U256(FixedUint):
     @classmethod
     def from_be_bytes(cls: Type, buffer: "Bytes") -> "U256":
         """
-        Converts a sequence of bytes into an arbitrarily sized unsigned integer
+        Converts a sequence of bytes into a fixed sized unsigned integer
         from its big endian representation.
         """
         if len(buffer) > 32:
