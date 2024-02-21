@@ -305,6 +305,8 @@ class Result:
     receipts: Any = None
     rejected: Any = None
     gas_used: Any = None
+    excess_blob_gas = None
+    blob_gas_used = None
 
     def to_json(self) -> Any:
         """Encode the result to JSON"""
@@ -327,6 +329,12 @@ class Result:
             data["currentBaseFee"] = hex(self.base_fee)
         else:
             data["currentBaseFee"] = None
+
+        if self.excess_blob_gas is not None:
+            data["currentExcessBlobGas"] = hex(self.excess_blob_gas)
+
+        if self.blob_gas_used is not None:
+            data["blobGasUsed"] = hex(self.blob_gas_used)
 
         data["rejected"] = [
             {"index": idx, "error": error}
