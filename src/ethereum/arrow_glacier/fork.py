@@ -275,7 +275,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
     quantities in the header should match the logic for the block itself.
     For example the header timestamp should be greater than the block's parent
     timestamp because the block was created *after* the parent block.
-    Additionally, the block's number should be directly folowing the parent
+    Additionally, the block's number should be directly following the parent
     block's number since it is the next block in the sequence.
 
     Parameters
@@ -622,7 +622,7 @@ def validate_ommers(
     To be considered valid, the ommers must adhere to the rules defined in
     the Ethereum protocol. The maximum amount of ommers is 2 per block and
     there cannot be duplicate ommers in a block. Many of the other ommer
-    contraints are listed in the in-line comments of this function.
+    constraints are listed in the in-line comments of this function.
 
     Parameters
     ----------
