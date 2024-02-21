@@ -14,6 +14,8 @@ from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock
 from ethereum_spec_tools.forks import Hardfork
+from ethereum.utils.ensure import ensure
+from ethereum.exceptions import InvalidBlock
 
 from ..fixture_loader import Load
 from ..utils import (
@@ -362,6 +364,7 @@ class T8N(Load):
         transactions_trie = self.trie.Trie(secured=False, default=None)
         receipts_trie = self.trie.Trie(secured=False, default=None)
         block_logs = ()
+        blob_gas_used = Uint(0)
 
         if self.is_after_fork("ethereum.cancun"):
             beacon_block_roots_contract_code = self.get_account(
@@ -421,6 +424,10 @@ class T8N(Load):
                 env = self.environment(tx, gas_available)
 
                 process_transaction_return = self.process_transaction(env, tx)
+
+                if self.is_after_fork("ethereum.cancun"):
+                    blob_gas_used += self._module("vm.gas").calculate_total_blob_gas(tx)
+                    ensure(blob_gas_used <= self.fork.MAX_BLOB_GAS_PER_BLOCK, InvalidBlock)
             except InvalidBlock as e:
                 # The tf tools expects some non-blank error message
                 # even in case e is blank.
@@ -480,6 +487,10 @@ class T8N(Load):
                     self.state.destroy_account(self.alloc.state, wd.address)
 
             self.result.withdrawals_root = self.trie.root(withdrawals_trie)
+
+        if self.is_after_fork("ethereum.cancun"):
+            self.result.blob_gas_used = blob_gas_used
+            self.result.excess_blob_gas = self.env.excess_blob_gas
 
         self.result.state_root = self.state.state_root(self.alloc.state)
         self.result.tx_root = self.trie.root(transactions_trie)
