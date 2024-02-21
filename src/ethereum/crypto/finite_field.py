@@ -317,7 +317,7 @@ class GaloisField(tuple, Field):
 
     def multiplicative_inverse(self: U) -> U:
         """
-        Calculate the multiplicative inverse. Uses the Euclidian algorithm.
+        Calculate the multiplicative inverse. Uses the Euclidean algorithm.
         """
         x2: List[int]
         p = self.PRIME
