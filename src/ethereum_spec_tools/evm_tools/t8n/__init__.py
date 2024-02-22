@@ -12,9 +12,9 @@ from typing import Any
 from ethereum import rlp, trace
 from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import keccak256
-from ethereum_spec_tools.forks import Hardfork
-from ethereum.utils.ensure import ensure
 from ethereum.exceptions import InvalidBlock
+from ethereum.utils.ensure import ensure
+from ethereum_spec_tools.forks import Hardfork
 
 from ..fixture_loader import Load
 from ..utils import (
@@ -402,7 +402,10 @@ class T8N(Load):
 
                 if self.is_after_fork("ethereum.cancun"):
                     blob_gas_used += self.vm_gas.calculate_total_blob_gas(tx)
-                    ensure(blob_gas_used <= self.fork.MAX_BLOB_GAS_PER_BLOCK, InvalidBlock)
+                    ensure(
+                        blob_gas_used <= self.fork.MAX_BLOB_GAS_PER_BLOCK,
+                        InvalidBlock,
+                    )
             except Exception as e:
                 # The tf tools expects some non-blank error message
                 # even in case e is blank.
