@@ -3,8 +3,8 @@ Run ethereum-spec-evm as a daemon.
 """
 
 import argparse
+import json
 import os.path
-import shlex
 import socketserver
 import time
 from http.server import BaseHTTPRequestHandler
@@ -12,7 +12,6 @@ from io import StringIO, TextIOWrapper
 from socket import socket
 from threading import Thread
 from typing import Any, Optional, Tuple, Union
-from urllib.parse import parse_qs, urlparse
 
 from platformdirs import user_runtime_dir
 
@@ -30,18 +29,31 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
         from . import main
 
         content_length = int(self.headers["Content-Length"])
-        content_text = self.rfile.read(content_length).decode("utf-8")
-        content = StringIO(content_text)
+        content_bytes = self.rfile.read(content_length)
+        content = json.loads(content_bytes)
 
-        query = parse_qs(urlparse(self.path).query, keep_blank_values=True)
-        args = shlex.split(query["args"][-1])
+        input_string = json.dumps(content["input"])
+        input = StringIO(input_string)
+
+        args = [
+            "t8n",
+            "--input.env=stdin",
+            "--input.alloc=stdin",
+            "--input.txs=stdin",
+            "--output.result=stdout",
+            "--output.body=stdout",
+            "--output.alloc=stdout",
+            f"--state.fork={content['state']['fork']}",
+            f"--state.chainid={content['state']['chainid']}",
+            f"--state.reward={content['state']['reward']}",
+        ]
 
         self.send_response(200)
         self.send_header("Content-type", "application/octet-stream")
         self.end_headers()
 
         out_wrapper = TextIOWrapper(self.wfile, encoding="utf-8")
-        main(args=args, out_file=out_wrapper, in_file=content)
+        main(args=args, out_file=out_wrapper, in_file=input)
         out_wrapper.flush()
 
 
