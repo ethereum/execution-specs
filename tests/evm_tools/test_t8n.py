@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from typing import Any, Dict, List
 
 import pytest
@@ -49,7 +50,7 @@ def t8n_tool_test(test_case: Dict) -> None:
     options = parser.parse_args(test_case["args"])
 
     try:
-        t8n_tool = T8N(options)
+        t8n_tool = T8N(options, sys.stdout, sys.stdin)
         t8n_tool.apply_body()
     except Exception as e:
         raise FatalException(e)
