@@ -158,6 +158,11 @@ class T8N(Load):
         return self._module("vm")
 
     @property
+    def vm_gas(self) -> Any:
+        """The vm.gas module of the given fork."""
+        return self._module("vm.gas")
+
+    @property
     def interpreter(self) -> Any:
         """The interpreter module of the given fork."""
         return self._module("vm.interpreter")
@@ -396,7 +401,7 @@ class T8N(Load):
                 process_transaction_return = self.process_transaction(env, tx)
 
                 if self.is_after_fork("ethereum.cancun"):
-                    blob_gas_used += self._module("vm.gas").calculate_total_blob_gas(tx)
+                    blob_gas_used += self.vm_gas.calculate_total_blob_gas(tx)
                     ensure(blob_gas_used <= self.fork.MAX_BLOB_GAS_PER_BLOCK, InvalidBlock)
             except Exception as e:
                 # The tf tools expects some non-blank error message
