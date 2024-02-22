@@ -180,7 +180,7 @@ class Opcode(bytes):
         """
         Returns the integer representation of the opcode.
         """
-        return int.from_bytes(bytes=self, byteorder="big")
+        return int.from_bytes(self, byteorder="big")
 
     def __str__(self) -> str:
         """
