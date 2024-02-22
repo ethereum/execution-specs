@@ -14,6 +14,7 @@ Types re-used throughout the specification, which are specific to Ethereum.
 
 from dataclasses import dataclass
 from typing import Tuple, Union
+from .transactions import LegacyTransaction
 
 from .. import rlp
 from ..base_types import (
