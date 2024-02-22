@@ -420,7 +420,6 @@ Bytes48
 BLS
 BLOBBASEFEE
 
-shlex
 socketserver
 qs
 platformdirs
