@@ -14,6 +14,7 @@ Types re-used throughout the specification, which are specific to Ethereum.
 
 from dataclasses import dataclass
 from typing import Tuple, Union
+from .transactions import Transaction
 
 from .. import rlp
 from ..base_types import (
@@ -33,28 +34,6 @@ Address = Bytes20
 Root = Hash32
 
 Bloom = Bytes256
-
-TX_BASE_COST = 21000
-TX_DATA_COST_PER_NON_ZERO = 68
-TX_DATA_COST_PER_ZERO = 4
-
-
-@slotted_freezable
-@dataclass
-class Transaction:
-    """
-    Atomic operation performed on the block chain.
-    """
-
-    nonce: U256
-    gas_price: Uint
-    gas: Uint
-    to: Union[Bytes0, Address]
-    value: U256
-    data: Bytes
-    v: U256
-    r: U256
-    s: U256
 
 
 @slotted_freezable
