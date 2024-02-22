@@ -388,8 +388,12 @@ class T8N(Load):
                 excess_blob_gas=self.env.excess_blob_gas,
             )
 
-            self.interpreter.process_message_call(
+            system_tx_output = self.interpreter.process_message_call(
                 system_tx_message, system_tx_env
+            )
+
+            self.state.destroy_touched_empty_accounts(
+                system_tx_env.state, system_tx_output.touched_accounts
             )
 
         for i, (tx_idx, tx) in enumerate(self.txs.transactions):
