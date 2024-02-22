@@ -1,8 +1,8 @@
 
 from dataclasses import dataclass
 from typing import Tuple, Union
-
 from .. import rlp
+
 from ..base_types import (
     U64,
     U256,
@@ -15,14 +15,10 @@ from ..base_types import (
     Uint,
     slotted_freezable,
 )
-from ..crypto.hash import Hash32, keccak256
 from ..exceptions import InvalidBlock
 from ..utils.ensure import ensure
 
 Address = Bytes20
-Root = Hash32
-
-Bloom = Bytes256
 
 TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 16

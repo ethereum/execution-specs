@@ -1,3 +1,4 @@
+
 from dataclasses import dataclass
 from typing import Tuple, Union
 
@@ -14,11 +15,9 @@ from ..base_types import (
     Uint,
     slotted_freezable,
 )
-from ..crypto.hash import Hash32
 from ..exceptions import InvalidBlock
 
 Address = Bytes20
-Root = Hash32
 
 TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 16
@@ -119,3 +118,4 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
             raise InvalidBlock
     else:
         return tx
+

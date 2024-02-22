@@ -2,7 +2,6 @@
 from dataclasses import dataclass
 from typing import Union
 
-from .. import rlp
 from ..base_types import (
     U256,
     Bytes,
@@ -14,7 +13,6 @@ from ..base_types import (
     Uint,
     slotted_freezable,
 )
-from ..crypto.hash import Hash32, keccak256
 
 Address = Bytes20
 

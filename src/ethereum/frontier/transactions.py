@@ -1,4 +1,3 @@
-
 from dataclasses import dataclass
 from typing import  Union
 
@@ -14,13 +13,12 @@ from ..base_types import (
     slotted_freezable,
 )
 
-Address = Bytes20
 
+Address = Bytes20
 
 TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 68
 TX_DATA_COST_PER_ZERO = 4
-TX_CREATE_COST = 32000
 
 
 @slotted_freezable
