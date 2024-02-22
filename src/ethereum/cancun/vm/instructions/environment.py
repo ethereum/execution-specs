@@ -556,8 +556,8 @@ def blob_hash(evm: Evm) -> None:
     charge_gas(evm, GAS_BLOBHASH_OPCODE)
 
     # OPERATION
-    if index < len(evm.message.blob_versioned_hashes):
-        blob_hash = evm.message.blob_versioned_hashes[index]
+    if index < len(evm.env.blob_versioned_hashes):
+        blob_hash = evm.env.blob_versioned_hashes[index]
     else:
         blob_hash = Bytes32(b"\x00" * 32)
     push(evm.stack, U256.from_be_bytes(blob_hash))
