@@ -12,6 +12,7 @@ from typing import Any
 from ethereum import rlp, trace
 from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import keccak256
+from ethereum.exceptions import InvalidBlock
 from ethereum_spec_tools.forks import Hardfork
 
 from ..fixture_loader import Load
@@ -330,7 +331,7 @@ class T8N(Load):
                 env = self.environment(tx, gas_available)
 
                 process_transaction_return = self.process_transaction(env, tx)
-            except Exception as e:
+            except InvalidBlock as e:
                 # The tf tools expects some non-blank error message
                 # even in case e is blank.
                 self.txs.rejected_txs[tx_idx] = f"Failed transaction: {str(e)}"
