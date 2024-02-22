@@ -4,8 +4,7 @@ Create a block builder tool for the given fork.
 
 import argparse
 import json
-import sys
-from typing import Optional
+from typing import Optional, TextIO
 
 from ethereum import rlp
 from ethereum.base_types import Bytes32
@@ -65,17 +64,22 @@ class B11R:
     Creates the b11r tool.
     """
 
-    def __init__(self, options: argparse.Namespace) -> None:
+    def __init__(
+        self, options: argparse.Namespace, out_file: TextIO, in_file: TextIO
+    ) -> None:
         """
         Initializes the b11r tool.
         """
         self.options = options
+        self.out_file = out_file
+        self.in_file = in_file
+
         if "stdin" in (
             options.input_header,
             options.input_ommers,
             options.input_txs,
         ):
-            stdin = json.load(sys.stdin)
+            stdin = json.load(in_file)
         else:
             stdin = None
 
@@ -126,7 +130,7 @@ class B11R:
 
         self.logger.info("Writing the result...")
         if self.options.output_block == "stdout":
-            json.dump(result, sys.stdout, indent=4)
+            json.dump(result, self.out_file, indent=4)
         else:
             with open(self.options.output_block, "w") as f:
                 json.dump(result, f, indent=4)

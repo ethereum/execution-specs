@@ -4,10 +4,13 @@ Defines EVM tools for use in the Ethereum specification.
 
 import argparse
 import subprocess
+import sys
+from typing import Optional, Sequence, Text, TextIO
 
 from ethereum import __version__
 
 from .b11r import B11R, b11r_arguments
+from .daemon import Daemon, daemon_arguments
 from .t8n import T8N, t8n_arguments
 from .utils import get_supported_forks
 
@@ -70,24 +73,37 @@ parser.add_argument(
     help="Show the version of the tool.",
 )
 
-
 # Add options to the t8n tool
 subparsers = parser.add_subparsers(dest="evm_tool")
 
 
-def main() -> int:
+def main(
+    args: Optional[Sequence[Text]] = None,
+    out_file: Optional[TextIO] = None,
+    in_file: Optional[TextIO] = None,
+) -> int:
     """Run the tools based on the given options."""
+    daemon_arguments(subparsers)
     t8n_arguments(subparsers)
     b11r_arguments(subparsers)
 
-    options, _ = parser.parse_known_args()
+    options, _ = parser.parse_known_args(args)
+
+    if out_file is None:
+        out_file = sys.stdout
+
+    if in_file is None:
+        in_file = sys.stdin
 
     if options.evm_tool == "t8n":
-        t8n_tool = T8N(options)
+        t8n_tool = T8N(options, out_file, in_file)
         return t8n_tool.run()
     elif options.evm_tool == "b11r":
-        b11r_tool = B11R(options)
+        b11r_tool = B11R(options, out_file, in_file)
         return b11r_tool.run()
+    elif options.evm_tool == "daemon":
+        daemon = Daemon(options)
+        return daemon.run()
     else:
-        parser.print_help()
+        parser.print_help(file=out_file)
         return 0

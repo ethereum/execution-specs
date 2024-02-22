@@ -5,16 +5,15 @@ Create a transition tool for the given fork.
 import argparse
 import json
 import os
-import sys
 from functools import partial
-from typing import Any
+from typing import Any, TextIO
 
 from ethereum import rlp, trace
 from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import keccak256
-from ethereum_spec_tools.forks import Hardfork
-from ethereum.utils.ensure import ensure
 from ethereum.exceptions import InvalidBlock
+from ethereum.utils.ensure import ensure
+from ethereum_spec_tools.forks import Hardfork
 
 from ..fixture_loader import Load
 from ..utils import (
@@ -76,7 +75,11 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
 class T8N(Load):
     """The class that carries out the transition"""
 
-    def __init__(self, options: Any) -> None:
+    def __init__(
+        self, options: Any, out_file: TextIO, in_file: TextIO
+    ) -> None:
+        self.out_file = out_file
+        self.in_file = in_file
         self.options = options
         self.forks = Hardfork.discover()
 
@@ -85,7 +88,7 @@ class T8N(Load):
             options.input_alloc,
             options.input_txs,
         ):
-            stdin = json.load(sys.stdin)
+            stdin = json.load(in_file)
         else:
             stdin = None
 
@@ -396,8 +399,13 @@ class T8N(Load):
                 process_transaction_return = self.process_transaction(env, tx)
 
                 if self.is_after_fork("ethereum.cancun"):
-                    blob_gas_used += self._module("vm.gas").calculate_total_blob_gas(tx)
-                    ensure(blob_gas_used <= self.fork.MAX_BLOB_GAS_PER_BLOCK, InvalidBlock)
+                    blob_gas_used += self._module(
+                        "vm.gas"
+                    ).calculate_total_blob_gas(tx)
+                    ensure(
+                        blob_gas_used <= self.fork.MAX_BLOB_GAS_PER_BLOCK,
+                        InvalidBlock,
+                    )
             except Exception as e:
                 # The tf tools expects some non-blank error message
                 # even in case e is blank.
@@ -520,6 +528,6 @@ class T8N(Load):
             self.logger.info(f"Wrote result to {result_output_path}")
 
         if json_output:
-            json.dump(json_output, sys.stdout, indent=4)
+            json.dump(json_output, self.out_file, indent=4)
 
         return 0

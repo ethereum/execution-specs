@@ -305,8 +305,8 @@ class Result:
     receipts: Any = None
     rejected: Any = None
     gas_used: Any = None
-    excess_blob_gas = None
-    blob_gas_used = None
+    excess_blob_gas: Optional[U64] = None
+    blob_gas_used: Optional[Uint] = None
 
     def to_json(self) -> Any:
         """Encode the result to JSON"""
