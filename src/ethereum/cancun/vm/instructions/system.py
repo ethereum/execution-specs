@@ -124,7 +124,6 @@ def generic_create(
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         parent_evm=evm,
-        blob_versioned_hashes=evm.message.blob_versioned_hashes,
     )
     child_evm = process_create_message(child_message, evm.env)
 
@@ -310,7 +309,6 @@ def generic_call(
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         parent_evm=evm,
-        blob_versioned_hashes=evm.message.blob_versioned_hashes,
     )
     child_evm = process_message(child_message, evm.env)
 
