@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from typing import Any, Dict, List
 
 import pytest
@@ -55,7 +56,7 @@ def b11r_tool_test(test_case: Dict) -> None:
     options = parser.parse_args(test_case["args"])
 
     try:
-        b11r_tool = B11R(options)
+        b11r_tool = B11R(options, sys.stdout, sys.stdin)
         b11r_tool.build_block()
     except Exception as e:
         raise FatalException(e)
