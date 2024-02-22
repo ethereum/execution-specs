@@ -53,6 +53,7 @@ from .state import (
     State,
     account_exists_and_is_empty,
     destroy_account,
+    destroy_touched_empty_accounts,
     get_account,
     increment_nonce,
     process_withdrawal,
@@ -549,7 +550,11 @@ def apply_body(
         excess_blob_gas=excess_blob_gas,
     )
 
-    process_message_call(system_tx_message, system_tx_env)
+    system_tx_output = process_message_call(system_tx_message, system_tx_env)
+
+    destroy_touched_empty_accounts(
+        system_tx_env.state, system_tx_output.touched_accounts
+    )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
         trie_set(
@@ -749,9 +754,7 @@ def process_transaction(
     for address in output.accounts_to_delete:
         destroy_account(env.state, address)
 
-    for address in output.touched_accounts:
-        if account_exists_and_is_empty(env.state, address):
-            destroy_account(env.state, address)
+    destroy_touched_empty_accounts(env.state, output.touched_accounts)
 
     return total_gas_used, output.logs, output.error
 
