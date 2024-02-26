@@ -86,33 +86,33 @@ class Env:
         self.parent_excess_blob_gas = None
         self.excess_blob_gas = None
 
-        if t8n.is_after_fork("ethereum.cancun"):
-            if "currentExcessBlobGas" in data:
-                self.excess_blob_gas = parse_hex_or_int(
-                    data["currentExcessBlobGas"], U64
-                )
-            else:
-                self.parent_excess_blob_gas = parse_hex_or_int(
-                    data["parentExcessBlobGas"], U64
-                )
-                self.parent_blob_gas_used = parse_hex_or_int(
-                    data["parentBlobGasUsed"], U64
-                )
+        if not t8n.is_after_fork("ethereum.cancun"):
+            return
 
-                excess_blob_gas = (
-                    self.parent_excess_blob_gas + self.parent_blob_gas_used
-                )
+        if "currentExcessBlobGas" in data:
+            self.excess_blob_gas = parse_hex_or_int(
+                data["currentExcessBlobGas"], U64
+            )
+            return
 
-                if (
-                    excess_blob_gas
-                    < t8n._module("vm.gas").TARGET_BLOB_GAS_PER_BLOCK
-                ):
-                    self.excess_blob_gas = U64(0)
-                else:
-                    self.excess_blob_gas = (
-                        excess_blob_gas
-                        - t8n._module("vm.gas").TARGET_BLOB_GAS_PER_BLOCK
-                    )
+        self.parent_excess_blob_gas = parse_hex_or_int(
+            data["parentExcessBlobGas"], U64
+        )
+        self.parent_blob_gas_used = parse_hex_or_int(
+            data["parentBlobGasUsed"], U64
+        )
+
+        excess_blob_gas = (
+            self.parent_excess_blob_gas + self.parent_blob_gas_used
+        )
+
+        target_blob_gas_per_block = t8n._module(
+            "vm.gas"
+        ).TARGET_BLOB_GAS_PER_BLOCK
+
+        self.excess_blob_gas = U64(0)
+        if excess_blob_gas >= target_blob_gas_per_block:
+            self.excess_blob_gas = excess_blob_gas - target_blob_gas_per_block
 
     def read_base_fee_per_gas(self, data: Any, t8n: Any) -> None:
         """
