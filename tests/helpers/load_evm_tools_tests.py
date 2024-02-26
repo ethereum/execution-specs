@@ -7,10 +7,10 @@ from typing import Dict, Generator, Optional, Tuple
 import pytest
 
 from ethereum.utils.hexadecimal import hex_to_bytes
-from ethereum_spec_tools.evm_tools import parser, subparsers
+from ethereum_spec_tools.evm_tools import create_parser
 from ethereum_spec_tools.evm_tools.t8n import T8N, t8n_arguments
 
-t8n_arguments(subparsers)
+parser = create_parser()
 
 
 def fetch_evm_tools_tests(
