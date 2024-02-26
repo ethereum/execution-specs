@@ -33,10 +33,35 @@ The following forks are supported:
     + get_supported_forks()
 )
 
-parser = argparse.ArgumentParser(
-    description=DESCRIPTION,
-    formatter_class=argparse.RawDescriptionHelpFormatter,
-)
+
+def create_parser() -> argparse.ArgumentParser:
+    """
+    Create a command-line argument parser for the evm tool.
+    """
+    new_parser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    commit_hash = get_git_commit_hash()
+
+    # Add -v option to parser to show the version of the tool
+    new_parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__} (Git commit: {commit_hash})",
+        help="Show the version of the tool.",
+    )
+
+    # Add options to the t8n tool
+    subparsers = new_parser.add_subparsers(dest="evm_tool")
+
+    daemon_arguments(subparsers)
+    t8n_arguments(subparsers)
+    b11r_arguments(subparsers)
+
+    return new_parser
 
 
 def get_git_commit_hash() -> str:
@@ -62,30 +87,13 @@ def get_git_commit_hash() -> str:
         return "Error: " + str(e)
 
 
-commit_hash = get_git_commit_hash()
-
-# Add -v option to parser to show the version of the tool
-parser.add_argument(
-    "-v",
-    "--version",
-    action="version",
-    version=f"%(prog)s {__version__} (Git commit: {commit_hash})",
-    help="Show the version of the tool.",
-)
-
-# Add options to the t8n tool
-subparsers = parser.add_subparsers(dest="evm_tool")
-
-
 def main(
     args: Optional[Sequence[Text]] = None,
     out_file: Optional[TextIO] = None,
     in_file: Optional[TextIO] = None,
 ) -> int:
     """Run the tools based on the given options."""
-    daemon_arguments(subparsers)
-    t8n_arguments(subparsers)
-    b11r_arguments(subparsers)
+    parser = create_parser()
 
     options, _ = parser.parse_known_args(args)
 
