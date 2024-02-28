@@ -31,8 +31,8 @@ This specification aims to be:
 
 Running the tests necessary to merge into the repository requires:
 
- * Python 3.9.x, and
- * [PyPy 7.3.x](https://www.pypy.org/).
+ * Python 3.10.x, and
+ * [PyPy 7.3.12](https://www.pypy.org/) or later.
  * `geth` installed and present in `$PATH`
 
 

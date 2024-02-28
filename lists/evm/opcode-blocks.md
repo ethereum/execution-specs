@@ -1,9 +1,9 @@
 Opcode Blocks
 -------------
 
-| Prefix | Available | Propsoed | Name                            |
+| Prefix | Available | Proposed | Name                            |
 |--------|----------:|---------:|---------------------------------|
-| 0x0    |         3 |          | Aritmetic                       |
+| 0x0    |         3 |          | Arithmetic                      |
 | 0x1    |         2 |          | Comparison / Bitwise            |
 | 0x2    |        15 |          | Cryptography                    |
 | 0x3    |         0 |          | Environmental                   |
