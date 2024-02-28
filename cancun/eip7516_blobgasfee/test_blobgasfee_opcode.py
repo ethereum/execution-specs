@@ -3,6 +3,7 @@ abstract: Tests [EIP-7516: BLOBBASEFEE opcode](https://eips.ethereum.org/EIPS/ei
     Test BLOBGASFEE opcode [EIP-7516: BLOBBASEFEE opcode](https://eips.ethereum.org/EIPS/eip-7516)
 
 """  # noqa: E501
+
 from dataclasses import replace
 from itertools import count
 from typing import Dict
@@ -210,7 +211,7 @@ def test_blobbasefee_during_fork(
             ),
         )
         # pre-set storage just to make sure we detect the change
-        code_caller_pre_storage[block_number] = 1 if timestamp < 15_000 else 0
+        code_caller_pre_storage[block_number] = 0xFF
         code_caller_post_storage[block_number] = 0 if timestamp < 15_000 else 1
 
     pre[code_caller_address] = replace(pre[code_caller_address], storage=code_caller_pre_storage)
