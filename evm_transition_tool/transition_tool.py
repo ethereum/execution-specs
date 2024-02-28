@@ -1,6 +1,7 @@
 """
 Transition tool abstract class.
 """
+
 import json
 import os
 import shutil
@@ -561,49 +562,6 @@ class TransitionTool:
                 t8n_data=t8n_data,
                 debug_output_path=debug_output_path,
             )
-
-    def calc_state_root(
-        self, *, alloc: Any, fork: Fork, debug_output_path: str = ""
-    ) -> Tuple[Dict, bytes]:
-        """
-        Calculate the state root for the given `alloc`.
-        """
-        env: Dict[str, Any] = {
-            "currentCoinbase": "0x0000000000000000000000000000000000000000",
-            "currentDifficulty": "0x0",
-            "currentGasLimit": "0x0",
-            "currentNumber": "0",
-            "currentTimestamp": "0",
-        }
-
-        if fork.header_base_fee_required(0, 0):
-            env["currentBaseFee"] = "7"
-
-        if fork.header_prev_randao_required(0, 0):
-            env["currentRandom"] = "0"
-
-        if fork.header_withdrawals_required(0, 0):
-            env["withdrawals"] = []
-
-        if fork.header_excess_blob_gas_required(0, 0):
-            env["currentExcessBlobGas"] = "0"
-
-        if fork.header_beacon_root_required(0, 0):
-            env[
-                "parentBeaconBlockRoot"
-            ] = "0x0000000000000000000000000000000000000000000000000000000000000000"
-
-        new_alloc, result = self.evaluate(
-            alloc=alloc,
-            txs=[],
-            env=env,
-            fork_name=fork.transition_tool_name(block_number=0, timestamp=0),
-            debug_output_path=debug_output_path,
-        )
-        state_root = result.get("stateRoot")
-        if state_root is None or not isinstance(state_root, str):
-            raise Exception("Unable to calculate state root")
-        return new_alloc, bytes.fromhex(state_root[2:])
 
     def verify_fixture(
         self, fixture_format: FixtureFormats, fixture_path: Path, debug_output_path: Optional[Path]

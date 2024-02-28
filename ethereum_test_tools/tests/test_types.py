@@ -35,18 +35,18 @@ def test_storage():
     """
     s = Storage({"10": "0x10"})
 
-    assert 10 in s.data
-    assert s.data[10] == 16
+    assert 10 in s
+    assert s[10] == 16
 
     s = Storage({"10": "10"})
 
-    assert 10 in s.data
-    assert s.data[10] == 10
+    assert 10 in s
+    assert s[10] == 10
 
     s = Storage({10: 10})
 
-    assert 10 in s.data
-    assert s.data[10] == 10
+    assert 10 in s
+    assert s[10] == 10
 
     iter_s = iter(Storage({10: 20, "11": "21"}))
     assert next(iter_s) == 10
@@ -54,8 +54,8 @@ def test_storage():
 
     s["10"] = "0x10"
     s["0x10"] = "10"
-    assert s.data[10] == 16
-    assert s.data[16] == 10
+    assert s[10] == 16
+    assert s[16] == 10
 
     assert "10" in s
     assert "0xa" in s
@@ -67,8 +67,8 @@ def test_storage():
     assert 10 not in s
 
     s = Storage({-1: -1, -2: -2})
-    assert s.data[-1] == -1
-    assert s.data[-2] == -2
+    assert s[-1] == -1
+    assert s[-2] == -2
     d = to_json(s)
     assert (
         d["0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"]

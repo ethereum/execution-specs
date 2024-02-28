@@ -1,6 +1,7 @@
 """
 Useful types for generating Ethereum tests.
 """
+
 from copy import copy, deepcopy
 from dataclasses import dataclass, fields
 from itertools import count
@@ -20,8 +21,10 @@ from typing import (
 
 from coincurve.keys import PrivateKey, PublicKey
 from ethereum import rlp as eth_rlp
-from ethereum.base_types import Uint
+from ethereum.base_types import U256, Uint
 from ethereum.crypto.hash import keccak256
+from ethereum.frontier.fork_types import Account as FrontierAccount
+from ethereum.frontier.state import State, set_account, set_storage, state_root
 from trie import HexaryTrie
 
 from ethereum_test_forks import Fork
@@ -64,12 +67,10 @@ MAX_STORAGE_KEY_VALUE = 2**256 - 1
 MIN_STORAGE_KEY_VALUE = -(2**255)
 
 
-class Storage(SupportsJSON):
+class Storage(SupportsJSON, dict):
     """
     Definition of a storage in pre or post state of a test
     """
-
-    data: Dict[int, int]
 
     current_slot: Iterator[int]
 
@@ -220,49 +221,43 @@ class Storage(SupportsJSON):
             hex_str = "0" + hex_str
         return "0x" + hex_str
 
-    def __init__(self, input: StorageDictType | "Storage" = {}, start_slot: int = 0):
+    def __init__(self, input: StorageDictType | "Storage" = {}, *, start_slot: int = 0):
         """
         Initializes the storage using a given mapping which can have
         keys and values either as string or int.
         Strings must be valid decimal or hexadecimal (starting with 0x)
         numbers.
         """
-        self.data = {}
-        for key in input:
-            value = Storage.parse_key_value(input[key])
-            key = Storage.parse_key_value(key)
-            self.data[key] = value
+        super().__init__(
+            (Storage.parse_key_value(k), Storage.parse_key_value(v)) for k, v in input.items()
+        )
         self.current_slot = count(start_slot)
 
-    def __len__(self) -> int:
-        """Returns number of elements in the storage"""
-        return len(self.data)
-
-    def __iter__(self) -> Iterator[int]:
-        """Returns iterator of the storage"""
-        return iter(self.data)
-
-    def __contains__(self, key: str | int | bytes) -> bool:
+    def __contains__(self, key: object) -> bool:
         """Checks for an item in the storage"""
-        key = Storage.parse_key_value(key)
-        return key in self.data
+        assert (
+            isinstance(key, str)
+            or isinstance(key, int)
+            or isinstance(key, bytes)
+            or isinstance(key, SupportsBytes)
+        )
+        return super().__contains__(Storage.parse_key_value(key))
 
-    def __getitem__(self, key: str | int | bytes) -> int:
+    def __getitem__(self, key: str | int | bytes | SupportsBytes) -> int:
         """Returns an item from the storage"""
-        key = Storage.parse_key_value(key)
-        if key not in self.data:
-            raise KeyError()
-        return self.data[key]
+        return super().__getitem__(Storage.parse_key_value(key))
 
-    def __setitem__(self, key: str | int | bytes, value: str | int | bytes):  # noqa: SC200
+    def __setitem__(
+        self, key: str | int | bytes | SupportsBytes, value: str | int | bytes | SupportsBytes
+    ):  # noqa: SC200
         """Sets an item in the storage"""
-        self.data[Storage.parse_key_value(key)] = Storage.parse_key_value(value)
+        super().__setitem__(Storage.parse_key_value(key), Storage.parse_key_value(value))
 
-    def __delitem__(self, key: str | int | bytes):
+    def __delitem__(self, key: str | int | bytes | SupportsBytes):
         """Deletes an item from the storage"""
-        del self.data[Storage.parse_key_value(key)]
+        super().__delitem__(Storage.parse_key_value(key))
 
-    def store_next(self, value: str | int | bytes) -> int:
+    def store_next(self, value: str | int | bytes | SupportsBytes) -> int:
         """
         Stores a value in the storage and returns the key where the value is stored.
 
@@ -278,9 +273,9 @@ class Storage(SupportsJSON):
         hex string formatting.
         """
         res: Dict[str, str] = {}
-        for key in self.data:
+        for key, value in self.items():
             key_repr = Storage.key_value_to_string(key)
-            val_repr = Storage.key_value_to_string(self.data[key])
+            val_repr = Storage.key_value_to_string(value)
             if key_repr in res and val_repr != res[key_repr]:
                 raise Storage.AmbiguousKeyValue(
                     key_1=key_repr, val_1=res[key_repr], key_2=key, val_2=val_repr
@@ -295,10 +290,10 @@ class Storage(SupportsJSON):
         Used for comparison with test expected post state and alloc returned
         by the transition tool.
         """
-        for key in other.data:
-            if key not in self.data:
+        for key in other:
+            if key not in self:
                 return False
-            if self.data[key] != other.data[key]:
+            if self[key] != other[key]:
                 return False
         return True
 
@@ -310,14 +305,14 @@ class Storage(SupportsJSON):
         by the transition tool.
         Raises detailed exception when a difference is found.
         """
-        for key in other.data:
-            if key not in self.data:
+        for key in other:
+            if key not in self:
                 # storage[key]==0 is equal to missing storage
                 if other[key] != 0:
                     raise Storage.MissingKey(key=key)
-            elif self.data[key] != other.data[key]:
+            elif self[key] != other[key]:
                 raise Storage.KeyValueMismatch(
-                    address=address, key=key, want=self.data[key], got=other.data[key]
+                    address=address, key=key, want=self[key], got=other[key]
                 )
 
     def must_be_equal(self, address: Address, other: "Storage"):
@@ -325,24 +320,20 @@ class Storage(SupportsJSON):
         Succeeds only if "self" is equal to "other" storage.
         """
         # Test keys contained in both storage objects
-        for key in self.data.keys() & other.data.keys():
-            if self.data[key] != other.data[key]:
+        for key in self.keys() & other.keys():
+            if self[key] != other[key]:
                 raise Storage.KeyValueMismatch(
-                    address=address, key=key, want=self.data[key], got=other.data[key]
+                    address=address, key=key, want=self[key], got=other[key]
                 )
 
         # Test keys contained in either one of the storage objects
-        for key in self.data.keys() ^ other.data.keys():
-            if key in self.data:
-                if self.data[key] != 0:
-                    raise Storage.KeyValueMismatch(
-                        address=address, key=key, want=self.data[key], got=0
-                    )
+        for key in self.keys() ^ other.keys():
+            if key in self:
+                if self[key] != 0:
+                    raise Storage.KeyValueMismatch(address=address, key=key, want=self[key], got=0)
 
-            elif other.data[key] != 0:
-                raise Storage.KeyValueMismatch(
-                    address=address, key=key, want=0, got=other.data[key]
-                )
+            elif other[key] != 0:
+                raise Storage.KeyValueMismatch(address=address, key=key, want=0, got=other[key])
 
 
 @dataclass(kw_only=True)
@@ -583,10 +574,11 @@ class Alloc(dict, Mapping[Address, Account], SupportsJSON):
     """
 
     def __init__(self, d: Mapping[FixedSizeBytesConvertible, Account | Dict] = {}):
-        for address, account in d.items():
-            address = Address(address)
-            assert address not in self, f"Duplicate address in alloc: {address}"
-            self[address] = Account.from_dict(account)
+        super().__init__(
+            (Address(address), Account.from_dict(account)) for address, account in d.items()
+        )
+        if len(self) != len(d):
+            raise Exception("Duplicate addresses in alloc")
 
     @classmethod
     def merge(cls, alloc_1: "Alloc", alloc_2: "Alloc") -> "Alloc":
@@ -618,6 +610,33 @@ class Alloc(dict, Mapping[Address, Account], SupportsJSON):
         return encoder.default(
             {Address(address): Account.from_dict(account) for address, account in self.items()}
         )
+
+    def state_root(self) -> bytes:
+        """
+        Returns the state root of the allocation.
+        """
+        state = State()
+        for address, account in self.items():
+            set_account(
+                state=state,
+                address=address,
+                account=FrontierAccount(
+                    nonce=Uint(Number(account.nonce)) if account.nonce is not None else Uint(0),
+                    balance=(
+                        U256(Number(account.balance)) if account.balance is not None else U256(0)
+                    ),
+                    code=Bytes(account.code) if account.code is not None else b"",
+                ),
+            )
+            if account.storage is not None:
+                for key, value in account.storage.items():
+                    set_storage(
+                        state=state,
+                        address=address,
+                        key=Hash(key),
+                        value=U256(Number(value)),
+                    )
+        return state_root(state)
 
 
 def alloc_to_accounts(got_alloc: Dict[str, Any]) -> Mapping[str, Account]:

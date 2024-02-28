@@ -7,6 +7,7 @@ from typing import Dict
 import pytest
 
 from ethereum_test_forks import Berlin, Fork, Istanbul, London
+from ethereum_test_tools.common import Alloc
 from evm_transition_tool import GethTransitionTool, TransitionTool
 
 FIXTURES_ROOT = Path(os.path.join("src", "evm_transition_tool", "tests", "fixtures"))
@@ -76,7 +77,7 @@ def test_calc_state_root(  # noqa: D103
 
     env = TestEnv()
     env.base_fee = base_fee
-    assert t8n.calc_state_root(alloc=alloc, fork=fork)[1].startswith(hash)
+    assert Alloc(alloc).state_root().startswith(hash)
 
 
 @pytest.mark.parametrize("evm_tool", [GethTransitionTool])

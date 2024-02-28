@@ -143,11 +143,7 @@ class BlockchainTest(BaseTest):
         )
         if empty_accounts := pre_alloc.empty_accounts():
             raise Exception(f"Empty accounts in pre state: {empty_accounts}")
-        new_alloc, state_root = t8n.calc_state_root(
-            alloc=to_json(pre_alloc),
-            fork=fork,
-            debug_output_path=self.get_next_transition_tool_output_path(),
-        )
+        state_root = pre_alloc.state_root()
         genesis = FixtureHeader(
             parent_hash=Hash(0),
             ommers_hash=Hash(EmptyOmmersRoot),
@@ -179,7 +175,7 @@ class BlockchainTest(BaseTest):
             withdrawals=env.withdrawals,
         )
 
-        return Alloc(new_alloc), genesis_rlp, genesis
+        return pre_alloc, genesis_rlp, genesis
 
     def generate_block_data(
         self,
