@@ -241,7 +241,7 @@ def do_fixture_verification(request, t8n) -> bool:
 @pytest.fixture(autouse=True, scope="session")
 def evm_fixture_verification(
     request, do_fixture_verification: bool, evm_bin: Path, verify_fixtures_bin: Path
-) -> Optional[Generator[TransitionTool, None, None]]:
+) -> Generator[Optional[TransitionTool], None, None]:
     """
     Returns the configured evm binary for executing statetest and blocktest
     commands used to verify generated JSON fixtures.
@@ -492,6 +492,9 @@ def pytest_collection_modifyitems(config, items):
     """
     for item in items[:]:  # use a copy of the list, as we'll be modifying it
         if isinstance(item, EIPSpecTestItem):
+            continue
+        if "fork" not in item.callspec.params or item.callspec.params["fork"] is None:
+            items.remove(item)
             continue
         if item.callspec.params["fork"] < Paris:
             # Even though the `state_test` test spec does not produce a hive STATE_TEST, it does
