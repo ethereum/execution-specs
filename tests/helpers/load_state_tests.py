@@ -13,7 +13,7 @@ from ethereum import rlp
 from ethereum.base_types import U64
 from ethereum.exceptions import InvalidBlock
 from ethereum.utils.hexadecimal import hex_to_bytes
-from ethereum_spec_tools.evm_tools.fixture_loader import Load
+from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 
 
 class NoTestsFound(Exception):
@@ -44,7 +44,7 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
     if hasattr(genesis_header, "withdrawals_root"):
         parameters.append(())
 
-    genesis_block = load.Block(*parameters)
+    genesis_block = load.fork.Block(*parameters)
 
     genesis_header_hash = hex_to_bytes(json_data["genesisBlockHeader"]["hash"])
     assert rlp.rlp_hash(genesis_header) == genesis_header_hash
@@ -56,13 +56,15 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
     #     == test_data["genesis_block_rlp"]
     # )
 
-    chain = load.BlockChain(
+    chain = load.fork.BlockChain(
         blocks=[genesis_block],
         state=load.json_to_state(json_data["pre"]),
         chain_id=U64(json_data["genesisBlockHeader"].get("chainId", 1)),
     )
 
-    mock_pow = json_data["sealEngine"] == "NoProof" and not load.proof_of_stake
+    mock_pow = (
+        json_data["sealEngine"] == "NoProof" and not load.fork.proof_of_stake
+    )
 
     for json_block in json_data["blocks"]:
         block_exception = None
@@ -83,8 +85,8 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
 
     expected_post_state = load.json_to_state(json_data["postState"])
     assert chain.state == expected_post_state
-    load.close_state(chain.state)
-    load.close_state(expected_post_state)
+    load.fork.close_state(chain.state)
+    load.fork.close_state(expected_post_state)
 
 
 def add_block_to_chain(
@@ -100,17 +102,17 @@ def add_block_to_chain(
     assert rlp.encode(cast(rlp.RLP, block)) == block_rlp
 
     if not mock_pow:
-        load.state_transition(chain, block)
+        load.fork.state_transition(chain, block)
     else:
         fork_module = importlib.import_module(
-            f"ethereum.{load.fork_module}.fork"
+            f"ethereum.{load.fork.fork_module}.fork"
         )
         with patch.object(
             fork_module,
             "validate_proof_of_work",
             autospec=True,
         ) as mocked_pow_validator:
-            load.state_transition(chain, block)
+            load.fork.state_transition(chain, block)
             mocked_pow_validator.assert_has_calls(
                 [call(block.header)],
                 any_order=False,

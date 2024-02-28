@@ -4,7 +4,6 @@ tools (t8n, b11r, etc.) as well as the execution specs
 testing framework.
 """
 
-import importlib
 from abc import ABC, abstractmethod
 from typing import Any, Tuple
 
@@ -20,7 +19,8 @@ from ethereum.utils.hexadecimal import (
     hex_to_u256,
     hex_to_uint,
 )
-from ethereum_spec_tools.forks import Hardfork
+
+from .fork_loader import ForkLoad
 
 
 class UnsupportedTx(Exception):
@@ -34,84 +34,6 @@ class UnsupportedTx(Exception):
 
 class BaseLoad(ABC):
     """Base class for loading json fixtures"""
-
-    @property
-    @abstractmethod
-    def fork_module(self) -> str:
-        """Module that contains the fork code"""
-        pass
-
-    @property
-    @abstractmethod
-    def network(self) -> str:
-        """Network name"""
-        pass
-
-    @property
-    @abstractmethod
-    def proof_of_stake(self) -> bool:
-        """Whether the fork is proof of stake"""
-        pass
-
-    @property
-    @abstractmethod
-    def Block(self) -> Any:
-        """Block class of the fork"""
-        pass
-
-    @property
-    @abstractmethod
-    def Environment(self) -> Any:
-        """Environment class of the fork"""
-        pass
-
-    @property
-    @abstractmethod
-    def LegacyTransaction(self) -> Any:
-        """Legacy transaction class of the fork"""
-        pass
-
-    @property
-    @abstractmethod
-    def Account(self) -> Any:
-        """Account class of the fork"""
-        pass
-
-    @property
-    @abstractmethod
-    def State(self) -> Any:
-        """State class of the fork"""
-        pass
-
-    @property
-    @abstractmethod
-    def set_account(self) -> Any:
-        """set_account function of the fork"""
-        pass
-
-    @property
-    @abstractmethod
-    def BlockChain(self) -> Any:
-        """Block chain class of the fork"""
-        pass
-
-    @property
-    @abstractmethod
-    def process_transaction(self) -> Any:
-        """process_transaction function of the fork"""
-        pass
-
-    @property
-    @abstractmethod
-    def state_transition(self) -> Any:
-        """state_transition function of the fork"""
-        pass
-
-    @property
-    @abstractmethod
-    def close_state(self) -> Any:
-        """close_state function of the fork"""
-        pass
 
     @abstractmethod
     def json_to_header(self, json_data: Any) -> Any:
@@ -135,125 +57,23 @@ class Load(BaseLoad):
     _network: str
     _fork_module: str
 
-    @property
-    def fork_module(self) -> str:
-        """Module that contains the fork code"""
-        return self._fork_module
-
-    @property
-    def network(self) -> str:
-        """Network name"""
-        return self._network
-
-    @property
-    def proof_of_stake(self) -> bool:
-        """Whether the fork is proof of stake"""
-        forks = Hardfork.discover()
-        for fork in forks:
-            if fork.name == "ethereum." + self._fork_module:
-                return fork.consensus.is_pos()
-        raise Exception(f"fork {self._fork_module} not discovered")
-
-    @property
-    def Block(self) -> Any:
-        """Block class of the fork"""
-        return self._module("blocks").Block
-
-    @property
-    def Bloom(self) -> Any:
-        """Bloom class of the fork"""
-        return self._module("fork_types").Bloom
-
-    @property
-    def Header(self) -> Any:
-        """Header class of the fork"""
-        return self._module("blocks").Header
-
-    @property
-    def Environment(self) -> Any:
-        """Environment class of the fork"""
-        return self._module("vm").Environment
-
-    @property
-    def LegacyTransaction(self) -> Any:
-        """Legacy transaction class of the fork"""
-        mod = self._module("transactions")
-        try:
-            return mod.LegacyTransaction
-        except AttributeError:
-            return mod.Transaction
-
-    @property
-    def Account(self) -> Any:
-        """Account class of the fork"""
-        return self._module("fork_types").Account
-
-    @property
-    def State(self) -> Any:
-        """State class of the fork"""
-        return self._module("state").State
-
-    @property
-    def get_account(self) -> Any:
-        """get_account function of the fork"""
-        return self._module("state").get_account
-
-    @property
-    def set_account(self) -> Any:
-        """set_account function of the fork"""
-        return self._module("state").set_account
-
-    @property
-    def state_transition(self) -> Any:
-        """state_transition function of the fork"""
-        return self._module("fork").state_transition
-
-    @property
-    def process_transaction(self) -> Any:
-        """process_transaction function of the fork"""
-        return self._module("fork").process_transaction
-
-    @property
-    def BlockChain(self) -> Any:
-        """Block chain class of the fork"""
-        return self._module("fork").BlockChain
-
-    @property
-    def hex_to_address(self) -> Any:
-        """hex_to_address function of the fork"""
-        return self._module("utils.hexadecimal").hex_to_address
-
-    @property
-    def hex_to_root(self) -> Any:
-        """hex_to_root function of the fork"""
-        return self._module("utils.hexadecimal").hex_to_root
-
-    @property
-    def close_state(self) -> Any:
-        """close_state function of the fork"""
-        return self._module("state").close_state
-
     def __init__(self, network: str, fork_name: str):
         self._network = network
-        self._fork_module = fork_name
-
-    def _module(self, name: str) -> Any:
-        """Imports a module from the fork"""
-        return importlib.import_module(f"ethereum.{self._fork_module}.{name}")
+        self.fork = ForkLoad(fork_name)
 
     def json_to_state(self, raw: Any) -> Any:
         """Converts json state data to a state object"""
-        state = self.State()
-        set_storage = self._module("state").set_storage
+        state = self.fork.State()
+        set_storage = self.fork.set_storage
 
         for address_hex, account_state in raw.items():
-            address = self.hex_to_address(address_hex)
-            account = self.Account(
+            address = self.fork.hex_to_address(address_hex)
+            account = self.fork.Account(
                 nonce=hex_to_uint(account_state.get("nonce", "0x0")),
                 balance=U256(hex_to_uint(account_state.get("balance", "0x0"))),
                 code=hex_to_bytes(account_state.get("code", "")),
             )
-            self.set_account(state, address, account)
+            self.fork.set_account(state, address, account)
 
             for k, v in account_state.get("storage", {}).items():
                 set_storage(
@@ -270,7 +90,7 @@ class Load(BaseLoad):
         for sublist in raw:
             access_list.append(
                 (
-                    self.hex_to_address(sublist.get("address")),
+                    self.fork.hex_to_address(sublist.get("address")),
                     [
                         hex_to_bytes32(key)
                         for key in sublist.get("storageKeys")
@@ -286,7 +106,7 @@ class Load(BaseLoad):
             hex_to_u256(raw.get("gasLimit")),
             Bytes0(b"")
             if raw.get("to") == ""
-            else self.hex_to_address(raw.get("to")),
+            else self.fork.hex_to_address(raw.get("to")),
             hex_to_u256(raw.get("value")),
             hex_to_bytes(raw.get("data")),
             hex_to_u256(
@@ -315,7 +135,7 @@ class Load(BaseLoad):
 
             try:
                 return b"\x03" + rlp.encode(
-                    self._module("fork_types").BlobTransaction(*parameters)
+                    self.fork.BlobTransaction(*parameters)
                 )
             except AttributeError as e:
                 raise UnsupportedTx(
@@ -332,9 +152,7 @@ class Load(BaseLoad):
             )
             try:
                 return b"\x02" + rlp.encode(
-                    self._module("transactions").FeeMarketTransaction(
-                        *parameters
-                    )
+                    self.fork.FeeMarketTransaction(*parameters)
                 )
             except AttributeError as e:
                 raise UnsupportedTx(
@@ -350,9 +168,7 @@ class Load(BaseLoad):
             )
             try:
                 return b"\x01" + rlp.encode(
-                    self._module("transactions").AccessListTransaction(
-                        *parameters
-                    )
+                    self.fork.AccessListTransaction(*parameters)
                 )
             except AttributeError as e:
                 raise UnsupportedTx(
@@ -360,21 +176,21 @@ class Load(BaseLoad):
                 ) from e
 
         # Legacy Transaction
-        if hasattr(self._module("transactions"), "LegacyTransaction"):
-            return self._module("transactions").LegacyTransaction(*parameters)
-        else:
-            return self._module("transactions").Transaction(*parameters)
+        try:
+            return self.fork.LegacyTransaction(*parameters)
+        except AttributeError:
+            return self.fork.Transaction(*parameters)
 
     def json_to_withdrawals(self, raw: Any) -> Any:
         """Converts json withdrawal data to a withdrawal object"""
         parameters = [
             hex_to_u64(raw.get("index")),
             hex_to_u64(raw.get("validatorIndex")),
-            self.hex_to_address(raw.get("address")),
+            self.fork.hex_to_address(raw.get("address")),
             hex_to_u256(raw.get("amount")),
         ]
 
-        return self._module("blocks").Withdrawal(*parameters)
+        return self.fork.Withdrawal(*parameters)
 
     def json_to_block(
         self,
@@ -384,7 +200,7 @@ class Load(BaseLoad):
         if "rlp" in json_block:
             # Always decode from rlp
             block_rlp = hex_to_bytes(json_block["rlp"])
-            block = rlp.decode_to(self.Block, block_rlp)
+            block = rlp.decode_to(self.fork.Block, block_rlp)
             block_header_hash = rlp.rlp_hash(block.header)
             return block, block_header_hash, block_rlp
 
@@ -409,7 +225,7 @@ class Load(BaseLoad):
             )
             parameters.append(withdrawals)
 
-        block = self.Block(*parameters)
+        block = self.fork.Block(*parameters)
         block_header_hash = Hash32(
             hex_to_bytes(json_block["blockHeader"]["hash"])
         )
@@ -422,15 +238,17 @@ class Load(BaseLoad):
         parameters = [
             hex_to_hash(raw.get("parentHash")),
             hex_to_hash(raw.get("uncleHash") or raw.get("sha3Uncles")),
-            self.hex_to_address(raw.get("coinbase") or raw.get("miner")),
-            self.hex_to_root(raw.get("stateRoot")),
-            self.hex_to_root(
+            self.fork.hex_to_address(raw.get("coinbase") or raw.get("miner")),
+            self.fork.hex_to_root(raw.get("stateRoot")),
+            self.fork.hex_to_root(
                 raw.get("transactionsTrie") or raw.get("transactionsRoot")
             ),
-            self.hex_to_root(
+            self.fork.hex_to_root(
                 raw.get("receiptTrie") or raw.get("receiptsRoot")
             ),
-            self.Bloom(hex_to_bytes(raw.get("bloom") or raw.get("logsBloom"))),
+            self.fork.Bloom(
+                hex_to_bytes(raw.get("bloom") or raw.get("logsBloom"))
+            ),
             hex_to_uint(raw.get("difficulty")),
             hex_to_uint(raw.get("number")),
             hex_to_uint(raw.get("gasLimit")),
@@ -446,7 +264,9 @@ class Load(BaseLoad):
             parameters.append(base_fee_per_gas)
 
         if "withdrawalsRoot" in raw:
-            withdrawals_root = self.hex_to_root(raw.get("withdrawalsRoot"))
+            withdrawals_root = self.fork.hex_to_root(
+                raw.get("withdrawalsRoot")
+            )
             parameters.append(withdrawals_root)
 
         if "excessBlobGas" in raw:
@@ -454,9 +274,9 @@ class Load(BaseLoad):
             parameters.append(blob_gas_used)
             excess_blob_gas = hex_to_u64(raw.get("excessBlobGas"))
             parameters.append(excess_blob_gas)
-            parent_beacon_block_root = self.hex_to_root(
+            parent_beacon_block_root = self.fork.hex_to_root(
                 raw.get("parentBeaconBlockRoot")
             )
             parameters.append(parent_beacon_block_root)
 
-        return self.Header(*parameters)
+        return self.fork.Header(*parameters)

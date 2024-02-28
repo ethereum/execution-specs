@@ -75,30 +75,30 @@ def t8n_tool_test(test_case: Dict) -> None:
     else:
         assert len(json_result["rejected"]) == 0
 
-    assert t8n_tool.hex_to_root(
+    assert t8n_tool.fork.hex_to_root(
         json_result["stateRoot"]
-    ) == t8n_tool.hex_to_root(data["result"]["stateRoot"])
-    assert t8n_tool.hex_to_root(json_result["txRoot"]) == t8n_tool.hex_to_root(
-        data["result"]["txRoot"]
-    )
-    assert t8n_tool.hex_to_root(
+    ) == t8n_tool.fork.hex_to_root(data["result"]["stateRoot"])
+    assert t8n_tool.fork.hex_to_root(
+        json_result["txRoot"]
+    ) == t8n_tool.fork.hex_to_root(data["result"]["txRoot"])
+    assert t8n_tool.fork.hex_to_root(
         json_result["receiptsRoot"]
-    ) == t8n_tool.hex_to_root(data["result"]["receiptsRoot"])
-    assert t8n_tool.Bloom(
+    ) == t8n_tool.fork.hex_to_root(data["result"]["receiptsRoot"])
+    assert t8n_tool.fork.Bloom(
         hex_to_bytes(json_result["logsBloom"])
-    ) == t8n_tool.Bloom(hex_to_bytes(data["result"]["logsBloom"]))
+    ) == t8n_tool.fork.Bloom(hex_to_bytes(data["result"]["logsBloom"]))
     assert hex_to_u256(json_result["gasUsed"]) == hex_to_u256(
         data["result"]["gasUsed"]
     )
     assert rlp.encode(t8n_tool.txs.all_txs) == hex_to_bytes(data["txs_rlp"])
-    if not t8n_tool.is_after_fork("ethereum.paris"):
+    if not t8n_tool.fork.is_after_fork("ethereum.paris"):
         assert hex_to_uint(json_result["currentDifficulty"]) == hex_to_uint(
             data["result"]["currentDifficulty"]
         )
-    if t8n_tool.is_after_fork("ethereum.shanghai"):
-        assert t8n_tool.hex_to_root(
+    if t8n_tool.fork.is_after_fork("ethereum.shanghai"):
+        assert t8n_tool.fork.hex_to_root(
             json_result["withdrawalsRoot"]
-        ) == t8n_tool.hex_to_root(data["result"]["withdrawalsRoot"])
+        ) == t8n_tool.fork.hex_to_root(data["result"]["withdrawalsRoot"])
 
     if "receipts" in data["result"]:
         assert len(json_result["receipts"]) == len(data["result"]["receipts"])
