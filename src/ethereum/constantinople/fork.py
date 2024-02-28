@@ -340,7 +340,7 @@ def check_transaction(
     sender = env.origin
     sender_account = get_account(env.state, sender)
     gas_fee = tx.gas * tx.gas_price
-    
+
     ensure(sender_account.nonce == tx.nonce, InvalidBlock)
     ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
     ensure(sender_account.code == bytearray(), InvalidBlock)
