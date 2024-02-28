@@ -10,7 +10,7 @@ from ethereum.base_types import U64, Bytes, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
-from ..fixture_loader import UnsupportedTx
+from ..loaders.fixture_loader import UnsupportedTx
 from ..utils import FatalException, secp256k1_sign
 
 if TYPE_CHECKING:
@@ -44,7 +44,7 @@ class Alloc:
                     data[address][key] = "0x" + hex(int(value))
 
         state = t8n.json_to_state(data)
-        if t8n.fork_module == "dao_fork":
+        if t8n.fork.fork_module == "dao_fork":
             t8n.fork.apply_dao(state)
 
         self.state = state
@@ -150,17 +150,15 @@ class Txs:
         t8n = self.t8n
 
         tx_rlp = rlp.encode(raw_tx)
-        if t8n.is_after_fork("ethereum.berlin"):
+        if t8n.fork.is_after_fork("ethereum.berlin"):
             if isinstance(raw_tx, Bytes):
-                transaction = t8n.transactions.decode_transaction(raw_tx)
+                transaction = t8n.fork.decode_transaction(raw_tx)
                 self.all_txs.append(raw_tx)
             else:
-                transaction = rlp.decode_to(
-                    t8n.transactions.LegacyTransaction, tx_rlp
-                )
+                transaction = rlp.decode_to(t8n.fork.LegacyTransaction, tx_rlp)
                 self.all_txs.append(transaction)
         else:
-            transaction = rlp.decode_to(t8n.transactions.Transaction, tx_rlp)
+            transaction = rlp.decode_to(t8n.fork.Transaction, tx_rlp)
             self.all_txs.append(transaction)
 
         return transaction
@@ -195,8 +193,8 @@ class Txs:
         tx = t8n.json_to_tx(raw_tx)
         self.all_txs.append(tx)
 
-        if t8n.is_after_fork("ethereum.berlin"):
-            transaction = t8n.transactions.decode_transaction(tx)
+        if t8n.fork.is_after_fork("ethereum.berlin"):
+            transaction = t8n.fork.decode_transaction(tx)
         else:
             transaction = tx
 
@@ -206,10 +204,8 @@ class Txs:
         """
         Add a transaction to the list of successful transactions.
         """
-        if self.t8n.is_after_fork("ethereum.berlin"):
-            self.successful_txs.append(
-                self.t8n.transactions.encode_transaction(tx)
-            )
+        if self.t8n.fork.is_after_fork("ethereum.berlin"):
+            self.successful_txs.append(self.t8n.fork.encode_transaction(tx))
         else:
             self.successful_txs.append(tx)
 
@@ -217,10 +213,10 @@ class Txs:
         """
         Get the transaction hash of a transaction.
         """
-        if self.t8n.is_after_fork("ethereum.berlin") and not isinstance(
-            tx, self.t8n.transactions.LegacyTransaction
+        if self.t8n.fork.is_after_fork("ethereum.berlin") and not isinstance(
+            tx, self.t8n.fork.LegacyTransaction
         ):
-            return keccak256(self.t8n.transactions.encode_transaction(tx))
+            return keccak256(self.t8n.fork.encode_transaction(tx))
         else:
             return keccak256(rlp.encode(tx))
 
@@ -249,18 +245,18 @@ class Txs:
         tx = t8n.json_to_tx(json_tx)
 
         if isinstance(tx, bytes):
-            tx_decoded = t8n.transactions.decode_transaction(tx)
+            tx_decoded = t8n.fork.decode_transaction(tx)
         else:
             tx_decoded = tx
 
         secret_key = hex_to_uint(json_tx["secretKey"][2:])
-        if t8n.is_after_fork("ethereum.berlin"):
-            Transaction = t8n.transactions.LegacyTransaction
+        if t8n.fork.is_after_fork("ethereum.berlin"):
+            Transaction = t8n.fork.LegacyTransaction
         else:
-            Transaction = t8n.transactions.Transaction
+            Transaction = t8n.fork.Transaction
 
         if isinstance(tx_decoded, Transaction):
-            if t8n.is_after_fork("ethereum.spurious_dragon"):
+            if t8n.fork.is_after_fork("ethereum.spurious_dragon"):
                 if protected:
                     signing_hash = t8n.fork.signing_hash_155(
                         tx_decoded, U64(1)
@@ -272,13 +268,13 @@ class Txs:
             else:
                 signing_hash = t8n.fork.signing_hash(tx_decoded)
                 v_addend = 27
-        elif isinstance(tx_decoded, t8n.transactions.AccessListTransaction):
+        elif isinstance(tx_decoded, t8n.fork.AccessListTransaction):
             signing_hash = t8n.fork.signing_hash_2930(tx_decoded)
             v_addend = 0
-        elif isinstance(tx_decoded, t8n.transactions.FeeMarketTransaction):
+        elif isinstance(tx_decoded, t8n.fork.FeeMarketTransaction):
             signing_hash = t8n.fork.signing_hash_1559(tx_decoded)
             v_addend = 0
-        elif isinstance(tx_decoded, t8n.fork_types.BlobTransaction):
+        elif isinstance(tx_decoded, t8n.fork.BlobTransaction):
             signing_hash = t8n.fork.signing_hash_4844(tx_decoded)
             v_addend = 0
         else:

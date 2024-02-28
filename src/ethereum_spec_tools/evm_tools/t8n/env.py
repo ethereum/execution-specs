@@ -56,7 +56,7 @@ class Env:
             with open(t8n.options.input_env, "r") as f:
                 data = json.load(f)
 
-        self.coinbase = t8n.hex_to_address(data["currentCoinbase"])
+        self.coinbase = t8n.fork.hex_to_address(data["currentCoinbase"])
         self.block_gas_limit = parse_hex_or_int(data["currentGasLimit"], Uint)
         self.block_number = parse_hex_or_int(data["currentNumber"], Uint)
         self.block_timestamp = parse_hex_or_int(data["currentTimestamp"], U256)
@@ -68,7 +68,7 @@ class Env:
         self.read_ommers(data, t8n)
         self.read_withdrawals(data, t8n)
 
-        if t8n.is_after_fork("ethereum.cancun"):
+        if t8n.fork.is_after_fork("ethereum.cancun"):
             self.parent_beacon_block_root = Bytes32(
                 hex_to_bytes(data["parentBeaconBlockRoot"])
             )
@@ -124,7 +124,7 @@ class Env:
         self.parent_base_fee_per_gas = None
         self.base_fee_per_gas = None
 
-        if t8n.is_after_fork("ethereum.london"):
+        if t8n.fork.is_after_fork("ethereum.london"):
             if "currentBaseFee" in data:
                 self.base_fee_per_gas = parse_hex_or_int(
                     data["currentBaseFee"], Uint
@@ -160,7 +160,7 @@ class Env:
         Read the randao from the data.
         """
         self.prev_randao = None
-        if t8n.is_after_fork("ethereum.paris"):
+        if t8n.fork.is_after_fork("ethereum.paris"):
             # tf tool might not always provide an
             # even number of nibbles in the randao
             # This could create issues in the
@@ -181,7 +181,7 @@ class Env:
         Read the withdrawals from the data.
         """
         self.withdrawals = None
-        if t8n.is_after_fork("ethereum.shanghai"):
+        if t8n.fork.is_after_fork("ethereum.shanghai"):
             self.withdrawals = tuple(
                 t8n.json_to_withdrawals(wd) for wd in data["withdrawals"]
             )
@@ -196,7 +196,7 @@ class Env:
         self.parent_timestamp = None
         self.parent_difficulty = None
         self.parent_ommers_hash = None
-        if t8n.is_after_fork("ethereum.paris"):
+        if t8n.fork.is_after_fork("ethereum.paris"):
             return
         elif "currentDifficulty" in data:
             self.block_difficulty = parse_hex_or_int(
@@ -215,7 +215,7 @@ class Env:
                 self.parent_timestamp,
                 self.parent_difficulty,
             ]
-            if t8n.is_after_fork("ethereum.byzantium"):
+            if t8n.fork.is_after_fork("ethereum.byzantium"):
                 if "parentUncleHash" in data:
                     EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
                     self.parent_ommers_hash = Hash32(
