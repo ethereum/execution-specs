@@ -1,6 +1,7 @@
 
 from dataclasses import dataclass
 from typing import Tuple, Union
+from .fork_types import Address
 
 from .. import rlp
 from ..base_types import (
@@ -18,7 +19,7 @@ from ..base_types import (
 
 from ..exceptions import InvalidBlock
 
-Address = Bytes20
+
 
 
 TX_BASE_COST = 21000

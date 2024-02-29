@@ -13,8 +13,9 @@ Types re-used throughout the specification, which are specific to Ethereum.
 """
 
 from dataclasses import dataclass
-from typing import Tuple, Union
-from .transactions import LegacyTransaction
+from typing import Tuple, Union, TYPE_CHECKING
+if TYPE_CHECKING:
+    from .transactions import LegacyTransaction
 
 from .. import rlp
 from ..base_types import (
@@ -106,7 +107,7 @@ class Block:
     """
 
     header: Header
-    transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
+    transactions: Tuple[Union[Bytes, "LegacyTransaction"], ...]
     ommers: Tuple[Header, ...]
 
 
