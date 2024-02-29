@@ -13,8 +13,9 @@ Types re-used throughout the specification, which are specific to Ethereum.
 """
 
 from dataclasses import dataclass
-from typing import Tuple, Union
-from .transactions import LegacyTransaction
+from typing import Tuple, Union, TYPE_CHECKING
+if TYPE_CHECKING:
+    from .transactions import LegacyTransaction
 from .. import rlp
 from ..base_types import (
     U64,
@@ -29,7 +30,6 @@ from ..base_types import (
     slotted_freezable,
 )
 from ..crypto.hash import Hash32, keccak256
-from ..exceptions import InvalidBlock
 
 Address = Bytes20
 Root = Hash32
