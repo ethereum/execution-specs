@@ -1,6 +1,7 @@
 
 from dataclasses import dataclass
 from typing import Union
+from .fork_types import Address
 
 from ..base_types import (
     U256,
@@ -14,7 +15,6 @@ from ..base_types import (
     slotted_freezable,
 )
 
-Address = Bytes20
 
 
 TX_BASE_COST = 21000
