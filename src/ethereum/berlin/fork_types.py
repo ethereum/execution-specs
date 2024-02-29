@@ -107,7 +107,7 @@ class Block:
     """
 
     header: Header
-    transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
+    transactions: Tuple[Union[Bytes, "LegacyTransaction"], ...]
     ommers: Tuple[Header, ...]
 
 
