@@ -2,7 +2,6 @@
 from dataclasses import dataclass
 from typing import Tuple, Union
 from .. import rlp
-
 from ..base_types import (
     U64,
     U256,
@@ -16,9 +15,9 @@ from ..base_types import (
     slotted_freezable,
 )
 from ..exceptions import InvalidBlock
+from .fork_types import Address
 from ..utils.ensure import ensure
 
-Address = Bytes20
 
 TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 16

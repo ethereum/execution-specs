@@ -16,9 +16,8 @@ from ..base_types import (
 )
 from ..crypto.hash import Hash32
 from ..exceptions import InvalidBlock
+from .fork_types import Address
 
-Address = Bytes20
-Root = Hash32
 
 TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 16
