@@ -1,22 +1,13 @@
-
+"""
+Transactions are atomic units of work created externally to Ethereum and
+submitted to be executed. If Ethereum is viewed as a state machine,
+transactions are the events that move between states.
+"""
 from dataclasses import dataclass
-from typing import  Union
+from typing import Union
 
+from ..base_types import U256, Bytes, Bytes0, Uint, slotted_freezable
 from .fork_types import Address
-from .. import rlp
-from ..base_types import (
-    U256,
-    Bytes,
-    Bytes0,
-    Bytes8,
-    Bytes20,
-    Bytes32,
-    Bytes256,
-    Uint,
-    slotted_freezable,
-)
-
-
 
 TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 16
@@ -40,4 +31,3 @@ class Transaction:
     v: U256
     r: U256
     s: U256
-
