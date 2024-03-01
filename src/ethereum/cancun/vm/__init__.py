@@ -46,6 +46,7 @@ class Environment:
     chain_id: U64
     traces: List[dict]
     excess_blob_gas: U64
+    blob_versioned_hashes: Tuple[VersionedHash, ...]
 
 
 @dataclass
@@ -68,7 +69,6 @@ class Message:
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     parent_evm: Optional["Evm"]
-    blob_versioned_hashes: Tuple[VersionedHash, ...]
 
 
 @dataclass

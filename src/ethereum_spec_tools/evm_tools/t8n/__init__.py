@@ -222,7 +222,22 @@ class T8N(Load):
         if self.is_after_fork("ethereum.istanbul"):
             kw_arguments["chain_id"] = self.chain_id
 
-        if self.is_after_fork("ethereum.london"):
+        if self.is_after_fork("ethereum.cancun"):
+            (
+                sender_address,
+                effective_gas_price,
+                blob_versioned_hashes,
+            ) = self.fork.check_transaction(
+                tx,
+                self.env.base_fee_per_gas,
+                gas_available,
+                self.chain_id,
+            )
+            kw_arguments["base_fee_per_gas"] = self.env.base_fee_per_gas
+            kw_arguments["caller"] = kw_arguments["origin"] = sender_address
+            kw_arguments["gas_price"] = effective_gas_price
+            kw_arguments["blob_versioned_hashes"] = blob_versioned_hashes
+        elif self.is_after_fork("ethereum.london"):
             sender_address, effective_gas_price = self.fork.check_transaction(
                 tx,
                 self.env.base_fee_per_gas,
@@ -357,7 +372,6 @@ class T8N(Load):
                 accessed_addresses=set(),
                 accessed_storage_keys=set(),
                 parent_evm=None,
-                blob_versioned_hashes=(),
             )
 
             system_tx_env = self.vm.Environment(
@@ -375,10 +389,15 @@ class T8N(Load):
                 chain_id=self.chain_id,
                 traces=[],
                 excess_blob_gas=self.env.excess_blob_gas,
+                blob_versioned_hashes=(),
             )
 
-            self.interpreter.process_message_call(
+            system_tx_output = self.interpreter.process_message_call(
                 system_tx_message, system_tx_env
+            )
+
+            self.state.destroy_touched_empty_accounts(
+                system_tx_env.state, system_tx_output.touched_accounts
             )
 
         for i, (tx_idx, tx) in enumerate(self.txs.transactions):

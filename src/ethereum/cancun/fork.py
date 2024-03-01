@@ -53,6 +53,7 @@ from .state import (
     State,
     account_exists_and_is_empty,
     destroy_account,
+    destroy_touched_empty_accounts,
     get_account,
     increment_nonce,
     process_withdrawal,
@@ -336,7 +337,7 @@ def check_transaction(
     base_fee_per_gas: Uint,
     gas_available: Uint,
     chain_id: U64,
-) -> Tuple[Address, Uint]:
+) -> Tuple[Address, Uint, Tuple[VersionedHash, ...]]:
     """
     Check if the transaction is includable in the block.
 
@@ -357,6 +358,8 @@ def check_transaction(
         The sender of the transaction.
     effective_gas_price :
         The price to charge for gas when the transaction is executed.
+    blob_versioned_hashes :
+        The blob versioned hashes of the transaction.
 
     Raises
     ------
@@ -379,7 +382,12 @@ def check_transaction(
         ensure(tx.gas_price >= base_fee_per_gas, InvalidBlock)
         effective_gas_price = tx.gas_price
 
-    return sender_address, effective_gas_price
+    if isinstance(tx, BlobTransaction):
+        blob_versioned_hashes = tx.blob_versioned_hashes
+    else:
+        blob_versioned_hashes = ()
+
+    return sender_address, effective_gas_price, blob_versioned_hashes
 
 
 def make_receipt(
@@ -529,7 +537,6 @@ def apply_body(
         accessed_addresses=set(),
         accessed_storage_keys=set(),
         parent_evm=None,
-        blob_versioned_hashes=(),
     )
 
     system_tx_env = vm.Environment(
@@ -547,18 +554,25 @@ def apply_body(
         chain_id=chain_id,
         traces=[],
         excess_blob_gas=excess_blob_gas,
+        blob_versioned_hashes=(),
     )
 
-    process_message_call(system_tx_message, system_tx_env)
+    system_tx_output = process_message_call(system_tx_message, system_tx_env)
+
+    destroy_touched_empty_accounts(
+        system_tx_env.state, system_tx_output.touched_accounts
+    )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
         trie_set(
             transactions_trie, rlp.encode(Uint(i)), encode_transaction(tx)
         )
 
-        sender_address, effective_gas_price = check_transaction(
-            tx, base_fee_per_gas, gas_available, chain_id
-        )
+        (
+            sender_address,
+            effective_gas_price,
+            blob_versioned_hashes,
+        ) = check_transaction(tx, base_fee_per_gas, gas_available, chain_id)
 
         env = vm.Environment(
             caller=sender_address,
@@ -575,6 +589,7 @@ def apply_body(
             chain_id=chain_id,
             traces=[],
             excess_blob_gas=excess_blob_gas,
+            blob_versioned_hashes=blob_versioned_hashes,
         )
 
         gas_used, logs, error = process_transaction(env, tx)
@@ -699,10 +714,6 @@ def process_transaction(
             for key in keys:
                 preaccessed_storage_keys.add((address, key))
 
-    blob_versioned_hashes: Tuple[VersionedHash, ...] = ()
-    if isinstance(tx, BlobTransaction):
-        blob_versioned_hashes = tx.blob_versioned_hashes
-
     message = prepare_message(
         sender,
         tx.to,
@@ -712,7 +723,6 @@ def process_transaction(
         env,
         preaccessed_addresses=frozenset(preaccessed_addresses),
         preaccessed_storage_keys=frozenset(preaccessed_storage_keys),
-        blob_versioned_hashes=blob_versioned_hashes,
     )
 
     output = process_message_call(message, env)
@@ -749,9 +759,7 @@ def process_transaction(
     for address in output.accounts_to_delete:
         destroy_account(env.state, address)
 
-    for address in output.touched_accounts:
-        if account_exists_and_is_empty(env.state, address):
-            destroy_account(env.state, address)
+    destroy_touched_empty_accounts(env.state, output.touched_accounts)
 
     return total_gas_used, output.logs, output.error
 
