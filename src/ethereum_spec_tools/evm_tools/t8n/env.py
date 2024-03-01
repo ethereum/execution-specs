@@ -69,13 +69,13 @@ class Env:
         self.read_withdrawals(data, t8n)
 
         if t8n.fork.is_after_fork("ethereum.cancun"):
-            self.parent_beacon_block_root = Bytes32(
-                hex_to_bytes(data["parentBeaconBlockRoot"])
+            parent_beacon_block_root_hex = data.get("parentBeaconBlockRoot")
+            self.parent_beacon_block_root = (
+                Bytes32(hex_to_bytes(parent_beacon_block_root_hex))
+                if parent_beacon_block_root_hex is not None
+                else None
             )
             self.read_excess_blob_gas(data, t8n)
-        else:
-            self.parent_beacon_block_root = None
-            self.excess_blob_gas = None
 
     def read_excess_blob_gas(self, data: Any, t8n: Any) -> None:
         """
@@ -86,7 +86,7 @@ class Env:
         self.parent_excess_blob_gas = None
         self.excess_blob_gas = None
 
-        if not t8n.is_after_fork("ethereum.cancun"):
+        if not t8n.fork.is_after_fork("ethereum.cancun"):
             return
 
         if "currentExcessBlobGas" in data:
@@ -106,9 +106,7 @@ class Env:
             self.parent_excess_blob_gas + self.parent_blob_gas_used
         )
 
-        target_blob_gas_per_block = t8n._module(
-            "vm.gas"
-        ).TARGET_BLOB_GAS_PER_BLOCK
+        target_blob_gas_per_block = t8n.fork.TARGET_BLOB_GAS_PER_BLOCK
 
         self.excess_blob_gas = U64(0)
         if excess_blob_gas >= target_blob_gas_per_block:
