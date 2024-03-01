@@ -72,7 +72,10 @@ def load_evm_tools_test(test_case: Dict[str, str], fork_name: str) -> None:
         tests = json.load(f)
 
     env = tests[test_key]["env"]
-    env["blockHashes"] = {"0": env["previousHash"]}
+    try:
+        env["blockHashes"] = {"0": env["previousHash"]}
+    except KeyError:
+        env["blockHashes"] = {}
     env["withdrawals"] = []
 
     alloc = tests[test_key]["pre"]

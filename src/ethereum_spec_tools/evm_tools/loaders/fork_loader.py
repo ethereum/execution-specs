@@ -108,6 +108,11 @@ class ForkLoad:
         return self._module("fork").process_transaction
 
     @property
+    def MAX_BLOB_GAS_PER_BLOCK(self) -> Any:
+        """MAX_BLOB_GAS_PER_BLOCK parameter of the fork"""
+        return self._module("fork").MAX_BLOB_GAS_PER_BLOCK
+
+    @property
     def Block(self) -> Any:
         """Block class of the fork"""
         return self._module("fork_types").Block
@@ -198,6 +203,11 @@ class ForkLoad:
         return self._module("state").account_exists_and_is_empty
 
     @property
+    def destroy_touched_empty_accounts(self) -> Any:
+        """destroy_account function of the fork"""
+        return self._module("state").destroy_touched_empty_accounts
+
+    @property
     def destroy_account(self) -> Any:
         """destroy_account function of the fork"""
         return self._module("state").destroy_account
@@ -258,6 +268,16 @@ class ForkLoad:
         return self._module("vm").Message
 
     @property
+    def TARGET_BLOB_GAS_PER_BLOCK(self) -> Any:
+        """TARGET_BLOB_GAS_PER_BLOCK of the fork"""
+        return self._module("vm.gas").TARGET_BLOB_GAS_PER_BLOCK
+
+    @property
+    def calculate_total_blob_gas(self) -> Any:
+        """calculate_total_blob_gas function of the fork"""
+        return self._module("vm.gas").calculate_total_blob_gas
+
+    @property
     def process_message_call(self) -> Any:
         """process_message_call function of the fork"""
-        return self._module("vm").process_message_call
+        return self._module("vm.interpreter").process_message_call
