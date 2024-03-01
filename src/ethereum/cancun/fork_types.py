@@ -116,7 +116,7 @@ class BlobTransaction:
     max_priority_fee_per_gas: Uint
     max_fee_per_gas: Uint
     gas: Uint
-    to: Union[Bytes0, Address]
+    to: Address
     value: U256
     data: Bytes
     access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
