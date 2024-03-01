@@ -590,7 +590,6 @@ def process_transaction(
 
     sender_balance_after_gas_fee = sender_account.balance - effective_gas_fee
     set_account_balance(env.state, sender, sender_balance_after_gas_fee)
-    
 
     preaccessed_addresses = set()
     preaccessed_storage_keys = set()
@@ -617,7 +616,6 @@ def process_transaction(
     gas_used = tx.gas - output.gas_left
         
     floor = tokens_in_calldata * TOTAL_COST_FLOOR_PER_TOKEN + intrinsic_gas
-    
     if gas_used < floor:
         if floor > tx.gas:
             raise 
@@ -697,7 +695,7 @@ def validate_transaction(tx: Transaction) -> bool:
     return True
 
 
-def calculate_intrinsic_cost(tx: Transaction) -> (Uint, Uint, Uint) :
+def calculate_intrinsic_cost(tx: Transaction) -> (Uint, Uint) :
     """
     Calculates the gas that is charged before execution is started.
 
@@ -719,15 +717,15 @@ def calculate_intrinsic_cost(tx: Transaction) -> (Uint, Uint, Uint) :
     -------
     verified : `ethereum.base_types.Uint`
         The intrinsic cost of the transaction.
+    verified : `ethereum.base_types.Uint`
+        The calldata tokens used.
     """
     data_cost = 0
     zb = 0
     for byte in tx.data:
         if byte == 0:
             zb += 1
-            #data_cost += TX_DATA_COST_PER_ZERO
-        #else:
-            #data_cost += TX_DATA_COST_PER_NON_ZERO
+            
     tokens_in_calldata = zb + (len(tx.data) - zb) * 4
     
     data cost = tokens_in_calldata * STANDARD_TOKEN_COST
