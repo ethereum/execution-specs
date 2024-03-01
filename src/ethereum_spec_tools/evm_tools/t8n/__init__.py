@@ -184,7 +184,7 @@ class T8N(Load):
         if self.fork.is_after_fork("ethereum.istanbul"):
             kw_arguments["chain_id"] = self.chain_id
 
-        if self.is_after_fork("ethereum.cancun"):
+        if self.fork.is_after_fork("ethereum.cancun"):
             (
                 sender_address,
                 effective_gas_price,
@@ -199,7 +199,7 @@ class T8N(Load):
             kw_arguments["caller"] = kw_arguments["origin"] = sender_address
             kw_arguments["gas_price"] = effective_gas_price
             kw_arguments["blob_versioned_hashes"] = blob_versioned_hashes
-        elif self.is_after_fork("ethereum.london"):
+        elif self.fork.is_after_fork("ethereum.london"):
             sender_address, effective_gas_price = self.fork.check_transaction(
                 tx,
                 self.env.base_fee_per_gas,
@@ -315,7 +315,10 @@ class T8N(Load):
         block_logs = ()
         blob_gas_used = Uint(0)
 
-        if self.fork.is_after_fork("ethereum.cancun"):
+        if (
+            self.fork.is_after_fork("ethereum.cancun")
+            and self.env.parent_beacon_block_root is not None
+        ):
             beacon_block_roots_contract_code = self.fork.get_account(
                 self.alloc.state, self.BEACON_ROOTS_ADDRESS
             ).code
@@ -355,11 +358,14 @@ class T8N(Load):
                 blob_versioned_hashes=(),
             )
 
-            system_tx_output = self.interpreter.process_message_call(
+            system_tx_output = self.fork.process_message_call(
                 system_tx_message, system_tx_env
             )
 
-            self.state.destroy_touched_empty_accounts(
+            system_tx_output = self.fork.process_message_call(
+                system_tx_message, system_tx_env
+            )
+            self.fork.destroy_touched_empty_accounts(
                 system_tx_env.state, system_tx_output.touched_accounts
             )
 
