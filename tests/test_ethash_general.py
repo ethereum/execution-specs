@@ -303,6 +303,6 @@ def test_dataset_generation_random_epoch(tmpdir: str) -> None:
         dataset_item = generate_dataset_item(cache, index)
         assert dataset_item == dag_dataset[index], index
 
-    # Manually forcing the dataset out of the memory incase the gc
+    # Manually forcing the dataset out of the memory in case the gc
     # doesn't kick in immediately
     del dag_dataset

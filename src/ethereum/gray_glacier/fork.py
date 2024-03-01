@@ -275,7 +275,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
     quantities in the header should match the logic for the block itself.
     For example the header timestamp should be greater than the block's parent
     timestamp because the block was created *after* the parent block.
-    Additionally, the block's number should be directly folowing the parent
+    Additionally, the block's number should be directly following the parent
     block's number since it is the next block in the sequence.
 
     Parameters
@@ -475,7 +475,7 @@ def make_receipt(
 
     if isinstance(tx, AccessListTransaction):
         return b"\x01" + rlp.encode(receipt)
-    if isinstance(tx, FeeMarketTransaction):
+    elif isinstance(tx, FeeMarketTransaction):
         return b"\x02" + rlp.encode(receipt)
     else:
         return receipt
@@ -622,7 +622,7 @@ def validate_ommers(
     To be considered valid, the ommers must adhere to the rules defined in
     the Ethereum protocol. The maximum amount of ommers is 2 per block and
     there cannot be duplicate ommers in a block. Many of the other ommer
-    contraints are listed in the in-line comments of this function.
+    constraints are listed in the in-line comments of this function.
 
     Parameters
     ----------
@@ -765,12 +765,12 @@ def process_transaction(
     sender_account = get_account(env.state, sender)
 
     if isinstance(tx, FeeMarketTransaction):
-        gas_fee = tx.gas * tx.max_fee_per_gas
+        max_gas_fee = tx.gas * tx.max_fee_per_gas
     else:
-        gas_fee = tx.gas * tx.gas_price
+        max_gas_fee = tx.gas * tx.gas_price
 
     ensure(sender_account.nonce == tx.nonce, InvalidBlock)
-    ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
+    ensure(sender_account.balance >= max_gas_fee + tx.value, InvalidBlock)
     ensure(sender_account.code == bytearray(), InvalidBlock)
 
     effective_gas_fee = tx.gas * env.gas_price

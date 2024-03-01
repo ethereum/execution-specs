@@ -2,7 +2,7 @@ Opcodes under active consideration
 ----------------------------------
 
 This list includes opcodes under active consideration for adding to the
-next or subsuquent hard fork.
+next or subsequent hard fork.
 
 |  Opcode  | Name            | Description                                     | EIP                                                                          |
 |:--------:|-----------------|-------------------------------------------------|------------------------------------------------------------------------------|
@@ -12,7 +12,7 @@ next or subsuquent hard fork.
 |   0x5D   | TSTORE          | Transient data store                            | [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153)                          |
 |   0x5E   | MCOPY           | Memory copy                                     | [EIP-5656](https://eips.ethereum.org/EIPS/eip-5656)                          |
 |   0xE0   | RJUMP           | relative jump                                   | [EIP-4200](https://eips.ethereum.org/EIPS/eip-4200)                          |
-|   0xE1   | RJUMPI           | relative conditional jump                       | [EIP-4200](https://eips.ethereum.org/EIPS/eip-4200)                          |
+|   0xE1   | RJUMPI          | relative conditional jump                       | [EIP-4200](https://eips.ethereum.org/EIPS/eip-4200)                          |
 |   0xE2   | RJUMV           | relative jump table                             | [EIP-4200](https://eips.ethereum.org/EIPS/eip-4200)                          |
 |   0xE3   | CALLF           | EOF Subroutine Call                             | [EIP-4750](https://eips.ethereum.org/EIPS/eip-4750)                          |
 |   0xE4   | RETF            | EOF Subroutine return                           | [EIP-4750](https://eips.ethereum.org/EIPS/eip-4750)                          |
@@ -26,12 +26,12 @@ next or subsuquent hard fork.
 |   0xEC   | CREATE3         | Create from EOF contained initcode              | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
 |   0xED   | CREATE4         | Create from transaction contained initcode      | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
 |   0xEE   | RETURNCONTRACT  | Contract to be created, references EOF data     | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
-|   0xEF   | -               | Reserved for EOF compatability                  | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
+|   0xEF   | -               | Reserved for EOF compatibility                  | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
 |   0xF6   | PAY             | transfers value from caller to target           | [EIP-5920](https://eips.ethereum.org/EIPS/eip-5920)                          |
-|   0xF8   | CALL2           | CALL without gas and output memory              | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          ||
+|   0xF8   | CALL2           | CALL without gas and output memory              | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
 |   0xF9   | DELEGATECALL2   | DELEGATECALL without gas and output memory      | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
 |   0xFB   | STATICCALL2     | STATICCALL without gas and output memory        | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
-|   0xFC   | SETCODE         | Change the code for the current contract        | [EIP-6913](https://eips.ethereum.org/EIPS/eip-6913)                          |                                                                            |
+|   0xFC   | SETCODE         | Change the code for the current contract        | [EIP-6913](https://eips.ethereum.org/EIPS/eip-6913)                          |
 
 Pending Opcode Table
 --------------------
@@ -42,7 +42,7 @@ Existing Opcodes
 ----------------
 
 Current up to Shanghai. Opcodes not operation in mainnet (and are either
-scheduled or accepted) are in *itallics*.
+scheduled or accepted) are in *italics*.
 
 | Number | Name             | Execution spec category | Initial Release  | EIP                                                                            |
 |--------|------------------|-------------------------|------------------|--------------------------------------------------------------------------------|
