@@ -583,12 +583,14 @@ def process_transaction(
     ensure(sender_account.code == bytearray(), InvalidBlock)
 
     effective_gas_fee = tx.gas * env.gas_price
-
-    gas = tx.gas - calculate_intrinsic_cost(tx)
+    
+    intrinsic_gas, tokens_in_calldata = calculate_intrinsic_cost(tx)
+    gas = tx.gas - intrinsic_gas
     increment_nonce(env.state, sender)
 
     sender_balance_after_gas_fee = sender_account.balance - effective_gas_fee
     set_account_balance(env.state, sender, sender_balance_after_gas_fee)
+    
 
     preaccessed_addresses = set()
     preaccessed_storage_keys = set()
@@ -613,6 +615,15 @@ def process_transaction(
     output = process_message_call(message, env)
 
     gas_used = tx.gas - output.gas_left
+        
+    floor = tokens_in_calldata * TOTAL_COST_FLOOR_PER_TOKEN + intrinsic_gas
+    
+    if gas_used < floor:
+        if floor > tx.gas:
+            raise 
+        output.gas_left -= floor - gas_used
+        gas_used = floor
+    
     gas_refund = min(gas_used // 5, output.refund_counter)
     gas_refund_amount = (output.gas_left + gas_refund) * env.gas_price
 
@@ -686,7 +697,7 @@ def validate_transaction(tx: Transaction) -> bool:
     return True
 
 
-def calculate_intrinsic_cost(tx: Transaction) -> Uint:
+def calculate_intrinsic_cost(tx: Transaction) -> (Uint, Uint, Uint) :
     """
     Calculates the gas that is charged before execution is started.
 
@@ -710,12 +721,16 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
         The intrinsic cost of the transaction.
     """
     data_cost = 0
-
+    zb = 0
     for byte in tx.data:
         if byte == 0:
-            data_cost += TX_DATA_COST_PER_ZERO
-        else:
-            data_cost += TX_DATA_COST_PER_NON_ZERO
+            zb += 1
+            #data_cost += TX_DATA_COST_PER_ZERO
+        #else:
+            #data_cost += TX_DATA_COST_PER_NON_ZERO
+    tokens_in_calldata = zb + (len(tx.data) - zb) * 4
+    
+    data cost = tokens_in_calldata * STANDARD_TOKEN_COST
 
     if tx.to == Bytes0(b""):
         create_cost = TX_CREATE_COST + int(init_code_cost(Uint(len(tx.data))))
@@ -728,7 +743,9 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
             access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
 
-    return Uint(TX_BASE_COST + data_cost + create_cost + access_list_cost)
+    return Uint(TX_BASE_COST +
+                data_cost + 
+                create_cost + access_list_cost), tokens_in_calldata
 
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:
