@@ -235,7 +235,7 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
             for t, raw_item in zip(cls.__args__, raw_rlp):  # type: ignore
                 args.append(_decode_to(t, raw_item))
             return tuple(args)  # type: ignore
-    elif cls == Union[Bytes0, Bytes20]:
+    elif cls == Union[Bytes0, Bytes20] or cls == Bytes20:
         # We can't support Union types in general, so we support this one
         # (which appears in the Transaction type) as a special case
         ensure(isinstance(raw_rlp, Bytes), RLPDecodingError)
