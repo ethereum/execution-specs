@@ -1,24 +1,23 @@
-
+"""
+Transactions are atomic units of work created externally to Ethereum and
+submitted to be executed. If Ethereum is viewed as a state machine,
+transactions are the events that move between states.
+"""
 from dataclasses import dataclass
 from typing import Tuple, Union
 
-from .fork_types import Address
 from .. import rlp
 from ..base_types import (
     U64,
     U256,
     Bytes,
     Bytes0,
-    Bytes8,
-    Bytes20,
     Bytes32,
-    Bytes256,
     Uint,
     slotted_freezable,
 )
-from ..crypto.hash import Hash32
 from ..exceptions import InvalidBlock
-
+from .fork_types import Address
 
 TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 16
@@ -119,4 +118,3 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
             raise InvalidBlock
     else:
         return tx
-

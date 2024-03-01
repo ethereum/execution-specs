@@ -13,7 +13,8 @@ Types re-used throughout the specification, which are specific to Ethereum.
 """
 
 from dataclasses import dataclass
-from typing import Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
+
 if TYPE_CHECKING:
     from .transactions import Transaction
 
@@ -21,7 +22,6 @@ from .. import rlp
 from ..base_types import (
     U256,
     Bytes,
-    Bytes0,
     Bytes8,
     Bytes20,
     Bytes32,
