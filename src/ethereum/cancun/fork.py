@@ -383,6 +383,7 @@ def check_transaction(
         effective_gas_price = tx.gas_price
 
     if isinstance(tx, BlobTransaction):
+        ensure(isinstance(tx.to, Address), InvalidBlock)
         blob_versioned_hashes = tx.blob_versioned_hashes
     else:
         blob_versioned_hashes = ()
