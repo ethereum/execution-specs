@@ -4,7 +4,7 @@ Test suite for `ethereum_test_tools.filling` fixture generation.
 
 import json
 import os
-from typing import Any, Dict, List, Mapping
+from typing import Any, List, Mapping
 
 import pytest
 from semver import Version
@@ -23,10 +23,13 @@ from ...spec.blockchain.types import FixtureCommon as BlockchainFixtureCommon
 from ..conftest import SOLC_PADDING_VERSION
 
 
-def remove_info(fixture_json: Dict[str, Any]):  # noqa: D103
+def remove_info_metadata(fixture_json):  # noqa: D103
     for t in fixture_json:
         if "_info" in fixture_json[t]:
-            del fixture_json[t]["_info"]
+            info_keys = list(fixture_json[t]["_info"].keys())
+            for key in info_keys:
+                if key != "hash":  # remove keys that are not 'hash'
+                    del fixture_json[t]["_info"][key]
 
 
 @pytest.fixture()
@@ -171,7 +174,7 @@ def test_fill_state_test(
         expected = json.load(f)
 
     fixture_json = to_json(fixture)
-    remove_info(fixture_json)
+    remove_info_metadata(fixture_json)
     assert fixture_json == expected
 
 
@@ -514,7 +517,7 @@ class TestFillBlockchainValidTxs:
             expected = json.load(f)
 
         fixture_json = to_json(fixture)
-        remove_info(fixture_json)
+        remove_info_metadata(fixture_json)
 
         if solc_version >= SOLC_PADDING_VERSION:
             expected = expected["solc=padding_version"]
@@ -888,7 +891,7 @@ def test_fill_blockchain_invalid_txs(
         expected = json.load(f)
 
     fixture_json = to_json(fixture)
-    remove_info(fixture_json)
+    remove_info_metadata(fixture_json)
 
     if solc_version >= SOLC_PADDING_VERSION:
         expected = expected["solc=padding_version"]

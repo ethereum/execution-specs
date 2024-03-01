@@ -1,6 +1,7 @@
 """
 JSON encoding and decoding for Ethereum types.
 """
+
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -112,8 +113,9 @@ class JSONEncoder(json.JSONEncoder):
             for object_field in fields(obj):
                 field_name = object_field.name
                 metadata = object_field.metadata
+                if not metadata:
+                    continue
                 value = getattr(obj, field_name)
-                assert metadata is not None, f"Field {field_name} has no metadata"
                 field_settings = metadata.get("json_encoder")
                 assert isinstance(field_settings, self.Field), (
                     f"Field {field_name} has invalid json_encoder " f"metadata: {field_settings}"

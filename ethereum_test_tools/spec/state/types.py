@@ -1,6 +1,7 @@
 """
 StateTest types
 """
+
 import json
 from dataclasses import dataclass, fields
 from pathlib import Path
@@ -10,7 +11,7 @@ from evm_transition_tool import FixtureFormats
 
 from ...common.base_types import Address, Bytes, Hash, HexNumber, ZeroPaddedHexNumber
 from ...common.conversions import BytesConvertible, FixedSizeBytesConvertible, NumberConvertible
-from ...common.json import JSONEncoder, field, to_json
+from ...common.json import JSONEncoder, field
 from ...common.types import AccessList, Alloc, Environment, Transaction
 from ...exceptions import ExceptionList, TransactionException
 from ..base.base_test import BaseFixture
@@ -286,27 +287,6 @@ class Fixture(BaseFixture):
             to_json=True,
         ),
     )
-
-    _json: Dict[str, Any] | None = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            skip=True,
-        ),
-    )
-
-    def __post_init__(self):
-        """
-        Post init hook to convert to JSON after instantiation.
-        """
-        self._json = to_json(self)
-
-    def to_json(self) -> Dict[str, Any]:
-        """
-        Convert to JSON.
-        """
-        assert self._json is not None, "Fixture not initialized"
-        self._json["_info"] = self.info
-        return self._json
 
     @classmethod
     def collect_into_file(cls, fd: TextIO, fixtures: Dict[str, "BaseFixture"]):

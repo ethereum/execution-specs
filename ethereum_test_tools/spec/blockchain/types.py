@@ -1,6 +1,7 @@
 """
 BlockchainTest types
 """
+
 import json
 from copy import copy, deepcopy
 from dataclasses import dataclass, fields, replace
@@ -26,7 +27,7 @@ from ...common.base_types import (
 )
 from ...common.constants import AddrAA, EmptyOmmersRoot, EngineAPIError
 from ...common.conversions import BytesConvertible, FixedSizeBytesConvertible, NumberConvertible
-from ...common.json import JSONEncoder, field, to_json
+from ...common.json import JSONEncoder, field
 from ...common.types import (
     Account,
     Alloc,
@@ -1017,26 +1018,6 @@ class FixtureCommon(BaseFixture):
             name="network",
         ),
     )
-    _json: Dict[str, Any] | None = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            skip=True,
-        ),
-    )
-
-    def __post_init__(self):
-        """
-        Post init hook to convert to JSON after instantiation.
-        """
-        self._json = to_json(self)
-
-    def to_json(self) -> Dict[str, Any]:
-        """
-        Convert to JSON.
-        """
-        assert self._json is not None, "Fixture not initialized"
-        self._json["_info"] = self.info
-        return self._json
 
     @classmethod
     def collect_into_file(cls, fd: TextIO, fixtures: Dict[str, "BaseFixture"]):

@@ -1,6 +1,9 @@
 {
     "solc=0.8.20": {
         "000/my_blockchain_test/Shanghai": {
+            "_info": {
+                "hash": "0x65ff879b8bfe661b2ab4cfbc45bb28d9a07110455eff98972dfba3988632cff5"
+            },
             "network": "Shanghai",
             "genesisBlockHeader": {
                 "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -248,6 +251,9 @@
     },
     "solc=padding_version": {
         "000/my_blockchain_test/Shanghai": {
+            "_info": {
+                "hash": "0xeb5c65b76f939bbd0b89d2f8b4cc075bb2c3ac6f00b07c67f8f77af160444470"
+            },
             "network": "Shanghai",
             "genesisBlockHeader": {
                 "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",

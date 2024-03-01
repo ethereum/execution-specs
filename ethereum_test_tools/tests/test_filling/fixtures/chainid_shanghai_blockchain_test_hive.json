@@ -1,5 +1,8 @@
 {
     "000/my_chain_id_test/Shanghai": {
+        "_info": {
+            "hash": "0x0ae35254c197f727c0a4254d37851b95967713f80d7c57a7717f99bd036e54e5"
+        },
         "network": "Shanghai",
         "genesisBlockHeader": {
             "parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",

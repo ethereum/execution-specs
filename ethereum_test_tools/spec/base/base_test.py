@@ -1,6 +1,9 @@
 """
 Base test class and helper functions for Ethereum state and blockchain tests.
 """
+
+import hashlib
+import json
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from itertools import count
@@ -15,6 +18,7 @@ from ...common import Account, Address, Environment, Transaction, withdrawals_ro
 from ...common.conversions import to_hex
 from ...common.json import JSONEncoder
 from ...common.json import field as json_field
+from ...common.json import to_json
 from ...reference_spec.reference_spec import ReferenceSpec
 
 
@@ -87,6 +91,8 @@ class BaseFixture:
         ),
     )
 
+    _json: Optional[Dict[str, Any]] = None
+
     def fill_info(
         self,
         t8n: TransitionTool,
@@ -101,12 +107,22 @@ class BaseFixture:
         if ref_spec is not None:
             ref_spec.write_info(self.info)
 
-    @abstractmethod
+    def __post_init__(self):
+        """
+        Post init hook to convert to JSON after instantiation.
+        """
+        self._json = to_json(self)
+        json_str = json.dumps(self._json, sort_keys=True, separators=(",", ":"))
+        h = hashlib.sha256(json_str.encode("utf-8")).hexdigest()
+        self.info["hash"] = f"0x{h}"
+
     def to_json(self) -> Dict[str, Any]:
         """
         Convert to JSON.
         """
-        pass
+        assert self._json is not None, "Fixture not initialized"
+        self._json["_info"] = self.info
+        return self._json
 
     @classmethod
     @abstractmethod
