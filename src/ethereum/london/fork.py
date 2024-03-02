@@ -26,7 +26,7 @@ from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
 from . import FORK_CRITERIA, vm
 from .bloom import logs_bloom
-from .fork_types import (
+from .transactions import(
     TX_ACCESS_LIST_ADDRESS_COST,
     TX_ACCESS_LIST_STORAGE_KEY_COST,
     TX_BASE_COST,
@@ -34,18 +34,20 @@ from .fork_types import (
     TX_DATA_COST_PER_NON_ZERO,
     TX_DATA_COST_PER_ZERO,
     AccessListTransaction,
-    Address,
-    Block,
-    Bloom,
     FeeMarketTransaction,
-    Header,
     LegacyTransaction,
-    Log,
-    Receipt,
-    Root,
     Transaction,
     decode_transaction,
     encode_transaction,
+)
+from .fork_types import (
+    Address,
+    Block,
+    Bloom, 
+    Header,
+    Log,
+    Receipt,
+    Root,
 )
 from .state import (
     State,

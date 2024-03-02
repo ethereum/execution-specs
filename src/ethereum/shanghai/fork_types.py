@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Tuple, Union
 
 if TYPE_CHECKING:
-    from .transactions import LegacyTransaction
+    from .transactions import LegacyTransaction,Withdrawal
 
 from .. import rlp
 from ..base_types import (
@@ -74,18 +74,6 @@ def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
     )
 
 
-@slotted_freezable
-@dataclass
-class Withdrawal:
-    """
-    Withdrawals that have been validated on the consensus layer.
-    """
-
-    index: U64
-    validator_index: U64
-    address: Address
-    amount: U256
-
 
 @slotted_freezable
 @dataclass
@@ -123,7 +111,7 @@ class Block:
     header: Header
     transactions: Tuple[Union[Bytes, "LegacyTransaction"], ...]
     ommers: Tuple[Header, ...]
-    withdrawals: Tuple[Withdrawal, ...]
+    withdrawals: Tuple["Withdrawal", ...]
 
 
 @slotted_freezable
