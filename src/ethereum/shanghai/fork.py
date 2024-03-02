@@ -615,7 +615,7 @@ def process_transaction(
 
     gas_used = tx.gas - output.gas_left
         
-    floor = tokens_in_calldata * TOTAL_COST_FLOOR_PER_TOKEN + intrinsic_gas
+    floor = tokens_in_calldata * TOTAL_COST_FLOOR_PER_TOKEN + TX_BASE_COST
     if gas_used < floor:
         if floor > tx.gas:
             raise 
