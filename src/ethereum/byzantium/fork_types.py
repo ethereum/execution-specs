@@ -35,7 +35,7 @@ class Account:
 
     nonce: Uint
     balance: U256
-    code: bytes
+    code: Bytes
 
 
 EMPTY_ACCOUNT = Account(
