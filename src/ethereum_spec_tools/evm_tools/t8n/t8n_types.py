@@ -10,7 +10,7 @@ from ethereum.base_types import U64, Bytes, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
-from ..loaders.fixture_loader import UnsupportedTx
+from ..loaders.transaction_loader import TransactionLoad, UnsupportedTx
 from ..utils import FatalException, secp256k1_sign
 
 if TYPE_CHECKING:
@@ -190,7 +190,7 @@ class Txs:
         if "secretKey" in raw_tx and v == r == s == 0:
             self.sign_transaction(raw_tx)
 
-        tx = t8n.json_to_tx(raw_tx)
+        tx = TransactionLoad(raw_tx, t8n.fork).read()
         self.all_txs.append(tx)
 
         if t8n.fork.is_after_fork("ethereum.berlin"):
@@ -242,7 +242,7 @@ class Txs:
         t8n = self.t8n
         protected = json_tx.get("protected", True)
 
-        tx = t8n.json_to_tx(json_tx)
+        tx = TransactionLoad(json_tx, t8n.fork).read()
 
         if isinstance(tx, bytes):
             tx_decoded = t8n.fork.decode_transaction(tx)
