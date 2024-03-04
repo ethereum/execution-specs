@@ -16,8 +16,8 @@ class ForkLoad:
     _fork_module: str
     _forks: Any
 
-    def __init__(self, fork_name: str):
-        self._fork_module = fork_name
+    def __init__(self, fork_module: str):
+        self._fork_module = fork_module
         self._forks = Hardfork.discover()
 
     @property
