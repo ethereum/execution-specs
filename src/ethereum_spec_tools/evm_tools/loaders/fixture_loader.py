@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Tuple
 
 from ethereum import rlp
-from ethereum.base_types import U64, U256, Bytes0
+from ethereum.base_types import U256
 from ethereum.crypto.hash import Hash32
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
@@ -21,15 +21,7 @@ from ethereum.utils.hexadecimal import (
 )
 
 from .fork_loader import ForkLoad
-
-
-class UnsupportedTx(Exception):
-    """Exception for unsupported transactions"""
-
-    def __init__(self, encoded_params: bytes, error_message: str) -> None:
-        super().__init__(error_message)
-        self.encoded_params = encoded_params
-        self.error_message = error_message
+from .transaction_loader import TransactionLoad
 
 
 class BaseLoad(ABC):
@@ -56,10 +48,12 @@ class Load(BaseLoad):
 
     _network: str
     _fork_module: str
+    fork: ForkLoad
 
-    def __init__(self, network: str, fork_name: str):
+    def __init__(self, network: str, fork_module: str):
         self._network = network
-        self.fork = ForkLoad(fork_name)
+        self._fork_module = fork_module
+        self.fork = ForkLoad(fork_module)
 
     def json_to_state(self, raw: Any) -> Any:
         """Converts json state data to a state object"""
@@ -83,103 +77,6 @@ class Load(BaseLoad):
                     U256.from_be_bytes(hex_to_bytes32(v)),
                 )
         return state
-
-    def json_to_access_list(self, raw: Any) -> Any:
-        """Converts json access list data to a list of access list entries"""
-        access_list = []
-        for sublist in raw:
-            access_list.append(
-                (
-                    self.fork.hex_to_address(sublist.get("address")),
-                    [
-                        hex_to_bytes32(key)
-                        for key in sublist.get("storageKeys")
-                    ],
-                )
-            )
-        return access_list
-
-    def json_to_tx(self, raw: Any) -> Any:
-        """Converts json transaction data to a transaction object"""
-        parameters = [
-            hex_to_u256(raw.get("nonce")),
-            hex_to_u256(raw.get("gasLimit")),
-            Bytes0(b"")
-            if raw.get("to") == ""
-            else self.fork.hex_to_address(raw.get("to")),
-            hex_to_u256(raw.get("value")),
-            hex_to_bytes(raw.get("data")),
-            hex_to_u256(
-                raw.get("y_parity") if "y_parity" in raw else raw.get("v")
-            ),
-            hex_to_u256(raw.get("r")),
-            hex_to_u256(raw.get("s")),
-        ]
-
-        # Cancun and beyond
-        if "maxFeePerBlobGas" in raw:
-            parameters.insert(0, U64(1))
-            parameters.insert(2, hex_to_u256(raw.get("maxPriorityFeePerGas")))
-            parameters.insert(3, hex_to_u256(raw.get("maxFeePerGas")))
-            parameters.insert(
-                8, self.json_to_access_list(raw.get("accessList"))
-            )
-            parameters.insert(9, hex_to_u256(raw.get("maxFeePerBlobGas")))
-            parameters.insert(
-                10,
-                [
-                    hex_to_hash(blob_hash)
-                    for blob_hash in raw.get("blobVersionedHashes")
-                ],
-            )
-
-            try:
-                return b"\x03" + rlp.encode(
-                    self.fork.BlobTransaction(*parameters)
-                )
-            except AttributeError as e:
-                raise UnsupportedTx(
-                    b"\x03" + rlp.encode(parameters), str(e)
-                ) from e
-
-        # London and beyond
-        if "maxFeePerGas" in raw and "maxPriorityFeePerGas" in raw:
-            parameters.insert(0, U64(1))
-            parameters.insert(2, hex_to_u256(raw.get("maxPriorityFeePerGas")))
-            parameters.insert(3, hex_to_u256(raw.get("maxFeePerGas")))
-            parameters.insert(
-                8, self.json_to_access_list(raw.get("accessList"))
-            )
-            try:
-                return b"\x02" + rlp.encode(
-                    self.fork.FeeMarketTransaction(*parameters)
-                )
-            except AttributeError as e:
-                raise UnsupportedTx(
-                    b"\x02" + rlp.encode(parameters), str(e)
-                ) from e
-
-        parameters.insert(1, hex_to_u256(raw.get("gasPrice")))
-        # Access List Transaction
-        if "accessList" in raw:
-            parameters.insert(0, U64(1))
-            parameters.insert(
-                7, self.json_to_access_list(raw.get("accessList"))
-            )
-            try:
-                return b"\x01" + rlp.encode(
-                    self.fork.AccessListTransaction(*parameters)
-                )
-            except AttributeError as e:
-                raise UnsupportedTx(
-                    b"\x01" + rlp.encode(parameters), str(e)
-                ) from e
-
-        # Legacy Transaction
-        try:
-            return self.fork.LegacyTransaction(*parameters)
-        except AttributeError:
-            return self.fork.Transaction(*parameters)
 
     def json_to_withdrawals(self, raw: Any) -> Any:
         """Converts json withdrawal data to a withdrawal object"""
@@ -206,7 +103,8 @@ class Load(BaseLoad):
 
         header = self.json_to_header(json_block["blockHeader"])
         transactions = tuple(
-            self.json_to_tx(tx) for tx in json_block["transactions"]
+            TransactionLoad(tx, self.fork).read()
+            for tx in json_block["transactions"]
         )
         uncles = tuple(
             self.json_to_header(uncle) for uncle in json_block["uncleHeaders"]
