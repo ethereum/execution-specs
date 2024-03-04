@@ -168,7 +168,7 @@ class PrePreAllocFork(Shanghai):
     """
 
     @classmethod
-    def pre_allocation(cls, block_number: int = 0, timestamp: int = 0) -> Mapping:
+    def pre_allocation(cls) -> Mapping:
         """
         Return some starting point for allocation.
         """
@@ -181,13 +181,11 @@ class PreAllocFork(PrePreAllocFork):
     """
 
     @classmethod
-    def pre_allocation(cls, block_number: int = 0, timestamp: int = 0) -> Mapping:
+    def pre_allocation(cls) -> Mapping:
         """
         Add allocation to the pre-existing one from previous fork.
         """
-        return {"test2": "test2"} | super(PreAllocFork, cls).pre_allocation(
-            block_number, timestamp
-        )
+        return {"test2": "test2"} | super(PreAllocFork, cls).pre_allocation()
 
 
 @transition_fork(to_fork=PreAllocFork, at_timestamp=15_000)
@@ -206,7 +204,7 @@ def test_pre_alloc():
         "test": "test",
         "test2": "test2",
     }
-    assert PreAllocTransitionFork.pre_allocation(block_number=0, timestamp=0) == {
+    assert PreAllocTransitionFork.pre_allocation() == {
         "test": "test",
         "test2": "test2",
     }

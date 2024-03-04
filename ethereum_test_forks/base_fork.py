@@ -1,6 +1,7 @@
 """
 Abstract base class for Ethereum forks
 """
+
 from abc import ABC, ABCMeta, abstractmethod
 from typing import Any, ClassVar, List, Mapping, Optional, Protocol, Type
 
@@ -183,9 +184,21 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     @classmethod
     @prefer_transition_to_method
     @abstractmethod
-    def pre_allocation(cls, block_number: int = 0, timestamp: int = 0) -> Mapping:
+    def pre_allocation(cls) -> Mapping:
         """
-        Returns required pre-allocation of accounts.
+        Returns required pre-allocation of accounts for any kind of test.
+
+        This method must always call the `fork_to` method when transitioning, because the
+        allocation can only be set at genesis, and thus cannot be changed at transition time.
+        """
+        pass
+
+    @classmethod
+    @prefer_transition_to_method
+    @abstractmethod
+    def pre_allocation_blockchain(cls) -> Mapping:
+        """
+        Returns required pre-allocation of accounts for any blockchain tests.
 
         This method must always call the `fork_to` method when transitioning, because the
         allocation can only be set at genesis, and thus cannot be changed at transition time.

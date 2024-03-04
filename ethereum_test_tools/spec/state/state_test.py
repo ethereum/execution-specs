@@ -6,10 +6,10 @@ from copy import copy
 from dataclasses import dataclass
 from typing import Callable, Generator, List, Mapping, Optional, Type
 
-from ethereum_test_forks import Cancun, Fork
+from ethereum_test_forks import Fork
 from evm_transition_tool import FixtureFormats, TransitionTool
 
-from ...common import Account, Address, Alloc, Environment, Number, Transaction
+from ...common import Address, Alloc, Environment, Number, Transaction
 from ...common.constants import EngineAPIError
 from ...common.json import to_json
 from ..base.base_test import BaseFixture, BaseTest, verify_post_alloc
@@ -129,9 +129,7 @@ class StateTest(BaseTest):
         env = self.env.set_fork_requirements(fork)
         tx = self.tx.with_signature_and_sender(keep_secret_key=True)
         pre_alloc = Alloc.merge(
-            Alloc(
-                fork.pre_allocation(block_number=env.number, timestamp=Number(env.timestamp)),
-            ),
+            Alloc(fork.pre_allocation()),
             Alloc(self.pre),
         )
         if empty_accounts := pre_alloc.empty_accounts():
@@ -161,19 +159,6 @@ class StateTest(BaseTest):
         except Exception as e:
             print_traces(t8n.get_traces())
             raise e
-
-        # Perform post state processing required for some forks
-        if fork >= Cancun:
-            # StateTest does not execute any beacon root contract logic, but we still need to
-            # set the beacon root to the correct value, because most tests assume this happens,
-            # so we copy the beacon root contract storage from the post state into the pre state
-            # and the transaction is executed in isolation properly.
-            if beacon_roots_account := next_alloc.get(str(BEACON_ROOTS_ADDRESS)):
-                if beacon_roots_storage := beacon_roots_account.get("storage"):
-                    pre_alloc = Alloc.merge(
-                        pre_alloc,
-                        Alloc({BEACON_ROOTS_ADDRESS: Account(storage=beacon_roots_storage)}),
-                    )
 
         return Fixture(
             env=env,

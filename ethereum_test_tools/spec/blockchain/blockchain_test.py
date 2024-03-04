@@ -136,9 +136,7 @@ class BlockchainTest(BaseTest):
             assert Hash(env.beacon_root) == Hash(0), "beacon_root must be empty at genesis"
 
         pre_alloc = Alloc.merge(
-            Alloc(
-                fork.pre_allocation(block_number=0, timestamp=Number(env.timestamp)),
-            ),
+            Alloc(fork.pre_allocation_blockchain()),
             Alloc(self.pre),
         )
         if empty_accounts := pre_alloc.empty_accounts():
