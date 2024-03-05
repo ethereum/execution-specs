@@ -22,8 +22,7 @@ from typing import Callable, Dict, List, Optional, Set, Tuple
 from ethereum.base_types import U256, Bytes, Uint, modify
 from ethereum.utils.ensure import ensure
 
-from .fork_types import EMPTY_ACCOUNT, Account, Address, Root
-from .transactions import Withdrawal
+from .fork_types import EMPTY_ACCOUNT, Account, Address, Root, Withdrawal
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set
 
 

@@ -25,7 +25,16 @@ from .. import rlp
 from ..base_types import U64, U256, Bytes, Uint
 from . import vm
 from .bloom import logs_bloom
-from .fork_types import Address, Block, Bloom, Header, Log, Receipt, Root
+from .fork_types import (
+    Address,
+    Block,
+    Bloom,
+    Header,
+    Log,
+    Receipt,
+    Root,
+    Withdrawal,
+)
 from .state import (
     State,
     account_exists_and_is_empty,
@@ -47,7 +56,6 @@ from .transactions import (
     FeeMarketTransaction,
     LegacyTransaction,
     Transaction,
-    Withdrawal,
     decode_transaction,
     encode_transaction,
 )
