@@ -118,7 +118,8 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
             raise InvalidBlock
     else:
         return tx
-    
+
+
 @slotted_freezable
 @dataclass
 class Withdrawal:
