@@ -26,22 +26,7 @@ from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
 from . import vm
 from .bloom import logs_bloom
-from .transactions import(
-    TX_BASE_COST,
-    TX_CREATE_COST,
-    TX_DATA_COST_PER_NON_ZERO,
-    TX_DATA_COST_PER_ZERO,
-    Transaction,
-)
-from .fork_types import (
-    Address,
-    Block,
-    Bloom,
-    Header,
-    Log,
-    Receipt,
-    Root,
-)
+from .fork_types import Address, Block, Bloom, Header, Log, Receipt, Root
 from .state import (
     State,
     account_exists_and_is_empty,
@@ -51,6 +36,13 @@ from .state import (
     increment_nonce,
     set_account_balance,
     state_root,
+)
+from .transactions import (
+    TX_BASE_COST,
+    TX_CREATE_COST,
+    TX_DATA_COST_PER_NON_ZERO,
+    TX_DATA_COST_PER_ZERO,
+    Transaction,
 )
 from .trie import Trie, root, trie_set
 from .utils.message import prepare_message

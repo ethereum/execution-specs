@@ -16,11 +16,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Tuple, Union
 
 if TYPE_CHECKING:
-    from .transactions import LegacyTransaction,Withdrawal
+    from .transactions import LegacyTransaction, Withdrawal
 
 from .. import rlp
 from ..base_types import (
-    U64,
     U256,
     Bytes,
     Bytes8,
@@ -72,7 +71,6 @@ def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
             keccak256(raw_account_data.code),
         )
     )
-
 
 
 @slotted_freezable

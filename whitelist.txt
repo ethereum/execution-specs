@@ -407,3 +407,4 @@ listable
 treediff
 strikethrough
 setext
+orelse

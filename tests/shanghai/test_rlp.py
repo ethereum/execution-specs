@@ -4,15 +4,17 @@ import ethereum.rlp as rlp
 from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes8, Bytes32, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.shanghai.fork_types import (
-    AccessListTransaction,
     Block,
-    FeeMarketTransaction,
     Header,
-    LegacyTransaction,
     Log,
     Receipt,
-    Transaction,
     Withdrawal,
+)
+from ethereum.shanghai.transactions import (
+    AccessListTransaction,
+    FeeMarketTransaction,
+    LegacyTransaction,
+    Transaction,
     decode_transaction,
     encode_transaction,
 )

@@ -36,14 +36,8 @@ from ethereum.utils.hexadecimal import hex_to_bytes
 
 from .. import rlp
 from ..base_types import U256, Bytes, Uint, slotted_freezable
-from .fork_types import (
-    Account,
-    Address,
-    Receipt,
-    Root,
-    Transaction,
-    encode_account,
-)
+from .fork_types import Account, Address, Receipt, Root, encode_account
+from .transactions import Transaction
 
 # note: an empty trie (regardless of whether it is secured) has root:
 #
