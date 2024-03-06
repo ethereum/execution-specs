@@ -2,7 +2,7 @@
 name: Incorrect/Incomplete Documentation
 about: Report that the documentation is wrong or incomplete
 title: ''
-labels: C-bug, A-doc
+labels: ''
 assignees: ''
 
 ---

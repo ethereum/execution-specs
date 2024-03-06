@@ -2,7 +2,7 @@
 name: Incorrect Specification
 about: Create a report showing the specification is wrong
 title: ''
-labels: C-bug, A-spec
+labels: ''
 assignees: ''
 
 ---

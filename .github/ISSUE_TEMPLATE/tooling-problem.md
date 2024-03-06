@@ -2,7 +2,7 @@
 name: Tooling Problem
 about: Create a report of a problem with the project tooling
 title: ''
-labels: C-bug, A-tool
+labels: ''
 assignees: ''
 
 ---
