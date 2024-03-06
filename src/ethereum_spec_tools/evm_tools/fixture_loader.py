@@ -329,10 +329,10 @@ class Load(BaseLoad):
                 ) from e
 
         # Legacy Transaction
-        if hasattr(self._module("fork_types"), "LegacyTransaction"):
-            return self._module("fork_types").LegacyTransaction(*parameters)
+        if hasattr(self._module("transactions"), "LegacyTransaction"):
+            return self._module("transactions").LegacyTransaction(*parameters)
         else:
-            return self._module("fork_types").Transaction(*parameters)
+            return self._module("transactions").Transaction(*parameters)
 
     def json_to_withdrawals(self, raw: Any) -> Any:
         """Converts json withdrawal data to a withdrawal object"""
