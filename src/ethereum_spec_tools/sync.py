@@ -288,7 +288,7 @@ class BlockDownloader(ForkTracking):
                     ],
                 )
             )
-        if hasattr(self.module("fork_types"), "LegacyTransaction"):
+        if hasattr(self.module("transactions"), "LegacyTransaction"):
             if t["type"] == "0x1":
                 return b"\x01" + rlp.encode(
                     self.module("fork_types").AccessListTransaction(
