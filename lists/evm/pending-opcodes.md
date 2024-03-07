@@ -24,10 +24,10 @@ next or subsequent hard fork.
 |   0xE6   | DUPN            | Unlimited dup                                   | [EIP-663](https://eips.ethereum.org/EIPS/eip-663)                            |
 |   0xE7   | SWAPN           | Unlimited swap                                  | [EIP-663](https://eips.ethereum.org/EIPS/eip-663)                            |
 |   0xE8   | EXCHANGE        | Deep swap                                       | [EIP-663](https://eips.ethereum.org/EIPS/eip-663)                            |
-|   0xEC   | CREATE3         | Create from EOF contained initcode              | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
-|   0xED   | CREATE4         | Create from transaction contained initcode      | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
-|   0xEE   | RETURNCONTRACT  | Contract to be created, references EOF data     | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
-|   0xEF   | -               | Reserved for EOF compatibility                  | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
+|   0xEC   | CREATE3         | Create from EOF contained initcode              | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                          |
+|   0xED   | CREATE4         | Create from transaction contained initcode      | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                          |
+|   0xEE   | RETURNCONTRACT  | Contract to be created, references EOF data     | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                          |
+|   0xEF   | -               | Reserved for EOF compatibility                  | [EIP-3540](https://eips.ethereum.org/EIPS/eip-3540)                          |
 |   0xF6   | PAY             | transfers value from caller to target           | [EIP-5920](https://eips.ethereum.org/EIPS/eip-5920)                          |
 |   0xF7   | RETURNDATALOAD  | Loads data returned from a call to the stack    | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
 |   0xF8   | CALL2           | CALL without gas and output memory              | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
@@ -285,10 +285,10 @@ scheduled or accepted) are in *italics*.
 | 0xE9   |                  |                         |                  |                                                                                |
 | 0xEA   |                  |                         |                  |                                                                                |
 | 0xEB   |                  |                         |                  |                                                                                |
-| *0xEC* | *CREATE3*        | *EOF*                   | *????*           | *TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification)* |
-| *0xED* | *CREATE4*        | *EOF*                   | *????*           | *TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification)* |
-| *0xEE* | *RETURNCONTRACT* | *EOF*                   | *????*           | *TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification)* |
-| *0xEF* | *-RESERVED-*     | *EOF*                   | *????*           | *TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification)* |
+| *0xEC* | *CREATE3*        | *EOF*                   | *????*           | *[EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)*                          |
+| *0xED* | *CREATE4*        | *EOF*                   | *????*           | *[EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)*                          |
+| *0xEE* | *RETURNCONTRACT* | *EOF*                   | *????*           | *[EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)*                          |
+| *0xEF* | *-RESERVED-*     | *EOF*                   | *????*           | *[EIP-3540](https://eips.ethereum.org/EIPS/eip-3540)*                          |
 | 0xF0   | CREATE           | System                  |                  |                                                                                |
 | 0xF1   | CALL             | System                  |                  |                                                                                |
 | 0xF2   | CALLCODE         | System                  |                  |                                                                                |
