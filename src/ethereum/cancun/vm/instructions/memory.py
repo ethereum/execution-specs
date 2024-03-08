@@ -11,7 +11,7 @@ Introduction
 
 Implementations of the EVM Memory instructions.
 """
-from ethereum.base_types import U8_MAX_VALUE, U256, Bytes, Uint
+from ethereum.base_types import U256, Bytes, Uint
 from ethereum.utils.numeric import ceil32
 
 from .. import Evm
@@ -82,7 +82,7 @@ def mstore8(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    normalized_bytes_value = Bytes([value & U8_MAX_VALUE])
+    normalized_bytes_value = Bytes([value & 0xFF])
     memory_write(evm.memory, start_position, normalized_bytes_value)
 
     # PROGRAM COUNTER
