@@ -1122,6 +1122,13 @@ class HiveFixture(FixtureCommon):
             name="engineFcuVersion",
         ),
     )
+    sync_payload: Optional[FixtureEngineNewPayload] = field(
+        default=None,
+        json_encoder=JSONEncoder.Field(
+            name="syncPayload",
+            to_json=True,
+        ),
+    )
     pre_state: Mapping[str, Account] = field(
         json_encoder=JSONEncoder.Field(
             name="pre",
