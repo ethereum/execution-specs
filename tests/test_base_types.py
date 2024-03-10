@@ -1,6 +1,6 @@
 import pytest
 
-from ethereum.base_types import U256, U256_MAX_VALUE, FixedBytes, Uint
+from ethereum.base_types import U256, FixedBytes, Uint
 
 
 def test_uint_new() -> None:
@@ -1267,15 +1267,15 @@ def test_u256_bitwise_ixor_failed() -> None:
 
 
 def test_u256_invert() -> None:
-    assert ~U256(0) == U256_MAX_VALUE
-    assert ~U256(10) == U256_MAX_VALUE - 10
+    assert ~U256(0) == int(U256.MAX_VALUE)
+    assert ~U256(10) == int(U256.MAX_VALUE) - 10
     assert ~U256(2**256 - 1) == 0
 
 
 def test_u256_rshift() -> None:
-    assert U256(U256_MAX_VALUE) >> 255 == 1
-    assert U256(U256_MAX_VALUE) >> 256 == 0
-    assert U256(U256_MAX_VALUE) >> 257 == 0
+    assert U256.MAX_VALUE >> 255 == 1
+    assert U256.MAX_VALUE >> 256 == 0
+    assert U256.MAX_VALUE >> 257 == 0
     assert U256(0) >> 20 == 0
 
 

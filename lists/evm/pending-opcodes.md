@@ -11,6 +11,10 @@ next or subsequent hard fork.
 |   0x5C   | TLOAD           | Transient data load                             | [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153)                          |
 |   0x5D   | TSTORE          | Transient data store                            | [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153)                          |
 |   0x5E   | MCOPY           | Memory copy                                     | [EIP-5656](https://eips.ethereum.org/EIPS/eip-5656)                          |
+|   0xD0   | DATALOAD        | Loads data from EOF data section, via stack     | [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480) |
+|   0xD1   | DATALOADN       | Loads data from EOF data section, via immediate | [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480) |
+|   0xD2   | DATASIZE        | Size of the EOF data section                    | [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480) |
+|   0xD3   | DATACOPY        | Bulk EOF data copy                              | [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480) |
 |   0xE0   | RJUMP           | relative jump                                   | [EIP-4200](https://eips.ethereum.org/EIPS/eip-4200)                          |
 |   0xE1   | RJUMPI          | relative conditional jump                       | [EIP-4200](https://eips.ethereum.org/EIPS/eip-4200)                          |
 |   0xE2   | RJUMV           | relative jump table                             | [EIP-4200](https://eips.ethereum.org/EIPS/eip-4200)                          |
@@ -19,15 +23,13 @@ next or subsequent hard fork.
 |   0xE5   | JUMPF           | EOF Function Jump                               | [EIP-6209](https://eips.ethereum.org/EIPS/eip-6209)                          |
 |   0xE6   | DUPN            | Unlimited dup                                   | [EIP-663](https://eips.ethereum.org/EIPS/eip-663)                            |
 |   0xE7   | SWAPN           | Unlimited swap                                  | [EIP-663](https://eips.ethereum.org/EIPS/eip-663)                            |
-|   0xE8   | DATALOAD        | Loads data from EOF data section, via stack     | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
-|   0xE9   | DATALOADN       | Loads data from EOF data section, via immediate | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
-|   0xEA   | DATASIZE        | Size of the EOF data section                    | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
-|   0xEB   | DATACOPY        | Bulk EOF data copy                              | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
-|   0xEC   | CREATE3         | Create from EOF contained initcode              | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
-|   0xED   | CREATE4         | Create from transaction contained initcode      | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
-|   0xEE   | RETURNCONTRACT  | Contract to be created, references EOF data     | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
-|   0xEF   | -               | Reserved for EOF compatibility                  | TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) |
+|   0xE8   | EXCHANGE        | Deep swap                                       | [EIP-663](https://eips.ethereum.org/EIPS/eip-663)                            |
+|   0xEC   | CREATE3         | Create from EOF contained initcode              | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                          |
+|   0xED   | CREATE4         | Create from transaction contained initcode      | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                          |
+|   0xEE   | RETURNCONTRACT  | Contract to be created, references EOF data     | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                          |
+|   0xEF   | -               | Reserved for EOF compatibility                  | [EIP-3540](https://eips.ethereum.org/EIPS/eip-3540)                          |
 |   0xF6   | PAY             | transfers value from caller to target           | [EIP-5920](https://eips.ethereum.org/EIPS/eip-5920)                          |
+|   0xF7   | RETURNDATALOAD  | Loads data returned from a call to the stack    | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
 |   0xF8   | CALL2           | CALL without gas and output memory              | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
 |   0xF9   | DELEGATECALL2   | DELEGATECALL without gas and output memory      | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
 |   0xFB   | STATICCALL2     | STATICCALL without gas and output memory        | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
@@ -255,10 +257,10 @@ scheduled or accepted) are in *italics*.
 | 0XCD   |                  |                         |                  |                                                                                |
 | 0XCE   |                  |                         |                  |                                                                                |
 | 0XCF   |                  |                         |                  |                                                                                |
-| 0XD0   |                  |                         |                  |                                                                                |
-| 0XD1   |                  |                         |                  |                                                                                |
-| 0XD2   |                  |                         |                  |                                                                                |
-| 0XD3   |                  |                         |                  |                                                                                |
+| *0xD0* | *DATALOAD*       | *EOF*                   | *????*           | *[EIP-7480](https://eips.ethereum.org/EIPS/eip-7480)* |
+| *0xD1* | *DATALOADN*      | *EOF*                   | *????*           | *[EIP-7480](https://eips.ethereum.org/EIPS/eip-7480)* |
+| *0xD2* | *DATASIZE*       | *EOF*                   | *????*           | *[EIP-7480](https://eips.ethereum.org/EIPS/eip-7480)* |
+| *0xD3* | *DATACOPY*       | *EOF*                   | *????*           | *[EIP-7480](https://eips.ethereum.org/EIPS/eip-7480)* |
 | 0XD4   |                  |                         |                  |                                                                                |
 | 0XD5   |                  |                         |                  |                                                                                |
 | 0XD6   |                  |                         |                  |                                                                                |
@@ -279,14 +281,14 @@ scheduled or accepted) are in *italics*.
 | *0xE5* | *JUMPF*          | *EOF*                   | *????*           | *[EIP-4750](https://eips.ethereum.org/EIPS/eip-6209)*                          |
 | *0xE6* | *DUPN*           | *EOF*                   | *????*           | *[EIP-663](https://eips.ethereum.org/EIPS/eip-663)*                            |
 | *0xE7* | *SWAPN*          | *EOF*                   | *????*           | *[EIP-663](https://eips.ethereum.org/EIPS/eip-663)*                            |
-| *0xE8* | *DATALOAD*       | *EOF*                   | *????*           | *TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification)* |
-| *0xE9* | *DATALOADN*      | *EOF*                   | *????*           | *TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification)* |
-| *0xEA* | *DATASIZE*       | *EOF*                   | *????*           | *TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification)* |
-| *0xEB* | *DATACOPY*       | *EOF*                   | *????*           | *TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification)* |
-| *0xEC* | *CREATE3*        | *EOF*                   | *????*           | *TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification)* |
-| *0xED* | *CREATE4*        | *EOF*                   | *????*           | *TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification)* |
-| *0xEE* | *RETURNCONTRACT* | *EOF*                   | *????*           | *TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification)* |
-| *0xEF* | *-RESERVED-*     | *EOF*                   | *????*           | *TBD - [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification)* |
+| *0xE8* | *EXCHANGE*       | *EOF*                   | *????*           | *[EIP-663](https://eips.ethereum.org/EIPS/eip-663)*                            |
+| 0xE9   |                  |                         |                  |                                                                                |
+| 0xEA   |                  |                         |                  |                                                                                |
+| 0xEB   |                  |                         |                  |                                                                                |
+| *0xEC* | *CREATE3*        | *EOF*                   | *????*           | *[EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)*                          |
+| *0xED* | *CREATE4*        | *EOF*                   | *????*           | *[EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)*                          |
+| *0xEE* | *RETURNCONTRACT* | *EOF*                   | *????*           | *[EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)*                          |
+| *0xEF* | *-RESERVED-*     | *EOF*                   | *????*           | *[EIP-3540](https://eips.ethereum.org/EIPS/eip-3540)*                          |
 | 0xF0   | CREATE           | System                  |                  |                                                                                |
 | 0xF1   | CALL             | System                  |                  |                                                                                |
 | 0xF2   | CALLCODE         | System                  |                  |                                                                                |
@@ -294,7 +296,7 @@ scheduled or accepted) are in *italics*.
 | 0xF4   | DELEGATECALL     | System                  | Homestead        | [EIP-7](https://eips.ethereum.org/EIPS/eip-7)                                  |
 | 0xF5   | CREATE2          | System                  | Constantinople   | [EIP-1014](https://eips.ethereum.org/EIPS/eip-1014)                            |
 | *0xF6* | *PAY*            | *System*                | *????*           | *[EIP-5920](https://eips.ethereum.org/EIPS/eip-5920)*                          |
-| 0xF7   |                  |                         |                  |                                                                                |
+| *0xF7* | *RETURNDATALOAD* | *Environmental*         | *????*           | *[EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)*                          |
 | *0xF8* | *CALL2*          | *System*                | *????*           | *[EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)*                          |
 | *0xF9* | *DELEGATECALL2*  | *System*                | *????*           | *[EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)*                          |
 | 0xFA   | STATICCALL       | System                  | Byzantium        | [EIP-214](https://eips.ethereum.org/EIPS/eip-214)                              |
