@@ -69,13 +69,13 @@ unshipped EIPs, even withdrawn and non-viable proposals.
 | [6888](https://eips.ethereum.org/EIPS/eip-6888)                        | 0x5C   | JUMPO              | Jump if the most recent arithmetic op set the overflow bit                   |
 | [6913](https://eips.ethereum.org/EIPS/eip-6913)                        | 0x49   | SETCODE            | Replace code of current contract                                             |
 | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                    | 0xF7   | RETURNDATALOAD     | Loads data returned from a call to the stack                                 |
-| [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                    | 0xF8   | CALL2              | CALL without gas and output memory                                           |
-| [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                    | 0xF9   | DELEGATECALL2      | DELEGATECALL without gas and output memory                                   |
-| [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                    | 0xFB   | STATICCALL2        | STATICCALL without gas and output memory                                     |
+| [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                    | 0xF8   | EXTCALL            | CALL without gas and output memory                                           |
+| [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                    | 0xF9   | EXTDELEGATECALL    | DELEGATECALL without gas and output memory                                   |
+| [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                    | 0xFB   | EXTSTATICCALL      | STATICCALL without gas and output memory                                     |
 | [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480)                    | 0xD0   | DATALOAD           | Loads data from EOF data section, via stack                                  |
 | [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480)                    | 0xD1   | DATALOADN          | Loads data from EOF data section, via immediate                              |
 | [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480)                    | 0xD2   | DATASIZE           | Size of the EOF data section                                                 |
 | [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480)                    | 0xD3   | DATACOPY           | Bulk data section copy                                                       |
-| [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xEC   | CREATE3            | Create from EOF contained initcode                                           |
-| [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xED   | CREATE4            | Create from transaction contained initcode                                   |
+| [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xEC   | EOFCREATE          | Create from EOF contained initcode                                           |
+| [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xED   | TXCREATE           | Create from transaction contained initcode                                   |
 | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xEE   | RETURNCONTRACT     | Contract to be created, references EOF data                                  |
