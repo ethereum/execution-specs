@@ -395,11 +395,11 @@ def call(evm: Evm) -> None:
     if sender_balance < value:
         push(evm.stack, U256(0))
         evm.return_data = b""
-        evm.gas_left += message_call_gas.stipend
+        evm.gas_left += message_call_gas.sub_call
     else:
         generic_call(
             evm,
-            message_call_gas.stipend,
+            message_call_gas.sub_call,
             value,
             evm.message.current_target,
             to,
@@ -469,11 +469,11 @@ def callcode(evm: Evm) -> None:
     if sender_balance < value:
         push(evm.stack, U256(0))
         evm.return_data = b""
-        evm.gas_left += message_call_gas.stipend
+        evm.gas_left += message_call_gas.sub_call
     else:
         generic_call(
             evm,
-            message_call_gas.stipend,
+            message_call_gas.sub_call,
             value,
             evm.message.current_target,
             to,
@@ -591,7 +591,7 @@ def delegatecall(evm: Evm) -> None:
     evm.memory += b"\x00" * extend_memory.expand_by
     generic_call(
         evm,
-        message_call_gas.stipend,
+        message_call_gas.sub_call,
         evm.message.value,
         evm.message.caller,
         evm.message.current_target,
@@ -655,7 +655,7 @@ def staticcall(evm: Evm) -> None:
     evm.memory += b"\x00" * extend_memory.expand_by
     generic_call(
         evm,
-        message_call_gas.stipend,
+        message_call_gas.sub_call,
         U256(0),
         evm.message.current_target,
         to,

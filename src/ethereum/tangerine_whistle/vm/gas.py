@@ -81,18 +81,18 @@ class ExtendMemory:
 @dataclass
 class MessageCallGas:
     """
-    Define the gas cost and stipend for executing the call opcodes.
+    Define the gas cost and gas given to the sub-context for
+    executing the call opcodes.
 
     `cost`: `ethereum.base_types.Uint`
-        The non-refundable portion of gas reserved for executing the
-        call opcode.
-    `stipend`: `ethereum.base_types.Uint`
+        The gas required to execute the call opcode.
+    `sub_context`: `ethereum.base_types.Uint`
         The portion of gas available to sub-calls that is refundable
-        if not consumed
+        if not consumed.
     """
 
     cost: Uint
-    stipend: Uint
+    sub_context: Uint
 
 
 def charge_gas(evm: Evm, amount: Uint) -> None:
