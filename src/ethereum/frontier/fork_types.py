@@ -66,7 +66,7 @@ class Account:
 
     nonce: Uint
     balance: U256
-    code: bytes
+    code: Bytes
 
 
 EMPTY_ACCOUNT = Account(
@@ -138,7 +138,7 @@ class Log:
 
     address: Address
     topics: Tuple[Hash32, ...]
-    data: bytes
+    data: Bytes
 
 
 @slotted_freezable
