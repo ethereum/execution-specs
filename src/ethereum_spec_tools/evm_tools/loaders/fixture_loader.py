@@ -25,22 +25,22 @@ from .transaction_loader import TransactionLoad
 
 
 class BaseLoad(ABC):
-    """Base class for loading json fixtures"""
+    """Base class for loading JSON fixtures"""
 
     @abstractmethod
     def json_to_header(self, json_data: Any) -> Any:
         """Converts json header data to a header object"""
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def json_to_state(self, json_data: Any) -> Any:
         """Converts json state data to a state object"""
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def json_to_block(self, json_data: Any) -> Any:
         """Converts json block data to a list of blocks"""
-        pass
+        raise NotImplementedError()
 
 
 class Load(BaseLoad):

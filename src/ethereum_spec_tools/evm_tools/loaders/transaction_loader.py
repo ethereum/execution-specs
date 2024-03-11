@@ -52,11 +52,9 @@ class TransactionLoad:
 
     def json_to_to(self) -> Bytes:
         """Get to address for the transaction."""
-        return (
-            Bytes0(b"")
-            if self.raw.get("to") == ""
-            else self.fork.hex_to_address(self.raw.get("to"))
-        )
+        if self.raw.get("to") == "":
+            return Bytes0(b"")
+        return self.fork.hex_to_address(self.raw.get("to"))
 
     def json_to_value(self) -> U256:
         """Get the value of the transaction."""
