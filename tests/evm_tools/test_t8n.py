@@ -1,12 +1,13 @@
 import json
 import os
+import sys
 from typing import Any, Dict, List
 
 import pytest
 
 from ethereum import rlp
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
-from ethereum_spec_tools.evm_tools import parser
+from ethereum_spec_tools.evm_tools import create_parser
 from ethereum_spec_tools.evm_tools.t8n import T8N
 from ethereum_spec_tools.evm_tools.utils import FatalException
 from tests.helpers import TEST_FIXTURES
@@ -46,10 +47,11 @@ def get_rejected_indices(rejected: Dict) -> List[int]:
 
 
 def t8n_tool_test(test_case: Dict) -> None:
+    parser = create_parser()
     options = parser.parse_args(test_case["args"])
 
     try:
-        t8n_tool = T8N(options)
+        t8n_tool = T8N(options, sys.stdout, sys.stdin)
         t8n_tool.apply_body()
     except Exception as e:
         raise FatalException(e)

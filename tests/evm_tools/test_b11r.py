@@ -1,19 +1,13 @@
 import json
 import os
+import sys
 from typing import Any, Dict, List
 
 import pytest
 
-from ethereum.base_types import U64, U256, Uint
-from ethereum.rlp import decode
-from ethereum.utils.hexadecimal import (
-    Hash32,
-    hex_to_bytes,
-    hex_to_u256,
-    hex_to_uint,
-)
-from ethereum_spec_tools.evm_tools import parser, subparsers
-from ethereum_spec_tools.evm_tools.b11r import B11R, b11r_arguments
+from ethereum.utils.hexadecimal import hex_to_bytes
+from ethereum_spec_tools.evm_tools import create_parser
+from ethereum_spec_tools.evm_tools.b11r import B11R
 from ethereum_spec_tools.evm_tools.utils import FatalException
 from tests.helpers import TEST_FIXTURES
 
@@ -21,7 +15,7 @@ B11R_TEST_PATH = TEST_FIXTURES["evm_tools_testdata"]["fixture_path"]
 
 IGNORE_TESTS: List[str] = []
 
-b11r_arguments(subparsers)
+parser = create_parser()
 
 
 def find_test_fixtures() -> Any:
@@ -55,7 +49,7 @@ def b11r_tool_test(test_case: Dict) -> None:
     options = parser.parse_args(test_case["args"])
 
     try:
-        b11r_tool = B11R(options)
+        b11r_tool = B11R(options, sys.stdout, sys.stdin)
         b11r_tool.build_block()
     except Exception as e:
         raise FatalException(e)

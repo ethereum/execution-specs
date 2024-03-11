@@ -7,10 +7,10 @@ from typing import Dict, Generator, Optional, Tuple
 import pytest
 
 from ethereum.utils.hexadecimal import hex_to_bytes
-from ethereum_spec_tools.evm_tools import parser, subparsers
+from ethereum_spec_tools.evm_tools import create_parser
 from ethereum_spec_tools.evm_tools.t8n import T8N, t8n_arguments
 
-t8n_arguments(subparsers)
+parser = create_parser()
 
 
 def fetch_evm_tools_tests(
@@ -123,7 +123,7 @@ def load_evm_tools_test(test_case: Dict[str, str], fork_name: str) -> None:
     ]
     t8n_options = parser.parse_args(t8n_args)
 
-    t8n = T8N(t8n_options)
+    t8n = T8N(t8n_options, sys.stdout, sys.stdin)
     t8n.apply_body()
 
     assert hex_to_bytes(post_hash) == t8n.result.state_root

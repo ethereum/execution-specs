@@ -418,3 +418,12 @@ eth2spec
 Bytes48
 BLS
 BLOBBASEFEE
+
+socketserver
+qs
+platformdirs
+rfile
+wfile
+uds
+appname
+appauthor
