@@ -24,15 +24,15 @@ next or subsequent hard fork.
 |   0xE6   | DUPN            | Unlimited dup                                   | [EIP-663](https://eips.ethereum.org/EIPS/eip-663)                            |
 |   0xE7   | SWAPN           | Unlimited swap                                  | [EIP-663](https://eips.ethereum.org/EIPS/eip-663)                            |
 |   0xE8   | EXCHANGE        | Deep swap                                       | [EIP-663](https://eips.ethereum.org/EIPS/eip-663)                            |
-|   0xEC   | CREATE3         | Create from EOF contained initcode              | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                          |
-|   0xED   | CREATE4         | Create from transaction contained initcode      | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                          |
+|   0xEC   | EOFCREATE       | Create from EOF contained initcode              | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                          |
+|   0xED   | TXCREATE        | Create from transaction contained initcode      | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                          |
 |   0xEE   | RETURNCONTRACT  | Contract to be created, references EOF data     | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                          |
 |   0xEF   | -               | Reserved for EOF compatibility                  | [EIP-3540](https://eips.ethereum.org/EIPS/eip-3540)                          |
 |   0xF6   | PAY             | transfers value from caller to target           | [EIP-5920](https://eips.ethereum.org/EIPS/eip-5920)                          |
 |   0xF7   | RETURNDATALOAD  | Loads data returned from a call to the stack    | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
-|   0xF8   | CALL2           | CALL without gas and output memory              | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
-|   0xF9   | DELEGATECALL2   | DELEGATECALL without gas and output memory      | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
-|   0xFB   | STATICCALL2     | STATICCALL without gas and output memory        | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
+|   0xF8   | EXTCALL         | CALL without gas and output memory              | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
+|   0xF9   | EXTDELEGATECALL | DELEGATECALL without gas and output memory      | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
+|   0xFB   | EXTSTATICCALL   | STATICCALL without gas and output memory        | [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                          |
 |   0xFC   | SETCODE         | Change the code for the current contract        | [EIP-6913](https://eips.ethereum.org/EIPS/eip-6913)                          |
 
 Pending Opcode Table
@@ -285,8 +285,8 @@ scheduled or accepted) are in *italics*.
 | 0xE9   |                  |                         |                  |                                                                                |
 | 0xEA   |                  |                         |                  |                                                                                |
 | 0xEB   |                  |                         |                  |                                                                                |
-| *0xEC* | *CREATE3*        | *EOF*                   | *????*           | *[EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)*                          |
-| *0xED* | *CREATE4*        | *EOF*                   | *????*           | *[EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)*                          |
+| *0xEC* | *EOFCREATE*      | *EOF*                   | *????*           | *[EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)*                          |
+| *0xED* | *TXCREATE*       | *EOF*                   | *????*           | *[EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)*                          |
 | *0xEE* | *RETURNCONTRACT* | *EOF*                   | *????*           | *[EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)*                          |
 | *0xEF* | *-RESERVED-*     | *EOF*                   | *????*           | *[EIP-3540](https://eips.ethereum.org/EIPS/eip-3540)*                          |
 | 0xF0   | CREATE           | System                  |                  |                                                                                |
@@ -297,10 +297,10 @@ scheduled or accepted) are in *italics*.
 | 0xF5   | CREATE2          | System                  | Constantinople   | [EIP-1014](https://eips.ethereum.org/EIPS/eip-1014)                            |
 | *0xF6* | *PAY*            | *System*                | *????*           | *[EIP-5920](https://eips.ethereum.org/EIPS/eip-5920)*                          |
 | *0xF7* | *RETURNDATALOAD* | *Environmental*         | *????*           | *[EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)*                          |
-| *0xF8* | *CALL2*          | *System*                | *????*           | *[EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)*                          |
-| *0xF9* | *DELEGATECALL2*  | *System*                | *????*           | *[EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)*                          |
+| *0xF8* | *EXTCALL*        | *System*                | *????*           | *[EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)*                          |
+| *0xF9* | *EXTDELEGATECALL*| *System*                | *????*           | *[EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)*                          |
 | 0xFA   | STATICCALL       | System                  | Byzantium        | [EIP-214](https://eips.ethereum.org/EIPS/eip-214)                              |
-| *0xFB* | *STATICCALL2*    | *System*                | *????*           | *[EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)*                          |
+| *0xFB* | *EXTSTATICCALL*  | *System*                | *????*           | *[EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)*                          |
 | *0xFC* | *SETCODE*        | *System*                | *????*           | *[EIP-6913](https://eips.ethereum.org/EIPS/eip-6913)*                          |
 | 0xFD   | REVERT           | System                  | Byzantium        | [EIP-140](https://eips.ethereum.org/EIPS/eip-140)                              |
 | 0xFE   | INVALID/ABORT    | System                  | (unofficial)     | [EIP-141](https://eips.ethereum.org/EIPS/eip-141)                              |
