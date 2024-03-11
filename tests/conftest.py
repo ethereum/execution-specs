@@ -112,5 +112,5 @@ def pytest_sessionstart(session: Session) -> None:
             git_clone_fixtures(
                 props["url"], props["commit_hash"], fixture_path
             )
-        else:
+        elif "url" in props:
             download_fixtures(props["url"], fixture_path)
