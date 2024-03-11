@@ -267,11 +267,11 @@ def call(evm: Evm) -> None:
     ).balance
     if sender_balance < value:
         push(evm.stack, U256(0))
-        evm.gas_left += message_call_gas.stipend
+        evm.gas_left += message_call_gas.sub_call
     else:
         generic_call(
             evm,
-            message_call_gas.stipend,
+            message_call_gas.sub_call,
             value,
             evm.message.current_target,
             to,
@@ -327,11 +327,11 @@ def callcode(evm: Evm) -> None:
     ).balance
     if sender_balance < value:
         push(evm.stack, U256(0))
-        evm.gas_left += message_call_gas.stipend
+        evm.gas_left += message_call_gas.sub_call
     else:
         generic_call(
             evm,
-            message_call_gas.stipend,
+            message_call_gas.sub_call,
             value,
             evm.message.current_target,
             to,
