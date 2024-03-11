@@ -84,11 +84,12 @@ class MessageCallGas:
     """
     Define the gas cost and gas given to the sub-call for
     executing the call opcodes.
+
     `cost`: `ethereum.base_types.Uint`
         The gas required to execute the call opcode.
     `sub_call`: `ethereum.base_types.Uint`
         The portion of gas available to sub-calls that is refundable
-        if not consumed
+        if not consumed.
     """
 
     cost: Uint
