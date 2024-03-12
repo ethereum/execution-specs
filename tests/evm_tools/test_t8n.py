@@ -54,7 +54,7 @@ def t8n_tool_test(test_case: Dict) -> None:
         t8n_tool = T8N(options, sys.stdout, sys.stdin)
         t8n_tool.apply_body()
     except Exception as e:
-        raise FatalException(e)
+        raise FatalException(e) from e
 
     json_result = t8n_tool.result.to_json()
     with open(test_case["expected"], "r") as f:
