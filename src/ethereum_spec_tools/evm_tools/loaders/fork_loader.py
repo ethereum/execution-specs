@@ -48,6 +48,16 @@ class ForkLoad:
         return return_value
 
     @property
+    def calculate_block_difficulty(self) -> Any:
+        """calculate_block_difficulty function of the given fork."""
+        return self._module("fork").calculate_block_difficulty
+
+    @property
+    def calculate_base_fee_per_gas(self) -> Any:
+        """calculate_base_fee_per_gas function of the given fork."""
+        return self._module("fork").calculate_base_fee_per_gas
+
+    @property
     def logs_bloom(self) -> Any:
         """logs_bloom function of the given fork."""
         return self._module("bloom").logs_bloom
