@@ -276,7 +276,7 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
     elif issubclass(cls, FixedBytes):
         ensure(isinstance(raw_rlp, Bytes), RLPDecodingError)
         ensure(len(raw_rlp) == cls.LENGTH, RLPDecodingError)
-        return raw_rlp
+        return cls(raw_rlp)  # type: ignore
     elif issubclass(cls, Bytes):
         ensure(isinstance(raw_rlp, Bytes), RLPDecodingError)
         return raw_rlp

@@ -15,7 +15,8 @@ from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 from ethereum_spec_tools.forks import Hardfork
 
-from ..fixture_loader import Load
+from ..loaders.fixture_loader import Load
+from ..loaders.fork_loader import ForkLoad
 from ..utils import (
     FatalException,
     get_module_name,
@@ -95,6 +96,7 @@ class T8N(Load):
         fork_module, self.fork_block = get_module_name(
             self.forks, self.options, stdin
         )
+        self.fork = ForkLoad(fork_module)
 
         if self.options.trace:
             trace_memory = getattr(self.options, "trace.memory", False)
@@ -121,49 +123,14 @@ class T8N(Load):
             self.env.block_difficulty, self.env.base_fee_per_gas
         )
 
-        if self.is_after_fork("ethereum.cancun"):
-            self.SYSTEM_ADDRESS = self.hex_to_address(
+        if self.fork.is_after_fork("ethereum.cancun"):
+            self.SYSTEM_ADDRESS = self.fork.hex_to_address(
                 "0xfffffffffffffffffffffffffffffffffffffffe"
             )
-            self.BEACON_ROOTS_ADDRESS = self.hex_to_address(
+            self.BEACON_ROOTS_ADDRESS = self.fork.hex_to_address(
                 "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
             )
             self.SYSTEM_TRANSACTION_GAS = Uint(30000000)
-
-    @property
-    def fork(self) -> Any:
-        """The fork module of the given fork."""
-        return self._module("fork")
-
-    @property
-    def fork_types(self) -> Any:
-        """The fork_types model of the given fork."""
-        return self._module("fork_types")
-
-    @property
-    def state(self) -> Any:
-        """The state module of the given fork."""
-        return self._module("state")
-
-    @property
-    def trie(self) -> Any:
-        """The trie module of the given fork."""
-        return self._module("trie")
-
-    @property
-    def bloom(self) -> Any:
-        """The bloom module of the given fork."""
-        return self._module("bloom")
-
-    @property
-    def vm(self) -> Any:
-        """The vm module of the given fork."""
-        return self._module("vm")
-
-    @property
-    def interpreter(self) -> Any:
-        """The interpreter module of the given fork."""
-        return self._module("vm.interpreter")
 
     @property
     def BLOCK_REWARD(self) -> Any:
@@ -171,22 +138,12 @@ class T8N(Load):
         For the t8n tool, the block reward is
         provided as a command line option
         """
-        if self.options.state_reward < 0 or self.is_after_fork(
+        if self.options.state_reward < 0 or self.fork.is_after_fork(
             "ethereum.paris"
         ):
             return None
         else:
             return U256(self.options.state_reward)
-
-    def is_after_fork(self, target_fork_name: str) -> bool:
-        """Check if the fork is after the target fork"""
-        return_value = False
-        for fork in self.forks:
-            if fork.name == target_fork_name:
-                return_value = True
-            if fork.name == "ethereum." + self._fork_module:
-                break
-        return return_value
 
     def check_transaction(self, tx: Any, gas_available: Any) -> Any:
         """
@@ -195,12 +152,12 @@ class T8N(Load):
         """
         arguments = [tx]
 
-        if self.is_after_fork("ethereum.london"):
+        if self.fork.is_after_fork("ethereum.london"):
             arguments.append(self.env.base_fee_per_gas)
 
         arguments.append(gas_available)
 
-        if self.is_after_fork("ethereum.spurious_dragon"):
+        if self.fork.is_after_fork("ethereum.spurious_dragon"):
             arguments.append(self.chain_id)
 
         return self.fork.check_transaction(*arguments)
@@ -219,15 +176,15 @@ class T8N(Load):
             "state": self.alloc.state,
         }
 
-        if self.is_after_fork("ethereum.paris"):
+        if self.fork.is_after_fork("ethereum.paris"):
             kw_arguments["prev_randao"] = self.env.prev_randao
         else:
             kw_arguments["difficulty"] = self.env.block_difficulty
 
-        if self.is_after_fork("ethereum.istanbul"):
+        if self.fork.is_after_fork("ethereum.istanbul"):
             kw_arguments["chain_id"] = self.chain_id
 
-        if self.is_after_fork("ethereum.cancun"):
+        if self.fork.is_after_fork("ethereum.cancun"):
             (
                 sender_address,
                 effective_gas_price,
@@ -242,7 +199,7 @@ class T8N(Load):
             kw_arguments["caller"] = kw_arguments["origin"] = sender_address
             kw_arguments["gas_price"] = effective_gas_price
             kw_arguments["blob_versioned_hashes"] = blob_versioned_hashes
-        elif self.is_after_fork("ethereum.london"):
+        elif self.fork.is_after_fork("ethereum.london"):
             sender_address, effective_gas_price = self.fork.check_transaction(
                 tx,
                 self.env.base_fee_per_gas,
@@ -252,7 +209,7 @@ class T8N(Load):
             kw_arguments["base_fee_per_gas"] = self.env.base_fee_per_gas
             kw_arguments["caller"] = kw_arguments["origin"] = sender_address
             kw_arguments["gas_price"] = effective_gas_price
-        elif self.is_after_fork("ethereum.spurious_dragon"):
+        elif self.fork.is_after_fork("ethereum.spurious_dragon"):
             sender_address = self.fork.check_transaction(
                 tx, gas_available, self.chain_id
             )
@@ -265,20 +222,20 @@ class T8N(Load):
 
         kw_arguments["traces"] = []
 
-        if self.is_after_fork("ethereum.cancun"):
+        if self.fork.is_after_fork("ethereum.cancun"):
             kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
 
-        return self.vm.Environment(**kw_arguments)
+        return self.fork.Environment(**kw_arguments)
 
     def tx_trie_set(self, trie: Any, index: Any, tx: Any) -> Any:
         """Add a transaction to the trie."""
         arguments = [trie, rlp.encode(Uint(index))]
-        if self.is_after_fork("ethereum.berlin"):
-            arguments.append(self.fork_types.encode_transaction(tx))
+        if self.fork.is_after_fork("ethereum.berlin"):
+            arguments.append(self.fork.encode_transaction(tx))
         else:
             arguments.append(tx)
 
-        self.trie.trie_set(*arguments)
+        self.fork.trie_set(*arguments)
 
     def make_receipt(
         self, tx: Any, process_transaction_return: Any, gas_available: Any
@@ -286,10 +243,10 @@ class T8N(Load):
         """Create a transaction receipt."""
         arguments = [tx]
 
-        if self.is_after_fork("ethereum.byzantium"):
+        if self.fork.is_after_fork("ethereum.byzantium"):
             arguments.append(process_transaction_return[2])
         else:
-            arguments.append(self.state.state_root(self.alloc.state))
+            arguments.append(self.fork.state_root(self.alloc.state))
 
         arguments.append((self.env.block_gas_limit - gas_available))
         arguments.append(process_transaction_return[1])
@@ -309,30 +266,30 @@ class T8N(Load):
         miner_reward = self.BLOCK_REWARD + (
             len(ommers) * (self.BLOCK_REWARD // 32)
         )
-        self.state.create_ether(state, coinbase, miner_reward)
+        self.fork.create_ether(state, coinbase, miner_reward)
         touched_accounts = [coinbase]
 
         for ommer in ommers:
             # Ommer age with respect to the current block.
             ommer_miner_reward = ((8 - ommer.delta) * self.BLOCK_REWARD) // 8
-            self.state.create_ether(state, ommer.address, ommer_miner_reward)
+            self.fork.create_ether(state, ommer.address, ommer_miner_reward)
             touched_accounts.append(ommer.address)
 
-        if self.is_after_fork("ethereum.spurious_dragon"):
+        if self.fork.is_after_fork("ethereum.spurious_dragon"):
             # Destroy empty accounts that were touched by
             # paying the rewards. This is only important if
             # the block rewards were zero.
             for account in touched_accounts:
-                if self.state.account_exists_and_is_empty(state, account):
-                    self.state.destroy_account(state, account)
+                if self.fork.account_exists_and_is_empty(state, account):
+                    self.fork.destroy_account(state, account)
 
     def backup_state(self) -> None:
         """Back up the state in order to restore in case of an error."""
         state = self.alloc.state
         self.alloc.state_backup = (
-            self.trie.copy_trie(state._main_trie),
+            self.fork.copy_trie(state._main_trie),
             {
-                k: self.trie.copy_trie(t)
+                k: self.fork.copy_trie(t)
                 for (k, t) in state._storage_tries.items()
             },
         )
@@ -353,17 +310,20 @@ class T8N(Load):
         block_gas_limit = self.env.block_gas_limit
 
         gas_available = block_gas_limit
-        transactions_trie = self.trie.Trie(secured=False, default=None)
-        receipts_trie = self.trie.Trie(secured=False, default=None)
+        transactions_trie = self.fork.Trie(secured=False, default=None)
+        receipts_trie = self.fork.Trie(secured=False, default=None)
         block_logs = ()
         blob_gas_used = Uint(0)
 
-        if self.is_after_fork("ethereum.cancun"):
-            beacon_block_roots_contract_code = self.get_account(
+        if (
+            self.fork.is_after_fork("ethereum.cancun")
+            and self.env.parent_beacon_block_root is not None
+        ):
+            beacon_block_roots_contract_code = self.fork.get_account(
                 self.alloc.state, self.BEACON_ROOTS_ADDRESS
             ).code
 
-            system_tx_message = self.vm.Message(
+            system_tx_message = self.fork.Message(
                 caller=self.SYSTEM_ADDRESS,
                 target=self.BEACON_ROOTS_ADDRESS,
                 gas=self.SYSTEM_TRANSACTION_GAS,
@@ -380,7 +340,7 @@ class T8N(Load):
                 parent_evm=None,
             )
 
-            system_tx_env = self.vm.Environment(
+            system_tx_env = self.fork.Environment(
                 caller=self.SYSTEM_ADDRESS,
                 origin=self.SYSTEM_ADDRESS,
                 block_hashes=self.env.block_hashes,
@@ -398,11 +358,14 @@ class T8N(Load):
                 blob_versioned_hashes=(),
             )
 
-            system_tx_output = self.interpreter.process_message_call(
+            system_tx_output = self.fork.process_message_call(
                 system_tx_message, system_tx_env
             )
 
-            self.state.destroy_touched_empty_accounts(
+            system_tx_output = self.fork.process_message_call(
+                system_tx_message, system_tx_env
+            )
+            self.fork.destroy_touched_empty_accounts(
                 system_tx_env.state, system_tx_output.touched_accounts
             )
 
@@ -415,12 +378,12 @@ class T8N(Load):
             try:
                 env = self.environment(tx, gas_available)
 
-                process_transaction_return = self.process_transaction(env, tx)
+                process_transaction_return = self.fork.process_transaction(
+                    env, tx
+                )
 
-                if self.is_after_fork("ethereum.cancun"):
-                    blob_gas_used += self._module(
-                        "vm.gas"
-                    ).calculate_total_blob_gas(tx)
+                if self.fork.is_after_fork("ethereum.cancun"):
+                    blob_gas_used += self.fork.calculate_total_blob_gas(tx)
                     ensure(
                         blob_gas_used <= self.fork.MAX_BLOB_GAS_PER_BLOCK,
                         InvalidBlock,
@@ -447,7 +410,7 @@ class T8N(Load):
                     tx, process_transaction_return, gas_available
                 )
 
-                self.trie.trie_set(
+                self.fork.trie_set(
                     receipts_trie,
                     rlp.encode(Uint(i)),
                     receipt,
@@ -464,34 +427,34 @@ class T8N(Load):
 
         block_gas_used = block_gas_limit - gas_available
 
-        block_logs_bloom = self.bloom.logs_bloom(block_logs)
+        block_logs_bloom = self.fork.logs_bloom(block_logs)
 
         logs_hash = keccak256(rlp.encode(block_logs))
 
-        if self.is_after_fork("ethereum.shanghai"):
-            withdrawals_trie = self.trie.Trie(secured=False, default=None)
+        if self.fork.is_after_fork("ethereum.shanghai"):
+            withdrawals_trie = self.fork.Trie(secured=False, default=None)
 
             for i, wd in enumerate(self.env.withdrawals):
-                self.trie.trie_set(
+                self.fork.trie_set(
                     withdrawals_trie, rlp.encode(Uint(i)), rlp.encode(wd)
                 )
 
-                self.state.process_withdrawal(self.alloc.state, wd)
+                self.fork.process_withdrawal(self.alloc.state, wd)
 
-                if self.state.account_exists_and_is_empty(
+                if self.fork.account_exists_and_is_empty(
                     self.alloc.state, wd.address
                 ):
-                    self.state.destroy_account(self.alloc.state, wd.address)
+                    self.fork.destroy_account(self.alloc.state, wd.address)
 
-            self.result.withdrawals_root = self.trie.root(withdrawals_trie)
+            self.result.withdrawals_root = self.fork.root(withdrawals_trie)
 
-        if self.is_after_fork("ethereum.cancun"):
+        if self.fork.is_after_fork("ethereum.cancun"):
             self.result.blob_gas_used = blob_gas_used
             self.result.excess_blob_gas = self.env.excess_blob_gas
 
-        self.result.state_root = self.state.state_root(self.alloc.state)
-        self.result.tx_root = self.trie.root(transactions_trie)
-        self.result.receipt_root = self.trie.root(receipts_trie)
+        self.result.state_root = self.fork.state_root(self.alloc.state)
+        self.result.tx_root = self.fork.root(transactions_trie)
+        self.result.receipt_root = self.fork.root(receipts_trie)
         self.result.bloom = block_logs_bloom
         self.result.logs_hash = logs_hash
         self.result.rejected = self.txs.rejected_txs
