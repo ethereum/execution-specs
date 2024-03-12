@@ -3,7 +3,7 @@ Define t8n Env class
 """
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ethereum import rlp
 from ethereum.base_types import U64, U256, Bytes32, Uint
@@ -12,6 +12,9 @@ from ethereum.utils.byte import left_pad_zero_bytes
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 from ..utils import parse_hex_or_int
+
+if TYPE_CHECKING:
+    from ethereum_spec_tools.evm_tools.t8n import T8N
 
 
 @dataclass
@@ -48,7 +51,7 @@ class Env:
     parent_blob_gas_used: Optional[U64]
     excess_blob_gas: Optional[U64]
 
-    def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
+    def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         if t8n.options.input_env == "stdin":
             assert stdin is not None
             data = stdin["env"]
@@ -77,7 +80,7 @@ class Env:
             )
             self.read_excess_blob_gas(data, t8n)
 
-    def read_excess_blob_gas(self, data: Any, t8n: Any) -> None:
+    def read_excess_blob_gas(self, data: Any, t8n: "T8N") -> None:
         """
         Read the excess_blob_gas from the data. If the excess blob gas is
         not present, it is calculated from the parent block parameters.
@@ -112,7 +115,7 @@ class Env:
         if excess_blob_gas >= target_blob_gas_per_block:
             self.excess_blob_gas = excess_blob_gas - target_blob_gas_per_block
 
-    def read_base_fee_per_gas(self, data: Any, t8n: Any) -> None:
+    def read_base_fee_per_gas(self, data: Any, t8n: "T8N") -> None:
         """
         Read the base_fee_per_gas from the data. If the base fee is
         not present, it is calculated from the parent block parameters.
@@ -137,7 +140,7 @@ class Env:
                 self.parent_base_fee_per_gas = parse_hex_or_int(
                     data["parentBaseFee"], Uint
                 )
-                parameters = [
+                parameters: List[object] = [
                     self.block_gas_limit,
                     self.parent_gas_limit,
                     self.parent_gas_used,
@@ -146,14 +149,14 @@ class Env:
 
                 # TODO: See if this explicit check can be removed. See
                 # https://github.com/ethereum/execution-specs/issues/740
-                if t8n.fork_module == "london":
+                if t8n.fork.fork_module == "london":
                     parameters.append(t8n.fork_block == self.block_number)
 
                 self.base_fee_per_gas = t8n.fork.calculate_base_fee_per_gas(
                     *parameters
                 )
 
-    def read_randao(self, data: Any, t8n: Any) -> None:
+    def read_randao(self, data: Any, t8n: "T8N") -> None:
         """
         Read the randao from the data.
         """
@@ -174,7 +177,7 @@ class Env:
                 left_pad_zero_bytes(hex_to_bytes(current_random), 32)
             )
 
-    def read_withdrawals(self, data: Any, t8n: Any) -> None:
+    def read_withdrawals(self, data: Any, t8n: "T8N") -> None:
         """
         Read the withdrawals from the data.
         """
@@ -184,7 +187,7 @@ class Env:
                 t8n.json_to_withdrawals(wd) for wd in data["withdrawals"]
             )
 
-    def read_block_difficulty(self, data: Any, t8n: Any) -> None:
+    def read_block_difficulty(self, data: Any, t8n: "T8N") -> None:
         """
         Read the block difficulty from the data.
         If `currentDifficulty` is present, it is used. Otherwise,
@@ -247,7 +250,7 @@ class Env:
 
         self.block_hashes = block_hashes
 
-    def read_ommers(self, data: Any, t8n: Any) -> None:
+    def read_ommers(self, data: Any, t8n: "T8N") -> None:
         """
         Read the ommers. The ommers data might not have all the details
         needed to obtain the Header.
@@ -258,7 +261,7 @@ class Env:
                 ommers.append(
                     Ommer(
                         ommer["delta"],
-                        t8n.hex_to_address(ommer["address"]),
+                        t8n.fork.hex_to_address(ommer["address"]),
                     )
                 )
         self.ommers = ommers
