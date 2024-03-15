@@ -8,6 +8,7 @@ import pytest
 
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools import create_parser
+from ethereum_spec_tools.evm_tools.statetest import read_test_cases
 from ethereum_spec_tools.evm_tools.t8n import T8N, t8n_arguments
 
 parser = create_parser()
@@ -26,28 +27,25 @@ def fetch_evm_tools_tests(
 
     for root, _, files in os.walk(test_dir):
         for filename in files:
-            if filename.endswith(".json"):
-                test_file_path = os.path.join(root, filename)
-                with open(test_file_path) as test_file:
-                    tests = json.load(test_file)
+            if not filename.endswith(".json"):
+                continue
 
-                for key, test in tests.items():
-                    slow = True if key in slow_tests else False
-                    if fork_name in test["post"]:
-                        for idx, transition in enumerate(
-                            test["post"][fork_name]
-                        ):
-                            test_case = {
-                                "test_file": test_file_path,
-                                "test_key": key,
-                                "index": idx,
-                            }
-                            if slow:
-                                yield pytest.param(
-                                    test_case, marks=pytest.mark.slow
-                                )
-                            else:
-                                yield test_case
+            test_file_path = os.path.join(root, filename)
+            test_cases = read_test_cases(test_file_path)
+            for test_case in test_cases:
+                if test_case.fork_name != fork_name:
+                    continue
+
+                test_case_dict = {
+                    "test_file": test_case.path,
+                    "test_key": test_case.key,
+                    "index": test_case.index,
+                }
+
+                if test_case.key in slow_tests:
+                    yield pytest.param(test_case_dict, marks=pytest.mark.slow)
+                else:
+                    yield test_case_dict
 
 
 def idfn(test_case: Dict) -> str:
@@ -102,7 +100,7 @@ def load_evm_tools_test(test_case: Dict[str, str], fork_name: str) -> None:
 
     txs = [tx]
 
-    sys.stdin = StringIO(
+    in_stream = StringIO(
         json.dumps(
             {
                 "env": env,
@@ -126,7 +124,7 @@ def load_evm_tools_test(test_case: Dict[str, str], fork_name: str) -> None:
     ]
     t8n_options = parser.parse_args(t8n_args)
 
-    t8n = T8N(t8n_options, sys.stdout, sys.stdin)
+    t8n = T8N(t8n_options, sys.stdout, in_stream)
     t8n.apply_body()
 
     assert hex_to_bytes(post_hash) == t8n.result.state_root

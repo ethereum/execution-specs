@@ -3,6 +3,7 @@ The module implements the raw EVM tracer for t8n.
 """
 import json
 import os
+from contextlib import ExitStack
 from dataclasses import dataclass, fields
 from typing import List, Optional, Protocol, TextIO, Union, runtime_checkable
 
@@ -292,16 +293,24 @@ def output_traces(
     traces: List[Union[Trace, FinalTrace]],
     tx_index: int,
     tx_hash: bytes,
-    output_basedir: str = ".",
+    output_basedir: str | TextIO = ".",
 ) -> None:
     """
     Output the traces to a json file.
     """
-    tx_hash_str = "0x" + tx_hash.hex()
-    output_path = os.path.join(
-        output_basedir, f"trace-{tx_index}-{tx_hash_str}.jsonl"
-    )
-    with open(output_path, "w") as json_file:
+    with ExitStack() as stack:
+        json_file: TextIO
+
+        if isinstance(output_basedir, str):
+            tx_hash_str = "0x" + tx_hash.hex()
+            output_path = os.path.join(
+                output_basedir, f"trace-{tx_index}-{tx_hash_str}.jsonl"
+            )
+            json_file = open(output_path, "w")
+            stack.push(json_file)
+        else:
+            json_file = output_basedir
+
         for trace in traces:
             if getattr(trace, "precompile", False):
                 # Traces related to pre-compile are not output.

@@ -11,11 +11,11 @@ from ethereum import __version__
 
 from .b11r import B11R, b11r_arguments
 from .daemon import Daemon, daemon_arguments
+from .statetest import StateTest, state_test_arguments
 from .t8n import T8N, t8n_arguments
 from .utils import get_supported_forks
 
-DESCRIPTION = (
-    """
+DESCRIPTION = """
 This is the EVM tool for execution specs. The EVM tool
 provides a few useful subcommands to facilitate testing
 at the EVM layer.
@@ -29,8 +29,8 @@ You can use this to run the following tools:
 
 
 The following forks are supported:
-"""
-    + get_supported_forks()
+""" + "\n".join(
+    get_supported_forks()
 )
 
 
@@ -60,6 +60,7 @@ def create_parser() -> argparse.ArgumentParser:
     daemon_arguments(subparsers)
     t8n_arguments(subparsers)
     b11r_arguments(subparsers)
+    state_test_arguments(subparsers)
 
     return new_parser
 
@@ -112,6 +113,9 @@ def main(
     elif options.evm_tool == "daemon":
         daemon = Daemon(options)
         return daemon.run()
+    elif options.evm_tool == "statetest":
+        state_test = StateTest(options, out_file, in_file)
+        return state_test.run()
     else:
         parser.print_help(file=out_file)
         return 0
