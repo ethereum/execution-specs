@@ -61,6 +61,7 @@ U32
 U8
 secp256k1
 secp256k1n
+statetest
 subclasses
 iadd
 ispkg
