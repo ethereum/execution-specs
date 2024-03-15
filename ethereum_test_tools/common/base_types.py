@@ -2,7 +2,6 @@
 Basic type primitives used to define other types.
 """
 
-
 from typing import ClassVar, SupportsBytes, Type, TypeVar
 
 from .conversions import (
@@ -174,7 +173,7 @@ class FixedSizeBytes(Bytes):
 
     def __eq__(self, other: object) -> bool:
         """
-        Compares two FixedSizeBytes objects.
+        Compares two FixedSizeBytes objects to be equal.
         """
         if not isinstance(other, FixedSizeBytes):
             assert (
@@ -185,6 +184,12 @@ class FixedSizeBytes(Bytes):
             )
             other = self.__class__(other)
         return super().__eq__(other)
+
+    def __ne__(self, other: object) -> bool:
+        """
+        Compares two FixedSizeBytes objects to be not equal.
+        """
+        return not self.__eq__(other)
 
 
 class Address(FixedSizeBytes[20]):  # type: ignore
