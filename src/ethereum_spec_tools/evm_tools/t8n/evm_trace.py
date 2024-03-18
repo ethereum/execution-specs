@@ -31,7 +31,7 @@ class Trace:
     """
 
     pc: int
-    op: str
+    op: Optional[Union[str, int]]
     gas: str
     gasCost: str
     memory: Optional[str]
@@ -226,9 +226,12 @@ def evm_trace(
             # two conditions do not cover it.
             or last_trace.depth == evm.message.depth
         ):
+            op = None
+            if hasattr(event.error, "code"):
+                op = event.error.code
             new_trace = Trace(
                 pc=evm.pc,
-                op="InvalidOpcode",
+                op=op,
                 gas=hex(evm.gas_left),
                 gasCost="0x0",
                 memory=memory,
