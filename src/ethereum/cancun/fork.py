@@ -668,9 +668,9 @@ def process_transaction(
     sender_account = get_account(env.state, sender)
 
     if isinstance(tx, (FeeMarketTransaction, BlobTransaction)):
-        max_gas_fee = tx.gas * tx.max_fee_per_gas
+        max_gas_fee = Uint(tx.gas) * Uint(tx.max_fee_per_gas)
     else:
-        max_gas_fee = tx.gas * tx.gas_price
+        max_gas_fee = Uint(tx.gas) * Uint(tx.gas_price)
 
     if isinstance(tx, BlobTransaction):
         ensure(len(tx.blob_versioned_hashes) > 0, InvalidBlock)

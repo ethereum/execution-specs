@@ -574,9 +574,9 @@ def process_transaction(
     sender_account = get_account(env.state, sender)
 
     if isinstance(tx, FeeMarketTransaction):
-        gas_fee = tx.gas * tx.max_fee_per_gas
+        gas_fee = Uint(tx.gas) * Uint(tx.max_fee_per_gas)
     else:
-        gas_fee = tx.gas * tx.gas_price
+        gas_fee = Uint(tx.gas) * Uint(tx.gas_price)
 
     ensure(sender_account.nonce == tx.nonce, InvalidBlock)
     ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
