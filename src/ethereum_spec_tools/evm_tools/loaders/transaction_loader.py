@@ -59,7 +59,10 @@ class TransactionLoad:
 
     def json_to_value(self) -> U256:
         """Get the value of the transaction."""
-        return hex_to_u256(self.raw.get("value"))
+        value = self.raw.get("value")
+        if value == "0x":
+            return U256(0)
+        return hex_to_u256(value)
 
     def json_to_data(self) -> Bytes:
         """Get the data of the transaction."""

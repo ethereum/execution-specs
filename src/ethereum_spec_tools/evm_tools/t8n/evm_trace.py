@@ -4,7 +4,7 @@ The module implements the raw EVM tracer for t8n.
 import json
 import os
 from contextlib import ExitStack
-from dataclasses import dataclass, fields
+from dataclasses import asdict, dataclass, is_dataclass
 from typing import List, Optional, Protocol, TextIO, Union, runtime_checkable
 
 from ethereum.base_types import U256, Bytes, Uint
@@ -187,9 +187,12 @@ def evm_trace(
         last_trace.gasCostTraced = True
         last_trace.errorTraced = True
     elif isinstance(event, OpStart):
+        op = event.op.value
+        if op == "InvalidOpcode":
+            op = "Invalid"
         new_trace = Trace(
             pc=evm.pc,
-            op=event.op.value,
+            op=op,
             gas=hex(evm.gas_left),
             gasCost="0x0",
             memory=memory,
@@ -272,20 +275,41 @@ def evm_trace(
             last_trace.gasCostTraced = True
 
 
+class _TraceJsonEncoder(json.JSONEncoder):
+    @staticmethod
+    def retain(k: str, v: Optional[object]) -> bool:
+        if v is None:
+            return False
+
+        if k in EXCLUDE_FROM_OUTPUT:
+            return False
+
+        if k in ("pc", "gas", "gasCost", "refund"):
+            if isinstance(v, str) and int(v, 0).bit_length() > 64:
+                return False
+
+        return True
+
+    def default(self, obj: object) -> object:
+        if not is_dataclass(obj) or isinstance(obj, type):
+            return super().default(obj)
+
+        trace = {
+            k: v
+            for k, v in asdict(obj).items()
+            if _TraceJsonEncoder.retain(k, v)
+        }
+
+        return trace
+
+
 def output_op_trace(
     trace: Union[Trace, FinalTrace], json_file: TextIO
 ) -> None:
     """
     Output a single trace to a json file.
     """
-    dict_trace = {
-        field.name: getattr(trace, field.name)
-        for field in fields(trace)
-        if field.name not in EXCLUDE_FROM_OUTPUT
-        and getattr(trace, field.name) is not None
-    }
-
-    json.dump(dict_trace, json_file, separators=(",", ":"))
+    json.dump(trace, json_file, separators=(",", ":"), cls=_TraceJsonEncoder)
     json_file.write("\n")
 
 
