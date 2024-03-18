@@ -83,13 +83,13 @@ class TransactionLoad:
             )
         return access_list
 
-    def json_to_max_priority_fee_per_gas(self) -> U256:
+    def json_to_max_priority_fee_per_gas(self) -> Uint:
         """Get the max priority fee per gas of the transaction."""
-        return hex_to_u256(self.raw.get("maxPriorityFeePerGas"))
+        return hex_to_uint(self.raw.get("maxPriorityFeePerGas"))
 
-    def json_to_max_fee_per_gas(self) -> U256:
+    def json_to_max_fee_per_gas(self) -> Uint:
         """Get the max fee per gas of the transaction."""
-        return hex_to_u256(self.raw.get("maxFeePerGas"))
+        return hex_to_uint(self.raw.get("maxFeePerGas"))
 
     def json_to_max_fee_per_blob_gas(self) -> U256:
         """
