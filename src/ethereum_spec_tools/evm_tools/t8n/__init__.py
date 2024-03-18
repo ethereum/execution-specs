@@ -11,7 +11,7 @@ from typing import Any, TextIO
 from ethereum import rlp, trace
 from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import keccak256
-from ethereum.exceptions import InvalidBlock
+from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum.utils.ensure import ensure
 from ethereum_spec_tools.forks import Hardfork
 
@@ -387,7 +387,7 @@ class T8N(Load):
                         blob_gas_used <= self.fork.MAX_BLOB_GAS_PER_BLOCK,
                         InvalidBlock,
                     )
-            except InvalidBlock as e:
+            except EthereumException as e:
                 # The tf tools expects some non-blank error message
                 # even in case e is blank.
                 self.txs.rejected_txs[tx_idx] = f"Failed transaction: {str(e)}"
