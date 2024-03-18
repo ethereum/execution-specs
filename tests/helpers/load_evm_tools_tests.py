@@ -9,7 +9,7 @@ import pytest
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools import create_parser
 from ethereum_spec_tools.evm_tools.statetest import read_test_cases
-from ethereum_spec_tools.evm_tools.t8n import T8N, t8n_arguments
+from ethereum_spec_tools.evm_tools.t8n import T8N
 
 parser = create_parser()
 
