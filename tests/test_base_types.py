@@ -11,7 +11,7 @@ def test_uint_new() -> None:
 
 
 def test_uint_new_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         Uint(-5)
 
 
@@ -27,7 +27,7 @@ def test_uint_radd() -> None:
 
 
 def test_uint_radd_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (-4) + Uint(5)
 
 
@@ -44,7 +44,7 @@ def test_uint_add() -> None:
 
 
 def test_uint_add_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         Uint(5) + (-4)
 
 
@@ -63,7 +63,7 @@ def test_uint_iadd() -> None:
 
 def test_uint_iadd_negative() -> None:
     value = Uint(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value += -4
 
 
@@ -81,12 +81,12 @@ def test_uint_rsub() -> None:
 
 
 def test_uint_rsub_too_big() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         6 - Uint(7)
 
 
 def test_uint_rsub_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (-4) - Uint(5)
 
 
@@ -103,12 +103,12 @@ def test_uint_sub() -> None:
 
 
 def test_uint_sub_too_big() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         Uint(5) - 6
 
 
 def test_uint_sub_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         Uint(5) - (-4)
 
 
@@ -127,13 +127,13 @@ def test_uint_isub() -> None:
 
 def test_uint_isub_too_big() -> None:
     value = Uint(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value -= 6
 
 
 def test_uint_isub_negative() -> None:
     value = Uint(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value -= -4
 
 
@@ -151,7 +151,7 @@ def test_uint_rmul() -> None:
 
 
 def test_uint_rmul_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (-4) * Uint(5)
 
 
@@ -168,7 +168,7 @@ def test_uint_mul() -> None:
 
 
 def test_uint_mul_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         Uint(5) * (-4)
 
 
@@ -187,7 +187,7 @@ def test_uint_imul() -> None:
 
 def test_uint_imul_negative() -> None:
     value = Uint(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value *= -4
 
 
@@ -205,7 +205,7 @@ def test_uint_floordiv() -> None:
 
 
 def test_uint_floordiv_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         Uint(5) // -2
 
 
@@ -222,7 +222,7 @@ def test_uint_rfloordiv() -> None:
 
 
 def test_uint_rfloordiv_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (-2) // Uint(5)
 
 
@@ -241,7 +241,7 @@ def test_uint_ifloordiv() -> None:
 
 def test_uint_ifloordiv_negative() -> None:
     value = Uint(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value //= -2
 
 
@@ -252,7 +252,7 @@ def test_uint_rmod() -> None:
 
 
 def test_uint_rmod_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (-4) % Uint(5)
 
 
@@ -269,7 +269,7 @@ def test_uint_mod() -> None:
 
 
 def test_uint_mod_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         Uint(5) % (-4)
 
 
@@ -288,7 +288,7 @@ def test_uint_imod() -> None:
 
 def test_uint_imod_negative() -> None:
     value = Uint(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value %= -4
 
 
@@ -308,7 +308,7 @@ def test_uint_divmod() -> None:
 
 
 def test_uint_divmod_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         divmod(Uint(5), -2)
 
 
@@ -329,7 +329,7 @@ def test_uint_rdivmod() -> None:
 
 
 def test_uint_rdivmod_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         divmod(-5, Uint(2))
 
 
@@ -348,7 +348,7 @@ def test_uint_pow() -> None:
 
 
 def test_uint_pow_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         Uint(3) ** -2
 
 
@@ -359,7 +359,7 @@ def test_uint_pow_modulo() -> None:
 
 
 def test_uint_pow_modulo_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         pow(Uint(4), 2, -3)
 
 
@@ -370,7 +370,7 @@ def test_uint_rpow() -> None:
 
 
 def test_uint_rpow_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (-3) ** Uint(2)
 
 
@@ -381,7 +381,7 @@ def test_uint_rpow_modulo() -> None:
 
 
 def test_uint_rpow_modulo_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         Uint.__rpow__(Uint(2), 4, -3)
 
 
@@ -394,7 +394,7 @@ def test_uint_ipow() -> None:
 
 def test_uint_ipow_negative() -> None:
     value = Uint(3)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value **= -2
 
 
@@ -405,7 +405,7 @@ def test_uint_ipow_modulo() -> None:
 
 
 def test_uint_ipow_modulo_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         Uint(4).__ipow__(2, -3)
 
 
@@ -497,7 +497,7 @@ def test_u256_new() -> None:
 
 
 def test_u256_new_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(-5)
 
 
@@ -513,7 +513,7 @@ def test_u256_new_max_value() -> None:
 
 
 def test_u256_new_too_large() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(2**256)
 
 
@@ -524,12 +524,12 @@ def test_u256_radd() -> None:
 
 
 def test_u256_radd_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (2**256 - 1) + U256(5)
 
 
 def test_u256_radd_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (-4) + U256(5)
 
 
@@ -546,12 +546,12 @@ def test_u256_add() -> None:
 
 
 def test_u256_add_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(5) + (2**256 - 1)
 
 
 def test_u256_add_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(5) + (-4)
 
 
@@ -574,7 +574,7 @@ def test_u256_wrapping_add_overflow() -> None:
 
 
 def test_u256_wrapping_add_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(5).wrapping_add(-4)
 
 
@@ -587,7 +587,7 @@ def test_u256_iadd() -> None:
 
 def test_u256_iadd_negative() -> None:
     value = U256(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value += -4
 
 
@@ -600,7 +600,7 @@ def test_u256_iadd_float() -> None:
 
 def test_u256_iadd_overflow() -> None:
     value = U256(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value += 2**256 - 1
 
 
@@ -611,12 +611,12 @@ def test_u256_rsub() -> None:
 
 
 def test_u256_rsub_underflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (0) - U256(1)
 
 
 def test_u256_rsub_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (-4) - U256(5)
 
 
@@ -633,12 +633,12 @@ def test_u256_sub() -> None:
 
 
 def test_u256_sub_underflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(5) - 6
 
 
 def test_u256_sub_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(5) - (-4)
 
 
@@ -661,7 +661,7 @@ def test_u256_wrapping_sub_underflow() -> None:
 
 
 def test_u256_wrapping_sub_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(5).wrapping_sub(-4)
 
 
@@ -674,7 +674,7 @@ def test_u256_isub() -> None:
 
 def test_u256_isub_negative() -> None:
     value = U256(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value -= -4
 
 
@@ -687,7 +687,7 @@ def test_u256_isub_float() -> None:
 
 def test_u256_isub_underflow() -> None:
     value = U256(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value -= 6
 
 
@@ -698,12 +698,12 @@ def test_u256_rmul() -> None:
 
 
 def test_u256_rmul_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (2**256 - 1) * U256(5)
 
 
 def test_u256_rmul_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (-4) * U256(5)
 
 
@@ -720,12 +720,12 @@ def test_u256_mul() -> None:
 
 
 def test_u256_mul_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256.MAX_VALUE * 4
 
 
 def test_u256_mul_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(5) * (-4)
 
 
@@ -751,7 +751,7 @@ def test_u256_wrapping_mul_overflow() -> None:
 
 
 def test_u256_wrapping_mul_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(5).wrapping_mul(-4)
 
 
@@ -764,13 +764,13 @@ def test_u256_imul() -> None:
 
 def test_u256_imul_negative() -> None:
     value = U256(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value *= -4
 
 
 def test_u256_imul_arg_overflow() -> None:
     value = U256(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value *= 2**256
 
 
@@ -783,7 +783,7 @@ def test_u256_imul_float() -> None:
 
 def test_u256_imul_overflow() -> None:
     value = U256(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value *= 2**256 - 1
 
 
@@ -794,12 +794,12 @@ def test_u256_floordiv() -> None:
 
 
 def test_u256_floordiv_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(5) // (2**256)
 
 
 def test_u256_floordiv_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(5) // -2
 
 
@@ -816,12 +816,12 @@ def test_u256_rfloordiv() -> None:
 
 
 def test_u256_rfloordiv_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (2**256) // U256(2)
 
 
 def test_u256_rfloordiv_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (-2) // U256(5)
 
 
@@ -840,13 +840,13 @@ def test_u256_ifloordiv() -> None:
 
 def test_u256_ifloordiv_negative() -> None:
     value = U256(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value //= -2
 
 
 def test_u256_ifloordiv_overflow() -> None:
     value = U256(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value //= 2**256
 
 
@@ -869,12 +869,12 @@ def test_u256_mod() -> None:
 
 
 def test_u256_mod_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(5) % (2**256)
 
 
 def test_u256_mod_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(5) % (-4)
 
 
@@ -893,13 +893,13 @@ def test_u256_imod() -> None:
 
 def test_u256_imod_overflow() -> None:
     value = U256(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value %= 2**256
 
 
 def test_u256_imod_negative() -> None:
     value = U256(5)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value %= -4
 
 
@@ -919,12 +919,12 @@ def test_u256_divmod() -> None:
 
 
 def test_u256_divmod_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         divmod(U256(5), 2**256)
 
 
 def test_u256_divmod_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         divmod(U256(5), -2)
 
 
@@ -945,12 +945,12 @@ def test_u256_rdivmod() -> None:
 
 
 def test_u256_rdivmod_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         divmod(2**256, U256(2))
 
 
 def test_u256_rdivmod_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         divmod(-5, U256(2))
 
 
@@ -969,12 +969,12 @@ def test_u256_pow() -> None:
 
 
 def test_u256_pow_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(340282366920938463463374607431768211456) ** 3
 
 
 def test_u256_pow_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(3) ** -2
 
 
@@ -985,12 +985,12 @@ def test_u256_pow_modulo() -> None:
 
 
 def test_u256_pow_modulo_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         pow(U256(4), 2, 2**257)
 
 
 def test_u256_pow_modulo_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         pow(U256(4), 2, -3)
 
 
@@ -1001,12 +1001,12 @@ def test_u256_rpow() -> None:
 
 
 def test_u256_rpow_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (2**256) ** U256(2)
 
 
 def test_u256_rpow_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         (-3) ** U256(2)
 
 
@@ -1017,12 +1017,12 @@ def test_u256_rpow_modulo() -> None:
 
 
 def test_u256_rpow_modulo_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256.__rpow__(U256(2), 4, 2**256 + 1)
 
 
 def test_u256_rpow_modulo_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256.__rpow__(U256(2), 4, -3)
 
 
@@ -1035,13 +1035,13 @@ def test_u256_ipow() -> None:
 
 def test_u256_ipow_overflow() -> None:
     value = U256(340282366920938463463374607431768211456)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value **= 3
 
 
 def test_u256_ipow_negative() -> None:
     value = U256(3)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         value **= -2
 
 
@@ -1052,12 +1052,12 @@ def test_u256_ipow_modulo() -> None:
 
 
 def test_u256_ipow_modulo_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(4).__ipow__(2, -3)
 
 
 def test_u256_ipow_modulo_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(4).__ipow__(2, 2**256 + 1)
 
 
@@ -1074,7 +1074,7 @@ def test_u256_wrapping_pow_overflow() -> None:
 
 
 def test_u256_wrapping_pow_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(3).wrapping_pow(-2)
 
 
@@ -1085,12 +1085,12 @@ def test_u256_wrapping_pow_modulo() -> None:
 
 
 def test_u256_wrapping_pow_modulo_overflow() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(4).wrapping_pow(2, 2**256 + 1)
 
 
 def test_u256_wrapping_pow_modulo_negative() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(4).wrapping_pow(2, -3)
 
 
@@ -1186,11 +1186,11 @@ def test_u256_bitwise_and_successful() -> None:
 
 
 def test_u256_bitwise_and_fails() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(0) & (2**256)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(2**256 - 1) & (2**256)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(2**256 - 1) & -10
 
 
@@ -1203,11 +1203,11 @@ def test_u256_bitwise_or_successful() -> None:
 
 
 def test_u256_bitwise_or_failed() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(0) | (2**256)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(2**256 - 1) | (2**256)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(2**256 - 1) | -10
 
 
@@ -1220,11 +1220,11 @@ def test_u256_bitwise_xor_successful() -> None:
 
 
 def test_u256_bitwise_xor_failed() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(0) | (2**256)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(2**256 - 1) ^ (2**256)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(2**256 - 1) ^ -10
 
 
@@ -1239,11 +1239,11 @@ def test_u256_bitwise_rxor_successful() -> None:
 
 
 def test_u256_bitwise_rxor_failed() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(0).__rxor__(2**256)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(2**256 - 1).__rxor__(2**256)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(2**256 - 1).__rxor__(-10)
 
 
@@ -1258,11 +1258,11 @@ def test_u256_bitwise_ixor_successful() -> None:
 
 
 def test_u256_bitwise_ixor_failed() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(0).__ixor__(2**256)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(2**256 - 1).__ixor__(2**256)
-    with pytest.raises(ValueError):
+    with pytest.raises(OverflowError):
         U256(2**256 - 1).__ixor__(-10)
 
 
