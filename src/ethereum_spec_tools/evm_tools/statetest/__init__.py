@@ -4,6 +4,8 @@ Execute state tests.
 
 import argparse
 import json
+import logging
+import sys
 from copy import deepcopy
 from dataclasses import dataclass
 from io import StringIO
@@ -158,6 +160,25 @@ def state_test_arguments(subparsers: argparse._SubParsersAction) -> None:
     )
 
     statetest_parser.add_argument("file", nargs="?", default=None)
+    statetest_parser.add_argument("--json", action="store_true", default=False)
+    statetest_parser.add_argument(
+        "--noreturndata",
+        dest="return_data",
+        action="store_false",
+        default=True,
+    )
+    statetest_parser.add_argument(
+        "--nostack", dest="stack", action="store_false", default=True
+    )
+    statetest_parser.add_argument(
+        "--nomemory", dest="memory", action="store_false", default=True
+    )
+
+
+class _PrefixFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        output = super().format(record)
+        return "\n".join("# " + x for x in output.splitlines())
 
 
 class StateTest:
@@ -174,11 +195,22 @@ class StateTest:
         self.supported_forks = tuple(
             x.casefold() for x in get_supported_forks()
         )
+        self.trace: bool = options.json
+        self.memory: bool = options.memory
+        self.stack: bool = options.stack
+        self.return_data: bool = options.return_data
 
     def run(self) -> int:
         """
         Execute the tests.
         """
+        logger = logging.getLogger("T8N")
+        logger.setLevel(level=logging.INFO)
+        stream_handler = logging.StreamHandler()
+        formatter = _PrefixFormatter("%(levelname)s:%(name)s:%(message)s")
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
+
         if self.file is None:
             return self.run_many()
         else:
@@ -193,13 +225,35 @@ class StateTest:
             if test_case.fork_name.casefold() not in self.supported_forks:
                 continue
 
+            t8n_extra: List[str] = []
+
+            if self.trace:
+                t8n_extra.append("--trace")
+
+            if self.memory:
+                t8n_extra.append("--trace.memory")
+            else:
+                t8n_extra.append("--trace.nomemory")
+
+            if not self.stack:
+                t8n_extra.append("--trace.nostack")
+
+            if self.return_data:
+                t8n_extra.append("--trace.returndata")
+            else:
+                t8n_extra.append("--trace.noreturndata")
+
             result = run_test_case(
                 test_case,
-                t8n_extra=[
-                    "--trace",
-                ],
-                output_basedir=self.out_file,
+                t8n_extra=t8n_extra,
+                output_basedir=sys.stderr,
             )
+            if self.trace:
+                json.dump(
+                    {"stateRoot": "0x" + result.state_root.hex()},
+                    sys.stderr,
+                )
+                sys.stderr.write("\n")
 
             passed = hex_to_bytes(test_case.post["hash"]) == result.state_root
             result_dict = {
