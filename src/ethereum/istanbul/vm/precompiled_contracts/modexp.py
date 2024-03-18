@@ -33,7 +33,6 @@ def modexp(evm: Evm) -> None:
     modulus_length = U256.from_be_bytes(buffer_read(data, U256(64), U256(32)))
 
     exp_start = U256(96) + base_length
-    modulus_start = exp_start + exp_length
 
     exp_head = U256.from_be_bytes(
         buffer_read(data, exp_start, min(U256(32), exp_length))
@@ -61,6 +60,8 @@ def modexp(evm: Evm) -> None:
 
     base = Uint.from_be_bytes(buffer_read(data, U256(96), base_length))
     exp = Uint.from_be_bytes(buffer_read(data, exp_start, exp_length))
+
+    modulus_start = exp_start + exp_length
     modulus = Uint.from_be_bytes(
         buffer_read(data, modulus_start, modulus_length)
     )
