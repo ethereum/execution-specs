@@ -9,6 +9,7 @@ import importlib
 import importlib.abc
 import importlib.util
 import pkgutil
+import warnings
 from enum import Enum, auto
 from pathlib import PurePath
 from pkgutil import ModuleInfo
@@ -85,18 +86,20 @@ class Hardfork:
         forks: List[H] = []
 
         for pkg in modules:
-            if isinstance(pkg.module_finder, importlib.abc.MetaPathFinder):
-                found = pkg.module_finder.find_module(pkg.name, None)
-            else:
-                found = pkg.module_finder.find_module(pkg.name)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                if isinstance(pkg.module_finder, importlib.abc.MetaPathFinder):
+                    found = pkg.module_finder.find_module(pkg.name, None)
+                else:
+                    found = pkg.module_finder.find_module(pkg.name)
 
-            if not found:
-                raise Exception(f"unable to load module {pkg.name}")
+                if not found:
+                    raise Exception(f"unable to load module {pkg.name}")
 
-            mod = found.load_module(pkg.name)
+                mod = found.load_module(pkg.name)
 
-            if hasattr(mod, "FORK_CRITERIA"):
-                forks.append(cls(mod))
+                if hasattr(mod, "FORK_CRITERIA"):
+                    forks.append(cls(mod))
 
         # Timestamps are bigger than block numbers, so this always works.
         forks.sort(key=lambda fork: fork.criteria)
