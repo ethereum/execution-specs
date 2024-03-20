@@ -38,7 +38,7 @@ class Alloc:
         # strings, so we convert them here.
         for address, account in data.items():
             for key, value in account.items():
-                if key == "storage":
+                if key == "storage" or not value:
                     continue
                 elif not value.startswith("0x"):
                     data[address][key] = "0x" + hex(int(value))
