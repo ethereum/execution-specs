@@ -2,7 +2,6 @@
 Define t8n Env class
 """
 import json
-import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 

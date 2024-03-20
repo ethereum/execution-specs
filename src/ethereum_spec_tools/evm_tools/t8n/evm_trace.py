@@ -226,12 +226,15 @@ def evm_trace(
             # two conditions do not cover it.
             or last_trace.depth == evm.message.depth
         ):
-            op = None
-            if hasattr(event.error, "code"):
-                op = event.error.code
+            if not hasattr(event.error, "code"):
+                name = event.error.__class__.__name__
+                raise TypeError(
+                    f"OpException event error type `{name}` does not have code"
+                ) from event.error
+
             new_trace = Trace(
                 pc=evm.pc,
-                op=op,
+                op=event.error.code,
                 gas=hex(evm.gas_left),
                 gasCost="0x0",
                 memory=memory,
