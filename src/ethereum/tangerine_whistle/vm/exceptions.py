@@ -52,7 +52,11 @@ class InvalidOpcode(ExceptionalHalt):
     Raised when an invalid opcode is encountered.
     """
 
-    pass
+    code: int
+
+    def __init__(self, code: int) -> None:
+        super().__init__(code)
+        self.code = code
 
 
 class InvalidJumpDestError(ExceptionalHalt):
