@@ -2,6 +2,7 @@
 Define t8n Env class
 """
 import json
+import sys
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -85,8 +86,8 @@ class Env:
         Read the excess_blob_gas from the data. If the excess blob gas is
         not present, it is calculated from the parent block parameters.
         """
-        self.parent_blob_gas_used = None
-        self.parent_excess_blob_gas = None
+        self.parent_blob_gas_used = U64(0)
+        self.parent_excess_blob_gas = U64(0)
         self.excess_blob_gas = None
 
         if not t8n.fork.is_after_fork("ethereum.cancun"):
@@ -98,12 +99,15 @@ class Env:
             )
             return
 
-        self.parent_excess_blob_gas = parse_hex_or_int(
-            data["parentExcessBlobGas"], U64
-        )
-        self.parent_blob_gas_used = parse_hex_or_int(
-            data["parentBlobGasUsed"], U64
-        )
+        if "parentExcessBlobGas" in data:
+            self.parent_excess_blob_gas = parse_hex_or_int(
+                data["parentExcessBlobGas"], U64
+            )
+
+        if "parentBlobGasUsed" in data:
+            self.parent_blob_gas_used = parse_hex_or_int(
+                data["parentBlobGasUsed"], U64
+            )
 
         excess_blob_gas = (
             self.parent_excess_blob_gas + self.parent_blob_gas_used
