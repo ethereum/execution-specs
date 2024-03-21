@@ -4,6 +4,7 @@ ClassDef
 ImportFrom
 radd
 Hash64
+holiman
 Bytes20
 Bytes4
 Bytes32
@@ -27,6 +28,7 @@ exc
 fmt
 formatter
 getsource
+goevmlab
 Hash32
 hasher
 hashimoto
