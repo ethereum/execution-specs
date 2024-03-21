@@ -248,12 +248,14 @@ class StateTest:
                 t8n_extra=t8n_extra,
                 output_basedir=sys.stderr,
             )
-            if self.trace:
-                json.dump(
-                    {"stateRoot": "0x" + result.state_root.hex()},
-                    sys.stderr,
-                )
-                sys.stderr.write("\n")
+
+            # Always output the state root on stderr (even with tracing
+            # disabled) for the holiman/goevmlab integration.
+            json.dump(
+                {"stateRoot": "0x" + result.state_root.hex()},
+                sys.stderr,
+            )
+            sys.stderr.write("\n")
 
             passed = hex_to_bytes(test_case.post["hash"]) == result.state_root
             result_dict = {
