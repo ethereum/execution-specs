@@ -98,7 +98,9 @@ def begin_transaction(
         )
 
 
-def commit_transaction(state: State) -> None:
+def commit_transaction(
+    state: State, transient_storage: Optional[TransientStorage] = None
+) -> None:
     """
     Commit a state transaction.
 
@@ -106,10 +108,15 @@ def commit_transaction(state: State) -> None:
     ----------
     state : State
         The state.
+    transient_storage : TransientStorage
+        The transient storage of the transaction.
     """
     state._snapshots.pop()
     if not state._snapshots:
         state.created_accounts.clear()
+
+    if transient_storage and transient_storage._snapshots:
+        transient_storage._snapshots.pop()
 
 
 def rollback_transaction(
