@@ -238,7 +238,7 @@ def process_message(message: Message, env: Environment) -> Evm:
         # since the message call resulted in an error
         rollback_transaction(env.state, evm.transient_storage)
     else:
-        commit_transaction(env.state)
+        commit_transaction(env.state, evm.transient_storage)
     return evm
 
 
