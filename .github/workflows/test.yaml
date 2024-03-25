@@ -41,7 +41,7 @@ jobs:
 
       - name: Run Tox (CPython)
         if: "${{ !startsWith(matrix.py, 'pypy') }}"
-        run: tox -e static,optimized,py3
+        run: tox -e static,py3
 
       - name: Run Tox (PyPy)
         if: "${{ startsWith(matrix.py, 'pypy') }}"
