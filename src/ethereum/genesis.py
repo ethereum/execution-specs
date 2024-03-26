@@ -183,17 +183,17 @@ def add_genesis_block(
         "nonce": genesis.nonce,
     }
 
-    if hasattr(hardfork.fork_types.Header, "mix_digest"):
+    if hasattr(hardfork.blocks.Header, "mix_digest"):
         fields["mix_digest"] = hardfork.fork_types.Hash32(b"\0" * 32)
     else:
         fields["prev_randao"] = hardfork.fork_types.Hash32(b"\0" * 32)
 
-    if hasattr(hardfork.fork_types.Header, "base_fee_per_gas"):
+    if hasattr(hardfork.blocks.Header, "base_fee_per_gas"):
         fields["base_fee_per_gas"] = Uint(10**9)
 
-    genesis_header = hardfork.fork_types.Header(**fields)
+    genesis_header = hardfork.blocks.Header(**fields)
 
-    genesis_block = hardfork.fork_types.Block(
+    genesis_block = hardfork.blocks.Block(
         header=genesis_header,
         transactions=(),
         ommers=(),

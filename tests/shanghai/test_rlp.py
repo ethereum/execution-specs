@@ -3,13 +3,7 @@ import pytest
 import ethereum.rlp as rlp
 from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes8, Bytes32, Uint
 from ethereum.crypto.hash import keccak256
-from ethereum.shanghai.fork_types import (
-    Block,
-    Header,
-    Log,
-    Receipt,
-    Withdrawal,
-)
+from ethereum.shanghai.blocks import Block, Header, Log, Receipt, Withdrawal
 from ethereum.shanghai.transactions import (
     AccessListTransaction,
     FeeMarketTransaction,

@@ -7,7 +7,7 @@ from ethereum.tangerine_whistle.fork import (
     calculate_intrinsic_cost,
     validate_transaction,
 )
-from ethereum.tangerine_whistle.fork_types import Transaction
+from ethereum.tangerine_whistle.transactions import Transaction
 from ethereum.utils.hexadecimal import hex_to_uint
 from tests.helpers import TEST_FIXTURES
 

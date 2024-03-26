@@ -13,18 +13,12 @@ Types re-used throughout the specification, which are specific to Ethereum.
 """
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Tuple, Union
-
-if TYPE_CHECKING:
-    from .transactions import LegacyTransaction
 
 from .. import rlp
 from ..base_types import (
     U256,
     Bytes,
-    Bytes8,
     Bytes20,
-    Bytes32,
     Bytes256,
     Uint,
     slotted_freezable,
@@ -71,65 +65,3 @@ def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
             keccak256(raw_account_data.code),
         )
     )
-
-
-@slotted_freezable
-@dataclass
-class Header:
-    """
-    Header portion of a block on the chain.
-    """
-
-    parent_hash: Hash32
-    ommers_hash: Hash32
-    coinbase: Address
-    state_root: Root
-    transactions_root: Root
-    receipt_root: Root
-    bloom: Bloom
-    difficulty: Uint
-    number: Uint
-    gas_limit: Uint
-    gas_used: Uint
-    timestamp: U256
-    extra_data: Bytes
-    mix_digest: Bytes32
-    nonce: Bytes8
-    base_fee_per_gas: Uint
-
-
-@slotted_freezable
-@dataclass
-class Block:
-    """
-    A complete block.
-    """
-
-    header: Header
-    transactions: Tuple[Union[Bytes, "LegacyTransaction"], ...]
-    ommers: Tuple[Header, ...]
-
-
-@slotted_freezable
-@dataclass
-class Log:
-    """
-    Data record produced during the execution of a transaction.
-    """
-
-    address: Address
-    topics: Tuple[Hash32, ...]
-    data: bytes
-
-
-@slotted_freezable
-@dataclass
-class Receipt:
-    """
-    Result of a transaction.
-    """
-
-    succeeded: bool
-    cumulative_gas_used: Uint
-    bloom: Bloom
-    logs: Tuple[Log, ...]

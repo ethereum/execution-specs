@@ -24,17 +24,9 @@ from ethereum.utils.ensure import ensure
 from .. import rlp
 from ..base_types import U64, U256, Bytes, Uint
 from . import vm
+from .blocks import Block, Header, Log, Receipt, Withdrawal
 from .bloom import logs_bloom
-from .fork_types import (
-    Address,
-    Block,
-    Bloom,
-    Header,
-    Log,
-    Receipt,
-    Root,
-    Withdrawal,
-)
+from .fork_types import Address, Bloom, Root
 from .state import (
     State,
     account_exists_and_is_empty,
@@ -567,7 +559,7 @@ def process_transaction(
     -------
     gas_left : `ethereum.base_types.U256`
         Remaining gas after execution.
-    logs : `Tuple[ethereum.fork_types.Log, ...]`
+    logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
     ensure(validate_transaction(tx), InvalidBlock)

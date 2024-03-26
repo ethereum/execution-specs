@@ -27,9 +27,10 @@ from ethereum.utils.ensure import ensure
 from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Bytes32, Uint
 from . import FORK_CRITERIA, vm
+from .blocks import Block, Header, Log, Receipt
 from .bloom import logs_bloom
 from .dao import apply_dao
-from .fork_types import Address, Block, Bloom, Header, Log, Receipt, Root
+from .fork_types import Address, Bloom, Root
 from .state import (
     State,
     create_ether,
@@ -640,7 +641,7 @@ def process_transaction(
     -------
     gas_left : `ethereum.base_types.U256`
         Remaining gas after execution.
-    logs : `Tuple[ethereum.fork_types.Log, ...]`
+    logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
     ensure(validate_transaction(tx), InvalidBlock)

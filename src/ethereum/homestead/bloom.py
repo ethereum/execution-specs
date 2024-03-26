@@ -21,7 +21,8 @@ from typing import Tuple
 from ethereum.base_types import Uint
 from ethereum.crypto.hash import keccak256
 
-from .fork_types import Bloom, Log
+from .blocks import Log
+from .fork_types import Bloom
 
 
 def add_to_bloom(bloom: bytearray, bloom_entry: bytes) -> None:

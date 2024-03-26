@@ -3,7 +3,7 @@ import pytest
 import ethereum.rlp as rlp
 from ethereum.base_types import U256, Bytes, Bytes0, Bytes8, Uint
 from ethereum.crypto.hash import keccak256
-from ethereum.frontier.fork_types import Block, Header, Log, Receipt
+from ethereum.frontier.blocks import Block, Header, Log, Receipt
 from ethereum.frontier.transactions import Transaction
 from ethereum.frontier.utils.hexadecimal import hex_to_address
 from ethereum.utils.hexadecimal import hex_to_bytes256
