@@ -7,7 +7,7 @@ from ethereum.istanbul.fork import (
     calculate_intrinsic_cost,
     validate_transaction,
 )
-from ethereum.istanbul.fork_types import Transaction
+from ethereum.istanbul.transactions import Transaction
 from ethereum.utils.hexadecimal import hex_to_uint
 from tests.helpers import TEST_FIXTURES
 
