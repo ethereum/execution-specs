@@ -5,6 +5,7 @@ Define an entry point wrapper for pytest.
 import sys
 from typing import Any, List, Optional
 
+from ethereum_test_tools import Macro
 from ethereum_test_tools import Opcodes as Op
 
 
@@ -21,7 +22,7 @@ def process_evm_bytes(evm_bytes_hex_string: Any) -> str:  # noqa: D103
 
         opcode: Optional[Op] = None
         for op in Op:
-            if op.int() == opcode_byte:
+            if not isinstance(op, Macro) and op.int() == opcode_byte:
                 opcode = op
                 break
 

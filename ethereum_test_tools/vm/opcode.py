@@ -30,7 +30,55 @@ def _get_int_size(n: int) -> int:
 _push_opcodes_byte_list = [bytes([0x5F + x]) for x in range(33)]
 
 
-class Opcode(bytes):
+class OpcodeMacroBase(bytes):
+    """
+    Base class for Macro and Opcode, inherits from bytes.
+
+    This class is designed to represent a base structure for individual evm opcodes
+    and opcode macros.
+    """
+
+    _name_: str
+
+    def __new__(cls, *args):
+        """
+        Since OpcodeMacroBase is never instantiated directly but through
+        subclassing, this method simply forwards the arguments to the
+        bytes constructor.
+        """
+        return super().__new__(cls, *args)
+
+    def __call__(self, *_: Union[int, bytes, str, "Opcode", FixedSizeBytes]) -> bytes:
+        """
+        Make OpcodeMacroBase callable, so that arguments can directly be
+        provided to an Opcode in order to more conveniently generate
+        bytecode (implemented in the subclass).
+        """
+        # ignore opcode arguments
+        return bytes(self)
+
+    def __str__(self) -> str:
+        """
+        Return the name of the opcode, assigned at Enum creation.
+        """
+        return self._name_
+
+    def __eq__(self, other):
+        """
+        Allows comparison between OpcodeMacroBase instances and bytes objects.
+
+        Raises:
+        - NotImplementedError: if the comparison is not between an OpcodeMacroBase
+            or a bytes object.
+        """
+        if isinstance(other, OpcodeMacroBase):
+            return self._name_ == other._name_
+        if isinstance(other, bytes):
+            return bytes(self) == other
+        raise NotImplementedError(f"Unsupported type for comparison f{type(other)}")
+
+
+class Opcode(OpcodeMacroBase):
     """
     Represents a single Opcode instruction in the EVM, with extra metadata useful to parametrize
     tests.
@@ -48,7 +96,6 @@ class Opcode(bytes):
     pushed_stack_items: int
     min_stack_height: int
     data_portion_length: int
-    _name_: str
 
     def __new__(
         cls,
@@ -73,6 +120,7 @@ class Opcode(bytes):
             obj.min_stack_height = min_stack_height
             obj.data_portion_length = data_portion_length
             return obj
+        raise TypeError("Opcode constructor '__new__' didn't return an instance!")
 
     def __call__(self, *args_t: Union[int, bytes, str, "Opcode", FixedSizeBytes]) -> bytes:
         """
@@ -181,11 +229,26 @@ class Opcode(bytes):
         """
         return int.from_bytes(self, byteorder="big")
 
-    def __str__(self) -> str:
+
+class Macro(OpcodeMacroBase):
+    """
+    Represents opcode macro replacement, basically holds bytes
+    """
+
+    def __new__(
+        cls,
+        macro_or_bytes: Union[bytes, "Macro"],
+    ):
         """
-        Return the name of the opcode, assigned at Enum creation.
+        Creates a new opcode macro instance.
         """
-        return self._name_
+        if type(macro_or_bytes) is Macro:
+            # Required because Enum class calls the base class with the instantiated object as
+            # parameter.
+            return macro_or_bytes
+        else:
+            instance = super().__new__(cls, macro_or_bytes)
+            return instance
 
 
 OpcodeCallArg = Union[int, bytes, Opcode]
@@ -4533,8 +4596,8 @@ class Opcodes(Opcode, Enum):
     Inputs
     ----
     - value: value in wei to send to the new account
-    - offset: byte offset in the memory in bytes, the initialisation code for the new account
-    - size: byte size to copy (size of the initialisation code)
+    - offset: byte offset in the memory in bytes, the initialization code for the new account
+    - size: byte size to copy (size of the initialization code)
 
     Outputs
     ----
@@ -4720,8 +4783,8 @@ class Opcodes(Opcode, Enum):
     Inputs
     ----
     - value: value in wei to send to the new account
-    - offset: byte offset in the memory in bytes, the initialisation code of the new account
-    - size: byte size to copy (size of the initialisation code)
+    - offset: byte offset in the memory in bytes, the initialization code of the new account
+    - size: byte size to copy (size of the initialization code)
     - salt: 32-byte value used to create the new account at a deterministic address
 
     Outputs
@@ -4860,4 +4923,40 @@ class Opcodes(Opcode, Enum):
     5000
 
     Source: [evm.codes/#FF](https://www.evm.codes/#FF)
+    """
+
+
+class Macros(Macro, Enum):
+    """
+    Enum containing all macros.
+    """
+
+    OOG = Macro(Opcodes.SHA3(0, 100000000000))
+    """
+    OOG(args)
+    ----
+
+    Halt execution by consuming all available gas.
+
+    Inputs
+    ----
+    - any input arguments are ignored
+
+    Fork
+    ----
+    Frontier
+
+    Gas
+    ----
+    `SHA3(0, 100000000000)` results in 19073514453125027 gas used and an OOG
+    exception.
+
+    Note:
+    If a value > `100000000000` is used as second argument, the resulting geth
+     trace reports gas `30` and an OOG exception.
+    `SHA3(0, SUB(0, 1))` causes a gas > u64 exception and an OOG exception.
+
+    Bytecode
+    ----
+    SHA3(0, 100000000000)
     """
