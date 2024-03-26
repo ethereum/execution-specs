@@ -75,6 +75,12 @@ def generic_create(
         process_create_message,
     )
 
+    call_data = memory_read_bytes(
+        evm.memory, memory_start_position, memory_size
+    )
+
+    ensure(len(call_data) <= 2 * MAX_CODE_SIZE, OutOfGasError)
+
     evm.accessed_addresses.add(contract_address)
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
@@ -99,12 +105,6 @@ def generic_create(
         increment_nonce(evm.env.state, evm.message.current_target)
         push(evm.stack, U256(0))
         return
-
-    call_data = memory_read_bytes(
-        evm.memory, memory_start_position, memory_size
-    )
-
-    ensure(len(call_data) <= 2 * MAX_CODE_SIZE, OutOfGasError)
 
     increment_nonce(evm.env.state, evm.message.current_target)
 
