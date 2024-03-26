@@ -26,7 +26,8 @@ from ethereum.trace import (
     evm_trace,
 )
 
-from ..fork_types import Address, Log
+from ..blocks import Log
+from ..fork_types import Address
 from ..state import (
     account_has_code_or_nonce,
     begin_transaction,

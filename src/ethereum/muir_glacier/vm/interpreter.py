@@ -27,7 +27,8 @@ from ethereum.trace import (
 )
 from ethereum.utils.ensure import ensure
 
-from ..fork_types import Address, Log
+from ..blocks import Log
+from ..fork_types import Address
 from ..state import (
     account_exists_and_is_empty,
     account_has_code_or_nonce,

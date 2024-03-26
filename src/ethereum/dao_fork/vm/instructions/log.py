@@ -15,7 +15,7 @@ from functools import partial
 
 from ethereum.base_types import U256
 
-from ...fork_types import Log
+from ...blocks import Log
 from .. import Evm
 from ..gas import (
     GAS_LOG,

@@ -157,7 +157,7 @@ class Load(BaseLoad):
     @property
     def Block(self) -> Any:
         """Block class of the fork"""
-        return self._module("fork_types").Block
+        return self._module("blocks").Block
 
     @property
     def Bloom(self) -> Any:
@@ -167,7 +167,7 @@ class Load(BaseLoad):
     @property
     def Header(self) -> Any:
         """Header class of the fork"""
-        return self._module("fork_types").Header
+        return self._module("blocks").Header
 
     @property
     def Environment(self) -> Any:
@@ -177,7 +177,7 @@ class Load(BaseLoad):
     @property
     def LegacyTransaction(self) -> Any:
         """Legacy transaction class of the fork"""
-        mod = self._module("fork_types")
+        mod = self._module("transactions")
         try:
             return mod.LegacyTransaction
         except AttributeError:
@@ -301,7 +301,7 @@ class Load(BaseLoad):
             )
             try:
                 return b"\x02" + rlp.encode(
-                    self._module("fork_types").FeeMarketTransaction(
+                    self._module("transactions").FeeMarketTransaction(
                         *parameters
                     )
                 )
@@ -319,7 +319,7 @@ class Load(BaseLoad):
             )
             try:
                 return b"\x01" + rlp.encode(
-                    self._module("fork_types").AccessListTransaction(
+                    self._module("transactions").AccessListTransaction(
                         *parameters
                     )
                 )
@@ -329,10 +329,10 @@ class Load(BaseLoad):
                 ) from e
 
         # Legacy Transaction
-        if hasattr(self._module("fork_types"), "LegacyTransaction"):
-            return self._module("fork_types").LegacyTransaction(*parameters)
+        if hasattr(self._module("transactions"), "LegacyTransaction"):
+            return self._module("transactions").LegacyTransaction(*parameters)
         else:
-            return self._module("fork_types").Transaction(*parameters)
+            return self._module("transactions").Transaction(*parameters)
 
     def json_to_withdrawals(self, raw: Any) -> Any:
         """Converts json withdrawal data to a withdrawal object"""
@@ -343,7 +343,7 @@ class Load(BaseLoad):
             hex_to_u256(raw.get("amount")),
         ]
 
-        return self._module("fork_types").Withdrawal(*parameters)
+        return self._module("blocks").Withdrawal(*parameters)
 
     def json_to_block(
         self,

@@ -3,7 +3,7 @@ Define the types used by the t8n tool.
 """
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
 from ethereum.base_types import U64, Bytes, Uint
@@ -12,6 +12,9 @@ from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..fixture_loader import UnsupportedTx
 from ..utils import FatalException, secp256k1_sign
+
+if TYPE_CHECKING:
+    from . import T8N
 
 
 class Alloc:
@@ -22,7 +25,7 @@ class Alloc:
     state: Any
     state_backup: Any
 
-    def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
+    def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         """Read the alloc file and return the state."""
         if t8n.options.input_alloc == "stdin":
             assert stdin is not None
@@ -84,11 +87,11 @@ class Txs:
     successful_txs: List[Any]
     successful_receipts: List[Any]
     all_txs: List[Any]
-    t8n: Any
+    t8n: "T8N"
     data: Any
     rlp_input: bool
 
-    def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
+    def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         self.t8n = t8n
         self.rejected_txs = {}
         self.successful_txs = []
@@ -149,15 +152,15 @@ class Txs:
         tx_rlp = rlp.encode(raw_tx)
         if t8n.is_after_fork("ethereum.berlin"):
             if isinstance(raw_tx, Bytes):
-                transaction = t8n.fork_types.decode_transaction(raw_tx)
+                transaction = t8n.transactions.decode_transaction(raw_tx)
                 self.all_txs.append(raw_tx)
             else:
                 transaction = rlp.decode_to(
-                    t8n.fork_types.LegacyTransaction, tx_rlp
+                    t8n.transactions.LegacyTransaction, tx_rlp
                 )
                 self.all_txs.append(transaction)
         else:
-            transaction = rlp.decode_to(t8n.fork_types.Transaction, tx_rlp)
+            transaction = rlp.decode_to(t8n.transactions.Transaction, tx_rlp)
             self.all_txs.append(transaction)
 
         return transaction
@@ -193,7 +196,7 @@ class Txs:
         self.all_txs.append(tx)
 
         if t8n.is_after_fork("ethereum.berlin"):
-            transaction = t8n.fork_types.decode_transaction(tx)
+            transaction = t8n.transactions.decode_transaction(tx)
         else:
             transaction = tx
 
@@ -205,7 +208,7 @@ class Txs:
         """
         if self.t8n.is_after_fork("ethereum.berlin"):
             self.successful_txs.append(
-                self.t8n.fork_types.encode_transaction(tx)
+                self.t8n.transactions.encode_transaction(tx)
             )
         else:
             self.successful_txs.append(tx)
@@ -215,9 +218,9 @@ class Txs:
         Get the transaction hash of a transaction.
         """
         if self.t8n.is_after_fork("ethereum.berlin") and not isinstance(
-            tx, self.t8n.fork_types.LegacyTransaction
+            tx, self.t8n.transactions.LegacyTransaction
         ):
-            return keccak256(self.t8n.fork_types.encode_transaction(tx))
+            return keccak256(self.t8n.transactions.encode_transaction(tx))
         else:
             return keccak256(rlp.encode(tx))
 
@@ -246,15 +249,15 @@ class Txs:
         tx = t8n.json_to_tx(json_tx)
 
         if isinstance(tx, bytes):
-            tx_decoded = t8n.fork_types.decode_transaction(tx)
+            tx_decoded = t8n.transactions.decode_transaction(tx)
         else:
             tx_decoded = tx
 
         secret_key = hex_to_uint(json_tx["secretKey"][2:])
         if t8n.is_after_fork("ethereum.berlin"):
-            Transaction = t8n.fork_types.LegacyTransaction
+            Transaction = t8n.transactions.LegacyTransaction
         else:
-            Transaction = t8n.fork_types.Transaction
+            Transaction = t8n.transactions.Transaction
 
         if isinstance(tx_decoded, Transaction):
             if t8n.is_after_fork("ethereum.spurious_dragon"):
@@ -269,10 +272,10 @@ class Txs:
             else:
                 signing_hash = t8n.fork.signing_hash(tx_decoded)
                 v_addend = 27
-        elif isinstance(tx_decoded, t8n.fork_types.AccessListTransaction):
+        elif isinstance(tx_decoded, t8n.transactions.AccessListTransaction):
             signing_hash = t8n.fork.signing_hash_2930(tx_decoded)
             v_addend = 0
-        elif isinstance(tx_decoded, t8n.fork_types.FeeMarketTransaction):
+        elif isinstance(tx_decoded, t8n.transactions.FeeMarketTransaction):
             signing_hash = t8n.fork.signing_hash_1559(tx_decoded)
             v_addend = 0
         else:

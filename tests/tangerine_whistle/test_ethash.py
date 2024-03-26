@@ -14,11 +14,11 @@ from ethereum.ethash import (
     generate_seed,
     hashimoto_light,
 )
+from ethereum.tangerine_whistle.blocks import Header
 from ethereum.tangerine_whistle.fork import (
     generate_header_hash_for_pow,
     validate_proof_of_work,
 )
-from ethereum.tangerine_whistle.fork_types import Header
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,

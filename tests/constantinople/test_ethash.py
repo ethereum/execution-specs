@@ -6,11 +6,11 @@ import pytest
 
 from ethereum import rlp
 from ethereum.base_types import Uint
+from ethereum.constantinople.blocks import Header
 from ethereum.constantinople.fork import (
     generate_header_hash_for_pow,
     validate_proof_of_work,
 )
-from ethereum.constantinople.fork_types import Header
 from ethereum.crypto.hash import keccak256
 from ethereum.ethash import (
     cache_size,

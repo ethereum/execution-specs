@@ -265,9 +265,7 @@ class BlockDownloader(ForkTracking):
                     )
                     self.advance_block(timestamp)
                     blocks.append(
-                        rlp.decode_to(
-                            self.module("fork_types").Block, block_rlp
-                        )
+                        rlp.decode_to(self.module("blocks").Block, block_rlp)
                     )
             return blocks
 
@@ -288,10 +286,10 @@ class BlockDownloader(ForkTracking):
                     ],
                 )
             )
-        if hasattr(self.module("fork_types"), "LegacyTransaction"):
+        if hasattr(self.module("transactions"), "LegacyTransaction"):
             if t["type"] == "0x1":
                 return b"\x01" + rlp.encode(
-                    self.module("fork_types").AccessListTransaction(
+                    self.module("transactions").AccessListTransaction(
                         hex_to_u64(t["chainId"]),
                         hex_to_u256(t["nonce"]),
                         hex_to_u256(t["gasPrice"]),
@@ -311,7 +309,7 @@ class BlockDownloader(ForkTracking):
                 )
             elif t["type"] == "0x2":
                 return b"\x02" + rlp.encode(
-                    self.module("fork_types").FeeMarketTransaction(
+                    self.module("transactions").FeeMarketTransaction(
                         hex_to_u64(t["chainId"]),
                         hex_to_u256(t["nonce"]),
                         hex_to_u256(t["maxPriorityFeePerGas"]),
@@ -331,7 +329,7 @@ class BlockDownloader(ForkTracking):
                     )
                 )
             else:
-                return self.module("fork_types").LegacyTransaction(
+                return self.module("transactions").LegacyTransaction(
                     hex_to_u256(t["nonce"]),
                     hex_to_u256(t["gasPrice"]),
                     hex_to_u256(t["gas"]),
@@ -345,7 +343,7 @@ class BlockDownloader(ForkTracking):
                     hex_to_u256(t["s"]),
                 )
         else:
-            return self.module("fork_types").Transaction(
+            return self.module("transactions").Transaction(
                 hex_to_u256(t["nonce"]),
                 hex_to_u256(t["gasPrice"]),
                 hex_to_u256(t["gas"]),
@@ -526,11 +524,11 @@ class BlockDownloader(ForkTracking):
             hex_to_bytes32(json["mixHash"]),
             hex_to_bytes8(json["nonce"]),
         ]
-        if hasattr(self.module("fork_types").Header, "base_fee_per_gas"):
+        if hasattr(self.module("blocks").Header, "base_fee_per_gas"):
             fields.append(hex_to_uint(json["baseFeePerGas"]))
-        if hasattr(self.module("fork_types").Header, "withdrawals_root"):
+        if hasattr(self.module("blocks").Header, "withdrawals_root"):
             fields.append(hex_to_bytes32(json["withdrawalsRoot"]))
-        return self.module("fork_types").Header(*fields)
+        return self.module("blocks").Header(*fields)
 
     def make_block(self, json: Any, ommers: Any) -> Any:
         """
@@ -545,7 +543,7 @@ class BlockDownloader(ForkTracking):
             withdrawals = []
             for j in json["withdrawals"]:
                 withdrawals.append(
-                    self.module("fork_types").Withdrawal(
+                    self.module("blocks").Withdrawal(
                         hex_to_u64(j["index"]),
                         hex_to_u64(j["validatorIndex"]),
                         self.module("utils.hexadecimal").hex_to_address(
@@ -556,10 +554,10 @@ class BlockDownloader(ForkTracking):
                 )
 
         extra_fields = []
-        if hasattr(self.module("fork_types").Block, "withdrawals"):
+        if hasattr(self.module("blocks").Block, "withdrawals"):
             extra_fields.append(withdrawals)
 
-        return self.module("fork_types").Block(
+        return self.module("blocks").Block(
             header,
             tuple(transactions),
             ommers,

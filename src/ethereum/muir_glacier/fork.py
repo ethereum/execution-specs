@@ -25,21 +25,9 @@ from ethereum.utils.ensure import ensure
 from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
 from . import vm
+from .blocks import Block, Header, Log, Receipt
 from .bloom import logs_bloom
-from .fork_types import (
-    TX_BASE_COST,
-    TX_CREATE_COST,
-    TX_DATA_COST_PER_NON_ZERO,
-    TX_DATA_COST_PER_ZERO,
-    Address,
-    Block,
-    Bloom,
-    Header,
-    Log,
-    Receipt,
-    Root,
-    Transaction,
-)
+from .fork_types import Address, Bloom, Root
 from .state import (
     State,
     account_exists_and_is_empty,
@@ -49,6 +37,13 @@ from .state import (
     increment_nonce,
     set_account_balance,
     state_root,
+)
+from .transactions import (
+    TX_BASE_COST,
+    TX_CREATE_COST,
+    TX_DATA_COST_PER_NON_ZERO,
+    TX_DATA_COST_PER_ZERO,
+    Transaction,
 )
 from .trie import Trie, root, trie_set
 from .utils.message import prepare_message
@@ -642,7 +637,7 @@ def process_transaction(
     -------
     gas_left : `ethereum.base_types.U256`
         Remaining gas after execution.
-    logs : `Tuple[ethereum.fork_types.Log, ...]`
+    logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
     ensure(validate_transaction(tx), InvalidBlock)

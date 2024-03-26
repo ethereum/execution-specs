@@ -3,13 +3,8 @@ import pytest
 import ethereum.rlp as rlp
 from ethereum.base_types import U256, Bytes, Bytes0, Bytes8, Uint
 from ethereum.crypto.hash import keccak256
-from ethereum.spurious_dragon.fork_types import (
-    Block,
-    Header,
-    Log,
-    Receipt,
-    Transaction,
-)
+from ethereum.spurious_dragon.blocks import Block, Header, Log, Receipt
+from ethereum.spurious_dragon.transactions import Transaction
 from ethereum.spurious_dragon.utils.hexadecimal import hex_to_address
 from ethereum.utils.hexadecimal import hex_to_bytes256
 

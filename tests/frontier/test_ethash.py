@@ -14,11 +14,11 @@ from ethereum.ethash import (
     generate_seed,
     hashimoto_light,
 )
+from ethereum.frontier.blocks import Header
 from ethereum.frontier.fork import (
     generate_header_hash_for_pow,
     validate_proof_of_work,
 )
-from ethereum.frontier.fork_types import Header
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,

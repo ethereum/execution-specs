@@ -123,6 +123,16 @@ class T8N(Load):
         return self._module("fork")
 
     @property
+    def transactions(self) -> Any:
+        """The transactions module of the given fork."""
+        return self._module("transactions")
+
+    @property
+    def blocks(self) -> Any:
+        """The blocks module of the given fork."""
+        return self._module("blocks")
+
+    @property
     def fork_types(self) -> Any:
         """The fork_types model of the given fork."""
         return self._module("fork_types")

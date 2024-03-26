@@ -4,7 +4,7 @@ import pytest
 
 from ethereum import rlp
 from ethereum.london.fork import calculate_intrinsic_cost, validate_transaction
-from ethereum.london.fork_types import LegacyTransaction
+from ethereum.london.transactions import LegacyTransaction
 from ethereum.utils.hexadecimal import hex_to_uint
 from tests.helpers import TEST_FIXTURES
 
