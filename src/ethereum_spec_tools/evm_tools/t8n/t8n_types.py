@@ -3,7 +3,7 @@ Define the types used by the t8n tool.
 """
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
 from ethereum.base_types import U64, Bytes, Uint
@@ -12,6 +12,9 @@ from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..loaders.transaction_loader import TransactionLoad, UnsupportedTx
 from ..utils import FatalException, secp256k1_sign
+
+if TYPE_CHECKING:
+    from . import T8N
 
 
 class Alloc:
@@ -35,7 +38,7 @@ class Alloc:
         # strings, so we convert them here.
         for address, account in data.items():
             for key, value in account.items():
-                if key == "storage":
+                if key == "storage" or not value:
                     continue
                 elif not value.startswith("0x"):
                     data[address][key] = "0x" + hex(int(value))
@@ -88,7 +91,7 @@ class Txs:
     data: Any
     rlp_input: bool
 
-    def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
+    def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         self.t8n = t8n
         self.rejected_txs = {}
         self.successful_txs = []
@@ -133,12 +136,9 @@ class Txs:
                 ] = f"Unsupported transaction type: {e.error_message}"
                 self.all_txs.append(e.encoded_params)
             except Exception as e:
-                self.t8n.logger.warning(
-                    f"Failed to parse transaction {idx}: {str(e)}"
-                )
-                self.rejected_txs[
-                    idx
-                ] = f"Failed to parse transaction {idx}: {str(e)}"
+                msg = f"Failed to parse transaction {idx}: {str(e)}"
+                self.t8n.logger.warning(msg, exc_info=e)
+                self.rejected_txs[idx] = msg
 
     def parse_rlp_tx(self, raw_tx: Any) -> Any:
         """

@@ -82,7 +82,7 @@ class Uint(int):
             raise TypeError()
 
         if value < 0:
-            raise ValueError()
+            raise OverflowError()
 
     def __radd__(self, left: int) -> "Uint":
         return self.__add__(left)
@@ -92,7 +92,7 @@ class Uint(int):
             return NotImplemented
 
         if right < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__add__(self, right))
 
@@ -104,7 +104,7 @@ class Uint(int):
             return NotImplemented
 
         if right < 0 or self < right:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__sub__(self, right))
 
@@ -113,7 +113,7 @@ class Uint(int):
             return NotImplemented
 
         if left < 0 or self > left:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rsub__(self, left))
 
@@ -125,7 +125,7 @@ class Uint(int):
             return NotImplemented
 
         if right < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__mul__(self, right))
 
@@ -143,7 +143,7 @@ class Uint(int):
             return NotImplemented
 
         if right < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__floordiv__(self, right))
 
@@ -152,7 +152,7 @@ class Uint(int):
             return NotImplemented
 
         if left < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rfloordiv__(self, left))
 
@@ -164,7 +164,7 @@ class Uint(int):
             return NotImplemented
 
         if right < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__mod__(self, right))
 
@@ -173,7 +173,7 @@ class Uint(int):
             return NotImplemented
 
         if left < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rmod__(self, left))
 
@@ -185,7 +185,7 @@ class Uint(int):
             return NotImplemented
 
         if right < 0:
-            raise ValueError()
+            raise OverflowError()
 
         result = int.__divmod__(self, right)
         return (
@@ -198,7 +198,7 @@ class Uint(int):
             return NotImplemented
 
         if left < 0:
-            raise ValueError()
+            raise OverflowError()
 
         result = int.__rdivmod__(self, left)
         return (
@@ -214,13 +214,13 @@ class Uint(int):
                 return NotImplemented
 
             if modulo < 0:
-                raise ValueError()
+                raise OverflowError()
 
         if not isinstance(right, int):
             return NotImplemented
 
         if right < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__pow__(self, right, modulo))
 
@@ -232,13 +232,13 @@ class Uint(int):
                 return NotImplemented
 
             if modulo < 0:
-                raise ValueError()
+                raise OverflowError()
 
         if not isinstance(left, int):
             return NotImplemented
 
         if left < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rpow__(self, left, modulo))
 
@@ -252,7 +252,7 @@ class Uint(int):
             return NotImplemented
 
         if right < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__xor__(self, right))
 
@@ -261,7 +261,7 @@ class Uint(int):
             return NotImplemented
 
         if left < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rxor__(self, left))
 
@@ -334,7 +334,7 @@ class FixedUInt(int):
             raise TypeError()
 
         if value < 0 or value > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
     def __radd__(self: T, left: int) -> T:
         return self.__add__(left)
@@ -346,7 +346,7 @@ class FixedUInt(int):
         result = int.__add__(self, right)
 
         if right < 0 or result > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, result)
 
@@ -370,7 +370,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         # This is a fast way of ensuring that the result is < (2 ** 256)
         return int.__new__(
@@ -385,7 +385,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE or self < right:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__sub__(self, right))
 
@@ -409,7 +409,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         # This is a fast way of ensuring that the result is < (2 ** 256)
         return int.__new__(
@@ -421,7 +421,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if left < 0 or left > self.MAX_VALUE or self > left:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rsub__(self, left))
 
@@ -435,7 +435,7 @@ class FixedUInt(int):
         result = int.__mul__(self, right)
 
         if right < 0 or result > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, result)
 
@@ -459,7 +459,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         # This is a fast way of ensuring that the result is < (2 ** 256)
         return int.__new__(
@@ -480,7 +480,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__floordiv__(self, right))
 
@@ -489,7 +489,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if left < 0 or left > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rfloordiv__(self, left))
 
@@ -501,7 +501,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__mod__(self, right))
 
@@ -510,7 +510,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if left < 0 or left > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rmod__(self, left))
 
@@ -522,7 +522,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         result = super(FixedUInt, self).__divmod__(right)
         return (
@@ -535,7 +535,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if left < 0 or left > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         result = super(FixedUInt, self).__rdivmod__(left)
         return (
@@ -551,7 +551,7 @@ class FixedUInt(int):
                 return NotImplemented
 
             if modulo < 0 or modulo > self.MAX_VALUE:
-                raise ValueError()
+                raise OverflowError()
 
         if not isinstance(right, int):
             return NotImplemented
@@ -559,7 +559,7 @@ class FixedUInt(int):
         result = int.__pow__(self, right, modulo)
 
         if right < 0 or right > self.MAX_VALUE or result > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, result)
 
@@ -587,13 +587,13 @@ class FixedUInt(int):
                 return NotImplemented
 
             if modulo < 0 or modulo > self.MAX_VALUE:
-                raise ValueError()
+                raise OverflowError()
 
         if not isinstance(right, int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         # This is a fast way of ensuring that the result is < (2 ** 256)
         return int.__new__(
@@ -608,13 +608,13 @@ class FixedUInt(int):
                 return NotImplemented
 
             if modulo < 0 or modulo > self.MAX_VALUE:
-                raise ValueError()
+                raise OverflowError()
 
         if not isinstance(left, int):
             return NotImplemented
 
         if left < 0 or left > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rpow__(self, left, modulo))
 
@@ -628,7 +628,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__and__(self, right))
 
@@ -637,7 +637,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__or__(self, right))
 
@@ -646,7 +646,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__xor__(self, right))
 
@@ -655,7 +655,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if left < 0 or left > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rxor__(self, left))
 

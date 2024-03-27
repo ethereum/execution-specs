@@ -3,7 +3,8 @@ The module implements the raw EVM tracer for t8n.
 """
 import json
 import os
-from dataclasses import dataclass, fields
+from contextlib import ExitStack
+from dataclasses import asdict, dataclass, is_dataclass
 from typing import List, Optional, Protocol, TextIO, Union, runtime_checkable
 
 from ethereum.base_types import U256, Bytes, Uint
@@ -30,7 +31,7 @@ class Trace:
     """
 
     pc: int
-    op: str
+    op: Optional[Union[str, int]]
     gas: str
     gasCost: str
     memory: Optional[str]
@@ -186,9 +187,12 @@ def evm_trace(
         last_trace.gasCostTraced = True
         last_trace.errorTraced = True
     elif isinstance(event, OpStart):
+        op = event.op.value
+        if op == "InvalidOpcode":
+            op = "Invalid"
         new_trace = Trace(
             pc=evm.pc,
-            op=event.op.value,
+            op=op,
             gas=hex(evm.gas_left),
             gasCost="0x0",
             memory=memory,
@@ -222,9 +226,15 @@ def evm_trace(
             # two conditions do not cover it.
             or last_trace.depth == evm.message.depth
         ):
+            if not hasattr(event.error, "code"):
+                name = event.error.__class__.__name__
+                raise TypeError(
+                    f"OpException event error type `{name}` does not have code"
+                ) from event.error
+
             new_trace = Trace(
                 pc=evm.pc,
-                op="InvalidOpcode",
+                op=event.error.code,
                 gas=hex(evm.gas_left),
                 gasCost="0x0",
                 memory=memory,
@@ -271,20 +281,41 @@ def evm_trace(
             last_trace.gasCostTraced = True
 
 
+class _TraceJsonEncoder(json.JSONEncoder):
+    @staticmethod
+    def retain(k: str, v: Optional[object]) -> bool:
+        if v is None:
+            return False
+
+        if k in EXCLUDE_FROM_OUTPUT:
+            return False
+
+        if k in ("pc", "gas", "gasCost", "refund"):
+            if isinstance(v, str) and int(v, 0).bit_length() > 64:
+                return False
+
+        return True
+
+    def default(self, obj: object) -> object:
+        if not is_dataclass(obj) or isinstance(obj, type):
+            return super().default(obj)
+
+        trace = {
+            k: v
+            for k, v in asdict(obj).items()
+            if _TraceJsonEncoder.retain(k, v)
+        }
+
+        return trace
+
+
 def output_op_trace(
     trace: Union[Trace, FinalTrace], json_file: TextIO
 ) -> None:
     """
     Output a single trace to a json file.
     """
-    dict_trace = {
-        field.name: getattr(trace, field.name)
-        for field in fields(trace)
-        if field.name not in EXCLUDE_FROM_OUTPUT
-        and getattr(trace, field.name) is not None
-    }
-
-    json.dump(dict_trace, json_file, separators=(",", ":"))
+    json.dump(trace, json_file, separators=(",", ":"), cls=_TraceJsonEncoder)
     json_file.write("\n")
 
 
@@ -292,16 +323,24 @@ def output_traces(
     traces: List[Union[Trace, FinalTrace]],
     tx_index: int,
     tx_hash: bytes,
-    output_basedir: str = ".",
+    output_basedir: str | TextIO = ".",
 ) -> None:
     """
     Output the traces to a json file.
     """
-    tx_hash_str = "0x" + tx_hash.hex()
-    output_path = os.path.join(
-        output_basedir, f"trace-{tx_index}-{tx_hash_str}.jsonl"
-    )
-    with open(output_path, "w") as json_file:
+    with ExitStack() as stack:
+        json_file: TextIO
+
+        if isinstance(output_basedir, str):
+            tx_hash_str = "0x" + tx_hash.hex()
+            output_path = os.path.join(
+                output_basedir, f"trace-{tx_index}-{tx_hash_str}.jsonl"
+            )
+            json_file = open(output_path, "w")
+            stack.push(json_file)
+        else:
+            json_file = output_basedir
+
         for trace in traces:
             if getattr(trace, "precompile", False):
                 # Traces related to pre-compile are not output.
