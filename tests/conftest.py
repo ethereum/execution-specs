@@ -11,7 +11,6 @@ from filelock import SoftFileLock
 from git.exc import GitCommandError, InvalidGitRepositoryError
 from pytest import Session
 
-import ethereum
 from tests.helpers import TEST_FIXTURES
 
 
