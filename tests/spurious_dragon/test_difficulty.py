@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 from ..helpers.load_difficulty_tests import DifficultyTestLoader
