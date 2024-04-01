@@ -188,6 +188,11 @@ class ForkLoad:
         return self._module("state").State
 
     @property
+    def TransientStorage(self) -> Any:
+        """Transient storage class of the fork"""
+        return self._module("state").TransientStorage
+
+    @property
     def get_account(self) -> Any:
         """get_account function of the fork"""
         return self._module("state").get_account
