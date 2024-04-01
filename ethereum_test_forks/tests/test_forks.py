@@ -94,7 +94,7 @@ def test_forks():
     # the default
     assert Paris.transition_tool_name() == "Merge"
     assert Shanghai.transition_tool_name() == "Shanghai"
-    assert Paris.blockchain_test_network_name() == "Merge"
+    assert Paris.blockchain_test_network_name() == "Paris"
     assert Shanghai.blockchain_test_network_name() == "Shanghai"
     assert ParisToShanghaiAtTime15k.blockchain_test_network_name() == "ParisToShanghaiAtTime15k"
 
