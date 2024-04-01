@@ -47,6 +47,7 @@ class Environment:
     traces: List[dict]
     excess_blob_gas: U64
     blob_versioned_hashes: Tuple[VersionedHash, ...]
+    transient_storage: TransientStorage
 
 
 @dataclass
@@ -93,7 +94,6 @@ class Evm:
     error: Optional[Exception]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
-    transient_storage: TransientStorage
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
