@@ -51,6 +51,7 @@ from .fork_types import (
 )
 from .state import (
     State,
+    TransientStorage,
     account_exists_and_is_empty,
     destroy_account,
     destroy_touched_empty_accounts,
@@ -556,6 +557,7 @@ def apply_body(
         traces=[],
         excess_blob_gas=excess_blob_gas,
         blob_versioned_hashes=(),
+        transient_storage=TransientStorage(),
     )
 
     system_tx_output = process_message_call(system_tx_message, system_tx_env)
@@ -591,6 +593,7 @@ def apply_body(
             traces=[],
             excess_blob_gas=excess_blob_gas,
             blob_versioned_hashes=blob_versioned_hashes,
+            transient_storage=TransientStorage(),
         )
 
         gas_used, logs, error = process_transaction(env, tx)
