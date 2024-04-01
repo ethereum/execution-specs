@@ -2,13 +2,14 @@
 Simple CLI tool to hash a directory of JSON fixtures.
 """
 
-import argparse
 import hashlib
 import json
 from dataclasses import dataclass, field
 from enum import IntEnum, auto
 from pathlib import Path
 from typing import Dict, List, Optional
+
+import click
 
 
 class HashableItemType(IntEnum):
@@ -106,30 +107,32 @@ class HashableItem:
         return cls(type=HashableItemType.FOLDER, items=items, parents=parents)
 
 
-def main() -> None:
+@click.command()
+@click.argument(
+    "folder_path_str", type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True)
+)
+@click.option("--files", "-f", is_flag=True, help="Print hash of files")
+@click.option("--tests", "-t", is_flag=True, help="Print hash of tests")
+@click.option("--root", "-r", is_flag=True, help="Only print hash of root folder")
+def main(folder_path_str: str, files: bool, tests: bool, root: bool) -> None:
     """
-    Main function.
+    Hash folders of JSON fixtures and print their hashes.
     """
-    parser = argparse.ArgumentParser(description="Hash folders of JSON fixtures.")
+    folder_path: Path = Path(folder_path_str)
+    item = HashableItem.from_folder(folder_path=folder_path)
 
-    parser.add_argument("folder_path", type=Path, help="The path to the JSON fixtures directory")
-    parser.add_argument("--files", "-f", action="store_true", help="Print hash of files")
-    parser.add_argument("--tests", "-t", action="store_true", help="Print hash of tests")
-    parser.add_argument("--root", "-r", action="store_true", help="Only print hash of root folder")
-
-    args = parser.parse_args()
-
-    item = HashableItem.from_folder(folder_path=args.folder_path)
-
-    if args.root:
+    if root:
         print(f"0x{item.hash().hex()}")
         return
 
     print_type: Optional[HashableItemType] = None
-
-    if args.files:
+    if files:
         print_type = HashableItemType.FILE
-    elif args.tests:
+    elif tests:
         print_type = HashableItemType.TEST
 
-    item.print(name=args.folder_path.name, print_type=print_type)
+    item.print(name=folder_path.name, print_type=print_type)
+
+
+if __name__ == "__main__":
+    main()

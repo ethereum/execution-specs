@@ -1,5 +1,5 @@
 """
-Test suite for `entry_points.evm_bytes_to_python` module.
+Test suite for `cli.evm_bytes_to_python` module.
 """
 
 import pytest

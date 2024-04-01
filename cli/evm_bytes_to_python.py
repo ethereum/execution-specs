@@ -2,8 +2,9 @@
 Define an entry point wrapper for pytest.
 """
 
-import sys
 from typing import Any, List, Optional
+
+import click
 
 from ethereum_test_tools import Macro
 from ethereum_test_tools import Opcodes as Op
@@ -39,19 +40,17 @@ def process_evm_bytes(evm_bytes_hex_string: Any) -> str:  # noqa: D103
     return " + ".join(opcodes_strings)
 
 
-def print_help():  # noqa: D103
-    print("Usage: evm_bytes_to_python <EVM bytes hex string>")
+@click.command()
+@click.argument("evm_bytes_hex_string")
+def main(evm_bytes_hex_string: str):
+    """
+    Convert the given EVM bytes hex string to an EEST Opcodes.
 
-
-def main():  # noqa: D103
-    if len(sys.argv) != 2:
-        print_help()
-        sys.exit(1)
-    if sys.argv[1] in ["-h", "--help"]:
-        print_help()
-        sys.exit(0)
-    evm_bytes_hex_string = sys.argv[1]
-    print(process_evm_bytes(evm_bytes_hex_string))
+    \b
+    EVM_BYTES_HEX_STRING: A hex string representing EVM bytes to be processed.
+    """  # noqa: D301
+    processed_output = process_evm_bytes(evm_bytes_hex_string)
+    click.echo(processed_output)
 
 
 if __name__ == "__main__":

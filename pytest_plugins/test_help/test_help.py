@@ -28,7 +28,7 @@ def pytest_configure(config):
     """
     if config.getoption("show_test_help"):
         show_test_help(config)
-        pytest.exit("After displaying help.", returncode=pytest.ExitCode.NO_TESTS_COLLECTED)
+        pytest.exit("After displaying help.", returncode=pytest.ExitCode.OK)
 
 
 def show_test_help(config):

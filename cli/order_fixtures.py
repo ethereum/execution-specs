@@ -2,11 +2,11 @@
 Functions and CLI interface for recursively ordering and sorting .json files.
 
 example: Usage
+
     ```
-    python order_fixtures.py -i input_dir -o output_dir
-    # or using the entry point
     order_fixtures -i input_dir -o output_dir
     ```
+
 
 The CLI interface takes the paths of an input directory and an output
 directory. It recursively processes each .json file in the input directory and
@@ -15,10 +15,11 @@ writes the sorted output to .json files to the corresponding locations in the
 output directory.
 """
 
-import argparse
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Union, cast
+
+import click
 
 
 def recursive_sort(item: Union[Dict[str, Any], List[Any]]) -> Union[Dict[str, Any], List[Any]]:
@@ -95,23 +96,31 @@ def process_directory(input_dir: Path, output_dir: Path):
             order_fixture(child, output_dir / child.name)
 
 
-def main():
+@click.command()
+@click.option(
+    "--input",
+    "-i",
+    "input_dir",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True),
+    required=True,
+    help="The input directory",
+)
+@click.option(
+    "--output",
+    "-o",
+    "output_dir",
+    type=click.Path(writable=True, file_okay=False, dir_okay=True),
+    required=True,
+    help="The output directory",
+)
+def order_fixtures(input_dir, output_dir):
     """
-    Main function.
-
-    Returns:
-        None.
+    Order json fixture by key recursively from the input directory.
     """
-    parser = argparse.ArgumentParser(description="Order fixtures.")
-    parser.add_argument(
-        "--input", "-i", dest="input_dir", type=Path, required=True, help="The input directory"
-    )
-    parser.add_argument(
-        "--output", "-o", dest="output_dir", type=Path, required=True, help="The output directory"
-    )
-    args = parser.parse_args()
-    process_directory(args.input_dir, args.output_dir)
+    input_dir = Path(input_dir)
+    output_dir = Path(output_dir)
+    process_directory(input_dir, output_dir)
 
 
 if __name__ == "__main__":
-    main()
+    order_fixtures()
