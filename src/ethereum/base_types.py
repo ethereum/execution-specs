@@ -1,18 +1,23 @@
 """
-Numeric & Array Types
-^^^^^^^^^^^^^^^^^^^^^
-
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
-
 Integer and array types which are used by—but not unique to—Ethereum.
-"""
 
-from __future__ import annotations
+[`Uint`] represents non-negative integers of arbitrary size, while subclasses
+of [`FixedUint`] (like [`U256`] or [`U32`]) represent non-negative integers of
+particular sizes.
+
+Similarly, [`Bytes`] represents arbitrarily long byte sequences, while
+subclasses of [`FixedBytes`] (like [`Bytes0`] or [`Bytes64`]) represent
+sequences containing an exact number of bytes.
+
+[`Uint`]: ref:ethereum.base_types.Uint
+[`FixedUint`]: ref:ethereum.base_types.FixedUint
+[`U32`]: ref:ethereum.base_types.U32
+[`U256`]: ref:ethereum.base_types.U256
+[`Bytes`]: ref:ethereum.base_types.Bytes
+[`FixedBytes`]: ref:ethereum.base_types.FixedBytes
+[`Bytes0`]: ref:ethereum.base_types.Bytes0
+[`Bytes64`]: ref:ethereum.base_types.Bytes64
+"""
 
 from dataclasses import is_dataclass, replace
 from typing import (
@@ -31,25 +36,37 @@ from typing import (
 @runtime_checkable
 class SlottedFreezable(Protocol):
     """
-    Represents data classes created with `@slotted_freezable`.
+    A [`Protocol`] implemented by data classes annotated with
+    [`@slotted_freezable`].
+
+    [`@slotted_freezable`]: ref:ethereum.base_types.slotted_freezable
+    [`Protocol`]: https://docs.python.org/library/typing.html#typing.Protocol
     """
 
     _frozen: bool
 
 
-U8_MAX_VALUE = (2**8) - 1
-U32_MAX_VALUE = (2**32) - 1
-U32_CEIL_VALUE = 2**32
-U64_MAX_VALUE = (2**64) - 1
-U255_MAX_VALUE = (2**255) - 1
 U255_CEIL_VALUE = 2**255
-U256_MAX_VALUE = (2**256) - 1
+"""
+Smallest value that requires 256 bits to represent. Mostly used in signed
+arithmetic operations, like [`sdiv`].
+
+[`sdiv`]: ref:ethereum.frontier.vm.instructions.arithmetic.sdiv
+"""
+
 U256_CEIL_VALUE = 2**256
+"""
+Smallest value that requires 257 bits to represent. Used when converting a
+[`U256`] in two's complement format to a regular `int` in [`U256.to_signed`].
+
+[`U256`]: ref:ethereum.base_types.U256
+[`U256.to_signed`]: ref:ethereum.base_types.U256.to_signed
+"""
 
 
 class Uint(int):
     """
-    Unsigned positive integer.
+    Unsigned integer of arbitrary size.
     """
 
     __slots__ = ()
@@ -59,21 +76,14 @@ class Uint(int):
         """
         Converts a sequence of bytes into an arbitrarily sized unsigned integer
         from its big endian representation.
-        Parameters
-        ----------
-        buffer :
-            Bytes to decode.
-        Returns
-        -------
-        self : `Uint`
-            Unsigned integer decoded from `buffer`.
         """
         return cls(int.from_bytes(buffer, "big"))
 
     @classmethod
     def from_le_bytes(cls: Type, buffer: "Bytes") -> "Uint":
         """
-        Convert a series of little endian bytes to an unsigned integer.
+        Converts a sequence of bytes into an arbitrarily sized unsigned integer
+        from its little endian representation.
         """
         return cls(int.from_bytes(buffer, "little"))
 
@@ -274,21 +284,13 @@ class Uint(int):
         """
         Converts this arbitrarily sized unsigned integer into its big endian
         representation with exactly 32 bytes.
-        Returns
-        -------
-        big_endian : `Bytes32`
-            Big endian (most significant bits first) representation.
         """
         return Bytes32(self.to_bytes(32, "big"))
 
     def to_be_bytes(self) -> "Bytes":
         """
         Converts this arbitrarily sized unsigned integer into its big endian
-        representation.
-        Returns
-        -------
-        big_endian : `Bytes`
-            Big endian (most significant bits first) representation.
+        representation, without padding.
         """
         bit_length = self.bit_length()
         byte_length = (bit_length + 7) // 8
@@ -297,18 +299,7 @@ class Uint(int):
     def to_le_bytes(self, number_bytes: Optional[int] = None) -> "Bytes":
         """
         Converts this arbitrarily sized unsigned integer into its little endian
-        representation.
-
-        Parameters
-        ----------
-        number_bytes :
-            Exact number of bytes to return (defaults to the fewest that can
-            represent this number.)
-
-        Returns
-        -------
-        little_endian : `Bytes`
-            Little endian (most significant bits last) representation.
+        representation, without padding.
         """
         if number_bytes is None:
             bit_length = self.bit_length()
@@ -316,16 +307,19 @@ class Uint(int):
         return self.to_bytes(number_bytes, "little")
 
 
-T = TypeVar("T", bound="FixedUInt")
+T = TypeVar("T", bound="FixedUint")
 
 
-class FixedUInt(int):
+class FixedUint(int):
     """
     Superclass for fixed size unsigned integers. Not intended to be used
     directly, but rather to be subclassed.
     """
 
-    MAX_VALUE: ClassVar["FixedUInt"]
+    MAX_VALUE: ClassVar["FixedUint"]
+    """
+    Largest value that can be represented by this integer type.
+    """
 
     __slots__ = ()
 
@@ -354,17 +348,11 @@ class FixedUInt(int):
         """
         Return a new instance containing `self + right (mod N)`.
 
-        Parameters
-        ----------
+        Passing a `right` value greater than [`MAX_VALUE`] or less than zero
+        will raise a `ValueError`, even if the result would fit in this integer
+        type.
 
-        right :
-            Other operand for addition.
-
-        Returns
-        -------
-
-        sum : T
-            The result of adding `self` and `right`, wrapped.
+        [`MAX_VALUE`]: ref:ethereum.base_types.FixedUint.MAX_VALUE
         """
         if not isinstance(right, int):
             return NotImplemented
@@ -393,17 +381,11 @@ class FixedUInt(int):
         """
         Return a new instance containing `self - right (mod N)`.
 
-        Parameters
-        ----------
+        Passing a `right` value greater than [`MAX_VALUE`] or less than zero
+        will raise a `ValueError`, even if the result would fit in this integer
+        type.
 
-        right :
-            Subtrahend operand for subtraction.
-
-        Returns
-        -------
-
-        difference : T
-            The result of subtracting `right` from `self`, wrapped.
+        [`MAX_VALUE`]: ref:ethereum.base_types.FixedUint.MAX_VALUE
         """
         if not isinstance(right, int):
             return NotImplemented
@@ -443,17 +425,11 @@ class FixedUInt(int):
         """
         Return a new instance containing `self * right (mod N)`.
 
-        Parameters
-        ----------
+        Passing a `right` value greater than [`MAX_VALUE`] or less than zero
+        will raise a `ValueError`, even if the result would fit in this integer
+        type.
 
-        right :
-            Other operand for multiplication.
-
-        Returns
-        -------
-
-        product : T
-            The result of multiplying `self` by `right`, wrapped.
+        [`MAX_VALUE`]: ref:ethereum.base_types.FixedUint.MAX_VALUE
         """
         if not isinstance(right, int):
             return NotImplemented
@@ -524,7 +500,7 @@ class FixedUInt(int):
         if right < 0 or right > self.MAX_VALUE:
             raise ValueError()
 
-        result = super(FixedUInt, self).__divmod__(right)
+        result = super(FixedUint, self).__divmod__(right)
         return (
             int.__new__(self.__class__, result[0]),
             int.__new__(self.__class__, result[1]),
@@ -537,7 +513,7 @@ class FixedUInt(int):
         if left < 0 or left > self.MAX_VALUE:
             raise ValueError()
 
-        result = super(FixedUInt, self).__rdivmod__(left)
+        result = super(FixedUint, self).__rdivmod__(left)
         return (
             int.__new__(self.__class__, result[0]),
             int.__new__(self.__class__, result[1]),
@@ -567,20 +543,13 @@ class FixedUInt(int):
         """
         Return a new instance containing `self ** right (mod modulo)`.
 
-        Parameters
-        ----------
+        If omitted, `modulo` defaults to `Uint(self.MAX_VALUE) + 1`.
 
-        right :
-            Exponent operand.
+        Passing a `right` or `modulo` value greater than [`MAX_VALUE`] or
+        less than zero will raise a `ValueError`, even if the result would fit
+        in this integer type.
 
-        modulo :
-            Optional modulus (defaults to `MAX_VALUE + 1`.)
-
-        Returns
-        -------
-
-        power : T
-            The result of raising `self` to the power of `right`, wrapped.
+        [`MAX_VALUE`]: ref:ethereum.base_types.FixedUint.MAX_VALUE
         """
         if modulo is not None:
             if not isinstance(modulo, int):
@@ -676,11 +645,6 @@ class FixedUInt(int):
         """
         Converts this unsigned integer into its big endian representation,
         omitting leading zero bytes.
-
-        Returns
-        -------
-        big_endian : `Bytes`
-            Big endian (most significant bits first) representation.
         """
         bit_length = self.bit_length()
         byte_length = (bit_length + 7) // 8
@@ -689,29 +653,23 @@ class FixedUInt(int):
     # TODO: Implement neg, pos, abs ...
 
 
-class U256(FixedUInt):
+class U256(FixedUint):
     """
-    Unsigned positive integer, which can represent `0` to `2 ** 256 - 1`,
-    inclusive.
+    Unsigned integer, which can represent `0` to `2 ** 256 - 1`, inclusive.
     """
 
     MAX_VALUE: ClassVar["U256"]
+    """
+    Largest value that can be represented by this integer type.
+    """
 
     __slots__ = ()
 
     @classmethod
     def from_be_bytes(cls: Type, buffer: "Bytes") -> "U256":
         """
-        Converts a sequence of bytes into an arbitrarily sized unsigned integer
+        Converts a sequence of bytes into a fixed sized unsigned integer
         from its big endian representation.
-        Parameters
-        ----------
-        buffer :
-            Bytes to decode.
-        Returns
-        -------
-        self : `U256`
-            Unsigned integer decoded from `buffer`.
         """
         if len(buffer) > 32:
             raise ValueError()
@@ -721,15 +679,8 @@ class U256(FixedUInt):
     @classmethod
     def from_signed(cls: Type, value: int) -> "U256":
         """
-        Converts a signed number into a 256-bit unsigned integer.
-        Parameters
-        ----------
-        value :
-            Signed number
-        Returns
-        -------
-        self : `U256`
-            Unsigned integer obtained from `value`.
+        Creates an unsigned integer representing `value` using two's
+        complement.
         """
         if value >= 0:
             return cls(value)
@@ -740,22 +691,14 @@ class U256(FixedUInt):
         """
         Converts this 256-bit unsigned integer into its big endian
         representation with exactly 32 bytes.
-        Returns
-        -------
-        big_endian : `Bytes32`
-            Big endian (most significant bits first) representation.
         """
         return Bytes32(self.to_bytes(32, "big"))
 
     def to_signed(self) -> int:
         """
-        Converts this 256-bit unsigned integer into a signed integer.
-        Returns
-        -------
-        signed_int : `int`
-            Signed integer obtained from 256-bit unsigned integer.
+        Decodes a signed integer from its two's complement representation.
         """
-        if self <= U255_MAX_VALUE:
+        if self.bit_length() < 256:
             # This means that the sign bit is 0
             return int(self)
 
@@ -763,17 +706,19 @@ class U256(FixedUInt):
         return int(self) - U256_CEIL_VALUE
 
 
-U256.MAX_VALUE = int.__new__(U256, U256_MAX_VALUE)
-"""autoapi_noindex"""
+U256.MAX_VALUE = int.__new__(U256, (2**256) - 1)
 
 
-class U32(FixedUInt):
+class U32(FixedUint):
     """
     Unsigned positive integer, which can represent `0` to `2 ** 32 - 1`,
     inclusive.
     """
 
     MAX_VALUE: ClassVar["U32"]
+    """
+    Largest value that can be represented by this integer type.
+    """
 
     __slots__ = ()
 
@@ -792,11 +737,6 @@ class U32(FixedUInt):
         """
         Converts this fixed sized unsigned integer into its little endian
         representation, with exactly 4 bytes.
-
-        Returns
-        -------
-        little_endian : `Bytes4`
-            Little endian (most significant bits last) representation.
         """
         return Bytes4(self.to_bytes(4, "little"))
 
@@ -804,28 +744,25 @@ class U32(FixedUInt):
         """
         Converts this fixed sized unsigned integer into its little endian
         representation, in the fewest bytes possible.
-
-        Returns
-        -------
-        little_endian : `Bytes`
-            Little endian (most significant bits last) representation.
         """
         bit_length = self.bit_length()
         byte_length = (bit_length + 7) // 8
         return self.to_bytes(byte_length, "little")
 
 
-U32.MAX_VALUE = int.__new__(U32, U32_MAX_VALUE)
-"""autoapi_noindex"""
+U32.MAX_VALUE = int.__new__(U32, (2**32) - 1)
 
 
-class U64(FixedUInt):
+class U64(FixedUint):
     """
     Unsigned positive integer, which can represent `0` to `2 ** 64 - 1`,
     inclusive.
     """
 
     MAX_VALUE: ClassVar["U64"]
+    """
+    Largest value that can be represented by this integer type.
+    """
 
     __slots__ = ()
 
@@ -844,11 +781,6 @@ class U64(FixedUInt):
         """
         Converts this fixed sized unsigned integer into its little endian
         representation, with exactly 8 bytes.
-
-        Returns
-        -------
-        little_endian : `Bytes8`
-            Little endian (most significant bits last) representation.
         """
         return Bytes8(self.to_bytes(8, "little"))
 
@@ -856,11 +788,6 @@ class U64(FixedUInt):
         """
         Converts this fixed sized unsigned integer into its little endian
         representation, in the fewest bytes possible.
-
-        Returns
-        -------
-        little_endian : `Bytes`
-            Little endian (most significant bits last) representation.
         """
         bit_length = self.bit_length()
         byte_length = (bit_length + 7) // 8
@@ -871,15 +798,6 @@ class U64(FixedUInt):
         """
         Converts a sequence of bytes into an unsigned 64 bit integer from its
         big endian representation.
-
-        Parameters
-        ----------
-        buffer :
-            Bytes to decode.
-        Returns
-        -------
-        self : `U64`
-            Unsigned integer decoded from `buffer`.
         """
         if len(buffer) > 8:
             raise ValueError()
@@ -887,8 +805,7 @@ class U64(FixedUInt):
         return cls(int.from_bytes(buffer, "big"))
 
 
-U64.MAX_VALUE = int.__new__(U64, U64_MAX_VALUE)
-"""autoapi_noindex"""
+U64.MAX_VALUE = int.__new__(U64, (2**64) - 1)
 
 
 B = TypeVar("B", bound="FixedBytes")
@@ -901,6 +818,9 @@ class FixedBytes(bytes):
     """
 
     LENGTH: int
+    """
+    Number of bytes in each instance of this class.
+    """
 
     __slots__ = ()
 
@@ -922,6 +842,9 @@ class Bytes0(FixedBytes):
     """
 
     LENGTH = 0
+    """
+    Number of bytes in each instance of this class.
+    """
 
 
 class Bytes4(FixedBytes):
@@ -930,6 +853,9 @@ class Bytes4(FixedBytes):
     """
 
     LENGTH = 4
+    """
+    Number of bytes in each instance of this class.
+    """
 
 
 class Bytes8(FixedBytes):
@@ -938,6 +864,9 @@ class Bytes8(FixedBytes):
     """
 
     LENGTH = 8
+    """
+    Number of bytes in each instance of this class.
+    """
 
 
 class Bytes20(FixedBytes):
@@ -946,6 +875,9 @@ class Bytes20(FixedBytes):
     """
 
     LENGTH = 20
+    """
+    Number of bytes in each instance of this class.
+    """
 
 
 class Bytes32(FixedBytes):
@@ -954,6 +886,9 @@ class Bytes32(FixedBytes):
     """
 
     LENGTH = 32
+    """
+    Number of bytes in each instance of this class.
+    """
 
 
 class Bytes48(FixedBytes):
@@ -970,6 +905,9 @@ class Bytes64(FixedBytes):
     """
 
     LENGTH = 64
+    """
+    Number of bytes in each instance of this class.
+    """
 
 
 class Bytes256(FixedBytes):
@@ -978,9 +916,15 @@ class Bytes256(FixedBytes):
     """
 
     LENGTH = 256
+    """
+    Number of bytes in each instance of this class.
+    """
 
 
 Bytes = bytes
+"""
+Sequence of bytes (octets) of arbitrary length.
+"""
 
 
 def _setattr_function(self: Any, attr: str, value: Any) -> None:
@@ -1027,20 +971,10 @@ S = TypeVar("S")
 
 def modify(obj: S, f: Callable[[S], None]) -> S:
     """
-    Create a mutable copy of `obj` (which must be `@slotted_freezable`) and
-    apply `f` to the copy before freezing it.
+    Create a copy of `obj` (which must be [`@slotted_freezable`]), and modify
+    it by applying `f`. The returned copy will be frozen.
 
-    Parameters
-    ----------
-    obj : `S`
-        Object to copy.
-    f : `Callable[[S], None]`
-        Function to apply to `obj`.
-
-    Returns
-    -------
-    new_obj : `S`
-        Compact byte array.
+    [`@slotted_freezable`]: ref:ethereum.base_types.slotted_freezable
     """
     assert is_dataclass(obj)
     assert isinstance(obj, SlottedFreezable)

@@ -3,7 +3,7 @@ Define the types used by the t8n tool.
 """
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
 from ethereum.base_types import U64, Bytes, Uint
@@ -12,6 +12,9 @@ from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..loaders.transaction_loader import TransactionLoad, UnsupportedTx
 from ..utils import FatalException, secp256k1_sign
+
+if TYPE_CHECKING:
+    from . import T8N
 
 
 class Alloc:
@@ -22,7 +25,7 @@ class Alloc:
     state: Any
     state_backup: Any
 
-    def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
+    def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         """Read the alloc file and return the state."""
         if t8n.options.input_alloc == "stdin":
             assert stdin is not None
@@ -84,11 +87,11 @@ class Txs:
     successful_txs: List[Any]
     successful_receipts: List[Any]
     all_txs: List[Any]
-    t8n: Any
+    t8n: "T8N"
     data: Any
     rlp_input: bool
 
-    def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
+    def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         self.t8n = t8n
         self.rejected_txs = {}
         self.successful_txs = []

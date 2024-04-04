@@ -390,7 +390,7 @@ class T8N(Load):
                         blob_gas_used <= self.fork.MAX_BLOB_GAS_PER_BLOCK,
                         InvalidBlock,
                     )
-            except Exception as e:
+            except InvalidBlock as e:
                 # The tf tools expects some non-blank error message
                 # even in case e is blank.
                 self.txs.rejected_txs[tx_idx] = f"Failed transaction: {str(e)}"

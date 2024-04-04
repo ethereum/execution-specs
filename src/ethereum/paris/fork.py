@@ -24,28 +24,9 @@ from ethereum.utils.ensure import ensure
 from .. import rlp
 from ..base_types import U64, U256, Bytes, Uint
 from . import vm
+from .blocks import Block, Header, Log, Receipt
 from .bloom import logs_bloom
-from .fork_types import (
-    TX_ACCESS_LIST_ADDRESS_COST,
-    TX_ACCESS_LIST_STORAGE_KEY_COST,
-    TX_BASE_COST,
-    TX_CREATE_COST,
-    TX_DATA_COST_PER_NON_ZERO,
-    TX_DATA_COST_PER_ZERO,
-    AccessListTransaction,
-    Address,
-    Block,
-    Bloom,
-    FeeMarketTransaction,
-    Header,
-    LegacyTransaction,
-    Log,
-    Receipt,
-    Root,
-    Transaction,
-    decode_transaction,
-    encode_transaction,
-)
+from .fork_types import Address, Bloom, Root
 from .state import (
     State,
     account_exists_and_is_empty,
@@ -54,6 +35,20 @@ from .state import (
     increment_nonce,
     set_account_balance,
     state_root,
+)
+from .transactions import (
+    TX_ACCESS_LIST_ADDRESS_COST,
+    TX_ACCESS_LIST_STORAGE_KEY_COST,
+    TX_BASE_COST,
+    TX_CREATE_COST,
+    TX_DATA_COST_PER_NON_ZERO,
+    TX_DATA_COST_PER_ZERO,
+    AccessListTransaction,
+    FeeMarketTransaction,
+    LegacyTransaction,
+    Transaction,
+    decode_transaction,
+    encode_transaction,
 )
 from .trie import Trie, root, trie_set
 from .utils.message import prepare_message
@@ -268,7 +263,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
     quantities in the header should match the logic for the block itself.
     For example the header timestamp should be greater than the block's parent
     timestamp because the block was created *after* the parent block.
-    Additionally, the block's number should be directly folowing the parent
+    Additionally, the block's number should be directly following the parent
     block's number since it is the next block in the sequence.
 
     Parameters
@@ -387,7 +382,7 @@ def make_receipt(
 
     if isinstance(tx, AccessListTransaction):
         return b"\x01" + rlp.encode(receipt)
-    if isinstance(tx, FeeMarketTransaction):
+    elif isinstance(tx, FeeMarketTransaction):
         return b"\x02" + rlp.encode(receipt)
     else:
         return receipt
@@ -444,8 +439,8 @@ def apply_body(
 
     Returns
     -------
-    gas_available : `ethereum.base_types.Uint`
-        Remaining gas after all transactions have been executed.
+    block_gas_used : `ethereum.base_types.Uint`
+        Gas used for executing all transactions.
     transactions_root : `ethereum.fork_types.Root`
         Trie root of all the transactions in the block.
     receipt_root : `ethereum.fork_types.Root`
@@ -544,7 +539,7 @@ def process_transaction(
     -------
     gas_left : `ethereum.base_types.U256`
         Remaining gas after execution.
-    logs : `Tuple[ethereum.fork_types.Log, ...]`
+    logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
     ensure(validate_transaction(tx), InvalidBlock)
@@ -553,12 +548,12 @@ def process_transaction(
     sender_account = get_account(env.state, sender)
 
     if isinstance(tx, FeeMarketTransaction):
-        gas_fee = tx.gas * tx.max_fee_per_gas
+        max_gas_fee = tx.gas * tx.max_fee_per_gas
     else:
-        gas_fee = tx.gas * tx.gas_price
+        max_gas_fee = tx.gas * tx.gas_price
 
     ensure(sender_account.nonce == tx.nonce, InvalidBlock)
-    ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
+    ensure(sender_account.balance >= max_gas_fee + tx.value, InvalidBlock)
     ensure(sender_account.code == bytearray(), InvalidBlock)
 
     effective_gas_fee = tx.gas * env.gas_price

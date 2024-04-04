@@ -244,3 +244,12 @@ class _Visitor(ast.NodeVisitor):
                 f"AnnAssign node with target of type {type(assign.target)}"
                 " has been ignored."
             )
+
+    def visit_If(self, node: ast.If) -> None:
+        """
+        Visit an if statement.
+        """
+        for child in node.body:
+            self.visit(child)
+        for child in node.orelse:
+            self.visit(child)

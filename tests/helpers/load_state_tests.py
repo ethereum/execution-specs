@@ -168,7 +168,7 @@ def fetch_state_test_files(
         for test_path in only_in:
             files_to_iterate.append(os.path.join(test_dir, test_path))
     else:
-        # If there isnt a custom list, iterate over the test_dir
+        # If there isn't a custom list, iterate over the test_dir
         all_jsons = [
             y
             for x in os.walk(test_dir)
@@ -185,7 +185,7 @@ def fetch_state_test_files(
     for _test_file in files_to_iterate:
         try:
             for _test_case in load_json_fixture(_test_file, network):
-                # _identifier could identifiy files, folders through test_file
+                # _identifier could identify files, folders through test_file
                 #  individual cases through test_key
                 _identifier = (
                     "("

@@ -3,14 +3,11 @@ import pytest
 import ethereum.rlp as rlp
 from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes8, Bytes32, Uint
 from ethereum.crypto.hash import keccak256
-from ethereum.paris.fork_types import (
+from ethereum.paris.blocks import Block, Header, Log, Receipt
+from ethereum.paris.transactions import (
     AccessListTransaction,
-    Block,
     FeeMarketTransaction,
-    Header,
     LegacyTransaction,
-    Log,
-    Receipt,
     Transaction,
     decode_transaction,
     encode_transaction,

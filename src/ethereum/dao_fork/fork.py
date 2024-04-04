@@ -27,22 +27,10 @@ from ethereum.utils.ensure import ensure
 from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Bytes32, Uint
 from . import FORK_CRITERIA, vm
+from .blocks import Block, Header, Log, Receipt
 from .bloom import logs_bloom
 from .dao import apply_dao
-from .fork_types import (
-    TX_BASE_COST,
-    TX_CREATE_COST,
-    TX_DATA_COST_PER_NON_ZERO,
-    TX_DATA_COST_PER_ZERO,
-    Address,
-    Block,
-    Bloom,
-    Header,
-    Log,
-    Receipt,
-    Root,
-    Transaction,
-)
+from .fork_types import Address, Bloom, Root
 from .state import (
     State,
     create_ether,
@@ -51,6 +39,13 @@ from .state import (
     increment_nonce,
     set_account_balance,
     state_root,
+)
+from .transactions import (
+    TX_BASE_COST,
+    TX_CREATE_COST,
+    TX_DATA_COST_PER_NON_ZERO,
+    TX_DATA_COST_PER_ZERO,
+    Transaction,
 )
 from .trie import Trie, root, trie_set
 from .utils.message import prepare_message
@@ -82,7 +77,7 @@ def apply_fork(old: BlockChain) -> BlockChain:
     When forks need to implement an irregular state transition, this function
     is used to handle the irregularity.
 
-    The DAO-Fork occured as a result of the `2016 DAO Hacks
+    The DAO-Fork occurred as a result of the `2016 DAO Hacks
     <https://www.gemini.com/cryptopedia/the-dao-hack-makerdao>`_ in which an
     unknown entity managed to drain more than 3.6 million ether causing the
     price of ether to drop by nearly 35%. This fork was the solution to the
@@ -207,7 +202,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
     quantities in the header should match the logic for the block itself.
     For example the header timestamp should be greater than the block's parent
     timestamp because the block was created *after* the parent block.
-    Additionally, the block's number should be directly folowing the parent
+    Additionally, the block's number should be directly following the parent
     block's number since it is the next block in the sequence.
 
     Parameters
@@ -429,8 +424,8 @@ def apply_body(
 
     Returns
     -------
-    gas_available : `ethereum.base_types.Uint`
-        Remaining gas after all transactions have been executed.
+    block_gas_used : `ethereum.base_types.Uint`
+        Gas used for executing all transactions.
     transactions_root : `ethereum.fork_types.Root`
         Trie root of all the transactions in the block.
     receipt_root : `ethereum.fork_types.Root`
@@ -512,7 +507,7 @@ def validate_ommers(
     To be considered valid, the ommers must adhere to the rules defined in
     the Ethereum protocol. The maximum amount of ommers is 2 per block and
     there cannot be duplicate ommers in a block. Many of the other ommer
-    contraints are listed in the in-line comments of this function.
+    constraints are listed in the in-line comments of this function.
 
     Parameters
     ----------
@@ -646,7 +641,7 @@ def process_transaction(
     -------
     gas_left : `ethereum.base_types.U256`
         Remaining gas after execution.
-    logs : `Tuple[ethereum.fork_types.Log, ...]`
+    logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
     ensure(validate_transaction(tx), InvalidBlock)
