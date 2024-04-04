@@ -224,6 +224,7 @@ class T8N(Load):
 
         if self.fork.is_after_fork("ethereum.cancun"):
             kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
+            kw_arguments["transient_storage"] = self.fork.TransientStorage()
 
         return self.fork.Environment(**kw_arguments)
 
@@ -356,6 +357,7 @@ class T8N(Load):
                 traces=[],
                 excess_blob_gas=self.env.excess_blob_gas,
                 blob_versioned_hashes=(),
+                transient_storage=self.fork.TransientStorage(),
             )
 
             system_tx_output = self.fork.process_message_call(

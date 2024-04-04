@@ -71,7 +71,7 @@ def close_state(state: State) -> None:
 
 
 def begin_transaction(
-    state: State, transient_storage: Optional[TransientStorage] = None
+    state: State, transient_storage: TransientStorage
 ) -> None:
     """
     Start a state transaction.
@@ -92,14 +92,13 @@ def begin_transaction(
             {k: copy_trie(t) for (k, t) in state._storage_tries.items()},
         )
     )
-    if transient_storage is not None:
-        transient_storage._snapshots.append(
-            {k: copy_trie(t) for (k, t) in transient_storage._tries.items()}
-        )
+    transient_storage._snapshots.append(
+        {k: copy_trie(t) for (k, t) in transient_storage._tries.items()}
+    )
 
 
 def commit_transaction(
-    state: State, transient_storage: Optional[TransientStorage] = None
+    state: State, transient_storage: TransientStorage
 ) -> None:
     """
     Commit a state transaction.
@@ -115,12 +114,11 @@ def commit_transaction(
     if not state._snapshots:
         state.created_accounts.clear()
 
-    if transient_storage and transient_storage._snapshots:
-        transient_storage._snapshots.pop()
+    transient_storage._snapshots.pop()
 
 
 def rollback_transaction(
-    state: State, transient_storage: Optional[TransientStorage] = None
+    state: State, transient_storage: TransientStorage
 ) -> None:
     """
     Rollback a state transaction, resetting the state to the point when the
@@ -137,8 +135,7 @@ def rollback_transaction(
     if not state._snapshots:
         state.created_accounts.clear()
 
-    if transient_storage and transient_storage._snapshots:
-        transient_storage._tries = transient_storage._snapshots.pop()
+    transient_storage._tries = transient_storage._snapshots.pop()
 
 
 def get_account(state: State, address: Address) -> Account:
