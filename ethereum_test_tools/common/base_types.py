@@ -2,7 +2,14 @@
 Basic type primitives used to define other types.
 """
 
-from typing import ClassVar, SupportsBytes, Type, TypeVar
+from typing import Any, ClassVar, SupportsBytes, Type, TypeVar
+
+from pydantic import GetCoreSchemaHandler
+from pydantic_core.core_schema import (
+    PlainValidatorFunctionSchema,
+    no_info_plain_validator_function,
+    to_string_ser_schema,
+)
 
 from .conversions import (
     BytesConvertible,
@@ -12,12 +19,29 @@ from .conversions import (
     to_fixed_size_bytes,
     to_number,
 )
-from .json import JSONEncoder, SupportsJSON
 
 N = TypeVar("N", bound="Number")
 
 
-class Number(int, SupportsJSON):
+class ToStringSchema:
+    """
+    Type converter to add a simple pydantic schema that correctly parses and serializes the type.
+    """
+
+    @staticmethod
+    def __get_pydantic_core_schema__(
+        source_type: Any, handler: GetCoreSchemaHandler
+    ) -> PlainValidatorFunctionSchema:
+        """
+        Calls the class constructor without info and appends the serialization schema.
+        """
+        return no_info_plain_validator_function(
+            source_type,
+            serialization=to_string_ser_schema(),
+        )
+
+
+class Number(int, ToStringSchema):
     """
     Class that helps represent numbers in tests.
     """
@@ -33,12 +57,6 @@ class Number(int, SupportsJSON):
         Returns the string representation of the number.
         """
         return str(int(self))
-
-    def __json__(self, encoder: JSONEncoder) -> str:
-        """
-        Returns the JSON representation of the number.
-        """
-        return str(self)
 
     def hex(self) -> str:
         """
@@ -85,7 +103,10 @@ class ZeroPaddedHexNumber(HexNumber):
         return "0x" + hex_str
 
 
-class Bytes(bytes, SupportsJSON):
+NumberBoundTypeVar = TypeVar("NumberBoundTypeVar", Number, HexNumber, ZeroPaddedHexNumber)
+
+
+class Bytes(bytes, ToStringSchema):
     """
     Class that helps represent bytes of variable length in tests.
     """
@@ -108,12 +129,6 @@ class Bytes(bytes, SupportsJSON):
         """
         return self.hex()
 
-    def __json__(self, encoder: JSONEncoder) -> str:
-        """
-        Returns the JSON representation of the bytes.
-        """
-        return str(self)
-
     def hex(self, *args, **kwargs) -> str:
         """
         Returns the hexadecimal representation of the bytes.
@@ -128,6 +143,71 @@ class Bytes(bytes, SupportsJSON):
         if input is None:
             return input
         return cls(input)
+
+
+S = TypeVar("S", bound="FixedSizeHexNumber")
+
+
+class FixedSizeHexNumber(int, ToStringSchema):
+    """
+    A base class that helps represent an integer as a fixed byte-length
+    hexadecimal number.
+
+    This class is used to dynamically generate subclasses of a specific byte
+    length.
+    """
+
+    byte_length: ClassVar[int]
+    max_value: ClassVar[int]
+
+    def __class_getitem__(cls, length: int) -> Type["FixedSizeHexNumber"]:
+        """
+        Creates a new FixedSizeHexNumber class with the given length.
+        """
+
+        class Sized(cls):  # type: ignore
+            byte_length = length
+            max_value = 2 ** (8 * length) - 1
+
+        return Sized
+
+    def __new__(cls, input: NumberConvertible | N):
+        """
+        Creates a new Number object.
+        """
+        i = to_number(input)
+        if i > cls.max_value:
+            raise ValueError(f"Value {i} is too large for {cls.byte_length} bytes")
+        if i < 0:
+            i += cls.max_value + 1
+            if i <= 0:
+                raise ValueError(f"Value {i} is too small for {cls.byte_length} bytes")
+        return super(FixedSizeHexNumber, cls).__new__(cls, i)
+
+    def __str__(self) -> str:
+        """
+        Returns the string representation of the number.
+        """
+        return self.hex()
+
+    def hex(self) -> str:
+        """
+        Returns the hexadecimal representation of the number.
+        """
+        if self == 0:
+            return "0x00"
+        hex_str = hex(self)[2:]
+        if len(hex_str) % 2 == 1:
+            return "0x0" + hex_str
+        return "0x" + hex_str
+
+
+class HashInt(FixedSizeHexNumber[32]):  # type: ignore
+    """
+    Class that helps represent hashes in tests.
+    """
+
+    pass
 
 
 T = TypeVar("T", bound="FixedSizeBytes")

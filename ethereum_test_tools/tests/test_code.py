@@ -164,7 +164,7 @@ def expected_bytes(request: pytest.FixtureRequest, solc_version: Version, fork: 
     ],
     indirect=["yul_code", "expected_bytes"],
 )
-def test_yul(
+def test_yul(  # noqa: D103
     yul_code: SupportsBytes, expected_bytes: bytes, padding_before: str, padding_after: str
 ):
     assert bytes(yul_code) == expected_bytes
@@ -285,7 +285,7 @@ def test_yul(
         ),
     ],
 )
-def test_initcode(initcode: Initcode, bytecode: bytes):
+def test_initcode(initcode: Initcode, bytecode: bytes):  # noqa: D103
     assert bytes(initcode) == bytecode
 
 
@@ -647,10 +647,10 @@ def test_switch(tx_data: bytes, switch_bytecode: bytes, expected_storage: Mappin
         pre=pre,
         tx=tx,
         post=post,
-        fixture_format=FixtureFormats.BLOCKCHAIN_TEST,
     )
     state_test.generate(
         t8n=GethTransitionTool(),
         fork=Shanghai,
+        fixture_format=FixtureFormats.BLOCKCHAIN_TEST,
         eips=None,
     )

@@ -6,7 +6,7 @@ from typing import Tuple
 
 import pytest
 
-from ..common import AccessList, Transaction
+from ..common import AccessList, Address, Transaction
 
 
 @pytest.mark.parametrize(
@@ -258,6 +258,6 @@ def test_transaction_signing(
     assert signature is not None
 
     assert signature == expected_signature
-    assert type(tx.sender) == bytes
-    assert ("0x" + tx.sender.hex()) == expected_sender
-    assert ("0x" + tx.serialized_bytes().hex()) == expected_serialized
+    assert type(tx.sender) == Address
+    assert tx.sender.hex() == expected_sender
+    assert ("0x" + tx.rlp.hex()) == expected_serialized

@@ -2,85 +2,70 @@
 Ethereum state test spec definition and filler.
 """
 
-from copy import copy
-from dataclasses import dataclass
-from typing import Callable, Generator, List, Mapping, Optional, Type
+from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Type
 
 from ethereum_test_forks import Fork
 from evm_transition_tool import FixtureFormats, TransitionTool
 
-from ...common import Address, Alloc, Environment, Number, Transaction
+from ...common import Alloc, Environment, Transaction
 from ...common.constants import EngineAPIError
 from ...common.json import to_json
-from ..base.base_test import BaseFixture, BaseTest, verify_post_alloc
+from ...common.types import TransitionToolOutput
+from ..base.base_test import BaseFixture, BaseTest
 from ..blockchain.blockchain_test import Block, BlockchainTest
 from ..blockchain.types import Header
 from ..debugging import print_traces
-from .types import Fixture, FixtureForkPost
+from .types import Fixture, FixtureEnvironment, FixtureForkPost, FixtureTransaction
 
-BEACON_ROOTS_ADDRESS = Address(0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02)
 TARGET_BLOB_GAS_PER_BLOCK = 393216
 
 
-@dataclass(kw_only=True)
 class StateTest(BaseTest):
     """
     Filler type that tests transactions over the period of a single block.
     """
 
     env: Environment
-    pre: Mapping
-    post: Mapping
+    pre: Alloc
+    post: Alloc
     tx: Transaction
     engine_api_error_code: Optional[EngineAPIError] = None
     blockchain_test_header_verify: Optional[Header] = None
     blockchain_test_rlp_modifier: Optional[Header] = None
-    tag: str = ""
     chain_id: int = 1
 
-    @classmethod
-    def pytest_parameter_name(cls) -> str:
-        """
-        Returns the parameter name used to identify this filler in a test.
-        """
-        return "state_test"
-
-    @classmethod
-    def fixture_formats(cls) -> List[FixtureFormats]:
-        """
-        Returns a list of fixture formats that can be output to the test spec.
-        """
-        return [
-            FixtureFormats.BLOCKCHAIN_TEST,
-            FixtureFormats.BLOCKCHAIN_TEST_HIVE,
-            FixtureFormats.STATE_TEST,
-        ]
+    supported_fixture_formats: ClassVar[List[FixtureFormats]] = [
+        FixtureFormats.BLOCKCHAIN_TEST,
+        FixtureFormats.BLOCKCHAIN_TEST_HIVE,
+        FixtureFormats.STATE_TEST,
+    ]
 
     def _generate_blockchain_genesis_environment(self) -> Environment:
         """
         Generate the genesis environment for the BlockchainTest formatted test.
         """
-        genesis_env = copy(self.env)
+        assert (
+            self.env.number >= 1
+        ), "genesis block number cannot be negative, set state test env.number to 1"
 
         # Modify values to the proper values for the genesis block
         # TODO: All of this can be moved to a new method in `Fork`
-        genesis_env.withdrawals = None
-        genesis_env.beacon_root = None
-        genesis_env.number = Number(genesis_env.number) - 1
-        assert (
-            genesis_env.number >= 0
-        ), "genesis block number cannot be negative, set state test env.number to 1"
-        if genesis_env.excess_blob_gas:
+        updated_values: Dict[str, Any] = {
+            "withdrawals": None,
+            "parent_beacon_block_root": None,
+            "number": self.env.number - 1,
+        }
+        if self.env.excess_blob_gas:
             # The excess blob gas environment value means the value of the context (block header)
             # where the transaction is executed. In a blockchain test, we need to indirectly
             # set the excess blob gas by setting the excess blob gas of the genesis block
             # to the expected value plus the TARGET_BLOB_GAS_PER_BLOCK, which is the value
             # that will be subtracted from the excess blob gas when the first block is mined.
-            genesis_env.excess_blob_gas = (
-                Number(genesis_env.excess_blob_gas) + TARGET_BLOB_GAS_PER_BLOCK
+            updated_values["excess_blob_gas"] = (
+                self.env.excess_blob_gas + TARGET_BLOB_GAS_PER_BLOCK
             )
 
-        return genesis_env
+        return self.env.copy(**updated_values)
 
     def _generate_blockchain_blocks(self) -> List[Block]:
         """
@@ -90,12 +75,12 @@ class StateTest(BaseTest):
             Block(
                 number=self.env.number,
                 timestamp=self.env.timestamp,
-                coinbase=self.env.coinbase,
+                fee_recipient=self.env.fee_recipient,
                 difficulty=self.env.difficulty,
                 gas_limit=self.env.gas_limit,
                 extra_data=self.env.extra_data,
                 withdrawals=self.env.withdrawals,
-                beacon_root=self.env.beacon_root,
+                parent_beacon_block_root=self.env.parent_beacon_block_root,
                 txs=[self.tx],
                 ommers=[],
                 exception=self.tx.error,
@@ -113,7 +98,6 @@ class StateTest(BaseTest):
             pre=self.pre,
             post=self.post,
             blocks=self._generate_blockchain_blocks(),
-            fixture_format=self.fixture_format,
             t8n_dump_dir=self.t8n_dump_dir,
         )
 
@@ -126,72 +110,80 @@ class StateTest(BaseTest):
         """
         Create a fixture from the state test definition.
         """
+        # We can't generate a state test fixture that names a transition fork,
+        # so we get the fork at the block number and timestamp of the state test
+        fork = fork.fork_at(self.env.number, self.env.timestamp)
+
         env = self.env.set_fork_requirements(fork)
         tx = self.tx.with_signature_and_sender(keep_secret_key=True)
         pre_alloc = Alloc.merge(
-            Alloc(fork.pre_allocation()),
-            Alloc(self.pre),
+            Alloc.model_validate(fork.pre_allocation()),
+            self.pre,
         )
         if empty_accounts := pre_alloc.empty_accounts():
             raise Exception(f"Empty accounts in pre state: {empty_accounts}")
         transition_tool_name = fork.transition_tool_name(
-            block_number=Number(self.env.number),
-            timestamp=Number(self.env.timestamp),
+            block_number=self.env.number,
+            timestamp=self.env.timestamp,
         )
         fork_name = (
             "+".join([transition_tool_name] + [str(eip) for eip in eips])
             if eips
             else transition_tool_name
         )
-        next_alloc, result = t8n.evaluate(
-            alloc=to_json(pre_alloc),
-            txs=to_json([tx]),
-            env=to_json(env),
-            fork_name=fork_name,
-            chain_id=self.chain_id,
-            reward=0,  # Reward on state tests is always zero
-            eips=eips,
-            debug_output_path=self.get_next_transition_tool_output_path(),
+        transition_tool_output = TransitionToolOutput(
+            **t8n.evaluate(
+                alloc=to_json(pre_alloc),
+                txs=[to_json(tx)],
+                env=to_json(env),
+                fork_name=fork_name,
+                chain_id=self.chain_id,
+                reward=0,  # Reward on state tests is always zero
+                eips=eips,
+                debug_output_path=self.get_next_transition_tool_output_path(),
+            )
         )
 
         try:
-            verify_post_alloc(self.post, next_alloc)
+            self.post.verify_post_alloc(transition_tool_output.alloc)
         except Exception as e:
             print_traces(t8n.get_traces())
             raise e
 
         return Fixture(
-            env=env,
-            pre_state=pre_alloc,
+            env=FixtureEnvironment(**env.model_dump(exclude_none=True)),
+            pre=pre_alloc,
             post={
                 fork.blockchain_test_network_name(): [
-                    FixtureForkPost.collect(
-                        transition_tool_result=result,
-                        transaction=tx.with_signature_and_sender(),
+                    FixtureForkPost(
+                        state_root=transition_tool_output.result.state_root,
+                        logs_hash=transition_tool_output.result.logs_hash,
+                        tx_bytes=tx.rlp,
+                        expect_exception=tx.error,
                     )
                 ]
             },
-            transaction=tx,
+            transaction=FixtureTransaction.from_transaction(tx),
         )
 
     def generate(
         self,
         t8n: TransitionTool,
         fork: Fork,
+        fixture_format: FixtureFormats,
         eips: Optional[List[int]] = None,
     ) -> BaseFixture:
         """
         Generate the BlockchainTest fixture.
         """
-        if self.fixture_format in BlockchainTest.fixture_formats():
-            return self.generate_blockchain_test().generate(t8n, fork, eips)
-        elif self.fixture_format == FixtureFormats.STATE_TEST:
-            # We can't generate a state test fixture that names a transition fork,
-            # so we get the fork at the block number and timestamp of the state test
-            fork = fork.fork_at(Number(self.env.number), Number(self.env.timestamp))
+        if fixture_format in BlockchainTest.supported_fixture_formats:
+            return self.generate_blockchain_test().generate(
+                t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
+            )
+        elif fixture_format == FixtureFormats.STATE_TEST:
             return self.make_state_test_fixture(t8n, fork, eips)
 
-        raise Exception(f"Unknown fixture format: {self.fixture_format}")
+        raise Exception(f"Unknown fixture format: {fixture_format}")
 
 
 class StateTestOnly(StateTest):
@@ -199,19 +191,7 @@ class StateTestOnly(StateTest):
     StateTest filler that only generates a state test fixture.
     """
 
-    @classmethod
-    def pytest_parameter_name(cls) -> str:
-        """
-        Returns the parameter name used to identify this filler in a test.
-        """
-        return "state_test_only"
-
-    @classmethod
-    def fixture_formats(cls) -> List[FixtureFormats]:
-        """
-        Returns a list of fixture formats that can be output to the test spec.
-        """
-        return [FixtureFormats.STATE_TEST]
+    supported_fixture_formats: ClassVar[List[FixtureFormats]] = [FixtureFormats.STATE_TEST]
 
 
 StateTestSpec = Callable[[str], Generator[StateTest, None, None]]

@@ -434,12 +434,12 @@ def base_test_parametrizer(cls: Type[BaseTest]):
 
         class BaseTestWrapper(cls):
             def __init__(self, *args, **kwargs):
-                kwargs["fixture_format"] = fixture_format
                 kwargs["t8n_dump_dir"] = dump_dir_parameter_level
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
                 fixture = self.generate(
-                    t8n,
-                    fork,
+                    t8n=t8n,
+                    fork=fork,
+                    fixture_format=fixture_format,
                     eips=eips,
                 )
                 fixture.fill_info(t8n, reference_spec)
@@ -475,7 +475,7 @@ def pytest_generate_tests(metafunc):
                         id=fixture_format.name.lower(),
                         marks=[getattr(pytest.mark, fixture_format.name.lower())],
                     )
-                    for fixture_format in test_type.fixture_formats()
+                    for fixture_format in test_type.supported_fixture_formats
                 ],
                 scope="function",
                 indirect=True,

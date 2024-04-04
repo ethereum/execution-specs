@@ -1,6 +1,7 @@
 """
 Common definitions and types.
 """
+
 from .base_types import (
     Address,
     Bloom,
@@ -14,6 +15,7 @@ from .base_types import (
 from .constants import (
     AddrAA,
     AddrBB,
+    EmptyOmmersRoot,
     EmptyTrieRoot,
     EngineAPIError,
     TestAddress,
@@ -36,18 +38,11 @@ from .types import (
     AccessList,
     Account,
     Alloc,
-    Auto,
     Environment,
-    JSONEncoder,
     Removable,
     Storage,
     Transaction,
     Withdrawal,
-    alloc_to_accounts,
-    serialize_transactions,
-    str_or_none,
-    transaction_list_root,
-    withdrawals_root,
 )
 
 __all__ = (
@@ -57,16 +52,15 @@ __all__ = (
     "AddrAA",
     "AddrBB",
     "Alloc",
-    "Auto",
     "Bloom",
     "Bytes",
     "EngineAPIError",
+    "EmptyOmmersRoot",
     "EmptyTrieRoot",
     "Environment",
     "Hash",
     "HeaderNonce",
     "HexNumber",
-    "JSONEncoder",
     "Number",
     "Removable",
     "Storage",
@@ -79,16 +73,11 @@ __all__ = (
     "Withdrawal",
     "ZeroPaddedHexNumber",
     "add_kzg_version",
-    "alloc_to_accounts",
     "ceiling_division",
     "compute_create_address",
     "compute_create2_address",
     "copy_opcode_cost",
     "cost_memory_bytes",
     "eip_2028_transaction_data_cost",
-    "serialize_transactions",
-    "str_or_none",
     "to_json",
-    "transaction_list_root",
-    "withdrawals_root",
 )

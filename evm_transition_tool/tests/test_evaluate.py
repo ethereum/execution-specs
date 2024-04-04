@@ -116,7 +116,7 @@ def test_evm_t8n(t8n: TransitionTool, test_dir: str) -> None:  # noqa: D103
         env_json = json.load(env)
         expected = json.load(exp)
 
-        result_alloc, result = t8n.evaluate(
+        t8n_output = t8n.evaluate(
             alloc=alloc,
             txs=txs,
             env=env_json,
@@ -125,6 +125,7 @@ def test_evm_t8n(t8n: TransitionTool, test_dir: str) -> None:  # noqa: D103
                 timestamp=int(env_json["currentTimestamp"], 0),
             ),
         )
+        result_alloc, result = t8n_output["alloc"], t8n_output["result"]
         print(result)
         print(expected.get("result"))
         assert result_alloc == expected.get("alloc")

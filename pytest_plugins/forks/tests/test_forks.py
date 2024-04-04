@@ -40,10 +40,10 @@ def test_no_options_no_validity_marker(pytester):
     result = pytester.runpytest("-v")
     all_forks = get_deployed_forks()
     forks_under_test = forks_from_until(all_forks[0], all_forks[-1])
-    expected_passed = len(forks_under_test) * len(StateTest.fixture_formats())
+    expected_passed = len(forks_under_test) * len(StateTest.supported_fixture_formats)
     stdout = "\n".join(result.stdout.lines)
     for fork in forks_under_test:
-        for fixture_format in StateTest.fixture_formats():
+        for fixture_format in StateTest.supported_fixture_formats:
             if fixture_format.name.endswith("HIVE") and fork < Paris:
                 expected_passed -= 1
                 assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" not in stdout
@@ -78,10 +78,10 @@ def test_from_london_option_no_validity_marker(pytester, fork_map, fork):
     result = pytester.runpytest("-v", "--from", fork)
     all_forks = get_deployed_forks()
     forks_under_test = forks_from_until(fork_map[fork], all_forks[-1])
-    expected_passed = len(forks_under_test) * len(StateTest.fixture_formats())
+    expected_passed = len(forks_under_test) * len(StateTest.supported_fixture_formats)
     stdout = "\n".join(result.stdout.lines)
     for fork in forks_under_test:
-        for fixture_format in StateTest.fixture_formats():
+        for fixture_format in StateTest.supported_fixture_formats:
             if fixture_format.name.endswith("HIVE") and fork < Paris:
                 expected_passed -= 1
                 assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" not in stdout
@@ -113,13 +113,13 @@ def test_from_london_until_shanghai_option_no_validity_marker(pytester, fork_map
     pytester.copy_example(name="pytest.ini")
     result = pytester.runpytest("-v", "--from", "London", "--until", "Shanghai")
     forks_under_test = forks_from_until(fork_map["London"], fork_map["Shanghai"])
-    expected_passed = len(forks_under_test) * len(StateTest.fixture_formats())
+    expected_passed = len(forks_under_test) * len(StateTest.supported_fixture_formats)
     stdout = "\n".join(result.stdout.lines)
     if ArrowGlacier in forks_under_test:
         forks_under_test.remove(ArrowGlacier)
-        expected_passed -= len(StateTest.fixture_formats())
+        expected_passed -= len(StateTest.supported_fixture_formats)
     for fork in forks_under_test:
-        for fixture_format in StateTest.fixture_formats():
+        for fixture_format in StateTest.supported_fixture_formats:
             if fixture_format.name.endswith("HIVE") and fork < Paris:
                 expected_passed -= 1
                 assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" not in stdout
@@ -151,10 +151,10 @@ def test_from_merge_until_merge_option_no_validity_marker(pytester, fork_map):
     pytester.copy_example(name="pytest.ini")
     result = pytester.runpytest("-v", "--from", "Merge", "--until", "Merge")
     forks_under_test = forks_from_until(fork_map["Paris"], fork_map["Paris"])
-    expected_passed = len(forks_under_test) * len(StateTest.fixture_formats())
+    expected_passed = len(forks_under_test) * len(StateTest.supported_fixture_formats)
     stdout = "\n".join(result.stdout.lines)
     for fork in forks_under_test:
-        for fixture_format in StateTest.fixture_formats():
+        for fixture_format in StateTest.supported_fixture_formats:
             assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" in stdout
     result.assert_outcomes(
         passed=expected_passed,

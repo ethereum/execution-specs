@@ -18,11 +18,10 @@ from .common import (
     AccessList,
     Account,
     Address,
-    Auto,
+    Alloc,
     EngineAPIError,
     Environment,
     Hash,
-    JSONEncoder,
     Removable,
     Storage,
     TestAddress,
@@ -39,9 +38,8 @@ from .common import (
     copy_opcode_cost,
     cost_memory_bytes,
     eip_2028_transaction_data_cost,
-    transaction_list_root,
 )
-from .exceptions import BlockException, ExceptionList, ExceptionType, TransactionException
+from .exceptions import BlockException, TransactionException
 from .reference_spec import ReferenceSpec, ReferenceSpecTypes
 from .spec import (
     SPEC_TYPES,
@@ -62,7 +60,7 @@ __all__ = (
     "AccessList",
     "Account",
     "Address",
-    "Auto",
+    "Alloc",
     "BaseFixture",
     "BaseTest",
     "Block",
@@ -76,13 +74,10 @@ __all__ = (
     "Conditional",
     "EngineAPIError",
     "Environment",
-    "ExceptionList",
-    "ExceptionType",
     "FixtureCollector",
     "Hash",
     "Header",
     "Initcode",
-    "JSONEncoder",
     "Opcode",
     "Macro",
     "OpcodeCallArg",
@@ -113,5 +108,4 @@ __all__ = (
     "cost_memory_bytes",
     "eip_2028_transaction_data_cost",
     "eip_2028_transaction_data_cost",
-    "transaction_list_root",
 )

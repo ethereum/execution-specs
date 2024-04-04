@@ -8,7 +8,7 @@ import subprocess
 import textwrap
 from pathlib import Path
 from re import compile
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -88,7 +88,7 @@ class BesuTransitionTool(TransitionTool):
         reward: int = 0,
         eips: Optional[List[int]] = None,
         debug_output_path: str = "",
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """
         Executes `evm t8n` with the specified arguments.
         """
@@ -175,7 +175,7 @@ class BesuTransitionTool(TransitionTool):
                 },
             )
 
-        return output["alloc"], output["result"]
+        return output
 
     def is_fork_supported(self, fork: Fork) -> bool:
         """

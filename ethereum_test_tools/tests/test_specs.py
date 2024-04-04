@@ -2,16 +2,31 @@
 Test suite for test spec submodules of the `ethereum_test` module.
 """
 
-from typing import Any, Mapping
+from typing import Type
 
 import pytest
 
-from ..common import Account
-from ..spec import verify_post_alloc
+from ..common import Account, Alloc
+
+
+@pytest.fixture()
+def post(request: pytest.FixtureRequest) -> Alloc:
+    """
+    The post state: Set from the test's indirectly parametrized `post` parameter.
+    """
+    return Alloc.model_validate(request.param)
+
+
+@pytest.fixture()
+def alloc(request: pytest.FixtureRequest) -> Alloc:
+    """
+    The alloc state: Set from the test's indirectly parametrized `alloc` parameter.
+    """
+    return Alloc.model_validate(request.param)
 
 
 @pytest.mark.parametrize(
-    ["post", "alloc", "should_pass"],
+    ["post", "alloc", "expected_exception_type"],
     [
         # Account should not exist but contained in alloc
         (
@@ -24,25 +39,25 @@ from ..spec import verify_post_alloc
                     "storage": {0: 1},
                 }
             },
-            False,
+            Alloc.UnexpectedAccount,
         ),
         # Account should not exist but contained in alloc
         (
             {"0x00": Account.NONEXISTENT},
             {"0x0": {"nonce": "1"}},
-            False,
+            Alloc.UnexpectedAccount,
         ),
         # Account should not exist but contained in alloc
         (
             {"0x1": Account.NONEXISTENT},
             {"0x01": {"balance": "1"}},
-            False,
+            Alloc.UnexpectedAccount,
         ),
         # Account should not exist but contained in alloc
         (
             {"0x0a": Account.NONEXISTENT},
             {"0x0A": {"code": "0x00"}},
-            False,
+            Alloc.UnexpectedAccount,
         ),
         # Account should exist but not in alloc
         (
@@ -55,7 +70,7 @@ from ..spec import verify_post_alloc
                     "storage": {0: 1},
                 }
             },
-            False,
+            Alloc.MissingAccount,
         ),
         # Account should exist and contained in alloc, but don't care about
         # values
@@ -69,7 +84,7 @@ from ..spec import verify_post_alloc
                     "storage": {0: 1},
                 }
             },
-            True,
+            None,
         ),
         # Account should exist and contained in alloc, single incorrect value
         (
@@ -82,15 +97,19 @@ from ..spec import verify_post_alloc
                     "storage": {0: 1},
                 }
             },
-            False,
+            Account.NonceMismatch,
         ),
     ],
+    indirect=["post", "alloc"],
 )
 def test_verify_post_alloc(
-    post: Mapping[str, Account], alloc: Mapping[str, Any], should_pass: bool
+    post: Alloc, alloc: Alloc, expected_exception_type: Type[Exception] | None
 ):
-    if should_pass:
-        verify_post_alloc(post, alloc)
+    """
+    Test `verify_post_alloc` method of `ethereum_test_tools.spec.common.post`.
+    """
+    if expected_exception_type is None:
+        post.verify_post_alloc(alloc)
     else:
-        with pytest.raises(Exception) as _:
-            verify_post_alloc(post, alloc)
+        with pytest.raises(expected_exception_type) as _:
+            post.verify_post_alloc(alloc)

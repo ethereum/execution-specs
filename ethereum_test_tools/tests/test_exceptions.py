@@ -2,56 +2,99 @@
 Test suite for ethereum_test_tools.exceptions
 """
 
-from ..exceptions import BlockException, TransactionException
+import pytest
+from pydantic import TypeAdapter
+
+from ..exceptions import (
+    BlockException,
+    BlockExceptionList,
+    ExceptionList,
+    TransactionException,
+    TransactionExceptionList,
+)
+
+GenericExceptionListAdapter = TypeAdapter(ExceptionList)
+TransactionExceptionListAdapter = TypeAdapter(TransactionExceptionList)
+BlockExceptionListAdapter = TypeAdapter(BlockExceptionList)
 
 
-def test_exceptions_string_conversion():
+@pytest.mark.parametrize(
+    "exception, expected",
+    [
+        (
+            TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+            "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS",
+        ),
+        (
+            TransactionException.INITCODE_SIZE_EXCEEDED,
+            "TransactionException.INITCODE_SIZE_EXCEEDED",
+        ),
+        (BlockException.INCORRECT_BLOB_GAS_USED, "BlockException.INCORRECT_BLOB_GAS_USED"),
+        (BlockException.INCORRECT_BLOCK_FORMAT, "BlockException.INCORRECT_BLOCK_FORMAT"),
+    ],
+)
+def test_exceptions_string_conversion(
+    exception: BlockException | TransactionException, expected: str
+):
     """
     Test that the exceptions are unique and have the correct string representation.
     """
-    assert (
-        str(TransactionException.INSUFFICIENT_ACCOUNT_FUNDS)
-        == "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
-    )
-    assert str(BlockException.INCORRECT_BLOB_GAS_USED) == "BlockException.INCORRECT_BLOB_GAS_USED"
+    assert str(exception) == expected
 
 
-def test_exceptions_or():
+@pytest.mark.parametrize(
+    "type_adapter,exception,expected",
+    [
+        (
+            GenericExceptionListAdapter,
+            [
+                BlockException.INCORRECT_BLOB_GAS_USED,
+                TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+            ],
+            "BlockException.INCORRECT_BLOB_GAS_USED|"
+            "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS",
+        ),
+        (
+            GenericExceptionListAdapter,
+            [
+                BlockException.INCORRECT_BLOB_GAS_USED,
+                TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+                TransactionException.INITCODE_SIZE_EXCEEDED,
+            ],
+            "BlockException.INCORRECT_BLOB_GAS_USED"
+            "|TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+            "|TransactionException.INITCODE_SIZE_EXCEEDED",
+        ),
+        (
+            GenericExceptionListAdapter,
+            [
+                TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+                BlockException.INCORRECT_BLOB_GAS_USED,
+            ],
+            "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+            "|BlockException.INCORRECT_BLOB_GAS_USED",
+        ),
+        (
+            TransactionExceptionListAdapter,
+            [
+                TransactionException.INSUFFICIENT_ACCOUNT_FUNDS,
+                TransactionException.INITCODE_SIZE_EXCEEDED,
+            ],
+            "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
+            "|TransactionException.INITCODE_SIZE_EXCEEDED",
+        ),
+        (
+            BlockExceptionListAdapter,
+            [
+                BlockException.INCORRECT_BLOB_GAS_USED,
+                BlockException.INCORRECT_BLOCK_FORMAT,
+            ],
+            "BlockException.INCORRECT_BLOB_GAS_USED|BlockException.INCORRECT_BLOCK_FORMAT",
+        ),
+    ],
+)
+def test_exceptions_or(type_adapter: TypeAdapter, exception, expected: str):
     """
     Test that the exceptions can be combined using the | operator.
     """
-    assert (
-        str(
-            BlockException.INCORRECT_BLOB_GAS_USED
-            | TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
-        )
-        == "BlockException.INCORRECT_BLOB_GAS_USED|TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
-    )
-
-    assert (
-        str(
-            BlockException.INCORRECT_BLOB_GAS_USED
-            | TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
-            | TransactionException.INITCODE_SIZE_EXCEEDED
-        )
-        == "BlockException.INCORRECT_BLOB_GAS_USED"
-        "|TransactionException.INSUFFICIENT_ACCOUNT_FUNDS"
-        "|TransactionException.INITCODE_SIZE_EXCEEDED"
-    )
-
-    assert (
-        str(
-            TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
-            | BlockException.INCORRECT_BLOB_GAS_USED
-        )
-        == "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS|BlockException.INCORRECT_BLOB_GAS_USED"
-    )
-
-    assert (
-        str(
-            TransactionException.INSUFFICIENT_ACCOUNT_FUNDS
-            | BlockException.INCORRECT_BLOB_GAS_USED
-            | BlockException.INCORRECT_BLOB_GAS_USED
-        )
-        == "TransactionException.INSUFFICIENT_ACCOUNT_FUNDS|BlockException.INCORRECT_BLOB_GAS_USED"
-    )
+    assert type_adapter.dump_python(type_adapter.validate_python(exception)) == expected

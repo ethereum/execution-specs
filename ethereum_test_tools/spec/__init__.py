@@ -1,9 +1,10 @@
 """
 Test spec definitions and utilities.
 """
+
 from typing import List, Type
 
-from .base.base_test import BaseFixture, BaseTest, TestSpec, verify_post_alloc
+from .base.base_test import BaseFixture, BaseTest, TestSpec
 from .blockchain.blockchain_test import BlockchainTest, BlockchainTestFiller, BlockchainTestSpec
 from .fixture_collector import FixtureCollector, TestInfo
 from .state.state_test import StateTest, StateTestFiller, StateTestOnly, StateTestSpec
@@ -24,5 +25,4 @@ __all__ = (
     "StateTestSpec",
     "TestInfo",
     "TestSpec",
-    "verify_post_alloc",
 )

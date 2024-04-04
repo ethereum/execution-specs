@@ -2,21 +2,21 @@
 Useful types for generating Ethereum tests.
 """
 
-from copy import copy, deepcopy
-from dataclasses import dataclass, fields
+from dataclasses import dataclass
+from functools import cached_property
 from itertools import count
 from typing import (
     Any,
     ClassVar,
     Dict,
+    Generic,
     Iterator,
     List,
-    Mapping,
-    Optional,
     Sequence,
     SupportsBytes,
     Type,
     TypeAlias,
+    TypeVar,
 )
 
 from coincurve.keys import PrivateKey, PublicKey
@@ -24,22 +24,37 @@ from ethereum import rlp as eth_rlp
 from ethereum.base_types import U256, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.frontier.fork_types import Account as FrontierAccount
+from ethereum.frontier.fork_types import Address as FrontierAddress
 from ethereum.frontier.state import State, set_account, set_storage, state_root
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    RootModel,
+    TypeAdapter,
+    computed_field,
+    model_serializer,
+    model_validator,
+)
+from pydantic.alias_generators import to_camel
 from trie import HexaryTrie
 
 from ethereum_test_forks import Fork
 
-from ..exceptions import ExceptionList, TransactionException
-from .base_types import Address, Bytes, Hash, HexNumber, Number, ZeroPaddedHexNumber
-from .constants import TestPrivateKey
-from .conversions import (
-    BytesConvertible,
-    FixedSizeBytesConvertible,
-    NumberConvertible,
-    int_or_none,
-    str_or_none,
+from ..exceptions import TransactionException
+from .base_types import (
+    Address,
+    Bloom,
+    Bytes,
+    Hash,
+    HashInt,
+    HexNumber,
+    Number,
+    NumberBoundTypeVar,
+    ZeroPaddedHexNumber,
 )
-from .json import JSONEncoder, SupportsJSON, field
+from .constants import TestPrivateKey
+from .conversions import BytesConvertible, FixedSizeBytesConvertible, NumberConvertible
 
 
 # Sentinel classes
@@ -52,27 +67,51 @@ class Removable:
     pass
 
 
-class Auto:
+# Base Models
+
+Model = TypeVar("Model", bound=BaseModel)
+
+
+class CopyValidateModel(BaseModel):
     """
-    Class to use as a sentinel value for parameters that should be
-    automatically calculated.
+    Base model for Ethereum tests.
     """
 
-    def __repr__(self) -> str:
-        """Print the correct test id."""
-        return "auto"
+    def copy(self: Model, **kwargs) -> Model:
+        """
+        Creates a copy of the model with the updated fields.
+        """
+        return self.__class__(**(self.model_dump() | kwargs))
 
 
-MAX_STORAGE_KEY_VALUE = 2**256 - 1
-MIN_STORAGE_KEY_VALUE = -(2**255)
+class CamelModel(CopyValidateModel):
+    """
+    A base model that converts field names to camel case when serializing.
+
+    For example, the field name `current_timestamp` in a Python model will be represented
+    as `currentTimestamp` when it is serialized to json.
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        validate_default=True,
+    )
 
 
-class Storage(SupportsJSON, dict):
+StorageKeyValueTypeConvertible = NumberConvertible
+StorageKeyValueType = HashInt
+StorageKeyValueTypeAdapter = TypeAdapter(StorageKeyValueType)
+
+
+class Storage(RootModel[Dict[StorageKeyValueType, StorageKeyValueType]]):
     """
     Definition of a storage in pre or post state of a test
     """
 
-    current_slot: Iterator[int]
+    root: Dict[StorageKeyValueType, StorageKeyValueType] = Field(default_factory=dict)
+
+    _current_slot: Iterator[int] = count(0)
 
     StorageDictType: ClassVar[TypeAlias] = Dict[
         str | int | bytes | SupportsBytes, str | int | bytes | SupportsBytes
@@ -113,39 +152,6 @@ class Storage(SupportsJSON, dict):
         def __str__(self):
             """Print exception string"""
             return f"invalid value for key/value: {self.key_or_value}"
-
-    @dataclass(kw_only=True)
-    class AmbiguousKeyValue(Exception):
-        """
-        Key is represented twice in the storage.
-        """
-
-        key_1: str | int
-        val_1: str | int
-        key_2: str | int
-        val_2: str | int
-
-        def __init__(
-            self,
-            key_1: str | int,
-            val_1: str | int,
-            key_2: str | int,
-            val_2: str | int,
-            *args,
-        ):
-            super().__init__(args)
-            self.key_1 = key_1
-            self.val_1 = val_1
-            self.key_2 = key_2
-            self.val_2 = val_2
-
-        def __str__(self):
-            """Print exception string"""
-            return f"""
-            Key is represented twice (due to negative numbers) with different
-            values in storage:
-            s[{self.key_1}] = {self.val_1} and s[{self.key_2}] = {self.val_2}
-            """
 
     @dataclass(kw_only=True)
     class MissingKey(Exception):
@@ -191,97 +197,70 @@ class Storage(SupportsJSON, dict):
                 + f" got {Storage.key_value_to_string(self.got)} (dec:{self.got})"
             )
 
-    @staticmethod
-    def parse_key_value(input: str | int | bytes | SupportsBytes) -> int:
-        """
-        Parses a key or value to a valid int key for storage.
-        """
-        if isinstance(input, str):
-            input = int(input, 0)
-        elif isinstance(input, int):
-            pass
-        elif isinstance(input, bytes) or isinstance(input, SupportsBytes):
-            input = int.from_bytes(bytes(input), "big")
-        else:
-            raise Storage.InvalidType(key_or_value=input)
-
-        if input > MAX_STORAGE_KEY_VALUE or input < MIN_STORAGE_KEY_VALUE:
-            raise Storage.InvalidValue(key_or_value=input)
-        return input
-
-    @staticmethod
-    def key_value_to_string(value: int) -> str:
-        """
-        Transforms a key or value into an hex string.
-        """
-        hex_str = value.to_bytes(32, "big", signed=(value < 0)).hex().lstrip("0")
-        if hex_str == "":
-            hex_str = "00"
-        if len(hex_str) % 2 != 0:
-            hex_str = "0" + hex_str
-        return "0x" + hex_str
-
-    def __init__(self, input: StorageDictType | "Storage" = {}, *, start_slot: int = 0):
-        """
-        Initializes the storage using a given mapping which can have
-        keys and values either as string or int.
-        Strings must be valid decimal or hexadecimal (starting with 0x)
-        numbers.
-        """
-        super().__init__(
-            (Storage.parse_key_value(k), Storage.parse_key_value(v)) for k, v in input.items()
-        )
-        self.current_slot = count(start_slot)
-
-    def __contains__(self, key: object) -> bool:
+    def __contains__(self, key: StorageKeyValueTypeConvertible | StorageKeyValueType) -> bool:
         """Checks for an item in the storage"""
-        assert (
-            isinstance(key, str)
-            or isinstance(key, int)
-            or isinstance(key, bytes)
-            or isinstance(key, SupportsBytes)
-        )
-        return super().__contains__(Storage.parse_key_value(key))
+        return StorageKeyValueTypeAdapter.validate_python(key) in self.root
 
-    def __getitem__(self, key: str | int | bytes | SupportsBytes) -> int:
+    def __getitem__(
+        self, key: StorageKeyValueTypeConvertible | StorageKeyValueType
+    ) -> StorageKeyValueType:
         """Returns an item from the storage"""
-        return super().__getitem__(Storage.parse_key_value(key))
+        return self.root[StorageKeyValueTypeAdapter.validate_python(key)]
 
     def __setitem__(
-        self, key: str | int | bytes | SupportsBytes, value: str | int | bytes | SupportsBytes
+        self,
+        key: StorageKeyValueTypeConvertible | StorageKeyValueType,
+        value: StorageKeyValueTypeConvertible | StorageKeyValueType,
     ):  # noqa: SC200
         """Sets an item in the storage"""
-        super().__setitem__(Storage.parse_key_value(key), Storage.parse_key_value(value))
+        self.root[
+            StorageKeyValueTypeAdapter.validate_python(key)
+        ] = StorageKeyValueTypeAdapter.validate_python(value)
 
-    def __delitem__(self, key: str | int | bytes | SupportsBytes):
+    def __delitem__(self, key: StorageKeyValueTypeConvertible | StorageKeyValueType):
         """Deletes an item from the storage"""
-        super().__delitem__(Storage.parse_key_value(key))
+        del self.root[StorageKeyValueTypeAdapter.validate_python(key)]
 
-    def store_next(self, value: str | int | bytes | SupportsBytes) -> int:
+    def __iter__(self):
+        """Returns an iterator over the storage"""
+        return iter(self.root)
+
+    def __eq__(self, other) -> bool:
+        """
+        Returns True if both storages are equal.
+        """
+        if not isinstance(other, Storage):
+            return False
+        return self.root == other.root
+
+    def __ne__(self, other) -> bool:
+        """
+        Returns True if both storages are not equal.
+        """
+        if not isinstance(other, Storage):
+            return False
+        return self.root != other.root
+
+    def __bool__(self) -> bool:
+        """Returns True if the storage is not empty"""
+        return any(v != 0 for _, v in self.root.items())
+
+    def keys(self) -> set[StorageKeyValueType]:
+        """Returns the keys of the storage"""
+        return set(self.root.keys())
+
+    def store_next(
+        self, value: StorageKeyValueTypeConvertible | StorageKeyValueType
+    ) -> StorageKeyValueType:
         """
         Stores a value in the storage and returns the key where the value is stored.
 
         Increments the key counter so the next time this function is called,
         the next key is used.
         """
-        self[slot := next(self.current_slot)] = value
+        slot = StorageKeyValueTypeAdapter.validate_python(next(self._current_slot))
+        self[slot] = StorageKeyValueTypeAdapter.validate_python(value)
         return slot
-
-    def __json__(self, encoder: JSONEncoder) -> Mapping[str, str]:
-        """
-        Converts the storage into a string dict with appropriate 32-byte
-        hex string formatting.
-        """
-        res: Dict[str, str] = {}
-        for key, value in self.items():
-            key_repr = Storage.key_value_to_string(key)
-            val_repr = Storage.key_value_to_string(value)
-            if key_repr in res and val_repr != res[key_repr]:
-                raise Storage.AmbiguousKeyValue(
-                    key_1=key_repr, val_1=res[key_repr], key_2=key, val_2=val_repr
-                )
-            res[key_repr] = val_repr
-        return res
 
     def contains(self, other: "Storage") -> bool:
         """
@@ -290,7 +269,7 @@ class Storage(SupportsJSON, dict):
         Used for comparison with test expected post state and alloc returned
         by the transition tool.
         """
-        for key in other:
+        for key in other.keys():
             if key not in self:
                 return False
             if self[key] != other[key]:
@@ -305,7 +284,7 @@ class Storage(SupportsJSON, dict):
         by the transition tool.
         Raises detailed exception when a difference is found.
         """
-        for key in other:
+        for key in other.keys():
             if key not in self:
                 # storage[key]==0 is equal to missing storage
                 if other[key] != 0:
@@ -315,11 +294,13 @@ class Storage(SupportsJSON, dict):
                     address=address, key=key, want=self[key], got=other[key]
                 )
 
-    def must_be_equal(self, address: Address, other: "Storage"):
+    def must_be_equal(self, address: Address, other: "Storage | None"):
         """
         Succeeds only if "self" is equal to "other" storage.
         """
         # Test keys contained in both storage objects
+        if other is None:
+            other = Storage({})
         for key in self.keys() & other.keys():
             if self[key] != other[key]:
                 raise Storage.KeyValueMismatch(
@@ -336,61 +317,31 @@ class Storage(SupportsJSON, dict):
                 raise Storage.KeyValueMismatch(address=address, key=key, want=0, got=other[key])
 
 
-@dataclass(kw_only=True)
-class Account:
+class Account(CopyValidateModel):
     """
     State associated with an address.
     """
 
-    nonce: Optional[NumberConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="nonce",
-            cast_type=ZeroPaddedHexNumber,
-            default_value=0,
-        ),
-    )
+    nonce: ZeroPaddedHexNumber = ZeroPaddedHexNumber(0)
     """
     The scalar value equal to a) the number of transactions sent by
     an Externally Owned Account, b) the amount of contracts created by a
     contract.
     """
-    balance: Optional[NumberConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="balance",
-            cast_type=ZeroPaddedHexNumber,
-            default_value=0,
-        ),
-    )
+    balance: ZeroPaddedHexNumber = ZeroPaddedHexNumber(0)
     """
     The amount of Wei (10<sup>-18</sup> Eth) the account has.
     """
-    code: Optional[BytesConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="code",
-            cast_type=Bytes,
-            default_value=bytes(),
-        ),
-    )
+    code: Bytes = Bytes(b"")
     """
     Bytecode contained by the account.
     """
-    storage: Optional[Storage | Storage.StorageDictType] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="storage",
-            cast_type=Storage,
-            to_json=True,
-            default_value={},
-        ),
-    )
+    storage: Storage = Field(default_factory=Storage)
     """
     Storage within a contract.
     """
 
-    NONEXISTENT: ClassVar[object] = object()
+    NONEXISTENT: ClassVar[None] = None
     """
     Sentinel object used to specify when an account should not exist in the
     state.
@@ -452,10 +403,10 @@ class Account:
         """
 
         address: Address
-        want: str | None
-        got: str | None
+        want: bytes | None
+        got: bytes | None
 
-        def __init__(self, address: Address, want: str | None, got: str | None, *args):
+        def __init__(self, address: Address, want: bytes | None, got: bytes | None, *args):
             super().__init__(args)
             self.address = address
             self.want = want
@@ -468,80 +419,50 @@ class Account:
                 + f"want {self.want}, got {self.got}"
             )
 
-    def check_alloc(self: "Account", address: Address, alloc: dict):
+    def check_alloc(self: "Account", address: Address, account: "Account"):
         """
         Checks the returned alloc against an expected account in post state.
         Raises exception on failure.
         """
-        if self.nonce is not None:
-            actual_nonce = int_or_none(alloc.get("nonce"), 0)
-            nonce = int(Number(self.nonce))
-            if nonce != actual_nonce:
+        if "nonce" in self.model_fields_set:
+            if self.nonce != account.nonce:
                 raise Account.NonceMismatch(
                     address=address,
-                    want=nonce,
-                    got=actual_nonce,
+                    want=self.nonce,
+                    got=account.nonce,
                 )
 
-        if self.balance is not None:
-            actual_balance = int_or_none(alloc.get("balance"), 0)
-            balance = int(Number(self.balance))
-            if balance != actual_balance:
+        if "balance" in self.model_fields_set:
+            if self.balance != account.balance:
                 raise Account.BalanceMismatch(
                     address=address,
-                    want=balance,
-                    got=actual_balance,
+                    want=self.balance,
+                    got=account.balance,
                 )
 
-        if self.code is not None:
-            expected_code = Bytes(self.code).hex()
-            actual_code = str_or_none(alloc.get("code"), "0x")
-            if expected_code != actual_code:
+        if "code" in self.model_fields_set:
+            if self.code != account.code:
                 raise Account.CodeMismatch(
                     address=address,
-                    want=expected_code,
-                    got=actual_code,
+                    want=self.code,
+                    got=account.code,
                 )
 
-        if self.storage is not None:
-            expected_storage = (
-                self.storage if isinstance(self.storage, Storage) else Storage(self.storage)
-            )
-            actual_storage = Storage(alloc["storage"]) if "storage" in alloc else Storage({})
-            expected_storage.must_be_equal(address=address, other=actual_storage)
+        if "storage" in self.model_fields_set:
+            self.storage.must_be_equal(address=address, other=account.storage)
 
-    def has_empty_code(self: "Account") -> bool:
+    def __bool__(self: "Account") -> bool:
         """
-        Returns true if an account has no bytecode.
+        Returns True on a non-empty account.
         """
-        return not self.code or Bytes(self.code) == b""
-
-    def is_empty(self: "Account") -> bool:
-        """
-        Returns true if an account deemed empty.
-        """
-        return (
-            (self.nonce == 0 or self.nonce is None)
-            and (self.balance == 0 or self.balance is None)
-            and self.has_empty_code()
-            and (not self.storage or self.storage == {} or self.storage is None)
-        )
-
-    @classmethod
-    def from_dict(cls: Type, data: "Dict | Account") -> "Account":
-        """
-        Create account from dictionary.
-        """
-        if isinstance(data, cls):
-            return data
-        return cls(**data)
+        return any((self.nonce, self.balance, self.code, self.storage))
 
     @classmethod
     def with_code(cls: Type, code: BytesConvertible) -> "Account":
         """
         Create account with provided `code` and nonce of `1`.
         """
-        return Account(nonce=1, code=code)
+        return Account(nonce=HexNumber(1), code=Bytes(code))
 
     @classmethod
     def merge(
@@ -557,9 +478,7 @@ class Account:
             if isinstance(account, dict):
                 return account
             elif isinstance(account, cls):
-                return {
-                    f.name: v for f in fields(cls) if (v := getattr(account, f.name)) is not None
-                }
+                return account.model_dump(exclude_unset=True)
             raise TypeError(f"Unexpected type for account merge: {type(account)}")
 
         kwargs = to_kwargs_dict(account_1)
@@ -568,121 +487,164 @@ class Account:
         return cls(**kwargs)
 
 
-class Alloc(dict, Mapping[Address, Account], SupportsJSON):
+class Alloc(RootModel[Dict[Address, Account | None]]):
     """
     Allocation of accounts in the state, pre and post test execution.
     """
 
-    def __init__(self, d: Mapping[FixedSizeBytesConvertible, Account | Dict] = {}):
-        super().__init__(
-            (Address(address), Account.from_dict(account)) for address, account in d.items()
-        )
-        if len(self) != len(d):
-            raise Exception("Duplicate addresses in alloc")
+    root: Dict[Address, Account | None] = Field(default_factory=dict, validate_default=True)
+
+    @dataclass(kw_only=True)
+    class UnexpectedAccount(Exception):
+        """
+        Unexpected account found in the allocation.
+        """
+
+        address: Address
+        account: Account | None
+
+        def __init__(self, address: Address, account: Account | None, *args):
+            super().__init__(args)
+            self.address = address
+            self.account = account
+
+        def __str__(self):
+            """Print exception string"""
+            return f"unexpected account in allocation {self.address}: {self.account}"
+
+    @dataclass(kw_only=True)
+    class MissingAccount(Exception):
+        """
+        Expected account not found in the allocation.
+        """
+
+        address: Address
+
+        def __init__(self, address: Address, *args):
+            super().__init__(args)
+            self.address = address
+
+        def __str__(self):
+            """Print exception string"""
+            return f"Account missing from allocation {self.address}"
 
     @classmethod
     def merge(cls, alloc_1: "Alloc", alloc_2: "Alloc") -> "Alloc":
         """
         Returns the merged allocation of two sources.
         """
-        merged = alloc_1.copy()
+        merged = alloc_1.model_dump()
 
-        for address, other_account in alloc_2.items():
+        for address, other_account in alloc_2.root.items():
             merged_account = Account.merge(merged.get(address, None), other_account)
-            if merged_account.is_empty():
-                if address in merged:
-                    merged.pop(address, None)
-            else:
+            if merged_account:
                 merged[address] = merged_account
+            elif address in merged:
+                merged.pop(address, None)
 
         return Alloc(merged)
+
+    def __iter__(self):
+        """
+        Returns an iterator over the allocation.
+        """
+        return iter(self.root)
+
+    def __getitem__(self, address: Address | FixedSizeBytesConvertible) -> Account | None:
+        """
+        Returns the account associated with an address.
+        """
+        if not isinstance(address, Address):
+            address = Address(address)
+        return self.root[address]
+
+    def __setitem__(self, address: Address | FixedSizeBytesConvertible, account: Account | None):
+        """
+        Sets the account associated with an address.
+        """
+        if not isinstance(address, Address):
+            address = Address(address)
+        self.root[address] = account
+
+    def __delitem__(self, address: Address | FixedSizeBytesConvertible):
+        """
+        Deletes the account associated with an address.
+        """
+        if not isinstance(address, Address):
+            address = Address(address)
+        self.root.pop(address, None)
+
+    def __contains__(self, address: Address | FixedSizeBytesConvertible) -> bool:
+        """
+        Checks if an account is in the allocation.
+        """
+        if not isinstance(address, Address):
+            address = Address(address)
+        return address in self.root
 
     def empty_accounts(self) -> List[Address]:
         """
         Returns a list of addresses of empty accounts.
         """
-        return [address for address, account in self.items() if account.is_empty()]
-
-    def __json__(self, encoder: JSONEncoder) -> Mapping[str, Any]:
-        """
-        Returns the JSON representation of the allocation.
-        """
-        return encoder.default(
-            {Address(address): Account.from_dict(account) for address, account in self.items()}
-        )
+        return [address for address, account in self.root.items() if not account]
 
     def state_root(self) -> bytes:
         """
         Returns the state root of the allocation.
         """
         state = State()
-        for address, account in self.items():
+        for address, account in self.root.items():
+            if account is None:
+                continue
             set_account(
                 state=state,
-                address=address,
+                address=FrontierAddress(address),
                 account=FrontierAccount(
-                    nonce=Uint(Number(account.nonce)) if account.nonce is not None else Uint(0),
-                    balance=(
-                        U256(Number(account.balance)) if account.balance is not None else U256(0)
-                    ),
-                    code=Bytes(account.code) if account.code is not None else b"",
+                    nonce=Uint(account.nonce) if account.nonce is not None else Uint(0),
+                    balance=(U256(account.balance) if account.balance is not None else U256(0)),
+                    code=account.code if account.code is not None else b"",
                 ),
             )
             if account.storage is not None:
-                for key, value in account.storage.items():
+                for key, value in account.storage.root.items():
                     set_storage(
                         state=state,
-                        address=address,
+                        address=FrontierAddress(address),
                         key=Hash(key),
-                        value=U256(Number(value)),
+                        value=U256(value),
                     )
         return state_root(state)
 
+    def verify_post_alloc(self, got_alloc: "Alloc"):
+        """
+        Verify that the allocation matches the expected post in the test.
+        Raises exception on unexpected values.
+        """
+        assert isinstance(got_alloc, Alloc), f"got_alloc is not an Alloc: {got_alloc}"
+        for address, account in self.root.items():
+            if account is None:
+                # Account must not exist
+                if address in got_alloc.root and got_alloc.root[address] is not None:
+                    raise Alloc.UnexpectedAccount(address, got_alloc.root[address])
+            else:
+                if address in got_alloc.root:
+                    got_account = got_alloc.root[address]
+                    assert isinstance(got_account, Account)
+                    assert isinstance(account, Account)
+                    account.check_alloc(address, got_account)
+                else:
+                    raise Alloc.MissingAccount(address)
 
-def alloc_to_accounts(got_alloc: Dict[str, Any]) -> Mapping[str, Account]:
-    """
-    Converts the post state alloc returned from t8n to a mapping of accounts.
-    """
-    accounts = {}
-    for address, value in got_alloc.items():
-        account = Account(
-            nonce=int_or_none(value.get("nonce", None)),
-            balance=int_or_none(value.get("balance", None)),
-            code=value.get("code", None),
-            storage=value.get("storage", None),
-        )
-        accounts[address] = account
-    return accounts
 
-
-@dataclass(kw_only=True)
-class Withdrawal:
+class WithdrawalGeneric(CamelModel, Generic[NumberBoundTypeVar]):
     """
-    Structure to represent a single withdrawal of a validator's balance from
-    the beacon chain.
+    Withdrawal generic type, used as a parent class for `Withdrawal` and `FixtureWithdrawal`.
     """
 
-    index: NumberConvertible = field(
-        json_encoder=JSONEncoder.Field(
-            cast_type=HexNumber,
-        ),
-    )
-    validator: NumberConvertible = field(
-        json_encoder=JSONEncoder.Field(
-            name="validatorIndex",
-            cast_type=HexNumber,
-        ),
-    )
-    address: FixedSizeBytesConvertible = field(
-        json_encoder=JSONEncoder.Field(
-            cast_type=Address,
-        ),
-    )
-    amount: NumberConvertible = field(
-        json_encoder=JSONEncoder.Field(
-            cast_type=HexNumber,
-        ),
-    )
+    index: NumberBoundTypeVar
+    validator_index: NumberBoundTypeVar
+    address: Address
+    amount: NumberBoundTypeVar
 
     def to_serializable_list(self) -> List[Any]:
         """
@@ -690,443 +652,225 @@ class Withdrawal:
         be serialized.
         """
         return [
-            Uint(Number(self.index)),
-            Uint(Number(self.validator)),
-            Address(self.address),
-            Uint(Number(self.amount)),
+            Uint(self.index),
+            Uint(self.validator_index),
+            self.address,
+            Uint(self.amount),
         ]
 
+    @staticmethod
+    def list_root(withdrawals: Sequence["WithdrawalGeneric"]) -> bytes:
+        """
+        Returns the withdrawals root of a list of withdrawals.
+        """
+        t = HexaryTrie(db={})
+        for i, w in enumerate(withdrawals):
+            t.set(eth_rlp.encode(Uint(i)), eth_rlp.encode(w.to_serializable_list()))
+        return t.root_hash
 
-def withdrawals_root(withdrawals: List[Withdrawal]) -> bytes:
+
+class Withdrawal(WithdrawalGeneric[HexNumber]):
     """
-    Returns the withdrawals root of a list of withdrawals.
+    Withdrawal type
     """
-    t = HexaryTrie(db={})
-    for i, w in enumerate(withdrawals):
-        t.set(eth_rlp.encode(Uint(i)), eth_rlp.encode(w.to_serializable_list()))
-    return t.root_hash
+
+    pass
 
 
 DEFAULT_BASE_FEE = 7
 
 
-@dataclass(kw_only=True)
-class Environment:
+class EnvironmentGeneric(CamelModel, Generic[NumberBoundTypeVar]):
+    """
+    Used as a parent class for `Environment` and `FixtureEnvironment`.
+    """
+
+    fee_recipient: Address = Field(
+        Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba"),
+        alias="currentCoinbase",
+    )
+    gas_limit: NumberBoundTypeVar = Field(
+        100_000_000_000_000_000, alias="currentGasLimit"
+    )  # type: ignore
+    number: NumberBoundTypeVar = Field(1, alias="currentNumber")  # type: ignore
+    timestamp: NumberBoundTypeVar = Field(1_000, alias="currentTimestamp")  # type: ignore
+    prev_randao: NumberBoundTypeVar | None = Field(None, alias="currentRandom")
+    difficulty: NumberBoundTypeVar | None = Field(None, alias="currentDifficulty")
+    base_fee_per_gas: NumberBoundTypeVar | None = Field(None, alias="currentBaseFee")
+    excess_blob_gas: NumberBoundTypeVar | None = Field(None, alias="currentExcessBlobGas")
+
+    parent_difficulty: NumberBoundTypeVar | None = Field(None)
+    parent_timestamp: NumberBoundTypeVar | None = Field(None)
+    parent_base_fee_per_gas: NumberBoundTypeVar | None = Field(None, alias="parentBaseFee")
+    parent_gas_used: NumberBoundTypeVar | None = Field(None)
+    parent_gas_limit: NumberBoundTypeVar | None = Field(None)
+
+
+class Environment(EnvironmentGeneric[Number]):
     """
     Structure used to keep track of the context in which a block
     must be executed.
     """
 
-    coinbase: FixedSizeBytesConvertible = field(
-        default="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
-        json_encoder=JSONEncoder.Field(
-            name="currentCoinbase",
-            cast_type=Address,
-        ),
-    )
-    gas_limit: NumberConvertible = field(
-        default=100000000000000000,
-        json_encoder=JSONEncoder.Field(
-            name="currentGasLimit",
-            cast_type=Number,
-        ),
-    )
-    number: NumberConvertible = field(
-        default=1,
-        json_encoder=JSONEncoder.Field(
-            name="currentNumber",
-            cast_type=Number,
-        ),
-    )
-    timestamp: NumberConvertible = field(
-        default=1000,
-        json_encoder=JSONEncoder.Field(
-            name="currentTimestamp",
-            cast_type=Number,
-        ),
-    )
-    prev_randao: Optional[NumberConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="currentRandom",
-            cast_type=Number,
-        ),
-    )
-    difficulty: Optional[NumberConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="currentDifficulty",
-            cast_type=Number,
-        ),
-    )
-    block_hashes: Dict[NumberConvertible, FixedSizeBytesConvertible] = field(
-        default_factory=dict,
-        json_encoder=JSONEncoder.Field(
-            name="blockHashes",
-            cast_type=lambda x: {str(Number(k)): str(Hash(v)) for k, v in x.items()},
-            skip_string_convert=True,
-        ),
-    )
-    ommers: List[FixedSizeBytesConvertible] = field(
-        default_factory=list,
-        json_encoder=JSONEncoder.Field(
-            name="ommers",
-            cast_type=lambda x: [str(Hash(y)) for y in x],
-            skip_string_convert=True,
-        ),
-    )
-    withdrawals: Optional[List[Withdrawal]] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="withdrawals",
-            to_json=True,
-        ),
-    )
-    base_fee: Optional[NumberConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="currentBaseFee",
-            cast_type=Number,
-        ),
-    )
-    parent_difficulty: Optional[NumberConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="parentDifficulty",
-            cast_type=Number,
-        ),
-    )
-    parent_timestamp: Optional[NumberConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="parentTimestamp",
-            cast_type=Number,
-        ),
-    )
-    parent_base_fee: Optional[NumberConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="parentBaseFee",
-            cast_type=Number,
-        ),
-    )
-    parent_gas_used: Optional[NumberConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="parentGasUsed",
-            cast_type=Number,
-        ),
-    )
-    parent_gas_limit: Optional[NumberConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="parentGasLimit",
-            cast_type=Number,
-        ),
-    )
-    parent_ommers_hash: FixedSizeBytesConvertible = field(
-        default=0,
-        json_encoder=JSONEncoder.Field(
-            name="parentUncleHash",
-            cast_type=Hash,
-        ),
-    )
-    parent_blob_gas_used: Optional[NumberConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="parentBlobGasUsed",
-            cast_type=Number,
-        ),
-    )
-    parent_excess_blob_gas: Optional[NumberConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="parentExcessBlobGas",
-            cast_type=Number,
-        ),
-    )
-    blob_gas_used: Optional[NumberConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="currentBlobGasUsed",
-            cast_type=Number,
-        ),
-    )
-    excess_blob_gas: Optional[NumberConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="currentExcessBlobGas",
-            cast_type=Number,
-        ),
-    )
-    beacon_root: Optional[FixedSizeBytesConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="parentBeaconBlockRoot",
-            cast_type=Hash,
-        ),
-    )
-    extra_data: Optional[BytesConvertible] = field(
-        default=b"\x00",
-        json_encoder=JSONEncoder.Field(
-            skip=True,
-        ),
-    )
+    blob_gas_used: Number | None = Field(None, alias="currentBlobGasUsed")
+    parent_ommers_hash: Hash = Field(Hash(0), alias="parentUncleHash")
+    parent_blob_gas_used: Number | None = Field(None)
+    parent_excess_blob_gas: Number | None = Field(None)
+    parent_beacon_block_root: Hash | None = Field(None)
 
-    def parent_hash(self) -> bytes:
+    block_hashes: Dict[Number, Hash] = Field(default_factory=dict)
+    ommers: List[Hash] = Field(default_factory=list)
+    withdrawals: List[Withdrawal] | None = Field(None)
+    extra_data: Bytes = Field(Bytes(b"\x00"), exclude=True)
+
+    @computed_field  # type: ignore[misc]
+    @cached_property
+    def parent_hash(self) -> Hash | None:
         """
         Obtains the latest hash according to the highest block number in
         `block_hashes`.
         """
         if len(self.block_hashes) == 0:
-            return bytes([0] * 32)
+            return None
 
-        last_index = max([Number(k) for k in self.block_hashes.keys()])
+        last_index = max(self.block_hashes.keys())
         return Hash(self.block_hashes[last_index])
 
-    def set_fork_requirements(self, fork: Fork, in_place: bool = False) -> "Environment":
+    def set_fork_requirements(self, fork: Fork) -> "Environment":
         """
         Fills the required fields in an environment depending on the fork.
         """
-        res = self if in_place else copy(self)
-        number = Number(res.number)
-        timestamp = Number(res.timestamp)
-        if fork.header_prev_randao_required(number, timestamp) and res.prev_randao is None:
-            res.prev_randao = 0
+        number = self.number
+        timestamp = self.timestamp
 
-        if fork.header_withdrawals_required(number, timestamp) and res.withdrawals is None:
-            res.withdrawals = []
+        updated_values: Dict[str, Any] = {}
+
+        if fork.header_prev_randao_required(number, timestamp) and self.prev_randao is None:
+            updated_values["prev_randao"] = 0
+
+        if fork.header_withdrawals_required(number, timestamp) and self.withdrawals is None:
+            updated_values["withdrawals"] = []
 
         if (
             fork.header_base_fee_required(number, timestamp)
-            and res.base_fee is None
-            and res.parent_base_fee is None
+            and self.base_fee_per_gas is None
+            and self.parent_base_fee_per_gas is None
         ):
-            res.base_fee = DEFAULT_BASE_FEE
+            updated_values["base_fee_per_gas"] = DEFAULT_BASE_FEE
 
         if fork.header_zero_difficulty_required(number, timestamp):
-            res.difficulty = 0
-        elif res.difficulty is None and res.parent_difficulty is None:
-            res.difficulty = 0x20000
+            updated_values["difficulty"] = 0
+        elif self.difficulty is None and self.parent_difficulty is None:
+            updated_values["difficulty"] = 0x20000
 
         if (
             fork.header_excess_blob_gas_required(number, timestamp)
-            and res.excess_blob_gas is None
-            and res.parent_excess_blob_gas is None
+            and self.excess_blob_gas is None
+            and self.parent_excess_blob_gas is None
         ):
-            res.excess_blob_gas = 0
+            updated_values["excess_blob_gas"] = 0
 
         if (
             fork.header_blob_gas_used_required(number, timestamp)
-            and res.blob_gas_used is None
-            and res.parent_blob_gas_used is None
+            and self.blob_gas_used is None
+            and self.parent_blob_gas_used is None
         ):
-            res.blob_gas_used = 0
+            updated_values["blob_gas_used"] = 0
 
-        if fork.header_beacon_root_required(number, timestamp) and res.beacon_root is None:
-            res.beacon_root = 0
+        if (
+            fork.header_beacon_root_required(number, timestamp)
+            and self.parent_beacon_block_root is None
+        ):
+            updated_values["parent_beacon_block_root"] = 0
 
-        return res
+        return self.copy(**updated_values)
 
 
-@dataclass(kw_only=True)
-class AccessList:
+class AccessList(CamelModel):
     """
     Access List for transactions.
     """
 
-    address: FixedSizeBytesConvertible = field(
-        json_encoder=JSONEncoder.Field(
-            cast_type=Address,
-        ),
-    )
-    storage_keys: List[FixedSizeBytesConvertible] = field(
-        default_factory=list,
-        json_encoder=JSONEncoder.Field(
-            name="storageKeys",
-            cast_type=lambda x: [str(Hash(k)) for k in x],
-            skip_string_convert=True,
-        ),
-    )
+    address: Address
+    storage_keys: List[Hash]
 
-    def to_list(self) -> List[bytes | List[bytes]]:
+    def to_list(self) -> List[Address | List[Hash]]:
         """
         Returns the access list as a list of serializable elements.
         """
-        return [Address(self.address), [Hash(k) for k in self.storage_keys]]
+        return [self.address, self.storage_keys]
 
 
-@dataclass(kw_only=True)
-class Transaction:
+class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
+    """
+    Generic transaction type used as a parent for Transaction and FixtureTransaction (blockchain).
+    """
+
+    ty: NumberBoundTypeVar = Field(0, alias="type")  # type: ignore
+    chain_id: NumberBoundTypeVar = Field(1)  # type: ignore
+    nonce: NumberBoundTypeVar = Field(0)  # type: ignore
+    gas_price: NumberBoundTypeVar | None = None
+    max_priority_fee_per_gas: NumberBoundTypeVar | None = None
+    max_fee_per_gas: NumberBoundTypeVar | None = None
+    gas_limit: NumberBoundTypeVar = Field(21_000)  # type: ignore
+    to: Address | None = None
+    value: NumberBoundTypeVar = Field(0)  # type: ignore
+    data: Bytes = Field(Bytes(b""))
+    access_list: List[AccessList] | None = None
+    max_fee_per_blob_gas: NumberBoundTypeVar | None = None
+    blob_versioned_hashes: Sequence[Hash] | None = None
+
+    v: NumberBoundTypeVar | None = None
+    r: NumberBoundTypeVar | None = None
+    s: NumberBoundTypeVar | None = None
+    sender: Address | None = None
+
+
+class TransactionToEmptyStringHandler(CamelModel):
+    """Handler for serializing and validating the `to` field as an empty string."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_to_as_empty_string(cls, data: Any) -> Any:
+        """
+        Validates the field `to` is an empty string if the value is None.
+        """
+        if isinstance(data, dict) and "to" in data and data["to"] == "":
+            del data["to"]
+        return data
+
+    @model_serializer(mode="wrap", when_used="json-unless-none")
+    def serialize_to_as_empty_string(self, serializer):
+        """
+        Serializes the field `to` an empty string if the value is None.
+        """
+        default = serializer(self)
+        if default is not None and "to" not in default:
+            default["to"] = ""
+        return default
+
+
+class Transaction(CamelModel, TransactionGeneric[HexNumber]):
     """
     Generic object that can represent all Ethereum transaction types.
     """
 
-    ty: Optional[int] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="type",
-            cast_type=HexNumber,
-        ),
-    )
-    """
-    Transaction type value.
-    """
-    chain_id: int = field(
-        default=1,
-        json_encoder=JSONEncoder.Field(
-            name="chainId",
-            cast_type=HexNumber,
-        ),
-    )
-    nonce: int = field(
-        default=0,
-        json_encoder=JSONEncoder.Field(
-            cast_type=HexNumber,
-        ),
-    )
-    gas_price: Optional[int] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="gasPrice",
-            cast_type=HexNumber,
-        ),
-    )
-    max_priority_fee_per_gas: Optional[int] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="maxPriorityFeePerGas",
-            cast_type=HexNumber,
-        ),
-    )
-    max_fee_per_gas: Optional[int] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="maxFeePerGas",
-            cast_type=HexNumber,
-        ),
-    )
-    gas_limit: int = field(
-        default=21000,
-        json_encoder=JSONEncoder.Field(
-            name="gas",
-            cast_type=HexNumber,
-        ),
-    )
-    to: Optional[FixedSizeBytesConvertible | Address] = field(
-        default=Address(0xAA),
-        json_encoder=JSONEncoder.Field(
-            cast_type=Address,
-        ),
-    )
-    value: int = field(
-        default=0,
-        json_encoder=JSONEncoder.Field(
-            cast_type=HexNumber,
-        ),
-    )
-    data: BytesConvertible = field(
-        default_factory=bytes,
-        json_encoder=JSONEncoder.Field(
-            name="input",
-            cast_type=Bytes,
-        ),
-    )
-    access_list: Optional[List[AccessList]] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="accessList",
-            to_json=True,
-        ),
-    )
-    max_fee_per_blob_gas: Optional[int] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="maxFeePerBlobGas",
-            cast_type=HexNumber,
-        ),
-    )
-    blob_versioned_hashes: Optional[Sequence[FixedSizeBytesConvertible]] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="blobVersionedHashes",
-            cast_type=lambda x: [Hash(k) for k in x],
-            to_json=True,
-        ),
-    )
-    v: Optional[int] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            cast_type=HexNumber,
-        ),
-    )
-    r: Optional[int] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            cast_type=HexNumber,
-        ),
-    )
-    s: Optional[int] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            cast_type=HexNumber,
-        ),
-    )
-    wrapped_blob_transaction: bool = field(
-        default=False,
-        json_encoder=JSONEncoder.Field(
-            skip=True,
-        ),
-    )
-    blobs: Optional[Sequence[bytes]] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            skip=True,
-        ),
-    )
-    blob_kzg_commitments: Optional[Sequence[bytes]] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            skip=True,
-        ),
-    )
-    blob_kzg_proofs: Optional[Sequence[bytes]] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            skip=True,
-        ),
-    )
-    sender: Optional[FixedSizeBytesConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            cast_type=Address,
-        ),
-    )
-    secret_key: Optional[FixedSizeBytesConvertible] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            name="secretKey",
-            cast_type=Hash,
-        ),
-    )
-    protected: bool = field(
-        default=True,
-        json_encoder=JSONEncoder.Field(
-            skip=True,
-        ),
-    )
-    error: Optional[TransactionException | ExceptionList] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            skip=True,
-        ),
-    )
-    rlp: Optional[bytes] = field(
-        default=None,
-        json_encoder=JSONEncoder.Field(
-            skip=True,
-        ),
-    )
+    gas_limit: HexNumber = Field(HexNumber(21_000), serialization_alias="gas")
+    to: Address | None = Field(Address(0xAA))
+    data: Bytes = Field(Bytes(b""), alias="input")
+
+    secret_key: Hash | None = None
+    error: List[TransactionException] | TransactionException | None = Field(None, exclude=True)
+
+    protected: bool = Field(True, exclude=True)
+    rlp_override: bytes | None = Field(None, exclude=True)
+
+    wrapped_blob_transaction: bool = Field(False, exclude=True)
+    blobs: Sequence[Bytes] | None = Field(None, exclude=True)
+    blob_kzg_commitments: Sequence[Bytes] | None = Field(None, exclude=True)
+    blob_kzg_proofs: Sequence[Bytes] | None = Field(None, exclude=True)
+
+    model_config = ConfigDict(validate_assignment=True)
 
     class InvalidFeePayment(Exception):
         """
@@ -1147,10 +891,12 @@ class Transaction:
             """Print exception string"""
             return "can't define both 'signature' and 'private_key'"
 
-    def __post_init__(self) -> None:
+    def model_post_init(self, __context):
         """
         Ensures the transaction has no conflicting properties.
         """
+        super().model_post_init(__context)
+
         if self.gas_price is not None and (
             self.max_fee_per_gas is not None
             or self.max_priority_fee_per_gas is not None
@@ -1170,9 +916,9 @@ class Transaction:
             raise Transaction.InvalidSignaturePrivateKey()
 
         if self.v is None and self.secret_key is None:
-            self.secret_key = TestPrivateKey
+            self.secret_key = Hash(TestPrivateKey)
 
-        if self.ty is None:
+        if "ty" not in self.model_fields_set:
             # Try to deduce transaction type from included fields
             if self.max_fee_per_blob_gas is not None:
                 self.ty = 3
@@ -1190,45 +936,86 @@ class Transaction:
         if self.ty >= 2 and self.max_priority_fee_per_gas is None:
             self.max_priority_fee_per_gas = 0
 
-    def with_error(self, error: TransactionException | ExceptionList) -> "Transaction":
+    def with_error(
+        self, error: List[TransactionException] | TransactionException
+    ) -> "Transaction":
         """
         Create a copy of the transaction with an added error.
         """
-        tx = copy(self)
-        tx.error = error
-        return tx
+        return self.copy(error=error)
 
     def with_nonce(self, nonce: int) -> "Transaction":
         """
         Create a copy of the transaction with a modified nonce.
         """
-        tx = copy(self)
-        tx.nonce = nonce
-        return tx
+        return self.copy(nonce=nonce)
 
-    def with_fields(self, **kwargs) -> "Transaction":
+    def with_signature_and_sender(self, *, keep_secret_key: bool = False) -> "Transaction":
         """
-        Create a deepcopy of the transaction with modified fields.
+        Returns a signed version of the transaction using the private key.
         """
-        tx = deepcopy(self)
-        for key, value in kwargs.items():
-            if hasattr(tx, key):
-                setattr(tx, key, value)
-            else:
-                raise ValueError(f"Invalid field '{key}' for Transaction")
-        return tx
+        updated_values: Dict[str, Any] = {}
 
-    def payload_body(self) -> List[Any]:
-        """
-        Returns the list of values included in the transaction body.
-        """
-        if self.v is None or self.r is None or self.s is None:
-            raise ValueError("signature must be set before serializing any tx type")
+        if self.v is not None:
+            # Transaction already signed
+            if self.sender is not None:
+                return self
 
-        if self.gas_limit is None:
-            raise ValueError("gas_limit must be set for all tx types")
-        to = Address(self.to) if self.to is not None else bytes()
+            public_key = PublicKey.from_signature_and_message(
+                self.signature_bytes, keccak256(self.signing_bytes), hasher=None
+            )
+            updated_values["sender"] = Address(
+                keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
+            )
+            return self.copy(**updated_values)
 
+        if self.secret_key is None:
+            raise ValueError("secret_key must be set to sign a transaction")
+
+        # Get the signing bytes
+        signing_hash = keccak256(self.signing_bytes)
+
+        # Sign the bytes
+        signature_bytes = PrivateKey(secret=self.secret_key).sign_recoverable(
+            signing_hash, hasher=None
+        )
+        public_key = PublicKey.from_signature_and_message(
+            signature_bytes, signing_hash, hasher=None
+        )
+
+        sender = keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
+        updated_values["sender"] = Address(sender)
+
+        v, r, s = (
+            signature_bytes[64],
+            int.from_bytes(signature_bytes[0:32], byteorder="big"),
+            int.from_bytes(signature_bytes[32:64], byteorder="big"),
+        )
+        if self.ty == 0:
+            if self.protected:
+                v += 35 + (self.chain_id * 2)
+            else:  # not protected
+                v += 27
+
+        updated_values["v"] = HexNumber(v)
+        updated_values["r"] = HexNumber(r)
+        updated_values["s"] = HexNumber(s)
+
+        updated_values["secret_key"] = None
+
+        updated_tx = self.model_copy(update=updated_values)
+
+        # Remove the secret key if requested
+        if keep_secret_key:
+            updated_tx.secret_key = self.secret_key
+        return updated_tx
+
+    @cached_property
+    def signing_envelope(self) -> List[Any]:
+        """
+        Returns the list of values included in the envelope used for signing.
+        """
+        to = self.to if self.to else bytes()
         if self.ty == 3:
             # EIP-4844: https://eips.ethereum.org/EIPS/eip-4844
             if self.max_priority_fee_per_gas is None:
@@ -1241,57 +1028,19 @@ class Transaction:
                 raise ValueError("blob_versioned_hashes must be set for type 3 tx")
             if self.access_list is None:
                 raise ValueError("access_list must be set for type 3 tx")
-
-            if self.wrapped_blob_transaction:
-                if self.blobs is None:
-                    raise ValueError("blobs must be set for network version of type 3 tx")
-                if self.blob_kzg_commitments is None:
-                    raise ValueError(
-                        "blob_kzg_commitments must be set for network version of type 3 tx"
-                    )
-                if self.blob_kzg_proofs is None:
-                    raise ValueError(
-                        "blob_kzg_proofs must be set for network version of type 3 tx"
-                    )
-
-                return [
-                    [
-                        Uint(self.chain_id),
-                        Uint(self.nonce),
-                        Uint(self.max_priority_fee_per_gas),
-                        Uint(self.max_fee_per_gas),
-                        Uint(self.gas_limit),
-                        to,
-                        Uint(self.value),
-                        Bytes(self.data),
-                        [a.to_list() for a in self.access_list],
-                        Uint(self.max_fee_per_blob_gas),
-                        [Hash(h) for h in self.blob_versioned_hashes],
-                        Uint(self.v),
-                        Uint(self.r),
-                        Uint(self.s),
-                    ],
-                    self.blobs,
-                    self.blob_kzg_commitments,
-                    self.blob_kzg_proofs,
-                ]
-            else:
-                return [
-                    Uint(self.chain_id),
-                    Uint(self.nonce),
-                    Uint(self.max_priority_fee_per_gas),
-                    Uint(self.max_fee_per_gas),
-                    Uint(self.gas_limit),
-                    to,
-                    Uint(self.value),
-                    Bytes(self.data),
-                    [a.to_list() for a in self.access_list],
-                    Uint(self.max_fee_per_blob_gas),
-                    [Hash(h) for h in self.blob_versioned_hashes],
-                    Uint(self.v),
-                    Uint(self.r),
-                    Uint(self.s),
-                ]
+            return [
+                Uint(self.chain_id),
+                Uint(self.nonce),
+                Uint(self.max_priority_fee_per_gas),
+                Uint(self.max_fee_per_gas),
+                Uint(self.gas_limit),
+                to,
+                Uint(self.value),
+                self.data,
+                [a.to_list() for a in self.access_list],
+                Uint(self.max_fee_per_blob_gas),
+                list(self.blob_versioned_hashes),
+            ]
         elif self.ty == 2:
             # EIP-1559: https://eips.ethereum.org/EIPS/eip-1559
             if self.max_priority_fee_per_gas is None:
@@ -1308,11 +1057,8 @@ class Transaction:
                 Uint(self.gas_limit),
                 to,
                 Uint(self.value),
-                Bytes(self.data),
+                self.data,
                 [a.to_list() for a in self.access_list],
-                Uint(self.v),
-                Uint(self.r),
-                Uint(self.s),
             ]
         elif self.ty == 1:
             # EIP-2930: https://eips.ethereum.org/EIPS/eip-2930
@@ -1328,108 +1074,8 @@ class Transaction:
                 Uint(self.gas_limit),
                 to,
                 Uint(self.value),
-                Bytes(self.data),
+                self.data,
                 [a.to_list() for a in self.access_list],
-                Uint(self.v),
-                Uint(self.r),
-                Uint(self.s),
-            ]
-        elif self.ty == 0:
-            if self.gas_price is None:
-                raise ValueError("gas_price must be set for type 0 tx")
-            # EIP-155: https://eips.ethereum.org/EIPS/eip-155
-            return [
-                Uint(self.nonce),
-                Uint(self.gas_price),
-                Uint(self.gas_limit),
-                to,
-                Uint(self.value),
-                Bytes(self.data),
-                Uint(self.v),
-                Uint(self.r),
-                Uint(self.s),
-            ]
-
-        raise NotImplementedError(f"serialized_bytes not implemented for tx type {self.ty}")
-
-    def serialized_bytes(self) -> bytes:
-        """
-        Returns bytes of the serialized representation of the transaction,
-        which is almost always RLP encoding.
-        """
-        if self.rlp is not None:
-            return self.rlp
-
-        if self.ty is None:
-            raise ValueError("ty must be set for all tx types")
-
-        if self.ty > 0:
-            return bytes([self.ty]) + eth_rlp.encode(self.payload_body())
-        else:
-            return eth_rlp.encode(self.payload_body())
-
-    def signing_envelope(self) -> List[Any]:
-        """
-        Returns the list of values included in the envelope used for signing.
-        """
-        if self.gas_limit is None:
-            raise ValueError("gas_limit must be set for all tx types")
-        to = Address(self.to) if self.to is not None else bytes()
-
-        if self.ty == 3:
-            # EIP-4844: https://eips.ethereum.org/EIPS/eip-4844
-            if self.max_priority_fee_per_gas is None:
-                raise ValueError("max_priority_fee_per_gas must be set for type 3 tx")
-            if self.max_fee_per_gas is None:
-                raise ValueError("max_fee_per_gas must be set for type 3 tx")
-            if self.max_fee_per_blob_gas is None:
-                raise ValueError("max_fee_per_blob_gas must be set for type 3 tx")
-            if self.blob_versioned_hashes is None:
-                raise ValueError("blob_versioned_hashes must be set for type 3 tx")
-            return [
-                Uint(self.chain_id),
-                Uint(self.nonce),
-                Uint(self.max_priority_fee_per_gas),
-                Uint(self.max_fee_per_gas),
-                Uint(self.gas_limit),
-                to,
-                Uint(self.value),
-                Bytes(self.data),
-                [a.to_list() for a in self.access_list] if self.access_list is not None else [],
-                Uint(self.max_fee_per_blob_gas),
-                [Hash(h) for h in self.blob_versioned_hashes],
-            ]
-        elif self.ty == 2:
-            # EIP-1559: https://eips.ethereum.org/EIPS/eip-1559
-            if self.max_priority_fee_per_gas is None:
-                raise ValueError("max_priority_fee_per_gas must be set for type 2 tx")
-            if self.max_fee_per_gas is None:
-                raise ValueError("max_fee_per_gas must be set for type 2 tx")
-            return [
-                Uint(self.chain_id),
-                Uint(self.nonce),
-                Uint(self.max_priority_fee_per_gas),
-                Uint(self.max_fee_per_gas),
-                Uint(self.gas_limit),
-                to,
-                Uint(self.value),
-                Bytes(self.data),
-                [a.to_list() for a in self.access_list] if self.access_list is not None else [],
-            ]
-        elif self.ty == 1:
-            # EIP-2930: https://eips.ethereum.org/EIPS/eip-2930
-            if self.gas_price is None:
-                raise ValueError("gas_price must be set for type 1 tx")
-
-            return [
-                Uint(self.chain_id),
-                Uint(self.nonce),
-                Uint(self.gas_price),
-                Uint(self.gas_limit),
-                to,
-                Uint(self.value),
-                Bytes(self.data),
-                [a.to_list() for a in self.access_list] if self.access_list is not None else [],
             ]
         elif self.ty == 0:
             if self.gas_price is None:
@@ -1443,7 +1089,7 @@ class Transaction:
                     Uint(self.gas_limit),
                     to,
                     Uint(self.value),
-                    Bytes(self.data),
+                    self.data,
                     Uint(self.chain_id),
                     Uint(0),
                     Uint(0),
@@ -1455,28 +1101,71 @@ class Transaction:
                     Uint(self.gas_limit),
                     to,
                     Uint(self.value),
-                    Bytes(self.data),
+                    self.data,
                 ]
         raise NotImplementedError("signing for transaction type {self.ty} not implemented")
 
+    @cached_property
+    def payload_body(self) -> List[Any]:
+        """
+        Returns the list of values included in the transaction body.
+        """
+        if self.v is None or self.r is None or self.s is None:
+            raise ValueError("signature must be set before serializing any tx type")
+
+        signing_envelope = self.signing_envelope
+
+        if self.ty == 0 and self.protected:
+            # Remove the chain_id and the two zeros from the signing envelope
+            signing_envelope = signing_envelope[:-3]
+        elif self.ty == 3 and self.wrapped_blob_transaction:
+            # EIP-4844: https://eips.ethereum.org/EIPS/eip-4844
+            if self.blobs is None:
+                raise ValueError("blobs must be set for type 3 tx")
+            if self.blob_kzg_commitments is None:
+                raise ValueError("blob_kzg_commitments must be set for type 3 tx")
+            if self.blob_kzg_proofs is None:
+                raise ValueError("blob_kzg_proofs must be set for type 3 tx")
+            return [
+                signing_envelope + [Uint(self.v), Uint(self.r), Uint(self.s)],
+                list(self.blobs),
+                list(self.blob_kzg_commitments),
+                list(self.blob_kzg_proofs),
+            ]
+
+        return signing_envelope + [Uint(self.v), Uint(self.r), Uint(self.s)]
+
+    @cached_property
+    def rlp(self) -> bytes:
+        """
+        Returns bytes of the serialized representation of the transaction,
+        which is almost always RLP encoding.
+        """
+        if self.rlp_override is not None:
+            return self.rlp_override
+        if self.ty > 0:
+            return bytes([self.ty]) + eth_rlp.encode(self.payload_body)
+        else:
+            return eth_rlp.encode(self.payload_body)
+
+    @cached_property
     def signing_bytes(self) -> bytes:
         """
         Returns the serialized bytes of the transaction used for signing.
         """
-        if self.ty is None:
-            raise ValueError("ty must be set for all tx types")
+        return (
+            bytes([self.ty]) + eth_rlp.encode(self.signing_envelope)
+            if self.ty > 0
+            else eth_rlp.encode(self.signing_envelope)
+        )
 
-        if self.ty > 0:
-            return bytes([self.ty]) + eth_rlp.encode(self.signing_envelope())
-        else:
-            return eth_rlp.encode(self.signing_envelope())
-
+    @cached_property
     def signature_bytes(self) -> bytes:
         """
         Returns the serialized bytes of the transaction signature.
         """
         assert self.v is not None and self.r is not None and self.s is not None
-        v = self.v
+        v = int(self.v)
         if self.ty == 0:
             if self.protected:
                 assert self.chain_id is not None
@@ -1489,104 +1178,96 @@ class Transaction:
             + bytes([v])
         )
 
-    def with_signature_and_sender(self, *, keep_secret_key: bool = False) -> "Transaction":
+    @cached_property
+    def serializable_list(self) -> Any:
         """
-        Returns a signed version of the transaction using the private key.
+        Returns the list of values included in the transaction as a serializable object.
         """
-        tx = copy(self)
+        return self.rlp if self.ty > 0 else self.payload_body
 
-        if tx.v is not None:
-            # Transaction already signed
-            if tx.sender is None:
-                public_key = PublicKey.from_signature_and_message(
-                    tx.signature_bytes(), keccak256(tx.signing_bytes()), hasher=None
-                )
-                tx.sender = keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
-            return tx
+    @staticmethod
+    def list_root(input_txs: List["Transaction"]) -> Hash:
+        """
+        Returns the transactions root of a list of transactions.
+        """
+        t = HexaryTrie(db={})
+        for i, tx in enumerate(input_txs):
+            t.set(eth_rlp.encode(Uint(i)), tx.rlp)
+        return Hash(t.root_hash)
 
-        if tx.secret_key is None:
-            raise ValueError("secret_key must be set to sign a transaction")
-
-        # Get the signing bytes
-        signing_hash = keccak256(tx.signing_bytes())
-
-        # Sign the bytes
-
-        private_key = PrivateKey(
-            secret=Hash(tx.secret_key) if tx.secret_key is not None else bytes(32)
-        )
-        signature_bytes = private_key.sign_recoverable(signing_hash, hasher=None)
-        public_key = PublicKey.from_signature_and_message(
-            signature_bytes, signing_hash, hasher=None
-        )
-        tx.sender = keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
-
-        tx.v, tx.r, tx.s = (
-            signature_bytes[64],
-            int.from_bytes(signature_bytes[0:32], byteorder="big"),
-            int.from_bytes(signature_bytes[32:64], byteorder="big"),
-        )
-        if tx.ty == 0:
-            if tx.protected:
-                tx.v += 35 + (tx.chain_id * 2)
-            else:  # not protected
-                tx.v += 27
-
-        # Remove the secret key if requested
-        if not keep_secret_key:
-            tx.secret_key = None
-        return tx
+    @staticmethod
+    def list_blob_versioned_hashes(input_txs: List["Transaction"]) -> List[Hash]:
+        """
+        Gets a list of ordered blob versioned hashes from a list of transactions.
+        """
+        return [
+            blob_versioned_hash
+            for tx in input_txs
+            if tx.blob_versioned_hashes is not None
+            for blob_versioned_hash in tx.blob_versioned_hashes
+        ]
 
 
-def transaction_list_root(input_txs: List[Transaction] | None) -> Hash:
+# TODO: Move to other file
+# Transition tool models
+
+
+class TransactionReceipt(CamelModel):
     """
-    Returns the transactions root of a list of transactions.
+    Transaction receipt
     """
-    t = HexaryTrie(db={})
-    for i, tx in enumerate(input_txs or []):
-        t.set(eth_rlp.encode(Uint(i)), tx.serialized_bytes())
-    return Hash(t.root_hash)
+
+    root: Bytes
+    status: HexNumber
+    cumulative_gas_used: HexNumber
+    logs_bloom: Bloom
+    logs: List[Dict[str, str]] | None = None
+    transaction_hash: Hash
+    contract_address: Address
+    gas_used: HexNumber
+    effective_gas_price: HexNumber | None = None
+    block_hash: Hash
+    transaction_index: HexNumber
+    blob_gas_used: HexNumber | None = None
+    blob_gas_price: HexNumber | None = None
 
 
-def transaction_list_to_serializable_list(input_txs: List[Transaction] | None) -> List[Any]:
+class RejectedTransaction(CamelModel):
     """
-    Returns the transaction list as a list of serializable objects.
+    Rejected transaction
     """
-    if input_txs is None:
-        return []
 
-    txs: List[Any] = []
-    for tx in input_txs:
-        if tx.ty is None:
-            raise ValueError("ty must be set for all tx types")
-
-        if tx.ty > 0:
-            txs.append(tx.serialized_bytes())
-        else:
-            txs.append(tx.payload_body())
-    return txs
+    index: HexNumber
+    error: str
 
 
-def serialize_transactions(input_txs: List[Transaction] | None) -> bytes:
+class Result(CamelModel):
     """
-    Serialize a list of transactions into a single byte string, usually RLP encoded.
+    Result of a t8n
     """
-    return eth_rlp.encode(transaction_list_to_serializable_list(input_txs))
+
+    state_root: Hash
+    ommers_hash: Hash | None = Field(None, validation_alias="sha3Uncles")
+    transactions_trie: Hash = Field(..., alias="txRoot")
+    receipts_root: Hash
+    logs_hash: Hash
+    logs_bloom: Bloom
+    receipts: List[TransactionReceipt]
+    rejected_transactions: List[RejectedTransaction] = Field(
+        default_factory=list, alias="rejected"
+    )
+    difficulty: HexNumber | None = Field(None, alias="currentDifficulty")
+    gas_used: HexNumber
+    base_fee_per_gas: HexNumber | None = Field(None, alias="currentBaseFee")
+    withdrawals_root: Hash | None = None
+    excess_blob_gas: HexNumber | None = Field(None, alias="currentExcessBlobGas")
+    blob_gas_used: HexNumber | None = None
 
 
-def blob_versioned_hashes_from_transactions(
-    input_txs: List[Transaction] | None,
-) -> List[FixedSizeBytesConvertible]:
+class TransitionToolOutput(CamelModel):
     """
-    Gets a list of ordered blob versioned hashes from a list of transactions.
+    Transition tool output
     """
-    versioned_hashes: List[FixedSizeBytesConvertible] = []
 
-    if input_txs is None:
-        return versioned_hashes
-
-    for tx in input_txs:
-        if tx.blob_versioned_hashes is not None and tx.ty == 3:
-            versioned_hashes.extend(tx.blob_versioned_hashes)
-
-    return versioned_hashes
+    alloc: Alloc
+    result: Result
