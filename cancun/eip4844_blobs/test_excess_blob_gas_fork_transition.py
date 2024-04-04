@@ -155,11 +155,10 @@ def test_invalid_pre_fork_block_with_blob_fields(
     Blocks sent by NewPayloadV2 (Shanghai) that contain `excessBlobGas` and `blobGasUsed` fields
     must be rejected with the appropriate `EngineAPIError.InvalidParams` error error.
     """
-    header_modifier = Header()
-    if excess_blob_gas_present:
-        header_modifier.excess_blob_gas = 0
-    if blob_gas_used_present:
-        header_modifier.blob_gas_used = 0
+    header_modifier = Header(
+        excess_blob_gas=0 if excess_blob_gas_present else None,
+        blob_gas_used=0 if blob_gas_used_present else None,
+    )
     blockchain_test(
         pre=pre,
         post={},

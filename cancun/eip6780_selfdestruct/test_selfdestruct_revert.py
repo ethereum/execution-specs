@@ -44,7 +44,7 @@ def recursive_revert_contract_address() -> Address:
 def env() -> Environment:
     """Default environment for all tests."""
     return Environment(
-        coinbase="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+        fee_recipient="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
     )
 
 

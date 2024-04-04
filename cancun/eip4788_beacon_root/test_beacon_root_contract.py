@@ -86,7 +86,7 @@ def test_beacon_root_contract_calls(
     """
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], beacon_root=beacon_root, timestamp=timestamp)],
+        blocks=[Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)],
         post=post,
     )
 
@@ -132,7 +132,7 @@ def test_beacon_root_contract_timestamps(
     """
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], beacon_root=beacon_root, timestamp=timestamp)],
+        blocks=[Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)],
         post=post,
     )
 
@@ -163,7 +163,7 @@ def test_calldata_lengths(
     """
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], beacon_root=beacon_root, timestamp=timestamp)],
+        blocks=[Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)],
         post=post,
     )
 
@@ -196,7 +196,7 @@ def test_beacon_root_equal_to_timestamp(
     """
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], beacon_root=beacon_root, timestamp=timestamp)],
+        blocks=[Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)],
         post=post,
     )
 
@@ -218,7 +218,7 @@ def test_tx_to_beacon_root_contract(
     """
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], beacon_root=beacon_root, timestamp=timestamp)],
+        blocks=[Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)],
         post=post,
     )
 
@@ -248,7 +248,7 @@ def test_invalid_beacon_root_calldata_value(
     """
     blockchain_test(
         pre=pre,
-        blocks=[Block(txs=[tx], beacon_root=beacon_root, timestamp=timestamp)],
+        blocks=[Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)],
         post=post,
     )
 
@@ -419,13 +419,13 @@ def test_multi_block_beacon_root_timestamp_calls(
         blocks.append(
             Block(
                 txs=[
-                    tx.with_fields(
+                    tx.copy(
                         nonce=i,
                         to=Address(0x100 + i),
                         data=Hash(timestamp),
                     )
                 ],
-                beacon_root=beacon_root,
+                parent_beacon_block_root=beacon_root,
                 timestamp=timestamp,
                 withdrawals=[
                     # Also withdraw to the beacon root contract and the system address
@@ -433,13 +433,13 @@ def test_multi_block_beacon_root_timestamp_calls(
                         address=Spec.BEACON_ROOTS_ADDRESS,
                         amount=1,
                         index=next(withdraw_index),
-                        validator=0,
+                        validator_index=0,
                     ),
                     Withdrawal(
                         address=Spec.SYSTEM_ADDRESS,
                         amount=1,
                         index=next(withdraw_index),
-                        validator=1,
+                        validator_index=1,
                     ),
                 ],
             )
@@ -544,13 +544,13 @@ def test_beacon_root_transition(
         blocks.append(
             Block(
                 txs=[
-                    tx.with_fields(
+                    tx.copy(
                         nonce=i,
                         to=Address(0x100 + i),
                         data=Hash(timestamp),
                     )
                 ],
-                beacon_root=beacon_root if transitioned else None,
+                parent_beacon_block_root=beacon_root if transitioned else None,
                 timestamp=timestamp,
                 withdrawals=[
                     # Also withdraw to the beacon root contract and the system address
@@ -558,13 +558,13 @@ def test_beacon_root_transition(
                         address=Spec.BEACON_ROOTS_ADDRESS,
                         amount=1,
                         index=next(withdraw_index),
-                        validator=0,
+                        validator_index=0,
                     ),
                     Withdrawal(
                         address=Spec.SYSTEM_ADDRESS,
                         amount=1,
                         index=next(withdraw_index),
-                        validator=1,
+                        validator_index=1,
                     ),
                 ],
             )
@@ -596,7 +596,7 @@ def test_no_beacon_root_contract_at_transition(
     blocks: List[Block] = [
         Block(
             txs=[tx],
-            beacon_root=next(beacon_roots),
+            parent_beacon_block_root=next(beacon_roots),
             timestamp=timestamp,
             withdrawals=[
                 # Also withdraw to the beacon root contract and the system address
@@ -604,13 +604,13 @@ def test_no_beacon_root_contract_at_transition(
                     address=Spec.BEACON_ROOTS_ADDRESS,
                     amount=1,
                     index=0,
-                    validator=0,
+                    validator_index=0,
                 ),
                 Withdrawal(
                     address=Spec.SYSTEM_ADDRESS,
                     amount=1,
                     index=1,
-                    validator=1,
+                    validator_index=1,
                 ),
             ],
         )
@@ -696,7 +696,7 @@ def test_beacon_root_contract_deploy(
             blocks.append(
                 Block(  # Deployment block
                     txs=[deploy_tx],
-                    beacon_root=(
+                    parent_beacon_block_root=(
                         beacon_root
                         if fork.header_beacon_root_required(1, current_timestamp)
                         else None
@@ -708,13 +708,13 @@ def test_beacon_root_contract_deploy(
                             address=Spec.BEACON_ROOTS_ADDRESS,
                             amount=1,
                             index=0,
-                            validator=0,
+                            validator_index=0,
                         ),
                         Withdrawal(
                             address=Spec.SYSTEM_ADDRESS,
                             amount=1,
                             index=1,
-                            validator=1,
+                            validator_index=1,
                         ),
                     ],
                 )
@@ -727,7 +727,7 @@ def test_beacon_root_contract_deploy(
             blocks.append(
                 Block(  # Contract already deployed
                     txs=[tx],
-                    beacon_root=beacon_root,
+                    parent_beacon_block_root=beacon_root,
                     timestamp=timestamp,
                     withdrawals=[
                         # Also withdraw to the beacon root contract and the system address
@@ -735,13 +735,13 @@ def test_beacon_root_contract_deploy(
                             address=Spec.BEACON_ROOTS_ADDRESS,
                             amount=1,
                             index=2,
-                            validator=0,
+                            validator_index=0,
                         ),
                         Withdrawal(
                             address=Spec.SYSTEM_ADDRESS,
                             amount=1,
                             index=3,
-                            validator=1,
+                            validator_index=1,
                         ),
                     ],
                 ),

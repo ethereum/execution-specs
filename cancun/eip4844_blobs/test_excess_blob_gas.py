@@ -20,6 +20,7 @@ note: Adding a new test
     cases.
 
 """  # noqa: E501
+
 import itertools
 from typing import Dict, Iterator, List, Mapping, Optional, Tuple
 
@@ -32,7 +33,6 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     BlockException,
     Environment,
-    ExceptionType,
     Hash,
     Header,
 )
@@ -119,10 +119,12 @@ def env(  # noqa: D103
     parent_blobs: int,
 ) -> Environment:
     return Environment(
-        excess_blob_gas=parent_excess_blob_gas
-        if parent_blobs == 0
-        else parent_excess_blob_gas + Spec.TARGET_BLOB_GAS_PER_BLOCK,
-        base_fee=block_base_fee,
+        excess_blob_gas=(
+            parent_excess_blob_gas
+            if parent_blobs == 0
+            else parent_excess_blob_gas + Spec.TARGET_BLOB_GAS_PER_BLOCK
+        ),
+        base_fee_per_gas=block_base_fee,
     )
 
 
@@ -265,7 +267,8 @@ def blocks(  # noqa: D103
     )
 
     def add_block(
-        header_modifier: Optional[Dict] = None, exception_message: Optional[ExceptionType] = None
+        header_modifier: Optional[Dict] = None,
+        exception_message: Optional[BlockException | List[BlockException]] = None,
     ):
         """
         Utility function to add a block to the blocks list.
@@ -291,8 +294,10 @@ def blocks(  # noqa: D103
         if header_blob_gas_used > Spec.MAX_BLOB_GAS_PER_BLOCK:
             add_block(
                 header_modifier={"blob_gas_used": header_blob_gas_used},
-                exception_message=BlockException.BLOB_GAS_USED_ABOVE_LIMIT
-                | BlockException.INCORRECT_BLOB_GAS_USED,
+                exception_message=[
+                    BlockException.BLOB_GAS_USED_ABOVE_LIMIT,
+                    BlockException.INCORRECT_BLOB_GAS_USED,
+                ],
             )
         else:
             add_block(

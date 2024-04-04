@@ -74,7 +74,7 @@ def blob_tx(template_tx):
     """
 
     def _blob_tx(address, type, nonce):
-        return template_tx.with_fields(
+        return template_tx.copy(
             ty=type,
             nonce=nonce,
             to=address,
@@ -123,7 +123,7 @@ def test_blobhash_gas_cost(
         blocks.append(
             Block(
                 txs=[
-                    template_tx.with_fields(
+                    template_tx.copy(
                         ty=tx_type,
                         nonce=i,
                         to=address,
@@ -182,7 +182,7 @@ def test_blobhash_scenarios(
         blocks.append(
             Block(
                 txs=[
-                    template_tx.with_fields(
+                    template_tx.copy(
                         ty=Spec.BLOB_TX_TYPE,
                         nonce=i,
                         to=address,
@@ -241,7 +241,7 @@ def test_blobhash_invalid_blob_index(
         blocks.append(
             Block(
                 txs=[
-                    template_tx.with_fields(
+                    template_tx.copy(
                         ty=Spec.BLOB_TX_TYPE,
                         nonce=i,
                         to=address,

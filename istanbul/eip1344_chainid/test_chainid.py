@@ -25,7 +25,7 @@ def test_chainid(state_test: StateTestFiller):
     Test CHAINID opcode.
     """
     env = Environment(
-        coinbase="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
+        fee_recipient="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
         difficulty=0x20000,
         gas_limit=10000000000,
         number=1,

@@ -1,6 +1,7 @@
 """
 Shared pytest definitions local to EIP-4788 tests.
 """
+
 from itertools import count
 from typing import Dict, Iterator, List
 
@@ -58,7 +59,7 @@ def beacon_root(request, beacon_roots: Iterator[bytes]) -> bytes:  # noqa: D103
 def env(timestamp: int, beacon_root: bytes) -> Environment:  # noqa: D103
     return Environment(
         timestamp=timestamp,
-        beacon_root=beacon_root,
+        parent_beacon_block_root=beacon_root,
     )
 
 

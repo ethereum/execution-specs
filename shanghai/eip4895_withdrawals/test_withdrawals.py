@@ -9,6 +9,7 @@ from typing import Dict, List, Mapping
 
 import pytest
 
+from ethereum_test_forks import Cancun, Fork
 from ethereum_test_tools import (
     Account,
     Address,
@@ -30,15 +31,6 @@ REFERENCE_SPEC_VERSION = "81af3b60b632bc9c03513d1d137f25410e3f4d34"
 pytestmark = pytest.mark.valid_from("Shanghai")
 
 ONE_GWEI = 10**9
-
-
-def set_withdrawal_index(withdrawals: List[Withdrawal], start_index: int = 0) -> None:
-    """
-    Automatically set the index of each withdrawal in a list in sequential
-    order.
-    """
-    for i, w in enumerate(withdrawals):
-        w.index = start_index + i
 
 
 @pytest.mark.parametrize(
@@ -72,7 +64,7 @@ class TestUseValueInTx:
     def withdrawal(self, tx: Transaction):  # noqa: D102
         return Withdrawal(
             index=0,
-            validator=0,
+            validator_index=0,
             address=TestAddress,
             amount=tx.gas_limit + 1,
         )
@@ -150,7 +142,7 @@ def test_use_value_in_contract(blockchain_test: BlockchainTestFiller):
     )
     withdrawal = Withdrawal(
         index=0,
-        validator=0,
+        validator_index=0,
         address=Address(0x100),
         amount=1,
     )
@@ -210,7 +202,7 @@ def test_balance_within_block(blockchain_test: BlockchainTestFiller):
             withdrawals=[
                 Withdrawal(
                     index=0,
-                    validator=0,
+                    validator_index=0,
                     address=Address(0x200),
                     amount=1,
                 )
@@ -274,7 +266,7 @@ class TestMultipleWithdrawalsSameAddress:
                     withdrawals=[
                         Withdrawal(
                             index=i,
-                            validator=i,
+                            validator_index=i,
                             address=self.ADDRESSES[i % len(self.ADDRESSES)],
                             amount=1,
                         )
@@ -290,7 +282,7 @@ class TestMultipleWithdrawalsSameAddress:
                     withdrawals=[
                         Withdrawal(
                             index=i * 16 + j,
-                            validator=i,
+                            validator_index=i,
                             address=self.ADDRESSES[i],
                             amount=1,
                         )
@@ -351,7 +343,7 @@ def test_many_withdrawals(blockchain_test: BlockchainTestFiller):
         withdrawals.append(
             Withdrawal(
                 index=i,
-                validator=i,
+                validator_index=i,
                 address=addr,
                 amount=amount,
             )
@@ -371,16 +363,17 @@ def test_many_withdrawals(blockchain_test: BlockchainTestFiller):
     blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
-def test_self_destructing_account(blockchain_test: BlockchainTestFiller):
+def test_self_destructing_account(blockchain_test: BlockchainTestFiller, fork: Fork):
     """
     Test withdrawals can be done to self-destructed accounts.
     Account `0x100` self-destructs and sends all its balance to `0x200`.
     Then, a withdrawal is received at `0x100` with 99 wei.
     """
+    self_destruct_code = Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
     pre = {
         TestAddress: Account(balance=1000000000000000000000, nonce=0),
         Address(0x100): Account(
-            code=Op.SELFDESTRUCT(Op.CALLDATALOAD(0)),
+            code=self_destruct_code,
             balance=(100 * ONE_GWEI),
         ),
         Address(0x200): Account(
@@ -400,7 +393,7 @@ def test_self_destructing_account(blockchain_test: BlockchainTestFiller):
 
     withdrawal = Withdrawal(
         index=0,
-        validator=0,
+        validator_index=0,
         address=Address(0x100),
         amount=(99),
     )
@@ -412,11 +405,11 @@ def test_self_destructing_account(blockchain_test: BlockchainTestFiller):
 
     post = {
         Address(0x100): Account(
-            code=None,
+            code=self_destruct_code if fork >= Cancun else b"",
             balance=(99 * ONE_GWEI),
         ),
         Address(0x200): Account(
-            code=None,
+            code=b"",
             balance=(100 * ONE_GWEI) + 1,
         ),
     }
@@ -457,25 +450,27 @@ def test_newly_created_contract(
 
     withdrawal = Withdrawal(
         index=0,
-        validator=0,
+        validator_index=0,
         address=created_contract,
         amount=1,
     )
+
+    created_contract_balance = ONE_GWEI
+    if include_value_in_tx:
+        tx = tx.copy(value=ONE_GWEI)
+        created_contract_balance = 2 * ONE_GWEI
+
+    post = {
+        created_contract: Account(
+            code="0x00",
+            balance=created_contract_balance,
+        ),
+    }
 
     block = Block(
         txs=[tx],
         withdrawals=[withdrawal],
     )
-
-    post = {
-        created_contract: Account(
-            code="0x00",
-            balance=ONE_GWEI,
-        ),
-    }
-    if include_value_in_tx:
-        tx.value = ONE_GWEI
-        post[created_contract].balance = 2 * ONE_GWEI
 
     tag = request.node.callspec.id.split("-")[0]  # remove fork; brittle
     blockchain_test(pre=pre, post=post, blocks=[block], tag=tag)
@@ -517,13 +512,13 @@ def test_no_evm_execution(blockchain_test: BlockchainTestFiller):
             withdrawals=[
                 Withdrawal(
                     index=0,
-                    validator=0,
+                    validator_index=0,
                     address=Address(0x100),
                     amount=1,
                 ),
                 Withdrawal(
                     index=1,
-                    validator=1,
+                    validator_index=1,
                     address=Address(0x200),
                     amount=1,
                 ),
@@ -545,13 +540,13 @@ def test_no_evm_execution(blockchain_test: BlockchainTestFiller):
             withdrawals=[
                 Withdrawal(
                     index=0,
-                    validator=0,
+                    validator_index=0,
                     address=Address(0x300),
                     amount=1,
                 ),
                 Withdrawal(
                     index=1,
-                    validator=1,
+                    validator_index=1,
                     address=Address(0x400),
                     amount=1,
                 ),
@@ -610,28 +605,28 @@ def test_zero_amount(
         # No value, untouched account
         Withdrawal(
             index=0,
-            validator=0,
+            validator_index=0,
             address=Address(0x100),
             amount=0,
         ),
         # No value, touched account
         Withdrawal(
             index=0,
-            validator=0,
+            validator_index=0,
             address=Address(0x200),
             amount=0,
         ),
         # Withdrawal with value
         Withdrawal(
             index=1,
-            validator=0,
+            validator_index=0,
             address=Address(0x300),
             amount=1,
         ),
         # Withdrawal with maximum amount
         Withdrawal(
             index=2,
-            validator=0,
+            validator_index=0,
             address=Address(0x400),
             amount=2**64 - 1,
         ),
@@ -668,9 +663,15 @@ def test_zero_amount(
         withdrawals = all_withdrawals
         post = all_post
     elif test_case == ZeroAmountTestCases.FOUR_ONE_WITH_MAX_REVERSED:
-        withdrawals = all_withdrawals
-        withdrawals.reverse()
-        set_withdrawal_index(withdrawals)
+        for i, w in enumerate(reversed(all_withdrawals)):
+            withdrawals.append(
+                Withdrawal(
+                    index=i,
+                    validator_index=w.validator_index,
+                    address=w.address,
+                    amount=w.amount,
+                )
+            )
         post = all_post
     else:
         raise Exception("Unknown test case.")
@@ -710,7 +711,7 @@ def test_large_amount(blockchain_test: BlockchainTestFiller):
         withdrawals.append(
             Withdrawal(
                 index=i,
-                validator=i,
+                validator_index=i,
                 address=addr,
                 amount=amount,
             )
@@ -746,7 +747,7 @@ def test_withdrawing_to_precompiles(
             withdrawals=[
                 Withdrawal(
                     index=0,
-                    validator=0,
+                    validator_index=0,
                     address=Address(precompile),
                     amount=amount,
                 )

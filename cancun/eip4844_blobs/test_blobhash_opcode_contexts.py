@@ -82,7 +82,7 @@ def opcode_context(yul: YulCompiler, request):
                     code=BlobhashContext.code("blobhash_sstore")
                 ),
             },
-            tx_type_3.with_fields(
+            tx_type_3.copy(
                 to=BlobhashContext.address("blobhash_sstore"),
                 blob_versioned_hashes=simple_blob_hashes[:1],
             ),
@@ -99,7 +99,7 @@ def opcode_context(yul: YulCompiler, request):
                     code=BlobhashContext.code("blobhash_sstore")
                 ),
             },
-            tx_type_3.with_fields(
+            tx_type_3.copy(
                 data=Hash(2**256 - 1) + Hash(2**256 - 1),
                 to=BlobhashContext.address("blobhash_sstore"),
             ),
@@ -115,7 +115,7 @@ def opcode_context(yul: YulCompiler, request):
                     code=BlobhashContext.code("blobhash_sstore")
                 ),
             },
-            tx_type_3.with_fields(
+            tx_type_3.copy(
                 data=Hash(1) + Hash(1),
                 to=BlobhashContext.address("call"),
                 blob_versioned_hashes=simple_blob_hashes[:2],
@@ -136,7 +136,7 @@ def opcode_context(yul: YulCompiler, request):
                     code=BlobhashContext.code("blobhash_sstore")
                 ),
             },
-            tx_type_3.with_fields(
+            tx_type_3.copy(
                 data=Hash(0) + Hash(SpecHelpers.max_blobs_per_block() - 1),
                 to=BlobhashContext.address("delegatecall"),
             ),
@@ -158,7 +158,7 @@ def opcode_context(yul: YulCompiler, request):
                     code=BlobhashContext.code("blobhash_return")
                 ),
             },
-            tx_type_3.with_fields(
+            tx_type_3.copy(
                 data=Hash(0) + Hash(SpecHelpers.max_blobs_per_block() - 1),
                 to=BlobhashContext.address("staticcall"),
             ),
@@ -180,7 +180,7 @@ def opcode_context(yul: YulCompiler, request):
                     code=BlobhashContext.code("blobhash_return")
                 ),
             },
-            tx_type_3.with_fields(
+            tx_type_3.copy(
                 data=Hash(0) + Hash(SpecHelpers.max_blobs_per_block() - 1),
                 to=BlobhashContext.address("callcode"),
             ),
@@ -197,7 +197,7 @@ def opcode_context(yul: YulCompiler, request):
             {
                 BlobhashContext.address("create"): Account(code=BlobhashContext.code("create")),
             },
-            tx_type_3.with_fields(
+            tx_type_3.copy(
                 data=BlobhashContext.code("initcode"),
                 to=BlobhashContext.address("create"),
             ),
@@ -214,7 +214,7 @@ def opcode_context(yul: YulCompiler, request):
             {
                 BlobhashContext.address("create2"): Account(code=BlobhashContext.code("create2")),
             },
-            tx_type_3.with_fields(
+            tx_type_3.copy(
                 data=BlobhashContext.code("initcode"),
                 to=BlobhashContext.address("create2"),
             ),

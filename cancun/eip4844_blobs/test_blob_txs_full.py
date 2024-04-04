@@ -257,9 +257,10 @@ def blocks(
     if any(txs_wrapped_blobs):
         # This is a block exception because the invalid block is only created in the RLP version,
         # not in the transition tool.
-        block_error = (
-            TransactionException.TYPE_3_TX_WITH_FULL_BLOBS | BlockException.RLP_STRUCTURES_ENCODING
-        )
+        block_error = [
+            BlockException.RLP_STRUCTURES_ENCODING,
+            TransactionException.TYPE_3_TX_WITH_FULL_BLOBS,
+        ]
     if len(txs) > 0:
         header_blob_gas_used = (
             sum(
