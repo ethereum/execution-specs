@@ -24,31 +24,9 @@ from ethereum.utils.ensure import ensure
 from .. import rlp
 from ..base_types import U64, U256, Bytes, Uint
 from . import vm
+from .blocks import Block, Header, Log, Receipt, Withdrawal
 from .bloom import logs_bloom
-from .fork_types import (
-    TX_ACCESS_LIST_ADDRESS_COST,
-    TX_ACCESS_LIST_STORAGE_KEY_COST,
-    TX_BASE_COST,
-    TX_CREATE_COST,
-    TX_DATA_COST_PER_NON_ZERO,
-    TX_DATA_COST_PER_ZERO,
-    AccessListTransaction,
-    Address,
-    BlobTransaction,
-    Block,
-    Bloom,
-    FeeMarketTransaction,
-    Header,
-    LegacyTransaction,
-    Log,
-    Receipt,
-    Root,
-    Transaction,
-    VersionedHash,
-    Withdrawal,
-    decode_transaction,
-    encode_transaction,
-)
+from .fork_types import Address, Bloom, Root, VersionedHash
 from .state import (
     State,
     TransientStorage,
@@ -60,6 +38,21 @@ from .state import (
     process_withdrawal,
     set_account_balance,
     state_root,
+)
+from .transactions import (
+    TX_ACCESS_LIST_ADDRESS_COST,
+    TX_ACCESS_LIST_STORAGE_KEY_COST,
+    TX_BASE_COST,
+    TX_CREATE_COST,
+    TX_DATA_COST_PER_NON_ZERO,
+    TX_DATA_COST_PER_ZERO,
+    AccessListTransaction,
+    BlobTransaction,
+    FeeMarketTransaction,
+    LegacyTransaction,
+    Transaction,
+    decode_transaction,
+    encode_transaction,
 )
 from .trie import Trie, root, trie_set
 from .utils.hexadecimal import hex_to_address
@@ -662,7 +655,7 @@ def process_transaction(
     -------
     gas_left : `ethereum.base_types.U256`
         Remaining gas after execution.
-    logs : `Tuple[ethereum.fork_types.Log, ...]`
+    logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
     ensure(validate_transaction(tx), InvalidBlock)

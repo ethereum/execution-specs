@@ -2,16 +2,12 @@ import pytest
 
 import ethereum.rlp as rlp
 from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes8, Bytes32, Uint
-from ethereum.cancun.fork_types import (
+from ethereum.cancun.blocks import Block, Header, Log, Receipt, Withdrawal
+from ethereum.cancun.transactions import (
     AccessListTransaction,
-    Block,
     FeeMarketTransaction,
-    Header,
     LegacyTransaction,
-    Log,
-    Receipt,
     Transaction,
-    Withdrawal,
     decode_transaction,
     encode_transaction,
 )
