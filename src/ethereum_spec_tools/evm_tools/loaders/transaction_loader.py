@@ -7,12 +7,13 @@ from dataclasses import fields
 from typing import Any, List
 
 from ethereum import rlp
-from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes32
+from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes32, Uint
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes32,
     hex_to_hash,
     hex_to_u256,
+    hex_to_uint,
 )
 
 
@@ -42,13 +43,13 @@ class TransactionLoad:
         """Get the nonce for the transaction."""
         return hex_to_u256(self.raw.get("nonce"))
 
-    def json_to_gas_price(self) -> U256:
+    def json_to_gas_price(self) -> Uint:
         """Get the gas price for the transaction."""
-        return hex_to_u256(self.raw.get("gasPrice"))
+        return hex_to_uint(self.raw.get("gasPrice"))
 
-    def json_to_gas(self) -> U256:
+    def json_to_gas(self) -> Uint:
         """Get the gas limit for the transaction."""
-        return hex_to_u256(self.raw.get("gasLimit"))
+        return hex_to_uint(self.raw.get("gasLimit"))
 
     def json_to_to(self) -> Bytes:
         """Get to address for the transaction."""

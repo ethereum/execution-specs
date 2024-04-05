@@ -18,7 +18,8 @@ from ethereum.base_types import U64, U256, Uint
 from ethereum.trace import GasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
-from ..fork_types import BlobTransaction, Header, Transaction
+from ..blocks import Header
+from ..transactions import BlobTransaction, Transaction
 from . import Environment, Evm
 from .exceptions import OutOfGasError
 
