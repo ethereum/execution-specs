@@ -241,8 +241,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             """
             _begin_transaction(state)
 
-    @add_item(patches)
-    def commit_transaction(state: State) -> None:
+    def _commit_transaction(state: State) -> None:
         """
         See `state`.
         """
@@ -251,6 +250,29 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             state.journal.clear()
             state.created_accounts.clear()
             flush(state)
+
+    if has_transient_storage:
+
+        @add_item(patches)
+        def commit_transaction(
+            state: State, transient_storage: Optional[Any] = None
+        ) -> None:
+            """
+            See `state`.
+            """
+            _commit_transaction(state)
+
+            if transient_storage and transient_storage._snapshots:
+                transient_storage._snapshots.pop()
+
+    else:
+
+        @add_item(patches)
+        def commit_transaction(state: State) -> None:
+            """
+            See `state`.
+            """
+            _commit_transaction(state)
 
     def _rollback_transaction(state: State) -> None:
         """
