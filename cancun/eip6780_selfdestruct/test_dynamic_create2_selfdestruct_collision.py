@@ -414,7 +414,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
         sendall_destination_balance += pre_existing_create2_balance
         if fork >= Cancun:
             # first create2 fails, but first calls ok. the account is not removed on cancun
-            # therefor with the second create2 it is not successful
+            # therefore with the second create2 it is not successful
             sendall_destination_balance += first_call_value
         else:
             # first create2 fails, first calls totally removes the account
