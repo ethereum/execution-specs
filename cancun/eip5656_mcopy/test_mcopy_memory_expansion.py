@@ -203,6 +203,7 @@ def post(bytecode_storage: Tuple[bytes, Storage.StorageDictType]) -> Mapping:  #
 @pytest.mark.valid_from("Cancun")
 def test_mcopy_memory_expansion(
     state_test: StateTestFiller,
+    env: Environment,
     pre: Mapping[str, Account],
     post: Mapping[str, Account],
     tx: Transaction,
@@ -211,7 +212,7 @@ def test_mcopy_memory_expansion(
     Perform MCOPY operations that expand the memory, and verify the gas it costs to do so.
     """
     state_test(
-        env=Environment(),
+        env=env,
         pre=pre,
         post=post,
         tx=tx,
@@ -263,6 +264,7 @@ def test_mcopy_memory_expansion(
 @pytest.mark.valid_from("Cancun")
 def test_mcopy_huge_memory_expansion(
     state_test: StateTestFiller,
+    env: Environment,
     pre: Mapping[str, Account],
     post: Mapping[str, Account],
     tx: Transaction,
@@ -272,7 +274,7 @@ def test_mcopy_huge_memory_expansion(
     runs out of gas.
     """
     state_test(
-        env=Environment(),
+        env=env,
         pre=pre,
         post=post,
         tx=tx,
