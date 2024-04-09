@@ -364,9 +364,6 @@ class T8N(Load):
                 system_tx_message, system_tx_env
             )
 
-            system_tx_output = self.fork.process_message_call(
-                system_tx_message, system_tx_env
-            )
             self.fork.destroy_touched_empty_accounts(
                 system_tx_env.state, system_tx_output.touched_accounts
             )
