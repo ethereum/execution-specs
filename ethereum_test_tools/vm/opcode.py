@@ -122,7 +122,9 @@ class Opcode(OpcodeMacroBase):
             return obj
         raise TypeError("Opcode constructor '__new__' didn't return an instance!")
 
-    def __call__(self, *args_t: Union[int, bytes, str, "Opcode", FixedSizeBytes]) -> bytes:
+    def __call__(
+        self, *args_t: Union[int, bytes, str, "Opcode", FixedSizeBytes], unchecked: bool = False
+    ) -> bytes:
         """
         Makes all opcode instances callable to return formatted bytecode, which constitutes a data
         portion, that is located after the opcode byte, and pre-opcode bytecode, which is normally
@@ -180,6 +182,12 @@ class Opcode(OpcodeMacroBase):
                 raise TypeError("Opcode data portion must be either an int or bytes/hex string")
 
         # The rest of the arguments conform the stack.
+        if len(args) != self.popped_stack_items and not unchecked:
+            raise ValueError(
+                f"Opcode {self._name_} requires {self.popped_stack_items} stack elements, but "
+                f"{len(args)} were provided. Use 'unchecked=True' parameter to ignore this check."
+            )
+
         while len(args) > 0:
             data = args.pop()
             if isinstance(data, int) or isinstance(data, FixedSizeBytes):
