@@ -143,7 +143,7 @@ class DynamicCallContextTestCases(EnumMeta):
                     + Op.SSTORE(1, Op.TLOAD(0))
                     + Op.SSTORE(2, Op.TLOAD(1))
                 ),
-                "callee_bytecode": Op.TSTORE(1),
+                "callee_bytecode": Op.TSTORE(1, unchecked=True),
                 "expected_caller_storage": {0: 0, 1: 420, 2: 420},
                 "expected_callee_storage": {},
             }
@@ -182,13 +182,9 @@ class DynamicCallContextTestCases(EnumMeta):
 
             gas_limit = Spec.TSTORE_GAS_COST + (PUSH_OPCODE_COST * 2) - 1
             if opcode == Op.DELEGATECALL:
-                contract_call = opcode(
-                    opcode(gas_limit, callee_address, 0, 0, 0, 0),
-                )
+                contract_call = opcode(gas_limit, callee_address, 0, 0, 0, 0)
             elif opcode in [Op.CALL, Op.CALLCODE]:
-                contract_call = opcode(
-                    opcode(gas_limit, callee_address, 0, 0, 0, 0, 0),
-                )
+                contract_call = opcode(gas_limit, callee_address, 0, 0, 0, 0, 0)
             else:
                 raise ValueError("Unexpected opcode.")
             classdict[f"{opcode._name_}_WITH_OUT_OF_GAS"] = {
@@ -199,18 +195,7 @@ class DynamicCallContextTestCases(EnumMeta):
                 "caller_bytecode": (
                     Op.TSTORE(0, 420)
                     + Op.TSTORE(1, 420)
-                    + Op.SSTORE(
-                        0,
-                        opcode(
-                            Spec.TSTORE_GAS_COST + (PUSH_OPCODE_COST * 2) - 1,
-                            callee_address,
-                            0,
-                            0,
-                            0,
-                            0,
-                            0,
-                        ),
-                    )
+                    + Op.SSTORE(0, contract_call)
                     + Op.SSTORE(1, Op.TLOAD(0))
                     + Op.SSTORE(2, Op.TLOAD(1))
                 ),
@@ -286,7 +271,9 @@ class CallContextTestCases(PytestParameterEnum, metaclass=DynamicCallContextTest
             + Op.SSTORE(0, Op.STATICCALL(0xFFFF, callee_address, 0, 0, 0, 0))  # limit gas
             + Op.SSTORE(1, Op.TLOAD(0))
         ),
-        "callee_bytecode": Op.TSTORE(0),  # calling with stack underflow still fails
+        "callee_bytecode": Op.TSTORE(
+            0, unchecked=True
+        ),  # calling with stack underflow still fails
         "expected_caller_storage": {0: 0, 1: 420},
         "expected_callee_storage": {},
     }
