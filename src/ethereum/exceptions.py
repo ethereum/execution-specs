@@ -1,22 +1,12 @@
 """
-Exceptions
-^^^^^^^^^^
-
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
-
-The Ethereum specification exception classes.
+Error types common across all Ethereum forks.
 """
 
 
 class EthereumException(Exception):
     """
-    The base class from which all exceptions thrown by the specification during
-    normal operation derive.
+    Base class for all exceptions _expected_ to be thrown during normal
+    operation.
     """
 
 
