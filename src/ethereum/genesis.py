@@ -1,21 +1,21 @@
 """
-Genesis Configuration
-^^^^^^^^^^^^^^^^^^^^^
+Types and functions for beginning a new chain.
 
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
+_Genesis_ is the term for the beginning of a new chain, and so a genesis block
+is a block with no parent (its [`parent_hash`] is all zeros.)
 
-Introduction
-------------
+The genesis configuration for a chain is specified with a
+[`GenesisConfiguration`], and genesis blocks are created with
+[`add_genesis_block`].
 
-Functionalities and entities to obtain the genesis configurations for
-different chains.
+[`parent_hash`]: ref:ethereum.frontier.blocks.Header.parent_hash
+[`GenesisConfiguration`]: ref:ethereum.genesis.GenesisConfiguration
+[`add_genesis_block`]: ref:ethereum.genesis.add_genesis_block
 """
 import json
 import pkgutil
 from dataclasses import dataclass
-from typing import Any, Dict, cast
+from typing import Any, Dict, Type
 
 from ethereum import rlp
 from ethereum.base_types import (
@@ -23,7 +23,7 @@ from ethereum.base_types import (
     U256,
     Bytes,
     Bytes8,
-    Bytes20,
+    FixedBytes,
     Uint,
     slotted_freezable,
 )
@@ -34,8 +34,6 @@ from ethereum.utils.hexadecimal import (
     hex_to_u256,
     hex_to_uint,
 )
-
-Address = Bytes20
 
 
 @slotted_freezable
@@ -49,35 +47,63 @@ class GenesisConfiguration:
     """
 
     chain_id: U64
+    """
+    Discriminant between diverged blockchains; `1` for Ethereum's main network.
+    """
+
     difficulty: Uint
+    """
+    See [`difficulty`] (and subsequent forks.)
+
+    [`difficulty`]: ref:ethereum.frontier.blocks.Header.difficulty
+    """
+
     extra_data: Bytes
+    """
+    See [`extra_data`] (and subsequent forks.)
+
+    [`extra_data`]: ref:ethereum.frontier.blocks.Header.extra_data
+    """
+
     gas_limit: Uint
+    """
+    See [`gas_limit`] (and subsequent forks.)
+
+    [`gas_limit`]: ref:ethereum.frontier.blocks.Header.gas_limit
+    """
+
     nonce: Bytes8
+    """
+    See [`nonce`] (and subsequent forks.)
+
+    [`nonce`]: ref:ethereum.frontier.blocks.Header.nonce
+    """
+
     timestamp: U256
+    """
+    See [`timestamp`] (and subsequent forks.)
+
+    [`timestamp`]: ref:ethereum.frontier.blocks.Header.timestamp
+    """
+
     initial_accounts: Dict[str, Dict]
+    """
+    State of the blockchain at genesis.
+    """
 
 
 def get_genesis_configuration(genesis_file: str) -> GenesisConfiguration:
     """
-    Obtain the genesis configuration from the given genesis json file.
+    Read a genesis configuration from the given JSON file path.
 
     The genesis file should be present in the `assets` directory.
-
-    Parameters
-    ----------
-    genesis_file :
-        The json file which contains the parameters for the genesis block
-        and the pre-sale allocation data.
-
-    Returns
-    -------
-    configuration : `GenesisConfiguration`
-        The genesis configuration obtained from the json genesis file.
     """
-    genesis_str_data = cast(
-        bytes, pkgutil.get_data("ethereum", f"assets/{genesis_file}")
-    ).decode()
-    genesis_data = json.loads(genesis_str_data)
+    genesis_path = f"assets/{genesis_file}"
+    genesis_bytes = pkgutil.get_data("ethereum", genesis_path)
+    if genesis_bytes is None:
+        raise Exception(f"Unable to read genesis from `{genesis_path}`")
+
+    genesis_data = json.loads(genesis_bytes.decode())
 
     return GenesisConfiguration(
         chain_id=U64(genesis_data["config"]["chainId"]),
@@ -92,8 +118,9 @@ def get_genesis_configuration(genesis_file: str) -> GenesisConfiguration:
 
 def hex_or_base_10_str_to_u256(balance: str) -> U256:
     """
-    The genesis format can have balances and timestamps as either base 10
-    numbers or 0x prefixed hex. This function supports both.
+    Convert a string in either hexadecimal or base-10 to a [`U256`].
+
+    [`U256`]: ref:ethereum.base_types.U256
     """
     if balance.startswith("0x"):
         return hex_to_u256(balance)
@@ -114,10 +141,10 @@ def add_genesis_block(
 
     The mainnet genesis configuration was originally created using the
     `mk_genesis_block.py` script. It is long since defunct, but is still
-    available at https://github.com/ethereum/genesis_block_generator.
+    available at <https://github.com/ethereum/genesis_block_generator>.
 
     The initial state is populated with balances based on the Ethereum presale
-    that happened on the Bitcoin blockchain. Additional Ether worth 1.98% of
+    that happened on the Bitcoin blockchain. Additional ether worth 1.98% of
     the presale was given to the foundation.
 
     The `state_root` is set to the root of the initial state. The `gas_limit`
@@ -136,18 +163,14 @@ def add_genesis_block(
     The remaining fields are set to appropriate default values.
 
     On testnets the genesis configuration usually allocates 1 wei to addresses
-    `0x00` to `0xFF` to avoid edgecases around precompiles being created or
-    cleared (by EIP 161).
+    `0x00` to `0xFF` to avoid edge cases around precompiles being created or
+    cleared (by [EIP-161]).
 
-    Parameters
-    ----------
-    hardfork:
-        The module containing the initial hardfork
-    chain :
-        An empty `Blockchain` object.
-    genesis :
-        The genesis configuration to use.
+    [EIP-161]: https://eips.ethereum.org/EIPS/eip-161
     """
+    Address: Type[FixedBytes] = hardfork.fork_types.Address
+    assert issubclass(Address, FixedBytes)
+
     for address, account in genesis.initial_accounts.items():
         address = hardfork.utils.hexadecimal.hex_to_address(address)
         hardfork.state.set_account(
@@ -167,7 +190,7 @@ def add_genesis_block(
     fields = {
         "parent_hash": hardfork.fork_types.Hash32(b"\0" * 32),
         "ommers_hash": rlp.rlp_hash(()),
-        "coinbase": Address(b"\0" * 20),
+        "coinbase": Address(b"\0" * Address.LENGTH),
         "state_root": hardfork.state.state_root(chain.state),
         "transactions_root": hardfork.trie.root(
             hardfork.trie.Trie(False, None)
