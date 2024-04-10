@@ -168,7 +168,7 @@ def pytest_configure(config):
             "The Besu t8n tool does not work well with the xdist plugin; use -n=0.",
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
-    config.solc_version = Yul("", binary=config.getoption("solc_bin")).version()
+    config.solc_version = Yul("", binary=config.getoption("solc_bin")).version
     if config.solc_version < Frontier.solc_min_version():
         pytest.exit(
             f"Unsupported solc version: {config.solc_version}. Minimum required version is "

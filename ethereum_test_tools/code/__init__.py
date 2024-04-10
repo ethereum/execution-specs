@@ -3,7 +3,7 @@ Code related utilities and classes.
 """
 from .code import Code
 from .generators import CalldataCase, Case, CodeGasMeasure, Conditional, Initcode, Switch
-from .yul import Yul, YulCompiler
+from .yul import Solc, Yul, YulCompiler
 
 __all__ = (
     "Case",
@@ -12,6 +12,7 @@ __all__ = (
     "CodeGasMeasure",
     "Conditional",
     "Initcode",
+    "Solc",
     "Switch",
     "Yul",
     "YulCompiler",

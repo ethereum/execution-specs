@@ -23,9 +23,9 @@ from ..helpers import (
 from ..transition_base_fork import transition_fork
 
 FIRST_DEPLOYED = Frontier
-LAST_DEPLOYED = Shanghai
+LAST_DEPLOYED = Cancun
 LAST_DEVELOPMENT = Prague
-DEVELOPMENT_FORKS = [Cancun, Prague]
+DEVELOPMENT_FORKS = [Prague]
 
 
 def test_transition_forks():
@@ -67,9 +67,12 @@ def test_transition_forks():
 
 
 def test_forks_from():  # noqa: D103
-    assert forks_from(Paris) == [Paris, LAST_DEPLOYED]
-    assert forks_from(Paris, deployed_only=True) == [Paris, LAST_DEPLOYED]
-    assert forks_from(Paris, deployed_only=False) == [Paris, LAST_DEPLOYED] + DEVELOPMENT_FORKS
+    assert forks_from(Paris)[0] == Paris
+    assert forks_from(Paris)[-1] == LAST_DEPLOYED
+    assert forks_from(Paris, deployed_only=True)[0] == Paris
+    assert forks_from(Paris, deployed_only=True)[-1] == LAST_DEPLOYED
+    assert forks_from(Paris, deployed_only=False)[0] == Paris
+    assert forks_from(Paris, deployed_only=False)[-1] == LAST_DEVELOPMENT
 
 
 def test_forks():

@@ -4,10 +4,11 @@ Yul frontend
 
 import re
 import warnings
+from functools import cached_property
 from pathlib import Path
 from shutil import which
-from subprocess import PIPE, run
-from typing import Optional, Sized, SupportsBytes, Tuple, Type, Union
+from subprocess import CompletedProcess, run
+from typing import Optional, Sized, SupportsBytes, Type
 
 from semver import Version
 
@@ -17,42 +18,18 @@ from ..common.conversions import to_bytes
 from .code import Code
 
 DEFAULT_SOLC_ARGS = ("--assemble", "-")
+VERSION_PATTERN = re.compile(r"Version: (.*)")
 
 
-def get_evm_version_from_fork(fork: Fork | None):
-    """
-    Get the solc evm version corresponding to `fork`.
+class Solc:
+    """Solc compiler."""
 
-    Args
-    ----
-        fork (Fork): The fork to retrieve the corresponding evm version for.
-
-    Returns
-    -------
-        str: The name of evm version as required by solc's --evm-version.
-    """
-    if not fork:
-        return None
-    return fork.solc_name()
-
-
-class Yul(SupportsBytes, Sized):
-    """
-    Yul compiler.
-    Compiles Yul source code into bytecode.
-    """
-
-    source: str
-    compiled: Optional[bytes] = None
+    binary: Path
 
     def __init__(
         self,
-        source: str,
-        fork: Optional[Fork] = None,
         binary: Optional[Path | str] = None,
     ):
-        self.source = source
-        self.evm_version = get_evm_version_from_fork(fork)
         if binary is None:
             which_path = which("solc")
             if which_path is not None:
@@ -65,38 +42,68 @@ class Yul(SupportsBytes, Sized):
             )
         self.binary = Path(binary)
 
+    def run(self, *args: str, input: str | None = None) -> CompletedProcess:
+        """Run solc with the given arguments"""
+        return run(
+            [self.binary, *args],
+            capture_output=True,
+            text=True,
+            input=input,
+        )
+
+    @cached_property
+    def version(self) -> Version:
+        """Return solc's version"""
+        for line in self.run("--version").stdout.splitlines():
+            if match := VERSION_PATTERN.search(line):
+                # Sanitize
+                solc_version_string = match.group(1).replace("g++", "gpp")
+                return Version.parse(solc_version_string)
+        warnings.warn("Unable to determine solc version.")
+        return Version(0)
+
+
+class Yul(Solc, SupportsBytes, Sized):
+    """
+    Yul compiler.
+    Compiles Yul source code into bytecode.
+    """
+
+    source: str
+    evm_version: str | None
+
+    def __init__(
+        self,
+        source: str,
+        fork: Optional[Fork] = None,
+        binary: Optional[Path | str] = None,
+    ):
+        super().__init__(binary)
+        self.source = source
+        self.evm_version = fork.solc_name() if fork else None
+
+    @cached_property
+    def compiled(self) -> bytes:
+        """Returns the compiled Yul source code."""
+        solc_args = ("--evm-version", self.evm_version) if self.evm_version else ()
+
+        result = self.run(*solc_args, *DEFAULT_SOLC_ARGS, input=self.source)
+
+        if result.returncode:
+            stderr_lines = result.stderr.splitlines()
+            stderr_message = "\n".join(line.strip() for line in stderr_lines)
+            raise Exception(f"failed to compile yul source:\n{stderr_message[7:]}")
+
+        lines = result.stdout.splitlines()
+
+        hex_str = lines[lines.index("Binary representation:") + 1]
+
+        return bytes.fromhex(hex_str)
+
     def __bytes__(self) -> bytes:
         """
         Assembles using `solc --assemble`.
         """
-        if not self.compiled:
-            solc_args: Tuple[Union[Path, str], ...] = ()
-            if self.evm_version:
-                solc_args = (
-                    self.binary,
-                    "--evm-version",
-                    self.evm_version,
-                    *DEFAULT_SOLC_ARGS,
-                )
-            else:
-                solc_args = (self.binary, *DEFAULT_SOLC_ARGS)
-            result = run(
-                solc_args,
-                input=str.encode(self.source),
-                stdout=PIPE,
-                stderr=PIPE,
-            )
-
-            if result.returncode != 0:
-                stderr_lines = result.stderr.decode().split("\n")
-                stderr_message = "\n".join(line.strip() for line in stderr_lines)
-                raise Exception(f"failed to compile yul source:\n{stderr_message[7:]}")
-
-            lines = result.stdout.decode().split("\n")
-
-            hex_str = lines[lines.index("Binary representation:") + 1]
-
-            self.compiled = bytes.fromhex(hex_str)
         return self.compiled
 
     def __len__(self) -> int:
@@ -116,29 +123,6 @@ class Yul(SupportsBytes, Sized):
         Adds two code objects together, by converting both to bytes first.
         """
         return Code(to_bytes(other) + bytes(self))
-
-    def version(self) -> Version:
-        """
-        Return solc's version string
-        """
-        result = run(
-            [self.binary, "--version"],
-            stdout=PIPE,
-            stderr=PIPE,
-        )
-        solc_output = result.stdout.decode().split("\n")
-        version_pattern = r"Version: (.*)"
-        solc_version_string = ""
-        for line in solc_output:
-            if match := re.search(version_pattern, line):
-                solc_version_string = match.group(1)
-                break
-        if not solc_version_string:
-            warnings.warn("Unable to determine solc version.")
-            return Version(0)
-        # Sanitize
-        solc_version_string = solc_version_string.replace("g++", "gpp")
-        return Version.parse(solc_version_string)
 
 
 YulCompiler = Type[Yul]

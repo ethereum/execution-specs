@@ -367,14 +367,6 @@ class Cancun(Shanghai):
     """
 
     @classmethod
-    def is_deployed(cls):
-        """
-        Flags that Cancun has not been deployed to mainnet; it is under active
-        development.
-        """
-        return False
-
-    @classmethod
     def solc_min_version(cls) -> Version:
         """
         Returns the minimum version of solc that supports this fork.
