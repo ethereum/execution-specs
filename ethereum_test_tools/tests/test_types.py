@@ -100,6 +100,57 @@ def test_storage():
 
 
 @pytest.mark.parametrize(
+    ["account"],
+    [
+        pytest.param(
+            Account(),
+            id="no_fields",
+        ),
+        pytest.param(
+            Account(
+                nonce=0,
+            ),
+            id="zero_nonce",
+        ),
+        pytest.param(
+            Account(
+                balance=0,
+            ),
+            id="zero_balance",
+        ),
+        pytest.param(
+            Account(
+                code="",
+            ),
+            id="empty_code",
+        ),
+        pytest.param(
+            Account(
+                storage={},
+            ),
+            id="empty_storage",
+        ),
+        pytest.param(
+            Account(
+                nonce=0,
+                balance=0,
+                code="",
+                storage={
+                    1: 0,
+                },
+            ),
+            id="only_zero_storage_values",
+        ),
+    ],
+)
+def test_empty_accounts(account: Account):
+    """
+    Test `ethereum_test.types.account` parsing.
+    """
+    assert not bool(account)
+
+
+@pytest.mark.parametrize(
     ["account", "alloc_dict", "should_pass"],
     [
         # All None: Pass
