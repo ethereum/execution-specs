@@ -11,7 +11,7 @@ chain.
 from dataclasses import dataclass
 from typing import Tuple, Union
 
-from ..base_types import (
+from ethereum.base_types import (
     U64,
     U256,
     Bytes,
@@ -20,6 +20,7 @@ from ..base_types import (
     Uint,
     slotted_freezable,
 )
+
 from ..crypto.hash import Hash32
 from .fork_types import Address, Bloom, Root
 from .transactions import LegacyTransaction

@@ -29,12 +29,12 @@ from typing import (
     cast,
 )
 
+from ethereum.base_types import U256, Bytes, Uint, slotted_freezable
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.ensure import ensure
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 from .. import rlp
-from ..base_types import U256, Bytes, Uint, slotted_freezable
 from .blocks import Receipt
 from .fork_types import Account, Address, Root, encode_account
 from .transactions import Transaction

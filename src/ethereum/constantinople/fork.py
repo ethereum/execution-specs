@@ -15,7 +15,7 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple
 
-from ethereum.base_types import Bytes0
+from ethereum.base_types import U64, U256, U256_CEIL_VALUE, Bytes, Bytes0, Uint
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
@@ -23,7 +23,6 @@ from ethereum.exceptions import InvalidBlock
 from ethereum.utils.ensure import ensure
 
 from .. import rlp
-from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
 from . import vm
 from .blocks import Block, Header, Log, Receipt
 from .bloom import logs_bloom
