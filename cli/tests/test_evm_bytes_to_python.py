@@ -3,10 +3,11 @@ Test suite for `cli.evm_bytes_to_python` module.
 """
 
 import pytest
-from evm_bytes_to_python import process_evm_bytes
 
 from ethereum_test_tools import Macro
 from ethereum_test_tools import Opcodes as Op
+
+from ..evm_bytes_to_python import process_evm_bytes
 
 basic_vector = [
     "0x60008080808061AAAA612d5ff1600055",

@@ -4,16 +4,16 @@ Exceptions for invalid execution.
 
 from .exceptions import (
     BlockException,
-    BlockExceptionList,
-    ExceptionList,
+    BlockExceptionInstanceOrList,
+    ExceptionInstanceOrList,
     TransactionException,
-    TransactionExceptionList,
+    TransactionExceptionInstanceOrList,
 )
 
 __all__ = [
     "BlockException",
-    "BlockExceptionList",
-    "ExceptionList",
+    "BlockExceptionInstanceOrList",
+    "ExceptionInstanceOrList",
     "TransactionException",
-    "TransactionExceptionList",
+    "TransactionExceptionInstanceOrList",
 ]

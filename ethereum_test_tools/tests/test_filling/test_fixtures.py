@@ -7,8 +7,10 @@ import os
 from typing import Any, List, Mapping
 
 import pytest
+from click.testing import CliRunner
 from semver import Version
 
+import cli.check_fixtures
 from ethereum_test_forks import Berlin, Fork, Istanbul, London, Paris, Shanghai
 from evm_transition_tool import FixtureFormats, GethTransitionTool
 
@@ -17,9 +19,7 @@ from ...code import Yul
 from ...common import Account, Environment, Hash, TestAddress, Transaction
 from ...exceptions import TransactionException
 from ...spec import BlockchainTest, StateTest
-from ...spec.blockchain.types import Block
-from ...spec.blockchain.types import Fixture as BlockchainFixture
-from ...spec.blockchain.types import FixtureCommon as BlockchainFixtureCommon
+from ...spec.blockchain.types import Block, Fixture, FixtureCommon
 from ..conftest import SOLC_PADDING_VERSION
 
 
@@ -47,6 +47,25 @@ def hash(request: pytest.FixtureRequest, solc_version: Version):
             return bytes.fromhex("f3a35d34f6")
         elif request.node.funcargs["fork"] == London:
             return bytes.fromhex("c5fa75d7f6")
+
+
+def test_check_helper_fixtures():
+    """
+    This tests that the framework's pydantic models serialization and deserialization
+    work correctly and that they are compatible with the helper fixtures defined
+    in ./fixtures/ by using the check_fixtures.py script.
+    """
+    runner = CliRunner()
+    args = [
+        "--input",
+        "src/ethereum_test_tools/tests/test_filling/fixtures",
+        "--quiet",
+        "--stop-on-error",
+    ]
+    result = runner.invoke(cli.check_fixtures.check_fixtures, args)
+    assert result.exit_code == 0, (
+        "check_fixtures detected errors in the json fixtures:" + f"\n{result}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -88,7 +107,7 @@ def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
         blocks=[],
         tag="some_state_test",
     ).generate(t8n, fork, fixture_format=FixtureFormats.BLOCKCHAIN_TEST)
-    assert isinstance(fixture, BlockchainFixture)
+    assert isinstance(fixture, Fixture)
     assert fixture.genesis is not None
 
     assert fixture.genesis.block_hash is not None
@@ -493,15 +512,18 @@ class TestFillBlockchainValidTxs:
         check_hive: bool,
         fixture_format: FixtureFormats,
         expected_json_file: str,
-        blockchain_test_fixture: BlockchainFixture,
+        blockchain_test_fixture: Fixture,
     ):
         assert blockchain_test_fixture.format == fixture_format
-        assert isinstance(blockchain_test_fixture, BlockchainFixtureCommon)
+        assert isinstance(blockchain_test_fixture, FixtureCommon)
+
+        if solc_version >= SOLC_PADDING_VERSION:
+            fixture_name = f"000/my_blockchain_test/{fork.name()}/solc=padding_version"
+        else:
+            fixture_name = f"000/my_blockchain_test/{fork.name()}/solc={solc_version}"
 
         fixture = {
-            f"000/my_blockchain_test/{fork.name()}": blockchain_test_fixture.json_dict_with_info(
-                hash_only=True
-            ),
+            fixture_name: blockchain_test_fixture.json_dict_with_info(hash_only=True),
         }
 
         with open(
@@ -517,16 +539,12 @@ class TestFillBlockchainValidTxs:
             expected = json.load(f)
 
         remove_info_metadata(fixture)
-
-        if solc_version >= SOLC_PADDING_VERSION:
-            expected = expected["solc=padding_version"]
-        else:
-            expected = expected[f"solc={solc_version}"]
-
-        assert fixture == expected
+        assert fixture_name in fixture
+        assert fixture_name in expected
+        assert fixture[fixture_name] == expected[fixture_name]
 
     @pytest.mark.parametrize("fork", [London], indirect=True)
-    def test_fixture_header_join(self, blockchain_test_fixture: BlockchainFixture):
+    def test_fixture_header_join(self, blockchain_test_fixture: Fixture):
         """
         Test `FixtureHeader.join()`.
         """
@@ -872,11 +890,15 @@ def test_fill_blockchain_invalid_txs(
         fixture_format=fixture_format,
     )
     assert generated_fixture.format == fixture_format
-    assert isinstance(generated_fixture, BlockchainFixtureCommon)
+    assert isinstance(generated_fixture, FixtureCommon)
+
+    if solc_version >= SOLC_PADDING_VERSION:
+        fixture_name = f"000/my_blockchain_test/{fork.name()}/solc=padding_version"
+    else:
+        fixture_name = f"000/my_blockchain_test/{fork.name()}/solc={solc_version}"
+
     fixture = {
-        f"000/my_blockchain_test/{fork.name()}": generated_fixture.json_dict_with_info(
-            hash_only=True
-        ),
+        fixture_name: generated_fixture.json_dict_with_info(hash_only=True),
     }
 
     with open(
@@ -892,10 +914,6 @@ def test_fill_blockchain_invalid_txs(
         expected = json.load(f)
 
     remove_info_metadata(fixture)
-
-    if solc_version >= SOLC_PADDING_VERSION:
-        expected = expected["solc=padding_version"]
-    else:
-        expected = expected[f"solc={solc_version}"]
-
-    assert fixture == expected
+    assert fixture_name in fixture
+    assert fixture_name in expected
+    assert fixture[fixture_name] == expected[fixture_name]

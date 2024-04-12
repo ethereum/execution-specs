@@ -76,7 +76,7 @@ class BaseFixture(CamelModel):
         """
         Returns the JSON representation of the fixture.
         """
-        return self.model_dump(mode="json", by_alias=True, exclude_none=True, exclude={"_info"})
+        return self.model_dump(mode="json", by_alias=True, exclude_none=True, exclude={"info"})
 
     @cached_property
     def hash(self) -> str:

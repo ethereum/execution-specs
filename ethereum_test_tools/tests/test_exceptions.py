@@ -7,15 +7,15 @@ from pydantic import TypeAdapter
 
 from ..exceptions import (
     BlockException,
-    BlockExceptionList,
-    ExceptionList,
+    BlockExceptionInstanceOrList,
+    ExceptionInstanceOrList,
     TransactionException,
-    TransactionExceptionList,
+    TransactionExceptionInstanceOrList,
 )
 
-GenericExceptionListAdapter = TypeAdapter(ExceptionList)
-TransactionExceptionListAdapter = TypeAdapter(TransactionExceptionList)
-BlockExceptionListAdapter = TypeAdapter(BlockExceptionList)
+GenericExceptionListAdapter = TypeAdapter(ExceptionInstanceOrList)
+TransactionExceptionListAdapter = TypeAdapter(TransactionExceptionInstanceOrList)
+BlockExceptionListAdapter = TypeAdapter(BlockExceptionInstanceOrList)
 
 
 @pytest.mark.parametrize(

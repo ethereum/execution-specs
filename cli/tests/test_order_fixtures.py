@@ -8,7 +8,8 @@ from tempfile import TemporaryDirectory
 
 import pytest
 from click.testing import CliRunner
-from order_fixtures import order_fixtures, process_directory
+
+from ..order_fixtures import order_fixtures, process_directory
 
 
 def create_temp_json_file(directory, name, content):  # noqa: D103

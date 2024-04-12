@@ -826,23 +826,25 @@ class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
     sender: Address | None = None
 
 
-class TransactionToEmptyStringHandler(CamelModel):
-    """Handler for serializing and validating the `to` field as an empty string."""
+class TransactionFixtureConverter(CamelModel):
+    """
+    Handler for serializing and validating the `to` field as an empty string.
+    """
 
     @model_validator(mode="before")
     @classmethod
     def validate_to_as_empty_string(cls, data: Any) -> Any:
         """
-        Validates the field `to` is an empty string if the value is None.
+        If the `to` field is an empty string, set the model value to None.
         """
         if isinstance(data, dict) and "to" in data and data["to"] == "":
-            del data["to"]
+            data["to"] = None
         return data
 
     @model_serializer(mode="wrap", when_used="json-unless-none")
     def serialize_to_as_empty_string(self, serializer):
         """
-        Serializes the field `to` an empty string if the value is None.
+        Serialize the `to` field as the empty string if the model value is None.
         """
         default = serializer(self)
         if default is not None and "to" not in default:
@@ -850,7 +852,37 @@ class TransactionToEmptyStringHandler(CamelModel):
         return default
 
 
-class Transaction(CamelModel, TransactionGeneric[HexNumber]):
+class TransactionTransitionToolConverter(CamelModel):
+    """
+    Handler for serializing and validating the `to` field as an empty string.
+    """
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_to_as_empty_string(cls, data: Any) -> Any:
+        """
+        If the `to` field is an empty string, set the model value to None.
+        """
+        if isinstance(data, dict) and "to" in data and data["to"] == "":
+            data["to"] = None
+        return data
+
+    @model_serializer(mode="wrap", when_used="json-unless-none")
+    def serialize_to_as_none(self, serializer):
+        """
+        Serialize the `to` field as `None` if the model value is None.
+
+        This is required as we use `exclude_none=True` when serializing, but the
+        t8n tool explicitly requires a value of `None` (respectively null), for
+        if the `to` field should be unset (contract creation).
+        """
+        default = serializer(self)
+        if default is not None and "to" not in default:
+            default["to"] = None
+        return default
+
+
+class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConverter):
     """
     Generic object that can represent all Ethereum transaction types.
     """

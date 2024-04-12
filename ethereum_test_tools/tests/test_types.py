@@ -412,15 +412,17 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
 
 
 @pytest.mark.parametrize(
-    ["obj", "expected_json"],
+    ["can_be_deserialized", "model_instance", "json"],
     [
         pytest.param(
+            True,
             Address(CHECKSUM_ADDRESS),
             CHECKSUM_ADDRESS,
             marks=pytest.mark.xfail,
             id="address_with_checksum_address",
         ),
         pytest.param(
+            True,
             Account(),
             {
                 "nonce": "0x00",
@@ -431,6 +433,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="account_1",
         ),
         pytest.param(
+            True,
             Account(
                 nonce=1,
                 balance=2,
@@ -452,6 +455,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="account_2",
         ),
         pytest.param(
+            True,
             AccessList(
                 address=0x1234,
                 storage_keys=[0, 1],
@@ -466,6 +470,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="access_list",
         ),
         pytest.param(
+            True,
             Withdrawal(index=0, validator_index=1, address=0x1234, amount=2),
             {
                 "index": "0x0",
@@ -476,6 +481,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="withdrawal",
         ),
         pytest.param(
+            True,
             Environment(),
             {
                 "currentCoinbase": "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
@@ -491,6 +497,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="environment_1",
         ),
         pytest.param(
+            True,
             Environment(
                 fee_recipient=0x1234,
                 difficulty=0x5,
@@ -547,6 +554,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="environment_2",
         ),
         pytest.param(
+            True,
             Transaction().with_signature_and_sender(),
             {
                 "type": "0x0",
@@ -562,9 +570,10 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "s": "0x2020cb35f5d7731ab540d62614503a7f2344301a86342f67daf011c1341551ff",
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
-            id="transaction_1",
+            id="transaction_t8n_default_args",
         ),
         pytest.param(
+            True,
             Transaction(
                 to=None,
             ).with_signature_and_sender(),
@@ -572,6 +581,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "type": "0x0",
                 "chainId": "0x1",
                 "nonce": "0x0",
+                "to": None,
                 "value": "0x0",
                 "input": "0x",
                 "gas": "0x5208",
@@ -581,9 +591,10 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "s": "0xcbe2d029f52dbf93ade486625bed0603945d2c7358b31de99fe8786c00f13da",
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
-            id="transaction_2",
+            id="transaction_t8n_to_none",
         ),
         pytest.param(
+            True,
             Transaction(
                 to=0x1234,
                 data=b"\x01\x00",
@@ -630,6 +641,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="transaction_3",
         ),
         pytest.param(
+            True,
             FixtureTransaction.from_transaction(Transaction().with_signature_and_sender()),
             {
                 "type": "0x00",
@@ -648,11 +660,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="fixture_transaction_type_0_default_values",
         ),
         pytest.param(
-            FixtureTransaction.from_transaction(
-                Transaction(
-                    to=None,
-                ).with_signature_and_sender()
-            ),
+            True,
+            FixtureTransaction.from_transaction(Transaction(to=None).with_signature_and_sender()),
             {
                 "type": "0x00",
                 "chainId": "0x01",
@@ -670,6 +679,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="fixture_transaction_type_0_contract_creation",
         ),
         pytest.param(
+            True,
             FixtureTransaction.from_transaction(Transaction(ty=1).with_signature_and_sender()),
             {
                 "type": "0x01",
@@ -689,6 +699,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="fixture_transaction_type_1_default_values",
         ),
         pytest.param(
+            True,
             FixtureTransaction.from_transaction(
                 Transaction(ty=2, max_fee_per_gas=7).with_signature_and_sender()
             ),
@@ -711,6 +722,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="fixture_transaction_type_2_default_values",
         ),
         pytest.param(
+            True,
             FixtureTransaction.from_transaction(
                 Transaction(
                     ty=3,
@@ -740,6 +752,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="fixture_transaction_type_3_default_values",
         ),
         pytest.param(
+            True,
             FixtureTransaction.from_transaction(
                 Transaction(
                     to=0x1234,
@@ -788,6 +801,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="fixture_transaction_3",
         ),
         pytest.param(
+            True,
             FixtureHeader(
                 parent_hash=Hash(0),
                 ommers_hash=Hash(1),
@@ -826,6 +840,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="fixture_header_1",
         ),
         pytest.param(
+            True,
             FixtureHeader(
                 parent_hash=Hash(0),
                 ommers_hash=Hash(1),
@@ -873,6 +888,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="fixture_header_2",
         ),
         pytest.param(
+            True,
             FixtureBlockBase(
                 header=FixtureHeader(
                     parent_hash=Hash(0),
@@ -945,6 +961,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="fixture_block_1",
         ),
         pytest.param(
+            True,
             FixtureBlockBase(
                 header=FixtureHeader(
                     parent_hash=Hash(0),
@@ -1019,6 +1036,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="fixture_block_2",
         ),
         pytest.param(
+            True,
             InvalidFixtureBlock(
                 rlp="0x00",
                 expect_exception=BlockException.RLP_STRUCTURES_ENCODING,
@@ -1030,6 +1048,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="invalid_fixture_block_1",
         ),
         pytest.param(
+            True,
             InvalidFixtureBlock(
                 rlp="0x00",
                 expect_exception=TransactionException.INTRINSIC_GAS_TOO_LOW,
@@ -1041,6 +1060,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="invalid_fixture_block_2",
         ),
         pytest.param(
+            False,  # Can not be deserialized: A single expect_exception str will not be
+            # deserialized as a list and therefore will not match the model_instance definition.
             InvalidFixtureBlock(
                 rlp="0x00",
                 expect_exception=[TransactionException.INTRINSIC_GAS_TOO_LOW],
@@ -1052,6 +1073,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="invalid_fixture_block_3",
         ),
         pytest.param(
+            True,
             InvalidFixtureBlock(
                 rlp="0x00",
                 expect_exception=[
@@ -1067,6 +1089,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="invalid_fixture_block_4",
         ),
         pytest.param(
+            True,
             FixtureExecutionPayload.from_fixture_header(
                 header=FixtureHeader(
                     parent_hash=Hash(0),
@@ -1150,6 +1173,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="fixture_execution_payload_1",
         ),
         pytest.param(
+            True,
             FixtureEngineNewPayload(
                 execution_payload=FixtureExecutionPayload.from_fixture_header(
                     header=FixtureHeader(
@@ -1257,6 +1281,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="fixture_engine_new_payload_1",
         ),
         pytest.param(
+            True,
             FixtureEngineNewPayload(
                 execution_payload=FixtureExecutionPayload.from_fixture_header(
                     header=FixtureHeader(
@@ -1367,6 +1392,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="fixture_engine_new_payload_2",
         ),
         pytest.param(
+            True,
             FixtureForkPost(
                 state_root="0x00",
                 logs_hash="0x01",
@@ -1381,6 +1407,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="state_fixture_fork_post",
         ),
         pytest.param(
+            True,
             FixtureForkPost(
                 state_root="0x00",
                 logs_hash="0x01",
@@ -1397,6 +1424,8 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="state_fixture_fork_post_exception",
         ),
         pytest.param(
+            False,  # Can not be deserialized: A single expect_exception str will not be
+            # deserialized as a list and therefore will not match the model_instance definition.
             FixtureForkPost(
                 state_root="0x00",
                 logs_hash="0x01",
@@ -1413,6 +1442,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
             id="state_fixture_fork_post_exception_list_1",
         ),
         pytest.param(
+            True,
             FixtureForkPost(
                 state_root="0x00",
                 logs_hash="0x01",
@@ -1434,11 +1464,29 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
         ),
     ],
 )
-def test_json_conversions(obj: Any, expected_json: str | Dict[str, Any]):
+class TestPydanticModelConversion:
     """
-    Test that to_json returns the expected JSON for the given object.
+    Test that Pydantic models are converted to and from JSON correctly.
     """
-    assert to_json(obj) == expected_json
+
+    def test_json_serialization(
+        self, can_be_deserialized: bool, model_instance: Any, json: str | Dict[str, Any]
+    ):
+        """
+        Test that to_json returns the expected JSON for the given object.
+        """
+        assert to_json(model_instance) == json
+
+    def test_json_deserialization(
+        self, can_be_deserialized: bool, model_instance: Any, json: str | Dict[str, Any]
+    ):
+        """
+        Test that to_json returns the expected JSON for the given object.
+        """
+        if not can_be_deserialized:
+            pytest.skip(reason="The model instance in this case can not be deserialized")
+        model_type = type(model_instance)
+        assert model_type(**json) == model_instance
 
 
 @pytest.mark.parametrize(

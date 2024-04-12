@@ -4,7 +4,8 @@ Tests for pytest commands (e.g., fill) click CLI.
 
 import pytest
 from click.testing import CliRunner
-from pytest_commands import fill
+
+from ..pytest_commands import fill
 
 
 @pytest.fixture
@@ -47,7 +48,7 @@ def test_tf_deprecation(runner):
     """
     Test the deprecation message of the `tf` command.
     """
-    from pytest_commands import tf
+    from ..pytest_commands import tf
 
     result = runner.invoke(tf, [])
     assert result.exit_code == 1

@@ -5,7 +5,7 @@ Exceptions for invalid execution.
 from enum import Enum, auto, unique
 from typing import Annotated, Any, List
 
-from pydantic import BeforeValidator, GetCoreSchemaHandler, WrapSerializer
+from pydantic import BeforeValidator, GetCoreSchemaHandler, PlainSerializer
 from pydantic_core.core_schema import (
     PlainValidatorFunctionSchema,
     no_info_plain_validator_function,
@@ -43,25 +43,44 @@ class ExceptionBase(Enum):
         return f"{self.__class__.__name__}.{self.name}"
 
 
-def to_pipe_str(value: Any, handler, info) -> str:
+def to_pipe_str(value: Any) -> str:
     """
     Single pipe-separated string representation of an exception list.
 
     Obtain a deterministic ordering by ordering using the exception string
     representations.
     """
-    value = handler(value, info)
     if isinstance(value, list):
         return "|".join(str(exception) for exception in value)
     return str(value)
 
 
-def from_pipe_str(value: Any) -> str | List[str]:
+def create_exception_from_str(exception_str: str) -> ExceptionBase:
     """
-    Parses a single string as a pipe separated list.
+    Create an exception instance from its string representation.
     """
-    if isinstance(value, str) and "|" in value:
-        return value.split("|")
+    class_name, enum_name = exception_str.split(".")
+    exception_class = globals().get(class_name, None)
+
+    if exception_class and issubclass(exception_class, ExceptionBase):
+        enum_value = getattr(exception_class, enum_name, None)
+        if enum_value and enum_value in exception_class:
+            return exception_class(enum_value)
+        else:
+            raise ValueError(f"No such enum in class: {exception_str}")
+    else:
+        raise ValueError(f"No such exception class: {class_name}")
+
+
+def from_pipe_str(value: Any) -> ExceptionBase | List[ExceptionBase]:
+    """
+    Parses a single string as a pipe separated list into enum exceptions.
+    """
+    if isinstance(value, str):
+        exception_list = [create_exception_from_str(v) for v in value.split("|")]
+        if len(exception_list) == 1:
+            return exception_list[0]
+        return exception_list
     return value
 
 
@@ -167,20 +186,20 @@ class BlockException(ExceptionBase):
 Pydantic Annotated Types
 """
 
-ExceptionList = Annotated[
-    List[TransactionException | BlockException],
+ExceptionInstanceOrList = Annotated[
+    TransactionException | BlockException | List[TransactionException | BlockException],
     BeforeValidator(from_pipe_str),
-    WrapSerializer(to_pipe_str),
+    PlainSerializer(to_pipe_str),
 ]
 
-TransactionExceptionList = Annotated[
-    List[TransactionException],
+TransactionExceptionInstanceOrList = Annotated[
+    TransactionException | List[TransactionException],
     BeforeValidator(from_pipe_str),
-    WrapSerializer(to_pipe_str),
+    PlainSerializer(to_pipe_str),
 ]
 
-BlockExceptionList = Annotated[
-    List[BlockException],
+BlockExceptionInstanceOrList = Annotated[
+    BlockException | List[BlockException],
     BeforeValidator(from_pipe_str),
-    WrapSerializer(to_pipe_str),
+    PlainSerializer(to_pipe_str),
 ]

@@ -30,12 +30,12 @@ from ...common.types import (
     Environment,
     Removable,
     Transaction,
+    TransactionFixtureConverter,
     TransactionGeneric,
-    TransactionToEmptyStringHandler,
     Withdrawal,
     WithdrawalGeneric,
 )
-from ...exceptions import BlockException, ExceptionList, TransactionException
+from ...exceptions import BlockException, ExceptionInstanceOrList, TransactionException
 from ..base.base_test import BaseFixture
 
 
@@ -409,7 +409,7 @@ class FixtureEngineNewPayload(CamelModel):
     version: Number
     blob_versioned_hashes: List[Hash] | None = Field(None, alias="expectedBlobVersionedHashes")
     parent_beacon_block_root: Hash | None = Field(None, alias="parentBeaconBlockRoot")
-    validation_error: ExceptionList | TransactionException | BlockException | None = None
+    validation_error: ExceptionInstanceOrList | None = None
     error_code: (
         Annotated[
             EngineAPIError,
@@ -456,7 +456,7 @@ class FixtureEngineNewPayload(CamelModel):
         return new_payload
 
 
-class FixtureTransaction(TransactionToEmptyStringHandler, TransactionGeneric[ZeroPaddedHexNumber]):
+class FixtureTransaction(TransactionFixtureConverter, TransactionGeneric[ZeroPaddedHexNumber]):
     """
     Representation of an Ethereum transaction within a test Fixture.
     """
@@ -538,13 +538,13 @@ class InvalidFixtureBlock(CamelModel):
     """
 
     rlp: Bytes
-    expect_exception: ExceptionList | TransactionException | BlockException
+    expect_exception: ExceptionInstanceOrList
     rlp_decoded: FixtureBlockBase | None = Field(None, alias="rlp_decoded")
 
 
 class FixtureCommon(BaseFixture):
     """
-    Base Ethereum test fixture fields class.
+    Base blockchain test fixture model.
     """
 
     fork: str = Field(..., alias="network")
@@ -555,7 +555,7 @@ class FixtureCommon(BaseFixture):
 
 class Fixture(FixtureCommon):
     """
-    Cross-client specific test fixture information.
+    Cross-client specific blockchain test model use in JSON fixtures.
     """
 
     genesis_rlp: Bytes = Field(..., alias="genesisRLP")

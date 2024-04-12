@@ -1,7 +1,7 @@
 {
     "000/my_chain_id_test/Paris": {
         "_info": {
-            "hash": "0x51547e315099721fb41524f6f92fa897198521b8786af00a30ead45d0cd1b05b"
+            "hash": "0x00137bf15a3dd71099691a3fde7563ed2a36928d98802dd98ef82b3513d59af3"
         },
         "network": "Paris",
         "genesisBlockHeader": {
