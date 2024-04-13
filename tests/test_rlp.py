@@ -399,7 +399,7 @@ def test_ethtest_fixtures_for_rlp_encoding(
     "raw_data, encoded_data",
     ethtest_fixtures_as_pytest_fixtures("RandomRLPTests/example.json"),
 )
-def test_ethtest_fixtures_for_successfull_rlp_decoding(
+def test_ethtest_fixtures_for_successfully_rlp_decoding(
     raw_data: Bytes, encoded_data: Bytes
 ) -> None:
     decoded_data = rlp.decode(encoded_data)
