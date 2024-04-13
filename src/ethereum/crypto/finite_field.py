@@ -201,7 +201,7 @@ class GaloisField(tuple, Field):
     tuple of the non-leading coefficients of the defining polynomial. For
     example `x^3 + 2x^2 + 3x + 4` is `(2, 3, 4)`.
 
-    In practice the polynomial is likely to be be sparse and you should overload
+    In practice the polynomial is likely to be sparse and you should overload
     the `__mul__()` function to take advantage of this fact.
     """
 
