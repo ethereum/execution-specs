@@ -17,6 +17,8 @@ FixtureFormatsValues = Literal[
     "blockchain_test_hive", "blockchain_test", "state_test", "unset_test_format"
 ]
 
+FixtureModel = BlockchainFixture | BlockchainHiveFixture | StateFixture
+
 
 class BaseFixturesRootModel(RootModel):
     """
@@ -31,6 +33,9 @@ class BaseFixturesRootModel(RootModel):
     """
 
     root: Dict[str, Any]
+
+    def __setitem__(self, key: str, value: Any):  # noqa: D105
+        self.root[key] = value
 
     def __getitem__(self, item):  # noqa: D105
         return self.root[item]
@@ -52,6 +57,19 @@ class BaseFixturesRootModel(RootModel):
 
     def items(self):  # noqa: D102
         return self.root.items()
+
+    def collect_into_file(self, file_path: Path):
+        """
+        For all formats, we join the fixtures as json into a single file.
+
+        Note: We don't use pydantic model_dump_json() on the Fixtures object as we
+        add the hash to the info field on per-fixture basis.
+        """
+        json_fixtures: Dict[str, Dict[str, Any]] = {}
+        for name, fixture in self.items():
+            json_fixtures[name] = fixture.json_dict_with_info()
+        with open(file_path, "w") as f:
+            json.dump(json_fixtures, f, indent=4)
 
     @classmethod
     def from_file(

@@ -12,6 +12,7 @@ from typing import Dict, Literal, Optional, Tuple
 from evm_transition_tool import FixtureFormats, TransitionTool
 
 from .base.base_test import BaseFixture
+from .file.types import Fixtures
 
 
 def strip_test_prefix(name: str) -> str:
@@ -103,8 +104,7 @@ class FixtureCollector:
     base_dump_dir: Optional[Path] = None
 
     # Internal state
-    all_fixtures: Dict[Path, Dict[str, BaseFixture]] = field(default_factory=dict)
-    json_path_to_fixture_type: Dict[Path, FixtureFormats] = field(default_factory=dict)
+    all_fixtures: Dict[Path, Fixtures] = field(default_factory=dict)
     json_path_to_test_item: Dict[Path, TestInfo] = field(default_factory=dict)
 
     def get_fixture_basename(self, info: TestInfo) -> Path:
@@ -138,17 +138,8 @@ class FixtureCollector:
             / fixture.format.output_base_dir_name
             / fixture_basename.with_suffix(fixture.format.output_file_extension)
         )
-        if fixture_path not in self.all_fixtures:  # relevant when we group by test function
-            self.all_fixtures[fixture_path] = {}
-            if fixture_path in self.json_path_to_fixture_type:
-                if self.json_path_to_fixture_type[fixture_path] != fixture.format:
-                    raise Exception(
-                        f"Fixture {fixture_path} has two different types: "
-                        f"{self.json_path_to_fixture_type[fixture_path]} "
-                        f"and {fixture.format}"
-                    )
-            else:
-                self.json_path_to_fixture_type[fixture_path] = fixture.format
+        if fixture_path not in self.all_fixtures.keys():  # relevant when we group by test function
+            self.all_fixtures[fixture_path] = Fixtures(root={})
             self.json_path_to_test_item[fixture_path] = info
 
         self.all_fixtures[fixture_path][info.id] = fixture
@@ -160,24 +151,22 @@ class FixtureCollector:
         os.makedirs(self.output_dir, exist_ok=True)
         for fixture_path, fixtures in self.all_fixtures.items():
             os.makedirs(fixture_path.parent, exist_ok=True)
-
-            # Get the first fixture to dump to get its type
-            fixture = next(iter(fixtures.values()))
-            # Call class method to dump all the fixtures
-            with open(fixture_path, "w") as fd:
-                fixture.collect_into_file(fd, fixtures)
+            if len({fixture.format for fixture in fixtures.values()}) != 1:
+                raise TypeError("All fixtures in a single file must have the same format.")
+            fixtures.collect_into_file(fixture_path)
 
     def verify_fixture_files(self, evm_fixture_verification: TransitionTool) -> None:
         """
         Runs `evm [state|block]test` on each fixture.
         """
-        for fixture_path, fixture_format in self.json_path_to_fixture_type.items():
-            if FixtureFormats.is_verifiable(fixture_format):
-                info = self.json_path_to_test_item[fixture_path]
-                verify_fixtures_dump_dir = self._get_verify_fixtures_dump_dir(info)
-                evm_fixture_verification.verify_fixture(
-                    fixture_format, fixture_path, verify_fixtures_dump_dir
-                )
+        for fixture_path, name_fixture_dict in self.all_fixtures.items():
+            for fixture_name, fixture in name_fixture_dict.items():
+                if FixtureFormats.is_verifiable(fixture.format):
+                    info = self.json_path_to_test_item[fixture_path]
+                    verify_fixtures_dump_dir = self._get_verify_fixtures_dump_dir(info)
+                    evm_fixture_verification.verify_fixture(
+                        fixture.format, fixture_path, verify_fixtures_dump_dir
+                    )
 
     def _get_verify_fixtures_dump_dir(
         self,

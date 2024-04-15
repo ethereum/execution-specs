@@ -9,7 +9,7 @@ from functools import cached_property, reduce
 from itertools import count
 from os import path
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Dict, Generator, Iterator, List, Optional, TextIO
+from typing import Any, Callable, ClassVar, Dict, Generator, Iterator, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -110,17 +110,6 @@ class BaseFixture(CamelModel):
         self.info["filling-transition-tool"] = t8n.version()
         if ref_spec is not None:
             ref_spec.write_info(self.info)
-
-    @classmethod
-    def collect_into_file(cls, fd: TextIO, fixtures: Dict[str, "BaseFixture"]):
-        """
-        For all formats, we simply join the json fixtures into a single file.
-        """
-        json_fixtures: Dict[str, Dict[str, Any]] = {}
-        for name, fixture in fixtures.items():
-            assert isinstance(fixture, cls), f"Invalid fixture type: {type(fixture)}"
-            json_fixtures[name] = fixture.json_dict_with_info()
-        json.dump(json_fixtures, fd, indent=4)
 
 
 class BaseTest(BaseModel):
