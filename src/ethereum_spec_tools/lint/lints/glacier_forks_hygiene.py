@@ -18,6 +18,7 @@ from ethereum_spec_tools.lint import (
 EXCEPTIONAL_DIFFS = [
     # There are some differences between london and arrow_glacier
     # in terms of how the fork block is handled.
+    ("arrow_glacier", ".fork", "validate_ommer_header"),
     ("arrow_glacier", ".fork", "calculate_base_fee_per_gas"),
     ("arrow_glacier", ".fork", "validate_header"),
     ("arrow_glacier", ".fork", "INITIAL_BASE_FEE"),

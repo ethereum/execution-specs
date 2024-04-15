@@ -19,8 +19,10 @@ sequences containing an exact number of bytes.
 [`Bytes64`]: ref:ethereum.base_types.Bytes64
 """
 
+from abc import abstractmethod
 from dataclasses import is_dataclass, replace
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     ClassVar,
@@ -31,6 +33,9 @@ from typing import (
     TypeVar,
     runtime_checkable,
 )
+
+if TYPE_CHECKING:
+    from .crypto.hash import Hash32
 
 
 @runtime_checkable
@@ -925,6 +930,101 @@ Bytes = bytes
 """
 Sequence of bytes (octets) of arbitrary length.
 """
+
+
+@runtime_checkable
+class BaseHeader(Protocol):
+    """
+    A [`Protocol`] implemented by block headers like, for example, [`Header`].
+
+    [`Header`]: ref:ethereum.frontier.blocks.Header
+    [`Protocol`]: https://docs.python.org/library/typing.html#typing.Protocol
+    """
+
+    @property
+    @abstractmethod
+    def parent_hash(self) -> "Hash32":
+        """
+        Block hash of the block immediately preceding this block.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def ommers_hash(self) -> "Hash32":
+        """
+        Hash of the ommers list for this block.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def coinbase(self) -> FixedBytes:
+        """
+        Address that receives the reward for creating this block.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def difficulty(self) -> Uint:
+        """
+        Level of computation required to create this block in pre-merge forks.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def number(self) -> Uint:
+        """
+        Index of this block in the chain.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def gas_used(self) -> Uint:
+        """
+        Total amount of gas used by transactions in this block.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def gas_limit(self) -> Uint:
+        """
+        Maximum total amount of gas that can be consumed by transactions in
+        this block.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def timestamp(self) -> U256:
+        """
+        Creation time of this block, expressed in the number of seconds that
+        had passed since 00:00:00 UTC on Thursday, 1 January 1970.
+        """
+        raise NotImplementedError
+
+
+@runtime_checkable
+class FeeMarketHeader(BaseHeader, Protocol):
+    """
+    A [`Protocol`] implemented by block headers after [EIP-1559].
+
+    [EIP-1559]: https://eips.ethereum.org/EIPS/eip-1559
+    [`Header`]: ref:ethereum.frontier.blocks.Header
+    [`Protocol`]: https://docs.python.org/library/typing.html#typing.Protocol
+    """
+
+    @property
+    @abstractmethod
+    def base_fee_per_gas(self) -> Uint:
+        """
+        Portion of transaction fees that is burned.
+        """
+        raise NotImplementedError
 
 
 def _setattr_function(self: Any, attr: str, value: Any) -> None:

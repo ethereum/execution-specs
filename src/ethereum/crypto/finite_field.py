@@ -9,7 +9,7 @@ from typing import Iterable, List, Tuple, Type, TypeVar, cast
 
 from typing_extensions import Protocol
 
-from ..base_types import Bytes, Bytes32
+from ethereum.base_types import Bytes, Bytes32
 
 F = TypeVar("F", bound="Field")
 

@@ -6,7 +6,8 @@ transactions are the events that move between states.
 from dataclasses import dataclass
 from typing import Union
 
-from ..base_types import U256, Bytes, Bytes0, Uint, slotted_freezable
+from ethereum.base_types import U256, Bytes, Bytes0, Uint, slotted_freezable
+
 from .fork_types import Address
 
 TX_BASE_COST = 21000

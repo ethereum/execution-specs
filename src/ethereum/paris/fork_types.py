@@ -14,8 +14,7 @@ Types re-used throughout the specification, which are specific to Ethereum.
 
 from dataclasses import dataclass
 
-from .. import rlp
-from ..base_types import (
+from ethereum.base_types import (
     U256,
     Bytes,
     Bytes20,
@@ -23,6 +22,8 @@ from ..base_types import (
     Uint,
     slotted_freezable,
 )
+
+from .. import rlp
 from ..crypto.hash import Hash32, keccak256
 
 Address = Bytes20

@@ -11,15 +11,17 @@ chain.
 from dataclasses import dataclass
 from typing import Tuple, Union
 
-from ..base_types import (
+from ethereum.base_types import (
     U64,
     U256,
+    BaseHeader,
     Bytes,
     Bytes8,
     Bytes32,
     Uint,
     slotted_freezable,
 )
+
 from ..crypto.hash import Hash32
 from .fork_types import Address, Bloom, Root
 from .transactions import LegacyTransaction
@@ -76,7 +78,7 @@ class Block:
 
     header: Header
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
-    ommers: Tuple[Header, ...]
+    ommers: Tuple[BaseHeader, ...]
     withdrawals: Tuple[Withdrawal, ...]
 
 
