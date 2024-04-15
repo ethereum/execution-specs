@@ -125,7 +125,7 @@ def process_message_call(
         logs = evm.logs
         accounts_to_delete = evm.accounts_to_delete
         touched_accounts = evm.touched_accounts
-        refund_counter = evm.refund_counter
+        refund_counter = U256(evm.refund_counter)
 
     tx_end = TransactionEnd(message.gas - evm.gas_left, evm.output, evm.error)
     evm_trace(evm, tx_end)
