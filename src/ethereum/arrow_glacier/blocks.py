@@ -13,6 +13,7 @@ from typing import Tuple, Union
 
 from ethereum.base_types import (
     U256,
+    BaseHeader,
     Bytes,
     Bytes8,
     Bytes32,
@@ -59,7 +60,7 @@ class Block:
 
     header: Header
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
-    ommers: Tuple[Header, ...]
+    ommers: Tuple[BaseHeader, ...]
 
 
 @slotted_freezable

@@ -15,15 +15,25 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple, Union
 
-from ethereum.base_types import U64, U256, U256_CEIL_VALUE, Bytes, Bytes0, Uint
+from ethereum.base_types import (
+    U64,
+    U256,
+    U256_CEIL_VALUE,
+    BaseHeader,
+    Bytes,
+    Bytes0,
+    FeeMarketHeader,
+    Uint,
+)
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import InvalidBlock
+from ethereum.london import fork as previous_fork
 from ethereum.utils.ensure import ensure
 
 from .. import rlp
-from . import vm
+from . import FORK_CRITERIA, vm
 from .blocks import Block, Header, Log, Receipt
 from .bloom import logs_bloom
 from .fork_types import Address, Bloom, Root
@@ -261,7 +271,7 @@ def calculate_base_fee_per_gas(
     return Uint(expected_base_fee_per_gas)
 
 
-def validate_header(header: Header, parent_header: Header) -> None:
+def validate_header(header: Header, parent_header: FeeMarketHeader) -> None:
     """
     Verifies a block header.
 
@@ -485,7 +495,7 @@ def apply_body(
     block_time: U256,
     block_difficulty: Uint,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
-    ommers: Tuple[Header, ...],
+    ommers: Tuple[BaseHeader, ...],
     chain_id: U64,
 ) -> Tuple[Uint, Root, Root, Bloom, State]:
     """
@@ -603,8 +613,33 @@ def apply_body(
     )
 
 
+def validate_ommer_header(
+    header: BaseHeader,
+    parent_header: BaseHeader,
+) -> None:
+    """
+    Validates an ommer header. See `validate_ommers`.
+
+    Ommer headers are validated according to the rules of the fork they belong
+    to. If the block number or timestamp of the block does not match this fork,
+    this function forwards to the preceding fork.
+    """
+    if FORK_CRITERIA.check(header.number, header.timestamp):
+        assert isinstance(header, Header)
+
+        if not isinstance(parent_header, FeeMarketHeader):
+            # While it is possible to construct a chain where this fork was
+            # preceded by a fork without EIP-1559, this is not the case on
+            # Ethereum's main network, and so we leave that case undefined.
+            raise NotImplementedError("ommer lacking EIP-1559")
+
+        validate_header(header, parent_header)
+    else:
+        previous_fork.validate_ommer_header(header, parent_header)
+
+
 def validate_ommers(
-    ommers: Tuple[Header, ...], block_header: Header, chain: BlockChain
+    ommers: Tuple[BaseHeader, ...], block_header: Header, chain: BlockChain
 ) -> None:
     """
     Validates the ommers mentioned in the block.
@@ -641,7 +676,7 @@ def validate_ommers(
         ommer_parent_header = chain.blocks[
             -(block_header.number - ommer.number) - 1
         ].header
-        validate_header(ommer, ommer_parent_header)
+        validate_ommer_header(ommer, ommer_parent_header)
 
     # Check that there can be only at most 2 ommers for a block.
     ensure(len(ommers) <= 2, InvalidBlock)
@@ -687,7 +722,7 @@ def pay_rewards(
     state: State,
     block_number: Uint,
     coinbase: Address,
-    ommers: Tuple[Header, ...],
+    ommers: Tuple[BaseHeader, ...],
 ) -> None:
     """
     Pay rewards to the block miner as well as the ommers miners.
@@ -721,7 +756,8 @@ def pay_rewards(
         # Ommer age with respect to the current block.
         ommer_age = U256(block_number - ommer.number)
         ommer_miner_reward = ((8 - ommer_age) * BLOCK_REWARD) // 8
-        create_ether(state, ommer.coinbase, ommer_miner_reward)
+        coinbase = Address(ommer.coinbase)
+        create_ether(state, coinbase, ommer_miner_reward)
 
 
 def process_transaction(

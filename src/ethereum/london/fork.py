@@ -15,7 +15,17 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple, Union
 
-from ethereum.base_types import U64, U256, U256_CEIL_VALUE, Bytes, Bytes0, Uint
+from ethereum.base_types import (
+    U64,
+    U256,
+    U256_CEIL_VALUE,
+    BaseHeader,
+    Bytes,
+    Bytes0,
+    FeeMarketHeader,
+    Uint,
+)
+from ethereum.berlin import fork as previous_fork
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
@@ -202,7 +212,6 @@ def calculate_base_fee_per_gas(
     parent_gas_limit: Uint,
     parent_gas_used: Uint,
     parent_base_fee_per_gas: Uint,
-    is_fork_block: bool,
 ) -> Uint:
     """
     Calculates the base fee per gas for the block.
@@ -217,16 +226,12 @@ def calculate_base_fee_per_gas(
         Gas used in the parent block.
     parent_base_fee_per_gas :
         Base fee per gas of the parent block.
-    is_fork_block :
-        Whether the block is the fork block.
 
     Returns
     -------
     base_fee_per_gas : `Uint`
         Base fee per gas for the block.
     """
-    if is_fork_block:
-        return Uint(INITIAL_BASE_FEE)
     parent_gas_target = parent_gas_limit // ELASTICITY_MULTIPLIER
 
     ensure(
@@ -267,7 +272,7 @@ def calculate_base_fee_per_gas(
     return Uint(expected_base_fee_per_gas)
 
 
-def validate_header(header: Header, parent_header: Header) -> None:
+def validate_header(header: Header, parent_header: BaseHeader) -> None:
     """
     Verifies a block header.
 
@@ -287,14 +292,16 @@ def validate_header(header: Header, parent_header: Header) -> None:
     """
     ensure(header.gas_used <= header.gas_limit, InvalidBlock)
 
-    is_fork_block = header.number == FORK_CRITERIA.block_number
-    expected_base_fee_per_gas = calculate_base_fee_per_gas(
-        header.gas_limit,
-        parent_header.gas_limit,
-        parent_header.gas_used,
-        parent_header.base_fee_per_gas,
-        is_fork_block,
-    )
+    expected_base_fee_per_gas = Uint(INITIAL_BASE_FEE)
+
+    if header.number != FORK_CRITERIA.block_number:
+        assert isinstance(parent_header, FeeMarketHeader)
+        expected_base_fee_per_gas = calculate_base_fee_per_gas(
+            header.gas_limit,
+            parent_header.gas_limit,
+            parent_header.gas_used,
+            parent_header.base_fee_per_gas,
+        )
 
     ensure(expected_base_fee_per_gas == header.base_fee_per_gas, InvalidBlock)
 
@@ -493,7 +500,7 @@ def apply_body(
     block_time: U256,
     block_difficulty: Uint,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
-    ommers: Tuple[Header, ...],
+    ommers: Tuple[BaseHeader, ...],
     chain_id: U64,
 ) -> Tuple[Uint, Root, Root, Bloom, State]:
     """
@@ -611,8 +618,26 @@ def apply_body(
     )
 
 
+def validate_ommer_header(
+    header: BaseHeader,
+    parent_header: BaseHeader,
+) -> None:
+    """
+    Validates an ommer header. See `validate_ommers`.
+
+    Ommer headers are validated according to the rules of the fork they belong
+    to. If the block number or timestamp of the block does not match this fork,
+    this function forwards to the preceding fork.
+    """
+    if FORK_CRITERIA.check(header.number, header.timestamp):
+        assert isinstance(header, Header)
+        validate_header(header, parent_header)
+    else:
+        previous_fork.validate_ommer_header(header, parent_header)
+
+
 def validate_ommers(
-    ommers: Tuple[Header, ...], block_header: Header, chain: BlockChain
+    ommers: Tuple[BaseHeader, ...], block_header: Header, chain: BlockChain
 ) -> None:
     """
     Validates the ommers mentioned in the block.
@@ -649,7 +674,7 @@ def validate_ommers(
         ommer_parent_header = chain.blocks[
             -(block_header.number - ommer.number) - 1
         ].header
-        validate_header(ommer, ommer_parent_header)
+        validate_ommer_header(ommer, ommer_parent_header)
 
     # Check that there can be only at most 2 ommers for a block.
     ensure(len(ommers) <= 2, InvalidBlock)
@@ -695,7 +720,7 @@ def pay_rewards(
     state: State,
     block_number: Uint,
     coinbase: Address,
-    ommers: Tuple[Header, ...],
+    ommers: Tuple[BaseHeader, ...],
 ) -> None:
     """
     Pay rewards to the block miner as well as the ommers miners.
@@ -729,7 +754,8 @@ def pay_rewards(
         # Ommer age with respect to the current block.
         ommer_age = U256(block_number - ommer.number)
         ommer_miner_reward = ((8 - ommer_age) * BLOCK_REWARD) // 8
-        create_ether(state, ommer.coinbase, ommer_miner_reward)
+        coinbase = Address(ommer.coinbase)
+        create_ether(state, coinbase, ommer_miner_reward)
 
 
 def process_transaction(

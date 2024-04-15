@@ -15,7 +15,15 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
 
-from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes32, Uint
+from ethereum.base_types import (
+    U64,
+    U256,
+    Bytes,
+    Bytes0,
+    Bytes32,
+    FeeMarketHeader,
+    Uint,
+)
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidBlock
@@ -254,7 +262,7 @@ def calculate_base_fee_per_gas(
     return Uint(expected_base_fee_per_gas)
 
 
-def validate_header(header: Header, parent_header: Header) -> None:
+def validate_header(header: Header, parent_header: FeeMarketHeader) -> None:
     """
     Verifies a block header.
 

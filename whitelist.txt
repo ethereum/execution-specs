@@ -18,11 +18,13 @@ coinbase
 coincurve
 crypto
 E501
+eip
 encodings
 endian
 eth
 ethash
 ethereum
+ethereum's
 evm
 exc
 fmt
