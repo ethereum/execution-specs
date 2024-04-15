@@ -410,7 +410,6 @@ listable
 treediff
 strikethrough
 setext
-orelse
 mcopy
 
 tload
@@ -431,3 +430,4 @@ wfile
 uds
 appname
 appauthor
+orelse

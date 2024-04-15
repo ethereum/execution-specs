@@ -125,7 +125,7 @@ class ForkLoad:
     @property
     def Block(self) -> Any:
         """Block class of the fork"""
-        return self._module("fork_types").Block
+        return self._module("blocks").Block
 
     @property
     def Bloom(self) -> Any:
@@ -135,7 +135,7 @@ class ForkLoad:
     @property
     def Header(self) -> Any:
         """Header class of the fork"""
-        return self._module("fork_types").Header
+        return self._module("blocks").Header
 
     @property
     def Account(self) -> Any:
@@ -145,42 +145,42 @@ class ForkLoad:
     @property
     def Transaction(self) -> Any:
         """Transaction class of the fork"""
-        return self._module("fork_types").Transaction
+        return self._module("transactions").Transaction
 
     @property
     def LegacyTransaction(self) -> Any:
         """Legacytransaction class of the fork"""
-        return self._module("fork_types").LegacyTransaction
+        return self._module("transactions").LegacyTransaction
 
     @property
     def AccessListTransaction(self) -> Any:
         """Access List transaction class of the fork"""
-        return self._module("fork_types").AccessListTransaction
+        return self._module("transactions").AccessListTransaction
 
     @property
     def FeeMarketTransaction(self) -> Any:
         """Fee Market transaction class of the fork"""
-        return self._module("fork_types").FeeMarketTransaction
+        return self._module("transactions").FeeMarketTransaction
 
     @property
     def BlobTransaction(self) -> Any:
         """Blob transaction class of the fork"""
-        return self._module("fork_types").BlobTransaction
+        return self._module("transactions").BlobTransaction
 
     @property
     def Withdrawal(self) -> Any:
         """Withdrawal class of the fork"""
-        return self._module("fork_types").Withdrawal
+        return self._module("blocks").Withdrawal
 
     @property
     def encode_transaction(self) -> Any:
         """encode_transaction function of the fork"""
-        return self._module("fork_types").encode_transaction
+        return self._module("transactions").encode_transaction
 
     @property
     def decode_transaction(self) -> Any:
         """decode_transaction function of the fork"""
-        return self._module("fork_types").decode_transaction
+        return self._module("transactions").decode_transaction
 
     @property
     def State(self) -> Any:
@@ -296,3 +296,8 @@ class ForkLoad:
     def process_message_call(self) -> Any:
         """process_message_call function of the fork"""
         return self._module("vm.interpreter").process_message_call
+
+    @property
+    def apply_dao(self) -> Any:
+        """apply_dao function of the fork"""
+        return self._module("dao").apply_dao
