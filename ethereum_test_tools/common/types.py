@@ -45,6 +45,8 @@ from ..exceptions import TransactionException
 from .base_types import (
     Address,
     Bloom,
+    BLSPublicKey,
+    BLSSignature,
     Bytes,
     Hash,
     HashInt,
@@ -1240,6 +1242,91 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
         ]
 
 
+class RequestBase:
+    """
+    Base class for requests.
+    """
+
+    @classmethod
+    def type_byte(cls) -> bytes:
+        """
+        Returns the request type.
+        """
+        raise NotImplementedError("request_type must be implemented in child classes")
+
+    def to_serializable_list(self) -> List[Any]:
+        """
+        Returns the request's attributes as a list of serializable elements.
+        """
+        raise NotImplementedError("to_serializable_list must be implemented in child classes")
+
+
+class DepositRequestGeneric(RequestBase, CamelModel, Generic[NumberBoundTypeVar]):
+    """
+    Generic deposit type used as a parent for DepositRequest and FixtureDepositRequest.
+    """
+
+    pubkey: BLSPublicKey
+    withdrawal_credentials: Hash
+    amount: NumberBoundTypeVar
+    signature: BLSSignature
+    index: NumberBoundTypeVar
+
+    @classmethod
+    def type_byte(cls) -> bytes:
+        """
+        Returns the deposit request type.
+        """
+        return b"\0"
+
+    def to_serializable_list(self) -> List[Any]:
+        """
+        Returns the deposit's attributes as a list of serializable elements.
+        """
+        return [
+            self.pubkey,
+            self.withdrawal_credentials,
+            Uint(self.amount),
+            self.signature,
+            Uint(self.index),
+        ]
+
+
+class DepositRequest(DepositRequestGeneric[HexNumber]):
+    """
+    Deposit Request type
+    """
+
+    pass
+
+
+class Requests(RootModel[List[DepositRequest]]):
+    """
+    Requests for the transition tool.
+    """
+
+    root: List[DepositRequest] = Field(default_factory=list)
+
+    @cached_property
+    def trie_root(self) -> Hash:
+        """
+        Returns the root hash of the requests.
+        """
+        t = HexaryTrie(db={})
+        for i, r in enumerate(self.root):
+            t.set(
+                eth_rlp.encode(Uint(i)),
+                r.type_byte() + eth_rlp.encode(r.to_serializable_list()),
+            )
+        return Hash(t.root_hash)
+
+    def deposit_requests(self) -> List[DepositRequest]:
+        """
+        Returns the list of deposit requests.
+        """
+        return [d for d in self.root if isinstance(d, DepositRequest)]
+
+
 # TODO: Move to other file
 # Transition tool models
 
@@ -1310,6 +1397,8 @@ class Result(CamelModel):
     withdrawals_root: Hash | None = None
     excess_blob_gas: HexNumber | None = Field(None, alias="currentExcessBlobGas")
     blob_gas_used: HexNumber | None = None
+    requests_root: Hash | None = None
+    deposit_requests: List[DepositRequest] | None = None
 
 
 class TransitionToolOutput(CamelModel):

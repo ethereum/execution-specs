@@ -302,3 +302,19 @@ class HeaderNonce(FixedSizeBytes[8]):  # type: ignore
     """
 
     pass
+
+
+class BLSPublicKey(FixedSizeBytes[48]):  # type: ignore
+    """
+    Class that helps represent BLS public keys in tests.
+    """
+
+    pass
+
+
+class BLSSignature(FixedSizeBytes[96]):  # type: ignore
+    """
+    Class that helps represent BLS signatures in tests.
+    """
+
+    pass

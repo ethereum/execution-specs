@@ -5,6 +5,7 @@ Test suite for `ethereum_test` module.
 from typing import Any, Dict, List
 
 import pytest
+from pydantic import TypeAdapter
 
 from ..common import (
     AccessList,
@@ -18,7 +19,7 @@ from ..common import (
 from ..common.base_types import Address, Bloom, Bytes, Hash, HeaderNonce, ZeroPaddedHexNumber
 from ..common.constants import TestPrivateKey
 from ..common.json import to_json
-from ..common.types import Alloc
+from ..common.types import Alloc, DepositRequest, Requests
 from ..exceptions import BlockException, TransactionException
 from ..spec.blockchain.types import (
     FixtureBlockBase,
@@ -1130,6 +1131,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                     ).with_signature_and_sender(),
                 ],
                 withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                requests=None,
             ),
             {
                 "parentHash": Hash(0).hex(),
@@ -1222,6 +1224,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                             amount=2,
                         )
                     ],
+                    requests=None,
                 ),
                 validation_error=TransactionException.INTRINSIC_GAS_TOO_LOW,
                 version=1,
@@ -1322,6 +1325,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                         ).with_signature_and_sender(),
                     ],
                     withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                    requests=None,
                 ),
                 version=1,
                 validation_error=[
@@ -1658,3 +1662,42 @@ def test_withdrawals_root(withdrawals: List[Withdrawal], expected_root: bytes):
     Test that withdrawals_root returns the expected hash.
     """
     assert Withdrawal.list_root(withdrawals) == expected_root
+
+
+@pytest.mark.parametrize(
+    ["json_str", "type_adapter", "expected"],
+    [
+        pytest.param(
+            """
+            [
+                {
+                    "type": "0x0",
+                    "pubkey": "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+                    "withdrawalCredentials": "0x0000000000000000000000000000000000000000000000000000000000000002",
+                    "amount": "0x1234",
+                    "signature": "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003",
+                    "index": "0x5678"
+                }
+            ]
+            """,  # noqa: E501
+            TypeAdapter(Requests),
+            Requests(
+                root=[
+                    DepositRequest(
+                        pubkey=1,
+                        withdrawal_credentials=2,
+                        amount=0x1234,
+                        signature=3,
+                        index=0x5678,
+                    ),
+                ]
+            ),
+            id="requests_1",
+        ),
+    ],
+)
+def test_parsing(json_str: str, type_adapter: TypeAdapter, expected: Any):
+    """
+    Test that parsing the given JSON string returns the expected object.
+    """
+    assert type_adapter.validate_json(json_str) == expected

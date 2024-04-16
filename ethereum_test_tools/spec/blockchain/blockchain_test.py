@@ -10,7 +10,7 @@ from pydantic import Field
 from ethereum_test_forks import Fork
 from evm_transition_tool import FixtureFormats, TransitionTool
 
-from ...common import Alloc, EmptyTrieRoot, Environment, Hash, Transaction, Withdrawal
+from ...common import Alloc, EmptyTrieRoot, Environment, Hash, Requests, Transaction, Withdrawal
 from ...common.constants import EmptyOmmersRoot
 from ...common.json import to_json
 from ...common.types import TransitionToolOutput
@@ -22,6 +22,7 @@ from .types import (
     Fixture,
     FixtureBlock,
     FixtureBlockBase,
+    FixtureDepositRequest,
     FixtureEngineNewPayload,
     FixtureHeader,
     FixtureTransaction,
@@ -138,6 +139,9 @@ class BlockchainTest(BaseTest):
             if env.withdrawals is not None
             else None,
             parent_beacon_block_root=env.parent_beacon_block_root,
+            requests_root=Requests(root=[]).trie_root
+            if fork.header_requests_required(0, 0)
+            else None,
         )
 
         return (
@@ -145,7 +149,10 @@ class BlockchainTest(BaseTest):
             FixtureBlockBase(
                 header=genesis,
                 withdrawals=None if env.withdrawals is None else [],
-            ).with_rlp(txs=[]),
+                deposit_requests=[] if fork.header_requests_required(0, 0) else None,
+            ).with_rlp(
+                txs=[], requests=Requests() if fork.header_requests_required(0, 0) else None
+            ),
         )
 
     def generate_block_data(
@@ -156,7 +163,7 @@ class BlockchainTest(BaseTest):
         previous_env: Environment,
         previous_alloc: Alloc,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[FixtureHeader, List[Transaction], Alloc, Environment]:
+    ) -> Tuple[FixtureHeader, List[Transaction], Requests | None, Alloc, Environment]:
         """
         Generate common block data for both make_fixture and make_hive_fixture.
         """
@@ -248,7 +255,30 @@ class BlockchainTest(BaseTest):
             # transition tool processing.
             header = header.join(block.rlp_modifier)
 
-        return header, txs, transition_tool_output.alloc, env
+        requests = (
+            Requests(root=transition_tool_output.result.deposit_requests)
+            if transition_tool_output.result.deposit_requests is not None
+            else None
+        )
+
+        if requests is not None and requests.trie_root != header.requests_root:
+            raise Exception(
+                f"Requests root in header does not match the requests root in the transition tool "
+                "output: "
+                f"{header.requests_root} != {requests.trie_root}"
+            )
+
+        if block.requests is not None:
+            requests = Requests(root=block.requests)
+            header.requests_root = requests.trie_root
+
+        return (
+            header,
+            txs,
+            requests,
+            transition_tool_output.alloc,
+            env,
+        )
 
     def network_info(self, fork: Fork, eips: Optional[List[int]] = None):
         """
@@ -292,7 +322,7 @@ class BlockchainTest(BaseTest):
                 # This is the most common case, the RLP needs to be constructed
                 # based on the transactions to be included in the block.
                 # Set the environment according to the block to execute.
-                header, txs, new_alloc, new_env = self.generate_block_data(
+                header, txs, requests, new_alloc, new_env = self.generate_block_data(
                     t8n=t8n,
                     fork=fork,
                     block=block,
@@ -307,7 +337,13 @@ class BlockchainTest(BaseTest):
                     withdrawals=[FixtureWithdrawal.from_withdrawal(w) for w in new_env.withdrawals]
                     if new_env.withdrawals is not None
                     else None,
-                ).with_rlp(txs=txs)
+                    deposit_requests=[
+                        FixtureDepositRequest.from_deposit_request(d)
+                        for d in requests.deposit_requests()
+                    ]
+                    if requests is not None
+                    else None,
+                ).with_rlp(txs=txs, requests=requests)
                 if block.exception is None:
                     fixture_blocks.append(fixture_block)
                     # Update env, alloc and last block hash for the next block.
@@ -366,7 +402,7 @@ class BlockchainTest(BaseTest):
         head_hash = genesis.header.block_hash
 
         for block in self.blocks:
-            header, txs, new_alloc, new_env = self.generate_block_data(
+            header, txs, requests, new_alloc, new_env = self.generate_block_data(
                 t8n=t8n, fork=fork, block=block, previous_env=env, previous_alloc=alloc, eips=eips
             )
             if block.rlp is None:
@@ -376,6 +412,7 @@ class BlockchainTest(BaseTest):
                         header=header,
                         transactions=txs,
                         withdrawals=new_env.withdrawals,
+                        requests=requests,
                         validation_error=block.exception,
                         error_code=block.engine_api_error_code,
                     )
@@ -402,7 +439,7 @@ class BlockchainTest(BaseTest):
             # Most clients require the header to start the sync process, so we create an empty
             # block on top of the last block of the test to send it as new payload and trigger the
             # sync process.
-            sync_header, _, _, _ = self.generate_block_data(
+            sync_header, _, requests, _, _ = self.generate_block_data(
                 t8n=t8n,
                 fork=fork,
                 block=Block(),
@@ -415,6 +452,7 @@ class BlockchainTest(BaseTest):
                 header=sync_header,
                 transactions=[],
                 withdrawals=[],
+                requests=requests,
                 validation_error=None,
                 error_code=None,
             )

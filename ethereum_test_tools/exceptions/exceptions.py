@@ -180,6 +180,10 @@ class BlockException(ExceptionBase):
     """
     Block's rlp encoding is valid but ethereum structures in it are invalid
     """
+    INVALID_REQUESTS = auto()
+    """
+    Block's requests are invalid
+    """
 
 
 @unique
