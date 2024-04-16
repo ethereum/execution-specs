@@ -2,11 +2,17 @@
 All Ethereum fork class definitions.
 """
 
+from hashlib import sha256
+from os.path import realpath
+from pathlib import Path
 from typing import List, Mapping, Optional
 
 from semver import Version
 
 from ..base_fork import BaseFork
+
+CURRENT_FILE = Path(realpath(__file__))
+CURRENT_FOLDER = CURRENT_FILE.parent
 
 
 # All forks must be listed here !!! in the order they were introduced !!!
@@ -88,6 +94,13 @@ class Frontier(BaseFork, solc_name="homestead"):
         Returns the amount of blob gas used per blob for a given fork.
         """
         return 0
+
+    @classmethod
+    def header_requests_required(cls, block_number: int, timestamp: int) -> bool:
+        """
+        At genesis, header must not contain beacon chain requests.
+        """
+        return False
 
     @classmethod
     def engine_new_payload_version(
@@ -491,6 +504,38 @@ class Prague(Cancun):
         MAP_FP2_TO_G2 = 0x13
         """
         return list(range(0xB, 0x13 + 1)) + super(Prague, cls).precompiles(block_number, timestamp)
+
+    @classmethod
+    def pre_allocation_blockchain(cls) -> Mapping:
+        """
+        Prague requires pre-allocation of the beacon chain deposit contract for EIP-6110
+        """
+        DEPOSIT_CONTRACT_TREE_DEPTH = 32
+
+        # Compute the initialization storage
+        storage = {}
+        next_hash = sha256(b"\x00" * 64).digest()
+        for i in range(DEPOSIT_CONTRACT_TREE_DEPTH + 2, DEPOSIT_CONTRACT_TREE_DEPTH * 2 + 1):
+            storage[i] = next_hash
+            next_hash = sha256(next_hash + next_hash).digest()
+
+        with open(CURRENT_FOLDER / "deposit_contract.bin", mode="rb") as f:
+            new_allocation = {
+                0x00000000219AB540356CBB839CBE05303D7705FA: {
+                    "nonce": 1,
+                    "code": f.read(),
+                    "storage": storage,
+                }
+            }
+        return new_allocation | super(Prague, cls).pre_allocation_blockchain()
+
+    @classmethod
+    def header_requests_required(cls, block_number: int, timestamp: int) -> bool:
+        """
+        Prague requires that the execution layer block contains the beacon
+        chain requests.
+        """
+        return True
 
     @classmethod
     def engine_new_payload_version(

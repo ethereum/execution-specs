@@ -151,6 +151,14 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def header_requests_required(cls, block_number: int, timestamp: int) -> bool:
+        """
+        Returns true if the header must contain beacon chain requests
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def blob_gas_per_blob(cls, block_number: int, timestamp: int) -> int:
         """
         Returns the amount of blob gas used per blob for a given fork.
