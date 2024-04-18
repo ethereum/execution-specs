@@ -45,6 +45,7 @@ class FixtureFormats(Enum):
     STATE_TEST = "state_test"
     BLOCKCHAIN_TEST = "blockchain_test"
     BLOCKCHAIN_TEST_HIVE = "blockchain_test_hive"
+    EOF_TEST = "eof_test"
 
     @classmethod
     def is_state_test(cls, format):  # noqa: D102
@@ -81,6 +82,8 @@ class FixtureFormats(Enum):
             return "Tests that generate a blockchain test fixture."
         elif format == cls.BLOCKCHAIN_TEST_HIVE:
             return "Tests that generate a blockchain test fixture in hive format."
+        elif format == cls.EOF_TEST:
+            return "Tests that generate an EOF test fixture."
         raise Exception(f"Unknown fixture format: {format}.")
 
     @property

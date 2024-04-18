@@ -182,6 +182,103 @@ class BlockException(ExceptionBase):
     """
 
 
+@unique
+class EOFException(ExceptionBase):
+    """
+    Exception raised when an EOF container is invalid
+    """
+
+    DEFAULT_EXCEPTION = auto()
+    """
+    Expect some exception, not yet known
+    """
+
+    UNKNOWN_VERSION = auto()
+    """
+    EOF container has an unknown version
+    """
+    INCOMPLETE_MAGIC = auto()
+    """
+    EOF container has not enough bytes to read magic
+    """
+    INVALID_MAGIC = auto()
+    """
+    EOF container has not allowed magic version byte
+    """
+    INVALID_VERSION = auto()
+    """
+    EOF container version bytes mismatch
+    """
+    MISSING_TYPE_HEADER = auto()
+    """
+    EOF container missing types section
+    """
+    INVALID_TYPE_SIZE = auto()
+    """
+    EOF container types section has wrong size
+    """
+    INVALID_TYPE_BODY = auto()
+    """
+    EOF container types body section bytes are wrong
+    """
+    MISSING_CODE_HEADER = auto()
+    """
+    EOF container missing code section
+    """
+    INVALID_CODE_SECTION = auto()
+    """
+    EOF container code section bytes are incorrect
+    """
+    INCOMPLETE_CODE_HEADER = auto()
+    """
+    EOF container code header missing bytes
+    """
+    INCOMPLETE_DATA_HEADER = auto()
+    """
+    EOF container data header missing bytes
+    """
+    ZERO_SECTION_SIZE = auto()
+    """
+    EOF container data header construction is wrong
+    """
+    INCOMPLETE_CONTAINER = auto()
+    """
+    EOF container bytes are incomplete
+    """
+    INVALID_SECTION_BODIES_SIZE = auto()
+    """
+    Sections bodies does not match sections headers
+    """
+    TRAILING_BYTES = auto()
+    """
+    EOF container has bytes beyond data section
+    """
+    MISSING_TERMINATOR = auto()
+    """
+    EOF container missing terminator bytes between header and body
+    """
+    MISSING_HEADERS_TERMINATOR = auto()
+    """
+    Some type of another exception about missing headers terminator
+    """
+    INVALID_FIRST_SECTION_TYPE = auto()
+    """
+    EOF container header does not have types section first
+    """
+    INCOMPLETE_SECTION_NUMBER = auto()
+    """
+    EOF container header has section that is missing declaration bytes
+    """
+    INCOMPLETE_SECTION_SIZE = auto()
+    """
+    EOF container header has section that is defined incorrectly
+    """
+    TOO_MANY_CODE_SECTIONS = auto()
+    """
+    EOF container header has too many code sections
+    """
+
+
 """
 Pydantic Annotated Types
 """

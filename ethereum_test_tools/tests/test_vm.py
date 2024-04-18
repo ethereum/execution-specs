@@ -22,7 +22,25 @@ from ..vm.opcode import Opcodes as Op
             ),
         ),
         (
+            Op.PUSH1[0x01],
+            bytes(
+                [
+                    0x60,
+                    0x01,
+                ]
+            ),
+        ),
+        (
             Op.PUSH1("0x01"),
+            bytes(
+                [
+                    0x60,
+                    0x01,
+                ]
+            ),
+        ),
+        (
+            Op.PUSH1["0x01"],
             bytes(
                 [
                     0x60,
@@ -49,6 +67,15 @@ from ..vm.opcode import Opcodes as Op
             ),
         ),
         (
+            Op.PUSH1[-1],
+            bytes(
+                [
+                    0x60,
+                    0xFF,
+                ]
+            ),
+        ),
+        (
             Op.PUSH1(-2),
             bytes(
                 [
@@ -62,7 +89,7 @@ from ..vm.opcode import Opcodes as Op
             bytes([0x73] + [0x00] * 19 + [0x01]),
         ),
         (
-            Op.PUSH20("0x01"),
+            Op.PUSH20[0x01],
             bytes([0x73] + [0x00] * 19 + [0x01]),
         ),
         (
@@ -145,6 +172,91 @@ from ..vm.opcode import Opcodes as Op
         (
             Om.OOG(),
             bytes([0x64, 0x17, 0x48, 0x76, 0xE8, 0x00, 0x60, 0x00, 0x20]),
+        ),
+        (
+            Op.RJUMPV[1, 2, 3](Op.ORIGIN),
+            bytes(
+                [
+                    Op.ORIGIN.int(),
+                    Op.RJUMPV.int(),
+                    0x03,  # Data portion, defined by the [1, 2, 3] argument
+                    0x00,
+                    0x01,
+                    0x00,
+                    0x02,
+                    0x00,
+                    0x03,
+                ]
+            ),
+        ),
+        (
+            Op.RJUMPV[b"\x00"],
+            bytes(
+                [
+                    Op.RJUMPV.int(),
+                    0x00,
+                ]
+            ),
+        ),
+        (
+            Op.RJUMPV[-1, -2, -3],
+            bytes(
+                [
+                    Op.RJUMPV.int(),
+                    0x03,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFE,
+                    0xFF,
+                    0xFD,
+                ]
+            ),
+        ),
+        (
+            Op.RJUMPV[range(5)],  # TODO: on Python 3.11+: Op.RJUMPV[*range(5)]
+            bytes(
+                [
+                    Op.RJUMPV.int(),
+                    0x05,
+                    0x00,
+                    0x00,
+                    0x00,
+                    0x01,
+                    0x00,
+                    0x02,
+                    0x00,
+                    0x03,
+                    0x00,
+                    0x04,
+                ]
+            ),
+        ),
+        (
+            Op.RJUMPV[1, 2, 3](Op.ORIGIN) + Op.STOP,
+            bytes(
+                [
+                    Op.ORIGIN.int(),
+                    Op.RJUMPV.int(),
+                    0x03,  # Data portion, defined by the [1, 2, 3] argument
+                    0x00,
+                    0x01,
+                    0x00,
+                    0x02,
+                    0x00,
+                    0x03,
+                    Op.STOP.int(),
+                ]
+            ),
+        ),
+        (
+            Op.STOP * 2,
+            bytes(
+                [
+                    Op.STOP.int(),
+                    Op.STOP.int(),
+                ]
+            ),
         ),
     ],
 )

@@ -8,7 +8,7 @@ to @ThreeHrSleep for integrating it in the docstrings.
 """
 
 from enum import Enum
-from typing import List, Union
+from typing import Any, Callable, Iterable, List, Optional, SupportsBytes
 
 from ..common.base_types import FixedSizeBytes
 
@@ -30,7 +30,7 @@ def _get_int_size(n: int) -> int:
 _push_opcodes_byte_list = [bytes([0x5F + x]) for x in range(33)]
 
 
-class OpcodeMacroBase(bytes):
+class OpcodeMacroBase:
     """
     Base class for Macro and Opcode, inherits from bytes.
 
@@ -39,16 +39,21 @@ class OpcodeMacroBase(bytes):
     """
 
     _name_: str
+    _bytes_: bytes
 
-    def __new__(cls, *args):
+    def __bytes__(self) -> bytes:
         """
-        Since OpcodeMacroBase is never instantiated directly but through
-        subclassing, this method simply forwards the arguments to the
-        bytes constructor.
+        Return the opcode byte representation.
         """
-        return super().__new__(cls, *args)
+        return self._bytes_
 
-    def __call__(self, *_: Union[int, bytes, str, "Opcode", FixedSizeBytes]) -> bytes:
+    def __len__(self) -> int:
+        """
+        Return the length of the opcode byte representation.
+        """
+        return len(self._bytes_)
+
+    def __call__(self, *_: "int | bytes | str | Opcode | FixedSizeBytes | Iterable[int]") -> bytes:
         """
         Make OpcodeMacroBase callable, so that arguments can directly be
         provided to an Opcode in order to more conveniently generate
@@ -73,9 +78,33 @@ class OpcodeMacroBase(bytes):
         """
         if isinstance(other, OpcodeMacroBase):
             return self._name_ == other._name_
-        if isinstance(other, bytes):
-            return bytes(self) == other
+        if isinstance(other, SupportsBytes):
+            return bytes(self) == bytes(other)
         raise NotImplementedError(f"Unsupported type for comparison f{type(other)}")
+
+    def __add__(self, other: Any) -> bytes:
+        """
+        Concatenate the opcode byte representation with another bytes object.
+        """
+        return bytes(self) + bytes(other)
+
+    def __radd__(self, other: Any) -> bytes:
+        """
+        Concatenate another bytes object with the opcode byte representation.
+        """
+        return bytes(other) + bytes(self)
+
+    def __mul__(self, other: int) -> bytes:
+        """
+        Concatenate another bytes object with the opcode byte representation.
+        """
+        return bytes(self) * other
+
+    def hex(self) -> str:
+        """
+        Return the hexadecimal representation of the opcode byte representation.
+        """
+        return bytes(self).hex()
 
 
 class Opcode(OpcodeMacroBase):
@@ -96,15 +125,19 @@ class Opcode(OpcodeMacroBase):
     pushed_stack_items: int
     min_stack_height: int
     data_portion_length: int
+    data_portion_formatter: Optional[Callable[[Any], bytes]]
+    unchecked_stack: bool = False
 
     def __new__(
         cls,
-        opcode_or_byte: Union[int, "Opcode"],
+        opcode_or_byte: "int | bytes | Opcode",
         *,
         popped_stack_items: int = 0,
         pushed_stack_items: int = 0,
         min_stack_height: int = 0,
         data_portion_length: int = 0,
+        data_portion_formatter=None,
+        unchecked_stack=False,
     ):
         """
         Creates a new opcode instance.
@@ -113,17 +146,73 @@ class Opcode(OpcodeMacroBase):
             # Required because Enum class calls the base class with the instantiated object as
             # parameter.
             return opcode_or_byte
-        elif isinstance(opcode_or_byte, int):
-            obj = super().__new__(cls, [opcode_or_byte])
+        elif isinstance(opcode_or_byte, int) or isinstance(opcode_or_byte, bytes):
+            obj = super().__new__(cls)
+            obj._bytes_ = (
+                bytes([opcode_or_byte]) if isinstance(opcode_or_byte, int) else opcode_or_byte
+            )
             obj.popped_stack_items = popped_stack_items
             obj.pushed_stack_items = pushed_stack_items
             obj.min_stack_height = min_stack_height
             obj.data_portion_length = data_portion_length
+            obj.data_portion_formatter = data_portion_formatter
+            obj.unchecked_stack = unchecked_stack
             return obj
         raise TypeError("Opcode constructor '__new__' didn't return an instance!")
 
+    def __getitem__(
+        self, *args: "int | bytes | str | Opcode | FixedSizeBytes | Iterable[int]"
+    ) -> "Opcode":
+        """
+        Initialize a new instance of the opcode with the data portion set, and also clear
+        the data portion variables to avoid reusing them.
+        """
+        if self.data_portion_formatter is None and self.data_portion_length == 0:
+            raise ValueError("Opcode does not have a data portion or has already been set")
+        data_portion = bytes()
+
+        if self.data_portion_formatter is not None:
+            data_portion = self.data_portion_formatter(*args)
+        elif self.data_portion_length > 0:
+            # For opcodes with a data portion, the first argument is the data and the rest of the
+            # arguments form the stack.
+            assert len(args) == 1, "Opcode with data portion requires exactly one argument"
+            data = args[0]
+            if isinstance(data, bytes) or isinstance(data, SupportsBytes) or isinstance(data, str):
+                if isinstance(data, str):
+                    if data.startswith("0x"):
+                        data = data[2:]
+                    data = bytes.fromhex(data)
+                elif isinstance(data, SupportsBytes):
+                    data = bytes(data)
+                assert len(data) <= self.data_portion_length
+                data_portion = data.rjust(self.data_portion_length, b"\x00")
+            elif isinstance(data, int):
+                signed = data < 0
+                data_portion = data.to_bytes(
+                    length=self.data_portion_length,
+                    byteorder="big",
+                    signed=signed,
+                )
+            else:
+                raise TypeError("Opcode data portion must be either an int or bytes/hex string")
+
+        new_opcode = Opcode(
+            bytes(self) + data_portion,
+            popped_stack_items=self.popped_stack_items,
+            pushed_stack_items=self.pushed_stack_items,
+            min_stack_height=self.min_stack_height,
+            data_portion_length=0,
+            data_portion_formatter=None,
+            unchecked_stack=self.unchecked_stack,
+        )
+        new_opcode._name_ = self._name_
+        return new_opcode
+
     def __call__(
-        self, *args_t: Union[int, bytes, str, "Opcode", FixedSizeBytes], unchecked: bool = False
+        self,
+        *args_t: "int | bytes | str | Opcode | FixedSizeBytes | Iterable[int]",
+        unchecked: bool = False,
     ) -> bytes:
         """
         Makes all opcode instances callable to return formatted bytecode, which constitutes a data
@@ -154,21 +243,29 @@ class Opcode(OpcodeMacroBase):
         Hex-strings will automatically be converted to bytes.
 
         """
-        args: List[Union[int, bytes, str, "Opcode", FixedSizeBytes]] = list(args_t)
+        args: List["int | bytes | str | Opcode | FixedSizeBytes | Iterable[int]"] = list(args_t)
         pre_opcode_bytecode = bytes()
         data_portion = bytes()
 
-        if self.data_portion_length > 0:
+        if (self.data_portion_formatter is not None or self.data_portion_length > 0) and len(
+            args
+        ) == 0:
+            raise ValueError("Opcode with data portion requires at least one argument")
+        if self.data_portion_formatter is not None:
+            data_portion_arg = args.pop(0)
+            assert isinstance(data_portion_arg, Iterable)
+            data_portion = self.data_portion_formatter(*data_portion_arg)
+        elif self.data_portion_length > 0:
             # For opcodes with a data portion, the first argument is the data and the rest of the
             # arguments form the stack.
-            if len(args) == 0:
-                raise ValueError("Opcode with data portion requires at least one argument")
             data = args.pop(0)
             if isinstance(data, bytes) or isinstance(data, str):
                 if isinstance(data, str):
                     if data.startswith("0x"):
                         data = data[2:]
                     data = bytes.fromhex(data)
+                elif isinstance(data, SupportsBytes):
+                    data = bytes(data)
                 assert len(data) <= self.data_portion_length
                 data_portion = data.rjust(self.data_portion_length, b"\x00")
             elif isinstance(data, int):
@@ -182,7 +279,7 @@ class Opcode(OpcodeMacroBase):
                 raise TypeError("Opcode data portion must be either an int or bytes/hex string")
 
         # The rest of the arguments conform the stack.
-        if len(args) != self.popped_stack_items and not unchecked:
+        if len(args) != self.popped_stack_items and not (unchecked or self.unchecked_stack):
             raise ValueError(
                 f"Opcode {self._name_} requires {self.popped_stack_items} stack elements, but "
                 f"{len(args)} were provided. Use 'unchecked=True' parameter to ignore this check."
@@ -213,17 +310,21 @@ class Opcode(OpcodeMacroBase):
                 assert data_size > 0
                 pre_opcode_bytecode += _push_opcodes_byte_list[data_size]
                 pre_opcode_bytecode += data
-            elif isinstance(data, bytes) or isinstance(data, str):
+            elif (
+                isinstance(data, bytes) or isinstance(data, SupportsBytes) or isinstance(data, str)
+            ):
                 if isinstance(data, str):
                     if data.startswith("0x"):
                         data = data[2:]
                     data = bytes.fromhex(data)
+                elif isinstance(data, SupportsBytes):
+                    data = bytes(data)
                 pre_opcode_bytecode += data
 
             else:
                 raise TypeError("Opcode stack data must be either an int or a bytes/hex string")
 
-        return pre_opcode_bytecode + self + data_portion
+        return pre_opcode_bytecode + self._bytes_ + data_portion
 
     def __len__(self) -> int:
         """
@@ -245,21 +346,56 @@ class Macro(OpcodeMacroBase):
 
     def __new__(
         cls,
-        macro_or_bytes: Union[bytes, "Macro"],
+        macro_or_bytes: "bytes | Macro",
     ):
         """
         Creates a new opcode macro instance.
         """
-        if type(macro_or_bytes) is Macro:
+        if isinstance(macro_or_bytes, Macro):
             # Required because Enum class calls the base class with the instantiated object as
             # parameter.
             return macro_or_bytes
         else:
-            instance = super().__new__(cls, macro_or_bytes)
+            instance = super().__new__(cls)
+            instance._bytes_ = macro_or_bytes
             return instance
 
 
-OpcodeCallArg = Union[int, bytes, Opcode]
+OpcodeCallArg = int | bytes | str | Opcode | FixedSizeBytes | Iterable[int]
+
+
+#  Constants
+
+RJUMPV_MAX_INDEX_BYTE_LENGTH = 1
+RJUMPV_BRANCH_OFFSET_BYTE_LENGTH = 2
+
+
+# TODO: Allowing Iterable here is a hacky way to support `range`, because Python 3.11+ will allow
+# `Op.RJUMPV[*range(5)]`. This is a temporary solution until Python 3.11+ is the minimum required
+# version.
+
+
+def _rjumpv_encoder(*args: int | bytes | Iterable[int]) -> bytes:
+    if len(args) == 1:
+        if isinstance(args[0], bytes) or isinstance(args[0], SupportsBytes):
+            return bytes(args[0])
+        elif isinstance(args[0], Iterable):
+            int_args = list(args[0])
+            return b"".join(
+                [len(int_args).to_bytes(RJUMPV_MAX_INDEX_BYTE_LENGTH, "big")]
+                + [
+                    i.to_bytes(RJUMPV_BRANCH_OFFSET_BYTE_LENGTH, "big", signed=True)
+                    for i in int_args
+                ]
+            )
+    return b"".join(
+        [len(args).to_bytes(RJUMPV_MAX_INDEX_BYTE_LENGTH, "big")]
+        + [
+            i.to_bytes(RJUMPV_BRANCH_OFFSET_BYTE_LENGTH, "big", signed=True)
+            for i in args
+            if isinstance(i, int)
+        ]
+    )
 
 
 class Opcodes(Opcode, Enum):
@@ -2162,6 +2298,34 @@ class Opcodes(Opcode, Enum):
     Description
     ----
     Mark a valid destination for jumps
+
+    Inputs
+    ----
+    - None
+
+    Outputs
+    ----
+    - None
+
+    Fork
+    ----
+    Frontier
+
+    Gas
+    ----
+    1
+
+    Source: [evm.codes/#5B](https://www.evm.codes/#5B)
+    """
+
+    NOOP = Opcode(0x5B)
+    """
+    NOOP()
+    ----
+
+    Description
+    ----
+    Synonym for JUMPDEST. Performs no operation.
 
     Inputs
     ----
@@ -4539,7 +4703,11 @@ class Opcodes(Opcode, Enum):
     Source: [eips.ethereum.org/EIPS/eip-4200](https://eips.ethereum.org/EIPS/eip-4200)
     """
 
-    RJUMPV = Opcode(0xE2)
+    RJUMPV = Opcode(
+        0xE2,
+        popped_stack_items=1,
+        data_portion_formatter=_rjumpv_encoder,
+    )
     """
     !!! Note: This opcode is under development
 
@@ -4548,6 +4716,13 @@ class Opcodes(Opcode, Enum):
 
     Description
     ----
+    Relative jump with variable offset.
+
+    When calling this opcode to generate bytecode, the first argument is used to format the data
+    portion of the opcode, and it can be either of two types:
+    - A bytes type, and in this instance the bytes are used verbatim as the data portion.
+    - An integer iterable, list or tuple or any other iterable, where each element is a
+        jump offset.
 
     Inputs
     ----
@@ -4563,6 +4738,46 @@ class Opcodes(Opcode, Enum):
     ----
 
     Source: [eips.ethereum.org/EIPS/eip-4200](https://eips.ethereum.org/EIPS/eip-4200)
+    """
+
+    CALLF = Opcode(0xE3, data_portion_length=2, unchecked_stack=True)
+    """
+    !!! Note: This opcode is under development
+
+    CALLF()
+    ----
+
+    Description
+    ----
+
+    - deduct 5 gas
+    - read uint16 operand idx
+    - if 1024 < len(stack) + types[idx].max_stack_height - types[idx].inputs, execution results in
+        an exceptional halt
+    - if 1024 <= len(return_stack), execution results in an exceptional halt
+    - push new element to return_stack (current_code_idx, pc+3)
+    - update current_code_idx to idx and set pc to 0
+
+    Inputs
+    ----
+    Any: The inputs are not checked because we cannot know how many inputs the callee
+    function/section requires
+
+    Outputs
+    ----
+    Any: The outputs are variable because we cannot know how many outputs the callee
+    function/section produces
+
+    Fork
+    ----
+    EOF Fork
+
+    Gas
+    ----
+    5
+
+    Source:
+    [ipsilon/eof/blob/main/spec/eof.md](https://github.com/ipsilon/eof/blob/main/spec/eof.md)
     """
 
     RETF = Opcode(0xE4)
@@ -4590,6 +4805,233 @@ class Opcodes(Opcode, Enum):
     3
 
     Source: [eips.ethereum.org/EIPS/eip-4750](https://eips.ethereum.org/EIPS/eip-4750)
+    """
+    DATALOAD = Opcode(0xB7, popped_stack_items=1, pushed_stack_items=1)
+    """
+    !!! Note: This opcode is under development
+
+    DATALOAD()
+    ----
+
+    Description
+    ----
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+
+    Gas
+    ----
+
+    """
+
+    DATALOADN = Opcode(0xB8, pushed_stack_items=1, data_portion_length=2)
+    """
+    !!! Note: This opcode is under development
+
+    DATALOADN()
+    ----
+
+    Description
+    ----
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+
+    Gas
+    ----
+
+    """
+
+    DATASIZE = Opcode(0xB9, pushed_stack_items=1)
+    """
+    !!! Note: This opcode is under development
+
+    DATASIZE()
+    ----
+
+    Description
+    ----
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+
+    Gas
+    ----
+
+    """
+
+    DATACOPY = Opcode(0xBA, popped_stack_items=3)
+    """
+    !!! Note: This opcode is under development
+
+    DATACOPY()
+    ----
+
+    Description
+    ----
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+
+    Gas
+    ----
+
+    """
+
+    JUMPF = Opcode(0xB1, data_portion_length=2)
+    """
+    !!! Note: This opcode is under development
+
+    JUMPF()
+    ----
+
+    Description
+    ----
+
+    - deduct 5 gas
+    - read uint16 operand idx
+    - if 1024 < len(stack) + types[idx].max_stack_height - types[idx].inputs, execution results in
+        an exceptional halt
+    - set current_code_idx to idx
+    - set pc = 0
+
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+    EOF Fork
+
+    Gas
+    ----
+    5
+
+    """
+
+    DUPN = Opcode(0xE6, pushed_stack_items=1, data_portion_length=1)
+    """
+    !!! Note: This opcode is under development
+
+    DUPN()
+    ----
+
+    Description
+    ----
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+
+    Gas
+    ----
+
+    """
+
+    SWAPN = Opcode(0xE7, data_portion_length=1)
+    """
+    !!! Note: This opcode is under development
+
+    SWAPN()
+    ----
+
+    Description
+    ----
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+
+    Gas
+    ----
+
+    """
+
+    CREATE3 = Opcode(0xEC, popped_stack_items=4, pushed_stack_items=1, data_portion_length=1)
+    """
+    !!! Note: This opcode is under development
+
+    CREATE3()
+    ----
+
+    Description
+    ----
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+
+    Gas
+    ----
+
+    """
+
+    RETURNCONTRACT = Opcode(
+        0xEE, popped_stack_items=2, pushed_stack_items=1, data_portion_length=1
+    )
+    """
+    !!! Note: This opcode is under development
+
+    RETURNCONTRACT()
+    ----
+
+    Description
+    ----
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+
+    Gas
+    ----
+
     """
 
     CREATE = Opcode(0xF0, popped_stack_items=3, pushed_stack_items=1)
@@ -4853,6 +5295,30 @@ class Opcodes(Opcode, Enum):
     - dynamic_gas = memory_expansion_cost + code_execution_cost + address_access_cost
 
     Source: [evm.codes/#FA](https://www.evm.codes/#FA)
+    """
+
+    CREATE4 = Opcode(0xF7, popped_stack_items=5, pushed_stack_items=1)
+    """
+    !!! Note: This opcode is under development
+
+    CREATE4()
+    ----
+
+    Description
+    ----
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+
+    Fork
+    ----
+
+    Gas
+    ----
+
     """
 
     REVERT = Opcode(0xFD, popped_stack_items=2)

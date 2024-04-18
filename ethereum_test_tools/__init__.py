@@ -34,12 +34,13 @@ from .common import (
     add_kzg_version,
     ceiling_division,
     compute_create2_address,
+    compute_create3_address,
     compute_create_address,
     copy_opcode_cost,
     cost_memory_bytes,
     eip_2028_transaction_data_cost,
 )
-from .exceptions import BlockException, TransactionException
+from .exceptions import BlockException, EOFException, TransactionException
 from .reference_spec import ReferenceSpec, ReferenceSpecTypes
 from .spec import (
     SPEC_TYPES,
@@ -47,6 +48,8 @@ from .spec import (
     BaseTest,
     BlockchainTest,
     BlockchainTestFiller,
+    EOFTest,
+    EOFTestFiller,
     FixtureCollector,
     StateTest,
     StateTestFiller,
@@ -74,12 +77,15 @@ __all__ = (
     "Conditional",
     "EngineAPIError",
     "Environment",
+    "EOFException",
+    "EOFTest",
+    "EOFTestFiller",
     "FixtureCollector",
     "Hash",
     "Header",
     "Initcode",
-    "Opcode",
     "Macro",
+    "Opcode",
     "OpcodeCallArg",
     "Opcodes",
     "ReferenceSpec",
@@ -104,6 +110,7 @@ __all__ = (
     "ceiling_division",
     "compute_create_address",
     "compute_create2_address",
+    "compute_create3_address",
     "copy_opcode_cost",
     "cost_memory_bytes",
     "eip_2028_transaction_data_cost",

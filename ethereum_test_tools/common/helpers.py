@@ -71,6 +71,19 @@ def copy_opcode_cost(length: int) -> int:
     return 3 + (ceiling_division(length, 32) * 3) + cost_memory_bytes(length, 0)
 
 
+def compute_create3_address(
+    address: FixedSizeBytesConvertible,
+    salt: FixedSizeBytesConvertible,
+    init_container: BytesConvertible,
+) -> Address:
+    """
+    Compute address of the resulting contract created using the `CREATE3`
+    opcode.
+    """
+    hash = keccak256(b"\xff" + Address(address) + Hash(salt) + keccak256(Bytes(init_container)))
+    return Address(hash[-20:])
+
+
 def eip_2028_transaction_data_cost(data: BytesConvertible) -> int:
     """
     Calculates the cost of a given data as part of a transaction, based on the
