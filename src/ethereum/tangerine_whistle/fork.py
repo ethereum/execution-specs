@@ -153,13 +153,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     parent_header = chain.blocks[-1].header
     validate_header(block.header, parent_header)
     validate_ommers(block.ommers, block.header, chain)
-    (
-        gas_used,
-        transactions_root,
-        receipt_root,
-        block_logs_bloom,
-        state,
-    ) = apply_body(
+    apply_body_output = apply_body(
         chain.state,
         get_last_256_block_hashes(chain),
         block.header.coinbase,
@@ -170,11 +164,23 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.transactions,
         block.ommers,
     )
-    ensure(gas_used == block.header.gas_used, InvalidBlock)
-    ensure(transactions_root == block.header.transactions_root, InvalidBlock)
-    ensure(state_root(state) == block.header.state_root, InvalidBlock)
-    ensure(receipt_root == block.header.receipt_root, InvalidBlock)
-    ensure(block_logs_bloom == block.header.bloom, InvalidBlock)
+    ensure(
+        apply_body_output.block_gas_used == block.header.gas_used, InvalidBlock
+    )
+    ensure(
+        apply_body_output.transactions_root == block.header.transactions_root,
+        InvalidBlock,
+    )
+    ensure(
+        apply_body_output.state_root == block.header.state_root, InvalidBlock
+    )
+    ensure(
+        apply_body_output.receipt_root == block.header.receipt_root,
+        InvalidBlock,
+    )
+    ensure(
+        apply_body_output.block_logs_bloom == block.header.bloom, InvalidBlock
+    )
 
     chain.blocks.append(block)
     if len(chain.blocks) > 255:
@@ -361,6 +367,33 @@ def make_receipt(
     return receipt
 
 
+@dataclass
+class ApplyBodyOutput:
+    """
+    Output from applying the block body to the present state.
+
+    Contains the following:
+
+    block_gas_used : `ethereum.base_types.Uint`
+        Gas used for executing all transactions.
+    transactions_root : `ethereum.fork_types.Root`
+        Trie root of all the transactions in the block.
+    receipt_root : `ethereum.fork_types.Root`
+        Trie root of all the receipts in the block.
+    block_logs_bloom : `Bloom`
+        Logs bloom of all the logs included in all the transactions of the
+        block.
+    state_root : `ethereum.fork_types.Root`
+        State root after all transactions have been executed.
+    """
+
+    block_gas_used: Uint
+    transactions_root: Root
+    receipt_root: Root
+    block_logs_bloom: Bloom
+    state_root: Root
+
+
 def apply_body(
     state: State,
     block_hashes: List[Hash32],
@@ -371,7 +404,7 @@ def apply_body(
     block_difficulty: Uint,
     transactions: Tuple[Transaction, ...],
     ommers: Tuple[Header, ...],
-) -> Tuple[Uint, Root, Root, Bloom, State]:
+) -> ApplyBodyOutput:
     """
     Executes a block.
 
@@ -407,17 +440,8 @@ def apply_body(
 
     Returns
     -------
-    block_gas_used : `ethereum.base_types.Uint`
-        Gas used for executing all transactions.
-    transactions_root : `ethereum.fork_types.Root`
-        Trie root of all the transactions in the block.
-    receipt_root : `ethereum.fork_types.Root`
-        Trie root of all the receipts in the block.
-    block_logs_bloom : `Bloom`
-        Logs bloom of all the logs included in all the transactions of the
-        block.
-    state : `ethereum.fork_types.State`
-        State after all transactions have been executed.
+    apply_body_output : `ApplyBodyOutput`
+        Output of applying the block body to the state.
     """
     gas_available = block_gas_limit
     transactions_trie: Trie[Bytes, Optional[Transaction]] = Trie(
@@ -468,12 +492,12 @@ def apply_body(
 
     block_logs_bloom = logs_bloom(block_logs)
 
-    return (
+    return ApplyBodyOutput(
         block_gas_used,
         root(transactions_trie),
         root(receipts_trie),
         block_logs_bloom,
-        state,
+        state_root(state),
     )
 
 
