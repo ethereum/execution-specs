@@ -49,8 +49,7 @@ from .transactions import (
     LegacyTransaction,
     Transaction,
     decode_transaction,
-    encode_transaction,
-    
+    encode_transaction,   
 )
 from .trie import Trie, root, trie_set
 from .utils.message import prepare_message
