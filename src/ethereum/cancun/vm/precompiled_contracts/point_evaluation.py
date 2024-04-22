@@ -18,7 +18,6 @@ from eth2spec.deneb.mainnet import (
 )
 
 from ethereum.base_types import U256, Bytes
-from ethereum.utils.ensure import ensure
 
 from ...vm import Evm
 from ...vm.exceptions import KZGProofError
@@ -41,8 +40,8 @@ def point_evaluation(evm: Evm) -> None:
 
     """
     data = evm.message.data
-
-    ensure(len(data) == 192, KZGProofError)
+    if not (len(data) == 192):
+        raise KZGProofError
 
     versioned_hash = data[:32]
     z = data[32:64]
@@ -52,21 +51,16 @@ def point_evaluation(evm: Evm) -> None:
 
     # GAS
     charge_gas(evm, GAS_POINT_EVALUATION)
-
-    # OPERATION
-    # Verify commitment matches versioned_hash
-    ensure(
-        kzg_commitment_to_versioned_hash(commitment) == versioned_hash,
-        KZGProofError,
-    )
+    if not (kzg_commitment_to_versioned_hash(commitment) == versioned_hash):
+        raise KZGProofError
 
     # Verify KZG proof with z and y in big endian format
     try:
         kzg_proof_verification = verify_kzg_proof(commitment, z, y, proof)
     except Exception as e:
         raise KZGProofError from e
-
-    ensure(kzg_proof_verification, KZGProofError)
+    if not (kzg_proof_verification):
+        raise KZGProofError
 
     # Return FIELD_ELEMENTS_PER_BLOB and BLS_MODULUS as padded
     # 32 byte big endian values

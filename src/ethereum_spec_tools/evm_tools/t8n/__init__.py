@@ -12,7 +12,6 @@ from ethereum import rlp, trace
 from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import EthereumException, InvalidBlock
-from ethereum.utils.ensure import ensure
 from ethereum_spec_tools.forks import Hardfork
 
 from ..loaders.fixture_loader import Load
@@ -380,10 +379,8 @@ class T8N(Load):
 
                 if self.fork.is_after_fork("ethereum.cancun"):
                     blob_gas_used += self.fork.calculate_total_blob_gas(tx)
-                    ensure(
-                        blob_gas_used <= self.fork.MAX_BLOB_GAS_PER_BLOCK,
-                        InvalidBlock,
-                    )
+                    if not (blob_gas_used <= self.fork.MAX_BLOB_GAS_PER_BLOCK):
+                        raise InvalidBlock
             except EthereumException as e:
                 # The tf tools expects some non-blank error message
                 # even in case e is blank.

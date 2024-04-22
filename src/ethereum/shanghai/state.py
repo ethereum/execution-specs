@@ -20,7 +20,6 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from ethereum.base_types import U256, Bytes, Uint, modify
-from ethereum.utils.ensure import ensure
 
 from .blocks import Withdrawal
 from .fork_types import EMPTY_ACCOUNT, Account, Address, Root
@@ -470,7 +469,8 @@ def move_ether(
     """
 
     def reduce_sender_balance(sender: Account) -> None:
-        ensure(sender.balance >= amount, AssertionError)
+        if not (sender.balance >= amount):
+            raise AssertionError
         sender.balance -= amount
 
     def increase_recipient_balance(recipient: Account) -> None:
