@@ -346,7 +346,7 @@ def _prepare_trie(
             encoded_value = encode_node(value, get_storage_root(address))
         else:
             encoded_value = encode_node(value)
-        if not (encoded_value != b""):
+        if encoded_value == b"":
             raise AssertionError
         key: Bytes
         if trie.secured:
