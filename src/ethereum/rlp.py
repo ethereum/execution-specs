@@ -19,7 +19,6 @@ from typing import Any, List, Sequence, Tuple, Type, TypeVar, Union, cast
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import RLPDecodingError, RLPEncodingError
-from ethereum.utils.ensure import ensure
 
 from .base_types import Bytes, Bytes0, Bytes20, FixedBytes, FixedUint, Uint
 
@@ -164,14 +163,8 @@ def decode(encoded_data: Bytes) -> RLP:
     decoded_data : `RLP`
         Object decoded from `encoded_data`.
     """
-    # Raising error as there can never be empty encoded data for any
-    # given raw data (including empty raw data)
-    # RLP Encoding(b'') -> [0x80]  # noqa: SC100
-    # RLP Encoding([])  -> [0xc0]  # noqa: SC100
-    ensure(
-        len(encoded_data) > 0,
-        RLPDecodingError("Cannot decode empty bytestring"),
-    )
+    if not (len(encoded_data) > 0):
+        raise RLPDecodingError("Cannot decode empty bytestring")
 
     if encoded_data[0] <= 0xBF:
         # This means that the raw data is of type bytes
@@ -223,7 +216,8 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
         Object decoded from `encoded_data`.
     """
     if isinstance(cls, type(Tuple[Uint, ...])) and cls._name == "Tuple":  # type: ignore # noqa: E501
-        ensure(isinstance(raw_rlp, list), RLPDecodingError)
+        if not (isinstance(raw_rlp, list)):
+            raise RLPDecodingError
         if cls.__args__[1] == ...:  # type: ignore
             args = []
             for raw_item in raw_rlp:
@@ -231,14 +225,14 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
             return tuple(args)  # type: ignore
         else:
             args = []
-            ensure(len(raw_rlp) == len(cls.__args__), RLPDecodingError)  # type: ignore # noqa: E501
+            if not (len(raw_rlp) == len(cls.__args__)):  # type: ignore
+                raise RLPDecodingError
             for t, raw_item in zip(cls.__args__, raw_rlp):  # type: ignore
                 args.append(_decode_to(t, raw_item))
             return tuple(args)  # type: ignore
     elif cls == Union[Bytes0, Bytes20]:
-        # We can't support Union types in general, so we support this one
-        # (which appears in the Transaction type) as a special case
-        ensure(isinstance(raw_rlp, Bytes), RLPDecodingError)
+        if not (isinstance(raw_rlp, Bytes)):
+            raise RLPDecodingError
         if len(raw_rlp) == 0:
             return Bytes0()  # type: ignore
         elif len(raw_rlp) == 20:
@@ -248,7 +242,8 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
                 "Bytes has length {}, expected 0 or 20".format(len(raw_rlp))
             )
     elif isinstance(cls, type(List[Bytes])) and cls._name == "List":  # type: ignore # noqa: E501
-        ensure(isinstance(raw_rlp, list), RLPDecodingError)
+        if not (isinstance(raw_rlp, list)):
+            raise RLPDecodingError
         items = []
         for raw_item in raw_rlp:
             items.append(_decode_to(cls.__args__[0], raw_item))  # type: ignore
@@ -272,23 +267,29 @@ def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
         else:
             raise TypeError("Cannot decode {} as {}".format(raw_rlp, cls))
     elif issubclass(cls, FixedBytes):
-        ensure(isinstance(raw_rlp, Bytes), RLPDecodingError)
-        ensure(len(raw_rlp) == cls.LENGTH, RLPDecodingError)
+        if not (isinstance(raw_rlp, Bytes)):
+            raise RLPDecodingError
+        if not (len(raw_rlp) == cls.LENGTH):
+            raise RLPDecodingError
         return cls(raw_rlp)  # type: ignore
     elif issubclass(cls, Bytes):
-        ensure(isinstance(raw_rlp, Bytes), RLPDecodingError)
-        return raw_rlp
+        if not (isinstance(raw_rlp, Bytes)):
+            raise RLPDecodingError
+        return raw_rlp  # type: ignore
     elif issubclass(cls, (Uint, FixedUint)):
-        ensure(isinstance(raw_rlp, Bytes), RLPDecodingError)
+        if not (isinstance(raw_rlp, Bytes)):
+            raise RLPDecodingError
         try:
             return cls.from_be_bytes(raw_rlp)  # type: ignore
         except ValueError:
             raise RLPDecodingError
     elif is_dataclass(cls):
-        ensure(isinstance(raw_rlp, list), RLPDecodingError)
+        if not (isinstance(raw_rlp, list)):
+            raise RLPDecodingError
         assert isinstance(raw_rlp, list)
         args = []
-        ensure(len(fields(cls)) == len(raw_rlp), RLPDecodingError)
+        if not (len(fields(cls)) == len(raw_rlp)):
+            raise RLPDecodingError
         for field, rlp_item in zip(fields(cls), raw_rlp):
             args.append(_decode_to(field.type, rlp_item))
         return cast(T, cls(*args))
@@ -317,28 +318,28 @@ def decode_to_bytes(encoded_bytes: Bytes) -> Bytes:
         return encoded_bytes
     elif encoded_bytes[0] <= 0xB7:
         len_raw_data = encoded_bytes[0] - 0x80
-        ensure(len_raw_data < len(encoded_bytes), RLPDecodingError)
+        if not (len_raw_data < len(encoded_bytes)):
+            raise RLPDecodingError
         raw_data = encoded_bytes[1 : 1 + len_raw_data]
-        ensure(
-            not (len_raw_data == 1 and raw_data[0] < 0x80), RLPDecodingError
-        )
+        if not (not (len_raw_data == 1 and raw_data[0] < 0x80)):
+            raise RLPDecodingError
         return raw_data
     else:
         # This is the index in the encoded data at which decoded data
         # starts from.
         decoded_data_start_idx = 1 + encoded_bytes[0] - 0xB7
-        ensure(
-            decoded_data_start_idx - 1 < len(encoded_bytes), RLPDecodingError
-        )
-        # Expectation is that the big endian bytes shouldn't start with 0
-        # while trying to decode using RLP, in which case is an error.
-        ensure(encoded_bytes[1] != 0, RLPDecodingError)
+        if not (decoded_data_start_idx - 1 < len(encoded_bytes)):
+            raise RLPDecodingError
+        if not (encoded_bytes[1] != 0):
+            raise RLPDecodingError
         len_decoded_data = Uint.from_be_bytes(
             encoded_bytes[1:decoded_data_start_idx]
         )
-        ensure(len_decoded_data >= 0x38, RLPDecodingError)
+        if not (len_decoded_data >= 0x38):
+            raise RLPDecodingError
         decoded_data_end_idx = decoded_data_start_idx + len_decoded_data
-        ensure(decoded_data_end_idx - 1 < len(encoded_bytes), RLPDecodingError)
+        if not (decoded_data_end_idx - 1 < len(encoded_bytes)):
+            raise RLPDecodingError
         return encoded_bytes[decoded_data_start_idx:decoded_data_end_idx]
 
 
@@ -359,28 +360,25 @@ def decode_to_sequence(encoded_sequence: Bytes) -> List[RLP]:
     """
     if encoded_sequence[0] <= 0xF7:
         len_joined_encodings = encoded_sequence[0] - 0xC0
-        ensure(len_joined_encodings < len(encoded_sequence), RLPDecodingError)
+        if not (len_joined_encodings < len(encoded_sequence)):
+            raise RLPDecodingError
         joined_encodings = encoded_sequence[1 : 1 + len_joined_encodings]
     else:
         joined_encodings_start_idx = 1 + encoded_sequence[0] - 0xF7
-        ensure(
-            joined_encodings_start_idx - 1 < len(encoded_sequence),
-            RLPDecodingError,
-        )
-        # Expectation is that the big endian bytes shouldn't start with 0
-        # while trying to decode using RLP, in which case is an error.
-        ensure(encoded_sequence[1] != 0, RLPDecodingError)
+        if not (joined_encodings_start_idx - 1 < len(encoded_sequence)):
+            raise RLPDecodingError
+        if not (encoded_sequence[1] != 0):
+            raise RLPDecodingError
         len_joined_encodings = Uint.from_be_bytes(
             encoded_sequence[1:joined_encodings_start_idx]
         )
-        ensure(len_joined_encodings >= 0x38, RLPDecodingError)
+        if not (len_joined_encodings >= 0x38):
+            raise RLPDecodingError
         joined_encodings_end_idx = (
             joined_encodings_start_idx + len_joined_encodings
         )
-        ensure(
-            joined_encodings_end_idx - 1 < len(encoded_sequence),
-            RLPDecodingError,
-        )
+        if not (joined_encodings_end_idx - 1 < len(encoded_sequence)):
+            raise RLPDecodingError
         joined_encodings = encoded_sequence[
             joined_encodings_start_idx:joined_encodings_end_idx
         ]
@@ -410,10 +408,10 @@ def decode_joined_encodings(joined_encodings: Bytes) -> List[RLP]:
         encoded_item_length = decode_item_length(
             joined_encodings[item_start_idx:]
         )
-        ensure(
-            item_start_idx + encoded_item_length - 1 < len(joined_encodings),
-            RLPDecodingError,
-        )
+        if not (
+            item_start_idx + encoded_item_length - 1 < len(joined_encodings)
+        ):
+            raise RLPDecodingError
         encoded_item = joined_encodings[
             item_start_idx : item_start_idx + encoded_item_length
         ]
@@ -443,8 +441,8 @@ def decode_item_length(encoded_data: Bytes) -> int:
     -------
     rlp_length : `int`
     """
-    # Can't decode item length for empty encoding
-    ensure(len(encoded_data) > 0, RLPDecodingError)
+    if not (len(encoded_data) > 0):
+        raise RLPDecodingError
 
     first_rlp_byte = Uint(encoded_data[0])
 
@@ -467,10 +465,10 @@ def decode_item_length(encoded_data: Bytes) -> int:
     # into the above cases
     elif first_rlp_byte <= 0xBF:
         length_length = first_rlp_byte - 0xB7
-        ensure(length_length < len(encoded_data), RLPDecodingError)
-        # Expectation is that the big endian bytes shouldn't start with 0
-        # while trying to decode using RLP, in which case is an error.
-        ensure(encoded_data[1] != 0, RLPDecodingError)
+        if not (length_length < len(encoded_data)):
+            raise RLPDecodingError
+        if not (encoded_data[1] != 0):
+            raise RLPDecodingError
         decoded_data_length = Uint.from_be_bytes(
             encoded_data[1 : 1 + length_length]
         )
@@ -482,10 +480,10 @@ def decode_item_length(encoded_data: Bytes) -> int:
     # doesn't fall into the above cases.
     elif first_rlp_byte <= 0xFF:
         length_length = first_rlp_byte - 0xF7
-        ensure(length_length < len(encoded_data), RLPDecodingError)
-        # Expectation is that the big endian bytes shouldn't start with 0
-        # while trying to decode using RLP, in which case is an error.
-        ensure(encoded_data[1] != 0, RLPDecodingError)
+        if not (length_length < len(encoded_data)):
+            raise RLPDecodingError
+        if not (encoded_data[1] != 0):
+            raise RLPDecodingError
         decoded_data_length = Uint.from_be_bytes(
             encoded_data[1 : 1 + length_length]
         )

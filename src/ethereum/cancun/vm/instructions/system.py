@@ -12,7 +12,6 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Bytes0, Uint
-from ethereum.utils.ensure import ensure
 from ethereum.utils.numeric import ceil32
 
 from ...fork_types import Address
@@ -79,15 +78,15 @@ def generic_create(
     call_data = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
     )
-
-    ensure(len(call_data) <= 2 * MAX_CODE_SIZE, OutOfGasError)
+    if not (len(call_data) <= 2 * MAX_CODE_SIZE):
+        raise OutOfGasError
 
     evm.accessed_addresses.add(contract_address)
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
-
-    ensure(not evm.message.is_static, WriteInStaticContext)
+    if not (not evm.message.is_static):
+        raise WriteInStaticContext
     evm.return_data = b""
 
     sender_address = evm.message.current_target
@@ -376,9 +375,8 @@ def call(evm: Evm) -> None:
         access_gas_cost + create_gas_cost + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
-
-    # OPERATION
-    ensure(not evm.message.is_static or value == U256(0), WriteInStaticContext)
+    if not (not evm.message.is_static or value == U256(0)):
+        raise WriteInStaticContext
     evm.memory += b"\x00" * extend_memory.expand_by
     sender_balance = get_account(
         evm.env.state, evm.message.current_target
@@ -506,9 +504,8 @@ def selfdestruct(evm: Evm) -> None:
         gas_cost += GAS_SELF_DESTRUCT_NEW_ACCOUNT
 
     charge_gas(evm, gas_cost)
-
-    # OPERATION
-    ensure(not evm.message.is_static, WriteInStaticContext)
+    if not (not evm.message.is_static):
+        raise WriteInStaticContext
 
     originator = evm.message.current_target
     originator_balance = get_account(evm.env.state, originator).balance

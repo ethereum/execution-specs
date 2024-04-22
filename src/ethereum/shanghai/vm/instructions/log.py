@@ -14,7 +14,6 @@ Implementations of the EVM logging instructions.
 from functools import partial
 
 from ethereum.base_types import U256
-from ethereum.utils.ensure import ensure
 
 from ...blocks import Log
 from .. import Evm
@@ -68,7 +67,8 @@ def log_n(evm: Evm, num_topics: U256) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    ensure(not evm.message.is_static, WriteInStaticContext)
+    if not (not evm.message.is_static):
+        raise WriteInStaticContext
     log_entry = Log(
         address=evm.message.current_target,
         topics=tuple(topics),
