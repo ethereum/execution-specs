@@ -442,7 +442,7 @@ def move_ether(
     """
 
     def reduce_sender_balance(sender: Account) -> None:
-        if not (sender.balance >= amount):
+        if sender.balance < amount:
             raise AssertionError
         sender.balance -= amount
 
