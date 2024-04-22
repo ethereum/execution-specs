@@ -64,7 +64,7 @@ def get_optimized_pow_patches(_fork_name: str) -> Dict[str, Any]:
             int.from_bytes(header.nonce, "big"),
             (U256_CEIL_VALUE // header.difficulty).to_be_bytes32(),
         )
-        if not (result):
+        if not result:
             raise InvalidBlock
 
     return patches

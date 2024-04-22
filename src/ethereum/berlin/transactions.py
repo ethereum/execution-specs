@@ -85,7 +85,7 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
     Decode a transaction. Needed because non-legacy transactions aren't RLP.
     """
     if isinstance(tx, Bytes):
-        if not (tx[0] == 1):
+        if tx[0] != 1:
             raise InvalidBlock
         return rlp.decode_to(AccessListTransaction, tx[1:])
     else:
