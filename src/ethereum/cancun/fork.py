@@ -337,24 +337,30 @@ def validate_header(header: Header, parent_header: Header) -> None:
 
 
 def check_transaction(
+    state: State,
     tx: Transaction,
-    base_fee_per_gas: Uint,
     gas_available: Uint,
     chain_id: U64,
+    base_fee_per_gas: Uint,
+    excess_blob_gas: U64,
 ) -> Tuple[Address, Uint, Tuple[VersionedHash, ...]]:
     """
     Check if the transaction is includable in the block.
 
     Parameters
     ----------
+    state :
+        Current state.
     tx :
         The transaction.
-    base_fee_per_gas :
-        The block base fee.
     gas_available :
         The gas remaining in the block.
     chain_id :
         The ID of the current chain.
+    base_fee_per_gas :
+        The block base fee.
+    excess_blob_gas :
+        The excess blob gas.
 
     Returns
     -------
@@ -370,29 +376,59 @@ def check_transaction(
     InvalidBlock :
         If the transaction is not includable.
     """
-    ensure(tx.gas <= gas_available, InvalidBlock)
-    sender_address = recover_sender(chain_id, tx)
+    if calculate_intrinsic_cost(tx) > tx.gas:
+        raise InvalidBlock
+    if tx.nonce >= 2**64 - 1:
+        raise InvalidBlock
+    if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
+        raise InvalidBlock
+
+    if tx.gas > gas_available:
+        raise InvalidBlock
+
+    sender = recover_sender(chain_id, tx)
+    sender_account = get_account(state, sender)
 
     if isinstance(tx, (FeeMarketTransaction, BlobTransaction)):
-        ensure(tx.max_fee_per_gas >= tx.max_priority_fee_per_gas, InvalidBlock)
-        ensure(tx.max_fee_per_gas >= base_fee_per_gas, InvalidBlock)
+        if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
+            raise InvalidBlock
+        if tx.max_fee_per_gas < base_fee_per_gas:
+            raise InvalidBlock
 
         priority_fee_per_gas = min(
             tx.max_priority_fee_per_gas,
             tx.max_fee_per_gas - base_fee_per_gas,
         )
         effective_gas_price = priority_fee_per_gas + base_fee_per_gas
+        max_gas_fee = tx.gas * tx.max_fee_per_gas
     else:
-        ensure(tx.gas_price >= base_fee_per_gas, InvalidBlock)
+        if tx.gas_price < base_fee_per_gas:
+            raise InvalidBlock
         effective_gas_price = tx.gas_price
+        max_gas_fee = tx.gas * tx.gas_price
 
     if isinstance(tx, BlobTransaction):
-        ensure(isinstance(tx.to, Address), InvalidBlock)
+        if not isinstance(tx.to, Address):
+            raise InvalidBlock
+        if len(tx.blob_versioned_hashes) == 0:
+            raise InvalidBlock
+        for blob_versioned_hash in tx.blob_versioned_hashes:
+            if blob_versioned_hash[0:1] != VERSIONED_HASH_VERSION_KZG:
+                raise InvalidBlock
+
+        if tx.max_fee_per_blob_gas < calculate_blob_gas_price(excess_blob_gas):
+            raise InvalidBlock
+
+        max_gas_fee += calculate_total_blob_gas(tx) * tx.max_fee_per_blob_gas
         blob_versioned_hashes = tx.blob_versioned_hashes
     else:
         blob_versioned_hashes = ()
 
-    return sender_address, effective_gas_price, blob_versioned_hashes
+    ensure(sender_account.nonce == tx.nonce, InvalidBlock)
+    ensure(sender_account.balance >= max_gas_fee + tx.value, InvalidBlock)
+    ensure(sender_account.code == bytearray(), InvalidBlock)
+
+    return sender, effective_gas_price, blob_versioned_hashes
 
 
 def make_receipt(
@@ -602,7 +638,14 @@ def apply_body(
             sender_address,
             effective_gas_price,
             blob_versioned_hashes,
-        ) = check_transaction(tx, base_fee_per_gas, gas_available, chain_id)
+        ) = check_transaction(
+            state,
+            tx,
+            gas_available,
+            chain_id,
+            base_fee_per_gas,
+            excess_blob_gas,
+        )
 
         env = vm.Environment(
             caller=sender_address,
@@ -692,37 +735,13 @@ def process_transaction(
     logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
-    ensure(validate_transaction(tx), InvalidBlock)
-
     sender = env.origin
     sender_account = get_account(env.state, sender)
 
-    if isinstance(tx, (FeeMarketTransaction, BlobTransaction)):
-        max_gas_fee = tx.gas * tx.max_fee_per_gas
-    else:
-        max_gas_fee = tx.gas * tx.gas_price
-
     if isinstance(tx, BlobTransaction):
-        ensure(len(tx.blob_versioned_hashes) > 0, InvalidBlock)
-        for blob_versioned_hash in tx.blob_versioned_hashes:
-            ensure(
-                blob_versioned_hash[0:1] == VERSIONED_HASH_VERSION_KZG,
-                InvalidBlock,
-            )
-
-        ensure(
-            tx.max_fee_per_blob_gas >= calculate_blob_gas_price(env),
-            InvalidBlock,
-        )
-
-        max_gas_fee += calculate_total_blob_gas(tx) * tx.max_fee_per_blob_gas
-        blob_gas_fee = calculate_data_fee(env, tx)
+        blob_gas_fee = calculate_data_fee(env.excess_blob_gas, tx)
     else:
         blob_gas_fee = Uint(0)
-
-    ensure(sender_account.nonce == tx.nonce, InvalidBlock)
-    ensure(sender_account.balance >= max_gas_fee + tx.value, InvalidBlock)
-    ensure(sender_account.code == bytearray(), InvalidBlock)
 
     effective_gas_fee = tx.gas * env.gas_price
 
@@ -793,41 +812,6 @@ def process_transaction(
     destroy_touched_empty_accounts(env.state, output.touched_accounts)
 
     return total_gas_used, output.logs, output.error
-
-
-def validate_transaction(tx: Transaction) -> bool:
-    """
-    Verifies a transaction.
-
-    The gas in a transaction gets used to pay for the intrinsic cost of
-    operations, therefore if there is insufficient gas then it would not
-    be possible to execute a transaction and it will be declared invalid.
-
-    Additionally, the nonce of a transaction must not equal or exceed the
-    limit defined in `EIP-2681 <https://eips.ethereum.org/EIPS/eip-2681>`_.
-    In practice, defining the limit as ``2**64-1`` has no impact because
-    sending ``2**64-1`` transactions is improbable. It's not strictly
-    impossible though, ``2**64-1`` transactions is the entire capacity of the
-    Ethereum blockchain at 2022 gas limits for a little over 22 years.
-
-    Parameters
-    ----------
-    tx :
-        Transaction to validate.
-
-    Returns
-    -------
-    verified : `bool`
-        True if the transaction can be executed, or False otherwise.
-    """
-    if calculate_intrinsic_cost(tx) > tx.gas:
-        return False
-    if tx.nonce >= 2**64 - 1:
-        return False
-    if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
-        return False
-
-    return True
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Uint:

@@ -150,6 +150,19 @@ class T8N(Load):
         Implements the check_transaction function of the fork.
         The arguments to be passed are adjusted according to the fork.
         """
+        # TODO: The current PR changes the signature of the check_transaction
+        # in cancun only. Once this is approved and ported over to the
+        # the other forks in PR #890, this function has to be updated.
+        # This is a temporary change to make the tool work for cancun.
+        if self.fork.is_after_fork("ethereum.cancun"):
+            return self.fork.check_transaction(
+                self.alloc.state,
+                tx,
+                gas_available,
+                self.chain_id,
+                self.env.base_fee_per_gas,
+                self.env.excess_blob_gas,
+            )
         arguments = [tx]
 
         if self.fork.is_after_fork("ethereum.london"):
@@ -184,47 +197,31 @@ class T8N(Load):
         if self.fork.is_after_fork("ethereum.istanbul"):
             kw_arguments["chain_id"] = self.chain_id
 
+        check_tx_return = self.check_transaction(tx, gas_available)
+
         if self.fork.is_after_fork("ethereum.cancun"):
             (
                 sender_address,
                 effective_gas_price,
                 blob_versioned_hashes,
-            ) = self.fork.check_transaction(
-                tx,
-                self.env.base_fee_per_gas,
-                gas_available,
-                self.chain_id,
-            )
+            ) = check_tx_return
             kw_arguments["base_fee_per_gas"] = self.env.base_fee_per_gas
             kw_arguments["caller"] = kw_arguments["origin"] = sender_address
             kw_arguments["gas_price"] = effective_gas_price
             kw_arguments["blob_versioned_hashes"] = blob_versioned_hashes
+            kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
+            kw_arguments["transient_storage"] = self.fork.TransientStorage()
         elif self.fork.is_after_fork("ethereum.london"):
-            sender_address, effective_gas_price = self.fork.check_transaction(
-                tx,
-                self.env.base_fee_per_gas,
-                gas_available,
-                self.chain_id,
-            )
+            sender_address, effective_gas_price = check_tx_return
             kw_arguments["base_fee_per_gas"] = self.env.base_fee_per_gas
             kw_arguments["caller"] = kw_arguments["origin"] = sender_address
             kw_arguments["gas_price"] = effective_gas_price
-        elif self.fork.is_after_fork("ethereum.spurious_dragon"):
-            sender_address = self.fork.check_transaction(
-                tx, gas_available, self.chain_id
-            )
-            kw_arguments["caller"] = kw_arguments["origin"] = sender_address
-            kw_arguments["gas_price"] = tx.gas_price
         else:
-            sender_address = self.fork.check_transaction(tx, gas_available)
+            sender_address = check_tx_return
             kw_arguments["caller"] = kw_arguments["origin"] = sender_address
             kw_arguments["gas_price"] = tx.gas_price
 
         kw_arguments["traces"] = []
-
-        if self.fork.is_after_fork("ethereum.cancun"):
-            kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
-            kw_arguments["transient_storage"] = self.fork.TransientStorage()
 
         return self.fork.Environment(**kw_arguments)
 
