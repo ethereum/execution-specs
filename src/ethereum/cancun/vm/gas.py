@@ -20,7 +20,7 @@ from ethereum.utils.numeric import ceil32, taylor_exponential
 
 from ..blocks import Header
 from ..transactions import BlobTransaction, Transaction
-from . import Environment, Evm
+from . import Evm
 from .exceptions import OutOfGasError
 
 GAS_JUMPDEST = Uint(1)
@@ -312,14 +312,14 @@ def calculate_total_blob_gas(tx: Transaction) -> Uint:
         return Uint(0)
 
 
-def calculate_blob_gas_price(env: Environment) -> Uint:
+def calculate_blob_gas_price(excess_blob_gas: U64) -> Uint:
     """
     Calculate the blob gasprice for a block.
 
     Parameters
     ----------
-    env :
-        The execution environment.
+    excess_blob_gas :
+        The excess blob gas for the block.
 
     Returns
     -------
@@ -328,19 +328,19 @@ def calculate_blob_gas_price(env: Environment) -> Uint:
     """
     return taylor_exponential(
         MIN_BLOB_GASPRICE,
-        Uint(env.excess_blob_gas),
+        Uint(excess_blob_gas),
         BLOB_GASPRICE_UPDATE_FRACTION,
     )
 
 
-def calculate_data_fee(env: Environment, tx: Transaction) -> Uint:
+def calculate_data_fee(excess_blob_gas: U64, tx: Transaction) -> Uint:
     """
     Calculate the blob data fee for a transaction.
 
     Parameters
     ----------
-    env :
-        The execution environment.
+    excess_blob_gas :
+        The excess_blob_gas for the execution.
     tx :
         The transaction for which the blob data fee is to be calculated.
 
@@ -349,4 +349,6 @@ def calculate_data_fee(env: Environment, tx: Transaction) -> Uint:
     data_fee: `Uint`
         The blob data fee.
     """
-    return calculate_total_blob_gas(tx) * calculate_blob_gas_price(env)
+    return calculate_total_blob_gas(tx) * calculate_blob_gas_price(
+        excess_blob_gas
+    )
