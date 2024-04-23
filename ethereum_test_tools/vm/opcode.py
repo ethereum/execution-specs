@@ -4677,6 +4677,133 @@ class Opcodes(Opcode, Enum):
     Source: [eips.ethereum.org/EIPS/eip-4200](https://eips.ethereum.org/EIPS/eip-4200)
     """
 
+    DATALOAD = Opcode(0xD0, popped_stack_items=1)
+    """
+    !!! Note: This opcode is under development
+
+    DATALOAD(offset)
+    ----
+
+    Description
+    ----
+    Reads 32 bytes of data at offset onto the stack
+
+    Inputs
+    ----
+    - offset: offset within the data section to start copying
+
+    Outputs
+    ----
+    none
+
+    Fork
+    ----
+    EOF Fork
+
+    Gas
+    ----
+    4
+
+    Source: [eips.ethereum.org/EIPS/eip-7480](https://eips.ethereum.org/EIPS/eip-7480)
+    """
+
+    DATALOADN = Opcode(0xD1, popped_stack_items=0, data_portion_length=2)
+    """
+    !!! Note: This opcode is under development
+
+    DATALOADN()
+    ----
+
+    Description
+    ----
+    Reads 32 bytes of data at offset onto the stack
+
+    Immediates
+    ----
+    2 bytes forming a UInt16, which is the offset into the data section.
+
+    Inputs
+    ----
+    none
+
+    Outputs
+    ----
+    none
+
+    Fork
+    ----
+    EOF Fork
+
+    Gas
+    ----
+    3
+
+    Source: [eips.ethereum.org/EIPS/eip-7480](https://eips.ethereum.org/EIPS/eip-7480)
+    """
+
+    DATASIZE = Opcode(0xD2, pushed_stack_items=1)
+    """
+    !!! Note: This opcode is under development
+
+    DATASIZE()
+    ----
+
+    Description
+    ----
+    Returns the size of the data section
+
+    Inputs
+    ----
+
+    Outputs
+    ----
+    The size of the data section. If there is no data section, returns 0.
+
+    Fork
+    ----
+    EOF Fork
+
+    Gas
+    ----
+    2
+
+    Source: [eips.ethereum.org/EIPS/eip-7480](https://eips.ethereum.org/EIPS/eip-7480)
+    """
+
+    DATACOPY = Opcode(0xD3, popped_stack_items=3)
+    """
+    !!! Note: This opcode is under development
+
+    DATACOPY(mem_offset, offset, size)
+    ----
+
+    Description
+    ----
+    Copies data from the data section into call frame memory
+
+    Inputs
+    ----
+    - mem_offset: The offset within the memory section to start copying to
+    - offset: The offset within the data section to start copying from
+    - size: The number of bytes to copy
+
+    Outputs
+    ----
+    none
+
+    Fork
+    ----
+    EOF Fork
+
+    Gas
+    ----
+    - minimum_word_size = (size + 31) / 32
+    - static_gas = 3
+    - dynamic_gas = 3 * minimum_word_size + memory_expansion_cost
+
+    Source: [eips.ethereum.org/EIPS/eip-7480](https://eips.ethereum.org/EIPS/eip-7480)
+    """
+
     RJUMPI = Opcode(0xE1, popped_stack_items=1, data_portion_length=2)
     """
     !!! Note: This opcode is under development
@@ -4803,103 +4930,6 @@ class Opcodes(Opcode, Enum):
     Gas
     ----
     3
-
-    Source: [eips.ethereum.org/EIPS/eip-4750](https://eips.ethereum.org/EIPS/eip-4750)
-    """
-    DATALOAD = Opcode(0xB7, popped_stack_items=1, pushed_stack_items=1)
-    """
-    !!! Note: This opcode is under development
-
-    DATALOAD()
-    ----
-
-    Description
-    ----
-
-    Inputs
-    ----
-
-    Outputs
-    ----
-
-    Fork
-    ----
-
-    Gas
-    ----
-
-    """
-
-    DATALOADN = Opcode(0xB8, pushed_stack_items=1, data_portion_length=2)
-    """
-    !!! Note: This opcode is under development
-
-    DATALOADN()
-    ----
-
-    Description
-    ----
-
-    Inputs
-    ----
-
-    Outputs
-    ----
-
-    Fork
-    ----
-
-    Gas
-    ----
-
-    """
-
-    DATASIZE = Opcode(0xB9, pushed_stack_items=1)
-    """
-    !!! Note: This opcode is under development
-
-    DATASIZE()
-    ----
-
-    Description
-    ----
-
-    Inputs
-    ----
-
-    Outputs
-    ----
-
-    Fork
-    ----
-
-    Gas
-    ----
-
-    """
-
-    DATACOPY = Opcode(0xBA, popped_stack_items=3)
-    """
-    !!! Note: This opcode is under development
-
-    DATACOPY()
-    ----
-
-    Description
-    ----
-
-    Inputs
-    ----
-
-    Outputs
-    ----
-
-    Fork
-    ----
-
-    Gas
-    ----
-
     """
 
     JUMPF = Opcode(0xB1, data_portion_length=2)
