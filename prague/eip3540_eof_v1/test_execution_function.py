@@ -15,10 +15,17 @@ from ethereum_test_tools import (
     Transaction,
 )
 from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import MAX_CODE_SECTIONS, MAX_RETURN_STACK_HEIGHT
+from ethereum_test_tools.eof.v1.constants import (
+    MAX_CODE_SECTIONS,
+    MAX_RETURN_STACK_HEIGHT,
+    NON_RETURNING_SECTION,
+)
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .spec import EOF_FORK_NAME
+
+REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4750.md"
+REFERENCE_SPEC_VERSION = "90f716078d0b08ce508a1e57803f885cc2f2e15e"
 
 # List all containers used within execution tests, since they will need to be
 # valid EOF V1 containers too
@@ -28,15 +35,23 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 contract_call_within_deep_nested_callf = Container(
     name="contract_call_within_deep_nested_callf",
     sections=[
+        Section.Code(
+            code=Op.CALLF[1] + Op.SSTORE(0, 1) + Op.STOP,
+            code_inputs=0,
+            code_outputs=NON_RETURNING_SECTION,
+            max_stack_height=2,
+        )
+    ]
+    + [
         # All sections call next section and on return, store a 1
         # to their call stack height key
         Section.Code(
-            code=(Op.CALLF[i + 1] + Op.PUSH1(1) + Op.PUSH2(i) + Op.SSTORE + Op.RETF),
+            code=(Op.CALLF[i] + Op.SSTORE(i - 1, 1) + Op.RETF),
             code_inputs=0,
             code_outputs=0,
             max_stack_height=2,
         )
-        for i in range(MAX_CODE_SECTIONS - 1)
+        for i in range(2, MAX_CODE_SECTIONS)
     ]
     + [
         # Last section makes external contract call
@@ -45,18 +60,16 @@ contract_call_within_deep_nested_callf = Container(
                 Op.PUSH0
                 + Op.PUSH0
                 + Op.PUSH0
-                + Op.PUSH0
-                + Op.PUSH0
                 + Op.PUSH2(0x200)
-                + Op.GAS
-                + Op.CALL
+                + Op.EXTCALL
+                + Op.ISZERO
                 + Op.PUSH2(MAX_CODE_SECTIONS - 1)
                 + Op.SSTORE
                 + Op.RETF
             ),
             code_inputs=0,
             code_outputs=0,
-            max_stack_height=7,
+            max_stack_height=4,
         )
     ],
 )
@@ -67,9 +80,9 @@ recursive_contract_call_within_deep_nested_callf = Container(
         # All sections call next section and on return, store a 1
         # to their call stack height key
         Section.Code(
-            code=(Op.CALLF[i + 1] + Op.PUSH1(1) + Op.PUSH2(i) + Op.SSTORE + Op.RETF),
+            code=Op.CALLF[i + 1] + Op.SSTORE(i, 1) + Op.STOP,
             code_inputs=0,
-            code_outputs=0,
+            code_outputs=NON_RETURNING_SECTION,
             max_stack_height=2,
         )
         for i in range(MAX_CODE_SECTIONS - 1)
@@ -99,27 +112,16 @@ recursive_contract_call_within_deep_nested_callf = Container(
 
 CALL_SUCCEED_CONTRACTS: List[Container] = [
     Container(
-        name="retf_top_frame",
-        sections=[
-            Section.Code(
-                code=(Op.RETF),
-                code_inputs=0,
-                code_outputs=0,
-                max_stack_height=0,
-            ),
-        ],
-    ),
-    Container(
         name="function_finishes_contract_execution",
         sections=[
             Section.Code(
                 code=(Op.CALLF[1] + Op.STOP),
                 code_inputs=0,
-                code_outputs=0,
+                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=0,
             ),
             Section.Code(
-                code=(Op.STOP),
+                code=(Op.RETF),
                 code_inputs=0,
                 code_outputs=0,
                 max_stack_height=0,
@@ -132,13 +134,13 @@ CALL_SUCCEED_CONTRACTS: List[Container] = [
             Section.Code(
                 code=(Op.PUSH1(1) + Op.CALLF[1] + Op.STOP),
                 code_inputs=0,
-                code_outputs=0,
+                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=1,
             ),
             Section.Code(
                 code=(
                     Op.DUP1
-                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT)
+                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT - 1)
                     + Op.SUB
                     + Op.RJUMPI[len(Op.POP) + len(Op.RETF)]
                     + Op.POP
@@ -158,20 +160,26 @@ CALL_SUCCEED_CONTRACTS: List[Container] = [
         name="max_recursive_callf_sstore",
         sections=[
             Section.Code(
+                code=Op.SSTORE(0, 1) + Op.CALLF[1] + Op.STOP,
+                code_inputs=0,
+                code_outputs=NON_RETURNING_SECTION,
+                max_stack_height=2,
+            ),
+            Section.Code(
                 code=(
                     Op.PUSH0
                     + Op.SLOAD
                     + Op.DUP1
-                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT)
+                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT - 1)
                     + Op.SUB
-                    + Op.RJUMPI[len(Op.POP) + len(Op.RETF)]
+                    + Op.RJUMPI[len(Op.POP) + len(Op.STOP)]
                     + Op.POP
                     + Op.RETF
                     + Op.PUSH1(1)
                     + Op.ADD
                     + Op.PUSH0
                     + Op.SSTORE
-                    + Op.CALLF[0]
+                    + Op.CALLF[1]
                     + Op.RETF
                 ),
                 code_inputs=0,
@@ -184,11 +192,17 @@ CALL_SUCCEED_CONTRACTS: List[Container] = [
         name="max_recursive_callf_memory",
         sections=[
             Section.Code(
+                code=(Op.PUSH1(1) + Op.PUSH0 + Op.MSTORE + Op.CALLF[1] + Op.STOP),
+                code_inputs=0,
+                code_outputs=NON_RETURNING_SECTION,
+                max_stack_height=2,
+            ),
+            Section.Code(
                 code=(
                     Op.PUSH0
                     + Op.MLOAD
                     + Op.DUP1
-                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT)
+                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT - 1)
                     + Op.SUB
                     + Op.RJUMPI[len(Op.POP) + len(Op.RETF)]
                     + Op.POP
@@ -197,7 +211,7 @@ CALL_SUCCEED_CONTRACTS: List[Container] = [
                     + Op.ADD
                     + Op.PUSH0
                     + Op.MSTORE
-                    + Op.CALLF[0]
+                    + Op.CALLF[1]
                     + Op.RETF
                 ),
                 code_inputs=0,
@@ -218,7 +232,7 @@ CALL_FAIL_CONTRACTS: List[Container] = [
             Section.Code(
                 code=(Op.INVALID),
                 code_inputs=0,
-                code_outputs=0,
+                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=0,
             ),
         ],
@@ -229,7 +243,7 @@ CALL_FAIL_CONTRACTS: List[Container] = [
             Section.Code(
                 code=(Op.PUSH1(1) + Op.CALLF[1] + Op.STOP),
                 code_inputs=0,
-                code_outputs=0,
+                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=1,
             ),
             Section.Code(
@@ -255,11 +269,17 @@ CALL_FAIL_CONTRACTS: List[Container] = [
         name="overflow_recursive_callf_sstore",
         sections=[
             Section.Code(
+                code=Op.SSTORE(0, 1) + Op.CALLF[1] + Op.STOP,
+                code_inputs=0,
+                code_outputs=NON_RETURNING_SECTION,
+                max_stack_height=2,
+            ),
+            Section.Code(
                 code=(
                     Op.PUSH0
                     + Op.SLOAD
                     + Op.DUP1
-                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT + 1)
+                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT)
                     + Op.SUB
                     + Op.RJUMPI[len(Op.POP) + len(Op.RETF)]
                     + Op.POP
@@ -268,7 +288,7 @@ CALL_FAIL_CONTRACTS: List[Container] = [
                     + Op.ADD
                     + Op.PUSH0
                     + Op.SSTORE
-                    + Op.CALLF[0]
+                    + Op.CALLF[1]
                     + Op.RETF
                 ),
                 code_inputs=0,
@@ -280,6 +300,12 @@ CALL_FAIL_CONTRACTS: List[Container] = [
     Container(
         name="overflow_recursive_callf_memory",
         sections=[
+            Section.Code(
+                code=Op.MSTORE(0, 1) + Op.CALLF[1] + Op.STOP,
+                code_inputs=0,
+                code_outputs=NON_RETURNING_SECTION,
+                max_stack_height=2,
+            ),
             Section.Code(
                 code=(
                     Op.PUSH0
@@ -294,7 +320,7 @@ CALL_FAIL_CONTRACTS: List[Container] = [
                     + Op.ADD
                     + Op.PUSH0
                     + Op.MSTORE
-                    + Op.CALLF[0]
+                    + Op.CALLF[1]
                     + Op.RETF
                 ),
                 code_inputs=0,
