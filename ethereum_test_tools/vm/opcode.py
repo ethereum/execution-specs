@@ -5261,6 +5261,79 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#F5](https://www.evm.codes/#F5)
     """
 
+    EXTCALL = Opcode(0xF8, popped_stack_items=4, pushed_stack_items=1)
+    """
+    EXTCALL(target_address, input_offset, input_size, value) = address
+    ----
+
+    Description
+    ----
+    Message-call into an account
+
+    Inputs
+    ----
+    - target_address: the account which context to execute
+    - input_offset: byte offset in the memory in bytes, the calldata of the sub context
+    - input_size: byte size to copy (size of the calldata)
+    - value: value in wei to send to the account
+
+    Outputs
+    ----
+    - success:
+        - `0` if the call was successful.
+        - `1` if the call has reverted (also can be pushed earlier in a light failure scenario).
+        - `2` if the call has failed.
+
+    Fork
+    ----
+    Prague
+
+    Gas
+    ----
+    ```
+    static_gas = 0
+    dynamic_gas = memory_expansion_cost + code_execution_cost + address_access_cost
+        + positive_value_cost + value_to_empty_account_cost
+    ```
+
+    Source: [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)
+    """
+
+    EXTDELEGATECALL = Opcode(0xF9, popped_stack_items=3, pushed_stack_items=1)
+    """
+    EXTDELEGATECALL(target_address, input_offset, input_size) = address
+    ----
+
+    Description
+    ----
+    Message-call into this account with an alternative account's code, but persisting the current
+    values for sender and value
+
+    Inputs
+    ----
+    - target_address: the account which context to execute
+    - input_offset: byte offset in the memory in bytes, the calldata of the sub context
+    - input_size: byte size to copy (size of the calldata)
+
+    Outputs
+    ----
+    - success:
+        - `0` if the call was successful.
+        - `1` if the call has reverted (also can be pushed earlier in a light failure scenario).
+        - `2` if the call has failed.
+
+    Fork
+    ----
+    Prague
+
+    Gas
+    ----
+    - static_gas = 0
+    - dynamic_gas = memory_expansion_cost + code_execution_cost + address_access_cost
+
+    Source: [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)
+    """
+
     STATICCALL = Opcode(0xFA, popped_stack_items=6, pushed_stack_items=1)
     """
     STATICCALL(gas, address, argsOffset, argsSize, retOffset, retSize) = success
@@ -5295,6 +5368,40 @@ class Opcodes(Opcode, Enum):
     - dynamic_gas = memory_expansion_cost + code_execution_cost + address_access_cost
 
     Source: [evm.codes/#FA](https://www.evm.codes/#FA)
+    """
+
+    EXTSTATICCALL = Opcode(0xFB, popped_stack_items=4, pushed_stack_items=1)
+    """
+    EXTSTATICCALL(target_address, input_offset, input_size) = address
+    ----
+
+    Description
+    ----
+    Static message-call into an account
+
+    Inputs
+    ----
+    - target_address: the account which context to execute
+    - input_offset: byte offset in the memory in bytes, the calldata of the sub context
+    - input_size: byte size to copy (size of the calldata)
+
+    Outputs
+    ----
+    - success:
+        - `0` if the call was successful.
+        - `1` if the call has reverted (also can be pushed earlier in a light failure scenario).
+        - `2` if the call has failed.
+
+    Fork
+    ----
+    Prague
+
+    Gas
+    ----
+    - static_gas = 0
+    - dynamic_gas = memory_expansion_cost + code_execution_cost + address_access_cost
+
+    Source: [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)
     """
 
     CREATE4 = Opcode(0xF7, popped_stack_items=5, pushed_stack_items=1)
