@@ -1,10 +1,7 @@
 """
-The Prague fork introduces transient storage, exposes beacon chain roots,
-introduces a new blob-carrying transaction type, adds a memory copying
-instruction, limits self-destruct to only work for contracts created in the
-same transaction, and adds an instruction to read the blob base fee.
+The Prague fork.
 """
 
-from ethereum.fork_criteria import ByTimestamp
+from ethereum.fork_criteria import Unscheduled
 
-FORK_CRITERIA = ByTimestamp(1710338135)
+FORK_CRITERIA = Unscheduled()
