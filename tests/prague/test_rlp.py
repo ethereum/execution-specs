@@ -3,6 +3,7 @@ from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes8, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
+from ethereum.crypto.hash import keccak256
 from ethereum.prague.blocks import Block, Header, Log, Receipt, Withdrawal
 from ethereum.prague.transactions import (
     AccessListTransaction,
@@ -13,7 +14,6 @@ from ethereum.prague.transactions import (
     encode_transaction,
 )
 from ethereum.prague.utils.hexadecimal import hex_to_address
-from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes256
 
 hash1 = keccak256(b"foo")
