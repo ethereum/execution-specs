@@ -138,9 +138,9 @@ def alt_bn128_pairing_check(evm: Evm) -> None:
             )
         except ValueError:
             raise OutOfGasError()
-        if not (p.mul_by(ALT_BN128_CURVE_ORDER) == BNP.point_at_infinity()):
+        if p.mul_by(ALT_BN128_CURVE_ORDER) != BNP.point_at_infinity():
             raise OutOfGasError
-        if not (q.mul_by(ALT_BN128_CURVE_ORDER) == BNP2.point_at_infinity()):
+        if q.mul_by(ALT_BN128_CURVE_ORDER) != BNP2.point_at_infinity():
             raise OutOfGasError
         if p != BNP.point_at_infinity() and q != BNP2.point_at_infinity():
             result = result * pairing(q, p)
