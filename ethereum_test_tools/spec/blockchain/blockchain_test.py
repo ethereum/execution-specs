@@ -13,7 +13,7 @@ from evm_transition_tool import FixtureFormats, TransitionTool
 from ...common import Alloc, EmptyTrieRoot, Environment, Hash, Requests, Transaction, Withdrawal
 from ...common.constants import EmptyOmmersRoot
 from ...common.json import to_json
-from ...common.types import TransitionToolOutput
+from ...common.types import DepositRequest, TransitionToolOutput, WithdrawalRequest
 from ..base.base_test import BaseFixture, BaseTest, verify_result, verify_transactions
 from ..debugging import print_traces
 from .types import (
@@ -27,6 +27,7 @@ from .types import (
     FixtureHeader,
     FixtureTransaction,
     FixtureWithdrawal,
+    FixtureWithdrawalRequest,
     HiveFixture,
     InvalidFixtureBlock,
 )
@@ -150,6 +151,7 @@ class BlockchainTest(BaseTest):
                 header=genesis,
                 withdrawals=None if env.withdrawals is None else [],
                 deposit_requests=[] if fork.header_requests_required(0, 0) else None,
+                withdrawal_requests=[] if fork.header_requests_required(0, 0) else None,
             ).with_rlp(
                 txs=[], requests=Requests() if fork.header_requests_required(0, 0) else None
             ),
@@ -255,11 +257,14 @@ class BlockchainTest(BaseTest):
             # transition tool processing.
             header = header.join(block.rlp_modifier)
 
-        requests = (
-            Requests(root=transition_tool_output.result.deposit_requests)
-            if transition_tool_output.result.deposit_requests is not None
-            else None
-        )
+        requests = None
+        if fork.header_requests_required(header.number, header.timestamp):
+            requests_list: List[DepositRequest | WithdrawalRequest] = []
+            if transition_tool_output.result.deposit_requests is not None:
+                requests_list += transition_tool_output.result.deposit_requests
+            if transition_tool_output.result.withdrawal_requests is not None:
+                requests_list += transition_tool_output.result.withdrawal_requests
+            requests = Requests(root=requests_list)
 
         if requests is not None and requests.trie_root != header.requests_root:
             raise Exception(
@@ -340,6 +345,12 @@ class BlockchainTest(BaseTest):
                     deposit_requests=[
                         FixtureDepositRequest.from_deposit_request(d)
                         for d in requests.deposit_requests()
+                    ]
+                    if requests is not None
+                    else None,
+                    withdrawal_requests=[
+                        FixtureWithdrawalRequest.from_withdrawal_request(w)
+                        for w in requests.withdrawal_requests()
                     ]
                     if requests is not None
                     else None,

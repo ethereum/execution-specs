@@ -46,6 +46,7 @@ from .types import (
     Storage,
     Transaction,
     Withdrawal,
+    WithdrawalRequest,
 )
 
 __all__ = (
@@ -76,6 +77,7 @@ __all__ = (
     "TestPrivateKey2",
     "Transaction",
     "Withdrawal",
+    "WithdrawalRequest",
     "ZeroPaddedHexNumber",
     "add_kzg_version",
     "ceiling_division",

@@ -44,6 +44,8 @@ from ...common.types import (
     TransactionGeneric,
     Withdrawal,
     WithdrawalGeneric,
+    WithdrawalRequest,
+    WithdrawalRequestGeneric,
 )
 from ...exceptions import BlockException, ExceptionInstanceOrList, TransactionException
 from ..base.base_test import BaseFixture
@@ -343,7 +345,7 @@ class Block(Header):
     """
     List of withdrawals to perform for this block.
     """
-    requests: List[DepositRequest] | None = None
+    requests: List[DepositRequest | WithdrawalRequest] | None = None
     """
     Custom list of requests to embed in this block.
     """
@@ -425,6 +427,7 @@ class FixtureExecutionPayload(CamelModel):
     transactions: List[Bytes]
     withdrawals: List[Withdrawal] | None = None
     deposit_requests: List[DepositRequest] | None = None
+    withdrawal_requests: List[WithdrawalRequest] | None = None
 
     @classmethod
     def from_fixture_header(
@@ -443,6 +446,7 @@ class FixtureExecutionPayload(CamelModel):
             transactions=[tx.rlp for tx in transactions],
             withdrawals=withdrawals,
             deposit_requests=requests.deposit_requests() if requests is not None else None,
+            withdrawal_requests=requests.withdrawal_requests() if requests is not None else None,
         )
 
 
@@ -534,7 +538,7 @@ class FixtureWithdrawal(WithdrawalGeneric[ZeroPaddedHexNumber]):
 
 class FixtureDepositRequest(DepositRequestGeneric[ZeroPaddedHexNumber]):
     """
-    Structure to represent a single deposit to be processed by the beacon
+    Structure to represent a single deposit request to be processed by the beacon
     chain.
     """
 
@@ -542,6 +546,20 @@ class FixtureDepositRequest(DepositRequestGeneric[ZeroPaddedHexNumber]):
     def from_deposit_request(cls, d: DepositRequestGeneric) -> "FixtureDepositRequest":
         """
         Returns a FixtureDepositRequest from a DepositRequest.
+        """
+        return cls(**d.model_dump())
+
+
+class FixtureWithdrawalRequest(WithdrawalRequestGeneric[ZeroPaddedHexNumber]):
+    """
+    Structure to represent a single withdrawal request to be processed by the beacon
+    chain.
+    """
+
+    @classmethod
+    def from_withdrawal_request(cls, d: WithdrawalRequestGeneric) -> "FixtureWithdrawalRequest":
+        """
+        Returns a FixtureWithdrawalRequest from a WithdrawalRequest.
         """
         return cls(**d.model_dump())
 
@@ -554,6 +572,7 @@ class FixtureBlockBase(CamelModel):
     ommers: List[FixtureHeader] = Field(default_factory=list, alias="uncleHeaders")
     withdrawals: List[FixtureWithdrawal] | None = None
     deposit_requests: List[FixtureDepositRequest] | None = None
+    withdrawal_requests: List[FixtureWithdrawalRequest] | None = None
 
     @computed_field(alias="blocknumber")  # type: ignore[misc]
     @cached_property
@@ -577,9 +596,7 @@ class FixtureBlockBase(CamelModel):
             block.append([w.to_serializable_list() for w in self.withdrawals])
 
         if requests is not None:
-            block.append(
-                [r.type_byte() + eth_rlp.encode(r.to_serializable_list()) for r in requests.root]
-            )
+            block.append(requests.to_serializable_list())
 
         return FixtureBlock(
             **self.model_dump(),
