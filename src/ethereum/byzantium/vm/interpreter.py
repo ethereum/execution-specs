@@ -175,7 +175,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         try:
             charge_gas(evm, contract_code_gas)
-            if not (len(contract_code) <= MAX_CODE_SIZE):
+            if len(contract_code) > MAX_CODE_SIZE:
                 raise OutOfGasError
         except ExceptionalHalt as error:
             rollback_transaction(env.state)
