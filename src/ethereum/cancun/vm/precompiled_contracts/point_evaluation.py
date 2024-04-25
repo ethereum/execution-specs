@@ -40,7 +40,7 @@ def point_evaluation(evm: Evm) -> None:
 
     """
     data = evm.message.data
-    if not (len(data) == 192):
+    if len(data) != 192:
         raise KZGProofError
 
     versioned_hash = data[:32]
@@ -51,7 +51,7 @@ def point_evaluation(evm: Evm) -> None:
 
     # GAS
     charge_gas(evm, GAS_POINT_EVALUATION)
-    if not (kzg_commitment_to_versioned_hash(commitment) == versioned_hash):
+    if kzg_commitment_to_versioned_hash(commitment) != versioned_hash:
         raise KZGProofError
 
     # Verify KZG proof with z and y in big endian format
@@ -59,7 +59,8 @@ def point_evaluation(evm: Evm) -> None:
         kzg_proof_verification = verify_kzg_proof(commitment, z, y, proof)
     except Exception as e:
         raise KZGProofError from e
-    if not (kzg_proof_verification):
+
+    if not kzg_proof_verification:
         raise KZGProofError
 
     # Return FIELD_ELEMENTS_PER_BLOB and BLS_MODULUS as padded
