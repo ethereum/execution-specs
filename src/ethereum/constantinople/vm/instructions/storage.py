@@ -76,7 +76,7 @@ def sstore(evm: Evm) -> None:
         evm.refund_counter += GAS_STORAGE_CLEAR_REFUND
 
     charge_gas(evm, gas_cost)
-    if not (not evm.message.is_static):
+    if evm.message.is_static:
         raise WriteInStaticContext
     set_storage(evm.env.state, evm.message.current_target, key, new_value)
 

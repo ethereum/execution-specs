@@ -65,7 +65,7 @@ def sstore(evm: Evm) -> None:
     # STACK
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
-    if not (evm.gas_left > GAS_CALL_STIPEND):
+    if evm.gas_left <= GAS_CALL_STIPEND:
         raise OutOfGasError
 
     original_value = get_storage_original(
@@ -101,7 +101,7 @@ def sstore(evm: Evm) -> None:
                 evm.refund_counter += int(GAS_STORAGE_UPDATE - GAS_SLOAD)
 
     charge_gas(evm, gas_cost)
-    if not (not evm.message.is_static):
+    if evm.message.is_static:
         raise WriteInStaticContext
     set_storage(evm.env.state, evm.message.current_target, key, new_value)
 
