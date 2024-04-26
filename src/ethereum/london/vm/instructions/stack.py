@@ -94,7 +94,7 @@ def dup_n(evm: Evm, item_number: int) -> None:
 
     # GAS
     charge_gas(evm, GAS_VERY_LOW)
-    if not (item_number < len(evm.stack)):
+    if item_number >= len(evm.stack):
         raise StackUnderflowError
     data_to_duplicate = evm.stack[len(evm.stack) - 1 - item_number]
     stack.push(evm.stack, data_to_duplicate)
@@ -126,7 +126,7 @@ def swap_n(evm: Evm, item_number: int) -> None:
 
     # GAS
     charge_gas(evm, GAS_VERY_LOW)
-    if not (item_number < len(evm.stack)):
+    if item_number >= len(evm.stack):
         raise StackUnderflowError
     evm.stack[-1], evm.stack[-1 - item_number] = (
         evm.stack[-1 - item_number],
