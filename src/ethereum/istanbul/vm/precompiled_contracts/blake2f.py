@@ -28,14 +28,14 @@ def blake2f(evm: Evm) -> None:
         The current EVM frame.
     """
     data = evm.message.data
-    if not (len(data) == 213):
+    if len(data) != 213:
         raise InvalidParameter
 
     blake2b = Blake2b()
     rounds, h, m, t_0, t_1, f = blake2b.get_blake2_parameters(data)
 
     charge_gas(evm, GAS_BLAKE2_PER_ROUND * rounds)
-    if not (f in [0, 1]):
+    if f not in [0, 1]:
         raise InvalidParameter
 
     evm.output = blake2b.compress(rounds, h, m, t_0, t_1, f)
