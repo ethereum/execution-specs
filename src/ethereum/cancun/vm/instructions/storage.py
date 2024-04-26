@@ -77,7 +77,7 @@ def sstore(evm: Evm) -> None:
     # STACK
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
-    if not (evm.gas_left > GAS_CALL_STIPEND):
+    if evm.gas_left <= GAS_CALL_STIPEND:
         raise OutOfGasError
 
     original_value = get_storage_original(
@@ -121,7 +121,7 @@ def sstore(evm: Evm) -> None:
                 )
 
     charge_gas(evm, gas_cost)
-    if not (not evm.message.is_static):
+    if evm.message.is_static:
         raise WriteInStaticContext
     set_storage(evm.env.state, evm.message.current_target, key, new_value)
 
@@ -168,7 +168,7 @@ def tstore(evm: Evm) -> None:
 
     # GAS
     charge_gas(evm, GAS_WARM_ACCESS)
-    if not (not evm.message.is_static):
+    if evm.message.is_static:
         raise WriteInStaticContext
     set_transient_storage(
         evm.env.transient_storage, evm.message.current_target, key, new_value
