@@ -438,9 +438,7 @@ def returndatacopy(evm: Evm) -> None:
         evm.memory, [(memory_start_index, size)]
     )
     charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
-    if not (
-        Uint(return_data_start_position) + Uint(size) <= len(evm.return_data)
-    ):
+    if Uint(return_data_start_position) + Uint(size) > len(evm.return_data):
         raise OutOfBoundsRead
 
     evm.memory += b"\x00" * extend_memory.expand_by
