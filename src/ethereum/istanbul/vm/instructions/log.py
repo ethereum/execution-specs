@@ -67,7 +67,7 @@ def log_n(evm: Evm, num_topics: U256) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    if not (not evm.message.is_static):
+    if evm.message.is_static:
         raise WriteInStaticContext
     log_entry = Log(
         address=evm.message.current_target,
