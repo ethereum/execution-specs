@@ -399,6 +399,7 @@ def validate_proof_of_work(header: Header) -> None:
 
 
 def check_transaction(
+    env: vm.Environment,
     tx: Transaction,
     base_fee_per_gas: Uint,
     gas_available: Uint,
@@ -409,6 +410,8 @@ def check_transaction(
 
     Parameters
     ----------
+    env :
+        Environment for the Ethereum Virtual Machine.
     tx :
         The transaction.
     base_fee_per_gas :
@@ -430,6 +433,18 @@ def check_transaction(
     InvalidBlock :
         If the transaction is not includable.
     """
+    sender = env.origin
+    sender_account = get_account(env.state, sender)
+
+    if isinstance(tx, FeeMarketTransaction):
+        gas_fee = tx.gas * tx.max_fee_per_gas
+    else:
+        gas_fee = tx.gas * tx.gas_price
+
+    ensure(sender_account.nonce == tx.nonce, InvalidBlock)
+    ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
+    ensure(sender_account.code == bytearray(), InvalidBlock)
+
     ensure(tx.gas <= gas_available, InvalidBlock)
     sender_address = recover_sender(chain_id, tx)
 
@@ -790,15 +805,6 @@ def process_transaction(
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
-
-    if isinstance(tx, FeeMarketTransaction):
-        max_gas_fee = tx.gas * tx.max_fee_per_gas
-    else:
-        max_gas_fee = tx.gas * tx.gas_price
-
-    ensure(sender_account.nonce == tx.nonce, InvalidBlock)
-    ensure(sender_account.balance >= max_gas_fee + tx.value, InvalidBlock)
-    ensure(sender_account.code == bytearray(), InvalidBlock)
 
     effective_gas_fee = tx.gas * env.gas_price
 
