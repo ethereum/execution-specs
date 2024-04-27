@@ -78,14 +78,14 @@ def generic_create(
     call_data = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
     )
-    if not (len(call_data) <= 2 * MAX_CODE_SIZE):
+    if len(call_data) > 2 * MAX_CODE_SIZE:
         raise OutOfGasError
 
     evm.accessed_addresses.add(contract_address)
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
-    if not (not evm.message.is_static):
+    if evm.message.is_static:
         raise WriteInStaticContext
     evm.return_data = b""
 
@@ -375,7 +375,7 @@ def call(evm: Evm) -> None:
         access_gas_cost + create_gas_cost + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
-    if not (not evm.message.is_static or value == U256(0)):
+    if evm.message.is_static and value != U256(0):
         raise WriteInStaticContext
     evm.memory += b"\x00" * extend_memory.expand_by
     sender_balance = get_account(
@@ -504,7 +504,7 @@ def selfdestruct(evm: Evm) -> None:
         gas_cost += GAS_SELF_DESTRUCT_NEW_ACCOUNT
 
     charge_gas(evm, gas_cost)
-    if not (not evm.message.is_static):
+    if evm.message.is_static:
         raise WriteInStaticContext
 
     originator = evm.message.current_target
