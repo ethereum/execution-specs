@@ -14,8 +14,9 @@ Implementations of the EVM block instructions.
 
 from ethereum.base_types import U256
 
+from ...state import get_storage
 from .. import Evm
-from ..gas import GAS_BASE, GAS_BLOCK_HASH, charge_gas
+from ..gas import GAS_BASE, GAS_COLD_SLOAD, GAS_WARM_ACCESS, charge_gas
 from ..stack import pop, push
 
 
@@ -36,20 +37,34 @@ def block_hash(evm: Evm) -> None:
     :py:class:`~ethereum.prague.vm.exceptions.OutOfGasError`
         If `evm.gas_left` is less than `20`.
     """
+    from ...fork import HISTORY_SERVE_WINDOW, HISTORY_STORAGE_ADDRESS
+
     # STACK
     block_number = pop(evm.stack)
 
     # GAS
-    charge_gas(evm, GAS_BLOCK_HASH)
+    key = (block_number % HISTORY_SERVE_WINDOW).to_be_bytes32()
+    if (HISTORY_STORAGE_ADDRESS, key) in evm.accessed_storage_keys:
+        charge_gas(evm, GAS_WARM_ACCESS)
+    else:
+        evm.accessed_storage_keys.add((HISTORY_STORAGE_ADDRESS, key))
+        charge_gas(evm, GAS_COLD_SLOAD)
 
     # OPERATION
-    if evm.env.number <= block_number or evm.env.number > block_number + 256:
+    if (
+        evm.env.number <= block_number
+        or evm.env.number > block_number + HISTORY_SERVE_WINDOW
+    ):
         # Default hash to 0, if the block of interest is not yet on the chain
         # (including the block which has the current executing transaction),
-        # or if the block's age is more than 256.
+        # or if the block's age is more than HISTORY_SERVE_WINDOW.
         hash = b"\x00"
     else:
-        hash = evm.env.block_hashes[-(evm.env.number - block_number)]
+        hash = get_storage(
+            evm.env.state,
+            HISTORY_STORAGE_ADDRESS,
+            key,
+        ).to_be_bytes32()
 
     push(evm.stack, U256.from_be_bytes(hash))
 
