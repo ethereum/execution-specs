@@ -15,7 +15,7 @@ Reserved or Tentative.
 | 0x00  | Reserved: indicates legacy (untyped) trancactions |
 | 0x01  | Reserved: [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930) *(available in Berlin)* |
 | 0x02  | Reserved: [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) *(available in London)* |
-| 0x02  | Reserved: [EIP-4844](https://eips.ethereum.org/EIPS/eip-1559) *(available in Cancun)* |
+| 0x03  | Reserved: [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844) *(available in Cancun)* |
 | 0x04  | Reserved: [EIP-3074](https://eips.ethereum.org/EIPS/eip-3074) |
 | 0x19  | Reserved: prevents collision with [EIP-191](https://eips.ethereum.org/EIPS/eip-191) |
 | 0xc0 - 0xff  | Invalid; collides with the initial byte of valid RLP encoded transactions |
