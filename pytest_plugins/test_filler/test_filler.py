@@ -427,7 +427,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
         (see `pytest_parameter_name` in each implementation of BaseTest) in its function
         arguments.
 
-        When parametrizing, indirect must be used along with the fixture format as value.
+        When parametrize, indirect must be used along with the fixture format as value.
         """
         fixture_format = request.param
         assert isinstance(fixture_format, FixtureFormats)

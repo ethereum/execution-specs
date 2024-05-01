@@ -193,6 +193,11 @@ class EOFException(ExceptionBase):
     Expect some exception, not yet known
     """
 
+    UNDEFINED_EXCEPTION = auto()
+    """
+    Indicates that exception string is not mapped to an exception enum
+    """
+
     UNKNOWN_VERSION = auto()
     """
     EOF container has an unknown version
@@ -276,6 +281,10 @@ class EOFException(ExceptionBase):
     TOO_MANY_CODE_SECTIONS = auto()
     """
     EOF container header has too many code sections
+    """
+    MISSING_STOP_OPCODE = auto()
+    """
+    EOF container's code missing STOP bytecode at it's end
     """
 
 
