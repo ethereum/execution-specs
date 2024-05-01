@@ -3,8 +3,10 @@ Hyperledger Besu Transition tool frontend.
 """
 
 import json
+import os
 import re
 import subprocess
+import tempfile
 import textwrap
 from pathlib import Path
 from re import compile
@@ -30,6 +32,7 @@ class BesuTransitionTool(TransitionTool):
     trace: bool
     process: Optional[subprocess.Popen] = None
     server_url: str
+    besu_trace_dir: Optional[tempfile.TemporaryDirectory]
 
     def __init__(
         self,
@@ -46,17 +49,24 @@ class BesuTransitionTool(TransitionTool):
         except Exception as e:
             raise Exception(f"Unexpected exception calling evm tool: {e}.")
         self.help_string = result.stdout
+        self.besu_trace_dir = tempfile.TemporaryDirectory() if self.trace else None
 
     def start_server(self):
         """
         Starts the t8n-server process, extracts the port, and leaves it running for future re-use.
         """
+        args = [
+            str(self.binary),
+            "t8n-server",
+            "--port=0",  # OS assigned server port
+        ]
+
+        if self.trace:
+            args.append("--trace")
+            args.append(f"--output.basedir={self.besu_trace_dir.name}")
+
         self.process = subprocess.Popen(
-            args=[
-                str(self.binary),
-                "t8n-server",
-                "--port=0",  # OS assigned server port
-            ],
+            args=args,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
         )
@@ -67,7 +77,7 @@ class BesuTransitionTool(TransitionTool):
             if not line or "Failed to start transition server" in line:
                 raise Exception("Failed starting Besu subprocess\n" + line)
             if "Transition server listening on" in line:
-                port = re.search("Transition server listening on ([0-9]+)", line).group(1)
+                port = re.search("Transition server listening on (\\d+)", line).group(1)
                 self.server_url = f"http://localhost:{port}/"
                 break
 
@@ -77,6 +87,8 @@ class BesuTransitionTool(TransitionTool):
         """
         if self.process:
             self.process.kill()
+        if self.besu_trace_dir:
+            self.besu_trace_dir.cleanup()
 
     def evaluate(
         self,
@@ -97,9 +109,6 @@ class BesuTransitionTool(TransitionTool):
 
         if eips is not None:
             fork_name = "+".join([fork_name] + [str(eip) for eip in eips])
-
-        if self.trace:
-            raise Exception("Besu `t8n-server` does not support tracing.")
 
         input_json = {
             "alloc": alloc,
@@ -174,6 +183,14 @@ class BesuTransitionTool(TransitionTool):
                     "output/txs.rlp": output["body"],
                 },
             )
+
+        if self.trace and self.besu_trace_dir:
+            self.collect_traces(
+                output["result"]["receipts"], self.besu_trace_dir, debug_output_path
+            )
+            for i, r in enumerate(output["result"]["receipts"]):
+                trace_file_name = f"trace-{i}-{r['transactionHash']}.jsonl"
+                os.remove(os.path.join(self.besu_trace_dir.name, trace_file_name))
 
         return output
 
