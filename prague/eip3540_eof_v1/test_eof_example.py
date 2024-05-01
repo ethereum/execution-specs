@@ -6,7 +6,13 @@ import pytest
 
 from ethereum_test_tools import EOFTestFiller
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools.eof.v1 import AutoSection, Container, Section
+from ethereum_test_tools.eof.v1 import (
+    AutoSection,
+    BytesConvertible,
+    Container,
+    EOFException,
+    Section,
+)
 from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 
 from .spec import EOF_FORK_NAME
@@ -119,6 +125,43 @@ def test_eof_example_custom_fields(eof_test: EOFTestFiller):
         # AutoSection.ONLY_BODY - means the sorting will be done only for the body bytes
         # AutoSection.ONLY_BODY - means the section will be done only for the header bytes
         auto_sort_sections=AutoSection.AUTO,
+    )
+
+    eof_test(
+        data=eof_code,
+        expect_exception=eof_code.validity_error,
+    )
+
+
+@pytest.mark.parametrize(
+    "data_section_bytes",
+    ("0x01", "0xef"),
+)
+@pytest.mark.parametrize(
+    "code_section_code, exception",
+    [(Op.PUSH1(10) + Op.STOP, None), (Op.PUSH1(14), EOFException.MISSING_STOP_OPCODE)],
+)
+def test_eof_example_parameters(
+    eof_test: EOFTestFiller,
+    data_section_bytes: BytesConvertible,
+    code_section_code: BytesConvertible,
+    exception: EOFException,
+):
+    """
+    Example of python EOF classes
+    """
+    eof_code = Container(
+        name="parametrized_eof_example",
+        sections=[
+            Section.Code(
+                code=code_section_code,
+                code_inputs=0,
+                code_outputs=NON_RETURNING_SECTION,
+                max_stack_height=1,
+            ),
+            Section.Data(data_section_bytes),
+        ],
+        validity_error=exception,
     )
 
     eof_test(

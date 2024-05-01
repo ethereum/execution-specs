@@ -46,7 +46,7 @@ INVALID: List[Container] = [
     Container(
         name="incomplete_magic",
         raw_bytes=bytes([0xEF]),
-        validity_error=EOFException.INCOMPLETE_MAGIC,
+        validity_error=EOFException.INVALID_MAGIC,
     ),
     Container(
         name="no_version",
