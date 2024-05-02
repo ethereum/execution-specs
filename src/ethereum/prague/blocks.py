@@ -65,6 +65,7 @@ class Header:
     blob_gas_used: U64
     excess_blob_gas: U64
     parent_beacon_block_root: Root
+    requests_root: Root
 
 
 @slotted_freezable
@@ -78,6 +79,7 @@ class Block:
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
     ommers: Tuple[Header, ...]
     withdrawals: Tuple[Withdrawal, ...]
+    requests: Tuple[Bytes, ...]
 
 
 @slotted_freezable
@@ -103,3 +105,15 @@ class Receipt:
     cumulative_gas_used: Uint
     bloom: Bloom
     logs: Tuple[Log, ...]
+
+
+def validate_requests(requests: Tuple[Bytes, ...]) -> bool:
+    """
+    Validate a list of requests.
+    """
+    current_request_type = b"\x00"
+    for request in requests:
+        if request[:1] < current_request_type:
+            return False
+        current_request_type = request[:1]
+    return True

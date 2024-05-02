@@ -50,6 +50,7 @@ class Env:
     parent_excess_blob_gas: Optional[U64]
     parent_blob_gas_used: Optional[U64]
     excess_blob_gas: Optional[U64]
+    requests: Any
 
     def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         if t8n.options.input_env == "stdin":
@@ -79,6 +80,11 @@ class Env:
                 else None
             )
             self.read_excess_blob_gas(data, t8n)
+
+        if t8n.fork.is_after_fork("ethereum.prague"):
+            self.requests = tuple(
+                hex_to_bytes(request) for request in data["requests"]
+            )
 
     def read_excess_blob_gas(self, data: Any, t8n: "T8N") -> None:
         """

@@ -177,4 +177,8 @@ class Load(BaseLoad):
             )
             parameters.append(parent_beacon_block_root)
 
+        if "requestsRoot" in raw:
+            requests_root = self.fork.hex_to_root(raw.get("requestsRoot"))
+            parameters.append(requests_root)
+
         return self.fork.Header(*parameters)
