@@ -23,7 +23,7 @@ from ethereum.exceptions import InvalidBlock
 from .. import rlp
 from ..base_types import U64, U256, Bytes, Uint
 from . import vm
-from .blocks import Block, Header, Log, Receipt, Withdrawal
+from .blocks import Block, Header, Log, Receipt, Withdrawal, validate_requests
 from .bloom import logs_bloom
 from .fork_types import Address, Bloom, Root, VersionedHash
 from .state import (
@@ -197,6 +197,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.withdrawals,
         block.header.parent_beacon_block_root,
         excess_blob_gas,
+        block.requests,
     )
     if apply_body_output.block_gas_used != block.header.gas_used:
         raise InvalidBlock
@@ -491,6 +492,8 @@ class ApplyBodyOutput:
         Trie root of all the withdrawals in the block.
     blob_gas_used : `ethereum.base_types.Uint`
         Total blob gas used in the block.
+    requests_root : `ethereum.fork_types.Root`
+        Trie root of all the requests in the block.
     """
 
     block_gas_used: Uint
@@ -500,6 +503,7 @@ class ApplyBodyOutput:
     state_root: Root
     withdrawals_root: Root
     blob_gas_used: Uint
+    requests_root: Root
 
 
 def apply_body(
@@ -516,6 +520,7 @@ def apply_body(
     withdrawals: Tuple[Withdrawal, ...],
     parent_beacon_block_root: Root,
     excess_blob_gas: U64,
+    requests: Tuple[Bytes, ...],
 ) -> ApplyBodyOutput:
     """
     Executes a block.
@@ -559,6 +564,8 @@ def apply_body(
         The root of the beacon block from the parent block.
     excess_blob_gas :
         Excess blob gas calculated from the previous block.
+    requests :
+        Requests to be processed in the current block.
 
     Returns
     -------
@@ -574,6 +581,9 @@ def apply_body(
         secured=False, default=None
     )
     withdrawals_trie: Trie[Bytes, Optional[Union[Bytes, Withdrawal]]] = Trie(
+        secured=False, default=None
+    )
+    requests_trie: Trie[Bytes, Optional[Bytes]] = Trie(
         secured=False, default=None
     )
     block_logs: Tuple[Log, ...] = ()
@@ -690,6 +700,13 @@ def apply_body(
         if account_exists_and_is_empty(state, wd.address):
             destroy_account(state, wd.address)
 
+    # Requests are to be in ascending order of request type
+    if not validate_requests(requests):
+        raise InvalidBlock
+
+    for i, request in enumerate(requests):
+        trie_set(requests_trie, rlp.encode(Uint(i)), request)
+
     return ApplyBodyOutput(
         block_gas_used,
         root(transactions_trie),
@@ -698,6 +715,7 @@ def apply_body(
         state_root(state),
         root(withdrawals_trie),
         blob_gas_used,
+        root(requests_trie),
     )
 
 

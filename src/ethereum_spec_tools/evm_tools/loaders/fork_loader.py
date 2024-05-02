@@ -128,6 +128,11 @@ class ForkLoad:
         return self._module("blocks").Block
 
     @property
+    def validate_requests(self) -> Any:
+        """validate_requests function of the fork"""
+        return self._module("blocks").validate_requests
+
+    @property
     def Bloom(self) -> Any:
         """Bloom class of the fork"""
         return self._module("fork_types").Bloom
