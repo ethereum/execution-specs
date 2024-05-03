@@ -133,6 +133,21 @@ class ForkLoad:
         return self._module("blocks").validate_requests
 
     @property
+    def validate_deposit_requests(self) -> Any:
+        """validate_deposit_requests function of the fork"""
+        return self._module("blocks").validate_deposit_requests
+
+    @property
+    def DepositRequest(self) -> Any:
+        """Deposit request class of the fork"""
+        return self._module("blocks").DepositRequest
+
+    @property
+    def encode_request(self) -> Any:
+        """encode_request function of the fork"""
+        return self._module("blocks").encode_request
+
+    @property
     def Bloom(self) -> Any:
         """Bloom class of the fork"""
         return self._module("fork_types").Bloom

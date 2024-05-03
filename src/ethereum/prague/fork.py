@@ -23,7 +23,15 @@ from ethereum.exceptions import InvalidBlock
 from .. import rlp
 from ..base_types import U64, U256, Bytes, Uint
 from . import vm
-from .blocks import Block, Header, Log, Receipt, Withdrawal, validate_requests
+from .blocks import (
+    Block,
+    Header,
+    Log,
+    Receipt,
+    Withdrawal,
+    validate_deposit_requests,
+    validate_requests,
+)
 from .bloom import logs_bloom
 from .fork_types import Address, Bloom, Root, VersionedHash
 from .state import (
@@ -587,6 +595,7 @@ def apply_body(
         secured=False, default=None
     )
     block_logs: Tuple[Log, ...] = ()
+    receipts: Tuple[Receipt, ...] = ()
 
     beacon_block_roots_contract_code = get_account(
         state, BEACON_ROOTS_ADDRESS
@@ -683,6 +692,8 @@ def apply_body(
             rlp.encode(Uint(i)),
             receipt,
         )
+        if isinstance(receipt, Receipt):
+            receipts += (receipt,)
 
         block_logs += logs
         blob_gas_used += calculate_total_blob_gas(tx)
@@ -704,6 +715,7 @@ def apply_body(
     if not validate_requests(requests):
         raise InvalidBlock
 
+    validate_deposit_requests(receipts, requests)
     for i, request in enumerate(requests):
         trie_set(requests_trie, rlp.encode(Uint(i)), request)
 

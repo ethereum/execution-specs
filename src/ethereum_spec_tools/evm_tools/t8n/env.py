@@ -81,10 +81,7 @@ class Env:
             )
             self.read_excess_blob_gas(data, t8n)
 
-        if t8n.fork.is_after_fork("ethereum.prague"):
-            self.requests = tuple(
-                hex_to_bytes(request) for request in data["requests"]
-            )
+        self.read_requests(data, t8n)
 
     def read_excess_blob_gas(self, data: Any, t8n: "T8N") -> None:
         """
@@ -194,6 +191,16 @@ class Env:
         if t8n.fork.is_after_fork("ethereum.shanghai"):
             self.withdrawals = tuple(
                 t8n.json_to_withdrawals(wd) for wd in data["withdrawals"]
+            )
+
+    def read_requests(self, data: Any, t8n: "T8N") -> None:
+        """
+        Read the requests from the data.
+        """
+        self.requests = None
+        if t8n.fork.is_after_fork("ethereum.prague"):
+            self.requests = tuple(
+                t8n.json_to_request(req) for req in data["requests"]
             )
 
     def read_block_difficulty(self, data: Any, t8n: "T8N") -> None:
