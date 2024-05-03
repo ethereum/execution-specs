@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 from functools import partial
-from typing import Any, TextIO
+from typing import Any, TextIO, Tuple
 
 from ethereum import rlp, trace
 from ethereum.base_types import U64, U256, Uint
@@ -313,6 +313,7 @@ class T8N(Load):
         blob_gas_used = Uint(0)
         if self.fork.is_after_fork("ethereum.prague"):
             requests_trie = self.fork.Trie(secured=False, default=None)
+            receipts: Tuple[bytes, ...] = ()
 
         if (
             self.fork.is_after_fork("ethereum.cancun")
@@ -410,6 +411,8 @@ class T8N(Load):
                     rlp.encode(Uint(i)),
                     receipt,
                 )
+                if self.fork.is_after_fork("ethereum.prague"):
+                    receipts += (receipt,)
 
                 self.txs.add_receipt(tx, gas_consumed)
 
@@ -450,6 +453,8 @@ class T8N(Load):
         if self.fork.is_after_fork("ethereum.prague"):
             if not self.fork.validate_requests(self.env.requests):
                 raise InvalidBlock
+
+            self.fork.validate_deposit_requests(receipts, self.env.requests)
 
             for i, request in enumerate(self.env.requests):
                 self.fork.trie_set(requests_trie, rlp.encode(Uint(i)), request)
