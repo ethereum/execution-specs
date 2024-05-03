@@ -5,6 +5,7 @@ Create a transition tool for the given fork.
 import argparse
 import json
 import os
+import traceback
 from functools import partial
 from typing import Any, TextIO
 
@@ -387,7 +388,8 @@ class T8N(Load):
             except EthereumException as e:
                 # The tf tools expects some non-blank error message
                 # even in case e is blank.
-                self.txs.rejected_txs[tx_idx] = f"Failed transaction: {str(e)}"
+                msg = f"Failed transaction: {traceback.format_exc()}"
+                self.txs.rejected_txs[tx_idx] = msg
                 self.restore_state()
                 self.logger.warning(f"Transaction {tx_idx} failed: {str(e)}")
             else:

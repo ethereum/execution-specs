@@ -2,6 +2,7 @@
 Define the types used by the t8n tool.
 """
 import json
+import traceback
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
 
@@ -136,9 +137,9 @@ class Txs:
                 ] = f"Unsupported transaction type: {e.error_message}"
                 self.all_txs.append(e.encoded_params)
             except Exception as e:
-                msg = f"Failed to parse transaction {idx}: {str(e)}"
+                msg = f"Failed to parse transaction {idx}"
                 self.t8n.logger.warning(msg, exc_info=e)
-                self.rejected_txs[idx] = msg
+                self.rejected_txs[idx] = f"{msg}: {traceback.format_exc()}"
 
     def parse_rlp_tx(self, raw_tx: Any) -> Any:
         """
