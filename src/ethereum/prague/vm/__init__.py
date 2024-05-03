@@ -95,6 +95,7 @@ class Evm:
     error: Optional[Exception]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
+    authorized: Optional[Address]
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:

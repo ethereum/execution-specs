@@ -11,7 +11,10 @@ Introduction
 
 Implementations of the EVM system related instructions.
 """
-from ethereum.base_types import U256, Bytes0, Uint
+from ethereum.base_types import U256, Bytes0, Bytes20, Uint
+from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
+from ethereum.crypto.hash import keccak256
+from ethereum.utils.byte import left_pad_zero_bytes
 from ethereum.utils.numeric import ceil32
 
 from ...fork_types import Address
@@ -37,6 +40,7 @@ from .. import (
 )
 from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
 from ..gas import (
+    GAS_AUTH,
     GAS_CALL_VALUE,
     GAS_COLD_ACCOUNT_ACCESS,
     GAS_CREATE,
@@ -52,8 +56,10 @@ from ..gas import (
     init_code_cost,
     max_message_call_gas,
 )
-from ..memory import memory_read_bytes, memory_write
+from ..memory import buffer_read, memory_read_bytes, memory_write
 from ..stack import pop, push
+
+AUTH_MAGIC = b"\x04"
 
 
 def generic_create(
@@ -684,3 +690,77 @@ def revert(evm: Evm) -> None:
 
     # PROGRAM COUNTER
     pass
+
+
+def auth(evm: Evm) -> None:
+    """
+    Verifies a signature and sets a context variable (`authorized`), allowing
+    the currently executing contract to masquerade as another account.
+
+    See `authcall` for more detail.
+    """
+    # STACK
+    authority = to_address(pop(evm.stack))
+    offset = pop(evm.stack)
+    length = pop(evm.stack)
+
+    # GAS
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory,
+        [
+            (offset, length),
+        ],
+    )
+
+    if authority in evm.accessed_addresses:
+        access_gas_cost = GAS_WARM_ACCESS
+    else:
+        evm.accessed_addresses.add(authority)
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+
+    charge_gas(evm, GAS_AUTH + extend_memory.cost + access_gas_cost)
+
+    # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
+
+    evm.authorized = None
+
+    # Don't read directly from memory because length can be < 97.
+    buffer = memory_read_bytes(evm.memory, offset, length)
+
+    y_parity = U256.from_be_bytes(buffer_read(buffer, U256(0), U256(1)))
+    r = U256.from_be_bytes(buffer_read(buffer, U256(1), U256(32)))
+    s = U256.from_be_bytes(buffer_read(buffer, U256(33), U256(32)))
+    commit = buffer_read(buffer, U256(65), U256(32))
+
+
+    output = U256(0)
+
+    authority_account = get_account(evm.env.state, authority)
+
+    if len(authority_account.code) != 0:
+        pass
+    elif 0 >= r or 0 >= s:
+        pass
+    elif SECP256K1N <= r or SECP256K1N // 2 < s:
+        pass
+    elif 0 != y_parity and 1 != y_parity:
+        pass
+    else:
+        chain_id = U256(evm.env.chain_id).to_be_bytes32()
+        nonce = authority_account.nonce.to_be_bytes32()
+        current_target = left_pad_zero_bytes(evm.message.current_target, 32)
+
+        message = AUTH_MAGIC + chain_id + nonce + current_target + commit
+        message_hash = keccak256(message)
+        public_key = secp256k1_recover(r, s, y_parity, message_hash)
+
+        recovered = Address(Bytes20(keccak256(public_key)[12:32]))
+        if recovered == authority:
+            evm.authorized = recovered
+            output = U256(1)
+
+    push(evm.stack, output)
+
+    # PROGRAM COUNTER
+    evm.pc += 1
