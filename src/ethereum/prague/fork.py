@@ -712,8 +712,7 @@ def apply_body(
             destroy_account(state, wd.address)
 
     # Requests are to be in ascending order of request type
-    if not validate_requests(requests):
-        raise InvalidBlock
+    validate_requests(requests)
 
     validate_deposit_requests(receipts, requests)
     for i, request in enumerate(requests):
