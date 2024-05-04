@@ -118,16 +118,22 @@ class Receipt:
     logs: Tuple[Log, ...]
 
 
-def validate_requests(requests: Tuple[Bytes, ...]) -> bool:
+def validate_requests(requests: Tuple[Bytes, ...]) -> None:
     """
     Validate a list of requests.
     """
     current_request_type = b"\x00"
     for request in requests:
-        if request[:1] < current_request_type:
-            return False
-        current_request_type = request[:1]
-    return True
+        request_type = request[:1]
+
+        # Ensure that no undefined requests are present.
+        if request_type != DEPOSIT_REQUEST_TYPE:
+            raise InvalidBlock("BlockException.INVALID_REQUESTS")
+
+        # Ensure that requests are in order.
+        if request_type < current_request_type:
+            raise InvalidBlock("BlockException.INVALID_REQUESTS")
+        current_request_type = request_type
 
 
 @slotted_freezable
@@ -144,7 +150,7 @@ class DepositRequest:
     index: U64
 
 
-Request = DepositRequest
+Request = Union[DepositRequest]
 
 
 def encode_request(req: Request) -> Bytes:
