@@ -167,7 +167,7 @@ class Storage(RootModel[Dict[StorageKeyValueType, StorageKeyValueType]]):
 
         def __str__(self):
             """Print exception string"""
-            return "key {0} not found in storage".format(Storage.key_value_to_string(self.key))
+            return "key {0} not found in storage".format(Hash(self.key))
 
     @dataclass(kw_only=True)
     class KeyValueMismatch(Exception):
@@ -192,9 +192,9 @@ class Storage(RootModel[Dict[StorageKeyValueType, StorageKeyValueType]]):
             """Print exception string"""
             return (
                 f"incorrect value in address {self.address} for "
-                + f"key {Storage.key_value_to_string(self.key)}:"
-                + f" want {Storage.key_value_to_string(self.want)} (dec:{self.want}),"
-                + f" got {Storage.key_value_to_string(self.got)} (dec:{self.got})"
+                + f"key {Hash(self.key)}:"
+                + f" want {HexNumber(self.want)} (dec:{self.want}),"
+                + f" got {HexNumber(self.got)} (dec:{self.got})"
             )
 
     def __contains__(self, key: StorageKeyValueTypeConvertible | StorageKeyValueType) -> bool:
