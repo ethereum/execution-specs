@@ -38,9 +38,15 @@ from .. import (
     incorporate_child_on_error,
     incorporate_child_on_success,
 )
-from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
+from ..exceptions import (
+    InvalidAuthcall,
+    OutOfGasError,
+    Revert,
+    WriteInStaticContext,
+)
 from ..gas import (
     GAS_AUTH,
+    GAS_AUTHCALL_VALUE,
     GAS_CALL_VALUE,
     GAS_COLD_ACCOUNT_ACCESS,
     GAS_CREATE,
@@ -381,6 +387,8 @@ def call(evm: Evm) -> None:
         access_gas_cost + create_gas_cost + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+
+    # OPERATION
     if evm.message.is_static and value != U256(0):
         raise WriteInStaticContext
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -733,7 +741,6 @@ def auth(evm: Evm) -> None:
     s = U256.from_be_bytes(buffer_read(buffer, U256(33), U256(32)))
     commit = buffer_read(buffer, U256(65), U256(32))
 
-
     output = U256(0)
 
     authority_account = get_account(evm.env.state, authority)
@@ -761,6 +768,92 @@ def auth(evm: Evm) -> None:
             output = U256(1)
 
     push(evm.stack, output)
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def authcall(evm: Evm) -> None:
+    """
+    Call into an account, changing the message sender to the `authorized`
+    account.
+
+    See `auth`.
+    """
+    raise NotImplementedError("this function is untested.")
+
+    # STACK
+    child_gas = Uint(pop(evm.stack))
+    to = to_address(pop(evm.stack))
+    value = pop(evm.stack)
+    input_offset = pop(evm.stack)
+    input_size = pop(evm.stack)
+    output_offset = pop(evm.stack)
+    output_size = pop(evm.stack)
+
+    # GAS
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory,
+        [
+            (input_offset, input_size),
+            (output_offset, output_size),
+        ],
+    )
+
+    gas_cost = extend_memory.cost
+
+    if to in evm.accessed_addresses:
+        gas_cost += GAS_WARM_ACCESS
+    else:
+        evm.accessed_addresses.add(to)
+        gas_cost += GAS_COLD_ACCOUNT_ACCESS
+
+    if value > 0:
+        gas_cost += GAS_AUTHCALL_VALUE
+
+        if not is_account_alive(evm.env.state, to):
+            gas_cost += GAS_NEW_ACCOUNT
+
+    available_gas = Uint(0)
+    if evm.gas_left >= gas_cost:
+        available_gas = max_message_call_gas(evm.gas_left - gas_cost)
+
+    if child_gas > available_gas:
+        raise OutOfGasError("insufficient gas for authcall subframe")
+
+    if child_gas == 0:
+        child_gas = available_gas
+
+    charge_gas(evm, gas_cost + child_gas)
+
+    # OPERATION
+    authorized = evm.authorized
+    if authorized is None:
+        raise InvalidAuthcall("authorized unset")
+
+    if evm.message.is_static and value != U256(0):
+        raise WriteInStaticContext
+
+    evm.memory += b"\x00" * extend_memory.expand_by
+
+    sender_balance = get_account(evm.env.state, authorized).balance
+    if sender_balance < value:
+        raise InvalidAuthcall("insufficient balance")
+
+    generic_call(
+        evm,
+        child_gas,
+        value,
+        authorized,
+        to,
+        to,
+        True,
+        False,
+        input_offset,
+        input_size,
+        output_offset,
+        output_size,
+    )
 
     # PROGRAM COUNTER
     evm.pc += 1

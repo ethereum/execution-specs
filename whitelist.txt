@@ -1,5 +1,6 @@
 AnnAssign
 AsyncFunctionDef
+authcall
 ClassDef
 ImportFrom
 radd

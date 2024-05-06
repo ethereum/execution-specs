@@ -138,3 +138,10 @@ class KZGProofError(ExceptionalHalt):
     """
 
     pass
+
+
+class InvalidAuthcall(ExceptionalHalt):
+    """
+    Raised when `authcall` is unable to proceed because of a sponsor
+    attributable fault.
+    """

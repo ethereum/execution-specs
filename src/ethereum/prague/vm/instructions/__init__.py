@@ -213,6 +213,7 @@ class Ops(enum.Enum):
     SELFDESTRUCT = 0xFF
     CREATE2 = 0xF5
     AUTH = 0xF6
+    AUTHCALL = 0xF7
 
 
 op_implementation: Dict[Ops, Callable] = {
@@ -365,4 +366,5 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.REVERT: system_instructions.revert,
     Ops.CREATE2: system_instructions.create2,
     Ops.AUTH: system_instructions.auth,
+    Ops.AUTHCALL: system_instructions.authcall,
 }
