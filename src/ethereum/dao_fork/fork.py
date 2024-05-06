@@ -319,6 +319,7 @@ def validate_proof_of_work(header: Header) -> None:
 
 
 def check_transaction(
+    env: vm.Environment,
     tx: Transaction,
     gas_available: Uint,
 ) -> Address:
@@ -327,6 +328,8 @@ def check_transaction(
 
     Parameters
     ----------
+    env :
+        Environment for the Ethereum Virtual Machine.
     tx :
         The transaction.
     gas_available :
@@ -342,6 +345,13 @@ def check_transaction(
     InvalidBlock :
         If the transaction is not includable.
     """
+    sender = env.origin
+    sender_account = get_account(env.state, sender)
+    gas_fee = tx.gas * tx.gas_price
+    ensure(sender_account.nonce == tx.nonce, InvalidBlock)
+    ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
+    ensure(sender_account.code == bytearray(), InvalidBlock)
+
     ensure(tx.gas <= gas_available, InvalidBlock)
     sender_address = recover_sender(tx)
 
@@ -673,9 +683,6 @@ def process_transaction(
     sender = env.origin
     sender_account = get_account(env.state, sender)
     gas_fee = tx.gas * tx.gas_price
-    ensure(sender_account.nonce == tx.nonce, InvalidBlock)
-    ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
-    ensure(sender_account.code == bytearray(), InvalidBlock)
 
     gas = tx.gas - calculate_intrinsic_cost(tx)
     increment_nonce(env.state, sender)
