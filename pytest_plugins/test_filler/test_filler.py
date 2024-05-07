@@ -6,11 +6,13 @@ and that modifies pytest hooks in order to fill test specs for all tests and
 writes the generated fixtures to file.
 """
 
+import os
 import warnings
 from pathlib import Path
 from typing import Generator, List, Optional, Type
 
 import pytest
+from pytest_metadata.plugin import metadata_key  # type: ignore
 
 from ethereum_test_forks import (
     Fork,
@@ -22,6 +24,22 @@ from ethereum_test_forks import (
 from ethereum_test_tools import SPEC_TYPES, BaseTest, FixtureCollector, TestInfo, Yul
 from evm_transition_tool import FixtureFormats, TransitionTool
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
+
+
+def default_output_directory() -> str:
+    """
+    The default directory to store the generated test fixtures. Defined as a
+    function to allow for easier testing.
+    """
+    return "./fixtures"
+
+
+def default_html_report_filename() -> str:
+    """
+    The default file to store the generated HTML test report. Defined as a
+    function to allow for easier testing.
+    """
+    return "report_fill.html"
 
 
 def pytest_addoption(parser):
@@ -95,7 +113,7 @@ def pytest_addoption(parser):
         "--output",
         action="store",
         dest="output",
-        default="./fixtures/",
+        default=default_output_directory(),
         help="Directory to store the generated test fixtures. Can be deleted.",
     )
     test_group.addoption(
@@ -113,6 +131,16 @@ def pytest_addoption(parser):
         help=(
             "Don't group fixtures in JSON files by test function; write each fixture to its own "
             "file. This can be used to increase the granularity of --verify-fixtures."
+        ),
+    )
+    test_group.addoption(
+        "--no-html",
+        action="store_true",
+        dest="disable_html",
+        default=False,
+        help=(
+            "Don't generate an HTML test report (in the output directory). "
+            "The --html flag can be used to specify a different path."
         ),
     )
 
@@ -143,7 +171,6 @@ def pytest_configure(config):
                 f"{FixtureFormats.get_format_description(fixture_format)}"
             ),
         )
-
     config.addinivalue_line(
         "markers",
         "yul_test: a test case that compiles Yul code.",
@@ -154,6 +181,11 @@ def pytest_configure(config):
     )
     if config.option.collectonly:
         return
+    if not config.getoption("disable_html") and config.getoption("htmlpath") is None:
+        # generate an html report by default, unless explicitly disabled
+        config.option.htmlpath = os.path.join(
+            config.getoption("output"), default_html_report_filename()
+        )
     # Instantiate the transition tool here to check that the binary path/trace option is valid.
     # This ensures we only raise an error once, if appropriate, instead of for every test.
     t8n = TransitionTool.from_binary_path(
@@ -176,15 +208,111 @@ def pytest_configure(config):
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
 
+    config.stash[metadata_key]["Versions"] = {
+        "t8n": t8n.version(),
+        "solc": str(config.solc_version),
+    }
+    command_line_args = "fill " + " ".join(config.invocation_params.args)
+    config.stash[metadata_key]["Command-line args"] = f"<code>{command_line_args}</code>"
+
 
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config, start_path):
     """Add lines to pytest's console output header"""
     if config.option.collectonly:
         return
-    binary_path = config.getoption("evm_bin")
-    t8n = TransitionTool.from_binary_path(binary_path=binary_path)
-    return [f"{t8n.version()}, solc version {config.solc_version}"]
+    t8n_version = config.stash[metadata_key]["Versions"]["t8n"]
+    solc_version = config.stash[metadata_key]["Versions"]["solc"]
+    return [(f"{t8n_version}, {solc_version}")]
+
+
+def pytest_metadata(metadata):
+    """
+    Add or remove metadata to/from the pytest report.
+    """
+    metadata.pop("JAVA_HOME", None)
+
+
+def pytest_html_results_table_header(cells):
+    """
+    Customize the table headers of the HTML report table.
+    """
+    cells.insert(3, '<th class="sortable" data-column-type="fixturePath">JSON Fixture File</th>')
+    cells.insert(4, '<th class="sortable" data-column-type="evmDumpDir">EVM Dump Dir</th>')
+    del cells[-1]  # Remove the "Links" column
+
+
+def pytest_html_results_table_row(report, cells):
+    """
+    Customize the table rows of the HTML report table.
+    """
+    if hasattr(report, "user_properties"):
+        user_props = dict(report.user_properties)
+        if (
+            report.passed
+            and "fixture_path_absolute" in user_props
+            and "fixture_path_relative" in user_props
+        ):
+            fixture_path_absolute = user_props["fixture_path_absolute"]
+            fixture_path_relative = user_props["fixture_path_relative"]
+            fixture_path_link = (
+                f'<a href="{fixture_path_absolute}" target="_blank">{fixture_path_relative}</a>'
+            )
+            cells.insert(3, f"<td>{fixture_path_link}</td>")
+        elif report.failed:
+            cells.insert(3, "<td>Fixture unavailable</td>")
+        if "evm_dump_dir" in user_props:
+            if user_props["evm_dump_dir"] is None:
+                cells.insert(
+                    4, "<td>For t8n debug info use <code>--evm-dump-dir=path --traces</code></td>"
+                )
+            else:
+                evm_dump_dir = user_props.get("evm_dump_dir")
+                if evm_dump_dir == "N/A":
+                    evm_dump_entry = "N/A"
+                else:
+                    evm_dump_entry = f'<a href="{evm_dump_dir}" target="_blank">{evm_dump_dir}</a>'
+                cells.insert(4, f"<td>{evm_dump_entry}</td>")
+    del cells[-1]  # Remove the "Links" column
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """
+    This hook is called when each test is run and a report is being made.
+
+    Make each test's fixture json path available to the test report via
+    user_properties.
+    """
+    outcome = yield
+    report = outcome.get_result()
+
+    if call.when == "call":
+        if hasattr(item.config, "fixture_path_absolute") and hasattr(
+            item.config, "fixture_path_relative"
+        ):
+            report.user_properties.append(
+                ("fixture_path_absolute", item.config.fixture_path_absolute)
+            )
+            report.user_properties.append(
+                ("fixture_path_relative", item.config.fixture_path_relative)
+            )
+        if hasattr(item.config, "evm_dump_dir") and hasattr(item.config, "fixture_format"):
+            if item.config.fixture_format in [
+                "state_test",
+                "blockchain_test",
+                "blockchain_test_hive",
+            ]:
+                report.user_properties.append(("evm_dump_dir", item.config.evm_dump_dir))
+            else:
+                report.user_properties.append(("evm_dump_dir", "N/A"))  # not yet for EOF
+
+
+def pytest_html_report_title(report):
+    """
+    Set the HTML report title (pytest-html plugin).
+    """
+    report.title = "Fill Test Report"
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -284,11 +412,17 @@ def dump_dir_parameter_level(
     Example with --evm-dump-dir=/tmp/evm:
     -> /tmp/evm/shanghai__eip3855_push0__test_push0__test_push0_key_sstore/fork_shanghai/
     """
-    return node_to_test_info(request.node).get_dump_dir_path(
+    evm_dump_dir = node_to_test_info(request.node).get_dump_dir_path(
         base_dump_dir,
         filler_path,
         level="test_parameter",
     )
+    # NOTE: Use str for compatibility with pytest-dist
+    if evm_dump_dir:
+        request.node.config.evm_dump_dir = str(evm_dump_dir)
+    else:
+        request.node.config.evm_dump_dir = None
+    return evm_dump_dir
 
 
 def get_fixture_collection_scope(fixture_name, config):
@@ -444,10 +578,17 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                 )
                 fixture.fill_info(t8n, reference_spec)
 
-                fixture_collector.add_fixture(
+                fixture_path = fixture_collector.add_fixture(
                     node_to_test_info(request.node),
                     fixture,
                 )
+
+                # NOTE: Use str for compatibility with pytest-dist
+                request.node.config.fixture_path_absolute = str(fixture_path.absolute())
+                request.node.config.fixture_path_relative = str(
+                    fixture_path.relative_to(request.config.getoption("output"))
+                )
+                request.node.config.fixture_format = fixture_format.value
 
         return BaseTestWrapper
 

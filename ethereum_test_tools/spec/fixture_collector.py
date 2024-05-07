@@ -127,7 +127,7 @@ class FixtureCollector:
                 return module_relative_output_dir / strip_test_prefix(info.get_single_test_name())
             return module_relative_output_dir / strip_test_prefix(info.original_name)
 
-    def add_fixture(self, info: TestInfo, fixture: BaseFixture) -> None:
+    def add_fixture(self, info: TestInfo, fixture: BaseFixture) -> Path:
         """
         Adds a fixture to the list of fixtures of a given test case.
         """
@@ -143,6 +143,8 @@ class FixtureCollector:
             self.json_path_to_test_item[fixture_path] = info
 
         self.all_fixtures[fixture_path][info.id] = fixture
+
+        return fixture_path
 
     def dump_fixtures(self) -> None:
         """

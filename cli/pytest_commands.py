@@ -91,7 +91,7 @@ def handle_help_flags(
     pytest_args: List[str], help_flag: bool, pytest_help_flag: bool
 ) -> List[str]:
     """
-    Modify the arguments passed to the click CLI command before forwarding to
+    Modifies the help arguments passed to the click CLI command before forwarding to
     the pytest command.
 
     This is to make `--help` more useful because `pytest --help` is extremely
@@ -107,10 +107,14 @@ def handle_help_flags(
 
 @click.command(context_settings=dict(ignore_unknown_options=True))
 @common_click_options
-def fill(pytest_args: List[str], help_flag: bool, pytest_help_flag: bool) -> None:
+def fill(
+    pytest_args: List[str],
+    help_flag: bool,
+    pytest_help_flag: bool,
+) -> None:
     """
     Entry point for the fill command.
     """
-    args = handle_help_flags(pytest_args, help_flag, pytest_help_flag)
-    result = pytest.main(args)
+    updated_args = handle_help_flags(pytest_args, help_flag, pytest_help_flag)
+    result = pytest.main(updated_args)
     sys.exit(result)

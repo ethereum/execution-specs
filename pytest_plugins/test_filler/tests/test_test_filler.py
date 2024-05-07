@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from pytest_plugins.test_filler.test_filler import default_output_directory
+
 
 # flake8: noqa
 def get_all_files_in_directory(base_dir):  # noqa: D103
@@ -477,6 +479,7 @@ def test_fixture_output_based_on_command_line_args(
 
     testdir.copy_example(name="pytest.ini")
     args.append("-v")
+    args.append("--no-html")
     result = testdir.runpytest(*args)
     result.assert_outcomes(
         passed=total_test_count * 3,
@@ -487,7 +490,7 @@ def test_fixture_output_based_on_command_line_args(
     if "--output" in args:
         output_dir = Path(args[args.index("--output") + 1]).absolute()
     else:
-        output_dir = Path("fixtures").absolute()
+        output_dir = Path(default_output_directory()).absolute()
     assert output_dir.exists()
 
     all_files = get_all_files_in_directory(output_dir)
