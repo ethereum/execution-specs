@@ -11,6 +11,7 @@ from typing import Optional
 from ethereum_test_forks import Constantinople, ConstantinopleFix, Fork
 
 from .geth import GethTransitionTool
+from .transition_tool import FixtureFormats
 
 UNSUPPORTED_FORKS = (
     Constantinople,
@@ -99,3 +100,29 @@ class ExecutionSpecsTransitionTool(GethTransitionTool):
         Currently, ethereum-spec-evm provides no way to determine supported forks.
         """
         return fork not in UNSUPPORTED_FORKS
+
+    def get_blocktest_help(self) -> str:
+        """
+        Return the help string for the blocktest subcommand.
+        """
+        raise NotImplementedError(
+            "The `blocktest` command is not supported by the ethereum-spec-evm. "
+            "Use geth's evm tool."
+        )
+
+    def verify_fixture(
+        self,
+        fixture_format: FixtureFormats,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
+    ):
+        """
+        Executes `evm [state|block]test` to verify the fixture at `fixture_path`.
+
+        Currently only implemented by geth's evm.
+        """
+        raise NotImplementedError(
+            "The `verify_fixture()` function is not supported by the ethereum-spec-evm. "
+            "Use geth's evm tool."
+        )

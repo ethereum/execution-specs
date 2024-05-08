@@ -75,12 +75,16 @@ class HashableItem:
         with file_path.open("r") as f:
             data = json.load(f)
         for key, item in sorted(data.items()):
-            assert isinstance(item, dict), f"Expected dict, got {type(item)}"
-            assert "_info" in item, f"Expected _info in {key}"
-            assert "hash" in item["_info"], f"Expected hash in {key}"
-            assert isinstance(
-                item["_info"]["hash"], str
-            ), f"Expected hash to be a string in {key}, got {type(item['_info']['hash'])}"
+            if not isinstance(item, dict):
+                raise TypeError(f"Expected dict, got {type(item)} for {key}")
+            if "_info" not in item:
+                raise KeyError(f"Expected '_info' in {key}")
+            if "hash" not in item["_info"]:
+                raise KeyError(f"Expected 'hash' in {key}")
+            if not isinstance(item["_info"]["hash"], str):
+                raise TypeError(
+                    f"Expected hash to be a string in {key}, got {type(item['_info']['hash'])}"
+                )
             item_hash_bytes = bytes.fromhex(item["_info"]["hash"][2:])
             items[key] = cls(
                 type=HashableItemType.TEST,
@@ -96,6 +100,8 @@ class HashableItem:
         """
         items = {}
         for file_path in sorted(folder_path.iterdir()):
+            if file_path.name == "index.json":
+                continue
             if file_path.is_file() and file_path.suffix == ".json":
                 item = cls.from_json_file(
                     file_path=file_path, parents=parents + [folder_path.name]

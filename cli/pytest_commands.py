@@ -34,8 +34,10 @@ print(result.output)
 ```
 """
 
+import os
 import sys
-from typing import Any, Callable, List
+import warnings
+from typing import Any, Callable, List, Literal
 
 import click
 import pytest
@@ -105,6 +107,25 @@ def handle_help_flags(
         return list(pytest_args)
 
 
+def handle_stdout_flags(args):
+    """
+    If the user has requested to write to stdout, add pytest arguments in order
+    to suppress pytest's test session header and summary output.
+    """
+    writing_to_stdout = False
+    if any(arg == "--output=stdout" for arg in args):
+        writing_to_stdout = True
+    elif "--output" in args:
+        output_index = args.index("--output")
+        if args[output_index + 1] == "stdout":
+            writing_to_stdout = True
+    if writing_to_stdout:
+        if any(arg == "-n" or arg.startswith("-n=") for arg in args):
+            sys.exit("error: xdist-plugin not supported with --output=stdout (remove -n args).")
+        args.extend(["-qq", "-s", "--no-html"])
+    return args
+
+
 @click.command(context_settings=dict(ignore_unknown_options=True))
 @common_click_options
 def fill(
@@ -115,6 +136,110 @@ def fill(
     """
     Entry point for the fill command.
     """
-    updated_args = handle_help_flags(pytest_args, help_flag, pytest_help_flag)
-    result = pytest.main(updated_args)
+    args = handle_help_flags(pytest_args, help_flag, pytest_help_flag)
+    args = handle_stdout_flags(args)
+    result = pytest.main(args)
     sys.exit(result)
+
+
+def get_hive_flags_from_env():
+    """
+    Read simulator flags from environment variables and convert them, as best as
+    possible, into pytest flags.
+    """
+    pytest_args = []
+    xdist_workers = os.getenv("HIVE_PARALLELISM")
+    if xdist_workers is not None:
+        pytest_args.extend("-n", xdist_workers)
+    test_pattern = os.getenv("HIVE_TEST_PATTERN")
+    if test_pattern is not None:
+        # TODO: Check that the regex is a valid pytest -k "test expression"
+        pytest_args.extend("-k", test_pattern)
+    random_seed = os.getenv("HIVE_RANDOM_SEED")
+    if random_seed is not None:
+        # TODO: implement random seed
+        warnings.warning("HIVE_RANDOM_SEED is not yet supported.")
+    log_level = os.getenv("HIVE_LOGLEVEL")
+    if log_level is not None:
+        # TODO add logging within simulators and implement log level via cli
+        warnings.warning("HIVE_LOG_LEVEL is not yet supported.")
+    return pytest_args
+
+
+ConsumeCommands = Literal["dirct", "rlp", "engine", "all"]
+
+
+def consume_ini_path(consume_command: ConsumeCommands) -> str:
+    """
+    Get the path to the ini file for the specified consume command.
+    """
+    return f"src/pytest_plugins/consume/ini_files/pytest-consume-{consume_command}.ini"
+
+
+@click.group()
+def consume():
+    """
+    Help clients consume JSON test fixtures.
+    """
+    pass
+
+
+@click.command(context_settings=dict(ignore_unknown_options=True))
+@common_click_options
+def consume_direct(pytest_args, help_flag, pytest_help_flag):
+    """
+    Clients consume directly via the `blocktest` interface.
+    """
+    args = handle_help_flags(pytest_args, help_flag, pytest_help_flag)
+    args += ["-c", consume_ini_path("direct"), "--rootdir", "./"]
+    if not sys.stdin.isatty():  # the command is receiving input on stdin
+        args.extend(["-s", "--input=stdin"])
+    pytest.main(args)
+
+
+@click.command(context_settings=dict(ignore_unknown_options=True))
+@common_click_options
+def consume_via_rlp(pytest_args, help_flag, pytest_help_flag):
+    """
+    Clients consume RLP-encoded blocks on startup.
+    """
+    args = handle_help_flags(pytest_args, help_flag, pytest_help_flag)
+    args += ["-c", consume_ini_path("rlp"), "--rootdir", "./"]
+    args += get_hive_flags_from_env()
+    if not sys.stdin.isatty():  # the command is receiving input on stdin
+        args.extend(["-s", "--input=stdin"])
+    pytest.main(args)
+
+
+@click.command(context_settings=dict(ignore_unknown_options=True))
+@common_click_options
+def consume_via_engine_api(pytest_args, help_flag, pytest_help_flag):
+    """
+    Clients consume via the Engine API.
+    """
+    args = handle_help_flags(pytest_args, help_flag, pytest_help_flag)
+    args += ["-c", consume_ini_path("engine"), "--rootdir", "./"]
+    args += get_hive_flags_from_env()
+    if not sys.stdin.isatty():  # the command is receiving input on stdin
+        args.extend(["-s", "--input=stdin"])
+    pytest.main(args)
+
+
+@click.command(context_settings=dict(ignore_unknown_options=True))
+@common_click_options
+def consume_all(pytest_args, help_flag, pytest_help_flag):
+    """
+    Clients consume via all available methods (direct, rlp, engine).
+    """
+    args = handle_help_flags(pytest_args, help_flag, pytest_help_flag)
+    args += ["-c", consume_ini_path("all"), "--rootdir", "./"]
+    args += get_hive_flags_from_env()
+    if not sys.stdin.isatty():  # the command is receiving input on stdin
+        args.extend(["-s", "--input=stdin"])
+    pytest.main(args)
+
+
+consume.add_command(consume_all, name="all")
+consume.add_command(consume_direct, name="direct")
+consume.add_command(consume_via_rlp, name="rlp")
+consume.add_command(consume_via_engine_api, name="engine")

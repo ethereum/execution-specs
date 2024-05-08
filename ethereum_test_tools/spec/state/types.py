@@ -96,3 +96,11 @@ class Fixture(BaseFixture):
     post: Mapping[str, List[FixtureForkPost]]
 
     format: ClassVar[FixtureFormats] = FixtureFormats.STATE_TEST
+
+    def get_fork(self) -> str:
+        """
+        Returns the fork of the fixture as a string.
+        """
+        forks = list(self.post.keys())
+        assert len(forks) == 1, "Expected state test fixture with single fork"
+        return forks[0]

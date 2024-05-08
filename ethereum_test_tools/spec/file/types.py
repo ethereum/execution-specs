@@ -109,7 +109,7 @@ class BaseFixturesRootModel(RootModel):
             FixtureFormats.STATE_TEST.value: StateFixtures,
         }
 
-        if fixture_format is not None:
+        if fixture_format not in [None, "unset_test_format", FixtureFormats.UNSET_TEST_FORMAT]:
             if fixture_format not in model_mapping:
                 raise TypeError(f"Unsupported fixture format: {fixture_format}")
             model_class = model_mapping[fixture_format]

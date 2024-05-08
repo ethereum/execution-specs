@@ -114,7 +114,10 @@ def pytest_addoption(parser):
         action="store",
         dest="output",
         default=default_output_directory(),
-        help="Directory to store the generated test fixtures. Can be deleted.",
+        help=(
+            "Directory to store the generated test fixtures. Can be deleted. "
+            f"Default: '{default_output_directory()}'."
+        ),
     )
     test_group.addoption(
         "--flat-output",
@@ -158,10 +161,18 @@ def pytest_addoption(parser):
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
     """
-    Register the plugin's custom markers and process command-line options.
+    Pytest hook called after command line options have been parsed and before
+    test collection begins.
 
-    Custom marker registration:
-    https://docs.pytest.org/en/7.1.x/how-to/writing_plugins.html#registering-custom-markers
+    Couple of notes:
+    1. Register the plugin's custom markers and process command-line options.
+
+        Custom marker registration:
+        https://docs.pytest.org/en/7.1.x/how-to/writing_plugins.html#registering-custom-markers
+
+    2. `@pytest.hookimpl(tryfirst=True)` is applied to ensure that this hook is
+        called before the pytest-html plugin's pytest_configure to ensure that
+        it uses the modified `htmlpath` option.
     """
     for fixture_format in FixtureFormats:
         config.addinivalue_line(
@@ -224,6 +235,20 @@ def pytest_report_header(config, start_path):
     t8n_version = config.stash[metadata_key]["Versions"]["t8n"]
     solc_version = config.stash[metadata_key]["Versions"]["solc"]
     return [(f"{t8n_version}, {solc_version}")]
+
+
+def pytest_report_teststatus(report, config):
+    """
+    Disable test session progress report if we're writing the JSON fixtures to
+    stdout to be read by a consume command on stdin. I.e., don't write this
+    type of output to the console:
+
+    ```text
+    ...x...
+    ```
+    """
+    if config.getoption("output") == "stdout":
+        return report.outcome, "", report.outcome.upper()
 
 
 def pytest_metadata(metadata):
@@ -431,6 +456,8 @@ def get_fixture_collection_scope(fixture_name, config):
 
     See: https://docs.pytest.org/en/stable/how-to/fixtures.html#dynamic-scope
     """
+    if config.getoption("output") == "stdout":
+        return "session"
     if config.getoption("single_fixture_per_file"):
         return "function"
     return "module"

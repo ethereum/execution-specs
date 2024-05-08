@@ -111,6 +111,12 @@ class BaseFixture(CamelModel):
         if ref_spec is not None:
             ref_spec.write_info(self.info)
 
+    def get_fork(self) -> str:
+        """
+        Returns the fork of the fixture as a string.
+        """
+        raise NotImplementedError
+
 
 class BaseTest(BaseModel):
     """

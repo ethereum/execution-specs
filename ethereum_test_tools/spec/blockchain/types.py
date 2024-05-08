@@ -8,7 +8,7 @@ from typing import Annotated, Any, ClassVar, Dict, List, Literal, get_args, get_
 from ethereum import rlp as eth_rlp
 from ethereum.base_types import Uint
 from ethereum.crypto.hash import keccak256
-from pydantic import ConfigDict, Field, PlainSerializer, computed_field
+from pydantic import AliasChoices, ConfigDict, Field, PlainSerializer, computed_field
 
 from ethereum_test_forks import Fork
 from evm_transition_tool import FixtureFormats
@@ -138,11 +138,19 @@ class FixtureHeader(CamelModel):
 
     parent_hash: Hash
     ommers_hash: Hash = Field(Hash(EmptyOmmersRoot), alias="uncleHash")
-    fee_recipient: Address = Field(..., alias="coinbase")
+    fee_recipient: Address = Field(
+        ..., alias="coinbase", validation_alias=AliasChoices("coinbase", "miner")
+    )
     state_root: Hash
-    transactions_trie: Hash
-    receipts_root: Hash = Field(..., alias="receiptTrie")
-    logs_bloom: Bloom = Field(..., alias="bloom")
+    transactions_trie: Hash = Field(
+        validation_alias=AliasChoices("transactionsTrie", "transactionsRoot")
+    )
+    receipts_root: Hash = Field(
+        ..., alias="receiptTrie", validation_alias=AliasChoices("receiptTrie", "receiptsRoot")
+    )
+    logs_bloom: Bloom = Field(
+        ..., alias="bloom", validation_alias=AliasChoices("bloom", "logsBloom")
+    )
     difficulty: ZeroPaddedHexNumber = ZeroPaddedHexNumber(0)
     number: ZeroPaddedHexNumber
     gas_limit: ZeroPaddedHexNumber
@@ -551,6 +559,12 @@ class FixtureCommon(BaseFixture):
     genesis: FixtureHeader = Field(..., alias="genesisBlockHeader")
     pre: Alloc
     post_state: Alloc
+
+    def get_fork(self) -> str:
+        """
+        Returns the fork of the fixture as a string.
+        """
+        return self.fork
 
 
 class Fixture(FixtureCommon):

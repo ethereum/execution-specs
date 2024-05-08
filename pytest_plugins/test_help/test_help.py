@@ -4,6 +4,7 @@ the options defined by the plugins defined in execution-spec-tests.
 """
 
 import argparse
+from pathlib import Path
 
 import pytest
 
@@ -18,7 +19,10 @@ def pytest_addoption(parser):
         action="store_true",
         dest="show_test_help",
         default=False,
-        help="Only show help options specific to execution-spec-tests and exit.",
+        help=(
+            "Only show help options specific to a specific execution-spec-tests command and "
+            "exit."
+        ),
     )
 
 
@@ -37,14 +41,29 @@ def show_test_help(config):
     that group is specific to execution-spec-tests command-line
     arguments.
     """
-    test_group_substrings = [
-        "execution-spec-tests",
-        "evm",
-        "solc",
-        "fork range",
-        "filler location",
-        "defining debug",  # the "debug" group in test_filler plugin.
-    ]
+    pytest_ini = Path(config.inifile)
+    if pytest_ini.name == "pytest.ini":
+        test_group_substrings = [
+            "execution-spec-tests",
+            "evm",
+            "solc",
+            "fork range",
+            "filler location",
+            "defining debug",
+        ]
+    elif pytest_ini.name in [
+        "pytest-consume-all.ini",
+        "pytest-consume-direct.ini",
+        "pytest-consume-rlp.ini",
+        "pytest-consume-engine.ini",
+    ]:
+        test_group_substrings = [
+            "execution-spec-tests",
+            "consuming",
+            "defining debug",
+        ]
+    else:
+        raise ValueError("Unexpected pytest.ini file option generating test help.")
 
     test_parser = argparse.ArgumentParser()
     for group in config._parser.optparser._action_groups:

@@ -583,13 +583,17 @@ class TransitionTool:
             )
 
     def verify_fixture(
-        self, fixture_format: FixtureFormats, fixture_path: Path, debug_output_path: Optional[Path]
+        self,
+        fixture_format: FixtureFormats,
+        fixture_path: Path,
+        fixture_name: Optional[str] = None,
+        debug_output_path: Optional[Path] = None,
     ):
         """
         Executes `evm [state|block]test` to verify the fixture at `fixture_path`.
 
         Currently only implemented by geth's evm.
         """
-        raise Exception(
+        raise NotImplementedError(
             "The `verify_fixture()` function is not supported by this tool. Use geth's evm tool."
         )
