@@ -425,7 +425,7 @@ INVALID: List[Container] = [
             Section.Code(Op.STOP),
         ],
         auto_type_section=AutoSection.NONE,
-        # TODO the exception must be about type section EOFException.INVALID_TYPE_SIZE,
+        # TODO the exception must be about type section EOFException.INVALID_TYPE_SECTION_SIZE,
         validity_error=EOFException.ZERO_SECTION_SIZE,
     ),
     Container(
@@ -435,7 +435,7 @@ INVALID: List[Container] = [
             Section.Code(Op.STOP),
         ],
         auto_type_section=AutoSection.NONE,
-        validity_error=EOFException.INVALID_TYPE_SIZE,
+        validity_error=EOFException.INVALID_TYPE_SECTION_SIZE,
     ),
     Container(
         name="type_section_too_small_2",
@@ -444,7 +444,7 @@ INVALID: List[Container] = [
             Section.Code(Op.STOP),
         ],
         auto_type_section=AutoSection.NONE,
-        validity_error=EOFException.INVALID_TYPE_SIZE,
+        validity_error=EOFException.INVALID_TYPE_SECTION_SIZE,
     ),
     Container(
         name="type_section_too_big",
@@ -453,7 +453,7 @@ INVALID: List[Container] = [
             Section.Code(Op.STOP),
         ],
         auto_type_section=AutoSection.NONE,
-        validity_error=EOFException.INVALID_TYPE_SIZE,
+        validity_error=EOFException.INVALID_TYPE_SECTION_SIZE,
     ),
 ]
 
@@ -593,7 +593,7 @@ INVALID += [
             Section.Data(data="0x00", force_type_listing=True),
             Section.Code(Op.STOP),
         ],
-        validity_error=EOFException.INVALID_TYPE_SIZE,
+        validity_error=EOFException.INVALID_TYPE_SECTION_SIZE,
     ),
     Container(
         name="code_sections_above_1024",
@@ -607,7 +607,7 @@ INVALID += [
             Section.Code(Op.STOP),
         ],
         auto_type_section=AutoSection.NONE,
-        validity_error=EOFException.INVALID_TYPE_SIZE,
+        validity_error=EOFException.INVALID_TYPE_SECTION_SIZE,
     ),
     Container(
         name="single_code_section_incomplete_type_2",
