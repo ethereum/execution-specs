@@ -111,7 +111,7 @@ def precompile_caller_account(call_type: Op, call_gas: int) -> Account:
     if call_type == Op.CALL or call_type == Op.CALLCODE:
         precompile_caller_code += Op.SSTORE(
             0,
-            call_type(
+            call_type(  # type: ignore # https://github.com/ethereum/execution-spec-tests/issues/348 # noqa: E501
                 call_gas,
                 Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
                 0x00,
@@ -125,7 +125,7 @@ def precompile_caller_account(call_type: Op, call_gas: int) -> Account:
         # Delegatecall and staticcall use one less argument
         precompile_caller_code += Op.SSTORE(
             0,
-            call_type(
+            call_type(  # type: ignore # https://github.com/ethereum/execution-spec-tests/issues/348 # noqa: E501
                 call_gas,
                 Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
                 0x00,

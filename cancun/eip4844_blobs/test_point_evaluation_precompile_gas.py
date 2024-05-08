@@ -89,7 +89,7 @@ def precompile_caller_account(
         + copy_opcode_cost(len(precompile_input))
     )
     if call_type == Op.CALL or call_type == Op.CALLCODE:
-        precompile_caller_code += call_type(
+        precompile_caller_code += call_type(  # type: ignore # https://github.com/ethereum/execution-spec-tests/issues/348 # noqa: E501
             call_gas,
             Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
             0x00,
@@ -101,7 +101,7 @@ def precompile_caller_account(
         overhead_cost += (PUSH_OPERATIONS_COST * 6) + (CALLDATASIZE_COST * 1)
     elif call_type == Op.DELEGATECALL or call_type == Op.STATICCALL:
         # Delegatecall and staticcall use one less argument
-        precompile_caller_code += call_type(
+        precompile_caller_code += call_type(  # type: ignore # https://github.com/ethereum/execution-spec-tests/issues/348 # noqa: E501
             call_gas,
             Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
             0x00,
