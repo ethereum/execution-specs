@@ -382,14 +382,14 @@ def _rjumpv_encoder(*args: int | bytes | Iterable[int]) -> bytes:
         elif isinstance(args[0], Iterable):
             int_args = list(args[0])
             return b"".join(
-                [len(int_args).to_bytes(RJUMPV_MAX_INDEX_BYTE_LENGTH, "big")]
+                [(len(int_args) - 1).to_bytes(RJUMPV_MAX_INDEX_BYTE_LENGTH, "big")]
                 + [
                     i.to_bytes(RJUMPV_BRANCH_OFFSET_BYTE_LENGTH, "big", signed=True)
                     for i in int_args
                 ]
             )
     return b"".join(
-        [len(args).to_bytes(RJUMPV_MAX_INDEX_BYTE_LENGTH, "big")]
+        [(len(args) - 1).to_bytes(RJUMPV_MAX_INDEX_BYTE_LENGTH, "big")]
         + [
             i.to_bytes(RJUMPV_BRANCH_OFFSET_BYTE_LENGTH, "big", signed=True)
             for i in args
@@ -4932,7 +4932,7 @@ class Opcodes(Opcode, Enum):
     3
     """
 
-    JUMPF = Opcode(0xB1, data_portion_length=2)
+    JUMPF = Opcode(0xE5, data_portion_length=2)
     """
     !!! Note: This opcode is under development
 

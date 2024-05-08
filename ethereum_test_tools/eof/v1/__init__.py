@@ -121,6 +121,22 @@ class Section(CopyValidateModel):
     Whether to automatically compute the best suggestion for the code_inputs,
     code_outputs values for this code section.
     """
+    skip_header_listing: bool = False
+    """
+    Skip section from listing in the header
+    """
+    skip_body_listing: bool = False
+    """
+    Skip section from listing in the body
+    """
+    skip_types_body_listing: bool = False
+    """
+    Skip section from listing in the types body (input, output, stack) bytes
+    """
+    skip_types_header_listing: bool = False
+    """
+    Skip section from listing in the types header (not calculating input, output, stack size)
+    """
 
     @cached_property
     def header(self) -> bytes:
@@ -197,8 +213,18 @@ class Section(CopyValidateModel):
             return b"".join(s.header for s in sections)
 
         h = sections[0].kind.to_bytes(HEADER_SECTION_KIND_BYTE_LENGTH, "big")
-        h += len(sections).to_bytes(HEADER_SECTION_COUNT_BYTE_LENGTH, "big")
+
+        # Count only those sections that are not marked to be skipped for header calculation
+        header_registered_sections = 0
         for cs in sections:
+            if not cs.skip_header_listing:
+                header_registered_sections += 1
+
+        h += header_registered_sections.to_bytes(HEADER_SECTION_COUNT_BYTE_LENGTH, "big")
+        for cs in sections:
+            # If section is marked to skip the header calculation, don't make header for it
+            if cs.skip_header_listing:
+                continue
             size = cs.custom_size if "custom_size" in cs.model_fields_set else len(cs.data)
             h += size.to_bytes(HEADER_SECTION_SIZE_BYTE_LENGTH, "big")
 
@@ -333,8 +359,20 @@ class Container(CopyValidateModel, Bytecode):
 
         # Add type section if needed
         if self.auto_type_section.any() and count_sections(sections, SectionKind.TYPE) == 0:
-            type_section_data = b"".join(s.type_definition for s in sections)
-            sections = [Section(kind=SectionKind.TYPE, data=type_section_data)] + sections
+            # Calculate skipping flags
+            types_header_size = 0
+            type_section_data = b""
+            for s in sections:
+                types_header_size += (
+                    len(s.type_definition) if not s.skip_types_header_listing else 0
+                )
+                type_section_data += s.type_definition if not s.skip_types_body_listing else b""
+
+            sections = [
+                Section(
+                    kind=SectionKind.TYPE, data=type_section_data, custom_size=types_header_size
+                )
+            ] + sections
 
         # Add data section if needed
         if self.auto_data_section and count_sections(sections, SectionKind.DATA) == 0:
@@ -371,7 +409,7 @@ class Container(CopyValidateModel, Bytecode):
         for s in body_sections:
             if s.kind == SectionKind.TYPE and self.auto_type_section == AutoSection.ONLY_HEADER:
                 continue
-            if s.data:
+            if s.data and not s.skip_body_listing:
                 c += s.data
 
         # Add extra (garbage)

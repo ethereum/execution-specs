@@ -46,9 +46,9 @@ class UnexpectedEOFException(EOFBaseException):
     def __init__(self, *, code: Bytes, got: str):
         message = (
             "Expected EOF code to be valid, but an exception occurred:\n"
-            f"   Code: {self.format_code(code)}\n"
-            "Expected: No Exception\n"
-            f"    Got: {got}"
+            f"    Code: {self.format_code(code)}\n"
+            f"Expected: No Exception\n"
+            f"     Got: {got}"
         )
         super().__init__(message)
 
@@ -64,7 +64,7 @@ class ExpectedEOFException(EOFBaseException):
             "Expected EOF code to be invalid, but no exception was raised:\n"
             f"    Code: {self.format_code(code)}\n"
             f"Expected: {expected}\n"
-            "      Got: No Exception"
+            f"     Got: No Exception"
         )
         super().__init__(message)
 
