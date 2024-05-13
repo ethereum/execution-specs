@@ -470,7 +470,9 @@ class T8N(Load):
         self.result.rejected = self.txs.rejected_txs
         self.result.receipts = self.txs.successful_receipts
         self.result.gas_used = block_gas_used
-        self.result.requests_root = self.fork.root(requests_trie)
+
+        if self.fork.is_after_fork("ethereum.prague"):
+            self.result.requests_root = self.fork.root(requests_trie)
 
     def run(self) -> int:
         """Run the transition and provide the relevant outputs"""
