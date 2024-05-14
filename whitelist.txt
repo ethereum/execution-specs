@@ -431,3 +431,7 @@ uds
 appname
 appauthor
 orelse
+
+Bytes96
+pubkey
+req

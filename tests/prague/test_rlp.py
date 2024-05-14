@@ -21,6 +21,7 @@ hash3 = keccak256(b"baz")
 hash4 = keccak256(b"foobar")
 hash5 = keccak256(b"quux")
 hash6 = keccak256(b"foobarbaz")
+hash7 = keccak256(b"quuxbaz")
 
 address1 = hex_to_address("0x00000000219ab540356cbb839cbe05303d7705fa")
 address2 = hex_to_address("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")
@@ -82,6 +83,8 @@ transaction_1559 = FeeMarketTransaction(
 
 withdrawal = Withdrawal(U64(0), U64(1), address1, U256(2))
 
+requests = (Bytes(b"01foo"), Bytes(b"01bar"))
+
 
 header = Header(
     parent_hash=hash1,
@@ -104,6 +107,7 @@ header = Header(
     parent_beacon_block_root=Bytes32(b"1234567890abcdef1234567890abcdef"),
     blob_gas_used=U64(7),
     excess_blob_gas=U64(8),
+    requests_root=hash7,
 )
 
 block = Block(
@@ -115,6 +119,7 @@ block = Block(
     ),
     ommers=(),
     withdrawals=(withdrawal,),
+    requests=requests,
 )
 
 log1 = Log(

@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 from functools import partial
-from typing import Any, TextIO
+from typing import Any, TextIO, Tuple
 
 from ethereum import rlp, trace
 from ethereum.base_types import U64, U256, Uint
@@ -312,6 +312,9 @@ class T8N(Load):
         receipts_trie = self.fork.Trie(secured=False, default=None)
         block_logs = ()
         blob_gas_used = Uint(0)
+        if self.fork.is_after_fork("ethereum.prague"):
+            requests_trie = self.fork.Trie(secured=False, default=None)
+            receipts: Tuple[bytes, ...] = ()
 
         if (
             self.fork.is_after_fork("ethereum.cancun")
@@ -411,6 +414,8 @@ class T8N(Load):
                     rlp.encode(Uint(i)),
                     receipt,
                 )
+                if self.fork.is_after_fork("ethereum.prague"):
+                    receipts += (receipt,)
 
                 self.txs.add_receipt(tx, gas_consumed)
 
@@ -448,6 +453,15 @@ class T8N(Load):
             self.result.blob_gas_used = blob_gas_used
             self.result.excess_blob_gas = self.env.excess_blob_gas
 
+        if self.fork.is_after_fork("ethereum.prague"):
+            if not self.fork.validate_requests(self.env.requests):
+                raise InvalidBlock
+
+            self.fork.validate_deposit_requests(receipts, self.env.requests)
+
+            for i, request in enumerate(self.env.requests):
+                self.fork.trie_set(requests_trie, rlp.encode(Uint(i)), request)
+
         self.result.state_root = self.fork.state_root(self.alloc.state)
         self.result.tx_root = self.fork.root(transactions_trie)
         self.result.receipt_root = self.fork.root(receipts_trie)
@@ -456,6 +470,9 @@ class T8N(Load):
         self.result.rejected = self.txs.rejected_txs
         self.result.receipts = self.txs.successful_receipts
         self.result.gas_used = block_gas_used
+
+        if self.fork.is_after_fork("ethereum.prague"):
+            self.result.requests_root = self.fork.root(requests_trie)
 
     def run(self) -> int:
         """Run the transition and provide the relevant outputs"""

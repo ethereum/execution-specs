@@ -303,6 +303,7 @@ class Result:
     gas_used: Any = None
     excess_blob_gas: Optional[U64] = None
     blob_gas_used: Optional[Uint] = None
+    requests_root: Optional[Bytes] = None
 
     def to_json(self) -> Any:
         """Encode the result to JSON"""
@@ -331,6 +332,9 @@ class Result:
 
         if self.blob_gas_used is not None:
             data["blobGasUsed"] = hex(self.blob_gas_used)
+
+        if self.requests_root:
+            data["requestsRoot"] = "0x" + self.requests_root.hex()
 
         data["rejected"] = [
             {"index": idx, "error": error}
