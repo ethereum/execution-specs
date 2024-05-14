@@ -130,6 +130,11 @@ class T8N(Load):
             self.BEACON_ROOTS_ADDRESS = self.fork.hex_to_address(
                 "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
             )
+            self.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = (
+                self.fork.hex_to_address(
+                    "0x00A3ca265EBcb825B45F985A16CEFB49958cE017"
+                )
+            )
             self.SYSTEM_TRANSACTION_GAS = Uint(30000000)
 
     @property
@@ -320,52 +325,18 @@ class T8N(Load):
             self.fork.is_after_fork("ethereum.cancun")
             and self.env.parent_beacon_block_root is not None
         ):
-            beacon_block_roots_contract_code = self.fork.get_account(
-                self.alloc.state, self.BEACON_ROOTS_ADDRESS
-            ).code
-
-            system_tx_message = self.fork.Message(
-                caller=self.SYSTEM_ADDRESS,
-                target=self.BEACON_ROOTS_ADDRESS,
-                gas=self.SYSTEM_TRANSACTION_GAS,
-                value=U256(0),
-                data=self.env.parent_beacon_block_root,
-                code=beacon_block_roots_contract_code,
-                depth=Uint(0),
-                current_target=self.BEACON_ROOTS_ADDRESS,
-                code_address=self.BEACON_ROOTS_ADDRESS,
-                should_transfer_value=False,
-                is_static=False,
-                accessed_addresses=set(),
-                accessed_storage_keys=set(),
-                parent_evm=None,
-            )
-
-            system_tx_env = self.fork.Environment(
-                caller=self.SYSTEM_ADDRESS,
-                origin=self.SYSTEM_ADDRESS,
-                block_hashes=self.env.block_hashes,
-                coinbase=self.env.coinbase,
-                number=self.env.block_number,
-                gas_limit=self.env.block_gas_limit,
-                base_fee_per_gas=self.env.base_fee_per_gas,
-                gas_price=self.env.base_fee_per_gas,
-                time=self.env.block_timestamp,
-                prev_randao=self.env.prev_randao,
-                state=self.alloc.state,
-                chain_id=self.chain_id,
-                traces=[],
-                excess_blob_gas=self.env.excess_blob_gas,
-                blob_versioned_hashes=(),
-                transient_storage=self.fork.TransientStorage(),
-            )
-
-            system_tx_output = self.fork.process_message_call(
-                system_tx_message, system_tx_env
-            )
-
-            self.fork.destroy_touched_empty_accounts(
-                system_tx_env.state, system_tx_output.touched_accounts
+            self.fork.process_system_transaction(
+                self.BEACON_ROOTS_ADDRESS,
+                self.env.parent_beacon_block_root,
+                self.env.coinbase,
+                self.env.block_number,
+                self.env.base_fee_per_gas,
+                self.env.block_gas_limit,
+                self.env.block_timestamp,
+                self.env.prev_randao,
+                self.alloc.state,
+                self.chain_id,
+                self.env.excess_blob_gas,
             )
 
         for i, (tx_idx, tx) in enumerate(self.txs.transactions):
@@ -454,8 +425,25 @@ class T8N(Load):
             self.result.excess_blob_gas = self.env.excess_blob_gas
 
         if self.fork.is_after_fork("ethereum.prague"):
-            if not self.fork.validate_requests(self.env.requests):
-                raise InvalidBlock
+            self.fork.validate_requests(self.env.requests)
+
+            system_withdrawal_tx_output = self.fork.process_system_transaction(
+                self.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+                b"",
+                self.env.coinbase,
+                self.env.block_number,
+                self.env.base_fee_per_gas,
+                self.env.block_gas_limit,
+                self.env.block_timestamp,
+                self.env.prev_randao,
+                self.alloc.state,
+                self.chain_id,
+                self.env.excess_blob_gas,
+            )
+
+            self.fork.validate_withdrawal_requests(
+                system_withdrawal_tx_output.return_data, self.env.requests
+            )
 
             self.fork.validate_deposit_requests(receipts, self.env.requests)
 
