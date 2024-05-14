@@ -34,6 +34,7 @@ DEPOSIT_CONTRACT_ADDRESS = hex_to_address(
     "0x00000000219ab540356cbb839cbe05303d7705fa"
 )
 DEPOSIT_REQUEST_TYPE = b"\x00"
+WITHDRAWAL_REQUEST_TYPE = b"\x01"
 
 
 @slotted_freezable
@@ -127,7 +128,7 @@ def validate_requests(requests: Tuple[Bytes, ...]) -> None:
         request_type = request[:1]
 
         # Ensure that no undefined requests are present.
-        if request_type != DEPOSIT_REQUEST_TYPE:
+        if request_type not in (DEPOSIT_REQUEST_TYPE, WITHDRAWAL_REQUEST_TYPE):
             raise InvalidBlock("BlockException.INVALID_REQUESTS")
 
         # Ensure that requests are in order.
@@ -150,7 +151,19 @@ class DepositRequest:
     index: U64
 
 
-Request = Union[DepositRequest]
+@slotted_freezable
+@dataclass
+class WithdrawalRequest:
+    """
+    Requests for execution layer withdrawals (See EIP-7002).
+    """
+
+    source_address: Address
+    validator_pubkey: Bytes48
+    amount: U64
+
+
+Request = Union[DepositRequest, WithdrawalRequest]
 
 
 def encode_request(req: Request) -> Bytes:
@@ -159,6 +172,8 @@ def encode_request(req: Request) -> Bytes:
     """
     if isinstance(req, DepositRequest):
         return DEPOSIT_REQUEST_TYPE + rlp.encode(req)
+    elif isinstance(req, WithdrawalRequest):
+        return WITHDRAWAL_REQUEST_TYPE + rlp.encode(req)
     else:
         raise Exception("Unknown request type")
 
@@ -198,4 +213,42 @@ def validate_deposit_requests(
     ]
 
     if deposit_requests != expected_deposit_requests:
+        raise InvalidBlock("BlockException.INVALID_REQUESTS")
+
+
+def parse_withdrawal_data(data: Bytes) -> Bytes:
+    """
+    Parses Withdrawal Request from the data.
+    """
+    assert len(data) == 76
+    req = WithdrawalRequest(
+        source_address=Address(data[:20]),
+        validator_pubkey=Bytes48(data[20:68]),
+        amount=U64.from_be_bytes(data[68:76]),
+    )
+
+    return encode_request(req)
+
+
+def validate_withdrawal_requests(
+    evm_call_output: Bytes, requests: Tuple[Bytes, ...]
+) -> None:
+    """
+    Validate a list of withdrawal requests.
+    """
+    count_withdrawal_requests = len(evm_call_output) // 76
+
+    expected_withdrawal_requests = []
+    for i in range(count_withdrawal_requests):
+        start = i * 76
+        withdrawal_request_rlp = parse_withdrawal_data(
+            evm_call_output[start : start + 76]
+        )
+        expected_withdrawal_requests.append(withdrawal_request_rlp)
+
+    withdrawal_requests = [
+        req for req in requests if req[:1] == WITHDRAWAL_REQUEST_TYPE
+    ]
+
+    if withdrawal_requests != expected_withdrawal_requests:
         raise InvalidBlock("BlockException.INVALID_REQUESTS")
