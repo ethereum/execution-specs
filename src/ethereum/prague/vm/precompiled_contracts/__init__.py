@@ -27,6 +27,7 @@ __all__ = (
     "BLAKE2F_ADDRESS",
     "POINT_EVALUATION_ADDRESS",
     "BLS12_G1_ADD_ADDRESS",
+    "BLS12_G1_MULTIPLY_ADDRESS",
 )
 
 ECRECOVER_ADDRESS = hex_to_address("0x01")
@@ -40,3 +41,4 @@ ALT_BN128_PAIRING_CHECK_ADDRESS = hex_to_address("0x08")
 BLAKE2F_ADDRESS = hex_to_address("0x09")
 POINT_EVALUATION_ADDRESS = hex_to_address("0x0a")
 BLS12_G1_ADD_ADDRESS = hex_to_address("0x0b")
+BLS12_G1_MULTIPLY_ADDRESS = hex_to_address("0x0c")

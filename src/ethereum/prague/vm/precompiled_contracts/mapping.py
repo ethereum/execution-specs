@@ -20,6 +20,7 @@ from . import (
     ALT_BN128_PAIRING_CHECK_ADDRESS,
     BLAKE2F_ADDRESS,
     BLS12_G1_ADD_ADDRESS,
+    BLS12_G1_MULTIPLY_ADDRESS,
     ECRECOVER_ADDRESS,
     IDENTITY_ADDRESS,
     MODEXP_ADDRESS,
@@ -29,7 +30,7 @@ from . import (
 )
 from .alt_bn128 import alt_bn128_add, alt_bn128_mul, alt_bn128_pairing_check
 from .blake2f import blake2f
-from .bls12_381_g1 import bls12_g1_add
+from .bls12_381_g1 import bls12_g1_add, bls12_g1_multiply
 from .ecrecover import ecrecover
 from .identity import identity
 from .modexp import modexp
@@ -49,4 +50,5 @@ PRE_COMPILED_CONTRACTS: Dict[Address, Callable] = {
     BLAKE2F_ADDRESS: blake2f,
     POINT_EVALUATION_ADDRESS: point_evaluation,
     BLS12_G1_ADD_ADDRESS: bls12_g1_add,
+    BLS12_G1_MULTIPLY_ADDRESS: bls12_g1_multiply,
 }
