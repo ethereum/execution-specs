@@ -303,6 +303,10 @@ class EOFException(ExceptionBase):
     """
     EOF container's body have code sections that are unreachable
     """
+    INVALID_DATALOADN_INDEX = auto()
+    """
+    A DATALOADN instruction has out-of-bounds index for the data section
+    """
 
 
 """

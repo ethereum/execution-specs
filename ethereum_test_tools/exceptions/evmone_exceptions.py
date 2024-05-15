@@ -49,6 +49,7 @@ class EvmoneExceptionMapper:
         ExceptionMessage(EOFException.UNREACHABLE_INSTRUCTIONS, "err: unreachable_instructions"),
         ExceptionMessage(EOFException.INVALID_RJUMP_DESTINATION, "err: invalid_rjump_destination"),
         ExceptionMessage(EOFException.UNREACHABLE_CODE_SECTIONS, "err: unreachable_code_sections"),
+        ExceptionMessage(EOFException.INVALID_DATALOADN_INDEX, "err: invalid_dataloadn_index"),
     )
 
     def __init__(self) -> None:
