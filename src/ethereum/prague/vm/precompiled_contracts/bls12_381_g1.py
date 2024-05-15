@@ -11,7 +11,16 @@ Introduction
 
 Implementation of pre-compiles in G1 (curve over base prime field).
 """
-from py_ecc.bls12_381.bls12_381_curve import FQ, add, b, is_on_curve
+from typing import Tuple
+
+from py_ecc.bls12_381.bls12_381_curve import (
+    FQ,
+    add,
+    b,
+    curve_order,
+    is_on_curve,
+    multiply,
+)
 from py_ecc.typing import Point2D
 
 from ethereum.base_types import U256, Bytes, Uint
@@ -89,6 +98,35 @@ def G1_to_bytes(point: Point2D) -> Bytes:
     return x_bytes + y_bytes
 
 
+def decode_G1_scalar_pair(data: Bytes) -> Tuple[Point2D, int]:
+    """
+    Decode 160 bytes to a G1 point and a scalar.
+
+    Parameters
+    ----------
+    data :
+        The bytes data to decode.
+
+    Returns
+    -------
+    point : Tuple[Point2D, int]
+        The G1 point and the scalar.
+
+    Raises
+    ------
+    InvalidParameter
+        If the sub-group check failed.
+    """
+    assert len(data) == 160
+    p = bytes_to_G1(buffer_read(data, U256(0), U256(128)))
+    if multiply(p, curve_order) is not None:
+        raise InvalidParameter("Sub-group check failed.")
+
+    m = int.from_bytes(buffer_read(data, U256(128), U256(32)), "big")
+
+    return p, m
+
+
 def bls12_g1_add(evm: Evm) -> None:
     """
     The bls12_381 G1 point addition precompile.
@@ -115,5 +153,33 @@ def bls12_g1_add(evm: Evm) -> None:
     p2 = bytes_to_G1(buffer_read(data, U256(128), U256(128)))
 
     result = add(p1, p2)
+
+    evm.output = G1_to_bytes(result)
+
+
+def bls12_g1_multiply(evm: Evm) -> None:
+    """
+    The bls12_381 G1 multiplication precompile.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Raises
+    ------
+    InvalidParameter
+        If the input length is invalid.
+    """
+    data = evm.message.data
+    if len(data) != 160:
+        raise InvalidParameter("Invalid Input Length")
+
+    # GAS
+    charge_gas(evm, Uint(12000))
+
+    # OPERATION
+    p, m = decode_G1_scalar_pair(data)
+    result = multiply(p, m)
 
     evm.output = G1_to_bytes(result)
