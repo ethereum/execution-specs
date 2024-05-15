@@ -128,7 +128,7 @@ INVALID: List[Container] = [
                 max_stack_height=1,
             ),
         ],
-        validity_error=EOFException.DEFAULT_EXCEPTION,
+        validity_error=EOFException.INVALID_DATALOADN_INDEX,
     ),
     Container(
         name="DATALOADN_max_small_data",
@@ -141,7 +141,7 @@ INVALID: List[Container] = [
             ),
             Section.Data(data="1122334455667788" * 16),
         ],
-        validity_error=EOFException.DEFAULT_EXCEPTION,
+        validity_error=EOFException.INVALID_DATALOADN_INDEX,
     ),
     Container(
         name="DATALOADN_max_half_data",
@@ -154,7 +154,7 @@ INVALID: List[Container] = [
             ),
             Section.Data(data=("1122334455667788" * 4 * 1024)[2:]),
         ],
-        validity_error=EOFException.DEFAULT_EXCEPTION,
+        validity_error=EOFException.INVALID_DATALOADN_INDEX,
     ),
 ]
 
