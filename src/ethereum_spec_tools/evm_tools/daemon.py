@@ -22,6 +22,12 @@ def daemon_arguments(subparsers: argparse._SubParsersAction) -> None:
     """
     parser = subparsers.add_parser("daemon", help="Spawn t8n as a daemon")
     parser.add_argument("--uds", help="Unix domain socket path")
+    parser.add_argument(
+        "--timeout",
+        help="Timeout to shutdown daemon if there are not requests"
+        "(0 for no timeout)",
+        type=int,
+    )
 
 
 class _EvmToolHandler(BaseHTTPRequestHandler):
@@ -59,6 +65,12 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
 
 class _UnixSocketHttpServer(socketserver.UnixStreamServer):
     last_response: Optional[float] = None
+    shutdown_timeout: int
+
+    def __init__(self, *args: Any, shutdown_timeout: int, **kwargs: Any) -> None:
+        self.shutdown_timeout = shutdown_timeout
+        self.last_response = time.monotonic()
+        super().__init__(*args, **kwargs)
 
     def get_request(self) -> Tuple[Any, Any]:
         request, client_address = super().get_request()
@@ -73,15 +85,16 @@ class _UnixSocketHttpServer(socketserver.UnixStreamServer):
             self.last_response = time.monotonic()
 
     def check_timeout(self) -> None:
-        while True:
-            time.sleep(11.0)
-            now = time.monotonic()
-            last_response = self.last_response
-            if last_response is None:
-                self.last_response = now
-            elif now - last_response > 60.0:
-                self.shutdown()
-                break
+        if self.shutdown_timeout != 0:
+            while True:
+                time.sleep(11.0)
+                now = time.monotonic()
+                last_response = self.last_response
+                if last_response is None:
+                    self.last_response = now
+                elif now - last_response > float(self.shutdown_timeout):
+                    self.shutdown()
+                    break
 
 
 class Daemon:
@@ -100,13 +113,15 @@ class Daemon:
         else:
             self.uds = options.uds
 
+        self.timeout = options.timeout
+
     def _run(self) -> int:
         try:
             os.remove(self.uds)
         except IOError:
             pass
 
-        with _UnixSocketHttpServer((self.uds), _EvmToolHandler) as server:
+        with _UnixSocketHttpServer((self.uds), _EvmToolHandler, shutdown_timeout=self.timeout) as server:
             server.timeout = 7.0
             timer = Thread(target=server.check_timeout, daemon=True)
             timer.start()
