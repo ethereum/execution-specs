@@ -25,7 +25,7 @@ def daemon_arguments(subparsers: argparse._SubParsersAction) -> None:
     parser.add_argument(
         "--timeout",
         help="Timeout to shutdown daemon if there are not requests"
-        "(0 for no timeout)",
+        " (0 for no timeout)",
         type=int,
     )
 
