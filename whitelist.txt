@@ -442,3 +442,7 @@ G1
 FQ
 Point2
 msm
+G2
+FQ2
+coeffs
+b2
