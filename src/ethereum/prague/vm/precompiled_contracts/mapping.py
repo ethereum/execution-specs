@@ -25,6 +25,7 @@ from . import (
     BLS12_G2_ADD_ADDRESS,
     BLS12_G2_MSM_ADDRESS,
     BLS12_G2_MULTIPLY_ADDRESS,
+    BLS12_PAIRING_ADDRESS,
     ECRECOVER_ADDRESS,
     IDENTITY_ADDRESS,
     MODEXP_ADDRESS,
@@ -44,6 +45,7 @@ from .bls12_381.bls12_381_g2 import (
     bls12_g2_msm,
     bls12_g2_multiply,
 )
+from .bls12_381.bls12_381_pairing import bls12_pairing
 from .ecrecover import ecrecover
 from .identity import identity
 from .modexp import modexp
@@ -68,4 +70,5 @@ PRE_COMPILED_CONTRACTS: Dict[Address, Callable] = {
     BLS12_G2_ADD_ADDRESS: bls12_g2_add,
     BLS12_G2_MULTIPLY_ADDRESS: bls12_g2_multiply,
     BLS12_G2_MSM_ADDRESS: bls12_g2_msm,
+    BLS12_PAIRING_ADDRESS: bls12_pairing,
 }
