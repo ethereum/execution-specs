@@ -64,12 +64,14 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
 
 
 class _UnixSocketHttpServer(socketserver.UnixStreamServer):
-    last_response: Optional[float] = None
+    last_response: float
     shutdown_timeout: int
 
     def __init__(self, *args: Any, shutdown_timeout: int, **kwargs: Any) -> None:
         self.shutdown_timeout = shutdown_timeout
-        self.last_response = time.monotonic()
+        # Add a 60-second allowance to prevent server from timing out during
+        # startup
+        self.last_response = time.monotonic() + 60.0
         super().__init__(*args, **kwargs)
 
     def get_request(self) -> Tuple[Any, Any]:
@@ -85,16 +87,15 @@ class _UnixSocketHttpServer(socketserver.UnixStreamServer):
             self.last_response = time.monotonic()
 
     def check_timeout(self) -> None:
-        if self.shutdown_timeout != 0:
-            while True:
-                time.sleep(11.0)
-                now = time.monotonic()
-                last_response = self.last_response
-                if last_response is None:
-                    self.last_response = now
-                elif now - last_response > float(self.shutdown_timeout):
-                    self.shutdown()
-                    break
+        while self.shutdown_timeout != 0:
+            time.sleep(11.0)
+            now = time.monotonic()
+            last_response = self.last_response
+            if last_response is None:
+                self.last_response = now
+            elif now - last_response > float(self.shutdown_timeout):
+                self.shutdown()
+                break
 
 
 class Daemon:
