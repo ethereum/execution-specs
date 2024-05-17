@@ -32,6 +32,7 @@ __all__ = (
     "BLS12_G2_ADD_ADDRESS",
     "BLS12_G2_MULTIPLY_ADDRESS",
     "BLS12_G2_MSM_ADDRESS",
+    "BLS12_PAIRING_ADDRESS",
 )
 
 ECRECOVER_ADDRESS = hex_to_address("0x01")
@@ -50,3 +51,4 @@ BLS12_G1_MSM_ADDRESS = hex_to_address("0x0d")
 BLS12_G2_ADD_ADDRESS = hex_to_address("0x0e")
 BLS12_G2_MULTIPLY_ADDRESS = hex_to_address("0x0f")
 BLS12_G2_MSM_ADDRESS = hex_to_address("0x10")
+BLS12_PAIRING_ADDRESS = hex_to_address("0x11")
