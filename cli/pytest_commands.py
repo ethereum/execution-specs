@@ -150,7 +150,7 @@ def get_hive_flags_from_env():
     pytest_args = []
     xdist_workers = os.getenv("HIVE_PARALLELISM")
     if xdist_workers is not None:
-        pytest_args.extend("-n", xdist_workers)
+        pytest_args.extend(["-n", xdist_workers])
     test_pattern = os.getenv("HIVE_TEST_PATTERN")
     if test_pattern is not None:
         # TODO: Check that the regex is a valid pytest -k "test expression"
