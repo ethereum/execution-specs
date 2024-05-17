@@ -474,3 +474,21 @@ class Prague(Cancun):
         Returns the minimum version of solc that supports this fork.
         """
         return Version.parse("1.0.0")  # set a high version; currently unknown
+
+    @classmethod
+    def engine_new_payload_version(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> Optional[int]:
+        """
+        Starting at Prague, new payload calls must use version 4
+        """
+        return 4
+
+    @classmethod
+    def engine_forkchoice_updated_version(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> Optional[int]:
+        """
+        At Prague, version number of NewPayload and ForkchoiceUpdated diverge.
+        """
+        return 3
