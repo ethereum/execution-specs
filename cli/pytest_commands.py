@@ -154,7 +154,7 @@ def get_hive_flags_from_env():
     test_pattern = os.getenv("HIVE_TEST_PATTERN")
     if test_pattern is not None:
         # TODO: Check that the regex is a valid pytest -k "test expression"
-        pytest_args.extend("-k", test_pattern)
+        pytest_args.extend(["-k", test_pattern])
     random_seed = os.getenv("HIVE_RANDOM_SEED")
     if random_seed is not None:
         # TODO: implement random seed
