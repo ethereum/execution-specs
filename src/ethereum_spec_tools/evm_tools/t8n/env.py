@@ -34,6 +34,7 @@ class Env:
     block_gas_limit: Uint
     block_number: Uint
     block_timestamp: U256
+    parent_hash: Any
     withdrawals: Any
     block_difficulty: Optional[Uint]
     prev_randao: Optional[Bytes32]
@@ -64,11 +65,10 @@ class Env:
         self.block_gas_limit = parse_hex_or_int(data["currentGasLimit"], Uint)
         self.block_number = parse_hex_or_int(data["currentNumber"], Uint)
         self.block_timestamp = parse_hex_or_int(data["currentTimestamp"], U256)
-
         self.read_block_difficulty(data, t8n)
         self.read_base_fee_per_gas(data, t8n)
         self.read_randao(data, t8n)
-        self.read_block_hashes(data)
+        self.read_block_hashes(data, t8n)
         self.read_ommers(data, t8n)
         self.read_withdrawals(data, t8n)
 
@@ -80,8 +80,6 @@ class Env:
                 else None
             )
             self.read_excess_blob_gas(data, t8n)
-
-        self.read_requests(data, t8n)
 
     def read_excess_blob_gas(self, data: Any, t8n: "T8N") -> None:
         """
@@ -193,16 +191,6 @@ class Env:
                 t8n.json_to_withdrawals(wd) for wd in data["withdrawals"]
             )
 
-    def read_requests(self, data: Any, t8n: "T8N") -> None:
-        """
-        Read the requests from the data.
-        """
-        self.requests = None
-        if t8n.fork.is_after_fork("ethereum.prague"):
-            self.requests = tuple(
-                t8n.json_to_request(req) for req in data["requests"]
-            )
-
     def read_block_difficulty(self, data: Any, t8n: "T8N") -> None:
         """
         Read the block difficulty from the data.
@@ -246,11 +234,16 @@ class Env:
                     args.append(False)
             self.block_difficulty = t8n.fork.calculate_block_difficulty(*args)
 
-    def read_block_hashes(self, data: Any) -> None:
+    def read_block_hashes(self, data: Any, t8n: "T8N") -> None:
         """
         Read the block hashes. Returns a maximum of 256 block hashes.
         """
         # Read the block hashes
+        self.parent_hash = None
+        if t8n.fork.is_after_fork("ethereum.prague"):
+            self.parent_hash = Hash32(hex_to_bytes(data["parentHash"]))
+            return
+
         block_hashes: List[Any] = []
         # Store a maximum of 256 block hashes.
         max_blockhash_count = min(256, self.block_number)

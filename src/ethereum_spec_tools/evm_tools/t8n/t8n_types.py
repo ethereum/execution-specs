@@ -349,4 +349,7 @@ class Result:
             for item in self.receipts
         ]
 
+        if self.requests_root:
+            data["requestsRoot"] = "0x" + self.requests_root.hex()
+
         return data
