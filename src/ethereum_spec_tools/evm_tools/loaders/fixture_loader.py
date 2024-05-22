@@ -89,20 +89,6 @@ class Load(BaseLoad):
 
         return self.fork.Withdrawal(*parameters)
 
-    def json_to_request(self, raw: Any) -> Any:
-        """Converts json requests data to a request object"""
-        deposit_request = self.fork.DepositRequest(
-            pubkey=hex_to_bytes(raw.get("pubkey")),
-            withdrawal_credentials=hex_to_bytes32(
-                raw.get("withdrawalCredentials")
-            ),
-            amount=hex_to_u64(raw.get("amount")),
-            signature=hex_to_bytes(raw.get("signature")),
-            index=hex_to_u64(raw.get("index")),
-        )
-
-        return self.fork.encode_request(deposit_request)
-
     def json_to_block(
         self,
         json_block: Any,
