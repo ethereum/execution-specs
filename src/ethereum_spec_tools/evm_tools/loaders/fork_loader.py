@@ -133,29 +133,14 @@ class ForkLoad:
         return self._module("blocks").Block
 
     @property
-    def validate_requests(self) -> Any:
-        """validate_requests function of the fork"""
-        return self._module("blocks").validate_requests
+    def parse_withdrawal_requests_from_system_tx(self) -> Any:
+        """parse_withdrawal_requests_from_system_tx function of the fork"""
+        return self._module("blocks").parse_withdrawal_requests_from_system_tx
 
     @property
-    def validate_deposit_requests(self) -> Any:
-        """validate_deposit_requests function of the fork"""
-        return self._module("blocks").validate_deposit_requests
-
-    @property
-    def validate_withdrawal_requests(self) -> Any:
-        """validate_withdrawal_requests function of the fork"""
-        return self._module("blocks").validate_withdrawal_requests
-
-    @property
-    def DepositRequest(self) -> Any:
-        """Deposit request class of the fork"""
-        return self._module("blocks").DepositRequest
-
-    @property
-    def encode_request(self) -> Any:
-        """encode_request function of the fork"""
-        return self._module("blocks").encode_request
+    def parse_deposit_requests_from_receipt(self) -> Any:
+        """parse_deposit_requests_from_receipt function of the fork"""
+        return self._module("blocks").parse_deposit_requests_from_receipt
 
     @property
     def Bloom(self) -> Any:

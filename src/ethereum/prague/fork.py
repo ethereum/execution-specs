@@ -29,9 +29,9 @@ from .blocks import (
     Log,
     Receipt,
     Withdrawal,
-    validate_deposit_requests,
-    validate_requests,
-    validate_withdrawal_requests,
+    encode_receipt,
+    parse_deposit_requests_from_receipt,
+    parse_withdrawal_requests_from_system_tx,
 )
 from .bloom import logs_bloom
 from .fork_types import Address, Bloom, Root, VersionedHash
@@ -469,14 +469,7 @@ def make_receipt(
         logs=logs,
     )
 
-    if isinstance(tx, AccessListTransaction):
-        return b"\x01" + rlp.encode(receipt)
-    elif isinstance(tx, FeeMarketTransaction):
-        return b"\x02" + rlp.encode(receipt)
-    elif isinstance(tx, BlobTransaction):
-        return b"\x03" + rlp.encode(receipt)
-    else:
-        return receipt
+    return encode_receipt(tx, receipt)
 
 
 @dataclass
@@ -600,6 +593,11 @@ def process_system_transaction(
 
     system_tx_output = process_message_call(system_tx_message, system_tx_env)
 
+    # TODO: Empty accounts in post-merge forks are impossible
+    # see Ethereum Improvement Proposal 7523.
+    # This line is only included to support invalid tests in the test suite
+    # and will have to be removed in the future.
+    # See https://github.com/ethereum/execution-specs/issues/955
     destroy_touched_empty_accounts(
         system_tx_env.state, system_tx_output.touched_accounts
     )
@@ -684,7 +682,7 @@ def apply_body(
         secured=False, default=None
     )
     block_logs: Tuple[Log, ...] = ()
-    receipts: Tuple[Receipt, ...] = ()
+    requests_from_execution: Tuple[Bytes, ...] = ()
 
     process_system_transaction(
         BEACON_ROOTS_ADDRESS,
@@ -748,8 +746,9 @@ def apply_body(
             rlp.encode(Uint(i)),
             receipt,
         )
-        if isinstance(receipt, Receipt):
-            receipts += (receipt,)
+
+        deposit_requests = parse_deposit_requests_from_receipt(receipt)
+        requests_from_execution += deposit_requests
 
         block_logs += logs
         blob_gas_used += calculate_total_blob_gas(tx)
@@ -768,9 +767,6 @@ def apply_body(
             destroy_account(state, wd.address)
 
     # Requests are to be in ascending order of request type
-    validate_requests(requests)
-
-    validate_deposit_requests(receipts, requests)
 
     system_withdrawal_tx_output = process_system_transaction(
         WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
@@ -786,10 +782,16 @@ def apply_body(
         excess_blob_gas,
     )
 
-    validate_withdrawal_requests(
-        system_withdrawal_tx_output.return_data, requests
+    withdrawal_requests = parse_withdrawal_requests_from_system_tx(
+        system_withdrawal_tx_output.return_data
     )
-    for i, request in enumerate(requests):
+
+    requests_from_execution += withdrawal_requests
+
+    if requests_from_execution != requests:
+        raise InvalidBlock
+
+    for i, request in enumerate(requests_from_execution):
         trie_set(requests_trie, rlp.encode(Uint(i)), request)
 
     return ApplyBodyOutput(
