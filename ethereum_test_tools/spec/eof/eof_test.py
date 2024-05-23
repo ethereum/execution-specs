@@ -7,14 +7,21 @@ import warnings
 from pathlib import Path
 from shutil import which
 from subprocess import CompletedProcess
-from typing import Callable, ClassVar, Generator, List, Optional, Type
+from typing import Any, Callable, ClassVar, Generator, List, Optional, Type
+
+import pytest
+from pydantic import Field, model_validator
 
 from ethereum_test_forks import Fork
-from evm_transition_tool import FixtureFormats
+from evm_transition_tool import FixtureFormats, TransitionTool
 
+from ...common import Account, Address, Alloc, Environment, Transaction
 from ...common.base_types import Bytes
+from ...common.constants import TestAddress
+from ...eof.v1 import Container
 from ...exceptions import EOFException, EvmoneExceptionMapper
 from ..base.base_test import BaseFixture, BaseTest
+from ..state.state_test import StateTest
 from .types import Fixture, Result
 
 
@@ -133,9 +140,35 @@ class EOFTest(BaseTest):
     expect_exception: EOFException | None = None
 
     supported_fixture_formats: ClassVar[List[FixtureFormats]] = [
-        # TODO: Potentially generate a state test and blockchain test too.
         FixtureFormats.EOF_TEST,
     ]
+
+    @model_validator(mode="before")
+    @classmethod
+    def check_container_exception(cls, data: Any) -> Any:
+        """
+        Check if the container exception matches the expected exception.
+        """
+        if isinstance(data, dict):
+            container = data.get("data")
+            expect_exception = data.get("expect_exception")
+            if container is not None and isinstance(container, Container):
+                if container.validity_error is not None:
+                    if expect_exception is not None:
+                        assert container.validity_error == expect_exception, (
+                            f"Container validity error {container.validity_error} "
+                            f"does not match expected exception {expect_exception}."
+                        )
+                    if expect_exception is None:
+                        data["expect_exception"] = container.validity_error
+        return data
+
+    @classmethod
+    def pytest_parameter_name(cls) -> str:
+        """
+        Workaround for pytest parameter name.
+        """
+        return "eof_test"
 
     def make_eof_test_fixture(
         self,
@@ -208,6 +241,7 @@ class EOFTest(BaseTest):
     def generate(
         self,
         *,
+        t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
         fixture_format: FixtureFormats,
@@ -224,3 +258,84 @@ class EOFTest(BaseTest):
 
 EOFTestSpec = Callable[[str], Generator[EOFTest, None, None]]
 EOFTestFiller = Type[EOFTest]
+
+
+class EOFStateTest(EOFTest):
+    """
+    Filler type that tests EOF containers and also generates a state/blockchain test.
+    """
+
+    tx_gas_limit: int = 10_000_000
+    tx_data: Bytes = Bytes(b"")
+    env: Environment = Field(default_factory=Environment)
+    container_post: Account = Field(default_factory=Account)
+
+    supported_fixture_formats: ClassVar[List[FixtureFormats]] = [
+        FixtureFormats.EOF_TEST,
+        FixtureFormats.STATE_TEST,
+        FixtureFormats.BLOCKCHAIN_TEST,
+        FixtureFormats.BLOCKCHAIN_TEST_HIVE,
+    ]
+
+    @classmethod
+    def pytest_parameter_name(cls) -> str:
+        """
+        Workaround for pytest parameter name.
+        """
+        return "eof_state_test"
+
+    def generate_state_test(self) -> StateTest:
+        """
+        Generate the StateTest filler.
+        """
+        pre = Alloc()
+        container_address = Address(0x100)
+        pre[container_address] = Account(code=self.data, nonce=1)
+        pre[TestAddress] = Account(balance=1_000_000_000_000_000_000_000, nonce=0)
+        tx = Transaction(
+            nonce=0,
+            to=container_address,
+            gas_limit=self.tx_gas_limit,
+            gas_price=10,
+            protected=False,
+            data=self.tx_data,
+        )
+        post = Alloc()
+        post[container_address] = self.container_post
+        return StateTest(
+            pre=pre,
+            tx=tx,
+            env=self.env,
+            post=post,
+        )
+
+    def generate(
+        self,
+        *,
+        t8n: TransitionTool,
+        fork: Fork,
+        eips: Optional[List[int]] = None,
+        fixture_format: FixtureFormats,
+        **_,
+    ) -> BaseFixture:
+        """
+        Generate the BlockchainTest fixture.
+        """
+        if fixture_format == FixtureFormats.EOF_TEST:
+            return self.make_eof_test_fixture(fork=fork, eips=eips)
+        elif fixture_format in (
+            FixtureFormats.STATE_TEST,
+            FixtureFormats.BLOCKCHAIN_TEST,
+            FixtureFormats.BLOCKCHAIN_TEST_HIVE,
+        ):
+            if self.expect_exception is not None:
+                pytest.skip("State tests can't be generated for invalid EOF code yet.")
+            return self.generate_state_test().generate(
+                t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
+            )
+
+        raise Exception(f"Unknown fixture format: {fixture_format}")
+
+
+EOFStateTestSpec = Callable[[str], Generator[EOFStateTest, None, None]]
+EOFStateTestFiller = Type[EOFStateTest]

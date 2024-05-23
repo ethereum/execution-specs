@@ -153,8 +153,6 @@ class BaseTest(BaseModel):
 
         By default, it returns the underscore separated name of the class.
         """
-        if cls.__name__ == "EOFTest":
-            return "eof_test"
         return reduce(lambda x, y: x + ("_" if y.isupper() else "") + y, cls.__name__).lower()
 
     def get_next_transition_tool_output_path(self) -> str:

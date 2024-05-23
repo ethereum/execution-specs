@@ -33,6 +33,9 @@ class EvmoneExceptionMapper:
             EOFException.MISSING_HEADERS_TERMINATOR, "err: section_headers_not_terminated"
         ),
         ExceptionMessage(EOFException.INVALID_VERSION, "err: eof_version_unknown"),
+        ExceptionMessage(
+            EOFException.INVALID_NON_RETURNING_FLAG, "err: invalid_non_returning_flag"
+        ),
         ExceptionMessage(EOFException.INVALID_MAGIC, "err: invalid_prefix"),
         ExceptionMessage(
             EOFException.INVALID_FIRST_SECTION_TYPE, "err: invalid_first_section_type"
@@ -52,6 +55,13 @@ class EvmoneExceptionMapper:
         ExceptionMessage(EOFException.STACK_UNDERFLOW, "err: stack_underflow"),
         ExceptionMessage(
             EOFException.MAX_STACK_HEIGHT_ABOVE_LIMIT, "err: max_stack_height_above_limit"
+        ),
+        ExceptionMessage(
+            EOFException.STACK_HIGHER_THAN_OUTPUTS, "err: stack_higher_than_outputs_required"
+        ),
+        ExceptionMessage(
+            EOFException.JUMPF_DESTINATION_INCOMPATIBLE_OUTPUTS,
+            "err: jumpf_destination_incompatible_outputs",
         ),
         ExceptionMessage(EOFException.INVALID_MAX_STACK_HEIGHT, "err: invalid_max_stack_height"),
         ExceptionMessage(EOFException.INVALID_DATALOADN_INDEX, "err: invalid_dataloadn_index"),
