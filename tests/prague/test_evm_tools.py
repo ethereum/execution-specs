@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Dict
+from typing import Dict, Generator, Tuple
 
 import pytest
 
@@ -27,15 +27,30 @@ SLOW_TESTS = (
     "loopMul",
 )
 
+test_dirs = (
+    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_g1add",
+    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_g1mul",
+    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_g1msm",
+    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_g2add",
+    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_g2mul",
+    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_g2msm",
+    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_pairing",
+)
+
+
+def fetch_temporary_tests(test_dirs: Tuple[str, ...]) -> Generator:
+    for test_dir in test_dirs:
+        yield from fetch_evm_tools_tests(
+            test_dir,
+            FORK_NAME,
+            SLOW_TESTS,
+        )
+
 
 @pytest.mark.evm_tools
 @pytest.mark.parametrize(
     "test_case",
-    fetch_evm_tools_tests(
-        TEST_DIR,
-        FORK_NAME,
-        SLOW_TESTS,
-    ),
+    fetch_temporary_tests(test_dirs),
     ids=idfn,
 )
 def test_evm_tools(test_case: Dict) -> None:

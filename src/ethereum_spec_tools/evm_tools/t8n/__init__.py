@@ -328,15 +328,6 @@ class T8N(Load):
             requests_trie = self.fork.Trie(secured=False, default=None)
             requests_from_execution: Tuple[Bytes, ...] = ()
 
-            self.fork.set_storage(
-                self.alloc.state,
-                self.HISTORY_STORAGE_ADDRESS,
-                (
-                    (self.env.block_number - 1) % self.HISTORY_SERVE_WINDOW
-                ).to_be_bytes32(),
-                U256.from_be_bytes(self.env.parent_hash),
-            )
-
         if (
             self.fork.is_after_fork("ethereum.cancun")
             and self.env.parent_beacon_block_root is not None
