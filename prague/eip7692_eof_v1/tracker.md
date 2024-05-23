@@ -117,6 +117,18 @@
 
 ## EIP-663: SWAPN, DUPN and EXCHANGE instructions
 
+### Validation
+
+- [ ] A DUPN instruction causes stack overflow
+- [ ] A DUPN instruction causes stack underflow
+- [ ] A DUPN instruction causes max stack height mismatch
+- [ ] A SWAPN instruction causes stack underflow
+
+### Execution
+
+- [x] Positive tests for DUPN instructions (./eip663_dupn_swapn_exchange/test_dupn.py::test_dupn_all_valid_immediates)
+- [x] Positive tests for SWAPN instructions (./eip663_dupn_swapn_exchange/test_swapn.py::test_swapn_all_valid_immediates)
+
 ## EIP-7069: Revamped CALL instructions
 
 ## EIP-7620: EOF Contract Creation
