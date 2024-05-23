@@ -303,6 +303,18 @@ class EOFException(ExceptionBase):
     """
     EOF container's body have code sections that are unreachable
     """
+    STACK_UNDERFLOW = auto()
+    """
+    EOF container's code produces an stack underflow
+    """
+    MAX_STACK_HEIGHT_ABOVE_LIMIT = auto()
+    """
+    EOF container's specified max stack height is above the limit
+    """
+    INVALID_MAX_STACK_HEIGHT = auto()
+    """
+    EOF container section's specified max stack height does not match the actual stack height
+    """
     INVALID_DATALOADN_INDEX = auto()
     """
     A DATALOADN instruction has out-of-bounds index for the data section
