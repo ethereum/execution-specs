@@ -140,7 +140,7 @@ CALL_SUCCEED_CONTRACTS: List[Container] = [
             Section.Code(
                 code=(
                     Op.DUP1
-                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT - 1)
+                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT)
                     + Op.SUB
                     + Op.RJUMPI[len(Op.POP) + len(Op.RETF)]
                     + Op.POP
@@ -170,7 +170,7 @@ CALL_SUCCEED_CONTRACTS: List[Container] = [
                     Op.PUSH0
                     + Op.SLOAD
                     + Op.DUP1
-                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT - 1)
+                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT)
                     + Op.SUB
                     + Op.RJUMPI[len(Op.POP) + len(Op.STOP)]
                     + Op.POP
@@ -202,7 +202,7 @@ CALL_SUCCEED_CONTRACTS: List[Container] = [
                     Op.PUSH0
                     + Op.MLOAD
                     + Op.DUP1
-                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT - 1)
+                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT)
                     + Op.SUB
                     + Op.RJUMPI[len(Op.POP) + len(Op.RETF)]
                     + Op.POP
@@ -279,7 +279,7 @@ CALL_FAIL_CONTRACTS: List[Container] = [
                     Op.PUSH0
                     + Op.SLOAD
                     + Op.DUP1
-                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT)
+                    + Op.PUSH2(MAX_RETURN_STACK_HEIGHT + 1)
                     + Op.SUB
                     + Op.RJUMPI[len(Op.POP) + len(Op.RETF)]
                     + Op.POP
