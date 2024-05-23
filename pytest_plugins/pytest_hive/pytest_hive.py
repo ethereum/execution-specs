@@ -124,7 +124,12 @@ def hive_test(request, test_suite: HiveTestSuite):
             test_result_details = request.node.result_call.longreprtext
         elif hasattr(request.node, "result_setup") and not request.node.result_setup.passed:
             test_passed = False
-            test_result_details = "Test setup failed.\n" + request.node.result_call.longreprtext
+            test_result_details = "Test setup failed.\n" + request.node.result_setup.longreprtext
+        elif hasattr(request.node, "result_teardown") and not request.node.result_teardown.passed:
+            test_passed = False
+            test_result_details = (
+                "Test teardown failed.\n" + request.node.result_teardown.longreprtext
+            )
         else:
             test_passed = False
             test_result_details = "Test failed for unknown reason (setup or call status unknown)."
