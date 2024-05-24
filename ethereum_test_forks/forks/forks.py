@@ -476,6 +476,23 @@ class Prague(Cancun):
         return Version.parse("1.0.0")  # set a high version; currently unknown
 
     @classmethod
+    def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """
+        At Prague, pre-compile for BLS operations are added:
+
+        G1ADD = 0x0B
+        G1MUL = 0x0C
+        G1MSM = 0x0D
+        G2ADD = 0x0E
+        G2MUL = 0x0F
+        G2MSM = 0x10
+        PAIRING = 0x11
+        MAP_FP_TO_G1 = 0x12
+        MAP_FP2_TO_G2 = 0x13
+        """
+        return list(range(0xB, 0x13 + 1)) + super(Prague, cls).precompiles(block_number, timestamp)
+
+    @classmethod
     def engine_new_payload_version(
         cls, block_number: int = 0, timestamp: int = 0
     ) -> Optional[int]:
