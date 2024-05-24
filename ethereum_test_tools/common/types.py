@@ -252,7 +252,7 @@ class Storage(RootModel[Dict[StorageKeyValueType, StorageKeyValueType]]):
         return set(self.root.keys())
 
     def store_next(
-        self, value: StorageKeyValueTypeConvertible | StorageKeyValueType
+        self, value: StorageKeyValueTypeConvertible | StorageKeyValueType | bool
     ) -> StorageKeyValueType:
         """
         Stores a value in the storage and returns the key where the value is stored.
