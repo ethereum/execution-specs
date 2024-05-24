@@ -23,10 +23,10 @@ from ethereum_test_tools import (
     Storage,
     TestAddress,
     Transaction,
-    YulCompiler,
     compute_create2_address,
     compute_create_address,
 )
+from ethereum_test_tools.code.generators import Conditional
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6780.md"
@@ -69,28 +69,32 @@ def sendall_recipient_addresses() -> List[Address]:
 def selfdestruct_code_preset(
     *,
     sendall_recipient_addresses: List[Address],
-    yul: YulCompiler,
-) -> SupportsBytes:
+    pre_bytecode: bytes,
+) -> bytes:
     """Return a bytecode that self-destructs."""
+    bytecode = pre_bytecode
+
+    # First we register entry into the contract
+    bytecode += Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1))
+
     if len(sendall_recipient_addresses) != 1:
         # Load the recipient address from calldata, each test case needs to pass the addresses as
         # calldata
-        return yul(
-            f"""
-            {{
-                sstore(0, add(sload(0), 1))
-                let selfdestruct_recipient := calldataload(0)
-                if eq(selfdestruct_recipient, {SELF_ADDRESS}) {{
-                    // One sends to self
-                    selfdestruct_recipient := address()
-                }}
-                if not(eq(selfdestruct_recipient, {NO_SELFDESTRUCT})) {{
-                    // zero is the sentinel value for not self-destructing
-                    selfdestruct(selfdestruct_recipient)
-                    sstore(0, 0)
-                }}
-            }}
-            """  # noqa: E272, E201, E202, E221
+        bytecode += bytes(
+            Conditional(
+                # We avoid having the caller to give us our own address by checking
+                # against a constant that is a magic number
+                condition=Op.EQ(Op.CALLDATALOAD(0), SELF_ADDRESS),
+                if_true=Op.MSTORE(0, Op.ADDRESS()),
+                if_false=Op.MSTORE(0, Op.CALLDATALOAD(0)),
+            )
+        )
+        bytecode += bytes(
+            Conditional(
+                condition=Op.EQ(Op.MLOAD(0), NO_SELFDESTRUCT),
+                if_true=Op.STOP,
+                if_false=Op.SELFDESTRUCT(Op.MLOAD(0)),
+            )
         )
     else:
         # Hard-code the single only possible recipient address
@@ -101,29 +105,29 @@ def selfdestruct_code_preset(
             # sendall_recipient = "address()"
             # TODO: Fix this
             pass
-        return yul(
-            f"""
-            {{
-                sstore(0, add(sload(0), 1))
-                selfdestruct({sendall_recipient_addresses[0]})
-                sstore(0, 0)
-            }}
-            """  # noqa: E272, E201, E202, E221
-        )
+        bytecode += Op.SELFDESTRUCT(sendall_recipient_addresses[0])
+        bytecode += Op.SSTORE(0, 0)
+    return bytecode
+
+
+@pytest.fixture
+def selfdestruct_pre_bytecode() -> bytes:
+    """Code run before attempting to self-destruct, by default it's empty."""
+    return b""
 
 
 @pytest.fixture
 def selfdestruct_code(
+    selfdestruct_pre_bytecode: bytes,
     sendall_recipient_addresses: List[Address],
-    yul: YulCompiler,
-) -> SupportsBytes:
+) -> bytes:
     """
     Creates the default self-destructing bytecode,
     which can be modified by each test if necessary.
     """
     return selfdestruct_code_preset(
         sendall_recipient_addresses=sendall_recipient_addresses,
-        yul=yul,
+        pre_bytecode=selfdestruct_pre_bytecode,
     )
 
 
@@ -181,8 +185,8 @@ def pre(
     selfdestruct_contract_initcode: SupportsBytes,
     selfdestruct_contract_address: Address,
     selfdestruct_contract_initial_balance: int,
+    selfdestruct_pre_bytecode: bytes,
     sendall_recipient_addresses: List[Address],
-    yul: YulCompiler,
 ) -> Dict[Address, Account]:
     """Pre-state of all tests"""
     pre = {
@@ -200,7 +204,7 @@ def pre(
     pre[PRE_EXISTING_SELFDESTRUCT_ADDRESS] = Account(
         code=selfdestruct_code_preset(
             sendall_recipient_addresses=sendall_recipient_addresses,
-            yul=yul,
+            pre_bytecode=selfdestruct_pre_bytecode,
         ),
         balance=selfdestruct_contract_initial_balance,
     )
@@ -1312,6 +1316,180 @@ def test_delegatecall_from_pre_existing_contract_to_new_contract(
         post[delegate_caller_address] = Account(code=delegate_caller_code, balance=0)
     else:
         post[delegate_caller_address] = Account.NONEXISTENT  # type: ignore
+
+    nonce = count()
+    tx = Transaction(
+        ty=0x0,
+        value=100_000,
+        data=entry_code,
+        chain_id=0x0,
+        nonce=next(nonce),
+        to=None,
+        gas_limit=100_000_000,
+        gas_price=10,
+        protected=False,
+    )
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+initcode = Op.RETURN(0, 1)
+
+
+@pytest.mark.parametrize(
+    "selfdestruct_pre_bytecode",
+    [
+        pytest.param(
+            Op.MSTORE(0, Op.PUSH32(initcode))
+            + Op.POP(Op.CREATE(0, 32 - len(initcode), len(initcode))),
+            id="increase_nonce_by_create",
+        )
+    ],
+)
+@pytest.mark.parametrize("create_opcode", [Op.CREATE, Op.CREATE2])
+@pytest.mark.parametrize("selfdestruct_contract_initial_balance", [0, 100_000])
+@pytest.mark.parametrize(
+    "call_times,sendall_recipient_addresses",
+    [
+        pytest.param(1, [Address(0x1000)], id="single_call"),
+        pytest.param(5, [Address(0x1000)], id="multiple_calls_single beneficiary"),
+    ],
+)
+@pytest.mark.valid_from("Shanghai")
+def test_create_selfdestruct_same_tx_increased_nonce(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Dict[Address, Account],
+    entry_code_address: Address,
+    selfdestruct_code: SupportsBytes,
+    selfdestruct_contract_initcode: SupportsBytes,
+    selfdestruct_contract_address: Address,
+    sendall_recipient_addresses: List[Address],
+    initcode_copy_from_address: Address,
+    create_opcode: Op,
+    call_times: int,
+    selfdestruct_contract_initial_balance: int,
+):
+    """
+    Verify that a contract can self-destruct if it was created in the same transaction, even when
+    its nonce has been increased due to contract creation.
+    """
+    # Our entry point is an initcode that in turn creates a self-destructing contract
+    entry_code_storage = Storage()
+
+    # Create a dict to record the expected final balances
+    sendall_final_balances = dict(
+        zip(sendall_recipient_addresses, [0] * len(sendall_recipient_addresses))
+    )
+    selfdestruct_contract_current_balance = selfdestruct_contract_initial_balance
+
+    # Bytecode used to create the contract, can be CREATE or CREATE2
+    create_args = [
+        0,  # Value
+        0,  # Offset
+        len(bytes(selfdestruct_contract_initcode)),  # Length
+    ]
+    if create_opcode == Op.CREATE2:
+        # CREATE2 requires a salt argument
+        create_args.append(0)
+    create_bytecode = create_opcode(*create_args)
+
+    # Entry code that will be executed, creates the contract and then calls it in the same tx
+    entry_code = (
+        # Initcode is already deployed at `initcode_copy_from_address`, so just copy it
+        Op.EXTCODECOPY(
+            initcode_copy_from_address,
+            0,
+            0,
+            len(bytes(selfdestruct_contract_initcode)),
+        )
+        # And we store the created address for verification purposes
+        + Op.SSTORE(
+            entry_code_storage.store_next(selfdestruct_contract_address),
+            create_bytecode,
+        )
+    )
+
+    # Store the EXTCODE* properties of the created address
+    entry_code += Op.SSTORE(
+        entry_code_storage.store_next(len(bytes(selfdestruct_code))),
+        Op.EXTCODESIZE(selfdestruct_contract_address),
+    )
+
+    entry_code += Op.SSTORE(
+        entry_code_storage.store_next(keccak256(bytes(selfdestruct_code))),
+        Op.EXTCODEHASH(selfdestruct_contract_address),
+    )
+
+    # Call the self-destructing contract multiple times as required, increasing the wei sent each
+    # time
+    for i, sendall_recipient in zip(range(call_times), cycle(sendall_recipient_addresses)):
+        entry_code += Op.MSTORE(0, sendall_recipient)
+        entry_code += Op.SSTORE(
+            entry_code_storage.store_next(1),
+            Op.CALL(
+                Op.GASLIMIT,  # Gas
+                selfdestruct_contract_address,  # Address
+                i,  # Value
+                0,
+                32,
+                0,
+                0,
+            ),
+        )
+        selfdestruct_contract_current_balance += i
+
+        # Balance is always sent to other contracts
+        if sendall_recipient != selfdestruct_contract_address:
+            sendall_final_balances[sendall_recipient] += selfdestruct_contract_current_balance
+
+        # Self-destructing contract must always have zero balance after the call because the
+        # self-destruct always happens in the same transaction in this test
+        selfdestruct_contract_current_balance = 0
+
+        entry_code += Op.SSTORE(
+            entry_code_storage.store_next(0),
+            Op.BALANCE(selfdestruct_contract_address),
+        )
+
+    # Check the EXTCODE* properties of the self-destructing contract again
+    entry_code += Op.SSTORE(
+        entry_code_storage.store_next(len(bytes(selfdestruct_code))),
+        Op.EXTCODESIZE(selfdestruct_contract_address),
+    )
+
+    entry_code += Op.SSTORE(
+        entry_code_storage.store_next(keccak256(bytes(selfdestruct_code))),
+        Op.EXTCODEHASH(selfdestruct_contract_address),
+    )
+
+    # Lastly return zero so the entry point contract is created and we can retain the stored
+    # values for verification.
+    entry_code += Op.RETURN(max(len(bytes(selfdestruct_contract_initcode)), 32), 1)
+
+    post: Dict[Address, Account] = {
+        entry_code_address: Account(
+            code="0x00",
+            storage=entry_code_storage,
+        ),
+        initcode_copy_from_address: Account(
+            code=selfdestruct_contract_initcode,
+        ),
+    }
+
+    # Check the balances of the sendall recipients
+    for address, balance in sendall_final_balances.items():
+        post[address] = Account(balance=balance, storage={0: 1})
+
+    # Check the new contracts created from the self-destructing contract were correctly created.
+    for address in [
+        compute_create_address(selfdestruct_contract_address, i + 1) for i in range(call_times)
+    ]:
+        post[address] = Account(
+            code=b"\x00",
+        )
+
+    post[selfdestruct_contract_address] = Account.NONEXISTENT  # type: ignore
 
     nonce = count()
     tx = Transaction(
