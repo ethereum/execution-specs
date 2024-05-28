@@ -197,14 +197,14 @@ class Ops(enum.Enum):
 
     # System Operations
     CREATE = 0xF0
-    RETURN = 0xF3
     CALL = 0xF1
     CALLCODE = 0xF2
+    RETURN = 0xF3
     DELEGATECALL = 0xF4
+    CREATE2 = 0xF5
     STATICCALL = 0xFA
     REVERT = 0xFD
     SELFDESTRUCT = 0xFF
-    CREATE2 = 0xF5
 
 
 op_implementation: Dict[Ops, Callable] = {
