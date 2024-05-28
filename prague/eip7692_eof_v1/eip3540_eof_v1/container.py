@@ -11,6 +11,7 @@ from ethereum_test_tools.eof.v1.constants import (
     MAX_CODE_INPUTS,
     MAX_CODE_OUTPUTS,
     MAX_OPERAND_STACK_HEIGHT,
+    NON_RETURNING_SECTION,
 )
 from ethereum_test_tools.exceptions import EOFException
 from ethereum_test_tools.vm.opcode import Opcodes as Op
@@ -19,8 +20,29 @@ VALID: List[Container] = [
     Container(
         name="single_code_single_data_section",
         sections=[
-            Section.Code(code=Op.ADDRESS + Op.POP + Op.STOP, code_outputs=128, max_stack_height=1),
+            Section.Code(
+                code=Op.ADDRESS + Op.POP + Op.STOP,
+                code_outputs=NON_RETURNING_SECTION,
+                max_stack_height=1,
+            ),
             Section.Data(data="0xef"),
+        ],
+    ),
+    Container(
+        # EOF allows truncated data section
+        name="no_data_section_contents",
+        sections=[
+            Section.Code(Op.STOP, code_outputs=NON_RETURNING_SECTION),
+            Section.Data(data="0x", custom_size=1),
+        ],
+        code="ef0001 010004 0200010001 040001 00 00800000 00",
+    ),
+    Container(
+        # EOF allows truncated data section
+        name="data_section_contents_incomplete",
+        sections=[
+            Section.Code(Op.STOP, code_outputs=NON_RETURNING_SECTION),
+            Section.Data(data="0xAABBCC", custom_size=4),
         ],
     ),
     # TODO this is the only valid code I managed to produce
@@ -300,28 +322,11 @@ INVALID: List[Container] = [
         name="no_section_terminator_4a",
         header_terminator=bytes(),
         sections=[
-            Section.Code(Op.STOP),
+            Section.Code(Op.STOP, code_outputs=NON_RETURNING_SECTION),
             Section.Data(data="0xAABBCCDD"),
         ],
-        # TODO the exception must be about terminator
-        validity_error=EOFException.INVALID_SECTION_BODIES_SIZE,
-    ),
-    Container(
-        name="no_data_section_contents",
-        sections=[
-            Section.Code(Op.STOP),
-            Section.Data(data="0x", custom_size=1),
-        ],
-        # TODO: maybe it should detect that it is the data body that is wrong
-        validity_error=EOFException.INVALID_SECTION_BODIES_SIZE,
-    ),
-    Container(
-        name="data_section_contents_incomplete",
-        sections=[
-            Section.Code(Op.STOP),
-            Section.Data(data="0xAABBCC", custom_size=4),
-        ],
-        validity_error=EOFException.INVALID_SECTION_BODIES_SIZE,
+        # TODO: The error of this validation can be random.
+        validity_error=EOFException.INVALID_FIRST_SECTION_TYPE,
     ),
     Container(
         name="trailing_bytes_after_data_section",
