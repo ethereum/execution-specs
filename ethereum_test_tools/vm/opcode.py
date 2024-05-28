@@ -172,7 +172,10 @@ class Opcode(OpcodeMacroBase):
         data_portion = bytes()
 
         if self.data_portion_formatter is not None:
-            data_portion = self.data_portion_formatter(*args)
+            if len(args) == 1 and isinstance(args[0], Iterable) and not isinstance(args[0], bytes):
+                data_portion = self.data_portion_formatter(*args[0])
+            else:
+                data_portion = self.data_portion_formatter(*args)
         elif self.data_portion_length > 0:
             # For opcodes with a data portion, the first argument is the data and the rest of the
             # arguments form the stack.
@@ -253,8 +256,10 @@ class Opcode(OpcodeMacroBase):
             raise ValueError("Opcode with data portion requires at least one argument")
         if self.data_portion_formatter is not None:
             data_portion_arg = args.pop(0)
-            assert isinstance(data_portion_arg, Iterable)
-            data_portion = self.data_portion_formatter(*data_portion_arg)
+            if isinstance(data_portion_arg, Iterable) and not isinstance(data_portion_arg, bytes):
+                data_portion = self.data_portion_formatter(*data_portion_arg)
+            else:
+                data_portion = self.data_portion_formatter(data_portion_arg)
         elif self.data_portion_length > 0:
             # For opcodes with a data portion, the first argument is the data and the rest of the
             # arguments form the stack.
@@ -396,6 +401,27 @@ def _rjumpv_encoder(*args: int | bytes | Iterable[int]) -> bytes:
             if isinstance(i, int)
         ]
     )
+
+
+def _exchange_encoder(*args: int) -> bytes:
+    assert 1 <= len(args) <= 2, f"Exchange opcode requires one or two arguments, got {len(args)}"
+    if len(args) == 1:
+        return int.to_bytes(args[0], 1, "big")
+    # n = imm >> 4 + 1
+    # m = imm & 0xF + 1
+    # x = n + 1
+    # y = n + m + 1
+    # ...
+    # n = x - 1
+    # m = y - x
+    # m = y - n - 1
+    x, y = args
+    assert 2 <= x <= 0x11
+    assert x + 1 <= y <= x + 0x10
+    n = x - 1
+    m = y - x
+    imm = (n - 1) << 4 | m - 1
+    return int.to_bytes(imm, 1, "big")
 
 
 class Opcodes(Opcode, Enum):
@@ -4976,6 +5002,13 @@ class Opcodes(Opcode, Enum):
     Description
     ----
 
+    - deduct 3 gas
+    - read uint8 operand imm
+    - n = imm + 1
+    - n‘th (1-based) stack item is duplicated at the top of the stack
+    - Stack validation: stack_height >= n
+
+
     Inputs
     ----
 
@@ -4984,6 +5017,7 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
+    EOF Fork
 
     Gas
     ----
@@ -5000,6 +5034,13 @@ class Opcodes(Opcode, Enum):
     Description
     ----
 
+    - deduct 3 gas
+    - read uint8 operand imm
+    - n = imm + 1
+    - n + 1th stack item is swapped with the top stack item (1-based).
+    - Stack validation: stack_height >= n + 1
+
+
     Inputs
     ----
 
@@ -5008,9 +5049,45 @@ class Opcodes(Opcode, Enum):
 
     Fork
     ----
+    EOF Fork
 
     Gas
     ----
+
+    """
+
+    EXCHANGE = Opcode(0xE8, data_portion_formatter=_exchange_encoder)
+    """
+    !!! Note: This opcode is under development
+
+    EXCHANGE[x, y]
+    ----
+
+    Description
+    ----
+    Exchanges two stack positions.  Two nybbles, n is high 4 bits + 1, then  m is 4 low bits + 1.
+    Exchanges tne n+1'th item with the n + m + 1 item.
+
+    Inputs x and y when the opcode is used as `EXCHANGE[x, y]`, are equal to:
+    - x = n + 1
+    - y = n + m + 1
+    Which each equals to 1-based stack positions swapped.
+
+    Inputs
+    ----
+    n + m + 1, or ((imm >> 4) + (imm &0x0F) + 3) from the raw immediate,
+
+    Outputs
+    ----
+    n + m + 1, or ((imm >> 4) + (imm &0x0F) + 3) from the raw immediate,
+
+    Fork
+    ----
+    EOF_FORK
+
+    Gas
+    ----
+    3
 
     """
 
