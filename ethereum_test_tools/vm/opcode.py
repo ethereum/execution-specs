@@ -5091,11 +5091,11 @@ class Opcodes(Opcode, Enum):
 
     """
 
-    CREATE3 = Opcode(0xEC, popped_stack_items=4, pushed_stack_items=1, data_portion_length=1)
+    EOFCREATE = Opcode(0xEC, popped_stack_items=4, pushed_stack_items=1, data_portion_length=1)
     """
     !!! Note: This opcode is under development
 
-    CREATE3()
+    EOFCREATE[initcontainer_index](value, salt, input_offset, input_size)
     ----
 
     Description

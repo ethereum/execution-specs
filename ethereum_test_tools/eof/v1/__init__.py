@@ -441,14 +441,12 @@ class Initcode(Bytecode):
         """
         return Container(
             sections=[
-                Section(
-                    kind=SectionKind.CODE,
-                    data=Op.RETURNCONTRACT(0, 0, 0),
+                Section.Code(
+                    code=Op.RETURNCONTRACT[0](0, 0),
                     max_stack_height=2,
                 ),
-                Section(
-                    kind=SectionKind.CONTAINER,
-                    data=bytes(self.deploy_container),
+                Section.Container(
+                    container=self.deploy_container,
                 ),
             ],
         )
@@ -456,19 +454,17 @@ class Initcode(Bytecode):
     @cached_property
     def bytecode(self) -> bytes:
         """
-        Generate legacy initcode that inits a contract with the specified code.
-        The initcode can be padded to a specified length for testing purposes.
+        Generate an EOF container performs `EOFCREATE` with the specified code.
         """
         initcode = Container(
             sections=[
-                Section(
-                    data=Op.CREATE3(0, 0, 0, 0, len(self.deploy_container)) + Op.STOP(),
-                    kind=SectionKind.CODE,
+                Section.Code(
+                    # TODO: Pass calldata
+                    code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP(),
                     max_stack_height=4,
                 ),
-                Section(
-                    kind=SectionKind.CONTAINER,
-                    data=self.init_container,
+                Section.Container(
+                    container=self.init_container,
                 ),
             ]
         )
