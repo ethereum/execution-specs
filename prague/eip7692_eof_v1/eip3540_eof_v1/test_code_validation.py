@@ -14,7 +14,7 @@ from ethereum_test_tools import (
     EOFTestFiller,
     TestAddress,
     Transaction,
-    compute_create3_address,
+    compute_eofcreate_address,
 )
 from ethereum_test_tools.eof.v1 import Container, Initcode
 
@@ -103,7 +103,7 @@ def post(  # noqa: D103
     container: Container,
     create3_opcode_contract_address: str,
 ) -> Dict[Address, Account]:
-    create_opcode_created_contract_address = compute_create3_address(
+    create_opcode_created_contract_address = compute_eofcreate_address(
         create3_opcode_contract_address,
         0,
         bytes(create3_init_container.init_container),
