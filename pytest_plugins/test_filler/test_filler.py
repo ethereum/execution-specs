@@ -529,7 +529,12 @@ def yul(fork: Fork, request):
             pytest.fail(
                 f"{request.node.name}: Expected one argument in 'compile_yul_with' marker."
             )
-        solc_target_fork = request.config.fork_map[marker.args[0]]
+        for fork in request.config.forks:
+            if fork.name() == marker.args[0]:
+                solc_target_fork = fork
+                break
+        else:
+            pytest.fail(f"{request.node.name}: Fork {marker.args[0]} not found in forks list.")
         assert solc_target_fork in get_forks_with_solc_support(request.config.solc_version)
     else:
         solc_target_fork = get_closest_fork_with_solc_support(fork, request.config.solc_version)

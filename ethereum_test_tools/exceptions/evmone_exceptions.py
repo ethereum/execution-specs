@@ -48,7 +48,11 @@ class EvmoneExceptionMapper:
         ExceptionMessage(EOFException.INCOMPLETE_SECTION_NUMBER, "err: incomplete_section_number"),
         ExceptionMessage(EOFException.TOO_MANY_CODE_SECTIONS, "err: too_many_code_sections"),
         ExceptionMessage(EOFException.ZERO_SECTION_SIZE, "err: zero_section_size"),
+        ExceptionMessage(EOFException.MISSING_DATA_SECTION, "err: data_section_missing"),
         ExceptionMessage(EOFException.UNDEFINED_INSTRUCTION, "err: undefined_instruction"),
+        ExceptionMessage(
+            EOFException.INPUTS_OUTPUTS_NUM_ABOVE_LIMIT, "err: inputs_outputs_num_above_limit"
+        ),
         ExceptionMessage(EOFException.UNREACHABLE_INSTRUCTIONS, "err: unreachable_instructions"),
         ExceptionMessage(EOFException.INVALID_RJUMP_DESTINATION, "err: invalid_rjump_destination"),
         ExceptionMessage(EOFException.UNREACHABLE_CODE_SECTIONS, "err: unreachable_code_sections"),

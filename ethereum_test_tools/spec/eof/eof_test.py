@@ -199,7 +199,7 @@ class EOFTest(BaseTest):
             return fixture
 
         for _, vector in fixture.vectors.items():
-            expected_result = vector.results.get(str(fork))
+            expected_result = vector.results.get(fork.blockchain_test_network_name())
             if expected_result is None:
                 raise Exception(f"EOF Fixture missing vector result for fork: {fork}")
             result = eof_parse.run(input=str(vector.code))

@@ -263,6 +263,10 @@ class EOFException(ExceptionBase):
     """
     EOF container data header construction is wrong
     """
+    MISSING_DATA_SECTION = auto()
+    """
+    EOF container missing data section
+    """
     INCOMPLETE_CONTAINER = auto()
     """
     EOF container bytes are incomplete
@@ -302,6 +306,10 @@ class EOFException(ExceptionBase):
     MISSING_STOP_OPCODE = auto()
     """
     EOF container's code missing STOP bytecode at it's end
+    """
+    INPUTS_OUTPUTS_NUM_ABOVE_LIMIT = auto()
+    """
+    EOF container code section inputs/outputs number is above the limit
     """
     UNREACHABLE_INSTRUCTIONS = auto()
     """

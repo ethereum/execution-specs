@@ -149,6 +149,25 @@ fork_covariant_descriptors = [
 ]
 
 
+def get_fork_range(forks: List[Fork], forks_from: Fork, forks_until: Fork) -> List[Fork]:
+    """
+    Get the fork range from forks_from to forks_until.
+    """
+    return [
+        next_fork for next_fork in forks if next_fork <= forks_until and next_fork >= forks_from
+    ]
+
+
+def get_last_descendant(forks: List[Fork], fork: Fork) -> Fork:
+    """
+    Get the last descendant of a class in the inheritance hierarchy.
+    """
+    for next_fork in reversed(forks):
+        if next_fork >= fork:
+            return next_fork
+    return fork
+
+
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
     """
@@ -176,19 +195,8 @@ def pytest_configure(config):
     for d in fork_covariant_descriptors:
         config.addinivalue_line("markers", f"{d.marker_name}: {d.description}")
 
-    def get_fork_option(config, option_name):
-        """Post-process get option to allow for external fork conditions."""
-        option = config.getoption(option_name)
-        return "Paris" if option == "Merge" else option
-
-    single_fork = get_fork_option(config, "single_fork")
-    forks_from = get_fork_option(config, "forks_from")
-    forks_until = get_fork_option(config, "forks_until")
-    show_fork_help = config.getoption("show_fork_help")
-
-    config.all_forks = [fork for fork in get_forks() if not fork.ignore()]
-    config.fork_map = {fork.name(): fork for fork in config.all_forks}
-    config.fork_names = list(config.fork_map.keys())
+    config.forks = [fork for fork in get_forks() if not fork.ignore()]
+    config.fork_names = [fork.name() for fork in config.forks]
 
     available_forks_help = textwrap.dedent(
         f"""\
@@ -202,6 +210,31 @@ def pytest_configure(config):
         {", ".join([fork.name() for fork in get_transition_forks()])}
         """
     )
+
+    def get_fork_option(config, option_name: str, parameter_name: str) -> Fork | None:
+        """Post-process get option to allow for external fork conditions."""
+        option = config.getoption(option_name)
+        if not option:
+            return None
+        if option == "Merge":
+            option = "Paris"
+        for fork in get_forks():
+            if option == fork.name():
+                return fork
+        print(
+            f"Error: Unsupported fork provided to {parameter_name}:",
+            option,
+            "\n",
+            file=sys.stderr,
+        )
+        print(available_forks_help, file=sys.stderr)
+        pytest.exit("Invalid command-line options.", returncode=pytest.ExitCode.USAGE_ERROR)
+
+    single_fork = get_fork_option(config, "single_fork", "--fork")
+    forks_from = get_fork_option(config, "forks_from", "--from")
+    forks_until = get_fork_option(config, "forks_until", "--until")
+    show_fork_help = config.getoption("show_fork_help")
+
     dev_forks_help = textwrap.dedent(
         "To run tests for a fork under active development, it must be "
         "specified explicitly via --forks-until=FORK.\n"
@@ -212,11 +245,6 @@ def pytest_configure(config):
         print(available_forks_help)
         print(dev_forks_help)
         pytest.exit("After displaying help.", returncode=0)
-
-    if single_fork and single_fork not in config.fork_map.keys():
-        print("Error: Unsupported fork provided to --fork:", single_fork, "\n", file=sys.stderr)
-        print(available_forks_help, file=sys.stderr)
-        pytest.exit("Invalid command-line options.", returncode=pytest.ExitCode.USAGE_ERROR)
 
     if single_fork and (forks_from or forks_until):
         print(
@@ -229,27 +257,16 @@ def pytest_configure(config):
         forks_until = single_fork
     else:
         if not forks_from:
-            forks_from = config.fork_names[0]
+            forks_from = config.forks[0]
         if not forks_until:
-            forks_until = get_deployed_forks()[-1].name()
+            forks_until = get_last_descendant(get_deployed_forks(), forks_from)
 
-    if forks_from not in config.fork_map.keys():
-        print(f"Error: Unsupported fork provided to --from: {forks_from}\n", file=sys.stderr)
-        print(available_forks_help, file=sys.stderr)
-        pytest.exit("Invalid command-line options.", returncode=pytest.ExitCode.USAGE_ERROR)
-
-    if forks_until not in config.fork_map.keys():
-        print(f"Error: Unsupported fork provided to --until: {forks_until}\n", file=sys.stderr)
-        print(available_forks_help, file=sys.stderr)
-        pytest.exit("Invalid command-line options.", returncode=pytest.ExitCode.USAGE_ERROR)
-
-    config.fork_range = config.fork_names[
-        config.fork_names.index(forks_from) : config.fork_names.index(forks_until) + 1
-    ]
+    config.fork_range = get_fork_range(config.forks, forks_from, forks_until)
 
     if not config.fork_range:
         print(
-            f"Error: --from {forks_from} --until {forks_until} creates an empty fork range.",
+            f"Error: --from {forks_from.name()} --until {forks_until.name()} "
+            "creates an empty fork range.",
             file=sys.stderr,
         )
         pytest.exit(
@@ -265,7 +282,7 @@ def pytest_configure(config):
     evm_bin = config.getoption("evm_bin")
     t8n = TransitionTool.from_binary_path(binary_path=evm_bin)
     config.unsupported_forks = [
-        fork for fork in config.fork_range if not t8n.is_fork_supported(config.fork_map[fork])
+        fork for fork in config.fork_range if not t8n.is_fork_supported(fork)
     ]
 
 
@@ -276,7 +293,11 @@ def pytest_report_header(config, start_path):
     warning = "\033[93m"
     reset = "\033[39;49m"
     header = [
-        (bold + f"Executing tests for: {', '.join(config.fork_range)} " + reset),
+        (
+            bold
+            + f"Executing tests for: {', '.join([f.name() for f in config.fork_range])} "
+            + reset
+        ),
     ]
     if config.getoption("forks_until") is None:
         header += [
@@ -301,7 +322,7 @@ def get_validity_marker_args(
     metafunc: Metafunc,
     validity_marker_name: str,
     test_name: str,
-) -> str | None:
+) -> Fork | None:
     """Check and return the arguments specified to validity markers.
 
     Check that the validity markers:
@@ -337,14 +358,16 @@ def get_validity_marker_args(
             f"'{test_name}': Too many arguments specified to '{validity_marker_name}' marker. "
         )
     fork_name = validity_markers[0].args[0]
-    if fork_name not in metafunc.config.fork_names:  # type: ignore
-        pytest.fail(
-            f"'{test_name}' specifies an invalid fork '{fork_name}' to the "
-            f"'{validity_marker_name}'. "
-            f"List of valid forks: {', '.join(metafunc.config.fork_names)}"  # type: ignore
-        )
 
-    return fork_name
+    for fork in metafunc.config.forks:  # type: ignore
+        if fork.name() == fork_name:
+            return fork
+
+    pytest.fail(
+        f"'{test_name}' specifies an invalid fork '{fork_name}' to the "
+        f"'{validity_marker_name}'. "
+        f"List of valid forks: {', '.join(metafunc.config.fork_names)}"  # type: ignore
+    )
 
 
 def pytest_generate_tests(metafunc):
@@ -373,24 +396,16 @@ def pytest_generate_tests(metafunc):
 
     if valid_at_transition_to:
         if valid_at_transition_to in metafunc.config.fork_range:
-            to_fork = metafunc.config.fork_map[valid_at_transition_to]
-            intersection_range = transition_fork_to(to_fork)
+            intersection_range = transition_fork_to(valid_at_transition_to)
 
     else:
         if not valid_from:
-            valid_from = metafunc.config.fork_names[0]
+            valid_from = metafunc.config.forks[0]
 
         if not valid_until:
-            valid_until = metafunc.config.fork_names[-1]
+            valid_until = get_last_descendant(metafunc.config.fork_range, valid_from)
 
-        test_fork_range = set(
-            metafunc.config.fork_names[
-                metafunc.config.fork_names.index(valid_from) : metafunc.config.fork_names.index(
-                    valid_until
-                )
-                + 1
-            ]
-        )
+        test_fork_range = get_fork_range(metafunc.config.forks, valid_from, valid_until)
 
         if not test_fork_range:
             pytest.fail(
@@ -401,10 +416,8 @@ def pytest_generate_tests(metafunc):
                 f"@pytest.mark.valid_until ({valid_until})."
             )
 
-        intersection_range = list(set(metafunc.config.fork_range) & test_fork_range)
-
+        intersection_range = list(set(metafunc.config.fork_range) & set(test_fork_range))
         intersection_range.sort(key=metafunc.config.fork_range.index)
-        intersection_range = [metafunc.config.fork_map[fork] for fork in intersection_range]
 
     if "fork" in metafunc.fixturenames:
         if not intersection_range:
