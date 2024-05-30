@@ -1,5 +1,54 @@
 """
-Define an entry point wrapper for test generator.
+Generate a Python blockchain test from a transaction hash.
+
+This script can be used to generate Python source for a blockchain test case
+that replays a mainnet or testnet transaction from its transaction hash.
+
+Note:
+
+Requirements:
+
+1. Access to an archive node for the network where the transaction
+    originates. A provider may be used.
+2. A config file with the remote node data in JSON format
+
+    ```json
+    {
+        "remote_nodes" : [
+            {
+                "name" : "mainnet_archive",
+                "node_url" : "https://example.archive.node.url/v1
+                "client_id" : "",
+                "secret" : ""
+            }
+        ]
+    }
+    ```
+
+    `client_id` and `secret` may be left empty if the node does not require
+    them.
+3. The transaction hash of a type 0 transaction (currently only legacy
+    transactions are supported).
+
+Example Usage:
+
+1. Generate a test for a transaction with hash
+
+    ```console
+    gentest -c config.json \
+    0xa41f343be7a150b740e5c939fa4d89f3a2850dbe21715df96b612fc20d1906be \
+    tests/paris/test_0xa41f.py
+    ```
+
+2. Fill the test:
+
+    ```console
+    fill --fork=Paris tests/paris/test_0xa41f.py
+    ```
+
+Limitations:
+
+1. Only legacy transaction types (type 0) are currently supported.
 """
 
 import json
@@ -115,7 +164,7 @@ class TestConstructor:
                 state_str += pad + "storage={\n"
 
                 if account_obj.storage is not None:
-                    for record, value in account_obj.storage.items():
+                    for record, value in account_obj.storage.root.items():
                         pad_record = common.ZeroPaddedHexNumber(record)
                         pad_value = common.ZeroPaddedHexNumber(value)
                         state_str += f'{pad}    "{pad_record}" : "{pad_value}",\n'
@@ -141,7 +190,7 @@ class TestConstructor:
             "gas_limit",
             "value",
         ]
-        for field, value in asdict(tr.transaction).items():
+        for field, value in iter(tr.transaction):
             if value is None:
                 continue
 
@@ -244,6 +293,7 @@ class RequestManager:
         error_str = "An error occurred while making remote request: "
         try:
             response = requests.post(self.node_url, headers=self.headers, data=json.dumps(data))
+            response.raise_for_status()
             if response.status_code >= 200 and response.status_code < 300:
                 return response
             else:
@@ -266,6 +316,10 @@ class RequestManager:
 
         response = self._make_request(data)
         res = response.json().get("result", None)
+
+        assert (
+            res["type"] == "0x0"
+        ), f"Transaction has type {res['type']}: Currently only type 0 transactions are supported."
 
         return RequestManager.RemoteTransaction(
             block_number=res["blockNumber"],
