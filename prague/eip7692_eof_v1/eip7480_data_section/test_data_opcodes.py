@@ -16,7 +16,7 @@ from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.eof.v1.constants import MAX_CODE_SECTIONS, NON_RETURNING_SECTION
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-from .spec import EOF_FORK_NAME
+from .. import EOF_FORK_NAME
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7480.md"
 REFERENCE_SPEC_VERSION = "3ee1334ef110420685f1c8ed63e80f9e1766c251"

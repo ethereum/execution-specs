@@ -22,7 +22,7 @@ from ethereum_test_tools.eof.v1.constants import (
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-from .spec import EOF_FORK_NAME
+from .. import EOF_FORK_NAME
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4750.md"
 REFERENCE_SPEC_VERSION = "90f716078d0b08ce508a1e57803f885cc2f2e15e"

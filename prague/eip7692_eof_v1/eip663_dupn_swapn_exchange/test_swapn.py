@@ -18,7 +18,7 @@ from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.eof.v1.constants import MAX_OPERAND_STACK_HEIGHT, NON_RETURNING_SECTION
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-from ..eip3540_eof_v1.spec import EOF_FORK_NAME
+from .. import EOF_FORK_NAME
 from . import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
 
 REFERENCE_SPEC_GIT_PATH = REFERENCE_SPEC_GIT_PATH

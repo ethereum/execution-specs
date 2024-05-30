@@ -12,6 +12,7 @@ from ethereum_test_tools import StateTestFiller, TestAddress
 from ethereum_test_tools.vm.opcode import Opcodes
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
+from .. import EOF_FORK_NAME
 from .helpers import (
     default_address,
     simple_transaction,
@@ -22,7 +23,6 @@ from .helpers import (
     value_code_worked,
     value_create_failed,
 )
-from .spec import EOF_FORK_NAME
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7620.md"
 REFERENCE_SPEC_VERSION = "52ddbcdddcf72dd72427c319f2beddeb468e1737"

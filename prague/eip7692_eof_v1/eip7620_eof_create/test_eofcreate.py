@@ -15,6 +15,7 @@ from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
+from .. import EOF_FORK_NAME
 from .helpers import (
     default_address,
     fixed_address,
@@ -32,7 +33,6 @@ from .helpers import (
     value_code_worked,
     value_create_failed,
 )
-from .spec import EOF_FORK_NAME
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7620.md"
 REFERENCE_SPEC_VERSION = "52ddbcdddcf72dd72427c319f2beddeb468e1737"

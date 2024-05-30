@@ -18,6 +18,8 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.eof.v1 import Container, Initcode
 
+from .. import EOF_FORK_NAME
+
 # from .code_validation import INVALID as INVALID_CODE
 # from .code_validation import VALID as VALID_CODE
 # from .code_validation_function import INVALID as INVALID_FN
@@ -26,7 +28,6 @@ from ethereum_test_tools.eof.v1 import Container, Initcode
 # from .code_validation_jump import VALID as VALID_RJUMP
 from .container import INVALID as INVALID_CONTAINERS
 from .container import VALID as VALID_CONTAINERS
-from .spec import EOF_FORK_NAME
 
 # from .tests_execution_function import VALID as VALID_EXEC_FN
 

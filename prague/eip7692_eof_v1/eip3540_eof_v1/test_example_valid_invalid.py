@@ -9,7 +9,7 @@ from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools.eof.v1 import Bytes, Container, EOFException, Section
 from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 
-from .spec import EOF_FORK_NAME
+from .. import EOF_FORK_NAME
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3540.md"
 REFERENCE_SPEC_VERSION = "8dcb0a8c1c0102c87224308028632cc986a61183"
