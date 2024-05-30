@@ -35,6 +35,7 @@ test_dirs = (
     "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_g2mul",
     "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_g2msm",
     "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_pairing",
+    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_map_fp2_to_g2",
 )
 
 

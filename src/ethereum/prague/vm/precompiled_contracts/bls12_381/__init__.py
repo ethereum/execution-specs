@@ -11,7 +11,7 @@ Introduction
 
 Precompile for BLS12-381 curve operations.
 """
-from typing import Tuple
+from typing import Tuple, Union
 
 from py_ecc.bls12_381.bls12_381_curve import (
     FQ,
@@ -22,6 +22,7 @@ from py_ecc.bls12_381.bls12_381_curve import (
     is_on_curve,
     multiply,
 )
+from py_ecc.optimized_bls12_381.optimized_curve import FQ2 as OPTIMIZED_FQ2
 from py_ecc.typing import Point2D
 
 from ethereum.base_types import U256, Bytes
@@ -261,7 +262,9 @@ def decode_G1_scalar_pair(data: Bytes) -> Tuple[Point2D, int]:
     return p, m
 
 
-def bytes_to_FQ2(data: Bytes) -> FQ2:
+def bytes_to_FQ2(
+    data: Bytes, optimized: bool = False
+) -> Union[FQ2, OPTIMIZED_FQ2]:
     """
     Decode 128 bytes to a FQ2 element.
 
@@ -269,6 +272,8 @@ def bytes_to_FQ2(data: Bytes) -> FQ2:
     ----------
     data :
         The bytes data to decode.
+    optimized :
+        Whether to use the optimized FQ2 implementation.
 
     Returns
     -------
@@ -289,7 +294,10 @@ def bytes_to_FQ2(data: Bytes) -> FQ2:
     if c_1 >= P2:
         raise InvalidParameter("Invalid field element")
 
-    return FQ2((c_0, c_1))
+    if optimized:
+        return OPTIMIZED_FQ2((c_0, c_1))
+    else:
+        return FQ2((c_0, c_1))
 
 
 def bytes_to_G2(data: Bytes) -> Point2D:
@@ -316,6 +324,7 @@ def bytes_to_G2(data: Bytes) -> Point2D:
     x = bytes_to_FQ2(data[:128])
     y = bytes_to_FQ2(data[128:])
 
+    assert isinstance(x, FQ2) and isinstance(y, FQ2)
     if x == FQ2((0, 0)) and y == FQ2((0, 0)):
         return None
 
