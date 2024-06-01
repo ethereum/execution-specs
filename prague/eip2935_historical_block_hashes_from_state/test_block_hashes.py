@@ -79,7 +79,7 @@ def generate_block_check_code(
         pytest.param(
             Spec.HISTORY_SERVE_WINDOW + 1,
             id="fork_at_HISTORY_SERVE_WINDOW_plus_1",
-            marks=pytest.mark.slow,
+            marks=pytest.mark.skip("To be re-evaluated when updating the tests for new spec"),
         ),
     ],
 )
