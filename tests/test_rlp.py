@@ -5,7 +5,7 @@ from typing import List, Sequence, Tuple, Union, cast
 import pytest
 
 from ethereum import rlp
-from ethereum.exceptions import RLPEncodingError
+from ethereum.exceptions import RLPDecodingError, RLPEncodingError
 from ethereum.frontier.fork_types import U256, Bytes, Uint
 from ethereum.rlp import RLP
 from ethereum.utils.hexadecimal import hex_to_bytes
@@ -319,7 +319,7 @@ def test_rlp_decode_successfully() -> None:
 
 
 def test_rlp_decode_failure_empty_bytes() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(RLPDecodingError):
         rlp.decode(b"")
 
 
@@ -399,7 +399,7 @@ def test_ethtest_fixtures_for_rlp_encoding(
     "raw_data, encoded_data",
     ethtest_fixtures_as_pytest_fixtures("RandomRLPTests/example.json"),
 )
-def test_ethtest_fixtures_for_successfull_rlp_decoding(
+def test_ethtest_fixtures_for_successfully_rlp_decoding(
     raw_data: Bytes, encoded_data: Bytes
 ) -> None:
     decoded_data = rlp.decode(encoded_data)
@@ -413,5 +413,5 @@ def test_ethtest_fixtures_for_successfull_rlp_decoding(
 def test_ethtest_fixtures_for_fails_in_rlp_decoding(
     raw_data: Bytes, encoded_data: Bytes
 ) -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(RLPDecodingError):
         rlp.decode(encoded_data)

@@ -8,8 +8,7 @@ from ethereum.utils.hexadecimal import hex_to_u256, hex_to_uint
 
 class DifficultyTestLoader:
     """
-    This class has all the methods and imports required to run
-    the difficulty tests
+    All the methods and imports required to run the difficulty tests.
     """
 
     def __init__(self, network: str, fork_name: str):
@@ -28,6 +27,9 @@ class DifficultyTestLoader:
         return import_module(f"ethereum.{self.fork_name}.{name}")
 
     def load_test(self, test_file: str) -> List[Dict]:
+        """
+        Read tests from a file.
+        """
         test_name = os.path.splitext(test_file)[0]
         path = os.path.join(self.test_dir, test_file)
 

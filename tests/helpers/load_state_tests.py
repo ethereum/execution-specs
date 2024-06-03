@@ -126,7 +126,6 @@ def add_block_to_chain(
 def load_json_fixture(test_file: str, network: str) -> Generator:
     # Extract the pure basename of the file without the path to the file.
     # Ex: Extract "world.json" from "path/to/file/world.json"
-    pure_test_file = os.path.basename(test_file)
     # Extract the filename without the extension. Ex: Extract "world" from
     # "world.json"
     with open(test_file, "r") as fp:

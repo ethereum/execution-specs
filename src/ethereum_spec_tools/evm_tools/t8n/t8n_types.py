@@ -171,7 +171,7 @@ class Txs:
         # for idx, json_tx in enumerate(self.data):
         raw_tx["gasLimit"] = raw_tx["gas"]
         raw_tx["data"] = raw_tx["input"]
-        if "to" not in raw_tx:
+        if "to" not in raw_tx or raw_tx["to"] is None:
             raw_tx["to"] = ""
 
         # tf tool might provide None instead of 0
