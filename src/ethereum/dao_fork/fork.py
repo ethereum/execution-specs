@@ -22,6 +22,7 @@ from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import InvalidBlock
+from ethereum.utils.ensure import ensure
 
 from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Bytes32, Uint
@@ -174,16 +175,23 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.transactions,
         block.ommers,
     )
-    if apply_body_output.block_gas_used != block.header.gas_used:
-        raise InvalidBlock
-    if apply_body_output.transactions_root != block.header.transactions_root:
-        raise InvalidBlock
-    if apply_body_output.state_root != block.header.state_root:
-        raise InvalidBlock
-    if apply_body_output.receipt_root != block.header.receipt_root:
-        raise InvalidBlock
-    if apply_body_output.block_logs_bloom != block.header.bloom:
-        raise InvalidBlock
+    ensure(
+        apply_body_output.block_gas_used == block.header.gas_used, InvalidBlock
+    )
+    ensure(
+        apply_body_output.transactions_root == block.header.transactions_root,
+        InvalidBlock,
+    )
+    ensure(
+        apply_body_output.state_root == block.header.state_root, InvalidBlock
+    )
+    ensure(
+        apply_body_output.receipt_root == block.header.receipt_root,
+        InvalidBlock,
+    )
+    ensure(
+        apply_body_output.block_logs_bloom == block.header.bloom, InvalidBlock
+    )
 
     chain.blocks.append(block)
     if len(chain.blocks) > 255:
@@ -210,14 +218,13 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_header :
         Parent Header of the header to check for correctness
     """
-    if header.timestamp <= parent_header.timestamp:
-        raise InvalidBlock
-    if header.number != parent_header.number + 1:
-        raise InvalidBlock
-    if not check_gas_limit(header.gas_limit, parent_header.gas_limit):
-        raise InvalidBlock
-    if len(header.extra_data) > 32:
-        raise InvalidBlock
+    ensure(header.timestamp > parent_header.timestamp, InvalidBlock)
+    ensure(header.number == parent_header.number + 1, InvalidBlock)
+    ensure(
+        check_gas_limit(header.gas_limit, parent_header.gas_limit),
+        InvalidBlock,
+    )
+    ensure(len(header.extra_data) <= 32, InvalidBlock)
 
     block_difficulty = calculate_block_difficulty(
         header.number,
@@ -225,19 +232,16 @@ def validate_header(header: Header, parent_header: Header) -> None:
         parent_header.timestamp,
         parent_header.difficulty,
     )
-    if header.difficulty != block_difficulty:
-        raise InvalidBlock
+    ensure(header.difficulty == block_difficulty, InvalidBlock)
 
     block_parent_hash = keccak256(rlp.encode(parent_header))
-    if header.parent_hash != block_parent_hash:
-        raise InvalidBlock
+    ensure(header.parent_hash == block_parent_hash, InvalidBlock)
 
     if (
         header.number >= FORK_CRITERIA.block_number
         and header.number < FORK_CRITERIA.block_number + 10
     ):
-        if header.extra_data != b"dao-hard-fork":
-            raise InvalidBlock
+        ensure(header.extra_data == b"dao-hard-fork", InvalidBlock)
 
     validate_proof_of_work(header)
 
@@ -306,10 +310,12 @@ def validate_proof_of_work(header: Header) -> None:
     mix_digest, result = hashimoto_light(
         header_hash, header.nonce, cache, dataset_size(header.number)
     )
-    if mix_digest != header.mix_digest:
-        raise InvalidBlock
-    if Uint.from_be_bytes(result) > (U256_CEIL_VALUE // header.difficulty):
-        raise InvalidBlock
+
+    ensure(mix_digest == header.mix_digest, InvalidBlock)
+    ensure(
+        Uint.from_be_bytes(result) <= (U256_CEIL_VALUE // header.difficulty),
+        InvalidBlock,
+    )
 
 
 def check_transaction(
@@ -336,8 +342,7 @@ def check_transaction(
     InvalidBlock :
         If the transaction is not includable.
     """
-    if tx.gas > gas_available:
-        raise InvalidBlock
+    ensure(tx.gas <= gas_available, InvalidBlock)
     sender_address = recover_sender(tx)
 
     return sender_address
@@ -538,8 +543,8 @@ def validate_ommers(
         History and current state.
     """
     block_hash = rlp.rlp_hash(block_header)
-    if rlp.rlp_hash(ommers) != block_header.ommers_hash:
-        raise InvalidBlock
+
+    ensure(rlp.rlp_hash(ommers) == block_header.ommers_hash, InvalidBlock)
 
     if len(ommers) == 0:
         # Nothing to validate
@@ -547,18 +552,18 @@ def validate_ommers(
 
     # Check that each ommer satisfies the constraints of a header
     for ommer in ommers:
-        if 1 > ommer.number or ommer.number >= block_header.number:
-            raise InvalidBlock
+        ensure(1 <= ommer.number < block_header.number, InvalidBlock)
         ommer_parent_header = chain.blocks[
             -(block_header.number - ommer.number) - 1
         ].header
         validate_header(ommer, ommer_parent_header)
-    if len(ommers) > 2:
-        raise InvalidBlock
+
+    # Check that there can be only at most 2 ommers for a block.
+    ensure(len(ommers) <= 2, InvalidBlock)
 
     ommers_hashes = [rlp.rlp_hash(ommer) for ommer in ommers]
-    if len(ommers_hashes) != len(set(ommers_hashes)):
-        raise InvalidBlock
+    # Check that there are no duplicates in the ommers of current block
+    ensure(len(ommers_hashes) == len(set(ommers_hashes)), InvalidBlock)
 
     recent_canonical_blocks = chain.blocks[-(MAX_OMMER_DEPTH + 1) :]
     recent_canonical_block_hashes = {
@@ -572,22 +577,25 @@ def validate_ommers(
 
     for ommer_index, ommer in enumerate(ommers):
         ommer_hash = ommers_hashes[ommer_index]
-        if ommer_hash == block_hash:
-            raise InvalidBlock
-        if ommer_hash in recent_canonical_block_hashes:
-            raise InvalidBlock
-        if ommer_hash in recent_ommers_hashes:
-            raise InvalidBlock
+        # The current block shouldn't be the ommer
+        ensure(ommer_hash != block_hash, InvalidBlock)
+
+        # Ommer shouldn't be one of the recent canonical blocks
+        ensure(ommer_hash not in recent_canonical_block_hashes, InvalidBlock)
+
+        # Ommer shouldn't be one of the uncles mentioned in the recent
+        # canonical blocks
+        ensure(ommer_hash not in recent_ommers_hashes, InvalidBlock)
 
         # Ommer age with respect to the current block. For example, an age of
         # 1 indicates that the ommer is a sibling of previous block.
         ommer_age = block_header.number - ommer.number
-        if 1 > ommer_age or ommer_age > MAX_OMMER_DEPTH:
-            raise InvalidBlock
-        if ommer.parent_hash not in recent_canonical_block_hashes:
-            raise InvalidBlock
-        if ommer.parent_hash == block_header.parent_hash:
-            raise InvalidBlock
+        ensure(1 <= ommer_age <= MAX_OMMER_DEPTH, InvalidBlock)
+
+        ensure(
+            ommer.parent_hash in recent_canonical_block_hashes, InvalidBlock
+        )
+        ensure(ommer.parent_hash != block_header.parent_hash, InvalidBlock)
 
 
 def pay_rewards(
@@ -660,18 +668,14 @@ def process_transaction(
     logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
-    if not validate_transaction(tx):
-        raise InvalidBlock
+    ensure(validate_transaction(tx), InvalidBlock)
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
     gas_fee = tx.gas * tx.gas_price
-    if sender_account.nonce != tx.nonce:
-        raise InvalidBlock
-    if sender_account.balance < gas_fee + tx.value:
-        raise InvalidBlock
-    if sender_account.code != bytearray():
-        raise InvalidBlock
+    ensure(sender_account.nonce == tx.nonce, InvalidBlock)
+    ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
+    ensure(sender_account.code == bytearray(), InvalidBlock)
 
     gas = tx.gas - calculate_intrinsic_cost(tx)
     increment_nonce(env.state, sender)
@@ -803,12 +807,13 @@ def recover_sender(tx: Transaction) -> Address:
         The address of the account that signed the transaction.
     """
     v, r, s = tx.v, tx.r, tx.s
-    if v != 27 and v != 28:
-        raise InvalidBlock
-    if 0 >= r or r >= SECP256K1N:
-        raise InvalidBlock
-    if 0 >= s or s > SECP256K1N // 2:
-        raise InvalidBlock
+
+    #  if v > 28:
+    #      v = v - (chain_id*2+8)
+
+    ensure(v == 27 or v == 28, InvalidBlock)
+    ensure(0 < r and r < SECP256K1N, InvalidBlock)
+    ensure(0 < s and s <= SECP256K1N // 2, InvalidBlock)
 
     public_key = secp256k1_recover(r, s, v - 27, signing_hash(tx))
     return Address(keccak256(public_key)[12:32])

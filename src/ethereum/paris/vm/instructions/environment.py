@@ -14,6 +14,7 @@ Implementations of the EVM environment related instructions.
 
 from ethereum.base_types import U256, Uint
 from ethereum.crypto.hash import keccak256
+from ethereum.utils.ensure import ensure
 from ethereum.utils.numeric import ceil32
 
 from ...fork_types import EMPTY_ACCOUNT
@@ -438,8 +439,12 @@ def returndatacopy(evm: Evm) -> None:
         evm.memory, [(memory_start_index, size)]
     )
     charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
-    if Uint(return_data_start_position) + Uint(size) > len(evm.return_data):
-        raise OutOfBoundsRead
+
+    # OPERATION
+    ensure(
+        Uint(return_data_start_position) + Uint(size) <= len(evm.return_data),
+        OutOfBoundsRead,
+    )
 
     evm.memory += b"\x00" * extend_memory.expand_by
     value = evm.return_data[

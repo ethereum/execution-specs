@@ -22,6 +22,7 @@ from ethereum.crypto.alt_bn128 import (
     BNP2,
     pairing,
 )
+from ethereum.utils.ensure import ensure
 
 from ...vm import Evm
 from ...vm.gas import charge_gas
@@ -138,10 +139,14 @@ def alt_bn128_pairing_check(evm: Evm) -> None:
             )
         except ValueError:
             raise OutOfGasError()
-        if p.mul_by(ALT_BN128_CURVE_ORDER) != BNP.point_at_infinity():
-            raise OutOfGasError
-        if q.mul_by(ALT_BN128_CURVE_ORDER) != BNP2.point_at_infinity():
-            raise OutOfGasError
+        ensure(
+            p.mul_by(ALT_BN128_CURVE_ORDER) == BNP.point_at_infinity(),
+            OutOfGasError,
+        )
+        ensure(
+            q.mul_by(ALT_BN128_CURVE_ORDER) == BNP2.point_at_infinity(),
+            OutOfGasError,
+        )
         if p != BNP.point_at_infinity() and q != BNP2.point_at_infinity():
             result = result * pairing(q, p)
 

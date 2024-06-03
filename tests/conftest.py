@@ -11,6 +11,7 @@ from filelock import SoftFileLock
 from git.exc import GitCommandError, InvalidGitRepositoryError
 from pytest import Session
 
+import ethereum
 from tests.helpers import TEST_FIXTURES
 
 
@@ -97,6 +98,8 @@ def git_clone_fixtures(url: str, commit_hash: str, location: str) -> None:
 
 
 def pytest_sessionstart(session: Session) -> None:
+    fixtures_location = "tests"
+
     for _, props in TEST_FIXTURES.items():
         fixture_path = props["fixture_path"]
 

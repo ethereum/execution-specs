@@ -30,7 +30,7 @@ def test_high_nonce(test_file_high_nonce: str) -> None:
 
     tx = rlp.decode_to(LegacyTransaction, test["tx_rlp"])
 
-    assert not validate_transaction(tx)
+    assert validate_transaction(tx) == False
 
 
 @pytest.mark.parametrize(
@@ -49,5 +49,5 @@ def test_nonce(test_file_nonce: str) -> None:
         test["test_result"]["intrinsicGas"]
     )
 
-    assert validate_transaction(tx)
+    assert validate_transaction(tx) == True
     assert calculate_intrinsic_cost(tx) == result_intrinsic_gas_cost

@@ -49,9 +49,8 @@ def fetch_evm_tools_tests(
 
 
 def idfn(test_case: Dict) -> str:
-    """
-    Identify the test case
-    """
+    """Identify the test case"""
+
     if isinstance(test_case, dict):
         folder_name = test_case["test_file"].split("/")[-2]
         test_key = test_case["test_key"]
