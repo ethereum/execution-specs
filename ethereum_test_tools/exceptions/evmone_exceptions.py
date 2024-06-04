@@ -69,6 +69,7 @@ class EvmoneExceptionMapper:
         ),
         ExceptionMessage(EOFException.INVALID_MAX_STACK_HEIGHT, "err: invalid_max_stack_height"),
         ExceptionMessage(EOFException.INVALID_DATALOADN_INDEX, "err: invalid_dataloadn_index"),
+        ExceptionMessage(EOFException.TRUNCATED_INSTRUCTION, "err: truncated_instruction"),
     )
 
     def __init__(self) -> None:

@@ -680,6 +680,10 @@ class EOFException(ExceptionBase):
     """
     A DATALOADN instruction has out-of-bounds index for the data section.
     """
+    TRUNCATED_INSTRUCTION = auto()
+    """
+    EOF container's code section has truncated instruction.
+    """
 
 
 """
