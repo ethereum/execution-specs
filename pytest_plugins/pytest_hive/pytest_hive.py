@@ -107,11 +107,17 @@ def hive_test(request, test_suite: HiveTestSuite):
     """
     Propagate the pytest test case and its result to the hive server.
     """
-    test_parameter_string = request.node.nodeid.split("[")[-1].rstrip("]")  # test fixture name
+    try:
+        fixture_description = request.getfixturevalue("fixture_description")
+    except pytest.FixtureLookupError:
+        pytest.exit(
+            "Error: The 'fixture_description' fixture has not been defined by the simulator "
+            "or pytest plugin using this plugin!"
+        )
+    test_parameter_string = request.node.nodeid  # consume pytest test id
     test: HiveTest = test_suite.start_test(
-        # TODO: pass test case documentation when available
         name=test_parameter_string,
-        description="TODO: This should come from the '_info' field.",
+        description=fixture_description,
     )
     yield test
     try:

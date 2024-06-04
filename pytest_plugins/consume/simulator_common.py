@@ -36,3 +36,18 @@ def fixture(fixture_source: JsonSource, test_case: TestCase) -> Fixture:
         fixtures = BlockchainFixtures.from_file(Path(fixture_source) / test_case.json_path)
         fixture = fixtures[test_case.id]
     return fixture
+
+
+@pytest.fixture(scope="function")
+def fixture_description(fixture: Fixture, test_case: TestCase) -> str:
+    """
+    Return the description of the current test case.
+    """
+    description = f"Test id: {test_case.id}"
+    if "url" in fixture.info:
+        description += f"\n\nTest source: {fixture.info['url']}"
+    if "description" not in fixture.info:
+        description += "\n\nNo description field provided in the fixture's 'info' section."
+    else:
+        description += f"\n\n{fixture.info['description']}"
+    return description
