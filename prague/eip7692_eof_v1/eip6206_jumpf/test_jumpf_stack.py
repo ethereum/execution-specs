@@ -5,7 +5,6 @@ import pytest
 
 from ethereum_test_tools import Account, EOFException, EOFStateTestFiller
 from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
@@ -41,11 +40,9 @@ def test_jumpf_stack_non_returning_rules(
         sections=[
             Section.Code(
                 code=Op.JUMPF[1],
-                code_outputs=NON_RETURNING_SECTION,
             ),
             Section.Code(
                 code=Op.PUSH0 * stack_height + Op.JUMPF[2],
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=stack_height,
             ),
             Section.Code(
@@ -53,7 +50,6 @@ def test_jumpf_stack_non_returning_rules(
                 + Op.SSTORE(slot_code_worked, value_code_worked)
                 + Op.STOP,
                 code_inputs=target_inputs,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=max(2, target_inputs),
             ),
         ],
@@ -110,7 +106,6 @@ def test_jumpf_stack_returning_rules(
         sections=[
             Section.Code(
                 code=Op.CALLF[1] + Op.SSTORE(slot_code_worked, value_code_worked) + Op.STOP,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=2 + source_outputs,
             ),
             Section.Code(

@@ -15,7 +15,7 @@ from ethereum_test_tools import (
     Transaction,
 )
 from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import MAX_OPERAND_STACK_HEIGHT, NON_RETURNING_SECTION
+from ethereum_test_tools.eof.v1.constants import MAX_OPERAND_STACK_HEIGHT
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
@@ -42,8 +42,6 @@ def test_swapn_all_valid_immediates(
                 code=b"".join(Op.PUSH2(v) for v in values)
                 + b"".join(Op.SSTORE(x, Op.SWAPN[0xFF - x]) for x in range(0, n))
                 + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=n + 2,
             )
         ],
@@ -86,8 +84,6 @@ def test_swapn_on_max_stack(
                 code=b"".join(Op.PUSH2(v) for v in range(0, MAX_OPERAND_STACK_HEIGHT))
                 + Op.SWAPN[swapn_operand]
                 + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=MAX_OPERAND_STACK_HEIGHT,
             )
         ],
@@ -119,8 +115,6 @@ def test_swapn_stack_underflow(
                 code=b"".join(Op.PUSH2(v) for v in range(0, stack_height))
                 + Op.SWAPN[stack_height]
                 + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=MAX_OPERAND_STACK_HEIGHT,
             )
         ],

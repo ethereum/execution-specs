@@ -6,7 +6,6 @@ import pytest
 
 from ethereum_test_tools import Account, EOFException, EOFStateTestFiller, EOFTestFiller
 from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
@@ -32,7 +31,6 @@ def test_rjump_positive_negative(
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP
                     + Op.RJUMP[-10],
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 )
             ],
@@ -55,7 +53,6 @@ def test_rjump_positive_negative_with_data(
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP
                     + Op.RJUMP[-10],
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 ),
                 Section.Data(data=b"\xde\xad\xbe\xef"),
@@ -74,7 +71,6 @@ def test_rjump_zero(
             sections=[
                 Section.Code(
                     code=Op.RJUMP[0] + Op.SSTORE(slot_code_worked, value_code_worked) + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 )
             ],
@@ -98,7 +94,6 @@ def test_rjump_maxes(
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP
                     + Op.RJUMP[0x8000],
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 )
             ],
@@ -113,7 +108,7 @@ def test_rjump_truncated_rjump(
     """EOF1I4200_0001 (Invalid) EOF code containing truncated RJUMP"""
     eof_test(
         data=Container(
-            sections=[Section.Code(code=Op.RJUMP, code_outputs=NON_RETURNING_SECTION)],
+            sections=[Section.Code(code=Op.RJUMP)],
         ),
         expect_exception=EOFException.TRUNCATED_INSTRUCTION,
     )
@@ -125,7 +120,7 @@ def test_rjump_truncated_rjump_2(
     """EOF1I4200_0002 (Invalid) EOF code containing truncated RJUMP"""
     eof_test(
         data=Container(
-            sections=[Section.Code(code=Op.RJUMP + Op.STOP, code_outputs=NON_RETURNING_SECTION)],
+            sections=[Section.Code(code=Op.RJUMP + Op.STOP)],
         ),
         expect_exception=EOFException.TRUNCATED_INSTRUCTION,
     )
@@ -141,7 +136,7 @@ def test_rjump_into_header(
     eof_test(
         data=Container(
             sections=[
-                Section.Code(code=Op.RJUMP[-5], code_outputs=NON_RETURNING_SECTION),
+                Section.Code(code=Op.RJUMP[-5]),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -158,10 +153,7 @@ def test_rjump_before_header(
     eof_test(
         data=Container(
             sections=[
-                Section.Code(
-                    code=Op.RJUMP[-23],
-                    code_outputs=NON_RETURNING_SECTION,
-                ),
+                Section.Code(code=Op.RJUMP[-23]),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -178,10 +170,7 @@ def test_rjump_into_data(
     eof_test(
         data=Container(
             sections=[
-                Section.Code(
-                    code=Op.RJUMP[2],
-                    code_outputs=NON_RETURNING_SECTION,
-                ),
+                Section.Code(code=Op.RJUMP[2]),
                 Section.Data(data=b"\xaa\xbb\xcc"),
             ],
         ),
@@ -196,14 +185,8 @@ def test_rjump_outside_other_section_before(
     eof_test(
         data=Container(
             sections=[
-                Section.Code(
-                    code=Op.JUMPF[1],
-                    code_outputs=NON_RETURNING_SECTION,
-                ),
-                Section.Code(
-                    code=Op.RJUMP[-6],
-                    code_outputs=NON_RETURNING_SECTION,
-                ),
+                Section.Code(code=Op.JUMPF[1]),
+                Section.Code(code=Op.RJUMP[-6]),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -217,18 +200,9 @@ def test_rjump_outside_other_section_after(
     eof_test(
         data=Container(
             sections=[
-                Section.Code(
-                    code=Op.JUMPF[1],
-                    code_outputs=NON_RETURNING_SECTION,
-                ),
-                Section.Code(
-                    code=Op.RJUMP[3] + Op.JUMPF[2],
-                    code_outputs=NON_RETURNING_SECTION,
-                ),
-                Section.Code(
-                    code=Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
-                ),
+                Section.Code(code=Op.JUMPF[1]),
+                Section.Code(code=Op.RJUMP[3] + Op.JUMPF[2]),
+                Section.Code(code=Op.STOP),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -245,10 +219,7 @@ def test_rjump_after_container(
     eof_test(
         data=Container(
             sections=[
-                Section.Code(
-                    code=Op.RJUMP[2],
-                    code_outputs=NON_RETURNING_SECTION,
-                ),
+                Section.Code(code=Op.RJUMP[2]),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -265,10 +236,7 @@ def test_rjump_to_code_end(
     eof_test(
         data=Container(
             sections=[
-                Section.Code(
-                    code=Op.RJUMP[1] + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
-                ),
+                Section.Code(code=Op.RJUMP[1] + Op.STOP),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -282,10 +250,7 @@ def test_rjump_into_self(
     eof_test(
         data=Container(
             sections=[
-                Section.Code(
-                    code=Op.RJUMP[-1],
-                    code_outputs=NON_RETURNING_SECTION,
-                ),
+                Section.Code(code=Op.RJUMP[-1]),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -299,10 +264,7 @@ def test_rjump_into_rjump(
     eof_test(
         data=Container(
             sections=[
-                Section.Code(
-                    code=Op.RJUMP[1] + Op.RJUMP[0],
-                    code_outputs=NON_RETURNING_SECTION,
-                ),
+                Section.Code(code=Op.RJUMP[1] + Op.RJUMP[0]),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -318,7 +280,6 @@ def test_rjump_into_rjumpi(
             sections=[
                 Section.Code(
                     code=Op.RJUMP[5] + Op.STOP + Op.PUSH1(1) + Op.RJUMPI[-6] + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -336,11 +297,7 @@ def test_rjump_into_push_1(eof_test: EOFTestFiller, jump: JumpDirection):
     eof_test(
         data=Container(
             sections=[
-                Section.Code(
-                    code=code,
-                    code_outputs=NON_RETURNING_SECTION,
-                    max_stack_height=1,
-                ),
+                Section.Code(code=code, max_stack_height=1),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -406,11 +363,7 @@ def test_rjump_into_push_n(
     eof_test(
         data=Container(
             sections=[
-                Section.Code(
-                    code=code,
-                    code_outputs=NON_RETURNING_SECTION,
-                    max_stack_height=1,
-                ),
+                Section.Code(code=code, max_stack_height=1),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -440,7 +393,6 @@ def test_rjump_into_rjumpv(
                     + Op.PUSH1(1)
                     + Op.RJUMPV[target_jump_table]
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -465,7 +417,6 @@ def test_rjump_into_callf(
             sections=[
                 Section.Code(
                     code=Op.RJUMP[invalid_destination] + Op.CALLF[1] + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                 ),
                 Section.Code(
                     code=Op.SSTORE(1, 1) + Op.RETF,
@@ -492,7 +443,6 @@ def test_rjump_into_dupn(
                     + Op.DUPN[1]
                     + Op.SSTORE
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 ),
             ],
@@ -515,7 +465,6 @@ def test_rjump_into_swapn(
                     + Op.SWAPN[1]
                     + Op.SSTORE
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 ),
             ],
@@ -539,7 +488,6 @@ def test_rjump_into_exchange(
                     + Op.EXCHANGE[0x00]
                     + Op.SSTORE
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=3,
                 ),
             ],
@@ -557,7 +505,6 @@ def test_rjump_into_eofcreate(
             sections=[
                 Section.Code(
                     code=Op.RJUMP[1] + Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=4,
                 ),
                 Section.Container(
@@ -565,16 +512,12 @@ def test_rjump_into_eofcreate(
                         sections=[
                             Section.Code(
                                 code=Op.RETURNCONTRACT[0](0, 0),
-                                code_outputs=NON_RETURNING_SECTION,
                                 max_stack_height=2,
                             ),
                             Section.Container(
                                 container=Container(
                                     sections=[
-                                        Section.Code(
-                                            code=Op.STOP,
-                                            code_outputs=NON_RETURNING_SECTION,
-                                        )
+                                        Section.Code(code=Op.STOP),
                                     ]
                                 )
                             ),
@@ -596,7 +539,6 @@ def test_rjump_into_returncontract(
             sections=[
                 Section.Code(
                     code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=4,
                 ),
                 Section.Container(
@@ -604,16 +546,12 @@ def test_rjump_into_returncontract(
                         sections=[
                             Section.Code(
                                 code=Op.RJUMP[5] + Op.RETURNCONTRACT[0](0, 0),
-                                code_outputs=NON_RETURNING_SECTION,
                                 max_stack_height=2,
                             ),
                             Section.Container(
                                 container=Container(
                                     sections=[
-                                        Section.Code(
-                                            code=Op.STOP,
-                                            code_outputs=NON_RETURNING_SECTION,
-                                        )
+                                        Section.Code(code=Op.STOP),
                                     ]
                                 )
                             ),

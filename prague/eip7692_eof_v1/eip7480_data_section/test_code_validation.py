@@ -8,7 +8,6 @@ import pytest
 
 from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
@@ -24,8 +23,6 @@ VALID: List[Container] = [
         sections=[
             Section.Code(
                 code=Op.ADDRESS + Op.POP + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=1,
             ),
             Section.Data(data=""),
@@ -36,8 +33,6 @@ VALID: List[Container] = [
         sections=[
             Section.Code(
                 code=Op.ADDRESS + Op.POP + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=1,
             ),
             Section.Data(data="1122334455667788" * 4),
@@ -48,8 +43,6 @@ VALID: List[Container] = [
         sections=[
             Section.Code(
                 code=Op.ADDRESS + Op.POP + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=1,
             ),
             Section.Data(data="1122334455667788" * 3 * 1024),
@@ -60,8 +53,6 @@ VALID: List[Container] = [
         sections=[
             Section.Code(
                 code=Op.ADDRESS + Op.POP + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=1,
             ),
             Section.Data(data=("1122334455667788" * 8 * 1024)[2:]),
@@ -72,8 +63,6 @@ VALID: List[Container] = [
         sections=[
             Section.Code(
                 code=Op.DATALOADN[0] + Op.POP + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=1,
             ),
             Section.Data(data="1122334455667788" * 16),
@@ -84,8 +73,6 @@ VALID: List[Container] = [
         sections=[
             Section.Code(
                 code=Op.DATALOADN[16] + Op.POP + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=1,
             ),
             Section.Data(data="1122334455667788" * 16),
@@ -96,8 +83,6 @@ VALID: List[Container] = [
         sections=[
             Section.Code(
                 code=Op.DATALOADN[128 - 32] + Op.POP + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=1,
             ),
             Section.Data(data="1122334455667788" * 16),
@@ -108,8 +93,6 @@ VALID: List[Container] = [
         sections=[
             Section.Code(
                 code=Op.DATALOADN[0xFFFF - 32] + Op.POP + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=1,
             ),
             Section.Data(data=("1122334455667788" * 8 * 1024)[2:]),
@@ -123,8 +106,6 @@ INVALID: List[Container] = [
         sections=[
             Section.Code(
                 code=Op.DATALOADN[0xFFFF - 32] + Op.POP + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=1,
             ),
         ],
@@ -135,8 +116,6 @@ INVALID: List[Container] = [
         sections=[
             Section.Code(
                 code=Op.DATALOADN[0xFFFF - 32] + Op.POP + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=1,
             ),
             Section.Data(data="1122334455667788" * 16),
@@ -148,8 +127,6 @@ INVALID: List[Container] = [
         sections=[
             Section.Code(
                 code=Op.DATALOADN[0xFFFF - 32] + Op.POP + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=1,
             ),
             Section.Data(data=("1122334455667788" * 4 * 1024)[2:]),

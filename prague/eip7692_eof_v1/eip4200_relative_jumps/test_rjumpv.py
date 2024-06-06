@@ -6,7 +6,6 @@ import pytest
 
 from ethereum_test_tools import Account, EOFException, EOFStateTestFiller, EOFTestFiller
 from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
@@ -63,7 +62,6 @@ def test_rjumpv_condition(
                     + Op.RJUMPV[jump_table]
                     + fall_through_case
                     + jump_targets,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 )
             ]
@@ -94,7 +92,6 @@ def test_rjumpv_forwards(
                     + Op.STOP
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 )
             ],
@@ -118,7 +115,6 @@ def test_rjumpv_backwards(
                     + Op.PUSH1(0)
                     + Op.RJUMPV[-13]
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 )
             ],
@@ -139,7 +135,6 @@ def test_rjumpv_zero(
                     + Op.RJUMPV[0]
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 )
             ],
@@ -163,7 +158,6 @@ def test_rjumpv_size_3(
                     + Op.STOP
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 )
             ],
@@ -185,7 +179,6 @@ def test_rjumpv_full_table(
                     + Op.NOOP * 256
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 )
             ],
@@ -207,7 +200,6 @@ def test_rjumpv_full_table_mid(
                     + Op.NOOP * 256
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 )
             ],
@@ -229,7 +221,6 @@ def test_rjumpv_full_table_end(
                     + Op.NOOP * 256
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 )
             ],
@@ -251,7 +242,6 @@ def test_rjumpv_full_table_last(
                     + Op.NOOP * 256
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 )
             ],
@@ -273,7 +263,6 @@ def test_rjumpv_max_forwards(
                     + Op.NOOP * 32768
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 )
             ],
@@ -291,7 +280,6 @@ def test_rjumpv_truncated(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPV + b"\0",
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -309,7 +297,6 @@ def test_rjumpv_truncated_1(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPV,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -328,7 +315,6 @@ def test_rjumpv_truncated_2(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPV + b"\0\0",
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -346,7 +332,6 @@ def test_rjumpv_truncated_3(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPV + b"\0\0",
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -364,7 +349,6 @@ def test_rjumpv_truncated_4(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPV + b"\2\0\0\0\0",
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -398,7 +382,6 @@ def test_rjumpv_into_header(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPV[jump_table] + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -432,7 +415,6 @@ def test_rjumpv_before_container(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPV[jump_table] + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -466,7 +448,6 @@ def test_rjumpv_into_data(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPV[jump_table] + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 ),
                 Section.Data(data=b"\xaa\xbb\xcc"),
@@ -501,7 +482,6 @@ def test_rjumpv_after_container(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPV[jump_table] + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -535,7 +515,6 @@ def test_rjumpv_at_end(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPV[jump_table] + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -572,7 +551,6 @@ def test_rjumpv_into_self(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPV[jump_table] + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -614,7 +592,6 @@ def test_rjumpv_into_rjump(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPV[jump_table] + Op.STOP + Op.RJUMP[0] + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -661,7 +638,6 @@ def test_rjumpv_into_rjumpi(
                     + Op.PUSH1(1)
                     + Op.RJUMPI[0]
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -709,7 +685,6 @@ def test_rjumpv_into_push_1(
             sections=[
                 Section.Code(
                     code=code,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -803,11 +778,7 @@ def test_rjumpv_into_push_n(
     eof_test(
         data=Container(
             sections=[
-                Section.Code(
-                    code=code,
-                    code_outputs=NON_RETURNING_SECTION,
-                    max_stack_height=1,
-                )
+                Section.Code(code=code, max_stack_height=1),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -850,7 +821,6 @@ def test_rjumpv_into_rjumpv(
                     + Op.PUSH1(1)
                     + Op.RJUMPV[target_jump_table]
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 )
             ],
@@ -887,7 +857,6 @@ def test_rjumpv_into_callf(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(0) + Op.RJUMPV[jump_table] + Op.CALLF[1] + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=1,
                 ),
                 Section.Code(
@@ -929,7 +898,6 @@ def test_rjumpv_into_dupn(
                     + Op.DUPN[1]
                     + Op.SSTORE
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=3,
                 ),
             ],
@@ -966,7 +934,6 @@ def test_rjumpv_into_swapn(
                     + Op.SWAPN[1]
                     + Op.SSTORE
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=3,
                 ),
             ],
@@ -1004,7 +971,6 @@ def test_rjump_into_exchange(
                     + Op.EXCHANGE[0x00]
                     + Op.SSTORE
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=4,
                 ),
             ],
@@ -1038,7 +1004,6 @@ def test_rjumpv_into_eofcreate(
                     + Op.RJUMPV[jump_table]
                     + Op.EOFCREATE[0](0, 0, 0, 0)
                     + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=4,
                 ),
                 Section.Container(
@@ -1046,16 +1011,12 @@ def test_rjumpv_into_eofcreate(
                         sections=[
                             Section.Code(
                                 code=Op.RETURNCONTRACT[0](0, 0),
-                                code_outputs=NON_RETURNING_SECTION,
                                 max_stack_height=2,
                             ),
                             Section.Container(
                                 container=Container(
                                     sections=[
-                                        Section.Code(
-                                            code=Op.STOP,
-                                            code_outputs=NON_RETURNING_SECTION,
-                                        )
+                                        Section.Code(code=Op.STOP),
                                     ]
                                 )
                             ),
@@ -1090,7 +1051,6 @@ def test_rjumpv_into_returncontract(
             sections=[
                 Section.Code(
                     code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=4,
                 ),
                 Section.Container(
@@ -1100,16 +1060,12 @@ def test_rjumpv_into_returncontract(
                                 code=Op.PUSH1(0)
                                 + Op.RJUMPV[jump_table]
                                 + Op.RETURNCONTRACT[0](0, 0),
-                                code_outputs=NON_RETURNING_SECTION,
                                 max_stack_height=2,
                             ),
                             Section.Container(
                                 container=Container(
                                     sections=[
-                                        Section.Code(
-                                            code=Op.STOP,
-                                            code_outputs=NON_RETURNING_SECTION,
-                                        )
+                                        Section.Code(code=Op.STOP),
                                     ]
                                 )
                             ),

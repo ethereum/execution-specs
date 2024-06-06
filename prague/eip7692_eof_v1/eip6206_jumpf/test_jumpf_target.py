@@ -90,7 +90,6 @@ def test_jumpf_target_rules(
             Section.Code(
                 code=base_code,
                 code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=base_height,
             ),
             source_section,

@@ -13,7 +13,6 @@ from ethereum_test_tools.eof.v1 import (
     EOFException,
     Section,
 )
-from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 
 from .. import EOF_FORK_NAME
 
@@ -36,8 +35,6 @@ def test_eof_example(eof_test: EOFTestFiller):
             Section.Code(
                 code=Op.CALLF[1](Op.PUSH0) + Op.STOP,  # bytecode to be deployed in the body
                 # Code: call section 1 with a single zero as input, then stop.
-                code_inputs=0,  # define code header (in body) input bytes
-                code_outputs=NON_RETURNING_SECTION,  # define code header (in body) output bytes
                 max_stack_height=1,  # define code header (in body) stack size
             ),
             # There can be multiple code sections
@@ -51,7 +48,6 @@ def test_eof_example(eof_test: EOFTestFiller):
             Section.Code(
                 # Call section 3 with two inputs (address twice), return
                 code=Op.CALLF[3](Op.DUP1, Op.ADDRESS) + Op.POP + Op.POP + Op.RETF,
-                code_inputs=0,
                 code_outputs=1,
                 max_stack_height=3,
             ),
@@ -102,8 +98,6 @@ def test_eof_example_custom_fields(eof_test: EOFTestFiller):
             Section.Code(
                 code=Op.PUSH1(2)
                 + Op.STOP,  # this is the actual bytecode to be deployed in the body
-                code_inputs=0,  # define code header (in body) input bytes
-                code_outputs=NON_RETURNING_SECTION,  # define code header (in body) output bytes
                 max_stack_height=1,  # define code header (in body) stack size
             ),
             # DATA section
@@ -155,8 +149,6 @@ def test_eof_example_parameters(
         sections=[
             Section.Code(
                 code=code_section_code,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=1,
             ),
             Section.Data(data_section_bytes),

@@ -12,11 +12,7 @@ from ethereum_test_tools import (
     compute_eofcreate_address,
 )
 from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import (
-    MAX_BYTECODE_SIZE,
-    MAX_INITCODE_SIZE,
-    NON_RETURNING_SECTION,
-)
+from ethereum_test_tools.eof.v1.constants import MAX_BYTECODE_SIZE, MAX_INITCODE_SIZE
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
@@ -60,8 +56,6 @@ def test_initcode_revert(state_test: StateTestFiller, revert: bytes):
         sections=[
             Section.Code(
                 code=Op.MSTORE(0, Op.PUSH32(revert)) + Op.REVERT(32 - revert_size, revert_size),
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=2,
             ),
         ],
@@ -77,8 +71,6 @@ def test_initcode_revert(state_test: StateTestFiller, revert: bytes):
                 + Op.SSTORE(slot_returndata, Op.MLOAD(0))
                 + Op.SSTORE(slot_code_worked, value_code_worked)
                 + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=4,
             ),
             Section.Container(container=initcode_subcontainer),
@@ -120,8 +112,6 @@ def test_initcode_aborts(
                         code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
                         + Op.SSTORE(slot_code_worked, value_code_worked)
                         + Op.STOP,
-                        code_inputs=0,
-                        code_outputs=NON_RETURNING_SECTION,
                         max_stack_height=4,
                     ),
                     Section.Container(
@@ -129,8 +119,6 @@ def test_initcode_aborts(
                             sections=[
                                 Section.Code(
                                     code=Op.INVALID,
-                                    code_inputs=0,
-                                    code_outputs=NON_RETURNING_SECTION,
                                     max_stack_height=0,
                                 )
                             ]
@@ -193,8 +181,6 @@ def test_eofcreate_deploy_sizes(
             Section.Code(
                 code=Op.JUMPDEST * (target_deploy_size - len(smallest_runtime_subcontainer))
                 + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=0,
             ),
         ]
@@ -205,8 +191,6 @@ def test_eofcreate_deploy_sizes(
         sections=[
             Section.Code(
                 code=Op.RETURNCONTRACT[0](0, 0),
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=2,
             ),
             Section.Container(container=runtime_container),
@@ -229,8 +213,6 @@ def test_eofcreate_deploy_sizes(
                         code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
                         + Op.SSTORE(slot_code_worked, value_code_worked)
                         + Op.STOP,
-                        code_inputs=0,
-                        code_outputs=NON_RETURNING_SECTION,
                         max_stack_height=4,
                     ),
                     Section.Container(container=initcode_subcontainer),
@@ -304,8 +286,6 @@ def test_auxdata_size_failures(state_test: StateTestFiller, auxdata_size: int):
             Section.Code(
                 code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
                 + Op.RETURNCONTRACT[0](0, Op.CALLDATASIZE),
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=3,
             ),
             Section.Container(container=smallest_runtime_subcontainer),
@@ -322,8 +302,6 @@ def test_auxdata_size_failures(state_test: StateTestFiller, auxdata_size: int):
                         + Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, Op.CALLDATASIZE))
                         + Op.SSTORE(slot_code_worked, value_code_worked)
                         + Op.STOP,
-                        code_inputs=0,
-                        code_outputs=NON_RETURNING_SECTION,
                         max_stack_height=4,
                     ),
                     Section.Container(container=initcode_subcontainer),
@@ -374,8 +352,6 @@ def test_eofcreate_insufficient_stipend(
                 code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](value, 0, 0, 0))
                 + Op.SSTORE(slot_code_worked, value_code_worked)
                 + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=4,
             ),
             Section.Container(container=smallest_initcode_subcontainer),
@@ -414,8 +390,6 @@ def test_insufficient_initcode_gas(
         sections=[
             Section.Code(
                 code=Op.RETURNCONTRACT[0](0, 0),
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=2,
             ),
             Section.Container(container=smallest_runtime_subcontainer),
@@ -432,8 +406,6 @@ def test_insufficient_initcode_gas(
                         code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
                         + Op.SSTORE(slot_code_should_fail, value_code_worked)
                         + Op.STOP,
-                        code_inputs=0,
-                        code_outputs=NON_RETURNING_SECTION,
                         max_stack_height=4,
                     ),
                     Section.Container(container=initcode_container),
@@ -477,8 +449,6 @@ def test_insufficient_gas_memory_expansion(
                 code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, auxdata_size))
                 + Op.SSTORE(slot_code_should_fail, slot_code_worked)
                 + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=4,
             ),
             Section.Container(container=smallest_initcode_subcontainer),
@@ -533,8 +503,6 @@ def test_insufficient_returncontract_auxdata_gas(
         sections=[
             Section.Code(
                 code=Op.RETURNCONTRACT[0](0, auxdata_size),
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=2,
             ),
             Section.Container(container=smallest_runtime_subcontainer),
@@ -550,8 +518,6 @@ def test_insufficient_returncontract_auxdata_gas(
                         code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
                         + Op.SSTORE(slot_code_should_fail, value_code_worked)
                         + Op.STOP,
-                        code_inputs=0,
-                        code_outputs=NON_RETURNING_SECTION,
                         max_stack_height=4,
                     ),
                     Section.Container(container=initcode_container),

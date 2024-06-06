@@ -15,7 +15,6 @@ from ethereum_test_tools import (
     Transaction,
 )
 from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
@@ -44,8 +43,6 @@ def test_exchange_all_valid_immediates(
                 + b"".join(Op.EXCHANGE(x) for x in range(0, n))
                 + b"".join((Op.PUSH1(x) + Op.SSTORE) for x in range(0, s))
                 + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=s + 1,
             )
         ],
@@ -105,8 +102,6 @@ def test_exchange_all_invalid_immediates(
                 + Op.EXCHANGE[x, y]
                 + Op.POP * stack_height
                 + Op.STOP,
-                code_inputs=0,
-                code_outputs=NON_RETURNING_SECTION,
                 max_stack_height=stack_height,
             )
         ],

@@ -13,7 +13,7 @@ from ethereum_test_tools import (
     Transaction,
 )
 from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import MAX_CODE_SECTIONS, NON_RETURNING_SECTION
+from ethereum_test_tools.eof.v1.constants import MAX_CODE_SECTIONS
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
@@ -28,8 +28,6 @@ contract_call_within_deep_nested_callf = Container(
     sections=[
         Section.Code(
             code=(Op.CALLF[1] + Op.SSTORE(0, 1) + Op.STOP),
-            code_inputs=0,
-            code_outputs=NON_RETURNING_SECTION,
             max_stack_height=2,
         )
     ]
@@ -64,8 +62,6 @@ recursive_contract_call_within_deep_nested_callf = Container(
         # to their call stack height key
         Section.Code(
             code=(Op.CALLF[i + 1] + Op.PUSH1(1) + Op.PUSH2(i) + Op.SSTORE + Op.STOP),
-            code_inputs=0,
-            code_outputs=NON_RETURNING_SECTION,
             max_stack_height=2,
         )
         for i in range(MAX_CODE_SECTIONS - 1)
@@ -106,8 +102,6 @@ def create_data_test(offset: int, datasize: int):
                         + Op.SSTORE(0, 1)
                         + Op.STOP
                     ),
-                    code_inputs=0,
-                    code_outputs=NON_RETURNING_SECTION,
                     max_stack_height=2,
                 ),
                 Section.Code(

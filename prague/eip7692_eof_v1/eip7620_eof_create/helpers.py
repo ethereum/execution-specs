@@ -7,7 +7,6 @@ from ethereum_test_tools import Address
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import Transaction
 from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 
 """Storage addresses for common testing fields"""
 _slot = itertools.count()
@@ -31,9 +30,7 @@ value_call_result_success = 0
 smallest_runtime_subcontainer = Container(
     name="Runtime Subcontainer",
     sections=[
-        Section.Code(
-            code=Op.STOP, code_inputs=0, code_outputs=NON_RETURNING_SECTION, max_stack_height=0
-        )
+        Section.Code(code=Op.STOP),
     ],
 )
 
@@ -42,8 +39,6 @@ smallest_initcode_subcontainer = Container(
     sections=[
         Section.Code(
             code=Op.RETURNCONTRACT[0](0, 0),
-            code_inputs=0,
-            code_outputs=NON_RETURNING_SECTION,
             max_stack_height=2,
         ),
         Section.Container(container=smallest_runtime_subcontainer),
