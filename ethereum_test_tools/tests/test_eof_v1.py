@@ -25,7 +25,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Code("0x00"),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 04 0000 00 00000000 00",
+        "ef0001 01 0004 02 0001 0001 04 0000 00 00800000 00",
     ),
     (
         "Single code section, single container section",
@@ -35,7 +35,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Container("0x0B"),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 03 0001 0001 04 0000 00 00000000 0A 0B",
+        "ef0001 01 0004 02 0001 0001 03 0001 0001 04 0000 00 00800000 0A 0B",
     ),
     (
         "Single code section, single container section, single data",
@@ -46,7 +46,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Data("0x0C"),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 03 0001 0001 04 0001 00" "00000000 0A 0B 0C",
+        "ef0001 01 0004 02 0001 0001 03 0001 0001 04 0001 00 00800000 0A 0B 0C",
     ),
     (
         "Single code section, single container section, single data 2",
@@ -57,7 +57,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Container("0x0B"),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 03 0001 0001 04 0001 00" "00000000 0A 0B 0C",
+        "ef0001 01 0004 02 0001 0001 03 0001 0001 04 0001 00 00800000 0A 0B 0C",
     ),
     (
         "Single code section, multiple container section, single data",
@@ -69,7 +69,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Container("0x0D"),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 03 0002 0001 0001 04 0001 00" "00000000 0A 0B 0D 0C",
+        "ef0001 01 0004 02 0001 0001 03 0002 0001 0001 04 0001 00 00800000 0A 0B 0D 0C",
     ),
     (
         "Single code section, multiple container sections",
@@ -80,7 +80,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Container("0x00"),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 03 0002 0002 0001 04 0000 00 00000000 00" "0001 00",
+        "ef0001 01 0004 02 0001 0001 03 0002 0002 0001 04 0000 00 00800000 00 0001 00",
     ),
     (
         "No code section",
@@ -121,7 +121,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Data("0x0f"),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 04 0001 00 00000000 0e 0f",
+        "ef0001 01 0004 02 0001 0001 04 0001 00 00800000 0e 0f",
     ),
     (
         "Multiple type sections",
@@ -139,7 +139,7 @@ test_cases: List[Tuple[str, Container, str]] = [
             ],
             auto_type_section=AutoSection.NONE,
         ),
-        "ef0001 01 0004 01 0004 02 0001 0001 04 0000 00" "00000000 00000000 00",
+        "ef0001 01 0004 01 0004 02 0001 0001 04 0000 00 00000000 00000000 00",
     ),
     (
         "Invalid Magic",
@@ -149,7 +149,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Code("0x00"),
             ],
         ),
-        "effe01 01 0004 02 0001 0001 04 0000 00 00000000 00",
+        "effe01 01 0004 02 0001 0001 04 0000 00 00800000 00",
     ),
     (
         "Invalid Version",
@@ -159,7 +159,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 Section.Code("0x00"),
             ],
         ),
-        "ef0002 01 0004 02 0001 0001 04 0000 00 00000000 00",
+        "ef0002 01 0004 02 0001 0001 04 0000 00 00800000 00",
     ),
     (
         "Section Invalid size Version",
@@ -171,7 +171,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 ),
             ],
         ),
-        "ef0001 01 0004 02 0001 ffff 04 0000 00 00000000 00",
+        "ef0001 01 0004 02 0001 ffff 04 0000 00 00800000 00",
     ),
     (
         "Nested EOF",
@@ -186,8 +186,8 @@ test_cases: List[Tuple[str, Container, str]] = [
                 ),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 03 0001 0014 04 0000 00 00000000 00"
-        "ef0001 01 0004 02 0001 0001 04 0000 00 00000000 01",
+        "ef0001 01 0004 02 0001 0001 03 0001 0014 04 0000 00 00800000 00"
+        "ef0001 01 0004 02 0001 0001 04 0000 00 00800000 01",
     ),
     (
         "Nested EOF in Data",
@@ -201,8 +201,8 @@ test_cases: List[Tuple[str, Container, str]] = [
                 ),
             ],
         ),
-        "ef0001 01 0004 02 0001 0001 04 0014 00 00000000 00"
-        "ef0001 01 0004 02 0001 0001 04 0000 00 00000000 01",
+        "ef0001 01 0004 02 0001 0001 04 0014 00 00800000 00"
+        "ef0001 01 0004 02 0001 0001 04 0000 00 00800000 01",
     ),
     (
         "Incomplete code section",
@@ -214,7 +214,7 @@ test_cases: List[Tuple[str, Container, str]] = [
                 ),
             ],
         ),
-        "ef0001 01 0004 02 0001 0002 04 0000 00 00000000",
+        "ef0001 01 0004 02 0001 0002 04 0000 00 00800000",
     ),
     (
         "Trailing bytes after code section",
@@ -224,7 +224,7 @@ test_cases: List[Tuple[str, Container, str]] = [
             ],
             extra=bytes.fromhex("deadbeef"),
         ),
-        "ef0001 01 0004 02 0001 0003 04 0000 00 00000000 600000 deadbeef",
+        "ef0001 01 0004 02 0001 0003 04 0000 00 00800000 600000 deadbeef",
     ),
     (
         "Multiple code sections",
@@ -236,7 +236,7 @@ test_cases: List[Tuple[str, Container, str]] = [
         ),
         """
             ef0001 01 0008 02 0002 0003 0003 04 0000 00
-            00000000 00000000
+            00800000 00800000
             600000
             600000
             """,
@@ -249,7 +249,7 @@ test_cases: List[Tuple[str, Container, str]] = [
             ],
             header_terminator=bytes(),
         ),
-        "ef0001 01 0004 02 0001 0003 04 0000 00000000 600000",
+        "ef0001 01 0004 02 0001 0003 04 0000 00800000 600000",
     ),
     (
         "No auto type section",
@@ -274,7 +274,7 @@ test_cases: List[Tuple[str, Container, str]] = [
         ),
         """
             ef0001 01 0008 02 0001 0001 04 0001 00
-            00000000 00000000
+            00800000 00800000
             00 00
             """,
     ),
@@ -290,7 +290,7 @@ test_cases: List[Tuple[str, Container, str]] = [
         ),
         """
             ef0001 01 0004 02 0001 0001 04 0000 00
-            01000000
+            01800000
             00
             """,
     ),
@@ -306,7 +306,7 @@ test_cases: List[Tuple[str, Container, str]] = [
         ),
         """
             ef0001 01 0004 02 0001 0001 04 0000 00
-            ff000000
+            ff800000
             00
             """,
     ),
@@ -354,7 +354,7 @@ test_cases: List[Tuple[str, Container, str]] = [
         ),
         """
             ef0001 01 0004 02 0001 0001 04 0000 00
-            00000201
+            00800201
             00
             """,
     ),
@@ -370,7 +370,7 @@ test_cases: List[Tuple[str, Container, str]] = [
         ),
         """
             ef0001 01 0004 02 0001 0001 04 0000 00
-            0000FFFF
+            0080FFFF
             00
             """,
     ),
@@ -387,7 +387,7 @@ test_cases: List[Tuple[str, Container, str]] = [
         ),
         """
             ef0001 01 0008 02 0002 0001 0001 04 0000 00
-            0000FFFF 00000000
+            0080FFFF 00800000
             00
             00
             """,

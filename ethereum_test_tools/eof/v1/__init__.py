@@ -20,6 +20,7 @@ from .constants import (
     HEADER_SECTION_COUNT_BYTE_LENGTH,
     HEADER_SECTION_KIND_BYTE_LENGTH,
     HEADER_SECTION_SIZE_BYTE_LENGTH,
+    NON_RETURNING_SECTION,
     TYPES_INPUTS_BYTE_LENGTH,
     TYPES_OUTPUTS_BYTE_LENGTH,
     TYPES_STACK_BYTE_LENGTH,
@@ -102,7 +103,7 @@ class Section(CopyValidateModel):
     """
     Data stack items consumed by this code section (function)
     """
-    code_outputs: int = 0
+    code_outputs: int = NON_RETURNING_SECTION
     """
     Data stack items produced by or expected at the end of this code section
     (function)
