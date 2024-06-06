@@ -401,7 +401,10 @@ INVALID: List[Container] = [
         name="trailing_bytes_after_data_section",
         extra=bytes([0xEE]),
         sections=[
-            Section.Code(code=Op.PUSH1(0) + Op.STOP),
+            Section.Code(
+                code=Op.PUSH1(0) + Op.STOP,
+                code_outputs=NON_RETURNING_SECTION,
+            ),
             Section.Data(data="0xAABBCCDD"),
         ],
         # TODO should be more specific exception about trailing bytes

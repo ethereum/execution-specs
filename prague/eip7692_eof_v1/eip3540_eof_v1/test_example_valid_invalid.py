@@ -423,7 +423,7 @@ def test_example_valid_invalid(
             False,  # but it's code input bytes still listed in container's body
             False,  # but it's code input bytes size still added to types section size
             "ef000101000802000100030400040000800001000000003050003050000bad60A7",
-            EOFException.INVALID_SECTION_BODIES_SIZE,
+            EOFException.INVALID_TYPE_SECTION_SIZE,
         ),
         (
             False,  # second section is mentioned in code header array (0003)

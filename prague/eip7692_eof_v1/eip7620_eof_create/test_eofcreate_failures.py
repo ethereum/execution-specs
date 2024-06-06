@@ -167,8 +167,16 @@ factory_size = 30
         pytest.param(MAX_BYTECODE_SIZE, id="max"),
         pytest.param(MAX_BYTECODE_SIZE + 1, id="overmax"),
         pytest.param(MAX_INITCODE_SIZE - factory_size, id="initcodemax"),
-        pytest.param(MAX_INITCODE_SIZE - factory_size + 1, id="initcodeovermax"),
-        pytest.param(0xFFFF - factory_size, id="64k-1"),
+        pytest.param(
+            MAX_INITCODE_SIZE - factory_size + 1,
+            id="initcodeovermax",
+            marks=pytest.mark.skip("Oversized container in pre-alloc"),
+        ),
+        pytest.param(
+            0xFFFF - factory_size,
+            id="64k-1",
+            marks=pytest.mark.skip("Oversized container in pre-alloc"),
+        ),
     ],
 )
 def test_eofcreate_deploy_sizes(
@@ -247,6 +255,29 @@ def test_eofcreate_deploy_sizes(
     }
 
     state_test(env=env, pre=pre, post=post, tx=simple_transaction())
+
+
+@pytest.mark.parametrize(
+    "target_deploy_size",
+    [
+        pytest.param(0x4000, id="large"),
+        pytest.param(MAX_BYTECODE_SIZE, id="max"),
+        pytest.param(MAX_BYTECODE_SIZE + 1, id="overmax"),
+        pytest.param(MAX_INITCODE_SIZE - factory_size, id="initcodemax"),
+        pytest.param(MAX_INITCODE_SIZE - factory_size + 1, id="initcodeovermax"),
+        pytest.param(0xFFFF - factory_size, id="64k-1"),
+    ],
+)
+@pytest.mark.skip("Not implemented")
+def test_eofcreate_deploy_sizes_tx(
+    state_test: StateTestFiller,
+    target_deploy_size: int,
+):
+    """
+    Verifies a mix of runtime contract sizes mixing success and multiple size failure modes
+    where the initcontainer is included in a transaction
+    """
+    raise NotImplementedError("Not implemented")
 
 
 @pytest.mark.parametrize(
