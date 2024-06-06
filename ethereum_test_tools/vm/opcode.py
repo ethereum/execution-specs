@@ -5477,7 +5477,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#FA](https://www.evm.codes/#FA)
     """
 
-    EXTSTATICCALL = Opcode(0xFB, popped_stack_items=4, pushed_stack_items=1)
+    EXTSTATICCALL = Opcode(0xFB, popped_stack_items=3, pushed_stack_items=1)
     """
     EXTSTATICCALL(target_address, input_offset, input_size) = address
     ----
@@ -5511,28 +5511,26 @@ class Opcodes(Opcode, Enum):
     Source: [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)
     """
 
-    CREATE4 = Opcode(0xF7, popped_stack_items=5, pushed_stack_items=1)
+    RETURNDATALOAD = Opcode(0xF7, popped_stack_items=1)
     """
-    !!! Note: This opcode is under development
-
-    CREATE4()
+    RETURNDATALOAD(offset)
     ----
 
     Description
     ----
+    Copy 32 bytes from returndata at offset onto the stack
 
     Inputs
     ----
-
-    Outputs
-    ----
+    - offset: byte offset in the return data from the last executed sub context to copy
 
     Fork
     ----
+    EOF
 
     Gas
     ----
-
+    3
     """
 
     REVERT = Opcode(0xFD, popped_stack_items=2)
