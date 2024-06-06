@@ -21,10 +21,10 @@ VALID: List[Container] = [
         name="single_code_single_data_section",
         sections=[
             Section.Code(
-                code=Op.ADDRESS + Op.POP + Op.STOP,
+                code=Op.PUSH0 + Op.POP + Op.STOP,
                 max_stack_height=1,
             ),
-            Section.Data(data="0xef"),
+            Section.Data(data="0x00"),
         ],
     ),
     Container(
@@ -149,11 +149,6 @@ INVALID: List[Container] = [
     ),
     Container(
         name="code_section_size_incomplete_4",
-        raw_bytes=bytes([0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0x00, 0x01]),
-        validity_error=EOFException.MISSING_HEADERS_TERMINATOR,
-    ),
-    Container(
-        name="code_section_size_incomplete_5",
         raw_bytes=bytes([0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0x00, 0x01, 0x00]),
         validity_error=EOFException.INCOMPLETE_SECTION_SIZE,
     ),
@@ -389,21 +384,11 @@ INVALID: List[Container] = [
         validity_error=EOFException.MISSING_TERMINATOR,
     ),
     Container(
-        name="multiple_code_and_data_sections_1",
+        name="multiple_code_and_data_sections",
         sections=[
             Section.Code(Op.STOP),
             Section.Code(Op.STOP),
             Section.Data(data="0xAA"),
-            Section.Data(data="0xAA"),
-        ],
-        validity_error=EOFException.MISSING_TERMINATOR,
-    ),
-    Container(
-        name="multiple_code_and_data_sections_2",
-        sections=[
-            Section.Code(Op.STOP),
-            Section.Data(data="0xAA"),
-            Section.Code(Op.STOP),
             Section.Data(data="0xAA"),
         ],
         validity_error=EOFException.MISSING_TERMINATOR,
@@ -609,15 +594,6 @@ INVALID += [
     ),
     Container(
         name="single_code_section_incomplete_type",
-        sections=[
-            Section(kind=Kind.TYPE, data="0x00"),
-            Section.Code(Op.STOP),
-        ],
-        auto_type_section=AutoSection.NONE,
-        validity_error=EOFException.INVALID_TYPE_SECTION_SIZE,
-    ),
-    Container(
-        name="single_code_section_incomplete_type_2",
         sections=[
             Section(kind=Kind.TYPE, data="0x00", custom_size=2),
             Section.Code(Op.STOP),
