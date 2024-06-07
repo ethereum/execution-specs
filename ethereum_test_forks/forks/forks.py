@@ -157,6 +157,13 @@ class Frontier(BaseFork, solc_name="homestead"):
         return [0]
 
     @classmethod
+    def contract_creating_tx_types(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """
+        At Genesis, only legacy transactions are allowed
+        """
+        return [0]
+
+    @classmethod
     def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
         """
         At Genesis, no pre-compiles are allowed
@@ -274,6 +281,13 @@ class Berlin(Istanbul):
         """
         return [1] + super(Berlin, cls).tx_types(block_number, timestamp)
 
+    @classmethod
+    def contract_creating_tx_types(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """
+        At Berlin, access list transactions are introduced
+        """
+        return [1] + super(Berlin, cls).contract_creating_tx_types(block_number, timestamp)
+
 
 class London(Berlin):
     """
@@ -293,6 +307,13 @@ class London(Berlin):
         At London, dynamic fee transactions are introduced
         """
         return [2] + super(London, cls).tx_types(block_number, timestamp)
+
+    @classmethod
+    def contract_creating_tx_types(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """
+        At London, dynamic fee transactions are introduced
+        """
+        return [2] + super(London, cls).contract_creating_tx_types(block_number, timestamp)
 
 
 # Glacier forks skipped, unless explicitly specified

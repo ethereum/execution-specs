@@ -937,14 +937,16 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
             or self.max_fee_per_blob_gas is not None
         ):
             raise Transaction.InvalidFeePayment()
-
-        if (
-            self.gas_price is None
-            and self.max_fee_per_gas is None
-            and self.max_priority_fee_per_gas is None
-            and self.max_fee_per_blob_gas is None
-        ):
-            self.gas_price = 10
+        if "ty" not in self.model_fields_set:
+            # Try to deduce transaction type from included fields
+            if self.max_fee_per_blob_gas is not None or self.blob_kzg_commitments is not None:
+                self.ty = 3
+            elif self.max_fee_per_gas is not None or self.max_priority_fee_per_gas is not None:
+                self.ty = 2
+            elif self.access_list is not None:
+                self.ty = 1
+            else:
+                self.ty = 0
 
         if self.v is not None and self.secret_key is not None:
             raise Transaction.InvalidSignaturePrivateKey()
@@ -952,23 +954,19 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
         if self.v is None and self.secret_key is None:
             self.secret_key = Hash(TestPrivateKey)
 
-        if "ty" not in self.model_fields_set:
-            # Try to deduce transaction type from included fields
-            if self.max_fee_per_blob_gas is not None:
-                self.ty = 3
-            elif self.max_fee_per_gas is not None:
-                self.ty = 2
-            elif self.access_list is not None:
-                self.ty = 1
-            else:
-                self.ty = 0
-
         # Set default values for fields that are required for certain tx types
+        if self.ty <= 1 and self.gas_price is None:
+            self.gas_price = 10
         if self.ty >= 1 and self.access_list is None:
             self.access_list = []
 
+        if self.ty >= 2 and self.max_fee_per_gas is None:
+            self.max_fee_per_gas = 7
         if self.ty >= 2 and self.max_priority_fee_per_gas is None:
             self.max_priority_fee_per_gas = 0
+
+        if self.ty == 3 and self.max_fee_per_blob_gas is None:
+            self.max_fee_per_blob_gas = 1
 
     def with_error(
         self, error: List[TransactionException] | TransactionException

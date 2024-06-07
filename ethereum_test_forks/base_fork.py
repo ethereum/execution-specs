@@ -183,6 +183,14 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def contract_creating_tx_types(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+        """
+        Returns a list of the transaction types supported by the fork that can create contracts
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
         """
         Returns a list pre-compiles supported by the fork

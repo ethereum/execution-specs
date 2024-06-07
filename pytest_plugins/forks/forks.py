@@ -140,6 +140,13 @@ fork_covariant_descriptors = [
         parameter_name="tx_type",
     ),
     CovariantDescriptor(
+        marker_name="with_all_contract_creating_tx_types",
+        description="marks a test to be parametrized for all tx types that can create a contract"
+        " at parameter named tx_type of type int",
+        fork_attribute_name="contract_creating_tx_types",
+        parameter_name="tx_type",
+    ),
+    CovariantDescriptor(
         marker_name="with_all_precompiles",
         description="marks a test to be parametrized for all precompiles at parameter named"
         " precompile of type int",
