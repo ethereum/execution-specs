@@ -16,7 +16,7 @@ def current_python_script_directory(*args: str) -> str:
     return os.path.join(os.path.dirname(os.path.realpath(__file__)), *args)
 
 
-class TestVector(BaseModel):
+class Vector(BaseModel):
     """
     Test vector for the BLS12-381 precompiles.
     """
@@ -35,7 +35,7 @@ class TestVector(BaseModel):
         return pytest.param(self.input, self.expected, id=self.name)
 
 
-class FailTestVector(BaseModel):
+class FailVector(BaseModel):
     """
     Test vector for the BLS12-381 precompiles.
     """
@@ -53,15 +53,15 @@ class FailTestVector(BaseModel):
         return pytest.param(self.input, id=self.name)
 
 
-class TestVectorList(RootModel):
+class VectorList(RootModel):
     """
     List of test vectors for the BLS12-381 precompiles.
     """
 
-    root: List[TestVector | FailTestVector]
+    root: List[Vector | FailVector]
 
 
-TestVectorListAdapter = TypeAdapter(TestVectorList)
+VectorListAdapter = TypeAdapter(VectorList)
 
 
 def vectors_from_file(filename: str) -> List:
@@ -75,4 +75,4 @@ def vectors_from_file(filename: str) -> List:
         ),
         "rb",
     ) as f:
-        return [v.to_pytest_param() for v in TestVectorListAdapter.validate_json(f.read()).root]
+        return [v.to_pytest_param() for v in VectorListAdapter.validate_json(f.read()).root]
