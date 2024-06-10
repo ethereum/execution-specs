@@ -684,6 +684,10 @@ class EOFException(ExceptionBase):
     """
     EOF container's code section has truncated instruction.
     """
+    TOPLEVEL_CONTAINER_TRUNCATED = auto()
+    """
+    Top-level EOF container has data section truncated
+    """
 
 
 """
