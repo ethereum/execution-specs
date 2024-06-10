@@ -11,8 +11,6 @@ chain.
 from dataclasses import dataclass
 from typing import Tuple, Union
 
-from ethereum.exceptions import InvalidBlock
-
 from .. import rlp
 from ..base_types import (
     U64,
@@ -27,13 +25,20 @@ from ..base_types import (
 )
 from ..crypto.hash import Hash32
 from .fork_types import Address, Bloom, Root
-from .transactions import LegacyTransaction
+from .transactions import (
+    AccessListTransaction,
+    BlobTransaction,
+    FeeMarketTransaction,
+    LegacyTransaction,
+    Transaction,
+)
 from .utils.hexadecimal import hex_to_address
 
 DEPOSIT_CONTRACT_ADDRESS = hex_to_address(
     "0x00000000219ab540356cbb839cbe05303d7705fa"
 )
 DEPOSIT_REQUEST_TYPE = b"\x00"
+WITHDRAWAL_REQUEST_TYPE = b"\x01"
 
 
 @slotted_freezable
@@ -118,22 +123,29 @@ class Receipt:
     logs: Tuple[Log, ...]
 
 
-def validate_requests(requests: Tuple[Bytes, ...]) -> None:
+def encode_receipt(tx: Transaction, receipt: Receipt) -> Union[Bytes, Receipt]:
     """
-    Validate a list of requests.
+    Encodes a receipt.
     """
-    current_request_type = b"\x00"
-    for request in requests:
-        request_type = request[:1]
+    if isinstance(tx, AccessListTransaction):
+        return b"\x01" + rlp.encode(receipt)
+    elif isinstance(tx, FeeMarketTransaction):
+        return b"\x02" + rlp.encode(receipt)
+    elif isinstance(tx, BlobTransaction):
+        return b"\x03" + rlp.encode(receipt)
+    else:
+        return receipt
 
-        # Ensure that no undefined requests are present.
-        if request_type != DEPOSIT_REQUEST_TYPE:
-            raise InvalidBlock("BlockException.INVALID_REQUESTS")
 
-        # Ensure that requests are in order.
-        if request_type < current_request_type:
-            raise InvalidBlock("BlockException.INVALID_REQUESTS")
-        current_request_type = request_type
+def decode_receipt(receipt: Union[Bytes, Receipt]) -> Receipt:
+    """
+    Decodes a receipt.
+    """
+    if isinstance(receipt, Bytes):
+        assert receipt[0] in (b"\x01", b"\x02", b"\x03")
+        return rlp.decode_to(Receipt, receipt[1:])
+    else:
+        return receipt
 
 
 @slotted_freezable
@@ -150,7 +162,19 @@ class DepositRequest:
     index: U64
 
 
-Request = Union[DepositRequest]
+@slotted_freezable
+@dataclass
+class WithdrawalRequest:
+    """
+    Requests for execution layer withdrawals (See EIP-7002).
+    """
+
+    source_address: Address
+    validator_pubkey: Bytes48
+    amount: U64
+
+
+Request = Union[DepositRequest, WithdrawalRequest]
 
 
 def encode_request(req: Request) -> Bytes:
@@ -159,11 +183,13 @@ def encode_request(req: Request) -> Bytes:
     """
     if isinstance(req, DepositRequest):
         return DEPOSIT_REQUEST_TYPE + rlp.encode(req)
+    elif isinstance(req, WithdrawalRequest):
+        return WITHDRAWAL_REQUEST_TYPE + rlp.encode(req)
     else:
         raise Exception("Unknown request type")
 
 
-def parse_deposit_data(data: Bytes) -> Bytes:
+def parse_deposit_data(data: Bytes) -> DepositRequest:
     """
     Parses Deposit Request from the DepositContract.DepositEvent data.
     """
@@ -175,27 +201,53 @@ def parse_deposit_data(data: Bytes) -> Bytes:
         index=U64.from_le_bytes(data[544:552]),
     )
 
-    return encode_request(deposit_request)
+    return deposit_request
 
 
-def validate_deposit_requests(
-    receipts: Tuple[Receipt, ...], requests: Tuple[Bytes, ...]
-) -> None:
+def parse_deposit_requests_from_receipt(
+    receipt: Union[Bytes, Receipt],
+) -> Tuple[Bytes, ...]:
     """
-    Validate a list of deposit requests.
+    Parse deposit requests from a receipt.
     """
-    # Retrieve all deposit requests from receipts.
-    expected_deposit_requests = []
-    for receipt in receipts:
-        for log in receipt.logs:
-            if log.address == DEPOSIT_CONTRACT_ADDRESS:
-                deposit_request_rlp = parse_deposit_data(log.data)
-                expected_deposit_requests.append(deposit_request_rlp)
+    deposit_requests: Tuple[Bytes, ...] = ()
+    decoded_receipt = decode_receipt(receipt)
+    for log in decoded_receipt.logs:
+        if log.address == DEPOSIT_CONTRACT_ADDRESS:
+            deposit_request = parse_deposit_data(log.data)
+            deposit_requests += (encode_request(deposit_request),)
 
-    # Retrieve all deposit requests from block body
-    deposit_requests = [
-        req for req in requests if req[:1] == DEPOSIT_REQUEST_TYPE
-    ]
+    return deposit_requests
 
-    if deposit_requests != expected_deposit_requests:
-        raise InvalidBlock("BlockException.INVALID_REQUESTS")
+
+def parse_withdrawal_data(data: Bytes) -> WithdrawalRequest:
+    """
+    Parses Withdrawal Request from the data.
+    """
+    assert len(data) == 76
+    req = WithdrawalRequest(
+        source_address=Address(data[:20]),
+        validator_pubkey=Bytes48(data[20:68]),
+        amount=U64.from_be_bytes(data[68:76]),
+    )
+
+    return req
+
+
+def parse_withdrawal_requests_from_system_tx(
+    evm_call_output: Bytes,
+) -> Tuple[Bytes, ...]:
+    """
+    Parse withdrawal requests from the system transaction output.
+    """
+    count_withdrawal_requests = len(evm_call_output) // 76
+
+    withdrawal_requests: Tuple[Bytes, ...] = ()
+    for i in range(count_withdrawal_requests):
+        start = i * 76
+        withdrawal_request = parse_withdrawal_data(
+            evm_call_output[start : start + 76]
+        )
+        withdrawal_requests += (encode_request(withdrawal_request),)
+
+    return withdrawal_requests

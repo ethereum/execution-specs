@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Dict, Tuple
+from typing import Dict, Generator, Tuple
 
 import pytest
 
@@ -15,11 +15,11 @@ from tests.helpers.load_state_tests import (
     run_blockchain_st_test,
 )
 
-fetch_cancun_tests = partial(fetch_state_test_files, network="Prague")
+fetch_prague_tests = partial(fetch_state_test_files, network="Prague")
 
 FIXTURES_LOADER = Load("Prague", "prague")
 
-run_cancun_blockchain_st_tests = partial(
+run_prague_blockchain_st_tests = partial(
     run_blockchain_st_test, load=FIXTURES_LOADER
 )
 
@@ -38,8 +38,8 @@ SLOW_TESTS = (
     "stTimeConsuming/static_Call50000_sha256.json",
     "vmPerformance/loopExp.json",
     "vmPerformance/loopMul.json",
-    "QuadraticComplexitySolidity_CallDataCopy_d0g1v0_Cancun",
-    "CALLBlake2f_d9g0v0_Cancun",
+    "QuadraticComplexitySolidity_CallDataCopy_d0g1v0_Prague",
+    "CALLBlake2f_d9g0v0_Prague",
     "CALLCODEBlake2f_d9g0v0",
     # GeneralStateTests
     "stRandom/randomStatetest177.json",
@@ -62,7 +62,7 @@ IGNORE_TESTS = (
     # InvalidBlockTest
     "bcForgedTest",
     "bcMultiChainTest",
-    "GasLimitHigherThan2p63m1_Cancun",
+    "GasLimitHigherThan2p63m1_Prague",
     # TODO: The below tests are being ignored due to a bug in
     # upstream repo. They should be removed from the ignore list
     # once the bug is resolved
@@ -88,7 +88,7 @@ BIG_MEMORY_TESTS = (
 )
 
 fetch_state_tests = partial(
-    fetch_cancun_tests,
+    fetch_prague_tests,
     test_dir,
     ignore_list=IGNORE_TESTS,
     slow_list=SLOW_TESTS,
@@ -102,17 +102,37 @@ fetch_state_tests = partial(
     ids=idfn,
 )
 def test_general_state_tests(test_case: Dict) -> None:
-    run_cancun_blockchain_st_tests(test_case)
+    run_prague_blockchain_st_tests(test_case)
 
 
-# Run execution-spec-generated-tests
-test_dir = f"{ETHEREUM_SPEC_TESTS_PATH}/fixtures/withdrawals"
+# Run temporary test fixtures for Prague
+test_dirs = (
+    "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip7002_el_triggerable_withdrawals",
+    "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip6110_deposits/deposits",
+    "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_g1add",
+    "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_g1mul",
+    "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_g2add",
+    "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_g2mul",
+    "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_pairing",
+    "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_g1msm",
+    "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_g2msm",
+    "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_map_fp2_to_g2",
+)
+
+
+def fetch_temporary_tests(test_dirs: Tuple[str, ...]) -> Generator:
+    """
+    Fetch the relevant tests for a particular EIP-Implementation
+    from among the temporary fixtures from ethereum-spec-tests.
+    """
+    for test_dir in test_dirs:
+        yield from fetch_prague_tests(test_dir)
 
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_cancun_tests(test_dir),
+    fetch_temporary_tests(test_dirs),
     ids=idfn,
 )
 def test_execution_specs_generated_tests(test_case: Dict) -> None:
-    run_cancun_blockchain_st_tests(test_case)
+    run_prague_blockchain_st_tests(test_case)

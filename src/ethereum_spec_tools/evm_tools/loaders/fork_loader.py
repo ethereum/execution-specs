@@ -48,6 +48,11 @@ class ForkLoad:
         return return_value
 
     @property
+    def process_system_transaction(self) -> Any:
+        """process_system_transaction function of the given fork."""
+        return self._module("fork").process_system_transaction
+
+    @property
     def calculate_block_difficulty(self) -> Any:
         """calculate_block_difficulty function of the given fork."""
         return self._module("fork").calculate_block_difficulty
@@ -128,24 +133,14 @@ class ForkLoad:
         return self._module("blocks").Block
 
     @property
-    def validate_requests(self) -> Any:
-        """validate_requests function of the fork"""
-        return self._module("blocks").validate_requests
+    def parse_withdrawal_requests_from_system_tx(self) -> Any:
+        """parse_withdrawal_requests_from_system_tx function of the fork"""
+        return self._module("blocks").parse_withdrawal_requests_from_system_tx
 
     @property
-    def validate_deposit_requests(self) -> Any:
-        """validate_deposit_requests function of the fork"""
-        return self._module("blocks").validate_deposit_requests
-
-    @property
-    def DepositRequest(self) -> Any:
-        """Deposit request class of the fork"""
-        return self._module("blocks").DepositRequest
-
-    @property
-    def encode_request(self) -> Any:
-        """encode_request function of the fork"""
-        return self._module("blocks").encode_request
+    def parse_deposit_requests_from_receipt(self) -> Any:
+        """parse_deposit_requests_from_receipt function of the fork"""
+        return self._module("blocks").parse_deposit_requests_from_receipt
 
     @property
     def Bloom(self) -> Any:

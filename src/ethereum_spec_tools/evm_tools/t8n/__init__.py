@@ -9,7 +9,7 @@ from functools import partial
 from typing import Any, TextIO, Tuple
 
 from ethereum import rlp, trace
-from ethereum.base_types import U64, U256, Uint
+from ethereum.base_types import U64, U256, Bytes, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum.utils.ensure import ensure
@@ -124,13 +124,24 @@ class T8N(Load):
         )
 
         if self.fork.is_after_fork("ethereum.cancun"):
+            self.SYSTEM_TRANSACTION_GAS = Uint(30000000)
             self.SYSTEM_ADDRESS = self.fork.hex_to_address(
                 "0xfffffffffffffffffffffffffffffffffffffffe"
             )
             self.BEACON_ROOTS_ADDRESS = self.fork.hex_to_address(
                 "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
             )
-            self.SYSTEM_TRANSACTION_GAS = Uint(30000000)
+
+        if self.fork.is_after_fork("ethereum.prague"):
+            self.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = (
+                self.fork.hex_to_address(
+                    "0x00A3ca265EBcb825B45F985A16CEFB49958cE017"
+                )
+            )
+            self.HISTORY_STORAGE_ADDRESS = self.fork.hex_to_address(
+                "0x25a219378dad9b3503c8268c9ca836a52427a4fb"
+            )
+            self.HISTORY_SERVE_WINDOW = 8191
 
     @property
     def BLOCK_REWARD(self) -> Any:
@@ -181,13 +192,15 @@ class T8N(Load):
         arguments are adjusted according to the fork.
         """
         kw_arguments = {
-            "block_hashes": self.env.block_hashes,
             "coinbase": self.env.coinbase,
             "number": self.env.block_number,
             "gas_limit": self.env.block_gas_limit,
             "time": self.env.block_timestamp,
             "state": self.alloc.state,
         }
+
+        if not self.fork.is_after_fork("ethereum.prague"):
+            kw_arguments["block_hashes"] = self.env.block_hashes
 
         if self.fork.is_after_fork("ethereum.paris"):
             kw_arguments["prev_randao"] = self.env.prev_randao
@@ -314,58 +327,24 @@ class T8N(Load):
         blob_gas_used = Uint(0)
         if self.fork.is_after_fork("ethereum.prague"):
             requests_trie = self.fork.Trie(secured=False, default=None)
-            receipts: Tuple[bytes, ...] = ()
+            requests_from_execution: Tuple[Bytes, ...] = ()
 
         if (
             self.fork.is_after_fork("ethereum.cancun")
             and self.env.parent_beacon_block_root is not None
         ):
-            beacon_block_roots_contract_code = self.fork.get_account(
-                self.alloc.state, self.BEACON_ROOTS_ADDRESS
-            ).code
-
-            system_tx_message = self.fork.Message(
-                caller=self.SYSTEM_ADDRESS,
-                target=self.BEACON_ROOTS_ADDRESS,
-                gas=self.SYSTEM_TRANSACTION_GAS,
-                value=U256(0),
-                data=self.env.parent_beacon_block_root,
-                code=beacon_block_roots_contract_code,
-                depth=Uint(0),
-                current_target=self.BEACON_ROOTS_ADDRESS,
-                code_address=self.BEACON_ROOTS_ADDRESS,
-                should_transfer_value=False,
-                is_static=False,
-                accessed_addresses=set(),
-                accessed_storage_keys=set(),
-                parent_evm=None,
-            )
-
-            system_tx_env = self.fork.Environment(
-                caller=self.SYSTEM_ADDRESS,
-                origin=self.SYSTEM_ADDRESS,
-                block_hashes=self.env.block_hashes,
-                coinbase=self.env.coinbase,
-                number=self.env.block_number,
-                gas_limit=self.env.block_gas_limit,
-                base_fee_per_gas=self.env.base_fee_per_gas,
-                gas_price=self.env.base_fee_per_gas,
-                time=self.env.block_timestamp,
-                prev_randao=self.env.prev_randao,
-                state=self.alloc.state,
-                chain_id=self.chain_id,
-                traces=[],
-                excess_blob_gas=self.env.excess_blob_gas,
-                blob_versioned_hashes=(),
-                transient_storage=self.fork.TransientStorage(),
-            )
-
-            system_tx_output = self.fork.process_message_call(
-                system_tx_message, system_tx_env
-            )
-
-            self.fork.destroy_touched_empty_accounts(
-                system_tx_env.state, system_tx_output.touched_accounts
+            self.fork.process_system_transaction(
+                self.BEACON_ROOTS_ADDRESS,
+                self.env.parent_beacon_block_root,
+                self.env.coinbase,
+                self.env.block_number,
+                self.env.base_fee_per_gas,
+                self.env.block_gas_limit,
+                self.env.block_timestamp,
+                self.env.prev_randao,
+                self.alloc.state,
+                self.chain_id,
+                self.env.excess_blob_gas,
             )
 
         for i, (tx_idx, tx) in enumerate(self.txs.transactions):
@@ -415,7 +394,10 @@ class T8N(Load):
                     receipt,
                 )
                 if self.fork.is_after_fork("ethereum.prague"):
-                    receipts += (receipt,)
+                    deposit_requests = (
+                        self.fork.parse_deposit_requests_from_receipt(receipt)
+                    )
+                    requests_from_execution += deposit_requests
 
                 self.txs.add_receipt(tx, gas_consumed)
 
@@ -454,12 +436,29 @@ class T8N(Load):
             self.result.excess_blob_gas = self.env.excess_blob_gas
 
         if self.fork.is_after_fork("ethereum.prague"):
-            if not self.fork.validate_requests(self.env.requests):
-                raise InvalidBlock
+            system_withdrawal_tx_output = self.fork.process_system_transaction(
+                self.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+                b"",
+                self.env.coinbase,
+                self.env.block_number,
+                self.env.base_fee_per_gas,
+                self.env.block_gas_limit,
+                self.env.block_timestamp,
+                self.env.prev_randao,
+                self.alloc.state,
+                self.chain_id,
+                self.env.excess_blob_gas,
+            )
 
-            self.fork.validate_deposit_requests(receipts, self.env.requests)
+            withdrawal_requests = (
+                self.fork.parse_withdrawal_requests_from_system_tx(
+                    system_withdrawal_tx_output.return_data
+                )
+            )
 
-            for i, request in enumerate(self.env.requests):
+            requests_from_execution += withdrawal_requests
+
+            for i, request in enumerate(requests_from_execution):
                 self.fork.trie_set(requests_trie, rlp.encode(Uint(i)), request)
 
         self.result.state_root = self.fork.state_root(self.alloc.state)
