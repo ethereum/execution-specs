@@ -450,3 +450,7 @@ FQ12
 
 FP2
 cofactor
+
+exponentiate
+monomial
+impl
