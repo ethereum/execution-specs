@@ -2,8 +2,6 @@
 EOF V1 Constants used throughout all tests
 """
 
-EOF_FORK_NAME = "CancunEIP7692"
-
 CALL_FAILURE = 0
 CALL_SUCCESS = 1
 EXTCALL_SUCCESS = 0
