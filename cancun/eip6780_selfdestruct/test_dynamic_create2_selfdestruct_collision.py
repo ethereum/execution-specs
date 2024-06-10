@@ -235,9 +235,7 @@ def test_dynamic_create2_selfdestruct_collision(
 )
 @pytest.mark.parametrize(
     "call_create2_contract_at_the_end",
-    [
-        (True, False),
-    ],
+    (True, False),
 )
 def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     env: Environment,
@@ -374,7 +372,11 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     post[create2_address] = (
         Account(balance=0, nonce=1, code=deploy_code, storage={create2_constructor_worked: 0x00})
         if create2_dest_already_in_state and fork >= Cancun
-        else Account.NONEXISTENT
+        else (
+            Account.NONEXISTENT
+            if call_create2_contract_at_the_end
+            else Account(balance=1000, nonce=1, code=deploy_code)
+        )
     )
 
     # after Cancun Create2 initcode is only executed if the contract did not already exist
@@ -419,11 +421,15 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
         else:
             # first create2 fails, first calls totally removes the account
             # in the second transaction second create2 is successful
-            sendall_destination_balance += first_call_value + second_create2_value
+            sendall_destination_balance += first_call_value
+            if call_create2_contract_at_the_end:
+                sendall_destination_balance += second_create2_value
     else:
         # if no account in the state, first create2 successful, first call successful and removes
         # because it is removed in the next transaction second create2 successful
-        sendall_destination_balance = first_create2_value + first_call_value + second_create2_value
+        sendall_destination_balance = first_create2_value + first_call_value
+        if call_create2_contract_at_the_end:
+            sendall_destination_balance += second_create2_value
 
     if call_create2_contract_at_the_end:
         sendall_destination_balance += second_call_value
