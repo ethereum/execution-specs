@@ -49,8 +49,8 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
                 ],
             ),
             "ef0001010004020001000304000400008000013050000bad",
-            None,
-            id="undersize_data_ok",
+            EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
+            id="undersize_data_not_ok_on_toplevel_container",
         ),
         pytest.param(
             # Check that EOF1 with too many or too few bytes fails

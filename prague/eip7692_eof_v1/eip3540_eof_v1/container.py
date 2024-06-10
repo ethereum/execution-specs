@@ -28,23 +28,6 @@ VALID: List[Container] = [
         ],
     ),
     Container(
-        # EOF allows truncated data section
-        name="no_data_section_contents",
-        sections=[
-            Section.Code(Op.STOP),
-            Section.Data(data="0x", custom_size=1),
-        ],
-        code="ef0001 010004 0200010001 040001 00 00800000 00",
-    ),
-    Container(
-        # EOF allows truncated data section
-        name="data_section_contents_incomplete",
-        sections=[
-            Section.Code(Op.STOP),
-            Section.Data(data="0xAABBCC", custom_size=4),
-        ],
-    ),
-    Container(
         name="max_code_sections",
         sections=[
             Section.Code(Op.JUMPF[i + 1] if i < (MAX_CODE_SECTIONS - 1) else Op.STOP)
@@ -330,6 +313,23 @@ INVALID: List[Container] = [
         ],
         # TODO the exception must be about code section EOFException.INVALID_CODE_SECTION,
         validity_error=EOFException.ZERO_SECTION_SIZE,
+    ),
+    Container(
+        name="no_data_section_contents",
+        sections=[
+            Section.Code(Op.STOP),
+            Section.Data(data="0x", custom_size=1),
+        ],
+        code="ef0001 010004 0200010001 040001 00 00800000 00",
+        validity_error=EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
+    ),
+    Container(
+        name="data_section_contents_incomplete",
+        sections=[
+            Section.Code(Op.STOP),
+            Section.Data(data="0xAABBCC", custom_size=4),
+        ],
+        validity_error=EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
     ),
     Container(
         name="data_section_preceding_code_section",
