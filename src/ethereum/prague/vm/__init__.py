@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple, Union
 
 from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes32, Uint
+from ethereum.crypto.hash import Hash32
 
 from ..blocks import Log
 from ..fork_types import Address, VersionedHash
@@ -33,6 +34,7 @@ class Environment:
     """
 
     caller: Address
+    block_hashes: List[Hash32]
     origin: Address
     coinbase: Address
     number: Uint
