@@ -91,13 +91,11 @@ def get_expected_code_exception(
             return "ef00010100040400010000800001ef", EOFException.MISSING_CODE_HEADER
         case (SectionKind.CODE, SectionTest.WRONG_ORDER, CasePosition.HEADER):
             return (
-                # version type data code
                 "ef000101000404000102000100030000800001305000ef",
                 EOFException.MISSING_CODE_HEADER,
             )
         case (SectionKind.CODE, SectionTest.WRONG_ORDER, CasePosition.BODY):
             return (
-                # version type code data 00 type data code
                 "ef000101000402000100030400010000800001ef305000",
                 EOFException.UNDEFINED_INSTRUCTION,
             )
@@ -119,20 +117,18 @@ def get_expected_code_exception(
             return "ef000101000402000100030000800001305000", EOFException.MISSING_DATA_SECTION
         case (SectionKind.DATA, SectionTest.WRONG_ORDER, CasePosition.HEADER):
             return (
-                # version type data code
-                "ef000101000404000102000100030000800001305000ef",
-                EOFException.MISSING_CODE_HEADER,
+                "ef000104000101000402000100030000800001305000ef",
+                EOFException.MISSING_TYPE_HEADER,
             )
         case (SectionKind.DATA, SectionTest.WRONG_ORDER, CasePosition.BODY):
             return (
-                # version type code data 00 type data code
-                "ef000101000402000100030400010000800001ef305000",
-                EOFException.UNDEFINED_INSTRUCTION,
+                "ef0001010004020001000304000100ef00800001305000",
+                EOFException.INVALID_FIRST_SECTION_TYPE,
             )
         case (SectionKind.DATA, SectionTest.WRONG_ORDER, CasePosition.BODY_AND_HEADER):
             return (
-                "ef000101000404000102000100030000800001ef305000",
-                EOFException.MISSING_CODE_HEADER,
+                "ef0001040001010004020001000300ef00800001305000",
+                EOFException.MISSING_TYPE_HEADER,
             )
     return "", None
 
@@ -169,8 +165,10 @@ def test_section_order(
             return [section_type, section_code, section_data]
         if kind == SectionKind.TYPE:
             return [section_code, section_type, section_data]
-        if kind == SectionKind.CODE or kind == SectionKind.DATA:
+        if kind == SectionKind.CODE:
             return [section_type, section_data, section_code]
+        if kind == SectionKind.DATA:
+            return [section_data, section_type, section_code]
         return [section_type, section_code, section_data]
 
     section_code = Section.Code(
