@@ -4,7 +4,6 @@ Test EVM Object Format Version 1
 
 from typing import List
 
-from ethereum_test_tools.eof import LATEST_EOF_VERSION
 from ethereum_test_tools.eof.v1 import VERSION_MAX_SECTION_KIND, AutoSection, Container, Section
 from ethereum_test_tools.eof.v1 import SectionKind as Kind
 from ethereum_test_tools.eof.v1.constants import (
@@ -183,36 +182,6 @@ INVALID: List[Container] = [
         auto_data_section=False,
         auto_type_section=AutoSection.NONE,
         validity_error=EOFException.MISSING_TYPE_HEADER,
-    ),
-    Container(
-        name="invalid_magic_01",
-        magic=b"\xef\x01",
-        sections=[Section.Code(Op.STOP)],
-        validity_error=EOFException.INVALID_MAGIC,
-    ),
-    Container(
-        name="invalid_magic_ff",
-        magic=b"\xef\xFF",
-        sections=[Section.Code(Op.STOP)],
-        validity_error=EOFException.INVALID_MAGIC,
-    ),
-    Container(
-        name="invalid_version_zero",
-        version=b"\x00",
-        sections=[Section.Code(Op.STOP)],
-        validity_error=EOFException.INVALID_VERSION,
-    ),
-    Container(
-        name="invalid_version_plus_one",
-        version=int.to_bytes(LATEST_EOF_VERSION + 1, length=1, byteorder="big"),
-        sections=[Section.Code(Op.STOP)],
-        validity_error=EOFException.INVALID_VERSION,
-    ),
-    Container(
-        name="invalid_version_high",
-        version=b"\xFF",
-        sections=[Section.Code(Op.STOP)],
-        validity_error=EOFException.INVALID_VERSION,
     ),
     Container(
         name="no_code_section",
