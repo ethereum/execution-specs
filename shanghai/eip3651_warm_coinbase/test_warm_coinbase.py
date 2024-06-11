@@ -8,19 +8,23 @@ note: Tests ported from:
 
 import pytest
 
-from ethereum_test_forks import Shanghai
+from ethereum_test_forks import Fork, Shanghai
 from ethereum_test_tools import (
     Account,
     Address,
+    Alloc,
+    Bytecode,
     CodeGasMeasure,
     Environment,
-    TestAddress,
+    StateTestFiller,
     Transaction,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3651.md"
-REFERENCE_SPEC_VERSION = "d94c694c6f12291bb6626669c3e8587eef3adff1"
+from .spec import ref_spec_3651
+
+REFERENCE_SPEC_GIT_PATH = ref_spec_3651.git_path
+REFERENCE_SPEC_VERSION = ref_spec_3651.version
 
 # Amount of gas required to make a call to a warm account.
 # Calling a cold account with this amount of gas results in exception.
@@ -64,12 +68,16 @@ GAS_REQUIRED_CALL_WARM_ACCOUNT = 100
     ids=["CALL", "CALLCODE", "DELEGATECALL", "STATICCALL"],
 )
 def test_warm_coinbase_call_out_of_gas(
-    state_test,
-    fork,
-    opcode,
-    contract_under_test_code,
-    call_gas_exact,
-    use_sufficient_gas,
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    post: Alloc,
+    sender: Address,
+    fork: Fork,
+    opcode: str,
+    contract_under_test_code: Bytecode,
+    call_gas_exact: int,
+    use_sufficient_gas: bool,
 ):
     """
     Test that the coinbase is warm by accessing the COINBASE with each
@@ -80,15 +88,7 @@ def test_warm_coinbase_call_out_of_gas(
     - DELEGATECALL
     - STATICCALL
     """
-    env = Environment(
-        fee_recipient="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
-        difficulty=0x20000,
-        gas_limit=10000000000,
-        number=1,
-        timestamp=1000,
-    )
-    caller_address = "0xcccccccccccccccccccccccccccccccccccccccc"
-    contract_under_test_address = 0x100
+    contract_under_test_address = pre.deploy_contract(contract_under_test_code)
 
     if not use_sufficient_gas:
         call_gas_exact -= 1
@@ -97,12 +97,7 @@ def test_warm_coinbase_call_out_of_gas(
         0,
         Op.CALL(call_gas_exact, contract_under_test_address, 0, 0, 0, 0, 0),
     )
-
-    pre = {
-        TestAddress: Account(balance=1000000000000000000000),
-        caller_address: Account(code=caller_code),
-        Address(contract_under_test_address): Account(code=contract_under_test_code),
-    }
+    caller_address = pre.deploy_contract(caller_code)
 
     tx = Transaction(
         ty=0x0,
@@ -111,9 +106,8 @@ def test_warm_coinbase_call_out_of_gas(
         to=caller_address,
         gas_limit=100000000,
         gas_price=10,
+        sender=sender,
     )
-
-    post = {}
 
     if use_sufficient_gas and fork >= Shanghai:
         post[caller_address] = Account(
@@ -209,13 +203,21 @@ gas_measured_opcodes = [
 ]
 
 
-@pytest.mark.valid_from("Paris")  # these tests fill for fork >= Berlin
+@pytest.mark.valid_from("Berlin")  # these tests fill for fork >= Berlin
 @pytest.mark.parametrize(
     "opcode,code_gas_measure",
     gas_measured_opcodes,
     ids=[i[0] for i in gas_measured_opcodes],
 )
-def test_warm_coinbase_gas_usage(state_test, fork, opcode, code_gas_measure):
+def test_warm_coinbase_gas_usage(
+    state_test: StateTestFiller,
+    env: Environment,
+    pre: Alloc,
+    sender: Address,
+    fork: Fork,
+    opcode: str,
+    code_gas_measure: Bytecode,
+):
     """
     Test the gas usage of opcodes affected by assuming a warm coinbase:
 
@@ -228,24 +230,24 @@ def test_warm_coinbase_gas_usage(state_test, fork, opcode, code_gas_measure):
     - DELEGATECALL
     - STATICCALL
     """
-    env = Environment(
-        fee_recipient="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
-        difficulty=0x20000,
-        gas_limit=10000000000,
-        number=1,
-        timestamp=1000,
+    measure_address = pre.deploy_contract(
+        code=code_gas_measure,
     )
-
-    measure_address = Address(0x100)
-    pre = {
-        TestAddress: Account(balance=1000000000000000000000),
-        measure_address: Account(code=code_gas_measure, balance=1000000000000000000000),
-    }
 
     if fork >= Shanghai:
         expected_gas = GAS_REQUIRED_CALL_WARM_ACCOUNT  # Warm account access cost after EIP-3651
     else:
         expected_gas = 2600  # Cold account access cost before EIP-3651
+
+    tx = Transaction(
+        ty=0x0,
+        chain_id=0x01,
+        nonce=0,
+        to=measure_address,
+        gas_limit=100000000,
+        gas_price=10,
+        sender=sender,
+    )
 
     post = {
         measure_address: Account(
@@ -254,14 +256,6 @@ def test_warm_coinbase_gas_usage(state_test, fork, opcode, code_gas_measure):
             }
         )
     }
-    tx = Transaction(
-        ty=0x0,
-        chain_id=0x01,
-        nonce=0,
-        to=measure_address,
-        gas_limit=100000000,
-        gas_price=10,
-    )
 
     state_test(
         env=env,
