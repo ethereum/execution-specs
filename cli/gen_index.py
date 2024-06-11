@@ -25,6 +25,18 @@ from evm_transition_tool import FixtureFormats
 
 from .hasher import HashableItem
 
+# TODO: remove when these tests are ported or fixed within ethereum/tests.
+fixtures_to_skip = set(
+    [
+        # These fixtures have invalid fields that we can't load into our pydantic models (bigint).
+        "BlockchainTests/GeneralStateTests/stTransactionTest/ValueOverflowParis.json",
+        "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsAmountBounds.json",
+        "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsIndexBounds.json",
+        "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsValidatorIndexBounds.json",
+        "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsAddressBounds.json",
+    ]
+)
+
 
 def count_json_files_exclude_index(start_path: Path) -> int:
     """
@@ -46,6 +58,8 @@ def infer_fixture_format_from_path(file: Path) -> FixtureFormats:
     if "blockchain_tests_hive" in file.parts:
         return FixtureFormats.BLOCKCHAIN_TEST_HIVE
     if "blockchain_tests" in file.parts:
+        return FixtureFormats.BLOCKCHAIN_TEST
+    if "BlockchainTests" in file.parts:  # ethereum/tests
         return FixtureFormats.BLOCKCHAIN_TEST
     if "state_tests" in file.parts:
         return FixtureFormats.STATE_TEST
@@ -166,6 +180,9 @@ def generate_fixtures_index(
             if file.name == "index.json":
                 continue
             if "blockchain_tests_hive" in file.parts:
+                continue
+            if any(fixture in str(file) for fixture in fixtures_to_skip):
+                rich.print(f"Skipping '{file}'")
                 continue
 
             try:

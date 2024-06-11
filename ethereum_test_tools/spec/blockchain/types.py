@@ -3,7 +3,17 @@ BlockchainTest types
 """
 
 from functools import cached_property
-from typing import Annotated, Any, ClassVar, Dict, List, Literal, get_args, get_type_hints
+from typing import (
+    Annotated,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    get_args,
+    get_type_hints,
+)
 
 from ethereum import rlp as eth_rlp
 from ethereum.base_types import Uint
@@ -636,7 +646,7 @@ class FixtureCommon(BaseFixture):
     fork: str = Field(..., alias="network")
     genesis: FixtureHeader = Field(..., alias="genesisBlockHeader")
     pre: Alloc
-    post_state: Alloc
+    post_state: Optional[Alloc] = Field(None)
 
     def get_fork(self) -> str:
         """

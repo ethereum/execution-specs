@@ -79,13 +79,16 @@ class HashableItem:
                 raise TypeError(f"Expected dict, got {type(item)} for {key}")
             if "_info" not in item:
                 raise KeyError(f"Expected '_info' in {key}")
-            if "hash" not in item["_info"]:
-                raise KeyError(f"Expected 'hash' in {key}")
-            if not isinstance(item["_info"]["hash"], str):
-                raise TypeError(
-                    f"Expected hash to be a string in {key}, got {type(item['_info']['hash'])}"
-                )
-            item_hash_bytes = bytes.fromhex(item["_info"]["hash"][2:])
+
+            # EEST uses 'hash'; ethereum/tests use 'generatedTestHash'
+            hash_value = item["_info"].get("hash") or item["_info"].get("generatedTestHash")
+            if hash_value is None:
+                raise KeyError(f"Expected 'hash' or 'generatedTestHash' in {key}")
+
+            if not isinstance(hash_value, str):
+                raise TypeError(f"Expected hash to be a string in {key}, got {type(hash_value)}")
+
+            item_hash_bytes = bytes.fromhex(hash_value[2:])
             items[key] = cls(
                 type=HashableItemType.TEST,
                 root=item_hash_bytes,
