@@ -104,7 +104,7 @@ class BlockChain:
     chain_id: U64
 
 
-def apply_fork(old: BlockChain, block: Block) -> BlockChain:
+def apply_fork(old: BlockChain) -> BlockChain:
     """
     Transforms the state from the previous hard fork (`old`) into the block
     chain object for this hard fork and returns it.
@@ -117,32 +117,53 @@ def apply_fork(old: BlockChain, block: Block) -> BlockChain:
     ----------
     old :
         Previous block chain object.
-    block :
-        Block to apply to `old`.
 
     Returns
     -------
     new : `BlockChain`
         Upgraded block chain object for this hard fork.
     """
-    # At fork block, store the hashes for earlier blocks.
-    current_block = block
-    for i in range(HISTORY_SERVE_WINDOW - 1):
-        if current_block.header.number == 0:
-            break
-
-        set_storage(
-            old.state,
-            HISTORY_STORAGE_ADDRESS,
-            (
-                (current_block.header.number - 1) % HISTORY_SERVE_WINDOW
-            ).to_be_bytes32(),
-            U256.from_be_bytes(current_block.header.parent_hash),
-        )
-        # Set the earlier block as the current block
-        current_block = old.blocks[-1 - i]
-
     return old
+
+
+def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
+    """
+    Obtain the list of hashes of the previous 256 blocks in order of
+    increasing block number.
+
+    This function will return less hashes for the first 256 blocks.
+
+    The ``BLOCKHASH`` opcode needs to access the latest hashes on the chain,
+    therefore this function retrieves them.
+
+    Parameters
+    ----------
+    chain :
+        History and current state.
+
+    Returns
+    -------
+    recent_block_hashes : `List[Hash32]`
+        Hashes of the recent 256 blocks in order of increasing block number.
+    """
+    recent_blocks = chain.blocks[-255:]
+    # TODO: This function has not been tested rigorously
+    if len(recent_blocks) == 0:
+        return []
+
+    recent_block_hashes = []
+
+    for block in recent_blocks:
+        prev_block_hash = block.header.parent_hash
+        recent_block_hashes.append(prev_block_hash)
+
+    # We are computing the hash only for the most recent block and not for
+    # the rest of the blocks as they have successors which have the hash of
+    # the current block as parent hash.
+    most_recent_block_hash = keccak256(rlp.encode(recent_blocks[-1].header))
+    recent_block_hashes.append(most_recent_block_hash)
+
+    return recent_block_hashes
 
 
 def state_transition(chain: BlockChain, block: Block) -> None:
@@ -185,6 +206,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
 
     apply_body_output = apply_body(
         chain.state,
+        get_last_256_block_hashes(chain),
         block.header.coinbase,
         block.header.number,
         block.header.base_fee_per_gas,
@@ -507,6 +529,7 @@ class ApplyBodyOutput:
 
 def apply_body(
     state: State,
+    block_hashes: List[Hash32],
     coinbase: Address,
     block_number: Uint,
     base_fee_per_gas: Uint,
@@ -534,6 +557,9 @@ def apply_body(
     ----------
     state :
         Current account state.
+    block_hashes :
+        List of hashes of the previous 256 blocks in the order of
+        increasing block number.
     coinbase :
         Address of account which receives block reward and transaction fees.
     block_number :
@@ -607,6 +633,7 @@ def apply_body(
 
     system_tx_env = vm.Environment(
         caller=SYSTEM_ADDRESS,
+        block_hashes=block_hashes,
         origin=SYSTEM_ADDRESS,
         coinbase=coinbase,
         number=block_number,
@@ -649,6 +676,7 @@ def apply_body(
 
         env = vm.Environment(
             caller=sender_address,
+            block_hashes=block_hashes,
             origin=sender_address,
             coinbase=coinbase,
             number=block_number,
