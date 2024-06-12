@@ -11,22 +11,24 @@ import pytest
 
 from ethereum_test_forks import Cancun, Fork
 from ethereum_test_tools import (
+    EOA,
     Account,
     Address,
+    Alloc,
     Block,
     BlockchainTestFiller,
     Hash,
-    TestAddress,
     Transaction,
     TransactionException,
     Withdrawal,
-    compute_create_address,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from evm_transition_tool import TransitionTool
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4895.md"
-REFERENCE_SPEC_VERSION = "81af3b60b632bc9c03513d1d137f25410e3f4d34"
+from .spec import ref_spec_4895
+
+REFERENCE_SPEC_GIT_PATH = ref_spec_4895.git_path
+REFERENCE_SPEC_VERSION = ref_spec_4895.version
 
 pytestmark = pytest.mark.valid_from("Shanghai")
 
@@ -50,22 +52,35 @@ class TestUseValueInTx:
     """
 
     @pytest.fixture
-    def tx(self):  # noqa: D102
-        # Transaction sent from the `TestAddress`, which has 0 balance at start
+    def sender(self, pre: Alloc) -> EOA:
+        """
+        Funded EOA used for sending transactions.
+        """
+        return pre.fund_eoa(1)
+
+    @pytest.fixture
+    def recipient(self, pre: Alloc) -> EOA:
+        """
+        Funded EOA used for sending transactions.
+        """
+        return pre.fund_eoa(0)
+
+    @pytest.fixture
+    def tx(self, sender: EOA, recipient: EOA):  # noqa: D102
+        # Transaction sent from the `sender`, which has 1 wei balance at start
         return Transaction(
-            nonce=0,
             gas_price=ONE_GWEI,
             gas_limit=21000,
-            to=Address(0x100),
-            data="0x",
+            to=recipient,
+            sender=sender,
         )
 
     @pytest.fixture
-    def withdrawal(self, tx: Transaction):  # noqa: D102
+    def withdrawal(self, tx: Transaction, sender: EOA):  # noqa: D102
         return Withdrawal(
             index=0,
             validator_index=0,
-            address=TestAddress,
+            address=sender,
             amount=tx.gas_limit + 1,
         )
 
@@ -97,15 +112,16 @@ class TestUseValueInTx:
         raise Exception("Invalid test case.")
 
     @pytest.fixture
-    def post(self, test_case: str) -> Dict:  # noqa: D102
+    def post(self, sender: EOA, test_case: str) -> Dict:  # noqa: D102
         if test_case == "tx_in_withdrawals_block":
             return {}
         if test_case == "tx_after_withdrawals_block":
-            return {TestAddress: Account(balance=ONE_GWEI + 1)}
+            return {sender: Account(balance=ONE_GWEI + 1)}
         raise Exception("Invalid test case.")
 
     def test_use_value_in_tx(
         self,
+        pre: Alloc,
         blockchain_test: BlockchainTestFiller,
         post: dict,
         blocks: List[Block],
@@ -113,57 +129,59 @@ class TestUseValueInTx:
         """
         Test sending withdrawal value in a transaction.
         """
-        pre = {TestAddress: Account(balance=1)}
         blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
-def test_use_value_in_contract(blockchain_test: BlockchainTestFiller):
+def test_use_value_in_contract(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+):
     """
     Test sending value from contract that has not received a withdrawal
     """
-    SEND_ONE_GWEI = Op.SSTORE(
-        Op.NUMBER,
-        Op.CALL(Op.GAS, 0x200, 1000000000, 0, 0, 0, 0),
+    sender = pre.fund_eoa()
+    recipient = pre.fund_eoa(1)
+
+    contract_address = pre.deploy_contract(
+        Op.SSTORE(
+            Op.NUMBER,
+            Op.CALL(address=recipient, value=1000000000),
+        )
+    )
+    (tx_0, tx_1) = (
+        Transaction(
+            sender=sender,
+            value=0,
+            gas_limit=100_000,
+            to=contract_address,
+        )
+        for _ in range(2)
     )
 
-    pre = {
-        TestAddress: Account(balance=1000000000000000000000, nonce=0),
-        Address(0x100): Account(balance=0, code=SEND_ONE_GWEI),
-        Address(0x200): Account(balance=1),
-    }
-    tx = Transaction(
-        # Transaction sent from the `TestAddress`, which has 0 balance at start
-        nonce=0,
-        value=0,
-        gas_price=10,
-        gas_limit=100000,
-        to=Address(0x100),
-        data="0x",
-    )
     withdrawal = Withdrawal(
         index=0,
         validator_index=0,
-        address=Address(0x100),
+        address=contract_address,
         amount=1,
     )
 
     blocks = [
         Block(
-            txs=[tx.with_nonce(0)],
+            txs=[tx_0],
             withdrawals=[withdrawal],
         ),
         Block(
-            txs=[tx.with_nonce(1)],  # Same tx again, just increase nonce
+            txs=[tx_1],  # Same tx again, just increase nonce
         ),
     ]
     post = {
-        Address(0x100): Account(
+        contract_address: Account(
             storage={
                 0x1: 0x0,  # Call fails on the first attempt
                 0x2: 0x1,  # Succeeds on the second attempt
             }
         ),
-        Address(0x200): Account(
+        recipient: Account(
             balance=ONE_GWEI + 1,
         ),
     }
@@ -171,7 +189,7 @@ def test_use_value_in_contract(blockchain_test: BlockchainTestFiller):
     blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
-def test_balance_within_block(blockchain_test: BlockchainTestFiller):
+def test_balance_within_block(blockchain_test: BlockchainTestFiller, pre: Alloc):
     """
     Test Withdrawal balance increase within the same block,
     inside contract call.
@@ -180,30 +198,25 @@ def test_balance_within_block(blockchain_test: BlockchainTestFiller):
         Op.NUMBER,
         Op.BALANCE(Op.CALLDATALOAD(0)),
     )
-    pre = {
-        TestAddress: Account(balance=1000000000000000000000, nonce=0),
-        Address(0x100): Account(
-            code=SAVE_BALANCE_ON_BLOCK_NUMBER,
-        ),
-        Address(0x200): Account(
-            balance=ONE_GWEI,
-        ),
-    }
+    sender = pre.fund_eoa()
+    recipient = pre.fund_eoa(ONE_GWEI)
+    contract_address = pre.deploy_contract(SAVE_BALANCE_ON_BLOCK_NUMBER)
+
     blocks = [
         Block(
             txs=[
                 Transaction(
-                    nonce=0,
+                    sender=sender,
                     gas_limit=100000,
-                    to=Address(0x100),
-                    data=Hash(0x200),
+                    to=contract_address,
+                    data=Hash(recipient),
                 )
             ],
             withdrawals=[
                 Withdrawal(
                     index=0,
                     validator_index=0,
-                    address=Address(0x200),
+                    address=recipient,
                     amount=1,
                 )
             ],
@@ -211,17 +224,17 @@ def test_balance_within_block(blockchain_test: BlockchainTestFiller):
         Block(
             txs=[
                 Transaction(
-                    nonce=1,
+                    sender=sender,
                     gas_limit=100000,
-                    to=Address(0x100),
-                    data=Hash(0x200),
+                    to=contract_address,
+                    data=Hash(recipient),
                 )
             ]
         ),
     ]
 
     post = {
-        Address(0x100): Account(
+        contract_address: Account(
             storage={
                 1: ONE_GWEI,
                 2: 2 * ONE_GWEI,
@@ -242,22 +255,13 @@ class TestMultipleWithdrawalsSameAddress:
     2. Multiple blocks.
     """
 
-    ADDRESSES = [
-        Address(0x0),  # Zero address
-        Address(0x1),  # Pre-compiles
-        Address(0x2),
-        Address(0x3),
-        Address(0x4),
-        Address(0x5),
-        Address(0x6),
-        Address(0x7),
-        Address(0x8),
-        Address(0x9),
-        Address(2**160 - 1),
-    ]
+    @pytest.fixture
+    def addresses(self, fork: Fork) -> List[Address]:  # noqa: D102
+        addresses = [Address(p) for p in fork.precompiles(block_number=0, timestamp=0)]
+        return addresses + [Address(2**160 - 1)]
 
     @pytest.fixture
-    def blocks(self, test_case: str):  # noqa: D102
+    def blocks(self, addresses: Address, test_case: str):  # noqa: D102
         if test_case == "single_block":
             # Many repeating withdrawals of the same accounts in the same
             # block.
@@ -267,10 +271,10 @@ class TestMultipleWithdrawalsSameAddress:
                         Withdrawal(
                             index=i,
                             validator_index=i,
-                            address=self.ADDRESSES[i % len(self.ADDRESSES)],
+                            address=addresses[i % len(addresses)],
                             amount=1,
                         )
-                        for i in range(len(self.ADDRESSES) * 16)
+                        for i in range(len(addresses) * 16)
                     ],
                 ),
             ]
@@ -283,13 +287,13 @@ class TestMultipleWithdrawalsSameAddress:
                         Withdrawal(
                             index=i * 16 + j,
                             validator_index=i,
-                            address=self.ADDRESSES[i],
+                            address=addresses[i],
                             amount=1,
                         )
                         for j in range(16)
                     ],
                 )
-                for i in range(len(self.ADDRESSES))
+                for i in range(len(addresses))
             ]
         raise Exception("Invalid test case.")
 
@@ -297,24 +301,17 @@ class TestMultipleWithdrawalsSameAddress:
         self,
         blockchain_test: BlockchainTestFiller,
         test_case: str,
+        pre: Alloc,
+        addresses: List[Address],
         blocks: List[Block],
     ):
         """
         Test Withdrawals can be done to the same address multiple times in
         the same block.
         """
-        pre = {
-            TestAddress: Account(balance=1000000000000000000000, nonce=0),
-        }
-        for addr in self.ADDRESSES:
-            pre[addr] = Account(
-                # set a storage value unconditionally on call
-                code=Op.SSTORE(Op.NUMBER, 1),
-            )
-
         # Expected post is the same for both test cases.
         post = {}
-        for addr in self.ADDRESSES:
+        for addr in addresses:
             post[addr] = Account(
                 balance=16 * ONE_GWEI,
                 storage={},
@@ -323,23 +320,20 @@ class TestMultipleWithdrawalsSameAddress:
         blockchain_test(pre=pre, post=post, blocks=blocks, tag=test_case)
 
 
-def test_many_withdrawals(blockchain_test: BlockchainTestFiller):
+def test_many_withdrawals(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+):
     """
     Test Withdrawals with a count of N withdrawals in a single block where
     N is a high number not expected to be seen in mainnet.
     """
     N = 400
-    pre = {
-        TestAddress: Account(balance=1000000000000000000000, nonce=0),
-    }
     withdrawals = []
     post = {}
     for i in range(N):
-        addr = Address(0x100 * i)
+        addr = pre.deploy_contract(Op.SSTORE(Op.NUMBER, 1))
         amount = i * 1
-        pre[addr] = Account(
-            code=Op.SSTORE(Op.NUMBER, 1),
-        )
         withdrawals.append(
             Withdrawal(
                 index=i,
@@ -363,38 +357,37 @@ def test_many_withdrawals(blockchain_test: BlockchainTestFiller):
     blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
-def test_self_destructing_account(blockchain_test: BlockchainTestFiller, fork: Fork):
+def test_self_destructing_account(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    fork: Fork,
+):
     """
     Test withdrawals can be done to self-destructed accounts.
     Account `0x100` self-destructs and sends all its balance to `0x200`.
     Then, a withdrawal is received at `0x100` with 99 wei.
     """
     self_destruct_code = Op.SELFDESTRUCT(Op.CALLDATALOAD(0))
-    pre = {
-        TestAddress: Account(balance=1000000000000000000000, nonce=0),
-        Address(0x100): Account(
-            code=self_destruct_code,
-            balance=(100 * ONE_GWEI),
-        ),
-        Address(0x200): Account(
-            balance=1,
-        ),
-    }
+    sender = pre.fund_eoa()
+    recipient = pre.fund_eoa(1)
+    self_destruct_contract_address = pre.deploy_contract(
+        self_destruct_code,
+        balance=100 * ONE_GWEI,
+    )
 
     tx_1 = Transaction(
-        # Transaction sent from the `TestAddress`, that calls a
+        # Transaction sent from the `sender`, that calls a
         # self-destructing contract.
-        nonce=0,
-        gas_price=10,
+        sender=sender,
         gas_limit=100000,
-        to=Address(0x100),
-        data=Hash(0x200),
+        to=self_destruct_contract_address,
+        data=Hash(recipient),
     )
 
     withdrawal = Withdrawal(
         index=0,
         validator_index=0,
-        address=Address(0x100),
+        address=self_destruct_contract_address,
         amount=(99),
     )
 
@@ -404,11 +397,11 @@ def test_self_destructing_account(blockchain_test: BlockchainTestFiller, fork: F
     )
 
     post = {
-        Address(0x100): Account(
+        self_destruct_contract_address: Account(
             code=self_destruct_code if fork >= Cancun else b"",
             balance=(99 * ONE_GWEI),
         ),
-        Address(0x200): Account(
+        recipient: Account(
             code=b"",
             balance=(100 * ONE_GWEI) + 1,
         ),
@@ -424,29 +417,25 @@ def test_self_destructing_account(blockchain_test: BlockchainTestFiller, fork: F
 )
 def test_newly_created_contract(
     blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
     include_value_in_tx: bool,
     request,
 ):
     """
     Test Withdrawing to a newly created contract.
     """
-    created_contract = compute_create_address(TestAddress, 0)
-
-    pre = {
-        TestAddress: Account(balance=1000000000000000000000, nonce=0),
-    }
-
+    sender = pre.fund_eoa()
     initcode = Op.RETURN(0, 1)
-
     tx = Transaction(
-        # Transaction sent from the `TestAddress`, that creates a
+        # Transaction sent from the `sender`, that creates a
         # new contract.
-        nonce=0,
-        gas_price=10,
+        sender=sender,
         gas_limit=1000000,
         to=None,
+        value=ONE_GWEI if include_value_in_tx else 0,
         data=initcode,
     )
+    created_contract = tx.created_contract
 
     withdrawal = Withdrawal(
         index=0,
@@ -457,12 +446,11 @@ def test_newly_created_contract(
 
     created_contract_balance = ONE_GWEI
     if include_value_in_tx:
-        tx = tx.copy(value=ONE_GWEI)
         created_contract_balance = 2 * ONE_GWEI
 
     post = {
         created_contract: Account(
-            code="0x00",
+            code=Op.STOP,
             balance=created_contract_balance,
         ),
     }
@@ -472,54 +460,43 @@ def test_newly_created_contract(
         withdrawals=[withdrawal],
     )
 
-    tag = request.node.callspec.id.split("-")[0]  # remove fork; brittle
-    blockchain_test(pre=pre, post=post, blocks=[block], tag=tag)
+    blockchain_test(pre=pre, post=post, blocks=[block])
 
 
-def test_no_evm_execution(blockchain_test: BlockchainTestFiller):
+def test_no_evm_execution(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+):
     """
     Test Withdrawals don't trigger EVM execution.
     """
-    pre = {
-        TestAddress: Account(balance=1000000000000000000000, nonce=0),
-        Address(0x100): Account(
-            code=Op.SSTORE(Op.NUMBER, 1),
-        ),
-        Address(0x200): Account(
-            code=Op.SSTORE(Op.NUMBER, 1),
-        ),
-        Address(0x300): Account(
-            code=Op.SSTORE(Op.NUMBER, 1),
-        ),
-        Address(0x400): Account(
-            code=Op.SSTORE(Op.NUMBER, 1),
-        ),
-    }
+    sender = pre.fund_eoa()
+    contracts = [pre.deploy_contract(Op.SSTORE(Op.NUMBER, 1)) for _ in range(4)]
     blocks = [
         Block(
             txs=[
                 Transaction(
-                    nonce=0,
+                    sender=sender,
                     gas_limit=100000,
-                    to=Address(0x300),
+                    to=contracts[2],
                 ),
                 Transaction(
-                    nonce=1,
+                    sender=sender,
                     gas_limit=100000,
-                    to=Address(0x400),
+                    to=contracts[3],
                 ),
             ],
             withdrawals=[
                 Withdrawal(
                     index=0,
                     validator_index=0,
-                    address=Address(0x100),
+                    address=contracts[0],
                     amount=1,
                 ),
                 Withdrawal(
                     index=1,
                     validator_index=1,
-                    address=Address(0x200),
+                    address=contracts[1],
                     amount=1,
                 ),
             ],
@@ -527,27 +504,27 @@ def test_no_evm_execution(blockchain_test: BlockchainTestFiller):
         Block(
             txs=[
                 Transaction(
-                    nonce=2,
+                    sender=sender,
                     gas_limit=100000,
-                    to=Address(0x100),
+                    to=contracts[0],
                 ),
                 Transaction(
-                    nonce=3,
+                    sender=sender,
                     gas_limit=100000,
-                    to=Address(0x200),
+                    to=contracts[1],
                 ),
             ],
             withdrawals=[
                 Withdrawal(
                     index=0,
                     validator_index=0,
-                    address=Address(0x300),
+                    address=contracts[2],
                     amount=1,
                 ),
                 Withdrawal(
                     index=1,
                     validator_index=1,
-                    address=Address(0x400),
+                    address=contracts[3],
                     amount=1,
                 ),
             ],
@@ -555,10 +532,10 @@ def test_no_evm_execution(blockchain_test: BlockchainTestFiller):
     ]
 
     post = {
-        Address(0x100): Account(storage={2: 1}),
-        Address(0x200): Account(storage={2: 1}),
-        Address(0x300): Account(storage={1: 1}),
-        Address(0x400): Account(storage={1: 1}),
+        contracts[0]: Account(storage={2: 1}),
+        contracts[1]: Account(storage={2: 1}),
+        contracts[2]: Account(storage={1: 1}),
+        contracts[3]: Account(storage={1: 1}),
     }
 
     blockchain_test(pre=pre, post=post, blocks=blocks)
@@ -579,6 +556,7 @@ class ZeroAmountTestCases(Enum):  # noqa: D101
 )
 def test_zero_amount(
     blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
     test_case: ZeroAmountTestCases,
 ):
     """
@@ -593,49 +571,44 @@ def test_zero_amount(
     4. As 3., but with order of withdrawals in the block reversed.
 
     """
-    pre = {
-        TestAddress: Account(balance=1000000000000000000000, nonce=0),
-        Address(0x200): Account(
-            code="0x00",
-            balance=0,
-        ),
-    }
+    empty_accounts = [pre.fund_eoa(0) for _ in range(3)]
+    zero_balance_contract = pre.deploy_contract(Op.STOP)
 
     all_withdrawals = [
         # No value, untouched account
         Withdrawal(
             index=0,
             validator_index=0,
-            address=Address(0x100),
+            address=empty_accounts[0],
             amount=0,
         ),
         # No value, touched account
         Withdrawal(
             index=0,
             validator_index=0,
-            address=Address(0x200),
+            address=zero_balance_contract,
             amount=0,
         ),
         # Withdrawal with value
         Withdrawal(
             index=1,
             validator_index=0,
-            address=Address(0x300),
+            address=empty_accounts[1],
             amount=1,
         ),
         # Withdrawal with maximum amount
         Withdrawal(
             index=2,
             validator_index=0,
-            address=Address(0x400),
+            address=empty_accounts[2],
             amount=2**64 - 1,
         ),
     ]
     all_post = {
-        Address(0x100): Account.NONEXISTENT,
-        Address(0x200): Account(code="0x00", balance=0),
-        Address(0x300): Account(balance=ONE_GWEI),
-        Address(0x400): Account(balance=(2**64 - 1) * ONE_GWEI),
+        empty_accounts[0]: Account.NONEXISTENT,
+        zero_balance_contract: Account(code=Op.STOP, balance=0),
+        empty_accounts[1]: Account(balance=ONE_GWEI),
+        empty_accounts[2]: Account(balance=(2**64 - 1) * ONE_GWEI),
     }
 
     withdrawals: List[Withdrawal] = []
@@ -645,7 +618,7 @@ def test_zero_amount(
         post = {
             account: all_post[account]
             for account in post
-            if account in [Address(0x100), Address(0x200)]
+            if account in [empty_accounts[0], zero_balance_contract]
         }
     elif test_case == ZeroAmountTestCases.THREE_ONE_WITH_VALUE:
         withdrawals = all_withdrawals[0:3]
@@ -654,9 +627,9 @@ def test_zero_amount(
             for account in post
             if account
             in [
-                Address(0x100),
-                Address(0x200),
-                Address(0x300),
+                empty_accounts[0],
+                zero_balance_contract,
+                empty_accounts[1],
             ]
         }
     elif test_case == ZeroAmountTestCases.FOUR_ONE_WITH_MAX:
@@ -673,8 +646,6 @@ def test_zero_amount(
                 )
             )
         post = all_post
-    else:
-        raise Exception("Unknown test case.")
 
     blockchain_test(
         pre=pre,
@@ -686,15 +657,14 @@ def test_zero_amount(
     )
 
 
-def test_large_amount(blockchain_test: BlockchainTestFiller):
+def test_large_amount(
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+):
     """
     Test Withdrawals that have a large gwei amount, so that (gwei * 1e9)
     could overflow uint64 but not uint256.
     """
-    pre = {
-        TestAddress: Account(balance=1000000000000000000000, nonce=0),
-    }
-
     withdrawals: List[Withdrawal] = []
     amounts: List[int] = [
         (2**35),
@@ -707,7 +677,7 @@ def test_large_amount(blockchain_test: BlockchainTestFiller):
     post = {}
 
     for i, amount in enumerate(amounts):
-        addr = Address(0x100 * (i + 1))
+        addr = pre.fund_eoa(0)
         withdrawals.append(
             Withdrawal(
                 index=i,
@@ -729,16 +699,18 @@ def test_large_amount(blockchain_test: BlockchainTestFiller):
 @pytest.mark.parametrize("amount", [0, 1])
 @pytest.mark.with_all_precompiles
 def test_withdrawing_to_precompiles(
-    blockchain_test: BlockchainTestFiller, precompile: int, amount: int, t8n: TransitionTool
+    blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
+    precompile: int,
+    amount: int,
+    t8n: TransitionTool,
 ):
     """
     Test withdrawing to all precompiles for a given fork.
     """
     if precompile == 3 and str(t8n.default_binary) == "ethereum-spec-evm":
         pytest.xfail("ethereum-spec-evm doesn't support hash type ripemd160")
-    pre: Dict = {
-        TestAddress: Account(balance=1000000000000000000000, nonce=0),
-    }
+    sender = pre.fund_eoa()
     post: Dict = {}
 
     blocks = [
@@ -757,7 +729,7 @@ def test_withdrawing_to_precompiles(
         Block(
             txs=[
                 Transaction(
-                    nonce=0,
+                    sender=sender,
                     gas_limit=100000,
                     to=Address(precompile),
                 ),
