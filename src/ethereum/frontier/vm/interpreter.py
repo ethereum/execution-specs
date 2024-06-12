@@ -26,7 +26,8 @@ from ethereum.trace import (
     evm_trace,
 )
 
-from ..fork_types import Address, Log
+from ..blocks import Log
+from ..fork_types import Address
 from ..state import (
     account_has_code_or_nonce,
     begin_transaction,
@@ -245,7 +246,6 @@ def execute_code(message: Message, env: Environment) -> Evm:
         error=None,
     )
     try:
-
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
             evm_trace(evm, PrecompileStart(evm.message.code_address))
             PRE_COMPILED_CONTRACTS[evm.message.code_address](evm)

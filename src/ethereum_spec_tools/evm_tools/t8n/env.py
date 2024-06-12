@@ -3,15 +3,18 @@ Define t8n Env class
 """
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ethereum import rlp
-from ethereum.base_types import U256, Bytes32, Uint
+from ethereum.base_types import U64, U256, Bytes32, Uint
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 from ..utils import parse_hex_or_int
+
+if TYPE_CHECKING:
+    from ethereum_spec_tools.evm_tools.t8n import T8N
 
 
 @dataclass
@@ -43,8 +46,12 @@ class Env:
     block_hashes: Optional[List[Any]]
     parent_ommers_hash: Optional[Hash32]
     ommers: Any
+    parent_beacon_block_root: Optional[Hash32]
+    parent_excess_blob_gas: Optional[U64]
+    parent_blob_gas_used: Optional[U64]
+    excess_blob_gas: Optional[U64]
 
-    def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
+    def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         if t8n.options.input_env == "stdin":
             assert stdin is not None
             data = stdin["env"]
@@ -52,7 +59,7 @@ class Env:
             with open(t8n.options.input_env, "r") as f:
                 data = json.load(f)
 
-        self.coinbase = t8n.hex_to_address(data["currentCoinbase"])
+        self.coinbase = t8n.fork.hex_to_address(data["currentCoinbase"])
         self.block_gas_limit = parse_hex_or_int(data["currentGasLimit"], Uint)
         self.block_number = parse_hex_or_int(data["currentNumber"], Uint)
         self.block_timestamp = parse_hex_or_int(data["currentTimestamp"], U256)
@@ -64,7 +71,54 @@ class Env:
         self.read_ommers(data, t8n)
         self.read_withdrawals(data, t8n)
 
-    def read_base_fee_per_gas(self, data: Any, t8n: Any) -> None:
+        if t8n.fork.is_after_fork("ethereum.cancun"):
+            parent_beacon_block_root_hex = data.get("parentBeaconBlockRoot")
+            self.parent_beacon_block_root = (
+                Bytes32(hex_to_bytes(parent_beacon_block_root_hex))
+                if parent_beacon_block_root_hex is not None
+                else None
+            )
+            self.read_excess_blob_gas(data, t8n)
+
+    def read_excess_blob_gas(self, data: Any, t8n: "T8N") -> None:
+        """
+        Read the excess_blob_gas from the data. If the excess blob gas is
+        not present, it is calculated from the parent block parameters.
+        """
+        self.parent_blob_gas_used = U64(0)
+        self.parent_excess_blob_gas = U64(0)
+        self.excess_blob_gas = None
+
+        if not t8n.fork.is_after_fork("ethereum.cancun"):
+            return
+
+        if "currentExcessBlobGas" in data:
+            self.excess_blob_gas = parse_hex_or_int(
+                data["currentExcessBlobGas"], U64
+            )
+            return
+
+        if "parentExcessBlobGas" in data:
+            self.parent_excess_blob_gas = parse_hex_or_int(
+                data["parentExcessBlobGas"], U64
+            )
+
+        if "parentBlobGasUsed" in data:
+            self.parent_blob_gas_used = parse_hex_or_int(
+                data["parentBlobGasUsed"], U64
+            )
+
+        excess_blob_gas = (
+            self.parent_excess_blob_gas + self.parent_blob_gas_used
+        )
+
+        target_blob_gas_per_block = t8n.fork.TARGET_BLOB_GAS_PER_BLOCK
+
+        self.excess_blob_gas = U64(0)
+        if excess_blob_gas >= target_blob_gas_per_block:
+            self.excess_blob_gas = excess_blob_gas - target_blob_gas_per_block
+
+    def read_base_fee_per_gas(self, data: Any, t8n: "T8N") -> None:
         """
         Read the base_fee_per_gas from the data. If the base fee is
         not present, it is calculated from the parent block parameters.
@@ -74,7 +128,7 @@ class Env:
         self.parent_base_fee_per_gas = None
         self.base_fee_per_gas = None
 
-        if t8n.is_after_fork("ethereum.london"):
+        if t8n.fork.is_after_fork("ethereum.london"):
             if "currentBaseFee" in data:
                 self.base_fee_per_gas = parse_hex_or_int(
                     data["currentBaseFee"], Uint
@@ -89,7 +143,7 @@ class Env:
                 self.parent_base_fee_per_gas = parse_hex_or_int(
                     data["parentBaseFee"], Uint
                 )
-                parameters = [
+                parameters: List[object] = [
                     self.block_gas_limit,
                     self.parent_gas_limit,
                     self.parent_gas_used,
@@ -98,19 +152,19 @@ class Env:
 
                 # TODO: See if this explicit check can be removed. See
                 # https://github.com/ethereum/execution-specs/issues/740
-                if t8n.fork_module == "london":
+                if t8n.fork.fork_module == "london":
                     parameters.append(t8n.fork_block == self.block_number)
 
                 self.base_fee_per_gas = t8n.fork.calculate_base_fee_per_gas(
                     *parameters
                 )
 
-    def read_randao(self, data: Any, t8n: Any) -> None:
+    def read_randao(self, data: Any, t8n: "T8N") -> None:
         """
         Read the randao from the data.
         """
         self.prev_randao = None
-        if t8n.is_after_fork("ethereum.paris"):
+        if t8n.fork.is_after_fork("ethereum.paris"):
             # tf tool might not always provide an
             # even number of nibbles in the randao
             # This could create issues in the
@@ -126,17 +180,17 @@ class Env:
                 left_pad_zero_bytes(hex_to_bytes(current_random), 32)
             )
 
-    def read_withdrawals(self, data: Any, t8n: Any) -> None:
+    def read_withdrawals(self, data: Any, t8n: "T8N") -> None:
         """
         Read the withdrawals from the data.
         """
         self.withdrawals = None
-        if t8n.is_after_fork("ethereum.shanghai"):
+        if t8n.fork.is_after_fork("ethereum.shanghai"):
             self.withdrawals = tuple(
                 t8n.json_to_withdrawals(wd) for wd in data["withdrawals"]
             )
 
-    def read_block_difficulty(self, data: Any, t8n: Any) -> None:
+    def read_block_difficulty(self, data: Any, t8n: "T8N") -> None:
         """
         Read the block difficulty from the data.
         If `currentDifficulty` is present, it is used. Otherwise,
@@ -146,7 +200,7 @@ class Env:
         self.parent_timestamp = None
         self.parent_difficulty = None
         self.parent_ommers_hash = None
-        if t8n.is_after_fork("ethereum.paris"):
+        if t8n.fork.is_after_fork("ethereum.paris"):
             return
         elif "currentDifficulty" in data:
             self.block_difficulty = parse_hex_or_int(
@@ -165,7 +219,7 @@ class Env:
                 self.parent_timestamp,
                 self.parent_difficulty,
             ]
-            if t8n.is_after_fork("ethereum.byzantium"):
+            if t8n.fork.is_after_fork("ethereum.byzantium"):
                 if "parentUncleHash" in data:
                     EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
                     self.parent_ommers_hash = Hash32(
@@ -199,7 +253,7 @@ class Env:
 
         self.block_hashes = block_hashes
 
-    def read_ommers(self, data: Any, t8n: Any) -> None:
+    def read_ommers(self, data: Any, t8n: "T8N") -> None:
         """
         Read the ommers. The ommers data might not have all the details
         needed to obtain the Header.
@@ -210,7 +264,7 @@ class Env:
                 ommers.append(
                     Ommer(
                         ommer["delta"],
-                        t8n.hex_to_address(ommer["address"]),
+                        t8n.fork.hex_to_address(ommer["address"]),
                     )
                 )
         self.ommers = ommers

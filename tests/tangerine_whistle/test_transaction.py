@@ -7,7 +7,7 @@ from ethereum.tangerine_whistle.fork import (
     calculate_intrinsic_cost,
     validate_transaction,
 )
-from ethereum.tangerine_whistle.fork_types import Transaction
+from ethereum.tangerine_whistle.transactions import Transaction
 from ethereum.utils.hexadecimal import hex_to_uint
 from tests.helpers import TEST_FIXTURES
 
@@ -35,7 +35,7 @@ def test_high_nonce(test_file_high_nonce: str) -> None:
 
     tx = rlp.decode_to(Transaction, test["tx_rlp"])
 
-    assert validate_transaction(tx) == False
+    assert not validate_transaction(tx)
 
 
 @pytest.mark.parametrize(
@@ -54,5 +54,5 @@ def test_nonce(test_file_nonce: str) -> None:
         test["test_result"]["intrinsicGas"]
     )
 
-    assert validate_transaction(tx) == True
+    assert validate_transaction(tx)
     assert calculate_intrinsic_cost(tx) == result_intrinsic_gas_cost

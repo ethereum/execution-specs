@@ -3,15 +3,18 @@ Define the types used by the t8n tool.
 """
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
 from ethereum.base_types import U64, Bytes, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
-from ..fixture_loader import UnsupportedTx
+from ..loaders.transaction_loader import TransactionLoad, UnsupportedTx
 from ..utils import FatalException, secp256k1_sign
+
+if TYPE_CHECKING:
+    from . import T8N
 
 
 class Alloc:
@@ -22,7 +25,7 @@ class Alloc:
     state: Any
     state_backup: Any
 
-    def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
+    def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         """Read the alloc file and return the state."""
         if t8n.options.input_alloc == "stdin":
             assert stdin is not None
@@ -35,13 +38,13 @@ class Alloc:
         # strings, so we convert them here.
         for address, account in data.items():
             for key, value in account.items():
-                if key == "storage":
+                if key == "storage" or not value:
                     continue
                 elif not value.startswith("0x"):
                     data[address][key] = "0x" + hex(int(value))
 
         state = t8n.json_to_state(data)
-        if t8n.fork_module == "dao_fork":
+        if t8n.fork.fork_module == "dao_fork":
             t8n.fork.apply_dao(state)
 
         self.state = state
@@ -84,11 +87,11 @@ class Txs:
     successful_txs: List[Any]
     successful_receipts: List[Any]
     all_txs: List[Any]
-    t8n: Any
+    t8n: "T8N"
     data: Any
     rlp_input: bool
 
-    def __init__(self, t8n: Any, stdin: Optional[Dict] = None):
+    def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         self.t8n = t8n
         self.rejected_txs = {}
         self.successful_txs = []
@@ -133,12 +136,9 @@ class Txs:
                 ] = f"Unsupported transaction type: {e.error_message}"
                 self.all_txs.append(e.encoded_params)
             except Exception as e:
-                self.t8n.logger.warning(
-                    f"Failed to parse transaction {idx}: {str(e)}"
-                )
-                self.rejected_txs[
-                    idx
-                ] = f"Failed to parse transaction {idx}: {str(e)}"
+                msg = f"Failed to parse transaction {idx}: {str(e)}"
+                self.t8n.logger.warning(msg, exc_info=e)
+                self.rejected_txs[idx] = msg
 
     def parse_rlp_tx(self, raw_tx: Any) -> Any:
         """
@@ -147,17 +147,15 @@ class Txs:
         t8n = self.t8n
 
         tx_rlp = rlp.encode(raw_tx)
-        if t8n.is_after_fork("ethereum.berlin"):
+        if t8n.fork.is_after_fork("ethereum.berlin"):
             if isinstance(raw_tx, Bytes):
-                transaction = t8n.fork_types.decode_transaction(raw_tx)
+                transaction = t8n.fork.decode_transaction(raw_tx)
                 self.all_txs.append(raw_tx)
             else:
-                transaction = rlp.decode_to(
-                    t8n.fork_types.LegacyTransaction, tx_rlp
-                )
+                transaction = rlp.decode_to(t8n.fork.LegacyTransaction, tx_rlp)
                 self.all_txs.append(transaction)
         else:
-            transaction = rlp.decode_to(t8n.fork_types.Transaction, tx_rlp)
+            transaction = rlp.decode_to(t8n.fork.Transaction, tx_rlp)
             self.all_txs.append(transaction)
 
         return transaction
@@ -173,7 +171,7 @@ class Txs:
         # for idx, json_tx in enumerate(self.data):
         raw_tx["gasLimit"] = raw_tx["gas"]
         raw_tx["data"] = raw_tx["input"]
-        if "to" not in raw_tx:
+        if "to" not in raw_tx or raw_tx["to"] is None:
             raw_tx["to"] = ""
 
         # tf tool might provide None instead of 0
@@ -189,11 +187,11 @@ class Txs:
         if "secretKey" in raw_tx and v == r == s == 0:
             self.sign_transaction(raw_tx)
 
-        tx = t8n.json_to_tx(raw_tx)
+        tx = TransactionLoad(raw_tx, t8n.fork).read()
         self.all_txs.append(tx)
 
-        if t8n.is_after_fork("ethereum.berlin"):
-            transaction = t8n.fork_types.decode_transaction(tx)
+        if t8n.fork.is_after_fork("ethereum.berlin"):
+            transaction = t8n.fork.decode_transaction(tx)
         else:
             transaction = tx
 
@@ -203,10 +201,8 @@ class Txs:
         """
         Add a transaction to the list of successful transactions.
         """
-        if self.t8n.is_after_fork("ethereum.berlin"):
-            self.successful_txs.append(
-                self.t8n.fork_types.encode_transaction(tx)
-            )
+        if self.t8n.fork.is_after_fork("ethereum.berlin"):
+            self.successful_txs.append(self.t8n.fork.encode_transaction(tx))
         else:
             self.successful_txs.append(tx)
 
@@ -214,10 +210,10 @@ class Txs:
         """
         Get the transaction hash of a transaction.
         """
-        if self.t8n.is_after_fork("ethereum.berlin") and not isinstance(
-            tx, self.t8n.fork_types.LegacyTransaction
+        if self.t8n.fork.is_after_fork("ethereum.berlin") and not isinstance(
+            tx, self.t8n.fork.LegacyTransaction
         ):
-            return keccak256(self.t8n.fork_types.encode_transaction(tx))
+            return keccak256(self.t8n.fork.encode_transaction(tx))
         else:
             return keccak256(rlp.encode(tx))
 
@@ -243,21 +239,21 @@ class Txs:
         t8n = self.t8n
         protected = json_tx.get("protected", True)
 
-        tx = t8n.json_to_tx(json_tx)
+        tx = TransactionLoad(json_tx, t8n.fork).read()
 
         if isinstance(tx, bytes):
-            tx_decoded = t8n.fork_types.decode_transaction(tx)
+            tx_decoded = t8n.fork.decode_transaction(tx)
         else:
             tx_decoded = tx
 
         secret_key = hex_to_uint(json_tx["secretKey"][2:])
-        if t8n.is_after_fork("ethereum.berlin"):
-            Transaction = t8n.fork_types.LegacyTransaction
+        if t8n.fork.is_after_fork("ethereum.berlin"):
+            Transaction = t8n.fork.LegacyTransaction
         else:
-            Transaction = t8n.fork_types.Transaction
+            Transaction = t8n.fork.Transaction
 
         if isinstance(tx_decoded, Transaction):
-            if t8n.is_after_fork("ethereum.spurious_dragon"):
+            if t8n.fork.is_after_fork("ethereum.spurious_dragon"):
                 if protected:
                     signing_hash = t8n.fork.signing_hash_155(
                         tx_decoded, U64(1)
@@ -269,11 +265,14 @@ class Txs:
             else:
                 signing_hash = t8n.fork.signing_hash(tx_decoded)
                 v_addend = 27
-        elif isinstance(tx_decoded, t8n.fork_types.AccessListTransaction):
+        elif isinstance(tx_decoded, t8n.fork.AccessListTransaction):
             signing_hash = t8n.fork.signing_hash_2930(tx_decoded)
             v_addend = 0
-        elif isinstance(tx_decoded, t8n.fork_types.FeeMarketTransaction):
+        elif isinstance(tx_decoded, t8n.fork.FeeMarketTransaction):
             signing_hash = t8n.fork.signing_hash_1559(tx_decoded)
+            v_addend = 0
+        elif isinstance(tx_decoded, t8n.fork.BlobTransaction):
+            signing_hash = t8n.fork.signing_hash_4844(tx_decoded)
             v_addend = 0
         else:
             raise FatalException("Unknown transaction type")
@@ -302,6 +301,8 @@ class Result:
     receipts: Any = None
     rejected: Any = None
     gas_used: Any = None
+    excess_blob_gas: Optional[U64] = None
+    blob_gas_used: Optional[Uint] = None
 
     def to_json(self) -> Any:
         """Encode the result to JSON"""
@@ -324,6 +325,12 @@ class Result:
             data["currentBaseFee"] = hex(self.base_fee)
         else:
             data["currentBaseFee"] = None
+
+        if self.excess_blob_gas is not None:
+            data["currentExcessBlobGas"] = hex(self.excess_blob_gas)
+
+        if self.blob_gas_used is not None:
+            data["blobGasUsed"] = hex(self.blob_gas_used)
 
         data["rejected"] = [
             {"index": idx, "error": error}

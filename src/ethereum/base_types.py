@@ -1,35 +1,72 @@
 """
-Numeric & Array Types
-^^^^^^^^^^^^^^^^^^^^^
-
-.. contents:: Table of Contents
-    :backlinks: none
-    :local:
-
-Introduction
-------------
-
 Integer and array types which are used by—but not unique to—Ethereum.
+
+[`Uint`] represents non-negative integers of arbitrary size, while subclasses
+of [`FixedUint`] (like [`U256`] or [`U32`]) represent non-negative integers of
+particular sizes.
+
+Similarly, [`Bytes`] represents arbitrarily long byte sequences, while
+subclasses of [`FixedBytes`] (like [`Bytes0`] or [`Bytes64`]) represent
+sequences containing an exact number of bytes.
+
+[`Uint`]: ref:ethereum.base_types.Uint
+[`FixedUint`]: ref:ethereum.base_types.FixedUint
+[`U32`]: ref:ethereum.base_types.U32
+[`U256`]: ref:ethereum.base_types.U256
+[`Bytes`]: ref:ethereum.base_types.Bytes
+[`FixedBytes`]: ref:ethereum.base_types.FixedBytes
+[`Bytes0`]: ref:ethereum.base_types.Bytes0
+[`Bytes64`]: ref:ethereum.base_types.Bytes64
 """
 
-from __future__ import annotations
+from dataclasses import is_dataclass, replace
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Optional,
+    Protocol,
+    Tuple,
+    Type,
+    TypeVar,
+    runtime_checkable,
+)
 
-from dataclasses import replace
-from typing import Any, Callable, ClassVar, Optional, Tuple, Type, TypeVar
 
-U8_MAX_VALUE = (2**8) - 1
-U32_MAX_VALUE = (2**32) - 1
-U32_CEIL_VALUE = 2**32
-U64_MAX_VALUE = (2**64) - 1
-U255_MAX_VALUE = (2**255) - 1
+@runtime_checkable
+class SlottedFreezable(Protocol):
+    """
+    A [`Protocol`] implemented by data classes annotated with
+    [`@slotted_freezable`].
+
+    [`@slotted_freezable`]: ref:ethereum.base_types.slotted_freezable
+    [`Protocol`]: https://docs.python.org/library/typing.html#typing.Protocol
+    """
+
+    _frozen: bool
+
+
 U255_CEIL_VALUE = 2**255
-U256_MAX_VALUE = (2**256) - 1
+"""
+Smallest value that requires 256 bits to represent. Mostly used in signed
+arithmetic operations, like [`sdiv`].
+
+[`sdiv`]: ref:ethereum.frontier.vm.instructions.arithmetic.sdiv
+"""
+
 U256_CEIL_VALUE = 2**256
+"""
+Smallest value that requires 257 bits to represent. Used when converting a
+[`U256`] in two's complement format to a regular `int` in [`U256.to_signed`].
+
+[`U256`]: ref:ethereum.base_types.U256
+[`U256.to_signed`]: ref:ethereum.base_types.U256.to_signed
+"""
 
 
 class Uint(int):
     """
-    Unsigned positive integer.
+    Unsigned integer of arbitrary size.
     """
 
     __slots__ = ()
@@ -39,21 +76,14 @@ class Uint(int):
         """
         Converts a sequence of bytes into an arbitrarily sized unsigned integer
         from its big endian representation.
-        Parameters
-        ----------
-        buffer :
-            Bytes to decode.
-        Returns
-        -------
-        self : `Uint`
-            Unsigned integer decoded from `buffer`.
         """
         return cls(int.from_bytes(buffer, "big"))
 
     @classmethod
     def from_le_bytes(cls: Type, buffer: "Bytes") -> "Uint":
         """
-        Convert a series of little endian bytes to an unsigned integer.
+        Converts a sequence of bytes into an arbitrarily sized unsigned integer
+        from its little endian representation.
         """
         return cls(int.from_bytes(buffer, "little"))
 
@@ -62,7 +92,7 @@ class Uint(int):
             raise TypeError()
 
         if value < 0:
-            raise ValueError()
+            raise OverflowError()
 
     def __radd__(self, left: int) -> "Uint":
         return self.__add__(left)
@@ -72,7 +102,7 @@ class Uint(int):
             return NotImplemented
 
         if right < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__add__(self, right))
 
@@ -84,7 +114,7 @@ class Uint(int):
             return NotImplemented
 
         if right < 0 or self < right:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__sub__(self, right))
 
@@ -93,7 +123,7 @@ class Uint(int):
             return NotImplemented
 
         if left < 0 or self > left:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rsub__(self, left))
 
@@ -105,7 +135,7 @@ class Uint(int):
             return NotImplemented
 
         if right < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__mul__(self, right))
 
@@ -123,7 +153,7 @@ class Uint(int):
             return NotImplemented
 
         if right < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__floordiv__(self, right))
 
@@ -132,7 +162,7 @@ class Uint(int):
             return NotImplemented
 
         if left < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rfloordiv__(self, left))
 
@@ -144,7 +174,7 @@ class Uint(int):
             return NotImplemented
 
         if right < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__mod__(self, right))
 
@@ -153,7 +183,7 @@ class Uint(int):
             return NotImplemented
 
         if left < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rmod__(self, left))
 
@@ -165,7 +195,7 @@ class Uint(int):
             return NotImplemented
 
         if right < 0:
-            raise ValueError()
+            raise OverflowError()
 
         result = int.__divmod__(self, right)
         return (
@@ -178,7 +208,7 @@ class Uint(int):
             return NotImplemented
 
         if left < 0:
-            raise ValueError()
+            raise OverflowError()
 
         result = int.__rdivmod__(self, left)
         return (
@@ -186,39 +216,45 @@ class Uint(int):
             int.__new__(self.__class__, result[1]),
         )
 
-    def __pow__(self, right: int, modulo: Optional[int] = None) -> "Uint":
+    def __pow__(  # type: ignore[override]
+        self, right: int, modulo: Optional[int] = None
+    ) -> "Uint":
         if modulo is not None:
             if not isinstance(modulo, int):
                 return NotImplemented
 
             if modulo < 0:
-                raise ValueError()
+                raise OverflowError()
 
         if not isinstance(right, int):
             return NotImplemented
 
         if right < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__pow__(self, right, modulo))
 
-    def __rpow__(self, left: int, modulo: Optional[int] = None) -> "Uint":
+    def __rpow__(  # type: ignore[misc]
+        self, left: int, modulo: Optional[int] = None
+    ) -> "Uint":
         if modulo is not None:
             if not isinstance(modulo, int):
                 return NotImplemented
 
             if modulo < 0:
-                raise ValueError()
+                raise OverflowError()
 
         if not isinstance(left, int):
             return NotImplemented
 
         if left < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rpow__(self, left, modulo))
 
-    def __ipow__(self, right: int, modulo: Optional[int] = None) -> "Uint":
+    def __ipow__(  # type: ignore[override]
+        self, right: int, modulo: Optional[int] = None
+    ) -> "Uint":
         return self.__pow__(right, modulo)
 
     def __xor__(self, right: int) -> "Uint":
@@ -226,7 +262,7 @@ class Uint(int):
             return NotImplemented
 
         if right < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__xor__(self, right))
 
@@ -235,7 +271,7 @@ class Uint(int):
             return NotImplemented
 
         if left < 0:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rxor__(self, left))
 
@@ -248,41 +284,22 @@ class Uint(int):
         """
         Converts this arbitrarily sized unsigned integer into its big endian
         representation with exactly 32 bytes.
-        Returns
-        -------
-        big_endian : `Bytes32`
-            Big endian (most significant bits first) representation.
         """
         return Bytes32(self.to_bytes(32, "big"))
 
     def to_be_bytes(self) -> "Bytes":
         """
         Converts this arbitrarily sized unsigned integer into its big endian
-        representation.
-        Returns
-        -------
-        big_endian : `Bytes`
-            Big endian (most significant bits first) representation.
+        representation, without padding.
         """
         bit_length = self.bit_length()
         byte_length = (bit_length + 7) // 8
         return self.to_bytes(byte_length, "big")
 
-    def to_le_bytes(self, number_bytes: int = None) -> "Bytes":
+    def to_le_bytes(self, number_bytes: Optional[int] = None) -> "Bytes":
         """
         Converts this arbitrarily sized unsigned integer into its little endian
-        representation.
-
-        Parameters
-        ----------
-        number_bytes :
-            Exact number of bytes to return (defaults to the fewest that can
-            represent this number.)
-
-        Returns
-        -------
-        little_endian : `Bytes`
-            Little endian (most significant bits last) representation.
+        representation, without padding.
         """
         if number_bytes is None:
             bit_length = self.bit_length()
@@ -290,16 +307,19 @@ class Uint(int):
         return self.to_bytes(number_bytes, "little")
 
 
-T = TypeVar("T", bound="FixedUInt")
+T = TypeVar("T", bound="FixedUint")
 
 
-class FixedUInt(int):
+class FixedUint(int):
     """
     Superclass for fixed size unsigned integers. Not intended to be used
     directly, but rather to be subclassed.
     """
 
-    MAX_VALUE: ClassVar["FixedUInt"]
+    MAX_VALUE: ClassVar["FixedUint"]
+    """
+    Largest value that can be represented by this integer type.
+    """
 
     __slots__ = ()
 
@@ -308,7 +328,7 @@ class FixedUInt(int):
             raise TypeError()
 
         if value < 0 or value > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
     def __radd__(self: T, left: int) -> T:
         return self.__add__(left)
@@ -320,7 +340,7 @@ class FixedUInt(int):
         result = int.__add__(self, right)
 
         if right < 0 or result > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, result)
 
@@ -328,23 +348,17 @@ class FixedUInt(int):
         """
         Return a new instance containing `self + right (mod N)`.
 
-        Parameters
-        ----------
+        Passing a `right` value greater than [`MAX_VALUE`] or less than zero
+        will raise a `ValueError`, even if the result would fit in this integer
+        type.
 
-        right :
-            Other operand for addition.
-
-        Returns
-        -------
-
-        sum : T
-            The result of adding `self` and `right`, wrapped.
+        [`MAX_VALUE`]: ref:ethereum.base_types.FixedUint.MAX_VALUE
         """
         if not isinstance(right, int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         # This is a fast way of ensuring that the result is < (2 ** 256)
         return int.__new__(
@@ -359,7 +373,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE or self < right:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__sub__(self, right))
 
@@ -367,23 +381,17 @@ class FixedUInt(int):
         """
         Return a new instance containing `self - right (mod N)`.
 
-        Parameters
-        ----------
+        Passing a `right` value greater than [`MAX_VALUE`] or less than zero
+        will raise a `ValueError`, even if the result would fit in this integer
+        type.
 
-        right :
-            Subtrahend operand for subtraction.
-
-        Returns
-        -------
-
-        difference : T
-            The result of subtracting `right` from `self`, wrapped.
+        [`MAX_VALUE`]: ref:ethereum.base_types.FixedUint.MAX_VALUE
         """
         if not isinstance(right, int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         # This is a fast way of ensuring that the result is < (2 ** 256)
         return int.__new__(
@@ -395,7 +403,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if left < 0 or left > self.MAX_VALUE or self > left:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rsub__(self, left))
 
@@ -409,7 +417,7 @@ class FixedUInt(int):
         result = int.__mul__(self, right)
 
         if right < 0 or result > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, result)
 
@@ -417,23 +425,17 @@ class FixedUInt(int):
         """
         Return a new instance containing `self * right (mod N)`.
 
-        Parameters
-        ----------
+        Passing a `right` value greater than [`MAX_VALUE`] or less than zero
+        will raise a `ValueError`, even if the result would fit in this integer
+        type.
 
-        right :
-            Other operand for multiplication.
-
-        Returns
-        -------
-
-        product : T
-            The result of multiplying `self` by `right`, wrapped.
+        [`MAX_VALUE`]: ref:ethereum.base_types.FixedUint.MAX_VALUE
         """
         if not isinstance(right, int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         # This is a fast way of ensuring that the result is < (2 ** 256)
         return int.__new__(
@@ -454,7 +456,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__floordiv__(self, right))
 
@@ -463,7 +465,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if left < 0 or left > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rfloordiv__(self, left))
 
@@ -475,7 +477,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__mod__(self, right))
 
@@ -484,7 +486,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if left < 0 or left > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rmod__(self, left))
 
@@ -496,9 +498,9 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
-        result = super(FixedUInt, self).__divmod__(right)
+        result = super(FixedUint, self).__divmod__(right)
         return (
             int.__new__(self.__class__, result[0]),
             int.__new__(self.__class__, result[1]),
@@ -509,21 +511,23 @@ class FixedUInt(int):
             return NotImplemented
 
         if left < 0 or left > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
-        result = super(FixedUInt, self).__rdivmod__(left)
+        result = super(FixedUint, self).__rdivmod__(left)
         return (
             int.__new__(self.__class__, result[0]),
             int.__new__(self.__class__, result[1]),
         )
 
-    def __pow__(self: T, right: int, modulo: Optional[int] = None) -> T:
+    def __pow__(  # type: ignore[override]
+        self: T, right: int, modulo: Optional[int] = None
+    ) -> T:
         if modulo is not None:
             if not isinstance(modulo, int):
                 return NotImplemented
 
             if modulo < 0 or modulo > self.MAX_VALUE:
-                raise ValueError()
+                raise OverflowError()
 
         if not isinstance(right, int):
             return NotImplemented
@@ -531,7 +535,7 @@ class FixedUInt(int):
         result = int.__pow__(self, right, modulo)
 
         if right < 0 or right > self.MAX_VALUE or result > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, result)
 
@@ -539,56 +543,53 @@ class FixedUInt(int):
         """
         Return a new instance containing `self ** right (mod modulo)`.
 
-        Parameters
-        ----------
+        If omitted, `modulo` defaults to `Uint(self.MAX_VALUE) + 1`.
 
-        right :
-            Exponent operand.
+        Passing a `right` or `modulo` value greater than [`MAX_VALUE`] or
+        less than zero will raise a `ValueError`, even if the result would fit
+        in this integer type.
 
-        modulo :
-            Optional modulus (defaults to `MAX_VALUE + 1`.)
-
-        Returns
-        -------
-
-        power : T
-            The result of raising `self` to the power of `right`, wrapped.
+        [`MAX_VALUE`]: ref:ethereum.base_types.FixedUint.MAX_VALUE
         """
         if modulo is not None:
             if not isinstance(modulo, int):
                 return NotImplemented
 
             if modulo < 0 or modulo > self.MAX_VALUE:
-                raise ValueError()
+                raise OverflowError()
 
         if not isinstance(right, int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         # This is a fast way of ensuring that the result is < (2 ** 256)
         return int.__new__(
             self.__class__, int.__pow__(self, right, modulo) & self.MAX_VALUE
         )
 
-    def __rpow__(self: T, left: int, modulo: Optional[int] = None) -> T:
+    def __rpow__(  # type: ignore[misc]
+        self: T, left: int, modulo: Optional[int] = None
+    ) -> T:
         if modulo is not None:
             if not isinstance(modulo, int):
                 return NotImplemented
 
             if modulo < 0 or modulo > self.MAX_VALUE:
-                raise ValueError()
+                raise OverflowError()
 
         if not isinstance(left, int):
             return NotImplemented
 
         if left < 0 or left > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rpow__(self, left, modulo))
 
-    def __ipow__(self: T, right: int, modulo: Optional[int] = None) -> T:
+    def __ipow__(  # type: ignore[override]
+        self: T, right: int, modulo: Optional[int] = None
+    ) -> T:
         return self.__pow__(right, modulo)
 
     def __and__(self: T, right: int) -> T:
@@ -596,7 +597,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__and__(self, right))
 
@@ -605,7 +606,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__or__(self, right))
 
@@ -614,7 +615,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if right < 0 or right > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__xor__(self, right))
 
@@ -623,7 +624,7 @@ class FixedUInt(int):
             return NotImplemented
 
         if left < 0 or left > self.MAX_VALUE:
-            raise ValueError()
+            raise OverflowError()
 
         return int.__new__(self.__class__, int.__rxor__(self, left))
 
@@ -644,11 +645,6 @@ class FixedUInt(int):
         """
         Converts this unsigned integer into its big endian representation,
         omitting leading zero bytes.
-
-        Returns
-        -------
-        big_endian : `Bytes`
-            Big endian (most significant bits first) representation.
         """
         bit_length = self.bit_length()
         byte_length = (bit_length + 7) // 8
@@ -657,29 +653,23 @@ class FixedUInt(int):
     # TODO: Implement neg, pos, abs ...
 
 
-class U256(FixedUInt):
+class U256(FixedUint):
     """
-    Unsigned positive integer, which can represent `0` to `2 ** 256 - 1`,
-    inclusive.
+    Unsigned integer, which can represent `0` to `2 ** 256 - 1`, inclusive.
     """
 
     MAX_VALUE: ClassVar["U256"]
+    """
+    Largest value that can be represented by this integer type.
+    """
 
     __slots__ = ()
 
     @classmethod
     def from_be_bytes(cls: Type, buffer: "Bytes") -> "U256":
         """
-        Converts a sequence of bytes into an arbitrarily sized unsigned integer
+        Converts a sequence of bytes into a fixed sized unsigned integer
         from its big endian representation.
-        Parameters
-        ----------
-        buffer :
-            Bytes to decode.
-        Returns
-        -------
-        self : `U256`
-            Unsigned integer decoded from `buffer`.
         """
         if len(buffer) > 32:
             raise ValueError()
@@ -689,15 +679,8 @@ class U256(FixedUInt):
     @classmethod
     def from_signed(cls: Type, value: int) -> "U256":
         """
-        Converts a signed number into a 256-bit unsigned integer.
-        Parameters
-        ----------
-        value :
-            Signed number
-        Returns
-        -------
-        self : `U256`
-            Unsigned integer obtained from `value`.
+        Creates an unsigned integer representing `value` using two's
+        complement.
         """
         if value >= 0:
             return cls(value)
@@ -708,22 +691,14 @@ class U256(FixedUInt):
         """
         Converts this 256-bit unsigned integer into its big endian
         representation with exactly 32 bytes.
-        Returns
-        -------
-        big_endian : `Bytes32`
-            Big endian (most significant bits first) representation.
         """
         return Bytes32(self.to_bytes(32, "big"))
 
     def to_signed(self) -> int:
         """
-        Converts this 256-bit unsigned integer into a signed integer.
-        Returns
-        -------
-        signed_int : `int`
-            Signed integer obtained from 256-bit unsigned integer.
+        Decodes a signed integer from its two's complement representation.
         """
-        if self <= U255_MAX_VALUE:
+        if self.bit_length() < 256:
             # This means that the sign bit is 0
             return int(self)
 
@@ -731,17 +706,19 @@ class U256(FixedUInt):
         return int(self) - U256_CEIL_VALUE
 
 
-U256.MAX_VALUE = int.__new__(U256, U256_MAX_VALUE)
-"""autoapi_noindex"""
+U256.MAX_VALUE = int.__new__(U256, (2**256) - 1)
 
 
-class U32(FixedUInt):
+class U32(FixedUint):
     """
     Unsigned positive integer, which can represent `0` to `2 ** 32 - 1`,
     inclusive.
     """
 
     MAX_VALUE: ClassVar["U32"]
+    """
+    Largest value that can be represented by this integer type.
+    """
 
     __slots__ = ()
 
@@ -760,11 +737,6 @@ class U32(FixedUInt):
         """
         Converts this fixed sized unsigned integer into its little endian
         representation, with exactly 4 bytes.
-
-        Returns
-        -------
-        little_endian : `Bytes4`
-            Little endian (most significant bits last) representation.
         """
         return Bytes4(self.to_bytes(4, "little"))
 
@@ -772,28 +744,25 @@ class U32(FixedUInt):
         """
         Converts this fixed sized unsigned integer into its little endian
         representation, in the fewest bytes possible.
-
-        Returns
-        -------
-        little_endian : `Bytes`
-            Little endian (most significant bits last) representation.
         """
         bit_length = self.bit_length()
         byte_length = (bit_length + 7) // 8
         return self.to_bytes(byte_length, "little")
 
 
-U32.MAX_VALUE = int.__new__(U32, U32_MAX_VALUE)
-"""autoapi_noindex"""
+U32.MAX_VALUE = int.__new__(U32, (2**32) - 1)
 
 
-class U64(FixedUInt):
+class U64(FixedUint):
     """
     Unsigned positive integer, which can represent `0` to `2 ** 64 - 1`,
     inclusive.
     """
 
     MAX_VALUE: ClassVar["U64"]
+    """
+    Largest value that can be represented by this integer type.
+    """
 
     __slots__ = ()
 
@@ -812,11 +781,6 @@ class U64(FixedUInt):
         """
         Converts this fixed sized unsigned integer into its little endian
         representation, with exactly 8 bytes.
-
-        Returns
-        -------
-        little_endian : `Bytes8`
-            Little endian (most significant bits last) representation.
         """
         return Bytes8(self.to_bytes(8, "little"))
 
@@ -824,11 +788,6 @@ class U64(FixedUInt):
         """
         Converts this fixed sized unsigned integer into its little endian
         representation, in the fewest bytes possible.
-
-        Returns
-        -------
-        little_endian : `Bytes`
-            Little endian (most significant bits last) representation.
         """
         bit_length = self.bit_length()
         byte_length = (bit_length + 7) // 8
@@ -839,15 +798,6 @@ class U64(FixedUInt):
         """
         Converts a sequence of bytes into an unsigned 64 bit integer from its
         big endian representation.
-
-        Parameters
-        ----------
-        buffer :
-            Bytes to decode.
-        Returns
-        -------
-        self : `U64`
-            Unsigned integer decoded from `buffer`.
         """
         if len(buffer) > 8:
             raise ValueError()
@@ -855,8 +805,7 @@ class U64(FixedUInt):
         return cls(int.from_bytes(buffer, "big"))
 
 
-U64.MAX_VALUE = int.__new__(U64, U64_MAX_VALUE)
-"""autoapi_noindex"""
+U64.MAX_VALUE = int.__new__(U64, (2**64) - 1)
 
 
 B = TypeVar("B", bound="FixedBytes")
@@ -869,6 +818,9 @@ class FixedBytes(bytes):
     """
 
     LENGTH: int
+    """
+    Number of bytes in each instance of this class.
+    """
 
     __slots__ = ()
 
@@ -890,6 +842,9 @@ class Bytes0(FixedBytes):
     """
 
     LENGTH = 0
+    """
+    Number of bytes in each instance of this class.
+    """
 
 
 class Bytes4(FixedBytes):
@@ -898,6 +853,9 @@ class Bytes4(FixedBytes):
     """
 
     LENGTH = 4
+    """
+    Number of bytes in each instance of this class.
+    """
 
 
 class Bytes8(FixedBytes):
@@ -906,6 +864,9 @@ class Bytes8(FixedBytes):
     """
 
     LENGTH = 8
+    """
+    Number of bytes in each instance of this class.
+    """
 
 
 class Bytes20(FixedBytes):
@@ -914,6 +875,9 @@ class Bytes20(FixedBytes):
     """
 
     LENGTH = 20
+    """
+    Number of bytes in each instance of this class.
+    """
 
 
 class Bytes32(FixedBytes):
@@ -922,6 +886,17 @@ class Bytes32(FixedBytes):
     """
 
     LENGTH = 32
+    """
+    Number of bytes in each instance of this class.
+    """
+
+
+class Bytes48(FixedBytes):
+    """
+    Byte array of exactly 48 elements.
+    """
+
+    LENGTH = 48
 
 
 class Bytes64(FixedBytes):
@@ -930,6 +905,9 @@ class Bytes64(FixedBytes):
     """
 
     LENGTH = 64
+    """
+    Number of bytes in each instance of this class.
+    """
 
 
 class Bytes256(FixedBytes):
@@ -938,9 +916,15 @@ class Bytes256(FixedBytes):
     """
 
     LENGTH = 256
+    """
+    Number of bytes in each instance of this class.
+    """
 
 
 Bytes = bytes
+"""
+Sequence of bytes (octets) of arbitrary length.
+"""
 
 
 def _setattr_function(self: Any, attr: str, value: Any) -> None:
@@ -987,22 +971,14 @@ S = TypeVar("S")
 
 def modify(obj: S, f: Callable[[S], None]) -> S:
     """
-    Create a mutable copy of `obj` (which must be `@slotted_freezable`) and
-    apply `f` to the copy before freezing it.
+    Create a copy of `obj` (which must be [`@slotted_freezable`]), and modify
+    it by applying `f`. The returned copy will be frozen.
 
-    Parameters
-    ----------
-    obj : `S`
-        Object to copy.
-    f : `Callable[[S], None]`
-        Function to apply to `obj`.
-
-    Returns
-    -------
-    new_obj : `S`
-        Compact byte array.
+    [`@slotted_freezable`]: ref:ethereum.base_types.slotted_freezable
     """
+    assert is_dataclass(obj)
+    assert isinstance(obj, SlottedFreezable)
     new_obj = replace(obj, _frozen=False)
     f(new_obj)
-    new_obj._frozen = True  # type: ignore
+    new_obj._frozen = True
     return new_obj

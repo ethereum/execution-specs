@@ -18,7 +18,7 @@ Changes included in the Network Upgrade.
 | Goerli  | `1678832736` | 3/14/2023, 10:25:36 PM	 |  `0xf9843abf` | 162304 
 | Mainnet | `1681338455` | 4/12/2023, 10:27:35 PM |  `0xdce96c2d` | 194048 
 
-### Implementation Progresss
+### Implementation Progress
 
 Implementation status of Included & CFI'd EIPs across participating clients.
 

@@ -59,7 +59,7 @@ def memory_read_bytes(
 
 def buffer_read(buffer: Bytes, start_position: U256, size: U256) -> Bytes:
     """
-    Read bytes from a buffer. Padding with zeros if neccesary.
+    Read bytes from a buffer. Padding with zeros if necessary.
 
     Parameters
     ----------

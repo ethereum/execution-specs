@@ -13,7 +13,7 @@ This modules defines functions for calculating bloom filters of logs. For the
 general theory of bloom filters see e.g. `Wikipedia
 <https://en.wikipedia.org/wiki/Bloom_filter>`_. Bloom filters are used to allow
 for efficient searching of logs by address and/or topic, by rapidly
-eliminating blocks and reciepts from their search.
+eliminating blocks and receipts from their search.
 """
 
 from typing import Tuple
@@ -21,7 +21,8 @@ from typing import Tuple
 from ethereum.base_types import Uint
 from ethereum.crypto.hash import keccak256
 
-from .fork_types import Bloom, Log
+from .blocks import Log
+from .fork_types import Bloom
 
 
 def add_to_bloom(bloom: bytearray, bloom_entry: bytes) -> None:

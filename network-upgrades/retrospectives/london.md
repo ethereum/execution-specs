@@ -85,7 +85,7 @@ July 22, 2021
 assert sender.balance >= gasLimit * transaction.max_fee_per_gas
 ```
 
-A few lines above (L207), though, `sender.balance` is modified to substract from it the transaction's amount (`sender.balance -= transaction.amount`). This led to confusion, as some client teams used the full `sender.balance` (i.e. pre-subtraction of `transaction.amount`) when checking the assertion defined on line 217, rather than the updated value. 
+A few lines above (L207), though, `sender.balance` is modified to subtract from it the transaction's amount (`sender.balance -= transaction.amount`). This led to confusion, as some client teams used the full `sender.balance` (i.e. pre-subtraction of `transaction.amount`) when checking the assertion defined on line 217, rather than the updated value. 
 
 One suggested fix is to move this assertion closer to when the `sender.balance` value is updated, similarly to the other assertion on line 208. 
 
@@ -105,7 +105,7 @@ Solution: Do a `debug.setHead{X-1)` to jump to before the fork. This internally 
 
 ##### Syncing in the presence of a wrong higher-td chain
 
-You are syncing a `geth`-node,  and a fork has occurred at block `X`. Since the fork has already happened, and the erroneous chain has higher TD, you will most likely wind up on the 'wrong' side of the chain, with a pivot block `X+M`. If this happens, you _do not have_ any state for blocks `<X+M`, so you _cannot_ do `debug.setHead` to to resolve the situation. 
+You are syncing a `geth`-node,  and a fork has occurred at block `X`. Since the fork has already happened, and the erroneous chain has higher TD, you will most likely wind up on the 'wrong' side of the chain, with a pivot block `X+M`. If this happens, you _do not have_ any state for blocks `<X+M`, so you _cannot_ do `debug.setHead` to resolve the situation. 
 
 In this case, a resync is required. However, you need to prevent geth from winding up on the wrong side of the fork. This can be done with the `whitelist` command line parameter. 
 ```

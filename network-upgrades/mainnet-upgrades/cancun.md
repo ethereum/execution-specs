@@ -10,6 +10,7 @@ Execution layer changes included in the Network Upgrade.
 * [EIP-6780: SELFDESTRUCT only in same transaction](https://eips.ethereum.org/EIPS/eip-6780)
 * [EIP-7516: BLOBBASEFEE opcode](https://eips.ethereum.org/EIPS/eip-7516)
 
+
 ### Implementation Progresss
 
 Implementation status of Included EIPs across participating clients.
@@ -22,6 +23,14 @@ Implementation status of Included EIPs across participating clients.
 | **Erigon**     | [Merged](https://github.com/ledgerwatch/erigon/pull/7405) + [Merged](https://github.com/ledgerwatch/erigon/pull/7885) | [Merged (many PRs)](https://github.com/ledgerwatch/erigon/pulls?q=is%3Apr+4788) | [Merged (many PRs)](https://github.com/ledgerwatch/erigon/pulls?q=is%3Apr+4844) | [Merged](https://github.com/ledgerwatch/erigon/pull/7887) | [Merged](https://github.com/ledgerwatch/erigon/pull/7976) | [Merged](https://github.com/ledgerwatch/erigon/pull/8231) |
 | **EthereumJS** | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/1860) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2810) | [Merged (many PRs)](https://github.com/ethereumjs/ethereumjs-monorepo/pulls?q=is%3Apr+4844) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2808) | [Merged](https://github.com/ethereumjs/ethereumjs-monorepo/pull/2771) | |
 
+### Upgrade Schedule
+
+| Network | Timestamp    | Date & Time (UTC)       | Fork Hash    | Beacon Chain Epoch |
+|---------|--------------|-------------------------|--------------| ------------------ |
+| Goerli  | `1705473120` | 2024-01-17 06:32:00     | `0x70cc14e2` | 231680 
+| Sepolia | `1706655072` | 2024-01-30 22:51:12     | `0x88cf81d9` | 132608 
+| Holesky | `1707305664` | 2024-02-07 11:34:24     | `0x9b192ad0` | 29696 
+| Mainnet | `1710338135` | 2024-03-13 13:55:35     | `0x9f3d2254` | 269568 
 
 
 ### Readiness Checklist
@@ -31,8 +40,8 @@ Implementation status of Included EIPs across participating clients.
 - [x] Client Integration Testing
   - [x] [Devnets](https://github.com/ethpandaops/dencun-testnet)
   - [x] [Testing suites](https://notes.ethereum.org/@ethpandaops/dencun-testing-overview)
- - [ ] Select Testnet Fork Blocks
- - [ ] Select Mainnet Fork Block
+ - [x] Select Testnet Fork Blocks
+ - [x] Select Mainnet Fork Block
  - [ ] Release Mainnet Compatible Clients
    - [ ]  Geth
    - [ ]  Besu

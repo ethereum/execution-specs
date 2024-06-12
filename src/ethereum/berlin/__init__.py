@@ -1,8 +1,7 @@
 """
-Ethereum Berlin Hardfork
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-The Tenth Ethereum hardfork.
+The Berlin fork adjusts the gas costs of the `ModExp` precompile and several
+state access EVM instructions, introduces typed transaction envelopes along
+with the first new transaction type—optional access lists.
 """
 
 from ethereum.fork_criteria import ByBlockNumber

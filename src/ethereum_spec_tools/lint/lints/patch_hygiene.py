@@ -34,7 +34,7 @@ class PatchHygiene(Lint):
         )
 
         diagnostics: List[Diagnostic] = []
-        for (name, current, previous) in items:
+        for name, current, previous in items:
             diagnostics += self.compare(name, current, previous)
 
         return diagnostics

@@ -16,7 +16,7 @@ try:
 
     optimized_state = cast(Any, OptimizedState())
 
-    for (name, value) in state_db.get_optimized_state_patches(
+    for name, value in state_db.get_optimized_state_patches(
         "frontier"
     ).items():
         setattr(optimized_state, name, value)

@@ -10,7 +10,7 @@ In an effort to separate this process from the EIP standardization process, thre
 
 **Considered for Inclusion**: Signals that client developers are generally positive towards the idea, and that, assuming it meets all the requirements for mainnet inclusion, it could potentially be included in a network upgrade. This means the EIP may be included in client integration testnets. It is similar to "concept ACK" in other open source projects, and is not sufficient to result in deployment to mainnet.
 
-**Client Integration Testnets**: Short-lived integration testnets which are stood up to test cross-client implementations of certain EIPs. This does not guarantee mainnet deployement, and for some EIPs with small or non-applicable changes, this step may be skipped.
+**Client Integration Testnets**: Short-lived integration testnets which are stood up to test cross-client implementations of certain EIPs. This does not guarantee mainnet deployment, and for some EIPs with small or non-applicable changes, this step may be skipped.
 
 **Mainnet**: Signals that client developers wish to include the EIP into an upgrade to the public Ethereum networks (i.e. testnets such as Goerli, Ropsten and Rinkeby and mainnet).
 
@@ -43,4 +43,4 @@ Note: by this point, your EIP should be in `Review` status.
 
 ### Deploying your EIP to Mainnet
 
-If client developers reach rough consensus to include your EIP in a network upgrade, it will be added to a spec under the `mainnet-upgardes` folder. When the upgrade spec gets finalized (i.e. the list of EIPs is final and blocks are selected), your EIP should be moved to the `Last Call` status. 
+If client developers reach rough consensus to include your EIP in a network upgrade, it will be added to a spec under the `mainnet-upgrades` folder. When the upgrade spec gets finalized (i.e. the list of EIPs is final and blocks are selected), your EIP should be moved to the `Last Call` status. 

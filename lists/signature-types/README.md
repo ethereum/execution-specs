@@ -15,7 +15,8 @@ Reserved or Tentative.
 | 0x00  | Reserved: indicates legacy (untyped) trancactions |
 | 0x01  | Reserved: [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930) *(available in Berlin)* |
 | 0x02  | Reserved: [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) *(available in London)* |
-| 0x03  | Tentative: prevents collision with [EIP-3074](https://eips.ethereum.org/EIPS/eip-3074) |
+| 0x03  | Reserved: [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844) *(available in Cancun)* |
+| 0x04  | Reserved: [EIP-3074](https://eips.ethereum.org/EIPS/eip-3074) |
 | 0x19  | Reserved: prevents collision with [EIP-191](https://eips.ethereum.org/EIPS/eip-191) |
 | 0xc0 - 0xff  | Invalid; collides with the initial byte of valid RLP encoded transactions |
 
@@ -54,15 +55,3 @@ It was carried over from the technique Bitcon used to sign personal messages
 retconned signed personal messages into a scheme that is extensible,
 allowing new types of data and structures to be safely signed with
 the same prefix byte.
-
-
-Tentative Signature Types
--------------------------
-
-Proposed signature types to reserve for upcoming purposes, but still subject to
-change.
-
-### Type 0x03 (3)
-
-The prefix byte `0x03` is reserved for
-[EIP-3074](https://eips.ethereum.org/EIPS/eip-3074) `AUTH` payloads.

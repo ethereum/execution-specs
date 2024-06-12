@@ -19,7 +19,8 @@ from typing import List, Optional, Set, Tuple, Union
 from ethereum.base_types import U256, Bytes, Bytes0, Uint
 from ethereum.crypto.hash import Hash32
 
-from ..fork_types import Address, Log
+from ..blocks import Log
+from ..fork_types import Address
 from ..state import State
 
 __all__ = ("Environment", "Evm", "Message")

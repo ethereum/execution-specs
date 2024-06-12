@@ -54,8 +54,11 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
     """
     patches: Dict[str, Any] = {}
 
-    mod = cast(Any, import_module("ethereum." + fork + ".fork_types"))
-    Account = mod.Account
+    types_mod = cast(Any, import_module("ethereum." + fork + ".fork_types"))
+    state_mod = cast(Any, import_module("ethereum." + fork + ".state"))
+    Account = types_mod.Account
+
+    has_transient_storage = hasattr(state_mod, "TransientStorage")
 
     @add_item(patches)
     @dataclass
@@ -202,8 +205,7 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
         state.dirty_storage.clear()
         state.destroyed_accounts = set()
 
-    @add_item(patches)
-    def begin_transaction(state: State) -> None:
+    def _begin_transaction(state: State) -> None:
         """
         See `state`.
         """
@@ -211,8 +213,35 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             flush(state)
         state.tx_restore_points.append(len(state.journal))
 
-    @add_item(patches)
-    def commit_transaction(state: State) -> None:
+    if has_transient_storage:
+
+        @add_item(patches)
+        def begin_transaction(
+            state: State,
+            transient_storage: Optional[Any] = None,
+        ) -> None:
+            """
+            See `state`
+            """
+            _begin_transaction(state)
+            if transient_storage is not None:
+                transient_storage._snapshots.append(
+                    {
+                        k: state_mod.copy_trie(t)
+                        for (k, t) in transient_storage._tries.items()
+                    }
+                )
+
+    else:
+
+        @add_item(patches)
+        def begin_transaction(state: State) -> None:
+            """
+            See `state`
+            """
+            _begin_transaction(state)
+
+    def _commit_transaction(state: State) -> None:
         """
         See `state`.
         """
@@ -222,8 +251,30 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
             state.created_accounts.clear()
             flush(state)
 
-    @add_item(patches)
-    def rollback_transaction(state: State) -> None:
+    if has_transient_storage:
+
+        @add_item(patches)
+        def commit_transaction(
+            state: State, transient_storage: Optional[Any] = None
+        ) -> None:
+            """
+            See `state`.
+            """
+            _commit_transaction(state)
+
+            if transient_storage and transient_storage._snapshots:
+                transient_storage._snapshots.pop()
+
+    else:
+
+        @add_item(patches)
+        def commit_transaction(state: State) -> None:
+            """
+            See `state`.
+            """
+            _commit_transaction(state)
+
+    def _rollback_transaction(state: State) -> None:
         """
         See `state`.
         """
@@ -249,6 +300,30 @@ def get_optimized_state_patches(fork: str) -> Dict[str, Any]:
 
         if not state.tx_restore_points:
             state.created_accounts.clear()
+
+    if has_transient_storage:
+
+        @add_item(patches)
+        def rollback_transaction(
+            state: State,
+            transient_storage: Optional[Any] = None,
+        ) -> None:
+            """
+            See `state`
+            """
+            _rollback_transaction(state)
+
+            if transient_storage and transient_storage._snapshots:
+                transient_storage._tries = transient_storage._snapshots.pop()
+
+    else:
+
+        @add_item(patches)
+        def rollback_transaction(state: State) -> None:
+            """
+            See `state`.
+            """
+            _rollback_transaction(state)
 
     @add_item(patches)
     def get_storage(state: State, address: Address, key: Bytes) -> U256:

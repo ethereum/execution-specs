@@ -20,33 +20,13 @@ from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import InvalidBlock
-from ethereum.utils.ensure import ensure
 
 from .. import rlp
 from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
 from . import FORK_CRITERIA, vm
+from .blocks import Block, Header, Log, Receipt
 from .bloom import logs_bloom
-from .fork_types import (
-    TX_ACCESS_LIST_ADDRESS_COST,
-    TX_ACCESS_LIST_STORAGE_KEY_COST,
-    TX_BASE_COST,
-    TX_CREATE_COST,
-    TX_DATA_COST_PER_NON_ZERO,
-    TX_DATA_COST_PER_ZERO,
-    AccessListTransaction,
-    Address,
-    Block,
-    Bloom,
-    FeeMarketTransaction,
-    Header,
-    LegacyTransaction,
-    Log,
-    Receipt,
-    Root,
-    Transaction,
-    decode_transaction,
-    encode_transaction,
-)
+from .fork_types import Address, Bloom, Root
 from .state import (
     State,
     account_exists_and_is_empty,
@@ -56,6 +36,20 @@ from .state import (
     increment_nonce,
     set_account_balance,
     state_root,
+)
+from .transactions import (
+    TX_ACCESS_LIST_ADDRESS_COST,
+    TX_ACCESS_LIST_STORAGE_KEY_COST,
+    TX_BASE_COST,
+    TX_CREATE_COST,
+    TX_DATA_COST_PER_NON_ZERO,
+    TX_DATA_COST_PER_ZERO,
+    AccessListTransaction,
+    FeeMarketTransaction,
+    LegacyTransaction,
+    Transaction,
+    decode_transaction,
+    encode_transaction,
 )
 from .trie import Trie, root, trie_set
 from .utils.message import prepare_message
@@ -171,13 +165,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     parent_header = chain.blocks[-1].header
     validate_header(block.header, parent_header)
     validate_ommers(block.ommers, block.header, chain)
-    (
-        gas_used,
-        transactions_root,
-        receipt_root,
-        block_logs_bloom,
-        state,
-    ) = apply_body(
+    apply_body_output = apply_body(
         chain.state,
         get_last_256_block_hashes(chain),
         block.header.coinbase,
@@ -190,11 +178,16 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.ommers,
         chain.chain_id,
     )
-    ensure(gas_used == block.header.gas_used, InvalidBlock)
-    ensure(transactions_root == block.header.transactions_root, InvalidBlock)
-    ensure(state_root(state) == block.header.state_root, InvalidBlock)
-    ensure(receipt_root == block.header.receipt_root, InvalidBlock)
-    ensure(block_logs_bloom == block.header.bloom, InvalidBlock)
+    if apply_body_output.block_gas_used != block.header.gas_used:
+        raise InvalidBlock
+    if apply_body_output.transactions_root != block.header.transactions_root:
+        raise InvalidBlock
+    if apply_body_output.state_root != block.header.state_root:
+        raise InvalidBlock
+    if apply_body_output.receipt_root != block.header.receipt_root:
+        raise InvalidBlock
+    if apply_body_output.block_logs_bloom != block.header.bloom:
+        raise InvalidBlock
 
     chain.blocks.append(block)
     if len(chain.blocks) > 255:
@@ -234,11 +227,8 @@ def calculate_base_fee_per_gas(
     if is_fork_block:
         return Uint(INITIAL_BASE_FEE)
     parent_gas_target = parent_gas_limit // ELASTICITY_MULTIPLIER
-
-    ensure(
-        check_gas_limit(block_gas_limit, parent_gas_limit),
-        InvalidBlock,
-    )
+    if not check_gas_limit(block_gas_limit, parent_gas_limit):
+        raise InvalidBlock
 
     if parent_gas_used == parent_gas_target:
         expected_base_fee_per_gas = parent_base_fee_per_gas
@@ -281,7 +271,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
     quantities in the header should match the logic for the block itself.
     For example the header timestamp should be greater than the block's parent
     timestamp because the block was created *after* the parent block.
-    Additionally, the block's number should be directly folowing the parent
+    Additionally, the block's number should be directly following the parent
     block's number since it is the next block in the sequence.
 
     Parameters
@@ -291,7 +281,8 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_header :
         Parent Header of the header to check for correctness
     """
-    ensure(header.gas_used <= header.gas_limit, InvalidBlock)
+    if header.gas_used > header.gas_limit:
+        raise InvalidBlock
 
     is_fork_block = header.number == FORK_CRITERIA.block_number
     expected_base_fee_per_gas = calculate_base_fee_per_gas(
@@ -301,13 +292,16 @@ def validate_header(header: Header, parent_header: Header) -> None:
         parent_header.base_fee_per_gas,
         is_fork_block,
     )
-
-    ensure(expected_base_fee_per_gas == header.base_fee_per_gas, InvalidBlock)
+    if expected_base_fee_per_gas != header.base_fee_per_gas:
+        raise InvalidBlock
 
     parent_has_ommers = parent_header.ommers_hash != EMPTY_OMMER_HASH
-    ensure(header.timestamp > parent_header.timestamp, InvalidBlock)
-    ensure(header.number == parent_header.number + 1, InvalidBlock)
-    ensure(len(header.extra_data) <= 32, InvalidBlock)
+    if header.timestamp <= parent_header.timestamp:
+        raise InvalidBlock
+    if header.number != parent_header.number + 1:
+        raise InvalidBlock
+    if len(header.extra_data) > 32:
+        raise InvalidBlock
 
     block_difficulty = calculate_block_difficulty(
         header.number,
@@ -316,10 +310,12 @@ def validate_header(header: Header, parent_header: Header) -> None:
         parent_header.difficulty,
         parent_has_ommers,
     )
-    ensure(header.difficulty == block_difficulty, InvalidBlock)
+    if header.difficulty != block_difficulty:
+        raise InvalidBlock
 
     block_parent_hash = keccak256(rlp.encode(parent_header))
-    ensure(header.parent_hash == block_parent_hash, InvalidBlock)
+    if header.parent_hash != block_parent_hash:
+        raise InvalidBlock
 
     validate_proof_of_work(header)
 
@@ -389,12 +385,10 @@ def validate_proof_of_work(header: Header) -> None:
     mix_digest, result = hashimoto_light(
         header_hash, header.nonce, cache, dataset_size(header.number)
     )
-
-    ensure(mix_digest == header.mix_digest, InvalidBlock)
-    ensure(
-        Uint.from_be_bytes(result) <= (U256_CEIL_VALUE // header.difficulty),
-        InvalidBlock,
-    )
+    if mix_digest != header.mix_digest:
+        raise InvalidBlock
+    if Uint.from_be_bytes(result) > (U256_CEIL_VALUE // header.difficulty):
+        raise InvalidBlock
 
 
 def check_transaction(
@@ -429,12 +423,15 @@ def check_transaction(
     InvalidBlock :
         If the transaction is not includable.
     """
-    ensure(tx.gas <= gas_available, InvalidBlock)
+    if tx.gas > gas_available:
+        raise InvalidBlock
     sender_address = recover_sender(chain_id, tx)
 
     if isinstance(tx, FeeMarketTransaction):
-        ensure(tx.max_fee_per_gas >= tx.max_priority_fee_per_gas, InvalidBlock)
-        ensure(tx.max_fee_per_gas >= base_fee_per_gas, InvalidBlock)
+        if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
+            raise InvalidBlock
+        if tx.max_fee_per_gas < base_fee_per_gas:
+            raise InvalidBlock
 
         priority_fee_per_gas = min(
             tx.max_priority_fee_per_gas,
@@ -442,7 +439,8 @@ def check_transaction(
         )
         effective_gas_price = priority_fee_per_gas + base_fee_per_gas
     else:
-        ensure(tx.gas_price >= base_fee_per_gas, InvalidBlock)
+        if tx.gas_price < base_fee_per_gas:
+            raise InvalidBlock
         effective_gas_price = tx.gas_price
 
     return sender_address, effective_gas_price
@@ -483,10 +481,37 @@ def make_receipt(
 
     if isinstance(tx, AccessListTransaction):
         return b"\x01" + rlp.encode(receipt)
-    if isinstance(tx, FeeMarketTransaction):
+    elif isinstance(tx, FeeMarketTransaction):
         return b"\x02" + rlp.encode(receipt)
     else:
         return receipt
+
+
+@dataclass
+class ApplyBodyOutput:
+    """
+    Output from applying the block body to the present state.
+
+    Contains the following:
+
+    block_gas_used : `ethereum.base_types.Uint`
+        Gas used for executing all transactions.
+    transactions_root : `ethereum.fork_types.Root`
+        Trie root of all the transactions in the block.
+    receipt_root : `ethereum.fork_types.Root`
+        Trie root of all the receipts in the block.
+    block_logs_bloom : `Bloom`
+        Logs bloom of all the logs included in all the transactions of the
+        block.
+    state_root : `ethereum.fork_types.Root`
+        State root after all transactions have been executed.
+    """
+
+    block_gas_used: Uint
+    transactions_root: Root
+    receipt_root: Root
+    block_logs_bloom: Bloom
+    state_root: Root
 
 
 def apply_body(
@@ -501,7 +526,7 @@ def apply_body(
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
     ommers: Tuple[Header, ...],
     chain_id: U64,
-) -> Tuple[Uint, Root, Root, Bloom, State]:
+) -> ApplyBodyOutput:
     """
     Executes a block.
 
@@ -541,17 +566,8 @@ def apply_body(
 
     Returns
     -------
-    gas_available : `ethereum.base_types.Uint`
-        Remaining gas after all transactions have been executed.
-    transactions_root : `ethereum.fork_types.Root`
-        Trie root of all the transactions in the block.
-    receipt_root : `ethereum.fork_types.Root`
-        Trie root of all the receipts in the block.
-    block_logs_bloom : `Bloom`
-        Logs bloom of all the logs included in all the transactions of the
-        block.
-    state : `ethereum.fork_types.State`
-        State after all transactions have been executed.
+    apply_body_output : `ApplyBodyOutput`
+        Output of applying the block body to the state.
     """
     gas_available = block_gas_limit
     transactions_trie: Trie[
@@ -608,12 +624,12 @@ def apply_body(
 
     block_logs_bloom = logs_bloom(block_logs)
 
-    return (
+    return ApplyBodyOutput(
         block_gas_used,
         root(transactions_trie),
         root(receipts_trie),
         block_logs_bloom,
-        state,
+        state_root(state),
     )
 
 
@@ -630,7 +646,7 @@ def validate_ommers(
     To be considered valid, the ommers must adhere to the rules defined in
     the Ethereum protocol. The maximum amount of ommers is 2 per block and
     there cannot be duplicate ommers in a block. Many of the other ommer
-    contraints are listed in the in-line comments of this function.
+    constraints are listed in the in-line comments of this function.
 
     Parameters
     ----------
@@ -642,8 +658,8 @@ def validate_ommers(
         History and current state.
     """
     block_hash = rlp.rlp_hash(block_header)
-
-    ensure(rlp.rlp_hash(ommers) == block_header.ommers_hash, InvalidBlock)
+    if rlp.rlp_hash(ommers) != block_header.ommers_hash:
+        raise InvalidBlock
 
     if len(ommers) == 0:
         # Nothing to validate
@@ -651,18 +667,18 @@ def validate_ommers(
 
     # Check that each ommer satisfies the constraints of a header
     for ommer in ommers:
-        ensure(1 <= ommer.number < block_header.number, InvalidBlock)
+        if 1 > ommer.number or ommer.number >= block_header.number:
+            raise InvalidBlock
         ommer_parent_header = chain.blocks[
             -(block_header.number - ommer.number) - 1
         ].header
         validate_header(ommer, ommer_parent_header)
-
-    # Check that there can be only at most 2 ommers for a block.
-    ensure(len(ommers) <= 2, InvalidBlock)
+    if len(ommers) > 2:
+        raise InvalidBlock
 
     ommers_hashes = [rlp.rlp_hash(ommer) for ommer in ommers]
-    # Check that there are no duplicates in the ommers of current block
-    ensure(len(ommers_hashes) == len(set(ommers_hashes)), InvalidBlock)
+    if len(ommers_hashes) != len(set(ommers_hashes)):
+        raise InvalidBlock
 
     recent_canonical_blocks = chain.blocks[-(MAX_OMMER_DEPTH + 1) :]
     recent_canonical_block_hashes = {
@@ -676,25 +692,22 @@ def validate_ommers(
 
     for ommer_index, ommer in enumerate(ommers):
         ommer_hash = ommers_hashes[ommer_index]
-        # The current block shouldn't be the ommer
-        ensure(ommer_hash != block_hash, InvalidBlock)
-
-        # Ommer shouldn't be one of the recent canonical blocks
-        ensure(ommer_hash not in recent_canonical_block_hashes, InvalidBlock)
-
-        # Ommer shouldn't be one of the uncles mentioned in the recent
-        # canonical blocks
-        ensure(ommer_hash not in recent_ommers_hashes, InvalidBlock)
+        if ommer_hash == block_hash:
+            raise InvalidBlock
+        if ommer_hash in recent_canonical_block_hashes:
+            raise InvalidBlock
+        if ommer_hash in recent_ommers_hashes:
+            raise InvalidBlock
 
         # Ommer age with respect to the current block. For example, an age of
         # 1 indicates that the ommer is a sibling of previous block.
         ommer_age = block_header.number - ommer.number
-        ensure(1 <= ommer_age <= MAX_OMMER_DEPTH, InvalidBlock)
-
-        ensure(
-            ommer.parent_hash in recent_canonical_block_hashes, InvalidBlock
-        )
-        ensure(ommer.parent_hash != block_header.parent_hash, InvalidBlock)
+        if 1 > ommer_age or ommer_age > MAX_OMMER_DEPTH:
+            raise InvalidBlock
+        if ommer.parent_hash not in recent_canonical_block_hashes:
+            raise InvalidBlock
+        if ommer.parent_hash == block_header.parent_hash:
+            raise InvalidBlock
 
 
 def pay_rewards(
@@ -764,22 +777,25 @@ def process_transaction(
     -------
     gas_left : `ethereum.base_types.U256`
         Remaining gas after execution.
-    logs : `Tuple[ethereum.fork_types.Log, ...]`
+    logs : `Tuple[ethereum.blocks.Log, ...]`
         Logs generated during execution.
     """
-    ensure(validate_transaction(tx), InvalidBlock)
+    if not validate_transaction(tx):
+        raise InvalidBlock
 
     sender = env.origin
     sender_account = get_account(env.state, sender)
 
     if isinstance(tx, FeeMarketTransaction):
-        gas_fee = tx.gas * tx.max_fee_per_gas
+        max_gas_fee = tx.gas * tx.max_fee_per_gas
     else:
-        gas_fee = tx.gas * tx.gas_price
-
-    ensure(sender_account.nonce == tx.nonce, InvalidBlock)
-    ensure(sender_account.balance >= gas_fee + tx.value, InvalidBlock)
-    ensure(sender_account.code == bytearray(), InvalidBlock)
+        max_gas_fee = tx.gas * tx.gas_price
+    if sender_account.nonce != tx.nonce:
+        raise InvalidBlock
+    if sender_account.balance < max_gas_fee + tx.value:
+        raise InvalidBlock
+    if sender_account.code != bytearray():
+        raise InvalidBlock
 
     effective_gas_fee = tx.gas * env.gas_price
 
@@ -792,7 +808,7 @@ def process_transaction(
     preaccessed_addresses = set()
     preaccessed_storage_keys = set()
     if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
-        for (address, keys) in tx.access_list:
+        for address, keys in tx.access_list:
             preaccessed_addresses.add(address)
             for key in keys:
                 preaccessed_storage_keys.add((address, key))
@@ -915,7 +931,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
 
     access_list_cost = 0
     if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
-        for (_address, keys) in tx.access_list:
+        for _address, keys in tx.access_list:
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
             access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
 
@@ -945,9 +961,10 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
         The address of the account that signed the transaction.
     """
     r, s = tx.r, tx.s
-
-    ensure(0 < r and r < SECP256K1N, InvalidBlock)
-    ensure(0 < s and s <= SECP256K1N // 2, InvalidBlock)
+    if 0 >= r or r >= SECP256K1N:
+        raise InvalidBlock
+    if 0 >= s or s > SECP256K1N // 2:
+        raise InvalidBlock
 
     if isinstance(tx, LegacyTransaction):
         v = tx.v
@@ -956,9 +973,8 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
                 r, s, v - 27, signing_hash_pre155(tx)
             )
         else:
-            ensure(
-                v == 35 + chain_id * 2 or v == 36 + chain_id * 2, InvalidBlock
-            )
+            if v != 35 + chain_id * 2 and v != 36 + chain_id * 2:
+                raise InvalidBlock
             public_key = secp256k1_recover(
                 r, s, v - 35 - chain_id * 2, signing_hash_155(tx, chain_id)
             )
