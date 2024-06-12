@@ -52,7 +52,7 @@ parser.add_argument("--to_test", dest="to_test", type=str)
 
 def find_replace(dir: str, find: str, replace: str, file_pattern: str) -> None:
     """
-    Replace the occurrance of a certain text in files with a new text
+    Replace the occurrence of a certain text in files with a new text
     """
     for path, _, files in os.walk(dir):
         for filename in fnmatch.filter(files, file_pattern):

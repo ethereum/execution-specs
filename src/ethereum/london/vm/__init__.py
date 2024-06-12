@@ -19,7 +19,8 @@ from typing import List, Optional, Set, Tuple, Union
 from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes32, Uint
 from ethereum.crypto.hash import Hash32
 
-from ..fork_types import Address, Log
+from ..blocks import Log
+from ..fork_types import Address
 from ..state import State, account_exists_and_is_empty
 from .precompiled_contracts import RIPEMD160_ADDRESS
 

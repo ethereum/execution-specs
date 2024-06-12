@@ -11,7 +11,6 @@ Introduction
 
 Implementations of the EVM storage related instructions.
 """
-from ethereum.utils.ensure import ensure
 
 from ...state import get_storage, set_storage
 from .. import Evm
@@ -77,9 +76,8 @@ def sstore(evm: Evm) -> None:
         evm.refund_counter += GAS_STORAGE_CLEAR_REFUND
 
     charge_gas(evm, gas_cost)
-
-    # OPERATION
-    ensure(not evm.message.is_static, WriteInStaticContext)
+    if evm.message.is_static:
+        raise WriteInStaticContext
     set_storage(evm.env.state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER

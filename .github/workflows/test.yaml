@@ -1,41 +1,57 @@
 name: Python Specification
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+  pull_request:
 
 jobs:
   build:
     runs-on: self-hosted
     strategy:
       matrix:
-        python: [3.8, pypy-3.8]
+        py: [ "3.10", "pypy3.10" ]
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: "1.69.0"
+            override: true
+
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python }}
+          python-version: ${{ matrix.py }}
+
       - name: Install Tox and any other packages
-        run: pip install tox requests
+        run: "pip install 'tox>=4.11,<5' requests"
+
       - name: Download Geth and add to $PATH
         run: |
           mkdir -p $GITHUB_WORKSPACE/bin
           $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
           echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
-      - name: Run Tox (PyPy)
-        if: ${{ matrix.python == 'pypy-3.8' }}
-        run: tox -e pypy3
+
       - name: Run Tox (CPython)
-        if: ${{ matrix.python != 'pypy-3.8' }}
-        run: tox -e py3
+        if: "${{ !startsWith(matrix.py, 'pypy') }}"
+        run: tox -e static,optimized,py3
+
+      - name: Run Tox (PyPy)
+        if: "${{ startsWith(matrix.py, 'pypy') }}"
+        run: tox -e pypy3
+        env:
+          PYPY_GC_MAX: "10G"
+
       - name: Upload coverage to Codecov
-        if: ${{ matrix.python != 'pypy-3.8' }}
+        if: "${{ !startsWith(matrix.py, 'pypy') }}"
         uses: codecov/codecov-action@v1
         with:
           files: .tox/coverage.xml
           flags: unittests
-      - name: Run Tox (optimized state/ethash)
-        if: ${{ matrix.python != 'pypy-3.8' }}
-        run: tox -e optimized

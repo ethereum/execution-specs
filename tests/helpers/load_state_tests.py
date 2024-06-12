@@ -1,3 +1,4 @@
+import importlib
 import json
 import os.path
 import re
@@ -12,7 +13,7 @@ from ethereum import rlp
 from ethereum.base_types import U64
 from ethereum.exceptions import InvalidBlock
 from ethereum.utils.hexadecimal import hex_to_bytes
-from ethereum_spec_tools.evm_tools.fixture_loader import Load
+from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 
 
 class NoTestsFound(Exception):
@@ -23,7 +24,6 @@ class NoTestsFound(Exception):
 
 
 def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
-
     test_file = test_case["test_file"]
     test_key = test_case["test_key"]
 
@@ -44,7 +44,7 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
     if hasattr(genesis_header, "withdrawals_root"):
         parameters.append(())
 
-    genesis_block = load.Block(*parameters)
+    genesis_block = load.fork.Block(*parameters)
 
     genesis_header_hash = hex_to_bytes(json_data["genesisBlockHeader"]["hash"])
     assert rlp.rlp_hash(genesis_header) == genesis_header_hash
@@ -56,13 +56,15 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
     #     == test_data["genesis_block_rlp"]
     # )
 
-    chain = load.BlockChain(
+    chain = load.fork.BlockChain(
         blocks=[genesis_block],
         state=load.json_to_state(json_data["pre"]),
         chain_id=U64(json_data["genesisBlockHeader"].get("chainId", 1)),
     )
 
-    mock_pow = json_data["sealEngine"] == "NoProof" and not load.proof_of_stake
+    mock_pow = (
+        json_data["sealEngine"] == "NoProof" and not load.fork.proof_of_stake
+    )
 
     for json_block in json_data["blocks"]:
         block_exception = None
@@ -83,14 +85,13 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
 
     expected_post_state = load.json_to_state(json_data["postState"])
     assert chain.state == expected_post_state
-    load.close_state(chain.state)
-    load.close_state(expected_post_state)
+    load.fork.close_state(chain.state)
+    load.fork.close_state(expected_post_state)
 
 
 def add_block_to_chain(
     chain: Any, json_block: Any, load: Load, mock_pow: bool
 ) -> None:
-
     (
         block,
         block_header_hash,
@@ -101,13 +102,17 @@ def add_block_to_chain(
     assert rlp.encode(cast(rlp.RLP, block)) == block_rlp
 
     if not mock_pow:
-        load.state_transition(chain, block)
+        load.fork.state_transition(chain, block)
     else:
-        with patch(
-            f"ethereum.{load.fork_module}.fork.validate_proof_of_work",
+        fork_module = importlib.import_module(
+            f"ethereum.{load.fork.fork_module}.fork"
+        )
+        with patch.object(
+            fork_module,
+            "validate_proof_of_work",
             autospec=True,
         ) as mocked_pow_validator:
-            load.state_transition(chain, block)
+            load.fork.state_transition(chain, block)
             mocked_pow_validator.assert_has_calls(
                 [call(block.header)],
                 any_order=False,
@@ -118,7 +123,6 @@ def add_block_to_chain(
 def load_json_fixture(test_file: str, network: str) -> Generator:
     # Extract the pure basename of the file without the path to the file.
     # Ex: Extract "world.json" from "path/to/file/world.json"
-    pure_test_file = os.path.basename(test_file)
     # Extract the filename without the extension. Ex: Extract "world" from
     # "world.json"
     with open(test_file, "r") as fp:
@@ -151,7 +155,6 @@ def fetch_state_test_files(
     big_memory_list: Tuple[str, ...] = (),
     ignore_list: Tuple[str, ...] = (),
 ) -> Generator[Union[Dict, ParameterSet], None, None]:
-
     all_slow = [re.compile(x) for x in slow_list]
     all_big_memory = [re.compile(x) for x in big_memory_list]
     all_ignore = [re.compile(x) for x in ignore_list]
@@ -164,7 +167,7 @@ def fetch_state_test_files(
         for test_path in only_in:
             files_to_iterate.append(os.path.join(test_dir, test_path))
     else:
-        # If there isnt a custom list, iterate over the test_dir
+        # If there isn't a custom list, iterate over the test_dir
         all_jsons = [
             y
             for x in os.walk(test_dir)
@@ -181,7 +184,7 @@ def fetch_state_test_files(
     for _test_file in files_to_iterate:
         try:
             for _test_case in load_json_fixture(_test_file, network):
-                # _identifier could identifiy files, folders through test_file
+                # _identifier could identify files, folders through test_file
                 #  individual cases through test_key
                 _identifier = (
                     "("

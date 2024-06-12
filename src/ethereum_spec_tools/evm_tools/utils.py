@@ -5,7 +5,7 @@ Utilities for the EVM tools
 import json
 import logging
 import sys
-from typing import Any, Callable, Dict, Optional, Tuple, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 import coincurve
 
@@ -124,7 +124,7 @@ def get_module_name(forks: Any, options: Any, stdin: Any) -> Tuple[str, int]:
     sys.exit(f"Unsupported state fork: {options.state_fork}")
 
 
-def get_supported_forks() -> str:
+def get_supported_forks() -> List[str]:
     """
     Get the supported forks.
     """
@@ -142,7 +142,7 @@ def get_supported_forks() -> str:
         if fork.casefold() not in UNSUPPORTED_FORKS
     ]
 
-    return "\n".join(supported_forks)
+    return supported_forks
 
 
 def get_stream_logger(name: str) -> Any:

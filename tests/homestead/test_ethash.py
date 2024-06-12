@@ -5,7 +5,7 @@ from typing import Any, Dict, List, cast
 import pytest
 
 from ethereum import rlp
-from ethereum.base_types import U256_CEIL_VALUE, Uint
+from ethereum.base_types import Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.ethash import (
     cache_size,
@@ -14,11 +14,11 @@ from ethereum.ethash import (
     generate_seed,
     hashimoto_light,
 )
+from ethereum.homestead.blocks import Header
 from ethereum.homestead.fork import (
     generate_header_hash_for_pow,
     validate_proof_of_work,
 )
-from ethereum.homestead.fork_types import Header
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,

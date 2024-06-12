@@ -18,8 +18,9 @@ unshipped EIPs, even withdrawn and non-viable proposals.
 | [615](https://eips.ethereum.org/EIPS/eip-615)                          | 0xB7   | RETURNSUB          | subroutine return                                                            |
 | [615](https://eips.ethereum.org/EIPS/eip-615)                          | 0xB8   | PUTLOCAL           | call local storage                                                           |
 | [615](https://eips.ethereum.org/EIPS/eip-615)                          | 0xB9   | GETLOCAL           | call local storage                                                           |
-| [663](https://eips.ethereum.org/EIPS/eip-663)                          | 0xB5   | DUPN               | Unlimited dup                                                                |
-| [663](https://eips.ethereum.org/EIPS/eip-663)                          | 0xB6   | SWAPN              | Unlimited swap                                                               |
+| [663](https://eips.ethereum.org/EIPS/eip-663)                          | 0xE6   | DUPN               | Unlimited dup                                                                |
+| [663](https://eips.ethereum.org/EIPS/eip-663)                          | 0xE7   | SWAPN              | Unlimited swap                                                               |
+| [663](https://eips.ethereum.org/EIPS/eip-663)                          | 0xE8   | EXCHANGE           | Deep swap                                                                    |
 | [698](https://eips.ethereum.org/EIPS/eip-698)                          | 0x46   | BLOCKREWARD        | Get the block reward for the current block                                   |
 | [1109](https://eips.ethereum.org/EIPS/eip-1109)                        | 0xFB   | PRECOMPILEDCALL    | call only precompiled addresses                                              |
 | [1153](https://eips.ethereum.org/EIPS/eip-1153)                        | 0xB3   | TLOAD              | Transient data load                                                          |
@@ -49,13 +50,13 @@ unshipped EIPs, even withdrawn and non-viable proposals.
 | [3508](https://eips.ethereum.org/EIPS/eip-3508)                        | 0x48   | ORIGINDATASIZE     | Size of transaction calldata                                                 |
 | [3508](https://eips.ethereum.org/EIPS/eip-3508)                        | 0x49   | ORIGINDATACOPY     | Bulk load transaction calldata                                               |
 | [3520](https://eips.ethereum.org/EIPS/eip-3520)                        | 0x4A   | ENTRYPOINT         | To address of transaction                                                    |
-| [4200](https://eips.ethereum.org/EIPS/eip-4200)                        | 0x5C   | RJUMP              | relative jump                                                                |
-| [4200](https://eips.ethereum.org/EIPS/eip-4200)                        | 0x5D   | RJUMI              | relative conditional jump                                                    |
-| [4200](https://eips.ethereum.org/EIPS/eip-4200)                        | 0x5E   | RJUMV              | relative jump table                                                          |
+| [4200](https://eips.ethereum.org/EIPS/eip-4200)                        | 0xE0   | RJUMP              | relative jump                                                                |
+| [4200](https://eips.ethereum.org/EIPS/eip-4200)                        | 0xE1   | RJUMI              | relative conditional jump                                                    |
+| [4200](https://eips.ethereum.org/EIPS/eip-4200)                        | 0xE2   | RJUMV              | relative jump table                                                          |
 | [4520](https://eips.ethereum.org/EIPS/eip-4520)                        | 0xEB   | -                  | Reserve for multi-byte opcodes                                               |
 | [4520](https://eips.ethereum.org/EIPS/eip-4520)                        | 0xEC   | -                  | Reserve for multi-byte opcodes                                               |
-| [4750](https://eips.ethereum.org/EIPS/eip-4750)                        | 0xB0   | CALLF              | EOF Subroutine Call                                                          |
-| [4750](https://eips.ethereum.org/EIPS/eip-4750)                        | 0xB1   | RETF               | EOF Subroutine return                                                        |
+| [4750](https://eips.ethereum.org/EIPS/eip-4750)                        | 0xE3   | CALLF              | EOF Subroutine Call                                                          |
+| [4750](https://eips.ethereum.org/EIPS/eip-4750)                        | 0xE4   | RETF               | EOF Subroutine return                                                        |
 | [4788](https://eips.ethereum.org/EIPS/eip-4788)                        | 0x4A   | BEACON_ROOT        | Exposes the Beacon Chain Root                                                |
 | [4844](https://eips.ethereum.org/EIPS/eip-4844)                        | 0x49   | BLOBHASH           | Returns hashes of blobs in the transaction                                   |
 | [5000](https://eips.ethereum.org/EIPS/eip-5000)                        | 0x1E   | MULDIV             | combo multiply then divide trinary operation                                 |
@@ -63,17 +64,18 @@ unshipped EIPs, even withdrawn and non-viable proposals.
 | [5478](https://eips.ethereum.org/EIPS/eip-5478)                        | 0xF6   | CREATE2COPY        | Create 2 with no initcode and contract copying                               |
 | [5656](https://eips.ethereum.org/EIPS/eip-5656)                        | 0xB7   | MCOPY              | Memory copy                                                                  |
 | [5920](https://eips.ethereum.org/EIPS/eip-5920)                        | 0xF9   | PAY                | transfers value from caller to target                                        |
-| [6206](https://eips.ethereum.org/EIPS/eip-6206)                        | 0xB2   | JUMPF              | EOF Function Jump                                                            |
+| [6206](https://eips.ethereum.org/EIPS/eip-6206)                        | 0xE5   | JUMPF              | EOF Function Jump                                                            |
 | [6888](https://eips.ethereum.org/EIPS/eip-6888)                        | 0x5B   | JUMPC              | Jump if the most recent arithmetic op set the carry bit                      |
 | [6888](https://eips.ethereum.org/EIPS/eip-6888)                        | 0x5C   | JUMPO              | Jump if the most recent arithmetic op set the overflow bit                   |
 | [6913](https://eips.ethereum.org/EIPS/eip-6913)                        | 0x49   | SETCODE            | Replace code of current contract                                             |
-| [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) | 0xF6   | CREATE3            | Create from EOF contained initcode                                           |
-| [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) | 0xF7   | CREATE4            | Create from transaction contained initcode                                   |
-| [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) | 0xF8   | RETURNCONTRACT     | contract to be created, references EOF data                                  |
-| [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) | 0xB8   | DATALOAD           | Loads data from EOF data section, via stack                                  |
-| [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) | 0xB9   | DATALOADN          | Loads data from EOF data section, via immediate                              |
-| [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) | 0xBA   | DATASIZE           | Size of the EOF data section                                                 |
-| [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) | 0xBB   | DATACOPY           | Bulk data section copy                                                       |
-| [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) | 0xF9   | CALL2              | CALL without gas and output memory                                           |
-| [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) | 0xFB   | DELEGATECALL2      | DELEGATECALL without gas and output memory                                   |
-| [mega EOF](https://notes.ethereum.org/@ipsilon/mega-eof-specification) | 0xFC   | STATICCALL2        | STATICCALL without gas and output memory                                     |
+| [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                    | 0xF7   | RETURNDATALOAD     | Loads data returned from a call to the stack                                 |
+| [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                    | 0xF8   | EXTCALL            | CALL without gas and output memory                                           |
+| [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                    | 0xF9   | EXTDELEGATECALL    | DELEGATECALL without gas and output memory                                   |
+| [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)                    | 0xFB   | EXTSTATICCALL      | STATICCALL without gas and output memory                                     |
+| [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480)                    | 0xD0   | DATALOAD           | Loads data from EOF data section, via stack                                  |
+| [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480)                    | 0xD1   | DATALOADN          | Loads data from EOF data section, via immediate                              |
+| [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480)                    | 0xD2   | DATASIZE           | Size of the EOF data section                                                 |
+| [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480)                    | 0xD3   | DATACOPY           | Bulk data section copy                                                       |
+| [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xEC   | EOFCREATE          | Create from EOF contained initcode                                           |
+| [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xED   | TXCREATE           | Create from transaction contained initcode                                   |
+| [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xEE   | RETURNCONTRACT     | Contract to be created, references EOF data                                  |

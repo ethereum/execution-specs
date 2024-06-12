@@ -5,7 +5,7 @@ from typing import List, Sequence, Tuple, Union, cast
 import pytest
 
 from ethereum import rlp
-from ethereum.exceptions import RLPEncodingError
+from ethereum.exceptions import RLPDecodingError, RLPEncodingError
 from ethereum.frontier.fork_types import U256, Bytes, Uint
 from ethereum.rlp import RLP
 from ethereum.utils.hexadecimal import hex_to_bytes
@@ -121,7 +121,7 @@ def test_rlp_encode_single_elem_list_uint() -> None:
 
 
 def test_rlp_encode_10_elem_byte_uint_combo() -> None:
-    raw_data = [b"hello"] * 5 + [Uint(35)] * 5  # type: ignore
+    raw_data = [b"hello"] * 5 + [Uint(35)] * 5
     expected = (
         bytearray([0xE3])
         + b"\x85hello\x85hello\x85hello\x85hello\x85hello#####"
@@ -130,7 +130,7 @@ def test_rlp_encode_10_elem_byte_uint_combo() -> None:
 
 
 def test_rlp_encode_20_elem_byte_uint_combo() -> None:
-    raw_data = [Uint(35)] * 10 + [b"hello"] * 10  # type: ignore
+    raw_data = [Uint(35)] * 10 + [b"hello"] * 10
     expected = (
         bytearray([0xF8])
         + b"F"
@@ -159,7 +159,7 @@ def test_rlp_encode_successfully() -> None:
         (Uint(255), b"\x81\xff"),
         ([], bytearray([0xC0])),
         (
-            [b"hello"] * 5 + [Uint(35)] * 5,  # type: ignore
+            [b"hello"] * 5 + [Uint(35)] * 5,
             bytearray([0xE3])
             + bytearray(b"\x85hello\x85hello\x85hello\x85hello\x85hello#####"),
         ),
@@ -170,7 +170,7 @@ def test_rlp_encode_successfully() -> None:
             ),
         ),
     ]
-    for (raw_data, expected_encoding) in test_cases:
+    for raw_data, expected_encoding in test_cases:
         assert rlp.encode(cast(RLP, raw_data)) == expected_encoding
 
 
@@ -314,12 +314,12 @@ def test_rlp_decode_successfully() -> None:
             [b"hello", [b"how", [b"are", b"you", [b"doing"]]]],
         ),
     ]
-    for (encoding, expected_raw_data) in test_cases:
+    for encoding, expected_raw_data in test_cases:
         assert rlp.decode(encoding) == expected_raw_data
 
 
 def test_rlp_decode_failure_empty_bytes() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(RLPDecodingError):
         rlp.decode(b"")
 
 
@@ -399,7 +399,7 @@ def test_ethtest_fixtures_for_rlp_encoding(
     "raw_data, encoded_data",
     ethtest_fixtures_as_pytest_fixtures("RandomRLPTests/example.json"),
 )
-def test_ethtest_fixtures_for_successfull_rlp_decoding(
+def test_ethtest_fixtures_for_successfully_rlp_decoding(
     raw_data: Bytes, encoded_data: Bytes
 ) -> None:
     decoded_data = rlp.decode(encoded_data)
@@ -413,5 +413,5 @@ def test_ethtest_fixtures_for_successfull_rlp_decoding(
 def test_ethtest_fixtures_for_fails_in_rlp_decoding(
     raw_data: Bytes, encoded_data: Bytes
 ) -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(RLPDecodingError):
         rlp.decode(encoded_data)

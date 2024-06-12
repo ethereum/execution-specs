@@ -165,3 +165,37 @@ def le_uint32_sequence_to_uint(sequence: Sequence[U32]) -> Uint:
     """
     sequence_as_bytes = le_uint32_sequence_to_bytes(sequence)
     return Uint.from_le_bytes(sequence_as_bytes)
+
+
+def taylor_exponential(
+    factor: Uint, numerator: Uint, denominator: Uint
+) -> Uint:
+    """
+    Approximates factor * e ** (numerator / denominator) using
+    Taylor expansion.
+
+    Parameters
+    ----------
+    factor :
+        The factor.
+    numerator :
+        The numerator of the exponential.
+    denominator :
+        The denominator of the exponential.
+
+    Returns
+    -------
+    output : `ethereum.base_types.Uint`
+        The approximation of factor * e ** (numerator / denominator).
+
+    """
+    i = 1
+    output = 0
+    numerator_accumulated = factor * denominator
+    while numerator_accumulated > 0:
+        output += numerator_accumulated
+        numerator_accumulated = (numerator_accumulated * numerator) // (
+            denominator * i
+        )
+        i += 1
+    return output // denominator

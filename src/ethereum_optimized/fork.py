@@ -18,7 +18,6 @@ from typing import Any, Dict, cast
 from ethereum.base_types import U256_CEIL_VALUE
 from ethereum.ethash import epoch
 from ethereum.exceptions import InvalidBlock
-from ethereum.utils.ensure import ensure
 
 from .utils import add_item
 
@@ -65,7 +64,7 @@ def get_optimized_pow_patches(_fork_name: str) -> Dict[str, Any]:
             int.from_bytes(header.nonce, "big"),
             (U256_CEIL_VALUE // header.difficulty).to_be_bytes32(),
         )
-
-        ensure(result, InvalidBlock)
+        if not result:
+            raise InvalidBlock
 
     return patches

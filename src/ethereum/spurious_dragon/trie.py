@@ -31,19 +31,13 @@ from typing import (
 
 from ethereum.crypto.hash import keccak256
 from ethereum.tangerine_whistle import trie as previous_trie
-from ethereum.utils.ensure import ensure
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 from .. import rlp
 from ..base_types import U256, Bytes, Uint, slotted_freezable
-from .fork_types import (
-    Account,
-    Address,
-    Receipt,
-    Root,
-    Transaction,
-    encode_account,
-)
+from .blocks import Receipt
+from .fork_types import Account, Address, Root, encode_account
+from .transactions import Transaction
 
 # note: an empty trie (regardless of whether it is secured) has root:
 #
@@ -323,7 +317,7 @@ def bytes_to_nibble_list(bytes_: Bytes) -> Bytes:
 
 def _prepare_trie(
     trie: Trie[K, V],
-    get_storage_root: Callable[[Address], Root] = None,
+    get_storage_root: Optional[Callable[[Address], Root]] = None,
 ) -> Mapping[Bytes, Bytes]:
     """
     Prepares the trie for root calculation. Removes values that are empty,
@@ -344,15 +338,15 @@ def _prepare_trie(
     """
     mapped: MutableMapping[Bytes, Bytes] = {}
 
-    for (preimage, value) in trie._data.items():
+    for preimage, value in trie._data.items():
         if isinstance(value, Account):
             assert get_storage_root is not None
             address = Address(preimage)
             encoded_value = encode_node(value, get_storage_root(address))
         else:
             encoded_value = encode_node(value)
-        # Empty values are represented by their absence
-        ensure(encoded_value != b"", AssertionError)
+        if encoded_value == b"":
+            raise AssertionError
         key: Bytes
         if trie.secured:
             # "secure" tries hash keys once before construction
@@ -366,7 +360,7 @@ def _prepare_trie(
 
 def root(
     trie: Trie[K, V],
-    get_storage_root: Callable[[Address], Root] = None,
+    get_storage_root: Optional[Callable[[Address], Root]] = None,
 ) -> Root:
     """
     Computes the root of a modified merkle patricia trie (MPT).

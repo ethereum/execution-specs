@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 import json
 import os
 from importlib import import_module
-from typing import Any, List, TypeVar
+from typing import Any, List
 
 from ethereum import rlp
 from ethereum.base_types import U64, U256, Uint
@@ -18,8 +16,7 @@ from ethereum.utils.hexadecimal import (
 
 class VmTestLoader:
     """
-    This class has all the methods and imports required to run
-    the VM tests
+    All the methods and imports required to run the VM tests.
     """
 
     def __init__(self, network: str, fork_name: str):
@@ -60,6 +57,9 @@ class VmTestLoader:
     def run_test(
         self, test_dir: str, test_file: str, check_gas_left: bool = True
     ) -> None:
+        """
+        Execute a test case and check its post state.
+        """
         test_data = self.load_test(test_dir, test_file)
         target = test_data["target"]
         env = test_data["env"]
@@ -95,6 +95,9 @@ class VmTestLoader:
         self.close_state(test_data["expected_post_state"])
 
     def load_test(self, test_dir: str, test_file: str) -> Any:
+        """
+        Read tests from a file.
+        """
         test_name = os.path.splitext(test_file)[0]
         path = os.path.join(test_dir, test_file)
         with open(path, "r") as fp:
@@ -122,7 +125,9 @@ class VmTestLoader:
         }
 
     def json_to_env(self, json_data: Any) -> Any:
-
+        """
+        Deserialize an `Environment` instance from JSON.
+        """
         caller_hex_address = json_data["exec"]["caller"]
         # Some tests don't have the caller state defined in the test case. Hence
         # creating a dummy caller state.
@@ -155,8 +160,11 @@ class VmTestLoader:
         )
 
     def json_to_state(self, raw: Any) -> Any:
+        """
+        Deserialize a `State` from JSON.
+        """
         state = self.State()
-        for (addr_hex, acc_state) in raw.items():
+        for addr_hex, acc_state in raw.items():
             addr = self.hex_to_address(addr_hex)
             account = self.Account(
                 nonce=hex_to_uint(acc_state.get("nonce", "0x0")),
@@ -165,7 +173,7 @@ class VmTestLoader:
             )
             self.set_account(state, addr, account)
 
-            for (k, v) in acc_state.get("storage", {}).items():
+            for k, v in acc_state.get("storage", {}).items():
                 self.set_storage(
                     state,
                     addr,
@@ -178,12 +186,18 @@ class VmTestLoader:
         return state
 
     def json_to_addrs(self, raw: Any) -> List[Any]:
+        """
+        Deserialize a list of `Address` from JSON.
+        """
         addrs = []
         for addr_hex in raw:
             addrs.append(self.hex_to_address(addr_hex))
         return addrs
 
     def get_dummy_account_state(self, min_balance: str) -> Any:
+        """
+        Initial state for the dummy account.
+        """
         # dummy account balance is the min balance needed plus 1 eth for gas
         # cost
         account_balance = hex_to_uint(min_balance) + (10**18)
