@@ -15,9 +15,8 @@ from pydantic import Field, model_validator
 from ethereum_test_forks import Fork
 from evm_transition_tool import FixtureFormats, TransitionTool
 
-from ...common import Account, Address, Alloc, Environment, Transaction
+from ...common import Account, Alloc, Environment, Transaction
 from ...common.base_types import Bytes
-from ...common.constants import TestAddress
 from ...eof.v1 import Container
 from ...exceptions import EOFException, EvmoneExceptionMapper
 from ..base.base_test import BaseFixture, BaseTest
@@ -267,8 +266,10 @@ class EOFStateTest(EOFTest):
 
     tx_gas_limit: int = 10_000_000
     tx_data: Bytes = Bytes(b"")
+    tx_sender_funding_amount: int = 1_000_000_000_000_000_000_000
     env: Environment = Field(default_factory=Environment)
     container_post: Account = Field(default_factory=Account)
+    pre: Alloc | None = None
 
     supported_fixture_formats: ClassVar[List[FixtureFormats]] = [
         FixtureFormats.EOF_TEST,
@@ -288,22 +289,21 @@ class EOFStateTest(EOFTest):
         """
         Generate the StateTest filler.
         """
-        pre = Alloc()
-        container_address = Address(0x100)
-        pre[container_address] = Account(code=self.data, nonce=1)
-        pre[TestAddress] = Account(balance=1_000_000_000_000_000_000_000, nonce=0)
+        assert self.pre is not None, "pre must be set to generate a StateTest."
+        container_address = self.pre.deploy_contract(code=self.data)
+        sender = self.pre.fund_eoa(amount=self.tx_sender_funding_amount)
         tx = Transaction(
-            nonce=0,
             to=container_address,
             gas_limit=self.tx_gas_limit,
             gas_price=10,
             protected=False,
             data=self.tx_data,
+            sender=sender,
         )
         post = Alloc()
         post[container_address] = self.container_post
         return StateTest(
-            pre=pre,
+            pre=self.pre,
             tx=tx,
             env=self.env,
             post=post,

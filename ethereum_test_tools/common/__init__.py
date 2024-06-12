@@ -36,6 +36,7 @@ from .helpers import (
 )
 from .json import to_json
 from .types import (
+    EOA,
     AccessList,
     Account,
     Alloc,
@@ -69,10 +70,11 @@ __all__ = (
     "Number",
     "Removable",
     "Requests",
+    "EOA",
     "Storage",
+    "TestParameterGroup",
     "TestAddress",
     "TestAddress2",
-    "TestParameterGroup",
     "TestPrivateKey",
     "TestPrivateKey2",
     "Transaction",

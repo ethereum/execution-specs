@@ -115,6 +115,8 @@ class Bytes(bytes, ToStringSchema):
         """
         Creates a new Bytes object.
         """
+        if type(input) is cls:
+            return input
         return super(Bytes, cls).__new__(cls, to_bytes(input))
 
     def __hash__(self) -> int:
@@ -234,6 +236,8 @@ class FixedSizeBytes(Bytes):
         """
         Creates a new FixedSizeBytes object.
         """
+        if type(input) is cls:
+            return input
         return super(FixedSizeBytes, cls).__new__(cls, to_fixed_size_bytes(input, cls.byte_length))
 
     def __hash__(self) -> int:
@@ -277,7 +281,7 @@ class Address(FixedSizeBytes[20]):  # type: ignore
     Class that helps represent Ethereum addresses in tests.
     """
 
-    pass
+    label: str | None = None
 
 
 class Hash(FixedSizeBytes[32]):  # type: ignore

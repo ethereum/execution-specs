@@ -16,7 +16,7 @@ from evm_transition_tool import FixtureFormats, GethTransitionTool
 
 from ... import Header
 from ...code import Yul
-from ...common import Account, Environment, Hash, TestAddress, Transaction
+from ...common import Account, Alloc, Environment, Hash, Transaction
 from ...exceptions import TransactionException
 from ...spec import BlockchainTest, StateTest
 from ...spec.blockchain.types import Block, Fixture, FixtureCommon
@@ -39,14 +39,14 @@ def hash(request: pytest.FixtureRequest, solc_version: Version):
     """
     if solc_version == Version.parse("0.8.20"):
         if request.node.funcargs["fork"] == Berlin:
-            return bytes.fromhex("193e550de3")
+            return bytes.fromhex("8abb1c1dd7")
         elif request.node.funcargs["fork"] == London:
-            return bytes.fromhex("b053deac0e")
+            return bytes.fromhex("1dfe81256f")
     else:
         if request.node.funcargs["fork"] == Berlin:
-            return bytes.fromhex("f3a35d34f6")
+            return bytes.fromhex("d45f416ad5")
         elif request.node.funcargs["fork"] == London:
-            return bytes.fromhex("c5fa75d7f6")
+            return bytes.fromhex("ccfc165586")
 
 
 def test_check_helper_fixtures():
@@ -79,11 +79,10 @@ def test_check_helper_fixtures():
 def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
     env = Environment()
 
-    pre = {
-        "0x1000000000000000000000000000000000000000": Account(
-            balance=0x0BA1A9CE0BA1A9CE,
-            code=Yul(
-                """
+    pre = Alloc()
+    pre.deploy_contract(
+        Yul(
+            """
             {
                 function f(a, b) -> c {
                     c := add(a, b)
@@ -93,11 +92,11 @@ def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
                 return(0, 32)
             }
             """,
-                fork=fork,
-            ),
+            fork=fork,
         ),
-        TestAddress: Account(balance=0x0BA1A9CE0BA1A9CE),
-    }
+        balance=0x0BA1A9CE0BA1A9CE,
+    )
+    pre.fund_eoa(0x0BA1A9CE0BA1A9CE)
 
     t8n = GethTransitionTool()
     fixture = BlockchainTest(

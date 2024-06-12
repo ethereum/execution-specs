@@ -19,7 +19,7 @@ from ethereum_test_forks import (
 from evm_transition_tool import FixtureFormats, GethTransitionTool
 
 from ..code import CalldataCase, Case, Code, Conditional, Initcode, Solc, Switch, Yul
-from ..common import Account, Environment, Hash, TestAddress, Transaction
+from ..common import Account, Alloc, Environment, Hash, Transaction
 from ..spec import StateTest
 from ..vm.opcode import Opcodes as Op
 from .conftest import SOLC_PADDING_VERSION
@@ -644,13 +644,11 @@ def test_switch(tx_data: bytes, switch_bytecode: bytes, expected_storage: Mappin
     """
     Test that the switch opcode macro gets executed as using the t8n tool.
     """
-    code_address = 0x100
-    pre = {
-        TestAddress: Account(balance=10_000_000, nonce=0),
-        code_address: Account(code=switch_bytecode),
-    }
-    tx = Transaction(to=code_address, data=tx_data, gas_limit=1_000_000)
-    post = {TestAddress: Account(nonce=1), code_address: Account(storage=expected_storage)}
+    pre = Alloc()
+    code_address = pre.deploy_contract(switch_bytecode)
+    sender = pre.fund_eoa(10_000_000)
+    tx = Transaction(to=code_address, data=tx_data, gas_limit=1_000_000, sender=sender)
+    post = {sender: Account(nonce=1), code_address: Account(storage=expected_storage)}
     state_test = StateTest(
         env=Environment(),
         pre=pre,
