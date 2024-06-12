@@ -11,8 +11,9 @@ import pytest
 from ethereum_test_tools import (
     EOA,
     Account,
+    Address,
     Alloc,
-    Code,
+    Bytecode,
     CodeGasMeasure,
     Environment,
     StateTestFiller,
@@ -78,7 +79,7 @@ def test_push0_contracts(
     pre: Alloc,
     post: Alloc,
     sender: EOA,
-    contract_code: Code,
+    contract_code: Bytecode,
     expected_storage: Account,
 ):
     """
@@ -90,25 +91,60 @@ def test_push0_contracts(
     state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-def test_push0_contract_during_staticcall(
-    state_test: StateTestFiller,
-    env: Environment,
-    pre: Alloc,
-    post: Alloc,
-    sender: EOA,
-):
+class TestPush0CallContext:
     """
-    Test PUSH0 during STATICCALL.
+    Tests the PUSH0 operation during various call contexts including:
+    - CALL
+    - CALLCODE
+    - DELEGATECALL
+    - STATICCALL
     """
-    push0_contract = pre.deploy_contract(Op.MSTORE8(Op.PUSH0, 0xFF) + Op.RETURN(Op.PUSH0, 1))
-    staticcall_contract = pre.deploy_contract(
-        (
-            Op.SSTORE(0, Op.STATICCALL(100000, push0_contract, 0, 0, 0, 0))
+
+    @pytest.fixture
+    def push0_contract_callee(self, pre: Alloc) -> Address:
+        """
+        Deploys a PUSH0 contract callee to the pre alloc returning its address.
+        """
+        push0_contract = pre.deploy_contract(Op.MSTORE8(Op.PUSH0, 0xFF) + Op.RETURN(Op.PUSH0, 1))
+        return push0_contract
+
+    @pytest.fixture
+    def push0_contract_caller(
+        self, pre: Alloc, call_opcode: Op, push0_contract_callee: Address
+    ) -> Address:
+        """
+        Deploys a contract responsible for calling the callee PUSH0 contract returning its address.
+        """
+        call_code = (
+            Op.SSTORE(0, call_opcode(gas=100_000, address=push0_contract_callee))
             + Op.SSTORE(0, 1)
             + Op.RETURNDATACOPY(0x1F, 0, 1)
             + Op.SSTORE(1, Op.MLOAD(0))
         )
+        return pre.deploy_contract(call_code)
+
+    @pytest.mark.parametrize(
+        "call_opcode",
+        [
+            Op.CALL,
+            Op.CALLCODE,
+            Op.DELEGATECALL,
+            Op.STATICCALL,
+        ],
+        ids=["call", "callcode", "delegatecall", "staticcall"],
     )
-    tx = Transaction(to=staticcall_contract, gas_limit=100_000, sender=sender)
-    post[staticcall_contract] = Account(storage={0x00: 0x01, 0x01: 0xFF})
-    state_test(env=env, pre=pre, post=post, tx=tx, tag="during_staticcall")
+    def test_push0_contract_during_call_contexts(
+        self,
+        state_test: StateTestFiller,
+        env: Environment,
+        pre: Alloc,
+        post: Alloc,
+        sender: EOA,
+        push0_contract_caller: Address,
+    ):
+        """
+        Test PUSH0 during various call contexts.
+        """
+        tx = Transaction(to=push0_contract_caller, gas_limit=100_000, sender=sender)
+        post[push0_contract_caller] = Account(storage={0x00: 0x01, 0x01: 0xFF})
+        state_test(env=env, pre=pre, post=post, tx=tx)
