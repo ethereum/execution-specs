@@ -9,193 +9,106 @@ note: Tests ported from:
 import pytest
 
 from ethereum_test_tools import (
+    EOA,
     Account,
-    Address,
+    Alloc,
+    Code,
     CodeGasMeasure,
     Environment,
     StateTestFiller,
-    TestAddress,
     Transaction,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3855.md"
-REFERENCE_SPEC_VERSION = "42034250ae8dd4b21fdc6795773893c6f1e74d3a"
+from .spec import ref_spec_3855
+
+REFERENCE_SPEC_GIT_PATH = ref_spec_3855.git_path
+REFERENCE_SPEC_VERSION = ref_spec_3855.version
 
 pytestmark = pytest.mark.valid_from("Shanghai")
 
 
-@pytest.fixture
-def env():  # noqa: D103
-    return Environment()
-
-
-@pytest.fixture
-def pre():  # noqa: D103
-    return {TestAddress: Account(balance=1000000000000000000000)}
-
-
-@pytest.fixture
-def post():  # noqa: D103
-    return {}
-
-
-@pytest.fixture
-def addr_1():  # noqa: D103
-    return Address(0x100)
-
-
-@pytest.fixture
-def tx(addr_1):  # noqa: D103
-    return Transaction(
-        to=addr_1,
-        gas_limit=100000,
-    )
-
-
-def test_push0_key_sstore(
+@pytest.mark.parametrize(
+    "contract_code,expected_storage",
+    [
+        # Use PUSH0 to set a key for SSTORE.
+        pytest.param(
+            Op.SSTORE(Op.PUSH0, 1),
+            Account(storage={0x00: 0x01}),
+            id="key_sstore",
+        ),
+        # Fill stack with PUSH0, then OR all values and save using SSTORE.
+        pytest.param(
+            (Op.PUSH0 * 1024) + (Op.OR * 1023) + Op.SSTORE(Op.SWAP1, 1),
+            Account(storage={0x00: 0x01}),
+            id="fill_stack",
+        ),
+        # Stack overflow by using PUSH0 1025 times.
+        pytest.param(
+            Op.SSTORE(Op.PUSH0, 1) + (Op.PUSH0 * 1025),
+            Account(storage={0x00: 0x00}),
+            id="stack_overflow",
+        ),
+        # Update an already existing storage value.
+        pytest.param(
+            Op.SSTORE(Op.PUSH0, 2) + Op.SSTORE(1, Op.PUSH0),
+            Account(storage={0x00: 0x02, 0x01: 0x00}),
+            id="storage_overwrite",
+        ),
+        # Jump to a JUMPDEST next to a PUSH0, must succeed.
+        pytest.param(
+            Op.PUSH1(4) + Op.JUMP + Op.PUSH0 + Op.JUMPDEST + Op.SSTORE(Op.PUSH0, 1) + Op.STOP,
+            Account(storage={0x00: 0x01}),
+            id="before_jumpdest",
+        ),
+        # Test PUSH0 gas cost.
+        pytest.param(
+            CodeGasMeasure(
+                code=Op.PUSH0,
+                extra_stack_items=1,
+            ),
+            Account(storage={0x00: 0x02}),
+            id="gas_cost",
+        ),
+    ],
+)
+def test_push0_contracts(
     state_test: StateTestFiller,
     env: Environment,
-    pre: dict,
-    post: dict,
-    tx: Transaction,
-    addr_1: str,
+    pre: Alloc,
+    post: Alloc,
+    sender: EOA,
+    contract_code: Code,
+    expected_storage: Account,
 ):
     """
-    Use PUSH0 to set a key for SSTORE.
+    Tests PUSH0 within various deployed contracts.
     """
-    code = Op.SSTORE(Op.PUSH0, 1)
-
-    pre[addr_1] = Account(code=code)
-    post[addr_1] = Account(storage={0x00: 0x01})
-
-    state_test(env=env, pre=pre, post=post, tx=tx, tag="key_sstore")
+    push0_contract = pre.deploy_contract(contract_code)
+    tx = Transaction(to=push0_contract, gas_limit=100_000, sender=sender)
+    post[push0_contract] = expected_storage
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
-def test_push0_fill_stack(
+def test_push0_contract_during_staticcall(
     state_test: StateTestFiller,
     env: Environment,
-    pre: dict,
-    post: dict,
-    tx: Transaction,
-    addr_1: str,
-):
-    """
-    Fill stack with PUSH0, then OR all values and save using SSTORE.
-    """
-    code = Op.PUSH0 * 1024
-    code += Op.OR * 1023
-    code += Op.SSTORE(Op.SWAP1, 1)
-
-    pre[addr_1] = Account(code=code)
-    post[addr_1] = Account(storage={0x00: 0x01})
-
-    state_test(env=env, pre=pre, post=post, tx=tx, tag="fill_stack")
-
-
-def test_push0_stack_overflow(
-    state_test: StateTestFiller,
-    env: Environment,
-    pre: dict,
-    post: dict,
-    tx: Transaction,
-    addr_1: str,
-):
-    """
-    Stack overflow by using PUSH0 1025 times.
-    """
-    code = Op.SSTORE(Op.PUSH0, 1)
-    code += Op.PUSH0 * 1025
-
-    pre[addr_1] = Account(code=code)
-    post[addr_1] = Account(storage={0x00: 0x00})
-
-    state_test(env=env, pre=pre, post=post, tx=tx, tag="stack_overflow")
-
-
-def test_push0_storage_overwrite(
-    state_test: StateTestFiller,
-    env: Environment,
-    pre: dict,
-    post: dict,
-    tx: Transaction,
-    addr_1: str,
-):
-    """
-    Update an already existing storage value.
-    """
-    code = Op.SSTORE(Op.PUSH0, 2) + Op.SSTORE(1, Op.PUSH0)
-
-    pre[addr_1] = Account(code=code, storage={0x00: 0x0A, 0x01: 0x0A})
-    post[addr_1] = Account(storage={0x00: 0x02, 0x01: 0x00})
-
-    state_test(env=env, pre=pre, post=post, tx=tx, tag="storage_overwrite")
-
-
-def test_push0_during_staticcall(
-    state_test: StateTestFiller,
-    env: Environment,
-    pre: dict,
-    post: dict,
-    tx: Transaction,
-    addr_1: str,
+    pre: Alloc,
+    post: Alloc,
+    sender: EOA,
 ):
     """
     Test PUSH0 during STATICCALL.
     """
-    addr_2 = Address(0x200)
-
-    code_1 = (
-        Op.SSTORE(0, Op.STATICCALL(100000, 0x200, 0, 0, 0, 0))
-        + Op.SSTORE(0, 1)
-        + Op.RETURNDATACOPY(0x1F, 0, 1)
-        + Op.SSTORE(1, Op.MLOAD(0))
+    push0_contract = pre.deploy_contract(Op.MSTORE8(Op.PUSH0, 0xFF) + Op.RETURN(Op.PUSH0, 1))
+    staticcall_contract = pre.deploy_contract(
+        (
+            Op.SSTORE(0, Op.STATICCALL(100000, push0_contract, 0, 0, 0, 0))
+            + Op.SSTORE(0, 1)
+            + Op.RETURNDATACOPY(0x1F, 0, 1)
+            + Op.SSTORE(1, Op.MLOAD(0))
+        )
     )
-    code_2 = Op.MSTORE8(Op.PUSH0, 0xFF) + Op.RETURN(Op.PUSH0, 1)
-
-    pre[addr_1] = Account(code=code_1)
-    pre[addr_2] = Account(code=code_2)
-    post[addr_1] = Account(storage={0x00: 0x01, 0x01: 0xFF})
-
+    tx = Transaction(to=staticcall_contract, gas_limit=100_000, sender=sender)
+    post[staticcall_contract] = Account(storage={0x00: 0x01, 0x01: 0xFF})
     state_test(env=env, pre=pre, post=post, tx=tx, tag="during_staticcall")
-
-
-def test_push0_before_jumpdest(
-    state_test: StateTestFiller,
-    env: Environment,
-    pre: dict,
-    post: dict,
-    tx: Transaction,
-    addr_1: str,
-):
-    """
-    Jump to a JUMPDEST next to a PUSH0, must succeed.
-    """
-    code = Op.PUSH1(4) + Op.JUMP + Op.PUSH0 + Op.JUMPDEST + Op.SSTORE(Op.PUSH0, 1) + Op.STOP
-
-    pre[addr_1] = Account(code=code)
-    post[addr_1] = Account(storage={0x00: 0x01})
-
-    state_test(env=env, pre=pre, post=post, tx=tx, tag="before_jumpdest")
-
-
-def test_push0_gas_cost(
-    state_test: StateTestFiller,
-    env: Environment,
-    pre: dict,
-    post: dict,
-    tx: Transaction,
-    addr_1: str,
-):
-    """
-    Test PUSH0 gas cost.
-    """
-    code = CodeGasMeasure(
-        code=Op.PUSH0,
-        extra_stack_items=1,
-    )
-
-    pre[addr_1] = Account(code=code)
-    post[addr_1] = Account(storage={0x00: 0x02})
-
-    state_test(env=env, pre=pre, post=post, tx=tx, tag="gas_cost")
