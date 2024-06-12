@@ -1,18 +1,33 @@
 """
 Fixtures for the EIP-7002 deposit tests.
 """
-from typing import Dict, List
+from typing import List
 
 import pytest
 
-from ethereum_test_tools import Account, Address, Block, Header
+from ethereum_test_tools import Alloc, Block, Header
 
 from .helpers import WithdrawalRequest, WithdrawalRequestInteractionBase
 from .spec import Spec
 
 
 @pytest.fixture
+def update_pre(
+    pre: Alloc,
+    blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
+):
+    """
+    Initial state of the accounts. Every deposit transaction defines their own pre-state
+    requirements, and this fixture aggregates them all.
+    """
+    for requests in blocks_withdrawal_requests:
+        for r in requests:
+            r.update_pre(pre)
+
+
+@pytest.fixture
 def included_requests(
+    update_pre: None,  # Fixture is used for its side effects
     blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
 ) -> List[List[WithdrawalRequest]]:
     """
@@ -46,44 +61,18 @@ def included_requests(
 
 
 @pytest.fixture
-def pre(
-    blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
-) -> Dict[Address, Account]:
-    """
-    Initial state of the accounts. Every withdrawal transaction defines their own pre-state
-    requirements, and this fixture aggregates them all.
-    """
-    pre: Dict[Address, Account] = {}
-    for requests in blocks_withdrawal_requests:
-        for d in requests:
-            d.update_pre(pre)
-    return pre
-
-
-@pytest.fixture
 def blocks(
+    update_pre: None,  # Fixture is used for its side effects
     blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
     included_requests: List[List[WithdrawalRequest]],
 ) -> List[Block]:
     """
     Return the list of blocks that should be included in the test.
     """
-    blocks: List[Block] = []
-    address_nonce: Dict[Address, int] = {}
-    for i in range(len(blocks_withdrawal_requests)):
-        txs = []
-        for r in blocks_withdrawal_requests[i]:
-            nonce = 0
-            if r.sender_account.address in address_nonce:
-                nonce = address_nonce[r.sender_account.address]
-            txs.append(r.transaction(nonce))
-            address_nonce[r.sender_account.address] = nonce + 1
-        blocks.append(
-            Block(
-                txs=txs,
-                header_verify=Header(
-                    requests_root=included_requests[i],
-                ),
-            )
+    return [
+        Block(
+            txs=sum((r.transactions() for r in block_requests), []),
+            header_verify=Header(requests_root=included_requests[i]),
         )
-    return blocks
+        for i, block_requests in enumerate(blocks_withdrawal_requests)
+    ]

@@ -7,12 +7,12 @@ from typing import Dict, List
 import pytest
 
 from ethereum_test_tools import (
+    EOA,
     Account,
     Address,
     Alloc,
     Environment,
     EOFTestFiller,
-    TestAddress,
     Transaction,
     compute_eofcreate_address,
 )
@@ -50,50 +50,36 @@ def env():  # noqa: D103
 
 
 @pytest.fixture
+def sender(pre: Alloc):  # noqa: D103
+    return pre.fund_eoa()
+
+
+@pytest.fixture
 def create3_init_container(container: Container) -> Initcode:  # noqa: D103
     return Initcode(deploy_container=container)
 
 
 @pytest.fixture
-def create3_opcode_contract_address() -> Address:  # noqa: D103
-    return Address(0x300)
-
-
-@pytest.fixture
-def pre(  # noqa: D103
-    create3_opcode_contract_address: Address,
+def create3_opcode_contract_address(  # noqa: D103
+    pre: Alloc,
     create3_init_container: Initcode,
-) -> Alloc:
-    return Alloc(
-        {
-            TestAddress: Account(
-                balance=1000000000000000000000,
-                nonce=0,
-            ),
-            create3_opcode_contract_address: Account(
-                code=create3_init_container,
-            ),
-        }
-    )
+) -> Address:
+    return pre.deploy_contract(create3_init_container, address=Address(0x300))
 
 
 @pytest.fixture
 def txs(  # noqa: D103
-    create3_opcode_contract_address: str,
+    sender: EOA,
+    create3_opcode_contract_address: Address,
 ) -> List[Transaction]:
     return [
         Transaction(
-            nonce=nonce,
-            to=address,
+            to=create3_opcode_contract_address,
             gas_limit=100000000,
             gas_price=10,
             # data=initcode,
             protected=False,
-        )
-        for nonce, address in enumerate(
-            [
-                create3_opcode_contract_address,
-            ]
+            sender=sender,
         )
     ]
 
@@ -102,7 +88,7 @@ def txs(  # noqa: D103
 def post(  # noqa: D103
     create3_init_container: Initcode,
     container: Container,
-    create3_opcode_contract_address: str,
+    create3_opcode_contract_address: Address,
 ) -> Dict[Address, Account]:
     create_opcode_created_contract_address = compute_eofcreate_address(
         create3_opcode_contract_address,

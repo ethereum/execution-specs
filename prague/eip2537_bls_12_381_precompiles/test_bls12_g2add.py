@@ -5,7 +5,7 @@ abstract: Tests BLS12_G2ADD precompile of [EIP-2537: Precompile for BLS12-381 cu
 
 import pytest
 
-from ethereum_test_tools import Environment
+from ethereum_test_tools import Alloc, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, Transaction
 
@@ -34,7 +34,7 @@ pytestmark = [
 )
 def test_valid(
     state_test: StateTestFiller,
-    pre: dict,
+    pre: Alloc,
     post: dict,
     tx: Transaction,
 ):
@@ -158,7 +158,7 @@ def test_valid(
 @pytest.mark.parametrize("expected_output", [Spec.INVALID], ids=[""])
 def test_invalid(
     state_test: StateTestFiller,
-    pre: dict,
+    pre: Alloc,
     post: dict,
     tx: Transaction,
 ):
@@ -192,7 +192,7 @@ def test_invalid(
 )
 def test_gas(
     state_test: StateTestFiller,
-    pre: dict,
+    pre: Alloc,
     post: dict,
     tx: Transaction,
 ):
@@ -227,7 +227,7 @@ def test_gas(
 )
 def test_call_types(
     state_test: StateTestFiller,
-    pre: dict,
+    pre: Alloc,
     post: dict,
     tx: Transaction,
 ):

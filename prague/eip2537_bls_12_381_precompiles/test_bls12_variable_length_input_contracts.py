@@ -7,7 +7,7 @@ from typing import List, SupportsBytes
 
 import pytest
 
-from ethereum_test_tools import Environment
+from ethereum_test_tools import Alloc, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, Storage, Transaction
 
@@ -120,7 +120,7 @@ def call_contract_code(
 @pytest.mark.parametrize("precompile_address", [Spec.G1MSM])
 def test_valid_gas_g1msm(
     state_test: StateTestFiller,
-    pre: dict,
+    pre: Alloc,
     post: dict,
     tx: Transaction,
 ):
@@ -161,7 +161,7 @@ def test_valid_gas_g1msm(
 @pytest.mark.parametrize("precompile_address", [Spec.G1MSM])
 def test_invalid_gas_g1msm(
     state_test: StateTestFiller,
-    pre: dict,
+    pre: Alloc,
     post: dict,
     tx: Transaction,
 ):
@@ -204,7 +204,7 @@ def test_invalid_gas_g1msm(
 @pytest.mark.parametrize("precompile_address", [Spec.G1MSM])
 def test_invalid_length_g1msm(
     state_test: StateTestFiller,
-    pre: dict,
+    pre: Alloc,
     post: dict,
     tx: Transaction,
 ):
@@ -245,7 +245,7 @@ def test_invalid_length_g1msm(
 @pytest.mark.parametrize("precompile_address", [Spec.G2MSM])
 def test_valid_gas_g2msm(
     state_test: StateTestFiller,
-    pre: dict,
+    pre: Alloc,
     post: dict,
     tx: Transaction,
 ):
@@ -286,7 +286,7 @@ def test_valid_gas_g2msm(
 @pytest.mark.parametrize("precompile_address", [Spec.G2MSM])
 def test_invalid_gas_g2msm(
     state_test: StateTestFiller,
-    pre: dict,
+    pre: Alloc,
     post: dict,
     tx: Transaction,
 ):
@@ -329,7 +329,7 @@ def test_invalid_gas_g2msm(
 @pytest.mark.parametrize("precompile_address", [Spec.G2MSM])
 def test_invalid_length_g2msm(
     state_test: StateTestFiller,
-    pre: dict,
+    pre: Alloc,
     post: dict,
     tx: Transaction,
 ):
@@ -367,7 +367,7 @@ def test_invalid_length_g2msm(
 @pytest.mark.parametrize("precompile_address", [Spec.PAIRING])
 def test_valid_gas_pairing(
     state_test: StateTestFiller,
-    pre: dict,
+    pre: Alloc,
     post: dict,
     tx: Transaction,
 ):
@@ -405,7 +405,7 @@ def test_valid_gas_pairing(
 @pytest.mark.parametrize("precompile_address", [Spec.PAIRING])
 def test_invalid_gas_pairing(
     state_test: StateTestFiller,
-    pre: dict,
+    pre: Alloc,
     post: dict,
     tx: Transaction,
 ):
@@ -448,7 +448,7 @@ def test_invalid_gas_pairing(
 @pytest.mark.parametrize("precompile_address", [Spec.PAIRING])
 def test_invalid_length_pairing(
     state_test: StateTestFiller,
-    pre: dict,
+    pre: Alloc,
     post: dict,
     tx: Transaction,
 ):

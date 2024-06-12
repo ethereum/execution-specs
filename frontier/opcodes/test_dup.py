@@ -6,9 +6,9 @@ abstract: Test DUP
 import pytest
 
 from ethereum_test_forks import Frontier, Homestead
-from ethereum_test_tools import Account, Address, Environment
+from ethereum_test_tools import Account, Alloc, Environment
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Storage, TestAddress, Transaction
+from ethereum_test_tools import StateTestFiller, Storage, Transaction
 
 
 @pytest.mark.parametrize(
@@ -37,6 +37,7 @@ def test_dup(
     state_test: StateTestFiller,
     fork: str,
     dup_opcode: Op,
+    pre: Alloc,
 ):
     """
     Test the DUP1-DUP16 opcodes.
@@ -47,10 +48,8 @@ def test_dup(
         by Ori Pomerantz.
     """  # noqa: E501
     env = Environment()
-    pre = {TestAddress: Account(balance=1000000000000000000000)}
+    sender = pre.fund_eoa()
     post = {}
-
-    account = Address(0x100)
 
     # Push 0x00 - 0x10 onto the stack
     account_code = b"".join([Op.PUSH1(i) for i in range(0x11)])
@@ -61,7 +60,7 @@ def test_dup(
     # Save each stack value into different keys in storage
     account_code += b"".join([Op.PUSH1(i) + Op.SSTORE for i in range(0x11)])
 
-    pre[account] = Account(code=account_code)
+    account = pre.deploy_contract(account_code)
 
     tx = Transaction(
         ty=0x0,
@@ -71,6 +70,7 @@ def test_dup(
         gas_price=10,
         protected=False if fork in [Frontier, Homestead] else True,
         data="",
+        sender=sender,
     )
 
     """

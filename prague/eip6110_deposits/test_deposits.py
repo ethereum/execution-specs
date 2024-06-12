@@ -2,13 +2,12 @@
 abstract: Tests [EIP-6110: Supply validator deposits on chain](https://eips.ethereum.org/EIPS/eip-6110)
     Test [EIP-6110: Supply validator deposits on chain](https://eips.ethereum.org/EIPS/eip-6110).
 """  # noqa: E501
-from typing import Dict, List
+from typing import List
 
 import pytest
 
 from ethereum_test_tools import (
-    Account,
-    Address,
+    Alloc,
     Block,
     BlockchainTestFiller,
     BlockException,
@@ -17,13 +16,7 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools import Opcodes as Op
 
-from .helpers import (
-    DepositContract,
-    DepositRequest,
-    DepositTransaction,
-    TestAccount1,
-    TestAccount2,
-)
+from .helpers import DepositContract, DepositRequest, DepositTransaction
 from .spec import ref_spec_6110
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_6110.git_path
@@ -38,13 +31,15 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                 ),
             ],
             id="single_deposit_from_eoa",
@@ -52,13 +47,15 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=120_000_000_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=120_000_000_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                     sender_balance=120_000_001_000_000_000 * 10**9,
                 ),
             ],
@@ -67,22 +64,22 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
-                ),
-                DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x1,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        ),
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x1,
+                        ),
+                    ],
                 ),
             ],
             id="multiple_deposit_from_same_eoa",
@@ -90,39 +87,43 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=1_000_000_000,
-                        signature=0x03,
-                        index=i,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=i,
+                        )
+                        for i in range(200)
+                    ],
                 )
-                for i in range(200)
             ],
             id="multiple_deposit_from_same_eoa_high_count",
         ),
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
-                    sender_account=TestAccount1,
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                 ),
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x1,
-                    ),
-                    sender_account=TestAccount2,
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x1,
+                        )
+                    ],
                 ),
             ],
             id="multiple_deposit_from_different_eoa",
@@ -130,22 +131,22 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=999_999_999,
-                        signature=0x03,
-                        index=0x0,
-                    ),
-                ),
-                DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=999_999_999,
+                            signature=0x03,
+                            index=0x0,
+                        ),
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        ),
+                    ],
                 ),
             ],
             id="multiple_deposit_from_same_eoa_first_reverts",
@@ -153,22 +154,22 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
-                ),
-                DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=999_999_999,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        ),
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=999_999_999,
+                            signature=0x03,
+                            index=0x0,
+                        ),
+                    ],
                 ),
             ],
             id="multiple_deposit_from_same_eoa_last_reverts",
@@ -176,25 +177,25 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                        # From traces, gas used by the first tx is 82,718 so reduce by one here
-                        gas_limit=0x1431D,
-                        valid=False,
-                    ),
-                ),
-                DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                            # From traces, gas used by the first tx is 82,718 so reduce by one here
+                            gas_limit=0x1431D,
+                            valid=False,
+                        ),
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        ),
+                    ],
                 ),
             ],
             id="multiple_deposit_from_same_eoa_first_oog",
@@ -202,25 +203,25 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
-                ),
-                DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                        # From traces, gas used by the second tx is 68,594 so reduce by one here
-                        gas_limit=0x10BF1,
-                        valid=False,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        ),
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                            # From traces, gas used by the second tx is 68,594, reduce by one here
+                            gas_limit=0x10BF1,
+                            valid=False,
+                        ),
+                    ],
                 ),
             ],
             id="multiple_deposit_from_same_eoa_last_oog",
@@ -228,15 +229,17 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                        calldata_modifier=lambda _: b"",
-                        valid=False,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                            calldata_modifier=lambda _: b"",
+                            valid=False,
+                        )
+                    ],
                 ),
             ],
             id="send_eth_from_eoa",
@@ -244,13 +247,15 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                 ),
             ],
             id="single_deposit_from_contract",
@@ -258,7 +263,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=[
+                    requests=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -281,7 +286,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=[
+                    requests=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -299,7 +304,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=[
+                    requests=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -323,7 +328,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=[
+                    requests=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -347,7 +352,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=[
+                    requests=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -373,7 +378,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=[
+                    requests=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -399,7 +404,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=[
+                    requests=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -425,7 +430,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=[
+                    requests=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -451,7 +456,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=[
+                    requests=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -470,7 +475,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=[
+                    requests=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -481,13 +486,15 @@ pytestmark = pytest.mark.valid_from("Prague")
                     ],
                 ),
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x1,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x1,
+                        )
+                    ],
                 ),
             ],
             id="single_deposit_from_contract_single_deposit_from_eoa",
@@ -495,16 +502,18 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                 ),
                 DepositContract(
-                    request=[
+                    requests=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -520,16 +529,18 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                 ),
                 DepositContract(
-                    request=[
+                    requests=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -540,13 +551,15 @@ pytestmark = pytest.mark.valid_from("Prague")
                     ],
                 ),
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x2,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x2,
+                        )
+                    ],
                 ),
             ],
             id="single_deposit_from_contract_between_eoa_deposits",
@@ -554,7 +567,7 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=[
+                    requests=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -565,16 +578,18 @@ pytestmark = pytest.mark.valid_from("Prague")
                     ],
                 ),
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x1,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x1,
+                        )
+                    ],
                 ),
                 DepositContract(
-                    request=[
+                    requests=[
                         DepositRequest(
                             pubkey=0x01,
                             withdrawal_credentials=0x02,
@@ -590,14 +605,16 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                        valid=False,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                            valid=False,
+                        )
+                    ],
                     call_type=Op.DELEGATECALL,
                 ),
             ],
@@ -606,14 +623,16 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                        valid=False,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                            valid=False,
+                        )
+                    ],
                     call_type=Op.STATICCALL,
                 ),
             ],
@@ -622,14 +641,16 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                        valid=False,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                            valid=False,
+                        )
+                    ],
                     call_type=Op.CALLCODE,
                 ),
             ],
@@ -638,13 +659,15 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                     call_depth=3,
                 ),
             ],
@@ -653,13 +676,15 @@ pytestmark = pytest.mark.valid_from("Prague")
         pytest.param(
             [
                 DepositContract(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=32_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=32_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                     call_depth=1024,
                     tx_gas_limit=2_500_000_000_000,
                 ),
@@ -671,7 +696,7 @@ pytestmark = pytest.mark.valid_from("Prague")
 )
 def test_deposit(
     blockchain_test: BlockchainTestFiller,
-    pre: Dict[Address, Account],
+    pre: Alloc,
     blocks: List[Block],
 ):
     """
@@ -705,13 +730,15 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=1_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                 ),
             ],
             [],
@@ -721,13 +748,15 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=1_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                 ),
             ],
             [
@@ -745,13 +774,15 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=1_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                 ),
             ],
             [
@@ -769,13 +800,15 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=1_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                 ),
             ],
             [
@@ -793,13 +826,15 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=1_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                 ),
             ],
             [
@@ -817,13 +852,15 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=1_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                 ),
             ],
             [
@@ -841,22 +878,22 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=1_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
-                ),
-                DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=1_000_000_000,
-                        signature=0x03,
-                        index=0x1,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        ),
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x1,
+                        ),
+                    ],
                 ),
             ],
             [
@@ -881,13 +918,15 @@ def test_deposit(
         pytest.param(
             [
                 DepositTransaction(
-                    request=DepositRequest(
-                        pubkey=0x01,
-                        withdrawal_credentials=0x02,
-                        amount=1_000_000_000,
-                        signature=0x03,
-                        index=0x0,
-                    ),
+                    requests=[
+                        DepositRequest(
+                            pubkey=0x01,
+                            withdrawal_credentials=0x02,
+                            amount=1_000_000_000,
+                            signature=0x03,
+                            index=0x0,
+                        )
+                    ],
                 ),
             ],
             [
@@ -913,7 +952,7 @@ def test_deposit(
 )
 def test_deposit_negative(
     blockchain_test: BlockchainTestFiller,
-    pre: Dict[Address, Account],
+    pre: Alloc,
     blocks: List[Block],
 ):
     """

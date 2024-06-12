@@ -6,12 +6,12 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
+    Alloc,
     Environment,
     EOFException,
     EOFStateTestFiller,
     EOFTestFiller,
     StateTestFiller,
-    TestAddress,
     Transaction,
 )
 from ethereum_test_tools.eof.v1 import Container, Section
@@ -39,37 +39,36 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 )
 def test_rjumpi_condition_forwards(
     state_test: StateTestFiller,
+    pre: Alloc,
     calldata: bytes,
 ):
     """Test RJUMPI contract switching based on external input"""
     env = Environment()
+    sender = pre.fund_eoa(10**18)
+    contract_address = pre.deploy_contract(
+        code=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH1(0)
+                    + Op.CALLDATALOAD
+                    + Op.RJUMPI[6]
+                    + Op.SSTORE(slot_conditional_result, value_calldata_false)
+                    + Op.STOP
+                    + Op.SSTORE(slot_conditional_result, value_calldata_true)
+                    + Op.STOP,
+                    max_stack_height=2,
+                )
+            ]
+        ),
+    )
     tx = Transaction(
-        nonce=1,
+        to=contract_address,
         gas_limit=10_000_000,
         data=calldata,
+        sender=sender,
     )
-    pre = {
-        TestAddress: Account(balance=10**18, nonce=tx.nonce),
-        tx.to: Account(
-            code=Container(
-                sections=[
-                    Section.Code(
-                        code=Op.PUSH1(0)
-                        + Op.CALLDATALOAD
-                        + Op.RJUMPI[6]
-                        + Op.SSTORE(slot_conditional_result, value_calldata_false)
-                        + Op.STOP
-                        + Op.SSTORE(slot_conditional_result, value_calldata_true)
-                        + Op.STOP,
-                        max_stack_height=2,
-                    )
-                ]
-            ),
-            nonce=1,
-        ),
-    }
     post = {
-        tx.to: Account(
+        contract_address: Account(
             storage={
                 slot_conditional_result: value_calldata_false
                 if calldata == b"\0"
@@ -86,39 +85,38 @@ def test_rjumpi_condition_forwards(
 )
 def test_rjumpi_condition_backwards(
     state_test: StateTestFiller,
+    pre: Alloc,
     calldata: bytes,
 ):
     """Test RJUMPI contract switching based on external input"""
     env = Environment()
+    sender = pre.fund_eoa(10**18)
+    contract_address = pre.deploy_contract(
+        code=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH1(1)
+                    + Op.RJUMPI[6]
+                    + Op.SSTORE(slot_conditional_result, value_calldata_true)
+                    + Op.STOP
+                    + Op.PUSH0
+                    + Op.CALLDATALOAD
+                    + Op.RJUMPI[-11]
+                    + Op.SSTORE(slot_conditional_result, value_calldata_false)
+                    + Op.STOP,
+                    max_stack_height=2,
+                )
+            ]
+        )
+    )
     tx = Transaction(
-        nonce=1,
+        to=contract_address,
         gas_limit=10_000_000,
         data=calldata,
+        sender=sender,
     )
-    pre = {
-        TestAddress: Account(balance=10**18, nonce=tx.nonce),
-        tx.to: Account(
-            code=Container(
-                sections=[
-                    Section.Code(
-                        code=Op.PUSH1(1)
-                        + Op.RJUMPI[6]
-                        + Op.SSTORE(slot_conditional_result, value_calldata_true)
-                        + Op.STOP
-                        + Op.PUSH0
-                        + Op.CALLDATALOAD
-                        + Op.RJUMPI[-11]
-                        + Op.SSTORE(slot_conditional_result, value_calldata_false)
-                        + Op.STOP,
-                        max_stack_height=2,
-                    )
-                ]
-            ),
-            nonce=1,
-        ),
-    }
     post = {
-        tx.to: Account(
+        contract_address: Account(
             storage={
                 slot_conditional_result: value_calldata_false
                 if calldata == b"\0"
@@ -135,34 +133,33 @@ def test_rjumpi_condition_backwards(
 )
 def test_rjumpi_condition_zero(
     state_test: StateTestFiller,
+    pre: Alloc,
     calldata: bytes,
 ):
     """Test RJUMPI contract switching based on external input"""
     env = Environment()
+    sender = pre.fund_eoa(10**18)
+    contract_address = pre.deploy_contract(
+        code=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0
+                    + Op.CALLDATALOAD
+                    + Op.RJUMPI[0]
+                    + Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.STOP,
+                    max_stack_height=2,
+                )
+            ]
+        ),
+    )
     tx = Transaction(
-        nonce=1,
+        to=contract_address,
         gas_limit=10_000_000,
         data=calldata,
+        sender=sender,
     )
-    pre = {
-        TestAddress: Account(balance=10**18, nonce=tx.nonce),
-        tx.to: Account(
-            code=Container(
-                sections=[
-                    Section.Code(
-                        code=Op.PUSH0
-                        + Op.CALLDATALOAD
-                        + Op.RJUMPI[0]
-                        + Op.SSTORE(slot_code_worked, value_code_worked)
-                        + Op.STOP,
-                        max_stack_height=2,
-                    )
-                ]
-            ),
-            nonce=1,
-        ),
-    }
-    post = {tx.to: Account(storage={slot_code_worked: value_code_worked})}
+    post = {contract_address: Account(storage={slot_code_worked: value_code_worked})}
     state_test(env=env, tx=tx, pre=pre, post=post)
 
 

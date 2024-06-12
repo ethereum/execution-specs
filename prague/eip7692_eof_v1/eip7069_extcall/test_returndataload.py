@@ -6,16 +6,8 @@ from typing import List
 
 import pytest
 
-from ethereum_test_tools import (
-    Account,
-    Address,
-    Environment,
-    StateTestFiller,
-    TestAddress,
-    Transaction,
-)
+from ethereum_test_tools import Account, Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
@@ -73,6 +65,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 )
 def test_returndatacopy_handling(
     state_test: StateTestFiller,
+    pre: Alloc,
     call_prefix: List[int],
     opcode: Op,
     call_suffix: List[int],
@@ -91,60 +84,30 @@ def test_returndatacopy_handling(
     Entrypoint copies the test area to storage slots, and the expected result is asserted.
     """
     env = Environment()
-    address_entry_point = Address(0x1000000)
-    address_caller = Address(0x1000001)
-    address_returner = Address(0x1000002)
-    tx = Transaction(to=address_entry_point, gas_limit=2_000_000, nonce=1)
 
     slot_result_start = 0x1000
 
-    pre = {
-        TestAddress: Account(balance=10**18, nonce=tx.nonce),
-        address_entry_point: Account(
-            nonce=1,
-            code=Op.NOOP
-            # First, create a "dirty" area, so we can check zero overwrite
-            + Op.MSTORE(0x00, -1) + Op.MSTORE(0x20, -1)
-            # call the contract under test
-            + Op.DELEGATECALL(1_000_000, address_caller, 0, 0, 0, 0)
-            + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
-            # store the return data
-            + Op.SSTORE(slot_result_start, Op.MLOAD(0x0))
-            + Op.SSTORE(slot_result_start + 1, Op.MLOAD(0x20))
-            + Op.SSTORE(slot_code_worked, value_code_worked)
-            + Op.STOP,
-        ),
-        address_returner: Account(
-            nonce=1,
-            code=Container(
-                sections=[
-                    Section.Code(
-                        code=Op.DATACOPY(0, 0, Op.DATASIZE) + Op.RETURN(0, Op.DATASIZE),
-                        code_outputs=NON_RETURNING_SECTION,
-                        max_stack_height=3,
-                    ),
-                    Section.Data(data=return_data),
-                ]
-            ),
-        ),
-    }
+    sender = pre.fund_eoa(10**18)
+
+    address_returner = pre.deploy_contract(
+        Container(
+            sections=[
+                Section.Code(
+                    code=Op.DATACOPY(0, 0, Op.DATASIZE) + Op.RETURN(0, Op.DATASIZE),
+                    max_stack_height=3,
+                ),
+                Section.Data(data=return_data),
+            ]
+        )
+    )
 
     result = [0xFF] * 0x40
     result[0:size] = [0] * size
     extent = size - max(0, size + offset - len(return_data))
     if extent > 0 and len(return_data) > 0:
         result[0:extent] = [return_data[0]] * extent
-    post = {
-        address_entry_point: Account(
-            storage={
-                slot_code_worked: value_code_worked,
-                slot_result_start: bytes(result[:0x20]),
-                (slot_result_start + 0x1): bytes(result[0x20:]),
-            }
-        )
-    }
 
-    code_under_test: bytes = (
+    code_under_test = (
         opcode(*call_prefix, address_returner, *call_suffix)
         + Op.RETURNDATACOPY(0, offset, size)
         + Op.SSTORE(slot_code_worked, value_code_worked)
@@ -152,8 +115,8 @@ def test_returndatacopy_handling(
     )
     match opcode:
         case Op.EXTCALL | Op.EXTDELEGATECALL | Op.EXTSTATICCALL:
-            pre[address_caller] = Account(
-                code=Container(
+            address_caller = pre.deploy_contract(
+                Container(
                     sections=[
                         Section.Code(
                             code=code_under_test,
@@ -163,17 +126,44 @@ def test_returndatacopy_handling(
                 )
             )
         case Op.CALL | Op.CALLCODE | Op.DELEGATECALL | Op.STATICCALL:
-            pre[address_caller] = Account(
-                code=code_under_test,
-            )
-            if (offset + size) > len(return_data):
-                post[address_entry_point] = Account(
-                    storage={
-                        slot_code_worked: value_code_worked,
-                        slot_result_start: b"\xff" * 32,
-                        slot_result_start + 1: b"\xff" * 32,
-                    }
-                )
+            address_caller = pre.deploy_contract(code_under_test)
+
+    address_entry_point = pre.deploy_contract(
+        Op.NOOP
+        # First, create a "dirty" area, so we can check zero overwrite
+        + Op.MSTORE(0x00, -1)
+        + Op.MSTORE(0x20, -1)
+        # call the contract under test
+        + Op.DELEGATECALL(1_000_000, address_caller, 0, 0, 0, 0)
+        + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
+        # store the return data
+        + Op.SSTORE(slot_result_start, Op.MLOAD(0x0))
+        + Op.SSTORE(slot_result_start + 1, Op.MLOAD(0x20))
+        + Op.SSTORE(slot_code_worked, value_code_worked)
+        + Op.STOP,
+    )
+
+    post = {
+        address_entry_point: Account(
+            storage={
+                slot_code_worked: value_code_worked,
+                slot_result_start: bytes(result[:0x20]),
+                (slot_result_start + 0x1): bytes(result[0x20:]),
+            }
+        )
+    }
+    if opcode in [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL] and (
+        (offset + size) > len(return_data)
+    ):
+        post[address_entry_point] = Account(
+            storage={
+                slot_code_worked: value_code_worked,
+                slot_result_start: b"\xff" * 32,
+                slot_result_start + 1: b"\xff" * 32,
+            }
+        )
+
+    tx = Transaction(to=address_entry_point, gas_limit=2_000_000, sender=sender)
 
     state_test(
         env=env,
@@ -214,6 +204,7 @@ def test_returndatacopy_handling(
 )
 def test_returndataload_handling(
     state_test: StateTestFiller,
+    pre: Alloc,
     opcode: Op,
     call_suffix: List[int],
     return_data: bytes,
@@ -225,41 +216,34 @@ def test_returndataload_handling(
     The parameters offset and return data are configured to test boundary conditions.
     """
     env = Environment()
-    address_entry_point = Address(0x1000000)
-    address_returner = Address(0x1000001)
-    tx = Transaction(to=address_entry_point, gas_limit=2_000_000, nonce=1)
 
     slot_result_start = 0x1000
 
-    pre = {
-        TestAddress: Account(balance=10**18, nonce=tx.nonce),
-        address_entry_point: Account(
-            nonce=1,
-            code=Container(
-                sections=[
-                    Section.Code(
-                        code=opcode(address_returner, *call_suffix)
-                        + Op.SSTORE(slot_result_start, Op.RETURNDATALOAD(offset))
-                        + Op.SSTORE(slot_code_worked, value_code_worked)
-                        + Op.STOP,
-                        max_stack_height=len(call_suffix) + 1,
-                    )
-                ]
-            ),
-        ),
-        address_returner: Account(
-            nonce=1,
-            code=Container(
-                sections=[
-                    Section.Code(
-                        code=Op.DATACOPY(0, 0, Op.DATASIZE) + Op.RETURN(0, Op.DATASIZE),
-                        max_stack_height=3,
-                    ),
-                    Section.Data(data=return_data),
-                ]
-            ),
-        ),
-    }
+    sender = pre.fund_eoa(10**18)
+    address_returner = pre.deploy_contract(
+        Container(
+            sections=[
+                Section.Code(
+                    code=Op.DATACOPY(0, 0, Op.DATASIZE) + Op.RETURN(0, Op.DATASIZE),
+                    max_stack_height=3,
+                ),
+                Section.Data(data=return_data),
+            ]
+        )
+    )
+    address_entry_point = pre.deploy_contract(
+        Container(
+            sections=[
+                Section.Code(
+                    code=opcode(address_returner, *call_suffix)
+                    + Op.SSTORE(slot_result_start, Op.RETURNDATALOAD(offset))
+                    + Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.STOP,
+                    max_stack_height=len(call_suffix) + 1,
+                )
+            ]
+        )
+    )
 
     result = [0] * 0x20
     extent = 0x20 - max(0, 0x20 + offset - len(return_data))
@@ -273,6 +257,8 @@ def test_returndataload_handling(
             }
         )
     }
+
+    tx = Transaction(to=address_entry_point, gas_limit=2_000_000, sender=sender)
 
     state_test(
         env=env,

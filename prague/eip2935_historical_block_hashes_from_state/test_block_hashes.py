@@ -3,14 +3,13 @@ abstract: Tests [EIP-2935: Serve historical block hashes from state](https://eip
     Test [EIP-2935: Serve historical block hashes from state](https://eips.ethereum.org/EIPS/eip-2935)
 """  # noqa: E501
 
-from itertools import count
 from typing import Dict, List
 
 import pytest
 
-from ethereum_test_tools import Account, Address, Block, BlockchainTestFiller, Environment
+from ethereum_test_tools import Account, Address, Alloc, Block, BlockchainTestFiller, Environment
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Storage, TestAddress, Transaction
+from ethereum_test_tools import Storage, Transaction
 
 from .spec import Spec, ref_spec_2935
 
@@ -86,6 +85,7 @@ def generate_block_check_code(
 @pytest.mark.valid_at_transition_to("Prague")
 def test_block_hashes_history_at_transition(
     blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
     blocks_before_fork: int,
 ):
     """
@@ -96,11 +96,9 @@ def test_block_hashes_history_at_transition(
     blocks: List[Block] = []
     assert blocks_before_fork >= 1 and blocks_before_fork < FORK_TIMESTAMP
 
-    pre = {TestAddress: Account(balance=10_000_000_000)}
+    sender = pre.fund_eoa(10_000_000_000)
     post: Dict[Address, Account] = {}
-    tx_nonce = count(0)
 
-    current_code_address = 0x10000
     for i in range(1, blocks_before_fork):
         txs: List[Transaction] = []
         if i == blocks_before_fork - 1:
@@ -134,16 +132,15 @@ def test_block_hashes_history_at_transition(
                 storage=storage,
             )
 
+            code_address = pre.deploy_contract(code)
             txs.append(
                 Transaction(
-                    to=current_code_address,
+                    to=code_address,
                     gas_limit=10_000_000,
-                    nonce=next(tx_nonce),
+                    sender=sender,
                 )
             )
-            pre[Address(current_code_address)] = Account(code=code, nonce=1)
-            post[Address(current_code_address)] = Account(storage=storage)
-            current_code_address += 0x100
+            post[code_address] = Account(storage=storage)
         blocks.append(Block(timestamp=i, txs=txs))
 
     # Add the fork block
@@ -179,16 +176,15 @@ def test_block_hashes_history_at_transition(
         storage=storage,
     )
 
+    code_address = pre.deploy_contract(code)
     txs.append(
         Transaction(
-            to=current_code_address,
+            to=code_address,
             gas_limit=10_000_000,
-            nonce=next(tx_nonce),
+            sender=sender,
         )
     )
-    pre[Address(current_code_address)] = Account(code=code, nonce=1)
-    post[Address(current_code_address)] = Account(storage=storage)
-    current_code_address += 0x100
+    post[code_address] = Account(storage=storage)
 
     blocks.append(Block(timestamp=FORK_TIMESTAMP, txs=txs))
 

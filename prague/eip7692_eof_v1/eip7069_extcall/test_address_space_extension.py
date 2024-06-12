@@ -5,14 +5,7 @@ import itertools
 
 import pytest
 
-from ethereum_test_tools import (
-    Account,
-    Address,
-    Environment,
-    StateTestFiller,
-    TestAddress,
-    Transaction,
-)
+from ethereum_test_tools import Account, Address, Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -23,10 +16,6 @@ REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7069.md"
 REFERENCE_SPEC_VERSION = "1795943aeacc86131d5ab6bb3d65824b3b1d4cad"
 
 pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
-
-_address_allocation = itertools.count(0x10000)
-address_entry_point = Address(next(_address_allocation))
-address_caller = Address(next(_address_allocation))
 
 _slot = itertools.count(1)
 slot_top_level_call_status = next(_slot)
@@ -50,7 +39,14 @@ value_exceptional_abort_canary = 0x1984
     ),
 )
 @pytest.mark.parametrize(
-    "target_account_type", ("empty", "EOA", "LegacyContract", "EOFContract"), ids=lambda x: x
+    "target_account_type",
+    (
+        "empty",
+        "EOA",
+        "LegacyContract",  # Hard-codes an address in pre-alloc
+        "EOFContract",  # Hard-codes an address in pre-alloc
+    ),
+    ids=lambda x: x,
 )
 @pytest.mark.parametrize(
     "target_opcode",
@@ -66,6 +62,7 @@ value_exceptional_abort_canary = 0x1984
 )
 def test_address_space_extension(
     state_test: StateTestFiller,
+    pre: Alloc,
     target_address: bytes,
     target_opcode: Op,
     target_account_type: str,
@@ -96,62 +93,57 @@ def test_address_space_extension(
         case _:
             raise ValueError("Unexpected opcode ", target_opcode)
 
-    pre = {
-        TestAddress: Account(
-            balance=1000000000000000000000,
-            nonce=1,
-        ),
-        address_entry_point: Account(
-            code=(
-                Op.MSTORE(0, Op.PUSH32(target_address))
-                + Op.SSTORE(
-                    slot_top_level_call_status,
-                    Op.CALL(50000, address_caller, 0, 0, 32, 0, 0),
-                )
-                + Op.STOP()
-            ),
-            nonce=1,
-            storage={
-                slot_top_level_call_status: value_exceptional_abort_canary,
-            },
-        ),
-        address_caller: Account(
-            code=Container(
-                sections=[
-                    Section.Code(
-                        code=Op.SSTORE(
-                            slot_target_call_status,
-                            target_opcode(Op.CALLDATALOAD(0), *call_suffix),
-                        )
-                        + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
-                        + Op.SSTORE(slot_target_returndata, Op.MLOAD(0))
-                        + Op.STOP,
-                        code_inputs=0,
-                        max_stack_height=1 + len(call_suffix),
+    sender = pre.fund_eoa()
+
+    address_caller = pre.deploy_contract(
+        Container(
+            sections=[
+                Section.Code(
+                    code=Op.SSTORE(
+                        slot_target_call_status,
+                        target_opcode(Op.CALLDATALOAD(0), *call_suffix),  # type: ignore
                     )
-                ],
-            )
-            if ase_ready_opcode
-            else Op.SSTORE(
-                slot_target_call_status,
-                target_opcode(Op.GAS, Op.CALLDATALOAD(0), *call_suffix),
-            )
-            + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
-            + Op.SSTORE(slot_target_returndata, Op.MLOAD(0))
-            + Op.STOP,
-            nonce=1,
-            storage={
-                slot_target_call_status: value_exceptional_abort_canary,
-                slot_target_returndata: value_exceptional_abort_canary,
-            },
-        ),
-    }
+                    + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
+                    + Op.SSTORE(slot_target_returndata, Op.MLOAD(0))
+                    + Op.STOP,
+                    code_inputs=0,
+                    max_stack_height=1 + len(call_suffix),
+                )
+            ],
+        )
+        if ase_ready_opcode
+        else Op.SSTORE(
+            slot_target_call_status,
+            target_opcode(Op.GAS, Op.CALLDATALOAD(0), *call_suffix),  # type: ignore
+        )
+        + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
+        + Op.SSTORE(slot_target_returndata, Op.MLOAD(0))
+        + Op.STOP,
+        storage={
+            slot_target_call_status: value_exceptional_abort_canary,
+            slot_target_returndata: value_exceptional_abort_canary,
+        },
+    )
+
+    address_entry_point = pre.deploy_contract(
+        Op.MSTORE(0, Op.PUSH32(target_address))
+        + Op.SSTORE(
+            slot_top_level_call_status,
+            Op.CALL(50000, address_caller, 0, 0, 32, 0, 0),
+        )
+        + Op.STOP(),
+        storage={
+            slot_top_level_call_status: value_exceptional_abort_canary,
+        },
+    )
+
     match target_account_type:
         case "empty":
             # add no account
             pass
         case "EOA":
-            pre[Address(stripped_address)] = Account(code="", balance=10**18, nonce=9)
+            pre.fund_address(Address(stripped_address), 10**18)
+            # TODO: we could use pre.fund_eoa here with nonce!=0.
         case "LegacyContract":
             pre[Address(stripped_address)] = Account(
                 code=Op.MSTORE(0, Op.ADDRESS) + Op.RETURN(0, 32),
@@ -229,9 +221,9 @@ def test_address_space_extension(
     }
 
     tx = Transaction(
-        nonce=1,
+        sender=sender,
         to=address_entry_point,
-        gas_limit=50000000,
+        gas_limit=50_000_000,
         gas_price=10,
         protected=False,
         data="",

@@ -9,10 +9,9 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
-    Address,
+    Alloc,
     Environment,
     StateTestFiller,
-    TestAddress,
     TestParameterGroup,
     Transaction,
     compute_create_address,
@@ -206,65 +205,63 @@ class ExpectedOutput(TestParameterGroup):
     ],
     ids=lambda param: param.__repr__(),  # only required to remove parameter names (input/output)
 )
-def test_modexp(state_test: StateTestFiller, input: ModExpInput, output: ExpectedOutput):
+def test_modexp(
+    state_test: StateTestFiller, input: ModExpInput, output: ExpectedOutput, pre: Alloc
+):
     """
     Test the MODEXP precompile
     """
     env = Environment()
-    pre = {TestAddress: Account(balance=1000000000000000000000)}
+    sender = pre.fund_eoa()
 
-    account = Address(0x100)
-
-    pre[account] = Account(
-        code=(
-            # Store all CALLDATA into memory (offset 0)
-            Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
-            # Store the returned CALL status (success = 1, fail = 0) into slot 0:
-            + Op.SSTORE(
-                0,
-                # Setup stack to CALL into ModExp with the CALLDATA and CALL into it (+ pop value)
-                Op.CALL(Op.GAS(), 0x05, 0, 0, Op.CALLDATASIZE(), 0, 0),
-            )
-            # Store contract deployment code to deploy the returned data from ModExp as
-            # contract code (16 bytes)
-            + Op.MSTORE(
-                0,
-                (
-                    (
-                        # Need to `ljust` this PUSH32 in order to ensure the code starts
-                        # in memory at offset 0 (memory right-aligns stack items which are not
-                        # 32 bytes)
-                        Op.PUSH32(
-                            (
-                                Op.CODECOPY(0, 16, Op.SUB(Op.CODESIZE(), 16))
-                                + Op.RETURN(0, Op.SUB(Op.CODESIZE, 16))
-                            ).ljust(32, bytes(1))
-                        )
-                    )
-                ),
-            )
-            # RETURNDATACOPY the returned data from ModExp into memory (offset 16 bytes)
-            + Op.RETURNDATACOPY(16, 0, Op.RETURNDATASIZE())
-            # CREATE contract with the deployment code + the returned data from ModExp
-            + Op.CREATE(0, 0, Op.ADD(16, Op.RETURNDATASIZE()))
-            # STOP (handy for tracing)
-            + Op.STOP()
+    account = pre.deploy_contract(
+        # Store all CALLDATA into memory (offset 0)
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE())
+        # Store the returned CALL status (success = 1, fail = 0) into slot 0:
+        + Op.SSTORE(
+            0,
+            # Setup stack to CALL into ModExp with the CALLDATA and CALL into it (+ pop value)
+            Op.CALL(Op.GAS(), 0x05, 0, 0, Op.CALLDATASIZE(), 0, 0),
         )
+        # Store contract deployment code to deploy the returned data from ModExp as
+        # contract code (16 bytes)
+        + Op.MSTORE(
+            0,
+            (
+                (
+                    # Need to `ljust` this PUSH32 in order to ensure the code starts
+                    # in memory at offset 0 (memory right-aligns stack items which are not
+                    # 32 bytes)
+                    Op.PUSH32(
+                        (
+                            Op.CODECOPY(0, 16, Op.SUB(Op.CODESIZE(), 16))
+                            + Op.RETURN(0, Op.SUB(Op.CODESIZE, 16))
+                        ).ljust(32, bytes(1))
+                    )
+                )
+            ),
+        )
+        # RETURNDATACOPY the returned data from ModExp into memory (offset 16 bytes)
+        + Op.RETURNDATACOPY(16, 0, Op.RETURNDATASIZE())
+        # CREATE contract with the deployment code + the returned data from ModExp
+        + Op.CREATE(0, 0, Op.ADD(16, Op.RETURNDATASIZE()))
+        # STOP (handy for tracing)
+        + Op.STOP(),
     )
 
     tx = Transaction(
         ty=0x0,
-        nonce=0,
         to=account,
         data=input.create_modexp_tx_data(),
         gas_limit=500000,
         gas_price=10,
         protected=True,
+        sender=sender,
     )
 
     post = {}
     if output.call_return_code != "0x00":
-        contract_address = compute_create_address(account, tx.nonce)
+        contract_address = compute_create_address(account, 1)
         post[contract_address] = Account(code=output.returned_data)
     post[account] = Account(storage={0: output.call_return_code})
 

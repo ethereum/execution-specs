@@ -6,9 +6,10 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
+    Alloc,
     Environment,
     StateTestFiller,
-    TestAddress,
+    Transaction,
     compute_eofcreate_address,
 )
 from ethereum_test_tools.eof.v1 import Container, Section
@@ -17,8 +18,6 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from .helpers import (
-    default_address,
-    simple_transaction,
     slot_code_should_fail,
     slot_code_worked,
     slot_create_address,
@@ -44,7 +43,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
         pytest.param(b"\x08\xc3\x79\xa0", id="Error(string)"),
     ],
 )
-def test_initcode_revert(state_test: StateTestFiller, revert: bytes):
+def test_initcode_revert(state_test: StateTestFiller, pre: Alloc, revert: bytes):
     """
     Verifies proper handling of REVERT in initcode
     """
@@ -77,13 +76,11 @@ def test_initcode_revert(state_test: StateTestFiller, revert: bytes):
         ],
     )
 
-    pre = {
-        TestAddress: Account(balance=10**21, nonce=1),
-        default_address: Account(code=factory_contract),
-    }
+    sender = pre.fund_eoa()
+    contract_address = pre.deploy_contract(code=factory_contract)
 
     post = {
-        default_address: Account(
+        contract_address: Account(
             storage={
                 slot_create_address: value_create_failed,
                 slot_returndata_size: revert_size,
@@ -92,53 +89,64 @@ def test_initcode_revert(state_test: StateTestFiller, revert: bytes):
             }
         )
     }
-
-    state_test(env=env, pre=pre, post=post, tx=simple_transaction())
+    tx = Transaction(
+        to=contract_address,
+        gas_limit=10_000_000,
+        gas_price=10,
+        protected=False,
+        sender=sender,
+    )
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 def test_initcode_aborts(
     state_test: StateTestFiller,
+    pre: Alloc,
 ):
     """
     Verifies correct handling of a halt in EOF initcode
     """
     env = Environment()
-    pre = {
-        TestAddress: Account(balance=10**21, nonce=1),
-        default_address: Account(
-            code=Container(
-                sections=[
-                    Section.Code(
-                        code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
-                        + Op.SSTORE(slot_code_worked, value_code_worked)
-                        + Op.STOP,
-                        max_stack_height=4,
-                    ),
-                    Section.Container(
-                        container=Container(
-                            sections=[
-                                Section.Code(
-                                    code=Op.INVALID,
-                                    max_stack_height=0,
-                                )
-                            ]
-                        )
-                    ),
-                ]
-            )
-        ),
-    }
+    sender = pre.fund_eoa()
+    contract_address = pre.deploy_contract(
+        code=Container(
+            sections=[
+                Section.Code(
+                    code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
+                    + Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.STOP,
+                    max_stack_height=4,
+                ),
+                Section.Container(
+                    container=Container(
+                        sections=[
+                            Section.Code(
+                                code=Op.INVALID,
+                            )
+                        ]
+                    )
+                ),
+            ]
+        )
+    )
     # Storage in slot_create_address should not have the address,
     post = {
-        default_address: Account(
+        contract_address: Account(
             storage={
                 slot_create_address: value_create_failed,
                 slot_code_worked: value_code_worked,
             }
         )
     }
+    tx = Transaction(
+        to=contract_address,
+        gas_limit=10_000_000,
+        gas_price=10,
+        protected=False,
+        sender=sender,
+    )
 
-    state_test(env=env, pre=pre, post=post, tx=simple_transaction())
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 """
@@ -169,6 +177,7 @@ factory_size = 30
 )
 def test_eofcreate_deploy_sizes(
     state_test: StateTestFiller,
+    pre: Alloc,
     target_deploy_size: int,
 ):
     """
@@ -204,30 +213,28 @@ def test_eofcreate_deploy_sizes(
         len(initcode_subcontainer),
     )
 
-    pre = {
-        TestAddress: Account(balance=10**21, nonce=1),
-        default_address: Account(
-            code=Container(
-                sections=[
-                    Section.Code(
-                        code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
-                        + Op.SSTORE(slot_code_worked, value_code_worked)
-                        + Op.STOP,
-                        max_stack_height=4,
-                    ),
-                    Section.Container(container=initcode_subcontainer),
-                ]
-            )
-        ),
-    }
+    sender = pre.fund_eoa()
+    contract_address = pre.deploy_contract(
+        code=Container(
+            sections=[
+                Section.Code(
+                    code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
+                    + Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.STOP,
+                    max_stack_height=4,
+                ),
+                Section.Container(container=initcode_subcontainer),
+            ]
+        )
+    )
     # Storage in 0 should have the address,
     # Storage 1 is a canary of 1 to make sure it tried to execute, which also covers cases of
     #   data+code being greater than initcode_size_max, which is allowed.
     post = {
-        default_address: Account(
+        contract_address: Account(
             storage={
                 slot_create_address: compute_eofcreate_address(
-                    default_address, 0, initcode_subcontainer
+                    contract_address, 0, initcode_subcontainer
                 )
                 if target_deploy_size <= MAX_BYTECODE_SIZE
                 else value_create_failed,
@@ -235,8 +242,15 @@ def test_eofcreate_deploy_sizes(
             }
         )
     }
+    tx = Transaction(
+        to=contract_address,
+        gas_limit=10_000_000,
+        gas_price=10,
+        protected=False,
+        sender=sender,
+    )
 
-    state_test(env=env, pre=pre, post=post, tx=simple_transaction())
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -273,7 +287,7 @@ def test_eofcreate_deploy_sizes_tx(
         pytest.param(0x10000 + 1, id="over64k"),
     ],
 )
-def test_auxdata_size_failures(state_test: StateTestFiller, auxdata_size: int):
+def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_size: int):
     """
     Exercises a number of auxdata size violations, and one maxcode success
     """
@@ -292,33 +306,31 @@ def test_auxdata_size_failures(state_test: StateTestFiller, auxdata_size: int):
         ],
     )
 
-    pre = {
-        TestAddress: Account(balance=10**21, nonce=1),
-        default_address: Account(
-            code=Container(
-                sections=[
-                    Section.Code(
-                        code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-                        + Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, Op.CALLDATASIZE))
-                        + Op.SSTORE(slot_code_worked, value_code_worked)
-                        + Op.STOP,
-                        max_stack_height=4,
-                    ),
-                    Section.Container(container=initcode_subcontainer),
-                ]
-            )
-        ),
-    }
+    sender = pre.fund_eoa()
+    contract_address = pre.deploy_contract(
+        code=Container(
+            sections=[
+                Section.Code(
+                    code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+                    + Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, Op.CALLDATASIZE))
+                    + Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.STOP,
+                    max_stack_height=4,
+                ),
+                Section.Container(container=initcode_subcontainer),
+            ]
+        )
+    )
 
     deployed_container_size = len(smallest_runtime_subcontainer) + auxdata_size
 
     # Storage in 0 will have address in first test, 0 in all other cases indicating failure
     # Storage 1 in 1 is a canary to see if EOFCREATE opcode halted
     post = {
-        default_address: Account(
+        contract_address: Account(
             storage={
                 slot_create_address: compute_eofcreate_address(
-                    default_address, 0, initcode_subcontainer
+                    contract_address, 0, initcode_subcontainer
                 )
                 if deployed_container_size <= MAX_BYTECODE_SIZE
                 else 0,
@@ -327,7 +339,16 @@ def test_auxdata_size_failures(state_test: StateTestFiller, auxdata_size: int):
         )
     }
 
-    state_test(env=env, pre=pre, post=post, tx=simple_transaction(payload=auxdata_bytes))
+    tx = Transaction(
+        to=contract_address,
+        gas_limit=10_000_000,
+        gas_price=10,
+        protected=False,
+        sender=sender,
+        data=auxdata_bytes,
+    )
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 @pytest.mark.parametrize(
@@ -339,6 +360,7 @@ def test_auxdata_size_failures(state_test: StateTestFiller, auxdata_size: int):
 )
 def test_eofcreate_insufficient_stipend(
     state_test: StateTestFiller,
+    pre: Alloc,
     value: int,
 ):
     """
@@ -357,27 +379,35 @@ def test_eofcreate_insufficient_stipend(
             Section.Container(container=smallest_initcode_subcontainer),
         ]
     )
-    pre = {
-        TestAddress: Account(balance=10**11, nonce=1),
-        default_address: Account(balance=value - 1, code=initcode_container),
-    }
+    sender = pre.fund_eoa(10**11)
+    contract_address = pre.deploy_contract(
+        code=initcode_container,
+        balance=value - 1,
+    )
     # create will fail but not trigger a halt, so canary at storage 1 should be set
     # also validate target created contract fails
     post = {
-        default_address: Account(
+        contract_address: Account(
             storage={
                 slot_create_address: value_create_failed,
                 slot_code_worked: value_code_worked,
             }
         ),
-        compute_eofcreate_address(default_address, 0, initcode_container): Account.NONEXISTENT,
+        compute_eofcreate_address(contract_address, 0, initcode_container): Account.NONEXISTENT,
     }
-
-    state_test(env=env, pre=pre, post=post, tx=simple_transaction())
+    tx = Transaction(
+        to=contract_address,
+        gas_limit=10_000_000,
+        gas_price=10,
+        protected=False,
+        sender=sender,
+    )
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 def test_insufficient_initcode_gas(
     state_test: StateTestFiller,
+    pre: Alloc,
 ):
     """
     Excercises an EOFCREATE when there is not enough gas for the initcode charge
@@ -397,45 +427,51 @@ def test_insufficient_initcode_gas(
         ],
     )
 
-    pre = {
-        TestAddress: Account(balance=10**21, nonce=1),
-        default_address: Account(
-            code=Container(
-                sections=[
-                    Section.Code(
-                        code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
-                        + Op.SSTORE(slot_code_should_fail, value_code_worked)
-                        + Op.STOP,
-                        max_stack_height=4,
-                    ),
-                    Section.Container(container=initcode_container),
-                ],
-            ),
-            storage={
-                slot_create_address: value_canary_should_not_change,
-                slot_code_should_fail: value_canary_should_not_change,
-            },
+    sender = pre.fund_eoa()
+    contract_address = pre.deploy_contract(
+        code=Container(
+            sections=[
+                Section.Code(
+                    code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
+                    + Op.SSTORE(slot_code_should_fail, value_code_worked)
+                    + Op.STOP,
+                    max_stack_height=4,
+                ),
+                Section.Container(container=initcode_container),
+            ],
         ),
-    }
+        storage={
+            slot_create_address: value_canary_should_not_change,
+            slot_code_should_fail: value_canary_should_not_change,
+        },
+    )
     # enough gas for everything but EVM opcodes and EIP-150 reserves
     gas_limit = 21_000 + 32_000 + (len(initcode_data) + 31) // 32 * 6
     # out_of_gas is triggered, so canary won't set value
     # also validate target created contract fails
     post = {
-        default_address: Account(
+        contract_address: Account(
             storage={
                 slot_create_address: value_canary_should_not_change,
                 slot_code_should_fail: value_canary_should_not_change,
             },
         ),
-        compute_eofcreate_address(default_address, 0, initcode_container): Account.NONEXISTENT,
+        compute_eofcreate_address(contract_address, 0, initcode_container): Account.NONEXISTENT,
     }
+    tx = Transaction(
+        to=contract_address,
+        gas_limit=gas_limit,
+        gas_price=10,
+        protected=False,
+        sender=sender,
+    )
 
-    state_test(env=env, pre=pre, post=post, tx=simple_transaction(gas_limit=gas_limit))
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 def test_insufficient_gas_memory_expansion(
     state_test: StateTestFiller,
+    pre: Alloc,
 ):
     """
     Excercises an EOFCREATE when the memory for auxdata has not been expanded but is requested
@@ -454,16 +490,14 @@ def test_insufficient_gas_memory_expansion(
             Section.Container(container=smallest_initcode_subcontainer),
         ],
     )
-    pre = {
-        TestAddress: Account(balance=10**21, nonce=1),
-        default_address: Account(
-            code=initcode_container,
-            storage={
-                slot_create_address: value_canary_should_not_change,
-                slot_code_should_fail: value_canary_should_not_change,
-            },
-        ),
-    }
+    sender = pre.fund_eoa()
+    contract_address = pre.deploy_contract(
+        code=initcode_container,
+        storage={
+            slot_create_address: value_canary_should_not_change,
+            slot_code_should_fail: value_canary_should_not_change,
+        },
+    )
     # enough gas for everything but EVM opcodes and EIP-150 reserves
     initcode_container_words = (len(initcode_container) + 31) // 32
     auxdata_size_words = (auxdata_size + 31) // 32
@@ -477,20 +511,28 @@ def test_insufficient_gas_memory_expansion(
     # out_of_gas is triggered, so canary won't set value
     # also validate target created contract fails
     post = {
-        default_address: Account(
+        contract_address: Account(
             storage={
                 slot_create_address: value_canary_should_not_change,
                 slot_code_should_fail: value_canary_should_not_change,
             },
         ),
-        compute_eofcreate_address(default_address, 0, initcode_container): Account.NONEXISTENT,
+        compute_eofcreate_address(contract_address, 0, initcode_container): Account.NONEXISTENT,
     }
+    tx = Transaction(
+        to=contract_address,
+        gas_limit=gas_limit,
+        gas_price=10,
+        protected=False,
+        sender=sender,
+    )
 
-    state_test(env=env, pre=pre, post=post, tx=simple_transaction(gas_limit=gas_limit))
+    state_test(env=env, pre=pre, post=post, tx=tx)
 
 
 def test_insufficient_returncontract_auxdata_gas(
     state_test: StateTestFiller,
+    pre: Alloc,
 ):
     """
     Excercises an EOFCREATE when there is not enough gas for the initcode charge
@@ -509,26 +551,24 @@ def test_insufficient_returncontract_auxdata_gas(
         ],
     )
 
-    pre = {
-        TestAddress: Account(balance=10**21, nonce=1),
-        default_address: Account(
-            code=Container(
-                sections=[
-                    Section.Code(
-                        code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
-                        + Op.SSTORE(slot_code_should_fail, value_code_worked)
-                        + Op.STOP,
-                        max_stack_height=4,
-                    ),
-                    Section.Container(container=initcode_container),
-                ],
-            ),
-            storage={
-                slot_create_address: value_canary_should_not_change,
-                slot_code_should_fail: value_canary_should_not_change,
-            },
+    sender = pre.fund_eoa()
+    contract_address = pre.deploy_contract(
+        code=Container(
+            sections=[
+                Section.Code(
+                    code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
+                    + Op.SSTORE(slot_code_should_fail, value_code_worked)
+                    + Op.STOP,
+                    max_stack_height=4,
+                ),
+                Section.Container(container=initcode_container),
+            ],
         ),
-    }
+        storage={
+            slot_create_address: value_canary_should_not_change,
+            slot_code_should_fail: value_canary_should_not_change,
+        },
+    )
     # enough gas for everything but EVM opcodes and EIP-150 reserves
     initcode_container_words = (len(initcode_container) + 31) // 32
     auxdata_size_words = (auxdata_size + 31) // 32
@@ -542,13 +582,20 @@ def test_insufficient_returncontract_auxdata_gas(
     # out_of_gas is triggered, so canary won't set value
     # also validate target created contract fails
     post = {
-        default_address: Account(
+        contract_address: Account(
             storage={
                 slot_create_address: value_canary_should_not_change,
                 slot_code_should_fail: value_canary_should_not_change,
             },
         ),
-        compute_eofcreate_address(default_address, 0, initcode_container): Account.NONEXISTENT,
+        compute_eofcreate_address(contract_address, 0, initcode_container): Account.NONEXISTENT,
     }
+    tx = Transaction(
+        to=contract_address,
+        gas_limit=gas_limit,
+        gas_price=10,
+        protected=False,
+        sender=sender,
+    )
 
-    state_test(env=env, pre=pre, post=post, tx=simple_transaction(gas_limit=gas_limit))
+    state_test(env=env, pre=pre, post=post, tx=tx)

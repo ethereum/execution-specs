@@ -6,7 +6,7 @@ abstract: Tests BLS12 precompiles of [EIP-2537: Precompile for BLS12-381 curve o
 
 import pytest
 
-from ethereum_test_tools import Environment, StateTestFiller, Transaction
+from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
 
 from .spec import FP, FP2, Scalar, Spec, ref_spec_2537
 
@@ -69,7 +69,7 @@ pytestmark = pytest.mark.valid_at_transition_to("Prague")
 @pytest.mark.parametrize("expected_output,call_succeeds", [pytest.param(b"", True, id="")])
 def test_precompile_before_fork(
     state_test: StateTestFiller,
-    pre: dict,
+    pre: Alloc,
     post: dict,
     tx: Transaction,
 ):

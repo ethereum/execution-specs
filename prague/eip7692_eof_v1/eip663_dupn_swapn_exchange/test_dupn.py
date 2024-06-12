@@ -5,15 +5,7 @@ abstract: Tests [EIP-663: SWAPN, DUPN and EXCHANGE instructions](https://eips.et
 
 import pytest
 
-from ethereum_test_tools import (
-    Account,
-    Environment,
-    EOFException,
-    EOFTestFiller,
-    StateTestFiller,
-    TestAddress,
-    Transaction,
-)
+from ethereum_test_tools import Account, EOFException, EOFStateTestFiller, EOFTestFiller
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.eof.v1.constants import MAX_OPERAND_STACK_HEIGHT
 from ethereum_test_tools.vm.opcode import Opcodes as Op
@@ -26,10 +18,7 @@ REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
 
 
 @pytest.mark.valid_from(EOF_FORK_NAME)
-def test_dupn_all_valid_immediates(
-    tx: Transaction,
-    state_test: StateTestFiller,
-):
+def test_dupn_all_valid_immediates(eof_state_test: EOFStateTestFiller):
     """
     Test case for all valid DUPN immediates.
     """
@@ -47,18 +36,12 @@ def test_dupn_all_valid_immediates(
         ],
     )
 
-    pre = {
-        TestAddress: Account(balance=1_000_000_000),
-        tx.to: Account(code=eof_code),
-    }
+    post = Account(storage=dict(zip(range(0, n), reversed(values))))
 
-    post = {tx.to: Account(storage=dict(zip(range(0, n), reversed(values))))}
-
-    state_test(
-        env=Environment(),
-        pre=pre,
-        post=post,
-        tx=tx,
+    eof_state_test(
+        tx_sender_funding_amount=1_000_000_000,
+        data=eof_code,
+        container_post=post,
     )
 
 

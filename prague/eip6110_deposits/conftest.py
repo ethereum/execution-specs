@@ -1,40 +1,34 @@
 """
 Fixtures for the EIP-6110 deposit tests.
 """
-from typing import Dict, List
+from typing import List
 
 import pytest
 
-from ethereum_test_tools import Account, Address, Block, BlockException, Header, Transaction
+from ethereum_test_tools import Alloc, Block, BlockException, Header, Transaction
 
 from .helpers import DepositInteractionBase, DepositRequest
 
 
 @pytest.fixture
-def pre(requests: List[DepositInteractionBase]) -> Dict[Address, Account]:
+def update_pre(pre: Alloc, requests: List[DepositInteractionBase]):
     """
     Initial state of the accounts. Every deposit transaction defines their own pre-state
     requirements, and this fixture aggregates them all.
     """
-    pre: Dict[Address, Account] = {}
     for d in requests:
         d.update_pre(pre)
-    return pre
 
 
 @pytest.fixture
 def txs(
     requests: List[DepositInteractionBase],
+    update_pre: None,  # Fixture is used for its side effects
 ) -> List[Transaction]:
     """List of transactions to include in the block."""
-    address_nonce: Dict[Address, int] = {}
     txs = []
     for r in requests:
-        nonce = 0
-        if r.sender_account.address in address_nonce:
-            nonce = address_nonce[r.sender_account.address]
-        txs.append(r.transaction(nonce))
-        address_nonce[r.sender_account.address] = nonce + 1
+        txs += r.transactions()
     return txs
 
 

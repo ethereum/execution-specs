@@ -4,14 +4,7 @@ Execution of CALLF, RETF opcodes within EOF V1 containers tests
 
 import pytest
 
-from ethereum_test_tools import (
-    Account,
-    Address,
-    Environment,
-    StateTestFiller,
-    TestAddress,
-    Transaction,
-)
+from ethereum_test_tools import Account, Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.eof.v1.constants import MAX_CODE_SECTIONS
 from ethereum_test_tools.vm.opcode import Opcodes as Op
@@ -154,6 +147,7 @@ def create_data_test(offset: int, datasize: int):
 )
 def test_data_section_succeed(
     state_test: StateTestFiller,
+    pre: Alloc,
     offset: int,
     datasize: int,
 ):
@@ -162,34 +156,23 @@ def test_data_section_succeed(
     """
     env = Environment()
 
-    caller_contract = Op.SSTORE(0, Op.DELEGATECALL(Op.GAS, 0x200, 0, 0, 0, 0)) + Op.STOP()
     (container, expected_storage) = create_data_test(offset, datasize)
-
-    pre = {
-        TestAddress: Account(
-            balance=1000000000000000000000,
-            nonce=1,
-        ),
-        Address(0x100): Account(
-            code=caller_contract,
-            nonce=1,
-        ),
-        Address(0x200): Account(
-            code=container,
-            nonce=1,
-        ),
-    }
+    callee_contract = pre.deploy_contract(code=container)
+    entry_point = pre.deploy_contract(
+        code=Op.SSTORE(0, Op.DELEGATECALL(Op.GAS, callee_contract, 0, 0, 0, 0)) + Op.STOP()
+    )
+    sender = pre.fund_eoa()
 
     tx = Transaction(
-        nonce=1,
-        to=Address(0x100),
+        to=entry_point,
         gas_limit=50000000,
         gas_price=10,
         protected=False,
         data="",
+        sender=sender,
     )
 
-    post = {Address(0x100): Account(storage=expected_storage)}
+    post = {entry_point: Account(storage=expected_storage)}
 
     state_test(
         env=env,

@@ -4,19 +4,13 @@ Helpers for the EIP-6110 deposit tests.
 from dataclasses import dataclass, field
 from functools import cached_property
 from hashlib import sha256 as sha256_hashlib
-from typing import Callable, ClassVar, Dict, List
+from typing import Callable, ClassVar, List
 
-from ethereum_test_tools import Account, Address
+from ethereum_test_tools import EOA, Address, Alloc
 from ethereum_test_tools import DepositRequest as DepositRequestBase
 from ethereum_test_tools import Hash
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import (
-    TestAddress,
-    TestAddress2,
-    TestPrivateKey,
-    TestPrivateKey2,
-    Transaction,
-)
+from ethereum_test_tools import Transaction
 
 from .spec import Spec
 
@@ -26,18 +20,6 @@ def sha256(*args: bytes) -> bytes:
     Returns the sha256 hash of the input.
     """
     return sha256_hashlib(b"".join(args)).digest()
-
-
-@dataclass
-class SenderAccount:
-    """Test sender account descriptor."""
-
-    address: Address
-    key: str
-
-
-TestAccount1 = SenderAccount(TestAddress, TestPrivateKey)
-TestAccount2 = SenderAccount(TestAddress2, TestPrivateKey2)
 
 
 class DepositRequest(DepositRequestBase):
@@ -120,18 +102,20 @@ class DepositInteractionBase:
     """
     Balance of the account that sends the transaction.
     """
-    sender_account: SenderAccount = field(
-        default_factory=lambda: SenderAccount(TestAddress, TestPrivateKey)
-    )
+    sender_account: EOA | None = None
     """
     Account that sends the transaction.
     """
+    requests: List[DepositRequest]
+    """
+    Deposit request to be included in the block.
+    """
 
-    def transaction(self, nonce: int) -> Transaction:
+    def transactions(self) -> List[Transaction]:
         """Return a transaction for the deposit request."""
         raise NotImplementedError
 
-    def update_pre(self, base_pre: Dict[Address, Account]):
+    def update_pre(self, pre: Alloc):
         """Return the pre-state of the account."""
         raise NotImplementedError
 
@@ -144,48 +128,37 @@ class DepositInteractionBase:
 class DepositTransaction(DepositInteractionBase):
     """Class used to describe a deposit originated from an externally owned account."""
 
-    request: DepositRequest
-    """
-    Deposit request to be included in the block.
-    """
-
-    def transaction(self, nonce: int) -> Transaction:
+    def transactions(self) -> List[Transaction]:
         """Return a transaction for the deposit request."""
-        return Transaction(
-            nonce=nonce,
-            gas_limit=self.request.gas_limit,
-            gas_price=0x07,
-            to=self.request.interaction_contract_address,
-            value=self.request.value,
-            data=self.request.calldata,
-            secret_key=self.sender_account.key,
-        )
+        assert self.sender_account is not None, "Sender account not initialized"
+        return [
+            Transaction(
+                gas_limit=request.gas_limit,
+                gas_price=0x07,
+                to=request.interaction_contract_address,
+                value=request.value,
+                data=request.calldata,
+                sender=self.sender_account,
+            )
+            for request in self.requests
+        ]
 
-    def update_pre(self, base_pre: Dict[Address, Account]):
+    def update_pre(self, pre: Alloc):
         """Return the pre-state of the account."""
-        base_pre.update(
-            {
-                self.sender_account.address: Account(balance=self.sender_balance),
-            }
-        )
+        self.sender_account = pre.fund_eoa(self.sender_balance)
 
     def valid_requests(self, current_minimum_fee: int) -> List[DepositRequest]:
         """Return the list of deposit requests that should be included in the block."""
-        return (
-            [self.request]
-            if self.request.valid and self.request.value >= current_minimum_fee
-            else []
-        )
+        return [
+            request
+            for request in self.requests
+            if request.valid and request.value >= current_minimum_fee
+        ]
 
 
 @dataclass(kw_only=True)
 class DepositContract(DepositInteractionBase):
     """Class used to describe a deposit originated from a contract."""
-
-    request: List[DepositRequest] | DepositRequest
-    """
-    Deposit request or list of deposit requests to send from the contract.
-    """
 
     tx_gas_limit: int = 1_000_000
     """
@@ -196,9 +169,13 @@ class DepositContract(DepositInteractionBase):
     """
     Balance of the contract that sends the deposit requests.
     """
-    contract_address: int = 0x200
+    contract_address: Address | None = None
     """
     Address of the contract that sends the deposit requests.
+    """
+    entry_address: Address | None = None
+    """
+    Address to send the transaction to.
     """
 
     call_type: Op = field(default_factory=lambda: Op.CALL)
@@ -213,13 +190,6 @@ class DepositContract(DepositInteractionBase):
     """
     Extra code to be included in the contract that sends the deposit requests.
     """
-
-    @property
-    def requests(self) -> List[DepositRequest]:
-        """Return the list of deposit requests."""
-        if not isinstance(self.request, List):
-            return [self.request]
-        return self.request
 
     @property
     def contract_code(self) -> bytes:
@@ -242,63 +212,42 @@ class DepositContract(DepositInteractionBase):
             current_offset += len(r.calldata)
         return code + self.extra_code
 
-    def transaction(self, nonce: int) -> Transaction:
+    def transactions(self) -> List[Transaction]:
         """Return a transaction for the deposit request."""
-        return Transaction(
-            nonce=nonce,
-            gas_limit=self.tx_gas_limit,
-            gas_price=0x07,
-            to=self.entry_address(),
-            value=0,
-            data=b"".join(r.calldata for r in self.requests),
-            secret_key=self.sender_account.key,
-        )
-
-    def entry_address(self) -> Address:
-        """Return the address of the contract entry point."""
-        if self.call_depth == 2:
-            return Address(self.contract_address)
-        elif self.call_depth > 2:
-            return Address(self.contract_address + self.call_depth - 2)
-        raise ValueError("Invalid call depth")
-
-    def extra_contracts(self) -> Dict[Address, Account]:
-        """Extra contracts used to simulate call depth."""
-        if self.call_depth <= 2:
-            return {}
-        return {
-            Address(self.contract_address + i): Account(
-                balance=self.contract_balance,
-                code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-                + Op.POP(
-                    Op.CALL(
-                        Op.GAS,
-                        self.contract_address + i - 1,
-                        0,
-                        0,
-                        Op.CALLDATASIZE,
-                        0,
-                        0,
-                    )
-                ),
-                nonce=1,
+        return [
+            Transaction(
+                gas_limit=self.tx_gas_limit,
+                gas_price=0x07,
+                to=self.entry_address,
+                value=0,
+                data=b"".join(r.calldata for r in self.requests),
+                sender=self.sender_account,
             )
-            for i in range(1, self.call_depth - 1)
-        }
+        ]
 
-    def update_pre(self, base_pre: Dict[Address, Account]):
+    def update_pre(self, pre: Alloc):
         """Return the pre-state of the account."""
-        while Address(self.contract_address) in base_pre:
-            self.contract_address += 0x100
-        base_pre.update(
-            {
-                self.sender_account.address: Account(balance=self.sender_balance),
-                Address(self.contract_address): Account(
-                    balance=self.contract_balance, code=self.contract_code, nonce=1
-                ),
-            }
+        self.sender_account = pre.fund_eoa(self.sender_balance)
+        self.contract_address = pre.deploy_contract(
+            code=self.contract_code, balance=self.contract_balance
         )
-        base_pre.update(self.extra_contracts())
+        self.entry_address = self.contract_address
+        if self.call_depth > 2:
+            for _ in range(1, self.call_depth - 1):
+                self.entry_address = pre.deploy_contract(
+                    code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+                    + Op.POP(
+                        Op.CALL(
+                            Op.GAS,
+                            self.entry_address,
+                            0,
+                            0,
+                            Op.CALLDATASIZE,
+                            0,
+                            0,
+                        )
+                    ),
+                )
 
     def valid_requests(self, current_minimum_fee: int) -> List[DepositRequest]:
         """Return the list of deposit requests that should be included in the block."""

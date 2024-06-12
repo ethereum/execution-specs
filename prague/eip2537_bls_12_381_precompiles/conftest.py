@@ -6,7 +6,7 @@ from typing import SupportsBytes
 import pytest
 from ethereum.crypto.hash import keccak256
 
-from ethereum_test_tools import Storage, TestAddress, Transaction
+from ethereum_test_tools import EOA, Address, Alloc, Storage, Transaction
 from ethereum_test_tools.vm import Opcodes as Op
 
 from .spec import GAS_CALCULATION_FUNCTION_MAP
@@ -128,29 +128,19 @@ def call_contract_code(
 
 
 @pytest.fixture
-def call_contract_address() -> int:
+def call_contract_address(pre: Alloc, call_contract_code: bytes) -> Address:
     """Address where the test contract will be deployed."""
-    return 0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    return pre.deploy_contract(call_contract_code)
 
 
 @pytest.fixture
-def pre(call_contract_address: int, call_contract_code: bytes):
-    """Pre-allocation for every test."""
-    return {
-        call_contract_address: {
-            "balance": 0,
-            "nonce": 1,
-            "code": call_contract_code,
-        },
-        TestAddress: {
-            "balance": 1_000_000_000_000_000,
-            "nonce": 0,
-        },
-    }
+def sender(pre: Alloc) -> EOA:
+    """Sender of the transaction."""
+    return pre.fund_eoa(1_000_000_000_000_000)
 
 
 @pytest.fixture
-def post(call_contract_address: int, call_contract_post_storage: Storage):
+def post(call_contract_address: Address, call_contract_post_storage: Storage):
     """Test expected post outcome."""
     return {
         call_contract_address: {
@@ -168,10 +158,16 @@ def tx_gas_limit(precompile_gas: int) -> int:
 
 
 @pytest.fixture
-def tx(input: bytes, tx_gas_limit: int, call_contract_address: int) -> Transaction:
+def tx(
+    input: bytes,
+    tx_gas_limit: int,
+    call_contract_address: Address,
+    sender: EOA,
+) -> Transaction:
     """Transaction for the test."""
     return Transaction(
         gas_limit=tx_gas_limit,
         input=input,
         to=call_contract_address,
+        sender=sender,
     )

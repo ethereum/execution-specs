@@ -7,26 +7,24 @@ import pytest
 from ethereum_test_forks import Fork, Frontier, Homestead
 from ethereum_test_tools import (
     Account,
+    Alloc,
     Environment,
     StateTestFiller,
-    TestAddress,
     Transaction,
     YulCompiler,
 )
 
 
 @pytest.mark.valid_from("Homestead")
-def test_yul(state_test: StateTestFiller, yul: YulCompiler, fork: Fork):
+def test_yul(state_test: StateTestFiller, pre: Alloc, yul: YulCompiler, fork: Fork):
     """
     Test YUL compiled bytecode.
     """
     env = Environment()
 
-    pre = {
-        "0x1000000000000000000000000000000000000000": Account(
-            balance=0x0BA1A9CE0BA1A9CE,
-            code=yul(
-                """
+    contract_address = pre.deploy_contract(
+        code=yul(
+            """
             {
                 function f(a, b) -> c {
                     c := add(a, b)
@@ -36,23 +34,23 @@ def test_yul(state_test: StateTestFiller, yul: YulCompiler, fork: Fork):
                 return(0, 32)
             }
             """
-            ),
         ),
-        TestAddress: Account(balance=0x0BA1A9CE0BA1A9CE),
-    }
+        balance=0x0BA1A9CE0BA1A9CE,
+    )
+    sender = pre.fund_eoa(amount=0x0BA1A9CE0BA1A9CE)
 
     tx = Transaction(
         ty=0x0,
         chain_id=0x01,
-        nonce=0,
-        to="0x1000000000000000000000000000000000000000",
+        sender=sender,
+        to=contract_address,
         gas_limit=500000,
         gas_price=10,
         protected=False if fork in [Frontier, Homestead] else True,
     )
 
     post = {
-        "0x1000000000000000000000000000000000000000": Account(
+        contract_address: Account(
             storage={
                 0x00: 0x03,
             },
