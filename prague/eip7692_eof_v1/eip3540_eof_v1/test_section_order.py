@@ -109,9 +109,7 @@ def get_expected_code_exception(
         case (SectionKind.DATA, SectionTest.MISSING, CasePosition.BODY):
             return (
                 "ef000101000402000100030400010000800001305000",
-                # Eofparse tool cannot automatically discern between a deployed eof contract
-                # and a init container, which allows truncated data, so no exception
-                None,
+                EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
             )
         case (SectionKind.DATA, SectionTest.MISSING, CasePosition.BODY_AND_HEADER):
             return "ef000101000402000100030000800001305000", EOFException.MISSING_DATA_SECTION

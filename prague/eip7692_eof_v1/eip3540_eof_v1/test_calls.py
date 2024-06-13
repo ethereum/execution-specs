@@ -13,7 +13,6 @@ from ethereum_test_tools import (
     Environment,
     StateTestFiller,
     Storage,
-    TestAddress,
     Transaction,
 )
 from ethereum_test_tools.eof.v1 import Container, Section
@@ -109,7 +108,7 @@ def test_legacy_calls_eof_sstore(
     if opcode == Op.CALL:
         destination_storage[slot_caller] = calling_contract_address
     elif opcode == Op.DELEGATECALL:
-        calling_storage[slot_caller] = TestAddress
+        calling_storage[slot_caller] = sender
     elif opcode == Op.CALLCODE:
         calling_storage[slot_caller] = calling_contract_address
     elif opcode == Op.STATICCALL:
@@ -248,7 +247,7 @@ def test_eof_calls_eof_sstore(
     if opcode == Op.EXTCALL:
         destination_storage[slot_caller] = calling_contract_address
     elif opcode == Op.EXTDELEGATECALL:
-        calling_storage[slot_caller] = TestAddress
+        calling_storage[slot_caller] = sender
     elif opcode == Op.EXTSTATICCALL:
         calling_storage[slot_call_result] = value_eof_call_reverted
 
