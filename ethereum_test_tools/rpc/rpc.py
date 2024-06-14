@@ -18,14 +18,12 @@ class BaseRPC(ABC):
     Represents a base RPC class for every RPC call used within EEST based hive simulators.
     """
 
-    def __init__(self, client_ip: str, port: int):
-        self.ip = client_ip
-        self.url = f"http://{client_ip}:{port}"
+    def __init__(self, url: str, extra_headers: Optional[Dict] = None):
+        self.url = url
+        self.extra_headers = extra_headers
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
-    def post_request(
-        self, method: str, params: List[Any], extra_headers: Optional[Dict] = None
-    ) -> Dict:
+    def post_request(self, method: str, params: List[Any]) -> Dict:
         """
         Sends a JSON-RPC POST request to the client RPC server at port defined in the url.
         """
@@ -38,11 +36,15 @@ class BaseRPC(ABC):
         base_header = {
             "Content-Type": "application/json",
         }
-        headers = base_header if extra_headers is None else {**base_header, **extra_headers}
+        headers = (
+            base_header if self.extra_headers is None else {**base_header, **self.extra_headers}
+        )
 
         response = requests.post(self.url, json=payload, headers=headers)
         response.raise_for_status()
-        result = response.json().get("result")
+        response_json = response.json()
+        assert "result" in response_json, "RPC response didn't contain a result field"
+        result = response_json["result"]
 
         if result is None or "error" in result:
             error_info = "result is None; and therefore contains no error info"
@@ -63,11 +65,11 @@ class EthRPC(BaseRPC):
     hive simulators.
     """
 
-    def __init__(self, client_ip):
+    def __init__(self, url: str, extra_headers: Optional[Dict] = None):
         """
         Initializes the EthRPC class with the http port 8545, which requires no authentication.
         """
-        super().__init__(client_ip, port=8545)
+        super().__init__(url, extra_headers=extra_headers)
 
     BlockNumberType = Union[int, Literal["latest", "earliest", "pending"]]
 
@@ -92,6 +94,12 @@ class EthRPC(BaseRPC):
         block = hex(block_number) if isinstance(block_number, int) else block_number
         return self.post_request("eth_getTransactionCount", [address, block])
 
+    def get_transaction_by_hash(self, transaction_hash: str):
+        """
+        `eth_getTransactionByHash`: Returns transaction details.
+        """
+        return self.post_request("eth_getTransactionByHash", [f"{transaction_hash}"])
+
     def get_storage_at(
         self, address: str, position: str, block_number: BlockNumberType = "latest"
     ):
@@ -113,3 +121,14 @@ class EthRPC(BaseRPC):
             storage_value = self.get_storage_at(account, key, block_number)
             results[key] = storage_value
         return results
+
+    def debug_trace_call(self, tr: dict[str, str], block_number: str):
+        """
+        `debug_traceCall`: Returns pre state required for transaction
+        """
+        params = [
+            tr,
+            block_number,
+            {"tracer": "prestateTracer"},
+        ]
+        return self.post_request("debug_traceCall", params)
