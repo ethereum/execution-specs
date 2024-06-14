@@ -107,13 +107,13 @@ def test_reverting_container(
     [stop_sub_container, revert_sub_container, returncontract_sub_container],
     ids=["stop", "revert", "returncontract"],
 )
-def test_unreferenced_container(
+def test_orphan_container(
     eof_test: EOFTestFiller,
     zero_sub_container: Container,
     first_sub_container: Container,
     extra_sub_container: Container,
 ):
-    """Test revert containers"""
+    """Test orphaned containers"""
     eof_test(
         data=Container(
             sections=[
@@ -148,7 +148,7 @@ def test_container_combos_valid(
     zero_sub_container: Container,
     first_sub_container: Container,
 ):
-    """Test revert containers"""
+    """Test valid subcontainer reference / opcode combos"""
     eof_state_test(
         data=Container(
             sections=[
@@ -189,7 +189,7 @@ def test_container_combos_invalid(
     first_sub_container: Container,
     error: EOFException,
 ):
-    """Test revert containers"""
+    """Test invalid subcontainer reference / opcode combos"""
     eof_test(
         data=Container(
             sections=[
@@ -202,7 +202,7 @@ def test_container_combos_invalid(
 
 
 def test_container_both_kinds_same_sub(eof_test: EOFTestFiller):
-    """Test revert containers"""
+    """Test subcontainer conflicts (both EOFCREATE and RETURNCONTRACT Reference)"""
     eof_test(
         data=Container(
             sections=[
@@ -222,7 +222,7 @@ def test_container_both_kinds_same_sub(eof_test: EOFTestFiller):
 
 
 def test_container_both_kinds_different_sub(eof_test: EOFTestFiller):
-    """Test revert containers"""
+    """Test multiple kinds of subcontainer at the same level"""
     eof_test(
         data=Container(
             sections=[
