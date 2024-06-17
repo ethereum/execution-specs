@@ -15,6 +15,7 @@ Implementations of the EVM stack related instructions.
 from functools import partial
 
 from ethereum.base_types import U256
+from ethereum.utils.ensure import ensure
 
 from .. import Evm, stack
 from ..exceptions import StackUnderflowError
@@ -94,8 +95,9 @@ def dup_n(evm: Evm, item_number: int) -> None:
 
     # GAS
     charge_gas(evm, GAS_VERY_LOW)
-    if item_number >= len(evm.stack):
-        raise StackUnderflowError
+
+    # OPERATION
+    ensure(item_number < len(evm.stack), StackUnderflowError)
     data_to_duplicate = evm.stack[len(evm.stack) - 1 - item_number]
     stack.push(evm.stack, data_to_duplicate)
 
@@ -126,8 +128,9 @@ def swap_n(evm: Evm, item_number: int) -> None:
 
     # GAS
     charge_gas(evm, GAS_VERY_LOW)
-    if item_number >= len(evm.stack):
-        raise StackUnderflowError
+
+    # OPERATION
+    ensure(item_number < len(evm.stack), StackUnderflowError)
     evm.stack[-1], evm.stack[-1 - item_number] = (
         evm.stack[-1 - item_number],
         evm.stack[-1],

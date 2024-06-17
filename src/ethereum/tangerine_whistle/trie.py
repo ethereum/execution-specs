@@ -31,6 +31,7 @@ from typing import (
 
 from ethereum.crypto.hash import keccak256
 from ethereum.dao_fork import trie as previous_trie
+from ethereum.utils.ensure import ensure
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 from .. import rlp
@@ -345,8 +346,8 @@ def _prepare_trie(
             encoded_value = encode_node(value, get_storage_root(address))
         else:
             encoded_value = encode_node(value)
-        if encoded_value == b"":
-            raise AssertionError
+        # Empty values are represented by their absence
+        ensure(encoded_value != b"", AssertionError)
         key: Bytes
         if trie.secured:
             # "secure" tries hash keys once before construction

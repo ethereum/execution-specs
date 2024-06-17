@@ -25,6 +25,7 @@ from ethereum.trace import (
     TransactionEnd,
     evm_trace,
 )
+from ethereum.utils.ensure import ensure
 
 from ..blocks import Log
 from ..fork_types import Address
@@ -183,11 +184,9 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         try:
             if len(contract_code) > 0:
-                if contract_code[0] == 0xEF:
-                    raise InvalidContractPrefix
+                ensure(contract_code[0] != 0xEF, InvalidContractPrefix)
             charge_gas(evm, contract_code_gas)
-            if len(contract_code) > MAX_CODE_SIZE:
-                raise OutOfGasError
+            ensure(len(contract_code) <= MAX_CODE_SIZE, OutOfGasError)
         except ExceptionalHalt as error:
             rollback_transaction(env.state)
             evm.gas_left = Uint(0)

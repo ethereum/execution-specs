@@ -12,6 +12,7 @@ Introduction
 Implementations of the EVM storage related instructions.
 """
 from ethereum.base_types import Uint
+from ethereum.utils.ensure import ensure
 
 from ...state import get_storage, get_storage_original, set_storage
 from .. import Evm
@@ -71,8 +72,9 @@ def sstore(evm: Evm) -> None:
     # STACK
     key = pop(evm.stack).to_be_bytes32()
     new_value = pop(evm.stack)
-    if evm.gas_left <= GAS_CALL_STIPEND:
-        raise OutOfGasError
+
+    # GAS
+    ensure(evm.gas_left > GAS_CALL_STIPEND, OutOfGasError)
 
     original_value = get_storage_original(
         evm.env.state, evm.message.current_target, key
@@ -115,8 +117,9 @@ def sstore(evm: Evm) -> None:
                 )
 
     charge_gas(evm, gas_cost)
-    if evm.message.is_static:
-        raise WriteInStaticContext
+
+    # OPERATION
+    ensure(not evm.message.is_static, WriteInStaticContext)
     set_storage(evm.env.state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER

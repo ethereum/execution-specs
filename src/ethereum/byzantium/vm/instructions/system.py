@@ -12,6 +12,7 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Bytes0, Uint
+from ethereum.utils.ensure import ensure
 
 from ...fork_types import Address
 from ...state import (
@@ -75,8 +76,9 @@ def create(evm: Evm) -> None:
 
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
     evm.gas_left -= create_message_gas
-    if evm.message.is_static:
-        raise WriteInStaticContext
+
+    # OPERATION
+    ensure(not evm.message.is_static, WriteInStaticContext)
     evm.memory += b"\x00" * extend_memory.expand_by
     evm.return_data = b""
 
@@ -271,8 +273,9 @@ def call(evm: Evm) -> None:
         GAS_CALL + create_gas_cost + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
-    if evm.message.is_static and value != U256(0):
-        raise WriteInStaticContext
+
+    # OPERATION
+    ensure(not evm.message.is_static or value == U256(0), WriteInStaticContext)
     evm.memory += b"\x00" * extend_memory.expand_by
     sender_balance = get_account(
         evm.env.state, evm.message.current_target
@@ -400,8 +403,9 @@ def selfdestruct(evm: Evm) -> None:
         evm.refund_counter += REFUND_SELF_DESTRUCT
 
     charge_gas(evm, gas_cost)
-    if evm.message.is_static:
-        raise WriteInStaticContext
+
+    # OPERATION
+    ensure(not evm.message.is_static, WriteInStaticContext)
 
     beneficiary_balance = get_account(evm.env.state, beneficiary).balance
     originator_balance = get_account(evm.env.state, originator).balance
