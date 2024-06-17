@@ -11,7 +11,7 @@ from http.server import BaseHTTPRequestHandler
 from io import StringIO, TextIOWrapper
 from socket import socket
 from threading import Thread
-from typing import Any, Optional, Tuple, Union
+from typing import Any, Tuple, Union
 
 from platformdirs import user_runtime_dir
 
@@ -67,7 +67,9 @@ class _UnixSocketHttpServer(socketserver.UnixStreamServer):
     last_response: float
     shutdown_timeout: int
 
-    def __init__(self, *args: Any, shutdown_timeout: int, **kwargs: Any) -> None:
+    def __init__(
+        self, *args: Any, shutdown_timeout: int, **kwargs: Any
+    ) -> None:
         self.shutdown_timeout = shutdown_timeout
         # Add a 60-second allowance to prevent server from timing out during
         # startup
@@ -122,7 +124,9 @@ class Daemon:
         except IOError:
             pass
 
-        with _UnixSocketHttpServer((self.uds), _EvmToolHandler, shutdown_timeout=self.timeout) as server:
+        with _UnixSocketHttpServer(
+            (self.uds), _EvmToolHandler, shutdown_timeout=self.timeout
+        ) as server:
             server.timeout = 7.0
             timer = Thread(target=server.check_timeout, daemon=True)
             timer.start()
