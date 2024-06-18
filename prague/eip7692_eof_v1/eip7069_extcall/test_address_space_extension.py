@@ -10,6 +10,7 @@ from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
+from .helpers import value_exceptional_abort_canary
 from .spec import CALL_SUCCESS, EXTCALL_REVERT, EXTCALL_SUCCESS
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7069.md"
@@ -21,8 +22,6 @@ _slot = itertools.count(1)
 slot_top_level_call_status = next(_slot)
 slot_target_call_status = next(_slot)
 slot_target_returndata = next(_slot)
-
-value_exceptional_abort_canary = 0x1984
 
 
 @pytest.mark.parametrize(

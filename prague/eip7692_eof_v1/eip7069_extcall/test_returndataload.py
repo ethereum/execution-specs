@@ -7,12 +7,23 @@ from typing import List
 import pytest
 
 from ethereum_test_tools import Account, Alloc, Environment, StateTestFiller, Transaction
+from ethereum_test_tools.common.types import Storage
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from . import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
-from .helpers import slot_code_worked, value_code_worked
+from .helpers import (
+    slot_code_worked,
+    slot_eof_target_call_status,
+    slot_eof_target_returndata,
+    slot_eof_target_returndatasize,
+    slot_legacy_target_call_status,
+    slot_legacy_target_returndatasize,
+    value_code_worked,
+    value_exceptional_abort_canary,
+)
+from .spec import CALL_FAILURE, CALL_SUCCESS, EXTCALL_FAILED, EXTCALL_SUCCESS
 
 REFERENCE_SPEC_GIT_PATH = REFERENCE_SPEC_GIT_PATH
 REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
@@ -265,4 +276,113 @@ def test_returndataload_handling(
         pre=pre,
         tx=tx,
         post=post,
+    )
+
+
+@pytest.mark.parametrize(
+    ["call_prefix", "opcode", "call_suffix"],
+    [
+        pytest.param([500_000], Op.CALL, [0, 0, 0, 0, 0], id="CallerIsLegacy"),
+        pytest.param([], Op.EXTCALL, [0, 0, 0], id="CallerIsEOF"),
+    ],
+    ids=lambda x: x,
+)
+def test_returndatacopy_oob(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    call_prefix: List[int],
+    opcode: Op,
+    call_suffix: List[int],
+):
+    """
+    Extends the RETURNDATACOPY test for correct out-of-bounds behavior, by checking if the
+    caller frame's context being EOF or legacy doesn't impact the execution logic of the
+    RETURNDATACOPY instance under test.
+    """
+    env = Environment()
+
+    sender = pre.fund_eoa(10**18)
+
+    # Both callee codes below make an OOB (out-of-bounds) RETURNDATACOPY of one byte,
+    # which they then attempt to return (Legacy should exceptionally halt on RETURNDATACOPY).
+    address_callee_eof = pre.deploy_contract(
+        code=Container(
+            sections=[
+                Section.Code(
+                    code=Op.RETURNDATACOPY(0, 0, 1) + Op.RETURN(0, 1),
+                    max_stack_height=3,
+                )
+            ]
+        )
+    )
+    address_callee_legacy = pre.deploy_contract(Op.RETURNDATACOPY(0, 0, 1) + Op.RETURN(0, 1))
+
+    # Caller code is selected to either be Legacy or EOF using params.
+    code_entry_point = (
+        Op.SSTORE(
+            slot_eof_target_call_status, opcode(*call_prefix, address_callee_eof, *call_suffix)
+        )
+        + Op.SSTORE(slot_eof_target_returndatasize, Op.RETURNDATASIZE)
+        + Op.SSTORE(slot_eof_target_returndata, Op.RETURNDATACOPY(0, 0, 1) + Op.MLOAD(0))
+        + Op.SSTORE(
+            slot_legacy_target_call_status,
+            opcode(*call_prefix, address_callee_legacy, *call_suffix),
+        )
+        + Op.SSTORE(slot_legacy_target_returndatasize, Op.RETURNDATASIZE)
+        + Op.STOP
+    )
+
+    storage_entry_point = Storage(
+        {
+            slot_eof_target_call_status: value_exceptional_abort_canary,
+            slot_eof_target_returndata: value_exceptional_abort_canary,
+            slot_eof_target_returndatasize: value_exceptional_abort_canary,
+            slot_legacy_target_call_status: value_exceptional_abort_canary,
+            slot_legacy_target_returndatasize: value_exceptional_abort_canary,
+        }
+    )
+
+    address_entry_point = (
+        pre.deploy_contract(code=code_entry_point, storage=storage_entry_point)
+        if opcode == Op.CALL
+        else pre.deploy_contract(
+            Container(
+                sections=[
+                    Section.Code(
+                        code=code_entry_point,
+                        max_stack_height=4,
+                        storage=storage_entry_point,
+                    )
+                ]
+            )
+        )
+    )
+
+    tx = Transaction(to=address_entry_point, gas_limit=2_000_000, sender=sender)
+
+    post = {
+        address_entry_point: Account(
+            storage={
+                slot_eof_target_call_status: CALL_SUCCESS,
+                slot_eof_target_returndata: "0x00",
+                slot_eof_target_returndatasize: "0x01",
+                slot_legacy_target_call_status: CALL_FAILURE,
+                slot_legacy_target_returndatasize: "0x00",
+            }
+            if opcode == Op.CALL
+            else {
+                slot_eof_target_call_status: EXTCALL_SUCCESS,
+                slot_eof_target_returndata: "0x00",
+                slot_eof_target_returndatasize: "0x01",
+                slot_legacy_target_call_status: EXTCALL_FAILED,
+                slot_legacy_target_returndatasize: "0x00",
+            }
+        )
+    }
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
     )
