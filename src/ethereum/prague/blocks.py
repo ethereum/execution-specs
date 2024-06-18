@@ -39,6 +39,7 @@ DEPOSIT_CONTRACT_ADDRESS = hex_to_address(
 )
 DEPOSIT_REQUEST_TYPE = b"\x00"
 WITHDRAWAL_REQUEST_TYPE = b"\x01"
+WITHDRAWAL_REQUEST_LENGTH = 76
 
 
 @slotted_freezable
@@ -224,7 +225,7 @@ def parse_withdrawal_data(data: Bytes) -> WithdrawalRequest:
     """
     Parses Withdrawal Request from the data.
     """
-    assert len(data) == 76
+    assert len(data) == WITHDRAWAL_REQUEST_LENGTH
     req = WithdrawalRequest(
         source_address=Address(data[:20]),
         validator_pubkey=Bytes48(data[20:68]),
@@ -240,13 +241,15 @@ def parse_withdrawal_requests_from_system_tx(
     """
     Parse withdrawal requests from the system transaction output.
     """
-    count_withdrawal_requests = len(evm_call_output) // 76
+    count_withdrawal_requests = (
+        len(evm_call_output) // WITHDRAWAL_REQUEST_LENGTH
+    )
 
     withdrawal_requests: Tuple[Bytes, ...] = ()
     for i in range(count_withdrawal_requests):
-        start = i * 76
+        start = i * WITHDRAWAL_REQUEST_LENGTH
         withdrawal_request = parse_withdrawal_data(
-            evm_call_output[start : start + 76]
+            evm_call_output[start : start + WITHDRAWAL_REQUEST_LENGTH]
         )
         withdrawal_requests += (encode_request(withdrawal_request),)
 
