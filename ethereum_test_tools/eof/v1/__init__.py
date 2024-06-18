@@ -40,6 +40,12 @@ class SectionKind(IntEnum):
     CONTAINER = 3
     DATA = 4
 
+    def __str__(self) -> str:
+        """
+        Returns the string representation of the section kind
+        """
+        return self.name
+
 
 class AutoSection(Enum):
     """
