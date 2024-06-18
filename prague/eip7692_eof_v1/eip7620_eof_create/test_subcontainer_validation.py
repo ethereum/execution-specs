@@ -63,6 +63,7 @@ def test_simple_create_from_creation(
 ):
     """Simple EOF creation from a create transaction container"""
     eof_state_test(
+        deploy_tx=True,
         data=Container(
             sections=[
                 returncontract_code_section,
@@ -84,6 +85,7 @@ def test_reverting_container(
 ):
     """Test revert containers"""
     eof_state_test(
+        deploy_tx=zero_section == returncontract_code_section,
         data=Container(
             sections=[
                 zero_section,
@@ -95,7 +97,7 @@ def test_reverting_container(
 
 
 @pytest.mark.parametrize(
-    "zero_sub_container,first_sub_container",
+    "code_section,first_sub_container",
     [
         (eofcreate_code_section, returncontract_sub_container),
         (returncontract_code_section, stop_sub_container),
@@ -108,25 +110,27 @@ def test_reverting_container(
     ids=["stop", "revert", "returncontract"],
 )
 def test_orphan_container(
-    eof_test: EOFTestFiller,
-    zero_sub_container: Container,
+    eof_state_test: EOFStateTestFiller,
+    code_section: Section,
     first_sub_container: Container,
     extra_sub_container: Container,
 ):
     """Test orphaned containers"""
-    eof_test(
+    eof_state_test(
+        deploy_tx=code_section == returncontract_code_section,
         data=Container(
             sections=[
-                zero_sub_container,
+                code_section,
                 first_sub_container,
                 extra_sub_container,
             ],
         ),
+        container_post=Account(storage={slot_code_worked: value_code_worked}),
     )
 
 
 @pytest.mark.parametrize(
-    "zero_sub_container,first_sub_container",
+    "code_section,sub_container",
     [
         pytest.param(
             eofcreate_code_section,
@@ -145,15 +149,16 @@ def test_orphan_container(
 )
 def test_container_combos_valid(
     eof_state_test: EOFStateTestFiller,
-    zero_sub_container: Container,
-    first_sub_container: Container,
+    code_section: Section,
+    sub_container: Container,
 ):
     """Test valid subcontainer reference / opcode combos"""
     eof_state_test(
+        deploy_tx=code_section == returncontract_code_section,
         data=Container(
             sections=[
-                zero_sub_container,
-                first_sub_container,
+                code_section,
+                sub_container,
             ],
         ),
         container_post=Account(storage={slot_code_worked: value_code_worked}),
@@ -161,7 +166,7 @@ def test_container_combos_valid(
 
 
 @pytest.mark.parametrize(
-    "zero_sub_container,first_sub_container,error",
+    "code_section,first_sub_container,error",
     [
         pytest.param(
             eofcreate_code_section,
@@ -185,7 +190,7 @@ def test_container_combos_valid(
 )
 def test_container_combos_invalid(
     eof_test: EOFTestFiller,
-    zero_sub_container: Container,
+    code_section: Section,
     first_sub_container: Container,
     error: EOFException,
 ):
@@ -193,7 +198,7 @@ def test_container_combos_invalid(
     eof_test(
         data=Container(
             sections=[
-                zero_sub_container,
+                code_section,
                 first_sub_container,
             ],
         ),
@@ -211,7 +216,7 @@ def test_container_both_kinds_same_sub(eof_test: EOFTestFiller):
                     max_stack_height=4,
                 ),
                 Section.Code(
-                    code=Op.RETURNCONTRACT[0](0, 0) + Op.STOP,
+                    code=Op.RETURNCONTRACT[0](0, 0),
                     max_stack_height=2,
                 ),
                 revert_sub_container,
