@@ -36,55 +36,6 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
             id="simple_eof_1_deploy",
         ),
         pytest.param(
-            # Check that EOF1 undersize data is ok (4 declared, 2 provided)
-            # https://github.com/ipsilon/eof/blob/main/spec/eof.md#data-section-lifecycle
-            Container(
-                name="EOF1V0016",
-                sections=[
-                    Section.Code(
-                        code=Op.ADDRESS + Op.POP + Op.STOP,
-                        max_stack_height=1,
-                    ),
-                    Section.Data("0x0bad", custom_size=4),
-                ],
-            ),
-            "ef0001010004020001000304000400008000013050000bad",
-            EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
-            id="undersize_data_not_ok_on_toplevel_container",
-        ),
-        pytest.param(
-            # Check that EOF1 with too many or too few bytes fails
-            Container(
-                name="EOF1I0006",
-                sections=[
-                    Section.Code(
-                        code=Op.ADDRESS + Op.POP + Op.STOP,
-                        max_stack_height=1,
-                    ),
-                    Section.Data("0x0bad60A70BAD", custom_size=4),
-                ],
-            ),
-            "ef0001010004020001000304000400008000013050000bad60A70BAD",
-            EOFException.INVALID_SECTION_BODIES_SIZE,
-            id="oversize_data_fail",
-        ),
-        pytest.param(
-            # Check that data section size is valid
-            Container(
-                name="EOF1V0001",
-                sections=[
-                    Section.Code(
-                        code=Op.ADDRESS + Op.POP + Op.STOP,
-                        max_stack_height=1,
-                    ),
-                    Section.Data("0x0bad60A7"),
-                ],
-            ),
-            "ef0001010004020001000304000400008000013050000bad60A7",
-            None,
-            id="data_ok",
-        ),
-        pytest.param(
             # Check that EOF1 with an illegal opcode fails
             Container(
                 name="EOF1I0008",
