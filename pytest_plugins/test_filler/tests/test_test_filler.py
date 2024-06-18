@@ -1,9 +1,12 @@
 """
 Test the forks plugin.
 """
+
+import configparser
 import json
 import os
 import textwrap
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -94,6 +97,25 @@ total_test_count = test_count_paris + test_count_shanghai
             ],
             [2, 2, 2, 2, 2, 2, 2, 2, 2, 6, 6, 6],
             id="default-args",
+        ),
+        pytest.param(
+            ["--build-name", "test_build"],
+            [
+                Path("fixtures/blockchain_tests/paris/module_paris/paris_one.json"),
+                Path("fixtures/blockchain_tests_hive/paris/module_paris/paris_one.json"),
+                Path("fixtures/state_tests/paris/module_paris/paris_one.json"),
+                Path("fixtures/blockchain_tests/paris/module_paris/paris_two.json"),
+                Path("fixtures/blockchain_tests_hive/paris/module_paris/paris_two.json"),
+                Path("fixtures/state_tests/paris/module_paris/paris_two.json"),
+                Path("fixtures/blockchain_tests/shanghai/module_shanghai/shanghai_one.json"),
+                Path("fixtures/blockchain_tests_hive/shanghai/module_shanghai/shanghai_one.json"),
+                Path("fixtures/state_tests/shanghai/module_shanghai/shanghai_one.json"),
+                Path("fixtures/blockchain_tests/shanghai/module_shanghai/shanghai_two.json"),
+                Path("fixtures/blockchain_tests_hive/shanghai/module_shanghai/shanghai_two.json"),
+                Path("fixtures/state_tests/shanghai/module_shanghai/shanghai_two.json"),
+            ],
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 6, 6, 6],
+            id="build-name-in-fixtures-ini-file",
         ),
         pytest.param(
             ["--flat-output"],
@@ -495,6 +517,14 @@ def test_fixture_output_based_on_command_line_args(
 
     all_files = get_all_files_in_directory(output_dir)
 
+    ini_file = None
+    expected_fixtures_ini_filename = "fixtures.ini"
+    for file in all_files:
+        if file.name == expected_fixtures_ini_filename:
+            ini_file = file
+            all_files.remove(file)
+            break
+
     for fixture_file, fixture_count in zip(expected_fixture_files, expected_fixture_counts):
         assert fixture_file.exists()
         assert fixture_count == count_keys_in_fixture(fixture_file)
@@ -502,3 +532,16 @@ def test_fixture_output_based_on_command_line_args(
     assert set(all_files) == set(
         expected_fixture_files
     ), f"Unexpected files in directory: {set(all_files) - set(expected_fixture_files)}"
+
+    assert ini_file is not None, f"No {expected_fixtures_ini_filename} file was written"
+    config = configparser.ConfigParser()
+    config.read(ini_file)
+
+    properties = {key: value for key, value in config.items("fixtures")}
+    assert "timestamp" in properties
+    timestamp = datetime.fromisoformat(properties["timestamp"])
+    assert timestamp.year == datetime.now().year
+    if "--build-name" in args:
+        assert "build" in properties
+        build_name = args[args.index("--build-name") + 1]
+        assert properties["build"] == build_name
