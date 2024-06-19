@@ -1,12 +1,8 @@
 from functools import partial
-from typing import Dict, Tuple
+from typing import Dict
 
 import pytest
 
-from ethereum import rlp
-from ethereum.base_types import U256, Bytes, Bytes8, Bytes32, Uint
-from ethereum.crypto.hash import Hash32
-from ethereum.exceptions import InvalidBlock, RLPDecodingError
 from tests.helpers import TEST_FIXTURES
 from tests.helpers.load_state_tests import (
     Load,
@@ -106,7 +102,7 @@ def test_general_state_tests(test_case: Dict) -> None:
 
 
 # Run execution-spec-generated-tests for EIP-7002
-test_dir = f"tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip7002_el_triggerable_withdrawals"
+test_dir = "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip7002_el_triggerable_withdrawals"
 
 
 @pytest.mark.parametrize(
@@ -119,7 +115,7 @@ def test_execution_specs_generated_tests_7002(test_case: Dict) -> None:
 
 
 # Run execution-spec-generated-tests for EIP-6110
-test_dir = f"tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip6110_deposits/deposits"
+test_dir = "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip6110_deposits/deposits"
 
 
 @pytest.mark.parametrize(
