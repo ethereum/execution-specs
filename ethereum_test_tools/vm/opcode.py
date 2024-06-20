@@ -10,7 +10,10 @@ to @ThreeHrSleep for integrating it in the docstrings.
 from enum import Enum
 from typing import Any, Callable, Iterable, List, Optional, SupportsBytes
 
+from ethereum.crypto.hash import keccak256
+
 from ..common.base_types import FixedSizeBytes
+from ..common.conversions import to_bytes
 
 
 def _get_int_size(n: int) -> int:
@@ -27,10 +30,7 @@ def _get_int_size(n: int) -> int:
     return byte_count
 
 
-_push_opcodes_byte_list = [bytes([0x5F + x]) for x in range(33)]
-
-
-class OpcodeMacroBase:
+class Bytecode:
     """
     Base class for Macro and Opcode, inherits from bytes.
 
@@ -38,8 +38,73 @@ class OpcodeMacroBase:
     and opcode macros.
     """
 
-    _name_: str
+    _name_: str = ""
     _bytes_: bytes
+
+    popped_stack_items: int
+    pushed_stack_items: int
+    max_stack_height: int
+    min_stack_height: int
+
+    unchecked_stack: bool = False
+
+    def __new__(
+        cls,
+        bytes_or_byte_code_base: "bytes | Bytecode | None" = None,
+        *,
+        popped_stack_items: int | None = None,
+        pushed_stack_items: int | None = None,
+        max_stack_height: int | None = None,
+        min_stack_height: int | None = None,
+        unchecked_stack: bool = False,
+        name: str = "",
+    ):
+        """
+        Creates a new opcode instance.
+        """
+        if bytes_or_byte_code_base is None:
+            instance = super().__new__(cls)
+            instance._bytes_ = b""
+            instance.popped_stack_items = 0
+            instance.pushed_stack_items = 0
+            instance.min_stack_height = 0
+            instance.max_stack_height = 0
+            instance._name_ = name
+            return instance
+
+        if type(bytes_or_byte_code_base) is Bytecode:
+            # Required because Enum class calls the base class with the instantiated object as
+            # parameter.
+            obj = super().__new__(cls)
+            obj._bytes_ = bytes_or_byte_code_base._bytes_
+            obj.popped_stack_items = bytes_or_byte_code_base.popped_stack_items
+            obj.pushed_stack_items = bytes_or_byte_code_base.pushed_stack_items
+            obj.min_stack_height = bytes_or_byte_code_base.min_stack_height
+            obj.max_stack_height = bytes_or_byte_code_base.max_stack_height
+            obj.unchecked_stack = bytes_or_byte_code_base.unchecked_stack
+            obj._name_ = bytes_or_byte_code_base._name_
+            return obj
+
+        if isinstance(bytes_or_byte_code_base, bytes):
+            obj = super().__new__(cls)
+            obj._bytes_ = bytes_or_byte_code_base
+            assert popped_stack_items is not None
+            assert pushed_stack_items is not None
+            obj.popped_stack_items = popped_stack_items
+            obj.pushed_stack_items = pushed_stack_items
+            if min_stack_height is None:
+                obj.min_stack_height = obj.popped_stack_items
+            else:
+                obj.min_stack_height = min_stack_height
+            if max_stack_height is None:
+                obj.max_stack_height = max(obj.popped_stack_items, obj.pushed_stack_items)
+            else:
+                obj.max_stack_height = max_stack_height
+            obj.unchecked_stack = unchecked_stack
+            obj._name_ = name
+            return obj
+
+        raise TypeError("Bytecode constructor '__new__' didn't return an instance!")
 
     def __bytes__(self) -> bytes:
         """
@@ -53,15 +118,6 @@ class OpcodeMacroBase:
         """
         return len(self._bytes_)
 
-    def __call__(self, *_: "int | bytes | str | Opcode | FixedSizeBytes | Iterable[int]") -> bytes:
-        """
-        Make OpcodeMacroBase callable, so that arguments can directly be
-        provided to an Opcode in order to more conveniently generate
-        bytecode (implemented in the subclass).
-        """
-        # ignore opcode arguments
-        return bytes(self)
-
     def __str__(self) -> str:
         """
         Return the name of the opcode, assigned at Enum creation.
@@ -70,35 +126,154 @@ class OpcodeMacroBase:
 
     def __eq__(self, other):
         """
-        Allows comparison between OpcodeMacroBase instances and bytes objects.
+        Allows comparison between Bytecode instances and bytes objects.
 
         Raises:
-        - NotImplementedError: if the comparison is not between an OpcodeMacroBase
+        - NotImplementedError: if the comparison is not between an Bytecode
             or a bytes object.
         """
-        if isinstance(other, OpcodeMacroBase):
-            return self._name_ == other._name_
+        # if isinstance(other, Bytecode):
+        #    return self._name_ == other._name_
         if isinstance(other, SupportsBytes):
             return bytes(self) == bytes(other)
         raise NotImplementedError(f"Unsupported type for comparison f{type(other)}")
 
-    def __add__(self, other: Any) -> bytes:
+    def __add__(self, other: "Bytecode | int | None") -> "Bytecode":
+        """
+        Concatenate the bytecode representation with another bytecode object.
+        """
+        if other is None or (isinstance(other, int) and other == 0):
+            # Edge case for sum() function
+            return self
+        assert isinstance(other, Bytecode), "Can only concatenate Bytecode instances"
+        # Figure out the stack height after executing the two opcodes.
+        a_pop, a_push = self.popped_stack_items, self.pushed_stack_items
+        a_min, a_max = self.min_stack_height, self.max_stack_height
+        b_pop, b_push = other.popped_stack_items, other.pushed_stack_items
+        b_min, b_max = other.min_stack_height, other.max_stack_height
+        a_out = a_min - a_pop + a_push
+
+        c_pop = max(0, a_pop + (b_pop - a_push))
+        c_push = max(0, a_push + b_push - b_pop)
+        c_min = a_min if a_out >= b_min else (b_min - a_out) + a_min
+        c_max = max(a_max + max(0, b_min - a_out), b_max + max(0, a_out - b_min))
+
+        return Bytecode(
+            bytes(self) + bytes(other),
+            popped_stack_items=c_pop,
+            pushed_stack_items=c_push,
+            min_stack_height=c_min,
+            max_stack_height=c_max,
+        )
+
+    def __radd__(self, other: "Bytecode | int | None") -> "Bytecode":
         """
         Concatenate the opcode byte representation with another bytes object.
         """
-        return bytes(self) + bytes(other)
+        if other is None or (isinstance(other, int) and other == 0):
+            # Edge case for sum() function
+            return self
+        assert isinstance(other, Bytecode), "Can only concatenate Bytecode instances"
+        return other.__add__(self)
 
-    def __radd__(self, other: Any) -> bytes:
+    def __mul__(self, other: int) -> "Bytecode":
         """
         Concatenate another bytes object with the opcode byte representation.
         """
-        return bytes(other) + bytes(self)
+        if other < 0:
+            raise ValueError("Cannot multiply by a negative number")
+        if other == 0:
+            return Bytecode()
+        output = self
+        for _ in range(other - 1):
+            output += self
+        return output
 
-    def __mul__(self, other: int) -> bytes:
+    def __call__(
+        self,
+        *args_t: "int | bytes | str | Bytecode | FixedSizeBytes | Iterable[int]",
+        unchecked: bool = False,
+    ) -> "Bytecode":
         """
-        Concatenate another bytes object with the opcode byte representation.
+        Makes all opcode instances callable to return formatted bytecode, which constitutes a data
+        portion, that is located after the opcode byte, and pre-opcode bytecode, which is normally
+        used to set up the stack.
+
+        This useful to automatically format, e.g., push opcodes and their data sections as
+        `Opcodes.PUSH1(0x00)`.
+
+        Data sign is automatically detected but for this reason the range of the input must be:
+        `[-2^(data_portion_bits-1), 2^(data_portion_bits)]` where: `data_portion_bits ==
+        data_portion_length * 8`
+
+        For the stack, the arguments are set up in the opposite order they are given, so the first
+        argument is the last item pushed to the stack.
+
+        The resulting stack arrangement does not take into account opcode stack element
+        consumption, so the stack height is not guaranteed to be correct and the user must take
+        this into consideration.
+
+        Integers can also be used as stack elements, in which case they are automatically converted
+        to PUSH operations, and negative numbers always use a PUSH32 operation.
+
+        `FixedSizeBytes` can also be used as stack elements, which includes `Address` and `Hash`
+        types, for each of which a PUSH operation is automatically generated, `PUSH20` and `PUSH32`
+        respectively.
+
+        Hex-strings will automatically be converted to bytes.
+
         """
-        return bytes(self) * other
+        args: List[
+            "int | bytes | str | Opcode | Bytecode | FixedSizeBytes | Iterable[int]"
+        ] = list(args_t)
+
+        # The rest of the arguments conform the stack.
+        if len(args) != self.popped_stack_items and not (unchecked or self.unchecked_stack):
+            raise ValueError(
+                f"Opcode {self._name_} requires {self.popped_stack_items} stack elements, but "
+                f"{len(args)} were provided. Use 'unchecked=True' parameter to ignore this check."
+            )
+
+        pre_opcode_bytecode: Bytecode | None = None
+        while len(args) > 0:
+            data = args.pop()
+            if not isinstance(data, Bytecode):
+                # We are going to push a constant to the stack.
+                data_size = 0
+                if isinstance(data, int):
+                    signed = data < 0
+                    data_size = _get_int_size(data)
+                    if data_size > 32:
+                        raise ValueError("Opcode stack data must be less than 32 bytes")
+                    elif data_size == 0:
+                        # Pushing 0 is done with the PUSH1 opcode for compatibility reasons.
+                        data_size = 1
+                    data = data.to_bytes(
+                        length=data_size,
+                        byteorder="big",
+                        signed=signed,
+                    )
+                else:
+                    data = to_bytes(data)  # type: ignore
+                    data_size = len(data)
+
+                assert isinstance(data, bytes)
+                assert data_size > 0
+                new_opcode = _push_opcodes_byte_list[data_size - 1][data]
+                if pre_opcode_bytecode is None:
+                    pre_opcode_bytecode = new_opcode
+                else:
+                    pre_opcode_bytecode += new_opcode
+                    assert isinstance(pre_opcode_bytecode, Bytecode)
+            else:
+                if pre_opcode_bytecode is None:
+                    pre_opcode_bytecode = data
+                else:
+                    pre_opcode_bytecode += data
+                    assert isinstance(pre_opcode_bytecode, Bytecode)
+        if pre_opcode_bytecode is not None:
+            return pre_opcode_bytecode + self
+        return self
 
     def hex(self) -> str:
         """
@@ -106,8 +281,14 @@ class OpcodeMacroBase:
         """
         return bytes(self).hex()
 
+    def keccak256(self) -> bytes:
+        """
+        Return the keccak256 hash of the opcode byte representation.
+        """
+        return keccak256(self._bytes_)
 
-class Opcode(OpcodeMacroBase):
+
+class Opcode(Bytecode):
     """
     Represents a single Opcode instruction in the EVM, with extra metadata useful to parametrize
     tests.
@@ -121,12 +302,8 @@ class Opcode(OpcodeMacroBase):
         that represent data
     """
 
-    popped_stack_items: int
-    pushed_stack_items: int
-    min_stack_height: int
     data_portion_length: int
     data_portion_formatter: Optional[Callable[[Any], bytes]]
-    unchecked_stack: bool = False
 
     def __new__(
         cls,
@@ -134,7 +311,8 @@ class Opcode(OpcodeMacroBase):
         *,
         popped_stack_items: int = 0,
         pushed_stack_items: int = 0,
-        min_stack_height: int = 0,
+        max_stack_height: int | None = None,
+        min_stack_height: int | None = None,
         data_portion_length: int = 0,
         data_portion_formatter=None,
         unchecked_stack=False,
@@ -147,13 +325,24 @@ class Opcode(OpcodeMacroBase):
             # parameter.
             return opcode_or_byte
         elif isinstance(opcode_or_byte, int) or isinstance(opcode_or_byte, bytes):
-            obj = super().__new__(cls)
-            obj._bytes_ = (
+
+            obj_bytes = (
                 bytes([opcode_or_byte]) if isinstance(opcode_or_byte, int) else opcode_or_byte
             )
-            obj.popped_stack_items = popped_stack_items
-            obj.pushed_stack_items = pushed_stack_items
-            obj.min_stack_height = min_stack_height
+            if min_stack_height is None:
+                min_stack_height = popped_stack_items
+            if max_stack_height is None:
+                max_stack_height = max(
+                    min_stack_height - popped_stack_items + pushed_stack_items, min_stack_height
+                )
+            obj = super().__new__(
+                cls,
+                obj_bytes,
+                popped_stack_items=popped_stack_items,
+                pushed_stack_items=pushed_stack_items,
+                max_stack_height=max_stack_height,
+                min_stack_height=min_stack_height,
+            )
             obj.data_portion_length = data_portion_length
             obj.data_portion_formatter = data_portion_formatter
             obj.unchecked_stack = unchecked_stack
@@ -161,8 +350,8 @@ class Opcode(OpcodeMacroBase):
         raise TypeError("Opcode constructor '__new__' didn't return an instance!")
 
     def __getitem__(
-        self, *args: "int | bytes | str | Opcode | FixedSizeBytes | Iterable[int]"
-    ) -> "Opcode":
+        self, *args: "int | bytes | str | FixedSizeBytes | Iterable[int]"
+    ) -> "Bytecode":
         """
         Initialize a new instance of the opcode with the data portion set, and also clear
         the data portion variables to avoid reusing them.
@@ -199,14 +388,17 @@ class Opcode(OpcodeMacroBase):
                 )
             else:
                 raise TypeError("Opcode data portion must be either an int or bytes/hex string")
-
-        new_opcode = Opcode(
+        assert (
+            self.popped_stack_items is not None
+            and self.pushed_stack_items is not None
+            and self.min_stack_height is not None
+        )
+        new_opcode = Bytecode(
             bytes(self) + data_portion,
             popped_stack_items=self.popped_stack_items,
             pushed_stack_items=self.pushed_stack_items,
             min_stack_height=self.min_stack_height,
-            data_portion_length=0,
-            data_portion_formatter=None,
+            max_stack_height=self.max_stack_height,
             unchecked_stack=self.unchecked_stack,
         )
         new_opcode._name_ = self._name_
@@ -214,9 +406,9 @@ class Opcode(OpcodeMacroBase):
 
     def __call__(
         self,
-        *args_t: "int | bytes | str | Opcode | FixedSizeBytes | Iterable[int]",
+        *args_t: "int | bytes | str | Bytecode | FixedSizeBytes | Iterable[int]",
         unchecked: bool = False,
-    ) -> bytes:
+    ) -> "Bytecode":
         """
         Makes all opcode instances callable to return formatted bytecode, which constitutes a data
         portion, that is located after the opcode byte, and pre-opcode bytecode, which is normally
@@ -246,90 +438,19 @@ class Opcode(OpcodeMacroBase):
         Hex-strings will automatically be converted to bytes.
 
         """
-        args: List["int | bytes | str | Opcode | FixedSizeBytes | Iterable[int]"] = list(args_t)
-        pre_opcode_bytecode = bytes()
-        data_portion = bytes()
+        args: List[
+            "int | bytes | str | Opcode | Bytecode | FixedSizeBytes | Iterable[int]"
+        ] = list(args_t)
 
-        if (self.data_portion_formatter is not None or self.data_portion_length > 0) and len(
-            args
-        ) == 0:
-            raise ValueError("Opcode with data portion requires at least one argument")
-        if self.data_portion_formatter is not None:
-            data_portion_arg = args.pop(0)
-            if isinstance(data_portion_arg, Iterable) and not isinstance(data_portion_arg, bytes):
-                data_portion = self.data_portion_formatter(*data_portion_arg)
-            else:
-                data_portion = self.data_portion_formatter(data_portion_arg)
-        elif self.data_portion_length > 0:
-            # For opcodes with a data portion, the first argument is the data and the rest of the
-            # arguments form the stack.
-            data = args.pop(0)
-            if isinstance(data, bytes) or isinstance(data, str):
-                if isinstance(data, str):
-                    if data.startswith("0x"):
-                        data = data[2:]
-                    data = bytes.fromhex(data)
-                elif isinstance(data, SupportsBytes):
-                    data = bytes(data)
-                assert len(data) <= self.data_portion_length
-                data_portion = data.rjust(self.data_portion_length, b"\x00")
-            elif isinstance(data, int):
-                signed = data < 0
-                data_portion = data.to_bytes(
-                    length=self.data_portion_length,
-                    byteorder="big",
-                    signed=signed,
-                )
-            else:
-                raise TypeError("Opcode data portion must be either an int or bytes/hex string")
+        if self.data_portion_formatter is not None or self.data_portion_length > 0:
+            if len(args) == 0:
+                raise ValueError("Opcode with data portion requires at least one argument")
+            assert type(self) is Opcode
+            get_item_arg = args.pop()
+            assert not isinstance(get_item_arg, Bytecode)
+            return self[get_item_arg](*args)
 
-        # The rest of the arguments conform the stack.
-        if len(args) != self.popped_stack_items and not (unchecked or self.unchecked_stack):
-            raise ValueError(
-                f"Opcode {self._name_} requires {self.popped_stack_items} stack elements, but "
-                f"{len(args)} were provided. Use 'unchecked=True' parameter to ignore this check."
-            )
-
-        while len(args) > 0:
-            data = args.pop()
-            if isinstance(data, int) or isinstance(data, FixedSizeBytes):
-                # We are going to push a constant to the stack.
-                data_size = 0
-                if isinstance(data, int):
-                    signed = data < 0
-                    data_size = _get_int_size(data)
-                    if data_size > 32:
-                        raise ValueError("Opcode stack data must be less than 32 bytes")
-                    elif data_size == 0:
-                        # Pushing 0 is done with the PUSH1 opcode for compatibility reasons.
-                        data_size = 1
-                    data = data.to_bytes(
-                        length=data_size,
-                        byteorder="big",
-                        signed=signed,
-                    )
-                elif isinstance(data, FixedSizeBytes):
-                    data_size = data.byte_length
-
-                assert isinstance(data, bytes)
-                assert data_size > 0
-                pre_opcode_bytecode += _push_opcodes_byte_list[data_size]
-                pre_opcode_bytecode += data
-            elif (
-                isinstance(data, bytes) or isinstance(data, SupportsBytes) or isinstance(data, str)
-            ):
-                if isinstance(data, str):
-                    if data.startswith("0x"):
-                        data = data[2:]
-                    data = bytes.fromhex(data)
-                elif isinstance(data, SupportsBytes):
-                    data = bytes(data)
-                pre_opcode_bytecode += data
-
-            else:
-                raise TypeError("Opcode stack data must be either an int or a bytes/hex string")
-
-        return pre_opcode_bytecode + self._bytes_ + data_portion
+        return super().__call__(*args, unchecked=unchecked)
 
     def __len__(self) -> int:
         """
@@ -344,14 +465,14 @@ class Opcode(OpcodeMacroBase):
         return int.from_bytes(self, byteorder="big")
 
 
-class Macro(OpcodeMacroBase):
+class Macro(Bytecode):
     """
     Represents opcode macro replacement, basically holds bytes
     """
 
     def __new__(
         cls,
-        macro_or_bytes: "bytes | Macro",
+        macro_or_bytes: "Bytecode | Macro",
     ):
         """
         Creates a new opcode macro instance.
@@ -361,12 +482,11 @@ class Macro(OpcodeMacroBase):
             # parameter.
             return macro_or_bytes
         else:
-            instance = super().__new__(cls)
-            instance._bytes_ = macro_or_bytes
+            instance = super().__new__(cls, macro_or_bytes)
             return instance
 
 
-OpcodeCallArg = int | bytes | str | Opcode | FixedSizeBytes | Iterable[int]
+OpcodeCallArg = int | bytes | str | Bytecode | FixedSizeBytes | Iterable[int]
 
 
 #  Constants
@@ -5511,7 +5631,7 @@ class Opcodes(Opcode, Enum):
     Source: [EIP-7069](https://eips.ethereum.org/EIPS/eip-7069)
     """
 
-    RETURNDATALOAD = Opcode(0xF7, popped_stack_items=1)
+    RETURNDATALOAD = Opcode(0xF7, popped_stack_items=1, pushed_stack_items=1)
     """
     RETURNDATALOAD(offset)
     ----
@@ -5610,6 +5730,42 @@ class Opcodes(Opcode, Enum):
 
     Source: [evm.codes/#FF](https://www.evm.codes/#FF)
     """
+
+
+_push_opcodes_byte_list: List[Opcode] = [
+    Opcodes.PUSH1,
+    Opcodes.PUSH2,
+    Opcodes.PUSH3,
+    Opcodes.PUSH4,
+    Opcodes.PUSH5,
+    Opcodes.PUSH6,
+    Opcodes.PUSH7,
+    Opcodes.PUSH8,
+    Opcodes.PUSH9,
+    Opcodes.PUSH10,
+    Opcodes.PUSH11,
+    Opcodes.PUSH12,
+    Opcodes.PUSH13,
+    Opcodes.PUSH14,
+    Opcodes.PUSH15,
+    Opcodes.PUSH16,
+    Opcodes.PUSH17,
+    Opcodes.PUSH18,
+    Opcodes.PUSH19,
+    Opcodes.PUSH20,
+    Opcodes.PUSH21,
+    Opcodes.PUSH22,
+    Opcodes.PUSH23,
+    Opcodes.PUSH24,
+    Opcodes.PUSH25,
+    Opcodes.PUSH26,
+    Opcodes.PUSH27,
+    Opcodes.PUSH28,
+    Opcodes.PUSH29,
+    Opcodes.PUSH30,
+    Opcodes.PUSH31,
+    Opcodes.PUSH32,
+]
 
 
 class Macros(Macro, Enum):

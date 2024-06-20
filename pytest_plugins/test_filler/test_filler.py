@@ -25,6 +25,7 @@ from ethereum_test_forks import (
     get_forks_with_solc_support,
 )
 from ethereum_test_tools import SPEC_TYPES, Alloc, BaseTest, FixtureCollector, TestInfo, Yul
+from ethereum_test_tools.code import Solc
 from ethereum_test_tools.common.types import AllocMode, contract_address_iterator
 from ethereum_test_tools.utility.versioning import (
     generate_github_url,
@@ -272,7 +273,7 @@ def pytest_configure(config):
             "The Besu t8n tool does not work well with the xdist plugin; use -n=0.",
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
-    config.solc_version = Yul("", binary=config.getoption("solc_bin")).version
+    config.solc_version = Solc(config.getoption("solc_bin")).version
     if config.solc_version < Frontier.solc_min_version():
         pytest.exit(
             f"Unsupported solc version: {config.solc_version}. Minimum required version is "
@@ -713,8 +714,8 @@ def yul(fork: Fork, request):
             warnings.warn(f"Compiling Yul for {solc_target_fork.name()}, not {fork.name()}.")
 
     class YulWrapper(Yul):
-        def __init__(self, *args, **kwargs):
-            super(YulWrapper, self).__init__(*args, **kwargs, fork=solc_target_fork)
+        def __new__(cls, *args, **kwargs):
+            return super(YulWrapper, cls).__new__(cls, *args, **kwargs, fork=solc_target_fork)
 
     return YulWrapper
 

@@ -8,14 +8,13 @@ from functools import cached_property
 from pathlib import Path
 from shutil import which
 from subprocess import CompletedProcess, run
-from typing import Optional, Sized, SupportsBytes, Type
+from typing import Optional, Type
 
 from semver import Version
 
 from ethereum_test_forks import Fork
 
-from ..common.conversions import to_bytes
-from .code import Code
+from ..vm import Bytecode
 
 DEFAULT_SOLC_ARGS = ("--assemble", "-")
 VERSION_PATTERN = re.compile(r"Version: (.*)")
@@ -30,11 +29,11 @@ class Solc:
         self,
         binary: Optional[Path | str] = None,
     ):
-        if binary is None:
+        if not binary:
             which_path = which("solc")
             if which_path is not None:
                 binary = Path(which_path)
-        if binary is None or not Path(binary).exists():
+        if not binary or not Path(binary).exists():
             raise Exception(
                 """`solc` binary executable not found, please refer to
                 https://docs.soliditylang.org/en/latest/installing-solidity.html
@@ -63,7 +62,7 @@ class Solc:
         return Version(0)
 
 
-class Yul(Solc, SupportsBytes, Sized):
+class Yul(Bytecode):
     """
     Yul compiler.
     Compiles Yul source code into bytecode.
@@ -72,22 +71,21 @@ class Yul(Solc, SupportsBytes, Sized):
     source: str
     evm_version: str | None
 
-    def __init__(
-        self,
+    def __new__(
+        cls,
         source: str,
         fork: Optional[Fork] = None,
         binary: Optional[Path | str] = None,
     ):
-        super().__init__(binary)
-        self.source = source
-        self.evm_version = fork.solc_name() if fork else None
+        """
+        Compile Yul source code into bytecode.
+        """
+        solc = Solc(binary)
+        evm_version = fork.solc_name() if fork else None
 
-    @cached_property
-    def compiled(self) -> bytes:
-        """Returns the compiled Yul source code."""
-        solc_args = ("--evm-version", self.evm_version) if self.evm_version else ()
+        solc_args = ("--evm-version", evm_version) if evm_version else ()
 
-        result = self.run(*solc_args, *DEFAULT_SOLC_ARGS, input=self.source)
+        result = solc.run(*solc_args, *DEFAULT_SOLC_ARGS, input=source)
 
         if result.returncode:
             stderr_lines = result.stderr.splitlines()
@@ -98,31 +96,16 @@ class Yul(Solc, SupportsBytes, Sized):
 
         hex_str = lines[lines.index("Binary representation:") + 1]
 
-        return bytes.fromhex(hex_str)
-
-    def __bytes__(self) -> bytes:
-        """
-        Assembles using `solc --assemble`.
-        """
-        return self.compiled
-
-    def __len__(self) -> int:
-        """
-        Get the length of the Yul bytecode.
-        """
-        return len(bytes(self))
-
-    def __add__(self, other: str | bytes | SupportsBytes) -> Code:
-        """
-        Adds two code objects together, by converting both to bytes first.
-        """
-        return Code(bytes(self) + to_bytes(other))
-
-    def __radd__(self, other: str | bytes | SupportsBytes) -> Code:
-        """
-        Adds two code objects together, by converting both to bytes first.
-        """
-        return Code(to_bytes(other) + bytes(self))
+        bytecode = bytes.fromhex(hex_str)
+        instance = super().__new__(
+            cls,
+            bytecode,
+            popped_stack_items=0,
+            pushed_stack_items=0,
+        )
+        instance.source = source
+        instance.evm_version = evm_version
+        return instance
 
 
 YulCompiler = Type[Yul]

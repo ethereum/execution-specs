@@ -18,42 +18,11 @@ from ethereum_test_forks import (
 )
 from evm_transition_tool import FixtureFormats, GethTransitionTool
 
-from ..code import CalldataCase, Case, Code, Conditional, Initcode, Solc, Switch, Yul
-from ..common import Account, Alloc, Environment, Hash, Transaction
+from ..code import CalldataCase, Case, Conditional, Initcode, Solc, Switch, Yul
+from ..common import Account, Alloc, Bytes, Environment, Hash, Transaction
 from ..spec import StateTest
 from ..vm.opcode import Opcodes as Op
 from .conftest import SOLC_PADDING_VERSION
-
-
-@pytest.mark.parametrize(
-    "code,expected_bytes",
-    [
-        ("", bytes()),
-        ("0x", bytes()),
-        ("0x01", bytes.fromhex("01")),
-        ("01", bytes.fromhex("01")),
-    ],
-)
-def test_code_init(code: str | bytes | SupportsBytes, expected_bytes: bytes):
-    """
-    Test `ethereum_test.types.code`.
-    """
-    assert bytes(Code(code)) == expected_bytes
-
-
-@pytest.mark.parametrize(
-    "code,expected_bytes",
-    [
-        (Code("0x01") + "0x02", bytes.fromhex("0102")),
-        ("0x01" + Code("0x02"), bytes.fromhex("0102")),
-        ("0x01" + Code("0x02") + "0x03", bytes.fromhex("010203")),
-    ],
-)
-def test_code_operations(code: Code, expected_bytes: bytes):
-    """
-    Test `ethereum_test.types.code`.
-    """
-    assert bytes(code) == expected_bytes
 
 
 @pytest.fixture(params=get_deployed_forks())
@@ -65,19 +34,23 @@ def fork(request: pytest.FixtureRequest):
 
 
 @pytest.fixture()
-def yul_code(request: pytest.FixtureRequest, fork: Fork, padding_before: str, padding_after: str):
+def yul_code(
+    request: pytest.FixtureRequest,
+    fork: Fork,
+    padding_before: str | None,
+    padding_after: str | None,
+) -> bytes:
     """Return the Yul code for the test."""
     yul_code_snippets = request.param
+    compiled_yul_code = b""
     if padding_before is not None:
-        compiled_yul_code = Code(padding_before)
-    else:
-        compiled_yul_code = Code("")
+        compiled_yul_code += Bytes(padding_before)
     for yul_code in yul_code_snippets:
-        compiled_yul_code += Yul(
-            yul_code, fork=get_closest_fork_with_solc_support(fork, Solc().version)
+        compiled_yul_code += bytes(
+            Yul(yul_code, fork=get_closest_fork_with_solc_support(fork, Solc().version))
         )
     if padding_after is not None:
-        compiled_yul_code += Code(padding_after)
+        compiled_yul_code += Bytes(padding_after)
     return compiled_yul_code
 
 
@@ -183,7 +156,7 @@ def test_yul(  # noqa: D103
     "initcode,bytecode",
     [
         pytest.param(
-            Initcode(deploy_code=bytes()),
+            Initcode(),
             bytes(
                 [
                     0x61,
@@ -202,7 +175,7 @@ def test_yul(  # noqa: D103
             id="empty-deployed-code",
         ),
         pytest.param(
-            Initcode(deploy_code=bytes(), initcode_prefix=bytes([0x00])),
+            Initcode(initcode_prefix=Op.STOP),
             bytes(
                 [
                     0x00,
@@ -222,7 +195,7 @@ def test_yul(  # noqa: D103
             id="empty-deployed-code-with-prefix",
         ),
         pytest.param(
-            Initcode(deploy_code=bytes(), initcode_length=20),
+            Initcode(initcode_length=20),
             bytes(
                 [
                     0x61,
@@ -242,7 +215,7 @@ def test_yul(  # noqa: D103
             id="empty-deployed-code-with-padding",
         ),
         pytest.param(
-            Initcode(deploy_code=bytes([0x00]), initcode_length=20),
+            Initcode(deploy_code=Op.STOP, initcode_length=20),
             bytes(
                 [
                     0x61,
@@ -264,7 +237,7 @@ def test_yul(  # noqa: D103
         ),
         pytest.param(
             Initcode(
-                deploy_code=bytes([0x00]),
+                deploy_code=Op.STOP,
                 initcode_prefix=Op.SSTORE(0, 1),
                 initcode_length=20,
             ),
@@ -328,7 +301,7 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes):
                     Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
                     Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
                 ],
-                default_action=b"",
+                default_action=None,
             ),
             {0: 1},
             id="no-default-action-condition-met",
@@ -340,7 +313,7 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes):
                     CalldataCase(value=1, action=Op.SSTORE(0, 1)),
                     CalldataCase(value=2, action=Op.SSTORE(0, 2)),
                 ],
-                default_action=b"",
+                default_action=None,
             ),
             {0: 1},
             id="no-default-action-condition-met-calldata",
@@ -352,7 +325,7 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes):
                     Case(condition=Op.EQ(Op.CALLDATALOAD(0), 1), action=Op.SSTORE(0, 1)),
                     Case(condition=Op.EQ(Op.CALLDATALOAD(0), 2), action=Op.SSTORE(0, 2)),
                 ],
-                default_action=b"",
+                default_action=None,
             ),
             {0: 0},
             id="no-default-action-no-condition-met",
@@ -535,7 +508,7 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes):
                     Case(condition=Op.EQ(1, 1), action=Op.SSTORE(0, 2)),
                     Case(condition=Op.EQ(1, 2), action=Op.SSTORE(0, 1)),
                 ],
-                default_action=b"",
+                default_action=None,
             ),
             {0: 2},
             id="no-calldataload-condition-met",
@@ -553,7 +526,7 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes):
                     Case(condition=Op.EQ(1, 1), action=Op.SSTORE(0, 2) + Op.SSTORE(1, 2)),
                     Case(condition=Op.EQ(1, 2), action=Op.SSTORE(0, 1)),
                 ],
-                default_action=b"",
+                default_action=None,
             ),
             {0: 2, 1: 2},
             id="no-calldataload-condition-met-different-length-actions",
@@ -583,7 +556,7 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes):
                         action=Op.SSTORE(0, 1),
                     ),
                 ],
-                default_action=b"",
+                default_action=None,
             ),
             {0: 2, 1: 2},
             id="different-length-conditions-condition-met-different-length-actions",
@@ -614,7 +587,7 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes):
                         action=Op.SSTORE(0, 1),
                     ),
                 ],
-                default_action=b"",
+                default_action=None,
             )
             + Op.SSTORE(0x11, 1),
             {0: 2, 1: 2, 0x10: 1, 0x11: 1},

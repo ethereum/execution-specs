@@ -2,7 +2,6 @@
 EVM Object Format Version 1 Library to generate bytecode for testing purposes
 """
 
-from abc import abstractmethod
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 from functools import cached_property
@@ -14,6 +13,7 @@ from ...common import Bytes
 from ...common.conversions import BytesConvertible
 from ...common.types import CopyValidateModel
 from ...exceptions import EOFException
+from ...vm.opcode import Bytecode
 from ...vm.opcode import Opcodes as Op
 from ..constants import EOF_HEADER_TERMINATOR, EOF_MAGIC
 from .constants import (
@@ -242,11 +242,15 @@ class Section(CopyValidateModel):
         return h
 
     @classmethod
-    def Code(cls, code: BytesConvertible = b"", **kwargs) -> "Section":  # noqa: N802
+    def Code(  # noqa: N802
+        cls, code: BytesConvertible | Bytecode = Bytecode(), **kwargs
+    ) -> "Section":
         """
         Creates a new code section with the specified code.
         """
         kwargs.pop("kind", None)
+        if "max_stack_height" not in kwargs and isinstance(code, Bytecode):
+            kwargs["max_stack_height"] = code.max_stack_height
         return cls(kind=SectionKind.CODE, data=code, **kwargs)
 
     @classmethod
@@ -268,31 +272,7 @@ class Section(CopyValidateModel):
         return cls(kind=SectionKind.DATA, data=data, **kwargs)
 
 
-class Bytecode:
-    """Abstract class used to define a class that generates bytecode."""
-
-    @property
-    @abstractmethod
-    def bytecode(self) -> bytes:
-        """
-        Converts the sections into bytecode.
-        """
-        raise NotImplementedError
-
-    def __bytes__(self) -> bytes:
-        """
-        Returns the bytecode of the container.
-        """
-        return self.bytecode
-
-    def __len__(self) -> int:
-        """
-        Returns the length of the container bytecode.
-        """
-        return len(self.bytecode)
-
-
-class Container(CopyValidateModel, Bytecode):
+class Container(CopyValidateModel):
     """
     Class that represents an EOF V1 container.
     """
@@ -427,6 +407,26 @@ class Container(CopyValidateModel, Bytecode):
         c += self.extra
 
         return c
+
+    @classmethod
+    def Code(cls, code: BytesConvertible = Bytecode(), **kwargs) -> "Container":  # noqa: N802
+        """
+        Creates simple container with a single code section.
+        """
+        kwargs.pop("kind", None)
+        return cls(sections=[Section.Code(code=code, **kwargs)])
+
+    def __bytes__(self) -> bytes:
+        """
+        Returns the bytecode of the container.
+        """
+        return self.bytecode
+
+    def __len__(self) -> int:
+        """
+        Returns the length of the container bytecode.
+        """
+        return len(self.bytecode)
 
 
 @dataclass(kw_only=True)
