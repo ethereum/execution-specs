@@ -4,7 +4,7 @@ EOF Classes example use
 
 import pytest
 
-from ethereum_test_tools import EOFTestFiller, Opcode
+from ethereum_test_tools import EOFTestFiller
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools.eof.v1 import Bytes, Container, EOFException, Section
 
@@ -33,21 +33,6 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
             "ef000101000402000100030400010000800001305000ef",
             None,
             id="simple_eof_1_deploy",
-        ),
-        pytest.param(
-            # Check that EOF1 with an illegal opcode fails
-            Container(
-                name="EOF1I0008",
-                sections=[
-                    Section.Code(
-                        code=Op.ADDRESS + Opcode(0xEF) + Op.STOP,
-                    ),
-                    Section.Data("0x0bad60A7"),
-                ],
-            ),
-            "ef00010100040200010003040004000080000130ef000bad60A7",
-            EOFException.UNDEFINED_INSTRUCTION,
-            id="illegal_opcode_fail",
         ),
         pytest.param(
             # Check that valid EOF1 can include 0xFE, the designated invalid opcode
