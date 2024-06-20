@@ -592,7 +592,7 @@ def create_tarball(
         with tarfile.open(tarball_filename, "w:gz") as tar:
             for file in source_dir.rglob("*"):
                 if file.suffix in {".json", ".ini"}:
-                    arcname = file.relative_to(source_dir.parent)
+                    arcname = Path("fixtures") / file.relative_to(source_dir)
                     tar.add(file, arcname=arcname)
 
 
