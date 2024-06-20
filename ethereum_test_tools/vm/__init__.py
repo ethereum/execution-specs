@@ -2,7 +2,7 @@
 Ethereum Virtual Machine related definitions and utilities.
 """
 
-from .opcode import Bytecode, Macro, Macros, Opcode, OpcodeCallArg, Opcodes
+from .opcode import Bytecode, Macro, Macros, Opcode, OpcodeCallArg, Opcodes, UndefinedOpcodes
 
 __all__ = (
     "Bytecode",
@@ -11,4 +11,5 @@ __all__ = (
     "Macros",
     "OpcodeCallArg",
     "Opcodes",
+    "UndefinedOpcodes",
 )

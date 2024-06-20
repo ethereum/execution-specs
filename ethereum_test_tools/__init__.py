@@ -60,7 +60,7 @@ from .spec import (
     TestInfo,
 )
 from .spec.blockchain.types import Block, Header
-from .vm import Bytecode, Macro, Macros, Opcode, OpcodeCallArg, Opcodes
+from .vm import Bytecode, Macro, Macros, Opcode, OpcodeCallArg, Opcodes, UndefinedOpcodes
 
 __all__ = (
     "SPEC_TYPES",
@@ -96,6 +96,7 @@ __all__ = (
     "Opcode",
     "OpcodeCallArg",
     "Opcodes",
+    "UndefinedOpcodes",
     "ReferenceSpec",
     "ReferenceSpecTypes",
     "Removable",
