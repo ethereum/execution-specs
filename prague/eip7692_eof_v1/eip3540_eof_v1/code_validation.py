@@ -6,6 +6,7 @@ from typing import List
 
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.eof.v1.constants import MAX_BYTECODE_SIZE, MAX_OPERAND_STACK_HEIGHT
+from ethereum_test_tools.vm.opcode import Bytecode
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .opcodes import (
@@ -20,15 +21,14 @@ VALID: List[Container] = []
 INVALID: List[Container] = []
 
 
-def make_valid_stack_opcode(op: Op) -> bytes:
+def make_valid_stack_opcode(op: Op) -> Bytecode:
     """
     Builds bytecode with the specified op at the end and the proper number of
     stack items to not underflow.
     """
-    out = bytes()
     # We need to push some items onto the stack so the code is valid
     # even with stack validation
-    out += Op.ORIGIN * op.min_stack_height
+    out = Op.ORIGIN * op.min_stack_height
     out += op
     return out
 
@@ -83,7 +83,7 @@ for op in V1_EOF_OPCODES:
                 sections=[
                     Section.Code(
                         code=make_valid_stack_opcode(op)
-                        + bytes([0x00]) * op.data_portion_length
+                        + Op.NOOP * op.data_portion_length
                         + Op.STOP,
                         code_inputs=0,
                         code_outputs=0,
@@ -124,7 +124,7 @@ for invalid_op_byte in INVALID_OPCODES:
             name=f"invalid_opcode_0x{invalid_op_byte.hex()}",
             sections=[
                 Section.Code(
-                    code=invalid_op_byte + Op.STOP,
+                    code=invalid_op_byte + bytes(Op.STOP),
                 ),
             ],
             validity_error="UndefinedInstruction",
@@ -291,9 +291,9 @@ for op in OPCODES_WITH_PUSH_STACK_ITEMS:
         sections=[
             Section.Code(
                 code=(
-                    (Op.ORIGIN * op.min_stack_height)
-                    + ((op + op_data) * iterations_needed)
-                    + Op.STOP
+                    bytes(Op.ORIGIN * op.min_stack_height)
+                    + ((bytes(op) + op_data) * iterations_needed)
+                    + bytes(Op.STOP)
                 ),
                 code_inputs=0,
                 code_outputs=0,
@@ -313,9 +313,9 @@ for op in OPCODES_WITH_PUSH_STACK_ITEMS:
         sections=[
             Section.Code(
                 code=(
-                    (Op.ORIGIN * op.min_stack_height)
-                    + ((op + op_data) * (iterations_needed - 1))
-                    + Op.STOP
+                    bytes(Op.ORIGIN * op.min_stack_height)
+                    + ((bytes(op) + op_data) * (iterations_needed - 1))
+                    + bytes(Op.STOP)
                 ),
                 code_inputs=0,
                 code_outputs=0,

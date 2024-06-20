@@ -14,6 +14,7 @@ from ethereum_test_tools import (
     Address,
     Block,
     BlockchainTestFiller,
+    Bytecode,
     Conditional,
     Environment,
     Initcode,
@@ -220,7 +221,7 @@ def test_dynamic_create2_selfdestruct_collision(
         to=address_to,
         gas_price=10,
         protected=False,
-        data=initcode.bytecode if initcode.bytecode is not None else bytes(),
+        data=initcode,
         gas_limit=5000000,
         value=0,
     )
@@ -452,7 +453,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
                         to=address_to,
                         gas_price=10,
                         protected=False,
-                        data=initcode.bytecode if initcode.bytecode is not None else bytes(),
+                        data=initcode,
                         gas_limit=5000000,
                         value=0,
                     ),
@@ -463,7 +464,7 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
                         to=address_to_second,
                         gas_price=10,
                         protected=False,
-                        data=initcode.bytecode if initcode.bytecode is not None else bytes(),
+                        data=initcode,
                         gas_limit=5000000,
                         value=0,
                     ),
@@ -538,8 +539,8 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     second_call_value = 11
 
     # Code is divided in two transactions part of the same block
-    first_tx_code = bytes()
-    second_tx_code = bytes()
+    first_tx_code = Bytecode()
+    second_tx_code = Bytecode()
 
     first_tx_code += (
         Op.JUMPDEST()
@@ -690,7 +691,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
                         to=address_to,
                         gas_price=10,
                         protected=False,
-                        data=initcode.bytecode if initcode.bytecode is not None else bytes(),
+                        data=initcode,
                         gas_limit=5000000,
                         value=0,
                     ),
@@ -701,7 +702,7 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
                         to=address_to,
                         gas_price=10,
                         protected=False,
-                        data=initcode.bytecode if initcode.bytecode is not None else bytes(),
+                        data=initcode,
                         gas_limit=5000000,
                         value=0,
                     ),

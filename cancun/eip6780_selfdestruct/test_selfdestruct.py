@@ -5,10 +5,9 @@ abstract: Tests [EIP-6780: SELFDESTRUCT only in same transaction](https://eips.e
 """  # noqa: E501
 
 from itertools import count, cycle
-from typing import Dict, List, SupportsBytes
+from typing import Dict, List
 
 import pytest
-from ethereum.crypto.hash import keccak256
 
 from ethereum_test_forks import Cancun, Fork
 from ethereum_test_tools import (
@@ -16,6 +15,7 @@ from ethereum_test_tools import (
     Address,
     Block,
     BlockchainTestFiller,
+    Bytecode,
     Environment,
     Hash,
     Initcode,
@@ -69,8 +69,8 @@ def sendall_recipient_addresses() -> List[Address]:
 def selfdestruct_code_preset(
     *,
     sendall_recipient_addresses: List[Address],
-    pre_bytecode: bytes,
-) -> bytes:
+    pre_bytecode: Bytecode,
+) -> Bytecode:
     """Return a bytecode that self-destructs."""
     bytecode = pre_bytecode
 
@@ -80,21 +80,17 @@ def selfdestruct_code_preset(
     if len(sendall_recipient_addresses) != 1:
         # Load the recipient address from calldata, each test case needs to pass the addresses as
         # calldata
-        bytecode += bytes(
-            Conditional(
-                # We avoid having the caller to give us our own address by checking
-                # against a constant that is a magic number
-                condition=Op.EQ(Op.CALLDATALOAD(0), SELF_ADDRESS),
-                if_true=Op.MSTORE(0, Op.ADDRESS()),
-                if_false=Op.MSTORE(0, Op.CALLDATALOAD(0)),
-            )
+        bytecode += Conditional(
+            # We avoid having the caller to give us our own address by checking
+            # against a constant that is a magic number
+            condition=Op.EQ(Op.CALLDATALOAD(0), SELF_ADDRESS),
+            if_true=Op.MSTORE(0, Op.ADDRESS()),
+            if_false=Op.MSTORE(0, Op.CALLDATALOAD(0)),
         )
-        bytecode += bytes(
-            Conditional(
-                condition=Op.EQ(Op.MLOAD(0), NO_SELFDESTRUCT),
-                if_true=Op.STOP,
-                if_false=Op.SELFDESTRUCT(Op.MLOAD(0)),
-            )
+        bytecode += Conditional(
+            condition=Op.EQ(Op.MLOAD(0), NO_SELFDESTRUCT),
+            if_true=Op.STOP,
+            if_false=Op.SELFDESTRUCT(Op.MLOAD(0)),
         )
     else:
         # Hard-code the single only possible recipient address
@@ -111,16 +107,16 @@ def selfdestruct_code_preset(
 
 
 @pytest.fixture
-def selfdestruct_pre_bytecode() -> bytes:
+def selfdestruct_pre_bytecode() -> Bytecode:
     """Code run before attempting to self-destruct, by default it's empty."""
-    return b""
+    return Bytecode()
 
 
 @pytest.fixture
 def selfdestruct_code(
-    selfdestruct_pre_bytecode: bytes,
+    selfdestruct_pre_bytecode: Bytecode,
     sendall_recipient_addresses: List[Address],
-) -> bytes:
+) -> Bytecode:
     """
     Creates the default self-destructing bytecode,
     which can be modified by each test if necessary.
@@ -142,9 +138,9 @@ def self_destructing_initcode() -> bool:
 
 @pytest.fixture
 def selfdestruct_contract_initcode(
-    selfdestruct_code: SupportsBytes,
+    selfdestruct_code: Bytecode,
     self_destructing_initcode: bool,
-) -> SupportsBytes:
+) -> Bytecode:
     """Prepares an initcode that creates a self-destructing account."""
     if self_destructing_initcode:
         return selfdestruct_code
@@ -167,7 +163,7 @@ def entry_code_address() -> Address:
 def selfdestruct_contract_address(
     create_opcode: Op,
     entry_code_address: Address,
-    selfdestruct_contract_initcode: SupportsBytes,
+    selfdestruct_contract_initcode: Bytecode,
 ) -> Address:
     """Returns the address of the self-destructing contract."""
     if create_opcode == Op.CREATE:
@@ -182,10 +178,10 @@ def selfdestruct_contract_address(
 @pytest.fixture
 def pre(
     initcode_copy_from_address: Address,
-    selfdestruct_contract_initcode: SupportsBytes,
+    selfdestruct_contract_initcode: Bytecode,
     selfdestruct_contract_address: Address,
     selfdestruct_contract_initial_balance: int,
-    selfdestruct_pre_bytecode: bytes,
+    selfdestruct_pre_bytecode: Bytecode,
     sendall_recipient_addresses: List[Address],
 ) -> Dict[Address, Account]:
     """Pre-state of all tests"""
@@ -285,8 +281,8 @@ def test_create_selfdestruct_same_tx(
     env: Environment,
     pre: Dict[Address, Account],
     entry_code_address: Address,
-    selfdestruct_code: SupportsBytes,
-    selfdestruct_contract_initcode: SupportsBytes,
+    selfdestruct_code: Bytecode,
+    selfdestruct_contract_initcode: Bytecode,
     selfdestruct_contract_address: Address,
     sendall_recipient_addresses: List[Address],
     initcode_copy_from_address: Address,
@@ -318,7 +314,7 @@ def test_create_selfdestruct_same_tx(
     create_args = [
         0,  # Value
         0,  # Offset
-        len(bytes(selfdestruct_contract_initcode)),  # Length
+        len(selfdestruct_contract_initcode),  # Length
     ]
     if create_opcode == Op.CREATE2:
         # CREATE2 requires a salt argument
@@ -332,7 +328,7 @@ def test_create_selfdestruct_same_tx(
             initcode_copy_from_address,
             0,
             0,
-            len(bytes(selfdestruct_contract_initcode)),
+            len(selfdestruct_contract_initcode),
         )
         # And we store the created address for verification purposes
         + Op.SSTORE(
@@ -343,12 +339,12 @@ def test_create_selfdestruct_same_tx(
 
     # Store the EXTCODE* properties of the created address
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(len(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(len(selfdestruct_code)),
         Op.EXTCODESIZE(selfdestruct_contract_address),
     )
 
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(keccak256(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(selfdestruct_code.keccak256()),
         Op.EXTCODEHASH(selfdestruct_contract_address),
     )
 
@@ -385,18 +381,18 @@ def test_create_selfdestruct_same_tx(
 
     # Check the EXTCODE* properties of the self-destructing contract again
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(len(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(len(selfdestruct_code)),
         Op.EXTCODESIZE(selfdestruct_contract_address),
     )
 
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(keccak256(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(selfdestruct_code.keccak256()),
         Op.EXTCODEHASH(selfdestruct_contract_address),
     )
 
     # Lastly return zero so the entry point contract is created and we can retain the stored
     # values for verification.
-    entry_code += Op.RETURN(max(len(bytes(selfdestruct_contract_initcode)), 32), 1)
+    entry_code += Op.RETURN(max(len(selfdestruct_contract_initcode), 32), 1)
 
     post: Dict[Address, Account] = {
         entry_code_address: Account(
@@ -440,7 +436,7 @@ def test_self_destructing_initcode(
     env: Environment,
     pre: Dict[Address, Account],
     entry_code_address: Address,
-    selfdestruct_contract_initcode: SupportsBytes,
+    selfdestruct_contract_initcode: Bytecode,
     selfdestruct_contract_address: Address,
     sendall_recipient_addresses: List[Address],
     initcode_copy_from_address: Address,
@@ -466,7 +462,7 @@ def test_self_destructing_initcode(
     create_args = [
         0,  # Value
         0,  # Offset
-        len(bytes(selfdestruct_contract_initcode)),  # Length
+        len(selfdestruct_contract_initcode),  # Length
     ]
     if create_opcode == Op.CREATE2:
         # CREATE2 requires a salt argument
@@ -480,7 +476,7 @@ def test_self_destructing_initcode(
             initcode_copy_from_address,
             0,
             0,
-            len(bytes(selfdestruct_contract_initcode)),
+            len(selfdestruct_contract_initcode),
         )
         # And we store the created address for verification purposes
         + Op.SSTORE(
@@ -496,7 +492,7 @@ def test_self_destructing_initcode(
     )
 
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(keccak256(bytes())),
+        entry_code_storage.store_next(Bytecode().keccak256()),
         Op.EXTCODEHASH(selfdestruct_contract_address),
     )
 
@@ -523,7 +519,7 @@ def test_self_destructing_initcode(
 
     # Lastly return zero so the entry point contract is created and we can retain the stored
     # values for verification.
-    entry_code += Op.RETURN(max(len(bytes(selfdestruct_contract_initcode)), 32), 1)
+    entry_code += Op.RETURN(max(len(selfdestruct_contract_initcode), 32), 1)
 
     if selfdestruct_contract_initial_balance > 0:
         # Address where the contract is created already had some balance,
@@ -569,7 +565,7 @@ def test_self_destructing_initcode_create_tx(
     pre: Dict[Address, Account],
     tx_value: int,
     entry_code_address: Address,
-    selfdestruct_contract_initcode: SupportsBytes,
+    selfdestruct_contract_initcode: Bytecode,
     selfdestruct_contract_address: Address,
     sendall_recipient_addresses: List[Address],
     initcode_copy_from_address: Address,
@@ -636,7 +632,7 @@ def test_recreate_self_destructed_contract_different_txs(
     env: Environment,
     pre: Dict[Address, Account],
     entry_code_address: Address,
-    selfdestruct_contract_initcode: SupportsBytes,
+    selfdestruct_contract_initcode: Bytecode,
     selfdestruct_contract_address: Address,
     selfdestruct_contract_initial_balance: int,
     sendall_recipient_addresses: List[Address],
@@ -660,7 +656,7 @@ def test_recreate_self_destructed_contract_different_txs(
 
     # Bytecode used to create the contract
     assert create_opcode == Op.CREATE2, "cannot recreate contract using CREATE opcode"
-    create_bytecode = Op.CREATE2(0, 0, len(bytes(selfdestruct_contract_initcode)), 0)
+    create_bytecode = Op.CREATE2(0, 0, len(selfdestruct_contract_initcode), 0)
 
     # Entry code that will be executed, creates the contract and then calls it
     entry_code = (
@@ -669,7 +665,7 @@ def test_recreate_self_destructed_contract_different_txs(
             initcode_copy_from_address,
             0,
             0,
-            len(bytes(selfdestruct_contract_initcode)),
+            len(selfdestruct_contract_initcode),
         )
         + Op.SSTORE(
             Op.CALLDATALOAD(0),
@@ -787,7 +783,7 @@ def test_selfdestruct_pre_existing(
     pre: Dict[Address, Account],
     entry_code_address: Address,
     selfdestruct_contract_address: Address,
-    selfdestruct_code: SupportsBytes,
+    selfdestruct_code: Bytecode,
     selfdestruct_contract_initial_balance: int,
     sendall_recipient_addresses: List[Address],
     call_times: int,
@@ -813,7 +809,7 @@ def test_selfdestruct_pre_existing(
 
     # Entry code in this case will simply call the pre-existing self-destructing contract,
     # as many times as required
-    entry_code = b""
+    entry_code = Bytecode()
 
     # Call the self-destructing contract multiple times as required, increasing the wei sent each
     # time
@@ -849,12 +845,12 @@ def test_selfdestruct_pre_existing(
 
     # Check the EXTCODE* properties of the self-destructing contract
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(len(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(len(selfdestruct_code)),
         Op.EXTCODESIZE(selfdestruct_contract_address),
     )
 
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(keccak256(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(selfdestruct_code.keccak256()),
         Op.EXTCODEHASH(selfdestruct_contract_address),
     )
 
@@ -914,8 +910,8 @@ def test_selfdestruct_created_same_block_different_tx(
     pre: Dict[Address, Account],
     entry_code_address: Address,
     selfdestruct_contract_address: Address,
-    selfdestruct_code: SupportsBytes,
-    selfdestruct_contract_initcode: SupportsBytes,
+    selfdestruct_code: Bytecode,
+    selfdestruct_contract_initcode: Bytecode,
     selfdestruct_contract_initial_balance: int,
     sendall_recipient_addresses: List[Address],
     call_times: int,
@@ -926,7 +922,7 @@ def test_selfdestruct_created_same_block_different_tx(
     """
     entry_code_storage = Storage()
     sendall_amount = selfdestruct_contract_initial_balance
-    entry_code = b""
+    entry_code = Bytecode()
 
     # Entry code in this case will simply call the pre-existing self-destructing contract,
     # as many times as required
@@ -956,12 +952,12 @@ def test_selfdestruct_created_same_block_different_tx(
 
     # Check the EXTCODE* properties of the self-destructing contract
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(len(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(len(selfdestruct_code)),
         Op.EXTCODESIZE(selfdestruct_contract_address),
     )
 
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(keccak256(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(selfdestruct_code.keccak256()),
         Op.EXTCODEHASH(selfdestruct_contract_address),
     )
 
@@ -1050,8 +1046,8 @@ def test_delegatecall_from_new_contract_to_pre_existing_contract(
     env: Environment,
     pre: Dict[Address, Account],
     entry_code_address: Address,
-    selfdestruct_code: SupportsBytes,
-    selfdestruct_contract_initcode: SupportsBytes,
+    selfdestruct_code: Bytecode,
+    selfdestruct_contract_initcode: Bytecode,
     selfdestruct_contract_address: Address,
     sendall_recipient_addresses: List[Address],
     initcode_copy_from_address: Address,
@@ -1071,7 +1067,7 @@ def test_delegatecall_from_new_contract_to_pre_existing_contract(
     create_args = [
         0,  # Value
         0,  # Offset
-        len(bytes(selfdestruct_contract_initcode)),  # Length
+        len(selfdestruct_contract_initcode),  # Length
     ]
     if create_opcode == Op.CREATE2:
         # CREATE2 requires a salt argument
@@ -1085,7 +1081,7 @@ def test_delegatecall_from_new_contract_to_pre_existing_contract(
             initcode_copy_from_address,
             0,
             0,
-            len(bytes(selfdestruct_contract_initcode)),
+            len(selfdestruct_contract_initcode),
         )
         # And we store the created address for verification purposes
         + Op.SSTORE(
@@ -1096,12 +1092,12 @@ def test_delegatecall_from_new_contract_to_pre_existing_contract(
 
     # Store the EXTCODE* properties of the created address
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(len(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(len(selfdestruct_code)),
         Op.EXTCODESIZE(selfdestruct_contract_address),
     )
 
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(keccak256(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(selfdestruct_code.keccak256()),
         Op.EXTCODEHASH(selfdestruct_contract_address),
     )
 
@@ -1130,18 +1126,18 @@ def test_delegatecall_from_new_contract_to_pre_existing_contract(
 
     # Check the EXTCODE* properties of the self-destructing contract again
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(len(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(len(selfdestruct_code)),
         Op.EXTCODESIZE(selfdestruct_contract_address),
     )
 
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(keccak256(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(selfdestruct_code.keccak256()),
         Op.EXTCODEHASH(selfdestruct_contract_address),
     )
 
     # Lastly return zero so the entry point contract is created and we can retain the stored
     # values for verification.
-    entry_code += Op.RETURN(max(len(bytes(selfdestruct_contract_initcode)), 32), 1)
+    entry_code += Op.RETURN(max(len(selfdestruct_contract_initcode), 32), 1)
 
     if selfdestruct_contract_initial_balance > 0:
         # Address where the contract is created already had some balance,
@@ -1187,8 +1183,8 @@ def test_delegatecall_from_pre_existing_contract_to_new_contract(
     env: Environment,
     pre: Dict[Address, Account],
     entry_code_address: Address,
-    selfdestruct_code: SupportsBytes,
-    selfdestruct_contract_initcode: SupportsBytes,
+    selfdestruct_code: Bytecode,
+    selfdestruct_contract_initcode: Bytecode,
     selfdestruct_contract_address: Address,
     sendall_recipient_addresses: List[Address],
     initcode_copy_from_address: Address,
@@ -1204,7 +1200,7 @@ def test_delegatecall_from_pre_existing_contract_to_new_contract(
     """
     # Add the contract that delegate calls to the newly created contract
     delegate_caller_address = Address("0x2222222222222222222222222222222222222222")
-    call_args: List[int | bytes] = [
+    call_args: List[int | Bytecode | Address] = [
         Op.GAS(),
         selfdestruct_contract_address,
         0,
@@ -1226,7 +1222,7 @@ def test_delegatecall_from_pre_existing_contract_to_new_contract(
     create_args = [
         0,  # Value
         0,  # Offset
-        len(bytes(selfdestruct_contract_initcode)),  # Length
+        len(selfdestruct_contract_initcode),  # Length
     ]
     if create_opcode == Op.CREATE2:
         # CREATE2 requires a salt argument
@@ -1240,7 +1236,7 @@ def test_delegatecall_from_pre_existing_contract_to_new_contract(
             initcode_copy_from_address,
             0,
             0,
-            len(bytes(selfdestruct_contract_initcode)),
+            len(selfdestruct_contract_initcode),
         )
         # And we store the created address for verification purposes
         + Op.SSTORE(
@@ -1256,7 +1252,7 @@ def test_delegatecall_from_pre_existing_contract_to_new_contract(
     )
 
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(keccak256(delegate_caller_code)),
+        entry_code_storage.store_next(delegate_caller_code.keccak256()),
         Op.EXTCODEHASH(delegate_caller_address),
     )
 
@@ -1285,18 +1281,18 @@ def test_delegatecall_from_pre_existing_contract_to_new_contract(
 
     # Check the EXTCODE* properties of the pre-existing address again
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(len(bytes(delegate_caller_code))),
+        entry_code_storage.store_next(len(delegate_caller_code)),
         Op.EXTCODESIZE(delegate_caller_address),
     )
 
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(keccak256(bytes(delegate_caller_code))),
+        entry_code_storage.store_next(delegate_caller_code.keccak256()),
         Op.EXTCODEHASH(delegate_caller_address),
     )
 
     # Lastly return zero so the entry point contract is created and we can retain the stored
     # values for verification.
-    entry_code += Op.RETURN(max(len(bytes(selfdestruct_contract_initcode)), 32), 1)
+    entry_code += Op.RETURN(max(len(selfdestruct_contract_initcode), 32), 1)
 
     post: Dict[Address, Account] = {
         entry_code_address: Account(
@@ -1340,7 +1336,7 @@ initcode = Op.RETURN(0, 1)
     "selfdestruct_pre_bytecode",
     [
         pytest.param(
-            Op.MSTORE(0, Op.PUSH32(initcode))
+            Op.MSTORE(0, Op.PUSH32(bytes(initcode)))
             + Op.POP(Op.CREATE(0, 32 - len(initcode), len(initcode))),
             id="increase_nonce_by_create",
         )
@@ -1361,8 +1357,8 @@ def test_create_selfdestruct_same_tx_increased_nonce(
     env: Environment,
     pre: Dict[Address, Account],
     entry_code_address: Address,
-    selfdestruct_code: SupportsBytes,
-    selfdestruct_contract_initcode: SupportsBytes,
+    selfdestruct_code: Bytecode,
+    selfdestruct_contract_initcode: Bytecode,
     selfdestruct_contract_address: Address,
     sendall_recipient_addresses: List[Address],
     initcode_copy_from_address: Address,
@@ -1387,7 +1383,7 @@ def test_create_selfdestruct_same_tx_increased_nonce(
     create_args = [
         0,  # Value
         0,  # Offset
-        len(bytes(selfdestruct_contract_initcode)),  # Length
+        len(selfdestruct_contract_initcode),  # Length
     ]
     if create_opcode == Op.CREATE2:
         # CREATE2 requires a salt argument
@@ -1401,7 +1397,7 @@ def test_create_selfdestruct_same_tx_increased_nonce(
             initcode_copy_from_address,
             0,
             0,
-            len(bytes(selfdestruct_contract_initcode)),
+            len(selfdestruct_contract_initcode),
         )
         # And we store the created address for verification purposes
         + Op.SSTORE(
@@ -1412,12 +1408,12 @@ def test_create_selfdestruct_same_tx_increased_nonce(
 
     # Store the EXTCODE* properties of the created address
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(len(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(len(selfdestruct_code)),
         Op.EXTCODESIZE(selfdestruct_contract_address),
     )
 
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(keccak256(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(selfdestruct_code.keccak256()),
         Op.EXTCODEHASH(selfdestruct_contract_address),
     )
 
@@ -1454,18 +1450,18 @@ def test_create_selfdestruct_same_tx_increased_nonce(
 
     # Check the EXTCODE* properties of the self-destructing contract again
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(len(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(len(selfdestruct_code)),
         Op.EXTCODESIZE(selfdestruct_contract_address),
     )
 
     entry_code += Op.SSTORE(
-        entry_code_storage.store_next(keccak256(bytes(selfdestruct_code))),
+        entry_code_storage.store_next(selfdestruct_code.keccak256()),
         Op.EXTCODEHASH(selfdestruct_contract_address),
     )
 
     # Lastly return zero so the entry point contract is created and we can retain the stored
     # values for verification.
-    entry_code += Op.RETURN(max(len(bytes(selfdestruct_contract_initcode)), 32), 1)
+    entry_code += Op.RETURN(max(len(selfdestruct_contract_initcode), 32), 1)
 
     post: Dict[Address, Account] = {
         entry_code_address: Account(

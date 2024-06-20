@@ -47,7 +47,6 @@ contract_eof_sstore = Container(
     sections=[
         Section.Code(
             code=Op.SSTORE(slot_caller, Op.CALLER()) + Op.STOP,
-            max_stack_height=2,
         )
     ]
 )
@@ -151,7 +150,6 @@ def test_legacy_calls_eof_mstore(
             Section.Code(
                 code=Op.MSTORE8(0, int.from_bytes(value_returndata_magic, "big"))
                 + Op.RETURN(0, len(value_returndata_magic)),
-                max_stack_height=2,
             )
         ]
     )
@@ -221,7 +219,6 @@ def test_eof_calls_eof_sstore(
                 code=Op.SSTORE(slot_call_result, opcode(destination_contract_address, *suffix))
                 + Op.SSTORE(slot_code_worked, value_code_worked)
                 + Op.STOP,
-                max_stack_height=1 + len(suffix),
             )
         ]
     )
@@ -287,7 +284,6 @@ def test_eof_calls_eof_mstore(
             Section.Code(
                 code=Op.MSTORE8(0, int.from_bytes(value_returndata_magic, "big"))
                 + Op.RETURN(0, 32),
-                max_stack_height=2,
             )
         ]
     )
@@ -301,7 +297,6 @@ def test_eof_calls_eof_mstore(
                 + Op.SSTORE(slot_returndata, Op.RETURNDATALOAD(0))
                 + Op.SSTORE(slot_code_worked, value_code_worked)
                 + Op.STOP,
-                max_stack_height=1 + len(suffix),
             )
         ]
     )
@@ -364,7 +359,6 @@ def test_eof_calls_legacy_sstore(
                 code=Op.SSTORE(slot_call_result, opcode(destination_contract_address, *suffix))
                 + Op.SSTORE(slot_code_worked, value_code_worked)
                 + Op.STOP,
-                max_stack_height=1 + len(suffix),
             )
         ]
     )
@@ -437,7 +431,6 @@ def test_eof_calls_legacy_mstore(
                 + Op.SSTORE(slot_returndata, Op.RETURNDATALOAD(0))
                 + Op.SSTORE(slot_code_worked, value_code_worked)
                 + Op.STOP,
-                max_stack_height=1 + len(suffix),
             )
         ]
     )

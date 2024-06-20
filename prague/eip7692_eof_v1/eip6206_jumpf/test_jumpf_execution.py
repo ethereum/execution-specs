@@ -28,7 +28,6 @@ def test_jumpf_forward(
                 ),
                 Section.Code(
                     Op.SSTORE(slot_code_worked, value_code_worked) + Op.STOP,
-                    max_stack_height=2,
                 ),
             ],
         ),
@@ -46,7 +45,6 @@ def test_jumpf_backward(
             sections=[
                 Section.Code(
                     code=Op.CALLF[2] + Op.SSTORE(slot_code_worked, value_code_worked) + Op.STOP,
-                    max_stack_height=2,
                 ),
                 Section.Code(
                     code=Op.RETF,
@@ -77,7 +75,6 @@ def test_jumpf_to_self(
                     + Op.STOP
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.JUMPF[0],
-                    max_stack_height=2,
                 )
             ],
         ),

@@ -56,7 +56,6 @@ def test_rjumpi_condition_forwards(
                     + Op.STOP
                     + Op.SSTORE(slot_conditional_result, value_calldata_true)
                     + Op.STOP,
-                    max_stack_height=2,
                 )
             ]
         ),
@@ -104,7 +103,6 @@ def test_rjumpi_condition_backwards(
                     + Op.RJUMPI[-11]
                     + Op.SSTORE(slot_conditional_result, value_calldata_false)
                     + Op.STOP,
-                    max_stack_height=2,
                 )
             ]
         )
@@ -148,7 +146,6 @@ def test_rjumpi_condition_zero(
                     + Op.RJUMPI[0]
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
-                    max_stack_height=2,
                 )
             ]
         ),
@@ -178,7 +175,6 @@ def test_rjumpi_forwards(
                     + Op.STOP
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
-                    max_stack_height=2,
                 )
             ],
         ),
@@ -201,7 +197,6 @@ def test_rjumpi_backwards(
                     + Op.PUSH1(1)
                     + Op.RJUMPI[-12]
                     + Op.STOP,
-                    max_stack_height=2,
                 )
             ],
         ),
@@ -221,7 +216,6 @@ def test_rjumpi_zero(
                     + Op.RJUMPI[0]
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
-                    max_stack_height=2,
                 )
             ],
         ),
@@ -242,7 +236,6 @@ def test_rjumpi_max_forward(
                     + Op.NOOP * 32768
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
-                    max_stack_height=2,
                 )
             ],
         ),
@@ -266,7 +259,6 @@ def test_rjumpi_max_backward(
                     + Op.PUSH0
                     + Op.RJUMPI[0x8000]
                     + Op.STOP,
-                    max_stack_height=2,
                 )
             ],
         ),
@@ -283,7 +275,6 @@ def test_rjump_truncated(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(0) + Op.RJUMPI,
-                    max_stack_height=1,
                 )
             ],
         ),
@@ -299,8 +290,7 @@ def test_rjump_truncated_2(
         data=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH1(0) + Op.RJUMPI + b"\0",
-                    max_stack_height=1,
+                    code=Op.PUSH1(0) + Op.RJUMPI + Op.STOP,
                 )
             ],
         ),
@@ -320,7 +310,6 @@ def test_rjumpi_into_header(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPI[-7] + Op.STOP,
-                    max_stack_height=1,
                 )
             ],
         ),
@@ -340,7 +329,6 @@ def test_rjumpi_jump_before_header(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPI[-25] + Op.STOP,
-                    max_stack_height=1,
                 )
             ],
         ),
@@ -360,7 +348,6 @@ def test_rjumpi_into_data(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPI[2] + Op.STOP,
-                    max_stack_height=1,
                 ),
                 Section.Data(data=b"\xaa\xbb\xcc"),
             ],
@@ -381,7 +368,6 @@ def test_rjumpi_after_container(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPI[2] + Op.STOP,
-                    max_stack_height=1,
                 )
             ],
         ),
@@ -401,7 +387,6 @@ def test_rjumpi_to_code_end(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPI[1] + Op.STOP,
-                    max_stack_height=1,
                 ),
             ],
         ),
@@ -418,7 +403,6 @@ def test_rjumpi_into_self(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPI[-1] + Op.STOP,
-                    max_stack_height=1,
                 )
             ],
         ),
@@ -435,7 +419,6 @@ def test_rjumpi_into_rjump(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPI[3] + Op.STOP + Op.RJUMP[-9],
-                    max_stack_height=1,
                 )
             ],
         ),
@@ -457,7 +440,6 @@ def test_rjumpi_into_rjumpi(
                     + Op.PUSH1(1)
                     + Op.RJUMPI[-11]
                     + Op.STOP,
-                    max_stack_height=1,
                 )
             ],
         ),
@@ -479,7 +461,7 @@ def test_rjumpi_into_push_1(
     eof_test(
         data=Container(
             sections=[
-                Section.Code(code=code, max_stack_height=1),
+                Section.Code(code=code),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -545,7 +527,7 @@ def test_rjumpi_into_push_n(
     eof_test(
         data=Container(
             sections=[
-                Section.Code(code=code, max_stack_height=1),
+                Section.Code(code=code),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -576,7 +558,6 @@ def test_rjumpi_into_rjumpv(
                     + Op.PUSH1(1)
                     + Op.RJUMPV[target_jump_table]
                     + Op.STOP,
-                    max_stack_height=1,
                 )
             ],
         ),
@@ -600,12 +581,10 @@ def test_rjumpi_into_callf(
             sections=[
                 Section.Code(
                     code=Op.PUSH1(1) + Op.RJUMPI[invalid_destination] + Op.CALLF[1] + Op.STOP,
-                    max_stack_height=1,
                 ),
                 Section.Code(
                     code=Op.SSTORE(1, 1) + Op.RETF,
                     code_outputs=0,
-                    max_stack_height=2,
                 ),
             ],
         ),
@@ -628,7 +607,6 @@ def test_rjumpi_into_dupn(
                     + Op.DUPN[1]
                     + Op.SSTORE
                     + Op.STOP,
-                    max_stack_height=3,
                 ),
             ],
         ),
@@ -651,7 +629,6 @@ def test_rjumpi_into_swapn(
                     + Op.SWAPN[1]
                     + Op.SSTORE
                     + Op.STOP,
-                    max_stack_height=3,
                 ),
             ],
         ),
@@ -675,7 +652,6 @@ def test_rjump_into_exchange(
                     + Op.EXCHANGE[0x00]
                     + Op.SSTORE
                     + Op.STOP,
-                    max_stack_height=4,
                 ),
             ],
         ),
@@ -692,14 +668,12 @@ def test_rjumpi_into_eofcreate(
             sections=[
                 Section.Code(
                     code=Op.PUSH0 + Op.RJUMPI[9] + Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
-                    max_stack_height=4,
                 ),
                 Section.Container(
                     container=Container(
                         sections=[
                             Section.Code(
                                 code=Op.RETURNCONTRACT[0](0, 0),
-                                max_stack_height=2,
                             ),
                             Section.Container(
                                 container=Container(
@@ -726,14 +700,12 @@ def test_rjumpi_into_returncontract(
             sections=[
                 Section.Code(
                     code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
-                    max_stack_height=4,
                 ),
                 Section.Container(
                     container=Container(
                         sections=[
                             Section.Code(
                                 code=Op.PUSH0 + Op.RJUMPI[5] + Op.RETURNCONTRACT[0](0, 0),
-                                max_stack_height=2,
                             ),
                             Section.Container(
                                 container=Container(

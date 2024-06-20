@@ -3,7 +3,7 @@ tests for selfdestruct interaction with revert
 """
 
 from itertools import count
-from typing import Dict, SupportsBytes
+from typing import Dict
 
 import pytest
 
@@ -11,6 +11,7 @@ from ethereum_test_forks import Cancun
 from ethereum_test_tools import (
     Account,
     Address,
+    Bytecode,
     Environment,
     Initcode,
     StateTestFiller,
@@ -64,9 +65,9 @@ def selfdestruct_on_outer_call() -> int:
 def recursive_revert_contract_code(
     yul: YulCompiler,
     selfdestruct_on_outer_call: int,
-    selfdestruct_with_transfer_contract_code: SupportsBytes,
+    selfdestruct_with_transfer_contract_code: Bytecode,
     selfdestruct_with_transfer_contract_address: Address,
-) -> SupportsBytes:
+) -> Bytecode:
     """
     Contract code that:
         Given selfdestructable contract A, transfer value to A and call A.selfdestruct.
@@ -138,7 +139,7 @@ def selfdestruct_with_transfer_contract_address(entry_code_address: Address) -> 
 @pytest.fixture
 def selfdestruct_with_transfer_contract_code(
     yul: YulCompiler, selfdestruct_recipient_address: Address
-) -> SupportsBytes:
+) -> Bytecode:
     """Contract that can selfdestruct and receive value"""
     return yul(
         f"""
@@ -168,8 +169,8 @@ def selfdestruct_with_transfer_contract_code(
 
 @pytest.fixture
 def selfdestruct_with_transfer_contract_initcode(
-    selfdestruct_with_transfer_contract_code: SupportsBytes,
-) -> SupportsBytes:
+    selfdestruct_with_transfer_contract_code: Bytecode,
+) -> Bytecode:
     """Initcode for selfdestruct_with_transfer_contract_code"""
     return Initcode(deploy_code=selfdestruct_with_transfer_contract_code)
 
@@ -183,9 +184,9 @@ def selfdestruct_with_transfer_initcode_copy_from_address() -> Address:
 @pytest.fixture
 def pre(
     recursive_revert_contract_address: Address,
-    recursive_revert_contract_code: SupportsBytes,
+    recursive_revert_contract_code: Bytecode,
     selfdestruct_with_transfer_initcode_copy_from_address: Address,
-    selfdestruct_with_transfer_contract_initcode: SupportsBytes,
+    selfdestruct_with_transfer_contract_initcode: Bytecode,
     selfdestruct_with_transfer_contract_address: Address,
     yul: YulCompiler,
 ) -> Dict[Address, Account]:
@@ -215,13 +216,13 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
     pre: Dict[Address, Account],
     entry_code_address: Address,
     selfdestruct_on_outer_call: int,
-    selfdestruct_with_transfer_contract_code: SupportsBytes,
-    selfdestruct_with_transfer_contract_initcode: SupportsBytes,
+    selfdestruct_with_transfer_contract_code: Bytecode,
+    selfdestruct_with_transfer_contract_initcode: Bytecode,
     selfdestruct_with_transfer_contract_address: Address,
     selfdestruct_recipient_address: Address,
     selfdestruct_with_transfer_initcode_copy_from_address: Address,
     recursive_revert_contract_address: Address,
-    recursive_revert_contract_code: SupportsBytes,
+    recursive_revert_contract_code: Bytecode,
 ):
     """
     Given:
@@ -256,14 +257,19 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
 
     post: Dict[Address, Account] = {
         entry_code_address: Account(
-            code="0x", storage=Storage({0: selfdestruct_with_transfer_contract_address})
+            code="0x",
+            storage=Storage(
+                {
+                    0: selfdestruct_with_transfer_contract_address,  # type: ignore
+                }
+            ),
         ),
         selfdestruct_with_transfer_initcode_copy_from_address: Account(
             code=selfdestruct_with_transfer_contract_initcode,
         ),
         recursive_revert_contract_address: Account(
             code=recursive_revert_contract_code,
-            storage=Storage({1: 1}),
+            storage=Storage({1: 1}),  # type: ignore
         ),
     }
 
@@ -279,9 +285,9 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
             storage=Storage(
                 {
                     # 2 value transfers (1 in outer call, 1 in reverted inner call)
-                    0: 1,
+                    0: 1,  # type: ignore
                     # 1 selfdestruct in reverted inner call
-                    1: 0,
+                    1: 0,  # type: ignore
                 }
             ),
         )
@@ -306,9 +312,9 @@ def test_selfdestruct_created_in_same_tx_with_revert(  # noqa SC200
 @pytest.fixture
 def pre_with_selfdestructable(  # noqa: SC200
     recursive_revert_contract_address: Address,
-    recursive_revert_contract_code: SupportsBytes,
+    recursive_revert_contract_code: Bytecode,
     selfdestruct_with_transfer_initcode_copy_from_address: Address,
-    selfdestruct_with_transfer_contract_initcode: SupportsBytes,
+    selfdestruct_with_transfer_contract_initcode: Bytecode,
     selfdestruct_with_transfer_contract_address: Address,
     yul: YulCompiler,
 ) -> Dict[Address, Account]:
@@ -337,11 +343,11 @@ def test_selfdestruct_not_created_in_same_tx_with_revert(
     env: Environment,
     entry_code_address: Address,
     selfdestruct_on_outer_call: int,
-    selfdestruct_with_transfer_contract_code: SupportsBytes,
+    selfdestruct_with_transfer_contract_code: Bytecode,
     selfdestruct_with_transfer_contract_address: Address,
     selfdestruct_recipient_address: Address,
     recursive_revert_contract_address: Address,
-    recursive_revert_contract_code: SupportsBytes,
+    recursive_revert_contract_code: Bytecode,
 ):
     """
     Same test as selfdestruct_created_in_same_tx_with_revert except selfdestructable contract
@@ -378,9 +384,9 @@ def test_selfdestruct_not_created_in_same_tx_with_revert(
             storage=Storage(
                 {
                     # 2 value transfers: 1 in outer call, 1 in reverted inner call
-                    0: 1,
+                    0: 1,  # type: ignore
                     # 1 selfdestruct in reverted inner call
-                    1: 1,
+                    1: 1,  # type: ignore
                 }
             ),
         )
@@ -394,9 +400,9 @@ def test_selfdestruct_not_created_in_same_tx_with_revert(
             storage=Storage(
                 {
                     # 2 value transfers: 1 in outer call, 1 in reverted inner call
-                    0: 1,
+                    0: 1,  # type: ignore
                     # 2 selfdestructs: 1 in outer call, 1 in reverted inner call # noqa SC100
-                    1: 0,
+                    1: 0,  # type: ignore
                 }
             ),
         )

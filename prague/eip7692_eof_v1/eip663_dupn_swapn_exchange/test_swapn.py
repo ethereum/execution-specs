@@ -28,10 +28,9 @@ def test_swapn_all_valid_immediates(eof_state_test: EOFStateTestFiller):
     eof_code = Container(
         sections=[
             Section.Code(
-                code=b"".join(Op.PUSH2(v) for v in values)
-                + b"".join(Op.SSTORE(x, Op.SWAPN[0xFF - x]) for x in range(0, n))
+                code=sum(Op.PUSH2[v] for v in values)
+                + sum(Op.SSTORE(x, Op.SWAPN[0xFF - x]) for x in range(0, n))
                 + Op.STOP,
-                max_stack_height=n + 2,
             )
         ],
     )
@@ -64,10 +63,9 @@ def test_swapn_on_max_stack(
     eof_code = Container(
         sections=[
             Section.Code(
-                code=b"".join(Op.PUSH2(v) for v in range(0, MAX_OPERAND_STACK_HEIGHT))
+                code=sum(Op.PUSH2[v] for v in range(0, MAX_OPERAND_STACK_HEIGHT))
                 + Op.SWAPN[swapn_operand]
                 + Op.STOP,
-                max_stack_height=MAX_OPERAND_STACK_HEIGHT,
             )
         ],
     )
@@ -95,7 +93,7 @@ def test_swapn_stack_underflow(
     eof_code = Container(
         sections=[
             Section.Code(
-                code=b"".join(Op.PUSH2(v) for v in range(0, stack_height))
+                code=sum(Op.PUSH2[v] for v in range(0, stack_height))
                 + Op.SWAPN[stack_height]
                 + Op.STOP,
                 max_stack_height=MAX_OPERAND_STACK_HEIGHT,

@@ -159,18 +159,16 @@ INITCODE_ZEROS_49121_BYTES = Initcode(
 )
 
 EMPTY_INITCODE = Initcode(
-    deploy_code=bytes(),
     name="empty",
 )
-EMPTY_INITCODE.bytecode = bytes()
+EMPTY_INITCODE._bytes_ = bytes()
 EMPTY_INITCODE.deployment_gas = 0
 EMPTY_INITCODE.execution_gas = 0
 
 SINGLE_BYTE_INITCODE = Initcode(
-    deploy_code=bytes(),
     name="single_byte",
 )
-SINGLE_BYTE_INITCODE.bytecode = bytes(Op.STOP)
+SINGLE_BYTE_INITCODE._bytes_ = bytes(Op.STOP)
 SINGLE_BYTE_INITCODE.deployment_gas = 0
 SINGLE_BYTE_INITCODE.execution_gas = 0
 
@@ -179,12 +177,12 @@ Test cases using a contract creating transaction
 """
 
 
-def get_initcode_name(val):
+def get_initcode_name(val: Initcode):
     """
     Helper function that returns an Initcode object's name to generate test
     ids.
     """
-    return val.name
+    return val._name_
 
 
 @pytest.mark.parametrize(
@@ -244,7 +242,6 @@ def test_contract_creating_tx(state_test: StateTestFiller, initcode: Initcode):
         post=post,
         tx=tx,
         env=env,
-        tag=f"{initcode.name}",
     )
 
 
@@ -427,7 +424,6 @@ class TestContractCreationGasUsage:
             post=post,
             tx=tx,
             env=env,
-            tag=f"{initcode.name}_{gas_test_case}",
         )
 
 
@@ -619,5 +615,4 @@ class TestCreateInitcode:
             pre=pre,
             post=post,
             tx=tx,
-            tag=f"{initcode.name}_{opcode}",
         )

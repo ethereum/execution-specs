@@ -28,6 +28,7 @@ from ethereum_test_tools import (
     Address,
     Block,
     BlockchainTestFiller,
+    Bytecode,
     Hash,
     Storage,
     TestAddress,
@@ -278,7 +279,7 @@ def test_beacon_root_selfdestruct(
     )
     post = {
         Address(0xCC): Account(
-            storage=Storage({0: 0xBA1}),
+            storage=Storage({0: 0xBA1}),  # type: ignore
         )
     }
     blockchain_test(
@@ -377,7 +378,7 @@ def test_multi_block_beacon_root_timestamp_calls(
 
         withdraw_index = count(0)
 
-        current_call_account_code = bytes()
+        current_call_account_code = Bytecode()
         current_call_account_expected_storage = Storage()
         current_call_account_address = Address(0x100 + i)
 
@@ -501,7 +502,7 @@ def test_beacon_root_transition(
 
         withdraw_index = count(0)
 
-        current_call_account_code = bytes()
+        current_call_account_code = Bytecode()
         current_call_account_expected_storage = Storage()
         current_call_account_address = Address(0x100 + i)
 

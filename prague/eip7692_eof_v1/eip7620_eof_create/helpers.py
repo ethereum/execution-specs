@@ -35,10 +35,7 @@ smallest_runtime_subcontainer = Container(
 smallest_initcode_subcontainer = Container(
     name="Initcode Subcontainer",
     sections=[
-        Section.Code(
-            code=Op.RETURNCONTRACT[0](0, 0),
-            max_stack_height=2,
-        ),
+        Section.Code(code=Op.RETURNCONTRACT[0](0, 0)),
         Section.Container(container=smallest_runtime_subcontainer),
     ],
 )

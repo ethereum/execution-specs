@@ -6,7 +6,7 @@ from functools import cached_property
 from hashlib import sha256 as sha256_hashlib
 from typing import Callable, ClassVar, List
 
-from ethereum_test_tools import EOA, Address, Alloc
+from ethereum_test_tools import EOA, Address, Alloc, Bytecode
 from ethereum_test_tools import DepositRequest as DepositRequestBase
 from ethereum_test_tools import Hash
 from ethereum_test_tools import Opcodes as Op
@@ -186,15 +186,15 @@ class DepositContract(DepositInteractionBase):
     """
     Frame depth of the beacon chain deposit contract when it executes the deposit requests.
     """
-    extra_code: bytes = b""
+    extra_code: Bytecode = field(default_factory=Bytecode)
     """
     Extra code to be included in the contract that sends the deposit requests.
     """
 
     @property
-    def contract_code(self) -> bytes:
+    def contract_code(self) -> Bytecode:
         """Contract code used by the relay contract."""
-        code = b""
+        code = Bytecode()
         current_offset = 0
         for r in self.requests:
             value_arg = [r.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []

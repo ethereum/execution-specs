@@ -9,7 +9,7 @@ from typing import Dict
 
 import pytest
 
-from ethereum_test_tools import Account, CalldataCase, Environment, Initcode
+from ethereum_test_tools import Account, Bytecode, CalldataCase, Environment, Initcode
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
     StateTestFiller,
@@ -37,7 +37,7 @@ CREATE_CODE = Op.EXTCODECOPY(
 ) + Op.CREATE(0, 0, Op.EXTCODESIZE(copy_from_initcode_address))
 
 
-def call_option(option_number: int) -> bytes:
+def call_option(option_number: int) -> Bytecode:
     """
     Return the bytecode for a call to the callee contract with the given option number.
     """
@@ -62,7 +62,6 @@ class SelfDestructCases(PytestParameterEnum):
         + Op.SSTORE(1, call_option(2))
         + Op.SSTORE(2, Op.MLOAD(0)),
         "callee_bytecode": Switch(
-            default_action=b"",
             cases=[
                 CalldataCase(value=1, action=Op.TSTORE(0xFF, 0x100) + Op.SELFDESTRUCT(0)),
                 CalldataCase(value=2, action=Op.MSTORE(0, Op.TLOAD(0xFF)) + Op.RETURN(0, 32)),
@@ -87,7 +86,6 @@ class SelfDestructCases(PytestParameterEnum):
         + Op.SSTORE(2, call_option(2))
         + Op.SSTORE(3, Op.MLOAD(0)),
         "callee_bytecode": Switch(
-            default_action=b"",
             cases=[
                 CalldataCase(value=1, action=Op.TSTORE(0xFF, 0x100) + Op.SELFDESTRUCT(0)),
                 CalldataCase(value=2, action=Op.MSTORE(0, Op.TLOAD(0xFF)) + Op.RETURN(0, 32)),
@@ -109,7 +107,6 @@ class SelfDestructCases(PytestParameterEnum):
         "pre_existing_contract": True,
         "caller_bytecode": Op.SSTORE(0, call_option(1)) + Op.SSTORE(1, Op.MLOAD(0)),
         "callee_bytecode": Switch(
-            default_action=b"",
             cases=[
                 CalldataCase(
                     value=1,
@@ -138,7 +135,6 @@ class SelfDestructCases(PytestParameterEnum):
             Op.SSTORE(0, CREATE_CODE) + Op.SSTORE(1, call_option(1)) + Op.SSTORE(2, Op.MLOAD(0))
         ),
         "callee_bytecode": Switch(
-            default_action=b"",
             cases=[
                 CalldataCase(
                     value=1,
@@ -168,7 +164,6 @@ class SelfDestructCases(PytestParameterEnum):
         + Op.SSTORE(2, call_option(3))
         + Op.SSTORE(3, Op.MLOAD(0)),
         "callee_bytecode": Switch(
-            default_action=b"",
             cases=[
                 CalldataCase(value=1, action=Op.SELFDESTRUCT(0)),
                 CalldataCase(value=2, action=Op.TSTORE(0xFF, 0x100)),
@@ -195,7 +190,6 @@ class SelfDestructCases(PytestParameterEnum):
         + Op.SSTORE(3, call_option(3))
         + Op.SSTORE(4, Op.MLOAD(0)),
         "callee_bytecode": Switch(
-            default_action=b"",
             cases=[
                 CalldataCase(value=1, action=Op.SELFDESTRUCT(0)),
                 CalldataCase(value=2, action=Op.TSTORE(0xFF, 0x100)),

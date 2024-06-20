@@ -28,10 +28,9 @@ def test_dupn_all_valid_immediates(eof_state_test: EOFStateTestFiller):
     eof_code = Container(
         sections=[
             Section.Code(
-                code=b"".join(Op.PUSH2(v) for v in values)
-                + b"".join(Op.SSTORE(x, Op.DUPN[x]) for x in range(0, n))
+                code=sum(Op.PUSH2[v] for v in values)
+                + sum(Op.SSTORE(x, Op.DUPN[x]) for x in range(0, n))
                 + Op.STOP,
-                max_stack_height=n + 2,
             )
         ],
     )
@@ -68,7 +67,7 @@ def test_dupn_stack_underflow(
     eof_code = Container(
         sections=[
             Section.Code(
-                code=b"".join(Op.PUSH2(v) for v in range(0, stack_height))
+                code=sum(Op.PUSH2[v] for v in range(0, stack_height))
                 + Op.DUPN[stack_height]
                 + Op.STOP,
                 max_stack_height=max_stack_height,
@@ -103,7 +102,7 @@ def test_dupn_stack_overflow(
     eof_code = Container(
         sections=[
             Section.Code(
-                code=b"".join(Op.PUSH2(v) for v in range(0, MAX_OPERAND_STACK_HEIGHT))
+                code=sum(Op.PUSH2[v] for v in range(0, MAX_OPERAND_STACK_HEIGHT))
                 + Op.DUPN[dupn_operand]
                 + Op.STOP,
                 max_stack_height=max_stack_height,

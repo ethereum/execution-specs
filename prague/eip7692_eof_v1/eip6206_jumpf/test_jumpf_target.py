@@ -75,7 +75,7 @@ def test_jumpf_target_rules(
     )
 
     base_code = (
-        bytes(Op.JUMPF[source_section_index])
+        Op.JUMPF[source_section_index]
         if source_non_returning
         else (Op.CALLF[source_section_index](0, 0) + Op.STOP)
     )
@@ -89,16 +89,13 @@ def test_jumpf_target_rules(
         sections=[
             Section.Code(
                 code=base_code,
-                code_inputs=0,
                 max_stack_height=base_height,
             ),
             source_section,
             target_section,
             Section.Code(
                 code=Op.SSTORE(slot_code_worked, value_code_worked) + Op.RETF,
-                code_inputs=0,
                 code_outputs=0,
-                max_stack_height=2,
             ),
         ],
     )

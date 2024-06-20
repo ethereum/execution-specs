@@ -6,7 +6,7 @@ from functools import cached_property
 from itertools import count
 from typing import Callable, ClassVar, List
 
-from ethereum_test_tools import EOA, Address, Alloc
+from ethereum_test_tools import EOA, Address, Alloc, Bytecode
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import Transaction
 from ethereum_test_tools import WithdrawalRequest as WithdrawalRequestBase
@@ -159,15 +159,15 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
     """
     Frame depth of the pre-deploy contract when it executes the call.
     """
-    extra_code: bytes = b""
+    extra_code: Bytecode = field(default_factory=Bytecode)
     """
     Extra code to be added to the contract code.
     """
 
     @property
-    def contract_code(self) -> bytes:
+    def contract_code(self) -> Bytecode:
         """Contract code used by the relay contract."""
-        code = b""
+        code = Bytecode()
         current_offset = 0
         for r in self.requests:
             value_arg = [r.value] if self.call_type in (Op.CALL, Op.CALLCODE) else []

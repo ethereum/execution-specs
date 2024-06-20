@@ -32,6 +32,7 @@ from ethereum_test_tools import (
     Block,
     BlockchainTestFiller,
     BlockException,
+    Bytecode,
     Environment,
     Hash,
     Header,
@@ -168,7 +169,7 @@ def tx_exact_cost(  # noqa: D103
 
 
 @pytest.fixture
-def destination_account_bytecode() -> bytes:  # noqa: D103
+def destination_account_bytecode() -> Bytecode:  # noqa: D103
     # Verify that the BLOBBASEFEE opcode reflects the current blob gas cost
     return Op.SSTORE(0, Op.BLOBBASEFEE)
 
@@ -180,7 +181,7 @@ def destination_account() -> Address:  # noqa: D103
 
 @pytest.fixture
 def pre(  # noqa: D103
-    destination_account: Address, destination_account_bytecode: bytes, tx_exact_cost: int
+    destination_account: Address, destination_account_bytecode: Bytecode, tx_exact_cost: int
 ) -> Mapping[Address, Account]:
     return {
         TestAddress: Account(balance=tx_exact_cost),

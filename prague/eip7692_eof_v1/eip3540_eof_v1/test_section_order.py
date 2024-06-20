@@ -17,7 +17,6 @@ from ethereum_test_tools.eof.v1 import (
     Section,
     SectionKind,
 )
-from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 
 from .. import EOF_FORK_NAME
 
@@ -171,9 +170,6 @@ def test_section_order(
 
     section_code = Section.Code(
         code=Op.ADDRESS + Op.POP + Op.STOP,
-        code_inputs=0,
-        code_outputs=NON_RETURNING_SECTION,
-        max_stack_height=1,
         skip_header_listing=calculate_skip_flag(SectionKind.CODE, CasePosition.HEADER),
         skip_body_listing=calculate_skip_flag(SectionKind.CODE, CasePosition.BODY),
     )

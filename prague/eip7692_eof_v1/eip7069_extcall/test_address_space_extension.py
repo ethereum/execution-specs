@@ -106,7 +106,6 @@ def test_address_space_extension(
                     + Op.SSTORE(slot_target_returndata, Op.MLOAD(0))
                     + Op.STOP,
                     code_inputs=0,
-                    max_stack_height=1 + len(call_suffix),
                 )
             ],
         )
@@ -155,7 +154,6 @@ def test_address_space_extension(
                     sections=[
                         Section.Code(
                             code=Op.MSTORE(0, Op.ADDRESS) + Op.RETURN(0, 32),
-                            max_stack_height=2,
                         )
                     ],
                 ),

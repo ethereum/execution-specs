@@ -8,17 +8,6 @@ from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.eof.v1.constants import MAX_CODE_SECTIONS
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-
-def bytes_concatenate(bytes_list: List[bytes]) -> bytes:
-    """
-    Concatenates a list of bytes into a single object
-    """
-    r = bytes()
-    for b in bytes_list:
-        r += b
-    return r
-
-
 VALID: List[Container] = [
     Container(
         name="retf_code_input_output",
@@ -63,9 +52,7 @@ VALID: List[Container] = [
         name="callf_max_code_sections_1",
         sections=[
             Section.Code(
-                code=(
-                    bytes_concatenate([Op.CALLF[i] for i in range(1, MAX_CODE_SECTIONS)]) + Op.STOP
-                ),
+                code=(sum(Op.CALLF[i] for i in range(1, MAX_CODE_SECTIONS)) + Op.STOP),
                 code_inputs=0,
                 code_outputs=0,
                 max_stack_height=0,

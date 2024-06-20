@@ -21,7 +21,6 @@ contract_call_within_deep_nested_callf = Container(
     sections=[
         Section.Code(
             code=(Op.CALLF[1] + Op.SSTORE(0, 1) + Op.STOP),
-            max_stack_height=2,
         )
     ]
     + [
@@ -31,7 +30,6 @@ contract_call_within_deep_nested_callf = Container(
             code=(Op.CALLF[i] + Op.SSTORE(i - 1, 1) + Op.RETF),
             code_inputs=0,
             code_outputs=0,
-            max_stack_height=2,
         )
         for i in range(2, MAX_CODE_SECTIONS)
     ]
@@ -43,7 +41,6 @@ contract_call_within_deep_nested_callf = Container(
             ),
             code_inputs=0,
             code_outputs=0,
-            max_stack_height=4,
         )
     ],
 )
@@ -55,7 +52,6 @@ recursive_contract_call_within_deep_nested_callf = Container(
         # to their call stack height key
         Section.Code(
             code=(Op.CALLF[i + 1] + Op.PUSH1(1) + Op.PUSH2(i) + Op.SSTORE + Op.STOP),
-            max_stack_height=2,
         )
         for i in range(MAX_CODE_SECTIONS - 1)
     ]
@@ -67,7 +63,6 @@ recursive_contract_call_within_deep_nested_callf = Container(
             ),
             code_inputs=0,
             code_outputs=0,
-            max_stack_height=7,
         )
     ],
 )
@@ -95,31 +90,26 @@ def create_data_test(offset: int, datasize: int):
                         + Op.SSTORE(0, 1)
                         + Op.STOP
                     ),
-                    max_stack_height=2,
                 ),
                 Section.Code(
                     code=(Op.PUSH2(offset) + Op.DATALOAD + Op.PUSH1(1) + Op.SSTORE + Op.RETF),
                     code_inputs=0,
                     code_outputs=0,
-                    max_stack_height=2,
                 ),
                 Section.Code(
                     code=(dataloadn_op + Op.PUSH1(2) + Op.SSTORE + Op.RETF),
                     code_inputs=0,
                     code_outputs=0,
-                    max_stack_height=2,
                 ),
                 Section.Code(
                     code=(Op.DATASIZE + Op.PUSH1(3) + Op.SSTORE + Op.RETF),
                     code_inputs=0,
                     code_outputs=0,
-                    max_stack_height=2,
                 ),
                 Section.Code(
                     code=(Op.DATACOPY(0, offset, 32) + Op.SSTORE(4, Op.MLOAD(0)) + Op.RETF),
                     code_inputs=0,
                     code_outputs=0,
-                    max_stack_height=3,
                 ),
                 Section.Data(data),
             ],

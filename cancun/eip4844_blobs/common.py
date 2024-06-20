@@ -336,24 +336,24 @@ class BlobhashScenario:
         Returns BLOBHASH bytecode for the given scenario.
         """
         scenarios = {
-            "single_valid": b"".join(
+            "single_valid": sum(
                 cls.blobhash_sstore(i) for i in range(SpecHelpers.max_blobs_per_block())
             ),
-            "repeated_valid": b"".join(
-                b"".join(cls.blobhash_sstore(i) for _ in range(10))
+            "repeated_valid": sum(
+                sum(cls.blobhash_sstore(i) for _ in range(10))
                 for i in range(SpecHelpers.max_blobs_per_block())
             ),
-            "valid_invalid": b"".join(
+            "valid_invalid": sum(
                 cls.blobhash_sstore(i)
                 + cls.blobhash_sstore(SpecHelpers.max_blobs_per_block())
                 + cls.blobhash_sstore(i)
                 for i in range(SpecHelpers.max_blobs_per_block())
             ),
-            "varied_valid": b"".join(
+            "varied_valid": sum(
                 cls.blobhash_sstore(i) + cls.blobhash_sstore(i + 1) + cls.blobhash_sstore(i)
                 for i in range(SpecHelpers.max_blobs_per_block() - 1)
             ),
-            "invalid_calls": b"".join(
+            "invalid_calls": sum(
                 cls.blobhash_sstore(i) for i in range(-5, SpecHelpers.max_blobs_per_block() + 5)
             ),
         }

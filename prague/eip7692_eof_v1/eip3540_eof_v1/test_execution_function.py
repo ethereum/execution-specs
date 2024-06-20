@@ -26,7 +26,6 @@ contract_call_within_deep_nested_callf = Container(
     sections=[
         Section.Code(
             code=Op.CALLF[1] + Op.SSTORE(0, 1) + Op.STOP,
-            max_stack_height=2,
         )
     ]
     + [
@@ -36,7 +35,6 @@ contract_call_within_deep_nested_callf = Container(
             code=(Op.CALLF[i] + Op.SSTORE(i - 1, 1) + Op.RETF),
             code_inputs=0,
             code_outputs=0,
-            max_stack_height=2,
         )
         for i in range(2, MAX_CODE_SECTIONS)
     ]
@@ -56,7 +54,6 @@ contract_call_within_deep_nested_callf = Container(
             ),
             code_inputs=0,
             code_outputs=0,
-            max_stack_height=4,
         )
     ],
 )
@@ -68,7 +65,6 @@ recursive_contract_call_within_deep_nested_callf = Container(
         # to their call stack height key
         Section.Code(
             code=Op.CALLF[i + 1] + Op.SSTORE(i, 1) + Op.STOP,
-            max_stack_height=2,
         )
         for i in range(MAX_CODE_SECTIONS - 1)
     ]
@@ -90,7 +86,6 @@ recursive_contract_call_within_deep_nested_callf = Container(
             ),
             code_inputs=0,
             code_outputs=0,
-            max_stack_height=7,
         )
     ],
 )
@@ -101,13 +96,11 @@ CALL_SUCCEED_CONTRACTS: List[Container] = [
         sections=[
             Section.Code(
                 code=(Op.CALLF[1] + Op.STOP),
-                max_stack_height=0,
             ),
             Section.Code(
                 code=(Op.RETF),
                 code_inputs=0,
                 code_outputs=0,
-                max_stack_height=0,
             ),
         ],
     ),
@@ -116,7 +109,6 @@ CALL_SUCCEED_CONTRACTS: List[Container] = [
         sections=[
             Section.Code(
                 code=(Op.PUSH1(1) + Op.CALLF[1] + Op.STOP),
-                max_stack_height=1,
             ),
             Section.Code(
                 code=(
@@ -172,7 +164,6 @@ CALL_SUCCEED_CONTRACTS: List[Container] = [
         sections=[
             Section.Code(
                 code=(Op.PUSH1(1) + Op.PUSH0 + Op.MSTORE + Op.CALLF[1] + Op.STOP),
-                max_stack_height=2,
             ),
             Section.Code(
                 code=(
@@ -208,7 +199,6 @@ CALL_FAIL_CONTRACTS: List[Container] = [
         sections=[
             Section.Code(
                 code=(Op.INVALID),
-                max_stack_height=0,
             ),
         ],
     ),
@@ -217,7 +207,6 @@ CALL_FAIL_CONTRACTS: List[Container] = [
         sections=[
             Section.Code(
                 code=(Op.PUSH1(1) + Op.CALLF[1] + Op.STOP),
-                max_stack_height=1,
             ),
             Section.Code(
                 code=(
@@ -399,7 +388,6 @@ def test_eof_functions_contract_call_within_deep_nested(
         sections=[
             Section.Code(
                 code=Op.CALLF[1] + Op.SSTORE(0, 1) + Op.STOP,
-                max_stack_height=2,
             )
         ]
         + [
@@ -408,7 +396,6 @@ def test_eof_functions_contract_call_within_deep_nested(
             Section.Code(
                 code=(Op.CALLF[i] + Op.SSTORE(i - 1, 1) + Op.RETF),
                 code_outputs=0,
-                max_stack_height=2,
             )
             for i in range(2, MAX_CODE_SECTIONS)
         ]
@@ -423,7 +410,6 @@ def test_eof_functions_contract_call_within_deep_nested(
                     + Op.RETF
                 ),
                 code_outputs=0,
-                max_stack_height=4,
             )
         ],
     )

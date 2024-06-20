@@ -6,7 +6,7 @@ from typing import SupportsBytes
 import pytest
 from ethereum.crypto.hash import keccak256
 
-from ethereum_test_tools import EOA, Address, Alloc, Storage, Transaction
+from ethereum_test_tools import EOA, Address, Alloc, Bytecode, Storage, Transaction
 from ethereum_test_tools.vm import Opcodes as Op
 
 from .spec import GAS_CALCULATION_FUNCTION_MAP
@@ -69,7 +69,7 @@ def call_contract_code(
     call_succeeds: bool,
     call_opcode: Op,
     call_contract_post_storage: Storage,
-) -> bytes:
+) -> Bytecode:
     """
     Code of the test contract.
 
@@ -128,7 +128,7 @@ def call_contract_code(
 
 
 @pytest.fixture
-def call_contract_address(pre: Alloc, call_contract_code: bytes) -> Address:
+def call_contract_address(pre: Alloc, call_contract_code: Bytecode) -> Address:
     """Address where the test contract will be deployed."""
     return pre.deploy_contract(call_contract_code)
 

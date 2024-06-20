@@ -8,7 +8,15 @@ from itertools import count
 
 import pytest
 
-from ethereum_test_tools import Account, Address, Alloc, Block, BlockchainTestFiller, Environment
+from ethereum_test_tools import (
+    Account,
+    Address,
+    Alloc,
+    Block,
+    BlockchainTestFiller,
+    Bytecode,
+    Environment,
+)
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, Storage, TestAddress, Transaction
 
@@ -33,7 +41,7 @@ def call_gas() -> int:
 @pytest.fixture
 def caller_code(
     call_gas: int,
-) -> bytes:
+) -> Bytecode:
     """
     Bytecode used to call the bytecode containing the BLOBBASEFEE opcode.
     """
@@ -41,17 +49,17 @@ def caller_code(
 
 
 @pytest.fixture
-def callee_code() -> bytes:
+def callee_code() -> Bytecode:
     """
     Bytecode under test, by default, only call the BLOBBASEFEE opcode.
     """
-    return bytes(Op.BLOBBASEFEE + Op.STOP)
+    return Op.BLOBBASEFEE + Op.STOP
 
 
 @pytest.fixture
 def pre(
-    caller_code: bytes,
-    callee_code: bytes,
+    caller_code: Bytecode,
+    callee_code: Bytecode,
 ) -> Alloc:
     """
     Prepares the pre state of all test cases, by setting the balance of the

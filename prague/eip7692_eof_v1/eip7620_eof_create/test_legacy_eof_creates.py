@@ -2,13 +2,13 @@
 Test interactions between CREATE, CREATE2, and EOFCREATE
 """
 
-from typing import SupportsBytes
 
 import pytest
 
 from ethereum_test_tools import Account, Alloc, Environment
 from ethereum_test_tools import Initcode as LegacyInitcode
 from ethereum_test_tools import StateTestFiller, Transaction
+from ethereum_test_tools.eof.v1 import Container
 from ethereum_test_tools.vm.opcode import Opcodes
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -46,7 +46,7 @@ def test_cross_version_creates_fail(
     state_test: StateTestFiller,
     pre: Alloc,
     legacy_create_opcode: Opcodes,
-    deploy_code: SupportsBytes,
+    deploy_code: Container,
 ):
     """
     Verifies that CREATE and CREATE2 cannot create EOF contracts
@@ -106,7 +106,7 @@ def test_legacy_initcode_eof_contract_fails(
     state_test: StateTestFiller,
     pre: Alloc,
     legacy_create_opcode: Opcodes,
-    deploy_code: SupportsBytes,
+    deploy_code: Container,
 ):
     """
     Verifies that legacy initcode cannot create EOF

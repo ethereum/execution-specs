@@ -7,7 +7,7 @@ from typing import List, SupportsBytes
 
 import pytest
 
-from ethereum_test_tools import Alloc, Environment
+from ethereum_test_tools import Alloc, Bytecode, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, Storage, Transaction
 
@@ -40,7 +40,7 @@ def call_contract_code(
     expected_output: bytes | SupportsBytes,
     call_opcode: Op,
     call_contract_post_storage: Storage,
-) -> bytes:
+) -> Bytecode:
     """
     Code of the test contract to validate minimum expected gas in precompiles, as well as
     expected input lengths on all variable-length input precompiles.
@@ -76,7 +76,7 @@ def call_contract_code(
     assert call_opcode in [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL]
     value = [0] if call_opcode in [Op.CALL, Op.CALLCODE] else []
 
-    code = b""
+    code = Bytecode()
     for precompile_gas, precompile_args_length in zip(
         precompile_gas_list, precompile_data_length_list
     ):

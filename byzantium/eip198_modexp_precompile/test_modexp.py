@@ -233,7 +233,7 @@ def test_modexp(
                     # in memory at offset 0 (memory right-aligns stack items which are not
                     # 32 bytes)
                     Op.PUSH32(
-                        (
+                        bytes(
                             Op.CODECOPY(0, 16, Op.SUB(Op.CODESIZE(), 16))
                             + Op.RETURN(0, Op.SUB(Op.CODESIZE, 16))
                         ).ljust(32, bytes(1))

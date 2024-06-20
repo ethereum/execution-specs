@@ -32,6 +32,7 @@ from ethereum_test_tools import (
     Account,
     Address,
     Alloc,
+    Bytecode,
     Environment,
     StateTestFiller,
     Transaction,
@@ -62,7 +63,7 @@ CALLCODE_SUFFICIENT_GAS = CALLCODE_GAS + CALLEE_INIT_STACK_GAS
 
 
 @pytest.fixture
-def callee_code(callee_opcode: Op) -> bytes:
+def callee_code(callee_opcode: Op) -> Bytecode:
     """
     Code called by the caller contract:
         PUSH1 0x00 * 4
@@ -83,7 +84,7 @@ def sender(pre: Alloc) -> EOA:
 
 
 @pytest.fixture
-def callee_address(pre: Alloc, callee_code: bytes) -> Address:
+def callee_address(pre: Alloc, callee_code: Bytecode) -> Address:
     """
     Address of the callee.
     """
@@ -91,7 +92,7 @@ def callee_address(pre: Alloc, callee_code: bytes) -> Address:
 
 
 @pytest.fixture
-def caller_code(caller_gas_limit: int, callee_address: Address) -> bytes:
+def caller_code(caller_gas_limit: int, callee_address: Address) -> Bytecode:
     """
     Code to CALL the callee contract:
         PUSH1 0x00 * 5
@@ -105,7 +106,7 @@ def caller_code(caller_gas_limit: int, callee_address: Address) -> bytes:
 
 
 @pytest.fixture
-def caller_address(pre: Alloc, caller_code: bytes) -> Address:
+def caller_address(pre: Alloc, caller_code: Bytecode) -> Address:
     """
     Code to CALL the callee contract:
         PUSH1 0x00 * 5

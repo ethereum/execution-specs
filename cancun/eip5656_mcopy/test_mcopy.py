@@ -8,7 +8,7 @@ from typing import Mapping, Tuple
 import pytest
 from ethereum.crypto.hash import keccak256
 
-from ethereum_test_tools import Account, Environment, Hash
+from ethereum_test_tools import Account, Bytecode, Environment, Hash
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
     StateTestFiller,
@@ -50,12 +50,12 @@ def bytecode_storage(
     dest: int,
     src: int,
     length: int,
-) -> Tuple[bytes, Storage]:
+) -> Tuple[Bytecode, Storage]:
     """
     Prepares the bytecode and storage for the test, based on the starting memory and the final
     memory that resulted from the copy.
     """
-    bytecode = b""
+    bytecode = Bytecode()
     storage = Storage()
 
     # Fill memory with initial values
@@ -104,7 +104,7 @@ def bytecode_storage(
 
 
 @pytest.fixture
-def pre(bytecode_storage: Tuple[bytes, Storage]) -> Mapping:  # noqa: D103
+def pre(bytecode_storage: Tuple[Bytecode, Storage]) -> Mapping:  # noqa: D103
     return {
         TestAddress: Account(balance=10**40),
         code_address: Account(code=bytecode_storage[0]),
@@ -121,7 +121,7 @@ def tx(dest: int, src: int, length: int) -> Transaction:  # noqa: D103
 
 
 @pytest.fixture
-def post(bytecode_storage: Tuple[bytes, Storage]) -> Mapping:  # noqa: D103
+def post(bytecode_storage: Tuple[Bytecode, Storage]) -> Mapping:  # noqa: D103
     return {
         code_address: Account(storage=bytecode_storage[1]),
     }

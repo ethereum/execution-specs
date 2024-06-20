@@ -7,7 +7,15 @@ from typing import Dict, List
 
 import pytest
 
-from ethereum_test_tools import Account, Address, Alloc, Block, BlockchainTestFiller, Environment
+from ethereum_test_tools import (
+    Account,
+    Address,
+    Alloc,
+    Block,
+    BlockchainTestFiller,
+    Bytecode,
+    Environment,
+)
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import Storage, Transaction
 
@@ -25,7 +33,7 @@ def generate_block_check_code(
     populated_contract: bool,
     storage: Storage,
     check_contract_first: bool = False,
-) -> bytes:
+) -> Bytecode:
     """
     Generate EVM code to check that the blockhashes are correctly stored in the state.
 
@@ -38,7 +46,7 @@ def generate_block_check_code(
     """
     if block_number is None:
         # No block number to check
-        return b""
+        return Bytecode()
 
     blockhash_key = storage.store_next(not populated_blockhash)
     contract_key = storage.store_next(not populated_contract)
@@ -105,7 +113,7 @@ def test_block_hashes_history_at_transition(
             # On the last block before the fork, BLOCKHASH must return values for the last 256
             # blocks but not for the blocks before that.
             # And HISTORY_STORAGE_ADDRESS should be empty.
-            code = b""
+            code = Bytecode()
             storage = Storage()
 
             # Check the last block before the window
@@ -149,7 +157,7 @@ def test_block_hashes_history_at_transition(
     # On the block after the fork, BLOCKHASH must return values for the last
     # Spec.HISTORY_SERVE_WINDOW blocks.
     # And HISTORY_STORAGE_ADDRESS should be also serve the same values.
-    code = b""
+    code = Bytecode()
     storage = Storage()
 
     # Check the last block before the window

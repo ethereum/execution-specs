@@ -9,7 +9,7 @@ from enum import unique
 
 import pytest
 
-from ethereum_test_tools import Account, Code, CodeGasMeasure, Environment
+from ethereum_test_tools import Account, Bytecode, CodeGasMeasure, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, TestAddress, Transaction
 
@@ -34,7 +34,7 @@ def test_transient_storage_unset_values(state_test: StateTestFiller):
     env = Environment()
 
     slots_under_test = [0, 1, 2, 2**128, 2**256 - 1]
-    code = b"".join([Op.SSTORE(slot, Op.TLOAD(slot)) for slot in slots_under_test])
+    code = sum(Op.SSTORE(slot, Op.TLOAD(slot)) for slot in slots_under_test)
 
     pre = {
         TestAddress: Account(balance=10_000_000),
@@ -67,8 +67,8 @@ def test_tload_after_tstore(state_test: StateTestFiller):
     env = Environment()
 
     slots_under_test = [0, 1, 2, 2**128, 2**256 - 1]
-    code = b"".join(
-        [Op.TSTORE(slot, slot) + Op.SSTORE(slot, Op.TLOAD(slot)) for slot in slots_under_test]
+    code = sum(
+        Op.TSTORE(slot, slot) + Op.SSTORE(slot, Op.TLOAD(slot)) for slot in slots_under_test
     )
 
     pre = {
@@ -102,11 +102,9 @@ def test_tload_after_sstore(state_test: StateTestFiller):
     env = Environment()
 
     slots_under_test = [1, 3, 2**128, 2**256 - 1]
-    code = b"".join(
-        [
-            Op.SSTORE(slot - 1, 0xFF) + Op.SSTORE(slot, Op.TLOAD(slot - 1))
-            for slot in slots_under_test
-        ]
+    code = sum(
+        Op.SSTORE(slot - 1, 0xFF) + Op.SSTORE(slot, Op.TLOAD(slot - 1))
+        for slot in slots_under_test
     )
 
     pre = {
@@ -148,8 +146,8 @@ def test_tload_after_tstore_is_zero(state_test: StateTestFiller):
     slots_to_read = [slot - 1 for slot in slots_to_write] + [slot + 1 for slot in slots_to_write]
     assert set.intersection(set(slots_to_write), set(slots_to_read)) == set()
 
-    code = b"".join([Op.TSTORE(slot, 1234) for slot in slots_to_write]) + b"".join(
-        [Op.SSTORE(slot, Op.TLOAD(slot)) for slot in slots_to_read]
+    code = sum(Op.TSTORE(slot, 1234) for slot in slots_to_write) + sum(
+        Op.SSTORE(slot, Op.TLOAD(slot)) for slot in slots_to_read
     )
 
     pre = {
@@ -218,7 +216,7 @@ class GasMeasureTestCases(PytestParameterEnum):
 @GasMeasureTestCases.parametrize()
 def test_gas_usage(
     state_test: StateTestFiller,
-    bytecode: Code,
+    bytecode: Bytecode,
     expected_gas: int,
     overhead_cost: int,
     extra_stack_items: int,
@@ -273,7 +271,7 @@ class LoopRunUntilOutOfGasCases(PytestParameterEnum):
 @LoopRunUntilOutOfGasCases.parametrize()
 def test_run_until_out_of_gas(
     state_test: StateTestFiller,
-    repeat_bytecode: bytes,
+    repeat_bytecode: Bytecode,
     bytecode_repeat_times: int,
 ):
     """

@@ -31,7 +31,6 @@ def test_rjump_positive_negative(
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP
                     + Op.RJUMP[-10],
-                    max_stack_height=2,
                 )
             ],
         ),
@@ -53,7 +52,6 @@ def test_rjump_positive_negative_with_data(
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP
                     + Op.RJUMP[-10],
-                    max_stack_height=2,
                 ),
                 Section.Data(data=b"\xde\xad\xbe\xef"),
             ],
@@ -71,7 +69,6 @@ def test_rjump_zero(
             sections=[
                 Section.Code(
                     code=Op.RJUMP[0] + Op.SSTORE(slot_code_worked, value_code_worked) + Op.STOP,
-                    max_stack_height=2,
                 )
             ],
         ),
@@ -94,7 +91,6 @@ def test_rjump_maxes(
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP
                     + Op.RJUMP[0x8000],
-                    max_stack_height=2,
                 )
             ],
         ),
@@ -280,7 +276,6 @@ def test_rjump_into_rjumpi(
             sections=[
                 Section.Code(
                     code=Op.RJUMP[5] + Op.STOP + Op.PUSH1(1) + Op.RJUMPI[-6] + Op.STOP,
-                    max_stack_height=1,
                 )
             ],
         ),
@@ -297,7 +292,7 @@ def test_rjump_into_push_1(eof_test: EOFTestFiller, jump: JumpDirection):
     eof_test(
         data=Container(
             sections=[
-                Section.Code(code=code, max_stack_height=1),
+                Section.Code(code=code),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -363,7 +358,7 @@ def test_rjump_into_push_n(
     eof_test(
         data=Container(
             sections=[
-                Section.Code(code=code, max_stack_height=1),
+                Section.Code(code=code),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
@@ -393,7 +388,6 @@ def test_rjump_into_rjumpv(
                     + Op.PUSH1(1)
                     + Op.RJUMPV[target_jump_table]
                     + Op.STOP,
-                    max_stack_height=1,
                 )
             ],
         ),
@@ -421,7 +415,6 @@ def test_rjump_into_callf(
                 Section.Code(
                     code=Op.SSTORE(1, 1) + Op.RETF,
                     code_outputs=0,
-                    max_stack_height=2,
                 ),
             ],
         ),
@@ -443,7 +436,6 @@ def test_rjump_into_dupn(
                     + Op.DUPN[1]
                     + Op.SSTORE
                     + Op.STOP,
-                    max_stack_height=2,
                 ),
             ],
         ),
@@ -465,7 +457,6 @@ def test_rjump_into_swapn(
                     + Op.SWAPN[1]
                     + Op.SSTORE
                     + Op.STOP,
-                    max_stack_height=2,
                 ),
             ],
         ),
@@ -488,7 +479,6 @@ def test_rjump_into_exchange(
                     + Op.EXCHANGE[0x00]
                     + Op.SSTORE
                     + Op.STOP,
-                    max_stack_height=3,
                 ),
             ],
         ),
@@ -505,14 +495,12 @@ def test_rjump_into_eofcreate(
             sections=[
                 Section.Code(
                     code=Op.RJUMP[1] + Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
-                    max_stack_height=4,
                 ),
                 Section.Container(
                     container=Container(
                         sections=[
                             Section.Code(
                                 code=Op.RETURNCONTRACT[0](0, 0),
-                                max_stack_height=2,
                             ),
                             Section.Container(
                                 container=Container(
@@ -539,14 +527,12 @@ def test_rjump_into_returncontract(
             sections=[
                 Section.Code(
                     code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
-                    max_stack_height=4,
                 ),
                 Section.Container(
                     container=Container(
                         sections=[
                             Section.Code(
                                 code=Op.RJUMP[5] + Op.RETURNCONTRACT[0](0, 0),
-                                max_stack_height=2,
                             ),
                             Section.Container(
                                 container=Container(

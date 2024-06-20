@@ -28,6 +28,7 @@ from ethereum_test_tools import (
     Block,
     BlockchainTestFiller,
     BlockException,
+    Bytecode,
     EngineAPIError,
     Environment,
     Hash,
@@ -1177,7 +1178,7 @@ def opcode(
     tx_max_fee_per_gas: int,
     tx_max_priority_fee_per_gas: int,
     tx_value: int,
-) -> Tuple[bytes, Storage.StorageDictType]:
+) -> Tuple[Bytecode, Storage.StorageDictType]:
     """
     Build bytecode and post to test each opcode that accesses transaction information.
     """
@@ -1233,7 +1234,7 @@ def opcode(
 def test_blob_tx_attribute_opcodes(
     state_test: StateTestFiller,
     pre: Dict,
-    opcode: Tuple[bytes, Storage.StorageDictType],
+    opcode: Tuple[Bytecode, Storage.StorageDictType],
     state_env: Environment,
     txs: List[Transaction],
     destination_account: Address,
@@ -1267,7 +1268,7 @@ def test_blob_tx_attribute_opcodes(
 def test_blob_tx_attribute_value_opcode(
     state_test: StateTestFiller,
     pre: Dict,
-    opcode: Tuple[bytes, Storage.StorageDictType],
+    opcode: Tuple[Bytecode, Storage.StorageDictType],
     state_env: Environment,
     txs: List[Transaction],
     tx_value: int,
@@ -1316,7 +1317,7 @@ def test_blob_tx_attribute_value_opcode(
 def test_blob_tx_attribute_calldata_opcodes(
     state_test: StateTestFiller,
     pre: Dict,
-    opcode: Tuple[bytes, Storage.StorageDictType],
+    opcode: Tuple[Bytecode, Storage.StorageDictType],
     state_env: Environment,
     txs: List[Transaction],
     destination_account: Address,
@@ -1353,7 +1354,7 @@ def test_blob_tx_attribute_calldata_opcodes(
 def test_blob_tx_attribute_gasprice_opcode(
     state_test: StateTestFiller,
     pre: Dict,
-    opcode: Tuple[bytes, Storage.StorageDictType],
+    opcode: Tuple[Bytecode, Storage.StorageDictType],
     state_env: Environment,
     txs: List[Transaction],
     destination_account: Address,

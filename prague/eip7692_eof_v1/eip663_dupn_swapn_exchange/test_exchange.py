@@ -28,11 +28,10 @@ def test_exchange_all_valid_immediates(eof_state_test: EOFStateTestFiller):
     eof_code = Container(
         sections=[
             Section.Code(
-                code=b"".join(Op.PUSH2(v) for v in values)
-                + b"".join(Op.EXCHANGE(x) for x in range(0, n))
-                + b"".join((Op.PUSH1(x) + Op.SSTORE) for x in range(0, s))
+                code=sum(Op.PUSH2[v] for v in values)
+                + sum(Op.EXCHANGE[x] for x in range(0, n))
+                + sum((Op.PUSH1[x] + Op.SSTORE) for x in range(0, s))
                 + Op.STOP,
-                max_stack_height=s + 1,
             )
         ],
     )
@@ -81,7 +80,7 @@ def test_exchange_all_invalid_immediates(
     eof_code = Container(
         sections=[
             Section.Code(
-                code=b"".join(Op.PUSH2(v) for v in range(stack_height))
+                code=sum(Op.PUSH2[v] for v in range(stack_height))
                 + Op.EXCHANGE[x, y]
                 + Op.POP * stack_height
                 + Op.STOP,

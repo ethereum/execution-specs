@@ -8,7 +8,7 @@ from typing import List, Mapping, Tuple
 
 import pytest
 
-from ethereum_test_tools import Account, Environment, OpcodeCallArg
+from ethereum_test_tools import Account, Bytecode, Environment, OpcodeCallArg
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
     StateTestFiller,
@@ -40,12 +40,12 @@ def initial_memory_length() -> int:  # noqa: D103
 def callee_bytecode(
     initial_memory_length: int,
     opcode: Op,
-) -> bytes:
+) -> Bytecode:
     """
     Callee simply performs mcopy operations that should not have any effect on the
     caller context.
     """
-    bytecode = b""
+    bytecode = Bytecode()
 
     # Perform some copy operations
     bytecode += Op.MCOPY(0x00, 0x01, 0x01)
@@ -69,7 +69,7 @@ def callee_bytecode(
 
 @pytest.fixture
 def initial_memory(
-    callee_bytecode: bytes,
+    callee_bytecode: Bytecode,
     initial_memory_length: int,
     opcode: Op,
 ) -> bytes:
@@ -82,7 +82,7 @@ def initial_memory(
 
     if opcode in [Op.CREATE, Op.CREATE2]:
         # We also need to put the callee_bytecode as initcode in memory for create operations
-        ret = callee_bytecode + ret[len(callee_bytecode) :]
+        ret = bytes(callee_bytecode) + ret[len(callee_bytecode) :]
 
     assert len(ret) == initial_memory_length
     return ret
@@ -90,9 +90,9 @@ def initial_memory(
 
 @pytest.fixture
 def caller_bytecode(
-    callee_bytecode: bytes,
+    callee_bytecode: Bytecode,
     opcode: Op,
-) -> bytes:
+) -> Bytecode:
     """
     Bytecode to be used by the top level call to make a successful call to the callee,
     or execute initcode.
@@ -115,13 +115,13 @@ def caller_bytecode(
 @pytest.fixture
 def bytecode_storage(
     initial_memory: bytes,
-    caller_bytecode: bytes,
-) -> Tuple[bytes, Storage.StorageDictType]:
+    caller_bytecode: Bytecode,
+) -> Tuple[Bytecode, Storage.StorageDictType]:
     """
     Prepares the bytecode and storage for the test, based on the starting memory and the final
     memory that resulted from the copy.
     """
-    bytecode = b""
+    bytecode = Bytecode()
     storage: Storage.StorageDictType = {}
 
     # Fill memory with initial values
@@ -146,8 +146,8 @@ def bytecode_storage(
 
 @pytest.fixture
 def pre(  # noqa: D103
-    bytecode_storage: Tuple[bytes, Storage.StorageDictType],
-    callee_bytecode: bytes,
+    bytecode_storage: Tuple[Bytecode, Storage.StorageDictType],
+    callee_bytecode: Bytecode,
 ) -> Mapping:
     return {
         TestAddress: Account(balance=10**40),

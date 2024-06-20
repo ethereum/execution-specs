@@ -705,7 +705,6 @@ for name, section, error in INVALID_OVERFLOW_CODE_SECTION:
 OPCODES_WITH_IMMEDIATE = [op for op in V1_EOF_OPCODES if op.data_portion_length > 0]
 for op in OPCODES_WITH_IMMEDIATE:
     op_stack_code = Op.ORIGIN * op.min_stack_height
-    op_data = bytes([0] * op.data_portion_length)
     opcode_length = 1
     opcode_name = op._name_.lower()
     max_stack_height = op.min_stack_height - op.popped_stack_items + op.pushed_stack_items
@@ -718,12 +717,13 @@ for op in OPCODES_WITH_IMMEDIATE:
                 code=(
                     # Add items to stack necessary to not underflow
                     op_stack_code
-                    + op
-                    + op_data
+                    + op[0]
                     # Code added to reach end at some point
                     + Op.RJUMPI[len(Op.RJUMP)](Op.ORIGIN)
                     # Jump under test
-                    + Op.RJUMP[-(len(Op.RJUMP) + len(Op.RJUMPI) + len(Op.ORIGIN) + len(op_data))]
+                    + Op.RJUMP[
+                        -(len(Op.RJUMP) + len(Op.RJUMPI) + len(Op.ORIGIN) + op.data_portion_length)
+                    ]
                     + Op.STOP
                 ),
                 max_stack_height=max_stack_height,
@@ -738,8 +738,7 @@ for op in OPCODES_WITH_IMMEDIATE:
                 code=(
                     # Add items to stack necessary to not underflow
                     op_stack_code
-                    + op
-                    + op_data
+                    + op[0]
                     # Code added to reach end at some point
                     + Op.RJUMPI[len(Op.RJUMP)](Op.ORIGIN)
                     # Jump under test
@@ -762,8 +761,7 @@ for op in OPCODES_WITH_IMMEDIATE:
                     + Op.RJUMP[len(op_stack_code) + opcode_length]
                     # Add items to stack necessary to not underflow
                     + op_stack_code
-                    + op
-                    + op_data
+                    + op[0]
                     # Jump
                     + Op.STOP
                 ),
@@ -779,11 +777,10 @@ for op in OPCODES_WITH_IMMEDIATE:
                 code=(
                     # Code added to reach end at some point
                     Op.RJUMPI[len(Op.RJUMP)](Op.ORIGIN)
-                    + Op.RJUMP[len(op_stack_code) + opcode_length + len(op_data) - 1]
+                    + Op.RJUMP[len(op_stack_code) + opcode_length + op.data_portion_length - 1]
                     # Add items to stack necessary to not underflow
                     + op_stack_code
-                    + op
-                    + op_data
+                    + op[0]
                     # Jump
                     + Op.STOP
                 ),
@@ -801,10 +798,11 @@ for op in OPCODES_WITH_IMMEDIATE:
                 code=(
                     # Add items to stack necessary to not underflow
                     op_stack_code
-                    + op
-                    + op_data
+                    + op[0]
                     # Jump
-                    + Op.RJUMPI[-(len(Op.RJUMPI) + len(Op.ORIGIN) + len(op_data))](Op.ORIGIN)
+                    + Op.RJUMPI[-(len(Op.RJUMPI) + len(Op.ORIGIN) + op.data_portion_length)](
+                        Op.ORIGIN
+                    )
                     + Op.STOP
                 ),
                 max_stack_height=max_stack_height,
@@ -819,8 +817,7 @@ for op in OPCODES_WITH_IMMEDIATE:
                 code=(
                     # Add items to stack necessary to not underflow
                     op_stack_code
-                    + op
-                    + op_data
+                    + op[0]
                     # Jump
                     + Op.RJUMPI[-(len(Op.RJUMPI) + len(Op.ORIGIN) + 1)](Op.ORIGIN)
                     + Op.STOP
@@ -841,8 +838,7 @@ for op in OPCODES_WITH_IMMEDIATE:
                     Op.RJUMPI[len(op_stack_code) + opcode_length](Op.ORIGIN)
                     # Add items to stack necessary to not underflow
                     + op_stack_code
-                    + op
-                    + op_data
+                    + op[0]
                     + Op.STOP
                 ),
                 max_stack_height=max_stack_height,
@@ -856,11 +852,12 @@ for op in OPCODES_WITH_IMMEDIATE:
             Section.Code(
                 code=(
                     # Jump
-                    Op.RJUMPI[len(op_stack_code) + opcode_length + len(op_data) - 1](Op.ORIGIN)
+                    Op.RJUMPI[len(op_stack_code) + opcode_length + op.data_portion_length - 1](
+                        Op.ORIGIN
+                    )
                     # Add items to stack necessary to not underflow
                     + op_stack_code
-                    + op
-                    + op_data
+                    + op[0]
                     + Op.STOP
                 ),
                 max_stack_height=max_stack_height,
@@ -876,10 +873,11 @@ for op in OPCODES_WITH_IMMEDIATE:
                 code=(
                     # Add items to stack necessary to not underflow
                     op_stack_code
-                    + op
-                    + op_data
+                    + op[0]
                     # Jump
-                    + Op.RJUMPV[-(rjumpv_length(1) + len(Op.ORIGIN) + len(op_data))](Op.ORIGIN)
+                    + Op.RJUMPV[-(rjumpv_length(1) + len(Op.ORIGIN) + op.data_portion_length)](
+                        Op.ORIGIN
+                    )
                     + Op.STOP
                 ),
                 max_stack_height=max_stack_height,
@@ -894,8 +892,7 @@ for op in OPCODES_WITH_IMMEDIATE:
                 code=(
                     # Add items to stack necessary to not underflow
                     op_stack_code
-                    + op
-                    + op_data
+                    + op[0]
                     # Jump
                     + Op.RJUMPV[-(rjumpv_length(1) + len(Op.ORIGIN) + 1)](Op.ORIGIN)
                     + Op.STOP
@@ -916,8 +913,7 @@ for op in OPCODES_WITH_IMMEDIATE:
                     Op.RJUMPV[len(op_stack_code) + opcode_length](Op.ORIGIN)
                     # Add items to stack necessary to not underflow
                     + op_stack_code
-                    + op
-                    + op_data
+                    + op[0]
                     + Op.STOP
                 ),
                 max_stack_height=max_stack_height,
@@ -931,11 +927,12 @@ for op in OPCODES_WITH_IMMEDIATE:
             Section.Code(
                 code=(
                     # Jump
-                    Op.RJUMPV[len(op_stack_code) + opcode_length + len(op_data) - 1](Op.ORIGIN)
+                    Op.RJUMPV[len(op_stack_code) + opcode_length + op.data_portion_length - 1](
+                        Op.ORIGIN
+                    )
                     # Add items to stack necessary to not underflow
                     + op_stack_code
-                    + op
-                    + op_data
+                    + op[0]
                     + Op.STOP
                 ),
                 max_stack_height=max_stack_height,

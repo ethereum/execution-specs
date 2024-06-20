@@ -8,7 +8,7 @@ from typing import Mapping, Tuple
 
 import pytest
 
-from ethereum_test_tools import Account, Environment
+from ethereum_test_tools import Account, Bytecode, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import (
     StateTestFiller,
@@ -31,11 +31,11 @@ REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
 
 
 @pytest.fixture
-def callee_bytecode(dest: int, src: int, length: int) -> bytes:
+def callee_bytecode(dest: int, src: int, length: int) -> Bytecode:
     """
     Callee performs a single mcopy operation and then returns.
     """
-    bytecode = b""
+    bytecode = Bytecode()
 
     # Copy the initial memory
     bytecode += Op.CALLDATACOPY(0x00, 0x00, Op.CALLDATASIZE())
@@ -78,12 +78,12 @@ def subcall_exact_cost(
 def bytecode_storage(
     subcall_exact_cost: int,
     successful: bool,
-) -> Tuple[bytes, Storage.StorageDictType]:
+) -> Tuple[Bytecode, Storage.StorageDictType]:
     """
     Prepares the bytecode and storage for the test, based on the expected result of the subcall
     (whether it succeeds or fails depending on the length of the memory expansion).
     """
-    bytecode = b""
+    bytecode = Bytecode()
     storage = {}
 
     # Pass on the calldata

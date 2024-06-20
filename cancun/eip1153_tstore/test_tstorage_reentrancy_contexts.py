@@ -7,7 +7,7 @@ from enum import EnumMeta, unique
 
 import pytest
 
-from ethereum_test_tools import Account, CalldataCase, Conditional, Environment, Hash
+from ethereum_test_tools import Account, Bytecode, CalldataCase, Conditional, Environment, Hash
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, Switch, TestAddress, Transaction
 
@@ -22,8 +22,8 @@ pytestmark = [pytest.mark.valid_from("Cancun")]
 # Address of the callee contract
 callee_address = 0x200
 
-SETUP_CONDITION: bytes = Op.EQ(Op.CALLDATALOAD(0), 0x01)
-REENTRANT_CALL: bytes = Op.MSTORE(0, 2) + Op.SSTORE(
+SETUP_CONDITION: Bytecode = Op.EQ(Op.CALLDATALOAD(0), 0x01)
+REENTRANT_CALL: Bytecode = Op.MSTORE(0, 2) + Op.SSTORE(
     0, Op.CALL(Op.GAS(), callee_address, 0, 0, 32, 0, 0)
 )
 
@@ -45,7 +45,7 @@ class DynamicReentrancyTestCases(EnumMeta):
             else:
                 raise ValueError(f"Unknown opcode: {opcode}.")
 
-            reentrant_call: bytes = Op.MSTORE(0, 2) + Op.SSTORE(
+            reentrant_call = Op.MSTORE(0, 2) + Op.SSTORE(
                 0, Op.CALL(subcall_gas, callee_address, 0, 0, 32, 0, 0)
             )
 
