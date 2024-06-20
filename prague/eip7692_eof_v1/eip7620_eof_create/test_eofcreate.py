@@ -511,3 +511,62 @@ def test_address_collision(
         sender=sender,
     )
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+def test_eofcreate_revert_eof_returndata(
+    state_test: StateTestFiller,
+    pre: Alloc,
+):
+    """
+    Verifies the return data is not being deployed, even if happens to be valid EOF
+    """
+    env = Environment()
+    code_reverts_with_calldata = Container(
+        name="Initcode Subcontainer reverting with its calldata",
+        sections=[
+            Section.Code(
+                code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.REVERT(0, Op.CALLDATASIZE),
+            ),
+        ],
+    )
+
+    sender = pre.fund_eoa()
+    salt = 0
+    contract_address = pre.deploy_contract(
+        code=Container(
+            sections=[
+                Section.Code(
+                    code=Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+                    + Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, salt, 0, Op.CALLDATASIZE))
+                    + Op.SSTORE(slot_returndata_size, Op.RETURNDATASIZE)
+                    + Op.STOP,
+                ),
+                Section.Container(container=code_reverts_with_calldata),
+            ],
+        ),
+        storage={slot_create_address: value_canary_to_be_overwritten},
+    )
+    eof_create_address = compute_eofcreate_address(
+        contract_address, salt, code_reverts_with_calldata
+    )
+
+    post = {
+        contract_address: Account(
+            storage={
+                slot_create_address: 0,
+                slot_returndata_size: len(smallest_runtime_subcontainer),
+            },
+        ),
+        eof_create_address: Account.NONEXISTENT,
+    }
+
+    tx = Transaction(
+        to=contract_address,
+        gas_limit=1_000_000,
+        sender=sender,
+        # Simplest possible valid EOF container, which is going to be
+        # revert-returned from initcode and must not end up being deployed.
+        data=smallest_runtime_subcontainer,
+    )
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
