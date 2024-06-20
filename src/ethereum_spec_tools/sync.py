@@ -260,9 +260,11 @@ class BlockDownloader(ForkTracking):
                     blocks.append(block_rlp)
                 else:
                     # Unfortunately we have to decode the RLP twice.
-                    timestamp = rlp.decode_to(
-                        U64, rlp.decode(block_rlp)[0][11]
-                    )
+                    decoded_block = rlp.decode(block_rlp)
+                    assert not isinstance(decoded_block, bytes)
+                    assert not isinstance(decoded_block[0], bytes)
+                    assert isinstance(decoded_block[0][11], bytes)
+                    timestamp = rlp.decode_to(U64, decoded_block[0][11])
                     self.advance_block(timestamp)
                     blocks.append(
                         rlp.decode_to(self.module("blocks").Block, block_rlp)

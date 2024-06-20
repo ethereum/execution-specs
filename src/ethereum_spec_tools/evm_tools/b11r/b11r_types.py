@@ -31,8 +31,8 @@ class Body:
     A class representing a block body.
     """
 
-    transactions: rlp.RLP
-    ommers: rlp.RLP
+    transactions: rlp.Extended
+    ommers: rlp.Extended
     withdrawals: Optional[List[Tuple[U64, U64, Bytes20, Uint]]]
 
     def __init__(self, options: Any, stdin: Any = None):
@@ -65,6 +65,7 @@ class Body:
         self.ommers = []
         for ommer in ommers_data:
             decoded_ommer = rlp.decode(hex_to_bytes(ommer))
+            assert not isinstance(decoded_ommer, bytes)
             self.ommers.append(decoded_ommer[0])  # ommer[0] is the header
 
         # Parse withdrawals

@@ -99,7 +99,7 @@ def add_block_to_chain(
     ) = load.json_to_block(json_block)
 
     assert rlp.rlp_hash(block.header) == block_header_hash
-    assert rlp.encode(cast(rlp.RLP, block)) == block_rlp
+    assert rlp.encode(cast(rlp.Extended, block)) == block_rlp
 
     if not mock_pow:
         load.fork.state_transition(chain, block)

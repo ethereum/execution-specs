@@ -104,6 +104,6 @@ receipt = Receipt(
     "rlp_object",
     [transaction1, transaction2, header, block, log1, log2, receipt],
 )
-def test_constantinople_rlp(rlp_object: rlp.RLP) -> None:
+def test_constantinople_rlp(rlp_object: rlp.Extended) -> None:
     encoded = rlp.encode(rlp_object)
     assert rlp.decode_to(type(rlp_object), encoded) == rlp_object

@@ -78,7 +78,7 @@ class LeafNode:
     """Leaf node in the Merkle Trie"""
 
     rest_of_key: Bytes
-    value: rlp.RLP
+    value: rlp.Extended
 
 
 @slotted_freezable
@@ -87,7 +87,7 @@ class ExtensionNode:
     """Extension node in the Merkle Trie"""
 
     key_segment: Bytes
-    subnode: rlp.RLP
+    subnode: rlp.Extended
 
 
 @slotted_freezable
@@ -95,14 +95,14 @@ class ExtensionNode:
 class BranchNode:
     """Branch node in the Merkle Trie"""
 
-    subnodes: List[rlp.RLP]
-    value: rlp.RLP
+    subnodes: List[rlp.Extended]
+    value: rlp.Extended
 
 
 InternalNode = Union[LeafNode, ExtensionNode, BranchNode]
 
 
-def encode_internal_node(node: Optional[InternalNode]) -> rlp.RLP:
+def encode_internal_node(node: Optional[InternalNode]) -> rlp.Extended:
     """
     Encodes a Merkle Trie node into its RLP form. The RLP will then be
     serialized into a `Bytes` and hashed unless it is less that 32 bytes
@@ -121,7 +121,7 @@ def encode_internal_node(node: Optional[InternalNode]) -> rlp.RLP:
     encoded : `rlp.RLP`
         The node encoded as RLP.
     """
-    unencoded: rlp.RLP
+    unencoded: rlp.Extended
     if node is None:
         unencoded = b""
     elif isinstance(node, LeafNode):
@@ -156,7 +156,7 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
         assert storage_root is not None
         return encode_account(node, storage_root)
     elif isinstance(node, (LegacyTransaction, Receipt, U256)):
-        return rlp.encode(cast(rlp.RLP, node))
+        return rlp.encode(cast(rlp.Extended, node))
     elif isinstance(node, Bytes):
         return node
     else:

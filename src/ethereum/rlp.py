@@ -15,14 +15,45 @@ Defines the serialization and deserialization format used throughout Ethereum.
 """
 
 from dataclasses import astuple, fields, is_dataclass
-from typing import Any, List, Sequence, Tuple, Type, TypeVar, Union, cast
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    Protocol,
+    Sequence,
+    Tuple,
+    Type,
+    TypeAlias,
+    TypeVar,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+    overload,
+)
 
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import RLPDecodingError, RLPEncodingError
 
-from .base_types import Bytes, Bytes0, Bytes20, FixedBytes, FixedUint, Uint
+from .base_types import Bytes, FixedBytes, FixedUint, Uint
 
-RLP = Any
+
+class RLP(Protocol):
+    """
+    [`Protocol`] that describes the requirements to be RLP-encodable.
+
+    [`Protocol`]: https://docs.python.org/3/library/typing.html#typing.Protocol
+    """
+
+    __dataclass_fields__: ClassVar[Dict]
+
+
+Simple: TypeAlias = Union[Sequence["Simple"], bytes]
+
+Extended: TypeAlias = Union[
+    Sequence["Extended"], bytearray, bytes, Uint, FixedUint, str, bool, RLP
+]
 
 
 #
@@ -30,7 +61,7 @@ RLP = Any
 #
 
 
-def encode(raw_data: RLP) -> Bytes:
+def encode(raw_data: Extended) -> Bytes:
     """
     Encodes `raw_data` into a sequence of bytes using RLP.
 
@@ -45,19 +76,20 @@ def encode(raw_data: RLP) -> Bytes:
     encoded : `ethereum.base_types.Bytes`
         The RLP encoded bytes representing `raw_data`.
     """
-    if isinstance(raw_data, (bytearray, bytes)):
-        return encode_bytes(raw_data)
+    if isinstance(raw_data, Sequence):
+        if isinstance(raw_data, (bytearray, bytes)):
+            return encode_bytes(raw_data)
+        elif isinstance(raw_data, str):
+            return encode_bytes(raw_data.encode())
+        else:
+            return encode_sequence(raw_data)
     elif isinstance(raw_data, (Uint, FixedUint)):
         return encode(raw_data.to_be_bytes())
-    elif isinstance(raw_data, str):
-        return encode_bytes(raw_data.encode())
     elif isinstance(raw_data, bool):
         if raw_data:
             return encode_bytes(b"\x01")
         else:
             return encode_bytes(b"")
-    elif isinstance(raw_data, Sequence):
-        return encode_sequence(raw_data)
     elif is_dataclass(raw_data):
         return encode(astuple(raw_data))
     else:
@@ -96,7 +128,7 @@ def encode_bytes(raw_bytes: Bytes) -> Bytes:
         )
 
 
-def encode_sequence(raw_sequence: Sequence[RLP]) -> Bytes:
+def encode_sequence(raw_sequence: Sequence[Extended]) -> Bytes:
     """
     Encodes a list of RLP encodable objects (`raw_sequence`) using RLP.
 
@@ -124,7 +156,7 @@ def encode_sequence(raw_sequence: Sequence[RLP]) -> Bytes:
         )
 
 
-def get_joined_encodings(raw_sequence: Sequence[RLP]) -> Bytes:
+def get_joined_encodings(raw_sequence: Sequence[Extended]) -> Bytes:
     """
     Obtain concatenation of rlp encoding for each item in the sequence
     raw_sequence.
@@ -148,7 +180,7 @@ def get_joined_encodings(raw_sequence: Sequence[RLP]) -> Bytes:
 #
 
 
-def decode(encoded_data: Bytes) -> RLP:
+def decode(encoded_data: Bytes) -> Simple:
     """
     Decodes an integer, byte sequence, or list of RLP encodable objects
     from the byte sequence `encoded_data`, using RLP.
@@ -174,129 +206,158 @@ def decode(encoded_data: Bytes) -> RLP:
         return decode_to_sequence(encoded_data)
 
 
-T = TypeVar("T")
+U = TypeVar("U", bound=Extended)
 
 
-def decode_to(cls: Type[T], encoded_data: Bytes) -> T:
+def decode_to(cls: Type[U], encoded_data: Bytes) -> U:
     """
     Decode the bytes in `encoded_data` to an object of type `cls`. `cls` can be
     a `Bytes` subclass, a dataclass, `Uint`, `U256` or `Tuple[cls]`.
 
     Parameters
     ----------
-    cls: `Type[T]`
+    cls: `Type[U]`
         The type to decode to.
     encoded_data :
         A sequence of bytes, in RLP form.
 
     Returns
     -------
-    decoded_data : `T`
+    decoded_data : `U`
         Object decoded from `encoded_data`.
     """
-    return _decode_to(cls, decode(encoded_data))
+    decoded = decode(encoded_data)
+    return _deserialize_to(cls, decoded)
 
 
-def _decode_to(cls: Type[T], raw_rlp: RLP) -> T:
-    """
-    Decode the rlp structure in `encoded_data` to an object of type `cls`.
-    `cls` can be a `Bytes` subclass, a dataclass, `Uint`, `U256`,
-    `Tuple[cls, ...]`, `Tuple[cls1, cls2]` or `Union[Bytes, cls]`.
+@overload
+def _deserialize_to(class_: Type[U], value: Simple) -> U:
+    pass
 
-    Parameters
-    ----------
-    cls: `Type[T]`
-        The type to decode to.
-    raw_rlp :
-        A decoded rlp structure.
 
-    Returns
-    -------
-    decoded_data : `T`
-        Object decoded from `encoded_data`.
-    """
-    if isinstance(cls, type(Tuple[Uint, ...])) and cls._name == "Tuple":  # type: ignore # noqa: E501
-        if not isinstance(raw_rlp, list):
-            raise RLPDecodingError
-        if cls.__args__[1] == ...:  # type: ignore
-            args = []
-            for raw_item in raw_rlp:
-                args.append(_decode_to(cls.__args__[0], raw_item))  # type: ignore # noqa: E501
-            return tuple(args)  # type: ignore
-        else:
-            args = []
-            if len(raw_rlp) != len(cls.__args__):  # type: ignore
-                raise RLPDecodingError
-            for t, raw_item in zip(cls.__args__, raw_rlp):  # type: ignore
-                args.append(_decode_to(t, raw_item))
-            return tuple(args)  # type: ignore
-    elif cls == Union[Bytes0, Bytes20]:
-        if not isinstance(raw_rlp, Bytes):
-            raise RLPDecodingError
-        if len(raw_rlp) == 0:
-            return Bytes0()  # type: ignore
-        elif len(raw_rlp) == 20:
-            return Bytes20(raw_rlp)  # type: ignore
-        else:
-            raise RLPDecodingError(
-                "Bytes has length {}, expected 0 or 20".format(len(raw_rlp))
-            )
-    elif isinstance(cls, type(List[Bytes])) and cls._name == "List":  # type: ignore # noqa: E501
-        if not isinstance(raw_rlp, list):
-            raise RLPDecodingError
-        items = []
-        for raw_item in raw_rlp:
-            items.append(_decode_to(cls.__args__[0], raw_item))  # type: ignore
-        return items  # type: ignore
-    elif isinstance(cls, type(Union[Bytes, List[Bytes]])) and cls.__origin__ == Union:  # type: ignore # noqa: E501
-        if len(cls.__args__) != 2 or Bytes not in cls.__args__:  # type: ignore
-            raise RLPDecodingError(
-                "RLP Decoding to type {} is not supported".format(cls)
-            )
-        if isinstance(raw_rlp, Bytes):
-            return raw_rlp  # type: ignore
-        elif cls.__args__[0] == Bytes:  # type: ignore
-            return _decode_to(cls.__args__[1], raw_rlp)  # type: ignore
-        else:
-            return _decode_to(cls.__args__[0], raw_rlp)  # type: ignore
-    elif issubclass(cls, bool):
-        if raw_rlp == b"\x01":
-            return cls(True)  # type: ignore
-        elif raw_rlp == b"":
-            return cls(False)  # type: ignore
-        else:
-            raise TypeError("Cannot decode {} as {}".format(raw_rlp, cls))
-    elif issubclass(cls, FixedBytes):
-        if not isinstance(raw_rlp, Bytes):
-            raise RLPDecodingError
-        if len(raw_rlp) != cls.LENGTH:
-            raise RLPDecodingError
-        return cls(raw_rlp)  # type: ignore
-    elif issubclass(cls, Bytes):
-        if not isinstance(raw_rlp, Bytes):
-            raise RLPDecodingError
-        return raw_rlp  # type: ignore
-    elif issubclass(cls, (Uint, FixedUint)):
-        if not isinstance(raw_rlp, Bytes):
-            raise RLPDecodingError
-        try:
-            return cls.from_be_bytes(raw_rlp)  # type: ignore
-        except ValueError:
-            raise RLPDecodingError
-    elif is_dataclass(cls):
-        if not isinstance(raw_rlp, list):
-            raise RLPDecodingError
-        assert isinstance(raw_rlp, list)
-        args = []
-        if len(fields(cls)) != len(raw_rlp):
-            raise RLPDecodingError
-        for field, rlp_item in zip(fields(cls), raw_rlp):
-            args.append(_decode_to(field.type, rlp_item))
-        return cast(T, cls(*args))
+@overload
+def _deserialize_to(class_: object, value: Simple) -> Extended:
+    pass
+
+
+def _deserialize_to(class_: object, value: Simple) -> Extended:
+    if not isinstance(class_, type):
+        return _deserialize_to_annotation(class_, value)
+    elif is_dataclass(class_):
+        return _deserialize_to_dataclass(class_, value)
+    elif issubclass(class_, (Uint, FixedUint)):
+        return _deserialize_to_uint(class_, value)
+    elif issubclass(class_, (Bytes, FixedBytes)):
+        return _deserialize_to_bytes(class_, value)
+    elif class_ is bool:
+        return _deserialize_to_bool(value)
     else:
-        raise RLPDecodingError(
-            "RLP Decoding to type {} is not supported".format(cls)
-        )
+        raise NotImplementedError(class_)
+
+
+def _deserialize_to_dataclass(cls: Type[U], decoded: Simple) -> U:
+    assert is_dataclass(cls)
+    hints = get_type_hints(cls)
+    target_fields = fields(cls)
+
+    if isinstance(decoded, bytes):
+        raise RLPDecodingError
+
+    if len(target_fields) != len(decoded):
+        raise RLPDecodingError
+
+    values: Dict[str, Any] = {}
+
+    for value, target_field in zip(decoded, target_fields):
+        resolved_type = hints[target_field.name]
+        values[target_field.name] = _deserialize_to(resolved_type, value)
+
+    result = cls(**values)
+    assert isinstance(result, cls)
+    return cast(U, result)
+
+
+def _deserialize_to_bool(value: Simple) -> bool:
+    if value == b"":
+        return False
+    elif value == b"\x01":
+        return True
+    else:
+        raise RLPDecodingError
+
+
+def _deserialize_to_bytes(
+    class_: Union[Type[Bytes], Type[FixedBytes]], value: Simple
+) -> Union[Bytes, FixedBytes]:
+    if not isinstance(value, bytes):
+        raise RLPDecodingError
+    try:
+        return class_(value)
+    except ValueError as e:
+        raise RLPDecodingError from e
+
+
+def _deserialize_to_uint(
+    class_: Union[Type[Uint], Type[FixedUint]], decoded: Simple
+) -> Union[Uint, FixedUint]:
+    if not isinstance(decoded, bytes):
+        raise RLPDecodingError
+    try:
+        return class_.from_be_bytes(decoded)
+    except ValueError as e:
+        raise RLPDecodingError from e
+
+
+def _deserialize_to_annotation(annotation: object, value: Simple) -> Extended:
+    origin = get_origin(annotation)
+    if origin is Union:
+        return _deserialize_to_union(annotation, value)
+    elif origin in (Tuple, tuple):
+        return _deserialize_to_tuple(annotation, value)
+    elif origin is None:
+        raise Exception(annotation)
+    else:
+        raise NotImplementedError(f"RLP non-type {origin!r}")
+
+
+def _deserialize_to_union(annotation: object, value: Simple) -> Extended:
+    arguments = get_args(annotation)
+    successes = []
+    failures = []
+    for argument in arguments:
+        try:
+            success = _deserialize_to(argument, value)
+        except Exception as e:
+            failures.append(e)
+            continue
+
+        successes.append(success)
+
+    if len(successes) == 1:
+        return successes[0]
+    elif not successes:
+        raise RLPDecodingError(f"no matching union variant\n{failures!r}")
+    else:
+        raise RLPDecodingError("multiple matching union variants")
+
+
+def _deserialize_to_tuple(
+    annotation: object, values: Simple
+) -> Sequence[Extended]:
+    if isinstance(values, bytes):
+        raise RLPDecodingError
+    arguments = list(get_args(annotation))
+
+    if arguments[-1] is Ellipsis:
+        arguments.pop()
+        fill_count = len(values) - len(arguments)
+        arguments = list(arguments) + [arguments[-1]] * fill_count
+
+    decoded = []
+    for argument, value in zip(arguments, values):
+        decoded.append(_deserialize_to(argument, value))
+
+    return tuple(decoded)
 
 
 def decode_to_bytes(encoded_bytes: Bytes) -> Bytes:
@@ -343,7 +404,7 @@ def decode_to_bytes(encoded_bytes: Bytes) -> Bytes:
         return encoded_bytes[decoded_data_start_idx:decoded_data_end_idx]
 
 
-def decode_to_sequence(encoded_sequence: Bytes) -> List[RLP]:
+def decode_to_sequence(encoded_sequence: Bytes) -> Sequence[Simple]:
     """
     Decodes a rlp encoded byte stream assuming that the decoded data
     should be of type `Sequence` of objects.
@@ -386,7 +447,7 @@ def decode_to_sequence(encoded_sequence: Bytes) -> List[RLP]:
     return decode_joined_encodings(joined_encodings)
 
 
-def decode_joined_encodings(joined_encodings: Bytes) -> List[RLP]:
+def decode_joined_encodings(joined_encodings: Bytes) -> Sequence[Simple]:
     """
     Decodes `joined_encodings`, which is a concatenation of RLP encoded
     objects.
@@ -489,7 +550,7 @@ def decode_item_length(encoded_data: Bytes) -> int:
     return 1 + length_length + decoded_data_length
 
 
-def rlp_hash(data: RLP) -> Hash32:
+def rlp_hash(data: Extended) -> Hash32:
     """
     Obtain the keccak-256 hash of the rlp encoding of the passed in data.
 
