@@ -48,13 +48,8 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
 
     genesis_header_hash = hex_to_bytes(json_data["genesisBlockHeader"]["hash"])
     assert rlp.rlp_hash(genesis_header) == genesis_header_hash
-    # FIXME: Re-enable this assertion once the genesis block RLP is
-    # correctly encoded for Shanghai.
-    # See https://github.com/ethereum/execution-spec-tests/issues/64
-    # assert (
-    #     rlp.encode(cast(rlp.RLP, genesis_block))
-    #     == test_data["genesis_block_rlp"]
-    # )
+    genesis_rlp = hex_to_bytes(json_data["genesisRLP"])
+    assert rlp.encode(genesis_block) == genesis_rlp
 
     chain = load.fork.BlockChain(
         blocks=[genesis_block],
