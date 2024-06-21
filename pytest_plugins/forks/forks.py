@@ -443,12 +443,6 @@ def pytest_generate_tests(metafunc):
                     )
                 ]
                 metafunc.parametrize("fork", pytest_params, scope="function")
-            else:
-                # This will not be reported in the test execution output; it will be listed
-                # in the pytest collection summary at the start of the test run.
-                pytest.skip(
-                    f"{test_name} is not valid for any any of forks specified on the command-line."
-                )
         else:
             pytest_params = [
                 (
