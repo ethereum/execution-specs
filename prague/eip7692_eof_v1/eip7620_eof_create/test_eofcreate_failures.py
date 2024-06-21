@@ -150,7 +150,7 @@ def test_initcode_aborts(
 Size of the factory portion of test_eofcreate_deploy_sizes, but as the runtime code is dynamic, we
 have to use a pre-calculated size
 """
-factory_size = 30
+factory_size = 74
 
 
 @pytest.mark.parametrize(
@@ -194,31 +194,33 @@ def test_eofcreate_deploy_sizes(
     initcode_subcontainer = Container(
         name="Initcode Subcontainer",
         sections=[
-            Section.Code(code=Op.RETURNCONTRACT[0](0, 0)),
+            Section.Code(
+                code=Op.RETURNCONTRACT[0](0, 0),
+            ),
             Section.Container(container=runtime_container),
         ],
     )
 
+    factory_container = Container(
+        sections=[
+            Section.Code(
+                code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
+                + Op.SSTORE(slot_code_worked, value_code_worked)
+                + Op.STOP,
+            ),
+            Section.Container(container=initcode_subcontainer),
+        ]
+    )
+
     assert factory_size == (
-        len(initcode_subcontainer) - len(runtime_container)
+        len(factory_container) - len(runtime_container)
     ), "factory_size is wrong, expected factory_size is %d, calculated is %d" % (
         factory_size,
-        len(initcode_subcontainer),
+        len(factory_container),
     )
 
     sender = pre.fund_eoa()
-    contract_address = pre.deploy_contract(
-        code=Container(
-            sections=[
-                Section.Code(
-                    code=Op.SSTORE(slot_create_address, Op.EOFCREATE[0](0, 0, 0, 0))
-                    + Op.SSTORE(slot_code_worked, value_code_worked)
-                    + Op.STOP,
-                ),
-                Section.Container(container=initcode_subcontainer),
-            ]
-        )
-    )
+    contract_address = pre.deploy_contract(code=factory_container)
     # Storage in 0 should have the address,
     # Storage 1 is a canary of 1 to make sure it tried to execute, which also covers cases of
     #   data+code being greater than initcode_size_max, which is allowed.

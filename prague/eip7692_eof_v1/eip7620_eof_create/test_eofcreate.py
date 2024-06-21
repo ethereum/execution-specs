@@ -345,7 +345,6 @@ def test_eofcreate_in_initcode_reverts(
                 + Op.REVERT(0, 0),
             ),
             Section.Container(container=smallest_initcode_subcontainer),
-            Section.Container(container=smallest_runtime_subcontainer),
         ]
     )
 

@@ -110,13 +110,13 @@ def test_reverting_container(
     ids=["stop", "revert", "returncontract"],
 )
 def test_orphan_container(
-    eof_state_test: EOFStateTestFiller,
+    eof_test: EOFTestFiller,
     code_section: Section,
     first_sub_container: Container,
     extra_sub_container: Container,
 ):
     """Test orphaned containers"""
-    eof_state_test(
+    eof_test(
         deploy_tx=code_section == returncontract_code_section,
         data=Container(
             sections=[
@@ -125,7 +125,8 @@ def test_orphan_container(
                 extra_sub_container,
             ],
         ),
-        container_post=Account(storage={slot_code_worked: value_code_worked}),
+        kind="initcode",
+        expect_exception=EOFException.ORPHAN_SUBCONTAINER,
     )
 
 
