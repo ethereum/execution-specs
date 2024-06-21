@@ -152,7 +152,7 @@ def test_rlp_encode_nested_sequence() -> None:
 
 
 def test_rlp_encode_successfully() -> None:
-    test_cases = [
+    test_cases: List[Tuple[rlp.Extended, Union[bytes, bytearray]]] = [
         (b"", bytearray([0x80])),
         (b"\x83" * 55, bytearray([0xB7]) + bytearray(b"\x83" * 55)),
         (Uint(0), b"\x80"),
@@ -171,7 +171,7 @@ def test_rlp_encode_successfully() -> None:
         ),
     ]
     for raw_data, expected_encoding in test_cases:
-        assert rlp.encode(cast(Extended, raw_data)) == expected_encoding
+        assert rlp.encode(raw_data) == expected_encoding
 
 
 def test_rlp_encode_fails() -> None:
@@ -324,7 +324,7 @@ def test_rlp_decode_failure_empty_bytes() -> None:
 
 
 def test_roundtrip_encoding_and_decoding() -> None:
-    test_cases = [
+    test_cases: List[Extended] = [
         b"",
         b"h",
         b"hello how are you doing today?",
@@ -338,7 +338,7 @@ def test_roundtrip_encoding_and_decoding() -> None:
         [[b"hello", b"world"], [b"how", b"are"], [b"you", b"doing"]],
     ]
     for raw_data in test_cases:
-        assert rlp.decode(rlp.encode(cast(Extended, raw_data))) == raw_data
+        assert rlp.decode(rlp.encode(raw_data)) == raw_data
 
 
 #

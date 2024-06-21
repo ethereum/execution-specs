@@ -3,7 +3,7 @@ import json
 import os.path
 import re
 from glob import glob
-from typing import Any, Dict, Generator, Tuple, Union, cast
+from typing import Any, Dict, Generator, Tuple, Union
 from unittest.mock import call, patch
 
 import pytest
@@ -94,7 +94,7 @@ def add_block_to_chain(
     ) = load.json_to_block(json_block)
 
     assert rlp.rlp_hash(block.header) == block_header_hash
-    assert rlp.encode(cast(rlp.Extended, block)) == block_rlp
+    assert rlp.encode(block) == block_rlp
 
     if not mock_pow:
         load.fork.state_transition(chain, block)

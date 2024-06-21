@@ -26,7 +26,6 @@ from typing import (
     Sequence,
     TypeVar,
     Union,
-    cast,
 )
 
 from ethereum.crypto.hash import keccak256
@@ -156,7 +155,7 @@ def encode_node(node: Node, storage_root: Optional[Bytes] = None) -> Bytes:
         assert storage_root is not None
         return encode_account(node, storage_root)
     elif isinstance(node, (Transaction, Receipt, U256)):
-        return rlp.encode(cast(rlp.Extended, node))
+        return rlp.encode(node)
     elif isinstance(node, Bytes):
         return node
     else:
