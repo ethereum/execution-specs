@@ -4,9 +4,9 @@ EOF validation tests for EIP-3540 container size
 
 import pytest
 
-from ethereum_test_tools import EOFTestFiller
+from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools.eof.v1 import Container, EOFException, Section
+from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.eof.v1.constants import MAX_INITCODE_SIZE
 
 from .. import EOF_FORK_NAME

@@ -4,9 +4,9 @@ EOF Classes example use
 
 import pytest
 
-from ethereum_test_tools import EOFTestFiller
+from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools.eof.v1 import Bytes, Container, EOFException, Section
+from ethereum_test_tools.eof.v1 import Container, Section
 
 from .. import EOF_FORK_NAME
 
@@ -59,7 +59,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
                     ),
                     Section.Data("0xef"),
                 ],
-                header_terminator=Bytes(b"\xFF"),
+                header_terminator=b"\xFF",
             ),
             "ef00010100040200010003040001ff00800001305000ef",
             EOFException.MISSING_TERMINATOR,

@@ -3,9 +3,8 @@ Tests for RETURNCONTRACT instruction validation
 """
 import pytest
 
-from ethereum_test_tools import EOFTestFiller
+from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_tools.eof.v1 import Container, ContainerKind, Section
-from ethereum_test_tools.exceptions import EOFException
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME

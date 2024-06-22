@@ -6,9 +6,9 @@ from enum import IntEnum
 
 import pytest
 
-from ethereum_test_tools import EOFTestFiller
+from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools.eof.v1 import Container, EOFException, Section, SectionKind
+from ethereum_test_tools.eof.v1 import Container, Section, SectionKind
 
 from .. import EOF_FORK_NAME
 

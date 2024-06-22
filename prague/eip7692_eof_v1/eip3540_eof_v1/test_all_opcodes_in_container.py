@@ -5,10 +5,10 @@ from typing import Any, Dict, List
 
 import pytest
 
-from ethereum_test_tools import EOFTestFiller, Opcode
+from ethereum_test_tools import EOFException, EOFTestFiller, Opcode
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import UndefinedOpcodes
-from ethereum_test_tools.eof.v1 import Container, ContainerKind, EOFException, Section
+from ethereum_test_tools.eof.v1 import Container, ContainerKind, Section
 from ethereum_test_tools.eof.v1.constants import MAX_OPERAND_STACK_HEIGHT
 
 from .. import EOF_FORK_NAME

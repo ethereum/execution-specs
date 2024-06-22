@@ -8,10 +8,9 @@ from typing import Mapping, Tuple
 
 import pytest
 
-from ethereum_test_tools import Account, Alloc, Bytecode, Environment
+from ethereum_test_tools import Account, Address, Alloc, Bytecode, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, Storage, Transaction, cost_memory_bytes
-from ethereum_test_tools.common.base_types import Address
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
 

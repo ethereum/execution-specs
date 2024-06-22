@@ -4,15 +4,9 @@ EOF Classes example use
 
 import pytest
 
-from ethereum_test_tools import EOFTestFiller
+from ethereum_test_tools import Bytecode, EOFException, EOFTestFiller
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools.eof.v1 import (
-    AutoSection,
-    BytesConvertible,
-    Container,
-    EOFException,
-    Section,
-)
+from ethereum_test_tools.eof.v1 import AutoSection, Container, Section
 
 from .. import EOF_FORK_NAME
 
@@ -129,7 +123,7 @@ def test_eof_example_custom_fields(eof_test: EOFTestFiller):
 
 @pytest.mark.parametrize(
     "data_section_bytes",
-    ("0x01", "0xef"),
+    (b"\x01", b"\xef"),
 )
 @pytest.mark.parametrize(
     "code_section_code, exception",
@@ -137,8 +131,8 @@ def test_eof_example_custom_fields(eof_test: EOFTestFiller):
 )
 def test_eof_example_parameters(
     eof_test: EOFTestFiller,
-    data_section_bytes: BytesConvertible,
-    code_section_code: BytesConvertible,
+    data_section_bytes: bytes,
+    code_section_code: Bytecode,
     exception: EOFException,
 ):
     """

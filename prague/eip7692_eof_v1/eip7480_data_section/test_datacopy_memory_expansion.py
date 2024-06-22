@@ -7,15 +7,15 @@ import pytest
 
 from ethereum_test_tools import (
     Account,
+    Address,
     Alloc,
     Bytecode,
     Environment,
     StateTestFiller,
     Storage,
     Transaction,
+    cost_memory_bytes,
 )
-from ethereum_test_tools.common.base_types import Address
-from ethereum_test_tools.common.helpers import cost_memory_bytes
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 

@@ -7,16 +7,9 @@ from typing import List
 
 import pytest
 
-from ethereum_test_tools import EOFTestFiller
+from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools.eof.v1 import (
-    AutoSection,
-    Bytes,
-    Container,
-    EOFException,
-    Section,
-    SectionKind,
-)
+from ethereum_test_tools.eof.v1 import AutoSection, Container, Section, SectionKind
 
 from .. import EOF_FORK_NAME
 
@@ -175,7 +168,7 @@ def test_section_order(
     )
     section_type = Section(
         kind=SectionKind.TYPE,
-        data=Bytes.fromhex("00800001"),
+        data=bytes.fromhex("00800001"),
         custom_size=4,
         skip_header_listing=calculate_skip_flag(SectionKind.TYPE, CasePosition.HEADER),
         skip_body_listing=calculate_skip_flag(SectionKind.TYPE, CasePosition.BODY),
