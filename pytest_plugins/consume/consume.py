@@ -14,8 +14,8 @@ import requests
 import rich
 
 from cli.gen_index import generate_fixtures_index
-from ethereum_test_tools.spec.consume.types import TestCases
-from evm_transition_tool import FixtureFormats
+from ethereum_test_fixtures import FixtureFormats
+from ethereum_test_fixtures.consume import TestCases
 
 cached_downloads_directory = Path("./cached_downloads")
 

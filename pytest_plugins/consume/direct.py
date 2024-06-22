@@ -12,9 +12,9 @@ from typing import Generator, Optional
 
 import pytest
 
-from ethereum_test_tools.common.json import to_json
-from ethereum_test_tools.spec.consume.types import TestCaseIndexFile, TestCaseStream
-from ethereum_test_tools.spec.file.types import Fixtures
+from ethereum_test_base_types import to_json
+from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
+from ethereum_test_fixtures.file import Fixtures
 from evm_transition_tool import TransitionTool
 
 

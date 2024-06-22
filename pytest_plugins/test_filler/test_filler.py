@@ -17,6 +17,7 @@ from typing import Generator, List, Optional, Type
 import pytest
 from pytest_metadata.plugin import metadata_key  # type: ignore
 
+from ethereum_test_fixtures import FixtureCollector, FixtureFormats, TestInfo
 from ethereum_test_forks import (
     Fork,
     Frontier,
@@ -24,14 +25,16 @@ from ethereum_test_forks import (
     get_closest_fork_with_solc_support,
     get_forks_with_solc_support,
 )
-from ethereum_test_tools import SPEC_TYPES, Alloc, BaseTest, FixtureCollector, TestInfo, Yul
+from ethereum_test_specs import SPEC_TYPES, BaseTest
+from ethereum_test_tools import Yul
 from ethereum_test_tools.code import Solc
-from ethereum_test_tools.common.types import AllocMode, contract_address_iterator
 from ethereum_test_tools.utility.versioning import (
     generate_github_url,
     get_current_commit_hash_or_tag,
 )
-from evm_transition_tool import FixtureFormats, TransitionTool
+from ethereum_test_types import Alloc
+from ethereum_test_types.types import AllocMode, contract_address_iterator
+from evm_transition_tool import TransitionTool
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
 
@@ -817,7 +820,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                     eips=eips,
                 )
                 fixture.fill_info(
-                    t8n,
+                    t8n.version(),
                     fixture_description,
                     fixture_source_url=fixture_source_url,
                     ref_spec=reference_spec,

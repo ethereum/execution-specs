@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 import requests
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from ethereum_test_tools import Address
+from ethereum_test_base_types import Address
 
 BlockNumberType = Union[int, Literal["latest", "earliest", "pending"]]
 

@@ -5,9 +5,9 @@ Code generating classes and functions.
 from dataclasses import dataclass, field
 from typing import List, SupportsBytes
 
-from ..common.helpers import ceiling_division
-from ..vm.opcode import Bytecode
-from ..vm.opcode import Opcodes as Op
+from ethereum_test_types import ceiling_division
+from ethereum_test_vm import Bytecode
+from ethereum_test_vm import Opcodes as Op
 
 GAS_PER_DEPLOYED_CODE_BYTE = 0xC8
 

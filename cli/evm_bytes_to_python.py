@@ -6,8 +6,8 @@ from typing import Any, List, Optional
 
 import click
 
-from ethereum_test_tools import Macro
-from ethereum_test_tools import Opcodes as Op
+from ethereum_test_vm import Macro
+from ethereum_test_vm import Opcodes as Op
 
 
 def process_evm_bytes(evm_bytes_hex_string: Any) -> str:  # noqa: D103

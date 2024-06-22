@@ -7,16 +7,16 @@ from pathlib import Path
 
 import pytest
 
-from ethereum_test_tools.spec.blockchain.types import Fixture
-from ethereum_test_tools.spec.consume.types import TestCaseIndexFile, TestCaseStream
-from ethereum_test_tools.spec.file.types import BlockchainFixtures
+from ethereum_test_fixtures import BlockchainFixture
+from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
+from ethereum_test_fixtures.file import BlockchainFixtures
 from pytest_plugins.consume.consume import JsonSource
 
 TestCase = TestCaseIndexFile | TestCaseStream
 
 
 @pytest.fixture(scope="function")
-def fixture(fixture_source: JsonSource, test_case: TestCase) -> Fixture:
+def fixture(fixture_source: JsonSource, test_case: TestCase) -> BlockchainFixture:
     """
     Return the blockchain fixture's pydantic model for the current test case.
 
@@ -26,7 +26,9 @@ def fixture(fixture_source: JsonSource, test_case: TestCase) -> Fixture:
     """
     if fixture_source == "stdin":
         assert isinstance(test_case, TestCaseStream), "Expected a stream test case"
-        assert isinstance(test_case.fixture, Fixture), "Expected a blockchain test fixture"
+        assert isinstance(
+            test_case.fixture, BlockchainFixture
+        ), "Expected a blockchain test fixture"
         fixture = test_case.fixture
     else:
         assert isinstance(test_case, TestCaseIndexFile), "Expected an index file test case"
@@ -39,7 +41,7 @@ def fixture(fixture_source: JsonSource, test_case: TestCase) -> Fixture:
 
 
 @pytest.fixture(scope="function")
-def fixture_description(fixture: Fixture, test_case: TestCase) -> str:
+def fixture_description(fixture: BlockchainFixture, test_case: TestCase) -> str:
     """
     Return the description of the current test case.
     """

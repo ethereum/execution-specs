@@ -8,6 +8,8 @@ from typing import Mapping, SupportsBytes
 import pytest
 from semver import Version
 
+from ethereum_test_base_types import Account, Bytes, Hash
+from ethereum_test_fixtures import FixtureFormats
 from ethereum_test_forks import (
     Cancun,
     Fork,
@@ -16,12 +18,12 @@ from ethereum_test_forks import (
     get_closest_fork_with_solc_support,
     get_deployed_forks,
 )
-from evm_transition_tool import FixtureFormats, GethTransitionTool
+from ethereum_test_specs import StateTest
+from ethereum_test_types import Alloc, Environment, Transaction
+from ethereum_test_vm import Opcodes as Op
+from evm_transition_tool import GethTransitionTool
 
 from ..code import CalldataCase, Case, Conditional, Initcode, Solc, Switch, Yul
-from ..common import Account, Alloc, Bytes, Environment, Hash, Transaction
-from ..spec import StateTest
-from ..vm.opcode import Opcodes as Op
 from .conftest import SOLC_PADDING_VERSION
 
 

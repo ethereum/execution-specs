@@ -1,14 +1,14 @@
 """
-Ethereum Virtual Machine related definitions and utilities.
+Mirror module to import `ethereum_test_vm`.
 """
 
 from .opcode import Bytecode, Macro, Macros, Opcode, OpcodeCallArg, Opcodes, UndefinedOpcodes
 
 __all__ = (
     "Bytecode",
-    "Opcode",
     "Macro",
     "Macros",
+    "Opcode",
     "OpcodeCallArg",
     "Opcodes",
     "UndefinedOpcodes",

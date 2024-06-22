@@ -2,12 +2,14 @@ import json  # noqa: D100
 import os
 from pathlib import Path
 from shutil import which
-from typing import Dict
+from typing import Dict, List
 
 import pytest
+from pydantic import TypeAdapter
 
+from ethereum_test_base_types import to_json
 from ethereum_test_forks import Berlin, Fork, Istanbul, London
-from ethereum_test_tools.common import Alloc
+from ethereum_test_types import Alloc, Environment, Transaction
 from evm_transition_tool import GethTransitionTool, TransitionTool
 
 FIXTURES_ROOT = Path(os.path.join("src", "evm_transition_tool", "tests", "fixtures"))
@@ -99,34 +101,49 @@ def test_evm_tool_binary_arg(evm_tool, binary_arg):  # noqa: D103
     raise Exception("unknown test parameter")
 
 
+transaction_type_adapter = TypeAdapter(List[Transaction])
+
+
+@pytest.fixture
+def alloc(test_dir: str) -> Alloc:  # noqa: D103
+    alloc_path = Path(FIXTURES_ROOT, test_dir, "alloc.json")
+    with open(alloc_path, "r") as f:
+        return Alloc.model_validate_json(f.read())
+
+
+@pytest.fixture
+def txs(test_dir: str) -> List[Transaction]:  # noqa: D103
+    txs_path = Path(FIXTURES_ROOT, test_dir, "txs.json")
+    with open(txs_path, "r") as f:
+        return transaction_type_adapter.validate_json(f.read())
+
+
+@pytest.fixture
+def env(test_dir: str) -> Environment:  # noqa: D103
+    env_path = Path(FIXTURES_ROOT, test_dir, "env.json")
+    with open(env_path, "r") as f:
+        return Environment.model_validate_json(f.read())
+
+
 @pytest.mark.parametrize("t8n", [GethTransitionTool()])
 @pytest.mark.parametrize("test_dir", os.listdir(path=FIXTURES_ROOT))
-def test_evm_t8n(t8n: TransitionTool, test_dir: str) -> None:  # noqa: D103
-    alloc_path = Path(FIXTURES_ROOT, test_dir, "alloc.json")
-    txs_path = Path(FIXTURES_ROOT, test_dir, "txs.json")
-    env_path = Path(FIXTURES_ROOT, test_dir, "env.json")
+def test_evm_t8n(  # noqa: D103
+    t8n: TransitionTool,
+    alloc: Alloc,
+    txs: List[Transaction],
+    env: Environment,
+    test_dir: str,
+) -> None:
     expected_path = Path(FIXTURES_ROOT, test_dir, "exp.json")
 
-    with open(alloc_path, "r") as alloc, open(txs_path, "r") as txs, open(
-        env_path, "r"
-    ) as env, open(expected_path, "r") as exp:
-        print(expected_path)
-        alloc = json.load(alloc)
-        txs = json.load(txs)
-        env_json = json.load(env)
+    with open(expected_path, "r") as exp:
         expected = json.load(exp)
 
         t8n_output = t8n.evaluate(
             alloc=alloc,
             txs=txs,
-            env=env_json,
-            fork_name=Berlin.transition_tool_name(
-                block_number=int(env_json["currentNumber"], 0),
-                timestamp=int(env_json["currentTimestamp"], 0),
-            ),
+            env=env,
+            fork=Berlin,
         )
-        result_alloc, result = t8n_output["alloc"], t8n_output["result"]
-        print(result)
-        print(expected.get("result"))
-        assert result_alloc == expected.get("alloc")
-        assert result == expected.get("result")
+        assert to_json(t8n_output.alloc) == expected.get("alloc")
+        assert to_json(t8n_output.result) == expected.get("result")

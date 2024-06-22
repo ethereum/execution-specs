@@ -10,13 +10,15 @@ import tempfile
 import textwrap
 from pathlib import Path
 from re import compile
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 import requests
 
 from ethereum_test_forks import Fork
+from ethereum_test_types import Alloc, Environment, Transaction
 
-from .transition_tool import TransitionTool, dump_files_to_directory
+from .transition_tool import TransitionTool, dump_files_to_directory, model_dump_config
+from .types import TransitionToolInput, TransitionToolOutput
 
 
 class BesuTransitionTool(TransitionTool):
@@ -92,29 +94,35 @@ class BesuTransitionTool(TransitionTool):
 
     def evaluate(
         self,
-        alloc: Any,
-        txs: Any,
-        env: Any,
-        fork_name: str,
+        *,
+        alloc: Alloc,
+        txs: List[Transaction],
+        env: Environment,
+        fork: Fork,
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
         debug_output_path: str = "",
-    ) -> Dict[str, Any]:
+    ) -> TransitionToolOutput:
         """
         Executes `evm t8n` with the specified arguments.
         """
         if not self.process:
             self.start_server()
 
+        fork_name = fork.transition_tool_name(
+            block_number=env.number,
+            timestamp=env.timestamp,
+        )
         if eips is not None:
             fork_name = "+".join([fork_name] + [str(eip) for eip in eips])
 
-        input_json = {
-            "alloc": alloc,
-            "txs": txs,
-            "env": env,
-        }
+        input_json = TransitionToolInput(
+            alloc=alloc,
+            txs=txs,
+            env=env,
+        ).model_dump(mode="json", **model_dump_config)
+
         state_json = {
             "fork": fork_name,
             "chainid": chain_id,
@@ -151,7 +159,7 @@ class BesuTransitionTool(TransitionTool):
 
         response = requests.post(self.server_url, json=post_data, timeout=5)
         response.raise_for_status()  # exception visible in pytest failure output
-        output = response.json()
+        output: TransitionToolOutput = TransitionToolOutput.model_validate(response.json())
 
         if debug_output_path:
             dump_files_to_directory(
@@ -168,28 +176,23 @@ class BesuTransitionTool(TransitionTool):
                 f"t8n-server returned status code {response.status_code}, "
                 f"response: {response.text}"
             )
-        if not all([x in output for x in ["alloc", "result", "body"]]):
-            raise Exception(
-                "Malformed t8n output: missing 'alloc', 'result' or 'body', server response: "
-                f"{response.text}"
-            )
 
         if debug_output_path:
             dump_files_to_directory(
                 debug_output_path,
                 {
-                    "output/alloc.json": output["alloc"],
-                    "output/result.json": output["result"],
-                    "output/txs.rlp": output["body"],
+                    "output/alloc.json": output.alloc.model_dump(mode="json", **model_dump_config),
+                    "output/result.json": output.result.model_dump(
+                        mode="json", **model_dump_config
+                    ),
+                    "output/txs.rlp": str(output.body),
                 },
             )
 
         if self.trace and self.besu_trace_dir:
-            self.collect_traces(
-                output["result"]["receipts"], self.besu_trace_dir, debug_output_path
-            )
-            for i, r in enumerate(output["result"]["receipts"]):
-                trace_file_name = f"trace-{i}-{r['transactionHash']}.jsonl"
+            self.collect_traces(output.result.receipts, self.besu_trace_dir, debug_output_path)
+            for i, r in enumerate(output.result.receipts):
+                trace_file_name = f"trace-{i}-{r.transaction_hash}.jsonl"
                 os.remove(os.path.join(self.besu_trace_dir.name, trace_file_name))
 
         return output

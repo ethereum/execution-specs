@@ -8,9 +8,9 @@ from pathlib import Path
 import click
 from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, TimeElapsedColumn
 
-from ethereum_test_tools.common.json import to_json
-from ethereum_test_tools.spec.base.base_test import HashMismatchException
-from ethereum_test_tools.spec.file.types import Fixtures
+from ethereum_test_base_types import to_json
+from ethereum_test_fixtures.file import Fixtures
+from ethereum_test_specs.base import HashMismatchException
 
 
 def count_json_files_exclude_index(start_path: Path) -> int:

@@ -7,12 +7,8 @@ from .evmone import EvmOneTransitionTool
 from .execution_specs import ExecutionSpecsTransitionTool
 from .geth import GethTransitionTool
 from .nimbus import NimbusTransitionTool
-from .transition_tool import (
-    FixtureFormats,
-    TransitionTool,
-    TransitionToolNotFoundInPath,
-    UnknownTransitionTool,
-)
+from .transition_tool import TransitionTool, TransitionToolNotFoundInPath, UnknownTransitionTool
+from .types import Result, TransitionToolOutput
 
 TransitionTool.set_default_tool(GethTransitionTool)
 
@@ -20,10 +16,11 @@ __all__ = (
     "BesuTransitionTool",
     "EvmOneTransitionTool",
     "ExecutionSpecsTransitionTool",
-    "FixtureFormats",
     "GethTransitionTool",
     "NimbusTransitionTool",
+    "Result",
     "TransitionTool",
+    "TransitionToolOutput",
     "TransitionToolNotFoundInPath",
     "UnknownTransitionTool",
 )

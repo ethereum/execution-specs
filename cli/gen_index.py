@@ -18,10 +18,10 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from ethereum_test_tools.common.base_types import HexNumber
-from ethereum_test_tools.spec.consume.types import IndexFile, TestCaseIndexFile
-from ethereum_test_tools.spec.file.types import Fixtures
-from evm_transition_tool import FixtureFormats
+from ethereum_test_base_types import HexNumber
+from ethereum_test_fixtures import FixtureFormats
+from ethereum_test_fixtures.consume import IndexFile, TestCaseIndexFile
+from ethereum_test_fixtures.file import Fixtures
 
 from .hasher import HashableItem
 

@@ -10,15 +10,17 @@ import tempfile
 import textwrap
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
 from itertools import groupby
 from pathlib import Path
 from re import Pattern
-from typing import Any, Dict, List, Optional, Type
+from typing import Dict, List, Mapping, Optional, Type
 
+from ethereum_test_fixtures import FixtureFormats, FixtureVerifier
 from ethereum_test_forks import Fork
+from ethereum_test_types import Alloc, Environment, Transaction
 
 from .file_utils import dump_files_to_directory, write_json_file
+from .types import TransactionReceipt, TransitionToolInput, TransitionToolOutput
 
 
 class UnknownTransitionTool(Exception):
@@ -36,74 +38,10 @@ class TransitionToolNotFoundInPath(Exception):
         super().__init__(message)
 
 
-class FixtureFormats(Enum):
-    """
-    Helper class to define fixture formats.
-    """
-
-    UNSET_TEST_FORMAT = "unset_test_format"
-    STATE_TEST = "state_test"
-    BLOCKCHAIN_TEST = "blockchain_test"
-    BLOCKCHAIN_TEST_HIVE = "blockchain_test_hive"
-    EOF_TEST = "eof_test"
-
-    @classmethod
-    def is_state_test(cls, format):  # noqa: D102
-        return format == cls.STATE_TEST
-
-    @classmethod
-    def is_blockchain_test(cls, format):  # noqa: D102
-        return format in (cls.BLOCKCHAIN_TEST, cls.BLOCKCHAIN_TEST_HIVE)
-
-    @classmethod
-    def is_hive_format(cls, format):  # noqa: D102
-        return format == cls.BLOCKCHAIN_TEST_HIVE
-
-    @classmethod
-    def is_standard_format(cls, format):  # noqa: D102
-        return format in (cls.STATE_TEST, cls.BLOCKCHAIN_TEST)
-
-    @classmethod
-    def is_verifiable(cls, format):  # noqa: D102
-        return format in (cls.STATE_TEST, cls.BLOCKCHAIN_TEST)
-
-    @classmethod
-    def get_format_description(cls, format):
-        """
-        Returns a description of the fixture format.
-
-        Used to add a description to the generated pytest marks.
-        """
-        if format == cls.UNSET_TEST_FORMAT:
-            return "Unknown fixture format; it has not been set."
-        elif format == cls.STATE_TEST:
-            return "Tests that generate a state test fixture."
-        elif format == cls.BLOCKCHAIN_TEST:
-            return "Tests that generate a blockchain test fixture."
-        elif format == cls.BLOCKCHAIN_TEST_HIVE:
-            return "Tests that generate a blockchain test fixture in hive format."
-        elif format == cls.EOF_TEST:
-            return "Tests that generate an EOF test fixture."
-        raise Exception(f"Unknown fixture format: {format}.")
-
-    @property
-    def output_base_dir_name(self) -> Path:
-        """
-        Returns the name of the subdirectory where this type of fixture should be dumped to.
-        """
-        return Path(self.value.replace("test", "tests"))
-
-    @property
-    def output_file_extension(self) -> str:
-        """
-        Returns the file extension for this type of fixture.
-
-        By default, fixtures are dumped as JSON files.
-        """
-        return ".json"
+model_dump_config: Mapping = {"by_alias": True, "exclude_none": True}
 
 
-class TransitionTool:
+class TransitionTool(FixtureVerifier):
     """
     Transition tool abstract base class which should be inherited by all transition tool
     implementations.
@@ -285,7 +223,7 @@ class TransitionTool:
 
     def collect_traces(
         self,
-        receipts: List[Any],
+        receipts: List[TransactionReceipt],
         temp_dir: tempfile.TemporaryDirectory,
         debug_output_path: str = "",
     ) -> None:
@@ -294,7 +232,7 @@ class TransitionTool:
         """
         traces: List[List[Dict]] = []
         for i, r in enumerate(receipts):
-            trace_file_name = f"trace-{i}-{r['transactionHash']}.jsonl"
+            trace_file_name = f"trace-{i}-{r.transaction_hash}.jsonl"
             if debug_output_path:
                 shutil.copy(
                     os.path.join(temp_dir.name, trace_file_name),
@@ -313,9 +251,9 @@ class TransitionTool:
         Transition tool files and data to pass between methods
         """
 
-        alloc: Any
-        txs: Any
-        env: Any
+        alloc: Alloc
+        txs: List[Transaction]
+        env: Environment
         fork_name: str
         chain_id: int = field(default=1)
         reward: int = field(default=0)
@@ -329,12 +267,22 @@ class TransitionTool:
                 for tx in self.txs:
                     tx["to"] = tx.get("to") or ""
 
+        def to_input(self) -> TransitionToolInput:
+            """
+            Convert the data to a TransactionToolInput object
+            """
+            return TransitionToolInput(
+                alloc=self.alloc,
+                txs=self.txs,
+                env=self.env,
+            )
+
     def _evaluate_filesystem(
         self,
         *,
         t8n_data: TransitionToolData,
         debug_output_path: str = "",
-    ) -> Dict[str, Any]:
+    ) -> TransitionToolOutput:
         """
         Executes a transition tool using the filesystem for its inputs and outputs.
         """
@@ -342,11 +290,7 @@ class TransitionTool:
         os.mkdir(os.path.join(temp_dir.name, "input"))
         os.mkdir(os.path.join(temp_dir.name, "output"))
 
-        input_contents = {
-            "alloc": t8n_data.alloc,
-            "env": t8n_data.env,
-            "txs": t8n_data.txs,
-        }
+        input_contents = t8n_data.to_input().model_dump(mode="json", **model_dump_config)
 
         input_paths = {
             k: os.path.join(temp_dir.name, "input", f"{k}.json") for k in input_contents.keys()
@@ -444,29 +388,25 @@ class TransitionTool:
 
         temp_dir.cleanup()
 
-        return output_contents
+        return TransitionToolOutput(**output_contents)
 
     def _evaluate_stream(
         self,
         *,
         t8n_data: TransitionToolData,
         debug_output_path: str = "",
-    ) -> Dict[str, Any]:
+    ) -> TransitionToolOutput:
         """
         Executes a transition tool using stdin and stdout for its inputs and outputs.
         """
         temp_dir = tempfile.TemporaryDirectory()
         args = self.construct_args_stream(t8n_data, temp_dir)
 
-        stdin = {
-            "alloc": t8n_data.alloc,
-            "txs": t8n_data.txs,
-            "env": t8n_data.env,
-        }
+        stdin = t8n_data.to_input()
 
         result = subprocess.run(
             args,
-            input=str.encode(json.dumps(stdin)),
+            input=stdin.model_dump_json(**model_dump_config).encode(),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -476,23 +416,22 @@ class TransitionTool:
         if result.returncode != 0:
             raise Exception("failed to evaluate: " + result.stderr.decode())
 
-        output = json.loads(result.stdout)
-
-        if not all([x in output for x in ["alloc", "result", "body"]]):
-            raise Exception("Malformed t8n output: missing 'alloc', 'result' or 'body'.")
+        output: TransitionToolOutput = TransitionToolOutput.model_validate_json(result.stdout)
 
         if debug_output_path:
             dump_files_to_directory(
                 debug_output_path,
                 {
-                    "output/alloc.json": output["alloc"],
-                    "output/result.json": output["result"],
-                    "output/txs.rlp": output["body"],
+                    "output/alloc.json": output.alloc.model_dump(mode="json", **model_dump_config),
+                    "output/result.json": output.result.model_dump(
+                        mode="json", **model_dump_config
+                    ),
+                    "output/txs.rlp": str(output.body),
                 },
             )
 
         if self.trace:
-            self.collect_traces(output["result"]["receipts"], temp_dir, debug_output_path)
+            self.collect_traces(output.result.receipts, temp_dir, debug_output_path)
             temp_dir.cleanup()
 
         return output
@@ -528,7 +467,7 @@ class TransitionTool:
         self,
         debug_output_path: str,
         temp_dir: tempfile.TemporaryDirectory,
-        stdin: Dict[str, Any],
+        stdin: TransitionToolInput,
         args: List[str],
         result: subprocess.CompletedProcess,
     ):
@@ -554,9 +493,11 @@ class TransitionTool:
             debug_output_path,
             {
                 "args.py": args,
-                "input/alloc.json": stdin["alloc"],
-                "input/env.json": stdin["env"],
-                "input/txs.json": stdin["txs"],
+                "input/alloc.json": stdin.alloc.model_dump(mode="json", **model_dump_config),
+                "input/env.json": stdin.env.model_dump(mode="json", **model_dump_config),
+                "input/txs.json": [
+                    tx.model_dump(mode="json", **model_dump_config) for tx in stdin.txs
+                ],
                 "returncode.txt": result.returncode,
                 "stdin.txt": stdin,
                 "stdout.txt": result.stdout.decode(),
@@ -568,24 +509,28 @@ class TransitionTool:
     def evaluate(
         self,
         *,
-        alloc: Any,
-        txs: Any,
-        env: Any,
-        fork_name: str,
+        alloc: Alloc,
+        txs: List[Transaction],
+        env: Environment,
+        fork: Fork,
         chain_id: int = 1,
         reward: int = 0,
         eips: Optional[List[int]] = None,
         debug_output_path: str = "",
-    ) -> Dict[str, Any]:
+    ) -> TransitionToolOutput:
         """
         Executes the relevant evaluate method as required by the `t8n` tool.
 
         If a client's `t8n` tool varies from the default behavior, this method
         can be overridden.
         """
+        fork_name = fork.transition_tool_name(
+            block_number=env.number,
+            timestamp=env.timestamp,
+        )
         if eips is not None:
             fork_name = "+".join([fork_name] + [str(eip) for eip in eips])
-        if int(env["currentNumber"], 0) == 0:
+        if env.number == 0:
             reward = -1
         t8n_data = TransitionTool.TransitionToolData(
             alloc=alloc,

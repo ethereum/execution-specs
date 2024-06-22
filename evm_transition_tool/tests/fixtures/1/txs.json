@@ -1,6 +1,6 @@
 [
   {
-    "gas": "0x5208",
+    "gasLimit": "0x5208",
     "gasPrice": "0x2",
     "hash": "0x0557bacce3375c98d806609b8d5043072f0b6a8bae45ae5a67a00d3a1a18d673",
     "input": "0x",
@@ -12,7 +12,7 @@
     "value": "0x1"
   },
   {
-    "gas": "0x5208",
+    "gasLimit": "0x5208",
     "gasPrice": "0x2",
     "hash": "0x0557bacce3375c98d806609b8d5043072f0b6a8bae45ae5a67a00d3a1a18d673",
     "input": "0x",

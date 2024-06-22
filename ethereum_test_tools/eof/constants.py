@@ -1,21 +1,12 @@
 """
-EVM Object Format generic constants.
-Applicable to all EOF versions.
+Mirror file to import constants from ethereum_test_types.eof.constants
 """
-EOF_MAGIC = b"\xef\x00"
-"""
-The second byte found on every EOF formatted contract, which was chosen to
-avoid clashes with three contracts which were deployed on Mainnet.
-"""
-EOF_HEADER_TERMINATOR = b"\x00"
-"""
-Byte that terminates the header of the EOF format.
-"""
-LATEST_EOF_VERSION = 1
-"""
-Latest existing EOF version.
-"""
-VERSION_BYTE_LENGTH = 1
-"""
-Length of the version byte.
-"""
+
+from ethereum_test_types.eof.constants import (
+    EOF_HEADER_TERMINATOR,
+    EOF_MAGIC,
+    LATEST_EOF_VERSION,
+    VERSION_BYTE_LENGTH,
+)
+
+__all__ = ("EOF_MAGIC", "EOF_HEADER_TERMINATOR", "LATEST_EOF_VERSION", "VERSION_BYTE_LENGTH")
