@@ -28,6 +28,8 @@ import functools
 from abc import ABC, abstractmethod
 from typing import Final, Tuple
 
+from typing_extensions import override
+
 
 @functools.total_ordering
 class ForkCriteria(ABC):
@@ -128,6 +130,7 @@ class ByBlockNumber(ForkCriteria):
         self._internal = (ForkCriteria.BLOCK_NUMBER, block_number)
         self.block_number = block_number
 
+    @override
     def check(self, block_number: int, timestamp: int) -> bool:
         """
         Check whether the block number has been reached.
@@ -160,6 +163,7 @@ class ByTimestamp(ForkCriteria):
         self._internal = (ForkCriteria.TIMESTAMP, timestamp)
         self.timestamp = timestamp
 
+    @override
     def check(self, block_number: int, timestamp: int) -> bool:
         """
         Check whether the timestamp has been reached.
@@ -186,6 +190,7 @@ class Unscheduled(ForkCriteria):
     def __init__(self) -> None:
         self._internal = (ForkCriteria.UNSCHEDULED, 0)
 
+    @override
     def check(self, block_number: int, timestamp: int) -> bool:
         """
         Unscheduled forks never occur; always returns `False`.
