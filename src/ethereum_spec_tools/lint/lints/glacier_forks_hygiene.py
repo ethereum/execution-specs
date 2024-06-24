@@ -7,6 +7,8 @@ import ast
 import sys
 from typing import Dict, List, Sequence
 
+from typing_extensions import override
+
 from ethereum_spec_tools.forks import Hardfork
 from ethereum_spec_tools.lint import (
     Diagnostic,
@@ -193,12 +195,14 @@ class _Visitor(ast.NodeVisitor):
         for item in module.__dict__["body"]:
             self.visit(item)
 
+    @override
     def visit_Import(self, import_: ast.Import) -> None:
         """
         Visit an Import
         """
         pass
 
+    @override
     def visit_ImportFrom(self, import_from: ast.ImportFrom) -> None:
         """
         Visit an Import From

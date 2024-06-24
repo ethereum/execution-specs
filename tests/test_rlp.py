@@ -67,22 +67,22 @@ def test_ethtest_fixtures_for_rlp_encoding(
 
 
 @pytest.mark.parametrize(
-    "raw_data, encoded_data",
+    "_raw_data, encoded_data",
     ethtest_fixtures_as_pytest_fixtures("RandomRLPTests/example.json"),
 )
 def test_ethtest_fixtures_for_successfully_rlp_decoding(
-    raw_data: Bytes, encoded_data: Bytes
+    _raw_data: Extended, encoded_data: Bytes
 ) -> None:
     decoded_data = rlp.decode(encoded_data)
     assert rlp.encode(decoded_data) == encoded_data
 
 
 @pytest.mark.parametrize(
-    "raw_data, encoded_data",
+    "_raw_data, encoded_data",
     ethtest_fixtures_as_pytest_fixtures("invalidRLPTest.json"),
 )
 def test_ethtest_fixtures_for_fails_in_rlp_decoding(
-    raw_data: Bytes, encoded_data: Bytes
+    _raw_data: Bytes, encoded_data: Bytes
 ) -> None:
     with pytest.raises(rlp.DecodingError):
         rlp.decode(encoded_data)
