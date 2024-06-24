@@ -53,7 +53,7 @@ from fladrif.apply import Apply
 from fladrif.treediff import Adapter, Operation, TreeMatcher
 from mistletoe import block_token as blocks  # type: ignore
 from mistletoe import span_token as spans
-from typing_extensions import assert_never
+from typing_extensions import assert_never, override
 
 from .forks import Hardfork
 
@@ -775,6 +775,7 @@ class _HardenVisitor(Visitor):
         parent.replace_child(flex, new_node)
         return Visit.TraverseChildren
 
+    @override
     def exit(self, node: Node) -> None:
         self._stack.pop()
 
@@ -908,11 +909,13 @@ class _DoccApply(Apply[Node]):
                     )
                 )
 
+    @override
     def equal(self, before: Sequence[Node], after: Sequence[Node]) -> None:
         parent = self.stack[-1]
         for node in after:
             parent.add(node)
 
+    @override
     def descend(self, before: Node, after: Node) -> None:
         parent = self.stack[-1]
         node = _DoccApply.FlexNode(after)
@@ -1000,12 +1003,13 @@ class _MinimizeDiffsVisitor(Visitor):
 
         return Visit.SkipChildren
 
+    @override
     def exit(self, node: Node) -> None:
         self._stack.pop()
 
 
 def render_diff(
-    context: object,
+    context: object,  # noqa: U100
     parent: object,
     diff: object,
 ) -> html.RenderResult:

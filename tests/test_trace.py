@@ -10,21 +10,21 @@ def test_modify_evm_trace() -> None:
     trace2: Optional[ethereum.trace.TraceEvent] = None
 
     def tracer1(
-        evm: object,
+        evm: object,  # noqa: U100
         event: ethereum.trace.TraceEvent,
-        trace_memory: bool = False,
-        trace_stack: bool = True,
-        trace_return_data: bool = False,
+        trace_memory: bool = False,  # noqa: U100
+        trace_stack: bool = True,  # noqa: U100
+        trace_return_data: bool = False,  # noqa: U100
     ) -> None:
         nonlocal trace1
         trace1 = event
 
     def tracer2(
-        evm: object,
+        evm: object,  # noqa: U100
         event: ethereum.trace.TraceEvent,
-        trace_memory: bool = False,
-        trace_stack: bool = True,
-        trace_return_data: bool = False,
+        trace_memory: bool = False,  # noqa: U100
+        trace_stack: bool = True,  # noqa: U100
+        trace_return_data: bool = False,  # noqa: U100
     ) -> None:
         nonlocal trace2
         trace2 = event
@@ -47,7 +47,6 @@ def test_modify_evm_trace() -> None:
         message=cast(Message, object()),
         output=b"",
         accounts_to_delete=set(),
-        touched_accounts=set(),
         return_data=b"",
         error=None,
         accessed_addresses=set(),
