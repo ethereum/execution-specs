@@ -14,6 +14,8 @@ from threading import Thread
 from typing import Any, Tuple, Union
 from urllib.parse import parse_qs, urlparse
 
+from typing_extensions import override
+
 
 def daemon_arguments(subparsers: argparse._SubParsersAction) -> None:
     """
@@ -30,6 +32,7 @@ def daemon_arguments(subparsers: argparse._SubParsersAction) -> None:
 
 
 class _EvmToolHandler(BaseHTTPRequestHandler):
+    @override
     def log_request(
         self, code: int | str = "-", size: int | str = "-"
     ) -> None:

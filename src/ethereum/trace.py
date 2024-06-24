@@ -170,11 +170,11 @@ All possible types of events that an [`EvmTracer`] is expected to handle.
 
 
 def discard_evm_trace(
-    evm: object,
-    event: TraceEvent,
-    trace_memory: bool = False,
-    trace_stack: bool = True,
-    trace_return_data: bool = False,
+    evm: object,  # noqa: U100
+    event: TraceEvent,  # noqa: U100
+    trace_memory: bool = False,  # noqa: U100
+    trace_stack: bool = True,  # noqa: U100
+    trace_return_data: bool = False,  # noqa: U100
 ) -> None:
     """
     An [`EvmTracer`] that discards all events.
@@ -200,9 +200,9 @@ class EvmTracer(Protocol):
         evm: object,
         event: TraceEvent,
         /,
-        trace_memory: bool = False,
-        trace_stack: bool = True,
-        trace_return_data: bool = False,
+        trace_memory: bool = False,  # noqa: U100
+        trace_stack: bool = True,  # noqa: U100
+        trace_return_data: bool = False,  # noqa: U100
     ) -> None:
         """
         Call `self` as a function, recording a trace event.

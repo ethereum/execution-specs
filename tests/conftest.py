@@ -114,7 +114,7 @@ def git_clone_fixtures(url: str, commit_hash: str, location: str) -> None:
                 submodule.update(init=True, recursive=True)
 
 
-def pytest_sessionstart(session: Session) -> None:
+def pytest_sessionstart(session: Session) -> None:  # noqa: U100
     for _, props in TEST_FIXTURES.items():
         fixture_path = props["fixture_path"]
 

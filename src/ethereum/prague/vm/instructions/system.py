@@ -66,7 +66,6 @@ def generic_create(
     contract_address: Address,
     memory_start_position: U256,
     memory_size: U256,
-    init_code_gas: Uint,
 ) -> None:
     """
     Core logic used by the `CREATE*` family of opcodes.
@@ -184,7 +183,6 @@ def create(evm: Evm) -> None:
         contract_address,
         memory_start_position,
         memory_size,
-        init_code_gas,
     )
 
     # PROGRAM COUNTER
@@ -237,7 +235,6 @@ def create2(evm: Evm) -> None:
         contract_address,
         memory_start_position,
         memory_size,
-        init_code_gas,
     )
 
     # PROGRAM COUNTER
