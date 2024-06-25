@@ -367,6 +367,16 @@ op_implementation: Dict[Ops, Callable] = {
 }
 
 
-OPCODES_INVALID_IN_LEGACY = ()
+OPCODES_INVALID_IN_LEGACY = (Ops.INVALID,)
 
-OPCODES_INVALID_IN_EOF1 = ()
+OPCODES_INVALID_IN_EOF1 = (
+    # Control Flow Ops
+    Ops.JUMP,
+    Ops.JUMPI,
+    Ops.PC,
+    # System Operations
+    Ops.CREATE,
+    Ops.CALLCODE,
+    Ops.CREATE2,
+    Ops.SELFDESTRUCT,
+)

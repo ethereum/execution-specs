@@ -328,6 +328,65 @@ def validate_body(code: bytes, eof_header: EOFHeader) -> None:
         raise InvalidEOF("Stray bytes found after data section")
 
 
+def validate_code_section(code: bytes) -> None:
+    """
+    Validate a code section of the EOF container.
+
+    Parameters
+    ----------
+    code : bytes
+        The code section to validate.
+
+    Raises
+    ------
+    InvalidEOF
+        If the code section is invalid.
+    """
+    counter = 0
+    while counter < len(code):
+        try:
+            opcode = get_opcode(code[counter], EOF.EOF1)
+        except ValueError:
+            raise InvalidEOF("Invalid opcode in code section")
+
+        if (
+            opcode.value >= Ops.PUSH1.value
+            and opcode.value <= Ops.PUSH32.value
+        ):
+            push_data_size = opcode.value - Ops.PUSH1.value + 1
+            if len(code) < counter + push_data_size + 1:
+                raise InvalidEOF("Push data missing")
+
+            counter += push_data_size + 1
+            continue
+
+        counter += 1
+
+
+def validate_eof_code(code: bytes, eof_header: EOFHeader) -> None:
+    """
+    Validate the code section of the EOF container.
+
+    Parameters
+    ----------
+    code : bytes
+        The code section to validate.
+    eof_header : EOFHeader
+        The header of the EOF container.
+
+    Raises
+    ------
+    InvalidEOF
+        If the code section is invalid.
+    """
+    code_start = eof_header.header_end_index + eof_header.type_size
+    counter = code_start
+
+    for code_size in eof_header.code_sizes:
+        validate_code_section(code[counter : counter + code_size])
+        counter += code_size
+
+
 def validate_eof_container(code: bytes) -> None:
     """
     Validate the Ethereum Object Format (EOF) container.
@@ -354,3 +413,5 @@ def validate_eof_container(code: bytes) -> None:
     eof_header = validate_header(code)
 
     validate_body(code, eof_header)
+
+    validate_eof_code(code, eof_header)
