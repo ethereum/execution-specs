@@ -1511,7 +1511,7 @@ class WithdrawalRequestGeneric(RequestBase, CamelModel, Generic[NumberBoundTypeV
     """
 
     source_address: Address = Address(0)
-    validator_public_key: BLSPublicKey
+    validator_pubkey: BLSPublicKey
     amount: NumberBoundTypeVar
 
     @classmethod
@@ -1527,7 +1527,7 @@ class WithdrawalRequestGeneric(RequestBase, CamelModel, Generic[NumberBoundTypeV
         """
         return [
             self.source_address,
-            self.validator_public_key,
+            self.validator_pubkey,
             Uint(self.amount),
         ]
 
