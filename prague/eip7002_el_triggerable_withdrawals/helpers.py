@@ -54,7 +54,7 @@ class WithdrawalRequest(WithdrawalRequestBase):
         withdrawal.
         """
         return self.calldata_modifier(
-            self.validator_public_key + self.amount.to_bytes(8, byteorder="big")
+            self.validator_pubkey + self.amount.to_bytes(8, byteorder="big")
         )
 
     def with_source_address(self, source_address: Address) -> "WithdrawalRequest":
@@ -274,7 +274,7 @@ def get_n_fee_increment_blocks(n: int) -> List[List[WithdrawalRequestContract]]:
                 WithdrawalRequestContract(
                     requests=[
                         WithdrawalRequest(
-                            validator_public_key=i,
+                            validator_pubkey=i,
                             amount=0,
                             fee=fee,
                         )

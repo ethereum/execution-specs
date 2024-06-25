@@ -45,7 +45,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestTransaction(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x01,
+                                validator_pubkey=0x01,
                                 amount=0,
                                 fee=Spec.get_fee(0),
                             )
@@ -61,7 +61,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestTransaction(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x01,
+                                validator_pubkey=0x01,
                                 amount=0,
                                 fee=0,
                             )
@@ -77,7 +77,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestTransaction(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x01,
+                                validator_pubkey=0x01,
                                 amount=0,
                                 fee=Spec.get_fee(0),
                                 calldata_modifier=lambda x: x[:-1],
@@ -95,7 +95,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestTransaction(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x01,
+                                validator_pubkey=0x01,
                                 amount=0,
                                 fee=Spec.get_fee(0),
                                 calldata_modifier=lambda x: x + b"\x00",
@@ -113,12 +113,12 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestTransaction(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x01,
+                                validator_pubkey=0x01,
                                 amount=0,
                                 fee=Spec.get_fee(0),
                             ),
                             WithdrawalRequest(
-                                validator_public_key=0x02,
+                                validator_pubkey=0x02,
                                 amount=Spec.MAX_AMOUNT - 1,
                                 fee=Spec.get_fee(0),
                             ),
@@ -134,7 +134,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestTransaction(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x01,
+                                validator_pubkey=0x01,
                                 amount=0,
                                 fee=Spec.get_fee(0),
                             )
@@ -143,7 +143,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestTransaction(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x02,
+                                validator_pubkey=0x02,
                                 amount=Spec.MAX_AMOUNT - 1,
                                 fee=Spec.get_fee(0),
                             )
@@ -159,7 +159,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestTransaction(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=i + 1,
+                                validator_pubkey=i + 1,
                                 amount=0 if i % 2 == 0 else Spec.MAX_AMOUNT,
                                 fee=Spec.get_fee(0),
                             )
@@ -176,12 +176,12 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestTransaction(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x01,
+                                validator_pubkey=0x01,
                                 amount=0,
                                 fee=0,
                             ),
                             WithdrawalRequest(
-                                validator_public_key=0x02,
+                                validator_pubkey=0x02,
                                 amount=Spec.MAX_AMOUNT - 1,
                                 fee=Spec.get_fee(0),
                             ),
@@ -197,12 +197,12 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestTransaction(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x01,
+                                validator_pubkey=0x01,
                                 amount=0,
                                 fee=Spec.get_fee(0),
                             ),
                             WithdrawalRequest(
-                                validator_public_key=0x02,
+                                validator_pubkey=0x02,
                                 amount=Spec.MAX_AMOUNT - 1,
                                 fee=0,
                             ),
@@ -218,7 +218,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestTransaction(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x01,
+                                validator_pubkey=0x01,
                                 amount=0,
                                 fee=Spec.get_fee(0),
                                 # Value obtained from trace minus one
@@ -226,7 +226,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 valid=False,
                             ),
                             WithdrawalRequest(
-                                validator_public_key=0x02,
+                                validator_pubkey=0x02,
                                 amount=0,
                                 fee=Spec.get_fee(0),
                             ),
@@ -242,12 +242,12 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestTransaction(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x01,
+                                validator_pubkey=0x01,
                                 amount=0,
                                 fee=Spec.get_fee(0),
                             ),
                             WithdrawalRequest(
-                                validator_public_key=0x02,
+                                validator_pubkey=0x02,
                                 amount=0,
                                 fee=Spec.get_fee(0),
                                 # Value obtained from trace minus one
@@ -267,7 +267,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestTransaction(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=i + 1,
+                                validator_pubkey=i + 1,
                                 amount=0 if i % 2 == 0 else Spec.MAX_AMOUNT,
                                 fee=Spec.get_fee(0),
                             )
@@ -288,7 +288,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestContract(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x01,
+                                validator_pubkey=0x01,
                                 amount=0,
                                 fee=Spec.get_fee(0),
                             ),
@@ -304,7 +304,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestContract(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=i + 1,
+                                validator_pubkey=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
                                 fee=Spec.get_fee(0),
                             )
@@ -321,14 +321,14 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestContract(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=1,
+                                validator_pubkey=1,
                                 amount=Spec.MAX_AMOUNT,
                                 fee=0,
                             )
                         ]
                         + [
                             WithdrawalRequest(
-                                validator_public_key=i + 1,
+                                validator_pubkey=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
                                 fee=Spec.get_fee(0),
                             )
@@ -345,7 +345,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestContract(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=i + 1,
+                                validator_pubkey=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
                                 fee=Spec.get_fee(0),
                             )
@@ -353,7 +353,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         ]
                         + [
                             WithdrawalRequest(
-                                validator_public_key=Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK,
+                                validator_pubkey=Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK,
                                 amount=Spec.MAX_AMOUNT - 1
                                 if (Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK - 1) % 2 == 0
                                 else 0,
@@ -371,7 +371,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestContract(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=1,
+                                validator_pubkey=1,
                                 amount=Spec.MAX_AMOUNT - 1,
                                 gas_limit=100,
                                 fee=Spec.get_fee(0),
@@ -380,7 +380,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         ]
                         + [
                             WithdrawalRequest(
-                                validator_public_key=i + 1,
+                                validator_pubkey=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
                                 gas_limit=1_000_000,
                                 fee=Spec.get_fee(0),
@@ -399,7 +399,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestContract(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=i + 1,
+                                validator_pubkey=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
                                 fee=Spec.get_fee(0),
                                 gas_limit=1_000_000,
@@ -409,7 +409,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                         ]
                         + [
                             WithdrawalRequest(
-                                validator_public_key=Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK,
+                                validator_pubkey=Spec.MAX_WITHDRAWAL_REQUESTS_PER_BLOCK,
                                 amount=Spec.MAX_AMOUNT - 1,
                                 gas_limit=100,
                                 fee=Spec.get_fee(0),
@@ -427,7 +427,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestContract(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=i + 1,
+                                validator_pubkey=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
                                 fee=Spec.get_fee(0),
                                 valid=False,
@@ -446,7 +446,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestContract(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=i + 1,
+                                validator_pubkey=i + 1,
                                 amount=Spec.MAX_AMOUNT - 1 if i % 2 == 0 else 0,
                                 fee=Spec.get_fee(0),
                                 valid=False,
@@ -470,7 +470,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestContract(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x01,
+                                validator_pubkey=0x01,
                                 amount=0,
                                 fee=Spec.get_fee(0),
                                 valid=False,
@@ -481,7 +481,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestContract(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x01,
+                                validator_pubkey=0x01,
                                 amount=0,
                                 fee=Spec.get_fee(0),
                                 valid=False,
@@ -492,7 +492,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                     WithdrawalRequestContract(
                         requests=[
                             WithdrawalRequest(
-                                validator_public_key=0x01,
+                                validator_pubkey=0x01,
                                 amount=0,
                                 fee=Spec.get_fee(0),
                                 valid=False,
@@ -529,7 +529,7 @@ def test_withdrawal_requests(
             [],
             [
                 WithdrawalRequest(
-                    validator_public_key=0x01,
+                    validator_pubkey=0x01,
                     amount=0,
                     source_address=Address(0),
                 ),
@@ -542,7 +542,7 @@ def test_withdrawal_requests(
                 WithdrawalRequestTransaction(
                     requests=[
                         WithdrawalRequest(
-                            validator_public_key=0x01,
+                            validator_pubkey=0x01,
                             amount=0,
                             fee=Spec.get_fee(0),
                         ),
@@ -558,7 +558,7 @@ def test_withdrawal_requests(
                 WithdrawalRequestTransaction(
                     requests=[
                         WithdrawalRequest(
-                            validator_public_key=0x01,
+                            validator_pubkey=0x01,
                             amount=0,
                             fee=Spec.get_fee(0),
                         ),
@@ -567,7 +567,7 @@ def test_withdrawal_requests(
             ],
             [
                 WithdrawalRequest(
-                    validator_public_key=0x02,
+                    validator_pubkey=0x02,
                     amount=0,
                     source_address=TestAddress,
                 )
@@ -580,7 +580,7 @@ def test_withdrawal_requests(
                 WithdrawalRequestTransaction(
                     requests=[
                         WithdrawalRequest(
-                            validator_public_key=0x01,
+                            validator_pubkey=0x01,
                             amount=0,
                             fee=Spec.get_fee(0),
                         )
@@ -589,7 +589,7 @@ def test_withdrawal_requests(
             ],
             [
                 WithdrawalRequest(
-                    validator_public_key=0x01,
+                    validator_pubkey=0x01,
                     amount=1,
                     source_address=TestAddress,
                 )
@@ -602,7 +602,7 @@ def test_withdrawal_requests(
                 WithdrawalRequestTransaction(
                     requests=[
                         WithdrawalRequest(
-                            validator_public_key=0x01,
+                            validator_pubkey=0x01,
                             amount=0,
                             fee=Spec.get_fee(0),
                         )
@@ -611,7 +611,7 @@ def test_withdrawal_requests(
             ],
             [
                 WithdrawalRequest(
-                    validator_public_key=0x01,
+                    validator_pubkey=0x01,
                     amount=0,
                     source_address=TestAddress2,
                 )
@@ -624,12 +624,12 @@ def test_withdrawal_requests(
                 WithdrawalRequestTransaction(
                     requests=[
                         WithdrawalRequest(
-                            validator_public_key=0x01,
+                            validator_pubkey=0x01,
                             amount=0,
                             fee=Spec.get_fee(0),
                         ),
                         WithdrawalRequest(
-                            validator_public_key=0x02,
+                            validator_pubkey=0x02,
                             amount=0,
                             fee=Spec.get_fee(0),
                         ),
@@ -638,12 +638,12 @@ def test_withdrawal_requests(
             ],
             [
                 WithdrawalRequest(
-                    validator_public_key=0x02,
+                    validator_pubkey=0x02,
                     amount=0,
                     source_address=TestAddress,
                 ),
                 WithdrawalRequest(
-                    validator_public_key=0x01,
+                    validator_pubkey=0x01,
                     amount=0,
                     source_address=TestAddress,
                 ),
@@ -656,7 +656,7 @@ def test_withdrawal_requests(
                 WithdrawalRequestTransaction(
                     requests=[
                         WithdrawalRequest(
-                            validator_public_key=0x01,
+                            validator_pubkey=0x01,
                             amount=0,
                             fee=Spec.get_fee(0),
                         )
@@ -665,12 +665,12 @@ def test_withdrawal_requests(
             ],
             [
                 WithdrawalRequest(
-                    validator_public_key=0x01,
+                    validator_pubkey=0x01,
                     amount=0,
                     source_address=TestAddress,
                 ),
                 WithdrawalRequest(
-                    validator_public_key=0x01,
+                    validator_pubkey=0x01,
                     amount=0,
                     source_address=TestAddress,
                 ),
