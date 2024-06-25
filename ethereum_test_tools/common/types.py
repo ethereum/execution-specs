@@ -324,6 +324,13 @@ class Storage(RootModel[Dict[StorageKeyValueType, StorageKeyValueType]]):
             elif other[key] != 0:
                 raise Storage.KeyValueMismatch(address=address, key=key, want=0, got=other[key])
 
+    def canary(self) -> "Storage":
+        """
+        Returns a canary storage filled with non-zero values where the current storage expects
+        zero values, to guarantee that the test overwrites the storage.
+        """
+        return Storage({key: HashInt(0xBA5E) for key in self.keys() if self[key] == 0})
+
 
 class Account(CopyValidateModel):
     """
