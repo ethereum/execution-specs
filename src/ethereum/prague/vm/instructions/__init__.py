@@ -211,6 +211,7 @@ class Ops(enum.Enum):
     CREATE2 = 0xF5
     STATICCALL = 0xFA
     REVERT = 0xFD
+    INVALID = 0xFE
     SELFDESTRUCT = 0xFF
 
 
@@ -364,3 +365,8 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.REVERT: system_instructions.revert,
     Ops.CREATE2: system_instructions.create2,
 }
+
+
+OPCODES_INVALID_IN_LEGACY = ()
+
+OPCODES_INVALID_IN_EOF1 = ()

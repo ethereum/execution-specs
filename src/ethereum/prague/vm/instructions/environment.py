@@ -262,7 +262,7 @@ def codesize(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256(len(evm.code)))
+    push(evm.stack, U256(len(evm.message.container)))
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -296,7 +296,7 @@ def codecopy(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    value = buffer_read(evm.code, code_start_index, size)
+    value = buffer_read(evm.message.container, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 
     # PROGRAM COUNTER

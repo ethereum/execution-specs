@@ -588,7 +588,7 @@ def apply_body(
         gas=SYSTEM_TRANSACTION_GAS,
         value=U256(0),
         data=parent_beacon_block_root,
-        code=beacon_block_roots_contract_code,
+        container=beacon_block_roots_contract_code,
         depth=Uint(0),
         current_target=BEACON_ROOTS_ADDRESS,
         code_address=BEACON_ROOTS_ADDRESS,

@@ -30,12 +30,19 @@ from ...utils.address import (
     to_address,
 )
 from .. import (
+    EOF,
     Evm,
     Message,
+    get_eof_version,
     incorporate_child_on_error,
     incorporate_child_on_success,
 )
-from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
+from ..exceptions import (
+    ExceptionalHalt,
+    OutOfGasError,
+    Revert,
+    WriteInStaticContext,
+)
 from ..gas import (
     GAS_CALL_VALUE,
     GAS_COLD_ACCOUNT_ACCESS,
@@ -114,7 +121,7 @@ def generic_create(
         gas=create_message_gas,
         value=endowment,
         data=b"",
-        code=call_data,
+        container=call_data,
         current_target=contract_address,
         depth=evm.message.depth + 1,
         code_address=None,
@@ -292,14 +299,14 @@ def generic_call(
     call_data = memory_read_bytes(
         evm.memory, memory_input_start_position, memory_input_size
     )
-    code = get_account(evm.env.state, code_address).code
+    container = get_account(evm.env.state, code_address).code
     child_message = Message(
         caller=caller,
         target=to,
         gas=gas,
         value=value,
         data=call_data,
-        code=code,
+        container=container,
         current_target=to,
         depth=evm.message.depth + 1,
         code_address=code_address,
@@ -575,20 +582,28 @@ def delegatecall(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    generic_call(
-        evm,
-        message_call_gas.stipend,
-        evm.message.value,
-        evm.message.caller,
-        evm.message.current_target,
-        code_address,
-        False,
-        False,
-        memory_input_start_position,
-        memory_input_size,
-        memory_output_start_position,
-        memory_output_size,
-    )
+    container = get_account(evm.env.state, code_address).code
+    if evm.eof == EOF.EOF1 and get_eof_version(container) == EOF.LEGACY:
+        # Make sure EOF1 contracts can only delegate call to
+        # other EOF1 contracts
+        push(evm.stack, U256(0))
+        evm.return_data = b""
+        evm.gas_left += message_call_gas.stipend
+    else:
+        generic_call(
+            evm,
+            message_call_gas.stipend,
+            evm.message.value,
+            evm.message.caller,
+            evm.message.current_target,
+            code_address,
+            False,
+            False,
+            memory_input_start_position,
+            memory_input_size,
+            memory_output_start_position,
+            memory_output_size,
+        )
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -681,6 +696,28 @@ def revert(evm: Evm) -> None:
     output = memory_read_bytes(evm.memory, memory_start_index, size)
     evm.output = bytes(output)
     raise Revert
+
+    # PROGRAM COUNTER
+    pass
+
+
+def invalid(evm: Evm) -> None:
+    """
+    Designated invalid instruction.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    pass
+
+    # GAS
+    pass
+
+    # OPERATION
+    raise ExceptionalHalt("Invalid opcode.")
 
     # PROGRAM COUNTER
     pass

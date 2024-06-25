@@ -41,14 +41,19 @@ from ..state import (
     set_code,
     touch_account,
 )
-from ..vm import Message
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import Environment, Evm
+from . import EOF, Environment, Evm, Message, get_eof_version
+from .eof import (
+    code_from_valid_eof1_container,
+    get_opcode,
+    validate_eof_container,
+)
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
     InvalidContractPrefix,
+    InvalidEOF,
     InvalidOpcode,
     OutOfGasError,
     Revert,
@@ -183,7 +188,9 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         try:
             if len(contract_code) > 0:
-                if contract_code[0] == 0xEF:
+                if get_eof_version(contract_code) == EOF.EOF1:
+                    validate_eof_container(contract_code)
+                elif contract_code[0] == 0xEF:
                     raise InvalidContractPrefix
             charge_gas(evm, contract_code_gas)
             if len(contract_code) > MAX_CODE_SIZE:
@@ -256,8 +263,17 @@ def execute_code(message: Message, env: Environment) -> Evm:
     evm: `ethereum.vm.EVM`
         Items containing execution specific objects
     """
-    code = message.code
-    valid_jump_destinations = get_valid_jump_destinations(code)
+    container = message.container
+    valid_jump_destinations = get_valid_jump_destinations(container)
+
+    eof_version = get_eof_version(container)
+
+    if eof_version == EOF.EOF1:
+        code = code_from_valid_eof1_container(container)
+    elif eof_version == EOF.LEGACY:
+        code = container
+    else:
+        raise InvalidEOF
 
     evm = Evm(
         pc=Uint(0),
@@ -278,6 +294,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         error=None,
         accessed_addresses=message.accessed_addresses,
         accessed_storage_keys=message.accessed_storage_keys,
+        eof=eof_version,
     )
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:
@@ -288,7 +305,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
 
         while evm.running and evm.pc < len(evm.code):
             try:
-                op = Ops(evm.code[evm.pc])
+                op = get_opcode(evm.code[evm.pc], evm.eof)
             except ValueError:
                 raise InvalidOpcode(evm.code[evm.pc])
 

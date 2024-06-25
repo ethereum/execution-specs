@@ -431,3 +431,11 @@ uds
 appname
 appauthor
 orelse
+
+Bytes96
+pubkey
+req
+predeploy
+
+eof
+eof1
