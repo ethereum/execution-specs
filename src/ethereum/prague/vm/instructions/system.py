@@ -32,12 +32,18 @@ from ...utils.address import (
 )
 from ...vm.eoa_delegation import access_delegation
 from .. import (
+    MAX_CODE_SIZE,
     Evm,
     Message,
     incorporate_child_on_error,
     incorporate_child_on_success,
 )
-from ..exceptions import OutOfGasError, Revert, WriteInStaticContext
+from ..exceptions import (
+    ExceptionalHalt,
+    OutOfGasError,
+    Revert,
+    WriteInStaticContext,
+)
 from ..gas import (
     GAS_CALL_VALUE,
     GAS_COLD_ACCOUNT_ACCESS,
@@ -71,11 +77,7 @@ def generic_create(
     """
     # This import causes a circular import error
     # if it's not moved inside this method
-    from ...vm.interpreter import (
-        MAX_CODE_SIZE,
-        STACK_DEPTH_LIMIT,
-        process_create_message,
-    )
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
 
     call_data = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
@@ -118,7 +120,7 @@ def generic_create(
         gas=create_message_gas,
         value=endowment,
         data=b"",
-        code=call_data,
+        container=call_data,
         current_target=contract_address,
         depth=evm.message.depth + 1,
         code_address=None,
@@ -310,7 +312,7 @@ def generic_call(
         gas=gas,
         value=value,
         data=call_data,
-        code=code,
+        container=code,
         current_target=to,
         depth=evm.message.depth + 1,
         code_address=code_address,
@@ -735,6 +737,28 @@ def revert(evm: Evm) -> None:
     output = memory_read_bytes(evm.memory, memory_start_index, size)
     evm.output = bytes(output)
     raise Revert
+
+    # PROGRAM COUNTER
+    pass
+
+
+def invalid(evm: Evm) -> None:
+    """
+    Designated invalid instruction.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    pass
+
+    # GAS
+    pass
+
+    # OPERATION
+    raise ExceptionalHalt("Invalid opcode.")
 
     # PROGRAM COUNTER
     pass

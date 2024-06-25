@@ -63,7 +63,7 @@ from .transactions import (
 from .trie import Trie, root, trie_set
 from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
-from .vm import Message
+from .vm import MAX_CODE_SIZE, Message
 from .vm.eoa_delegation import PER_EMPTY_ACCOUNT_COST, is_valid_delegation
 from .vm.gas import (
     calculate_blob_gas_price,

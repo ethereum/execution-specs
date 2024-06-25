@@ -84,11 +84,11 @@ def prepare_message(
             get_account(env.state, caller).nonce - U256(1),
         )
         msg_data = Bytes(b"")
-        code = data
+        container = data
     elif isinstance(target, Address):
         current_target = target
         msg_data = data
-        code = get_account(env.state, target).code
+        container = get_account(env.state, target).code
         if code_address is None:
             code_address = target
     else:
@@ -106,7 +106,7 @@ def prepare_message(
         gas=gas,
         value=value,
         data=msg_data,
-        code=code,
+        container=container,
         depth=Uint(0),
         current_target=current_target,
         code_address=code_address,

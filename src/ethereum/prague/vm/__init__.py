@@ -13,6 +13,7 @@ The abstract computer which runs the code stored in an
 `.fork_types.Account`.
 """
 
+import enum
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple, Union
 
@@ -22,9 +23,46 @@ from ethereum.crypto.hash import Hash32
 from ..blocks import Log
 from ..fork_types import Address, Authorization, VersionedHash
 from ..state import State, TransientStorage, account_exists_and_is_empty
+from .exceptions import InvalidEOF
 from .precompiled_contracts import RIPEMD160_ADDRESS
 
-__all__ = ("Environment", "Evm", "Message")
+__all__ = ("Environment", "Evm", "Message", "EOF")
+
+
+EOF_MAGIC = b"\xEF\x00"
+EOF_MAGIC_LENGTH = 2
+
+MAX_CODE_SIZE = 0x6000
+
+
+class EOF(enum.Enum):
+    """
+    Enumeration of the different kinds of EOF containers.
+    Legacy code is assigned zero.
+    """
+
+    LEGACY = 0
+    EOF1 = 1
+
+
+@dataclass
+class EOFMetadata:
+    """
+    Dataclass to hold the metadata information of the
+    EOF container.
+    """
+
+    type_size: Uint
+    num_code_sections: Uint
+    code_sizes: List[Uint]
+    num_container_sections: Uint
+    container_sizes: Optional[List[Uint]]
+    data_size: Uint
+    body_start_index: Uint
+    type_section_contents: List[bytes]
+    code_section_contents: List[bytes]
+    container_section_contents: Optional[List[bytes]]
+    data_section_contents: bytes
 
 
 @dataclass
@@ -64,7 +102,7 @@ class Message:
     value: U256
     data: Bytes
     code_address: Optional[Address]
-    code: Bytes
+    container: Bytes
     depth: Uint
     should_transfer_value: bool
     is_static: bool
@@ -96,6 +134,8 @@ class Evm:
     error: Optional[Exception]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
+    eof: EOF
+    eof_meta: Optional[EOFMetadata]
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
@@ -148,3 +188,26 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
         ):
             evm.touched_accounts.add(RIPEMD160_ADDRESS)
     evm.gas_left += child_evm.gas_left
+
+
+def get_eof_version(code: bytes) -> EOF:
+    """
+    Get the EOF version container.
+
+    Parameters
+    ----------
+    code : bytes
+        The code to check.
+
+    Returns
+    -------
+    EOF
+        EOF Version of the container.
+    """
+    if not code.startswith(EOF_MAGIC):
+        return EOF.LEGACY
+
+    if code[EOF_MAGIC_LENGTH] == 1:
+        return EOF.EOF1
+    else:
+        raise InvalidEOF("Invalid EOF version")

@@ -202,15 +202,43 @@ class Ops(enum.Enum):
     LOG3 = 0xA3
     LOG4 = 0xA4
 
+    # EOF Data section operations
+    DATALOAD = 0xD0
+    DATALOADN = 0xD1
+    DATASIZE = 0xD2
+    DATACOPY = 0xD3
+
+    # Static Relative Jumps
+    RJUMP = 0xE0
+    RJUMPI = 0xE1
+    RJUMPV = 0xE2
+
+    # EOF Function Opcodes
+    CALLF = 0xE3
+    RETF = 0xE4
+    JUMPF = 0xE5
+
+    # EOF Stack Operations
+    DUPN = 0xE6
+    SWAPN = 0xE7
+    EXCHANGE = 0xE8
+
     # System Operations
+    EOFCREATE = 0xEC
+    RETURNCONTRACT = 0xEE
     CREATE = 0xF0
     CALL = 0xF1
     CALLCODE = 0xF2
     RETURN = 0xF3
     DELEGATECALL = 0xF4
     CREATE2 = 0xF5
+    RETURNDATALOAD = 0xF7
+    EXTCALL = 0xF8
+    EXTDELEGATECALL = 0xF9
     STATICCALL = 0xFA
+    EXTSTATICCALL = 0xFB
     REVERT = 0xFD
+    INVALID = 0xFE
     SELFDESTRUCT = 0xFF
 
 
@@ -364,3 +392,50 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.REVERT: system_instructions.revert,
     Ops.CREATE2: system_instructions.create2,
 }
+
+
+OPCODES_INVALID_IN_LEGACY = (
+    Ops.INVALID,
+    # Relative Jump instructions
+    Ops.RJUMP,
+    Ops.RJUMPI,
+    Ops.RJUMPV,
+    # EOF Data section operations
+    Ops.DATALOAD,
+    Ops.DATALOADN,
+    Ops.DATASIZE,
+    Ops.DATACOPY,
+    # EOF Function Opcodes
+    Ops.CALLF,
+    Ops.RETF,
+    Ops.JUMPF,
+    # EOF Stack Operations
+    Ops.DUPN,
+    Ops.SWAPN,
+    Ops.EXCHANGE,
+    # System Operations
+    Ops.EOFCREATE,
+    Ops.RETURNCONTRACT,
+)
+
+OPCODES_INVALID_IN_EOF1 = (
+    # Environmental Ops
+    Ops.CODESIZE,
+    Ops.CODECOPY,
+    Ops.EXTCODESIZE,
+    Ops.EXTCODECOPY,
+    Ops.EXTCODEHASH,
+    # Control Flow Ops
+    Ops.JUMP,
+    Ops.JUMPI,
+    Ops.PC,
+    Ops.GAS,
+    # System Operations
+    Ops.CREATE,
+    Ops.CALL,
+    Ops.CALLCODE,
+    Ops.DELEGATECALL,
+    Ops.CREATE2,
+    Ops.STATICCALL,
+    Ops.SELFDESTRUCT,
+)
