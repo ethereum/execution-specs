@@ -20,7 +20,7 @@ from ...fork_types import EMPTY_ACCOUNT
 from ...state import get_account
 from ...utils.address import to_address
 from ...vm.memory import buffer_read, memory_write
-from .. import Evm
+from .. import EOF, Evm, get_eof_version
 from ..exceptions import OutOfBoundsRead
 from ..gas import (
     GAS_BASE,
@@ -262,7 +262,7 @@ def codesize(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256(len(evm.code)))
+    push(evm.stack, U256(len(evm.message.container)))
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -296,7 +296,7 @@ def codecopy(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    value = buffer_read(evm.code, code_start_index, size)
+    value = buffer_read(evm.message.container, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 
     # PROGRAM COUNTER
@@ -348,7 +348,12 @@ def extcodesize(evm: Evm) -> None:
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has empty code.
-    codesize = U256(len(get_account(evm.env.state, address).code))
+    code = get_account(evm.env.state, address).code
+    target_eof_version = get_eof_version(code)
+    if target_eof_version == EOF.EOF1:
+        codesize = U256(2)
+    else:
+        codesize = U256(len(code))
 
     push(evm.stack, codesize)
 
@@ -390,7 +395,11 @@ def extcodecopy(evm: Evm) -> None:
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     code = get_account(evm.env.state, address).code
-    value = buffer_read(code, code_start_index, size)
+    eof_version = get_eof_version(code)
+    if eof_version == EOF.EOF1:
+        value = b"\xEF\x00"
+    else:
+        value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 
     # PROGRAM COUNTER
@@ -476,6 +485,8 @@ def extcodehash(evm: Evm) -> None:
 
     if account == EMPTY_ACCOUNT:
         codehash = U256(0)
+    elif get_eof_version(account.code) == EOF.EOF1:
+        codehash = U256.from_be_bytes(keccak256(b"\xEF\x00"))
     else:
         codehash = U256.from_be_bytes(keccak256(account.code))
 

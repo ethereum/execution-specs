@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Dict
+from typing import Dict, Generator, Tuple
 
 import pytest
 
@@ -92,22 +92,24 @@ fetch_state_tests = partial(
 )
 
 
-@pytest.mark.parametrize(
-    "test_case",
-    fetch_state_tests(),
-    ids=idfn,
+# Run temporary test fixtures for Prague
+test_dirs = (
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7692_eof_v1/eip3540_eof_v1",
 )
-def test_general_state_tests(test_case: Dict) -> None:
-    run_prague_blockchain_st_tests(test_case)
 
 
-# Run execution-spec-generated-tests
-test_dir = f"{ETHEREUM_SPEC_TESTS_PATH}/fixtures/withdrawals"
+def fetch_temporary_tests(test_dirs: Tuple[str, ...]) -> Generator:
+    """
+    Fetch the relevant tests for a particular EIP-Implementation
+    from among the temporary fixtures from ethereum-spec-tests.
+    """
+    for test_dir in test_dirs:
+        yield from fetch_prague_tests(test_dir)
 
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_prague_tests(test_dir),
+    fetch_temporary_tests(test_dirs),
     ids=idfn,
 )
 def test_execution_specs_generated_tests(test_case: Dict) -> None:

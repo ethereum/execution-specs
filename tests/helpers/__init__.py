@@ -15,4 +15,9 @@ TEST_FIXTURES = {
         "commit_hash": "52ddcbc",
         "fixture_path": "tests/fixtures/ethereum_tests",
     },
+    "latest_fork_tests": {
+        "url": "https://github.com/gurukamath/latest_fork_tests.git",
+        "commit_hash": "45600f3",
+        "fixture_path": "tests/fixtures/latest_fork_tests",
+    },
 }

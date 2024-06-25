@@ -56,7 +56,7 @@ from .transactions import (
 from .trie import Trie, root, trie_set
 from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
-from .vm import Message
+from .vm import MAX_CODE_SIZE, Message
 from .vm.gas import (
     calculate_blob_gas_price,
     calculate_data_fee,
@@ -64,7 +64,7 @@ from .vm.gas import (
     calculate_total_blob_gas,
     init_code_cost,
 )
-from .vm.interpreter import MAX_CODE_SIZE, process_message_call
+from .vm.interpreter import process_message_call
 
 BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
 ELASTICITY_MULTIPLIER = 2
@@ -588,7 +588,7 @@ def apply_body(
         gas=SYSTEM_TRANSACTION_GAS,
         value=U256(0),
         data=parent_beacon_block_root,
-        code=beacon_block_roots_contract_code,
+        container=beacon_block_roots_contract_code,
         depth=Uint(0),
         current_target=BEACON_ROOTS_ADDRESS,
         code_address=BEACON_ROOTS_ADDRESS,
