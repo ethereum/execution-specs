@@ -202,6 +202,11 @@ class Ops(enum.Enum):
     LOG3 = 0xA3
     LOG4 = 0xA4
 
+    # Static Relative Jumps
+    RJUMP = 0xE0
+    RJUMPI = 0xE1
+    RJUMPV = 0xE2
+
     # System Operations
     CREATE = 0xF0
     CALL = 0xF1
@@ -355,6 +360,9 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.LOG2: log_instructions.log2,
     Ops.LOG3: log_instructions.log3,
     Ops.LOG4: log_instructions.log4,
+    Ops.RJUMP: control_flow_instructions.rjump,
+    Ops.RJUMPI: control_flow_instructions.rjumpi,
+    Ops.RJUMPV: control_flow_instructions.rjumpv,
     Ops.CREATE: system_instructions.create,
     Ops.RETURN: system_instructions.return_,
     Ops.CALL: system_instructions.call,
@@ -367,7 +375,13 @@ op_implementation: Dict[Ops, Callable] = {
 }
 
 
-OPCODES_INVALID_IN_LEGACY = (Ops.INVALID,)
+OPCODES_INVALID_IN_LEGACY = (
+    Ops.INVALID,
+    # Relative Jump instructions
+    Ops.RJUMP,
+    Ops.RJUMPI,
+    Ops.RJUMPV,
+)
 
 OPCODES_INVALID_IN_EOF1 = (
     # Control Flow Ops
