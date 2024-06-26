@@ -44,7 +44,6 @@ class Vector(CamelModel):
     code: Bytes
     container_kind: ContainerKind | None
     results: Mapping[str, Result]
-    kind: str | None
 
 
 class Fixture(BaseFixture):
