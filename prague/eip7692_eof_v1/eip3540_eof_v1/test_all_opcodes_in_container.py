@@ -2,6 +2,8 @@
 EOF Container: check how every opcode behaves in the middle of the valid eof container code
 """
 
+from typing import List
+
 import pytest
 
 from ethereum_test_tools import Bytecode, EOFTestFiller, Opcode
@@ -46,103 +48,85 @@ halting_opcodes = {
     Op.INVALID,
 }
 
-# Special eof opcodes that require [] operator
-eof_opcodes = {
-    Op.DATALOADN,
-    Op.RJUMPV,
-    Op.CALLF,
-    Op.RETF,
-    Op.JUMPF,
-    Op.EOFCREATE,
-    Op.RETURNCONTRACT,
-    Op.EXCHANGE,
+skip_opcodes = {
+    Op.RETF,  # RETF not allowed in first section
+    Op.EOFCREATE,  # EOFCREATE not allowed unless the second container is an initcode
+    Op.RETURNCONTRACT,  # RETURNCONTRACT unless inside an initcode
 }
 
 
+@pytest.fixture
 def expect_exception(opcode: Opcode) -> EOFException | None:
     """
     Returns exception that eof container reports when having this opcode in the middle of the code
     """
     if opcode in invalid_eof_opcodes or opcode in list(UndefinedOpcodes):
         return EOFException.UNDEFINED_INSTRUCTION
-
-    # RETF not allowed in first section
-    if opcode == Op.RETF:
-        return EOFException.INVALID_NON_RETURNING_FLAG
     return None
 
 
-def make_opcode_valid_bytes(opcode: Opcode) -> Opcode | Bytecode:
+@pytest.fixture
+def bytecode(opcode: Opcode) -> Opcode | Bytecode:
     """
     Construct a valid stack and bytes for the opcode
     """
-    code: Opcode | Bytecode
+    code: Opcode | Bytecode = Op.PUSH1[0] * 20
     if opcode.data_portion_length == 0 and opcode.data_portion_formatter is None:
-        code = opcode
-    elif opcode == Op.CALLF:
-        code = opcode[1]
+        code += opcode
     else:
-        code = opcode[0]
+        code += opcode[1 if opcode == Op.CALLF else 0]
     if opcode not in halting_opcodes:
         return code + Op.STOP
     return code
 
 
-def eof_opcode_stack(opcode: Opcode) -> int:
+@pytest.fixture
+def sections(
+    opcode: Opcode,
+    bytecode: Opcode | Bytecode,
+) -> List[Section]:
     """
-    Eof opcode has special stack influence
+    Returns extra sections that are needed for the opcode
     """
-    if opcode in eof_opcodes:
-        if opcode == Op.CALLF or opcode == Op.JUMPF or opcode == Op.EXCHANGE:
-            return 0
-        return 1
-    return 0
+    sections = [Section.Code(code=bytecode)]
 
-
-@pytest.mark.parametrize("opcode", list(Op) + list(UndefinedOpcodes))
-def test_all_opcodes_in_container(eof_test: EOFTestFiller, opcode: Opcode):
-    """
-    Test all opcodes inside valid container
-    257 because 0x5B is duplicated
-    """
-    section_call = []
     if opcode == Op.CALLF:
-        section_call = [
+        sections.append(
             Section.Code(
                 code=Op.RETF,
                 code_inputs=0,
                 code_outputs=0,
                 max_stack_height=0,
             )
-        ]
+        )
+    sections += [
+        Section.Container(
+            container=Container(
+                sections=[
+                    Section.Code(code=Op.STOP),
+                ]
+            )
+        ),
+        Section.Data("1122334455667788" * 4),
+    ]
+    return sections
 
-    eof_code = Container(
-        sections=[
-            Section.Code(
-                code=Op.PUSH1(00) * 20 + make_opcode_valid_bytes(opcode),
-                max_stack_height=max(
-                    20,
-                    20
-                    + opcode.pushed_stack_items
-                    - opcode.popped_stack_items
-                    + eof_opcode_stack(opcode),
-                ),
-            ),
-            Section.Container(
-                container=Container(
-                    sections=[
-                        Section.Code(code=Op.STOP),
-                    ]
-                )
-            ),
-        ]
-        + section_call
-        + [
-            Section.Data("1122334455667788" * 4),
-        ],
-    )
+
+@pytest.mark.parametrize(
+    "opcode", [op for op in list(Op) + list(UndefinedOpcodes) if op not in skip_opcodes]
+)
+def test_all_opcodes_in_container(
+    eof_test: EOFTestFiller,
+    sections: List[Section],
+    expect_exception: EOFException | None,
+):
+    """
+    Test all opcodes inside valid container
+    257 because 0x5B is duplicated
+    """
+    eof_code = Container(sections=sections)
 
     eof_test(
         data=eof_code,
-        expect_exception=expect_exception(opcode),
+        expect_exception=expect_exception,
     )
