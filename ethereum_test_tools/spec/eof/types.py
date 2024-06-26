@@ -9,8 +9,9 @@ from pydantic import Field
 
 from evm_transition_tool import FixtureFormats
 
-from ...common.base_types import Bytes
+from ...common.base_types import Bytes, Number
 from ...common.types import CamelModel
+from ...eof.v1 import ContainerKind
 from ...exceptions import EOFException
 from ..base.base_test import BaseFixture
 
@@ -41,6 +42,7 @@ class Vector(CamelModel):
     """
 
     code: Bytes
+    container_kind: ContainerKind | None
     results: Mapping[str, Result]
 
 
@@ -49,6 +51,6 @@ class Fixture(BaseFixture):
     Fixture for a single EOFTest.
     """
 
-    vectors: Mapping[str, Vector]
+    vectors: Mapping[Number, Vector]
 
     format: ClassVar[FixtureFormats] = FixtureFormats.EOF_TEST

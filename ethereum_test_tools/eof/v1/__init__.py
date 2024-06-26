@@ -3,11 +3,16 @@ EVM Object Format Version 1 Library to generate bytecode for testing purposes
 """
 
 from dataclasses import dataclass
-from enum import Enum, IntEnum
+from enum import Enum, IntEnum, auto
 from functools import cached_property
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from pydantic import Field
+from pydantic import Field, GetCoreSchemaHandler
+from pydantic_core.core_schema import (
+    PlainValidatorFunctionSchema,
+    no_info_plain_validator_function,
+    to_string_ser_schema,
+)
 
 from ...common import Bytes
 from ...common.conversions import BytesConvertible
@@ -43,6 +48,33 @@ class SectionKind(IntEnum):
     def __str__(self) -> str:
         """
         Returns the string representation of the section kind
+        """
+        return self.name
+
+
+class ContainerKind(Enum):
+    """
+    Enum class of V1 valid container kind values.
+    """
+
+    RUNTIME = auto()
+    INITCODE = auto()
+
+    @staticmethod
+    def __get_pydantic_core_schema__(
+        source_type: Any, handler: GetCoreSchemaHandler
+    ) -> PlainValidatorFunctionSchema:
+        """
+        Calls the class constructor without info and appends the serialization schema.
+        """
+        return no_info_plain_validator_function(
+            source_type,
+            serialization=to_string_ser_schema(),
+        )
+
+    def __str__(self) -> str:
+        """
+        Returns the string representation of the container kind
         """
         return self.name
 
@@ -326,6 +358,10 @@ class Container(CopyValidateModel):
     Optional error expected for the container.
 
     TODO: Remove str
+    """
+    kind: ContainerKind = ContainerKind.RUNTIME
+    """
+    Kind type of the container.
     """
     raw_bytes: Optional[Bytes] = None
     """
