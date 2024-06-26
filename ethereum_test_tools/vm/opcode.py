@@ -4892,7 +4892,7 @@ class Opcodes(Opcode, Enum):
     Source: [eips.ethereum.org/EIPS/eip-7480](https://eips.ethereum.org/EIPS/eip-7480)
     """
 
-    DATALOADN = Opcode(0xD1, popped_stack_items=0, data_portion_length=2)
+    DATALOADN = Opcode(0xD1, pushed_stack_items=1, data_portion_length=2)
     """
     !!! Note: This opcode is under development
 
