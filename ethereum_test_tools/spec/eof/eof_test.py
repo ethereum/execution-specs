@@ -165,14 +165,14 @@ class EOFTest(BaseTest):
                         )
                     if expect_exception is None:
                         data["expect_exception"] = container.validity_error
-                if "container_kind" in container.model_fields_set:
+                if "kind" in container.model_fields_set:
                     if container_kind is not None:
-                        assert str(container.kind) == container_kind, (
+                        assert container.kind == container_kind, (
                             f"Container kind type {str(container.kind)} "
                             f"does not match test {container_kind}."
                         )
                     if container.kind != ContainerKind.RUNTIME:
-                        data["container_kind"] = str(container.kind)
+                        data["container_kind"] = container.kind
         return data
 
     @classmethod
