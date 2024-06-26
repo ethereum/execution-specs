@@ -67,7 +67,7 @@ def test_simple_create_from_creation(
         data=Container(
             sections=[
                 returncontract_code_section,
-                Section.Container(container=Container(sections=[Section.Code(code=Op.STOP)])),
+                stop_sub_container,
             ],
         ),
         container_post=Account(storage={slot_code_worked: value_code_worked}),
@@ -117,7 +117,6 @@ def test_orphan_container(
 ):
     """Test orphaned containers"""
     eof_test(
-        deploy_tx=code_section == returncontract_code_section,
         data=Container(
             sections=[
                 code_section,
@@ -214,11 +213,9 @@ def test_container_both_kinds_same_sub(eof_test: EOFTestFiller):
             sections=[
                 Section.Code(
                     code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.JUMPF[1],
-                    max_stack_height=4,
                 ),
                 Section.Code(
                     code=Op.RETURNCONTRACT[0](0, 0),
-                    max_stack_height=2,
                 ),
                 revert_sub_container,
             ],
@@ -234,11 +231,9 @@ def test_container_both_kinds_different_sub(eof_test: EOFTestFiller):
             sections=[
                 Section.Code(
                     code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.JUMPF[1],
-                    max_stack_height=4,
                 ),
                 Section.Code(
                     code=Op.RETURNCONTRACT[1](0, 0),
-                    max_stack_height=2,
                 ),
                 returncontract_sub_container,
                 stop_sub_container,
