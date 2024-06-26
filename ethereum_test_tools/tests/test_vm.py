@@ -242,6 +242,51 @@ from ..vm.opcode import Opcodes as Op
             id="EXCHANGE[0x2 + 0xF, 0x3 + 0xF + 0xF]",
         ),
         pytest.param(Op.PUSH0 * 0, bytes(), id="PUSH0 * 0"),
+        pytest.param(
+            Op.CREATE(value=1, offset=2, size=3),
+            b"\x60\x03\x60\x02\x60\x01\xf0",
+            id="Op.CREATE(value=1, offset=2, size=3)",
+        ),
+        pytest.param(
+            Op.CREATE2(value=1, offset=2, size=3),
+            b"\x60\x00\x60\x03\x60\x02\x60\x01\xf5",
+            id="Op.CREATE2(value=1, offset=2, size=3)",
+        ),
+        pytest.param(
+            Op.CALL(address=1),
+            b"\x60\x00\x60\x00\x60\x00\x60\x00\x60\x00\x60\x01\x5A\xF1",
+            id="Op.CALL(address=1)",
+        ),
+        pytest.param(
+            Op.STATICCALL(address=1),
+            b"\x60\x00\x60\x00\x60\x00\x60\x00\x60\x01\x5A\xFA",
+            id="Op.STATICCALL(address=1)",
+        ),
+        pytest.param(
+            Op.CALLCODE(address=1),
+            b"\x60\x00\x60\x00\x60\x00\x60\x00\x60\x00\x60\x01\x5A\xF2",
+            id="Op.CALLCODE(address=1)",
+        ),
+        pytest.param(
+            Op.DELEGATECALL(address=1),
+            b"\x60\x00\x60\x00\x60\x00\x60\x00\x60\x01\x5A\xF4",
+            id="Op.DELEGATECALL(address=1)",
+        ),
+        pytest.param(
+            Op.EXTCALL(address=1),
+            b"\x60\x00\x60\x00\x60\x00\x60\x01\xF8",
+            id="Op.EXTCALL(address=1)",
+        ),
+        pytest.param(
+            Op.EXTSTATICCALL(address=1),
+            b"\x60\x00\x60\x00\x60\x01\xFB",
+            id="Op.EXTSTATICCALL(address=1)",
+        ),
+        pytest.param(
+            Op.EXTDELEGATECALL(address=1),
+            b"\x60\x00\x60\x00\x60\x01\xF9",
+            id="Op.EXTDELEGATECALL(address=1)",
+        ),
     ],
 )
 def test_opcodes(opcodes: bytes, expected: bytes):
