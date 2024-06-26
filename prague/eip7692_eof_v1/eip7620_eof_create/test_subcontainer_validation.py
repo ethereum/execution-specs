@@ -4,7 +4,7 @@ EOF Subcontainer tests covering simple cases.
 import pytest
 
 from ethereum_test_tools import Account, EOFException, EOFStateTestFiller, EOFTestFiller
-from ethereum_test_tools.eof.v1 import Container, Section
+from ethereum_test_tools.eof.v1 import Container, ContainerKind, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
@@ -124,8 +124,8 @@ def test_orphan_container(
                 first_sub_container,
                 extra_sub_container,
             ],
+            kind=ContainerKind.INITCODE,
         ),
-        kind="initcode",
         expect_exception=EOFException.ORPHAN_SUBCONTAINER,
     )
 
