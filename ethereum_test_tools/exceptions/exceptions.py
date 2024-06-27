@@ -688,6 +688,10 @@ class EOFException(ExceptionBase):
     """
     Top-level EOF container has data section truncated
     """
+    ORPHAN_SUBCONTAINER = auto()
+    """
+    EOF container has an unreferenced subcontainer.
+    '"""
 
 
 """

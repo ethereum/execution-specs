@@ -73,6 +73,7 @@ class EvmoneExceptionMapper:
         ExceptionMessage(
             EOFException.TOPLEVEL_CONTAINER_TRUNCATED, "err: toplevel_container_truncated"
         ),
+        ExceptionMessage(EOFException.ORPHAN_SUBCONTAINER, "err: unreferenced_subcontainer"),
     )
 
     def __init__(self) -> None:

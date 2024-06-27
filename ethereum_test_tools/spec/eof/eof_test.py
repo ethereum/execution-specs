@@ -165,14 +165,14 @@ class EOFTest(BaseTest):
                         )
                     if expect_exception is None:
                         data["expect_exception"] = container.validity_error
-                if "container_kind" in container.model_fields_set:
+                if "kind" in container.model_fields_set:
                     if container_kind is not None:
-                        assert str(container.kind) == container_kind, (
+                        assert container.kind == container_kind, (
                             f"Container kind type {str(container.kind)} "
                             f"does not match test {container_kind}."
                         )
                     if container.kind != ContainerKind.RUNTIME:
-                        data["container_kind"] = str(container.kind)
+                        data["container_kind"] = container.kind
         return data
 
     @classmethod
@@ -280,6 +280,7 @@ class EOFStateTest(EOFTest):
     Filler type that tests EOF containers and also generates a state/blockchain test.
     """
 
+    deploy_tx: bool = False
     tx_gas_limit: int = 10_000_000
     tx_data: Bytes = Bytes(b"")
     tx_sender_funding_amount: int = 1_000_000_000_000_000_000_000
@@ -306,16 +307,23 @@ class EOFStateTest(EOFTest):
         Generate the StateTest filler.
         """
         assert self.pre is not None, "pre must be set to generate a StateTest."
-        container_address = self.pre.deploy_contract(code=self.data)
         sender = self.pre.fund_eoa(amount=self.tx_sender_funding_amount)
-        tx = Transaction(
-            to=container_address,
-            gas_limit=self.tx_gas_limit,
-            gas_price=10,
-            protected=False,
-            data=self.tx_data,
-            sender=sender,
-        )
+        if self.deploy_tx:
+            tx = Transaction(
+                to=None,
+                gas_limit=self.tx_gas_limit,
+                data=self.data + self.tx_data,
+                sender=sender,
+            )
+            container_address = tx.created_contract
+        else:
+            container_address = self.pre.deploy_contract(code=self.data)
+            tx = Transaction(
+                to=container_address,
+                gas_limit=self.tx_gas_limit,
+                data=self.tx_data,
+                sender=sender,
+            )
         post = Alloc()
         post[container_address] = self.container_post
         return StateTest(
