@@ -692,6 +692,10 @@ class EOFException(ExceptionBase):
     """
     EOF container has an unreferenced subcontainer.
     '"""
+    CONTAINER_SIZE_ABOVE_LIMIT = auto()
+    """
+    EOF container is above size limit
+    """
 
 
 """
