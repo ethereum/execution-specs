@@ -116,14 +116,6 @@ class BlobTransaction:
     s: U256
 
 
-Transaction = Union[
-    LegacyTransaction,
-    AccessListTransaction,
-    FeeMarketTransaction,
-    BlobTransaction,
-]
-
-
 # Helper function to handle the RLP encoding of the Access class instances.
 def encode_access_list(
         access_list: Tuple[Access, ...]
@@ -144,6 +136,14 @@ def decode_access_list(
     return tuple(
         Access(account=encoded[0], slots=encoded[1]
                ) for encoded in encoded_access_list)
+
+
+Transaction = Union[
+    LegacyTransaction,
+    AccessListTransaction,
+    FeeMarketTransaction,
+    BlobTransaction,
+]
 
 
 def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
