@@ -53,9 +53,10 @@ EMPTY_ACCOUNT = Account(
 
 def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
     """
-    Encode `Account` dataclass using RLP.
+    Encode `Account` dataclass.
 
-    Note: Storage is not included in `Account`, so a storage root must be provided.
+    Storage is not stored in the `Account` dataclass, so `Accounts` cannot be
+    encoded without providing a storage root.
     """
     return rlp.encode(
         (
