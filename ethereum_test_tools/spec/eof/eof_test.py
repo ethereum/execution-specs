@@ -295,6 +295,26 @@ class EOFStateTest(EOFTest):
         FixtureFormats.BLOCKCHAIN_TEST_HIVE,
     ]
 
+    @model_validator(mode="before")
+    @classmethod
+    def check_container_type(cls, data: Any) -> Any:
+        """
+        Check if the container exception matches the expected exception.
+        """
+        if isinstance(data, dict):
+            container = data.get("data")
+            deploy_tx = data.get("deploy_tx")
+            container_kind = data.get("container_kind")
+            if deploy_tx is None:
+                if (
+                    container is not None
+                    and isinstance(container, Container)
+                    and "kind" in container.model_fields_set
+                    and container.kind == ContainerKind.INITCODE
+                ) or (container_kind is not None and container_kind == ContainerKind.INITCODE):
+                    data["deploy_tx"] = True
+        return data
+
     @classmethod
     def pytest_parameter_name(cls) -> str:
         """
