@@ -12,6 +12,8 @@ Introduction
 Implementation of the Ethereum Object Format (EOF) specification.
 """
 
+from typing import Set
+
 from ethereum.base_types import Uint
 
 from . import EOF, EOF_MAGIC, EOF_MAGIC_LENGTH, MAX_CODE_SIZE, EOFMetadata
@@ -364,6 +366,63 @@ def validate_body(eof_meta: EOFMetadata) -> None:
             raise InvalidEOF(f"Invalid max stack height for type {i}")
 
 
+def get_valid_instructions(code: bytes) -> Set[int]:
+    """
+    Get the valid instructions for the code. These will also be the
+    positions within the code to which, jumps can be performed.
+    The immediate bytesof the PUSH, RJUMP, RJUMPI, RJUMPV opcodes
+    are invalid as jump destinations.
+
+    Parameters
+    ----------
+    code : bytes
+        The code section of the EOF container.
+
+    Returns
+    -------
+    valid_instructions : Set[int]
+        The valid jump destinations in the code.
+    """
+    counter = 0
+    valid_instructions = set()
+    while counter < len(code):
+        try:
+            opcode = get_opcode(code[counter], EOF.EOF1)
+        except ValueError:
+            raise InvalidEOF("Invalid opcode in code section")
+        valid_instructions.add(counter)
+
+        counter += 1
+
+        if (
+            opcode.value >= Ops.PUSH1.value
+            and opcode.value <= Ops.PUSH32.value
+        ):
+            push_data_size = opcode.value - Ops.PUSH1.value + 1
+            if len(code) < counter + push_data_size:
+                raise InvalidEOF("Push data missing")
+            counter += push_data_size
+
+        elif opcode in (Ops.RJUMP, Ops.RJUMPI):
+            if len(code) < counter + 2:
+                raise InvalidEOF("Relative jump offset missing")
+            counter += 2
+
+        elif opcode == Ops.RJUMPV:
+            if len(code) < counter + 1:
+                raise InvalidEOF("max_index missing for RJUMPV")
+            max_index = code[counter]
+            num_relative_indices = max_index + 1
+            counter += 1
+
+            for _ in range(num_relative_indices):
+                if len(code) < counter + 2:
+                    raise InvalidEOF("Relative jump indices missing")
+                counter += 2
+
+    return valid_instructions
+
+
 def validate_code_section(code: bytes) -> None:
     """
     Validate a code section of the EOF container.
@@ -379,22 +438,49 @@ def validate_code_section(code: bytes) -> None:
         If the code section is invalid.
     """
     counter = 0
-    while counter < len(code):
-        try:
-            opcode = get_opcode(code[counter], EOF.EOF1)
-        except ValueError:
-            raise InvalidEOF("Invalid opcode in code section")
+    valid_instructions = get_valid_instructions(code)
 
-        counter += 1
+    for counter in valid_instructions:
+        opcode = get_opcode(code[counter], EOF.EOF1)
 
-        if (
-            opcode.value >= Ops.PUSH1.value
-            and opcode.value <= Ops.PUSH32.value
-        ):
-            push_data_size = opcode.value - Ops.PUSH1.value + 1
-            if len(code) < counter + push_data_size:
-                raise InvalidEOF("Push data missing")
-            counter += push_data_size
+        # Make sure the bytes encoding relative offset
+        # are available
+        if opcode in (Ops.RJUMP, Ops.RJUMPI):
+            relative_offset = int.from_bytes(
+                code[counter + 1 : counter + 3], "big", signed=True
+            )
+            pc_post_instruction = counter + 3
+            jump_destination = pc_post_instruction + relative_offset
+            if (
+                jump_destination < 0
+                or len(code) < jump_destination + 1
+                or jump_destination not in valid_instructions
+            ):
+                raise InvalidEOF("Invalid jump destination")
+
+        elif opcode == Ops.RJUMPV:
+            num_relative_indices = code[counter + 1] + 1
+            # pc_post_instruction will be
+            # counter + 1 <- for normal pc increment to next opcode
+            # + 1 <- for the 1 byte max_index
+            # + 2 * num_relative_indices <- for the 2 bytes of each offset
+            pc_post_instruction = counter + 2 + 2 * num_relative_indices
+
+            index_position = counter + 2
+            for _ in range(num_relative_indices):
+                relative_offset = int.from_bytes(
+                    code[index_position : index_position + 2],
+                    "big",
+                    signed=True,
+                )
+                index_position += 2
+                jump_destination = pc_post_instruction + relative_offset
+                if (
+                    jump_destination < 0
+                    or len(code) < jump_destination + 1
+                    or jump_destination not in valid_instructions
+                ):
+                    raise InvalidEOF("Invalid jump destination")
 
 
 def validate_eof_code(eof_meta: EOFMetadata) -> None:
