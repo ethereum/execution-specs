@@ -80,6 +80,9 @@ class EvmoneExceptionMapper:
         ExceptionMessage(
             EOFException.INVALID_CONTAINER_SECTION_INDEX, "err: invalid_container_section_index"
         ),
+        ExceptionMessage(
+            EOFException.INCOMPATIBLE_CONTAINER_KIND, "err: incompatible_container_kind"
+        ),
     )
 
     def __init__(self) -> None:

@@ -700,6 +700,10 @@ class EOFException(ExceptionBase):
     """
     Instruction references container section that does not exist.
     """
+    INCOMPATIBLE_CONTAINER_KIND = auto()
+    """
+    Incompatible instruction found in a container of a specific kind.
+    """
 
 
 """
