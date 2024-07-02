@@ -364,6 +364,57 @@ def validate_body(eof_meta: EOFMetadata) -> None:
             raise InvalidEOF(f"Invalid max stack height for type {i}")
 
 
+def validate_code_section(code: bytes) -> None:
+    """
+    Validate a code section of the EOF container.
+
+    Parameters
+    ----------
+    code : bytes
+        The code section to validate.
+
+    Raises
+    ------
+    InvalidEOF
+        If the code section is invalid.
+    """
+    counter = 0
+    while counter < len(code):
+        try:
+            opcode = get_opcode(code[counter], EOF.EOF1)
+        except ValueError:
+            raise InvalidEOF("Invalid opcode in code section")
+
+        counter += 1
+
+        if (
+            opcode.value >= Ops.PUSH1.value
+            and opcode.value <= Ops.PUSH32.value
+        ):
+            push_data_size = opcode.value - Ops.PUSH1.value + 1
+            if len(code) < counter + push_data_size:
+                raise InvalidEOF("Push data missing")
+            counter += push_data_size
+
+
+def validate_eof_code(eof_meta: EOFMetadata) -> None:
+    """
+    Validate the code section of the EOF container.
+
+    Parameters
+    ----------
+    eof_meta : EOFMetadata
+        The metadata of the EOF container.
+
+    Raises
+    ------
+    InvalidEOF
+        If the code section is invalid.
+    """
+    for code in eof_meta.code_section_contents:
+        validate_code_section(code)
+
+
 def validate_eof_container(container: bytes) -> None:
     """
     Validate the Ethereum Object Format (EOF) container.
@@ -396,3 +447,5 @@ def validate_eof_container(container: bytes) -> None:
     eof_meta = validate_header(container)
 
     validate_body(eof_meta)
+
+    validate_eof_code(eof_meta)

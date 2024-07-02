@@ -390,6 +390,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.SELFDESTRUCT: system_instructions.selfdestruct,
     Ops.STATICCALL: system_instructions.staticcall,
     Ops.REVERT: system_instructions.revert,
+    Ops.INVALID: system_instructions.invalid,
     Ops.CREATE2: system_instructions.create2,
 }
 
