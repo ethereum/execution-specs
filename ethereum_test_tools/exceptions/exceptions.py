@@ -696,6 +696,10 @@ class EOFException(ExceptionBase):
     """
     EOF container is above size limit
     """
+    INVALID_CONTAINER_SECTION_INDEX = auto()
+    """
+    Instruction references container section that does not exist.
+    """
 
 
 """

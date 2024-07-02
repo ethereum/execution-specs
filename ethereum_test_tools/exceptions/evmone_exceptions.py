@@ -77,6 +77,9 @@ class EvmoneExceptionMapper:
         ExceptionMessage(
             EOFException.CONTAINER_SIZE_ABOVE_LIMIT, "err: container_size_above_limit"
         ),
+        ExceptionMessage(
+            EOFException.INVALID_CONTAINER_SECTION_INDEX, "err: invalid_container_section_index"
+        ),
     )
 
     def __init__(self) -> None:
