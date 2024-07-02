@@ -187,24 +187,21 @@ def test_container_combos_valid(
 
 
 @pytest.mark.parametrize(
-    "code_section,first_sub_container,error",
+    "code_section,first_sub_container",
     [
         pytest.param(
             eofcreate_code_section,
             stop_sub_container,
-            EOFException.UNDEFINED_EXCEPTION,
             id="EOFCREATE/STOP",
         ),
         pytest.param(
             eofcreate_code_section,
             return_sub_container,
-            EOFException.UNDEFINED_EXCEPTION,
             id="EOFCREATE/RETURN",
         ),
         pytest.param(
             returncontract_code_section,
             returncontract_sub_container,
-            EOFException.UNDEFINED_EXCEPTION,
             id="RETURNCONTRACT/RETURNCONTRACT",
         ),
     ],
@@ -213,7 +210,6 @@ def test_container_combos_invalid(
     eof_test: EOFTestFiller,
     code_section: Section,
     first_sub_container: Container,
-    error: EOFException,
 ):
     """Test invalid subcontainer reference / opcode combos"""
     eof_test(
@@ -223,7 +219,7 @@ def test_container_combos_invalid(
                 first_sub_container,
             ],
         ),
-        expect_exception=error,
+        expect_exception=EOFException.INCOMPATIBLE_CONTAINER_KIND,
     )
 
 
@@ -241,7 +237,7 @@ def test_container_both_kinds_same_sub(eof_test: EOFTestFiller):
                 revert_sub_container,
             ],
         ),
-        expect_exception=EOFException.UNDEFINED_EXCEPTION,
+        expect_exception=EOFException.INCOMPATIBLE_CONTAINER_KIND,
     )
 
 
