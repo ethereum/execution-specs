@@ -514,6 +514,7 @@ class Macro(Bytecode):
             return macro_or_bytes
         else:
             instance = super().__new__(cls, macro_or_bytes)
+            instance.unchecked_stack = True
             return instance
 
 
