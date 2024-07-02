@@ -1,7 +1,6 @@
 """
 EOF Container: check how every opcode behaves in the middle of the valid eof container code
 """
-
 from typing import List
 
 import pytest
@@ -9,7 +8,7 @@ import pytest
 from ethereum_test_tools import Bytecode, EOFTestFiller, Opcode
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import UndefinedOpcodes
-from ethereum_test_tools.eof.v1 import Container, EOFException, Section
+from ethereum_test_tools.eof.v1 import Container, ContainerKind, EOFException, Section
 
 from .. import EOF_FORK_NAME
 
@@ -48,12 +47,6 @@ halting_opcodes = {
     Op.INVALID,
 }
 
-skip_opcodes = {
-    Op.RETF,  # RETF not allowed in first section
-    Op.EOFCREATE,  # EOFCREATE not allowed unless the second container is an initcode
-    Op.RETURNCONTRACT,  # RETURNCONTRACT unless inside an initcode
-}
-
 
 @pytest.fixture
 def expect_exception(opcode: Opcode) -> EOFException | None:
@@ -90,41 +83,47 @@ def sections(
     """
     sections = [Section.Code(code=bytecode)]
 
-    if opcode == Op.CALLF:
-        sections.append(
-            Section.Code(
-                code=Op.RETF,
-                code_inputs=0,
-                code_outputs=0,
-                max_stack_height=0,
+    match opcode:
+        case Op.EOFCREATE | Op.RETURNCONTRACT:
+            sections.append(
+                Section.Container(
+                    container=Container(
+                        sections=[
+                            Section.Code(code=Op.REVERT(0, 0)),
+                        ]
+                    )
+                )
             )
-        )
-    sections += [
-        Section.Container(
-            container=Container(
-                sections=[
-                    Section.Code(code=Op.STOP),
-                ]
+        case Op.CALLF:
+            sections.append(
+                Section.Code(
+                    code=Op.RETF,
+                    code_inputs=0,
+                    code_outputs=0,
+                    max_stack_height=0,
+                )
             )
-        ),
-        Section.Data("1122334455667788" * 4),
-    ]
+    sections.append(Section.Data("1122334455667788" * 4))
     return sections
 
 
 @pytest.mark.parametrize(
-    "opcode", [op for op in list(Op) + list(UndefinedOpcodes) if op not in skip_opcodes]
+    "opcode", [op for op in list(Op) + list(UndefinedOpcodes) if op != Op.RETF]
 )
 def test_all_opcodes_in_container(
     eof_test: EOFTestFiller,
     sections: List[Section],
     expect_exception: EOFException | None,
+    opcode: Opcode,
 ):
     """
     Test all opcodes inside valid container
     257 because 0x5B is duplicated
     """
-    eof_code = Container(sections=sections)
+    if opcode == Op.RETURNCONTRACT:
+        eof_code = Container(sections=sections, kind=ContainerKind.INITCODE)
+    else:
+        eof_code = Container(sections=sections)
 
     eof_test(
         data=eof_code,

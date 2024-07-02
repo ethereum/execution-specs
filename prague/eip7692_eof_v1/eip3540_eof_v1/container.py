@@ -44,7 +44,9 @@ VALID: List[Container] = [
     Container(
         name="max_code_sections_plus_container",
         sections=[
-            Section.Code(Op.JUMPF[i + 1] if i < (MAX_CODE_SECTIONS - 1) else Op.STOP)
+            Section.Code(
+                Op.JUMPF[i + 1] if i < (MAX_CODE_SECTIONS - 1) else Op.RETURNCONTRACT[0](0, 0)
+            )
             for i in range(MAX_CODE_SECTIONS)
         ]
         + [
@@ -62,7 +64,9 @@ VALID: List[Container] = [
     Container(
         name="max_code_sections_plus_data_plus_container",
         sections=[
-            Section.Code(Op.JUMPF[i + 1] if i < (MAX_CODE_SECTIONS - 1) else Op.STOP)
+            Section.Code(
+                Op.JUMPF[i + 1] if i < (MAX_CODE_SECTIONS - 1) else Op.RETURNCONTRACT[0](0, 0)
+            )
             for i in range(MAX_CODE_SECTIONS)
         ]
         + [
