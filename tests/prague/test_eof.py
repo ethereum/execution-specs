@@ -11,6 +11,7 @@ from ethereum.utils.hexadecimal import hex_to_bytes
 
 TEST_DIRS = (
     "tests/fixtures/latest_fork_tests/eof_tests/prague/eip7692_eof_v1/eip3540_eof_v1",
+    "tests/fixtures/latest_fork_tests/eof_tests/prague/eip7692_eof_v1/eip4200_relative_jumps",
 )
 
 
