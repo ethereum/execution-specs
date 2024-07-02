@@ -385,6 +385,8 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.RJUMP: control_flow_instructions.rjump,
     Ops.RJUMPI: control_flow_instructions.rjumpi,
     Ops.RJUMPV: control_flow_instructions.rjumpv,
+    Ops.CALLF: control_flow_instructions.callf,
+    Ops.RETF: control_flow_instructions.retf,
     Ops.CREATE: system_instructions.create,
     Ops.RETURN: system_instructions.return_,
     Ops.CALL: system_instructions.call,

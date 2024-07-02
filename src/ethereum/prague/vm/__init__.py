@@ -66,6 +66,16 @@ class EOFMetadata:
 
 
 @dataclass
+class ReturnStackItem:
+    """
+    Stack item for the return stack.
+    """
+
+    code_section_index: Uint
+    offset: Uint
+
+
+@dataclass
 class Environment:
     """
     Items external to the virtual machine itself, provided by the environment.
@@ -136,6 +146,8 @@ class Evm:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     eof: EOF
     eof_meta: Optional[EOFMetadata]
+    current_section_index: Uint
+    return_stack: List[ReturnStackItem]
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:

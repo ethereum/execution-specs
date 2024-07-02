@@ -365,6 +365,11 @@ def validate_body(eof_meta: EOFMetadata) -> None:
         if max_stack_height > 1023:
             raise InvalidEOF(f"Invalid max stack height for type {i}")
 
+        # 4750: Input and output for first section should
+        # be 0 and 128 respectively
+        if i == 0 and (num_inputs != 0 or num_outputs != 0x80):
+            raise InvalidEOF("Invalid input/output for first section")
+
 
 def get_valid_instructions(code: bytes) -> Set[int]:
     """
@@ -419,25 +424,37 @@ def get_valid_instructions(code: bytes) -> Set[int]:
                 if len(code) < counter + 2:
                     raise InvalidEOF("Relative jump indices missing")
                 counter += 2
+        elif opcode == Ops.CALLF:
+            if len(code) < counter + 2:
+                raise InvalidEOF("CALLF target code section index missing")
+            counter += 2
 
     return valid_instructions
 
 
-def validate_code_section(code: bytes) -> None:
+def validate_code_section(
+    eof_meta: EOFMetadata,
+    code_section_index: Uint,
+    reached_code_sections: Set[Uint],
+) -> None:
     """
     Validate a code section of the EOF container.
 
     Parameters
     ----------
-    code : bytes
-        The code section to validate.
+    eof_meta : EOFMetadata
+        The metadata of the EOF container.
+    code_section_index : Uint
+        The index of the code section to validate.
+    reached_code_sections : Set[Uint]
+        The code sections that have been reached.
 
     Raises
     ------
     InvalidEOF
         If the code section is invalid.
     """
-    counter = 0
+    code = eof_meta.code_section_contents[code_section_index]
     valid_instructions = get_valid_instructions(code)
 
     for counter in valid_instructions:
@@ -482,6 +499,17 @@ def validate_code_section(code: bytes) -> None:
                 ):
                     raise InvalidEOF("Invalid jump destination")
 
+        elif opcode == Ops.CALLF:
+            target_section_index = Uint.from_be_bytes(
+                code[counter + 1 : counter + 3],
+            )
+            reached_code_sections.add(target_section_index)
+            if target_section_index >= eof_meta.num_code_sections:
+                raise InvalidEOF("Invalid target code section index")
+        elif opcode == Ops.RETF:
+            if code_section_index == 0:
+                raise InvalidEOF("First code section cannot return")
+
 
 def validate_eof_code(eof_meta: EOFMetadata) -> None:
     """
@@ -497,8 +525,15 @@ def validate_eof_code(eof_meta: EOFMetadata) -> None:
     InvalidEOF
         If the code section is invalid.
     """
-    for code in eof_meta.code_section_contents:
-        validate_code_section(code)
+    reached_code_sections = {Uint(0)}
+    for code_section_index in range(eof_meta.num_code_sections):
+        validate_code_section(
+            eof_meta, Uint(code_section_index), reached_code_sections
+        )
+
+    for i in range(eof_meta.num_code_sections):
+        if i not in reached_code_sections:
+            raise InvalidEOF(f"Code section {i} not reachable")
 
 
 def validate_eof_container(container: bytes) -> None:

@@ -311,6 +311,8 @@ def execute_code(message: Message, env: Environment) -> Evm:
         accessed_storage_keys=message.accessed_storage_keys,
         eof=eof_version,
         eof_meta=eof_meta,
+        current_section_index=Uint(0),
+        return_stack=[],
     )
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:

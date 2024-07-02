@@ -16,16 +16,18 @@ from ethereum.base_types import U256, Uint
 
 from ...vm.gas import (
     GAS_BASE,
+    GAS_CALLF,
     GAS_HIGH,
     GAS_JUMPDEST,
     GAS_MID,
+    GAS_RETF,
     GAS_RJUMP,
     GAS_RJUMPI,
     GAS_RJUMPV,
     charge_gas,
 )
-from .. import Evm
-from ..exceptions import InvalidJumpDestError
+from .. import Evm, ReturnStackItem
+from ..exceptions import ExceptionalHalt, InvalidJumpDestError
 from ..stack import pop, push
 
 
@@ -277,3 +279,71 @@ def rjumpv(evm: Evm) -> None:
             signed=True,
         )
         evm.pc = Uint(pc_post_instruction + relative_offset)
+
+
+def callf(evm: Evm) -> None:
+    """
+    Call a function in EOF
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_CALLF)
+
+    # OPERATION
+    assert evm.eof_meta is not None
+    target_section_index = Uint.from_be_bytes(
+        evm.code[evm.pc + 1 : evm.pc + 3]
+    )
+    target_section = evm.eof_meta.type_section_contents[target_section_index]
+    target_inputs = Uint(target_section[0])
+    target_max_stack_height = Uint.from_be_bytes(target_section[2:])
+
+    if len(evm.stack) > 1024 - target_max_stack_height + target_inputs:
+        raise ExceptionalHalt
+    if len(evm.return_stack) == 1024:
+        raise ExceptionalHalt
+
+    evm.return_stack.append(
+        ReturnStackItem(
+            code_section_index=evm.current_section_index,
+            offset=evm.pc + 3,
+        )
+    )
+
+    # PROGRAM COUNTER
+    evm.current_section_index = target_section_index
+    evm.code = evm.eof_meta.code_section_contents[target_section_index]
+    evm.pc = Uint(0)
+
+
+def retf(evm: Evm) -> None:
+    """
+    Return from a function in EOF
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_RETF)
+
+    # OPERATION
+    pass
+
+    # PROGRAM COUNTER
+    assert evm.eof_meta is not None
+    return_stack_item = evm.return_stack.pop()
+    evm.current_section_index = return_stack_item.code_section_index
+    evm.code = evm.eof_meta.code_section_contents[evm.current_section_index]
+    evm.pc = return_stack_item.offset
