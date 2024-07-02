@@ -149,4 +149,4 @@ class TestCases(RootModel):
         """
         with open(index_file, "r") as fd:
             index = IndexFile.model_validate_json(fd.read())
-        return cls(root=index.test_cases)
+        return cls(root=index.test_cases)  # type: ignore

@@ -13,9 +13,9 @@ from ..exceptions import (
     TransactionExceptionInstanceOrList,
 )
 
-GenericExceptionListAdapter = TypeAdapter(ExceptionInstanceOrList)
-TransactionExceptionListAdapter = TypeAdapter(TransactionExceptionInstanceOrList)
-BlockExceptionListAdapter = TypeAdapter(BlockExceptionInstanceOrList)
+GenericExceptionListAdapter: TypeAdapter = TypeAdapter(ExceptionInstanceOrList)
+TransactionExceptionListAdapter: TypeAdapter = TypeAdapter(TransactionExceptionInstanceOrList)
+BlockExceptionListAdapter: TypeAdapter = TypeAdapter(BlockExceptionInstanceOrList)
 
 
 @pytest.mark.parametrize(

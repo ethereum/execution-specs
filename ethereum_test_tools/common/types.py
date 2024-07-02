@@ -1239,7 +1239,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
 
         # Remove the secret key if requested
         if keep_secret_key:
-            updated_tx.secret_key = self.secret_key
+            updated_tx.secret_key = self.secret_key  # type: ignore
         return updated_tx
 
     @cached_property
