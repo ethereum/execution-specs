@@ -63,12 +63,12 @@ def test_simple_create_from_creation(
 ):
     """Simple EOF creation from a create transaction container"""
     eof_state_test(
-        deploy_tx=True,
         data=Container(
             sections=[
                 returncontract_code_section,
                 stop_sub_container,
             ],
+            kind=ContainerKind.INITCODE,
         ),
         container_post=Account(storage={slot_code_worked: value_code_worked}),
     )
@@ -85,22 +85,24 @@ def test_reverting_container(
 ):
     """Test revert containers"""
     eof_state_test(
-        deploy_tx=zero_section == returncontract_code_section,
         data=Container(
             sections=[
                 zero_section,
                 revert_sub_container,
             ],
+            kind=ContainerKind.INITCODE
+            if zero_section == returncontract_code_section
+            else ContainerKind.RUNTIME,
         ),
         container_post=Account(storage={slot_code_worked: value_code_worked}),
     )
 
 
 @pytest.mark.parametrize(
-    "code_section,first_sub_container",
+    "code_section,first_sub_container,container_kind",
     [
-        (eofcreate_code_section, returncontract_sub_container),
-        (returncontract_code_section, stop_sub_container),
+        (eofcreate_code_section, returncontract_sub_container, ContainerKind.RUNTIME),
+        (returncontract_code_section, stop_sub_container, ContainerKind.INITCODE),
     ],
     ids=["eofcreate", "returncontract"],
 )
@@ -114,6 +116,7 @@ def test_orphan_container(
     code_section: Section,
     first_sub_container: Container,
     extra_sub_container: Container,
+    container_kind: ContainerKind,
 ):
     """Test orphaned containers"""
     eof_test(
@@ -123,27 +126,44 @@ def test_orphan_container(
                 first_sub_container,
                 extra_sub_container,
             ],
-            kind=ContainerKind.INITCODE,
+            kind=container_kind,
         ),
         expect_exception=EOFException.ORPHAN_SUBCONTAINER,
     )
 
 
 @pytest.mark.parametrize(
-    "code_section,sub_container",
+    "code_section,sub_container,container_kind",
     [
         pytest.param(
             eofcreate_code_section,
             returncontract_sub_container,
+            ContainerKind.RUNTIME,
             id="EOFCREATE/RETURNCONTRACT",
         ),
-        pytest.param(returncontract_code_section, stop_sub_container, id="RETURNCONTRACT/STOP"),
         pytest.param(
-            returncontract_code_section, return_sub_container, id="RETURNCONTRACT/RETURN"
+            returncontract_code_section,
+            stop_sub_container,
+            ContainerKind.INITCODE,
+            id="RETURNCONTRACT/STOP",
         ),
-        pytest.param(eofcreate_code_section, revert_sub_container, id="EOFCREATE/REVERT"),
         pytest.param(
-            returncontract_code_section, revert_sub_container, id="RETURNCONTRACT/REVERT"
+            returncontract_code_section,
+            return_sub_container,
+            ContainerKind.INITCODE,
+            id="RETURNCONTRACT/RETURN",
+        ),
+        pytest.param(
+            eofcreate_code_section,
+            revert_sub_container,
+            ContainerKind.RUNTIME,
+            id="EOFCREATE/REVERT",
+        ),
+        pytest.param(
+            returncontract_code_section,
+            revert_sub_container,
+            ContainerKind.INITCODE,
+            id="RETURNCONTRACT/REVERT",
         ),
     ],
 )
@@ -151,15 +171,16 @@ def test_container_combos_valid(
     eof_state_test: EOFStateTestFiller,
     code_section: Section,
     sub_container: Container,
+    container_kind: ContainerKind,
 ):
     """Test valid subcontainer reference / opcode combos"""
     eof_state_test(
-        deploy_tx=code_section == returncontract_code_section,
         data=Container(
             sections=[
                 code_section,
                 sub_container,
             ],
+            kind=container_kind,
         ),
         container_post=Account(storage={slot_code_worked: value_code_worked}),
     )
@@ -238,5 +259,6 @@ def test_container_both_kinds_different_sub(eof_test: EOFTestFiller):
                 returncontract_sub_container,
                 stop_sub_container,
             ],
+            kind=ContainerKind.INITCODE,
         ),
     )

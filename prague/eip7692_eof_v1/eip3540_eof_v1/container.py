@@ -4,8 +4,13 @@ Test EVM Object Format Version 1
 
 from typing import List
 
-from ethereum_test_tools.eof.v1 import VERSION_MAX_SECTION_KIND, AutoSection, Container, Section
-from ethereum_test_tools.eof.v1 import SectionKind as Kind
+from ethereum_test_tools.eof.v1 import (
+    VERSION_MAX_SECTION_KIND,
+    AutoSection,
+    Container,
+    Section,
+    SectionKind,
+)
 from ethereum_test_tools.eof.v1.constants import (
     MAX_CODE_INPUTS,
     MAX_CODE_OUTPUTS,
@@ -14,76 +19,6 @@ from ethereum_test_tools.eof.v1.constants import (
 )
 from ethereum_test_tools.exceptions import EOFException
 from ethereum_test_tools.vm.opcode import Opcodes as Op
-
-VALID: List[Container] = [
-    Container(
-        name="single_code_single_data_section",
-        sections=[
-            Section.Code(
-                code=Op.PUSH0 + Op.POP + Op.STOP,
-                max_stack_height=1,
-            ),
-            Section.Data(data="0x00"),
-        ],
-    ),
-    Container(
-        name="max_code_sections",
-        sections=[
-            Section.Code(Op.JUMPF[i + 1] if i < (MAX_CODE_SECTIONS - 1) else Op.STOP)
-            for i in range(MAX_CODE_SECTIONS)
-        ],
-    ),
-    Container(
-        name="max_code_sections_plus_data",
-        sections=[
-            Section.Code(Op.JUMPF[i + 1] if i < (MAX_CODE_SECTIONS - 1) else Op.STOP)
-            for i in range(MAX_CODE_SECTIONS)
-        ]
-        + [Section.Data(data="0x00")],
-    ),
-    Container(
-        name="max_code_sections_plus_container",
-        sections=[
-            Section.Code(
-                Op.JUMPF[i + 1] if i < (MAX_CODE_SECTIONS - 1) else Op.RETURNCONTRACT[0](0, 0)
-            )
-            for i in range(MAX_CODE_SECTIONS)
-        ]
-        + [
-            Section.Container(
-                container=Container(
-                    name="max_code_sections",
-                    sections=[
-                        Section.Code(Op.JUMPF[i + 1] if i < (MAX_CODE_SECTIONS - 1) else Op.STOP)
-                        for i in range(MAX_CODE_SECTIONS)
-                    ],
-                )
-            )
-        ],
-    ),
-    Container(
-        name="max_code_sections_plus_data_plus_container",
-        sections=[
-            Section.Code(
-                Op.JUMPF[i + 1] if i < (MAX_CODE_SECTIONS - 1) else Op.RETURNCONTRACT[0](0, 0)
-            )
-            for i in range(MAX_CODE_SECTIONS)
-        ]
-        + [
-            Section.Container(
-                container=Container(
-                    name="max_code_sections",
-                    sections=[
-                        Section.Code(Op.JUMPF[i + 1] if i < (MAX_CODE_SECTIONS - 1) else Op.STOP)
-                        for i in range(MAX_CODE_SECTIONS)
-                    ],
-                )
-            )
-        ]
-        + [Section.Data(data="0x00")],
-    ),
-    # TODO: Add more valid scenarios
-]
 
 INVALID: List[Container] = [
     Container(
@@ -202,7 +137,7 @@ INVALID: List[Container] = [
     Container(
         name="no_code_section",
         sections=[
-            Section(kind=Kind.TYPE, data=bytes([0] * 4)),
+            Section(kind=SectionKind.TYPE, data=bytes([0] * 4)),
             Section.Data("0x00"),
         ],
         auto_type_section=AutoSection.NONE,
@@ -471,8 +406,8 @@ INVALID: List[Container] = [
     Container(
         name="too_many_type_sections",
         sections=[
-            Section(kind=Kind.TYPE, data="0x00000000"),
-            Section(kind=Kind.TYPE, data="0x00000000"),
+            Section(kind=SectionKind.TYPE, data="0x00000000"),
+            Section(kind=SectionKind.TYPE, data="0x00000000"),
             Section.Code(Op.STOP),
         ],
         auto_type_section=AutoSection.NONE,
@@ -481,7 +416,7 @@ INVALID: List[Container] = [
     Container(
         name="empty_type_section",
         sections=[
-            Section(kind=Kind.TYPE, data="0x"),
+            Section(kind=SectionKind.TYPE, data="0x"),
             Section.Code(Op.STOP),
         ],
         auto_type_section=AutoSection.NONE,
@@ -491,7 +426,7 @@ INVALID: List[Container] = [
     Container(
         name="type_section_too_small_1",
         sections=[
-            Section(kind=Kind.TYPE, data="0x00"),
+            Section(kind=SectionKind.TYPE, data="0x00"),
             Section.Code(Op.STOP),
         ],
         auto_type_section=AutoSection.NONE,
@@ -500,7 +435,7 @@ INVALID: List[Container] = [
     Container(
         name="type_section_too_small_2",
         sections=[
-            Section(kind=Kind.TYPE, data="0x000000"),
+            Section(kind=SectionKind.TYPE, data="0x000000"),
             Section.Code(Op.STOP),
         ],
         auto_type_section=AutoSection.NONE,
@@ -509,7 +444,7 @@ INVALID: List[Container] = [
     Container(
         name="type_section_too_big",
         sections=[
-            Section(kind=Kind.TYPE, data="0x0000000000"),
+            Section(kind=SectionKind.TYPE, data="0x0000000000"),
             Section.Code(Op.STOP),
         ],
         auto_type_section=AutoSection.NONE,
@@ -523,7 +458,7 @@ INVALID: List[Container] = [
 EIP-4750 Valid and Invalid Containers
 """
 
-VALID += [
+VALID = [
     Container(
         name="single_code_section_max_stack_size",
         sections=[
@@ -633,7 +568,7 @@ INVALID += [
     Container(
         name="single_code_section_incomplete_type",
         sections=[
-            Section(kind=Kind.TYPE, data="0x00", custom_size=2),
+            Section(kind=SectionKind.TYPE, data="0x00", custom_size=2),
             Section.Code(Op.STOP),
         ],
         validity_error=EOFException.INVALID_SECTION_BODIES_SIZE,
