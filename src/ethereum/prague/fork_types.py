@@ -56,7 +56,7 @@ def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
     Encode `Account` dataclass.
 
     Storage is not stored in the `Account` dataclass, so `Accounts` cannot be
-    encoded with providing a storage root.
+    encoded without providing a storage root.
     """
     return rlp.encode(
         (
