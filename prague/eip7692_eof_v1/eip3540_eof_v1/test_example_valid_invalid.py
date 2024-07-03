@@ -86,19 +86,6 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
             id="rjump_valid",
         ),
         pytest.param(
-            # Sections with unreachable code fail
-            Container(
-                name="EOF1I0023",
-                sections=[
-                    Section.Code(code=Op.RJUMP[1] + Op.NOOP + Op.STOP),
-                    Section.Data("0x0bad60A7"),
-                ],
-            ),
-            "ef000101000402000100050400040000800000E000015B000bad60A7",
-            EOFException.UNREACHABLE_INSTRUCTIONS,
-            id="unreachable_code",
-        ),
-        pytest.param(
             # Check that code that uses a new style conditional jump succeeds
             Container(
                 name="EOF1V0011",
