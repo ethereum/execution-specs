@@ -304,6 +304,8 @@ def test_opcodes_repr():
     assert f"{Op.DELEGATECALL}" == "DELEGATECALL"
     assert f"{Om.OOG}" == "OOG"
     assert str(Op.ADD) == "ADD"
+    assert f"{Op.DUPN[1]}" == "DUPN[0x01]"
+    assert f"{Op.DATALOADN[1]}" == "DATALOADN[0x0001]"
 
 
 def test_macros():
@@ -356,3 +358,13 @@ def test_bytecode_properties(
     assert bytecode.pushed_stack_items == expected_pushed_items, "Pushed stack items mismatch"
     assert bytecode.max_stack_height == expected_max_stack_height, "Max stack height mismatch"
     assert bytecode.min_stack_height == expected_min_stack_height, "Min stack height mismatch"
+
+
+def test_opcode_comparison():
+    """
+    Test that the opcodes are comparable.
+    """
+    assert Op.STOP < Op.ADD
+    assert Op.ADD == Op.ADD
+    assert Op.ADD != Op.STOP
+    assert Op.ADD > Op.STOP

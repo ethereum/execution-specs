@@ -32,10 +32,19 @@ def _get_int_size(n: int) -> int:
 
 class Bytecode:
     """
-    Base class for Macro and Opcode, inherits from bytes.
+    Base class to represent EVM bytecode.
 
-    This class is designed to represent a base structure for individual evm opcodes
-    and opcode macros.
+    Stack calculations are automatically done after an addition operation between two bytecode
+    objects. The stack height is not guaranteed to be correct, so the user must take this into
+    consideration.
+
+    Parameters
+    ----------
+    - popped_stack_items: number of items the bytecode pops from the stack
+    - pushed_stack_items: number of items the bytecode pushes to the stack
+    - min_stack_height: minimum stack height required by the bytecode
+    - max_stack_height: maximum stack height reached by the bytecode
+    - unchecked_stack: whether the bytecode should ignore stack checks when being called
     """
 
     _name_: str = ""
@@ -312,15 +321,19 @@ class Opcode(Bytecode):
 
     Parameters
     ----------
-    - popped_stack_items: number of items the opcode pops from the stack
-    - pushed_stack_items: number of items the opcode pushes to the stack
-    - min_stack_height: minimum stack height required by the opcode
     - data_portion_length: number of bytes after the opcode in the bytecode
         that represent data
+    - data_portion_formatter: function to format the data portion of the opcode, if any
+    - stack_properties_modifier: function to modify the stack properties of the opcode after the
+        data portion has been processed
+    - kwargs: list of keyword arguments that can be passed to the opcode, in the order they are
+        meant to be placed in the stack
+    - kwargs_defaults: default values for the keyword arguments if any, otherwise 0
     """
 
     data_portion_length: int
     data_portion_formatter: Optional[Callable[[Any], bytes]]
+    stack_properties_modifier: Optional[Callable[[Any], tuple[int, int, int, int]]]
     kwargs: List[str] | None
     kwargs_defaults: KW_ARGS_DEFAULTS_TYPE
 
@@ -334,6 +347,7 @@ class Opcode(Bytecode):
         min_stack_height: int | None = None,
         data_portion_length: int = 0,
         data_portion_formatter=None,
+        stack_properties_modifier=None,
         unchecked_stack=False,
         kwargs: List[str] | None = None,
         kwargs_defaults: KW_ARGS_DEFAULTS_TYPE = {},
@@ -366,6 +380,7 @@ class Opcode(Bytecode):
             )
             obj.data_portion_length = data_portion_length
             obj.data_portion_formatter = data_portion_formatter
+            obj.stack_properties_modifier = stack_properties_modifier
             obj.unchecked_stack = unchecked_stack
             obj.kwargs = kwargs
             obj.kwargs_defaults = kwargs_defaults
@@ -409,24 +424,36 @@ class Opcode(Bytecode):
                 )
             else:
                 raise TypeError("Opcode data portion must be either an int or bytes/hex string")
+        popped_stack_items = self.popped_stack_items
+        pushed_stack_items = self.pushed_stack_items
+        min_stack_height = self.min_stack_height
+        max_stack_height = self.max_stack_height
         assert (
-            self.popped_stack_items is not None
-            and self.pushed_stack_items is not None
-            and self.min_stack_height is not None
+            popped_stack_items is not None
+            and pushed_stack_items is not None
+            and min_stack_height is not None
         )
+        if self.stack_properties_modifier is not None:
+            (
+                popped_stack_items,
+                pushed_stack_items,
+                min_stack_height,
+                max_stack_height,
+            ) = self.stack_properties_modifier(data_portion)
+
         new_opcode = Opcode(
             bytes(self) + data_portion,
-            popped_stack_items=self.popped_stack_items,
-            pushed_stack_items=self.pushed_stack_items,
-            min_stack_height=self.min_stack_height,
-            max_stack_height=self.max_stack_height,
+            popped_stack_items=popped_stack_items,
+            pushed_stack_items=pushed_stack_items,
+            min_stack_height=min_stack_height,
+            max_stack_height=max_stack_height,
             data_portion_length=0,
             data_portion_formatter=None,
             unchecked_stack=self.unchecked_stack,
             kwargs=self.kwargs,
             kwargs_defaults=self.kwargs_defaults,
         )
-        new_opcode._name_ = self._name_
+        new_opcode._name_ = f"{self._name_}[0x{data_portion.hex()}]"
         return new_opcode
 
     def __call__(
@@ -483,11 +510,29 @@ class Opcode(Bytecode):
 
         return super().__call__(*args, unchecked=unchecked)
 
+    def __lt__(self, other: "Opcode") -> bool:
+        """
+        Compares two opcodes by their integer value.
+        """
+        return self.int() < other.int()
+
+    def __gt__(self, other: "Opcode") -> bool:
+        """
+        Compares two opcodes by their integer value.
+        """
+        return self.int() > other.int()
+
     def int(self) -> int:
         """
         Returns the integer representation of the opcode.
         """
         return int.from_bytes(self, byteorder="big")
+
+    def has_data_portion(self) -> bool:
+        """
+        Returns whether the opcode has a data portion.
+        """
+        return self.data_portion_length > 0 or self.data_portion_formatter is not None
 
 
 class Macro(Bytecode):
@@ -568,6 +613,28 @@ def _exchange_encoder(*args: int) -> bytes:
     m = y - x
     imm = (n - 1) << 4 | m - 1
     return int.to_bytes(imm, 1, "big")
+
+
+def _swapn_stack_properties_modifier(data: bytes) -> tuple[int, int, int, int]:
+    imm = int.from_bytes(data, "big")
+    n = imm + 1
+    min_stack_height = n + 1
+    return 0, 0, min_stack_height, min_stack_height
+
+
+def _dupn_stack_properties_modifier(data: bytes) -> tuple[int, int, int, int]:
+    imm = int.from_bytes(data, "big")
+    n = imm + 1
+    min_stack_height = n
+    return 0, 1, min_stack_height, min_stack_height + 1
+
+
+def _exchange_stack_properties_modifier(data: bytes) -> tuple[int, int, int, int]:
+    imm = int.from_bytes(data, "big")
+    n = (imm >> 4) + 1
+    m = (imm & 0x0F) + 1
+    min_stack_height = n + m + 1
+    return 0, 0, min_stack_height, min_stack_height
 
 
 class Opcodes(Opcode, Enum):
@@ -5146,7 +5213,12 @@ class Opcodes(Opcode, Enum):
 
     """
 
-    DUPN = Opcode(0xE6, pushed_stack_items=1, data_portion_length=1)
+    DUPN = Opcode(
+        0xE6,
+        pushed_stack_items=1,
+        data_portion_length=1,
+        stack_properties_modifier=_dupn_stack_properties_modifier,
+    )
     """
     !!! Note: This opcode is under development
 
@@ -5178,7 +5250,9 @@ class Opcodes(Opcode, Enum):
 
     """
 
-    SWAPN = Opcode(0xE7, data_portion_length=1)
+    SWAPN = Opcode(
+        0xE7, data_portion_length=1, stack_properties_modifier=_swapn_stack_properties_modifier
+    )
     """
     !!! Note: This opcode is under development
 
@@ -5210,7 +5284,11 @@ class Opcodes(Opcode, Enum):
 
     """
 
-    EXCHANGE = Opcode(0xE8, data_portion_formatter=_exchange_encoder)
+    EXCHANGE = Opcode(
+        0xE8,
+        data_portion_formatter=_exchange_encoder,
+        stack_properties_modifier=_exchange_stack_properties_modifier,
+    )
     """
     !!! Note: This opcode is under development
 
@@ -5275,9 +5353,7 @@ class Opcodes(Opcode, Enum):
 
     """
 
-    RETURNCONTRACT = Opcode(
-        0xEE, popped_stack_items=2, pushed_stack_items=1, data_portion_length=1
-    )
+    RETURNCONTRACT = Opcode(0xEE, popped_stack_items=2, data_portion_length=1)
     """
     !!! Note: This opcode is under development
 
