@@ -8,23 +8,12 @@ from typing import Mapping, Tuple
 
 import pytest
 
-from ethereum_test_tools import Account, Bytecode, Environment
+from ethereum_test_tools import Account, Alloc, Bytecode, Environment
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import (
-    StateTestFiller,
-    Storage,
-    TestAddress,
-    Transaction,
-    cost_memory_bytes,
-)
+from ethereum_test_tools import StateTestFiller, Storage, Transaction, cost_memory_bytes
+from ethereum_test_tools.common.base_types import Address
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
-
-# Code address used to call the test bytecode on every test case.
-caller_address = 0x100
-
-# Code address used to perform the memory expansion.
-memory_expansion_address = 0x200
 
 REFERENCE_SPEC_GIT_PATH = REFERENCE_SPEC_GIT_PATH
 REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
@@ -78,6 +67,7 @@ def subcall_exact_cost(
 def bytecode_storage(
     subcall_exact_cost: int,
     successful: bool,
+    memory_expansion_address: Address,
 ) -> Tuple[Bytecode, Storage.StorageDictType]:
     """
     Prepares the bytecode and storage for the test, based on the expected result of the subcall
@@ -126,26 +116,32 @@ def env(  # noqa: D103
 
 
 @pytest.fixture
-def pre(  # noqa: D103
-    tx_max_fee_per_gas: int,
-    tx_gas_limit: int,
-    bytecode_storage: Tuple[bytes, Storage.StorageDictType],
-    callee_bytecode: bytes,
-) -> Mapping:
-    return {
-        TestAddress: Account(balance=tx_max_fee_per_gas * tx_gas_limit),
-        caller_address: Account(code=bytecode_storage[0]),
-        memory_expansion_address: Account(code=callee_bytecode),
-    }
+def caller_address(  # noqa: D103
+    pre: Alloc, bytecode_storage: Tuple[bytes, Storage.StorageDictType]
+) -> Address:
+    return pre.deploy_contract(code=bytecode_storage[0])
+
+
+@pytest.fixture
+def memory_expansion_address(pre: Alloc, callee_bytecode: bytes) -> Address:  # noqa: D103
+    return pre.deploy_contract(code=callee_bytecode)
+
+
+@pytest.fixture
+def sender(pre: Alloc, tx_max_fee_per_gas: int, tx_gas_limit: int) -> Address:  # noqa: D103
+    return pre.fund_eoa(tx_max_fee_per_gas * tx_gas_limit)
 
 
 @pytest.fixture
 def tx(  # noqa: D103
+    sender: Address,
+    caller_address: Address,
     initial_memory: bytes,
     tx_max_fee_per_gas: int,
     tx_gas_limit: int,
 ) -> Transaction:
     return Transaction(
+        sender=sender,
         to=caller_address,
         data=initial_memory,
         gas_limit=tx_gas_limit,
@@ -155,7 +151,9 @@ def tx(  # noqa: D103
 
 
 @pytest.fixture
-def post(bytecode_storage: Tuple[bytes, Storage.StorageDictType]) -> Mapping:  # noqa: D103
+def post(  # noqa: D103
+    caller_address: Address, bytecode_storage: Tuple[bytes, Storage.StorageDictType]
+) -> Mapping:
     return {
         caller_address: Account(storage=bytecode_storage[1]),
     }
@@ -204,7 +202,7 @@ def post(bytecode_storage: Tuple[bytes, Storage.StorageDictType]) -> Mapping:  #
 def test_mcopy_memory_expansion(
     state_test: StateTestFiller,
     env: Environment,
-    pre: Mapping[str, Account],
+    pre: Alloc,
     post: Mapping[str, Account],
     tx: Transaction,
 ):
