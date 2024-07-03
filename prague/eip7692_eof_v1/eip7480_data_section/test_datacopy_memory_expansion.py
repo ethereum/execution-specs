@@ -1,28 +1,36 @@
 """
-abstract: Tests [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656)
-    Test copy operations of [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656)
-    that produce a memory expansion, and potentially an out-of-gas error.
-
-"""  # noqa: E501
+Memory expansion tests for DATACOPY
+"""
 from typing import Mapping, Tuple
 
 import pytest
 
-from ethereum_test_tools import Account, Alloc, Bytecode, Environment
-from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Storage, Transaction, cost_memory_bytes
+from ethereum_test_tools import (
+    Account,
+    Alloc,
+    Bytecode,
+    Environment,
+    StateTestFiller,
+    Storage,
+    Transaction,
+)
 from ethereum_test_tools.common.base_types import Address
+from ethereum_test_tools.common.helpers import cost_memory_bytes
+from ethereum_test_tools.eof.v1 import Container, Section
+from ethereum_test_tools.vm.opcode import Opcodes as Op
 
-from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
+from .. import EOF_FORK_NAME
 
-REFERENCE_SPEC_GIT_PATH = REFERENCE_SPEC_GIT_PATH
-REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
+REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7480.md"
+REFERENCE_SPEC_VERSION = "3ee1334ef110420685f1c8ed63e80f9e1766c251"
+
+pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 
 @pytest.fixture
-def callee_bytecode(dest: int, src: int, length: int) -> Bytecode:
+def callee_bytecode(dest: int, src: int, length: int, data_section: bytes) -> Container:
     """
-    Callee performs a single mcopy operation and then returns.
+    Callee performs a single datacopy operation and then returns.
     """
     bytecode = Bytecode()
 
@@ -32,12 +40,12 @@ def callee_bytecode(dest: int, src: int, length: int) -> Bytecode:
     # Pushes for the return operation
     bytecode += Op.PUSH1(0x00) + Op.PUSH1(0x00)
 
-    # Perform the mcopy operation
-    bytecode += Op.MCOPY(dest, src, length)
+    # Perform the datacopy operation
+    bytecode += Op.DATACOPY(dest, src, length)
 
     bytecode += Op.RETURN
 
-    return bytecode
+    return Container(sections=[Section.Code(code=bytecode), Section.Data(data=data_section)])
 
 
 @pytest.fixture
@@ -49,10 +57,10 @@ def subcall_exact_cost(
     """
     Returns the exact cost of the subcall, based on the initial memory and the length of the copy.
     """
-    mcopy_cost = 3
-    mcopy_cost += 3 * ((length + 31) // 32)
+    datacopy_cost = 3
+    datacopy_cost += 3 * ((length + 31) // 32)
     if length > 0 and dest + length > len(initial_memory):
-        mcopy_cost += cost_memory_bytes(dest + length, len(initial_memory))
+        datacopy_cost += cost_memory_bytes(dest + length, len(initial_memory))
 
     calldatacopy_cost = 3
     calldatacopy_cost += 3 * ((len(initial_memory) + 31) // 32)
@@ -60,7 +68,7 @@ def subcall_exact_cost(
 
     pushes_cost = 3 * 7
     calldatasize_cost = 2
-    return mcopy_cost + calldatacopy_cost + pushes_cost + calldatasize_cost
+    return datacopy_cost + calldatacopy_cost + pushes_cost + calldatasize_cost
 
 
 @pytest.fixture
@@ -123,7 +131,7 @@ def caller_address(  # noqa: D103
 
 
 @pytest.fixture
-def memory_expansion_address(pre: Alloc, callee_bytecode: Bytecode) -> Address:  # noqa: D103
+def memory_expansion_address(pre: Alloc, callee_bytecode: bytes) -> Address:  # noqa: D103
     return pre.deploy_contract(code=callee_bytecode)
 
 
@@ -198,8 +206,17 @@ def post(  # noqa: D103
         "from_empty_memory",
     ],
 )
-@pytest.mark.valid_from("Cancun")
-def test_mcopy_memory_expansion(
+@pytest.mark.parametrize(
+    "data_section",
+    [
+        bytes(),
+        b"\xfc",
+        bytes(range(0x00, 0x20)),
+        bytes(range(0x00, 0x100)),
+    ],
+    ids=["empty_data_section", "byte_data_section", "word_data_section", "large_data_section"],
+)
+def test_datacopy_memory_expansion(
     state_test: StateTestFiller,
     env: Environment,
     pre: Alloc,
@@ -207,7 +224,7 @@ def test_mcopy_memory_expansion(
     tx: Transaction,
 ):
     """
-    Perform MCOPY operations that expand the memory, and verify the gas it costs to do so.
+    Perform DATACOPY operations that expand the memory, and verify the gas it costs to do so.
     """
     state_test(
         env=env,
@@ -223,9 +240,6 @@ def test_mcopy_memory_expansion(
         (2**256 - 1, 0x00, 0x01),
         (2**256 - 2, 0x00, 0x01),
         (2**255 - 1, 0x00, 0x01),
-        (0x00, 2**256 - 1, 0x01),
-        (0x00, 2**256 - 2, 0x01),
-        (0x00, 2**255 - 1, 0x01),
         (0x00, 0x00, 2**256 - 1),
         (0x00, 0x00, 2**256 - 2),
         (0x00, 0x00, 2**255 - 1),
@@ -234,9 +248,6 @@ def test_mcopy_memory_expansion(
         "max_dest_single_byte_expansion",
         "max_dest_minus_one_single_byte_expansion",
         "half_max_dest_single_byte_expansion",
-        "max_src_single_byte_expansion",
-        "max_src_minus_one_single_byte_expansion",
-        "half_max_src_single_byte_expansion",
         "max_length_expansion",
         "max_length_minus_one_expansion",
         "half_max_length_expansion",
@@ -259,8 +270,17 @@ def test_mcopy_memory_expansion(
         "from_empty_memory",
     ],
 )
-@pytest.mark.valid_from("Cancun")
-def test_mcopy_huge_memory_expansion(
+@pytest.mark.parametrize(
+    "data_section",
+    [
+        bytes(),
+        b"\xfc",
+        bytes(range(0x00, 0x20)),
+        bytes(range(0x00, 0x100)),
+    ],
+    ids=["empty_data_section", "byte_data_section", "word_data_section", "large_data_section"],
+)
+def test_datacopy_huge_memory_expansion(
     state_test: StateTestFiller,
     env: Environment,
     pre: Mapping[str, Account],
@@ -268,8 +288,8 @@ def test_mcopy_huge_memory_expansion(
     tx: Transaction,
 ):
     """
-    Perform MCOPY operations that expand the memory by huge amounts, and verify that it correctly
-    runs out of gas.
+    Perform DATACOPY operations that expand the memory by huge amounts, and verify that it
+    correctly runs out of gas.
     """
     state_test(
         env=env,
