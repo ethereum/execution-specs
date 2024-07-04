@@ -83,6 +83,7 @@ class EvmoneExceptionMapper:
         ExceptionMessage(
             EOFException.INCOMPATIBLE_CONTAINER_KIND, "err: incompatible_container_kind"
         ),
+        ExceptionMessage(EOFException.STACK_HEIGHT_MISMATCH, "err: stack_height_mismatch"),
     )
 
     def __init__(self) -> None:

@@ -659,6 +659,10 @@ class EOFException(ExceptionBase):
     """
     EOF container's code produces an stack underflow.
     """
+    STACK_HEIGHT_MISMATCH = auto()
+    """
+    EOF container section stack height mismatch.
+    """
     MAX_STACK_HEIGHT_ABOVE_LIMIT = auto()
     """
     EOF container's specified max stack height is above the limit.

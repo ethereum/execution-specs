@@ -483,12 +483,6 @@ class Opcode(Bytecode):
 
         return super().__call__(*args, unchecked=unchecked)
 
-    def __len__(self) -> int:
-        """
-        Returns the total bytecode length of the opcode, taking into account its data portion.
-        """
-        return self.data_portion_length + 1
-
     def int(self) -> int:
         """
         Returns the integer representation of the opcode.
