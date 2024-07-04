@@ -16,6 +16,8 @@ REFERENCE_SPEC_VERSION = "17d4a8d12d2b5e0f2985c866376c16c8c6df7cba"
 
 pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
+RJUMP_LEN = len(Op.RJUMP[0])
+
 
 @pytest.mark.parametrize(
     "calldata",
@@ -261,26 +263,10 @@ def test_rjumpv_max_forwards(
     )
 
 
-def test_rjumpv_truncated(
+def test_rjumpv_truncated_empty(
     eof_test: EOFTestFiller,
 ):
     """EOF1I4200_0027 (Invalid) EOF code containing RJUMPV with max_index 0 but no immediates"""
-    eof_test(
-        data=Container(
-            sections=[
-                Section.Code(
-                    code=Op.PUSH1(1) + Op.RJUMPV[b"\0"],
-                )
-            ],
-        ),
-        expect_exception=EOFException.TRUNCATED_INSTRUCTION,
-    )
-
-
-def test_rjumpv_truncated_1(
-    eof_test: EOFTestFiller,
-):
-    """EOF1I4200_0028 (Invalid) EOF code containing truncated RJUMPV"""
     eof_test(
         data=Container(
             sections=[
@@ -291,53 +277,27 @@ def test_rjumpv_truncated_1(
         ),
         expect_exception=EOFException.TRUNCATED_INSTRUCTION,
     )
-    #     - data: |
 
 
-def test_rjumpv_truncated_2(
+@pytest.mark.parametrize(
+    "branches",
+    [1, 2, 256],
+)
+@pytest.mark.parametrize(
+    "byte_count_last_branch",
+    [0, 1],
+)
+def test_rjumpv_truncated(
     eof_test: EOFTestFiller,
+    branches: int,
+    byte_count_last_branch: int,
 ):
-    """EOF1I4200_0029 (Invalid) EOF code containing truncated RJUMPV"""
+    """EOF1I4200_0028/29/30/31 (Invalid) EOF code containing truncated RJUMPV"""
+    rjumpv_bytes = int.to_bytes(branches - 1, 1, "big")
+    rjumpv_bytes += b"\0" * ((2 * (branches - 1)) + byte_count_last_branch)
+
     eof_test(
-        data=Container(
-            sections=[
-                Section.Code(
-                    code=Op.PUSH1(1) + Op.RJUMPV[b"\0\0"],
-                )
-            ],
-        ),
-        expect_exception=EOFException.TRUNCATED_INSTRUCTION,
-    )
-
-
-def test_rjumpv_truncated_3(
-    eof_test: EOFTestFiller,
-):
-    """EOF1I4200_0030 (Invalid) EOF code containing truncated RJUMPV"""
-    eof_test(
-        data=Container(
-            sections=[
-                Section.Code(
-                    code=Op.PUSH1(1) + Op.RJUMPV[b"\0\0"],
-                )
-            ],
-        ),
-        expect_exception=EOFException.TRUNCATED_INSTRUCTION,
-    )
-
-
-def test_rjumpv_truncated_4(
-    eof_test: EOFTestFiller,
-):
-    """EOF code containing truncated RJUMPV table"""
-    eof_test(
-        data=Container(
-            sections=[
-                Section.Code(
-                    code=Op.PUSH1(1) + Op.RJUMPV[b"\2\0\0\0\0"],
-                )
-            ],
-        ),
+        data=Container.Code(code=Op.PUSH1(1) + Op.RJUMPV[rjumpv_bytes]),
         expect_exception=EOFException.TRUNCATED_INSTRUCTION,
     )
 
@@ -516,7 +476,7 @@ def test_rjumpv_at_end(
     [True, False],
     ids=["data_portion_end", "data_portion_start"],
 )
-def test_rjumpv_into_self(
+def test_rjumpv_into_self_data_portion(
     eof_test: EOFTestFiller,
     table_size: int,
     invalid_index: int,
@@ -535,6 +495,113 @@ def test_rjumpv_into_self(
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
+    )
+
+
+@pytest.mark.parametrize(
+    "table_size,invalid_index",
+    [
+        pytest.param(1, 0, id="t1i0"),
+        pytest.param(256, 0, id="t256i0"),
+        pytest.param(256, 255, id="t256i255"),
+    ],
+)
+def test_rjumpv_into_self(
+    eof_test: EOFTestFiller,
+    table_size: int,
+    invalid_index: int,
+):
+    """EOF code containing RJUMPV with target same RJUMPV immediate"""
+    jump_table = [0 for _ in range(table_size)]
+    jump_table[invalid_index] = -len(Op.RJUMPV[jump_table])
+
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH1(1) + Op.RJUMPV[jump_table] + Op.STOP,
+                )
+            ],
+        ),
+        expect_exception=EOFException.STACK_HEIGHT_MISMATCH,
+    )
+
+
+@pytest.mark.parametrize(
+    "table_size,invalid_index",
+    [
+        pytest.param(1, 0, id="t1i0"),
+        pytest.param(256, 0, id="t256i0"),
+        pytest.param(256, 255, id="t256i255"),
+    ],
+)
+def test_rjumpv_into_stack_height_diff(
+    eof_test: EOFTestFiller,
+    table_size: int,
+    invalid_index: int,
+):
+    """EOF code containing RJUMPV with target instruction that causes stack height difference"""
+    jump_table = [0 for _ in range(table_size)]
+    jump_table[invalid_index] = -(len(Op.RJUMPV[jump_table]) + len(Op.PUSH1(0)) + len(Op.PUSH1(0)))
+
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH1(0) + Op.PUSH1(0) + Op.RJUMPV[jump_table] + Op.STOP,
+                ),
+            ],
+        ),
+        expect_exception=EOFException.STACK_HEIGHT_MISMATCH,
+    )
+
+
+@pytest.mark.parametrize(
+    "table_size,invalid_index",
+    [
+        pytest.param(1, 0, id="t1i0"),
+        pytest.param(256, 0, id="t256i0"),
+        pytest.param(256, 255, id="t256i255"),
+    ],
+)
+def test_rjumpv_into_stack_underflow(
+    eof_test: EOFTestFiller,
+    table_size: int,
+    invalid_index: int,
+):
+    """EOF code containing RJUMPV with target instruction that cause stack underflow"""
+    jump_table = [0 for _ in range(table_size)]
+    jump_table[invalid_index] = 1
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(code=Op.ORIGIN + Op.RJUMPV[jump_table] + Op.STOP + Op.POP + Op.STOP),
+            ],
+        ),
+        expect_exception=EOFException.STACK_UNDERFLOW,
+    )
+
+
+@pytest.mark.parametrize(
+    "table_size",
+    [
+        pytest.param(1, id="t1"),
+        pytest.param(256, id="t256"),
+    ],
+)
+def test_rjumpv_skips_stack_underflow(
+    eof_test: EOFTestFiller,
+    table_size: int,
+):
+    """EOF code containing RJUMPV where the default path produces a stack underflow"""
+    jump_table = [1 for _ in range(table_size)]
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(code=Op.ORIGIN + Op.RJUMPV[jump_table] + Op.POP + Op.STOP),
+            ],
+        ),
+        expect_exception=EOFException.STACK_UNDERFLOW,
     )
 
 
@@ -1035,4 +1102,26 @@ def test_rjumpv_into_returncontract(
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
+    )
+
+
+def test_rjumpv_backwards_reference_only(
+    eof_test: EOFTestFiller,
+):
+    """
+    EOF code containing instructions only reachable by backwards RJUMPV
+    """
+    RJUMPV_LEN = len(Op.RJUMPV[0])
+    container = Container.Code(
+        code=(
+            Op.RJUMP[RJUMP_LEN]
+            + Op.RJUMP[RJUMPV_LEN + len(Op.ORIGIN)]
+            + Op.ORIGIN
+            + Op.RJUMPV[-(RJUMP_LEN + RJUMPV_LEN + len(Op.ORIGIN))]
+            + Op.STOP
+        )
+    )
+    eof_test(
+        data=container,
+        expect_exception=EOFException.UNREACHABLE_INSTRUCTIONS,
     )

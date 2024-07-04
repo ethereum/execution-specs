@@ -6,6 +6,7 @@ import pytest
 
 from ethereum_test_tools import Account, EOFException, EOFStateTestFiller, EOFTestFiller
 from ethereum_test_tools.eof.v1 import Container, Section
+from ethereum_test_tools.eof.v1.constants import MAX_BYTECODE_SIZE
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
@@ -15,6 +16,8 @@ REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4200.md"
 REFERENCE_SPEC_VERSION = "17d4a8d12d2b5e0f2985c866376c16c8c6df7cba"
 
 pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
+
+RJUMP_LEN = len(Op.RJUMP[0])
 
 
 def test_rjump_positive_negative(
@@ -85,7 +88,9 @@ def test_rjump_maxes(
             sections=[
                 Section.Code(
                     code=Op.PUSH0
-                    + Op.RJUMPI[3]  # The push/jumpi is to allow the NOOPs to be forward referenced
+                    + Op.RJUMPI[
+                        RJUMP_LEN
+                    ]  # The push/jumpi is to allow the NOOPs to be forward referenced
                     + Op.RJUMP[0x7FFF]
                     + Op.NOOP * (0x7FFF - 7)
                     + Op.SSTORE(slot_code_worked, value_code_worked)
@@ -96,6 +101,25 @@ def test_rjump_maxes(
         ),
         container_post=Account(storage={slot_code_worked: value_code_worked}),
     )
+
+
+def test_rjump_max_bytecode_size(
+    eof_test: EOFTestFiller,
+):
+    """
+    EOF1V4200_0003 EOF with RJUMP containing the maximum offset that does not exceed the maximum
+    bytecode size
+    """
+    NOOP_COUNT = MAX_BYTECODE_SIZE - 27
+    code = (
+        Op.RJUMPI[RJUMP_LEN](Op.ORIGIN)  # The jumpi is to allow the NOOPs to be forward referenced
+        + Op.RJUMP[len(Op.NOOP) * NOOP_COUNT]
+        + (Op.NOOP * NOOP_COUNT)
+        + Op.STOP
+    )
+    container = Container.Code(code=code)
+    assert len(container) == MAX_BYTECODE_SIZE
+    eof_test(data=container)
 
 
 def test_rjump_truncated_rjump(
@@ -239,17 +263,113 @@ def test_rjump_to_code_end(
     )
 
 
-def test_rjump_into_self(
+@pytest.mark.parametrize("offset", range(1, Op.RJUMP.data_portion_length + 1))
+def test_rjump_into_self_data_portion(
     eof_test: EOFTestFiller,
+    offset: int,
 ):
     """EOF1I4200_0008 (Invalid) EOF code containing RJUMP with target self RJUMP immediate"""
     eof_test(
         data=Container(
             sections=[
-                Section.Code(code=Op.RJUMP[-1]),
+                Section.Code(code=Op.RJUMP[-offset] + Op.STOP),
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
+    )
+
+
+def test_rjump_into_self_remaining_code(
+    eof_test: EOFTestFiller,
+):
+    """
+    EOF1I4200_0008 (Invalid) EOF code containing RJUMP with target self RJUMP but remaining
+    unreachable code
+    """
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(code=Op.RJUMP[-len(Op.RJUMP[0])] + Op.STOP),
+            ],
+        ),
+        expect_exception=EOFException.UNREACHABLE_INSTRUCTIONS,
+    )
+
+
+def test_rjump_into_self(
+    eof_test: EOFTestFiller,
+):
+    """EOF code containing RJUMP with target self RJUMP"""
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(code=Op.RJUMP[-len(Op.RJUMP[0])]),
+            ],
+        ),
+    )
+
+
+def test_rjump_into_self_pre_code(
+    eof_test: EOFTestFiller,
+):
+    """EOF code containing RJUMP with target self RJUMP with non-zero stack before RJUMP"""
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(code=Op.PUSH1(0) + Op.RJUMP[-len(Op.RJUMP[0])]),
+            ],
+        ),
+    )
+
+
+def test_rjump_into_stack_height_diff(
+    eof_test: EOFTestFiller,
+):
+    """EOF code containing RJUMP with target instruction that causes stack height difference"""
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(code=Op.PUSH1(0) + Op.RJUMP[-(len(Op.RJUMP[0]) + len(Op.PUSH1(0)))]),
+            ],
+        ),
+        expect_exception=EOFException.STACK_HEIGHT_MISMATCH,
+    )
+
+
+def test_rjump_into_stack_height_diff_2(
+    eof_test: EOFTestFiller,
+):
+    """EOF code containing RJUMP with target instruction that cause stack height difference"""
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH1(0) + Op.POP + Op.RJUMP[-(len(Op.RJUMP[0]) + len(Op.POP))]
+                ),
+            ],
+        ),
+        expect_exception=EOFException.STACK_HEIGHT_MISMATCH,
+    )
+
+
+def test_rjump_into_stack_underflow(
+    eof_test: EOFTestFiller,
+):
+    """EOF code containing RJUMP with target instruction that cause stack underflow"""
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.ORIGIN
+                    + Op.RJUMPI[len(Op.RJUMP[0])]
+                    + Op.RJUMP[len(Op.STOP)]
+                    + Op.STOP
+                    + Op.POP
+                    + Op.STOP
+                ),
+            ],
+        ),
+        expect_exception=EOFException.STACK_UNDERFLOW,
     )
 
 
@@ -547,4 +667,32 @@ def test_rjump_into_returncontract(
             ],
         ),
         expect_exception=EOFException.INVALID_RJUMP_DESTINATION,
+    )
+
+
+def test_rjump_unreachable_code(
+    eof_test: EOFTestFiller,
+):
+    """
+    EOF code containing instructions skipped by RJUMP
+    """
+    container = Container.Code(code=(Op.RJUMP[len(Op.STOP)] + Op.STOP + Op.STOP))
+    eof_test(
+        data=container,
+        expect_exception=EOFException.UNREACHABLE_INSTRUCTIONS,
+    )
+
+
+def test_rjump_backwards_reference_only(
+    eof_test: EOFTestFiller,
+):
+    """
+    EOF code containing instructions only reachable by backwards RJUMP
+    """
+    container = Container.Code(
+        code=(Op.RJUMP[RJUMP_LEN] + Op.RJUMP[RJUMP_LEN] + Op.RJUMP[-(2 * RJUMP_LEN)] + Op.STOP)
+    )
+    eof_test(
+        data=container,
+        expect_exception=EOFException.UNREACHABLE_INSTRUCTIONS,
     )
