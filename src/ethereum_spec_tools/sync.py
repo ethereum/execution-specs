@@ -776,8 +776,24 @@ class Sync(ForkTracking):
             genesis_configuration = genesis.get_genesis_configuration(
                 f"{self.options.chain}.json"
             )
+
+            description: genesis.GenesisFork = genesis.GenesisFork(
+                Address=self.active_fork.module("fork_types").Address,
+                Account=self.active_fork.module("fork_types").Account,
+                Trie=self.active_fork.module("trie").Trie,
+                Bloom=self.active_fork.module("fork_types").Bloom,
+                Header=self.active_fork.module("blocks").Header,
+                Block=self.active_fork.module("blocks").Block,
+                set_account=self.active_fork.module("state").set_account,
+                set_storage=self.active_fork.module("state").set_storage,
+                state_root=self.active_fork.module("state").state_root,
+                root=self.active_fork.module("trie").root,
+                hex_to_address=self.active_fork.module(
+                    "utils.hexadecimal"
+                ).hex_to_address,
+            )
             genesis.add_genesis_block(
-                self.active_fork.mod,
+                description,
                 self.chain,
                 genesis_configuration,
             )

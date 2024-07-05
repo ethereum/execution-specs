@@ -15,7 +15,7 @@ The genesis configuration for a chain is specified with a
 import json
 import pkgutil
 from dataclasses import dataclass
-from typing import Any, Dict, Type
+from typing import Any, Callable, Dict, Generic, Type, TypeVar
 
 from ethereum import rlp
 from ethereum.base_types import (
@@ -23,10 +23,13 @@ from ethereum.base_types import (
     U256,
     Bytes,
     Bytes8,
+    Bytes32,
     FixedBytes,
     Uint,
     slotted_freezable,
 )
+from ethereum.crypto.hash import Hash32
+from ethereum.utils import has_field
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -128,8 +131,44 @@ def hex_or_base_10_str_to_u256(balance: str) -> U256:
         return U256(int(balance))
 
 
+AddressT = TypeVar("AddressT", bound=FixedBytes)
+AccountT = TypeVar("AccountT")
+StateT = TypeVar("StateT")
+TrieT = TypeVar("TrieT")
+BloomT = TypeVar("BloomT")
+HeaderT = TypeVar("HeaderT")
+BlockT = TypeVar("BlockT")
+
+
+@slotted_freezable
+@dataclass
+class GenesisFork(
+    Generic[AddressT, AccountT, StateT, TrieT, BloomT, HeaderT, BlockT]
+):
+    """
+    Pointers to the various types and functions required to build a genesis
+    block.
+    """
+
+    Address: Type[FixedBytes]
+    Account: Callable[[Uint, U256, bytes], AccountT]
+    Trie: Callable[[bool, object], TrieT]
+    Bloom: Type[FixedBytes]
+    Header: Type[HeaderT]
+    Block: Type[BlockT]
+    hex_to_address: Callable[[str], AddressT]
+    set_account: Callable[[StateT, AddressT, AccountT], object]
+    set_storage: Callable[[StateT, AddressT, Bytes32, U256], object]
+    state_root: Callable[[StateT], Hash32]
+    root: Callable[[TrieT], object]
+
+
 def add_genesis_block(
-    hardfork: Any, chain: Any, genesis: GenesisConfiguration
+    hardfork: GenesisFork[
+        AddressT, AccountT, StateT, TrieT, BloomT, HeaderT, BlockT
+    ],
+    chain: Any,
+    genesis: GenesisConfiguration,
 ) -> None:
     """
     Adds the genesis block to an empty blockchain.
@@ -168,35 +207,33 @@ def add_genesis_block(
 
     [EIP-161]: https://eips.ethereum.org/EIPS/eip-161
     """
-    Address: Type[FixedBytes] = hardfork.fork_types.Address
+    Address: Type[FixedBytes] = hardfork.Address
     assert issubclass(Address, FixedBytes)
 
-    for address, account in genesis.initial_accounts.items():
-        address = hardfork.utils.hexadecimal.hex_to_address(address)
-        hardfork.state.set_account(
+    for hex_address, account in genesis.initial_accounts.items():
+        address = hardfork.hex_to_address(hex_address)
+        hardfork.set_account(
             chain.state,
             address,
-            hardfork.fork_types.Account(
+            hardfork.Account(
                 Uint(int(account.get("nonce", "0"))),
                 hex_or_base_10_str_to_u256(account.get("balance", 0)),
                 hex_to_bytes(account.get("code", "0x")),
             ),
         )
         for key, value in account.get("storage", {}).items():
-            hardfork.state.set_storage(
-                chain.state, address, hex_to_bytes32(key), hex_to_uint(value)
+            hardfork.set_storage(
+                chain.state, address, hex_to_bytes32(key), hex_to_u256(value)
             )
 
     fields = {
-        "parent_hash": hardfork.fork_types.Hash32(b"\0" * 32),
+        "parent_hash": Hash32(b"\0" * 32),
         "ommers_hash": rlp.rlp_hash(()),
         "coinbase": Address(b"\0" * Address.LENGTH),
-        "state_root": hardfork.state.state_root(chain.state),
-        "transactions_root": hardfork.trie.root(
-            hardfork.trie.Trie(False, None)
-        ),
-        "receipt_root": hardfork.trie.root(hardfork.trie.Trie(False, None)),
-        "bloom": hardfork.fork_types.Bloom(b"\0" * 256),
+        "state_root": hardfork.state_root(chain.state),
+        "transactions_root": hardfork.root(hardfork.Trie(False, None)),
+        "receipt_root": hardfork.root(hardfork.Trie(False, None)),
+        "bloom": hardfork.Bloom(b"\0" * 256),
         "difficulty": genesis.difficulty,
         "number": Uint(0),
         "gas_limit": genesis.gas_limit,
@@ -206,21 +243,38 @@ def add_genesis_block(
         "nonce": genesis.nonce,
     }
 
-    if hasattr(hardfork.blocks.Header, "mix_digest"):
-        fields["mix_digest"] = hardfork.fork_types.Hash32(b"\0" * 32)
+    if has_field(hardfork.Header, "mix_digest"):
+        fields["mix_digest"] = Hash32(b"\0" * 32)
     else:
-        fields["prev_randao"] = hardfork.fork_types.Hash32(b"\0" * 32)
+        fields["prev_randao"] = Hash32(b"\0" * 32)
 
-    if hasattr(hardfork.blocks.Header, "base_fee_per_gas"):
+    if has_field(hardfork.Header, "base_fee_per_gas"):
         fields["base_fee_per_gas"] = Uint(10**9)
 
-    genesis_header = hardfork.blocks.Header(**fields)
+    if has_field(hardfork.Header, "withdrawals_root"):
+        fields["withdrawals_root"] = hardfork.root(hardfork.Trie(False, None))
 
-    genesis_block = hardfork.blocks.Block(
-        header=genesis_header,
-        transactions=(),
-        ommers=(),
-    )
+    if has_field(hardfork.Header, "blob_gas_used"):
+        fields["blob_gas_used"] = U64(0)
+
+    if has_field(hardfork.Header, "excess_blob_gas"):
+        fields["excess_blob_gas"] = U64(0)
+
+    if has_field(hardfork.Header, "parent_beacon_block_root"):
+        fields["parent_beacon_block_root"] = Hash32(b"\0" * 32)
+
+    genesis_header = hardfork.Header(**fields)
+
+    block_fields = {
+        "header": genesis_header,
+        "transactions": (),
+        "ommers": (),
+    }
+
+    if has_field(hardfork.Block, "withdrawals"):
+        block_fields["withdrawals"] = ()
+
+    genesis_block = hardfork.Block(**block_fields)
 
     chain.blocks.append(genesis_block)
     chain.chain_id = genesis.chain_id
