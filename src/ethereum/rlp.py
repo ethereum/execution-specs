@@ -261,10 +261,15 @@ def _deserialize_to_dataclass(cls: Type[U], decoded: Simple) -> U:
     target_fields = fields(cls)
 
     if isinstance(decoded, bytes):
-        raise RLPDecodingError
+        raise RLPDecodingError(f"got `bytes` while decoding `{cls.__name__}`")
 
     if len(target_fields) != len(decoded):
-        raise RLPDecodingError
+        name = cls.__name__
+        actual = len(decoded)
+        expected = len(target_fields)
+        raise RLPDecodingError(
+            f"`{name}` needs {expected} field(s), but got {actual} instead"
+        )
 
     values: Dict[str, Any] = {}
 
