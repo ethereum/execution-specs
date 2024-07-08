@@ -653,7 +653,9 @@ class Sync(ForkTracking):
         )
 
         parser.add_argument(
-            "--stop-at", help="after syncing this block, exit successfully"
+            "--stop-at",
+            help="after syncing this block, exit successfully",
+            type=int,
         )
 
         parser.add_argument(
@@ -753,12 +755,11 @@ class Sync(ForkTracking):
         state = self.module("state").State()
 
         if self.options.persist is not None:
-            persisted_block = self.active_fork.optimized_module(
-                "state_db"
-            ).get_metadata(state, b"block_number")
-            persisted_block_timestamp = self.active_fork.optimized_module(
-                "state_db"
-            ).get_metadata(state, b"block_timestamp")
+            state_mod = self.module("state")
+            persisted_block = state_mod.get_metadata(state, b"block_number")
+            persisted_block_timestamp = state_mod.get_metadata(
+                state, b"block_timestamp"
+            )
 
             if persisted_block is not None:
                 persisted_block = int(persisted_block)
@@ -838,7 +839,8 @@ class Sync(ForkTracking):
 
         self.log.debug("persisting blocks and state...")
 
-        self.active_fork.optimized_module("state_db").set_metadata(
+        state_mod = self.module("state")
+        state_mod.set_metadata(
             self.chain.state,
             b"chain_id",
             str(self.chain.chain_id).encode(),
@@ -846,9 +848,8 @@ class Sync(ForkTracking):
 
         start = time.monotonic()
 
-        module = self.active_fork.optimized_module("state_db")
-        module.commit_db_transaction(self.chain.state)
-        module.begin_db_transaction(self.chain.state)
+        state_mod.commit_db_transaction(self.chain.state)
+        state_mod.begin_db_transaction(self.chain.state)
 
         end = time.monotonic()
         self.log.info(
@@ -861,9 +862,8 @@ class Sync(ForkTracking):
         """
         Fetch the persisted chain id from the database.
         """
-        chain_id = self.active_fork.optimized_module("state_db").get_metadata(
-            state, b"chain_id"
-        )
+        state_mod = self.module("state")
+        chain_id = state_mod.get_metadata(state, b"chain_id")
 
         if chain_id is not None:
             chain_id = U64(int(chain_id))
@@ -876,11 +876,13 @@ class Sync(ForkTracking):
         """
         time_of_last_commit = time.monotonic()
         gas_since_last_commit = 0
+        last_committed_block: Optional[int] = None
         block: Optional[Any] = None
 
         def persist() -> None:
             nonlocal time_of_last_commit
             nonlocal gas_since_last_commit
+            nonlocal last_committed_block
 
             now = time.monotonic()
             elapsed = now - time_of_last_commit
@@ -889,15 +891,19 @@ class Sync(ForkTracking):
             if elapsed == 0:
                 elapsed = 1
 
-            gas_per_second = gas_since_last_commit / elapsed
-            m_gas_per_second = gas_per_second / 1_000_000.0
+            m_gas = gas_since_last_commit / 1_000_000.0
+            m_gas_per_second = m_gas / elapsed
             gas_since_last_commit = 0
 
-            if block is None:
-                self.log.info("starting gas=%fMgas/s", m_gas_per_second)
-            else:
+            if block is not None:
+                count = block.header.number
+                if last_committed_block is not None:
+                    count -= last_committed_block
+                last_committed_block = block.header.number
+
                 self.log.info(
-                    "processed block(s) gas=%fMgas/s block=%d",
+                    "imported chain segment mgas=%f mgasps=%f block=%d",
+                    m_gas,
                     m_gas_per_second,
                     block.header.number,
                 )
@@ -923,19 +929,20 @@ class Sync(ForkTracking):
             gas_since_last_commit += block.header.gas_used
 
             if self.options.persist is not None:
-                self.active_fork.optimized_module("state_db").set_metadata(
+                state_mod = self.module("state")
+                state_mod.set_metadata(
                     self.chain.state,
                     b"block_number",
                     str(self.block_number).encode(),
                 )
-                self.active_fork.optimized_module("state_db").set_metadata(
+                state_mod.set_metadata(
                     self.chain.state,
                     b"block_timestamp",
                     str(block.header.timestamp).encode(),
                 )
 
             self.log.debug(
-                "block %d applied (took %.3fs)",
+                "block %d applied",
                 self.block_number,
             )
 
