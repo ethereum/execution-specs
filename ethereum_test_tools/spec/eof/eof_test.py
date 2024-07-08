@@ -9,7 +9,6 @@ from shutil import which
 from subprocess import CompletedProcess
 from typing import Any, Callable, ClassVar, Generator, List, Optional, Type
 
-import pytest
 from pydantic import Field, model_validator
 
 from ethereum_test_forks import Fork
@@ -327,25 +326,23 @@ class EOFStateTest(EOFTest):
         Generate the StateTest filler.
         """
         assert self.pre is not None, "pre must be set to generate a StateTest."
-        sender = self.pre.fund_eoa(amount=self.tx_sender_funding_amount)
-        if self.deploy_tx:
-            tx = Transaction(
-                to=None,
-                gas_limit=self.tx_gas_limit,
-                data=self.data + self.tx_data,
-                sender=sender,
-            )
-            container_address = tx.created_contract
-        else:
-            container_address = self.pre.deploy_contract(code=self.data)
-            tx = Transaction(
-                to=container_address,
-                gas_limit=self.tx_gas_limit,
-                data=self.tx_data,
-                sender=sender,
-            )
+        tx = Transaction(
+            sender=self.pre.fund_eoa(amount=self.tx_sender_funding_amount),
+            gas_limit=self.tx_gas_limit,
+        )
         post = Alloc()
-        post[container_address] = self.container_post
+        if self.expect_exception is not None:  # Invalid EOF
+            tx.to = None  # Make EIP-7698 create transaction
+            tx.data = Bytes(self.data + self.tx_data)  # by concatenating container and tx data.
+            post[tx.created_contract] = None  # Expect failure.
+        elif self.deploy_tx:
+            tx.to = None  # Make EIP-7698 create transaction
+            tx.data = Bytes(self.data + self.tx_data)  # by concatenating container and tx data.
+            post[tx.created_contract] = self.container_post  # Successful.
+        else:
+            tx.to = self.pre.deploy_contract(code=self.data)
+            tx.data = self.tx_data
+            post[tx.to] = self.container_post
         return StateTest(
             pre=self.pre,
             tx=tx,
@@ -372,8 +369,6 @@ class EOFStateTest(EOFTest):
             FixtureFormats.BLOCKCHAIN_TEST,
             FixtureFormats.BLOCKCHAIN_TEST_HIVE,
         ):
-            if self.expect_exception is not None:
-                pytest.skip("State tests can't be generated for invalid EOF code yet.")
             return self.generate_state_test().generate(
                 t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
             )
