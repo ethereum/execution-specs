@@ -47,7 +47,7 @@ def test_legacy_calls_eof_sstore(
             Op.EXTCODEHASH(address_legacy_contract),
         )
         + Op.SSTORE(storage_test.store_next(2), Op.EXTCODESIZE(address_eof_contract))
-        + Op.EXTCODECOPY(address_eof_contract, 0x20, 0, Op.EXTCODESIZE(address_eof_contract))
+        + Op.EXTCODECOPY(address_eof_contract, 0x20, 0, 6)
         + Op.SSTORE(storage_test.store_next(b"\xef" + (b"\0" * 31)), Op.MLOAD(0x20))
         + Op.SSTORE(
             storage_test.store_next(keccak256(b"\xef\x00")),
