@@ -874,44 +874,49 @@ class Sync(ForkTracking):
         """
         Validate blocks that have been fetched.
         """
+        time_of_last_commit = time.monotonic()
         gas_since_last_commit = 0
+        block: Optional[Any] = None
+
+        def persist() -> None:
+            nonlocal time_of_last_commit
+            nonlocal gas_since_last_commit
+
+            now = time.monotonic()
+            elapsed = now - time_of_last_commit
+            time_of_last_commit = now
+
+            if elapsed == 0:
+                elapsed = 1
+
+            gas_per_second = gas_since_last_commit / elapsed
+            m_gas_per_second = gas_per_second / 1_000_000.0
+            gas_since_last_commit = 0
+
+            if block is None:
+                self.log.info("starting gas=%fMgas/s", m_gas_per_second)
+            else:
+                self.log.info(
+                    "processed block(s) gas=%fMgas/s block=%d",
+                    m_gas_per_second,
+                    block.header.number,
+                )
+
+            self.persist()
+
         while True:
             block = self.downloader.take_block()
 
             if block is None:
                 break
 
-            if (
-                self.advance_block(block.header.timestamp)
-                or self.block_number == 1
-            ):
-                self.log.debug("applying %s fork...", self.active_fork.name)
-                start = time.monotonic()
-                self.chain = self.module("fork").apply_fork(self.chain)
-                end = time.monotonic()
-                self.log.info(
-                    "applied %s fork (took %.3f)",
-                    self.active_fork.name,
-                    end - start,
+            try:
+                self.process_block(block)
+            except Exception:
+                self.log.exception(
+                    "failed to process block %d", block.header.number
                 )
-
-            if self.chain.blocks:
-                assert (
-                    self.block_number
-                    == self.chain.blocks[-1].header.number + 1
-                )
-
-            if block.header.number != self.block_number:
-                raise Exception(
-                    f"expected block {self.block_number} "
-                    f"but got {block.header.number}"
-                )
-
-            self.log.debug("applying block %d...", self.block_number)
-
-            start = time.monotonic()
-            self.module("fork").state_transition(self.chain, block)
-            end = time.monotonic()
+                raise
 
             # Additional gas to account for block overhead
             gas_since_last_commit += 30000
@@ -929,31 +934,58 @@ class Sync(ForkTracking):
                     str(block.header.timestamp).encode(),
                 )
 
-            self.log.info(
+            self.log.debug(
                 "block %d applied (took %.3fs)",
                 self.block_number,
-                end - start,
             )
 
             if self.block_number == self.options.stop_at:
-                self.persist()
+                persist()
                 return
 
             if self.block_number > 2220000 and self.block_number < 2463000:
                 # Excessive DB load due to the Shanghai DOS attacks, requires
                 # more regular DB commits
                 if gas_since_last_commit > self.options.gas_per_commit / 10:
-                    self.persist()
-                    gas_since_last_commit = 0
+                    persist()
             elif self.block_number > 2675000 and self.block_number < 2700598:
                 # Excessive DB load due to state clearing, requires more
                 # regular DB commits
                 if gas_since_last_commit > self.options.gas_per_commit / 10:
-                    self.persist()
-                    gas_since_last_commit = 0
+                    persist()
             elif gas_since_last_commit > self.options.gas_per_commit:
-                self.persist()
-                gas_since_last_commit = 0
+                persist()
+
+    def process_block(self, block: Any) -> None:
+        """
+        Process a single block.
+        """
+        if (
+            self.advance_block(block.header.timestamp)
+            or self.block_number == 1
+        ):
+            self.log.debug("applying %s fork...", self.active_fork.name)
+            start = time.monotonic()
+            self.chain = self.module("fork").apply_fork(self.chain)
+            end = time.monotonic()
+            self.log.info(
+                "applied %s fork (took %.3f)",
+                self.active_fork.name,
+                end - start,
+            )
+
+        if self.chain.blocks:
+            assert self.block_number == self.chain.blocks[-1].header.number + 1
+
+        if block.header.number != self.block_number:
+            raise Exception(
+                f"expected block {self.block_number} "
+                f"but got {block.header.number}"
+            )
+
+        self.log.debug("applying block %d...", self.block_number)
+
+        self.module("fork").state_transition(self.chain, block)
 
 
 def main() -> None:

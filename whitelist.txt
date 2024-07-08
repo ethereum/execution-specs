@@ -94,6 +94,7 @@ preimage
 substring
 klass
 vm
+nonlocal
 num
 utils
 prepend
