@@ -4,6 +4,7 @@ Tests that address coverage gaps that result from updating `ethereum/tests` into
 
 import pytest
 
+from ethereum_test_forks import Cancun, Fork
 from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -12,9 +13,10 @@ REFERENCE_SPEC_VERSION = "N/A"
 
 
 @pytest.mark.valid_from("Homestead")
-def test_yul_coverage(
+def test_coverage(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
 ):
     """
     This test covers gaps that result from transforming Yul code into
@@ -49,13 +51,26 @@ def test_yul_coverage(
         code=Op.MSTORE(0, Op.CALL(Op.GAS, missed_coverage, 0, 0, 0, 0, 0)) + Op.RETURN(0, 32),
     )
 
-    tx = Transaction(
-        sender=pre.fund_eoa(7_000_000_000_000_000_000),
-        gas_limit=100000,
-        to=address_to,
-        data=b"",
-        value=0,
-        protected=False,
-    )
+    if fork >= Cancun:
+        tx = Transaction(
+            sender=pre.fund_eoa(7_000_000_000_000_000_000),
+            gas_limit=100000,
+            to=address_to,
+            data=b"",
+            value=0,
+            protected=False,
+            access_list=[],
+            max_fee_per_gas=10,
+            max_priority_fee_per_gas=5,
+        )
+    else:
+        tx = Transaction(
+            sender=pre.fund_eoa(7_000_000_000_000_000_000),
+            gas_limit=100000,
+            to=address_to,
+            data=b"",
+            value=0,
+            protected=False,
+        )
 
     state_test(env=Environment(), pre=pre, post={}, tx=tx)
