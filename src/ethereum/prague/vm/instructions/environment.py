@@ -28,6 +28,9 @@ from ..gas import (
     GAS_BLOBHASH_OPCODE,
     GAS_COLD_ACCOUNT_ACCESS,
     GAS_COPY,
+    GAS_DATALOAD,
+    GAS_DATALOADN,
+    GAS_DATASIZE,
     GAS_FAST_STEP,
     GAS_RETURN_DATA_COPY,
     GAS_VERY_LOW,
@@ -627,6 +630,115 @@ def returndataload(evm: Evm) -> None:
     # OPERATION
     value = U256.from_be_bytes(buffer_read(evm.return_data, offset, U256(32)))
     push(evm.stack, value)
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def dataload(evm: Evm) -> None:
+    """
+    Pushes 32-byte word to stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    offset = pop(evm.stack)
+
+    # GAS
+    charge_gas(evm, GAS_DATALOAD)
+
+    # OPERATION
+    assert evm.eof_meta is not None
+    value = U256.from_be_bytes(
+        buffer_read(evm.eof_meta.data_section_contents, offset, U256(32))
+    )
+    push(evm.stack, value)
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def dataload_n(evm: Evm) -> None:
+    """
+    Pushes 32-byte word to stack where the word is addressed
+    by a static immediate argument
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_DATALOADN)
+
+    # OPERATION
+    assert evm.eof_meta is not None
+    offset = U256.from_be_bytes(evm.code[evm.pc + 1 : evm.pc + 3])
+    value = U256.from_be_bytes(
+        buffer_read(evm.eof_meta.data_section_contents, offset, U256(32))
+    )
+    push(evm.stack, value)
+
+    # PROGRAM COUNTER
+    # 1 + 2 bytes of immediate data
+    evm.pc += 3
+
+
+def datasize(evm: Evm) -> None:
+    """
+    Pushes the data section size.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_DATASIZE)
+
+    # OPERATION
+    assert evm.eof_meta is not None
+    push(evm.stack, U256(len(evm.eof_meta.data_section_contents)))
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def datacopy(evm: Evm) -> None:
+    """
+    Copies a segment of data section to memory.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    memory_start_index = pop(evm.stack)
+    offset = pop(evm.stack)
+    size = pop(evm.stack)
+
+    # GAS
+    copy_gas_cost = 3 + 3 * ((Uint(size) + 31) // 32)
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(memory_start_index, size)]
+    )
+    charge_gas(evm, copy_gas_cost + extend_memory.cost)
+
+    # OPERATION
+    assert evm.eof_meta is not None
+    evm.memory += b"\x00" * extend_memory.expand_by
+    value = buffer_read(evm.eof_meta.data_section_contents, offset, size)
+    memory_write(evm.memory, memory_start_index, value)
 
     # PROGRAM COUNTER
     evm.pc += 1

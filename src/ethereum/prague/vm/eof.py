@@ -428,6 +428,10 @@ def get_valid_instructions(code: bytes) -> Set[int]:
             if len(code) < counter + 2:
                 raise InvalidEOF("CALLF target code section index missing")
             counter += 2
+        elif opcode == Ops.DATALOADN:
+            if len(code) < counter + 2:
+                raise InvalidEOF("DATALOADN offset missing")
+            counter += 2
 
     return valid_instructions
 
@@ -509,6 +513,10 @@ def validate_code_section(
         elif opcode == Ops.RETF:
             if code_section_index == 0:
                 raise InvalidEOF("First code section cannot return")
+        elif opcode == Ops.DATALOADN:
+            offset = Uint.from_be_bytes(code[counter + 1 : counter + 3])
+            if offset >= eof_meta.data_size:
+                raise InvalidEOF("Invalid DATALOADN offset")
 
 
 def validate_eof_code(eof_meta: EOFMetadata) -> None:
