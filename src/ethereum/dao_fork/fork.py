@@ -265,7 +265,7 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
     hash : `Hash32`
         The PoW valid rlp hash of the passed in header.
     """
-    header_data_without_pow_artefacts = [
+    header_data_without_pow_artefacts = (
         header.parent_hash,
         header.ommers_hash,
         header.coinbase,
@@ -279,7 +279,7 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
         header.gas_used,
         header.timestamp,
         header.extra_data,
-    ]
+    )
 
     return rlp.rlp_hash(header_data_without_pow_artefacts)
 
@@ -344,7 +344,6 @@ def check_transaction(
 
 
 def make_receipt(
-    tx: Transaction,
     post_state: Bytes32,
     cumulative_gas_used: Uint,
     logs: Tuple[Log, ...],
@@ -354,8 +353,6 @@ def make_receipt(
 
     Parameters
     ----------
-    tx :
-        The executed transaction.
     post_state :
         The state root immediately after this transaction.
     cumulative_gas_used :
@@ -487,7 +484,7 @@ def apply_body(
         gas_available -= gas_used
 
         receipt = make_receipt(
-            tx, state_root(state), (block_gas_limit - gas_available), logs
+            state_root(state), (block_gas_limit - gas_available), logs
         )
 
         trie_set(

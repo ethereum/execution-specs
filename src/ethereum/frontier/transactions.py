@@ -27,6 +27,6 @@ class Transaction:
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes
-    v: U256
+    v: "U256"
     r: U256
     s: U256

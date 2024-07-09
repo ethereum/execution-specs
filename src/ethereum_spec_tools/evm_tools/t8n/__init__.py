@@ -238,7 +238,10 @@ class T8N(Load):
         self, tx: Any, process_transaction_return: Any, gas_available: Any
     ) -> Any:
         """Create a transaction receipt."""
-        arguments = [tx]
+        arguments = []
+
+        if self.fork.is_after_fork("ethereum.berlin"):
+            arguments.append(tx)
 
         if self.fork.is_after_fork("ethereum.byzantium"):
             arguments.append(process_transaction_return[2])

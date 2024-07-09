@@ -652,6 +652,18 @@ class FixedUint(int):
 
     # TODO: Implement neg, pos, abs ...
 
+    @classmethod
+    def from_be_bytes(cls: Type[T], buffer: "Bytes") -> T:
+        """
+        Converts a sequence of bytes into a fixed sized unsigned integer
+        from its big endian representation.
+        """
+        max_length = (7 + cls.MAX_VALUE.bit_length()) // 8
+        if len(buffer) > max_length:
+            raise ValueError()
+
+        return cls(int.from_bytes(buffer, "big"))
+
 
 class U256(FixedUint):
     """
@@ -664,17 +676,6 @@ class U256(FixedUint):
     """
 
     __slots__ = ()
-
-    @classmethod
-    def from_be_bytes(cls: Type, buffer: "Bytes") -> "U256":
-        """
-        Converts a sequence of bytes into a fixed sized unsigned integer
-        from its big endian representation.
-        """
-        if len(buffer) > 32:
-            raise ValueError()
-
-        return cls(int.from_bytes(buffer, "big"))
 
     @classmethod
     def from_signed(cls: Type, value: int) -> "U256":

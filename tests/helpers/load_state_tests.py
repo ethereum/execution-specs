@@ -3,7 +3,7 @@ import json
 import os.path
 import re
 from glob import glob
-from typing import Any, Dict, Generator, Tuple, Union, cast
+from typing import Any, Dict, Generator, Tuple, Union
 from unittest.mock import call, patch
 
 import pytest
@@ -48,13 +48,8 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
 
     genesis_header_hash = hex_to_bytes(json_data["genesisBlockHeader"]["hash"])
     assert rlp.rlp_hash(genesis_header) == genesis_header_hash
-    # FIXME: Re-enable this assertion once the genesis block RLP is
-    # correctly encoded for Shanghai.
-    # See https://github.com/ethereum/execution-spec-tests/issues/64
-    # assert (
-    #     rlp.encode(cast(rlp.RLP, genesis_block))
-    #     == test_data["genesis_block_rlp"]
-    # )
+    genesis_rlp = hex_to_bytes(json_data["genesisRLP"])
+    assert rlp.encode(genesis_block) == genesis_rlp
 
     chain = load.fork.BlockChain(
         blocks=[genesis_block],
@@ -99,7 +94,7 @@ def add_block_to_chain(
     ) = load.json_to_block(json_block)
 
     assert rlp.rlp_hash(block.header) == block_header_hash
-    assert rlp.encode(cast(rlp.RLP, block)) == block_rlp
+    assert rlp.encode(block) == block_rlp
 
     if not mock_pow:
         load.fork.state_transition(chain, block)
