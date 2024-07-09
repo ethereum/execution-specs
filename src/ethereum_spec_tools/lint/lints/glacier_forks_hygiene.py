@@ -15,7 +15,15 @@ from ethereum_spec_tools.lint import (
     walk_sources,
 )
 
+EXCEPTIONAL_FILES = [
+    ("dao_fork", ".dao"),
+]
+
 EXCEPTIONAL_DIFFS = [
+    # The DAO Fork has an irregular state transition and minor changes to the
+    # graffiti near the fork block.
+    ("dao_fork", ".fork", "apply_fork"),
+    ("dao_fork", ".fork", "validate_header"),
     # There are some differences between london and arrow_glacier
     # in terms of how the fork block is handled.
     ("arrow_glacier", ".fork", "calculate_base_fee_per_gas"),
@@ -51,7 +59,11 @@ class GlacierForksHygiene(Lint):
         Walks the sources for each hardfork and emits Diagnostic messages.
         """
         fork_name = forks[position].short_name
-        if not fork_name.endswith("_glacier") or position == 0:
+        if position == 0:
+            # Nothing to compare against!
+            return []
+
+        if fork_name != "dao_fork" and not fork_name.endswith("_glacier"):
             # Nothing to compare against or non-glacier fork!
             return []
 
@@ -62,10 +74,13 @@ class GlacierForksHygiene(Lint):
 
         all_files = set(all_previous.keys()) | set(all_current.keys())
         for file in all_files:
+            if (fork_name, file) in EXCEPTIONAL_FILES:
+                continue
+
             if file not in all_previous:
                 add_diagnostic(
                     diagnostics,
-                    f"the file `{file}` is added to `{fork_name}`."
+                    f"the file `{file}` is added to `{fork_name}`. "
                     "Glacier forks may only differ in difficulty block.",
                 )
                 continue
@@ -73,7 +88,7 @@ class GlacierForksHygiene(Lint):
             if file not in all_current:
                 add_diagnostic(
                     diagnostics,
-                    f"the file `{file}` is deleted from `{fork_name}`."
+                    f"the file `{file}` is deleted from `{fork_name}`. "
                     "Glacier forks may only differ in difficulty block.",
                 )
                 continue
@@ -108,7 +123,7 @@ class GlacierForksHygiene(Lint):
             except KeyError:
                 add_diagnostic(
                     diagnostics,
-                    f"{item} in {name} has been added."
+                    f"{item} in {name} has been added. "
                     "Glacier forks may only differ in difficulty block.",
                 )
                 continue
@@ -118,7 +133,7 @@ class GlacierForksHygiene(Lint):
             except KeyError:
                 add_diagnostic(
                     diagnostics,
-                    f"{item} in {name} has been deleted."
+                    f"{item} in {name} has been deleted. "
                     "Glacier forks may only differ in difficulty block.",
                 )
                 continue
@@ -129,7 +144,7 @@ class GlacierForksHygiene(Lint):
             if not compare_ast(previous_item, current_item):
                 add_diagnostic(
                     diagnostics,
-                    f"`{item}` in `{name}` has changed."
+                    f"`{item}` in `{name}` has changed. "
                     "Glacier forks may only differ in difficulty block.",
                 )
 
