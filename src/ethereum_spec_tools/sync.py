@@ -902,7 +902,9 @@ class Sync(ForkTracking):
                 last_committed_block = block.header.number
 
                 self.log.info(
-                    "imported chain segment mgas=%f mgasps=%f block=%d",
+                    "imported chain segment "
+                    "count=%d mgas=%f mgasps=%f block=%d",
+                    count,
                     m_gas,
                     m_gas_per_second,
                     block.header.number,
