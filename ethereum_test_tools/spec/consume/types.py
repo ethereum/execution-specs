@@ -148,5 +148,5 @@ class TestCases(RootModel):
         Create a TestCases object from an index file.
         """
         with open(index_file, "r") as fd:
-            index = IndexFile.model_validate_json(fd.read())
-        return cls(root=index.test_cases)  # type: ignore
+            index: IndexFile = IndexFile.model_validate_json(fd.read())
+        return cls(root=index.test_cases)

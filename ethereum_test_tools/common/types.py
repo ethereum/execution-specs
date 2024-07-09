@@ -1235,11 +1235,11 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
 
         updated_values["secret_key"] = None
 
-        updated_tx = self.model_copy(update=updated_values)
+        updated_tx: "Transaction" = self.model_copy(update=updated_values)
 
         # Remove the secret key if requested
         if keep_secret_key:
-            updated_tx.secret_key = self.secret_key  # type: ignore
+            updated_tx.secret_key = self.secret_key
         return updated_tx
 
     @cached_property
