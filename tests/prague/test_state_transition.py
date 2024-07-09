@@ -95,7 +95,8 @@ fetch_state_tests = partial(
 # Run temporary test fixtures for Prague
 test_dirs = (
     "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7692_eof_v1/eip3540_eof_v1",
-    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip4200_relative_jumps",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7692_eof_v1/eip4200_relative_jumps",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7692_eof_v1/eip7069_extcall",
 )
 
 
