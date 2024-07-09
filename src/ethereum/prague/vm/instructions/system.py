@@ -29,12 +29,15 @@ from ...utils.address import (
     compute_contract_address,
     compute_create2_contract_address,
     to_address,
+    to_address_without_mask,
 )
 from ...vm.eoa_delegation import access_delegation
 from .. import (
+    EOF,
     MAX_CODE_SIZE,
     Evm,
     Message,
+    get_eof_version,
     incorporate_child_on_error,
     incorporate_child_on_success,
 )
@@ -45,6 +48,8 @@ from ..exceptions import (
     WriteInStaticContext,
 )
 from ..gas import (
+    EOF_CALL_MIN_CALLEE_GAS,
+    EOF_CALL_MIN_RETAINED_GAS,
     GAS_CALL_VALUE,
     GAS_COLD_ACCOUNT_ACCESS,
     GAS_CREATE,
@@ -762,3 +767,287 @@ def invalid(evm: Evm) -> None:
 
     # PROGRAM COUNTER
     pass
+
+
+def ext_call(evm: Evm) -> None:
+    """
+    Message-call into an account for EOF.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
+
+    # STACK
+    try:
+        target_address = to_address_without_mask(pop(evm.stack))
+    except ValueError:
+        raise ExceptionalHalt
+    input_offset = pop(evm.stack)
+    input_size = pop(evm.stack)
+    value = pop(evm.stack)
+
+    # GAS
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(input_offset, input_size)]
+    )
+
+    if target_address in evm.accessed_addresses:
+        access_gas_cost = GAS_WARM_ACCESS
+    else:
+        evm.accessed_addresses.add(target_address)
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+
+    create_gas_cost = (
+        Uint(0)
+        if is_account_alive(evm.env.state, target_address) or value == 0
+        else GAS_NEW_ACCOUNT
+    )
+    transfer_gas_cost = Uint(0) if value == 0 else GAS_CALL_VALUE
+    charge_gas(
+        evm,
+        extend_memory.cost
+        + access_gas_cost
+        + create_gas_cost
+        + transfer_gas_cost,
+    )
+
+    # OPERATION
+    message_call_gas = evm.gas_left - max(
+        evm.gas_left // 64, EOF_CALL_MIN_RETAINED_GAS
+    )
+
+    if evm.message.is_static and value != U256(0):
+        raise WriteInStaticContext
+
+    evm.memory += b"\x00" * extend_memory.expand_by
+
+    sender_balance = get_account(
+        evm.env.state, evm.message.current_target
+    ).balance
+
+    evm.return_data = b""
+
+    call_data = memory_read_bytes(evm.memory, input_offset, input_size)
+
+    container = get_account(evm.env.state, target_address).code
+
+    if (
+        message_call_gas < EOF_CALL_MIN_CALLEE_GAS
+        or sender_balance < value
+        or evm.message.depth + 1 > STACK_DEPTH_LIMIT
+    ):
+        push(evm.stack, U256(1))
+    else:
+        evm.gas_left -= message_call_gas
+
+        child_message = Message(
+            caller=evm.message.current_target,
+            target=target_address,
+            gas=Uint(message_call_gas),
+            value=value,
+            data=call_data,
+            container=container,
+            current_target=target_address,
+            depth=evm.message.depth + 1,
+            code_address=target_address,
+            should_transfer_value=True,
+            is_static=False,
+            accessed_addresses=evm.accessed_addresses.copy(),
+            accessed_storage_keys=evm.accessed_storage_keys.copy(),
+            parent_evm=evm,
+        )
+        child_evm = process_message(child_message, evm.env)
+
+        evm.return_data = child_evm.output
+
+        if child_evm.error:
+            incorporate_child_on_error(evm, child_evm)
+            if isinstance(child_evm.error, Revert):
+                push(evm.stack, U256(1))
+            else:
+                push(evm.stack, U256(2))
+        else:
+            incorporate_child_on_success(evm, child_evm)
+            push(evm.stack, U256(0))
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def ext_delegatecall(evm: Evm) -> None:
+    """
+    Message-call into an account with the callee's context
+    for EOF.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
+
+    # STACK
+    try:
+        target_address = to_address_without_mask(pop(evm.stack))
+    except ValueError:
+        raise ExceptionalHalt
+    input_offset = pop(evm.stack)
+    input_size = pop(evm.stack)
+
+    # GAS
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(input_offset, input_size)]
+    )
+
+    if target_address in evm.accessed_addresses:
+        access_gas_cost = GAS_WARM_ACCESS
+    else:
+        evm.accessed_addresses.add(target_address)
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+
+    charge_gas(evm, extend_memory.cost + access_gas_cost)
+
+    # OPERATION
+    message_call_gas = evm.gas_left - max(
+        evm.gas_left // 64, EOF_CALL_MIN_RETAINED_GAS
+    )
+
+    evm.memory += b"\x00" * extend_memory.expand_by
+
+    evm.return_data = b""
+
+    call_data = memory_read_bytes(evm.memory, input_offset, input_size)
+
+    container = get_account(evm.env.state, target_address).code
+
+    if (
+        message_call_gas < EOF_CALL_MIN_CALLEE_GAS
+        or evm.message.depth + 1 > STACK_DEPTH_LIMIT
+        or get_eof_version(container) == EOF.LEGACY
+    ):
+        push(evm.stack, U256(1))
+    else:
+        evm.gas_left -= message_call_gas
+
+        child_message = Message(
+            caller=evm.message.caller,
+            target=evm.message.current_target,
+            gas=Uint(message_call_gas),
+            value=U256(0),
+            data=call_data,
+            container=container,
+            current_target=evm.message.current_target,
+            depth=evm.message.depth + 1,
+            code_address=target_address,
+            should_transfer_value=False,
+            is_static=False,
+            accessed_addresses=evm.accessed_addresses.copy(),
+            accessed_storage_keys=evm.accessed_storage_keys.copy(),
+            parent_evm=evm,
+        )
+        child_evm = process_message(child_message, evm.env)
+
+        evm.return_data = child_evm.output
+
+        if child_evm.error:
+            incorporate_child_on_error(evm, child_evm)
+            if isinstance(child_evm.error, Revert):
+                push(evm.stack, U256(1))
+            else:
+                push(evm.stack, U256(2))
+        else:
+            incorporate_child_on_success(evm, child_evm)
+            push(evm.stack, U256(0))
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def ext_staticcall(evm: Evm) -> None:
+    """
+    Static message-call into an account for EOF.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
+
+    # STACK
+    try:
+        target_address = to_address_without_mask(pop(evm.stack))
+    except ValueError:
+        raise ExceptionalHalt
+    input_offset = pop(evm.stack)
+    input_size = pop(evm.stack)
+
+    # GAS
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(input_offset, input_size)]
+    )
+
+    if target_address in evm.accessed_addresses:
+        access_gas_cost = GAS_WARM_ACCESS
+    else:
+        evm.accessed_addresses.add(target_address)
+        access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
+
+    charge_gas(evm, extend_memory.cost + access_gas_cost)
+
+    # OPERATION
+    message_call_gas = evm.gas_left - max(
+        evm.gas_left // 64, EOF_CALL_MIN_RETAINED_GAS
+    )
+
+    evm.memory += b"\x00" * extend_memory.expand_by
+
+    evm.return_data = b""
+
+    call_data = memory_read_bytes(evm.memory, input_offset, input_size)
+
+    container = get_account(evm.env.state, target_address).code
+
+    if (
+        message_call_gas < EOF_CALL_MIN_CALLEE_GAS
+        or evm.message.depth + 1 > STACK_DEPTH_LIMIT
+    ):
+        push(evm.stack, U256(1))
+    else:
+        evm.gas_left -= message_call_gas
+
+        child_message = Message(
+            caller=evm.message.current_target,
+            target=target_address,
+            gas=Uint(message_call_gas),
+            value=U256(0),
+            data=call_data,
+            container=container,
+            current_target=target_address,
+            depth=evm.message.depth + 1,
+            code_address=target_address,
+            should_transfer_value=False,
+            is_static=True,
+            accessed_addresses=evm.accessed_addresses.copy(),
+            accessed_storage_keys=evm.accessed_storage_keys.copy(),
+            parent_evm=evm,
+        )
+        child_evm = process_message(child_message, evm.env)
+
+        evm.return_data = child_evm.output
+
+        if child_evm.error:
+            incorporate_child_on_error(evm, child_evm)
+            if isinstance(child_evm.error, Revert):
+                push(evm.stack, U256(1))
+            else:
+                push(evm.stack, U256(2))
+        else:
+            incorporate_child_on_success(evm, child_evm)
+            push(evm.stack, U256(0))
+
+    # PROGRAM COUNTER
+    evm.pc += 1

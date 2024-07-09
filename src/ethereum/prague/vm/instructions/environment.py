@@ -456,7 +456,9 @@ def returndatacopy(evm: Evm) -> None:
         evm.memory, [(memory_start_index, size)]
     )
     charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
-    if Uint(return_data_start_position) + Uint(size) > len(evm.return_data):
+    if evm.eof == EOF.LEGACY and Uint(return_data_start_position) + Uint(
+        size
+    ) > len(evm.return_data):
         raise OutOfBoundsRead
 
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -602,6 +604,29 @@ def blob_base_fee(evm: Evm) -> None:
     # OPERATION
     blob_base_fee = calculate_blob_gas_price(evm.env.excess_blob_gas)
     push(evm.stack, U256(blob_base_fee))
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def returndataload(evm: Evm) -> None:
+    """
+    Copies data from the return data buffer code to memory
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    offset = pop(evm.stack)
+
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
+
+    # OPERATION
+    value = U256.from_be_bytes(buffer_read(evm.return_data, offset, U256(32)))
+    push(evm.stack, value)
 
     # PROGRAM COUNTER
     evm.pc += 1

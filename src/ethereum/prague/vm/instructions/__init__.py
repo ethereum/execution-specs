@@ -85,6 +85,7 @@ class Ops(enum.Enum):
     EXTCODECOPY = 0x3C
     RETURNDATASIZE = 0x3D
     RETURNDATACOPY = 0x3E
+    RETURNDATALOAD = 0xF7
     EXTCODEHASH = 0x3F
 
     # Block Ops
@@ -232,7 +233,6 @@ class Ops(enum.Enum):
     RETURN = 0xF3
     DELEGATECALL = 0xF4
     CREATE2 = 0xF5
-    RETURNDATALOAD = 0xF7
     EXTCALL = 0xF8
     EXTDELEGATECALL = 0xF9
     STATICCALL = 0xFA
@@ -298,6 +298,7 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.EXTCODECOPY: environment_instructions.extcodecopy,
     Ops.RETURNDATASIZE: environment_instructions.returndatasize,
     Ops.RETURNDATACOPY: environment_instructions.returndatacopy,
+    Ops.RETURNDATALOAD: environment_instructions.returndataload,
     Ops.EXTCODEHASH: environment_instructions.extcodehash,
     Ops.SELFBALANCE: environment_instructions.self_balance,
     Ops.BASEFEE: environment_instructions.base_fee,
@@ -397,6 +398,9 @@ op_implementation: Dict[Ops, Callable] = {
     Ops.REVERT: system_instructions.revert,
     Ops.INVALID: system_instructions.invalid,
     Ops.CREATE2: system_instructions.create2,
+    Ops.EXTCALL: system_instructions.ext_call,
+    Ops.EXTDELEGATECALL: system_instructions.ext_delegatecall,
+    Ops.EXTSTATICCALL: system_instructions.ext_staticcall,
 }
 
 
@@ -421,6 +425,10 @@ OPCODES_INVALID_IN_LEGACY = (
     Ops.EXCHANGE,
     # System Operations
     Ops.EOFCREATE,
+    Ops.RETURNDATALOAD,
+    Ops.EXTCALL,
+    Ops.EXTDELEGATECALL,
+    Ops.EXTSTATICCALL,
     Ops.RETURNCONTRACT,
 )
 
