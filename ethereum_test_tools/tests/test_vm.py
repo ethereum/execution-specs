@@ -284,6 +284,49 @@ from ..vm.opcode import Opcodes as Op
             b"\x60\x00\x60\x00\x60\x01\xF9",
             id="Op.EXTDELEGATECALL(address=1)",
         ),
+        pytest.param(
+            Om.MSTORE(b""),
+            b"",
+            id='Om.MSTORE(b"")',
+        ),
+        pytest.param(
+            Om.MSTORE(bytes(range(32))),
+            bytes(Op.MSTORE(0, bytes(range(32)))),
+            id="Om.MSTORE(bytes(range(32)))",
+        ),
+        pytest.param(
+            Om.MSTORE(bytes(range(64))),
+            bytes(Op.MSTORE(0, bytes(range(32))) + Op.MSTORE(32, bytes(range(32, 64)))),
+            id="Om.MSTORE(bytes(range(64)))",
+        ),
+        pytest.param(
+            Om.MSTORE(bytes(range(33))),
+            bytes(
+                Op.MSTORE(0, bytes(range(32)))
+                + Op.MLOAD(32)
+                + Op.PUSH31[-1]
+                + Op.AND
+                + Op.PUSH32[b"\x20".ljust(32, b"\x00")]
+                + Op.OR
+                + Op.PUSH1(32)
+                + Op.MSTORE
+            ),
+            id="Om.MSTORE(bytes(range(33)))",
+        ),
+        pytest.param(
+            Om.MSTORE(bytes(range(63))),
+            bytes(
+                Op.MSTORE(0, bytes(range(32)))
+                + Op.MLOAD(32)
+                + Op.PUSH1[-1]
+                + Op.AND
+                + Op.PUSH32[bytes(range(32, 63)).ljust(32, b"\x00")]
+                + Op.OR
+                + Op.PUSH1(32)
+                + Op.MSTORE
+            ),
+            id="Om.MSTORE(bytes(range(63)))",
+        ),
     ],
 )
 def test_opcodes(opcodes: bytes, expected: bytes):

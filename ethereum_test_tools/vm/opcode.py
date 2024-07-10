@@ -5706,6 +5706,35 @@ _push_opcodes_byte_list: List[Opcode] = [
 ]
 
 
+def _mstore_operation(data: OpcodeCallArg = b"", offset: OpcodeCallArg = 0) -> Bytecode:
+    """
+    Helper function to generate the bytecode that stores an arbitrary amount of data in memory.
+    """
+    assert isinstance(offset, int)
+    if isinstance(data, int):
+        data = data.to_bytes(32, "big")
+    data = to_bytes(data)  # type: ignore
+    bytecode = Bytecode()
+    for i in range(0, len(data), 32):
+        chunk = data[i : i + 32]
+        if len(chunk) == 32:
+            bytecode += Opcodes.MSTORE(offset, chunk)
+        else:
+            # We need to MLOAD the existing data at the offset and then do a bitwise OR with the
+            # new data to store it in memory.
+            bytecode += Opcodes.MLOAD(offset)
+            # Create a mask to zero out the leftmost bytes of the existing data.
+            mask_size = 32 - len(chunk)
+            bytecode += _push_opcodes_byte_list[mask_size - 1][-1]
+            bytecode += Opcodes.AND
+            bytecode += Opcodes.PUSH32[chunk.ljust(32, b"\x00")]
+            bytecode += Opcodes.OR
+            bytecode += _stack_argument_to_bytecode(offset)
+            bytecode += Opcodes.MSTORE
+        offset += len(chunk)
+    return bytecode
+
+
 class Macros(Macro, Enum):
     """
     Enum containing all macros.
@@ -5743,6 +5772,23 @@ class Macros(Macro, Enum):
     Bytecode
     ----
     SHA3(0, 100000000000)
+    """
+
+    MSTORE = Macro(lambda_operation=_mstore_operation)
+    """
+    MSTORE(data, offset)
+    ----
+
+    Place data of arbitrary length into memory at a given offset.
+
+    Inputs
+    ----
+    - data: The data to store in memory. Can be an integer or bytes.
+    - offset: The offset in memory to store the data.
+
+    Outputs
+    ----
+    - None
     """
 
 
