@@ -79,8 +79,7 @@ from ..vm.opcode import Opcodes as Op
         ),
         pytest.param(
             Op.CALL(Op.GAS, Address(0x1234), 0, 0, 0, 0, 32),
-            b"\x60\x20\x60\x00\x60\x00\x60\x00\x60\x00\x73\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-            + b"\x00\x00\x00\x00\x00\x00\x00\x00\x12\x34\x5A\xF1",
+            b"\x60\x20\x60\x00\x60\x00\x60\x00\x60\x00\x61\x12\x34\x5A\xF1",
             id="CALL(GAS, Address(0x1234), 0, 0, 0, 0, 32)",
         ),
         pytest.param(Op.ADD(1, 2), bytes([0x60, 0x02, 0x60, 0x01, 0x01]), id="ADD(1, 2)"),
@@ -96,8 +95,7 @@ from ..vm.opcode import Opcodes as Op
         ),
         pytest.param(
             Op.CALL(1, Address(0x0123), 4, 5, 6, 7, 8),
-            b"\x60\x08\x60\x07\x60\x06\x60\x05\x60\x04\x73\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-            + b"\x00\x00\x00\x00\x00\x00\x00\x00\x01\x23\x60\x01\xf1",
+            b"\x60\x08\x60\x07\x60\x06\x60\x05\x60\x04\x61\x01\x23\x60\x01\xf1",
             id="CALL(1, Address(0x0123), 4, 5, 6, 7, 8)",
         ),
         pytest.param(
@@ -112,8 +110,7 @@ from ..vm.opcode import Opcodes as Op
         ),
         pytest.param(
             Op.CREATE(1, Address(12), 4, 5, 6, 7, 8, unchecked=True),
-            b"\x60\x08\x60\x07\x60\x06\x60\x05\x60\x04\x73\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-            + b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0c\x60\x01\xf0",
+            b"\x60\x08\x60\x07\x60\x06\x60\x05\x60\x04\x60\x0c\x60\x01\xf0",
             id="CREATE(1, Address(12), 4, 5, 6, 7, 8, unchecked=True)",
         ),
         pytest.param(
