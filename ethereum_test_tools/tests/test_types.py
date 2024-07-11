@@ -19,7 +19,8 @@ from ..common import (
 from ..common.base_types import Address, Bloom, Bytes, Hash, HeaderNonce, ZeroPaddedHexNumber
 from ..common.constants import TestAddress, TestAddress2, TestPrivateKey
 from ..common.json import to_json
-from ..common.types import Alloc, DepositRequest, Requests
+from ..common.types import Alloc, CopyValidateModel, DepositRequest, Requests
+from ..eof.v1 import Container
 from ..exceptions import BlockException, TransactionException
 from ..spec.blockchain.types import (
     FixtureBlockBase,
@@ -1735,3 +1736,19 @@ def test_parsing(json_str: str, type_adapter: TypeAdapter, expected: Any):
     Test that parsing the given JSON string returns the expected object.
     """
     assert type_adapter.validate_json(json_str) == expected
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        Environment(),
+        Container(),
+    ],
+    ids=lambda model: model.__class__.__name__,
+)
+def test_model_copy(model: CopyValidateModel):
+    """
+    Test that the copy method returns a correct copy of the model.
+    """
+    assert to_json(model.copy()) == to_json(model)
+    assert model.copy().model_fields_set == model.model_fields_set

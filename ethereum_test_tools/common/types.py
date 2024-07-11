@@ -84,9 +84,9 @@ class CopyValidateModel(BaseModel):
 
     def copy(self: Model, **kwargs) -> Model:
         """
-        Creates a copy of the model with the updated fields.
+        Creates a copy of the model with the updated fields that are validated.
         """
-        return self.__class__(**(self.model_dump() | kwargs))
+        return self.__class__(**(self.model_dump(exclude_unset=True) | kwargs))
 
 
 class CamelModel(CopyValidateModel):
