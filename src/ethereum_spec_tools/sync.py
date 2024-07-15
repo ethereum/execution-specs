@@ -231,10 +231,22 @@ class BlockDownloader(ForkTracking):
 
         with request.urlopen(post) as response:
             replies = json.load(response)
+            if not isinstance(replies, list):
+                self.log.error(
+                    "got non-list JSON-RPC response. replies=%r", replies
+                )
+                raise ValueError
+
             block_rlps: Dict[int, Union[RpcError, bytes]] = {}
 
             for reply in replies:
-                reply_id = int(reply["id"], 0)
+                try:
+                    reply_id = int(reply["id"], 0)
+                except Exception:
+                    self.log.exception(
+                        "unable to parse RPC id. reply=%r", reply
+                    )
+                    raise
 
                 if reply_id < first or reply_id >= first + count:
                     raise Exception("mismatched request id")
