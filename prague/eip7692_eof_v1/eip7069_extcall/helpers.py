@@ -12,6 +12,10 @@ slot_legacy_target_call_status = next(_slot)
 slot_eof_target_returndata = next(_slot)
 slot_eof_target_returndatasize = next(_slot)
 slot_legacy_target_returndatasize = next(_slot)
+slot_delegate_code_worked = next(_slot)
+slot_call_status = next(_slot)
+slot_calldata_1 = next(_slot)
+slot_calldata_2 = next(_slot)
 
 slot_last_slot = next(_slot)
 
