@@ -2,6 +2,7 @@
 abstract: Tests [EIP-7069: Revamped CALL instructions](https://eips.ethereum.org/EIPS/eip-7069)
     Tests for the RETURNDATALOAD instriction
 """  # noqa: E501
+from typing import Any, Dict
 
 import pytest
 
@@ -12,15 +13,18 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 from .. import EOF_FORK_NAME
 from . import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
 from .helpers import (
+    size_calldata,
     slot_call_status,
     slot_calldata_1,
     slot_calldata_2,
     slot_code_worked,
     slot_delegate_code_worked,
+    value_calldata_1,
+    value_calldata_2,
     value_code_worked,
     value_exceptional_abort_canary,
 )
-from .spec import EXTCALL_SUCCESS
+from .spec import CALL_FAILURE, CALL_SUCCESS, EXTCALL_FAILED, EXTCALL_SUCCESS
 
 REFERENCE_SPEC_GIT_PATH = REFERENCE_SPEC_GIT_PATH
 REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
@@ -30,7 +34,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 def right_pad_32(v: bytes) -> bytes:
     """Takes bytes and returns a 32 byte version right padded with zeros"""
-    return v + b"\0" * (32 - len(v))
+    return v.ljust(32, b"\0")
 
 
 @pytest.mark.parametrize("value", [0, 1])
@@ -279,6 +283,170 @@ def test_extstaticcall_inputdata(
     }
 
     tx = Transaction(to=address_caller, gas_limit=2_000_000, sender=sender)
+
+    state_test(
+        env=env,
+        pre=pre,
+        tx=tx,
+        post=post,
+    )
+
+
+@pytest.mark.parametrize(
+    ["opcode", "keyword_args"],
+    [
+        pytest.param(Op.CALL, {"gas": 500_000}, id="CALL"),
+        pytest.param(Op.CALLCODE, {"gas": 500_000}, id="CALLCODE"),
+        pytest.param(Op.DELEGATECALL, {"gas": 500_000}, id="DELEGATECALL"),
+        pytest.param(Op.STATICCALL, {"gas": 500_000}, id="STATICCALL"),
+        pytest.param(Op.EXTCALL, {}, id="EXTCALL"),
+        pytest.param(Op.EXTDELEGATECALL, {}, id="EXTDELEGATECALL"),
+        pytest.param(Op.EXTSTATICCALL, {}, id="EXTSTATICCALL"),
+    ],
+)
+def test_calldata_remains_after_subcall(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    opcode: Op,
+    keyword_args: Dict[str, Any],
+):
+    """
+    Tests call data remains after a call to another contract.
+
+    Caller pushes data into memory, then calls the target.  Target calls 3rd contract. 3rd contract
+    returns. Target writes calldata to storage.
+    """
+    env = Environment()
+
+    sender = pre.fund_eoa(10**18)
+
+    address_sub_called = pre.deploy_contract(
+        Container(
+            sections=[
+                Section.Code(
+                    code=Op.SSTORE(slot_delegate_code_worked, value_code_worked) + Op.STOP
+                )
+            ]
+        ),
+        storage={slot_delegate_code_worked: value_exceptional_abort_canary},
+    )
+    called_code = (
+        Op.MSTORE(0, value_calldata_2)
+        + Op.SSTORE(slot_call_status, value_exceptional_abort_canary)
+        + Op.SSTORE(slot_calldata_1, value_exceptional_abort_canary)
+        + Op.SSTORE(slot_code_worked, value_exceptional_abort_canary)
+        + Op.SSTORE(
+            slot_call_status,
+            opcode(
+                address=address_sub_called,
+                args_offset=0,
+                args_size=size_calldata,
+                **keyword_args,
+            ),
+        )
+        + Op.SSTORE(slot_calldata_1, Op.CALLDATALOAD(0))
+        + Op.SSTORE(slot_code_worked, value_code_worked)
+        + Op.STOP
+    )
+    match opcode:
+        case Op.CALL | Op.CALLCODE | Op.DELEGATECALL | Op.STATICCALL:
+            address_called = pre.deploy_contract(code=called_code)
+        case Op.EXTCALL | Op.EXTDELEGATECALL | Op.EXTSTATICCALL:
+            address_called = pre.deploy_contract(
+                Container(
+                    sections=[
+                        Section.Code(code=called_code),
+                    ]
+                ),
+            )
+    address_caller = pre.deploy_contract(
+        Container(
+            sections=[
+                Section.Code(
+                    code=Op.MSTORE(0, value_calldata_1)
+                    + Op.SSTORE(slot_calldata_1, value_exceptional_abort_canary)
+                    + Op.SSTORE(slot_code_worked, value_exceptional_abort_canary)
+                    + Op.SSTORE(
+                        slot_call_status,
+                        Op.EXTCALL(address_called, 0, size_calldata, 0),
+                    )
+                    + Op.SSTORE(slot_calldata_1, Op.RETURNDATALOAD(0))
+                    + Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.STOP
+                ),
+            ]
+        ),
+        storage={slot_call_status: value_exceptional_abort_canary},
+        balance=10**9,
+    )
+
+    match opcode:
+        case Op.STATICCALL:
+            called_storage = {
+                slot_code_worked: value_code_worked,
+                slot_call_status: CALL_FAILURE,
+                slot_calldata_1: value_calldata_1,
+            }
+            sub_called_storage = {
+                slot_delegate_code_worked: value_exceptional_abort_canary,
+            }
+        case Op.DELEGATECALL | Op.CALLCODE:
+            called_storage = {
+                slot_code_worked: value_code_worked,
+                slot_delegate_code_worked: value_code_worked,
+                slot_call_status: CALL_SUCCESS,
+                slot_calldata_1: value_calldata_1,
+            }
+            sub_called_storage = {
+                slot_delegate_code_worked: value_exceptional_abort_canary,
+            }
+        case Op.CALL:
+            called_storage = {
+                slot_code_worked: value_code_worked,
+                slot_call_status: CALL_SUCCESS,
+                slot_calldata_1: value_calldata_1,
+            }
+            sub_called_storage = {
+                slot_delegate_code_worked: value_code_worked,
+            }
+        case Op.EXTSTATICCALL:
+            called_storage = {
+                slot_code_worked: value_code_worked,
+                slot_call_status: EXTCALL_FAILED,
+                slot_calldata_1: value_calldata_1,
+            }
+            sub_called_storage = {
+                slot_delegate_code_worked: value_exceptional_abort_canary,
+            }
+        case Op.EXTDELEGATECALL:
+            called_storage = {
+                slot_code_worked: value_code_worked,
+                slot_delegate_code_worked: value_code_worked,
+                slot_call_status: EXTCALL_SUCCESS,
+                slot_calldata_1: value_calldata_1,
+            }
+            sub_called_storage = {
+                slot_delegate_code_worked: value_exceptional_abort_canary,
+            }
+        case Op.EXTCALL:
+            called_storage = {
+                slot_code_worked: value_code_worked,
+                slot_call_status: EXTCALL_SUCCESS,
+                slot_calldata_1: value_calldata_1,
+            }
+            sub_called_storage = {
+                slot_delegate_code_worked: value_code_worked,
+            }
+        case _:
+            raise ValueError(f"Unexpected opcode: {opcode}")
+
+    post = {
+        address_caller: Account(storage={slot_code_worked: value_code_worked}),
+        address_called: Account(storage=called_storage),
+        address_sub_called: Account(storage=sub_called_storage),
+    }
+
+    tx = Transaction(to=address_caller, gas_limit=4_000_000, sender=sender)
 
     state_test(
         env=env,
