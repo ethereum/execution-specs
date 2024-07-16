@@ -87,7 +87,8 @@ class MessageCallGas:
     executing the call opcodes.
 
     `cost`: `ethereum.base_types.Uint`
-        The gas required to execute the call opcode.
+        The gas required to execute the call opcode, excludes
+        memory expansion costs.
     `sub_call`: `ethereum.base_types.Uint`
         The portion of gas available to sub-calls that is refundable
         if not consumed.
@@ -191,8 +192,8 @@ def calculate_message_call_gas(
     call_stipend: Uint = GAS_CALL_STIPEND,
 ) -> MessageCallGas:
     """
-    Calculates the MessageCallGas (cost and stipend) for
-    executing call Opcodes.
+    Calculates the MessageCallGas (cost and gas made available to the sub-call)
+    for executing call Opcodes.
 
     Parameters
     ----------
