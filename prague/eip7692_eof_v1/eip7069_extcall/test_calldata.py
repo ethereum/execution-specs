@@ -293,22 +293,21 @@ def test_extstaticcall_inputdata(
 
 
 @pytest.mark.parametrize(
-    ["opcode", "keyword_args"],
+    "opcode",
     [
-        pytest.param(Op.CALL, {"gas": 500_000}, id="CALL"),
-        pytest.param(Op.CALLCODE, {"gas": 500_000}, id="CALLCODE"),
-        pytest.param(Op.DELEGATECALL, {"gas": 500_000}, id="DELEGATECALL"),
-        pytest.param(Op.STATICCALL, {"gas": 500_000}, id="STATICCALL"),
-        pytest.param(Op.EXTCALL, {}, id="EXTCALL"),
-        pytest.param(Op.EXTDELEGATECALL, {}, id="EXTDELEGATECALL"),
-        pytest.param(Op.EXTSTATICCALL, {}, id="EXTSTATICCALL"),
+        Op.CALL,
+        Op.CALLCODE,
+        Op.DELEGATECALL,
+        Op.STATICCALL,
+        Op.EXTCALL,
+        Op.EXTDELEGATECALL,
+        Op.EXTSTATICCALL,
     ],
 )
 def test_calldata_remains_after_subcall(
     state_test: StateTestFiller,
     pre: Alloc,
     opcode: Op,
-    keyword_args: Dict[str, Any],
 ):
     """
     Tests call data remains after a call to another contract.
@@ -341,7 +340,6 @@ def test_calldata_remains_after_subcall(
                 address=address_sub_called,
                 args_offset=0,
                 args_size=size_calldata,
-                **keyword_args,
             ),
         )
         + Op.SSTORE(slot_calldata_1, Op.CALLDATALOAD(0))
