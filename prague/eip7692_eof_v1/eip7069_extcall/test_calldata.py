@@ -2,7 +2,6 @@
 abstract: Tests [EIP-7069: Revamped CALL instructions](https://eips.ethereum.org/EIPS/eip-7069)
     Tests for the RETURNDATALOAD instriction
 """  # noqa: E501
-from typing import Any, Dict
 
 import pytest
 
