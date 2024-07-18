@@ -26,6 +26,7 @@ from . import (
     BLS12_G2_MSM_ADDRESS,
     BLS12_G2_MULTIPLY_ADDRESS,
     BLS12_MAP_FP2_TO_G2_ADDRESS,
+    BLS12_MAP_FP_TO_G1_ADDRESS,
     BLS12_PAIRING_ADDRESS,
     ECRECOVER_ADDRESS,
     IDENTITY_ADDRESS,
@@ -40,6 +41,7 @@ from .bls12_381.bls12_381_g1 import (
     bls12_g1_add,
     bls12_g1_msm,
     bls12_g1_multiply,
+    bls12_map_fp_to_g1,
 )
 from .bls12_381.bls12_381_g2 import (
     bls12_g2_add,
@@ -73,5 +75,6 @@ PRE_COMPILED_CONTRACTS: Dict[Address, Callable] = {
     BLS12_G2_MULTIPLY_ADDRESS: bls12_g2_multiply,
     BLS12_G2_MSM_ADDRESS: bls12_g2_msm,
     BLS12_PAIRING_ADDRESS: bls12_pairing,
+    BLS12_MAP_FP_TO_G1_ADDRESS: bls12_map_fp_to_g1,
     BLS12_MAP_FP2_TO_G2_ADDRESS: bls12_map_fp2_to_g2,
 }

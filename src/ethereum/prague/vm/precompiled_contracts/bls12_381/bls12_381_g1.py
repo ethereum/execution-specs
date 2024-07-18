@@ -12,6 +12,9 @@ Introduction
 Implementation of pre-compiles in G1 (curve over base prime field).
 """
 from py_ecc.bls12_381.bls12_381_curve import add, multiply
+from py_ecc.bls.hash_to_curve import clear_cofactor_G1, map_to_curve_G1
+from py_ecc.optimized_bls12_381.optimized_curve import FQ as OPTIMIZED_FQ
+from py_ecc.optimized_bls12_381.optimized_curve import normalize
 
 from ethereum.base_types import U256, Uint
 
@@ -24,6 +27,7 @@ from . import (
     MAX_DISCOUNT,
     MULTIPLIER,
     G1_to_bytes,
+    bytes_to_FQ,
     bytes_to_G1,
     decode_G1_scalar_pair,
 )
@@ -135,3 +139,34 @@ def bls12_g1_msm(evm: Evm) -> None:
             result = add(result, product)
 
     evm.output = G1_to_bytes(result)
+
+
+def bls12_map_fp_to_g1(evm: Evm) -> None:
+    """
+    Precompile to map field element to G1.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+
+    Raises
+    ------
+    InvalidParameter
+        If the input length is invalid.
+    """
+    data = evm.message.data
+    if len(data) != 64:
+        raise InvalidParameter("Invalid Input Length")
+
+    # GAS
+    charge_gas(evm, Uint(5500))
+
+    # OPERATION
+    field_element = bytes_to_FQ(data, True)
+    assert isinstance(field_element, OPTIMIZED_FQ)
+
+    g1_uncompressed = clear_cofactor_G1(map_to_curve_G1(field_element))
+    g1_normalised = normalize(g1_uncompressed)
+
+    evm.output = G1_to_bytes(g1_normalised)
