@@ -448,6 +448,7 @@ coeffs
 b2
 FQ12
 
+FP
 FP2
 cofactor
 

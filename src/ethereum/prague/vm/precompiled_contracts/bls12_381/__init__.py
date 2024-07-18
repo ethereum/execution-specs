@@ -22,6 +22,7 @@ from py_ecc.bls12_381.bls12_381_curve import (
     is_on_curve,
     multiply,
 )
+from py_ecc.optimized_bls12_381.optimized_curve import FQ as OPTIMIZED_FQ
 from py_ecc.optimized_bls12_381.optimized_curve import FQ2 as OPTIMIZED_FQ2
 from py_ecc.typing import Point2D
 
@@ -260,6 +261,41 @@ def decode_G1_scalar_pair(data: Bytes) -> Tuple[Point2D, int]:
     m = int.from_bytes(buffer_read(data, U256(128), U256(32)), "big")
 
     return p, m
+
+
+def bytes_to_FQ(
+    data: Bytes, optimized: bool = False
+) -> Union[FQ2, OPTIMIZED_FQ2]:
+    """
+    Decode 64 bytes to a FQ2 element.
+
+    Parameters
+    ----------
+    data :
+        The bytes data to decode.
+    optimized :
+        Whether to use the optimized FQ2 implementation.
+
+    Returns
+    -------
+    fq : FQ
+        The FQ2 element.
+
+    Raises
+    ------
+    InvalidParameter
+        If the field element is invalid.
+    """
+    assert len(data) == 64
+    c = int.from_bytes(data[:64], "big")
+
+    if c >= P:
+        raise InvalidParameter("Invalid field element")
+
+    if optimized:
+        return OPTIMIZED_FQ(c)
+    else:
+        return FQ(c)
 
 
 def bytes_to_FQ2(

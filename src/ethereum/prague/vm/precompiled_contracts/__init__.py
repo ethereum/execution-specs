@@ -33,6 +33,7 @@ __all__ = (
     "BLS12_G2_MULTIPLY_ADDRESS",
     "BLS12_G2_MSM_ADDRESS",
     "BLS12_PAIRING_ADDRESS",
+    "BLS12_MAP_FP_TO_G1_ADDRESS",
     "BLS12_MAP_FP2_TO_G2_ADDRESS",
 )
 
@@ -53,4 +54,5 @@ BLS12_G2_ADD_ADDRESS = hex_to_address("0x0e")
 BLS12_G2_MULTIPLY_ADDRESS = hex_to_address("0x0f")
 BLS12_G2_MSM_ADDRESS = hex_to_address("0x10")
 BLS12_PAIRING_ADDRESS = hex_to_address("0x11")
+BLS12_MAP_FP_TO_G1_ADDRESS = hex_to_address("0x12")
 BLS12_MAP_FP2_TO_G2_ADDRESS = hex_to_address("0x13")
