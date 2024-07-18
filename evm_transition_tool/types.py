@@ -98,4 +98,4 @@ class TransitionToolOutput(CamelModel):
 
     alloc: Alloc
     result: Result
-    body: Bytes
+    body: Bytes | None = None
