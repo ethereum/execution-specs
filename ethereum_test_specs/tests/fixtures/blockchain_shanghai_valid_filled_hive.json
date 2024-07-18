@@ -1,7 +1,7 @@
 {
     "000/my_blockchain_test/Shanghai": {
         "_info": {
-            "hash": "0x8971fc0546c97b5ac2689030044a662960d422671ffbfe5ed2a6c90a1b6e3599"
+            "hash": "0x41a4a222caf5c81a6e9337d9bc828f83aef2d1b2d074a42f7b5caac2e2d7891d"
         },
         "network": "Shanghai",
         "genesisBlockHeader": {
@@ -24,6 +24,7 @@
             "withdrawalsRoot": "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421",
             "hash": "0xee9490b3af4ef92610c3d55270c3d2cab510331f4b0fa0b3c2a805eee1c454b0"
         },
+        "lastblockhash": "0xfc75f11c05ec814a890141bef919bb7c20dd29245e37e9bcea66008dfde98526",
         "engineNewPayloads": [
             {
                 "executionPayload": {

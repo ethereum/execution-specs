@@ -1,7 +1,7 @@
 {
     "000/my_chain_id_test/Paris": {
         "_info": {
-            "hash": "0x00137bf15a3dd71099691a3fde7563ed2a36928d98802dd98ef82b3513d59af3"
+            "hash": "0xc68d6827aeeef31e9a30b45104d1981c7bae3bb676de4028095db3cb5822afbf"
         },
         "network": "Paris",
         "genesisBlockHeader": {
@@ -47,6 +47,7 @@
             }
         ],
         "engineFcuVersion": "1",
+        "lastblockhash": "0xe92eedff2a0489bd861f528e248994b6791b0f5b845d90b34c68bc8cbc51c369",
         "pre": {
             "0x1000000000000000000000000000000000000000": {
                 "nonce": "0x00",

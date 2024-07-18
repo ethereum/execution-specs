@@ -1,5 +1,8 @@
 """
-Network/fork rules for Hive, taken verbatim from the consensus simulator.
+Fork rules for consume hive simulators.
+
+TODO: Create the ruleset dynamically per fixture test case based on the fork.
+Remove this file afterwards.
 """
 
 ruleset = {

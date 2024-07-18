@@ -1,6 +1,7 @@
 """
 Generate an index file of all the json fixtures in the specified directory.
 """
+
 import datetime
 import json
 import os
@@ -178,8 +179,6 @@ def generate_fixtures_index(
         test_cases: List[TestCaseIndexFile] = []
         for file in input_path.rglob("*.json"):
             if file.name == "index.json":
-                continue
-            if "blockchain_tests_hive" in file.parts:
                 continue
             if any(fixture in str(file) for fixture in fixtures_to_skip):
                 rich.print(f"Skipping '{file}'")

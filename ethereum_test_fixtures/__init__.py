@@ -6,6 +6,7 @@ from typing import List, Type
 
 from .base import BaseFixture
 from .blockchain import Fixture as BlockchainFixture
+from .blockchain import FixtureCommon as BlockchainFixtureCommon
 from .blockchain import HiveFixture as BlockchainHiveFixture
 from .collector import FixtureCollector, TestInfo
 from .eof import Fixture as EOFFixture
@@ -23,6 +24,7 @@ __all__ = [
     "FIXTURE_TYPES",
     "BaseFixture",
     "BlockchainFixture",
+    "BlockchainFixtureCommon",
     "BlockchainHiveFixture",
     "EOFFixture",
     "FixtureCollector",

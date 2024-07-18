@@ -23,6 +23,7 @@ from ethereum_test_base_types import (
     Number,
     ZeroPaddedHexNumber,
 )
+from ethereum_test_base_types.json import to_json
 from ethereum_test_exceptions import EngineAPIError, ExceptionInstanceOrList
 from ethereum_test_forks import Fork
 from ethereum_test_types.types import (
@@ -255,6 +256,23 @@ class FixtureEngineNewPayload(CamelModel):
         | None
     ) = None
 
+    def args(self) -> List[Any]:
+        """
+        Returns the arguments to be used when calling the Engine API.
+        """
+        args: List[Any] = [to_json(self.execution_payload)]
+        if self.blob_versioned_hashes is not None:
+            args.append([str(versioned_hash) for versioned_hash in self.blob_versioned_hashes])
+        if self.parent_beacon_block_root is not None:
+            args.append(str(self.parent_beacon_block_root))
+        return args
+
+    def valid(self) -> bool:
+        """
+        Returns whether the payload is valid.
+        """
+        return self.validation_error is None
+
     @classmethod
     def from_fixture_header(
         cls,
@@ -420,6 +438,7 @@ class FixtureCommon(BaseFixture):
     genesis: FixtureHeader = Field(..., alias="genesisBlockHeader")
     pre: Alloc
     post_state: Optional[Alloc] = Field(None)
+    last_block_hash: Hash = Field(..., alias="lastblockhash")  # FIXME: lastBlockHash
 
     def get_fork(self) -> str:
         """
@@ -435,7 +454,6 @@ class Fixture(FixtureCommon):
 
     genesis_rlp: Bytes = Field(..., alias="genesisRLP")
     blocks: List[FixtureBlock | InvalidFixtureBlock]
-    last_block_hash: Hash = Field(..., alias="lastblockhash")
     seal_engine: Literal["NoProof"] = Field("NoProof")
 
     format: ClassVar[FixtureFormats] = FixtureFormats.BLOCKCHAIN_TEST

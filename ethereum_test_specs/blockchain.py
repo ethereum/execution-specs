@@ -698,6 +698,7 @@ class BlockchainTest(BaseTest):
             pre=pre,
             post_state=alloc,
             sync_payload=sync_payload,
+            last_block_hash=head_hash,
         )
 
     def generate(
