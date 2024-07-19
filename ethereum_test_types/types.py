@@ -2,12 +2,9 @@
 Useful types for generating Ethereum tests.
 """
 
-import inspect
 from dataclasses import dataclass
-from enum import IntEnum
-from functools import cache, cached_property
-from itertools import count
-from typing import Any, Dict, Generic, Iterator, List, Sequence
+from functools import cached_property
+from typing import Any, Dict, Generic, List, Sequence
 
 from coincurve.keys import PrivateKey, PublicKey
 from ethereum import rlp as eth_rlp
@@ -20,7 +17,6 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
-    PrivateAttr,
     RootModel,
     computed_field,
     model_serializer,
@@ -43,8 +39,6 @@ from ethereum_test_base_types import (
     StorageRootType,
     TestAddress,
     TestPrivateKey,
-    TestPrivateKey2,
-    ZeroPaddedHexNumber,
 )
 from ethereum_test_base_types.conversions import (
     BytesConvertible,
@@ -113,49 +107,10 @@ class EOA(Address):
         return EOA(Address(self), key=self.key, nonce=self.nonce)
 
 
-@cache
-def eoa_by_index(i: int) -> EOA:
-    """
-    Returns an EOA by index.
-    """
-    return EOA(key=TestPrivateKey + i if i != 1 else TestPrivateKey2, nonce=0)
-
-
-def eoa_iterator() -> Iterator[EOA]:
-    """
-    Returns an iterator over EOAs copies.
-    """
-    return iter(eoa_by_index(i).copy() for i in count())
-
-
-def contract_address_iterator(
-    start_address: int = 0x1000, increments: int = 0x100
-) -> Iterator[Address]:
-    """
-    Returns an iterator over contract addresses.
-    """
-    return iter(Address(start_address + (i * increments)) for i in count())
-
-
-class AllocMode(IntEnum):
-    """
-    Allocation mode for the state.
-    """
-
-    PERMISSIVE = 0
-    STRICT = 1
-
-
 class Alloc(BaseAlloc):
     """
     Allocation of accounts in the state, pre and post test execution.
     """
-
-    _alloc_mode: AllocMode = PrivateAttr(default=AllocMode.PERMISSIVE)
-    _contract_address_iterator: Iterator[Address] = PrivateAttr(
-        default_factory=contract_address_iterator
-    )
-    _eoa_iterator: Iterator[EOA] = PrivateAttr(default_factory=eoa_iterator)
 
     @dataclass(kw_only=True)
     class UnexpectedAccount(Exception):
@@ -318,51 +273,14 @@ class Alloc(BaseAlloc):
     ) -> Address:
         """
         Deploy a contract to the allocation.
-
-        Warning: `address` parameter is a temporary solution to allow tests to hard-code the
-        contract address. Do NOT use in new tests as it will be removed in the future!
         """
-        if address is not None:
-            assert self._alloc_mode == AllocMode.PERMISSIVE, "address parameter is not supported"
-            assert address not in self, f"address {address} already in allocation"
-            contract_address = address
-        else:
-            contract_address = next(self._contract_address_iterator)
-
-        if self._alloc_mode == AllocMode.STRICT:
-            assert Number(nonce) >= 1, "impossible to deploy contract with nonce lower than one"
-
-        self[contract_address] = Account(
-            nonce=nonce,
-            balance=balance,
-            code=code,
-            storage=storage,
-        )
-        if label is None:
-            # Try to deduce the label from the code
-            frame = inspect.currentframe()
-            if frame is not None:
-                caller_frame = frame.f_back
-                if caller_frame is not None:
-                    code_context = inspect.getframeinfo(caller_frame).code_context
-                    if code_context is not None:
-                        line = code_context[0].strip()
-                        if "=" in line:
-                            label = line.split("=")[0].strip()
-
-        contract_address.label = label
-        return contract_address
+        raise NotImplementedError("deploy_contract is not implemented in the base class")
 
     def fund_eoa(self, amount: NumberConvertible = 10**21, label: str | None = None) -> EOA:
         """
         Add a previously unused EOA to the pre-alloc with the balance specified by `amount`.
         """
-        eoa = next(self._eoa_iterator)
-        self[eoa] = Account(
-            nonce=0,
-            balance=amount,
-        )
-        return eoa
+        raise NotImplementedError("fund_eoa is not implemented in the base class")
 
     def fund_address(self, address: Address, amount: NumberConvertible):
         """
@@ -371,14 +289,7 @@ class Alloc(BaseAlloc):
         If the address is already present in the pre-alloc the amount will be
         added to its existing balance.
         """
-        if address in self:
-            account = self[address]
-            if account is not None:
-                current_balance = account.balance or 0
-                account.balance = ZeroPaddedHexNumber(current_balance + Number(amount))
-                return
-
-        self[address] = Account(balance=amount)
+        raise NotImplementedError("fund_address is not implemented in the base class")
 
 
 class WithdrawalGeneric(CamelModel, Generic[NumberBoundTypeVar]):

@@ -12,11 +12,12 @@ import os
 import tarfile
 import warnings
 from pathlib import Path
-from typing import Generator, List, Optional, Type
+from typing import Generator, List, Type
 
 import pytest
 from pytest_metadata.plugin import metadata_key  # type: ignore
 
+from ethereum_test_base_types import Alloc, ReferenceSpec
 from ethereum_test_fixtures import FixtureCollector, FixtureFormats, TestInfo
 from ethereum_test_forks import (
     Fork,
@@ -32,8 +33,6 @@ from ethereum_test_tools.utility.versioning import (
     generate_github_url,
     get_current_commit_hash_or_tag,
 )
-from ethereum_test_types import Alloc
-from ethereum_test_types.types import AllocMode, contract_address_iterator
 from evm_transition_tool import TransitionTool
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
@@ -70,7 +69,7 @@ def is_output_stdout(output: Path) -> bool:
     return strip_output_tarball_suffix(output).name == "stdout"
 
 
-def pytest_addoption(parser):
+def pytest_addoption(parser: pytest.Parser):
     """
     Adds command-line options to pytest.
     """
@@ -178,31 +177,6 @@ def pytest_addoption(parser):
         ),
     )
     test_group.addoption(
-        "--strict-alloc",
-        action="store_true",
-        dest="strict_alloc",
-        default=False,
-        help=("[DEBUG ONLY] Disallows deploying a contract in a predefined address."),
-    )
-    test_group.addoption(
-        "--ca-start",
-        "--contract-address-start",
-        action="store",
-        dest="test_contract_start_address",
-        default=None,
-        type=str,
-        help="The starting address from which tests will deploy contracts.",
-    )
-    test_group.addoption(
-        "--ca-incr",
-        "--contract-address-increment",
-        action="store",
-        dest="test_contract_address_increments",
-        default=None,
-        type=str,
-        help="The address increment value to each deployed contract by a test.",
-    )
-    test_group.addoption(
         "--build-name",
         action="store",
         dest="build_name",
@@ -293,7 +267,7 @@ def pytest_configure(config):
 
 
 @pytest.hookimpl(trylast=True)
-def pytest_report_header(config, start_path):
+def pytest_report_header(config: pytest.Config):
     """Add lines to pytest's console output header"""
     if config.option.collectonly:
         return
@@ -302,7 +276,7 @@ def pytest_report_header(config, start_path):
     return [(f"{t8n_version}, {solc_version}")]
 
 
-def pytest_report_teststatus(report, config):
+def pytest_report_teststatus(report, config: pytest.Config):
     """
     Disable test session progress report if we're writing the JSON fixtures to
     stdout to be read by a consume command on stdin. I.e., don't write this
@@ -406,7 +380,7 @@ def pytest_html_report_title(report):
 
 
 @pytest.fixture(autouse=True, scope="session")
-def evm_bin(request) -> Path:
+def evm_bin(request: pytest.FixtureRequest) -> Path:
     """
     Returns the configured evm tool binary path used to run t8n.
     """
@@ -414,7 +388,7 @@ def evm_bin(request) -> Path:
 
 
 @pytest.fixture(autouse=True, scope="session")
-def verify_fixtures_bin(request) -> Path:
+def verify_fixtures_bin(request: pytest.FixtureRequest) -> Path | None:
     """
     Returns the configured evm tool binary path used to run statetest or
     blocktest.
@@ -423,7 +397,7 @@ def verify_fixtures_bin(request) -> Path:
 
 
 @pytest.fixture(autouse=True, scope="session")
-def solc_bin(request):
+def solc_bin(request: pytest.FixtureRequest):
     """
     Returns the configured solc binary path.
     """
@@ -431,7 +405,7 @@ def solc_bin(request):
 
 
 @pytest.fixture(autouse=True, scope="session")
-def t8n(request, evm_bin: Path) -> Generator[TransitionTool, None, None]:
+def t8n(request: pytest.FixtureRequest, evm_bin: Path) -> Generator[TransitionTool, None, None]:
     """
     Returns the configured transition tool.
     """
@@ -442,35 +416,16 @@ def t8n(request, evm_bin: Path) -> Generator[TransitionTool, None, None]:
     t8n.shutdown()
 
 
-@pytest.fixture(autouse=True)
-def pre(request) -> Alloc:
-    """
-    Returns the default pre allocation for all tests (Empty alloc).
-    """
-    pre = Alloc()
-    if request.config.getoption("strict_alloc"):
-        pre._alloc_mode = AllocMode.STRICT
-    test_contract_start_address = request.config.getoption("test_contract_start_address")
-    test_contract_address_increments = request.config.getoption("test_contract_address_increments")
-    if test_contract_start_address is not None or test_contract_address_increments is not None:
-        kw_args = {}
-        if test_contract_start_address is not None:
-            kw_args["start_address"] = int(test_contract_start_address, 0)
-        if test_contract_address_increments is not None:
-            kw_args["increment"] = int(test_contract_address_increments, 0)
-        pre._contract_address_iterator = contract_address_iterator(**kw_args)
-
-    return pre
-
-
 @pytest.fixture(scope="session")
-def do_fixture_verification(request, t8n) -> bool:
+def do_fixture_verification(
+    request: pytest.FixtureRequest, verify_fixtures_bin: Path | None
+) -> bool:
     """
     Returns True if evm statetest or evm blocktest should be ran on the
     generated fixture JSON files.
     """
     do_fixture_verification = False
-    if request.config.getoption("verify_fixtures_bin"):
+    if verify_fixtures_bin:
         do_fixture_verification = True
     if request.config.getoption("verify_fixtures"):
         do_fixture_verification = True
@@ -479,8 +434,10 @@ def do_fixture_verification(request, t8n) -> bool:
 
 @pytest.fixture(autouse=True, scope="session")
 def evm_fixture_verification(
-    request, do_fixture_verification: bool, evm_bin: Path, verify_fixtures_bin: Path
-) -> Generator[Optional[TransitionTool], None, None]:
+    do_fixture_verification: bool,
+    evm_bin: Path,
+    verify_fixtures_bin: Path | None,
+) -> Generator[TransitionTool | None, None, None]:
     """
     Returns the configured evm binary for executing statetest and blocktest
     commands used to verify generated JSON fixtures.
@@ -502,7 +459,7 @@ def evm_fixture_verification(
 
 
 @pytest.fixture(scope="session")
-def base_dump_dir(request) -> Optional[Path]:
+def base_dump_dir(request: pytest.FixtureRequest) -> Path | None:
     """
     The base directory to dump the evm debug output.
     """
@@ -513,18 +470,18 @@ def base_dump_dir(request) -> Optional[Path]:
 
 
 @pytest.fixture(scope="session")
-def is_output_tarball(request) -> bool:
+def is_output_tarball(request: pytest.FixtureRequest) -> bool:
     """
     Returns True if the output directory is a tarball.
     """
-    output = request.config.getoption("output")
+    output: Path = request.config.getoption("output")
     if output.suffix == ".gz" and output.with_suffix("").suffix == ".tar":
         return True
     return False
 
 
 @pytest.fixture(scope="session")
-def output_dir(request, is_output_tarball: bool) -> Path:
+def output_dir(request: pytest.FixtureRequest, is_output_tarball: bool) -> Path:
     """
     Returns the directory to store the generated test fixtures.
     """
@@ -535,7 +492,7 @@ def output_dir(request, is_output_tarball: bool) -> Path:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def create_properties_file(request, output_dir: Path) -> None:
+def create_properties_file(request: pytest.FixtureRequest, output_dir: Path) -> None:
     """
     Creates an ini file with fixture build properties in the fixture output
     directory.
@@ -580,7 +537,7 @@ def create_properties_file(request, output_dir: Path) -> None:
 
 @pytest.fixture(scope="session", autouse=True)
 def create_tarball(
-    request, output_dir: Path, is_output_tarball: bool
+    request: pytest.FixtureRequest, output_dir: Path, is_output_tarball: bool
 ) -> Generator[None, None, None]:
     """
     Create a tarball of json files the output directory if the configured
@@ -601,8 +558,8 @@ def create_tarball(
 
 @pytest.fixture(scope="function")
 def dump_dir_parameter_level(
-    request, base_dump_dir: Optional[Path], filler_path: Path
-) -> Optional[Path]:
+    request: pytest.FixtureRequest, base_dump_dir: Path | None, filler_path: Path
+) -> Path | None:
     """
     The directory to dump evm transition tool debug output on a test parameter
     level.
@@ -638,13 +595,13 @@ def get_fixture_collection_scope(fixture_name, config):
 
 @pytest.fixture(scope=get_fixture_collection_scope)
 def fixture_collector(
-    request,
+    request: pytest.FixtureRequest,
     do_fixture_verification: bool,
     evm_fixture_verification: TransitionTool,
     filler_path: Path,
-    base_dump_dir: Optional[Path],
+    base_dump_dir: Path | None,
     output_dir: Path,
-):
+) -> Generator[FixtureCollector, None, None]:
     """
     Returns the configured fixture collector instance used for all tests
     in one test module.
@@ -663,7 +620,7 @@ def fixture_collector(
 
 
 @pytest.fixture(autouse=True, scope="session")
-def filler_path(request) -> Path:
+def filler_path(request: pytest.FixtureRequest) -> Path:
     """
     Returns the directory containing the tests to execute.
     """
@@ -726,20 +683,20 @@ def yul(fork: Fork, request):
 SPEC_TYPES_PARAMETERS: List[str] = [s.pytest_parameter_name() for s in SPEC_TYPES]
 
 
-def node_to_test_info(node) -> TestInfo:
+def node_to_test_info(node: pytest.Item) -> TestInfo:
     """
     Returns the test info of the current node item.
     """
     return TestInfo(
         name=node.name,
         id=node.nodeid,
-        original_name=node.originalname,
+        original_name=node.originalname,  # type: ignore
         path=Path(node.path),
     )
 
 
 @pytest.fixture(scope="function")
-def fixture_source_url(request):
+def fixture_source_url(request: pytest.FixtureRequest) -> str:
     """
     Returns the URL to the fixture source.
     """
@@ -753,7 +710,7 @@ def fixture_source_url(request):
 
 
 @pytest.fixture(scope="function")
-def fixture_description(request):
+def fixture_description(request: pytest.FixtureRequest) -> str:
     """Fixture to extract and combine docstrings from the test class and the test function."""
     description_unavailable = (
         "No description available - add a docstring to the python test class or function."
@@ -783,16 +740,17 @@ def base_test_parametrizer(cls: Type[BaseTest]):
         name=cls.pytest_parameter_name(),
     )
     def base_test_parametrizer_func(
-        request,
-        t8n,
-        fork,
-        reference_spec,
-        eips,
-        output_dir,
-        dump_dir_parameter_level,
-        fixture_collector,
-        fixture_description,
-        fixture_source_url,
+        request: pytest.FixtureRequest,
+        t8n: TransitionTool,
+        fork: Fork,
+        reference_spec: ReferenceSpec,
+        eips: List[int],
+        pre: Alloc,
+        output_dir: Path,
+        dump_dir_parameter_level: Path | None,
+        fixture_collector: FixtureCollector,
+        fixture_description: str,
+        fixture_source_url: str,
     ):
         """
         Fixture used to instantiate an auto-fillable BaseTest object from within
@@ -807,11 +765,11 @@ def base_test_parametrizer(cls: Type[BaseTest]):
         fixture_format = request.param
         assert isinstance(fixture_format, FixtureFormats)
 
-        class BaseTestWrapper(cls):
+        class BaseTestWrapper(cls):  # type: ignore
             def __init__(self, *args, **kwargs):
                 kwargs["t8n_dump_dir"] = dump_dir_parameter_level
                 if "pre" not in kwargs:
-                    kwargs["pre"] = request.getfixturevalue("pre")
+                    kwargs["pre"] = pre
                 super(BaseTestWrapper, self).__init__(*args, **kwargs)
                 fixture = self.generate(
                     t8n=t8n,
@@ -849,7 +807,7 @@ for cls in SPEC_TYPES:
     globals()[cls.pytest_parameter_name()] = base_test_parametrizer(cls)
 
 
-def pytest_generate_tests(metafunc):
+def pytest_generate_tests(metafunc: pytest.Metafunc):
     """
     Pytest hook used to dynamically generate test cases for each fixture format a given
     test spec supports.

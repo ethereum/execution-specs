@@ -9,7 +9,7 @@ from typing import Generator
 import pytest
 from click.testing import CliRunner
 
-import pytest_plugins.test_filler.test_filler
+import pytest_plugins.filler.filler
 
 from ..pytest_commands import fill
 
@@ -82,7 +82,7 @@ class TestHtmlReportFlags:
         """
         The default filename for fill's pytest html report.
         """
-        return pytest_plugins.test_filler.test_filler.default_html_report_filename()
+        return pytest_plugins.filler.filler.default_html_report_filename()
 
     @pytest.fixture(scope="function")
     def temp_dir(self) -> Generator[Path, None, None]:  # noqa: D102
@@ -103,7 +103,7 @@ class TestHtmlReportFlags:
             return temp_dir
 
         monkeypatch.setattr(
-            pytest_plugins.test_filler.test_filler,
+            pytest_plugins.filler.filler,
             "default_output_directory",
             mock_default_output_directory,
         )

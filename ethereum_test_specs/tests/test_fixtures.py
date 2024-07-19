@@ -10,7 +10,7 @@ import pytest
 from click.testing import CliRunner
 
 import cli.check_fixtures
-from ethereum_test_base_types import Account, Hash
+from ethereum_test_base_types import Account, Address, Hash
 from ethereum_test_exceptions import TransactionException
 from ethereum_test_fixtures import BlockchainFixture, FixtureFormats
 from ethereum_test_fixtures.blockchain import FixtureCommon
@@ -38,9 +38,9 @@ def hash(request: pytest.FixtureRequest):
     Set the hash based on the fork and solc version.
     """
     if request.node.funcargs["fork"] == Berlin:
-        return bytes.fromhex("0408c6a5c6")
+        return bytes.fromhex("e57ad774ca")
     elif request.node.funcargs["fork"] == London:
-        return bytes.fromhex("a1babd536a")
+        return bytes.fromhex("3714102a4c")
 
 
 def test_check_helper_fixtures():
@@ -73,12 +73,16 @@ def test_check_helper_fixtures():
 def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
     env = Environment()
 
-    pre = Alloc()
-    pre.deploy_contract(
-        (Op.SSTORE(0, Op.ADD(1, 2)) + Op.RETURN(0, 32)),
-        balance=0x0BA1A9CE0BA1A9CE,
+    pre = Alloc(
+        {
+            Address(0x0BA1A9CE0BA1A9CE): Account(balance=0x0BA1A9CE0BA1A9CE),
+            Address(0xC0DE): Account(
+                code=Op.SSTORE(0, Op.ADD(1, 2)) + Op.RETURN(0, 32),
+                balance=0x0BA1A9CE0BA1A9CE,
+                nonce=1,
+            ),
+        }
     )
-    pre.fund_eoa(0x0BA1A9CE0BA1A9CE)
 
     t8n = GethTransitionTool()
     fixture = BlockchainTest(

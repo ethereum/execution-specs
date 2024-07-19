@@ -7,9 +7,8 @@ from typing import Any, Dict, List
 import pytest
 from pydantic import TypeAdapter
 
-from ethereum_test_base_types import Address, TestAddress, TestAddress2, TestPrivateKey, to_json
+from ethereum_test_base_types import Address, TestPrivateKey, to_json
 from ethereum_test_base_types.pydantic import CopyValidateModel
-from ethereum_test_vm import Opcodes as Op
 
 from ..eof.v1 import Container
 from ..types import (
@@ -365,36 +364,6 @@ def test_alloc_append(alloc_1: Alloc, alloc_2: Alloc, expected_alloc: Alloc):
     Test `ethereum_test.types.alloc` merging.
     """
     assert Alloc.merge(alloc_1, alloc_2) == expected_alloc
-
-
-def test_alloc_deploy_contract():
-    """
-    Test `Alloc.deploy_contract` functionallity.
-    """
-    alloc = Alloc()
-    contract_1 = alloc.deploy_contract(Op.SSTORE(0, 1) + Op.STOP)
-    contract_2 = alloc.deploy_contract(Op.SSTORE(0, 2) + Op.STOP)
-    assert contract_1 != contract_2
-    assert contract_1 in alloc
-    assert contract_2 in alloc
-    assert alloc[contract_1].code == bytes.fromhex("600160005500")
-    assert alloc[contract_2].code == bytes.fromhex("600260005500")
-
-
-def test_alloc_fund_sender():
-    """
-    Test `Alloc.fund_eoa` functionallity.
-    """
-    alloc = Alloc()
-    sender_1 = alloc.fund_eoa(10**18)
-    sender_2 = alloc.fund_eoa(10**18)
-    assert sender_1 != sender_2
-    assert sender_1 in alloc
-    assert sender_2 in alloc
-    assert Address(sender_1) == TestAddress
-    assert Address(sender_2) == TestAddress2
-    assert alloc[sender_1].balance == 10**18
-    assert alloc[sender_2].balance == 10**18
 
 
 @pytest.mark.parametrize(

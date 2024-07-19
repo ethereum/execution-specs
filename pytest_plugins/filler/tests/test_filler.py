@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from pytest_plugins.test_filler.test_filler import default_output_directory
+from pytest_plugins.filler.filler import default_output_directory
 
 
 # flake8: noqa
