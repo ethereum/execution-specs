@@ -1,10 +1,12 @@
 """
 EOF JUMPF tests covering simple cases.
 """
+
 import pytest
 
 from ethereum_test_tools import Account, EOFException, EOFStateTestFiller
 from ethereum_test_tools.eof.v1 import Container, Section
+from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
@@ -148,4 +150,194 @@ def test_callf_to_non_returning_section(
             ],
             validity_error=EOFException.MISSING_STOP_OPCODE,
         ),
+    )
+
+
+def test_jumpf_stack_size_1024(
+    eof_state_test: EOFStateTestFiller,
+):
+    """Test stack reaching 1024 items in target function of JUMPF"""
+    eof_state_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 * 1022 + Op.JUMPF[1],
+                    max_stack_height=1022,
+                ),
+                Section.Code(
+                    Op.SSTORE(slot_code_worked, value_code_worked) + Op.STOP,
+                    code_inputs=0,
+                    code_outputs=NON_RETURNING_SECTION,
+                    max_stack_height=2,
+                ),
+            ],
+        ),
+        container_post=Account(storage={slot_code_worked: value_code_worked}),
+    )
+
+
+def test_jumpf_with_inputs_stack_size_1024(
+    eof_state_test: EOFStateTestFiller,
+):
+    """Test stack reaching 1024 items in target function of JUMPF with inputs"""
+    eof_state_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 * 1022 + Op.JUMPF[1],
+                    max_stack_height=1022,
+                ),
+                Section.Code(
+                    Op.SSTORE(slot_code_worked, value_code_worked) + Op.STOP,
+                    code_inputs=3,
+                    code_outputs=NON_RETURNING_SECTION,
+                    max_stack_height=5,
+                ),
+            ],
+        ),
+        container_post=Account(storage={slot_code_worked: value_code_worked}),
+    )
+
+
+def test_jumpf_stack_size_1024_at_push(
+    eof_state_test: EOFStateTestFiller,
+):
+    """Test stack reaching 1024 items in JUMPF target function at PUSH0 instruction"""
+    eof_state_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 * 1023
+                    + Op.CALLF[1]
+                    + Op.POP * 1023
+                    + Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.RETURN(0, 0),
+                    max_stack_height=1023,
+                ),
+                Section.Code(
+                    # stack has 1023 items
+                    Op.JUMPF[2],
+                    code_inputs=0,
+                    code_outputs=0,
+                    max_stack_height=0,
+                ),
+                Section.Code(
+                    Op.PUSH0 +
+                    # stack has 1024 items
+                    Op.POP + Op.RETF,
+                    code_inputs=0,
+                    code_outputs=0,
+                    max_stack_height=1,
+                ),
+            ],
+        ),
+        container_post=Account(storage={slot_code_worked: value_code_worked}),
+    )
+
+
+def test_jumpf_stack_overflow(
+    eof_state_test: EOFStateTestFiller,
+):
+    """Test stack overflowing 1024 items in JUMPF target function"""
+    eof_state_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 * 1023
+                    + Op.CALLF[1]
+                    + Op.POP * 1023
+                    + Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.RETURN(0, 0),
+                    max_stack_height=1023,
+                ),
+                Section.Code(
+                    # Stack has 1023 items
+                    Op.JUMPF[2],
+                    code_inputs=0,
+                    code_outputs=0,
+                    max_stack_height=0,
+                ),
+                Section.Code(
+                    Op.PUSH0 + Op.PUSH0 +
+                    # Runtime stack overflow
+                    Op.POP + Op.POP + Op.RETF,
+                    code_inputs=0,
+                    code_outputs=0,
+                    max_stack_height=2,
+                ),
+            ],
+        ),
+        container_post=Account(storage={slot_code_worked: 0}),
+    )
+
+
+def test_jumpf_with_inputs_stack_size_1024_at_push(
+    eof_state_test: EOFStateTestFiller,
+):
+    """Test stack reaching 1024 items in JUMPF target function with inputs at PUSH0 instruction"""
+    eof_state_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 * 1023
+                    + Op.CALLF[1]
+                    + Op.POP * 1023
+                    + Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.RETURN(0, 0),
+                    max_stack_height=1023,
+                ),
+                Section.Code(
+                    # Stack has 1023 items
+                    Op.JUMPF[2],
+                    code_inputs=3,
+                    code_outputs=3,
+                    max_stack_height=3,
+                ),
+                Section.Code(
+                    Op.PUSH0 +
+                    # Stack has 1024 items
+                    Op.POP + Op.RETF,
+                    code_inputs=3,
+                    code_outputs=3,
+                    max_stack_height=4,
+                ),
+            ],
+        ),
+        container_post=Account(storage={slot_code_worked: value_code_worked}),
+    )
+
+
+def test_jumpf_with_inputs_stack_overflow(
+    eof_state_test: EOFStateTestFiller,
+):
+    """Test stack overflowing 1024 items in JUMPF target function with inputs"""
+    eof_state_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 * 1023
+                    + Op.CALLF[1]
+                    + Op.POP * 1023
+                    + Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.RETURN(0, 0),
+                    max_stack_height=1023,
+                ),
+                Section.Code(
+                    # Stack has 1023 items
+                    Op.JUMPF[2],
+                    code_inputs=3,
+                    code_outputs=3,
+                    max_stack_height=3,
+                ),
+                Section.Code(
+                    Op.PUSH0 + Op.PUSH0 +
+                    # Runtime stackoverflow
+                    Op.POP + Op.POP + Op.RETF,
+                    code_inputs=3,
+                    code_outputs=3,
+                    max_stack_height=5,
+                ),
+            ],
+        ),
+        container_post=Account(storage={slot_code_worked: 0}),
     )
