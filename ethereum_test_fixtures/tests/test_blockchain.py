@@ -5,10 +5,13 @@ Test the blockchain test types.
 from typing import Any, Dict
 
 import pytest
+from pydantic import TypeAdapter
 
 from ethereum_test_base_types import (
     Address,
     Bloom,
+    BLSPublicKey,
+    BLSSignature,
     Bytes,
     Hash,
     HeaderNonce,
@@ -16,9 +19,18 @@ from ethereum_test_base_types import (
     to_json,
 )
 from ethereum_test_exceptions import BlockException, EngineAPIError, TransactionException
-from ethereum_test_types import AccessList, Transaction, Withdrawal
+from ethereum_test_forks import Prague
+from ethereum_test_types import (
+    AccessList,
+    DepositRequest,
+    Requests,
+    Transaction,
+    Withdrawal,
+    WithdrawalRequest,
+)
 
 from ..blockchain import (
+    EngineNewPayloadParameters,
     FixtureBlockBase,
     FixtureEngineNewPayload,
     FixtureExecutionPayload,
@@ -52,7 +64,7 @@ fixture_header_ones = FixtureHeader(
 
 
 @pytest.mark.parametrize(
-    ["can_be_deserialized", "model_instance", "json"],
+    ["can_be_deserialized", "model_instance", "json_repr"],
     [
         pytest.param(
             True,
@@ -275,7 +287,6 @@ fixture_header_ones = FixtureHeader(
                 withdrawals_root=Hash(16),
                 blob_gas_used=17,
                 excess_blob_gas=18,
-                # hash=Hash(19),
             ),
             {
                 "parentHash": Hash(0).hex(),
@@ -324,7 +335,6 @@ fixture_header_ones = FixtureHeader(
                     withdrawals_root=Hash(16),
                     blob_gas_used=17,
                     excess_blob_gas=18,
-                    # hash=Hash(19),
                 ),
                 transactions=[
                     FixtureTransaction.from_transaction(Transaction().with_signature_and_sender())
@@ -397,7 +407,6 @@ fixture_header_ones = FixtureHeader(
                     withdrawals_root=Hash(16),
                     blob_gas_used=17,
                     excess_blob_gas=18,
-                    # hash=Hash(19),
                 ),
                 transactions=[
                     FixtureTransaction.from_transaction(
@@ -525,7 +534,6 @@ fixture_header_ones = FixtureHeader(
                     withdrawals_root=Hash(16),
                     blob_gas_used=17,
                     excess_blob_gas=18,
-                    # hash=Hash(19),
                 ),
                 transactions=[
                     Transaction(
@@ -589,117 +597,354 @@ fixture_header_ones = FixtureHeader(
         ),
         pytest.param(
             True,
-            FixtureEngineNewPayload(
-                execution_payload=FixtureExecutionPayload.from_fixture_header(
-                    header=FixtureHeader(
-                        parent_hash=Hash(0),
-                        ommers_hash=Hash(1),
-                        fee_recipient=Address(2),
-                        state_root=Hash(3),
-                        transactions_trie=Hash(4),
-                        receipts_root=Hash(5),
-                        logs_bloom=Bloom(6),
-                        difficulty=7,
-                        number=8,
-                        gas_limit=9,
-                        gas_used=10,
-                        timestamp=11,
-                        extra_data=Bytes([12]),
-                        prev_randao=Hash(13),
-                        nonce=HeaderNonce(14),
-                        base_fee_per_gas=15,
-                        withdrawals_root=Hash(16),
-                        blob_gas_used=17,
-                        excess_blob_gas=18,
-                        hash=Hash(19),
-                    ),
-                    transactions=[
-                        Transaction(
-                            to=0x1234,
-                            data=b"\x01\x00",
-                            access_list=[
-                                AccessList(
-                                    address=0x1234,
-                                    storage_keys=[0, 1],
-                                )
-                            ],
-                            max_priority_fee_per_gas=10,
-                            max_fee_per_gas=20,
-                            max_fee_per_blob_gas=30,
-                            blob_versioned_hashes=[0, 1],
-                        ).with_signature_and_sender(),
-                    ],
-                    withdrawals=[
-                        Withdrawal(
-                            index=0,
-                            validator_index=1,
-                            address=0x1234,
-                            amount=2,
-                        )
-                    ],
-                    requests=None,
+            FixtureEngineNewPayload.from_fixture_header(
+                fork=Prague,
+                header=FixtureHeader(
+                    parent_hash=Hash(0),
+                    ommers_hash=Hash(1),
+                    fee_recipient=Address(2),
+                    state_root=Hash(3),
+                    transactions_trie=Hash(4),
+                    receipts_root=Hash(5),
+                    logs_bloom=Bloom(6),
+                    difficulty=7,
+                    number=8,
+                    gas_limit=9,
+                    gas_used=10,
+                    timestamp=11,
+                    extra_data=Bytes([12]),
+                    prev_randao=Hash(13),
+                    nonce=HeaderNonce(14),
+                    base_fee_per_gas=15,
+                    withdrawals_root=Hash(16),
+                    blob_gas_used=17,
+                    excess_blob_gas=18,
+                    parent_beacon_block_root=19,
                 ),
-                validation_error=TransactionException.INTRINSIC_GAS_TOO_LOW,
-                version=1,
+                transactions=[
+                    Transaction(
+                        to=0x1234,
+                        data=b"\x01\x00",
+                        access_list=[
+                            AccessList(
+                                address=0x1234,
+                                storage_keys=[0, 1],
+                            )
+                        ],
+                        max_priority_fee_per_gas=10,
+                        max_fee_per_gas=20,
+                        max_fee_per_blob_gas=30,
+                        blob_versioned_hashes=[0, 1],
+                    ).with_signature_and_sender(),
+                ],
+                withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                requests=Requests(
+                    [
+                        DepositRequest(
+                            pubkey=BLSPublicKey(0),
+                            withdrawal_credentials=Hash(1),
+                            amount=2,
+                            signature=BLSSignature(3),
+                            index=4,
+                        ),
+                        WithdrawalRequest(
+                            source_address=Address(0),
+                            validator_pubkey=BLSPublicKey(1),
+                            amount=2,
+                        ),
+                    ]
+                ),
+                validation_error=[
+                    BlockException.INCORRECT_BLOCK_FORMAT,
+                    TransactionException.INTRINSIC_GAS_TOO_LOW,
+                ],
+                error_code=EngineAPIError.InvalidRequest,
             ),
             {
-                "executionPayload": {
-                    "parentHash": Hash(0).hex(),
-                    "feeRecipient": Address(2).hex(),
-                    "stateRoot": Hash(3).hex(),
-                    "receiptsRoot": Hash(5).hex(),
-                    "logsBloom": Bloom(6).hex(),
-                    "blockNumber": hex(8),
-                    "gasLimit": hex(9),
-                    "gasUsed": hex(10),
-                    "timestamp": hex(11),
-                    "extraData": Bytes([12]).hex(),
-                    "prevRandao": Hash(13).hex(),
-                    "baseFeePerGas": hex(15),
-                    "blobGasUsed": hex(17),
-                    "excessBlobGas": hex(18),
-                    "blockHash": (
-                        "0xd90115b7fde329f64335763a446af150ab67e639281dccdb07a007d18bb80211"
-                    ),
-                    "transactions": [
-                        "0x"
-                        + Transaction(
-                            to=0x1234,
-                            data=b"\x01\x00",
-                            access_list=[
-                                AccessList(
-                                    address=0x1234,
-                                    storage_keys=[0, 1],
-                                )
-                            ],
-                            max_priority_fee_per_gas=10,
-                            max_fee_per_gas=20,
-                            max_fee_per_blob_gas=30,
-                            blob_versioned_hashes=[0, 1],
-                        )
-                        .with_signature_and_sender()
-                        .rlp.hex()
-                    ],
-                    "withdrawals": [
-                        to_json(
-                            Withdrawal(
-                                index=0,
-                                validator_index=1,
-                                address=0x1234,
-                                amount=2,
+                "params": [
+                    {
+                        "parentHash": Hash(0).hex(),
+                        "feeRecipient": Address(2).hex(),
+                        "stateRoot": Hash(3).hex(),
+                        "receiptsRoot": Hash(5).hex(),
+                        "logsBloom": Bloom(6).hex(),
+                        "blockNumber": hex(8),
+                        "gasLimit": hex(9),
+                        "gasUsed": hex(10),
+                        "timestamp": hex(11),
+                        "extraData": Bytes([12]).hex(),
+                        "prevRandao": Hash(13).hex(),
+                        "baseFeePerGas": hex(15),
+                        "blobGasUsed": hex(17),
+                        "excessBlobGas": hex(18),
+                        "blockHash": (
+                            "0x8eca4747db6a4b272018f2850e4208b863989ce9971bb1907467ae2204950695"
+                        ),
+                        "transactions": [
+                            "0x"
+                            + Transaction(
+                                to=0x1234,
+                                data=b"\x01\x00",
+                                access_list=[
+                                    AccessList(
+                                        address=0x1234,
+                                        storage_keys=[0, 1],
+                                    )
+                                ],
+                                max_priority_fee_per_gas=10,
+                                max_fee_per_gas=20,
+                                max_fee_per_blob_gas=30,
+                                blob_versioned_hashes=[0, 1],
                             )
-                        )
+                            .with_signature_and_sender()
+                            .rlp.hex()
+                        ],
+                        "withdrawals": [
+                            to_json(
+                                Withdrawal(
+                                    index=0,
+                                    validator_index=1,
+                                    address=0x1234,
+                                    amount=2,
+                                )
+                            )
+                        ],
+                        "depositRequests": [
+                            to_json(
+                                DepositRequest(
+                                    pubkey=BLSPublicKey(0),
+                                    withdrawal_credentials=Hash(1),
+                                    amount=2,
+                                    signature=BLSSignature(3),
+                                    index=4,
+                                )
+                            ),
+                        ],
+                        "withdrawalRequests": [
+                            to_json(
+                                WithdrawalRequest(
+                                    source_address=Address(0),
+                                    validator_pubkey=BLSPublicKey(1),
+                                    amount=2,
+                                )
+                            ),
+                        ],
+                    },
+                    [
+                        "0x0000000000000000000000000000000000000000000000000000000000000000",
+                        "0x0000000000000000000000000000000000000000000000000000000000000001",
                     ],
-                },
-                "validationError": "TransactionException.INTRINSIC_GAS_TOO_LOW",
-                "version": "1",
+                    str(Hash(19)),
+                ],
+                "forkchoiceUpdatedVersion": "3",
+                "newPayloadVersion": "4",
+                "validationError": "BlockException.INCORRECT_BLOCK_FORMAT"
+                "|TransactionException.INTRINSIC_GAS_TOO_LOW",
+                "errorCode": "-32600",
             },
             id="fixture_engine_new_payload_1",
         ),
         pytest.param(
             True,
-            FixtureEngineNewPayload(
-                execution_payload=FixtureExecutionPayload.from_fixture_header(
+            FixtureEngineNewPayload.from_fixture_header(
+                fork=Prague,
+                header=FixtureHeader(
+                    fork=Prague,
+                    parent_hash=Hash(0),
+                    ommers_hash=Hash(1),
+                    fee_recipient=Address(2),
+                    state_root=Hash(3),
+                    transactions_trie=Hash(4),
+                    receipts_root=Hash(5),
+                    logs_bloom=Bloom(6),
+                    difficulty=7,
+                    number=8,
+                    gas_limit=9,
+                    gas_used=10,
+                    timestamp=11,
+                    extra_data=Bytes([12]),
+                    prev_randao=Hash(13),
+                    nonce=HeaderNonce(14),
+                    base_fee_per_gas=15,
+                    withdrawals_root=Hash(16),
+                    blob_gas_used=17,
+                    excess_blob_gas=18,
+                    parent_beacon_block_root=19,
+                    requests_root=Requests(
+                        [
+                            DepositRequest(
+                                pubkey=BLSPublicKey(0),
+                                withdrawal_credentials=Hash(1),
+                                amount=2,
+                                signature=BLSSignature(3),
+                                index=4,
+                            ),
+                            WithdrawalRequest(
+                                source_address=Address(0),
+                                validator_pubkey=BLSPublicKey(1),
+                                amount=2,
+                            ),
+                        ]
+                    ).trie_root,
+                ),
+                transactions=[
+                    Transaction(
+                        to=0x1234,
+                        data=b"\x01\x00",
+                        access_list=[
+                            AccessList(
+                                address=0x1234,
+                                storage_keys=[0, 1],
+                            )
+                        ],
+                        max_priority_fee_per_gas=10,
+                        max_fee_per_gas=20,
+                        max_fee_per_blob_gas=30,
+                        blob_versioned_hashes=[0, 1],
+                    ).with_signature_and_sender(),
+                ],
+                withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                requests=Requests(
+                    [
+                        DepositRequest(
+                            pubkey=BLSPublicKey(0),
+                            withdrawal_credentials=Hash(1),
+                            amount=2,
+                            signature=BLSSignature(3),
+                            index=4,
+                        ),
+                        WithdrawalRequest(
+                            source_address=Address(0),
+                            validator_pubkey=BLSPublicKey(1),
+                            amount=2,
+                        ),
+                    ]
+                ),
+                validation_error=[
+                    BlockException.INCORRECT_BLOCK_FORMAT,
+                    TransactionException.INTRINSIC_GAS_TOO_LOW,
+                ],
+            ),
+            {
+                "params": [
+                    {
+                        "parentHash": Hash(0).hex(),
+                        "feeRecipient": Address(2).hex(),
+                        "stateRoot": Hash(3).hex(),
+                        "receiptsRoot": Hash(5).hex(),
+                        "logsBloom": Bloom(6).hex(),
+                        "blockNumber": hex(8),
+                        "gasLimit": hex(9),
+                        "gasUsed": hex(10),
+                        "timestamp": hex(11),
+                        "extraData": Bytes([12]).hex(),
+                        "prevRandao": Hash(13).hex(),
+                        "baseFeePerGas": hex(15),
+                        "blobGasUsed": hex(17),
+                        "excessBlobGas": hex(18),
+                        "blockHash": (
+                            "0x78a4bf2520248e0b403d343c32b6746a43da1ebcf3cc8de14b959bc9f461fe76"
+                        ),
+                        "transactions": [
+                            "0x"
+                            + Transaction(
+                                to=0x1234,
+                                data=b"\x01\x00",
+                                access_list=[
+                                    AccessList(
+                                        address=0x1234,
+                                        storage_keys=[0, 1],
+                                    )
+                                ],
+                                max_priority_fee_per_gas=10,
+                                max_fee_per_gas=20,
+                                max_fee_per_blob_gas=30,
+                                blob_versioned_hashes=[0, 1],
+                            )
+                            .with_signature_and_sender()
+                            .rlp.hex()
+                        ],
+                        "withdrawals": [
+                            to_json(
+                                Withdrawal(
+                                    index=0,
+                                    validator_index=1,
+                                    address=0x1234,
+                                    amount=2,
+                                )
+                            )
+                        ],
+                        "depositRequests": [
+                            to_json(
+                                DepositRequest(
+                                    pubkey=BLSPublicKey(0),
+                                    withdrawal_credentials=Hash(1),
+                                    amount=2,
+                                    signature=BLSSignature(3),
+                                    index=4,
+                                )
+                            ),
+                        ],
+                        "withdrawalRequests": [
+                            to_json(
+                                WithdrawalRequest(
+                                    source_address=Address(0),
+                                    validator_pubkey=BLSPublicKey(1),
+                                    amount=2,
+                                )
+                            ),
+                        ],
+                    },
+                    [
+                        "0x0000000000000000000000000000000000000000000000000000000000000000",
+                        "0x0000000000000000000000000000000000000000000000000000000000000001",
+                    ],
+                    str(Hash(19)),
+                ],
+                "newPayloadVersion": "4",
+                "forkchoiceUpdatedVersion": "3",
+                "validationError": "BlockException.INCORRECT_BLOCK_FORMAT"
+                "|TransactionException.INTRINSIC_GAS_TOO_LOW",
+            },
+            id="fixture_engine_new_payload_2",
+        ),
+    ],
+)
+class TestPydanticModelConversion:
+    """
+    Test that Pydantic models are converted to and from JSON correctly.
+    """
+
+    def test_json_serialization(
+        self, can_be_deserialized: bool, model_instance: Any, json_repr: str | Dict[str, Any]
+    ):
+        """
+        Test that to_json returns the expected JSON for the given object.
+        """
+        assert to_json(model_instance) == json_repr
+
+    def test_json_deserialization(
+        self, can_be_deserialized: bool, model_instance: Any, json_repr: str | Dict[str, Any]
+    ):
+        """
+        Test that to_json returns the expected JSON for the given object.
+        """
+        if not can_be_deserialized:
+            pytest.skip(reason="The model instance in this case can not be deserialized")
+        model_type = type(model_instance)
+        assert model_type(**json_repr) == model_instance
+
+
+EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # type: ignore
+
+
+@pytest.mark.parametrize(
+    "adapter, type_instance, json_repr",
+    [
+        pytest.param(
+            EngineNewPayloadParametersAdapter,
+            (
+                FixtureExecutionPayload.from_fixture_header(
                     header=FixtureHeader(
                         parent_hash=Hash(0),
                         ommers_hash=Hash(1),
@@ -740,16 +985,9 @@ fixture_header_ones = FixtureHeader(
                     withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
                     requests=None,
                 ),
-                version=1,
-                validation_error=[
-                    BlockException.INCORRECT_BLOCK_FORMAT,
-                    TransactionException.INTRINSIC_GAS_TOO_LOW,
-                ],
-                blob_versioned_hashes=[bytes([0]), bytes([1])],
-                error_code=EngineAPIError.InvalidRequest,
             ),
-            {
-                "executionPayload": {
+            [
+                {
                     "parentHash": Hash(0).hex(),
                     "feeRecipient": Address(2).hex(),
                     "stateRoot": Hash(3).hex(),
@@ -764,9 +1002,8 @@ fixture_header_ones = FixtureHeader(
                     "baseFeePerGas": hex(15),
                     "blobGasUsed": hex(17),
                     "excessBlobGas": hex(18),
-                    "blockHash": (
-                        "0xd90115b7fde329f64335763a446af150ab67e639281dccdb07a007d18bb80211"
-                    ),
+                    "blockHash": "0xd90115b7fde329f64335763a446af1"
+                    "50ab67e639281dccdb07a007d18bb80211",
                     "transactions": [
                         "0x"
                         + Transaction(
@@ -787,49 +1024,173 @@ fixture_header_ones = FixtureHeader(
                         .rlp.hex()
                     ],
                     "withdrawals": [
+                        to_json(Withdrawal(index=0, validator_index=1, address=0x1234, amount=2))
+                    ],
+                }
+            ],
+            id="fixture_engine_new_payload_parameters_v1",
+        ),
+        pytest.param(
+            EngineNewPayloadParametersAdapter,
+            (
+                FixtureExecutionPayload.from_fixture_header(
+                    header=FixtureHeader(
+                        parent_hash=Hash(0),
+                        ommers_hash=Hash(1),
+                        fee_recipient=Address(2),
+                        state_root=Hash(3),
+                        transactions_trie=Hash(4),
+                        receipts_root=Hash(5),
+                        logs_bloom=Bloom(6),
+                        difficulty=7,
+                        number=8,
+                        gas_limit=9,
+                        gas_used=10,
+                        timestamp=11,
+                        extra_data=Bytes([12]),
+                        prev_randao=Hash(13),
+                        nonce=HeaderNonce(14),
+                        base_fee_per_gas=15,
+                        withdrawals_root=Hash(16),
+                        blob_gas_used=17,
+                        excess_blob_gas=18,
+                    ),
+                    transactions=[
+                        Transaction(
+                            to=0x1234,
+                            data=b"\x01\x00",
+                            access_list=[
+                                AccessList(
+                                    address=0x1234,
+                                    storage_keys=[0, 1],
+                                )
+                            ],
+                            max_priority_fee_per_gas=10,
+                            max_fee_per_gas=20,
+                            max_fee_per_blob_gas=30,
+                            blob_versioned_hashes=[0, 1],
+                        ).with_signature_and_sender(),
+                    ],
+                    withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                    requests=Requests(
+                        [
+                            DepositRequest(
+                                pubkey=BLSPublicKey(0),
+                                withdrawal_credentials=Hash(1),
+                                amount=2,
+                                signature=BLSSignature(3),
+                                index=4,
+                            ),
+                            WithdrawalRequest(
+                                source_address=Address(0),
+                                validator_pubkey=BLSPublicKey(1),
+                                amount=2,
+                            ),
+                        ]
+                    ),
+                ),
+                [Hash(1), Hash(2)],
+                Hash(3),
+            ),
+            [
+                {
+                    "parentHash": Hash(0).hex(),
+                    "feeRecipient": Address(2).hex(),
+                    "stateRoot": Hash(3).hex(),
+                    "receiptsRoot": Hash(5).hex(),
+                    "logsBloom": Bloom(6).hex(),
+                    "blockNumber": hex(8),
+                    "gasLimit": hex(9),
+                    "gasUsed": hex(10),
+                    "timestamp": hex(11),
+                    "extraData": Bytes([12]).hex(),
+                    "prevRandao": Hash(13).hex(),
+                    "baseFeePerGas": hex(15),
+                    "blobGasUsed": hex(17),
+                    "excessBlobGas": hex(18),
+                    "blockHash": "0xd90115b7fde329f64335763a446af1"
+                    "50ab67e639281dccdb07a007d18bb80211",
+                    "transactions": [
+                        "0x"
+                        + Transaction(
+                            to=0x1234,
+                            data=b"\x01\x00",
+                            access_list=[
+                                AccessList(
+                                    address=0x1234,
+                                    storage_keys=[0, 1],
+                                )
+                            ],
+                            max_priority_fee_per_gas=10,
+                            max_fee_per_gas=20,
+                            max_fee_per_blob_gas=30,
+                            blob_versioned_hashes=[0, 1],
+                        )
+                        .with_signature_and_sender()
+                        .rlp.hex()
+                    ],
+                    "withdrawals": [
+                        to_json(Withdrawal(index=0, validator_index=1, address=0x1234, amount=2))
+                    ],
+                    "depositRequests": [
                         to_json(
-                            Withdrawal(
-                                index=0,
-                                validator_index=1,
-                                address=0x1234,
+                            DepositRequest(
+                                pubkey=BLSPublicKey(0),
+                                withdrawal_credentials=Hash(1),
+                                amount=2,
+                                signature=BLSSignature(3),
+                                index=4,
+                            )
+                        ),
+                    ],
+                    "withdrawalRequests": [
+                        to_json(
+                            WithdrawalRequest(
+                                source_address=Address(0),
+                                validator_pubkey=BLSPublicKey(1),
                                 amount=2,
                             )
-                        )
+                        ),
                     ],
                 },
-                "version": "1",
-                "validationError": "BlockException.INCORRECT_BLOCK_FORMAT"
-                "|TransactionException.INTRINSIC_GAS_TOO_LOW",
-                "expectedBlobVersionedHashes": [
-                    "0x0000000000000000000000000000000000000000000000000000000000000000",
-                    "0x0000000000000000000000000000000000000000000000000000000000000001",
-                ],
-                "errorCode": "-32600",
-            },
-            id="fixture_engine_new_payload_2",
+                [Hash(1).hex(), Hash(2).hex()],
+                Hash(3).hex(),
+            ],
+            id="fixture_engine_new_payload_parameters_v3",
         ),
     ],
 )
-class TestPydanticModelConversion:
+class TestPydanticAdaptersConversion:
     """
     Test that Pydantic models are converted to and from JSON correctly.
     """
 
     def test_json_serialization(
-        self, can_be_deserialized: bool, model_instance: Any, json: str | Dict[str, Any]
+        self,
+        adapter: TypeAdapter,
+        type_instance: Any,
+        json_repr: str | Dict[str, Any],
     ):
         """
         Test that to_json returns the expected JSON for the given object.
         """
-        assert to_json(model_instance) == json
+        assert (
+            adapter.dump_python(
+                type_instance,
+                mode="json",
+                by_alias=True,
+                exclude_none=True,
+            )
+            == json_repr
+        )
 
     def test_json_deserialization(
-        self, can_be_deserialized: bool, model_instance: Any, json: str | Dict[str, Any]
+        self,
+        adapter: TypeAdapter,
+        type_instance: Any,
+        json_repr: str | Dict[str, Any],
     ):
         """
         Test that to_json returns the expected JSON for the given object.
         """
-        if not can_be_deserialized:
-            pytest.skip(reason="The model instance in this case can not be deserialized")
-        model_type = type(model_instance)
-        assert model_type(**json) == model_instance
+        assert adapter.validate_python(json_repr) == type_instance

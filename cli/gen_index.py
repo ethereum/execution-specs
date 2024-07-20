@@ -42,12 +42,12 @@ fixtures_to_skip = set(
 def count_json_files_exclude_index(start_path: Path) -> int:
     """
     Return the number of json files in the specified directory, excluding
-    index.json files and tests in "blockchain_tests_hive".
+    index.json files and tests in "blockchain_tests_engine".
     """
     json_file_count = sum(
         1
         for file in start_path.rglob("*.json")
-        if file.name != "index.json" and "blockchain_tests_hive" not in file.parts
+        if file.name != "index.json" and "blockchain_tests_engine" not in file.parts
     )
     return json_file_count
 
@@ -56,8 +56,8 @@ def infer_fixture_format_from_path(file: Path) -> FixtureFormats:
     """
     Attempt to infer the fixture format from the file path.
     """
-    if "blockchain_tests_hive" in file.parts:
-        return FixtureFormats.BLOCKCHAIN_TEST_HIVE
+    if "blockchain_tests_engine" in file.parts:
+        return FixtureFormats.BLOCKCHAIN_TEST_ENGINE
     if "blockchain_tests" in file.parts:
         return FixtureFormats.BLOCKCHAIN_TEST
     if "BlockchainTests" in file.parts:  # ethereum/tests

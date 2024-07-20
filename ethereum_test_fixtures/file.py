@@ -7,16 +7,16 @@ from typing import Any, Dict, Literal, Optional
 
 from pydantic import RootModel
 
+from .blockchain import EngineFixture as BlockchainEngineFixture
 from .blockchain import Fixture as BlockchainFixture
-from .blockchain import HiveFixture as BlockchainHiveFixture
 from .formats import FixtureFormats
 from .state import Fixture as StateFixture
 
 FixtureFormatsValues = Literal[
-    "blockchain_test_hive", "blockchain_test", "state_test", "unset_test_format"
+    "blockchain_test_engine", "blockchain_test", "state_test", "unset_test_format"
 ]
 
-FixtureModel = BlockchainFixture | BlockchainHiveFixture | StateFixture
+FixtureModel = BlockchainFixture | BlockchainEngineFixture | StateFixture
 
 
 class BaseFixturesRootModel(RootModel):
@@ -101,10 +101,10 @@ class BaseFixturesRootModel(RootModel):
         """
         model_mapping = {
             FixtureFormats.BLOCKCHAIN_TEST: BlockchainFixtures,
-            FixtureFormats.BLOCKCHAIN_TEST_HIVE: BlockchainHiveFixtures,
+            FixtureFormats.BLOCKCHAIN_TEST_ENGINE: BlockchainEngineFixtures,
             FixtureFormats.STATE_TEST: StateFixtures,
             FixtureFormats.BLOCKCHAIN_TEST.value: BlockchainFixtures,
-            FixtureFormats.BLOCKCHAIN_TEST_HIVE.value: BlockchainHiveFixtures,
+            FixtureFormats.BLOCKCHAIN_TEST_ENGINE.value: BlockchainEngineFixtures,
             FixtureFormats.STATE_TEST.value: StateFixtures,
         }
 
@@ -123,7 +123,7 @@ class Fixtures(BaseFixturesRootModel):
     A model that can contain any fixture type.
     """
 
-    root: Dict[str, BlockchainFixture | BlockchainHiveFixture | StateFixture]
+    root: Dict[str, BlockchainFixture | BlockchainEngineFixture | StateFixture]
 
 
 class BlockchainFixtures(BaseFixturesRootModel):
@@ -136,14 +136,14 @@ class BlockchainFixtures(BaseFixturesRootModel):
     root: Dict[str, BlockchainFixture]
 
 
-class BlockchainHiveFixtures(BaseFixturesRootModel):
+class BlockchainEngineFixtures(BaseFixturesRootModel):
     """
-    Defines a top-level model containing multiple blockchain hive test fixtures in
+    Defines a top-level model containing multiple blockchain engine test fixtures in
     a dictionary of (fixture-name, fixture) pairs. This is the format used in JSON
-    fixture files for blockchain hive tests.
+    fixture files for blockchain engine tests.
     """
 
-    root: Dict[str, BlockchainHiveFixture]
+    root: Dict[str, BlockchainEngineFixture]
 
 
 class StateFixtures(BaseFixturesRootModel):

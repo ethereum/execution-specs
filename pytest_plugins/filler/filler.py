@@ -365,7 +365,7 @@ def pytest_runtest_makereport(item, call):
             if item.config.fixture_format in [
                 "state_test",
                 "blockchain_test",
-                "blockchain_test_hive",
+                "blockchain_test_engine",
             ]:
                 report.user_properties.append(("evm_dump_dir", item.config.evm_dump_dir))
             else:
@@ -831,7 +831,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
 
 def pytest_collection_modifyitems(config, items):
     """
-    Remove pre-Paris tests parametrized to generate hive type fixtures; these
+    Remove pre-Paris tests parametrized to generate engine type fixtures; these
     can't be used in the Hive Pyspec Simulator.
 
     This can't be handled in this plugins pytest_generate_tests() as the fork
@@ -844,17 +844,17 @@ def pytest_collection_modifyitems(config, items):
             items.remove(item)
             continue
         if item.callspec.params["fork"] < Paris:
-            # Even though the `state_test` test spec does not produce a hive STATE_TEST, it does
-            # produce a BLOCKCHAIN_TEST_HIVE, so we need to remove it here.
+            # Even though the `state_test` test spec does not produce an engine STATE_TEST, it does
+            # produce a BLOCKCHAIN_TEST_ENGINE, so we need to remove it here.
             # TODO: Ideally, the logic could be contained in the `FixtureFormat` class, we create
             # a `fork_supported` method that returns True if the fork is supported.
             if ("state_test" in item.callspec.params) and item.callspec.params[
                 "state_test"
-            ].name.endswith("HIVE"):
+            ].name.endswith("ENGINE"):
                 items.remove(item)
             if ("blockchain_test" in item.callspec.params) and item.callspec.params[
                 "blockchain_test"
-            ].name.endswith("HIVE"):
+            ].name.endswith("ENGINE"):
                 items.remove(item)
         if "yul" in item.fixturenames:
             item.add_marker(pytest.mark.yul_test)

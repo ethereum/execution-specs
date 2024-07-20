@@ -129,8 +129,8 @@ class TestCases(RootModel):
         fixtures = Fixtures.from_json_data(json.load(fd))
         test_cases = []
         for fixture_name, fixture in fixtures.items():
-            if fixture.format == FixtureFormats.BLOCKCHAIN_TEST_HIVE:
-                print("Skipping hive fixture", fixture_name)
+            if fixture.format == FixtureFormats.BLOCKCHAIN_TEST_ENGINE:
+                print("Skipping engine fixture", fixture_name)
             test_cases.append(
                 TestCaseStream(
                     id=fixture_name,

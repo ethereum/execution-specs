@@ -292,7 +292,7 @@ class EOFStateTest(EOFTest):
         FixtureFormats.EOF_TEST,
         FixtureFormats.STATE_TEST,
         FixtureFormats.BLOCKCHAIN_TEST,
-        FixtureFormats.BLOCKCHAIN_TEST_HIVE,
+        FixtureFormats.BLOCKCHAIN_TEST_ENGINE,
     ]
 
     @model_validator(mode="before")
@@ -368,7 +368,7 @@ class EOFStateTest(EOFTest):
         elif fixture_format in (
             FixtureFormats.STATE_TEST,
             FixtureFormats.BLOCKCHAIN_TEST,
-            FixtureFormats.BLOCKCHAIN_TEST_HIVE,
+            FixtureFormats.BLOCKCHAIN_TEST_ENGINE,
         ):
             return self.generate_state_test().generate(
                 t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips

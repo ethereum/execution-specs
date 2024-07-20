@@ -212,7 +212,7 @@ def pytest_generate_tests(metafunc):
                 # marks=test_case.marks["all"] + test_case.marks["engine"],
             )
             for test_case in test_cases
-            if test_case.format == FixtureFormats.BLOCKCHAIN_TEST_HIVE
+            if test_case.format == FixtureFormats.BLOCKCHAIN_TEST_ENGINE
         ]
         metafunc.parametrize("test_case", pytest_params)
 

@@ -7,7 +7,7 @@ Each `engine_newPayloadVX` is verified against the appropriate VALID/INVALID res
 
 import time
 
-from ethereum_test_fixtures import BlockchainHiveFixture
+from ethereum_test_fixtures import BlockchainEngineFixture
 from ethereum_test_fixtures.blockchain import FixtureHeader
 from ethereum_test_tools.rpc import EngineRPC, EthRPC
 from ethereum_test_tools.rpc.types import ForkchoiceState, PayloadStatusEnum
@@ -18,7 +18,7 @@ def test_via_engine(
     timing_data,
     eth_rpc: EthRPC,
     engine_rpc: EngineRPC,
-    blockchain_fixture: BlockchainHiveFixture,
+    blockchain_fixture: BlockchainEngineFixture,
 ):
     """
     1. Check the client genesis block hash matches `blockchain_fixture.genesis.block_hash`.
@@ -36,19 +36,22 @@ def test_via_engine(
 
     for payload in blockchain_fixture.payloads:
         payload_response = engine_rpc.new_payload(
-            *payload.args(),
-            version=payload.version,
+            *payload.params,
+            version=payload.new_payload_version,
         )
         assert payload_response.status == (
             PayloadStatusEnum.VALID if payload.valid() else PayloadStatusEnum.INVALID
         ), f"unexpected status: {payload_response}"
-
-    forkchoice_response = engine_rpc.forkchoice_updated(
-        forkchoice_state=ForkchoiceState(head_block_hash=blockchain_fixture.last_block_hash),
-        payload_attributes=None,
-        version=blockchain_fixture.fcu_version,
-    )
+        if payload.valid():
+            # Send a forkchoice update to the engine
+            forkchoice_response = engine_rpc.forkchoice_updated(
+                forkchoice_state=ForkchoiceState(
+                    head_block_hash=payload.params[0].block_hash,
+                ),
+                payload_attributes=None,
+                version=payload.forkchoice_updated_version,
+            )
+            assert (
+                forkchoice_response.payload_status.status == PayloadStatusEnum.VALID
+            ), f"unexpected status: {forkchoice_response}"
     timing_data.test_case_execution = time.perf_counter() - timing_data.get_genesis - t_engine
-    assert (
-        forkchoice_response.payload_status.status == PayloadStatusEnum.VALID
-    ), f"unexpected status: {forkchoice_response}"

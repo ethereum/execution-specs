@@ -39,7 +39,7 @@ class StateTest(BaseTest):
 
     supported_fixture_formats: ClassVar[List[FixtureFormats]] = [
         FixtureFormats.BLOCKCHAIN_TEST,
-        FixtureFormats.BLOCKCHAIN_TEST_HIVE,
+        FixtureFormats.BLOCKCHAIN_TEST_ENGINE,
         FixtureFormats.STATE_TEST,
     ]
 

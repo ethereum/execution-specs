@@ -11,9 +11,9 @@ from typing import Mapping
 import pytest
 from hive.client import Client
 
-from ethereum_test_fixtures import BlockchainHiveFixture
+from ethereum_test_fixtures import BlockchainEngineFixture
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
-from ethereum_test_fixtures.file import BlockchainHiveFixtures
+from ethereum_test_fixtures.file import BlockchainEngineFixtures
 from ethereum_test_tools.rpc import EngineRPC
 from pytest_plugins.consume.consume import JsonSource
 
@@ -45,7 +45,7 @@ def test_suite_description() -> str:
 
 
 @pytest.fixture(scope="function")
-def blockchain_fixture(fixture_source: JsonSource, test_case: TestCase) -> BlockchainHiveFixture:
+def blockchain_fixture(fixture_source: JsonSource, test_case: TestCase) -> BlockchainEngineFixture:
     """
     Create the blockchain engine fixture pydantic model for the current test case.
 
@@ -56,14 +56,14 @@ def blockchain_fixture(fixture_source: JsonSource, test_case: TestCase) -> Block
     if fixture_source == "stdin":
         assert isinstance(test_case, TestCaseStream), "Expected a stream test case"
         assert isinstance(
-            test_case.fixture, BlockchainHiveFixture
+            test_case.fixture, BlockchainEngineFixture
         ), "Expected a blockchain engine test fixture"
         fixture = test_case.fixture
     else:
         assert isinstance(test_case, TestCaseIndexFile), "Expected an index file test case"
         # TODO: Optimize, json files will be loaded multiple times. This pytest fixture
         # is executed per test case, and a fixture json will contain multiple test cases.
-        fixtures = BlockchainHiveFixtures.from_file(Path(fixture_source) / test_case.json_path)
+        fixtures = BlockchainEngineFixtures.from_file(Path(fixture_source) / test_case.json_path)
         fixture = fixtures[test_case.id]
     return fixture
 

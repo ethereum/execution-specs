@@ -22,6 +22,7 @@ from ethereum_test_base_types import (
 from ethereum_test_exceptions import BlockException, EngineAPIError, TransactionException
 from ethereum_test_fixtures import BaseFixture, FixtureFormats
 from ethereum_test_fixtures.blockchain import (
+    EngineFixture,
     Fixture,
     FixtureBlock,
     FixtureBlockBase,
@@ -31,7 +32,6 @@ from ethereum_test_fixtures.blockchain import (
     FixtureTransaction,
     FixtureWithdrawal,
     FixtureWithdrawalRequest,
-    HiveFixture,
     InvalidFixtureBlock,
 )
 from ethereum_test_forks import Fork
@@ -318,7 +318,7 @@ class BlockchainTest(BaseTest):
 
     supported_fixture_formats: ClassVar[List[FixtureFormats]] = [
         FixtureFormats.BLOCKCHAIN_TEST,
-        FixtureFormats.BLOCKCHAIN_TEST_HIVE,
+        FixtureFormats.BLOCKCHAIN_TEST_ENGINE,
     ]
 
     def make_genesis(
@@ -623,7 +623,7 @@ class BlockchainTest(BaseTest):
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
-    ) -> HiveFixture:
+    ) -> EngineFixture:
         """
         Create a hive fixture from the blocktest definition.
         """
@@ -690,7 +690,7 @@ class BlockchainTest(BaseTest):
                 error_code=None,
             )
 
-        return HiveFixture(
+        return EngineFixture(
             fork=self.network_info(fork, eips),
             genesis=genesis.header,
             payloads=fixture_payloads,
@@ -712,7 +712,7 @@ class BlockchainTest(BaseTest):
         Generate the BlockchainTest fixture.
         """
         t8n.reset_traces()
-        if fixture_format == FixtureFormats.BLOCKCHAIN_TEST_HIVE:
+        if fixture_format == FixtureFormats.BLOCKCHAIN_TEST_ENGINE:
             return self.make_hive_fixture(t8n, fork, eips)
         elif fixture_format == FixtureFormats.BLOCKCHAIN_TEST:
             return self.make_fixture(t8n, fork, eips)
