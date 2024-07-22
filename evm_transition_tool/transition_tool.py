@@ -405,10 +405,8 @@ class TransitionTool(FixtureVerifier):
             dump_files_to_directory(
                 debug_output_path,
                 {
-                    "output/alloc.json": output.alloc.model_dump(mode="json", **model_dump_config),
-                    "output/result.json": output.result.model_dump(
-                        mode="json", **model_dump_config
-                    ),
+                    "output/alloc.json": output.alloc,
+                    "output/result.json": output.result,
                     "output/txs.rlp": str(output.body),
                 },
             )
@@ -476,8 +474,8 @@ class TransitionTool(FixtureVerifier):
             debug_output_path,
             {
                 "args.py": args,
-                "input/alloc.json": stdin.alloc.model_dump(mode="json", **model_dump_config),
-                "input/env.json": stdin.env.model_dump(mode="json", **model_dump_config),
+                "input/alloc.json": stdin.alloc,
+                "input/env.json": stdin.env,
                 "input/txs.json": [
                     tx.model_dump(mode="json", **model_dump_config) for tx in stdin.txs
                 ],
