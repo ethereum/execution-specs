@@ -187,6 +187,13 @@ def all_consume_test_paths() -> list:
     return [consume_test_paths(command) for command in get_args(ConsumeCommands)]
 
 
+def input_provided(args) -> bool:
+    """
+    Returns true if `--input` is provided via the command line.
+    """
+    return any(arg.startswith("--input") for arg in args)
+
+
 @click.group()
 def consume():
     """
@@ -203,7 +210,7 @@ def consume_direct(pytest_args, help_flag, pytest_help_flag):
     """
     args = handle_help_flags(pytest_args, help_flag, pytest_help_flag)
     args += ["-c", "pytest-consume.ini", "--rootdir", "./", consume_test_paths("direct")]
-    if not sys.stdin.isatty():  # the command is receiving input on stdin
+    if not input_provided(args) and not sys.stdin.isatty():  # command is receiving input on stdin
         args.extend(["-s", "--input=stdin"])
     pytest.main(args)
 
@@ -225,7 +232,7 @@ def consume_via_rlp(pytest_args, help_flag, pytest_help_flag):
         "pytest_plugins.pytest_hive.pytest_hive",
     ]
     args += get_hive_flags_from_env()
-    if not sys.stdin.isatty():  # the command is receiving input on stdin
+    if not input_provided(args) and not sys.stdin.isatty():  # command is receiving input on stdin
         args.extend(["-s", "--input=stdin"])
     pytest.main(args)
 
@@ -247,7 +254,7 @@ def consume_via_engine_api(pytest_args, help_flag, pytest_help_flag):
         "pytest_plugins.pytest_hive.pytest_hive",
     ]
     args += get_hive_flags_from_env()
-    if not sys.stdin.isatty():  # the command is receiving input on stdin
+    if not input_provided(args) and not sys.stdin.isatty():  # command is receiving input on stdin
         args.extend(["-s", "--input=stdin"])
     pytest.main(args)
 
