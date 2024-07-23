@@ -365,13 +365,13 @@ class TransitionTool(FixtureVerifier):
                 continue
             with open(file_path, "r+") as file:
                 output_contents[key] = json.load(file)
-
+        output = TransitionToolOutput(**output_contents)
         if self.trace:
-            self.collect_traces(output_contents["result"]["receipts"], temp_dir, debug_output_path)
+            self.collect_traces(output.result.receipts, temp_dir, debug_output_path)
 
         temp_dir.cleanup()
 
-        return TransitionToolOutput(**output_contents)
+        return output
 
     def _evaluate_stream(
         self,

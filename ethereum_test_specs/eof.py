@@ -349,6 +349,7 @@ class EOFStateTest(EOFTest):
             tx=tx,
             env=self.env,
             post=post,
+            t8n_dump_dir=self.t8n_dump_dir,
         )
 
     def generate(
