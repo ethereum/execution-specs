@@ -9,6 +9,11 @@ from ethereum_test_tools import Account, Alloc, Block, BlockchainTestFiller, Env
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import Transaction, Yul, compute_create2_address
 
+from .spec import ref_spec_1014
+
+REFERENCE_SPEC_GIT_PATH = ref_spec_1014.git_path
+REFERENCE_SPEC_VERSION = ref_spec_1014.version
+
 
 @pytest.mark.parametrize("recreate_on_separate_block", [True, False])
 @pytest.mark.valid_from("Constantinople")

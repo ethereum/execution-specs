@@ -43,7 +43,9 @@ def test_coverage(
         + Op.PUSH2(0x0102)
         + Op.PUSH3(0x010203)
         + Op.PUSH4(0x01020304)
-        + Op.POP(0x01),
+        + Op.POP(0x01)
+        # lllc tests insert codecopy when using lll(seq())
+        + Op.CODECOPY(0, 16, 4),
         storage={},
     )
     address_to = pre.deploy_contract(
