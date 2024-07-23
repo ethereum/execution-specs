@@ -249,7 +249,7 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
     hash : `Hash32`
         The PoW valid rlp hash of the passed in header.
     """
-    header_data_without_pow_artefacts = [
+    header_data_without_pow_artefacts = (
         header.parent_hash,
         header.ommers_hash,
         header.coinbase,
@@ -263,7 +263,7 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
         header.gas_used,
         header.timestamp,
         header.extra_data,
-    ]
+    )
 
     return rlp.rlp_hash(header_data_without_pow_artefacts)
 
