@@ -843,6 +843,13 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
             return eth_rlp.encode(self.payload_body)
 
     @cached_property
+    def hash(self) -> Hash:
+        """
+        Returns hash of the transaction.
+        """
+        return Hash(keccak256(self.rlp))
+
+    @cached_property
     def signing_bytes(self) -> bytes:
         """
         Returns the serialized bytes of the transaction used for signing.

@@ -59,7 +59,7 @@ from typing import Dict, List, TextIO
 
 import click
 
-from ethereum_test_base_types import Account, Address, ZeroPaddedHexNumber
+from ethereum_test_base_types import Account, Address, Hash, ZeroPaddedHexNumber
 from ethereum_test_tools.rpc import BlockNumberType, DebugRPC, EthRPC
 from ethereum_test_types import Transaction
 
@@ -91,13 +91,13 @@ def make_test(transaction_hash: str, output_file: TextIO, config_file: TextIO):
         "Perform tx request: eth_get_transaction_by_hash(" + f"{transaction_hash}" + ")",
         file=stderr,
     )
-    tr = request.eth_get_transaction_by_hash(transaction_hash)
+    tr = request.eth_get_transaction_by_hash(Hash(transaction_hash))
 
     print("Perform debug_trace_call", file=stderr)
     state = request.debug_trace_call(tr)
 
     print("Perform eth_get_block_by_number", file=stderr)
-    block = request.eth_get_block_by_number(int(tr.block_number, 16))
+    block = request.eth_get_block_by_number(tr.block_number)
 
     print("Generate py test", file=stderr)
     constructor = TestConstructor(PYTEST_TEMPLATE)
@@ -216,7 +216,7 @@ class TestConstructor:
         Prepare the .py file template
         """
         test = self.test_template
-        test = self._make_test_comments(test, tr.tr_hash)
+        test = self._make_test_comments(test, str(tr.tr_hash))
         test = self._make_test_environment(test, bl)
         test = self._make_pre_state(test, tr, state)
         test = self._make_transaction(test, tr)
@@ -260,8 +260,8 @@ class RequestManager:
         Remote transaction structure
         """
 
-        block_number: str
-        tr_hash: str
+        block_number: int
+        tr_hash: Hash
         transaction: Transaction
 
     @dataclass
@@ -291,32 +291,34 @@ class RequestManager:
         self.rpc = EthRPC(node_config.node_url, extra_headers=headers)
         self.debug_rpc = DebugRPC(node_config.node_url, extra_headers=headers)
 
-    def eth_get_transaction_by_hash(self, transaction_hash: str) -> RemoteTransaction:
+    def eth_get_transaction_by_hash(self, transaction_hash: Hash) -> RemoteTransaction:
         """
         Get transaction data.
         """
         res = self.rpc.get_transaction_by_hash(transaction_hash)
+        block_number = res.block_number
+        assert block_number is not None, "Transaction does not seem to be included in any block"
 
         assert (
-            res["type"] == "0x0"
-        ), f"Transaction has type {res['type']}: Currently only type 0 transactions are supported."
+            res.ty == 0
+        ), f"Transaction has type {res.ty}: Currently only type 0 transactions are supported."
 
         return RequestManager.RemoteTransaction(
-            block_number=res["blockNumber"],
-            tr_hash=res["hash"],
+            block_number=block_number,
+            tr_hash=res.transaction_hash,
             transaction=Transaction(
-                ty=int(res["type"], 16),
-                gas_limit=int(res["gas"], 16),
-                gas_price=int(res["gasPrice"], 16),
-                data=res["input"],
-                nonce=int(res["nonce"], 16),
-                sender=res["from"],
-                to=res["to"],
-                value=int(res["value"], 16),
-                v=int(res["v"], 16),
-                r=int(res["r"], 16),
-                s=int(res["s"], 16),
-                protected=True if int(res["v"], 16) > 30 else False,
+                ty=res.ty,
+                gas_limit=res.gas_limit,
+                gas_price=res.gas_price,
+                data=res.data,
+                nonce=res.nonce,
+                sender=res.from_address,
+                to=res.to_address,
+                value=res.value,
+                v=res.v,
+                r=res.r,
+                s=res.s,
+                protected=True if res.v > 30 else False,
             ),
         )
 
@@ -344,7 +346,7 @@ class RequestManager:
                 "to": f"{str(tr.transaction.to)}",
                 "data": f"{str(tr.transaction.data)}",
             },
-            tr.block_number,
+            f"{tr.block_number}",
         )
 
 

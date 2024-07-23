@@ -10,9 +10,18 @@ import requests
 from jwt import encode
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-from ethereum_test_base_types import Address, Hash
-from ethereum_test_base_types.json import to_json
-from ethereum_test_tools.rpc.types import ForkchoiceState, ForkchoiceUpdateResponse, PayloadStatus
+from ethereum_test_base_types import Address, Bytes, Hash, to_json
+from ethereum_test_types import Transaction
+
+from .types import (
+    ForkchoiceState,
+    ForkchoiceUpdateResponse,
+    GetPayloadResponse,
+    JSONRPCError,
+    PayloadAttributes,
+    PayloadStatus,
+    TransactionByHashResponse,
+)
 
 BlockNumberType = Union[int, Literal["latest", "earliest", "pending"]]
 
@@ -62,19 +71,13 @@ class BaseRPC:
         response = requests.post(self.url, json=payload, headers=headers)
         response.raise_for_status()
         response_json = response.json()
+
+        if "error" in response_json:
+            exception = JSONRPCError(**response_json["error"])
+            raise exception.exception(method)
+
         assert "result" in response_json, "RPC response didn't contain a result field"
         result = response_json["result"]
-
-        if result is None or "error" in result:
-            error_info = "result is None; and therefore contains no error info"
-            error_code = None
-            if result is not None:
-                error_info = result["error"]
-                error_code = result["error"]["code"]
-            raise Exception(
-                f"Error calling JSON RPC {method}, code: {error_code}, " f"message: {error_info}"
-            )
-
         return result
 
 
@@ -106,6 +109,13 @@ class EthRPC(BaseRPC):
         block = hex(block_number) if isinstance(block_number, int) else block_number
         return int(self.post_request("getBalance", f"{address}", block), 16)
 
+    def get_code(self, address: Address, block_number: BlockNumberType = "latest") -> Bytes:
+        """
+        `eth_getCode`: Returns code at a given address.
+        """
+        block = hex(block_number) if isinstance(block_number, int) else block_number
+        return Bytes(self.post_request("getCode", f"{address}", block))
+
     def get_transaction_count(
         self, address: Address, block_number: BlockNumberType = "latest"
     ) -> int:
@@ -115,33 +125,101 @@ class EthRPC(BaseRPC):
         block = hex(block_number) if isinstance(block_number, int) else block_number
         return int(self.post_request("getTransactionCount", f"{address}", block), 16)
 
-    def get_transaction_by_hash(self, transaction_hash: str):
+    def get_transaction_by_hash(self, transaction_hash: Hash) -> TransactionByHashResponse:
         """
         `eth_getTransactionByHash`: Returns transaction details.
         """
-        return self.post_request("getTransactionByHash", f"{transaction_hash}")
+        return TransactionByHashResponse(
+            **self.post_request("getTransactionByHash", f"{transaction_hash}")
+        )
 
     def get_storage_at(
         self, address: Address, position: Hash, block_number: BlockNumberType = "latest"
-    ):
+    ) -> Hash:
         """
         `eth_getStorageAt`: Returns the value from a storage position at a given address.
         """
         block = hex(block_number) if isinstance(block_number, int) else block_number
-        return self.post_request("getStorageAt", f"{address}", f"{position}", block)
+        return Hash(self.post_request("getStorageAt", f"{address}", f"{position}", block))
+
+    def send_transaction(self, transaction: Transaction):
+        """
+        `eth_sendRawTransaction`: Send a transaction to the client.
+        """
+        result_hash = Hash(self.post_request("sendRawTransaction", f"0x{transaction.rlp.hex()}"))
+        assert result_hash == transaction.hash
+
+    def send_transactions(self, transactions: List[Transaction]):
+        """
+        Uses `eth_sendRawTransaction` to send a list of transactions to the client.
+        """
+        for tx in transactions:
+            self.send_transaction(tx)
 
     def storage_at_keys(
         self, account: Address, keys: List[Hash], block_number: BlockNumberType = "latest"
-    ) -> Dict:
+    ) -> Dict[Hash, Hash]:
         """
         Helper to retrieve the storage values for the specified keys at a given address and block
         number.
         """
-        results: Dict = {}
+        results: Dict[Hash, Hash] = {}
         for key in keys:
             storage_value = self.get_storage_at(account, key, block_number)
             results[key] = storage_value
         return results
+
+    def wait_for_transaction(
+        self, transaction: Transaction, timeout: int = 60
+    ) -> TransactionByHashResponse:
+        """
+        Uses `eth_getTransactionByHash` to wait until a transaction is included in a block.
+        """
+        tx_hash = transaction.hash
+        for _ in range(timeout):
+            tx = self.get_transaction_by_hash(tx_hash)
+            if tx.block_number is not None:
+                return tx
+            time.sleep(1)
+        raise Exception(f"Transaction {tx_hash} not included in a block after {timeout} seconds")
+
+    def wait_for_transactions(
+        self, transactions: List[Transaction], timeout: int = 60
+    ) -> List[TransactionByHashResponse]:
+        """
+        Uses `eth_getTransactionByHash` to wait unitl all transactions in list are included in a
+        block.
+        """
+        tx_hashes = [tx.hash for tx in transactions]
+        responses: List[TransactionByHashResponse] = []
+        for _ in range(timeout):
+            i = 0
+            while i < len(tx_hashes):
+                tx_hash = tx_hashes[i]
+                tx = self.get_transaction_by_hash(tx_hash)
+                if tx.block_number is not None:
+                    responses.append(tx)
+                    tx_hashes.pop(i)
+                else:
+                    i += 1
+            if not tx_hashes:
+                return responses
+            time.sleep(1)
+        raise Exception(f"Transaction {tx_hash} not included in a block after {timeout} seconds")
+
+    def send_wait_transaction(self, transaction: Transaction, timeout: int = 60):
+        """
+        Sends a transaction and waits until it is included in a block.
+        """
+        self.send_transaction(transaction)
+        return self.wait_for_transaction(transaction, timeout)
+
+    def send_wait_transactions(self, transactions: List[Transaction], timeout: int = 60):
+        """
+        Sends a list of transactions and waits until all of them are included in a block.
+        """
+        self.send_transactions(transactions)
+        return self.wait_for_transactions(transactions, timeout)
 
 
 class DebugRPC(EthRPC):
@@ -194,7 +272,7 @@ class EngineRPC(BaseRPC):
     def forkchoice_updated(
         self,
         forkchoice_state: ForkchoiceState,
-        payload_attributes: Dict | None = None,
+        payload_attributes: PayloadAttributes | None = None,
         *,
         version: int,
     ) -> ForkchoiceUpdateResponse:
@@ -205,6 +283,23 @@ class EngineRPC(BaseRPC):
             **self.post_request(
                 f"forkchoiceUpdatedV{version}",
                 to_json(forkchoice_state),
-                payload_attributes,
+                to_json(payload_attributes) if payload_attributes is not None else None,
+            )
+        )
+
+    def get_payload(
+        self,
+        payload_id: Bytes,
+        *,
+        version: int,
+    ) -> GetPayloadResponse:
+        """
+        `engine_getPayloadVX`: Retrieves a payload that was requested through
+        `engine_forkchoiceUpdatedVX`.
+        """
+        return GetPayloadResponse(
+            **self.post_request(
+                f"getPayloadV{version}",
+                f"{payload_id}",
             )
         )
