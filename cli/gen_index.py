@@ -44,11 +44,7 @@ def count_json_files_exclude_index(start_path: Path) -> int:
     Return the number of json files in the specified directory, excluding
     index.json files and tests in "blockchain_tests_engine".
     """
-    json_file_count = sum(
-        1
-        for file in start_path.rglob("*.json")
-        if file.name != "index.json" and "blockchain_tests_engine" not in file.parts
-    )
+    json_file_count = sum(1 for file in start_path.rglob("*.json") if file.name != "index.json")
     return json_file_count
 
 
