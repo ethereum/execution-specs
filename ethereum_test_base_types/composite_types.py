@@ -2,10 +2,9 @@
 Base composite types for Ethereum test cases.
 """
 from dataclasses import dataclass
-from itertools import count
-from typing import Any, ClassVar, Dict, Iterator, SupportsBytes, Type, TypeAlias
+from typing import Any, ClassVar, Dict, SupportsBytes, Type, TypeAlias
 
-from pydantic import Field, RootModel, TypeAdapter
+from pydantic import Field, PrivateAttr, RootModel, TypeAdapter
 
 from .base_types import Address, Bytes, Hash, HashInt, HexNumber, ZeroPaddedHexNumber
 from .conversions import BytesConvertible, NumberConvertible
@@ -24,7 +23,7 @@ class Storage(RootModel[Dict[StorageKeyValueType, StorageKeyValueType]]):
 
     root: Dict[StorageKeyValueType, StorageKeyValueType] = Field(default_factory=dict)
 
-    _current_slot: Iterator[int] = count(0)
+    _current_slot: int = PrivateAttr(0)
 
     StorageDictType: ClassVar[TypeAlias] = Dict[
         str | int | bytes | SupportsBytes, str | int | bytes | SupportsBytes
@@ -161,9 +160,22 @@ class Storage(RootModel[Dict[StorageKeyValueType, StorageKeyValueType]]):
         """Returns True if the storage is not empty"""
         return any(v for v in self.root.values())
 
+    def __add__(self, other: "Storage") -> "Storage":
+        """
+        Returns a new storage that is the sum of two storages.
+        """
+        return Storage({**self.root, **other.root})
+
     def keys(self) -> set[StorageKeyValueType]:
         """Returns the keys of the storage"""
         return set(self.root.keys())
+
+    def set_next_slot(self, slot: int) -> "Storage":
+        """
+        Sets the next slot to be used by `store_next`.
+        """
+        self._current_slot = slot
+        return self
 
     def store_next(
         self, value: StorageKeyValueTypeConvertible | StorageKeyValueType | bool
@@ -174,9 +186,16 @@ class Storage(RootModel[Dict[StorageKeyValueType, StorageKeyValueType]]):
         Increments the key counter so the next time this function is called,
         the next key is used.
         """
-        slot = StorageKeyValueTypeAdapter.validate_python(next(self._current_slot))
+        slot = StorageKeyValueTypeAdapter.validate_python(self._current_slot)
+        self._current_slot += 1
         self[slot] = StorageKeyValueTypeAdapter.validate_python(value)
         return slot
+
+    def peek_slot(self) -> int:
+        """
+        Peeks the next slot that will be used by `store_next`.
+        """
+        return self._current_slot
 
     def contains(self, other: "Storage") -> bool:
         """

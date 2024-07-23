@@ -26,6 +26,7 @@ from ethereum_test_base_types import (
 from ethereum_test_exceptions import EngineAPIError, ExceptionInstanceOrList
 from ethereum_test_forks import Fork
 from ethereum_test_types.types import (
+    AuthorizationTupleGeneric,
     ConsolidationRequest,
     ConsolidationRequestGeneric,
     DepositRequest,
@@ -321,10 +322,29 @@ class FixtureEngineNewPayload(CamelModel):
         return new_payload
 
 
+class FixtureAuthorizationTuple(AuthorizationTupleGeneric[ZeroPaddedHexNumber]):
+    """
+    Authorization tuple for fixture transactions.
+    """
+
+    signer: Address | None = None
+
+    @classmethod
+    def from_authorization_tuple(
+        cls, auth_tuple: AuthorizationTupleGeneric
+    ) -> "FixtureAuthorizationTuple":
+        """
+        Returns a FixtureAuthorizationTuple from an AuthorizationTuple.
+        """
+        return cls(**auth_tuple.model_dump())
+
+
 class FixtureTransaction(TransactionFixtureConverter, TransactionGeneric[ZeroPaddedHexNumber]):
     """
     Representation of an Ethereum transaction within a test Fixture.
     """
+
+    authorization_list: List[FixtureAuthorizationTuple] | None = None
 
     @classmethod
     def from_transaction(cls, tx: Transaction) -> "FixtureTransaction":

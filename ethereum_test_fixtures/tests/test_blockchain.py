@@ -15,13 +15,16 @@ from ethereum_test_base_types import (
     Bytes,
     Hash,
     HeaderNonce,
+    TestPrivateKey,
     ZeroPaddedHexNumber,
     to_json,
 )
 from ethereum_test_exceptions import BlockException, EngineAPIError, TransactionException
 from ethereum_test_forks import Prague
 from ethereum_test_types import (
+    EOA,
     AccessList,
+    AuthorizationTuple,
     ConsolidationRequest,
     DepositRequest,
     Requests,
@@ -177,6 +180,51 @@ fixture_header_ones = FixtureHeader(
                 "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
             },
             id="fixture_transaction_type_3_default_values",
+        ),
+        pytest.param(
+            True,
+            FixtureTransaction.from_transaction(
+                Transaction(
+                    ty=4,
+                    max_fee_per_gas=7,
+                    authorization_list=[
+                        AuthorizationTuple(
+                            chain_id=1,
+                            address=2,
+                            nonce=[3],
+                            signer=EOA(key=TestPrivateKey),
+                        )
+                    ],
+                ).with_signature_and_sender()
+            ),
+            {
+                "type": "0x04",
+                "chainId": "0x01",
+                "nonce": "0x00",
+                "to": "0x00000000000000000000000000000000000000aa",
+                "value": "0x00",
+                "data": "0x",
+                "gasLimit": "0x5208",
+                "maxPriorityFeePerGas": "0x00",
+                "maxFeePerGas": "0x07",
+                "accessList": [],
+                "authorizationList": [
+                    {
+                        "chainId": "0x01",
+                        "address": Address(2).hex(),
+                        "nonce": ["0x03"],
+                        "v": "0x00",
+                        "r": "0x796b0a59fe796b5aab79259988f4b18bb7966dc9aa0a01d226859057f539d8f6",
+                        "s": "0x7456ad9b8b4e157d8a150ae7d568bb93e668bf1d5970756f7fe7b7f2472235fe",
+                        "signer": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+                    }
+                ],
+                "v": "0x01",
+                "r": "0xb9f3ad929ffdb846cbe357fa25e6ab93cc6e10e76da170a12baf03f8a34ba141",
+                "s": "0x04992060cfa252f5ac18ac1ccb340a821497d50812a225646094d2ad08b8eeaa",
+                "sender": "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b",
+            },
+            id="fixture_transaction_type_4",
         ),
         pytest.param(
             True,

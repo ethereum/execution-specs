@@ -10,6 +10,7 @@ from ethereum_test_base_types import Address, Alloc, Bytes, Hash, ZeroPaddedHexN
 from ethereum_test_exceptions import TransactionExceptionInstanceOrList
 from ethereum_test_types.types import (
     AccessList,
+    AuthorizationTupleGeneric,
     CamelModel,
     EnvironmentGeneric,
     Transaction,
@@ -28,6 +29,23 @@ class FixtureEnvironment(EnvironmentGeneric[ZeroPaddedHexNumber]):
     prev_randao: Hash | None = Field(None, alias="currentRandom")  # type: ignore
 
 
+class FixtureAuthorizationTuple(AuthorizationTupleGeneric[ZeroPaddedHexNumber]):
+    """
+    Authorization tuple for fixture transactions.
+    """
+
+    signer: Address | None = None
+
+    @classmethod
+    def from_authorization_tuple(
+        cls, auth_tuple: AuthorizationTupleGeneric
+    ) -> "FixtureAuthorizationTuple":
+        """
+        Returns a FixtureAuthorizationTuple from an AuthorizationTuple.
+        """
+        return cls(**auth_tuple.model_dump())
+
+
 class FixtureTransaction(TransactionFixtureConverter):
     """
     Type used to describe a transaction in a state test.
@@ -42,6 +60,7 @@ class FixtureTransaction(TransactionFixtureConverter):
     value: List[ZeroPaddedHexNumber]
     data: List[Bytes]
     access_lists: List[List[AccessList]] | None = None
+    authorization_list: List[FixtureAuthorizationTuple] | None = None
     max_fee_per_blob_gas: ZeroPaddedHexNumber | None = None
     blob_versioned_hashes: Sequence[Hash] | None = None
     sender: Address | None = None
