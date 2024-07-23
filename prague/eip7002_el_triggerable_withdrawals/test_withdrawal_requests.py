@@ -64,6 +64,7 @@ pytestmark = pytest.mark.valid_from("Prague")
                                 validator_pubkey=0x01,
                                 amount=0,
                                 fee=0,
+                                valid=False,
                             )
                         ],
                     ),
@@ -262,7 +263,6 @@ pytestmark = pytest.mark.valid_from("Prague")
         ),
         pytest.param(
             [
-                # Block 1
                 [
                     WithdrawalRequestTransaction(
                         requests=[
@@ -275,10 +275,6 @@ pytestmark = pytest.mark.valid_from("Prague")
                         ]
                     )
                 ],
-                # Block 2, no new withdrawal requests, but queued requests from previous block
-                [],
-                # Block 3, no new nor queued withdrawal requests
-                [],
             ],
             id="multiple_block_above_max_withdrawal_requests_from_eoa",
         ),

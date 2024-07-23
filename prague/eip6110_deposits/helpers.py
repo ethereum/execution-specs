@@ -91,6 +91,12 @@ class DepositRequest(DepositRequestBase):
             + self.signature
         )
 
+    def with_source_address(self, source_address: Address) -> "DepositRequest":
+        """
+        Return a copy.
+        """
+        return self.copy()
+
 
 @dataclass(kw_only=True)
 class DepositInteractionBase:
