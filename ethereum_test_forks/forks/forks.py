@@ -564,6 +564,17 @@ class Prague(Cancun):
                 }
             )
 
+        # Add the consolidation request contract
+        with open(CURRENT_FOLDER / "contracts" / "consolidation_request.bin", mode="rb") as f:
+            new_allocation.update(
+                {
+                    0x00B42DBF2194E931E80326D950320F7D9DBEAC02: {
+                        "nonce": 1,
+                        "code": f.read(),
+                    },
+                }
+            )
+
         # Add the history storage contract
         with open(CURRENT_FOLDER / "contracts" / "history_contract.bin", mode="rb") as f:
             new_allocation.update(

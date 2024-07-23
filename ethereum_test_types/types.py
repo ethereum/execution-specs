@@ -1016,12 +1016,50 @@ class WithdrawalRequest(WithdrawalRequestGeneric[HexNumber]):
     pass
 
 
-class Requests(RootModel[List[DepositRequest | WithdrawalRequest]]):
+class ConsolidationRequestGeneric(RequestBase, CamelModel, Generic[NumberBoundTypeVar]):
+    """
+    Generic consolidation request type used as a parent for ConsolidationRequest and
+    FixtureConsolidationRequest.
+    """
+
+    source_address: Address = Address(0)
+    source_pubkey: BLSPublicKey
+    target_pubkey: BLSPublicKey
+
+    @classmethod
+    def type_byte(cls) -> bytes:
+        """
+        Returns the consolidation request type.
+        """
+        return b"\2"
+
+    def to_serializable_list(self) -> List[Any]:
+        """
+        Returns the consolidation's attributes as a list of serializable elements.
+        """
+        return [
+            self.source_address,
+            self.source_pubkey,
+            self.target_pubkey,
+        ]
+
+
+class ConsolidationRequest(ConsolidationRequestGeneric[HexNumber]):
+    """
+    Consolidation Request type
+    """
+
+    pass
+
+
+class Requests(RootModel[List[DepositRequest | WithdrawalRequest | ConsolidationRequest]]):
     """
     Requests for the transition tool.
     """
 
-    root: List[DepositRequest | WithdrawalRequest] = Field(default_factory=list)
+    root: List[DepositRequest | WithdrawalRequest | ConsolidationRequest] = Field(
+        default_factory=list
+    )
 
     def to_serializable_list(self) -> List[Any]:
         """
@@ -1053,3 +1091,9 @@ class Requests(RootModel[List[DepositRequest | WithdrawalRequest]]):
         Returns the list of withdrawal requests.
         """
         return [w for w in self.root if isinstance(w, WithdrawalRequest)]
+
+    def consolidation_requests(self) -> List[ConsolidationRequest]:
+        """
+        Returns the list of consolidation requests.
+        """
+        return [c for c in self.root if isinstance(c, ConsolidationRequest)]

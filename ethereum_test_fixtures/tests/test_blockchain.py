@@ -22,6 +22,7 @@ from ethereum_test_exceptions import BlockException, EngineAPIError, Transaction
 from ethereum_test_forks import Prague
 from ethereum_test_types import (
     AccessList,
+    ConsolidationRequest,
     DepositRequest,
     Requests,
     Transaction,
@@ -652,6 +653,11 @@ fixture_header_ones = FixtureHeader(
                             validator_pubkey=BLSPublicKey(1),
                             amount=2,
                         ),
+                        ConsolidationRequest(
+                            source_address=Address(0),
+                            source_pubkey=BLSPublicKey(1),
+                            target_pubkey=BLSPublicKey(2),
+                        ),
                     ]
                 ),
                 validation_error=[
@@ -726,6 +732,15 @@ fixture_header_ones = FixtureHeader(
                                     source_address=Address(0),
                                     validator_pubkey=BLSPublicKey(1),
                                     amount=2,
+                                )
+                            ),
+                        ],
+                        "consolidationRequests": [
+                            to_json(
+                                ConsolidationRequest(
+                                    source_address=Address(0),
+                                    source_pubkey=BLSPublicKey(1),
+                                    target_pubkey=BLSPublicKey(2),
                                 )
                             ),
                         ],
@@ -818,6 +833,11 @@ fixture_header_ones = FixtureHeader(
                             validator_pubkey=BLSPublicKey(1),
                             amount=2,
                         ),
+                        ConsolidationRequest(
+                            source_address=Address(0),
+                            source_pubkey=BLSPublicKey(1),
+                            target_pubkey=BLSPublicKey(2),
+                        ),
                     ]
                 ),
                 validation_error=[
@@ -891,6 +911,15 @@ fixture_header_ones = FixtureHeader(
                                     source_address=Address(0),
                                     validator_pubkey=BLSPublicKey(1),
                                     amount=2,
+                                )
+                            ),
+                        ],
+                        "consolidationRequests": [
+                            to_json(
+                                ConsolidationRequest(
+                                    source_address=Address(0),
+                                    source_pubkey=BLSPublicKey(1),
+                                    target_pubkey=BLSPublicKey(2),
                                 )
                             ),
                         ],
@@ -1086,6 +1115,11 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                                 validator_pubkey=BLSPublicKey(1),
                                 amount=2,
                             ),
+                            ConsolidationRequest(
+                                source_address=Address(0),
+                                source_pubkey=BLSPublicKey(1),
+                                target_pubkey=BLSPublicKey(2),
+                            ),
                         ]
                     ),
                 ),
@@ -1149,6 +1183,15 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                                 source_address=Address(0),
                                 validator_pubkey=BLSPublicKey(1),
                                 amount=2,
+                            )
+                        ),
+                    ],
+                    "consolidationRequests": [
+                        to_json(
+                            ConsolidationRequest(
+                                source_address=Address(0),
+                                source_pubkey=BLSPublicKey(1),
+                                target_pubkey=BLSPublicKey(2),
                             )
                         ),
                     ],
