@@ -14,7 +14,6 @@ import requests
 import rich
 
 from cli.gen_index import generate_fixtures_index
-from ethereum_test_fixtures import FixtureFormats
 from ethereum_test_fixtures.consume import TestCases
 
 cached_downloads_directory = Path("./cached_downloads")
@@ -86,6 +85,13 @@ def pytest_addoption(parser):  # noqa: D103
             "A URL or local directory specifying the JSON test fixtures. Default: "
             f"'{default_input_directory()}'."
         ),
+    )
+    consume_group.addoption(
+        "--fork",
+        action="store",
+        dest="single_fork",
+        default=None,
+        help="Only consume tests for the specified fork.",
     )
     consume_group.addoption(
         "--no-html",
@@ -166,56 +172,28 @@ def pytest_generate_tests(metafunc):
     Generate test cases for every test fixture in all the JSON fixture files
     within the specified fixtures directory, or read from stdin if the directory is 'stdin'.
     """
-    test_cases = metafunc.config.test_cases
-
-    if "test_blocktest" in metafunc.function.__name__:
-        pytest_params = [
-            pytest.param(
-                test_case,
-                id=test_case.id,
-                # marks=test_case.marks["all"] + test_case.marks["direct"],
-            )
-            for test_case in test_cases
-            if test_case.format == FixtureFormats.BLOCKCHAIN_TEST
-        ]
-        metafunc.parametrize("test_case", pytest_params)
-
-    if "test_statetest" in metafunc.function.__name__:
-        pytest_params = [
-            pytest.param(
-                test_case,
-                id=test_case.id,
-                # marks=test_case.marks["all"] + test_case.marks["direct"],
-            )
-            for test_case in test_cases
-            if test_case.format == FixtureFormats.STATE_TEST
-        ]
-        metafunc.parametrize("test_case", pytest_params)
-
-    if "test_via_rlp" in metafunc.function.__name__:
-        pytest_params = [
-            pytest.param(
-                test_case,
-                id=test_case.id,
-                # marks=test_case.marks["all"] + test_case.marks["rlp"],
-            )
-            for test_case in test_cases
-            if test_case.format == FixtureFormats.BLOCKCHAIN_TEST
-        ]
-        metafunc.parametrize("test_case", pytest_params)
-
-    if "test_via_engine" in metafunc.function.__name__:
-        pytest_params = [
-            pytest.param(
-                test_case,
-                id=test_case.id,
-                # marks=test_case.marks["all"] + test_case.marks["engine"],
-            )
-            for test_case in test_cases
-            if test_case.format == FixtureFormats.BLOCKCHAIN_TEST_ENGINE
-        ]
-        metafunc.parametrize("test_case", pytest_params)
+    fork = metafunc.config.getoption("single_fork")
+    metafunc.parametrize(
+        "test_case",
+        (
+            pytest.param(test_case, id=test_case.id)
+            for test_case in metafunc.config.test_cases
+            if test_case.format in metafunc.function.fixture_formats
+            and (not fork or test_case.fork == fork)
+        ),
+    )
 
     if "client_type" in metafunc.fixturenames:
         client_ids = [client.name for client in metafunc.config.hive_execution_clients]
         metafunc.parametrize("client_type", metafunc.config.hive_execution_clients, ids=client_ids)
+
+
+def pytest_collection_modifyitems(session, config, items):
+    """
+    Modify collected item names to remove the test runner function from the name.
+    """
+    for item in items:
+        original_name = item.originalname
+        remove = f"{original_name}["
+        if item.name.startswith(remove):
+            item.name = item.name[len(remove) : -1]

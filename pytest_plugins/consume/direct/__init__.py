@@ -1,0 +1,3 @@
+"""
+Consume direct test functions.
+"""

@@ -7,12 +7,15 @@ Clients consume the genesis and RLP-encoded blocks from input files upon start-u
 
 import time
 
-from ethereum_test_fixtures import BlockchainFixture
+from ethereum_test_fixtures import BlockchainFixture, FixtureFormats
 from ethereum_test_fixtures.blockchain import FixtureHeader
 from ethereum_test_tools.rpc import EthRPC
 from pytest_plugins.consume.hive_simulators.exceptions import GenesisBlockMismatchException
 
+from ...decorator import fixture_format
 
+
+@fixture_format(FixtureFormats.BLOCKCHAIN_TEST)
 def test_via_rlp(
     timing_data,
     eth_rpc: EthRPC,

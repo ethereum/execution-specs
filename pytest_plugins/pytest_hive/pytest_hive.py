@@ -114,7 +114,7 @@ def hive_test(request, test_suite: HiveTestSuite):
             "Error: The 'fixture_description' fixture has not been defined by the simulator "
             "or pytest plugin using this plugin!"
         )
-    test_parameter_string = request.node.nodeid  # consume pytest test id
+    test_parameter_string = request.node.name  # consume pytest test id
     test: HiveTest = test_suite.start_test(
         name=test_parameter_string,
         description=fixture_description,
