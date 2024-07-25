@@ -54,7 +54,7 @@ def mstore(evm: Evm) -> None:
     memory_write(evm.memory, start_position, value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def mstore8(evm: Evm) -> None:
@@ -86,7 +86,7 @@ def mstore8(evm: Evm) -> None:
     memory_write(evm.memory, start_position, normalized_bytes_value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def mload(evm: Evm) -> None:
@@ -116,7 +116,7 @@ def mload(evm: Evm) -> None:
     push(evm.stack, value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def msize(evm: Evm) -> None:
@@ -139,7 +139,7 @@ def msize(evm: Evm) -> None:
     push(evm.stack, U256(len(evm.memory)))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def mcopy(evm: Evm) -> None:
@@ -158,7 +158,7 @@ def mcopy(evm: Evm) -> None:
     length = pop(evm.stack)
 
     # GAS
-    words = ceil32(Uint(length)) // 32
+    words = ceil32(Uint(length)) // Uint(32)
     copy_gas_cost = GAS_COPY * words
 
     extend_memory = calculate_gas_extend_memory(
@@ -172,4 +172,4 @@ def mcopy(evm: Evm) -> None:
     memory_write(evm.memory, destination, value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)

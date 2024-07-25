@@ -437,10 +437,12 @@ def patricialize(
 
     # if extension node
     if prefix_length > 0:
-        prefix = arbitrary_key[level : level + prefix_length]
+        prefix = arbitrary_key[int(level) : int(level) + prefix_length]
         return ExtensionNode(
             prefix,
-            encode_internal_node(patricialize(obj, level + prefix_length)),
+            encode_internal_node(
+                patricialize(obj, level + Uint(prefix_length))
+            ),
         )
 
     branches: List[MutableMapping[Bytes, Bytes]] = []
@@ -458,7 +460,7 @@ def patricialize(
 
     return BranchNode(
         [
-            encode_internal_node(patricialize(branches[k], level + 1))
+            encode_internal_node(patricialize(branches[k], level + Uint(1)))
             for k in range(16)
         ],
         value,
