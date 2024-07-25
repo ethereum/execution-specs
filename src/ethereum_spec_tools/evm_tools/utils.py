@@ -106,7 +106,7 @@ def get_module_name(forks: Any, options: Any, stdin: Any) -> Tuple[str, int]:
         block_number = parse_hex_or_int(data["currentNumber"], Uint)
 
         for fork, fork_block in exception_config["fork_blocks"]:
-            if block_number >= fork_block:
+            if block_number >= Uint(fork_block):
                 current_fork_module = fork
                 current_fork_block = fork_block
 

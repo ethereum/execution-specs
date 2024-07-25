@@ -14,7 +14,7 @@ Implementations of the EVM stack related instructions.
 
 from functools import partial
 
-from ethereum.base_types import U256
+from ethereum.base_types import U256, Uint
 
 from .. import Evm, stack
 from ..exceptions import StackUnderflowError
@@ -42,7 +42,7 @@ def pop(evm: Evm) -> None:
     pass
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def push_n(evm: Evm, num_bytes: int) -> None:
@@ -67,12 +67,12 @@ def push_n(evm: Evm, num_bytes: int) -> None:
 
     # OPERATION
     data_to_push = U256.from_be_bytes(
-        buffer_read(evm.code, U256(evm.pc + 1), U256(num_bytes))
+        buffer_read(evm.code, U256(evm.pc + Uint(1)), U256(num_bytes))
     )
     stack.push(evm.stack, data_to_push)
 
     # PROGRAM COUNTER
-    evm.pc += 1 + num_bytes
+    evm.pc += Uint(1) + Uint(num_bytes)
 
 
 def dup_n(evm: Evm, item_number: int) -> None:
@@ -100,7 +100,7 @@ def dup_n(evm: Evm, item_number: int) -> None:
     stack.push(evm.stack, data_to_duplicate)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def swap_n(evm: Evm, item_number: int) -> None:
@@ -134,7 +134,7 @@ def swap_n(evm: Evm, item_number: int) -> None:
     )
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 push1 = partial(push_n, num_bytes=1)
