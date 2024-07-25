@@ -55,7 +55,7 @@ def sload(evm: Evm) -> None:
     push(evm.stack, value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def sstore(evm: Evm) -> None:
@@ -120,4 +120,4 @@ def sstore(evm: Evm) -> None:
     set_storage(evm.env.state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)

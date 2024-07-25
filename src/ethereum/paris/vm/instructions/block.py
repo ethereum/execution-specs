@@ -12,7 +12,7 @@ Introduction
 Implementations of the EVM block instructions.
 """
 
-from ethereum.base_types import U256
+from ethereum.base_types import U256, Uint
 
 from .. import Evm
 from ..gas import GAS_BASE, GAS_BLOCK_HASH, charge_gas
@@ -37,13 +37,14 @@ def block_hash(evm: Evm) -> None:
         If `evm.gas_left` is less than `20`.
     """
     # STACK
-    block_number = pop(evm.stack)
+    block_number = Uint(pop(evm.stack))
 
     # GAS
     charge_gas(evm, GAS_BLOCK_HASH)
 
     # OPERATION
-    if evm.env.number <= block_number or evm.env.number > block_number + 256:
+    max_block_number = block_number + Uint(256)
+    if evm.env.number <= block_number or evm.env.number > max_block_number:
         # Default hash to 0, if the block of interest is not yet on the chain
         # (including the block which has the current executing transaction),
         # or if the block's age is more than 256.
@@ -54,7 +55,7 @@ def block_hash(evm: Evm) -> None:
     push(evm.stack, U256.from_be_bytes(hash))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def coinbase(evm: Evm) -> None:
@@ -87,7 +88,7 @@ def coinbase(evm: Evm) -> None:
     push(evm.stack, U256.from_be_bytes(evm.env.coinbase))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def timestamp(evm: Evm) -> None:
@@ -120,7 +121,7 @@ def timestamp(evm: Evm) -> None:
     push(evm.stack, evm.env.time)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def number(evm: Evm) -> None:
@@ -152,7 +153,7 @@ def number(evm: Evm) -> None:
     push(evm.stack, U256(evm.env.number))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def prev_randao(evm: Evm) -> None:
@@ -184,7 +185,7 @@ def prev_randao(evm: Evm) -> None:
     push(evm.stack, U256.from_be_bytes(evm.env.prev_randao))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def gas_limit(evm: Evm) -> None:
@@ -216,7 +217,7 @@ def gas_limit(evm: Evm) -> None:
     push(evm.stack, U256(evm.env.gas_limit))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def chain_id(evm: Evm) -> None:
@@ -245,4 +246,4 @@ def chain_id(evm: Evm) -> None:
     push(evm.stack, U256(evm.env.chain_id))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
