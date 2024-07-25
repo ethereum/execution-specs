@@ -4,14 +4,12 @@ Common pytest fixtures for the RLP and Engine simulators.
 
 import io
 import json
-import time
 from typing import Generator, cast
 
 import pytest
 import rich
 from hive.client import Client, ClientType
 from hive.testing import HiveTest
-from pydantic import BaseModel
 
 from ethereum_test_base_types import to_json
 from ethereum_test_fixtures import BlockchainFixtureCommon
@@ -19,35 +17,7 @@ from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
 from ethereum_test_tools.rpc import EthRPC
 from pytest_plugins.consume.hive_simulators.ruleset import ruleset  # TODO: generate dynamically
 
-
-class TestCaseTimingData(BaseModel):
-    """
-    The times taken to perform the various steps of a test case (seconds).
-    """
-
-    __test__ = False
-    prepare_files: float | None = None  # start of test until client start
-    start_client: float | None = None
-    get_genesis: float | None = None
-    test_case_execution: float | None = None
-    stop_client: float | None = None
-    total: float | None = None
-
-    @staticmethod
-    def format_float(num: float | None, precision: int = 4) -> str | None:
-        """
-        Format a float to a specific precision in significant figures.
-        """
-        if num is None:
-            return None
-        return f"{num:.{precision}f}"
-
-    def formatted(self, precision: int = 4) -> "TestCaseTimingData":
-        """
-        Return a new instance of the model with formatted float values.
-        """
-        data = {field: self.format_float(value, precision) for field, value in self}
-        return TestCaseTimingData(**data)
+from .timing import TimingData
 
 
 @pytest.fixture(scope="function")
@@ -75,29 +45,21 @@ def fixture_description(
     return description
 
 
-@pytest.fixture(scope="function")
-def t_test_start() -> float:
-    """
-    Used to time fixture & file preparation and total time.
-    """
-    return time.perf_counter()
-
-
 @pytest.fixture(scope="function", autouse=True)
-def timing_data(request, t_test_start) -> Generator[TestCaseTimingData, None, None]:
+def total_timing_data(request) -> Generator[TimingData, None, None]:
     """
     Helper to record timing data for various stages of executing test case.
     """
-    timing_data = TestCaseTimingData()
-    yield timing_data
-    timing_data.total = time.perf_counter() - t_test_start
-    rich.print(f"\nTimings (seconds): {timing_data.formatted()}")
+    with TimingData("Total (seconds)") as total_timing_data:
+        yield total_timing_data
+    if request.config.getoption("timing_data"):
+        rich.print(f"\n{total_timing_data.formatted()}")
     if hasattr(request.node, "rep_call"):  # make available for test reports
-        request.node.rep_call.timings = timing_data
+        request.node.rep_call.timings = total_timing_data
 
 
 @pytest.fixture(scope="function")
-@pytest.mark.usefixtures("timing_data")
+@pytest.mark.usefixtures("total_timing_data")
 def client_genesis(blockchain_fixture: BlockchainFixtureCommon) -> dict:
     """
     Convert the fixture genesis block header and pre-state to a client genesis state.
@@ -143,25 +105,31 @@ def client(
     client_files: dict,  # configured within: rlp/conftest.py & engine/conftest.py
     environment: dict,
     client_type: ClientType,
-    timing_data: TestCaseTimingData,
-    t_test_start: float,
+    total_timing_data: TimingData,
 ) -> Generator[Client, None, None]:
     """
     Initialize the client with the appropriate files and environment variables.
     """
-    timing_data.prepare_files = time.perf_counter() - t_test_start
-    t_start = time.perf_counter()
-    client = hive_test.start_client(
-        client_type=client_type, environment=environment, files=client_files
-    )
-    timing_data.start_client = time.perf_counter() - t_start
+    with total_timing_data.time("Start client"):
+        client = hive_test.start_client(
+            client_type=client_type, environment=environment, files=client_files
+        )
     error_message = (
         f"Unable to connect to the client container ({client_type.name}) via Hive during test "
         "setup. Check the client or Hive server logs for more information."
     )
     assert client is not None, error_message
     yield client
-    client.stop()
-    t_start = time.perf_counter()
-    client.stop()
-    timing_data.stop_client = time.perf_counter() - t_start
+    with total_timing_data.time("Stop client"):
+        client.stop()
+
+
+@pytest.fixture(scope="function", autouse=True)
+def timing_data(
+    total_timing_data: TimingData, client: Client
+) -> Generator[TimingData, None, None]:
+    """
+    Helper to record timing data for the main execution of the test case.
+    """
+    with total_timing_data.time("Test case execution") as timing_data:
+        yield timing_data

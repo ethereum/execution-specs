@@ -94,6 +94,13 @@ def pytest_addoption(parser):  # noqa: D103
         help="Only consume tests for the specified fork.",
     )
     consume_group.addoption(
+        "--timing-data",
+        action="store_true",
+        dest="timing_data",
+        default=False,
+        help="Log the timing data for each test case execution.",
+    )
+    consume_group.addoption(
         "--no-html",
         action="store_true",
         dest="disable_html",

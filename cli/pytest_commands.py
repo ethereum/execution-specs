@@ -107,7 +107,7 @@ def handle_help_flags(
         return list(pytest_args)
 
 
-def handle_stdout_flags(args):
+def handle_stdout_flags(args: List[str]) -> List[str]:
     """
     If the user has requested to write to stdout, add pytest arguments in order
     to suppress pytest's test session header and summary output.
@@ -123,6 +123,15 @@ def handle_stdout_flags(args):
         if any(arg == "-n" or arg.startswith("-n=") for arg in args):
             sys.exit("error: xdist-plugin not supported with --output=stdout (remove -n args).")
         args.extend(["-qq", "-s", "--no-html"])
+    return args
+
+
+def handle_timing_data_flag(args: List[str]) -> List[str]:
+    """
+    Consume only. If the user requests timing data ensure stdout is captured.
+    """
+    if "--timing-data" in args and "-s" not in args:
+        args.append("-s")
     return args
 
 
@@ -209,6 +218,7 @@ def consume_direct(pytest_args, help_flag, pytest_help_flag):
     Clients consume directly via the `blocktest` interface.
     """
     args = handle_help_flags(pytest_args, help_flag, pytest_help_flag)
+    args = handle_timing_data_flag(args)
     args += ["-c", "pytest-consume.ini", "--rootdir", "./", consume_test_paths("direct")]
     if not input_provided(args) and not sys.stdin.isatty():  # command is receiving input on stdin
         args.extend(["-s", "--input=stdin"])
@@ -222,6 +232,7 @@ def consume_via_rlp(pytest_args, help_flag, pytest_help_flag):
     Clients consume RLP-encoded blocks on startup.
     """
     args = handle_help_flags(pytest_args, help_flag, pytest_help_flag)
+    args = handle_timing_data_flag(args)
     args += [
         "-c",
         "pytest-consume.ini",
@@ -244,6 +255,7 @@ def consume_via_engine_api(pytest_args, help_flag, pytest_help_flag):
     Clients consume via the Engine API.
     """
     args = handle_help_flags(pytest_args, help_flag, pytest_help_flag)
+    args = handle_timing_data_flag(args)
     args += [
         "-c",
         "pytest-consume.ini",
@@ -266,6 +278,7 @@ def consume_all(pytest_args, help_flag, pytest_help_flag):
     Clients consume via all available methods (direct, rlp, engine).
     """
     args = handle_help_flags(pytest_args, help_flag, pytest_help_flag)
+    args = handle_timing_data_flag(args)
     args += [
         "-c",
         "pytest-consume.ini",
