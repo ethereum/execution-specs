@@ -277,7 +277,7 @@ class Txs:
         else:
             raise FatalException("Unknown transaction type")
 
-        r, s, y = secp256k1_sign(signing_hash, secret_key)
+        r, s, y = secp256k1_sign(signing_hash, int(secret_key))
         json_tx["r"] = hex(r)
         json_tx["s"] = hex(s)
         json_tx["v"] = hex(y + v_addend)

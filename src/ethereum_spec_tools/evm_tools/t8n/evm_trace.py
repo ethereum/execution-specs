@@ -166,7 +166,7 @@ def evm_trace(
         evm.env.traces.append(final_trace)
     elif isinstance(event, PrecompileStart):
         new_trace = Trace(
-            pc=evm.pc,
+            pc=int(evm.pc),
             op="0x" + event.address.hex().lstrip("0"),
             gas=hex(evm.gas_left),
             gasCost="0x0",
@@ -191,7 +191,7 @@ def evm_trace(
         if op == "InvalidOpcode":
             op = "Invalid"
         new_trace = Trace(
-            pc=evm.pc,
+            pc=int(evm.pc),
             op=op,
             gas=hex(evm.gas_left),
             gasCost="0x0",
@@ -233,7 +233,7 @@ def evm_trace(
                 ) from event.error
 
             new_trace = Trace(
-                pc=evm.pc,
+                pc=int(evm.pc),
                 op=event.error.code,
                 gas=hex(evm.gas_left),
                 gasCost="0x0",

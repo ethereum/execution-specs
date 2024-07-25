@@ -45,7 +45,9 @@ def test_epoch_start_and_end_blocks_have_same_epoch() -> None:
     for _ in range(100):
         block_number = Uint(randint(10**9, 2 * (10**9)))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
-        epoch_end_block_number = epoch_start_block_number + EPOCH_SIZE - 1
+        epoch_end_block_number = (
+            epoch_start_block_number + EPOCH_SIZE - Uint(1)
+        )
 
         assert (
             epoch(block_number)
@@ -56,7 +58,9 @@ def test_epoch_start_and_end_blocks_have_same_epoch() -> None:
 
 def test_cache_size_1st_epoch() -> None:
     assert (
-        cache_size(Uint(0)) == cache_size(Uint(0) + EPOCH_SIZE - 1) == 16776896
+        cache_size(Uint(0))
+        == cache_size(Uint(0) + EPOCH_SIZE - Uint(1))
+        == 16776896
     )
     assert is_prime(cache_size(Uint(0)) // HASH_BYTES)
 
@@ -74,7 +78,7 @@ def test_cache_size_2048_epochs() -> None:
 
     for epoch_number in range(2048):
         assert (
-            cache_size(Uint(epoch_number * EPOCH_SIZE))
+            cache_size(Uint(epoch_number) * EPOCH_SIZE)
             == cache_size_2048_epochs[epoch_number]
         )
 
@@ -83,7 +87,9 @@ def test_epoch_start_and_end_blocks_have_same_cache_size() -> None:
     for _ in range(100):
         block_number = Uint(randint(10**9, 2 * (10**9)))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
-        epoch_end_block_number = epoch_start_block_number + EPOCH_SIZE - 1
+        epoch_end_block_number = (
+            epoch_start_block_number + EPOCH_SIZE - Uint(1)
+        )
 
         assert (
             cache_size(block_number)
@@ -95,8 +101,8 @@ def test_epoch_start_and_end_blocks_have_same_cache_size() -> None:
 def test_dataset_size_1st_epoch() -> None:
     assert (
         dataset_size(Uint(0))
-        == dataset_size(Uint(0 + EPOCH_SIZE - 1))
-        == 1073739904
+        == dataset_size(Uint(0) + EPOCH_SIZE - Uint(1))
+        == Uint(1073739904)
     )
     assert is_prime(dataset_size(Uint(0)) // MIX_BYTES)
 
@@ -114,7 +120,7 @@ def test_dataset_size_2048_epochs() -> None:
 
     for epoch_number in range(2048):
         assert (
-            dataset_size(Uint(epoch_number * EPOCH_SIZE))
+            dataset_size(Uint(epoch_number) * EPOCH_SIZE)
             == dataset_size_2048_epochs[epoch_number]
         )
 
@@ -123,7 +129,9 @@ def test_epoch_start_and_end_blocks_have_same_dataset_size() -> None:
     for _ in range(100):
         block_number = Uint(randint(10**9, 2 * (10**9)))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
-        epoch_end_block_number = epoch_start_block_number + EPOCH_SIZE - 1
+        epoch_end_block_number = (
+            epoch_start_block_number + EPOCH_SIZE - Uint(1)
+        )
 
         assert (
             dataset_size(block_number)
@@ -135,12 +143,12 @@ def test_epoch_start_and_end_blocks_have_same_dataset_size() -> None:
 def test_seed() -> None:
     assert (
         generate_seed(Uint(0))
-        == generate_seed(Uint(0 + EPOCH_SIZE - 1))
+        == generate_seed(Uint(0) + EPOCH_SIZE - Uint(1))
         == b"\x00" * 32
     )
     assert (
         generate_seed(Uint(EPOCH_SIZE))
-        == generate_seed(Uint(2 * EPOCH_SIZE - 1))
+        == generate_seed(Uint(2) * EPOCH_SIZE - Uint(1))
         == keccak256(b"\x00" * 32)
     )
     # NOTE: The below bytes value was obtained by obtaining the seed for the same block number from Geth.
@@ -154,7 +162,9 @@ def test_epoch_start_and_end_blocks_have_same_seed() -> None:
     for _ in range(100):
         block_number = Uint(randint(10000, 20000))
         epoch_start_block_number = (block_number // EPOCH_SIZE) * EPOCH_SIZE
-        epoch_end_block_number = epoch_start_block_number + EPOCH_SIZE - 1
+        epoch_end_block_number = (
+            epoch_start_block_number + EPOCH_SIZE - Uint(1)
+        )
 
         assert (
             generate_seed(epoch_start_block_number)
@@ -240,7 +250,7 @@ def fetch_dag_data(dag_dump_dir: str, epoch_seed: bytes) -> Tuple[bytes, ...]:
         dag_dataset = dag_dataset[8:]
 
     dag_dataset_items = []
-    for i in range(0, len(dag_dataset), HASH_BYTES):
+    for i in (Uint(j) for j in range(0, len(dag_dataset), HASH_BYTES)):
         dag_dataset_items.append(dag_dataset[i : i + HASH_BYTES])
 
     return tuple(dag_dataset_items)
@@ -280,7 +290,8 @@ def test_dataset_generation_random_epoch(tmpdir: str) -> None:
         raise Exception(GETH_MISSING)
 
     epoch_number = Uint(randint(0, 100))
-    block_number = epoch_number * EPOCH_SIZE + randint(0, EPOCH_SIZE - 1)
+    offset = Uint(randint(0, int(EPOCH_SIZE) - 1))
+    block_number = epoch_number * EPOCH_SIZE + offset
     generate_dag_via_geth(geth_path, block_number, f"{tmpdir}/.ethash")
     seed = generate_seed(block_number)
     dag_dataset = fetch_dag_data(f"{tmpdir}/.ethash", seed)
@@ -299,7 +310,7 @@ def test_dataset_generation_random_epoch(tmpdir: str) -> None:
     # Then for this dataset randomly take 5000 indices and check the
     # data obtained from our implementation with geth DAG
     for _ in range(500):
-        index = Uint(randint(101, dataset_size_words - 1))
+        index = Uint(randint(101, int(dataset_size_words) - 1))
         dataset_item = generate_dataset_item(cache, index)
         assert dataset_item == dag_dataset[index], index
 
