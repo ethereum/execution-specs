@@ -11,7 +11,7 @@ Introduction
 
 Numeric operations specific utility functions used in this specification.
 """
-from typing import Sequence, Tuple
+from typing import Sequence, SupportsInt, Tuple
 
 from ethereum.base_types import U32, Uint
 
@@ -63,7 +63,7 @@ def ceil32(value: Uint) -> Uint:
         return value + ceiling - remainder
 
 
-def is_prime(number: int) -> bool:
+def is_prime(number: SupportsInt) -> bool:
     """
     Checks if `number` is a prime number.
 
@@ -77,6 +77,7 @@ def is_prime(number: int) -> bool:
     is_number_prime : `bool`
         Boolean indicating if `number` is prime or not.
     """
+    number = int(number)
     if number <= 1:
         return False
 
@@ -189,13 +190,13 @@ def taylor_exponential(
         The approximation of factor * e ** (numerator / denominator).
 
     """
-    i = 1
-    output = 0
+    i = Uint(1)
+    output = Uint(0)
     numerator_accumulated = factor * denominator
-    while numerator_accumulated > 0:
+    while numerator_accumulated > Uint(0):
         output += numerator_accumulated
         numerator_accumulated = (numerator_accumulated * numerator) // (
             denominator * i
         )
-        i += 1
+        i += Uint(1)
     return output // denominator

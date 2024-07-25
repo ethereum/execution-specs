@@ -28,6 +28,8 @@ At a high level, the Ethash algorithm is as follows:
 
 from typing import Callable, Tuple, Union
 
+from ethereum_types.numeric import ulen
+
 from ethereum.base_types import U32, Bytes8, Uint
 from ethereum.crypto.hash import Hash32, Hash64, keccak256, keccak512
 from ethereum.utils.numeric import (
@@ -37,7 +39,7 @@ from ethereum.utils.numeric import (
     le_uint32_sequence_to_uint,
 )
 
-EPOCH_SIZE = 30000
+EPOCH_SIZE = Uint(30000)
 """
 Number of blocks before a dataset needs to be regenerated (known as an
 "epoch".) See [`epoch`].
@@ -45,7 +47,7 @@ Number of blocks before a dataset needs to be regenerated (known as an
 [`epoch`]: ref:ethereum.ethash.epoch
 """
 
-INITIAL_CACHE_SIZE = 2**24
+INITIAL_CACHE_SIZE = Uint(2**24)
 """
 Size of the cache (in bytes) during the first epoch. Each subsequent epoch's
 cache roughly grows by [`CACHE_EPOCH_GROWTH_SIZE`] bytes. See [`cache_size`].
@@ -54,7 +56,7 @@ cache roughly grows by [`CACHE_EPOCH_GROWTH_SIZE`] bytes. See [`cache_size`].
 [`cache_size`]: ref:ethereum.ethash.cache_size
 """
 
-CACHE_EPOCH_GROWTH_SIZE = 2**17
+CACHE_EPOCH_GROWTH_SIZE = Uint(2**17)
 """
 After the first epoch, the cache size grows by roughly this amount. See
 [`cache_size`].
@@ -62,7 +64,7 @@ After the first epoch, the cache size grows by roughly this amount. See
 [`cache_size`]: ref:ethereum.ethash.cache_size
 """
 
-INITIAL_DATASET_SIZE = 2**30
+INITIAL_DATASET_SIZE = Uint(2**30)
 """
 Size of the dataset (in bytes) during the first epoch. Each subsequent epoch's
 dataset roughly grows by [`DATASET_EPOCH_GROWTH_SIZE`] bytes. See
@@ -72,7 +74,7 @@ dataset roughly grows by [`DATASET_EPOCH_GROWTH_SIZE`] bytes. See
 [`dataset_size`]: ref:ethereum.ethash.dataset_size
 """
 
-DATASET_EPOCH_GROWTH_SIZE = 2**23
+DATASET_EPOCH_GROWTH_SIZE = Uint(2**23)
 """
 After the first epoch, the dataset size grows by roughly this amount. See
 [`dataset_size`].
@@ -80,12 +82,12 @@ After the first epoch, the dataset size grows by roughly this amount. See
 [`dataset_size`]: ref:ethereum.ethash.dataset_size
 """
 
-HASH_BYTES = 64
+HASH_BYTES = Uint(64)
 """
 Length of a hash, in bytes.
 """
 
-MIX_BYTES = 128
+MIX_BYTES = Uint(128)
 """
 Width of mix, in bytes. See [`generate_dataset_item`].
 
@@ -101,7 +103,7 @@ Number of times to repeat the [`keccak512`] step while generating the hash. See
 [`generate_cache`]: ref:ethereum.ethash.generate_cache
 """
 
-DATASET_PARENTS = 256
+DATASET_PARENTS = Uint(256)
 """
 Number of parents of each dataset element. See [`generate_dataset_item`].
 
@@ -152,7 +154,7 @@ def cache_size(block_number: Uint) -> Uint:
     size = INITIAL_CACHE_SIZE + (CACHE_EPOCH_GROWTH_SIZE * epoch(block_number))
     size -= HASH_BYTES
     while not is_prime(size // HASH_BYTES):
-        size -= 2 * HASH_BYTES
+        size -= Uint(2) * HASH_BYTES
 
     return size
 
@@ -182,7 +184,7 @@ def dataset_size(block_number: Uint) -> Uint:
     )
     size -= MIX_BYTES
     while not is_prime(size // MIX_BYTES):
-        size -= 2 * MIX_BYTES
+        size -= Uint(2) * MIX_BYTES
 
     return size
 
@@ -199,7 +201,7 @@ def generate_seed(block_number: Uint) -> Hash32:
     seed = b"\x00" * 32
     while epoch_number != 0:
         seed = keccak256(seed)
-        epoch_number -= 1
+        epoch_number -= Uint(1)
 
     return Hash32(seed)
 
@@ -232,10 +234,10 @@ def generate_cache(block_number: Uint) -> Tuple[Tuple[U32, ...], ...]:
             # Converting `cache_size_words` to int as `-1 + Uint(5)` is an
             # error.
             first_cache_item = cache[
-                (index - 1 + int(cache_size_words)) % cache_size_words
+                (index - 1 + int(cache_size_words)) % int(cache_size_words)
             ]
             second_cache_item = cache[
-                U32.from_le_bytes(cache[index][0:4]) % cache_size_words
+                U32.from_le_bytes(cache[index][0:4]) % int(cache_size_words)
             ]
             result = bytes(
                 [a ^ b for a, b in zip(first_cache_item, second_cache_item)]
@@ -264,7 +266,7 @@ def fnv(a: Union[Uint, U32], b: Union[Uint, U32]) -> U32:
     [FNV-1]: http://www.isthe.com/chongo/tech/comp/fnv/#FNV-1
     """
     # This is a faster way of doing `number % (2 ** 32)`.
-    result = ((Uint(a) * 0x01000193) ^ Uint(b)) & U32.MAX_VALUE
+    result = ((Uint(a) * Uint(0x01000193)) ^ Uint(b)) & Uint(U32.MAX_VALUE)
     return U32(result)
 
 
@@ -301,14 +303,14 @@ def generate_dataset_item(
     """
     mix = keccak512(
         (
-            le_uint32_sequence_to_uint(cache[index % len(cache)]) ^ index
-        ).to_le_bytes(number_bytes=HASH_BYTES)
+            le_uint32_sequence_to_uint(cache[index % ulen(cache)]) ^ index
+        ).to_le_bytes64()
     )
 
     mix_integers = le_bytes_to_uint32_sequence(mix)
 
-    for j in range(DATASET_PARENTS):
-        mix_word: U32 = mix_integers[j % 16]
+    for j in (Uint(k) for k in range(DATASET_PARENTS)):
+        mix_word: U32 = mix_integers[j % Uint(16)]
         cache_index = fnv(index ^ j, mix_word) % len(cache)
         parent = cache[cache_index]
         mix_integers = fnv_hash(mix_integers, parent)
@@ -366,16 +368,16 @@ def hashimoto(
     seed_hash = keccak512(header_hash + nonce_le)
     seed_head = U32.from_le_bytes(seed_hash[:4])
 
-    rows = dataset_size // 128
+    rows = dataset_size // Uint(128)
     mix = le_bytes_to_uint32_sequence(seed_hash) * (MIX_BYTES // HASH_BYTES)
 
     for i in range(HASHIMOTO_ACCESSES):
         new_data: Tuple[U32, ...] = ()
-        parent = fnv(i ^ seed_head, mix[i % len(mix)]) % rows
+        parent = fnv(i ^ seed_head, mix[i % len(mix)]) % int(rows)
         for j in range(MIX_BYTES // HASH_BYTES):
             # Typecasting `parent` from U32 to Uint as 2*parent + j may
             # overflow U32.
-            new_data += fetch_dataset_item(2 * Uint(parent) + j)
+            new_data += fetch_dataset_item(Uint(2) * Uint(parent) + Uint(j))
 
         mix = fnv_hash(mix, new_data)
 

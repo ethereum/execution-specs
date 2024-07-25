@@ -25,287 +25,18 @@ from typing import (
     Callable,
     ClassVar,
     Optional,
-    Protocol,
+    SupportsInt,
     Tuple,
     Type,
     TypeVar,
-    runtime_checkable,
 )
 
-
-@runtime_checkable
-class SlottedFreezable(Protocol):
-    """
-    A [`Protocol`] implemented by data classes annotated with
-    [`@slotted_freezable`].
-
-    [`@slotted_freezable`]: ref:ethereum.base_types.slotted_freezable
-    [`Protocol`]: https://docs.python.org/library/typing.html#typing.Protocol
-    """
-
-    _frozen: bool
-
-
-U255_CEIL_VALUE = 2**255
-"""
-Smallest value that requires 256 bits to represent. Mostly used in signed
-arithmetic operations, like [`sdiv`].
-
-[`sdiv`]: ref:ethereum.frontier.vm.instructions.arithmetic.sdiv
-"""
-
-U256_CEIL_VALUE = 2**256
-"""
-Smallest value that requires 257 bits to represent. Used when converting a
-[`U256`] in two's complement format to a regular `int` in [`U256.to_signed`].
-
-[`U256`]: ref:ethereum.base_types.U256
-[`U256.to_signed`]: ref:ethereum.base_types.U256.to_signed
-"""
-
-
-class Uint(int):
-    """
-    Unsigned integer of arbitrary size.
-    """
-
-    __slots__ = ()
-
-    @classmethod
-    def from_be_bytes(cls: Type, buffer: "Bytes") -> "Uint":
-        """
-        Converts a sequence of bytes into an arbitrarily sized unsigned integer
-        from its big endian representation.
-        """
-        return cls(int.from_bytes(buffer, "big"))
-
-    @classmethod
-    def from_le_bytes(cls: Type, buffer: "Bytes") -> "Uint":
-        """
-        Converts a sequence of bytes into an arbitrarily sized unsigned integer
-        from its little endian representation.
-        """
-        return cls(int.from_bytes(buffer, "little"))
-
-    def __init__(self, value: int) -> None:
-        if not isinstance(value, int):
-            raise TypeError()
-
-        if value < 0:
-            raise OverflowError()
-
-    def __radd__(self, left: int) -> "Uint":
-        return self.__add__(left)
-
-    def __add__(self, right: int) -> "Uint":
-        if not isinstance(right, int):
-            return NotImplemented
-
-        if right < 0:
-            raise OverflowError()
-
-        return int.__new__(self.__class__, int.__add__(self, right))
-
-    def __iadd__(self, right: int) -> "Uint":
-        return self.__add__(right)
-
-    def __sub__(self, right: int) -> "Uint":
-        if not isinstance(right, int):
-            return NotImplemented
-
-        if right < 0 or self < right:
-            raise OverflowError()
-
-        return int.__new__(self.__class__, int.__sub__(self, right))
-
-    def __rsub__(self, left: int) -> "Uint":
-        if not isinstance(left, int):
-            return NotImplemented
-
-        if left < 0 or self > left:
-            raise OverflowError()
-
-        return int.__new__(self.__class__, int.__rsub__(self, left))
-
-    def __isub__(self, right: int) -> "Uint":
-        return self.__sub__(right)
-
-    def __mul__(self, right: int) -> "Uint":
-        if not isinstance(right, int):
-            return NotImplemented
-
-        if right < 0:
-            raise OverflowError()
-
-        return int.__new__(self.__class__, int.__mul__(self, right))
-
-    def __rmul__(self, left: int) -> "Uint":
-        return self.__mul__(left)
-
-    def __imul__(self, right: int) -> "Uint":
-        return self.__mul__(right)
-
-    # Explicitly don't override __truediv__, __rtruediv__, and __itruediv__
-    # since they return floats anyway.
-
-    def __floordiv__(self, right: int) -> "Uint":
-        if not isinstance(right, int):
-            return NotImplemented
-
-        if right < 0:
-            raise OverflowError()
-
-        return int.__new__(self.__class__, int.__floordiv__(self, right))
-
-    def __rfloordiv__(self, left: int) -> "Uint":
-        if not isinstance(left, int):
-            return NotImplemented
-
-        if left < 0:
-            raise OverflowError()
-
-        return int.__new__(self.__class__, int.__rfloordiv__(self, left))
-
-    def __ifloordiv__(self, right: int) -> "Uint":
-        return self.__floordiv__(right)
-
-    def __mod__(self, right: int) -> "Uint":
-        if not isinstance(right, int):
-            return NotImplemented
-
-        if right < 0:
-            raise OverflowError()
-
-        return int.__new__(self.__class__, int.__mod__(self, right))
-
-    def __rmod__(self, left: int) -> "Uint":
-        if not isinstance(left, int):
-            return NotImplemented
-
-        if left < 0:
-            raise OverflowError()
-
-        return int.__new__(self.__class__, int.__rmod__(self, left))
-
-    def __imod__(self, right: int) -> "Uint":
-        return self.__mod__(right)
-
-    def __divmod__(self, right: int) -> Tuple["Uint", "Uint"]:
-        if not isinstance(right, int):
-            return NotImplemented
-
-        if right < 0:
-            raise OverflowError()
-
-        result = int.__divmod__(self, right)
-        return (
-            int.__new__(self.__class__, result[0]),
-            int.__new__(self.__class__, result[1]),
-        )
-
-    def __rdivmod__(self, left: int) -> Tuple["Uint", "Uint"]:
-        if not isinstance(left, int):
-            return NotImplemented
-
-        if left < 0:
-            raise OverflowError()
-
-        result = int.__rdivmod__(self, left)
-        return (
-            int.__new__(self.__class__, result[0]),
-            int.__new__(self.__class__, result[1]),
-        )
-
-    def __pow__(  # type: ignore[override]
-        self, right: int, modulo: Optional[int] = None
-    ) -> "Uint":
-        if modulo is not None:
-            if not isinstance(modulo, int):
-                return NotImplemented
-
-            if modulo < 0:
-                raise OverflowError()
-
-        if not isinstance(right, int):
-            return NotImplemented
-
-        if right < 0:
-            raise OverflowError()
-
-        return int.__new__(self.__class__, int.__pow__(self, right, modulo))
-
-    def __rpow__(  # type: ignore[misc]
-        self, left: int, modulo: Optional[int] = None
-    ) -> "Uint":
-        if modulo is not None:
-            if not isinstance(modulo, int):
-                return NotImplemented
-
-            if modulo < 0:
-                raise OverflowError()
-
-        if not isinstance(left, int):
-            return NotImplemented
-
-        if left < 0:
-            raise OverflowError()
-
-        return int.__new__(self.__class__, int.__rpow__(self, left, modulo))
-
-    def __ipow__(  # type: ignore[override]
-        self, right: int, modulo: Optional[int] = None
-    ) -> "Uint":
-        return self.__pow__(right, modulo)
-
-    def __xor__(self, right: int) -> "Uint":
-        if not isinstance(right, int):
-            return NotImplemented
-
-        if right < 0:
-            raise OverflowError()
-
-        return int.__new__(self.__class__, int.__xor__(self, right))
-
-    def __rxor__(self, left: int) -> "Uint":
-        if not isinstance(left, int):
-            return NotImplemented
-
-        if left < 0:
-            raise OverflowError()
-
-        return int.__new__(self.__class__, int.__rxor__(self, left))
-
-    def __ixor__(self, right: int) -> "Uint":
-        return self.__xor__(right)
-
-    # TODO: Implement and, or, neg, pos, abs, invert, ...
-
-    def to_be_bytes32(self) -> "Bytes32":
-        """
-        Converts this arbitrarily sized unsigned integer into its big endian
-        representation with exactly 32 bytes.
-        """
-        return Bytes32(self.to_bytes(32, "big"))
-
-    def to_be_bytes(self) -> "Bytes":
-        """
-        Converts this arbitrarily sized unsigned integer into its big endian
-        representation, without padding.
-        """
-        bit_length = self.bit_length()
-        byte_length = (bit_length + 7) // 8
-        return self.to_bytes(byte_length, "big")
-
-    def to_le_bytes(self, number_bytes: Optional[int] = None) -> "Bytes":
-        """
-        Converts this arbitrarily sized unsigned integer into its little endian
-        representation, without padding.
-        """
-        if number_bytes is None:
-            bit_length = self.bit_length()
-            number_bytes = (bit_length + 7) // 8
-        return self.to_bytes(number_bytes, "little")
-
+from ethereum_types.frozen import SlottedFreezable as SlottedFreezable
+from ethereum_types.numeric import (  # noqa: F401
+    U255_CEILING as U255_CEIL_VALUE,
+)
+from ethereum_types.numeric import U256_CEILING as U256_CEIL_VALUE
+from ethereum_types.numeric import Uint as Uint  # noqa: F401
 
 T = TypeVar("T", bound="FixedUint")
 
@@ -323,11 +54,9 @@ class FixedUint(int):
 
     __slots__ = ()
 
-    def __init__(self: T, value: int) -> None:
-        if not isinstance(value, int):
-            raise TypeError()
-
-        if value < 0 or value > self.MAX_VALUE:
+    def __init__(self: T, value: SupportsInt) -> None:
+        value_int = int(value)
+        if value_int < 0 or value_int > self.MAX_VALUE:
             raise OverflowError()
 
     def __radd__(self: T, left: int) -> T:
@@ -704,7 +433,7 @@ class U256(FixedUint):
             return int(self)
 
         # -1 * (2's complement of U256 value)
-        return int(self) - U256_CEIL_VALUE
+        return int(self) - int(U256_CEIL_VALUE)
 
 
 U256.MAX_VALUE = int.__new__(U256, (2**256) - 1)

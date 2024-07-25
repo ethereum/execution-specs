@@ -46,7 +46,7 @@ def u256_safe_add(
         else `exception_type` is raised.
     """
     try:
-        return U256(sum(numbers))
+        return U256(sum(int(n) for n in numbers))
     except ValueError as e:
         if exception_type:
             raise exception_type from e
@@ -83,10 +83,10 @@ def u256_safe_multiply(
         one raised by `U256` when `U256.value > U256.MAX_VALUE`
         else `exception_type` is raised.
     """
-    result = numbers[0]
+    result = Uint(numbers[0])
     try:
         for number in numbers[1:]:
-            result *= number
+            result *= Uint(number)
         return U256(result)
     except ValueError as e:
         if exception_type:

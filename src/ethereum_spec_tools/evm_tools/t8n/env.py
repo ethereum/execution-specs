@@ -240,7 +240,7 @@ class Env:
         # Read the block hashes
         block_hashes: List[Any] = []
         # Store a maximum of 256 block hashes.
-        max_blockhash_count = min(256, self.block_number)
+        max_blockhash_count = min(Uint(256), self.block_number)
         for number in range(
             self.block_number - max_blockhash_count, self.block_number
         ):

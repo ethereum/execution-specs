@@ -4,7 +4,7 @@ The Blake2 Implementation
 """
 import struct
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import Final, List, Tuple
 
 from ethereum.base_types import Uint
 
@@ -41,24 +41,24 @@ class Blake2:
     https://datatracker.ietf.org/doc/html/rfc7693
     """
 
-    w: int
-    mask_bits: int
+    w: Uint
+    mask_bits: Uint
     word_format: str
 
-    R1: int
-    R2: int
-    R3: int
-    R4: int
+    R1: Uint
+    R2: Uint
+    R3: Uint
+    R4: Uint
 
     @property
-    def max_word(self) -> int:
+    def max_word(self) -> Uint:
         """
         Largest value for a given Blake2 flavor.
         """
-        return 2**self.w
+        return Uint(2) ** self.w
 
     @property
-    def w_R1(self) -> int:
+    def w_R1(self) -> Uint:
         """
         (w - R1) value for a given Blake2 flavor.
         Used in the function G
@@ -66,7 +66,7 @@ class Blake2:
         return self.w - self.R1
 
     @property
-    def w_R2(self) -> int:
+    def w_R2(self) -> Uint:
         """
         (w - R2) value for a given Blake2 flavor.
         Used in the function G
@@ -74,7 +74,7 @@ class Blake2:
         return self.w - self.R2
 
     @property
-    def w_R3(self) -> int:
+    def w_R3(self) -> Uint:
         """
         (w - R3) value for a given Blake2 flavor.
         Used in the function G
@@ -82,14 +82,14 @@ class Blake2:
         return self.w - self.R3
 
     @property
-    def w_R4(self) -> int:
+    def w_R4(self) -> Uint:
         """
         (w - R4) value for a given Blake2 flavor.
         Used in the function G
         """
         return self.w - self.R4
 
-    sigma: Tuple = (
+    sigma: Tuple[Tuple[int, ...], ...] = (
         (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
         (14, 10, 4, 8, 9, 15, 13, 6, 1, 12, 0, 2, 11, 7, 5, 3),
         (11, 8, 12, 0, 5, 2, 15, 13, 10, 14, 3, 6, 7, 1, 9, 4),
@@ -102,15 +102,26 @@ class Blake2:
         (10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0),
     )
 
-    IV: Tuple = (
-        0x6A09E667F3BCC908,
-        0xBB67AE8584CAA73B,
-        0x3C6EF372FE94F82B,
-        0xA54FF53A5F1D36F1,
-        0x510E527FADE682D1,
-        0x9B05688C2B3E6C1F,
-        0x1F83D9ABFB41BD6B,
-        0x5BE0CD19137E2179,
+    IV: Tuple[Uint, ...] = (
+        Uint(0x6A09E667F3BCC908),
+        Uint(0xBB67AE8584CAA73B),
+        Uint(0x3C6EF372FE94F82B),
+        Uint(0xA54FF53A5F1D36F1),
+        Uint(0x510E527FADE682D1),
+        Uint(0x9B05688C2B3E6C1F),
+        Uint(0x1F83D9ABFB41BD6B),
+        Uint(0x5BE0CD19137E2179),
+    )
+
+    MIX_TABLE: Final[Tuple[Tuple[Uint, Uint, Uint, Uint], ...]] = (
+        (Uint(0), Uint(4), Uint(8), Uint(12)),
+        (Uint(1), Uint(5), Uint(9), Uint(13)),
+        (Uint(2), Uint(6), Uint(10), Uint(14)),
+        (Uint(3), Uint(7), Uint(11), Uint(15)),
+        (Uint(0), Uint(5), Uint(10), Uint(15)),
+        (Uint(1), Uint(6), Uint(11), Uint(12)),
+        (Uint(2), Uint(7), Uint(8), Uint(13)),
+        (Uint(3), Uint(4), Uint(9), Uint(14)),
     )
 
     @property
@@ -139,7 +150,7 @@ class Blake2:
         return (rounds, h, m, t_0, t_1, f)
 
     def G(
-        self, v: List, a: int, b: int, c: int, d: int, x: int, y: int
+        self, v: List, a: Uint, b: Uint, c: Uint, d: Uint, x: Uint, y: Uint
     ) -> List:
         """
         The mixing function used in Blake2
@@ -203,7 +214,7 @@ class Blake2:
             The final block indicator flag. An 8-bit word
         """
         # Initialize local work vector v[0..15]
-        v = [0] * 16
+        v = [Uint(0)] * 16
         v[0:8] = h  # First half from state
         v[8:15] = self.IV  # Second half from IV
 
@@ -219,14 +230,14 @@ class Blake2:
             # wraps around to the beginning
             s = self.sigma[r % self.sigma_len]
 
-            v = self.G(v, 0, 4, 8, 12, m[s[0]], m[s[1]])
-            v = self.G(v, 1, 5, 9, 13, m[s[2]], m[s[3]])
-            v = self.G(v, 2, 6, 10, 14, m[s[4]], m[s[5]])
-            v = self.G(v, 3, 7, 11, 15, m[s[6]], m[s[7]])
-            v = self.G(v, 0, 5, 10, 15, m[s[8]], m[s[9]])
-            v = self.G(v, 1, 6, 11, 12, m[s[10]], m[s[11]])
-            v = self.G(v, 2, 7, 8, 13, m[s[12]], m[s[13]])
-            v = self.G(v, 3, 4, 9, 14, m[s[14]], m[s[15]])
+            v = self.G(v, *self.MIX_TABLE[0], m[s[0]], m[s[1]])
+            v = self.G(v, *self.MIX_TABLE[1], m[s[2]], m[s[3]])
+            v = self.G(v, *self.MIX_TABLE[2], m[s[4]], m[s[5]])
+            v = self.G(v, *self.MIX_TABLE[3], m[s[6]], m[s[7]])
+            v = self.G(v, *self.MIX_TABLE[4], m[s[8]], m[s[9]])
+            v = self.G(v, *self.MIX_TABLE[5], m[s[10]], m[s[11]])
+            v = self.G(v, *self.MIX_TABLE[6], m[s[12]], m[s[13]])
+            v = self.G(v, *self.MIX_TABLE[7], m[s[14]], m[s[15]])
 
         result_message_words = (h[i] ^ v[i] ^ v[i + 8] for i in range(8))
         return struct.pack("<8%s" % self.word_format, *result_message_words)
@@ -240,11 +251,11 @@ class Blake2b(Blake2):
     This version is used in the pre-compiled contract.
     """
 
-    w: int = 64
-    mask_bits: int = 0xFFFFFFFFFFFFFFFF
+    w: Uint = Uint(64)
+    mask_bits: Uint = Uint(0xFFFFFFFFFFFFFFFF)
     word_format: str = "Q"
 
-    R1: int = 32
-    R2: int = 24
-    R3: int = 16
-    R4: int = 63
+    R1: Uint = Uint(32)
+    R2: Uint = Uint(24)
+    R3: Uint = Uint(16)
+    R4: Uint = Uint(63)
