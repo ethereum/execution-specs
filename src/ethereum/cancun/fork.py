@@ -66,17 +66,17 @@ from .vm.gas import (
 )
 from .vm.interpreter import MAX_CODE_SIZE, process_message_call
 
-BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
-ELASTICITY_MULTIPLIER = 2
-GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
-GAS_LIMIT_MINIMUM = 5000
+BASE_FEE_MAX_CHANGE_DENOMINATOR = Uint(8)
+ELASTICITY_MULTIPLIER = Uint(2)
+GAS_LIMIT_ADJUSTMENT_FACTOR = Uint(1024)
+GAS_LIMIT_MINIMUM = Uint(5000)
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
 SYSTEM_ADDRESS = hex_to_address("0xfffffffffffffffffffffffffffffffffffffffe")
 BEACON_ROOTS_ADDRESS = hex_to_address(
     "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
-MAX_BLOB_GAS_PER_BLOCK = 786432
+MAX_BLOB_GAS_PER_BLOCK = Uint(786432)
 VERSIONED_HASH_VERSION_KZG = b"\x01"
 
 
@@ -199,7 +199,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         excess_blob_gas,
     )
     if apply_body_output.block_gas_used != block.header.gas_used:
-        raise InvalidBlock
+        raise InvalidBlock(
+            f"{apply_body_output.block_gas_used} != {block.header.gas_used}"
+        )
     if apply_body_output.transactions_root != block.header.transactions_root:
         raise InvalidBlock
     if apply_body_output.state_root != block.header.state_root:
@@ -259,7 +261,7 @@ def calculate_base_fee_per_gas(
 
         base_fee_per_gas_delta = max(
             target_fee_gas_delta // BASE_FEE_MAX_CHANGE_DENOMINATOR,
-            1,
+            Uint(1),
         )
 
         expected_base_fee_per_gas = (
@@ -313,7 +315,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
         raise InvalidBlock
     if header.timestamp <= parent_header.timestamp:
         raise InvalidBlock
-    if header.number != parent_header.number + 1:
+    if header.number != parent_header.number + Uint(1):
         raise InvalidBlock
     if len(header.extra_data) > 32:
         raise InvalidBlock
@@ -409,16 +411,19 @@ def check_transaction(
             if blob_versioned_hash[0:1] != VERSIONED_HASH_VERSION_KZG:
                 raise InvalidBlock
 
-        if tx.max_fee_per_blob_gas < calculate_blob_gas_price(excess_blob_gas):
+        blob_gas_price = calculate_blob_gas_price(excess_blob_gas)
+        if Uint(tx.max_fee_per_blob_gas) < blob_gas_price:
             raise InvalidBlock
 
-        max_gas_fee += calculate_total_blob_gas(tx) * tx.max_fee_per_blob_gas
+        max_gas_fee += calculate_total_blob_gas(tx) * Uint(
+            tx.max_fee_per_blob_gas
+        )
         blob_versioned_hashes = tx.blob_versioned_hashes
     else:
         blob_versioned_hashes = ()
     if sender_account.nonce != tx.nonce:
         raise InvalidBlock
-    if sender_account.balance < max_gas_fee + tx.value:
+    if Uint(sender_account.balance) < max_gas_fee + Uint(tx.value):
         raise InvalidBlock
     if sender_account.code != bytearray():
         raise InvalidBlock
@@ -744,9 +749,9 @@ def process_transaction(
     increment_nonce(env.state, sender)
 
     sender_balance_after_gas_fee = (
-        sender_account.balance - effective_gas_fee - blob_gas_fee
+        Uint(sender_account.balance) - effective_gas_fee - blob_gas_fee
     )
-    set_account_balance(env.state, sender, sender_balance_after_gas_fee)
+    set_account_balance(env.state, sender, U256(sender_balance_after_gas_fee))
 
     preaccessed_addresses = set()
     preaccessed_storage_keys = set()
@@ -773,7 +778,7 @@ def process_transaction(
     output = process_message_call(message, env)
 
     gas_used = tx.gas - output.gas_left
-    gas_refund = min(gas_used // 5, output.refund_counter)
+    gas_refund = min(gas_used // Uint(5), Uint(output.refund_counter))
     gas_refund_amount = (output.gas_left + gas_refund) * env.gas_price
 
     # For non-1559 transactions env.gas_price == tx.gas_price
@@ -785,15 +790,15 @@ def process_transaction(
     total_gas_used = gas_used - gas_refund
 
     # refund gas
-    sender_balance_after_refund = (
-        get_account(env.state, sender).balance + gas_refund_amount
-    )
+    sender_balance_after_refund = get_account(
+        env.state, sender
+    ).balance + U256(gas_refund_amount)
     set_account_balance(env.state, sender, sender_balance_after_refund)
 
     # transfer miner fees
-    coinbase_balance_after_mining_fee = (
-        get_account(env.state, env.coinbase).balance + transaction_fee
-    )
+    coinbase_balance_after_mining_fee = get_account(
+        env.state, env.coinbase
+    ).balance + U256(transaction_fee)
     if coinbase_balance_after_mining_fee != 0:
         set_account_balance(
             env.state, env.coinbase, coinbase_balance_after_mining_fee
