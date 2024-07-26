@@ -8,6 +8,8 @@ from ethereum_test_tools import Account, EOFException, EOFStateTestFiller, EOFTe
 from ethereum_test_tools.eof.v1 import Container, ContainerKind, Section
 from ethereum_test_tools.eof.v1.constants import MAX_BYTECODE_SIZE
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_types.eof.v1.constants import MAX_INITCODE_SIZE
+from ethereum_test_vm import Bytecode
 
 from .. import EOF_FORK_NAME
 from .helpers import slot_code_worked, value_code_worked
@@ -467,4 +469,78 @@ def test_container_both_kinds_different_sub(eof_test: EOFTestFiller):
             ],
             kind=ContainerKind.INITCODE,
         ),
+    )
+
+
+def test_deep_container(eof_test: EOFTestFiller):
+    """Test a very deeply nested container"""
+    container = Container(
+        sections=[
+            Section.Code(
+                code=Op.PUSH0 + Op.PUSH0 + Op.PUSH0 + Op.PUSH0 + Op.EOFCREATE[0] + Op.STOP,
+            ),
+            Section.Container(
+                container=Container(
+                    sections=[
+                        Section.Code(
+                            code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCONTRACT[0],
+                        ),
+                        stop_sub_container,
+                    ]
+                )
+            ),
+        ]
+    )
+    last_container = container
+    while len(container) < MAX_INITCODE_SIZE:
+        last_container = container
+        container = Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0 + Op.PUSH0 + Op.PUSH0 + Op.PUSH0 + Op.EOFCREATE[0] + Op.STOP,
+                ),
+                Section.Container(
+                    container=Container(
+                        sections=[
+                            Section.Code(
+                                code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCONTRACT[0],
+                            ),
+                            Section.Container(container=last_container),
+                        ]
+                    )
+                ),
+            ]
+        )
+
+    eof_test(data=last_container)
+
+
+def test_wide_container(eof_test: EOFTestFiller):
+    """Test a container with the maximum number of sub-containers"""
+    create_code: Bytecode = Op.STOP
+    for x in range(0, 256):
+        create_code = Op.EOFCREATE[x](0, 0, 0, 0) + create_code
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=create_code,
+                ),
+                *(
+                    [
+                        Section.Container(
+                            container=Container(
+                                sections=[
+                                    Section.Code(
+                                        code=Op.PUSH0 + Op.PUSH0 + Op.RETURNCONTRACT[0],
+                                    ),
+                                    stop_sub_container,
+                                ]
+                            )
+                        )
+                    ]
+                    * 256
+                ),
+            ]
+        )
     )
