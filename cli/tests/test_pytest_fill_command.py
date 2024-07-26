@@ -11,7 +11,7 @@ from click.testing import CliRunner
 
 import pytest_plugins.filler.filler
 
-from ..pytest_commands import fill
+from ..pytest_commands.fill import fill
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def test_tf_deprecation(runner):
     """
     Test the deprecation message of the `tf` command.
     """
-    from ..pytest_commands import tf
+    from ..pytest_commands.fill import tf
 
     result = runner.invoke(tf, [])
     assert result.exit_code == 1

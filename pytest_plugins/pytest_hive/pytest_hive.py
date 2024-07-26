@@ -8,37 +8,18 @@ Simulators using this plugin must define two pytest fixtures:
 
 These fixtures are used when creating the hive test suite.
 """
+import argparse
+import json
 import os
+from dataclasses import asdict
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
+from filelock import FileLock
 from hive.client import ClientRole
 from hive.simulation import Simulation
 from hive.testing import HiveTest, HiveTestResult, HiveTestSuite
-
-
-@pytest.fixture(scope="session")
-def simulator(request):  # noqa: D103
-    return request.config.hive_simulator
-
-
-@pytest.fixture(scope="session")
-def test_suite(request, simulator: Simulation):
-    """
-    Defines a Hive test suite and cleans up after all tests have run.
-    """
-    try:
-        test_suite_name = request.getfixturevalue("test_suite_name")
-        test_suite_description = request.getfixturevalue("test_suite_description")
-    except pytest.FixtureLookupError:
-        pytest.exit(
-            "Error: The 'test_suite_name' and 'test_suite_description' fixtures are not defined "
-            "by the hive simulator pytest plugin using this ('test_suite') fixture!"
-        )
-
-    suite = simulator.start_suite(name=test_suite_name, description=test_suite_description)
-    # TODO: Can we share this fixture across all nodes using xdist? Hive uses different suites.
-    yield suite
-    suite.end()
 
 
 def pytest_configure(config):  # noqa: D103
@@ -74,6 +55,18 @@ def pytest_configure(config):  # noqa: D103
         pytest.exit(message)
 
 
+def pytest_addoption(parser: pytest.Parser):  # noqa: D103
+    pytest_hive_group = parser.getgroup("pytest_hive", "Arguments related to pytest hive")
+    pytest_hive_group.addoption(
+        "--hive-session-temp-folder",
+        action="store",
+        dest="hive_session_temp_folder",
+        type=Path,
+        default=TemporaryDirectory(),
+        help=argparse.SUPPRESS,
+    )
+
+
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config, start_path):
     """
@@ -102,7 +95,69 @@ def pytest_runtest_makereport(item, call):
     setattr(item, f"result_{rep.when}", rep)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
+def simulator(request):  # noqa: D103
+    return request.config.hive_simulator
+
+
+@pytest.fixture(scope="session")
+def session_temp_folder(request) -> Path:  # noqa: D103
+    return request.config.option.hive_session_temp_folder
+
+
+@pytest.fixture(scope="module")
+def test_suite(
+    simulator: Simulation,
+    session_temp_folder: Path,
+    test_suite_name: str,
+    test_suite_description: str,
+):
+    """
+    Defines a Hive test suite and cleans up after all tests have run.
+    """
+    suite_file_name = f"test_suite_{test_suite_name}"
+    suite_file = session_temp_folder / suite_file_name
+    suite_lock_file = session_temp_folder / f"{suite_file_name}.lock"
+    with FileLock(suite_lock_file):
+        if suite_file.exists():
+            with open(suite_file, "r") as f:
+                suite = HiveTestSuite(**json.load(f))
+        else:
+            suite = simulator.start_suite(
+                name=test_suite_name,
+                description=test_suite_description,
+            )
+            with open(suite_file, "w") as f:
+                json.dump(asdict(suite), f)
+
+    users_file_name = f"test_suite_{test_suite_name}_users"
+    users_file = session_temp_folder / users_file_name
+    users_lock_file = session_temp_folder / f"{users_file_name}.lock"
+    with FileLock(users_lock_file):
+        if users_file.exists():
+            with open(users_file, "r") as f:
+                users = json.load(f)
+        else:
+            users = 0
+        users += 1
+        with open(users_file, "w") as f:
+            json.dump(users, f)
+
+    yield suite
+
+    with FileLock(users_lock_file):
+        with open(users_file, "r") as f:
+            users = json.load(f)
+        users -= 1
+        with open(users_file, "w") as f:
+            json.dump(users, f)
+        if users == 0:
+            suite.end()
+            suite_file.unlink()
+            users_file.unlink()
+
+
+@pytest.fixture(scope="function")
 def hive_test(request, test_suite: HiveTestSuite):
     """
     Propagate the pytest test case and its result to the hive server.

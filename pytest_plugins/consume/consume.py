@@ -15,6 +15,7 @@ import rich
 
 from cli.gen_index import generate_fixtures_index
 from ethereum_test_fixtures.consume import TestCases
+from ethereum_test_tools.utility.versioning import get_current_commit_hash_or_tag
 
 cached_downloads_directory = Path("./cached_downloads")
 
@@ -165,8 +166,9 @@ def pytest_html_report_title(report):
 
 
 def pytest_report_header(config):  # noqa: D103
-    input_source = config.getoption("fixture_source")
-    return f"fixtures: {input_source}"
+    consume_version = f"consume commit: {get_current_commit_hash_or_tag()}"
+    input_source = f"fixtures: {config.getoption('fixture_source')}"
+    return [consume_version, input_source]
 
 
 @pytest.fixture(scope="function")

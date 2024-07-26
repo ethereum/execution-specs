@@ -28,7 +28,7 @@ def engine_rpc(client: Client) -> EngineRPC:
     return EngineRPC(ip=client.ip)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def test_suite_name() -> str:
     """
     The name of the hive test suite used in this simulator.
@@ -36,7 +36,7 @@ def test_suite_name() -> str:
     return "eest-engine"
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="module")
 def test_suite_description() -> str:
     """
     The description of the hive test suite used in this simulator.
