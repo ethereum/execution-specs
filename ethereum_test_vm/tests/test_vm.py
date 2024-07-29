@@ -345,8 +345,8 @@ def test_opcodes_repr():
     assert f"{Op.DELEGATECALL}" == "DELEGATECALL"
     assert f"{Om.OOG}" == "OOG"
     assert str(Op.ADD) == "ADD"
-    assert f"{Op.DUPN[1]}" == "DUPN[0x01]"
-    assert f"{Op.DATALOADN[1]}" == "DATALOADN[0x0001]"
+    assert f"{Op.DUPN[1]}" == "DUPN_0x01"
+    assert f"{Op.DATALOADN[1]}" == "DATALOADN_0x0001"
 
 
 def test_macros():

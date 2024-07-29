@@ -210,7 +210,7 @@ class Opcode(Bytecode):
             kwargs=self.kwargs,
             kwargs_defaults=self.kwargs_defaults,
         )
-        new_opcode._name_ = f"{self._name_}[0x{data_portion.hex()}]"
+        new_opcode._name_ = f"{self._name_}_0x{data_portion.hex()}"
         return new_opcode
 
     def __call__(
