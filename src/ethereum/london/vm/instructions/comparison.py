@@ -12,7 +12,7 @@ Introduction
 Implementations of the EVM Comparison instructions.
 """
 
-from ethereum.base_types import U256
+from ethereum.base_types import U256, Uint
 
 from .. import Evm
 from ..gas import GAS_VERY_LOW, charge_gas
@@ -43,7 +43,7 @@ def less_than(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def signed_less_than(evm: Evm) -> None:
@@ -69,7 +69,7 @@ def signed_less_than(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def greater_than(evm: Evm) -> None:
@@ -96,7 +96,7 @@ def greater_than(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def signed_greater_than(evm: Evm) -> None:
@@ -122,7 +122,7 @@ def signed_greater_than(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def equal(evm: Evm) -> None:
@@ -149,7 +149,7 @@ def equal(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def is_zero(evm: Evm) -> None:
@@ -175,4 +175,4 @@ def is_zero(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)

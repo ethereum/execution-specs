@@ -45,7 +45,7 @@ def keccak(evm: Evm) -> None:
     size = pop(evm.stack)
 
     # GAS
-    words = ceil32(Uint(size)) // 32
+    words = ceil32(Uint(size)) // Uint(32)
     word_gas_cost = GAS_KECCAK256_WORD * words
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
@@ -60,4 +60,4 @@ def keccak(evm: Evm) -> None:
     push(evm.stack, U256.from_be_bytes(hash))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
