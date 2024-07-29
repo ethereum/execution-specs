@@ -12,7 +12,7 @@ Introduction
 Implementations of the EVM bitwise instructions.
 """
 
-from ethereum.base_types import U256, U256_CEIL_VALUE
+from ethereum.base_types import U256, Uint
 
 from .. import Evm
 from ..gas import GAS_VERY_LOW, charge_gas
@@ -41,7 +41,7 @@ def bitwise_and(evm: Evm) -> None:
     push(evm.stack, x & y)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def bitwise_or(evm: Evm) -> None:
@@ -66,7 +66,7 @@ def bitwise_or(evm: Evm) -> None:
     push(evm.stack, x | y)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def bitwise_xor(evm: Evm) -> None:
@@ -91,7 +91,7 @@ def bitwise_xor(evm: Evm) -> None:
     push(evm.stack, x ^ y)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def bitwise_not(evm: Evm) -> None:
@@ -115,7 +115,7 @@ def bitwise_not(evm: Evm) -> None:
     push(evm.stack, ~x)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def get_byte(evm: Evm) -> None:
@@ -151,7 +151,7 @@ def get_byte(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def bitwise_shl(evm: Evm) -> None:
@@ -172,14 +172,14 @@ def bitwise_shl(evm: Evm) -> None:
 
     # OPERATION
     if shift < 256:
-        result = U256((value << shift) % U256_CEIL_VALUE)
+        result = U256((value << shift) & U256.MAX_VALUE)
     else:
         result = U256(0)
 
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def bitwise_shr(evm: Evm) -> None:
@@ -207,7 +207,7 @@ def bitwise_shr(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def bitwise_sar(evm: Evm) -> None:
@@ -237,4 +237,4 @@ def bitwise_sar(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)

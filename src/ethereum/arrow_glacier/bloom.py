@@ -47,10 +47,10 @@ def add_to_bloom(bloom: bytearray, bloom_entry: bytes) -> None:
         # (16 bits), and set this bit in bloom bytearray.
         # The obtained bit is 0-indexed in the bloom filter from the least
         # significant bit to the most significant bit.
-        bit_to_set = Uint.from_be_bytes(hash[idx : idx + 2]) & 0x07FF
+        bit_to_set = Uint.from_be_bytes(hash[idx : idx + 2]) & Uint(0x07FF)
         # Below is the index of the bit in the bytearray (where 0-indexed
         # byte is the most significant byte)
-        bit_index = 0x07FF - bit_to_set
+        bit_index = 0x07FF - int(bit_to_set)
 
         byte_index = bit_index // 8
         bit_value = 1 << (7 - (bit_index % 8))

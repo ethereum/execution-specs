@@ -107,12 +107,12 @@ def charge_gas(evm: Evm, amount: Uint) -> None:
         The amount of gas the current operation requires.
 
     """
-    evm_trace(evm, GasAndRefund(amount))
+    evm_trace(evm, GasAndRefund(int(amount)))
 
     if evm.gas_left < amount:
         raise OutOfGasError
     else:
-        evm.gas_left -= U256(amount)
+        evm.gas_left -= amount
 
 
 def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
@@ -131,9 +131,9 @@ def calculate_memory_gas_cost(size_in_bytes: Uint) -> Uint:
     total_gas_cost : `ethereum.base_types.Uint`
         The gas cost for storing data in memory.
     """
-    size_in_words = ceil32(size_in_bytes) // 32
+    size_in_words = ceil32(size_in_bytes) // Uint(32)
     linear_cost = size_in_words * GAS_MEMORY
-    quadratic_cost = size_in_words**2 // 512
+    quadratic_cost = size_in_words ** Uint(2) // Uint(512)
     total_gas_cost = linear_cost + quadratic_cost
     try:
         return total_gas_cost
@@ -236,4 +236,4 @@ def max_message_call_gas(gas: Uint) -> Uint:
     max_allowed_message_call_gas: `ethereum.base_types.Uint`
         The maximum gas allowed for making the message-call.
     """
-    return gas - (gas // 64)
+    return gas - (gas // Uint(64))
