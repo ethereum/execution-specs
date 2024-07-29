@@ -23,9 +23,12 @@ class SectionSize(IntEnum):
     Enum for the section size
     """
 
-    NORMAL = 0
+    NORMAL = -1
+    ZERO = 0
     UNDERSIZE = 2
     OVERSIZE = 100
+    HUGE = 0x8000
+    MAX = 0xFFFF
 
     def __str__(self) -> str:
         """
@@ -38,14 +41,23 @@ class SectionSize(IntEnum):
     "section_kind, section_size, exception",
     [
         (SectionKind.DATA, SectionSize.NORMAL, None),
+        (SectionKind.DATA, SectionSize.ZERO, EOFException.INVALID_SECTION_BODIES_SIZE),
         (SectionKind.DATA, SectionSize.UNDERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE),
         (SectionKind.DATA, SectionSize.OVERSIZE, EOFException.TOPLEVEL_CONTAINER_TRUNCATED),
+        (SectionKind.DATA, SectionSize.HUGE, EOFException.TOPLEVEL_CONTAINER_TRUNCATED),
+        (SectionKind.DATA, SectionSize.MAX, EOFException.TOPLEVEL_CONTAINER_TRUNCATED),
+        (SectionKind.CODE, SectionSize.NORMAL, None),
+        (SectionKind.CODE, SectionSize.ZERO, EOFException.ZERO_SECTION_SIZE),
         (SectionKind.CODE, SectionSize.UNDERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE),
         (SectionKind.CODE, SectionSize.OVERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE),
-        (SectionKind.CODE, SectionSize.NORMAL, None),
+        (SectionKind.CODE, SectionSize.HUGE, EOFException.INVALID_SECTION_BODIES_SIZE),
+        (SectionKind.CODE, SectionSize.MAX, EOFException.INVALID_SECTION_BODIES_SIZE),
+        (SectionKind.TYPE, SectionSize.NORMAL, None),
+        (SectionKind.TYPE, SectionSize.ZERO, EOFException.ZERO_SECTION_SIZE),
         (SectionKind.TYPE, SectionSize.UNDERSIZE, EOFException.INVALID_TYPE_SECTION_SIZE),
         (SectionKind.TYPE, SectionSize.OVERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE),
-        (SectionKind.TYPE, SectionSize.NORMAL, None),
+        (SectionKind.TYPE, SectionSize.HUGE, EOFException.INVALID_SECTION_BODIES_SIZE),
+        (SectionKind.TYPE, SectionSize.MAX, EOFException.INVALID_SECTION_BODIES_SIZE),
     ],
 )
 def test_section_size(

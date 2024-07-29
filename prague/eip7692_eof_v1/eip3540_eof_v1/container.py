@@ -79,6 +79,40 @@ INVALID: List[Container] = [
         validity_error=EOFException.INCOMPLETE_SECTION_SIZE,
     ),
     Container(
+        name="code_section_count_0x8000_truncated",
+        raw_bytes=bytes([0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0x80, 0x00]),
+        validity_error=EOFException.TOO_MANY_CODE_SECTIONS,
+    ),
+    Container(
+        name="code_section_count_0xFFFF_truncated",
+        raw_bytes=bytes([0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0xFF, 0xFF]),
+        validity_error=EOFException.TOO_MANY_CODE_SECTIONS,
+    ),
+    Container(
+        name="code_section_count_0x8000",
+        raw_bytes=bytes(
+            [0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0x80, 0x00] + [0x00, 0x01] * 0x8000
+        ),
+        validity_error=EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
+    ),
+    Container(
+        name="code_section_count_0xFFFF",
+        raw_bytes=bytes(
+            [0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0xFF, 0xFF] + [0x00, 0x01] * 0xFFFF
+        ),
+        validity_error=EOFException.CONTAINER_SIZE_ABOVE_LIMIT,
+    ),
+    Container(
+        name="code_section_size_0x8000_truncated",
+        raw_bytes=bytes([0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0x00, 0x01, 0x80, 0x00]),
+        validity_error=EOFException.MISSING_HEADERS_TERMINATOR,
+    ),
+    Container(
+        name="code_section_size_0xFFFF_truncated",
+        raw_bytes=bytes([0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0x00, 0x01, 0xFF, 0xFF]),
+        validity_error=EOFException.MISSING_HEADERS_TERMINATOR,
+    ),
+    Container(
         name="terminator_incomplete",
         raw_bytes=bytes(
             [0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0x00, 0x01, 0x00, 0x01, 0x04, 0x00, 0x00]
