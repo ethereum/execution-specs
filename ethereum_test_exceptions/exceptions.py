@@ -708,6 +708,10 @@ class EOFException(ExceptionBase):
     """
     Incompatible instruction found in a container of a specific kind.
     """
+    TOO_MANY_CONTAINERS = auto()
+    """
+    EOF container header has too many sub-containers.
+    """
 
 
 """
