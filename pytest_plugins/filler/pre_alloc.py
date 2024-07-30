@@ -161,15 +161,19 @@ class Alloc(BaseAlloc):
     def fund_eoa(self, amount: NumberConvertible = 10**21, label: str | None = None) -> EOA:
         """
         Add a previously unused EOA to the pre-alloc with the balance specified by `amount`.
+
+        If amount is 0, nothing will be added to the pre-alloc but a new and unique EOA will be
+        returned.
         """
         eoa = next(self._eoa_iterator)
-        super().__setitem__(
-            eoa,
-            Account(
-                nonce=0,
-                balance=amount,
-            ),
-        )
+        if Number(amount) > 0:
+            super().__setitem__(
+                eoa,
+                Account(
+                    nonce=0,
+                    balance=amount,
+                ),
+            )
         return eoa
 
     def fund_address(self, address: Address, amount: NumberConvertible):
