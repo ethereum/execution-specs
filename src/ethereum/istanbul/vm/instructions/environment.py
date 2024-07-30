@@ -12,6 +12,8 @@ Introduction
 Implementations of the EVM environment related instructions.
 """
 
+from ethereum_types.numeric import ulen
+
 from ethereum.base_types import U256, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
@@ -57,7 +59,7 @@ def address(evm: Evm) -> None:
     push(evm.stack, U256.from_be_bytes(evm.message.current_target))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def balance(evm: Evm) -> None:
@@ -83,7 +85,7 @@ def balance(evm: Evm) -> None:
     push(evm.stack, balance)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def origin(evm: Evm) -> None:
@@ -107,7 +109,7 @@ def origin(evm: Evm) -> None:
     push(evm.stack, U256.from_be_bytes(evm.env.origin))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def caller(evm: Evm) -> None:
@@ -130,7 +132,7 @@ def caller(evm: Evm) -> None:
     push(evm.stack, U256.from_be_bytes(evm.message.caller))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def callvalue(evm: Evm) -> None:
@@ -153,7 +155,7 @@ def callvalue(evm: Evm) -> None:
     push(evm.stack, evm.message.value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def calldataload(evm: Evm) -> None:
@@ -179,7 +181,7 @@ def calldataload(evm: Evm) -> None:
     push(evm.stack, U256.from_be_bytes(value))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def calldatasize(evm: Evm) -> None:
@@ -202,7 +204,7 @@ def calldatasize(evm: Evm) -> None:
     push(evm.stack, U256(len(evm.message.data)))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def calldatacopy(evm: Evm) -> None:
@@ -224,7 +226,7 @@ def calldatacopy(evm: Evm) -> None:
     size = pop(evm.stack)
 
     # GAS
-    words = ceil32(Uint(size)) // 32
+    words = ceil32(Uint(size)) // Uint(32)
     copy_gas_cost = GAS_COPY * words
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
@@ -237,7 +239,7 @@ def calldatacopy(evm: Evm) -> None:
     memory_write(evm.memory, memory_start_index, value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def codesize(evm: Evm) -> None:
@@ -260,7 +262,7 @@ def codesize(evm: Evm) -> None:
     push(evm.stack, U256(len(evm.code)))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def codecopy(evm: Evm) -> None:
@@ -282,7 +284,7 @@ def codecopy(evm: Evm) -> None:
     size = pop(evm.stack)
 
     # GAS
-    words = ceil32(Uint(size)) // 32
+    words = ceil32(Uint(size)) // Uint(32)
     copy_gas_cost = GAS_COPY * words
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
@@ -295,7 +297,7 @@ def codecopy(evm: Evm) -> None:
     memory_write(evm.memory, memory_start_index, value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def gasprice(evm: Evm) -> None:
@@ -318,7 +320,7 @@ def gasprice(evm: Evm) -> None:
     push(evm.stack, U256(evm.env.gas_price))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def extcodesize(evm: Evm) -> None:
@@ -344,7 +346,7 @@ def extcodesize(evm: Evm) -> None:
     push(evm.stack, codesize)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def extcodecopy(evm: Evm) -> None:
@@ -364,7 +366,7 @@ def extcodecopy(evm: Evm) -> None:
     size = pop(evm.stack)
 
     # GAS
-    words = ceil32(Uint(size)) // 32
+    words = ceil32(Uint(size)) // Uint(32)
     copy_gas_cost = GAS_COPY * words
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
@@ -378,7 +380,7 @@ def extcodecopy(evm: Evm) -> None:
     memory_write(evm.memory, memory_start_index, value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def returndatasize(evm: Evm) -> None:
@@ -400,7 +402,7 @@ def returndatasize(evm: Evm) -> None:
     push(evm.stack, U256(len(evm.return_data)))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def returndatacopy(evm: Evm) -> None:
@@ -418,13 +420,13 @@ def returndatacopy(evm: Evm) -> None:
     size = pop(evm.stack)
 
     # GAS
-    words = ceil32(Uint(size)) // 32
+    words = ceil32(Uint(size)) // Uint(32)
     copy_gas_cost = GAS_RETURN_DATA_COPY * words
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_index, size)]
     )
     charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
-    if Uint(return_data_start_position) + Uint(size) > len(evm.return_data):
+    if Uint(return_data_start_position) + Uint(size) > ulen(evm.return_data):
         raise OutOfBoundsRead
 
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -434,7 +436,7 @@ def returndatacopy(evm: Evm) -> None:
     memory_write(evm.memory, memory_start_index, value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def extcodehash(evm: Evm) -> None:
@@ -462,7 +464,7 @@ def extcodehash(evm: Evm) -> None:
     push(evm.stack, codehash)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def self_balance(evm: Evm) -> None:
@@ -488,4 +490,4 @@ def self_balance(evm: Evm) -> None:
     push(evm.stack, balance)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
