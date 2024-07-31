@@ -524,42 +524,38 @@ def test_fixture_output_based_on_command_line_args(
     assert output_dir.exists()
 
     all_files = get_all_files_in_directory(output_dir)
+    meta_dir = os.path.join(output_dir, ".meta")
+    assert os.path.exists(meta_dir), f"The directory {meta_dir} does not exist"
 
-    expected_fixtures_ini_filename = "fixtures.ini"
-    expected_fixtures_index_filename = "index.json"
+    expected_ini_file = "fixtures.ini"
+    expected_index_file = "index.json"
 
     ini_file = None
     index_file = None
     for file in all_files:
-        if file.name == expected_fixtures_ini_filename:
+        if file.name == expected_ini_file:
             ini_file = file
-        elif file.name == expected_fixtures_index_filename:
+        elif file.name == expected_index_file:
             index_file = file
 
-    assert ini_file is not None, f"No {expected_fixtures_ini_filename} file was written"
-    assert index_file is not None, f"No {expected_fixtures_index_filename} file was written"
-
-    all_files = [
-        file
-        for file in all_files
-        if file.name
-        not in {
-            expected_fixtures_ini_filename,
-            expected_fixtures_index_filename,
-        }
+    all_fixtures = [
+        file for file in all_files if file.name not in {expected_ini_file, expected_index_file}
     ]
-
     for fixture_file, fixture_count in zip(expected_fixture_files, expected_fixture_counts):
-        assert fixture_file.exists()
-        assert fixture_count == count_keys_in_fixture(fixture_file)
+        assert fixture_file.exists(), f"{fixture_file} does not exist"
+        assert fixture_count == count_keys_in_fixture(
+            fixture_file
+        ), f"Fixture count mismatch for {fixture_file}"
 
-    assert set(all_files) == set(
+    assert set(all_fixtures) == set(
         expected_fixture_files
-    ), f"Unexpected files in directory: {set(all_files) - set(expected_fixture_files)}"
+    ), f"Unexpected files in directory: {set(all_fixtures) - set(expected_fixture_files)}"
 
-    assert ini_file is not None, f"No {expected_fixtures_ini_filename} file was written"
+    assert ini_file is not None, f"No {expected_ini_file} file was found in {meta_dir}"
     config = configparser.ConfigParser()
     config.read(ini_file)
+
+    assert index_file is not None, f"No {expected_index_file} file was found in {meta_dir}"
 
     properties = {key: value for key, value in config.items("fixtures")}
     assert "timestamp" in properties

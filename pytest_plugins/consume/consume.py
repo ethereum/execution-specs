@@ -30,12 +30,12 @@ def default_input_directory() -> str:
     return "./fixtures"
 
 
-def default_html_report_filename() -> str:
+def default_html_report_file_path() -> str:
     """
-    The default file to store the generated HTML test report. Defined as a
+    The default filepath to store the generated HTML test report. Defined as a
     function to allow for easier testing.
     """
-    return "report_consume.html"
+    return ".meta/report_consume.html"
 
 
 def is_url(string: str) -> bool:
@@ -141,20 +141,20 @@ def pytest_configure(config):  # noqa: D103
             f"Specified fixture directory '{input_source}' does not contain any JSON files."
         )
 
-    index_file = input_source / "index.json"
+    index_file = input_source / ".meta" / "index.json"
     if not index_file.exists():
         rich.print(f"Generating index file [bold cyan]{index_file}[/]...")
     generate_fixtures_index(
-        Path(input_source), quiet_mode=False, force_flag=False, disable_infer_format=False
+        input_source, quiet_mode=False, force_flag=False, disable_infer_format=False
     )
-    config.test_cases = TestCases.from_index_file(Path(input_source) / "index.json")
+    config.test_cases = TestCases.from_index_file(index_file)
 
     if config.option.collectonly:
         return
     if not config.getoption("disable_html") and config.getoption("htmlpath") is None:
         # generate an html report by default, unless explicitly disabled
         config.option.htmlpath = os.path.join(
-            config.getoption("fixture_source"), default_html_report_filename()
+            config.getoption("fixture_source"), default_html_report_file_path()
         )
 
 
