@@ -80,7 +80,7 @@ def generic_create(
     if (
         sender.balance < endowment
         or sender.nonce == Uint(2**64 - 1)
-        or evm.message.depth + 1 > STACK_DEPTH_LIMIT
+        or evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT
     ):
         evm.gas_left += create_message_gas
         push(evm.stack, U256(0))
@@ -105,7 +105,7 @@ def generic_create(
         data=b"",
         code=call_data,
         current_target=contract_address,
-        depth=evm.message.depth + 1,
+        depth=evm.message.depth + Uint(1),
         code_address=None,
         should_transfer_value=True,
         is_static=False,
@@ -156,7 +156,7 @@ def create(evm: Evm) -> None:
     )
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def create2(evm: Evm) -> None:
@@ -181,7 +181,7 @@ def create2(evm: Evm) -> None:
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(memory_start_position, memory_size)]
     )
-    call_data_words = ceil32(Uint(memory_size)) // 32
+    call_data_words = ceil32(Uint(memory_size)) // Uint(32)
     charge_gas(
         evm,
         GAS_CREATE + GAS_KECCAK256_WORD * call_data_words + extend_memory.cost,
@@ -200,7 +200,7 @@ def create2(evm: Evm) -> None:
     )
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def return_(evm: Evm) -> None:
@@ -256,7 +256,7 @@ def generic_call(
 
     evm.return_data = b""
 
-    if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
+    if evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT:
         evm.gas_left += gas
         push(evm.stack, U256(0))
         return
@@ -273,7 +273,7 @@ def generic_call(
         data=call_data,
         code=code,
         current_target=to,
-        depth=evm.message.depth + 1,
+        depth=evm.message.depth + Uint(1),
         code_address=code_address,
         should_transfer_value=should_transfer_value,
         is_static=True if is_staticcall else evm.message.is_static,
@@ -365,7 +365,7 @@ def call(evm: Evm) -> None:
         )
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def callcode(evm: Evm) -> None:
@@ -432,7 +432,7 @@ def callcode(evm: Evm) -> None:
         )
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def selfdestruct(evm: Evm) -> None:
@@ -544,7 +544,7 @@ def delegatecall(evm: Evm) -> None:
     )
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def staticcall(evm: Evm) -> None:
@@ -599,7 +599,7 @@ def staticcall(evm: Evm) -> None:
     )
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def revert(evm: Evm) -> None:
