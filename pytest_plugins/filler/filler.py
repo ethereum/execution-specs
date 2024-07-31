@@ -5,7 +5,7 @@ Top-level pytest configuration file providing:
 and that modifies pytest hooks in order to fill test specs for all tests and
 writes the generated fixtures to file.
 """
-
+import argparse
 import configparser
 import datetime
 import os
@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Generator, List, Type
 
 import pytest
+from filelock import FileLock
 from pytest_metadata.plugin import metadata_key  # type: ignore
 
 from cli.gen_index import generate_fixtures_index
@@ -185,6 +186,13 @@ def pytest_addoption(parser: pytest.Parser):
         type=str,
         help="Specify a build name for the fixtures.ini file, e.g., 'stable'.",
     )
+    test_group.addoption(
+        "--index",
+        action="store_true",
+        dest="generate_index",
+        default=False,
+        help="Generate an index file for all produced fixtures.",
+    )
 
     debug_group = parser.getgroup("debug", "Arguments defining debug behavior")
     debug_group.addoption(
@@ -194,6 +202,16 @@ def pytest_addoption(parser: pytest.Parser):
         dest="base_dump_dir",
         default="",
         help="Path to dump the transition tool debug output.",
+    )
+
+    internal_group = parser.getgroup("internal", "Internal arguments")
+    internal_group.addoption(
+        "--session-temp-folder",
+        action="store",
+        dest="session_temp_folder",
+        type=Path,
+        default=None,
+        help=argparse.SUPPRESS,
     )
 
 
@@ -610,6 +628,16 @@ def get_fixture_collection_scope(fixture_name, config):
     return "module"
 
 
+@pytest.fixture(scope="session")
+def session_temp_folder(request) -> Path | None:  # noqa: D103
+    return request.config.option.session_temp_folder
+
+
+@pytest.fixture(scope="session")
+def generate_index(request) -> bool:  # noqa: D103
+    return request.config.option.generate_index
+
+
 @pytest.fixture(scope=get_fixture_collection_scope)
 def fixture_collector(
     request: pytest.FixtureRequest,
@@ -618,11 +646,29 @@ def fixture_collector(
     filler_path: Path,
     base_dump_dir: Path | None,
     output_dir: Path,
+    session_temp_folder: Path | None,
+    generate_index: bool,
 ) -> Generator[FixtureCollector, None, None]:
     """
     Returns the configured fixture collector instance used for all tests
     in one test module.
     """
+    if session_temp_folder is not None:
+        fixture_collector_count_file_name = "fixture_collector_count"
+        fixture_collector_count_file = session_temp_folder / fixture_collector_count_file_name
+        fixture_collector_count_file_lock = (
+            session_temp_folder / f"{fixture_collector_count_file_name}.lock"
+        )
+        with FileLock(fixture_collector_count_file_lock):
+            if fixture_collector_count_file.exists():
+                with open(fixture_collector_count_file, "r") as f:
+                    fixture_collector_count = int(f.read())
+            else:
+                fixture_collector_count = 0
+            fixture_collector_count += 1
+            with open(fixture_collector_count_file, "w") as f:
+                f.write(str(fixture_collector_count))
+
     fixture_collector = FixtureCollector(
         output_dir=output_dir,
         flat_output=request.config.getoption("flat_output"),
@@ -634,9 +680,19 @@ def fixture_collector(
     fixture_collector.dump_fixtures()
     if do_fixture_verification:
         fixture_collector.verify_fixture_files(evm_fixture_verification)
-    generate_fixtures_index(
-        output_dir, quiet_mode=True, force_flag=True, disable_infer_format=False
-    )
+
+    fixture_collector_count = 0
+    if session_temp_folder is not None:
+        with FileLock(fixture_collector_count_file_lock):
+            with open(fixture_collector_count_file, "r") as f:
+                fixture_collector_count = int(f.read())
+            fixture_collector_count -= 1
+            with open(fixture_collector_count_file, "w") as f:
+                f.write(str(fixture_collector_count))
+    if generate_index and fixture_collector_count == 0:
+        generate_fixtures_index(
+            output_dir, quiet_mode=True, force_flag=True, disable_infer_format=False
+        )
 
 
 @pytest.fixture(autouse=True, scope="session")

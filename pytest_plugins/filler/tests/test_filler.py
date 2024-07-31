@@ -77,7 +77,7 @@ total_test_count = test_count_paris + test_count_shanghai
 
 
 @pytest.mark.parametrize(
-    "args, expected_fixture_files, expected_fixture_counts",
+    "args, expected_fixture_files, expected_fixture_counts, expected_index",
     [
         pytest.param(
             [],
@@ -100,10 +100,11 @@ total_test_count = test_count_paris + test_count_shanghai
                 Path("fixtures/state_tests/shanghai/module_shanghai/shanghai_two.json"),
             ],
             [2, 2, 2, 2, 2, 2, 2, 2, 2, 6, 6, 6],
+            False,
             id="default-args",
         ),
         pytest.param(
-            ["--build-name", "test_build"],
+            ["--index", "--build-name", "test_build"],
             [
                 Path("fixtures/blockchain_tests/paris/module_paris/paris_one.json"),
                 Path("fixtures/blockchain_tests_engine/paris/module_paris/paris_one.json"),
@@ -123,10 +124,11 @@ total_test_count = test_count_paris + test_count_shanghai
                 Path("fixtures/state_tests/shanghai/module_shanghai/shanghai_two.json"),
             ],
             [2, 2, 2, 2, 2, 2, 2, 2, 2, 6, 6, 6],
+            True,
             id="build-name-in-fixtures-ini-file",
         ),
         pytest.param(
-            ["--flat-output"],
+            ["--flat-output", "--index"],
             [
                 Path("fixtures/blockchain_tests/paris_one.json"),
                 Path("fixtures/blockchain_tests_engine/paris_one.json"),
@@ -142,10 +144,11 @@ total_test_count = test_count_paris + test_count_shanghai
                 Path("fixtures/state_tests/shanghai_two.json"),
             ],
             [2, 2, 2, 2, 2, 2, 2, 2, 2, 6, 6, 6],
+            True,
             id="flat-output",
         ),
         pytest.param(
-            ["--flat-output", "--output", "other_fixtures"],
+            ["--flat-output", "--index", "--output", "other_fixtures"],
             [
                 Path("other_fixtures/blockchain_tests/paris_one.json"),
                 Path("other_fixtures/blockchain_tests_engine/paris_one.json"),
@@ -161,10 +164,11 @@ total_test_count = test_count_paris + test_count_shanghai
                 Path("other_fixtures/state_tests/shanghai_two.json"),
             ],
             [2, 2, 2, 2, 2, 2, 2, 2, 2, 6, 6, 6],
+            True,
             id="flat-output_custom-output-dir",
         ),
         pytest.param(
-            ["--single-fixture-per-file"],
+            ["--single-fixture-per-file", "--index"],
             [
                 Path(
                     "fixtures/blockchain_tests/paris/module_paris/paris_one__fork_Paris_blockchain_test.json"
@@ -276,10 +280,11 @@ total_test_count = test_count_paris + test_count_shanghai
                 ),
             ],
             [1] * 36,
+            True,
             id="single-fixture-per-file",
         ),
         pytest.param(
-            ["--single-fixture-per-file", "--output", "other_fixtures"],
+            ["--single-fixture-per-file", "--index", "--output", "other_fixtures"],
             [
                 Path(
                     "other_fixtures/blockchain_tests/paris/module_paris/paris_one__fork_Paris_blockchain_test.json"
@@ -391,10 +396,11 @@ total_test_count = test_count_paris + test_count_shanghai
                 ),
             ],
             [1] * 36,
+            True,
             id="single-fixture-per-file_custom_output_dir",
         ),
         pytest.param(
-            ["--flat-output", "--single-fixture-per-file"],
+            ["--flat-output", "--index", "--single-fixture-per-file"],
             [
                 Path("fixtures/blockchain_tests/paris_one__fork_Paris_blockchain_test.json"),
                 Path("fixtures/state_tests/paris_one__fork_Paris_state_test.json"),
@@ -470,12 +476,13 @@ total_test_count = test_count_paris + test_count_shanghai
                 ),
             ],
             [1] * 36,
+            True,
             id="flat-single-per-file_flat-output",
         ),
     ],
 )
 def test_fixture_output_based_on_command_line_args(
-    testdir, args, expected_fixture_files, expected_fixture_counts
+    testdir, args, expected_fixture_files, expected_fixture_counts, expected_index
 ):
     """
     Test:
@@ -555,7 +562,8 @@ def test_fixture_output_based_on_command_line_args(
     config = configparser.ConfigParser()
     config.read(ini_file)
 
-    assert index_file is not None, f"No {expected_index_file} file was found in {meta_dir}"
+    if expected_index:
+        assert index_file is not None, f"No {expected_index_file} file was found in {meta_dir}"
 
     properties = {key: value for key, value in config.items("fixtures")}
     assert "timestamp" in properties
