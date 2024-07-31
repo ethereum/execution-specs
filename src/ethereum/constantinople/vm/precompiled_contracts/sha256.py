@@ -32,7 +32,7 @@ def sha256(evm: Evm) -> None:
     data = evm.message.data
 
     # GAS
-    word_count = ceil32(Uint(len(data))) // 32
+    word_count = ceil32(Uint(len(data))) // Uint(32)
     charge_gas(evm, GAS_SHA256 + GAS_SHA256_WORD * word_count)
 
     # OPERATION

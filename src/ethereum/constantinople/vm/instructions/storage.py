@@ -12,6 +12,8 @@ Introduction
 Implementations of the EVM storage related instructions.
 """
 
+from ethereum.base_types import Uint
+
 from ...state import get_storage, set_storage
 from .. import Evm
 from ..exceptions import WriteInStaticContext
@@ -48,7 +50,7 @@ def sload(evm: Evm) -> None:
     push(evm.stack, value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def sstore(evm: Evm) -> None:
@@ -73,7 +75,7 @@ def sstore(evm: Evm) -> None:
         gas_cost = GAS_STORAGE_UPDATE
 
     if new_value == 0 and current_value != 0:
-        evm.refund_counter += GAS_STORAGE_CLEAR_REFUND
+        evm.refund_counter += int(GAS_STORAGE_CLEAR_REFUND)
 
     charge_gas(evm, gas_cost)
     if evm.message.is_static:
@@ -81,4 +83,4 @@ def sstore(evm: Evm) -> None:
     set_storage(evm.env.state, evm.message.current_target, key, new_value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
