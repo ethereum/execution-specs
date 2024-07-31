@@ -76,21 +76,9 @@ def test_address_space_extension(
     if ase_address and target_address[0] == b"00":
         raise ValueError("Test instrumentation requires target addresses trim leading zeros")
 
-    match target_opcode:
-        case Op.CALL | Op.CALLCODE:
-            call_suffix = [0, 0, 0, 0, 0]
-            ase_ready_opcode = False
-        case Op.DELEGATECALL | Op.STATICCALL:
-            call_suffix = [0, 0, 0, 0]
-            ase_ready_opcode = False
-        case Op.EXTCALL:
-            call_suffix = [0, 0, 0]
-            ase_ready_opcode = True
-        case Op.EXTDELEGATECALL | Op.EXTSTATICCALL:
-            call_suffix = [0, 0]
-            ase_ready_opcode = True
-        case _:
-            raise ValueError("Unexpected opcode ", target_opcode)
+    ase_ready_opcode = (
+        False if target_opcode in [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL] else True
+    )
 
     sender = pre.fund_eoa()
 
@@ -100,7 +88,7 @@ def test_address_space_extension(
                 Section.Code(
                     code=Op.SSTORE(
                         slot_target_call_status,
-                        target_opcode(Op.CALLDATALOAD(0), *call_suffix),  # type: ignore
+                        target_opcode(address=Op.CALLDATALOAD(0)),
                     )
                     + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
                     + Op.SSTORE(slot_target_returndata, Op.MLOAD(0))
@@ -112,7 +100,7 @@ def test_address_space_extension(
         if ase_ready_opcode
         else Op.SSTORE(
             slot_target_call_status,
-            target_opcode(Op.GAS, Op.CALLDATALOAD(0), *call_suffix),  # type: ignore
+            target_opcode(address=Op.CALLDATALOAD(0)),
         )
         + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
         + Op.SSTORE(slot_target_returndata, Op.MLOAD(0))
@@ -221,8 +209,6 @@ def test_address_space_extension(
         sender=sender,
         to=address_entry_point,
         gas_limit=50_000_000,
-        gas_price=10,
-        protected=False,
         data="",
     )
 

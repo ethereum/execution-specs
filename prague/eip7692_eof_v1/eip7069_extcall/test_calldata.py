@@ -65,7 +65,7 @@ def test_extcalls_inputdata(
     """
     env = Environment()
 
-    sender = pre.fund_eoa(10**18)
+    sender = pre.fund_eoa()
 
     address_returner = pre.deploy_contract(
         Container(
@@ -152,7 +152,7 @@ def test_extdelegatecall_inputdata(
     """
     env = Environment()
 
-    sender = pre.fund_eoa(10**18)
+    sender = pre.fund_eoa()
 
     address_returner = pre.deploy_contract(
         Container(
@@ -236,7 +236,7 @@ def test_extstaticcall_inputdata(
     """
     env = Environment()
 
-    sender = pre.fund_eoa(10**18)
+    sender = pre.fund_eoa()
 
     address_returner = pre.deploy_contract(
         Container(
@@ -316,7 +316,7 @@ def test_calldata_remains_after_subcall(
     """
     env = Environment()
 
-    sender = pre.fund_eoa(10**18)
+    sender = pre.fund_eoa()
 
     address_sub_called = pre.deploy_contract(
         Container(
