@@ -525,13 +525,29 @@ def test_fixture_output_based_on_command_line_args(
 
     all_files = get_all_files_in_directory(output_dir)
 
-    ini_file = None
     expected_fixtures_ini_filename = "fixtures.ini"
+    expected_fixtures_index_filename = "index.json"
+
+    ini_file = None
+    index_file = None
     for file in all_files:
         if file.name == expected_fixtures_ini_filename:
             ini_file = file
-            all_files.remove(file)
-            break
+        elif file.name == expected_fixtures_index_filename:
+            index_file = file
+
+    assert ini_file is not None, f"No {expected_fixtures_ini_filename} file was written"
+    assert index_file is not None, f"No {expected_fixtures_index_filename} file was written"
+
+    all_files = [
+        file
+        for file in all_files
+        if file.name
+        not in {
+            expected_fixtures_ini_filename,
+            expected_fixtures_index_filename,
+        }
+    ]
 
     for fixture_file, fixture_count in zip(expected_fixture_files, expected_fixture_counts):
         assert fixture_file.exists()

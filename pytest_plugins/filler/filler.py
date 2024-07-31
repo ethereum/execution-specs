@@ -17,6 +17,7 @@ from typing import Generator, List, Type
 import pytest
 from pytest_metadata.plugin import metadata_key  # type: ignore
 
+from cli.gen_index import generate_fixtures_index
 from ethereum_test_base_types import Alloc, ReferenceSpec
 from ethereum_test_fixtures import FixtureCollector, FixtureFormats, TestInfo
 from ethereum_test_forks import (
@@ -617,6 +618,9 @@ def fixture_collector(
     fixture_collector.dump_fixtures()
     if do_fixture_verification:
         fixture_collector.verify_fixture_files(evm_fixture_verification)
+    generate_fixtures_index(
+        output_dir, quiet_mode=False, force_flag=False, disable_infer_format=False
+    )
 
 
 @pytest.fixture(autouse=True, scope="session")
