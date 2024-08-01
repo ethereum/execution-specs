@@ -235,8 +235,8 @@ def test_transaction_with_insufficient_balance_for_value() -> None:
 
     tx = FIXTURES_LOADER.fork.Transaction(
         nonce=U256(0x00),
-        gas_price=U256(1000),
-        gas=U256(150000),
+        gas_price=Uint(1000),
+        gas=Uint(150000),
         to=FIXTURES_LOADER.fork.hex_to_address(
             "c94f5374fce5edbc8e2a8697c15331677e6ebf0b"
         ),
@@ -252,7 +252,7 @@ def test_transaction_with_insufficient_balance_for_value() -> None:
         origin=address,
         block_hashes=[genesis_header_hash],
         coinbase=genesis_block.header.coinbase,
-        number=genesis_block.header.number + 1,
+        number=genesis_block.header.number + Uint(1),
         gas_limit=genesis_block.header.gas_limit,
         gas_price=tx.gas_price,
         time=genesis_block.header.timestamp,
