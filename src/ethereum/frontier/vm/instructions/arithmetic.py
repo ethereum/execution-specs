@@ -51,7 +51,7 @@ def add(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def sub(evm: Evm) -> None:
@@ -78,7 +78,7 @@ def sub(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def mul(evm: Evm) -> None:
@@ -105,7 +105,7 @@ def mul(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def div(evm: Evm) -> None:
@@ -135,7 +135,7 @@ def div(evm: Evm) -> None:
     push(evm.stack, quotient)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def sdiv(evm: Evm) -> None:
@@ -168,7 +168,7 @@ def sdiv(evm: Evm) -> None:
     push(evm.stack, U256.from_signed(quotient))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def mod(evm: Evm) -> None:
@@ -198,7 +198,7 @@ def mod(evm: Evm) -> None:
     push(evm.stack, remainder)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def smod(evm: Evm) -> None:
@@ -228,7 +228,7 @@ def smod(evm: Evm) -> None:
     push(evm.stack, U256.from_signed(remainder))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def addmod(evm: Evm) -> None:
@@ -259,7 +259,7 @@ def addmod(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def mulmod(evm: Evm) -> None:
@@ -290,7 +290,7 @@ def mulmod(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def exp(evm: Evm) -> None:
@@ -312,7 +312,7 @@ def exp(evm: Evm) -> None:
     # This is equivalent to 1 + floor(log(y, 256)). But in python the log
     # function is inaccurate leading to wrong results.
     exponent_bits = exponent.bit_length()
-    exponent_bytes = (exponent_bits + 7) // 8
+    exponent_bytes = (exponent_bits + Uint(7)) // Uint(8)
     charge_gas(
         evm, GAS_EXPONENTIATION + GAS_EXPONENTIATION_PER_BYTE * exponent_bytes
     )
@@ -323,7 +323,7 @@ def exp(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def signextend(evm: Evm) -> None:
@@ -366,4 +366,4 @@ def signextend(evm: Evm) -> None:
     push(evm.stack, result)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
