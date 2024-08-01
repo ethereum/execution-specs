@@ -426,7 +426,7 @@ def increment_nonce(state: State, address: Address) -> None:
     """
 
     def increase_nonce(sender: Account) -> None:
-        sender.nonce += 1
+        sender.nonce += Uint(1)
 
     modify_state(state, address, increase_nonce)
 

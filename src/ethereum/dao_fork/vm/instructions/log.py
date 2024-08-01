@@ -13,7 +13,7 @@ Implementations of the EVM logging instructions.
 """
 from functools import partial
 
-from ethereum.base_types import U256
+from ethereum.base_types import U256, Uint
 
 from ...blocks import Log
 from .. import Evm
@@ -59,8 +59,8 @@ def log_n(evm: Evm, num_topics: U256) -> None:
     charge_gas(
         evm,
         GAS_LOG
-        + GAS_LOG_DATA * size
-        + GAS_LOG_TOPIC * num_topics
+        + GAS_LOG_DATA * Uint(size)
+        + GAS_LOG_TOPIC * Uint(num_topics)
         + extend_memory.cost,
     )
 
@@ -75,7 +75,7 @@ def log_n(evm: Evm, num_topics: U256) -> None:
     evm.logs = evm.logs + (log_entry,)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 log0 = partial(log_n, num_topics=0)

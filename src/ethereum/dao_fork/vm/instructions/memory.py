@@ -11,7 +11,7 @@ Introduction
 
 Implementations of the EVM Memory instructions.
 """
-from ethereum.base_types import U256, Bytes
+from ethereum.base_types import U256, Bytes, Uint
 
 from .. import Evm
 from ..gas import (
@@ -52,7 +52,7 @@ def mstore(evm: Evm) -> None:
     memory_write(evm.memory, start_position, value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def mstore8(evm: Evm) -> None:
@@ -84,7 +84,7 @@ def mstore8(evm: Evm) -> None:
     memory_write(evm.memory, start_position, normalized_bytes_value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def mload(evm: Evm) -> None:
@@ -114,7 +114,7 @@ def mload(evm: Evm) -> None:
     push(evm.stack, value)
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def msize(evm: Evm) -> None:
@@ -137,4 +137,4 @@ def msize(evm: Evm) -> None:
     push(evm.stack, U256(len(evm.memory)))
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
