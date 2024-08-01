@@ -63,7 +63,7 @@ def prepare_message(
     if isinstance(target, Bytes0):
         current_target = compute_contract_address(
             caller,
-            get_account(env.state, caller).nonce - U256(1),
+            get_account(env.state, caller).nonce - Uint(1),
         )
         msg_data = Bytes(b"")
         code = data

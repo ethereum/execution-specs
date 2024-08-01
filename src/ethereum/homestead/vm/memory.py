@@ -31,7 +31,7 @@ def memory_write(
     value :
         Data to write to memory.
     """
-    memory[start_position : Uint(start_position) + len(value)] = value
+    memory[start_position : int(start_position) + len(value)] = value
 
 
 def memory_read_bytes(

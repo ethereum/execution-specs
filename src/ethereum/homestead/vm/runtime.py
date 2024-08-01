@@ -13,6 +13,8 @@ Runtime related operations used while executing EVM code.
 """
 from typing import Set
 
+from ethereum_types.numeric import ulen
+
 from ethereum.base_types import Uint
 
 from .instructions import Ops
@@ -43,14 +45,14 @@ def get_valid_jump_destinations(code: bytes) -> Set[Uint]:
     valid_jump_destinations = set()
     pc = Uint(0)
 
-    while pc < len(code):
+    while pc < ulen(code):
         try:
             current_opcode = Ops(code[pc])
         except ValueError:
             # Skip invalid opcodes, as they don't affect the jumpdest
             # analysis. Nevertheless, such invalid opcodes would be caught
             # and raised when the interpreter runs.
-            pc += 1
+            pc += Uint(1)
             continue
 
         if current_opcode == Ops.JUMPDEST:
@@ -60,8 +62,8 @@ def get_valid_jump_destinations(code: bytes) -> Set[Uint]:
             # with the trailing data segment corresponding to the PUSH-N
             # opcodes.
             push_data_size = current_opcode.value - Ops.PUSH1.value + 1
-            pc += push_data_size
+            pc += Uint(push_data_size)
 
-        pc += 1
+        pc += Uint(1)
 
     return valid_jump_destinations
