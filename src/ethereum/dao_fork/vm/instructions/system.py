@@ -81,7 +81,7 @@ def create(evm: Evm) -> None:
     if (
         sender.balance < endowment
         or sender.nonce == Uint(2**64 - 1)
-        or evm.message.depth + 1 > STACK_DEPTH_LIMIT
+        or evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT
     ):
         push(evm.stack, U256(0))
         evm.gas_left += create_message_gas
@@ -103,7 +103,7 @@ def create(evm: Evm) -> None:
             data=b"",
             code=call_data,
             current_target=contract_address,
-            depth=evm.message.depth + 1,
+            depth=evm.message.depth + Uint(1),
             code_address=None,
             should_transfer_value=True,
             parent_evm=evm,
@@ -120,7 +120,7 @@ def create(evm: Evm) -> None:
             )
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def return_(evm: Evm) -> None:
@@ -173,7 +173,7 @@ def generic_call(
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
 
-    if evm.message.depth + 1 > STACK_DEPTH_LIMIT:
+    if evm.message.depth + Uint(1) > STACK_DEPTH_LIMIT:
         evm.gas_left += gas
         push(evm.stack, U256(0))
         return
@@ -190,7 +190,7 @@ def generic_call(
         data=call_data,
         code=code,
         current_target=to,
-        depth=evm.message.depth + 1,
+        depth=evm.message.depth + Uint(1),
         code_address=code_address,
         should_transfer_value=should_transfer_value,
         parent_evm=evm,
@@ -267,7 +267,7 @@ def call(evm: Evm) -> None:
         )
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def callcode(evm: Evm) -> None:
@@ -327,7 +327,7 @@ def callcode(evm: Evm) -> None:
         )
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)
 
 
 def selfdestruct(evm: Evm) -> None:
@@ -354,7 +354,7 @@ def selfdestruct(evm: Evm) -> None:
         parent_evm = parent_evm.message.parent_evm
 
     if originator not in refunded_accounts:
-        evm.refund_counter += REFUND_SELF_DESTRUCT
+        evm.refund_counter += int(REFUND_SELF_DESTRUCT)
 
     charge_gas(evm, gas_cost)
 
@@ -425,4 +425,4 @@ def delegatecall(evm: Evm) -> None:
     )
 
     # PROGRAM COUNTER
-    evm.pc += 1
+    evm.pc += Uint(1)

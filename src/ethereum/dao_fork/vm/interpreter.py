@@ -14,6 +14,8 @@ A straightforward interpreter that executes EVM code.
 from dataclasses import dataclass
 from typing import Optional, Set, Tuple
 
+from ethereum_types.numeric import ulen
+
 from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.trace import (
     EvmStop,
@@ -51,7 +53,7 @@ from .exceptions import (
 from .instructions import Ops, op_implementation
 from .runtime import get_valid_jump_destinations
 
-STACK_DEPTH_LIMIT = U256(1024)
+STACK_DEPTH_LIMIT = Uint(1024)
 
 
 @dataclass
@@ -117,7 +119,9 @@ def process_message_call(
         accounts_to_delete = evm.accounts_to_delete
         refund_counter = U256(evm.refund_counter)
 
-    tx_end = TransactionEnd(message.gas - evm.gas_left, evm.output, evm.error)
+    tx_end = TransactionEnd(
+        int(message.gas) - int(evm.gas_left), evm.output, evm.error
+    )
     evm_trace(evm, tx_end)
 
     return MessageCallOutput(
@@ -158,7 +162,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
     evm = process_message(message, env)
     if not evm.error:
         contract_code = evm.output
-        contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
+        contract_code_gas = Uint(len(contract_code)) * GAS_CODE_DEPOSIT
         try:
             charge_gas(evm, contract_code_gas)
         except ExceptionalHalt as error:
@@ -254,7 +258,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
             evm_trace(evm, PrecompileEnd())
             return evm
 
-        while evm.running and evm.pc < len(evm.code):
+        while evm.running and evm.pc < ulen(evm.code):
             try:
                 op = Ops(evm.code[evm.pc])
             except ValueError:
