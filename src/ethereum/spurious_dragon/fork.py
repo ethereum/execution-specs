@@ -49,10 +49,10 @@ from .utils.message import prepare_message
 from .vm.interpreter import process_message_call
 
 BLOCK_REWARD = U256(5 * 10**18)
-GAS_LIMIT_ADJUSTMENT_FACTOR = 1024
-GAS_LIMIT_MINIMUM = 5000
+GAS_LIMIT_ADJUSTMENT_FACTOR = Uint(1024)
+GAS_LIMIT_MINIMUM = Uint(5000)
 MINIMUM_DIFFICULTY = Uint(131072)
-MAX_OMMER_DEPTH = 6
+MAX_OMMER_DEPTH = Uint(6)
 
 
 @dataclass
@@ -166,7 +166,9 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         chain.chain_id,
     )
     if apply_body_output.block_gas_used != block.header.gas_used:
-        raise InvalidBlock
+        raise InvalidBlock(
+            f"{apply_body_output.block_gas_used} != {block.header.gas_used}"
+        )
     if apply_body_output.transactions_root != block.header.transactions_root:
         raise InvalidBlock
     if apply_body_output.state_root != block.header.state_root:
@@ -203,7 +205,7 @@ def validate_header(header: Header, parent_header: Header) -> None:
     """
     if header.timestamp <= parent_header.timestamp:
         raise InvalidBlock
-    if header.number != parent_header.number + 1:
+    if header.number != parent_header.number + Uint(1):
         raise InvalidBlock
     if not check_gas_limit(header.gas_limit, parent_header.gas_limit):
         raise InvalidBlock
@@ -537,7 +539,7 @@ def validate_ommers(
 
     # Check that each ommer satisfies the constraints of a header
     for ommer in ommers:
-        if 1 > ommer.number or ommer.number >= block_header.number:
+        if Uint(1) > ommer.number or ommer.number >= block_header.number:
             raise InvalidBlock
         ommer_parent_header = chain.blocks[
             -(block_header.number - ommer.number) - 1
@@ -550,7 +552,7 @@ def validate_ommers(
     if len(ommers_hashes) != len(set(ommers_hashes)):
         raise InvalidBlock
 
-    recent_canonical_blocks = chain.blocks[-(MAX_OMMER_DEPTH + 1) :]
+    recent_canonical_blocks = chain.blocks[-(MAX_OMMER_DEPTH + Uint(1)) :]
     recent_canonical_block_hashes = {
         rlp.rlp_hash(block.header) for block in recent_canonical_blocks
     }
@@ -572,7 +574,7 @@ def validate_ommers(
         # Ommer age with respect to the current block. For example, an age of
         # 1 indicates that the ommer is a sibling of previous block.
         ommer_age = block_header.number - ommer.number
-        if 1 > ommer_age or ommer_age > MAX_OMMER_DEPTH:
+        if Uint(1) > ommer_age or ommer_age > MAX_OMMER_DEPTH:
             raise InvalidBlock
         if ommer.parent_hash not in recent_canonical_block_hashes:
             raise InvalidBlock
@@ -658,15 +660,15 @@ def process_transaction(
     gas_fee = tx.gas * tx.gas_price
     if sender_account.nonce != tx.nonce:
         raise InvalidBlock
-    if sender_account.balance < gas_fee + tx.value:
+    if Uint(sender_account.balance) < gas_fee + Uint(tx.value):
         raise InvalidBlock
     if sender_account.code != bytearray():
         raise InvalidBlock
 
     gas = tx.gas - calculate_intrinsic_cost(tx)
     increment_nonce(env.state, sender)
-    sender_balance_after_gas_fee = sender_account.balance - gas_fee
-    set_account_balance(env.state, sender, sender_balance_after_gas_fee)
+    sender_balance_after_gas_fee = Uint(sender_account.balance) - gas_fee
+    set_account_balance(env.state, sender, U256(sender_balance_after_gas_fee))
 
     message = prepare_message(
         sender,
@@ -680,21 +682,21 @@ def process_transaction(
     output = process_message_call(message, env)
 
     gas_used = tx.gas - output.gas_left
-    gas_refund = min(gas_used // 2, output.refund_counter)
+    gas_refund = min(gas_used // Uint(2), Uint(output.refund_counter))
     gas_refund_amount = (output.gas_left + gas_refund) * tx.gas_price
     transaction_fee = (tx.gas - output.gas_left - gas_refund) * tx.gas_price
     total_gas_used = gas_used - gas_refund
 
     # refund gas
-    sender_balance_after_refund = (
-        get_account(env.state, sender).balance + gas_refund_amount
-    )
+    sender_balance_after_refund = get_account(
+        env.state, sender
+    ).balance + U256(gas_refund_amount)
     set_account_balance(env.state, sender, sender_balance_after_refund)
 
     # transfer miner fees
-    coinbase_balance_after_mining_fee = (
-        get_account(env.state, env.coinbase).balance + transaction_fee
-    )
+    coinbase_balance_after_mining_fee = get_account(
+        env.state, env.coinbase
+    ).balance + U256(transaction_fee)
     if coinbase_balance_after_mining_fee != 0:
         set_account_balance(
             env.state, env.coinbase, coinbase_balance_after_mining_fee
@@ -737,7 +739,11 @@ def validate_transaction(tx: Transaction) -> bool:
     verified : `bool`
         True if the transaction can be executed, or False otherwise.
     """
-    return calculate_intrinsic_cost(tx) <= tx.gas and tx.nonce < 2**64 - 1
+    if calculate_intrinsic_cost(tx) > Uint(tx.gas):
+        return False
+    if tx.nonce >= 2**64 - 1:
+        return False
+    return True
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Uint:
@@ -1013,4 +1019,4 @@ def calculate_block_difficulty(
     # Some clients raise the difficulty to `MINIMUM_DIFFICULTY` prior to adding
     # the bomb. This bug does not matter because the difficulty is always much
     # greater than `MINIMUM_DIFFICULTY` on Mainnet.
-    return Uint(max(difficulty, MINIMUM_DIFFICULTY))
+    return Uint(max(difficulty, int(MINIMUM_DIFFICULTY)))
