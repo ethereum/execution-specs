@@ -32,7 +32,6 @@ from ....vm.memory import buffer_read
 from ...exceptions import InvalidParameter
 
 P = FQ.field_modulus
-P2 = FQ2.field_modulus
 
 K_DISCOUNT = {
     1: 1200,
@@ -265,21 +264,21 @@ def decode_G1_scalar_pair(data: Bytes) -> Tuple[Point2D, int]:
 
 def bytes_to_FQ(
     data: Bytes, optimized: bool = False
-) -> Union[FQ2, OPTIMIZED_FQ2]:
+) -> Union[FQ, OPTIMIZED_FQ]:
     """
-    Decode 64 bytes to a FQ2 element.
+    Decode 64 bytes to a FQ element.
 
     Parameters
     ----------
     data :
         The bytes data to decode.
     optimized :
-        Whether to use the optimized FQ2 implementation.
+        Whether to use the optimized FQ implementation.
 
     Returns
     -------
-    fq : FQ
-        The FQ2 element.
+    fq : Union[FQ, OPTIMIZED_FQ]
+        The FQ element.
 
     Raises
     ------
@@ -313,7 +312,7 @@ def bytes_to_FQ2(
 
     Returns
     -------
-    fq2 : FQ2
+    fq2 : Union[FQ2, OPTIMIZED_FQ2]
         The FQ2 element.
 
     Raises
@@ -325,9 +324,9 @@ def bytes_to_FQ2(
     c_0 = int.from_bytes(data[:64], "big")
     c_1 = int.from_bytes(data[64:], "big")
 
-    if c_0 >= P2:
+    if c_0 >= P:
         raise InvalidParameter("Invalid field element")
-    if c_1 >= P2:
+    if c_1 >= P:
         raise InvalidParameter("Invalid field element")
 
     if optimized:
