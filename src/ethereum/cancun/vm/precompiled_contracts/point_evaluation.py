@@ -18,8 +18,6 @@ from ethereum.crypto.kzg import (
     verify_kzg_proof,
 )
 
-from ethereum.base_types import U256, Bytes
-
 from ...vm import Evm
 from ...vm.exceptions import KZGProofError
 from ...vm.gas import GAS_POINT_EVALUATION, charge_gas
