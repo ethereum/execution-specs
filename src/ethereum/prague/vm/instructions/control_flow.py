@@ -26,9 +26,21 @@ from ...vm.gas import (
     GAS_RJUMPV,
     charge_gas,
 )
-from .. import Evm, ReturnStackItem
+from .. import Evm, OpcodeStackItemCount, ReturnStackItem
 from ..exceptions import ExceptionalHalt, InvalidJumpDestError
 from ..stack import pop, push
+
+STACK_STOP = OpcodeStackItemCount(inputs=0, outputs=0)
+STACK_JUMP = OpcodeStackItemCount(inputs=1, outputs=0)
+STACK_JUMPI = OpcodeStackItemCount(inputs=2, outputs=0)
+STACK_PC = OpcodeStackItemCount(inputs=0, outputs=1)
+STACK_GAS = OpcodeStackItemCount(inputs=0, outputs=1)
+STACK_JUMPDEST = OpcodeStackItemCount(inputs=0, outputs=0)
+STACK_RJUMP = OpcodeStackItemCount(inputs=0, outputs=0)
+STACK_RJUMPI = OpcodeStackItemCount(inputs=1, outputs=0)
+STACK_RJUMPV = OpcodeStackItemCount(inputs=1, outputs=0)
+STACK_CALLF = OpcodeStackItemCount(inputs=0, outputs=0)
+STACK_RETF = OpcodeStackItemCount(inputs=0, outputs=0)
 
 
 def stop(evm: Evm) -> None:

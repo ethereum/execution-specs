@@ -16,7 +16,7 @@ from ethereum.base_types import U256, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 
-from .. import Evm
+from .. import Evm, OpcodeStackItemCount
 from ..gas import (
     GAS_KECCAK256,
     GAS_KECCAK256_WORD,
@@ -25,6 +25,8 @@ from ..gas import (
 )
 from ..memory import memory_read_bytes
 from ..stack import pop, push
+
+STACK_KECCAK = OpcodeStackItemCount(inputs=2, outputs=1)
 
 
 def keccak(evm: Evm) -> None:

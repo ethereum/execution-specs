@@ -76,6 +76,16 @@ class ReturnStackItem:
 
 
 @dataclass
+class OpcodeStackItemCount:
+    """
+    Stack height count for an Opcode.
+    """
+
+    inputs: Uint
+    outputs: Uint
+
+
+@dataclass
 class Environment:
     """
     Items external to the virtual machine itself, provided by the environment.

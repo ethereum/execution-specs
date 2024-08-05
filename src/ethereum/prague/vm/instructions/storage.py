@@ -20,7 +20,7 @@ from ...state import (
     set_storage,
     set_transient_storage,
 )
-from .. import Evm
+from .. import Evm, OpcodeStackItemCount
 from ..exceptions import OutOfGasError, WriteInStaticContext
 from ..gas import (
     GAS_CALL_STIPEND,
@@ -32,6 +32,11 @@ from ..gas import (
     charge_gas,
 )
 from ..stack import pop, push
+
+STACK_SLOAD = OpcodeStackItemCount(inputs=1, outputs=1)
+STACK_SSTORE = OpcodeStackItemCount(inputs=2, outputs=0)
+STACK_TLOAD = OpcodeStackItemCount(inputs=1, outputs=1)
+STACK_TSTORE = OpcodeStackItemCount(inputs=2, outputs=0)
 
 
 def sload(evm: Evm) -> None:

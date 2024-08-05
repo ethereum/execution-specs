@@ -12,17 +12,34 @@ Introduction
 Implementation of the Ethereum Object Format (EOF) specification.
 """
 
-from typing import Set
+from copy import deepcopy
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Set
 
 from ethereum.base_types import Uint
 
 from . import EOF_MAGIC, EOF_MAGIC_LENGTH, MAX_CODE_SIZE, Eof, EofMetadata
 from .exceptions import InvalidEof
 from .instructions import (
+    EOF1_TERMINATING_INSTRUCTIONS,
     OPCODES_INVALID_IN_EOF1,
     OPCODES_INVALID_IN_LEGACY,
     Ops,
+    op_stack_items,
 )
+
+
+@dataclass
+class OperandStackHeight:
+    stack_height_min: int
+    stack_height_max: int
+
+
+@dataclass
+class CodeSectionValidator:
+    opcode_positions: List[Uint]
+    reached_code_sections: Set[Uint]
+    opcode_stack_heights: Dict[Uint, OperandStackHeight]
 
 
 def map_int_to_op(opcode: int, eof: Eof) -> Ops:
@@ -266,7 +283,7 @@ def validate_body(eof_meta: EofMetadata) -> None:
             raise InvalidEof("Invalid input/output for first section")
 
 
-def get_valid_opcode_positions(code: bytes) -> Set[int]:
+def get_valid_opcode_positions(code: bytes) -> List[int]:
     """
     Get the positions of the valid opcodes for the code. These will
     also be the positions within the code to which, jumps can be
@@ -284,13 +301,13 @@ def get_valid_opcode_positions(code: bytes) -> Set[int]:
         The valid jump destinations in the code.
     """
     counter = 0
-    valid_opcode_positions = set()
+    valid_opcode_positions = []
     while counter < len(code):
         try:
             opcode = map_int_to_op(code[counter], Eof.EOF1)
         except ValueError:
             raise InvalidEof("Invalid opcode in code section")
-        valid_opcode_positions.add(counter)
+        valid_opcode_positions.append(counter)
 
         counter += 1
 
@@ -334,7 +351,7 @@ def get_valid_opcode_positions(code: bytes) -> Set[int]:
 def validate_code_section(
     eof_meta: EofMetadata,
     code_section_index: Uint,
-    reached_code_sections: Set[Uint],
+    code_section_validator: CodeSectionValidator,
 ) -> None:
     """
     Validate a code section of the EOF container.
@@ -345,8 +362,8 @@ def validate_code_section(
         The metadata of the EOF container.
     code_section_index : Uint
         The index of the code section to validate.
-    reached_code_sections : Set[Uint]
-        The code sections that have been reached.
+    code_section_validator : CodeSectionValidator
+        The validator for the code.
 
     Raises
     ------
@@ -355,9 +372,20 @@ def validate_code_section(
     """
     code = eof_meta.code_section_contents[code_section_index]
     valid_opcode_positions = get_valid_opcode_positions(code)
+    code_section_validator.opcode_positions[
+        code_section_index
+    ] = valid_opcode_positions
 
-    for counter in valid_opcode_positions:
+    for i, counter in enumerate(valid_opcode_positions):
         opcode = map_int_to_op(code[counter], Eof.EOF1)
+
+        # TODO: Revisit this
+        if i + 1 == len(valid_opcode_positions):
+            if (
+                opcode not in EOF1_TERMINATING_INSTRUCTIONS
+                and opcode != Ops.RJUMP
+            ):
+                raise InvalidEof("Code section does not terminate")
 
         # Make sure the bytes encoding relative offset
         # are available
@@ -402,7 +430,9 @@ def validate_code_section(
             target_section_index = Uint.from_be_bytes(
                 code[counter + 1 : counter + 3],
             )
-            reached_code_sections.add(target_section_index)
+            code_section_validator.reached_code_sections.add(
+                target_section_index
+            )
             if target_section_index >= eof_meta.num_code_sections:
                 raise InvalidEof("Invalid target code section index")
         elif opcode == Ops.RETF:
@@ -412,6 +442,216 @@ def validate_code_section(
             offset = Uint.from_be_bytes(code[counter + 1 : counter + 3])
             if offset >= eof_meta.data_size:
                 raise InvalidEof("Invalid DATALOADN offset")
+
+
+def validate_instruction_stack_height(
+    eof_meta: EofMetadata,
+    code_section_index: int,
+    position: int,
+    opcode_stack_heights: Dict[int, OperandStackHeight],
+    current_stack_height: OperandStackHeight,
+):
+    code = eof_meta.code_section_contents[code_section_index]
+    instruction = map_int_to_op(code[position], Eof.EOF1)
+    heights = opcode_stack_heights[position]
+
+    if instruction == Ops.CALLF:
+        target_section_index = Uint.from_be_bytes(
+            code[position + 1 : position + 3],
+        )
+        target_section_type = eof_meta.type_section_contents[
+            target_section_index
+        ]
+        target_inputs = target_section_type[0]
+        target_outputs = target_section_type[1]
+        target_max_height = Uint.from_be_bytes(target_section_type[2:])
+
+        if heights.stack_height_min < target_inputs:
+            raise InvalidEof("Invalid stack height")
+
+        # Check stack overflow
+        if heights.stack_height_max > 1024 - target_max_height + target_inputs:
+            raise InvalidEof("Stack overflow")
+
+    elif instruction == Ops.RETF:
+        if heights.stack_height_min != heights.stack_height_max:
+            raise InvalidEof("Invalid stack height")
+        type_section = eof_meta.type_section_contents[code_section_index]
+        type_section_outputs = type_section[1]
+        if heights.stack_height_min != type_section_outputs:
+            raise InvalidEof("Invalid stack height")
+    elif instruction == Ops.JUMPF:
+        # TODO
+        pass
+    else:
+        instruction_inputs = op_stack_items[instruction].inputs
+        if heights.stack_height_min < instruction_inputs:
+            raise InvalidEof("Invalid stack height")
+
+    # Update the stack heights for the next instruction
+    if instruction == Ops.CALLF:
+        target_section_index = Uint.from_be_bytes(
+            code[position + 1 : position + 3],
+        )
+        target_section_type = eof_meta.type_section_contents[
+            target_section_index
+        ]
+        target_inputs = target_section_type[0]
+        target_outputs = target_section_type[1]
+        target_max_height = Uint.from_be_bytes(target_section_type[2:])
+
+        current_stack_height.stack_height_min += target_outputs - target_inputs
+        current_stack_height.stack_height_max += target_outputs - target_inputs
+
+    elif instruction in EOF1_TERMINATING_INSTRUCTIONS:
+        pass
+    else:
+        instruction_inputs = op_stack_items[instruction].inputs
+        instruction_outputs = op_stack_items[instruction].outputs
+        current_stack_height.stack_height_min += (
+            instruction_outputs - instruction_inputs
+        )
+        current_stack_height.stack_height_max += (
+            instruction_outputs - instruction_inputs
+        )
+
+    relative_offsets = []
+    # Get successor Instructions
+    if instruction in (Ops.RJUMP, Ops.RJUMPI):
+        relative_offset = int.from_bytes(
+            code[position + 1 : position + 3], "big", signed=True
+        )
+        pc_post_instruction = position + 3
+        if instruction == Ops.RJUMP:
+            relative_offsets += [relative_offset]
+        else:
+            relative_offsets += [0, relative_offset]
+    elif instruction == Ops.RJUMPV:
+        relative_offsets += [0]
+        num_relative_indices = code[position + 1] + 1
+        # pc_post_instruction will be
+        # counter + 1 <- for normal pc increment to next opcode
+        # + 1 <- for the 1 byte max_index
+        # + 2 * num_relative_indices <- for the 2 bytes of each offset
+        pc_post_instruction = position + 2 + 2 * num_relative_indices
+
+        index_position = position + 2
+        for _ in range(num_relative_indices):
+            relative_offset = int.from_bytes(
+                code[index_position : index_position + 2],
+                "big",
+                signed=True,
+            )
+            index_position += 2
+            relative_offsets += [relative_offset]
+    elif instruction == Ops.CALLF:
+        pc_post_instruction = position + 3
+        relative_offsets += [0]
+    elif (
+        instruction.value >= Ops.PUSH1.value
+        and instruction.value <= Ops.PUSH32.value
+    ):
+        push_data_size = instruction.value - Ops.PUSH1.value + 1
+        pc_post_instruction = position + 1 + push_data_size
+        relative_offsets += [0]
+    elif instruction == Ops.DATALOADN:
+        pc_post_instruction = position + 3
+        relative_offsets += [0]
+    elif instruction in EOF1_TERMINATING_INSTRUCTIONS:
+        pass
+    else:
+        pc_post_instruction = position + 1
+        relative_offsets += [0]
+
+    for relative_offset in relative_offsets:
+        successor_position = pc_post_instruction + relative_offset
+        if successor_position > len(code):
+            raise InvalidEof("Invalid jump destination")
+
+        if relative_offset >= 0:
+            if successor_position not in opcode_stack_heights:
+                # Visited the first time
+                opcode_stack_heights[successor_position] = deepcopy(
+                    current_stack_height
+                )
+            else:
+                recorded_stack_height = opcode_stack_heights[
+                    successor_position
+                ]
+                recorded_stack_height.stack_height_min = min(
+                    recorded_stack_height.stack_height_min,
+                    current_stack_height.stack_height_min,
+                )
+                recorded_stack_height.stack_height_max = max(
+                    recorded_stack_height.stack_height_max,
+                    current_stack_height.stack_height_max,
+                )
+        else:
+            recorded_stack_height = opcode_stack_heights[successor_position]
+            if (
+                recorded_stack_height.stack_height_min
+                != current_stack_height.stack_height_min
+            ):
+                raise InvalidEof("Invalid stack height")
+            if (
+                recorded_stack_height.stack_height_max
+                != current_stack_height.stack_height_max
+            ):
+                raise InvalidEof("Invalid stack height")
+
+
+def validate_stack_heights(
+    eof_meta: EofMetadata,
+    code_section_index: int,
+    code_section_validator: CodeSectionValidator,
+) -> None:
+    code = eof_meta.code_section_contents[code_section_index]
+    opcode_positions = code_section_validator.opcode_positions[
+        code_section_index
+    ]
+    x = code_section_validator.opcode_stack_heights
+
+    # Initialise the stack heights for the first instruction
+    type_section = eof_meta.type_section_contents[code_section_index]
+    if code_section_index in x:
+        opcode_stack_heights = x[code_section_index]
+    else:
+        opcode_stack_heights = {}
+    count_inputs = type_section[0]
+    max_stack_height = Uint.from_be_bytes(type_section[2:])
+
+    current_stack_heights = OperandStackHeight(
+        stack_height_min=count_inputs,
+        stack_height_max=count_inputs,
+    )
+
+    # first_instruction_position = opcode_positions[0]
+    # opcode_stack_heights[first_instruction_position] = deepcopy(current_stack_heights)
+
+    for i, position in enumerate(opcode_positions):
+        if i == 0:
+            opcode_stack_heights[position] = deepcopy(current_stack_heights)
+        if position not in opcode_stack_heights:
+            raise InvalidEof("Opcode stack height not set")
+
+        validate_instruction_stack_height(
+            eof_meta,
+            code_section_index,
+            position,
+            opcode_stack_heights,
+            current_stack_heights,
+        )
+
+    computed_maximum_stack_height = 0
+    for op, stack_height in opcode_stack_heights.items():
+        if stack_height.stack_height_max > computed_maximum_stack_height:
+            computed_maximum_stack_height = stack_height.stack_height_max
+
+    if computed_maximum_stack_height > 1023:
+        raise InvalidEof("Invalid stack height")
+
+    if computed_maximum_stack_height != max_stack_height:
+        raise InvalidEof("Invalid stack height")
 
 
 def validate_eof_code(eof_meta: EofMetadata) -> None:
@@ -428,14 +668,22 @@ def validate_eof_code(eof_meta: EofMetadata) -> None:
     InvalidEof
         If the code section is invalid.
     """
-    reached_code_sections = {Uint(0)}
+    code_section_validator = CodeSectionValidator(
+        opcode_positions={},
+        reached_code_sections={Uint(0)},
+        opcode_stack_heights={},
+    )
     for code_section_index in range(eof_meta.num_code_sections):
         validate_code_section(
-            eof_meta, Uint(code_section_index), reached_code_sections
+            eof_meta, Uint(code_section_index), code_section_validator
+        )
+
+        validate_stack_heights(
+            eof_meta, code_section_index, code_section_validator
         )
 
     for i in range(eof_meta.num_code_sections):
-        if i not in reached_code_sections:
+        if i not in code_section_validator.reached_code_sections:
             raise InvalidEof(f"Code section {i} not reachable")
 
 
