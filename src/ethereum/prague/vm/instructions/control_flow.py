@@ -297,11 +297,13 @@ def callf(evm: Evm) -> None:
     charge_gas(evm, GAS_CALLF)
 
     # OPERATION
-    assert evm.eof_meta is not None
+    assert evm.eof_metadata is not None
     target_section_index = Uint.from_be_bytes(
         evm.code[evm.pc + 1 : evm.pc + 3]
     )
-    target_section = evm.eof_meta.type_section_contents[target_section_index]
+    target_section = evm.eof_metadata.type_section_contents[
+        target_section_index
+    ]
     target_inputs = Uint(target_section[0])
     target_max_stack_height = Uint.from_be_bytes(target_section[2:])
 
@@ -319,7 +321,7 @@ def callf(evm: Evm) -> None:
 
     # PROGRAM COUNTER
     evm.current_section_index = target_section_index
-    evm.code = evm.eof_meta.code_section_contents[target_section_index]
+    evm.code = evm.eof_metadata.code_section_contents[target_section_index]
     evm.pc = Uint(0)
 
 
@@ -342,8 +344,10 @@ def retf(evm: Evm) -> None:
     pass
 
     # PROGRAM COUNTER
-    assert evm.eof_meta is not None
+    assert evm.eof_metadata is not None
     return_stack_item = evm.return_stack.pop()
     evm.current_section_index = return_stack_item.code_section_index
-    evm.code = evm.eof_meta.code_section_contents[evm.current_section_index]
+    evm.code = evm.eof_metadata.code_section_contents[
+        evm.current_section_index
+    ]
     evm.pc = return_stack_item.offset

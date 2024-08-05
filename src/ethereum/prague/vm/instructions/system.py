@@ -31,8 +31,8 @@ from ...utils.address import (
     to_address_without_mask,
 )
 from .. import (
-    EOF,
     MAX_CODE_SIZE,
+    Eof,
     Evm,
     Message,
     get_eof_version,
@@ -121,7 +121,7 @@ def generic_create(
         gas=create_message_gas,
         value=endowment,
         data=b"",
-        container=call_data,
+        code=call_data,
         current_target=contract_address,
         depth=evm.message.depth + 1,
         code_address=None,
@@ -306,7 +306,7 @@ def generic_call(
         gas=gas,
         value=value,
         data=call_data,
-        container=container,
+        code=container,
         current_target=to,
         depth=evm.message.depth + 1,
         code_address=code_address,
@@ -795,7 +795,7 @@ def ext_call(evm: Evm) -> None:
             gas=Uint(message_call_gas),
             value=value,
             data=call_data,
-            container=container,
+            code=container,
             current_target=target_address,
             depth=evm.message.depth + 1,
             code_address=target_address,
@@ -872,7 +872,7 @@ def ext_delegatecall(evm: Evm) -> None:
     if (
         message_call_gas < EOF_CALL_MIN_CALLEE_GAS
         or evm.message.depth + 1 > STACK_DEPTH_LIMIT
-        or get_eof_version(container) == EOF.LEGACY
+        or get_eof_version(container) == Eof.LEGACY
     ):
         push(evm.stack, U256(1))
     else:
@@ -884,7 +884,7 @@ def ext_delegatecall(evm: Evm) -> None:
             gas=Uint(message_call_gas),
             value=U256(0),
             data=call_data,
-            container=container,
+            code=container,
             current_target=evm.message.current_target,
             depth=evm.message.depth + 1,
             code_address=target_address,
@@ -971,7 +971,7 @@ def ext_staticcall(evm: Evm) -> None:
             gas=Uint(message_call_gas),
             value=U256(0),
             data=call_data,
-            container=container,
+            code=container,
             current_target=target_address,
             depth=evm.message.depth + 1,
             code_address=target_address,

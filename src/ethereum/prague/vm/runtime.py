@@ -15,11 +15,10 @@ from typing import Set
 
 from ethereum.base_types import Uint
 
-from . import EOF, get_eof_version
 from .instructions import Ops
 
 
-def get_valid_jump_destinations(container: bytes) -> Set[Uint]:
+def get_valid_jump_destinations(code: bytes) -> Set[Uint]:
     """
     Analyze the evm code to obtain the set of valid jump destinations.
 
@@ -33,22 +32,20 @@ def get_valid_jump_destinations(container: bytes) -> Set[Uint]:
 
     Parameters
     ----------
-    container :
-        The container for the code. For non-EOF contracts, this is the code.
+    code :
+        The EVM code which is to be executed.
 
     Returns
     -------
     valid_jump_destinations: `Set[Uint]`
         The set of valid jump destinations in the code.
     """
-    valid_jump_destinations: Set[Uint] = set()
-    if get_eof_version(container) != EOF.LEGACY:
-        return valid_jump_destinations
+    valid_jump_destinations = set()
     pc = Uint(0)
 
-    while pc < len(container):
+    while pc < len(code):
         try:
-            current_opcode = Ops(container[pc])
+            current_opcode = Ops(code[pc])
         except ValueError:
             # Skip invalid opcodes, as they don't affect the jumpdest
             # analysis. Nevertheless, such invalid opcodes would be caught
