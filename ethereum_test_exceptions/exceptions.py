@@ -3,7 +3,7 @@ Exceptions for invalid execution.
 """
 
 from enum import Enum, auto, unique
-from typing import Annotated, Any, List
+from typing import Annotated, Any, Dict, List
 
 from pydantic import BeforeValidator, GetCoreSchemaHandler, PlainSerializer
 from pydantic_core.core_schema import (
@@ -12,23 +12,58 @@ from pydantic_core.core_schema import (
     to_string_ser_schema,
 )
 
+_exception_classes: Dict[str, type] = {}
+
 
 class ExceptionBase(Enum):
     """
     Base class for exceptions.
     """
 
-    @staticmethod
+    def __init_subclass__(cls) -> None:
+        """
+        Register the exception class.
+        """
+        super().__init_subclass__()
+        _exception_classes[cls.__name__] = cls
+
+    @classmethod
     def __get_pydantic_core_schema__(
-        source_type: Any, handler: GetCoreSchemaHandler
+        cls, source_type: Any, handler: GetCoreSchemaHandler
     ) -> PlainValidatorFunctionSchema:
         """
         Calls the class constructor without info and appends the serialization schema.
         """
         return no_info_plain_validator_function(
-            source_type,
+            cls.from_str,
             serialization=to_string_ser_schema(),
         )
+
+    @classmethod
+    def from_str(cls, value: "str | ExceptionBase") -> "ExceptionBase":
+        """
+        Returns the ContainerKind enum value from a string.
+        """
+        if isinstance(value, ExceptionBase):
+            return value
+
+        class_name, enum_name = value.split(".")
+
+        if cls == ExceptionBase:
+            # Exception base automatically resolves the class
+            assert class_name in _exception_classes, f"No such exception class: {class_name}"
+            exception_class = _exception_classes[class_name]
+        else:
+            # Otherwise, use the class that the method is called on
+            assert (
+                cls.__name__ == class_name
+            ), f"Unexpected exception type: {class_name}, expected {cls.__name__}"
+            exception_class = cls
+
+        exception = getattr(exception_class, enum_name, None)
+        if exception is not None:
+            return exception
+        raise ValueError(f"No such exception in {class_name}: {value}")
 
     def __contains__(self, exception) -> bool:
         """
@@ -55,29 +90,12 @@ def to_pipe_str(value: Any) -> str:
     return str(value)
 
 
-def create_exception_from_str(exception_str: str) -> ExceptionBase:
-    """
-    Create an exception instance from its string representation.
-    """
-    class_name, enum_name = exception_str.split(".")
-    exception_class = globals().get(class_name, None)
-
-    if exception_class and issubclass(exception_class, ExceptionBase):
-        enum_value = getattr(exception_class, enum_name, None)
-        if enum_value and enum_value in exception_class:
-            return exception_class(enum_value)
-        else:
-            raise ValueError(f"No such enum in class: {exception_str}")
-    else:
-        raise ValueError(f"No such exception class: {class_name}")
-
-
-def from_pipe_str(value: Any) -> ExceptionBase | List[ExceptionBase]:
+def from_pipe_str(value: Any) -> str | List[str]:
     """
     Parses a single string as a pipe separated list into enum exceptions.
     """
     if isinstance(value, str):
-        exception_list = [create_exception_from_str(v) for v in value.split("|")]
+        exception_list = value.split("|")
         if len(exception_list) == 1:
             return exception_list[0]
         return exception_list
@@ -719,19 +737,19 @@ Pydantic Annotated Types
 """
 
 ExceptionInstanceOrList = Annotated[
-    TransactionException | BlockException | List[TransactionException | BlockException],
+    List[TransactionException | BlockException] | TransactionException | BlockException,
     BeforeValidator(from_pipe_str),
     PlainSerializer(to_pipe_str),
 ]
 
 TransactionExceptionInstanceOrList = Annotated[
-    TransactionException | List[TransactionException],
+    List[TransactionException] | TransactionException,
     BeforeValidator(from_pipe_str),
     PlainSerializer(to_pipe_str),
 ]
 
 BlockExceptionInstanceOrList = Annotated[
-    BlockException | List[BlockException],
+    List[BlockException] | BlockException,
     BeforeValidator(from_pipe_str),
     PlainSerializer(to_pipe_str),
 ]

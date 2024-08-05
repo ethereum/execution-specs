@@ -9,14 +9,15 @@ from pydantic import RootModel
 
 from .blockchain import EngineFixture as BlockchainEngineFixture
 from .blockchain import Fixture as BlockchainFixture
+from .eof import Fixture as EOFFixture
 from .formats import FixtureFormats
 from .state import Fixture as StateFixture
 
 FixtureFormatsValues = Literal[
-    "blockchain_test_engine", "blockchain_test", "state_test", "unset_test_format"
+    "blockchain_test_engine", "blockchain_test", "state_test", "eof_test", "unset_test_format"
 ]
 
-FixtureModel = BlockchainFixture | BlockchainEngineFixture | StateFixture
+FixtureModel = BlockchainFixture | BlockchainEngineFixture | StateFixture | EOFFixture
 
 
 class BaseFixturesRootModel(RootModel):
@@ -103,9 +104,11 @@ class BaseFixturesRootModel(RootModel):
             FixtureFormats.BLOCKCHAIN_TEST: BlockchainFixtures,
             FixtureFormats.BLOCKCHAIN_TEST_ENGINE: BlockchainEngineFixtures,
             FixtureFormats.STATE_TEST: StateFixtures,
+            FixtureFormats.EOF_TEST: EOFFixtures,
             FixtureFormats.BLOCKCHAIN_TEST.value: BlockchainFixtures,
             FixtureFormats.BLOCKCHAIN_TEST_ENGINE.value: BlockchainEngineFixtures,
             FixtureFormats.STATE_TEST.value: StateFixtures,
+            FixtureFormats.EOF_TEST.value: EOFFixtures,
         }
 
         if fixture_format not in [None, "unset_test_format", FixtureFormats.UNSET_TEST_FORMAT]:
@@ -154,3 +157,13 @@ class StateFixtures(BaseFixturesRootModel):
     """
 
     root: Dict[str, StateFixture]
+
+
+class EOFFixtures(BaseFixturesRootModel):
+    """
+    Defines a top-level model containing multiple state test fixtures in a
+    dictionary of (fixture-name, fixture) pairs. This is the format used in JSON
+    fixture files for EOF tests.
+    """
+
+    root: Dict[str, EOFFixture]

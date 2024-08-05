@@ -60,6 +60,8 @@ def infer_fixture_format_from_path(file: Path) -> FixtureFormats:
         return FixtureFormats.BLOCKCHAIN_TEST
     if "state_tests" in file.parts:
         return FixtureFormats.STATE_TEST
+    if "eof_tests" in file.parts:
+        return FixtureFormats.EOF_TEST
     return FixtureFormats.UNSET_TEST_FORMAT
 
 

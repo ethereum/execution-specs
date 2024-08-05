@@ -69,9 +69,20 @@ class ContainerKind(Enum):
         Calls the class constructor without info and appends the serialization schema.
         """
         return no_info_plain_validator_function(
-            source_type,
+            source_type.from_str,
             serialization=to_string_ser_schema(),
         )
+
+    @staticmethod
+    def from_str(value: "str | ContainerKind | None") -> "ContainerKind | None":
+        """
+        Returns the ContainerKind enum value from a string.
+        """
+        if value is None:
+            return None
+        if isinstance(value, ContainerKind):
+            return value
+        return ContainerKind[value.upper()]
 
     def __str__(self) -> str:
         """

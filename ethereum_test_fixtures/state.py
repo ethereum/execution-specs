@@ -115,7 +115,7 @@ class Fixture(BaseFixture):
 
     format: ClassVar[FixtureFormats] = FixtureFormats.STATE_TEST
 
-    def get_fork(self) -> str:
+    def get_fork(self) -> str | None:
         """
         Returns the fork of the fixture as a string.
         """

@@ -41,7 +41,7 @@ class Vector(CamelModel):
     """
 
     code: Bytes
-    container_kind: ContainerKind | None
+    container_kind: ContainerKind = ContainerKind.RUNTIME
     results: Mapping[str, Result]
 
 
@@ -53,3 +53,9 @@ class Fixture(BaseFixture):
     vectors: Mapping[Number, Vector]
 
     format: ClassVar[FixtureFormats] = FixtureFormats.EOF_TEST
+
+    def get_fork(self) -> str | None:
+        """
+        Returns the fork of the fixture as a string.
+        """
+        return None

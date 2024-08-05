@@ -488,7 +488,7 @@ class FixtureCommon(BaseFixture):
     post_state: Alloc | None = Field(None)
     last_block_hash: Hash = Field(..., alias="lastblockhash")  # FIXME: lastBlockHash
 
-    def get_fork(self) -> str:
+    def get_fork(self) -> str | None:
         """
         Returns the fork of the fixture as a string.
         """
