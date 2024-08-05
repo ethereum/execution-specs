@@ -16,8 +16,8 @@ from typing import Set
 
 from ethereum.base_types import Uint
 
-from . import EOF, EOF_MAGIC, EOF_MAGIC_LENGTH, MAX_CODE_SIZE, EOFMetadata
-from .exceptions import InvalidEOF
+from . import EOF_MAGIC, EOF_MAGIC_LENGTH, MAX_CODE_SIZE, Eof, EofMetadata
+from .exceptions import InvalidEof
 from .instructions import (
     OPCODES_INVALID_IN_EOF1,
     OPCODES_INVALID_IN_LEGACY,
@@ -25,7 +25,7 @@ from .instructions import (
 )
 
 
-def get_opcode(opcode: int, eof: EOF) -> Ops:
+def map_int_to_op(opcode: int, eof: Eof) -> Ops:
     """
     Get the opcode enum from the opcode value.
 
@@ -33,7 +33,7 @@ def get_opcode(opcode: int, eof: EOF) -> Ops:
     ----------
     opcode : `int`
         The opcode value.
-    eof : `EOF`
+    eof : `Eof`
         The version of the EOF.
 
     Returns
@@ -43,129 +43,18 @@ def get_opcode(opcode: int, eof: EOF) -> Ops:
     """
     try:
         op = Ops(opcode)
-    except ValueError:
-        raise ValueError(f"Invalid opcode: {opcode}")
+    except ValueError as e:
+        raise ValueError(f"Invalid opcode: {opcode}") from e
 
-    if eof == EOF.LEGACY and op in OPCODES_INVALID_IN_LEGACY:
-        raise ValueError(f"Invalid opcode: {op}")
-    elif eof == EOF.EOF1 and op in OPCODES_INVALID_IN_EOF1:
-        raise ValueError(f"Invalid opcode: {op}")
+    if eof == Eof.LEGACY and op in OPCODES_INVALID_IN_LEGACY:
+        raise ValueError(f"Invalid legacy opcode: {op}")
+    elif eof == Eof.EOF1 and op in OPCODES_INVALID_IN_EOF1:
+        raise ValueError(f"Invalid eof1 opcode: {op}")
 
     return op
 
 
-def meta_from_valid_eof1_container(code: bytes) -> EOFMetadata:
-    """
-    Extract the code from a valid EOF1 container.
-
-    Parameters
-    ----------
-    code : bytes
-        The EOF1 container.
-
-    Returns
-    -------
-    meta : EOFMetadata
-        The meta from the EOF1 container.
-    """
-    # Skip the magic and version bytes
-    position = Uint(EOF_MAGIC_LENGTH + 1)
-
-    # Skip the type marker
-    position += 1
-
-    # Read the type size
-    type_size = Uint.from_be_bytes(code[position : position + 2])
-    position += 2
-
-    # Skip the code marker
-    code_size = Uint.from_be_bytes(code[position : position + 1])
-    position += 1
-
-    # Read the number of code sections
-    num_code_sections = Uint.from_be_bytes(code[position : position + 2])
-    position += 2
-    code_sizes = []
-    for _ in range(num_code_sections):
-        code_size = Uint.from_be_bytes(code[position : position + 2])
-        position += 2
-        code_sizes.append(code_size)
-
-    total_container_size = 0
-    if code[position] == 3:
-        # Skip container section marker
-        position += 1
-
-        # Read the number of container sections
-        num_container_sections = Uint.from_be_bytes(
-            code[position : position + 2]
-        )
-        position += 2
-
-        # Skip the container sizes
-        container_sizes = []
-        for _ in range(num_container_sections):
-            container_size = Uint.from_be_bytes(code[position : position + 2])
-            total_container_size += container_size
-            container_sizes.append(container_size)
-            position += 2
-    else:
-        num_container_sections = Uint(0)
-        container_sizes = None
-
-    # Skip the data marker
-    position += 1
-    # Read the data size
-    data_size = Uint.from_be_bytes(code[position : position + 2])
-    position += 2
-
-    # Skip the terminator
-    position += 1
-    body_start_index = position
-
-    # Read the type section
-    type_section_contents = []
-    num_types = type_size // 4
-    for _ in range(num_types):
-        type_section_contents.append(code[position : position + 4])
-        position += 4
-
-    # Read the code section
-    code_section_contents = []
-    for code_size in code_sizes:
-        code_section_contents.append(code[position : position + code_size])
-        position += code_size
-
-    if container_sizes:
-        # Read the container section
-        container_section_contents = []
-        for container_size in container_sizes:
-            container_section_contents.append(
-                code[position : position + container_size]
-            )
-            position += container_size
-    else:
-        container_section_contents = None
-
-    # Read the data section
-    data_section_contents = code[position : position + data_size]
-
-    return EOFMetadata(
-        type_size=type_size,
-        num_code_sections=num_code_sections,
-        code_sizes=code_sizes,
-        num_container_sections=num_container_sections,
-        container_sizes=container_sizes,
-        data_size=data_size,
-        body_start_index=body_start_index,
-        type_section_contents=type_section_contents,
-        code_section_contents=code_section_contents,
-        container_section_contents=container_section_contents,
-        data_section_contents=data_section_contents,
-    )
-
-
-def validate_header(container: bytes) -> EOFMetadata:
+def parse_container_metadata(container: bytes, validate: bool) -> EofMetadata:
     """
     Validate the header of the EOF container.
 
@@ -173,96 +62,102 @@ def validate_header(container: bytes) -> EOFMetadata:
     ----------
     container : bytes
         The EOF container to validate.
+    validate : bool
+        Whether to validate the EOF container. If the container is simply read
+        from an existing account, it is assumed to be validated. However, if
+        the container is being created, it should be validated first.
 
     Returns
     -------
-    EOFMetadata
+    EofMetadata
         The metadata of the EOF container.
 
     Raises
     ------
-    InvalidEOF
+    InvalidEof
         If the header of the EOF container is invalid.
     """
     counter = len(EOF_MAGIC) + 1
 
     # Get the one byte kind type
-    if len(container) < counter + 1:
-        raise InvalidEOF("Kind type not specified in header")
+    if validate and len(container) < counter + 1:
+        raise InvalidEof("Kind type not specified in header")
     kind_type = container[counter]
     counter += 1
-    if kind_type != 1:
-        raise InvalidEOF("Invalid kind type")
+    if validate and kind_type != 1:
+        raise InvalidEof("Invalid kind type")
 
     # Get the 2 bytes type_size
-    if len(container) < counter + 2:
-        raise InvalidEOF("Type size not specified in header")
+    if validate and len(container) < counter + 2:
+        raise InvalidEof("Type size not specified in header")
     type_size = Uint.from_be_bytes(container[counter : counter + 2])
     counter += 2
-    if type_size < 4 or type_size > 4096 or type_size % 4 != 0:
-        raise InvalidEOF("Invalid type size")
+    if validate and (type_size < 4 or type_size > 4096 or type_size % 4 != 0):
+        raise InvalidEof("Invalid type size")
     num_types = type_size // 4
 
     # Get the 1 byte kind_code
-    if len(container) < counter + 1:
-        raise InvalidEOF("Kind code not specified in header")
+    if validate and len(container) < counter + 1:
+        raise InvalidEof("Kind code not specified in header")
     kind_code = container[counter]
     counter += 1
-    if kind_code != 2:
-        raise InvalidEOF("Invalid kind code")
+    if validate and kind_code != 2:
+        raise InvalidEof("Invalid kind code")
     # Get the 2 bytes num_code_sections
-    if len(container) < counter + 2:
-        raise InvalidEOF("Number of code sections not specified in header")
+    if validate and len(container) < counter + 2:
+        raise InvalidEof("Number of code sections not specified in header")
     num_code_sections = Uint.from_be_bytes(container[counter : counter + 2])
     counter += 2
-    if (
+    if validate and (
         num_code_sections < 1
         or num_code_sections > 1024
         or num_code_sections != num_types
     ):
-        raise InvalidEOF("Invalid number of code sections")
+        raise InvalidEof("Invalid number of code sections")
 
     code_sizes = []
     for i in range(num_code_sections):
         # Get the 2 bytes code_size
-        if len(container) < counter + 2:
-            raise InvalidEOF(
+        if validate and len(container) < counter + 2:
+            raise InvalidEof(
                 f"Code section {i} does not have a size specified in header"
             )
         code_size = Uint.from_be_bytes(container[counter : counter + 2])
         counter += 2
-        if code_size == 0:
-            raise InvalidEOF(f"Invalid code size for code section {i}")
+        if validate and code_size == 0:
+            raise InvalidEof(f"Invalid code size for code section {i}")
         code_sizes.append(code_size)
 
     # Check if the container section is present
-    if len(container) < counter + 1:
-        raise InvalidEOF("Kind data not specified in header")
+    if validate and len(container) < counter + 1:
+        raise InvalidEof("Kind data not specified in header")
     if container[counter] == 3:
         container_sizes = []
         counter += 1
         # Get the 2 bytes num_container_sections
-        if len(container) < counter + 2:
-            raise InvalidEOF("Number of container sections not specified")
+        if validate and len(container) < counter + 2:
+            raise InvalidEof("Number of container sections not specified")
         num_container_sections = Uint.from_be_bytes(
             container[counter : counter + 2]
         )
         counter += 2
-        if num_container_sections < 1 or num_container_sections > 256:
-            raise InvalidEOF("Invalid number of container sections")
+        if validate and (
+            num_container_sections < 1 or num_container_sections > 256
+        ):
+            raise InvalidEof("Invalid number of container sections")
 
         for i in range(num_container_sections):
             # Get the 2 bytes container_size
-            if len(container) < counter + 2:
-                raise InvalidEOF(
+            if validate and len(container) < counter + 2:
+                raise InvalidEof(
                     f"Container section {i} does not have a size specified"
                 )
             container_size = Uint.from_be_bytes(
                 container[counter : counter + 2]
             )
             counter += 2
-            if container_size == 0:
-                raise InvalidEOF("Invalid container size")
+            if validate and container_size == 0:
+                raise InvalidEof("Invalid container size")
             container_sizes.append(container_size)
     else:
         num_container_sections = Uint(0)
@@ -271,40 +166,40 @@ def validate_header(container: bytes) -> EOFMetadata:
     # Get 1 byte kind_data
     kind_data = container[counter]
     counter += 1
-    if kind_data != 4:
-        raise InvalidEOF("Invalid kind data")
+    if validate and kind_data != 4:
+        raise InvalidEof("Invalid kind data")
     # Get 2 bytes data_size
-    if len(container) < counter + 2:
-        raise InvalidEOF("Data size not specified in the header")
+    if validate and len(container) < counter + 2:
+        raise InvalidEof("Data size not specified in the header")
     data_size = Uint.from_be_bytes(container[counter : counter + 2])
     counter += 2
 
     # Get 1 byte terminator
-    if len(container) < counter + 1:
-        raise InvalidEOF("Header missing terminator byte")
+    if validate and len(container) < counter + 1:
+        raise InvalidEof("Header missing terminator byte")
     terminator = container[counter]
     counter += 1
-    if terminator != 0:
-        raise InvalidEOF("Invalid terminator")
+    if validate and terminator != 0:
+        raise InvalidEof("Invalid terminator")
     body_start_index = Uint(counter)
 
-    if len(container) < counter + type_size:
-        raise InvalidEOF("Type section size does not match header")
+    if validate and len(container) < counter + type_size:
+        raise InvalidEof("Type section size does not match header")
     type_section_contents = []
     for _ in range(type_size // 4):
         type_section_contents.append(container[counter : counter + 4])
         counter += 4
 
-    if len(container) < counter + sum(code_sizes):
-        raise InvalidEOF("Code section size does not match header")
+    if validate and len(container) < counter + sum(code_sizes):
+        raise InvalidEof("Code section size does not match header")
     code_section_contents = []
     for code_size in code_sizes:
         code_section_contents.append(container[counter : counter + code_size])
         counter += code_size
 
     if container_sizes:
-        if len(container) < counter + sum(container_sizes):
-            raise InvalidEOF("Container section size does not match header")
+        if validate and len(container) < counter + sum(container_sizes):
+            raise InvalidEof("Container section size does not match header")
         container_section_contents = []
         for container_size in container_sizes:
             container_section_contents.append(
@@ -314,16 +209,16 @@ def validate_header(container: bytes) -> EOFMetadata:
     else:
         container_section_contents = None
 
-    if len(container) < counter + data_size:
-        raise InvalidEOF("Data section size does not match header")
+    if validate and len(container) < counter + data_size:
+        raise InvalidEof("Data section size does not match header")
     data_section_contents = container[counter : counter + data_size]
     counter += data_size
 
     # Check for stray bytes after the data section
-    if len(container) > counter:
-        raise InvalidEOF("Stray bytes found after data section")
+    if validate and len(container) > counter:
+        raise InvalidEof("Stray bytes found after data section")
 
-    return EOFMetadata(
+    return EofMetadata(
         type_size=type_size,
         num_code_sections=num_code_sections,
         code_sizes=code_sizes,
@@ -338,45 +233,45 @@ def validate_header(container: bytes) -> EOFMetadata:
     )
 
 
-def validate_body(eof_meta: EOFMetadata) -> None:
+def validate_body(eof_meta: EofMetadata) -> None:
     """
     Validate the body of the EOF container.
 
     Parameters
     ----------
-    eof_meta : EOFMetadata
+    eof_meta : EofMetadata
         The metadata of the EOF container.
 
     Raises
     ------
-    InvalidEOF
+    InvalidEof
         If the EOF container is invalid.
     """
     for i, type_section in enumerate(eof_meta.type_section_contents):
         num_inputs = type_section[0]
         if num_inputs > 127:
-            raise InvalidEOF(f"Invalid number of inputs for type {i}")
+            raise InvalidEof(f"Invalid number of inputs for type {i}")
 
         num_outputs = type_section[1]
         if num_outputs > 128:
-            raise InvalidEOF(f"Invalid number of outputs for type {i}")
+            raise InvalidEof(f"Invalid number of outputs for type {i}")
 
         max_stack_height = Uint.from_be_bytes(type_section[2:])
         if max_stack_height > 1023:
-            raise InvalidEOF(f"Invalid max stack height for type {i}")
+            raise InvalidEof(f"Invalid max stack height for type {i}")
 
         # 4750: Input and output for first section should
         # be 0 and 128 respectively
         if i == 0 and (num_inputs != 0 or num_outputs != 0x80):
-            raise InvalidEOF("Invalid input/output for first section")
+            raise InvalidEof("Invalid input/output for first section")
 
 
-def get_valid_instructions(code: bytes) -> Set[int]:
+def get_valid_opcode_positions(code: bytes) -> Set[int]:
     """
-    Get the valid instructions for the code. These will also be the
-    positions within the code to which, jumps can be performed.
-    The immediate bytesof the PUSH, RJUMP, RJUMPI, RJUMPV opcodes
-    are invalid as jump destinations.
+    Get the positions of the valid opcodes for the code. These will
+    also be the positions within the code to which, jumps can be
+    performed. The immediate bytes of the PUSH, RJUMP, RJUMPI,
+    RJUMPV opcodes are invalid as jump destinations.
 
     Parameters
     ----------
@@ -385,17 +280,17 @@ def get_valid_instructions(code: bytes) -> Set[int]:
 
     Returns
     -------
-    valid_instructions : Set[int]
+    valid_opcode_positions : Set[int]
         The valid jump destinations in the code.
     """
     counter = 0
-    valid_instructions = set()
+    valid_opcode_positions = set()
     while counter < len(code):
         try:
-            opcode = get_opcode(code[counter], EOF.EOF1)
+            opcode = map_int_to_op(code[counter], Eof.EOF1)
         except ValueError:
-            raise InvalidEOF("Invalid opcode in code section")
-        valid_instructions.add(counter)
+            raise InvalidEof("Invalid opcode in code section")
+        valid_opcode_positions.add(counter)
 
         counter += 1
 
@@ -405,39 +300,39 @@ def get_valid_instructions(code: bytes) -> Set[int]:
         ):
             push_data_size = opcode.value - Ops.PUSH1.value + 1
             if len(code) < counter + push_data_size:
-                raise InvalidEOF("Push data missing")
+                raise InvalidEof("Push data missing")
             counter += push_data_size
 
         elif opcode in (Ops.RJUMP, Ops.RJUMPI):
             if len(code) < counter + 2:
-                raise InvalidEOF("Relative jump offset missing")
+                raise InvalidEof("Relative jump offset missing")
             counter += 2
 
         elif opcode == Ops.RJUMPV:
             if len(code) < counter + 1:
-                raise InvalidEOF("max_index missing for RJUMPV")
+                raise InvalidEof("max_index missing for RJUMPV")
             max_index = code[counter]
             num_relative_indices = max_index + 1
             counter += 1
 
             for _ in range(num_relative_indices):
                 if len(code) < counter + 2:
-                    raise InvalidEOF("Relative jump indices missing")
+                    raise InvalidEof("Relative jump indices missing")
                 counter += 2
         elif opcode == Ops.CALLF:
             if len(code) < counter + 2:
-                raise InvalidEOF("CALLF target code section index missing")
+                raise InvalidEof("CALLF target code section index missing")
             counter += 2
         elif opcode == Ops.DATALOADN:
             if len(code) < counter + 2:
-                raise InvalidEOF("DATALOADN offset missing")
+                raise InvalidEof("DATALOADN offset missing")
             counter += 2
 
-    return valid_instructions
+    return valid_opcode_positions
 
 
 def validate_code_section(
-    eof_meta: EOFMetadata,
+    eof_meta: EofMetadata,
     code_section_index: Uint,
     reached_code_sections: Set[Uint],
 ) -> None:
@@ -446,7 +341,7 @@ def validate_code_section(
 
     Parameters
     ----------
-    eof_meta : EOFMetadata
+    eof_meta : EofMetadata
         The metadata of the EOF container.
     code_section_index : Uint
         The index of the code section to validate.
@@ -455,14 +350,14 @@ def validate_code_section(
 
     Raises
     ------
-    InvalidEOF
+    InvalidEof
         If the code section is invalid.
     """
     code = eof_meta.code_section_contents[code_section_index]
-    valid_instructions = get_valid_instructions(code)
+    valid_opcode_positions = get_valid_opcode_positions(code)
 
-    for counter in valid_instructions:
-        opcode = get_opcode(code[counter], EOF.EOF1)
+    for counter in valid_opcode_positions:
+        opcode = map_int_to_op(code[counter], Eof.EOF1)
 
         # Make sure the bytes encoding relative offset
         # are available
@@ -475,9 +370,9 @@ def validate_code_section(
             if (
                 jump_destination < 0
                 or len(code) < jump_destination + 1
-                or jump_destination not in valid_instructions
+                or jump_destination not in valid_opcode_positions
             ):
-                raise InvalidEOF("Invalid jump destination")
+                raise InvalidEof("Invalid jump destination")
 
         elif opcode == Ops.RJUMPV:
             num_relative_indices = code[counter + 1] + 1
@@ -499,9 +394,9 @@ def validate_code_section(
                 if (
                     jump_destination < 0
                     or len(code) < jump_destination + 1
-                    or jump_destination not in valid_instructions
+                    or jump_destination not in valid_opcode_positions
                 ):
-                    raise InvalidEOF("Invalid jump destination")
+                    raise InvalidEof("Invalid jump destination")
 
         elif opcode == Ops.CALLF:
             target_section_index = Uint.from_be_bytes(
@@ -509,28 +404,28 @@ def validate_code_section(
             )
             reached_code_sections.add(target_section_index)
             if target_section_index >= eof_meta.num_code_sections:
-                raise InvalidEOF("Invalid target code section index")
+                raise InvalidEof("Invalid target code section index")
         elif opcode == Ops.RETF:
             if code_section_index == 0:
-                raise InvalidEOF("First code section cannot return")
+                raise InvalidEof("First code section cannot return")
         elif opcode == Ops.DATALOADN:
             offset = Uint.from_be_bytes(code[counter + 1 : counter + 3])
             if offset >= eof_meta.data_size:
-                raise InvalidEOF("Invalid DATALOADN offset")
+                raise InvalidEof("Invalid DATALOADN offset")
 
 
-def validate_eof_code(eof_meta: EOFMetadata) -> None:
+def validate_eof_code(eof_meta: EofMetadata) -> None:
     """
     Validate the code section of the EOF container.
 
     Parameters
     ----------
-    eof_meta : EOFMetadata
+    eof_meta : EofMetadata
         The metadata of the EOF container.
 
     Raises
     ------
-    InvalidEOF
+    InvalidEof
         If the code section is invalid.
     """
     reached_code_sections = {Uint(0)}
@@ -541,7 +436,7 @@ def validate_eof_code(eof_meta: EOFMetadata) -> None:
 
     for i in range(eof_meta.num_code_sections):
         if i not in reached_code_sections:
-            raise InvalidEOF(f"Code section {i} not reachable")
+            raise InvalidEof(f"Code section {i} not reachable")
 
 
 def validate_eof_container(container: bytes) -> None:
@@ -555,7 +450,7 @@ def validate_eof_container(container: bytes) -> None:
 
     Raises
     ------
-    InvalidEOF
+    InvalidEof
         If the EOF container is invalid.
     """
     # Validate the magic
@@ -563,18 +458,18 @@ def validate_eof_container(container: bytes) -> None:
         len(container) < EOF_MAGIC_LENGTH
         or container[:EOF_MAGIC_LENGTH] != EOF_MAGIC
     ):
-        raise InvalidEOF("Invalid magic")
+        raise InvalidEof("Invalid magic")
 
     if len(container) < EOF_MAGIC_LENGTH + 1:
-        raise InvalidEOF("EOF version not specified")
+        raise InvalidEof("EOF version not specified")
     elif container[EOF_MAGIC_LENGTH] != 1:
-        raise InvalidEOF("Invalid EOF version")
+        raise InvalidEof("Invalid EOF version")
 
     if len(container) > 2 * MAX_CODE_SIZE:
-        raise InvalidEOF("EOF container size too long")
+        raise InvalidEof("EOF container size too long")
 
-    eof_meta = validate_header(container)
+    eof_metadata = parse_container_metadata(container, validate=True)
 
-    validate_body(eof_meta)
+    validate_body(eof_metadata)
 
-    validate_eof_code(eof_meta)
+    validate_eof_code(eof_metadata)

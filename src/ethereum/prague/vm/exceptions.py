@@ -140,7 +140,7 @@ class KZGProofError(ExceptionalHalt):
     pass
 
 
-class InvalidEOF(ExceptionalHalt):
+class InvalidEof(ExceptionalHalt):
     """
     Raised when the code is not valid EOF.
     """

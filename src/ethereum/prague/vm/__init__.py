@@ -23,19 +23,19 @@ from ethereum.crypto.hash import Hash32
 from ..blocks import Log
 from ..fork_types import Address, Authorization, VersionedHash
 from ..state import State, TransientStorage, account_exists_and_is_empty
-from .exceptions import InvalidEOF
+from .exceptions import InvalidEof
 from .precompiled_contracts import RIPEMD160_ADDRESS
 
-__all__ = ("Environment", "Evm", "Message", "EOF")
+__all__ = ("Environment", "Evm", "Message", "Eof")
 
 
 EOF_MAGIC = b"\xEF\x00"
-EOF_MAGIC_LENGTH = 2
+EOF_MAGIC_LENGTH = len(EOF_MAGIC)
 
 MAX_CODE_SIZE = 0x6000
 
 
-class EOF(enum.Enum):
+class Eof(enum.Enum):
     """
     Enumeration of the different kinds of EOF containers.
     Legacy code is assigned zero.
@@ -46,7 +46,7 @@ class EOF(enum.Enum):
 
 
 @dataclass
-class EOFMetadata:
+class EofMetadata:
     """
     Dataclass to hold the metadata information of the
     EOF container.
@@ -112,7 +112,7 @@ class Message:
     value: U256
     data: Bytes
     code_address: Optional[Address]
-    container: Bytes
+    code: Bytes
     depth: Uint
     should_transfer_value: bool
     is_static: bool
@@ -144,8 +144,9 @@ class Evm:
     error: Optional[Exception]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
-    eof: EOF
-    eof_meta: Optional[EOFMetadata]
+    eof_version: Eof
+    eof_container: Optional[Bytes]
+    eof_metadata: Optional[EofMetadata]
     current_section_index: Uint
     return_stack: List[ReturnStackItem]
 
@@ -202,9 +203,9 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
     evm.gas_left += child_evm.gas_left
 
 
-def get_eof_version(code: bytes) -> EOF:
+def get_eof_version(code: bytes) -> Eof:
     """
-    Get the EOF version container.
+    Get the Eof container's version.
 
     Parameters
     ----------
@@ -213,13 +214,13 @@ def get_eof_version(code: bytes) -> EOF:
 
     Returns
     -------
-    EOF
-        EOF Version of the container.
+    Eof
+        Eof Version of the container.
     """
     if not code.startswith(EOF_MAGIC):
-        return EOF.LEGACY
+        return Eof.LEGACY
 
     if code[EOF_MAGIC_LENGTH] == 1:
-        return EOF.EOF1
+        return Eof.EOF1
     else:
-        raise InvalidEOF("Invalid EOF version")
+        raise InvalidEof("Invalid EOF version")
