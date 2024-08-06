@@ -391,6 +391,14 @@ def analyse_code_section(code: bytes) -> Dict[Uint, InstructionMetadata]:
 
             # Successor instruction positions
             relative_offsets = [0]
+        elif opcode in (Ops.DUPN, Ops.SWAPN, Ops.EXCHANGE):
+            # Immediate Data Check
+            if len(code) < counter + 1:
+                raise InvalidEof("DUPN/SWAPN/EXCHANGE index missing")
+            counter += 1
+
+            # Successor instruction positions
+            relative_offsets = [0]
         elif opcode in EOF1_TERMINATING_INSTRUCTIONS:
             # Immediate Data Check
             pass
@@ -549,6 +557,56 @@ def validate_code_section(
             current_stack_height.max += (
                 instruction_outputs - instruction_inputs
             )
+
+        elif opcode == Ops.DUPN:
+            # General Validity Checks
+            pass
+
+            # Stack Height Check
+            immediate_data = code[position + 1]
+            n = immediate_data + 1
+            if current_stack_height.min < n:
+                raise InvalidEof("Invalid stack height for DUPN")
+
+            # Stack Overflow Check
+            pass
+
+            # Update the stack height after instruction
+            current_stack_height.min += 1
+            current_stack_height.max += 1
+
+        elif opcode == Ops.SWAPN:
+            # General Validity Checks
+            pass
+
+            # Stack Height Check
+            immediate_data = code[position + 1]
+            n = immediate_data + 1
+            if current_stack_height.min < n + 1:
+                raise InvalidEof("Invalid stack height for SWAPN")
+
+            # Stack Overflow Check
+            pass
+
+            # Update the stack height after instruction
+            pass
+
+        elif opcode == Ops.EXCHANGE:
+            # General Validity Checks
+            pass
+
+            # Stack Height Check
+            immediate_data = code[position + 1]
+            n = (immediate_data >> 4) + 1
+            m = (immediate_data & 0xF) + 1
+            if current_stack_height.min < n + m + 1:
+                raise InvalidEof("Invalid stack height for EXCHANGE")
+
+            # Stack Overflow Check
+            pass
+
+            # Update the stack height after instruction
+            pass
 
         else:
             # General Validity Checks
