@@ -136,6 +136,18 @@
 - [ ] RJUMPV out of section bounds (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjumpv_invalid_destination_Copier.json)
 - [ ] RJUMPV into immediate (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_rjumpv_invalid_destination_Copier.json)
 
+### Execution
+
+- [x] RJUMP forwards (eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_positive_negative)
+- [x] RJUMP backwards (eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_positive_negative)
+- [x] RJUMP with 0 offset (eip7692_eof_v1/eip4200_relative_jumps/test_rjump.py::test_rjump_zero)
+- [x] RJUMPI forwards with condition true/false (eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_condition_forwards)
+- [x] RJUMPI backwards with condition true/false (eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_condition_backwards)
+- [x] RJUMPI with 0 offset with condition true/false (eip7692_eof_v1/eip4200_relative_jumps/test_rjumpi.py::test_rjumpi_condition_zero)
+- [x] RJUMPV with different case values (eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_condition)
+- [x] RJUMPV with case value out of table bounds (eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_condition)
+- [x] RJUMPV with max cases number (eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_condition eip7692_eof_v1/eip4200_relative_jumps/test_rjumpv.py::test_rjumpv_full_table*)
+
 ## EIP-4750: EOF - Functions
 
 ### Validation
@@ -146,6 +158,12 @@
 - [ ] Unreachable code sections (ethereum/tests: src/EOFTestsFiller/efValidation/unreachable_code_sections_Copier.json)
 - [ ] Sections reachable from other sections, but not reachable from section 0 (ethereum/tests: src/EOFTestsFiller/efValidation/unreachable_code_sections_Copier.json)
 - [ ] RETF with maximum number of outputs (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+
+### Execution
+
+- [ ] CALLF/RETF execution (ethereum/tests: src/EIPTestsFiller/StateTests/stEOF/stEIP4200/CALLF_RETF_ExecutionFiller.yml)
+- [ ] Dispatch to CALLF to different functions based on calldata (ethereum/tests: src/EIPTestsFiller/StateTests/stEOF/stEIP4200/CALLF_RETF_ExecutionFiller.yml)
+- [ ] Maximum number of code sections, calling each section with CALLF (ethereum/tests: src/EIPTestsFiller/StateTests/stEOF/stEIP4200/CALLF_RETF_ExecutionFiller.yml)
 
 ## EIP-5450: EOF - Stack Validation
 
@@ -174,6 +192,11 @@
 - [ ] Function inputs are accessible and accounted for (no stack underflow if they are popped) (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
 - [ ] All opcodes correctly account for stack inputs/outputs (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
 - [ ] Check that unreachable code is invalid after all terminating instructions (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+
+### Execution
+
+- [ ] Max stack size (1024) in CALLF-ed function (ethereum/tests: src/EIPTestsFiller/StateTests/stEOF/stEIP4200/EOF1_CALLF_ExecutionFiller.yml)
+
 
 ## EIP-6206: EOF - JUMPF and non-returning functions
 
