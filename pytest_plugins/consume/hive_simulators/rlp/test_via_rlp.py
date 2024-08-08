@@ -4,8 +4,8 @@ A hive based simulator that executes RLP-encoded blocks against clients. The sim
 
 Clients consume the genesis and RLP-encoded blocks from input files upon start-up.
 """
+
 from ethereum_test_fixtures import BlockchainFixture, FixtureFormats
-from ethereum_test_fixtures.blockchain import FixtureHeader
 from ethereum_test_tools.rpc import EthRPC
 from pytest_plugins.consume.hive_simulators.exceptions import GenesisBlockMismatchException
 
@@ -28,7 +28,7 @@ def test_via_rlp(
         if genesis_block["hash"] != str(blockchain_fixture.genesis.block_hash):
             raise GenesisBlockMismatchException(
                 expected_header=blockchain_fixture.genesis,
-                got_header=FixtureHeader(**genesis_block),
+                got_genesis_block=genesis_block,
             )
     with timing_data.time("Get latest block"):
         block = eth_rpc.get_block_by_number("latest")
