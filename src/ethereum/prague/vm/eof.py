@@ -14,7 +14,7 @@ Implementation of the Ethereum Object Format (EOF) specification.
 
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from ethereum.base_types import Uint
 
@@ -49,6 +49,7 @@ class InstructionMetadata:
     pc_post_instruction: int
     relative_offsets: List[int]
     target_section_index: Optional[Uint]
+    container_index: Optional[Uint]
     stack_height: Optional[OperandStackHeight]
 
 
@@ -81,7 +82,9 @@ def map_int_to_op(opcode: int, eof: Eof) -> Ops:
     return op
 
 
-def parse_container_metadata(container: bytes, validate: bool) -> EofMetadata:
+def parse_container_metadata(
+    container: bytes, validate: bool, is_deploy_container: bool
+) -> EofMetadata:
     """
     Validate the header of the EOF container.
 
@@ -93,6 +96,9 @@ def parse_container_metadata(container: bytes, validate: bool) -> EofMetadata:
         Whether to validate the EOF container. If the container is simply read
         from an existing account, it is assumed to be validated. However, if
         the container is being created, it should be validated first.
+    is_deploy_container : bool
+        Whether the container is a deploy container for EOFCREATE/ create
+        transactions.
 
     Returns
     -------
@@ -236,7 +242,11 @@ def parse_container_metadata(container: bytes, validate: bool) -> EofMetadata:
     else:
         container_section_contents = None
 
-    if validate and len(container) < counter + data_size:
+    if (
+        validate
+        and not is_deploy_container
+        and len(container) < counter + data_size
+    ):
         raise InvalidEof("Data section size does not match header")
     data_section_contents = container[counter : counter + data_size]
     counter += data_size
@@ -293,7 +303,9 @@ def validate_body(eof_meta: EofMetadata) -> None:
             raise InvalidEof("Invalid input/output for first section")
 
 
-def analyse_code_section(code: bytes) -> Dict[Uint, InstructionMetadata]:
+def analyse_code_section(
+    code: bytes,
+) -> Tuple[Dict[Uint, InstructionMetadata], bool, bool, bool]:
     """
     Analyse a code section of the EOF container.
 
@@ -311,9 +323,13 @@ def analyse_code_section(code: bytes) -> Dict[Uint, InstructionMetadata]:
     InvalidEof
         If the code section is invalid.
     """
+    has_return_contract = False
+    has_stop = False
+    has_return = False
     counter = 0
     section_metadata = {}
     target_section_index = None
+    container_index = None
     while counter < len(code):
         position = Uint(counter)
         try:
@@ -399,6 +415,46 @@ def analyse_code_section(code: bytes) -> Dict[Uint, InstructionMetadata]:
 
             # Successor instruction positions
             relative_offsets = [0]
+
+        elif opcode == Ops.EOFCREATE:
+            # Immediate Data Check
+            if len(code) < counter + 1:
+                raise InvalidEof("EOFCREATE container index missing")
+            container_index = Uint.from_be_bytes(code[counter : counter + 1])
+            counter += 1
+
+            # Successor instruction positions
+            relative_offsets = [0]
+
+        elif opcode == Ops.RETURNCONTRACT:
+            # Immediate Data Check
+            if len(code) < counter + 1:
+                raise InvalidEof("RETURNCONTRACT container index missing")
+            container_index = Uint.from_be_bytes(code[counter : counter + 1])
+            counter += 1
+
+            # Successor instruction positions
+            relative_offsets = []
+
+            has_return_contract = True
+
+        elif opcode == Ops.STOP:
+            # Immediate Data Check
+            pass
+
+            # Successor instruction positions
+            relative_offsets = []
+
+            has_stop = True
+        elif opcode == Ops.RETURN:
+            # Immediate Data Check
+            pass
+
+            # Successor instruction positions
+            relative_offsets = []
+
+            has_return = True
+
         elif opcode in EOF1_TERMINATING_INSTRUCTIONS:
             # Immediate Data Check
             pass
@@ -417,16 +473,18 @@ def analyse_code_section(code: bytes) -> Dict[Uint, InstructionMetadata]:
             pc_post_instruction=counter,
             relative_offsets=relative_offsets,
             target_section_index=target_section_index,
+            container_index=container_index,
             stack_height=None,
         )
 
-    return section_metadata
+    return section_metadata, has_return_contract, has_stop, has_return
 
 
 def validate_code_section(
     eof_meta: EofMetadata,
     code_index: Uint,
     section_metadata: Dict[Uint, InstructionMetadata],
+    referenced_subcontainers: Dict[Ops, List[Uint]],
 ) -> None:
     """
     Validate a code section of the EOF container.
@@ -439,6 +497,9 @@ def validate_code_section(
         The index of the code section.
     section_metadata : Dict[Uint, InstructionMetadata]
         The metadata of the code section.
+    referenced_subcontainers : Dict[Ops, List[Uint]]
+        The subcontainers referenced by the code section.
+        Particularly by the EOFCREATE/RETURNCONTRACT instructions.
 
     Raises
     ------
@@ -534,6 +595,56 @@ def validate_code_section(
             current_stack_height.max += (
                 instruction_outputs - instruction_inputs
             )
+        elif opcode == Ops.EOFCREATE:
+            assert metadata.container_index is not None
+            # General Validity Checks
+            if metadata.container_index >= eof_meta.num_container_sections:
+                raise InvalidEof("Invalid container index")
+            referenced_subcontainers[opcode].append(metadata.container_index)
+
+            # Stack Height Check
+            instruction_inputs = op_stack_items[opcode].inputs
+            if metadata.stack_height.min < instruction_inputs:
+                raise InvalidEof("Invalid stack height")
+
+            # Stack Overflow Check
+            pass
+
+            # Update the stack height after instruction
+            instruction_inputs = op_stack_items[opcode].inputs
+            instruction_outputs = op_stack_items[opcode].outputs
+            current_stack_height.min += (
+                instruction_outputs - instruction_inputs
+            )
+            current_stack_height.max += (
+                instruction_outputs - instruction_inputs
+            )
+
+        elif opcode == Ops.RETURNCONTRACT:
+            assert metadata.container_index is not None
+            # General Validity Checks
+            if metadata.container_index >= eof_meta.num_container_sections:
+                raise InvalidEof("Invalid container index")
+            referenced_subcontainers[opcode].append(metadata.container_index)
+
+            # Stack Height Check
+            instruction_inputs = op_stack_items[opcode].inputs
+            if metadata.stack_height.min < instruction_inputs:
+                raise InvalidEof("Invalid stack height")
+
+            # Stack Overflow Check
+            pass
+
+            # Update the stack height after instruction
+            instruction_inputs = op_stack_items[opcode].inputs
+            instruction_outputs = op_stack_items[opcode].outputs
+            current_stack_height.min += (
+                instruction_outputs - instruction_inputs
+            )
+            current_stack_height.max += (
+                instruction_outputs - instruction_inputs
+            )
+
         elif opcode == Ops.DATALOADN:
             # General Validity Checks
             offset = Uint.from_be_bytes(code[position + 1 : position + 3])
@@ -685,7 +796,7 @@ def validate_code_section(
         raise InvalidEof("Invalid stack height")
 
 
-def validate_eof_code(eof_meta: EofMetadata) -> None:
+def validate_eof_code(eof_meta: EofMetadata) -> Tuple[bool, bool, bool]:
     """
     Validate the code section of the EOF container.
 
@@ -699,13 +810,76 @@ def validate_eof_code(eof_meta: EofMetadata) -> None:
     InvalidEof
         If the code section is invalid.
     """
+    referenced_subcontainers: Dict[Ops, List[Uint]] = {
+        Ops.EOFCREATE: [],
+        Ops.RETURNCONTRACT: [],
+    }
+    has_return_contract, has_stop, has_return = False, False, False
     for code_index, code in enumerate(eof_meta.code_section_contents):
-        section_metadata = analyse_code_section(code)
+        (
+            section_metadata,
+            has_return_contract,
+            has_stop,
+            has_return,
+        ) = analyse_code_section(code)
+        has_return_contract = has_return_contract or has_return_contract
+        has_stop = has_stop or has_stop
+        has_return = has_return or has_return
 
-        validate_code_section(eof_meta, Uint(code_index), section_metadata)
+        validate_code_section(
+            eof_meta,
+            Uint(code_index),
+            section_metadata,
+            referenced_subcontainers,
+        )
+
+    if has_return_contract and (has_return or has_stop):
+        raise InvalidEof("Container has both RETURNCONTRACT and STOP/RETURN")
+
+    if eof_meta.container_sizes:
+        assert eof_meta.container_section_contents is not None
+        eofcreate_references = referenced_subcontainers[Ops.EOFCREATE]
+        returncontract_references = referenced_subcontainers[
+            Ops.RETURNCONTRACT
+        ]
+        for index in range(len(eof_meta.container_section_contents)):
+            if (
+                index in eofcreate_references
+                and index in returncontract_references
+            ):
+                raise InvalidEof(
+                    "Container referenced by both EOFCREATE and RETURNCONTRACT"
+                )
+            elif (
+                index not in eofcreate_references
+                and index not in returncontract_references
+            ):
+                raise InvalidEof("Container never referenced")
+            (
+                subcontainer_has_return_contract,
+                subcontainer_has_stop,
+                sub_container_has_return,
+            ) = validate_eof_container(
+                eof_meta.container_section_contents[index]
+            )
+            if index in eofcreate_references and (
+                subcontainer_has_stop or sub_container_has_return
+            ):
+                raise InvalidEof(
+                    "Container referenced by EOFCREATE has STOP or RETURN"
+                )
+            if (
+                index in returncontract_references
+                and subcontainer_has_return_contract
+            ):
+                raise InvalidEof(
+                    "Container referenced by RETURNCONTRACT has RETURNCONTRACT"
+                )
+
+    return has_return_contract, has_stop, has_return
 
 
-def validate_eof_container(container: bytes) -> None:
+def validate_eof_container(container: bytes) -> Tuple[bool, bool, bool]:
     """
     Validate the Ethereum Object Format (EOF) container.
 
@@ -734,8 +908,57 @@ def validate_eof_container(container: bytes) -> None:
     if len(container) > 2 * MAX_CODE_SIZE:
         raise InvalidEof("EOF container size too long")
 
-    eof_metadata = parse_container_metadata(container, validate=True)
+    eof_metadata = parse_container_metadata(
+        container, validate=True, is_deploy_container=False
+    )
 
     validate_body(eof_metadata)
 
-    validate_eof_code(eof_metadata)
+    has_return_contract, has_stop, has_return = validate_eof_code(eof_metadata)
+
+    return has_return_contract, has_stop, has_return
+
+
+def build_container_from_metadata(eof_metadata: EofMetadata) -> bytes:
+    """
+    Build the EOF container from the metadata.
+
+    Parameters
+    ----------
+    eof_metadata : EofMetadata
+        The metadata of the EOF container.
+
+    Returns
+    -------
+    container : bytes
+        The EOF container.
+    """
+    container = bytearray()
+    container.extend(EOF_MAGIC)
+    container.extend(b"\x01")
+    container.extend(
+        len(eof_metadata.type_section_contents).to_bytes(1, "big")
+    )
+    container.extend(eof_metadata.type_size.to_bytes(2, "big"))
+    container.extend(b"\x02")
+    container.extend(eof_metadata.num_code_sections.to_bytes(2, "big"))
+    for code_size in eof_metadata.code_sizes:
+        container.extend(code_size.to_bytes(2, "big"))
+    if eof_metadata.container_sizes:
+        container.extend(b"\x03")
+        container.extend(eof_metadata.num_container_sections.to_be_bytes())
+        for container_size in eof_metadata.container_sizes:
+            container.extend(container_size.to_bytes(2, "big"))
+    container.extend(b"\x04")
+    container.extend(eof_metadata.data_size.to_bytes(2, "big"))
+    container.extend(b"\x00")
+    for type_section in eof_metadata.type_section_contents:
+        container.extend(type_section)
+    for code_section in eof_metadata.code_section_contents:
+        container.extend(code_section)
+    if eof_metadata.container_section_contents:
+        for container_section in eof_metadata.container_section_contents:
+            container.extend(container_section)
+    container.extend(eof_metadata.data_section_contents)
+
+    return bytes(container)

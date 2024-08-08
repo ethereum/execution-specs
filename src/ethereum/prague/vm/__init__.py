@@ -159,6 +159,7 @@ class Evm:
     eof_metadata: Optional[EofMetadata]
     current_section_index: Uint
     return_stack: List[ReturnStackItem]
+    deploy_container: Optional[Bytes]
 
 
 def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:

@@ -47,11 +47,7 @@ from ..vm.eoa_delegation import set_delegation
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import MAX_CODE_SIZE, Environment, Eof, Evm, Message, get_eof_version
-from .eof import (
-    map_int_to_op,
-    parse_container_metadata,
-    validate_eof_container,
-)
+from .eof import map_int_to_op, parse_container_metadata
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
@@ -197,14 +193,25 @@ def process_create_message(message: Message, env: Environment) -> Evm:
     increment_nonce(env.state, message.current_target)
     evm = process_message(message, env)
     if not evm.error:
-        contract_code = evm.output
+        if evm.deploy_container is not None:
+            contract_code = evm.deploy_container
+        else:
+            contract_code = evm.output
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         try:
             if len(contract_code) > 0:
-                if get_eof_version(contract_code) == Eof.EOF1:
-                    validate_eof_container(contract_code)
-                elif contract_code[0] == 0xEF:
+                if (
+                    get_eof_version(contract_code) == Eof.LEGACY
+                    and contract_code[0] == 0xEF
+                ):
                     raise InvalidContractPrefix
+                if (
+                    evm.eof_version == Eof.LEGACY
+                    and get_eof_version(contract_code) == Eof.EOF1
+                ):
+                    raise ExceptionalHalt(
+                        "Cannot deploy EOF1 from legacy init code"
+                    )
             charge_gas(evm, contract_code_gas)
             if len(contract_code) > MAX_CODE_SIZE:
                 raise OutOfGasError
@@ -283,7 +290,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
     if eof_version == Eof.EOF1:
         container = code_or_container
         eof_metadata = parse_container_metadata(
-            code_or_container, validate=False
+            code_or_container, validate=False, is_deploy_container=False
         )
         code = eof_metadata.code_section_contents[0]
         valid_jump_destinations = set()
@@ -321,6 +328,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         eof_metadata=eof_metadata,
         current_section_index=Uint(0),
         return_stack=[],
+        deploy_container=None,
     )
     try:
         if evm.message.code_address in PRE_COMPILED_CONTRACTS:

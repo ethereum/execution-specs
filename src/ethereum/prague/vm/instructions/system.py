@@ -12,6 +12,7 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Bytes0, Uint
+from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 
 from ...fork_types import Address
@@ -82,6 +83,8 @@ STACK_INVALID = OpcodeStackItemCount(inputs=0, outputs=0)
 STACK_EXT_CALL = OpcodeStackItemCount(inputs=4, outputs=1)
 STACK_EXT_DELEGATECALL = OpcodeStackItemCount(inputs=3, outputs=1)
 STACK_EXT_STATICCALL = OpcodeStackItemCount(inputs=3, outputs=1)
+STACK_EOF_CREATE = OpcodeStackItemCount(inputs=4, outputs=1)
+STACK_RETURN_CONTRACT = OpcodeStackItemCount(inputs=2, outputs=0)
 
 
 def generic_create(
@@ -120,6 +123,7 @@ def generic_create(
         sender.balance < endowment
         or sender.nonce == Uint(2**64 - 1)
         or evm.message.depth + 1 > STACK_DEPTH_LIMIT
+        or get_eof_version(call_data) == Eof.EOF1
     ):
         evm.gas_left += create_message_gas
         push(evm.stack, U256(0))
@@ -1066,3 +1070,152 @@ def ext_staticcall(evm: Evm) -> None:
 
     # PROGRAM COUNTER
     evm.pc += 1
+
+
+def eof_create(evm: Evm) -> None:
+    """
+    Creates a new account with associated code for EOF.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
+
+    # STACK
+    value = pop(evm.stack)
+    salt = pop(evm.stack).to_be_bytes32()
+    input_offset = pop(evm.stack)
+    input_size = pop(evm.stack)
+
+    # GAS
+    init_container_index = Uint.from_be_bytes(
+        evm.code[evm.pc + 1 : evm.pc + 2]
+    )
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(input_offset, input_size)]
+    )
+    init_container = evm.eof_metadata.container_section_contents[
+        init_container_index
+    ]
+    init_container_size = evm.eof_metadata.container_sizes[
+        init_container_index
+    ]
+    init_code_gas = GAS_KECCAK256_WORD * ceil32(init_container_size) // 32
+
+    charge_gas(evm, GAS_CREATE + extend_memory.cost + init_code_gas)
+
+    # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
+
+    sender_address = evm.message.current_target
+    sender = get_account(evm.env.state, sender_address)
+
+    contract_address = keccak256(
+        b"\xff" + sender_address + salt + keccak256(init_container)
+    )[12:]
+
+    evm.accessed_addresses.add(contract_address)
+    create_message_gas = max_message_call_gas(Uint(evm.gas_left))
+    evm.gas_left -= create_message_gas
+
+    if (
+        sender.balance < value
+        or sender.nonce == Uint(2**64 - 1)
+        or evm.message.depth + 1 > STACK_DEPTH_LIMIT
+    ):
+        evm.gas_left += create_message_gas
+        push(evm.stack, U256(0))
+    elif account_has_code_or_nonce(evm.env.state, contract_address):
+        increment_nonce(evm.env.state, evm.message.current_target)
+        push(evm.stack, U256(0))
+    else:
+        call_data = memory_read_bytes(evm.memory, input_offset, input_size)
+
+        increment_nonce(evm.env.state, evm.message.current_target)
+
+        child_message = Message(
+            caller=evm.message.current_target,
+            target=Bytes0(),
+            gas=create_message_gas,
+            value=value,
+            data=call_data,
+            code=init_container,
+            current_target=contract_address,
+            depth=evm.message.depth + 1,
+            code_address=None,
+            should_transfer_value=True,
+            is_static=False,
+            accessed_addresses=evm.accessed_addresses.copy(),
+            accessed_storage_keys=evm.accessed_storage_keys.copy(),
+            parent_evm=evm,
+        )
+        child_evm = process_create_message(child_message, evm.env)
+
+        if child_evm.error:
+            incorporate_child_on_error(evm, child_evm)
+            evm.return_data = child_evm.output
+            push(evm.stack, U256(0))
+        else:
+            incorporate_child_on_success(evm, child_evm)
+            evm.return_data = b""
+            push(
+                evm.stack, U256.from_be_bytes(child_evm.message.current_target)
+            )
+
+    # PROGRAM COUNTER
+    evm.pc += 2
+
+
+def return_contract(evm: Evm) -> None:
+    """
+    Returns contract to be deployed.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    from ..eof import build_container_from_metadata, parse_container_metadata
+
+    # STACK
+    aux_data_offset = pop(evm.stack)
+    aux_data_size = pop(evm.stack)
+
+    # GAS
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(aux_data_offset, aux_data_size)]
+    )
+    charge_gas(evm, GAS_ZERO + extend_memory.cost)
+
+    # OPERATION
+    evm.memory += b"\x00" * extend_memory.expand_by
+    deploy_container_index = Uint.from_be_bytes(
+        evm.code[evm.pc + 1 : evm.pc + 2]
+    )
+    deploy_container = evm.eof_metadata.container_section_contents[
+        deploy_container_index
+    ]
+    deploy_container_metadata = parse_container_metadata(
+        deploy_container, validate=True, is_deploy_container=True
+    )
+    aux_data = memory_read_bytes(evm.memory, aux_data_offset, aux_data_size)
+    deploy_container_metadata.data_section_contents += aux_data
+
+    if (
+        len(deploy_container_metadata.data_section_contents) > 0xFFFF
+        or len(deploy_container_metadata.data_section_contents)
+        < deploy_container_metadata.data_size
+    ):
+        raise ExceptionalHalt
+    deploy_container_metadata.data_size = Uint(
+        len(deploy_container_metadata.data_section_contents)
+    )
+
+    evm.deploy_container = build_container_from_metadata(
+        deploy_container_metadata
+    )
+
+    # PROGRAM COUNTER
+    evm.running = False
