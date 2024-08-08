@@ -5,6 +5,7 @@ Test the pre-allocation methods in the filler module.
 import pytest
 
 from ethereum_test_base_types import Address, TestAddress, TestAddress2
+from ethereum_test_vm import EVMCodeType
 from ethereum_test_vm import Opcodes as Op
 
 from ..pre_alloc import (
@@ -25,10 +26,11 @@ pytestmark = [
     pytest.mark.parametrize("alloc_mode", [AllocMode.STRICT, AllocMode.PERMISSIVE]),
     pytest.mark.parametrize("contract_start_address", [CONTRACT_START_ADDRESS_DEFAULT]),
     pytest.mark.parametrize("contract_address_increments", [CONTRACT_ADDRESS_INCREMENTS_DEFAULT]),
+    pytest.mark.parametrize("evm_code_type", [EVMCodeType.LEGACY, EVMCodeType.EOF_V1]),
 ]
 
 
-def test_alloc_deploy_contract(pre: Alloc):
+def test_alloc_deploy_contract(pre: Alloc, evm_code_type: EVMCodeType):
     """
     Test `Alloc.deploy_contract` functionallity.
     """
@@ -44,8 +46,18 @@ def test_alloc_deploy_contract(pre: Alloc):
     pre_contract_2_account = pre[contract_2]
     assert pre_contract_1_account is not None
     assert pre_contract_2_account is not None
-    assert pre_contract_1_account.code == bytes.fromhex("600160005500")
-    assert pre_contract_2_account.code == bytes.fromhex("600260005500")
+    if evm_code_type == EVMCodeType.LEGACY:
+        assert pre_contract_1_account.code == bytes.fromhex("600160005500")
+        assert pre_contract_2_account.code == bytes.fromhex("600260005500")
+    elif evm_code_type == EVMCodeType.EOF_V1:
+        assert pre_contract_1_account.code == (
+            b"\xef\x00\x01\x01\x00\x04\x02\x00\x01\x00\x06\x04\x00\x00\x00\x00\x80\x00"
+            + b"\x02`\x01`\x00U\x00"
+        )
+        assert pre_contract_2_account.code == (
+            b"\xef\x00\x01\x01\x00\x04\x02\x00\x01\x00\x06\x04\x00\x00\x00\x00\x80\x00"
+            + b"\x02`\x02`\x00U\x00"
+        )
 
 
 def test_alloc_fund_sender(pre: Alloc):

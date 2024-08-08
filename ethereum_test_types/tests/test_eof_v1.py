@@ -6,6 +6,9 @@ from typing import List, Tuple
 
 import pytest
 
+from ethereum_test_base_types import to_json
+from ethereum_test_base_types.pydantic import CopyValidateModel
+
 from ..eof.v1 import AutoSection, Container, Section, SectionKind
 
 test_cases: List[Tuple[str, Container, str]] = [
@@ -819,3 +822,18 @@ def remove_comments_from_string(input_string):
     # Join the cleaned lines back into a single string
     cleaned_string = "\n".join(cleaned_lines)
     return cleaned_string
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        Container(),
+    ],
+    ids=lambda model: model.__class__.__name__,
+)
+def test_model_copy(model: CopyValidateModel):
+    """
+    Test that the copy method returns a correct copy of the model.
+    """
+    assert to_json(model.copy()) == to_json(model)
+    assert model.copy().model_fields_set == model.model_fields_set

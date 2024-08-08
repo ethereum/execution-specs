@@ -5,9 +5,11 @@ All Ethereum fork class definitions.
 from hashlib import sha256
 from os.path import realpath
 from pathlib import Path
-from typing import List, Mapping, Optional
+from typing import List, Mapping, Optional, Tuple
 
 from semver import Version
+
+from ethereum_test_vm import EVMCodeType, Opcodes
 
 from ..base_fork import BaseFork
 
@@ -171,6 +173,25 @@ class Frontier(BaseFork, solc_name="homestead"):
         return []
 
     @classmethod
+    def evm_code_types(cls, block_number: int = 0, timestamp: int = 0) -> List[EVMCodeType]:
+        """
+        At Genesis, only legacy EVM code is supported.
+        """
+        return [EVMCodeType.LEGACY]
+
+    @classmethod
+    def call_opcodes(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> List[Tuple[Opcodes, EVMCodeType]]:
+        """
+        Returns the list of call opcodes supported by the fork.
+        """
+        return [
+            (Opcodes.CALL, EVMCodeType.LEGACY),
+            (Opcodes.CALLCODE, EVMCodeType.LEGACY),
+        ]
+
+    @classmethod
     def pre_allocation(cls) -> Mapping:
         """
         Returns whether the fork expects pre-allocation of accounts
@@ -201,6 +222,17 @@ class Homestead(Frontier):
         """
         return [1, 2, 3, 4] + super(Homestead, cls).precompiles(block_number, timestamp)
 
+    @classmethod
+    def call_opcodes(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> List[Tuple[Opcodes, EVMCodeType]]:
+        """
+        At Homestead, DELEGATECALL opcode was introduced.
+        """
+        return [(Opcodes.DELEGATECALL, EVMCodeType.LEGACY),] + super(
+            Homestead, cls
+        ).call_opcodes(block_number, timestamp)
+
 
 class Byzantium(Homestead):
     """
@@ -223,6 +255,17 @@ class Byzantium(Homestead):
         elliptic curve alt_bn128 are introduced
         """
         return [5, 6, 7, 8] + super(Byzantium, cls).precompiles(block_number, timestamp)
+
+    @classmethod
+    def call_opcodes(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> List[Tuple[Opcodes, EVMCodeType]]:
+        """
+        At Byzantium, STATICCALL opcode was introduced.
+        """
+        return [(Opcodes.STATICCALL, EVMCodeType.LEGACY),] + super(
+            Byzantium, cls
+        ).call_opcodes(block_number, timestamp)
 
 
 class Constantinople(Byzantium):
@@ -624,6 +667,33 @@ class CancunEIP7692(  # noqa: SC200
     """
     Cancun + EIP-7692 (EOF) fork
     """
+
+    @classmethod
+    def evm_code_types(cls, block_number: int = 0, timestamp: int = 0) -> List[EVMCodeType]:
+        """
+        EOF V1 is supported starting from this fork.
+        """
+        return super(CancunEIP7692, cls,).evm_code_types(  # noqa: SC200
+            block_number,
+            timestamp,
+        ) + [EVMCodeType.EOF_V1]
+
+    @classmethod
+    def call_opcodes(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> List[Tuple[Opcodes, EVMCodeType]]:
+        """
+        EOF V1 introduces EXTCALL, EXTSTATICCALL, EXTDELEGATECALL.
+        """
+        return [
+            (Opcodes.EXTCALL, EVMCodeType.EOF_V1),
+            (Opcodes.EXTSTATICCALL, EVMCodeType.EOF_V1),
+            (Opcodes.EXTDELEGATECALL, EVMCodeType.EOF_V1),
+        ] + super(
+            CancunEIP7692, cls  # noqa: SC200
+        ).call_opcodes(
+            block_number, timestamp
+        )
 
     @classmethod
     def is_deployed(cls) -> bool:

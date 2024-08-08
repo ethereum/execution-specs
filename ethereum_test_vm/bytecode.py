@@ -30,6 +30,8 @@ class Bytecode:
     max_stack_height: int
     min_stack_height: int
 
+    terminating: bool
+
     def __new__(
         cls,
         bytes_or_byte_code_base: "bytes | Bytecode | None" = None,
@@ -38,6 +40,7 @@ class Bytecode:
         pushed_stack_items: int | None = None,
         max_stack_height: int | None = None,
         min_stack_height: int | None = None,
+        terminating: bool = False,
         name: str = "",
     ):
         """
@@ -50,6 +53,7 @@ class Bytecode:
             instance.pushed_stack_items = 0
             instance.min_stack_height = 0
             instance.max_stack_height = 0
+            instance.terminating = False
             instance._name_ = name
             return instance
 
@@ -62,6 +66,7 @@ class Bytecode:
             obj.pushed_stack_items = bytes_or_byte_code_base.pushed_stack_items
             obj.min_stack_height = bytes_or_byte_code_base.min_stack_height
             obj.max_stack_height = bytes_or_byte_code_base.max_stack_height
+            obj.terminating = bytes_or_byte_code_base.terminating
             obj._name_ = bytes_or_byte_code_base._name_
             return obj
 
@@ -80,6 +85,7 @@ class Bytecode:
                 obj.max_stack_height = max(obj.popped_stack_items, obj.pushed_stack_items)
             else:
                 obj.max_stack_height = max_stack_height
+            obj.terminating = terminating
             obj._name_ = name
             return obj
 
@@ -155,6 +161,7 @@ class Bytecode:
             pushed_stack_items=c_push,
             min_stack_height=c_min,
             max_stack_height=c_max,
+            terminating=other.terminating,
         )
 
     def __radd__(self, other: "Bytecode | int | None") -> "Bytecode":

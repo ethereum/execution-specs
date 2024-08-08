@@ -81,18 +81,35 @@ class ForkParametrizer:
         """
         Return the parameter names for the test case.
         """
-        return ["fork"] + [p.name for p in self.fork_covariant_parameters]
+        parameter_names = ["fork"]
+        for p in self.fork_covariant_parameters:
+            if "," in p.name:
+                parameter_names.extend(p.name.split(","))
+            else:
+                parameter_names.append(p.name)
+        return parameter_names
 
     def get_parameter_values(self) -> List[Any]:
         """
         Return the parameter values for the test case.
         """
-        return [
-            pytest.param(*params, marks=[self.mark] if self.mark else [])
+        param_value_combinations = [
+            params
             for params in itertools.product(
                 [self.fork],
                 *[p.values for p in self.fork_covariant_parameters],
             )
+        ]
+        for i in range(len(param_value_combinations)):
+            # if the parameter is a tuple, we need to flatten it
+            param_value_combinations[i] = list(
+                itertools.chain.from_iterable(
+                    [v] if not isinstance(v, tuple) else v for v in param_value_combinations[i]
+                )
+            )
+        return [
+            pytest.param(*params, marks=[self.mark] if self.mark else [])
+            for params in param_value_combinations
         ]
 
 
@@ -152,6 +169,20 @@ fork_covariant_descriptors = [
         " precompile of type int",
         fork_attribute_name="precompiles",
         parameter_name="precompile",
+    ),
+    CovariantDescriptor(
+        marker_name="with_all_evm_code_types",
+        description="marks a test to be parametrized for all EVM code types at parameter named"
+        " `evm_code_type` of type `EVMCodeType`, such as `LEGACY` and `EOF_V1`",
+        fork_attribute_name="evm_code_types",
+        parameter_name="evm_code_type",
+    ),
+    CovariantDescriptor(
+        marker_name="with_all_call_opcodes",
+        description="marks a test to be parametrized for all *CALL opcodes at parameter named"
+        " call_opcode, and also the appropriate EVM code type at parameter named evm_code_type",
+        fork_attribute_name="call_opcodes",
+        parameter_name="call_opcode,evm_code_type",
     ),
 ]
 

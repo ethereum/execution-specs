@@ -50,6 +50,7 @@ def show_test_help(config):
             "fork range",
             "filler location",
             "defining debug",
+            "pre-allocation behavior",
         ]
     elif pytest_ini.name in [
         "pytest-consume.ini",

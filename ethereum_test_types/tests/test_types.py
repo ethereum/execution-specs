@@ -10,7 +10,6 @@ from pydantic import TypeAdapter
 from ethereum_test_base_types import Address, TestPrivateKey, to_json
 from ethereum_test_base_types.pydantic import CopyValidateModel
 
-from ..eof.v1 import Container
 from ..types import (
     AccessList,
     Account,
@@ -877,7 +876,6 @@ def test_parsing(json_str: str, type_adapter: TypeAdapter, expected: Any):
     "model",
     [
         Environment(),
-        Container(),
     ],
     ids=lambda model: model.__class__.__name__,
 )

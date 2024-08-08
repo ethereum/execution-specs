@@ -58,12 +58,14 @@ from ethereum_test_types import (
 )
 from ethereum_test_vm import (
     Bytecode,
+    EVMCodeType,
     Macro,
     Macros,
     Opcode,
     OpcodeCallArg,
     Opcodes,
     UndefinedOpcodes,
+    call_return_code,
 )
 
 from .code import (
@@ -104,6 +106,7 @@ __all__ = (
     "EOFStateTestFiller",
     "EOFTest",
     "EOFTestFiller",
+    "EVMCodeType",
     "FixtureCollector",
     "Hash",
     "Header",
@@ -135,6 +138,7 @@ __all__ = (
     "Yul",
     "YulCompiler",
     "add_kzg_version",
+    "call_return_code",
     "ceiling_division",
     "compute_create_address",
     "compute_create2_address",

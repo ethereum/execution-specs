@@ -3,9 +3,11 @@ Abstract base class for Ethereum forks
 """
 
 from abc import ABC, ABCMeta, abstractmethod
-from typing import Any, ClassVar, List, Mapping, Optional, Protocol, Type
+from typing import Any, ClassVar, List, Mapping, Optional, Protocol, Tuple, Type
 
 from semver import Version
+
+from ethereum_test_vm import EVMCodeType, Opcodes
 
 from .base_decorators import prefer_transition_to_method
 
@@ -257,6 +259,24 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     ) -> Optional[int]:
         """
         Returns `None` if the forks canonical chain cannot be set using the forkchoice method.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def evm_code_types(cls, block_number: int = 0, timestamp: int = 0) -> List[EVMCodeType]:
+        """
+        Returns the list of EVM code types supported by the fork.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def call_opcodes(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> List[Tuple[Opcodes, EVMCodeType]]:
+        """
+        Returns the list of tuples with the call opcodes and its corresponding EVM code type.
         """
         pass
 

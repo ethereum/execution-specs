@@ -26,7 +26,9 @@ def test_fill_help(runner):
     """
     result = runner.invoke(fill, ["--help"])
     assert result.exit_code == pytest.ExitCode.OK
-    assert "[--evm-bin EVM_BIN] [--traces]" in result.output
+    assert "[--evm-bin EVM_BIN]" in result.output
+    assert "[--traces]" in result.output
+    assert "[--evm-code-type EVM_CODE_TYPE]" in result.output
     assert "--help" in result.output
     assert "Arguments defining evm executable behavior:" in result.output
 

@@ -47,6 +47,7 @@ from ethereum_test_base_types.conversions import (
 )
 from ethereum_test_exceptions import TransactionException
 from ethereum_test_forks import Fork
+from ethereum_test_vm import EVMCodeType
 
 
 # Sentinel classes
@@ -269,6 +270,7 @@ class Alloc(BaseAlloc):
         balance: NumberConvertible = 0,
         nonce: NumberConvertible = 1,
         address: Address | None = None,
+        evm_code_type: EVMCodeType | None = None,
         label: str | None = None,
     ) -> Address:
         """

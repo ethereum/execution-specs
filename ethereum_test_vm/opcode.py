@@ -106,6 +106,7 @@ class Opcode(Bytecode):
         data_portion_formatter=None,
         stack_properties_modifier=None,
         unchecked_stack=False,
+        terminating: bool = False,
         kwargs: List[str] | None = None,
         kwargs_defaults: KW_ARGS_DEFAULTS_TYPE = {},
     ):
@@ -134,6 +135,7 @@ class Opcode(Bytecode):
                 pushed_stack_items=pushed_stack_items,
                 max_stack_height=max_stack_height,
                 min_stack_height=min_stack_height,
+                terminating=terminating,
             )
             obj.data_portion_length = data_portion_length
             obj.data_portion_formatter = data_portion_formatter
@@ -207,6 +209,7 @@ class Opcode(Bytecode):
             data_portion_length=0,
             data_portion_formatter=None,
             unchecked_stack=self.unchecked_stack,
+            terminating=self.terminating,
             kwargs=self.kwargs,
             kwargs_defaults=self.kwargs_defaults,
         )
@@ -426,7 +429,7 @@ class Opcodes(Opcode, Enum):
     Do !! NOT !! remove or modify existing opcodes from this list.
     """
 
-    STOP = Opcode(0x00)
+    STOP = Opcode(0x00, terminating=True)
     """
     STOP()
     ----
@@ -4931,7 +4934,7 @@ class Opcodes(Opcode, Enum):
     [ipsilon/eof/blob/main/spec/eof.md](https://github.com/ipsilon/eof/blob/main/spec/eof.md)
     """
 
-    RETF = Opcode(0xE4)
+    RETF = Opcode(0xE4, terminating=True)
     """
     !!! Note: This opcode is under development
 
@@ -4956,7 +4959,7 @@ class Opcodes(Opcode, Enum):
     3
     """
 
-    JUMPF = Opcode(0xE5, data_portion_length=2)
+    JUMPF = Opcode(0xE5, data_portion_length=2, terminating=True)
     """
     !!! Note: This opcode is under development
 
@@ -5130,7 +5133,7 @@ class Opcodes(Opcode, Enum):
 
     """
 
-    RETURNCONTRACT = Opcode(0xEE, popped_stack_items=2, data_portion_length=1)
+    RETURNCONTRACT = Opcode(0xEE, popped_stack_items=2, data_portion_length=1, terminating=True)
     """
     !!! Note: This opcode is under development
 
@@ -5287,7 +5290,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#F2](https://www.evm.codes/#F2)
     """
 
-    RETURN = Opcode(0xF3, popped_stack_items=2, kwargs=["offset", "size"])
+    RETURN = Opcode(0xF3, popped_stack_items=2, kwargs=["offset", "size"], terminating=True)
     """
     RETURN(offset, size)
     ----
@@ -5592,7 +5595,7 @@ class Opcodes(Opcode, Enum):
     3
     """
 
-    REVERT = Opcode(0xFD, popped_stack_items=2, kwargs=["offset", "size"])
+    REVERT = Opcode(0xFD, popped_stack_items=2, kwargs=["offset", "size"], terminating=True)
     """
     REVERT(offset, size)
     ----
@@ -5618,7 +5621,7 @@ class Opcodes(Opcode, Enum):
     Source: [evm.codes/#FD](https://www.evm.codes/#FD)
     """
 
-    INVALID = Opcode(0xFE)
+    INVALID = Opcode(0xFE, terminating=True)
     """
     INVALID()
     ----
