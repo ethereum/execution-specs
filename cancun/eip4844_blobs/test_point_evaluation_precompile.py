@@ -17,9 +17,9 @@ note: Adding a new test
     - z
     - y
     - kzg_proof
-    - success
+    - result
 
-    These values correspond to a single call of the precompile, and `success` refers to
+    These values correspond to a single call of the precompile, and `result` refers to
     whether the call should succeed or fail.
 
     All other `pytest.fixture` fixtures can be parametrized to generate new combinations and test
@@ -29,20 +29,25 @@ note: Adding a new test
 import glob
 import json
 import os
-from typing import Dict, Iterator, List, Optional
+from enum import Enum
+from itertools import count
+from typing import Dict, List, Optional
 
 import pytest
 
 from ethereum_test_tools import (
+    EOA,
     Account,
     Address,
+    Alloc,
     Block,
     BlockchainTestFiller,
+    Bytecode,
     Environment,
     StateTestFiller,
     Storage,
-    TestAddress,
     Transaction,
+    call_return_code,
     eip_2028_transaction_data_cost,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
@@ -52,6 +57,16 @@ from .spec import Spec, ref_spec_4844
 
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
 REFERENCE_SPEC_VERSION = ref_spec_4844.version
+
+
+class Result(str, Enum):
+    """
+    Result of the point evaluation precompile.
+    """
+
+    SUCCESS = "success"
+    FAILURE = "failure"
+    OUT_OF_GAS = "out_of_gas"
 
 
 @pytest.fixture
@@ -82,7 +97,7 @@ def precompile_input(
 
 
 @pytest.fixture
-def call_type() -> Op:
+def call_opcode() -> Op:
     """
     Type of call to use to call the precompile.
 
@@ -102,105 +117,132 @@ def call_gas() -> int:
     return Spec.POINT_EVALUATION_PRECOMPILE_GAS
 
 
+precompile_caller_storage_keys = count()
+key_call_return_code = next(precompile_caller_storage_keys)
+key_return_1 = next(precompile_caller_storage_keys)
+key_return_2 = next(precompile_caller_storage_keys)
+key_return_length = next(precompile_caller_storage_keys)
+key_return_copy_1 = next(precompile_caller_storage_keys)
+key_return_copy_2 = next(precompile_caller_storage_keys)
+
+
 @pytest.fixture
-def precompile_caller_account(call_type: Op, call_gas: int) -> Account:
+def precompile_caller_storage() -> Storage.StorageDictType:
+    """
+    Storage for the precompile caller contract.
+    """
+    return {
+        key_call_return_code: 0xBA5E,
+        key_return_1: 0xBA5E,
+        key_return_2: 0xBA5E,
+        key_return_length: 0xBA5E,
+        key_return_copy_1: 0xBA5E,
+        key_return_copy_2: 0xBA5E,
+    }
+
+
+@pytest.fixture
+def precompile_caller_code(call_opcode: Op, call_gas: int) -> Bytecode:
     """
     Code to call the point evaluation precompile.
     """
     precompile_caller_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
-    if call_type == Op.CALL or call_type == Op.CALLCODE:
-        precompile_caller_code += Op.SSTORE(
-            0,
-            call_type(  # type: ignore # https://github.com/ethereum/execution-spec-tests/issues/348 # noqa: E501
-                call_gas,
-                Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
-                0x00,
-                0x00,
-                Op.CALLDATASIZE,
-                0x00,
-                0x40,
-            ),
-        )  # Store the result of the precompile call in storage slot 0
-    elif call_type == Op.DELEGATECALL or call_type == Op.STATICCALL:
-        # Delegatecall and staticcall use one less argument
-        precompile_caller_code += Op.SSTORE(
-            0,
-            call_type(  # type: ignore # https://github.com/ethereum/execution-spec-tests/issues/348 # noqa: E501
-                call_gas,
-                Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
-                0x00,
-                Op.CALLDATASIZE,
-                0x00,
-                0x40,
-            ),
-        )
+    precompile_caller_code += Op.SSTORE(
+        key_call_return_code,
+        call_opcode(  # type: ignore # https://github.com/ethereum/execution-spec-tests/issues/348 # noqa: E501
+            gas=call_gas,
+            address=Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
+            args_offset=0x00,
+            args_size=Op.CALLDATASIZE,
+            ret_offset=0x00,
+            ret_size=0x40,
+        ),
+    )  # Store the result of the precompile call in storage slot 0
     precompile_caller_code += (
         # Save the returned values into storage
-        Op.SSTORE(1, Op.MLOAD(0x00))
-        + Op.SSTORE(2, Op.MLOAD(0x20))
+        Op.SSTORE(key_return_1, Op.MLOAD(0x00))
+        + Op.SSTORE(key_return_2, Op.MLOAD(0x20))
         # Save the returned data length into storage
-        + Op.SSTORE(3, Op.RETURNDATASIZE)
+        + Op.SSTORE(key_return_length, Op.RETURNDATASIZE)
         # Save the returned data using RETURNDATACOPY into storage
         + Op.RETURNDATACOPY(0, 0, Op.RETURNDATASIZE)
-        + Op.SSTORE(4, Op.MLOAD(0x00))
-        + Op.SSTORE(5, Op.MLOAD(0x20))
+        + Op.SSTORE(key_return_copy_1, Op.MLOAD(0x00))
+        + Op.SSTORE(key_return_copy_2, Op.MLOAD(0x20))
+        + Op.STOP
     )
-    return Account(
-        nonce=0,
-        code=precompile_caller_code,
-        balance=0x10**18,
+    return precompile_caller_code
+
+
+@pytest.fixture
+def precompile_caller_balance() -> int:
+    """
+    Storage for the precompile caller contract.
+    """
+    return 0
+
+
+@pytest.fixture
+def precompile_caller_address(
+    pre: Alloc,
+    precompile_caller_code: Bytecode,
+    precompile_caller_storage: Storage.StorageDictType,
+    precompile_caller_balance: int,
+) -> Address:
+    """
+    Address of the code to call the point evaluation precompile.
+    """
+    return pre.deploy_contract(
+        precompile_caller_code,
+        storage=precompile_caller_storage,
+        balance=precompile_caller_balance,
     )
 
 
 @pytest.fixture
-def precompile_caller_address() -> Address:
+def sender(pre: Alloc) -> EOA:
     """
-    Address of the precompile caller account.
+    Returns the sender account.
     """
-    return Address(0x100)
-
-
-@pytest.fixture
-def pre(
-    precompile_caller_account: Account,
-    precompile_caller_address: Address,
-) -> Dict:
-    """
-    Prepares the pre state of all test cases, by setting the balance of the
-    source account of all test transactions, and the precompile caller account.
-    """
-    return {
-        TestAddress: Account(
-            nonce=0,
-            balance=0x10**18,
-        ),
-        precompile_caller_address: precompile_caller_account,
-    }
+    return pre.fund_eoa()
 
 
 @pytest.fixture
 def tx(
     precompile_caller_address: Address,
     precompile_input: bytes,
+    sender: EOA,
 ) -> Transaction:
     """
     Prepares transaction used to call the precompile caller account.
     """
     return Transaction(
-        ty=2,
-        nonce=0,
+        sender=sender,
         data=precompile_input,
         to=precompile_caller_address,
-        value=0,
-        gas_limit=Spec.POINT_EVALUATION_PRECOMPILE_GAS * 20,
-        max_fee_per_gas=7,
-        max_priority_fee_per_gas=0,
+        gas_limit=Spec.POINT_EVALUATION_PRECOMPILE_GAS * 100,
     )
+
+
+@pytest.fixture
+def success(
+    result: Result,
+    call_opcode: Op,
+) -> bool:
+    """
+    Prepares expected success or failure for each test.
+    """
+    if call_opcode == Op.EXTDELEGATECALL:
+        return False
+    if result == Result.OUT_OF_GAS and call_opcode in [Op.EXTCALL, Op.EXTSTATICCALL]:
+        return True
+
+    return result == Result.SUCCESS
 
 
 @pytest.fixture
 def post(
     success: bool,
+    call_opcode: Op,
     precompile_caller_address: Address,
     precompile_input: bytes,
 ) -> Dict:
@@ -209,29 +251,33 @@ def post(
     failure of the precompile call.
     """
     expected_storage: Storage.StorageDictType = dict()
+    # CALL operation return code
+    expected_storage[key_call_return_code] = call_return_code(
+        call_opcode, success, revert=call_opcode == Op.EXTDELEGATECALL
+    )
     if success:
-        # CALL operation success
-        expected_storage[0] = 1
         # Success return values
-        expected_storage[1] = Spec.FIELD_ELEMENTS_PER_BLOB
-        expected_storage[2] = Spec.BLS_MODULUS
+        expected_storage[key_return_1] = Spec.FIELD_ELEMENTS_PER_BLOB
+        expected_storage[key_return_2] = Spec.BLS_MODULUS
         # Success return values size
-        expected_storage[3] = 64
+        expected_storage[key_return_length] = 64
         # Success return values from RETURNDATACOPY
-        expected_storage[4] = Spec.FIELD_ELEMENTS_PER_BLOB
-        expected_storage[5] = Spec.BLS_MODULUS
+        expected_storage[key_return_copy_1] = Spec.FIELD_ELEMENTS_PER_BLOB
+        expected_storage[key_return_copy_2] = Spec.BLS_MODULUS
 
     else:
-        # CALL operation failure
-        expected_storage[0] = 0
         # Failure returns zero values
-        expected_storage[3] = 0
+        expected_storage[key_return_length] = 0
 
         # Input parameters were not overwritten since the CALL failed
-        expected_storage[1] = precompile_input[0:32]
-        expected_storage[2] = precompile_input[32:64]
-        expected_storage[4] = expected_storage[1]
-        expected_storage[5] = expected_storage[2]
+        expected_storage[key_return_1] = precompile_input[0:32]
+        expected_storage[key_return_2] = precompile_input[32:64]
+        expected_storage[key_return_copy_1] = expected_storage[1]
+        expected_storage[key_return_copy_2] = expected_storage[2]
+    if call_opcode in [Op.EXTCALL, Op.EXTSTATICCALL, Op.EXTDELEGATECALL]:
+        # Input parameters were not overwritten
+        expected_storage[key_return_1] = precompile_input[0:32]
+        expected_storage[key_return_2] = precompile_input[32:64]
     return {
         precompile_caller_address: Account(
             storage=expected_storage,
@@ -245,11 +291,11 @@ def post(
         pytest.param(Spec.BLS_MODULUS - 1, 0, INF_POINT, INF_POINT, None, id="in_bounds_z"),
     ],
 )
-@pytest.mark.parametrize("success", [True])
+@pytest.mark.parametrize("result", [Result.SUCCESS])
 @pytest.mark.valid_from("Cancun")
-def test_valid_precompile_calls(
+def test_valid_inputs(
     state_test: StateTestFiller,
-    pre: Dict,
+    pre: Alloc,
     tx: Transaction,
     post: Dict,
 ):
@@ -298,11 +344,11 @@ def test_valid_precompile_calls(
         "correct_proof_1_incorrect_versioned_hash_version_0xff",
     ],
 )
-@pytest.mark.parametrize("success", [False])
+@pytest.mark.parametrize("result", [Result.FAILURE])
 @pytest.mark.valid_from("Cancun")
-def test_invalid_precompile_calls(
+def test_invalid_inputs(
     state_test: StateTestFiller,
-    pre: Dict,
+    pre: Alloc,
     tx: Transaction,
     post: Dict,
 ):
@@ -331,10 +377,11 @@ def kzg_point_evaluation_vector_from_dict(data: dict):
         raise ValueError("Missing 'input' key in data")
     if "output" not in data:
         raise ValueError("Missing 'output' key in data")
-    if isinstance(data["output"], bool):
-        success = data["output"]
+    output = data["output"]
+    if isinstance(output, bool):
+        result = Result.SUCCESS if output else Result.FAILURE
     else:
-        success = False
+        result = Result.FAILURE
     input = data["input"]
     if "commitment" not in input or not isinstance(input["commitment"], str):
         raise ValueError("Missing 'commitment' key in data['input']")
@@ -355,7 +402,7 @@ def kzg_point_evaluation_vector_from_dict(data: dict):
         y,
         commitment,
         proof,
-        success,
+        result,
         id=name,
     )
 
@@ -413,14 +460,14 @@ def all_external_vectors() -> List:
 
 
 @pytest.mark.parametrize(
-    "z,y,kzg_commitment,kzg_proof,success",
+    "z,y,kzg_commitment,kzg_proof,result",
     all_external_vectors(),
 )
 @pytest.mark.parametrize("versioned_hash", [None])
 @pytest.mark.valid_from("Cancun")
-def test_point_evaluation_precompile_external_vectors(
+def test_external_vectors(
     state_test: StateTestFiller,
-    pre: Dict,
+    pre: Alloc,
     tx: Transaction,
     post: Dict,
 ):
@@ -439,32 +486,24 @@ def test_point_evaluation_precompile_external_vectors(
 
 
 @pytest.mark.parametrize(
-    "call_gas,y,success",
+    "call_gas,y,result",
     [
-        (Spec.POINT_EVALUATION_PRECOMPILE_GAS, 0, True),
-        (Spec.POINT_EVALUATION_PRECOMPILE_GAS, 1, False),
-        (Spec.POINT_EVALUATION_PRECOMPILE_GAS - 1, 0, False),
+        (Spec.POINT_EVALUATION_PRECOMPILE_GAS, 0, Result.SUCCESS),
+        (Spec.POINT_EVALUATION_PRECOMPILE_GAS, 1, Result.FAILURE),
+        (Spec.POINT_EVALUATION_PRECOMPILE_GAS - 1, 0, Result.OUT_OF_GAS),
     ],
     ids=["correct", "incorrect", "insufficient_gas"],
 )
-@pytest.mark.parametrize(
-    "call_type",
-    [
-        Op.CALL,
-        Op.DELEGATECALL,
-        Op.CALLCODE,
-        Op.STATICCALL,
-    ],
-)
+@pytest.mark.with_all_call_opcodes
 @pytest.mark.parametrize(
     "z,kzg_commitment,kzg_proof,versioned_hash",
     [[Z, INF_POINT, INF_POINT, None]],
     ids=[""],
 )
 @pytest.mark.valid_from("Cancun")
-def test_point_evaluation_precompile_calls(
+def test_call_opcode_types(
     state_test: StateTestFiller,
-    pre: Dict,
+    pre: Alloc,
     tx: Transaction,
     post: Dict,
 ):
@@ -502,10 +541,11 @@ def test_point_evaluation_precompile_calls(
     ids=["correct_proof", "incorrect_proof"],
 )
 @pytest.mark.valid_from("Cancun")
-def test_point_evaluation_precompile_gas_tx_to(
+def test_tx_entry_point(
     state_test: StateTestFiller,
     precompile_input: bytes,
     call_gas: int,
+    pre: Alloc,
     proof_correct: bool,
 ):
     """
@@ -516,12 +556,7 @@ def test_point_evaluation_precompile_gas_tx_to(
     - Using correct and incorrect proofs
     """
     start_balance = 10**18
-    pre = {
-        TestAddress: Account(
-            nonce=0,
-            balance=start_balance,
-        ),
-    }
+    sender = pre.fund_eoa(amount=start_balance)
 
     # Gas is appended the intrinsic gas cost of the transaction
     intrinsic_gas_cost = 21_000 + eip_2028_transaction_data_cost(precompile_input)
@@ -538,18 +573,15 @@ def test_point_evaluation_precompile_gas_tx_to(
     fee_per_gas = 7
 
     tx = Transaction(
-        ty=2,
-        nonce=0,
+        sender=sender,
         data=precompile_input,
         to=Address(Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS),
-        value=0,
         gas_limit=call_gas + intrinsic_gas_cost,
-        max_fee_per_gas=7,
-        max_priority_fee_per_gas=0,
+        gas_price=fee_per_gas,
     )
 
     post = {
-        TestAddress: Account(
+        sender: Account(
             nonce=1,
             balance=start_balance - (consumed_gas * fee_per_gas),
         )
@@ -568,41 +600,33 @@ def test_point_evaluation_precompile_gas_tx_to(
     [[Z, 0, INF_POINT, INF_POINT, None]],
     ids=["correct_proof"],
 )
+@pytest.mark.parametrize("precompile_caller_storage", [{}], ids=[""])
+@pytest.mark.parametrize("precompile_caller_balance", [1], ids=[""])
+@pytest.mark.parametrize(
+    "precompile_caller_code",
+    [
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            Op.NUMBER,
+            Op.CALL(
+                address=Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
+                value=1,
+                args_size=Op.CALLDATASIZE,
+            ),
+        )
+    ],
+    ids=[""],
+)
 @pytest.mark.valid_at_transition_to("Cancun")
-def test_point_evaluation_precompile_before_fork(
+def test_precompile_before_fork(
     state_test: StateTestFiller,
-    pre: Dict,
+    pre: Alloc,
     tx: Transaction,
+    precompile_caller_address: Address,
 ):
     """
     Test calling the Point Evaluation Precompile before the appropriate fork.
     """
-    precompile_caller_code = Op.SSTORE(
-        Op.NUMBER,
-        Op.CALL(
-            Op.GAS,
-            Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
-            1,  # Value
-            0,  # Zero-length calldata
-            0,
-            0,  # Zero-length return
-            0,
-        ),
-    )
-    precompile_caller_address = Address(0x100)
-
-    pre = {
-        TestAddress: Account(
-            nonce=0,
-            balance=0x10**18,
-        ),
-        precompile_caller_address: Account(
-            nonce=0,
-            code=precompile_caller_code,
-            balance=0x10**18,
-        ),
-    }
-
     post = {
         precompile_caller_address: Account(
             storage={1: 1},
@@ -614,7 +638,6 @@ def test_point_evaluation_precompile_before_fork(
     }
 
     state_test(
-        tag="point_evaluation_precompile_before_fork",
         pre=pre,
         env=Environment(timestamp=7_500),
         post=post,
@@ -622,61 +645,72 @@ def test_point_evaluation_precompile_before_fork(
     )
 
 
+FORK_TIMESTAMP = 15_000
+PRE_FORK_BLOCK_RANGE = range(999, FORK_TIMESTAMP, 1_000)
+
+
 @pytest.mark.parametrize(
     "z,y,kzg_commitment,kzg_proof,versioned_hash",
     [[Z, 0, INF_POINT, INF_POINT, None]],
     ids=["correct_proof"],
 )
+@pytest.mark.parametrize("precompile_caller_storage", [{}], ids=[""])
+@pytest.mark.parametrize("precompile_caller_balance", [len(PRE_FORK_BLOCK_RANGE)], ids=[""])
+@pytest.mark.parametrize(
+    "precompile_caller_code",
+    [
+        Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
+        + Op.SSTORE(
+            Op.NUMBER,
+            Op.CALL(
+                address=Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
+                value=1,
+                args_size=Op.CALLDATASIZE,
+            ),
+        )
+    ],
+    ids=[""],
+)
 @pytest.mark.valid_at_transition_to("Cancun")
-def test_point_evaluation_precompile_during_fork(
+def test_precompile_during_fork(
     blockchain_test: BlockchainTestFiller,
-    pre: Dict,
-    tx: Transaction,
+    pre: Alloc,
+    precompile_caller_address: Address,
+    precompile_input: bytes,
+    sender: EOA,
 ):
     """
     Test calling the Point Evaluation Precompile before the appropriate fork.
     """
-    precompile_caller_code = Op.SSTORE(
-        Op.NUMBER,
-        Op.CALL(
-            Op.GAS,
-            Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS,
-            1,  # Value
-            0,  # Zero-length calldata
-            0,
-            0,  # Zero-length return
-            0,
-        ),
-    )
-    precompile_caller_address = Address(0x100)
-
-    pre = {
-        TestAddress: Account(
-            nonce=0,
-            balance=0x10**18,
-        ),
-        precompile_caller_address: Account(
-            nonce=0,
-            code=precompile_caller_code,
-            balance=0x10**18,
-        ),
-    }
-
-    def tx_generator() -> Iterator[Transaction]:
-        nonce = 0  # Initial value
-        while True:
-            yield tx.with_nonce(nonce)
-            nonce = nonce + 1
-
-    iter_tx = tx_generator()
-
-    FORK_TIMESTAMP = 15_000
-    PRE_FORK_BLOCK_RANGE = range(999, FORK_TIMESTAMP, 1_000)
-
     # Blocks before fork
-    blocks = [Block(timestamp=t, txs=[next(iter_tx)]) for t in PRE_FORK_BLOCK_RANGE]
+    blocks = [
+        Block(
+            timestamp=t,
+            txs=[
+                Transaction(
+                    sender=sender,
+                    data=precompile_input,
+                    to=precompile_caller_address,
+                    gas_limit=Spec.POINT_EVALUATION_PRECOMPILE_GAS * 100,
+                )
+            ],
+        )
+        for t in PRE_FORK_BLOCK_RANGE
+    ]
     # Block after fork
-    blocks += [Block(timestamp=FORK_TIMESTAMP, txs=[next(iter_tx)])]
+    blocks += [
+        Block(
+            timestamp=FORK_TIMESTAMP,
+            txs=[
+                Transaction(
+                    sender=sender,
+                    data=precompile_input,
+                    to=precompile_caller_address,
+                    gas_limit=Spec.POINT_EVALUATION_PRECOMPILE_GAS * 100,
+                )
+            ],
+        )
+    ]
 
     post = {
         precompile_caller_address: Account(
@@ -689,7 +723,6 @@ def test_point_evaluation_precompile_during_fork(
     }
 
     blockchain_test(
-        tag="point_evaluation_precompile_before_fork",
         pre=pre,
         post=post,
         blocks=blocks,

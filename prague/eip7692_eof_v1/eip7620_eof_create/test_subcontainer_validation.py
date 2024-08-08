@@ -6,9 +6,8 @@ import pytest
 
 from ethereum_test_tools import Account, EOFException, EOFStateTestFiller, EOFTestFiller
 from ethereum_test_tools.eof.v1 import Container, ContainerKind, Section
-from ethereum_test_tools.eof.v1.constants import MAX_BYTECODE_SIZE
+from ethereum_test_tools.eof.v1.constants import MAX_BYTECODE_SIZE, MAX_INITCODE_SIZE
 from ethereum_test_tools.vm.opcode import Opcodes as Op
-from ethereum_test_types.eof.v1.constants import MAX_INITCODE_SIZE
 from ethereum_test_vm import Bytecode
 
 from .. import EOF_FORK_NAME

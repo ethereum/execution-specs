@@ -33,6 +33,7 @@ from ethereum_test_tools import StateTestFiller, Storage, Transaction
     ],
     ids=lambda op: str(op),
 )
+@pytest.mark.with_all_evm_code_types
 def test_dup(
     state_test: StateTestFiller,
     fork: str,
