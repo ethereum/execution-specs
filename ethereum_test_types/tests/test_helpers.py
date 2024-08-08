@@ -70,7 +70,7 @@ def test_compute_create_address(address: str | int, nonce: int, expected_contrac
     - https://etherscan.io/address/0x06012c8cf97bead5deae237070f9587f8e7a266d
 
     """
-    assert compute_create_address(address, nonce) == expected_contract_address
+    assert compute_create_address(address=address, nonce=nonce) == expected_contract_address
 
 
 @pytest.mark.parametrize(

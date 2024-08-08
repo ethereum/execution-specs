@@ -10,6 +10,7 @@ from ethereum.rlp import encode
 
 from ethereum_test_base_types.base_types import Address, Bytes, Hash
 from ethereum_test_base_types.conversions import BytesConvertible, FixedSizeBytesConvertible
+from ethereum_test_vm import Opcodes as Op
 
 from .types import EOA
 
@@ -26,18 +27,29 @@ def ceiling_division(a: int, b: int) -> int:
     return -(a // -b)
 
 
-def compute_create_address(address: FixedSizeBytesConvertible | EOA, nonce: int = 0) -> Address:
+def compute_create_address(
+    *,
+    address: FixedSizeBytesConvertible | EOA,
+    nonce: int = 0,
+    salt: int = 0,
+    initcode: BytesConvertible = b"",
+    opcode: Op = Op.CREATE,
+) -> Address:
     """
     Compute address of the resulting contract created using a transaction
     or the `CREATE` opcode.
     """
-    if isinstance(address, EOA):
-        nonce = address.nonce
-    else:
-        address = Address(address)
-    nonce_bytes = bytes() if nonce == 0 else nonce.to_bytes(length=1, byteorder="big")
-    hash = keccak256(encode([address, nonce_bytes]))
-    return Address(hash[-20:])
+    if opcode == Op.CREATE:
+        if isinstance(address, EOA):
+            nonce = address.nonce
+        else:
+            address = Address(address)
+        nonce_bytes = bytes() if nonce == 0 else nonce.to_bytes(length=1, byteorder="big")
+        hash = keccak256(encode([address, nonce_bytes]))
+        return Address(hash[-20:])
+    if opcode == Op.CREATE2:
+        return compute_create2_address(address, salt, initcode)
+    raise ValueError("Unsupported opcode")
 
 
 def compute_create2_address(
