@@ -26,12 +26,12 @@ from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,
     Address,
+    Alloc,
     Block,
     BlockchainTestFiller,
     Bytecode,
     Hash,
     Storage,
-    TestAddress,
     Transaction,
     Withdrawal,
 )
@@ -65,7 +65,7 @@ def test_beacon_root_contract_calls(
     blockchain_test: BlockchainTestFiller,
     beacon_root: bytes,
     timestamp: int,
-    pre: Dict,
+    pre: Alloc,
     tx: Transaction,
     post: Dict,
 ):
@@ -120,7 +120,7 @@ def test_beacon_root_contract_timestamps(
     blockchain_test: BlockchainTestFiller,
     beacon_root: bytes,
     timestamp: int,
-    pre: Dict,
+    pre: Alloc,
     tx: Transaction,
     post: Dict,
 ):
@@ -155,7 +155,7 @@ def test_calldata_lengths(
     blockchain_test: BlockchainTestFiller,
     beacon_root: bytes,
     timestamp: int,
-    pre: Dict,
+    pre: Alloc,
     tx: Transaction,
     post: Dict,
 ):
@@ -185,7 +185,7 @@ def test_beacon_root_equal_to_timestamp(
     blockchain_test: BlockchainTestFiller,
     beacon_root: bytes,
     timestamp: int,
-    pre: Dict,
+    pre: Alloc,
     tx: Transaction,
     post: Dict,
 ):
@@ -210,7 +210,7 @@ def test_tx_to_beacon_root_contract(
     blockchain_test: BlockchainTestFiller,
     beacon_root: bytes,
     timestamp: int,
-    pre: Dict,
+    pre: Alloc,
     tx: Transaction,
     post: Dict,
 ):
@@ -237,7 +237,7 @@ def test_invalid_beacon_root_calldata_value(
     blockchain_test: BlockchainTestFiller,
     beacon_root: bytes,
     timestamp: int,
-    pre: Dict,
+    pre: Alloc,
     tx: Transaction,
     post: Dict,
 ):
@@ -260,7 +260,7 @@ def test_beacon_root_selfdestruct(
     blockchain_test: BlockchainTestFiller,
     beacon_root: bytes,
     timestamp: int,
-    pre: Dict,
+    pre: Alloc,
     tx: Transaction,
     post: Dict,
 ):
@@ -268,24 +268,32 @@ def test_beacon_root_selfdestruct(
     Tests that self destructing the beacon root address transfers actors balance correctly.
     """
     # self destruct actor
-    pre[Address(0x1337)] = Account(
-        code=Op.SELFDESTRUCT(Spec.BEACON_ROOTS_ADDRESS),
+    self_destruct_actor_address = pre.deploy_contract(
+        Op.SELFDESTRUCT(Spec.BEACON_ROOTS_ADDRESS),
         balance=0xBA1,
     )
     # self destruct caller
-    pre[Address(0xCC)] = Account(
-        code=Op.CALL(100000, Address(0x1337), 0, 0, 0, 0, 0)
-        + Op.SSTORE(0, Op.BALANCE(Spec.BEACON_ROOTS_ADDRESS)),
+    self_destruct_caller_address = pre.deploy_contract(
+        Op.CALL(gas=100_000, address=self_destruct_actor_address)
+        + Op.SSTORE(0, Op.BALANCE(Spec.BEACON_ROOTS_ADDRESS))
     )
     post = {
-        Address(0xCC): Account(
+        self_destruct_caller_address: Account(
             storage=Storage({0: 0xBA1}),  # type: ignore
         )
     }
     blockchain_test(
         pre=pre,
         blocks=[
-            Block(txs=[Transaction(nonce=0, to=Address(0xCC), gas_limit=100000, gas_price=10)])
+            Block(
+                txs=[
+                    Transaction(
+                        sender=pre.fund_eoa(),
+                        to=self_destruct_caller_address,
+                        gas_limit=100_000,
+                    )
+                ]
+            )
         ],
         post=post,
     )
@@ -335,10 +343,10 @@ def test_beacon_root_selfdestruct(
 @pytest.mark.valid_from("Cancun")
 def test_multi_block_beacon_root_timestamp_calls(
     blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
     timestamps: Iterator[int],
     beacon_roots: Iterator[bytes],
     block_count: int,
-    tx: Transaction,
     call_gas: int,
     call_value: int,
 ):
@@ -356,18 +364,14 @@ def test_multi_block_beacon_root_timestamp_calls(
     buffer, which might have been overwritten by a later block.
     """
     blocks: List[Block] = []
-    pre = {
-        TestAddress: Account(
-            nonce=0,
-            balance=0x10**10,
-        ),
-    }
     post = {}
 
     timestamps_storage: Dict[int, int] = {}
     roots_storage: Dict[int, bytes] = {}
 
     all_timestamps: List[int] = []
+
+    sender = pre.fund_eoa()
 
     for timestamp, beacon_root, i in zip(timestamps, beacon_roots, range(block_count)):
         timestamp_index = timestamp % Spec.HISTORY_BUFFER_LENGTH
@@ -380,7 +384,6 @@ def test_multi_block_beacon_root_timestamp_calls(
 
         current_call_account_code = Bytecode()
         current_call_account_expected_storage = Storage()
-        current_call_account_address = Address(0x100 + i)
 
         # We are going to call the beacon roots contract once for every timestamp of the current
         # and all previous blocks, and check that the returned beacon root is still correct only
@@ -411,19 +414,19 @@ def test_multi_block_beacon_root_timestamp_calls(
                 Op.MLOAD(0x20),
             )
 
-        pre[current_call_account_address] = Account(
-            code=current_call_account_code,
-        )
+        current_call_account_address = pre.deploy_contract(current_call_account_code)
+
         post[current_call_account_address] = Account(
             storage=current_call_account_expected_storage,
         )
         blocks.append(
             Block(
                 txs=[
-                    tx.copy(
-                        nonce=i,
-                        to=Address(0x100 + i),
+                    Transaction(
+                        sender=sender,
+                        to=current_call_account_address,
                         data=Hash(timestamp),
+                        gas_limit=1_000_000,
                     )
                 ],
                 parent_beacon_block_root=beacon_root,
@@ -461,10 +464,10 @@ def test_multi_block_beacon_root_timestamp_calls(
 @pytest.mark.valid_at_transition_to("Cancun")
 def test_beacon_root_transition(
     blockchain_test: BlockchainTestFiller,
+    pre: Alloc,
     timestamps: Iterator[int],
     beacon_roots: Iterator[bytes],
     block_count: int,
-    tx: Transaction,
     call_gas: int,
     call_value: int,
     fork: Fork,
@@ -474,12 +477,6 @@ def test_beacon_root_transition(
     transition timestamp do not contain beacon roots in the pre-deployed contract.
     """
     blocks: List[Block] = []
-    pre = {
-        TestAddress: Account(
-            nonce=0,
-            balance=0x10**10,
-        ),
-    }
     post = {}
 
     timestamps_storage: Dict[int, int] = {}
@@ -487,6 +484,8 @@ def test_beacon_root_transition(
 
     all_timestamps: List[int] = []
     timestamps_in_beacon_root_contract: List[int] = []
+
+    sender = pre.fund_eoa()
 
     for timestamp, beacon_root, i in zip(timestamps, beacon_roots, range(block_count)):
         timestamp_index = timestamp % Spec.HISTORY_BUFFER_LENGTH
@@ -504,7 +503,6 @@ def test_beacon_root_transition(
 
         current_call_account_code = Bytecode()
         current_call_account_expected_storage = Storage()
-        current_call_account_address = Address(0x100 + i)
 
         # We are going to call the beacon roots contract once for every timestamp of the current
         # and all previous blocks, and check that the returned beacon root is correct only
@@ -536,19 +534,18 @@ def test_beacon_root_transition(
                 Op.MLOAD(0x20),
             )
 
-        pre[current_call_account_address] = Account(
-            code=current_call_account_code,
-        )
+        current_call_account_address = pre.deploy_contract(current_call_account_code)
         post[current_call_account_address] = Account(
             storage=current_call_account_expected_storage,
         )
         blocks.append(
             Block(
                 txs=[
-                    tx.copy(
-                        nonce=i,
-                        to=Address(0x100 + i),
+                    Transaction(
+                        sender=sender,
+                        to=current_call_account_address,
                         data=Hash(timestamp),
+                        gas_limit=1_000_000,
                     )
                 ],
                 parent_beacon_block_root=beacon_root if transitioned else None,
@@ -582,7 +579,7 @@ def test_beacon_root_transition(
 @pytest.mark.valid_at_transition_to("Cancun")
 def test_no_beacon_root_contract_at_transition(
     blockchain_test: BlockchainTestFiller,
-    pre: Dict,
+    pre: Alloc,
     beacon_roots: Iterator[bytes],
     tx: Transaction,
     timestamp: int,
@@ -654,7 +651,7 @@ def test_no_beacon_root_contract_at_transition(
 @pytest.mark.valid_at_transition_to("Cancun")
 def test_beacon_root_contract_deploy(
     blockchain_test: BlockchainTestFiller,
-    pre: Dict,
+    pre: Alloc,
     beacon_root: bytes,
     tx: Transaction,
     timestamp: int,

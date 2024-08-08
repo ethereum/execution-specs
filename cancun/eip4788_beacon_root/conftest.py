@@ -12,10 +12,11 @@ from ethereum_test_tools import (
     AccessList,
     Account,
     Address,
+    Alloc,
+    Bytecode,
     Environment,
     Hash,
     Storage,
-    TestAddress,
     Transaction,
     add_kzg_version,
 )
@@ -87,12 +88,12 @@ def call_gas() -> int:  # noqa: D103
 
 
 @pytest.fixture
-def caller_address() -> Address:  # noqa: D103
-    return Address(0x100)
+def caller_address(pre: Alloc, contract_call_code: Bytecode) -> Address:  # noqa: D103
+    return pre.deploy_contract(contract_call_code, balance=0x10**10)
 
 
 @pytest.fixture
-def contract_call_account(call_type: Op, call_value: int, call_gas: int) -> Account:
+def contract_call_code(call_type: Op, call_value: int, call_gas: int) -> Bytecode:
     """
     Code to call the beacon root contract.
     """
@@ -143,11 +144,7 @@ def contract_call_account(call_type: Op, call_value: int, call_gas: int) -> Acco
             Op.MLOAD(return_start),
         )
     )
-    return Account(
-        nonce=0,
-        code=contract_call_code,
-        balance=0x10**10,
-    )
+    return contract_call_code
 
 
 @pytest.fixture
@@ -174,29 +171,13 @@ def system_address_balance() -> int:
     return 0
 
 
-@pytest.fixture
-def pre(
-    contract_call_account: Account,
-    system_address_balance: int,
-    caller_address: Address,
-) -> Dict:
+@pytest.fixture(autouse=True)
+def pre_fund_system_address(pre: Alloc, system_address_balance: int):
     """
-    Prepares the pre state of all test cases, by setting the balance of the
-    source account of all test transactions, and the contract caller account.
+    Whether to fund the system address.
     """
-    pre_alloc = {
-        TestAddress: Account(
-            nonce=0,
-            balance=0x10**10,
-        ),
-        caller_address: contract_call_account,
-    }
     if system_address_balance > 0:
-        pre_alloc[Address(Spec.SYSTEM_ADDRESS)] = Account(
-            nonce=0,
-            balance=system_address_balance,
-        )
-    return pre_alloc
+        pre.fund_address(Address(Spec.SYSTEM_ADDRESS), system_address_balance)
 
 
 @pytest.fixture
@@ -250,6 +231,7 @@ def tx_type() -> int:
 
 @pytest.fixture
 def tx(
+    pre: Alloc,
     tx_to_address: Address,
     tx_data: bytes,
     tx_type: int,
@@ -262,21 +244,14 @@ def tx(
     to = Spec.BEACON_ROOTS_ADDRESS if call_beacon_root_contract else tx_to_address
     kwargs: Dict = {
         "ty": tx_type,
-        "nonce": 0,
+        "sender": pre.fund_eoa(),
         "data": tx_data,
         "to": to,
-        "value": 0,
-        "gas_limit": 1000000,
+        "gas_limit": 1_000_000,
     }
 
     if tx_type > 0:
         kwargs["access_list"] = access_list
-
-    if tx_type <= 1:
-        kwargs["gas_price"] = 7
-    else:
-        kwargs["max_fee_per_gas"] = 7
-        kwargs["max_priority_fee_per_gas"] = 0
 
     if tx_type == 3:
         kwargs["max_fee_per_blob_gas"] = 1

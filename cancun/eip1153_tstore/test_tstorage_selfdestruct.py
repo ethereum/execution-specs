@@ -9,15 +9,9 @@ from typing import Dict
 
 import pytest
 
-from ethereum_test_tools import Account, Bytecode, CalldataCase, Environment, Initcode
+from ethereum_test_tools import Account, Alloc, Bytecode, CalldataCase, Environment, Hash, Initcode
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import (
-    StateTestFiller,
-    Switch,
-    TestAddress,
-    Transaction,
-    compute_create_address,
-)
+from ethereum_test_tools import StateTestFiller, Switch, Transaction, compute_create_address
 
 from . import PytestParameterEnum
 from .spec import ref_spec_1153
@@ -27,21 +21,20 @@ REFERENCE_SPEC_VERSION = ref_spec_1153.version
 
 pytestmark = [pytest.mark.valid_from("Cancun")]
 
-# Addresses
-caller_address = 0x100
-copy_from_initcode_address = 0x200
-callee_address = compute_create_address(caller_address, 1)
-
-CREATE_CODE = Op.EXTCODECOPY(
-    copy_from_initcode_address, 0, 0, Op.EXTCODESIZE(copy_from_initcode_address)
-) + Op.CREATE(0, 0, Op.EXTCODESIZE(copy_from_initcode_address))
+CREATE_CODE = Op.CALLDATACOPY(size=Op.CALLDATASIZE) + Op.CREATE(size=Op.CALLDATASIZE)
 
 
 def call_option(option_number: int) -> Bytecode:
     """
     Return the bytecode for a call to the callee contract with the given option number.
     """
-    return Op.MSTORE(0, option_number) + Op.CALL(Op.GAS, callee_address, 0, 0, 32, 0, 32)
+    return Op.MSTORE(value=option_number) + Op.CALL(
+        address=Op.SLOAD(0),
+        args_offset=0,
+        args_size=32,
+        ret_offset=0,
+        ret_size=32,
+    )
 
 
 @unique
@@ -58,9 +51,10 @@ class SelfDestructCases(PytestParameterEnum):
             "Then re-enter the contract and attempt to TLOAD the transient value.",
         ),
         "pre_existing_contract": True,
-        "caller_bytecode": Op.SSTORE(0, call_option(1))
-        + Op.SSTORE(1, call_option(2))
-        + Op.SSTORE(2, Op.MLOAD(0)),
+        "caller_bytecode": Op.SSTORE(0, Op.CALLDATALOAD(0))
+        + Op.SSTORE(1, call_option(1))
+        + Op.SSTORE(2, call_option(2))
+        + Op.SSTORE(3, Op.MLOAD(0)),
         "callee_bytecode": Switch(
             cases=[
                 CalldataCase(value=1, action=Op.TSTORE(0xFF, 0x100) + Op.SELFDESTRUCT(0)),
@@ -68,9 +62,9 @@ class SelfDestructCases(PytestParameterEnum):
             ],
         ),
         "expected_storage": {
-            0: 0x01,
             1: 0x01,
-            2: 0x100,
+            2: 0x01,
+            3: 0x100,
         },
     }
 
@@ -92,7 +86,6 @@ class SelfDestructCases(PytestParameterEnum):
             ],
         ),
         "expected_storage": {
-            0: callee_address,
             1: 0x01,
             2: 0x01,
             3: 0x100,
@@ -105,7 +98,9 @@ class SelfDestructCases(PytestParameterEnum):
             "and use TLOAD upon return from the inner self-destructing call.",
         ),
         "pre_existing_contract": True,
-        "caller_bytecode": Op.SSTORE(0, call_option(1)) + Op.SSTORE(1, Op.MLOAD(0)),
+        "caller_bytecode": Op.SSTORE(0, Op.CALLDATALOAD(0))
+        + Op.SSTORE(1, call_option(1))
+        + Op.SSTORE(2, Op.MLOAD(0)),
         "callee_bytecode": Switch(
             cases=[
                 CalldataCase(
@@ -119,8 +114,8 @@ class SelfDestructCases(PytestParameterEnum):
             ],
         ),
         "expected_storage": {
-            0: 0x01,
-            1: 0x100,
+            1: 0x01,
+            2: 0x100,
         },
     }
 
@@ -139,7 +134,14 @@ class SelfDestructCases(PytestParameterEnum):
                 CalldataCase(
                     value=1,
                     action=Op.TSTORE(0xFF, 0x100)
-                    + call_option(2)
+                    + Op.MSTORE(value=2)
+                    + Op.CALL(
+                        address=Op.ADDRESS,
+                        args_offset=0,
+                        args_size=32,
+                        ret_offset=0,
+                        ret_size=32,
+                    )
                     + Op.MSTORE(0, Op.TLOAD(0xFF))
                     + Op.RETURN(0, 32),
                 ),
@@ -147,7 +149,6 @@ class SelfDestructCases(PytestParameterEnum):
             ],
         ),
         "expected_storage": {
-            0: callee_address,
             1: 0x01,
             2: 0x100,
         },
@@ -159,10 +160,11 @@ class SelfDestructCases(PytestParameterEnum):
             "Lastly use TLOAD on another re-entry",
         ),
         "pre_existing_contract": True,
-        "caller_bytecode": Op.SSTORE(0, call_option(1))
-        + Op.SSTORE(1, call_option(2))
-        + Op.SSTORE(2, call_option(3))
-        + Op.SSTORE(3, Op.MLOAD(0)),
+        "caller_bytecode": Op.SSTORE(0, Op.CALLDATALOAD(0))
+        + Op.SSTORE(1, call_option(1))
+        + Op.SSTORE(2, call_option(2))
+        + Op.SSTORE(3, call_option(3))
+        + Op.SSTORE(4, Op.MLOAD(0)),
         "callee_bytecode": Switch(
             cases=[
                 CalldataCase(value=1, action=Op.SELFDESTRUCT(0)),
@@ -171,10 +173,10 @@ class SelfDestructCases(PytestParameterEnum):
             ],
         ),
         "expected_storage": {
-            0: 0x01,
             1: 0x01,
             2: 0x01,
-            3: 0x100,
+            3: 0x01,
+            4: 0x100,
         },
     }
 
@@ -197,7 +199,6 @@ class SelfDestructCases(PytestParameterEnum):
             ],
         ),
         "expected_storage": {
-            0: callee_address,
             1: 0x01,
             2: 0x01,
             3: 0x01,
@@ -209,29 +210,35 @@ class SelfDestructCases(PytestParameterEnum):
 @SelfDestructCases.parametrize()
 def test_reentrant_selfdestructing_call(
     state_test: StateTestFiller,
-    pre_existing_contract,
-    caller_bytecode,
-    callee_bytecode,
-    expected_storage,
+    pre: Alloc,
+    pre_existing_contract: bool,
+    caller_bytecode: Bytecode,
+    callee_bytecode: Bytecode,
+    expected_storage: Dict,
 ):
     """
     Test transient storage in different reentrancy contexts after selfdestructing.
     """
     env = Environment()
 
-    pre = {
-        TestAddress: Account(balance=10**40),
-        caller_address: Account(code=caller_bytecode, nonce=1),
-        copy_from_initcode_address: Account(code=Initcode(deploy_code=callee_bytecode)),
-    }
+    caller_address = pre.deploy_contract(code=caller_bytecode)
 
+    data: Hash | Bytecode
     if pre_existing_contract:
-        pre[callee_address] = Account(code=callee_bytecode)
+        callee_address = pre.deploy_contract(code=callee_bytecode)
+        data = Hash(callee_address)
+    else:
+        callee_address = compute_create_address(address=caller_address, nonce=1)
+        data = Initcode(deploy_code=callee_bytecode)
 
     tx = Transaction(
+        sender=pre.fund_eoa(),
         to=caller_address,
         gas_limit=1_000_000,
+        data=data,
     )
+
+    expected_storage[0] = callee_address
 
     post: Dict = {caller_address: Account(storage=expected_storage)}
 

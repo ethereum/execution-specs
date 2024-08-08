@@ -4,12 +4,21 @@ abstract: Tests for [EIP-1153: Transient Storage](https://eips.ethereum.org/EIPS
 """  # noqa: E501
 
 from enum import EnumMeta, unique
+from typing import Dict
 
 import pytest
 
-from ethereum_test_tools import Account, Bytecode, CalldataCase, Conditional, Environment, Hash
+from ethereum_test_tools import (
+    Account,
+    Alloc,
+    Bytecode,
+    CalldataCase,
+    Conditional,
+    Environment,
+    Hash,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Switch, TestAddress, Transaction
+from ethereum_test_tools import StateTestFiller, Switch, Transaction
 
 from . import PytestParameterEnum
 from .spec import ref_spec_1153
@@ -19,12 +28,9 @@ REFERENCE_SPEC_VERSION = ref_spec_1153.version
 
 pytestmark = [pytest.mark.valid_from("Cancun")]
 
-# Address of the callee contract
-callee_address = 0x200
-
 SETUP_CONDITION: Bytecode = Op.EQ(Op.CALLDATALOAD(0), 0x01)
 REENTRANT_CALL: Bytecode = Op.MSTORE(0, 2) + Op.SSTORE(
-    0, Op.CALL(Op.GAS(), callee_address, 0, 0, 32, 0, 0)
+    0, Op.CALL(address=Op.ADDRESS, args_size=32)
 )
 
 
@@ -46,7 +52,7 @@ class DynamicReentrancyTestCases(EnumMeta):
                 raise ValueError(f"Unknown opcode: {opcode}.")
 
             reentrant_call = Op.MSTORE(0, 2) + Op.SSTORE(
-                0, Op.CALL(subcall_gas, callee_address, 0, 0, 32, 0, 0)
+                0, Op.CALL(gas=subcall_gas, address=Op.ADDRESS, args_size=32)
             )
 
             classdict[f"TSTORE_BEFORE_{opcode._name_}_HAS_NO_EFFECT"] = {
@@ -131,7 +137,16 @@ class DynamicReentrancyTestCases(EnumMeta):
                         Op.TSTORE(0xFF, 0x100)
                         + Op.SSTORE(2, Op.TLOAD(0xFF))
                         + Op.MSTORE(0, 2)
-                        + Op.SSTORE(0, Op.CALL(subcall_gas, callee_address, 0, 0, 32, 32, 32))
+                        + Op.SSTORE(
+                            0,
+                            Op.CALL(
+                                gas=subcall_gas,
+                                address=Op.ADDRESS,
+                                args_size=32,
+                                ret_offset=32,
+                                ret_size=32,
+                            ),
+                        )
                         + Op.SSTORE(1, Op.MLOAD(32))  # should be 1 (successful call)
                         + Op.SSTORE(3, Op.TLOAD(0xFF))
                     ),
@@ -141,7 +156,7 @@ class DynamicReentrancyTestCases(EnumMeta):
                             value=2,
                             action=(
                                 Op.MSTORE(0, 3)
-                                + Op.MSTORE(0, Op.CALL(Op.GAS(), callee_address, 0, 0, 32, 0, 0))
+                                + Op.MSTORE(0, Op.CALL(address=Op.ADDRESS, args_size=32))
                                 + opcode_call
                             ),
                         ),
@@ -233,7 +248,7 @@ class ReentrancyTestCases(PytestParameterEnum, metaclass=DynamicReentrancyTestCa
                 Op.TSTORE(0xFF, 0x100)
                 + Op.SSTORE(2, Op.TLOAD(0xFF))
                 + Op.MSTORE(0, 2)
-                + Op.SSTORE(0, Op.CALL(Op.GAS(), callee_address, 0, 0, 32, 0, 0))
+                + Op.SSTORE(0, Op.CALL(address=Op.ADDRESS, args_size=32))
                 + Op.SSTORE(4, Op.TLOAD(0xFE))
             ),
             cases=[
@@ -243,7 +258,9 @@ class ReentrancyTestCases(PytestParameterEnum, metaclass=DynamicReentrancyTestCa
                     action=(
                         Op.TSTORE(0xFE, 0x101)
                         + Op.MSTORE(0, 3)
-                        + Op.SSTORE(1, Op.STATICCALL(Op.GAS(), callee_address, 0, 32, 0, 32))
+                        + Op.SSTORE(
+                            1, Op.STATICCALL(address=Op.ADDRESS, args_size=32, ret_size=32)
+                        )
                         + Op.SSTORE(3, Op.MLOAD(0))
                     ),
                 ),
@@ -259,21 +276,21 @@ class ReentrancyTestCases(PytestParameterEnum, metaclass=DynamicReentrancyTestCa
 
 
 @ReentrancyTestCases.parametrize()
-def test_reentrant_call(state_test: StateTestFiller, bytecode, expected_storage):
+def test_reentrant_call(
+    state_test: StateTestFiller, pre: Alloc, bytecode: Bytecode, expected_storage: Dict
+):
     """
     Test transient storage in different reentrancy contexts.
     """
     env = Environment()
 
-    pre = {
-        TestAddress: Account(balance=10**40),
-        callee_address: Account(code=bytecode),
-    }
+    callee_address = pre.deploy_contract(bytecode)
 
     tx = Transaction(
+        sender=pre.fund_eoa(),
         to=callee_address,
         data=Hash(1),
-        gas_limit=10_000_000,
+        gas_limit=1_000_000,
     )
 
     post = {callee_address: Account(code=bytecode, storage=expected_storage)}

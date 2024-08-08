@@ -80,17 +80,6 @@ random_blob_hashes = add_kzg_version(
     Spec.BLOB_COMMITMENT_VERSION_KZG,
 )
 
-# Blobhash index values for test_blobhash_gas_cost
-blobhash_index_values = [
-    0x00,
-    0x01,
-    0x02,
-    0x03,
-    0x04,
-    2**256 - 1,
-    0xA12C8B6A8B11410C7D98D790E1098F1ED6D93CB7A64711481AAAB1848E13212F,
-]
-
 
 class BlobhashContext:
     """
@@ -272,15 +261,15 @@ class BlobhashContext:
         Maps contract creation to a specific context to a specific address.
         """
         contract = {
-            "tx_created_contract": compute_create_address(TestAddress, 0),
+            "tx_created_contract": compute_create_address(address=TestAddress, nonce=0),
             "create": compute_create_address(
-                cls.address("create"),
-                0,
+                address=cls.address("create"),
+                nonce=0,
             ),
             "create2": compute_create2_address(
-                cls.address("create2"),
-                0,
-                cls.code("initcode"),
+                address=cls.address("create2"),
+                salt=0,
+                initcode=cls.code("initcode"),
             ),
         }
         contract = contract.get(context_name)

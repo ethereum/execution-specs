@@ -18,14 +18,10 @@ from ethereum_test_tools import (
     Environment,
 )
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Storage, TestAddress, Transaction
+from ethereum_test_tools import StateTestFiller, Storage, Transaction
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7516.md"
 REFERENCE_SPEC_VERSION = "2ade0452efe8124378f35284676ddfd16dd56ecd"
-
-# Code address used to call the test bytecode on every test case.
-code_caller_address = Address(0x100)
-code_callee_address = Address(0x200)
 
 BLOBBASEFEE_GAS = 2
 
@@ -39,16 +35,6 @@ def call_gas() -> int:
 
 
 @pytest.fixture
-def caller_code(
-    call_gas: int,
-) -> Bytecode:
-    """
-    Bytecode used to call the bytecode containing the BLOBBASEFEE opcode.
-    """
-    return Op.SSTORE(Op.NUMBER, Op.CALL(call_gas, code_callee_address, 0, 0, 0, 0, 0))
-
-
-@pytest.fixture
 def callee_code() -> Bytecode:
     """
     Bytecode under test, by default, only call the BLOBBASEFEE opcode.
@@ -57,41 +43,50 @@ def callee_code() -> Bytecode:
 
 
 @pytest.fixture
-def pre(
-    caller_code: Bytecode,
-    callee_code: Bytecode,
-) -> Alloc:
+def callee_address(pre: Alloc, callee_code: Bytecode) -> Address:
     """
-    Prepares the pre state of all test cases, by setting the balance of the
-    source account of all test transactions, and the required code.
+    Address of the account containing the bytecode under test.
     """
-    return Alloc(
-        {
-            TestAddress: Account(balance=10**40),
-            code_caller_address: Account(
-                balance=0,
-                code=caller_code,
-            ),
-            code_callee_address: Account(
-                balance=0,
-                code=callee_code,
-            ),
-        }
-    )
+    return pre.deploy_contract(callee_code)
 
 
 @pytest.fixture
-def tx() -> Transaction:
+def caller_code(
+    call_gas: int,
+    callee_address: Address,
+) -> Bytecode:
+    """
+    Bytecode used to call the bytecode containing the BLOBBASEFEE opcode.
+    """
+    return Op.SSTORE(Op.NUMBER, Op.CALL(gas=call_gas, address=callee_address))
+
+
+@pytest.fixture
+def caller_pre_storage() -> Storage:
+    """
+    Storage of the account containing the bytecode that calls the test contract.
+    """
+    return Storage()
+
+
+@pytest.fixture
+def caller_address(pre: Alloc, caller_code: Bytecode, caller_pre_storage) -> Address:
+    """
+    Address of the account containing the bytecode that calls the test contract
+    """
+    return pre.deploy_contract(caller_code)
+
+
+@pytest.fixture
+def tx(pre: Alloc, caller_address: Address) -> Transaction:
     """
     Prepares the test transaction, by setting the destination account, the
     transaction value, the transaction gas limit, and the transaction data.
     """
     return Transaction(
-        gas_price=1_000_000_000,
+        sender=pre.fund_eoa(),
         gas_limit=1_000_000,
-        to=code_caller_address,
-        value=0,
-        data=b"",
+        to=caller_address,
     )
 
 
@@ -106,6 +101,8 @@ def tx() -> Transaction:
 def test_blobbasefee_stack_overflow(
     state_test: StateTestFiller,
     pre: Alloc,
+    caller_address: Address,
+    callee_address: Address,
     tx: Transaction,
     call_fails: bool,
 ):
@@ -113,10 +110,10 @@ def test_blobbasefee_stack_overflow(
     Tests that the BLOBBASEFEE opcode produces a stack overflow by using it repeatedly.
     """
     post = {
-        code_caller_address: Account(
+        caller_address: Account(
             storage={1: 0 if call_fails else 1},
         ),
-        code_callee_address: Account(
+        callee_address: Account(
             balance=0,
         ),
     }
@@ -139,6 +136,8 @@ def test_blobbasefee_stack_overflow(
 def test_blobbasefee_out_of_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    caller_address: Address,
+    callee_address: Address,
     tx: Transaction,
     call_fails: bool,
 ):
@@ -146,10 +145,10 @@ def test_blobbasefee_out_of_gas(
     Tests that the BLOBBASEFEE opcode fails with insufficient gas.
     """
     post = {
-        code_caller_address: Account(
+        caller_address: Account(
             storage={1: 0 if call_fails else 1},
         ),
-        code_callee_address: Account(
+        callee_address: Account(
             balance=0,
         ),
     }
@@ -161,10 +160,13 @@ def test_blobbasefee_out_of_gas(
     )
 
 
+@pytest.mark.parametrize("caller_pre_storage", [{1: 1}], ids=[""])
 @pytest.mark.valid_at_transition_to("Cancun")
 def test_blobbasefee_before_fork(
     state_test: StateTestFiller,
     pre: Alloc,
+    caller_address: Address,
+    callee_address: Address,
     tx: Transaction,
 ):
     """
@@ -172,16 +174,11 @@ def test_blobbasefee_before_fork(
     """
     # Fork happens at timestamp 15_000
     timestamp = 7_500
-    code_caller_account = pre[code_caller_address]
-    assert code_caller_account is not None
-    pre[code_caller_address] = code_caller_account.copy(
-        storage={1: 1},
-    )
     post = {
-        code_caller_address: Account(
+        caller_address: Account(
             storage={1: 0},
         ),
-        code_callee_address: Account(
+        callee_address: Account(
             balance=0,
         ),
     }
@@ -195,22 +192,29 @@ def test_blobbasefee_before_fork(
     )
 
 
+timestamps = [7_500, 14_999, 15_000]
+
+
+@pytest.mark.parametrize(
+    "caller_pre_storage",
+    [{block_number: 0xFF for block_number, _ in enumerate(timestamps, start=1)}],
+    ids=[""],
+)
 @pytest.mark.valid_at_transition_to("Cancun")
 def test_blobbasefee_during_fork(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
+    caller_address: Address,
+    callee_address: Address,
     tx: Transaction,
 ):
     """
     Tests that the BLOBBASEFEE opcode results on exception when called before the fork and
     succeeds when called after the fork.
     """
-    code_caller_pre_storage = Storage()
     code_caller_post_storage = Storage()
 
     nonce = count(0)
-
-    timestamps = [7_500, 14_999, 15_000]
 
     blocks = []
 
@@ -222,19 +226,13 @@ def test_blobbasefee_during_fork(
             ),
         )
         # pre-set storage just to make sure we detect the change
-        code_caller_pre_storage[block_number] = 0xFF
         code_caller_post_storage[block_number] = 0 if timestamp < 15_000 else 1
 
-    code_caller_account = pre[code_caller_address]
-    assert code_caller_account is not None
-    pre[code_caller_address] = code_caller_account.copy(
-        storage=code_caller_pre_storage,
-    )
     post = {
-        code_caller_address: Account(
+        caller_address: Account(
             storage=code_caller_post_storage,
         ),
-        code_callee_address: Account(
+        callee_address: Account(
             balance=0,
         ),
     }

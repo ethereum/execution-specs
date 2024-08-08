@@ -32,7 +32,7 @@ SELFDESTRUCT_ENABLE_FORK = Cancun
 @pytest.fixture
 def entry_code_address() -> Address:
     """Address where the entry code will run."""
-    return compute_create_address(TestAddress, 0)
+    return compute_create_address(address=TestAddress, nonce=0)
 
 
 @pytest.fixture
@@ -132,8 +132,7 @@ def recursive_revert_contract_code(
 @pytest.fixture
 def selfdestruct_with_transfer_contract_address(entry_code_address: Address) -> Address:
     """Contract address for contract that can selfdestruct and receive value"""
-    res = compute_create_address(entry_code_address, 1)
-    return res
+    return compute_create_address(address=entry_code_address, nonce=1)
 
 
 @pytest.fixture

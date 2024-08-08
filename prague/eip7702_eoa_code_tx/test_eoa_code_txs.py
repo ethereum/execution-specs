@@ -298,14 +298,9 @@ def test_set_code_to_contract_creator(
     deployed_code = Op.STOP
     initcode = Initcode(deploy_code=deployed_code)
 
-    if op == Op.CREATE:
-        deployed_contract_address = compute_create_address(auth_signer)
-    elif op == Op.CREATE2:
-        deployed_contract_address = compute_create2_address(
-            address=auth_signer,
-            salt=0,
-            initcode=initcode,
-        )
+    deployed_contract_address = compute_create_address(
+        address=auth_signer, salt=0, initcode=initcode, opcode=op
+    )
 
     set_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE) + Op.SSTORE(
         storage.store_next(deployed_contract_address),

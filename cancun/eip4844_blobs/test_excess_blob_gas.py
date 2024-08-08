@@ -27,8 +27,10 @@ from typing import Dict, Iterator, List, Mapping, Optional, Tuple
 import pytest
 
 from ethereum_test_tools import (
+    EOA,
     Account,
     Address,
+    Alloc,
     Block,
     BlockchainTestFiller,
     BlockException,
@@ -38,7 +40,7 @@ from ethereum_test_tools import (
     Header,
 )
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import TestAddress, TestAddress2, Transaction, add_kzg_version
+from ethereum_test_tools import Transaction, add_kzg_version
 
 from .spec import Spec, SpecHelpers, ref_spec_4844
 
@@ -175,19 +177,16 @@ def destination_account_bytecode() -> Bytecode:  # noqa: D103
 
 
 @pytest.fixture
-def destination_account() -> Address:  # noqa: D103
-    return Address(0x100)
+def destination_account(  # noqa: D103
+    pre: Alloc,
+    destination_account_bytecode: Bytecode,
+) -> Address:
+    return pre.deploy_contract(destination_account_bytecode)
 
 
 @pytest.fixture
-def pre(  # noqa: D103
-    destination_account: Address, destination_account_bytecode: Bytecode, tx_exact_cost: int
-) -> Mapping[Address, Account]:
-    return {
-        TestAddress: Account(balance=tx_exact_cost),
-        TestAddress2: Account(balance=10**40),
-        destination_account: Account(balance=0, code=destination_account_bytecode),
-    }
+def sender(pre: Alloc, tx_exact_cost: int) -> Address:  # noqa: D103
+    return pre.fund_eoa(tx_exact_cost)
 
 
 @pytest.fixture
@@ -204,6 +203,7 @@ def post(  # noqa: D103
 
 @pytest.fixture
 def tx(  # noqa: D103
+    sender: EOA,
     new_blobs: int,
     tx_max_fee_per_gas: int,
     tx_max_fee_per_blob_gas: int,
@@ -214,7 +214,7 @@ def tx(  # noqa: D103
         # Send a normal type two tx instead
         return Transaction(
             ty=2,
-            nonce=0,
+            sender=sender,
             to=destination_account,
             value=1,
             gas_limit=tx_gas_limit,
@@ -225,7 +225,7 @@ def tx(  # noqa: D103
     else:
         return Transaction(
             ty=Spec.BLOB_TX_TYPE,
-            nonce=0,
+            sender=sender,
             to=destination_account,
             value=1,
             gas_limit=tx_gas_limit,

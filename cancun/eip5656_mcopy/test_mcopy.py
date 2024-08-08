@@ -3,25 +3,16 @@ abstract: Tests [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethe
     Test copy operations of [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656)
 
 """  # noqa: E501
-from typing import Mapping, Tuple
+from typing import Mapping
 
 import pytest
 from ethereum.crypto.hash import keccak256
 
-from ethereum_test_tools import Account, Bytecode, Environment, Hash
+from ethereum_test_tools import Account, Address, Alloc, Bytecode, Environment, Hash
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import (
-    StateTestFiller,
-    Storage,
-    TestAddress,
-    Transaction,
-    ceiling_division,
-)
+from ethereum_test_tools import StateTestFiller, Storage, Transaction, ceiling_division
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION, mcopy
-
-# Code address used to call the test bytecode on every test case.
-code_address = 0x100
 
 REFERENCE_SPEC_GIT_PATH = REFERENCE_SPEC_GIT_PATH
 REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
@@ -44,19 +35,24 @@ def final_memory(*, dest: int, src: int, length: int, initial_memory: bytes) -> 
 
 
 @pytest.fixture
-def bytecode_storage(
+def code_storage() -> Storage:
+    """
+    Storage for the code contract.
+    """
+    return Storage()
+
+
+@pytest.fixture
+def code_bytecode(
     initial_memory: bytes,
     final_memory: bytes,
-    dest: int,
-    src: int,
-    length: int,
-) -> Tuple[Bytecode, Storage]:
+    code_storage: Storage,
+) -> Bytecode:
     """
     Prepares the bytecode and storage for the test, based on the starting memory and the final
     memory that resulted from the copy.
     """
     bytecode = Bytecode()
-    storage = Storage()
 
     # Fill memory with initial values
     for i in range(0, len(initial_memory), 0x20):
@@ -72,20 +68,20 @@ def bytecode_storage(
     final_byte_length = ceiling_division(len(final_memory), 0x20) * 0x20
     # First save msize
     bytecode += Op.SSTORE(
-        storage.store_next(final_byte_length),
+        code_storage.store_next(final_byte_length),
         Op.MSIZE,
     )
 
     # Then save the hash of the entire memory
     bytecode += Op.SSTORE(
-        storage.store_next(keccak256(final_memory.ljust(final_byte_length, b"\x00"))),
+        code_storage.store_next(keccak256(final_memory.ljust(final_byte_length, b"\x00"))),
         Op.SHA3(0, Op.MSIZE),
     )
 
     # Store all memory in the initial range to verify the MCOPY
     for w in range(0, len(initial_memory) // 0x20):
         bytecode += Op.SSTORE(
-            storage.store_next(final_memory[w * 0x20 : w * 0x20 + 0x20]),
+            code_storage.store_next(final_memory[w * 0x20 : w * 0x20 + 0x20]),
             Op.MLOAD(w * 0x20),
         )
 
@@ -94,26 +90,29 @@ def bytecode_storage(
     if len(final_memory) > len(initial_memory):
         last_word = ceiling_division(len(final_memory), 0x20) - 1
         bytecode += Op.SSTORE(
-            storage.store_next(
+            code_storage.store_next(
                 final_memory[last_word * 0x20 : (last_word + 1) * 0x20].ljust(32, b"\x00")
             ),
             Op.MLOAD(last_word * 0x20),
         )
 
-    return (bytecode, storage)
+    return bytecode
 
 
 @pytest.fixture
-def pre(bytecode_storage: Tuple[Bytecode, Storage]) -> Mapping:  # noqa: D103
-    return {
-        TestAddress: Account(balance=10**40),
-        code_address: Account(code=bytecode_storage[0]),
-    }
+def code_address(pre: Alloc, code_bytecode: Bytecode) -> Address:
+    """
+    Address of the contract that is going to perform the MCOPY operation.
+    """
+    return pre.deploy_contract(code_bytecode)
 
 
 @pytest.fixture
-def tx(dest: int, src: int, length: int) -> Transaction:  # noqa: D103
+def tx(  # noqa: D103
+    pre: Alloc, code_address: Address, dest: int, src: int, length: int
+) -> Transaction:
     return Transaction(
+        sender=pre.fund_eoa(),
         to=code_address,
         data=Hash(dest) + Hash(src) + Hash(length),
         gas_limit=1_000_000,
@@ -121,9 +120,9 @@ def tx(dest: int, src: int, length: int) -> Transaction:  # noqa: D103
 
 
 @pytest.fixture
-def post(bytecode_storage: Tuple[Bytecode, Storage]) -> Mapping:  # noqa: D103
+def post(code_address: Address, code_storage: Storage) -> Mapping:  # noqa: D103
     return {
-        code_address: Account(storage=bytecode_storage[1]),
+        code_address: Account(storage=code_storage),
     }
 
 
@@ -179,7 +178,7 @@ def post(bytecode_storage: Tuple[Bytecode, Storage]) -> Mapping:  # noqa: D103
 @pytest.mark.valid_from("Cancun")
 def test_valid_mcopy_operations(
     state_test: StateTestFiller,
-    pre: Mapping[str, Account],
+    pre: Alloc,
     post: Mapping[str, Account],
     tx: Transaction,
 ):
@@ -206,7 +205,7 @@ def test_valid_mcopy_operations(
 @pytest.mark.valid_from("Cancun")
 def test_mcopy_on_empty_memory(
     state_test: StateTestFiller,
-    pre: Mapping[str, Account],
+    pre: Alloc,
     post: Mapping[str, Account],
     tx: Transaction,
 ):

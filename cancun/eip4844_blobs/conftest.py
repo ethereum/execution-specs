@@ -3,13 +3,14 @@ Pytest (plugin) definitions local to EIP-4844 tests.
 """
 import pytest
 
-from ethereum_test_tools import Address, Block, Hash, TestPrivateKey2, Transaction, add_kzg_version
+from ethereum_test_tools import Alloc, Block, Hash, Transaction, add_kzg_version
 
 from .spec import BlockHeaderBlobGasFields, Spec
 
 
 @pytest.fixture
 def non_zero_blob_gas_used_genesis_block(
+    pre: Alloc,
     parent_blobs: int,
     parent_excess_blob_gas: int,
     tx_max_fee_per_gas: int,
@@ -36,14 +37,19 @@ def non_zero_blob_gas_used_genesis_block(
         BlockHeaderBlobGasFields(parent_excess_blob_gas, 0)
     )
 
+    sender = pre.fund_eoa(10**27)
+
+    # Address that contains no code, nor balance and is not a contract.
+    empty_account_destination = pre.fund_eoa(0)
+
     return Block(
         txs=[
             Transaction(
                 ty=Spec.BLOB_TX_TYPE,
-                nonce=0,
-                to=Address(0x200),
+                sender=sender,
+                to=empty_account_destination,
                 value=1,
-                gas_limit=21000,
+                gas_limit=21_000,
                 max_fee_per_gas=tx_max_fee_per_gas,
                 max_priority_fee_per_gas=0,
                 max_fee_per_blob_gas=Spec.get_blob_gasprice(excess_blob_gas=excess_blob_gas),
@@ -52,7 +58,6 @@ def non_zero_blob_gas_used_genesis_block(
                     [Hash(x) for x in range(parent_blobs)],
                     Spec.BLOB_COMMITMENT_VERSION_KZG,
                 ),
-                secret_key=TestPrivateKey2,
             )
         ]
     )

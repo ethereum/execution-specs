@@ -261,7 +261,7 @@ def test_modexp(
 
     post = {}
     if output.call_return_code != "0x00":
-        contract_address = compute_create_address(account, 1)
+        contract_address = compute_create_address(address=account, nonce=1)
         post[contract_address] = Account(code=output.returned_data)
     post[account] = Account(storage={0: output.call_return_code})
 

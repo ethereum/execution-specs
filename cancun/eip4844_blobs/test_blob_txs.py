@@ -16,15 +16,17 @@ note: Adding a new test
 """  # noqa: E501
 
 import itertools
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import pytest
 
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
+    EOA,
     AccessList,
     Account,
     Address,
+    Alloc,
     Block,
     BlockchainTestFiller,
     BlockException,
@@ -39,8 +41,6 @@ from ethereum_test_tools import (
     Removable,
     StateTestFiller,
     Storage,
-    TestAddress,
-    TestAddress2,
     Transaction,
     TransactionException,
     add_kzg_version,
@@ -52,14 +52,30 @@ from .spec import Spec, SpecHelpers, ref_spec_4844
 REFERENCE_SPEC_GIT_PATH = ref_spec_4844.git_path
 REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
-TestPreFundingKey = "0x0b2986cc45bd8a8d028c3fcf6f7a11a52f1df61f3ea5d63f05ca109dd73a3fa0"
-TestPreFundingAddress = "0x97a7cb1de3cc7d556d0aa32433b035067709e1fc"
+
+@pytest.fixture
+def destination_account_code() -> Bytecode | None:
+    """Default code in the destination account for the blob transactions."""
+    return None
 
 
 @pytest.fixture
-def destination_account() -> Address:
+def destination_account_balance() -> int:
+    """Default balance in the destination account for the blob transactions."""
+    return 0
+
+
+@pytest.fixture
+def destination_account(
+    pre: Alloc, destination_account_code: Bytecode | None, destination_account_balance: int
+) -> Address:
     """Default destination account for the blob transactions."""
-    return Address(0x100)
+    if destination_account_code is not None:
+        return pre.deploy_contract(
+            code=destination_account_code,
+            balance=destination_account_balance,
+        )
+    return pre.fund_eoa(destination_account_balance)
 
 
 @pytest.fixture
@@ -292,8 +308,21 @@ def tx_error() -> Optional[TransactionException]:
     return None
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
+def sender_initial_balance(  # noqa: D103
+    total_account_minimum_balance: int, account_balance_modifier: int
+) -> int:
+    return total_account_minimum_balance + account_balance_modifier
+
+
+@pytest.fixture
+def sender(pre: Alloc, sender_initial_balance: int) -> Address:  # noqa: D103
+    return pre.fund_eoa(sender_initial_balance)
+
+
+@pytest.fixture
 def txs(  # noqa: D103
+    sender: EOA,
     destination_account: Optional[Address],
     tx_gas: int,
     tx_value: int,
@@ -311,7 +340,7 @@ def txs(  # noqa: D103
     return [
         Transaction(
             ty=Spec.BLOB_TX_TYPE,
-            nonce=tx_i,
+            sender=sender,
             to=destination_account,
             value=tx_value,
             gas_limit=tx_gas,
@@ -334,24 +363,6 @@ def account_balance_modifier() -> int:
     See `pre` fixture.
     """
     return 0
-
-
-@pytest.fixture
-def pre(  # noqa: D103
-    total_account_minimum_balance: int,
-    account_balance_modifier: int,
-) -> Dict:
-    """
-    Prepares the pre state of all test cases, by setting the balance of the
-    source account of all test transactions.
-
-    The `account_balance_modifier` can be overloaded by a test case and alter
-    the balance of the account from the minimum expected, to produce invalid
-    blocks.
-    """
-    return {
-        TestAddress: Account(balance=total_account_minimum_balance + account_balance_modifier),
-    }
 
 
 @pytest.fixture
@@ -575,7 +586,7 @@ def invalid_blob_combinations() -> List[Tuple[int, ...]]:
 @pytest.mark.valid_from("Cancun")
 def test_valid_blob_tx_combinations(
     blockchain_test: BlockchainTestFiller,
-    pre: Dict,
+    pre: Alloc,
     env: Environment,
     block: Block,
 ):
@@ -626,7 +637,7 @@ def test_valid_blob_tx_combinations(
 @pytest.mark.valid_from("Cancun")
 def test_invalid_tx_max_fee_per_blob_gas(
     blockchain_test: BlockchainTestFiller,
-    pre: Dict,
+    pre: Alloc,
     env: Environment,
     block: Block,
     non_zero_blob_gas_used_genesis_block: Optional[Block],
@@ -637,10 +648,10 @@ def test_invalid_tx_max_fee_per_blob_gas(
     - tx max_fee_per_blob_gas is barely not enough
     - tx max_fee_per_blob_gas is zero
     """
-    blocks = [block]
     if non_zero_blob_gas_used_genesis_block is not None:
-        pre[TestAddress2] = Account(balance=10**9)
         blocks = [non_zero_blob_gas_used_genesis_block, block]
+    else:
+        blocks = [block]
     blockchain_test(
         pre=pre,
         post={},
@@ -674,7 +685,7 @@ def test_invalid_tx_max_fee_per_blob_gas(
 def test_invalid_tx_max_fee_per_blob_gas_state(
     state_test_only: StateTestFiller,
     state_env: Environment,
-    pre: Dict,
+    pre: Alloc,
     txs: List[Transaction],
 ):
     """
@@ -707,7 +718,7 @@ def test_invalid_tx_max_fee_per_blob_gas_state(
 def test_invalid_normal_gas(
     state_test: StateTestFiller,
     state_env: Environment,
-    pre: Dict,
+    pre: Alloc,
     txs: List[Transaction],
     header_verify: Optional[Header],
     rlp_modifier: Optional[Header],
@@ -738,7 +749,7 @@ def test_invalid_normal_gas(
 @pytest.mark.valid_from("Cancun")
 def test_invalid_block_blob_count(
     blockchain_test: BlockchainTestFiller,
-    pre: Dict,
+    pre: Alloc,
     env: Environment,
     block: Block,
 ):
@@ -778,7 +789,7 @@ def test_invalid_block_blob_count(
 def test_insufficient_balance_blob_tx(
     state_test: StateTestFiller,
     state_env: Environment,
-    pre: Dict,
+    pre: Alloc,
     txs: List[Transaction],
 ):
     """
@@ -818,7 +829,7 @@ def test_insufficient_balance_blob_tx(
 def test_sufficient_balance_blob_tx(
     state_test: StateTestFiller,
     state_env: Environment,
-    pre: Dict,
+    pre: Alloc,
     txs: List[Transaction],
 ):
     """
@@ -854,12 +865,14 @@ def test_sufficient_balance_blob_tx(
     ids=["no_calldata", "single_zero_calldata", "single_one_calldata"],
 )
 @pytest.mark.parametrize("tx_max_fee_per_blob_gas", [1, 100, 10000])
+@pytest.mark.parametrize("sender_initial_balance", [0])
 @pytest.mark.valid_from("Cancun")
 def test_sufficient_balance_blob_tx_pre_fund_tx(
     blockchain_test: BlockchainTestFiller,
     total_account_minimum_balance: int,
+    sender: EOA,
     env: Environment,
-    pre: Dict,
+    pre: Alloc,
     txs: List[Transaction],
     header_verify: Optional[Header],
 ):
@@ -874,20 +887,13 @@ def test_sufficient_balance_blob_tx_pre_fund_tx(
     - Transactions with and without calldata
     - Transactions with max fee per blob gas lower or higher than the priority fee
     """
-    pre = {
-        TestPreFundingAddress: Account(balance=(21_000 * 100) + total_account_minimum_balance),
-    }
+    pre_funding_sender = pre.fund_eoa(amount=(21_000 * 100) + total_account_minimum_balance)
     txs = [
         Transaction(
-            ty=2,
-            nonce=0,
-            to=TestAddress,
+            sender=pre_funding_sender,
+            to=sender,
             value=total_account_minimum_balance,
             gas_limit=21_000,
-            max_fee_per_gas=100,
-            max_priority_fee_per_gas=0,
-            access_list=[],
-            secret_key=TestPreFundingKey,
         )
     ] + txs
     blockchain_test(
@@ -921,16 +927,26 @@ def test_sufficient_balance_blob_tx_pre_fund_tx(
     "tx_gas", [500_000], ids=[""]
 )  # Increase gas to account for contract code
 @pytest.mark.parametrize(
-    "mid_tx_send_amount", [100]
+    "destination_account_balance", [100], ids=["100_wei_mid_execution"]
+)  # Amount sent by the contract to the sender mid execution
+@pytest.mark.parametrize(
+    "destination_account_code",
+    [
+        Op.SSTORE(0, Op.BALANCE(Op.ORIGIN))
+        + Op.CALL(Op.GAS, Op.ORIGIN, Op.SUB(Op.SELFBALANCE, Op.CALLVALUE), 0, 0, 0, 0)
+        + Op.SSTORE(1, Op.BALANCE(Op.ORIGIN))
+    ],
+    ids=[""],
 )  # Amount sent by the contract to the sender mid execution
 @pytest.mark.valid_from("Cancun")
 def test_blob_gas_subtraction_tx(
     state_test: StateTestFiller,
     state_env: Environment,
-    pre: Dict,
+    pre: Alloc,
+    sender_initial_balance: int,
     txs: List[Transaction],
     destination_account: Address,
-    mid_tx_send_amount: int,
+    destination_account_balance: int,
     total_account_transactions_fee: int,
 ):
     """
@@ -944,17 +960,13 @@ def test_blob_gas_subtraction_tx(
     - Transactions where an externally owned account sends funds to the sender mid execution
     """
     assert len(txs) == 1
-    pre[destination_account] = Account(
-        balance=mid_tx_send_amount,
-        code=Op.SSTORE(0, Op.BALANCE(Op.ORIGIN))
-        + Op.CALL(Op.GAS, Op.ORIGIN, mid_tx_send_amount, 0, 0, 0, 0)
-        + Op.SSTORE(1, Op.BALANCE(Op.ORIGIN)),
-    )
     post = {
         destination_account: Account(
             storage={
-                0: pre[TestAddress].balance - total_account_transactions_fee,
-                1: pre[TestAddress].balance - total_account_transactions_fee + mid_tx_send_amount,
+                0: sender_initial_balance - total_account_transactions_fee,
+                1: sender_initial_balance
+                - total_account_transactions_fee
+                + destination_account_balance,
             }
         )
     }
@@ -975,7 +987,7 @@ def test_blob_gas_subtraction_tx(
 @pytest.mark.valid_from("Cancun")
 def test_insufficient_balance_blob_tx_combinations(
     blockchain_test: BlockchainTestFiller,
-    pre: Dict,
+    pre: Alloc,
     env: Environment,
     block: Block,
 ):
@@ -1008,7 +1020,7 @@ def test_insufficient_balance_blob_tx_combinations(
 def test_invalid_tx_blob_count(
     state_test: StateTestFiller,
     state_env: Environment,
-    pre: Dict,
+    pre: Alloc,
     txs: List[Transaction],
     header_verify: Optional[Header],
     rlp_modifier: Optional[Header],
@@ -1052,7 +1064,7 @@ def test_invalid_tx_blob_count(
 def test_invalid_blob_hash_versioning_single_tx(
     state_test: StateTestFiller,
     state_env: Environment,
-    pre: Dict,
+    pre: Alloc,
     txs: List[Transaction],
     header_verify: Optional[Header],
     rlp_modifier: Optional[Header],
@@ -1109,7 +1121,7 @@ def test_invalid_blob_hash_versioning_single_tx(
 @pytest.mark.valid_from("Cancun")
 def test_invalid_blob_hash_versioning_multiple_txs(
     blockchain_test: BlockchainTestFiller,
-    pre: Dict,
+    pre: Alloc,
     env: Environment,
     block: Block,
 ):
@@ -1135,7 +1147,7 @@ def test_invalid_blob_hash_versioning_multiple_txs(
 @pytest.mark.valid_from("Cancun")
 def test_invalid_blob_tx_contract_creation(
     blockchain_test: BlockchainTestFiller,
-    pre: Dict,
+    pre: Alloc,
     env: Environment,
     txs: List[Transaction],
     header_verify: Optional[Header],
@@ -1173,6 +1185,7 @@ def test_invalid_blob_tx_contract_creation(
 @pytest.fixture
 def opcode(
     request,
+    sender: EOA,
     tx_calldata: bytes,
     block_fee_per_gas: int,
     tx_max_fee_per_gas: int,
@@ -1185,12 +1198,12 @@ def opcode(
     if request.param == Op.ORIGIN:
         return (
             Op.SSTORE(0, Op.ORIGIN),
-            {0: TestAddress},
+            {0: sender},
         )
     elif request.param == Op.CALLER:
         return (
             Op.SSTORE(0, Op.CALLER),
-            {0: TestAddress},
+            {0: sender},
         )
     elif request.param == Op.CALLVALUE:
         return (
@@ -1233,11 +1246,18 @@ def opcode(
 @pytest.mark.valid_from("Cancun")
 def test_blob_tx_attribute_opcodes(
     state_test: StateTestFiller,
-    pre: Dict,
+    pre: Alloc,
+    sender: EOA,
+    tx_value: int,
+    tx_gas: int,
+    tx_calldata: bytes,
+    tx_max_fee_per_gas: int,
+    tx_max_fee_per_blob_gas: int,
+    tx_max_priority_fee_per_gas: int,
+    tx_access_list: List[AccessList],
+    blob_hashes_per_tx: List[List[bytes]],
     opcode: Tuple[Bytecode, Storage.StorageDictType],
     state_env: Environment,
-    txs: List[Transaction],
-    destination_account: Address,
 ):
     """
     Test opcodes that read transaction attributes work properly for blob type transactions:
@@ -1245,9 +1265,21 @@ def test_blob_tx_attribute_opcodes(
     - ORIGIN
     - CALLER
     """
-    assert len(txs) == 1
     code, storage = opcode
-    pre[destination_account] = Account(code=code)
+    destination_account = pre.deploy_contract(code=code)
+    tx = Transaction(
+        ty=Spec.BLOB_TX_TYPE,
+        sender=sender,
+        to=destination_account,
+        value=tx_value,
+        gas_limit=tx_gas,
+        data=tx_calldata,
+        max_fee_per_gas=tx_max_fee_per_gas,
+        max_priority_fee_per_gas=tx_max_priority_fee_per_gas,
+        max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
+        access_list=tx_access_list,
+        blob_versioned_hashes=blob_hashes_per_tx[0],
+    )
     post = {
         destination_account: Account(
             storage=storage,
@@ -1256,7 +1288,7 @@ def test_blob_tx_attribute_opcodes(
     state_test(
         pre=pre,
         post=post,
-        tx=txs[0],
+        tx=tx,
         env=state_env,
     )
 
@@ -1267,19 +1299,37 @@ def test_blob_tx_attribute_opcodes(
 @pytest.mark.valid_from("Cancun")
 def test_blob_tx_attribute_value_opcode(
     state_test: StateTestFiller,
-    pre: Dict,
+    pre: Alloc,
+    sender: EOA,
+    tx_value: int,
+    tx_gas: int,
+    tx_calldata: bytes,
+    tx_max_fee_per_gas: int,
+    tx_max_fee_per_blob_gas: int,
+    tx_max_priority_fee_per_gas: int,
+    tx_access_list: List[AccessList],
+    blob_hashes_per_tx: List[List[bytes]],
     opcode: Tuple[Bytecode, Storage.StorageDictType],
     state_env: Environment,
-    txs: List[Transaction],
-    tx_value: int,
-    destination_account: Address,
 ):
     """
     Test the VALUE opcode with different blob type transaction value amounts.
     """
-    assert len(txs) == 1
     code, storage = opcode
-    pre[destination_account] = Account(code=code)
+    destination_account = pre.deploy_contract(code=code)
+    tx = Transaction(
+        ty=Spec.BLOB_TX_TYPE,
+        sender=sender,
+        to=destination_account,
+        value=tx_value,
+        gas_limit=tx_gas,
+        data=tx_calldata,
+        max_fee_per_gas=tx_max_fee_per_gas,
+        max_priority_fee_per_gas=tx_max_priority_fee_per_gas,
+        max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
+        access_list=tx_access_list,
+        blob_versioned_hashes=blob_hashes_per_tx[0],
+    )
     post = {
         destination_account: Account(
             storage=storage,
@@ -1289,7 +1339,7 @@ def test_blob_tx_attribute_value_opcode(
     state_test(
         pre=pre,
         post=post,
-        tx=txs[0],
+        tx=tx,
         env=state_env,
     )
 
@@ -1316,11 +1366,18 @@ def test_blob_tx_attribute_value_opcode(
 @pytest.mark.valid_from("Cancun")
 def test_blob_tx_attribute_calldata_opcodes(
     state_test: StateTestFiller,
-    pre: Dict,
+    pre: Alloc,
+    sender: EOA,
+    tx_value: int,
+    tx_gas: int,
+    tx_calldata: bytes,
+    tx_max_fee_per_gas: int,
+    tx_max_fee_per_blob_gas: int,
+    tx_max_priority_fee_per_gas: int,
+    tx_access_list: List[AccessList],
+    blob_hashes_per_tx: List[List[bytes]],
     opcode: Tuple[Bytecode, Storage.StorageDictType],
     state_env: Environment,
-    txs: List[Transaction],
-    destination_account: Address,
 ):
     """
     Test calldata related opcodes to verify their behavior is not affected by blobs:
@@ -1329,9 +1386,21 @@ def test_blob_tx_attribute_calldata_opcodes(
     - CALLDATASIZE
     - CALLDATACOPY
     """
-    assert len(txs) == 1
     code, storage = opcode
-    pre[destination_account] = Account(code=code)
+    destination_account = pre.deploy_contract(code=code)
+    tx = Transaction(
+        ty=Spec.BLOB_TX_TYPE,
+        sender=sender,
+        to=destination_account,
+        value=tx_value,
+        gas_limit=tx_gas,
+        data=tx_calldata,
+        max_fee_per_gas=tx_max_fee_per_gas,
+        max_priority_fee_per_gas=tx_max_priority_fee_per_gas,
+        max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
+        access_list=tx_access_list,
+        blob_versioned_hashes=blob_hashes_per_tx[0],
+    )
     post = {
         destination_account: Account(
             storage=storage,
@@ -1340,7 +1409,7 @@ def test_blob_tx_attribute_calldata_opcodes(
     state_test(
         pre=pre,
         post=post,
-        tx=txs[0],
+        tx=tx,
         env=state_env,
     )
 
@@ -1353,11 +1422,18 @@ def test_blob_tx_attribute_calldata_opcodes(
 @pytest.mark.valid_from("Cancun")
 def test_blob_tx_attribute_gasprice_opcode(
     state_test: StateTestFiller,
-    pre: Dict,
+    pre: Alloc,
+    sender: EOA,
+    tx_value: int,
+    tx_gas: int,
+    tx_calldata: bytes,
+    tx_max_fee_per_gas: int,
+    tx_max_fee_per_blob_gas: int,
+    tx_max_priority_fee_per_gas: int,
+    tx_access_list: List[AccessList],
+    blob_hashes_per_tx: List[List[bytes]],
     opcode: Tuple[Bytecode, Storage.StorageDictType],
     state_env: Environment,
-    txs: List[Transaction],
-    destination_account: Address,
 ):
     """
     Test GASPRICE opcode to sanity check that the blob gas fee does not affect
@@ -1367,9 +1443,21 @@ def test_blob_tx_attribute_gasprice_opcode(
     - Priority fee below data fee
     - Priority fee above data fee
     """
-    assert len(txs) == 1
     code, storage = opcode
-    pre[destination_account] = Account(code=code)
+    destination_account = pre.deploy_contract(code=code)
+    tx = Transaction(
+        ty=Spec.BLOB_TX_TYPE,
+        sender=sender,
+        to=destination_account,
+        value=tx_value,
+        gas_limit=tx_gas,
+        data=tx_calldata,
+        max_fee_per_gas=tx_max_fee_per_gas,
+        max_priority_fee_per_gas=tx_max_priority_fee_per_gas,
+        max_fee_per_blob_gas=tx_max_fee_per_blob_gas,
+        access_list=tx_access_list,
+        blob_versioned_hashes=blob_hashes_per_tx[0],
+    )
     post = {
         destination_account: Account(
             storage=storage,
@@ -1378,7 +1466,7 @@ def test_blob_tx_attribute_gasprice_opcode(
     state_test(
         pre=pre,
         post=post,
-        tx=txs[0],
+        tx=tx,
         env=state_env,
     )
 
@@ -1404,7 +1492,7 @@ def test_blob_tx_attribute_gasprice_opcode(
 @pytest.mark.valid_at_transition_to("Cancun")
 def test_blob_type_tx_pre_fork(
     state_test: StateTestFiller,
-    pre: Dict,
+    pre: Alloc,
     txs: List[Transaction],
 ):
     """

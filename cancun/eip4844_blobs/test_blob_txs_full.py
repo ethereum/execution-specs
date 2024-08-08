@@ -3,19 +3,18 @@ abstract: Tests full blob type transactions for [EIP-4844: Shard Blob Transactio
     Test full blob type transactions for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844).
 
 """  # noqa: E501
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import pytest
 
 from ethereum_test_tools import (
-    Account,
     Address,
+    Alloc,
     Block,
     BlockchainTestFiller,
     BlockException,
     Environment,
     Header,
-    TestAddress,
     Transaction,
     TransactionException,
 )
@@ -173,6 +172,7 @@ def tx_error() -> Optional[TransactionException]:
 
 @pytest.fixture(autouse=True)
 def txs(  # noqa: D103
+    pre: Alloc,
     destination_account: Optional[Address],
     tx_gas: int,
     tx_value: int,
@@ -191,7 +191,7 @@ def txs(  # noqa: D103
     if len(txs_blobs) != len(txs_versioned_hashes) or len(txs_blobs) != len(txs_wrapped_blobs):
         raise ValueError("txs_blobs and txs_versioned_hashes should have the same length")
     txs: List[Transaction] = []
-    nonce = 0
+    sender = pre.fund_eoa()
     for tx_blobs, tx_versioned_hashes, tx_wrapped_blobs in zip(
         txs_blobs, txs_versioned_hashes, txs_wrapped_blobs
     ):
@@ -199,7 +199,7 @@ def txs(  # noqa: D103
         txs.append(
             Transaction(
                 ty=Spec.BLOB_TX_TYPE,
-                nonce=nonce,
+                sender=sender,
                 to=destination_account,
                 value=tx_value,
                 gas_limit=tx_gas,
@@ -216,19 +216,7 @@ def txs(  # noqa: D103
                 wrapped_blob_transaction=tx_wrapped_blobs,
             )
         )
-        nonce += 1
     return txs
-
-
-@pytest.fixture
-def pre() -> Dict:
-    """
-    Prepares the pre state of all test cases, by setting the balance of the
-    source account of all test transactions.
-    """
-    return {
-        TestAddress: Account(balance=10**40),
-    }
 
 
 @pytest.fixture
@@ -336,7 +324,7 @@ def blocks(
 @pytest.mark.valid_from("Cancun")
 def test_reject_valid_full_blob_in_block_rlp(
     blockchain_test: BlockchainTestFiller,
-    pre: Dict,
+    pre: Alloc,
     env: Environment,
     blocks: List[Block],
 ):

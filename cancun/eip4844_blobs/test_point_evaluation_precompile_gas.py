@@ -10,10 +10,11 @@ import pytest
 from ethereum_test_tools import (
     Account,
     Address,
+    Alloc,
+    Bytecode,
     CodeGasMeasure,
     Environment,
     StateTestFiller,
-    TestAddress,
     Transaction,
     copy_opcode_cost,
 )
@@ -69,11 +70,11 @@ def call_gas() -> int:
 
 
 @pytest.fixture
-def precompile_caller_account(
+def precompile_caller_code(
     call_type: Op,
     call_gas: int,
     precompile_input: bytes,
-) -> Account:
+) -> Bytecode:
     """
     Code to call the point evaluation precompile and evaluate gas usage.
     """
@@ -117,40 +118,20 @@ def precompile_caller_account(
         extra_stack_items=1,
     )
 
-    return Account(
-        nonce=0,
-        code=gas_measure_code,
-    )
+    return gas_measure_code
 
 
 @pytest.fixture
-def precompile_caller_address() -> Address:
+def precompile_caller_address(pre: Alloc, precompile_caller_code: Bytecode) -> Address:
     """
     Address of the precompile caller account.
     """
-    return Address(0x100)
-
-
-@pytest.fixture
-def pre(
-    precompile_caller_account: Account,
-    precompile_caller_address: Address,
-) -> Dict:
-    """
-    Prepares the pre state of all test cases, by setting the balance of the
-    source account of all test transactions, and the precompile caller account.
-    """
-    return {
-        TestAddress: Account(
-            nonce=0,
-            balance=0x10**18,
-        ),
-        precompile_caller_address: precompile_caller_account,
-    }
+    return pre.deploy_contract(precompile_caller_code)
 
 
 @pytest.fixture
 def tx(
+    pre: Alloc,
     precompile_caller_address: Address,
     precompile_input: bytes,
 ) -> Transaction:
@@ -158,14 +139,11 @@ def tx(
     Prepares transaction used to call the precompile caller account.
     """
     return Transaction(
-        ty=2,
-        nonce=0,
+        sender=pre.fund_eoa(),
         data=precompile_input,
         to=precompile_caller_address,
         value=0,
         gas_limit=Spec.POINT_EVALUATION_PRECOMPILE_GAS * 20,
-        max_fee_per_gas=7,
-        max_priority_fee_per_gas=0,
     )
 
 
