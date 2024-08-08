@@ -9,6 +9,7 @@ from ethereum.berlin.transactions import (
     Transaction,
     decode_transaction,
     encode_transaction,
+    Access
 )
 from ethereum.berlin.utils.hexadecimal import hex_to_address
 from ethereum.crypto.hash import keccak256
@@ -58,7 +59,7 @@ access_list_transaction = AccessListTransaction(
     Bytes0(),
     U256(4),
     Bytes(b"bar"),
-    ((address1, (hash1, hash2)), (address2, tuple())),
+    (Access(account=address1, slots=(hash1, hash2)), Access(account=address2, slots=tuple())),
     U256(27),
     U256(5),
     U256(6),
