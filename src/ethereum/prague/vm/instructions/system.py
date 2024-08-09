@@ -12,7 +12,6 @@ Introduction
 Implementations of the EVM system related instructions.
 """
 from ethereum.base_types import U256, Bytes0, Uint
-from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 
 from ...fork_types import Address
@@ -27,8 +26,8 @@ from ...state import (
     set_account_balance,
 )
 from ...utils.address import (
-    compute_contract_address,
-    compute_create2_contract_address,
+    compute_contract_address_1,
+    compute_contract_address_2,
     to_address,
     to_address_without_mask,
 )
@@ -177,7 +176,7 @@ def create(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    contract_address = compute_contract_address(
+    contract_address = compute_contract_address_1(
         evm.message.current_target,
         get_account(evm.env.state, evm.message.current_target).nonce,
     )
@@ -229,7 +228,7 @@ def create2(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    contract_address = compute_create2_contract_address(
+    contract_address = compute_contract_address_2(
         evm.message.current_target,
         salt,
         memory_read_bytes(evm.memory, memory_start_position, memory_size),
@@ -1077,6 +1076,10 @@ def eof_create(evm: Evm) -> None:
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
 
+    assert evm.eof_version is not None
+    assert evm.eof_container is not None
+    assert evm.eof_metadata is not None
+
     # STACK
     value = pop(evm.stack)
     salt = pop(evm.stack).to_be_bytes32()
@@ -1106,9 +1109,11 @@ def eof_create(evm: Evm) -> None:
     sender_address = evm.message.current_target
     sender = get_account(evm.env.state, sender_address)
 
-    contract_address = keccak256(
-        b"\xff" + sender_address + salt + keccak256(init_container)
-    )[12:]
+    contract_address = compute_contract_address_2(
+        evm.message.current_target,
+        salt,
+        bytearray(init_container),
+    )
 
     evm.accessed_addresses.add(contract_address)
     create_message_gas = max_message_call_gas(Uint(evm.gas_left))
@@ -1173,6 +1178,10 @@ def return_contract(evm: Evm) -> None:
         The current EVM frame.
     """
     from ..eof import build_container_from_metadata, parse_container_metadata
+
+    assert evm.eof_version is not None
+    assert evm.eof_container is not None
+    assert evm.eof_metadata is not None
 
     # STACK
     aux_data_offset = pop(evm.stack)

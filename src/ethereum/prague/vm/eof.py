@@ -170,8 +170,11 @@ def parse_container_metadata(
     # Check if the container section is present
     if validate and len(container) < counter + 1:
         raise InvalidEof("Kind data not specified in header")
+
+    num_container_sections = Uint(0)
+    container_sizes = []
+
     if container[counter] == 3:
-        container_sizes = []
         counter += 1
         # Get the 2 bytes num_container_sections
         if validate and len(container) < counter + 2:
@@ -198,9 +201,6 @@ def parse_container_metadata(
             if validate and container_size == 0:
                 raise InvalidEof("Invalid container size")
             container_sizes.append(container_size)
-    else:
-        num_container_sections = Uint(0)
-        container_sizes = None
 
     # Get 1 byte kind_data
     kind_data = container[counter]
@@ -236,17 +236,15 @@ def parse_container_metadata(
         code_section_contents.append(container[counter : counter + code_size])
         counter += code_size
 
-    if container_sizes:
+    container_section_contents = []
+    if num_container_sections > 0:
         if validate and len(container) < counter + sum(container_sizes):
             raise InvalidEof("Container section size does not match header")
-        container_section_contents = []
         for container_size in container_sizes:
             container_section_contents.append(
                 container[counter : counter + container_size]
             )
             counter += container_size
-    else:
-        container_section_contents = None
 
     if (
         validate
@@ -571,21 +569,18 @@ def validate_code_section(
             # General Validity Check
             if metadata.target_section_index >= eof_meta.num_code_sections:
                 raise InvalidEof("Invalid target code section index")
-            target_outputs = eof_meta.type_section_contents[
-                metadata.target_section_index
-            ]
-            if target_outputs == 0x80:
-                raise InvalidEof("CALLF into non-returning section")
-
-            # Stack Height Check
 
             target_section_type = eof_meta.type_section_contents[
                 metadata.target_section_index
             ]
             target_inputs = target_section_type[0]
             target_outputs = target_section_type[1]
-            target_max_height = Uint.from_be_bytes(target_section_type[2:])
+            target_max_height = int.from_bytes(target_section_type[2:], "big")
 
+            if target_outputs == 0x80:
+                raise InvalidEof("CALLF into non-returning section")
+
+            # Stack Height Check
             if metadata.stack_height.min < target_inputs:
                 raise InvalidEof("Invalid stack height")
 
@@ -615,7 +610,7 @@ def validate_code_section(
             current_outputs = current_section_type[1]
             target_inputs = target_section_type[0]
             target_outputs = target_section_type[1]
-            target_max_height = Uint.from_be_bytes(target_section_type[2:])
+            target_max_height = int.from_bytes(target_section_type[2:], "big")
 
             if target_outputs != 0x80 and target_outputs > current_outputs:
                 raise InvalidEof("Invalid stack height")
@@ -912,8 +907,7 @@ def validate_eof_code(eof_meta: EofMetadata) -> Tuple[bool, bool, bool]:
     if has_return_contract and (has_return or has_stop):
         raise InvalidEof("Container has both RETURNCONTRACT and STOP/RETURN")
 
-    if eof_meta.container_sizes:
-        assert eof_meta.container_section_contents is not None
+    if eof_meta.num_container_sections > 0:
         eofcreate_references = referenced_subcontainers[Ops.EOFCREATE]
         returncontract_references = referenced_subcontainers[
             Ops.RETURNCONTRACT
@@ -1020,6 +1014,7 @@ def build_container_from_metadata(eof_metadata: EofMetadata) -> bytes:
     container : bytes
         The EOF container.
     """
+    # TODO: Separate out the encode and decode functions
     container = bytearray()
     container.extend(EOF_MAGIC)
     container.extend(b"\x01")
@@ -1031,7 +1026,7 @@ def build_container_from_metadata(eof_metadata: EofMetadata) -> bytes:
     container.extend(eof_metadata.num_code_sections.to_bytes(2, "big"))
     for code_size in eof_metadata.code_sizes:
         container.extend(code_size.to_bytes(2, "big"))
-    if eof_metadata.container_sizes:
+    if eof_metadata.num_container_sections > 0:
         container.extend(b"\x03")
         container.extend(eof_metadata.num_container_sections.to_be_bytes())
         for container_size in eof_metadata.container_sizes:
@@ -1043,7 +1038,7 @@ def build_container_from_metadata(eof_metadata: EofMetadata) -> bytes:
         container.extend(type_section)
     for code_section in eof_metadata.code_section_contents:
         container.extend(code_section)
-    if eof_metadata.container_section_contents:
+    if eof_metadata.num_container_sections > 0:
         for container_section in eof_metadata.container_section_contents:
             container.extend(container_section)
     container.extend(eof_metadata.data_section_contents)
@@ -1078,16 +1073,11 @@ def parse_create_call_data(data: bytes) -> Tuple[bytes, bytes]:
     if has_stop or has_return:
         raise InvalidEof("Init container has STOP/RETURN")
 
-    if eof_metadata.container_sizes:
-        subcontainer_size = sum(eof_metadata.container_sizes)
-    else:
-        subcontainer_size = 0
-
     container_size = (
         eof_metadata.body_start_index
         + eof_metadata.type_size
         + sum(eof_metadata.code_sizes)
-        + subcontainer_size
+        + sum(eof_metadata.container_sizes)
         + eof_metadata.data_size
     )
 

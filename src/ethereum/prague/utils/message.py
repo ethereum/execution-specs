@@ -21,7 +21,7 @@ from ..state import get_account
 from ..vm import Environment, Eof, Message, get_eof_version
 from ..vm.eof import parse_create_call_data
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from .address import compute_contract_address
+from .address import compute_contract_address_1
 
 
 def prepare_message(
@@ -80,7 +80,7 @@ def prepare_message(
         Items containing contract creation or message call specific data.
     """
     if isinstance(target, Bytes0):
-        current_target = compute_contract_address(
+        current_target = compute_contract_address_1(
             caller,
             get_account(env.state, caller).nonce - U256(1),
         )

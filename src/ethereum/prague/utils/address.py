@@ -66,9 +66,10 @@ def to_address_without_mask(data: Union[Uint, U256]) -> Address:
     return Address(data.to_be_bytes32()[-20:])
 
 
-def compute_contract_address(address: Address, nonce: Uint) -> Address:
+def compute_contract_address_1(address: Address, nonce: Uint) -> Address:
     """
-    Computes address of the new account that needs to be created.
+    Computes address of the new account that needs to be created based
+    on the account nonce.
 
     Parameters
     ----------
@@ -89,7 +90,7 @@ def compute_contract_address(address: Address, nonce: Uint) -> Address:
     return Address(padded_address)
 
 
-def compute_create2_contract_address(
+def compute_contract_address_2(
     address: Address, salt: Bytes32, call_data: bytearray
 ) -> Address:
     """

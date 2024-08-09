@@ -56,14 +56,12 @@ class EofMetadata:
     num_code_sections: Uint
     code_sizes: List[Uint]
     num_container_sections: Uint
-    # TODO: Change this to List[Uint]
-    container_sizes: Optional[List[Uint]]
+    container_sizes: List[Uint]
     data_size: Uint
     body_start_index: Uint
     type_section_contents: List[bytes]
     code_section_contents: List[bytes]
-    # TODO: Change this to List[bytes]
-    container_section_contents: Optional[List[bytes]]
+    container_section_contents: List[bytes]
     data_section_contents: bytes
 
 
