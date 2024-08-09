@@ -15,7 +15,7 @@ Implementations of the EVM Arithmetic instructions.
 from ethereum.base_types import U255_CEIL_VALUE, U256, U256_CEIL_VALUE, Uint
 from ethereum.utils.numeric import get_sign
 
-from .. import Evm, OpcodeStackItemCount
+from .. import Evm
 from ..gas import (
     GAS_EXPONENTIATION,
     GAS_EXPONENTIATION_PER_BYTE,
@@ -25,18 +25,6 @@ from ..gas import (
     charge_gas,
 )
 from ..stack import pop, push
-
-STACK_ADD = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_SUB = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_MUL = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_DIV = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_SDIV = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_MOD = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_SMOD = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_ADDMOD = OpcodeStackItemCount(inputs=3, outputs=1)
-STACK_MULMOD = OpcodeStackItemCount(inputs=3, outputs=1)
-STACK_EXP = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_SIGNEXTEND = OpcodeStackItemCount(inputs=2, outputs=1)
 
 
 def add(evm: Evm) -> None:

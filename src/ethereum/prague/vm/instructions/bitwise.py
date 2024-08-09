@@ -14,18 +14,9 @@ Implementations of the EVM bitwise instructions.
 
 from ethereum.base_types import U256, U256_CEIL_VALUE
 
-from .. import Evm, OpcodeStackItemCount
+from .. import Evm
 from ..gas import GAS_VERY_LOW, charge_gas
 from ..stack import pop, push
-
-STACK_BITWISE_AND = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_BITWISE_OR = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_BITWISE_XOR = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_BITWISE_NOT = OpcodeStackItemCount(inputs=1, outputs=1)
-STACK_GET_BYTE = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_BITWISE_SHL = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_BITWISE_SHR = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_BITWISE_SAR = OpcodeStackItemCount(inputs=2, outputs=1)
 
 
 def bitwise_and(evm: Evm) -> None:

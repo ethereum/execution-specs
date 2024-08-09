@@ -83,8 +83,8 @@ class OpcodeStackItemCount:
     Stack height count for an Opcode.
     """
 
-    inputs: Uint
-    outputs: Uint
+    inputs: int
+    outputs: int
 
 
 @dataclass

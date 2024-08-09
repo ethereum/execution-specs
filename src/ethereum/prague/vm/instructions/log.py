@@ -16,7 +16,7 @@ from functools import partial
 from ethereum.base_types import U256
 
 from ...blocks import Log
-from .. import Evm, OpcodeStackItemCount
+from .. import Evm
 from ..exceptions import WriteInStaticContext
 from ..gas import (
     GAS_LOG,
@@ -27,12 +27,6 @@ from ..gas import (
 )
 from ..memory import memory_read_bytes
 from ..stack import pop
-
-STACK_LOG0 = OpcodeStackItemCount(inputs=2, outputs=0)
-STACK_LOG1 = OpcodeStackItemCount(inputs=2, outputs=0)
-STACK_LOG2 = OpcodeStackItemCount(inputs=2, outputs=0)
-STACK_LOG3 = OpcodeStackItemCount(inputs=2, outputs=0)
-STACK_LOG4 = OpcodeStackItemCount(inputs=2, outputs=0)
 
 
 def log_n(evm: Evm, num_topics: U256) -> None:

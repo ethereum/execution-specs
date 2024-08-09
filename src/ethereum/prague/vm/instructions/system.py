@@ -38,7 +38,6 @@ from .. import (
     Eof,
     Evm,
     Message,
-    OpcodeStackItemCount,
     get_eof_version,
     incorporate_child_on_error,
     incorporate_child_on_success,
@@ -69,23 +68,6 @@ from ..gas import (
 )
 from ..memory import memory_read_bytes, memory_write
 from ..stack import pop, push
-
-STACK_CREATE = OpcodeStackItemCount(inputs=3, outputs=1)
-STACK_CREATE2 = OpcodeStackItemCount(inputs=4, outputs=1)
-STACK_RETURN = OpcodeStackItemCount(inputs=2, outputs=0)
-STACK_CALL = OpcodeStackItemCount(inputs=7, outputs=1)
-STACK_CALLCODE = OpcodeStackItemCount(inputs=7, outputs=1)
-STACK_SELFDESTRUCT = OpcodeStackItemCount(inputs=1, outputs=0)
-STACK_DELEGATECALL = OpcodeStackItemCount(inputs=6, outputs=1)
-STACK_STATICCALL = OpcodeStackItemCount(inputs=6, outputs=1)
-STACK_REVERT = OpcodeStackItemCount(inputs=2, outputs=0)
-STACK_INVALID = OpcodeStackItemCount(inputs=0, outputs=0)
-STACK_EXT_CALL = OpcodeStackItemCount(inputs=4, outputs=1)
-STACK_EXT_DELEGATECALL = OpcodeStackItemCount(inputs=3, outputs=1)
-STACK_EXT_STATICCALL = OpcodeStackItemCount(inputs=3, outputs=1)
-STACK_EOF_CREATE = OpcodeStackItemCount(inputs=4, outputs=1)
-STACK_RETURN_CONTRACT = OpcodeStackItemCount(inputs=2, outputs=0)
-
 
 # TODO: Integrate EOF CALL* and CREATE in generic
 

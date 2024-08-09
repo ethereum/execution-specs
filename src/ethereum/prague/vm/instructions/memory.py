@@ -14,7 +14,7 @@ Implementations of the EVM Memory instructions.
 from ethereum.base_types import U256, Bytes, Uint
 from ethereum.utils.numeric import ceil32
 
-from .. import Evm, OpcodeStackItemCount
+from .. import Evm
 from ..gas import (
     GAS_BASE,
     GAS_COPY,
@@ -24,12 +24,6 @@ from ..gas import (
 )
 from ..memory import memory_read_bytes, memory_write
 from ..stack import pop, push
-
-STACK_MSTORE = OpcodeStackItemCount(inputs=2, outputs=0)
-STACK_MSTORE8 = OpcodeStackItemCount(inputs=2, outputs=0)
-STACK_MLOAD = OpcodeStackItemCount(inputs=1, outputs=1)
-STACK_MSIZE = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_MCOPY = OpcodeStackItemCount(inputs=3, outputs=0)
 
 
 def mstore(evm: Evm) -> None:

@@ -14,17 +14,9 @@ Implementations of the EVM block instructions.
 
 from ethereum.base_types import U256
 
-from .. import Evm, OpcodeStackItemCount
+from .. import Evm
 from ..gas import GAS_BASE, GAS_BLOCK_HASH, charge_gas
 from ..stack import pop, push
-
-STACK_BLOCKHASH = OpcodeStackItemCount(inputs=1, outputs=1)
-STACK_COINBASE = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_TIMESTAMP = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_NUMBER = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_PREV_RANDAO = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_GAS_LIMIT = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_CHAIN_ID = OpcodeStackItemCount(inputs=0, outputs=1)
 
 
 def block_hash(evm: Evm) -> None:

@@ -14,16 +14,9 @@ Implementations of the EVM Comparison instructions.
 
 from ethereum.base_types import U256
 
-from .. import Evm, OpcodeStackItemCount
+from .. import Evm
 from ..gas import GAS_VERY_LOW, charge_gas
 from ..stack import pop, push
-
-STACK_LESS_THAN = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_SIGNED_LESS_THAN = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_GREATER_THAN = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_SIGNED_GREATER_THAN = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_EQUAL = OpcodeStackItemCount(inputs=2, outputs=1)
-STACK_IS_ZERO = OpcodeStackItemCount(inputs=1, outputs=1)
 
 
 def less_than(evm: Evm) -> None:

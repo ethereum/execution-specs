@@ -21,7 +21,7 @@ from ...state import get_account
 from ...utils.address import to_address
 from ...vm.eoa_delegation import access_delegation
 from ...vm.memory import buffer_read, memory_write
-from .. import Eof, Evm, OpcodeStackItemCount, get_eof_version
+from .. import Eof, Evm, get_eof_version
 from ..exceptions import OutOfBoundsRead
 from ..gas import (
     GAS_BASE,
@@ -40,32 +40,6 @@ from ..gas import (
     charge_gas,
 )
 from ..stack import pop, push
-
-STACK_ADDRESS = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_BALANCE = OpcodeStackItemCount(inputs=1, outputs=1)
-STACK_ORIGIN = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_CALLER = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_CALLVALUE = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_CALLDATALOAD = OpcodeStackItemCount(inputs=1, outputs=1)
-STACK_CALLDATASIZE = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_CALLDATACOPY = OpcodeStackItemCount(inputs=3, outputs=0)
-STACK_CODESIZE = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_CODECOPY = OpcodeStackItemCount(inputs=3, outputs=0)
-STACK_GASPRICE = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_EXTCODESIZE = OpcodeStackItemCount(inputs=1, outputs=1)
-STACK_EXTCODECOPY = OpcodeStackItemCount(inputs=3, outputs=0)
-STACK_RETURNDATASIZE = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_RETURNDATACOPY = OpcodeStackItemCount(inputs=3, outputs=0)
-STACK_EXTCODEHASH = OpcodeStackItemCount(inputs=1, outputs=1)
-STACK_SELF_BALANCE = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_BASE_FEE = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_BLOB_HASH = OpcodeStackItemCount(inputs=1, outputs=1)
-STACK_BLOB_BASE_FEE = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_RETURNDATALOAD = OpcodeStackItemCount(inputs=1, outputs=1)
-STACK_DATALOAD = OpcodeStackItemCount(inputs=1, outputs=1)
-STACK_DATALOADN = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_DATASIZE = OpcodeStackItemCount(inputs=0, outputs=1)
-STACK_DATACOPY = OpcodeStackItemCount(inputs=3, outputs=0)
 
 
 def address(evm: Evm) -> None:

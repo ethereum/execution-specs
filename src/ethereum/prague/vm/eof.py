@@ -19,13 +19,13 @@ from typing import Dict, List, Optional, Tuple
 from ethereum.base_types import Uint
 
 from . import EOF_MAGIC, EOF_MAGIC_LENGTH, MAX_CODE_SIZE, Eof, EofMetadata
+from .eof1 import op_stack_items
 from .exceptions import InvalidEof
 from .instructions import (
     EOF1_TERMINATING_INSTRUCTIONS,
     OPCODES_INVALID_IN_EOF1,
     OPCODES_INVALID_IN_LEGACY,
     Ops,
-    op_stack_items,
 )
 
 
