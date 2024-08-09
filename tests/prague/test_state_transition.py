@@ -26,7 +26,9 @@ ETHEREUM_SPEC_TESTS_PATH = TEST_FIXTURES["execution_spec_tests"][
 
 
 # Run state tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/"
+test_dir = (
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7692_eof_v1"
+)
 
 SLOW_TESTS = (
     # GeneralStateTests
@@ -123,7 +125,7 @@ def fetch_temporary_tests(test_dirs: Tuple[str, ...]) -> Generator:
 
 @pytest.mark.parametrize(
     "test_case",
-    fetch_temporary_tests(test_dirs),
+    fetch_state_tests(),
     ids=idfn,
 )
 def test_execution_specs_generated_tests(test_case: Dict) -> None:
