@@ -89,6 +89,7 @@ STACK_RETURN_CONTRACT = OpcodeStackItemCount(inputs=2, outputs=0)
 
 # TODO: Integrate EOF CALL* and CREATE in generic
 
+
 def generic_create(
     evm: Evm,
     endowment: U256,

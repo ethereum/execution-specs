@@ -413,6 +413,18 @@ def analyse_code_section(
 
             # Successor instruction positions
             relative_offsets = [0]
+
+        elif opcode == Ops.JUMPF:
+            # Immediate Data Check
+            if len(code) < counter + 2:
+                raise InvalidEof("JUMPF target code section index missing")
+            target_section_index = Uint.from_be_bytes(
+                code[counter : counter + 2],
+            )
+            counter += 2
+
+            # Successor instruction positions
+            relative_offsets = []
         elif opcode == Ops.DATALOADN:
             # Immediate Data Check
             if len(code) < counter + 2:
@@ -559,6 +571,11 @@ def validate_code_section(
             # General Validity Check
             if metadata.target_section_index >= eof_meta.num_code_sections:
                 raise InvalidEof("Invalid target code section index")
+            target_outputs = eof_meta.type_section_contents[
+                metadata.target_section_index
+            ]
+            if target_outputs == 0x80:
+                raise InvalidEof("CALLF into non-returning section")
 
             # Stack Height Check
 
@@ -583,6 +600,51 @@ def validate_code_section(
             increment = target_outputs - target_inputs
             current_stack_height.min += increment
             current_stack_height.max += increment
+
+        if opcode == Ops.JUMPF:
+            assert metadata.target_section_index is not None
+            # General Validity Check
+            if metadata.target_section_index >= eof_meta.num_code_sections:
+                raise InvalidEof("Invalid target code section index")
+
+            current_section_type = eof_meta.type_section_contents[code_index]
+            target_section_type = eof_meta.type_section_contents[
+                metadata.target_section_index
+            ]
+
+            current_outputs = current_section_type[1]
+            target_inputs = target_section_type[0]
+            target_outputs = target_section_type[1]
+            target_max_height = Uint.from_be_bytes(target_section_type[2:])
+
+            if target_outputs != 0x80 and target_outputs > current_outputs:
+                raise InvalidEof("Invalid stack height")
+
+            # Stack Height Check
+            if target_outputs != 0x80:
+                expected_stack_height = (
+                    current_outputs + target_inputs - target_outputs
+                )
+                if metadata.stack_height.min != metadata.stack_height.max:
+                    raise InvalidEof("Invalid stack height")
+                if metadata.stack_height.min != expected_stack_height:
+                    raise InvalidEof("Invalid stack height")
+            else:
+                if metadata.stack_height.min < target_inputs:
+                    raise InvalidEof("Invalid stack height")
+
+            # Stack Overflow Check
+            if (
+                metadata.stack_height.max
+                > 1024 - target_max_height + target_inputs
+            ):
+                raise InvalidEof("Stack overflow")
+
+            # Update the stack height after instruction
+            if target_outputs != 0x80:
+                increment = target_outputs - target_inputs
+                current_stack_height.min += increment
+                current_stack_height.max += increment
 
         elif opcode == Ops.RETF:
             # General Validity Checks

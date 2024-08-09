@@ -19,6 +19,7 @@ from ...vm.gas import (
     GAS_CALLF,
     GAS_HIGH,
     GAS_JUMPDEST,
+    GAS_JUMPF,
     GAS_MID,
     GAS_RETF,
     GAS_RJUMP,
@@ -363,3 +364,38 @@ def retf(evm: Evm) -> None:
         evm.current_section_index
     ]
     evm.pc = return_stack_item.offset
+
+
+def jumpf(evm: Evm) -> None:
+    """
+    Call a function in EOF without updating the return stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_JUMPF)
+
+    # OPERATION
+    assert evm.eof_metadata is not None
+    target_section_index = Uint.from_be_bytes(
+        evm.code[evm.pc + 1 : evm.pc + 3]
+    )
+    target_section = evm.eof_metadata.type_section_contents[
+        target_section_index
+    ]
+    target_inputs = Uint(target_section[0])
+    target_max_stack_height = Uint.from_be_bytes(target_section[2:])
+
+    if len(evm.stack) > 1024 - target_max_stack_height + target_inputs:
+        raise ExceptionalHalt
+
+    # PROGRAM COUNTER
+    evm.current_section_index = target_section_index
+    evm.code = evm.eof_metadata.code_section_contents[target_section_index]
+    evm.pc = Uint(0)
