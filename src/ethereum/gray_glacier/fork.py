@@ -335,7 +335,7 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
     hash : `Hash32`
         The PoW valid rlp hash of the passed in header.
     """
-    header_data_without_pow_artefacts = [
+    header_data_without_pow_artefacts = (
         header.parent_hash,
         header.ommers_hash,
         header.coinbase,
@@ -350,7 +350,7 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
         header.timestamp,
         header.extra_data,
         header.base_fee_per_gas,
-    ]
+    )
 
     return rlp.rlp_hash(header_data_without_pow_artefacts)
 
@@ -800,10 +800,10 @@ def process_transaction(
     preaccessed_addresses = set()
     preaccessed_storage_keys = set()
     if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
-        for address, keys in tx.access_list:
-            preaccessed_addresses.add(address)
-            for key in keys:
-                preaccessed_storage_keys.add((address, key))
+        for access in tx.access_list:
+            preaccessed_addresses.add(access.account)
+            for key in access.slots:
+                preaccessed_storage_keys.add((access.account, key))
 
     message = prepare_message(
         sender,
@@ -923,9 +923,10 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
 
     access_list_cost = 0
     if isinstance(tx, (AccessListTransaction, FeeMarketTransaction)):
-        for _address, keys in tx.access_list:
+        for access in tx.access_list:
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
-            access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
+            slots_cost = len(access.slots) * TX_ACCESS_LIST_STORAGE_KEY_COST
+            access_list_cost += slots_cost
 
     return Uint(TX_BASE_COST + data_cost + create_cost + access_list_cost)
 

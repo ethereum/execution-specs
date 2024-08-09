@@ -19,21 +19,17 @@ from ..base_types import (
 from ..exceptions import InvalidBlock
 from .fork_types import Address, VersionedHash
 
-TX_BASE_COST = 21000
-TX_DATA_COST_PER_NON_ZERO = 16
-TX_DATA_COST_PER_ZERO = 4
-TX_CREATE_COST = 32000
-TX_ACCESS_LIST_ADDRESS_COST = 2400
-TX_ACCESS_LIST_STORAGE_KEY_COST = 1900
+
+@slotted_freezable
+@dataclass
+class Access:
+    account: Address
+    slots: Tuple[Bytes32, ...]
 
 
 @slotted_freezable
 @dataclass
 class LegacyTransaction:
-    """
-    Atomic operation performed on the block chain.
-    """
-
     nonce: U256
     gas_price: Uint
     gas: Uint
@@ -48,10 +44,6 @@ class LegacyTransaction:
 @slotted_freezable
 @dataclass
 class AccessListTransaction:
-    """
-    The transaction type added in EIP-2930 to support access lists.
-    """
-
     chain_id: U64
     nonce: U256
     gas_price: Uint
@@ -59,7 +51,7 @@ class AccessListTransaction:
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes
-    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    access_list: Tuple[Access, ...]
     y_parity: U256
     r: U256
     s: U256
@@ -68,10 +60,6 @@ class AccessListTransaction:
 @slotted_freezable
 @dataclass
 class FeeMarketTransaction:
-    """
-    The transaction type added in EIP-1559.
-    """
-
     chain_id: U64
     nonce: U256
     max_priority_fee_per_gas: Uint
@@ -80,7 +68,7 @@ class FeeMarketTransaction:
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes
-    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    access_list: Tuple[Access, ...]
     y_parity: U256
     r: U256
     s: U256
@@ -89,10 +77,6 @@ class FeeMarketTransaction:
 @slotted_freezable
 @dataclass
 class BlobTransaction:
-    """
-    The transaction type added in EIP-4844.
-    """
-
     chain_id: U64
     nonce: U256
     max_priority_fee_per_gas: Uint
@@ -101,7 +85,7 @@ class BlobTransaction:
     to: Address
     value: U256
     data: Bytes
-    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    access_list: Tuple[Access, ...]
     max_fee_per_blob_gas: U256
     blob_versioned_hashes: Tuple[VersionedHash, ...]
     y_parity: U256
@@ -118,9 +102,6 @@ Transaction = Union[
 
 
 def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
-    """
-    Encode a transaction. Needed because non-legacy transactions aren't RLP.
-    """
     if isinstance(tx, LegacyTransaction):
         return tx
     elif isinstance(tx, AccessListTransaction):
@@ -134,9 +115,6 @@ def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
 
 
 def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
-    """
-    Decode a transaction. Needed because non-legacy transactions aren't RLP.
-    """
     if isinstance(tx, Bytes):
         if tx[0] == 1:
             return rlp.decode_to(AccessListTransaction, tx[1:])
