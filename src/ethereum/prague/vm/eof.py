@@ -83,7 +83,10 @@ def map_int_to_op(opcode: int, eof: Eof) -> Ops:
 
 
 def parse_container_metadata(
-    container: bytes, validate: bool, is_deploy_container: bool
+    container: bytes,
+    validate: bool,
+    is_deploy_container: bool,
+    is_init_container: bool,
 ) -> EofMetadata:
     """
     Validate the header of the EOF container.
@@ -99,6 +102,9 @@ def parse_container_metadata(
     is_deploy_container : bool
         Whether the container is a deploy container for EOFCREATE/ create
         transactions.
+    is_init_container : bool
+        Whether the container is an init container for EOFCREATE/
+        create transactions.
 
     Returns
     -------
@@ -248,6 +254,14 @@ def parse_container_metadata(
         and len(container) < counter + data_size
     ):
         raise InvalidEof("Data section size does not match header")
+
+    if (
+        validate
+        and is_init_container
+        and len(container) != counter + data_size
+    ):
+        raise InvalidEof("invalid init container data size")
+
     data_section_contents = container[counter : counter + data_size]
     counter += data_size
 
@@ -860,7 +874,7 @@ def validate_eof_code(eof_meta: EofMetadata) -> Tuple[bool, bool, bool]:
                 subcontainer_has_stop,
                 sub_container_has_return,
             ) = validate_eof_container(
-                eof_meta.container_section_contents[index]
+                eof_meta.container_section_contents[index], False
             )
             if index in eofcreate_references and (
                 subcontainer_has_stop or sub_container_has_return
@@ -879,7 +893,9 @@ def validate_eof_code(eof_meta: EofMetadata) -> Tuple[bool, bool, bool]:
     return has_return_contract, has_stop, has_return
 
 
-def validate_eof_container(container: bytes) -> Tuple[bool, bool, bool]:
+def validate_eof_container(
+    container: bytes, is_init_container: bool
+) -> Tuple[bool, bool, bool]:
     """
     Validate the Ethereum Object Format (EOF) container.
 
@@ -887,6 +903,9 @@ def validate_eof_container(container: bytes) -> Tuple[bool, bool, bool]:
     ----------
     container : bytes
         The EOF container to validate.
+    is_init_container : bool
+        Whether the container is an init container for EOFCREATE/
+        create transactions.
 
     Raises
     ------
@@ -909,12 +928,18 @@ def validate_eof_container(container: bytes) -> Tuple[bool, bool, bool]:
         raise InvalidEof("EOF container size too long")
 
     eof_metadata = parse_container_metadata(
-        container, validate=True, is_deploy_container=False
+        container,
+        validate=True,
+        is_deploy_container=False,
+        is_init_container=is_init_container,
     )
 
     validate_body(eof_metadata)
 
     has_return_contract, has_stop, has_return = validate_eof_code(eof_metadata)
+
+    if is_init_container and (has_stop or has_return):
+        raise InvalidEof("Init container has STOP/RETURN")
 
     return has_return_contract, has_stop, has_return
 
@@ -962,3 +987,46 @@ def build_container_from_metadata(eof_metadata: EofMetadata) -> bytes:
     container.extend(eof_metadata.data_section_contents)
 
     return bytes(container)
+
+
+def parse_create_call_data(data: bytes) -> Tuple[bytes, bytes]:
+    """
+    Parse the data for a create transaction.
+
+    Parameters
+    ----------
+    data : bytes
+        The data for the create call.
+
+    Returns
+    -------
+    code : bytes
+        The code for the create call.
+    data : bytes
+        The data for the create call.
+    """
+    eof_metadata = parse_container_metadata(
+        data, validate=True, is_deploy_container=False, is_init_container=False
+    )
+
+    validate_body(eof_metadata)
+
+    _, has_stop, has_return = validate_eof_code(eof_metadata)
+
+    if has_stop or has_return:
+        raise InvalidEof("Init container has STOP/RETURN")
+
+    if eof_metadata.container_sizes:
+        subcontainer_size = sum(eof_metadata.container_sizes)
+    else:
+        subcontainer_size = 0
+
+    container_size = (
+        eof_metadata.body_start_index
+        + eof_metadata.type_size
+        + sum(eof_metadata.code_sizes)
+        + subcontainer_size
+        + eof_metadata.data_size
+    )
+
+    return data[:container_size], data[container_size:]

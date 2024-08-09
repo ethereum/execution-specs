@@ -283,14 +283,19 @@ def execute_code(message: Message, env: Environment) -> Evm:
     evm: `ethereum.vm.EVM`
         Items containing execution specific objects
     """
+    # TODO: Get eof_metadata from message
     code_or_container = message.code
 
     eof_version = get_eof_version(code_or_container)
 
     if eof_version == Eof.EOF1:
+        assert message.is_init_container is not None
         container = code_or_container
         eof_metadata = parse_container_metadata(
-            code_or_container, validate=False, is_deploy_container=False
+            code_or_container,
+            validate=False,
+            is_deploy_container=False,
+            is_init_container=message.is_init_container,
         )
         code = eof_metadata.code_section_contents[0]
         valid_jump_destinations = set()

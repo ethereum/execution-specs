@@ -65,6 +65,7 @@ from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
 from .vm import MAX_CODE_SIZE, Message
 from .vm.eoa_delegation import PER_EMPTY_ACCOUNT_COST, is_valid_delegation
+from .vm.exceptions import InvalidEof
 from .vm.gas import (
     calculate_blob_gas_price,
     calculate_data_fee,
@@ -72,11 +73,7 @@ from .vm.gas import (
     calculate_total_blob_gas,
     init_code_cost,
 )
-from .vm.interpreter import (
-    MAX_CODE_SIZE,
-    MessageCallOutput,
-    process_message_call,
-)
+from .vm.interpreter import MessageCallOutput, process_message_call
 
 BASE_FEE_MAX_CHANGE_DENOMINATOR = 8
 ELASTICITY_MULTIPLIER = 2
@@ -950,19 +947,24 @@ def process_transaction(
     if isinstance(tx, SetCodeTransaction):
         authorizations = tx.authorizations
 
-    message = prepare_message(
-        sender,
-        tx.to,
-        tx.value,
-        tx.data,
-        gas,
-        env,
-        preaccessed_addresses=frozenset(preaccessed_addresses),
-        preaccessed_storage_keys=frozenset(preaccessed_storage_keys),
-        authorizations=authorizations,
-    )
-
-    output = process_message_call(message, env)
+    try:
+        message = prepare_message(
+            sender,
+            tx.to,
+            tx.value,
+            tx.data,
+            gas,
+            env,
+            preaccessed_addresses=frozenset(preaccessed_addresses),
+            preaccessed_storage_keys=frozenset(preaccessed_storage_keys),
+            authorizations=authorizations,
+        )
+    except InvalidEof:
+        output = MessageCallOutput(
+            gas, U256(0), tuple(), set(), set(), InvalidEof()
+        )
+    else:
+        output = process_message_call(message, env)
 
     gas_used = tx.gas - output.gas_left
     gas_refund = min(gas_used // 5, output.refund_counter)

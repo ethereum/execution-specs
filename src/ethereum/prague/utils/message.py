@@ -18,7 +18,8 @@ from ethereum.base_types import U256, Bytes, Bytes0, Bytes32, Uint
 
 from ..fork_types import Address, Authorization
 from ..state import get_account
-from ..vm import Environment, Message
+from ..vm import Environment, Eof, Message, get_eof_version
+from ..vm.eof import parse_create_call_data
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .address import compute_contract_address
 
@@ -83,14 +84,24 @@ def prepare_message(
             caller,
             get_account(env.state, caller).nonce - U256(1),
         )
-        msg_data = Bytes(b"")
-        code = data
+        if get_eof_version(data) == Eof.LEGACY:
+            msg_data = Bytes(b"")
+            code = data
+            is_init_container = None
+        else:
+            is_init_container = True
+            code, msg_data = parse_create_call_data(data)
     elif isinstance(target, Address):
         current_target = target
         msg_data = data
         code = get_account(env.state, target).code
         if code_address is None:
             code_address = target
+
+        if get_eof_version(code) == Eof.LEGACY:
+            is_init_container = None
+        else:
+            is_init_container = False
     else:
         raise AssertionError("Target must be address or empty bytes")
 
@@ -116,4 +127,5 @@ def prepare_message(
         accessed_storage_keys=set(preaccessed_storage_keys),
         parent_evm=None,
         authorizations=authorizations,
+        is_init_container=is_init_container,
     )

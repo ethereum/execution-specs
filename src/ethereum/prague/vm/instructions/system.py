@@ -87,6 +87,8 @@ STACK_EOF_CREATE = OpcodeStackItemCount(inputs=4, outputs=1)
 STACK_RETURN_CONTRACT = OpcodeStackItemCount(inputs=2, outputs=0)
 
 
+# TODO: Integrate EOF CALL* and CREATE in generic
+
 def generic_create(
     evm: Evm,
     endowment: U256,
@@ -154,6 +156,7 @@ def generic_create(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         parent_evm=evm,
         authorizations=(),
+        is_init_container=None,
     )
     child_evm = process_create_message(child_message, evm.env)
 
@@ -330,6 +333,10 @@ def generic_call(
         evm.gas_left += gas
         push(evm.stack, U256(1))
         return
+    if get_eof_version(code) == Eof.LEGACY:
+        is_init_container = None
+    else:
+        is_init_container = False
     child_message = Message(
         caller=caller,
         target=to,
@@ -346,6 +353,7 @@ def generic_call(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         parent_evm=evm,
         authorizations=(),
+        is_init_container=is_init_container,
     )
     child_evm = process_message(child_message, evm.env)
 
@@ -877,6 +885,7 @@ def ext_call(evm: Evm) -> None:
             accessed_addresses=evm.accessed_addresses.copy(),
             accessed_storage_keys=evm.accessed_storage_keys.copy(),
             parent_evm=evm,
+            is_init_container=False,
         )
         child_evm = process_message(child_message, evm.env)
 
@@ -966,6 +975,7 @@ def ext_delegatecall(evm: Evm) -> None:
             accessed_addresses=evm.accessed_addresses.copy(),
             accessed_storage_keys=evm.accessed_storage_keys.copy(),
             parent_evm=evm,
+            is_init_container=False,
         )
         child_evm = process_message(child_message, evm.env)
 
@@ -1053,6 +1063,7 @@ def ext_staticcall(evm: Evm) -> None:
             accessed_addresses=evm.accessed_addresses.copy(),
             accessed_storage_keys=evm.accessed_storage_keys.copy(),
             parent_evm=evm,
+            is_init_container=False,
         )
         child_evm = process_message(child_message, evm.env)
 
@@ -1150,6 +1161,7 @@ def eof_create(evm: Evm) -> None:
             accessed_addresses=evm.accessed_addresses.copy(),
             accessed_storage_keys=evm.accessed_storage_keys.copy(),
             parent_evm=evm,
+            is_init_container=True,
         )
         child_evm = process_create_message(child_message, evm.env)
 
@@ -1198,7 +1210,10 @@ def return_contract(evm: Evm) -> None:
         deploy_container_index
     ]
     deploy_container_metadata = parse_container_metadata(
-        deploy_container, validate=True, is_deploy_container=True
+        deploy_container,
+        validate=True,
+        is_deploy_container=True,
+        is_init_container=False,
     )
     aux_data = memory_read_bytes(evm.memory, aux_data_offset, aux_data_size)
     deploy_container_metadata.data_section_contents += aux_data
