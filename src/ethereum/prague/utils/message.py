@@ -19,7 +19,7 @@ from ethereum.base_types import U256, Bytes, Bytes0, Bytes32, Uint
 from ..fork_types import Address, Authorization
 from ..state import get_account
 from ..vm import Environment, Eof, Message, get_eof_version
-from ..vm.eof import parse_create_call_data
+from ..vm.eof1.utils import parse_create_tx_call_data
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .address import compute_contract_address_1
 
@@ -90,7 +90,7 @@ def prepare_message(
             is_init_container = None
         else:
             is_init_container = True
-            code, msg_data = parse_create_call_data(data)
+            code, msg_data = parse_create_tx_call_data(data)
     elif isinstance(target, Address):
         current_target = target
         msg_data = data

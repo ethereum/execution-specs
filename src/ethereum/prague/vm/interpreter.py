@@ -47,7 +47,7 @@ from ..vm.eoa_delegation import set_delegation
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import MAX_CODE_SIZE, Environment, Eof, Evm, Message, get_eof_version
-from .eof import map_int_to_op, parse_container_metadata
+from .eof import map_int_to_op, metadata_from_container
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
@@ -291,7 +291,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
     if eof_version == Eof.EOF1:
         assert message.is_init_container is not None
         container = code_or_container
-        eof_metadata = parse_container_metadata(
+        eof_metadata = metadata_from_container(
             code_or_container,
             validate=False,
             is_deploy_container=False,

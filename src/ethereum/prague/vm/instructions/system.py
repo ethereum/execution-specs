@@ -1177,7 +1177,7 @@ def return_contract(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ..eof import build_container_from_metadata, parse_container_metadata
+    from ..eof1.utils import container_from_metadata, metadata_from_container
 
     assert evm.eof_version is not None
     assert evm.eof_container is not None
@@ -1201,7 +1201,7 @@ def return_contract(evm: Evm) -> None:
     deploy_container = evm.eof_metadata.container_section_contents[
         deploy_container_index
     ]
-    deploy_container_metadata = parse_container_metadata(
+    deploy_container_metadata = metadata_from_container(
         deploy_container,
         validate=True,
         is_deploy_container=True,
@@ -1220,9 +1220,7 @@ def return_contract(evm: Evm) -> None:
         len(deploy_container_metadata.data_section_contents)
     )
 
-    evm.deploy_container = build_container_from_metadata(
-        deploy_container_metadata
-    )
+    evm.deploy_container = container_from_metadata(deploy_container_metadata)
 
     # PROGRAM COUNTER
     evm.running = False
