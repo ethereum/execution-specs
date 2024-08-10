@@ -381,6 +381,11 @@ class Container(CopyValidateModel):
     Used to have a cohesive type among all test cases, even those that do not
     resemble a valid EOF V1 container.
     """
+    expected_bytecode: Optional[Bytes] = None
+    """
+    Optional raw bytes of the expected constructed bytecode.
+    This allows confirming that raw EOF and Container() representations are identical.
+    """
 
     @cached_property
     def bytecode(self) -> bytes:
@@ -453,6 +458,10 @@ class Container(CopyValidateModel):
 
         # Add extra (garbage)
         c += self.extra
+
+        # Check if the constructed bytecode matches the expected one
+        if self.expected_bytecode is not None:
+            assert c == self.expected_bytecode
 
         return c
 
