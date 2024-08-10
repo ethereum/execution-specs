@@ -169,29 +169,157 @@
 
 ### Validation
 
+#### Terminating instructions
+
 - [ ] Check all terminating opcodes (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
-- [ ] Code section not terminating (executing beyond section end) (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+- [ ] Code section not terminating (executing beyond section end) (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/EIP5450/validInvalidFiller.yml src/EOFTestsFiller/efStack/no_terminating_instruction_Copier.json)
 - [ ] Code section ending with NOP (not terminating) (src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
-- [ ] Stack underflows (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml)
-- [ ] Stack underflow with enough items available in caller stack (ethereum/tests: src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
-- [ ] Valid CALLFs to functions with inputs (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
-- [ ] CALLF stack underflows (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/EIP4750/validInvalidFiller.yml src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
-- [ ] CALLF validation time stack overflow (ethereum/tests: src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
-- [ ] Valid RETF with correct number of items on stack (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
-- [ ] Invalid RETF with extra items on stack (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
-- [ ] Extra items on stack allowed for terminating instructions other than RETF (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
-- [ ] Wrong max_stack_height (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/efValidation/max_stack_height_Copier.json src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
-- [ ] RJUMPI forward with branches of equal stack height (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
-- [ ] RJUMPI forward with branches of different stack height (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
-- [ ] RJUMPV forward with branches of equal stack height (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+- [ ] Check that unreachable code is invalid after all terminating instructions (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml src/EOFTestsFiller/efStack/unreachable_instructions_Copier.json)
+
+#### Jumps
+
+##### RJUMP
+
+- [ ] Valid RJUMP backwards in a constant stack segment (ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjump_Copier.json)
+- [ ] Invalid RJUMP backwards with mismatching stack in a constant stack segment(ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjump_Copier.json)
+- [ ] Valid RJUMP backwards in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjump_variable_stack_Copier.json)
+- [ ] Invalid RJUMP backwards with mismatching stack in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjump_variable_stack_Copier.json)
+- [ ] Valid RJUMP forwards (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjump_Copier.json)
+- [ ] Valid RJUMP forwards from different stack (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjump_Copier.json)
+- [ ] Valid RJUMP forwards in variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjump_variable_stack_Copier.json)
+- [ ] Valid RJUMP forwards from different stack in variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjump_variable_stack_Copier.json)
 - [ ] Valid empty infinite loop with RJUMP (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
 - [ ] Valid balanced infinite loop (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
-- [ ] Valid infinite loop using RJUMPV (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+
+##### RJUMPI
+
+- [ ] Valid RJUMPI backwards in a constant stack segment (ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjumpi_Copier.json)
+- [ ] Invalid RJUMPI backwards with mismatching stack in a constant stack segment(ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjumpi_Copier.json)
+- [ ] Valid RJUMPI backwards in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjumpi_variable_stack_Copier.json)
+- [ ] Invalid RJUMPI backwards with mismatching stack in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjumpi_variable_stack_Copier.json)
+- [ ] RJUMPI forward with branches of equal stack height (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_Copier.json src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+- [ ] RJUMPI forward with branches of equal stack height in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_variable_stack_Copier.json)
+- [ ] RJUMPI forward with branches of different stack height (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_Copier.json src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+- [ ] RJUMPI forward with branches of different stack height in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_variable_stack_Copier.json)
 - [ ] Valid loop using RJUMPI (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+- [ ] Valid loop with a break using RJUMPI - equal stack after break and normal loop end (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_Copier.json)
+- [ ] Valid loop with a break using RJUMPI - equal stack after break and normal loop end, variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_variable_stack_Copier.json)
+- [ ] Valid loop with a break using RJUMPI - different stack after break and normal loop end (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_Copier.json)
+- [ ] Valid loop with a break using RJUMPI - different stack after break and normal loop end, variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_variable_stack_Copier.json)
+- [ ] If-then-else with equal stack height in branches (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_Copier.json)
+- [ ] If-then-else with equal stack height in branches, variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_variable_stack_Copier.json)
+- [ ] If-then-else with different stack height in branches (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_Copier.json)
+- [ ] If-then-else with different stack height in branches, variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_variable_stack_Copier.json)
+
+##### RJUMPV
+
+- [ ] Valid RJUMPV backwards in a constant stack segment (ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjumpv_Copier.json)
+- [ ] Invalid RJUMPV backwards with mismatching stack in a constant stack segment(ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjumpv_Copier.json)
+- [ ] Valid RJUMPV backwards in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjumpv_variable_stack_Copier.json)
+- [ ] Invalid RJUMPV backwards with mismatching stack in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/backwards_rjumpv_variable_stack_Copier.json)
+- [ ] RJUMPV forward with branches of equal stack height (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpv_Copier.json src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+- [ ] RJUMPV forward with branches of equal stack height in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpv_variable_stack_Copier.json)
+- [ ] RJUMPV forward with branches of different stack height (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpv_Copier.json src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+- [ ] RJUMPV forward with branches of different stack height  in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpv_variable_stack_Copier.json)
+- [ ] Valid infinite loop using RJUMPV (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+- [ ] Switch with equal stack height in branches (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpv_Copier.json)
+- [ ] Switch with equal stack height in branches, variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpv_variable_stack_Copier.json)
+- [ ] Switch with different stack height in branches (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpv_Copier.json)
+- [ ] Switch with different stack height in branches, variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpv_variable_stack_Copier.json)
+
+##### Combinations
+
+- [ ] RJUMP and RJUMPI with the same target and equal stack height (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_Copier.json)
+- [ ] RJUMP and RJUMPI with the same target and equal stack height in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_variable_stack_Copier.json)
+- [ ] RJUMP and RJUMPI with the same target and different stack height (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_Copier.json)
+- [ ] RJUMP and RJUMPI with the same target and different stack height in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpi_variable_stack_Copier.json)
+- [ ] RJUMP and RJUMPV with the same target and equal stack height (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpv_Copier.json)
+- [ ] RJUMP and RJUMPV with the same target and equal stack height in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpv_variable_stack_Copier.json)
+- [ ] RJUMP and RJUMPV with the same target and different stack height (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpv_Copier.json)
+- [ ] RJUMP and RJUMPV with the same target and different stack height in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/forwards_rjumpv_variable_stack_Copier.json)
+- [ ] RJUMPI and RJUMPV with the same target
+
+- [ ] RJUMP* to self (ethereum/tests: src/EOFTestsFiller/efStack/self_referencing_jumps_Copier.json)
+- [ ] RJUMP* to self in a variable stack segment (ethereum/tests: src/EOFTestsFiller/efStack/self_referencing_jumps_variable_stack_Copier.json)
+
+#### Stack underflow
+
+- [ ] Stack underflows (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml )
+- [ ] Stack underflow with enough items available in caller stack (ethereum/tests: src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
+- [ ] Stack underflow in variable stack segment, only min underflow (ethereum/tests: src/EOFTestsFiller/efStack/underflow_variable_stack_Copier.json)
+- [ ] Stack underflow in variable stack segment, both min and max underflow (ethereum/tests: src/EOFTestsFiller/efStack/underflow_variable_stack_Copier.json)
+
+#### CALLF
+
+- [ ] Valid CALLFs to functions with inputs (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml src/EOFTestsFiller/efStack/callf_stack_validation_Copier.json)
+- [ ] CALLF stack underflows (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/EIP4750/validInvalidFiller.yml src/EOFTestsFiller/EIP5450/validInvalidFiller.yml src/EOFTestsFiller/efStack/callf_stack_validation_Copier.json)
+- [ ] CALLF stack underflow in variable stack segment, only min underflow (ethereum/tests: src/EOFTestsFiller/efStack/underflow_variable_stack_Copier.json)
+- [ ] CALLF stack underflow in variable stack segment, both min and max underflow (ethereum/tests: src/EOFTestsFiller/efStack/underflow_variable_stack_Copier.json)
 - [ ] Branching to CALLFs with the same number of outputs (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+
+#### RETF
+
+- [ ] Valid RETF with correct number of items on stack (ethereum/tests: src/EOFTestsFiller/efStack/retf_stack_validation_Copier.json src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+- [ ] Invalid RETF with extra items on stack (ethereum/tests: src/EOFTestsFiller/efStack/retf_stack_validation_Copier.json ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
+- [ ] RETF stack underflow (ethereum/tests: src/EOFTestsFiller/efStack/retf_stack_validation_Copier.json)
+- [ ] RETF reached via different paths (ethereum/tests: src/EOFTestsFiller/efStack/retf_stack_validation_Copier.json)
+- [ ] RETF in variable stack segment is not allowed (ethereum/tests: src/EOFTestsFiller/efStack/retf_variable_stack_Copier.json)
+- [ ] Extra items on stack allowed for terminating instructions other than RETF (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+
+#### JUMPF
+
+- [ ] Extra items on stack are allowed for JUMPF to non-returning function (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_nonreturning_Copier.json src/EOFTestsFiller/efStack/jumpf_to_nonreturning_variable_stack_Copier.json)
+- [ ] JUMPF stack underflows (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_nonreturning_Copier.json src/EOFTestsFiller/efStack/jumpf_to_returning_Copier.json)
+- [ ] JUMPF stack underflow in a variable stack segment - only min underflow (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_nonreturning_variable_stack_Copier.json)
+- [ ] JUMPF stack underflow in a variable stack segment - both min and max underflow (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_nonreturning_variable_stack_Copier.json)
+- [ ] JUMPF into function with the same number of outputs (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_Copier.json)
+- [ ] JUMPF into function with fewer outputs than current one (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_Copier.json)
+- [ ] Extra items on stack are allowed for JUMPF to returning function (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_Copier.json)
+- [ ] JUMPF to returning in a variable stack segment is not allowed (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_variable_stack_Copier.json)
+
+#### Stack overflow
+
+##### CALLF
+
+- [ ] Max allowed stack height reached in CALLF-ed function (ethereum/tests: src/EOFTestsFiller/efStack/callf_stack_overflow_Copier.json)
+- [ ] CALLF validation time stack overflow (ethereum/tests: src/EOFTestsFiller/EIP4750/validInvalidFiller.yml src/EOFTestsFiller/efStack/callf_stack_overflow_Copier.json)
+- [ ] Max allowed stack height reached in CALLF-ed function with inputs (ethereum/tests: src/EOFTestsFiller/efStack/callf_with_inputs_stack_overflow_Copier.json)
+- [ ] CALLF validation time stack overflow in function with inputs (ethereum/tests: src/EOFTestsFiller/EIP4750/validInvalidFiller.yml src/EOFTestsFiller/efStack/callf_with_inputs_stack_overflow_Copier.json)
+- [ ] Max allowed stack height reached in CALLF-ed function. CALLF in variable stack segment. (ethereum/tests: src/EOFTestsFiller/efStack/callf_stack_overflow_variable_stack_Copier.json)
+- [ ] CALLF validation time stack overflow in variable stack segment. (ethereum/tests: src/EOFTestsFiller/EIP4750/validInvalidFiller.yml src/EOFTestsFiller/efStack/callf_stack_overflow_variable_stack_Copier.json)
+- [ ] Max allowed stack height reached in CALLF-ed function with inputs. CALLF in variable stack segment. (ethereum/tests: src/EOFTestsFiller/efStack/callf_with_inputs_stack_overflow_variable_stack_Copier.json)
+- [ ] CALLF validation time stack overflow in function with inputs in variable stack segment. (ethereum/tests: src/EOFTestsFiller/EIP4750/validInvalidFiller.yml src/EOFTestsFiller/efStack/callf_with_inputs_stack_overflow_variable_stack_Copier.json)
 - [ ] Function inputs are accessible and accounted for (no stack underflow if they are popped) (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+
+##### JUMPF
+
+- [ ] Max allowed stack height reached in JUMPF-ed function (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_stack_overflow_Copier.json)
+- [ ] JUMPF validation time stack overflow (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_stack_overflow_Copier.json)
+- [ ] Max allowed stack height reached in JUMPF-ed function with inputs
+- [ ] JUMPF validation time stack overflow in function with inputs (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_with_inputs_stack_overflow_Copier.json)
+- [ ] JUMPF validation time stack overflow in function with inputs, variable stack segment, only max overflow (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_with_inputs_stack_overflow_variable_stack_Copier.json)
+- [ ] JUMPF validation time stack overflow in function with inputs, variable stack segment, both max and min overflow (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_with_inputs_stack_overflow_variable_stack_Copier.json)
+- [ ] Max allowed stack height reached in JUMPF-ed function. JUMPF in variable stack segment. (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_stack_overflow_variable_stack_Copier.json)
+- [ ] JUMPF validation time stack overflow in variable stack segment - only max overflow. (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_stack_overflow_variable_stack_Copier.json)
+- [ ] JUMPF validation time stack overflow in variable stack segment - both min and max overflow. (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_stack_overflow_variable_stack_Copier.json)
+- [ ] Max allowed stack height reached in JUMPF-ed function with inputs. JUMPF in variable stack segment.
+- [ ] JUMPF validation time stack overflow in function with inputs in variable stack segment.
+
+#### SWAPN/DUPN/EXCHANGE
+
+- [ ] Valid DUPN with enough items on stack (ethereum/tests: src/EOFTestsFiller/efStack/dupn_stack_validation_Copier.json)
+- [ ] DUPN stack underflow (ethereum/tests: src/EOFTestsFiller/efStack/dupn_stack_validation_Copier.json)
+- [ ] Valid SWAPN with enough items on stack (ethereum/tests: src/EOFTestsFiller/efStack/swapn_stack_validation_Copier.json)
+- [ ] SWAPN stack underflow (ethereum/tests: src/EOFTestsFiller/efStack/swapn_stack_validation_Copier.json)
+- [ ] Valid EXCHANGE with enough items on stack (ethereum/tests: src/EOFTestsFiller/efStack/exchange_deep_stack_validation_Copier.json src/EOFTestsFiller/efStack/exchange_stack_validation_Copier.json)
+- [ ] EXCHANGE stack underflow (ethereum/tests: src/EOFTestsFiller/efStack/exchange_stack_validation_Copier.json src/EOFTestsFiller/efStack/exchange_empty_stack_validation_Copier.json)
+
+#### Other
+
+- [ ] Wrong max_stack_height (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/efValidation/max_stack_height_Copier.json src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
 - [ ] All opcodes correctly account for stack inputs/outputs (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
-- [ ] Check that unreachable code is invalid after all terminating instructions (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+- [ ] Code reachable only via backwards jump is invalid
+- [ ] Maximally broad [0, 1023] stack range (ethereum/tests: src/EOFTestsFiller/efStack/stack_range_maximally_broad_Copier.json)
 
 ### Execution
 
