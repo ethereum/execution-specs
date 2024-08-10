@@ -166,6 +166,7 @@ INVALID: List[Container] = [
         sections=[],
         auto_data_section=False,
         auto_type_section=AutoSection.NONE,
+        expected_bytecode="ef0001 00",
         validity_error=EOFException.MISSING_TYPE_HEADER,
     ),
     Container(
