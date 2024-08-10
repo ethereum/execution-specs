@@ -555,3 +555,78 @@ def test_wide_container(eof_test: EOFTestFiller, width: int, exception: EOFExcep
         ),
         expect_exception=exception,
     )
+
+
+@pytest.mark.parametrize(
+    "container",
+    [
+        pytest.param(
+            Container(
+                sections=[
+                    Section.Code(
+                        Op.CALLDATASIZE
+                        + Op.PUSH1[0]
+                        + Op.PUSH1[255]
+                        + Op.PUSH1[0]
+                        + Op.EOFCREATE[0]
+                        + Op.POP
+                        + Op.STOP
+                    ),
+                    Section.Container(Container(sections=[Section.Code(Op.INVALID)])),
+                ],
+                expected_bytecode="""
+                ef0001010004020001000b0300010014040000000080000436600060ff6000ec005000ef000101000402
+                000100010400000000800000fe""",
+            ),
+            id="EOF1_eofcreate_valid_0",
+        ),
+        pytest.param(
+            Container(
+                sections=[
+                    Section.Code(
+                        Op.CALLDATASIZE
+                        + Op.PUSH1[0]
+                        + Op.PUSH1[255]
+                        + Op.PUSH1[0]
+                        + Op.EOFCREATE[1]
+                        + Op.POP
+                        + Op.STOP
+                    )
+                ]
+                + 2 * [Section.Container(Container(sections=[Section.Code(Op.INVALID)]))],
+                expected_bytecode="""
+                ef0001010004020001000b03000200140014040000000080000436600060ff6000ec015000ef00010100
+                0402000100010400000000800000feef000101000402000100010400000000800000fe""",
+                # Originally this test was "valid" because it was created
+                # before "orphan subcontainer" rule was introduced.
+                validity_error=EOFException.ORPHAN_SUBCONTAINER,
+            ),
+            id="EOF1_eofcreate_valid_1",
+        ),
+        pytest.param(
+            Container(
+                sections=[
+                    Section.Code(
+                        Op.CALLDATASIZE
+                        + Op.PUSH1[0]
+                        + Op.PUSH1[255]
+                        + Op.PUSH1[0]
+                        + Op.EOFCREATE[255]
+                        + Op.POP
+                        + Op.STOP
+                    )
+                ]
+                + 256 * [Section.Container(Container(sections=[Section.Code(Op.INVALID)]))],
+                # Originally this test was "valid" because it was created
+                # before "orphan subcontainer" rule was introduced.
+                validity_error=EOFException.ORPHAN_SUBCONTAINER,
+            ),
+            id="EOF1_eofcreate_valid_2",
+        ),
+    ],
+)
+def test_migrated_eofcreate(eof_test: EOFTestFiller, container: Container):
+    """
+    Tests migrated from EOFTests/efValidation/EOF1_eofcreate_valid_.json.
+    """
+    eof_test(data=container, expect_exception=container.validity_error)
