@@ -290,18 +290,11 @@ def parse_create_tx_call_data(data: bytes) -> Tuple[Eof, bytes]:
         The data for the create call.
     """
     # TODO: Global import this after re-factor
-    from ..eof import validate_body, validate_eof_code
+    from ..eof import Validator, validate_body, validate_eof_code
 
     eof_metadata = metadata_from_container(
         data, validate=True, is_deploy_container=False, is_init_container=False
     )
-
-    validate_body(eof_metadata)
-
-    _, has_stop, has_return = validate_eof_code(eof_metadata)
-
-    if has_stop or has_return:
-        raise InvalidEof("Init container has STOP/RETURN")
 
     container_size = (
         eof_metadata.body_start_index
@@ -318,5 +311,24 @@ def parse_create_tx_call_data(data: bytes) -> Tuple[Eof, bytes]:
         is_deploy_container=False,
         is_init_container=True,
     )
+
+    validator = Validator(
+        eof=eof,
+        sections={},
+        current_index=Uint(0),
+        current_code=eof.metadata.code_section_contents[0],
+        current_pc=0,
+        has_return_contract=False,
+        has_stop=False,
+        has_return=False,
+        referenced_subcontainers={},
+    )
+
+    validate_body(validator)
+
+    validate_eof_code(validator)
+
+    if validator.has_stop or validator.has_return:
+        raise InvalidEof("Init container has STOP/RETURN")
 
     return eof, data[container_size:]

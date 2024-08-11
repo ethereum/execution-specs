@@ -14,17 +14,11 @@ Implementation of the Ethereum Object Format (EOF) specification.
 
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from ethereum.base_types import Uint
 
-from . import (
-    EOF_MAGIC,
-    EOF_MAGIC_LENGTH,
-    MAX_CODE_SIZE,
-    EofMetadata,
-    EofVersion,
-)
+from . import EOF_MAGIC, EOF_MAGIC_LENGTH, MAX_CODE_SIZE, Eof, EofVersion
 from .eof1 import op_stack_items
 from .eof1.utils import metadata_from_container
 from .exceptions import InvalidEof
@@ -55,9 +49,29 @@ class InstructionMetadata:
     opcode: Ops
     pc_post_instruction: int
     relative_offsets: List[int]
-    target_section_index: Optional[Uint]
+    target_index: Optional[Uint]
     container_index: Optional[Uint]
     stack_height: Optional[OperandStackHeight]
+
+
+SectionMetadata = Dict[Uint, InstructionMetadata]
+
+
+@dataclass
+class Validator:
+    """
+    Validator for the Ethereum Object Format (EOF) container.
+    """
+
+    eof: Eof
+    sections: Dict[Uint, SectionMetadata]
+    current_index: Uint
+    current_code: bytes
+    current_pc: int
+    has_return_contract: bool
+    has_stop: bool
+    has_return: bool
+    referenced_subcontainers: Dict[Ops, List[Uint]]
 
 
 def map_int_to_op(opcode: int, eof_version: EofVersion) -> Ops:
@@ -89,20 +103,21 @@ def map_int_to_op(opcode: int, eof_version: EofVersion) -> Ops:
     return op
 
 
-def validate_body(eof_meta: EofMetadata) -> None:
+def validate_body(validator: Validator) -> None:
     """
     Validate the body of the EOF container.
 
     Parameters
     ----------
-    eof_meta : EofMetadata
-        The metadata of the EOF container.
+    validator : Validator
+        The validator for the EOF container.
 
     Raises
     ------
     InvalidEof
         If the EOF container is invalid.
     """
+    eof_meta = validator.eof.metadata
     for i, type_section in enumerate(eof_meta.type_section_contents):
         num_inputs = type_section[0]
         if num_inputs > 127:
@@ -122,221 +137,54 @@ def validate_body(eof_meta: EofMetadata) -> None:
             raise InvalidEof("Invalid input/output for first section")
 
 
-def analyse_code_section(
-    code: bytes,
-) -> Tuple[Dict[Uint, InstructionMetadata], bool, bool, bool]:
+def analyse_code_section(validator: Validator) -> None:
     """
     Analyse a code section of the EOF container.
 
     Parameters
     ----------
-    code : bytes
-        The code section to analyse.
-
-    Returns
-    -------
-    section_metadata: Dict[Uint, InstructionMetadata]
+    validator : Validator
+        The validator for the EOF container.
 
     Raises
     ------
     InvalidEof
         If the code section is invalid.
     """
-    has_return_contract = False
-    has_stop = False
-    has_return = False
-    counter = 0
-    section_metadata = {}
-    target_section_index = None
-    container_index = None
-    while counter < len(code):
-        position = Uint(counter)
+    # TODO: Move this import to the top
+    from .eof1.instructions_check import get_op_validation
+
+    while validator.current_pc < len(validator.current_code):
         try:
-            opcode = map_int_to_op(code[counter], EofVersion.EOF1)
+            opcode = map_int_to_op(
+                validator.current_code[validator.current_pc], EofVersion.EOF1
+            )
         except ValueError:
             raise InvalidEof("Invalid opcode in code section")
 
-        counter += 1
+        op_validation = get_op_validation(opcode)
 
-        if (
-            opcode.value >= Ops.PUSH1.value
-            and opcode.value <= Ops.PUSH32.value
-        ):
-            # Immediate Data Check
-            push_data_size = opcode.value - Ops.PUSH1.value + 1
-            if len(code) < counter + push_data_size:
-                raise InvalidEof("Push data missing")
-            counter += push_data_size
-
-            # Successor instruction positions
-            relative_offsets = [0]
-
-        elif opcode in (Ops.RJUMP, Ops.RJUMPI):
-            # Immediate Data Check
-            if len(code) < counter + 2:
-                raise InvalidEof("Relative jump offset missing")
-            relative_offset = int.from_bytes(
-                code[counter : counter + 2], "big", signed=True
-            )
-            counter += 2
-
-            # Successor instruction positions
-            if opcode == Ops.RJUMP:
-                relative_offsets = [relative_offset]
-            else:
-                relative_offsets = [0, relative_offset]
-
-        elif opcode == Ops.RJUMPV:
-            # Immediate Data Check
-            if len(code) < counter + 1:
-                raise InvalidEof("max_index missing for RJUMPV")
-            max_index = code[counter]
-            num_relative_indices = max_index + 1
-            counter += 1
-
-            # Successor instruction positions
-            relative_offsets = [0]
-            for _ in range(num_relative_indices):
-                if len(code) < counter + 2:
-                    raise InvalidEof("Relative jump indices missing")
-                relative_offset = int.from_bytes(
-                    code[counter : counter + 2],
-                    "big",
-                    signed=True,
-                )
-                counter += 2
-                relative_offsets += [relative_offset]
-
-        elif opcode == Ops.CALLF:
-            # Immediate Data Check
-            if len(code) < counter + 2:
-                raise InvalidEof("CALLF target code section index missing")
-            target_section_index = Uint.from_be_bytes(
-                code[counter : counter + 2],
-            )
-            counter += 2
-
-            # Successor instruction positions
-            relative_offsets = [0]
-
-        elif opcode == Ops.JUMPF:
-            # Immediate Data Check
-            if len(code) < counter + 2:
-                raise InvalidEof("JUMPF target code section index missing")
-            target_section_index = Uint.from_be_bytes(
-                code[counter : counter + 2],
-            )
-            counter += 2
-
-            # Successor instruction positions
-            relative_offsets = []
-        elif opcode == Ops.DATALOADN:
-            # Immediate Data Check
-            if len(code) < counter + 2:
-                raise InvalidEof("DATALOADN offset missing")
-            counter += 2
-
-            # Successor instruction positions
-            relative_offsets = [0]
-        elif opcode in (Ops.DUPN, Ops.SWAPN, Ops.EXCHANGE):
-            # Immediate Data Check
-            if len(code) < counter + 1:
-                raise InvalidEof("DUPN/SWAPN/EXCHANGE index missing")
-            counter += 1
-
-            # Successor instruction positions
-            relative_offsets = [0]
-
-        elif opcode == Ops.EOFCREATE:
-            # Immediate Data Check
-            if len(code) < counter + 1:
-                raise InvalidEof("EOFCREATE container index missing")
-            container_index = Uint.from_be_bytes(code[counter : counter + 1])
-            counter += 1
-
-            # Successor instruction positions
-            relative_offsets = [0]
-
-        elif opcode == Ops.RETURNCONTRACT:
-            # Immediate Data Check
-            if len(code) < counter + 1:
-                raise InvalidEof("RETURNCONTRACT container index missing")
-            container_index = Uint.from_be_bytes(code[counter : counter + 1])
-            counter += 1
-
-            # Successor instruction positions
-            relative_offsets = []
-
-            has_return_contract = True
-
-        elif opcode == Ops.STOP:
-            # Immediate Data Check
-            pass
-
-            # Successor instruction positions
-            relative_offsets = []
-
-            has_stop = True
-        elif opcode == Ops.RETURN:
-            # Immediate Data Check
-            pass
-
-            # Successor instruction positions
-            relative_offsets = []
-
-            has_return = True
-
-        elif opcode in EOF1_TERMINATING_INSTRUCTIONS:
-            # Immediate Data Check
-            pass
-
-            # Successor instruction positions
-            relative_offsets = []
-        else:
-            # Immediate Data Check
-            pass
-
-            # Successor instruction positions
-            relative_offsets = [0]
-
-        section_metadata[position] = InstructionMetadata(
-            opcode=opcode,
-            pc_post_instruction=counter,
-            relative_offsets=relative_offsets,
-            target_section_index=target_section_index,
-            container_index=container_index,
-            stack_height=None,
-        )
-
-    return section_metadata, has_return_contract, has_stop, has_return
+        op_validation(validator)
 
 
-def validate_code_section(
-    eof_meta: EofMetadata,
-    code_index: Uint,
-    section_metadata: Dict[Uint, InstructionMetadata],
-    referenced_subcontainers: Dict[Ops, List[Uint]],
-) -> None:
+def validate_code_section(validator: Validator) -> None:
     """
     Validate a code section of the EOF container.
 
     Parameters
     ----------
-    eof_meta : EofMetadata
-        The metadata of the EOF container.
-    code_index : Uint
-        The index of the code section.
-    section_metadata : Dict[Uint, InstructionMetadata]
-        The metadata of the code section.
-    referenced_subcontainers : Dict[Ops, List[Uint]]
-        The subcontainers referenced by the code section.
-        Particularly by the EOFCREATE/RETURNCONTRACT instructions.
+    validator : Validator
+        The validator for the EOF container.
 
     Raises
     ------
     InvalidEof
         If the code section is invalid.
     """
+    eof_meta = validator.eof.metadata
+    code_index = validator.current_index
+    section_metadata = validator.sections[code_index]
+    referenced_subcontainers = validator.referenced_subcontainers
     code = eof_meta.code_section_contents[code_index]
 
     valid_opcode_positions = list(section_metadata.keys())
@@ -372,13 +220,13 @@ def validate_code_section(
 
         # Opcode Specific Validity Checks
         if opcode == Ops.CALLF:
-            assert metadata.target_section_index is not None
+            assert metadata.target_index is not None
             # General Validity Check
-            if metadata.target_section_index >= eof_meta.num_code_sections:
+            if metadata.target_index >= eof_meta.num_code_sections:
                 raise InvalidEof("Invalid target code section index")
 
             target_section_type = eof_meta.type_section_contents[
-                metadata.target_section_index
+                metadata.target_index
             ]
             target_inputs = target_section_type[0]
             target_outputs = target_section_type[1]
@@ -404,14 +252,14 @@ def validate_code_section(
             current_stack_height.max += increment
 
         if opcode == Ops.JUMPF:
-            assert metadata.target_section_index is not None
+            assert metadata.target_index is not None
             # General Validity Check
-            if metadata.target_section_index >= eof_meta.num_code_sections:
+            if metadata.target_index >= eof_meta.num_code_sections:
                 raise InvalidEof("Invalid target code section index")
 
             current_section_type = eof_meta.type_section_contents[code_index]
             target_section_type = eof_meta.type_section_contents[
-                metadata.target_section_index
+                metadata.target_index
             ]
 
             current_outputs = current_section_type[1]
@@ -674,49 +522,45 @@ def validate_code_section(
         raise InvalidEof("Invalid stack height")
 
 
-def validate_eof_code(eof_meta: EofMetadata) -> Tuple[bool, bool, bool]:
+def validate_eof_code(validator: Validator) -> None:
     """
     Validate the code section of the EOF container.
 
     Parameters
     ----------
-    eof_meta : EofMetadata
-        The metadata of the EOF container.
+    validator : Validator
+        The validator for the EOF container.
 
     Raises
     ------
     InvalidEof
         If the code section is invalid.
     """
-    referenced_subcontainers: Dict[Ops, List[Uint]] = {
+    eof_meta = validator.eof.metadata
+    validator.referenced_subcontainers = {
         Ops.EOFCREATE: [],
         Ops.RETURNCONTRACT: [],
     }
-    has_return_contract, has_stop, has_return = False, False, False
     for code_index, code in enumerate(eof_meta.code_section_contents):
-        (
-            section_metadata,
-            has_return_contract,
-            has_stop,
-            has_return,
-        ) = analyse_code_section(code)
-        has_return_contract = has_return_contract or has_return_contract
-        has_stop = has_stop or has_stop
-        has_return = has_return or has_return
+        validator.current_index = Uint(code_index)
+        validator.current_code = code
+        validator.current_pc = 0
+        # TODO: Update in functions
+        validator.sections[validator.current_index] = {}
+        analyse_code_section(validator)
 
-        validate_code_section(
-            eof_meta,
-            Uint(code_index),
-            section_metadata,
-            referenced_subcontainers,
-        )
+        validate_code_section(validator)
 
-    if has_return_contract and (has_return or has_stop):
+    if validator.has_return_contract and (
+        validator.has_return or validator.has_stop
+    ):
         raise InvalidEof("Container has both RETURNCONTRACT and STOP/RETURN")
 
     if eof_meta.num_container_sections > 0:
-        eofcreate_references = referenced_subcontainers[Ops.EOFCREATE]
-        returncontract_references = referenced_subcontainers[
+        eofcreate_references = validator.referenced_subcontainers[
+            Ops.EOFCREATE
+        ]
+        returncontract_references = validator.referenced_subcontainers[
             Ops.RETURNCONTRACT
         ]
         for index in range(len(eof_meta.container_section_contents)):
@@ -732,33 +576,28 @@ def validate_eof_code(eof_meta: EofMetadata) -> Tuple[bool, bool, bool]:
                 and index not in returncontract_references
             ):
                 raise InvalidEof("Container never referenced")
-            (
-                subcontainer_has_return_contract,
-                subcontainer_has_stop,
-                sub_container_has_return,
-            ) = validate_eof_container(
+
+            sub_validator = validate_eof_container(
                 eof_meta.container_section_contents[index], False
             )
             if index in eofcreate_references and (
-                subcontainer_has_stop or sub_container_has_return
+                sub_validator.has_stop or sub_validator.has_return
             ):
                 raise InvalidEof(
                     "Container referenced by EOFCREATE has STOP or RETURN"
                 )
             if (
                 index in returncontract_references
-                and subcontainer_has_return_contract
+                and sub_validator.has_return_contract
             ):
                 raise InvalidEof(
                     "Container referenced by RETURNCONTRACT has RETURNCONTRACT"
                 )
 
-    return has_return_contract, has_stop, has_return
-
 
 def validate_eof_container(
     container: bytes, is_init_container: bool
-) -> Tuple[bool, bool, bool]:
+) -> Validator:
     """
     Validate the Ethereum Object Format (EOF) container.
 
@@ -790,18 +629,38 @@ def validate_eof_container(
     if len(container) > 2 * MAX_CODE_SIZE:
         raise InvalidEof("EOF container size too long")
 
-    eof_metadata = metadata_from_container(
+    metadata = metadata_from_container(
         container,
         validate=True,
         is_deploy_container=False,
         is_init_container=is_init_container,
     )
 
-    validate_body(eof_metadata)
+    eof = Eof(
+        version=EofVersion.EOF1,
+        container=container,
+        metadata=metadata,
+        is_deploy_container=False,
+        is_init_container=is_init_container,
+    )
 
-    has_return_contract, has_stop, has_return = validate_eof_code(eof_metadata)
+    validator = Validator(
+        eof=eof,
+        current_index=Uint(0),
+        current_code=metadata.code_section_contents[0],
+        current_pc=0,
+        sections={},
+        has_return_contract=False,
+        has_stop=False,
+        has_return=False,
+        referenced_subcontainers={Ops.EOFCREATE: [], Ops.RETURNCONTRACT: []},
+    )
 
-    if is_init_container and (has_stop or has_return):
+    validate_body(validator)
+
+    validate_eof_code(validator)
+
+    if is_init_container and (validator.has_stop or validator.has_return):
         raise InvalidEof("Init container has STOP/RETURN")
 
-    return has_return_contract, has_stop, has_return
+    return validator
