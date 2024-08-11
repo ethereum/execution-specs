@@ -46,13 +46,19 @@ from ..vm import Message
 from ..vm.eoa_delegation import set_delegation
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import MAX_CODE_SIZE, Environment, Eof, Evm, Message, get_eof_version
-from .eof import map_int_to_op, metadata_from_container
+from . import (
+    MAX_CODE_SIZE,
+    Environment,
+    EofVersion,
+    Evm,
+    Message,
+    get_eof_version,
+)
+from .eof import map_int_to_op
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
     InvalidContractPrefix,
-    InvalidEof,
     InvalidOpcode,
     OutOfGasError,
     Revert,
@@ -200,15 +206,13 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
         try:
             if len(contract_code) > 0:
+                eof_version = get_eof_version(contract_code)
                 if (
-                    get_eof_version(contract_code) == Eof.LEGACY
+                    eof_version == EofVersion.LEGACY
                     and contract_code[0] == 0xEF
                 ):
                     raise InvalidContractPrefix
-                if (
-                    evm.eof_version == Eof.LEGACY
-                    and get_eof_version(contract_code) == Eof.EOF1
-                ):
+                if evm.eof is None and eof_version == EofVersion.EOF1:
                     raise ExceptionalHalt(
                         "Cannot deploy EOF1 from legacy init code"
                     )
@@ -283,31 +287,16 @@ def execute_code(message: Message, env: Environment) -> Evm:
     evm: `ethereum.vm.EVM`
         Items containing execution specific objects
     """
-    # TODO: Get eof_metadata from message
-    code_or_container = message.code
-
-    eof_version = get_eof_version(code_or_container)
-
-    if eof_version == Eof.EOF1:
-        assert message.is_init_container is not None
-        container = code_or_container
-        eof_metadata = metadata_from_container(
-            code_or_container,
-            validate=False,
-            is_deploy_container=False,
-            is_init_container=message.is_init_container,
-        )
-        code = eof_metadata.code_section_contents[0]
+    if message.eof is not None:
+        version = message.eof.version
+        eof = message.eof
+        code = eof.metadata.code_section_contents[0]
         valid_jump_destinations = set()
-    elif eof_version == Eof.LEGACY:
-        container = None
-        eof_metadata = None
-        code = code_or_container
-        valid_jump_destinations = get_valid_jump_destinations(
-            code_or_container
-        )
     else:
-        raise InvalidEof
+        version = EofVersion.LEGACY
+        eof = None
+        code = message.code
+        valid_jump_destinations = get_valid_jump_destinations(code)
 
     evm = Evm(
         pc=Uint(0),
@@ -328,9 +317,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         error=None,
         accessed_addresses=message.accessed_addresses,
         accessed_storage_keys=message.accessed_storage_keys,
-        eof_version=eof_version,
-        eof_container=container,
-        eof_metadata=eof_metadata,
+        eof=eof,
         current_section_index=Uint(0),
         return_stack=[],
         deploy_container=None,
@@ -344,7 +331,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
 
         while evm.running and evm.pc < len(evm.code):
             try:
-                op = map_int_to_op(evm.code[evm.pc], evm.eof_version)
+                op = map_int_to_op(evm.code[evm.pc], version)
             except ValueError:
                 raise InvalidOpcode(evm.code[evm.pc])
 

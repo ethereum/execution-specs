@@ -21,7 +21,7 @@ from ...state import get_account
 from ...utils.address import to_address
 from ...vm.eoa_delegation import access_delegation
 from ...vm.memory import buffer_read, memory_write
-from .. import Eof, Evm, get_eof_version
+from .. import EofVersion, Evm, get_eof_version
 from ..exceptions import OutOfBoundsRead
 from ..gas import (
     GAS_BASE,
@@ -358,7 +358,7 @@ def extcodesize(evm: Evm) -> None:
     # Non-existent accounts default to EMPTY_ACCOUNT, which has empty code.
     code = get_account(evm.env.state, address).code
     target_eof_version = get_eof_version(code)
-    if target_eof_version == Eof.EOF1:
+    if target_eof_version == EofVersion.EOF1:
         codesize = U256(2)
     else:
         codesize = U256(len(code))
@@ -406,7 +406,7 @@ def extcodecopy(evm: Evm) -> None:
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
     eof_version = get_eof_version(code)
-    if eof_version == Eof.EOF1:
+    if eof_version == EofVersion.EOF1:
         value = b"\xEF\x00"
     else:
         value = buffer_read(code, code_start_index, size)
@@ -459,9 +459,9 @@ def returndatacopy(evm: Evm) -> None:
         evm.memory, [(memory_start_index, size)]
     )
     charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
-    if evm.eof_version == Eof.LEGACY and Uint(
-        return_data_start_position
-    ) + Uint(size) > len(evm.return_data):
+    if evm.eof is None and Uint(return_data_start_position) + Uint(size) > len(
+        evm.return_data
+    ):
         raise OutOfBoundsRead
 
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -501,7 +501,7 @@ def extcodehash(evm: Evm) -> None:
     account = get_account(evm.env.state, address)
     if account == EMPTY_ACCOUNT:
         codehash = U256(0)
-    elif get_eof_version(account.code) == Eof.EOF1:
+    elif get_eof_version(account.code) == EofVersion.EOF1:
         codehash = U256.from_be_bytes(keccak256(b"\xEF\x00"))
     else:
         codehash = U256.from_be_bytes(keccak256(code))
@@ -651,9 +651,9 @@ def dataload(evm: Evm) -> None:
     charge_gas(evm, GAS_DATALOAD)
 
     # OPERATION
-    assert evm.eof_metadata is not None
+    assert evm.eof is not None
     value = U256.from_be_bytes(
-        buffer_read(evm.eof_metadata.data_section_contents, offset, U256(32))
+        buffer_read(evm.eof.metadata.data_section_contents, offset, U256(32))
     )
     push(evm.stack, value)
 
@@ -678,10 +678,10 @@ def dataload_n(evm: Evm) -> None:
     charge_gas(evm, GAS_DATALOADN)
 
     # OPERATION
-    assert evm.eof_metadata is not None
+    assert evm.eof is not None
     offset = U256.from_be_bytes(evm.code[evm.pc + 1 : evm.pc + 3])
     value = U256.from_be_bytes(
-        buffer_read(evm.eof_metadata.data_section_contents, offset, U256(32))
+        buffer_read(evm.eof.metadata.data_section_contents, offset, U256(32))
     )
     push(evm.stack, value)
 
@@ -706,8 +706,8 @@ def datasize(evm: Evm) -> None:
     charge_gas(evm, GAS_DATASIZE)
 
     # OPERATION
-    assert evm.eof_metadata is not None
-    push(evm.stack, U256(len(evm.eof_metadata.data_section_contents)))
+    assert evm.eof is not None
+    push(evm.stack, U256(len(evm.eof.metadata.data_section_contents)))
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -735,9 +735,9 @@ def datacopy(evm: Evm) -> None:
     charge_gas(evm, copy_gas_cost + extend_memory.cost)
 
     # OPERATION
-    assert evm.eof_metadata is not None
+    assert evm.eof is not None
     evm.memory += b"\x00" * extend_memory.expand_by
-    value = buffer_read(evm.eof_metadata.data_section_contents, offset, size)
+    value = buffer_read(evm.eof.metadata.data_section_contents, offset, size)
     memory_write(evm.memory, memory_start_index, value)
 
     # PROGRAM COUNTER

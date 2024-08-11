@@ -35,12 +35,14 @@ from ...vm.eoa_delegation import access_delegation
 from .. import (
     MAX_CODE_SIZE,
     Eof,
+    EofVersion,
     Evm,
     Message,
     get_eof_version,
     incorporate_child_on_error,
     incorporate_child_on_success,
 )
+from ..eof1.utils import metadata_from_container
 from ..exceptions import (
     ExceptionalHalt,
     OutOfGasError,
@@ -107,7 +109,7 @@ def generic_create(
         sender.balance < endowment
         or sender.nonce == Uint(2**64 - 1)
         or evm.message.depth + 1 > STACK_DEPTH_LIMIT
-        or get_eof_version(call_data) == Eof.EOF1
+        or get_eof_version(call_data) == EofVersion.EOF1
     ):
         evm.gas_left += create_message_gas
         push(evm.stack, U256(0))
@@ -138,7 +140,7 @@ def generic_create(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         parent_evm=evm,
         authorizations=(),
-        is_init_container=None,
+        eof=None,
     )
     child_evm = process_create_message(child_message, evm.env)
 
@@ -315,10 +317,26 @@ def generic_call(
         evm.gas_left += gas
         push(evm.stack, U256(1))
         return
-    if get_eof_version(code) == Eof.LEGACY:
+    eof_version = get_eof_version(code)
+    if eof_version == Eof.LEGACY:
         is_init_container = None
     else:
         is_init_container = False
+        is_deploy_container = False
+        metadata = metadata_from_container(
+            code,
+            validate=False,
+            is_init_container=is_init_container,
+            is_deploy_container=is_deploy_container,
+        )
+        eof = Eof(
+            version=eof_version,
+            container=code,
+            metadata=metadata,
+            is_init_container=is_init_container,
+            is_deploy_container=is_deploy_container,
+        )
+
     child_message = Message(
         caller=caller,
         target=to,
@@ -335,7 +353,7 @@ def generic_call(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         parent_evm=evm,
         authorizations=(),
-        is_init_container=is_init_container,
+        eof=eof,
     )
     child_evm = process_message(child_message, evm.env)
 
@@ -843,6 +861,26 @@ def ext_call(evm: Evm) -> None:
 
     container = get_account(evm.env.state, target_address).code
 
+    eof_version = get_eof_version(container)
+    if eof_version == EofVersion.LEGACY:
+        eof = None
+    else:
+        is_init_container = False
+        is_deploy_container = False
+        metadata = metadata_from_container(
+            container,
+            validate=False,
+            is_init_container=is_init_container,
+            is_deploy_container=is_deploy_container,
+        )
+        eof = Eof(
+            version=eof_version,
+            container=container,
+            metadata=metadata,
+            is_init_container=is_init_container,
+            is_deploy_container=is_deploy_container,
+        )
+
     if (
         message_call_gas < EOF_CALL_MIN_CALLEE_GAS
         or sender_balance < value
@@ -858,6 +896,7 @@ def ext_call(evm: Evm) -> None:
             gas=Uint(message_call_gas),
             value=value,
             data=call_data,
+            # TODO: leave blank for legacy
             code=container,
             current_target=target_address,
             depth=evm.message.depth + 1,
@@ -867,7 +906,7 @@ def ext_call(evm: Evm) -> None:
             accessed_addresses=evm.accessed_addresses.copy(),
             accessed_storage_keys=evm.accessed_storage_keys.copy(),
             parent_evm=evm,
-            is_init_container=False,
+            eof=eof,
         )
         child_evm = process_message(child_message, evm.env)
 
@@ -936,11 +975,31 @@ def ext_delegatecall(evm: Evm) -> None:
     if (
         message_call_gas < EOF_CALL_MIN_CALLEE_GAS
         or evm.message.depth + 1 > STACK_DEPTH_LIMIT
-        or get_eof_version(container) == Eof.LEGACY
+        or get_eof_version(container) == EofVersion.LEGACY
     ):
         push(evm.stack, U256(1))
     else:
         evm.gas_left -= message_call_gas
+
+        eof_version = get_eof_version(container)
+        if eof_version == EofVersion.LEGACY:
+            eof = None
+        else:
+            is_init_container = False
+            is_deploy_container = False
+            metadata = metadata_from_container(
+                container,
+                validate=False,
+                is_init_container=is_init_container,
+                is_deploy_container=is_deploy_container,
+            )
+            eof = Eof(
+                version=eof_version,
+                container=container,
+                metadata=metadata,
+                is_init_container=is_init_container,
+                is_deploy_container=is_deploy_container,
+            )
 
         child_message = Message(
             caller=evm.message.caller,
@@ -957,7 +1016,7 @@ def ext_delegatecall(evm: Evm) -> None:
             accessed_addresses=evm.accessed_addresses.copy(),
             accessed_storage_keys=evm.accessed_storage_keys.copy(),
             parent_evm=evm,
-            is_init_container=False,
+            eof=eof,
         )
         child_evm = process_message(child_message, evm.env)
 
@@ -1030,6 +1089,26 @@ def ext_staticcall(evm: Evm) -> None:
     else:
         evm.gas_left -= message_call_gas
 
+        eof_version = get_eof_version(container)
+        if eof_version == EofVersion.LEGACY:
+            eof = None
+        else:
+            is_init_container = False
+            is_deploy_container = False
+            metadata = metadata_from_container(
+                container,
+                validate=False,
+                is_init_container=is_init_container,
+                is_deploy_container=is_deploy_container,
+            )
+            eof = Eof(
+                version=eof_version,
+                container=container,
+                metadata=metadata,
+                is_init_container=is_init_container,
+                is_deploy_container=is_deploy_container,
+            )
+
         child_message = Message(
             caller=evm.message.current_target,
             target=target_address,
@@ -1045,7 +1124,7 @@ def ext_staticcall(evm: Evm) -> None:
             accessed_addresses=evm.accessed_addresses.copy(),
             accessed_storage_keys=evm.accessed_storage_keys.copy(),
             parent_evm=evm,
-            is_init_container=False,
+            eof=eof,
         )
         child_evm = process_message(child_message, evm.env)
 
@@ -1076,9 +1155,7 @@ def eof_create(evm: Evm) -> None:
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
 
-    assert evm.eof_version is not None
-    assert evm.eof_container is not None
-    assert evm.eof_metadata is not None
+    assert evm.eof is not None
 
     # STACK
     value = pop(evm.stack)
@@ -1093,10 +1170,10 @@ def eof_create(evm: Evm) -> None:
     extend_memory = calculate_gas_extend_memory(
         evm.memory, [(input_offset, input_size)]
     )
-    init_container = evm.eof_metadata.container_section_contents[
+    init_container = evm.eof.metadata.container_section_contents[
         init_container_index
     ]
-    init_container_size = evm.eof_metadata.container_sizes[
+    init_container_size = evm.eof.metadata.container_sizes[
         init_container_index
     ]
     init_code_gas = GAS_KECCAK256_WORD * ceil32(init_container_size) // 32
@@ -1134,6 +1211,22 @@ def eof_create(evm: Evm) -> None:
 
         increment_nonce(evm.env.state, evm.message.current_target)
 
+        is_init_container = True
+        is_deploy_container = False
+        metadata = metadata_from_container(
+            init_container,
+            validate=True,
+            is_deploy_container=is_deploy_container,
+            is_init_container=is_init_container,
+        )
+        eof = Eof(
+            version=get_eof_version(init_container),
+            container=init_container,
+            metadata=metadata,
+            is_init_container=True,
+            is_deploy_container=False,
+        )
+
         child_message = Message(
             caller=evm.message.current_target,
             target=Bytes0(),
@@ -1149,7 +1242,7 @@ def eof_create(evm: Evm) -> None:
             accessed_addresses=evm.accessed_addresses.copy(),
             accessed_storage_keys=evm.accessed_storage_keys.copy(),
             parent_evm=evm,
-            is_init_container=True,
+            eof=eof,
         )
         child_evm = process_create_message(child_message, evm.env)
 
@@ -1179,9 +1272,7 @@ def return_contract(evm: Evm) -> None:
     """
     from ..eof1.utils import container_from_metadata, metadata_from_container
 
-    assert evm.eof_version is not None
-    assert evm.eof_container is not None
-    assert evm.eof_metadata is not None
+    assert evm.eof is not None
 
     # STACK
     aux_data_offset = pop(evm.stack)
@@ -1198,7 +1289,7 @@ def return_contract(evm: Evm) -> None:
     deploy_container_index = Uint.from_be_bytes(
         evm.code[evm.pc + 1 : evm.pc + 2]
     )
-    deploy_container = evm.eof_metadata.container_section_contents[
+    deploy_container = evm.eof.metadata.container_section_contents[
         deploy_container_index
     ]
     deploy_container_metadata = metadata_from_container(

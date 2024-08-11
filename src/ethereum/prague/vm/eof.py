@@ -18,7 +18,13 @@ from typing import Dict, List, Optional, Tuple
 
 from ethereum.base_types import Uint
 
-from . import EOF_MAGIC, EOF_MAGIC_LENGTH, MAX_CODE_SIZE, Eof, EofMetadata
+from . import (
+    EOF_MAGIC,
+    EOF_MAGIC_LENGTH,
+    MAX_CODE_SIZE,
+    EofMetadata,
+    EofVersion,
+)
 from .eof1 import op_stack_items
 from .eof1.utils import metadata_from_container
 from .exceptions import InvalidEof
@@ -54,7 +60,7 @@ class InstructionMetadata:
     stack_height: Optional[OperandStackHeight]
 
 
-def map_int_to_op(opcode: int, eof: Eof) -> Ops:
+def map_int_to_op(opcode: int, eof_version: EofVersion) -> Ops:
     """
     Get the opcode enum from the opcode value.
 
@@ -62,7 +68,7 @@ def map_int_to_op(opcode: int, eof: Eof) -> Ops:
     ----------
     opcode : `int`
         The opcode value.
-    eof : `Eof`
+    eof_version : `EofVersion`
         The version of the EOF.
 
     Returns
@@ -75,9 +81,9 @@ def map_int_to_op(opcode: int, eof: Eof) -> Ops:
     except ValueError as e:
         raise ValueError(f"Invalid opcode: {opcode}") from e
 
-    if eof == Eof.LEGACY and op in OPCODES_INVALID_IN_LEGACY:
+    if eof_version == EofVersion.LEGACY and op in OPCODES_INVALID_IN_LEGACY:
         raise ValueError(f"Invalid legacy opcode: {op}")
-    elif eof == Eof.EOF1 and op in OPCODES_INVALID_IN_EOF1:
+    elif eof_version == EofVersion.EOF1 and op in OPCODES_INVALID_IN_EOF1:
         raise ValueError(f"Invalid eof1 opcode: {op}")
 
     return op
@@ -146,7 +152,7 @@ def analyse_code_section(
     while counter < len(code):
         position = Uint(counter)
         try:
-            opcode = map_int_to_op(code[counter], Eof.EOF1)
+            opcode = map_int_to_op(code[counter], EofVersion.EOF1)
         except ValueError:
             raise InvalidEof("Invalid opcode in code section")
 

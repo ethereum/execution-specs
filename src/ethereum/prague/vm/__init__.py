@@ -35,7 +35,7 @@ EOF_MAGIC_LENGTH = len(EOF_MAGIC)
 MAX_CODE_SIZE = 0x6000
 
 
-class Eof(enum.Enum):
+class EofVersion(enum.Enum):
     """
     Enumeration of the different kinds of EOF containers.
     Legacy code is assigned zero.
@@ -63,6 +63,19 @@ class EofMetadata:
     code_section_contents: List[bytes]
     container_section_contents: List[bytes]
     data_section_contents: bytes
+
+
+@dataclass
+class Eof:
+    """
+    Dataclass to hold the EOF container information.
+    """
+
+    version: EofVersion
+    container: Bytes
+    metadata: EofMetadata
+    is_deploy_container: bool
+    is_init_container: bool
 
 
 @dataclass
@@ -130,7 +143,7 @@ class Message:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     parent_evm: Optional["Evm"]
     authorizations: Tuple[Authorization, ...]
-    is_init_container: Optional[bool]
+    eof: Optional[Eof]
 
 
 @dataclass
@@ -155,9 +168,7 @@ class Evm:
     error: Optional[Exception]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
-    eof_version: Eof
-    eof_container: Optional[Bytes]
-    eof_metadata: Optional[EofMetadata]
+    eof: Optional[Eof]
     current_section_index: Uint
     return_stack: List[ReturnStackItem]
     deploy_container: Optional[Bytes]
@@ -215,7 +226,7 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
     evm.gas_left += child_evm.gas_left
 
 
-def get_eof_version(code: bytes) -> Eof:
+def get_eof_version(code: bytes) -> EofVersion:
     """
     Get the Eof container's version.
 
@@ -230,9 +241,9 @@ def get_eof_version(code: bytes) -> Eof:
         Eof Version of the container.
     """
     if not code.startswith(EOF_MAGIC):
-        return Eof.LEGACY
+        return EofVersion.LEGACY
 
     if code[EOF_MAGIC_LENGTH] == 1:
-        return Eof.EOF1
+        return EofVersion.EOF1
     else:
         raise InvalidEof("Invalid EOF version")

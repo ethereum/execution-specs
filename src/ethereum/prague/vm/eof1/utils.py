@@ -5,7 +5,7 @@ from typing import Tuple
 
 from ethereum.base_types import Uint
 
-from .. import EOF_MAGIC, EofMetadata
+from .. import EOF_MAGIC, Eof, EofMetadata, EofVersion
 from ..exceptions import InvalidEof
 
 
@@ -273,7 +273,7 @@ def container_from_metadata(eof_metadata: EofMetadata) -> bytes:
     return container
 
 
-def parse_create_tx_call_data(data: bytes) -> Tuple[bytes, bytes]:
+def parse_create_tx_call_data(data: bytes) -> Tuple[Eof, bytes]:
     """
     Parse the data for a create transaction.
 
@@ -311,4 +311,12 @@ def parse_create_tx_call_data(data: bytes) -> Tuple[bytes, bytes]:
         + eof_metadata.data_size
     )
 
-    return data[:container_size], data[container_size:]
+    eof = Eof(
+        version=EofVersion.EOF1,
+        container=data[:container_size],
+        metadata=eof_metadata,
+        is_deploy_container=False,
+        is_init_container=True,
+    )
+
+    return eof, data[container_size:]

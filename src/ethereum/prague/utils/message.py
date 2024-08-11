@@ -18,8 +18,8 @@ from ethereum.base_types import U256, Bytes, Bytes0, Bytes32, Uint
 
 from ..fork_types import Address, Authorization
 from ..state import get_account
-from ..vm import Environment, Eof, Message, get_eof_version
-from ..vm.eof1.utils import parse_create_tx_call_data
+from ..vm import Environment, Eof, EofVersion, Message, get_eof_version
+from ..vm.eof1.utils import metadata_from_container, parse_create_tx_call_data
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .address import compute_contract_address_1
 
@@ -84,13 +84,13 @@ def prepare_message(
             caller,
             get_account(env.state, caller).nonce - U256(1),
         )
-        if get_eof_version(data) == Eof.LEGACY:
+        if get_eof_version(data) == EofVersion.LEGACY:
             msg_data = Bytes(b"")
             code = data
-            is_init_container = None
+            eof = None
         else:
-            is_init_container = True
-            code, msg_data = parse_create_tx_call_data(data)
+            eof, msg_data = parse_create_tx_call_data(data)
+            code = eof.container
     elif isinstance(target, Address):
         current_target = target
         msg_data = data
@@ -98,10 +98,22 @@ def prepare_message(
         if code_address is None:
             code_address = target
 
-        if get_eof_version(code) == Eof.LEGACY:
-            is_init_container = None
+        if get_eof_version(code) == EofVersion.LEGACY:
+            eof = None
         else:
-            is_init_container = False
+            metadata = metadata_from_container(
+                code,
+                validate=False,
+                is_deploy_container=False,
+                is_init_container=False,
+            )
+            eof = Eof(
+                version=get_eof_version(code),
+                container=code,
+                metadata=metadata,
+                is_init_container=False,
+                is_deploy_container=False,
+            )
     else:
         raise AssertionError("Target must be address or empty bytes")
 
@@ -127,5 +139,5 @@ def prepare_message(
         accessed_storage_keys=set(preaccessed_storage_keys),
         parent_evm=None,
         authorizations=authorizations,
-        is_init_container=is_init_container,
+        eof=eof,
     )
