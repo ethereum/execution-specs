@@ -70,7 +70,7 @@ def download_and_extract(url: str, base_directory: Path) -> Path:
     with tarfile.open(archive_path, "r:gz") as tar:
         tar.extractall(path=extract_to)
 
-    return extract_to
+    return extract_to / "fixtures"
 
 
 def pytest_addoption(parser):  # noqa: D103
@@ -85,6 +85,15 @@ def pytest_addoption(parser):  # noqa: D103
         help=(
             "A URL or local directory specifying the JSON test fixtures. Default: "
             f"'{default_input_directory()}'."
+        ),
+    )
+    consume_group.addoption(
+        "--latest",
+        action="store_true",
+        dest="latest_source",
+        default=False,
+        help=(
+            "The latest EEST development JSON test fixtures. Cannot be used alongside `--input`."
         ),
     )
     consume_group.addoption(
@@ -123,10 +132,21 @@ def pytest_configure(config):  # noqa: D103
     called before the pytest-html plugin's pytest_configure to ensure that
     it uses the modified `htmlpath` option.
     """
+    input_flag = any(arg.startswith("--input") for arg in config.invocation_params.args)
+    latest_flag = config.getoption("latest_source")
+
+    if input_flag and latest_flag:
+        pytest.exit("Cannot use both `--input` and `--latest`, please select one input flag.")
+
     input_source = config.getoption("fixture_source")
-    if input_source == "stdin":
+
+    if input_flag and input_source == "stdin":
         config.test_cases = TestCases.from_stream(sys.stdin)
         return
+
+    if latest_flag:
+        release_base_url = "https://github.com/ethereum/execution-spec-tests/releases"
+        input_source = f"{release_base_url}/latest/download/fixtures_develop.tar.gz"
 
     if is_url(input_source):
         cached_downloads_directory.mkdir(parents=True, exist_ok=True)
@@ -144,9 +164,9 @@ def pytest_configure(config):  # noqa: D103
     index_file = input_source / ".meta" / "index.json"
     if not index_file.exists():
         rich.print(f"Generating index file [bold cyan]{index_file}[/]...")
-    generate_fixtures_index(
-        input_source, quiet_mode=False, force_flag=False, disable_infer_format=False
-    )
+        generate_fixtures_index(
+            input_source, quiet_mode=False, force_flag=False, disable_infer_format=False
+        )
     config.test_cases = TestCases.from_index_file(index_file)
 
     if config.option.collectonly:

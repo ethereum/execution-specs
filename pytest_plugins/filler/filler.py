@@ -691,7 +691,7 @@ def fixture_collector(
                 f.write(str(fixture_collector_count))
     if generate_index and fixture_collector_count == 0:
         generate_fixtures_index(
-            output_dir, quiet_mode=True, force_flag=True, disable_infer_format=False
+            output_dir, quiet_mode=True, force_flag=False, disable_infer_format=False
         )
 
 

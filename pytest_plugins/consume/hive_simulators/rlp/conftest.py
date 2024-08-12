@@ -22,7 +22,7 @@ def test_suite_name() -> str:
     """
     The name of the hive test suite used in this simulator.
     """
-    return "eest-rlp"
+    return "eest-block-rlp"
 
 
 @pytest.fixture(scope="module")
