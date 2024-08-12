@@ -317,11 +317,12 @@ def parse_create_tx_call_data(data: bytes) -> Tuple[Eof, bytes]:
         sections={},
         current_index=Uint(0),
         current_code=eof.metadata.code_section_contents[0],
-        current_pc=0,
+        current_pc=Uint(0),
         has_return_contract=False,
         has_stop=False,
         has_return=False,
         referenced_subcontainers={},
+        current_stack_height=None,
     )
 
     validate_body(validator)

@@ -423,6 +423,8 @@ def validate_eofcreate(validator: Validator) -> None:
     if len(code) < counter + 1:
         raise InvalidEof("EOFCREATE index missing")
     container_index = Uint.from_be_bytes(code[counter : counter + 1])
+    if container_index >= validator.eof.metadata.num_container_sections:
+        raise InvalidEof("Invalid EOFCREATE index")
     counter += 1
 
     # Successor instruction positions
@@ -430,6 +432,7 @@ def validate_eofcreate(validator: Validator) -> None:
 
     # Update Instruction Metadata
     validator.current_pc = counter
+    validator.referenced_subcontainers[Ops.EOFCREATE].append(container_index)
     current_metadata[position] = InstructionMetadata(
         opcode=Ops.EOFCREATE,
         pc_post_instruction=validator.current_pc,
@@ -458,6 +461,8 @@ def validate_returncontract(validator: Validator) -> None:
     if len(code) < counter + 1:
         raise InvalidEof("RETURNCONTRACT index missing")
     container_index = Uint.from_be_bytes(code[counter : counter + 1])
+    if container_index >= validator.eof.metadata.num_container_sections:
+        raise InvalidEof("Invalid RETURNCONTRACT index")
     counter += 1
 
     # Successor instruction positions
@@ -466,6 +471,9 @@ def validate_returncontract(validator: Validator) -> None:
     # Update Instruction Metadata
     validator.has_return_contract = True
     validator.current_pc = counter
+    validator.referenced_subcontainers[Ops.RETURNCONTRACT].append(
+        container_index
+    )
     current_metadata[position] = InstructionMetadata(
         opcode=Ops.RETURNCONTRACT,
         pc_post_instruction=validator.current_pc,

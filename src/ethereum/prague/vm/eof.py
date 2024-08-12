@@ -19,7 +19,6 @@ from typing import Dict, List, Optional
 from ethereum.base_types import Uint
 
 from . import EOF_MAGIC, EOF_MAGIC_LENGTH, MAX_CODE_SIZE, Eof, EofVersion
-from .eof1 import op_stack_items
 from .eof1.utils import metadata_from_container
 from .exceptions import InvalidEof
 from .instructions import (
@@ -47,7 +46,7 @@ class InstructionMetadata:
     """
 
     opcode: Ops
-    pc_post_instruction: int
+    pc_post_instruction: Uint
     relative_offsets: List[int]
     target_index: Optional[Uint]
     container_index: Optional[Uint]
@@ -67,11 +66,12 @@ class Validator:
     sections: Dict[Uint, SectionMetadata]
     current_index: Uint
     current_code: bytes
-    current_pc: int
+    current_pc: Uint
     has_return_contract: bool
     has_stop: bool
     has_return: bool
     referenced_subcontainers: Dict[Ops, List[Uint]]
+    current_stack_height: Optional[OperandStackHeight]
 
 
 def map_int_to_op(opcode: int, eof_version: EofVersion) -> Ops:
@@ -137,34 +137,64 @@ def validate_body(validator: Validator) -> None:
             raise InvalidEof("Invalid input/output for first section")
 
 
-def analyse_code_section(validator: Validator) -> None:
+def update_successor_stack_height(validator: Validator) -> None:
     """
-    Analyse a code section of the EOF container.
+    Update the stack height after instruction execution.
 
     Parameters
     ----------
-    validator : Validator
-        The validator for the EOF container.
-
-    Raises
-    ------
-    InvalidEof
-        If the code section is invalid.
+    validator : `Validator`
+        The validator object.
     """
-    # TODO: Move this import to the top
-    from .eof1.instructions_check import get_op_validation
+    index = validator.current_index
+    section_metadata = validator.sections[index]
+    code = validator.eof.metadata.code_section_contents[index]
+    op_metadata = section_metadata[validator.current_pc]
+    valid_opcode_positions = list(section_metadata.keys())
+    current_stack_height = validator.current_stack_height
+    assert current_stack_height is not None
 
-    while validator.current_pc < len(validator.current_code):
-        try:
-            opcode = map_int_to_op(
-                validator.current_code[validator.current_pc], EofVersion.EOF1
-            )
-        except ValueError:
-            raise InvalidEof("Invalid opcode in code section")
+    # Update the stack height for Successor instructions
+    for relative_offset in op_metadata.relative_offsets:
+        if int(op_metadata.pc_post_instruction) + relative_offset < 0:
+            raise InvalidEof("Invalid successor or jump destination")
 
-        op_validation = get_op_validation(opcode)
+        successor_position = Uint(
+            int(op_metadata.pc_post_instruction) + relative_offset
+        )
+        if (
+            successor_position + 1 > len(code)
+            or successor_position not in valid_opcode_positions
+        ):
+            raise InvalidEof("Invalid successor or jump destination")
 
-        op_validation(validator)
+        successor_metadata = section_metadata[successor_position]
+
+        if relative_offset >= 0:
+            if successor_metadata.stack_height is None:
+                # Visited for the first time
+                successor_metadata.stack_height = deepcopy(
+                    current_stack_height
+                )
+            else:
+                assert successor_metadata.stack_height is not None
+                recorded_stack_height = successor_metadata.stack_height
+                recorded_stack_height.min = min(
+                    recorded_stack_height.min,
+                    current_stack_height.min,
+                )
+                recorded_stack_height.max = max(
+                    recorded_stack_height.max,
+                    current_stack_height.max,
+                )
+        else:
+            # Backward jump
+            assert successor_metadata.stack_height is not None
+            recorded_stack_height = successor_metadata.stack_height
+            if recorded_stack_height.min != current_stack_height.min:
+                raise InvalidEof("Invalid stack height")
+            if recorded_stack_height.max != current_stack_height.max:
+                raise InvalidEof("Invalid stack height")
 
 
 def validate_code_section(validator: Validator) -> None:
@@ -181,339 +211,56 @@ def validate_code_section(validator: Validator) -> None:
     InvalidEof
         If the code section is invalid.
     """
-    eof_meta = validator.eof.metadata
+    # TODO: Move this import to the top
+    from .eof1.instructions_check import get_op_validation
+    from .eof1.stack_height_check import get_stack_validation
+
+    while validator.current_pc < len(validator.current_code):
+        try:
+            opcode = map_int_to_op(
+                validator.current_code[validator.current_pc], EofVersion.EOF1
+            )
+        except ValueError:
+            raise InvalidEof("Invalid opcode in code section")
+
+        op_validation = get_op_validation(opcode)
+
+        op_validation(validator)
+
+    current_section_metadata = validator.sections[validator.current_index]
+    valid_opcode_positions = list(current_section_metadata.keys())
     code_index = validator.current_index
-    section_metadata = validator.sections[code_index]
-    referenced_subcontainers = validator.referenced_subcontainers
-    code = eof_meta.code_section_contents[code_index]
-
-    valid_opcode_positions = list(section_metadata.keys())
-    first_instruction = min(section_metadata.keys())
-    last_instruction = max(section_metadata.keys())
-
-    section_type = eof_meta.type_section_contents[code_index]
+    section_type = validator.eof.metadata.type_section_contents[code_index]
     section_inputs = section_type[0]
     section_max_stack_height = Uint.from_be_bytes(section_type[2:])
 
-    current_stack_height = OperandStackHeight(
-        min=section_inputs,
-        max=section_inputs,
-    )
-    for position, metadata in section_metadata.items():
-        opcode = metadata.opcode
+    computed_maximum_stack_height = 0
+    for index, position in enumerate(valid_opcode_positions):
+        validator.current_pc = position
+        op_metadata = current_section_metadata[position]
+        op = op_metadata.opcode
 
-        # TODO: See if ordering can automatically be take care of
-        # Initiate the stack height for the first instruction
-        if position == first_instruction:
-            metadata.stack_height = deepcopy(current_stack_height)
+        if index == 0:
+            validator.current_stack_height = OperandStackHeight(
+                min=section_inputs,
+                max=section_inputs,
+            )
+            op_metadata.stack_height = deepcopy(validator.current_stack_height)
 
         # The section has to end in a terminating instruction
-        if position == last_instruction:
-            if (
-                opcode not in EOF1_TERMINATING_INSTRUCTIONS
-                and opcode != Ops.RJUMP
-            ):
+        if index + 1 == len(valid_opcode_positions):
+            if op not in EOF1_TERMINATING_INSTRUCTIONS and op != Ops.RJUMP:
                 raise InvalidEof("Code section does not terminate")
 
-        if metadata.stack_height is None:
+        if op_metadata.stack_height is None:
             raise InvalidEof("Stack height not set")
 
-        # Opcode Specific Validity Checks
-        if opcode == Ops.CALLF:
-            assert metadata.target_index is not None
-            # General Validity Check
-            if metadata.target_index >= eof_meta.num_code_sections:
-                raise InvalidEof("Invalid target code section index")
+        stack_implementation = get_stack_validation(op)
+        stack_implementation(validator)
 
-            target_section_type = eof_meta.type_section_contents[
-                metadata.target_index
-            ]
-            target_inputs = target_section_type[0]
-            target_outputs = target_section_type[1]
-            target_max_height = int.from_bytes(target_section_type[2:], "big")
-
-            if target_outputs == 0x80:
-                raise InvalidEof("CALLF into non-returning section")
-
-            # Stack Height Check
-            if metadata.stack_height.min < target_inputs:
-                raise InvalidEof("Invalid stack height")
-
-            # Stack Overflow Check
-            if (
-                metadata.stack_height.max
-                > 1024 - target_max_height + target_inputs
-            ):
-                raise InvalidEof("Stack overflow")
-
-            # Update the stack height after instruction
-            increment = target_outputs - target_inputs
-            current_stack_height.min += increment
-            current_stack_height.max += increment
-
-        if opcode == Ops.JUMPF:
-            assert metadata.target_index is not None
-            # General Validity Check
-            if metadata.target_index >= eof_meta.num_code_sections:
-                raise InvalidEof("Invalid target code section index")
-
-            current_section_type = eof_meta.type_section_contents[code_index]
-            target_section_type = eof_meta.type_section_contents[
-                metadata.target_index
-            ]
-
-            current_outputs = current_section_type[1]
-            target_inputs = target_section_type[0]
-            target_outputs = target_section_type[1]
-            target_max_height = int.from_bytes(target_section_type[2:], "big")
-
-            if target_outputs != 0x80 and target_outputs > current_outputs:
-                raise InvalidEof("Invalid stack height")
-
-            # Stack Height Check
-            if target_outputs != 0x80:
-                expected_stack_height = (
-                    current_outputs + target_inputs - target_outputs
-                )
-                if metadata.stack_height.min != metadata.stack_height.max:
-                    raise InvalidEof("Invalid stack height")
-                if metadata.stack_height.min != expected_stack_height:
-                    raise InvalidEof("Invalid stack height")
-            else:
-                if metadata.stack_height.min < target_inputs:
-                    raise InvalidEof("Invalid stack height")
-
-            # Stack Overflow Check
-            if (
-                metadata.stack_height.max
-                > 1024 - target_max_height + target_inputs
-            ):
-                raise InvalidEof("Stack overflow")
-
-            # Update the stack height after instruction
-            if target_outputs != 0x80:
-                increment = target_outputs - target_inputs
-                current_stack_height.min += increment
-                current_stack_height.max += increment
-
-        elif opcode == Ops.RETF:
-            # General Validity Checks
-            if code_index == 0:
-                raise InvalidEof("First code section cannot return")
-
-            # Stack Height Check
-            if metadata.stack_height.min != metadata.stack_height.max:
-                raise InvalidEof("Invalid stack height")
-            type_section = eof_meta.type_section_contents[code_index]
-            type_section_outputs = type_section[1]
-            if metadata.stack_height.min != type_section_outputs:
-                raise InvalidEof("Invalid stack height")
-
-            # Stack Overflow Check
-            pass
-
-            # Update the stack height after instruction
-            instruction_inputs = op_stack_items[opcode].inputs
-            instruction_outputs = op_stack_items[opcode].outputs
-            current_stack_height.min += (
-                instruction_outputs - instruction_inputs
-            )
-            current_stack_height.max += (
-                instruction_outputs - instruction_inputs
-            )
-        elif opcode == Ops.EOFCREATE:
-            assert metadata.container_index is not None
-            # General Validity Checks
-            if metadata.container_index >= eof_meta.num_container_sections:
-                raise InvalidEof("Invalid container index")
-            referenced_subcontainers[opcode].append(metadata.container_index)
-
-            # Stack Height Check
-            instruction_inputs = op_stack_items[opcode].inputs
-            if metadata.stack_height.min < instruction_inputs:
-                raise InvalidEof("Invalid stack height")
-
-            # Stack Overflow Check
-            pass
-
-            # Update the stack height after instruction
-            instruction_inputs = op_stack_items[opcode].inputs
-            instruction_outputs = op_stack_items[opcode].outputs
-            current_stack_height.min += (
-                instruction_outputs - instruction_inputs
-            )
-            current_stack_height.max += (
-                instruction_outputs - instruction_inputs
-            )
-
-        elif opcode == Ops.RETURNCONTRACT:
-            assert metadata.container_index is not None
-            # General Validity Checks
-            if metadata.container_index >= eof_meta.num_container_sections:
-                raise InvalidEof("Invalid container index")
-            referenced_subcontainers[opcode].append(metadata.container_index)
-
-            # Stack Height Check
-            instruction_inputs = op_stack_items[opcode].inputs
-            if metadata.stack_height.min < instruction_inputs:
-                raise InvalidEof("Invalid stack height")
-
-            # Stack Overflow Check
-            pass
-
-            # Update the stack height after instruction
-            instruction_inputs = op_stack_items[opcode].inputs
-            instruction_outputs = op_stack_items[opcode].outputs
-            current_stack_height.min += (
-                instruction_outputs - instruction_inputs
-            )
-            current_stack_height.max += (
-                instruction_outputs - instruction_inputs
-            )
-
-        elif opcode == Ops.DATALOADN:
-            # General Validity Checks
-            offset = Uint.from_be_bytes(code[position + 1 : position + 3])
-            if offset >= eof_meta.data_size:
-                raise InvalidEof("Invalid DATALOADN offset")
-
-            # Stack Height Check
-            instruction_inputs = op_stack_items[opcode].inputs
-            if metadata.stack_height.min < instruction_inputs:
-                raise InvalidEof("Invalid stack height")
-
-            # Stack Overflow Check
-            pass
-
-            # Update the stack height after instruction
-            instruction_inputs = op_stack_items[opcode].inputs
-            instruction_outputs = op_stack_items[opcode].outputs
-            current_stack_height.min += (
-                instruction_outputs - instruction_inputs
-            )
-            current_stack_height.max += (
-                instruction_outputs - instruction_inputs
-            )
-
-        elif opcode == Ops.DUPN:
-            # General Validity Checks
-            pass
-
-            # Stack Height Check
-            immediate_data = code[position + 1]
-            n = immediate_data + 1
-            if current_stack_height.min < n:
-                raise InvalidEof("Invalid stack height for DUPN")
-
-            # Stack Overflow Check
-            pass
-
-            # Update the stack height after instruction
-            current_stack_height.min += 1
-            current_stack_height.max += 1
-
-        elif opcode == Ops.SWAPN:
-            # General Validity Checks
-            pass
-
-            # Stack Height Check
-            immediate_data = code[position + 1]
-            n = immediate_data + 1
-            if current_stack_height.min < n + 1:
-                raise InvalidEof("Invalid stack height for SWAPN")
-
-            # Stack Overflow Check
-            pass
-
-            # Update the stack height after instruction
-            pass
-
-        elif opcode == Ops.EXCHANGE:
-            # General Validity Checks
-            pass
-
-            # Stack Height Check
-            immediate_data = code[position + 1]
-            n = (immediate_data >> 4) + 1
-            m = (immediate_data & 0xF) + 1
-            if current_stack_height.min < n + m + 1:
-                raise InvalidEof("Invalid stack height for EXCHANGE")
-
-            # Stack Overflow Check
-            pass
-
-            # Update the stack height after instruction
-            pass
-
-        else:
-            # General Validity Checks
-            pass
-
-            # Stack Height Check
-            instruction_inputs = op_stack_items[opcode].inputs
-            if metadata.stack_height.min < instruction_inputs:
-                raise InvalidEof("Invalid stack height")
-
-            # Stack Overflow Check
-            pass
-
-            # Update the stack height after instruction
-            instruction_inputs = op_stack_items[opcode].inputs
-            instruction_outputs = op_stack_items[opcode].outputs
-            current_stack_height.min += (
-                instruction_outputs - instruction_inputs
-            )
-            current_stack_height.max += (
-                instruction_outputs - instruction_inputs
-            )
-
-        # Update the stack height for Successor instructions
-        for relative_offset in metadata.relative_offsets:
-            if metadata.pc_post_instruction + relative_offset < 0:
-                raise InvalidEof("Invalid successor or jump destination")
-
-            successor_position = Uint(
-                metadata.pc_post_instruction + relative_offset
-            )
-            if (
-                successor_position + 1 > len(code)
-                or successor_position not in valid_opcode_positions
-            ):
-                raise InvalidEof("Invalid successor or jump destination")
-
-            successor_metadata = section_metadata[successor_position]
-
-            if relative_offset >= 0:
-                if successor_metadata.stack_height is None:
-                    # Visited for the first time
-                    successor_metadata.stack_height = deepcopy(
-                        current_stack_height
-                    )
-                else:
-                    recorded_stack_height = successor_metadata.stack_height
-                    recorded_stack_height.min = min(
-                        recorded_stack_height.min,
-                        current_stack_height.min,
-                    )
-                    recorded_stack_height.max = max(
-                        recorded_stack_height.max,
-                        current_stack_height.max,
-                    )
-            else:
-                # Backward jump
-                assert successor_metadata.stack_height is not None
-                recorded_stack_height = successor_metadata.stack_height
-                if recorded_stack_height.min != current_stack_height.min:
-                    raise InvalidEof("Invalid stack height")
-                if recorded_stack_height.max != current_stack_height.max:
-                    raise InvalidEof("Invalid stack height")
-
-    # TODO: See if this can be integrated in the above loop
-    computed_maximum_stack_height = 0
-    for _, metadata in section_metadata.items():
-        assert metadata.stack_height is not None
-        if metadata.stack_height.max > computed_maximum_stack_height:
-            computed_maximum_stack_height = metadata.stack_height.max
+        update_successor_stack_height(validator)
+        if op_metadata.stack_height.max > computed_maximum_stack_height:
+            computed_maximum_stack_height = op_metadata.stack_height.max
 
     if computed_maximum_stack_height > 1023:
         raise InvalidEof("Invalid stack height")
@@ -544,11 +291,8 @@ def validate_eof_code(validator: Validator) -> None:
     for code_index, code in enumerate(eof_meta.code_section_contents):
         validator.current_index = Uint(code_index)
         validator.current_code = code
-        validator.current_pc = 0
-        # TODO: Update in functions
+        validator.current_pc = Uint(0)
         validator.sections[validator.current_index] = {}
-        analyse_code_section(validator)
-
         validate_code_section(validator)
 
     if validator.has_return_contract and (
@@ -648,12 +392,13 @@ def validate_eof_container(
         eof=eof,
         current_index=Uint(0),
         current_code=metadata.code_section_contents[0],
-        current_pc=0,
+        current_pc=Uint(0),
         sections={},
         has_return_contract=False,
         has_stop=False,
         has_return=False,
         referenced_subcontainers={Ops.EOFCREATE: [], Ops.RETURNCONTRACT: []},
+        current_stack_height=None,
     )
 
     validate_body(validator)
