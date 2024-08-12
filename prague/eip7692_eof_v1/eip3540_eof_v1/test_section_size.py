@@ -105,3 +105,56 @@ def test_section_size(
         data=eof_code,
         expect_exception=exception,
     )
+
+
+@pytest.mark.parametrize(
+    "truncation_len, exception",
+    [
+        # The original container is not valid by itself because its 2-byte code section
+        # starts with the terminating instruction: INVALID.
+        pytest.param(0, EOFException.UNREACHABLE_INSTRUCTIONS),
+        pytest.param(1, EOFException.INVALID_SECTION_BODIES_SIZE, id="EOF1_truncated_section_2"),
+        pytest.param(3, EOFException.INVALID_SECTION_BODIES_SIZE, id="EOF1_truncated_section_1"),
+        pytest.param(6, EOFException.INVALID_SECTION_BODIES_SIZE, id="EOF1_truncated_section_0"),
+    ],
+)
+def test_truncated_container_without_data(
+    eof_test: EOFTestFiller,
+    truncation_len: int,
+    exception: EOFException,
+):
+    """
+    This test takes a semi-valid container and removes some bytes from its tail.
+    Migrated from EOFTests/efValidation/EOF1_truncated_section_.json (cases without data section).
+    """
+    container = Container(sections=[Section.Code(Op.INVALID + Op.INVALID)])
+    bytecode = bytes(container)
+    eof_test(
+        data=bytecode[: len(bytecode) - truncation_len],
+        expect_exception=exception,
+    )
+
+
+@pytest.mark.parametrize(
+    "truncation_len, exception",
+    [
+        pytest.param(0, None),
+        pytest.param(1, EOFException.TOPLEVEL_CONTAINER_TRUNCATED, id="EOF1_truncated_section_4"),
+        pytest.param(2, EOFException.TOPLEVEL_CONTAINER_TRUNCATED, id="EOF1_truncated_section_3"),
+    ],
+)
+def test_truncated_container_with_data(
+    eof_test: EOFTestFiller,
+    truncation_len: int,
+    exception: EOFException,
+):
+    """
+    This test takes a valid container with data and removes some bytes from its tail.
+    Migrated from EOFTests/efValidation/EOF1_truncated_section_.json (cases with data section).
+    """
+    container = Container(sections=[Section.Code(Op.INVALID), Section.Data("aabb")])
+    bytecode = bytes(container)
+    eof_test(
+        data=bytecode[: len(bytecode) - truncation_len],
+        expect_exception=exception,
+    )
