@@ -1055,6 +1055,8 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
         nonce_bytes = (
             bytes() if self.nonce == 0 else self.nonce.to_bytes(length=1, byteorder="big")
         )
+        if self.sender is None:
+            raise ValueError("sender address is None")
         hash = keccak256(eth_rlp.encode([self.sender, nonce_bytes]))
         return Address(hash[-20:])
 
