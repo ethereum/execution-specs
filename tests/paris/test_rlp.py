@@ -5,13 +5,13 @@ from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes8, Bytes32, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.paris.blocks import Block, Header, Log, Receipt
 from ethereum.paris.transactions import (
+    Access,
     AccessListTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
     Transaction,
     decode_transaction,
     encode_transaction,
-    Access
 )
 from ethereum.paris.utils.hexadecimal import hex_to_address
 from ethereum.utils.hexadecimal import hex_to_bytes256
@@ -60,7 +60,10 @@ access_list_transaction = AccessListTransaction(
     Bytes0(),
     U256(4),
     Bytes(b"bar"),
-    (Access(account=address1, slots=(hash1, hash2)), Access(account=address2, slots=tuple())),
+    (
+        Access(account=address1, slots=(hash1, hash2)),
+        Access(account=address2, slots=tuple()),
+    ),
     U256(27),
     U256(5),
     U256(6),
@@ -75,7 +78,10 @@ transaction_1559 = FeeMarketTransaction(
     Bytes0(),
     U256(4),
     Bytes(b"bar"),
-    (Access(account=address1, slots=(hash1, hash2)), Access(account=address2, slots=tuple())),
+    (
+        Access(account=address1, slots=(hash1, hash2)),
+        Access(account=address2, slots=tuple()),
+    ),
     U256(27),
     U256(5),
     U256(6),
