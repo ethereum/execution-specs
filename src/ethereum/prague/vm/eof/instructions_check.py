@@ -8,8 +8,8 @@ from typing import Callable, Dict, List
 from ethereum.base_types import Uint
 
 from ..exceptions import InvalidEof
-from ..instructions import EOF1_TERMINATING_INSTRUCTIONS, Ops
-from . import EofVersion, InstructionMetadata, Validator, map_int_to_op
+from ..instructions import EOF1_TERMINATING_INSTRUCTIONS, Ops, map_int_to_op
+from . import EofVersion, InstructionMetadata, Validator
 
 
 def validate_push(validator: Validator) -> None:
@@ -592,7 +592,6 @@ def validate_other_instructions(validator: Validator) -> None:
 
     # Update Instruction Metadata
     validator.current_pc = counter
-    # TODO: add opcode to validator
     current_metadata[position] = InstructionMetadata(
         opcode=opcode,
         pc_post_instruction=validator.current_pc,

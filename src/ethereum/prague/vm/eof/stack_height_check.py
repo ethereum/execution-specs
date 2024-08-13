@@ -3,9 +3,8 @@ Validation functions for stack heights in EOF containers.
 """
 from typing import Callable, Dict
 
-from ...vm.instructions import Ops
+from ...vm.instructions import Ops, op_stack_items
 from ..exceptions import InvalidEof
-from . import op_stack_items
 from .validation import Validator
 
 

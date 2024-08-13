@@ -17,10 +17,19 @@ from typing import Tuple
 
 from ethereum.base_types import Uint
 
-from .. import EOF_MAGIC, EOF_MAGIC_LENGTH, MAX_CODE_SIZE, Eof, EofVersion
+from .. import MAX_CODE_SIZE
 from ..exceptions import InvalidEof
-from ..instructions import EOF1_TERMINATING_INSTRUCTIONS, Ops
-from . import OperandStackHeight, Validator, map_int_to_op
+from ..instructions import EOF1_TERMINATING_INSTRUCTIONS, Ops, map_int_to_op
+from . import (
+    EOF_MAGIC,
+    EOF_MAGIC_LENGTH,
+    Eof,
+    EofVersion,
+    OperandStackHeight,
+    Validator,
+)
+from .instructions_check import get_op_validation
+from .stack_height_check import get_stack_validation
 from .utils import metadata_from_container
 
 
@@ -132,10 +141,6 @@ def validate_code_section(validator: Validator) -> None:
     InvalidEof
         If the code section is invalid.
     """
-    # TODO: Move this import to the top
-    from .instructions_check import get_op_validation
-    from .stack_height_check import get_stack_validation
-
     while validator.current_pc < len(validator.current_code):
         try:
             opcode = map_int_to_op(

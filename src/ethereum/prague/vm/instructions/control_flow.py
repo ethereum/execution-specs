@@ -27,7 +27,7 @@ from ...vm.gas import (
     GAS_RJUMPV,
     charge_gas,
 )
-from .. import Evm, ReturnStackItem
+from .. import Evm
 from ..exceptions import ExceptionalHalt, InvalidJumpDestError
 from ..stack import pop, push
 
@@ -291,6 +291,8 @@ def callf(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
+    from ..eof import ReturnStackItem
+
     # STACK
     pass
 

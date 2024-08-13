@@ -21,7 +21,7 @@ from ...state import get_account
 from ...utils.address import to_address
 from ...vm.eoa_delegation import access_delegation
 from ...vm.memory import buffer_read, memory_write
-from .. import EofVersion, Evm, get_eof_version
+from .. import Evm
 from ..exceptions import OutOfBoundsRead
 from ..gas import (
     GAS_BASE,
@@ -340,6 +340,8 @@ def extcodesize(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    from ..eof import EofVersion, get_eof_version
+
     # STACK
     address = to_address(pop(evm.stack))
 
@@ -379,6 +381,8 @@ def extcodecopy(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    from ..eof import EofVersion, get_eof_version
+
     # STACK
     address = to_address(pop(evm.stack))
     memory_start_index = pop(evm.stack)
@@ -482,6 +486,8 @@ def extcodehash(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
+    from ..eof import EofVersion, get_eof_version
+
     # STACK
     address = to_address(pop(evm.stack))
 

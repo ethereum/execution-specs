@@ -46,15 +46,8 @@ from ..vm import Message
 from ..vm.eoa_delegation import set_delegation
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import (
-    MAX_CODE_SIZE,
-    Environment,
-    EofVersion,
-    Evm,
-    Message,
-    get_eof_version,
-)
-from .eof import map_int_to_op
+from . import MAX_CODE_SIZE, Environment, Evm, Message
+from .eof import EofVersion, get_eof_version
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
@@ -64,7 +57,7 @@ from .exceptions import (
     Revert,
     StackDepthLimitError,
 )
-from .instructions import Ops, op_implementation
+from .instructions import Ops, map_int_to_op, op_implementation
 from .runtime import get_valid_jump_destinations
 
 STACK_DEPTH_LIMIT = U256(1024)

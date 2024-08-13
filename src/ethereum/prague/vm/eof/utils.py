@@ -3,8 +3,8 @@ Utility functions for EOF containers.
 """
 from ethereum.base_types import Uint
 
-from .. import EOF_MAGIC, EofMetadata
 from ..exceptions import InvalidEof
+from . import EOF_MAGIC, EofMetadata
 
 
 def metadata_from_container(

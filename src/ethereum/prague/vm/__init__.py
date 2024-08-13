@@ -13,9 +13,8 @@ The abstract computer which runs the code stored in an
 `.fork_types.Account`.
 """
 
-import enum
 from dataclasses import dataclass
-from typing import List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Set, Tuple, Union
 
 from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes32, Uint
 from ethereum.crypto.hash import Hash32
@@ -23,79 +22,16 @@ from ethereum.crypto.hash import Hash32
 from ..blocks import Log
 from ..fork_types import Address, Authorization, VersionedHash
 from ..state import State, TransientStorage, account_exists_and_is_empty
-from .exceptions import InvalidEof
 from .precompiled_contracts import RIPEMD160_ADDRESS
 
-__all__ = ("Environment", "Evm", "Message", "Eof")
+if TYPE_CHECKING:
+    from .eof import Eof, ReturnStackItem
 
 
-EOF_MAGIC = b"\xEF\x00"
-EOF_MAGIC_LENGTH = len(EOF_MAGIC)
+__all__ = ("Environment", "Evm", "Message")
+
 
 MAX_CODE_SIZE = 0x6000
-
-
-class EofVersion(enum.Enum):
-    """
-    Enumeration of the different kinds of EOF containers.
-    Legacy code is assigned zero.
-    """
-
-    LEGACY = 0
-    EOF1 = 1
-
-
-@dataclass
-class EofMetadata:
-    """
-    Dataclass to hold the metadata information of the
-    EOF container.
-    """
-
-    type_size: Uint
-    num_code_sections: Uint
-    code_sizes: List[Uint]
-    num_container_sections: Uint
-    container_sizes: List[Uint]
-    data_size: Uint
-    body_start_index: Uint
-    type_section_contents: List[bytes]
-    code_section_contents: List[bytes]
-    container_section_contents: List[bytes]
-    data_section_contents: bytes
-
-
-@dataclass
-class Eof:
-    """
-    Dataclass to hold the EOF container information.
-    """
-
-    version: EofVersion
-    container: Bytes
-    metadata: EofMetadata
-    is_deploy_container: bool
-    is_init_container: bool
-
-
-@dataclass
-class ReturnStackItem:
-    """
-    Stack item for the return stack.
-    """
-
-    code_section_index: Uint
-    offset: Uint
-
-
-@dataclass
-class OpcodeStackItemCount:
-    """
-    Stack height count for an Opcode.
-    """
-
-    inputs: int
-    outputs: int
 
 
 @dataclass
@@ -143,7 +79,7 @@ class Message:
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
     parent_evm: Optional["Evm"]
     authorizations: Tuple[Authorization, ...]
-    eof: Optional[Eof]
+    eof: Optional["Eof"]
 
 
 @dataclass
@@ -168,9 +104,9 @@ class Evm:
     error: Optional[Exception]
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
-    eof: Optional[Eof]
+    eof: Optional["Eof"]
     current_section_index: Uint
-    return_stack: List[ReturnStackItem]
+    return_stack: List["ReturnStackItem"]
     deploy_container: Optional[Bytes]
 
 
@@ -224,26 +160,3 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
         ):
             evm.touched_accounts.add(RIPEMD160_ADDRESS)
     evm.gas_left += child_evm.gas_left
-
-
-def get_eof_version(code: bytes) -> EofVersion:
-    """
-    Get the Eof container's version.
-
-    Parameters
-    ----------
-    code : bytes
-        The code to check.
-
-    Returns
-    -------
-    Eof
-        Eof Version of the container.
-    """
-    if not code.startswith(EOF_MAGIC):
-        return EofVersion.LEGACY
-
-    if code[EOF_MAGIC_LENGTH] == 1:
-        return EofVersion.EOF1
-    else:
-        raise InvalidEof("Invalid EOF version")

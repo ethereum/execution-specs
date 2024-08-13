@@ -34,11 +34,8 @@ from ...utils.address import (
 from ...vm.eoa_delegation import access_delegation
 from .. import (
     MAX_CODE_SIZE,
-    Eof,
-    EofVersion,
     Evm,
     Message,
-    get_eof_version,
     incorporate_child_on_error,
     incorporate_child_on_success,
 )
@@ -87,6 +84,7 @@ def generic_create(
     # This import causes a circular import error
     # if it's not moved inside this method
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
+    from ..eof import EofVersion, get_eof_version
 
     call_data = memory_read_bytes(
         evm.memory, memory_start_position, memory_size
@@ -301,6 +299,7 @@ def generic_call(
     Perform the core logic of the `CALL*` family of opcodes.
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
+    from ..eof import Eof, EofVersion, get_eof_version
 
     evm.return_data = b""
 
@@ -806,6 +805,7 @@ def ext_call(evm: Evm) -> None:
         The current EVM frame.
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
+    from ..eof import Eof, EofVersion, get_eof_version
 
     # STACK
     try:
@@ -896,7 +896,6 @@ def ext_call(evm: Evm) -> None:
             gas=Uint(message_call_gas),
             value=value,
             data=call_data,
-            # TODO: leave blank for legacy
             code=container,
             current_target=target_address,
             depth=evm.message.depth + 1,
@@ -937,6 +936,7 @@ def ext_delegatecall(evm: Evm) -> None:
         The current EVM frame.
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
+    from ..eof import Eof, EofVersion, get_eof_version
 
     # STACK
     try:
@@ -1046,6 +1046,7 @@ def ext_staticcall(evm: Evm) -> None:
         The current EVM frame.
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
+    from ..eof import Eof, EofVersion, get_eof_version
 
     # STACK
     try:
@@ -1154,6 +1155,7 @@ def eof_create(evm: Evm) -> None:
         The current EVM frame.
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
+    from ..eof import Eof, get_eof_version
 
     assert evm.eof is not None
 
