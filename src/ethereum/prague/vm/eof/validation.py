@@ -13,94 +13,15 @@ Implementation of the Ethereum Object Format (EOF) specification.
 """
 
 from copy import deepcopy
-from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Tuple
 
 from ethereum.base_types import Uint
 
-from . import EOF_MAGIC, EOF_MAGIC_LENGTH, MAX_CODE_SIZE, Eof, EofVersion
-from .eof1.utils import metadata_from_container
-from .exceptions import InvalidEof
-from .instructions import (
-    EOF1_TERMINATING_INSTRUCTIONS,
-    OPCODES_INVALID_IN_EOF1,
-    OPCODES_INVALID_IN_LEGACY,
-    Ops,
-)
-
-
-@dataclass
-class OperandStackHeight:
-    """
-    Stack height bounds of an instruction.
-    """
-
-    min: int
-    max: int
-
-
-@dataclass
-class InstructionMetadata:
-    """
-    Metadata of an instruction in the code section.
-    """
-
-    opcode: Ops
-    pc_post_instruction: Uint
-    relative_offsets: List[int]
-    target_index: Optional[Uint]
-    container_index: Optional[Uint]
-    stack_height: Optional[OperandStackHeight]
-
-
-SectionMetadata = Dict[Uint, InstructionMetadata]
-
-
-@dataclass
-class Validator:
-    """
-    Validator for the Ethereum Object Format (EOF) container.
-    """
-
-    eof: Eof
-    sections: Dict[Uint, SectionMetadata]
-    current_index: Uint
-    current_code: bytes
-    current_pc: Uint
-    has_return_contract: bool
-    has_stop: bool
-    has_return: bool
-    referenced_subcontainers: Dict[Ops, List[Uint]]
-    current_stack_height: Optional[OperandStackHeight]
-
-
-def map_int_to_op(opcode: int, eof_version: EofVersion) -> Ops:
-    """
-    Get the opcode enum from the opcode value.
-
-    Parameters
-    ----------
-    opcode : `int`
-        The opcode value.
-    eof_version : `EofVersion`
-        The version of the EOF.
-
-    Returns
-    -------
-    opcode : `Ops`
-        The opcode enum.
-    """
-    try:
-        op = Ops(opcode)
-    except ValueError as e:
-        raise ValueError(f"Invalid opcode: {opcode}") from e
-
-    if eof_version == EofVersion.LEGACY and op in OPCODES_INVALID_IN_LEGACY:
-        raise ValueError(f"Invalid legacy opcode: {op}")
-    elif eof_version == EofVersion.EOF1 and op in OPCODES_INVALID_IN_EOF1:
-        raise ValueError(f"Invalid eof1 opcode: {op}")
-
-    return op
+from .. import EOF_MAGIC, EOF_MAGIC_LENGTH, MAX_CODE_SIZE, Eof, EofVersion
+from ..exceptions import InvalidEof
+from ..instructions import EOF1_TERMINATING_INSTRUCTIONS, Ops
+from . import OperandStackHeight, Validator, map_int_to_op
+from .utils import metadata_from_container
 
 
 def validate_body(validator: Validator) -> None:
@@ -212,8 +133,8 @@ def validate_code_section(validator: Validator) -> None:
         If the code section is invalid.
     """
     # TODO: Move this import to the top
-    from .eof1.instructions_check import get_op_validation
-    from .eof1.stack_height_check import get_stack_validation
+    from .instructions_check import get_op_validation
+    from .stack_height_check import get_stack_validation
 
     while validator.current_pc < len(validator.current_code):
         try:
@@ -409,3 +330,62 @@ def validate_eof_container(
         raise InvalidEof("Init container has STOP/RETURN")
 
     return validator
+
+
+def parse_create_tx_call_data(data: bytes) -> Tuple[Eof, bytes]:
+    """
+    Parse the data for a create transaction.
+
+    Parameters
+    ----------
+    data : bytes
+        The data for the create call.
+
+    Returns
+    -------
+    code : bytes
+        The code for the create call.
+    data : bytes
+        The data for the create call.
+    """
+    eof_metadata = metadata_from_container(
+        data, validate=True, is_deploy_container=False, is_init_container=False
+    )
+
+    container_size = (
+        eof_metadata.body_start_index
+        + eof_metadata.type_size
+        + sum(eof_metadata.code_sizes)
+        + sum(eof_metadata.container_sizes)
+        + eof_metadata.data_size
+    )
+
+    eof = Eof(
+        version=EofVersion.EOF1,
+        container=data[:container_size],
+        metadata=eof_metadata,
+        is_deploy_container=False,
+        is_init_container=True,
+    )
+
+    validator = Validator(
+        eof=eof,
+        sections={},
+        current_index=Uint(0),
+        current_code=eof.metadata.code_section_contents[0],
+        current_pc=Uint(0),
+        has_return_contract=False,
+        has_stop=False,
+        has_return=False,
+        referenced_subcontainers={},
+        current_stack_height=None,
+    )
+
+    validate_body(validator)
+
+    validate_eof_code(validator)
+
+    if validator.has_stop or validator.has_return:
+        raise InvalidEof("Init container has STOP/RETURN")
+
+    return eof, data[container_size:]

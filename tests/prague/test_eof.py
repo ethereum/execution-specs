@@ -5,7 +5,7 @@ from typing import Dict, Generator
 
 import pytest
 
-from ethereum.prague.vm.eof import validate_eof_container
+from ethereum.prague.vm.eof.validation import validate_eof_container
 from ethereum.prague.vm.exceptions import InvalidEof
 from ethereum.utils.hexadecimal import hex_to_bytes
 

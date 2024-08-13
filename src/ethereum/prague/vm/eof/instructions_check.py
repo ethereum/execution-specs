@@ -7,9 +7,9 @@ from typing import Callable, Dict, List
 
 from ethereum.base_types import Uint
 
-from ..eof import EofVersion, InstructionMetadata, Validator, map_int_to_op
 from ..exceptions import InvalidEof
 from ..instructions import EOF1_TERMINATING_INSTRUCTIONS, Ops
+from . import EofVersion, InstructionMetadata, Validator, map_int_to_op
 
 
 def validate_push(validator: Validator) -> None:

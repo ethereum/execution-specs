@@ -1,11 +1,9 @@
 """
 Utility functions for EOF containers.
 """
-from typing import Tuple
-
 from ethereum.base_types import Uint
 
-from .. import EOF_MAGIC, Eof, EofMetadata, EofVersion
+from .. import EOF_MAGIC, EofMetadata
 from ..exceptions import InvalidEof
 
 
@@ -271,65 +269,3 @@ def container_from_metadata(eof_metadata: EofMetadata) -> bytes:
     container += eof_metadata.data_section_contents
 
     return container
-
-
-def parse_create_tx_call_data(data: bytes) -> Tuple[Eof, bytes]:
-    """
-    Parse the data for a create transaction.
-
-    Parameters
-    ----------
-    data : bytes
-        The data for the create call.
-
-    Returns
-    -------
-    code : bytes
-        The code for the create call.
-    data : bytes
-        The data for the create call.
-    """
-    # TODO: Global import this after re-factor
-    from ..eof import Validator, validate_body, validate_eof_code
-
-    eof_metadata = metadata_from_container(
-        data, validate=True, is_deploy_container=False, is_init_container=False
-    )
-
-    container_size = (
-        eof_metadata.body_start_index
-        + eof_metadata.type_size
-        + sum(eof_metadata.code_sizes)
-        + sum(eof_metadata.container_sizes)
-        + eof_metadata.data_size
-    )
-
-    eof = Eof(
-        version=EofVersion.EOF1,
-        container=data[:container_size],
-        metadata=eof_metadata,
-        is_deploy_container=False,
-        is_init_container=True,
-    )
-
-    validator = Validator(
-        eof=eof,
-        sections={},
-        current_index=Uint(0),
-        current_code=eof.metadata.code_section_contents[0],
-        current_pc=Uint(0),
-        has_return_contract=False,
-        has_stop=False,
-        has_return=False,
-        referenced_subcontainers={},
-        current_stack_height=None,
-    )
-
-    validate_body(validator)
-
-    validate_eof_code(validator)
-
-    if validator.has_stop or validator.has_return:
-        raise InvalidEof("Init container has STOP/RETURN")
-
-    return eof, data[container_size:]

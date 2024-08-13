@@ -12,10 +12,17 @@ Introduction
 Implementation of the Ethereum Object Format (EOF) specification.
 """
 
-from typing import Dict
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 
-from .. import OpcodeStackItemCount
-from ..instructions import Ops
+from ethereum.base_types import Uint
+
+from .. import Eof, EofVersion, OpcodeStackItemCount
+from ..instructions import (
+    OPCODES_INVALID_IN_EOF1,
+    OPCODES_INVALID_IN_LEGACY,
+    Ops,
+)
 
 op_stack_items: Dict[Ops, OpcodeStackItemCount] = {
     Ops.STOP: OpcodeStackItemCount(inputs=0, outputs=0),
@@ -183,3 +190,77 @@ op_stack_items: Dict[Ops, OpcodeStackItemCount] = {
     Ops.EXTDELEGATECALL: OpcodeStackItemCount(inputs=3, outputs=1),
     Ops.EXTSTATICCALL: OpcodeStackItemCount(inputs=3, outputs=1),
 }
+
+
+@dataclass
+class OperandStackHeight:
+    """
+    Stack height bounds of an instruction.
+    """
+
+    min: int
+    max: int
+
+
+@dataclass
+class InstructionMetadata:
+    """
+    Metadata of an instruction in the code section.
+    """
+
+    opcode: Ops
+    pc_post_instruction: Uint
+    relative_offsets: List[int]
+    target_index: Optional[Uint]
+    container_index: Optional[Uint]
+    stack_height: Optional[OperandStackHeight]
+
+
+SectionMetadata = Dict[Uint, InstructionMetadata]
+
+
+@dataclass
+class Validator:
+    """
+    Validator for the Ethereum Object Format (EOF) container.
+    """
+
+    eof: Eof
+    sections: Dict[Uint, SectionMetadata]
+    current_index: Uint
+    current_code: bytes
+    current_pc: Uint
+    has_return_contract: bool
+    has_stop: bool
+    has_return: bool
+    referenced_subcontainers: Dict[Ops, List[Uint]]
+    current_stack_height: Optional[OperandStackHeight]
+
+
+def map_int_to_op(opcode: int, eof_version: EofVersion) -> Ops:
+    """
+    Get the opcode enum from the opcode value.
+
+    Parameters
+    ----------
+    opcode : `int`
+        The opcode value.
+    eof_version : `EofVersion`
+        The version of the EOF.
+
+    Returns
+    -------
+    opcode : `Ops`
+        The opcode enum.
+    """
+    try:
+        op = Ops(opcode)
+    except ValueError as e:
+        raise ValueError(f"Invalid opcode: {opcode}") from e
+
+    if eof_version == EofVersion.LEGACY and op in OPCODES_INVALID_IN_LEGACY:
+        raise ValueError(f"Invalid legacy opcode: {op}")
+    elif eof_version == EofVersion.EOF1 and op in OPCODES_INVALID_IN_EOF1:
+        raise ValueError(f"Invalid eof1 opcode: {op}")
+
+    return op

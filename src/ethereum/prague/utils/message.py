@@ -19,7 +19,8 @@ from ethereum.base_types import U256, Bytes, Bytes0, Bytes32, Uint
 from ..fork_types import Address, Authorization
 from ..state import get_account
 from ..vm import Environment, Eof, EofVersion, Message, get_eof_version
-from ..vm.eof1.utils import metadata_from_container, parse_create_tx_call_data
+from ..vm.eof.utils import metadata_from_container
+from ..vm.eof.validation import parse_create_tx_call_data
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .address import compute_contract_address_1
 

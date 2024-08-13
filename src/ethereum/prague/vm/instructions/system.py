@@ -42,7 +42,7 @@ from .. import (
     incorporate_child_on_error,
     incorporate_child_on_success,
 )
-from ..eof1.utils import metadata_from_container
+from ..eof.utils import container_from_metadata, metadata_from_container
 from ..exceptions import (
     ExceptionalHalt,
     OutOfGasError,
@@ -1270,8 +1270,6 @@ def return_contract(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ..eof1.utils import container_from_metadata, metadata_from_container
-
     assert evm.eof is not None
 
     # STACK
