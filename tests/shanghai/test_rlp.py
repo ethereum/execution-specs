@@ -148,7 +148,7 @@ receipt = Receipt(
         withdrawal,
     ],
 )
-def test_shanghai_rlp(rlp_object: rlp.RLP) -> None:
+def test_shanghai_rlp(rlp_object: rlp.Extended) -> None:
     encoded = rlp.encode(rlp_object)
     assert rlp.decode_to(type(rlp_object), encoded) == rlp_object
 
