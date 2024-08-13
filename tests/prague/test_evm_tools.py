@@ -11,7 +11,7 @@ from tests.helpers.load_evm_tools_tests import (
 )
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
-TEST_DIR = f"{ETHEREUM_TESTS_PATH}/GeneralStateTests/"
+TEST_DIR = "tests/fixtures/latest_fork_tests/state_tests/"
 FORK_NAME = "Prague"
 
 run_evm_tools_test = partial(
