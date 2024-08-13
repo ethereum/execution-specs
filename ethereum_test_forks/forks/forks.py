@@ -709,3 +709,56 @@ class CancunEIP7692(  # noqa: SC200
         Returns the minimum version of solc that supports this fork.
         """
         return Version.parse("1.0.0")  # set a high version; currently unknown
+
+
+class PragueEIP7692(  # noqa: SC200
+    Prague,
+    transition_tool_name="Prague",  # Besu enables EOF at Prague
+    blockchain_test_network_name="Prague",  # Besu enables EOF at Prague
+    solc_name="cancun",
+):
+    """
+    Prague + EIP-7692 (EOF) fork
+    """
+
+    @classmethod
+    def evm_code_types(cls, block_number: int = 0, timestamp: int = 0) -> List[EVMCodeType]:
+        """
+        EOF V1 is supported starting from this fork.
+        """
+        return super(PragueEIP7692, cls,).evm_code_types(  # noqa: SC200
+            block_number,
+            timestamp,
+        ) + [EVMCodeType.EOF_V1]
+
+    @classmethod
+    def call_opcodes(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> List[Tuple[Opcodes, EVMCodeType]]:
+        """
+        EOF V1 introduces EXTCALL, EXTSTATICCALL, EXTDELEGATECALL.
+        """
+        return [
+            (Opcodes.EXTCALL, EVMCodeType.EOF_V1),
+            (Opcodes.EXTSTATICCALL, EVMCodeType.EOF_V1),
+            (Opcodes.EXTDELEGATECALL, EVMCodeType.EOF_V1),
+        ] + super(
+            PragueEIP7692, cls  # noqa: SC200
+        ).call_opcodes(
+            block_number, timestamp
+        )
+
+    @classmethod
+    def is_deployed(cls) -> bool:
+        """
+        Flags that the fork has not been deployed to mainnet; it is under active
+        development.
+        """
+        return False
+
+    @classmethod
+    def solc_min_version(cls) -> Version:
+        """
+        Returns the minimum version of solc that supports this fork.
+        """
+        return Version.parse("1.0.0")  # set a high version; currently unknown
