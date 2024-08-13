@@ -457,3 +457,4 @@ cofactor
 exponentiate
 monomial
 impl
+x2

@@ -11,12 +11,17 @@ Introduction
 
 Byte specific utility functions used in this specification.
 """
-from ethereum.base_types import Bytes
+from typing import Union
+
+from ethereum_types.bytes import Bytes
+from ethereum_types.numeric import FixedUnsigned, Uint
 
 
-def left_pad_zero_bytes(value: Bytes, size: int) -> Bytes:
+def left_pad_zero_bytes(
+    value: Bytes, size: Union[int, FixedUnsigned, Uint]
+) -> Bytes:
     """
-    Left pad zeroes to `value` if it's length is less than the given `size`.
+    Left pad zeroes to `value` if its length is less than the given `size`.
 
     Parameters
     ----------
@@ -30,12 +35,14 @@ def left_pad_zero_bytes(value: Bytes, size: int) -> Bytes:
     left_padded_value: `ethereum.base_types.Bytes`
         left padded byte string of given `size`.
     """
-    return value.rjust(size, b"\x00")
+    return value.rjust(int(size), b"\x00")
 
 
-def right_pad_zero_bytes(value: Bytes, size: int) -> Bytes:
+def right_pad_zero_bytes(
+    value: Bytes, size: Union[int, FixedUnsigned, Uint]
+) -> Bytes:
     """
-    Right pad zeroes to `value` if it's length is less than the given `size`.
+    Right pad zeroes to `value` if its length is less than the given `size`.
 
     Parameters
     ----------
@@ -49,4 +56,4 @@ def right_pad_zero_bytes(value: Bytes, size: int) -> Bytes:
     right_padded_value: `ethereum.base_types.Bytes`
         right padded byte string of given `size`.
     """
-    return value.ljust(size, b"\x00")
+    return value.ljust(int(size), b"\x00")

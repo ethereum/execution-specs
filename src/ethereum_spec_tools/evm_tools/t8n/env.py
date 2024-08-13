@@ -213,7 +213,7 @@ class Env:
             self.parent_difficulty = parse_hex_or_int(
                 data["parentDifficulty"], Uint
             )
-            args = [
+            args: List[object] = [
                 self.block_number,
                 self.block_timestamp,
                 self.parent_timestamp,

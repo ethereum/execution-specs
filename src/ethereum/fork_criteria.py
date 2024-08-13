@@ -26,7 +26,9 @@ not yet have a scheduled deployment.
 
 import functools
 from abc import ABC, abstractmethod
-from typing import Final, Tuple
+from typing import Final, Literal, SupportsInt, Tuple
+
+from ethereum_types.numeric import U256, Uint
 
 
 @functools.total_ordering
@@ -97,7 +99,7 @@ class ForkCriteria(ABC):
         return hash(self._internal)
 
     @abstractmethod
-    def check(self, block_number: int, timestamp: int) -> bool:
+    def check(self, block_number: Uint, timestamp: U256) -> bool:
         """
         Check whether fork criteria have been met.
 
@@ -119,16 +121,16 @@ class ByBlockNumber(ForkCriteria):
     Forks that occur when a specific block number has been reached.
     """
 
-    block_number: int
+    block_number: Uint
     """
     Number of the first block in this fork.
     """
 
-    def __init__(self, block_number: int):
-        self._internal = (ForkCriteria.BLOCK_NUMBER, block_number)
-        self.block_number = block_number
+    def __init__(self, block_number: SupportsInt):
+        self._internal = (ForkCriteria.BLOCK_NUMBER, int(block_number))
+        self.block_number = Uint(int(block_number))
 
-    def check(self, block_number: int, timestamp: int) -> bool:
+    def check(self, block_number: Uint, timestamp: U256) -> bool:
         """
         Check whether the block number has been reached.
 
@@ -151,16 +153,16 @@ class ByTimestamp(ForkCriteria):
     Forks that occur when a specific timestamp has been reached.
     """
 
-    timestamp: int
+    timestamp: U256
     """
     First instance of time that is part of this fork.
     """
 
-    def __init__(self, timestamp: int):
-        self._internal = (ForkCriteria.TIMESTAMP, timestamp)
-        self.timestamp = timestamp
+    def __init__(self, timestamp: SupportsInt):
+        self._internal = (ForkCriteria.TIMESTAMP, int(timestamp))
+        self.timestamp = U256(timestamp)
 
-    def check(self, block_number: int, timestamp: int) -> bool:
+    def check(self, block_number: Uint, timestamp: U256) -> bool:
         """
         Check whether the timestamp has been reached.
 
@@ -186,7 +188,7 @@ class Unscheduled(ForkCriteria):
     def __init__(self) -> None:
         self._internal = (ForkCriteria.UNSCHEDULED, 0)
 
-    def check(self, block_number: int, timestamp: int) -> bool:
+    def check(self, block_number: Uint, timestamp: U256) -> Literal[False]:
         """
         Unscheduled forks never occur; always returns `False`.
         """
