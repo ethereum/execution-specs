@@ -15,7 +15,8 @@ This module contains optimized POW functions can be monkey patched into the
 from importlib import import_module
 from typing import Any, Dict, cast
 
-from ethereum.base_types import U256_CEIL_VALUE
+from ethereum_types.numeric import U256, Uint
+
 from ethereum.ethash import epoch
 from ethereum.exceptions import InvalidBlock
 
@@ -57,12 +58,13 @@ def get_optimized_pow_patches(_fork_name: str) -> Dict[str, Any]:
         epoch_number = epoch(header.number)
         header_hash = generate_header_hash_for_pow(header)
 
+        limit = Uint(U256.MAX_VALUE) + Uint(1)
         result = ethash.verify(
             int(epoch_number),
             header_hash,
             header.mix_digest,
             int.from_bytes(header.nonce, "big"),
-            (U256_CEIL_VALUE // header.difficulty).to_be_bytes32(),
+            (limit // header.difficulty).to_be_bytes32(),
         )
         if not result:
             raise InvalidBlock

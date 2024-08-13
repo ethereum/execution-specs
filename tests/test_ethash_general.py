@@ -7,7 +7,7 @@ from typing import Tuple, cast
 
 import pytest
 
-from ethereum.base_types import U256_CEIL_VALUE, Uint
+from ethereum.base_types import Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.ethash import (
     EPOCH_SIZE,
@@ -228,7 +228,8 @@ def test_pow_random_blocks(
 
     assert mix_digest == hex_to_bytes32(expected_mix_digest)
     assert result == hex_to_bytes(expected_result)
-    assert Uint.from_be_bytes(result) <= U256_CEIL_VALUE // (block_difficulty)
+    limit = Uint(2**256)
+    assert Uint.from_be_bytes(result) <= limit // (block_difficulty)
 
 
 #

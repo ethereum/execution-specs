@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Optional, TypeVar, Union, cast
 from urllib import request
 
 from ethereum import genesis, rlp
-from ethereum.base_types import U64, Bytes0, Bytes256
+from ethereum.base_types import U64, U256, Bytes0, Bytes256, Uint
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -49,11 +49,11 @@ class ForkTracking:
     """
 
     forks: List[Hardfork]
-    block_number: int
+    block_number: Uint
     active_fork_index: int
 
     def __init__(
-        self, forks: List[Hardfork], block_number: int, block_timestamp: int
+        self, forks: List[Hardfork], block_number: Uint, block_timestamp: U256
     ):
         self.forks = forks
         self.set_block(block_number, block_timestamp)
@@ -81,7 +81,7 @@ class ForkTracking:
         """
         return self.active_fork.module(name)
 
-    def set_block(self, block_number: int, block_timestamp: int) -> None:
+    def set_block(self, block_number: Uint, block_timestamp: U256) -> None:
         """Set the block number and switch to the correct fork."""
         self.block_number = block_number
         self.active_fork_index = 0
@@ -90,9 +90,9 @@ class ForkTracking:
         ):
             self.active_fork_index += 1
 
-    def advance_block(self, timestamp: U64) -> bool:
+    def advance_block(self, timestamp: U256) -> bool:
         """Increment the block number, return `True` if the fork changed."""
-        self.block_number += 1
+        self.block_number += Uint(1)
         if self.next_fork is not None and self.next_fork.has_activated(
             self.block_number, timestamp
         ):
@@ -116,8 +116,8 @@ class BlockDownloader(ForkTracking):
         log: logging.Logger,
         rpc_url: str,
         geth: bool,
-        first_block: int,
-        first_block_timestamp: int,
+        first_block: Uint,
+        first_block_timestamp: U256,
     ) -> None:
         ForkTracking.__init__(self, forks, first_block, first_block_timestamp)
 
@@ -154,8 +154,8 @@ class BlockDownloader(ForkTracking):
         running = True
 
         while running:
-            count = max(1, self.queue.maxsize // 2)
-            replies = self.fetch_blocks(self.block_number + 1, count)
+            count = Uint(max(1, self.queue.maxsize // 2))
+            replies = self.fetch_blocks(self.block_number + Uint(1), count)
 
             for reply in replies:
                 to_push: Optional[bytes]
@@ -180,8 +180,8 @@ class BlockDownloader(ForkTracking):
 
     def fetch_blocks(
         self,
-        first: int,
-        count: int,
+        first: Uint,
+        count: Uint,
     ) -> List[Union[Any, RpcError]]:
         """
         Fetch the block specified by the given number from the RPC provider.
@@ -193,8 +193,8 @@ class BlockDownloader(ForkTracking):
 
     def fetch_blocks_debug(
         self,
-        first: int,
-        count: int,
+        first: Uint,
+        count: Uint,
     ) -> List[Union[bytes, RpcError]]:
         """
         Fetch the block specified by the given number from the RPC provider as
@@ -237,11 +237,11 @@ class BlockDownloader(ForkTracking):
                 )
                 raise ValueError
 
-            block_rlps: Dict[int, Union[RpcError, bytes]] = {}
+            block_rlps: Dict[Uint, Union[RpcError, bytes]] = {}
 
             for reply in replies:
                 try:
-                    reply_id = int(reply["id"], 0)
+                    reply_id = Uint(int(reply["id"], 0))
                 except Exception:
                     self.log.exception(
                         "unable to parse RPC id. reply=%r", reply
@@ -276,7 +276,7 @@ class BlockDownloader(ForkTracking):
                     assert not isinstance(decoded_block, bytes)
                     assert not isinstance(decoded_block[0], bytes)
                     assert isinstance(decoded_block[0][11], bytes)
-                    timestamp = rlp.decode_to(U64, decoded_block[0][11])
+                    timestamp = rlp.decode_to(U256, decoded_block[0][11])
                     self.advance_block(timestamp)
                     blocks.append(
                         rlp.decode_to(self.module("blocks").Block, block_rlp)
@@ -373,8 +373,8 @@ class BlockDownloader(ForkTracking):
 
     def fetch_blocks_eth(
         self,
-        first: int,
-        count: int,
+        first: Uint,
+        count: Uint,
     ) -> List[Union[Any, RpcError]]:
         """
         Fetch the block specified by the given number from the RPC provider
@@ -411,12 +411,12 @@ class BlockDownloader(ForkTracking):
 
         with request.urlopen(post) as response:
             replies = json.load(response)
-            block_jsons: Dict[int, Any] = {}
-            ommers_needed: Dict[int, int] = {}
-            blocks: Dict[int, Union[Any, RpcError]] = {}
+            block_jsons: Dict[Uint, Any] = {}
+            ommers_needed: Dict[Uint, int] = {}
+            blocks: Dict[Uint, Union[Any, RpcError]] = {}
 
             for reply in replies:
-                reply_id = int(reply["id"], 0)
+                reply_id = Uint(int(reply["id"], 0))
 
                 if reply_id < first or reply_id >= first + count:
                     raise Exception("mismatched request id")
@@ -439,7 +439,7 @@ class BlockDownloader(ForkTracking):
 
             ommers = self.fetch_ommers(ommers_needed)
             for id in block_jsons:
-                self.advance_block(hex_to_u64(block_jsons[id]["timestamp"]))
+                self.advance_block(hex_to_u256(block_jsons[id]["timestamp"]))
                 blocks[id] = self.make_block(
                     block_jsons[id], ommers.get(id, ())
                 )
@@ -448,7 +448,7 @@ class BlockDownloader(ForkTracking):
 
             return [v for (_, v) in sorted(blocks.items())]
 
-    def fetch_ommers(self, ommers_needed: Dict[int, int]) -> Dict[int, Any]:
+    def fetch_ommers(self, ommers_needed: Dict[Uint, int]) -> Dict[Uint, Any]:
         """
         Fetch the ommers for a given block from the RPC provider.
         """
@@ -459,7 +459,7 @@ class BlockDownloader(ForkTracking):
                 calls.append(
                     {
                         "jsonrpc": "2.0",
-                        "id": hex(block_number * 20 + i),
+                        "id": hex(block_number * Uint(20) + Uint(i)),
                         "method": "eth_getUncleByBlockNumberAndIndex",
                         "params": [hex(block_number), hex(i)],
                     }
@@ -488,13 +488,14 @@ class BlockDownloader(ForkTracking):
 
         with request.urlopen(post) as response:
             replies = json.load(response)
-            ommers: Dict[int, Dict[int, Any]] = {}
+            ommers: Dict[Uint, Dict[Uint, Any]] = {}
 
+            twenty = Uint(20)
             for reply in replies:
-                reply_id = int(reply["id"], 0)
+                reply_id = Uint(int(reply["id"], 0))
 
-                if reply_id // 20 not in ommers:
-                    ommers[reply_id // 20] = {}
+                if reply_id // twenty not in ommers:
+                    ommers[reply_id // twenty] = {}
 
                 if "error" in reply:
                     raise RpcError(
@@ -502,9 +503,9 @@ class BlockDownloader(ForkTracking):
                         reply["error"]["message"],
                     )
                 else:
-                    ommers[reply_id // 20][reply_id % 20] = self.make_header(
-                        reply["result"]
-                    )
+                    ommers[reply_id // twenty][
+                        reply_id % twenty
+                    ] = self.make_header(reply["result"])
 
             self.log.info(
                 "ommers [%d, %d] fetched",
@@ -742,7 +743,7 @@ class Sync(ForkTracking):
         else:
             forks = Hardfork.load_from_json(config)
 
-        ForkTracking.__init__(self, forks, 0, 0)
+        ForkTracking.__init__(self, forks, Uint(0), U256(0))
 
         if self.options.reset:
             import rust_pyspec_glue
@@ -766,21 +767,26 @@ class Sync(ForkTracking):
 
         state = self.module("state").State()
 
+        persisted_block: Optional[Uint] = None
+        persisted_block_timestamp: Optional[U256] = None
+
         if self.options.persist is not None:
             state_mod = self.module("state")
-            persisted_block = state_mod.get_metadata(state, b"block_number")
-            persisted_block_timestamp = state_mod.get_metadata(
+            persisted_block_opt = state_mod.get_metadata(
+                state, b"block_number"
+            )
+            persisted_block_timestamp_opt = state_mod.get_metadata(
                 state, b"block_timestamp"
             )
 
-            if persisted_block is not None:
-                persisted_block = int(persisted_block)
-            if persisted_block_timestamp is not None:
-                persisted_block_timestamp = int(persisted_block_timestamp)
-        else:
-            persisted_block = None
+            if persisted_block_opt is not None:
+                persisted_block = Uint(int(persisted_block_opt))
+            if persisted_block_timestamp_opt is not None:
+                persisted_block_timestamp = U256(
+                    int(persisted_block_timestamp_opt)
+                )
 
-        if persisted_block is None:
+        if persisted_block is None or persisted_block_timestamp is None:
             self.chain = self.module("fork").BlockChain(
                 blocks=[],
                 state=state,
@@ -815,16 +821,16 @@ class Sync(ForkTracking):
                 self.log,
                 self.options.rpc_url,
                 self.options.geth,
-                0,
+                Uint(0),
                 genesis_configuration.timestamp,
             )
-            self.set_block(0, genesis_configuration.timestamp)
+            self.set_block(Uint(0), genesis_configuration.timestamp)
         else:
             self.set_block(persisted_block, persisted_block_timestamp)
-            if persisted_block < 256:
+            if persisted_block < Uint(256):
                 initial_blocks_length = persisted_block
             else:
-                initial_blocks_length = 255
+                initial_blocks_length = Uint(255)
             self.downloader = BlockDownloader(
                 forks,
                 self.log,
@@ -940,7 +946,7 @@ class Sync(ForkTracking):
 
             # Additional gas to account for block overhead
             gas_since_last_commit += 30000
-            gas_since_last_commit += block.header.gas_used
+            gas_since_last_commit += int(block.header.gas_used)
 
             if self.options.persist is not None:
                 state_mod = self.module("state")
@@ -964,12 +970,16 @@ class Sync(ForkTracking):
                 persist()
                 return
 
-            if self.block_number > 2220000 and self.block_number < 2463000:
+            if self.block_number > Uint(2220000) and self.block_number < Uint(
+                2463000
+            ):
                 # Excessive DB load due to the Shanghai DOS attacks, requires
                 # more regular DB commits
                 if gas_since_last_commit > self.options.gas_per_commit / 10:
                     persist()
-            elif self.block_number > 2675000 and self.block_number < 2700598:
+            elif self.block_number > Uint(
+                2675000
+            ) and self.block_number < Uint(2700598):
                 # Excessive DB load due to state clearing, requires more
                 # regular DB commits
                 if gas_since_last_commit > self.options.gas_per_commit / 10:
@@ -995,8 +1005,9 @@ class Sync(ForkTracking):
                 end - start,
             )
 
-        if self.chain.blocks:
-            assert self.block_number == self.chain.blocks[-1].header.number + 1
+        assert (not self.chain.blocks) or (
+            self.block_number == self.chain.blocks[-1].header.number + Uint(1)
+        )
 
         if block.header.number != self.block_number:
             raise Exception(

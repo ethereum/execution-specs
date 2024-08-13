@@ -261,7 +261,7 @@ class T8N(Load):
         state = self.alloc.state
 
         miner_reward = self.BLOCK_REWARD + (
-            len(ommers) * (self.BLOCK_REWARD // 32)
+            U256(len(ommers)) * (self.BLOCK_REWARD // U256(32))
         )
         self.fork.create_ether(state, coinbase, miner_reward)
         touched_accounts = [coinbase]

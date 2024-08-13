@@ -237,7 +237,7 @@ def generate_cache(block_number: Uint) -> Tuple[Tuple[U32, ...], ...]:
                 (index - 1 + int(cache_size_words)) % int(cache_size_words)
             ]
             second_cache_item = cache[
-                U32.from_le_bytes(cache[index][0:4]) % int(cache_size_words)
+                U32.from_le_bytes(cache[index][0:4]) % U32(cache_size_words)
             ]
             result = bytes(
                 [a ^ b for a, b in zip(first_cache_item, second_cache_item)]
@@ -311,7 +311,7 @@ def generate_dataset_item(
 
     for j in (Uint(k) for k in range(DATASET_PARENTS)):
         mix_word: U32 = mix_integers[j % Uint(16)]
-        cache_index = fnv(index ^ j, mix_word) % len(cache)
+        cache_index = fnv(index ^ j, mix_word) % U32(len(cache))
         parent = cache[cache_index]
         mix_integers = fnv_hash(mix_integers, parent)
 
@@ -373,7 +373,7 @@ def hashimoto(
 
     for i in range(HASHIMOTO_ACCESSES):
         new_data: Tuple[U32, ...] = ()
-        parent = fnv(i ^ seed_head, mix[i % len(mix)]) % int(rows)
+        parent = fnv(U32(i) ^ seed_head, mix[i % len(mix)]) % U32(rows)
         for j in range(MIX_BYTES // HASH_BYTES):
             # Typecasting `parent` from U32 to Uint as 2*parent + j may
             # overflow U32.

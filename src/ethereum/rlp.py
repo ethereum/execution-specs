@@ -36,7 +36,7 @@ from typing import (
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import RLPDecodingError, RLPEncodingError
 
-from .base_types import Bytes, FixedBytes, FixedUint, Uint
+from .base_types import Bytes, FixedBytes, FixedUnsigned, Uint
 
 
 class RLP(Protocol):
@@ -52,7 +52,7 @@ class RLP(Protocol):
 Simple: TypeAlias = Union[Sequence["Simple"], bytes]
 
 Extended: TypeAlias = Union[
-    Sequence["Extended"], bytearray, bytes, Uint, FixedUint, str, bool, RLP
+    Sequence["Extended"], bytearray, bytes, Uint, FixedUnsigned, str, bool, RLP
 ]
 
 
@@ -83,7 +83,7 @@ def encode(raw_data: Extended) -> Bytes:
             return encode_bytes(raw_data.encode())
         else:
             return encode_sequence(raw_data)
-    elif isinstance(raw_data, (Uint, FixedUint)):
+    elif isinstance(raw_data, (Uint, FixedUnsigned)):
         return encode(raw_data.to_be_bytes())
     elif isinstance(raw_data, bool):
         if raw_data:
@@ -245,7 +245,7 @@ def _deserialize_to(class_: object, value: Simple) -> Extended:
         return _deserialize_to_annotation(class_, value)
     elif is_dataclass(class_):
         return _deserialize_to_dataclass(class_, value)
-    elif issubclass(class_, (Uint, FixedUint)):
+    elif issubclass(class_, (Uint, FixedUnsigned)):
         return _deserialize_to_uint(class_, value)
     elif issubclass(class_, (Bytes, FixedBytes)):
         return _deserialize_to_bytes(class_, value)
@@ -303,8 +303,8 @@ def _deserialize_to_bytes(
 
 
 def _deserialize_to_uint(
-    class_: Union[Type[Uint], Type[FixedUint]], decoded: Simple
-) -> Union[Uint, FixedUint]:
+    class_: Union[Type[Uint], Type[FixedUnsigned]], decoded: Simple
+) -> Union[Uint, FixedUnsigned]:
     if not isinstance(decoded, bytes):
         raise RLPDecodingError
     try:
