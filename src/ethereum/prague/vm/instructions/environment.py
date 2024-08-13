@@ -340,7 +340,7 @@ def extcodesize(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    from ..eof import EofVersion, get_eof_version
+    from ..eof import EOF_MAGIC, EofVersion, get_eof_version
 
     # STACK
     address = to_address(pop(evm.stack))
@@ -361,7 +361,7 @@ def extcodesize(evm: Evm) -> None:
     code = get_account(evm.env.state, address).code
     target_eof_version = get_eof_version(code)
     if target_eof_version == EofVersion.EOF1:
-        codesize = U256(2)
+        codesize = U256(len(EOF_MAGIC))
     else:
         codesize = U256(len(code))
 
@@ -381,7 +381,7 @@ def extcodecopy(evm: Evm) -> None:
         The current EVM frame.
 
     """
-    from ..eof import EofVersion, get_eof_version
+    from ..eof import EOF_MAGIC, EofVersion, get_eof_version
 
     # STACK
     address = to_address(pop(evm.stack))
@@ -411,7 +411,7 @@ def extcodecopy(evm: Evm) -> None:
     evm.memory += b"\x00" * extend_memory.expand_by
     eof_version = get_eof_version(code)
     if eof_version == EofVersion.EOF1:
-        value = b"\xEF\x00"
+        value = EOF_MAGIC
     else:
         value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
@@ -486,7 +486,7 @@ def extcodehash(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ..eof import EofVersion, get_eof_version
+    from ..eof import EOF_MAGIC, EofVersion, get_eof_version
 
     # STACK
     address = to_address(pop(evm.stack))
@@ -508,7 +508,7 @@ def extcodehash(evm: Evm) -> None:
     if account == EMPTY_ACCOUNT:
         codehash = U256(0)
     elif get_eof_version(account.code) == EofVersion.EOF1:
-        codehash = U256.from_be_bytes(keccak256(b"\xEF\x00"))
+        codehash = U256.from_be_bytes(keccak256(EOF_MAGIC))
     else:
         codehash = U256.from_be_bytes(keccak256(code))
 

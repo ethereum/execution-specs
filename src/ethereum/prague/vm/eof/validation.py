@@ -181,8 +181,8 @@ def validate_code_section(validator: Validator) -> None:
         if op_metadata.stack_height is None:
             raise InvalidEof("Stack height not set")
 
-        stack_implementation = get_stack_validation(op)
-        stack_implementation(validator)
+        stack_validation = get_stack_validation(op)
+        stack_validation(validator)
 
         update_successor_stack_height(validator)
         if op_metadata.stack_height.max > computed_maximum_stack_height:

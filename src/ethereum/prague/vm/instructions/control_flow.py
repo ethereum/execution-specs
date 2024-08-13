@@ -28,7 +28,7 @@ from ...vm.gas import (
     charge_gas,
 )
 from .. import Evm
-from ..exceptions import ExceptionalHalt, InvalidJumpDestError
+from ..exceptions import InvalidJumpDestError, StackOverflowError
 from ..stack import pop, push
 
 
@@ -311,9 +311,9 @@ def callf(evm: Evm) -> None:
     target_max_stack_height = Uint.from_be_bytes(target_section[2:])
 
     if len(evm.stack) > 1024 - target_max_stack_height + target_inputs:
-        raise ExceptionalHalt
+        raise StackOverflowError
     if len(evm.return_stack) == 1024:
-        raise ExceptionalHalt
+        raise StackOverflowError("Return stack overflow")
 
     evm.return_stack.append(
         ReturnStackItem(
@@ -383,7 +383,7 @@ def jumpf(evm: Evm) -> None:
     target_max_stack_height = Uint.from_be_bytes(target_section[2:])
 
     if len(evm.stack) > 1024 - target_max_stack_height + target_inputs:
-        raise ExceptionalHalt
+        raise StackOverflowError
 
     # PROGRAM COUNTER
     evm.current_section_index = target_section_index
