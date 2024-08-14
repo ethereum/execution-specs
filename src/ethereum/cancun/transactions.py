@@ -19,6 +19,13 @@ from ..base_types import (
 from ..exceptions import InvalidBlock
 from .fork_types import Address, VersionedHash
 
+TX_BASE_COST = 21000
+TX_DATA_COST_PER_NON_ZERO = 16
+TX_DATA_COST_PER_ZERO = 4
+TX_CREATE_COST = 32000
+TX_ACCESS_LIST_ADDRESS_COST = 2400
+TX_ACCESS_LIST_STORAGE_KEY_COST = 1900
+
 
 @slotted_freezable
 @dataclass
