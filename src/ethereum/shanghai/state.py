@@ -489,7 +489,7 @@ def process_withdrawal(
     """
 
     def increase_recipient_balance(recipient: Account) -> None:
-        recipient.balance += wd.amount * 10**9
+        recipient.balance += wd.amount * U256(10**9)
 
     modify_state(state, wd.address, increase_recipient_balance)
 
