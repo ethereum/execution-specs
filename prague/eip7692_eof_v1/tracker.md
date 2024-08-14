@@ -245,7 +245,7 @@
 #### Stack underflow
 
 - [ ] Stack underflows (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml )
-- [ ] Stack underflow with enough items available in caller stack (ethereum/tests: src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
+- [ ] Stack underflow with enough items available in caller stack - can't dig into caller frame (ethereum/tests: src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
 - [ ] Stack underflow in variable stack segment, only min underflow (ethereum/tests: src/EOFTestsFiller/efStack/underflow_variable_stack_Copier.json)
 - [ ] Stack underflow in variable stack segment, both min and max underflow (ethereum/tests: src/EOFTestsFiller/efStack/underflow_variable_stack_Copier.json)
 
@@ -256,6 +256,7 @@
 - [ ] CALLF stack underflow in variable stack segment, only min underflow (ethereum/tests: src/EOFTestsFiller/efStack/underflow_variable_stack_Copier.json)
 - [ ] CALLF stack underflow in variable stack segment, both min and max underflow (ethereum/tests: src/EOFTestsFiller/efStack/underflow_variable_stack_Copier.json)
 - [ ] Branching to CALLFs with the same number of outputs (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+- [ ] Check that CALLF stack inputs/outputs equal to target section type definition
 
 #### RETF
 
@@ -344,6 +345,7 @@
 - [ ] Returning section with JUMPF to non-returning and RETF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
 - [ ] Invalid non-returning flag (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
 - [ ] Circular JUMPF between two sections (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
+- [ ] JUMPF into non-existing section
 
 ## EIP-7480: EOF - Data section access instructions
 
@@ -481,6 +483,9 @@
 - [ ] Creation transaction deploying container of size above limit fails (evmone-tests: state_tests/state_transition/eof_create/creation_tx_deploy_container_too_large.json)
 - [ ] EOFCREATE success nested in creation transaction initcode (evmone-tests: state_tests/state_transition/eof_create/creation_tx_nested_eofcreate.json)
 - [ ] Creation transaction with invalid initcontainer (invalid header) (evmone-tests: state_tests/state_transition/eof_create/creation_tx_invalid_initcode_header.json)
+- [ ] Creation transaction with invalid initcontainer (invalid EOF version) (evmone-tests: state_tests/state_transition/eof_create/creation_tx_invalid_eof_version.json)
 - [ ] Creation transaction with invalid initcontainer (invalid max stack height) (evmone-tests: state_tests/state_transition/eof_create/creation_tx_invalid_initcode.json)
 - [ ] Creation transaction fails if initcontainer has truncated data section (declared size > present data size ) (evmone-tests: state_tests/state_transition/eof_create/creation_tx_truncated_data_initcode.json)
+- [ ] Creation transaction with invalid deploy container (evmone-tests: state_tests/state_transition/eof_create/creation_tx_invalid_deploycode.json)
 - [ ] Create transaction with legacy initcode and EOF deploy code fails (evmone-tests: state_tests/state_transition/eof_create/creation_tx_deploying_eof.json)
+- [ ] EOF creation transaction fails before Prague (evmone-tests: state_tests/state_transition/eof_create/initcode_transaction_before_prague.json)
