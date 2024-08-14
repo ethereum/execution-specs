@@ -706,7 +706,7 @@ def validate_transaction(tx: Transaction) -> bool:
     """
     if calculate_intrinsic_cost(tx) > tx.gas:
         return False
-    if tx.nonce >= 2**64 - 1:
+    if tx.nonce >= U256(U64.MAX_VALUE):
         return False
     if tx.to == Bytes0(b"") and len(tx.data) > 2 * MAX_CODE_SIZE:
         return False
@@ -782,22 +782,26 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
         The address of the account that signed the transaction.
     """
     r, s = tx.r, tx.s
-    if 0 >= r or r >= SECP256K1N:
+    if U256(0) >= r or r >= SECP256K1N:
         raise InvalidBlock
-    if 0 >= s or s > SECP256K1N // 2:
+    if U256(0) >= s or s > SECP256K1N // U256(2):
         raise InvalidBlock
 
     if isinstance(tx, LegacyTransaction):
         v = tx.v
         if v == 27 or v == 28:
             public_key = secp256k1_recover(
-                r, s, v - 27, signing_hash_pre155(tx)
+                r, s, v - U256(27), signing_hash_pre155(tx)
             )
         else:
-            if v != 35 + chain_id * 2 and v != 36 + chain_id * 2:
+            chain_id_x2 = U256(chain_id) * U256(2)
+            if v != U256(35) + chain_id_x2 and v != U256(36) + chain_id_x2:
                 raise InvalidBlock
             public_key = secp256k1_recover(
-                r, s, v - 35 - chain_id * 2, signing_hash_155(tx, chain_id)
+                r,
+                s,
+                v - U256(35) - chain_id_x2,
+                signing_hash_155(tx, chain_id),
             )
     elif isinstance(tx, AccessListTransaction):
         public_key = secp256k1_recover(
