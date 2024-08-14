@@ -82,7 +82,7 @@ def mstore8(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    normalized_bytes_value = Bytes([value & 0xFF])
+    normalized_bytes_value = Bytes([value & U256(0xFF)])
     memory_write(evm.memory, start_position, normalized_bytes_value)
 
     # PROGRAM COUNTER
