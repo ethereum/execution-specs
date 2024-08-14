@@ -5,7 +5,7 @@ from typing import Callable, Dict
 
 from ...vm.instructions import Ops, op_stack_items
 from ..exceptions import InvalidEof
-from .validation import Validator
+from . import Validator
 
 
 def stack_height_callf(validator: Validator) -> None:
