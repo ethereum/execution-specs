@@ -121,7 +121,7 @@ def iterations(exponent_length: U256, exponent_head: Uint) -> Uint:
     iterations : `Uint`
         Number of iterations.
     """
-    if exponent_length < 32:
+    if exponent_length < U256(32):
         adjusted_exp_length = Uint(max(0, int(exponent_head.bit_length()) - 1))
     else:
         adjusted_exp_length = Uint(

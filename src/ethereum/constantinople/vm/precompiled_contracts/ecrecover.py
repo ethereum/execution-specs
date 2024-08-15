@@ -43,15 +43,15 @@ def ecrecover(evm: Evm) -> None:
     r = U256.from_be_bytes(buffer_read(data, U256(64), U256(32)))
     s = U256.from_be_bytes(buffer_read(data, U256(96), U256(32)))
 
-    if v != 27 and v != 28:
+    if v != U256(27) and v != U256(28):
         return
-    if 0 >= r or r >= SECP256K1N:
+    if U256(0) >= r or r >= SECP256K1N:
         return
-    if 0 >= s or s >= SECP256K1N:
+    if U256(0) >= s or s >= SECP256K1N:
         return
 
     try:
-        public_key = secp256k1_recover(r, s, v - 27, message_hash)
+        public_key = secp256k1_recover(r, s, v - U256(27), message_hash)
     except ValueError:
         # unable to extract public key
         return
