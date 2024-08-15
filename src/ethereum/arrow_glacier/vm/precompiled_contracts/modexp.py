@@ -109,9 +109,9 @@ def iterations(exponent_length: U256, exponent_head: Uint) -> Uint:
     iterations : `Uint`
         Number of iterations.
     """
-    if exponent_length <= 32 and exponent_head == 0:
+    if exponent_length <= U256(32) and exponent_head == U256(0):
         count = Uint(0)
-    elif exponent_length <= 32:
+    elif exponent_length <= U256(32):
         bit_length = Uint(exponent_head.bit_length())
 
         if bit_length > Uint(0):

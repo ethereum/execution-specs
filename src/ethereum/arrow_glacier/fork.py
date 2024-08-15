@@ -22,7 +22,7 @@ from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import InvalidBlock
 
 from .. import rlp
-from ..base_types import U64, U256, U256_CEIL_VALUE, Bytes, Uint
+from ..base_types import U64, U256, Bytes, Uint
 from . import vm
 from .blocks import Block, Header, Log, Receipt
 from .bloom import logs_bloom
@@ -381,7 +381,9 @@ def validate_proof_of_work(header: Header) -> None:
     )
     if mix_digest != header.mix_digest:
         raise InvalidBlock
-    if Uint.from_be_bytes(result) > (U256_CEIL_VALUE // header.difficulty):
+
+    limit = Uint(U256.MAX_VALUE) + Uint(1)
+    if Uint.from_be_bytes(result) > (limit // header.difficulty):
         raise InvalidBlock
 
 
@@ -735,13 +737,14 @@ def pay_rewards(
     ommers :
         List of ommers mentioned in the current block.
     """
-    miner_reward = BLOCK_REWARD + (len(ommers) * (BLOCK_REWARD // 32))
+    ommer_count = U256(len(ommers))
+    miner_reward = BLOCK_REWARD + (ommer_count * (BLOCK_REWARD // U256(32)))
     create_ether(state, coinbase, miner_reward)
 
     for ommer in ommers:
         # Ommer age with respect to the current block.
         ommer_age = U256(block_number - ommer.number)
-        ommer_miner_reward = ((8 - ommer_age) * BLOCK_REWARD) // 8
+        ommer_miner_reward = ((U256(8) - ommer_age) * BLOCK_REWARD) // U256(8)
         create_ether(state, ommer.coinbase, ommer_miner_reward)
 
 
@@ -889,7 +892,7 @@ def validate_transaction(tx: Transaction) -> bool:
     """
     if calculate_intrinsic_cost(tx) > Uint(tx.gas):
         return False
-    if tx.nonce >= 2**64 - 1:
+    if tx.nonce >= U256(U64.MAX_VALUE):
         return False
     return True
 
@@ -962,22 +965,26 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
         The address of the account that signed the transaction.
     """
     r, s = tx.r, tx.s
-    if 0 >= r or r >= SECP256K1N:
+    if U256(0) >= r or r >= SECP256K1N:
         raise InvalidBlock
-    if 0 >= s or s > SECP256K1N // 2:
+    if U256(0) >= s or s > SECP256K1N // U256(2):
         raise InvalidBlock
 
     if isinstance(tx, LegacyTransaction):
         v = tx.v
         if v == 27 or v == 28:
             public_key = secp256k1_recover(
-                r, s, v - 27, signing_hash_pre155(tx)
+                r, s, v - U256(27), signing_hash_pre155(tx)
             )
         else:
-            if v != 35 + chain_id * 2 and v != 36 + chain_id * 2:
+            chain_id_x2 = U256(chain_id) * U256(2)
+            if v != U256(35) + chain_id_x2 and v != U256(36) + chain_id_x2:
                 raise InvalidBlock
             public_key = secp256k1_recover(
-                r, s, v - 35 - chain_id * 2, signing_hash_155(tx, chain_id)
+                r,
+                s,
+                v - U256(35) - chain_id_x2,
+                signing_hash_155(tx, chain_id),
             )
     elif isinstance(tx, AccessListTransaction):
         public_key = secp256k1_recover(
