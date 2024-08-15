@@ -12,7 +12,7 @@ Introduction
 Implementations of the EVM Arithmetic instructions.
 """
 
-from ethereum.base_types import U255_CEIL_VALUE, U256, U256_CEIL_VALUE, Uint
+from ethereum.base_types import U256, Uint
 from ethereum.utils.numeric import get_sign
 
 from .. import Evm
@@ -136,6 +136,9 @@ def div(evm: Evm) -> None:
 
     # PROGRAM COUNTER
     evm.pc += Uint(1)
+
+
+U255_CEIL_VALUE = 2**255
 
 
 def sdiv(evm: Evm) -> None:
@@ -318,7 +321,7 @@ def exp(evm: Evm) -> None:
     )
 
     # OPERATION
-    result = U256(pow(base, exponent, U256_CEIL_VALUE))
+    result = U256(pow(base, exponent, Uint(U256.MAX_VALUE) + Uint(1)))
 
     push(evm.stack, result)
 
@@ -345,7 +348,7 @@ def signextend(evm: Evm) -> None:
     charge_gas(evm, GAS_LOW)
 
     # OPERATION
-    if byte_num > 31:
+    if byte_num > U256(31):
         # Can't extend any further
         result = value
     else:
@@ -358,7 +361,7 @@ def signextend(evm: Evm) -> None:
         if sign_bit == 0:
             result = U256.from_be_bytes(value_bytes)
         else:
-            num_bytes_prepend = 32 - (byte_num + 1)
+            num_bytes_prepend = U256(32) - (byte_num + U256(1))
             result = U256.from_be_bytes(
                 bytearray([0xFF] * num_bytes_prepend) + value_bytes
             )
