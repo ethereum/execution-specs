@@ -485,6 +485,15 @@ class Container(CopyValidateModel):
         """
         return len(self.bytecode)
 
+    def __str__(self) -> str:
+        """
+        Returns the name of the container if available, otherwise the bytecode of the container
+        as a string.
+        """
+        if self.name:
+            return self.name
+        return str(self.bytecode)
+
 
 @dataclass(kw_only=True)
 class Initcode(Bytecode):
