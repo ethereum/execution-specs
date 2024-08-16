@@ -259,7 +259,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         env=env,
         valid_jump_destinations=valid_jump_destinations,
         logs=(),
-        refund_counter=U256(0),
+        refund_counter=0,
         running=True,
         message=message,
         output=b"",
