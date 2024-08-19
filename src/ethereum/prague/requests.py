@@ -87,6 +87,20 @@ def encode_request(req: Request) -> Bytes:
         raise Exception("Unknown request type")
 
 
+def decode_request(data: Bytes) -> Request:
+    """
+    Decode a request.
+    """
+    if data[0] == 0:
+        return rlp.decode_to(DepositRequest, data[1:])
+    elif data[0] == 1:
+        return rlp.decode_to(WithdrawalRequest, data[1:])
+    elif data[0] == 2:
+        return rlp.decode_to(ConsolidationRequest, data[1:])
+    else:
+        raise Exception("Unknown request type")
+
+
 def parse_deposit_data(data: Bytes) -> DepositRequest:
     """
     Parses Deposit Request from the DepositContract.DepositEvent data.

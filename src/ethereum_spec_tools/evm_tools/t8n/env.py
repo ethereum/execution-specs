@@ -242,7 +242,6 @@ class Env:
         self.parent_hash = None
         if t8n.fork.is_after_fork("ethereum.prague"):
             self.parent_hash = Hash32(hex_to_bytes(data["parentHash"]))
-            return
 
         block_hashes: List[Any] = []
         # Store a maximum of 256 block hashes.

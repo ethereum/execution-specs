@@ -5,7 +5,7 @@ Utilities for the EVM tools
 import json
 import logging
 import sys
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar, Union
 
 import coincurve
 
@@ -172,3 +172,15 @@ def secp256k1_sign(msg_hash: Hash32, secret_key: int) -> Tuple[U256, ...]:
         U256.from_be_bytes(signature[32:64]),
         U256(signature[64]),
     )
+
+
+def encode_to_hex(data: Union[bytes, int]) -> str:
+    """
+    Encode the data to a hex string.
+    """
+    if isinstance(data, int):
+        return hex(data)
+    elif isinstance(data, bytes):
+        return "0x" + data.hex()
+    else:
+        raise Exception("Invalid data type")

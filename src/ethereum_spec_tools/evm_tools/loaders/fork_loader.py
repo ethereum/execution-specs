@@ -168,6 +168,26 @@ class ForkLoad:
         return self._module("blocks").Block
 
     @property
+    def DepositRequest(self) -> Any:
+        """Deposit request of the fork"""
+        return self._module("requests").DepositRequest
+
+    @property
+    def WithdrawalRequest(self) -> Any:
+        """Withdrawal request of the fork"""
+        return self._module("requests").WithdrawalRequest
+
+    @property
+    def ConsolidationRequest(self) -> Any:
+        """Consolidation request of the fork"""
+        return self._module("requests").ConsolidationRequest
+
+    @property
+    def decode_request(self) -> Any:
+        """decode_request function of the fork"""
+        return self._module("requests").decode_request
+
+    @property
     def parse_withdrawal_requests_from_system_tx(self) -> Any:
         """parse_withdrawal_requests_from_system_tx function of the fork"""
         return self._module(

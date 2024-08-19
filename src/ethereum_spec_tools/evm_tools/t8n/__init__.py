@@ -171,15 +171,13 @@ class T8N(Load):
         arguments are adjusted according to the fork.
         """
         kw_arguments = {
+            "block_hashes": self.env.block_hashes,
             "coinbase": self.env.coinbase,
             "number": self.env.block_number,
             "gas_limit": self.env.block_gas_limit,
             "time": self.env.block_timestamp,
             "state": self.alloc.state,
         }
-
-        if not self.fork.is_after_fork("ethereum.prague"):
-            kw_arguments["block_hashes"] = self.env.block_hashes
 
         if self.fork.is_after_fork("ethereum.paris"):
             kw_arguments["prev_randao"] = self.env.prev_randao
@@ -288,6 +286,18 @@ class T8N(Load):
         """Restore the state from the backup."""
         state = self.alloc.state
         state._main_trie, state._storage_tries = self.alloc.state_backup
+
+    def decode_request(self, decoded_requests: Any, request: Any) -> Any:
+        """Decode a request."""
+        req = self.fork.decode_request(request)
+        if isinstance(req, self.fork.DepositRequest):
+            decoded_requests.append(("depositRequests", req))
+        elif isinstance(req, self.fork.WithdrawalRequest):
+            decoded_requests.append(("withdrawalRequests", req))
+        elif isinstance(req, self.fork.ConsolidationRequest):
+            decoded_requests.append(("consolidationRequests", req))
+        else:
+            raise Exception("Unknown request type")
 
     def apply_body(self) -> None:
         """
@@ -472,8 +482,10 @@ class T8N(Load):
 
             requests_from_execution += consolidation_requests
 
+            decoded_requests: Any = []
             for i, request in enumerate(requests_from_execution):
                 self.fork.trie_set(requests_trie, rlp.encode(Uint(i)), request)
+                self.decode_request(decoded_requests, request)
 
         self.result.state_root = self.fork.state_root(self.alloc.state)
         self.result.tx_root = self.fork.root(transactions_trie)
@@ -486,6 +498,7 @@ class T8N(Load):
 
         if self.fork.is_after_fork("ethereum.prague"):
             self.result.requests_root = self.fork.root(requests_trie)
+            self.result.requests = decoded_requests
 
     def run(self) -> int:
         """Run the transition and provide the relevant outputs"""
