@@ -122,26 +122,6 @@ class T8N(Load):
             self.env.block_difficulty, self.env.base_fee_per_gas
         )
 
-        if self.fork.is_after_fork("ethereum.cancun"):
-            self.SYSTEM_TRANSACTION_GAS = Uint(30000000)
-            self.SYSTEM_ADDRESS = self.fork.hex_to_address(
-                "0xfffffffffffffffffffffffffffffffffffffffe"
-            )
-            self.BEACON_ROOTS_ADDRESS = self.fork.hex_to_address(
-                "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
-            )
-
-        if self.fork.is_after_fork("ethereum.prague"):
-            self.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = (
-                self.fork.hex_to_address(
-                    "0x00A3ca265EBcb825B45F985A16CEFB49958cE017"
-                )
-            )
-            self.HISTORY_STORAGE_ADDRESS = self.fork.hex_to_address(
-                "0x25a219378dad9b3503c8268c9ca836a52427a4fb"
-            )
-            self.HISTORY_SERVE_WINDOW = 8191
-
     @property
     def BLOCK_REWARD(self) -> Any:
         """
@@ -330,9 +310,10 @@ class T8N(Load):
 
             self.fork.set_storage(
                 self.alloc.state,
-                self.HISTORY_STORAGE_ADDRESS,
+                self.fork.HISTORY_STORAGE_ADDRESS,
                 (
-                    (self.env.block_number - 1) % self.HISTORY_SERVE_WINDOW
+                    (self.env.block_number - 1)
+                    % self.fork.HISTORY_SERVE_WINDOW
                 ).to_be_bytes32(),
                 U256.from_be_bytes(self.env.parent_hash),
             )
@@ -342,8 +323,9 @@ class T8N(Load):
             and self.env.parent_beacon_block_root is not None
         ):
             self.fork.process_system_transaction(
-                self.BEACON_ROOTS_ADDRESS,
+                self.fork.BEACON_ROOTS_ADDRESS,
                 self.env.parent_beacon_block_root,
+                self.env.block_hashes,
                 self.env.coinbase,
                 self.env.block_number,
                 self.env.base_fee_per_gas,
@@ -443,8 +425,9 @@ class T8N(Load):
 
         if self.fork.is_after_fork("ethereum.prague"):
             system_withdrawal_tx_output = self.fork.process_system_transaction(
-                self.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+                self.fork.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
                 b"",
+                self.env.block_hashes,
                 self.env.coinbase,
                 self.env.block_number,
                 self.env.base_fee_per_gas,
@@ -463,6 +446,31 @@ class T8N(Load):
             )
 
             requests_from_execution += withdrawal_requests
+
+            system_consolidation_tx_output = (
+                self.fork.process_system_transaction(
+                    self.fork.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+                    b"",
+                    self.env.block_hashes,
+                    self.env.coinbase,
+                    self.env.block_number,
+                    self.env.base_fee_per_gas,
+                    self.env.block_gas_limit,
+                    self.env.block_timestamp,
+                    self.env.prev_randao,
+                    self.alloc.state,
+                    self.chain_id,
+                    self.env.excess_blob_gas,
+                )
+            )
+
+            consolidation_requests = (
+                self.fork.parse_consolidation_requests_from_system_tx(
+                    system_consolidation_tx_output.return_data
+                )
+            )
+
+            requests_from_execution += consolidation_requests
 
             for i, request in enumerate(requests_from_execution):
                 self.fork.trie_set(requests_trie, rlp.encode(Uint(i)), request)

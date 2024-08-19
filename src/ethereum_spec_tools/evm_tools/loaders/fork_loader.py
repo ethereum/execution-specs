@@ -48,6 +48,41 @@ class ForkLoad:
         return return_value
 
     @property
+    def SYSTEM_TRANSACTION_GAS(self) -> Any:
+        """SYSTEM_TRANSACTION_GAS of the given fork."""
+        return self._module("fork").SYSTEM_TRANSACTION_GAS
+
+    @property
+    def SYSTEM_ADDRESS(self) -> Any:
+        """SYSTEM_ADDRESS of the given fork."""
+        return self._module("fork").SYSTEM_ADDRESS
+
+    @property
+    def BEACON_ROOTS_ADDRESS(self) -> Any:
+        """BEACON_ROOTS_ADDRESS of the given fork."""
+        return self._module("fork").BEACON_ROOTS_ADDRESS
+
+    @property
+    def HISTORY_STORAGE_ADDRESS(self) -> Any:
+        """HISTORY_STORAGE_ADDRESS of the given fork."""
+        return self._module("fork").HISTORY_STORAGE_ADDRESS
+
+    @property
+    def WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS(self) -> Any:
+        """WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS of the given fork."""
+        return self._module("fork").WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS
+
+    @property
+    def CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS(self) -> Any:
+        """CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS of the given fork."""
+        return self._module("fork").CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS
+
+    @property
+    def HISTORY_SERVE_WINDOW(self) -> Any:
+        """HISTORY_SERVE_WINDOW of the given fork."""
+        return self._module("fork").HISTORY_SERVE_WINDOW
+
+    @property
     def process_system_transaction(self) -> Any:
         """process_system_transaction function of the given fork."""
         return self._module("fork").process_system_transaction
@@ -135,12 +170,21 @@ class ForkLoad:
     @property
     def parse_withdrawal_requests_from_system_tx(self) -> Any:
         """parse_withdrawal_requests_from_system_tx function of the fork"""
-        return self._module("blocks").parse_withdrawal_requests_from_system_tx
+        return self._module(
+            "requests"
+        ).parse_withdrawal_requests_from_system_tx
 
     @property
     def parse_deposit_requests_from_receipt(self) -> Any:
         """parse_deposit_requests_from_receipt function of the fork"""
-        return self._module("blocks").parse_deposit_requests_from_receipt
+        return self._module("requests").parse_deposit_requests_from_receipt
+
+    @property
+    def parse_consolidation_requests_from_system_tx(self) -> Any:
+        """parse_deposit_requests_from_receipt function of the fork"""
+        return self._module(
+            "requests"
+        ).parse_consolidation_requests_from_system_tx
 
     @property
     def Bloom(self) -> Any:
