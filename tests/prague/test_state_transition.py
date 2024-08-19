@@ -133,3 +133,16 @@ def fetch_temporary_tests(test_dirs: Tuple[str, ...]) -> Generator:
 )
 def test_execution_specs_generated_tests(test_case: Dict) -> None:
     run_prague_blockchain_st_tests(test_case)
+
+
+# Run execution-spec-generated-tests for EIP-7251
+test_dir = "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7251_consolidations/consolidations"
+
+
+@pytest.mark.parametrize(
+    "test_case",
+    fetch_prague_tests(test_dir),
+    ids=idfn,
+)
+def test_execution_specs_generated_tests_7251(test_case: Dict) -> None:
+    run_prague_blockchain_st_tests(test_case)

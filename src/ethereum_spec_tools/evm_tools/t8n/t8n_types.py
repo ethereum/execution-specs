@@ -11,7 +11,7 @@ from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..loaders.transaction_loader import TransactionLoad, UnsupportedTx
-from ..utils import FatalException, secp256k1_sign
+from ..utils import FatalException, encode_to_hex, secp256k1_sign
 
 if TYPE_CHECKING:
     from . import T8N
@@ -304,6 +304,15 @@ class Result:
     excess_blob_gas: Optional[U64] = None
     blob_gas_used: Optional[Uint] = None
     requests_root: Optional[Bytes] = None
+    requests: Optional[Any] = None
+
+    def generic_request_to_json(self, request: Any) -> Any:
+        """Convert a request to JSON"""
+        data = {}
+        for attr in request.__annotations__:
+            data[attr] = encode_to_hex(getattr(request, attr))
+
+        return data
 
     def to_json(self) -> Any:
         """Encode the result to JSON"""
@@ -351,5 +360,12 @@ class Result:
 
         if self.requests_root:
             data["requestsRoot"] = "0x" + self.requests_root.hex()
+            data["depositRequests"] = []
+            data["withdrawalRequests"] = []
+            data["consolidationRequests"] = []
+            assert self.requests is not None
+            for type, req in self.requests:
+                json_req = self.generic_request_to_json(req)
+                data[type].append(json_req)
 
         return data

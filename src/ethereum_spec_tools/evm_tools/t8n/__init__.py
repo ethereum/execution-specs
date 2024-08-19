@@ -124,26 +124,6 @@ class T8N(Load):
             self.env.block_difficulty, self.env.base_fee_per_gas
         )
 
-        if self.fork.is_after_fork("ethereum.cancun"):
-            self.SYSTEM_TRANSACTION_GAS = Uint(30000000)
-            self.SYSTEM_ADDRESS = self.fork.hex_to_address(
-                "0xfffffffffffffffffffffffffffffffffffffffe"
-            )
-            self.BEACON_ROOTS_ADDRESS = self.fork.hex_to_address(
-                "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
-            )
-
-        if self.fork.is_after_fork("ethereum.prague"):
-            self.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = (
-                self.fork.hex_to_address(
-                    "0x00A3ca265EBcb825B45F985A16CEFB49958cE017"
-                )
-            )
-            self.HISTORY_STORAGE_ADDRESS = self.fork.hex_to_address(
-                "0x0aae40965e6800cd9b1f4b05ff21581047e3f91e"
-            )
-            self.HISTORY_SERVE_WINDOW = 8191
-
     @property
     def BLOCK_REWARD(self) -> Any:
         """
@@ -309,6 +289,18 @@ class T8N(Load):
         state = self.alloc.state
         state._main_trie, state._storage_tries = self.alloc.state_backup
 
+    def decode_request(self, decoded_requests: Any, request: Any) -> Any:
+        """Decode a request."""
+        req = self.fork.decode_request(request)
+        if isinstance(req, self.fork.DepositRequest):
+            decoded_requests.append(("depositRequests", req))
+        elif isinstance(req, self.fork.WithdrawalRequest):
+            decoded_requests.append(("withdrawalRequests", req))
+        elif isinstance(req, self.fork.ConsolidationRequest):
+            decoded_requests.append(("consolidationRequests", req))
+        else:
+            raise Exception("Unknown request type")
+
     def apply_body(self) -> None:
         """
         The apply body function is seen as the entry point of
@@ -331,9 +323,10 @@ class T8N(Load):
             if not self.options.state_test:
                 self.fork.set_storage(
                     self.alloc.state,
-                    self.HISTORY_STORAGE_ADDRESS,
+                    self.fork.HISTORY_STORAGE_ADDRESS,
                     (
-                        (self.env.block_number - 1) % self.HISTORY_SERVE_WINDOW
+                        (self.env.block_number - 1)
+                    % self.fork.HISTORY_SERVE_WINDOW
                     ).to_be_bytes32(),
                     U256.from_be_bytes(self.env.parent_hash),
                 )
@@ -343,8 +336,9 @@ class T8N(Load):
             and not self.options.state_test
         ):
             self.fork.process_system_transaction(
-                self.BEACON_ROOTS_ADDRESS,
+                self.fork.BEACON_ROOTS_ADDRESS,
                 self.env.parent_beacon_block_root,
+                self.env.block_hashes,
                 self.env.coinbase,
                 self.env.block_number,
                 self.env.base_fee_per_gas,
@@ -453,8 +447,9 @@ class T8N(Load):
             and not self.options.state_test
         ):
             system_withdrawal_tx_output = self.fork.process_system_transaction(
-                self.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+                self.fork.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
                 b"",
+                self.env.block_hashes,
                 self.env.coinbase,
                 self.env.block_number,
                 self.env.base_fee_per_gas,
@@ -474,8 +469,35 @@ class T8N(Load):
 
             requests_from_execution += withdrawal_requests
 
+            system_consolidation_tx_output = (
+                self.fork.process_system_transaction(
+                    self.fork.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+                    b"",
+                    self.env.block_hashes,
+                    self.env.coinbase,
+                    self.env.block_number,
+                    self.env.base_fee_per_gas,
+                    self.env.block_gas_limit,
+                    self.env.block_timestamp,
+                    self.env.prev_randao,
+                    self.alloc.state,
+                    self.chain_id,
+                    self.env.excess_blob_gas,
+                )
+            )
+
+            consolidation_requests = (
+                self.fork.parse_consolidation_requests_from_system_tx(
+                    system_consolidation_tx_output.return_data
+                )
+            )
+
+            requests_from_execution += consolidation_requests
+
+            decoded_requests: Any = []
             for i, request in enumerate(requests_from_execution):
                 self.fork.trie_set(requests_trie, rlp.encode(Uint(i)), request)
+                self.decode_request(decoded_requests, request)
 
         self.result.state_root = self.fork.state_root(self.alloc.state)
         self.result.tx_root = self.fork.root(transactions_trie)
@@ -491,6 +513,7 @@ class T8N(Load):
             and not self.options.state_test
         ):
             self.result.requests_root = self.fork.root(requests_trie)
+            self.result.requests = decoded_requests
 
     def run(self) -> int:
         """Run the transition and provide the relevant outputs"""
