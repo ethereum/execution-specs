@@ -39,7 +39,9 @@ DEPOSIT_CONTRACT_ADDRESS = hex_to_address(
 )
 DEPOSIT_REQUEST_TYPE = b"\x00"
 WITHDRAWAL_REQUEST_TYPE = b"\x01"
+CONSOLIDATION_REQUEST_TYPE = b"\x02"
 WITHDRAWAL_REQUEST_LENGTH = 76
+CONSOLIDATION_REQUEST_LENGTH = 116
 
 
 @slotted_freezable
@@ -175,7 +177,19 @@ class WithdrawalRequest:
     amount: U64
 
 
-Request = Union[DepositRequest, WithdrawalRequest]
+@slotted_freezable
+@dataclass
+class ConsolidationRequest:
+    """
+    Requests for validator consolidation (See EIP-7251).
+    """
+
+    source_address: Address
+    source_pubkey: Bytes48
+    target_pubkey: Bytes48
+
+
+Request = Union[DepositRequest, WithdrawalRequest, ConsolidationRequest]
 
 
 def encode_request(req: Request) -> Bytes:
@@ -186,6 +200,8 @@ def encode_request(req: Request) -> Bytes:
         return DEPOSIT_REQUEST_TYPE + rlp.encode(req)
     elif isinstance(req, WithdrawalRequest):
         return WITHDRAWAL_REQUEST_TYPE + rlp.encode(req)
+    elif isinstance(req, ConsolidationRequest):
+        return CONSOLIDATION_REQUEST_TYPE + rlp.encode(req)
     else:
         raise Exception("Unknown request type")
 
@@ -254,3 +270,38 @@ def parse_withdrawal_requests_from_system_tx(
         withdrawal_requests += (encode_request(withdrawal_request),)
 
     return withdrawal_requests
+
+
+def parse_consolidation_data(data: Bytes) -> ConsolidationRequest:
+    """
+    Parses Consolidation Request from the data.
+    """
+    assert len(data) == CONSOLIDATION_REQUEST_LENGTH
+    req = ConsolidationRequest(
+        source_address=Address(data[:20]),
+        source_pubkey=Bytes48(data[20:68]),
+        target_pubkey=Bytes48(data[68:116]),
+    )
+
+    return req
+
+
+def parse_consolidation_requests_from_system_tx(
+    evm_call_output: Bytes,
+) -> Tuple[Bytes, ...]:
+    """
+    Parse consolidation requests from the system transaction output.
+    """
+    count_consolidation_requests = (
+        len(evm_call_output) // CONSOLIDATION_REQUEST_LENGTH
+    )
+
+    consolidation_requests: Tuple[Bytes, ...] = ()
+    for i in range(count_consolidation_requests):
+        start = i * CONSOLIDATION_REQUEST_LENGTH
+        consolidation_request = parse_consolidation_data(
+            evm_call_output[start : start + CONSOLIDATION_REQUEST_LENGTH]
+        )
+        consolidation_requests += (encode_request(consolidation_request),)
+
+    return consolidation_requests

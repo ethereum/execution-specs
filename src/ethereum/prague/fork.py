@@ -30,6 +30,7 @@ from .blocks import (
     Receipt,
     Withdrawal,
     encode_receipt,
+    parse_consolidation_requests_from_system_tx,
     parse_deposit_requests_from_receipt,
     parse_withdrawal_requests_from_system_tx,
 )
@@ -94,6 +95,9 @@ HISTORY_STORAGE_ADDRESS = hex_to_address(
 )
 WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
     "0x00A3ca265EBcb825B45F985A16CEFB49958cE017"
+)
+CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
+    "0x00b42dbf2194e931e80326d950320f7d9dbeac02"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
 MAX_BLOB_GAS_PER_BLOCK = 786432
@@ -820,6 +824,27 @@ def apply_body(
     )
 
     requests_from_execution += withdrawal_requests
+
+    system_consolidation_tx_output = process_system_transaction(
+        CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+        b"",
+        block_hashes,
+        coinbase,
+        block_number,
+        base_fee_per_gas,
+        block_gas_limit,
+        block_time,
+        prev_randao,
+        state,
+        chain_id,
+        excess_blob_gas,
+    )
+
+    consolidation_requests = parse_consolidation_requests_from_system_tx(
+        system_consolidation_tx_output.return_data
+    )
+
+    requests_from_execution += consolidation_requests
 
     if requests_from_execution != requests:
         raise InvalidBlock
