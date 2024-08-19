@@ -23,19 +23,14 @@ from ethereum.exceptions import InvalidBlock
 from .. import rlp
 from ..base_types import U64, U256, Bytes, Uint
 from . import vm
-from .blocks import (
-    Block,
-    Header,
-    Log,
-    Receipt,
-    Withdrawal,
-    encode_receipt,
+from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
+from .bloom import logs_bloom
+from .fork_types import Address, Bloom, Root, VersionedHash
+from .requests import (
     parse_consolidation_requests_from_system_tx,
     parse_deposit_requests_from_receipt,
     parse_withdrawal_requests_from_system_tx,
 )
-from .bloom import logs_bloom
-from .fork_types import Address, Bloom, Root, VersionedHash
 from .state import (
     State,
     TransientStorage,
