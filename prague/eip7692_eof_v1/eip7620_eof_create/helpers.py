@@ -16,6 +16,8 @@ slot_calldata = next(_slot)
 slot_call_result = next(_slot)
 slot_returndata = next(_slot)
 slot_returndata_size = next(_slot)
+slot_max_depth = next(_slot)
+slot_call_or_create = next(_slot)
 
 slot_last_slot = next(_slot)
 
@@ -23,7 +25,10 @@ value_code_worked = 0x2015
 value_canary_should_not_change = 0x2019
 value_canary_to_be_overwritten = 0x2009
 value_create_failed = 0
-value_call_result_success = 0
+value_legacy_call_result_failed = 0
+value_eof_call_result_success = 0
+value_eof_call_result_reverted = 1
+value_eof_call_result_failed = 2
 
 smallest_runtime_subcontainer = Container(
     name="Runtime Subcontainer",
@@ -39,3 +44,5 @@ smallest_initcode_subcontainer = Container(
         Section.Container(container=smallest_runtime_subcontainer),
     ],
 )
+
+aborting_container = Container.Code(Op.INVALID)

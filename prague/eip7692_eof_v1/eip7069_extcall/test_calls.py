@@ -871,6 +871,11 @@ def test_eof_calls_msg_depth(
     #     code value is actually coming from the `Op.DUP1`
     # When unwinding the msg call stack, the intermediate frames return whatever the deeper callee
     # returned with the `RETURNDATACOPY` instruction.
+
+    # Memory offsets layout:
+    # - 0  - input - msg depth
+    # - 32 - output - msg depth
+    # - 64 - output - call result
     returndatacopy_block = Op.RETURNDATACOPY(32, 0, 64) + Op.RETURN(32, 64)
     deep_most_result_block = (
         Op.MSTORE(32, Op.ADD(Op.CALLDATALOAD(0), 1)) + Op.MSTORE(64, Op.NOOP) + Op.RETURN(32, 64)

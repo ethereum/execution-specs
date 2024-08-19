@@ -4,6 +4,7 @@ Test good and bad EOFCREATE cases
 
 import pytest
 
+from ethereum_test_base_types.base_types import Address
 from ethereum_test_tools import (
     Account,
     Alloc,
@@ -18,9 +19,13 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from .helpers import (
+    aborting_container,
+    slot_call_or_create,
+    slot_call_result,
     slot_code_should_fail,
     slot_code_worked,
     slot_create_address,
+    slot_max_depth,
     slot_returndata,
     slot_returndata_size,
     smallest_initcode_subcontainer,
@@ -28,6 +33,9 @@ from .helpers import (
     value_canary_should_not_change,
     value_code_worked,
     value_create_failed,
+    value_eof_call_result_failed,
+    value_eof_call_result_reverted,
+    value_legacy_call_result_failed,
 )
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7620.md"
@@ -114,15 +122,7 @@ def test_initcode_aborts(
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.STOP,
                 ),
-                Section.Container(
-                    container=Container(
-                        sections=[
-                            Section.Code(
-                                code=Op.INVALID,
-                            )
-                        ]
-                    )
-                ),
+                Section.Container(container=aborting_container),
             ]
         )
     )
@@ -585,3 +585,194 @@ def test_insufficient_returncontract_auxdata_gas(
     )
 
     state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        Op.STATICCALL,
+        Op.EXTSTATICCALL,
+    ],
+)
+@pytest.mark.parametrize("endowment", [0, 1])  # included to verify static flag check comes first
+@pytest.mark.parametrize(
+    "initcode",
+    [smallest_initcode_subcontainer, aborting_container],
+    ids=["working_initcode", "aborting_code"],
+)
+def test_static_flag_eofcreate(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    opcode: Op,
+    endowment: int,
+    initcode: Container,
+):
+    """
+    Verifies correct handling of the static call flag with EOFCREATE
+    """
+    env = Environment()
+    sender = pre.fund_eoa()
+    contract_address = pre.deploy_contract(
+        code=Container(
+            sections=[
+                Section.Code(
+                    code=Op.EOFCREATE[0](value=endowment) + Op.STOP,
+                ),
+                Section.Container(container=initcode),
+            ]
+        )
+    )
+    calling_code = (
+        Op.SSTORE(slot_call_result, opcode(address=contract_address))
+        + Op.SSTORE(slot_code_worked, value_code_worked)
+        + Op.STOP
+    )
+    calling_address = pre.deploy_contract(
+        Container.Code(calling_code) if opcode == Op.EXTSTATICCALL else calling_code
+    )
+
+    post = {
+        calling_address: Account(
+            storage={
+                slot_call_result: value_eof_call_result_failed
+                if opcode == Op.EXTSTATICCALL
+                else value_legacy_call_result_failed,
+                slot_code_worked: value_code_worked,
+            }
+        )
+    }
+    tx = Transaction(
+        to=calling_address,
+        gas_limit=10_000_000,
+        protected=False,
+        sender=sender,
+    )
+
+    state_test(env=env, pre=pre, post=post, tx=tx)
+
+
+magic_value_call = 0xCA11
+magic_value_create = 0xCC12EA7E
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    [
+        Op.EXTCALL,
+        Op.EXTDELEGATECALL,
+    ],
+)
+@pytest.mark.parametrize(
+    "who_fails",
+    [magic_value_call, magic_value_create],
+    ids=["call_fails", "create_fails"],
+)
+@pytest.mark.pre_alloc_modify
+def test_eof_eofcreate_msg_depth(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    opcode: Op,
+    who_fails: int,
+):
+    """
+    Test EOFCREATE handles msg depth limit correctly (1024).
+    NOTE: due to block gas limit and the 63/64th rule this limit is unlikely to be hit
+          on mainnet.
+    NOTE: See `tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py::test_eof_calls_msg_depth`
+          for more explanations and comments. Most notable deviation from that test is that here
+          calls and `EOFCREATE`s alternate in order to reach the max depth. `who_fails` decides
+          whether the failing depth 1024 will be on a call or on an `EOFCREATE` to happen.
+    """
+    # Not a precise gas_limit formula, but enough to exclude risk of gas causing the failure.
+    gas_limit = int(20000000 * (64 / 63) ** 1024)
+    env = Environment(gas_limit=gas_limit)
+    sender = pre.fund_eoa()
+
+    callee_address = Address(0x5000)
+
+    # Memory offsets layout:
+    # - 0  - input - msg depth
+    # - 32 - output - msg depth
+    # - 64 - output - call result
+    # - 96 - output - magic value: create or call
+    returndatacopy_block = Op.RETURNDATACOPY(32, 0, 96) + Op.REVERT(32, 96)
+    deep_most_result_block = (
+        Op.MSTORE(32, Op.ADD(Op.CALLDATALOAD(0), 1)) + Op.MSTORE(64, Op.NOOP) + Op.REVERT(32, 96)
+    )
+    rjump_offset = len(returndatacopy_block)
+
+    callee_code = Container(
+        sections=[
+            Section.Code(
+                Op.MSTORE(0, Op.ADD(Op.CALLDATALOAD(0), 1))
+                + Op.MSTORE(96, magic_value_create)
+                + Op.EOFCREATE[0](salt=Op.CALLDATALOAD(0), input_size=32)
+                + Op.RETURNDATASIZE
+                + Op.ISZERO
+                + Op.RJUMPI[rjump_offset]
+                + returndatacopy_block
+                + deep_most_result_block
+            ),
+            Section.Container(
+                Container.Code(
+                    Op.MSTORE(0, Op.ADD(Op.CALLDATALOAD(0), 1))
+                    + Op.MSTORE(96, magic_value_call)
+                    + opcode(address=callee_address, args_size=32)
+                    + Op.RETURNDATASIZE
+                    + Op.ISZERO
+                    + Op.RJUMPI[rjump_offset]
+                    + returndatacopy_block
+                    + deep_most_result_block
+                )
+            ),
+        ]
+    )
+
+    pre.deploy_contract(callee_code, address=callee_address)
+
+    calling_contract_address = pre.deploy_contract(
+        Container.Code(
+            Op.MSTORE(0, Op.CALLDATALOAD(0))
+            + opcode(address=callee_address, args_size=32)
+            + Op.SSTORE(slot_max_depth, Op.RETURNDATALOAD(0))
+            + Op.SSTORE(slot_call_result, Op.RETURNDATALOAD(32))
+            + Op.SSTORE(slot_call_or_create, Op.RETURNDATALOAD(64))
+            + Op.SSTORE(slot_code_worked, value_code_worked)
+            + Op.STOP
+        )
+    )
+
+    # Only bumps the msg call depth "register" and forwards to the `calling_contract_address`.
+    # If it is used it makes the "failing" depth of 1024 to happen on EOFCREATE, instead of CALL.
+    passthrough_address = pre.deploy_contract(
+        Container.Code(
+            Op.MSTORE(0, 1) + Op.EXTCALL(address=calling_contract_address, args_size=32) + Op.STOP
+        )
+    )
+
+    tx = Transaction(
+        sender=sender,
+        to=calling_contract_address if who_fails == magic_value_call else passthrough_address,
+        gas_limit=gas_limit,
+        data="",
+    )
+
+    calling_storage = {
+        slot_max_depth: 1024,
+        slot_code_worked: value_code_worked,
+        slot_call_result: value_eof_call_result_reverted
+        if who_fails == magic_value_call
+        else value_create_failed,
+        slot_call_or_create: who_fails,
+    }
+
+    post = {
+        calling_contract_address: Account(storage=calling_storage),
+    }
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
+    )
