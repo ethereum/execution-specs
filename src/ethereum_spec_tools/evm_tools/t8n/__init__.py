@@ -138,7 +138,7 @@ class T8N(Load):
                 )
             )
             self.HISTORY_STORAGE_ADDRESS = self.fork.hex_to_address(
-                "0x25a219378dad9b3503c8268c9ca836a52427a4fb"
+                "0x0aae40965e6800cd9b1f4b05ff21581047e3f91e"
             )
             self.HISTORY_SERVE_WINDOW = 8191
 
@@ -191,15 +191,13 @@ class T8N(Load):
         arguments are adjusted according to the fork.
         """
         kw_arguments = {
+            "block_hashes": self.env.block_hashes,
             "coinbase": self.env.coinbase,
             "number": self.env.block_number,
             "gas_limit": self.env.block_gas_limit,
             "time": self.env.block_timestamp,
             "state": self.alloc.state,
         }
-
-        if not self.fork.is_after_fork("ethereum.prague"):
-            kw_arguments["block_hashes"] = self.env.block_hashes
 
         if self.fork.is_after_fork("ethereum.paris"):
             kw_arguments["prev_randao"] = self.env.prev_randao
@@ -327,6 +325,15 @@ class T8N(Load):
         if self.fork.is_after_fork("ethereum.prague"):
             requests_trie = self.fork.Trie(secured=False, default=None)
             requests_from_execution: Tuple[Bytes, ...] = ()
+
+            self.fork.set_storage(
+                self.alloc.state,
+                self.HISTORY_STORAGE_ADDRESS,
+                (
+                    (self.env.block_number - 1) % self.HISTORY_SERVE_WINDOW
+                ).to_be_bytes32(),
+                U256.from_be_bytes(self.env.parent_hash),
+            )
 
         if (
             self.fork.is_after_fork("ethereum.cancun")
