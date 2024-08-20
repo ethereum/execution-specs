@@ -28,14 +28,7 @@ SLOW_TESTS = (
 )
 
 test_dirs = (
-    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_g1add",
-    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_g1mul",
-    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_g1msm",
-    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_g2add",
-    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_g2mul",
-    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_g2msm",
-    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_pairing",
-    "tests/fixtures/latest_fork_tests/fixtures/state_tests/prague/eip2537_bls_12_381_precompiles/bls12_map_fp2_to_g2",
+    "tests/fixtures/latest_fork_tests/state_tests/prague/eip2537_bls_12_381_precompiles",
 )
 
 

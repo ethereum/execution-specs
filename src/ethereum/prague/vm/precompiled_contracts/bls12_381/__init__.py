@@ -187,7 +187,9 @@ def bytes_to_G1(data: Bytes) -> Point2D:
     InvalidParameter
         Either a field element is invalid or the point is not on the curve.
     """
-    assert len(data) == 128
+    if len(data) != 128:
+        raise InvalidParameter("Input should be 128 bytes long")
+
     x = int.from_bytes(data[:64], "big")
     y = int.from_bytes(data[64:], "big")
 
@@ -252,7 +254,9 @@ def decode_G1_scalar_pair(data: Bytes) -> Tuple[Point2D, int]:
     InvalidParameter
         If the sub-group check failed.
     """
-    assert len(data) == 160
+    if len(data) != 160:
+        InvalidParameter("Input should be 160 bytes long")
+
     p = bytes_to_G1(buffer_read(data, U256(0), U256(128)))
     if multiply(p, curve_order) is not None:
         raise InvalidParameter("Sub-group check failed.")
@@ -285,7 +289,9 @@ def bytes_to_FQ(
     InvalidParameter
         If the field element is invalid.
     """
-    assert len(data) == 64
+    if len(data) != 64:
+        raise InvalidParameter("FQ should be 64 bytes long")
+
     c = int.from_bytes(data[:64], "big")
 
     if c >= P:
@@ -320,7 +326,8 @@ def bytes_to_FQ2(
     InvalidParameter
         If the field element is invalid.
     """
-    assert len(data) == 128
+    if len(data) != 128:
+        raise InvalidParameter("FQ2 input should be 128 bytes long")
     c_0 = int.from_bytes(data[:64], "big")
     c_1 = int.from_bytes(data[64:], "big")
 
@@ -354,7 +361,8 @@ def bytes_to_G2(data: Bytes) -> Point2D:
     InvalidParameter
         Either a field element is invalid or the point is not on the curve.
     """
-    assert len(data) == 256
+    if len(data) != 256:
+        raise InvalidParameter("G2 should be 256 bytes long")
 
     x = bytes_to_FQ2(data[:128])
     y = bytes_to_FQ2(data[128:])
@@ -431,7 +439,9 @@ def decode_G2_scalar_pair(data: Bytes) -> Tuple[Point2D, int]:
     InvalidParameter
         If the sub-group check failed.
     """
-    assert len(data) == 288
+    if len(data) != 288:
+        InvalidParameter("Input should be 288 bytes long")
+
     p = bytes_to_G2(buffer_read(data, U256(0), U256(256)))
     if multiply(p, curve_order) is not None:
         raise InvalidParameter("Sub-group check failed.")

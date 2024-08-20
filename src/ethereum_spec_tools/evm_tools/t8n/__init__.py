@@ -71,6 +71,8 @@ def t8n_arguments(subparsers: argparse._SubParsersAction) -> None:
     t8n_parser.add_argument("--trace.nostack", action="store_true")
     t8n_parser.add_argument("--trace.returndata", action="store_true")
 
+    t8n_parser.add_argument("--state-test", action="store_true")
+
 
 class T8N(Load):
     """The class that carries out the transition"""
@@ -326,18 +328,19 @@ class T8N(Load):
             requests_trie = self.fork.Trie(secured=False, default=None)
             requests_from_execution: Tuple[Bytes, ...] = ()
 
-            self.fork.set_storage(
-                self.alloc.state,
-                self.HISTORY_STORAGE_ADDRESS,
-                (
-                    (self.env.block_number - 1) % self.HISTORY_SERVE_WINDOW
-                ).to_be_bytes32(),
-                U256.from_be_bytes(self.env.parent_hash),
-            )
+            if not self.options.state_test:
+                self.fork.set_storage(
+                    self.alloc.state,
+                    self.HISTORY_STORAGE_ADDRESS,
+                    (
+                        (self.env.block_number - 1) % self.HISTORY_SERVE_WINDOW
+                    ).to_be_bytes32(),
+                    U256.from_be_bytes(self.env.parent_hash),
+                )
 
         if (
             self.fork.is_after_fork("ethereum.cancun")
-            and self.env.parent_beacon_block_root is not None
+            and not self.options.state_test
         ):
             self.fork.process_system_transaction(
                 self.BEACON_ROOTS_ADDRESS,
@@ -397,7 +400,10 @@ class T8N(Load):
                     rlp.encode(Uint(i)),
                     receipt,
                 )
-                if self.fork.is_after_fork("ethereum.prague"):
+                if (
+                    self.fork.is_after_fork("ethereum.prague")
+                    and not self.options.state_test
+                ):
                     deposit_requests = (
                         self.fork.parse_deposit_requests_from_receipt(receipt)
                     )
@@ -418,7 +424,10 @@ class T8N(Load):
 
         logs_hash = keccak256(rlp.encode(block_logs))
 
-        if self.fork.is_after_fork("ethereum.shanghai"):
+        if (
+            self.fork.is_after_fork("ethereum.shanghai")
+            and not self.options.state_test
+        ):
             withdrawals_trie = self.fork.Trie(secured=False, default=None)
 
             for i, wd in enumerate(self.env.withdrawals):
@@ -439,7 +448,10 @@ class T8N(Load):
             self.result.blob_gas_used = blob_gas_used
             self.result.excess_blob_gas = self.env.excess_blob_gas
 
-        if self.fork.is_after_fork("ethereum.prague"):
+        if (
+            self.fork.is_after_fork("ethereum.prague")
+            and not self.options.state_test
+        ):
             system_withdrawal_tx_output = self.fork.process_system_transaction(
                 self.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
                 b"",
@@ -474,7 +486,10 @@ class T8N(Load):
         self.result.receipts = self.txs.successful_receipts
         self.result.gas_used = block_gas_used
 
-        if self.fork.is_after_fork("ethereum.prague"):
+        if (
+            self.fork.is_after_fork("ethereum.prague")
+            and not self.options.state_test
+        ):
             self.result.requests_root = self.fork.root(requests_trie)
 
     def run(self) -> int:

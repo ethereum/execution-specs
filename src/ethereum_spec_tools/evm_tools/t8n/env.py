@@ -72,13 +72,15 @@ class Env:
         self.read_ommers(data, t8n)
         self.read_withdrawals(data, t8n)
 
+        self.parent_beacon_block_root = None
         if t8n.fork.is_after_fork("ethereum.cancun"):
-            parent_beacon_block_root_hex = data.get("parentBeaconBlockRoot")
-            self.parent_beacon_block_root = (
-                Bytes32(hex_to_bytes(parent_beacon_block_root_hex))
-                if parent_beacon_block_root_hex is not None
-                else None
-            )
+            if not t8n.options.state_test:
+                parent_beacon_block_root_hex = data["parentBeaconBlockRoot"]
+                self.parent_beacon_block_root = (
+                    Bytes32(hex_to_bytes(parent_beacon_block_root_hex))
+                    if parent_beacon_block_root_hex is not None
+                    else None
+                )
             self.read_excess_blob_gas(data, t8n)
 
     def read_excess_blob_gas(self, data: Any, t8n: "T8N") -> None:
@@ -239,9 +241,12 @@ class Env:
         Read the block hashes. Returns a maximum of 256 block hashes.
         """
         self.parent_hash = None
-        if t8n.fork.is_after_fork("ethereum.prague"):
+        if (
+            t8n.fork.is_after_fork("ethereum.prague")
+            and not t8n.options.state_test
+        ):
             self.parent_hash = Hash32(hex_to_bytes(data["parentHash"]))
-        
+
         block_hashes: List[Any] = []
         # Store a maximum of 256 block hashes.
         max_blockhash_count = min(256, self.block_number)
