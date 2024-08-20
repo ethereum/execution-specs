@@ -32,7 +32,7 @@ from . import (
     decode_G1_scalar_pair,
 )
 
-LEN_PER_PAIR = 160
+LENGTH_PER_PAIR = 160
 
 
 def bls12_g1_add(evm: Evm) -> None:
@@ -80,7 +80,7 @@ def bls12_g1_multiply(evm: Evm) -> None:
         If the input length is invalid.
     """
     data = evm.message.data
-    if len(data) != LEN_PER_PAIR:
+    if len(data) != LENGTH_PER_PAIR:
         raise InvalidParameter("Invalid Input Length")
 
     # GAS
@@ -112,13 +112,13 @@ def bls12_g1_msm(evm: Evm) -> None:
         If the input length is invalid.
     """
     data = evm.message.data
-    if len(data) == 0 or len(data) % LEN_PER_PAIR != 0:
+    if len(data) == 0 or len(data) % LENGTH_PER_PAIR != 0:
         raise InvalidParameter("Invalid Input Length")
 
     # GAS
-    k = len(data) // LEN_PER_PAIR
+    k = len(data) // LENGTH_PER_PAIR
     if k <= 128:
-        discount = K_DISCOUNT[k]
+        discount = K_DISCOUNT[k - 1]
     else:
         discount = MAX_DISCOUNT
 
@@ -127,8 +127,8 @@ def bls12_g1_msm(evm: Evm) -> None:
 
     # OPERATION
     for i in range(k):
-        start_index = i * LEN_PER_PAIR
-        end_index = start_index + LEN_PER_PAIR
+        start_index = i * LENGTH_PER_PAIR
+        end_index = start_index + LENGTH_PER_PAIR
 
         p, m = decode_G1_scalar_pair(data[start_index:end_index])
         product = multiply(p, m)
