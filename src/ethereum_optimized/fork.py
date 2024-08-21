@@ -25,10 +25,10 @@ try:
     import ethash
 except ImportError as e:
     # Add a message, but keep it an ImportError.
-    raise e from Exception(
+    raise Exception(
         "Install with `pip install 'ethereum[optimized]'` to enable this "
         "package"
-    )
+    ) from e
 
 Header_ = Any
 
