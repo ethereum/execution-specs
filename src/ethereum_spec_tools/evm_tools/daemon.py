@@ -13,8 +13,6 @@ from socket import socket
 from threading import Thread
 from typing import Any, Tuple, Union
 
-from platformdirs import user_runtime_dir
-
 
 def daemon_arguments(subparsers: argparse._SubParsersAction) -> None:
     """
@@ -107,6 +105,13 @@ class Daemon:
 
     def __init__(self, options: argparse.Namespace) -> None:
         if options.uds is None:
+            try:
+                from platformdirs import user_runtime_dir
+            except ImportError as e:
+                raise Exception(
+                    "Missing plaformdirs dependency (try installing "
+                    "ethereum[tools] extra)"
+                ) from e
             runtime_dir = user_runtime_dir(
                 appname="ethereum-spec-evm",
                 appauthor="org.ethereum",
