@@ -471,6 +471,55 @@ def test_container_both_kinds_different_sub(eof_test: EOFTestFiller):
     )
 
 
+@pytest.mark.parametrize("version", [0, 255], ids=lambda x: x)
+def test_subcontainer_wrong_eof_version(
+    eof_test: EOFTestFiller,
+    version: int,
+):
+    """Test multiple kinds of subcontainer at the same level"""
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
+                ),
+                Section.Container(
+                    container=Container(version=[version], sections=[Section.Code(code=Op.STOP)])
+                ),
+            ],
+            kind=ContainerKind.RUNTIME,
+        ),
+        expect_exception=EOFException.INVALID_VERSION,
+    )
+
+
+@pytest.mark.parametrize("delta", [-1, 1], ids=["smaller", "larger"])
+@pytest.mark.parametrize("kind", [ContainerKind.RUNTIME, ContainerKind.INITCODE])
+def test_subcontainer_wrong_size(
+    eof_test: EOFTestFiller,
+    delta: int,
+    kind: ContainerKind,
+):
+    """Test multiple kinds of subcontainer at the same level"""
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=(Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP)
+                    if kind == ContainerKind.RUNTIME
+                    else (Op.RETURNCONTRACT[0](0, 0)),
+                ),
+                Section.Container(
+                    container=Container(sections=[Section.Code(code=Op.STOP)]),
+                    custom_size=len(stop_sub_container.data) + delta,
+                ),
+            ],
+            kind=kind,
+        ),
+        expect_exception=EOFException.INVALID_SECTION_BODIES_SIZE,
+    )
+
+
 @pytest.mark.parametrize(
     ["deepest_container", "exception"],
     [

@@ -696,3 +696,49 @@ def test_rjump_backwards_reference_only(
         data=container,
         expect_exception=EOFException.UNREACHABLE_INSTRUCTIONS,
     )
+
+
+def test_rjump_backwards_illegal_stack_height(
+    eof_test: EOFTestFiller,
+):
+    """
+    Invalid backward jump, found via fuzzing coverage
+    """
+    eof_test(
+        data=Container.Code(
+            code=(
+                Op.PUSH0
+                + Op.RJUMPI[3]
+                + Op.RJUMP(7)
+                + Op.PUSH2(0x2015)
+                + Op.PUSH3(0x015500)
+                + Op.RJUMP[-10]
+            ),
+            max_stack_height=0x24,
+        ),
+        expect_exception=EOFException.STACK_HEIGHT_MISMATCH,
+    )
+
+
+def test_rjump_backwards_infinite_loop(
+    eof_test: EOFTestFiller,
+):
+    """
+    Infinite loop code containing RJUMP immediate
+    """
+    eof_test(
+        data=Container(
+            name="infinite_loop",
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0
+                    + Op.RJUMPI[3]
+                    + Op.RJUMP[7]
+                    + Op.SSTORE(1, 0x2015)
+                    + Op.STOP
+                    + Op.RJUMP[-10]
+                ),
+                Section.Data(data="0xdeadbeef"),
+            ],
+        ),
+    )
