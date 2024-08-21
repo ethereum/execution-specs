@@ -11,6 +11,13 @@ from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.eof.v1.constants import MAX_CODE_SECTIONS
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
+from .. import EOF_FORK_NAME
+
+REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4750.md"
+REFERENCE_SPEC_VERSION = "14400434e1199c57d912082127b1d22643788d11"
+
+pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
+
 VALID: List[Container] = [
     Container(
         name="retf_code_input_output",
