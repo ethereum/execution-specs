@@ -188,7 +188,12 @@ class Alloc(BaseAlloc):
         contract_address.label = label
         return contract_address
 
-    def fund_eoa(self, amount: NumberConvertible = 10**21, label: str | None = None) -> EOA:
+    def fund_eoa(
+        self,
+        amount: NumberConvertible = 10**21,
+        label: str | None = None,
+        storage: Storage | None = None,
+    ) -> EOA:
         """
         Add a previously unused EOA to the pre-alloc with the balance specified by `amount`.
 
@@ -196,14 +201,22 @@ class Alloc(BaseAlloc):
         returned.
         """
         eoa = next(self._eoa_iterator)
-        if Number(amount) > 0:
-            super().__setitem__(
-                eoa,
-                Account(
+        if Number(amount) > 0 or storage is not None:
+            if storage is None:
+                account = Account(
                     nonce=0,
                     balance=amount,
-                ),
-            )
+                )
+            else:
+                # Type-4 transaction is sent to the EOA to set the storage, so the nonce must be 1
+                account = Account(
+                    nonce=1,
+                    balance=amount,
+                    storage=storage,
+                )
+                eoa.nonce = Number(1)
+
+            super().__setitem__(eoa, account)
         return eoa
 
     def fund_address(self, address: Address, amount: NumberConvertible):

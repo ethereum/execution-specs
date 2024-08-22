@@ -30,7 +30,7 @@ def ceiling_division(a: int, b: int) -> int:
 def compute_create_address(
     *,
     address: FixedSizeBytesConvertible | EOA,
-    nonce: int = 0,
+    nonce: int | None = None,
     salt: int = 0,
     initcode: BytesConvertible = b"",
     opcode: Op = Op.CREATE,
@@ -41,9 +41,12 @@ def compute_create_address(
     """
     if opcode == Op.CREATE:
         if isinstance(address, EOA):
-            nonce = address.nonce
+            if nonce is None:
+                nonce = address.nonce
         else:
             address = Address(address)
+        if nonce is None:
+            nonce = 0
         nonce_bytes = bytes() if nonce == 0 else nonce.to_bytes(length=1, byteorder="big")
         hash = keccak256(encode([address, nonce_bytes]))
         return Address(hash[-20:])

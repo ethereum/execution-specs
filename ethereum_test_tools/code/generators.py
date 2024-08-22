@@ -157,6 +157,7 @@ class CodeGasMeasure(Bytecode):
         overhead_cost: int = 0,
         extra_stack_items: int = 0,
         sstore_key: int = 0,
+        stop: bool = True,
     ):
         """
         Assemble the bytecode that measures gas usage.
@@ -173,8 +174,9 @@ class CodeGasMeasure(Bytecode):
             + Op.SUB
             + Op.PUSH1(sstore_key)
             + Op.SSTORE
-            + Op.STOP
         )
+        if stop:
+            res += Op.STOP
 
         instance = super().__new__(cls, res)
         instance.code = code

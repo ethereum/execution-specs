@@ -7,6 +7,7 @@ from typing import Any, ClassVar, List, Mapping, Optional, Protocol, Tuple, Type
 
 from semver import Version
 
+from ethereum_test_base_types import Address
 from ethereum_test_vm import EVMCodeType, Opcodes
 
 from .base_decorators import prefer_transition_to_method
@@ -193,9 +194,17 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
-    def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
+    def precompiles(cls, block_number: int = 0, timestamp: int = 0) -> List[Address]:
         """
         Returns a list pre-compiles supported by the fork
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def system_contracts(cls, block_number: int = 0, timestamp: int = 0) -> List[Address]:
+        """
+        Returns a list system-contracts supported by the fork
         """
         pass
 
@@ -277,6 +286,16 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     ) -> List[Tuple[Opcodes, EVMCodeType]]:
         """
         Returns the list of tuples with the call opcodes and its corresponding EVM code type.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def create_opcodes(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> List[Tuple[Opcodes, EVMCodeType]]:
+        """
+        Returns the list of tuples with the create opcodes and its corresponding EVM code type.
         """
         pass
 

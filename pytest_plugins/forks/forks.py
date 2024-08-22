@@ -6,6 +6,7 @@ import itertools
 import sys
 import textwrap
 from dataclasses import dataclass, field
+from types import FunctionType
 from typing import Any, List, Set
 
 import pytest
@@ -125,12 +126,48 @@ class CovariantDescriptor:
     fork_attribute_name: str
     parameter_name: str
 
+    def get_marker(self, metafunc: Metafunc) -> pytest.Mark | None:
+        """
+        Get the marker for the given test function.
+        """
+        m = metafunc.definition.iter_markers(self.marker_name)
+        if m is None:
+            return None
+        marker_list = list(m)
+        assert len(marker_list) <= 1, f"Multiple markers {self.marker_name} found"
+        if len(marker_list) == 0:
+            return None
+        return marker_list[0]
+
     def check_enabled(self, metafunc: Metafunc) -> bool:
         """
         Check if the marker is enabled for the given test function.
         """
-        m = metafunc.definition.iter_markers(self.marker_name)
-        return m is not None and len(list(m)) > 0
+        return self.get_marker(metafunc) is not None
+
+    def filter_values(self, metafunc: Metafunc, values: List[Any]) -> List[Any]:
+        """
+        Filter the values for the covariant parameter.
+
+        I.e. if the marker has an argument, the argument is interpreted as a lambda function
+        that filters the values.
+        """
+        marker = self.get_marker(metafunc)
+        assert marker is not None
+        if len(marker.kwargs) == 0:
+            return values
+        kwargs = dict(marker.kwargs)
+        if "selector" in kwargs:
+            selector = kwargs.pop("selector")
+            assert isinstance(selector, FunctionType), "selector must be a function"
+            filtered_values = []
+            for value in values:
+                if selector(value):
+                    filtered_values.append(value)
+            values = filtered_values
+        if len(kwargs) > 0:
+            raise ValueError(f"Unknown arguments to {self.marker_name}: {kwargs}")
+        return values
 
     def add_values(self, metafunc: Metafunc, fork_parametrizer: ForkParametrizer) -> None:
         """
@@ -143,6 +180,7 @@ class CovariantDescriptor:
         values = get_fork_covariant_values(block_number=0, timestamp=0)
         assert isinstance(values, list)
         assert len(values) > 0
+        values = self.filter_values(metafunc, values)
         fork_parametrizer.fork_covariant_parameters.append(
             ForkCovariantParameter(name=self.parameter_name, values=values)
         )
@@ -183,6 +221,20 @@ fork_covariant_descriptors = [
         " call_opcode, and also the appropriate EVM code type at parameter named evm_code_type",
         fork_attribute_name="call_opcodes",
         parameter_name="call_opcode,evm_code_type",
+    ),
+    CovariantDescriptor(
+        marker_name="with_all_create_opcodes",
+        description="marks a test to be parametrized for all *CREATE* opcodes at parameter named"
+        " create_opcode, and also the appropriate EVM code type at parameter named evm_code_type",
+        fork_attribute_name="create_opcodes",
+        parameter_name="create_opcode,evm_code_type",
+    ),
+    CovariantDescriptor(
+        marker_name="with_all_system_contracts",
+        description="marks a test to be parametrized for all system contracts at parameter named"
+        " system_contract of type int",
+        fork_attribute_name="system_contracts",
+        parameter_name="system_contract",
     ),
 ]
 

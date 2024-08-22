@@ -108,8 +108,8 @@ class Storage(RootModel[Dict[StorageKeyValueType, StorageKeyValueType]]):
             return (
                 f"incorrect value in address {self.address}{label_str} for "
                 + f"key {Hash(self.key)}:"
-                + f" want {HexNumber(self.want)} (dec:{self.want}),"
-                + f" got {HexNumber(self.got)} (dec:{self.got})"
+                + f" want {HexNumber(self.want)} (dec:{int(self.want)}),"
+                + f" got {HexNumber(self.got)} (dec:{int(self.got)})"
             )
 
     def __contains__(self, key: StorageKeyValueTypeConvertible | StorageKeyValueType) -> bool:

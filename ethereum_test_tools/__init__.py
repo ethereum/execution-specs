@@ -6,6 +6,7 @@ tests.
 from ethereum_test_base_types import (
     Account,
     Address,
+    Bytes,
     Hash,
     TestAddress,
     TestAddress2,
@@ -78,6 +79,7 @@ from .code import (
     Yul,
     YulCompiler,
 )
+from .utility.pytest import extend_with_defaults
 
 __all__ = (
     "SPEC_TYPES",
@@ -93,6 +95,7 @@ __all__ = (
     "BlockchainTestFiller",
     "BlockException",
     "Bytecode",
+    "Bytes",
     "CalldataCase",
     "Case",
     "CodeGasMeasure",
@@ -147,5 +150,6 @@ __all__ = (
     "cost_memory_bytes",
     "eip_2028_transaction_data_cost",
     "eip_2028_transaction_data_cost",
+    "extend_with_defaults",
     "vm",
 )
