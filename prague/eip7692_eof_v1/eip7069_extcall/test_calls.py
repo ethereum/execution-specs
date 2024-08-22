@@ -576,15 +576,19 @@ def test_eof_calls_eof_then_fails(
         "EOA",
         "LegacyContract",
         "EOFContract",
+        "LegacyContractInvalid",
+        "EOFContractInvalid",
     ),
     ids=lambda x: x,
 )
+@pytest.mark.parametrize("value", [0, 1])
 def test_eof_calls_clear_return_buffer(
     state_test: StateTestFiller,
     pre: Alloc,
     sender: EOA,
     opcode: Op,
     target_account_type: str,
+    value: int,
 ):
     """Test EOF contracts calling clears returndata buffer"""
     env = Environment()
@@ -606,13 +610,21 @@ def test_eof_calls_clear_return_buffer(
             target_address = pre.deploy_contract(
                 code=Container.Code(Op.STOP),
             )
+        case "LegacyContractInvalid":
+            target_address = pre.deploy_contract(
+                code=Op.INVALID,
+            )
+        case "EOFContractInvalid":
+            target_address = pre.deploy_contract(
+                code=Container.Code(Op.INVALID),
+            )
 
     caller_contract = Container.Code(
         # First fill the return buffer and sanity check
         Op.EXTCALL(filling_callee_address, 0, 0, 0)
         + Op.SSTORE(slot_returndatasize_before_clear, Op.RETURNDATASIZE)
         # Then call something that doesn't return and check returndata cleared
-        + opcode(address=target_address)
+        + opcode(address=target_address, value=value)
         + Op.SSTORE(slot_returndatasize, Op.RETURNDATASIZE)
         + Op.SSTORE(slot_code_worked, value_code_worked)
         + Op.STOP,
@@ -710,12 +722,14 @@ min_callee_gas = 5000
 
 
 @pytest.mark.parametrize(
-    "opcode",
+    ["opcode", "extra_gas_value_transfer", "value"],
     [
-        Op.EXTCALL,
-        Op.EXTSTATICCALL,
-        Op.EXTDELEGATECALL,
+        [Op.EXTCALL, 0, 0],
+        [Op.EXTCALL, 9_000, 1],
+        [Op.EXTSTATICCALL, 0, 0],
+        [Op.EXTDELEGATECALL, 0, 0],
     ],
+    ids=["extcall_without_value", "extcall_with_value", "extstaticcall", "extdelegatecall"],
 )
 @pytest.mark.parametrize(
     ["extra_gas_limit", "reverts"],
@@ -732,6 +746,8 @@ def test_eof_calls_min_callee_gas(
     pre: Alloc,
     sender: EOA,
     opcode: Op,
+    extra_gas_value_transfer: int,
+    value: int,
     extra_gas_limit: int,
     reverts: bool,
 ):
@@ -752,12 +768,13 @@ def test_eof_calls_min_callee_gas(
     calling_contract_address = pre.deploy_contract(
         Container.Code(
             Op.SSTORE(slot_code_worked, value_code_worked)
-            + Op.EQ(opcode(address=noop_callee_address), value_eof_call_reverted)
+            + Op.EQ(opcode(address=noop_callee_address, value=value), value_eof_call_reverted)
             # If the return code isn't 1, it means gas was enough to cover the allowances.
             + Op.RJUMPI[len(revert_block)]
             + revert_block
             + Op.STOP
-        )
+        ),
+        balance=value,
     )
 
     # `no_oog_gas` is minimum amount of gas_limit which makes the transaction not go oog.
@@ -769,6 +786,7 @@ def test_eof_calls_min_callee_gas(
         + push_operations * 3  # PUSH operations
         + 100  # WARM_STORAGE_READ_COST
         + 2500  # COLD_ACCOUNT_ACCESS - WARM_STORAGE_READ_COST
+        + extra_gas_value_transfer
         + 4  # RJUMPI
         + 3  # EQ
     )
@@ -796,22 +814,29 @@ def test_eof_calls_min_callee_gas(
     )
 
 
-def test_eof_calls_no_balance(
+@pytest.mark.parametrize(
+    "balance", [0, 1, 2, pytest.param(2**256 - 1, marks=pytest.mark.pre_alloc_modify)]
+)
+@pytest.mark.parametrize("value", [0, 1, 2, 2**256 - 1])
+def test_eof_calls_with_value(
     state_test: StateTestFiller,
     pre: Alloc,
     sender: EOA,
+    balance: int,
+    value: int,
 ):
-    """Test EOF contracts calls handle value calls with not enough balance"""
+    """Test EOF contracts calls handle value calls with and without enough balance"""
     env = Environment()
 
     noop_callee_address = pre.deploy_contract(Container.Code(Op.STOP))
 
     calling_contract_address = pre.deploy_contract(
         Container.Code(
-            Op.SSTORE(slot_call_result, Op.EXTCALL(address=noop_callee_address, value=1))
+            Op.SSTORE(slot_call_result, Op.EXTCALL(address=noop_callee_address, value=value))
             + Op.SSTORE(slot_code_worked, value_code_worked)
             + Op.STOP
-        )
+        ),
+        balance=balance,
     )
     tx = Transaction(
         sender=sender,
@@ -822,11 +847,12 @@ def test_eof_calls_no_balance(
 
     calling_storage = {
         slot_code_worked: value_code_worked,
-        slot_call_result: value_eof_call_reverted,
+        slot_call_result: value_eof_call_reverted if balance < value else value_eof_call_worked,
     }
 
     post = {
         calling_contract_address: Account(storage=calling_storage),
+        noop_callee_address: Account(balance=0 if balance < value else value),
     }
 
     state_test(
