@@ -16,6 +16,8 @@ slot_delegate_code_worked = next(_slot)
 slot_call_status = next(_slot)
 slot_calldata_1 = next(_slot)
 slot_calldata_2 = next(_slot)
+slot_cold_gas = next(_slot)
+slot_warm_gas = next(_slot)
 
 slot_last_slot = next(_slot)
 
