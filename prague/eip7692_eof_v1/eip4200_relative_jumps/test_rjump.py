@@ -724,11 +724,11 @@ def test_rjump_backwards_infinite_loop(
     eof_test: EOFTestFiller,
 ):
     """
-    Infinite loop code containing RJUMP immediate
+    Validate that a backwards RJUMP as terminal operation is valid
     """
     eof_test(
         data=Container(
-            name="infinite_loop",
+            name="backwards_rjump_terminal",
             sections=[
                 Section.Code(
                     code=Op.PUSH0

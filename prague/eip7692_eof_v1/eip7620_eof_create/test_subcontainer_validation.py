@@ -476,7 +476,7 @@ def test_subcontainer_wrong_eof_version(
     eof_test: EOFTestFiller,
     version: int,
 ):
-    """Test multiple kinds of subcontainer at the same level"""
+    """Test a subcontainer with the incorrect EOF version"""
     eof_test(
         data=Container(
             sections=[
@@ -500,7 +500,7 @@ def test_subcontainer_wrong_size(
     delta: int,
     kind: ContainerKind,
 ):
-    """Test multiple kinds of subcontainer at the same level"""
+    """Test a subcontainer with the incorrect size in the parent's header"""
     eof_test(
         data=Container(
             sections=[
