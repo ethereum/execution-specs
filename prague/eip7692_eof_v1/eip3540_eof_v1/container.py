@@ -626,6 +626,23 @@ INVALID += [
         validity_error=EOFException.INPUTS_OUTPUTS_NUM_ABOVE_LIMIT,
     ),
     Container(
+        name="invalid_inputs_to_non_returning_code_section_2",
+        sections=[
+            Section.Code(
+                code=Op.PUSH1(0) * 128 + Op.CALLF[1] + Op.STOP,
+                max_stack_height=128,
+            ),
+            Section.Code(
+                Op.STOP,
+                code_inputs=128,
+                code_outputs=0,
+                max_stack_height=128,
+            ),
+        ],
+        # TODO auto types section generation probably failed. the exception must be about code
+        validity_error=EOFException.INPUTS_OUTPUTS_NUM_ABOVE_LIMIT,
+    ),
+    Container(
         name="single_code_section_output_too_large",
         sections=[
             Section.Code(
