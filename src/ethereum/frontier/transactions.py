@@ -29,7 +29,7 @@ class Transaction:
     Atomic operation performed on the block chain.
     """
 
-    nonce: U256
+    nonce: U64
     gas_price: Uint
     gas: Uint
     to: Union[Bytes0, Address]
