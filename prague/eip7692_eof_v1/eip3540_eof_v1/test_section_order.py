@@ -179,6 +179,10 @@ def test_section_order(
         skip_body_listing=calculate_skip_flag(SectionKind.DATA, CasePosition.BODY),
     )
 
+    expected_code, expected_exception = get_expected_code_exception(
+        section_kind, section_test, test_position
+    )
+
     eof_code = Container(
         sections=make_section_order(section_kind),
         auto_type_section=AutoSection.NONE,
@@ -195,16 +199,72 @@ def test_section_order(
                 )
             )
         ),
+        expected_bytecode=expected_code,
     )
-
-    expected_code, expected_exception = get_expected_code_exception(
-        section_kind, section_test, test_position
-    )
-
-    # TODO remove this after Container class implementation is reliable
-    assert bytes(eof_code).hex() == bytes.fromhex(expected_code).hex()
 
     eof_test(
         data=eof_code,
         expect_exception=expected_exception,
+    )
+
+
+@pytest.mark.parametrize("container_position", range(4))
+@pytest.mark.parametrize(
+    "test_position", [CasePosition.BODY, CasePosition.HEADER, CasePosition.BODY_AND_HEADER]
+)
+def test_container_section_order(
+    eof_test: EOFTestFiller,
+    container_position: int,
+    test_position: CasePosition,
+):
+    """
+    Test containers section being out of order in the header and/or body.
+    This extends and follows the convention of the test_section_order()
+    for the optional container section.
+    """
+    section_code = Section.Code(
+        code=Op.EOFCREATE[0](0, 0, 0, 0)
+        # TODO: Migrated tests had the following infinite loop, so it is kept here
+        #       to equalize code coverage.
+        + Op.RJUMP[0]
+        + Op.STOP()
+    )
+    section_type = Section(kind=SectionKind.TYPE, data=bytes.fromhex("00800004"))
+    section_data = Section.Data("ef")
+    section_container = Section.Container(Container.Code(Op.INVALID))
+
+    sections = [section_type, section_code, section_data]
+    sections.insert(container_position, section_container)
+    eof_code = Container(
+        sections=sections,
+        auto_type_section=AutoSection.NONE,
+        auto_sort_sections=(
+            AutoSection.ONLY_BODY
+            if test_position == CasePosition.HEADER
+            else (
+                AutoSection.ONLY_HEADER if test_position == CasePosition.BODY else AutoSection.NONE
+            )
+        ),
+    )
+
+    def get_expected_exception():
+        match container_position, test_position:
+            case 2, _:
+                return None  # Valid containers section position
+            case 0, CasePosition.BODY:  # Messes up with the type section
+                return EOFException.INVALID_FIRST_SECTION_TYPE
+            case 1, CasePosition.BODY:  # Messes up with the code section
+                return EOFException.UNDEFINED_INSTRUCTION
+            case 3, CasePosition.BODY:  # Data section messes up with the container section
+                return EOFException.INVALID_MAGIC
+            case 0, CasePosition.HEADER | CasePosition.BODY_AND_HEADER:
+                return EOFException.MISSING_TYPE_HEADER
+            case 1, CasePosition.HEADER | CasePosition.BODY_AND_HEADER:
+                return EOFException.MISSING_CODE_HEADER
+            case 3, CasePosition.HEADER | CasePosition.BODY_AND_HEADER:
+                return EOFException.MISSING_TERMINATOR
+
+    eof_test(
+        data=eof_code,
+        expect_exception=get_expected_exception(),
     )
