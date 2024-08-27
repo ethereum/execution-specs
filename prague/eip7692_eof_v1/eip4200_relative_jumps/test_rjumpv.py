@@ -122,6 +122,21 @@ def test_rjumpv_backwards(
     )
 
 
+def test_rjumpv_backwards_onto_dup(
+    eof_test: EOFTestFiller,
+):
+    """
+    Backwards jump vector onto a dup
+    """
+    container = Container.Code(
+        code=(Op.PUSH0 + Op.DUP1 + Op.RJUMPV[-5] + Op.STOP),
+        max_stack_height=2,
+    )
+    eof_test(
+        data=container,
+    )
+
+
 def test_rjumpv_zero(
     eof_state_test: EOFStateTestFiller,
 ):
@@ -982,7 +997,7 @@ def test_rjumpv_into_swapn(
         pytest.param(256, 255, id="t256i255"),
     ],
 )
-def test_rjump_into_exchange(
+def test_rjumpv_into_exchange(
     eof_test: EOFTestFiller,
     table_size: int,
     invalid_index: int,

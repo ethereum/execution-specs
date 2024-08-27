@@ -30,6 +30,27 @@ VALID: List[Container] = [
         ],
     ),
     Container(
+        name="stack_height_equal_code_outputs_retf_zero_stop",
+        sections=[
+            Section.Code(
+                code=Op.CALLF[1] + Op.POP + Op.STOP,
+                code_inputs=0,
+                max_stack_height=1,
+            ),
+            Section.Code(
+                code=(
+                    Op.RJUMPI[len(Op.PUSH0) + len(Op.RETF)](Op.ORIGIN)
+                    + Op.PUSH0
+                    + Op.RETF
+                    + Op.STOP
+                ),
+                code_inputs=0,
+                code_outputs=1,
+                max_stack_height=1,
+            ),
+        ],
+    ),
+    Container(
         name="callf_max_code_sections_1",
         sections=[
             Section.Code(code=(sum(Op.CALLF[i] for i in range(1, MAX_CODE_SECTIONS)) + Op.STOP))
@@ -138,6 +159,19 @@ INVALID: List[Container] = [
         ],
         validity_error=EOFException.TOO_MANY_CODE_SECTIONS,
     ),
+    Container(
+        name="callf_to_non_returning",
+        sections=[
+            Section.Code(
+                code=(Op.CALLF[1] + Op.STOP),
+            ),
+            Section.Code(
+                code=(Op.STOP),
+                code_outputs=0,
+            ),
+        ],
+        validity_error=EOFException.INVALID_NON_RETURNING_FLAG,
+    ),
 ]
 
 
@@ -165,4 +199,5 @@ def test_eof_validity(
     """
     eof_test(
         data=bytes(container),
+        expect_exception=container.validity_error,
     )

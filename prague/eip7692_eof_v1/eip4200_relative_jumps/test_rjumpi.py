@@ -827,3 +827,44 @@ def test_rjumpi_backwards_reference_only(
         data=container,
         expect_exception=EOFException.UNREACHABLE_INSTRUCTIONS,
     )
+
+
+def test_tangled_rjumpi(
+    eof_test: EOFTestFiller,
+):
+    """
+    EOF code containing tangled RJUMPI paths
+    """
+    container = Container.Code(
+        code=(
+            Op.PUSH0  # [0,0]
+            + Op.PUSH0  # [1,1]
+            + Op.RJUMPI[8]  # [2,2]
+            + Op.PUSH1(127)  # [1,1]
+            + Op.RJUMPI[7]  # [2,2]
+            + Op.RJUMP[5]  # [1,1]
+            + Op.PUSH0  # [1,1]
+            + Op.RJUMP[0]  # [2,1]
+            + Op.LT  # [1,x]
+            + Op.STOP  # [1,x]
+        )
+    )
+    eof_test(
+        data=container,
+        expect_exception=EOFException.STACK_UNDERFLOW,
+    )
+
+
+def test_rjumpi_backwards_onto_dup(
+    eof_test: EOFTestFiller,
+):
+    """
+    Backwards jumpi onto a dup
+    """
+    container = Container.Code(
+        code=(Op.PUSH0 + Op.DUP1 + Op.RJUMPI[-4] + Op.STOP),
+        max_stack_height=2,
+    )
+    eof_test(
+        data=container,
+    )
