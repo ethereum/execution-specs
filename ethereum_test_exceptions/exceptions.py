@@ -730,6 +730,14 @@ class EOFException(ExceptionBase):
     """
     EOF container header has too many sub-containers.
     """
+    INVALID_CODE_SECTION_INDEX = auto()
+    """
+    CALLF Operation referes to a non-existent code section
+    """
+    UNEXPECTED_HEADER_KIND = auto()
+    """
+    Header parsing encounterd a section kind it wasn't expecting
+    """
 
 
 """
@@ -750,6 +758,12 @@ TransactionExceptionInstanceOrList = Annotated[
 
 BlockExceptionInstanceOrList = Annotated[
     List[BlockException] | BlockException,
+    BeforeValidator(from_pipe_str),
+    PlainSerializer(to_pipe_str),
+]
+
+EOFExceptionInstanceOrList = Annotated[
+    List[EOFException] | EOFException,
     BeforeValidator(from_pipe_str),
     PlainSerializer(to_pipe_str),
 ]

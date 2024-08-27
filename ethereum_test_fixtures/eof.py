@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Mapping
 from pydantic import Field
 
 from ethereum_test_base_types import Bytes, CamelModel, Number
-from ethereum_test_exceptions import EOFException
+from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList
 from ethereum_test_types.eof.v1 import ContainerKind
 
 from .base import BaseFixture
@@ -20,7 +20,7 @@ class Result(CamelModel):
     Result for a single fork in a fixture.
     """
 
-    exception: EOFException | None = None
+    exception: EOFExceptionInstanceOrList | None = None
     valid: bool = Field(..., alias="result")
 
     def model_post_init(self, __context: Any) -> None:

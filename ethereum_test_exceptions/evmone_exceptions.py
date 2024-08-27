@@ -85,6 +85,9 @@ class EvmoneExceptionMapper:
         ),
         ExceptionMessage(EOFException.STACK_HEIGHT_MISMATCH, "err: stack_height_mismatch"),
         ExceptionMessage(EOFException.TOO_MANY_CONTAINERS, "err: too_many_container_sections"),
+        ExceptionMessage(
+            EOFException.INVALID_CODE_SECTION_INDEX, "err: invalid_code_section_index"
+        ),
     )
 
     def __init__(self) -> None:

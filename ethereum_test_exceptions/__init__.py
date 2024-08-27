@@ -8,6 +8,7 @@ from .exceptions import (
     BlockException,
     BlockExceptionInstanceOrList,
     EOFException,
+    EOFExceptionInstanceOrList,
     ExceptionInstanceOrList,
     TransactionException,
     TransactionExceptionInstanceOrList,
@@ -16,10 +17,11 @@ from .exceptions import (
 __all__ = [
     "BlockException",
     "BlockExceptionInstanceOrList",
-    "EngineAPIError",
     "EOFException",
+    "EOFExceptionInstanceOrList",
+    "EngineAPIError",
+    "EvmoneExceptionMapper",
     "ExceptionInstanceOrList",
     "TransactionException",
     "TransactionExceptionInstanceOrList",
-    "EvmoneExceptionMapper",
 ]

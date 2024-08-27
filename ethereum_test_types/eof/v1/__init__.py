@@ -17,7 +17,7 @@ from pydantic_core.core_schema import (
 from ethereum_test_base_types import Bytes
 from ethereum_test_base_types.conversions import BytesConvertible
 from ethereum_test_base_types.pydantic import CopyValidateModel
-from ethereum_test_exceptions import EOFException
+from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList
 from ethereum_test_vm import Bytecode
 from ethereum_test_vm import Opcodes as Op
 
@@ -365,7 +365,7 @@ class Container(CopyValidateModel):
     Body: type section first, all code sections, data section(s), last
                 container sections
     """
-    validity_error: EOFException | str | None = None
+    validity_error: EOFExceptionInstanceOrList | str | None = None
     """
     Optional error expected for the container.
 
