@@ -101,9 +101,10 @@ def consume_command(is_hive: bool = False) -> Callable[[Callable[..., Any]], cli
             if is_hive and not any(arg.startswith("--hive-session-temp-folder") for arg in args):
                 with TemporaryDirectory() as temp_dir:
                     args.extend(["--hive-session-temp-folder", temp_dir])
-                    pytest.main(args)
+                    result = pytest.main(args)
             else:
-                pytest.main(args)
+                result = pytest.main(args)
+            sys.exit(result)
 
         command.__doc__ = func.__doc__
         return command
