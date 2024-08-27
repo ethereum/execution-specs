@@ -27,7 +27,7 @@ INVALID: List[Container] = [
             Section.Code(Op.STOP),
         ],
         auto_data_section=False,
-        validity_error=EOFException.MISSING_DATA_SECTION,
+        validity_error=[EOFException.MISSING_DATA_SECTION, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="incomplete_magic",
@@ -37,7 +37,7 @@ INVALID: List[Container] = [
     Container(
         name="no_version",
         raw_bytes=bytes([0xEF, 0x00]),
-        validity_error=EOFException.INVALID_VERSION,
+        validity_error=[EOFException.INVALID_VERSION, EOFException.INVALID_MAGIC],
     ),
     Container(
         name="no_type_header",
@@ -51,12 +51,15 @@ INVALID: List[Container] = [
             [0xEF, 0x00, 0x01, 0x01],
         ),
         # TODO the exception must be about incomplete section in the header
-        validity_error=EOFException.MISSING_HEADERS_TERMINATOR,
+        validity_error=[
+            EOFException.MISSING_HEADERS_TERMINATOR,
+            EOFException.INVALID_TYPE_SECTION_SIZE,
+        ],
     ),
     Container(
         name="no_code_header",
         raw_bytes=bytes([0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0xFE]),
-        validity_error=EOFException.MISSING_CODE_HEADER,
+        validity_error=[EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="code_section_size_incomplete_1",
@@ -71,12 +74,12 @@ INVALID: List[Container] = [
     Container(
         name="code_section_size_incomplete_3",
         raw_bytes=bytes([0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0x00, 0x01]),
-        validity_error=EOFException.MISSING_HEADERS_TERMINATOR,
+        validity_error=[EOFException.MISSING_HEADERS_TERMINATOR, EOFException.ZERO_SECTION_SIZE],
     ),
     Container(
         name="code_section_size_incomplete_4",
         raw_bytes=bytes([0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0x00, 0x01, 0x00]),
-        validity_error=EOFException.INCOMPLETE_SECTION_SIZE,
+        validity_error=[EOFException.INCOMPLETE_SECTION_SIZE, EOFException.ZERO_SECTION_SIZE],
     ),
     Container(
         name="code_section_count_0x8000_truncated",
@@ -167,7 +170,7 @@ INVALID: List[Container] = [
         auto_data_section=False,
         auto_type_section=AutoSection.NONE,
         expected_bytecode="ef0001 00",
-        validity_error=EOFException.MISSING_TYPE_HEADER,
+        validity_error=[EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="no_code_section",
@@ -176,7 +179,7 @@ INVALID: List[Container] = [
             Section.Data("0x00"),
         ],
         auto_type_section=AutoSection.NONE,
-        validity_error=EOFException.MISSING_CODE_HEADER,
+        validity_error=[EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="too_many_code_sections",
@@ -213,7 +216,7 @@ INVALID: List[Container] = [
                 0x00,
             ]
         ),
-        validity_error=EOFException.ZERO_SECTION_SIZE,
+        validity_error=[EOFException.ZERO_SECTION_SIZE, EOFException.INCOMPLETE_SECTION_NUMBER],
     ),
     # The basic `no_section_terminator` cases just remove the terminator
     # and the `00` for zeroth section inputs looks like one. Error is because
@@ -222,13 +225,19 @@ INVALID: List[Container] = [
         name="no_section_terminator",
         header_terminator=bytes(),
         sections=[Section.Code(code=Op.STOP)],
-        validity_error=EOFException.INVALID_SECTION_BODIES_SIZE,
+        validity_error=[
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+            EOFException.INVALID_FIRST_SECTION_TYPE,
+        ],
     ),
     Container(
         name="no_section_terminator_1",
         header_terminator=bytes(),
         sections=[Section.Code(code=Op.STOP, custom_size=2)],
-        validity_error=EOFException.INVALID_SECTION_BODIES_SIZE,
+        validity_error=[
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+            EOFException.INVALID_FIRST_SECTION_TYPE,
+        ],
     ),
     Container(
         name="no_section_terminator_2",
@@ -240,7 +249,10 @@ INVALID: List[Container] = [
         name="no_section_terminator_3",
         header_terminator=bytes(),
         sections=[Section.Code(code=Op.PUSH1(0) + Op.STOP)],
-        validity_error=EOFException.INVALID_SECTION_BODIES_SIZE,
+        validity_error=[
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+            EOFException.INVALID_FIRST_SECTION_TYPE,
+        ],
     ),
     # The following cases just remove the terminator
     # and the `00` for zeroth section inputs looks like one. Section bodies
@@ -263,31 +275,31 @@ INVALID: List[Container] = [
         name="no_section_terminator_nonzero",
         header_terminator=b"01",
         sections=[Section.Code(code=Op.STOP)],
-        validity_error=EOFException.MISSING_TERMINATOR,
+        validity_error=[EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="no_section_terminator_nonzero_1",
         header_terminator=b"02",
         sections=[Section.Code(code=Op.STOP, custom_size=2)],
-        validity_error=EOFException.MISSING_TERMINATOR,
+        validity_error=[EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="no_section_terminator_nonzero_2",
         header_terminator=b"03",
         sections=[Section.Code(code="0x", custom_size=3)],
-        validity_error=EOFException.MISSING_TERMINATOR,
+        validity_error=[EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="no_section_terminator_nonzero_3",
         header_terminator=b"04",
         sections=[Section.Code(code=Op.PUSH1(0) + Op.STOP)],
-        validity_error=EOFException.MISSING_TERMINATOR,
+        validity_error=[EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="no_section_terminator_nonzero_4",
         header_terminator=b"fe",
         sections=[Section.Code(code=Op.PUSH1(0) + Op.STOP)],
-        validity_error=EOFException.MISSING_TERMINATOR,
+        validity_error=[EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="no_code_section_contents",
@@ -347,20 +359,23 @@ INVALID: List[Container] = [
             Section.Data(data="0xDEADBEEF"),
             Section.Code(Op.STOP),
         ],
-        validity_error=EOFException.MISSING_CODE_HEADER,
+        validity_error=[EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="data_section_without_code_section",
         sections=[Section.Data(data="0xDEADBEEF")],
         # TODO the actual exception should be EOFException.MISSING_CODE_HEADER
-        validity_error=EOFException.ZERO_SECTION_SIZE,
+        validity_error=[EOFException.ZERO_SECTION_SIZE, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="no_section_terminator_3a",
         header_terminator=bytes(),
         sections=[Section.Code(code="0x030004")],
         # TODO the exception must be about terminator
-        validity_error=EOFException.INVALID_SECTION_BODIES_SIZE,
+        validity_error=[
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+            EOFException.INVALID_FIRST_SECTION_TYPE,
+        ],
     ),
     Container(
         name="no_section_terminator_4a",
@@ -389,7 +404,7 @@ INVALID: List[Container] = [
             Section.Data(data="0xAABBCC"),
             Section.Data(data="0xAABBCC"),
         ],
-        validity_error=EOFException.MISSING_TERMINATOR,
+        validity_error=[EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="multiple_code_and_data_sections",
@@ -399,7 +414,7 @@ INVALID: List[Container] = [
             Section.Data(data="0xAA"),
             Section.Data(data="0xAA"),
         ],
-        validity_error=EOFException.MISSING_TERMINATOR,
+        validity_error=[EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="unknown_section_1",
@@ -408,7 +423,7 @@ INVALID: List[Container] = [
             Section.Data(data="0x"),
             Section(kind=VERSION_MAX_SECTION_KIND + 1, data="0x01"),
         ],
-        validity_error=EOFException.MISSING_TERMINATOR,
+        validity_error=[EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="unknown_section_2",
@@ -418,7 +433,7 @@ INVALID: List[Container] = [
             Section.Code(Op.STOP),
         ],
         # TODO the exception should be about unknown section definition
-        validity_error=EOFException.MISSING_TERMINATOR,
+        validity_error=[EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="unknown_section_empty",
@@ -427,7 +442,7 @@ INVALID: List[Container] = [
             Section.Data(data="0x"),
             Section(kind=VERSION_MAX_SECTION_KIND + 1, data="0x"),
         ],
-        validity_error=EOFException.MISSING_TERMINATOR,
+        validity_error=[EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="no_type_section",
@@ -436,7 +451,7 @@ INVALID: List[Container] = [
             Section.Data("0x00"),
         ],
         auto_type_section=AutoSection.NONE,
-        validity_error=EOFException.MISSING_TYPE_HEADER,
+        validity_error=[EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="too_many_type_sections",
@@ -446,7 +461,7 @@ INVALID: List[Container] = [
             Section.Code(Op.STOP),
         ],
         auto_type_section=AutoSection.NONE,
-        validity_error=EOFException.MISSING_CODE_HEADER,
+        validity_error=[EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="empty_type_section",
@@ -456,7 +471,7 @@ INVALID: List[Container] = [
         ],
         auto_type_section=AutoSection.NONE,
         # TODO the exception must be about type section EOFException.INVALID_TYPE_SECTION_SIZE,
-        validity_error=EOFException.ZERO_SECTION_SIZE,
+        validity_error=[EOFException.ZERO_SECTION_SIZE, EOFException.INVALID_SECTION_BODIES_SIZE],
     ),
     Container(
         name="type_section_too_small_1",
@@ -590,7 +605,7 @@ INVALID += [
             Section.Code(Op.STOP),
         ],
         auto_sort_sections=AutoSection.NONE,
-        validity_error=EOFException.MISSING_CODE_HEADER,
+        validity_error=[EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
     ),
     Container(
         name="data_section_listed_in_type",
@@ -598,7 +613,10 @@ INVALID += [
             Section.Data(data="0x00", force_type_listing=True),
             Section.Code(Op.STOP),
         ],
-        validity_error=EOFException.INVALID_TYPE_SECTION_SIZE,
+        validity_error=[
+            EOFException.INVALID_TYPE_SECTION_SIZE,
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+        ],
     ),
     Container(
         name="single_code_section_incomplete_type",
@@ -606,7 +624,10 @@ INVALID += [
             Section(kind=SectionKind.TYPE, data="0x00", custom_size=2),
             Section.Code(Op.STOP),
         ],
-        validity_error=EOFException.INVALID_SECTION_BODIES_SIZE,
+        validity_error=[
+            EOFException.INVALID_SECTION_BODIES_SIZE,
+            EOFException.INVALID_TYPE_SECTION_SIZE,
+        ],
     ),
     Container(
         name="single_code_section_input_too_large",

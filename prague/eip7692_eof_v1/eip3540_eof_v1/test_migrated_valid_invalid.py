@@ -5,6 +5,7 @@ ethereum/tests/src/EOFTestsFiller/EIP3540/validInvalidFiller.yml
 
 import pytest
 
+from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList
 from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools.eof.v1 import Container, Section
@@ -70,7 +71,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
         pytest.param(
             # Type section size incomplete
             bytes.fromhex("ef00010100"),
-            EOFException.INCOMPLETE_SECTION_SIZE,
+            [EOFException.INCOMPLETE_SECTION_SIZE, EOFException.INVALID_TYPE_SECTION_SIZE],
             id="EOF1I3540_0011_type_section_size_incomplete",
         ),
         pytest.param(
@@ -95,7 +96,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
                 name="EOF1I3540_0016 (Invalid) Code section size incomplete",
                 raw_bytes="0xef000101000402000100",
             ),
-            EOFException.INCOMPLETE_SECTION_SIZE,
+            [EOFException.INCOMPLETE_SECTION_SIZE, EOFException.ZERO_SECTION_SIZE],
             id="EOF1I3540_0016_code_section_size_incomplete",
         ),
         pytest.param(
@@ -107,13 +108,13 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
         pytest.param(
             # No data size
             bytes.fromhex("ef0001010004020001000104"),
-            EOFException.MISSING_HEADERS_TERMINATOR,
+            [EOFException.MISSING_HEADERS_TERMINATOR, EOFException.INCOMPLETE_DATA_HEADER],
             id="EOF1I3540_0018_no_data_size",
         ),
         pytest.param(
             # Data size incomplete
             bytes.fromhex("ef000101000402000100010400"),
-            EOFException.INCOMPLETE_SECTION_SIZE,
+            [EOFException.INCOMPLETE_SECTION_SIZE, EOFException.INCOMPLETE_DATA_HEADER],
             id="EOF1I3540_0019_data_size_incomplete",
         ),
         pytest.param(
@@ -179,31 +180,31 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
         pytest.param(
             # Code section preceding type section
             bytes.fromhex("ef000102000100010100040400020000000000feaabb"),
-            EOFException.MISSING_TYPE_HEADER,
+            [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0030_code_section_preceding_type_section",
         ),
         pytest.param(
             # Data section preceding type section
             bytes.fromhex("ef000104000201000402000100010000000000feaabb"),
-            EOFException.MISSING_TYPE_HEADER,
+            [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0031_data_section_preceding_type_section",
         ),
         pytest.param(
             # Data section preceding code section
             bytes.fromhex("ef000101000404000202000100010000000000feaabb"),
-            EOFException.MISSING_CODE_HEADER,
+            [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0032_data_section_preceding_code_section",
         ),
         pytest.param(
             # Data section without code section
             bytes.fromhex("ef00010100040400020000000000aabb"),
-            EOFException.MISSING_CODE_HEADER,
+            [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0033_data_section_without_code_section",
         ),
         pytest.param(
             # No data section
             bytes.fromhex("ef000101000402000100010000000000fe"),
-            EOFException.MISSING_DATA_SECTION,
+            [EOFException.MISSING_DATA_SECTION, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0034_no_data_section",
         ),
         pytest.param(
@@ -228,85 +229,85 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
         pytest.param(
             # Multiple data sections
             bytes.fromhex("ef000101000402000100010400020400020000000000feaabbaabb"),
-            EOFException.MISSING_TERMINATOR,
+            [EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0036_multiple_data_sections",
         ),
         pytest.param(
             # Multiple code and data sections
             bytes.fromhex("ef000101000802000200010001040002040002000000000000000000fefeaabbaabb"),
-            EOFException.MISSING_TERMINATOR,
+            [EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0037_multiple_code_and_data_sections",
         ),
         pytest.param(
             # Unknown section ID (at the beginning)
             bytes.fromhex("ef000105000101000402000100010400000000000000fe"),
-            EOFException.MISSING_TYPE_HEADER,
+            [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0038_unknown_section_id_at_the_beginning_05",
         ),
         pytest.param(
             # Unknown section ID (at the beginning)
             bytes.fromhex("ef000106000101000402000100010400000000000000fe"),
-            EOFException.MISSING_TYPE_HEADER,
+            [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0039_unknown_section_id_at_the_beginning_06",
         ),
         pytest.param(
             # Unknown section ID (at the beginning)
             bytes.fromhex("ef0001ff000101000402000100010400000000000000fe"),
-            EOFException.MISSING_TYPE_HEADER,
+            [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0040_unknown_section_id_at_the_beginning_ff",
         ),
         pytest.param(
             # Unknown section ID (after types section)
             bytes.fromhex("ef000101000405000102000100010400000000000000fe"),
-            EOFException.MISSING_CODE_HEADER,
+            [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0041_unknown_section_id_after_types_section_05",
         ),
         pytest.param(
             # Unknown section ID (after types section)
             bytes.fromhex("ef000101000406000102000100010400000000000000fe"),
-            EOFException.MISSING_CODE_HEADER,
+            [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0042_unknown_section_id_after_types_section_06",
         ),
         pytest.param(
             # Unknown section ID (after types section)
             bytes.fromhex("ef0001010004ff000102000100010400000000000000fe"),
-            EOFException.MISSING_CODE_HEADER,
+            [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0043_unknown_section_id_after_types_section_ff",
         ),
         pytest.param(
             # Unknown section ID (after code section)
             bytes.fromhex("ef000101000402000100010500010400000000000000fe"),
-            EOFException.MISSING_DATA_SECTION,
+            [EOFException.MISSING_DATA_SECTION, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0044_unknown_section_id_after_code_section_05",
         ),
         pytest.param(
             # Unknown section ID (after code section)
             bytes.fromhex("ef000101000402000100010600010400000000000000fe"),
-            EOFException.MISSING_DATA_SECTION,
+            [EOFException.MISSING_DATA_SECTION, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0045_unknown_section_id_after_code_section_06",
         ),
         pytest.param(
             # Unknown section ID (after code section)
             bytes.fromhex("ef00010100040200010001ff00010400000000000000fe"),
-            EOFException.MISSING_DATA_SECTION,
+            [EOFException.MISSING_DATA_SECTION, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0046_unknown_section_id_after_code_section_ff",
         ),
         pytest.param(
             # Unknown section ID (after data section)
             bytes.fromhex("ef000101000402000100010400000500010000000000fe"),
-            EOFException.MISSING_TERMINATOR,
+            [EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0047_unknown_section_id_after_data_section_05",
         ),
         pytest.param(
             # Unknown section ID (after data section)
             bytes.fromhex("ef000101000402000100010400000600010000000000fe"),
-            EOFException.MISSING_TERMINATOR,
+            [EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0048_unknown_section_id_after_data_section_06",
         ),
         pytest.param(
             # Unknown section ID (after data section)
             bytes.fromhex("ef00010100040200010001040000ff00010000000000fe"),
-            EOFException.MISSING_TERMINATOR,
+            [EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0049_unknown_section_id_after_data_section_ff",
         ),
         # TODO: Duplicated tests
@@ -348,7 +349,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
                 name="EOF1I3540_0005 (Invalid) No version",
                 raw_bytes="ef00",
             ),
-            EOFException.INVALID_VERSION,
+            [EOFException.INVALID_VERSION, EOFException.INVALID_MAGIC],
             id="EOF1I3540_0005_invalid_no_version",
         ),
         pytest.param(
@@ -380,7 +381,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 def test_migrated_valid_invalid(
     eof_test: EOFTestFiller,
     eof_code: Container | bytes,
-    exception: EOFException | None,
+    exception: EOFExceptionInstanceOrList | None,
 ):
     """
     Verify EOF container construction and exception

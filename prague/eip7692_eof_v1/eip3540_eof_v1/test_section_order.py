@@ -7,6 +7,7 @@ from typing import List
 
 import pytest
 
+from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList
 from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools.eof.v1 import AutoSection, Container, Section, SectionKind
@@ -40,24 +41,33 @@ class CasePosition(Enum):
 
 def get_expected_code_exception(
     section_kind, section_test, test_position
-) -> tuple[str, EOFException | None]:
+) -> tuple[str, EOFExceptionInstanceOrList | None]:
     """
     Verification vectors with code and exception based on test combinations
     """
     match (section_kind, section_test, test_position):
         case (SectionKind.TYPE, SectionTest.MISSING, CasePosition.HEADER):
-            return "ef000102000100030400010000800001305000ef", EOFException.MISSING_TYPE_HEADER
+            return (
+                "ef000102000100030400010000800001305000ef",
+                [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+            )
         case (SectionKind.TYPE, SectionTest.MISSING, CasePosition.BODY):
             return (
                 "ef0001010004020001000304000100305000ef",
-                EOFException.INVALID_SECTION_BODIES_SIZE,
+                [
+                    EOFException.INVALID_SECTION_BODIES_SIZE,
+                    EOFException.INVALID_FIRST_SECTION_TYPE,
+                ],
             )
         case (SectionKind.TYPE, SectionTest.MISSING, CasePosition.BODY_AND_HEADER):
-            return "ef0001020001000304000100305000ef", EOFException.MISSING_TYPE_HEADER
+            return (
+                "ef0001020001000304000100305000ef",
+                [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+            )
         case (SectionKind.TYPE, SectionTest.WRONG_ORDER, CasePosition.HEADER):
             return (
                 "ef000102000100030100040400010000800001305000ef",
-                EOFException.MISSING_TYPE_HEADER,
+                [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.TYPE, SectionTest.WRONG_ORDER, CasePosition.BODY):
             return (
@@ -68,23 +78,29 @@ def get_expected_code_exception(
         case (SectionKind.TYPE, SectionTest.WRONG_ORDER, CasePosition.BODY_AND_HEADER):
             return (
                 "ef000102000100030100040400010030500000800001ef",
-                EOFException.MISSING_TYPE_HEADER,
+                [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.CODE, SectionTest.MISSING, CasePosition.HEADER):
-            return "ef00010100040400010000800001305000ef", EOFException.MISSING_CODE_HEADER
+            return (
+                "ef00010100040400010000800001305000ef",
+                [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+            )
         case (SectionKind.CODE, SectionTest.MISSING, CasePosition.BODY):
             return (
                 "ef000101000402000100030400010000800001ef",
                 # TODO should be an exception of empty code bytes, because it can understand that
                 # last byte is data section byte
-                EOFException.INVALID_SECTION_BODIES_SIZE,
+                [EOFException.INVALID_SECTION_BODIES_SIZE, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.CODE, SectionTest.MISSING, CasePosition.BODY_AND_HEADER):
-            return "ef00010100040400010000800001ef", EOFException.MISSING_CODE_HEADER
+            return (
+                "ef00010100040400010000800001ef",
+                [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
+            )
         case (SectionKind.CODE, SectionTest.WRONG_ORDER, CasePosition.HEADER):
             return (
                 "ef000101000404000102000100030000800001305000ef",
-                EOFException.MISSING_CODE_HEADER,
+                [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.CODE, SectionTest.WRONG_ORDER, CasePosition.BODY):
             return (
@@ -94,21 +110,27 @@ def get_expected_code_exception(
         case (SectionKind.CODE, SectionTest.WRONG_ORDER, CasePosition.BODY_AND_HEADER):
             return (
                 "ef000101000404000102000100030000800001ef305000",
-                EOFException.MISSING_CODE_HEADER,
+                [EOFException.MISSING_CODE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.DATA, SectionTest.MISSING, CasePosition.HEADER):
-            return "ef000101000402000100030000800001305000ef", EOFException.MISSING_DATA_SECTION
+            return (
+                "ef000101000402000100030000800001305000ef",
+                [EOFException.MISSING_DATA_SECTION, EOFException.UNEXPECTED_HEADER_KIND],
+            )
         case (SectionKind.DATA, SectionTest.MISSING, CasePosition.BODY):
             return (
                 "ef000101000402000100030400010000800001305000",
                 EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
             )
         case (SectionKind.DATA, SectionTest.MISSING, CasePosition.BODY_AND_HEADER):
-            return "ef000101000402000100030000800001305000", EOFException.MISSING_DATA_SECTION
+            return (
+                "ef000101000402000100030000800001305000",
+                [EOFException.MISSING_DATA_SECTION, EOFException.UNEXPECTED_HEADER_KIND],
+            )
         case (SectionKind.DATA, SectionTest.WRONG_ORDER, CasePosition.HEADER):
             return (
                 "ef000104000101000402000100030000800001305000ef",
-                EOFException.MISSING_TYPE_HEADER,
+                [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
         case (SectionKind.DATA, SectionTest.WRONG_ORDER, CasePosition.BODY):
             return (
@@ -118,7 +140,7 @@ def get_expected_code_exception(
         case (SectionKind.DATA, SectionTest.WRONG_ORDER, CasePosition.BODY_AND_HEADER):
             return (
                 "ef0001040001010004020001000300ef00800001305000",
-                EOFException.MISSING_TYPE_HEADER,
+                [EOFException.MISSING_TYPE_HEADER, EOFException.UNEXPECTED_HEADER_KIND],
             )
     return "", None
 

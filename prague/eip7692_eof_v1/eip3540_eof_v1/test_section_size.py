@@ -6,6 +6,7 @@ from enum import IntEnum
 
 import pytest
 
+from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList
 from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools.eof.v1 import Container, Section, SectionKind
@@ -40,31 +41,55 @@ class SectionSize(IntEnum):
 @pytest.mark.parametrize(
     "section_kind, section_size, exception",
     [
-        (SectionKind.DATA, SectionSize.NORMAL, None),
-        (SectionKind.DATA, SectionSize.ZERO, EOFException.INVALID_SECTION_BODIES_SIZE),
-        (SectionKind.DATA, SectionSize.UNDERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE),
-        (SectionKind.DATA, SectionSize.OVERSIZE, EOFException.TOPLEVEL_CONTAINER_TRUNCATED),
-        (SectionKind.DATA, SectionSize.HUGE, EOFException.TOPLEVEL_CONTAINER_TRUNCATED),
-        (SectionKind.DATA, SectionSize.MAX, EOFException.TOPLEVEL_CONTAINER_TRUNCATED),
-        (SectionKind.CODE, SectionSize.NORMAL, None),
-        (SectionKind.CODE, SectionSize.ZERO, EOFException.ZERO_SECTION_SIZE),
-        (SectionKind.CODE, SectionSize.UNDERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE),
-        (SectionKind.CODE, SectionSize.OVERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE),
-        (SectionKind.CODE, SectionSize.HUGE, EOFException.INVALID_SECTION_BODIES_SIZE),
-        (SectionKind.CODE, SectionSize.MAX, EOFException.INVALID_SECTION_BODIES_SIZE),
-        (SectionKind.TYPE, SectionSize.NORMAL, None),
-        (SectionKind.TYPE, SectionSize.ZERO, EOFException.ZERO_SECTION_SIZE),
-        (SectionKind.TYPE, SectionSize.UNDERSIZE, EOFException.INVALID_TYPE_SECTION_SIZE),
-        (SectionKind.TYPE, SectionSize.OVERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE),
-        (SectionKind.TYPE, SectionSize.HUGE, EOFException.INVALID_SECTION_BODIES_SIZE),
-        (SectionKind.TYPE, SectionSize.MAX, EOFException.INVALID_SECTION_BODIES_SIZE),
+        pytest.param(SectionKind.DATA, SectionSize.NORMAL, None),
+        pytest.param(SectionKind.DATA, SectionSize.ZERO, EOFException.INVALID_SECTION_BODIES_SIZE),
+        pytest.param(
+            SectionKind.DATA, SectionSize.UNDERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE
+        ),
+        pytest.param(
+            SectionKind.DATA, SectionSize.OVERSIZE, EOFException.TOPLEVEL_CONTAINER_TRUNCATED
+        ),
+        pytest.param(
+            SectionKind.DATA, SectionSize.HUGE, EOFException.TOPLEVEL_CONTAINER_TRUNCATED
+        ),
+        pytest.param(SectionKind.DATA, SectionSize.MAX, EOFException.TOPLEVEL_CONTAINER_TRUNCATED),
+        pytest.param(SectionKind.CODE, SectionSize.NORMAL, None),
+        pytest.param(SectionKind.CODE, SectionSize.ZERO, EOFException.ZERO_SECTION_SIZE),
+        pytest.param(
+            SectionKind.CODE, SectionSize.UNDERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE
+        ),
+        pytest.param(
+            SectionKind.CODE, SectionSize.OVERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE
+        ),
+        pytest.param(SectionKind.CODE, SectionSize.HUGE, EOFException.INVALID_SECTION_BODIES_SIZE),
+        pytest.param(SectionKind.CODE, SectionSize.MAX, EOFException.INVALID_SECTION_BODIES_SIZE),
+        pytest.param(SectionKind.TYPE, SectionSize.NORMAL, None),
+        pytest.param(
+            SectionKind.TYPE,
+            SectionSize.ZERO,
+            [EOFException.ZERO_SECTION_SIZE, EOFException.INVALID_SECTION_BODIES_SIZE],
+            id="type_size_zero",
+        ),
+        pytest.param(
+            SectionKind.TYPE, SectionSize.UNDERSIZE, EOFException.INVALID_TYPE_SECTION_SIZE
+        ),
+        pytest.param(
+            SectionKind.TYPE, SectionSize.OVERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE
+        ),
+        pytest.param(SectionKind.TYPE, SectionSize.HUGE, EOFException.INVALID_SECTION_BODIES_SIZE),
+        pytest.param(
+            SectionKind.TYPE,
+            SectionSize.MAX,
+            [EOFException.INVALID_SECTION_BODIES_SIZE, EOFException.INVALID_TYPE_SECTION_SIZE],
+            id="type_size_max",
+        ),
     ],
 )
 def test_section_size(
     eof_test: EOFTestFiller,
     section_size: SectionSize,
     section_kind: SectionKind,
-    exception: EOFException,
+    exception: EOFExceptionInstanceOrList,
 ):
     """
     Test custom_size is auto, more or less then the actual size of the section

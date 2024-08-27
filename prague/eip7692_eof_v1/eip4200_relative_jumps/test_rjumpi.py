@@ -605,10 +605,10 @@ def test_rjumpi_into_push_n(
     data_portion_length = int.from_bytes(opcode, byteorder="big") - 0x5F
     if jump == JumpDirection.FORWARD:
         offset = data_portion_length if data_portion_end else 1
-        code = Op.PUSH1(1) + Op.RJUMPI[offset] + opcode[0]
+        code = Op.PUSH1(1) + Op.RJUMPI[offset] + opcode[0] + Op.STOP
     else:
         offset = -4 if data_portion_end else -4 - data_portion_length + 1
-        code = opcode[0] + Op.RJUMPI[offset]
+        code = opcode[0] + Op.RJUMPI[offset] + Op.STOP
     eof_test(
         data=Container(
             sections=[

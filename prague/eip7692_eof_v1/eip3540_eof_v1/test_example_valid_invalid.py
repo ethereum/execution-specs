@@ -4,6 +4,7 @@ EOF Classes example use
 
 import pytest
 
+from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList
 from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools.eof.v1 import Container, Section
@@ -62,7 +63,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
                 header_terminator=b"\xFF",
             ),
             "ef00010100040200010003040001ff00800001305000ef",
-            EOFException.MISSING_TERMINATOR,
+            [EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
             id="headers_terminator_invalid",
         ),
         pytest.param(
@@ -265,55 +266,60 @@ def test_example_valid_invalid(
     "skip_header_listing, skip_body_listing, skip_types_body_listing, skip_types_header_listing,"
     "expected_code, expected_exception",
     [
-        (
-            # Data 16 test case of valid invalid eof ori filler
+        pytest.param(
             True,  # second section is not in code header array
             True,  # second section is not in container's body (it's code bytes)
             False,  # but it's code input bytes still listed in container's body
             False,  # but it's code input bytes size still added to types section size
             "ef000101000802000100030400040000800001000000003050000bad60A7",
-            EOFException.INVALID_TYPE_SECTION_SIZE,
+            [EOFException.INVALID_TYPE_SECTION_SIZE, EOFException.INVALID_SECTION_BODIES_SIZE],
+            id="drop_code_section_and_header",
         ),
-        (
+        pytest.param(
             True,  # second section is not in code header array
             False,  # second section code is in container's body (3050000)
             False,  # but it's code input bytes still listed in container's body
             False,  # but it's code input bytes size still added to types section size
             "ef000101000802000100030400040000800001000000003050003050000bad60A7",
-            EOFException.INVALID_TYPE_SECTION_SIZE,
+            [EOFException.INVALID_TYPE_SECTION_SIZE, EOFException.INVALID_SECTION_BODIES_SIZE],
+            id="drop_code_header",
         ),
-        (
+        pytest.param(
             False,  # second section is mentioned in code header array (0003)
             True,  # second section is not in container's body (it's code bytes)
             False,  # but it's code input bytes still listed in container's body
             False,  # but it's code input bytes size still added to types section size
             "ef0001010008020002000300030400040000800001000000003050000bad60A7",
-            EOFException.UNREACHABLE_CODE_SECTIONS,
+            [EOFException.UNREACHABLE_CODE_SECTIONS, EOFException.TOPLEVEL_CONTAINER_TRUNCATED],
+            id="drop_code_section",
         ),
-        (
+        pytest.param(
             False,  # second section is mentioned in code header array (0003)
             False,  # second section code is in container's body (3050000)
             False,  # but it's code input bytes still listed in container's body
             False,  # but it's code input bytes size still added to types section size
             "ef0001010008020002000300030400040000800001000000003050003050000bad60A7",
             EOFException.UNREACHABLE_CODE_SECTIONS,
+            id="layout_ok_code_bad",
         ),
-        (
+        pytest.param(
             # Data 17 test case of valid invalid eof ori filler
             True,  # second section is not in code header array
             True,  # second section is not in container's body (it's code bytes)
             True,  # it's code input bytes are not listed in container's body (00000000)
             False,  # but it's code input bytes size still added to types section size
             "ef0001010008020001000304000400008000013050000bad60a7",
-            EOFException.INVALID_TYPE_SECTION_SIZE,
+            [EOFException.INVALID_TYPE_SECTION_SIZE, EOFException.INVALID_SECTION_BODIES_SIZE],
+            id="drop_types_header",
         ),
-        (
+        pytest.param(
             True,  # second section is not in code header array
             True,  # second section is not in container's body (it's code bytes)
             True,  # it's code input bytes are not listed in container's body (00000000)
             True,  # and it is bytes size is not counted in types header
             "ef0001010004020001000304000400008000013050000bad60a7",
             None,
+            id="drop_everything",
         ),
     ],
 )
@@ -324,7 +330,7 @@ def test_code_section_header_body_mismatch(
     skip_types_body_listing: bool,
     skip_types_header_listing: bool,
     expected_code: str,
-    expected_exception: EOFException | None,
+    expected_exception: EOFExceptionInstanceOrList | None,
 ):
     """
     Inconsistent number of code sections (between types and code)

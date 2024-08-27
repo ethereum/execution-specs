@@ -96,7 +96,7 @@ def test_jumpf_too_large(
                     code=Op.JUMPF[1025],
                 )
             ],
-            validity_error=EOFException.UNDEFINED_EXCEPTION,
+            validity_error=EOFException.INVALID_CODE_SECTION_INDEX,
         ),
     )
 
@@ -112,7 +112,7 @@ def test_jumpf_way_too_large(
                     code=Op.JUMPF[0xFFFF],
                 )
             ],
-            validity_error=EOFException.UNDEFINED_EXCEPTION,
+            validity_error=EOFException.INVALID_CODE_SECTION_INDEX,
         ),
     )
 
@@ -128,7 +128,7 @@ def test_jumpf_to_nonexistent_section(
                     code=Op.JUMPF[5],
                 )
             ],
-            validity_error=EOFException.UNDEFINED_EXCEPTION,
+            validity_error=EOFException.INVALID_CODE_SECTION_INDEX,
         ),
     )
 
