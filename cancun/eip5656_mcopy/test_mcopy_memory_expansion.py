@@ -4,18 +4,28 @@ abstract: Tests [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethe
     that produce a memory expansion, and potentially an out-of-gas error.
 
 """  # noqa: E501
-from typing import Mapping, Tuple
+import itertools
+from typing import Mapping
 
 import pytest
 
 from ethereum_test_tools import Account, Address, Alloc, Bytecode, Environment
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Storage, Transaction, cost_memory_bytes
+from ethereum_test_tools import StateTestFiller, Transaction, cost_memory_bytes
+from ethereum_test_types.helpers import eip_2028_transaction_data_cost
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
 
 REFERENCE_SPEC_GIT_PATH = REFERENCE_SPEC_GIT_PATH
 REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
+
+"""Storage addresses for common testing fields"""
+_slot = itertools.count(1)
+slot_code_worked = next(_slot)
+slot_last_slot = next(_slot)
+
+"""Storage values for common testing fields"""
+value_code_worked = 0x2015
 
 
 @pytest.fixture
@@ -31,6 +41,8 @@ def callee_bytecode(dest: int, src: int, length: int) -> Bytecode:
     # Pushes for the return operation
     bytecode += Op.PUSH1(0x00) + Op.PUSH1(0x00)
 
+    bytecode += Op.SSTORE(slot_code_worked, value_code_worked)
+
     # Perform the mcopy operation
     bytecode += Op.MCOPY(dest, src, length)
 
@@ -40,7 +52,7 @@ def callee_bytecode(dest: int, src: int, length: int) -> Bytecode:
 
 
 @pytest.fixture
-def subcall_exact_cost(
+def call_exact_cost(
     initial_memory: bytes,
     dest: int,
     length: int,
@@ -48,6 +60,8 @@ def subcall_exact_cost(
     """
     Returns the exact cost of the subcall, based on the initial memory and the length of the copy.
     """
+    intrinsic_cost = 21000 + eip_2028_transaction_data_cost(initial_memory)
+
     mcopy_cost = 3
     mcopy_cost += 3 * ((length + 31) // 32)
     if length > 0 and dest + length > len(initial_memory):
@@ -57,36 +71,18 @@ def subcall_exact_cost(
     calldatacopy_cost += 3 * ((len(initial_memory) + 31) // 32)
     calldatacopy_cost += cost_memory_bytes(len(initial_memory), 0)
 
-    pushes_cost = 3 * 7
+    pushes_cost = 3 * 9
     calldatasize_cost = 2
-    return mcopy_cost + calldatacopy_cost + pushes_cost + calldatasize_cost
 
-
-@pytest.fixture
-def bytecode_storage(
-    subcall_exact_cost: int,
-    successful: bool,
-    memory_expansion_address: Address,
-) -> Tuple[Bytecode, Storage.StorageDictType]:
-    """
-    Prepares the bytecode and storage for the test, based on the expected result of the subcall
-    (whether it succeeds or fails depending on the length of the memory expansion).
-    """
-    bytecode = Bytecode()
-    storage = {}
-
-    # Pass on the calldata
-    bytecode += Op.CALLDATACOPY(0x00, 0x00, Op.CALLDATASIZE())
-
-    subcall_gas = subcall_exact_cost if successful else subcall_exact_cost - 1
-
-    # Perform the subcall and store a one in the result location
-    bytecode += Op.SSTORE(
-        Op.CALL(subcall_gas, memory_expansion_address, 0, 0, Op.CALLDATASIZE(), 0, 0), 1
+    sstore_cost = 22100
+    return (
+        intrinsic_cost
+        + mcopy_cost
+        + calldatacopy_cost
+        + pushes_cost
+        + calldatasize_cost
+        + sstore_cost
     )
-    storage[int(successful)] = 1
-
-    return (bytecode, storage)
 
 
 @pytest.fixture
@@ -101,10 +97,11 @@ def block_gas_limit() -> int:  # noqa: D103
 
 @pytest.fixture
 def tx_gas_limit(  # noqa: D103
-    subcall_exact_cost: int,
+    call_exact_cost: int,
     block_gas_limit: int,
+    successful: bool,
 ) -> int:
-    return min(max(500_000, subcall_exact_cost * 2), block_gas_limit)
+    return min(call_exact_cost - (0 if successful else 1), block_gas_limit)
 
 
 @pytest.fixture
@@ -115,14 +112,7 @@ def env(  # noqa: D103
 
 
 @pytest.fixture
-def caller_address(  # noqa: D103
-    pre: Alloc, bytecode_storage: Tuple[bytes, Storage.StorageDictType]
-) -> Address:
-    return pre.deploy_contract(code=bytecode_storage[0])
-
-
-@pytest.fixture
-def memory_expansion_address(pre: Alloc, callee_bytecode: Bytecode) -> Address:  # noqa: D103
+def caller_address(pre: Alloc, callee_bytecode: bytes) -> Address:  # noqa: D103
     return pre.deploy_contract(code=callee_bytecode)
 
 
@@ -151,10 +141,13 @@ def tx(  # noqa: D103
 
 @pytest.fixture
 def post(  # noqa: D103
-    caller_address: Address, bytecode_storage: Tuple[bytes, Storage.StorageDictType]
+    caller_address: Address,
+    successful: bool,
 ) -> Mapping:
     return {
-        caller_address: Account(storage=bytecode_storage[1]),
+        caller_address: Account(
+            storage={slot_code_worked: value_code_worked} if successful else {}
+        )
     }
 
 
@@ -197,6 +190,7 @@ def post(  # noqa: D103
         "from_empty_memory",
     ],
 )
+@pytest.mark.with_all_evm_code_types
 @pytest.mark.valid_from("Cancun")
 def test_mcopy_memory_expansion(
     state_test: StateTestFiller,
@@ -242,7 +236,7 @@ def test_mcopy_memory_expansion(
     ],
 )
 @pytest.mark.parametrize(
-    "subcall_exact_cost",
+    "call_exact_cost",
     [2**128 - 1],
     ids=[""],
 )  # Limit subcall gas, otherwise it would be impossibly large
@@ -258,6 +252,7 @@ def test_mcopy_memory_expansion(
         "from_empty_memory",
     ],
 )
+@pytest.mark.with_all_evm_code_types
 @pytest.mark.valid_from("Cancun")
 def test_mcopy_huge_memory_expansion(
     state_test: StateTestFiller,
