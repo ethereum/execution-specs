@@ -26,7 +26,9 @@ except ImportError as e:
         "package"
     )
 
-from ethereum.base_types import U256, Bytes, Bytes20, Uint
+from ethereum_types.bytes import Bytes, Bytes20
+from ethereum_types.numeric import U256, Uint
+
 from ethereum.crypto.hash import Hash32
 
 from .utils import add_item

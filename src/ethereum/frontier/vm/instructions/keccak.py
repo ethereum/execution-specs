@@ -12,7 +12,8 @@ Introduction
 Implementations of the EVM keccak instructions.
 """
 
-from ethereum.base_types import U256, Uint
+from ethereum_types.numeric import U256, Uint
+
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 

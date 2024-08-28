@@ -11,7 +11,8 @@ Introduction
 
 Implementations of the EVM system related instructions.
 """
-from ethereum.base_types import U256, Bytes0, Uint
+from ethereum_types.bytes import Bytes0
+from ethereum_types.numeric import U256, Uint
 
 from ...fork_types import Address
 from ...state import (

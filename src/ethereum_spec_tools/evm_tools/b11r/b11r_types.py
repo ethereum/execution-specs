@@ -4,17 +4,10 @@ Define the types used by the b11r tool.
 import json
 from typing import Any, List, Optional, Tuple
 
+from ethereum_types.bytes import Bytes, Bytes8, Bytes20, Bytes32, Bytes256
+from ethereum_types.numeric import U64, U256, Uint
+
 from ethereum import rlp
-from ethereum.base_types import (
-    U64,
-    U256,
-    Bytes,
-    Bytes8,
-    Bytes20,
-    Bytes32,
-    Bytes256,
-    Uint,
-)
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_bytes8
 

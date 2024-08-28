@@ -2,9 +2,10 @@ from functools import partial
 from typing import Dict
 
 import pytest
+from ethereum_types.bytes import Bytes, Bytes8, Bytes32
+from ethereum_types.numeric import U256, Uint
 
 from ethereum import rlp
-from ethereum.base_types import U256, Bytes, Bytes8, Bytes32, Uint
 from ethereum.crypto.hash import Hash32
 from ethereum.exceptions import InvalidBlock
 from tests.helpers import TEST_FIXTURES

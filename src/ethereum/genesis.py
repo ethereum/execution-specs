@@ -17,17 +17,11 @@ import pkgutil
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Generic, Type, TypeVar
 
+from ethereum_types.bytes import Bytes, Bytes8, Bytes32, FixedBytes
+from ethereum_types.frozen import slotted_freezable
+from ethereum_types.numeric import U64, U256, Uint
+
 from ethereum import rlp
-from ethereum.base_types import (
-    U64,
-    U256,
-    Bytes,
-    Bytes8,
-    Bytes32,
-    FixedBytes,
-    Uint,
-    slotted_freezable,
-)
 from ethereum.crypto.hash import Hash32
 from ethereum.utils import has_field
 from ethereum.utils.hexadecimal import (

@@ -13,7 +13,8 @@ Implementation of the `SHA256` precompiled contract.
 """
 import hashlib
 
-from ethereum.base_types import Uint
+from ethereum_types.numeric import Uint
+
 from ethereum.utils.numeric import ceil32
 
 from ...vm import Evm

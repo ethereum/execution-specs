@@ -7,7 +7,9 @@ from contextlib import ExitStack
 from dataclasses import asdict, dataclass, is_dataclass
 from typing import List, Optional, Protocol, TextIO, Union, runtime_checkable
 
-from ethereum.base_types import U256, Bytes, Uint
+from ethereum_types.bytes import Bytes
+from ethereum_types.numeric import U256, Uint
+
 from ethereum.trace import (
     EvmStop,
     GasAndRefund,

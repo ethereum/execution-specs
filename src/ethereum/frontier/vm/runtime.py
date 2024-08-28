@@ -13,9 +13,7 @@ Runtime related operations used while executing EVM code.
 """
 from typing import Set
 
-from ethereum_types.numeric import ulen
-
-from ethereum.base_types import Uint
+from ethereum_types.numeric import Uint, ulen
 
 from .instructions import Ops
 

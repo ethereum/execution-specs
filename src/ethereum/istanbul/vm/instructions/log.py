@@ -13,7 +13,7 @@ Implementations of the EVM logging instructions.
 """
 from functools import partial
 
-from ethereum.base_types import U256, Uint
+from ethereum_types.numeric import U256, Uint
 
 from ...blocks import Log
 from .. import Evm

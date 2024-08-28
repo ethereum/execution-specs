@@ -11,9 +11,10 @@ Introduction
 
 EVM memory operations.
 """
-from ethereum.utils.byte import right_pad_zero_bytes
+from ethereum_types.bytes import Bytes
+from ethereum_types.numeric import U256, Uint
 
-from ...base_types import U256, Bytes, Uint
+from ethereum.utils.byte import right_pad_zero_bytes
 
 
 def memory_write(

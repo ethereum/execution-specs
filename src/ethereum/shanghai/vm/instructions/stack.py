@@ -14,7 +14,7 @@ Implementations of the EVM stack related instructions.
 
 from functools import partial
 
-from ethereum.base_types import U256, Uint
+from ethereum_types.numeric import U256, Uint
 
 from .. import Evm, stack
 from ..exceptions import StackUnderflowError

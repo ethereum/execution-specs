@@ -14,15 +14,11 @@ Types re-used throughout the specification, which are specific to Ethereum.
 
 from dataclasses import dataclass
 
+from ethereum_types.bytes import Bytes, Bytes20, Bytes256
+from ethereum_types.frozen import slotted_freezable
+from ethereum_types.numeric import U256, Uint
+
 from .. import rlp
-from ..base_types import (
-    U256,
-    Bytes,
-    Bytes20,
-    Bytes256,
-    Uint,
-    slotted_freezable,
-)
 from ..crypto.hash import Hash32, keccak256
 
 Address = Bytes20

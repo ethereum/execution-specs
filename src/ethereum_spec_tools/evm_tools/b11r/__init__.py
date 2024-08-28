@@ -6,8 +6,9 @@ import argparse
 import json
 from typing import Optional, TextIO
 
+from ethereum_types.bytes import Bytes32
+
 from ethereum import rlp
-from ethereum.base_types import Bytes32
 
 from ..utils import get_stream_logger
 from .b11r_types import Body, Header

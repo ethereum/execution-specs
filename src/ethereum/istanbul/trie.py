@@ -28,12 +28,15 @@ from typing import (
     Union,
 )
 
+from ethereum_types.bytes import Bytes
+from ethereum_types.frozen import slotted_freezable
+from ethereum_types.numeric import U256, Uint
+
 from ethereum.constantinople import trie as previous_trie
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 from .. import rlp
-from ..base_types import U256, Bytes, Uint, slotted_freezable
 from .blocks import Receipt
 from .fork_types import Account, Address, Root, encode_account
 from .transactions import Transaction

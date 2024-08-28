@@ -8,9 +8,9 @@ from unittest.mock import call, patch
 
 import pytest
 from _pytest.mark.structures import ParameterSet
+from ethereum_types.numeric import U64
 
 from ethereum import rlp
-from ethereum.base_types import U64
 from ethereum.exceptions import InvalidBlock
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load

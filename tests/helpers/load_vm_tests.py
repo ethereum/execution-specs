@@ -3,8 +3,9 @@ import os
 from importlib import import_module
 from typing import Any, List
 
+from ethereum_types.numeric import U64, U256, Uint
+
 from ethereum import rlp
-from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,

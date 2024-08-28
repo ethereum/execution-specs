@@ -12,9 +12,9 @@ Introduction
 Implementations of the EVM environment related instructions.
 """
 
-from ethereum_types.numeric import ulen
+from ethereum_types.bytes import Bytes32
+from ethereum_types.numeric import U256, Uint, ulen
 
-from ethereum.base_types import U256, Bytes32, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.numeric import ceil32
 

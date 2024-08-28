@@ -19,7 +19,9 @@ There is a distinction between an account that does not exist and
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
-from ethereum.base_types import U256, Bytes, Uint, modify
+from ethereum_types.bytes import Bytes
+from ethereum_types.frozen import modify
+from ethereum_types.numeric import U256, Uint
 
 from .fork_types import EMPTY_ACCOUNT, Account, Address, Root
 from .trie import EMPTY_TRIE_ROOT, Trie, copy_trie, root, trie_get, trie_set

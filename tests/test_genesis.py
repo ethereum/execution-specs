@@ -1,7 +1,7 @@
 import pytest
+from ethereum_types.numeric import U64
 
 from ethereum import rlp
-from ethereum.base_types import U64
 from ethereum.crypto.hash import keccak256
 from ethereum.frontier.blocks import Block, Header
 from ethereum.frontier.fork import BlockChain
