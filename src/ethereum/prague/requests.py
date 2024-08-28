@@ -4,6 +4,8 @@ storing contract-triggered requests. It extends the execution header and
 body with a single field each to store the request information.
 This inherently exposes the requests to the consensus layer, which can
 then process each one.
+
+[EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
 """
 
 from dataclasses import dataclass
@@ -36,10 +38,12 @@ CONSOLIDATION_REQUEST_LENGTH = 116
 @dataclass
 class DepositRequest:
     """
-    Requests for validator deposits on chain (See EIP-6110).
+    Requests for validator deposits on chain (See [EIP-6110]).
+
+    [EIP-6110]: https://eips.ethereum.org/EIPS/eip-6110
     """
 
-    pubkey: Bytes48
+    public_key: Bytes48
     withdrawal_credentials: Bytes32
     amount: U64
     signature: Bytes96
@@ -50,11 +54,13 @@ class DepositRequest:
 @dataclass
 class WithdrawalRequest:
     """
-    Requests for execution layer withdrawals (See EIP-7002).
+    Requests for execution layer withdrawals (See [EIP-7002]).
+
+    [EIP-7002]: https://eips.ethereum.org/EIPS/eip-7002
     """
 
     source_address: Address
-    validator_pubkey: Bytes48
+    validator_public_key: Bytes48
     amount: U64
 
 
@@ -62,12 +68,14 @@ class WithdrawalRequest:
 @dataclass
 class ConsolidationRequest:
     """
-    Requests for validator consolidation (See EIP-7251).
+    Requests for validator consolidation (See [EIP-7251]).
+
+    [EIP-7251]: https://eips.ethereum.org/EIPS/eip-7251
     """
 
     source_address: Address
-    source_pubkey: Bytes48
-    target_pubkey: Bytes48
+    source_public_key: Bytes48
+    target_public_key: Bytes48
 
 
 Request = Union[DepositRequest, WithdrawalRequest, ConsolidationRequest]
@@ -75,7 +83,10 @@ Request = Union[DepositRequest, WithdrawalRequest, ConsolidationRequest]
 
 def encode_request(req: Request) -> Bytes:
     """
-    Encode a request.
+    Serialize a `Request` into a byte sequence.
+
+    `Request`s are encoded as a type byte followed by the RLP encoding
+    of the request.
     """
     if isinstance(req, DepositRequest):
         return DEPOSIT_REQUEST_TYPE + rlp.encode(req)
@@ -91,11 +102,11 @@ def decode_request(data: Bytes) -> Request:
     """
     Decode a request.
     """
-    if data[0] == 0:
+    if data.startswith(DEPOSIT_REQUEST_TYPE):
         return rlp.decode_to(DepositRequest, data[1:])
-    elif data[0] == 1:
+    elif data.startswith(WITHDRAWAL_REQUEST_TYPE):
         return rlp.decode_to(WithdrawalRequest, data[1:])
-    elif data[0] == 2:
+    elif data.startswith(CONSOLIDATION_REQUEST_TYPE):
         return rlp.decode_to(ConsolidationRequest, data[1:])
     else:
         raise Exception("Unknown request type")
@@ -105,15 +116,13 @@ def parse_deposit_data(data: Bytes) -> DepositRequest:
     """
     Parses Deposit Request from the DepositContract.DepositEvent data.
     """
-    deposit_request = DepositRequest(
-        pubkey=Bytes48(data[192:240]),
+    return DepositRequest(
+        public_key=Bytes48(data[192:240]),
         withdrawal_credentials=Bytes32(data[288:320]),
         amount=U64.from_le_bytes(data[352:360]),
         signature=Bytes96(data[416:512]),
         index=U64.from_le_bytes(data[544:552]),
     )
-
-    return deposit_request
 
 
 def parse_deposit_requests_from_receipt(
@@ -137,13 +146,11 @@ def parse_withdrawal_data(data: Bytes) -> WithdrawalRequest:
     Parses Withdrawal Request from the data.
     """
     assert len(data) == WITHDRAWAL_REQUEST_LENGTH
-    req = WithdrawalRequest(
+    return WithdrawalRequest(
         source_address=Address(data[:20]),
-        validator_pubkey=Bytes48(data[20:68]),
+        validator_public_key=Bytes48(data[20:68]),
         amount=U64.from_be_bytes(data[68:76]),
     )
-
-    return req
 
 
 def parse_withdrawal_requests_from_system_tx(
@@ -172,13 +179,11 @@ def parse_consolidation_data(data: Bytes) -> ConsolidationRequest:
     Parses Consolidation Request from the data.
     """
     assert len(data) == CONSOLIDATION_REQUEST_LENGTH
-    req = ConsolidationRequest(
+    return ConsolidationRequest(
         source_address=Address(data[:20]),
-        source_pubkey=Bytes48(data[20:68]),
-        target_pubkey=Bytes48(data[68:116]),
+        source_public_key=Bytes48(data[20:68]),
+        target_public_key=Bytes48(data[68:116]),
     )
-
-    return req
 
 
 def parse_consolidation_requests_from_system_tx(
