@@ -8,7 +8,7 @@ from ..exceptions import InvalidEof
 from . import Validator
 
 
-def stack_height_callf(validator: Validator) -> None:
+def stack_validation_callf(validator: Validator) -> None:
     """
     Validate stack height for CALLF instruction.
 
@@ -47,7 +47,7 @@ def stack_height_callf(validator: Validator) -> None:
     validator.current_stack_height.max += increment
 
 
-def stack_height_jumpf(validator: Validator) -> None:
+def stack_validation_jumpf(validator: Validator) -> None:
     """
     Validate stack height for JUMPF instruction.
 
@@ -139,7 +139,7 @@ def stack_validation_retf(validator: Validator) -> None:
     )
 
 
-def stack_height_dupn(validator: Validator) -> None:
+def stack_validation_dupn(validator: Validator) -> None:
     """
     Validate stack height for DUPN instruction.
 
@@ -168,7 +168,7 @@ def stack_height_dupn(validator: Validator) -> None:
     validator.current_stack_height.max += 1
 
 
-def stack_height_swapn(validator: Validator) -> None:
+def stack_validation_swapn(validator: Validator) -> None:
     """
     Validate stack height for SWAPN instruction.
 
@@ -196,7 +196,7 @@ def stack_height_swapn(validator: Validator) -> None:
     pass
 
 
-def stack_height_exchange(validator: Validator) -> None:
+def stack_validation_exchange(validator: Validator) -> None:
     """
     Validate stack height for EXCHANGE instruction.
 
@@ -224,7 +224,7 @@ def stack_height_exchange(validator: Validator) -> None:
     pass
 
 
-def stack_height_other_instructions(validator: Validator) -> None:
+def stack_validation_other_instructions(validator: Validator) -> None:
     """
     Validate stack height for other instructions.
 
@@ -261,12 +261,12 @@ def stack_height_other_instructions(validator: Validator) -> None:
 
 
 stack_validation: Dict[Ops, Callable] = {
-    Ops.CALLF: stack_height_callf,
-    Ops.JUMPF: stack_height_jumpf,
+    Ops.CALLF: stack_validation_callf,
+    Ops.JUMPF: stack_validation_jumpf,
     Ops.RETF: stack_validation_retf,
-    Ops.DUPN: stack_height_dupn,
-    Ops.SWAPN: stack_height_swapn,
-    Ops.EXCHANGE: stack_height_exchange,
+    Ops.DUPN: stack_validation_dupn,
+    Ops.SWAPN: stack_validation_swapn,
+    Ops.EXCHANGE: stack_validation_exchange,
 }
 
 
@@ -288,4 +288,4 @@ def get_stack_validation(op: Ops) -> Callable:
     if op in stack_validation:
         return stack_validation[op]
     else:
-        return stack_height_other_instructions
+        return stack_validation_other_instructions

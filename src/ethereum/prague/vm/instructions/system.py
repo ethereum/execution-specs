@@ -842,6 +842,10 @@ def ext_call(evm: Evm) -> None:
     )
 
     # OPERATION
+    if evm.gas_left < EOF_CALL_MIN_RETAINED_GAS:
+        push(evm.stack, U256(1))
+        evm.pc += 1
+        return
     message_call_gas = evm.gas_left - max(
         evm.gas_left // 64, EOF_CALL_MIN_RETAINED_GAS
     )
@@ -887,39 +891,41 @@ def ext_call(evm: Evm) -> None:
         or evm.message.depth + 1 > STACK_DEPTH_LIMIT
     ):
         push(evm.stack, U256(1))
-    else:
-        evm.gas_left -= message_call_gas
+        evm.pc += 1
+        return
 
-        child_message = Message(
-            caller=evm.message.current_target,
-            target=target_address,
-            gas=Uint(message_call_gas),
-            value=value,
-            data=call_data,
-            code=container,
-            current_target=target_address,
-            depth=evm.message.depth + 1,
-            code_address=target_address,
-            should_transfer_value=True,
-            is_static=False,
-            accessed_addresses=evm.accessed_addresses.copy(),
-            accessed_storage_keys=evm.accessed_storage_keys.copy(),
-            parent_evm=evm,
-            eof=eof,
-        )
-        child_evm = process_message(child_message, evm.env)
+    evm.gas_left -= message_call_gas
 
-        evm.return_data = child_evm.output
+    child_message = Message(
+        caller=evm.message.current_target,
+        target=target_address,
+        gas=Uint(message_call_gas),
+        value=value,
+        data=call_data,
+        code=container,
+        current_target=target_address,
+        depth=evm.message.depth + 1,
+        code_address=target_address,
+        should_transfer_value=True,
+        is_static=False,
+        accessed_addresses=evm.accessed_addresses.copy(),
+        accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        parent_evm=evm,
+        eof=eof,
+    )
+    child_evm = process_message(child_message, evm.env)
 
-        if child_evm.error:
-            incorporate_child_on_error(evm, child_evm)
-            if isinstance(child_evm.error, Revert):
-                push(evm.stack, U256(1))
-            else:
-                push(evm.stack, U256(2))
+    evm.return_data = child_evm.output
+
+    if child_evm.error:
+        incorporate_child_on_error(evm, child_evm)
+        if isinstance(child_evm.error, Revert):
+            push(evm.stack, U256(1))
         else:
-            incorporate_child_on_success(evm, child_evm)
-            push(evm.stack, U256(0))
+            push(evm.stack, U256(2))
+    else:
+        incorporate_child_on_success(evm, child_evm)
+        push(evm.stack, U256(0))
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -960,6 +966,10 @@ def ext_delegatecall(evm: Evm) -> None:
     charge_gas(evm, extend_memory.cost + access_gas_cost)
 
     # OPERATION
+    if evm.gas_left < EOF_CALL_MIN_RETAINED_GAS:
+        push(evm.stack, U256(1))
+        evm.pc += 1
+        return
     message_call_gas = evm.gas_left - max(
         evm.gas_left // 64, EOF_CALL_MIN_RETAINED_GAS
     )
@@ -978,59 +988,61 @@ def ext_delegatecall(evm: Evm) -> None:
         or get_eof_version(container) == EofVersion.LEGACY
     ):
         push(evm.stack, U256(1))
+        evm.pc += 1
+        return
+
+    evm.gas_left -= message_call_gas
+
+    eof_version = get_eof_version(container)
+    if eof_version == EofVersion.LEGACY:
+        eof = None
     else:
-        evm.gas_left -= message_call_gas
-
-        eof_version = get_eof_version(container)
-        if eof_version == EofVersion.LEGACY:
-            eof = None
-        else:
-            is_init_container = False
-            is_deploy_container = False
-            metadata = metadata_from_container(
-                container,
-                validate=False,
-                is_init_container=is_init_container,
-                is_deploy_container=is_deploy_container,
-            )
-            eof = Eof(
-                version=eof_version,
-                container=container,
-                metadata=metadata,
-                is_init_container=is_init_container,
-                is_deploy_container=is_deploy_container,
-            )
-
-        child_message = Message(
-            caller=evm.message.caller,
-            target=evm.message.current_target,
-            gas=Uint(message_call_gas),
-            value=U256(0),
-            data=call_data,
-            code=container,
-            current_target=evm.message.current_target,
-            depth=evm.message.depth + 1,
-            code_address=target_address,
-            should_transfer_value=False,
-            is_static=False,
-            accessed_addresses=evm.accessed_addresses.copy(),
-            accessed_storage_keys=evm.accessed_storage_keys.copy(),
-            parent_evm=evm,
-            eof=eof,
+        is_init_container = False
+        is_deploy_container = False
+        metadata = metadata_from_container(
+            container,
+            validate=False,
+            is_init_container=is_init_container,
+            is_deploy_container=is_deploy_container,
         )
-        child_evm = process_message(child_message, evm.env)
+        eof = Eof(
+            version=eof_version,
+            container=container,
+            metadata=metadata,
+            is_init_container=is_init_container,
+            is_deploy_container=is_deploy_container,
+        )
 
-        evm.return_data = child_evm.output
+    child_message = Message(
+        caller=evm.message.caller,
+        target=evm.message.current_target,
+        gas=Uint(message_call_gas),
+        value=U256(0),
+        data=call_data,
+        code=container,
+        current_target=evm.message.current_target,
+        depth=evm.message.depth + 1,
+        code_address=target_address,
+        should_transfer_value=False,
+        is_static=False,
+        accessed_addresses=evm.accessed_addresses.copy(),
+        accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        parent_evm=evm,
+        eof=eof,
+    )
+    child_evm = process_message(child_message, evm.env)
 
-        if child_evm.error:
-            incorporate_child_on_error(evm, child_evm)
-            if isinstance(child_evm.error, Revert):
-                push(evm.stack, U256(1))
-            else:
-                push(evm.stack, U256(2))
+    evm.return_data = child_evm.output
+
+    if child_evm.error:
+        incorporate_child_on_error(evm, child_evm)
+        if isinstance(child_evm.error, Revert):
+            push(evm.stack, U256(1))
         else:
-            incorporate_child_on_success(evm, child_evm)
-            push(evm.stack, U256(0))
+            push(evm.stack, U256(2))
+    else:
+        incorporate_child_on_success(evm, child_evm)
+        push(evm.stack, U256(0))
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -1039,6 +1051,7 @@ def ext_delegatecall(evm: Evm) -> None:
 def ext_staticcall(evm: Evm) -> None:
     """
     Static message-call into an account for EOF.
+    # TODO: Refactor this function to use generic_call
 
     Parameters
     ----------
@@ -1070,6 +1083,10 @@ def ext_staticcall(evm: Evm) -> None:
     charge_gas(evm, extend_memory.cost + access_gas_cost)
 
     # OPERATION
+    if evm.gas_left < EOF_CALL_MIN_RETAINED_GAS:
+        push(evm.stack, U256(1))
+        evm.pc += 1
+        return
     message_call_gas = evm.gas_left - max(
         evm.gas_left // 64, EOF_CALL_MIN_RETAINED_GAS
     )
@@ -1087,59 +1104,61 @@ def ext_staticcall(evm: Evm) -> None:
         or evm.message.depth + 1 > STACK_DEPTH_LIMIT
     ):
         push(evm.stack, U256(1))
+        evm.pc += 1
+        return
+
+    evm.gas_left -= message_call_gas
+
+    eof_version = get_eof_version(container)
+    if eof_version == EofVersion.LEGACY:
+        eof = None
     else:
-        evm.gas_left -= message_call_gas
-
-        eof_version = get_eof_version(container)
-        if eof_version == EofVersion.LEGACY:
-            eof = None
-        else:
-            is_init_container = False
-            is_deploy_container = False
-            metadata = metadata_from_container(
-                container,
-                validate=False,
-                is_init_container=is_init_container,
-                is_deploy_container=is_deploy_container,
-            )
-            eof = Eof(
-                version=eof_version,
-                container=container,
-                metadata=metadata,
-                is_init_container=is_init_container,
-                is_deploy_container=is_deploy_container,
-            )
-
-        child_message = Message(
-            caller=evm.message.current_target,
-            target=target_address,
-            gas=Uint(message_call_gas),
-            value=U256(0),
-            data=call_data,
-            code=container,
-            current_target=target_address,
-            depth=evm.message.depth + 1,
-            code_address=target_address,
-            should_transfer_value=False,
-            is_static=True,
-            accessed_addresses=evm.accessed_addresses.copy(),
-            accessed_storage_keys=evm.accessed_storage_keys.copy(),
-            parent_evm=evm,
-            eof=eof,
+        is_init_container = False
+        is_deploy_container = False
+        metadata = metadata_from_container(
+            container,
+            validate=False,
+            is_init_container=is_init_container,
+            is_deploy_container=is_deploy_container,
         )
-        child_evm = process_message(child_message, evm.env)
+        eof = Eof(
+            version=eof_version,
+            container=container,
+            metadata=metadata,
+            is_init_container=is_init_container,
+            is_deploy_container=is_deploy_container,
+        )
 
-        evm.return_data = child_evm.output
+    child_message = Message(
+        caller=evm.message.current_target,
+        target=target_address,
+        gas=Uint(message_call_gas),
+        value=U256(0),
+        data=call_data,
+        code=container,
+        current_target=target_address,
+        depth=evm.message.depth + 1,
+        code_address=target_address,
+        should_transfer_value=False,
+        is_static=True,
+        accessed_addresses=evm.accessed_addresses.copy(),
+        accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        parent_evm=evm,
+        eof=eof,
+    )
+    child_evm = process_message(child_message, evm.env)
 
-        if child_evm.error:
-            incorporate_child_on_error(evm, child_evm)
-            if isinstance(child_evm.error, Revert):
-                push(evm.stack, U256(1))
-            else:
-                push(evm.stack, U256(2))
+    evm.return_data = child_evm.output
+
+    if child_evm.error:
+        incorporate_child_on_error(evm, child_evm)
+        if isinstance(child_evm.error, Revert):
+            push(evm.stack, U256(1))
         else:
-            incorporate_child_on_success(evm, child_evm)
-            push(evm.stack, U256(0))
+            push(evm.stack, U256(2))
+    else:
+        incorporate_child_on_success(evm, child_evm)
+        push(evm.stack, U256(0))
 
     # PROGRAM COUNTER
     evm.pc += 1

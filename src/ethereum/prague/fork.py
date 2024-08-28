@@ -600,6 +600,7 @@ def process_system_transaction(
         accessed_storage_keys=set(),
         parent_evm=None,
         authorizations=(),
+        eof=None,
     )
 
     system_tx_env = vm.Environment(
@@ -961,7 +962,7 @@ def process_transaction(
         )
     except InvalidEof:
         output = MessageCallOutput(
-            gas, U256(0), tuple(), set(), set(), InvalidEof()
+            gas, U256(0), tuple(), set(), set(), InvalidEof(), b""
         )
     else:
         output = process_message_call(message, env)
