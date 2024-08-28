@@ -21,6 +21,7 @@ from ethereum_test_forks import (
 from ethereum_test_specs import StateTest
 from ethereum_test_types import Alloc, Environment, Transaction
 from ethereum_test_vm import Opcodes as Op
+from ethereum_test_vm import UndefinedOpcodes
 from evm_transition_tool import GethTransitionTool
 
 from ..code import CalldataCase, Case, Conditional, Initcode, Solc, Switch, Yul
@@ -640,3 +641,14 @@ def test_switch(tx_data: bytes, switch_bytecode: bytes, expected_storage: Mappin
         fixture_format=FixtureFormats.BLOCKCHAIN_TEST,
         eips=None,
     )
+
+
+def test_full_opcode_range():
+    """
+    Test that the full opcode range is covered by the opcode set defined by
+    Opcodes and UndefineOpcodes.
+    """
+    assert len(set(Op) & set(UndefinedOpcodes)) == 0
+    full_possible_opcode_set = set(Op) | set(UndefinedOpcodes)
+    assert len(full_possible_opcode_set) == 256
+    assert set(op.hex() for op in full_possible_opcode_set) == set(f"{i:02x}" for i in range(256))

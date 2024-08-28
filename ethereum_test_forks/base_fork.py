@@ -291,6 +291,16 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def valid_opcodes(
+        cls,
+    ) -> List[Opcodes]:
+        """
+        Returns the list of Opcodes that are valid to work on this fork.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def create_opcodes(
         cls, block_number: int = 0, timestamp: int = 0
     ) -> List[Tuple[Opcodes, EVMCodeType]]:
