@@ -137,6 +137,25 @@ def test_rjumpv_backwards_onto_dup(
     )
 
 
+@pytest.mark.parametrize("len", [8, 9])
+def test_rjumpv_backwards_large_table(
+    eof_test: EOFTestFiller,
+    len: int,
+):
+    """
+    Backwards jump vector with a large table
+    """
+    jump_table = [0] * len
+    jump_table += [len * -2 - 6]
+    container = Container.Code(
+        code=(Op.RJUMPV[jump_table](len) + Op.STOP),
+        max_stack_height=1,
+    )
+    eof_test(
+        data=container,
+    )
+
+
 def test_rjumpv_zero(
     eof_state_test: EOFStateTestFiller,
 ):
