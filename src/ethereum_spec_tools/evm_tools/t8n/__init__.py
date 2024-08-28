@@ -8,8 +8,9 @@ import os
 from functools import partial
 from typing import Any, TextIO
 
+from ethereum_types.numeric import U64, U256, Uint
+
 from ethereum import rlp, trace
-from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import EthereumException, InvalidBlock
 from ethereum_spec_tools.forks import Hardfork

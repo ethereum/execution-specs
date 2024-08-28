@@ -6,16 +6,11 @@ transactions are the events that move between states.
 from dataclasses import dataclass
 from typing import Tuple, Union
 
+from ethereum_types.bytes import Bytes, Bytes0, Bytes32
+from ethereum_types.frozen import slotted_freezable
+from ethereum_types.numeric import U64, U256, Uint
+
 from .. import rlp
-from ..base_types import (
-    U64,
-    U256,
-    Bytes,
-    Bytes0,
-    Bytes32,
-    Uint,
-    slotted_freezable,
-)
 from ..exceptions import InvalidBlock
 from .fork_types import Address, VersionedHash
 

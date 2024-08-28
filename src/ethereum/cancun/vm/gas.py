@@ -14,7 +14,8 @@ EVM gas constants and calculators.
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from ethereum.base_types import U64, U256, Uint
+from ethereum_types.numeric import U64, U256, Uint
+
 from ethereum.trace import GasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 

@@ -28,9 +28,9 @@ At a high level, the Ethash algorithm is as follows:
 
 from typing import Callable, Tuple, Union
 
-from ethereum_types.numeric import ulen
+from ethereum_types.bytes import Bytes8
+from ethereum_types.numeric import U32, Uint, ulen
 
-from ethereum.base_types import U32, Bytes8, Uint
 from ethereum.crypto.hash import Hash32, Hash64, keccak256, keccak512
 from ethereum.utils.numeric import (
     is_prime,

@@ -17,8 +17,10 @@ from threading import Thread
 from typing import Any, Dict, List, Optional, TypeVar, Union, cast
 from urllib import request
 
+from ethereum_types.bytes import Bytes0, Bytes256
+from ethereum_types.numeric import U64, U256, Uint
+
 from ethereum import genesis, rlp
-from ethereum.base_types import U64, U256, Bytes0, Bytes256, Uint
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,

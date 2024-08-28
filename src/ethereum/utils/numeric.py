@@ -13,7 +13,7 @@ Numeric operations specific utility functions used in this specification.
 """
 from typing import Sequence, SupportsInt, Tuple
 
-from ethereum.base_types import U32, Uint
+from ethereum_types.numeric import U32, Uint
 
 
 def get_sign(value: int) -> int:

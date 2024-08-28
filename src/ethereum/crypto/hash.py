@@ -13,8 +13,7 @@ Cryptographic hashing functions.
 """
 
 from Crypto.Hash import keccak
-
-from ..base_types import Bytes, Bytes32, Bytes64
+from ethereum_types.bytes import Bytes, Bytes32, Bytes64
 
 Hash32 = Bytes32
 Hash64 = Bytes64

@@ -12,7 +12,8 @@ Introduction
 Implementations of the EVM Arithmetic instructions.
 """
 
-from ethereum.base_types import U256, Uint
+from ethereum_types.numeric import U256, Uint
+
 from ethereum.utils.numeric import get_sign
 
 from .. import Evm

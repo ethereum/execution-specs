@@ -12,7 +12,7 @@ Introduction
 Implementations of the EVM bitwise instructions.
 """
 
-from ethereum.base_types import U256, Uint
+from ethereum_types.numeric import U256, Uint
 
 from .. import Evm
 from ..gas import GAS_VERY_LOW, charge_gas

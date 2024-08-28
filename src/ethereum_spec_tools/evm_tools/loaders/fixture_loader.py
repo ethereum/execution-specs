@@ -7,8 +7,9 @@ testing framework.
 from abc import ABC, abstractmethod
 from typing import Any, Tuple
 
+from ethereum_types.numeric import U256
+
 from ethereum import rlp
-from ethereum.base_types import U256
 from ethereum.crypto.hash import Hash32
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,

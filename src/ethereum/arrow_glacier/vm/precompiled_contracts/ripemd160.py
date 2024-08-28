@@ -13,7 +13,8 @@ Implementation of the `RIPEMD160` precompiled contract.
 """
 import hashlib
 
-from ethereum.base_types import Uint
+from ethereum_types.numeric import Uint
+
 from ethereum.utils.byte import left_pad_zero_bytes
 from ethereum.utils.numeric import ceil32
 

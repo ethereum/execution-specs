@@ -3,9 +3,9 @@ import pkgutil
 from typing import Any, Dict, List, cast
 
 import pytest
+from ethereum_types.numeric import Uint
 
 from ethereum import rlp
-from ethereum.base_types import Uint
 from ethereum.constantinople.blocks import Header
 from ethereum.constantinople.fork import (
     generate_header_hash_for_pow,

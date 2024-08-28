@@ -14,7 +14,8 @@ specification.
 """
 from typing import Union
 
-from ethereum.base_types import U256, Uint
+from ethereum_types.numeric import U256, Uint
+
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
 

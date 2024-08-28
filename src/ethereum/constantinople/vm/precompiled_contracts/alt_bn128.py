@@ -11,7 +11,8 @@ Introduction
 
 Implementation of the ALT_BN128 precompiled contracts.
 """
-from ethereum.base_types import U256, Uint
+from ethereum_types.numeric import U256, Uint
+
 from ethereum.crypto.alt_bn128 import (
     ALT_BN128_CURVE_ORDER,
     ALT_BN128_PRIME,

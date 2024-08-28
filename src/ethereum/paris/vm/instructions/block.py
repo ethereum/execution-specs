@@ -12,7 +12,7 @@ Introduction
 Implementations of the EVM block instructions.
 """
 
-from ethereum.base_types import U256, Uint
+from ethereum_types.numeric import U256, Uint
 
 from .. import Evm
 from ..gas import GAS_BASE, GAS_BLOCK_HASH, charge_gas

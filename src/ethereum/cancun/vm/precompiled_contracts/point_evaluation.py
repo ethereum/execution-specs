@@ -11,7 +11,9 @@ Introduction
 
 Implementation of the POINT EVALUATION precompiled contract.
 """
-from ethereum.base_types import U256, Bytes, Bytes32, Bytes48
+from ethereum_types.bytes import Bytes, Bytes32, Bytes48
+from ethereum_types.numeric import U256
+
 from ethereum.crypto.kzg import (
     KZGCommitment,
     kzg_commitment_to_versioned_hash,

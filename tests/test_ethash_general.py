@@ -6,8 +6,8 @@ from random import randint
 from typing import Tuple, cast
 
 import pytest
+from ethereum_types.numeric import Uint
 
-from ethereum.base_types import Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.ethash import (
     EPOCH_SIZE,

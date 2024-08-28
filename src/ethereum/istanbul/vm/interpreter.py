@@ -14,9 +14,9 @@ A straightforward interpreter that executes EVM code.
 from dataclasses import dataclass
 from typing import Iterable, Optional, Set, Tuple
 
-from ethereum_types.numeric import ulen
+from ethereum_types.bytes import Bytes0
+from ethereum_types.numeric import U256, Uint, ulen
 
-from ethereum.base_types import U256, Bytes0, Uint
 from ethereum.trace import (
     EvmStop,
     OpEnd,

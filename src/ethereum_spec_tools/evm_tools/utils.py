@@ -8,8 +8,8 @@ import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 import coincurve
+from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum.base_types import U64, U256, Uint
 from ethereum.crypto.hash import Hash32
 from ethereum_spec_tools.forks import Hardfork
 

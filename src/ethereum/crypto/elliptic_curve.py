@@ -6,8 +6,9 @@ Elliptic Curves
 from typing import Generic, Type, TypeVar
 
 import coincurve
+from ethereum_types.bytes import Bytes
+from ethereum_types.numeric import U256
 
-from ..base_types import U256, Bytes
 from .finite_field import Field
 from .hash import Hash32
 

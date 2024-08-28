@@ -12,7 +12,8 @@ Introduction
 Implementations of the EVM environment related instructions.
 """
 
-from ethereum.base_types import U256, Uint
+from ethereum_types.numeric import U256, Uint
+
 from ethereum.utils.numeric import ceil32
 
 from ...state import get_account

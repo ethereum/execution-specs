@@ -14,7 +14,8 @@ specification.
 """
 from typing import FrozenSet, Optional, Tuple, Union
 
-from ethereum.base_types import U256, Bytes, Bytes0, Bytes32, Uint
+from ethereum_types.bytes import Bytes, Bytes0, Bytes32
+from ethereum_types.numeric import U256, Uint
 
 from ..fork_types import Address
 from ..state import get_account

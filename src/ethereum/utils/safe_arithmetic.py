@@ -13,7 +13,7 @@ Safe arithmetic utility functions for U256 integer type.
 """
 from typing import Optional, Type, Union
 
-from ethereum.base_types import U256, Uint
+from ethereum_types.numeric import U256, Uint
 
 
 def u256_safe_add(

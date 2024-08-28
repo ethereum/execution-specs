@@ -6,7 +6,7 @@ import struct
 from dataclasses import dataclass
 from typing import Final, List, Tuple
 
-from ethereum.base_types import Uint
+from ethereum_types.numeric import Uint
 
 
 def spit_le_to_uint(data: bytes, start: int, num_words: int) -> List[Uint]:

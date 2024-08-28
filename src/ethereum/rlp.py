@@ -33,10 +33,11 @@ from typing import (
     overload,
 )
 
+from ethereum_types.bytes import Bytes, FixedBytes
+from ethereum_types.numeric import FixedUnsigned, Uint
+
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import RLPDecodingError, RLPEncodingError
-
-from .base_types import Bytes, FixedBytes, FixedUnsigned, Uint
 
 
 class RLP(Protocol):

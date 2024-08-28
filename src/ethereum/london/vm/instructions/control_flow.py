@@ -12,7 +12,7 @@ Introduction
 Implementations of the EVM control flow instructions.
 """
 
-from ethereum.base_types import U256, Uint
+from ethereum_types.numeric import U256, Uint
 
 from ...vm.gas import GAS_BASE, GAS_HIGH, GAS_JUMPDEST, GAS_MID, charge_gas
 from .. import Evm

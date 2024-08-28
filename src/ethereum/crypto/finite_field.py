@@ -7,9 +7,8 @@ Finite Fields
 
 from typing import Iterable, List, Tuple, Type, TypeVar, cast
 
+from ethereum_types.bytes import Bytes, Bytes32
 from typing_extensions import Protocol
-
-from ..base_types import Bytes, Bytes32
 
 F = TypeVar("F", bound="Field")
 

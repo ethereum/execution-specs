@@ -18,7 +18,8 @@ eliminating blocks and receipts from their search.
 
 from typing import Tuple
 
-from ethereum.base_types import Uint
+from ethereum_types.numeric import Uint
+
 from ethereum.crypto.hash import keccak256
 
 from .blocks import Log

@@ -16,7 +16,9 @@ The abstract computer which runs the code stored in an
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple, Union
 
-from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes32, Uint
+from ethereum_types.bytes import Bytes, Bytes0, Bytes32
+from ethereum_types.numeric import U64, U256, Uint
+
 from ethereum.crypto.hash import Hash32
 
 from ..blocks import Log
