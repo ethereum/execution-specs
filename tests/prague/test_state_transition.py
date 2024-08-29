@@ -102,7 +102,7 @@ def test_general_state_tests(test_case: Dict) -> None:
 
 
 # Run execution-spec-generated-tests for EIP-7002
-test_dir = "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip7002_el_triggerable_withdrawals"
+test_dir = "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7002_el_triggerable_withdrawals"
 
 
 @pytest.mark.parametrize(
@@ -115,7 +115,7 @@ def test_execution_specs_generated_tests_7002(test_case: Dict) -> None:
 
 
 # Run execution-spec-generated-tests for EIP-6110
-test_dir = "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/eip6110_deposits/deposits"
+test_dir = "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip6110_deposits/deposits"
 
 
 @pytest.mark.parametrize(
@@ -124,4 +124,17 @@ test_dir = "tests/fixtures/latest_fork_tests/fixtures/blockchain_tests/prague/ei
     ids=idfn,
 )
 def test_execution_specs_generated_tests_6110(test_case: Dict) -> None:
+    run_prague_blockchain_st_tests(test_case)
+
+
+# Run execution-spec-generated-tests for EIP-7251
+test_dir = "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7251_consolidations/consolidations"
+
+
+@pytest.mark.parametrize(
+    "test_case",
+    fetch_prague_tests(test_dir),
+    ids=idfn,
+)
+def test_execution_specs_generated_tests_7251(test_case: Dict) -> None:
     run_prague_blockchain_st_tests(test_case)
