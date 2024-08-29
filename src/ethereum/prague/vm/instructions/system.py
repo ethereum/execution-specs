@@ -67,8 +67,6 @@ from ..gas import (
 from ..memory import memory_read_bytes, memory_write
 from ..stack import pop, push
 
-# TODO: Integrate EOF CALL* and CREATE in generic
-
 
 def generic_create(
     evm: Evm,
@@ -795,6 +793,138 @@ def invalid(evm: Evm) -> None:
     pass
 
 
+def generic_eof_call(
+    evm: Evm,
+    input_offset: U256,
+    input_size: U256,
+    caller: Address,
+    target: Address,
+    current_target: Address,
+    code_address: Address,
+    value: U256,
+    should_transfer_value: bool,
+    is_static: bool,
+    allow_legacy_code: bool,
+) -> None:
+    """
+    Core logic used by the `EXT_CALL*` family of opcodes.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    input_offset :
+        The offset in memory where the call data starts.
+    input_size :
+        The size of the call data.
+    caller :
+        The address of the account that initiated the call.
+    target :
+        The address of the account to call.
+    current_target :
+        The address of the account making the call.
+    code_address :
+        The address of the account containing the code.
+    value :
+        The value to transfer.
+    should_transfer_value :
+        Whether the value should be transferred.
+    is_static :
+        Whether the call is static.
+    allow_legacy_code :
+        Whether to allow legacy code.
+
+    Raises
+    ------
+    WriteInStaticContext :
+        If a write operation is attempted in a static context.
+    """
+    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
+    from ..eof import Eof, EofVersion, get_eof_version
+
+    if evm.gas_left < EOF_CALL_MIN_RETAINED_GAS:
+        push(evm.stack, U256(1))
+        return
+    message_call_gas = evm.gas_left - max(
+        evm.gas_left // 64, EOF_CALL_MIN_RETAINED_GAS
+    )
+
+    if evm.message.is_static and value != U256(0):
+        raise WriteInStaticContext
+
+    evm.return_data = b""
+    call_data = memory_read_bytes(evm.memory, input_offset, input_size)
+    container = get_account(evm.env.state, code_address).code
+    eof_version = get_eof_version(container)
+
+    sender_balance = get_account(
+        evm.env.state, evm.message.current_target
+    ).balance
+    if (
+        message_call_gas < EOF_CALL_MIN_CALLEE_GAS
+        or sender_balance < value
+        or evm.message.depth + 1 > STACK_DEPTH_LIMIT
+    ):
+        push(evm.stack, U256(1))
+        return
+
+    if not allow_legacy_code and eof_version == EofVersion.LEGACY:
+        push(evm.stack, U256(1))
+        return
+
+    evm.gas_left -= message_call_gas
+
+    if eof_version == EofVersion.LEGACY:
+        eof = None
+    else:
+        is_init_container = False
+        is_deploy_container = False
+        metadata = metadata_from_container(
+            container,
+            validate=False,
+            is_init_container=is_init_container,
+            is_deploy_container=is_deploy_container,
+        )
+        eof = Eof(
+            version=eof_version,
+            container=container,
+            metadata=metadata,
+            is_init_container=is_init_container,
+            is_deploy_container=is_deploy_container,
+        )
+
+    child_message = Message(
+        caller=caller,
+        target=target,
+        gas=Uint(message_call_gas),
+        value=value,
+        data=call_data,
+        code=container,
+        current_target=current_target,
+        depth=evm.message.depth + 1,
+        code_address=code_address,
+        should_transfer_value=should_transfer_value,
+        is_static=is_static,
+        accessed_addresses=evm.accessed_addresses.copy(),
+        accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        parent_evm=evm,
+        eof=eof,
+    )
+    child_evm = process_message(child_message, evm.env)
+
+    evm.return_data = child_evm.output
+
+    if child_evm.error:
+        incorporate_child_on_error(evm, child_evm)
+        if isinstance(child_evm.error, Revert):
+            push(evm.stack, U256(1))
+        else:
+            push(evm.stack, U256(2))
+    else:
+        incorporate_child_on_success(evm, child_evm)
+        push(evm.stack, U256(0))
+
+
 def ext_call(evm: Evm) -> None:
     """
     Message-call into an account for EOF.
@@ -804,9 +934,6 @@ def ext_call(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
-    from ..eof import Eof, EofVersion, get_eof_version
-
     # STACK
     try:
         target_address = to_address_without_mask(pop(evm.stack))
@@ -842,90 +969,20 @@ def ext_call(evm: Evm) -> None:
     )
 
     # OPERATION
-    if evm.gas_left < EOF_CALL_MIN_RETAINED_GAS:
-        push(evm.stack, U256(1))
-        evm.pc += 1
-        return
-    message_call_gas = evm.gas_left - max(
-        evm.gas_left // 64, EOF_CALL_MIN_RETAINED_GAS
-    )
-
-    if evm.message.is_static and value != U256(0):
-        raise WriteInStaticContext
-
     evm.memory += b"\x00" * extend_memory.expand_by
-
-    sender_balance = get_account(
-        evm.env.state, evm.message.current_target
-    ).balance
-
-    evm.return_data = b""
-
-    call_data = memory_read_bytes(evm.memory, input_offset, input_size)
-
-    container = get_account(evm.env.state, target_address).code
-
-    eof_version = get_eof_version(container)
-    if eof_version == EofVersion.LEGACY:
-        eof = None
-    else:
-        is_init_container = False
-        is_deploy_container = False
-        metadata = metadata_from_container(
-            container,
-            validate=False,
-            is_init_container=is_init_container,
-            is_deploy_container=is_deploy_container,
-        )
-        eof = Eof(
-            version=eof_version,
-            container=container,
-            metadata=metadata,
-            is_init_container=is_init_container,
-            is_deploy_container=is_deploy_container,
-        )
-
-    if (
-        message_call_gas < EOF_CALL_MIN_CALLEE_GAS
-        or sender_balance < value
-        or evm.message.depth + 1 > STACK_DEPTH_LIMIT
-    ):
-        push(evm.stack, U256(1))
-        evm.pc += 1
-        return
-
-    evm.gas_left -= message_call_gas
-
-    child_message = Message(
+    generic_eof_call(
+        evm=evm,
+        input_offset=input_offset,
+        input_size=input_size,
         caller=evm.message.current_target,
         target=target_address,
-        gas=Uint(message_call_gas),
-        value=value,
-        data=call_data,
-        code=container,
         current_target=target_address,
-        depth=evm.message.depth + 1,
         code_address=target_address,
+        value=value,
         should_transfer_value=True,
         is_static=False,
-        accessed_addresses=evm.accessed_addresses.copy(),
-        accessed_storage_keys=evm.accessed_storage_keys.copy(),
-        parent_evm=evm,
-        eof=eof,
+        allow_legacy_code=True,
     )
-    child_evm = process_message(child_message, evm.env)
-
-    evm.return_data = child_evm.output
-
-    if child_evm.error:
-        incorporate_child_on_error(evm, child_evm)
-        if isinstance(child_evm.error, Revert):
-            push(evm.stack, U256(1))
-        else:
-            push(evm.stack, U256(2))
-    else:
-        incorporate_child_on_success(evm, child_evm)
-        push(evm.stack, U256(0))
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -941,9 +998,6 @@ def ext_delegatecall(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
-    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
-    from ..eof import Eof, EofVersion, get_eof_version
-
     # STACK
     try:
         target_address = to_address_without_mask(pop(evm.stack))
@@ -966,83 +1020,20 @@ def ext_delegatecall(evm: Evm) -> None:
     charge_gas(evm, extend_memory.cost + access_gas_cost)
 
     # OPERATION
-    if evm.gas_left < EOF_CALL_MIN_RETAINED_GAS:
-        push(evm.stack, U256(1))
-        evm.pc += 1
-        return
-    message_call_gas = evm.gas_left - max(
-        evm.gas_left // 64, EOF_CALL_MIN_RETAINED_GAS
-    )
-
     evm.memory += b"\x00" * extend_memory.expand_by
-
-    evm.return_data = b""
-
-    call_data = memory_read_bytes(evm.memory, input_offset, input_size)
-
-    container = get_account(evm.env.state, target_address).code
-
-    if (
-        message_call_gas < EOF_CALL_MIN_CALLEE_GAS
-        or evm.message.depth + 1 > STACK_DEPTH_LIMIT
-        or get_eof_version(container) == EofVersion.LEGACY
-    ):
-        push(evm.stack, U256(1))
-        evm.pc += 1
-        return
-
-    evm.gas_left -= message_call_gas
-
-    eof_version = get_eof_version(container)
-    if eof_version == EofVersion.LEGACY:
-        eof = None
-    else:
-        is_init_container = False
-        is_deploy_container = False
-        metadata = metadata_from_container(
-            container,
-            validate=False,
-            is_init_container=is_init_container,
-            is_deploy_container=is_deploy_container,
-        )
-        eof = Eof(
-            version=eof_version,
-            container=container,
-            metadata=metadata,
-            is_init_container=is_init_container,
-            is_deploy_container=is_deploy_container,
-        )
-
-    child_message = Message(
+    generic_eof_call(
+        evm=evm,
+        input_offset=input_offset,
+        input_size=input_size,
         caller=evm.message.caller,
         target=evm.message.current_target,
-        gas=Uint(message_call_gas),
-        value=U256(0),
-        data=call_data,
-        code=container,
         current_target=evm.message.current_target,
-        depth=evm.message.depth + 1,
         code_address=target_address,
+        value=U256(0),
         should_transfer_value=False,
         is_static=False,
-        accessed_addresses=evm.accessed_addresses.copy(),
-        accessed_storage_keys=evm.accessed_storage_keys.copy(),
-        parent_evm=evm,
-        eof=eof,
+        allow_legacy_code=False,
     )
-    child_evm = process_message(child_message, evm.env)
-
-    evm.return_data = child_evm.output
-
-    if child_evm.error:
-        incorporate_child_on_error(evm, child_evm)
-        if isinstance(child_evm.error, Revert):
-            push(evm.stack, U256(1))
-        else:
-            push(evm.stack, U256(2))
-    else:
-        incorporate_child_on_success(evm, child_evm)
-        push(evm.stack, U256(0))
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -1051,16 +1042,12 @@ def ext_delegatecall(evm: Evm) -> None:
 def ext_staticcall(evm: Evm) -> None:
     """
     Static message-call into an account for EOF.
-    # TODO: Refactor this function to use generic_call
 
     Parameters
     ----------
     evm :
         The current EVM frame.
     """
-    from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
-    from ..eof import Eof, EofVersion, get_eof_version
-
     # STACK
     try:
         target_address = to_address_without_mask(pop(evm.stack))
@@ -1083,82 +1070,20 @@ def ext_staticcall(evm: Evm) -> None:
     charge_gas(evm, extend_memory.cost + access_gas_cost)
 
     # OPERATION
-    if evm.gas_left < EOF_CALL_MIN_RETAINED_GAS:
-        push(evm.stack, U256(1))
-        evm.pc += 1
-        return
-    message_call_gas = evm.gas_left - max(
-        evm.gas_left // 64, EOF_CALL_MIN_RETAINED_GAS
-    )
-
     evm.memory += b"\x00" * extend_memory.expand_by
-
-    evm.return_data = b""
-
-    call_data = memory_read_bytes(evm.memory, input_offset, input_size)
-
-    container = get_account(evm.env.state, target_address).code
-
-    if (
-        message_call_gas < EOF_CALL_MIN_CALLEE_GAS
-        or evm.message.depth + 1 > STACK_DEPTH_LIMIT
-    ):
-        push(evm.stack, U256(1))
-        evm.pc += 1
-        return
-
-    evm.gas_left -= message_call_gas
-
-    eof_version = get_eof_version(container)
-    if eof_version == EofVersion.LEGACY:
-        eof = None
-    else:
-        is_init_container = False
-        is_deploy_container = False
-        metadata = metadata_from_container(
-            container,
-            validate=False,
-            is_init_container=is_init_container,
-            is_deploy_container=is_deploy_container,
-        )
-        eof = Eof(
-            version=eof_version,
-            container=container,
-            metadata=metadata,
-            is_init_container=is_init_container,
-            is_deploy_container=is_deploy_container,
-        )
-
-    child_message = Message(
+    generic_eof_call(
+        evm=evm,
+        input_offset=input_offset,
+        input_size=input_size,
         caller=evm.message.current_target,
         target=target_address,
-        gas=Uint(message_call_gas),
-        value=U256(0),
-        data=call_data,
-        code=container,
         current_target=target_address,
-        depth=evm.message.depth + 1,
         code_address=target_address,
+        value=U256(0),
         should_transfer_value=False,
         is_static=True,
-        accessed_addresses=evm.accessed_addresses.copy(),
-        accessed_storage_keys=evm.accessed_storage_keys.copy(),
-        parent_evm=evm,
-        eof=eof,
+        allow_legacy_code=True,
     )
-    child_evm = process_message(child_message, evm.env)
-
-    evm.return_data = child_evm.output
-
-    if child_evm.error:
-        incorporate_child_on_error(evm, child_evm)
-        if isinstance(child_evm.error, Revert):
-            push(evm.stack, U256(1))
-        else:
-            push(evm.stack, U256(2))
-    else:
-        incorporate_child_on_success(evm, child_evm)
-        push(evm.stack, U256(0))
 
     # PROGRAM COUNTER
     evm.pc += 1
