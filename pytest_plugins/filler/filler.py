@@ -5,6 +5,7 @@ Top-level pytest configuration file providing:
 and that modifies pytest hooks in order to fill test specs for all tests and
 writes the generated fixtures to file.
 """
+
 import argparse
 import configparser
 import datetime
@@ -23,14 +24,12 @@ from ethereum_test_base_types import Alloc, ReferenceSpec
 from ethereum_test_fixtures import FixtureCollector, FixtureFormats, TestInfo
 from ethereum_test_forks import (
     Fork,
-    Frontier,
     Paris,
     get_closest_fork_with_solc_support,
     get_forks_with_solc_support,
 )
 from ethereum_test_specs import SPEC_TYPES, BaseTest
 from ethereum_test_tools import Yul
-from ethereum_test_tools.code import Solc
 from ethereum_test_tools.utility.versioning import (
     generate_github_url,
     get_current_commit_hash_or_tag,
@@ -114,18 +113,6 @@ def pytest_addoption(parser: pytest.Parser):
         help=(
             "Path to an evm executable that provides the `blocktest` command. "
             "Default: The first (geth) 'evm' entry in PATH."
-        ),
-    )
-
-    solc_group = parser.getgroup("solc", "Arguments defining the solc executable")
-    solc_group.addoption(
-        "--solc-bin",
-        action="store",
-        dest="solc_bin",
-        default=None,
-        help=(
-            "Path to a solc executable (for Yul source compilation). "
-            "Default: First 'solc' entry in PATH."
         ),
     )
 
@@ -269,18 +256,14 @@ def pytest_configure(config):
             "The Besu t8n tool does not work well with the xdist plugin; use -n=0.",
             returncode=pytest.ExitCode.USAGE_ERROR,
         )
-    config.solc_version = Solc(config.getoption("solc_bin")).version
-    if config.solc_version < Frontier.solc_min_version():
-        pytest.exit(
-            f"Unsupported solc version: {config.solc_version}. Minimum required version is "
-            f"{Frontier.solc_min_version()}",
-            returncode=pytest.ExitCode.USAGE_ERROR,
-        )
 
-    config.stash[metadata_key]["Tools"] = {
-        "t8n": t8n.version(),
-        "solc": str(config.solc_version),
-    }
+    if "Tools" not in config.stash[metadata_key]:
+        config.stash[metadata_key]["Tools"] = {
+            "t8n": t8n.version(),
+        }
+    else:
+        config.stash[metadata_key]["Tools"]["t8n"] = t8n.version()
+
     args = ["fill"] + [str(arg) for arg in config.invocation_params.args]
     for i in range(len(args)):
         if " " in args[i]:
@@ -417,14 +400,6 @@ def verify_fixtures_bin(request: pytest.FixtureRequest) -> Path | None:
     blocktest.
     """
     return request.config.getoption("verify_fixtures_bin")
-
-
-@pytest.fixture(autouse=True, scope="session")
-def solc_bin(request: pytest.FixtureRequest):
-    """
-    Returns the configured solc binary path.
-    """
-    return request.config.getoption("solc_bin")
 
 
 @pytest.fixture(autouse=True, scope="session")
