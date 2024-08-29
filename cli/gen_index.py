@@ -137,6 +137,7 @@ def generate_fixtures_index(
         total_files = count_json_files_exclude_index(input_path)
 
     output_file = Path(f"{input_path}/.meta/index.json")
+    output_file.parent.mkdir(parents=True, exist_ok=True)  # no meta dir in <=v3.0.0
     try:
         root_hash = HashableItem.from_folder(folder_path=input_path).hash()
     except (KeyError, TypeError):

@@ -57,7 +57,7 @@ def download_and_extract(url: str, base_directory: Path) -> Path:
 
     if extract_to.exists():
         # skip download if the archive has already been downloaded
-        return extract_to
+        return extract_to / "fixtures"
 
     extract_to.mkdir(parents=True, exist_ok=False)
     response = requests.get(url)
