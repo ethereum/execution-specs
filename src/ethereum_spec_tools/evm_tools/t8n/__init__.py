@@ -326,7 +326,7 @@ class T8N(Load):
                     self.fork.HISTORY_STORAGE_ADDRESS,
                     (
                         (self.env.block_number - 1)
-                    % self.fork.HISTORY_SERVE_WINDOW
+                        % self.fork.HISTORY_SERVE_WINDOW
                     ).to_be_bytes32(),
                     U256.from_be_bytes(self.env.parent_hash),
                 )

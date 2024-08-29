@@ -92,28 +92,15 @@ fetch_state_tests = partial(
 )
 
 
-@pytest.mark.parametrize(
-    "test_case",
-    fetch_state_tests(),
-    ids=idfn,
-)
-def test_general_state_tests(test_case: Dict) -> None:
-    run_prague_blockchain_st_tests(test_case)
-
-
 # Run temporary test fixtures for Prague
 test_dirs = (
     "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7002_el_triggerable_withdrawals",
-    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip6110_deposits/deposits",
-    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_g1add",
-    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_g1mul",
-    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_g2add",
-    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_g2mul",
-    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_pairing",
-    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_g1msm",
-    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_g2msm",
-    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_map_fp_to_g1",
-    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles/bls12_map_fp2_to_g2",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip6110_deposits",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7251_consolidations",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7685_general_purpose_el_requests",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles",
+    # TODO: Current test fixtures don't support EOF along with other
+    # EIPs. This will be fixed in the future.
 )
 
 
@@ -132,17 +119,4 @@ def fetch_temporary_tests(test_dirs: Tuple[str, ...]) -> Generator:
     ids=idfn,
 )
 def test_execution_specs_generated_tests(test_case: Dict) -> None:
-    run_prague_blockchain_st_tests(test_case)
-
-
-# Run execution-spec-generated-tests for EIP-7251
-test_dir = "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7251_consolidations/consolidations"
-
-
-@pytest.mark.parametrize(
-    "test_case",
-    fetch_prague_tests(test_dir),
-    ids=idfn,
-)
-def test_execution_specs_generated_tests_7251(test_case: Dict) -> None:
     run_prague_blockchain_st_tests(test_case)
