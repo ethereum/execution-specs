@@ -26,7 +26,7 @@ def initial_memory_length() -> int:  # noqa: D103
 @pytest.fixture
 def callee_bytecode(
     initial_memory_length: int,
-    opcode: Op,
+    call_opcode: Op,
 ) -> Bytecode:
     """
     Callee simply performs mcopy operations that should not have any effect on the
@@ -44,7 +44,7 @@ def callee_bytecode(
     bytecode += Op.MCOPY(0x00, initial_memory_length * 2, 1)
     bytecode += Op.MCOPY(initial_memory_length * 2, 0x00, 1)
 
-    if opcode != Op.STATICCALL:
+    if call_opcode != Op.STATICCALL and call_opcode != Op.EXTSTATICCALL:
         # Simple sstore to make sure we actually ran the code
         bytecode += Op.SSTORE(200_000, 1)
 
@@ -58,7 +58,7 @@ def callee_bytecode(
 def initial_memory(
     callee_bytecode: Bytecode,
     initial_memory_length: int,
-    opcode: Op,
+    call_opcode: Op,
 ) -> bytes:
     """
     Initial memory for the test.
@@ -67,7 +67,7 @@ def initial_memory(
 
     ret = bytes(list(islice(cycle(range(0x01, 0x100)), initial_memory_length)))
 
-    if opcode in [Op.CREATE, Op.CREATE2]:
+    if call_opcode in [Op.CREATE, Op.CREATE2]:
         # We also need to put the callee_bytecode as initcode in memory for create operations
         ret = bytes(callee_bytecode) + ret[len(callee_bytecode) :]
 
@@ -85,7 +85,7 @@ def caller_bytecode(
     initial_memory: bytes,
     callee_address: Address,
     callee_bytecode: Bytecode,
-    opcode: Op,
+    call_opcode: Op,
     caller_storage: Storage,
 ) -> Bytecode:
     """
@@ -99,10 +99,10 @@ def caller_bytecode(
         bytecode += Op.MSTORE(i, Op.PUSH32(initial_memory[i : i + 0x20]))
 
     # Perform the call to the contract that is going to perform mcopy
-    if opcode in [Op.CALL, Op.CALLCODE, Op.DELEGATECALL, Op.STATICCALL]:
-        bytecode += opcode(address=callee_address)
-    elif opcode in [Op.CREATE, Op.CREATE2]:
-        bytecode += opcode(size=len(callee_bytecode))
+    if call_opcode in [Op.CREATE, Op.CREATE2]:
+        bytecode += call_opcode(size=len(callee_bytecode))
+    else:
+        bytecode += call_opcode(address=callee_address)
 
     # First save msize
     bytecode += Op.SSTORE(100_000, Op.MSIZE())
@@ -141,12 +141,12 @@ def post(  # noqa: D103
     caller_address: Address,
     caller_storage: Storage,
     callee_address: Address,
-    opcode: Op,
+    call_opcode: Op,
 ) -> Mapping:
     callee_storage: Storage.StorageDictType = {}
-    if opcode in [Op.DELEGATECALL, Op.CALLCODE]:
+    if call_opcode in [Op.DELEGATECALL, Op.CALLCODE, Op.EXTDELEGATECALL]:
         caller_storage[200_000] = 1
-    elif opcode in [Op.CALL]:
+    elif call_opcode in [Op.CALL, Op.EXTCALL]:
         callee_storage[200_000] = 1
     return {
         caller_address: Account(storage=caller_storage),
@@ -154,15 +154,7 @@ def post(  # noqa: D103
     }
 
 
-@pytest.mark.parametrize(
-    "opcode",
-    [
-        Op.CALL,
-        Op.DELEGATECALL,
-        Op.STATICCALL,
-        Op.CALLCODE,
-    ],
-)
+@pytest.mark.with_all_call_opcodes
 @pytest.mark.valid_from("Cancun")
 def test_no_memory_corruption_on_upper_call_stack_levels(
     state_test: StateTestFiller,
@@ -172,13 +164,7 @@ def test_no_memory_corruption_on_upper_call_stack_levels(
 ):
     """
     Perform a subcall with any of the following opcodes, which uses MCOPY during its execution,
-    and verify that the caller's memory is unaffected:
-      - `CALL`
-      - `CALLCODE`
-      - `DELEGATECALL`
-      - `STATICCALL`
-
-    TODO: [EOF] Add EOF EXT*CALL opcodes
+    and verify that the caller's memory is unaffected
     """
     state_test(
         env=Environment(),
@@ -189,7 +175,7 @@ def test_no_memory_corruption_on_upper_call_stack_levels(
 
 
 @pytest.mark.parametrize(
-    "opcode",
+    "call_opcode",
     [
         Op.CREATE,
         Op.CREATE2,
