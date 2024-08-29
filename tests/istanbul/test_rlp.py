@@ -1,7 +1,7 @@
 import pytest
 
 import ethereum.rlp as rlp
-from ethereum.base_types import U256, Bytes, Bytes0, Bytes8, Uint
+from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes8, Uint
 from ethereum.crypto.hash import keccak256
 from ethereum.istanbul.blocks import Block, Header, Log, Receipt
 from ethereum.istanbul.transactions import Transaction
@@ -33,7 +33,7 @@ bloom = hex_to_bytes256(
 )
 
 transaction1 = Transaction(
-    U256(1),
+    U64(1),
     Uint(2),
     Uint(3),
     Bytes0(),
@@ -45,7 +45,7 @@ transaction1 = Transaction(
 )
 
 transaction2 = Transaction(
-    U256(1),
+    U64(1),
     Uint(2),
     Uint(3),
     Bytes0(),
