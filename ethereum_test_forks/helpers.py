@@ -1,7 +1,7 @@
 """
 Helper methods to resolve forks during test filling
 """
-from typing import List, Optional
+from typing import List, Optional, Set
 
 from semver import Version
 
@@ -101,6 +101,66 @@ def get_transition_forks() -> List[Fork]:
             transition_forks.append(fork)
 
     return transition_forks
+
+
+def get_from_until_fork_set(
+    forks: Set[Fork], forks_from: Set[Fork], forks_until: Set[Fork]
+) -> Set[Fork]:
+    """
+    Get the fork range from forks_from to forks_until.
+    """
+    resulting_set = set()
+    for fork_from in forks_from:
+        for fork_until in forks_until:
+            for fork in forks:
+                if fork <= fork_until and fork >= fork_from:
+                    resulting_set.add(fork)
+    return resulting_set
+
+
+def get_forks_with_no_parents(forks: Set[Fork]) -> Set[Fork]:
+    """
+    Get the forks with no parents in the inheritance hierarchy.
+    """
+    resulting_forks: Set[Fork] = set()
+    for fork in forks:
+        parents = False
+        for next_fork in forks - {fork}:
+            if next_fork < fork:
+                parents = True
+                break
+        if not parents:
+            resulting_forks = resulting_forks | {fork}
+    return resulting_forks
+
+
+def get_forks_with_no_descendants(forks: Set[Fork]) -> Set[Fork]:
+    """
+    Get the forks with no descendants in the inheritance hierarchy.
+    """
+    resulting_forks: Set[Fork] = set()
+    for fork in forks:
+        descendants = False
+        for next_fork in forks - {fork}:
+            if next_fork > fork:
+                descendants = True
+                break
+        if not descendants:
+            resulting_forks = resulting_forks | {fork}
+    return resulting_forks
+
+
+def get_last_descendants(forks: Set[Fork], forks_from: Set[Fork]) -> Set[Fork]:
+    """
+    Get the last descendant of a class in the inheritance hierarchy.
+    """
+    resulting_forks: Set[Fork] = set()
+    forks = get_forks_with_no_descendants(forks)
+    for fork_from in forks_from:
+        for fork in forks:
+            if fork >= fork_from:
+                resulting_forks = resulting_forks | {fork}
+    return resulting_forks
 
 
 def transition_fork_from_to(fork_from: Fork, fork_to: Fork) -> Fork | None:
