@@ -11,13 +11,12 @@ Introduction
 
 Implementation of the POINT EVALUATION precompiled contract.
 """
-from eth2spec.deneb.mainnet import (
+from ethereum.base_types import U256, Bytes, Bytes32, Bytes48
+from ethereum.crypto.kzg import (
     KZGCommitment,
     kzg_commitment_to_versioned_hash,
     verify_kzg_proof,
 )
-
-from ethereum.base_types import U256, Bytes
 
 from ...vm import Evm
 from ...vm.exceptions import KZGProofError
@@ -40,17 +39,21 @@ def point_evaluation(evm: Evm) -> None:
 
     """
     data = evm.message.data
+
     if len(data) != 192:
         raise KZGProofError
 
     versioned_hash = data[:32]
-    z = data[32:64]
-    y = data[64:96]
+    z = Bytes32(data[32:64])
+    y = Bytes32(data[64:96])
     commitment = KZGCommitment(data[96:144])
-    proof = data[144:192]
+    proof = Bytes48(data[144:192])
 
     # GAS
     charge_gas(evm, GAS_POINT_EVALUATION)
+
+    # OPERATION
+    # Verify commitment matches versioned_hash
     if kzg_commitment_to_versioned_hash(commitment) != versioned_hash:
         raise KZGProofError
 
