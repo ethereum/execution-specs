@@ -365,6 +365,10 @@ class Container(CopyValidateModel):
     Body: type section first, all code sections, data section(s), last
                 container sections
     """
+    skip_join_concurrent_sections_in_header: bool = False
+    """
+    Skip joining concurrent sections in the header (code and container)
+    """
     validity_error: EOFExceptionInstanceOrList | str | None = None
     """
     Optional error expected for the container.
@@ -435,7 +439,10 @@ class Container(CopyValidateModel):
             # Join headers of the same kind in a list of lists, only if they are next to each other
             concurrent_sections: List[List[Section]] = [[header_sections[0]]]
             for s in header_sections[1:]:
-                if s.kind == concurrent_sections[-1][-1].kind:
+                if (
+                    s.kind == concurrent_sections[-1][-1].kind
+                    and not self.skip_join_concurrent_sections_in_header
+                ):
                     concurrent_sections[-1].append(s)
                 else:
                     concurrent_sections.append([s])
