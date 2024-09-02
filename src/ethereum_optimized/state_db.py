@@ -21,10 +21,10 @@ try:
     import rust_pyspec_glue
 except ImportError as e:
     # Add a message, but keep it an ImportError.
-    raise Exception(
+    raise e from Exception(
         "Install with `pip install 'ethereum[optimized]'` to enable this "
         "package"
-    ) from e
+    )
 
 from ethereum.base_types import U256, Bytes, Bytes20, Uint
 from ethereum.crypto.hash import Hash32
