@@ -49,8 +49,8 @@ from .transactions import (
     TX_ACCESS_LIST_STORAGE_KEY_COST,
     TX_BASE_COST,
     TX_CREATE_COST,
-    LEGACY_CALLDATA_TOKEN_COST,
-    COST_FLOOR_PER_CALLDATA_TOKEN,
+    STANDARD_CALLDATA_TOKEN_COST,
+    FLOOR_CALLDATA_COST,
     AccessListTransaction,
     BlobTransaction,
     FeeMarketTransaction,
@@ -965,14 +965,24 @@ def process_transaction(
 
     output = process_message_call(message, env)
 
+    # For EIP-7623 gas_used includes the intrinsic costs with the floor price for calldata
     gas_used = tx.gas - output.gas_left
     
-    floor = Uint(tokens_in_calldata * COST_FLOOR_PER_CALLDATA_TOKEN + TX_BASE_COST)
-        
-    legacy_cost = Uint(gas_used - tokens_in_calldata * (COST_FLOOR_PER_CALLDATA_TOKEN - LEGACY_TOKEN_COST))
+    # EIP-7623 floor price (note: no EVM costs)
+    floor = Uint(tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST)
+
+    # EIP-7623 second part of max() condition with standard cost. Gas_used must be reduced by the
+    # by the difference between the floor and the standard cost.
+    standard_cost = Uint(gas_used - tokens_in_calldata * (FLOOR_CALLDATA_COST - STANDARD_CALLDATA_TOKEN_COST))
                        
-    if legacy_cost < floor:
-        output.gas_left -= floor - gas_used
+    # For EIP-7623 transactions where the standard cost (with evm costs) > floor pay standard cost
+    if standard_cost > floor:
+        gas_used = standard_cost
+        output.gas_left += tx.gas - gas_used
+    # For EIP-7623 transactions where the standard cost (with evm costs) < floor pay floor
+    else:
+        # Refund costs for EVM execution
+        output.gas_left += floor - gas_used
         gas_used = floor
         
     gas_refund = min(gas_used // 5, output.refund_counter)
@@ -1045,7 +1055,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
 
     tokens_in_calldata = zerobytes + (len(tx.data) - zerobytes) * 4
     
-    data_cost = tokens_in_calldata * COST_FLOOR_PER_CALLDATA_TOKEN
+    data_cost = tokens_in_calldata * FLOOR_CALLDATA_COST
 
     if tx.to == Bytes0(b""):
         create_cost = TX_CREATE_COST + int(init_code_cost(Uint(len(tx.data))))
@@ -1073,7 +1083,6 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     return Uint(TX_BASE_COST +
                 data_cost +
                 create_cost + access_list_cost + auth_cost), tokens_in_calldata
-
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     """
