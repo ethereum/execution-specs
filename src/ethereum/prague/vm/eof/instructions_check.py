@@ -9,7 +9,7 @@ from ethereum.base_types import Uint
 
 from ..exceptions import InvalidEof
 from ..instructions import EOF1_TERMINATING_INSTRUCTIONS, Ops, map_int_to_op
-from . import EofVersion, InstructionMetadata, Validator
+from . import ContainerContext, EofVersion, InstructionMetadata, Validator
 
 
 def validate_push(validator: Validator) -> None:
@@ -72,6 +72,8 @@ def validate_callf(validator: Validator) -> None:
     counter += 2
     if target_index >= eof_meta.num_code_sections:
         raise InvalidEof("Invalid target code section index")
+    reached_sections = validator.reached_code_sections[validator.current_index]
+    reached_sections.add(target_index)
 
     target_type = eof_meta.type_section_contents[target_index]
     target_outputs = target_type[1]
@@ -249,6 +251,8 @@ def validate_jumpf(validator: Validator) -> None:
 
     if target_outputs != 0x80 and target_outputs > current_outputs:
         raise InvalidEof("Invalid stack height")
+    reached_sections = validator.reached_code_sections[validator.current_index]
+    reached_sections.add(target_index)
 
     # Successor instruction positions
     relative_offsets: List[int] = []
@@ -284,7 +288,7 @@ def validate_dataloadn(validator: Validator) -> None:
     if len(code) < counter + 2:
         raise InvalidEof("DATALOADN offset missing")
     offset = Uint.from_be_bytes(code[position + 1 : position + 3])
-    if offset >= eof_meta.data_size:
+    if offset + 32 > eof_meta.data_size:
         raise InvalidEof("Invalid DATALOADN offset")
     counter += 2
 
@@ -452,6 +456,15 @@ def validate_returncontract(validator: Validator) -> None:
     validator : `Validator`
         The current validator instance.
     """
+    context = validator.eof.metadata.context
+    if context in (
+        ContainerContext.RETURNCONTRACT_TARGET,
+        ContainerContext.RUNTIME,
+    ):
+        raise InvalidEof(
+            "RETURNCONTRACT instruction in RUNTIME "
+            "container/RETURNCONTRACT target"
+        )
     code = validator.current_code
     position = Uint(validator.current_pc)
     counter = validator.current_pc + 1
@@ -493,6 +506,10 @@ def validate_stop(validator: Validator) -> None:
     validator : `Validator`
         The current validator instance.
     """
+    context = validator.eof.metadata.context
+    if context in (ContainerContext.INIT, ContainerContext.CREATE_TX_DATA):
+        raise InvalidEof("STOP instruction in EOFCREATE target/ initcode")
+
     position = Uint(validator.current_pc)
     counter = validator.current_pc + 1
     current_metadata = validator.sections.get(validator.current_index, {})
@@ -522,6 +539,9 @@ def validate_return(validator: Validator) -> None:
     validator : `Validator`
         The current validator instance.
     """
+    context = validator.eof.metadata.context
+    if context in (ContainerContext.INIT, ContainerContext.CREATE_TX_DATA):
+        raise InvalidEof("RETURN instruction in EOFCREATE target/ initcode")
     position = Uint(validator.current_pc)
     counter = validator.current_pc + 1
     current_metadata = validator.sections.get(validator.current_index, {})

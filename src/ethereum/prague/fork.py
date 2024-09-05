@@ -960,9 +960,9 @@ def process_transaction(
             preaccessed_storage_keys=frozenset(preaccessed_storage_keys),
             authorizations=authorizations,
         )
-    except InvalidEof:
+    except InvalidEof as error:
         output = MessageCallOutput(
-            gas, U256(0), tuple(), set(), set(), InvalidEof(), b""
+            gas, U256(0), tuple(), set(), set(), error, b""
         )
     else:
         output = process_message_call(message, env)

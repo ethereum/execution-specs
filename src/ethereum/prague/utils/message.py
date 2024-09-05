@@ -19,7 +19,7 @@ from ethereum.base_types import U256, Bytes, Bytes0, Bytes32, Uint
 from ..fork_types import Address, Authorization
 from ..state import get_account
 from ..vm import Environment, Message
-from ..vm.eof import Eof, EofVersion, get_eof_version
+from ..vm.eof import ContainerContext, Eof, EofVersion, get_eof_version
 from ..vm.eof.utils import metadata_from_container
 from ..vm.eof.validation import parse_create_tx_call_data
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
@@ -106,15 +106,12 @@ def prepare_message(
             metadata = metadata_from_container(
                 code,
                 validate=False,
-                is_deploy_container=False,
-                is_init_container=False,
+                context=ContainerContext.RUNTIME,
             )
             eof = Eof(
                 version=get_eof_version(code),
                 container=code,
                 metadata=metadata,
-                is_init_container=False,
-                is_deploy_container=False,
             )
     else:
         raise AssertionError("Target must be address or empty bytes")

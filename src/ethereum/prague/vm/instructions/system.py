@@ -297,7 +297,7 @@ def generic_call(
     Perform the core logic of the `CALL*` family of opcodes.
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
-    from ..eof import Eof, EofVersion, get_eof_version
+    from ..eof import ContainerContext, Eof, EofVersion, get_eof_version
 
     evm.return_data = b""
 
@@ -318,20 +318,15 @@ def generic_call(
     if eof_version == Eof.LEGACY:
         is_init_container = None
     else:
-        is_init_container = False
-        is_deploy_container = False
         metadata = metadata_from_container(
             code,
             validate=False,
-            is_init_container=is_init_container,
-            is_deploy_container=is_deploy_container,
+            context=ContainerContext.RUNTIME,
         )
         eof = Eof(
             version=eof_version,
             container=code,
             metadata=metadata,
-            is_init_container=is_init_container,
-            is_deploy_container=is_deploy_container,
         )
 
     child_message = Message(
@@ -840,7 +835,7 @@ def generic_eof_call(
         If a write operation is attempted in a static context.
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_message
-    from ..eof import Eof, EofVersion, get_eof_version
+    from ..eof import ContainerContext, Eof, EofVersion, get_eof_version
 
     if evm.gas_left < EOF_CALL_MIN_RETAINED_GAS:
         push(evm.stack, U256(1))
@@ -877,20 +872,15 @@ def generic_eof_call(
     if eof_version == EofVersion.LEGACY:
         eof = None
     else:
-        is_init_container = False
-        is_deploy_container = False
         metadata = metadata_from_container(
             container,
             validate=False,
-            is_init_container=is_init_container,
-            is_deploy_container=is_deploy_container,
+            context=ContainerContext.RUNTIME,
         )
         eof = Eof(
             version=eof_version,
             container=container,
             metadata=metadata,
-            is_init_container=is_init_container,
-            is_deploy_container=is_deploy_container,
         )
 
     child_message = Message(
@@ -1031,7 +1021,7 @@ def ext_delegatecall(evm: Evm) -> None:
         code_address=target_address,
         value=U256(0),
         should_transfer_value=False,
-        is_static=False,
+        is_static=evm.message.is_static,
         allow_legacy_code=False,
     )
 
@@ -1099,7 +1089,7 @@ def eof_create(evm: Evm) -> None:
         The current EVM frame.
     """
     from ...vm.interpreter import STACK_DEPTH_LIMIT, process_create_message
-    from ..eof import Eof, get_eof_version
+    from ..eof import ContainerContext, Eof, get_eof_version
 
     assert evm.eof is not None
 
@@ -1157,20 +1147,15 @@ def eof_create(evm: Evm) -> None:
 
         increment_nonce(evm.env.state, evm.message.current_target)
 
-        is_init_container = True
-        is_deploy_container = False
         metadata = metadata_from_container(
             init_container,
             validate=True,
-            is_deploy_container=is_deploy_container,
-            is_init_container=is_init_container,
+            context=ContainerContext.INIT,
         )
         eof = Eof(
             version=get_eof_version(init_container),
             container=init_container,
             metadata=metadata,
-            is_init_container=True,
-            is_deploy_container=False,
         )
 
         child_message = Message(
@@ -1216,6 +1201,8 @@ def return_contract(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
+    from ..eof import ContainerContext
+
     assert evm.eof is not None
 
     # STACK
@@ -1239,8 +1226,7 @@ def return_contract(evm: Evm) -> None:
     deploy_container_metadata = metadata_from_container(
         deploy_container,
         validate=True,
-        is_deploy_container=True,
-        is_init_container=False,
+        context=ContainerContext.RETURNCONTRACT_TARGET,
     )
     aux_data = memory_read_bytes(evm.memory, aux_data_offset, aux_data_size)
     deploy_container_metadata.data_section_contents += aux_data

@@ -1,35 +1,45 @@
 import json
 import os
 from glob import glob
-from typing import Dict, Generator
+from typing import Dict, Generator, Tuple
 
 import pytest
 
+from ethereum.prague.vm.eof import ContainerContext
 from ethereum.prague.vm.eof.validation import validate_eof_container
 from ethereum.prague.vm.exceptions import InvalidEof
 from ethereum.utils.hexadecimal import hex_to_bytes
 
-TEST_DIR = "tests/fixtures/latest_fork_tests/eof_tests/prague/eip7692_eof_v1"
+TEST_DIRS = (
+    "tests/fixtures/latest_fork_tests/eof_tests/prague/eip7692_eof_v1",
+    "tests/fixtures/ethereum_tests/EOFTests/",
+    "tests/fixtures/latest_fork_tests/evmone_tests/eof_tests",
+)
 
 
-def fetch_eof_tests(test_dir: str) -> Generator:
-    all_jsons = [
-        y
-        for x in os.walk(test_dir)
-        for y in glob(os.path.join(x[0], "*.json"))
-    ]
+def fetch_eof_tests(test_dirs: Tuple[str, ...]) -> Generator:
+    for test_dir in test_dirs:
+        all_jsons = [
+            y
+            for x in os.walk(test_dir)
+            for y in glob(os.path.join(x[0], "*.json"))
+        ]
 
-    for full_path in all_jsons:
-        # Read the json file and yield the test cases
-        with open(full_path, "r") as file:
-            data = json.load(file)
-            for test in data.keys():
-                for key in data[test]["vectors"].keys():
-                    yield {
-                        "test_file": full_path,
-                        "test_name": test,
-                        "test_key": key,
-                    }
+        for full_path in all_jsons:
+            # Read the json file and yield the test cases
+            with open(full_path, "r") as file:
+                data = json.load(file)
+                for test in data.keys():
+                    try:
+                        keys = data[test]["vectors"].keys()
+                    except AttributeError:
+                        continue
+                    for key in keys:
+                        yield {
+                            "test_file": full_path,
+                            "test_name": test,
+                            "test_key": key,
+                        }
 
 
 # Test case Identifier
@@ -47,7 +57,7 @@ def idfn(test_case: Dict) -> str:
 # Run the tests
 @pytest.mark.parametrize(
     "test_case",
-    fetch_eof_tests(TEST_DIR),
+    fetch_eof_tests(TEST_DIRS),
     ids=idfn,
 )
 def test_eof(test_case: Dict) -> None:
@@ -61,6 +71,11 @@ def test_eof(test_case: Dict) -> None:
 
     # Extract the test data
     code = hex_to_bytes(test_vector["code"])
+    if test_vector.get("containerKind") == "INITCODE":
+        context = ContainerContext.INIT
+    else:
+        context = ContainerContext.RUNTIME
+
     prague_validation = test_vector["results"]["Prague"]
 
     if "exception" in prague_validation and prague_validation["result"]:
@@ -68,6 +83,6 @@ def test_eof(test_case: Dict) -> None:
 
     if "exception" in prague_validation:
         with pytest.raises(InvalidEof):
-            validate_eof_container(code, False)
+            validate_eof_container(code, context)
     else:
-        validate_eof_container(code, False)
+        validate_eof_container(code, context)

@@ -4,14 +4,13 @@ Utility functions for EOF containers.
 from ethereum.base_types import Uint
 
 from ..exceptions import InvalidEof
-from . import EOF_MAGIC, EofMetadata
+from . import EOF_MAGIC, ContainerContext, EofMetadata
 
 
 def metadata_from_container(
     container: bytes,
     validate: bool,
-    is_deploy_container: bool,
-    is_init_container: bool,
+    context: ContainerContext,
 ) -> EofMetadata:
     """
     Validate the header of the EOF container.
@@ -24,12 +23,8 @@ def metadata_from_container(
         Whether to validate the EOF container. If the container is simply read
         from an existing account, it is assumed to be validated. However, if
         the container is being created, it should be validated first.
-    is_deploy_container : bool
-        Whether the container is a deploy container for EOFCREATE/ create
-        transactions.
-    is_init_container : bool
-        Whether the container is an init container for EOFCREATE/
-        create transactions.
+    context: ContainerContext
+        The context of the container.
 
     Returns
     -------
@@ -127,6 +122,9 @@ def metadata_from_container(
                 raise InvalidEof("Invalid container size")
             container_sizes.append(container_size)
 
+        if validate and len(container) < counter + 1:
+            raise InvalidEof("Kind data not specified in header")
+
     # Get 1 byte kind_data
     kind_data = container[counter]
     counter += 1
@@ -171,28 +169,36 @@ def metadata_from_container(
             )
             counter += container_size
 
-    if (
-        validate
-        and not is_deploy_container
-        and len(container) < counter + data_size
-    ):
-        raise InvalidEof("Data section size does not match header")
+    if validate:
+        if (
+            context == ContainerContext.INIT
+            and len(container) != counter + data_size
+        ):
+            raise InvalidEof("Invalid init container data size")
 
-    if (
-        validate
-        and is_init_container
-        and len(container) != counter + data_size
-    ):
-        raise InvalidEof("invalid init container data size")
+        elif (
+            context
+            in (
+                ContainerContext.RUNTIME,
+                ContainerContext.CREATE_TX_DATA,
+            )
+            and len(container) < counter + data_size
+        ):
+            raise InvalidEof("Data section size does not match header")
 
     data_section_contents = container[counter : counter + data_size]
     counter += data_size
 
     # Check for stray bytes after the data section
-    if validate and len(container) > counter:
+    if (
+        validate
+        and len(container) > counter
+        and context != ContainerContext.CREATE_TX_DATA
+    ):
         raise InvalidEof("Stray bytes found after data section")
 
     return EofMetadata(
+        context=context,
         type_size=type_size,
         num_code_sections=num_code_sections,
         code_sizes=code_sizes,
@@ -240,7 +246,7 @@ def container_from_metadata(eof_metadata: EofMetadata) -> bytes:
     # Add the kind container
     if eof_metadata.num_container_sections > 0:
         container += b"\x03"
-        container += eof_metadata.num_container_sections.to_be_bytes()
+        container += eof_metadata.num_container_sections.to_bytes(2, "big")
         for container_size in eof_metadata.container_sizes:
             container += container_size.to_bytes(2, "big")
 

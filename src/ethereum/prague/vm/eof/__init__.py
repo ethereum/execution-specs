@@ -14,7 +14,7 @@ Implementation of the Ethereum Object Format (EOF) specification.
 
 import enum
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from ethereum.base_types import Bytes, Uint
 
@@ -34,6 +34,20 @@ class EofVersion(enum.Enum):
     EOF1 = 1
 
 
+class ContainerContext(enum.Enum):
+    """
+    The context of the container. Create transaction
+    data / init / account code / sub-container.
+    A sub-container can either be an EOFCREATE target (init)
+    or a RETURNCONTRACT target.
+    """
+
+    CREATE_TX_DATA = 0
+    INIT = 1
+    RUNTIME = 2
+    RETURNCONTRACT_TARGET = 3
+
+
 @dataclass
 class EofMetadata:
     """
@@ -41,6 +55,7 @@ class EofMetadata:
     EOF container.
     """
 
+    context: ContainerContext
     type_size: Uint
     num_code_sections: Uint
     code_sizes: List[Uint]
@@ -63,8 +78,6 @@ class Eof:
     version: EofVersion
     container: Bytes
     metadata: EofMetadata
-    is_deploy_container: bool
-    is_init_container: bool
 
 
 @dataclass
@@ -122,6 +135,7 @@ class Validator:
     has_return_contract: bool
     has_stop: bool
     has_return: bool
+    reached_code_sections: List[Set[Uint]]
     referenced_subcontainers: Dict[Ops, List[Uint]]
     current_stack_height: Optional[OperandStackHeight]
 

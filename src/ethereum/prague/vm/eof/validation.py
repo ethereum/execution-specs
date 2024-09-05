@@ -13,7 +13,7 @@ Implementation of the Ethereum Object Format (EOF) specification.
 """
 
 from copy import deepcopy
-from typing import Tuple
+from typing import Set, Tuple
 
 from ethereum.base_types import Uint
 
@@ -23,6 +23,7 @@ from ..instructions import EOF1_TERMINATING_INSTRUCTIONS, Ops, map_int_to_op
 from . import (
     EOF_MAGIC,
     EOF_MAGIC_LENGTH,
+    ContainerContext,
     Eof,
     EofVersion,
     OperandStackHeight,
@@ -172,6 +173,8 @@ def validate_code_section(validator: Validator) -> None:
                 max=section_inputs,
             )
             op_metadata.stack_height = deepcopy(validator.current_stack_height)
+        elif op_metadata.stack_height is not None:
+            validator.current_stack_height = deepcopy(op_metadata.stack_height)
 
         # The section has to end in a terminating instruction
         if index + 1 == len(valid_opcode_positions):
@@ -195,6 +198,33 @@ def validate_code_section(validator: Validator) -> None:
         raise InvalidEof("Invalid stack height")
 
 
+def get_reached_code_sections(
+    validator: Validator,
+    start_index: Uint,
+    all_reached_sections: Set[Uint],
+) -> None:
+    """
+    Get the reached code sections starting from a given index.
+
+    Parameters
+    ----------
+    validator : Validator
+        The validator for the EOF container.
+    start_index : Uint
+        The index to start from.
+    all_reached_sections : Set[Uint]
+        The set of all code sections reached until now.
+    """
+    sections_called_from_start_index = validator.reached_code_sections[
+        start_index
+    ]
+    all_reached_sections.add(start_index)
+    for i in sections_called_from_start_index:
+        if i in all_reached_sections:
+            continue
+        get_reached_code_sections(validator, i, all_reached_sections)
+
+
 def validate_eof_code(validator: Validator) -> None:
     """
     Validate the code section of the EOF container.
@@ -215,11 +245,19 @@ def validate_eof_code(validator: Validator) -> None:
         Ops.RETURNCONTRACT: [],
     }
     for code_index, code in enumerate(eof_meta.code_section_contents):
+        validator.reached_code_sections.append(set())
         validator.current_index = Uint(code_index)
         validator.current_code = code
         validator.current_pc = Uint(0)
         validator.sections[validator.current_index] = {}
         validate_code_section(validator)
+
+    all_reached_sections: Set[Uint] = set()
+    get_reached_code_sections(validator, Uint(0), all_reached_sections)
+
+    for i in range(eof_meta.num_code_sections):
+        if i not in all_reached_sections:
+            raise InvalidEof(f"Code section {i} not reachable")
 
     if validator.has_return_contract and (
         validator.has_return or validator.has_stop
@@ -227,46 +265,33 @@ def validate_eof_code(validator: Validator) -> None:
         raise InvalidEof("Container has both RETURNCONTRACT and STOP/RETURN")
 
     if eof_meta.num_container_sections > 0:
-        eofcreate_references = validator.referenced_subcontainers[
-            Ops.EOFCREATE
-        ]
-        returncontract_references = validator.referenced_subcontainers[
-            Ops.RETURNCONTRACT
-        ]
-        for index in range(len(eof_meta.container_section_contents)):
-            if (
-                index in eofcreate_references
-                and index in returncontract_references
-            ):
+        for index in range(eof_meta.num_container_sections):
+            is_eofcreate_target = (
+                index in validator.referenced_subcontainers[Ops.EOFCREATE]
+            )
+            is_returncontract_target = (
+                index in validator.referenced_subcontainers[Ops.RETURNCONTRACT]
+            )
+            if is_eofcreate_target and is_returncontract_target:
                 raise InvalidEof(
                     "Container referenced by both EOFCREATE and RETURNCONTRACT"
                 )
-            elif (
-                index not in eofcreate_references
-                and index not in returncontract_references
-            ):
+
+            if is_eofcreate_target:
+                sub_container_context = ContainerContext.INIT
+            elif is_returncontract_target:
+                sub_container_context = ContainerContext.RETURNCONTRACT_TARGET
+            else:
                 raise InvalidEof("Container never referenced")
 
-            sub_validator = validate_eof_container(
-                eof_meta.container_section_contents[index], False
+            validate_eof_container(
+                eof_meta.container_section_contents[index],
+                sub_container_context,
             )
-            if index in eofcreate_references and (
-                sub_validator.has_stop or sub_validator.has_return
-            ):
-                raise InvalidEof(
-                    "Container referenced by EOFCREATE has STOP or RETURN"
-                )
-            if (
-                index in returncontract_references
-                and sub_validator.has_return_contract
-            ):
-                raise InvalidEof(
-                    "Container referenced by RETURNCONTRACT has RETURNCONTRACT"
-                )
 
 
 def validate_eof_container(
-    container: bytes, is_init_container: bool
+    container: bytes, context: ContainerContext
 ) -> Validator:
     """
     Validate the Ethereum Object Format (EOF) container.
@@ -275,9 +300,8 @@ def validate_eof_container(
     ----------
     container : bytes
         The EOF container to validate.
-    is_init_container : bool
-        Whether the container is an init container for EOFCREATE/
-        create transactions.
+    context : ContainerContext
+        Context of the container.
 
     Raises
     ------
@@ -302,16 +326,13 @@ def validate_eof_container(
     metadata = metadata_from_container(
         container,
         validate=True,
-        is_deploy_container=False,
-        is_init_container=is_init_container,
+        context=context,
     )
 
     eof = Eof(
         version=EofVersion.EOF1,
         container=container,
         metadata=metadata,
-        is_deploy_container=False,
-        is_init_container=is_init_container,
     )
 
     validator = Validator(
@@ -323,6 +344,7 @@ def validate_eof_container(
         has_return_contract=False,
         has_stop=False,
         has_return=False,
+        reached_code_sections=[],
         referenced_subcontainers={Ops.EOFCREATE: [], Ops.RETURNCONTRACT: []},
         current_stack_height=None,
     )
@@ -330,9 +352,6 @@ def validate_eof_container(
     validate_body(validator)
 
     validate_eof_code(validator)
-
-    if is_init_container and (validator.has_stop or validator.has_return):
-        raise InvalidEof("Init container has STOP/RETURN")
 
     return validator
 
@@ -354,7 +373,7 @@ def parse_create_tx_call_data(data: bytes) -> Tuple[Eof, bytes]:
         The data for the create call.
     """
     eof_metadata = metadata_from_container(
-        data, validate=True, is_deploy_container=False, is_init_container=False
+        data, validate=True, context=ContainerContext.CREATE_TX_DATA
     )
 
     container_size = (
@@ -369,8 +388,6 @@ def parse_create_tx_call_data(data: bytes) -> Tuple[Eof, bytes]:
         version=EofVersion.EOF1,
         container=data[:container_size],
         metadata=eof_metadata,
-        is_deploy_container=False,
-        is_init_container=True,
     )
 
     validator = Validator(
@@ -382,6 +399,7 @@ def parse_create_tx_call_data(data: bytes) -> Tuple[Eof, bytes]:
         has_return_contract=False,
         has_stop=False,
         has_return=False,
+        reached_code_sections=[],
         referenced_subcontainers={},
         current_stack_height=None,
     )
@@ -389,8 +407,5 @@ def parse_create_tx_call_data(data: bytes) -> Tuple[Eof, bytes]:
     validate_body(validator)
 
     validate_eof_code(validator)
-
-    if validator.has_stop or validator.has_return:
-        raise InvalidEof("Init container has STOP/RETURN")
 
     return eof, data[container_size:]

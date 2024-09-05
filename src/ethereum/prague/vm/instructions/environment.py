@@ -411,9 +411,8 @@ def extcodecopy(evm: Evm) -> None:
     evm.memory += b"\x00" * extend_memory.expand_by
     eof_version = get_eof_version(code)
     if eof_version == EofVersion.EOF1:
-        value = EOF_MAGIC
-    else:
-        value = buffer_read(code, code_start_index, size)
+        code = EOF_MAGIC
+    value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 
     # PROGRAM COUNTER
