@@ -8,12 +8,33 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 V1_EOF_OPCODES: List[Op] = [
     # new eof ops
+    # EIP-663 Swap and Dup
+    Op.DUPN,
+    Op.SWAPN,
+    Op.EXCHANGE,
+    # EIP-4200 Relative Jumps
     Op.RJUMP,
     Op.RJUMPI,
     Op.RJUMPV,
+    # EIP-4750 functions
     Op.CALLF,
     Op.RETF,
-    #  Op.JUMPF,
+    # EIP-6209 JUMPF Instruction
+    Op.JUMPF,
+    #  EIP-7069 Revamped EOF Call
+    Op.EXTCALL,
+    Op.EXTDELEGATECALL,
+    Op.EXTSTATICCALL,
+    Op.RETURNDATALOAD,
+    # EIP-7480 EOF Data Section Access
+    Op.DATALOAD,
+    Op.DATALOADN,
+    Op.DATASIZE,
+    Op.DATACOPY,
+    # EIP-7620 EOF Create and Return Contract operation
+    Op.EOFCREATE,
+    Op.RETURNCONTRACT,
+    # Non-deprecated Legacy Opcodes
     Op.STOP,
     Op.ADD,
     Op.MUL,
@@ -174,11 +195,30 @@ so the container is not considered invalid due to buffer underflow.
 """
 
 V1_EOF_ONLY_OPCODES = [
+    Op.DUPN,
+    Op.SWAPN,
+    Op.EXCHANGE,
+    # EIP-4200 Relative Jumps
     Op.RJUMP,
     Op.RJUMPI,
     Op.RJUMPV,
+    # EIP-4750 functions
     Op.CALLF,
     Op.RETF,
+    # EIP-6209 JUMPF Instruction
+    Op.JUMPF,
+    #  EIP-7069 Revamped EOF Call
+    Op.EXTCALL,
+    Op.EXTDELEGATECALL,
+    Op.EXTSTATICCALL,
+    # EIP-7480 EOF Data Section Access
+    Op.DATALOAD,
+    Op.DATALOADN,
+    Op.DATASIZE,
+    Op.DATACOPY,
+    # EIP-7620 EOF Create and Return Contract operation
+    Op.EOFCREATE,
+    Op.RETURNCONTRACT,
 ]
 """
 List of valid EOF V1 opcodes that are disabled in legacy bytecode.
@@ -190,6 +230,7 @@ VALID_TERMINATING_OPCODES = [
     Op.REVERT,
     Op.INVALID,
     Op.RETF,
+    Op.JUMPF,
 ]
 
 INVALID_TERMINATING_OPCODES = [op for op in V1_EOF_OPCODES if op not in VALID_TERMINATING_OPCODES]

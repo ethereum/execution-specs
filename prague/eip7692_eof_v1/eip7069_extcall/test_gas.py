@@ -50,8 +50,12 @@ def gas_test(
 
     sender = pre.fund_eoa(10**18)
 
-    address_baseline = pre.deploy_contract(setup_code + tear_down_code)
-    address_subject = pre.deploy_contract(setup_code + subject_code + tear_down_code)
+    address_baseline = pre.deploy_contract(
+        Container(sections=[Section.Code(setup_code + tear_down_code)])
+    )
+    address_subject = pre.deploy_contract(
+        Container(sections=[Section.Code(setup_code + subject_code + tear_down_code)])
+    )
     address_legacy_harness = pre.deploy_contract(
         code=(
             # warm subject and baseline without executing
