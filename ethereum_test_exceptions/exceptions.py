@@ -354,6 +354,14 @@ class TransactionException(ExceptionBase):
     """
     Transaction is type 3, but has no blobs.
     """
+    TYPE_4_EMPTY_AUTHORIZATION_LIST = auto()
+    """
+    Transaction is type 4, but has an empty authorization list.
+    """
+    TYPE_4_INVALID_AUTHORITY_SIGNATURE = auto()
+    """
+    Transaction is type 4, but has an empty authorization list.
+    """
 
 
 @unique

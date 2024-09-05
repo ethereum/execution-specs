@@ -4,6 +4,7 @@ Basic type primitives used to define other types.
 
 from typing import Any, ClassVar, SupportsBytes, Type, TypeVar
 
+from Crypto.Hash import keccak
 from pydantic import GetCoreSchemaHandler
 from pydantic_core.core_schema import (
     PlainValidatorFunctionSchema,
@@ -145,6 +146,13 @@ class Bytes(bytes, ToStringSchema):
         if input is None:
             return input
         return cls(input)
+
+    def keccak256(self) -> "Bytes":
+        """
+        Return the keccak256 hash of the opcode byte representation.
+        """
+        k = keccak.new(digest_bits=256)
+        return Bytes(k.update(bytes(self)).digest())
 
 
 S = TypeVar("S", bound="FixedSizeHexNumber")

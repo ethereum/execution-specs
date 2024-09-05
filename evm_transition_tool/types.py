@@ -33,6 +33,16 @@ class TransactionLog(CamelModel):
     removed: bool
 
 
+class SetCodeDelegation(CamelModel):
+    """
+    Set code delegation
+    """
+
+    from_address: Address = Field(..., alias="from")
+    nonce: HexNumber
+    target: Address
+
+
 class TransactionReceipt(CamelModel):
     """
     Transaction receipt
@@ -51,6 +61,7 @@ class TransactionReceipt(CamelModel):
     transaction_index: HexNumber | None = None
     blob_gas_used: HexNumber | None = None
     blob_gas_price: HexNumber | None = None
+    delegations: List[SetCodeDelegation] | None = None
 
 
 class RejectedTransaction(CamelModel):

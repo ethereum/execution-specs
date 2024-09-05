@@ -6,7 +6,7 @@ import inspect
 from enum import IntEnum
 from functools import cache
 from itertools import count
-from typing import Iterator
+from typing import Iterator, Literal
 
 import pytest
 from pydantic import PrivateAttr
@@ -84,6 +84,9 @@ class AllocMode(IntEnum):
 
     PERMISSIVE = 0
     STRICT = 1
+
+
+DELEGATION_DESIGNATION = b"\xef\x01\x00"
 
 
 class Alloc(BaseAlloc):
@@ -193,6 +196,7 @@ class Alloc(BaseAlloc):
         amount: NumberConvertible = 10**21,
         label: str | None = None,
         storage: Storage | None = None,
+        delegation: Address | Literal["Self"] | None = None,
     ) -> EOA:
         """
         Add a previously unused EOA to the pre-alloc with the balance specified by `amount`.
@@ -201,18 +205,23 @@ class Alloc(BaseAlloc):
         returned.
         """
         eoa = next(self._eoa_iterator)
-        if Number(amount) > 0 or storage is not None:
-            if storage is None:
+        if Number(amount) > 0 or storage is not None or delegation is not None:
+            if storage is None and delegation is None:
                 account = Account(
                     nonce=0,
                     balance=amount,
                 )
             else:
                 # Type-4 transaction is sent to the EOA to set the storage, so the nonce must be 1
+                if not isinstance(delegation, Address) and delegation == "Self":
+                    delegation = eoa
                 account = Account(
                     nonce=1,
                     balance=amount,
-                    storage=storage,
+                    storage=storage if storage is not None else {},
+                    code=DELEGATION_DESIGNATION + bytes(delegation)  # type: ignore
+                    if delegation is not None
+                    else b"",
                 )
                 eoa.nonce = Number(1)
 
