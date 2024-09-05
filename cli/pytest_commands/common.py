@@ -38,9 +38,7 @@ def common_click_options(func: Callable[..., Any]) -> Decorator:
     return click.argument("pytest_args", nargs=-1, type=click.UNPROCESSED)(func)
 
 
-def handle_help_flags(
-    pytest_args: List[str], help_flag: bool, pytest_help_flag: bool
-) -> List[str]:
+def handle_help_flags(pytest_args: List[str], pytest_type: str) -> List[str]:
     """
     Modifies the help arguments passed to the click CLI command before forwarding to
     the pytest command.
@@ -48,9 +46,11 @@ def handle_help_flags(
     This is to make `--help` more useful because `pytest --help` is extremely
     verbose and lists all flags from pytest and pytest plugins.
     """
-    if help_flag:
-        return ["--test-help"]
-    elif pytest_help_flag:
+    ctx = click.get_current_context()
+
+    if ctx.params.get("help_flag"):
+        return [f"--{pytest_type}-help"] if pytest_type in {"consume", "fill"} else pytest_args
+    elif ctx.params.get("pytest_help_flag"):
         return ["--help"]
-    else:
-        return list(pytest_args)
+
+    return pytest_args

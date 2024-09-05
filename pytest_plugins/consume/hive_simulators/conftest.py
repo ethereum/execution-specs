@@ -20,6 +20,22 @@ from pytest_plugins.consume.hive_simulators.ruleset import ruleset  # TODO: gene
 from .timing import TimingData
 
 
+def pytest_addoption(parser):
+    """
+    Hive simulator specific consume command line options.
+    """
+    consume_group = parser.getgroup(
+        "consume", "Arguments related to consuming fixtures via a client"
+    )
+    consume_group.addoption(
+        "--timing-data",
+        action="store_true",
+        dest="timing_data",
+        default=False,
+        help="Log the timing data for each test case execution.",
+    )
+
+
 @pytest.fixture(scope="function")
 def eth_rpc(client: Client) -> EthRPC:
     """
@@ -55,7 +71,10 @@ def eest_consume_commands(
     Commands to run the test within EEST using a hive dev back-end.
     """
     hive_dev = f"./hive --dev --client-file configs/develop.yaml --client {client_type.name}"
-    consume = f'consume {test_suite_name.split("-")[-1]} -v --latest -k "{test_case.id}"'
+    consume = (
+        f'consume {test_suite_name.split("-")[-1]} -v --input latest-develop-release -k '
+        f'"{test_case.id}"'
+    )
     return [hive_dev, consume]
 
 

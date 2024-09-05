@@ -83,17 +83,10 @@ def pytest_addoption(parser):  # noqa: D103
         dest="fixture_source",
         default=default_input_directory(),
         help=(
-            "A URL or local directory specifying the JSON test fixtures. Default: "
-            f"'{default_input_directory()}'."
-        ),
-    )
-    consume_group.addoption(
-        "--latest",
-        action="store_true",
-        dest="latest_source",
-        default=False,
-        help=(
-            "The latest EEST development JSON test fixtures. Cannot be used alongside `--input`."
+            "Specify the JSON test fixtures source. Can be a local directory, a URL pointing to a "
+            " fixtures.tar.gz archive, or one of the special keywords: 'stdin', "
+            "'latest-stable', 'latest-develop'. "
+            f"Defaults to the following local directory: '{default_input_directory()}'."
         ),
     )
     consume_group.addoption(
@@ -102,13 +95,6 @@ def pytest_addoption(parser):  # noqa: D103
         dest="single_fork",
         default=None,
         help="Only consume tests for the specified fork.",
-    )
-    consume_group.addoption(
-        "--timing-data",
-        action="store_true",
-        dest="timing_data",
-        default=False,
-        help="Log the timing data for each test case execution.",
     )
     consume_group.addoption(
         "--no-html",
@@ -133,20 +119,17 @@ def pytest_configure(config):  # noqa: D103
     it uses the modified `htmlpath` option.
     """
     input_flag = any(arg.startswith("--input") for arg in config.invocation_params.args)
-    latest_flag = config.getoption("latest_source")
-
-    if input_flag and latest_flag:
-        pytest.exit("Cannot use both `--input` and `--latest`, please select one input flag.")
-
     input_source = config.getoption("fixture_source")
 
     if input_flag and input_source == "stdin":
         config.test_cases = TestCases.from_stream(sys.stdin)
         return
 
-    if latest_flag:
-        release_base_url = "https://github.com/ethereum/execution-spec-tests/releases"
-        input_source = f"{release_base_url}/latest/download/fixtures_develop.tar.gz"
+    latest_base_url = "https://github.com/ethereum/execution-spec-tests/releases/latest/download"
+    if input_source == "latest-stable-release" or input_source == "latest-stable":
+        input_source = f"{latest_base_url}/fixtures_stable.tar.gz"
+    if input_source == "latest-develop-release" or input_source == "latest-develop":
+        input_source = f"{latest_base_url}/fixtures_develop.tar.gz"
 
     if is_url(input_source):
         cached_downloads_directory.mkdir(parents=True, exist_ok=True)
@@ -162,6 +145,7 @@ def pytest_configure(config):  # noqa: D103
         )
 
     index_file = input_source / ".meta" / "index.json"
+    index_file.parent.mkdir(parents=True, exist_ok=True)
     if not index_file.exists():
         rich.print(f"Generating index file [bold cyan]{index_file}[/]...")
         generate_fixtures_index(

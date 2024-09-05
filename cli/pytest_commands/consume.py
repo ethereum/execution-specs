@@ -35,26 +35,18 @@ def handle_hive_env_flags(args: List[str]) -> List[str]:
     return args
 
 
-def handle_consume_command_flags(
-    consume_args: List[str],
-    help_flag: bool,
-    pytest_help_flag: bool,
-    is_hive: bool,
-) -> List[str]:
+def handle_consume_command_flags(consume_args: List[str], is_hive: bool) -> List[str]:
     """
     Handle all consume CLI flag pre-processing.
     """
-    args = handle_help_flags(consume_args, help_flag, pytest_help_flag)
+    args = list(handle_help_flags(consume_args, pytest_type="consume"))
     args += ["-c", "pytest-consume.ini"]
     if is_hive:
-        args = handle_hive_env_flags(args)
+        args += handle_hive_env_flags(args)
         args += ["-p", "pytest_plugins.pytest_hive.pytest_hive"]
-    # Pipe input using stdin if no --input is provided and stdin is not a terminal.
-    if not any(arg.startswith("--input") for arg in args) and not sys.stdin.isatty():
-        args.extend(["-s", "--input=stdin"])
-    # Ensure stdout is captured when timing data is enabled.
-    if "--timing-data" in args and "-s" not in args:
-        args.append("-s")
+        # Ensure stdout is captured when timing data is enabled.
+        if "--timing-data" in args and "-s" not in args:
+            args.append("-s")
     return args
 
 
@@ -81,23 +73,25 @@ def consume_command(is_hive: bool = False) -> Callable[[Callable[..., Any]], cli
     """
 
     def create_command(
-        func: Callable[..., Any], command_name: str, command_paths: List[Path], is_hive: bool
+        func: Callable[..., Any],
+        command_name: str,
+        command_help: str | None,
+        command_paths: List[Path],
+        is_hive: bool,
     ) -> click.Command:
         """
         Create the command function to be decorated.
         """
 
-        @consume.command(name=command_name, context_settings=dict(ignore_unknown_options=True))
+        @consume.command(
+            name=command_name,
+            help=command_help,
+            context_settings=dict(ignore_unknown_options=True),
+        )
         @common_click_options
-        def command(pytest_args: List[str], help_flag: bool, pytest_help_flag: bool) -> None:
-            args = handle_consume_command_flags(
-                pytest_args,
-                help_flag,
-                pytest_help_flag,
-                is_hive,
-            )
+        def command(pytest_args: List[str], **kwargs) -> None:
+            args = handle_consume_command_flags(pytest_args, is_hive)
             args += [str(p) for p in command_paths]
-
             if is_hive and not any(arg.startswith("--hive-session-temp-folder") for arg in args):
                 with TemporaryDirectory() as temp_dir:
                     args.extend(["--hive-session-temp-folder", temp_dir])
@@ -106,21 +100,21 @@ def consume_command(is_hive: bool = False) -> Callable[[Callable[..., Any]], cli
                 result = pytest.main(args)
             sys.exit(result)
 
-        command.__doc__ = func.__doc__
         return command
 
     def decorator(func: Callable[..., Any]) -> click.Command:
         command_name = func.__name__
+        command_help = func.__doc__
         command_paths = get_command_paths(command_name, is_hive)
-        return create_command(func, command_name, command_paths, is_hive)
+        return create_command(func, command_name, command_help, command_paths, is_hive)
 
     return decorator
 
 
-@click.group()
+@click.group(context_settings=dict(help_option_names=["-h", "--help"]))
 def consume() -> None:
     """
-    Entry point group to aid client consumption of test fixtures.
+    Consume command to aid client consumption of test fixtures.
     """
     pass
 

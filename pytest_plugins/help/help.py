@@ -11,65 +11,60 @@ import pytest
 
 def pytest_addoption(parser):
     """
-    Adds command-line options to pytest.
+    Adds command-line options to pytest for specific help commands.
     """
-    help_group = parser.getgroup("test_help", "Arguments related to running execution-spec-tests")
+    help_group = parser.getgroup("help_options", "Help options for different commands")
     help_group.addoption(
-        "--test-help",
+        "--fill-help",
         action="store_true",
-        dest="show_test_help",
+        dest="show_fill_help",
         default=False,
-        help=(
-            "Only show help options specific to a specific execution-spec-tests command and "
-            "exit."
-        ),
+        help="Show help options only for the fill command and exit.",
+    )
+    help_group.addoption(
+        "--consume-help",
+        action="store_true",
+        dest="show_consume_help",
+        default=False,
+        help="Show help options specific to the consume command and exit.",
     )
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
     """
-    Print execution-spec-tests help if specified on the command-line.
+    Handle specific help flags by displaying the corresponding help message.
     """
-    if config.getoption("show_test_help"):
-        show_test_help(config)
-        pytest.exit("After displaying help.", returncode=pytest.ExitCode.OK)
+    if config.getoption("show_fill_help"):
+        show_specific_help(
+            config,
+            "pytest.ini",
+            [
+                "evm",
+                "solc",
+                "fork range",
+                "filler location",
+                "defining debug",
+                "pre-allocation behavior",
+            ],
+        )
+    elif config.getoption("show_consume_help"):
+        show_specific_help(config, "pytest-consume.ini", ["consuming"])
 
 
-def show_test_help(config):
+def show_specific_help(config, expected_ini, substrings):
     """
-    Print the help for argparse groups that contain substrings indicating
-    that group is specific to execution-spec-tests command-line
-    arguments.
+    Print help options filtered by specific substrings from the given configuration.
     """
     pytest_ini = Path(config.inifile)
-    if pytest_ini.name == "pytest.ini":
-        test_group_substrings = [
-            "execution-spec-tests",
-            "evm",
-            "solc",
-            "fork range",
-            "filler location",
-            "defining debug",
-            "pre-allocation behavior",
-        ]
-    elif pytest_ini.name in [
-        "pytest-consume.ini",
-    ]:
-        test_group_substrings = [
-            "execution-spec-tests",
-            "consuming",
-            "defining debug",
-        ]
-    else:
-        raise ValueError("Unexpected pytest.ini file option generating test help.")
+    if pytest_ini.name != expected_ini:
+        raise ValueError(f"Unexpected {expected_ini} file option generating help.")
 
     test_parser = argparse.ArgumentParser()
     for group in config._parser.optparser._action_groups:
-        if any(group for substring in test_group_substrings if substring in group.title):
+        if any(substring in group.title for substring in substrings):
             new_group = test_parser.add_argument_group(group.title, group.description)
             for action in group._group_actions:
-                # Copy the option to the new group.
-                # Works for 'store', 'store_true', and 'store_false'.
                 kwargs = {
                     "default": action.default,
                     "help": action.help,
@@ -79,7 +74,9 @@ def show_test_help(config):
                     kwargs["action"] = "store_true"
                 else:
                     kwargs["type"] = action.type
-                if action.nargs is not None and action.nargs != 0:
+                if action.nargs:
                     kwargs["nargs"] = action.nargs
                 new_group.add_argument(*action.option_strings, **kwargs)
+
     print(test_parser.format_help())
+    pytest.exit("After displaying help.", returncode=pytest.ExitCode.OK)

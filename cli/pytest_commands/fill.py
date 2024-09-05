@@ -45,24 +45,18 @@ def handle_stdout_flags(args: List[str]) -> List[str]:
     return args
 
 
-def handle_fill_command_flags(
-    fill_args: List[str], help_flag: bool, pytest_help_flag: bool
-) -> List[str]:
+def handle_fill_command_flags(fill_args: List[str]) -> List[str]:
     """
     Handles all fill CLI flag pre-processing.
     """
-    args = handle_help_flags(fill_args, help_flag, pytest_help_flag)
+    args = handle_help_flags(fill_args, pytest_type="fill")
     args = handle_stdout_flags(args)
     return args
 
 
 @click.command(context_settings=dict(ignore_unknown_options=True))
 @common_click_options
-def fill(
-    pytest_args: List[str],
-    help_flag: bool,
-    pytest_help_flag: bool,
-) -> None:
+def fill(pytest_args: List[str], **kwargs) -> None:
     """
     Entry point for the fill command.
     """
@@ -70,8 +64,6 @@ def fill(
         result = pytest.main(
             handle_fill_command_flags(
                 [f"--session-temp-folder={temp_dir}", "--index", *pytest_args],
-                help_flag,
-                pytest_help_flag,
             ),
         )
     sys.exit(result)
