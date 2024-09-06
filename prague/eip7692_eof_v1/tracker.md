@@ -7,10 +7,10 @@
 
 ### Validation
 
-- [x] Empty code is not a valid EOF (`tests/prague/eip7692_eof_v1/eip3540_eof_v1test_container_validation.py::test_invalid_containers -k empty_container`)
-- [x] Valid container without data section (`tests/prague/eip7692_eof_v1/eip3540_eof_v1test_container_validation.py::test_invalid_containers -k single_code_section_no_data_section`)
-- [x] Valid container with data section (`tests/prague/eip7692_eof_v1/eip3540_eof_v1test_container_validation.py::test_valid_containers -k single_code_section_with_data_section`)
-- [x] Valid container with truncated data section (`tests/prague/eip7692_eof_v1/eip3540_eof_v1test_container_validation.py::test_invalid_containers -k data_section_contents_incomplete`, `tests/prague/eip7692_eof_v1/eip3540_eof_v1test_migrated_valid_invalid.py::test_migrated_valid_invalid -k data_section_contents_incomplete`)
+- [x] Empty code is not a valid EOF (`tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_container_validation.py::test_invalid_containers -k empty_container`)
+- [x] Valid container without data section (`tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_container_validation.py::test_invalid_containers -k single_code_section_no_data_section`)
+- [x] Valid container with data section (`tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_container_validation.py::test_valid_containers -k single_code_section_with_data_section`)
+- [x] Valid container with truncated data section (`tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_container_validation.py::test_invalid_containers -k data_section_contents_incomplete`, `tests/prague/eip7692_eof_v1/eip3540_eof_v1test_migrated_valid_invalid.py::test_migrated_valid_invalid -k data_section_contents_incomplete`)
 - [x] Valid container with data section truncated to empty (`tests/prague/eip7692_eof_v1/eip3540_eof_v1test_container_validation.py::test_invalid_containers -k no_data_section_contents`, `tests/prague/eip7692_eof_v1/eip3540_eof_v1test_migrated_valid_invalid.py::test_migrated_valid_invalid -k no_data_section_contents`)
 - [x] Valid containers with multiple code sections (`tests/prague/eip7692_eof_v1/tests/prague/eip7692_eof_v1/eip3540_eof_v1test_container_validation.py::test_valid_containers -k multiple_code_sections`)
 - [x] Valid containers with max number of code sections (`tests/prague/eip7692_eof_v1/eip3540_eof_v1/test_container_validation.py::test_max_code_sections`)
@@ -264,6 +264,7 @@
 - [ ] RETF reached via different paths (ethereum/tests: src/EOFTestsFiller/efStack/retf_stack_validation_Copier.json)
 - [ ] RETF in variable stack segment is not allowed (ethereum/tests: src/EOFTestsFiller/efStack/retf_variable_stack_Copier.json)
 - [ ] Extra items on stack allowed for terminating instructions other than RETF (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
+- [ ] Invalid RETF in a non-returning function
 
 #### JUMPF
 
@@ -275,6 +276,7 @@
 - [ ] JUMPF into function with fewer outputs than current one (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_Copier.json)
 - [ ] Extra items on stack are allowed for JUMPF to returning function (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_Copier.json)
 - [ ] JUMPF to returning in a variable stack segment is not allowed (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_variable_stack_Copier.json)
+- [ ] Invalid JUMPF in a non-returning function
 
 #### Stack overflow
 
@@ -341,6 +343,7 @@
 - [ ] Returning section with JUMPF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
 - [ ] Returning section with JUMPF to returning and RETF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
 - [ ] Returning section with JUMPF to non-returning and RETF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
+- [ ] Returning section without JUMPF not RETF
 - [ ] Invalid non-returning flag (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
 - [ ] Circular JUMPF between two sections (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
 - [ ] JUMPF into non-existing section
@@ -426,10 +429,10 @@
 - [ ] EOFCREATE is not a valid terminating instruction (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_eofcreate_invalid_Copier.json)
 - [ ] EOFCREATE immediate referring to non-existing container (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_eofcreate_invalid_Copier.json)
 - [ ] EOFCREATE immediate referring to container with truncated data (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_eofcreate_invalid_Copier.json)
-- [x] Valid RETURNCONTRACTs referring to various container numbers (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_returncontract_valid_Copier.json)
-- [x] Truncated before RETURNCONTRACT immediate (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_returncontract_invalid_Copier.json)
-- [x] RETURNCONTRACT immediate referring to non-existing container (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_returncontract_invalid_Copier.json)
-- [x] Unreachable code after RETURNCONTRACT, check that RETURNCONTRACT is terminating (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_returncontract_invalid_Copier.json)
+- [x] Valid RETURNCONTRACTs referring to various container numbers (`tests/prague/eip7692_eof_v1/eip7620_eof_create/test_returncontract.py -k test_returncontract_valid_index`)
+- [x] Truncated before RETURNCONTRACT immediate (`tests/prague/eip7692_eof_v1/eip7620_eof_create/test_returncontract.py::test_returncontract_invalid_truncated_immediate`)
+- [x] RETURNCONTRACT immediate referring to non-existing container (`tests/prague/eip7692_eof_v1/eip7620_eof_create/test_returncontract.py -k test_returncontract_invalid_index`)
+- [x] Unreachable code after RETURNCONTRACT, check that RETURNCONTRACT is terminating (`tests/prague/eip7692_eof_v1/eip7620_eof_create/test_returncontract.py::test_returncontract_terminating`)
 
 ### Execution
 
