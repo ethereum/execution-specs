@@ -4704,7 +4704,7 @@ class Opcodes(Opcode, Enum):
     Source: [eips.ethereum.org/EIPS/eip-4200](https://eips.ethereum.org/EIPS/eip-4200)
     """
 
-    DATALOAD = Opcode(0xD0, popped_stack_items=1, kwargs=["offset"])
+    DATALOAD = Opcode(0xD0, popped_stack_items=1, pushed_stack_items=1, kwargs=["offset"])
     """
     !!! Note: This opcode is under development
 
