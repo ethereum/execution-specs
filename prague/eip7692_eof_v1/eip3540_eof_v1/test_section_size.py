@@ -83,6 +83,20 @@ class SectionSize(IntEnum):
             [EOFException.INVALID_SECTION_BODIES_SIZE, EOFException.INVALID_TYPE_SECTION_SIZE],
             id="type_size_max",
         ),
+        pytest.param(SectionKind.CONTAINER, SectionSize.NORMAL, None),
+        pytest.param(SectionKind.CONTAINER, SectionSize.ZERO, EOFException.ZERO_SECTION_SIZE),
+        pytest.param(
+            SectionKind.CONTAINER, SectionSize.UNDERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE
+        ),
+        pytest.param(
+            SectionKind.CONTAINER, SectionSize.OVERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE
+        ),
+        pytest.param(
+            SectionKind.CONTAINER, SectionSize.HUGE, EOFException.INVALID_SECTION_BODIES_SIZE
+        ),
+        pytest.param(
+            SectionKind.CONTAINER, SectionSize.MAX, EOFException.INVALID_SECTION_BODIES_SIZE
+        ),
     ],
 )
 def test_section_size(
@@ -108,16 +122,38 @@ def test_section_size(
     if section_size != SectionSize.NORMAL and section_kind == SectionKind.CODE:
         eof_code.sections.append(
             Section.Code(
-                code=Op.ADDRESS + Op.POP + Op.STOP,
-                max_stack_height=1,
+                code=Op.ADDRESS + Op.POP + Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
                 custom_size=section_size,
             )
         )
     else:
         eof_code.sections.append(
             Section.Code(
-                code=Op.ADDRESS + Op.POP + Op.STOP,
-                max_stack_height=1,
+                code=Op.ADDRESS + Op.POP + Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
+            )
+        )
+
+    if section_size != SectionSize.NORMAL and section_kind == SectionKind.CONTAINER:
+        eof_code.sections.append(
+            Section.Container(
+                container=Container(
+                    sections=[
+                        Section.Code(Op.RETURNCONTRACT[0](0, 0)),
+                        Section.Container(container=Container(sections=[Section.Code(Op.STOP)])),
+                    ]
+                ),
+                custom_size=section_size,
+            )
+        )
+    else:
+        eof_code.sections.append(
+            Section.Container(
+                container=Container(
+                    sections=[
+                        Section.Code(Op.RETURNCONTRACT[0](0, 0)),
+                        Section.Container(container=Container(sections=[Section.Code(Op.STOP)])),
+                    ]
+                ),
             )
         )
 
@@ -125,7 +161,6 @@ def test_section_size(
         eof_code.sections.append(Section.Data("0x00daaa", custom_size=section_size))
     else:
         eof_code.sections.append(Section.Data("0x00aaaa"))
-
     eof_test(
         data=eof_code,
         expect_exception=exception,
