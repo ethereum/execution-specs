@@ -18,6 +18,7 @@ from ...fork_types import Address
 from ...state import (
     account_exists_and_is_empty,
     account_has_code_or_nonce,
+    account_has_storage,
     get_account,
     increment_nonce,
     is_account_alive,
@@ -100,7 +101,9 @@ def generic_create(
         push(evm.stack, U256(0))
         return
 
-    if account_has_code_or_nonce(evm.env.state, contract_address):
+    if account_has_code_or_nonce(
+        evm.env.state, contract_address
+    ) or account_has_storage(evm.env.state, contract_address):
         increment_nonce(evm.env.state, evm.message.current_target)
         push(evm.stack, U256(0))
         return

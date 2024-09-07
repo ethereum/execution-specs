@@ -16,6 +16,7 @@ from ethereum.base_types import U256, Bytes0, Uint
 from ...fork_types import Address
 from ...state import (
     account_has_code_or_nonce,
+    account_has_storage,
     get_account,
     increment_nonce,
     set_account_balance,
@@ -85,7 +86,9 @@ def create(evm: Evm) -> None:
     ):
         push(evm.stack, U256(0))
         evm.gas_left += create_message_gas
-    elif account_has_code_or_nonce(evm.env.state, contract_address):
+    elif account_has_code_or_nonce(
+        evm.env.state, contract_address
+    ) or account_has_storage(evm.env.state, contract_address):
         increment_nonce(evm.env.state, evm.message.current_target)
         push(evm.stack, U256(0))
     else:
