@@ -315,8 +315,8 @@ def generic_call(
         push(evm.stack, U256(1))
         return
     eof_version = get_eof_version(code)
-    if eof_version == Eof.LEGACY:
-        is_init_container = None
+    if eof_version == EofVersion.LEGACY:
+        eof = None
     else:
         metadata = metadata_from_container(
             code,
@@ -335,7 +335,7 @@ def generic_call(
         gas=gas,
         value=value,
         data=call_data,
-        container=code,
+        code=code,
         current_target=to,
         depth=evm.message.depth + 1,
         code_address=code_address,
@@ -898,6 +898,7 @@ def generic_eof_call(
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         parent_evm=evm,
+        authorizations=(),
         eof=eof,
     )
     child_evm = process_message(child_message, evm.env)
@@ -1117,6 +1118,8 @@ def eof_create(evm: Evm) -> None:
     charge_gas(evm, GAS_CREATE + extend_memory.cost + init_code_gas)
 
     # OPERATION
+    if evm.message.is_static:
+        raise WriteInStaticContext("EOFCREATE in static mode")
     evm.memory += b"\x00" * extend_memory.expand_by
 
     sender_address = evm.message.current_target
@@ -1173,6 +1176,7 @@ def eof_create(evm: Evm) -> None:
             accessed_addresses=evm.accessed_addresses.copy(),
             accessed_storage_keys=evm.accessed_storage_keys.copy(),
             parent_evm=evm,
+            authorizations=(),
             eof=eof,
         )
         child_evm = process_create_message(child_message, evm.env)

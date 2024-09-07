@@ -42,7 +42,6 @@ from ..state import (
     set_code,
     touch_account,
 )
-from ..vm import Message
 from ..vm.eoa_delegation import set_delegation
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
