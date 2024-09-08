@@ -26,7 +26,7 @@ from ..base_types import U64, U256, Bytes, Uint
 from . import vm
 from .blocks import Block, Header, Log, Receipt, Withdrawal, encode_receipt
 from .bloom import logs_bloom
-from .fork_types import Address, Bloom, Root, VersionedHash
+from .fork_types import Address, Authorization, Bloom, Root, VersionedHash
 from .requests import (
     parse_consolidation_requests_from_system_tx,
     parse_deposit_requests_from_receipt,
@@ -55,6 +55,7 @@ from .transactions import (
     BlobTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
+    SetCodeTransaction,
     Transaction,
     decode_transaction,
     encode_transaction,
@@ -63,6 +64,7 @@ from .trie import Trie, root, trie_set
 from .utils.hexadecimal import hex_to_address
 from .utils.message import prepare_message
 from .vm import Message
+from .vm.eoa_delegation import PER_EMPTY_ACCOUNT_COST, is_valid_delegation
 from .vm.gas import (
     calculate_blob_gas_price,
     calculate_data_fee,
@@ -407,7 +409,9 @@ def check_transaction(
 
     sender_account = get_account(state, sender_address)
 
-    if isinstance(tx, (FeeMarketTransaction, BlobTransaction)):
+    if isinstance(
+        tx, (FeeMarketTransaction, BlobTransaction, SetCodeTransaction)
+    ):
         if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
             raise InvalidBlock
         if tx.max_fee_per_gas < base_fee_per_gas:
@@ -426,8 +430,6 @@ def check_transaction(
         max_gas_fee = tx.gas * tx.gas_price
 
     if isinstance(tx, BlobTransaction):
-        if not isinstance(tx.to, Address):
-            raise InvalidBlock
         if len(tx.blob_versioned_hashes) == 0:
             raise InvalidBlock
         for blob_versioned_hash in tx.blob_versioned_hashes:
@@ -441,11 +443,22 @@ def check_transaction(
         blob_versioned_hashes = tx.blob_versioned_hashes
     else:
         blob_versioned_hashes = ()
+
+    if isinstance(tx, (BlobTransaction, SetCodeTransaction)):
+        if not isinstance(tx.to, Address):
+            raise InvalidBlock
+
+    if isinstance(tx, SetCodeTransaction):
+        if not any(tx.authorizations):
+            raise InvalidBlock
+
     if sender_account.nonce != tx.nonce:
         raise InvalidBlock
     if sender_account.balance < max_gas_fee + tx.value:
         raise InvalidBlock
-    if sender_account.code != bytearray():
+    if sender_account.code != bytearray() and not is_valid_delegation(
+        sender_account.code
+    ):
         raise InvalidBlock
 
     return sender_address, effective_gas_price, blob_versioned_hashes
@@ -589,6 +602,7 @@ def process_system_transaction(
         accessed_addresses=set(),
         accessed_storage_keys=set(),
         parent_evm=None,
+        authorizations=(),
     )
 
     system_tx_env = vm.Environment(
@@ -919,12 +933,22 @@ def process_transaction(
     preaccessed_storage_keys = set()
     preaccessed_addresses.add(env.coinbase)
     if isinstance(
-        tx, (AccessListTransaction, FeeMarketTransaction, BlobTransaction)
+        tx,
+        (
+            AccessListTransaction,
+            FeeMarketTransaction,
+            BlobTransaction,
+            SetCodeTransaction,
+        ),
     ):
         for address, keys in tx.access_list:
             preaccessed_addresses.add(address)
             for key in keys:
                 preaccessed_storage_keys.add((address, key))
+
+    authorizations: Tuple[Authorization, ...] = ()
+    if isinstance(tx, SetCodeTransaction):
+        authorizations = tx.authorizations
 
     message = prepare_message(
         sender,
@@ -935,6 +959,7 @@ def process_transaction(
         env,
         preaccessed_addresses=frozenset(preaccessed_addresses),
         preaccessed_storage_keys=frozenset(preaccessed_storage_keys),
+        authorizations=authorizations,
     )
 
     output = process_message_call(message, env)
@@ -1014,13 +1039,25 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
 
     access_list_cost = 0
     if isinstance(
-        tx, (AccessListTransaction, FeeMarketTransaction, BlobTransaction)
+        tx,
+        (
+            AccessListTransaction,
+            FeeMarketTransaction,
+            BlobTransaction,
+            SetCodeTransaction,
+        ),
     ):
         for _address, keys in tx.access_list:
             access_list_cost += TX_ACCESS_LIST_ADDRESS_COST
             access_list_cost += len(keys) * TX_ACCESS_LIST_STORAGE_KEY_COST
 
-    return Uint(TX_BASE_COST + data_cost + create_cost + access_list_cost)
+    auth_cost = 0
+    if isinstance(tx, SetCodeTransaction):
+        auth_cost += PER_EMPTY_ACCOUNT_COST * len(tx.authorizations)
+
+    return Uint(
+        TX_BASE_COST + data_cost + create_cost + access_list_cost + auth_cost
+    )
 
 
 def recover_sender(chain_id: U64, tx: Transaction) -> Address:
@@ -1075,6 +1112,10 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
         elif isinstance(tx, BlobTransaction):
             public_key = secp256k1_recover(
                 r, s, tx.y_parity, signing_hash_4844(tx)
+            )
+        elif isinstance(tx, SetCodeTransaction):
+            public_key = secp256k1_recover(
+                r, s, tx.y_parity, signing_hash_7702(tx)
             )
     except InvalidSignature as e:
         raise InvalidBlock from e
@@ -1235,6 +1276,39 @@ def signing_hash_4844(tx: BlobTransaction) -> Hash32:
                 tx.access_list,
                 tx.max_fee_per_blob_gas,
                 tx.blob_versioned_hashes,
+            )
+        )
+    )
+
+
+def signing_hash_7702(tx: SetCodeTransaction) -> Hash32:
+    """
+    Compute the hash of a transaction used in a EIP-7702 signature.
+
+    Parameters
+    ----------
+    tx :
+        Transaction of interest.
+
+    Returns
+    -------
+    hash : `ethereum.crypto.hash.Hash32`
+        Hash of the transaction.
+    """
+    return keccak256(
+        b"\x04"
+        + rlp.encode(
+            (
+                tx.chain_id,
+                tx.nonce,
+                tx.max_priority_fee_per_gas,
+                tx.max_fee_per_gas,
+                tx.gas,
+                tx.to,
+                tx.value,
+                tx.data,
+                tx.access_list,
+                tx.authorizations,
             )
         )
     )

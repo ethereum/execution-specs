@@ -16,6 +16,7 @@ from dataclasses import dataclass
 
 from .. import rlp
 from ..base_types import (
+    U64,
     U256,
     Bytes,
     Bytes20,
@@ -66,3 +67,18 @@ def encode_account(raw_account_data: Account, storage_root: Bytes) -> Bytes:
             keccak256(raw_account_data.code),
         )
     )
+
+
+@slotted_freezable
+@dataclass
+class Authorization:
+    """
+    The authorization for a set code transaction.
+    """
+
+    chain_id: U64
+    address: Address
+    nonce: U64
+    y_parity: U256
+    r: U256
+    s: U256

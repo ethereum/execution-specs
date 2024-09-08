@@ -6,6 +6,8 @@ transactions are the events that move between states.
 from dataclasses import dataclass
 from typing import Tuple, Union
 
+from ethereum.exceptions import InvalidBlock
+
 from .. import rlp
 from ..base_types import (
     U64,
@@ -16,8 +18,7 @@ from ..base_types import (
     Uint,
     slotted_freezable,
 )
-from ..exceptions import InvalidBlock
-from .fork_types import Address, VersionedHash
+from .fork_types import Address, Authorization, VersionedHash
 
 TX_BASE_COST = 21000
 TX_DATA_COST_PER_NON_ZERO = 16
@@ -109,11 +110,34 @@ class BlobTransaction:
     s: U256
 
 
+@slotted_freezable
+@dataclass
+class SetCodeTransaction:
+    """
+    The transaction type added in EIP-7702.
+    """
+
+    chain_id: U64
+    nonce: U64
+    max_priority_fee_per_gas: Uint
+    max_fee_per_gas: Uint
+    gas: Uint
+    to: Address
+    value: U256
+    data: Bytes
+    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    authorizations: Tuple[Authorization, ...]
+    y_parity: U256
+    r: U256
+    s: U256
+
+
 Transaction = Union[
     LegacyTransaction,
     AccessListTransaction,
     FeeMarketTransaction,
     BlobTransaction,
+    SetCodeTransaction,
 ]
 
 
@@ -129,6 +153,8 @@ def encode_transaction(tx: Transaction) -> Union[LegacyTransaction, Bytes]:
         return b"\x02" + rlp.encode(tx)
     elif isinstance(tx, BlobTransaction):
         return b"\x03" + rlp.encode(tx)
+    elif isinstance(tx, SetCodeTransaction):
+        return b"\x04" + rlp.encode(tx)
     else:
         raise Exception(f"Unable to encode transaction of type {type(tx)}")
 
@@ -144,6 +170,8 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
             return rlp.decode_to(FeeMarketTransaction, tx[1:])
         elif tx[0] == 3:
             return rlp.decode_to(BlobTransaction, tx[1:])
+        elif tx[0] == 4:
+            return rlp.decode_to(SetCodeTransaction, tx[1:])
         else:
             raise InvalidBlock
     else:

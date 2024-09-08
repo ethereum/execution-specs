@@ -42,6 +42,7 @@ from ..state import (
     touch_account,
 )
 from ..vm import Message
+from ..vm.eoa_delegation import set_delegation
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from . import Environment, Evm
@@ -106,6 +107,7 @@ def process_message_call(
     output : `MessageCallOutput`
         Output of the message call
     """
+    refund_counter = U256(0)
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
             env.state, message.current_target
@@ -123,6 +125,8 @@ def process_message_call(
         else:
             evm = process_create_message(message, env)
     else:
+        if message.authorizations != set():
+            refund_counter += set_delegation(message, env)
         evm = process_message(message, env)
         if account_exists_and_is_empty(env.state, Address(message.target)):
             evm.touched_accounts.add(Address(message.target))
@@ -131,12 +135,11 @@ def process_message_call(
         logs: Tuple[Log, ...] = ()
         accounts_to_delete = set()
         touched_accounts = set()
-        refund_counter = U256(0)
     else:
         logs = evm.logs
         accounts_to_delete = evm.accounts_to_delete
         touched_accounts = evm.touched_accounts
-        refund_counter = U256(evm.refund_counter)
+        refund_counter += U256(evm.refund_counter)
 
     tx_end = TransactionEnd(message.gas - evm.gas_left, evm.output, evm.error)
     evm_trace(evm, tx_end)

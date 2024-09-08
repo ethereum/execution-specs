@@ -143,6 +143,11 @@ class ForkLoad:
         return self._module("fork").signing_hash_1559
 
     @property
+    def signing_hash_7702(self) -> Any:
+        """signing_hash_7702 function of the fork"""
+        return self._module("fork").signing_hash_7702
+
+    @property
     def signing_hash_4844(self) -> Any:
         """signing_hash_4844 function of the fork"""
         return self._module("fork").signing_hash_4844
@@ -245,6 +250,11 @@ class ForkLoad:
     def BlobTransaction(self) -> Any:
         """Blob transaction class of the fork"""
         return self._module("transactions").BlobTransaction
+
+    @property
+    def SetCodeTransaction(self) -> Any:
+        """Set code transaction class of the fork"""
+        return self._module("transactions").SetCodeTransaction
 
     @property
     def Withdrawal(self) -> Any:
@@ -360,6 +370,11 @@ class ForkLoad:
     def Message(self) -> Any:
         """Message class of the fork"""
         return self._module("vm").Message
+
+    @property
+    def Authorization(self) -> Any:
+        """Authorization class of the fork"""
+        return self._module("vm.eoa_delegation").Authorization
 
     @property
     def TARGET_BLOB_GAS_PER_BLOCK(self) -> Any:
