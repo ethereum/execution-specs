@@ -324,7 +324,7 @@ class T8N(Load):
             requests_from_execution: Tuple[Bytes, ...] = ()
 
             self.fork.process_system_transaction(
-                self.fork.HISTORY_SERVE_WINDOW,
+                self.fork.HISTORY_STORAGE_ADDRESS,
                 self.env.parent_hash,
                 self.env.block_hashes,
                 self.env.coinbase,
