@@ -29,6 +29,10 @@ def daemon_arguments(subparsers: argparse._SubParsersAction) -> None:
 
 
 class _EvmToolHandler(BaseHTTPRequestHandler):
+    def log_request(self, *args):
+        """Don't log requests"""
+        pass
+
     def do_POST(self) -> None:
         from . import main
 
