@@ -316,20 +316,27 @@ class T8N(Load):
         receipts_trie = self.fork.Trie(secured=False, default=None)
         block_logs = ()
         blob_gas_used = Uint(0)
-        if self.fork.is_after_fork("ethereum.prague"):
+        if (
+            self.fork.is_after_fork("ethereum.prague")
+            and not self.options.state_test
+        ):
             requests_trie = self.fork.Trie(secured=False, default=None)
             requests_from_execution: Tuple[Bytes, ...] = ()
 
-            if not self.options.state_test:
-                self.fork.set_storage(
-                    self.alloc.state,
-                    self.fork.HISTORY_STORAGE_ADDRESS,
-                    (
-                        (self.env.block_number - 1)
-                        % self.fork.HISTORY_SERVE_WINDOW
-                    ).to_be_bytes32(),
-                    U256.from_be_bytes(self.env.parent_hash),
-                )
+            self.fork.process_system_transaction(
+                self.fork.HISTORY_SERVE_WINDOW,
+                self.env.parent_hash,
+                self.env.block_hashes,
+                self.env.coinbase,
+                self.env.block_number,
+                self.env.base_fee_per_gas,
+                self.env.block_gas_limit,
+                self.env.block_timestamp,
+                self.env.prev_randao,
+                self.alloc.state,
+                self.chain_id,
+                self.env.excess_blob_gas,
+            )
 
         if (
             self.fork.is_after_fork("ethereum.cancun")
