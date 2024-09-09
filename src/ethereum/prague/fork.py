@@ -41,7 +41,6 @@ from .state import (
     increment_nonce,
     process_withdrawal,
     set_account_balance,
-    set_storage,
     state_root,
 )
 from .transactions import (
@@ -203,13 +202,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     validate_header(block.header, parent_header)
     if block.ommers != ():
         raise InvalidBlock
-
-    set_storage(
-        chain.state,
-        HISTORY_STORAGE_ADDRESS,
-        ((block.header.number - 1) % HISTORY_SERVE_WINDOW).to_be_bytes32(),
-        U256.from_be_bytes(block.header.parent_hash),
-    )
 
     apply_body_output = apply_body(
         chain.state,
@@ -716,6 +708,21 @@ def apply_body(
     process_system_transaction(
         BEACON_ROOTS_ADDRESS,
         parent_beacon_block_root,
+        block_hashes,
+        coinbase,
+        block_number,
+        base_fee_per_gas,
+        block_gas_limit,
+        block_time,
+        prev_randao,
+        state,
+        chain_id,
+        excess_blob_gas,
+    )
+
+    process_system_transaction(
+        HISTORY_STORAGE_ADDRESS,
+        block_hashes[-1],  # The parent hash
         block_hashes,
         coinbase,
         block_number,
