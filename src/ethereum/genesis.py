@@ -115,9 +115,7 @@ def get_genesis_configuration(genesis_file: str) -> GenesisConfiguration:
 
 def hex_or_base_10_str_to_u256(balance: str) -> U256:
     """
-    Convert a string in either hexadecimal or base-10 to a [`U256`].
-
-    [`U256`]: ref:ethereum.base_types.U256
+    Convert a string in either hexadecimal or base-10 to a `U256`.
     """
     if balance.startswith("0x"):
         return hex_to_u256(balance)
