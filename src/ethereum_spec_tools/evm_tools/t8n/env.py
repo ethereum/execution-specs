@@ -61,6 +61,12 @@ class Env:
             with open(t8n.options.input_env, "r") as f:
                 data = json.load(f)
 
+        if "parentHash" not in data:
+            # Sometimes we are given a state test without the --state-test
+            # flag being set. This hack detects those cases and treats them
+            # as state tests.
+            t8n.options.state_test = True
+
         self.coinbase = t8n.fork.hex_to_address(data["currentCoinbase"])
         self.block_gas_limit = parse_hex_or_int(data["currentGasLimit"], Uint)
         self.block_number = parse_hex_or_int(data["currentNumber"], Uint)
