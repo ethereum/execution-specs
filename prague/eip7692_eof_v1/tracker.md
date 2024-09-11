@@ -155,6 +155,8 @@
 - [ ] Truncated CALLF immediate (ethereum/tests: ./src/EOFTestsFiller/efValidation/EOF1_callf_truncated_Copier.json src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
 - [ ] Unreachable code sections (ethereum/tests: src/EOFTestsFiller/efValidation/unreachable_code_sections_Copier.json)
 - [ ] Sections reachable from other sections, but not reachable from section 0 (ethereum/tests: src/EOFTestsFiller/efValidation/unreachable_code_sections_Copier.json)
+- [ ] Unreachable code section that calls itself with JUMPF
+- [ ] Unreachable code section that calls itself with CALLF
 - [ ] RETF with maximum number of outputs (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
 
 ### Execution
@@ -264,7 +266,7 @@
 - [ ] RETF reached via different paths (ethereum/tests: src/EOFTestsFiller/efStack/retf_stack_validation_Copier.json)
 - [ ] RETF in variable stack segment is not allowed (ethereum/tests: src/EOFTestsFiller/efStack/retf_variable_stack_Copier.json)
 - [ ] Extra items on stack allowed for terminating instructions other than RETF (ethereum/tests: src/EOFTestsFiller/EIP5450/validInvalidFiller.yml)
-- [ ] Invalid RETF in a non-returning function
+- [x] Invalid RETF in a non-returning function (`tests/prague/eip7692_eof_v1/eip6206_jumpf/test_nonretruning_validation.py::test_first_section_returning_code`)
 
 #### JUMPF
 
@@ -276,7 +278,7 @@
 - [ ] JUMPF into function with fewer outputs than current one (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_Copier.json)
 - [ ] Extra items on stack are allowed for JUMPF to returning function (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_Copier.json)
 - [ ] JUMPF to returning in a variable stack segment is not allowed (ethereum/tests: src/EOFTestsFiller/efStack/jumpf_to_returning_variable_stack_Copier.json)
-- [ ] Invalid JUMPF in a non-returning function
+- [x] Invalid JUMPF in a non-returning function (`tests/prague/eip7692_eof_v1/eip6206_jumpf/test_nonretruning_validation.py::test_retf_in_nonreturning`)
 
 #### Stack overflow
 
@@ -331,19 +333,19 @@
 
 ### Validation
 
-- [ ] Zero section returning (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
-- [ ] Zero section declared non-returning but ends with RETF (ethereum/tests: src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
+- [x] Zero section returning (`tests/prague/eip7692_eof_v1/eip6206_jumpf/test_nonretruning_validation.py::test_first_section_returning` ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
+- [x] Zero section declared non-returning but ends with RETF (`tests/prague/eip7692_eof_v1/eip6206_jumpf/test_nonretruning_validation.py::test_retf_in_nonreturning` ethereum/tests: src/EOFTestsFiller/EIP4750/validInvalidFiller.yml)
 - [ ] CALLF into non-returning function (ethereum/tests: src/EOFTestsFiller/efValidation/callf_into_nonreturning_Copier.json)
 - [ ] Valid JUMPF into sections with equal number of outputs (ethereum/tests: src/EOFTestsFiller/efValidation/jumpf_equal_outputs_Copier.json)
 - [ ] Valid JUMPF into sections with different but compatible number of outputs (ethereum/tests: src/EOFTestsFiller/efValidation/jumpf_compatible_outputs_Copier.json)
 - [ ] JUMPF into sections with incompatible outputs (ethereum/tests: src/EOFTestsFiller/efValidation/jumpf_incompatible_outputs_Copier.json)
 - [ ] Non-returning section without JUMPF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
-- [ ] Non-returning section with JUMPF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
+- [x] Non-returning section with JUMPF (`tests/prague/eip7692_eof_v1/eip6206_jumpf/test_nonretruning_validation.py::test_jumpf_in_nonreturning` ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
 - [ ] Returning section with RETF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
 - [ ] Returning section with JUMPF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
 - [ ] Returning section with JUMPF to returning and RETF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
 - [ ] Returning section with JUMPF to non-returning and RETF (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
-- [ ] Returning section without JUMPF not RETF
+- [x] Returning section without JUMPF nor RETF (`tests/prague/eip7692_eof_v1/eip6206_jumpf/test_nonretruning_validation.py::test_returning_section_not_returning`)
 - [ ] Invalid non-returning flag (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
 - [ ] Circular JUMPF between two sections (ethereum/tests: src/EOFTestsFiller/efValidation/non_returning_status_Copier.json)
 - [ ] JUMPF into non-existing section
