@@ -911,6 +911,17 @@ class Bytes64(FixedBytes):
     """
 
 
+class Bytes96(FixedBytes):
+    """
+    Byte array of exactly 96 elements.
+    """
+
+    LENGTH = 96
+    """
+    Number of bytes in each instance of this class.
+    """
+
+
 class Bytes256(FixedBytes):
     """
     Byte array of exactly 256 elements.
