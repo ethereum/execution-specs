@@ -77,5 +77,5 @@ unshipped EIPs, even withdrawn and non-viable proposals.
 | [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480)                    | 0xD2   | DATASIZE           | Size of the EOF data section                                                 |
 | [EIP-7480](https://eips.ethereum.org/EIPS/eip-7480)                    | 0xD3   | DATACOPY           | Bulk data section copy                                                       |
 | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xEC   | EOFCREATE          | Create from EOF contained initcode                                           |
-| [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xED   | TXCREATE           | Create from transaction contained initcode                                   |
+| [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xED   | TXCREATE           | Create from transaction contained initcode (removed from EIP-7620)           |
 | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                    | 0xEE   | RETURNCONTRACT     | Contract to be created, references EOF data                                  |
