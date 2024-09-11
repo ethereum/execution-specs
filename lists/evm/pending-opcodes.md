@@ -25,7 +25,6 @@ next or subsequent hard fork.
 |   0xE7   | SWAPN           | Unlimited swap                                  | [EIP-663](https://eips.ethereum.org/EIPS/eip-663)                            |
 |   0xE8   | EXCHANGE        | Deep swap                                       | [EIP-663](https://eips.ethereum.org/EIPS/eip-663)                            |
 |   0xEC   | EOFCREATE       | Create from EOF contained initcode              | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                          |
-|   0xED   | TXCREATE        | Create from transaction contained initcode      | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                          |
 |   0xEE   | RETURNCONTRACT  | Contract to be created, references EOF data     | [EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)                          |
 |   0xEF   | -               | Reserved for EOF compatibility                  | [EIP-3540](https://eips.ethereum.org/EIPS/eip-3540)                          |
 |   0xF6   | PAY             | transfers value from caller to target           | [EIP-5920](https://eips.ethereum.org/EIPS/eip-5920)                          |
@@ -286,7 +285,7 @@ scheduled or accepted) are in *italics*.
 | 0xEA   |                  |                         |                  |                                                                                |
 | 0xEB   |                  |                         |                  |                                                                                |
 | *0xEC* | *EOFCREATE*      | *EOF*                   | *????*           | *[EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)*                          |
-| *0xED* | *TXCREATE*       | *EOF*                   | *????*           | *[EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)*                          |
+| 0xED   |                  |                         |                  |                                                                                |
 | *0xEE* | *RETURNCONTRACT* | *EOF*                   | *????*           | *[EIP-7620](https://eips.ethereum.org/EIPS/eip-7620)*                          |
 | *0xEF* | *-RESERVED-*     | *EOF*                   | *????*           | *[EIP-3540](https://eips.ethereum.org/EIPS/eip-3540)*                          |
 | 0xF0   | CREATE           | System                  |                  |                                                                                |
