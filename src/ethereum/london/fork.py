@@ -62,7 +62,7 @@ ELASTICITY_MULTIPLIER = Uint(2)
 GAS_LIMIT_ADJUSTMENT_FACTOR = Uint(1024)
 GAS_LIMIT_MINIMUM = Uint(5000)
 MINIMUM_DIFFICULTY = Uint(131072)
-INITIAL_BASE_FEE = 1000000000
+INITIAL_BASE_FEE = Uint(1000000000)
 MAX_OMMER_DEPTH = Uint(6)
 BOMB_DELAY_BLOCKS = 9700000
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
@@ -204,7 +204,6 @@ def calculate_base_fee_per_gas(
     parent_gas_limit: Uint,
     parent_gas_used: Uint,
     parent_base_fee_per_gas: Uint,
-    is_fork_block: bool,
 ) -> Uint:
     """
     Calculates the base fee per gas for the block.
@@ -219,16 +218,12 @@ def calculate_base_fee_per_gas(
         Gas used in the parent block.
     parent_base_fee_per_gas :
         Base fee per gas of the parent block.
-    is_fork_block :
-        Whether the block is the fork block.
 
     Returns
     -------
     base_fee_per_gas : `Uint`
         Base fee per gas for the block.
     """
-    if is_fork_block:
-        return Uint(INITIAL_BASE_FEE)
     parent_gas_target = parent_gas_limit // ELASTICITY_MULTIPLIER
     if not check_gas_limit(block_gas_limit, parent_gas_limit):
         raise InvalidBlock
@@ -287,14 +282,17 @@ def validate_header(header: Header, parent_header: Header) -> None:
     if header.gas_used > header.gas_limit:
         raise InvalidBlock
 
-    is_fork_block = header.number == FORK_CRITERIA.block_number
-    expected_base_fee_per_gas = calculate_base_fee_per_gas(
-        header.gas_limit,
-        parent_header.gas_limit,
-        parent_header.gas_used,
-        parent_header.base_fee_per_gas,
-        is_fork_block,
-    )
+    expected_base_fee_per_gas = INITIAL_BASE_FEE
+    if header.number != FORK_CRITERIA.block_number:
+        # For every block except the first, calculate the base fee per gas
+        # based on the parent block.
+        expected_base_fee_per_gas = calculate_base_fee_per_gas(
+            header.gas_limit,
+            parent_header.gas_limit,
+            parent_header.gas_used,
+            parent_header.base_fee_per_gas,
+        )
+
     if expected_base_fee_per_gas != header.base_fee_per_gas:
         raise InvalidBlock
 
