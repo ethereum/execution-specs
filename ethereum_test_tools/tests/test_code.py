@@ -636,6 +636,7 @@ def test_switch(tx_data: bytes, switch_bytecode: bytes, expected_storage: Mappin
         post=post,
     )
     state_test.generate(
+        request=None,  # type: ignore
         t8n=GethTransitionTool(),
         fork=Cancun,
         fixture_format=FixtureFormats.BLOCKCHAIN_TEST,

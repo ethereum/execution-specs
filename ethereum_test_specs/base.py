@@ -9,6 +9,7 @@ from os import path
 from pathlib import Path
 from typing import Callable, ClassVar, Dict, Generator, Iterator, List, Optional
 
+import pytest
 from pydantic import BaseModel, Field
 
 from ethereum_test_base_types import to_hex
@@ -78,6 +79,7 @@ class BaseTest(BaseModel):
     def generate(
         self,
         *,
+        request: pytest.FixtureRequest,
         t8n: TransitionTool,
         fork: Fork,
         fixture_format: FixtureFormats,

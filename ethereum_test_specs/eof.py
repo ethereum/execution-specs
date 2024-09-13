@@ -7,8 +7,9 @@ import warnings
 from pathlib import Path
 from shutil import which
 from subprocess import CompletedProcess
-from typing import Any, Callable, ClassVar, Generator, List, Optional, Type
+from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Type
 
+import pytest
 from pydantic import Field, model_validator
 
 from ethereum_test_base_types import Account, Bytes
@@ -23,6 +24,8 @@ from evm_transition_tool import TransitionTool
 
 from .base import BaseTest
 from .state import StateTest
+
+existing_tests: Dict[Bytes, str] = {}
 
 
 class EOFBaseException(Exception):
@@ -186,12 +189,18 @@ class EOFTest(BaseTest):
     def make_eof_test_fixture(
         self,
         *,
+        request: pytest.FixtureRequest,
         fork: Fork,
         eips: Optional[List[int]],
     ) -> Fixture:
         """
         Generate the EOF test fixture.
         """
+        if self.data in existing_tests:
+            pytest.fail(
+                f"Duplicate EOF test: {self.data}, existing test: {existing_tests[self.data]}"
+            )
+        existing_tests[self.data] = request.node.nodeid
         vectors = [
             Vector(
                 code=self.data,
@@ -259,6 +268,7 @@ class EOFTest(BaseTest):
     def generate(
         self,
         *,
+        request: pytest.FixtureRequest,
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
@@ -269,7 +279,7 @@ class EOFTest(BaseTest):
         Generate the BlockchainTest fixture.
         """
         if fixture_format == FixtureFormats.EOF_TEST:
-            return self.make_eof_test_fixture(fork=fork, eips=eips)
+            return self.make_eof_test_fixture(request=request, fork=fork, eips=eips)
 
         raise Exception(f"Unknown fixture format: {fixture_format}")
 
@@ -358,6 +368,7 @@ class EOFStateTest(EOFTest):
     def generate(
         self,
         *,
+        request: pytest.FixtureRequest,
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
@@ -368,14 +379,18 @@ class EOFStateTest(EOFTest):
         Generate the BlockchainTest fixture.
         """
         if fixture_format == FixtureFormats.EOF_TEST:
-            return self.make_eof_test_fixture(fork=fork, eips=eips)
+            if self.data in existing_tests:
+                # Gracefully skip duplicate tests because one EOFStateTest can generate multiple
+                # state fixtures with the same data.
+                pytest.skip(f"Duplicate EOF container on EOFStateTest: {request.node.nodeid}")
+            return self.make_eof_test_fixture(request=request, fork=fork, eips=eips)
         elif fixture_format in (
             FixtureFormats.STATE_TEST,
             FixtureFormats.BLOCKCHAIN_TEST,
             FixtureFormats.BLOCKCHAIN_TEST_ENGINE,
         ):
             return self.generate_state_test().generate(
-                t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
+                request=request, t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
             )
 
         raise Exception(f"Unknown fixture format: {fixture_format}")

@@ -5,6 +5,7 @@ Ethereum blockchain test spec definition and filler.
 from pprint import pprint
 from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Tuple, Type
 
+import pytest
 from pydantic import ConfigDict, Field, field_validator
 
 from ethereum_test_base_types import (
@@ -714,6 +715,7 @@ class BlockchainTest(BaseTest):
 
     def generate(
         self,
+        request: pytest.FixtureRequest,
         t8n: TransitionTool,
         fork: Fork,
         fixture_format: FixtureFormats,

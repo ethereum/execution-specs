@@ -4,6 +4,8 @@ Ethereum state test spec definition and filler.
 
 from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Type
 
+import pytest
+
 from ethereum_test_exceptions import EngineAPIError
 from ethereum_test_fixtures import BaseFixture, FixtureFormats
 from ethereum_test_fixtures.state import (
@@ -161,6 +163,7 @@ class StateTest(BaseTest):
 
     def generate(
         self,
+        request: pytest.FixtureRequest,
         t8n: TransitionTool,
         fork: Fork,
         fixture_format: FixtureFormats,
@@ -171,7 +174,7 @@ class StateTest(BaseTest):
         """
         if fixture_format in BlockchainTest.supported_fixture_formats:
             return self.generate_blockchain_test().generate(
-                t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
+                request=request, t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
             )
         elif fixture_format == FixtureFormats.STATE_TEST:
             return self.make_state_test_fixture(t8n, fork, eips)

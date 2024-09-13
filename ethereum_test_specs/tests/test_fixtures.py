@@ -91,7 +91,12 @@ def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
         post={},
         blocks=[],
         tag="some_state_test",
-    ).generate(t8n, fork, fixture_format=FixtureFormats.BLOCKCHAIN_TEST)
+    ).generate(
+        request=None,  # type: ignore
+        t8n=t8n,
+        fork=fork,
+        fixture_format=FixtureFormats.BLOCKCHAIN_TEST,
+    )
     assert isinstance(fixture, BlockchainFixture)
     assert fixture.genesis is not None
 
@@ -154,6 +159,7 @@ def test_fill_state_test(
         tx=tx,
         tag="my_chain_id_test",
     ).generate(
+        request=None,  # type: ignore
         t8n=t8n,
         fork=fork,
         fixture_format=fixture_format,
@@ -486,6 +492,7 @@ class TestFillBlockchainValidTxs:
             genesis_environment=genesis_environment,
             tag="my_blockchain_test_valid_txs",
         ).generate(
+            request=None,  # type: ignore
             t8n=t8n,
             fork=fork,
             fixture_format=fixture_format,
@@ -868,6 +875,7 @@ def test_fill_blockchain_invalid_txs(fork: Fork, check_hive: bool, expected_json
         blocks=blocks,
         genesis_environment=genesis_environment,
     ).generate(
+        request=None,  # type: ignore
         t8n=t8n,
         fork=fork,
         fixture_format=fixture_format,
