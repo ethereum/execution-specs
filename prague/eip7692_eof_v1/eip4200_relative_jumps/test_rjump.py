@@ -41,28 +41,6 @@ def test_rjump_positive_negative(
     )
 
 
-def test_rjump_positive_negative_with_data(
-    eof_state_test: EOFStateTestFiller,
-):
-    """EOF1V4200_0001 (Valid) EOF code containing RJUMP (Positive, Negative)"""
-    eof_state_test(
-        data=Container(
-            sections=[
-                Section.Code(
-                    code=Op.PUSH0
-                    + Op.RJUMPI[3]
-                    + Op.RJUMP[7]
-                    + Op.SSTORE(slot_code_worked, value_code_worked)
-                    + Op.STOP
-                    + Op.RJUMP[-10],
-                ),
-                Section.Data(data=b"\xde\xad\xbe\xef"),
-            ],
-        ),
-        container_post=Account(storage={slot_code_worked: value_code_worked}),
-    )
-
-
 def test_rjump_zero(
     eof_state_test: EOFStateTestFiller,
 ):

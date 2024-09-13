@@ -53,7 +53,9 @@ class SectionSize(IntEnum):
             SectionKind.DATA, SectionSize.HUGE, EOFException.TOPLEVEL_CONTAINER_TRUNCATED
         ),
         pytest.param(SectionKind.DATA, SectionSize.MAX, EOFException.TOPLEVEL_CONTAINER_TRUNCATED),
-        pytest.param(SectionKind.CODE, SectionSize.NORMAL, None),
+        pytest.param(
+            SectionKind.CODE, SectionSize.NORMAL, None, marks=pytest.mark.skip(reason="duplicate")
+        ),
         pytest.param(SectionKind.CODE, SectionSize.ZERO, EOFException.ZERO_SECTION_SIZE),
         pytest.param(
             SectionKind.CODE, SectionSize.UNDERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE
@@ -63,7 +65,9 @@ class SectionSize(IntEnum):
         ),
         pytest.param(SectionKind.CODE, SectionSize.HUGE, EOFException.INVALID_SECTION_BODIES_SIZE),
         pytest.param(SectionKind.CODE, SectionSize.MAX, EOFException.INVALID_SECTION_BODIES_SIZE),
-        pytest.param(SectionKind.TYPE, SectionSize.NORMAL, None),
+        pytest.param(
+            SectionKind.TYPE, SectionSize.NORMAL, None, marks=pytest.mark.skip(reason="duplicate")
+        ),
         pytest.param(
             SectionKind.TYPE,
             SectionSize.ZERO,
@@ -83,7 +87,12 @@ class SectionSize(IntEnum):
             [EOFException.INVALID_SECTION_BODIES_SIZE, EOFException.INVALID_TYPE_SECTION_SIZE],
             id="type_size_max",
         ),
-        pytest.param(SectionKind.CONTAINER, SectionSize.NORMAL, None),
+        pytest.param(
+            SectionKind.CONTAINER,
+            SectionSize.NORMAL,
+            None,
+            marks=pytest.mark.skip(reason="duplicate"),
+        ),
         pytest.param(SectionKind.CONTAINER, SectionSize.ZERO, EOFException.ZERO_SECTION_SIZE),
         pytest.param(
             SectionKind.CONTAINER, SectionSize.UNDERSIZE, EOFException.INVALID_SECTION_BODIES_SIZE
@@ -212,9 +221,14 @@ def test_truncated_container_with_data(
     This test takes a valid container with data and removes some bytes from its tail.
     Migrated from EOFTests/efValidation/EOF1_truncated_section_.json (cases with data section).
     """
-    container = Container(sections=[Section.Code(Op.INVALID), Section.Data("aabb")])
-    bytecode = bytes(container)
+    data = b"\xaa\xbb"
+    container = Container(
+        sections=[
+            Section.Code(Op.INVALID),
+            Section.Data(data[0 : (len(data) - truncation_len)], custom_size=2),
+        ]
+    )
     eof_test(
-        data=bytecode[: len(bytecode) - truncation_len],
+        data=container,
         expect_exception=exception,
     )

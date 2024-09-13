@@ -244,6 +244,9 @@ def test_container_section_order(
     This extends and follows the convention of the test_section_order()
     for the optional container section.
     """
+    if container_position == 2:
+        pytest.skip("Skip valid container section position")
+
     section_code = Section.Code(
         code=Op.EOFCREATE[0](0, 0, 0, 0)
         # TODO: Migrated tests had the following infinite loop, so it is kept here

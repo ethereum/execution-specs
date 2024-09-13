@@ -36,13 +36,6 @@ VALID_CONTAINER = Container(sections=[Section.Code(code=Op.STOP)])
     "container",
     [
         Container(
-            name="single_code_section_with_data_section",
-            sections=[
-                Section.Code(code=Op.STOP),
-                Section.Data(data="0x00"),
-            ],
-        ),
-        Container(
             name="single_code_section_max_stack_size",
             sections=[
                 Section.Code(
@@ -181,26 +174,22 @@ def test_valid_containers(
         ),
         Container(
             name="incomplete_magic",
-            raw_bytes=bytes([0xEF]),
+            raw_bytes="ef",
             validity_error=EOFException.INVALID_MAGIC,
         ),
         Container(
             name="no_version",
-            raw_bytes=bytes([0xEF, 0x00]),
+            raw_bytes="ef00",
             validity_error=[EOFException.INVALID_VERSION, EOFException.INVALID_MAGIC],
         ),
         Container(
             name="no_type_header",
-            raw_bytes=bytes([0xEF, 0x00, 0x01]),
-            # TODO the exception must be about missing section types
+            raw_bytes="ef00 01",
             validity_error=EOFException.MISSING_HEADERS_TERMINATOR,
         ),
         Container(
             name="no_type_section_size",
-            raw_bytes=bytes(
-                [0xEF, 0x00, 0x01, 0x01],
-            ),
-            # TODO the exception must be about incomplete section in the header
+            raw_bytes="ef00 01 01",
             validity_error=[
                 EOFException.MISSING_HEADERS_TERMINATOR,
                 EOFException.INVALID_TYPE_SECTION_SIZE,
@@ -208,10 +197,7 @@ def test_valid_containers(
         ),
         Container(
             name="incomplete_type_section_size",
-            raw_bytes=bytes(
-                [0xEF, 0x00, 0x01, 0x01, 0x00],
-            ),
-            # TODO the exception must be about incomplete section in the header
+            raw_bytes="ef00010100",
             validity_error=[
                 EOFException.INCOMPLETE_SECTION_SIZE,
                 EOFException.INVALID_TYPE_SECTION_SIZE,
@@ -242,7 +228,7 @@ def test_valid_containers(
         ),
         Container(
             name="code_section_count_incomplete",
-            raw_bytes=bytes([0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0x00]),
+            raw_bytes="ef00 01 01 0004 02 00",
             validity_error=EOFException.INCOMPLETE_SECTION_NUMBER,
         ),
         Container(
@@ -255,7 +241,7 @@ def test_valid_containers(
         ),
         Container(
             name="code_section_size_incomplete",
-            raw_bytes=bytes([0xEF, 0x00, 0x01, 0x01, 0x00, 0x04, 0x02, 0x00, 0x01, 0x00]),
+            raw_bytes="ef00 01 01 0004 02 0001 00",
             validity_error=[EOFException.INCOMPLETE_SECTION_SIZE, EOFException.ZERO_SECTION_SIZE],
         ),
         Container(
@@ -1060,21 +1046,6 @@ def test_valid_containers(
             validity_error=EOFException.INPUTS_OUTPUTS_NUM_ABOVE_LIMIT,
         ),
         Container(
-            name="code_section_output_too_large_2",
-            sections=[
-                Section.Code(
-                    code=Op.JUMPF[1],
-                ),
-                Section.Code(
-                    code=(Op.PUSH0 * (MAX_CODE_OUTPUTS + 1)) + Op.RETF,
-                    code_inputs=0,
-                    code_outputs=(MAX_CODE_OUTPUTS + 1),
-                    max_stack_height=(MAX_CODE_OUTPUTS + 1),
-                ),
-            ],
-            validity_error=EOFException.INVALID_NON_RETURNING_FLAG,
-        ),
-        Container(
             name="single_code_section_max_stack_size_too_large",
             sections=[
                 Section.Code(
@@ -1113,6 +1084,8 @@ def test_magic_validation(
     """
     Verify EOF container 2-byte magic
     """
+    if magic_0 == 0xEF and magic_1 == 0:
+        pytest.skip("Valid magic")
     code = bytearray(bytes(VALID_CONTAINER))
     code[0] = magic_0
     code[1] = magic_1
@@ -1130,6 +1103,8 @@ def test_version_validation(
     """
     Verify EOF container version
     """
+    if version == 1:
+        pytest.skip("Valid version")
     code = bytearray(bytes(VALID_CONTAINER))
     code[2] = version
     eof_test(

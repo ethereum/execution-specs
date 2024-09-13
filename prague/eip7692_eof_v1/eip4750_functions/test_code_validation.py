@@ -159,19 +159,6 @@ INVALID: List[Container] = [
         ],
         validity_error=EOFException.TOO_MANY_CODE_SECTIONS,
     ),
-    Container(
-        name="callf_to_non_returning",
-        sections=[
-            Section.Code(
-                code=(Op.CALLF[1] + Op.STOP),
-            ),
-            Section.Code(
-                code=(Op.STOP),
-                code_outputs=0,
-            ),
-        ],
-        validity_error=EOFException.INVALID_NON_RETURNING_FLAG,
-    ),
 ]
 
 

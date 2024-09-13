@@ -1033,7 +1033,7 @@ def test_rjumpv_into_exchange(
                     + Op.PUSH1(2)
                     + Op.PUSH1(3)
                     + Op.PUSH1(0)
-                    + Op.RJUMPV[1]
+                    + Op.RJUMPV[jump_table]
                     + Op.EXCHANGE[0x00]
                     + Op.SSTORE
                     + Op.STOP,

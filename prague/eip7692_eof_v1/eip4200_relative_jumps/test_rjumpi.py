@@ -539,10 +539,10 @@ def test_rjumpi_into_push_1(
 ):
     """EOF1I4200_0024 (Invalid) EOF code containing RJUMPI with target PUSH1 immediate"""
     code = (
-        Op.PUSH1(1) + Op.RJUMPI[-4] + Op.STOP
+        Op.PUSH1[1] + Op.RJUMPI[-4]
         if jump == JumpDirection.BACKWARD
-        else Op.PUSH1(1) + Op.RJUMPI[1] + Op.STOP
-    )
+        else Op.PUSH1[1] + Op.RJUMPI[1] + Op.PUSH1[1] + Op.POP
+    ) + Op.STOP
     eof_test(
         data=Container(
             sections=[

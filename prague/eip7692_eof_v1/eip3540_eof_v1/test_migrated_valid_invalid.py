@@ -45,36 +45,6 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
             id="EOF1V3540_0002_deployed_code_with_data_section",
         ),
         pytest.param(
-            # No data section contents
-            Container(
-                name="EOF1V3540_0003",
-                sections=[
-                    Section.Code(code=Op.INVALID),
-                    Section.Data(custom_size=2),
-                ],
-            ),
-            EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
-            id="EOF1V3540_0003_no_data_section_contents",
-        ),
-        pytest.param(
-            # Data section contents incomplete
-            Container(
-                name="EOF1V3540_0004",
-                sections=[
-                    Section.Code(code=Op.INVALID),
-                    Section.Data("aa", custom_size=2),
-                ],
-            ),
-            EOFException.TOPLEVEL_CONTAINER_TRUNCATED,
-            id="EOF1V3540_0004_data_section_contents_incomplete",
-        ),
-        pytest.param(
-            # Type section size incomplete
-            bytes.fromhex("ef00010100"),
-            [EOFException.INCOMPLETE_SECTION_SIZE, EOFException.INVALID_TYPE_SECTION_SIZE],
-            id="EOF1I3540_0011_type_section_size_incomplete",
-        ),
-        pytest.param(
             # Empty code section with non-empty data section
             Container(
                 sections=[Section.Code(code_outputs=0), Section.Data("aabb")],
@@ -82,40 +52,6 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
             ),
             EOFException.ZERO_SECTION_SIZE,
             id="EOF1I3540_0012_empty_code_section_with_non_empty_data_section",
-        ),
-        pytest.param(
-            Container(
-                name="EOF1I3540_0014 (Invalid) Total of code sections incomplete",
-                raw_bytes="ef00010100040200",
-            ),
-            EOFException.INCOMPLETE_SECTION_NUMBER,
-            id="EOF1I3540_0014_total_of_code_sections_incomplete",
-        ),
-        pytest.param(
-            Container(
-                name="EOF1I3540_0016 (Invalid) Code section size incomplete",
-                raw_bytes="0xef000101000402000100",
-            ),
-            [EOFException.INCOMPLETE_SECTION_SIZE, EOFException.ZERO_SECTION_SIZE],
-            id="EOF1I3540_0016_code_section_size_incomplete",
-        ),
-        pytest.param(
-            # No data section after code section size
-            bytes.fromhex("ef00010100040200010001"),
-            EOFException.MISSING_HEADERS_TERMINATOR,
-            id="EOF1I3540_0017_no_data_section_after_code_section_size",
-        ),
-        pytest.param(
-            # No data size
-            bytes.fromhex("ef0001010004020001000104"),
-            [EOFException.MISSING_HEADERS_TERMINATOR, EOFException.INCOMPLETE_DATA_HEADER],
-            id="EOF1I3540_0018_no_data_size",
-        ),
-        pytest.param(
-            # Data size incomplete
-            bytes.fromhex("ef000101000402000100010400"),
-            [EOFException.INCOMPLETE_SECTION_SIZE, EOFException.INCOMPLETE_DATA_HEADER],
-            id="EOF1I3540_0019_data_size_incomplete",
         ),
         pytest.param(
             # No section terminator after data section size
@@ -310,16 +246,6 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
             [EOFException.MISSING_TERMINATOR, EOFException.UNEXPECTED_HEADER_KIND],
             id="EOF1I3540_0049_unknown_section_id_after_data_section_ff",
         ),
-        # TODO: Duplicated tests
-        # The following test cases are duplicates but added to confirm test coverage is retained.
-        pytest.param(
-            Container(
-                name="EOF1I3540_0001 (Invalid) No magic",
-                raw_bytes="ef",
-            ),
-            EOFException.INVALID_MAGIC,
-            id="EOF1I3540_0001_invalid_no_magic",
-        ),
         pytest.param(
             Container(
                 name="EOF1I3540_0002 (Invalid) Invalid magic",
@@ -343,14 +269,6 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
             ),
             EOFException.INVALID_MAGIC,
             id="EOF1I3540_0004_invalid_incorrect_magic_ff",
-        ),
-        pytest.param(
-            Container(
-                name="EOF1I3540_0005 (Invalid) No version",
-                raw_bytes="ef00",
-            ),
-            [EOFException.INVALID_VERSION, EOFException.INVALID_MAGIC],
-            id="EOF1I3540_0005_invalid_no_version",
         ),
         pytest.param(
             Container(
