@@ -4,6 +4,7 @@ import ethereum.rlp as rlp
 from ethereum.base_types import U64, U256, Bytes, Bytes0, Bytes8, Bytes32, Uint
 from ethereum.cancun.blocks import Block, Header, Log, Receipt, Withdrawal
 from ethereum.cancun.transactions import (
+    Access,
     AccessListTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
@@ -59,7 +60,10 @@ access_list_transaction = AccessListTransaction(
     Bytes0(),
     U256(4),
     Bytes(b"bar"),
-    ((address1, (hash1, hash2)), (address2, tuple())),
+    (
+        Access(account=address1, slots=(hash1, hash2)),
+        Access(account=address2, slots=tuple()),
+    ),
     U256(27),
     U256(5),
     U256(6),
@@ -74,7 +78,10 @@ transaction_1559 = FeeMarketTransaction(
     Bytes0(),
     U256(4),
     Bytes(b"bar"),
-    ((address1, (hash1, hash2)), (address2, tuple())),
+    (
+        Access(account=address1, slots=(hash1, hash2)),
+        Access(account=address2, slots=tuple()),
+    ),
     U256(27),
     U256(5),
     U256(6),
