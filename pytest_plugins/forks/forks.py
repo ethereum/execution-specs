@@ -443,7 +443,7 @@ def pytest_report_header(config, start_path):
             + reset
         ),
     ]
-    if config.getoption("forks_until") is None:
+    if all(fork.is_deployed() for fork in config.fork_set):
         header += [
             (
                 bold + warning + "Only executing tests with stable/deployed forks: "
