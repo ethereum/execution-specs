@@ -464,6 +464,39 @@ def test_container_both_kinds_different_sub(eof_test: EOFTestFiller):
     )
 
 
+def test_container_multiple_eofcreate_references(eof_test: EOFTestFiller):
+    """Test multiple references to the same subcontainer from an EOFCREATE operation"""
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.EOFCREATE[0](0, 0, 0, 0) + Op.EOFCREATE[0](0, 0, 0, 0) + Op.STOP,
+                ),
+                returncontract_sub_container,
+            ],
+        ),
+    )
+
+
+def test_container_multiple_returncontract_references(eof_test: EOFTestFiller):
+    """Test multiple references to the same subcontainer from a RETURNCONTACT operation"""
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0
+                    + Op.CALLDATALOAD
+                    + Op.RJUMPI[6]
+                    + Op.RETURNCONTRACT[0](0, 0)
+                    + Op.RETURNCONTRACT[0](0, 0)
+                ),
+                stop_sub_container,
+            ],
+            kind=ContainerKind.INITCODE,
+        ),
+    )
+
+
 @pytest.mark.parametrize("version", [0, 255], ids=lambda x: x)
 def test_subcontainer_wrong_eof_version(
     eof_test: EOFTestFiller,
