@@ -378,6 +378,73 @@ def test_set_code_to_tstore_reentry(
     )
 
 
+@pytest.mark.with_all_call_opcodes(
+    selector=lambda call_opcode: call_opcode
+    not in [Op.DELEGATECALL, Op.CALLCODE, Op.STATICCALL, Op.EXTDELEGATECALL, Op.EXTSTATICCALL]
+)
+@pytest.mark.parametrize("call_eoa_first", [True, False])
+def test_set_code_to_tstore_available_at_correct_address(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    call_opcode: Op,
+    call_eoa_first: bool,
+):
+    """
+    Test TLOADing from slot 2 and then SSTORE this in slot 1, then TSTORE 3 in slot 2.
+    This is done both from the EOA which is delegated to account A, and then A is called.
+    The storage should stay empty on both the EOA and the delegated account.
+    """
+    auth_signer = pre.fund_eoa(auth_account_start_balance)
+
+    storage_slot = 1
+    tload_slot = 2
+    tstore_value = 3
+
+    tstore_check_code = Op.SSTORE(storage_slot, Op.TLOAD(tload_slot)) + Op.TSTORE(
+        tload_slot, tstore_value
+    )
+
+    set_code_to_address = pre.deploy_contract(tstore_check_code)
+
+    def make_call(call_type: Op, call_eoa: bool) -> Bytecode:
+        call_target = auth_signer if call_eoa else set_code_to_address
+        return call_type(address=call_target)
+
+    chain_code = make_call(call_type=call_opcode, call_eoa=call_eoa_first) + make_call(
+        call_type=call_opcode, call_eoa=not call_eoa_first
+    )
+
+    target_call_chain_address = pre.deploy_contract(chain_code)
+
+    tx = Transaction(
+        gas_limit=100_000,
+        to=target_call_chain_address,
+        value=0,
+        authorization_list=[
+            AuthorizationTuple(
+                address=set_code_to_address,
+                nonce=0,
+                signer=auth_signer,
+            ),
+        ],
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post={
+            auth_signer: Account(
+                storage={storage_slot: 0},
+            ),
+            set_code_to_address: Account(
+                storage={storage_slot: 0},
+            ),
+        },
+    )
+
+
 @pytest.mark.parametrize(
     "external_sendall_recipient",
     [False, True],
@@ -659,9 +726,11 @@ def test_set_code_call_set_code(
             auth_signer_1: Account(
                 nonce=1,
                 code=Spec.delegation_designation(set_code_to_address_1),
-                storage=storage_1
-                if call_opcode in [Op.CALL, Op.STATICCALL, Op.EXTCALL, Op.EXTSTATICCALL]
-                else storage_1 + storage_2,
+                storage=(
+                    storage_1
+                    if call_opcode in [Op.CALL, Op.STATICCALL, Op.EXTCALL, Op.EXTSTATICCALL]
+                    else storage_1 + storage_2
+                ),
                 balance=(0 if call_opcode in [Op.CALL, Op.EXTCALL] else value)
                 + auth_account_start_balance,
             ),
@@ -974,9 +1043,11 @@ def test_ext_code_on_set_code(
         pre=pre,
         tx=tx,
         post={
-            set_code_to_address: Account.NONEXISTENT
-            if set_code_type == AddressType.EMPTY_ACCOUNT
-            else Account(storage={}),
+            set_code_to_address: (
+                Account.NONEXISTENT
+                if set_code_type == AddressType.EMPTY_ACCOUNT
+                else Account(storage={})
+            ),
             auth_signer: Account(
                 nonce=1,
                 code=Spec.delegation_designation(set_code_to_address),
@@ -1866,11 +1937,13 @@ def test_set_code_invalid_authorization_tuple(
         authorization_list = [
             AuthorizationTuple(
                 address=set_code_to_address,
-                nonce=1
-                if invalidity_reason == InvalidityReason.NONCE
-                else [0, 1]
-                if invalidity_reason == InvalidityReason.MULTIPLE_NONCE
-                else 0,
+                nonce=(
+                    1
+                    if invalidity_reason == InvalidityReason.NONCE
+                    else [0, 1]
+                    if invalidity_reason == InvalidityReason.MULTIPLE_NONCE
+                    else 0
+                ),
                 chain_id=2 if invalidity_reason == InvalidityReason.CHAIN_ID else 0,
                 signer=auth_signer,
             )
