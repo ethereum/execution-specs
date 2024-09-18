@@ -39,7 +39,7 @@ bloom = hex_to_bytes256(
 )
 
 legacy_transaction = LegacyTransaction(
-    U256(1),
+    U64(1),
     Uint(2),
     Uint(3),
     Bytes0(),
@@ -52,7 +52,7 @@ legacy_transaction = LegacyTransaction(
 
 access_list_transaction = AccessListTransaction(
     U64(1),
-    U256(1),
+    U64(1),
     Uint(2),
     Uint(3),
     Bytes0(),

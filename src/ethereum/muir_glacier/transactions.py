@@ -6,7 +6,7 @@ transactions are the events that move between states.
 from dataclasses import dataclass
 from typing import Union
 
-from ..base_types import U256, Bytes, Bytes0, Uint, slotted_freezable
+from ..base_types import U64, U256, Bytes, Bytes0, Uint, slotted_freezable
 from .fork_types import Address
 
 TX_BASE_COST = 21000
@@ -22,7 +22,7 @@ class Transaction:
     Atomic operation performed on the block chain.
     """
 
-    nonce: U256
+    nonce: U64
     gas_price: Uint
     gas: Uint
     to: Union[Bytes0, Address]
