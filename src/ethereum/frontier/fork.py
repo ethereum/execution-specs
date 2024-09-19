@@ -320,10 +320,7 @@ def check_transaction(
     if tx.gas > gas_available:
         raise InvalidBlock
 
-    try:
-        sender_address = recover_sender(tx)
-    except InvalidSignature as e:
-        raise InvalidBlock from e
+    sender_address = recover_sender(tx)
 
     return sender_address
 
@@ -790,7 +787,11 @@ def recover_sender(tx: Transaction) -> Address:
     if 0 >= s or s >= SECP256K1N:
         raise InvalidBlock
 
-    public_key = secp256k1_recover(r, s, v - 27, signing_hash(tx))
+    try:
+        public_key = secp256k1_recover(r, s, v - 27, signing_hash(tx))
+    except InvalidSignature as e:
+        raise InvalidBlock from e
+
     return Address(keccak256(public_key)[12:32])
 
 

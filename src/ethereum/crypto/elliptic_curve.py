@@ -45,7 +45,9 @@ def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
     )
 
     if is_square != 1:
-        raise InvalidSignature("r value is not a square")
+        raise InvalidSignature(
+            "r is not the x-coordinate of a point on the secp256k1 curve"
+        )
 
     r_bytes = r.to_be_bytes32()
     s_bytes = s.to_be_bytes32()
