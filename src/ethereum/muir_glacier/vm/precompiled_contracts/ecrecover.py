@@ -12,6 +12,7 @@ Introduction
 Implementation of the ECRECOVER precompiled contract.
 """
 from ethereum.base_types import U256
+from ethereum.crypto import InvalidSignature
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
@@ -52,7 +53,7 @@ def ecrecover(evm: Evm) -> None:
 
     try:
         public_key = secp256k1_recover(r, s, v - 27, message_hash)
-    except ValueError:
+    except InvalidSignature:
         # unable to extract public key
         return
 

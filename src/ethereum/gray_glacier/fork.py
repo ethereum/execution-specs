@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple, Union
 
 from ethereum.base_types import Bytes0
+from ethereum.crypto import InvalidSignature
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
@@ -417,7 +418,11 @@ def check_transaction(
     """
     if tx.gas > gas_available:
         raise InvalidBlock
-    sender_address = recover_sender(chain_id, tx)
+
+    try:
+        sender_address = recover_sender(chain_id, tx)
+    except InvalidSignature as e:
+        raise InvalidBlock from e
 
     if isinstance(tx, FeeMarketTransaction):
         if tx.max_fee_per_gas < tx.max_priority_fee_per_gas:
