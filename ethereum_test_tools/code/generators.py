@@ -217,13 +217,17 @@ class Conditional(Bytecode):
             # Then we need to do the conditional jump by skipping the false branch
             condition = Op.JUMPI(Op.ADD(Op.PC, len(if_false) + 3), condition)
 
+            # Finally we append the condition, false and true branches, plus the jumpdest at the
+            # very end
+            bytecode = condition + if_false + if_true + Op.JUMPDEST
+
         elif evm_code_type == EVMCodeType.EOF_V1:
-            if_false += Op.RJUMP[len(if_true)]
+            if not if_false.terminating:
+                if_false += Op.RJUMP[len(if_true)]
             condition = Op.RJUMPI[len(if_false)](condition)
 
-        # Finally we append the true and false branches, and the condition, plus the jumpdest at
-        # the very end
-        bytecode = condition + if_false + if_true + Op.JUMPDEST
+            # Finally we append the condition, false and true branches
+            bytecode = condition + if_false + if_true
 
         return super().__new__(cls, bytecode)
 
