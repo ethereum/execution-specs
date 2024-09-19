@@ -7,6 +7,7 @@ from typing import Tuple
 
 from ethereum import rlp
 from ethereum.base_types import U64, U256, Bytes, Uint
+from ethereum.crypto import InvalidSignature
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock
@@ -15,7 +16,6 @@ from ..fork_types import Address, Authorization
 from ..state import account_exists, get_account, increment_nonce, set_code
 from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
 from . import Environment, Evm, Message
-from .exceptions import InvalidAuthorization
 
 SET_CODE_TX_MAGIC = b"\x05"
 EOA_DELEGATION_MARKER = b"\xEF\x01\x00"
@@ -57,16 +57,23 @@ def recover_authority(authorization: Authorization) -> Address:
     authorization
         The authorization to recover the authority from.
 
+    Raises
+    ------
+    InvalidSignature
+        If the signature is invalid.
+
     Returns
     -------
     authority : `Address`
         The recovered authority address.
     """
     y_parity, r, s = authorization.y_parity, authorization.r, authorization.s
+    if y_parity not in (0, 1):
+        raise InvalidSignature("Invalid y_parity in authorization")
     if 0 >= r or r >= SECP256K1N:
-        raise InvalidAuthorization
+        raise InvalidSignature("Invalid r value in authorization")
     if 0 >= s or s > SECP256K1N // 2:
-        raise InvalidAuthorization
+        raise InvalidSignature("Invalid s value in authorization")
 
     signing_hash = keccak256(
         SET_CODE_TX_MAGIC
@@ -79,10 +86,7 @@ def recover_authority(authorization: Authorization) -> Address:
         )
     )
 
-    try:
-        public_key = secp256k1_recover(r, s, y_parity, signing_hash)
-    except Exception as e:
-        raise InvalidAuthorization from e
+    public_key = secp256k1_recover(r, s, y_parity, signing_hash)
     return Address(keccak256(public_key)[12:32])
 
 
@@ -142,7 +146,7 @@ def set_delegation(message: Message, env: Environment) -> U256:
 
         try:
             authority = recover_authority(auth)
-        except InvalidAuthorization:
+        except InvalidSignature:
             continue
 
         message.accessed_addresses.add(authority)

@@ -138,11 +138,3 @@ class KZGProofError(ExceptionalHalt):
     """
 
     pass
-
-
-class InvalidAuthorization(ExceptionalHalt):
-    """
-    Raised when the authorization is invalid.
-    """
-
-    pass
