@@ -15,6 +15,7 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple
 
+from ethereum.crypto import InvalidSignature
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
@@ -318,6 +319,7 @@ def check_transaction(
     """
     if tx.gas > gas_available:
         raise InvalidBlock
+
     sender_address = recover_sender(tx)
 
     return sender_address
@@ -785,7 +787,11 @@ def recover_sender(tx: Transaction) -> Address:
     if 0 >= s or s >= SECP256K1N:
         raise InvalidBlock
 
-    public_key = secp256k1_recover(r, s, v - 27, signing_hash(tx))
+    try:
+        public_key = secp256k1_recover(r, s, v - 27, signing_hash(tx))
+    except InvalidSignature as e:
+        raise InvalidBlock from e
+
     return Address(keccak256(public_key)[12:32])
 
 

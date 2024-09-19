@@ -8,9 +8,12 @@ from typing import Generic, Type, TypeVar
 import coincurve
 
 from ..base_types import U256, Bytes
+from . import InvalidSignature
 from .finite_field import Field
 from .hash import Hash32
 
+SECP256K1B = 7
+SECP256K1P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
 SECP256K1N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 
 F = TypeVar("F", bound=Field)
@@ -37,6 +40,15 @@ def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
     public_key : `ethereum.base_types.Bytes`
         Recovered public key.
     """
+    is_square = pow(
+        pow(r, 3, SECP256K1P) + SECP256K1B, (SECP256K1P - 1) // 2, SECP256K1P
+    )
+
+    if is_square != 1:
+        raise InvalidSignature(
+            "r is not the x-coordinate of a point on the secp256k1 curve"
+        )
+
     r_bytes = r.to_be_bytes32()
     s_bytes = s.to_be_bytes32()
 
@@ -44,9 +56,17 @@ def secp256k1_recover(r: U256, s: U256, v: U256, msg_hash: Hash32) -> Bytes:
     signature[32 - len(r_bytes) : 32] = r_bytes
     signature[64 - len(s_bytes) : 64] = s_bytes
     signature[64] = v
-    public_key = coincurve.PublicKey.from_signature_and_message(
-        bytes(signature), msg_hash, hasher=None
-    )
+
+    # If the recovery algorithm returns the point at infinity,
+    # the signature is considered invalid
+    # the below function will raise a ValueError.
+    try:
+        public_key = coincurve.PublicKey.from_signature_and_message(
+            bytes(signature), msg_hash, hasher=None
+        )
+    except ValueError as e:
+        raise InvalidSignature from e
+
     public_key = public_key.format(compressed=False)[1:]
     return public_key
 

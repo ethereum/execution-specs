@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple
 
 from ethereum.base_types import Bytes0
+from ethereum.crypto import InvalidSignature
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
@@ -329,6 +330,7 @@ def check_transaction(
     """
     if tx.gas > gas_available:
         raise InvalidBlock
+
     sender_address = recover_sender(chain_id, tx)
 
     return sender_address
@@ -812,14 +814,20 @@ def recover_sender(chain_id: U64, tx: Transaction) -> Address:
     if 0 >= s or s > SECP256K1N // 2:
         raise InvalidBlock
 
-    if v == 27 or v == 28:
-        public_key = secp256k1_recover(r, s, v - 27, signing_hash_pre155(tx))
-    else:
-        if v != 35 + chain_id * 2 and v != 36 + chain_id * 2:
-            raise InvalidBlock
-        public_key = secp256k1_recover(
-            r, s, v - 35 - chain_id * 2, signing_hash_155(tx, chain_id)
-        )
+    try:
+        if v == 27 or v == 28:
+            public_key = secp256k1_recover(
+                r, s, v - 27, signing_hash_pre155(tx)
+            )
+        else:
+            if v != 35 + chain_id * 2 and v != 36 + chain_id * 2:
+                raise InvalidBlock
+            public_key = secp256k1_recover(
+                r, s, v - 35 - chain_id * 2, signing_hash_155(tx, chain_id)
+            )
+    except InvalidSignature as e:
+        raise InvalidBlock from e
+
     return Address(keccak256(public_key)[12:32])
 
 
