@@ -16,7 +16,7 @@ from typing import FrozenSet, Optional, Tuple, Union
 
 from ethereum.base_types import U256, Bytes, Bytes0, Bytes32, Uint
 
-from ..fork_types import Address
+from ..fork_types import Address, Authorization
 from ..state import get_account
 from ..vm import Environment, Message
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
@@ -37,6 +37,7 @@ def prepare_message(
     preaccessed_storage_keys: FrozenSet[
         Tuple[(Address, Bytes32)]
     ] = frozenset(),
+    authorizations: Tuple[Authorization, ...] = (),
 ) -> Message:
     """
     Execute a transaction against the provided environment.
@@ -69,6 +70,8 @@ def prepare_message(
     preaccessed_storage_keys:
         Storage keys that should be marked as accessed prior to the message
         call
+    authorizations:
+        Authorizations that should be applied to the message call.
 
     Returns
     -------
@@ -112,4 +115,5 @@ def prepare_message(
         accessed_addresses=accessed_addresses,
         accessed_storage_keys=set(preaccessed_storage_keys),
         parent_evm=None,
+        authorizations=authorizations,
     )

@@ -28,6 +28,7 @@ from .transactions import (
     BlobTransaction,
     FeeMarketTransaction,
     LegacyTransaction,
+    SetCodeTransaction,
     Transaction,
 )
 
@@ -124,6 +125,8 @@ def encode_receipt(tx: Transaction, receipt: Receipt) -> Union[Bytes, Receipt]:
         return b"\x02" + rlp.encode(receipt)
     elif isinstance(tx, BlobTransaction):
         return b"\x03" + rlp.encode(receipt)
+    elif isinstance(tx, SetCodeTransaction):
+        return b"\x04" + rlp.encode(receipt)
     else:
         return receipt
 
@@ -133,7 +136,7 @@ def decode_receipt(receipt: Union[Bytes, Receipt]) -> Receipt:
     Decodes a receipt.
     """
     if isinstance(receipt, Bytes):
-        assert receipt[0] in (b"\x01", b"\x02", b"\x03")
+        assert receipt[0] in (1, 2, 3, 4)
         return rlp.decode_to(Receipt, receipt[1:])
     else:
         return receipt
