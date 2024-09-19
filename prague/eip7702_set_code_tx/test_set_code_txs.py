@@ -792,7 +792,7 @@ def test_tx_into_self_delegating_set_code(
     pre: Alloc,
 ):
     """
-    Test a transaction that has entry-point into a set-code address that delegates to itself.
+    Test a transaction that has entry-point into a set-code account that delegates to itself.
     """
     auth_signer = pre.fund_eoa(auth_account_start_balance)
 
@@ -828,7 +828,8 @@ def test_tx_into_chain_delegating_set_code(
     pre: Alloc,
 ):
     """
-    Test a transaction that has entry-point into a set-code address that delegates to itself.
+    Test a transaction that has entry-point into a set-code account that delegates to another
+    set-code account.
     """
     auth_signer_1 = pre.fund_eoa(auth_account_start_balance)
     auth_signer_2 = pre.fund_eoa(auth_account_start_balance)
@@ -870,14 +871,20 @@ def test_call_into_self_delegating_set_code(
     call_opcode: Op,
 ):
     """
-    Test a transaction that has entry-point into a set-code address that delegates to itself.
+    Test call into a set-code account that delegates to itself.
     """
     auth_signer = pre.fund_eoa(auth_account_start_balance)
 
     storage = Storage()
     entry_code = (
         Op.SSTORE(
-            storage.store_next(call_return_code(opcode=call_opcode, success=False)),
+            storage.store_next(
+                call_return_code(
+                    opcode=call_opcode,
+                    success=False,
+                    revert=(call_opcode == Op.EXTDELEGATECALL),
+                )
+            ),
             call_opcode(address=auth_signer),
         )
         + Op.STOP
@@ -916,7 +923,7 @@ def test_call_into_chain_delegating_set_code(
     call_opcode: Op,
 ):
     """
-    Test a transaction that has entry-point into a set-code address that delegates to itself.
+    Test call into a set-code account that delegates to another set-code account.
     """
     auth_signer_1 = pre.fund_eoa(auth_account_start_balance)
     auth_signer_2 = pre.fund_eoa(auth_account_start_balance)
@@ -924,7 +931,13 @@ def test_call_into_chain_delegating_set_code(
     storage = Storage()
     entry_code = (
         Op.SSTORE(
-            storage.store_next(call_return_code(opcode=call_opcode, success=False)),
+            storage.store_next(
+                call_return_code(
+                    opcode=call_opcode,
+                    success=False,
+                    revert=(call_opcode == Op.EXTDELEGATECALL),
+                )
+            ),
             call_opcode(address=auth_signer_1),
         )
         + Op.STOP
@@ -1117,12 +1130,7 @@ def test_ext_code_on_self_set_code(
     )
 
 
-@pytest.mark.with_all_call_opcodes(
-    selector=(
-        lambda opcode: opcode
-        not in [Op.STATICCALL, Op.CALLCODE, Op.DELEGATECALL, Op.EXTDELEGATECALL, Op.EXTSTATICCALL]
-    )
-)
+@pytest.mark.with_all_evm_code_types()
 @pytest.mark.parametrize(
     "set_code_address_first",
     [
@@ -1133,7 +1141,6 @@ def test_ext_code_on_self_set_code(
 def test_set_code_address_and_authority_warm_state(
     state_test: StateTestFiller,
     pre: Alloc,
-    call_opcode: Op,
     set_code_address_first: bool,
 ):
     """
@@ -1150,6 +1157,7 @@ def test_set_code_address_and_authority_warm_state(
     set_code = Op.STOP
     set_code_to_address = pre.deploy_contract(set_code)
 
+    call_opcode = Op.CALL
     overhead_cost = 3 * len(call_opcode.kwargs)  # type: ignore
     if call_opcode == Op.CALL:
         overhead_cost -= 1  # GAS opcode is less expensive than a PUSH
@@ -1176,11 +1184,84 @@ def test_set_code_address_and_authority_warm_state(
         callee_code += code_gas_measure_authority + code_gas_measure_set_code
     callee_code += Op.SSTORE(slot_call_success, 1) + Op.STOP
 
-    callee_address = pre.deploy_contract(callee_code)
+    callee_address = pre.deploy_contract(callee_code, evm_code_type=EVMCodeType.LEGACY)
     callee_storage = Storage()
     callee_storage[slot_call_success] = 1
     callee_storage[slot_set_code_to_warm_state] = 2_600 if set_code_address_first else 100
     callee_storage[slot_authority_warm_state] = 200 if set_code_address_first else 2_700
+
+    tx = Transaction(
+        gas_limit=1_000_000,
+        to=callee_address,
+        authorization_list=[
+            AuthorizationTuple(
+                address=set_code_to_address,
+                nonce=0,
+                signer=auth_signer,
+            ),
+        ],
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post={
+            callee_address: Account(storage=callee_storage),
+            auth_signer: Account(
+                nonce=1,
+                code=Spec.delegation_designation(set_code_to_address),
+                balance=auth_account_start_balance,
+            ),
+        },
+    )
+
+
+@pytest.mark.with_all_call_opcodes()
+@pytest.mark.parametrize(
+    "set_code_address_first",
+    [
+        pytest.param(True, id="call_set_code_address_first_then_authority"),
+        pytest.param(False, id="call_authority_first_then_set_code_address"),
+    ],
+)
+def test_set_code_address_and_authority_warm_state_call_types(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    call_opcode: Op,
+    set_code_address_first: bool,
+):
+    """
+    Test set to code address and authority warm status after a call to
+    authority address, or viceversa, using all available call opcodes
+    without using `GAS` opcode (unavailable in EOF).
+    """
+    auth_signer = pre.fund_eoa(auth_account_start_balance)
+
+    slot = count(1)
+    slot_call_return_code = next(slot)
+    slot_call_success = next(slot)
+
+    set_code = Op.STOP
+    set_code_to_address = pre.deploy_contract(set_code)
+
+    call_set_code_to_address = Op.SSTORE(
+        slot_call_return_code, call_opcode(address=set_code_to_address)
+    )
+    call_authority_address = Op.SSTORE(slot_call_return_code, call_opcode(address=auth_signer))
+
+    callee_code = Bytecode()
+    if set_code_address_first:
+        callee_code += call_set_code_to_address + call_authority_address
+    else:
+        callee_code += call_authority_address + call_set_code_to_address
+    callee_code += Op.SSTORE(slot_call_success, 1) + Op.STOP
+
+    callee_address = pre.deploy_contract(callee_code)
+    callee_storage = Storage()
+    callee_storage[slot_call_return_code] = call_return_code(opcode=call_opcode, success=True)
+    callee_storage[slot_call_success] = 1
 
     tx = Transaction(
         gas_limit=1_000_000,
