@@ -481,14 +481,18 @@ class Container(CopyValidateModel):
         return cls(sections=[Section.Code(code=code, **kwargs)])
 
     @classmethod
-    def Init(cls, deploy_container: "Container", **kwargs) -> "Container":  # noqa: N802
+    def Init(  # noqa: N802
+        cls,
+        deploy_container: "Container",
+        initcode_prefix: Bytecode = Bytecode(),
+    ) -> "Container":
         """
         Creates simple init container that deploys the specified container.
         """
         return cls(
             sections=[
                 Section.Code(
-                    code=Op.RETURNCONTRACT[0](0, 0),
+                    code=initcode_prefix + Op.RETURNCONTRACT[0](0, 0),
                 ),
                 Section.Container(
                     container=deploy_container,

@@ -8,6 +8,7 @@ import pytest
 
 from ethereum_test_base_types import to_json
 from ethereum_test_base_types.pydantic import CopyValidateModel
+from ethereum_test_vm import Opcodes as Op
 
 from ..eof.v1 import AutoSection, Container, Section, SectionKind
 
@@ -651,7 +652,7 @@ test_cases: List[Tuple[str, Container, str]] = [
         ),
         """
       # EOF deployed code
-      ef0001  # Magic followed by bad version
+      ef0001  # Magic followed by version
       020001  # One code segment
         0003  #   code seg 0: 3 bytes
       010004  # One code segment
@@ -690,7 +691,7 @@ test_cases: List[Tuple[str, Container, str]] = [
         ),
         """
       # EOF deployed code
-      ef0001  # Magic followed by bad version
+      ef0001  # Magic followed by version
       010004  # One code segment
       020001  # One code segment
         0003  #   code seg 0: 3 bytes
@@ -725,7 +726,7 @@ test_cases: List[Tuple[str, Container, str]] = [
         ),
         """
       # EOF deployed code
-      ef0001  # Magic followed by bad version
+      ef0001  # Magic followed by version
       020001  # One code segment
         0003  #   code seg 0: 3 bytes
       040001  # One byte data segment
@@ -759,7 +760,7 @@ test_cases: List[Tuple[str, Container, str]] = [
         ),
         """
       # EOF deployed code
-      ef0001  # Magic followed by bad version
+      ef0001  # Magic followed by version
       010004  # Types section
       020001  # One code segment
         0003  #   code seg 0: 3 bytes
@@ -772,6 +773,69 @@ test_cases: List[Tuple[str, Container, str]] = [
            00 #  3 STOP
               # Data segment
            ef
+        """,
+    ),
+    (
+        "Container.Init simple test",
+        Container.Init(deploy_container=Container.Code(b"\0")),
+        """
+      # EOF deployed code
+      ef0001  # Magic followed by version
+      010004  # Types section
+      020001  # One code segment
+        0006  #   code seg 0: 6 bytes
+      030001  # One container segment
+        0014  #   container seg 0: 20 bytes
+      040000  # Zero byte data segment
+      00      # End of header
+   0080 0002  # Types section
+              # Code segment 0 code
+         6000 #  1 PUSH1 0
+         6000 #  2 PUSH1 0
+         ee00 #  3 RETURNCONTRACT[0]
+              # Subcontainer 0
+      ef0001  # Magic followed by version
+      010004  # Types section
+      020001  # One code segment
+        0001  #   code seg 0: 1 byte
+      040000  # Zero byte data segment
+      00      # End of header
+   0080 0000  # Types section
+              # Code segment 0 code
+           00 #  1 STOP
+        """,
+    ),
+    (
+        "Container.Init initcode prefix",
+        Container.Init(deploy_container=Container.Code(b"\0"), initcode_prefix=Op.SSTORE(0, 0)),
+        """
+      # EOF deployed code
+      ef0001  # Magic followed by version
+      010004  # Types section
+      020001  # One code segment
+        000b  #   code seg 0: 11 bytes
+      030001  # One container segment
+        0014  #   container seg 0: 20 bytes
+      040000  # Zero byte data segment
+      00      # End of header
+   0080 0002  # Types section
+              # Code segment 0 code
+         6000 #  1 PUSH1 0
+         6000 #  2 PUSH1 0
+           55 #  3 SSTORE
+         6000 #  4 PUSH1 0
+         6000 #  5 PUSH1 0
+         ee00 #  6 RETURNCONTRACT[0]
+              # Subcontainer 0
+      ef0001  # Magic followed by version
+      010004  # Types section
+      020001  # One code segment
+        0001  #   code seg 0: 1 byte
+      040000  # Zero byte data segment
+      00      # End of header
+   0080 0000  # Types section
+              # Code segment 0 code
+           00 #  1 STOP
         """,
     ),
 ]
