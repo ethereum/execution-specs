@@ -7,23 +7,27 @@ import re
 from git import InvalidGitRepositoryError, Repo  # type: ignore
 
 
-def get_current_commit_hash_or_tag(repo_path="."):
+def get_current_commit_hash_or_tag(repo_path=".", shorten_hash=False):
     """
-    Get the latest commit hash or tag from the clone where doc is being built.
+    Get the latest commit tag or commit hash from the repository.
+
+    If a tag points to the current commit, return the tag name.
+    If no tag exists:
+        - If shorten_hash is True, return the first 8 characters of the commit hash.
+        - Otherwise, return the full commit hash.
     """
     try:
         repo = Repo(repo_path)
         # Try to get the current tag that points to the current commit
-        current_tag = next((tag for tag in repo.tags if tag.commit == repo.head.commit), None)
-        # Return the commit hash if no such tag exits
-        return current_tag.name if current_tag else repo.head.commit.hexsha
+        current_commit = repo.head.commit
+        current_tag = next((tag for tag in repo.tags if tag.commit == current_commit), None)
+        if current_tag:
+            return current_tag.name
+        else:
+            commit_hash = current_commit.hexsha
+            return commit_hash[:8] if shorten_hash else commit_hash
     except InvalidGitRepositoryError:
-        # This hack is necessary for our framework tests. We use the pytester/tempdir fixtures
-        # to execute pytest within a pytest session (for top-level tests of our pytest plugins).
-        # The pytester fixture executes these tests in a temporary directory, which is not a git
-        # repository; this is a workaround to stop these tests failing.
-        #
-        # Tried monkeypatching the pytest plugin tests, but it didn't play well with pytester.
+        # Handle the case where the repository is not a valid Git repository
         return "Not a git repository; this should only be seen in framework tests."
 
 
