@@ -4,11 +4,12 @@ JSON-RPC methods and helper functions for EEST consume based hive simulators.
 
 import time
 from itertools import count
+from pprint import pprint
 from typing import Any, ClassVar, Dict, List, Literal, Union
 
 import requests
 from jwt import encode
-from tenacity import retry, stop_after_attempt, wait_exponential
+from pydantic import ValidationError
 
 from ethereum_test_base_types import Address, Bytes, Hash, to_json
 from ethereum_test_types import Transaction
@@ -24,6 +25,27 @@ from .types import (
 )
 
 BlockNumberType = Union[int, Literal["latest", "earliest", "pending"]]
+
+
+class SendTransactionException(Exception):
+    """
+    Represents an exception that is raised when a transaction fails to be sent.
+    """
+
+    tx: Transaction
+
+    def __init__(self, *args, tx: Transaction):
+        """
+        Initializes the SendTransactionException class with the given transaction
+        """
+        super().__init__(*args)
+        self.tx = tx
+
+    def __str__(self):
+        """
+        Returns a string representation of the exception.
+        """
+        return f"{super().__str__()} Transaction={self.tx.model_dump_json()}"
 
 
 class BaseRPC:
@@ -50,7 +72,6 @@ class BaseRPC:
             namespace = namespace[:-3]
         cls.namespace = namespace.lower()
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=10))
     def post_request(self, method: str, *params: Any, extra_headers: Dict = {}) -> Any:
         """
         Sends a JSON-RPC POST request to the client RPC server at port defined in the url.
@@ -87,13 +108,16 @@ class EthRPC(BaseRPC):
     hive simulators.
     """
 
-    def __init__(self, ip: str, *, port: int = 8545, extra_headers: Dict = {}):
-        """
-        Initializes the EthRPC class with the http port 8545, which requires no authentication.
-        """
-        super().__init__(f"http://{ip}:{port}", extra_headers=extra_headers)
+    transaction_wait_timeout: int = 60
 
     BlockNumberType = Union[int, Literal["latest", "earliest", "pending"]]
+
+    def __init__(self, url: str, extra_headers: Dict = {}, *, transaction_wait_timeout: int = 60):
+        """
+        Initializes the EthRPC class with the given url and transaction wait timeout.
+        """
+        super().__init__(url, extra_headers)
+        self.transaction_wait_timeout = transaction_wait_timeout
 
     def get_block_by_number(self, block_number: BlockNumberType = "latest", full_txs: bool = True):
         """
@@ -129,9 +153,14 @@ class EthRPC(BaseRPC):
         """
         `eth_getTransactionByHash`: Returns transaction details.
         """
-        return TransactionByHashResponse(
-            **self.post_request("getTransactionByHash", f"{transaction_hash}")
-        )
+        try:
+            resp = TransactionByHashResponse(
+                **self.post_request("getTransactionByHash", f"{transaction_hash}")
+            )
+            return resp
+        except ValidationError as e:
+            pprint(e.errors())
+            raise e
 
     def get_storage_at(
         self, address: Address, position: Hash, block_number: BlockNumberType = "latest"
@@ -142,19 +171,31 @@ class EthRPC(BaseRPC):
         block = hex(block_number) if isinstance(block_number, int) else block_number
         return Hash(self.post_request("getStorageAt", f"{address}", f"{position}", block))
 
-    def send_transaction(self, transaction: Transaction):
+    def gas_price(self) -> int:
+        """
+        `eth_gasPrice`: Returns the number of transactions sent from an address.
+        """
+        return int(self.post_request("gasPrice"), 16)
+
+    def send_transaction(self, transaction: Transaction) -> Hash:
         """
         `eth_sendRawTransaction`: Send a transaction to the client.
         """
-        result_hash = Hash(self.post_request("sendRawTransaction", f"0x{transaction.rlp.hex()}"))
-        assert result_hash == transaction.hash
+        try:
+            result_hash = Hash(
+                self.post_request("sendRawTransaction", f"0x{transaction.rlp.hex()}")
+            )
+            assert result_hash == transaction.hash
+            assert result_hash is not None
+            return transaction.hash
+        except Exception as e:
+            raise SendTransactionException(str(e), tx=transaction)
 
-    def send_transactions(self, transactions: List[Transaction]):
+    def send_transactions(self, transactions: List[Transaction]) -> List[Hash]:
         """
         Uses `eth_sendRawTransaction` to send a list of transactions to the client.
         """
-        for tx in transactions:
-            self.send_transaction(tx)
+        return [self.send_transaction(tx) for tx in transactions]
 
     def storage_at_keys(
         self, account: Address, keys: List[Hash], block_number: BlockNumberType = "latest"
@@ -169,22 +210,26 @@ class EthRPC(BaseRPC):
             results[key] = storage_value
         return results
 
-    def wait_for_transaction(
-        self, transaction: Transaction, timeout: int = 60
-    ) -> TransactionByHashResponse:
+    def wait_for_transaction(self, transaction: Transaction) -> TransactionByHashResponse:
         """
         Uses `eth_getTransactionByHash` to wait until a transaction is included in a block.
         """
         tx_hash = transaction.hash
-        for _ in range(timeout):
+        start_time = time.time()
+        while True:
             tx = self.get_transaction_by_hash(tx_hash)
             if tx.block_number is not None:
                 return tx
+            if (time.time() - start_time) > self.transaction_wait_timeout:
+                break
             time.sleep(1)
-        raise Exception(f"Transaction {tx_hash} not included in a block after {timeout} seconds")
+        raise Exception(
+            f"Transaction {tx_hash} ({transaction.model_dump_json()}) not included in a "
+            f"block after {self.transaction_wait_timeout} seconds"
+        )
 
     def wait_for_transactions(
-        self, transactions: List[Transaction], timeout: int = 60
+        self, transactions: List[Transaction]
     ) -> List[TransactionByHashResponse]:
         """
         Uses `eth_getTransactionByHash` to wait unitl all transactions in list are included in a
@@ -192,7 +237,8 @@ class EthRPC(BaseRPC):
         """
         tx_hashes = [tx.hash for tx in transactions]
         responses: List[TransactionByHashResponse] = []
-        for _ in range(timeout):
+        start_time = time.time()
+        while True:
             i = 0
             while i < len(tx_hashes):
                 tx_hash = tx_hashes[i]
@@ -204,22 +250,30 @@ class EthRPC(BaseRPC):
                     i += 1
             if not tx_hashes:
                 return responses
+            if (time.time() - start_time) > self.transaction_wait_timeout:
+                break
             time.sleep(1)
-        raise Exception(f"Transaction {tx_hash} not included in a block after {timeout} seconds")
+        missing_txs_strings = [
+            f"{tx.hash} ({tx.model_dump_json()})" for tx in transactions if tx.hash in tx_hashes
+        ]
+        raise Exception(
+            f"Transactions {', '.join(missing_txs_strings)} not included in a block "
+            f"after {self.transaction_wait_timeout} seconds"
+        )
 
-    def send_wait_transaction(self, transaction: Transaction, timeout: int = 60):
+    def send_wait_transaction(self, transaction: Transaction):
         """
         Sends a transaction and waits until it is included in a block.
         """
         self.send_transaction(transaction)
-        return self.wait_for_transaction(transaction, timeout)
+        return self.wait_for_transaction(transaction)
 
-    def send_wait_transactions(self, transactions: List[Transaction], timeout: int = 60):
+    def send_wait_transactions(self, transactions: List[Transaction]):
         """
         Sends a list of transactions and waits until all of them are included in a block.
         """
         self.send_transactions(transactions)
-        return self.wait_for_transactions(transactions, timeout)
+        return self.wait_for_transactions(transactions)
 
 
 class DebugRPC(EthRPC):
@@ -240,12 +294,6 @@ class EngineRPC(BaseRPC):
     Represents an Engine API RPC class for every Engine API method used within EEST based hive
     simulators.
     """
-
-    def __init__(self, ip: str, *, port: int = 8551, extra_headers: Dict = {}):
-        """
-        Initializes the EngineRPC class with the http port 8551.
-        """
-        super().__init__(f"http://{ip}:{port}", extra_headers=extra_headers)
 
     def post_request(self, method: str, *params: Any, extra_headers: Dict = {}) -> Any:
         """

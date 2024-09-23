@@ -6,8 +6,8 @@ Each `engine_newPayloadVX` is verified against the appropriate VALID/INVALID res
 """
 
 from ethereum_test_fixtures import BlockchainEngineFixture, FixtureFormats
-from ethereum_test_tools.rpc import EngineRPC, EthRPC
-from ethereum_test_tools.rpc.types import ForkchoiceState, PayloadStatusEnum
+from ethereum_test_rpc import EngineRPC, EthRPC
+from ethereum_test_rpc.types import ForkchoiceState, PayloadStatusEnum
 from pytest_plugins.consume.hive_simulators.exceptions import GenesisBlockMismatchException
 
 from ...decorator import fixture_format

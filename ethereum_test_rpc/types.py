@@ -49,7 +49,9 @@ class TransactionByHashResponse(CamelModel):
 
     ty: HexNumber = Field(..., alias="type")
     gas_limit: HexNumber = Field(..., alias="gas")
-    gas_price: HexNumber
+    gas_price: HexNumber | None = None
+    max_fee_per_gas: HexNumber | None = None
+    max_priority_fee_per_gas: HexNumber | None = None
     value: HexNumber
     data: Bytes = Field(..., alias="input")
     nonce: HexNumber

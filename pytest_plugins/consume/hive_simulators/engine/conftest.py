@@ -14,7 +14,7 @@ from hive.client import Client
 from ethereum_test_fixtures import BlockchainEngineFixture
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
 from ethereum_test_fixtures.file import BlockchainEngineFixtures
-from ethereum_test_tools.rpc import EngineRPC
+from ethereum_test_rpc import EngineRPC
 from pytest_plugins.consume.consume import JsonSource
 
 TestCase = TestCaseIndexFile | TestCaseStream
@@ -25,7 +25,7 @@ def engine_rpc(client: Client) -> EngineRPC:
     """
     Initialize engine RPC client for the execution client under test.
     """
-    return EngineRPC(ip=client.ip)
+    return EngineRPC(f"http://{client.ip}:8551")
 
 
 @pytest.fixture(scope="module")
