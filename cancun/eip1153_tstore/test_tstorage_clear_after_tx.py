@@ -47,7 +47,7 @@ def test_tstore_clear_after_deployment_tx(
     code: Optional[Container | Initcode] = None
     if evm_code_type == EVMCodeType.EOF_V1:
         code = Container.Init(
-            deploy_container=Container.Code(deploy_code), initcode_prefix=init_code
+            deploy_container=Container.Code(deploy_code + Op.STOP), initcode_prefix=init_code
         )
     else:
         code = Initcode(deploy_code=deploy_code, initcode_prefix=init_code)
