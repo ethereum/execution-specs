@@ -38,6 +38,11 @@ test_dirs = (
     "tests/fixtures/latest_fork_tests/state_tests/prague/eip2537_bls_12_381_precompiles",
     "tests/fixtures/latest_fork_tests/state_tests/prague/eip7702_set_code_tx",
     "tests/fixtures/latest_fork_tests/state_tests/prague/eip7692_eof_v1",
+    "tests/fixtures/ethereum_tests/EIPTests/StateTests/stEOF",
+    # TODO: The following evmone tests for EOF are currently disabled since
+    # some of the fixtures are malformed. They will be enabled once the
+    # new fixtures are available.
+    # "tests/fixtures/latest_fork_tests/evmone_tests/state_tests",
 )
 
 IGNORE_TESTS = (
@@ -49,9 +54,6 @@ IGNORE_TESTS = (
     "tests/prague/eip7702_set_code_tx/test_set_code_txs.py::test_invalid_tx_invalid_auth_signature[fork_Prague-state_test-v_0,r_1,s_2**256-1]",
     "tests/fixtures/latest_fork_tests/state_tests/prague/eip7692_eof_v1",
     "tests/fixtures/ethereum_tests/EIPTests/StateTests/stEOF",
-    # # TODO: Run evmone tests after they have been fixed
-    # # There are currently some malformed fixtures in the evmone tests
-    # "tests/fixtures/latest_fork_tests/evmone_tests/state_tests",
 )
 
 

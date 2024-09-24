@@ -159,7 +159,15 @@ def validate_code_section(validator: Validator) -> None:
     code_index = validator.current_index
     section_type = validator.eof.metadata.type_section_contents[code_index]
     section_inputs = section_type[0]
+    section_outputs = section_type[1]
     section_max_stack_height = Uint.from_be_bytes(section_type[2:])
+
+    # If the return flag from the section type does not agree with
+    # the instructions in the code.
+    if (
+        section_outputs != 0x80 and not validator.is_current_section_returning
+    ) or (section_outputs == 0x80 and validator.is_current_section_returning):
+        raise InvalidEof(f"Invalid return flag in section {code_index}")
 
     computed_maximum_stack_height = 0
     for index, position in enumerate(valid_opcode_positions):
@@ -249,6 +257,7 @@ def validate_eof_code(validator: Validator) -> None:
         validator.current_index = Uint(code_index)
         validator.current_code = code
         validator.current_pc = Uint(0)
+        validator.is_current_section_returning = False
         validator.sections[validator.current_index] = {}
         validate_code_section(validator)
 
@@ -340,6 +349,7 @@ def validate_eof_container(
         current_index=Uint(0),
         current_code=metadata.code_section_contents[0],
         current_pc=Uint(0),
+        is_current_section_returning=False,
         sections={},
         has_return_contract=False,
         has_stop=False,
@@ -396,6 +406,7 @@ def parse_create_tx_call_data(data: bytes) -> Tuple[Eof, bytes]:
         current_index=Uint(0),
         current_code=eof.metadata.code_section_contents[0],
         current_pc=Uint(0),
+        is_current_section_returning=False,
         has_return_contract=False,
         has_stop=False,
         has_return=False,

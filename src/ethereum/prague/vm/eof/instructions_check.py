@@ -249,8 +249,11 @@ def validate_jumpf(validator: Validator) -> None:
     current_outputs = current_section_type[1]
     target_outputs = target_section_type[1]
 
-    if target_outputs != 0x80 and target_outputs > current_outputs:
-        raise InvalidEof("Invalid stack height")
+    if target_outputs != 0x80:
+        if target_outputs > current_outputs:
+            raise InvalidEof("Invalid stack height")
+        validator.is_current_section_returning = True
+
     reached_sections = validator.reached_code_sections[validator.current_index]
     reached_sections.add(target_index)
 
@@ -562,6 +565,45 @@ def validate_return(validator: Validator) -> None:
     )
 
 
+def validate_retf(validator: Validator) -> None:
+    """
+    Validate the RETF instructions.
+
+    Parameters
+    ----------
+    validator : `Validator`
+        The current validator instance.
+    """
+    code = validator.current_code
+    position = Uint(validator.current_pc)
+    counter = validator.current_pc + 1
+    current_metadata = validator.sections.get(validator.current_index, {})
+    opcode = map_int_to_op(code[position], EofVersion.EOF1)
+    index = validator.current_index
+    eof_meta = validator.eof.metadata
+
+    section_type = eof_meta.type_section_contents[index]
+    outputs = section_type[1]
+    if outputs == 0x80:
+        raise InvalidEof("RETF in non-returning section")
+
+    validator.is_current_section_returning = True
+
+    # Successor instruction positions
+    relative_offsets: List[int] = []
+
+    # Update Instruction Metadata
+    validator.current_pc = counter
+    current_metadata[position] = InstructionMetadata(
+        opcode=opcode,
+        pc_post_instruction=validator.current_pc,
+        relative_offsets=relative_offsets,
+        target_index=None,
+        container_index=None,
+        stack_height=None,
+    )
+
+
 def validate_other_terminating_instructions(validator: Validator) -> None:
     """
     Validate other terminating instructions.
@@ -668,6 +710,7 @@ op_validation: Dict[Ops, Callable] = {
     Ops.RETURNCONTRACT: validate_returncontract,
     Ops.STOP: validate_stop,
     Ops.RETURN: validate_return,
+    Ops.RETF: validate_retf,
 }
 
 

@@ -132,6 +132,7 @@ class Validator:
     current_index: Uint
     current_code: bytes
     current_pc: Uint
+    is_current_section_returning: bool
     has_return_contract: bool
     has_stop: bool
     has_return: bool
