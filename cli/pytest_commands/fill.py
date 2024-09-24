@@ -3,7 +3,6 @@ CLI entry point for the `fill` pytest-based command.
 """
 
 import sys
-from tempfile import TemporaryDirectory
 from typing import List
 
 import click
@@ -60,10 +59,9 @@ def fill(pytest_args: List[str], **kwargs) -> None:
     """
     Entry point for the fill command.
     """
-    with TemporaryDirectory() as temp_dir:
-        result = pytest.main(
-            handle_fill_command_flags(
-                [f"--session-temp-folder={temp_dir}", "--index", *pytest_args],
-            ),
-        )
+    result = pytest.main(
+        handle_fill_command_flags(
+            ["--index", *pytest_args],
+        ),
+    )
     sys.exit(result)

@@ -6,7 +6,6 @@ import os
 import sys
 import warnings
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Any, Callable, List
 
 import click
@@ -92,13 +91,7 @@ def consume_command(is_hive: bool = False) -> Callable[[Callable[..., Any]], cli
         def command(pytest_args: List[str], **kwargs) -> None:
             args = handle_consume_command_flags(pytest_args, is_hive)
             args += [str(p) for p in command_paths]
-            if is_hive and not any(arg.startswith("--hive-session-temp-folder") for arg in args):
-                with TemporaryDirectory() as temp_dir:
-                    args.extend(["--hive-session-temp-folder", temp_dir])
-                    result = pytest.main(args)
-            else:
-                result = pytest.main(args)
-            sys.exit(result)
+            sys.exit(pytest.main(args))
 
         return command
 

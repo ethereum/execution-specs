@@ -5,8 +5,6 @@ Top-level pytest configuration file providing:
 and that modifies pytest hooks in order to fill test specs for all tests and
 writes the generated fixtures to file.
 """
-
-import argparse
 import configparser
 import datetime
 import os
@@ -189,16 +187,6 @@ def pytest_addoption(parser: pytest.Parser):
         dest="base_dump_dir",
         default="",
         help="Path to dump the transition tool debug output.",
-    )
-
-    internal_group = parser.getgroup("internal", "Internal arguments")
-    internal_group.addoption(
-        "--session-temp-folder",
-        action="store",
-        dest="session_temp_folder",
-        type=Path,
-        default=None,
-        help=argparse.SUPPRESS,
     )
 
 
@@ -601,11 +589,6 @@ def get_fixture_collection_scope(fixture_name, config):
     if config.getoption("single_fixture_per_file"):
         return "function"
     return "module"
-
-
-@pytest.fixture(scope="session")
-def session_temp_folder(request) -> Path | None:  # noqa: D103
-    return request.config.option.session_temp_folder
 
 
 @pytest.fixture(scope="session")
