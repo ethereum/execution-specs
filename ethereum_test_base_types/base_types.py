@@ -75,6 +75,56 @@ class Number(int, ToStringSchema):
         return cls(input)
 
 
+class Wei(Number):
+    """
+    Class that helps represent wei that can be parsed from strings
+    """
+
+    def __new__(cls, input: NumberConvertible | N):
+        """
+        Creates a new Number object.
+        """
+        if isinstance(input, str):
+            words = input.split()
+            multiplier = 1
+            assert len(words) <= 2
+            value_str = words[0]
+            if len(words) > 1:
+                unit = words[1].lower()
+                multiplier = cls._get_multiplier(unit)
+            value: float
+            if "**" in value_str:
+                base, exp = value_str.split("**")
+                value = float(base) ** int(exp)
+            else:
+                value = float(value_str)
+            return super(Number, cls).__new__(cls, value * multiplier)
+        return super(Number, cls).__new__(cls, to_number(input))
+
+    @staticmethod
+    def _get_multiplier(unit: str) -> int:
+        """
+        Returns the multiplier for the given unit of wei, handling synonyms.
+        """
+        match unit:
+            case "wei":
+                return 1
+            case "kwei" | "babbage" | "femtoether":
+                return 10**3
+            case "mwei" | "lovelace" | "picoether":
+                return 10**6
+            case "gwei" | "shannon" | "nanoether" | "nano":
+                return 10**9
+            case "szabo" | "microether" | "micro":
+                return 10**12
+            case "finney" | "milliether" | "milli":
+                return 10**15
+            case "ether":
+                return 10**18
+            case _:
+                raise ValueError(f"Invalid unit {unit}")
+
+
 class HexNumber(Number):
     """
     Class that helps represent an hexadecimal numbers in tests.

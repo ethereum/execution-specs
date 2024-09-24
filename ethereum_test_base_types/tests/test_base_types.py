@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from ..base_types import Address, Hash
+from ..base_types import Address, Hash, Wei
 
 
 @pytest.mark.parametrize(
@@ -52,3 +52,42 @@ def test_comparisons(a: Any, b: Any, equal: bool):
     else:
         assert a != b
         assert not a == b
+
+
+@pytest.mark.parametrize(
+    "s, expected",
+    [
+        ("0", 0),
+        ("10**18", 10**18),
+        ("1e18", 10**18),
+        ("1 ether", 10**18),
+        ("2 ether", 2 * 10**18),
+        ("2.1 ether", 2.1 * 10**18),
+        ("2.1 Ether", 2.1 * 10**18),
+        ("2.1 ETHER", 2.1 * 10**18),
+        ("1 wei", 1),
+        ("10**9 wei", 10**9),
+        ("1 gwei", 10**9),
+        ("1 szabo", 10**12),
+        ("1 finney", 10**15),
+        ("1 kwei", 10**3),
+        ("1 mwei", 10**6),
+        ("1 babbage", 10**3),
+        ("1 femtoether", 10**3),
+        ("1 Lovelace", 10**6),
+        ("1 Picoether", 10**6),
+        ("1 gwei", 10**9),
+        ("1 shannon", 10**9),
+        ("1 nanoether", 10**9),
+        ("1 nano", 10**9),
+        ("1 microether", 10**12),
+        ("1 micro", 10**12),
+        ("1 milliether", 10**15),
+        ("1 milli", 10**15),
+    ],
+)
+def test_wei_parsing(s: str, expected: int):
+    """
+    Test the parsing of wei values.
+    """
+    assert Wei(s) == expected

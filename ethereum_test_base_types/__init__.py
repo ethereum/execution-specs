@@ -15,6 +15,7 @@ from .base_types import (
     HexNumber,
     Number,
     NumberBoundTypeVar,
+    Wei,
     ZeroPaddedHexNumber,
 )
 from .composite_types import Account, Alloc, Storage, StorageRootType
@@ -60,6 +61,7 @@ __all__ = (
     "TestAddress2",
     "TestPrivateKey",
     "TestPrivateKey2",
+    "Wei",
     "ZeroPaddedHexNumber",
     "to_bytes",
     "to_hex",
