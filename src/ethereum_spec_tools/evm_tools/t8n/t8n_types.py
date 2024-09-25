@@ -315,6 +315,22 @@ class Result:
         for attr in request.__annotations__:
             data[attr] = encode_to_hex(getattr(request, attr))
 
+        if "public_key" in data:
+            data["pubkey"] = data["public_key"]
+            del data["public_key"]
+
+        if "validator_public_key" in data:
+            data["validator_pubkey"] = data["validator_public_key"]
+            del data["validator_public_key"]
+
+        if "target_public_key" in data:
+            data["target_pubkey"] = data["target_public_key"]
+            del data["target_public_key"]
+
+        if "source_public_key" in data:
+            data["source_pubkey"] = data["source_public_key"]
+            del data["source_public_key"]
+
         return data
 
     def to_json(self) -> Any:

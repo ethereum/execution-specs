@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from ethereum import rlp
 from ethereum.base_types import U64, U256, Bytes32, Uint
 from ethereum.crypto.hash import Hash32, keccak256
-from ethereum.utils.byte import left_pad_zero_bytes
 from ethereum.utils.hexadecimal import hex_to_bytes
 
 from ..utils import parse_hex_or_int
@@ -168,20 +167,11 @@ class Env:
         """
         self.prev_randao = None
         if t8n.fork.is_after_fork("ethereum.paris"):
-            # tf tool might not always provide an
-            # even number of nibbles in the randao
-            # This could create issues in the
-            # hex_to_bytes function
-            current_random = data["currentRandom"]
-            if current_random.startswith("0x"):
-                current_random = current_random[2:]
-
-            if len(current_random) % 2 == 1:
-                current_random = "0" + current_random
-
-            self.prev_randao = Bytes32(
-                left_pad_zero_bytes(hex_to_bytes(current_random), 32)
-            )
+            # Some tooling sends prev_randao as an int, parse it as an int to
+            # support that tooling
+            self.prev_randao = parse_hex_or_int(
+                data["currentRandom"], U256
+            ).to_be_bytes32()
 
     def read_withdrawals(self, data: Any, t8n: "T8N") -> None:
         """

@@ -16,6 +16,7 @@ from ethereum.utils.hexadecimal import (
     hex_to_u256,
     hex_to_uint,
 )
+from ethereum_spec_tools.evm_tools.utils import parse_hex_or_int
 
 
 class UnsupportedTx(Exception):
@@ -160,24 +161,24 @@ class TransactionLoad:
     def read(self) -> Any:
         """Convert json transaction data to a transaction object"""
         if "type" in self.raw:
-            tx_type = hex_to_bytes(self.raw.get("type"))
-            if tx_type == b"\x04":
+            tx_type = parse_hex_or_int(self.raw.get("type"), Uint)
+            if tx_type == Uint(4):
                 tx_cls = self.fork.SetCodeTransaction
                 tx_byte_prefix = b"\x04"
-            elif tx_type == b"\x03":
+            elif tx_type == Uint(3):
                 tx_cls = self.fork.BlobTransaction
                 tx_byte_prefix = b"\x03"
-            elif tx_type == b"\x02":
+            elif tx_type == Uint(2):
                 tx_cls = self.fork.FeeMarketTransaction
                 tx_byte_prefix = b"\x02"
-            elif tx_type == b"\x01":
+            elif tx_type == Uint(1):
                 tx_cls = self.fork.AccessListTransaction
                 tx_byte_prefix = b"\x01"
-            elif tx_type == b"\x00":
+            elif tx_type == Uint(0):
                 tx_cls = self.get_legacy_transaction()
                 tx_byte_prefix = b""
             else:
-                raise ValueError(f"Unknown transaction type: {tx_type.hex()}")
+                raise ValueError(f"Unknown transaction type: {tx_type}")
         else:
             if "authorizationList" in self.raw:
                 tx_cls = self.fork.SetCodeTransaction
