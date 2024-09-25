@@ -7,7 +7,7 @@ import pytest
 from ethereum_test_tools import EOFException, EOFTestFiller
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
-from ethereum_test_types.eof.v1 import NON_RETURNING_SECTION
+from ethereum_test_types.eof.v1 import NON_RETURNING_SECTION, ContainerKind
 from ethereum_test_vm import Bytecode
 
 from .. import EOF_FORK_NAME
@@ -47,11 +47,17 @@ def test_first_section_returning(eof_test: EOFTestFiller, code_section: Section)
         pytest.param(Section.Code(Op.PUSH0 + Op.STOP, code_outputs=1), id="stop1"),
         pytest.param(Section.Code(Op.INVALID, code_outputs=0), id="invalid0"),
         pytest.param(Section.Code(Op.PUSH0 + Op.INVALID, code_outputs=1), id="invalid1"),
+        pytest.param(Section.Code(Op.RETURN(0, 0), code_outputs=0), id="return0"),
+        pytest.param(Section.Code(Op.PUSH0 + Op.RETURN(0, 0), code_outputs=1), id="return1"),
+        pytest.param(Section.Code(Op.REVERT(0, 0), code_outputs=0), id="revert0"),
+        pytest.param(Section.Code(Op.PUSH0 + Op.REVERT(0, 0), code_outputs=1), id="revert1"),
+        pytest.param(Section.Code(Op.RJUMP[-3], code_outputs=0), id="rjump0"),
+        pytest.param(Section.Code(Op.PUSH0 + Op.RJUMP[-3], code_outputs=1), id="rjump1"),
     ],
 )
 def test_returning_section_not_returning(eof_test: EOFTestFiller, code_section: Section):
     """
-    Test EOF validation failing because a returning sections ends with non-returning instruction.
+    Test EOF validation failing because a returning section has no RETF or JUMPF-to-returning.
     """
     eof_test(
         data=Container(
@@ -60,6 +66,36 @@ def test_returning_section_not_returning(eof_test: EOFTestFiller, code_section: 
                 code_section,
             ],
             validity_error=EOFException.INVALID_NON_RETURNING_FLAG,
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "code_section",
+    [
+        pytest.param(
+            Section.Code(Op.RETURNCONTRACT[0](0, 0), code_outputs=0), id="returncontract0"
+        ),
+        pytest.param(
+            Section.Code(Op.PUSH0 + Op.RETURNCONTRACT[0](0, 0), code_outputs=1),
+            id="returncontract1",
+        ),
+    ],
+)
+def test_returning_section_returncontract(eof_test: EOFTestFiller, code_section: Section):
+    """
+    Test EOF validation failing because a returning section has no RETF or JUMPF-to-returning -
+    RETURNCONTRACT version
+    """
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(Op.CALLF[1] + Op.INVALID, max_stack_height=code_section.code_outputs),
+                code_section,
+            ]
+            + [Section.Container(Container.Code(Op.INVALID))],
+            validity_error=EOFException.INVALID_NON_RETURNING_FLAG,
+            kind=ContainerKind.INITCODE,
         )
     )
 
