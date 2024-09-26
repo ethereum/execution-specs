@@ -20,7 +20,7 @@ from .helpers import (
     value_code_worked,
     value_exceptional_abort_canary,
 )
-from .spec import CALL_FAILURE, CALL_SUCCESS, EXTCALL_FAILED, EXTCALL_SUCCESS
+from .spec import EXTCALL_FAILURE, EXTCALL_SUCCESS, LEGACY_CALL_FAILURE, LEGACY_CALL_SUCCESS
 
 REFERENCE_SPEC_GIT_PATH = REFERENCE_SPEC_GIT_PATH
 REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
@@ -346,10 +346,10 @@ def test_returndatacopy_oob(
     post = {
         address_entry_point: Account(
             storage={
-                slot_eof_target_call_status: CALL_SUCCESS,
+                slot_eof_target_call_status: LEGACY_CALL_SUCCESS,
                 slot_eof_target_returndata: "0x00",
                 slot_eof_target_returndatasize: "0x01",
-                slot_legacy_target_call_status: CALL_FAILURE,
+                slot_legacy_target_call_status: LEGACY_CALL_FAILURE,
                 slot_legacy_target_returndatasize: "0x00",
             }
             if opcode == Op.CALL
@@ -357,7 +357,7 @@ def test_returndatacopy_oob(
                 slot_eof_target_call_status: EXTCALL_SUCCESS,
                 slot_eof_target_returndata: "0x00",
                 slot_eof_target_returndatasize: "0x01",
-                slot_legacy_target_call_status: EXTCALL_FAILED,
+                slot_legacy_target_call_status: EXTCALL_FAILURE,
                 slot_legacy_target_returndatasize: "0x00",
             }
         )

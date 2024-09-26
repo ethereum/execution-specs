@@ -10,6 +10,10 @@ from ethereum_test_tools.eof.v1 import Container
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 from ethereum_test_types.eof.v1 import Section
 from ethereum_test_vm import Bytecode, EVMCodeType
+from tests.prague.eip7692_eof_v1.eip7069_extcall.spec import (
+    LEGACY_CALL_FAILURE,
+    LEGACY_CALL_SUCCESS,
+)
 
 WARM_ACCOUNT_ACCESS_GAS = 100
 
@@ -19,8 +23,6 @@ slot_cold_gas = next(_slot)
 slot_warm_gas = next(_slot)
 slot_oog_call_result = next(_slot)
 slot_sanity_call_result = next(_slot)
-value_call_legacy_abort = 0
-value_call_legacy_success = 1
 
 
 def gas_test(
@@ -132,8 +134,8 @@ def gas_test(
             storage={
                 slot_warm_gas: warm_gas,
                 slot_cold_gas: cold_gas,
-                slot_oog_call_result: value_call_legacy_abort,
-                slot_sanity_call_result: value_call_legacy_success,
+                slot_oog_call_result: LEGACY_CALL_FAILURE,
+                slot_sanity_call_result: LEGACY_CALL_SUCCESS,
             },
         ),
     }

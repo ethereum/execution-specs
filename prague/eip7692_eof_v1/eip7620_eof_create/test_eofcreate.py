@@ -18,6 +18,7 @@ from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
+from ..eip7069_extcall.spec import EXTCALL_SUCCESS
 from .helpers import (
     slot_call_result,
     slot_calldata,
@@ -29,9 +30,8 @@ from .helpers import (
     smallest_runtime_subcontainer,
     value_canary_to_be_overwritten,
     value_code_worked,
-    value_create_failed,
-    value_eof_call_result_success,
 )
+from .spec import EOFCREATE_FAILURE
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7620.md"
 REFERENCE_SPEC_VERSION = "52ddbcdddcf72dd72427c319f2beddeb468e1737"
@@ -433,7 +433,7 @@ def test_return_data_cleared(
     post = {
         contract_address: Account(
             storage={
-                slot_call_result: value_eof_call_result_success,
+                slot_call_result: EXTCALL_SUCCESS,
                 slot_returndata_size: value_return_canary_size,
                 slot_create_address: new_contract_address,
                 slot_returndata_size_2: 0,
@@ -496,8 +496,8 @@ def test_address_collision(
         contract_address: Account(
             storage={
                 slot_create_address: salt_zero_address,
-                slot_create_address_2: value_create_failed,  # had an in-transaction collision
-                slot_create_address_3: value_create_failed,  # had a pre-existing collision
+                slot_create_address_2: EOFCREATE_FAILURE,  # had an in-transaction collision
+                slot_create_address_3: EOFCREATE_FAILURE,  # had a pre-existing collision
                 slot_code_worked: value_code_worked,
             }
         )

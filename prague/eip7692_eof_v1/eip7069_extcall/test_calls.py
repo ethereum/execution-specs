@@ -19,6 +19,13 @@ from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
+from .spec import (
+    EXTCALL_FAILURE,
+    EXTCALL_REVERT,
+    EXTCALL_SUCCESS,
+    LEGACY_CALL_FAILURE,
+    LEGACY_CALL_SUCCESS,
+)
 
 pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-3540.md"
@@ -37,11 +44,6 @@ slot_last_slot = next(_slot)
 
 """Storage values for common testing fields"""
 value_code_worked = 0x2015
-value_legacy_call_worked = 1
-value_legacy_call_failed = 0
-value_eof_call_worked = 0
-value_eof_call_reverted = 1
-value_eof_call_failed = 2
 value_returndata_magic = b"\x42"
 
 
@@ -97,7 +99,7 @@ def test_legacy_calls_eof_sstore(
     calling_storage = Storage(
         {
             slot_code_worked: value_code_worked,  # type: ignore
-            slot_call_result: value_legacy_call_worked,  # type: ignore
+            slot_call_result: LEGACY_CALL_SUCCESS,  # type: ignore
         }
     )
     destination_storage = Storage()
@@ -109,7 +111,7 @@ def test_legacy_calls_eof_sstore(
     elif opcode == Op.CALLCODE:
         calling_storage[slot_caller] = calling_contract_address
     elif opcode == Op.STATICCALL:
-        calling_storage[slot_call_result] = value_legacy_call_failed
+        calling_storage[slot_call_result] = LEGACY_CALL_FAILURE
 
     post = {
         calling_contract_address: Account(storage=calling_storage),
@@ -169,7 +171,7 @@ def test_legacy_calls_eof_mstore(
 
     calling_storage = {
         slot_code_worked: value_code_worked,  # type: ignore
-        slot_call_result: value_legacy_call_worked,  # type: ignore
+        slot_call_result: LEGACY_CALL_SUCCESS,  # type: ignore
         slot_returndatasize: len(value_returndata_magic),  # type: ignore
         slot_returndata: value_returndata_magic,  # type: ignore
     }
@@ -226,7 +228,7 @@ def test_eof_calls_eof_sstore(
     calling_storage = Storage(
         {
             slot_code_worked: value_code_worked,  # type: ignore
-            slot_call_result: value_eof_call_worked,  # type: ignore
+            slot_call_result: EXTCALL_SUCCESS,  # type: ignore
         }
     )
     destination_storage = Storage()
@@ -236,7 +238,7 @@ def test_eof_calls_eof_sstore(
     elif opcode == Op.EXTDELEGATECALL:
         calling_storage[slot_caller] = sender
     elif opcode == Op.EXTSTATICCALL:
-        calling_storage[slot_call_result] = value_eof_call_failed
+        calling_storage[slot_call_result] = EXTCALL_FAILURE
 
     post = {
         calling_contract_address: Account(storage=calling_storage),
@@ -299,7 +301,7 @@ def test_eof_calls_eof_mstore(
 
     calling_storage = {
         slot_code_worked: value_code_worked,  # type: ignore
-        slot_call_result: value_eof_call_worked,  # type: ignore
+        slot_call_result: EXTCALL_SUCCESS,  # type: ignore
         slot_returndatasize: 0x20,  # type: ignore
         slot_returndata: value_returndata_magic
         + b"\0" * (0x20 - len(value_returndata_magic)),  # type: ignore
@@ -357,7 +359,7 @@ def test_eof_calls_legacy_sstore(
 
     calling_storage = {
         slot_code_worked: value_code_worked,  # type: ignore
-        slot_call_result: value_eof_call_worked,  # type: ignore
+        slot_call_result: EXTCALL_SUCCESS,  # type: ignore
     }
     destination_storage = {}
 
@@ -365,9 +367,9 @@ def test_eof_calls_legacy_sstore(
         destination_storage[slot_caller] = calling_contract_address
     elif opcode == Op.EXTDELEGATECALL:
         # EOF delegate call to legacy is a light failure by rule
-        calling_storage[slot_call_result] = value_eof_call_reverted
+        calling_storage[slot_call_result] = EXTCALL_REVERT
     elif opcode == Op.EXTSTATICCALL:
-        calling_storage[slot_call_result] = value_eof_call_failed
+        calling_storage[slot_call_result] = EXTCALL_FAILURE
 
     post = {
         calling_contract_address: Account(storage=calling_storage),
@@ -425,7 +427,7 @@ def test_eof_calls_legacy_mstore(
 
     calling_storage = {
         slot_code_worked: value_code_worked,  # type: ignore
-        slot_call_result: value_eof_call_worked,  # type: ignore
+        slot_call_result: EXTCALL_SUCCESS,  # type: ignore
         slot_returndatasize: 0x20,  # type: ignore
         slot_returndata: value_returndata_magic
         + b"\0" * (0x20 - len(value_returndata_magic)),  # type: ignore
@@ -433,7 +435,7 @@ def test_eof_calls_legacy_mstore(
 
     if opcode == Op.EXTDELEGATECALL:
         # EOF delegate call to legacy is a light failure by rule
-        calling_storage[slot_call_result] = value_eof_call_reverted
+        calling_storage[slot_call_result] = EXTCALL_REVERT
         calling_storage[slot_returndatasize] = 0
         calling_storage[slot_returndata] = 0
 
@@ -496,10 +498,10 @@ def test_eof_calls_revert_abort(
 
     calling_storage = {
         slot_code_worked: value_code_worked,
-        slot_call_result: value_eof_call_reverted
+        slot_call_result: EXTCALL_REVERT
         if destination_opcode == Op.REVERT
         or (opcode == Op.EXTDELEGATECALL and not destination_is_eof)
-        else value_eof_call_failed,
+        else EXTCALL_FAILURE,
     }
 
     post = {
@@ -702,7 +704,7 @@ def test_eof_calls_static_flag_with_value(
 
     calling_storage = {
         slot_code_worked: value_code_worked,
-        slot_call_result: value_eof_call_failed,
+        slot_call_result: EXTCALL_FAILURE,
     }
 
     post = {
@@ -768,7 +770,7 @@ def test_eof_calls_min_callee_gas(
     calling_contract_address = pre.deploy_contract(
         Container.Code(
             Op.SSTORE(slot_code_worked, value_code_worked)
-            + Op.EQ(opcode(address=noop_callee_address, value=value), value_eof_call_reverted)
+            + Op.EQ(opcode(address=noop_callee_address, value=value), EXTCALL_REVERT)
             # If the return code isn't 1, it means gas was enough to cover the allowances.
             + Op.RJUMPI[len(revert_block)]
             + revert_block
@@ -847,7 +849,7 @@ def test_eof_calls_with_value(
 
     calling_storage = {
         slot_code_worked: value_code_worked,
-        slot_call_result: value_eof_call_reverted if balance < value else value_eof_call_worked,
+        slot_call_result: EXTCALL_REVERT if balance < value else EXTCALL_SUCCESS,
     }
 
     post = {
@@ -945,7 +947,7 @@ def test_eof_calls_msg_depth(
     calling_storage = {
         slot_max_depth: 1024,
         slot_code_worked: value_code_worked,
-        slot_call_result: value_eof_call_reverted,
+        slot_call_result: EXTCALL_REVERT,
     }
 
     post = {

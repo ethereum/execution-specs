@@ -18,6 +18,7 @@ from ethereum_test_tools.eof.v1.constants import MAX_BYTECODE_SIZE, MAX_INITCODE
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
+from ..eip7069_extcall.spec import EXTCALL_FAILURE, EXTCALL_REVERT, LEGACY_CALL_FAILURE
 from .helpers import (
     aborting_container,
     slot_call_or_create,
@@ -32,11 +33,8 @@ from .helpers import (
     smallest_runtime_subcontainer,
     value_canary_should_not_change,
     value_code_worked,
-    value_create_failed,
-    value_eof_call_result_failed,
-    value_eof_call_result_reverted,
-    value_legacy_call_result_failed,
 )
+from .spec import EOFCREATE_FAILURE
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7620.md"
 REFERENCE_SPEC_VERSION = "52ddbcdddcf72dd72427c319f2beddeb468e1737"
@@ -88,7 +86,7 @@ def test_initcode_revert(state_test: StateTestFiller, pre: Alloc, revert: bytes)
     post = {
         contract_address: Account(
             storage={
-                slot_create_address: value_create_failed,
+                slot_create_address: EOFCREATE_FAILURE,
                 slot_returndata_size: revert_size,
                 slot_returndata: revert,
                 slot_code_worked: value_code_worked,
@@ -130,7 +128,7 @@ def test_initcode_aborts(
     post = {
         contract_address: Account(
             storage={
-                slot_create_address: value_create_failed,
+                slot_create_address: EOFCREATE_FAILURE,
                 slot_code_worked: value_code_worked,
             }
         )
@@ -231,7 +229,7 @@ def test_eofcreate_deploy_sizes(
                     contract_address, 0, initcode_subcontainer
                 )
                 if target_deploy_size <= MAX_BYTECODE_SIZE
-                else value_create_failed,
+                else EOFCREATE_FAILURE,
                 slot_code_worked: value_code_worked,
             }
         )
@@ -380,7 +378,7 @@ def test_eofcreate_insufficient_stipend(
     post = {
         contract_address: Account(
             storage={
-                slot_create_address: value_create_failed,
+                slot_create_address: EOFCREATE_FAILURE,
                 slot_code_worked: value_code_worked,
             }
         ),
@@ -634,9 +632,9 @@ def test_static_flag_eofcreate(
     post = {
         calling_address: Account(
             storage={
-                slot_call_result: value_eof_call_result_failed
+                slot_call_result: EXTCALL_FAILURE
                 if opcode == Op.EXTSTATICCALL
-                else value_legacy_call_result_failed,
+                else LEGACY_CALL_FAILURE,
                 slot_code_worked: value_code_worked,
             }
         )
@@ -760,9 +758,7 @@ def test_eof_eofcreate_msg_depth(
     calling_storage = {
         slot_max_depth: 1024,
         slot_code_worked: value_code_worked,
-        slot_call_result: value_eof_call_result_reverted
-        if who_fails == magic_value_call
-        else value_create_failed,
+        slot_call_result: EXTCALL_REVERT if who_fails == magic_value_call else EOFCREATE_FAILURE,
         slot_call_or_create: who_fails,
     }
 

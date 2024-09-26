@@ -19,8 +19,8 @@ from .helpers import (
     smallest_initcode_subcontainer,
     smallest_runtime_subcontainer,
     value_code_worked,
-    value_create_failed,
 )
+from .spec import EOFCREATE_FAILURE
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7620.md"
 REFERENCE_SPEC_VERSION = "52ddbcdddcf72dd72427c319f2beddeb468e1737"
@@ -66,7 +66,7 @@ def test_cross_version_creates_fail(
     post = {
         contract_address: Account(
             storage={
-                slot_create_address: value_create_failed,
+                slot_create_address: EOFCREATE_FAILURE,
                 slot_code_worked: value_code_worked,
             }
         )
@@ -127,7 +127,7 @@ def test_legacy_initcode_eof_contract_fails(
     # and 1 in 1 to show execution continued and did not halt
     post = {
         contract_address: Account(
-            storage={slot_create_address: value_create_failed, slot_code_worked: value_code_worked}
+            storage={slot_create_address: EOFCREATE_FAILURE, slot_code_worked: value_code_worked}
         )
     }
     tx = Transaction(

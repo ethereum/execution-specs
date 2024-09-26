@@ -23,7 +23,7 @@ from .helpers import (
     value_code_worked,
     value_exceptional_abort_canary,
 )
-from .spec import CALL_FAILURE, CALL_SUCCESS, EXTCALL_FAILED, EXTCALL_SUCCESS
+from .spec import EXTCALL_FAILURE, EXTCALL_SUCCESS, LEGACY_CALL_FAILURE, LEGACY_CALL_SUCCESS
 
 REFERENCE_SPEC_GIT_PATH = REFERENCE_SPEC_GIT_PATH
 REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
@@ -381,7 +381,7 @@ def test_calldata_remains_after_subcall(
         case Op.STATICCALL:
             called_storage = {
                 slot_code_worked: value_code_worked,
-                slot_call_status: CALL_FAILURE,
+                slot_call_status: LEGACY_CALL_FAILURE,
                 slot_calldata_1: value_calldata_1,
             }
             sub_called_storage = {
@@ -391,7 +391,7 @@ def test_calldata_remains_after_subcall(
             called_storage = {
                 slot_code_worked: value_code_worked,
                 slot_delegate_code_worked: value_code_worked,
-                slot_call_status: CALL_SUCCESS,
+                slot_call_status: LEGACY_CALL_SUCCESS,
                 slot_calldata_1: value_calldata_1,
             }
             sub_called_storage = {
@@ -400,7 +400,7 @@ def test_calldata_remains_after_subcall(
         case Op.CALL:
             called_storage = {
                 slot_code_worked: value_code_worked,
-                slot_call_status: CALL_SUCCESS,
+                slot_call_status: LEGACY_CALL_SUCCESS,
                 slot_calldata_1: value_calldata_1,
             }
             sub_called_storage = {
@@ -409,7 +409,7 @@ def test_calldata_remains_after_subcall(
         case Op.EXTSTATICCALL:
             called_storage = {
                 slot_code_worked: value_code_worked,
-                slot_call_status: EXTCALL_FAILED,
+                slot_call_status: EXTCALL_FAILURE,
                 slot_calldata_1: value_calldata_1,
             }
             sub_called_storage = {

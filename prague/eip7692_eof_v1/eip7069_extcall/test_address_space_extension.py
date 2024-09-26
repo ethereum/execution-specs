@@ -11,7 +11,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 from .helpers import value_exceptional_abort_canary
-from .spec import CALL_SUCCESS, EXTCALL_REVERT, EXTCALL_SUCCESS
+from .spec import EXTCALL_REVERT, EXTCALL_SUCCESS, LEGACY_CALL_SUCCESS
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7069.md"
 REFERENCE_SPEC_VERSION = "1795943aeacc86131d5ab6bb3d65824b3b1d4cad"
@@ -160,16 +160,16 @@ def test_address_space_extension(
                 caller_storage[slot_target_returndata] = 0
             else:
                 caller_storage[slot_target_call_status] = (
-                    EXTCALL_SUCCESS if ase_ready_opcode else CALL_SUCCESS
+                    EXTCALL_SUCCESS if ase_ready_opcode else LEGACY_CALL_SUCCESS
                 )
         case "LegacyContract" | "EOFContract":
             match target_opcode:
                 case Op.CALL | Op.STATICCALL:
-                    caller_storage[slot_target_call_status] = CALL_SUCCESS
+                    caller_storage[slot_target_call_status] = LEGACY_CALL_SUCCESS
                     # CALL and STATICCALL call will call the stripped address
                     caller_storage[slot_target_returndata] = stripped_address
                 case Op.CALLCODE | Op.DELEGATECALL:
-                    caller_storage[slot_target_call_status] = CALL_SUCCESS
+                    caller_storage[slot_target_call_status] = LEGACY_CALL_SUCCESS
                     # CALLCODE and DELEGATECALL call will call the stripped address
                     # but will change the sender to self
                     caller_storage[slot_target_returndata] = address_caller
@@ -199,7 +199,7 @@ def test_address_space_extension(
             storage={
                 slot_top_level_call_status: EXTCALL_SUCCESS
                 if ase_ready_opcode and ase_address
-                else CALL_SUCCESS
+                else LEGACY_CALL_SUCCESS
             }
         ),
         address_caller: Account(storage=caller_storage),
