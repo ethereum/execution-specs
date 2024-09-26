@@ -11,7 +11,7 @@ from tests.helpers.load_evm_tools_tests import (
 )
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
-TEST_DIR = f"{ETHEREUM_TESTS_PATH}/GeneralStateTests/"
+TEST_DIR = "tests/fixtures/latest_fork_tests/state_tests/prague/eip7692_eof_v1"
 FORK_NAME = "Prague"
 
 run_evm_tools_test = partial(
@@ -37,6 +37,12 @@ SLOW_TESTS = (
 test_dirs = (
     "tests/fixtures/latest_fork_tests/state_tests/prague/eip2537_bls_12_381_precompiles",
     "tests/fixtures/latest_fork_tests/state_tests/prague/eip7702_set_code_tx",
+    "tests/fixtures/latest_fork_tests/state_tests/prague/eip7692_eof_v1",
+    "tests/fixtures/ethereum_tests/EIPTests/StateTests/stEOF",
+    # TODO: The following evmone tests for EOF are currently disabled since
+    # some of the fixtures are malformed. They will be enabled once the
+    # new fixtures are available.
+    # "tests/fixtures/latest_fork_tests/evmone_tests/state_tests",
 )
 
 IGNORE_TESTS = (
@@ -46,6 +52,8 @@ IGNORE_TESTS = (
     "tests/prague/eip7702_set_code_tx/test_set_code_txs.py::test_invalid_tx_invalid_auth_signature[fork_Prague-state_test-v_0,r_1,s_SECP256K1N_OVER_2+1]",
     "tests/prague/eip7702_set_code_tx/test_set_code_txs.py::test_invalid_tx_invalid_auth_signature[fork_Prague-state_test-v_2**256-1,r_1,s_1]",
     "tests/prague/eip7702_set_code_tx/test_set_code_txs.py::test_invalid_tx_invalid_auth_signature[fork_Prague-state_test-v_0,r_1,s_2**256-1]",
+    "tests/fixtures/latest_fork_tests/state_tests/prague/eip7692_eof_v1",
+    "tests/fixtures/ethereum_tests/EIPTests/StateTests/stEOF",
 )
 
 

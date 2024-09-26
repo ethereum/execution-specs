@@ -28,6 +28,9 @@ from ..gas import (
     GAS_BLOBHASH_OPCODE,
     GAS_COLD_ACCOUNT_ACCESS,
     GAS_COPY,
+    GAS_DATALOAD,
+    GAS_DATALOADN,
+    GAS_DATASIZE,
     GAS_FAST_STEP,
     GAS_RETURN_DATA_COPY,
     GAS_VERY_LOW,
@@ -263,7 +266,7 @@ def codesize(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256(len(evm.code)))
+    push(evm.stack, U256(len(evm.message.code)))
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -297,7 +300,7 @@ def codecopy(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    value = buffer_read(evm.code, code_start_index, size)
+    value = buffer_read(evm.message.code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 
     # PROGRAM COUNTER
@@ -337,6 +340,8 @@ def extcodesize(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    from ..eof import EOF_MAGIC, EofVersion, get_eof_version
+
     # STACK
     address = to_address(pop(evm.stack))
 
@@ -352,7 +357,14 @@ def extcodesize(evm: Evm) -> None:
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
-    codesize = U256(len(code))
+    # Non-existent accounts default to EMPTY_ACCOUNT, which has empty code.
+    code = get_account(evm.env.state, address).code
+    target_eof_version = get_eof_version(code)
+    if target_eof_version == EofVersion.EOF1:
+        codesize = U256(len(EOF_MAGIC))
+    else:
+        codesize = U256(len(code))
+
     push(evm.stack, codesize)
 
     # PROGRAM COUNTER
@@ -369,6 +381,8 @@ def extcodecopy(evm: Evm) -> None:
         The current EVM frame.
 
     """
+    from ..eof import EOF_MAGIC, EofVersion, get_eof_version
+
     # STACK
     address = to_address(pop(evm.stack))
     memory_start_index = pop(evm.stack)
@@ -395,6 +409,9 @@ def extcodecopy(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
+    eof_version = get_eof_version(code)
+    if eof_version == EofVersion.EOF1:
+        code = EOF_MAGIC
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 
@@ -445,7 +462,9 @@ def returndatacopy(evm: Evm) -> None:
         evm.memory, [(memory_start_index, size)]
     )
     charge_gas(evm, GAS_VERY_LOW + copy_gas_cost + extend_memory.cost)
-    if Uint(return_data_start_position) + Uint(size) > len(evm.return_data):
+    if evm.eof is None and Uint(return_data_start_position) + Uint(size) > len(
+        evm.return_data
+    ):
         raise OutOfBoundsRead
 
     evm.memory += b"\x00" * extend_memory.expand_by
@@ -466,6 +485,8 @@ def extcodehash(evm: Evm) -> None:
     evm :
         The current EVM frame.
     """
+    from ..eof import EOF_MAGIC, EofVersion, get_eof_version
+
     # STACK
     address = to_address(pop(evm.stack))
 
@@ -485,6 +506,8 @@ def extcodehash(evm: Evm) -> None:
     account = get_account(evm.env.state, address)
     if account == EMPTY_ACCOUNT:
         codehash = U256(0)
+    elif get_eof_version(account.code) == EofVersion.EOF1:
+        codehash = U256.from_be_bytes(keccak256(EOF_MAGIC))
     else:
         codehash = U256.from_be_bytes(keccak256(code))
 
@@ -589,6 +612,138 @@ def blob_base_fee(evm: Evm) -> None:
     # OPERATION
     blob_base_fee = calculate_blob_gas_price(evm.env.excess_blob_gas)
     push(evm.stack, U256(blob_base_fee))
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def returndataload(evm: Evm) -> None:
+    """
+    Copies data from the return data buffer code to memory
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    offset = pop(evm.stack)
+
+    # GAS
+    charge_gas(evm, GAS_VERY_LOW)
+
+    # OPERATION
+    value = U256.from_be_bytes(buffer_read(evm.return_data, offset, U256(32)))
+    push(evm.stack, value)
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def dataload(evm: Evm) -> None:
+    """
+    Pushes 32-byte word to stack.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    offset = pop(evm.stack)
+
+    # GAS
+    charge_gas(evm, GAS_DATALOAD)
+
+    # OPERATION
+    assert evm.eof is not None
+    value = U256.from_be_bytes(
+        buffer_read(evm.eof.metadata.data_section_contents, offset, U256(32))
+    )
+    push(evm.stack, value)
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def dataload_n(evm: Evm) -> None:
+    """
+    Pushes 32-byte word to stack where the word is addressed
+    by a static immediate argument
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_DATALOADN)
+
+    # OPERATION
+    assert evm.eof is not None
+    offset = U256.from_be_bytes(evm.code[evm.pc + 1 : evm.pc + 3])
+    value = U256.from_be_bytes(
+        buffer_read(evm.eof.metadata.data_section_contents, offset, U256(32))
+    )
+    push(evm.stack, value)
+
+    # PROGRAM COUNTER
+    # 1 + 2 bytes of immediate data
+    evm.pc += 3
+
+
+def datasize(evm: Evm) -> None:
+    """
+    Pushes the data section size.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    pass
+
+    # GAS
+    charge_gas(evm, GAS_DATASIZE)
+
+    # OPERATION
+    assert evm.eof is not None
+    push(evm.stack, U256(len(evm.eof.metadata.data_section_contents)))
+
+    # PROGRAM COUNTER
+    evm.pc += 1
+
+
+def datacopy(evm: Evm) -> None:
+    """
+    Copies a segment of data section to memory.
+
+    Parameters
+    ----------
+    evm :
+        The current EVM frame.
+    """
+    # STACK
+    memory_start_index = pop(evm.stack)
+    offset = pop(evm.stack)
+    size = pop(evm.stack)
+
+    # GAS
+    copy_gas_cost = 3 + 3 * ((Uint(size) + 31) // 32)
+    extend_memory = calculate_gas_extend_memory(
+        evm.memory, [(memory_start_index, size)]
+    )
+    charge_gas(evm, copy_gas_cost + extend_memory.cost)
+
+    # OPERATION
+    assert evm.eof is not None
+    evm.memory += b"\x00" * extend_memory.expand_by
+    value = buffer_read(evm.eof.metadata.data_section_contents, offset, size)
+    memory_write(evm.memory, memory_start_index, value)
 
     # PROGRAM COUNTER
     evm.pc += 1
