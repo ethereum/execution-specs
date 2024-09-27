@@ -91,10 +91,10 @@ HISTORY_STORAGE_ADDRESS = hex_to_address(
     "0x0aae40965e6800cd9b1f4b05ff21581047e3f91e"
 )
 WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
-    "0x00A3ca265EBcb825B45F985A16CEFB49958cE017"
+    "0x05F27129610CB42103b665629CB5c8C00296AaAa"
 )
 CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
-    "0x00b42dbf2194e931e80326d950320f7d9dbeac02"
+    "0x00706203067988Ab3E2A2ab626EdCD6f28bDBbbb"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
 MAX_BLOB_GAS_PER_BLOCK = 786432
@@ -236,7 +236,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         raise InvalidBlock
     if apply_body_output.blob_gas_used != block.header.blob_gas_used:
         raise InvalidBlock
-    if apply_body_output.requests_root != block.header.requests_root:
+    if apply_body_output.requests_hash != block.header.requests_hash:
         raise InvalidBlock
 
     chain.blocks.append(block)
@@ -522,8 +522,8 @@ class ApplyBodyOutput:
         Trie root of all the withdrawals in the block.
     blob_gas_used : `ethereum.base_types.Uint`
         Total blob gas used in the block.
-    requests_root : `ethereum.fork_types.Root`
-        Trie root of all the requests in the block.
+    requests_hash : `ethereum.fork_types.Root`
+        Hash of all the requests in the block.
     """
 
     block_gas_used: Uint
@@ -533,7 +533,7 @@ class ApplyBodyOutput:
     state_root: Root
     withdrawals_root: Root
     blob_gas_used: Uint
-    requests_root: Root
+    requests_hash: Hash32
 
 
 def process_system_transaction(
@@ -715,9 +715,6 @@ def apply_body(
     withdrawals_trie: Trie[Bytes, Optional[Union[Bytes, Withdrawal]]] = Trie(
         secured=False, default=None
     )
-    requests_trie: Trie[Bytes, Optional[Bytes]] = Trie(
-        secured=False, default=None
-    )
     block_logs: Tuple[Log, ...] = ()
     requests_from_execution: Tuple[Bytes, ...] = ()
 
@@ -867,8 +864,7 @@ def apply_body(
     if requests_from_execution != requests:
         raise InvalidBlock
 
-    for i, request in enumerate(requests_from_execution):
-        trie_set(requests_trie, rlp.encode(Uint(i)), request)
+    requests_hash = keccak256(rlp.encode(requests_from_execution))
 
     return ApplyBodyOutput(
         block_gas_used,
@@ -878,7 +874,7 @@ def apply_body(
         state_root(state),
         root(withdrawals_trie),
         blob_gas_used,
-        root(requests_trie),
+        requests_hash,
     )
 
 

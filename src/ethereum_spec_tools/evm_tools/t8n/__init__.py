@@ -289,18 +289,6 @@ class T8N(Load):
         state = self.alloc.state
         state._main_trie, state._storage_tries = self.alloc.state_backup
 
-    def decode_request(self, decoded_requests: Any, request: Any) -> Any:
-        """Decode a request."""
-        req = self.fork.decode_request(request)
-        if isinstance(req, self.fork.DepositRequest):
-            decoded_requests.append(("depositRequests", req))
-        elif isinstance(req, self.fork.WithdrawalRequest):
-            decoded_requests.append(("withdrawalRequests", req))
-        elif isinstance(req, self.fork.ConsolidationRequest):
-            decoded_requests.append(("consolidationRequests", req))
-        else:
-            raise Exception("Unknown request type")
-
     def apply_body(self) -> None:
         """
         The apply body function is seen as the entry point of
@@ -320,7 +308,6 @@ class T8N(Load):
             self.fork.is_after_fork("ethereum.prague")
             and not self.options.state_test
         ):
-            requests_trie = self.fork.Trie(secured=False, default=None)
             requests_from_execution: Tuple[Bytes, ...] = ()
 
             self.fork.process_system_transaction(
@@ -501,11 +488,6 @@ class T8N(Load):
 
             requests_from_execution += consolidation_requests
 
-            decoded_requests: Any = []
-            for i, request in enumerate(requests_from_execution):
-                self.fork.trie_set(requests_trie, rlp.encode(Uint(i)), request)
-                self.decode_request(decoded_requests, request)
-
         self.result.state_root = self.fork.state_root(self.alloc.state)
         self.result.tx_root = self.fork.root(transactions_trie)
         self.result.receipt_root = self.fork.root(receipts_trie)
@@ -519,8 +501,10 @@ class T8N(Load):
             self.fork.is_after_fork("ethereum.prague")
             and not self.options.state_test
         ):
-            self.result.requests_root = self.fork.root(requests_trie)
-            self.result.requests = decoded_requests
+            self.result.requests_hash = keccak256(
+                rlp.encode(requests_from_execution)
+            )
+            self.result.requests = requests_from_execution
 
     def run(self) -> int:
         """Run the transition and provide the relevant outputs"""

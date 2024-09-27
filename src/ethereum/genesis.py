@@ -263,8 +263,8 @@ def add_genesis_block(
     if has_field(hardfork.Header, "parent_beacon_block_root"):
         fields["parent_beacon_block_root"] = Hash32(b"\0" * 32)
 
-    if has_field(hardfork.Header, "requests_root"):
-        fields["requests_root"] = hardfork.root(hardfork.Trie(False, None))
+    if has_field(hardfork.Header, "requests_hash"):
+        fields["requests_hash"] = Hash32(b"\0" * 32)
 
     genesis_header = hardfork.Header(**fields)
 
