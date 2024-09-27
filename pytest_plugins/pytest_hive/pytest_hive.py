@@ -100,11 +100,6 @@ def simulator(request):  # noqa: D103
     return request.config.hive_simulator
 
 
-@pytest.fixture(scope="session")
-def session_temp_folder(request) -> Path:  # noqa: D103
-    return request.config.option.hive_session_temp_folder
-
-
 @pytest.fixture(scope="module")
 def test_suite(
     simulator: Simulation,
