@@ -708,8 +708,6 @@ def test_withdrawing_to_precompiles(
     """
     Test withdrawing to all precompiles for a given fork.
     """
-    if precompile == 3 and str(t8n.default_binary) == "ethereum-spec-evm":
-        pytest.xfail("ethereum-spec-evm doesn't support hash type ripemd160")
     sender = pre.fund_eoa()
     post: Dict = {}
 
