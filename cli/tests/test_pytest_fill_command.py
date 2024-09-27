@@ -63,6 +63,7 @@ def test_tf_deprecation(runner):
     assert "The `tf` command-line tool has been superseded by `fill`" in result.output
 
 
+@pytest.mark.run_in_serial
 class TestHtmlReportFlags:
     """
     Test html report generation and output options.

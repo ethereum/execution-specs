@@ -10,7 +10,7 @@ from ethereum_test_base_types import Account, Address
 from ethereum_test_fixtures import FixtureFormats
 from ethereum_test_forks import Fork, get_deployed_forks
 from ethereum_test_types import Alloc, Environment, Storage, Transaction
-from evm_transition_tool import GethTransitionTool
+from evm_transition_tool import ExecutionSpecsTransitionTool
 
 from ..state import StateTest
 
@@ -52,11 +52,12 @@ def state_test(  # noqa: D103
 
 
 @pytest.fixture
-def t8n() -> GethTransitionTool:  # noqa: D103
-    return GethTransitionTool()
+def t8n() -> ExecutionSpecsTransitionTool:  # noqa: D103
+    return ExecutionSpecsTransitionTool()
 
 
 # Storage value mismatch tests
+@pytest.mark.run_in_serial
 @pytest.mark.parametrize(
     "pre,post,expected_exception",
     [
@@ -122,6 +123,7 @@ def test_post_storage_value_mismatch(
 
 
 # Nonce value mismatch tests
+@pytest.mark.run_in_serial
 @pytest.mark.parametrize(
     "pre,post",
     [
@@ -157,6 +159,7 @@ def test_post_nonce_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, for
 
 
 # Code value mismatch tests
+@pytest.mark.run_in_serial
 @pytest.mark.parametrize(
     "pre,post",
     [
@@ -192,6 +195,7 @@ def test_post_code_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, fork
 
 
 # Balance value mismatch tests
+@pytest.mark.run_in_serial
 @pytest.mark.parametrize(
     "pre,post",
     [
@@ -227,6 +231,7 @@ def test_post_balance_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, f
 
 
 # Account mismatch tests
+@pytest.mark.run_in_serial
 @pytest.mark.parametrize(
     "pre,post,exception_type",
     [

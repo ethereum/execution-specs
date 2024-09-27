@@ -15,6 +15,8 @@ from pathlib import Path
 from re import Pattern
 from typing import Dict, List, Mapping, Optional, Type
 
+from requests_unixsocket import Session  # type: ignore
+
 from ethereum_test_fixtures import FixtureFormats, FixtureVerifier
 from ethereum_test_forks import Fork
 from ethereum_test_types import Alloc, Environment, Transaction
@@ -58,7 +60,11 @@ class TransitionTool(FixtureVerifier):
     statetest_subcommand: Optional[str] = None
     blocktest_subcommand: Optional[str] = None
     cached_version: Optional[str] = None
-    t8n_use_stream: bool = True
+    t8n_use_stream: bool = False
+
+    t8n_use_server: bool = False
+    server_url: str
+    process: Optional[subprocess.Popen] = None
 
     # Abstract methods that each tool must implement
 
@@ -184,6 +190,12 @@ class TransitionTool(FixtureVerifier):
     def is_fork_supported(self, fork: Fork) -> bool:
         """
         Returns True if the fork is supported by the tool
+        """
+        pass
+
+    def start_server(self):
+        """
+        Starts the t8n-server process, extracts the port, and leaves it running for future re-use.
         """
         pass
 
@@ -373,6 +385,72 @@ class TransitionTool(FixtureVerifier):
 
         return output
 
+    def _evaluate_server(
+        self,
+        *,
+        t8n_data: TransitionToolData,
+        debug_output_path: str = "",
+    ) -> TransitionToolOutput:
+        """
+        Executes the transition tool sending inputs and outputs via a server.
+        """
+        input_contents = t8n_data.to_input()
+        input_json = input_contents.model_dump(mode="json", **model_dump_config)
+        post_data = {
+            "state": {
+                "fork": t8n_data.fork_name,
+                "chainid": t8n_data.chain_id,
+                "reward": t8n_data.reward,
+            },
+            "input": input_json,
+        }
+
+        if debug_output_path:
+            request_info = (
+                f"Server URL: {self.server_url}\n\n"
+                f"Request Data:\n{json.dumps(post_data, indent=2)}\n"
+            )
+            dump_files_to_directory(
+                debug_output_path,
+                {
+                    "input/alloc.json": input_contents.alloc,
+                    "input/env.json": input_contents.env,
+                    "input/txs.json": [
+                        tx.model_dump(mode="json", **model_dump_config)
+                        for tx in input_contents.txs
+                    ],
+                    "request_info.txt": request_info,
+                },
+            )
+
+        response = Session().post(self.server_url, json=post_data, timeout=20)
+        response.raise_for_status()  # exception visible in pytest failure output
+        if response.status_code != 200:
+            raise Exception(
+                f"t8n-server returned status code {response.status_code}, "
+                f"response: {response.text}"
+            )
+
+        output: TransitionToolOutput = TransitionToolOutput.model_validate(response.json())
+
+        if debug_output_path:
+            response_info = (
+                f"Status Code: {response.status_code}\n\n"
+                f"Headers:\n{json.dumps(dict(response.headers), indent=2)}\n\n"
+                f"Content:\n{response.text}\n"
+            )
+            dump_files_to_directory(
+                debug_output_path,
+                {
+                    "output/alloc.json": output.alloc,
+                    "output/result.json": output.result,
+                    "output/txs.rlp": str(output.body),
+                    "response_info.txt": response_info,
+                },
+            )
+
+        return output
+
     def _evaluate_stream(
         self,
         *,
@@ -505,6 +583,9 @@ class TransitionTool(FixtureVerifier):
         If a client's `t8n` tool varies from the default behavior, this method
         can be overridden.
         """
+        if not self.process:
+            self.start_server()
+
         fork_name = fork.transition_tool_name(
             block_number=env.number,
             timestamp=env.timestamp,
@@ -522,13 +603,16 @@ class TransitionTool(FixtureVerifier):
             reward=reward,
         )
 
+        if self.t8n_use_server:
+            return self._evaluate_server(t8n_data=t8n_data, debug_output_path=debug_output_path)
+
         if self.t8n_use_stream:
             return self._evaluate_stream(t8n_data=t8n_data, debug_output_path=debug_output_path)
-        else:
-            return self._evaluate_filesystem(
-                t8n_data=t8n_data,
-                debug_output_path=debug_output_path,
-            )
+
+        return self._evaluate_filesystem(
+            t8n_data=t8n_data,
+            debug_output_path=debug_output_path,
+        )
 
     def verify_fixture(
         self,

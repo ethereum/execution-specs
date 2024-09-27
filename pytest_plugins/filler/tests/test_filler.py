@@ -76,6 +76,7 @@ test_count_shanghai = 8
 total_test_count = test_count_paris + test_count_shanghai
 
 
+@pytest.mark.run_in_serial
 @pytest.mark.parametrize(
     "args, expected_fixture_files, expected_fixture_counts, expected_index",
     [

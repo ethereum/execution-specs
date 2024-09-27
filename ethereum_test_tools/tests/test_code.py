@@ -22,7 +22,7 @@ from ethereum_test_specs import StateTest
 from ethereum_test_types import Alloc, Environment, Transaction
 from ethereum_test_vm import Opcodes as Op
 from ethereum_test_vm import UndefinedOpcodes
-from evm_transition_tool import GethTransitionTool
+from evm_transition_tool import ExecutionSpecsTransitionTool
 
 from ..code import CalldataCase, Case, Conditional, Initcode, Solc, Switch, Yul
 from .conftest import SOLC_PADDING_VERSION
@@ -294,6 +294,7 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes):
     assert bytes(conditional_bytecode) == expected
 
 
+@pytest.mark.run_in_serial
 @pytest.mark.parametrize(
     "tx_data,switch_bytecode,expected_storage",
     [
@@ -637,7 +638,7 @@ def test_switch(tx_data: bytes, switch_bytecode: bytes, expected_storage: Mappin
     )
     state_test.generate(
         request=None,  # type: ignore
-        t8n=GethTransitionTool(),
+        t8n=ExecutionSpecsTransitionTool(),
         fork=Cancun,
         fixture_format=FixtureFormats.BLOCKCHAIN_TEST,
         eips=None,

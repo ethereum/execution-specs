@@ -25,10 +25,10 @@ class GethTransitionTool(TransitionTool):
     t8n_subcommand: Optional[str] = "t8n"
     statetest_subcommand: Optional[str] = "statetest"
     blocktest_subcommand: Optional[str] = "blocktest"
-
     binary: Path
     cached_version: Optional[str] = None
     trace: bool
+    t8n_use_stream = True
 
     def __init__(
         self,

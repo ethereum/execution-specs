@@ -424,8 +424,8 @@ def pytest_configure(config: pytest.Config):
 
     evm_bin = config.getoption("evm_bin")
     t8n = TransitionTool.from_binary_path(binary_path=evm_bin)
-    config.unsupported_forks = filter(  # type: ignore
-        lambda fork: not t8n.is_fork_supported(fork), fork_set
+    config.unsupported_forks = frozenset(  # type: ignore
+        filter(lambda fork: not t8n.is_fork_supported(fork), fork_set)
     )
 
 
@@ -602,7 +602,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
                             )
                         ],
                     )
-                    if fork.name() in sorted(list(unsupported_forks))
+                    if fork in sorted(list(unsupported_forks))
                     else ForkParametrizer(fork=fork)
                 )
                 for fork in sorted(list(intersection_set))

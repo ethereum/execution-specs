@@ -40,7 +40,10 @@ def test_no_options_no_validity_marker(pytester):
     result = pytester.runpytest("-v")
     all_forks = get_deployed_forks()
     forks_under_test = forks_from_until(all_forks[0], all_forks[-1])
-    expected_passed = len(forks_under_test) * len(StateTest.supported_fixture_formats)
+    expected_skipped = 2  # eels doesn't support Constantinople
+    expected_passed = (
+        len(forks_under_test) * len(StateTest.supported_fixture_formats) - expected_skipped
+    )
     stdout = "\n".join(result.stdout.lines)
     for fork in forks_under_test:
         for fixture_format in StateTest.supported_fixture_formats:
@@ -53,7 +56,7 @@ def test_no_options_no_validity_marker(pytester):
     result.assert_outcomes(
         passed=expected_passed,
         failed=0,
-        skipped=0,
+        skipped=expected_skipped,
         errors=0,
     )
 

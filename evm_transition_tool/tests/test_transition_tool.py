@@ -11,6 +11,7 @@ import pytest
 
 from evm_transition_tool import (
     EvmOneTransitionTool,
+    ExecutionSpecsTransitionTool,
     GethTransitionTool,
     NimbusTransitionTool,
     TransitionTool,
@@ -22,7 +23,7 @@ def test_default_tool():
     """
     Tests that the default t8n tool is set.
     """
-    assert TransitionTool.default_tool is GethTransitionTool
+    assert TransitionTool.default_tool is ExecutionSpecsTransitionTool
 
 
 @pytest.mark.parametrize(
@@ -44,7 +45,7 @@ def test_default_tool():
             None,
             "evm",
             "evm version 1.12.1-unstable-c7b099b2-20230627",
-            GethTransitionTool,
+            ExecutionSpecsTransitionTool,
         ),
         (
             Path("t8n"),

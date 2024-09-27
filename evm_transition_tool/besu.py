@@ -28,7 +28,6 @@ class BesuTransitionTool(TransitionTool):
 
     default_binary = Path("evm")
     detect_binary_pattern = compile(r"^Hyperledger Besu evm .*$")
-
     binary: Path
     cached_version: Optional[str] = None
     trace: bool
