@@ -3,14 +3,14 @@ abstract: Tests [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethe
     Test copy operations of [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656)
 
 """  # noqa: E501
+
 from typing import Mapping
 
 import pytest
-from ethereum.crypto.hash import keccak256
 
 from ethereum_test_tools import Account, Address, Alloc, Bytecode, Environment, Hash
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Storage, Transaction, ceiling_division
+from ethereum_test_tools import StateTestFiller, Storage, Transaction, ceiling_division, keccak256
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION, mcopy
 

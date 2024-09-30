@@ -9,7 +9,6 @@ from itertools import count
 from typing import List
 
 import pytest
-from ethereum.crypto.hash import keccak256
 
 from ethereum_test_tools import (
     AccessList,
@@ -38,6 +37,7 @@ from ethereum_test_tools import (
     add_kzg_version,
     call_return_code,
     compute_create_address,
+    keccak256,
 )
 from ethereum_test_tools.eof.v1 import Container, Section
 
@@ -1404,12 +1404,12 @@ def test_ext_code_on_chain_delegating_set_code(
     set_code_2 = Spec.delegation_designation(auth_signer_1)
 
     callee_storage[slot_ext_code_size_result_1] = len(set_code_2)
-    callee_storage[slot_ext_code_hash_result_1] = keccak256(set_code_2)
+    callee_storage[slot_ext_code_hash_result_1] = set_code_2.keccak256()
     callee_storage[slot_ext_code_copy_result_1] = bytes(set_code_2).ljust(32, b"\x00")[:32]
     callee_storage[slot_ext_balance_result_1] = auth_signer_1_balance
 
     callee_storage[slot_ext_code_size_result_2] = len(set_code_1)
-    callee_storage[slot_ext_code_hash_result_2] = keccak256(set_code_1)
+    callee_storage[slot_ext_code_hash_result_2] = set_code_1.keccak256()
     callee_storage[slot_ext_code_copy_result_2] = bytes(set_code_1).ljust(32, b"\x00")[:32]
     callee_storage[slot_ext_balance_result_2] = auth_signer_2_balance
 

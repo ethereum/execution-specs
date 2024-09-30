@@ -5,10 +5,10 @@ Port call_then_create2_successful_then_returndatasizeFiller.json test
 """
 
 import pytest
-from ethereum.crypto.hash import keccak256
 
-from ethereum_test_tools import Account, Alloc, Environment, StateTestFiller, Transaction
-from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_tools import Account, Alloc, Environment
+from ethereum_test_tools import Opcodes as Op
+from ethereum_test_tools import StateTestFiller, Transaction, keccak256
 
 from .spec import ref_spec_1014
 
@@ -102,20 +102,22 @@ def test_create2_return_data(
                 slot_returndatacopy_before_create_2: 0,
                 #
                 # the actual bytes returned by returndatacopy opcode after create
-                slot_returndatacopy_after_create: return_data_in_create
-                if return_type_in_create == Op.REVERT
-                else 0,
+                slot_returndatacopy_after_create: (
+                    return_data_in_create if return_type_in_create == Op.REVERT else 0
+                ),
                 slot_returndatasize_before_create: call_return_size,
                 #
                 # return datasize value after create
-                slot_returndatasize_after_create: 0x20
-                if return_type_in_create == Op.REVERT
-                else 0,
+                slot_returndatasize_after_create: (
+                    0x20 if return_type_in_create == Op.REVERT else 0
+                ),
                 #
                 slot_return_data_hash_before_create: keccak256(expected_call_return_data),
-                slot_return_data_hash_after_create: keccak256(empty_data)
-                if return_type_in_create == Op.RETURN
-                else keccak256(int.to_bytes(return_data_in_create, 32, byteorder="big")),
+                slot_return_data_hash_after_create: (
+                    keccak256(empty_data)
+                    if return_type_in_create == Op.RETURN
+                    else keccak256(int.to_bytes(return_data_in_create, 32, byteorder="big"))
+                ),
                 #
                 # check that create 2 didn't mess up with initial memory space declared for return
                 slot_begin_memory_after_create: expected_returndatacopy,

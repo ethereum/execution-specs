@@ -1,12 +1,13 @@
 """
 test execution semantics changes
 """
-import pytest
-from ethereum.crypto.hash import keccak256
 
-from ethereum_test_tools import Account, Alloc, Environment, StateTestFiller, Storage, Transaction
+import pytest
+
+from ethereum_test_tools import Account, Alloc, Environment
+from ethereum_test_tools import Opcodes as Op
+from ethereum_test_tools import StateTestFiller, Storage, Transaction, keccak256
 from ethereum_test_tools.eof.v1 import Container, Section
-from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
 

@@ -1,13 +1,14 @@
 """
 Shared pytest definitions local to EIP-2537 tests.
 """
+
 from typing import SupportsBytes
 
 import pytest
-from ethereum.crypto.hash import keccak256
 
-from ethereum_test_tools import EOA, Address, Alloc, Bytecode, Storage, Transaction
-from ethereum_test_tools.vm import Opcodes as Op
+from ethereum_test_tools import EOA, Address, Alloc, Bytecode
+from ethereum_test_tools import Opcodes as Op
+from ethereum_test_tools import Storage, Transaction, keccak256
 
 from .spec import GAS_CALCULATION_FUNCTION_MAP
 

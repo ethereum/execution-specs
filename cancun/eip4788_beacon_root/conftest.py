@@ -6,7 +6,6 @@ from itertools import count
 from typing import Dict, Iterator, List
 
 import pytest
-from ethereum.crypto.hash import keccak256
 
 from ethereum_test_tools import (
     AccessList,
@@ -19,6 +18,7 @@ from ethereum_test_tools import (
     Storage,
     Transaction,
     add_kzg_version,
+    keccak256,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
