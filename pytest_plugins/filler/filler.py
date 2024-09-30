@@ -11,7 +11,7 @@ import os
 import tarfile
 import warnings
 from pathlib import Path
-from typing import Generator, List, Type
+from typing import Any, Dict, Generator, List, Type
 
 import pytest
 from filelock import FileLock
@@ -19,10 +19,9 @@ from pytest_metadata.plugin import metadata_key  # type: ignore
 
 from cli.gen_index import generate_fixtures_index
 from ethereum_test_base_types import Alloc, ReferenceSpec
-from ethereum_test_fixtures import FixtureCollector, FixtureFormats, TestInfo
+from ethereum_test_fixtures import FIXTURE_FORMATS, BaseFixture, FixtureCollector, TestInfo
 from ethereum_test_forks import (
     Fork,
-    Paris,
     get_closest_fork_with_solc_support,
     get_forks_with_solc_support,
 )
@@ -207,13 +206,10 @@ def pytest_configure(config):
         called before the pytest-html plugin's pytest_configure to ensure that
         it uses the modified `htmlpath` option.
     """
-    for fixture_format in FixtureFormats:
+    for fixture_format in FIXTURE_FORMATS.values():
         config.addinivalue_line(
             "markers",
-            (
-                f"{fixture_format.name.lower()}: "
-                f"{FixtureFormats.get_format_description(fixture_format)}"
-            ),
+            (f"{fixture_format.fixture_format_name.lower()}: {fixture_format.description}"),
         )
     config.addinivalue_line(
         "markers",
@@ -798,7 +794,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
         When parametrize, indirect must be used along with the fixture format as value.
         """
         fixture_format = request.param
-        assert isinstance(fixture_format, FixtureFormats)
+        assert issubclass(fixture_format, BaseFixture)
 
         class BaseTestWrapper(cls):  # type: ignore
             def __init__(self, *args, **kwargs):
@@ -830,7 +826,7 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                 request.node.config.fixture_path_relative = str(
                     fixture_path.relative_to(output_dir)
                 )
-                request.node.config.fixture_format = fixture_format.value
+                request.node.config.fixture_format = fixture_format.fixture_format_name
 
         return BaseTestWrapper
 
@@ -855,8 +851,8 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
                 [
                     pytest.param(
                         fixture_format,
-                        id=fixture_format.name.lower(),
-                        marks=[getattr(pytest.mark, fixture_format.name.lower())],
+                        id=fixture_format.fixture_format_name.lower(),
+                        marks=[getattr(pytest.mark, fixture_format.fixture_format_name.lower())],
                     )
                     for fixture_format in test_type.supported_fixture_formats
                 ],
@@ -865,9 +861,9 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
             )
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item]):
     """
-    Remove pre-Paris tests parametrized to generate engine type fixtures; these
+    Remove pre-Paris tests parametrized to generate hive type fixtures; these
     can't be used in the Hive Pyspec Simulator.
 
     This can't be handled in this plugins pytest_generate_tests() as the fork
@@ -876,23 +872,16 @@ def pytest_collection_modifyitems(config, items):
     for item in items[:]:  # use a copy of the list, as we'll be modifying it
         if isinstance(item, EIPSpecTestItem):
             continue
-        if "fork" not in item.callspec.params or item.callspec.params["fork"] is None:
+        params: Dict[str, Any] = item.callspec.params  # type: ignore
+        if "fork" not in params or params["fork"] is None:
             items.remove(item)
             continue
-        if item.callspec.params["fork"] < Paris:
-            # Even though the `state_test` test spec does not produce an engine STATE_TEST, it does
-            # produce a BLOCKCHAIN_TEST_ENGINE, so we need to remove it here.
-            # TODO: Ideally, the logic could be contained in the `FixtureFormat` class, we create
-            # a `fork_supported` method that returns True if the fork is supported.
-            if ("state_test" in item.callspec.params) and item.callspec.params[
-                "state_test"
-            ].name.endswith("ENGINE"):
+        fork: Fork = params["fork"]
+        for spec_name in [spec_type.pytest_parameter_name() for spec_type in SPEC_TYPES]:
+            if spec_name in params and not params[spec_name].supports_fork(fork):
                 items.remove(item)
-            if ("blockchain_test" in item.callspec.params) and item.callspec.params[
-                "blockchain_test"
-            ].name.endswith("ENGINE"):
-                items.remove(item)
-        if "yul" in item.fixturenames:
+                break
+        if "yul" in item.fixturenames:  # type: ignore
             item.add_marker(pytest.mark.yul_test)
 
 

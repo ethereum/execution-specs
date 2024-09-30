@@ -15,8 +15,15 @@ from pydantic import Field, model_validator
 from ethereum_test_base_types import Account, Bytes
 from ethereum_test_exceptions import EvmoneExceptionMapper
 from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList, to_pipe_str
-from ethereum_test_fixtures import BaseFixture, FixtureFormats
-from ethereum_test_fixtures.eof import Fixture, Result, Vector
+from ethereum_test_fixtures import (
+    BaseFixture,
+    BlockchainEngineFixture,
+    BlockchainFixture,
+    EOFFixture,
+    FixtureFormat,
+    StateFixture,
+)
+from ethereum_test_fixtures.eof import Result, Vector
 from ethereum_test_forks import Fork
 from ethereum_test_types import Alloc, Environment, Transaction
 from ethereum_test_types.eof.v1 import Container, ContainerKind
@@ -143,8 +150,8 @@ class EOFTest(BaseTest):
     expect_exception: EOFExceptionInstanceOrList | None = None
     container_kind: ContainerKind | None = None
 
-    supported_fixture_formats: ClassVar[List[FixtureFormats]] = [
-        FixtureFormats.EOF_TEST,
+    supported_fixture_formats: ClassVar[List[FixtureFormat]] = [
+        EOFFixture,
     ]
 
     @model_validator(mode="before")
@@ -192,7 +199,7 @@ class EOFTest(BaseTest):
         request: pytest.FixtureRequest,
         fork: Fork,
         eips: Optional[List[int]],
-    ) -> Fixture:
+    ) -> EOFFixture:
         """
         Generate the EOF test fixture.
         """
@@ -213,7 +220,7 @@ class EOFTest(BaseTest):
                 },
             )
         ]
-        fixture = Fixture(vectors=dict(enumerate(vectors)))
+        fixture = EOFFixture(vectors=dict(enumerate(vectors)))
         try:
             eof_parse = EOFParse()
         except FileNotFoundError as e:
@@ -272,13 +279,13 @@ class EOFTest(BaseTest):
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
-        fixture_format: FixtureFormats,
+        fixture_format: FixtureFormat,
         **_,
     ) -> BaseFixture:
         """
         Generate the BlockchainTest fixture.
         """
-        if fixture_format == FixtureFormats.EOF_TEST:
+        if fixture_format == EOFFixture:
             return self.make_eof_test_fixture(request=request, fork=fork, eips=eips)
 
         raise Exception(f"Unknown fixture format: {fixture_format}")
@@ -301,11 +308,11 @@ class EOFStateTest(EOFTest):
     container_post: Account = Field(default_factory=Account)
     pre: Alloc | None = None
 
-    supported_fixture_formats: ClassVar[List[FixtureFormats]] = [
-        FixtureFormats.EOF_TEST,
-        FixtureFormats.STATE_TEST,
-        FixtureFormats.BLOCKCHAIN_TEST,
-        FixtureFormats.BLOCKCHAIN_TEST_ENGINE,
+    supported_fixture_formats: ClassVar[List[FixtureFormat]] = [
+        EOFFixture,
+        StateFixture,
+        BlockchainFixture,
+        BlockchainEngineFixture,
     ]
 
     @model_validator(mode="before")
@@ -372,22 +379,22 @@ class EOFStateTest(EOFTest):
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
-        fixture_format: FixtureFormats,
+        fixture_format: FixtureFormat,
         **_,
     ) -> BaseFixture:
         """
         Generate the BlockchainTest fixture.
         """
-        if fixture_format == FixtureFormats.EOF_TEST:
+        if fixture_format == EOFFixture:
             if self.data in existing_tests:
                 # Gracefully skip duplicate tests because one EOFStateTest can generate multiple
                 # state fixtures with the same data.
                 pytest.skip(f"Duplicate EOF container on EOFStateTest: {request.node.nodeid}")
             return self.make_eof_test_fixture(request=request, fork=fork, eips=eips)
         elif fixture_format in (
-            FixtureFormats.STATE_TEST,
-            FixtureFormats.BLOCKCHAIN_TEST,
-            FixtureFormats.BLOCKCHAIN_TEST_ENGINE,
+            StateFixture,
+            BlockchainFixture,
+            BlockchainEngineFixture,
         ):
             return self.generate_state_test().generate(
                 request=request, t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips

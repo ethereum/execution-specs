@@ -7,7 +7,7 @@ from typing import Any, Mapping, Type
 import pytest
 
 from ethereum_test_base_types import Account, Address
-from ethereum_test_fixtures import FixtureFormats
+from ethereum_test_fixtures import StateFixture
 from ethereum_test_forks import Fork, get_deployed_forks
 from ethereum_test_types import Alloc, Environment, Storage, Transaction
 from evm_transition_tool import ExecutionSpecsTransitionTool
@@ -116,9 +116,7 @@ def test_post_storage_value_mismatch(
     Test post state `Account.storage` exceptions during state test fixture generation.
     """
     with pytest.raises(Storage.KeyValueMismatch) as e_info:
-        state_test.generate(
-            request=None, t8n=t8n, fork=fork, fixture_format=FixtureFormats.STATE_TEST
-        )
+        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
     assert e_info.value == expected_exception
 
 
@@ -145,14 +143,10 @@ def test_post_nonce_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, for
     pre_nonce = pre_account.nonce
     post_nonce = post_account.nonce
     if "nonce" not in post_account.model_fields_set:  # no exception
-        state_test.generate(
-            request=None, t8n=t8n, fork=fork, fixture_format=FixtureFormats.STATE_TEST
-        )
+        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
         return
     with pytest.raises(Account.NonceMismatch) as e_info:
-        state_test.generate(
-            request=None, t8n=t8n, fork=fork, fixture_format=FixtureFormats.STATE_TEST
-        )
+        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
     assert e_info.value == Account.NonceMismatch(
         address=ADDRESS_UNDER_TEST, want=post_nonce, got=pre_nonce
     )
@@ -181,14 +175,10 @@ def test_post_code_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, fork
     pre_code = pre_account.code
     post_code = post_account.code
     if "code" not in post_account.model_fields_set:  # no exception
-        state_test.generate(
-            request=None, t8n=t8n, fork=fork, fixture_format=FixtureFormats.STATE_TEST
-        )
+        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
         return
     with pytest.raises(Account.CodeMismatch) as e_info:
-        state_test.generate(
-            request=None, t8n=t8n, fork=fork, fixture_format=FixtureFormats.STATE_TEST
-        )
+        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
     assert e_info.value == Account.CodeMismatch(
         address=ADDRESS_UNDER_TEST, want=post_code, got=pre_code
     )
@@ -217,14 +207,10 @@ def test_post_balance_value_mismatch(pre: Alloc, post: Alloc, state_test, t8n, f
     pre_balance = pre_account.balance
     post_balance = post_account.balance
     if "balance" not in post_account.model_fields_set:  # no exception
-        state_test.generate(
-            request=None, t8n=t8n, fork=fork, fixture_format=FixtureFormats.STATE_TEST
-        )
+        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
         return
     with pytest.raises(Account.BalanceMismatch) as e_info:
-        state_test.generate(
-            request=None, t8n=t8n, fork=fork, fixture_format=FixtureFormats.STATE_TEST
-        )
+        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
     assert e_info.value == Account.BalanceMismatch(
         address=ADDRESS_UNDER_TEST, want=post_balance, got=pre_balance
     )
@@ -264,11 +250,7 @@ def test_post_account_mismatch(state_test, t8n, fork, exception_type: Type[Excep
     fixture generation.
     """
     if exception_type is None:
-        state_test.generate(
-            request=None, t8n=t8n, fork=fork, fixture_format=FixtureFormats.STATE_TEST
-        )
+        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)
         return
     with pytest.raises(exception_type) as _:
-        state_test.generate(
-            request=None, t8n=t8n, fork=fork, fixture_format=FixtureFormats.STATE_TEST
-        )
+        state_test.generate(request=None, t8n=t8n, fork=fork, fixture_format=StateFixture)

@@ -17,7 +17,7 @@ from typing import Dict, List, Mapping, Optional, Type
 
 from requests_unixsocket import Session  # type: ignore
 
-from ethereum_test_fixtures import FixtureFormats, FixtureVerifier
+from ethereum_test_fixtures import FixtureFormat, FixtureVerifier
 from ethereum_test_forks import Fork
 from ethereum_test_types import Alloc, Environment, Transaction
 
@@ -616,7 +616,7 @@ class TransitionTool(FixtureVerifier):
 
     def verify_fixture(
         self,
-        fixture_format: FixtureFormats,
+        fixture_format: FixtureFormat,
         fixture_path: Path,
         fixture_name: Optional[str] = None,
         debug_output_path: Optional[Path] = None,

@@ -9,7 +9,7 @@ import pytest
 from semver import Version
 
 from ethereum_test_base_types import Account, Address, Bytes, Hash, TestAddress, TestPrivateKey
-from ethereum_test_fixtures import FixtureFormats
+from ethereum_test_fixtures import BlockchainFixture
 from ethereum_test_forks import (
     Cancun,
     Fork,
@@ -640,7 +640,7 @@ def test_switch(tx_data: bytes, switch_bytecode: bytes, expected_storage: Mappin
         request=None,  # type: ignore
         t8n=ExecutionSpecsTransitionTool(),
         fork=Cancun,
-        fixture_format=FixtureFormats.BLOCKCHAIN_TEST,
+        fixture_format=BlockchainFixture,
         eips=None,
     )
 

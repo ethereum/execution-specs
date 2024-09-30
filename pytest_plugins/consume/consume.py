@@ -191,7 +191,7 @@ def pytest_generate_tests(metafunc):
         (
             pytest.param(test_case, id=test_case.id)
             for test_case in metafunc.config.test_cases
-            if test_case.format in metafunc.function.fixture_formats
+            if test_case.format in metafunc.function.fixture_format
             and (not fork or test_case.fork == fork)
         ),
     )

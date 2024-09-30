@@ -4,13 +4,7 @@ Test the forks plugin.
 
 import pytest
 
-from ethereum_test_forks import (
-    ArrowGlacier,
-    Paris,
-    forks_from_until,
-    get_deployed_forks,
-    get_forks,
-)
+from ethereum_test_forks import ArrowGlacier, forks_from_until, get_deployed_forks, get_forks
 from ethereum_test_tools import StateTest
 
 
@@ -47,11 +41,17 @@ def test_no_options_no_validity_marker(pytester):
     stdout = "\n".join(result.stdout.lines)
     for fork in forks_under_test:
         for fixture_format in StateTest.supported_fixture_formats:
-            if fixture_format.name.endswith("ENGINE") and fork < Paris:
+            if not fixture_format.supports_fork(fork):
                 expected_passed -= 1
-                assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" not in stdout
+                assert (
+                    f":test_all_forks[fork_{fork}-{fixture_format.fixture_format_name.lower()}]"
+                    not in stdout
+                )
                 continue
-            assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" in stdout
+            assert (
+                f":test_all_forks[fork_{fork}-{fixture_format.fixture_format_name.lower()}]"
+                in stdout
+            )
 
     result.assert_outcomes(
         passed=expected_passed,
@@ -85,11 +85,17 @@ def test_from_london_option_no_validity_marker(pytester, fork_map, fork):
     stdout = "\n".join(result.stdout.lines)
     for fork in forks_under_test:
         for fixture_format in StateTest.supported_fixture_formats:
-            if fixture_format.name.endswith("ENGINE") and fork < Paris:
+            if not fixture_format.supports_fork(fork):
                 expected_passed -= 1
-                assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" not in stdout
+                assert (
+                    f":test_all_forks[fork_{fork}-{fixture_format.fixture_format_name.lower()}]"
+                    not in stdout
+                )
                 continue
-            assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" in stdout
+            assert (
+                f":test_all_forks[fork_{fork}-{fixture_format.fixture_format_name.lower()}]"
+                in stdout
+            )
     result.assert_outcomes(
         passed=expected_passed,
         failed=0,
@@ -123,11 +129,17 @@ def test_from_london_until_shanghai_option_no_validity_marker(pytester, fork_map
         expected_passed -= len(StateTest.supported_fixture_formats)
     for fork in forks_under_test:
         for fixture_format in StateTest.supported_fixture_formats:
-            if fixture_format.name.endswith("ENGINE") and fork < Paris:
+            if not fixture_format.supports_fork(fork):
                 expected_passed -= 1
-                assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" not in stdout
+                assert (
+                    f":test_all_forks[fork_{fork}-{fixture_format.fixture_format_name.lower()}]"
+                    not in stdout
+                )
                 continue
-            assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" in stdout
+            assert (
+                f":test_all_forks[fork_{fork}-{fixture_format.fixture_format_name.lower()}]"
+                in stdout
+            )
     result.assert_outcomes(
         passed=expected_passed,
         failed=0,
@@ -158,7 +170,10 @@ def test_from_merge_until_merge_option_no_validity_marker(pytester, fork_map):
     stdout = "\n".join(result.stdout.lines)
     for fork in forks_under_test:
         for fixture_format in StateTest.supported_fixture_formats:
-            assert f":test_all_forks[fork_{fork}-{fixture_format.name.lower()}]" in stdout
+            assert (
+                f":test_all_forks[fork_{fork}-{fixture_format.fixture_format_name.lower()}]"
+                in stdout
+            )
     result.assert_outcomes(
         passed=expected_passed,
         failed=0,

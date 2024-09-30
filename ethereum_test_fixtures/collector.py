@@ -15,7 +15,6 @@ from ethereum_test_base_types import to_json
 
 from .base import BaseFixture
 from .file import Fixtures
-from .formats import FixtureFormats
 from .verify import FixtureVerifier
 
 
@@ -139,8 +138,8 @@ class FixtureCollector:
 
         fixture_path = (
             self.output_dir
-            / fixture.format.output_base_dir_name
-            / fixture_basename.with_suffix(fixture.format.output_file_extension)
+            / fixture.output_base_dir_name()
+            / fixture_basename.with_suffix(fixture.output_file_extension)
         )
         if fixture_path not in self.all_fixtures.keys():  # relevant when we group by test function
             self.all_fixtures[fixture_path] = Fixtures(root={})
@@ -163,7 +162,7 @@ class FixtureCollector:
         os.makedirs(self.output_dir, exist_ok=True)
         for fixture_path, fixtures in self.all_fixtures.items():
             os.makedirs(fixture_path.parent, exist_ok=True)
-            if len({fixture.format for fixture in fixtures.values()}) != 1:
+            if len({fixture.__class__ for fixture in fixtures.values()}) != 1:
                 raise TypeError("All fixtures in a single file must have the same format.")
             fixtures.collect_into_file(fixture_path)
 
@@ -173,11 +172,11 @@ class FixtureCollector:
         """
         for fixture_path, name_fixture_dict in self.all_fixtures.items():
             for fixture_name, fixture in name_fixture_dict.items():
-                if FixtureFormats.is_verifiable(fixture.format):
+                if evm_fixture_verification.is_verifiable(fixture.__class__):
                     info = self.json_path_to_test_item[fixture_path]
                     verify_fixtures_dump_dir = self._get_verify_fixtures_dump_dir(info)
                     evm_fixture_verification.verify_fixture(
-                        fixture.format,
+                        fixture.__class__,
                         fixture_path,
                         fixture_name=None,
                         debug_output_path=verify_fixtures_dump_dir,

@@ -2,33 +2,35 @@
 Ethereum test fixture format definitions.
 """
 
-from typing import List, Type
+from typing import Dict
 
-from .base import BaseFixture
+from .base import BaseFixture, FixtureFormat
 from .blockchain import EngineFixture as BlockchainEngineFixture
 from .blockchain import Fixture as BlockchainFixture
 from .blockchain import FixtureCommon as BlockchainFixtureCommon
 from .collector import FixtureCollector, TestInfo
 from .eof import Fixture as EOFFixture
-from .formats import FixtureFormats
 from .state import Fixture as StateFixture
 from .verify import FixtureVerifier
 
-FIXTURE_TYPES: List[Type[BaseFixture]] = [
-    BlockchainFixture,
-    BlockchainEngineFixture,
-    EOFFixture,
-    StateFixture,
-]
+FIXTURE_FORMATS: Dict[str, FixtureFormat] = {
+    f.fixture_format_name: f  # type: ignore
+    for f in [
+        BlockchainFixture,
+        BlockchainEngineFixture,
+        EOFFixture,
+        StateFixture,
+    ]
+}
 __all__ = [
-    "FIXTURE_TYPES",
+    "FIXTURE_FORMATS",
     "BaseFixture",
     "BlockchainFixture",
     "BlockchainFixtureCommon",
     "BlockchainEngineFixture",
     "EOFFixture",
     "FixtureCollector",
-    "FixtureFormats",
+    "FixtureFormat",
     "FixtureVerifier",
     "StateFixture",
     "TestInfo",

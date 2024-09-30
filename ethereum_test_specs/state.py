@@ -7,7 +7,13 @@ from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Typ
 import pytest
 
 from ethereum_test_exceptions import EngineAPIError
-from ethereum_test_fixtures import BaseFixture, FixtureFormats
+from ethereum_test_fixtures import (
+    BaseFixture,
+    BlockchainEngineFixture,
+    BlockchainFixture,
+    FixtureFormat,
+    StateFixture,
+)
 from ethereum_test_fixtures.state import (
     Fixture,
     FixtureEnvironment,
@@ -39,10 +45,10 @@ class StateTest(BaseTest):
     blockchain_test_rlp_modifier: Optional[Header] = None
     chain_id: int = 1
 
-    supported_fixture_formats: ClassVar[List[FixtureFormats]] = [
-        FixtureFormats.BLOCKCHAIN_TEST,
-        FixtureFormats.BLOCKCHAIN_TEST_ENGINE,
-        FixtureFormats.STATE_TEST,
+    supported_fixture_formats: ClassVar[List[FixtureFormat]] = [
+        BlockchainFixture,
+        BlockchainEngineFixture,
+        StateFixture,
     ]
 
     def _generate_blockchain_genesis_environment(self) -> Environment:
@@ -166,7 +172,7 @@ class StateTest(BaseTest):
         request: pytest.FixtureRequest,
         t8n: TransitionTool,
         fork: Fork,
-        fixture_format: FixtureFormats,
+        fixture_format: FixtureFormat,
         eips: Optional[List[int]] = None,
     ) -> BaseFixture:
         """
@@ -176,7 +182,7 @@ class StateTest(BaseTest):
             return self.generate_blockchain_test().generate(
                 request=request, t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
             )
-        elif fixture_format == FixtureFormats.STATE_TEST:
+        elif fixture_format == StateFixture:
             return self.make_state_test_fixture(t8n, fork, eips)
 
         raise Exception(f"Unknown fixture format: {fixture_format}")
@@ -187,7 +193,7 @@ class StateTestOnly(StateTest):
     StateTest filler that only generates a state test fixture.
     """
 
-    supported_fixture_formats: ClassVar[List[FixtureFormats]] = [FixtureFormats.STATE_TEST]
+    supported_fixture_formats: ClassVar[List[FixtureFormat]] = [StateFixture]
 
 
 StateTestSpec = Callable[[str], Generator[StateTest, None, None]]

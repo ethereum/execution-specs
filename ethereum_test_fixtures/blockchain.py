@@ -23,7 +23,7 @@ from ethereum_test_base_types import (
     ZeroPaddedHexNumber,
 )
 from ethereum_test_exceptions import EngineAPIError, ExceptionInstanceOrList
-from ethereum_test_forks import Fork
+from ethereum_test_forks import Fork, Paris
 from ethereum_test_types.types import (
     AuthorizationTupleGeneric,
     ConsolidationRequest,
@@ -41,7 +41,6 @@ from ethereum_test_types.types import (
 )
 
 from .base import BaseFixture
-from .formats import FixtureFormats
 
 
 class HeaderForkRequirement(str):
@@ -499,11 +498,12 @@ class Fixture(FixtureCommon):
     Cross-client specific blockchain test model use in JSON fixtures.
     """
 
+    fixture_format_name: ClassVar[str] = "blockchain_test"
+    description: ClassVar[str] = "Tests that generate a blockchain test fixture."
+
     genesis_rlp: Bytes = Field(..., alias="genesisRLP")
     blocks: List[FixtureBlock | InvalidFixtureBlock]
     seal_engine: Literal["NoProof"] = Field("NoProof")
-
-    format: ClassVar[FixtureFormats] = FixtureFormats.BLOCKCHAIN_TEST
 
 
 class EngineFixture(FixtureCommon):
@@ -511,7 +511,19 @@ class EngineFixture(FixtureCommon):
     Engine specific test fixture information.
     """
 
+    fixture_format_name: ClassVar[str] = "blockchain_test_engine"
+    description: ClassVar[
+        str
+    ] = "Tests that generate a blockchain test fixture in Engine API format."
+
     payloads: List[FixtureEngineNewPayload] = Field(..., alias="engineNewPayloads")
     sync_payload: FixtureEngineNewPayload | None = None
 
-    format: ClassVar[FixtureFormats] = FixtureFormats.BLOCKCHAIN_TEST_ENGINE
+    @classmethod
+    def supports_fork(cls, fork: Fork) -> bool:
+        """
+        Returns whether the fixture can be generated for the given fork.
+
+        The Engine API is available only on Paris and afterwards.
+        """
+        return fork >= Paris

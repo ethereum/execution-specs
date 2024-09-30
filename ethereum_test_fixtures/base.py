@@ -5,20 +5,30 @@ Base fixture definitions used to define all fixture types.
 import hashlib
 import json
 from functools import cached_property
-from typing import Any, ClassVar, Dict
+from typing import Any, ClassVar, Dict, Type
 
 from pydantic import Field
 
 from ethereum_test_base_types import CamelModel, ReferenceSpec
-
-from .formats import FixtureFormats
+from ethereum_test_forks import Fork
 
 
 class BaseFixture(CamelModel):
     """Represents a base Ethereum test fixture of any type."""
 
     info: Dict[str, str] = Field(default_factory=dict, alias="_info")
-    format: ClassVar[FixtureFormats] = FixtureFormats.UNSET_TEST_FORMAT
+
+    # Fixture format properties
+    fixture_format_name: ClassVar[str] = "unset"
+    output_file_extension: ClassVar[str] = ".json"
+    description: ClassVar[str] = "Unknown fixture format; it has not been set."
+
+    @classmethod
+    def output_base_dir_name(cls) -> str:
+        """
+        Returns the name of the subdirectory where this type of fixture should be dumped to.
+        """
+        return cls.fixture_format_name.replace("test", "tests")
 
     @cached_property
     def json_dict(self) -> Dict[str, Any]:
@@ -69,3 +79,16 @@ class BaseFixture(CamelModel):
         Returns the fork of the fixture as a string.
         """
         raise NotImplementedError
+
+    @classmethod
+    def supports_fork(cls, fork: Fork) -> bool:
+        """
+        Returns whether the fixture can be generated for the given fork.
+
+        By default, all fixtures support all forks.
+        """
+        return True
+
+
+# Type alias for a base fixture class
+FixtureFormat = Type[BaseFixture]

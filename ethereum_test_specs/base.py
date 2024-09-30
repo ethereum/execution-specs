@@ -13,7 +13,7 @@ import pytest
 from pydantic import BaseModel, Field
 
 from ethereum_test_base_types import to_hex
-from ethereum_test_fixtures import BaseFixture, FixtureFormats
+from ethereum_test_fixtures import BaseFixture, FixtureFormat
 from ethereum_test_forks import Fork
 from ethereum_test_types import Environment, Transaction, Withdrawal
 from evm_transition_tool import Result, TransitionTool
@@ -73,7 +73,7 @@ class BaseTest(BaseModel):
     t8n_dump_dir: Path | None = Field(None, exclude=True)
     _t8n_call_counter: Iterator[int] = count(0)
 
-    supported_fixture_formats: ClassVar[List[FixtureFormats]] = []
+    supported_fixture_formats: ClassVar[List[FixtureFormat]] = []
 
     @abstractmethod
     def generate(
@@ -82,7 +82,7 @@ class BaseTest(BaseModel):
         request: pytest.FixtureRequest,
         t8n: TransitionTool,
         fork: Fork,
-        fixture_format: FixtureFormats,
+        fixture_format: FixtureFormat,
         eips: Optional[List[int]] = None,
     ) -> BaseFixture:
         """

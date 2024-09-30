@@ -5,15 +5,16 @@ Defines models for index files and consume test cases.
 import datetime
 import json
 from pathlib import Path
-from typing import List, TextIO
+from typing import Annotated, List, TextIO
 
-from pydantic import BaseModel, RootModel
+from pydantic import BaseModel, PlainSerializer, PlainValidator, RootModel
 
 from ethereum_test_base_types import HexNumber
+from ethereum_test_fixtures import FIXTURE_FORMATS, FixtureFormat
 
+from .blockchain import EngineFixture as BlockchainEngineFixture
 from .blockchain import Fixture as BlockchainFixture
 from .file import Fixtures
-from .formats import FixtureFormats
 from .state import Fixture as StateFixture
 
 
@@ -25,7 +26,11 @@ class TestCaseBase(BaseModel):
     id: str
     fixture_hash: HexNumber | None
     fork: str | None
-    format: FixtureFormats
+    format: Annotated[
+        FixtureFormat,
+        PlainSerializer(lambda f: f.fixture_format_name),
+        PlainValidator(lambda f: FIXTURE_FORMATS[f] if f in FIXTURE_FORMATS else f),
+    ]
     __test__ = False  # stop pytest from collecting this class as a test
 
 
@@ -129,14 +134,14 @@ class TestCases(RootModel):
         fixtures = Fixtures.from_json_data(json.load(fd))
         test_cases = []
         for fixture_name, fixture in fixtures.items():
-            if fixture.format == FixtureFormats.BLOCKCHAIN_TEST_ENGINE:
+            if fixture == BlockchainEngineFixture:
                 print("Skipping engine fixture", fixture_name)
             test_cases.append(
                 TestCaseStream(
                     id=fixture_name,
                     fixture_hash=fixture.hash,
                     fork=fixture.get_fork(),
-                    format=fixture.format,
+                    format=fixture.__class__,
                     fixture=fixture,
                 )
             )

@@ -20,7 +20,7 @@ from rich.progress import (
 )
 
 from ethereum_test_base_types import HexNumber
-from ethereum_test_fixtures import FixtureFormats
+from ethereum_test_fixtures import FIXTURE_FORMATS, BlockchainFixture, FixtureFormat
 from ethereum_test_fixtures.consume import IndexFile, TestCaseIndexFile
 from ethereum_test_fixtures.file import Fixtures
 
@@ -48,21 +48,16 @@ def count_json_files_exclude_index(start_path: Path) -> int:
     return json_file_count
 
 
-def infer_fixture_format_from_path(file: Path) -> FixtureFormats:
+def infer_fixture_format_from_path(file: Path) -> FixtureFormat | None:
     """
     Attempt to infer the fixture format from the file path.
     """
-    if "blockchain_tests_engine" in file.parts:
-        return FixtureFormats.BLOCKCHAIN_TEST_ENGINE
-    if "blockchain_tests" in file.parts:
-        return FixtureFormats.BLOCKCHAIN_TEST
+    for fixture_type in FIXTURE_FORMATS.values():
+        if fixture_type.output_base_dir_name() in file.parts:
+            return fixture_type
     if "BlockchainTests" in file.parts:  # ethereum/tests
-        return FixtureFormats.BLOCKCHAIN_TEST
-    if "state_tests" in file.parts:
-        return FixtureFormats.STATE_TEST
-    if "eof_tests" in file.parts:
-        return FixtureFormats.EOF_TEST
-    return FixtureFormats.UNSET_TEST_FORMAT
+        return BlockchainFixture
+    return None
 
 
 @click.command(
@@ -200,7 +195,7 @@ def generate_fixtures_index(
                         json_path=relative_file_path,
                         fixture_hash=fixture.info.get("hash", None),
                         fork=fixture.get_fork(),
-                        format=fixture.format,
+                        format=fixture.__class__,
                     )
                 )
 

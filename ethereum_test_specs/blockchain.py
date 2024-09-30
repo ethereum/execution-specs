@@ -21,7 +21,12 @@ from ethereum_test_base_types import (
     Number,
 )
 from ethereum_test_exceptions import BlockException, EngineAPIError, TransactionException
-from ethereum_test_fixtures import BaseFixture, FixtureFormats
+from ethereum_test_fixtures import (
+    BaseFixture,
+    BlockchainEngineFixture,
+    BlockchainFixture,
+    FixtureFormat,
+)
 from ethereum_test_fixtures.blockchain import (
     EngineFixture,
     Fixture,
@@ -319,9 +324,9 @@ class BlockchainTest(BaseTest):
     verify_sync: bool = False
     chain_id: int = 1
 
-    supported_fixture_formats: ClassVar[List[FixtureFormats]] = [
-        FixtureFormats.BLOCKCHAIN_TEST,
-        FixtureFormats.BLOCKCHAIN_TEST_ENGINE,
+    supported_fixture_formats: ClassVar[List[FixtureFormat]] = [
+        BlockchainFixture,
+        BlockchainEngineFixture,
     ]
 
     def make_genesis(
@@ -718,16 +723,16 @@ class BlockchainTest(BaseTest):
         request: pytest.FixtureRequest,
         t8n: TransitionTool,
         fork: Fork,
-        fixture_format: FixtureFormats,
+        fixture_format: FixtureFormat,
         eips: Optional[List[int]] = None,
     ) -> BaseFixture:
         """
         Generate the BlockchainTest fixture.
         """
         t8n.reset_traces()
-        if fixture_format == FixtureFormats.BLOCKCHAIN_TEST_ENGINE:
+        if fixture_format == BlockchainEngineFixture:
             return self.make_hive_fixture(t8n, fork, eips)
-        elif fixture_format == FixtureFormats.BLOCKCHAIN_TEST:
+        elif fixture_format == BlockchainFixture:
             return self.make_fixture(t8n, fork, eips)
 
         raise Exception(f"Unknown fixture format: {fixture_format}")

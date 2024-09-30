@@ -9,7 +9,7 @@ from typing import Any, List, Optional
 
 import pytest
 
-from ethereum_test_fixtures import FixtureFormats
+from ethereum_test_fixtures import BlockchainFixture, StateFixture
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
 from evm_transition_tool import TransitionTool
 
@@ -18,7 +18,7 @@ from ..decorator import fixture_format
 statetest_results: dict[Path, List[dict[str, Any]]] = {}
 
 
-@fixture_format(FixtureFormats.BLOCKCHAIN_TEST)
+@fixture_format(BlockchainFixture)
 def test_blocktest(  # noqa: D103
     test_case: TestCaseIndexFile | TestCaseStream,
     evm: TransitionTool,
@@ -60,7 +60,7 @@ def run_statetest(
 
 
 @pytest.mark.usefixtures("run_statetest")
-@fixture_format(FixtureFormats.STATE_TEST)
+@fixture_format(StateFixture)
 def test_statetest(  # noqa: D103
     test_case: TestCaseIndexFile | TestCaseStream,
     fixture_path: Path,

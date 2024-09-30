@@ -10,9 +10,10 @@ from pathlib import Path
 from re import compile
 from typing import Optional
 
+from ethereum_test_fixtures import BlockchainFixture, StateFixture
 from ethereum_test_forks import Fork
 
-from .transition_tool import FixtureFormats, TransitionTool, dump_files_to_directory
+from .transition_tool import FixtureFormat, TransitionTool, dump_files_to_directory
 
 
 class GethTransitionTool(TransitionTool):
@@ -67,9 +68,18 @@ class GethTransitionTool(TransitionTool):
             raise Exception(f"Unexpected exception calling evm tool: {e}.")
         return result.stdout
 
+    def is_verifiable(
+        self,
+        fixture_format: FixtureFormat,
+    ) -> bool:
+        """
+        Returns whether the fixture format is verifiable by this Geth's evm tool.
+        """
+        return fixture_format in {StateFixture, BlockchainFixture}
+
     def verify_fixture(
         self,
-        fixture_format: FixtureFormats,
+        fixture_format: FixtureFormat,
         fixture_path: Path,
         fixture_name: Optional[str] = None,
         debug_output_path: Optional[Path] = None,
@@ -82,16 +92,16 @@ class GethTransitionTool(TransitionTool):
         if debug_output_path:
             command += ["--debug", "--json", "--verbosity", "100"]
 
-        if FixtureFormats.is_state_test(fixture_format):
+        if fixture_format == StateFixture:
             assert self.statetest_subcommand, "statetest subcommand not set"
             command.append(self.statetest_subcommand)
-        elif FixtureFormats.is_blockchain_test(fixture_format):
+        elif fixture_format == BlockchainFixture:
             assert self.blocktest_subcommand, "blocktest subcommand not set"
             command.append(self.blocktest_subcommand)
         else:
             raise Exception(f"Invalid test fixture format: {fixture_format}")
 
-        if fixture_name and fixture_format == FixtureFormats.BLOCKCHAIN_TEST:
+        if fixture_name and fixture_format == BlockchainFixture:
             assert isinstance(fixture_name, str), "fixture_name must be a string"
             command.append("--run")
             command.append(fixture_name)
@@ -130,7 +140,7 @@ class GethTransitionTool(TransitionTool):
                 f"EVM test failed.\n{' '.join(command)}\n\n Error:\n{result.stderr.decode()}"
             )
 
-        if FixtureFormats.is_state_test(fixture_format):
+        if fixture_format == StateFixture:
             result_json = json.loads(result.stdout.decode())
             if not isinstance(result_json, list):
                 raise Exception(f"Unexpected result from evm statetest: {result_json}")

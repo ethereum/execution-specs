@@ -12,7 +12,12 @@ from click.testing import CliRunner
 import cli.check_fixtures
 from ethereum_test_base_types import Account, Address, Hash
 from ethereum_test_exceptions import TransactionException
-from ethereum_test_fixtures import BlockchainFixture, FixtureFormats
+from ethereum_test_fixtures import (
+    BlockchainEngineFixture,
+    BlockchainFixture,
+    FixtureFormat,
+    StateFixture,
+)
 from ethereum_test_fixtures.blockchain import FixtureCommon
 from ethereum_test_forks import Berlin, Fork, Istanbul, London, Paris, Shanghai
 from ethereum_test_types import Alloc, Environment, Transaction
@@ -96,7 +101,7 @@ def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
         request=None,  # type: ignore
         t8n=t8n,
         fork=fork,
-        fixture_format=FixtureFormats.BLOCKCHAIN_TEST,
+        fixture_format=BlockchainFixture,
     )
     assert isinstance(fixture, BlockchainFixture)
     assert fixture.genesis is not None
@@ -109,17 +114,17 @@ def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
 @pytest.mark.parametrize(
     "fork,fixture_format",
     [
-        (Istanbul, FixtureFormats.BLOCKCHAIN_TEST),
-        (London, FixtureFormats.BLOCKCHAIN_TEST),
-        (Paris, FixtureFormats.BLOCKCHAIN_TEST_ENGINE),
-        (Shanghai, FixtureFormats.BLOCKCHAIN_TEST_ENGINE),
-        (Paris, FixtureFormats.STATE_TEST),
-        (Shanghai, FixtureFormats.STATE_TEST),
+        (Istanbul, BlockchainFixture),
+        (London, BlockchainFixture),
+        (Paris, BlockchainEngineFixture),
+        (Shanghai, BlockchainEngineFixture),
+        (Paris, StateFixture),
+        (Shanghai, StateFixture),
     ],
 )
 def test_fill_state_test(
     fork: Fork,
-    fixture_format: FixtureFormats,
+    fixture_format: FixtureFormat,
 ):
     """
     Test `ethereum_test.filler.fill_fixtures` with `StateTest`.
@@ -166,12 +171,12 @@ def test_fill_state_test(
         fork=fork,
         fixture_format=fixture_format,
     )
-    assert generated_fixture.format == fixture_format
+    assert generated_fixture.__class__ == fixture_format
     fixture = {
         f"000/my_chain_id_test/{fork}": generated_fixture.json_dict_with_info(hash_only=True),
     }
 
-    expected_json_file = f"chainid_{fork.name().lower()}_{fixture_format.value}.json"
+    expected_json_file = f"chainid_{fork.name().lower()}_{fixture_format.fixture_format_name}.json"
     with open(
         os.path.join(
             "src",
@@ -471,9 +476,7 @@ class TestFillBlockchainValidTxs:
 
     @pytest.fixture
     def fixture_format(self, check_hive: bool):  # noqa: D102
-        return (
-            FixtureFormats.BLOCKCHAIN_TEST_ENGINE if check_hive else FixtureFormats.BLOCKCHAIN_TEST
-        )
+        return BlockchainEngineFixture if check_hive else BlockchainFixture
 
     @pytest.fixture
     def blockchain_test_fixture(  # noqa: D102
@@ -484,7 +487,7 @@ class TestFillBlockchainValidTxs:
         post: Mapping[Any, Any],
         blocks: List[Block],
         genesis_environment: Environment,
-        fixture_format: FixtureFormats,
+        fixture_format: FixtureFormat,
     ):
         t8n = ExecutionSpecsTransitionTool()
         return BlockchainTest(
@@ -506,11 +509,11 @@ class TestFillBlockchainValidTxs:
         self,
         fork: Fork,
         check_hive: bool,
-        fixture_format: FixtureFormats,
+        fixture_format: FixtureFormat,
         expected_json_file: str,
         blockchain_test_fixture: BlockchainFixture,
     ):
-        assert blockchain_test_fixture.format == fixture_format
+        assert blockchain_test_fixture.__class__ == fixture_format
         assert isinstance(blockchain_test_fixture, FixtureCommon)
 
         fixture_name = f"000/my_blockchain_test/{fork.name()}"
@@ -870,8 +873,8 @@ def test_fill_blockchain_invalid_txs(fork: Fork, check_hive: bool, expected_json
     )
 
     t8n = ExecutionSpecsTransitionTool()
-    fixture_format = (
-        FixtureFormats.BLOCKCHAIN_TEST_ENGINE if check_hive else FixtureFormats.BLOCKCHAIN_TEST
+    fixture_format: FixtureFormat = (
+        BlockchainEngineFixture if check_hive else BlockchainFixture  # type: ignore
     )
     generated_fixture = BlockchainTest(
         pre=pre,
@@ -884,7 +887,7 @@ def test_fill_blockchain_invalid_txs(fork: Fork, check_hive: bool, expected_json
         fork=fork,
         fixture_format=fixture_format,
     )
-    assert generated_fixture.format == fixture_format
+    assert generated_fixture.__class__ == fixture_format
     assert isinstance(generated_fixture, FixtureCommon)
 
     fixture_name = f"000/my_blockchain_test/{fork.name()}"

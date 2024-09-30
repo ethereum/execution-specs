@@ -12,7 +12,6 @@ from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList
 from ethereum_test_types.eof.v1 import ContainerKind
 
 from .base import BaseFixture
-from .formats import FixtureFormats
 
 
 class Result(CamelModel):
@@ -50,9 +49,10 @@ class Fixture(BaseFixture):
     Fixture for a single EOFTest.
     """
 
-    vectors: Mapping[Number, Vector]
+    fixture_format_name: ClassVar[str] = "eof_test"
+    description: ClassVar[str] = "Tests that generate an EOF test fixture."
 
-    format: ClassVar[FixtureFormats] = FixtureFormats.EOF_TEST
+    vectors: Mapping[Number, Vector]
 
     def get_fork(self) -> str | None:
         """

@@ -3,19 +3,15 @@ Defines models for interacting with JSON fixture files.
 """
 import json
 from pathlib import Path
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import RootModel
 
+from .base import FixtureFormat
 from .blockchain import EngineFixture as BlockchainEngineFixture
 from .blockchain import Fixture as BlockchainFixture
 from .eof import Fixture as EOFFixture
-from .formats import FixtureFormats
 from .state import Fixture as StateFixture
-
-FixtureFormatsValues = Literal[
-    "blockchain_test_engine", "blockchain_test", "state_test", "eof_test", "unset_test_format"
-]
 
 FixtureModel = BlockchainFixture | BlockchainEngineFixture | StateFixture | EOFFixture
 
@@ -75,7 +71,7 @@ class BaseFixturesRootModel(RootModel):
     def from_file(
         cls,
         file_path: Path,
-        fixture_format: Optional[FixtureFormats | FixtureFormatsValues] = None,
+        fixture_format: Optional[FixtureFormat] = None,
     ) -> "BaseFixturesRootModel":
         """
         Dynamically create a fixture model from the specified json file and,
@@ -89,7 +85,7 @@ class BaseFixturesRootModel(RootModel):
     def from_json_data(
         cls,
         json_data: Dict[str, Any],
-        fixture_format: Optional[FixtureFormats | FixtureFormatsValues] = None,
+        fixture_format: Optional[FixtureFormat] = None,
     ) -> "BaseFixturesRootModel":
         """
         Dynamically create a fixture model from the specified json data and,
@@ -101,17 +97,13 @@ class BaseFixturesRootModel(RootModel):
         fixture_format will provide a speed-up.
         """
         model_mapping = {
-            FixtureFormats.BLOCKCHAIN_TEST: BlockchainFixtures,
-            FixtureFormats.BLOCKCHAIN_TEST_ENGINE: BlockchainEngineFixtures,
-            FixtureFormats.STATE_TEST: StateFixtures,
-            FixtureFormats.EOF_TEST: EOFFixtures,
-            FixtureFormats.BLOCKCHAIN_TEST.value: BlockchainFixtures,
-            FixtureFormats.BLOCKCHAIN_TEST_ENGINE.value: BlockchainEngineFixtures,
-            FixtureFormats.STATE_TEST.value: StateFixtures,
-            FixtureFormats.EOF_TEST.value: EOFFixtures,
+            BlockchainFixture: BlockchainFixtures,
+            BlockchainEngineFixture: BlockchainEngineFixtures,
+            StateFixture: StateFixtures,
+            EOFFixture: EOFFixtures,
         }
 
-        if fixture_format not in [None, "unset_test_format", FixtureFormats.UNSET_TEST_FORMAT]:
+        if fixture_format is not None:
             if fixture_format not in model_mapping:
                 raise TypeError(f"Unsupported fixture format: {fixture_format}")
             model_class = model_mapping[fixture_format]
