@@ -43,7 +43,7 @@ class DepositRequest:
     [EIP-6110]: https://eips.ethereum.org/EIPS/eip-6110
     """
 
-    public_key: Bytes48
+    pubkey: Bytes48
     withdrawal_credentials: Bytes32
     amount: U64
     signature: Bytes96
@@ -60,7 +60,7 @@ class WithdrawalRequest:
     """
 
     source_address: Address
-    validator_public_key: Bytes48
+    validator_pubkey: Bytes48
     amount: U64
 
 
@@ -74,8 +74,8 @@ class ConsolidationRequest:
     """
 
     source_address: Address
-    source_public_key: Bytes48
-    target_public_key: Bytes48
+    source_pubkey: Bytes48
+    target_pubkey: Bytes48
 
 
 Request = Union[DepositRequest, WithdrawalRequest, ConsolidationRequest]
@@ -117,7 +117,7 @@ def parse_deposit_data(data: Bytes) -> DepositRequest:
     Parses Deposit Request from the DepositContract.DepositEvent data.
     """
     return DepositRequest(
-        public_key=Bytes48(data[192:240]),
+        pubkey=Bytes48(data[192:240]),
         withdrawal_credentials=Bytes32(data[288:320]),
         amount=U64.from_le_bytes(data[352:360]),
         signature=Bytes96(data[416:512]),
@@ -148,7 +148,7 @@ def parse_withdrawal_data(data: Bytes) -> WithdrawalRequest:
     assert len(data) == WITHDRAWAL_REQUEST_LENGTH
     return WithdrawalRequest(
         source_address=Address(data[:20]),
-        validator_public_key=Bytes48(data[20:68]),
+        validator_pubkey=Bytes48(data[20:68]),
         amount=U64.from_be_bytes(data[68:76]),
     )
 
@@ -181,8 +181,8 @@ def parse_consolidation_data(data: Bytes) -> ConsolidationRequest:
     assert len(data) == CONSOLIDATION_REQUEST_LENGTH
     return ConsolidationRequest(
         source_address=Address(data[:20]),
-        source_public_key=Bytes48(data[20:68]),
-        target_public_key=Bytes48(data[68:116]),
+        source_pubkey=Bytes48(data[20:68]),
+        target_pubkey=Bytes48(data[68:116]),
     )
 
 
