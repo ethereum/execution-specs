@@ -220,7 +220,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         block.withdrawals,
         block.header.parent_beacon_block_root,
         excess_blob_gas,
-        block.requests,
     )
     if apply_body_output.block_gas_used != block.header.gas_used:
         raise InvalidBlock
@@ -652,7 +651,6 @@ def apply_body(
     withdrawals: Tuple[Withdrawal, ...],
     parent_beacon_block_root: Root,
     excess_blob_gas: U64,
-    requests: Tuple[Bytes, ...],
 ) -> ApplyBodyOutput:
     """
     Executes a block.
@@ -696,8 +694,6 @@ def apply_body(
         The root of the beacon block from the parent block.
     excess_blob_gas :
         Excess blob gas calculated from the previous block.
-    requests :
-        Requests to be processed in the current block.
 
     Returns
     -------
@@ -716,7 +712,7 @@ def apply_body(
         secured=False, default=None
     )
     block_logs: Tuple[Log, ...] = ()
-    requests_from_execution: Tuple[Bytes, ...] = ()
+    requests_from_execution: Bytes = b""
 
     process_system_transaction(
         BEACON_ROOTS_ADDRESS,
@@ -861,10 +857,7 @@ def apply_body(
 
     requests_from_execution += consolidation_requests
 
-    if requests_from_execution != requests:
-        raise InvalidBlock
-
-    requests_hash = keccak256(rlp.encode(requests_from_execution))
+    requests_hash = keccak256(requests_from_execution)
 
     return ApplyBodyOutput(
         block_gas_used,

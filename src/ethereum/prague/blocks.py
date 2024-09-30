@@ -87,7 +87,6 @@ class Block:
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
     ommers: Tuple[Header, ...]
     withdrawals: Tuple[Withdrawal, ...]
-    requests: Tuple[Bytes, ...]
 
 
 @slotted_freezable

@@ -83,9 +83,6 @@ transaction_1559 = FeeMarketTransaction(
 
 withdrawal = Withdrawal(U64(0), U64(1), address1, U256(2))
 
-requests = (Bytes(b"01foo"), Bytes(b"01bar"))
-
-
 header = Header(
     parent_hash=hash1,
     ommers_hash=hash2,
@@ -119,7 +116,6 @@ block = Block(
     ),
     ommers=(),
     withdrawals=(withdrawal,),
-    requests=requests,
 )
 
 log1 = Log(

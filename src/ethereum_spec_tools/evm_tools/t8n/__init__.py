@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 from functools import partial
-from typing import Any, TextIO, Tuple
+from typing import Any, TextIO
 
 from ethereum import rlp, trace
 from ethereum.base_types import U64, U256, Bytes, Uint
@@ -308,7 +308,7 @@ class T8N(Load):
             self.fork.is_after_fork("ethereum.prague")
             and not self.options.state_test
         ):
-            requests_from_execution: Tuple[Bytes, ...] = ()
+            requests_from_execution: Bytes = b""
 
             self.fork.process_system_transaction(
                 self.fork.HISTORY_STORAGE_ADDRESS,
@@ -501,9 +501,7 @@ class T8N(Load):
             self.fork.is_after_fork("ethereum.prague")
             and not self.options.state_test
         ):
-            self.result.requests_hash = keccak256(
-                rlp.encode(requests_from_execution)
-            )
+            self.result.requests_hash = keccak256(requests_from_execution)
             self.result.requests = requests_from_execution
 
     def run(self) -> int:

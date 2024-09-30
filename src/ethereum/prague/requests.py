@@ -8,7 +8,7 @@ then process each one.
 [EIP-7685]: https://eips.ethereum.org/EIPS/eip-7685
 """
 
-from typing import Tuple, Union
+from typing import Union
 
 from ..base_types import Bytes
 from .blocks import Receipt, decode_receipt
@@ -40,23 +40,22 @@ def parse_deposit_data(data: Bytes) -> Bytes:
 
 def parse_deposit_requests_from_receipt(
     receipt: Union[Bytes, Receipt],
-) -> Tuple[Bytes, ...]:
+) -> Bytes:
     """
     Parse deposit requests from a receipt.
     """
-    deposit_requests: Tuple[Bytes, ...] = ()
+    deposit_requests: Bytes = b""
     decoded_receipt = decode_receipt(receipt)
     for log in decoded_receipt.logs:
         if log.address == DEPOSIT_CONTRACT_ADDRESS:
-            deposit_request = parse_deposit_data(log.data)
-            deposit_requests += (deposit_request,)
+            deposit_requests += parse_deposit_data(log.data)
 
     return deposit_requests
 
 
 def parse_withdrawal_requests_from_system_tx(
     evm_call_output: Bytes,
-) -> Tuple[Bytes, ...]:
+) -> Bytes:
     """
     Parse withdrawal requests from the system transaction output.
     """
@@ -64,21 +63,20 @@ def parse_withdrawal_requests_from_system_tx(
         len(evm_call_output) // WITHDRAWAL_REQUEST_LENGTH
     )
 
-    withdrawal_requests: Tuple[Bytes, ...] = ()
+    withdrawal_requests: Bytes = b""
     for i in range(count_withdrawal_requests):
         start = i * WITHDRAWAL_REQUEST_LENGTH
-        withdrawal_request = (
+        withdrawal_requests += (
             WITHDRAWAL_REQUEST_TYPE
             + evm_call_output[start : start + WITHDRAWAL_REQUEST_LENGTH]
         )
-        withdrawal_requests += (withdrawal_request,)
 
     return withdrawal_requests
 
 
 def parse_consolidation_requests_from_system_tx(
     evm_call_output: Bytes,
-) -> Tuple[Bytes, ...]:
+) -> Bytes:
     """
     Parse consolidation requests from the system transaction output.
     """
@@ -86,13 +84,12 @@ def parse_consolidation_requests_from_system_tx(
         len(evm_call_output) // CONSOLIDATION_REQUEST_LENGTH
     )
 
-    consolidation_requests: Tuple[Bytes, ...] = ()
+    consolidation_requests: Bytes = b""
     for i in range(count_consolidation_requests):
         start = i * CONSOLIDATION_REQUEST_LENGTH
-        consolidation_request = (
+        consolidation_requests += (
             CONSOLIDATION_REQUEST_TYPE
             + evm_call_output[start : start + CONSOLIDATION_REQUEST_LENGTH]
         )
-        consolidation_requests += (consolidation_request,)
 
     return consolidation_requests
