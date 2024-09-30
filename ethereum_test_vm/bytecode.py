@@ -3,7 +3,7 @@ Ethereum Virtual Machine bytecode primitives and utilities.
 """
 from typing import SupportsBytes
 
-from ethereum.crypto.hash import keccak256
+from ethereum_test_base_types import Bytes, Hash
 
 
 class Bytecode:
@@ -216,8 +216,8 @@ class Bytecode:
         """
         return bytes(self).hex()
 
-    def keccak256(self) -> bytes:
+    def keccak256(self) -> Hash:
         """
         Return the keccak256 hash of the opcode byte representation.
         """
-        return keccak256(self._bytes_)
+        return Bytes(self._bytes_).keccak256()

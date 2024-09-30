@@ -56,6 +56,7 @@ from ethereum_test_types import (
     copy_opcode_cost,
     cost_memory_bytes,
     eip_2028_transaction_data_cost,
+    keccak256,
 )
 from ethereum_test_vm import (
     Bytecode,
@@ -151,5 +152,6 @@ __all__ = (
     "eip_2028_transaction_data_cost",
     "eip_2028_transaction_data_cost",
     "extend_with_defaults",
+    "keccak256",
     "vm",
 )

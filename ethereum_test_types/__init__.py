@@ -29,6 +29,7 @@ from .types import (
     Transaction,
     Withdrawal,
     WithdrawalRequest,
+    keccak256,
 )
 
 __all__ = (
@@ -64,5 +65,6 @@ __all__ = (
     "copy_opcode_cost",
     "cost_memory_bytes",
     "eip_2028_transaction_data_cost",
+    "keccak256",
     "to_json",
 )

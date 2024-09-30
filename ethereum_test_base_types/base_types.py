@@ -197,12 +197,12 @@ class Bytes(bytes, ToStringSchema):
             return input
         return cls(input)
 
-    def keccak256(self) -> "Bytes":
+    def keccak256(self) -> "Hash":
         """
         Return the keccak256 hash of the opcode byte representation.
         """
         k = keccak.new(digest_bits=256)
-        return Bytes(k.update(bytes(self)).digest())
+        return Hash(k.update(bytes(self)).digest())
 
 
 S = TypeVar("S", bound="FixedSizeHexNumber")

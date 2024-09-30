@@ -620,8 +620,7 @@ fixture_header_ones = FixtureHeader(
                 "excessBlobGas": hex(18),
                 "blockHash": "0xd90115b7fde329f64335763a446af150ab67e639281dccdb07a007d18bb80211",
                 "transactions": [
-                    "0x"
-                    + Transaction(
+                    Transaction(
                         to=0x1234,
                         data=b"\x01\x00",
                         access_list=[
@@ -735,8 +734,7 @@ fixture_header_ones = FixtureHeader(
                             "0x8eca4747db6a4b272018f2850e4208b863989ce9971bb1907467ae2204950695"
                         ),
                         "transactions": [
-                            "0x"
-                            + Transaction(
+                            Transaction(
                                 to=0x1234,
                                 data=b"\x01\x00",
                                 access_list=[
@@ -914,8 +912,7 @@ fixture_header_ones = FixtureHeader(
                             "0x78a4bf2520248e0b403d343c32b6746a43da1ebcf3cc8de14b959bc9f461fe76"
                         ),
                         "transactions": [
-                            "0x"
-                            + Transaction(
+                            Transaction(
                                 to=0x1234,
                                 data=b"\x01\x00",
                                 access_list=[
@@ -1082,8 +1079,7 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                     "blockHash": "0xd90115b7fde329f64335763a446af1"
                     "50ab67e639281dccdb07a007d18bb80211",
                     "transactions": [
-                        "0x"
-                        + Transaction(
+                        Transaction(
                             to=0x1234,
                             data=b"\x01\x00",
                             access_list=[
@@ -1193,8 +1189,7 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                     "blockHash": "0xd90115b7fde329f64335763a446af1"
                     "50ab67e639281dccdb07a007d18bb80211",
                     "transactions": [
-                        "0x"
-                        + Transaction(
+                        Transaction(
                             to=0x1234,
                             data=b"\x01\x00",
                             access_list=[

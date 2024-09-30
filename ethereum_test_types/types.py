@@ -8,11 +8,10 @@ from typing import Any, ClassVar, Dict, Generic, List, Literal, Sequence, Tuple
 
 from coincurve.keys import PrivateKey, PublicKey
 from ethereum import rlp as eth_rlp
-from ethereum.base_types import U256, Uint
-from ethereum.crypto.hash import keccak256
 from ethereum.frontier.fork_types import Account as FrontierAccount
 from ethereum.frontier.fork_types import Address as FrontierAddress
 from ethereum.frontier.state import State, set_account, set_storage, state_root
+from ethereum_types.numeric import U256, Uint
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -48,6 +47,13 @@ from ethereum_test_base_types.conversions import (
 from ethereum_test_exceptions import TransactionException
 from ethereum_test_forks import Fork
 from ethereum_test_vm import EVMCodeType
+
+
+def keccak256(data: bytes) -> Hash:
+    """
+    Calculates the keccak256 hash of the given data.
+    """
+    return Bytes(data).keccak256()
 
 
 # Sentinel classes
@@ -494,16 +500,19 @@ class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar]):
         ]
 
     @cached_property
-    def signing_bytes(self) -> bytes:
+    def signing_bytes(self) -> Bytes:
         """
         Returns the data to be signed.
         """
-        return int.to_bytes(self.magic, length=1, byteorder="big") + eth_rlp.encode(
-            [
-                Uint(self.chain_id),
-                self.address,
-                Uint(self.nonce),
-            ]
+        return Bytes(
+            int.to_bytes(self.magic, length=1, byteorder="big")
+            + eth_rlp.encode(
+                [
+                    Uint(self.chain_id),
+                    self.address,
+                    Uint(self.nonce),
+                ]
+            )
         )
 
     def signature(self, private_key: Hash) -> Tuple[int, int, int]:
@@ -552,7 +561,7 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
                     + bytes([self.v])
                 )
                 public_key = PublicKey.from_signature_and_message(
-                    signature_bytes, keccak256(self.signing_bytes), hasher=None
+                    signature_bytes, self.signing_bytes.keccak256(), hasher=None
                 )
                 self.signer = EOA(
                     address=Address(keccak256(public_key.format(compressed=False)[1:])[32 - 20 :])
@@ -668,7 +677,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
     error: List[TransactionException] | TransactionException | None = Field(None, exclude=True)
 
     protected: bool = Field(True, exclude=True)
-    rlp_override: bytes | None = Field(None, exclude=True)
+    rlp_override: Bytes | None = Field(None, exclude=True)
 
     wrapped_blob_transaction: bool = Field(False, exclude=True)
     blobs: Sequence[Bytes] | None = Field(None, exclude=True)
@@ -788,7 +797,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
                 return self
 
             public_key = PublicKey.from_signature_and_message(
-                self.signature_bytes, keccak256(self.signing_bytes), hasher=None
+                self.signature_bytes, self.signing_bytes.keccak256(), hasher=None
             )
             updated_values["sender"] = Address(
                 keccak256(public_key.format(compressed=False)[1:])[32 - 20 :]
@@ -799,7 +808,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
             raise ValueError("secret_key must be set to sign a transaction")
 
         # Get the signing bytes
-        signing_hash = keccak256(self.signing_bytes)
+        signing_hash = self.signing_bytes.keccak256()
 
         # Sign the bytes
         signature_bytes = PrivateKey(secret=self.secret_key).sign_recoverable(
@@ -984,7 +993,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
         return signing_envelope + [Uint(self.v), Uint(self.r), Uint(self.s)]
 
     @cached_property
-    def rlp(self) -> bytes:
+    def rlp(self) -> Bytes:
         """
         Returns bytes of the serialized representation of the transaction,
         which is almost always RLP encoding.
@@ -992,30 +1001,30 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
         if self.rlp_override is not None:
             return self.rlp_override
         if self.ty > 0:
-            return bytes([self.ty]) + eth_rlp.encode(self.payload_body)
+            return Bytes(bytes([self.ty]) + eth_rlp.encode(self.payload_body))
         else:
-            return eth_rlp.encode(self.payload_body)
+            return Bytes(eth_rlp.encode(self.payload_body))
 
     @cached_property
     def hash(self) -> Hash:
         """
         Returns hash of the transaction.
         """
-        return Hash(keccak256(self.rlp))
+        return self.rlp.keccak256()
 
     @cached_property
-    def signing_bytes(self) -> bytes:
+    def signing_bytes(self) -> Bytes:
         """
         Returns the serialized bytes of the transaction used for signing.
         """
-        return (
+        return Bytes(
             bytes([self.ty]) + eth_rlp.encode(self.signing_envelope)
             if self.ty > 0
             else eth_rlp.encode(self.signing_envelope)
         )
 
     @cached_property
-    def signature_bytes(self) -> bytes:
+    def signature_bytes(self) -> Bytes:
         """
         Returns the serialized bytes of the transaction signature.
         """
@@ -1027,7 +1036,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
                 v -= 35 + (self.chain_id * 2)
             else:
                 v -= 27
-        return (
+        return Bytes(
             self.r.to_bytes(32, byteorder="big")
             + self.s.to_bytes(32, byteorder="big")
             + bytes([v])
@@ -1074,7 +1083,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
         )
         if self.sender is None:
             raise ValueError("sender address is None")
-        hash = keccak256(eth_rlp.encode([self.sender, nonce_bytes]))
+        hash = Bytes(eth_rlp.encode([self.sender, nonce_bytes])).keccak256()
         return Address(hash[-20:])
 
 

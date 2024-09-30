@@ -5,7 +5,6 @@ Helper functions/classes used to generate Ethereum tests.
 from dataclasses import MISSING, dataclass, fields
 from typing import List, SupportsBytes
 
-from ethereum.crypto.hash import keccak256
 from ethereum.rlp import encode
 
 from ethereum_test_base_types.base_types import Address, Bytes, Hash
@@ -48,7 +47,7 @@ def compute_create_address(
         if nonce is None:
             nonce = 0
         nonce_bytes = bytes() if nonce == 0 else nonce.to_bytes(length=1, byteorder="big")
-        hash = keccak256(encode([address, nonce_bytes]))
+        hash = Bytes(encode([address, nonce_bytes])).keccak256()
         return Address(hash[-20:])
     if opcode == Op.CREATE2:
         return compute_create2_address(address, salt, initcode)
@@ -62,7 +61,7 @@ def compute_create2_address(
     Compute address of the resulting contract created using the `CREATE2`
     opcode.
     """
-    hash = keccak256(b"\xff" + Address(address) + Hash(salt) + keccak256(Bytes(initcode)))
+    hash = Bytes(b"\xff" + Address(address) + Hash(salt) + Bytes(initcode).keccak256()).keccak256()
     return Address(hash[-20:])
 
 
@@ -100,7 +99,9 @@ def compute_eofcreate_address(
     """
     Compute address of the resulting contract created using the `EOFCREATE` opcode.
     """
-    hash = keccak256(b"\xff" + Address(address) + Hash(salt) + keccak256(Bytes(init_container)))
+    hash = Bytes(
+        b"\xff" + Address(address) + Hash(salt) + Bytes(init_container).keccak256()
+    ).keccak256()
     return Address(hash[-20:])
 
 
