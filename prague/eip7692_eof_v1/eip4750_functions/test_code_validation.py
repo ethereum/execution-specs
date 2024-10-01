@@ -182,9 +182,170 @@ def test_eof_validity(
     container: Container,
 ):
     """
-    Test EOF container validaiton for features around EIP-4750 / Functions / Code Sections
+    Test EOF container validation for features around EIP-4750 / Functions / Code Sections
     """
-    eof_test(
-        data=bytes(container),
-        expect_exception=container.validity_error,
-    )
+    eof_test(data=container)
+
+
+@pytest.mark.parametrize(
+    "container",
+    [
+        Container(
+            name="unreachable1",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Code(Op.INVALID),  # unreachable
+            ],
+        ),
+        Container(
+            name="unreachable1_selfjumpf",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Code(Op.JUMPF[1]),  # unreachable
+            ],
+        ),
+        Container(
+            name="unreachable1_selfcallf",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Code(Op.CALLF[1] + Op.STOP),  # unreachable
+            ],
+        ),
+        Container(
+            name="unreachable1_jumpf0",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Code(Op.JUMPF[0]),  # unreachable
+            ],
+        ),
+        Container(
+            name="unreachable1_callf0",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Code(Op.CALLF[0] + Op.STOP),  # unreachable
+            ],
+        ),
+        Container(
+            name="unreachable1_selfcall_jumpf0",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Code(Op.CALLF[1] + Op.JUMPF[0]),  # unreachable
+            ],
+        ),
+        Container(
+            name="unreachable12_of3_2jumpf1",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Code(Op.STOP),  # unreachable
+                Section.Code(Op.JUMPF[1]),  # unreachable
+            ],
+        ),
+        Container(
+            name="unreachable12_of3_2callf1",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Code(Op.STOP),  # unreachable
+                Section.Code(Op.CALLF[1] + Op.STOP),  # unreachable
+            ],
+        ),
+        Container(
+            name="unreachable12_of3_jumpf_loop",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Code(Op.JUMPF[2]),  # unreachable
+                Section.Code(Op.JUMPF[1]),  # unreachable
+            ],
+        ),
+        Container(
+            name="unreachable12_of3_callf_loop_stop",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Code(Op.CALLF[2] + Op.STOP),  # unreachable
+                Section.Code(Op.CALLF[1] + Op.STOP),  # unreachable
+            ],
+        ),
+        Container(
+            name="unreachable12_of3_callf_loop_retf",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Code(Op.CALLF[2] + Op.RETF, code_outputs=0),  # unreachable
+                Section.Code(Op.CALLF[1] + Op.RETF, code_outputs=0),  # unreachable
+            ],
+        ),
+        Container(
+            name="unreachable12_of3_callf_loop_mixed",
+            sections=[
+                Section.Code(Op.INVALID),
+                Section.Code(Op.CALLF[2] + Op.STOP),  # unreachable
+                Section.Code(Op.CALLF[1] + Op.RETF, code_outputs=0),  # unreachable
+            ],
+        ),
+        Container(
+            name="selfjumpf0_unreachable1",
+            sections=[
+                Section.Code(Op.JUMPF[0]),  # self-reference
+                Section.Code(Op.JUMPF[1]),  # unreachable
+            ],
+        ),
+        Container(
+            name="unreachable2_of3",
+            sections=[
+                Section.Code(Op.CALLF[1] + Op.STOP),
+                Section.Code(Op.RETF, code_outputs=0),
+                Section.Code(Op.INVALID),  # unreachable
+            ],
+        ),
+        Container(
+            name="unreachable1_of3",
+            sections=[
+                Section.Code(Op.CALLF[2] + Op.STOP),
+                Section.Code(Op.INVALID),  # unreachable
+                Section.Code(Op.RETF, code_outputs=0),
+            ],
+        ),
+        Container(
+            name="unreachable1_of4",
+            sections=[
+                Section.Code(Op.CALLF[3] + Op.STOP),
+                Section.Code(Op.INVALID),  # unreachable
+                Section.Code(Op.RETF, code_outputs=0),
+                Section.Code(Op.CALLF[2] + Op.RETF, code_outputs=0),
+            ],
+        ),
+        Container(
+            name="unreachable2_of3_retf",
+            sections=[
+                Section.Code(Op.JUMPF[1]),
+                Section.Code(Op.STOP),
+                Section.Code(Op.RETF, code_outputs=0),
+            ],
+        ),
+        Container(
+            name="unreachable2-255",
+            sections=[
+                Section.Code(Op.JUMPF[1]),
+                Section.Code(Op.JUMPF[1]),  # self-reference
+            ]
+            + [Section.Code(Op.JUMPF[i]) for i in range(3, 255)]  # unreachable
+            + [Section.Code(Op.STOP)],  # unreachable
+        ),
+        Container(
+            name="unreachable255",
+            sections=[Section.Code(Op.JUMPF[i]) for i in range(1, 255)]
+            + [
+                Section.Code(Op.JUMPF[254]),  # self-reference
+                Section.Code(Op.STOP),  # unreachable
+            ],
+        ),
+    ],
+    ids=container_name,
+)
+def test_unreachable_code_sections(
+    eof_test: EOFTestFiller,
+    container: Container,
+):
+    """
+    Test cases for EOF unreachable code sections
+    (i.e. code sections not reachable from the code section 0).
+    """
+    eof_test(data=container, expect_exception=EOFException.UNREACHABLE_CODE_SECTIONS)
