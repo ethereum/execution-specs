@@ -16,6 +16,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    PrivateAttr,
     RootModel,
     computed_field,
     model_serializer,
@@ -54,6 +55,16 @@ def keccak256(data: bytes) -> Hash:
     Calculates the keccak256 hash of the given data.
     """
     return Bytes(data).keccak256()
+
+
+def int_to_bytes(value: int) -> bytes:
+    """
+    Converts an integer to its big-endian representation.
+    """
+    if value == 0:
+        return b""
+
+    return int_to_bytes(value // 256) + bytes([value % 256])
 
 
 # Sentinel classes
@@ -119,6 +130,8 @@ class Alloc(BaseAlloc):
     Allocation of accounts in the state, pre and post test execution.
     """
 
+    _eoa_fund_amount_default: int = PrivateAttr(10**21)
+
     @dataclass(kw_only=True)
     class UnexpectedAccount(Exception):
         """
@@ -174,6 +187,12 @@ class Alloc(BaseAlloc):
         Returns an iterator over the allocation.
         """
         return iter(self.root)
+
+    def items(self):
+        """
+        Returns an iterator over the allocation items.
+        """
+        return self.root.items()
 
     def __getitem__(self, address: Address | FixedSizeBytesConvertible) -> Account | None:
         """
@@ -286,7 +305,7 @@ class Alloc(BaseAlloc):
 
     def fund_eoa(
         self,
-        amount: NumberConvertible = 10**21,
+        amount: NumberConvertible | None = None,
         label: str | None = None,
         storage: Storage | None = None,
         delegation: Address | Literal["Self"] | None = None,
@@ -581,13 +600,27 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
         self.s = HexNumber(signature[2])
 
 
+@dataclass
+class TransactionDefaults:
+    """
+    Default values for transactions.
+    """
+
+    chain_id: int = 1
+    gas_price = 10
+    max_fee_per_gas = 7
+    max_priority_fee_per_gas: int = 0
+
+
 class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
     """
     Generic transaction type used as a parent for Transaction and FixtureTransaction (blockchain).
     """
 
     ty: NumberBoundTypeVar = Field(0, alias="type")  # type: ignore
-    chain_id: NumberBoundTypeVar = Field(1)  # type: ignore
+    chain_id: NumberBoundTypeVar = Field(
+        default_factory=lambda: TransactionDefaults.chain_id
+    )  # type: ignore
     nonce: NumberBoundTypeVar = Field(0)  # type: ignore
     gas_price: NumberBoundTypeVar | None = None
     max_priority_fee_per_gas: NumberBoundTypeVar | None = None
@@ -743,16 +776,16 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
 
         # Set default values for fields that are required for certain tx types
         if self.ty <= 1 and self.gas_price is None:
-            self.gas_price = 10
+            self.gas_price = TransactionDefaults.gas_price
         if self.ty >= 1 and self.access_list is None:
             self.access_list = []
         if self.ty < 1:
             assert self.access_list is None, "access_list must be None"
 
         if self.ty >= 2 and self.max_fee_per_gas is None:
-            self.max_fee_per_gas = 7
+            self.max_fee_per_gas = TransactionDefaults.max_fee_per_gas
         if self.ty >= 2 and self.max_priority_fee_per_gas is None:
-            self.max_priority_fee_per_gas = 0
+            self.max_priority_fee_per_gas = TransactionDefaults.max_priority_fee_per_gas
         if self.ty < 2:
             assert self.max_fee_per_gas is None, "max_fee_per_gas must be None"
             assert self.max_priority_fee_per_gas is None, "max_priority_fee_per_gas must be None"
@@ -1078,12 +1111,9 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
         """
         if self.to is not None:
             raise ValueError("transaction is not a contract creation")
-        nonce_bytes = (
-            bytes() if self.nonce == 0 else self.nonce.to_bytes(length=1, byteorder="big")
-        )
         if self.sender is None:
             raise ValueError("sender address is None")
-        hash = Bytes(eth_rlp.encode([self.sender, nonce_bytes])).keccak256()
+        hash = Bytes(eth_rlp.encode([self.sender, int_to_bytes(self.nonce)])).keccak256()
         return Address(hash[-20:])
 
 

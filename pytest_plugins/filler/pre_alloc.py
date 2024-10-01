@@ -39,7 +39,9 @@ def pytest_addoption(parser: pytest.Parser):
     """
     Adds command-line options to pytest.
     """
-    pre_alloc_group = parser.getgroup("pre_alloc", "Arguments defining pre-allocation behavior.")
+    pre_alloc_group = parser.getgroup(
+        "pre_alloc", "Arguments defining pre-allocation behavior during test filling."
+    )
 
     pre_alloc_group.addoption(
         "--strict-alloc",
@@ -193,7 +195,7 @@ class Alloc(BaseAlloc):
 
     def fund_eoa(
         self,
-        amount: NumberConvertible = 10**21,
+        amount: NumberConvertible | None = None,
         label: str | None = None,
         storage: Storage | None = None,
         delegation: Address | Literal["Self"] | None = None,
@@ -205,6 +207,8 @@ class Alloc(BaseAlloc):
         returned.
         """
         eoa = next(self._eoa_iterator)
+        if amount is None:
+            amount = self._eoa_fund_amount_default
         if Number(amount) > 0 or storage is not None or delegation is not None:
             if storage is None and delegation is None:
                 account = Account(

@@ -33,7 +33,7 @@ KW_ARGS_DEFAULTS_TYPE = Mapping[str, "int | bytes | str | Opcode | Bytecode"]
 
 
 def _stack_argument_to_bytecode(
-    arg: "int | bytes | str | Opcode | Bytecode | Iterable[int]",
+    arg: "int | bytes | SupportsBytes | str | Opcode | Bytecode | Iterable[int]",
 ) -> Bytecode:
     """
     Converts a stack argument in an opcode or macro to bytecode.

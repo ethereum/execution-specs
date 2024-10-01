@@ -177,6 +177,10 @@ class Storage(RootModel[Dict[StorageKeyValueType, StorageKeyValueType]]):
         self._current_slot = slot
         return self
 
+    def items(self):
+        """Returns the items of the storage"""
+        return self.root.items()
+
     def store_next(
         self, value: StorageKeyValueTypeConvertible | StorageKeyValueType | bool
     ) -> StorageKeyValueType:

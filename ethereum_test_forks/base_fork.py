@@ -273,6 +273,17 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def engine_get_payload_version(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> Optional[int]:
+        """
+        Returns `None` if the forks canonical chain cannot be set using the forkchoice method.
+        """
+        pass
+
+    # EVM information abstract methods
+    @classmethod
+    @abstractmethod
     def evm_code_types(cls, block_number: int = 0, timestamp: int = 0) -> List[EVMCodeType]:
         """
         Returns the list of EVM code types supported by the fork.
