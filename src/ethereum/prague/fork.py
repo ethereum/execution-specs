@@ -922,7 +922,12 @@ def process_transaction(
     effective_gas_fee = tx.gas * env.gas_price
 
     intrinsic_gas, tokens_in_calldata = calculate_intrinsic_cost(tx)
-    gas = tx.gas - intrinsic_gas
+    
+    if intrinsic_gas > tx.gas:
+        raise InvalidBlock
+    
+    delta_eip7623 = tokens_in_calldata * (FLOOR_CALLDATA_COST - STANDARD_CALLDATA_TOKEN_COST)
+    gas = tx.gas - intrinsic_gas + delta_eip7623
     increment_nonce(env.state, sender)
 
     sender_balance_after_gas_fee = (
@@ -970,21 +975,13 @@ def process_transaction(
     
     # EIP-7623 floor price (note: no EVM costs)
     floor = Uint(tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST)
-
-    # EIP-7623 second part of max() condition with standard cost. Gas_used must be reduced by the
-    # by the difference between the floor and the standard cost.
-    standard_cost = Uint(gas_used - tokens_in_calldata * (FLOOR_CALLDATA_COST - STANDARD_CALLDATA_TOKEN_COST))
-                       
-    # For EIP-7623 transactions where the standard cost (with evm costs) > floor pay standard cost
-    if standard_cost > floor:
-        gas_used = standard_cost
-        output.gas_left += tx.gas - gas_used
-    # For EIP-7623 transactions where the standard cost (with evm costs) < floor pay floor
-    else:
-        # Refund costs for EVM execution
-        output.gas_left += floor - gas_used
+    
+    # Transactions with less gas used than the floor pay at the floor cost.
+    if gas_used < floor:
         gas_used = floor
-        
+    
+    output.gas_left = tx.gas - gas_used
+     
     gas_refund = min(gas_used // 5, output.refund_counter)
     gas_refund_amount = (output.gas_left + gas_refund) * env.gas_price
 
