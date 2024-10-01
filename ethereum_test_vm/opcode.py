@@ -5066,6 +5066,7 @@ class Opcodes(Opcode, Enum):
 
     EXCHANGE = Opcode(
         0xE8,
+        data_portion_length=1,
         data_portion_formatter=_exchange_encoder,
         stack_properties_modifier=_exchange_stack_properties_modifier,
     )
