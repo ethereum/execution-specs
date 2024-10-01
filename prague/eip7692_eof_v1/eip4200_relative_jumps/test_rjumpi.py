@@ -952,11 +952,11 @@ def test_rjumpi_rjumpv_backwards_min_stack_wrong(
     )
 
 
-def test_double_rjumpi(
+def test_double_rjumpi_stack_underflow(
     eof_test: EOFTestFiller,
 ):
     """
-    Two RJUNMPIs, causing the min stack to underflow
+    Two RJUMPIs, causing the min stack to underflow.
     """
     container = Container.Code(
         code=(
@@ -973,4 +973,54 @@ def test_double_rjumpi(
     eof_test(
         data=container,
         expect_exception=EOFException.STACK_UNDERFLOW,
+    )
+
+
+def test_double_rjumpi_stack_height_mismatch(
+    eof_test: EOFTestFiller,
+):
+    """
+    Test stack height check of the backward RJUMP
+    targeted by two RJUMPIs with the non-uniform stack height range.
+    """
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0  # BEGIN: (0, 0)
+                    + Op.PUSH0  # (1, 1)
+                    + Op.RJUMPI[3]  # (2, 2) to LAST
+                    + Op.RJUMPI[0]  # (1, 1) to LAST
+                    + Op.RJUMP[-11],  # LAST: (0, 1) to BEGIN; stack height mismatch
+                    max_stack_height=2,
+                ),
+            ],
+        ),
+        expect_exception=EOFException.STACK_HEIGHT_MISMATCH,
+    )
+
+
+def test_double_rjumpi_invalid_max_stack_height(
+    eof_test: EOFTestFiller,
+):
+    """
+    Test max stack height of the final block
+    targeted by two RJUMPIs with the non-uniform stack height range.
+    """
+    eof_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    code=Op.PUSH0  # (0, 0)
+                    + Op.PUSH0  # (1, 1)
+                    + Op.RJUMPI[3]  # (2, 2) to EXIT
+                    + Op.RJUMPI[0]  # (1, 1) to EXIT
+                    + Op.PUSH0  # EXIT: (0, 1)
+                    + Op.PUSH0  # (1, 2)
+                    + Op.INVALID,  # (2, 3)
+                    max_stack_height=2,  # should be 3
+                ),
+            ],
+        ),
+        expect_exception=EOFException.INVALID_MAX_STACK_HEIGHT,
     )
