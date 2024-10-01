@@ -4,6 +4,7 @@ Test good and bad EOFCREATE cases
 
 import pytest
 
+from ethereum_test_base_types.base_types import Address
 from ethereum_test_exceptions import EOFException
 from ethereum_test_specs import EOFTestFiller
 from ethereum_test_tools import (
@@ -16,6 +17,7 @@ from ethereum_test_tools import (
 )
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
+from ethereum_test_vm.bytecode import Bytecode
 
 from .. import EOF_FORK_NAME
 from ..eip7069_extcall.spec import EXTCALL_SUCCESS
@@ -589,4 +591,82 @@ def test_eofcreate_invalid_index(
             ],
         ),
         expect_exception=EOFException.INVALID_CONTAINER_SECTION_INDEX,
+    )
+
+
+@pytest.mark.parametrize(
+    ["destination_code", "expected_result"],
+    [
+        pytest.param(Op.ADDRESS, "destination"),
+        pytest.param(Op.CALLER, "caller"),
+        pytest.param(Op.CALLVALUE, "eofcreate_value"),
+        pytest.param(Op.ORIGIN, "sender"),
+    ],
+)
+def test_eofcreate_context(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    destination_code: Bytecode,
+    expected_result: str,
+):
+    """Test EOFCREATE's initcode context instructions"""
+    env = Environment()
+    sender = pre.fund_eoa()
+    value = 0x1123
+    eofcreate_value = 0x13
+
+    initcode = Container(
+        sections=[
+            Section.Code(
+                Op.SSTORE(slot_call_result, destination_code) + Op.RETURNCONTRACT[0](0, 0)
+            ),
+            Section.Container(smallest_runtime_subcontainer),
+        ]
+    )
+
+    caller_contract = Container(
+        sections=[
+            Section.Code(
+                Op.SSTORE(slot_code_worked, value_code_worked)
+                + Op.EOFCREATE[0](eofcreate_value, 0, 0, 0)
+                + Op.STOP
+            ),
+            Section.Container(initcode),
+        ]
+    )
+    calling_contract_address = pre.deploy_contract(caller_contract)
+
+    destination_contract_address = compute_eofcreate_address(calling_contract_address, 0, initcode)
+
+    tx = Transaction(sender=sender, to=calling_contract_address, gas_limit=1000000, value=value)
+
+    expected_bytes: Address | int
+    if expected_result == "destination":
+        expected_bytes = destination_contract_address
+    elif expected_result == "caller":
+        expected_bytes = calling_contract_address
+    elif expected_result == "sender":
+        expected_bytes = sender
+    elif expected_result == "eofcreate_value":
+        expected_bytes = eofcreate_value
+    else:
+        raise TypeError("Unexpected expected_result", expected_result)
+
+    calling_storage = {
+        slot_code_worked: value_code_worked,
+    }
+    destination_contract_storage = {
+        slot_call_result: expected_bytes,
+    }
+
+    post = {
+        calling_contract_address: Account(storage=calling_storage),
+        destination_contract_address: Account(storage=destination_contract_storage),
+    }
+
+    state_test(
+        env=env,
+        pre=pre,
+        post=post,
+        tx=tx,
     )
