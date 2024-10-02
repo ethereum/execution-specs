@@ -152,11 +152,6 @@ class Env:
                     self.parent_base_fee_per_gas,
                 ]
 
-                # TODO: See if this explicit check can be removed. See
-                # https://github.com/ethereum/execution-specs/issues/740
-                if t8n.fork.fork_module == "london":
-                    parameters.append(t8n.fork_block == self.block_number)
-
                 self.base_fee_per_gas = t8n.fork.calculate_base_fee_per_gas(
                     *parameters
                 )
