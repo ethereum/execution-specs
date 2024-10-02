@@ -510,7 +510,7 @@ def create_properties_file(
     command_line_args = command_line_args.replace("<code>", "").replace("</code>", "")
     fixture_properties["command_line_args"] = command_line_args
 
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(interpolation=None)
     config["fixtures"] = fixture_properties
     environment_properties = {}
     for key, val in request.config.stash[metadata_key].items():
