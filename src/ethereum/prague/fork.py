@@ -1051,7 +1051,7 @@ def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
 
     tokens_in_calldata = zerobytes + (len(tx.data) - zerobytes) * 4
     
-    data_cost = tokens_in_calldata * FLOOR_CALLDATA_COST
+    data_cost = tokens_in_calldata * STANDARD_CALLDATA_TOKEN_COST
 
     if tx.to == Bytes0(b""):
         create_cost = TX_CREATE_COST + int(init_code_cost(Uint(len(tx.data))))
