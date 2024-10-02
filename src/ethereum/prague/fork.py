@@ -923,11 +923,11 @@ def process_transaction(
 
     intrinsic_gas, tokens_in_calldata = calculate_intrinsic_cost(tx)
     
-    if intrinsic_gas > tx.gas:
+    floor = Uint(tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST)
+    if floor > tx.gas:
         raise InvalidBlock
     
-    delta_eip7623 = tokens_in_calldata * (FLOOR_CALLDATA_COST - STANDARD_CALLDATA_TOKEN_COST)
-    gas = tx.gas - intrinsic_gas + delta_eip7623
+    gas = tx.gas - intrinsic_gas
     increment_nonce(env.state, sender)
 
     sender_balance_after_gas_fee = (
