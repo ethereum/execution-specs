@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from evm_transition_tool import ExecutionSpecsTransitionTool, TransitionTool
 from pytest_plugins.filler.filler import default_output_directory
 
 
@@ -537,6 +538,9 @@ def test_fixture_output_based_on_command_line_args(
 
     expected_ini_file = "fixtures.ini"
     expected_index_file = "index.json"
+    expected_resolver_file = None
+    if TransitionTool.default_tool == ExecutionSpecsTransitionTool:
+        expected_resolver_file = "eels_resolutions.json"
 
     ini_file = None
     index_file = None
@@ -545,10 +549,14 @@ def test_fixture_output_based_on_command_line_args(
             ini_file = file
         elif file.name == expected_index_file:
             index_file = file
+        elif expected_resolver_file and file.name == expected_resolver_file:
+            resolver_file = file
+            assert resolver_file.exists(), f"{resolver_file} does not exist"
 
-    all_fixtures = [
-        file for file in all_files if file.name not in {expected_ini_file, expected_index_file}
-    ]
+    expected_additional_files = {expected_ini_file, expected_index_file}
+    if resolver_file:
+        expected_additional_files.add(expected_resolver_file)
+    all_fixtures = [file for file in all_files if file.name not in expected_additional_files]
     for fixture_file, fixture_count in zip(expected_fixture_files, expected_fixture_counts):
         assert fixture_file.exists(), f"{fixture_file} does not exist"
         assert fixture_count == count_keys_in_fixture(
