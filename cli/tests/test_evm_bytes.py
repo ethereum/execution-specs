@@ -1,12 +1,12 @@
 """
-Test suite for `cli.evm_bytes_to_python` module.
+Test suite for `cli.evm_bytes` module.
 """
 
 import pytest
 
 from ethereum_test_tools import Opcodes as Op
 
-from ..evm_bytes_to_python import process_evm_bytes
+from ..evm_bytes import process_evm_bytes_string
 
 basic_vector = [
     "0x60008080808061AAAA612d5ff1600055",
@@ -27,9 +27,9 @@ complex_vector = [
         (complex_vector[0][2:], complex_vector[1]),  # no "0x" prefix
     ],
 )
-def test_evm_bytes_to_python(evm_bytes, python_opcodes):
-    """Test evm_bytes_to_python using the basic and complex vectors"""
-    assert process_evm_bytes(evm_bytes) == python_opcodes
+def test_evm_bytes(evm_bytes: str, python_opcodes: str):
+    """Test evm_bytes using the basic and complex vectors"""
+    assert process_evm_bytes_string(evm_bytes) == python_opcodes
 
 
 DUPLICATES = [Op.NOOP]
@@ -40,7 +40,7 @@ DUPLICATES = [Op.NOOP]
     [op for op in Op if op not in DUPLICATES],
     ids=lambda op: op._name_,
 )
-def test_individual_opcodes(opcode):
+def test_individual_opcodes(opcode: Op):
     """Test each opcode individually"""
     data_portion = b""
     if opcode.data_portion_length > 0:
@@ -53,17 +53,17 @@ def test_individual_opcodes(opcode):
         expected_output = f"Op.{opcode._name_}"
 
     bytecode = opcode.int().to_bytes(1, byteorder="big") + data_portion
-    assert process_evm_bytes("0x" + bytecode.hex()) == expected_output
+    assert process_evm_bytes_string("0x" + bytecode.hex()) == expected_output
 
 
 def test_invalid_opcode():
     """Invalid hex string"""
     with pytest.raises(ValueError):
-        process_evm_bytes("0xZZ")
+        process_evm_bytes_string("0xZZ")
 
 
 def test_unknown_opcode():
     """Opcode not defined in Op"""
     with pytest.raises(ValueError):
-        process_evm_bytes("0x0F")
-        process_evm_bytes("0x0F")
+        process_evm_bytes_string("0x0F")
+        process_evm_bytes_string("0x0F")
