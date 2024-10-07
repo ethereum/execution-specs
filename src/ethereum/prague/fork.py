@@ -395,7 +395,9 @@ def check_transaction(
     InvalidBlock :
         If the transaction is not includable.
     """
-    if calculate_intrinsic_cost(tx)[0] > tx.gas:
+    intrinsic_gas, tokens_in_calldata = calculate_intrinsic_cost(tx)
+    floor = Uint(tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST)
+    if max(intrinsic_gas, floor) > tx.gas:
         raise InvalidBlock
     if tx.nonce >= 2**64 - 1:
         raise InvalidBlock
@@ -922,10 +924,6 @@ def process_transaction(
     effective_gas_fee = tx.gas * env.gas_price
 
     intrinsic_gas, tokens_in_calldata = calculate_intrinsic_cost(tx)
-
-    floor = Uint(tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST)
-    if floor > tx.gas:
-        raise InvalidBlock
 
     gas = tx.gas - intrinsic_gas
     increment_nonce(env.state, sender)
