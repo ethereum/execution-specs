@@ -78,7 +78,7 @@ class HashableItem:
             if not isinstance(item, dict):
                 raise TypeError(f"Expected dict, got {type(item)} for {key}")
             if "_info" not in item:
-                raise KeyError(f"Expected '_info' in {key}")
+                raise KeyError(f"Expected '_info' in {key}, json file: {file_path.name}")
 
             # EEST uses 'hash'; ethereum/tests use 'generatedTestHash'
             hash_value = item["_info"].get("hash") or item["_info"].get("generatedTestHash")
@@ -103,7 +103,7 @@ class HashableItem:
         """
         items = {}
         for file_path in sorted(folder_path.iterdir()):
-            if file_path.name == "index.json":
+            if ".meta" in file_path.parts:
                 continue
             if file_path.is_file() and file_path.suffix == ".json":
                 item = cls.from_json_file(
