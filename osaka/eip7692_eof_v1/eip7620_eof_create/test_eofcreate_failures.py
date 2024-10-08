@@ -676,7 +676,7 @@ def test_eof_eofcreate_msg_depth(
     Test EOFCREATE handles msg depth limit correctly (1024).
     NOTE: due to block gas limit and the 63/64th rule this limit is unlikely to be hit
           on mainnet.
-    NOTE: See `tests/prague/eip7692_eof_v1/eip7069_extcall/test_calls.py::test_eof_calls_msg_depth`
+    NOTE: See `tests/osaka/eip7692_eof_v1/eip7069_extcall/test_calls.py::test_eof_calls_msg_depth`
           for more explanations and comments. Most notable deviation from that test is that here
           calls and `EOFCREATE`s alternate in order to reach the max depth. `who_fails` decides
           whether the failing depth 1024 will be on a call or on an `EOFCREATE` to happen.
