@@ -3,6 +3,7 @@ abstract: Test DUP
     Test the DUP opcodes.
 
 """
+
 import pytest
 
 from ethereum_test_forks import Frontier, Homestead
@@ -43,10 +44,8 @@ def test_dup(
     """
     Test the DUP1-DUP16 opcodes.
 
-    note: Test case ported from:
-
-        - [ethereum/tests/GeneralStateTests/VMTests/vmTests/dup.json](https://github.com/ethereum/tests/blob/develop/GeneralStateTests/VMTests/vmTests/dup.json)
-        by Ori Pomerantz.
+    Note: Test case ported from [ethereum/tests](https://github.com/ethereum/tests)
+        Test ported from [ethereum/tests/GeneralStateTests/VMTests/vmTests/dup.json](https://github.com/ethereum/tests/blob/develop/GeneralStateTests/VMTests/vmTests/dup.json) by Ori Pomerantz.
     """  # noqa: E501
     env = Environment()
     sender = pre.fund_eoa()
