@@ -172,7 +172,7 @@ def generate_fixtures_index(
 
         test_cases: List[TestCaseIndexFile] = []
         for file in input_path.rglob("*.json"):
-            if file.name == "index.json":
+            if file.name == "index.json" or ".meta" in file.parts:
                 continue
             if any(fixture in str(file) for fixture in fixtures_to_skip):
                 rich.print(f"Skipping '{file}'")
