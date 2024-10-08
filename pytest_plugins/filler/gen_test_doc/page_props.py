@@ -9,11 +9,12 @@ and target output file.
 A few helpers are defined with EEST logic in order to sanitize strings from
 file paths for use in navigation menu.
 """
+
 import re
 from abc import abstractmethod
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import mkdocs_gen_files  # type: ignore
 from jinja2 import Environment
@@ -95,7 +96,7 @@ class PagePropsBase:
 
     title: str
     source_code_url: str
-    valid_from_fork: str
+    target_or_valid_fork: str
     path: Path
     pytest_node_id: str
     package_name: str
@@ -142,7 +143,10 @@ class TestCase:
     Properties used to define a single test case in test function parameter tables.
     """
 
-    id: str
+    full_id: str
+    abbreviated_id: str
+    fork: str
+    fixture_type: str
     params: Dict[str, Any]
 
 
@@ -153,10 +157,13 @@ class FunctionPageProps(PagePropsBase):
     corresponding static HTML pages.
     """
 
+    test_case_count: int
+    fixture_formats: List[str]
     test_type: str
     docstring_one_liner: str
     html_static_page_target: str
-    cases: Optional[List[TestCase]]
+    mkdocs_function_page_target: str
+    cases: List[TestCase]
 
     @property
     def template(self) -> str:

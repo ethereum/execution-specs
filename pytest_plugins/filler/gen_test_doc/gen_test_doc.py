@@ -40,6 +40,7 @@ uv run mkdocs serve
 
 import glob
 import logging
+import os
 import sys
 import textwrap
 from collections import defaultdict
@@ -84,15 +85,25 @@ def pytest_addoption(parser):  # noqa: D103
     gen_docs.addoption(
         "--gen-docs",
         action="store_true",
-        dest="generate_docs",
+        dest="gen_docs",
         default=False,
         help="Generate documentation for all collected tests for use in for mkdocs",
+    )
+    gen_docs.addoption(
+        "--gen-docs-target-fork",
+        action="store",
+        dest="gen_docs_target_fork",
+        default=None,
+        help=(
+            "The default fork to use generated in generated doc pages. Should be the name of the "
+            "next upcoming fork."
+        ),
     )
 
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):  # noqa: D103
-    if config.getoption("--gen-docs"):
+    if config.getoption("gen_docs"):
         config.option.disable_html = True
         config.pluginmanager.register(TestDocsGenerator(config), "test-case-doc-generator")
 
@@ -222,7 +233,6 @@ def get_test_function_test_type(item: pytest.Item) -> str:
     for test_type in test_types:
         if test_type in fixture_names:
             return test_type
-    assert 0
     logger.warning(f"Could not determine the test function type for {item.nodeid}")
     return f"unknown ([📖🐛]({create_github_issue_url('docs(bug): unknown test function type')}))"
 
@@ -234,6 +244,8 @@ class TestDocsGenerator:
 
     def __init__(self, config) -> None:
         self.config = config
+        self.target_fork: str = config.getoption("gen_docs_target_fork")
+        self.deployed_forks = [fork.name() for fork in get_forks() if fork.is_deployed()]
         self._setup_logger()
         self.jinja2_env = Environment(
             loader=FileSystemLoader("docs/templates"),
@@ -243,9 +255,6 @@ class TestDocsGenerator:
         self.source_dir = Path("tests")
         self.ref = get_current_commit_hash_or_tag()
         self.top_level_nav_entry = "Test Case Reference"
-        self.skip_params = ["fork"] + [
-            spec_type.pytest_parameter_name() for spec_type in SPEC_TYPES
-        ]
         # intermediate collected pages and their properties
         self.function_page_props: FunctionPagePropsLookup = {}
         self.module_page_props: ModulePagePropsLookup = {}
@@ -306,16 +315,49 @@ class TestDocsGenerator:
             logger.addHandler(stream_handler)
             logger.setLevel(logging.INFO)
 
+    def get_doc_site_base_url(self) -> str:
+        """
+        Returns the site's base in its URL for inclusion of local files.
+
+            This is required in order to include docs/javascripts/site.js, for
+        example, in the standalone html pages.
+
+        Github pages deploys to a sub-directory "execution-spec-tests" and
+        mike deploys a version of the site underneath a sub-directory named
+        after the version, e.g.:
+
+        - https://ethereum.github.io/execution-spec-tests/main/
+        - https://ethereum.github.io/execution-spec-tests/v1.2.3/
+
+        We need to be able to include the javascript available at:
+
+        - https://ethereum.github.io/execution-spec-tests/main/javascripts/site.js
+        """
+        ci = os.getenv("CI", None)
+        github_ref_name = os.getenv("GITHUB_REF_NAME", None)
+        doc_version = os.getenv("GEN_TEST_DOC_VERSION", None)
+        if ci and github_ref_name:
+            return f"/execution-spec-tests/{github_ref_name}/"
+        if ci and not github_ref_name:
+            raise Exception("Failed to determine target doc version (no GITHUB_REF_NAME env?).")
+        if ("--strict" in sys.argv or "deploy" in sys.argv) and not doc_version:
+            # assume we're trying to deploy manually via mike (locally)
+            raise Exception(
+                "Failed to determine target doc version during strict build (set "
+                "GEN_TEST_DOC_VERSION env var)."
+            )
+        # local test build, e.g. via `uv run mkdocs serve`
+        return "/execution-spec-tests/"
+
     def add_global_page_props_to_env(self):
         """
         Populate global page properties used in j2 templates.
         """
         global_page_props = dict(
-            deployed_forks=[fork.name().lower() for fork in get_forks() if fork.is_deployed()],
+            target_fork=self.target_fork,
+            base_url=self.get_doc_site_base_url(),
+            deployed_forks=self.deployed_forks,
             short_git_ref=get_current_commit_hash_or_tag(shorten_hash=True),
-            test_function_parameter_table_skipped_parameters=", ".join(
-                f"`{p}`" for p in self.skip_params
-            ),
         )
 
         self.jinja2_env.globals.update(global_page_props)
@@ -326,40 +368,43 @@ class TestDocsGenerator:
 
         To do: Needs refactor.
         """
+        skip_params = ["fork"] + [spec_type.pytest_parameter_name() for spec_type in SPEC_TYPES]
         for function_id, function_items in test_functions.items():
             assert all(isinstance(item, pytest.Function) for item in function_items)
             items = cast(List[pytest.Function], function_items)  # help mypy infer type
+
             # extract parametrized test cases for each test function
             test_cases = []
             if getattr(items[0], "callspec", None):
                 for item in items:
                     param_set = item.callspec.params
-                    # Filter out unwanted parameters from the param set
-                    keys = [key for key in param_set.keys() if key not in self.skip_params]
+                    # Don't show skipped parameters as columns in the test case table
+                    keys = [key for key in param_set.keys() if key not in skip_params]
                     values = [param_set[key] for key in keys]
+                    # TODO: This formatting of bytes objects should be moved elsewhere
                     values = [
-                        # " ".join(f"<code>{byte:02x}</code>" for byte in value)  # noqa: SC100
-                        " ".join(
-                            f"<code>{chunk}</code>" for chunk in textwrap.wrap(value.hex(), 32)
+                        (
+                            " ".join(
+                                f"<code>{chunk}</code>" for chunk in textwrap.wrap(value.hex(), 32)
+                            )
+                            if isinstance(value, bytes)
+                            else str(value)
                         )
-                        if isinstance(value, bytes)
-                        else str(value)
                         for value in values
                     ]
-
-                    # Create the filtered test ID
-                    original_test_id = item.nodeid.split("[")[-1].rstrip("]")
-                    filtered_test_id_parts = []
-                    for part in original_test_id.split("-"):
-                        param_name = part.split("_")[0] if "_" in part else None
-                        if (param_name not in self.skip_params) and (part not in self.skip_params):
-                            filtered_test_id_parts.append(part)
-                    filtered_test_id = "-".join(filtered_test_id_parts).strip("-")
-
-                    if filtered_test_id_parts:
-                        test_cases.append(
-                            TestCase(id=filtered_test_id, params=dict(zip(keys, values)))
+                    fork = item.callspec.params.get("fork").name()  # type: ignore
+                    test_type = get_test_function_test_type(item)
+                    test_type_value = item.callspec.params.get(test_type)
+                    fixture_type = test_type_value.fixture_format_name  # type: ignore
+                    test_cases.append(
+                        TestCase(
+                            full_id=item.nodeid,
+                            abbreviated_id=item.nodeid.split("[")[-1].rstrip("]"),
+                            fork=fork,
+                            fixture_type=fixture_type,
+                            params=dict(zip(keys, values)),
                         )
+                    )
 
             module_relative_path = Path(items[0].module.__file__).relative_to(Path.cwd())
             source_url = generate_github_url(
@@ -375,17 +420,33 @@ class TestDocsGenerator:
                 # separated by a comma. Take the last.
                 valid_from_fork = valid_from_marker.args[0].split(",")[-1]
 
+            target_or_valid_fork = (
+                self.target_fork if valid_from_fork in self.deployed_forks else valid_from_fork
+            )
+            test_type = get_test_function_test_type(items[0])
+
+            test_case_count = len(
+                [
+                    case
+                    for case in test_cases
+                    if case.fork == target_or_valid_fork and case.fixture_type == test_type
+                ]
+            )
+
             self.function_page_props[function_id] = FunctionPageProps(
                 title=get_test_function_name(items[0]),
                 source_code_url=source_url,
-                valid_from_fork=valid_from_fork,
+                target_or_valid_fork=target_or_valid_fork,
                 path=module_relative_path,
                 pytest_node_id=function_id,
                 package_name=get_test_function_import_path(items[0]),
+                test_case_count=test_case_count,
                 cases=test_cases,
-                test_type=get_test_function_test_type(items[0]),
+                fixture_formats=sorted(set(case.fixture_type for case in test_cases)),
+                test_type=test_type,
                 docstring_one_liner=get_docstring_one_liner(items[0]),
                 html_static_page_target=f"./{get_test_function_name(items[0])}.html",
+                mkdocs_function_page_target=f"./{get_test_function_name(items[0])}/",
             )
 
     def create_module_page_props(self) -> None:
@@ -398,7 +459,7 @@ class TestDocsGenerator:
                 self.module_page_props[str(function_page.path)] = ModulePageProps(
                     title=sanitize_string_title(function_page.path.stem),
                     source_code_url=function_page.source_code_url,
-                    valid_from_fork=function_page.valid_from_fork,
+                    target_or_valid_fork=function_page.target_or_valid_fork,
                     path=module_path,
                     pytest_node_id=str(module_path),
                     package_name=get_import_path(module_path),
@@ -406,7 +467,7 @@ class TestDocsGenerator:
                         TestFunction(
                             name=function_page.title,
                             test_type=function_page.test_type,
-                            test_case_count=len(function_page.cases) if function_page.cases else 1,
+                            test_case_count=function_page.test_case_count,
                             docstring_one_liner=function_page.docstring_one_liner,
                         )
                     ],
@@ -417,7 +478,7 @@ class TestDocsGenerator:
                     TestFunction(
                         name=function_page.title,
                         test_type=function_page.test_type,
-                        test_case_count=len(function_page.cases) if function_page.cases else 1,
+                        test_case_count=function_page.test_case_count,
                         docstring_one_liner=function_page.docstring_one_liner,
                     )
                 )
@@ -435,12 +496,15 @@ class TestDocsGenerator:
                 Path(*module_path_parts[: i + 1]) for i in range(len(module_path_parts))
             )
         for directory in sub_paths:
-            fork = (
-                directory.relative_to(self.source_dir).parts[0]
+            directory_fork_name = (
+                directory.relative_to(self.source_dir).parts[0].capitalize()
                 if directory != self.source_dir
-                # set any deployed fork for tests/index.md (to avoid dev-fork in command args)
-                else "cancun"
+                else self.target_fork
             )
+            if directory_fork_name in self.deployed_forks:
+                fork = self.target_fork
+            else:
+                fork = directory_fork_name
             self.page_props[str(directory)] = DirectoryPageProps(
                 title=sanitize_string_title(str(directory.name)),
                 path=directory,
@@ -448,7 +512,7 @@ class TestDocsGenerator:
                 source_code_url=generate_github_url(directory, branch_or_commit_or_tag=self.ref),
                 # TODO: This won't work in all cases; should be from the development fork
                 # Currently breaks for `tests/osaka/eip7692_eof_v1/index.md`  # noqa: SC100
-                valid_from_fork=fork,
+                target_or_valid_fork=fork.capitalize(),
                 package_name=get_import_path(directory),  # init.py will be used for docstrings
             )
 
@@ -482,7 +546,7 @@ class TestDocsGenerator:
                 source_code_url=generate_github_url(spec_path, branch_or_commit_or_tag=self.ref),
                 pytest_node_id=str(spec_path),
                 package_name=get_import_path(spec_path),
-                valid_from_fork="",
+                target_or_valid_fork="",
                 test_functions=[],
             )
 
@@ -496,7 +560,7 @@ class TestDocsGenerator:
                 path=md_path,
                 source_code_url=generate_github_url(md_path, branch_or_commit_or_tag=self.ref),
                 pytest_node_id=str(md_path),  # abuse: not a test, but used in source code link
-                valid_from_fork="",
+                target_or_valid_fork="",
                 package_name="",
             )
 
