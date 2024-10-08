@@ -943,7 +943,7 @@ class CancunEIP7692(  # noqa: SC200
     solc_name="cancun",
 ):
     """
-    Cancun + EIP-7692 (EOF) fork
+    Cancun + EIP-7692 (EOF) fork (Deprecated)
     """
 
     @classmethod
@@ -1000,22 +1000,17 @@ class CancunEIP7692(  # noqa: SC200
         return Version.parse("1.0.0")  # set a high version; currently unknown
 
 
-class PragueEIP7692(  # noqa: SC200
-    Prague,
-    transition_tool_name="Prague",  # Besu enables EOF at Prague
-    blockchain_test_network_name="Prague",  # Besu enables EOF at Prague
-    solc_name="cancun",
-):
+class Osaka(Prague, solc_name="cancun"):
     """
-    Prague + EIP-7692 (EOF) fork
+    Osaka fork
     """
 
     @classmethod
     def evm_code_types(cls, block_number: int = 0, timestamp: int = 0) -> List[EVMCodeType]:
         """
-        EOF V1 is supported starting from this fork.
+        EOF V1 is supported starting from Osaka.
         """
-        return super(PragueEIP7692, cls,).evm_code_types(  # noqa: SC200
+        return super(Osaka, cls,).evm_code_types(
             block_number,
             timestamp,
         ) + [EVMCodeType.EOF_V1]
@@ -1031,11 +1026,7 @@ class PragueEIP7692(  # noqa: SC200
             (Opcodes.EXTCALL, EVMCodeType.EOF_V1),
             (Opcodes.EXTSTATICCALL, EVMCodeType.EOF_V1),
             (Opcodes.EXTDELEGATECALL, EVMCodeType.EOF_V1),
-        ] + super(
-            PragueEIP7692, cls  # noqa: SC200
-        ).call_opcodes(
-            block_number, timestamp
-        )
+        ] + super(Osaka, cls).call_opcodes(block_number, timestamp)
 
     @classmethod
     def is_deployed(cls) -> bool:

@@ -447,7 +447,7 @@ class TestDocsGenerator:
                 pytest_node_id=str(directory),
                 source_code_url=generate_github_url(directory, branch_or_commit_or_tag=self.ref),
                 # TODO: This won't work in all cases; should be from the development fork
-                # Currently breaks for `test/prague/eip7692_eof_v1/index.md`  # noqa: SC100
+                # Currently breaks for `tests/osaka/eip7692_eof_v1/index.md`  # noqa: SC100
                 valid_from_fork=fork,
                 package_name=get_import_path(directory),  # init.py will be used for docstrings
             )
@@ -514,8 +514,8 @@ class TestDocsGenerator:
 
             - ("Test Case Reference",) -> tests/index.md
             - ("Test Case Reference", "Berlin") -> tests/berlin/index.md
-            - ("Test Case Reference", "Prague", "EIP-7692 EOF V1", tracker.md")
-                tests/prague/eip7692_eof_v1/tracker.md
+            - ("Test Case Reference", "Osaka", "EIP-7692 EOF V1", tracker.md")
+                tests/osaka/eip7692_eof_v1/tracker.md
             - ("Test Case Reference", "Shanghai", "EIP-3855 PUSH0", "Spec") ->
                 tests/shanghai/eip3855_push0/spec.py
 
