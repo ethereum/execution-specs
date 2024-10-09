@@ -348,6 +348,17 @@ class Address(FixedSizeBytes[20]):  # type: ignore
 
     label: str | None = None
 
+    def __new__(cls, input: "FixedSizeBytesConvertible | Address", *, label: str | None = None):
+        """
+        Creates a new Address object with an optional label.
+        """
+        instance = super(Address, cls).__new__(cls, input)
+        if isinstance(input, Address) and label is None:
+            instance.label = input.label
+        else:
+            instance.label = label
+        return instance
+
 
 class Hash(FixedSizeBytes[32]):  # type: ignore
     """
