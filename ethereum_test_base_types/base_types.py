@@ -286,6 +286,7 @@ class FixedSizeBytes(Bytes):
     """
 
     byte_length: ClassVar[int]
+    _sized_: ClassVar[Type["FixedSizeBytes"]]
 
     def __class_getitem__(cls, length: int) -> Type["FixedSizeBytes"]:
         """
@@ -295,6 +296,7 @@ class FixedSizeBytes(Bytes):
         class Sized(cls):  # type: ignore
             byte_length = length
 
+        Sized._sized_ = Sized
         return Sized
 
     def __new__(cls, input: FixedSizeBytesConvertible | T):
@@ -324,6 +326,8 @@ class FixedSizeBytes(Bytes):
         """
         Compares two FixedSizeBytes objects to be equal.
         """
+        if other is None:
+            return False
         if not isinstance(other, FixedSizeBytes):
             assert (
                 isinstance(other, str)
@@ -331,7 +335,7 @@ class FixedSizeBytes(Bytes):
                 or isinstance(other, bytes)
                 or isinstance(other, SupportsBytes)
             )
-            other = self.__class__(other)
+            other = self._sized_(other)
         return super().__eq__(other)
 
     def __ne__(self, other: object) -> bool:
