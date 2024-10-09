@@ -2,6 +2,7 @@
 Basic type primitives used to define other types.
 """
 
+from hashlib import sha256
 from typing import Any, ClassVar, SupportsBytes, Type, TypeVar
 
 from Crypto.Hash import keccak
@@ -162,7 +163,7 @@ class Bytes(bytes, ToStringSchema):
     Class that helps represent bytes of variable length in tests.
     """
 
-    def __new__(cls, input: BytesConvertible):
+    def __new__(cls, input: BytesConvertible = b""):
         """
         Creates a new Bytes object.
         """
@@ -203,6 +204,12 @@ class Bytes(bytes, ToStringSchema):
         """
         k = keccak.new(digest_bits=256)
         return Hash(k.update(bytes(self)).digest())
+
+    def sha256(self) -> "Hash":
+        """
+        Return the sha256 hash of the opcode byte representation.
+        """
+        return Hash(sha256(self).digest())
 
 
 S = TypeVar("S", bound="FixedSizeHexNumber")
