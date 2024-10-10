@@ -31,6 +31,7 @@ from ethereum_test_base_types import (
     BLSSignature,
     Bytes,
     CamelModel,
+    EmptyOmmersRoot,
     Hash,
     HexNumber,
     Number,
@@ -402,7 +403,7 @@ class Environment(EnvironmentGeneric[Number]):
     """
 
     blob_gas_used: Number | None = Field(None, alias="currentBlobGasUsed")
-    parent_ommers_hash: Hash = Field(Hash(0), alias="parentUncleHash")
+    parent_ommers_hash: Hash = Field(Hash(EmptyOmmersRoot), alias="parentUncleHash")
     parent_blob_gas_used: Number | None = Field(None)
     parent_excess_blob_gas: Number | None = Field(None)
     parent_beacon_block_root: Hash | None = Field(None)

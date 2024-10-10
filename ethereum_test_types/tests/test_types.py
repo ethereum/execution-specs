@@ -486,7 +486,7 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 "blockHashes": {},
                 "ommers": [],
                 "parentUncleHash": (
-                    "0x0000000000000000000000000000000000000000000000000000000000000000"
+                    "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
                 ),
             },
             id="environment_1",
