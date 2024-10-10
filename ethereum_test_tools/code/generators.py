@@ -5,6 +5,7 @@ Code generating classes and functions.
 from dataclasses import dataclass
 from typing import List, SupportsBytes
 
+from ethereum_test_base_types import Bytes
 from ethereum_test_types import ceiling_division
 from ethereum_test_vm import Bytecode, EVMCodeType
 from ethereum_test_vm import Opcodes as Op
@@ -27,7 +28,7 @@ class Initcode(Bytecode):
     costs.
     """
 
-    deploy_code: SupportsBytes
+    deploy_code: SupportsBytes | Bytes
     """
     Bytecode to be deployed by the initcode.
     """
@@ -44,7 +45,7 @@ class Initcode(Bytecode):
     def __new__(
         cls,
         *,
-        deploy_code: SupportsBytes = Bytecode(),
+        deploy_code: SupportsBytes | Bytes = Bytecode(),
         initcode_length: int | None = None,
         initcode_prefix: Bytecode = Bytecode(),
         initcode_prefix_execution_gas: int = 0,
