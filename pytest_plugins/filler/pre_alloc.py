@@ -199,6 +199,7 @@ class Alloc(BaseAlloc):
         label: str | None = None,
         storage: Storage | None = None,
         delegation: Address | Literal["Self"] | None = None,
+        nonce: NumberConvertible | None = None,
     ) -> EOA:
         """
         Add a previously unused EOA to the pre-alloc with the balance specified by `amount`.
@@ -209,25 +210,34 @@ class Alloc(BaseAlloc):
         eoa = next(self._eoa_iterator)
         if amount is None:
             amount = self._eoa_fund_amount_default
-        if Number(amount) > 0 or storage is not None or delegation is not None:
+        if (
+            Number(amount) > 0
+            or storage is not None
+            or delegation is not None
+            or (nonce is not None and Number(nonce) > 0)
+        ):
             if storage is None and delegation is None:
+                nonce = Number(0 if nonce is None else nonce)
                 account = Account(
-                    nonce=0,
+                    nonce=nonce,
                     balance=amount,
                 )
+                if nonce > 0:
+                    eoa.nonce = nonce
             else:
                 # Type-4 transaction is sent to the EOA to set the storage, so the nonce must be 1
                 if not isinstance(delegation, Address) and delegation == "Self":
                     delegation = eoa
+                nonce = Number(1 if nonce is None else nonce)
                 account = Account(
-                    nonce=1,
+                    nonce=nonce,
                     balance=amount,
                     storage=storage if storage is not None else {},
                     code=DELEGATION_DESIGNATION + bytes(delegation)  # type: ignore
                     if delegation is not None
                     else b"",
                 )
-                eoa.nonce = Number(1)
+                eoa.nonce = nonce
 
             super().__setitem__(eoa, account)
         return eoa

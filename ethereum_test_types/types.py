@@ -310,6 +310,7 @@ class Alloc(BaseAlloc):
         label: str | None = None,
         storage: Storage | None = None,
         delegation: Address | Literal["Self"] | None = None,
+        nonce: NumberConvertible | None = None,
     ) -> EOA:
         """
         Add a previously unused EOA to the pre-alloc with the balance specified by `amount`.
