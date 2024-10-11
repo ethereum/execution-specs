@@ -751,3 +751,17 @@ class BlockchainTest(BaseTest):
 
 BlockchainTestSpec = Callable[[str], Generator[BlockchainTest, None, None]]
 BlockchainTestFiller = Type[BlockchainTest]
+
+
+class BlockchainTestEngine(BlockchainTest):
+    """
+    Filler type that tests multiple blocks (valid or invalid) in a chain, only for the Engine API.
+    """
+
+    supported_fixture_formats: ClassVar[List[FixtureFormat]] = [
+        BlockchainEngineFixture,
+    ]
+
+
+BlockchainTestEngineSpec = Callable[[str], Generator[BlockchainTestEngine, None, None]]
+BlockchainTestEngineFiller = Type[BlockchainTestEngine]
