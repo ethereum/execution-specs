@@ -12,11 +12,11 @@ from typing import Callable, ClassVar, Dict, Generator, Iterator, List, Optional
 import pytest
 from pydantic import BaseModel, Field
 
+from ethereum_clis import Result, TransitionTool
 from ethereum_test_base_types import to_hex
 from ethereum_test_fixtures import BaseFixture, FixtureFormat
 from ethereum_test_forks import Fork
 from ethereum_test_types import Environment, Transaction, Withdrawal
-from evm_transition_tool import Result, TransitionTool
 
 
 class HashMismatchException(Exception):

@@ -13,6 +13,7 @@ import pytest
 from _pytest.mark.structures import ParameterSet
 from pytest import Metafunc
 
+from ethereum_clis import TransitionTool
 from ethereum_test_forks import (
     Fork,
     ForkAttribute,
@@ -24,7 +25,6 @@ from ethereum_test_forks import (
     get_transition_forks,
     transition_fork_to,
 )
-from evm_transition_tool import TransitionTool
 
 
 def pytest_addoption(parser):

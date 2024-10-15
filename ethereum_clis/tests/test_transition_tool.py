@@ -9,13 +9,13 @@ from typing import Type
 
 import pytest
 
-from evm_transition_tool import (
+from ethereum_clis import (
+    CLINotFoundInPath,
     EvmOneTransitionTool,
     ExecutionSpecsTransitionTool,
     GethTransitionTool,
     NimbusTransitionTool,
     TransitionTool,
-    TransitionToolNotFoundInPath,
 )
 
 
@@ -86,8 +86,8 @@ def test_from_binary(
 
 def test_unknown_binary_path():
     """
-    Test that `from_binary_path` raises `UnknownTransitionTool` for unknown
+    Test that `from_binary_path` raises `UnknownCLI` for unknown
     binary paths.
     """
-    with pytest.raises(TransitionToolNotFoundInPath):
+    with pytest.raises(CLINotFoundInPath):
         TransitionTool.from_binary_path(binary_path=Path("unknown_binary_path"))

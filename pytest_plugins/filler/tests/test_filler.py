@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from evm_transition_tool import ExecutionSpecsTransitionTool, TransitionTool
+from ethereum_clis import ExecutionSpecsTransitionTool, TransitionTool
 from pytest_plugins.filler.filler import default_output_directory
 
 

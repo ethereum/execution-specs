@@ -12,6 +12,7 @@ from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Typ
 import pytest
 from pydantic import Field, model_validator
 
+from ethereum_clis import TransitionTool
 from ethereum_test_base_types import Account, Bytes
 from ethereum_test_exceptions import EvmoneExceptionMapper
 from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList, to_pipe_str
@@ -27,7 +28,6 @@ from ethereum_test_fixtures.eof import Result, Vector
 from ethereum_test_forks import Fork
 from ethereum_test_types import Alloc, Environment, Transaction
 from ethereum_test_types.eof.v1 import Container, ContainerKind
-from evm_transition_tool import TransitionTool
 
 from .base import BaseTest
 from .state import StateTest

@@ -6,6 +6,7 @@ from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Typ
 
 import pytest
 
+from ethereum_clis import TransitionTool
 from ethereum_test_exceptions import EngineAPIError
 from ethereum_test_fixtures import (
     BaseFixture,
@@ -22,7 +23,6 @@ from ethereum_test_fixtures.state import (
 )
 from ethereum_test_forks import Fork
 from ethereum_test_types import Alloc, Environment, Transaction
-from evm_transition_tool import TransitionTool
 
 from .base import BaseTest
 from .blockchain import Block, BlockchainTest, Header

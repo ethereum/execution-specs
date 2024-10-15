@@ -8,6 +8,7 @@ from typing import Mapping, SupportsBytes
 import pytest
 from semver import Version
 
+from ethereum_clis import ExecutionSpecsTransitionTool
 from ethereum_test_base_types import Account, Address, Bytes, Hash, TestAddress, TestPrivateKey
 from ethereum_test_fixtures import BlockchainFixture
 from ethereum_test_forks import (
@@ -22,7 +23,6 @@ from ethereum_test_specs import StateTest
 from ethereum_test_types import Alloc, Environment, Transaction
 from ethereum_test_vm import Opcodes as Op
 from ethereum_test_vm import UndefinedOpcodes
-from evm_transition_tool import ExecutionSpecsTransitionTool
 
 from ..code import CalldataCase, Case, Conditional, Initcode, Solc, Switch, Yul
 from .conftest import SOLC_PADDING_VERSION

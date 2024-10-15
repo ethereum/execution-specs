@@ -8,6 +8,7 @@ from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Tup
 import pytest
 from pydantic import ConfigDict, Field, field_validator
 
+from ethereum_clis import TransitionTool
 from ethereum_test_base_types import (
     Address,
     Bloom,
@@ -53,7 +54,6 @@ from ethereum_test_types import (
     Withdrawal,
     WithdrawalRequest,
 )
-from evm_transition_tool import TransitionTool
 
 from .base import BaseTest, verify_result, verify_transactions
 from .debugging import print_traces
@@ -234,11 +234,11 @@ class Block(Header):
     rlp_modifier: Header | None = None
     """
     An RLP modifying header which values would be used to override the ones
-    returned by the  `evm_transition_tool`.
+    returned by the `ethereum_clis.TransitionTool`.
     """
-    exception: List[
-        TransactionException | BlockException
-    ] | TransactionException | BlockException | None = None
+    exception: (
+        List[TransactionException | BlockException] | TransactionException | BlockException | None
+    ) = None
     """
     If set, the block is expected to be rejected by the client.
     """
@@ -370,13 +370,13 @@ class BlockchainTest(BaseTest):
             base_fee_per_gas=env.base_fee_per_gas,
             blob_gas_used=env.blob_gas_used,
             excess_blob_gas=env.excess_blob_gas,
-            withdrawals_root=Withdrawal.list_root(env.withdrawals)
-            if env.withdrawals is not None
-            else None,
+            withdrawals_root=(
+                Withdrawal.list_root(env.withdrawals) if env.withdrawals is not None else None
+            ),
             parent_beacon_block_root=env.parent_beacon_block_root,
-            requests_root=Requests(root=[]).trie_root
-            if fork.header_requests_required(0, 0)
-            else None,
+            requests_root=(
+                Requests(root=[]).trie_root if fork.header_requests_required(0, 0) else None
+            ),
             fork=fork,
         )
 
@@ -574,27 +574,35 @@ class BlockchainTest(BaseTest):
                     header=header,
                     txs=[FixtureTransaction.from_transaction(tx) for tx in txs],
                     ommers=[],
-                    withdrawals=[FixtureWithdrawal.from_withdrawal(w) for w in new_env.withdrawals]
-                    if new_env.withdrawals is not None
-                    else None,
-                    deposit_requests=[
-                        FixtureDepositRequest.from_deposit_request(d)
-                        for d in requests.deposit_requests()
-                    ]
-                    if requests is not None
-                    else None,
-                    withdrawal_requests=[
-                        FixtureWithdrawalRequest.from_withdrawal_request(w)
-                        for w in requests.withdrawal_requests()
-                    ]
-                    if requests is not None
-                    else None,
-                    consolidation_requests=[
-                        FixtureConsolidationRequest.from_consolidation_request(c)
-                        for c in requests.consolidation_requests()
-                    ]
-                    if requests is not None
-                    else None,
+                    withdrawals=(
+                        [FixtureWithdrawal.from_withdrawal(w) for w in new_env.withdrawals]
+                        if new_env.withdrawals is not None
+                        else None
+                    ),
+                    deposit_requests=(
+                        [
+                            FixtureDepositRequest.from_deposit_request(d)
+                            for d in requests.deposit_requests()
+                        ]
+                        if requests is not None
+                        else None
+                    ),
+                    withdrawal_requests=(
+                        [
+                            FixtureWithdrawalRequest.from_withdrawal_request(w)
+                            for w in requests.withdrawal_requests()
+                        ]
+                        if requests is not None
+                        else None
+                    ),
+                    consolidation_requests=(
+                        [
+                            FixtureConsolidationRequest.from_consolidation_request(c)
+                            for c in requests.consolidation_requests()
+                        ]
+                        if requests is not None
+                        else None
+                    ),
                     fork=fork,
                 ).with_rlp(txs=txs, requests=requests)
                 if block.exception is None:

@@ -6,11 +6,11 @@ from typing import Any, Mapping, Type
 
 import pytest
 
+from ethereum_clis import ExecutionSpecsTransitionTool
 from ethereum_test_base_types import Account, Address
 from ethereum_test_fixtures import StateFixture
 from ethereum_test_forks import Fork, get_deployed_forks
 from ethereum_test_types import Alloc, Environment, Storage, Transaction
-from evm_transition_tool import ExecutionSpecsTransitionTool
 
 from ..state import StateTest
 

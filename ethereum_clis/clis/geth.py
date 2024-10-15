@@ -13,7 +13,7 @@ from typing import Optional
 from ethereum_test_fixtures import BlockchainFixture, StateFixture
 from ethereum_test_forks import Fork
 
-from .transition_tool import FixtureFormat, TransitionTool, dump_files_to_directory
+from ..transition_tool import FixtureFormat, TransitionTool, dump_files_to_directory
 
 
 class GethTransitionTool(TransitionTool):

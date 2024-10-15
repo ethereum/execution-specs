@@ -9,9 +9,9 @@ from typing import Any, List, Optional
 
 import pytest
 
+from ethereum_clis import TransitionTool
 from ethereum_test_fixtures import BlockchainFixture, StateFixture
 from ethereum_test_fixtures.consume import TestCaseIndexFile, TestCaseStream
-from evm_transition_tool import TransitionTool
 
 from ..decorator import fixture_format
 

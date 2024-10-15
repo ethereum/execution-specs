@@ -17,8 +17,8 @@ import requests
 from ethereum_test_forks import Fork
 from ethereum_test_types import Alloc, Environment, Transaction
 
-from .transition_tool import TransitionTool, dump_files_to_directory, model_dump_config
-from .types import TransitionToolInput, TransitionToolOutput
+from ..transition_tool import TransitionTool, dump_files_to_directory, model_dump_config
+from ..types import TransitionToolInput, TransitionToolOutput
 
 
 class BesuTransitionTool(TransitionTool):

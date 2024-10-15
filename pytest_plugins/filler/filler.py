@@ -5,6 +5,7 @@ Top-level pytest configuration file providing:
 and that modifies pytest hooks in order to fill test specs for all tests and
 writes the generated fixtures to file.
 """
+
 import configparser
 import datetime
 import os
@@ -18,6 +19,7 @@ from filelock import FileLock
 from pytest_metadata.plugin import metadata_key  # type: ignore
 
 from cli.gen_index import generate_fixtures_index
+from ethereum_clis import TransitionTool
 from ethereum_test_base_types import Alloc, ReferenceSpec
 from ethereum_test_fixtures import FIXTURE_FORMATS, BaseFixture, FixtureCollector, TestInfo
 from ethereum_test_forks import (
@@ -31,7 +33,6 @@ from ethereum_test_tools.utility.versioning import (
     generate_github_url,
     get_current_commit_hash_or_tag,
 )
-from evm_transition_tool import TransitionTool
 from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTestItem
 
 

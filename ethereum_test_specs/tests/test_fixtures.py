@@ -10,6 +10,7 @@ import pytest
 from click.testing import CliRunner
 
 import cli.check_fixtures
+from ethereum_clis import ExecutionSpecsTransitionTool
 from ethereum_test_base_types import Account, Address, Hash
 from ethereum_test_exceptions import TransactionException
 from ethereum_test_fixtures import (
@@ -22,7 +23,6 @@ from ethereum_test_fixtures.blockchain import FixtureCommon
 from ethereum_test_forks import Berlin, Fork, Istanbul, London, Paris, Shanghai
 from ethereum_test_types import Alloc, Environment, Transaction
 from ethereum_test_vm import Opcodes as Op
-from evm_transition_tool import ExecutionSpecsTransitionTool
 
 from ..blockchain import Block, BlockchainTest, Header
 from ..state import StateTest

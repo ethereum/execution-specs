@@ -10,7 +10,7 @@ from typing import Optional
 
 from ethereum_test_forks import Fork
 
-from .transition_tool import TransitionTool
+from ..transition_tool import TransitionTool
 
 
 class NimbusTransitionTool(TransitionTool):

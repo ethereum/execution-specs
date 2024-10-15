@@ -8,12 +8,12 @@ from typing import Dict, List
 import pytest
 from pydantic import TypeAdapter
 
+from ethereum_clis import ExecutionSpecsTransitionTool, TransitionTool
 from ethereum_test_base_types import to_json
 from ethereum_test_forks import Berlin, Fork, Istanbul, London
 from ethereum_test_types import Alloc, Environment, Transaction
-from evm_transition_tool import ExecutionSpecsTransitionTool, TransitionTool
 
-FIXTURES_ROOT = Path(os.path.join("src", "evm_transition_tool", "tests", "fixtures"))
+FIXTURES_ROOT = Path(os.path.join("src", "ethereum_clis", "tests", "fixtures"))
 DEFAULT_EVM_T8N_BINARY_NAME = "ethereum-spec-evm-resolver"
 
 

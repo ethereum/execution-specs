@@ -1,22 +1,24 @@
 """
-Evmone Transition tool interface.
+EthereumJS Transition tool interface.
 """
+
 from pathlib import Path
 from re import compile
 from typing import Optional
 
 from ethereum_test_forks import Fork
 
-from .transition_tool import TransitionTool
+from ..transition_tool import TransitionTool
 
 
-class EvmOneTransitionTool(TransitionTool):
+class EthereumJSTransitionTool(TransitionTool):
     """
-    Evmone `evmone-t8n` Transition tool interface wrapper class.
+    EthereumJS Transition tool interface wrapper class.
     """
 
-    default_binary = Path("evmone-t8n")
-    detect_binary_pattern = compile(r"^evmone-t8n\b")
+    default_binary = Path("ethereumjs-t8ntool.sh")
+    detect_binary_pattern = compile(r"^ethereumjs t8n\b")
+    version_flag: str = "--version"
     t8n_use_stream = False
 
     binary: Path
@@ -34,6 +36,6 @@ class EvmOneTransitionTool(TransitionTool):
     def is_fork_supported(self, fork: Fork) -> bool:
         """
         Returns True if the fork is supported by the tool.
-        Currently, evmone-t8n provides no way to determine supported forks.
+        Currently, EthereumJS-t8n provides no way to determine supported forks.
         """
         return True
