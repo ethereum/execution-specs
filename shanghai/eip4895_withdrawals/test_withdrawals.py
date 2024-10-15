@@ -9,6 +9,7 @@ from typing import Dict, List, Mapping
 
 import pytest
 
+from ethereum_clis import TransitionTool
 from ethereum_test_forks import Cancun, Fork
 from ethereum_test_tools import (
     EOA,
@@ -23,7 +24,6 @@ from ethereum_test_tools import (
     Withdrawal,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
-from evm_transition_tool import TransitionTool
 
 from .spec import ref_spec_4895
 
