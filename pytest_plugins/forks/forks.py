@@ -438,7 +438,7 @@ def pytest_report_header(config, start_path):
     header = [
         (
             bold
-            + "Executing tests for: "
+            + "Generating fixtures for: "
             + ", ".join([f.name() for f in sorted(list(config.fork_set))])
             + reset
         ),
@@ -446,7 +446,7 @@ def pytest_report_header(config, start_path):
     if all(fork.is_deployed() for fork in config.fork_set):
         header += [
             (
-                bold + warning + "Only executing tests with stable/deployed forks: "
+                bold + warning + "Only generating fixtures with stable/deployed forks: "
                 "Specify an upcoming fork via --until=fork to "
                 "add forks under development." + reset
             )

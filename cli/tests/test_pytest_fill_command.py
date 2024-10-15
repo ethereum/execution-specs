@@ -11,7 +11,7 @@ from click.testing import CliRunner
 
 import pytest_plugins.filler.filler
 
-from ..pytest_commands.fill import fill
+from ..pytest_commands.fill import fill, phil
 
 
 @pytest.fixture
@@ -191,3 +191,13 @@ class TestHtmlReportFlags:
         assert result.exit_code == pytest.ExitCode.OK
         assert html_path.exists()
         assert (output_dir / "state_tests").exists(), "No fixtures in output directory"
+
+
+def test_phil_default_output_options(runner):
+    """
+    A simple sanity test for phil.
+    """
+    fill_args = ["-k", "test_dup and state_test-DUP16 and LEGACY", "--fork", "Frontier"]
+    result = runner.invoke(phil, fill_args)
+    assert result.exit_code == pytest.ExitCode.OK
+    assert "🦄" in result.output

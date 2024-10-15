@@ -65,3 +65,32 @@ def fill(pytest_args: List[str], **kwargs) -> None:
         ),
     )
     sys.exit(result)
+
+
+@click.command(context_settings=dict(ignore_unknown_options=True))
+@common_click_options
+def phil(pytest_args: List[str], **kwargs) -> None:
+    """
+    A friendly alias for the fill command.
+    """
+    args = handle_fill_command_flags(
+        ["--index", *pytest_args],
+    )
+    result = pytest.main(
+        args
+        + [
+            "-o",
+            "report_passed=🦄",
+            "-o",
+            "report_xpassed=🌈",
+            "-o",
+            "report_failed=👾",
+            "-o",
+            "report_xfailed=🦺",
+            "-o",
+            "report_skipped=🦘",
+            "-o",
+            "report_error=🚨",
+        ],
+    )
+    sys.exit(result)
