@@ -95,13 +95,13 @@ class ForkTracking:
     def advance_block(self, timestamp: U256) -> bool:
         """Increment the block number, return `True` if the fork changed."""
         self.block_number += Uint(1)
-        if self.next_fork is not None and self.next_fork.has_activated(
+        new_fork = False
+        while self.next_fork is not None and self.next_fork.has_activated(
             self.block_number, timestamp
         ):
             self.active_fork_index += 1
-            return True
-        else:
-            return False
+            new_fork = True
+        return new_fork
 
 
 class BlockDownloader(ForkTracking):
@@ -278,11 +278,22 @@ class BlockDownloader(ForkTracking):
                     assert not isinstance(decoded_block, bytes)
                     assert not isinstance(decoded_block[0], bytes)
                     assert isinstance(decoded_block[0][11], bytes)
-                    timestamp = rlp.decode_to(U256, decoded_block[0][11])
+                    timestamp = U256.from_be_bytes(decoded_block[0][11])
                     self.advance_block(timestamp)
-                    blocks.append(
-                        rlp.decode_to(self.module("blocks").Block, block_rlp)
-                    )
+                    try:
+                        blocks.append(
+                            rlp.decode_to(
+                                self.module("blocks").Block, block_rlp
+                            )
+                        )
+                    except Exception:
+                        self.log.exception(
+                            "failed to decode block %d with timestamp %d",
+                            self.block_number,
+                            timestamp,
+                        )
+                        raise
+
             return blocks
 
     def load_transaction(self, t: Any) -> Any:
