@@ -10,24 +10,7 @@ Requirements:
 
 1. Access to an archive node for the network where the transaction
     originates. A provider may be used.
-2. A config file with the remote node data in JSON format
-
-    ```json
-    {
-        "remote_nodes" : [
-            {
-                "name" : "mainnet_archive",
-                "node_url" : "https://example.archive.node.url/v1
-                "client_id" : "",
-                "secret" : ""
-            }
-        ]
-    }
-    ```
-
-    `client_id` and `secret` may be left empty if the node does not require
-    them.
-3. The transaction hash of a type 0 transaction (currently only legacy
+2. The transaction hash of a type 0 transaction (currently only legacy
     transactions are supported).
 
 Example Usage:
@@ -35,7 +18,7 @@ Example Usage:
 1. Generate a test for a transaction with hash
 
     ```console
-    gentest -c config.json \
+    uv run gentest \
     0xa41f343be7a150b740e5c939fa4d89f3a2850dbe21715df96b612fc20d1906be \
     tests/paris/test_0xa41f.py
     ```
@@ -51,31 +34,22 @@ Limitations:
 1. Only legacy transaction types (type 0) are currently supported.
 """
 
-import json
-import os
 from dataclasses import asdict, dataclass
 from sys import stderr
-from typing import Dict, List, TextIO
+from typing import Dict, TextIO
 
 import click
 
+from config import EnvConfig
 from ethereum_test_base_types import Account, Address, Hash, ZeroPaddedHexNumber
 from ethereum_test_rpc import BlockNumberType, DebugRPC, EthRPC
 from ethereum_test_types import Transaction
 
 
 @click.command()
-@click.option(
-    "--config-file",
-    "-c",
-    envvar="GENTEST_CONFIG_FILE",
-    type=click.File("r"),
-    default=os.path.expanduser("~/.eest/gentest"),
-    help="Config file with remote node data.",
-)
 @click.argument("transaction_hash")
 @click.argument("output_file", type=click.File("w", lazy=True))
-def make_test(transaction_hash: str, output_file: TextIO, config_file: TextIO):
+def make_test(transaction_hash: str, output_file: TextIO):
     """
     Extracts a transaction and required state from a network to make a blockchain test out of it.
 
@@ -83,9 +57,7 @@ def make_test(transaction_hash: str, output_file: TextIO, config_file: TextIO):
 
     OUTPUT_FILE is the path to the output python script.
     """
-    print("Load configs...", file=stderr)
-    config = Config(config_file)
-    request = RequestManager(config.remote_nodes[0])
+    request = RequestManager()
 
     print(
         "Perform tx request: eth_get_transaction_by_hash(" + f"{transaction_hash}" + ")",
@@ -223,32 +195,6 @@ class TestConstructor:
         return test
 
 
-class Config:
-    """
-    Main class to manage Pyspec config
-    """
-
-    @dataclass
-    class RemoteNode:
-        """
-        Remote node structure
-        """
-
-        name: str
-        node_url: str
-        client_id: str
-        secret: str
-
-    remote_nodes: List["Config.RemoteNode"]
-
-    def __init__(self, file: TextIO):
-        """
-        Initialize pyspec config from file
-        """
-        data = json.load(file)
-        self.remote_nodes = [Config.RemoteNode(**node) for node in data["remote_nodes"]]
-
-
 class RequestManager:
     """
     Interface for the RPC interaction with remote node
@@ -279,15 +225,13 @@ class RequestManager:
     node_url: str
     headers: dict[str, str]
 
-    def __init__(self, node_config: Config.RemoteNode):
+    def __init__(self):
         """
         Initialize the RequestManager with specific client config.
         """
+        node_config = EnvConfig().remote_nodes[0]
         self.node_url = node_config.node_url
-        headers = {
-            "CF-Access-Client-Id": node_config.client_id,
-            "CF-Access-Client-Secret": node_config.secret,
-        }
+        headers = node_config.rpc_headers
         self.rpc = EthRPC(node_config.node_url, extra_headers=headers)
         self.debug_rpc = DebugRPC(node_config.node_url, extra_headers=headers)
 
