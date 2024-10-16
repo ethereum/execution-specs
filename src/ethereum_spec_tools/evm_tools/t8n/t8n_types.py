@@ -55,14 +55,14 @@ class Alloc:
         for address, account in self.state._main_trie._data.items():
             account_data: Dict[str, Any] = {}
 
+            if account.code:
+                account_data["code"] = "0x" + account.code.hex()
+
             if account.balance:
                 account_data["balance"] = hex(account.balance)
 
             if account.nonce:
                 account_data["nonce"] = hex(account.nonce)
-
-            if account.code:
-                account_data["code"] = "0x" + account.code.hex()
 
             if address in self.state._storage_tries:
                 account_data["storage"] = {

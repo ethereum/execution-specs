@@ -83,6 +83,11 @@ class ForkLoad:
         return self._module("fork").HISTORY_SERVE_WINDOW
 
     @property
+    def process_requests(self) -> Any:
+        """process_requests function of the given fork."""
+        return self._module("fork").process_requests
+
+    @property
     def process_system_transaction(self) -> Any:
         """process_system_transaction function of the given fork."""
         return self._module("fork").process_system_transaction
@@ -173,23 +178,14 @@ class ForkLoad:
         return self._module("blocks").Block
 
     @property
-    def parse_withdrawal_requests_from_system_tx(self) -> Any:
-        """parse_withdrawal_requests_from_system_tx function of the fork"""
-        return self._module(
-            "requests"
-        ).parse_withdrawal_requests_from_system_tx
-
-    @property
     def parse_deposit_requests_from_receipt(self) -> Any:
         """parse_deposit_requests_from_receipt function of the fork"""
         return self._module("requests").parse_deposit_requests_from_receipt
 
     @property
-    def parse_consolidation_requests_from_system_tx(self) -> Any:
-        """parse_deposit_requests_from_receipt function of the fork"""
-        return self._module(
-            "requests"
-        ).parse_consolidation_requests_from_system_tx
+    def compute_requests_hash(self) -> Any:
+        """compute_requests_hash function of the fork"""
+        return self._module("requests").compute_requests_hash
 
     @property
     def Bloom(self) -> Any:

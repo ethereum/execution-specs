@@ -100,14 +100,12 @@ fetch_state_tests = partial(
 
 # Run temporary test fixtures for Prague
 test_dirs = (
-    # TODO: These fixtures are currently disables since the tests do not support
-    # flat requests. They should be enabled once the tests are updated to support
-    # "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7002_el_triggerable_withdrawals",
-    # "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip6110_deposits",
-    # "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7251_consolidations",
-    # "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7685_general_purpose_el_requests",
-    # "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles",
-    # "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2935_historical_block_hashes_from_state",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7002_el_triggerable_withdrawals",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip6110_deposits",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7251_consolidations",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7685_general_purpose_el_requests",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2935_historical_block_hashes_from_state",
     # "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7702_set_code_tx",
 )
 

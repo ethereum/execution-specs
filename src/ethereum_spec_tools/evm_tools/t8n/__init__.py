@@ -308,7 +308,7 @@ class T8N(Load):
             self.fork.is_after_fork("ethereum.prague")
             and not self.options.state_test
         ):
-            requests_from_execution: Bytes = b""
+            deposit_requests: Bytes = b""
 
             self.fork.process_system_transaction(
                 self.fork.HISTORY_STORAGE_ADDRESS,
@@ -392,10 +392,9 @@ class T8N(Load):
                     self.fork.is_after_fork("ethereum.prague")
                     and not self.options.state_test
                 ):
-                    deposit_requests = (
+                    deposit_requests += (
                         self.fork.parse_deposit_requests_from_receipt(receipt)
                     )
-                    requests_from_execution += deposit_requests
 
                 self.txs.add_receipt(tx, gas_consumed)
 
@@ -440,9 +439,9 @@ class T8N(Load):
             self.fork.is_after_fork("ethereum.prague")
             and not self.options.state_test
         ):
-            system_withdrawal_tx_output = self.fork.process_system_transaction(
-                self.fork.WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
-                b"",
+            requests_from_execution = self.fork.process_requests(
+                deposit_requests,
+                self.alloc.state,
                 self.env.block_hashes,
                 self.env.coinbase,
                 self.env.block_number,
@@ -450,43 +449,12 @@ class T8N(Load):
                 self.env.block_gas_limit,
                 self.env.block_timestamp,
                 self.env.prev_randao,
-                self.alloc.state,
                 self.chain_id,
                 self.env.excess_blob_gas,
             )
-
-            withdrawal_requests = (
-                self.fork.parse_withdrawal_requests_from_system_tx(
-                    system_withdrawal_tx_output.return_data
-                )
+            requests_hash = self.fork.compute_requests_hash(
+                requests_from_execution
             )
-
-            requests_from_execution += withdrawal_requests
-
-            system_consolidation_tx_output = (
-                self.fork.process_system_transaction(
-                    self.fork.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
-                    b"",
-                    self.env.block_hashes,
-                    self.env.coinbase,
-                    self.env.block_number,
-                    self.env.base_fee_per_gas,
-                    self.env.block_gas_limit,
-                    self.env.block_timestamp,
-                    self.env.prev_randao,
-                    self.alloc.state,
-                    self.chain_id,
-                    self.env.excess_blob_gas,
-                )
-            )
-
-            consolidation_requests = (
-                self.fork.parse_consolidation_requests_from_system_tx(
-                    system_consolidation_tx_output.return_data
-                )
-            )
-
-            requests_from_execution += consolidation_requests
 
         self.result.state_root = self.fork.state_root(self.alloc.state)
         self.result.tx_root = self.fork.root(transactions_trie)
@@ -501,7 +469,7 @@ class T8N(Load):
             self.fork.is_after_fork("ethereum.prague")
             and not self.options.state_test
         ):
-            self.result.requests_hash = keccak256(requests_from_execution)
+            self.result.requests_hash = requests_hash
             self.result.requests = requests_from_execution
 
     def run(self) -> int:
