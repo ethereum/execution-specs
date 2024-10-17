@@ -11,7 +11,7 @@ from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
 
 from .. import rlp
-from ..exceptions import InvalidBlock
+from .exceptions import TransactionTypeError
 from .fork_types import Address
 
 TX_BASE_COST = 21000
@@ -110,6 +110,6 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
         elif tx[0] == 2:
             return rlp.decode_to(FeeMarketTransaction, tx[1:])
         else:
-            raise InvalidBlock
+            raise TransactionTypeError(tx[0])
     else:
         return tx
