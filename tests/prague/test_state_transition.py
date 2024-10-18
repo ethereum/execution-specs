@@ -106,7 +106,7 @@ test_dirs = (
     "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7685_general_purpose_el_requests",
     "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2537_bls_12_381_precompiles",
     "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip2935_historical_block_hashes_from_state",
-    # "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7702_set_code_tx",
+    "tests/fixtures/latest_fork_tests/blockchain_tests/prague/eip7702_set_code_tx",
 )
 
 

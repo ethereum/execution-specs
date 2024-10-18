@@ -16,6 +16,7 @@ from dataclasses import dataclass
 
 from .. import rlp
 from ..base_types import (
+    U8,
     U64,
     U256,
     Bytes,
@@ -79,6 +80,6 @@ class Authorization:
     chain_id: U64
     address: Address
     nonce: U64
-    y_parity: U256
+    y_parity: U8
     r: U256
     s: U256

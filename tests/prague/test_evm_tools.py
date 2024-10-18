@@ -36,17 +36,10 @@ SLOW_TESTS = (
 
 test_dirs = (
     "tests/fixtures/latest_fork_tests/state_tests/prague/eip2537_bls_12_381_precompiles",
-    # "tests/fixtures/latest_fork_tests/state_tests/prague/eip7702_set_code_tx",
+    "tests/fixtures/latest_fork_tests/state_tests/prague/eip7702_set_code_tx",
 )
 
-IGNORE_TESTS = (
-    # TODO: In there current verion of the test fixtures, the following tests are incorrectly filled.
-    # Hence, they will be ignored for now. This condition will be removed once the test fixtures are updated.
-    "tests/prague/eip7702_set_code_tx/test_set_code_txs.py::test_invalid_tx_invalid_auth_signature[fork_Prague-state_test-v_2,r_1,s_1]",
-    "tests/prague/eip7702_set_code_tx/test_set_code_txs.py::test_invalid_tx_invalid_auth_signature[fork_Prague-state_test-v_0,r_1,s_SECP256K1N_OVER_2+1]",
-    "tests/prague/eip7702_set_code_tx/test_set_code_txs.py::test_invalid_tx_invalid_auth_signature[fork_Prague-state_test-v_2**256-1,r_1,s_1]",
-    "tests/prague/eip7702_set_code_tx/test_set_code_txs.py::test_invalid_tx_invalid_auth_signature[fork_Prague-state_test-v_0,r_1,s_2**256-1]",
-)
+IGNORE_TESTS = ()
 
 
 def fetch_temporary_tests(test_dirs: Tuple[str, ...]) -> Generator:
