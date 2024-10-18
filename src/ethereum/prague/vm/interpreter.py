@@ -126,7 +126,7 @@ def process_message_call(
         else:
             evm = process_create_message(message, env)
     else:
-        if message.authorizations != set():
+        if message.authorizations != ():
             refund_counter += set_delegation(message, env)
         evm = process_message(message, env)
         if account_exists_and_is_empty(env.state, Address(message.target)):

@@ -710,6 +710,41 @@ class U256(FixedUint):
 U256.MAX_VALUE = int.__new__(U256, (2**256) - 1)
 
 
+class U8(FixedUint):
+    """
+    Unsigned positive integer, which can represent `0` to `2 ** 8 - 1`,
+    inclusive.
+    """
+
+    MAX_VALUE: ClassVar["U8"]
+    """
+    Largest value that can be represented by this integer type.
+    """
+
+    __slots__ = ()
+
+    @classmethod
+    def from_le_bytes(cls: Type, buffer: "Bytes1") -> "U8":
+        """
+        Converts a sequence of bytes into an arbitrarily sized unsigned integer
+        from its little endian representation.
+        """
+        if len(buffer) > 1:
+            raise ValueError()
+
+        return cls(int.from_bytes(buffer, "little"))
+
+    def to_le_bytes(self) -> "Bytes1":
+        """
+        Converts this fixed sized unsigned integer into its little endian
+        representation, with exactly 1 byte.
+        """
+        return Bytes1(self.to_bytes(1, "little"))
+
+
+U8.MAX_VALUE = int.__new__(U8, (2**8) - 1)
+
+
 class U32(FixedUint):
     """
     Unsigned positive integer, which can represent `0` to `2 ** 32 - 1`,
@@ -843,6 +878,17 @@ class Bytes0(FixedBytes):
     """
 
     LENGTH = 0
+    """
+    Number of bytes in each instance of this class.
+    """
+
+
+class Bytes1(FixedBytes):
+    """
+    Byte array of exactly a single byte.
+    """
+
+    LENGTH = 1
     """
     Number of bytes in each instance of this class.
     """
