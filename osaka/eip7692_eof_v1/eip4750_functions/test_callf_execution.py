@@ -360,7 +360,8 @@ def test_callf_sneaky_stack_overflow(
     ("stack_height", "failure"),
     (
         pytest.param(1018, False, id="no_max_stack"),
-        pytest.param(1019, True, id="with_max_stack"),
+        pytest.param(1019, False, id="with_max_stack"),
+        pytest.param(1020, True, id="over_max_stack"),
     ),
 )
 def test_callf_max_stack(
@@ -374,11 +375,13 @@ def test_callf_max_stack(
 
     Code Section 0 - calls #1 with the configured height, but we load some operands so the
                      return stack does not overflow
-    Code Section 1 - recursively calls itself until input is zero, then calls 2 and returns.
+    Code Section 1 - expands stack, calls #2, THEN recursively calls itself until input is zero,
+                     and returns.
     Code Section 2 - Just returns, zero inputs, zero outputs
 
-    This will catch  CALLF rule #4: always fail if the operand stack is full. Not checking
-    rule 4 results in a call to section 2 and not overfilling the stack (as it is just RETF).
+    This will catch  CALLF execution rule #3: always fail if the operand stack is full. Not
+    checking rule 3 results in a call to section 2 and not overfilling the stack (as it is just
+    RETF).
     """
     env = Environment()
     sender = pre.fund_eoa()
