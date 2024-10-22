@@ -814,7 +814,7 @@ def apply_body(
         if account_exists_and_is_empty(state, wd.address):
             destroy_account(state, wd.address)
 
-    requests_from_execution = process_requests(
+    requests_from_execution = process_general_purpose_requests(
         deposit_requests,
         state,
         block_hashes,
@@ -842,7 +842,7 @@ def apply_body(
     )
 
 
-def process_requests(
+def process_general_purpose_requests(
     deposit_requests: Bytes,
     state: State,
     block_hashes: List[Hash32],

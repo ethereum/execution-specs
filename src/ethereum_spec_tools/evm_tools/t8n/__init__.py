@@ -439,18 +439,20 @@ class T8N(Load):
             self.fork.is_after_fork("ethereum.prague")
             and not self.options.state_test
         ):
-            requests_from_execution = self.fork.process_requests(
-                deposit_requests,
-                self.alloc.state,
-                self.env.block_hashes,
-                self.env.coinbase,
-                self.env.block_number,
-                self.env.base_fee_per_gas,
-                self.env.block_gas_limit,
-                self.env.block_timestamp,
-                self.env.prev_randao,
-                self.chain_id,
-                self.env.excess_blob_gas,
+            requests_from_execution = (
+                self.fork.process_general_purpose_requests(
+                    deposit_requests,
+                    self.alloc.state,
+                    self.env.block_hashes,
+                    self.env.coinbase,
+                    self.env.block_number,
+                    self.env.base_fee_per_gas,
+                    self.env.block_gas_limit,
+                    self.env.block_timestamp,
+                    self.env.prev_randao,
+                    self.chain_id,
+                    self.env.excess_blob_gas,
+                )
             )
             requests_hash = self.fork.compute_requests_hash(
                 requests_from_execution

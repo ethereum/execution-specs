@@ -165,7 +165,7 @@ def set_delegation(message: Message, env: Environment) -> U256:
         if auth.chain_id not in (env.chain_id, U64(0)):
             continue
 
-        if auth.nonce >= 2**64 - 1:
+        if auth.nonce >= U64.MAX_VALUE:
             continue
 
         try:

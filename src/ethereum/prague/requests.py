@@ -23,9 +23,9 @@ WITHDRAWAL_REQUEST_TYPE = b"\x01"
 CONSOLIDATION_REQUEST_TYPE = b"\x02"
 
 
-def parse_deposit_data(data: Bytes) -> Bytes:
+def extract_deposit_data(data: Bytes) -> Bytes:
     """
-    Parses Deposit Request from the DepositContract.DepositEvent data.
+    Extracts Deposit Request from the DepositContract.DepositEvent data.
     """
     return (
         data[192:240]  # public_key
@@ -46,7 +46,7 @@ def parse_deposit_requests_from_receipt(
     decoded_receipt = decode_receipt(receipt)
     for log in decoded_receipt.logs:
         if log.address == DEPOSIT_CONTRACT_ADDRESS:
-            request = parse_deposit_data(log.data)
+            request = extract_deposit_data(log.data)
             deposit_requests += request
 
     return deposit_requests
@@ -54,7 +54,7 @@ def parse_deposit_requests_from_receipt(
 
 def compute_requests_hash(requests: List[Bytes]) -> Bytes:
     """
-    Get the hash of the requests.
+    Get the hash of the requests using the SHA2-256 algorithm.
 
     Parameters
     ----------
