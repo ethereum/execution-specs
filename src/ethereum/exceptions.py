@@ -16,6 +16,12 @@ class InvalidBlock(EthereumException):
     """
 
 
+class InvalidTransaction(EthereumException):
+    """
+    Thrown when a transaction being processed is found to be invalid.
+    """
+
+
 class RLPDecodingError(InvalidBlock):
     """
     Indicates that RLP decoding failed.
