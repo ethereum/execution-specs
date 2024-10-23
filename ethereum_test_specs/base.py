@@ -7,7 +7,7 @@ from functools import reduce
 from itertools import count
 from os import path
 from pathlib import Path
-from typing import Callable, ClassVar, Dict, Generator, Iterator, List, Optional
+from typing import Callable, ClassVar, Generator, Iterator, List, Optional
 
 import pytest
 from pydantic import BaseModel, Field
@@ -16,7 +16,7 @@ from ethereum_clis import Result, TransitionTool
 from ethereum_test_base_types import to_hex
 from ethereum_test_fixtures import BaseFixture, FixtureFormat
 from ethereum_test_forks import Fork
-from ethereum_test_types import Environment, Transaction, Withdrawal
+from ethereum_test_types import Environment, Withdrawal
 
 
 class HashMismatchException(Exception):
@@ -30,27 +30,6 @@ class HashMismatchException(Exception):
 
     def __str__(self):  # noqa: D105
         return f"{self.message}: Expected {self.expected_hash}, got {self.actual_hash}"
-
-
-def verify_transactions(txs: List[Transaction], result: Result) -> List[int]:
-    """
-    Verify rejected transactions (if any) against the expected outcome.
-    Raises exception on unexpected rejections or unexpected successful txs.
-    """
-    rejected_txs: Dict[int, str] = {
-        rejected_tx.index: rejected_tx.error for rejected_tx in result.rejected_transactions
-    }
-
-    for i, tx in enumerate(txs):
-        error = rejected_txs[i] if i in rejected_txs else None
-        if tx.error and not error:
-            raise Exception(f"tx expected to fail succeeded: pos={i}, nonce={tx.nonce}")
-        elif not tx.error and error:
-            raise Exception(f"tx unexpectedly failed: {error}")
-
-        # TODO: Also we need a way to check we actually got the
-        # correct error
-    return list(rejected_txs.keys())
 
 
 def verify_result(result: Result, env: Environment):

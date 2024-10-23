@@ -7,7 +7,7 @@ from typing import Any, Mapping, Type
 import pytest
 
 from ethereum_clis import ExecutionSpecsTransitionTool
-from ethereum_test_base_types import Account, Address
+from ethereum_test_base_types import Account, Address, TestAddress, TestPrivateKey
 from ethereum_test_fixtures import StateFixture
 from ethereum_test_forks import Fork, get_deployed_forks
 from ethereum_test_types import Alloc, Environment, Storage, Transaction
@@ -18,11 +18,19 @@ ADDRESS_UNDER_TEST = Address(0x01)
 
 
 @pytest.fixture
+def tx() -> Transaction:
+    """
+    The transaction: Set from the test's indirectly parametrized `tx` parameter.
+    """
+    return Transaction(secret_key=TestPrivateKey)
+
+
+@pytest.fixture
 def pre(request) -> Alloc:
     """
     The pre state: Set from the test's indirectly parametrized `pre` parameter.
     """
-    return Alloc(request.param)
+    return Alloc(request.param | {TestAddress: Account(balance=(10**18))})
 
 
 @pytest.fixture
@@ -40,14 +48,13 @@ def fork() -> Fork:  # noqa: D103
 
 @pytest.fixture
 def state_test(  # noqa: D103
-    fork: Fork, pre: Mapping[Any, Any], post: Mapping[Any, Any]
+    pre: Mapping[Any, Any], post: Mapping[Any, Any], tx: Transaction
 ) -> StateTest:
     return StateTest(
         env=Environment(),
         pre=pre,
         post=post,
-        tx=Transaction(),
-        tag="post_value_mismatch",
+        tx=tx,
     )
 
 

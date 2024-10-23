@@ -55,8 +55,9 @@ from ethereum_test_types import (
     WithdrawalRequest,
 )
 
-from .base import BaseTest, verify_result, verify_transactions
+from .base import BaseTest, verify_result
 from .debugging import print_traces
+from .helpers import verify_transactions
 
 
 def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
@@ -440,7 +441,9 @@ class BlockchainTest(BaseTest):
         )
 
         try:
-            rejected_txs = verify_transactions(txs, transition_tool_output.result)
+            rejected_txs = verify_transactions(
+                t8n.exception_mapper, txs, transition_tool_output.result
+            )
             verify_result(transition_tool_output.result, env)
         except Exception as e:
             print_traces(t8n.get_traces())

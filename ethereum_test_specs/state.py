@@ -2,6 +2,7 @@
 Ethereum state test spec definition and filler.
 """
 
+from pprint import pprint
 from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Type
 
 import pytest
@@ -27,6 +28,7 @@ from ethereum_test_types import Alloc, Environment, Transaction
 from .base import BaseTest
 from .blockchain import Block, BlockchainTest, Header
 from .debugging import print_traces
+from .helpers import verify_transactions
 
 TARGET_BLOB_GAS_PER_BLOCK = 393216
 
@@ -149,6 +151,14 @@ class StateTest(BaseTest):
             self.post.verify_post_alloc(transition_tool_output.alloc)
         except Exception as e:
             print_traces(t8n.get_traces())
+            raise e
+
+        try:
+            verify_transactions(t8n.exception_mapper, [tx], transition_tool_output.result)
+        except Exception as e:
+            print_traces(t8n.get_traces())
+            pprint(transition_tool_output.result)
+            pprint(transition_tool_output.alloc)
             raise e
 
         return Fixture(

@@ -12,9 +12,8 @@ from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Typ
 import pytest
 from pydantic import Field, model_validator
 
-from ethereum_clis import TransitionTool
+from ethereum_clis import EvmoneExceptionMapper, TransitionTool
 from ethereum_test_base_types import Account, Bytes
-from ethereum_test_exceptions import EvmoneExceptionMapper
 from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList, to_pipe_str
 from ethereum_test_fixtures import (
     BaseFixture,
