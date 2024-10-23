@@ -2243,7 +2243,10 @@ def test_invalid_tx_invalid_auth_signature(
         to=callee_address,
         value=0,
         authorization_list=[authorization_tuple],
-        error=TransactionException.TYPE_4_INVALID_AUTHORITY_SIGNATURE,
+        error=[
+            TransactionException.TYPE_4_INVALID_AUTHORITY_SIGNATURE,
+            TransactionException.TYPE_4_INVALID_AUTHORITY_SIGNATURE_S_TOO_HIGH,
+        ],
         sender=pre.fund_eoa(),
     )
 
@@ -2785,4 +2788,28 @@ def test_reset_code(
                 storage={1: 1, 2: 1},
             ),
         },
+    )
+
+
+def test_contract_create(
+    state_test: StateTestFiller,
+    pre: Alloc,
+):
+    """
+    Test sending type-4 tx as a create transaction
+    """
+    tx = Transaction(
+        gas_limit=100_000,
+        to=None,
+        value=0,
+        authorization_list=[],
+        error=TransactionException.TYPE_4_TX_CONTRACT_CREATION,
+        sender=pre.fund_eoa(),
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post={},
     )
