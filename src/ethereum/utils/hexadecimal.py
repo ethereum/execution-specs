@@ -12,6 +12,7 @@ Introduction
 Hexadecimal strings specific utility functions used in this specification.
 """
 from ethereum.base_types import (
+    U8,
     U64,
     U256,
     Bytes,
@@ -181,6 +182,23 @@ def hex_to_uint(hex_string: str) -> Uint:
         The unsigned integer obtained from the given hexadecimal string.
     """
     return Uint(int(remove_hex_prefix(hex_string), 16))
+
+
+def hex_to_u8(hex_string: str) -> U8:
+    """
+    Convert hex string to U8.
+
+    Parameters
+    ----------
+    hex_string :
+        The hexadecimal string to be converted to U8.
+
+    Returns
+    -------
+    converted : `U8`
+        The U8 integer obtained from the given hexadecimal string.
+    """
+    return U8(int(remove_hex_prefix(hex_string), 16))
 
 
 def hex_to_u64(hex_string: str) -> U64:

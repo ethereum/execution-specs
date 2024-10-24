@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
 
 from ethereum import rlp
 from ethereum.base_types import U64, Bytes, Uint
-from ethereum.crypto.hash import keccak256
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..loaders.transaction_loader import TransactionLoad, UnsupportedTx
@@ -55,14 +55,14 @@ class Alloc:
         for address, account in self.state._main_trie._data.items():
             account_data: Dict[str, Any] = {}
 
+            if account.code:
+                account_data["code"] = "0x" + account.code.hex()
+
             if account.balance:
                 account_data["balance"] = hex(account.balance)
 
             if account.nonce:
                 account_data["nonce"] = hex(account.nonce)
-
-            if account.code:
-                account_data["code"] = "0x" + account.code.hex()
 
             if address in self.state._storage_tries:
                 account_data["storage"] = {
@@ -306,32 +306,8 @@ class Result:
     gas_used: Any = None
     excess_blob_gas: Optional[U64] = None
     blob_gas_used: Optional[Uint] = None
-    requests_root: Optional[Bytes] = None
-    requests: Optional[Any] = None
-
-    def generic_request_to_json(self, request: Any) -> Any:
-        """Convert a request to JSON"""
-        data = {}
-        for attr in request.__annotations__:
-            data[attr] = encode_to_hex(getattr(request, attr))
-
-        if "public_key" in data:
-            data["pubkey"] = data["public_key"]
-            del data["public_key"]
-
-        if "validator_public_key" in data:
-            data["validator_pubkey"] = data["validator_public_key"]
-            del data["validator_public_key"]
-
-        if "target_public_key" in data:
-            data["target_pubkey"] = data["target_public_key"]
-            del data["target_public_key"]
-
-        if "source_public_key" in data:
-            data["source_pubkey"] = data["source_public_key"]
-            del data["source_public_key"]
-
-        return data
+    requests_hash: Optional[Hash32] = None
+    requests: Optional[Bytes] = None
 
     def to_json(self) -> Any:
         """Encode the result to JSON"""
@@ -361,9 +337,6 @@ class Result:
         if self.blob_gas_used is not None:
             data["blobGasUsed"] = hex(self.blob_gas_used)
 
-        if self.requests_root:
-            data["requestsRoot"] = "0x" + self.requests_root.hex()
-
         data["rejected"] = [
             {"index": idx, "error": error}
             for idx, error in self.rejected.items()
@@ -377,14 +350,10 @@ class Result:
             for item in self.receipts
         ]
 
-        if self.requests_root:
-            data["requestsRoot"] = "0x" + self.requests_root.hex()
-            data["depositRequests"] = []
-            data["withdrawalRequests"] = []
-            data["consolidationRequests"] = []
+        if self.requests_hash is not None:
             assert self.requests is not None
-            for type, req in self.requests:
-                json_req = self.generic_request_to_json(req)
-                data[type].append(json_req)
+
+            data["requestsHash"] = encode_to_hex(self.requests_hash)
+            data["requests"] = [encode_to_hex(req) for req in self.requests]
 
         return data

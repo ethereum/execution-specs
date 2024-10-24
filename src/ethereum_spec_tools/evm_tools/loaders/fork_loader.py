@@ -83,6 +83,11 @@ class ForkLoad:
         return self._module("fork").HISTORY_SERVE_WINDOW
 
     @property
+    def process_general_purpose_requests(self) -> Any:
+        """process_general_purpose_requests function of the given fork."""
+        return self._module("fork").process_general_purpose_requests
+
+    @property
     def process_system_transaction(self) -> Any:
         """process_system_transaction function of the given fork."""
         return self._module("fork").process_system_transaction
@@ -173,43 +178,14 @@ class ForkLoad:
         return self._module("blocks").Block
 
     @property
-    def DepositRequest(self) -> Any:
-        """Deposit request of the fork"""
-        return self._module("requests").DepositRequest
-
-    @property
-    def WithdrawalRequest(self) -> Any:
-        """Withdrawal request of the fork"""
-        return self._module("requests").WithdrawalRequest
-
-    @property
-    def ConsolidationRequest(self) -> Any:
-        """Consolidation request of the fork"""
-        return self._module("requests").ConsolidationRequest
-
-    @property
-    def decode_request(self) -> Any:
-        """decode_request function of the fork"""
-        return self._module("requests").decode_request
-
-    @property
-    def parse_withdrawal_requests_from_system_tx(self) -> Any:
-        """parse_withdrawal_requests_from_system_tx function of the fork"""
-        return self._module(
-            "requests"
-        ).parse_withdrawal_requests_from_system_tx
-
-    @property
     def parse_deposit_requests_from_receipt(self) -> Any:
         """parse_deposit_requests_from_receipt function of the fork"""
         return self._module("requests").parse_deposit_requests_from_receipt
 
     @property
-    def parse_consolidation_requests_from_system_tx(self) -> Any:
-        """parse_deposit_requests_from_receipt function of the fork"""
-        return self._module(
-            "requests"
-        ).parse_consolidation_requests_from_system_tx
+    def compute_requests_hash(self) -> Any:
+        """compute_requests_hash function of the fork"""
+        return self._module("requests").compute_requests_hash
 
     @property
     def Bloom(self) -> Any:

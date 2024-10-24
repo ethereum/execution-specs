@@ -12,6 +12,7 @@ from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes32,
     hex_to_hash,
+    hex_to_u8,
     hex_to_u64,
     hex_to_u256,
     hex_to_uint,
@@ -91,10 +92,10 @@ class TransactionLoad:
         for sublist in self.raw["authorizationList"]:
             authorizations.append(
                 self.fork.Authorization(
-                    chain_id=hex_to_u256(sublist.get("chainId")),
+                    chain_id=hex_to_u64(sublist.get("chainId")),
                     nonce=hex_to_u64(sublist.get("nonce")),
                     address=self.fork.hex_to_address(sublist.get("address")),
-                    y_parity=hex_to_u256(sublist.get("v")),
+                    y_parity=hex_to_u8(sublist.get("v")),
                     r=hex_to_u256(sublist.get("r")),
                     s=hex_to_u256(sublist.get("s")),
                 )

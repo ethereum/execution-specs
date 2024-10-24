@@ -3,7 +3,7 @@ Set EOA account code.
 """
 
 
-from typing import Tuple
+from typing import Optional, Tuple
 
 from ethereum import rlp
 from ethereum.base_types import U64, U256, Bytes, Uint
@@ -14,6 +14,7 @@ from ethereum.exceptions import InvalidBlock
 
 from ..fork_types import Address, Authorization
 from ..state import account_exists, get_account, increment_nonce, set_code
+from ..utils.hexadecimal import hex_to_address
 from ..vm.gas import GAS_COLD_ACCOUNT_ACCESS, GAS_WARM_ACCESS
 from . import Environment, Evm, Message
 
@@ -22,7 +23,8 @@ EOA_DELEGATION_MARKER = b"\xEF\x01\x00"
 EOA_DELEGATION_MARKER_LENGTH = len(EOA_DELEGATION_MARKER)
 EOA_DELEGATED_CODE_LENGTH = 23
 PER_EMPTY_ACCOUNT_COST = 25000
-PER_AUTH_BASE_COST = 2500
+PER_AUTH_BASE_COST = 12500
+NULL_ADDRESS = hex_to_address("0x0000000000000000000000000000000000000000")
 
 
 def is_valid_delegation(code: bytes) -> bool:
@@ -46,6 +48,25 @@ def is_valid_delegation(code: bytes) -> bool:
     ):
         return True
     return False
+
+
+def get_delegated_code_address(code: bytes) -> Optional[Address]:
+    """
+    Get the address to which the code delegates.
+
+    Parameters
+    ----------
+    code: `bytes`
+        The code to get the address from.
+
+    Returns
+    -------
+    address : `Optional[Address]`
+        The address of the delegated code.
+    """
+    if is_valid_delegation(code):
+        return Address(code[EOA_DELEGATION_MARKER_LENGTH:])
+    return None
 
 
 def recover_authority(authorization: Authorization) -> Address:
@@ -86,7 +107,7 @@ def recover_authority(authorization: Authorization) -> Address:
         )
     )
 
-    public_key = secp256k1_recover(r, s, y_parity, signing_hash)
+    public_key = secp256k1_recover(r, s, U256(y_parity), signing_hash)
     return Address(keccak256(public_key)[12:32])
 
 
@@ -144,6 +165,9 @@ def set_delegation(message: Message, env: Environment) -> U256:
         if auth.chain_id not in (env.chain_id, U64(0)):
             continue
 
+        if auth.nonce >= U64.MAX_VALUE:
+            continue
+
         try:
             authority = recover_authority(auth)
         except InvalidSignature:
@@ -166,7 +190,10 @@ def set_delegation(message: Message, env: Environment) -> U256:
         if account_exists(env.state, authority):
             refund_counter += PER_EMPTY_ACCOUNT_COST - PER_AUTH_BASE_COST
 
-        code_to_set = EOA_DELEGATION_MARKER + auth.address
+        if auth.address == NULL_ADDRESS:
+            code_to_set = b""
+        else:
+            code_to_set = EOA_DELEGATION_MARKER + auth.address
         set_code(env.state, authority, code_to_set)
 
         increment_nonce(env.state, authority)
