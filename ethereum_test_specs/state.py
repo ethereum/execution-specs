@@ -9,6 +9,7 @@ import pytest
 
 from ethereum_clis import TransitionTool
 from ethereum_test_exceptions import EngineAPIError
+from ethereum_test_execution import BaseExecute, ExecuteFormat, TransactionPost
 from ethereum_test_fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
@@ -51,6 +52,9 @@ class StateTest(BaseTest):
         BlockchainFixture,
         BlockchainEngineFixture,
         StateFixture,
+    ]
+    supported_execute_formats: ClassVar[List[ExecuteFormat]] = [
+        TransactionPost,
     ]
 
     def _generate_blockchain_genesis_environment(self) -> Environment:
@@ -196,6 +200,23 @@ class StateTest(BaseTest):
             return self.make_state_test_fixture(t8n, fork, eips)
 
         raise Exception(f"Unknown fixture format: {fixture_format}")
+
+    def execute(
+        self,
+        *,
+        fork: Fork,
+        execute_format: ExecuteFormat,
+        eips: Optional[List[int]] = None,
+    ) -> BaseExecute:
+        """
+        Generate the list of test fixtures.
+        """
+        if execute_format == TransactionPost:
+            return TransactionPost(
+                transactions=[self.tx],
+                post=self.post,
+            )
+        raise Exception(f"Unsupported execute format: {execute_format}")
 
 
 class StateTestOnly(StateTest):

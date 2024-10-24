@@ -100,7 +100,18 @@ def simulator(request):  # noqa: D103
     return request.config.hive_simulator
 
 
-@pytest.fixture(scope="module")
+def get_test_suite_scope(fixture_name, config: pytest.Config):
+    """
+    Return the appropriate scope of the test suite.
+
+    See: https://docs.pytest.org/en/stable/how-to/fixtures.html#dynamic-scope
+    """
+    if hasattr(config, "test_suite_scope"):
+        return config.test_suite_scope
+    return "module"
+
+
+@pytest.fixture(scope=get_test_suite_scope)
 def test_suite(
     simulator: Simulation,
     session_temp_folder: Path,
@@ -158,16 +169,16 @@ def hive_test(request, test_suite: HiveTestSuite):
     Propagate the pytest test case and its result to the hive server.
     """
     try:
-        fixture_description = request.getfixturevalue("fixture_description")
+        test_case_description = request.getfixturevalue("test_case_description")
     except pytest.FixtureLookupError:
         pytest.exit(
-            "Error: The 'fixture_description' fixture has not been defined by the simulator "
+            "Error: The 'test_case_description' fixture has not been defined by the simulator "
             "or pytest plugin using this plugin!"
         )
     test_parameter_string = request.node.name  # consume pytest test id
     test: HiveTest = test_suite.start_test(
         name=test_parameter_string,
-        description=fixture_description,
+        description=test_case_description,
     )
     yield test
     try:

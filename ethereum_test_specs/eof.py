@@ -15,6 +15,7 @@ from pydantic import Field, model_validator
 from ethereum_clis import EvmoneExceptionMapper, TransitionTool
 from ethereum_test_base_types import Account, Bytes
 from ethereum_test_exceptions.exceptions import EOFExceptionInstanceOrList, to_pipe_str
+from ethereum_test_execution import BaseExecute, ExecuteFormat, TransactionPost
 from ethereum_test_fixtures import (
     BaseFixture,
     BlockchainEngineFixture,
@@ -289,6 +290,8 @@ class EOFTest(BaseTest):
 
         raise Exception(f"Unknown fixture format: {fixture_format}")
 
+    # TODO: Implement execute method for EOF tests
+
 
 EOFTestSpec = Callable[[str], Generator[EOFTest, None, None]]
 EOFTestFiller = Type[EOFTest]
@@ -400,6 +403,22 @@ class EOFStateTest(EOFTest):
             )
 
         raise Exception(f"Unknown fixture format: {fixture_format}")
+
+    def execute(
+        self,
+        *,
+        fork: Fork,
+        execute_format: ExecuteFormat,
+        eips: Optional[List[int]] = None,
+    ) -> BaseExecute:
+        """
+        Generate the list of test fixtures.
+        """
+        if execute_format == TransactionPost:
+            return self.generate_state_test().execute(
+                fork=fork, execute_format=execute_format, eips=eips
+            )
+        raise Exception(f"Unsupported execute format: {execute_format}")
 
 
 EOFStateTestSpec = Callable[[str], Generator[EOFStateTest, None, None]]

@@ -2,7 +2,7 @@
 Common functions for CLI pytest-based entry points.
 """
 
-from typing import Any, Callable, List
+from typing import Any, Callable, Dict, List
 
 import click
 
@@ -38,6 +38,31 @@ def common_click_options(func: Callable[..., Any]) -> Decorator:
     return click.argument("pytest_args", nargs=-1, type=click.UNPROCESSED)(func)
 
 
+REQUIRED_FLAGS: Dict[str, List] = {
+    "fill": [],
+    "consume": [],
+    "execute": [
+        "--rpc-endpoint",
+        "x",
+        "--rpc-seed-key",
+        "x",
+        "--rpc-chain-id",
+        "1",
+    ],
+    "execute-hive": [],
+    "execute-recover": [
+        "--rpc-endpoint",
+        "x",
+        "--rpc-chain-id",
+        "1",
+        "--start-eoa-index",
+        "1",
+        "--destination",
+        "0x1234567890123456789012345678901234567890",
+    ],
+}
+
+
 def handle_help_flags(pytest_args: List[str], pytest_type: str) -> List[str]:
     """
     Modifies the help arguments passed to the click CLI command before forwarding to
@@ -49,7 +74,11 @@ def handle_help_flags(pytest_args: List[str], pytest_type: str) -> List[str]:
     ctx = click.get_current_context()
 
     if ctx.params.get("help_flag"):
-        return [f"--{pytest_type}-help"] if pytest_type in {"consume", "fill"} else pytest_args
+        return (
+            [f"--{pytest_type}-help", *REQUIRED_FLAGS[pytest_type]]
+            if pytest_type in {"consume", "fill", "execute", "execute-hive", "execute-recover"}
+            else pytest_args
+        )
     elif ctx.params.get("pytest_help_flag"):
         return ["--help"]
 

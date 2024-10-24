@@ -28,6 +28,27 @@ def pytest_addoption(parser):
         default=False,
         help="Show help options specific to the consume command and exit.",
     )
+    help_group.addoption(
+        "--execute-help",
+        action="store_true",
+        dest="show_execute_help",
+        default=False,
+        help="Show help options specific to the execute's command remote and exit.",
+    )
+    help_group.addoption(
+        "--execute-hive-help",
+        action="store_true",
+        dest="show_execute_hive_help",
+        default=False,
+        help="Show help options specific to the execute's command hive and exit.",
+    )
+    help_group.addoption(
+        "--execute-recover-help",
+        action="store_true",
+        dest="show_execute_recover_help",
+        default=False,
+        help="Show help options specific to the execute's command recover and exit.",
+    )
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -45,11 +66,51 @@ def pytest_configure(config):
                 "fork range",
                 "filler location",
                 "defining debug",
-                "pre-allocation behavior",
+                "pre-allocation behavior during test filling",
             ],
         )
     elif config.getoption("show_consume_help"):
-        show_specific_help(config, "pytest-consume.ini", ["consuming"])
+        show_specific_help(
+            config,
+            "pytest-consume.ini",
+            [
+                "consuming",
+            ],
+        )
+    elif config.getoption("show_execute_help"):
+        show_specific_help(
+            config,
+            "pytest-execute.ini",
+            [
+                "execute",
+                "remote RPC configuration",
+                "pre-allocation behavior during test execution",
+                "sender key fixtures",
+                "remote seed sender",
+            ],
+        )
+    elif config.getoption("show_execute_hive_help"):
+        show_specific_help(
+            config,
+            "pytest-execute-hive.ini",
+            [
+                "execute",
+                "hive RPC client",
+                "pre-allocation behavior during test execution",
+                "sender key fixtures",
+                "remote seed sender",
+            ],
+        )
+    elif config.getoption("show_execute_recover_help"):
+        show_specific_help(
+            config,
+            "pytest-execute-recover.ini",
+            [
+                "fund recovery",
+                "remote RPC configuration",
+                "remote seed sender",
+            ],
+        )
 
 
 def show_specific_help(config, expected_ini, substrings):
@@ -58,7 +119,9 @@ def show_specific_help(config, expected_ini, substrings):
     """
     pytest_ini = Path(config.inifile)
     if pytest_ini.name != expected_ini:
-        raise ValueError(f"Unexpected {expected_ini} file option generating help.")
+        raise ValueError(
+            f"Unexpected {expected_ini}!={pytest_ini.name} file option generating help."
+        )
 
     test_parser = argparse.ArgumentParser()
     for group in config._parser.optparser._action_groups:

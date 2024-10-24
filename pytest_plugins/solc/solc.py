@@ -101,3 +101,12 @@ def solc_bin(request: pytest.FixtureRequest):
     Returns the configured solc binary path.
     """
     return request.config.getoption("solc_bin")
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_report_header(config, start_path):
+    """Add lines to pytest's console output header"""
+    if config.option.collectonly:
+        return
+    solc_version = config.stash[metadata_key]["Tools"]["solc"]
+    return [(f"solc: {solc_version}")]

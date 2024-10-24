@@ -182,9 +182,7 @@ class EthRPC(BaseRPC):
         `eth_sendRawTransaction`: Send a transaction to the client.
         """
         try:
-            result_hash = Hash(
-                self.post_request("sendRawTransaction", f"0x{transaction.rlp.hex()}")
-            )
+            result_hash = Hash(self.post_request("sendRawTransaction", f"{transaction.rlp.hex()}"))
             assert result_hash == transaction.hash
             assert result_hash is not None
             return transaction.hash

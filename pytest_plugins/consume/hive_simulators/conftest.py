@@ -79,7 +79,7 @@ def eest_consume_commands(
 
 
 @pytest.fixture(scope="function")
-def fixture_description(
+def test_case_description(
     blockchain_fixture: BlockchainFixtureCommon,
     test_case: TestCaseIndexFile | TestCaseStream,
     hive_consume_command: str,
