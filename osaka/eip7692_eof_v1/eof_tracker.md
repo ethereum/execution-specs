@@ -81,10 +81,10 @@
 
 ### Execution
 
-- [ ] Execution of EOF contracts (ethereum/tests: src/EIPTestsFiller/StateTests/stEOF/stEIP3540/EOF1_ExecutionFiller.yml)
-- [ ] Legacy executing EXTCODESIZE of EOF contract (ethereum/tests: src/EIPTestsFiller/StateTests/stEOF/stEIP3540/EOF1_ExecutionFiller.yml)
-- [ ] Legacy executing EXTCODEHASH of EOF contract (ethereum/tests: src/EIPTestsFiller/StateTests/stEOF/stEIP3540/EOF1_ExecutionFiller.yml)
-- [ ] Legacy executing EXTCODECOPY of EOF contract (ethereum/tests: src/EIPTestsFiller/StateTests/stEOF/stEIP3540/EOF1_ExecutionFiller.yml)
+- [x] Execution of EOF contracts ([`tests/osaka/eip7692_eof_v1/eip3540_eof_v1/test_execution.py::test_eof_execution`](./eip3540_eof_v1/test_execution/test_eof_execution.md))
+- [x] Legacy executing EXTCODESIZE of EOF contract ([`tests/osaka/eip7692_eof_v1/eip3540_eof_v1/test_extcode.py::test_legacy_calls_eof_sstore`](./eip3540_eof_v1/test_extcode/test_legacy_calls_eof_sstore.md))
+- [x] Legacy executing EXTCODEHASH of EOF contract ([`tests/osaka/eip7692_eof_v1/eip3540_eof_v1/test_extcode.py::test_legacy_calls_eof_sstore`](./eip3540_eof_v1/test_extcode/test_legacy_calls_eof_sstore.md))
+- [x] Legacy executing EXTCODECOPY of EOF contract ([`tests/osaka/eip7692_eof_v1/eip3540_eof_v1/test_extcode.py::test_legacy_calls_eof_sstore`](./eip3540_eof_v1/test_extcode/test_legacy_calls_eof_sstore.md))
 - [ ] `*CALLs` from legacy contracts to EOF contracts (ethereum/tests: src/EIPTestsFiller/StateTests/stEOF/stEIP3540/EOF1_CallsFiller.yml)
 - [ ] `EXT*CALLs` from EOF to legacy contracts (ethereum/tests: src/EIPTestsFiller/StateTests/stEOF/stEIP3540/EOF1_CallsFiller.yml)
 - [ ] EXTDELEGATECALL from EOF to EOF contract (ethereum/tests: src/EIPTestsFiller/StateTests/stEOF/stEIP3540/EOF1_CallsFiller.yml)
