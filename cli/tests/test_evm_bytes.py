@@ -16,6 +16,19 @@ complex_vector = [
     "0x7fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf5f527fc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf6020527fe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff60405260786040356020355f35608a565b5f515f55602051600155604051600255005b5e56",  # noqa: E501
     "Op.PUSH32[0xa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf] + Op.PUSH0 + Op.MSTORE + Op.PUSH32[0xc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedf] + Op.PUSH1[0x20] + Op.MSTORE + Op.PUSH32[0xe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff] + Op.PUSH1[0x40] + Op.MSTORE + Op.PUSH1[0x78] + Op.PUSH1[0x40] + Op.CALLDATALOAD + Op.PUSH1[0x20] + Op.CALLDATALOAD + Op.PUSH0 + Op.CALLDATALOAD + Op.PUSH1[0x8a] + Op.JUMP + Op.JUMPDEST + Op.PUSH0 + Op.MLOAD + Op.PUSH0 + Op.SSTORE + Op.PUSH1[0x20] + Op.MLOAD + Op.PUSH1[0x1] + Op.SSTORE + Op.PUSH1[0x40] + Op.MLOAD + Op.PUSH1[0x2] + Op.SSTORE + Op.STOP + Op.JUMPDEST + Op.MCOPY + Op.JUMP",  # noqa: E501
 ]
+rjump_vector = [
+    "0xe0fffe",
+    "Op.RJUMP[-0x2]",
+]
+rjumpi_vector = [
+    "0xe1fffe",
+    "Op.RJUMPI[-0x2]",
+]
+rjumpv_vector = [
+    "0xe213b1465aef60276095472e3250cf64736f6c63430008150033a26469706673582212206eab0a7969fe",
+    "Op.RJUMPV[-0x4eba, 0x5aef, 0x6027, 0x6095, 0x472e, 0x3250, -0x309c, 0x736f, 0x6c63, 0x4300,"
+    + " 0x815, 0x33, -0x5d9c, 0x6970, 0x6673, 0x5822, 0x1220, 0x6eab, 0xa79, 0x69fe]",
+]
 
 
 @pytest.mark.parametrize(
@@ -25,6 +38,12 @@ complex_vector = [
         (basic_vector[0][2:], basic_vector[1]),  # no "0x" prefix
         (complex_vector[0], complex_vector[1]),
         (complex_vector[0][2:], complex_vector[1]),  # no "0x" prefix
+        (rjump_vector[0], rjump_vector[1]),
+        (rjump_vector[0][2:], rjump_vector[1]),  # no "0x" prefix
+        (rjumpi_vector[0], rjumpi_vector[1]),
+        (rjumpi_vector[0][2:], rjumpi_vector[1]),  # no "0x" prefix
+        (rjumpv_vector[0], rjumpv_vector[1]),
+        (rjumpv_vector[0][2:], rjumpv_vector[1]),  # no "0x" prefix
     ],
 )
 def test_evm_bytes(evm_bytes: str, python_opcodes: str):

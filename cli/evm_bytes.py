@@ -10,6 +10,7 @@ import click
 from ethereum_test_base_types import ZeroPaddedHexNumber
 from ethereum_test_vm import Macro
 from ethereum_test_vm import Opcodes as Op
+from ethereum_test_vm.bytecode import Bytecode
 
 OPCODES_WITH_EMPTY_LINES_AFTER = {
     Op.STOP,
@@ -56,8 +57,22 @@ class OpcodeWithOperands:
             operands = ", ".join(str(ZeroPaddedHexNumber(operand)) for operand in self.operands)
             return f"{opcode_name} {operands}"
 
+    @property
+    def terminating(self) -> bool:
+        """Whether the opcode is terminating or not"""
+        return self.opcode.terminating if self.opcode else False
 
-def process_evm_bytes(evm_bytes: bytes, assembly: bool = False) -> str:  # noqa: D103
+    @property
+    def bytecode(self) -> Bytecode:
+        """Opcode as bytecode with its operands if any."""
+        # opcode.opcode[*opcode.operands] crashes `black` formatter and doesn't work.
+        if self.opcode:
+            return self.opcode.__getitem__(*self.operands) if self.operands else self.opcode
+        else:
+            return Bytecode()
+
+
+def process_evm_bytes(evm_bytes: bytes) -> List[OpcodeWithOperands]:  # noqa: D103
     evm_bytes = bytearray(evm_bytes)
 
     opcodes: List[OpcodeWithOperands] = []
@@ -74,23 +89,35 @@ def process_evm_bytes(evm_bytes: bytes, assembly: bool = False) -> str:  # noqa:
             raise ValueError(f"Unknown opcode: {opcode_byte}")
 
         if opcode.data_portion_length > 0:
+            signed = opcode in [Op.RJUMP, Op.RJUMPI]
             opcodes.append(
                 OpcodeWithOperands(
                     opcode=opcode,
-                    operands=[int.from_bytes(evm_bytes[: opcode.data_portion_length], "big")],
+                    operands=[
+                        int.from_bytes(
+                            evm_bytes[: opcode.data_portion_length], "big", signed=signed
+                        )
+                    ],
                 )
             )
             evm_bytes = evm_bytes[opcode.data_portion_length :]
         elif opcode == Op.RJUMPV:
-            max_index = evm_bytes.pop(0)
-            operands: List[int] = []
-            for _ in range(max_index + 1):
-                operands.append(int.from_bytes(evm_bytes[:2], "big"))
-                evm_bytes = evm_bytes[2:]
-            opcodes.append(OpcodeWithOperands(opcode=opcode, operands=operands))
+            if len(evm_bytes) == 0:
+                opcodes.append(OpcodeWithOperands(opcode=opcode))
+            else:
+                max_index = evm_bytes.pop(0)
+                operands: List[int] = []
+                for _ in range(max_index + 1):
+                    operands.append(int.from_bytes(evm_bytes[:2], "big", signed=True))
+                    evm_bytes = evm_bytes[2:]
+                opcodes.append(OpcodeWithOperands(opcode=opcode, operands=operands))
         else:
             opcodes.append(OpcodeWithOperands(opcode=opcode))
 
+    return opcodes
+
+
+def format_opcodes(opcodes: List[OpcodeWithOperands], assembly: bool = False) -> str:  # noqa: D103
     if assembly:
         opcodes_with_empty_lines: List[OpcodeWithOperands] = []
         for i, op_with_operands in enumerate(opcodes):
@@ -113,7 +140,7 @@ def process_evm_bytes_string(evm_bytes_hex_string: str, assembly: bool = False) 
         evm_bytes_hex_string = evm_bytes_hex_string[2:]
 
     evm_bytes = bytes.fromhex(evm_bytes_hex_string)
-    return process_evm_bytes(evm_bytes, assembly=assembly)
+    return format_opcodes(process_evm_bytes(evm_bytes), assembly=assembly)
 
 
 assembly_option = click.option(
@@ -208,5 +235,7 @@ def binary_file(binary_file_path, assembly: bool):
         ...
         ```
     """  # noqa: E501
-    processed_output = process_evm_bytes(binary_file_path.read(), assembly=assembly)
+    processed_output = format_opcodes(
+        process_evm_bytes(binary_file_path.read()), assembly=assembly
+    )
     click.echo(processed_output)
