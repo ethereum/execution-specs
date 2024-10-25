@@ -10,7 +10,7 @@ from ethereum_test_tools.eof.v1.constants import NON_RETURNING_SECTION
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
 from .. import EOF_FORK_NAME
-from .helpers import slot_code_worked, value_code_worked
+from .helpers import slot_code_worked, slot_stack_canary, value_canary_written, value_code_worked
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-6206.md"
 REFERENCE_SPEC_VERSION = "2f365ea0cd58faa6e26013ea77ce6d538175f7d0"
@@ -235,39 +235,66 @@ def test_jumpf_stack_size_1024_at_push(
     )
 
 
+@pytest.mark.parametrize(
+    ("stack_height", "failure"),
+    (
+        pytest.param(1021, False, id="no_overflow"),
+        pytest.param(1022, True, id="rule_overflow"),
+        pytest.param(1023, True, id="execution_overflow"),
+    ),
+)
 def test_jumpf_stack_overflow(
+    stack_height: int,
+    failure: bool,
     eof_state_test: EOFStateTestFiller,
 ):
-    """Test stack overflowing 1024 items in JUMPF target function"""
+    """
+    Test rule #2 in execution semantics, where we make sure we have enough stack to guarantee
+    safe execution (the "reserved stack rule") max possible stack will not exceed 1024. But some
+    executions may not overflow the stack, so we need to ensure the rule is checked.
+
+    `no_overflow` - the stack does not overflow at JUMPF call, executes to end
+    `rule_overflow` - reserved stack rule triggers, but execution would not overflow if allowed
+    `execution_overflow` - execution would overflow (but still blocked by reserved stack rule)
+    """
     eof_state_test(
         data=Container(
             sections=[
                 Section.Code(
-                    code=Op.PUSH0 * 1023
+                    code=Op.PUSH0 * stack_height
                     + Op.CALLF[1]
-                    + Op.POP * 1023
+                    + Op.POP * stack_height
                     + Op.SSTORE(slot_code_worked, value_code_worked)
                     + Op.RETURN(0, 0),
-                    max_stack_height=1023,
+                    max_stack_height=stack_height,
                 ),
                 Section.Code(
-                    # Stack has 1023 items
+                    # Stack has stack_height items
                     Op.JUMPF[2],
                     code_inputs=0,
                     code_outputs=0,
                     max_stack_height=0,
                 ),
                 Section.Code(
-                    Op.PUSH0 + Op.PUSH0 +
-                    # Runtime stack overflow
-                    Op.POP + Op.POP + Op.RETF,
+                    Op.CALLDATALOAD(0)
+                    + Op.ISZERO
+                    + Op.RJUMPI[6]
+                    + Op.PUSH0 * 3
+                    + Op.POP * 3
+                    + Op.SSTORE(slot_stack_canary, value_canary_written)
+                    + Op.RETF,
                     code_inputs=0,
                     code_outputs=0,
-                    max_stack_height=2,
+                    max_stack_height=3,
                 ),
             ],
         ),
-        container_post=Account(storage={slot_code_worked: 0}),
+        container_post=Account(
+            storage={
+                slot_code_worked: 0 if failure else value_code_worked,
+                slot_stack_canary: 0 if failure else value_canary_written,
+            }
+        ),
     )
 
 
