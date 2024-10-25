@@ -20,6 +20,23 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 RJUMP_LEN = len(Op.RJUMP[0])
 
 
+def test_rjump_negative(
+    eof_state_test: EOFStateTestFiller,
+):
+    """Test for a forward RJUMPI and backward RJUMP"""
+    eof_state_test(
+        data=Container.Code(
+            Op.PUSH1[1]
+            + Op.RJUMPI[7]  # RJUMP cannot be used because of the backward jump restriction
+            + Op.SSTORE(slot_code_worked, Op.MLOAD(0))
+            + Op.STOP
+            + Op.MSTORE(0, value_code_worked)
+            + Op.RJUMP[-16]
+        ),
+        container_post=Account(storage={slot_code_worked: value_code_worked}),
+    )
+
+
 def test_rjump_positive_negative(
     eof_state_test: EOFStateTestFiller,
 ):
