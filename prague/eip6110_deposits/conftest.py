@@ -5,7 +5,8 @@ from typing import List
 
 import pytest
 
-from ethereum_test_tools import Alloc, Block, BlockException, Header, Transaction
+from ethereum_test_forks import Fork
+from ethereum_test_tools import Alloc, Block, BlockException, Header, Requests, Transaction
 
 from .helpers import DepositInteractionBase, DepositRequest
 
@@ -61,6 +62,7 @@ def included_requests(
 
 @pytest.fixture
 def blocks(
+    fork: Fork,
     included_requests: List[DepositRequest],
     block_body_override_requests: List[DepositRequest] | None,
     txs: List[Transaction],
@@ -71,9 +73,17 @@ def blocks(
         Block(
             txs=txs,
             header_verify=Header(
-                requests_root=included_requests,
+                requests_hash=Requests(
+                    *included_requests,
+                    max_request_type=fork.max_request_type(block_number=1, timestamp=1),
+                ),
             ),
-            requests=block_body_override_requests,
+            requests=Requests(
+                *block_body_override_requests,
+                max_request_type=fork.max_request_type(block_number=1, timestamp=1),
+            ).requests_list
+            if block_body_override_requests is not None
+            else None,
             exception=exception,
         )
     ]

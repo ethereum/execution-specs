@@ -9,10 +9,12 @@ from typing import Any, Generator, List
 
 import pytest
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,
     Alloc,
     Block,
+    BlockchainTestEngineFiller,
     BlockchainTestFiller,
     BlockException,
     Bytecode,
@@ -20,7 +22,7 @@ from ethereum_test_tools import (
     Header,
 )
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Storage, TestAddress, TestAddress2, Transaction
+from ethereum_test_tools import Requests, Storage, TestAddress, Transaction
 
 from ..eip6110_deposits.helpers import DepositContract, DepositRequest, DepositTransaction
 from ..eip6110_deposits.spec import Spec as Spec_EIP6110
@@ -238,6 +240,7 @@ def test_valid_deposit_withdrawal_consolidation_request_from_same_tx(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
     requests: List[DepositRequest | WithdrawalRequest | ConsolidationRequest],
+    fork: Fork,
 ):
     """
     Test making a deposit to the beacon chain deposit contract and a withdrawal in the same tx.
@@ -306,59 +309,161 @@ def test_valid_deposit_withdrawal_consolidation_request_from_same_tx(
             Block(
                 txs=[tx],
                 header_verify=Header(
-                    requests_root=[
-                        request.with_source_address(contract_address)
-                        for request in sorted(requests, key=lambda r: r.type_byte())
-                    ]
+                    requests_hash=Requests(
+                        *[
+                            request.with_source_address(contract_address)
+                            for request in sorted(requests, key=lambda r: r.type)
+                        ],
+                        max_request_type=fork.max_request_type(block_number=1, timestamp=1),
+                    )
                 ),
             )
         ],
     )
 
 
+invalid_requests_block_combinations = [
+    pytest.param(
+        [],
+        [],  # Even with no requests, the requests hash is not sha256(b""),
+        # but sha256(sha256(b"\0") ++ sha256(b"\1") ++ sha256(b"\2") ++ ...)
+        BlockException.INVALID_REQUESTS,
+        id="no_requests_empty_list",
+    ),
+    pytest.param(
+        [
+            single_deposit_from_eoa(0),
+        ],
+        [
+            single_deposit(0),
+        ],
+        BlockException.INVALID_REQUESTS,
+        id="single_deposit_incomplete_requests_list",
+    ),
+    pytest.param(
+        [
+            single_deposit_from_eoa(0),
+        ],
+        [],
+        BlockException.INVALID_REQUESTS,
+        id="single_deposit_empty_requests_list",
+    ),
+    # Incorrect order tests
+    pytest.param(
+        [
+            single_deposit_from_eoa(0),
+        ],
+        [
+            b"",
+            single_deposit(0),
+            b"",
+        ],
+        BlockException.INVALID_REQUESTS,
+        id="single_deposit_incorrect_order_1",
+    ),
+    pytest.param(
+        [
+            single_deposit_from_eoa(0),
+        ],
+        [
+            b"",
+            b"",
+            single_deposit(0),
+        ],
+        BlockException.INVALID_REQUESTS,
+        id="single_deposit_incorrect_order_2",
+    ),
+    pytest.param(
+        [
+            single_withdrawal_from_eoa(0),
+        ],
+        [
+            single_withdrawal(0).with_source_address(TestAddress),
+            b"",
+            b"",
+        ],
+        BlockException.INVALID_REQUESTS,
+        id="single_withdrawal_incorrect_order_1",
+    ),
+    pytest.param(
+        [
+            single_withdrawal_from_eoa(0),
+        ],
+        [
+            b"",
+            b"",
+            single_withdrawal(0).with_source_address(TestAddress),
+        ],
+        BlockException.INVALID_REQUESTS,
+        id="single_withdrawal_incorrect_order_2",
+    ),
+    pytest.param(
+        [
+            single_consolidation_from_eoa(0),
+        ],
+        [
+            single_consolidation(0).with_source_address(TestAddress),
+            b"",
+            b"",
+        ],
+        BlockException.INVALID_REQUESTS,
+        id="single_consolidation_incorrect_order_1",
+    ),
+    pytest.param(
+        [
+            single_consolidation_from_eoa(0),
+        ],
+        [
+            b"",
+            single_consolidation(0).with_source_address(TestAddress),
+            b"",
+        ],
+        BlockException.INVALID_REQUESTS,
+        id="single_consolidation_incorrect_order_2",
+    ),
+    pytest.param(
+        [
+            single_deposit_from_eoa(0),
+            single_withdrawal_from_eoa(0),
+        ],
+        [
+            single_deposit(0),
+            single_withdrawal(0).with_source_address(TestAddress),
+        ],
+        BlockException.INVALID_REQUESTS,
+        id="single_deposit_single_withdrawal_incomplete_requests_list",
+    ),
+    pytest.param(
+        [
+            single_deposit_from_eoa(0),
+            single_withdrawal_from_eoa(0),
+        ],
+        [
+            single_deposit(0),
+        ],
+        BlockException.INVALID_REQUESTS,
+        id="single_deposit_single_withdrawal_incomplete_requests_list_2",
+    ),
+    pytest.param(
+        [
+            single_deposit_from_eoa(0),
+            single_withdrawal_from_eoa(0),
+            single_consolidation_from_eoa(0),
+        ],
+        [
+            single_deposit(0),
+            single_withdrawal(0).with_source_address(TestAddress),
+        ],
+        BlockException.INVALID_REQUESTS,
+        id="single_deposit_single_withdrawal_single_consolidation_incomplete_requests_list",
+    ),
+]
+
+
 @pytest.mark.parametrize(
     "requests,block_body_override_requests,exception",
-    [
-        pytest.param(
-            [
-                single_withdrawal_from_eoa(0),
-                single_deposit_from_eoa(0),
-            ],
-            [
-                single_withdrawal(0).with_source_address(TestAddress),
-                single_deposit(0),
-            ],
-            # TODO: on the Engine API, the issue should be detected as an invalid block hash
-            BlockException.INVALID_REQUESTS,
-            id="single_withdrawal_single_deposit_incorrect_order",
-        ),
-        pytest.param(
-            [
-                single_consolidation_from_eoa(0),
-                single_deposit_from_eoa(0),
-            ],
-            [
-                single_consolidation(0).with_source_address(TestAddress),
-                single_deposit(0),
-            ],
-            # TODO: on the Engine API, the issue should be detected as an invalid block hash
-            BlockException.INVALID_REQUESTS,
-            id="single_consolidation_single_deposit_incorrect_order",
-        ),
-        pytest.param(
-            [
-                single_consolidation_from_eoa(0),
-                single_withdrawal_from_eoa(0),
-            ],
-            [
-                single_consolidation(0).with_source_address(TestAddress),
-                single_withdrawal(0).with_source_address(TestAddress2),
-            ],
-            # TODO: on the Engine API, the issue should be detected as an invalid block hash
-            BlockException.INVALID_REQUESTS,
-            id="single_consolidation_single_withdrawal_incorrect_order",
-        ),
-    ],
+    invalid_requests_block_combinations,
+    indirect=["block_body_override_requests"],
 )
 def test_invalid_deposit_withdrawal_consolidation_requests(
     blockchain_test: BlockchainTestFiller,
@@ -366,9 +471,45 @@ def test_invalid_deposit_withdrawal_consolidation_requests(
     blocks: List[Block],
 ):
     """
-    Negative testing for deposits and withdrawals in the same block.
+    Negative testing for all request types in the same block.
+
+    In these tests, the requests hash in the header reflects what's received in the parameters
+    portion of the `engine_newPayloadVX` call, so the block hash calculation might pass if
+    a client copies the info received verbatim, but block validation must fail after
+    the block is executed (via RLP or Engine API).
     """
     blockchain_test(
+        genesis_environment=Environment(),
+        pre=pre,
+        post={},
+        blocks=blocks,
+    )
+
+
+@pytest.mark.parametrize(
+    "requests,block_body_override_requests,exception",
+    invalid_requests_block_combinations,
+    indirect=["block_body_override_requests"],
+)
+@pytest.mark.parametrize("correct_requests_hash_in_header", [True])
+def test_invalid_deposit_withdrawal_consolidation_requests_engine(
+    blockchain_test_engine: BlockchainTestEngineFiller,
+    pre: Alloc,
+    blocks: List[Block],
+):
+    """
+    Negative testing for all request types in the same block with incorrect parameters
+    in the Engine API new payload parameters, but with the correct requests hash in the header
+    so the block hash is correct.
+
+    In these tests, the requests hash in the header reflects what's actually in the executed block,
+    so the block might execute properly if the client ignores the requests in the new payload
+    parameters.
+
+    Also these tests would not fail if the block is imported via RLP (syncing from a peer),
+    so we only generate the BlockchainTestEngine for them.
+    """
+    blockchain_test_engine(
         genesis_environment=Environment(),
         pre=pre,
         post={},

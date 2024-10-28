@@ -8,6 +8,7 @@ from typing import List
 
 import pytest
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Address,
     Alloc,
@@ -19,7 +20,7 @@ from ethereum_test_tools import (
     Macros,
 )
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import TestAddress, TestAddress2
+from ethereum_test_tools import Requests, TestAddress, TestAddress2
 
 from .helpers import (
     ConsolidationRequest,
@@ -731,6 +732,7 @@ def test_consolidation_requests(
 )
 def test_consolidation_requests_negative(
     pre: Alloc,
+    fork: Fork,
     blockchain_test: BlockchainTestFiller,
     requests: List[ConsolidationRequestInteractionBase],
     block_body_override_requests: List[ConsolidationRequest],
@@ -758,9 +760,19 @@ def test_consolidation_requests_negative(
             Block(
                 txs=sum((r.transactions() for r in requests), []),
                 header_verify=Header(
-                    requests_root=included_requests,
+                    requests_hash=Requests(
+                        *included_requests,
+                        max_request_type=fork.max_request_type(block_number=1, timestamp=1),
+                    ),
                 ),
-                requests=block_body_override_requests,
+                requests=(
+                    Requests(
+                        *block_body_override_requests,
+                        max_request_type=fork.max_request_type(block_number=1, timestamp=1),
+                    ).requests_list
+                    if block_body_override_requests is not None
+                    else None
+                ),
                 exception=exception,
             )
         ],
