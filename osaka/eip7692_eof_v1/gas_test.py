@@ -38,6 +38,7 @@ def gas_test(
     subject_address: Address | None = None,
     subject_balance: int = 0,
     oog_difference: int = 1,
+    out_of_gas_testing: bool = True,
 ):
     """
     Creates a State Test to check the gas cost of a sequence of EOF code.
@@ -104,27 +105,33 @@ def gas_test(
             + (Op.DUP3 + Op.SWAP1 + Op.SUB + Op.PUSH2(slot_warm_gas) + Op.SSTORE)
             # store cold gas: DUP2 is the gas of the baseline gas run
             + (Op.DUP2 + Op.SWAP1 + Op.SUB + Op.PUSH2(slot_cold_gas) + Op.SSTORE)
-            # oog gas run:
-            # - DUP7 is the gas of the baseline gas run, after other CALL args were pushed
-            # - subtract the gas charged by the harness
-            # - add warm gas charged by the subject
-            # - subtract `oog_difference` to cause OOG exception (1 by default)
-            + Op.SSTORE(
-                slot_oog_call_result,
-                Op.CALL(
-                    gas=Op.ADD(warm_gas - gas_single_gas_run - oog_difference, Op.DUP7),
-                    address=address_subject,
-                ),
+            + (
+                (
+                    # do an oog gas run, unless skipped with `out_of_gas_testing=False`:
+                    # - DUP7 is the gas of the baseline gas run, after other CALL args were pushed
+                    # - subtract the gas charged by the harness
+                    # - add warm gas charged by the subject
+                    # - subtract `oog_difference` to cause OOG exception (1 by default)
+                    Op.SSTORE(
+                        slot_oog_call_result,
+                        Op.CALL(
+                            gas=Op.ADD(warm_gas - gas_single_gas_run - oog_difference, Op.DUP7),
+                            address=address_subject,
+                        ),
+                    )
+                    # sanity gas run: not subtracting 1 to see if enough gas makes the call succeed
+                    + Op.SSTORE(
+                        slot_sanity_call_result,
+                        Op.CALL(
+                            gas=Op.ADD(warm_gas - gas_single_gas_run, Op.DUP7),
+                            address=address_subject,
+                        ),
+                    )
+                    + Op.STOP
+                )
+                if out_of_gas_testing
+                else Op.STOP
             )
-            # sanity gas run: not subtracting 1 to see if enough gas makes the call succeed
-            + Op.SSTORE(
-                slot_sanity_call_result,
-                Op.CALL(
-                    gas=Op.ADD(warm_gas - gas_single_gas_run, Op.DUP7),
-                    address=address_subject,
-                ),
-            )
-            + Op.STOP
         ),
         evm_code_type=EVMCodeType.LEGACY,  # Needs to be legacy to use GAS opcode
     )
@@ -134,11 +141,13 @@ def gas_test(
             storage={
                 slot_warm_gas: warm_gas,
                 slot_cold_gas: cold_gas,
-                slot_oog_call_result: LEGACY_CALL_FAILURE,
-                slot_sanity_call_result: LEGACY_CALL_SUCCESS,
             },
         ),
     }
+
+    if out_of_gas_testing:
+        post[address_legacy_harness].storage[slot_oog_call_result] = LEGACY_CALL_FAILURE
+        post[address_legacy_harness].storage[slot_sanity_call_result] = LEGACY_CALL_SUCCESS
 
     tx = Transaction(to=address_legacy_harness, gas_limit=env.gas_limit, sender=sender)
 

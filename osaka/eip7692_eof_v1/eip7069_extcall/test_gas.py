@@ -140,3 +140,47 @@ def test_ext_calls_gas(
         cold_gas=cold_gas + cost_memory_bytes(mem_expansion_bytes, 0),
         warm_gas=warm_gas + cost_memory_bytes(mem_expansion_bytes, 0),
     )
+
+
+@pytest.mark.parametrize("opcode", [Op.EXTCALL, Op.EXTDELEGATECALL, Op.EXTSTATICCALL])
+@pytest.mark.parametrize("value", [0, 1])
+def test_transfer_gas_is_cleared(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    state_env: Environment,
+    opcode: Op,
+    value: int,
+):
+    """
+    Test that EXT*CALL call doesn't charge for value transfer, even if the outer call
+    transfered value.
+
+    NOTE: This is particularly possible for EXTDELEGATECALL, which carries over the value sent
+    in the outer call, however, we extend the test to all 3 EXT*CALL opcodes for good measure.
+    """
+    noop_callee_address = pre.deploy_contract(Container.Code(Op.STOP))
+
+    extdelegatecall_contract_address = pre.deploy_contract(
+        Container.Code(opcode(address=noop_callee_address) + Op.STOP)
+    )
+
+    push_gas = (4 if opcode == Op.EXTCALL else 3) * 3
+
+    gas_test(
+        state_test,
+        state_env,
+        pre,
+        setup_code=Op.PUSH1(value) + Op.PUSH0 * 2 + Op.PUSH20(extdelegatecall_contract_address),
+        subject_code=Op.EXTCALL,
+        subject_balance=5 * value,
+        tear_down_code=Op.STOP,
+        # NOTE: CALL_WITH_VALUE_GAS is charged only once on the outer EXTCALL, while the base
+        # call gas - twice.
+        cold_gas=2 * COLD_ACCOUNT_ACCESS_GAS
+        + (CALL_WITH_VALUE_GAS if value > 0 else 0)
+        + push_gas,
+        warm_gas=2 * WARM_ACCOUNT_ACCESS_GAS
+        + (CALL_WITH_VALUE_GAS if value > 0 else 0)
+        + push_gas,
+        out_of_gas_testing=False,
+    )
