@@ -1,8 +1,11 @@
 """
 EOF CALLF execution tests
 """
+import math
+
 import pytest
 
+from ethereum_test_base_types import Hash
 from ethereum_test_specs import StateTestFiller
 from ethereum_test_tools import Account, EOFStateTestFiller
 from ethereum_test_tools import Opcodes as Op
@@ -20,6 +23,92 @@ REFERENCE_SPEC_GIT_PATH = "EIPS/eip-4750.md"
 REFERENCE_SPEC_VERSION = "14400434e1199c57d912082127b1d22643788d11"
 
 pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
+
+
+@pytest.mark.parametrize(
+    "n,result",
+    ((0, 1), (1, 1), (5, 120), (57, math.factorial(57)), (58, math.factorial(58) % 2**256)),
+)
+def test_callf_factorial(eof_state_test: EOFStateTestFiller, n, result):
+    """Test factorial implementation with recursive CALLF instructions"""
+    eof_state_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    Op.CALLDATALOAD(0) + Op.SSTORE(0, Op.CALLF[1]) + Op.STOP,
+                    max_stack_height=2,
+                ),
+                Section.Code(
+                    Op.PUSH1[1]
+                    + Op.DUP2
+                    + Op.GT
+                    + Op.RJUMPI[4]
+                    + Op.POP
+                    + Op.PUSH1[1]
+                    + Op.RETF
+                    + Op.PUSH1[1]
+                    + Op.DUP2
+                    + Op.SUB
+                    + Op.CALLF[1]
+                    + Op.DUP2
+                    + Op.MUL
+                    + Op.SWAP1
+                    + Op.POP
+                    + Op.RETF,
+                    code_inputs=1,
+                    code_outputs=1,
+                    max_stack_height=3,
+                ),
+            ]
+        ),
+        tx_data=Hash(n),
+        container_post=Account(storage={0: result}),
+    )
+
+
+@pytest.mark.parametrize(
+    "n,result",
+    ((0, 1), (1, 1), (13, 233), (27, 196418)),
+)
+def test_callf_fibonacci(eof_state_test: EOFStateTestFiller, n, result):
+    """Test fibonacci sequence implementation with recursive CALLF instructions"""
+    eof_state_test(
+        data=Container(
+            sections=[
+                Section.Code(
+                    Op.CALLDATALOAD(0) + Op.SSTORE(0, Op.CALLF[1]) + Op.STOP,
+                    max_stack_height=2,
+                ),
+                Section.Code(
+                    Op.PUSH1[2]
+                    + Op.DUP2
+                    + Op.GT
+                    + Op.RJUMPI[4]
+                    + Op.POP
+                    + Op.PUSH1[1]
+                    + Op.RETF
+                    + Op.PUSH1[2]
+                    + Op.DUP2
+                    + Op.SUB
+                    + Op.CALLF[1]
+                    + Op.PUSH1[1]
+                    + Op.DUP3
+                    + Op.SUB
+                    + Op.CALLF[1]
+                    + Op.ADD
+                    + Op.SWAP1
+                    + Op.POP
+                    + Op.RETF,
+                    code_inputs=1,
+                    code_outputs=1,
+                    max_stack_height=4,
+                ),
+            ]
+        ),
+        tx_gas_limit=15_000_000,
+        tx_data=Hash(n),
+        container_post=Account(storage={0: result}),
+    )
 
 
 @pytest.mark.parametrize(
