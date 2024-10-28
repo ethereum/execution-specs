@@ -229,6 +229,8 @@ def base_pre_genesis(
     if empty_accounts := pre_alloc.empty_accounts():
         raise Exception(f"Empty accounts in pre state: {empty_accounts}")
     state_root = pre_alloc.state_root()
+    block_number = 0
+    timestamp = 1
     genesis = FixtureHeader(
         parent_hash=0,
         ommers_hash=EmptyOmmersRoot,
@@ -238,10 +240,10 @@ def base_pre_genesis(
         receipts_root=EmptyTrieRoot,
         logs_bloom=0,
         difficulty=0x20000 if env.difficulty is None else env.difficulty,
-        number=0,
+        number=block_number,
         gas_limit=env.gas_limit,
         gas_used=0,
-        timestamp=1,
+        timestamp=timestamp,
         extra_data=b"\x00",
         prev_randao=0,
         nonce=0,
@@ -252,8 +254,13 @@ def base_pre_genesis(
         if env.withdrawals is not None
         else None,
         parent_beacon_block_root=env.parent_beacon_block_root,
-        requests_root=Requests(root=[]).trie_root
-        if base_fork.header_requests_required(0, 0)
+        requests_hash=Requests(
+            max_request_type=base_fork.max_request_type(
+                block_number=block_number,
+                timestamp=timestamp,
+            ),
+        )
+        if base_fork.header_requests_required(block_number=block_number, timestamp=timestamp)
         else None,
     )
 
@@ -673,6 +680,8 @@ class EthRPC(BaseEthRPC):
             new_payload_args.append(new_payload.blobs_bundle.blob_versioned_hashes())
         if parent_beacon_block_root is not None:
             new_payload_args.append(parent_beacon_block_root)
+        if new_payload.execution_requests is not None:
+            new_payload_args.append(new_payload.execution_requests)
         new_payload_version = self.fork.engine_new_payload_version()
         assert new_payload_version is not None, "Fork does not support engine new_payload"
         new_payload_response = self.engine_rpc.new_payload(

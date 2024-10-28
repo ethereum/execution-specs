@@ -26,18 +26,11 @@ from ethereum_test_exceptions import EngineAPIError, ExceptionInstanceOrList
 from ethereum_test_forks import Fork, Paris
 from ethereum_test_types.types import (
     AuthorizationTupleGeneric,
-    ConsolidationRequest,
-    ConsolidationRequestGeneric,
-    DepositRequest,
-    DepositRequestGeneric,
-    Requests,
     Transaction,
     TransactionFixtureConverter,
     TransactionGeneric,
     Withdrawal,
     WithdrawalGeneric,
-    WithdrawalRequest,
-    WithdrawalRequestGeneric,
 )
 
 from .base import BaseFixture
@@ -117,7 +110,7 @@ class FixtureHeader(CamelModel):
     parent_beacon_block_root: Annotated[Hash, HeaderForkRequirement("beacon_root")] | None = Field(
         None
     )
-    requests_root: Annotated[Hash, HeaderForkRequirement("requests")] | None = Field(None)
+    requests_hash: Annotated[Hash, HeaderForkRequirement("requests")] | None = Field(None)
 
     fork: Fork | None = Field(None, exclude=True)
 
@@ -210,9 +203,6 @@ class FixtureExecutionPayload(CamelModel):
 
     transactions: List[Bytes]
     withdrawals: List[Withdrawal] | None = None
-    deposit_requests: List[DepositRequest] | None = None
-    withdrawal_requests: List[WithdrawalRequest] | None = None
-    consolidation_requests: List[ConsolidationRequest] | None = None
 
     @classmethod
     def from_fixture_header(
@@ -220,7 +210,6 @@ class FixtureExecutionPayload(CamelModel):
         header: FixtureHeader,
         transactions: List[Transaction],
         withdrawals: List[Withdrawal] | None,
-        requests: Requests | None,
     ) -> "FixtureExecutionPayload":
         """
         Returns a FixtureExecutionPayload from a FixtureHeader, a list
@@ -230,20 +219,20 @@ class FixtureExecutionPayload(CamelModel):
             **header.model_dump(exclude={"rlp"}, exclude_none=True),
             transactions=[tx.rlp for tx in transactions],
             withdrawals=withdrawals,
-            deposit_requests=requests.deposit_requests() if requests is not None else None,
-            withdrawal_requests=requests.withdrawal_requests() if requests is not None else None,
-            consolidation_requests=requests.consolidation_requests()
-            if requests is not None
-            else None,
         )
 
 
 EngineNewPayloadV1Parameters = Tuple[FixtureExecutionPayload]
 EngineNewPayloadV3Parameters = Tuple[FixtureExecutionPayload, List[Hash], Hash]
+EngineNewPayloadV4Parameters = Tuple[FixtureExecutionPayload, List[Hash], Hash, List[Bytes]]
 
 # Important: We check EngineNewPayloadV3Parameters first as it has more fields, and pydantic
 # has a weird behavior when the smaller tuple is checked first.
-EngineNewPayloadParameters = Union[EngineNewPayloadV3Parameters, EngineNewPayloadV1Parameters]
+EngineNewPayloadParameters = Union[
+    EngineNewPayloadV4Parameters,
+    EngineNewPayloadV3Parameters,
+    EngineNewPayloadV1Parameters,
+]
 
 
 class FixtureEngineNewPayload(CamelModel):
@@ -280,7 +269,7 @@ class FixtureEngineNewPayload(CamelModel):
         header: FixtureHeader,
         transactions: List[Transaction],
         withdrawals: List[Withdrawal] | None,
-        requests: Requests | None,
+        requests: List[Bytes] | None,
         **kwargs,
     ) -> "FixtureEngineNewPayload":
         """
@@ -296,10 +285,21 @@ class FixtureEngineNewPayload(CamelModel):
             header=header,
             transactions=transactions,
             withdrawals=withdrawals,
-            requests=requests,
         )
-        params: Tuple[FixtureExecutionPayload] | Tuple[FixtureExecutionPayload, List[Hash], Hash]
-        if fork.engine_new_payload_blob_hashes(header.number, header.timestamp):
+        params: EngineNewPayloadParameters
+        if (
+            fork.engine_new_payload_requests(header.number, header.timestamp)
+            and requests is not None
+        ):
+            parent_beacon_block_root = header.parent_beacon_block_root
+            assert parent_beacon_block_root is not None
+            params = (
+                execution_payload,
+                Transaction.list_blob_versioned_hashes(transactions),
+                parent_beacon_block_root,
+                requests,
+            )
+        elif fork.engine_new_payload_blob_hashes(header.number, header.timestamp):
             parent_beacon_block_root = header.parent_beacon_block_root
             assert parent_beacon_block_root is not None
             params = (
@@ -366,50 +366,6 @@ class FixtureWithdrawal(WithdrawalGeneric[ZeroPaddedHexNumber]):
         return cls(**w.model_dump())
 
 
-class FixtureDepositRequest(DepositRequestGeneric[ZeroPaddedHexNumber]):
-    """
-    Structure to represent a single deposit request to be processed by the beacon
-    chain.
-    """
-
-    @classmethod
-    def from_deposit_request(cls, d: DepositRequestGeneric) -> "FixtureDepositRequest":
-        """
-        Returns a FixtureDepositRequest from a DepositRequest.
-        """
-        return cls(**d.model_dump())
-
-
-class FixtureWithdrawalRequest(WithdrawalRequestGeneric[ZeroPaddedHexNumber]):
-    """
-    Structure to represent a single withdrawal request to be processed by the beacon
-    chain.
-    """
-
-    @classmethod
-    def from_withdrawal_request(cls, d: WithdrawalRequestGeneric) -> "FixtureWithdrawalRequest":
-        """
-        Returns a FixtureWithdrawalRequest from a WithdrawalRequest.
-        """
-        return cls(**d.model_dump())
-
-
-class FixtureConsolidationRequest(ConsolidationRequestGeneric[ZeroPaddedHexNumber]):
-    """
-    Structure to represent a single consolidation request to be processed by the beacon
-    chain.
-    """
-
-    @classmethod
-    def from_consolidation_request(
-        cls, d: ConsolidationRequestGeneric
-    ) -> "FixtureConsolidationRequest":
-        """
-        Returns a FixtureConsolidationRequest from a ConsolidationRequest.
-        """
-        return cls(**d.model_dump())
-
-
 class FixtureBlockBase(CamelModel):
     """Representation of an Ethereum block within a test Fixture without RLP bytes."""
 
@@ -417,9 +373,6 @@ class FixtureBlockBase(CamelModel):
     txs: List[FixtureTransaction] = Field(default_factory=list, alias="transactions")
     ommers: List[FixtureHeader] = Field(default_factory=list, alias="uncleHeaders")
     withdrawals: List[FixtureWithdrawal] | None = None
-    deposit_requests: List[FixtureDepositRequest] | None = None
-    withdrawal_requests: List[FixtureWithdrawalRequest] | None = None
-    consolidation_requests: List[FixtureConsolidationRequest] | None = None
 
     @computed_field(alias="blocknumber")  # type: ignore[misc]
     @cached_property
@@ -429,7 +382,7 @@ class FixtureBlockBase(CamelModel):
         """
         return Number(self.header.number)
 
-    def with_rlp(self, txs: List[Transaction], requests: Requests | None) -> "FixtureBlock":
+    def with_rlp(self, txs: List[Transaction]) -> "FixtureBlock":
         """
         Returns a FixtureBlock with the RLP bytes set.
         """
@@ -441,9 +394,6 @@ class FixtureBlockBase(CamelModel):
 
         if self.withdrawals is not None:
             block.append([w.to_serializable_list() for w in self.withdrawals])
-
-        if requests is not None:
-            block.append(requests.to_serializable_list())
 
         return FixtureBlock(
             **self.model_dump(),

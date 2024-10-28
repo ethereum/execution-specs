@@ -2,9 +2,10 @@
 Useful types for generating Ethereum tests.
 """
 
+from abc import abstractmethod
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, ClassVar, Dict, Generic, List, Literal, Sequence, Tuple
+from typing import Any, ClassVar, Dict, Generic, List, Literal, Sequence, SupportsBytes, Tuple
 
 from coincurve.keys import PrivateKey, PublicKey
 from ethereum import rlp as eth_rlp
@@ -17,7 +18,6 @@ from pydantic import (
     ConfigDict,
     Field,
     PrivateAttr,
-    RootModel,
     computed_field,
     model_serializer,
     model_validator,
@@ -1124,173 +1124,129 @@ class RequestBase:
     Base class for requests.
     """
 
-    @classmethod
-    def type_byte(cls) -> bytes:
-        """
-        Returns the request type.
-        """
-        raise NotImplementedError("request_type must be implemented in child classes")
+    type: ClassVar[int]
 
-    def to_serializable_list(self) -> List[Any]:
+    @abstractmethod
+    def __bytes__(self) -> bytes:
         """
-        Returns the request's attributes as a list of serializable elements.
+        Returns the request's attributes as bytes.
         """
-        raise NotImplementedError("to_serializable_list must be implemented in child classes")
+        ...
 
 
-class DepositRequestGeneric(RequestBase, CamelModel, Generic[NumberBoundTypeVar]):
+class DepositRequest(RequestBase, CamelModel):
     """
-    Generic deposit type used as a parent for DepositRequest and FixtureDepositRequest.
+    Deposit Request type.
     """
 
     pubkey: BLSPublicKey
     withdrawal_credentials: Hash
-    amount: NumberBoundTypeVar
+    amount: HexNumber
     signature: BLSSignature
-    index: NumberBoundTypeVar
+    index: HexNumber
 
-    @classmethod
-    def type_byte(cls) -> bytes:
+    type: ClassVar[int] = 0
+
+    def __bytes__(self) -> bytes:
         """
-        Returns the deposit request type.
+        Returns the deposit's attributes as bytes.
         """
-        return b"\0"
-
-    def to_serializable_list(self) -> List[Any]:
-        """
-        Returns the deposit's attributes as a list of serializable elements.
-        """
-        return [
-            self.pubkey,
-            self.withdrawal_credentials,
-            Uint(self.amount),
-            self.signature,
-            Uint(self.index),
-        ]
+        return (
+            bytes(self.pubkey)
+            + bytes(self.withdrawal_credentials)
+            + self.amount.to_bytes(8, "little")
+            + bytes(self.signature)
+            + self.index.to_bytes(8, "little")
+        )
 
 
-class DepositRequest(DepositRequestGeneric[HexNumber]):
-    """
-    Deposit Request type
-    """
-
-    pass
-
-
-class WithdrawalRequestGeneric(RequestBase, CamelModel, Generic[NumberBoundTypeVar]):
-    """
-    Generic withdrawal request type used as a parent for WithdrawalRequest and
-    FixtureWithdrawalRequest.
-    """
-
-    source_address: Address = Address(0)
-    validator_pubkey: BLSPublicKey
-    amount: NumberBoundTypeVar
-
-    @classmethod
-    def type_byte(cls) -> bytes:
-        """
-        Returns the withdrawal request type.
-        """
-        return b"\1"
-
-    def to_serializable_list(self) -> List[Any]:
-        """
-        Returns the deposit's attributes as a list of serializable elements.
-        """
-        return [
-            self.source_address,
-            self.validator_pubkey,
-            Uint(self.amount),
-        ]
-
-
-class WithdrawalRequest(WithdrawalRequestGeneric[HexNumber]):
+class WithdrawalRequest(RequestBase, CamelModel):
     """
     Withdrawal Request type
     """
 
-    pass
+    source_address: Address = Address(0)
+    validator_pubkey: BLSPublicKey
+    amount: HexNumber
+
+    type: ClassVar[int] = 1
+
+    def __bytes__(self) -> bytes:
+        """
+        Returns the withdrawal's attributes as bytes.
+        """
+        return (
+            bytes(self.source_address)
+            + bytes(self.validator_pubkey)
+            + self.amount.to_bytes(8, "little")
+        )
 
 
-class ConsolidationRequestGeneric(RequestBase, CamelModel, Generic[NumberBoundTypeVar]):
+class ConsolidationRequest(RequestBase, CamelModel):
     """
-    Generic consolidation request type used as a parent for ConsolidationRequest and
-    FixtureConsolidationRequest.
+    Consolidation Request type
     """
 
     source_address: Address = Address(0)
     source_pubkey: BLSPublicKey
     target_pubkey: BLSPublicKey
 
-    @classmethod
-    def type_byte(cls) -> bytes:
-        """
-        Returns the consolidation request type.
-        """
-        return b"\2"
+    type: ClassVar[int] = 2
 
-    def to_serializable_list(self) -> List[Any]:
+    def __bytes__(self) -> bytes:
         """
-        Returns the consolidation's attributes as a list of serializable elements.
+        Returns the consolidation's attributes as bytes.
         """
-        return [
-            self.source_address,
-            self.source_pubkey,
-            self.target_pubkey,
-        ]
+        return bytes(self.source_address) + bytes(self.source_pubkey) + bytes(self.target_pubkey)
 
 
-class ConsolidationRequest(ConsolidationRequestGeneric[HexNumber]):
+def requests_list_to_bytes(requests_list: List[RequestBase] | Bytes | SupportsBytes) -> Bytes:
     """
-    Consolidation Request type
+    Converts a list of requests to bytes.
     """
+    if not isinstance(requests_list, list):
+        return Bytes(requests_list)
+    return Bytes(b"".join([bytes(r) for r in requests_list]))
 
-    pass
 
-
-class Requests(RootModel[List[DepositRequest | WithdrawalRequest | ConsolidationRequest]]):
+class Requests:
     """
     Requests for the transition tool.
     """
 
-    root: List[DepositRequest | WithdrawalRequest | ConsolidationRequest] = Field(
-        default_factory=list
-    )
+    requests_list: List[Bytes]
 
-    def to_serializable_list(self) -> List[Any]:
+    def __init__(
+        self,
+        *requests: RequestBase,
+        max_request_type: int | None = None,
+        requests_lists: List[List[RequestBase] | Bytes] | None = None,
+    ):
         """
-        Returns the requests as a list of serializable elements.
+        Initializes the requests object.
         """
-        return [r.type_byte() + eth_rlp.encode(r.to_serializable_list()) for r in self.root]
+        if requests_lists is not None:
+            assert len(requests) == 0, "requests must be empty if list is provided"
+            self.requests_list = []
+            for requests_list in requests_lists:
+                self.requests_list.append(requests_list_to_bytes(requests_list))
+            return
+        else:
 
-    @cached_property
-    def trie_root(self) -> Hash:
-        """
-        Returns the root hash of the requests.
-        """
-        t = HexaryTrie(db={})
-        for i, r in enumerate(self.root):
-            t.set(
-                eth_rlp.encode(Uint(i)),
-                r.type_byte() + eth_rlp.encode(r.to_serializable_list()),
-            )
-        return Hash(t.root_hash)
+            assert max_request_type is not None, "max_request_type must be provided"
 
-    def deposit_requests(self) -> List[DepositRequest]:
-        """
-        Returns the list of deposit requests.
-        """
-        return [d for d in self.root if isinstance(d, DepositRequest)]
+            lists: List[List[RequestBase]] = [[] for _ in range(max_request_type + 1)]
+            for r in requests:
+                lists[r.type].append(r)
 
-    def withdrawal_requests(self) -> List[WithdrawalRequest]:
-        """
-        Returns the list of withdrawal requests.
-        """
-        return [w for w in self.root if isinstance(w, WithdrawalRequest)]
+            self.requests_list = [requests_list_to_bytes(requests_list) for requests_list in lists]
 
-    def consolidation_requests(self) -> List[ConsolidationRequest]:
+    def __bytes__(self) -> bytes:
         """
-        Returns the list of consolidation requests.
+        Returns the requests hash.
         """
-        return [c for c in self.root if isinstance(c, ConsolidationRequest)]
+        s: bytes = b""
+        for i, r in enumerate(self.requests_list):
+            # Append the index of the request type to the request data before hashing
+            s = s + Bytes(bytes([i]) + r).sha256()
+        return Bytes(s).sha256()

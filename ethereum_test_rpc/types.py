@@ -136,3 +136,4 @@ class GetPayloadResponse(CamelModel):
 
     execution_payload: FixtureExecutionPayload
     blobs_bundle: BlobsBundle | None = None
+    execution_requests: List[Bytes] | None = None

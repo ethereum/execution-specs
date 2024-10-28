@@ -136,6 +136,13 @@ class Frontier(BaseFork, solc_name="homestead"):
         return False
 
     @classmethod
+    def engine_new_payload_requests(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+        """
+        At genesis, payloads do not have requests.
+        """
+        return False
+
+    @classmethod
     def engine_forkchoice_updated_version(
         cls, block_number: int = 0, timestamp: int = 0
     ) -> Optional[int]:
@@ -357,6 +364,13 @@ class Frontier(BaseFork, solc_name="homestead"):
         return [
             (Opcodes.CREATE, EVMCodeType.LEGACY),
         ]
+
+    @classmethod
+    def max_request_type(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """
+        At genesis, no request type is supported, signaled by -1
+        """
+        return -1
 
     @classmethod
     def pre_allocation(cls) -> Mapping:
@@ -842,10 +856,17 @@ class Prague(Cancun):
         """
         return [
             Address(0x00000000219AB540356CBB839CBE05303D7705FA),
-            Address(0x00A3CA265EBCB825B45F985A16CEFB49958CE017),
-            Address(0x00B42DBF2194E931E80326D950320F7D9DBEAC02),
+            Address(0x09FC772D0857550724B07B850A4323F39112AAAA),
+            Address(0x01ABEA29659E5E97C95107F20BB753CD3E09BBBB),
             Address(0x0AAE40965E6800CD9B1F4B05FF21581047E3F91E),
         ] + super(Prague, cls).system_contracts(block_number, timestamp)
+
+    @classmethod
+    def max_request_type(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """
+        At Prague, three request types are introduced, hence the max request type is 2
+        """
+        return 2
 
     @classmethod
     def pre_allocation_blockchain(cls) -> Mapping:
@@ -878,7 +899,7 @@ class Prague(Cancun):
         with open(CURRENT_FOLDER / "contracts" / "withdrawal_request.bin", mode="rb") as f:
             new_allocation.update(
                 {
-                    0x00A3CA265EBCB825B45F985A16CEFB49958CE017: {
+                    0x09FC772D0857550724B07B850A4323F39112AAAA: {
                         "nonce": 1,
                         "code": f.read(),
                     },
@@ -889,7 +910,7 @@ class Prague(Cancun):
         with open(CURRENT_FOLDER / "contracts" / "consolidation_request.bin", mode="rb") as f:
             new_allocation.update(
                 {
-                    0x00B42DBF2194E931E80326D950320F7D9DBEAC02: {
+                    0x01ABEA29659E5E97C95107F20BB753CD3E09BBBB: {
                         "nonce": 1,
                         "code": f.read(),
                     },
@@ -912,8 +933,22 @@ class Prague(Cancun):
     @classmethod
     def header_requests_required(cls, block_number: int, timestamp: int) -> bool:
         """
-        Prague requires that the execution layer block contains the beacon
-        chain requests.
+        Prague requires that the execution layer header contains the beacon
+        chain requests hash.
+        """
+        return True
+
+    @classmethod
+    def engine_new_payload_requests(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+        """
+        Starting at Prague, new payloads include the requests hash as a parameter.
+        """
+        return True
+
+    @classmethod
+    def engine_new_payload_blob_hashes(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+        """
+        Starting at Prague, new payload directives must contain requests as parameter.
         """
         return True
 

@@ -34,27 +34,14 @@ from ethereum_test_fixtures.blockchain import (
     Fixture,
     FixtureBlock,
     FixtureBlockBase,
-    FixtureConsolidationRequest,
-    FixtureDepositRequest,
     FixtureEngineNewPayload,
     FixtureHeader,
     FixtureTransaction,
     FixtureWithdrawal,
-    FixtureWithdrawalRequest,
     InvalidFixtureBlock,
 )
 from ethereum_test_forks import Fork
-from ethereum_test_types import (
-    Alloc,
-    ConsolidationRequest,
-    DepositRequest,
-    Environment,
-    Removable,
-    Requests,
-    Transaction,
-    Withdrawal,
-    WithdrawalRequest,
-)
+from ethereum_test_types import Alloc, Environment, Removable, Requests, Transaction, Withdrawal
 
 from .base import BaseTest, verify_result
 from .debugging import print_traces
@@ -131,7 +118,7 @@ class Header(CamelModel):
     blob_gas_used: Removable | HexNumber | None = None
     excess_blob_gas: Removable | HexNumber | None = None
     parent_beacon_block_root: Removable | Hash | None = None
-    requests_root: Removable | Hash | None = None
+    requests_hash: Removable | Hash | None = None
 
     REMOVE_FIELD: ClassVar[Removable] = Removable()
     """
@@ -173,16 +160,6 @@ class Header(CamelModel):
         """
         if isinstance(value, list):
             return Withdrawal.list_root(value)
-        return value
-
-    @field_validator("requests_root", mode="before")
-    @classmethod
-    def validate_requests_root(cls, value):
-        """
-        Helper validator to convert a list of requests into the requests root hash.
-        """
-        if isinstance(value, list):
-            return Requests(root=value).trie_root
         return value
 
     def apply(self, target: FixtureHeader) -> FixtureHeader:
@@ -260,7 +237,7 @@ class Block(Header):
     """
     List of withdrawals to perform for this block.
     """
-    requests: List[DepositRequest | WithdrawalRequest | ConsolidationRequest] | None = None
+    requests: List[Bytes] | None = None
     """
     Custom list of requests to embed in this block.
     """
@@ -379,9 +356,9 @@ class BlockchainTest(BaseTest):
                 Withdrawal.list_root(env.withdrawals) if env.withdrawals is not None else None
             ),
             parent_beacon_block_root=env.parent_beacon_block_root,
-            requests_root=(
-                Requests(root=[]).trie_root if fork.header_requests_required(0, 0) else None
-            ),
+            requests_hash=Requests(max_request_type=fork.max_request_type(0, 0))
+            if fork.header_requests_required(0, 0)
+            else None,
             fork=fork,
         )
 
@@ -390,12 +367,7 @@ class BlockchainTest(BaseTest):
             FixtureBlockBase(
                 header=genesis,
                 withdrawals=None if env.withdrawals is None else [],
-                deposit_requests=[] if fork.header_requests_required(0, 0) else None,
-                withdrawal_requests=[] if fork.header_requests_required(0, 0) else None,
-                consolidation_requests=[] if fork.header_requests_required(0, 0) else None,
-            ).with_rlp(
-                txs=[], requests=Requests() if fork.header_requests_required(0, 0) else None
-            ),
+            ).with_rlp(txs=[]),
         )
 
     def generate_block_data(
@@ -406,7 +378,7 @@ class BlockchainTest(BaseTest):
         previous_env: Environment,
         previous_alloc: Alloc,
         eips: Optional[List[int]] = None,
-    ) -> Tuple[FixtureHeader, List[Transaction], Requests | None, Alloc, Environment]:
+    ) -> Tuple[FixtureHeader, List[Transaction], List[Bytes] | None, Alloc, Environment]:
         """
         Generate common block data for both make_fixture and make_hive_fixture.
         """
@@ -491,38 +463,36 @@ class BlockchainTest(BaseTest):
             # Verify the header after transition tool processing.
             block.header_verify.verify(header)
 
+        requests_list: List[Bytes] | None = None
+        if fork.header_requests_required(header.number, header.timestamp):
+            assert (
+                transition_tool_output.result.requests is not None
+            ), "Requests are required for this block"
+            requests = Requests(requests_lists=list(transition_tool_output.result.requests))
+
+            if Hash(requests) != header.requests_hash:
+                raise Exception(
+                    "Requests root in header does not match the requests root in the transition "
+                    "tool output: "
+                    f"{header.requests_hash} != {Hash(requests)}"
+                )
+
+            requests_list = requests.requests_list
+
+        if block.requests is not None:
+            header.requests_hash = Hash(Requests(requests_lists=list(block.requests)))
+            requests_list = block.requests
+
         if block.rlp_modifier is not None:
             # Modify any parameter specified in the `rlp_modifier` after
             # transition tool processing.
             header = block.rlp_modifier.apply(header)
             header.fork = fork  # Deleted during `apply` because `exclude=True`
 
-        requests = None
-        if fork.header_requests_required(header.number, header.timestamp):
-            requests_list: List[DepositRequest | WithdrawalRequest | ConsolidationRequest] = []
-            if transition_tool_output.result.deposit_requests is not None:
-                requests_list += transition_tool_output.result.deposit_requests
-            if transition_tool_output.result.withdrawal_requests is not None:
-                requests_list += transition_tool_output.result.withdrawal_requests
-            if transition_tool_output.result.consolidation_requests is not None:
-                requests_list += transition_tool_output.result.consolidation_requests
-            requests = Requests(root=requests_list)
-
-        if requests is not None and requests.trie_root != header.requests_root:
-            raise Exception(
-                f"Requests root in header does not match the requests root in the transition tool "
-                "output: "
-                f"{header.requests_root} != {requests.trie_root}"
-            )
-
-        if block.requests is not None:
-            requests = Requests(root=block.requests)
-            header.requests_root = requests.trie_root
-
         return (
             header,
             txs,
-            requests,
+            requests_list,
             transition_tool_output.alloc,
             env,
         )
@@ -569,7 +539,7 @@ class BlockchainTest(BaseTest):
                 # This is the most common case, the RLP needs to be constructed
                 # based on the transactions to be included in the block.
                 # Set the environment according to the block to execute.
-                header, txs, requests, new_alloc, new_env = self.generate_block_data(
+                header, txs, _, new_alloc, new_env = self.generate_block_data(
                     t8n=t8n,
                     fork=fork,
                     block=block,
@@ -581,37 +551,11 @@ class BlockchainTest(BaseTest):
                     header=header,
                     txs=[FixtureTransaction.from_transaction(tx) for tx in txs],
                     ommers=[],
-                    withdrawals=(
-                        [FixtureWithdrawal.from_withdrawal(w) for w in new_env.withdrawals]
-                        if new_env.withdrawals is not None
-                        else None
-                    ),
-                    deposit_requests=(
-                        [
-                            FixtureDepositRequest.from_deposit_request(d)
-                            for d in requests.deposit_requests()
-                        ]
-                        if requests is not None
-                        else None
-                    ),
-                    withdrawal_requests=(
-                        [
-                            FixtureWithdrawalRequest.from_withdrawal_request(w)
-                            for w in requests.withdrawal_requests()
-                        ]
-                        if requests is not None
-                        else None
-                    ),
-                    consolidation_requests=(
-                        [
-                            FixtureConsolidationRequest.from_consolidation_request(c)
-                            for c in requests.consolidation_requests()
-                        ]
-                        if requests is not None
-                        else None
-                    ),
+                    withdrawals=[FixtureWithdrawal.from_withdrawal(w) for w in new_env.withdrawals]
+                    if new_env.withdrawals is not None
+                    else None,
                     fork=fork,
-                ).with_rlp(txs=txs, requests=requests)
+                ).with_rlp(txs=txs)
                 if block.exception is None:
                     fixture_blocks.append(fixture_block)
                     # Update env, alloc and last block hash for the next block.

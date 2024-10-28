@@ -382,6 +382,10 @@ class TransactionException(ExceptionBase):
     """
     Transaction is a type 4 transaction and has an empty `to`.
     """
+    TYPE_4_INVALID_AUTHORIZATION_FORMAT = auto()
+    """
+    Transaction is type 4, but contains an authorization that has an invalid format.
+    """
 
 
 @unique

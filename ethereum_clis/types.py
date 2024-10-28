@@ -7,14 +7,7 @@ from typing import List
 from pydantic import Field
 
 from ethereum_test_base_types import Address, Bloom, Bytes, CamelModel, Hash, HexNumber
-from ethereum_test_types import (
-    Alloc,
-    ConsolidationRequest,
-    DepositRequest,
-    Environment,
-    Transaction,
-    WithdrawalRequest,
-)
+from ethereum_test_types import Alloc, Environment, Transaction
 
 
 class TransactionLog(CamelModel):
@@ -94,10 +87,8 @@ class Result(CamelModel):
     withdrawals_root: Hash | None = None
     excess_blob_gas: HexNumber | None = Field(None, alias="currentExcessBlobGas")
     blob_gas_used: HexNumber | None = None
-    requests_root: Hash | None = None
-    deposit_requests: List[DepositRequest] | None = None
-    withdrawal_requests: List[WithdrawalRequest] | None = None
-    consolidation_requests: List[ConsolidationRequest] | None = None
+    requests_hash: Hash | None = None
+    requests: List[Bytes] | None = None
 
 
 class TransitionToolInput(CamelModel):

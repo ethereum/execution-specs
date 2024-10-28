@@ -601,7 +601,6 @@ fixture_header_ones = FixtureHeader(
                     ).with_signature_and_sender(),
                 ],
                 withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
-                requests=None,
             ),
             {
                 "parentHash": Hash(0).hex(),
@@ -668,6 +667,7 @@ fixture_header_ones = FixtureHeader(
                     blob_gas_used=17,
                     excess_blob_gas=18,
                     parent_beacon_block_root=19,
+                    requests_hash=20,
                 ),
                 transactions=[
                     Transaction(
@@ -687,26 +687,25 @@ fixture_header_ones = FixtureHeader(
                 ],
                 withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
                 requests=Requests(
-                    [
-                        DepositRequest(
-                            pubkey=BLSPublicKey(0),
-                            withdrawal_credentials=Hash(1),
-                            amount=2,
-                            signature=BLSSignature(3),
-                            index=4,
-                        ),
-                        WithdrawalRequest(
-                            source_address=Address(0),
-                            validator_pubkey=BLSPublicKey(1),
-                            amount=2,
-                        ),
-                        ConsolidationRequest(
-                            source_address=Address(0),
-                            source_pubkey=BLSPublicKey(1),
-                            target_pubkey=BLSPublicKey(2),
-                        ),
-                    ]
-                ),
+                    DepositRequest(
+                        pubkey=BLSPublicKey(0),
+                        withdrawal_credentials=Hash(1),
+                        amount=2,
+                        signature=BLSSignature(3),
+                        index=4,
+                    ),
+                    WithdrawalRequest(
+                        source_address=Address(0),
+                        validator_pubkey=BLSPublicKey(1),
+                        amount=2,
+                    ),
+                    ConsolidationRequest(
+                        source_address=Address(0),
+                        source_pubkey=BLSPublicKey(1),
+                        target_pubkey=BLSPublicKey(2),
+                    ),
+                    max_request_type=2,
+                ).requests_list,
                 validation_error=[
                     BlockException.INCORRECT_BLOCK_FORMAT,
                     TransactionException.INTRINSIC_GAS_TOO_LOW,
@@ -731,7 +730,7 @@ fixture_header_ones = FixtureHeader(
                         "blobGasUsed": hex(17),
                         "excessBlobGas": hex(18),
                         "blockHash": (
-                            "0x8eca4747db6a4b272018f2850e4208b863989ce9971bb1907467ae2204950695"
+                            "0x93bd662d8a80a1f54bffc6d140b83d6cda233209998809f9540be51178b4d0b6"
                         ),
                         "transactions": [
                             Transaction(
@@ -761,41 +760,35 @@ fixture_header_ones = FixtureHeader(
                                 )
                             )
                         ],
-                        "depositRequests": [
-                            to_json(
-                                DepositRequest(
-                                    pubkey=BLSPublicKey(0),
-                                    withdrawal_credentials=Hash(1),
-                                    amount=2,
-                                    signature=BLSSignature(3),
-                                    index=4,
-                                )
-                            ),
-                        ],
-                        "withdrawalRequests": [
-                            to_json(
-                                WithdrawalRequest(
-                                    source_address=Address(0),
-                                    validator_pubkey=BLSPublicKey(1),
-                                    amount=2,
-                                )
-                            ),
-                        ],
-                        "consolidationRequests": [
-                            to_json(
-                                ConsolidationRequest(
-                                    source_address=Address(0),
-                                    source_pubkey=BLSPublicKey(1),
-                                    target_pubkey=BLSPublicKey(2),
-                                )
-                            ),
-                        ],
                     },
                     [
-                        "0x0000000000000000000000000000000000000000000000000000000000000000",
-                        "0x0000000000000000000000000000000000000000000000000000000000000001",
+                        str(Hash(0)),
+                        str(Hash(1)),
                     ],
                     str(Hash(19)),
+                    [
+                        Bytes(r).hex()
+                        for r in Requests(
+                            DepositRequest(
+                                pubkey=BLSPublicKey(0),
+                                withdrawal_credentials=Hash(1),
+                                amount=2,
+                                signature=BLSSignature(3),
+                                index=4,
+                            ),
+                            WithdrawalRequest(
+                                source_address=Address(0),
+                                validator_pubkey=BLSPublicKey(1),
+                                amount=2,
+                            ),
+                            ConsolidationRequest(
+                                source_address=Address(0),
+                                source_pubkey=BLSPublicKey(1),
+                                target_pubkey=BLSPublicKey(2),
+                            ),
+                            max_request_type=2,
+                        ).requests_list
+                    ],
                 ],
                 "forkchoiceUpdatedVersion": "3",
                 "newPayloadVersion": "4",
@@ -831,22 +824,7 @@ fixture_header_ones = FixtureHeader(
                     blob_gas_used=17,
                     excess_blob_gas=18,
                     parent_beacon_block_root=19,
-                    requests_root=Requests(
-                        [
-                            DepositRequest(
-                                pubkey=BLSPublicKey(0),
-                                withdrawal_credentials=Hash(1),
-                                amount=2,
-                                signature=BLSSignature(3),
-                                index=4,
-                            ),
-                            WithdrawalRequest(
-                                source_address=Address(0),
-                                validator_pubkey=BLSPublicKey(1),
-                                amount=2,
-                            ),
-                        ]
-                    ).trie_root,
+                    requests_hash=20,
                 ),
                 transactions=[
                     Transaction(
@@ -866,26 +844,25 @@ fixture_header_ones = FixtureHeader(
                 ],
                 withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
                 requests=Requests(
-                    [
-                        DepositRequest(
-                            pubkey=BLSPublicKey(0),
-                            withdrawal_credentials=Hash(1),
-                            amount=2,
-                            signature=BLSSignature(3),
-                            index=4,
-                        ),
-                        WithdrawalRequest(
-                            source_address=Address(0),
-                            validator_pubkey=BLSPublicKey(1),
-                            amount=2,
-                        ),
-                        ConsolidationRequest(
-                            source_address=Address(0),
-                            source_pubkey=BLSPublicKey(1),
-                            target_pubkey=BLSPublicKey(2),
-                        ),
-                    ]
-                ),
+                    DepositRequest(
+                        pubkey=BLSPublicKey(0),
+                        withdrawal_credentials=Hash(1),
+                        amount=2,
+                        signature=BLSSignature(3),
+                        index=4,
+                    ),
+                    WithdrawalRequest(
+                        source_address=Address(0),
+                        validator_pubkey=BLSPublicKey(1),
+                        amount=2,
+                    ),
+                    ConsolidationRequest(
+                        source_address=Address(0),
+                        source_pubkey=BLSPublicKey(1),
+                        target_pubkey=BLSPublicKey(2),
+                    ),
+                    max_request_type=2,
+                ).requests_list,
                 validation_error=[
                     BlockException.INCORRECT_BLOCK_FORMAT,
                     TransactionException.INTRINSIC_GAS_TOO_LOW,
@@ -909,7 +886,7 @@ fixture_header_ones = FixtureHeader(
                         "blobGasUsed": hex(17),
                         "excessBlobGas": hex(18),
                         "blockHash": (
-                            "0x78a4bf2520248e0b403d343c32b6746a43da1ebcf3cc8de14b959bc9f461fe76"
+                            "0x93bd662d8a80a1f54bffc6d140b83d6cda233209998809f9540be51178b4d0b6"
                         ),
                         "transactions": [
                             Transaction(
@@ -939,41 +916,35 @@ fixture_header_ones = FixtureHeader(
                                 )
                             )
                         ],
-                        "depositRequests": [
-                            to_json(
-                                DepositRequest(
-                                    pubkey=BLSPublicKey(0),
-                                    withdrawal_credentials=Hash(1),
-                                    amount=2,
-                                    signature=BLSSignature(3),
-                                    index=4,
-                                )
-                            ),
-                        ],
-                        "withdrawalRequests": [
-                            to_json(
-                                WithdrawalRequest(
-                                    source_address=Address(0),
-                                    validator_pubkey=BLSPublicKey(1),
-                                    amount=2,
-                                )
-                            ),
-                        ],
-                        "consolidationRequests": [
-                            to_json(
-                                ConsolidationRequest(
-                                    source_address=Address(0),
-                                    source_pubkey=BLSPublicKey(1),
-                                    target_pubkey=BLSPublicKey(2),
-                                )
-                            ),
-                        ],
                     },
                     [
                         "0x0000000000000000000000000000000000000000000000000000000000000000",
                         "0x0000000000000000000000000000000000000000000000000000000000000001",
                     ],
                     str(Hash(19)),
+                    [
+                        Bytes(r).hex()
+                        for r in Requests(
+                            DepositRequest(
+                                pubkey=BLSPublicKey(0),
+                                withdrawal_credentials=Hash(1),
+                                amount=2,
+                                signature=BLSSignature(3),
+                                index=4,
+                            ),
+                            WithdrawalRequest(
+                                source_address=Address(0),
+                                validator_pubkey=BLSPublicKey(1),
+                                amount=2,
+                            ),
+                            ConsolidationRequest(
+                                source_address=Address(0),
+                                source_pubkey=BLSPublicKey(1),
+                                target_pubkey=BLSPublicKey(2),
+                            ),
+                            max_request_type=2,
+                        ).requests_list
+                    ],
                 ],
                 "newPayloadVersion": "4",
                 "forkchoiceUpdatedVersion": "3",
@@ -1013,9 +984,10 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
 
 
 @pytest.mark.parametrize(
-    "adapter, type_instance, json_repr",
+    "can_be_deserialized, adapter, type_instance, json_repr",
     [
         pytest.param(
+            True,
             EngineNewPayloadParametersAdapter,
             (
                 FixtureExecutionPayload.from_fixture_header(
@@ -1057,7 +1029,6 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                         ).with_signature_and_sender(),
                     ],
                     withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
-                    requests=None,
                 ),
             ),
             [
@@ -1104,6 +1075,7 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
             id="fixture_engine_new_payload_parameters_v1",
         ),
         pytest.param(
+            True,
             EngineNewPayloadParametersAdapter,
             (
                 FixtureExecutionPayload.from_fixture_header(
@@ -1145,27 +1117,6 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                         ).with_signature_and_sender(),
                     ],
                     withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
-                    requests=Requests(
-                        [
-                            DepositRequest(
-                                pubkey=BLSPublicKey(0),
-                                withdrawal_credentials=Hash(1),
-                                amount=2,
-                                signature=BLSSignature(3),
-                                index=4,
-                            ),
-                            WithdrawalRequest(
-                                source_address=Address(0),
-                                validator_pubkey=BLSPublicKey(1),
-                                amount=2,
-                            ),
-                            ConsolidationRequest(
-                                source_address=Address(0),
-                                source_pubkey=BLSPublicKey(1),
-                                target_pubkey=BLSPublicKey(2),
-                            ),
-                        ]
-                    ),
                 ),
                 [Hash(1), Hash(2)],
                 Hash(3),
@@ -1209,40 +1160,146 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                     "withdrawals": [
                         to_json(Withdrawal(index=0, validator_index=1, address=0x1234, amount=2))
                     ],
-                    "depositRequests": [
-                        to_json(
-                            DepositRequest(
-                                pubkey=BLSPublicKey(0),
-                                withdrawal_credentials=Hash(1),
-                                amount=2,
-                                signature=BLSSignature(3),
-                                index=4,
-                            )
-                        ),
-                    ],
-                    "withdrawalRequests": [
-                        to_json(
-                            WithdrawalRequest(
-                                source_address=Address(0),
-                                validator_pubkey=BLSPublicKey(1),
-                                amount=2,
-                            )
-                        ),
-                    ],
-                    "consolidationRequests": [
-                        to_json(
-                            ConsolidationRequest(
-                                source_address=Address(0),
-                                source_pubkey=BLSPublicKey(1),
-                                target_pubkey=BLSPublicKey(2),
-                            )
-                        ),
-                    ],
                 },
                 [Hash(1).hex(), Hash(2).hex()],
                 Hash(3).hex(),
             ],
             id="fixture_engine_new_payload_parameters_v3",
+        ),
+        pytest.param(
+            False,
+            EngineNewPayloadParametersAdapter,
+            (
+                FixtureExecutionPayload.from_fixture_header(
+                    header=FixtureHeader(
+                        parent_hash=Hash(0),
+                        ommers_hash=Hash(1),
+                        fee_recipient=Address(2),
+                        state_root=Hash(3),
+                        transactions_trie=Hash(4),
+                        receipts_root=Hash(5),
+                        logs_bloom=Bloom(6),
+                        difficulty=7,
+                        number=8,
+                        gas_limit=9,
+                        gas_used=10,
+                        timestamp=11,
+                        extra_data=Bytes([12]),
+                        prev_randao=Hash(13),
+                        nonce=HeaderNonce(14),
+                        base_fee_per_gas=15,
+                        withdrawals_root=Hash(16),
+                        blob_gas_used=17,
+                        excess_blob_gas=18,
+                    ),
+                    transactions=[
+                        Transaction(
+                            to=0x1234,
+                            data=b"\x01\x00",
+                            access_list=[
+                                AccessList(
+                                    address=0x1234,
+                                    storage_keys=[0, 1],
+                                )
+                            ],
+                            max_priority_fee_per_gas=10,
+                            max_fee_per_gas=20,
+                            max_fee_per_blob_gas=30,
+                            blob_versioned_hashes=[0, 1],
+                        ).with_signature_and_sender(),
+                    ],
+                    withdrawals=[Withdrawal(index=0, validator_index=1, address=0x1234, amount=2)],
+                ),
+                [Hash(1), Hash(2)],
+                Hash(3),
+                Requests(
+                    DepositRequest(
+                        pubkey=BLSPublicKey(0),
+                        withdrawal_credentials=Hash(1),
+                        amount=2,
+                        signature=BLSSignature(3),
+                        index=4,
+                    ),
+                    WithdrawalRequest(
+                        source_address=Address(0),
+                        validator_pubkey=BLSPublicKey(1),
+                        amount=2,
+                    ),
+                    ConsolidationRequest(
+                        source_address=Address(0),
+                        source_pubkey=BLSPublicKey(1),
+                        target_pubkey=BLSPublicKey(2),
+                    ),
+                    max_request_type=2,
+                ).requests_list,
+            ),
+            [
+                {
+                    "parentHash": Hash(0).hex(),
+                    "feeRecipient": Address(2).hex(),
+                    "stateRoot": Hash(3).hex(),
+                    "receiptsRoot": Hash(5).hex(),
+                    "logsBloom": Bloom(6).hex(),
+                    "blockNumber": hex(8),
+                    "gasLimit": hex(9),
+                    "gasUsed": hex(10),
+                    "timestamp": hex(11),
+                    "extraData": Bytes([12]).hex(),
+                    "prevRandao": Hash(13).hex(),
+                    "baseFeePerGas": hex(15),
+                    "blobGasUsed": hex(17),
+                    "excessBlobGas": hex(18),
+                    "blockHash": "0xd90115b7fde329f64335763a446af1"
+                    "50ab67e639281dccdb07a007d18bb80211",
+                    "transactions": [
+                        Transaction(
+                            to=0x1234,
+                            data=b"\x01\x00",
+                            access_list=[
+                                AccessList(
+                                    address=0x1234,
+                                    storage_keys=[0, 1],
+                                )
+                            ],
+                            max_priority_fee_per_gas=10,
+                            max_fee_per_gas=20,
+                            max_fee_per_blob_gas=30,
+                            blob_versioned_hashes=[0, 1],
+                        )
+                        .with_signature_and_sender()
+                        .rlp.hex()
+                    ],
+                    "withdrawals": [
+                        to_json(Withdrawal(index=0, validator_index=1, address=0x1234, amount=2))
+                    ],
+                },
+                [Hash(1).hex(), Hash(2).hex()],
+                Hash(3).hex(),
+                [
+                    Bytes(r).hex()
+                    for r in Requests(
+                        DepositRequest(
+                            pubkey=BLSPublicKey(0),
+                            withdrawal_credentials=Hash(1),
+                            amount=2,
+                            signature=BLSSignature(3),
+                            index=4,
+                        ),
+                        WithdrawalRequest(
+                            source_address=Address(0),
+                            validator_pubkey=BLSPublicKey(1),
+                            amount=2,
+                        ),
+                        ConsolidationRequest(
+                            source_address=Address(0),
+                            source_pubkey=BLSPublicKey(1),
+                            target_pubkey=BLSPublicKey(2),
+                        ),
+                        max_request_type=2,
+                    ).requests_list
+                ],
+            ],
+            id="fixture_engine_new_payload_parameters_v4",
         ),
     ],
 )
@@ -1253,6 +1310,7 @@ class TestPydanticAdaptersConversion:
 
     def test_json_serialization(
         self,
+        can_be_deserialized: bool,
         adapter: TypeAdapter,
         type_instance: Any,
         json_repr: str | Dict[str, Any],
@@ -1272,6 +1330,7 @@ class TestPydanticAdaptersConversion:
 
     def test_json_deserialization(
         self,
+        can_be_deserialized: bool,
         adapter: TypeAdapter,
         type_instance: Any,
         json_repr: str | Dict[str, Any],
@@ -1279,4 +1338,6 @@ class TestPydanticAdaptersConversion:
         """
         Test that to_json returns the expected JSON for the given object.
         """
+        if not can_be_deserialized:
+            pytest.skip(reason="The model instance in this case can not be deserialized")
         assert adapter.validate_python(json_repr) == type_instance

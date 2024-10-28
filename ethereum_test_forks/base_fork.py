@@ -263,6 +263,14 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def engine_new_payload_requests(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+        """
+        Returns true if the engine api version requires new payload calls to include requests.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def engine_forkchoice_updated_version(
         cls, block_number: int = 0, timestamp: int = 0
     ) -> Optional[int]:
@@ -317,6 +325,14 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     ) -> List[Tuple[Opcodes, EVMCodeType]]:
         """
         Returns the list of tuples with the create opcodes and its corresponding EVM code type.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def max_request_type(cls, block_number: int = 0, timestamp: int = 0) -> int:
+        """
+        Returns the max request type supported by the fork.
         """
         pass
 
