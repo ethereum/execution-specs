@@ -63,6 +63,7 @@ def hive_consume_command(
 
 @pytest.fixture(scope="function")
 def eest_consume_commands(
+    request: pytest.FixtureRequest,
     test_suite_name: str,
     client_type: ClientType,
     test_case: TestCaseIndexFile | TestCaseStream,
@@ -71,8 +72,9 @@ def eest_consume_commands(
     Commands to run the test within EEST using a hive dev back-end.
     """
     hive_dev = f"./hive --dev --client-file configs/prague.yaml --client {client_type.name}"
+    input_source = request.config.getoption("fixture_source")
     consume = (
-        f'consume {test_suite_name.split("-")[-1]} -v --input latest-develop-release -k '
+        f'consume {test_suite_name.split("-")[-1]} -v --input={input_source} -k '
         f'"{test_case.id}"'
     )
     return [hive_dev, consume]

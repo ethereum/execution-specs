@@ -332,7 +332,7 @@ def test_suite_name() -> str:
     """
     The name of the hive test suite used in this simulator.
     """
-    return "EEST Execute Test, Hive Mode"
+    return "eest/execute, hive mode"
 
 
 @pytest.fixture(scope="session")

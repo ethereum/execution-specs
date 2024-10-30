@@ -33,7 +33,7 @@ def test_suite_name() -> str:
     """
     The name of the hive test suite used in this simulator.
     """
-    return "eest-engine"
+    return "eest/consume-engine"
 
 
 @pytest.fixture(scope="module")
@@ -41,7 +41,7 @@ def test_suite_description() -> str:
     """
     The description of the hive test suite used in this simulator.
     """
-    return "Execute blockchain tests by against clients using the Engine API."
+    return "Execute blockchain tests against clients using the Engine API."
 
 
 @pytest.fixture(scope="function")
