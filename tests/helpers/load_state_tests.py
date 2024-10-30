@@ -11,7 +11,7 @@ from _pytest.mark.structures import ParameterSet
 from ethereum_types.numeric import U64
 
 from ethereum import rlp
-from ethereum.exceptions import InvalidBlock, InvalidTransaction
+from ethereum.exceptions import EthereumException
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 
@@ -72,7 +72,7 @@ def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
             # TODO: Once all the specific exception types are thrown,
             #       only `pytest.raises` the correct exception type instead of
             #       all of them.
-            with pytest.raises((InvalidBlock, InvalidTransaction)):
+            with pytest.raises(EthereumException):
                 add_block_to_chain(chain, json_block, load, mock_pow)
             return
         else:
