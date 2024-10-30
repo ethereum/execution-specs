@@ -8,11 +8,14 @@ import shutil
 import subprocess
 import tempfile
 import textwrap
+import time
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Mapping, Optional, Type
+from typing import Any, Dict, List, Mapping, Optional, Type
 
+from requests import Response
+from requests.exceptions import ConnectionError
 from requests_unixsocket import Session  # type: ignore
 
 from ethereum_test_exceptions import ExceptionMapper
@@ -268,6 +271,29 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
 
         return output
 
+    def _server_post(self, data: Dict[str, Any], retries: int = 10) -> Response:
+        """
+        Send a POST request to the t8n-server and return the response.
+        """
+        post_delay = 0.1
+        while True:
+            try:
+                response = Session().post(self.server_url, json=data, timeout=20)
+                break
+            except ConnectionError as e:
+                retries -= 1
+                if retries == 0:
+                    raise e
+                time.sleep(post_delay)
+                post_delay *= 2
+        response.raise_for_status()
+        if response.status_code != 200:
+            raise Exception(
+                f"t8n-server returned status code {response.status_code}, "
+                f"response: {response.text}"
+            )
+        return response
+
     def _evaluate_server(
         self,
         *,
@@ -306,14 +332,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
                 },
             )
 
-        response = Session().post(self.server_url, json=post_data, timeout=20)
-        response.raise_for_status()  # exception visible in pytest failure output
-        if response.status_code != 200:
-            raise Exception(
-                f"t8n-server returned status code {response.status_code}, "
-                f"response: {response.text}"
-            )
-
+        response = self._server_post(post_data)
         output: TransitionToolOutput = TransitionToolOutput.model_validate(response.json())
 
         if debug_output_path:
@@ -466,9 +485,6 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         If a client's `t8n` tool varies from the default behavior, this method
         can be overridden.
         """
-        if not self.process:
-            self.start_server()
-
         fork_name = fork.transition_tool_name(
             block_number=env.number,
             timestamp=env.timestamp,
@@ -487,6 +503,8 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         )
 
         if self.t8n_use_server:
+            if not self.process:
+                self.start_server()
             return self._evaluate_server(t8n_data=t8n_data, debug_output_path=debug_output_path)
 
         if self.t8n_use_stream:
