@@ -244,6 +244,7 @@ class Alloc(BaseAlloc):
         if amount is None:
             amount = self._eoa_fund_amount_default
 
+        fund_tx: Transaction | None = None
         if delegation is not None or storage is not None:
             if storage is not None:
                 sstore_address = self.deploy_contract(
@@ -305,14 +306,16 @@ class Alloc(BaseAlloc):
                 eoa.nonce = Number(eoa.nonce + 1)
 
         else:
-            fund_tx = Transaction(
-                sender=self._sender,
-                to=eoa,
-                value=amount,
-            ).with_signature_and_sender()
+            if Number(amount) > 0:
+                fund_tx = Transaction(
+                    sender=self._sender,
+                    to=eoa,
+                    value=amount,
+                ).with_signature_and_sender()
 
-        self._eth_rpc.send_transaction(fund_tx)
-        self._txs.append(fund_tx)
+        if fund_tx is not None:
+            self._eth_rpc.send_transaction(fund_tx)
+            self._txs.append(fund_tx)
         super().__setitem__(
             eoa,
             Account(

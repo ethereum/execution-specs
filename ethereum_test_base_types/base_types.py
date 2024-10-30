@@ -120,7 +120,7 @@ class Wei(Number):
                 return 10**12
             case "finney" | "milliether" | "milli":
                 return 10**15
-            case "ether":
+            case "ether" | "eth":
                 return 10**18
             case _:
                 raise ValueError(f"Invalid unit {unit}")
