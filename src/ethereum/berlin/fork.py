@@ -21,7 +21,7 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
-from ethereum.exceptions import InvalidBlock
+from ethereum.exceptions import InvalidBlock, InvalidSenderError
 
 from .. import rlp
 from . import vm
@@ -683,7 +683,7 @@ def process_transaction(
     if Uint(sender_account.balance) < gas_fee + Uint(tx.value):
         raise InvalidBlock
     if sender_account.code != bytearray():
-        raise InvalidBlock
+        raise InvalidSenderError("not EOA")
 
     gas = tx.gas - calculate_intrinsic_cost(tx)
     increment_nonce(env.state, sender)
