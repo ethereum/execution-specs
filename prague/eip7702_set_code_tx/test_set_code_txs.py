@@ -3187,3 +3187,85 @@ def test_deploying_delegation_designation_contract(
             tx.created_contract: Account.NONEXISTENT,
         },
     )
+
+
+@pytest.mark.parametrize(
+    "signer_balance",
+    [
+        pytest.param(0, id="empty_balance"),
+        pytest.param(
+            1,
+            id="non_empty_balance",
+            marks=pytest.mark.execute(pytest.mark.skip(reason="excessive pre-fund txs")),
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "max_gas",
+    [
+        pytest.param(
+            120_000_000,
+            id="120m",
+            marks=pytest.mark.execute(pytest.mark.skip(reason="excessive gas")),
+        ),
+        pytest.param(
+            20_000_000,
+            id="20m",
+            marks=pytest.mark.fill(pytest.mark.skip(reason="execute-only test")),
+        ),
+    ],
+)
+def test_many_delegations(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    max_gas: int,
+    signer_balance: int,
+):
+    """
+    Perform as many delegations as possible in a single 120 million gas transaction.
+
+    Every delegation comes from a different signer.
+
+    The account of can be empty or not depending on the `signer_balance` parameter.
+
+    The transaction is expected to succeed and the state after the transaction is expected to have
+    the code of the entry contract set to 1.
+    """
+    gas_for_delegations = max_gas - 21_000 - 20_000 - (3 * 2)
+
+    delegation_count = gas_for_delegations // Spec.PER_EMPTY_ACCOUNT_COST
+
+    success_slot = 1
+    entry_code = Op.SSTORE(success_slot, 1) + Op.STOP
+    entry_address = pre.deploy_contract(entry_code)
+
+    signers = [pre.fund_eoa(signer_balance) for _ in range(delegation_count)]
+
+    tx = Transaction(
+        gas_limit=max_gas,
+        to=entry_address,
+        value=0,
+        authorization_list=[
+            AuthorizationTuple(
+                address=Address(i + 1),
+                nonce=0,
+                signer=signer,
+            )
+            for (i, signer) in enumerate(signers)
+        ],
+        sender=pre.fund_eoa(),
+    )
+
+    post = {entry_address: Account(storage={success_slot: 1},),} | {
+        signer: Account(
+            code=Spec.delegation_designation(Address(i + 1)),
+        )
+        for (i, signer) in enumerate(signers)
+    }
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post=post,
+    )
