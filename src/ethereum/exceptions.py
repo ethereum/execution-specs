@@ -32,3 +32,10 @@ class RLPEncodingError(EthereumException):
     """
     Indicates that RLP encoding failed.
     """
+
+
+class InvalidSenderError(InvalidTransaction):
+    """
+    Thrown when a transaction originates from an account that cannot send
+    transactions.
+    """
