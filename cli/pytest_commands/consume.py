@@ -41,7 +41,7 @@ def handle_consume_command_flags(consume_args: List[str], is_hive: bool) -> List
     args = list(handle_help_flags(consume_args, pytest_type="consume"))
     args += ["-c", "pytest-consume.ini"]
     if is_hive:
-        args += handle_hive_env_flags(args)
+        args = handle_hive_env_flags(args)
         args += ["-p", "pytest_plugins.pytest_hive.pytest_hive"]
         # Ensure stdout is captured when timing data is enabled.
         if "--timing-data" in args and "-s" not in args:
