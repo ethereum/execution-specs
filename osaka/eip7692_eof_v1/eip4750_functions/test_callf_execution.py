@@ -115,6 +115,65 @@ def test_callf_fibonacci(eof_state_test: EOFStateTestFiller, n, result):
     "container",
     (
         Container(
+            name="callf_sub_retf",
+            sections=[
+                Section.Code(
+                    Op.SSTORE(
+                        slot_code_worked,
+                        Op.PUSH1[1] + Op.PUSH2[value_code_worked + 1] + Op.CALLF[1],
+                    )
+                    + Op.STOP,
+                    max_stack_height=2,
+                ),
+                Section.Code(
+                    Op.SUB + Op.RETF,
+                    code_inputs=2,
+                    code_outputs=1,
+                    max_stack_height=2,
+                ),
+            ],
+        ),
+        Container(
+            name="max_code_sections_retf2",
+            sections=[
+                Section.Code(
+                    Op.CALLF[1] + Op.SSTORE + Op.STOP,
+                    max_stack_height=2,
+                )
+            ]
+            + [
+                Section.Code(
+                    Op.CALLF[i] + Op.RETF,
+                    code_inputs=0,
+                    code_outputs=2,
+                    max_stack_height=2,
+                )
+                for i in range(2, 1024)
+            ]
+            + [
+                Section.Code(
+                    Op.PUSH2[value_code_worked] + Op.PUSH1[slot_code_worked] + Op.RETF,
+                    code_inputs=0,
+                    code_outputs=2,
+                    max_stack_height=2,
+                ),
+            ],
+        ),
+    ),
+    ids=lambda x: x.name,
+)
+def test_callf(eof_state_test: EOFStateTestFiller, container: Container):
+    """Test basic usage of CALLF and RETF instructions"""
+    eof_state_test(
+        data=container,
+        container_post=Account(storage={slot_code_worked: value_code_worked}),
+    )
+
+
+@pytest.mark.parametrize(
+    "container",
+    (
+        Container(
             name="no_inputs",
             sections=[
                 Section.Code(
@@ -234,6 +293,52 @@ def test_callf_fibonacci(eof_state_test: EOFStateTestFiller, n, result):
                     code_inputs=3,
                     code_outputs=3,
                     max_stack_height=4,
+                ),
+            ],
+        ),
+        Container(
+            name="store_value_unmodified_by_callf",
+            sections=[
+                Section.Code(
+                    Op.PUSH2[value_code_worked]  # to be stored after CALLF
+                    + Op.PUSH0  # input to CALLF
+                    + Op.CALLF[1]
+                    + Op.PUSH1[slot_code_worked]
+                    + Op.SSTORE
+                    + Op.STOP,
+                    max_stack_height=2,
+                ),
+                Section.Code(
+                    Op.POP  # clear input
+                    + Op.PUSH0 * 1023  # reach max stack height
+                    + Op.POP * 1023
+                    + Op.RETF,  # return nothing
+                    code_inputs=1,
+                    code_outputs=0,
+                    max_stack_height=1023,
+                ),
+            ],
+        ),
+        Container(
+            name="with_rjumpi",
+            sections=[
+                Section.Code(
+                    Op.PUSH1[1]  # input[1] to CALLF
+                    + Op.PUSH0  # input[0] to CALLF
+                    + Op.CALLF[1]
+                    + Op.SSTORE(slot_code_worked, value_code_worked)
+                    + Op.STOP,
+                    max_stack_height=2,
+                ),
+                Section.Code(
+                    Op.POP  # clear input[0]
+                    + Op.RJUMPI[2 * 1023]  # jump to RETF based on input[1]
+                    + Op.PUSH0 * 1023  # reach max stack height
+                    + Op.POP * 1023
+                    + Op.RETF,  # return nothing
+                    code_inputs=2,
+                    code_outputs=0,
+                    max_stack_height=1023,
                 ),
             ],
         ),

@@ -325,7 +325,7 @@
 
 ### Execution
 
-- [ ] Max stack size (1024) in CALLF-ed function (ethereum/tests: src/EIPTestsFiller/StateTests/stEOF/stEIP4200/EOF1_CALLF_ExecutionFiller.yml)
+- [x] Max stack size (1024) in CALLF-ed function ([`tests/osaka/eip7692_eof_v1/eip4750_functions/test_callf_execution.py::test_callf_operand_stack_size_max`](./eip4750_functions/test_callf_execution/test_callf_operand_stack_size_max.md)
 
 
 ## EIP-6206: EOF - JUMPF and non-returning functions
