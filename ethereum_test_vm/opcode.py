@@ -4959,7 +4959,7 @@ class Opcodes(Opcode, Enum):
     3
     """
 
-    JUMPF = Opcode(0xE5, data_portion_length=2, terminating=True)
+    JUMPF = Opcode(0xE5, data_portion_length=2, terminating=True, unchecked_stack=True)
     """
     !!! Note: This opcode is under development
 
