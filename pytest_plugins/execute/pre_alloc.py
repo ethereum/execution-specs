@@ -15,18 +15,14 @@ from ethereum_test_base_types.conversions import (
     FixedSizeBytesConvertible,
     NumberConvertible,
 )
+from ethereum_test_forks import Fork
 from ethereum_test_rpc import EthRPC
 from ethereum_test_rpc.types import TransactionByHashResponse
 from ethereum_test_tools import EOA, Account, Address
 from ethereum_test_tools import Alloc as BaseAlloc
 from ethereum_test_tools import AuthorizationTuple, Initcode
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import (
-    Storage,
-    Transaction,
-    cost_memory_bytes,
-    eip_2028_transaction_data_cost,
-)
+from ethereum_test_tools import Storage, Transaction
 from ethereum_test_types.eof.v1 import Container
 from ethereum_test_vm import Bytecode, EVMCodeType, Opcodes
 
@@ -96,6 +92,7 @@ class Alloc(BaseAlloc):
     A custom class that inherits from the original Alloc class.
     """
 
+    _fork: Fork = PrivateAttr(...)
     _sender: EOA = PrivateAttr(...)
     _eth_rpc: EthRPC = PrivateAttr(...)
     _txs: List[Transaction] = PrivateAttr(default_factory=list)
@@ -107,6 +104,7 @@ class Alloc(BaseAlloc):
     def __init__(
         self,
         *args,
+        fork: Fork,
         sender: EOA,
         eth_rpc: EthRPC,
         eoa_iterator: Iterator[EOA],
@@ -116,6 +114,7 @@ class Alloc(BaseAlloc):
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        self._fork = fork
         self._sender = sender
         self._eth_rpc = eth_rpc
         self._eoa_iterator = eoa_iterator
@@ -187,13 +186,15 @@ class Alloc(BaseAlloc):
             initcode = Container.Init(deploy_container=code, initcode_prefix=initcode_prefix)
         else:
             initcode = Initcode(deploy_code=code, initcode_prefix=initcode_prefix)
-            deploy_gas_limit += cost_memory_bytes(len(bytes(initcode)), 0)
+            memory_expansion_gas_calculator = self._fork.memory_expansion_gas_calculator()
+            deploy_gas_limit += memory_expansion_gas_calculator(new_bytes=len(bytes(initcode)))
 
         assert (
             len(initcode) <= MAX_INITCODE_SIZE
         ), f"initcode too large {len(initcode)} > {MAX_INITCODE_SIZE}"
 
-        deploy_gas_limit += eip_2028_transaction_data_cost(bytes(initcode))
+        calldata_gas_calculator = self._fork.calldata_gas_calculator()
+        deploy_gas_limit += calldata_gas_calculator(data=initcode)
 
         # Limit the gas limit
         deploy_gas_limit = min(deploy_gas_limit * 2, 30_000_000)
@@ -378,6 +379,7 @@ def eoa_fund_amount_default(request: pytest.FixtureRequest) -> int:
 
 @pytest.fixture(autouse=True, scope="function")
 def pre(
+    fork: Fork,
     sender_key: EOA,
     eoa_iterator: Iterator[EOA],
     eth_rpc: EthRPC,
@@ -389,6 +391,7 @@ def pre(
     Returns the default pre allocation for all tests (Empty alloc).
     """
     return Alloc(
+        fork=fork,
         sender=sender_key,
         eth_rpc=eth_rpc,
         eoa_iterator=eoa_iterator,

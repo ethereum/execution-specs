@@ -24,7 +24,7 @@ from pydantic import (
 )
 from trie import HexaryTrie
 
-from ethereum_test_base_types import Account, Address
+from ethereum_test_base_types import AccessList, Account, Address
 from ethereum_test_base_types import Alloc as BaseAlloc
 from ethereum_test_base_types import (
     BLSPublicKey,
@@ -475,21 +475,6 @@ class Environment(EnvironmentGeneric[Number]):
             updated_values["parent_beacon_block_root"] = 0
 
         return self.copy(**updated_values)
-
-
-class AccessList(CamelModel):
-    """
-    Access List for transactions.
-    """
-
-    address: Address
-    storage_keys: List[Hash]
-
-    def to_list(self) -> List[Address | List[Hash]]:
-        """
-        Returns the access list as a list of serializable elements.
-        """
-        return [self.address, self.storage_keys]
 
 
 class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar]):

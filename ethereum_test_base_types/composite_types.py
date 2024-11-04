@@ -2,7 +2,7 @@
 Base composite types for Ethereum test cases.
 """
 from dataclasses import dataclass
-from typing import Any, ClassVar, Dict, SupportsBytes, Type, TypeAlias
+from typing import Any, ClassVar, Dict, List, SupportsBytes, Type, TypeAlias
 
 from pydantic import Field, PrivateAttr, RootModel, TypeAdapter
 
@@ -448,3 +448,18 @@ class Alloc(RootModel[Dict[Address, Account | None]]):
     """
 
     root: Dict[Address, Account | None] = Field(default_factory=dict, validate_default=True)
+
+
+class AccessList(CamelModel):
+    """
+    Access List for transactions.
+    """
+
+    address: Address
+    storage_keys: List[Hash]
+
+    def to_list(self) -> List[Address | List[Hash]]:
+        """
+        Returns the access list as a list of serializable elements.
+        """
+        return [self.address, self.storage_keys]

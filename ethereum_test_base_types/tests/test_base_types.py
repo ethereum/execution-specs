@@ -2,11 +2,13 @@
 Test suite for `ethereum_test` module base types.
 """
 
-from typing import Any
+from typing import Any, Dict
 
 import pytest
 
 from ..base_types import Address, Hash, Wei
+from ..composite_types import AccessList
+from ..json import to_json
 
 
 @pytest.mark.parametrize(
@@ -91,3 +93,48 @@ def test_wei_parsing(s: str, expected: int):
     Test the parsing of wei values.
     """
     assert Wei(s) == expected
+
+
+@pytest.mark.parametrize(
+    ["can_be_deserialized", "model_instance", "json"],
+    [
+        pytest.param(
+            True,
+            AccessList(
+                address=0x1234,
+                storage_keys=[0, 1],
+            ),
+            {
+                "address": "0x0000000000000000000000000000000000001234",
+                "storageKeys": [
+                    "0x0000000000000000000000000000000000000000000000000000000000000000",
+                    "0x0000000000000000000000000000000000000000000000000000000000000001",
+                ],
+            },
+            id="access_list",
+        ),
+    ],
+)
+class TestPydanticModelConversion:
+    """
+    Test that Pydantic models are converted to and from JSON correctly.
+    """
+
+    def test_json_serialization(
+        self, can_be_deserialized: bool, model_instance: Any, json: str | Dict[str, Any]
+    ):
+        """
+        Test that to_json returns the expected JSON for the given object.
+        """
+        assert to_json(model_instance) == json
+
+    def test_json_deserialization(
+        self, can_be_deserialized: bool, model_instance: Any, json: str | Dict[str, Any]
+    ):
+        """
+        Test that to_json returns the expected JSON for the given object.
+        """
+        if not can_be_deserialized:
+            pytest.skip(reason="The model instance in this case can not be deserialized")
+        model_type = type(model_instance)
+        assert model_type(**json) == model_instance

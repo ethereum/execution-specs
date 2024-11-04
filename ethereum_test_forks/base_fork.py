@@ -7,10 +7,12 @@ from typing import Any, ClassVar, List, Mapping, Optional, Protocol, Tuple, Type
 
 from semver import Version
 
-from ethereum_test_base_types import Address
+from ethereum_test_base_types import AccessList, Address
+from ethereum_test_base_types.conversions import BytesConvertible
 from ethereum_test_vm import EVMCodeType, Opcodes
 
 from .base_decorators import prefer_transition_to_method
+from .gas_costs import GasCosts
 
 
 class ForkAttribute(Protocol):
@@ -21,6 +23,49 @@ class ForkAttribute(Protocol):
     def __call__(self, block_number: int = 0, timestamp: int = 0) -> Any:
         """
         Returns the value of the attribute at the given block number and timestamp.
+        """
+        pass
+
+
+class MemoryExpansionGasCalculator(Protocol):
+    """
+    A protocol to calculate the gas cost of memory expansion for a given fork.
+    """
+
+    def __call__(self, *, new_bytes: int, previous_bytes: int = 0) -> int:
+        """
+        Returns the gas cost of expanding the memory by the given length.
+        """
+        pass
+
+
+class CalldataGasCalculator(Protocol):
+    """
+    A protocol to calculate the transaction gas cost of calldata for a given fork.
+    """
+
+    def __call__(self, *, data: BytesConvertible) -> int:
+        """
+        Returns the transaction gas cost of calldata given its contents.
+        """
+        pass
+
+
+class TransactionIntrinsicCostCalculator(Protocol):
+    """
+    A protocol to calculate the intrinsic gas cost of a transaction for a given fork.
+    """
+
+    def __call__(
+        self,
+        *,
+        calldata: BytesConvertible = b"",
+        contract_creation: bool = False,
+        access_list: List[AccessList] | None = None,
+        authorization_count: int | None = None,
+    ) -> int:
+        """
+        Returns the intrinsic gas cost of a transaction given its properties.
         """
         pass
 
@@ -160,6 +205,47 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         """
         pass
 
+    # Gas related abstract methods
+
+    @classmethod
+    @abstractmethod
+    def gas_costs(cls, block_number: int = 0, timestamp: int = 0) -> GasCosts:
+        """
+        Returns a dataclass with the gas costs constants for the fork.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def memory_expansion_gas_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> MemoryExpansionGasCalculator:
+        """
+        Returns a callable that calculates the gas cost of memory expansion for the fork.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def calldata_gas_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> CalldataGasCalculator:
+        """
+        Returns a callable that calculates the transaction gas cost for its calldata
+        depending on its contents.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def transaction_intrinsic_cost_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> TransactionIntrinsicCostCalculator:
+        """
+        Returns a callable that calculates the intrinsic gas cost of a transaction for the fork.
+        """
+        pass
+
     @classmethod
     @abstractmethod
     def blob_gas_per_blob(cls, block_number: int, timestamp: int) -> int:
@@ -175,6 +261,8 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         Returns the expected reward amount in wei of a given fork
         """
         pass
+
+    # Transaction related abstract methods
 
     @classmethod
     @abstractmethod

@@ -4,17 +4,27 @@ Test fork utilities.
 
 from typing import Mapping, cast
 
+import pytest
 from semver import Version
 
 from ..base_fork import Fork
-from ..forks.forks import Berlin, Cancun, Frontier, London, Paris, Prague, Shanghai
+from ..forks.forks import (
+    Berlin,
+    Cancun,
+    Frontier,
+    Homestead,
+    Istanbul,
+    London,
+    Paris,
+    Prague,
+    Shanghai,
+)
 from ..forks.transition import BerlinToLondonAt5, ParisToShanghaiAtTime15k
 from ..helpers import (
     forks_from,
     forks_from_until,
     get_closest_fork_with_solc_support,
     get_deployed_forks,
-    get_development_forks,
     get_forks,
     get_forks_with_solc_support,
     transition_fork_from_to,
@@ -196,7 +206,7 @@ class PreAllocTransitionFork(PrePreAllocFork):
     pass
 
 
-def test_pre_alloc():
+def test_pre_alloc():  # noqa: D103
     assert PrePreAllocFork.pre_allocation() == {"test": "test"}
     assert PreAllocFork.pre_allocation() == {"test": "test", "test2": "test2"}
     assert PreAllocTransitionFork.pre_allocation() == {
@@ -209,21 +219,64 @@ def test_pre_alloc():
     }
 
 
-def test_precompiles():
+def test_precompiles():  # noqa: D103
     Cancun.precompiles() == list(range(11))[1:]
 
 
-def test_tx_types():
+def test_tx_types():  # noqa: D103
     Cancun.tx_types() == list(range(4))
 
 
-def test_solc_versioning():
+def test_solc_versioning():  # noqa: D103
     assert len(get_forks_with_solc_support(Version.parse("0.8.20"))) == 13
     assert len(get_forks_with_solc_support(Version.parse("0.8.24"))) > 13
 
 
-def test_closest_fork_supported_by_solc():
+def test_closest_fork_supported_by_solc():  # noqa: D103
     assert get_closest_fork_with_solc_support(Paris, Version.parse("0.8.20")) == Paris
     assert get_closest_fork_with_solc_support(Cancun, Version.parse("0.8.20")) == Shanghai
     assert get_closest_fork_with_solc_support(Cancun, Version.parse("0.8.24")) == Cancun
     assert get_closest_fork_with_solc_support(Prague, Version.parse("0.8.24")) == Cancun
+
+
+@pytest.mark.parametrize(
+    "fork",
+    [
+        pytest.param(Berlin, id="Berlin"),
+        pytest.param(Istanbul, id="Istanbul"),
+        pytest.param(Homestead, id="Homestead"),
+        pytest.param(Frontier, id="Frontier"),
+    ],
+)
+@pytest.mark.parametrize(
+    "calldata",
+    [
+        pytest.param(b"\0", id="zero-data"),
+        pytest.param(b"\1", id="non-zero-data"),
+    ],
+)
+@pytest.mark.parametrize(
+    "create_tx",
+    [False, True],
+)
+def test_tx_intrinsic_gas_functions(fork: Fork, calldata: bytes, create_tx: bool):  # noqa: D103
+    intrinsic_gas = 21_000
+    if calldata == b"\0":
+        intrinsic_gas += 4
+    else:
+        if fork >= Istanbul:
+            intrinsic_gas += 16
+        else:
+            intrinsic_gas += 68
+
+    if create_tx:
+        if fork >= Homestead:
+            intrinsic_gas += 32000
+        intrinsic_gas += 2
+    assert (
+        fork.transaction_intrinsic_cost_calculator()(
+            calldata=calldata,
+            contract_creation=create_tx,
+        )
+        == intrinsic_gas
+    )

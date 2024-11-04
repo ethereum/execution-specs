@@ -2,6 +2,7 @@
 All Ethereum fork class definitions.
 """
 
+from dataclasses import replace
 from hashlib import sha256
 from os.path import realpath
 from pathlib import Path
@@ -9,13 +10,28 @@ from typing import List, Mapping, Optional, Tuple
 
 from semver import Version
 
-from ethereum_test_base_types import Address
+from ethereum_test_base_types import AccessList, Address, Bytes
+from ethereum_test_base_types.conversions import BytesConvertible
 from ethereum_test_vm import EVMCodeType, Opcodes
 
-from ..base_fork import BaseFork
+from ..base_fork import (
+    BaseFork,
+    CalldataGasCalculator,
+    MemoryExpansionGasCalculator,
+    TransactionIntrinsicCostCalculator,
+)
+from ..gas_costs import GasCosts
 
 CURRENT_FILE = Path(realpath(__file__))
 CURRENT_FOLDER = CURRENT_FILE.parent
+
+
+def ceiling_division(a: int, b: int) -> int:
+    """
+    Calculates the ceil without using floating point.
+    Used by many of the EVM's formulas
+    """
+    return -(a // -b)
 
 
 # All forks must be listed here !!! in the order they were introduced !!!
@@ -90,6 +106,124 @@ class Frontier(BaseFork, solc_name="homestead"):
         At genesis, header must not contain blob gas used
         """
         return False
+
+    @classmethod
+    def gas_costs(cls, block_number: int = 0, timestamp: int = 0) -> GasCosts:
+        """
+        Returns a dataclass with the defined gas costs constants for genesis.
+        """
+        return GasCosts(
+            G_JUMPDEST=1,
+            G_BASE=2,
+            G_VERY_LOW=3,
+            G_LOW=5,
+            G_MID=8,
+            G_HIGH=10,
+            G_WARM_ACCOUNT_ACCESS=100,
+            G_COLD_ACCOUNT_ACCESS=2_600,
+            G_ACCESS_LIST_ADDRESS=2_400,
+            G_ACCESS_LIST_STORAGE=1_900,
+            G_WARM_SLOAD=100,
+            G_COLD_SLOAD=2_100,
+            G_STORAGE_SET=20_000,
+            G_STORAGE_RESET=2_900,
+            R_STORAGE_CLEAR=4_800,
+            G_SELF_DESTRUCT=5_000,
+            G_CREATE=32_000,
+            G_CODE_DEPOSIT_BYTE=200,
+            G_INITCODE_WORD=2,
+            G_CALL_VALUE=9_000,
+            G_CALL_STIPEND=2_300,
+            G_NEW_ACCOUNT=25_000,
+            G_EXP=10,
+            G_EXP_BYTE=50,
+            G_MEMORY=3,
+            G_TX_DATA_ZERO=4,
+            G_TX_DATA_NON_ZERO=68,
+            G_TRANSACTION=21_000,
+            G_TRANSACTION_CREATE=32_000,
+            G_LOG=375,
+            G_LOG_DATA=8,
+            G_LOG_TOPIC=375,
+            G_KECCAK_256=30,
+            G_KECCAK_256_WORD=6,
+            G_COPY=3,
+            G_BLOCKHASH=20,
+            G_AUTHORIZATION=25_000,
+        )
+
+    @classmethod
+    def memory_expansion_gas_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> MemoryExpansionGasCalculator:
+        """
+        Returns a callable that calculates the gas cost of memory expansion for the fork.
+        """
+        gas_costs = cls.gas_costs(block_number, timestamp)
+
+        def fn(*, new_bytes: int, previous_bytes: int = 0) -> int:
+            if new_bytes <= previous_bytes:
+                return 0
+            new_words = ceiling_division(new_bytes, 32)
+            previous_words = ceiling_division(previous_bytes, 32)
+
+            def c(w: int) -> int:
+                return (gas_costs.G_MEMORY * w) + ((w * w) // 512)
+
+            return c(new_words) - c(previous_words)
+
+        return fn
+
+    @classmethod
+    def calldata_gas_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> CalldataGasCalculator:
+        """
+        Returns a callable that calculates the transaction gas cost for its calldata
+        depending on its contents.
+        """
+        gas_costs = cls.gas_costs(block_number, timestamp)
+
+        def fn(*, data: BytesConvertible) -> int:
+            cost = 0
+            for b in Bytes(data):
+                if b == 0:
+                    cost += gas_costs.G_TX_DATA_ZERO
+                else:
+                    cost += gas_costs.G_TX_DATA_NON_ZERO
+            return cost
+
+        return fn
+
+    @classmethod
+    def transaction_intrinsic_cost_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> TransactionIntrinsicCostCalculator:
+        """
+        Returns a callable that calculates the intrinsic gas cost of a transaction for the fork.
+        """
+        gas_costs = cls.gas_costs(block_number, timestamp)
+        calldata_gas_calculator = cls.calldata_gas_calculator(block_number, timestamp)
+
+        def fn(
+            *,
+            calldata: BytesConvertible = b"",
+            contract_creation: bool = False,
+            access_list: List[AccessList] | None = None,
+            authorization_count: int | None = None,
+        ) -> int:
+            assert access_list is None, f"Access list is not supported in {cls.name()}"
+            assert authorization_count is None, f"Authorizations are not supported in {cls.name()}"
+            intrinsic_cost: int = gas_costs.G_TRANSACTION
+
+            if contract_creation:
+                intrinsic_cost += gas_costs.G_INITCODE_WORD * ceiling_division(
+                    len(Bytes(calldata)), 32
+                )
+
+            return intrinsic_cost + calldata_gas_calculator(data=calldata)
+
+        return fn
 
     @classmethod
     def blob_gas_per_blob(cls, block_number: int, timestamp: int) -> int:
@@ -425,6 +559,37 @@ class Homestead(Frontier):
         """
         return [Opcodes.DELEGATECALL] + super(Homestead, cls).valid_opcodes()
 
+    @classmethod
+    def transaction_intrinsic_cost_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> TransactionIntrinsicCostCalculator:
+        """
+        At Homestead, the transaction intrinsic cost needs to take contract creation into account.
+        """
+        super_fn = super(Homestead, cls).transaction_intrinsic_cost_calculator(
+            block_number, timestamp
+        )
+        gas_costs = cls.gas_costs(block_number, timestamp)
+
+        def fn(
+            *,
+            calldata: BytesConvertible = b"",
+            contract_creation: bool = False,
+            access_list: List[AccessList] | None = None,
+            authorization_count: int | None = None,
+        ) -> int:
+            intrinsic_cost: int = super_fn(
+                calldata=calldata,
+                contract_creation=contract_creation,
+                access_list=access_list,
+                authorization_count=authorization_count,
+            )
+            if contract_creation:
+                intrinsic_cost += gas_costs.G_TRANSACTION_CREATE
+            return intrinsic_cost
+
+        return fn
+
 
 class Byzantium(Homestead):
     """
@@ -540,6 +705,16 @@ class Istanbul(ConstantinopleFix):
         """
         return [Opcodes.CHAINID, Opcodes.SELFBALANCE] + super(Istanbul, cls).valid_opcodes()
 
+    @classmethod
+    def gas_costs(cls, block_number: int = 0, timestamp: int = 0) -> GasCosts:
+        """
+        Returns a dataclass with the defined gas costs constants for genesis.
+        """
+        return replace(
+            super(Istanbul, cls).gas_costs(block_number, timestamp),
+            G_TX_DATA_NON_ZERO=16,  # https://eips.ethereum.org/EIPS/eip-2028
+        )
+
 
 # Glacier forks skipped, unless explicitly specified
 class MuirGlacier(Istanbul, solc_name="istanbul", ignore=True):
@@ -568,6 +743,39 @@ class Berlin(Istanbul):
         At Berlin, access list transactions are introduced
         """
         return [1] + super(Berlin, cls).contract_creating_tx_types(block_number, timestamp)
+
+    @classmethod
+    def transaction_intrinsic_cost_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> TransactionIntrinsicCostCalculator:
+        """
+        At Berlin, the transaction intrinsic cost needs to take the access list into account
+        """
+        super_fn = super(Berlin, cls).transaction_intrinsic_cost_calculator(
+            block_number, timestamp
+        )
+        gas_costs = cls.gas_costs(block_number, timestamp)
+
+        def fn(
+            *,
+            calldata: BytesConvertible = b"",
+            contract_creation: bool = False,
+            access_list: List[AccessList] | None = None,
+            authorization_count: int | None = None,
+        ) -> int:
+            intrinsic_cost: int = super_fn(
+                calldata=calldata,
+                contract_creation=contract_creation,
+                authorization_count=authorization_count,
+            )
+            if access_list is not None:
+                for access in access_list:
+                    intrinsic_cost += gas_costs.G_ACCESS_LIST_ADDRESS
+                    for _ in access.storage_keys:
+                        intrinsic_cost += gas_costs.G_ACCESS_LIST_STORAGE
+            return intrinsic_cost
+
+        return fn
 
 
 class London(Berlin):
@@ -769,7 +977,7 @@ class Cancun(Shanghai):
                 "5ffd5b62001fff42064281555f359062001fff015500",
             }
         }
-        return new_allocation | super(Cancun, cls).pre_allocation_blockchain()
+        return new_allocation | super(Cancun, cls).pre_allocation_blockchain()  # type: ignore
 
     @classmethod
     def engine_new_payload_version(
@@ -869,6 +1077,36 @@ class Prague(Cancun):
         return 2
 
     @classmethod
+    def transaction_intrinsic_cost_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> TransactionIntrinsicCostCalculator:
+        """
+        At Prague, the transaction intrinsic cost needs to take the authorizations into account
+        """
+        super_fn = super(Prague, cls).transaction_intrinsic_cost_calculator(
+            block_number, timestamp
+        )
+        gas_costs = cls.gas_costs(block_number, timestamp)
+
+        def fn(
+            *,
+            calldata: BytesConvertible = b"",
+            contract_creation: bool = False,
+            access_list: List[AccessList] | None = None,
+            authorization_count: int | None = None,
+        ) -> int:
+            intrinsic_cost: int = super_fn(
+                calldata=calldata,
+                contract_creation=contract_creation,
+                access_list=access_list,
+            )
+            if authorization_count is not None:
+                intrinsic_cost += authorization_count * gas_costs.G_AUTHORIZATION
+            return intrinsic_cost
+
+        return fn
+
+    @classmethod
     def pre_allocation_blockchain(cls) -> Mapping:
         """
         Prague requires pre-allocation of the beacon chain deposit contract for EIP-6110,
@@ -928,7 +1166,7 @@ class Prague(Cancun):
                 }
             )
 
-        return new_allocation | super(Prague, cls).pre_allocation_blockchain()
+        return new_allocation | super(Prague, cls).pre_allocation_blockchain()  # type: ignore
 
     @classmethod
     def header_requests_required(cls, block_number: int, timestamp: int) -> bool:

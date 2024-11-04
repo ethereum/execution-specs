@@ -6,10 +6,10 @@ from typing import Any, Dict, List
 
 import pytest
 
-from ethereum_test_base_types import Address, TestPrivateKey, to_json
+from ethereum_test_base_types import AccessList, Address, TestPrivateKey, to_json
 from ethereum_test_base_types.pydantic import CopyValidateModel
 
-from ..types import AccessList, Account, Alloc, Environment, Storage, Transaction, Withdrawal
+from ..types import Account, Alloc, Environment, Storage, Transaction, Withdrawal
 
 
 def test_storage():
@@ -437,21 +437,6 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
                 },
             },
             id="account_2",
-        ),
-        pytest.param(
-            True,
-            AccessList(
-                address=0x1234,
-                storage_keys=[0, 1],
-            ),
-            {
-                "address": "0x0000000000000000000000000000000000001234",
-                "storageKeys": [
-                    "0x0000000000000000000000000000000000000000000000000000000000000000",
-                    "0x0000000000000000000000000000000000000000000000000000000000000001",
-                ],
-            },
-            id="access_list",
         ),
         pytest.param(
             True,

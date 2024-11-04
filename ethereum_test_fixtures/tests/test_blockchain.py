@@ -8,6 +8,7 @@ import pytest
 from pydantic import TypeAdapter
 
 from ethereum_test_base_types import (
+    AccessList,
     Address,
     Bloom,
     BLSPublicKey,
@@ -23,7 +24,6 @@ from ethereum_test_exceptions import BlockException, EngineAPIError, Transaction
 from ethereum_test_forks import Prague
 from ethereum_test_types import (
     EOA,
-    AccessList,
     AuthorizationTuple,
     ConsolidationRequest,
     DepositRequest,
