@@ -45,7 +45,7 @@ def tx_value() -> int:
 @pytest.fixture
 def tx_gas() -> int:
     """Default gas allocated to transactions sent during test."""
-    return 21000
+    return 21_000
 
 
 @pytest.fixture

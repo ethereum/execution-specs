@@ -70,7 +70,7 @@ class TestUseValueInTx:
         # Transaction sent from the `sender`, which has 1 wei balance at start
         return Transaction(
             gas_price=ONE_GWEI,
-            gas_limit=21000,
+            gas_limit=21_000,
             to=recipient,
             sender=sender,
         )

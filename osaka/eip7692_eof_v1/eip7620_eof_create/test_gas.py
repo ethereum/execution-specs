@@ -4,10 +4,10 @@ Test good and bad EOFCREATE cases
 
 import pytest
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import Alloc, Environment, StateTestFiller, compute_eofcreate_address
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
-from ethereum_test_types.helpers import cost_memory_bytes
 
 from .. import EOF_FORK_NAME
 from ..gas_test import gas_test
@@ -115,6 +115,7 @@ def make_factory(initcode: Container):
 def test_eofcreate_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     value: int,
     new_account: bool,
     mem_expansion_bytes: int,
@@ -139,7 +140,7 @@ def test_eofcreate_gas(
     code_increment_counter = (
         Op.TLOAD(slot_counter) + Op.DUP1 + Op.TSTORE(slot_counter, Op.PUSH1(1) + Op.ADD)
     )
-
+    cost_memory_bytes = fork.memory_expansion_gas_calculator()
     gas_test(
         state_test,
         Environment(),
@@ -151,7 +152,7 @@ def test_eofcreate_gas(
         subject_code=Op.EOFCREATE[0],
         tear_down_code=Op.STOP,
         cold_gas=EOFCREATE_GAS
-        + cost_memory_bytes(mem_expansion_bytes, 0)
+        + cost_memory_bytes(new_bytes=mem_expansion_bytes)
         + initcode_hashing_cost
         + initcode_execution_cost
         + deployed_code_cost,

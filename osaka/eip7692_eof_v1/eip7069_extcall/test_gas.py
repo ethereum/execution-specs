@@ -5,10 +5,10 @@ abstract: Tests [EIP-7069: Revamped CALL instructions](https://eips.ethereum.org
 
 import pytest
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import Alloc, Environment, StateTestFiller
 from ethereum_test_tools.eof.v1 import Container
 from ethereum_test_tools.vm.opcode import Opcodes as Op
-from ethereum_test_types.helpers import cost_memory_bytes
 
 from .. import EOF_FORK_NAME
 from ..gas_test import gas_test
@@ -114,6 +114,7 @@ def state_env() -> Environment:
 def test_ext_calls_gas(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     state_env: Environment,
     opcode: Op,
     pre_setup: Op,
@@ -126,7 +127,7 @@ def test_ext_calls_gas(
     address_target = (
         pre.fund_eoa(0) if new_account else pre.deploy_contract(Container.Code(Op.STOP))
     )
-
+    cost_memory_bytes = fork.memory_expansion_gas_calculator()
     gas_test(
         state_test,
         state_env,
@@ -137,8 +138,8 @@ def test_ext_calls_gas(
         + Op.PUSH20(address_target),
         subject_code=opcode,
         tear_down_code=Op.STOP,
-        cold_gas=cold_gas + cost_memory_bytes(mem_expansion_bytes, 0),
-        warm_gas=warm_gas + cost_memory_bytes(mem_expansion_bytes, 0),
+        cold_gas=cold_gas + cost_memory_bytes(new_bytes=mem_expansion_bytes),
+        warm_gas=warm_gas + cost_memory_bytes(new_bytes=mem_expansion_bytes),
     )
 
 

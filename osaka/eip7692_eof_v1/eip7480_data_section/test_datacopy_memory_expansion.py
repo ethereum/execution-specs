@@ -5,6 +5,7 @@ from typing import Mapping, Tuple
 
 import pytest
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,
     Address,
@@ -14,7 +15,6 @@ from ethereum_test_tools import (
     StateTestFiller,
     Storage,
     Transaction,
-    cost_memory_bytes,
 )
 from ethereum_test_tools.eof.v1 import Container, Section
 from ethereum_test_tools.vm.opcode import Opcodes as Op
@@ -50,6 +50,7 @@ def callee_bytecode(dest: int, src: int, length: int, data_section: bytes) -> Co
 
 @pytest.fixture
 def subcall_exact_cost(
+    fork: Fork,
     initial_memory: bytes,
     dest: int,
     length: int,
@@ -57,14 +58,18 @@ def subcall_exact_cost(
     """
     Returns the exact cost of the subcall, based on the initial memory and the length of the copy.
     """
+    cost_memory_bytes = fork.memory_expansion_gas_calculator()
+
     datacopy_cost = 3
     datacopy_cost += 3 * ((length + 31) // 32)
     if length > 0 and dest + length > len(initial_memory):
-        datacopy_cost += cost_memory_bytes(dest + length, len(initial_memory))
+        datacopy_cost += cost_memory_bytes(
+            new_bytes=dest + length, previous_bytes=len(initial_memory)
+        )
 
     calldatacopy_cost = 3
     calldatacopy_cost += 3 * ((len(initial_memory) + 31) // 32)
-    calldatacopy_cost += cost_memory_bytes(len(initial_memory), 0)
+    calldatacopy_cost += cost_memory_bytes(new_bytes=len(initial_memory))
 
     pushes_cost = 3 * 7
     calldatasize_cost = 2

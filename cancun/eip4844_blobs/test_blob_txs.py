@@ -44,7 +44,6 @@ from ethereum_test_tools import (
     Transaction,
     TransactionException,
     add_kzg_version,
-    eip_2028_transaction_data_cost,
 )
 
 from .spec import Spec, SpecHelpers, ref_spec_4844
@@ -90,20 +89,13 @@ def tx_value() -> int:
 
 @pytest.fixture
 def tx_gas(
+    fork: Fork,
     tx_calldata: bytes,
     tx_access_list: List[AccessList],
 ) -> int:
     """Default gas allocated to transactions sent during test."""
-    access_list_gas = 0
-    if tx_access_list:
-        ACCESS_LIST_ADDRESS_COST = 2400
-        ACCESS_LIST_STORAGE_KEY_COST = 1900
-
-        for address in tx_access_list:
-            access_list_gas += ACCESS_LIST_ADDRESS_COST
-            access_list_gas += len(address.storage_keys) * ACCESS_LIST_STORAGE_KEY_COST
-
-    return 21000 + eip_2028_transaction_data_cost(tx_calldata) + access_list_gas
+    tx_intrinsic_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+    return tx_intrinsic_cost_calculator(calldata=tx_calldata, access_list=tx_access_list)
 
 
 @pytest.fixture

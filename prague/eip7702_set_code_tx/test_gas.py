@@ -10,6 +10,7 @@ from typing import Dict, Generator, Iterator, List
 
 import pytest
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     EOA,
     AccessList,
@@ -28,7 +29,6 @@ from ethereum_test_tools import (
     Storage,
     Transaction,
     TransactionException,
-    eip_2028_transaction_data_cost,
     extend_with_defaults,
 )
 
@@ -681,6 +681,7 @@ def gas_test_parameter_args(
 def test_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     authorization_list_with_properties: List[AuthorizationWithProperties],
     authorization_list: List[AuthorizationTuple],
     data: bytes,
@@ -690,15 +691,13 @@ def test_gas_cost(
     """
     Test gas at the execution start of a set-code transaction in multiple scenarios.
     """
-    intrinsic_gas = (
-        21_000
-        + eip_2028_transaction_data_cost(data)
-        + 1900 * sum(len(al.storage_keys) for al in access_list)
-        + 2400 * len(access_list)
-    )
     # Calculate the intrinsic gas cost of the authorizations, by default the
     # full empty account cost is charged for each authorization.
-    intrinsic_gas += Spec.PER_EMPTY_ACCOUNT_COST * len(authorization_list_with_properties)
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=data,
+        access_list=access_list,
+        authorization_count=len(authorization_list),
+    )
 
     discounted_authorizations = 0
     seen_authority = set()
@@ -934,6 +933,7 @@ def test_account_warming(
 def test_intrinsic_gas_cost(
     state_test: StateTestFiller,
     pre: Alloc,
+    fork: Fork,
     authorization_list: List[AuthorizationTuple],
     data: bytes,
     access_list: List[AccessList],
@@ -944,15 +944,13 @@ def test_intrinsic_gas_cost(
     Test sending a transaction with the exact intrinsic gas required and also insufficient
     gas.
     """
-    intrinsic_gas = (
-        21_000
-        + eip_2028_transaction_data_cost(data)
-        + 1900 * sum(len(al.storage_keys) for al in access_list)
-        + 2400 * len(access_list)
-    )
     # Calculate the intrinsic gas cost of the authorizations, by default the
     # full empty account cost is charged for each authorization.
-    intrinsic_gas += Spec.PER_EMPTY_ACCOUNT_COST * len(authorization_list)
+    intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
+        calldata=data,
+        access_list=access_list,
+        authorization_count=len(authorization_list),
+    )
 
     tx_gas = intrinsic_gas
     if not valid:

@@ -7,6 +7,7 @@ from typing import Dict, Literal
 
 import pytest
 
+from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     Account,
     Address,
@@ -16,7 +17,7 @@ from ethereum_test_tools import (
     Environment,
     StateTestFiller,
     Transaction,
-    copy_opcode_cost,
+    ceiling_division,
 )
 from ethereum_test_tools.vm.opcode import Opcodes as Op
 
@@ -69,8 +70,23 @@ def call_gas() -> int:
     return Spec.POINT_EVALUATION_PRECOMPILE_GAS
 
 
+def copy_opcode_cost(fork: Fork, length: int) -> int:
+    """
+    Calculates the cost of the COPY opcodes, assuming memory expansion from
+    empty memory, based on the costs specified in the yellow paper:
+    https://ethereum.github.io/yellowpaper/paper.pdf
+    """
+    cost_memory_bytes = fork.memory_expansion_gas_calculator()
+    return (
+        3
+        + (ceiling_division(length, 32) * 3)
+        + cost_memory_bytes(new_bytes=length, previous_bytes=0)
+    )
+
+
 @pytest.fixture
 def precompile_caller_code(
+    fork: Fork,
     call_type: Op,
     call_gas: int,
     precompile_input: bytes,
@@ -87,7 +103,7 @@ def precompile_caller_code(
         WARM_STORAGE_READ_COST
         + (CALLDATASIZE_COST * 1)
         + (PUSH_OPERATIONS_COST * 2)
-        + copy_opcode_cost(len(precompile_input))
+        + copy_opcode_cost(fork, len(precompile_input))
     )
     if call_type == Op.CALL or call_type == Op.CALLCODE:
         precompile_caller_code += call_type(  # type: ignore # https://github.com/ethereum/execution-spec-tests/issues/348 # noqa: E501
