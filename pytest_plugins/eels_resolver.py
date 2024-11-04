@@ -14,6 +14,7 @@ import pytest
 from pytest_metadata.plugin import metadata_key  # type: ignore
 
 
+@pytest.hookimpl(tryfirst=True)
 def pytest_configure(config: pytest.Config) -> None:
     """
     Set the EELS_RESOLUTIONS_FILE environment variable.
