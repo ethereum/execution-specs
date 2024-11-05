@@ -57,6 +57,8 @@ class _EvmToolHandler(BaseHTTPRequestHandler):
             f"--state.chainid={content['state']['chainid']}",
             f"--state.reward={content['state']['reward']}",
         ]
+        if 'state_test' in content and content['state_test']:
+            args.append("--state-test")
 
         self.send_response(200)
         self.send_header("Content-type", "application/octet-stream")
