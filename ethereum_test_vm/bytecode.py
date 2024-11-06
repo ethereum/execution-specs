@@ -117,9 +117,17 @@ class Bytecode:
         - NotImplementedError: if the comparison is not between an Bytecode
             or a bytes object.
         """
+        if isinstance(other, Bytecode):
+            return (
+                bytes(self) == bytes(other)
+                and self.popped_stack_items == other.popped_stack_items
+                and self.pushed_stack_items == other.pushed_stack_items
+                and self.max_stack_height == other.max_stack_height
+                and self.min_stack_height == other.min_stack_height
+            )
         if isinstance(other, SupportsBytes):
             return bytes(self) == bytes(other)
-        raise NotImplementedError(f"Unsupported type for comparison f{type(other)}")
+        raise NotImplementedError(f"Unsupported type for comparison: {type(other)}")
 
     def __hash__(self):
         """
