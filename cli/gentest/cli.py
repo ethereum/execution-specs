@@ -9,15 +9,11 @@ from sys import stderr
 from typing import TextIO
 
 import click
-import jinja2
 
 from ethereum_test_base_types import Hash
 
-from .request_manager import RPCRequest
-from .test_providers import BlockchainTestProvider
-
-template_loader = jinja2.PackageLoader("cli.gentest")
-template_env = jinja2.Environment(loader=template_loader, keep_trailing_newline=True)
+from .source_code_generator import get_test_source
+from .test_context_providers import BlockchainTestContextProvider
 
 
 @click.command()
@@ -31,26 +27,9 @@ def generate(transaction_hash: str, output_file: TextIO):
 
     OUTPUT_FILE is the path to the output python script.
     """
-    request = RPCRequest()
+    provider = BlockchainTestContextProvider(transaction_hash=Hash(transaction_hash))
 
-    print(
-        "Perform tx request: eth_get_transaction_by_hash(" + f"{transaction_hash}" + ")",
-        file=stderr,
-    )
-    transaction = request.eth_get_transaction_by_hash(Hash(transaction_hash))
-
-    print("Perform debug_trace_call", file=stderr)
-    state = request.debug_trace_call(transaction)
-
-    print("Perform eth_get_block_by_number", file=stderr)
-    block = request.eth_get_block_by_number(transaction.block_number)
-
-    print("Generate py test", file=stderr)
-    context = BlockchainTestProvider(
-        block=block, transaction=transaction, state=state
-    ).get_context()
-
-    template = template_env.get_template("blockchain_test/transaction.py.j2")
-    output_file.write(template.render(context))
+    source = get_test_source(provider=provider, template_path="blockchain_test/transaction.py.j2")
+    output_file.write(source)
 
     print("Finished", file=stderr)

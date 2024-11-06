@@ -1,17 +1,38 @@
 """
 Base pydantic classes used to define the models for Ethereum tests.
 """
-from typing import TypeVar
 
-from pydantic import BaseModel, ConfigDict
+from typing import Any, TypeVar
+
+from pydantic import BaseModel, ConfigDict, RootModel
 from pydantic.alias_generators import to_camel
+
+from .mixins import ModelCustomizationsMixin
 
 Model = TypeVar("Model", bound=BaseModel)
 
+RootModelRootType = TypeVar("RootModelRootType")
 
-class CopyValidateModel(BaseModel):
+
+class EthereumTestBaseModel(BaseModel, ModelCustomizationsMixin):
     """
-    Base model for Ethereum tests.
+    Base model for all models for Ethereum tests.
+    """
+
+    pass
+
+
+class EthereumTestRootModel(RootModel[RootModelRootType], ModelCustomizationsMixin):
+    """
+    Base model for all models for Ethereum tests.
+    """
+
+    root: Any
+
+
+class CopyValidateModel(EthereumTestBaseModel):
+    """
+    Model that supports copying with validation.
     """
 
     def copy(self: Model, **kwargs) -> Model:

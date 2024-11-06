@@ -5,11 +5,11 @@ Base composite types for Ethereum test cases.
 from dataclasses import dataclass
 from typing import Any, ClassVar, Dict, List, SupportsBytes, Type, TypeAlias
 
-from pydantic import Field, PrivateAttr, RootModel, TypeAdapter
+from pydantic import Field, PrivateAttr, TypeAdapter
 
 from .base_types import Address, Bytes, Hash, HashInt, HexNumber, ZeroPaddedHexNumber
 from .conversions import BytesConvertible, NumberConvertible
-from .pydantic import CamelModel
+from .pydantic import CamelModel, EthereumTestRootModel
 
 StorageKeyValueTypeConvertible = NumberConvertible
 StorageKeyValueType = HashInt
@@ -17,7 +17,7 @@ StorageKeyValueTypeAdapter = TypeAdapter(StorageKeyValueType)
 StorageRootType = Dict[NumberConvertible, NumberConvertible]
 
 
-class Storage(RootModel[Dict[StorageKeyValueType, StorageKeyValueType]]):
+class Storage(EthereumTestRootModel[Dict[StorageKeyValueType, StorageKeyValueType]]):
     """
     Definition of a storage in pre or post state of a test
     """
@@ -468,7 +468,7 @@ class Account(CamelModel):
         return cls(**kwargs)
 
 
-class Alloc(RootModel[Dict[Address, Account | None]]):
+class Alloc(EthereumTestRootModel[Dict[Address, Account | None]]):
     """
     Allocation of accounts in the state, pre and post test execution.
     """

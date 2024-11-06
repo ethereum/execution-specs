@@ -1,11 +1,12 @@
 """
 Defines models for interacting with JSON fixture files.
 """
+
 import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from pydantic import RootModel
+from ethereum_test_base_types import EthereumTestRootModel
 
 from .base import FixtureFormat
 from .blockchain import EngineFixture as BlockchainEngineFixture
@@ -16,7 +17,7 @@ from .state import Fixture as StateFixture
 FixtureModel = BlockchainFixture | BlockchainEngineFixture | StateFixture | EOFFixture
 
 
-class BaseFixturesRootModel(RootModel):
+class BaseFixturesRootModel(EthereumTestRootModel):
     """
     A base class for defining top-level models that encapsulate multiple test
     fixtures. Each fixture is stored in a dictionary, where each key is a string

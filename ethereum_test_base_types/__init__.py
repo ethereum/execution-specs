@@ -31,7 +31,7 @@ from .constants import (
 )
 from .conversions import to_bytes, to_hex
 from .json import to_json
-from .pydantic import CamelModel
+from .pydantic import CamelModel, EthereumTestBaseModel, EthereumTestRootModel
 from .reference_spec import ReferenceSpec
 
 __all__ = (
@@ -49,6 +49,8 @@ __all__ = (
     "EmptyOmmersRoot",
     "EmptyTrieRoot",
     "FixedSizeBytes",
+    "EthereumTestBaseModel",
+    "EthereumTestRootModel",
     "Hash",
     "HashInt",
     "HeaderNonce",

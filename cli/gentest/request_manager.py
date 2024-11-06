@@ -15,7 +15,7 @@ from typing import Dict
 from pydantic import BaseModel
 
 from config import EnvConfig
-from ethereum_test_base_types import Account, Address, Hash, HexNumber
+from ethereum_test_base_types import Hash, HexNumber
 from ethereum_test_rpc import BlockNumberType, DebugRPC, EthRPC
 from ethereum_test_types import Transaction
 
@@ -100,7 +100,7 @@ class RPCRequest:
             timestamp=res["timestamp"],
         )
 
-    def debug_trace_call(self, transaction: RemoteTransaction) -> Dict[Address, Account]:
+    def debug_trace_call(self, transaction: RemoteTransaction) -> Dict[str, dict]:
         """
         Get pre-state required for transaction
         """
