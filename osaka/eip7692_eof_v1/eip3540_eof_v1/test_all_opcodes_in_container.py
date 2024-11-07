@@ -1,7 +1,8 @@
 """
 EOF Container: check how every opcode behaves in the middle of the valid eof container code
 """
-from typing import Any, Dict, List
+import itertools
+from typing import Any, Dict, Generator, List, Tuple
 
 import pytest
 
@@ -10,6 +11,7 @@ from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import UndefinedOpcodes
 from ethereum_test_tools.eof.v1 import Container, ContainerKind, Section
 from ethereum_test_tools.eof.v1.constants import MAX_OPERAND_STACK_HEIGHT
+from ethereum_test_vm import Bytecode
 
 from .. import EOF_FORK_NAME
 
@@ -57,6 +59,8 @@ section_terminating_opcodes = {
     Op.RETF,
     Op.JUMPF,
 }
+
+data_portion_opcodes = {op for op in all_opcodes if op.has_data_portion()}
 
 
 # NOTE: `sorted` is used to ensure that the tests are collected in a deterministic order.
@@ -115,6 +119,52 @@ def test_all_opcodes_in_container(
         expect_exception=(
             None if opcode in valid_eof_opcodes else EOFException.UNDEFINED_INSTRUCTION
         ),
+    )
+
+
+@pytest.mark.parametrize(
+    "opcode",
+    sorted(invalid_eof_opcodes | undefined_opcodes),
+)
+@pytest.mark.parametrize(
+    "terminating_opcode",
+    sorted(halting_opcodes) + [Op.RJUMP],
+)
+def test_invalid_opcodes_after_stop(
+    eof_test: EOFTestFiller,
+    opcode: Opcode,
+    terminating_opcode: Opcode,
+):
+    """
+    Test that an invalid opcode placed after STOP (terminating instruction) invalidates EOF.
+    """
+    terminating_code = Bytecode(terminating_opcode)
+    match terminating_opcode:  # Enhance the code for complex opcodes.
+        case Op.RETURNCONTRACT:
+            terminating_code = Op.RETURNCONTRACT[0]
+        case Op.RETURN | Op.REVERT:
+            terminating_code = Op.PUSH0 + Op.PUSH0 + terminating_opcode
+        case Op.RJUMP:
+            terminating_code = Op.RJUMP[-3]
+
+    eof_code = Container(
+        kind=ContainerKind.INITCODE
+        if terminating_opcode == Op.RETURNCONTRACT
+        else ContainerKind.RUNTIME,
+        sections=[
+            Section.Code(code=terminating_code + opcode),
+            Section.Data("00" * 32),
+        ]
+        + (
+            [Section.Container(container=Container.Code(Op.INVALID))]
+            if terminating_opcode == Op.RETURNCONTRACT
+            else []
+        ),
+    )
+
+    eof_test(
+        data=eof_code,
+        expect_exception=EOFException.UNDEFINED_INSTRUCTION,
     )
 
 
@@ -381,4 +431,68 @@ def test_all_opcodes_stack_overflow(
     eof_test(
         data=eof_code,
         expect_exception=exception,
+    )
+
+
+def valid_opcode_combinations(
+    compute_max_stack_height_options: List[bool],
+    truncate_all_options: List[bool],
+    opcodes: List[Opcode],
+) -> Generator[Tuple[bool, bool, Opcode], None, None]:
+    """
+    Create valid parameter combinations for test_truncated_data_portion_opcodes().
+    """
+    for opcode, truncate_all, compute_max_stack_height in itertools.product(
+        opcodes, truncate_all_options, compute_max_stack_height_options
+    ):
+        opcode_with_data_portion: bytes = bytes(opcode[1])
+
+        # Skip invalid or redundant combinations to avoid using pytest.skip in the test
+        if len(opcode_with_data_portion) == 2 and truncate_all:
+            continue
+        if (
+            compute_max_stack_height
+            and max(opcode.min_stack_height, opcode.pushed_stack_items) == 0
+        ):
+            continue
+
+        yield compute_max_stack_height, truncate_all, opcode
+
+
+@pytest.mark.parametrize(
+    "compute_max_stack_height, truncate_all, opcode",
+    valid_opcode_combinations([False, True], [False, True], sorted(data_portion_opcodes)),
+)
+def test_truncated_data_portion_opcodes(
+    eof_test: EOFTestFiller,
+    opcode: Opcode,
+    truncate_all: bool,
+    compute_max_stack_height: bool,
+):
+    """
+    Test that an instruction with data portion and truncated immediate bytes
+    (therefore a terminating instruction is also missing) invalidates EOF.
+    """
+    opcode_with_data_portion: bytes = bytes(opcode[1])
+
+    # Compose instruction bytes with empty imm bytes (truncate_all) or 1 byte shorter imm bytes.
+    opcode_bytes = opcode_with_data_portion[0:1] if truncate_all else opcode_with_data_portion[:-1]
+
+    if opcode.min_stack_height > 0:
+        opcode_bytes = bytes(Op.PUSH0 * opcode.min_stack_height) + opcode_bytes
+
+    max_stack_height = (
+        max(opcode.min_stack_height, opcode.pushed_stack_items) if compute_max_stack_height else 0
+    )
+
+    eof_code = Container(
+        sections=[
+            Section.Code(opcode_bytes, max_stack_height=max_stack_height),
+            # Provide data section potentially confused with missing imm bytes.
+            Section.Data(b"\0" * 64),
+        ]
+    )
+    eof_test(
+        data=eof_code,
+        expect_exception=EOFException.TRUNCATED_INSTRUCTION,
     )

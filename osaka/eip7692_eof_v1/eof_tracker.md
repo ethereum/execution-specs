@@ -96,12 +96,12 @@
 
 ### Validation
 
-- [ ] Code section with invalid opcodes is rejected (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/efValidation/EOF1_undefined_opcodes_Copier.json src/EOFTestsFiller/EIP3670/validInvalidFiller.yml)
-- [ ] INVALID opcode is valid (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml)
-- [ ] Truncated PUSH data (ethereum/tests: ./src/EOFTestsFiller/efExample/validInvalidFiller.yml src/EOFTestsFiller/efValidation/EOF1_truncated_push_Copier.json src/EOFTestsFiller/EIP3670/validInvalidFiller.yml)
-- [ ] Opcodes deprecated in EOF are rejected (ethereum/tests: src/EOFTestsFiller/efValidation/deprecated_instructions_Copier.json ethereum/tests: src/EOFTestsFiller/EIP3670/validInvalidFiller.yml)
-- [ ] Codes with each valid opcodes (ethereum/tests: src/EOFTestsFiller/EIP3670/validInvalidFiller.yml)
-- [ ] Undefined instruction after terminating instruction (ethereum/tests: src/EOFTestsFiller/EIP3670/validInvalidFiller.yml)
+- [x] Code section with invalid opcodes is rejected ([`tests/osaka/eip7692_eof_v1/eip3540_eof_v1/test_all_opcodes_in_container.py::test_all_opcodes_in_container`](./eip3540_eof_v1/test_all_opcodes_in_container/test_all_opcodes_in_container.md))
+- [x] INVALID opcode is valid ([`tests/osaka/eip7692_eof_v1/eip3540_eof_v1/test_all_opcodes_in_container.py::test_all_opcodes_in_container`](./eip3540_eof_v1/test_all_opcodes_in_container/test_all_opcodes_in_container.md))
+- [x] Truncated PUSH data ([`tests/osaka/eip7692_eof_v1/eip3540_eof_v1/test_all_opcodes_in_container.py::test_truncated_data_portion_opcodes`](./eip3540_eof_v1/test_all_opcodes_in_container/test_truncated_data_portion_opcodes.md))
+- [x] Opcodes deprecated in EOF are rejected ([`tests/osaka/eip7692_eof_v1/eip3540_eof_v1/test_all_opcodes_in_container.py::test_all_opcodes_in_container`](./eip3540_eof_v1/test_all_opcodes_in_container/test_all_opcodes_in_container.md))
+- [x] Codes with each valid opcodes ([`tests/osaka/eip7692_eof_v1/eip3540_eof_v1/test_all_opcodes_in_container.py::test_all_opcodes_in_container`](./eip3540_eof_v1/test_all_opcodes_in_container/test_all_opcodes_in_container.md))
+- [x] Undefined instruction after terminating instruction ([`tests/osaka/eip7692_eof_v1/eip3540_eof_v1/test_all_opcodes_in_container.py::test_invalid_opcodes_after_stop`](./eip3540_eof_v1/test_all_opcodes_in_container/test_invalid_opcodes_after_stop.md))
 
 ## EIP-4200: EOF - Static relative jumps
 
