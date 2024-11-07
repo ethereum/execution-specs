@@ -37,9 +37,9 @@ class Provider(ABC, BaseModel):
     pass
 
 
-class BlockchainTestContextProvider(Provider):
+class StateTestProvider(Provider):
     """
-    Provides context required to generate a `blockchain_test` using pytest.
+    Provides context required to generate a `state_test` using pytest.
     """
 
     transaction_hash: Hash
