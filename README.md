@@ -10,7 +10,7 @@ This repository contains the specifications related to the Ethereum execution cl
 
 | Version and Code Name | Block No. | Released | Incl EIPs | Specs | Blog |
 |-----------------------|-----------|----------|-----------|-------|-------|
-| Cancun | TBD | TBD | [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153) </br> [EIP-4788](https://eips.ethereum.org/EIPS/eip-4788)</br> [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844)</br> [EIP-5656](https://eips.ethereum.org/EIPS/eip-5656)</br> [EIP-6780](https://eips.ethereum.org/EIPS/eip-6780)</br> [EIP-7516](https://eips.ethereum.org/EIPS/eip-7516)| [Specification](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/cancun.md) | TBD |
+| Cancun | 19426587 | 2024-03-13<br />(1710338135) | [EIP-1153](https://eips.ethereum.org/EIPS/eip-1153) </br> [EIP-4788](https://eips.ethereum.org/EIPS/eip-4788)</br> [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844)</br> [EIP-5656](https://eips.ethereum.org/EIPS/eip-5656)</br> [EIP-6780](https://eips.ethereum.org/EIPS/eip-6780)</br> [EIP-7516](https://eips.ethereum.org/EIPS/eip-7516)| [Specification](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/cancun.md) | [Blog](https://blog.ethereum.org/2024/02/27/dencun-mainnet-announcement) |
 | Shanghai | 17034870 | 2023-04-12<br/>(1681338455) | [EIP-3651](https://eips.ethereum.org/EIPS/eip-3651) <br/> [EIP-3855](https://eips.ethereum.org/EIPS/eip-3855) <br/> [EIP-3860](https://eips.ethereum.org/EIPS/eip-3860) <br/> [EIP-4895](https://eips.ethereum.org/EIPS/eip-4895) | [Specification](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/shanghai.md) | [Blog](https://blog.ethereum.org/2023/03/28/shapella-mainnet-announcement) |
 | Paris | 15537394 | 2022-09-15 | [EIP-3675](https://eips.ethereum.org/EIPS/eip-3675) <br/> [EIP-4399](https://eips.ethereum.org/EIPS/eip-4399) | [Specification](https://github.com/ethereum/execution-specs/blob/master/network-upgrades/mainnet-upgrades/paris.md) | [Blog](https://blog.ethereum.org/2022/08/24/mainnet-merge-announcement) |
 | Gray Glacier | 15050000 | 2022-06-30 | [EIP-5133](https://eips.ethereum.org/EIPS/eip-5133) | [Specification](./network-upgrades/mainnet-upgrades/gray-glacier.md) | [Blog](https://blog.ethereum.org/2022/06/16/gray-glacier-announcement/) |
@@ -38,8 +38,8 @@ Some clarifications were enabled without protocol releases:
 |-----|-----------|
 | [EIP-2681](https://eips.ethereum.org/EIPS/eip-2681) | 0 |
 | [EIP-3607](https://eips.ethereum.org/EIPS/eip-3607) | 0 |
-| [EIP-7523](https://eips.ethereum.org/EIPS/eip-7523) | 15537394 | 
-| [EIP-7610](https://github.com/ethereum/EIPs/pull/8161) | 0 | 
+| [EIP-7523](https://eips.ethereum.org/EIPS/eip-7523) | 15537394 |
+| [EIP-7610](https://github.com/ethereum/EIPs/pull/8161) | 0 |
 
 
 ## Execution Specification (work-in-progress)
@@ -66,4 +66,4 @@ The path to the generated HTML will be printed to the console.
 
 # License
 
-The Ethereum Execution Layer Specification code is licensed under the [Creative Commons Zero v1.0 Universal](https://github.com/ethereum/execution-specs/blob/master/LICENSE.md).  
+The Ethereum Execution Layer Specification code is licensed under the [Creative Commons Zero v1.0 Universal](https://github.com/ethereum/execution-specs/blob/master/LICENSE.md).

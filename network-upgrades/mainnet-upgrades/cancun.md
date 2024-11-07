@@ -15,7 +15,7 @@ Execution layer changes included in the Network Upgrade.
 
 Implementation status of Included EIPs across participating clients.
 
-|                | [1153](https://eips.ethereum.org/EIPS/eip-1153) | [4788](https://eips.ethereum.org/EIPS/eip-4788) | [4844](https://eips.ethereum.org/EIPS/eip-4844) | [5656](https://eips.ethereum.org/EIPS/eip-5656) | [6780](https://eips.ethereum.org/EIPS/eip-6780) | [7516](https://eips.ethereum.org/EIPS/eip-7516) |
+|  **Client**    | [1153](https://eips.ethereum.org/EIPS/eip-1153) | [4788](https://eips.ethereum.org/EIPS/eip-4788) | [4844](https://eips.ethereum.org/EIPS/eip-4844) | [5656](https://eips.ethereum.org/EIPS/eip-5656) | [6780](https://eips.ethereum.org/EIPS/eip-6780) | [7516](https://eips.ethereum.org/EIPS/eip-7516) |
 |----------------|-------------------------------------------------|-------------------------------------------------|-------------------------------------------------|-------------------------------------------------|-------------------------------------------------|-------------------------------------------------|
 | **Geth**       | [Merged](https://github.com/ethereum/go-ethereum/pull/26003) + [Merged](https://github.com/ethereum/go-ethereum/pull/27663)| - | [Merged](https://github.com/ethereum/go-ethereum/pull/26940) | [Merged](https://github.com/ethereum/go-ethereum/pull/26181) | [Not merged](https://github.com/ethereum/go-ethereum/pull/27189) | |
 | **Besu**       | [Merged](https://github.com/hyperledger/besu/pull/4118) | - | [Merged]([https://github.com/hyperledger/besu/tree/eip-4844-interop](https://github.com/hyperledger/besu/pull/5724)) | [Merged](https://github.com/hyperledger/besu/pull/5493) | [Merged](https://github.com/hyperledger/besu/pull/4118) | |
@@ -27,10 +27,10 @@ Implementation status of Included EIPs across participating clients.
 
 | Network | Timestamp    | Date & Time (UTC)       | Fork Hash    | Beacon Chain Epoch |
 |---------|--------------|-------------------------|--------------| ------------------ |
-| Goerli  | `1705473120` | 2024-01-17 06:32:00     | `0x70cc14e2` | 231680 
-| Sepolia | `1706655072` | 2024-01-30 22:51:12     | `0x88cf81d9` | 132608 
-| Holesky | `1707305664` | 2024-02-07 11:34:24     | `0x9b192ad0` | 29696 
-| Mainnet | `1710338135` | 2024-03-13 13:55:35     | `0x9f3d2254` | 269568 
+| Goerli  | `1705473120` | 2024-01-17 06:32:00     | `0x70cc14e2` | 231680
+| Sepolia | `1706655072` | 2024-01-30 22:51:12     | `0x88cf81d9` | 132608
+| Holesky | `1707305664` | 2024-02-07 11:34:24     | `0x9b192ad0` | 29696
+| Mainnet | `1710338135` | 2024-03-13 13:55:35     | `0x9f3d2254` | 269568
 
 
 ### Readiness Checklist
@@ -42,10 +42,10 @@ Implementation status of Included EIPs across participating clients.
   - [x] [Testing suites](https://notes.ethereum.org/@ethpandaops/dencun-testing-overview)
  - [x] Select Testnet Fork Blocks
  - [x] Select Mainnet Fork Block
- - [ ] Release Mainnet Compatible Clients
-   - [ ]  Geth
-   - [ ]  Besu
-   - [ ]  Nethermind
-   - [ ]  OpenEthereum
-   - [ ]  Erigon
-   - [ ]  EthereumJS
+ - [x] Release Mainnet Compatible Clients
+   - [x]  Geth
+   - [x]  Besu
+   - [x]  Nethermind
+   - [x]  OpenEthereum
+   - [x]  Erigon
+   - [x]  EthereumJS
