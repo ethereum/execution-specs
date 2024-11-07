@@ -6,6 +6,7 @@ from pprint import pprint
 from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Type
 
 import pytest
+from pydantic import Field
 
 from ethereum_clis import TransitionTool
 from ethereum_test_exceptions import EngineAPIError
@@ -39,7 +40,7 @@ class StateTest(BaseTest):
     Filler type that tests transactions over the period of a single block.
     """
 
-    env: Environment
+    env: Environment = Field(default_factory=Environment)
     pre: Alloc
     post: Alloc
     tx: Transaction
@@ -149,6 +150,7 @@ class StateTest(BaseTest):
             reward=0,  # Reward on state tests is always zero
             eips=eips,
             debug_output_path=self.get_next_transition_tool_output_path(),
+            state_test=True,
         )
 
         try:

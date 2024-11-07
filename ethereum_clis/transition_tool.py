@@ -13,6 +13,7 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Type
+from urllib.parse import urlencode
 
 from requests import Response
 from requests.exceptions import ConnectionError
@@ -147,6 +148,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         fork_name: str
         chain_id: int = field(default=1)
         reward: int = field(default=0)
+        state_test: bool = field(default=False)
 
         def to_input(self) -> TransitionToolInput:
             """
@@ -271,14 +273,23 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
 
         return output
 
-    def _server_post(self, data: Dict[str, Any], retries: int = 10) -> Response:
+    def _server_post(
+        self,
+        data: Dict[str, Any],
+        url_args: Dict[str, List[str] | str] = {},
+        retries: int = 5,
+    ) -> Response:
         """
         Send a POST request to the t8n-server and return the response.
         """
         post_delay = 0.1
         while True:
             try:
-                response = Session().post(self.server_url, json=data, timeout=20)
+                response = Session().post(
+                    f"{self.server_url}?{urlencode(url_args, doseq=True)}",
+                    json=data,
+                    timeout=20,
+                )
                 break
             except ConnectionError as e:
                 retries -= 1
@@ -293,6 +304,12 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
                 f"response: {response.text}"
             )
         return response
+
+    def _generate_post_args(self, t8n_data: TransitionToolData) -> Dict[str, List[str] | str]:
+        """
+        Generate the arguments for the POST request to the t8n-server.
+        """
+        return {}
 
     def _evaluate_server(
         self,
@@ -332,7 +349,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
                 },
             )
 
-        response = self._server_post(post_data)
+        response = self._server_post(data=post_data, url_args=self._generate_post_args(t8n_data))
         output: TransitionToolOutput = TransitionToolOutput.model_validate(response.json())
 
         if debug_output_path:
@@ -478,6 +495,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         reward: int = 0,
         eips: Optional[List[int]] = None,
         debug_output_path: str = "",
+        state_test: bool = False,
     ) -> TransitionToolOutput:
         """
         Executes the relevant evaluate method as required by the `t8n` tool.
@@ -500,6 +518,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
             fork_name=fork_name,
             chain_id=chain_id,
             reward=reward,
+            state_test=state_test,
         )
 
         if self.t8n_use_server:
