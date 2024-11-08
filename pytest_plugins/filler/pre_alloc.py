@@ -228,7 +228,12 @@ class Alloc(BaseAlloc):
                 # Type-4 transaction is sent to the EOA to set the storage, so the nonce must be 1
                 if not isinstance(delegation, Address) and delegation == "Self":
                     delegation = eoa
-                nonce = Number(1 if nonce is None else nonce)
+                # If delegation is None but storage is not, realistically the nonce should be 2
+                # because the account must have delegated to set the storage and then again to
+                # reset the delegation (but can be overridden by the test for a non-realistic
+                # scenario)
+                real_nonce = 2 if delegation is None else 1
+                nonce = Number(real_nonce if nonce is None else nonce)
                 account = Account(
                     nonce=nonce,
                     balance=amount,
