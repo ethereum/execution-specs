@@ -216,6 +216,66 @@ def test_set_code_to_sstore(
     )
 
 
+@pytest.mark.parametrize(
+    "auth_signer_nonce",
+    [
+        pytest.param(
+            0,
+            id="zero_nonce",
+            marks=pytest.mark.execute(pytest.mark.skip("unrealistic scenario")),
+        ),
+        pytest.param(None, id="non_zero_nonce"),
+    ],
+)
+def test_set_code_to_non_empty_storage(
+    state_test: StateTestFiller,
+    pre: Alloc,
+    auth_signer_nonce: int,
+):
+    """
+    Test the setting the code to an account that has non-empty storage.
+    """
+    auth_signer = pre.fund_eoa(
+        amount=0,
+        storage=Storage({0: 1}),  # type: ignore
+        nonce=auth_signer_nonce,
+    )
+    sender = pre.fund_eoa()
+
+    set_code = Op.SSTORE(0, Op.ADD(Op.SLOAD(0), 1)) + Op.STOP
+    set_code_to_address = pre.deploy_contract(
+        set_code,
+    )
+
+    tx = Transaction(
+        gas_limit=500_000,
+        to=auth_signer,
+        value=0,
+        authorization_list=[
+            AuthorizationTuple(
+                address=set_code_to_address,
+                nonce=auth_signer.nonce,
+                signer=auth_signer,
+            ),
+        ],
+        sender=sender,
+    )
+
+    state_test(
+        env=Environment(),
+        pre=pre,
+        tx=tx,
+        post={
+            set_code_to_address: Account(
+                storage={},
+            ),
+            auth_signer: Account(
+                storage={0: 2},
+            ),
+        },
+    )
+
+
 def test_set_code_to_sstore_then_sload(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
