@@ -284,9 +284,16 @@ def calculate_excess_blob_gas(parent_header: Header) -> U64:
     excess_blob_gas: `ethereum.base_types.U64`
         The excess blob gas for the current block.
     """
-    parent_blob_gas = (
-        parent_header.excess_blob_gas + parent_header.blob_gas_used
-    )
+    # At the fork block, these are defined as zero.
+    excess_blob_gas = U64(0)
+    blob_gas_used = U64(0)
+
+    if isinstance(parent_header, Header):
+        # After the fork block, read them from the parent header.
+        excess_blob_gas = parent_header.excess_blob_gas
+        blob_gas_used = parent_header.blob_gas_used
+
+    parent_blob_gas = excess_blob_gas + blob_gas_used
     if parent_blob_gas < TARGET_BLOB_GAS_PER_BLOCK:
         return U64(0)
     else:
