@@ -1,8 +1,8 @@
 import pytest
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes8
 from ethereum_types.numeric import U256, Uint
 
-import ethereum.rlp as rlp
 from ethereum.constantinople.blocks import Block, Header, Log, Receipt
 from ethereum.constantinople.transactions import Transaction
 from ethereum.constantinople.utils.hexadecimal import hex_to_address

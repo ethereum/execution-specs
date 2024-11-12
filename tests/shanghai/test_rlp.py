@@ -1,8 +1,8 @@
 import pytest
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes8, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
-import ethereum.rlp as rlp
 from ethereum.crypto.hash import keccak256
 from ethereum.shanghai.blocks import Block, Header, Log, Receipt, Withdrawal
 from ethereum.shanghai.transactions import (

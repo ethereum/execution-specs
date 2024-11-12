@@ -7,10 +7,10 @@ testing framework.
 from abc import ABC, abstractmethod
 from typing import Any, Tuple
 
+from ethereum_rlp import rlp
 from ethereum_types.numeric import U256
 
-from ethereum import rlp
-from ethereum.crypto.hash import Hash32
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes8,
@@ -99,7 +99,7 @@ class Load(BaseLoad):
             # Always decode from rlp
             block_rlp = hex_to_bytes(json_block["rlp"])
             block = rlp.decode_to(self.fork.Block, block_rlp)
-            block_header_hash = rlp.rlp_hash(block.header)
+            block_header_hash = keccak256(rlp.encode(block.header))
             return block, block_header_hash, block_rlp
 
         header = self.json_to_header(json_block["blockHeader"])
