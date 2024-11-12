@@ -1,8 +1,8 @@
 from functools import partial
 
 import pytest
+from ethereum_rlp import rlp
 
-from ethereum import rlp
 from ethereum.frontier.fork import (
     calculate_intrinsic_cost,
     validate_transaction,

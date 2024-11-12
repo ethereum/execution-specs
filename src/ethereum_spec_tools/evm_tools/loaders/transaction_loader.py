@@ -6,10 +6,10 @@ relevant transaction.
 from dataclasses import fields
 from typing import Any, List
 
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes0, Bytes32
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum import rlp
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
     hex_to_bytes32,

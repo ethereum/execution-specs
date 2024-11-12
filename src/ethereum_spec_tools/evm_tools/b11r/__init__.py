@@ -6,9 +6,10 @@ import argparse
 import json
 from typing import Optional, TextIO
 
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes32
 
-from ethereum import rlp
+from ethereum.crypto.hash import keccak256
 
 from ..utils import get_stream_logger
 from .b11r_types import Body, Header
@@ -111,7 +112,7 @@ class B11R:
             block.append(self.body.withdrawals)
 
         self.block_rlp = rlp.encode(block)
-        self.block_hash = rlp.rlp_hash(header_to_list)
+        self.block_hash = keccak256(rlp.encode(header_to_list))
 
     def run(self) -> int:
         """
