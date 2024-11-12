@@ -17,12 +17,12 @@ import pkgutil
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Generic, Type, TypeVar
 
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32, FixedBytes
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
 
-from ethereum import rlp
-from ethereum.crypto.hash import Hash32
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.utils import has_field
 from ethereum.utils.hexadecimal import (
     hex_to_bytes,
@@ -220,7 +220,7 @@ def add_genesis_block(
 
     fields = {
         "parent_hash": Hash32(b"\0" * 32),
-        "ommers_hash": rlp.rlp_hash(()),
+        "ommers_hash": keccak256(rlp.encode(())),
         "coinbase": Address(b"\0" * Address.LENGTH),
         "state_root": hardfork.state_root(chain.state),
         "transactions_root": hardfork.root(hardfork.Trie(False, None)),

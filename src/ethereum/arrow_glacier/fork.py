@@ -15,6 +15,7 @@ Entry point for the Ethereum specification.
 from dataclasses import dataclass
 from typing import List, Optional, Set, Tuple, Union
 
+from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.numeric import U64, U256, Uint
 
@@ -22,7 +23,6 @@ from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import InvalidBlock, InvalidSenderError
 
-from .. import rlp
 from . import vm
 from .blocks import Block, Header, Log, Receipt
 from .bloom import logs_bloom
@@ -351,7 +351,7 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
         header.base_fee_per_gas,
     )
 
-    return rlp.rlp_hash(header_data_without_pow_artefacts)
+    return keccak256(rlp.encode(header_data_without_pow_artefacts))
 
 
 def validate_proof_of_work(header: Header) -> None:
@@ -650,8 +650,8 @@ def validate_ommers(
     chain :
         History and current state.
     """
-    block_hash = rlp.rlp_hash(block_header)
-    if rlp.rlp_hash(ommers) != block_header.ommers_hash:
+    block_hash = keccak256(rlp.encode(block_header))
+    if keccak256(rlp.encode(ommers)) != block_header.ommers_hash:
         raise InvalidBlock
 
     if len(ommers) == 0:
@@ -669,18 +669,19 @@ def validate_ommers(
     if len(ommers) > 2:
         raise InvalidBlock
 
-    ommers_hashes = [rlp.rlp_hash(ommer) for ommer in ommers]
+    ommers_hashes = [keccak256(rlp.encode(ommer)) for ommer in ommers]
     if len(ommers_hashes) != len(set(ommers_hashes)):
         raise InvalidBlock
 
     recent_canonical_blocks = chain.blocks[-(MAX_OMMER_DEPTH + Uint(1)) :]
     recent_canonical_block_hashes = {
-        rlp.rlp_hash(block.header) for block in recent_canonical_blocks
+        keccak256(rlp.encode(block.header))
+        for block in recent_canonical_blocks
     }
     recent_ommers_hashes: Set[Hash32] = set()
     for block in recent_canonical_blocks:
         recent_ommers_hashes = recent_ommers_hashes.union(
-            {rlp.rlp_hash(ommer) for ommer in block.ommers}
+            {keccak256(rlp.encode(ommer)) for ommer in block.ommers}
         )
 
     for ommer_index, ommer in enumerate(ommers):

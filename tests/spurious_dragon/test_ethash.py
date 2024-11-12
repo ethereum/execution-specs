@@ -3,9 +3,9 @@ import pkgutil
 from typing import Any, Dict, List, cast
 
 import pytest
+from ethereum_rlp import rlp
 from ethereum_types.numeric import Uint
 
-from ethereum import rlp
 from ethereum.crypto.hash import keccak256
 from ethereum.ethash import (
     cache_size,
