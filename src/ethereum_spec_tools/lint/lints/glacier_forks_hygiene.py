@@ -24,11 +24,9 @@ EXCEPTIONAL_DIFFS = [
     # graffiti near the fork block.
     ("dao_fork", ".fork", "apply_fork"),
     ("dao_fork", ".fork", "validate_header"),
-    # There are some differences between london and arrow_glacier
-    # in terms of how the fork block is handled.
-    ("arrow_glacier", ".fork", "calculate_base_fee_per_gas"),
-    ("arrow_glacier", ".fork", "validate_header"),
-    ("arrow_glacier", ".fork", "INITIAL_BASE_FEE"),
+    # Arrow Glacier must check the preceding fork when getting the
+    # `base_fee_per_gas`.
+    ("arrow_glacier", ".blocks", "header_base_fee_per_gas"),
 ]
 
 
