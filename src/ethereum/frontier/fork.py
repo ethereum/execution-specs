@@ -24,7 +24,7 @@ from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import InvalidBlock, InvalidSenderError
 
 from . import vm
-from .blocks import Block, Header, Log, Receipt
+from .blocks import AnyBlock, AnyHeader, Log, Receipt
 from .bloom import logs_bloom
 from .fork_types import Address
 from .state import (
@@ -59,7 +59,7 @@ class BlockChain:
     History and current state of the block chain.
     """
 
-    blocks: List[Block]
+    blocks: List[AnyBlock]
     state: State
     chain_id: U64
 
@@ -126,7 +126,7 @@ def get_last_256_block_hashes(chain: BlockChain) -> List[Hash32]:
     return recent_block_hashes
 
 
-def state_transition(chain: BlockChain, block: Block) -> None:
+def state_transition(chain: BlockChain, block: AnyBlock) -> None:
     """
     Attempts to apply a block to an existing block chain.
 
@@ -192,7 +192,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         chain.blocks = chain.blocks[-255:]
 
 
-def validate_header(chain: BlockChain, header: Header) -> None:
+def validate_header(chain: BlockChain, header: AnyHeader) -> None:
     """
     Verifies a block header.
 
@@ -254,7 +254,7 @@ def validate_header(chain: BlockChain, header: Header) -> None:
     validate_proof_of_work(header)
 
 
-def generate_header_hash_for_pow(header: Header) -> Hash32:
+def generate_header_hash_for_pow(header: AnyHeader) -> Hash32:
     """
     Generate rlp hash of the header which is to be used for Proof-of-Work
     verification.
@@ -296,7 +296,7 @@ def generate_header_hash_for_pow(header: Header) -> Hash32:
     return keccak256(rlp.encode(header_data_without_pow_artefacts))
 
 
-def validate_proof_of_work(header: Header) -> None:
+def validate_proof_of_work(header: AnyHeader) -> None:
     """
     Validates the Proof of Work constraints.
 
@@ -407,7 +407,7 @@ def make_receipt(
 def apply_body(
     block_env: vm.BlockEnvironment,
     transactions: Tuple[Transaction, ...],
-    ommers: Tuple[Header, ...],
+    ommers: Tuple[AnyHeader, ...],
 ) -> vm.BlockOutput:
     """
     Executes a block.
@@ -445,7 +445,7 @@ def apply_body(
 
 
 def validate_ommers(
-    ommers: Tuple[Header, ...], block_header: Header, chain: BlockChain
+    ommers: Tuple[AnyHeader, ...], block_header: AnyHeader, chain: BlockChain
 ) -> None:
     """
     Validates the ommers mentioned in the block.
@@ -523,7 +523,7 @@ def pay_rewards(
     state: State,
     block_number: Uint,
     coinbase: Address,
-    ommers: Tuple[Header, ...],
+    ommers: Tuple[AnyHeader, ...],
 ) -> None:
     """
     Pay rewards to the block miner as well as the ommers miners.
@@ -665,7 +665,7 @@ def process_transaction(
     block_output.block_logs += tx_output.logs
 
 
-def compute_header_hash(header: Header) -> Hash32:
+def compute_header_hash(header: AnyHeader) -> Hash32:
     """
     Computes the hash of a block header.
 

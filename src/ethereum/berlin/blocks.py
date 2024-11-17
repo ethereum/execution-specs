@@ -15,6 +15,9 @@ from ethereum_rlp import rlp
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U256, Uint
+from typing_extensions import TypeAlias
+
+from ethereum.muir_glacier import blocks as previous_blocks
 
 from ..crypto.hash import Hash32
 from .fork_types import Address, Bloom, Root
@@ -45,6 +48,13 @@ class Header:
     nonce: Bytes8
 
 
+AnyHeader: TypeAlias = Union[previous_blocks.AnyHeader, Header]
+"""
+Represents all headers that may have appeared in the blockchain before or in
+the current fork.
+"""
+
+
 @slotted_freezable
 @dataclass
 class Block:
@@ -55,6 +65,13 @@ class Block:
     header: Header
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
     ommers: Tuple[Header, ...]
+
+
+AnyBlock: TypeAlias = Union[previous_blocks.AnyBlock, Block]
+"""
+Represents all blocks that may have appeared in the blockchain before or in the
+current fork.
+"""
 
 
 @slotted_freezable

@@ -17,6 +17,7 @@ from typing import List, Optional, Set, Tuple
 from ethereum_rlp import rlp
 from ethereum_types.numeric import U64, U256, Uint
 
+from ethereum.byzantium import fork as previous_fork
 from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.ethash import dataset_size, generate_cache, hashimoto_light
 from ethereum.exceptions import (
@@ -26,7 +27,7 @@ from ethereum.exceptions import (
 )
 
 from . import vm
-from .blocks import Block, Header, Log, Receipt
+from .blocks import AnyBlock, AnyHeader, Block, Header, Log, Receipt
 from .bloom import logs_bloom
 from .fork_types import Address
 from .state import (
@@ -65,7 +66,7 @@ class BlockChain:
     History and current state of the block chain.
     """
 
-    blocks: List[Block]
+    blocks: List[AnyBlock]
     state: State
     chain_id: U64
 
@@ -198,7 +199,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         chain.blocks = chain.blocks[-255:]
 
 
-def validate_header(chain: BlockChain, header: Header) -> None:
+def validate_header(chain: BlockChain, header: AnyHeader) -> None:
     """
     Verifies a block header.
 
@@ -234,6 +235,10 @@ def validate_header(chain: BlockChain, header: Header) -> None:
 
     if header.gas_used > header.gas_limit:
         raise InvalidBlock
+
+    if not isinstance(header, Header):
+        assert not isinstance(parent_header, Header)
+        return previous_fork.validate_header(chain, header)
 
     parent_has_ommers = parent_header.ommers_hash != EMPTY_OMMER_HASH
     if header.timestamp <= parent_header.timestamp:
@@ -453,7 +458,7 @@ def apply_body(
 
 
 def validate_ommers(
-    ommers: Tuple[Header, ...], block_header: Header, chain: BlockChain
+    ommers: Tuple[AnyHeader, ...], block_header: Header, chain: BlockChain
 ) -> None:
     """
     Validates the ommers mentioned in the block.
