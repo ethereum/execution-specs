@@ -9,11 +9,14 @@ history of all state transitions that have happened since the genesis of the
 chain.
 """
 from dataclasses import dataclass
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 from ethereum_types.bytes import Bytes, Bytes8, Bytes32
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U64, U256, Uint
+from typing_extensions import TypeAlias
+
+from ethereum.shanghai import blocks as previous_blocks
 
 from ..crypto.hash import Hash32
 from .fork_types import Address, Bloom, Root
@@ -62,6 +65,13 @@ class Header:
     parent_beacon_block_root: Root
 
 
+AnyHeader: TypeAlias = Union[previous_blocks.AnyHeader, Header]
+"""
+Represents all headers that may have appeared in the blockchain before or in
+the current fork.
+"""
+
+
 @slotted_freezable
 @dataclass
 class Block:
@@ -73,6 +83,13 @@ class Block:
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
     ommers: Tuple[Header, ...]
     withdrawals: Tuple[Withdrawal, ...]
+
+
+AnyBlock: TypeAlias = Union[previous_blocks.AnyBlock, Block]
+"""
+Represents all blocks that may have appeared in the blockchain before or in the
+current fork.
+"""
 
 
 @slotted_freezable
@@ -98,3 +115,13 @@ class Receipt:
     cumulative_gas_used: Uint
     bloom: Bloom
     logs: Tuple[Log, ...]
+
+
+def header_base_fee_per_gas(header: AnyHeader) -> Optional[Uint]:
+    """
+    Returns the `base_fee_per_gas` of the given header, or `None` for headers
+    without that field.
+    """
+    if isinstance(header, Header):
+        return header.base_fee_per_gas
+    return previous_blocks.header_base_fee_per_gas(header)

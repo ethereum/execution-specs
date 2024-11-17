@@ -26,9 +26,18 @@ from ethereum.exceptions import (
     InvalidBlock,
     InvalidSenderError,
 )
+from ethereum.london import fork as previous_fork
 
 from . import vm
-from .blocks import Block, Header, Log, Receipt
+from .blocks import (
+    AnyBlock,
+    AnyHeader,
+    Block,
+    Header,
+    Log,
+    Receipt,
+    header_base_fee_per_gas,
+)
 from .bloom import logs_bloom
 from .fork_types import Address, Bloom, Root
 from .state import (
@@ -62,6 +71,7 @@ ELASTICITY_MULTIPLIER = Uint(2)
 GAS_LIMIT_ADJUSTMENT_FACTOR = Uint(1024)
 GAS_LIMIT_MINIMUM = Uint(5000)
 MINIMUM_DIFFICULTY = Uint(131072)
+INITIAL_BASE_FEE = Uint(1000000000)
 MAX_OMMER_DEPTH = Uint(6)
 BOMB_DELAY_BLOCKS = 10700000
 EMPTY_OMMER_HASH = keccak256(rlp.encode([]))
@@ -73,7 +83,7 @@ class BlockChain:
     History and current state of the block chain.
     """
 
-    blocks: List[Block]
+    blocks: List[AnyBlock]
     state: State
     chain_id: U64
 
@@ -260,7 +270,7 @@ def calculate_base_fee_per_gas(
     return Uint(expected_base_fee_per_gas)
 
 
-def validate_header(header: Header, parent_header: Header) -> None:
+def validate_header(header: AnyHeader, parent_header: AnyHeader) -> None:
     """
     Verifies a block header.
 
@@ -278,15 +288,25 @@ def validate_header(header: Header, parent_header: Header) -> None:
     parent_header :
         Parent Header of the header to check for correctness
     """
+    if not isinstance(header, Header):
+        assert not isinstance(parent_header, Header)
+        return previous_fork.validate_header(header, parent_header)
+
     if header.gas_used > header.gas_limit:
         raise InvalidBlock
 
-    expected_base_fee_per_gas = calculate_base_fee_per_gas(
-        header.gas_limit,
-        parent_header.gas_limit,
-        parent_header.gas_used,
-        parent_header.base_fee_per_gas,
-    )
+    expected_base_fee_per_gas = INITIAL_BASE_FEE
+    parent_base_fee_per_gas = header_base_fee_per_gas(parent_header)
+    if parent_base_fee_per_gas is not None:
+        # For every block except the first, calculate the base fee per gas
+        # based on the parent block.
+        expected_base_fee_per_gas = calculate_base_fee_per_gas(
+            header.gas_limit,
+            parent_header.gas_limit,
+            parent_header.gas_used,
+            parent_base_fee_per_gas,
+        )
+
     if expected_base_fee_per_gas != header.base_fee_per_gas:
         raise InvalidBlock
 
@@ -631,7 +651,7 @@ def apply_body(
 
 
 def validate_ommers(
-    ommers: Tuple[Header, ...], block_header: Header, chain: BlockChain
+    ommers: Tuple[AnyHeader, ...], block_header: Header, chain: BlockChain
 ) -> None:
     """
     Validates the ommers mentioned in the block.
