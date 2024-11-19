@@ -418,7 +418,7 @@ def apply_body(
     block_time: U256,
     block_difficulty: Uint,
     transactions: Tuple[Transaction, ...],
-    ommers: Tuple[Header, ...],
+    ommers: Tuple[AnyHeader, ...],
     chain_id: U64,
 ) -> ApplyBodyOutput:
     """
@@ -602,7 +602,7 @@ def pay_rewards(
     state: State,
     block_number: Uint,
     coinbase: Address,
-    ommers: Tuple[Header, ...],
+    ommers: Tuple[AnyHeader, ...],
 ) -> None:
     """
     Pay rewards to the block miner as well as the ommers miners.

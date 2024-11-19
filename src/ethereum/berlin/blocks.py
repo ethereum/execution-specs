@@ -63,7 +63,7 @@ class Block:
 
     header: Header
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
-    ommers: Tuple[Header, ...]
+    ommers: Tuple[AnyHeader, ...]
 
 
 AnyBlock: TypeAlias = Union[previous_blocks.AnyBlock, Block]
