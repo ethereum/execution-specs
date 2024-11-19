@@ -88,7 +88,7 @@ class Block:
 
     header: Header
     transactions: Tuple[Union[Bytes, LegacyTransaction], ...]
-    ommers: Tuple[Header, ...]
+    ommers: Tuple[AnyHeader, ...]
     withdrawals: Tuple[Withdrawal, ...]
 
 

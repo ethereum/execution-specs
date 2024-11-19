@@ -420,7 +420,7 @@ def make_receipt(
 def apply_body(
     block_env: vm.BlockEnvironment,
     transactions: Tuple[Transaction, ...],
-    ommers: Tuple[Header, ...],
+    ommers: Tuple[AnyHeader, ...],
 ) -> vm.BlockOutput:
     """
     Executes a block.
@@ -536,7 +536,7 @@ def pay_rewards(
     state: State,
     block_number: Uint,
     coinbase: Address,
-    ommers: Tuple[Header, ...],
+    ommers: Tuple[AnyHeader, ...],
 ) -> None:
     """
     Pay rewards to the block miner as well as the ommers miners.
