@@ -14,6 +14,7 @@ from ethereum_types.numeric import U64
 
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import EthereumException
+from ethereum.fork_criteria import ByBlockNumber
 from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum_spec_tools.evm_tools.loaders.fixture_loader import Load
 
@@ -26,6 +27,7 @@ class NoTestsFound(Exception):
 
 
 def run_blockchain_st_test(test_case: Dict, load: Load) -> None:
+    load.fork.fork_criteria = ByBlockNumber(0)
     test_file = test_case["test_file"]
     test_key = test_case["test_key"]
 
