@@ -57,7 +57,7 @@ class Bytecode:
             instance._name_ = name
             return instance
 
-        if type(bytes_or_byte_code_base) is Bytecode:
+        if isinstance(bytes_or_byte_code_base, Bytecode):
             # Required because Enum class calls the base class with the instantiated object as
             # parameter.
             obj = super().__new__(cls)
