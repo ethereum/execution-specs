@@ -354,6 +354,8 @@ class Result:
             assert self.requests is not None
 
             data["requestsHash"] = encode_to_hex(self.requests_hash)
-            data["requests"] = [encode_to_hex(req) for req in self.requests]
+            # T8N doesn't consider the request type byte to be part of the
+            # request
+            data["requests"] = [encode_to_hex(req[1:]) for req in self.requests]
 
         return data
