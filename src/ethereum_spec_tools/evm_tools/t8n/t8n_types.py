@@ -307,7 +307,7 @@ class Result:
     excess_blob_gas: Optional[U64] = None
     blob_gas_used: Optional[Uint] = None
     requests_hash: Optional[Hash32] = None
-    requests: Optional[Bytes] = None
+    requests: Optional[List[Bytes]] = None
 
     def to_json(self) -> Any:
         """Encode the result to JSON"""
