@@ -80,6 +80,7 @@ class Authorization:
     chain_id: U64
     address: Address
     nonce: U64
+    hash: Hash32
     y_parity: U8
     r: U256
     s: U256

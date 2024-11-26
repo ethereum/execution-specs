@@ -103,6 +103,7 @@ def recover_authority(authorization: Authorization) -> Address:
                 authorization.chain_id,
                 authorization.address,
                 authorization.nonce,
+                authorization.hash,
             )
         )
     )
