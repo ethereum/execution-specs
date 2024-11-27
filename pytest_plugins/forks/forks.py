@@ -426,7 +426,7 @@ def pytest_configure(config: pytest.Config):
     if evm_bin is not None:
         t8n = TransitionTool.from_binary_path(binary_path=evm_bin)
         config.unsupported_forks = frozenset(  # type: ignore
-            filter(lambda fork: not t8n.is_fork_supported(fork), fork_set)
+            fork for fork in fork_set if not t8n.is_fork_supported(fork)
         )
 
 
