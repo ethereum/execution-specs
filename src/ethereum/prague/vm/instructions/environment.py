@@ -19,7 +19,7 @@ from ethereum.utils.numeric import ceil32
 from ...fork_types import EMPTY_ACCOUNT
 from ...state import get_account
 from ...utils.address import to_address
-from ...vm.eoa_delegation import access_delegation
+from ...vm.eoa_delegation import access_delegation_read
 from ...vm.memory import buffer_read, memory_write
 from .. import Evm
 from ..exceptions import OutOfBoundsRead
@@ -347,8 +347,7 @@ def extcodesize(evm: Evm) -> None:
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    _, address, code, designation_access_cost = access_delegation(evm, address)
-    access_gas_cost += designation_access_cost
+    code = access_delegation_read(evm, address)
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
@@ -388,8 +387,7 @@ def extcodecopy(evm: Evm) -> None:
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    _, address, code, designation_access_cost = access_delegation(evm, address)
-    access_gas_cost += designation_access_cost
+    code = access_delegation_read(evm, address)
 
     charge_gas(evm, access_gas_cost + copy_gas_cost + extend_memory.cost)
 
@@ -476,8 +474,7 @@ def extcodehash(evm: Evm) -> None:
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    _, address, code, designation_access_cost = access_delegation(evm, address)
-    access_gas_cost += designation_access_cost
+    code = access_delegation_read(evm, address)
 
     charge_gas(evm, access_gas_cost)
 

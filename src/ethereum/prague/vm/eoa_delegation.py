@@ -12,6 +12,7 @@ from ethereum.crypto.elliptic_curve import SECP256K1N, secp256k1_recover
 from ethereum.crypto.hash import keccak256
 from ethereum.exceptions import InvalidBlock
 
+from ...utils.hexadecimal import hex_to_bytes
 from ..fork_types import Address, Authorization
 from ..state import account_exists, get_account, increment_nonce, set_code
 from ..utils.hexadecimal import hex_to_address
@@ -142,6 +143,32 @@ def access_delegation(
     code = get_account(evm.env.state, address).code
 
     return True, address, code, access_gas_cost
+
+
+def access_delegation_read(
+    evm: Evm,
+    address: Address,
+) -> Bytes:
+    """
+    Get the code from an address, as read by the EXTCODE* opcodes
+
+    Parameters
+    ----------
+    evm : `Evm`
+        The execution frame.
+    address : `Address`
+        The address to get the delegation from.
+
+    Returns
+    -------
+    code : Bytes
+    """
+    code = get_account(evm.env.state, address).code
+
+    if is_valid_delegation(code):
+        return hex_to_bytes("0xef01")
+    else:
+        return code
 
 
 def set_delegation(message: Message, env: Environment) -> U256:
