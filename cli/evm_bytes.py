@@ -148,94 +148,87 @@ assembly_option = click.option(
     "--assembly",
     default=False,
     is_flag=True,
-    help="Output the code as assembly instead of python.",
+    help="Output the code as assembly instead of Python Opcodes.",
 )
 
 
-@click.group(context_settings=dict(help_option_names=["-h", "--help"]))
-def cli():
+@click.group("evm_bytes", context_settings=dict(help_option_names=["-h", "--help"]))
+def evm_bytes():
     """
-    Convert the given EVM bytes to EEST's python opcodes or assembly string.
+    Convert EVM bytecode to EEST's Python Opcodes or an assembly string.
 
     The input can be either a hex string or a binary file containing EVM bytes.
     """
     pass
 
 
-@cli.command()
+@evm_bytes.command(short_help="Convert a hex string to Python Opcodes or assembly.")
 @assembly_option
 @click.argument("hex_string")
 def hex_string(hex_string: str, assembly: bool):
     """
-    Process a hex string representing EVM bytes and convert it into EEST's Python opcodes.
+    Convert the HEX_STRING representing EVM bytes to EEST Python Opcodes.
 
-    Args:
-        hex_string (str): The hex string representing the EVM bytes.
-        assembly (bool): Whether to print the output as assembly or Python opcodes.
+    HEX_STRING is a string containing EVM bytecode.
 
     Returns:
+
         (str): The processed EVM opcodes in Python or assembly format.
 
-    Example: Convert a hex string to EEST Python `Opcodes`
-        ```bash
+    Example 1: Convert a hex string to EEST Python `Opcodes`
+
         uv run evm_bytes hex-string 604260005260206000F3
-        ```
 
-        Output:
+    Output 1:
 
-        ```python
+        \b
         Op.PUSH1[0x42] + Op.PUSH1[0x0] + Op.MSTORE + Op.PUSH1[0x20] + Op.PUSH1[0x0] + Op.RETURN
-        ```
 
-    Example: Convert a hex string to assembly
-        ```bash
+    Example 2: Convert a hex string to assembly
+
         uv run evm_bytes hex-string --assembly 604260005260206000F3
-        ```
 
-        Output:
+    Output 2:
 
-        ```text
+        \b
         push1 0x42
         push1 0x00
         mstore
         push1 0x20
         push1 0x00
         return
-        ```
-    """  # noqa: E501
+    """  # noqa: D301
     processed_output = process_evm_bytes_string(hex_string, assembly=assembly)
     click.echo(processed_output)
 
 
-@cli.command()
+@evm_bytes.command(short_help="Convert a binary file to Python Opcodes or assembly.")
 @assembly_option
-@click.argument("binary_file_path", type=click.File("rb"))
-def binary_file(binary_file_path, assembly: bool):
+@click.argument("binary_file", type=click.File("rb"))
+def binary_file(binary_file, assembly: bool):
     """
-    Convert the given EVM bytes binary file.
+    Convert the BINARY_FILE containing EVM bytes to Python Opcodes or assembly.
 
-    Args:
-        binary_file_path (BinaryIO): A binary file containing EVM bytes to be processed or use `-`
-            to read from stdin.
-        assembly (bool): Whether to print the output as assembly or Python opcodes.
+    BINARY_FILE is a binary file containing EVM bytes, use `-` to read from stdin.
+
+    Returns:
+
+        (str): The processed EVM opcodes in Python or assembly format.
 
     Example: Convert the Withdrawal Request contract to assembly
-        ```bash
+
+        \b
         uv run evm_bytes binary-file ./src/ethereum_test_forks/forks/contracts/withdrawal_request.bin --assembly
-        ```
 
-        Output:
+    Output:
 
-        ```text
+        \b
         caller
         push20 0xfffffffffffffffffffffffffffffffffffffffe
         eq
         push1 0x90
         jumpi
         ...
-        ```
-    """  # noqa: E501
-    processed_output = format_opcodes(
-        process_evm_bytes(binary_file_path.read()), assembly=assembly
-    )
+    """  # noqa: E501,D301
+    processed_output = format_opcodes(process_evm_bytes(binary_file.read()), assembly=assembly)
     click.echo(processed_output)
