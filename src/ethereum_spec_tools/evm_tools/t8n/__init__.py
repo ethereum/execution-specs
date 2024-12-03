@@ -357,7 +357,9 @@ class T8N(Load):
                     env, tx
                 )
 
-                if self.fork.is_after_fork("ethereum.cancun"):
+                if self.fork.is_after_fork(
+                    "ethereum.cancun"
+                ) and not self.fork.is_after_fork("ethereum.prague"):
                     blob_gas_used += self.fork.calculate_total_blob_gas(tx)
                     if blob_gas_used > self.fork.MAX_BLOB_GAS_PER_BLOCK:
                         raise InvalidBlock
