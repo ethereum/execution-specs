@@ -200,7 +200,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         Block to apply to `chain`.
     """
     parent_header = chain.blocks[-1].header
-    excess_blob_gas = calculate_excess_blob_gas(parent_header)
+    excess_blob_gas = calculate_excess_blob_gas(block.header, parent_header)
     if block.header.excess_blob_gas != excess_blob_gas:
         raise InvalidBlock
 
@@ -802,8 +802,7 @@ def apply_body(
 
         block_logs += logs
         blob_gas_used += calculate_total_blob_gas(tx)
-    if blob_gas_used > MAX_BLOB_GAS_PER_BLOCK:
-        raise InvalidBlock
+
     block_gas_used = block_gas_limit - gas_available
 
     block_logs_bloom = logs_bloom(block_logs)

@@ -73,7 +73,6 @@ GAS_BLS_G2_ADD = Uint(600)
 GAS_BLS_G2_MUL = Uint(22500)
 GAS_BLS_G2_MAP = Uint(23800)
 
-TARGET_BLOB_GAS_PER_BLOCK = U64(786432)
 GAS_PER_BLOB = Uint(2**17)
 MIN_BLOB_GASPRICE = Uint(1)
 BLOB_GASPRICE_UPDATE_FRACTION = Uint(5007716)
@@ -274,13 +273,16 @@ def init_code_cost(init_code_length: Uint) -> Uint:
     return GAS_INIT_CODE_WORD_COST * ceil32(init_code_length) // 32
 
 
-def calculate_excess_blob_gas(parent_header: Header) -> U64:
+def calculate_excess_blob_gas(header: Header, parent_header: Header) -> U64:
     """
     Calculated the excess blob gas for the current block based
-    on the gas used in the parent block.
+    on the gas used in the parent block and the gas target set
+    in the current block.
 
     Parameters
     ----------
+    header :
+        The header of the current block.
     parent_header :
         The parent block of the current block.
 
@@ -292,10 +294,11 @@ def calculate_excess_blob_gas(parent_header: Header) -> U64:
     parent_blob_gas = (
         parent_header.excess_blob_gas + parent_header.blob_gas_used
     )
-    if parent_blob_gas < TARGET_BLOB_GAS_PER_BLOCK:
+    blob_gas = GAS_PER_BLOB * header.target_blobs_per_block
+    if parent_blob_gas < blob_gas:
         return U64(0)
     else:
-        return parent_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
+        return parent_blob_gas - blob_gas
 
 
 def calculate_total_blob_gas(tx: Transaction) -> Uint:
