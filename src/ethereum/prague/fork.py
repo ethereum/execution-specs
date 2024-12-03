@@ -890,7 +890,8 @@ def process_general_purpose_requests(
     """
     # Requests are to be in ascending order of request type
     requests_from_execution: List[Bytes] = []
-    requests_from_execution.append(DEPOSIT_REQUEST_TYPE + deposit_requests)
+    if len(deposit_requests) > 0:
+        requests_from_execution.append(DEPOSIT_REQUEST_TYPE + deposit_requests)
 
     system_withdrawal_tx_output = process_system_transaction(
         WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
@@ -907,9 +908,10 @@ def process_general_purpose_requests(
         excess_blob_gas,
     )
 
-    requests_from_execution.append(
-        WITHDRAWAL_REQUEST_TYPE + system_withdrawal_tx_output.return_data
-    )
+    if len(system_withdrawal_tx_output.return_data) > 0:
+        requests_from_execution.append(
+            WITHDRAWAL_REQUEST_TYPE + system_withdrawal_tx_output.return_data
+        )
 
     system_consolidation_tx_output = process_system_transaction(
         CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
@@ -926,9 +928,11 @@ def process_general_purpose_requests(
         excess_blob_gas,
     )
 
-    requests_from_execution.append(
-        CONSOLIDATION_REQUEST_TYPE + system_consolidation_tx_output.return_data
-    )
+    if len(system_consolidation_tx_output.return_data) > 0:
+        requests_from_execution.append(
+            CONSOLIDATION_REQUEST_TYPE
+            + system_consolidation_tx_output.return_data
+        )
 
     return requests_from_execution
 
