@@ -356,9 +356,7 @@ class BlockchainTest(BaseTest):
                 Withdrawal.list_root(env.withdrawals) if env.withdrawals is not None else None
             ),
             parent_beacon_block_root=env.parent_beacon_block_root,
-            requests_hash=Requests(max_request_type=fork.max_request_type(0, 0))
-            if fork.header_requests_required(0, 0)
-            else None,
+            requests_hash=Requests() if fork.header_requests_required(0, 0) else None,
             fork=fork,
         )
 

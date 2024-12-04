@@ -254,12 +254,7 @@ def base_pre_genesis(
         if env.withdrawals is not None
         else None,
         parent_beacon_block_root=env.parent_beacon_block_root,
-        requests_hash=Requests(
-            max_request_type=base_fork.max_request_type(
-                block_number=block_number,
-                timestamp=timestamp,
-            ),
-        )
+        requests_hash=Requests()
         if base_fork.header_requests_required(block_number=block_number, timestamp=timestamp)
         else None,
     )

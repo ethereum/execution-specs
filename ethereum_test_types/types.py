@@ -3,6 +3,7 @@ Useful types for generating Ethereum tests.
 """
 
 from abc import abstractmethod
+from collections import defaultdict
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, ClassVar, Dict, Generic, List, Literal, Sequence, SupportsBytes, Tuple
@@ -1204,7 +1205,6 @@ class Requests:
     def __init__(
         self,
         *requests: RequestBase,
-        max_request_type: int | None = None,
         requests_lists: List[List[RequestBase] | Bytes] | None = None,
     ):
         """
@@ -1217,21 +1217,21 @@ class Requests:
                 self.requests_list.append(requests_list_to_bytes(requests_list))
             return
         else:
-
-            assert max_request_type is not None, "max_request_type must be provided"
-
-            lists: List[List[RequestBase]] = [[] for _ in range(max_request_type + 1)]
+            lists: Dict[int, List[RequestBase]] = defaultdict(list)
             for r in requests:
                 lists[r.type].append(r)
 
-            self.requests_list = [requests_list_to_bytes(requests_list) for requests_list in lists]
+            self.requests_list = [
+                Bytes(bytes([request_type]) + requests_list_to_bytes(lists[request_type]))
+                for request_type in sorted(lists.keys())
+            ]
 
     def __bytes__(self) -> bytes:
         """
         Returns the requests hash.
         """
         s: bytes = b""
-        for i, r in enumerate(self.requests_list):
+        for r in self.requests_list:
             # Append the index of the request type to the request data before hashing
-            s = s + Bytes(bytes([i]) + r).sha256()
+            s = s + r.sha256()
         return Bytes(s).sha256()

@@ -704,7 +704,6 @@ fixture_header_ones = FixtureHeader(
                         source_pubkey=BLSPublicKey(1),
                         target_pubkey=BLSPublicKey(2),
                     ),
-                    max_request_type=2,
                 ).requests_list,
                 validation_error=[
                     BlockException.INCORRECT_BLOCK_FORMAT,
@@ -786,7 +785,6 @@ fixture_header_ones = FixtureHeader(
                                 source_pubkey=BLSPublicKey(1),
                                 target_pubkey=BLSPublicKey(2),
                             ),
-                            max_request_type=2,
                         ).requests_list
                     ],
                 ],
@@ -861,7 +859,6 @@ fixture_header_ones = FixtureHeader(
                         source_pubkey=BLSPublicKey(1),
                         target_pubkey=BLSPublicKey(2),
                     ),
-                    max_request_type=2,
                 ).requests_list,
                 validation_error=[
                     BlockException.INCORRECT_BLOCK_FORMAT,
@@ -942,7 +939,6 @@ fixture_header_ones = FixtureHeader(
                                 source_pubkey=BLSPublicKey(1),
                                 target_pubkey=BLSPublicKey(2),
                             ),
-                            max_request_type=2,
                         ).requests_list
                     ],
                 ],
@@ -1230,7 +1226,6 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                         source_pubkey=BLSPublicKey(1),
                         target_pubkey=BLSPublicKey(2),
                     ),
-                    max_request_type=2,
                 ).requests_list,
             ),
             [
@@ -1295,7 +1290,6 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
                             source_pubkey=BLSPublicKey(1),
                             target_pubkey=BLSPublicKey(2),
                         ),
-                        max_request_type=2,
                     ).requests_list
                 ],
             ],
