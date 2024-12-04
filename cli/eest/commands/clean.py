@@ -32,7 +32,7 @@ def clean(all: bool, dry_run: bool, verbose: bool):
 
     Example: Cleaning all generated files and directories and show the deleted items.
 
-        uv run et clean --all -v
+        uv run eest clean --all -v
 
     Output:
 

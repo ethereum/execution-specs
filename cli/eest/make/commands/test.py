@@ -17,7 +17,7 @@ from cli.input import input_select, input_text
 from config.docs import DocsConfig
 from ethereum_test_forks import get_development_forks, get_forks
 
-template_loader = jinja2.PackageLoader("cli.et.make")
+template_loader = jinja2.PackageLoader("cli.eest.make")
 template_env = jinja2.Environment(
     loader=template_loader, keep_trailing_newline=True, trim_blocks=True, lstrip_blocks=True
 )
@@ -48,13 +48,13 @@ def test():
 
     Example:
 
-        uv run et make test
+        uv run eest make test
 
     \f
     <figure class="video_container">
         <video controls="true" allowfullscreen="true">
             <source
-                src="/execution-spec-tests/writing_tests/img/et_make_test.mp4"
+                src="/execution-spec-tests/writing_tests/img/eest_make_test.mp4"
                 type="video/mp4"
             />
         </video>
