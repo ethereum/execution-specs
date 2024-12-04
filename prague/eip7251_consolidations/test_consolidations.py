@@ -760,16 +760,10 @@ def test_consolidation_requests_negative(
             Block(
                 txs=sum((r.transactions() for r in requests), []),
                 header_verify=Header(
-                    requests_hash=Requests(
-                        *included_requests,
-                        max_request_type=fork.max_request_type(block_number=1, timestamp=1),
-                    ),
+                    requests_hash=Requests(*included_requests),
                 ),
                 requests=(
-                    Requests(
-                        *block_body_override_requests,
-                        max_request_type=fork.max_request_type(block_number=1, timestamp=1),
-                    ).requests_list
+                    Requests(*block_body_override_requests).requests_list
                     if block_body_override_requests is not None
                     else None
                 ),

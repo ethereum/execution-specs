@@ -95,16 +95,14 @@ def blocks(
         included_requests,
         fillvalue=[],
     ):
-        max_request_type = fork.max_request_type(
+        header_verify: Header | None = None
+        if fork.header_requests_required(
             block_number=len(blocks) + 1,
             timestamp=timestamp,
-        )
-        header_verify: Header | None = None
-        if max_request_type > -1:
+        ):
             header_verify = Header(
                 requests_hash=Requests(
                     *block_included_requests,
-                    max_request_type=max_request_type,
                 )
             )
         else:
@@ -120,14 +118,7 @@ def blocks(
 
     return blocks + [
         Block(
-            header_verify=Header(
-                requests_hash=Requests(
-                    max_request_type=fork.max_request_type(
-                        block_number=len(blocks) + 1,
-                        timestamp=timestamp,
-                    )
-                )
-            ),
+            header_verify=Header(requests_hash=Requests()),
             timestamp=timestamp,
         )
     ]  # Add an empty block at the end to verify that no more withdrawal requests are included

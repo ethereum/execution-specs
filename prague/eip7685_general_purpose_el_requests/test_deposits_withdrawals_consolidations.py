@@ -314,7 +314,6 @@ def test_valid_deposit_withdrawal_consolidation_request_from_same_tx(
                             request.with_source_address(contract_address)
                             for request in sorted(requests, key=lambda r: r.type)
                         ],
-                        max_request_type=fork.max_request_type(block_number=1, timestamp=1),
                     )
                 ),
             )

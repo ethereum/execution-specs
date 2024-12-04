@@ -2884,9 +2884,7 @@ def test_set_code_to_system_contract(
         blocks=[
             Block(
                 txs=txs,
-                requests_hash=Requests(
-                    max_request_type=fork.max_request_type(block_number=1)
-                ),  # Verify nothing slipped into the requests trie
+                requests_hash=Requests(),  # Verify nothing slipped into the requests trie
             )
         ],
         post={

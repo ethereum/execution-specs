@@ -711,13 +711,11 @@ def test_withdrawal_requests_negative(
                 header_verify=Header(
                     requests_hash=Requests(
                         *included_requests,
-                        max_request_type=fork.max_request_type(block_number=1, timestamp=1),
                     ),
                 ),
                 requests=(
                     Requests(
                         *block_body_override_requests,
-                        max_request_type=fork.max_request_type(block_number=1, timestamp=1),
                     ).requests_list
                     if block_body_override_requests is not None
                     else None

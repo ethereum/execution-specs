@@ -80,10 +80,7 @@ def blocks(
         elif isinstance(r, ConsolidationRequestInteractionBase):
             valid_requests_list += r.valid_requests(consolidation_request_fee)
 
-    valid_requests = Requests(
-        *valid_requests_list,
-        max_request_type=fork.max_request_type(block_number=1, timestamp=1),
-    )
+    valid_requests = Requests(*valid_requests_list)
 
     if block_body_override_requests is None and block_body_extra_requests is not None:
         block_body_override_requests = valid_requests.requests_list + block_body_extra_requests
@@ -96,9 +93,7 @@ def blocks(
     return [
         Block(
             txs=sum((r.transactions() for r in requests), []),
-            header_verify=Header(
-                requests_hash=valid_requests,
-            ),
+            header_verify=Header(requests_hash=valid_requests),
             requests=block_body_override_requests,
             exception=exception,
             rlp_modifier=rlp_modifier,
