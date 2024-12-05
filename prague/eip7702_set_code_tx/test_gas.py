@@ -696,7 +696,7 @@ def test_gas_cost(
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
         calldata=data,
         access_list=access_list,
-        authorization_count=len(authorization_list),
+        authorization_list_or_count=authorization_list,
     )
 
     discounted_authorizations = 0
@@ -949,7 +949,7 @@ def test_intrinsic_gas_cost(
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
         calldata=data,
         access_list=access_list,
-        authorization_count=len(authorization_list),
+        authorization_list_or_count=authorization_list,
     )
 
     tx_gas = intrinsic_gas

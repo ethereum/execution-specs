@@ -34,6 +34,9 @@ class Spec:
     DELEGATION_DESIGNATION_READING = Bytes("ef01")
     RESET_DELEGATION_ADDRESS = Address(0)
 
+    MAX_CHAIN_ID = 2**64 - 1
+    MAX_NONCE = 2**64 - 1
+
     @staticmethod
     def delegation_designation(address: Address) -> Bytes:
         """
