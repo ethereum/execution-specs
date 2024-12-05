@@ -729,6 +729,20 @@ def test_transaction_post_init_invalid_arg_combinations(  # noqa: D103
             ],
             id="ty-2-adds-max_priority_fee_per_gas",
         ),
+        pytest.param(
+            {"to": Address(1)},
+            [
+                ("to", Address(1)),
+            ],
+            id="non-zero-to",
+        ),
+        pytest.param(
+            {"to": Address(0)},
+            [
+                ("to", Address(0)),
+            ],
+            id="zero-to",
+        ),
     ],
 )
 def test_transaction_post_init_defaults(tx_args, expected_attributes_and_values):

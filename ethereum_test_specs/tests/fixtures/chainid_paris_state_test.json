@@ -1,7 +1,8 @@
 {
     "000/my_chain_id_test/Paris": {
         "_info": {
-            "hash": "0x9533310242d3fe15fca5ea1d31f97121f7db0f54843c9f2160c01f2468b10535"
+            "hash": "0x9533310242d3fe15fca5ea1d31f97121f7db0f54843c9f2160c01f2468b10535",
+            "fixture_format": "state_test"
         },
         "env": {
             "currentCoinbase": "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",

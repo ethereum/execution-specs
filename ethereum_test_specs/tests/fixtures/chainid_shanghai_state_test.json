@@ -1,7 +1,8 @@
 {
     "000/my_chain_id_test/Shanghai": {
         "_info": {
-            "hash": "0xac10a919bea8bb3bc6b74cb291d92ce12549216dd78dde2d2bd6d94fd48897aa"
+            "hash": "0xac10a919bea8bb3bc6b74cb291d92ce12549216dd78dde2d2bd6d94fd48897aa",
+            "fixture_format": "state_test"
         },
         "env": {
             "currentCoinbase": "0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",

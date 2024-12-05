@@ -497,7 +497,7 @@ class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar]):
 
     chain_id: NumberBoundTypeVar = Field(0)  # type: ignore
     address: Address
-    nonce: NumberBoundTypeVar = Field(0)  # type: ignore
+    nonce: List[NumberBoundTypeVar] | NumberBoundTypeVar = Field(0)  # type: ignore
 
     v: NumberBoundTypeVar = Field(0)  # type: ignore
     r: NumberBoundTypeVar = Field(0)  # type: ignore
@@ -509,6 +509,16 @@ class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar]):
         """
         Returns the authorization tuple as a list of serializable elements.
         """
+        if isinstance(self.nonce, list):
+            # Nonce list for testing purposes only
+            return [
+                Uint(self.chain_id),
+                self.address,
+                [Uint(nonce) for nonce in self.nonce],
+                Uint(self.v),
+                Uint(self.r),
+                Uint(self.s),
+            ]
         return [
             Uint(self.chain_id),
             self.address,
@@ -523,6 +533,18 @@ class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar]):
         """
         Returns the data to be signed.
         """
+        if isinstance(self.nonce, list):
+            # Nonce list for testing purposes only
+            return Bytes(
+                int.to_bytes(self.magic, length=1, byteorder="big")
+                + eth_rlp.encode(
+                    [
+                        Uint(self.chain_id),
+                        self.address,
+                        [Uint(nonce) for nonce in self.nonce],
+                    ]
+                )
+            )
         return Bytes(
             int.to_bytes(self.magic, length=1, byteorder="big")
             + eth_rlp.encode(
@@ -676,7 +698,12 @@ class TransactionTransitionToolConverter(CamelModel):
         """
         If the `to` field is an empty string, set the model value to None.
         """
-        if isinstance(data, dict) and "to" in data and data["to"] == "":
+        if (
+            isinstance(data, dict)
+            and "to" in data
+            and isinstance(data["to"], str)
+            and data["to"] == ""
+        ):
             data["to"] = None
         return data
 

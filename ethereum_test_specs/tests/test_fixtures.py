@@ -26,15 +26,7 @@ from ethereum_test_vm import Opcodes as Op
 
 from ..blockchain import Block, BlockchainTest, Header
 from ..state import StateTest
-
-
-def remove_info_metadata(fixture_json):  # noqa: D103
-    for t in fixture_json:
-        if "_info" in fixture_json[t]:
-            info_keys = list(fixture_json[t]["_info"].keys())
-            for key in info_keys:
-                if key != "hash":  # remove keys that are not 'hash'
-                    del fixture_json[t]["_info"][key]
+from .helpers import remove_info_metadata
 
 
 @pytest.fixture()
@@ -187,6 +179,7 @@ def test_fill_state_test(
         )
     ) as f:
         expected = json.load(f)
+        remove_info_metadata(expected)
 
     remove_info_metadata(fixture)
     assert fixture == expected
@@ -532,6 +525,7 @@ class TestFillBlockchainValidTxs:
             )
         ) as f:
             expected = json.load(f)
+            remove_info_metadata(expected)
 
         remove_info_metadata(fixture)
         assert fixture_name in fixture
@@ -906,6 +900,7 @@ def test_fill_blockchain_invalid_txs(fork: Fork, check_hive: bool, expected_json
         )
     ) as f:
         expected = json.load(f)
+        remove_info_metadata(expected)
 
     remove_info_metadata(fixture)
     assert fixture_name in fixture

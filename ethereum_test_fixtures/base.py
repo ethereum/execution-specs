@@ -71,6 +71,7 @@ class BaseFixture(CamelModel):
         self.info["filling-transition-tool"] = t8n_version
         self.info["description"] = test_case_description
         self.info["url"] = fixture_source_url
+        self.info["fixture_format"] = self.fixture_format_name
         if ref_spec is not None:
             ref_spec.write_info(self.info)
 

@@ -4,6 +4,7 @@ deserialization using generated json fixtures files.
 """
 
 from pathlib import Path
+from typing import Generator
 
 import click
 from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, TimeElapsedColumn
@@ -59,10 +60,10 @@ def check_json(json_file_path: Path):
 @click.option(
     "--input",
     "-i",
-    "input_dir",
-    type=click.Path(exists=True, file_okay=False, dir_okay=True, readable=True),
+    "input_str",
+    type=click.Path(exists=True, file_okay=True, dir_okay=True, readable=True),
     required=True,
-    help="The input directory containing json fixture files",
+    help="The input json file or directory containing json fixture files",
 )
 @click.option(
     "--quiet",
@@ -83,16 +84,24 @@ def check_json(json_file_path: Path):
     expose_value=True,
     help="Stop and raise any exceptions encountered while checking fixtures.",
 )
-def check_fixtures(input_dir: str, quiet_mode: bool, stop_on_error: bool):
+def check_fixtures(input_str: str, quiet_mode: bool, stop_on_error: bool):
     """
     Perform some checks on the fixtures contained in the specified directory.
     """
-    input_path = Path(input_dir)
+    input_path = Path(input_str)
     success = True
     file_count = 0
     filename_display_width = 25
-    if not quiet_mode:
+    if input_path.is_file():
+        file_count = 1
+    elif not quiet_mode:
         file_count = count_json_files_exclude_index(input_path)
+
+    def get_input_files() -> Generator[Path, None, None]:
+        if input_path.is_file():
+            yield input_path
+        else:
+            yield from input_path.rglob("*.json")
 
     with Progress(
         TextColumn(
@@ -106,7 +115,7 @@ def check_fixtures(input_dir: str, quiet_mode: bool, stop_on_error: bool):
     ) as progress:
 
         task_id = progress.add_task("Checking fixtures", total=file_count, filename="...")
-        for json_file_path in input_path.rglob("*.json"):
+        for json_file_path in get_input_files():
             if json_file_path.name == "index.json":
                 continue
 

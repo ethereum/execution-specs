@@ -4,7 +4,9 @@ Defines models for interacting with JSON fixture files.
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Annotated, Any, Dict, Optional
+
+from pydantic import Discriminator, Tag
 
 from ethereum_test_base_types import EthereumTestRootModel
 
@@ -13,8 +15,11 @@ from .blockchain import EngineFixture as BlockchainEngineFixture
 from .blockchain import Fixture as BlockchainFixture
 from .eof import Fixture as EOFFixture
 from .state import Fixture as StateFixture
+from .transaction import Fixture as TransactionFixture
 
-FixtureModel = BlockchainFixture | BlockchainEngineFixture | StateFixture | EOFFixture
+FixtureModel = (
+    BlockchainFixture | BlockchainEngineFixture | StateFixture | EOFFixture | TransactionFixture
+)
 
 
 class BaseFixturesRootModel(EthereumTestRootModel):
@@ -101,6 +106,7 @@ class BaseFixturesRootModel(EthereumTestRootModel):
             BlockchainFixture: BlockchainFixtures,
             BlockchainEngineFixture: BlockchainEngineFixtures,
             StateFixture: StateFixtures,
+            TransactionFixture: TransactionFixtures,
             EOFFixture: EOFFixtures,
         }
 
@@ -114,12 +120,34 @@ class BaseFixturesRootModel(EthereumTestRootModel):
         return model_class(root=json_data)
 
 
+def fixture_format_discriminator(v: Any) -> str | None:
+    """
+    A discriminator function that returns the model type as a string.
+    """
+    if v is None:
+        return None
+    if isinstance(v, dict):
+        info_dict = v["_info"]
+    elif hasattr(v, "info"):
+        info_dict = v.info
+    return info_dict.get("fixture_format")
+
+
 class Fixtures(BaseFixturesRootModel):
     """
     A model that can contain any fixture type.
     """
 
-    root: Dict[str, BlockchainFixture | BlockchainEngineFixture | StateFixture]
+    root: Dict[
+        str,
+        Annotated[
+            Annotated[BlockchainFixture, Tag(BlockchainFixture.fixture_format_name)]
+            | Annotated[BlockchainEngineFixture, Tag(BlockchainEngineFixture.fixture_format_name)]
+            | Annotated[StateFixture, Tag(StateFixture.fixture_format_name)]
+            | Annotated[TransactionFixture, Tag(TransactionFixture.fixture_format_name)],
+            Discriminator(fixture_format_discriminator),
+        ],
+    ]
 
 
 class BlockchainFixtures(BaseFixturesRootModel):
@@ -150,6 +178,16 @@ class StateFixtures(BaseFixturesRootModel):
     """
 
     root: Dict[str, StateFixture]
+
+
+class TransactionFixtures(BaseFixturesRootModel):
+    """
+    Defines a top-level model containing multiple transaction test fixtures in a
+    dictionary of (fixture-name, fixture) pairs. This is the format used in JSON
+    fixture files for transaction tests.
+    """
+
+    root: Dict[str, TransactionFixture]
 
 
 class EOFFixtures(BaseFixturesRootModel):

@@ -6,7 +6,7 @@ from dataclasses import replace
 from hashlib import sha256
 from os.path import realpath
 from pathlib import Path
-from typing import List, Mapping, Optional, Tuple
+from typing import List, Mapping, Optional, Sized, Tuple
 
 from semver import Version
 
@@ -210,10 +210,12 @@ class Frontier(BaseFork, solc_name="homestead"):
             calldata: BytesConvertible = b"",
             contract_creation: bool = False,
             access_list: List[AccessList] | None = None,
-            authorization_count: int | None = None,
+            authorization_list_or_count: Sized | int | None = None,
         ) -> int:
             assert access_list is None, f"Access list is not supported in {cls.name()}"
-            assert authorization_count is None, f"Authorizations are not supported in {cls.name()}"
+            assert (
+                authorization_list_or_count is None
+            ), f"Authorizations are not supported in {cls.name()}"
             intrinsic_cost: int = gas_costs.G_TRANSACTION
 
             if contract_creation:
@@ -630,13 +632,13 @@ class Homestead(Frontier):
             calldata: BytesConvertible = b"",
             contract_creation: bool = False,
             access_list: List[AccessList] | None = None,
-            authorization_count: int | None = None,
+            authorization_list_or_count: Sized | int | None = None,
         ) -> int:
             intrinsic_cost: int = super_fn(
                 calldata=calldata,
                 contract_creation=contract_creation,
                 access_list=access_list,
-                authorization_count=authorization_count,
+                authorization_list_or_count=authorization_list_or_count,
             )
             if contract_creation:
                 intrinsic_cost += gas_costs.G_TRANSACTION_CREATE
@@ -815,12 +817,12 @@ class Berlin(Istanbul):
             calldata: BytesConvertible = b"",
             contract_creation: bool = False,
             access_list: List[AccessList] | None = None,
-            authorization_count: int | None = None,
+            authorization_list_or_count: Sized | int | None = None,
         ) -> int:
             intrinsic_cost: int = super_fn(
                 calldata=calldata,
                 contract_creation=contract_creation,
-                authorization_count=authorization_count,
+                authorization_list_or_count=authorization_list_or_count,
             )
             if access_list is not None:
                 for access in access_list:
@@ -1161,15 +1163,17 @@ class Prague(Cancun):
             calldata: BytesConvertible = b"",
             contract_creation: bool = False,
             access_list: List[AccessList] | None = None,
-            authorization_count: int | None = None,
+            authorization_list_or_count: Sized | int | None = None,
         ) -> int:
             intrinsic_cost: int = super_fn(
                 calldata=calldata,
                 contract_creation=contract_creation,
                 access_list=access_list,
             )
-            if authorization_count is not None:
-                intrinsic_cost += authorization_count * gas_costs.G_AUTHORIZATION
+            if authorization_list_or_count is not None:
+                if isinstance(authorization_list_or_count, Sized):
+                    authorization_list_or_count = len(authorization_list_or_count)
+                intrinsic_cost += authorization_list_or_count * gas_costs.G_AUTHORIZATION
             return intrinsic_cost
 
         return fn

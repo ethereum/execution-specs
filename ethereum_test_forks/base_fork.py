@@ -3,7 +3,7 @@ Abstract base class for Ethereum forks
 """
 
 from abc import ABC, ABCMeta, abstractmethod
-from typing import Any, ClassVar, List, Mapping, Optional, Protocol, Tuple, Type
+from typing import Any, ClassVar, List, Mapping, Optional, Protocol, Sized, Tuple, Type
 
 from semver import Version
 
@@ -62,7 +62,7 @@ class TransactionIntrinsicCostCalculator(Protocol):
         calldata: BytesConvertible = b"",
         contract_creation: bool = False,
         access_list: List[AccessList] | None = None,
-        authorization_count: int | None = None,
+        authorization_list_or_count: Sized | int | None = None,
     ) -> int:
         """
         Returns the intrinsic gas cost of a transaction given its properties.

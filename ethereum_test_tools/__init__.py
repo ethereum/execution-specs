@@ -35,6 +35,8 @@ from ethereum_test_specs import (
     EOFTestFiller,
     StateTest,
     StateTestFiller,
+    TransactionTest,
+    TransactionTestFiller,
 )
 from ethereum_test_specs.blockchain import Block, Header
 from ethereum_test_types import (
@@ -140,6 +142,8 @@ __all__ = (
     "TestPrivateKey2",
     "Transaction",
     "TransactionException",
+    "TransactionTest",
+    "TransactionTestFiller",
     "Withdrawal",
     "WithdrawalRequest",
     "Yul",

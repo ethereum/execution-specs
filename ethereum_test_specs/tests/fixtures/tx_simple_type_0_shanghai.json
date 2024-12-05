@@ -1,0 +1,16 @@
+{
+    "fixture": {
+        "_info" : {
+            "hash" : "0x3c588e18802a3c0c875da0e7bc8f9066369572c30d11e2568a516650216a33e7",
+            "fixture_format": "transaction_test"
+        },
+        "result" : {
+            "Shanghai" : {
+                "hash" : "0x1997251035c9109e5cad5b146251579be13bbd91a17bf628b7cbb5f25dad73e2",
+                "intrinsicGas" : "0x5208",
+                "sender" : "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b"
+            }
+        },
+        "txbytes" : "0xf85f800a8252089400000000000000000000000000000000000000aa808026a0cc61d852649c34cc0b71803115f38036ace257d2914f087bf885e6806a664fbda02020cb35f5d7731ab540d62614503a7f2344301a86342f67daf011c1341551ff"
+    }
+}

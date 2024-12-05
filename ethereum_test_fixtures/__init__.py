@@ -11,6 +11,7 @@ from .blockchain import FixtureCommon as BlockchainFixtureCommon
 from .collector import FixtureCollector, TestInfo
 from .eof import Fixture as EOFFixture
 from .state import Fixture as StateFixture
+from .transaction import Fixture as TransactionFixture
 from .verify import FixtureVerifier
 
 FIXTURE_FORMATS: Dict[str, FixtureFormat] = {
@@ -20,6 +21,7 @@ FIXTURE_FORMATS: Dict[str, FixtureFormat] = {
         BlockchainEngineFixture,
         EOFFixture,
         StateFixture,
+        TransactionFixture,
     ]
 }
 __all__ = [
@@ -34,4 +36,5 @@ __all__ = [
     "FixtureVerifier",
     "StateFixture",
     "TestInfo",
+    "TransactionFixture",
 ]
