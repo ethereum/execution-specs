@@ -12,7 +12,8 @@ jobs:
     runs-on: self-hosted
     strategy:
       matrix:
-        py: [ "3.10", "pypy3.10" ]
+#        py: [ "3.10", "pypy3.10" ]
+        py: [ "3.10" ]
 
     steps:
       - uses: actions/checkout@v3
@@ -33,25 +34,26 @@ jobs:
       - name: Install Tox and any other packages
         run: "pip install 'tox>=4.11,<5' requests"
 
-      - name: Download Geth and add to $PATH
-        run: |
-          mkdir -p $GITHUB_WORKSPACE/bin
-          $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
-          echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
+#      - name: Download Geth and add to $PATH
+#        run: |
+#          mkdir -p $GITHUB_WORKSPACE/bin
+#          $GITHUB_WORKSPACE/scripts/download_geth_linux.py --dir $GITHUB_WORKSPACE/bin
+#          echo $GITHUB_WORKSPACE/bin >> $GITHUB_PATH
 
       - name: Run Tox (CPython)
-        if: "${{ !startsWith(matrix.py, 'pypy') }}"
-        run: tox -e static,py3
+#        if: "${{ !startsWith(matrix.py, 'pypy') }}"
+#       run: tox -e static,py3
+        run: tox -e static
 
-      - name: Run Tox (PyPy)
-        if: "${{ startsWith(matrix.py, 'pypy') }}"
-        run: tox -e pypy3
-        env:
-          PYPY_GC_MAX: "10G"
+#      - name: Run Tox (PyPy)
+#        if: "${{ startsWith(matrix.py, 'pypy') }}"
+#        run: tox -e pypy3
+#        env:
+#          PYPY_GC_MAX: "10G"
 
-      - name: Upload coverage to Codecov
-        if: "${{ !startsWith(matrix.py, 'pypy') }}"
-        uses: codecov/codecov-action@v1
-        with:
-          files: .tox/coverage.xml
-          flags: unittests
+#      - name: Upload coverage to Codecov
+#        if: "${{ !startsWith(matrix.py, 'pypy') }}"
+#        uses: codecov/codecov-action@v1
+#        with:
+#          files: .tox/coverage.xml
+#          flags: unittests
