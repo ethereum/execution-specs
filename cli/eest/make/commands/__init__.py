@@ -4,6 +4,7 @@ modules and exported from this package, then registered under the make command i
 `cli.py`.
 """
 
+from .env import create_default_env
 from .test import test
 
-__all__ = ["test"]
+__all__ = ["test", "create_default_env"]

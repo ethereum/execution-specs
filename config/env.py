@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import Dict, List
 
 import yaml
-from jinja2 import Environment, PackageLoader
 from pydantic import BaseModel, HttpUrl, ValidationError
 
 ENV_PATH = Path(__file__).resolve().parent.parent.parent / "env.yaml"
@@ -75,30 +74,3 @@ class EnvConfig(Config):
                 super().__init__(**config_data)
             except ValidationError as e:
                 raise ValueError(f"Invalid configuration: {e}")
-
-
-def create_default_config():
-    """
-    Creates a default configuration file `env.yaml` from the Jinja2 template.
-
-    Raises:
-        IOError: If there is an error writing to the `env.yaml` file.
-    """
-    # Check if the config file already exists
-    if ENV_PATH.exists():
-        print(
-            f"🚧 The configuration file '{ENV_PATH}' already exists. "
-            "Please update it manually if needed."
-        )
-        exit(1)
-
-    template_environment = Environment(
-        loader=PackageLoader("config"), trim_blocks=True, lstrip_blocks=True
-    )
-    template = template_environment.get_template("env.yaml.j2")
-
-    env_yaml = template.render(config=Config())
-
-    with ENV_PATH.open("w") as file:
-        file.write(env_yaml)
-        print(f"Env file created: {ENV_PATH}")
