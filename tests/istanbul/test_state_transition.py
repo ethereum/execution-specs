@@ -62,12 +62,6 @@ IGNORE_TESTS = (
     "bcForgedTest",
     "bcMultiChainTest",
     "GasLimitHigherThan2p63m1_Istanbul",
-    # TODO: The below tests are being ignored due to a bug in
-    # upstream repo. They should be removed from the ignore list
-    # once the bug is resolved
-    # See: https://github.com/ethereum/execution-spec-tests/pull/134
-    "Pyspecs/vm/dup.json",
-    "Pyspecs/vm/chain_id.json",
 )
 
 # All tests that recursively create a large number of frames (50000)
