@@ -796,7 +796,7 @@ def test_account_warming(
     Test warming of the authority and authorized accounts for set-code transactions.
     """
     # Overhead cost is the single push operation required for the address to check.
-    OVERHEAD_COST = 3
+    OVERHEAD_COST = 3 * len(Op.CALL.kwargs)  # type: ignore
 
     COLD_ACCOUNT_COST = 2600
     WARM_ACCOUNT_COST = 100
@@ -891,7 +891,7 @@ def test_account_warming(
     callee_code: Bytecode = sum(  # type: ignore
         (
             CodeGasMeasure(
-                code=Op.EXTCODESIZE(check_address),
+                code=Op.CALL(gas=0, address=check_address),
                 overhead_cost=OVERHEAD_COST,
                 extra_stack_items=1,
                 sstore_key=callee_storage.store_next(access_cost),
@@ -994,10 +994,10 @@ def test_self_set_code_cost(
 
     slot_call_cost = 1
 
-    OVERHEAD_COST = 3
+    OVERHEAD_COST = 3 * len(Op.CALL.kwargs)  # type: ignore
 
     callee_code = CodeGasMeasure(
-        code=Op.EXTCODESIZE(address=auth_signer),
+        code=Op.CALL(gas=0, address=auth_signer),
         overhead_cost=OVERHEAD_COST,
         extra_stack_items=1,
         sstore_key=slot_call_cost,

@@ -30,7 +30,8 @@ class Spec:
     MAGIC = 0x05
     PER_AUTH_BASE_COST = 12_500
     PER_EMPTY_ACCOUNT_COST = 25_000
-    DELEGATION_DESIGNATION = bytes.fromhex("ef0100")
+    DELEGATION_DESIGNATION = Bytes("ef0100")
+    DELEGATION_DESIGNATION_READING = Bytes("ef01")
     RESET_DELEGATION_ADDRESS = Address(0)
 
     @staticmethod
