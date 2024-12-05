@@ -12,7 +12,7 @@ Reserved or Tentative.
 
 | Prefix byte | Specs or Purpose |
 |-------------|------------------|
-| 0x00  | Reserved: indicates legacy (untyped) trancactions |
+| 0x00  | Reserved: indicates legacy (untyped) transactions |
 | 0x01  | Reserved: [EIP-2930](https://eips.ethereum.org/EIPS/eip-2930) *(available in Berlin)* |
 | 0x02  | Reserved: [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559) *(available in London)* |
 | 0x03  | Reserved: [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844) *(available in Cancun)* |
