@@ -3,7 +3,18 @@ BlockchainTest types
 """
 
 from functools import cached_property
-from typing import Annotated, Any, ClassVar, List, Literal, Tuple, Union, get_args, get_type_hints
+from typing import (
+    Annotated,
+    Any,
+    ClassVar,
+    List,
+    Literal,
+    Tuple,
+    Union,
+    cast,
+    get_args,
+    get_type_hints,
+)
 
 from ethereum import rlp as eth_rlp
 from ethereum_types.numeric import Uint
@@ -97,9 +108,13 @@ class FixtureHeader(CamelModel):
     extra_data: Bytes
     prev_randao: Hash = Field(Hash(0), alias="mixHash")
     nonce: HeaderNonce = Field(HeaderNonce(0), validate_default=True)
-    base_fee_per_gas: Annotated[
-        ZeroPaddedHexNumber, HeaderForkRequirement("base_fee")
-    ] | None = Field(None)
+    base_fee_per_gas: (
+        Annotated[
+            ZeroPaddedHexNumber,
+            HeaderForkRequirement("base_fee"),
+        ]
+        | None
+    ) = Field(None)
     withdrawals_root: Annotated[Hash, HeaderForkRequirement("withdrawals")] | None = Field(None)
     blob_gas_used: (
         Annotated[ZeroPaddedHexNumber, HeaderForkRequirement("blob_gas_used")] | None
@@ -111,6 +126,9 @@ class FixtureHeader(CamelModel):
         None
     )
     requests_hash: Annotated[Hash, HeaderForkRequirement("requests")] | None = Field(None)
+    target_blobs_per_block: (
+        Annotated[ZeroPaddedHexNumber, HeaderForkRequirement("target_blobs_per_block")] | None
+    ) = Field(None)
 
     fork: Fork | None = Field(None, exclude=True)
 
@@ -224,7 +242,13 @@ class FixtureExecutionPayload(CamelModel):
 
 EngineNewPayloadV1Parameters = Tuple[FixtureExecutionPayload]
 EngineNewPayloadV3Parameters = Tuple[FixtureExecutionPayload, List[Hash], Hash]
-EngineNewPayloadV4Parameters = Tuple[FixtureExecutionPayload, List[Hash], Hash, List[Bytes]]
+EngineNewPayloadV4Parameters = Tuple[
+    FixtureExecutionPayload,
+    List[Hash],
+    Hash,
+    List[Bytes],
+    HexNumber,
+]
 
 # Important: We check EngineNewPayloadV3Parameters first as it has more fields, and pydantic
 # has a weird behavior when the smaller tuple is checked first.
@@ -286,32 +310,37 @@ class FixtureEngineNewPayload(CamelModel):
             transactions=transactions,
             withdrawals=withdrawals,
         )
-        params: EngineNewPayloadParameters
-        if (
-            fork.engine_new_payload_requests(header.number, header.timestamp)
-            and requests is not None
-        ):
-            parent_beacon_block_root = header.parent_beacon_block_root
-            assert parent_beacon_block_root is not None
-            params = (
-                execution_payload,
-                Transaction.list_blob_versioned_hashes(transactions),
-                parent_beacon_block_root,
-                requests,
-            )
-        elif fork.engine_new_payload_blob_hashes(header.number, header.timestamp):
-            parent_beacon_block_root = header.parent_beacon_block_root
-            assert parent_beacon_block_root is not None
-            params = (
-                execution_payload,
-                Transaction.list_blob_versioned_hashes(transactions),
-                parent_beacon_block_root,
-            )
-        else:
-            params = (execution_payload,)
 
+        params: List[Any] = [execution_payload]
+        if fork.engine_new_payload_blob_hashes(header.number, header.timestamp):
+            blob_hashes = Transaction.list_blob_versioned_hashes(transactions)
+            if blob_hashes is None:
+                raise ValueError(f"Blob hashes are required for ${fork}.")
+            params.append(blob_hashes)
+
+        if fork.engine_new_payload_beacon_root(header.number, header.timestamp):
+            parent_beacon_block_root = header.parent_beacon_block_root
+            if parent_beacon_block_root is None:
+                raise ValueError(f"Parent beacon block root is required for ${fork}.")
+            params.append(parent_beacon_block_root)
+
+        if fork.engine_new_payload_requests(header.number, header.timestamp):
+            if requests is None:
+                raise ValueError(f"Requests are required for ${fork}.")
+            params.append(requests)
+
+        if fork.engine_new_payload_target_blobs_per_block(header.number, header.timestamp):
+            target_blobs_per_block = header.target_blobs_per_block
+            if target_blobs_per_block is None:
+                raise ValueError(f"Target blobs per block is required for ${fork}.")
+            params.append(target_blobs_per_block)
+
+        payload_params: EngineNewPayloadParameters = cast(
+            EngineNewPayloadParameters,
+            tuple(params),
+        )
         new_payload = cls(
-            params=params,
+            params=payload_params,
             new_payload_version=new_payload_version,
             forkchoice_updated_version=forkchoice_updated_version,
             **kwargs,

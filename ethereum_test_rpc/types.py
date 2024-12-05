@@ -111,6 +111,8 @@ class PayloadAttributes(CamelModel):
     suggested_fee_recipient: Address
     withdrawals: List[Withdrawal] | None = None
     parent_beacon_block_root: Hash | None = None
+    target_blobs_per_block: HexNumber | None = None
+    max_blobs_per_block: HexNumber | None = None
 
 
 class BlobsBundle(CamelModel):

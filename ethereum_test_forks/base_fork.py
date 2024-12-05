@@ -248,9 +248,33 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
 
     @classmethod
     @abstractmethod
+    def header_target_blobs_per_block_required(cls, block_number: int, timestamp: int) -> bool:
+        """
+        Returns true if the header must contain target blobs per block.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
     def blob_gas_per_blob(cls, block_number: int, timestamp: int) -> int:
         """
         Returns the amount of blob gas used per blob for a given fork.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def target_blobs_per_block(cls, block_number: int, timestamp: int) -> int:
+        """
+        Returns the target blobs per block for a given fork.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def max_blobs_per_block(cls, block_number: int, timestamp: int) -> int:
+        """
+        Returns the max blobs per block for a given fork.
         """
         pass
 
@@ -354,6 +378,37 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
     def engine_new_payload_requests(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         Returns true if the engine api version requires new payload calls to include requests.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def engine_new_payload_target_blobs_per_block(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """
+        Returns true if the engine api version requires new payload calls to include
+        target blobs per block.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def engine_payload_attribute_target_blobs_per_block(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """
+        Returns true if the payload attributes include the target blobs per block.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def engine_payload_attribute_max_blobs_per_block(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """
+        Returns true if the payload attributes include the max blobs per block.
         """
         pass
 

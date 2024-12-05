@@ -233,6 +233,20 @@ class Frontier(BaseFork, solc_name="homestead"):
         return 0
 
     @classmethod
+    def target_blobs_per_block(cls, block_number: int, timestamp: int) -> int:
+        """
+        Returns the target number of blobs per block for a given fork.
+        """
+        return 0
+
+    @classmethod
+    def max_blobs_per_block(cls, block_number: int, timestamp: int) -> int:
+        """
+        Returns the max number of blobs per block for a given fork.
+        """
+        return 0
+
+    @classmethod
     def header_requests_required(cls, block_number: int, timestamp: int) -> bool:
         """
         At genesis, header must not contain beacon chain requests.
@@ -256,6 +270,17 @@ class Frontier(BaseFork, solc_name="homestead"):
         return False
 
     @classmethod
+    def header_target_blobs_per_block_required(
+        cls,
+        block_number: int = 0,
+        timestamp: int = 0,
+    ) -> bool:
+        """
+        At genesis, header must not contain target blobs per block.
+        """
+        return False
+
+    @classmethod
     def engine_new_payload_blob_hashes(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         At genesis, payloads do not have blob hashes.
@@ -273,6 +298,35 @@ class Frontier(BaseFork, solc_name="homestead"):
     def engine_new_payload_requests(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         At genesis, payloads do not have requests.
+        """
+        return False
+
+    @classmethod
+    def engine_new_payload_target_blobs_per_block(
+        cls,
+        block_number: int = 0,
+        timestamp: int = 0,
+    ) -> bool:
+        """
+        At genesis, payloads do not have target blobs per block.
+        """
+        return False
+
+    @classmethod
+    def engine_payload_attribute_target_blobs_per_block(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """
+        At genesis, payload attributes do not include the target blobs per block.
+        """
+        return False
+
+    @classmethod
+    def engine_payload_attribute_max_blobs_per_block(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """
+        At genesis, payload attributes do not include the max blobs per block.
         """
         return False
 
@@ -546,9 +600,9 @@ class Homestead(Frontier):
         """
         At Homestead, DELEGATECALL opcode was introduced.
         """
-        return [(Opcodes.DELEGATECALL, EVMCodeType.LEGACY),] + super(
-            Homestead, cls
-        ).call_opcodes(block_number, timestamp)
+        return [(Opcodes.DELEGATECALL, EVMCodeType.LEGACY)] + super(Homestead, cls).call_opcodes(
+            block_number, timestamp
+        )
 
     @classmethod
     def valid_opcodes(
@@ -622,9 +676,9 @@ class Byzantium(Homestead):
         """
         At Byzantium, STATICCALL opcode was introduced.
         """
-        return [(Opcodes.STATICCALL, EVMCodeType.LEGACY),] + super(
-            Byzantium, cls
-        ).call_opcodes(block_number, timestamp)
+        return [(Opcodes.STATICCALL, EVMCodeType.LEGACY)] + super(Byzantium, cls).call_opcodes(
+            block_number, timestamp
+        )
 
     @classmethod
     def valid_opcodes(
@@ -656,9 +710,9 @@ class Constantinople(Byzantium):
         """
         At Constantinople, `CREATE2` opcode is added.
         """
-        return [(Opcodes.CREATE2, EVMCodeType.LEGACY),] + super(
-            Constantinople, cls
-        ).create_opcodes(block_number, timestamp)
+        return [(Opcodes.CREATE2, EVMCodeType.LEGACY)] + super(Constantinople, cls).create_opcodes(
+            block_number, timestamp
+        )
 
     @classmethod
     def valid_opcodes(
@@ -938,9 +992,23 @@ class Cancun(Shanghai):
     @classmethod
     def blob_gas_per_blob(cls, block_number: int, timestamp: int) -> int:
         """
-        Blobs are enabled started from Cancun.
+        Blobs are enabled starting from Cancun.
         """
         return 2**17
+
+    @classmethod
+    def target_blobs_per_block(cls, block_number: int, timestamp: int) -> int:
+        """
+        Blobs are enabled starting from Cancun, with a static target of 3 blobs.
+        """
+        return 3
+
+    @classmethod
+    def max_blobs_per_block(cls, block_number: int, timestamp: int) -> int:
+        """
+        Blobs are enabled starting from Cancun, with a static max of 6 blobs.
+        """
+        return 6
 
     @classmethod
     def tx_types(cls, block_number: int = 0, timestamp: int = 0) -> List[int]:
@@ -1177,6 +1245,18 @@ class Prague(Cancun):
         return True
 
     @classmethod
+    def header_target_blobs_per_block_required(
+        cls,
+        block_number: int = 0,
+        timestamp: int = 0,
+    ) -> bool:
+        """
+        Prague requires that the execution layer header contains the beacon
+        chain target blobs per block.
+        """
+        return True
+
+    @classmethod
     def engine_new_payload_requests(cls, block_number: int = 0, timestamp: int = 0) -> bool:
         """
         Starting at Prague, new payloads include the requests hash as a parameter.
@@ -1184,9 +1264,11 @@ class Prague(Cancun):
         return True
 
     @classmethod
-    def engine_new_payload_blob_hashes(cls, block_number: int = 0, timestamp: int = 0) -> bool:
+    def engine_new_payload_target_blobs_per_block(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
         """
-        Starting at Prague, new payload directives must contain requests as parameter.
+        Starting at Prague, new payloads include the target blobs per block as a parameter.
         """
         return True
 
@@ -1200,13 +1282,22 @@ class Prague(Cancun):
         return 4
 
     @classmethod
-    def engine_forkchoice_updated_version(
+    def engine_payload_attribute_target_blobs_per_block(
         cls, block_number: int = 0, timestamp: int = 0
-    ) -> Optional[int]:
+    ) -> bool:
         """
-        At Prague, version number of NewPayload and ForkchoiceUpdated diverge.
+        Starting at Prague, payload attributes include the target blobs per block.
         """
-        return 3
+        return True
+
+    @classmethod
+    def engine_payload_attribute_max_blobs_per_block(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> bool:
+        """
+        Starting at Prague, payload attributes include the max blobs per block.
+        """
+        return True
 
 
 class CancunEIP7692(  # noqa: SC200
@@ -1224,7 +1315,7 @@ class CancunEIP7692(  # noqa: SC200
         """
         EOF V1 is supported starting from this fork.
         """
-        return super(CancunEIP7692, cls,).evm_code_types(  # noqa: SC200
+        return super(CancunEIP7692, cls).evm_code_types(  # noqa: SC200
             block_number,
             timestamp,
         ) + [EVMCodeType.EOF_V1]
@@ -1253,7 +1344,7 @@ class CancunEIP7692(  # noqa: SC200
         """
         EOF V1 introduces `EOFCREATE`.
         """
-        return [(Opcodes.EOFCREATE, EVMCodeType.EOF_V1),] + super(
+        return [(Opcodes.EOFCREATE, EVMCodeType.EOF_V1)] + super(
             CancunEIP7692, cls  # noqa: SC200
         ).create_opcodes(block_number, timestamp)
 
@@ -1283,7 +1374,7 @@ class Osaka(Prague, solc_name="cancun"):
         """
         EOF V1 is supported starting from Osaka.
         """
-        return super(Osaka, cls,).evm_code_types(
+        return super(Osaka, cls).evm_code_types(
             block_number,
             timestamp,
         ) + [EVMCodeType.EOF_V1]
