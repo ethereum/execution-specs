@@ -24,6 +24,13 @@ TX_ACCESS_LIST_STORAGE_KEY_COST = 1900
 
 @slotted_freezable
 @dataclass
+class Access:
+    account: Address
+    slots: Tuple[Bytes32, ...]
+
+
+@slotted_freezable
+@dataclass
 class LegacyTransaction:
     """
     Atomic operation performed on the block chain.
@@ -54,7 +61,7 @@ class AccessListTransaction:
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes
-    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    access_list: Tuple[Access, ...]
     y_parity: U256
     r: U256
     s: U256
@@ -75,7 +82,7 @@ class FeeMarketTransaction:
     to: Union[Bytes0, Address]
     value: U256
     data: Bytes
-    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    access_list: Tuple[Access, ...]
     y_parity: U256
     r: U256
     s: U256
@@ -96,7 +103,7 @@ class BlobTransaction:
     to: Address
     value: U256
     data: Bytes
-    access_list: Tuple[Tuple[Address, Tuple[Bytes32, ...]], ...]
+    access_list: Tuple[Access, ...]
     max_fee_per_blob_gas: U256
     blob_versioned_hashes: Tuple[VersionedHash, ...]
     y_parity: U256
