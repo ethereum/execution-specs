@@ -30,7 +30,7 @@ from typing import (
     cast,
 )
 
-from ethereum_rlp import rlp
+from ethereum_rlp import Extended, rlp
 from ethereum_types.bytes import Bytes
 from ethereum_types.frozen import slotted_freezable
 from ethereum_types.numeric import U256, Uint
@@ -83,7 +83,7 @@ class LeafNode:
     """Leaf node in the Merkle Trie"""
 
     rest_of_key: Bytes
-    value: rlp.Extended
+    value: Extended
 
 
 @slotted_freezable
@@ -92,26 +92,26 @@ class ExtensionNode:
     """Extension node in the Merkle Trie"""
 
     key_segment: Bytes
-    subnode: rlp.Extended
+    subnode: Extended
 
 
 BranchSubnodes = Tuple[
-    rlp.Extended,
-    rlp.Extended,
-    rlp.Extended,
-    rlp.Extended,
-    rlp.Extended,
-    rlp.Extended,
-    rlp.Extended,
-    rlp.Extended,
-    rlp.Extended,
-    rlp.Extended,
-    rlp.Extended,
-    rlp.Extended,
-    rlp.Extended,
-    rlp.Extended,
-    rlp.Extended,
-    rlp.Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
+    Extended,
 ]
 
 
@@ -121,13 +121,13 @@ class BranchNode:
     """Branch node in the Merkle Trie"""
 
     subnodes: BranchSubnodes
-    value: rlp.Extended
+    value: Extended
 
 
 InternalNode = Union[LeafNode, ExtensionNode, BranchNode]
 
 
-def encode_internal_node(node: Optional[InternalNode]) -> rlp.Extended:
+def encode_internal_node(node: Optional[InternalNode]) -> Extended:
     """
     Encodes a Merkle Trie node into its RLP form. The RLP will then be
     serialized into a `Bytes` and hashed unless it is less that 32 bytes
@@ -146,7 +146,7 @@ def encode_internal_node(node: Optional[InternalNode]) -> rlp.Extended:
     encoded : `rlp.Extended`
         The node encoded as RLP.
     """
-    unencoded: rlp.Extended
+    unencoded: Extended
     if node is None:
         unencoded = b""
     elif isinstance(node, LeafNode):
@@ -486,6 +486,6 @@ def patricialize(
         for k in range(16)
     )
     return BranchNode(
-        cast(BranchSubnodes, assert_type(subnodes, Tuple[rlp.Extended, ...])),
+        cast(BranchSubnodes, assert_type(subnodes, Tuple[Extended, ...])),
         value,
     )
