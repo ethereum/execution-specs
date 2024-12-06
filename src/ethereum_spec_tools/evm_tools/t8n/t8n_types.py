@@ -356,8 +356,6 @@ class Result:
             data["requestsHash"] = encode_to_hex(self.requests_hash)
             # T8N doesn't consider the request type byte to be part of the
             # request
-            data["requests"] = [
-                encode_to_hex(req) for req in self.requests
-            ]
+            data["requests"] = [encode_to_hex(req) for req in self.requests]
 
         return data
