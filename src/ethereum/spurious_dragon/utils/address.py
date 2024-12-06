@@ -14,12 +14,12 @@ specification.
 """
 from typing import Union
 
+from ethereum_rlp import rlp
 from ethereum_types.numeric import U256, Uint
 
 from ethereum.crypto.hash import keccak256
 from ethereum.utils.byte import left_pad_zero_bytes
 
-from ... import rlp
 from ..fork_types import Address
 
 
