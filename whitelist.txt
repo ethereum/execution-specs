@@ -460,4 +460,3 @@ monomial
 impl
 
 eoa
-DESIGNATOR
