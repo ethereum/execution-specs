@@ -5,7 +5,16 @@ Utilities for the EVM tools
 import json
 import logging
 import sys
-from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+)
 
 import coincurve
 from ethereum_types.numeric import U64, U256, Uint
@@ -82,7 +91,9 @@ def ensure_success(f: Callable, *args: Any) -> Any:
         raise FatalException(e)
 
 
-def get_module_name(forks: Any, options: Any, stdin: Any) -> Tuple[str, int]:
+def get_module_name(
+    forks: Sequence[Hardfork], options: Any, stdin: Any
+) -> Tuple[str, int]:
     """
     Get the module name and the fork block for the given state fork.
     """
