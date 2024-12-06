@@ -19,7 +19,7 @@ from ethereum_types.numeric import U64, U256, Uint
 from ethereum.trace import GasAndRefund, evm_trace
 from ethereum.utils.numeric import ceil32, taylor_exponential
 
-from ..blocks import Header
+from ..blocks import AnyHeader, Header
 from ..transactions import BlobTransaction, Transaction
 from . import Evm
 from .exceptions import OutOfGasError
@@ -269,7 +269,7 @@ def init_code_cost(init_code_length: Uint) -> Uint:
     return GAS_INIT_CODE_WORD_COST * ceil32(init_code_length) // Uint(32)
 
 
-def calculate_excess_blob_gas(parent_header: Header) -> U64:
+def calculate_excess_blob_gas(parent_header: AnyHeader) -> U64:
     """
     Calculated the excess blob gas for the current block based
     on the gas used in the parent block.
