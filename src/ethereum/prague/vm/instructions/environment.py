@@ -14,13 +14,12 @@ Implementations of the EVM environment related instructions.
 
 from ethereum.base_types import U256, Bytes32, Uint
 from ethereum.crypto.hash import keccak256
-from ethereum.utils.hexadecimal import hex_to_bytes
 from ethereum.utils.numeric import ceil32
 
 from ...fork_types import EMPTY_ACCOUNT
 from ...state import get_account
 from ...utils.address import to_address
-from ...vm.eoa_delegation import is_valid_delegation
+from ...vm.eoa_delegation import EOA_DELEGATION_SENTINEL, is_valid_delegation
 from ...vm.memory import buffer_read, memory_write
 from .. import Evm
 from ..exceptions import OutOfBoundsRead
@@ -38,8 +37,6 @@ from ..gas import (
     charge_gas,
 )
 from ..stack import pop, push
-
-DESIGNATOR_SENTINEL = hex_to_bytes("0xef01")
 
 
 def address(evm: Evm) -> None:
@@ -355,7 +352,7 @@ def extcodesize(evm: Evm) -> None:
     # OPERATION
     code = get_account(evm.env.state, address).code
     if is_valid_delegation(code):
-        code = DESIGNATOR_SENTINEL
+        code = EOA_DELEGATION_SENTINEL
 
     codesize = U256(len(code))
     push(evm.stack, codesize)
@@ -398,7 +395,7 @@ def extcodecopy(evm: Evm) -> None:
     # OPERATION
     code = get_account(evm.env.state, address).code
     if is_valid_delegation(code):
-        code = DESIGNATOR_SENTINEL
+        code = EOA_DELEGATION_SENTINEL
 
     evm.memory += b"\x00" * extend_memory.expand_by
     value = buffer_read(code, code_start_index, size)
@@ -492,7 +489,7 @@ def extcodehash(evm: Evm) -> None:
     else:
         code = account.code
         if is_valid_delegation(code):
-            code = DESIGNATOR_SENTINEL
+            code = EOA_DELEGATION_SENTINEL
         codehash = U256.from_be_bytes(keccak256(code))
 
     push(evm.stack, codehash)
