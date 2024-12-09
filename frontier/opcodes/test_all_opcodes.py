@@ -99,7 +99,7 @@ def test_cover_revert(state_test: StateTestFiller, pre: Alloc):
     tx = Transaction(
         sender=pre.fund_eoa(),
         gas_limit=1_000_000,
-        data=Op.SSTORE(1, 1) + Op.REVERT,
+        data=Op.SSTORE(1, 1) + Op.REVERT(0, 0),
         to=None,
         value=0,
         protected=False,
