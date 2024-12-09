@@ -19,7 +19,7 @@ from ethereum.utils.numeric import ceil32
 from ...fork_types import EMPTY_ACCOUNT
 from ...state import get_account
 from ...utils.address import to_address
-from ...vm.eoa_delegation import access_delegation
+from ...vm.eoa_delegation import EOA_DELEGATION_SENTINEL, is_valid_delegation
 from ...vm.memory import buffer_read, memory_write
 from .. import Evm
 from ..exceptions import OutOfBoundsRead
@@ -347,11 +347,13 @@ def extcodesize(evm: Evm) -> None:
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    _, address, code, designation_access_cost = access_delegation(evm, address)
-    access_gas_cost += designation_access_cost
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
+    code = get_account(evm.env.state, address).code
+    if is_valid_delegation(code):
+        code = EOA_DELEGATION_SENTINEL
+
     codesize = U256(len(code))
     push(evm.stack, codesize)
 
@@ -388,12 +390,13 @@ def extcodecopy(evm: Evm) -> None:
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    _, address, code, designation_access_cost = access_delegation(evm, address)
-    access_gas_cost += designation_access_cost
-
     charge_gas(evm, access_gas_cost + copy_gas_cost + extend_memory.cost)
 
     # OPERATION
+    code = get_account(evm.env.state, address).code
+    if is_valid_delegation(code):
+        code = EOA_DELEGATION_SENTINEL
+
     evm.memory += b"\x00" * extend_memory.expand_by
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
@@ -476,16 +479,17 @@ def extcodehash(evm: Evm) -> None:
         evm.accessed_addresses.add(address)
         access_gas_cost = GAS_COLD_ACCOUNT_ACCESS
 
-    _, address, code, designation_access_cost = access_delegation(evm, address)
-    access_gas_cost += designation_access_cost
-
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
     account = get_account(evm.env.state, address)
+
     if account == EMPTY_ACCOUNT:
         codehash = U256(0)
     else:
+        code = account.code
+        if is_valid_delegation(code):
+            code = EOA_DELEGATION_SENTINEL
         codehash = U256.from_be_bytes(keccak256(code))
 
     push(evm.stack, codehash)
