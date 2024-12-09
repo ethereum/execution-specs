@@ -975,6 +975,7 @@ def process_transaction(
     # EIP-7623 floor price (note: no EVM costs)
 
     # Transactions with less gas used than the floor pay at the floor cost.
+    floor = Uint(tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST)
     if gas_used < floor:
         gas_used = floor
 
