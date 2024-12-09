@@ -100,7 +100,7 @@ def test_cover_revert(state_test: StateTestFiller, pre: Alloc):
         sender=pre.fund_eoa(),
         gas_limit=1_000_000,
         data=Op.SSTORE(1, 1) + Op.REVERT,
-        to=b"",
+        to=None,
         value=0,
         protected=False,
     )
