@@ -105,6 +105,7 @@ header = Header(
     blob_gas_used=U64(7),
     excess_blob_gas=U64(8),
     requests_hash=hash7,
+    target_blobs_per_block=U64(9),
 )
 
 block = Block(
