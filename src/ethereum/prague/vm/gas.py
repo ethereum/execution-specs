@@ -75,7 +75,7 @@ GAS_BLS_G2_MAP = Uint(23800)
 
 GAS_PER_BLOB = Uint(2**17)
 MIN_BLOB_GASPRICE = Uint(1)
-BLOB_GASPRICE_UPDATE_FRACTION = Uint(5007716)
+BLOB_BASE_FEE_UPDATE_FRACTION = Uint(5007716)
 
 
 @dataclass
@@ -338,7 +338,7 @@ def calculate_blob_gas_price(excess_blob_gas: U64) -> Uint:
     return taylor_exponential(
         MIN_BLOB_GASPRICE,
         Uint(excess_blob_gas),
-        BLOB_GASPRICE_UPDATE_FRACTION,
+        BLOB_BASE_FEE_UPDATE_FRACTION,
     )
 
 
