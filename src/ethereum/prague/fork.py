@@ -99,7 +99,6 @@ CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
     "0x01aBEa29659e5e97C95107F20bb753cD3e09bBBb"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
-MAX_BLOB_GAS_PER_BLOCK = 786432
 VERSIONED_HASH_VERSION_KZG = b"\x01"
 HISTORY_SERVE_WINDOW = 8192
 
@@ -200,7 +199,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         Block to apply to `chain`.
     """
     parent_header = chain.blocks[-1].header
-    excess_blob_gas = calculate_excess_blob_gas(parent_header)
+    excess_blob_gas = calculate_excess_blob_gas(block.header, parent_header)
     if block.header.excess_blob_gas != excess_blob_gas:
         raise InvalidBlock
 
@@ -800,8 +799,7 @@ def apply_body(
 
         block_logs += logs
         blob_gas_used += calculate_total_blob_gas(tx)
-    if blob_gas_used > MAX_BLOB_GAS_PER_BLOCK:
-        raise InvalidBlock
+
     block_gas_used = block_gas_limit - gas_available
 
     block_logs_bloom = logs_bloom(block_logs)

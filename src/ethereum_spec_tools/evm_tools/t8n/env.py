@@ -51,6 +51,7 @@ class Env:
     parent_blob_gas_used: Optional[U64]
     excess_blob_gas: Optional[U64]
     requests: Any
+    target_blobs_per_block: Optional[U64]
 
     def __init__(self, t8n: "T8N", stdin: Optional[Dict] = None):
         if t8n.options.input_env == "stdin":
@@ -90,6 +91,7 @@ class Env:
         self.parent_blob_gas_used = U64(0)
         self.parent_excess_blob_gas = U64(0)
         self.excess_blob_gas = None
+        self.target_blobs_per_block = None
 
         if not t8n.fork.is_after_fork("ethereum.cancun"):
             return
@@ -114,11 +116,24 @@ class Env:
             self.parent_excess_blob_gas + self.parent_blob_gas_used
         )
 
-        target_blob_gas_per_block = t8n.fork.TARGET_BLOB_GAS_PER_BLOCK
+        if "currentTargetBlobsPerBlock" in data:
+            self.target_blobs_per_block = parse_hex_or_int(
+                data["currentTargetBlobsPerBlock"], U64
+            )
+            target_blob_gas_per_block = (
+                self.target_blobs_per_block * t8n.fork.GAS_PER_BLOB
+            )
+        else:
+            target_blob_gas_per_block = t8n.fork.TARGET_BLOB_GAS_PER_BLOCK
 
         self.excess_blob_gas = U64(0)
         if excess_blob_gas >= target_blob_gas_per_block:
             self.excess_blob_gas = excess_blob_gas - target_blob_gas_per_block
+
+        if "currentTargetBlobsPerBlock" in data:
+            self.target_blobs_per_block = parse_hex_or_int(
+                data["currentTargetBlobsPerBlock"], U64
+            )
 
     def read_base_fee_per_gas(self, data: Any, t8n: "T8N") -> None:
         """
