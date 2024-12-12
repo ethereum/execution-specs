@@ -200,7 +200,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         Block to apply to `chain`.
     """
     parent_header = chain.blocks[-1].header
-    excess_blob_gas = calculate_excess_blob_gas(block.header, parent_header)
+    excess_blob_gas = calculate_excess_blob_gas(parent_header)
     if block.header.excess_blob_gas != excess_blob_gas:
         raise InvalidBlock
 
