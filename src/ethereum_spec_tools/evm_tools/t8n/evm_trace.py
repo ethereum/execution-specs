@@ -67,15 +67,6 @@ class FinalTrace:
 
 
 @runtime_checkable
-class Environment(Protocol):
-    """
-    The class implements the environment interface for trace.
-    """
-
-    traces: List[Union["Trace", "FinalTrace"]]
-
-
-@runtime_checkable
 class Message(Protocol):
     """
     The class implements the message interface for trace.
@@ -83,6 +74,7 @@ class Message(Protocol):
 
     depth: int
     parent_evm: Optional["Evm"]
+    traces: List[Union["Trace", "FinalTrace"]]
 
 
 @runtime_checkable
@@ -96,7 +88,6 @@ class EvmWithoutReturnData(Protocol):
     memory: bytearray
     code: Bytes
     gas_left: Uint
-    env: Environment
     refund_counter: int
     running: bool
     message: Message
@@ -113,7 +104,6 @@ class EvmWithReturnData(Protocol):
     memory: bytearray
     code: Bytes
     gas_left: Uint
-    env: Environment
     refund_counter: int
     running: bool
     message: Message
@@ -136,8 +126,8 @@ def evm_trace(
     assert isinstance(evm, (EvmWithoutReturnData, EvmWithReturnData))
 
     last_trace = None
-    if evm.env.traces:
-        last_trace = evm.env.traces[-1]
+    if evm.message.traces:
+        last_trace = evm.message.traces[-1]
 
     refund_counter = evm.refund_counter
     parent_evm = evm.message.parent_evm
@@ -163,7 +153,7 @@ def evm_trace(
         pass
     elif isinstance(event, TransactionEnd):
         final_trace = FinalTrace(event.gas_used, event.output, event.error)
-        evm.env.traces.append(final_trace)
+        evm.message.traces.append(final_trace)
     elif isinstance(event, PrecompileStart):
         new_trace = Trace(
             pc=evm.pc,
@@ -180,7 +170,7 @@ def evm_trace(
             precompile=True,
         )
 
-        evm.env.traces.append(new_trace)
+        evm.message.traces.append(new_trace)
     elif isinstance(event, PrecompileEnd):
         assert isinstance(last_trace, Trace)
 
@@ -204,7 +194,7 @@ def evm_trace(
             opName=str(event.op).split(".")[-1],
         )
 
-        evm.env.traces.append(new_trace)
+        evm.message.traces.append(new_trace)
     elif isinstance(event, OpEnd):
         assert isinstance(last_trace, Trace)
 
@@ -249,7 +239,7 @@ def evm_trace(
                 error=type(event.error).__name__,
             )
 
-            evm.env.traces.append(new_trace)
+            evm.message.traces.append(new_trace)
         elif not last_trace.errorTraced:
             # If the error for the last trace is not covered
             # the exception is attributed to the last trace.
@@ -269,7 +259,7 @@ def evm_trace(
                 trace_return_data,
             )
     elif isinstance(event, GasAndRefund):
-        if not evm.env.traces:
+        if not evm.message.traces:
             # In contract creation transactions, there may not be any traces
             return
 

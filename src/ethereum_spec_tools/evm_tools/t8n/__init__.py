@@ -167,7 +167,7 @@ class T8N(Load):
 
         return self.fork.check_transaction(*arguments)
 
-    def environment(self, tx: Any, gas_available: Any) -> Any:
+    def environment(self) -> Any:
         """
         Create the environment for the transaction. The keyword
         arguments are adjusted according to the fork.
@@ -179,41 +179,25 @@ class T8N(Load):
             "gas_limit": self.env.block_gas_limit,
             "time": self.env.block_timestamp,
             "state": self.alloc.state,
+            "block_gas_limit": self.env.block_gas_limit,
         }
+
+        if self.fork.is_after_fork("ethereum.istanbul"):
+            kw_arguments["chain_id"] = self.chain_id
+
+        if self.fork.is_after_fork("ethereum.london"):
+            kw_arguments["base_fee_per_gas"] = self.env.base_fee_per_gas
 
         if self.fork.is_after_fork("ethereum.paris"):
             kw_arguments["prev_randao"] = self.env.prev_randao
         else:
             kw_arguments["difficulty"] = self.env.block_difficulty
 
-        if self.fork.is_after_fork("ethereum.istanbul"):
-            kw_arguments["chain_id"] = self.chain_id
-
-        check_tx_return = self.check_transaction(tx, gas_available)
-
         if self.fork.is_after_fork("ethereum.cancun"):
-            (
-                sender_address,
-                effective_gas_price,
-                blob_versioned_hashes,
-            ) = check_tx_return
-            kw_arguments["base_fee_per_gas"] = self.env.base_fee_per_gas
-            kw_arguments["caller"] = kw_arguments["origin"] = sender_address
-            kw_arguments["gas_price"] = effective_gas_price
-            kw_arguments["blob_versioned_hashes"] = blob_versioned_hashes
+            kw_arguments[
+                "parent_beacon_block_root"
+            ] = self.env.parent_beacon_block_root
             kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
-            kw_arguments["transient_storage"] = self.fork.TransientStorage()
-        elif self.fork.is_after_fork("ethereum.london"):
-            sender_address, effective_gas_price = check_tx_return
-            kw_arguments["base_fee_per_gas"] = self.env.base_fee_per_gas
-            kw_arguments["caller"] = kw_arguments["origin"] = sender_address
-            kw_arguments["gas_price"] = effective_gas_price
-        else:
-            sender_address = check_tx_return
-            kw_arguments["caller"] = kw_arguments["origin"] = sender_address
-            kw_arguments["gas_price"] = tx.gas_price
-
-        kw_arguments["traces"] = []
 
         return self.fork.Environment(**kw_arguments)
 
@@ -304,6 +288,9 @@ class T8N(Load):
         receipts_trie = self.fork.Trie(secured=False, default=None)
         block_logs = ()
         blob_gas_used = Uint(0)
+
+        env = self.environment()
+
         if (
             self.fork.is_after_fork("ethereum.prague")
             and not self.options.state_test
@@ -311,18 +298,9 @@ class T8N(Load):
             deposit_requests: Bytes = b""
 
             self.fork.process_system_transaction(
+                env,
                 self.fork.HISTORY_STORAGE_ADDRESS,
                 self.env.parent_hash,
-                self.env.block_hashes,
-                self.env.coinbase,
-                self.env.block_number,
-                self.env.base_fee_per_gas,
-                self.env.block_gas_limit,
-                self.env.block_timestamp,
-                self.env.prev_randao,
-                self.alloc.state,
-                self.chain_id,
-                self.env.excess_blob_gas,
             )
 
         if (
@@ -330,18 +308,9 @@ class T8N(Load):
             and not self.options.state_test
         ):
             self.fork.process_system_transaction(
+                env,
                 self.fork.BEACON_ROOTS_ADDRESS,
                 self.env.parent_beacon_block_root,
-                self.env.block_hashes,
-                self.env.coinbase,
-                self.env.block_number,
-                self.env.base_fee_per_gas,
-                self.env.block_gas_limit,
-                self.env.block_timestamp,
-                self.env.prev_randao,
-                self.alloc.state,
-                self.chain_id,
-                self.env.excess_blob_gas,
             )
 
         for i, (tx_idx, tx) in enumerate(self.txs.transactions):
@@ -351,10 +320,8 @@ class T8N(Load):
             self.backup_state()
 
             try:
-                env = self.environment(tx, gas_available)
-
                 process_transaction_return = self.fork.process_transaction(
-                    env, tx
+                    env, tx, gas_available
                 )
 
                 if self.fork.is_after_fork("ethereum.cancun"):
@@ -441,17 +408,8 @@ class T8N(Load):
         ):
             requests_from_execution = (
                 self.fork.process_general_purpose_requests(
+                    env,
                     deposit_requests,
-                    self.alloc.state,
-                    self.env.block_hashes,
-                    self.env.coinbase,
-                    self.env.block_number,
-                    self.env.base_fee_per_gas,
-                    self.env.block_gas_limit,
-                    self.env.block_timestamp,
-                    self.env.prev_randao,
-                    self.chain_id,
-                    self.env.excess_blob_gas,
                 )
             )
             requests_hash = self.fork.compute_requests_hash(

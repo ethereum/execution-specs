@@ -146,7 +146,7 @@ def tload(evm: Evm) -> None:
 
     # OPERATION
     value = get_transient_storage(
-        evm.env.transient_storage, evm.message.current_target, key
+        evm.message.transient_storage, evm.message.current_target, key
     )
     push(evm.stack, value)
 
@@ -171,7 +171,10 @@ def tstore(evm: Evm) -> None:
     if evm.message.is_static:
         raise WriteInStaticContext
     set_transient_storage(
-        evm.env.transient_storage, evm.message.current_target, key, new_value
+        evm.message.transient_storage,
+        evm.message.current_target,
+        key,
+        new_value,
     )
 
     # PROGRAM COUNTER

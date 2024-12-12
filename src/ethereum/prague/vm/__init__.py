@@ -33,22 +33,18 @@ class Environment:
     Items external to the virtual machine itself, provided by the environment.
     """
 
-    caller: Address
+    chain_id: U64
+    state: State
+    block_gas_limit: Uint
     block_hashes: List[Hash32]
-    origin: Address
     coinbase: Address
     number: Uint
     base_fee_per_gas: Uint
     gas_limit: Uint
-    gas_price: Uint
     time: U256
     prev_randao: Bytes32
-    state: State
-    chain_id: U64
-    traces: List[dict]
     excess_blob_gas: U64
-    blob_versioned_hashes: Tuple[VersionedHash, ...]
-    transient_storage: TransientStorage
+    parent_beacon_block_root: Hash32
 
 
 @dataclass
@@ -58,6 +54,8 @@ class Message:
     """
 
     caller: Address
+    origin: Address
+    gas_price: Uint
     target: Union[Bytes0, Address]
     current_target: Address
     gas: Uint
@@ -70,8 +68,11 @@ class Message:
     is_static: bool
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
+    transient_storage: TransientStorage
+    blob_versioned_hashes: Tuple[VersionedHash, ...]
     parent_evm: Optional["Evm"]
     authorizations: Tuple[Authorization, ...]
+    traces: List[dict]
 
 
 @dataclass

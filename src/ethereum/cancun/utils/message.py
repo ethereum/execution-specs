@@ -17,7 +17,7 @@ from typing import FrozenSet, Optional, Tuple, Union
 from ethereum.base_types import U256, Bytes, Bytes0, Bytes32, Uint
 
 from ..fork_types import Address
-from ..state import get_account
+from ..state import TransientStorage, get_account
 from ..vm import Environment, Message
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .address import compute_contract_address
@@ -30,13 +30,13 @@ def prepare_message(
     data: Bytes,
     gas: Uint,
     env: Environment,
-    code_address: Optional[Address] = None,
-    should_transfer_value: bool = True,
-    is_static: bool = False,
-    preaccessed_addresses: FrozenSet[Address] = frozenset(),
-    preaccessed_storage_keys: FrozenSet[
-        Tuple[(Address, Bytes32)]
-    ] = frozenset(),
+    code_address: Optional[Address],
+    should_transfer_value: bool,
+    is_static: bool,
+    preaccessed_addresses: FrozenSet[Address],
+    preaccessed_storage_keys: FrozenSet[Tuple[(Address, Bytes32)]],
+    gas_price: Uint,
+    blob_versioned_hashes: Tuple[Bytes32, ...],
 ) -> Message:
     """
     Execute a transaction against the provided environment.
@@ -69,6 +69,10 @@ def prepare_message(
     preaccessed_storage_keys:
         Storage keys that should be marked as accessed prior to the message
         call
+    gas_price:
+        Gas price for the transaction.
+    blob_versioned_hashes:
+        Hashes of the blobs that are being accessed.
 
     Returns
     -------
@@ -99,6 +103,7 @@ def prepare_message(
 
     return Message(
         caller=caller,
+        origin=caller,
         target=target,
         gas=gas,
         value=value,
@@ -111,5 +116,9 @@ def prepare_message(
         is_static=is_static,
         accessed_addresses=accessed_addresses,
         accessed_storage_keys=set(preaccessed_storage_keys),
+        gas_price=gas_price,
+        transient_storage=TransientStorage(),
+        blob_versioned_hashes=blob_versioned_hashes,
         parent_evm=None,
+        traces=[],
     )

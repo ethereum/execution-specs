@@ -113,6 +113,8 @@ def generic_create(
 
     child_message = Message(
         caller=evm.message.current_target,
+        origin=evm.message.origin,
+        gas_price=evm.message.gas_price,
         target=Bytes0(),
         gas=create_message_gas,
         value=endowment,
@@ -125,7 +127,10 @@ def generic_create(
         is_static=False,
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        transient_storage=evm.message.transient_storage,
+        blob_versioned_hashes=evm.message.blob_versioned_hashes,
         parent_evm=evm,
+        traces=evm.message.traces,
     )
     child_evm = process_create_message(child_message, evm.env)
 
@@ -297,7 +302,9 @@ def generic_call(
     )
     code = get_account(evm.env.state, code_address).code
     child_message = Message(
+        origin=evm.message.origin,
         caller=caller,
+        gas_price=evm.message.gas_price,
         target=to,
         gas=gas,
         value=value,
@@ -310,7 +317,10 @@ def generic_call(
         is_static=True if is_staticcall else evm.message.is_static,
         accessed_addresses=evm.accessed_addresses.copy(),
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
+        transient_storage=evm.message.transient_storage,
+        blob_versioned_hashes=evm.message.blob_versioned_hashes,
         parent_evm=evm,
+        traces=evm.message.traces,
     )
     child_evm = process_message(child_message, evm.env)
 

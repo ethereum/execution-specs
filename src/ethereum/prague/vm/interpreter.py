@@ -173,7 +173,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         Items containing execution specific objects.
     """
     # take snapshot of state before processing the message
-    begin_transaction(env.state, env.transient_storage)
+    begin_transaction(env.state, message.transient_storage)
 
     # If the address where the account is being created has storage, it is
     # destroyed. This can only happen in the following highly unlikely
@@ -202,15 +202,15 @@ def process_create_message(message: Message, env: Environment) -> Evm:
             if len(contract_code) > MAX_CODE_SIZE:
                 raise OutOfGasError
         except ExceptionalHalt as error:
-            rollback_transaction(env.state, env.transient_storage)
+            rollback_transaction(env.state, message.transient_storage)
             evm.gas_left = Uint(0)
             evm.output = b""
             evm.error = error
         else:
             set_code(env.state, message.current_target, contract_code)
-            commit_transaction(env.state, env.transient_storage)
+            commit_transaction(env.state, message.transient_storage)
     else:
-        rollback_transaction(env.state, env.transient_storage)
+        rollback_transaction(env.state, message.transient_storage)
     return evm
 
 
@@ -234,7 +234,7 @@ def process_message(message: Message, env: Environment) -> Evm:
         raise StackDepthLimitError("Stack depth limit reached")
 
     # take snapshot of state before processing the message
-    begin_transaction(env.state, env.transient_storage)
+    begin_transaction(env.state, message.transient_storage)
 
     touch_account(env.state, message.current_target)
 
@@ -247,9 +247,9 @@ def process_message(message: Message, env: Environment) -> Evm:
     if evm.error:
         # revert state to the last saved checkpoint
         # since the message call resulted in an error
-        rollback_transaction(env.state, env.transient_storage)
+        rollback_transaction(env.state, message.transient_storage)
     else:
-        commit_transaction(env.state, env.transient_storage)
+        commit_transaction(env.state, message.transient_storage)
     return evm
 
 
