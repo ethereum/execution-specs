@@ -48,14 +48,28 @@ class BlockEnvironment:
 
 
 @dataclass
+class TransactionEnvironment:
+    """
+    Items that are used by contract creation or message call.
+    """
+
+    origin: Address
+    gas_price: Uint
+    gas: Uint
+    access_list_addresses: Set[Address]
+    access_list_storage_keys: Set[Tuple[Address, Bytes32]]
+    transient_storage: TransientStorage
+    blob_versioned_hashes: Tuple[VersionedHash, ...]
+    traces: List[dict]
+
+
+@dataclass
 class Message:
     """
     Items that are used by contract creation or message call.
     """
 
     caller: Address
-    origin: Address
-    gas_price: Uint
     target: Union[Bytes0, Address]
     current_target: Address
     gas: Uint
@@ -68,10 +82,7 @@ class Message:
     is_static: bool
     accessed_addresses: Set[Address]
     accessed_storage_keys: Set[Tuple[Address, Bytes32]]
-    transient_storage: TransientStorage
-    blob_versioned_hashes: Tuple[VersionedHash, ...]
     parent_evm: Optional["Evm"]
-    traces: List[dict]
 
 
 @dataclass
@@ -84,6 +95,7 @@ class Evm:
     code: Bytes
     gas_left: Uint
     block_env: BlockEnvironment
+    tx_env: TransactionEnvironment
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]
     refund_counter: int

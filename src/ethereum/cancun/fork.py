@@ -532,10 +532,19 @@ def process_system_transaction(
     """
     system_contract_code = get_account(block_env.state, target_address).code
 
-    system_tx_message = Message(
+    tx_env = vm.TransactionEnvironment(
         origin=SYSTEM_ADDRESS,
-        caller=SYSTEM_ADDRESS,
         gas_price=block_env.base_fee_per_gas,
+        gas=SYSTEM_TRANSACTION_GAS,
+        access_list_addresses=set(),
+        access_list_storage_keys=set(),
+        transient_storage=TransientStorage(),
+        blob_versioned_hashes=(),
+        traces=[],
+    )
+
+    system_tx_message = Message(
+        caller=SYSTEM_ADDRESS,
         target=target_address,
         gas=SYSTEM_TRANSACTION_GAS,
         value=U256(0),
@@ -548,13 +557,12 @@ def process_system_transaction(
         is_static=False,
         accessed_addresses=set(),
         accessed_storage_keys=set(),
-        transient_storage=TransientStorage(),
-        blob_versioned_hashes=(),
         parent_evm=None,
-        traces=[],
     )
 
-    system_tx_output = process_message_call(system_tx_message, block_env)
+    system_tx_output = process_message_call(
+        system_tx_message, block_env, tx_env
+    )
 
     destroy_touched_empty_accounts(
         block_env.state, system_tx_output.touched_accounts
@@ -718,34 +726,35 @@ def process_transaction(
     )
     set_account_balance(block_env.state, sender, sender_balance_after_gas_fee)
 
-    preaccessed_addresses = set()
-    preaccessed_storage_keys = set()
-    preaccessed_addresses.add(block_env.coinbase)
+    access_list_addresses = set()
+    access_list_storage_keys = set()
+    access_list_addresses.add(block_env.coinbase)
     if isinstance(
         tx, (AccessListTransaction, FeeMarketTransaction, BlobTransaction)
     ):
         for address, keys in tx.access_list:
-            preaccessed_addresses.add(address)
+            access_list_addresses.add(address)
             for key in keys:
-                preaccessed_storage_keys.add((address, key))
+                access_list_storage_keys.add((address, key))
 
-    message = prepare_message(
-        sender,
-        tx.to,
-        tx.value,
-        tx.data,
-        gas,
-        block_env,
-        code_address=None,
-        should_transfer_value=True,
-        is_static=False,
-        preaccessed_addresses=frozenset(preaccessed_addresses),
-        preaccessed_storage_keys=frozenset(preaccessed_storage_keys),
+    tx_env = vm.TransactionEnvironment(
+        origin=sender,
         gas_price=effective_gas_price,
+        gas=gas,
+        access_list_addresses=access_list_addresses,
+        access_list_storage_keys=access_list_storage_keys,
+        transient_storage=TransientStorage(),
         blob_versioned_hashes=blob_versioned_hashes,
+        traces=[],
     )
 
-    output = process_message_call(message, block_env)
+    message = prepare_message(
+        block_env,
+        tx_env,
+        tx,
+    )
+
+    output = process_message_call(message, block_env, tx_env)
 
     gas_used = tx.gas - output.gas_left
     gas_refund = min(gas_used // 5, output.refund_counter)

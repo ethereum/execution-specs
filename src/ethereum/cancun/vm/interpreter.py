@@ -45,7 +45,7 @@ from ..state import (
 from ..vm import Message
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import BlockEnvironment, Evm
+from . import BlockEnvironment, Evm, TransactionEnvironment
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
@@ -86,7 +86,9 @@ class MessageCallOutput:
 
 
 def process_message_call(
-    message: Message, block_env: BlockEnvironment
+    message: Message,
+    block_env: BlockEnvironment,
+    tx_env: TransactionEnvironment,
 ) -> MessageCallOutput:
     """
     If `message.current` is empty then it creates a smart contract
@@ -96,9 +98,10 @@ def process_message_call(
     ----------
     message :
         Transaction specific items.
-
     block_env :
         The block scoped environment.
+    tx_env :
+        The transaction scoped environment.
 
     Returns
     -------
@@ -114,9 +117,9 @@ def process_message_call(
                 Uint(0), U256(0), tuple(), set(), set(), AddressCollision()
             )
         else:
-            evm = process_create_message(message, block_env)
+            evm = process_create_message(message, block_env, tx_env)
     else:
-        evm = process_message(message, block_env)
+        evm = process_message(message, block_env, tx_env)
         if account_exists_and_is_empty(
             block_env.state, Address(message.target)
         ):
@@ -147,7 +150,9 @@ def process_message_call(
 
 
 def process_create_message(
-    message: Message, block_env: BlockEnvironment
+    message: Message,
+    block_env: BlockEnvironment,
+    tx_env: TransactionEnvironment,
 ) -> Evm:
     """
     Executes a call to create a smart contract.
@@ -158,6 +163,8 @@ def process_create_message(
         Transaction specific items.
     block_env :
         The block scoped environment.
+    tx_env :
+        The transaction scoped environment.
 
     Returns
     -------
@@ -165,7 +172,7 @@ def process_create_message(
         Items containing execution specific objects.
     """
     # take snapshot of state before processing the message
-    begin_transaction(block_env.state, message.transient_storage)
+    begin_transaction(block_env.state, tx_env.transient_storage)
 
     # If the address where the account is being created has storage, it is
     # destroyed. This can only happen in the following highly unlikely
@@ -182,7 +189,7 @@ def process_create_message(
     mark_account_created(block_env.state, message.current_target)
 
     increment_nonce(block_env.state, message.current_target)
-    evm = process_message(message, block_env)
+    evm = process_message(message, block_env, tx_env)
     if not evm.error:
         contract_code = evm.output
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
@@ -194,19 +201,23 @@ def process_create_message(
             if len(contract_code) > MAX_CODE_SIZE:
                 raise OutOfGasError
         except ExceptionalHalt as error:
-            rollback_transaction(block_env.state, message.transient_storage)
+            rollback_transaction(block_env.state, tx_env.transient_storage)
             evm.gas_left = Uint(0)
             evm.output = b""
             evm.error = error
         else:
             set_code(block_env.state, message.current_target, contract_code)
-            commit_transaction(block_env.state, message.transient_storage)
+            commit_transaction(block_env.state, tx_env.transient_storage)
     else:
-        rollback_transaction(block_env.state, message.transient_storage)
+        rollback_transaction(block_env.state, tx_env.transient_storage)
     return evm
 
 
-def process_message(message: Message, block_env: BlockEnvironment) -> Evm:
+def process_message(
+    message: Message,
+    block_env: BlockEnvironment,
+    tx_env: TransactionEnvironment,
+) -> Evm:
     """
     Executes a call to create a smart contract.
 
@@ -216,6 +227,8 @@ def process_message(message: Message, block_env: BlockEnvironment) -> Evm:
         Transaction specific items.
     block_env :
         The block scoped environment.
+    tx_env :
+        The transaction scoped environment.
 
     Returns
     -------
@@ -226,7 +239,7 @@ def process_message(message: Message, block_env: BlockEnvironment) -> Evm:
         raise StackDepthLimitError("Stack depth limit reached")
 
     # take snapshot of state before processing the message
-    begin_transaction(block_env.state, message.transient_storage)
+    begin_transaction(block_env.state, tx_env.transient_storage)
 
     touch_account(block_env.state, message.current_target)
 
@@ -238,17 +251,21 @@ def process_message(message: Message, block_env: BlockEnvironment) -> Evm:
             message.value,
         )
 
-    evm = execute_code(message, block_env)
+    evm = execute_code(message, block_env, tx_env)
     if evm.error:
         # revert state to the last saved checkpoint
         # since the message call resulted in an error
-        rollback_transaction(block_env.state, message.transient_storage)
+        rollback_transaction(block_env.state, tx_env.transient_storage)
     else:
-        commit_transaction(block_env.state, message.transient_storage)
+        commit_transaction(block_env.state, tx_env.transient_storage)
     return evm
 
 
-def execute_code(message: Message, block_env: BlockEnvironment) -> Evm:
+def execute_code(
+    message: Message,
+    block_env: BlockEnvironment,
+    tx_env: TransactionEnvironment,
+) -> Evm:
     """
     Executes bytecode present in the `message`.
 
@@ -258,6 +275,8 @@ def execute_code(message: Message, block_env: BlockEnvironment) -> Evm:
         Transaction specific items.
     block_env :
         The block scoped environment.
+    tx_env :
+        The transaction scoped environment.
 
     Returns
     -------
@@ -274,6 +293,7 @@ def execute_code(message: Message, block_env: BlockEnvironment) -> Evm:
         code=code,
         gas_left=message.gas,
         block_env=block_env,
+        tx_env=tx_env,
         valid_jump_destinations=valid_jump_destinations,
         logs=(),
         refund_counter=0,
