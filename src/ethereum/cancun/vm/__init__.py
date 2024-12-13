@@ -28,7 +28,7 @@ __all__ = ("Environment", "Evm", "Message")
 
 
 @dataclass
-class Environment:
+class BlockEnvironment:
     """
     Items external to the virtual machine itself, provided by the environment.
     """
@@ -83,7 +83,7 @@ class Evm:
     memory: bytearray
     code: Bytes
     gas_left: Uint
-    env: Environment
+    block_env: BlockEnvironment
     valid_jump_destinations: Set[Uint]
     logs: Tuple[Log, ...]
     refund_counter: int
@@ -115,7 +115,7 @@ def incorporate_child_on_success(evm: Evm, child_evm: Evm) -> None:
     evm.accounts_to_delete.update(child_evm.accounts_to_delete)
     evm.touched_accounts.update(child_evm.touched_accounts)
     if account_exists_and_is_empty(
-        evm.env.state, child_evm.message.current_target
+        evm.block_env.state, child_evm.message.current_target
     ):
         evm.touched_accounts.add(child_evm.message.current_target)
     evm.accessed_addresses.update(child_evm.accessed_addresses)
@@ -144,7 +144,7 @@ def incorporate_child_on_error(evm: Evm, child_evm: Evm) -> None:
         evm.touched_accounts.add(RIPEMD160_ADDRESS)
     if child_evm.message.current_target == RIPEMD160_ADDRESS:
         if account_exists_and_is_empty(
-            evm.env.state, child_evm.message.current_target
+            evm.block_env.state, child_evm.message.current_target
         ):
             evm.touched_accounts.add(RIPEMD160_ADDRESS)
     evm.gas_left += child_evm.gas_left

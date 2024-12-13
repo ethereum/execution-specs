@@ -18,7 +18,7 @@ from ethereum.base_types import U256, Bytes, Bytes0, Bytes32, Uint
 
 from ..fork_types import Address
 from ..state import TransientStorage, get_account
-from ..vm import Environment, Message
+from ..vm import BlockEnvironment, Message
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
 from .address import compute_contract_address
 
@@ -29,7 +29,7 @@ def prepare_message(
     value: U256,
     data: Bytes,
     gas: Uint,
-    env: Environment,
+    block_env: BlockEnvironment,
     code_address: Optional[Address],
     should_transfer_value: bool,
     is_static: bool,
@@ -53,7 +53,7 @@ def prepare_message(
         Array of bytes provided to the code in `target`.
     gas :
         Gas provided for the code in `target`.
-    env :
+    block_env :
         Environment for the Ethereum Virtual Machine.
     code_address :
         This is usually same as the `target` address except when an alternative
@@ -82,14 +82,14 @@ def prepare_message(
     if isinstance(target, Bytes0):
         current_target = compute_contract_address(
             caller,
-            get_account(env.state, caller).nonce - U256(1),
+            get_account(block_env.state, caller).nonce - U256(1),
         )
         msg_data = Bytes(b"")
         code = data
     elif isinstance(target, Address):
         current_target = target
         msg_data = data
-        code = get_account(env.state, target).code
+        code = get_account(block_env.state, target).code
         if code_address is None:
             code_address = target
     else:

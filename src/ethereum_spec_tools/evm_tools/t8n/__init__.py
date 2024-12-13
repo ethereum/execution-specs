@@ -167,7 +167,7 @@ class T8N(Load):
 
         return self.fork.check_transaction(*arguments)
 
-    def environment(self) -> Any:
+    def block_environment(self) -> Any:
         """
         Create the environment for the transaction. The keyword
         arguments are adjusted according to the fork.
@@ -199,7 +199,7 @@ class T8N(Load):
             ] = self.env.parent_beacon_block_root
             kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
 
-        return self.fork.Environment(**kw_arguments)
+        return self.fork.BlockEnvironment(**kw_arguments)
 
     def tx_trie_set(self, trie: Any, index: Any, tx: Any) -> Any:
         """Add a transaction to the trie."""
@@ -289,7 +289,7 @@ class T8N(Load):
         block_logs = ()
         blob_gas_used = Uint(0)
 
-        env = self.environment()
+        block_env = self.block_environment()
 
         if (
             self.fork.is_after_fork("ethereum.prague")
@@ -298,7 +298,7 @@ class T8N(Load):
             deposit_requests: Bytes = b""
 
             self.fork.process_system_transaction(
-                env,
+                block_env,
                 self.fork.HISTORY_STORAGE_ADDRESS,
                 self.env.parent_hash,
             )
@@ -308,7 +308,7 @@ class T8N(Load):
             and not self.options.state_test
         ):
             self.fork.process_system_transaction(
-                env,
+                block_env,
                 self.fork.BEACON_ROOTS_ADDRESS,
                 self.env.parent_beacon_block_root,
             )
@@ -321,7 +321,7 @@ class T8N(Load):
 
             try:
                 process_transaction_return = self.fork.process_transaction(
-                    env, tx, gas_available
+                    block_env, tx, gas_available
                 )
 
                 if self.fork.is_after_fork("ethereum.cancun"):
@@ -342,7 +342,10 @@ class T8N(Load):
                 if self.options.trace:
                     tx_hash = self.txs.get_tx_hash(tx)
                     output_traces(
-                        env.traces, i, tx_hash, self.options.output_basedir
+                        block_env.traces,
+                        i,
+                        tx_hash,
+                        self.options.output_basedir,
                     )
                 self.tx_trie_set(transactions_trie, i, tx)
 
@@ -408,7 +411,7 @@ class T8N(Load):
         ):
             requests_from_execution = (
                 self.fork.process_general_purpose_requests(
-                    env,
+                    block_env,
                     deposit_requests,
                 )
             )

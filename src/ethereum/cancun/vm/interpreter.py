@@ -45,7 +45,7 @@ from ..state import (
 from ..vm import Message
 from ..vm.gas import GAS_CODE_DEPOSIT, charge_gas
 from ..vm.precompiled_contracts.mapping import PRE_COMPILED_CONTRACTS
-from . import Environment, Evm
+from . import BlockEnvironment, Evm
 from .exceptions import (
     AddressCollision,
     ExceptionalHalt,
@@ -86,7 +86,7 @@ class MessageCallOutput:
 
 
 def process_message_call(
-    message: Message, env: Environment
+    message: Message, block_env: BlockEnvironment
 ) -> MessageCallOutput:
     """
     If `message.current` is empty then it creates a smart contract
@@ -97,8 +97,8 @@ def process_message_call(
     message :
         Transaction specific items.
 
-    env :
-        External items required for EVM execution.
+    block_env :
+        The block scoped environment.
 
     Returns
     -------
@@ -107,17 +107,19 @@ def process_message_call(
     """
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
-            env.state, message.current_target
-        ) or account_has_storage(env.state, message.current_target)
+            block_env.state, message.current_target
+        ) or account_has_storage(block_env.state, message.current_target)
         if is_collision:
             return MessageCallOutput(
                 Uint(0), U256(0), tuple(), set(), set(), AddressCollision()
             )
         else:
-            evm = process_create_message(message, env)
+            evm = process_create_message(message, block_env)
     else:
-        evm = process_message(message, env)
-        if account_exists_and_is_empty(env.state, Address(message.target)):
+        evm = process_message(message, block_env)
+        if account_exists_and_is_empty(
+            block_env.state, Address(message.target)
+        ):
             evm.touched_accounts.add(Address(message.target))
 
     if evm.error:
@@ -144,7 +146,9 @@ def process_message_call(
     )
 
 
-def process_create_message(message: Message, env: Environment) -> Evm:
+def process_create_message(
+    message: Message, block_env: BlockEnvironment
+) -> Evm:
     """
     Executes a call to create a smart contract.
 
@@ -152,8 +156,8 @@ def process_create_message(message: Message, env: Environment) -> Evm:
     ----------
     message :
         Transaction specific items.
-    env :
-        External items required for EVM execution.
+    block_env :
+        The block scoped environment.
 
     Returns
     -------
@@ -161,7 +165,7 @@ def process_create_message(message: Message, env: Environment) -> Evm:
         Items containing execution specific objects.
     """
     # take snapshot of state before processing the message
-    begin_transaction(env.state, message.transient_storage)
+    begin_transaction(block_env.state, message.transient_storage)
 
     # If the address where the account is being created has storage, it is
     # destroyed. This can only happen in the following highly unlikely
@@ -170,15 +174,15 @@ def process_create_message(message: Message, env: Environment) -> Evm:
     #   `CREATE` or `CREATE2` call.
     # * The first `CREATE` happened before Spurious Dragon and left empty
     #   code.
-    destroy_storage(env.state, message.current_target)
+    destroy_storage(block_env.state, message.current_target)
 
     # In the previously mentioned edge case the preexisting storage is ignored
     # for gas refund purposes. In order to do this we must track created
     # accounts.
-    mark_account_created(env.state, message.current_target)
+    mark_account_created(block_env.state, message.current_target)
 
-    increment_nonce(env.state, message.current_target)
-    evm = process_message(message, env)
+    increment_nonce(block_env.state, message.current_target)
+    evm = process_message(message, block_env)
     if not evm.error:
         contract_code = evm.output
         contract_code_gas = len(contract_code) * GAS_CODE_DEPOSIT
@@ -190,19 +194,19 @@ def process_create_message(message: Message, env: Environment) -> Evm:
             if len(contract_code) > MAX_CODE_SIZE:
                 raise OutOfGasError
         except ExceptionalHalt as error:
-            rollback_transaction(env.state, message.transient_storage)
+            rollback_transaction(block_env.state, message.transient_storage)
             evm.gas_left = Uint(0)
             evm.output = b""
             evm.error = error
         else:
-            set_code(env.state, message.current_target, contract_code)
-            commit_transaction(env.state, message.transient_storage)
+            set_code(block_env.state, message.current_target, contract_code)
+            commit_transaction(block_env.state, message.transient_storage)
     else:
-        rollback_transaction(env.state, message.transient_storage)
+        rollback_transaction(block_env.state, message.transient_storage)
     return evm
 
 
-def process_message(message: Message, env: Environment) -> Evm:
+def process_message(message: Message, block_env: BlockEnvironment) -> Evm:
     """
     Executes a call to create a smart contract.
 
@@ -210,8 +214,8 @@ def process_message(message: Message, env: Environment) -> Evm:
     ----------
     message :
         Transaction specific items.
-    env :
-        External items required for EVM execution.
+    block_env :
+        The block scoped environment.
 
     Returns
     -------
@@ -222,26 +226,29 @@ def process_message(message: Message, env: Environment) -> Evm:
         raise StackDepthLimitError("Stack depth limit reached")
 
     # take snapshot of state before processing the message
-    begin_transaction(env.state, message.transient_storage)
+    begin_transaction(block_env.state, message.transient_storage)
 
-    touch_account(env.state, message.current_target)
+    touch_account(block_env.state, message.current_target)
 
     if message.should_transfer_value and message.value != 0:
         move_ether(
-            env.state, message.caller, message.current_target, message.value
+            block_env.state,
+            message.caller,
+            message.current_target,
+            message.value,
         )
 
-    evm = execute_code(message, env)
+    evm = execute_code(message, block_env)
     if evm.error:
         # revert state to the last saved checkpoint
         # since the message call resulted in an error
-        rollback_transaction(env.state, message.transient_storage)
+        rollback_transaction(block_env.state, message.transient_storage)
     else:
-        commit_transaction(env.state, message.transient_storage)
+        commit_transaction(block_env.state, message.transient_storage)
     return evm
 
 
-def execute_code(message: Message, env: Environment) -> Evm:
+def execute_code(message: Message, block_env: BlockEnvironment) -> Evm:
     """
     Executes bytecode present in the `message`.
 
@@ -249,8 +256,8 @@ def execute_code(message: Message, env: Environment) -> Evm:
     ----------
     message :
         Transaction specific items.
-    env :
-        External items required for EVM execution.
+    block_env :
+        The block scoped environment.
 
     Returns
     -------
@@ -266,7 +273,7 @@ def execute_code(message: Message, env: Environment) -> Evm:
         memory=bytearray(),
         code=code,
         gas_left=message.gas,
-        env=env,
+        block_env=block_env,
         valid_jump_destinations=valid_jump_destinations,
         logs=(),
         refund_counter=0,
