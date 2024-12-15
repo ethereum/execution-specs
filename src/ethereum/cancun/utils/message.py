@@ -67,6 +67,8 @@ def prepare_message(
     accessed_addresses.update(tx_env.access_list_addresses)
 
     return Message(
+        block_env=block_env,
+        tx_env=tx_env,
         caller=tx_env.origin,
         target=tx.to,
         gas=tx_env.gas,

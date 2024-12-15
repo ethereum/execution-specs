@@ -118,6 +118,11 @@ class ForkLoad:
         return self._module("fork").state_transition
 
     @property
+    def apply_body(self) -> Any:
+        """apply_body function of the fork"""
+        return self._module("fork").apply_body
+
+    @property
     def make_receipt(self) -> Any:
         """make_receipt function of the fork"""
         return self._module("fork").make_receipt

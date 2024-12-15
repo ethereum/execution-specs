@@ -3,11 +3,12 @@ Define the types used by the t8n tool.
 """
 import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from ethereum import rlp
 from ethereum.base_types import U64, Bytes, Uint
 from ethereum.crypto.hash import Hash32, keccak256
+from ethereum.exceptions import InvalidBlock
 from ethereum.utils.hexadecimal import hex_to_bytes, hex_to_u256, hex_to_uint
 
 from ..loaders.transaction_loader import TransactionLoad, UnsupportedTx
@@ -115,17 +116,18 @@ class Txs:
             self.data = data
 
     @property
-    def transactions(self) -> Iterator[Tuple[int, Any]]:
+    def transactions(self) -> List[Any]:
         """
         Read the transactions file and return a list of transactions.
         Can read from JSON or RLP.
         """
+        transactions = []
         for idx, raw_tx in enumerate(self.data):
             try:
                 if self.rlp_input:
-                    yield idx, self.parse_rlp_tx(raw_tx)
+                    tx = self.parse_rlp_tx(raw_tx)
                 else:
-                    yield idx, self.parse_json_tx(raw_tx)
+                    tx = self.parse_json_tx(raw_tx)
             except UnsupportedTx as e:
                 self.t8n.logger.warning(
                     f"Unsupported transaction type {idx}: "
@@ -135,10 +137,16 @@ class Txs:
                     idx
                 ] = f"Unsupported transaction type: {e.error_message}"
                 self.all_txs.append(e.encoded_params)
+                raise InvalidBlock from e
             except Exception as e:
                 msg = f"Failed to parse transaction {idx}: {str(e)}"
                 self.t8n.logger.warning(msg, exc_info=e)
                 self.rejected_txs[idx] = msg
+                raise InvalidBlock from e
+            else:
+                transactions.append(tx)
+
+        return transactions
 
     def parse_rlp_tx(self, raw_tx: Any) -> Any:
         """
@@ -314,13 +322,18 @@ class Result:
         data = {}
 
         data["stateRoot"] = "0x" + self.state_root.hex()
-        data["txRoot"] = "0x" + self.tx_root.hex()
-        data["receiptsRoot"] = "0x" + self.receipt_root.hex()
+        if self.tx_root:
+            data["txRoot"] = "0x" + self.tx_root.hex()
+        if self.receipt_root:
+            data["receiptsRoot"] = "0x" + self.receipt_root.hex()
         if self.withdrawals_root:
             data["withdrawalsRoot"] = "0x" + self.withdrawals_root.hex()
-        data["logsHash"] = "0x" + self.logs_hash.hex()
-        data["logsBloom"] = "0x" + self.bloom.hex()
-        data["gasUsed"] = hex(self.gas_used)
+        if self.logs_hash:
+            data["logsHash"] = "0x" + self.logs_hash.hex()
+        if self.bloom:
+            data["logsBloom"] = "0x" + self.bloom.hex()
+        if self.gas_used:
+            data["gasUsed"] = hex(self.gas_used)
         if self.difficulty:
             data["currentDifficulty"] = hex(self.difficulty)
         else:
@@ -342,13 +355,14 @@ class Result:
             for idx, error in self.rejected.items()
         ]
 
-        data["receipts"] = [
-            {
-                "transactionHash": item["transactionHash"],
-                "gasUsed": item["gasUsed"],
-            }
-            for item in self.receipts
-        ]
+        if self.receipts is not None:
+            data["receipts"] = [
+                {
+                    "transactionHash": item["transactionHash"],
+                    "gasUsed": item["gasUsed"],
+                }
+                for item in self.receipts
+            ]
 
         if self.requests_hash is not None:
             assert self.requests is not None

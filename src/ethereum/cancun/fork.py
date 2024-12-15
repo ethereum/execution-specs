@@ -53,6 +53,7 @@ from .transactions import (
     Transaction,
     decode_transaction,
     encode_transaction,
+    get_transaction_hash,
 )
 from .trie import Trie, root, trie_set
 from .utils.hexadecimal import hex_to_address
@@ -81,7 +82,7 @@ BEACON_ROOTS_ADDRESS = hex_to_address(
     "0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
-MAX_BLOB_GAS_PER_BLOCK = 786432
+MAX_BLOB_GAS_PER_BLOCK = Uint(786432)
 VERSIONED_HASH_VERSION_KZG = b"\x01"
 
 
@@ -540,10 +541,14 @@ def process_system_transaction(
         access_list_storage_keys=set(),
         transient_storage=TransientStorage(),
         blob_versioned_hashes=(),
+        tx_index=Uint(0),
+        tx_hash=None,
         traces=[],
     )
 
     system_tx_message = Message(
+        block_env=block_env,
+        tx_env=tx_env,
         caller=SYSTEM_ADDRESS,
         target=target_address,
         gas=SYSTEM_TRANSACTION_GAS,
@@ -560,9 +565,7 @@ def process_system_transaction(
         parent_evm=None,
     )
 
-    system_tx_output = process_message_call(
-        system_tx_message, block_env, tx_env
-    )
+    system_tx_output = process_message_call(system_tx_message)
 
     destroy_touched_empty_accounts(
         block_env.state, system_tx_output.touched_accounts
@@ -600,8 +603,9 @@ def apply_body(
     apply_body_output : `ApplyBodyOutput`
         Output of applying the block body to the state.
     """
-    blob_gas_used = Uint(0)
     gas_available = block_env.block_gas_limit
+    blob_gas_available = MAX_BLOB_GAS_PER_BLOCK
+
     transactions_trie: Trie[
         Bytes, Optional[Union[Bytes, LegacyTransaction]]
     ] = Trie(secured=False, default=None)
@@ -624,10 +628,11 @@ def apply_body(
             transactions_trie, rlp.encode(Uint(i)), encode_transaction(tx)
         )
 
-        gas_used, logs, error = process_transaction(
-            block_env, tx, gas_available
+        gas_used, logs, error, blob_gas_used = process_transaction(
+            block_env, tx, Uint(i), gas_available, blob_gas_available
         )
         gas_available -= gas_used
+        blob_gas_available -= blob_gas_used
 
         receipt = make_receipt(
             tx, error, (block_env.block_gas_limit - gas_available), logs
@@ -640,10 +645,9 @@ def apply_body(
         )
 
         block_logs += logs
-        blob_gas_used += calculate_total_blob_gas(tx)
-    if blob_gas_used > MAX_BLOB_GAS_PER_BLOCK:
-        raise InvalidBlock
+
     block_gas_used = block_env.block_gas_limit - gas_available
+    blob_gas_used = MAX_BLOB_GAS_PER_BLOCK - blob_gas_available
 
     block_logs_bloom = logs_bloom(block_logs)
 
@@ -669,8 +673,10 @@ def apply_body(
 def process_transaction(
     block_env: vm.BlockEnvironment,
     tx: Transaction,
+    index: Uint,
     gas_available: Uint,
-) -> Tuple[Uint, Tuple[Log, ...], Optional[Exception]]:
+    blob_gas_available: Uint,
+) -> Tuple[Uint, Tuple[Log, ...], Optional[Exception], Uint]:
     """
     Execute a transaction against the provided environment.
 
@@ -689,8 +695,12 @@ def process_transaction(
         Environment for the Ethereum Virtual Machine.
     tx :
         Transaction to execute.
+    index:
+        Index of the transaction in the block.
     gas_available :
         Gas available for the transaction in the block.
+    blob_gas_available :
+        Blob gas available for the transaction
 
     Returns
     -------
@@ -745,16 +755,14 @@ def process_transaction(
         access_list_storage_keys=access_list_storage_keys,
         transient_storage=TransientStorage(),
         blob_versioned_hashes=blob_versioned_hashes,
+        tx_index=index,
+        tx_hash=get_transaction_hash(tx),
         traces=[],
     )
 
-    message = prepare_message(
-        block_env,
-        tx_env,
-        tx,
-    )
+    message = prepare_message(block_env, tx_env, tx)
 
-    output = process_message_call(message, block_env, tx_env)
+    output = process_message_call(message)
 
     gas_used = tx.gas - output.gas_left
     gas_refund = min(gas_used // 5, output.refund_counter)
@@ -793,7 +801,12 @@ def process_transaction(
 
     destroy_touched_empty_accounts(block_env.state, output.touched_accounts)
 
-    return total_gas_used, output.logs, output.error
+    blob_gas_used = calculate_total_blob_gas(tx)
+
+    if blob_gas_used > blob_gas_available:
+        raise InvalidBlock
+
+    return total_gas_used, output.logs, output.error, blob_gas_used
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Uint:

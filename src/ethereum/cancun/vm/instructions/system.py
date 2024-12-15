@@ -112,6 +112,8 @@ def generic_create(
     increment_nonce(evm.block_env.state, evm.message.current_target)
 
     child_message = Message(
+        block_env=evm.block_env,
+        tx_env=evm.message.tx_env,
         caller=evm.message.current_target,
         target=Bytes0(),
         gas=create_message_gas,
@@ -127,9 +129,7 @@ def generic_create(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         parent_evm=evm,
     )
-    child_evm = process_create_message(
-        child_message, evm.block_env, evm.tx_env
-    )
+    child_evm = process_create_message(child_message)
 
     if child_evm.error:
         incorporate_child_on_error(evm, child_evm)
@@ -299,6 +299,8 @@ def generic_call(
     )
     code = get_account(evm.block_env.state, code_address).code
     child_message = Message(
+        block_env=evm.block_env,
+        tx_env=evm.message.tx_env,
         caller=caller,
         target=to,
         gas=gas,
@@ -314,7 +316,7 @@ def generic_call(
         accessed_storage_keys=evm.accessed_storage_keys.copy(),
         parent_evm=evm,
     )
-    child_evm = process_message(child_message, evm.block_env, evm.tx_env)
+    child_evm = process_message(child_message)
 
     if child_evm.error:
         incorporate_child_on_error(evm, child_evm)
@@ -380,6 +382,8 @@ def call(evm: Evm) -> None:
         access_gas_cost + create_gas_cost + transfer_gas_cost,
     )
     charge_gas(evm, message_call_gas.cost + extend_memory.cost)
+
+    # Operation
     if evm.message.is_static and value != U256(0):
         raise WriteInStaticContext
     evm.memory += b"\x00" * extend_memory.expand_by

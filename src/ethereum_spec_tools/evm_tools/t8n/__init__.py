@@ -9,9 +9,9 @@ from functools import partial
 from typing import Any, TextIO
 
 from ethereum import rlp, trace
-from ethereum.base_types import U64, U256, Bytes, Uint
-from ethereum.crypto.hash import keccak256
-from ethereum.exceptions import EthereumException, InvalidBlock
+from ethereum.base_types import U64, U256, Uint
+from ethereum.exceptions import EthereumException
+from ethereum_spec_tools.evm_tools.t8n import evm_trace
 from ethereum_spec_tools.forks import Hardfork
 
 from ..loaders.fixture_loader import Load
@@ -23,7 +23,6 @@ from ..utils import (
     parse_hex_or_int,
 )
 from .env import Env
-from .evm_trace import evm_trace, output_traces
 from .t8n_types import Alloc, Result, Txs
 
 
@@ -104,11 +103,12 @@ class T8N(Load):
             trace_stack = not getattr(self.options, "trace.nostack", False)
             trace_return_data = getattr(self.options, "trace.returndata")
             trace.evm_trace = partial(
-                evm_trace,
+                evm_trace.evm_trace,
                 trace_memory=trace_memory,
                 trace_stack=trace_stack,
                 trace_return_data=trace_return_data,
             )
+            evm_trace.OUTPUT_DIR = self.options.output_basedir
         self.logger = get_stream_logger("T8N")
 
         super().__init__(
@@ -273,172 +273,60 @@ class T8N(Load):
         state = self.alloc.state
         state._main_trie, state._storage_tries = self.alloc.state_backup
 
-    def apply_body(self) -> None:
+    def run_state_test(self) -> Any:
         """
-        The apply body function is seen as the entry point of
-        the t8n tool into the designated fork. The function has been
-        re-implemented here to account for the differences in the
-        transaction processing between the forks. However, the general
-        structure of the function is the same.
+        Apply a single transaction on pre-state. No system operations
+        are performed.
         """
-        block_gas_limit = self.env.block_gas_limit
-
-        gas_available = block_gas_limit
-        transactions_trie = self.fork.Trie(secured=False, default=None)
-        receipts_trie = self.fork.Trie(secured=False, default=None)
-        block_logs = ()
-        blob_gas_used = Uint(0)
-
         block_env = self.block_environment()
-
-        if (
-            self.fork.is_after_fork("ethereum.prague")
-            and not self.options.state_test
-        ):
-            deposit_requests: Bytes = b""
-
-            self.fork.process_system_transaction(
-                block_env,
-                self.fork.HISTORY_STORAGE_ADDRESS,
-                self.env.parent_hash,
+        self.backup_state()
+        try:
+            tx = self.txs.transactions[0]
+            gas_available = block_env.block_gas_limit
+            blob_gas_available = self.fork.MAX_BLOB_GAS_PER_BLOCK
+            output = self.fork.process_transaction(
+                block_env, tx, Uint(0), gas_available, blob_gas_available
             )
-
-        if (
-            self.fork.is_after_fork("ethereum.cancun")
-            and not self.options.state_test
-        ):
-            self.fork.process_system_transaction(
-                block_env,
-                self.fork.BEACON_ROOTS_ADDRESS,
-                self.env.parent_beacon_block_root,
-            )
-
-        for i, (tx_idx, tx) in enumerate(self.txs.transactions):
-            # i is the index among valid transactions
-            # tx_idx is the index among all transactions. tx_idx is only used
-            # to identify the transaction in the rejected_txs dictionary.
-            self.backup_state()
-
-            try:
-                process_transaction_return = self.fork.process_transaction(
-                    block_env, tx, gas_available
-                )
-
-                if self.fork.is_after_fork("ethereum.cancun"):
-                    blob_gas_used += self.fork.calculate_total_blob_gas(tx)
-                    if blob_gas_used > self.fork.MAX_BLOB_GAS_PER_BLOCK:
-                        raise InvalidBlock
-            except EthereumException as e:
-                # The tf tools expects some non-blank error message
-                # even in case e is blank.
-                self.txs.rejected_txs[tx_idx] = f"Failed transaction: {str(e)}"
-                self.restore_state()
-                self.logger.warning(f"Transaction {tx_idx} failed: {str(e)}")
-            else:
-                self.txs.add_transaction(tx)
-                gas_consumed = process_transaction_return[0]
-                gas_available -= gas_consumed
-
-                if self.options.trace:
-                    tx_hash = self.txs.get_tx_hash(tx)
-                    output_traces(
-                        block_env.traces,
-                        i,
-                        tx_hash,
-                        self.options.output_basedir,
-                    )
-                self.tx_trie_set(transactions_trie, i, tx)
-
-                receipt = self.make_receipt(
-                    tx, process_transaction_return, gas_available
-                )
-
-                self.fork.trie_set(
-                    receipts_trie,
-                    rlp.encode(Uint(i)),
-                    receipt,
-                )
-                if (
-                    self.fork.is_after_fork("ethereum.prague")
-                    and not self.options.state_test
-                ):
-                    deposit_requests += (
-                        self.fork.parse_deposit_requests_from_receipt(receipt)
-                    )
-
-                self.txs.add_receipt(tx, gas_consumed)
-
-                block_logs += process_transaction_return[1]
-
-                self.alloc.state._snapshots = []
-
-        if self.BLOCK_REWARD is not None:
-            self.pay_rewards()
-
-        block_gas_used = block_gas_limit - gas_available
-
-        block_logs_bloom = self.fork.logs_bloom(block_logs)
-
-        logs_hash = keccak256(rlp.encode(block_logs))
-
-        if (
-            self.fork.is_after_fork("ethereum.shanghai")
-            and not self.options.state_test
-        ):
-            withdrawals_trie = self.fork.Trie(secured=False, default=None)
-
-            for i, wd in enumerate(self.env.withdrawals):
-                self.fork.trie_set(
-                    withdrawals_trie, rlp.encode(Uint(i)), rlp.encode(wd)
-                )
-
-                self.fork.process_withdrawal(self.alloc.state, wd)
-
-                if self.fork.account_exists_and_is_empty(
-                    self.alloc.state, wd.address
-                ):
-                    self.fork.destroy_account(self.alloc.state, wd.address)
-
-            self.result.withdrawals_root = self.fork.root(withdrawals_trie)
-
-        if self.fork.is_after_fork("ethereum.cancun"):
-            self.result.blob_gas_used = blob_gas_used
-            self.result.excess_blob_gas = self.env.excess_blob_gas
-
-        if (
-            self.fork.is_after_fork("ethereum.prague")
-            and not self.options.state_test
-        ):
-            requests_from_execution = (
-                self.fork.process_general_purpose_requests(
-                    block_env,
-                    deposit_requests,
-                )
-            )
-            requests_hash = self.fork.compute_requests_hash(
-                requests_from_execution
-            )
+        except EthereumException as e:
+            self.restore_state()
+            self.txs.rejected_txs[0] = f"Failed transaction: {str(e)}"
+            self.logger.warning(f"Transaction {0} failed: {str(e)}")
+        else:
+            self.result.gas_used = output[0]
 
         self.result.state_root = self.fork.state_root(self.alloc.state)
-        self.result.tx_root = self.fork.root(transactions_trie)
-        self.result.receipt_root = self.fork.root(receipts_trie)
-        self.result.bloom = block_logs_bloom
-        self.result.logs_hash = logs_hash
         self.result.rejected = self.txs.rejected_txs
-        self.result.receipts = self.txs.successful_receipts
-        self.result.gas_used = block_gas_used
 
-        if (
-            self.fork.is_after_fork("ethereum.prague")
-            and not self.options.state_test
-        ):
-            self.result.requests_hash = requests_hash
-            self.result.requests = requests_from_execution
+    def run_blockchain_test(self) -> None:
+        """
+        Apply a block on the pre-state. Also includes system operations.
+        """
+        block_env = self.block_environment()
+        self.backup_state()
+        try:
+            txs = self.txs.transactions
+            output = self.fork.apply_body(block_env, txs, self.env.withdrawals)
+            self.result.gas_used = output.block_gas_used
+        except EthereumException as e:
+            self.restore_state()
+            self.txs.rejected_txs[0] = f"Failed transaction: {str(e)}"
+            self.logger.warning(f"Transaction {0} failed: {str(e)}")
+
+        self.result.state_root = self.fork.state_root(self.alloc.state)
+        self.result.rejected = self.txs.rejected_txs
 
     def run(self) -> int:
         """Run the transition and provide the relevant outputs"""
+        # Clean out files from the output directory
+        for file in os.listdir(self.options.output_basedir):
+            if file.endswith(".json") or file.endswith(".jsonl"):
+                os.remove(os.path.join(self.options.output_basedir, file))
+
         try:
-            self.apply_body()
+            if self.options.state_test:
+                self.run_state_test()
+            else:
+                self.run_blockchain_test()
         except FatalException as e:
             self.logger.error(str(e))
             return 1

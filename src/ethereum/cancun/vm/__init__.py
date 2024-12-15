@@ -60,6 +60,8 @@ class TransactionEnvironment:
     access_list_storage_keys: Set[Tuple[Address, Bytes32]]
     transient_storage: TransientStorage
     blob_versioned_hashes: Tuple[VersionedHash, ...]
+    tx_index: Uint
+    tx_hash: Optional[Hash32]
     traces: List[dict]
 
 
@@ -69,6 +71,8 @@ class Message:
     Items that are used by contract creation or message call.
     """
 
+    block_env: BlockEnvironment
+    tx_env: TransactionEnvironment
     caller: Address
     target: Union[Bytes0, Address]
     current_target: Address
