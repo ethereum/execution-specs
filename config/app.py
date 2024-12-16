@@ -5,6 +5,8 @@ Classes:
 - AppConfig: Holds configurations for the application framework.
 """
 
+from pathlib import Path
+
 from pydantic import BaseModel
 
 
@@ -15,3 +17,9 @@ class AppConfig(BaseModel):
 
     version: str = "3.0.0"
     """The version of the application framework."""
+
+    DEFAULT_LOGS_DIR: Path = Path(__file__).resolve().parent.parent.parent / "logs"
+    """The default directory where log files are stored."""
+
+    DEFAULT_EVM_LOGS_DIR: Path = DEFAULT_LOGS_DIR / "evm"
+    """The default directory where EVM log files are stored."""

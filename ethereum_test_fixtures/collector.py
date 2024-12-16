@@ -38,7 +38,9 @@ def get_module_relative_output_dir(test_module: Path, filler_path: Path) -> Path
     tests/shanghai/eip3855_push0/test_push0.py -> shanghai/eip3855_push0/test_push0
     """
     basename = test_module.with_suffix("").absolute()
-    basename_relative = basename.relative_to(filler_path.absolute())
+    basename_relative = basename.relative_to(
+        os.path.commonpath([filler_path.absolute(), basename])
+    )
     module_path = basename_relative.parent / basename_relative.stem
     return module_path
 
