@@ -40,7 +40,7 @@ def create_data_test(offset: int, datasize: int):
                     ),
                 ),
                 Section.Code(
-                    code=(Op.PUSH2(offset) + Op.DATALOAD + Op.PUSH1(1) + Op.SSTORE + Op.RETF),
+                    code=(Op.DATALOAD(offset) + Op.PUSH1(1) + Op.SSTORE + Op.RETF),
                     code_inputs=0,
                     code_outputs=0,
                 ),
@@ -81,6 +81,12 @@ def create_data_test(offset: int, datasize: int):
         pytest.param(0x5BFE, 0x5C00, id="short_23k"),
         pytest.param(0x5BE0, 0x5D00, id="exact_23k"),
         pytest.param(0x2345, 0x5C00, id="large_23k"),
+        pytest.param(2**16 - 1, 32, id="u16_max"),
+        pytest.param(2**16, 32, id="u16_max_plus_1"),
+        pytest.param(2**32 - 1, 32, id="u32_max"),
+        pytest.param(2**32, 32, id="u32_max_plus_1"),
+        pytest.param(2**64 - 1, 32, id="u64_max"),
+        pytest.param(2**64, 32, id="u64_max_plus_1"),
     ],
 )
 def test_data_section_succeed(
