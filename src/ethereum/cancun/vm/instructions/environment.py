@@ -83,7 +83,7 @@ def balance(evm: Evm) -> None:
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
-    balance = get_account(evm.env.state, address).balance
+    balance = get_account(evm.block_env.state, address).balance
 
     push(evm.stack, balance)
 
@@ -109,7 +109,7 @@ def origin(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256.from_be_bytes(evm.env.origin))
+    push(evm.stack, U256.from_be_bytes(evm.tx_env.origin))
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -320,7 +320,7 @@ def gasprice(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256(evm.env.gas_price))
+    push(evm.stack, U256(evm.tx_env.gas_price))
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -348,7 +348,7 @@ def extcodesize(evm: Evm) -> None:
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has empty code.
-    codesize = U256(len(get_account(evm.env.state, address).code))
+    codesize = U256(len(get_account(evm.block_env.state, address).code))
 
     push(evm.stack, codesize)
 
@@ -389,7 +389,7 @@ def extcodecopy(evm: Evm) -> None:
 
     # OPERATION
     evm.memory += b"\x00" * extend_memory.expand_by
-    code = get_account(evm.env.state, address).code
+    code = get_account(evm.block_env.state, address).code
     value = buffer_read(code, code_start_index, size)
     memory_write(evm.memory, memory_start_index, value)
 
@@ -472,7 +472,7 @@ def extcodehash(evm: Evm) -> None:
         charge_gas(evm, GAS_COLD_ACCOUNT_ACCESS)
 
     # OPERATION
-    account = get_account(evm.env.state, address)
+    account = get_account(evm.block_env.state, address)
 
     if account == EMPTY_ACCOUNT:
         codehash = U256(0)
@@ -503,7 +503,9 @@ def self_balance(evm: Evm) -> None:
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
-    balance = get_account(evm.env.state, evm.message.current_target).balance
+    balance = get_account(
+        evm.block_env.state, evm.message.current_target
+    ).balance
 
     push(evm.stack, balance)
 
@@ -528,7 +530,7 @@ def base_fee(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256(evm.env.base_fee_per_gas))
+    push(evm.stack, U256(evm.block_env.base_fee_per_gas))
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -551,8 +553,8 @@ def blob_hash(evm: Evm) -> None:
     charge_gas(evm, GAS_BLOBHASH_OPCODE)
 
     # OPERATION
-    if index < len(evm.env.blob_versioned_hashes):
-        blob_hash = evm.env.blob_versioned_hashes[index]
+    if index < len(evm.tx_env.blob_versioned_hashes):
+        blob_hash = evm.tx_env.blob_versioned_hashes[index]
     else:
         blob_hash = Bytes32(b"\x00" * 32)
     push(evm.stack, U256.from_be_bytes(blob_hash))
@@ -578,7 +580,7 @@ def blob_base_fee(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    blob_base_fee = calculate_blob_gas_price(evm.env.excess_blob_gas)
+    blob_base_fee = calculate_blob_gas_price(evm.block_env.excess_blob_gas)
     push(evm.stack, U256(blob_base_fee))
 
     # PROGRAM COUNTER

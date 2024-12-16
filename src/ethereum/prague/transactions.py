@@ -6,6 +6,7 @@ transactions are the events that move between states.
 from dataclasses import dataclass
 from typing import Tuple, Union
 
+from ethereum.crypto.hash import Hash32, keccak256
 from ethereum.exceptions import InvalidBlock
 
 from .. import rlp
@@ -176,3 +177,17 @@ def decode_transaction(tx: Union[LegacyTransaction, Bytes]) -> Transaction:
             raise InvalidBlock
     else:
         return tx
+
+
+def get_transaction_hash(tx: Transaction) -> Hash32:
+    """
+    Get the hash of a transaction.
+    """
+    encoded_tx = encode_transaction(tx)
+
+    if isinstance(encoded_tx, LegacyTransaction):
+        tx_hash = keccak256(rlp.encode(tx))
+    else:
+        tx_hash = keccak256(encoded_tx)
+
+    return tx_hash
