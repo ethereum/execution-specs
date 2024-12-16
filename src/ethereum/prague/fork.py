@@ -68,6 +68,7 @@ from .utils.message import prepare_message
 from .vm import Message
 from .vm.eoa_delegation import PER_EMPTY_ACCOUNT_COST, is_valid_delegation
 from .vm.gas import (
+    GAS_PER_BLOB,
     calculate_blob_gas_price,
     calculate_data_fee,
     calculate_excess_blob_gas,
@@ -99,7 +100,7 @@ CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
     "0x01aBEa29659e5e97C95107F20bb753cD3e09bBBb"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
-MAX_BLOB_GAS_PER_BLOCK = 786432
+MAX_BLOB_GAS_PER_BLOCK = 9 * GAS_PER_BLOB
 VERSIONED_HASH_VERSION_KZG = b"\x01"
 HISTORY_SERVE_WINDOW = 8192
 
