@@ -193,7 +193,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         coinbase=block.header.coinbase,
         number=block.header.number,
         base_fee_per_gas=block.header.base_fee_per_gas,
-        gas_limit=block.header.gas_limit,
         time=block.header.timestamp,
         prev_randao=block.header.prev_randao,
         excess_blob_gas=block.header.excess_blob_gas,
@@ -628,11 +627,11 @@ def apply_body(
             transactions_trie, rlp.encode(Uint(i)), encode_transaction(tx)
         )
 
-        gas_used, logs, error, blob_gas_used = process_transaction(
+        tx_gas_used, logs, error, tx_blob_gas_used = process_transaction(
             block_env, tx, Uint(i), gas_available, blob_gas_available
         )
-        gas_available -= gas_used
-        blob_gas_available -= blob_gas_used
+        gas_available -= tx_gas_used
+        blob_gas_available -= tx_blob_gas_used
 
         receipt = make_receipt(
             tx, error, (block_env.block_gas_limit - gas_available), logs

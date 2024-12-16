@@ -218,7 +218,7 @@ def gas_limit(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256(evm.block_env.gas_limit))
+    push(evm.stack, U256(evm.block_env.block_gas_limit))
 
     # PROGRAM COUNTER
     evm.pc += 1

@@ -56,7 +56,7 @@ def sload(evm: Evm) -> None:
         charge_gas(evm, GAS_COLD_SLOAD)
 
     # OPERATION
-    value = get_storage(evm.env.state, evm.message.current_target, key)
+    value = get_storage(evm.block_env.state, evm.message.current_target, key)
 
     push(evm.stack, value)
 
@@ -81,9 +81,11 @@ def sstore(evm: Evm) -> None:
         raise OutOfGasError
 
     original_value = get_storage_original(
-        evm.env.state, evm.message.current_target, key
+        evm.block_env.state, evm.message.current_target, key
     )
-    current_value = get_storage(evm.env.state, evm.message.current_target, key)
+    current_value = get_storage(
+        evm.block_env.state, evm.message.current_target, key
+    )
 
     gas_cost = Uint(0)
 
@@ -123,7 +125,9 @@ def sstore(evm: Evm) -> None:
     charge_gas(evm, gas_cost)
     if evm.message.is_static:
         raise WriteInStaticContext
-    set_storage(evm.env.state, evm.message.current_target, key, new_value)
+    set_storage(
+        evm.block_env.state, evm.message.current_target, key, new_value
+    )
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -146,7 +150,7 @@ def tload(evm: Evm) -> None:
 
     # OPERATION
     value = get_transient_storage(
-        evm.message.transient_storage, evm.message.current_target, key
+        evm.tx_env.transient_storage, evm.message.current_target, key
     )
     push(evm.stack, value)
 
@@ -171,7 +175,7 @@ def tstore(evm: Evm) -> None:
     if evm.message.is_static:
         raise WriteInStaticContext
     set_transient_storage(
-        evm.message.transient_storage,
+        evm.tx_env.transient_storage,
         evm.message.current_target,
         key,
         new_value,

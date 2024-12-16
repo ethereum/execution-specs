@@ -40,7 +40,6 @@ class BlockEnvironment:
     coinbase: Address
     number: Uint
     base_fee_per_gas: Uint
-    gas_limit: Uint
     time: U256
     prev_randao: Bytes32
     excess_blob_gas: U64

@@ -84,7 +84,7 @@ def balance(evm: Evm) -> None:
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
-    balance = get_account(evm.env.state, address).balance
+    balance = get_account(evm.block_env.state, address).balance
 
     push(evm.stack, balance)
 
@@ -110,7 +110,7 @@ def origin(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256.from_be_bytes(evm.message.origin))
+    push(evm.stack, U256.from_be_bytes(evm.tx_env.origin))
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -321,7 +321,7 @@ def gasprice(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256(evm.message.gas_price))
+    push(evm.stack, U256(evm.tx_env.gas_price))
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -482,7 +482,7 @@ def extcodehash(evm: Evm) -> None:
     charge_gas(evm, access_gas_cost)
 
     # OPERATION
-    account = get_account(evm.env.state, address)
+    account = get_account(evm.block_env.state, address)
     if account == EMPTY_ACCOUNT:
         codehash = U256(0)
     else:
@@ -512,7 +512,9 @@ def self_balance(evm: Evm) -> None:
 
     # OPERATION
     # Non-existent accounts default to EMPTY_ACCOUNT, which has balance 0.
-    balance = get_account(evm.env.state, evm.message.current_target).balance
+    balance = get_account(
+        evm.block_env.state, evm.message.current_target
+    ).balance
 
     push(evm.stack, balance)
 
@@ -537,7 +539,7 @@ def base_fee(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    push(evm.stack, U256(evm.env.base_fee_per_gas))
+    push(evm.stack, U256(evm.block_env.base_fee_per_gas))
 
     # PROGRAM COUNTER
     evm.pc += 1
@@ -560,8 +562,8 @@ def blob_hash(evm: Evm) -> None:
     charge_gas(evm, GAS_BLOBHASH_OPCODE)
 
     # OPERATION
-    if index < len(evm.message.blob_versioned_hashes):
-        blob_hash = evm.message.blob_versioned_hashes[index]
+    if index < len(evm.tx_env.blob_versioned_hashes):
+        blob_hash = evm.tx_env.blob_versioned_hashes[index]
     else:
         blob_hash = Bytes32(b"\x00" * 32)
     push(evm.stack, U256.from_be_bytes(blob_hash))
@@ -587,7 +589,7 @@ def blob_base_fee(evm: Evm) -> None:
     charge_gas(evm, GAS_BASE)
 
     # OPERATION
-    blob_base_fee = calculate_blob_gas_price(evm.env.excess_blob_gas)
+    blob_base_fee = calculate_blob_gas_price(evm.block_env.excess_blob_gas)
     push(evm.stack, U256(blob_base_fee))
 
     # PROGRAM COUNTER

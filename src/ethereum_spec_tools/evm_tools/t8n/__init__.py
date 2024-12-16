@@ -9,7 +9,7 @@ from functools import partial
 from typing import Any, TextIO
 
 from ethereum import rlp, trace
-from ethereum.base_types import U64, U256, Uint
+from ethereum.base_types import U64, Uint
 from ethereum.exceptions import EthereumException
 from ethereum_spec_tools.evm_tools.t8n import evm_trace
 from ethereum_spec_tools.forks import Hardfork
@@ -124,49 +124,6 @@ class T8N(Load):
             self.env.block_difficulty, self.env.base_fee_per_gas
         )
 
-    @property
-    def BLOCK_REWARD(self) -> Any:
-        """
-        For the t8n tool, the block reward is
-        provided as a command line option
-        """
-        if self.options.state_reward < 0 or self.fork.is_after_fork(
-            "ethereum.paris"
-        ):
-            return None
-        else:
-            return U256(self.options.state_reward)
-
-    def check_transaction(self, tx: Any, gas_available: Any) -> Any:
-        """
-        Implements the check_transaction function of the fork.
-        The arguments to be passed are adjusted according to the fork.
-        """
-        # TODO: The current PR changes the signature of the check_transaction
-        # in cancun only. Once this is approved and ported over to the
-        # the other forks in PR #890, this function has to be updated.
-        # This is a temporary change to make the tool work for cancun.
-        if self.fork.is_after_fork("ethereum.cancun"):
-            return self.fork.check_transaction(
-                self.alloc.state,
-                tx,
-                gas_available,
-                self.chain_id,
-                self.env.base_fee_per_gas,
-                self.env.excess_blob_gas,
-            )
-        arguments = [tx]
-
-        if self.fork.is_after_fork("ethereum.london"):
-            arguments.append(self.env.base_fee_per_gas)
-
-        arguments.append(gas_available)
-
-        if self.fork.is_after_fork("ethereum.spurious_dragon"):
-            arguments.append(self.chain_id)
-
-        return self.fork.check_transaction(*arguments)
-
     def block_environment(self) -> Any:
         """
         Create the environment for the transaction. The keyword
@@ -176,7 +133,6 @@ class T8N(Load):
             "block_hashes": self.env.block_hashes,
             "coinbase": self.env.coinbase,
             "number": self.env.block_number,
-            "gas_limit": self.env.block_gas_limit,
             "time": self.env.block_timestamp,
             "state": self.alloc.state,
             "block_gas_limit": self.env.block_gas_limit,
@@ -200,62 +156,6 @@ class T8N(Load):
             kw_arguments["excess_blob_gas"] = self.env.excess_blob_gas
 
         return self.fork.BlockEnvironment(**kw_arguments)
-
-    def tx_trie_set(self, trie: Any, index: Any, tx: Any) -> Any:
-        """Add a transaction to the trie."""
-        arguments = [trie, rlp.encode(Uint(index))]
-        if self.fork.is_after_fork("ethereum.berlin"):
-            arguments.append(self.fork.encode_transaction(tx))
-        else:
-            arguments.append(tx)
-
-        self.fork.trie_set(*arguments)
-
-    def make_receipt(
-        self, tx: Any, process_transaction_return: Any, gas_available: Any
-    ) -> Any:
-        """Create a transaction receipt."""
-        arguments = [tx]
-
-        if self.fork.is_after_fork("ethereum.byzantium"):
-            arguments.append(process_transaction_return[2])
-        else:
-            arguments.append(self.fork.state_root(self.alloc.state))
-
-        arguments.append((self.env.block_gas_limit - gas_available))
-        arguments.append(process_transaction_return[1])
-
-        return self.fork.make_receipt(*arguments)
-
-    def pay_rewards(self) -> None:
-        """
-        Pay the miner and the ommers.
-        This function is re-implemented since the uncle header
-        might not be available in the t8n tool.
-        """
-        coinbase = self.env.coinbase
-        ommers = self.env.ommers
-        state = self.alloc.state
-
-        miner_reward = self.BLOCK_REWARD + (
-            len(ommers) * (self.BLOCK_REWARD // 32)
-        )
-        self.fork.create_ether(state, coinbase, miner_reward)
-        touched_accounts = [coinbase]
-
-        for ommer in ommers:
-            # Ommer age with respect to the current block.
-            ommer_miner_reward = ((8 - ommer.delta) * self.BLOCK_REWARD) // 8
-            self.fork.create_ether(state, ommer.address, ommer_miner_reward)
-            touched_accounts.append(ommer.address)
-
-        if self.fork.is_after_fork("ethereum.spurious_dragon"):
-            # Destroy empty accounts that were touched by
-            # paying the rewards. This is only important if
-            # the block rewards were zero.
-            for account in touched_accounts:
-                if self.fork.account_exists_and_is_empty(state, account):
-                    self.fork.destroy_account(state, account)
 
     def backup_state(self) -> None:
         """Back up the state in order to restore in case of an error."""

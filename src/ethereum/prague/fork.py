@@ -61,6 +61,7 @@ from .transactions import (
     Transaction,
     decode_transaction,
     encode_transaction,
+    get_transaction_hash,
 )
 from .trie import Trie, root, trie_set
 from .utils.hexadecimal import hex_to_address
@@ -99,7 +100,7 @@ CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = hex_to_address(
     "0x01aBEa29659e5e97C95107F20bb753cD3e09bBBb"
 )
 SYSTEM_TRANSACTION_GAS = Uint(30000000)
-MAX_BLOB_GAS_PER_BLOCK = 786432
+MAX_BLOB_GAS_PER_BLOCK = Uint(786432)
 VERSIONED_HASH_VERSION_KZG = b"\x01"
 HISTORY_SERVE_WINDOW = 8192
 
@@ -203,7 +204,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     if block.ommers != ():
         raise InvalidBlock
 
-    env = vm.Environment(
+    block_env = vm.BlockEnvironment(
         chain_id=chain.chain_id,
         state=chain.state,
         block_gas_limit=block.header.gas_limit,
@@ -211,7 +212,6 @@ def state_transition(chain: BlockChain, block: Block) -> None:
         coinbase=block.header.coinbase,
         number=block.header.number,
         base_fee_per_gas=block.header.base_fee_per_gas,
-        gas_limit=block.header.gas_limit,
         time=block.header.timestamp,
         prev_randao=block.header.prev_randao,
         excess_blob_gas=block.header.excess_blob_gas,
@@ -219,7 +219,7 @@ def state_transition(chain: BlockChain, block: Block) -> None:
     )
 
     apply_body_output = apply_body(
-        env,
+        block_env,
         block.transactions,
         block.withdrawals,
     )
@@ -362,7 +362,7 @@ def validate_header(chain: BlockChain, header: Header) -> None:
 
 
 def check_transaction(
-    env: vm.Environment,
+    block_env: vm.BlockEnvironment,
     tx: Transaction,
     gas_available: Uint,
 ) -> Tuple[Address, Uint, Tuple[VersionedHash, ...]]:
@@ -371,8 +371,8 @@ def check_transaction(
 
     Parameters
     ----------
-    env :
-        The execution environment.
+    block_env :
+        The block scoped environment.
     tx :
         The transaction.
     gas_available :
@@ -402,11 +402,11 @@ def check_transaction(
     if tx.gas > gas_available:
         raise InvalidBlock
 
-    sender_address = recover_sender(env.chain_id, tx)
+    sender_address = recover_sender(block_env.chain_id, tx)
 
-    sender_account = get_account(env.state, sender_address)
+    sender_account = get_account(block_env.state, sender_address)
 
-    base_fee_per_gas = env.base_fee_per_gas
+    base_fee_per_gas = block_env.base_fee_per_gas
     if isinstance(
         tx, (FeeMarketTransaction, BlobTransaction, SetCodeTransaction)
     ):
@@ -435,7 +435,7 @@ def check_transaction(
                 raise InvalidBlock
 
         if tx.max_fee_per_blob_gas < calculate_blob_gas_price(
-            env.excess_blob_gas
+            block_env.excess_blob_gas
         ):
             raise InvalidBlock
 
@@ -537,7 +537,7 @@ class ApplyBodyOutput:
 
 
 def process_system_transaction(
-    env: vm.Environment,
+    block_env: vm.BlockEnvironment,
     target_address: Address,
     data: Bytes,
 ) -> MessageCallOutput:
@@ -546,8 +546,8 @@ def process_system_transaction(
 
     Parameters
     ----------
-    env :
-        The execution environment.
+    block_env :
+        The block scoped environment.
     target_address :
         Address of the contract to call.
     data :
@@ -558,12 +558,26 @@ def process_system_transaction(
     system_tx_output : `MessageCallOutput`
         Output of processing the system transaction.
     """
-    system_contract_code = get_account(env.state, target_address).code
+    system_contract_code = get_account(block_env.state, target_address).code
+
+    tx_env = vm.TransactionEnvironment(
+        origin=SYSTEM_ADDRESS,
+        gas_price=block_env.base_fee_per_gas,
+        gas=SYSTEM_TRANSACTION_GAS,
+        access_list_addresses=set(),
+        access_list_storage_keys=set(),
+        transient_storage=TransientStorage(),
+        blob_versioned_hashes=(),
+        authorizations=(),
+        tx_index=Uint(0),
+        tx_hash=None,
+        traces=[],
+    )
 
     system_tx_message = Message(
-        origin=SYSTEM_ADDRESS,
+        block_env=block_env,
+        tx_env=tx_env,
         caller=SYSTEM_ADDRESS,
-        gas_price=env.base_fee_per_gas,
         target=target_address,
         gas=SYSTEM_TRANSACTION_GAS,
         value=U256(0),
@@ -577,13 +591,9 @@ def process_system_transaction(
         accessed_addresses=set(),
         accessed_storage_keys=set(),
         parent_evm=None,
-        transient_storage=TransientStorage(),
-        blob_versioned_hashes=(),
-        authorizations=(),
-        traces=[],
     )
 
-    system_tx_output = process_message_call(system_tx_message, env)
+    system_tx_output = process_message_call(system_tx_message)
 
     # TODO: Empty accounts in post-merge forks are impossible
     # see Ethereum Improvement Proposal 7523.
@@ -591,14 +601,14 @@ def process_system_transaction(
     # and will have to be removed in the future.
     # See https://github.com/ethereum/execution-specs/issues/955
     destroy_touched_empty_accounts(
-        env.state, system_tx_output.touched_accounts
+        block_env.state, system_tx_output.touched_accounts
     )
 
     return system_tx_output
 
 
 def apply_body(
-    env: vm.Environment,
+    block_env: vm.BlockEnvironment,
     transactions: Tuple[Union[LegacyTransaction, Bytes], ...],
     withdrawals: Tuple[Withdrawal, ...],
 ) -> ApplyBodyOutput:
@@ -614,8 +624,8 @@ def apply_body(
 
     Parameters
     ----------
-    env :
-        The execution environment.
+    block_env :
+        The block scoped environment.
     transactions :
         Transactions included in the block.
     withdrawals :
@@ -626,8 +636,9 @@ def apply_body(
     apply_body_output : `ApplyBodyOutput`
         Output of applying the block body to the state.
     """
-    blob_gas_used = Uint(0)
-    gas_available = env.block_gas_limit
+    gas_available = block_env.block_gas_limit
+    blob_gas_available = MAX_BLOB_GAS_PER_BLOCK
+
     transactions_trie: Trie[
         Bytes, Optional[Union[Bytes, LegacyTransaction]]
     ] = Trie(secured=False, default=None)
@@ -641,15 +652,15 @@ def apply_body(
     deposit_requests: Bytes = b""
 
     process_system_transaction(
-        env=env,
+        block_env=block_env,
         target_address=BEACON_ROOTS_ADDRESS,
-        data=env.parent_beacon_block_root,
+        data=block_env.parent_beacon_block_root,
     )
 
     process_system_transaction(
-        env=env,
+        block_env=block_env,
         target_address=HISTORY_STORAGE_ADDRESS,
-        data=env.block_hashes[-1],  # The parent hash
+        data=block_env.block_hashes[-1],  # The parent hash
     )
 
     for i, tx in enumerate(map(decode_transaction, transactions)):
@@ -657,11 +668,14 @@ def apply_body(
             transactions_trie, rlp.encode(Uint(i)), encode_transaction(tx)
         )
 
-        gas_used, logs, error = process_transaction(env, tx, gas_available)
-        gas_available -= gas_used
+        tx_gas_used, logs, error, tx_blob_gas_used = process_transaction(
+            block_env, tx, Uint(i), gas_available, blob_gas_available
+        )
+        gas_available -= tx_gas_used
+        blob_gas_available -= tx_blob_gas_used
 
         receipt = make_receipt(
-            tx, error, (env.block_gas_limit - gas_available), logs
+            tx, error, (block_env.block_gas_limit - gas_available), logs
         )
 
         trie_set(
@@ -673,23 +687,22 @@ def apply_body(
         deposit_requests += parse_deposit_requests_from_receipt(receipt)
 
         block_logs += logs
-        blob_gas_used += calculate_total_blob_gas(tx)
-    if blob_gas_used > MAX_BLOB_GAS_PER_BLOCK:
-        raise InvalidBlock
-    block_gas_used = env.block_gas_limit - gas_available
+
+    block_gas_used = block_env.block_gas_limit - gas_available
+    blob_gas_used = MAX_BLOB_GAS_PER_BLOCK - blob_gas_available
 
     block_logs_bloom = logs_bloom(block_logs)
 
     for i, wd in enumerate(withdrawals):
         trie_set(withdrawals_trie, rlp.encode(Uint(i)), rlp.encode(wd))
 
-        process_withdrawal(env.state, wd)
+        process_withdrawal(block_env.state, wd)
 
-        if account_exists_and_is_empty(env.state, wd.address):
-            destroy_account(env.state, wd.address)
+        if account_exists_and_is_empty(block_env.state, wd.address):
+            destroy_account(block_env.state, wd.address)
 
     requests_from_execution = process_general_purpose_requests(
-        env=env,
+        block_env=block_env,
         deposit_requests=deposit_requests,
     )
 
@@ -700,7 +713,7 @@ def apply_body(
         root(transactions_trie),
         root(receipts_trie),
         block_logs_bloom,
-        state_root(env.state),
+        state_root(block_env.state),
         root(withdrawals_trie),
         blob_gas_used,
         requests_hash,
@@ -708,7 +721,7 @@ def apply_body(
 
 
 def process_general_purpose_requests(
-    env: vm.Environment,
+    block_env: vm.BlockEnvironment,
     deposit_requests: Bytes,
 ) -> List[Bytes]:
     """
@@ -716,8 +729,8 @@ def process_general_purpose_requests(
 
     Parameters
     ----------
-    env :
-        The execution environment.
+    block_env :
+        The execution environment for the Block.
     deposit_requests :
         The deposit requests.
 
@@ -731,7 +744,7 @@ def process_general_purpose_requests(
     requests_from_execution.append(DEPOSIT_REQUEST_TYPE + deposit_requests)
 
     system_withdrawal_tx_output = process_system_transaction(
-        env=env,
+        block_env=block_env,
         target_address=WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
         data=b"",
     )
@@ -741,7 +754,7 @@ def process_general_purpose_requests(
     )
 
     system_consolidation_tx_output = process_system_transaction(
-        env=env,
+        block_env=block_env,
         target_address=CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
         data=b"",
     )
@@ -754,10 +767,12 @@ def process_general_purpose_requests(
 
 
 def process_transaction(
-    env: vm.Environment,
+    block_env: vm.BlockEnvironment,
     tx: Transaction,
+    index: Uint,
     gas_available: Uint,
-) -> Tuple[Uint, Tuple[Log, ...], Optional[Exception]]:
+    blob_gas_available: Uint,
+) -> Tuple[Uint, Tuple[Log, ...], Optional[Exception], Uint]:
     """
     Execute a transaction against the provided environment.
 
@@ -772,12 +787,16 @@ def process_transaction(
 
     Parameters
     ----------
-    env :
+    block_env :
         Environment for the Ethereum Virtual Machine.
     tx :
         Transaction to execute.
+    index:
+        Index of the transaction in the block.
     gas_available :
         Gas available for the transaction in the block.
+    blob_gas_available :
+        Blob gas available for the transaction
 
     Returns
     -------
@@ -791,31 +810,31 @@ def process_transaction(
         effective_gas_price,
         blob_versioned_hashes,
     ) = check_transaction(
-        env=env,
+        block_env=block_env,
         tx=tx,
         gas_available=gas_available,
     )
     sender = sender_address
-    sender_account = get_account(env.state, sender)
+    sender_account = get_account(block_env.state, sender)
 
     if isinstance(tx, BlobTransaction):
-        blob_gas_fee = calculate_data_fee(env.excess_blob_gas, tx)
+        blob_gas_fee = calculate_data_fee(block_env.excess_blob_gas, tx)
     else:
         blob_gas_fee = Uint(0)
 
     effective_gas_fee = tx.gas * effective_gas_price
 
     gas = tx.gas - calculate_intrinsic_cost(tx)
-    increment_nonce(env.state, sender)
+    increment_nonce(block_env.state, sender)
 
     sender_balance_after_gas_fee = (
         sender_account.balance - effective_gas_fee - blob_gas_fee
     )
-    set_account_balance(env.state, sender, sender_balance_after_gas_fee)
+    set_account_balance(block_env.state, sender, sender_balance_after_gas_fee)
 
-    preaccessed_addresses = set()
-    preaccessed_storage_keys = set()
-    preaccessed_addresses.add(env.coinbase)
+    access_list_addresses = set()
+    access_list_storage_keys = set()
+    access_list_addresses.add(block_env.coinbase)
     if isinstance(
         tx,
         (
@@ -826,39 +845,38 @@ def process_transaction(
         ),
     ):
         for address, keys in tx.access_list:
-            preaccessed_addresses.add(address)
+            access_list_addresses.add(address)
             for key in keys:
-                preaccessed_storage_keys.add((address, key))
+                access_list_storage_keys.add((address, key))
 
     authorizations: Tuple[Authorization, ...] = ()
     if isinstance(tx, SetCodeTransaction):
         authorizations = tx.authorizations
 
-    message = prepare_message(
-        sender,
-        tx.to,
-        tx.value,
-        tx.data,
-        gas,
-        env,
-        code_address=None,
-        should_transfer_value=True,
-        is_static=False,
-        preaccessed_addresses=frozenset(preaccessed_addresses),
-        preaccessed_storage_keys=frozenset(preaccessed_storage_keys),
+    tx_env = vm.TransactionEnvironment(
+        origin=sender,
         gas_price=effective_gas_price,
+        gas=gas,
+        access_list_addresses=access_list_addresses,
+        access_list_storage_keys=access_list_storage_keys,
+        transient_storage=TransientStorage(),
         blob_versioned_hashes=blob_versioned_hashes,
         authorizations=authorizations,
+        tx_index=index,
+        tx_hash=get_transaction_hash(tx),
+        traces=[],
     )
 
-    output = process_message_call(message, env)
+    message = prepare_message(block_env, tx_env, tx)
+
+    output = process_message_call(message)
 
     gas_used = tx.gas - output.gas_left
     gas_refund = min(gas_used // 5, output.refund_counter)
     gas_refund_amount = (output.gas_left + gas_refund) * effective_gas_price
 
     # For non-1559 transactions env.gas_price == tx.gas_price
-    priority_fee_per_gas = effective_gas_price - env.base_fee_per_gas
+    priority_fee_per_gas = effective_gas_price - block_env.base_fee_per_gas
     transaction_fee = (
         tx.gas - output.gas_left - gas_refund
     ) * priority_fee_per_gas
@@ -867,27 +885,35 @@ def process_transaction(
 
     # refund gas
     sender_balance_after_refund = (
-        get_account(env.state, sender).balance + gas_refund_amount
+        get_account(block_env.state, sender).balance + gas_refund_amount
     )
-    set_account_balance(env.state, sender, sender_balance_after_refund)
+    set_account_balance(block_env.state, sender, sender_balance_after_refund)
 
     # transfer miner fees
     coinbase_balance_after_mining_fee = (
-        get_account(env.state, env.coinbase).balance + transaction_fee
+        get_account(block_env.state, block_env.coinbase).balance
+        + transaction_fee
     )
     if coinbase_balance_after_mining_fee != 0:
         set_account_balance(
-            env.state, env.coinbase, coinbase_balance_after_mining_fee
+            block_env.state,
+            block_env.coinbase,
+            coinbase_balance_after_mining_fee,
         )
-    elif account_exists_and_is_empty(env.state, env.coinbase):
-        destroy_account(env.state, env.coinbase)
+    elif account_exists_and_is_empty(block_env.state, block_env.coinbase):
+        destroy_account(block_env.state, block_env.coinbase)
 
     for address in output.accounts_to_delete:
-        destroy_account(env.state, address)
+        destroy_account(block_env.state, address)
 
-    destroy_touched_empty_accounts(env.state, output.touched_accounts)
+    destroy_touched_empty_accounts(block_env.state, output.touched_accounts)
 
-    return total_gas_used, output.logs, output.error
+    blob_gas_used = calculate_total_blob_gas(tx)
+
+    if blob_gas_used > blob_gas_available:
+        raise InvalidBlock
+
+    return total_gas_used, output.logs, output.error, blob_gas_used
 
 
 def calculate_intrinsic_cost(tx: Transaction) -> Uint:
