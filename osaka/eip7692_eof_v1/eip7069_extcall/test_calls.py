@@ -322,6 +322,8 @@ identity = Address(0x04)
 # `blake2f`` is chosen for the test because it fails unless args_size == 213, which is what we are
 # interested in.
 blake2f = Address(0x09)
+# `p256verify` / RIP-7212 has been in and out of prague and osaka. Hence we need to test explicitly
+p256verify = Address(0x100)
 
 
 @pytest.mark.parametrize(
@@ -333,6 +335,11 @@ blake2f = Address(0x09)
         pytest.param(Op.EXTCALL, blake2f, EXTCALL_FAILURE, id="extcall_failure"),
         pytest.param(Op.EXTDELEGATECALL, blake2f, EXTCALL_REVERT, id="extdelegatecall_blocked2"),
         pytest.param(Op.EXTSTATICCALL, blake2f, EXTCALL_FAILURE, id="extstaticcall_failure"),
+        pytest.param(Op.EXTCALL, p256verify, EXTCALL_SUCCESS, id="extcall_p256verify"),
+        pytest.param(
+            Op.EXTDELEGATECALL, p256verify, EXTCALL_REVERT, id="extdelegatecall_p256verify"
+        ),
+        pytest.param(Op.EXTSTATICCALL, p256verify, EXTCALL_SUCCESS, id="extstaticcall_p256verify"),
     ],
 )
 def test_eof_calls_precompile(
@@ -362,11 +369,13 @@ def test_eof_calls_precompile(
         gas_limit=5000000,
     )
 
+    success_identity = expected_result == EXTCALL_SUCCESS and precompile == identity
+
     calling_storage = {
         slot_code_worked: value_code_worked,
         slot_call_result: expected_result,
-        slot_returndatasize: 32 if expected_result == EXTCALL_SUCCESS else 0,
-        slot_returndata: value_returndata_magic if expected_result == EXTCALL_SUCCESS else 0,
+        slot_returndatasize: 32 if success_identity else 0,
+        slot_returndata: value_returndata_magic if success_identity else 0,
     }
 
     post = {
