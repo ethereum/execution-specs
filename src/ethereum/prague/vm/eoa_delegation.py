@@ -163,7 +163,7 @@ def set_delegation(message: Message, env: Environment) -> U256:
     """
     refund_counter = U256(0)
     for auth in message.authorizations:
-        if auth.chain_id not in (env.chain_id, U64(0)):
+        if auth.chain_id not in (env.chain_id, U256(0)):
             continue
 
         if auth.nonce >= U64.MAX_VALUE:
