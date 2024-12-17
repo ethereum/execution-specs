@@ -47,12 +47,12 @@ from .state import (
     state_root,
 )
 from .transactions import (
+    FLOOR_CALLDATA_COST,
+    STANDARD_CALLDATA_TOKEN_COST,
     TX_ACCESS_LIST_ADDRESS_COST,
     TX_ACCESS_LIST_STORAGE_KEY_COST,
     TX_BASE_COST,
     TX_CREATE_COST,
-    TX_DATA_COST_PER_NON_ZERO,
-    TX_DATA_COST_PER_ZERO,
     AccessListTransaction,
     BlobTransaction,
     FeeMarketTransaction,
@@ -396,7 +396,9 @@ def check_transaction(
     InvalidBlock :
         If the transaction is not includable.
     """
-    if calculate_intrinsic_cost(tx) > tx.gas:
+    intrinsic_gas, tokens_in_calldata = calculate_intrinsic_cost(tx)
+    floor = Uint(tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST)
+    if max(intrinsic_gas, floor) > tx.gas:
         raise InvalidBlock
     if tx.nonce >= 2**64 - 1:
         raise InvalidBlock
@@ -976,7 +978,9 @@ def process_transaction(
 
     effective_gas_fee = tx.gas * env.gas_price
 
-    gas = tx.gas - calculate_intrinsic_cost(tx)
+    intrinsic_gas, tokens_in_calldata = calculate_intrinsic_cost(tx)
+
+    gas = tx.gas - intrinsic_gas
     increment_nonce(env.state, sender)
 
     sender_balance_after_gas_fee = (
@@ -1019,7 +1023,19 @@ def process_transaction(
 
     output = process_message_call(message, env)
 
+    # For EIP-7623 gas_used includes the intrinsic costs with the floor price
+    # for calldata.
     gas_used = tx.gas - output.gas_left
+
+    # EIP-7623 floor price (note: no EVM costs)
+
+    # Transactions with less gas used than the floor pay at the floor cost.
+    floor = Uint(tokens_in_calldata * FLOOR_CALLDATA_COST + TX_BASE_COST)
+    if gas_used < floor:
+        gas_used = floor
+
+    output.gas_left = tx.gas - gas_used
+
     gas_refund = min(gas_used // 5, output.refund_counter)
     gas_refund_amount = (output.gas_left + gas_refund) * env.gas_price
 
@@ -1056,7 +1072,7 @@ def process_transaction(
     return total_gas_used, output.logs, output.error
 
 
-def calculate_intrinsic_cost(tx: Transaction) -> Uint:
+def calculate_intrinsic_cost(tx: Transaction) -> Tuple[Uint, Uint]:
     """
     Calculates the gas that is charged before execution is started.
 
@@ -1078,14 +1094,19 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     -------
     verified : `ethereum.base_types.Uint`
         The intrinsic cost of the transaction.
+    tokens_in_calldata : `ethereum.base_types.Uint`
+        The eip-7623 calldata tokens used by the transaction.
     """
     data_cost = 0
 
+    zero_bytes = 0
     for byte in tx.data:
         if byte == 0:
-            data_cost += TX_DATA_COST_PER_ZERO
-        else:
-            data_cost += TX_DATA_COST_PER_NON_ZERO
+            zero_bytes += 1
+
+    tokens_in_calldata = zero_bytes + (len(tx.data) - zero_bytes) * 4
+
+    data_cost = tokens_in_calldata * STANDARD_CALLDATA_TOKEN_COST
 
     if tx.to == Bytes0(b""):
         create_cost = TX_CREATE_COST + int(init_code_cost(Uint(len(tx.data))))
@@ -1110,8 +1131,15 @@ def calculate_intrinsic_cost(tx: Transaction) -> Uint:
     if isinstance(tx, SetCodeTransaction):
         auth_cost += PER_EMPTY_ACCOUNT_COST * len(tx.authorizations)
 
-    return Uint(
-        TX_BASE_COST + data_cost + create_cost + access_list_cost + auth_cost
+    return (
+        Uint(
+            TX_BASE_COST
+            + data_cost
+            + create_cost
+            + access_list_cost
+            + auth_cost
+        ),
+        Uint(tokens_in_calldata),
     )
 
 
