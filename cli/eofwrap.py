@@ -232,7 +232,14 @@ class EofWrapper:
         return short
 
     def _wrap_fixture(self, fixture: BlockchainFixture, traces: bool):
-        env = Environment()
+        env = Environment(
+            difficulty=fixture.genesis.difficulty,
+            gas_limit=fixture.genesis.gas_limit,
+            base_fee_per_gas=fixture.genesis.base_fee_per_gas,
+            blob_gas_used=fixture.genesis.blob_gas_used,
+            excess_blob_gas=fixture.genesis.excess_blob_gas,
+            parent_beacon_block_root=fixture.genesis.parent_beacon_block_root,
+        )
 
         pre = fixture.pre
 
