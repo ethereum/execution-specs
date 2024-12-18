@@ -19,12 +19,17 @@ from py_ecc.optimized_bls12_381.optimized_curve import normalize
 from ethereum.base_types import U256, Uint
 
 from ....vm import Evm
-from ....vm.gas import charge_gas
+from ....vm.gas import (
+    GAS_BLS_G1_ADD,
+    GAS_BLS_G1_MAP,
+    GAS_BLS_G1_MUL,
+    charge_gas,
+)
 from ....vm.memory import buffer_read
 from ...exceptions import InvalidParameter
 from . import (
-    K_DISCOUNT,
-    MAX_DISCOUNT,
+    G1_K_DISCOUNT,
+    G1_MAX_DISCOUNT,
     MULTIPLIER,
     G1_to_bytes,
     bytes_to_FQ,
@@ -54,7 +59,7 @@ def bls12_g1_add(evm: Evm) -> None:
         raise InvalidParameter("Invalid Input Length")
 
     # GAS
-    charge_gas(evm, Uint(375))
+    charge_gas(evm, Uint(GAS_BLS_G1_ADD))
 
     # OPERATION
     p1 = bytes_to_G1(buffer_read(data, U256(0), U256(128)))
@@ -84,7 +89,7 @@ def bls12_g1_multiply(evm: Evm) -> None:
         raise InvalidParameter("Invalid Input Length")
 
     # GAS
-    charge_gas(evm, Uint(12000))
+    charge_gas(evm, Uint(GAS_BLS_G1_MUL))
 
     # OPERATION
     p, m = decode_G1_scalar_pair(data)
@@ -118,11 +123,11 @@ def bls12_g1_msm(evm: Evm) -> None:
     # GAS
     k = len(data) // LENGTH_PER_PAIR
     if k <= 128:
-        discount = K_DISCOUNT[k - 1]
+        discount = G1_K_DISCOUNT[k - 1]
     else:
-        discount = MAX_DISCOUNT
+        discount = G1_MAX_DISCOUNT
 
-    gas_cost = Uint(k * 12000 * discount // MULTIPLIER)
+    gas_cost = Uint(k * GAS_BLS_G1_MUL * discount // MULTIPLIER)
     charge_gas(evm, gas_cost)
 
     # OPERATION
@@ -160,7 +165,7 @@ def bls12_map_fp_to_g1(evm: Evm) -> None:
         raise InvalidParameter("Invalid Input Length")
 
     # GAS
-    charge_gas(evm, Uint(5500))
+    charge_gas(evm, Uint(GAS_BLS_G1_MAP))
 
     # OPERATION
     field_element = bytes_to_FQ(data, True)
