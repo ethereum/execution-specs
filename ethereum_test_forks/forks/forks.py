@@ -18,6 +18,7 @@ from ..base_fork import (
     BaseFork,
     CalldataGasCalculator,
     MemoryExpansionGasCalculator,
+    TransactionDataFloorCostCalculator,
     TransactionIntrinsicCostCalculator,
 )
 from ..gas_costs import GasCosts
@@ -140,6 +141,8 @@ class Frontier(BaseFork, solc_name="homestead"):
             G_MEMORY=3,
             G_TX_DATA_ZERO=4,
             G_TX_DATA_NON_ZERO=68,
+            G_TX_DATA_STANDARD_TOKEN_COST=0,
+            G_TX_DATA_FLOOR_TOKEN_COST=0,
             G_TRANSACTION=21_000,
             G_TRANSACTION_CREATE=32_000,
             G_LOG=375,
@@ -184,7 +187,7 @@ class Frontier(BaseFork, solc_name="homestead"):
         """
         gas_costs = cls.gas_costs(block_number, timestamp)
 
-        def fn(*, data: BytesConvertible) -> int:
+        def fn(*, data: BytesConvertible, floor: bool = False) -> int:
             cost = 0
             for b in Bytes(data):
                 if b == 0:
@@ -192,6 +195,19 @@ class Frontier(BaseFork, solc_name="homestead"):
                 else:
                     cost += gas_costs.G_TX_DATA_NON_ZERO
             return cost
+
+        return fn
+
+    @classmethod
+    def transaction_data_floor_cost_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> TransactionDataFloorCostCalculator:
+        """
+        At frontier, the transaction data floor cost is a constant zero.
+        """
+
+        def fn(*, data: BytesConvertible) -> int:
+            return 0
 
         return fn
 
@@ -211,6 +227,7 @@ class Frontier(BaseFork, solc_name="homestead"):
             contract_creation: bool = False,
             access_list: List[AccessList] | None = None,
             authorization_list_or_count: Sized | int | None = None,
+            return_cost_deducted_prior_execution: bool = False,
         ) -> int:
             assert access_list is None, f"Access list is not supported in {cls.name()}"
             assert (
@@ -633,6 +650,7 @@ class Homestead(Frontier):
             contract_creation: bool = False,
             access_list: List[AccessList] | None = None,
             authorization_list_or_count: Sized | int | None = None,
+            return_cost_deducted_prior_execution: bool = False,
         ) -> int:
             intrinsic_cost: int = super_fn(
                 calldata=calldata,
@@ -764,7 +782,7 @@ class Istanbul(ConstantinopleFix):
     @classmethod
     def gas_costs(cls, block_number: int = 0, timestamp: int = 0) -> GasCosts:
         """
-        Returns a dataclass with the defined gas costs constants for genesis.
+        On Istanbul, the non-zero transaction data byte cost is reduced to 16 due to EIP-2028.
         """
         return replace(
             super(Istanbul, cls).gas_costs(block_number, timestamp),
@@ -818,6 +836,7 @@ class Berlin(Istanbul):
             contract_creation: bool = False,
             access_list: List[AccessList] | None = None,
             authorization_list_or_count: Sized | int | None = None,
+            return_cost_deducted_prior_execution: bool = False,
         ) -> int:
             intrinsic_cost: int = super_fn(
                 calldata=calldata,
@@ -1128,6 +1147,17 @@ class Prague(Cancun):
         )
 
     @classmethod
+    def gas_costs(cls, block_number: int = 0, timestamp: int = 0) -> GasCosts:
+        """
+        On Prague, the standard token cost and the floor token costs are introduced due to EIP-7623
+        """
+        return replace(
+            super(Prague, cls).gas_costs(block_number, timestamp),
+            G_TX_DATA_STANDARD_TOKEN_COST=4,  # https://eips.ethereum.org/EIPS/eip-7623
+            G_TX_DATA_FLOOR_TOKEN_COST=10,
+        )
+
+    @classmethod
     def system_contracts(cls, block_number: int = 0, timestamp: int = 0) -> List[Address]:
         """
         Prague introduces the system contracts for EIP-6110, EIP-7002, EIP-7251 and EIP-2935
@@ -1147,6 +1177,44 @@ class Prague(Cancun):
         return 2
 
     @classmethod
+    def calldata_gas_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> CalldataGasCalculator:
+        """
+        Returns a callable that calculates the transaction gas cost for its calldata
+        depending on its contents.
+        """
+        gas_costs = cls.gas_costs(block_number, timestamp)
+
+        def fn(*, data: BytesConvertible, floor: bool = False) -> int:
+            tokens = 0
+            for b in Bytes(data):
+                if b == 0:
+                    tokens += 1
+                else:
+                    tokens += 4
+            if floor:
+                return tokens * gas_costs.G_TX_DATA_FLOOR_TOKEN_COST
+            return tokens * gas_costs.G_TX_DATA_STANDARD_TOKEN_COST
+
+        return fn
+
+    @classmethod
+    def transaction_data_floor_cost_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> TransactionDataFloorCostCalculator:
+        """
+        Starting in Prague, due to EIP-7623, the transaction data floor cost is introduced.
+        """
+        calldata_gas_calculator = cls.calldata_gas_calculator(block_number, timestamp)
+        gas_costs = cls.gas_costs(block_number, timestamp)
+
+        def fn(*, data: BytesConvertible) -> int:
+            return calldata_gas_calculator(data=data, floor=True) + gas_costs.G_TRANSACTION
+
+        return fn
+
+    @classmethod
     def transaction_intrinsic_cost_calculator(
         cls, block_number: int = 0, timestamp: int = 0
     ) -> TransactionIntrinsicCostCalculator:
@@ -1157,6 +1225,9 @@ class Prague(Cancun):
             block_number, timestamp
         )
         gas_costs = cls.gas_costs(block_number, timestamp)
+        transaction_data_floor_cost_calculator = cls.transaction_data_floor_cost_calculator(
+            block_number, timestamp
+        )
 
         def fn(
             *,
@@ -1164,17 +1235,24 @@ class Prague(Cancun):
             contract_creation: bool = False,
             access_list: List[AccessList] | None = None,
             authorization_list_or_count: Sized | int | None = None,
+            return_cost_deducted_prior_execution: bool = False,
         ) -> int:
             intrinsic_cost: int = super_fn(
                 calldata=calldata,
                 contract_creation=contract_creation,
                 access_list=access_list,
+                return_cost_deducted_prior_execution=False,
             )
             if authorization_list_or_count is not None:
                 if isinstance(authorization_list_or_count, Sized):
                     authorization_list_or_count = len(authorization_list_or_count)
                 intrinsic_cost += authorization_list_or_count * gas_costs.G_AUTHORIZATION
-            return intrinsic_cost
+
+            if return_cost_deducted_prior_execution:
+                return intrinsic_cost
+
+            transaction_floor_data_cost = transaction_data_floor_cost_calculator(data=calldata)
+            return max(intrinsic_cost, transaction_floor_data_cost)
 
         return fn
 

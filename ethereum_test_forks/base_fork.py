@@ -44,6 +44,18 @@ class CalldataGasCalculator(Protocol):
     A protocol to calculate the transaction gas cost of calldata for a given fork.
     """
 
+    def __call__(self, *, data: BytesConvertible, floor: bool = False) -> int:
+        """
+        Returns the transaction gas cost of calldata given its contents.
+        """
+        pass
+
+
+class TransactionDataFloorCostCalculator(Protocol):
+    """
+    A protocol to calculate the transaction floor cost due to its calldata for a given fork.
+    """
+
     def __call__(self, *, data: BytesConvertible) -> int:
         """
         Returns the transaction gas cost of calldata given its contents.
@@ -63,9 +75,24 @@ class TransactionIntrinsicCostCalculator(Protocol):
         contract_creation: bool = False,
         access_list: List[AccessList] | None = None,
         authorization_list_or_count: Sized | int | None = None,
+        return_cost_deducted_prior_execution: bool = False,
     ) -> int:
         """
         Returns the intrinsic gas cost of a transaction given its properties.
+
+        Args:
+            calldata: The data of the transaction.
+            contract_creation: Whether the transaction creates a contract.
+            access_list: The list of access lists for the transaction.
+            authorization_list_or_count: The list of authorizations or the count of authorizations
+                for the transaction.
+            return_cost_deducted_prior_execution: If set to False, the returned value is equal to
+                the minimum gas required for the transaction to be valid. If set to True, the
+                returned value is equal to the cost that is deducted from the gas limit before
+                the transaction starts execution.
+
+        Returns:
+            Gas cost of a transaction
         """
         pass
 
@@ -233,6 +260,16 @@ class BaseFork(ABC, metaclass=BaseForkMeta):
         """
         Returns a callable that calculates the transaction gas cost for its calldata
         depending on its contents.
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def transaction_data_floor_cost_calculator(
+        cls, block_number: int = 0, timestamp: int = 0
+    ) -> TransactionDataFloorCostCalculator:
+        """
+        Returns a callable that calculates the transaction floor cost due to its calldata.
         """
         pass
 
