@@ -54,7 +54,7 @@ def bls12_g1_add(evm: Evm) -> None:
         raise InvalidParameter("Invalid Input Length")
 
     # GAS
-    charge_gas(evm, Uint(500))
+    charge_gas(evm, Uint(375))
 
     # OPERATION
     p1 = bytes_to_G1(buffer_read(data, U256(0), U256(128)))

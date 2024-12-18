@@ -54,7 +54,7 @@ def bls12_g2_add(evm: Evm) -> None:
         raise InvalidParameter("Invalid Input Length")
 
     # GAS
-    charge_gas(evm, Uint(800))
+    charge_gas(evm, Uint(600))
 
     # OPERATION
     p1 = bytes_to_G2(buffer_read(data, U256(0), U256(256)))
@@ -84,7 +84,7 @@ def bls12_g2_multiply(evm: Evm) -> None:
         raise InvalidParameter("Invalid Input Length")
 
     # GAS
-    charge_gas(evm, Uint(45000))
+    charge_gas(evm, Uint(22500))
 
     # OPERATION
     p, m = decode_G2_scalar_pair(data)
@@ -160,7 +160,7 @@ def bls12_map_fp2_to_g2(evm: Evm) -> None:
         raise InvalidParameter("Invalid Input Length")
 
     # GAS
-    charge_gas(evm, Uint(75000))
+    charge_gas(evm, Uint(23800))
 
     # OPERATION
     field_element = bytes_to_FQ2(data, True)
