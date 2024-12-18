@@ -38,6 +38,7 @@ import pytest
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     EOA,
+    AccessList,
     Account,
     Address,
     Alloc,
@@ -559,9 +560,15 @@ def test_tx_entry_point(
     start_balance = 10**18
     sender = pre.fund_eoa(amount=start_balance)
 
+    # Starting from EIP-7623, we need to use an access list to raise the intrinsic gas cost to be
+    # above the floor data cost.
+    access_list = [AccessList(address=Address(i), storage_keys=[]) for i in range(1, 10)]
+
     # Gas is appended the intrinsic gas cost of the transaction
     tx_intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
-    intrinsic_gas_cost = tx_intrinsic_gas_cost_calculator(calldata=precompile_input)
+    intrinsic_gas_cost = tx_intrinsic_gas_cost_calculator(
+        calldata=precompile_input, access_list=access_list
+    )
 
     # Consumed gas will only be the precompile gas if the proof is correct and
     # the call gas is sufficient.
@@ -570,13 +577,17 @@ def test_tx_entry_point(
         Spec.POINT_EVALUATION_PRECOMPILE_GAS
         if call_gas >= Spec.POINT_EVALUATION_PRECOMPILE_GAS and proof_correct
         else call_gas
-    ) + intrinsic_gas_cost
-
+    ) + tx_intrinsic_gas_cost_calculator(
+        calldata=precompile_input,
+        access_list=access_list,
+        return_cost_deducted_prior_execution=True,
+    )
     fee_per_gas = 7
 
     tx = Transaction(
         sender=sender,
         data=precompile_input,
+        access_list=access_list,
         to=Address(Spec.POINT_EVALUATION_PRECOMPILE_ADDRESS),
         gas_limit=call_gas + intrinsic_gas_cost,
         gas_price=fee_per_gas,

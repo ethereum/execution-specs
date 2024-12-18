@@ -5,12 +5,12 @@ abstract: Tests [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethe
 
 """  # noqa: E501
 import itertools
-from typing import Mapping
+from typing import List, Mapping
 
 import pytest
 
 from ethereum_test_forks import Fork
-from ethereum_test_tools import Account, Address, Alloc, Bytecode, Environment
+from ethereum_test_tools import AccessList, Account, Address, Alloc, Bytecode, Environment
 from ethereum_test_tools import Opcodes as Op
 from ethereum_test_tools import StateTestFiller, Transaction
 
@@ -52,15 +52,26 @@ def callee_bytecode(dest: int, src: int, length: int) -> Bytecode:
 
 
 @pytest.fixture
+def tx_access_list() -> List[AccessList]:
+    """
+    Access list for the transaction.
+    """
+    return [AccessList(address=Address(i), storage_keys=[]) for i in range(1, 10)]
+
+
+@pytest.fixture
 def call_exact_cost(
     fork: Fork,
     initial_memory: bytes,
     dest: int,
     length: int,
+    tx_access_list: List[AccessList],
 ) -> int:
     """
     Returns the exact cost of the subcall, based on the initial memory and the length of the copy.
     """
+    # Starting from EIP-7623, we need to use an access list to raise the intrinsic gas cost to be
+    # above the floor data cost.
     cost_memory_bytes = fork.memory_expansion_gas_calculator()
     gas_costs = fork.gas_costs()
     tx_intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
@@ -81,7 +92,7 @@ def call_exact_cost(
 
     sstore_cost = 22100
     return (
-        tx_intrinsic_gas_cost_calculator(calldata=initial_memory)
+        tx_intrinsic_gas_cost_calculator(calldata=initial_memory, access_list=tx_access_list)
         + mcopy_cost
         + calldatacopy_cost
         + pushes_cost
@@ -133,10 +144,12 @@ def tx(  # noqa: D103
     initial_memory: bytes,
     tx_max_fee_per_gas: int,
     tx_gas_limit: int,
+    tx_access_list: List[AccessList],
 ) -> Transaction:
     return Transaction(
         sender=sender,
         to=caller_address,
+        access_list=tx_access_list,
         data=initial_memory,
         gas_limit=tx_gas_limit,
         max_fee_per_gas=tx_max_fee_per_gas,

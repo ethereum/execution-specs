@@ -7,11 +7,14 @@ note: Tests ported from:
     - [ethereum/tests/pull/1012](https://github.com/ethereum/tests/pull/990)
 """
 
+from typing import List
+
 import pytest
 
 from ethereum_test_forks import Fork
 from ethereum_test_tools import (
     EOA,
+    AccessList,
     Account,
     Address,
     Alloc,
@@ -208,14 +211,35 @@ class TestContractCreationGasUsage:
     """
 
     @pytest.fixture
-    def exact_intrinsic_gas(self, fork: Fork, initcode: Initcode) -> int:
+    def tx_access_list(self) -> List[AccessList]:
+        """
+        Starting from EIP-7623, we need to use an access list to raise the intrinsic gas cost to
+        be above the floor data cost.
+        """
+        return [AccessList(address=Address(i), storage_keys=[]) for i in range(1, 478)]
+
+    @pytest.fixture
+    def exact_intrinsic_gas(
+        self, fork: Fork, initcode: Initcode, tx_access_list: List[AccessList]
+    ) -> int:
         """
         Calculates the intrinsic tx gas cost.
         """
         tx_intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
+        assert tx_intrinsic_gas_cost_calculator(
+            calldata=initcode,
+            contract_creation=True,
+            access_list=tx_access_list,
+        ) == tx_intrinsic_gas_cost_calculator(
+            calldata=initcode,
+            contract_creation=True,
+            access_list=tx_access_list,
+            return_cost_deducted_prior_execution=True,
+        )
         return tx_intrinsic_gas_cost_calculator(
             calldata=initcode,
             contract_creation=True,
+            access_list=tx_access_list,
         )
 
     @pytest.fixture
@@ -241,6 +265,7 @@ class TestContractCreationGasUsage:
         sender: EOA,
         initcode: Initcode,
         gas_test_case: str,
+        tx_access_list: List[AccessList],
         tx_error: TransactionException | None,
         exact_intrinsic_gas: int,
         exact_execution_gas: int,
@@ -264,6 +289,7 @@ class TestContractCreationGasUsage:
         return Transaction(
             nonce=0,
             to=None,
+            access_list=tx_access_list,
             data=initcode,
             gas_limit=gas_limit,
             gas_price=10,
