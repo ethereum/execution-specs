@@ -77,7 +77,7 @@ class Authorization:
     The authorization for a set code transaction.
     """
 
-    chain_id: U64
+    chain_id: U256
     address: Address
     nonce: U64
     y_parity: U8

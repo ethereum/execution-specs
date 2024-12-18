@@ -117,7 +117,7 @@ class SetCodeTransaction:
     The transaction type added in EIP-7702.
     """
 
-    chain_id: U256
+    chain_id: U64
     nonce: U64
     max_priority_fee_per_gas: Uint
     max_fee_per_gas: Uint
