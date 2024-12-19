@@ -43,7 +43,7 @@ def bls12_pairing(evm: Evm) -> None:
 
     # GAS
     k = len(data) // 384
-    gas_cost = Uint(43000 * k + 65000)
+    gas_cost = Uint(32600 * k + 37700)
     charge_gas(evm, gas_cost)
 
     # OPERATION
