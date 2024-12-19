@@ -26,12 +26,12 @@ pytestmark = [
     vectors_from_file("multiexp_G1_bls.json")
     + [
         pytest.param(
-            (Spec.P1 + Scalar(Spec.Q)) * (len(Spec.MSM_DISCOUNT_TABLE) - 1),
+            (Spec.P1 + Scalar(Spec.Q)) * (len(Spec.G1MSM_DISCOUNT_TABLE) - 1),
             Spec.INF_G1,
             id="max_discount",
         ),
         pytest.param(
-            (Spec.P1 + Scalar(Spec.Q)) * len(Spec.MSM_DISCOUNT_TABLE),
+            (Spec.P1 + Scalar(Spec.Q)) * len(Spec.G1MSM_DISCOUNT_TABLE),
             Spec.INF_G1,
             id="max_discount_plus_1",
         ),
