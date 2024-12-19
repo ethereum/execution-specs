@@ -73,9 +73,10 @@ GAS_BLS_G2_ADD = Uint(600)
 GAS_BLS_G2_MUL = Uint(22500)
 GAS_BLS_G2_MAP = Uint(23800)
 
+TARGET_BLOB_GAS_PER_BLOCK = U64(786432)
 GAS_PER_BLOB = Uint(2**17)
 MIN_BLOB_GASPRICE = Uint(1)
-BLOB_BASE_FEE_UPDATE_FRACTION = Uint(5007716)
+BLOB_GASPRICE_UPDATE_FRACTION = Uint(5007716)
 
 
 @dataclass
@@ -276,8 +277,7 @@ def init_code_cost(init_code_length: Uint) -> Uint:
 def calculate_excess_blob_gas(parent_header: Header) -> U64:
     """
     Calculated the excess blob gas for the current block based
-    on the gas used in the parent block and the gas target set
-    in the current block.
+    on the gas used in the parent block.
 
     Parameters
     ----------
@@ -292,11 +292,10 @@ def calculate_excess_blob_gas(parent_header: Header) -> U64:
     parent_blob_gas = (
         parent_header.excess_blob_gas + parent_header.blob_gas_used
     )
-    target_blob_gas = GAS_PER_BLOB * parent_header.target_blobs_per_block
-    if parent_blob_gas < target_blob_gas:
+    if parent_blob_gas < TARGET_BLOB_GAS_PER_BLOCK:
         return U64(0)
     else:
-        return parent_blob_gas - target_blob_gas
+        return parent_blob_gas - TARGET_BLOB_GAS_PER_BLOCK
 
 
 def calculate_total_blob_gas(tx: Transaction) -> Uint:
@@ -336,7 +335,7 @@ def calculate_blob_gas_price(excess_blob_gas: U64) -> Uint:
     return taylor_exponential(
         MIN_BLOB_GASPRICE,
         Uint(excess_blob_gas),
-        BLOB_BASE_FEE_UPDATE_FRACTION,
+        BLOB_GASPRICE_UPDATE_FRACTION,
     )
 
 

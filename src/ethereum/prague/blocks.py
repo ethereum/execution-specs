@@ -74,7 +74,6 @@ class Header:
     excess_blob_gas: U64
     parent_beacon_block_root: Root
     requests_hash: Hash32
-    target_blobs_per_block: U64
 
 
 @slotted_freezable

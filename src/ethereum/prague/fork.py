@@ -802,7 +802,8 @@ def apply_body(
 
         block_logs += logs
         blob_gas_used += calculate_total_blob_gas(tx)
-
+    if blob_gas_used > MAX_BLOB_GAS_PER_BLOCK:
+        raise InvalidBlock
     block_gas_used = block_gas_limit - gas_available
 
     block_logs_bloom = logs_bloom(block_logs)

@@ -308,7 +308,6 @@ class Result:
     blob_gas_used: Optional[Uint] = None
     requests_hash: Optional[Hash32] = None
     requests: Optional[List[Bytes]] = None
-    target_blobs_per_block: Optional[U64] = None
 
     def to_json(self) -> Any:
         """Encode the result to JSON"""
@@ -358,8 +357,5 @@ class Result:
             # T8N doesn't consider the request type byte to be part of the
             # request
             data["requests"] = [encode_to_hex(req) for req in self.requests]
-
-        if self.target_blobs_per_block is not None:
-            data["currentBlobsPerBlock"] = hex(self.target_blobs_per_block)
 
         return data
