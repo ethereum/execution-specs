@@ -83,11 +83,6 @@ class ForkLoad:
         return self._module("fork").HISTORY_SERVE_WINDOW
 
     @property
-    def GAS_PER_BLOB(self) -> Any:
-        """GAS_PER_BLOB of the given fork."""
-        return self._module("vm.gas").GAS_PER_BLOB
-
-    @property
     def process_general_purpose_requests(self) -> Any:
         """process_general_purpose_requests function of the given fork."""
         return self._module("fork").process_general_purpose_requests
