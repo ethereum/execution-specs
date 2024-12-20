@@ -16,6 +16,7 @@ The state trie is the structure responsible for storing
 import copy
 from dataclasses import dataclass, field
 from typing import (
+    Annotated,
     Callable,
     Dict,
     Generic,
@@ -98,7 +99,7 @@ class ExtensionNode:
 class BranchNode:
     """Branch node in the Merkle Trie"""
 
-    subnodes: Tuple[rlp.Extended, ...]
+    subnodes: Annotated[Tuple[rlp.Extended], 16]
     value: rlp.Extended
 
 
