@@ -2274,16 +2274,16 @@ def test_signature_s_out_of_range(
 
 
 @pytest.mark.parametrize(
-    "chain_id",
+    "auth_chain_id",
     [
-        pytest.param(Spec.MAX_CHAIN_ID, id="chain_id=2**64-1"),
+        pytest.param(Spec.MAX_AUTH_CHAIN_ID, id="auth_chain_id=2**256-1"),
         pytest.param(2, id="chain_id=2"),
     ],
 )
 def test_valid_tx_invalid_chain_id(
     state_test: StateTestFiller,
     pre: Alloc,
-    chain_id: int,
+    auth_chain_id: int,
 ):
     """
     Test sending a transaction where the chain id field does not match the current chain's id.
@@ -2299,7 +2299,7 @@ def test_valid_tx_invalid_chain_id(
     authorization = AuthorizationTuple(
         address=set_code_to_address,
         nonce=0,
-        chain_id=chain_id,
+        chain_id=auth_chain_id,
         signer=auth_signer,
     )
 

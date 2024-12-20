@@ -102,10 +102,9 @@ def test_invalid_auth_signature(
 
 
 @pytest.mark.parametrize(
-    "chain_id",
+    "auth_chain_id",
     [
-        pytest.param(Spec.MAX_CHAIN_ID + 1, id="chain_id=2**64"),
-        pytest.param(2**256, id="chain_id=2**256"),
+        pytest.param(Spec.MAX_AUTH_CHAIN_ID + 1, id="auth_chain_id=2**256"),
     ],
 )
 @pytest.mark.parametrize(
@@ -115,10 +114,10 @@ def test_invalid_auth_signature(
         pytest.param(Address(1), id="non_zero_address"),
     ],
 )
-def test_invalid_tx_invalid_chain_id(
+def test_invalid_tx_invalid_auth_chain_id(
     transaction_test: TransactionTestFiller,
     pre: Alloc,
-    chain_id: int,
+    auth_chain_id: int,
     delegate_address: Address,
 ):
     """
@@ -128,7 +127,7 @@ def test_invalid_tx_invalid_chain_id(
     authorization = AuthorizationTuple(
         address=delegate_address,
         nonce=0,
-        chain_id=chain_id,
+        chain_id=auth_chain_id,
         signer=pre.fund_eoa(auth_account_start_balance),
     )
 
