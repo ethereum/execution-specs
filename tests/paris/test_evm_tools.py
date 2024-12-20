@@ -11,8 +11,8 @@ from tests.helpers.load_evm_tools_tests import (
 )
 
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
-TEST_DIR = f"{ETHEREUM_TESTS_PATH}/GeneralStateTests/"
-FORK_NAME = "Merge"
+TEST_DIR = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Cancun/GeneralStateTests/"
+FORK_NAME = "Paris"
 
 run_evm_tools_test = partial(
     load_evm_tools_test,
