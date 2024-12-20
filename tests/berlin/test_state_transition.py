@@ -27,7 +27,7 @@ run_berlin_blockchain_st_tests = partial(
 ETHEREUM_TESTS_PATH = TEST_FIXTURES["ethereum_tests"]["fixture_path"]
 
 # Run state tests
-test_dir = f"{ETHEREUM_TESTS_PATH}/BlockchainTests/"
+test_dir = f"{ETHEREUM_TESTS_PATH}/LegacyTests/Cancun/BlockchainTests/"
 
 # Every test below takes more than  60s to run and
 # hence they've been marked as slow
