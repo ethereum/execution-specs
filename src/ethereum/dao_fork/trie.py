@@ -16,6 +16,7 @@ The state trie is the structure responsible for storing
 import copy
 from dataclasses import dataclass, field
 from typing import (
+    Annotated,
     Callable,
     Dict,
     Generic,
@@ -24,6 +25,7 @@ from typing import (
     MutableMapping,
     Optional,
     Sequence,
+    Tuple,
     TypeVar,
     Union,
 )
@@ -97,7 +99,7 @@ class ExtensionNode:
 class BranchNode:
     """Branch node in the Merkle Trie"""
 
-    subnodes: List[rlp.Extended]
+    subnodes: Annotated[Tuple[rlp.Extended, ...], 16]
     value: rlp.Extended
 
 
@@ -137,7 +139,7 @@ def encode_internal_node(node: Optional[InternalNode]) -> rlp.Extended:
             node.subnode,
         )
     elif isinstance(node, BranchNode):
-        unencoded = node.subnodes + [node.value]
+        unencoded = list(node.subnodes) + [node.value]
     else:
         raise AssertionError(f"Invalid internal node type {type(node)}!")
 
@@ -459,9 +461,9 @@ def patricialize(
             branches[key[level]][key] = obj[key]
 
     return BranchNode(
-        [
+        (
             encode_internal_node(patricialize(branches[k], level + Uint(1)))
             for k in range(16)
-        ],
+        ),
         value,
     )
