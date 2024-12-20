@@ -70,34 +70,6 @@ def bls12_g1_add(evm: Evm) -> None:
     evm.output = G1_to_bytes(result)
 
 
-def bls12_g1_multiply(evm: Evm) -> None:
-    """
-    The bls12_381 G1 multiplication precompile.
-
-    Parameters
-    ----------
-    evm :
-        The current EVM frame.
-
-    Raises
-    ------
-    InvalidParameter
-        If the input length is invalid.
-    """
-    data = evm.message.data
-    if len(data) != LENGTH_PER_PAIR:
-        raise InvalidParameter("Invalid Input Length")
-
-    # GAS
-    charge_gas(evm, Uint(GAS_BLS_G1_MUL))
-
-    # OPERATION
-    p, m = decode_G1_scalar_pair(data)
-    result = multiply(p, m)
-
-    evm.output = G1_to_bytes(result)
-
-
 def bls12_g1_msm(evm: Evm) -> None:
     """
     The bls12_381 G1 multi-scalar multiplication precompile.
