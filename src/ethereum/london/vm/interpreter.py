@@ -33,6 +33,7 @@ from ..fork_types import Address
 from ..state import (
     account_exists_and_is_empty,
     account_has_code_or_nonce,
+    account_has_storage,
     begin_transaction,
     commit_transaction,
     destroy_storage,
@@ -109,7 +110,7 @@ def process_message_call(
     if message.target == Bytes0(b""):
         is_collision = account_has_code_or_nonce(
             env.state, message.current_target
-        )
+        ) or account_has_storage(env.state, message.current_target)
         if is_collision:
             return MessageCallOutput(
                 Uint(0), U256(0), tuple(), set(), set(), AddressCollision()
