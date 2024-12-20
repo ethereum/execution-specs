@@ -30,6 +30,9 @@ from .types import TransactionReceipt, TransitionToolInput, TransitionToolOutput
 
 model_dump_config: Mapping = {"by_alias": True, "exclude_none": True}
 
+NORMAL_SERVER_TIMEOUT = 20
+SLOW_REQUEST_TIMEOUT = 60
+
 
 class TransitionTool(EthereumCLI, FixtureVerifier):
     """
@@ -276,6 +279,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
     def _server_post(
         self,
         data: Dict[str, Any],
+        timeout: int,
         url_args: Dict[str, List[str] | str] = {},
         retries: int = 5,
     ) -> Response:
@@ -288,7 +292,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
                 response = Session().post(
                     f"{self.server_url}?{urlencode(url_args, doseq=True)}",
                     json=data,
-                    timeout=20,
+                    timeout=timeout,
                 )
                 break
             except ConnectionError as e:
@@ -316,6 +320,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         *,
         t8n_data: TransitionToolData,
         debug_output_path: str = "",
+        timeout: int,
     ) -> TransitionToolOutput:
         """
         Executes the transition tool sending inputs and outputs via a server.
@@ -349,7 +354,9 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
                 },
             )
 
-        response = self._server_post(data=post_data, url_args=self._generate_post_args(t8n_data))
+        response = self._server_post(
+            data=post_data, url_args=self._generate_post_args(t8n_data), timeout=timeout
+        )
         output: TransitionToolOutput = TransitionToolOutput.model_validate(response.json())
 
         if debug_output_path:
@@ -496,6 +503,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         eips: Optional[List[int]] = None,
         debug_output_path: str = "",
         state_test: bool = False,
+        slow_request: bool = False,
     ) -> TransitionToolOutput:
         """
         Executes the relevant evaluate method as required by the `t8n` tool.
@@ -524,7 +532,11 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         if self.t8n_use_server:
             if not self.process:
                 self.start_server()
-            return self._evaluate_server(t8n_data=t8n_data, debug_output_path=debug_output_path)
+            return self._evaluate_server(
+                t8n_data=t8n_data,
+                debug_output_path=debug_output_path,
+                timeout=SLOW_REQUEST_TIMEOUT if slow_request else NORMAL_SERVER_TIMEOUT,
+            )
 
         if self.t8n_use_stream:
             return self._evaluate_stream(t8n_data=t8n_data, debug_output_path=debug_output_path)

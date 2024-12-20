@@ -1,9 +1,10 @@
 """
 Helper functions
 """
-
 from dataclasses import dataclass
 from typing import Dict, List
+
+import pytest
 
 from ethereum_clis import Result
 from ethereum_test_exceptions import ExceptionBase, ExceptionMapper, UndefinedException
@@ -150,3 +151,12 @@ def verify_transactions(
         verify_transaction_exception(exception_mapper=exception_mapper, info=info)
 
     return list(rejected_txs.keys())
+
+
+def is_slow_test(request: pytest.FixtureRequest) -> bool:
+    """
+    Check if the test is slow
+    """
+    if hasattr(request, "node"):
+        return request.node.get_closest_marker("slow") is not None
+    return False

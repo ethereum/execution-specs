@@ -109,6 +109,7 @@ class BesuTransitionTool(TransitionTool):
         eips: Optional[List[int]] = None,
         debug_output_path: str = "",
         state_test: bool = False,
+        slow_request: bool = False,
     ) -> TransitionToolOutput:
         """
         Executes `evm t8n` with the specified arguments.

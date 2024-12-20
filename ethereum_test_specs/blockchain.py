@@ -45,7 +45,7 @@ from ethereum_test_types import Alloc, Environment, Removable, Requests, Transac
 
 from .base import BaseTest, verify_result
 from .debugging import print_traces
-from .helpers import verify_transactions
+from .helpers import is_slow_test, verify_transactions
 
 
 def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
@@ -384,6 +384,7 @@ class BlockchainTest(BaseTest):
         previous_env: Environment,
         previous_alloc: Alloc,
         eips: Optional[List[int]] = None,
+        slow: bool = False,
     ) -> Tuple[FixtureHeader, List[Transaction], List[Bytes] | None, Alloc, Environment]:
         """
         Generate common block data for both make_fixture and make_hive_fixture.
@@ -420,6 +421,7 @@ class BlockchainTest(BaseTest):
             reward=fork.get_reward(env.number, env.timestamp),
             eips=eips,
             debug_output_path=self.get_next_transition_tool_output_path(),
+            slow_request=slow,
         )
 
         try:
@@ -528,6 +530,7 @@ class BlockchainTest(BaseTest):
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
+        slow: bool = False,
     ) -> Fixture:
         """
         Create a fixture from the blockchain test definition.
@@ -552,6 +555,7 @@ class BlockchainTest(BaseTest):
                     previous_env=env,
                     previous_alloc=alloc,
                     eips=eips,
+                    slow=slow,
                 )
                 fixture_block = FixtureBlockBase(
                     header=header,
@@ -610,6 +614,7 @@ class BlockchainTest(BaseTest):
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
+        slow: bool = False,
     ) -> EngineFixture:
         """
         Create a hive fixture from the blocktest definition.
@@ -623,7 +628,13 @@ class BlockchainTest(BaseTest):
 
         for block in self.blocks:
             header, txs, requests, new_alloc, new_env = self.generate_block_data(
-                t8n=t8n, fork=fork, block=block, previous_env=env, previous_alloc=alloc, eips=eips
+                t8n=t8n,
+                fork=fork,
+                block=block,
+                previous_env=env,
+                previous_alloc=alloc,
+                eips=eips,
+                slow=slow,
             )
             if block.rlp is None:
                 fixture_payloads.append(
@@ -701,9 +712,9 @@ class BlockchainTest(BaseTest):
         """
         t8n.reset_traces()
         if fixture_format == BlockchainEngineFixture:
-            return self.make_hive_fixture(t8n, fork, eips)
+            return self.make_hive_fixture(t8n, fork, eips, slow=is_slow_test(request))
         elif fixture_format == BlockchainFixture:
-            return self.make_fixture(t8n, fork, eips)
+            return self.make_fixture(t8n, fork, eips, slow=is_slow_test(request))
 
         raise Exception(f"Unknown fixture format: {fixture_format}")
 

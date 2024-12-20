@@ -30,7 +30,7 @@ from ethereum_test_types import Alloc, Environment, Transaction
 from .base import BaseTest
 from .blockchain import Block, BlockchainTest, Header
 from .debugging import print_traces
-from .helpers import verify_transactions
+from .helpers import is_slow_test, verify_transactions
 
 TARGET_BLOB_GAS_PER_BLOCK = 393216
 
@@ -124,6 +124,7 @@ class StateTest(BaseTest):
         t8n: TransitionTool,
         fork: Fork,
         eips: Optional[List[int]] = None,
+        slow: bool = False,
     ) -> Fixture:
         """
         Create a fixture from the state test definition.
@@ -151,6 +152,7 @@ class StateTest(BaseTest):
             eips=eips,
             debug_output_path=self.get_next_transition_tool_output_path(),
             state_test=True,
+            slow_request=slow,
         )
 
         try:
@@ -199,7 +201,7 @@ class StateTest(BaseTest):
                 request=request, t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
             )
         elif fixture_format == StateFixture:
-            return self.make_state_test_fixture(t8n, fork, eips)
+            return self.make_state_test_fixture(t8n, fork, eips, slow=is_slow_test(request))
 
         raise Exception(f"Unknown fixture format: {fixture_format}")
 
