@@ -99,7 +99,7 @@ class ExtensionNode:
 class BranchNode:
     """Branch node in the Merkle Trie"""
 
-    subnodes: Annotated[Tuple[rlp.Extended], 16]
+    subnodes: Annotated[Tuple[rlp.Extended, ...], 16]
     value: rlp.Extended
 
 
