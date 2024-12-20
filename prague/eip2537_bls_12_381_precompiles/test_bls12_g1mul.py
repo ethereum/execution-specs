@@ -17,7 +17,7 @@ REFERENCE_SPEC_VERSION = ref_spec_2537.version
 
 pytestmark = [
     pytest.mark.valid_from("Prague"),
-    pytest.mark.parametrize("precompile_address", [Spec.G1MUL], ids=[""]),
+    pytest.mark.parametrize("precompile_address", [Spec.G1MSM], ids=[""]),
 ]
 
 

@@ -116,14 +116,12 @@ class Spec:
 
     # Addresses
     G1ADD = 0x0B
-    G1MUL = 0x0C
-    G1MSM = 0x0D
-    G2ADD = 0x0E
-    G2MUL = 0x0F
-    G2MSM = 0x10
-    PAIRING = 0x11
-    MAP_FP_TO_G1 = 0x12
-    MAP_FP2_TO_G2 = 0x13
+    G1MSM = 0x0C
+    G2ADD = 0x0D
+    G2MSM = 0x0E
+    PAIRING = 0x0F
+    MAP_FP_TO_G1 = 0x10
+    MAP_FP2_TO_G2 = 0x11
 
     # Gas constants
     G1ADD_GAS = 375
@@ -288,10 +286,8 @@ def pairing_gas(input_length: int) -> int:
 
 GAS_CALCULATION_FUNCTION_MAP = {
     Spec.G1ADD: lambda _: Spec.G1ADD_GAS,
-    Spec.G1MUL: lambda _: Spec.G1MUL_GAS,
     Spec.G1MSM: msm_gas_func_gen(BLS12Group.G1, len(PointG1() + Scalar()), Spec.G1MUL_GAS),
     Spec.G2ADD: lambda _: Spec.G2ADD_GAS,
-    Spec.G2MUL: lambda _: Spec.G2MUL_GAS,
     Spec.G2MSM: msm_gas_func_gen(BLS12Group.G2, len(PointG2() + Scalar()), Spec.G2MUL_GAS),
     Spec.PAIRING: pairing_gas,
     Spec.MAP_FP_TO_G1: lambda _: Spec.MAP_FP_TO_G1_GAS,
