@@ -1,6 +1,5 @@
-"""
-Memory expansion tests for DATACOPY
-"""
+"""Memory expansion tests for DATACOPY."""
+
 from typing import Mapping, Tuple
 
 import pytest
@@ -29,9 +28,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 @pytest.fixture
 def callee_bytecode(dest: int, src: int, length: int, data_section: bytes) -> Container:
-    """
-    Callee performs a single datacopy operation and then returns.
-    """
+    """Callee performs a single datacopy operation and then returns."""
     bytecode = Bytecode()
 
     # Copy the initial memory
@@ -55,9 +52,7 @@ def subcall_exact_cost(
     dest: int,
     length: int,
 ) -> int:
-    """
-    Returns the exact cost of the subcall, based on the initial memory and the length of the copy.
-    """
+    """Return exact cost of the subcall, based on the initial memory and the length of the copy."""
     cost_memory_bytes = fork.memory_expansion_gas_calculator()
 
     datacopy_cost = 3
@@ -83,7 +78,7 @@ def bytecode_storage(
     memory_expansion_address: Address,
 ) -> Tuple[Bytecode, Storage.StorageDictType]:
     """
-    Prepares the bytecode and storage for the test, based on the expected result of the subcall
+    Prepare bytecode and storage for the test, based on the expected result of the subcall
     (whether it succeeds or fails depending on the length of the memory expansion).
     """
     bytecode = Bytecode()
@@ -228,9 +223,7 @@ def test_datacopy_memory_expansion(
     post: Mapping[str, Account],
     tx: Transaction,
 ):
-    """
-    Perform DATACOPY operations that expand the memory, and verify the gas it costs to do so.
-    """
+    """Perform DATACOPY operations that expand the memory, and verify the gas it costs to do so."""
     state_test(
         env=env,
         pre=pre,

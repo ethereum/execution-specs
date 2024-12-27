@@ -1,6 +1,5 @@
-"""
-A collection of contracts used in 7620 EOF tests
-"""
+"""A collection of contracts used in 7620 EOF tests."""
+
 import itertools
 
 from ethereum_test_tools import Opcodes as Op

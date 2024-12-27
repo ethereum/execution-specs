@@ -16,6 +16,7 @@ note: Adding a new test
     There is no specific structure to follow within this test module.
 
 """  # noqa: E501
+
 from typing import List
 
 import pytest
@@ -125,14 +126,14 @@ def test_blobhash_scenarios(
     Covers various scenarios with random `blob_versioned_hash` values within
     the valid range `[0, 2**256-1]`.
     """
-    TOTAL_BLOCKS = 5
-    b_hashes_list = BlobhashScenario.create_blob_hashes_list(length=TOTAL_BLOCKS)
+    total_blocks = 5
+    b_hashes_list = BlobhashScenario.create_blob_hashes_list(length=total_blocks)
     blobhash_calls = BlobhashScenario.generate_blobhash_bytecode(scenario)
     sender = pre.fund_eoa()
 
     blocks: List[Block] = []
     post = {}
-    for i in range(TOTAL_BLOCKS):
+    for i in range(total_blocks):
         address = pre.deploy_contract(blobhash_calls)
         blocks.append(
             Block(
@@ -186,12 +187,12 @@ def test_blobhash_invalid_blob_index(
 
     It confirms that the returned value is a zeroed `bytes32` for each case.
     """
-    TOTAL_BLOCKS = 5
+    total_blocks = 5
     blobhash_calls = BlobhashScenario.generate_blobhash_bytecode(scenario)
     sender = pre.fund_eoa()
     blocks: List[Block] = []
     post = {}
-    for i in range(TOTAL_BLOCKS):
+    for i in range(total_blocks):
         address = pre.deploy_contract(blobhash_calls)
         blob_per_block = (i % SpecHelpers.max_blobs_per_block()) + 1
         blobs = [random_blob_hashes[blob] for blob in range(blob_per_block)]
@@ -217,8 +218,8 @@ def test_blobhash_invalid_blob_index(
             storage={
                 index: (0 if index < 0 or index >= blob_per_block else blobs[index])
                 for index in range(
-                    -TOTAL_BLOCKS,
-                    blob_per_block + (TOTAL_BLOCKS - (i % SpecHelpers.max_blobs_per_block())),
+                    -total_blocks,
+                    blob_per_block + (total_blocks - (i % SpecHelpers.max_blobs_per_block())),
                 )
             }
         )
@@ -244,40 +245,40 @@ def test_blobhash_multiple_txs_in_block(
     addresses = [pre.deploy_contract(blobhash_bytecode) for _ in range(4)]
     sender = pre.fund_eoa()
 
-    def blob_tx(address: Address, type: int):
+    def blob_tx(address: Address, tx_type: int):
         return Transaction(
-            ty=type,
+            ty=tx_type,
             sender=sender,
             to=address,
             data=Hash(0),
             gas_limit=3_000_000,
-            gas_price=10 if type < 2 else None,
-            access_list=[] if type >= 1 else None,
+            gas_price=10 if tx_type < 2 else None,
+            access_list=[] if tx_type >= 1 else None,
             max_fee_per_gas=10,
             max_priority_fee_per_gas=10,
-            max_fee_per_blob_gas=10 if type >= 3 else None,
+            max_fee_per_blob_gas=10 if tx_type >= 3 else None,
             blob_versioned_hashes=random_blob_hashes[0 : SpecHelpers.max_blobs_per_block()]
-            if type >= 3
+            if tx_type >= 3
             else None,
         )
 
     blocks = [
         Block(
             txs=[
-                blob_tx(address=addresses[0], type=3),
-                blob_tx(address=addresses[0], type=2),
+                blob_tx(address=addresses[0], tx_type=3),
+                blob_tx(address=addresses[0], tx_type=2),
             ]
         ),
         Block(
             txs=[
-                blob_tx(address=addresses[1], type=2),
-                blob_tx(address=addresses[1], type=3),
+                blob_tx(address=addresses[1], tx_type=2),
+                blob_tx(address=addresses[1], tx_type=3),
             ]
         ),
         Block(
             txs=[
-                blob_tx(address=addresses[2], type=2),
-                blob_tx(address=addresses[3], type=3),
+                blob_tx(address=addresses[2], tx_type=2),
+                blob_tx(address=addresses[3], tx_type=3),
             ],
         ),
     ]

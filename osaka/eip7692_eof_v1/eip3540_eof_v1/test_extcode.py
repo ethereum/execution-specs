@@ -1,12 +1,17 @@
-"""
-test execution semantics changes
-"""
+"""test execution semantics changes."""
 
 import pytest
 
-from ethereum_test_tools import Account, Alloc, Environment
+from ethereum_test_tools import (
+    Account,
+    Alloc,
+    Environment,
+    StateTestFiller,
+    Storage,
+    Transaction,
+    keccak256,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Storage, Transaction, keccak256
 from ethereum_test_tools.eof.v1 import Container
 
 from .. import EOF_FORK_NAME
@@ -21,7 +26,7 @@ def test_legacy_calls_eof_sstore(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """Test EXTCODE* opcodes calling EOF and legacy contracts"""
+    """Test EXTCODE* opcodes calling EOF and legacy contracts."""
     env = Environment()
     eof_code = Container.Code(Op.RJUMP[0] + Op.STOP)
     address_eof_contract = pre.deploy_contract(eof_code)

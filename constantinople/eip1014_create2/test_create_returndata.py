@@ -1,14 +1,20 @@
 """
 Return data management around create2
 Port call_outsize_then_create2_successful_then_returndatasizeFiller.json test
-Port call_then_create2_successful_then_returndatasizeFiller.json test
+Port call_then_create2_successful_then_returndatasizeFiller.json test.
 """
 
 import pytest
 
-from ethereum_test_tools import Account, Alloc, Environment
+from ethereum_test_tools import (
+    Account,
+    Alloc,
+    Environment,
+    StateTestFiller,
+    Transaction,
+    keccak256,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Transaction, keccak256
 
 from .spec import ref_spec_1014
 
@@ -29,9 +35,7 @@ def test_create2_return_data(
     pre: Alloc,
     state_test: StateTestFiller,
 ):
-    """
-    Validate that create2 return data does not interfere with previously existing memory
-    """
+    """Validate that create2 return data does not interfere with previously existing memory."""
     # Storage vars
     slot_returndatasize_before_create = 0
     slot_returndatasize_after_create = 1
@@ -89,7 +93,6 @@ def test_create2_return_data(
             slot_return_data_hash_after_create: 0xFF,
             slot_returndatacopy_before_create: 0xFF,
             slot_returndatacopy_before_create_2: 0xFF,
-            slot_begin_memory_after_create: 0xFF,
             slot_begin_memory_after_create: 0xFF,
         },
     )

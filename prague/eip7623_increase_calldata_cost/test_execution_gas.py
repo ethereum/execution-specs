@@ -8,9 +8,18 @@ from typing import List
 import pytest
 
 from ethereum_test_forks import Fork, Prague
-from ethereum_test_tools import AccessList, Address, Alloc, AuthorizationTuple, Bytes, Hash
+from ethereum_test_tools import (
+    AccessList,
+    Address,
+    Alloc,
+    AuthorizationTuple,
+    Bytes,
+    Hash,
+    StateTestFiller,
+    Transaction,
+    add_kzg_version,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Transaction, add_kzg_version
 
 from ...cancun.eip4844_blobs.spec import Spec as EIP_4844_Spec
 from .helpers import DataTestType
@@ -25,9 +34,7 @@ pytestmark = [pytest.mark.valid_from(str(ENABLE_FORK))]
 
 @pytest.fixture
 def data_test_type() -> DataTestType:
-    """
-    Data test type.
-    """
+    """Return data test type."""
     return DataTestType.FLOOR_GAS_COST_GREATER_THAN_INTRINSIC_GAS
 
 
@@ -41,9 +48,7 @@ def authorization_existing_authority() -> bool:
 
 
 class TestGasRefunds:
-    """
-    Test gas refunds with EIP-7623 active.
-    """
+    """Test gas refunds with EIP-7623 active."""
 
     @pytest.fixture
     def intrinsic_gas_data_floor_minimum_delta(self) -> int:
@@ -60,9 +65,7 @@ class TestGasRefunds:
         self,
         pre: Alloc,
     ) -> Address | None:
-        """
-        Return a contract that when executed results in refunds due to storage clearing.
-        """
+        """Return a contract that when executed results in refunds due to storage clearing."""
         return pre.deploy_contract(Op.SSTORE(0, 0) + Op.STOP, storage={0: 1})
 
     @pytest.mark.parametrize(
@@ -125,15 +128,11 @@ class TestGasRefunds:
 
 
 class TestGasConsumption:
-    """
-    Test gas consumption with EIP-7623 active.
-    """
+    """Test gas consumption with EIP-7623 active."""
 
     @pytest.fixture
     def intrinsic_gas_data_floor_minimum_delta(self) -> int:
-        """
-        Force a minimum delta in order to have some gas to execute the invalid opcode.
-        """
+        """Force a minimum delta in order to have some gas to execute the invalid opcode."""
         return 50_000
 
     @pytest.fixture
@@ -141,9 +140,7 @@ class TestGasConsumption:
         self,
         pre: Alloc,
     ) -> Address | None:
-        """
-        Return a contract that consumes all gas when executed by calling an invalid opcode.
-        """
+        """Return a contract that consumes all gas when executed by calling an invalid opcode."""
         return pre.deploy_contract(Op.INVALID)
 
     @pytest.mark.parametrize(
@@ -188,9 +185,7 @@ class TestGasConsumption:
         pre: Alloc,
         tx: Transaction,
     ) -> None:
-        """
-        Test executing a transaction that fully consumes its execution gas allocation.
-        """
+        """Test executing a transaction that fully consumes its execution gas allocation."""
         state_test(
             pre=pre,
             post={},
@@ -199,15 +194,11 @@ class TestGasConsumption:
 
 
 class TestGasConsumptionBelowDataFloor:
-    """
-    Test gas consumption barely below the floor data cost (1 gas below).
-    """
+    """Test gas consumption barely below the floor data cost (1 gas below)."""
 
     @pytest.fixture
     def contract_creating_tx(self) -> bool:
-        """
-        Use a constant in order to avoid circular fixture dependencies.
-        """
+        """Use a constant in order to avoid circular fixture dependencies."""
         return False
 
     @pytest.fixture
@@ -220,7 +211,8 @@ class TestGasConsumptionBelowDataFloor:
         authorization_list: List[AuthorizationTuple] | None,
     ) -> Address | None:
         """
-        Return a contract that consumes almost all the gas before reaching the floor data cost.
+        Return a contract that consumes almost all the gas before reaching the
+        floor data cost.
         """
         intrinsic_gas_cost_calculator = fork.transaction_intrinsic_cost_calculator()
         data_floor = intrinsic_gas_cost_calculator(
@@ -291,9 +283,7 @@ class TestGasConsumptionBelowDataFloor:
         pre: Alloc,
         tx: Transaction,
     ) -> None:
-        """
-        Test executing a transaction that almost consumes the floor data cost.
-        """
+        """Test executing a transaction that almost consumes the floor data cost."""
         state_test(
             pre=pre,
             post={},

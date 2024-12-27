@@ -1,6 +1,6 @@
 """
 abstract: Tests [EIP-7516: BLOBBASEFEE opcode](https://eips.ethereum.org/EIPS/eip-7516)
-    Test BLOBGASFEE opcode [EIP-7516: BLOBBASEFEE opcode](https://eips.ethereum.org/EIPS/eip-7516)
+    Test BLOBGASFEE opcode [EIP-7516: BLOBBASEFEE opcode](https://eips.ethereum.org/EIPS/eip-7516).
 
 """  # noqa: E501
 
@@ -16,9 +16,11 @@ from ethereum_test_tools import (
     BlockchainTestFiller,
     Bytecode,
     Environment,
+    StateTestFiller,
+    Storage,
+    Transaction,
 )
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Storage, Transaction
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-7516.md"
 REFERENCE_SPEC_VERSION = "2ade0452efe8124378f35284676ddfd16dd56ecd"
@@ -28,25 +30,19 @@ BLOBBASEFEE_GAS = 2
 
 @pytest.fixture
 def call_gas() -> int:
-    """
-    Amount of gas to use when calling the callee code.
-    """
+    """Amount of gas to use when calling the callee code."""
     return 0xFFFF
 
 
 @pytest.fixture
 def callee_code() -> Bytecode:
-    """
-    Bytecode under test, by default, only call the BLOBBASEFEE opcode.
-    """
+    """Bytecode under test, by default, only call the BLOBBASEFEE opcode."""
     return Op.BLOBBASEFEE + Op.STOP
 
 
 @pytest.fixture
 def callee_address(pre: Alloc, callee_code: Bytecode) -> Address:
-    """
-    Address of the account containing the bytecode under test.
-    """
+    """Address of the account containing the bytecode under test."""
     return pre.deploy_contract(callee_code)
 
 
@@ -55,32 +51,26 @@ def caller_code(
     call_gas: int,
     callee_address: Address,
 ) -> Bytecode:
-    """
-    Bytecode used to call the bytecode containing the BLOBBASEFEE opcode.
-    """
+    """Bytecode used to call the bytecode containing the BLOBBASEFEE opcode."""
     return Op.SSTORE(Op.NUMBER, Op.CALL(gas=call_gas, address=callee_address))
 
 
 @pytest.fixture
 def caller_pre_storage() -> Storage:
-    """
-    Storage of the account containing the bytecode that calls the test contract.
-    """
+    """Storage of the account containing the bytecode that calls the test contract."""
     return Storage()
 
 
 @pytest.fixture
 def caller_address(pre: Alloc, caller_code: Bytecode, caller_pre_storage) -> Address:
-    """
-    Address of the account containing the bytecode that calls the test contract
-    """
+    """Address of the account containing the bytecode that calls the test contract."""
     return pre.deploy_contract(caller_code)
 
 
 @pytest.fixture
 def tx(pre: Alloc, caller_address: Address) -> Transaction:
     """
-    Prepares the test transaction, by setting the destination account, the
+    Prepare test transaction, by setting the destination account, the
     transaction value, the transaction gas limit, and the transaction data.
     """
     return Transaction(
@@ -106,9 +96,7 @@ def test_blobbasefee_stack_overflow(
     tx: Transaction,
     call_fails: bool,
 ):
-    """
-    Tests that the BLOBBASEFEE opcode produces a stack overflow by using it repeatedly.
-    """
+    """Tests that the BLOBBASEFEE opcode produces a stack overflow by using it repeatedly."""
     post = {
         caller_address: Account(
             storage={1: 0 if call_fails else 1},
@@ -141,9 +129,7 @@ def test_blobbasefee_out_of_gas(
     tx: Transaction,
     call_fails: bool,
 ):
-    """
-    Tests that the BLOBBASEFEE opcode fails with insufficient gas.
-    """
+    """Tests that the BLOBBASEFEE opcode fails with insufficient gas."""
     post = {
         caller_address: Account(
             storage={1: 0 if call_fails else 1},
@@ -169,9 +155,7 @@ def test_blobbasefee_before_fork(
     callee_address: Address,
     tx: Transaction,
 ):
-    """
-    Tests that the BLOBBASEFEE opcode results on exception when called before the fork.
-    """
+    """Tests that the BLOBBASEFEE opcode results on exception when called before the fork."""
     # Fork happens at timestamp 15_000
     timestamp = 7_500
     post = {

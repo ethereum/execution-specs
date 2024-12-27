@@ -1,6 +1,6 @@
 """
 EOF validation tests for EIP-3540 migrated from
-ethereum/tests/src/EOFTestsFiller/EIP3540/validInvalidFiller.yml
+ethereum/tests/src/EOFTestsFiller/EIP3540/validInvalidFiller.yml.
 """
 
 import pytest
@@ -301,9 +301,7 @@ def test_migrated_valid_invalid(
     eof_code: Container | bytes,
     exception: EOFExceptionInstanceOrList | None,
 ):
-    """
-    Verify EOF container construction and exception
-    """
+    """Verify EOF container construction and exception."""
     eof_test(
         data=eof_code,
         expect_exception=exception,

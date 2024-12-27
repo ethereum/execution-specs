@@ -1,6 +1,6 @@
 """
 Common procedures to test
-[EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656)
+[EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656).
 """  # noqa: E501
 
 from copy import copy
@@ -10,9 +10,7 @@ REFERENCE_SPEC_VERSION = "2ade0452efe8124378f35284676ddfd16dd56ecd"
 
 
 def mcopy(*, src: int, dest: int, length: int, memory: bytes) -> bytes:
-    """
-    Performs the mcopy routine as the EVM would do it.
-    """
+    """Perform the mcopy routine as the EVM would do it."""
     if length == 0:
         return memory
 

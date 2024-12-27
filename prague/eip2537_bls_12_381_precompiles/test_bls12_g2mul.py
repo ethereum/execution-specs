@@ -5,9 +5,8 @@ abstract: Tests BLS12_G2MUL precompile of [EIP-2537: Precompile for BLS12-381 cu
 
 import pytest
 
-from ethereum_test_tools import Alloc, Environment
+from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Transaction
 
 from .helpers import vectors_from_file
 from .spec import PointG2, Scalar, Spec, ref_spec_2537
@@ -22,7 +21,7 @@ pytestmark = [
 
 
 @pytest.mark.parametrize(
-    "input,expected_output",
+    "input_data,expected_output",
     vectors_from_file("mul_G2_bls.json")
     + [
         pytest.param(
@@ -87,9 +86,7 @@ def test_valid(
     post: dict,
     tx: Transaction,
 ):
-    """
-    Test the BLS12_G2MUL precompile.
-    """
+    """Test the BLS12_G2MUL precompile."""
     state_test(
         env=Environment(),
         pre=pre,
@@ -99,7 +96,7 @@ def test_valid(
 
 
 @pytest.mark.parametrize(
-    "input",
+    "input_data",
     vectors_from_file("fail-mul_G2_bls.json")
     + [
         pytest.param(
@@ -183,9 +180,7 @@ def test_invalid(
     post: dict,
     tx: Transaction,
 ):
-    """
-    Negative tests for the BLS12_G2MUL precompile.
-    """
+    """Negative tests for the BLS12_G2MUL precompile."""
     state_test(
         env=Environment(),
         pre=pre,
@@ -195,7 +190,7 @@ def test_invalid(
 
 
 @pytest.mark.parametrize(
-    "input,expected_output,precompile_gas_modifier",
+    "input_data,expected_output,precompile_gas_modifier",
     [
         pytest.param(
             Spec.INF_G2 + Scalar(0),
@@ -217,9 +212,7 @@ def test_gas(
     post: dict,
     tx: Transaction,
 ):
-    """
-    Test the BLS12_G1MUL precompile gas requirements.
-    """
+    """Test the BLS12_G1MUL precompile gas requirements."""
     state_test(
         env=Environment(),
         pre=pre,
@@ -237,7 +230,7 @@ def test_gas(
     ],
 )
 @pytest.mark.parametrize(
-    "input,expected_output",
+    "input_data,expected_output",
     [
         pytest.param(
             Spec.INF_G2 + Scalar(0),
@@ -252,9 +245,7 @@ def test_call_types(
     post: dict,
     tx: Transaction,
 ):
-    """
-    Test the BLS12_G2MUL using different call types.
-    """
+    """Test the BLS12_G2MUL using different call types."""
     state_test(
         env=Environment(),
         pre=pre,

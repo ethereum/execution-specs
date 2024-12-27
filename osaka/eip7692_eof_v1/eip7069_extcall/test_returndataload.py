@@ -1,7 +1,8 @@
 """
 abstract: Tests [EIP-7069: Revamped CALL instructions](https://eips.ethereum.org/EIPS/eip-7069)
-    Tests for the RETURNDATALOAD instriction
+    Tests for the RETURNDATALOAD instriction.
 """  # noqa: E501
+
 import pytest
 
 from ethereum_test_tools import Account, Alloc, Environment, StateTestFiller, Storage, Transaction

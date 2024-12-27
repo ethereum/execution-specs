@@ -1,6 +1,4 @@
-"""
-EOF Classes example use
-"""
+"""EOF Classes example use."""
 
 import pytest
 
@@ -17,9 +15,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 
 def test_eof_example(eof_test: EOFTestFiller):
-    """
-    Example of python EOF classes
-    """
+    """Example of python EOF classes."""
     # Lets construct an EOF container code
     eof_code = Container(
         name="valid_container_example",
@@ -70,9 +66,7 @@ def test_eof_example(eof_test: EOFTestFiller):
 
 
 def test_eof_example_custom_fields(eof_test: EOFTestFiller):
-    """
-    Example of python EOF container class tuning
-    """
+    """Example of python EOF container class tuning."""
     # if you need to overwrite certain structure bytes, you can use customization
     # this is useful for unit testing the eof structure format, you can reorganize sections
     # and overwrite the header bytes for testing purposes
@@ -135,9 +129,7 @@ def test_eof_example_parameters(
     code_section_code: Bytecode,
     exception: EOFException,
 ):
-    """
-    Example of python EOF classes
-    """
+    """Example of python EOF classes."""
     eof_code = Container(
         name="parametrized_eof_example",
         sections=[

@@ -1,6 +1,6 @@
 """
 abstract: Tests [EIP-7251: Increase the MAX_EFFECTIVE_BALANCE](https://eips.ethereum.org/EIPS/eip-7251)
-    Test execution layer triggered consolidations [EIP-7251: Increase the MAX_EFFECTIVE_BALANCE](https://eips.ethereum.org/EIPS/eip-7251)
+    Test execution layer triggered consolidations [EIP-7251: Increase the MAX_EFFECTIVE_BALANCE](https://eips.ethereum.org/EIPS/eip-7251).
 
 """  # noqa: E501
 
@@ -88,9 +88,7 @@ def test_consolidation_requests_during_fork(
     blocks: List[Block],
     pre: Alloc,
 ):
-    """
-    Test making a consolidation request to the beacon chain at the time of the fork.
-    """
+    """Test making a consolidation request to the beacon chain at the time of the fork."""
     # We need to delete the deployed contract that comes by default in the pre state.
     pre[Spec.CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS] = Account(
         balance=0,
@@ -100,9 +98,7 @@ def test_consolidation_requests_during_fork(
     )
 
     with open(Path(realpath(__file__)).parent / "contract_deploy_tx.json", mode="r") as f:
-        deploy_tx = Transaction.model_validate_json(
-            f.read()
-        ).with_signature_and_sender()  # type: ignore
+        deploy_tx = Transaction.model_validate_json(f.read()).with_signature_and_sender()  # type: ignore
 
     deployer_address = deploy_tx.sender
     assert deployer_address is not None

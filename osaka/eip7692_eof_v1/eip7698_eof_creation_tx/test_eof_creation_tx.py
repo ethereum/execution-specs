@@ -1,6 +1,4 @@
-"""
-Test execution of EOF creation txs
-"""
+"""Test execution of EOF creation txs."""
 
 import pytest
 
@@ -35,7 +33,7 @@ def test_eof_creation_tx_context(
     destination_code: Bytecode,
     expected_result: str,
 ):
-    """Test EOF creation txs' initcode context instructions"""
+    """Test EOF creation txs' initcode context instructions."""
     env = Environment()
     sender = pre.fund_eoa()
     value = 0x1123

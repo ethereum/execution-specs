@@ -1,14 +1,12 @@
-"""
-EOF Container: check how every opcode behaves in the middle of the valid eof container code
-"""
+"""EOF Container: check how every opcode behaves in the middle of the valid eof container code."""
+
 import itertools
 from typing import Any, Dict, Generator, List, Tuple
 
 import pytest
 
-from ethereum_test_tools import EOFException, EOFTestFiller, Opcode
+from ethereum_test_tools import EOFException, EOFTestFiller, Opcode, UndefinedOpcodes
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import UndefinedOpcodes
 from ethereum_test_tools.eof.v1 import Container, ContainerKind, Section
 from ethereum_test_tools.eof.v1.constants import MAX_OPERAND_STACK_HEIGHT
 from ethereum_test_vm import Bytecode
@@ -76,7 +74,7 @@ def test_all_opcodes_in_container(
 ):
     """
     Test all opcodes inside valid container
-    257 because 0x5B is duplicated
+    257 because 0x5B is duplicated.
     """
     data_portion = 1 if opcode == Op.CALLF else 0
     opcode_with_data_portion = opcode[data_portion] if opcode.has_data_portion() else opcode
@@ -135,9 +133,7 @@ def test_invalid_opcodes_after_stop(
     opcode: Opcode,
     terminating_opcode: Opcode,
 ):
-    """
-    Test that an invalid opcode placed after STOP (terminating instruction) invalidates EOF.
-    """
+    """Test that an invalid opcode placed after STOP (terminating instruction) invalidates EOF."""
     terminating_code = Bytecode(terminating_opcode)
     match terminating_opcode:  # Enhance the code for complex opcodes.
         case Op.RETURNCONTRACT:
@@ -181,9 +177,7 @@ def test_all_invalid_terminating_opcodes(
     eof_test: EOFTestFiller,
     opcode: Opcode,
 ):
-    """
-    Test all opcodes that are invalid as the last opcode in a container
-    """
+    """Test all opcodes that are invalid as the last opcode in a container."""
     if opcode.has_data_portion():
         # Add the appropriate data portion to the opcode by using the get_item method.
         # On the CALLF opcode we need to reference the second code section, hence the [1] index.
@@ -225,9 +219,7 @@ def test_all_unreachable_terminating_opcodes_after_stop(
     eof_test: EOFTestFiller,
     opcode: Opcode,
 ):
-    """
-    Test all terminating opcodes after stop.
-    """
+    """Test all terminating opcodes after stop."""
     match opcode:
         case Op.STOP:
             sections = [Section.Code(code=Op.STOP + Op.STOP)]
@@ -278,9 +270,7 @@ def test_all_unreachable_terminating_opcodes_before_stop(
     eof_test: EOFTestFiller,
     opcode: Opcode,
 ):
-    """
-    Test all opcodes terminating opcodes before.
-    """
+    """Test all opcodes terminating opcodes before."""
     match opcode:
         case Op.RETF:
             sections = [
@@ -338,9 +328,7 @@ def test_all_opcodes_stack_underflow(
     eof_test: EOFTestFiller,
     opcode: Opcode,
 ):
-    """
-    Test stack underflow on all opcodes that require at least one item on the stack
-    """
+    """Test stack underflow on all opcodes that require at least one item on the stack."""
     sections: List[Section]
     if opcode == Op.EOFCREATE:
         sections = [
@@ -404,9 +392,7 @@ def test_all_opcodes_stack_overflow(
     opcode: Opcode,
     exception: EOFException,
 ):
-    """
-    Test stack overflow on all opcodes that push more items than they pop
-    """
+    """Test stack overflow on all opcodes that push more items than they pop."""
     opcode = opcode[0] if opcode.has_data_portion() else opcode
 
     assert opcode.pushed_stack_items - opcode.popped_stack_items == 1
@@ -439,9 +425,7 @@ def valid_opcode_combinations(
     truncate_all_options: List[bool],
     opcodes: List[Opcode],
 ) -> Generator[Tuple[bool, bool, Opcode], None, None]:
-    """
-    Create valid parameter combinations for test_truncated_data_portion_opcodes().
-    """
+    """Create valid parameter combinations for test_truncated_data_portion_opcodes()."""
     for opcode, truncate_all, compute_max_stack_height in itertools.product(
         opcodes, truncate_all_options, compute_max_stack_height_options
     ):

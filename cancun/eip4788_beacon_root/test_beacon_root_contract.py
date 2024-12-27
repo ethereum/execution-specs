@@ -1,6 +1,6 @@
 """
 abstract: Tests beacon block root for [EIP-4788: Beacon block root in the EVM](https://eips.ethereum.org/EIPS/eip-4788)
-    Test the exposed beacon chain root in the EVM for [EIP-4788: Beacon block root in the EVM](https://eips.ethereum.org/EIPS/eip-4788)
+    Test the exposed beacon chain root in the EVM for [EIP-4788: Beacon block root in the EVM](https://eips.ethereum.org/EIPS/eip-4788).
 
 note: Adding a new test
     Add a function that is named `test_<test_name>` and takes at least the following arguments:
@@ -78,7 +78,7 @@ def test_beacon_root_contract_calls(
     for different call gas amounts:
     - exact gas (valid call)
     - extra gas (valid call)
-    - insufficient gas (invalid call)
+    - insufficient gas (invalid call).
 
     The expected result is that the contract call will be executed if the gas amount is met
     and return the correct`parent_beacon_block_root`. Otherwise the call will be invalid, and not
@@ -159,9 +159,7 @@ def test_calldata_lengths(
     tx: Transaction,
     post: Dict,
 ):
-    """
-    Tests the beacon root contract call using multiple invalid input lengths.
-    """
+    """Tests the beacon root contract call using multiple invalid input lengths."""
     blockchain_test(
         pre=pre,
         blocks=[Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)],
@@ -214,9 +212,7 @@ def test_tx_to_beacon_root_contract(
     tx: Transaction,
     post: Dict,
 ):
-    """
-    Tests the beacon root contract using a transaction with different types and data lengths.
-    """
+    """Tests the beacon root contract using a transaction with different types and data lengths."""
     blockchain_test(
         pre=pre,
         blocks=[Block(txs=[tx], parent_beacon_block_root=beacon_root, timestamp=timestamp)],
@@ -264,9 +260,7 @@ def test_beacon_root_selfdestruct(
     tx: Transaction,
     post: Dict,
 ):
-    """
-    Tests that self destructing the beacon root address transfers actors balance correctly.
-    """
+    """Tests that self destructing the beacon root address transfers actors balance correctly."""
     # self destruct actor
     self_destruct_actor_address = pre.deploy_contract(
         Op.SELFDESTRUCT(Spec.BEACON_ROOTS_ADDRESS),
@@ -373,7 +367,12 @@ def test_multi_block_beacon_root_timestamp_calls(
 
     sender = pre.fund_eoa()
 
-    for timestamp, beacon_root, i in zip(timestamps, beacon_roots, range(block_count)):
+    for timestamp, beacon_root, _i in zip(
+        timestamps,
+        beacon_roots,
+        range(block_count),
+        strict=False,
+    ):
         timestamp_index = timestamp % Spec.HISTORY_BUFFER_LENGTH
         timestamps_storage[timestamp_index] = timestamp
         roots_storage[timestamp_index] = beacon_root
@@ -487,7 +486,9 @@ def test_beacon_root_transition(
 
     sender = pre.fund_eoa()
 
-    for timestamp, beacon_root, i in zip(timestamps, beacon_roots, range(block_count)):
+    for timestamp, beacon_root, i in zip(
+        timestamps, beacon_roots, range(block_count), strict=False
+    ):
         timestamp_index = timestamp % Spec.HISTORY_BUFFER_LENGTH
 
         transitioned = fork.header_beacon_root_required(i, timestamp)
@@ -744,14 +745,14 @@ def test_beacon_root_contract_deploy(
                     ],
                 ),
             )
-            beacon_root_contract_storage[
-                current_timestamp % Spec.HISTORY_BUFFER_LENGTH
-            ] = current_timestamp
+            beacon_root_contract_storage[current_timestamp % Spec.HISTORY_BUFFER_LENGTH] = (
+                current_timestamp
+            )
             beacon_root_contract_storage[
                 (current_timestamp % Spec.HISTORY_BUFFER_LENGTH) + Spec.HISTORY_BUFFER_LENGTH
             ] = beacon_root
         else:
-            assert False, "This test should only have two blocks"
+            raise AssertionError("This test should only have two blocks")
 
     expected_code = fork.pre_allocation_blockchain()[Spec.BEACON_ROOTS_ADDRESS]["code"]
     pre[Spec.BEACON_ROOTS_ADDRESS] = Account(

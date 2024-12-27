@@ -1,6 +1,4 @@
-"""
-EOF Functions tests helpers
-"""
+"""EOF Functions tests helpers."""
 
 import itertools
 

@@ -1,6 +1,5 @@
-"""
-Defines EIP-4844 specification constants and functions.
-"""
+"""Defines EIP-4844 specification constants and functions."""
+
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import Optional
@@ -10,9 +9,7 @@ from ethereum_test_tools import Transaction
 
 @dataclass(frozen=True)
 class ReferenceSpec:
-    """
-    Defines the reference spec version and git path.
-    """
+    """Defines the reference spec version and git path."""
 
     git_path: str
     version: str
@@ -23,9 +20,7 @@ ref_spec_4844 = ReferenceSpec("EIPS/eip-4844.md", "f0eb6a364aaf5ccb43516fa2c269a
 
 @dataclass(frozen=True)
 class BlockHeaderBlobGasFields:
-    """
-    A helper class for the blob gas fields in a block header.
-    """
+    """A helper class for the blob gas fields in a block header."""
 
     excess_blob_gas: int
     blob_gas_used: int
@@ -36,7 +31,7 @@ class BlockHeaderBlobGasFields:
 class Spec:
     """
     Parameters from the EIP-4844 specifications as defined at
-    https://eips.ethereum.org/EIPS/eip-4844#parameters
+    https://eips.ethereum.org/EIPS/eip-4844#parameters.
 
     If the parameter is not currently used within the tests, it is commented
     out.
@@ -68,9 +63,7 @@ class Spec:
         kzg_commitment: bytes | int,  # 48 bytes
         blob_commitment_version_kzg: Optional[bytes | int] = None,
     ) -> bytes:
-        """
-        Calculates the versioned hash for a given KZG commitment.
-        """
+        """Calculate versioned hash for a given KZG commitment."""
         if blob_commitment_version_kzg is None:
             blob_commitment_version_kzg = cls.BLOB_COMMITMENT_VERSION_KZG
         if isinstance(kzg_commitment, int):
@@ -81,9 +74,7 @@ class Spec:
 
     @classmethod
     def fake_exponential(cls, factor: int, numerator: int, denominator: int) -> int:
-        """
-        Used to calculate the blob gas cost.
-        """
+        """Calculate the blob gas cost."""
         i = 1
         output = 0
         numerator_accumulator = factor * denominator
@@ -106,18 +97,14 @@ class Spec:
 
     @classmethod
     def get_total_blob_gas(cls, tx: Transaction) -> int:
-        """
-        Calculate the total blob gas for a transaction.
-        """
+        """Calculate the total blob gas for a transaction."""
         if tx.blob_versioned_hashes is None:
             return 0
         return cls.GAS_PER_BLOB * len(tx.blob_versioned_hashes)
 
     @classmethod
     def get_blob_gasprice(cls, *, excess_blob_gas: int) -> int:
-        """
-        Calculate the blob gas price from the excess.
-        """
+        """Calculate the blob gas price from the excess."""
         return cls.fake_exponential(
             cls.MIN_BLOB_GASPRICE,
             excess_blob_gas,
@@ -136,16 +123,12 @@ class SpecHelpers:
 
     @classmethod
     def max_blobs_per_block(cls) -> int:  # MAX_BLOBS_PER_BLOCK =
-        """
-        Returns the maximum number of blobs per block.
-        """
+        """Return maximum number of blobs per block."""
         return Spec.MAX_BLOB_GAS_PER_BLOCK // Spec.GAS_PER_BLOB
 
     @classmethod
     def target_blobs_per_block(cls) -> int:
-        """
-        Returns the target number of blobs per block.
-        """
+        """Return target number of blobs per block."""
         return Spec.TARGET_BLOB_GAS_PER_BLOCK // Spec.GAS_PER_BLOB
 
     @classmethod
@@ -163,9 +146,7 @@ class SpecHelpers:
 
     @classmethod
     def get_min_excess_blob_gas_for_blob_gas_price(cls, blob_gas_price: int) -> int:
-        """
-        Gets the minimum required excess blob gas value to get a given blob gas cost in a block
-        """
+        """Get minimum required excess blob gas value to get a given blob gas cost in a block."""
         current_excess_blob_gas = 0
         current_blob_gas_price = 1
         while current_blob_gas_price < blob_gas_price:
@@ -177,7 +158,5 @@ class SpecHelpers:
 
     @classmethod
     def get_min_excess_blobs_for_blob_gas_price(cls, blob_gas_price: int) -> int:
-        """
-        Gets the minimum required excess blobs to get a given blob gas cost in a block
-        """
+        """Get minimum required excess blobs to get a given blob gas cost in a block."""
         return cls.get_min_excess_blob_gas_for_blob_gas_price(blob_gas_price) // Spec.GAS_PER_BLOB

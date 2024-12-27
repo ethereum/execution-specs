@@ -1,6 +1,5 @@
-"""
-Fixtures for the EIP-6110 deposit tests.
-"""
+"""Fixtures for the EIP-6110 deposit tests."""
+
 from typing import List
 
 import pytest
@@ -14,7 +13,7 @@ from .helpers import DepositInteractionBase, DepositRequest
 @pytest.fixture
 def update_pre(pre: Alloc, requests: List[DepositInteractionBase]):
     """
-    Initial state of the accounts. Every deposit transaction defines their own pre-state
+    Init state of the accounts. Every deposit transaction defines their own pre-state
     requirements, and this fixture aggregates them all.
     """
     for d in requests:
@@ -49,9 +48,7 @@ def exception() -> BlockException | None:
 def included_requests(
     requests: List[DepositInteractionBase],
 ) -> List[DepositRequest]:
-    """
-    Return the list of deposit requests that should be included in each block.
-    """
+    """Return the list of deposit requests that should be included in each block."""
     valid_requests: List[DepositRequest] = []
 
     for d in requests:

@@ -30,7 +30,7 @@ from ethereum_test_tools.vm.opcode import Opcodes as Op
 def test_tx_selfdestruct_balance_bug(blockchain_test: BlockchainTestFiller, pre: Alloc):
     """
     Test that the vulnerability is not present by checking the balance of the
-    `0xaa` contract after executing specific transactions:
+    `0xaa` contract after executing specific transactions.
 
     1. Start with contract `0xaa` which has initial balance of 3 wei.
         `0xaa` contract code simply performs a self-destruct to itself.

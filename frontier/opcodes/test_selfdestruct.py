@@ -1,12 +1,17 @@
-"""
-Test the SELFDESTRUCT opcode.
-"""
+"""Test the SELFDESTRUCT opcode."""
 
 import pytest
 
-from ethereum_test_tools import Account, Alloc, Block, BlockchainTestFiller, Environment, Initcode
+from ethereum_test_tools import (
+    Account,
+    Alloc,
+    Block,
+    BlockchainTestFiller,
+    Environment,
+    Initcode,
+    Transaction,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Transaction
 
 
 @pytest.mark.valid_from("Frontier")

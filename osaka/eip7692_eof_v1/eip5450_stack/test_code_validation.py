@@ -1,6 +1,4 @@
-"""
-Code validation of CALLF, JUMPF, RETF opcodes in conjunction with static relative jumps
-"""
+"""Code validation of CALLF, JUMPF, RETF opcodes in conjunction with static relative jumps."""
 
 import itertools
 from enum import Enum, auto, unique
@@ -25,9 +23,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 @unique
 class RjumpKind(Enum):
-    """
-    Kinds of RJUMP* instruction snippets to generate.
-    """
+    """Kinds of RJUMP* instruction snippets to generate."""
 
     EMPTY_RJUMP = auto()
     EMPTY_RJUMPI = auto()
@@ -44,25 +40,19 @@ class RjumpKind(Enum):
     RJUMPI_OVER_RETF = auto()
 
     def __str__(self) -> str:
-        """
-        Returns the string representation of the enum
-        """
+        """Return string representation of the enum."""
         return f"{self.name}"
 
 
 @unique
 class RjumpSpot(Enum):
-    """
-    Possible spots in the code section layout where the RJUMP* is injected
-    """
+    """Possible spots in the code section layout where the RJUMP* is injected."""
 
     BEGINNING = auto()
     BEFORE_TERMINATION = auto()
 
     def __str__(self) -> str:
-        """
-        Returns the string representation of the enum
-        """
+        """Return string representation of the enum."""
         return f"{self.name}"
 
 
@@ -141,7 +131,7 @@ def rjump_code_with(
 
 def call_code_with(inputs, outputs, call: Bytecode) -> Bytecode:
     """
-    Generates a code snippet with the `call` bytecode provided and its respective input/output
+    Generate code snippet with the `call` bytecode provided and its respective input/output
     management.
 
     `inputs` and `outputs` are understood as those of the code section we're generating for.
@@ -171,7 +161,7 @@ def section_code_with(
     termination: Bytecode,
 ) -> Tuple[Bytecode, bool, bool, bool, bool]:
     """
-    Generates a code section with RJUMP* and CALLF/RETF instructions.
+    Generate code section with RJUMP* and CALLF/RETF instructions.
 
     Also returns some traits of the section: `has_invalid_back_jump`, `rjump_snippet_pops`,
     `rjump_snippet_pushes`, `rjump_falls_off_code`

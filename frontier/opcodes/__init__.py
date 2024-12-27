@@ -1,3 +1,1 @@
-"""
-Test for opcodes introduced in Frontier.
-"""
+"""Test for opcodes introduced in Frontier."""

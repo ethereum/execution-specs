@@ -22,15 +22,13 @@ from ethereum_test_tools import (
     Bytes,
     CodeGasMeasure,
     Environment,
-)
-from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import (
     StateTestFiller,
     Storage,
     Transaction,
     TransactionException,
     extend_with_defaults,
 )
+from ethereum_test_tools import Opcodes as Op
 
 from .helpers import AddressType, ChainIDType
 from .spec import Spec, ref_spec_7702
@@ -44,18 +42,14 @@ pytestmark = pytest.mark.valid_from("Prague")
 
 
 class SignerType(Enum):
-    """
-    Different cases of authorization lists for testing gas cost of set-code transactions.
-    """
+    """Different cases of authorization lists for testing gas cost of set-code transactions."""
 
     SINGLE_SIGNER = auto()
     MULTIPLE_SIGNERS = auto()
 
 
 class AuthorizationInvalidityType(Enum):
-    """
-    Different types of invalidity for the authorization list.
-    """
+    """Different types of invalidity for the authorization list."""
 
     INVALID_NONCE = auto()
     REPEATED_NONCE = auto()
@@ -64,9 +58,7 @@ class AuthorizationInvalidityType(Enum):
 
 
 class AccessListType(Enum):
-    """
-    Different cases of access lists for testing gas cost of set-code transactions.
-    """
+    """Different cases of access lists for testing gas cost of set-code transactions."""
 
     EMPTY = auto()
     CONTAINS_AUTHORITY = auto()
@@ -74,9 +66,7 @@ class AccessListType(Enum):
     CONTAINS_AUTHORITY_AND_SET_CODE_ADDRESS = auto()
 
     def contains_authority(self) -> bool:
-        """
-        Return True if the access list contains the authority address.
-        """
+        """Return True if the access list contains the authority address."""
         return self in {
             AccessListType.CONTAINS_AUTHORITY,
             AccessListType.CONTAINS_AUTHORITY_AND_SET_CODE_ADDRESS,
@@ -98,9 +88,7 @@ class AccessListType(Enum):
 
 @dataclass(kw_only=True)
 class AuthorityWithProperties:
-    """
-    Dataclass to hold the properties of the authority address.
-    """
+    """Dataclass to hold the properties of the authority address."""
 
     authority: EOA
     address_type: AddressType
@@ -116,9 +104,7 @@ def authority_iterator(
     authorize_to_address: Address,
     self_sponsored: bool,
 ) -> Iterator[AuthorityWithProperties]:
-    """
-    Fixture to return the generator for the authority addresses.
-    """
+    """Fixture to return the generator for the authority addresses."""
     authority_type_iterator = (
         cycle([authority_type])
         if isinstance(authority_type, AddressType)
@@ -192,9 +178,7 @@ def authority_iterator(
 
 @dataclass(kw_only=True)
 class AuthorizationWithProperties:
-    """
-    Dataclass to hold the properties of the authorization list.
-    """
+    """Dataclass to hold the properties of the authorization list."""
 
     tuple: AuthorizationTuple
     invalidity_type: AuthorizationInvalidityType | None
@@ -213,9 +197,7 @@ def authorization_list_with_properties(
     self_sponsored: bool,
     re_authorize: bool,
 ) -> List[AuthorizationWithProperties]:
-    """
-    Fixture to return the authorization-list-with-properties for the given case.
-    """
+    """Fixture to return the authorization-list-with-properties for the given case."""
     chain_id = 0 if chain_id_type == ChainIDType.GENERIC else 1
     if authorization_invalidity_type == AuthorizationInvalidityType.INVALID_CHAIN_ID:
         chain_id = 2
@@ -328,9 +310,7 @@ def authorization_list_with_properties(
 def authorization_list(
     authorization_list_with_properties: List[AuthorizationWithProperties],
 ) -> List[AuthorizationTuple]:
-    """
-    Fixture to return the authorization list for the given case.
-    """
+    """Fixture to return the authorization list for the given case."""
     return [
         authorization_tuple.tuple
         for authorization_tuple in authorization_list_with_properties
@@ -340,9 +320,7 @@ def authorization_list(
 
 @pytest.fixture()
 def authorize_to_address(request: pytest.FixtureRequest, pre: Alloc) -> Address:
-    """
-    Fixture to return the address to which the authority authorizes to set the code to.
-    """
+    """Fixture to return the address to which the authority authorizes to set the code to."""
     match request.param:
         case AddressType.EMPTY_ACCOUNT:
             return pre.fund_eoa(0)
@@ -358,21 +336,19 @@ def access_list(
     access_list_case: AccessListType,
     authorization_list: List[AuthorizationTuple],
 ) -> List[AccessList]:
-    """
-    Fixture to return the access list for the given case.
-    """
+    """Fixture to return the access list for the given case."""
     access_list: List[AccessList] = []
     if access_list_case == AccessListType.EMPTY:
         return access_list
 
     if access_list_case.contains_authority():
-        authority_set = set(a.signer for a in authorization_list)
+        authority_set = {a.signer for a in authorization_list}
         access_list.extend(
             AccessList(address=authority, storage_keys=[0]) for authority in authority_set
         )
 
     if access_list_case.contains_set_code_address():
-        authorized_addresses = set(a.address for a in authorization_list)
+        authorized_addresses = {a.address for a in authorization_list}
         access_list.extend(
             AccessList(address=address, storage_keys=[0]) for address in authorized_addresses
         )
@@ -387,9 +363,7 @@ def sender(
     authorize_to_address: Address,
     self_sponsored: bool,
 ) -> EOA:
-    """
-    Fixture to return the sender address.
-    """
+    """Fixture to return the sender address."""
     if self_sponsored and (
         (isinstance(authority_type, list) and AddressType.EOA_WITH_SET_CODE in authority_type)
         or (authority_type == AddressType.EOA_WITH_SET_CODE)
@@ -404,208 +378,206 @@ def sender(
 def gas_test_parameter_args(
     include_many: bool = True, include_data: bool = True, include_pre_authorized: bool = True
 ):
-    """
-    Return the parametrize decorator that can be used in all gas test functions.
-    """
-    MULTIPLE_AUTHORIZATIONS_COUNT = 2
-    MANY_AUTHORIZATIONS_COUNT = 5_000
+    """Return the parametrize decorator that can be used in all gas test functions."""
+    multiple_authorizations_count = 2
+    many_authorizations_count = 5_000
 
-    defaults = dict(
-        signer_type=SignerType.SINGLE_SIGNER,
-        authorization_invalidity_type=None,
-        authorizations_count=1,
-        chain_id_type=ChainIDType.GENERIC,
-        authorize_to_address=AddressType.EMPTY_ACCOUNT,
-        access_list_case=AccessListType.EMPTY,
-        self_sponsored=False,
-        re_authorize=False,
-        authority_type=AddressType.EMPTY_ACCOUNT,
-        data=b"",
-    )
+    defaults = {
+        "signer_type": SignerType.SINGLE_SIGNER,
+        "authorization_invalidity_type": None,
+        "authorizations_count": 1,
+        "chain_id_type": ChainIDType.GENERIC,
+        "authorize_to_address": AddressType.EMPTY_ACCOUNT,
+        "access_list_case": AccessListType.EMPTY,
+        "self_sponsored": False,
+        "re_authorize": False,
+        "authority_type": AddressType.EMPTY_ACCOUNT,
+        "data": b"",
+    }
 
     cases = [
         pytest.param(
-            dict(
-                signer_type=SignerType.SINGLE_SIGNER,
-                authorizations_count=1,
-            ),
+            {
+                "signer_type": SignerType.SINGLE_SIGNER,
+                "authorizations_count": 1,
+            },
             id="single_valid_authorization_single_signer",
         ),
         pytest.param(
-            dict(
-                signer_type=SignerType.SINGLE_SIGNER,
-                authorizations_count=1,
-                chain_id_type=ChainIDType.CHAIN_SPECIFIC,
-            ),
+            {
+                "signer_type": SignerType.SINGLE_SIGNER,
+                "authorizations_count": 1,
+                "chain_id_type": ChainIDType.CHAIN_SPECIFIC,
+            },
             id="single_valid_chain_specific_authorization_single_signer",
         ),
         pytest.param(
-            dict(
-                signer_type=SignerType.SINGLE_SIGNER,
-                authorizations_count=MULTIPLE_AUTHORIZATIONS_COUNT,
-            ),
+            {
+                "signer_type": SignerType.SINGLE_SIGNER,
+                "authorizations_count": multiple_authorizations_count,
+            },
             id="multiple_valid_authorizations_single_signer",
         ),
         pytest.param(
-            dict(
-                signer_type=SignerType.SINGLE_SIGNER,
-                authorization_invalidity_type=AuthorizationInvalidityType.INVALID_NONCE,
-                authorizations_count=1,
-            ),
+            {
+                "signer_type": SignerType.SINGLE_SIGNER,
+                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_NONCE,
+                "authorizations_count": 1,
+            },
             id="single_invalid_nonce_authorization_single_signer",
         ),
         pytest.param(
-            dict(
-                signer_type=SignerType.SINGLE_SIGNER,
-                authorization_invalidity_type=AuthorizationInvalidityType.INVALID_CHAIN_ID,
-                authorizations_count=1,
-            ),
+            {
+                "signer_type": SignerType.SINGLE_SIGNER,
+                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_CHAIN_ID,
+                "authorizations_count": 1,
+            },
             id="single_invalid_authorization_invalid_chain_id_single_signer",
         ),
         pytest.param(
-            dict(
-                signer_type=SignerType.SINGLE_SIGNER,
-                authorization_invalidity_type=AuthorizationInvalidityType.INVALID_NONCE,
-                authorizations_count=MULTIPLE_AUTHORIZATIONS_COUNT,
-            ),
+            {
+                "signer_type": SignerType.SINGLE_SIGNER,
+                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_NONCE,
+                "authorizations_count": multiple_authorizations_count,
+            },
             id="multiple_invalid_nonce_authorizations_single_signer",
         ),
         pytest.param(
-            dict(
-                signer_type=SignerType.MULTIPLE_SIGNERS,
-                authorization_invalidity_type=AuthorizationInvalidityType.INVALID_NONCE,
-                authorizations_count=MULTIPLE_AUTHORIZATIONS_COUNT,
-            ),
+            {
+                "signer_type": SignerType.MULTIPLE_SIGNERS,
+                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_NONCE,
+                "authorizations_count": multiple_authorizations_count,
+            },
             id="multiple_invalid_nonce_authorizations_multiple_signers",
         ),
         pytest.param(
-            dict(
-                signer_type=SignerType.SINGLE_SIGNER,
-                authorization_invalidity_type=AuthorizationInvalidityType.INVALID_CHAIN_ID,
-                authorizations_count=MULTIPLE_AUTHORIZATIONS_COUNT,
-            ),
+            {
+                "signer_type": SignerType.SINGLE_SIGNER,
+                "authorization_invalidity_type": AuthorizationInvalidityType.INVALID_CHAIN_ID,
+                "authorizations_count": multiple_authorizations_count,
+            },
             id="multiple_invalid_chain_id_authorizations_single_signer",
         ),
         pytest.param(
-            dict(
-                signer_type=SignerType.MULTIPLE_SIGNERS,
-                authorizations_count=MULTIPLE_AUTHORIZATIONS_COUNT,
-            ),
+            {
+                "signer_type": SignerType.MULTIPLE_SIGNERS,
+                "authorizations_count": multiple_authorizations_count,
+            },
             id="multiple_valid_authorizations_multiple_signers",
         ),
         pytest.param(
-            dict(
-                signer_type=SignerType.SINGLE_SIGNER,
-                authorization_invalidity_type=AuthorizationInvalidityType.REPEATED_NONCE,
-                authorizations_count=MULTIPLE_AUTHORIZATIONS_COUNT,
-            ),
+            {
+                "signer_type": SignerType.SINGLE_SIGNER,
+                "authorization_invalidity_type": AuthorizationInvalidityType.REPEATED_NONCE,
+                "authorizations_count": multiple_authorizations_count,
+            },
             id="first_valid_then_single_repeated_nonce_authorization",
         ),
         pytest.param(
-            dict(
-                signer_type=SignerType.MULTIPLE_SIGNERS,
-                authorization_invalidity_type=AuthorizationInvalidityType.REPEATED_NONCE,
-                authorizations_count=MULTIPLE_AUTHORIZATIONS_COUNT * 2,
-            ),
+            {
+                "signer_type": SignerType.MULTIPLE_SIGNERS,
+                "authorization_invalidity_type": AuthorizationInvalidityType.REPEATED_NONCE,
+                "authorizations_count": multiple_authorizations_count * 2,
+            },
             id="first_valid_then_single_repeated_nonce_authorizations_multiple_signers",
         ),
         pytest.param(
-            dict(
-                authorize_to_address=AddressType.EOA,
-            ),
+            {
+                "authorize_to_address": AddressType.EOA,
+            },
             id="single_valid_authorization_to_eoa",
         ),
         pytest.param(
-            dict(
-                authorize_to_address=AddressType.CONTRACT,
-            ),
+            {
+                "authorize_to_address": AddressType.CONTRACT,
+            },
             id="single_valid_authorization_to_contract",
         ),
         pytest.param(
-            dict(
-                access_list_case=AccessListType.CONTAINS_AUTHORITY,
-            ),
+            {
+                "access_list_case": AccessListType.CONTAINS_AUTHORITY,
+            },
             id="single_valid_authorization_with_authority_in_access_list",
         ),
         pytest.param(
-            dict(
-                access_list_case=AccessListType.CONTAINS_SET_CODE_ADDRESS,
-            ),
+            {
+                "access_list_case": AccessListType.CONTAINS_SET_CODE_ADDRESS,
+            },
             id="single_valid_authorization_with_set_code_address_in_access_list",
         ),
         pytest.param(
-            dict(
-                access_list_case=AccessListType.CONTAINS_AUTHORITY_AND_SET_CODE_ADDRESS,
-            ),
+            {
+                "access_list_case": AccessListType.CONTAINS_AUTHORITY_AND_SET_CODE_ADDRESS,
+            },
             id="single_valid_authorization_with_authority_and_set_code_address_in_access_list",
         ),
         pytest.param(
-            dict(
-                authority_type=AddressType.EOA,
-            ),
+            {
+                "authority_type": AddressType.EOA,
+            },
             id="single_valid_authorization_eoa_authority",
         ),
         pytest.param(
-            dict(
-                authority_type=AddressType.EOA_WITH_SET_CODE,
-                re_authorize=True,
-            ),
+            {
+                "authority_type": AddressType.EOA_WITH_SET_CODE,
+                "re_authorize": True,
+            },
             id="single_valid_re_authorization_eoa_authority",
         ),
         pytest.param(
-            dict(
-                authority_type=AddressType.EOA,
-                authorizations_count=MULTIPLE_AUTHORIZATIONS_COUNT,
-            ),
+            {
+                "authority_type": AddressType.EOA,
+                "authorizations_count": multiple_authorizations_count,
+            },
             id="multiple_valid_authorizations_eoa_authority",
         ),
         pytest.param(
-            dict(
-                self_sponsored=True,
-                authority_type=AddressType.EOA,
-            ),
+            {
+                "self_sponsored": True,
+                "authority_type": AddressType.EOA,
+            },
             id="single_valid_authorization_eoa_self_sponsored_authority",
         ),
         pytest.param(
-            dict(
-                self_sponsored=True,
-                authority_type=AddressType.EOA,
-                authorizations_count=MULTIPLE_AUTHORIZATIONS_COUNT,
-            ),
+            {
+                "self_sponsored": True,
+                "authority_type": AddressType.EOA,
+                "authorizations_count": multiple_authorizations_count,
+            },
             id="multiple_valid_authorizations_eoa_self_sponsored_authority",
         ),
         pytest.param(
-            dict(
-                authority_type=AddressType.CONTRACT,
-            ),
+            {
+                "authority_type": AddressType.CONTRACT,
+            },
             marks=pytest.mark.pre_alloc_modify,
             id="single_valid_authorization_invalid_contract_authority",
         ),
         pytest.param(
-            dict(
-                signer_type=SignerType.MULTIPLE_SIGNERS,
-                authority_type=[AddressType.EMPTY_ACCOUNT, AddressType.CONTRACT],
-                authorizations_count=MULTIPLE_AUTHORIZATIONS_COUNT,
-            ),
+            {
+                "signer_type": SignerType.MULTIPLE_SIGNERS,
+                "authority_type": [AddressType.EMPTY_ACCOUNT, AddressType.CONTRACT],
+                "authorizations_count": multiple_authorizations_count,
+            },
             marks=pytest.mark.pre_alloc_modify,
             id="multiple_authorizations_empty_account_then_contract_authority",
         ),
         pytest.param(
-            dict(
-                signer_type=SignerType.MULTIPLE_SIGNERS,
-                authority_type=[AddressType.EOA, AddressType.CONTRACT],
-                authorizations_count=MULTIPLE_AUTHORIZATIONS_COUNT,
-            ),
+            {
+                "signer_type": SignerType.MULTIPLE_SIGNERS,
+                "authority_type": [AddressType.EOA, AddressType.CONTRACT],
+                "authorizations_count": multiple_authorizations_count,
+            },
             marks=pytest.mark.pre_alloc_modify,
             id="multiple_authorizations_eoa_then_contract_authority",
         ),
         pytest.param(
-            dict(
-                self_sponsored=True,
-                signer_type=SignerType.MULTIPLE_SIGNERS,
-                authority_type=[AddressType.EOA, AddressType.CONTRACT],
-                authorizations_count=MULTIPLE_AUTHORIZATIONS_COUNT,
-            ),
+            {
+                "self_sponsored": True,
+                "signer_type": SignerType.MULTIPLE_SIGNERS,
+                "authority_type": [AddressType.EOA, AddressType.CONTRACT],
+                "authorizations_count": multiple_authorizations_count,
+            },
             marks=pytest.mark.pre_alloc_modify,
             id="multiple_authorizations_eoa_self_sponsored_then_contract_authority",
         ),
@@ -614,18 +586,18 @@ def gas_test_parameter_args(
     if include_pre_authorized:
         cases += [
             pytest.param(
-                dict(
-                    authority_type=AddressType.EOA_WITH_SET_CODE,
-                    re_authorize=False,
-                ),
+                {
+                    "authority_type": AddressType.EOA_WITH_SET_CODE,
+                    "re_authorize": False,
+                },
                 id="pre_authorized_eoa_authority_no_re_authorization",
             ),
             pytest.param(
-                dict(
-                    authority_type=AddressType.EOA_WITH_SET_CODE,
-                    re_authorize=False,
-                    self_sponsored=True,
-                ),
+                {
+                    "authority_type": AddressType.EOA_WITH_SET_CODE,
+                    "re_authorize": False,
+                    "self_sponsored": True,
+                },
                 id="pre_authorized_eoa_authority_no_re_authorization_self_sponsored",
             ),
         ]
@@ -633,15 +605,15 @@ def gas_test_parameter_args(
     if include_data:
         cases += [
             pytest.param(
-                dict(
-                    data=b"\x01",
-                ),
+                {
+                    "data": b"\x01",
+                },
                 id="single_valid_authorization_with_single_non_zero_byte_data",
             ),
             pytest.param(
-                dict(
-                    data=b"\x00",
-                ),
+                {
+                    "data": b"\x00",
+                },
                 id="single_valid_authorization_with_single_zero_byte_data",
             ),
         ]
@@ -649,25 +621,25 @@ def gas_test_parameter_args(
     if include_many:
         cases += [
             pytest.param(
-                dict(
-                    signer_type=SignerType.SINGLE_SIGNER,
-                    authorizations_count=MANY_AUTHORIZATIONS_COUNT,
-                ),
+                {
+                    "signer_type": SignerType.SINGLE_SIGNER,
+                    "authorizations_count": many_authorizations_count,
+                },
                 id="many_valid_authorizations_single_signer",
             ),
             pytest.param(
-                dict(
-                    signer_type=SignerType.MULTIPLE_SIGNERS,
-                    authorizations_count=MANY_AUTHORIZATIONS_COUNT,
-                ),
+                {
+                    "signer_type": SignerType.MULTIPLE_SIGNERS,
+                    "authorizations_count": many_authorizations_count,
+                },
                 id="many_valid_authorizations_multiple_signers",
             ),
             pytest.param(
-                dict(
-                    signer_type=SignerType.SINGLE_SIGNER,
-                    authorization_invalidity_type=AuthorizationInvalidityType.REPEATED_NONCE,
-                    authorizations_count=MANY_AUTHORIZATIONS_COUNT,
-                ),
+                {
+                    "signer_type": SignerType.SINGLE_SIGNER,
+                    "authorization_invalidity_type": AuthorizationInvalidityType.REPEATED_NONCE,
+                    "authorizations_count": many_authorizations_count,
+                },
                 id="first_valid_then_many_duplicate_authorizations",
             ),
         ]
@@ -688,9 +660,7 @@ def test_gas_cost(
     access_list: List[AccessList],
     sender: EOA,
 ):
-    """
-    Test gas at the execution start of a set-code transaction in multiple scenarios.
-    """
+    """Test gas at the execution start of a set-code transaction in multiple scenarios."""
     # Calculate the intrinsic gas cost of the authorizations, by default the
     # full empty account cost is charged for each authorization.
     intrinsic_gas = fork.transaction_intrinsic_cost_calculator()(
@@ -792,14 +762,12 @@ def test_account_warming(
     sender: EOA,
     check_delegated_account_first: bool,
 ):
-    """
-    Test warming of the authority and authorized accounts for set-code transactions.
-    """
+    """Test warming of the authority and authorized accounts for set-code transactions."""
     # Overhead cost is the single push operation required for the address to check.
-    OVERHEAD_COST = 3 * len(Op.CALL.kwargs)  # type: ignore
+    overhead_cost = 3 * len(Op.CALL.kwargs)  # type: ignore
 
-    COLD_ACCOUNT_COST = 2600
-    WARM_ACCOUNT_COST = 100
+    cold_account_cost = 2600
+    warm_account_cost = 100
 
     # Dictionary to keep track of the addresses to check for warming, and the expected cost of
     # accessing such account.
@@ -813,9 +781,9 @@ def test_account_warming(
         if check_delegated_account_first:
             if delegated_account not in addresses_to_check:
                 addresses_to_check[delegated_account] = (
-                    WARM_ACCOUNT_COST
+                    warm_account_cost
                     if access_list_case.contains_set_code_address()
-                    else COLD_ACCOUNT_COST
+                    else cold_account_cost
                 )
 
             if authority not in addresses_to_check:
@@ -828,28 +796,28 @@ def test_account_warming(
                         )
                         or access_list_case.contains_authority()
                     ):
-                        access_cost = WARM_ACCOUNT_COST
+                        access_cost = warm_account_cost
                     else:
-                        access_cost = COLD_ACCOUNT_COST
+                        access_cost = cold_account_cost
                     if authorization_with_properties.invalidity_type is None:
-                        access_cost += WARM_ACCOUNT_COST
+                        access_cost += warm_account_cost
                 else:
                     access_cost = (
-                        COLD_ACCOUNT_COST
+                        cold_account_cost
                         if Address(sender) != authorization_with_properties.tuple.signer
-                        else WARM_ACCOUNT_COST
+                        else warm_account_cost
                     )
                     if authorization_with_properties.invalidity_type is None:
-                        access_cost += WARM_ACCOUNT_COST
+                        access_cost += warm_account_cost
 
                 addresses_to_check[authority] = access_cost
 
         else:
             if authority not in addresses_to_check:
                 access_cost = (
-                    COLD_ACCOUNT_COST
+                    cold_account_cost
                     if Address(sender) != authorization_with_properties.tuple.signer
-                    else WARM_ACCOUNT_COST
+                    else warm_account_cost
                 )
                 if not authorization_with_properties.skip and (
                     authorization_with_properties.invalidity_type is None
@@ -859,21 +827,20 @@ def test_account_warming(
                     )
                     or access_list_case.contains_authority()
                 ):
-                    access_cost = WARM_ACCOUNT_COST
+                    access_cost = warm_account_cost
 
                 if (
                     # We can only charge the delegated account access cost if the authorization
                     # went through
-                    authorization_with_properties.invalidity_type
-                    is None
+                    authorization_with_properties.invalidity_type is None
                 ):
                     if (
                         delegated_account in addresses_to_check
                         or access_list_case.contains_set_code_address()
                     ):
-                        access_cost += WARM_ACCOUNT_COST
+                        access_cost += warm_account_cost
                     else:
-                        access_cost += COLD_ACCOUNT_COST
+                        access_cost += cold_account_cost
 
                 addresses_to_check[authority] = access_cost
 
@@ -882,9 +849,9 @@ def test_account_warming(
                     authorization_with_properties.invalidity_type is None
                     or access_list_case.contains_set_code_address()
                 ):
-                    access_cost = WARM_ACCOUNT_COST
+                    access_cost = warm_account_cost
                 else:
-                    access_cost = COLD_ACCOUNT_COST
+                    access_cost = cold_account_cost
                 addresses_to_check[delegated_account] = access_cost
 
     callee_storage = Storage()
@@ -892,7 +859,7 @@ def test_account_warming(
         (
             CodeGasMeasure(
                 code=Op.CALL(gas=0, address=check_address),
-                overhead_cost=OVERHEAD_COST,
+                overhead_cost=overhead_cost,
                 extra_stack_items=1,
                 sstore_key=callee_storage.store_next(access_cost),
                 stop=False,
@@ -984,9 +951,7 @@ def test_self_set_code_cost(
     pre: Alloc,
     pre_authorized: bool,
 ):
-    """
-    Test set to code account access cost when it delegates to itself.
-    """
+    """Test set to code account access cost when it delegates to itself."""
     if pre_authorized:
         auth_signer = pre.fund_eoa(0, delegation="Self")
     else:
@@ -994,11 +959,11 @@ def test_self_set_code_cost(
 
     slot_call_cost = 1
 
-    OVERHEAD_COST = 3 * len(Op.CALL.kwargs)  # type: ignore
+    overhead_cost = 3 * len(Op.CALL.kwargs)  # type: ignore
 
     callee_code = CodeGasMeasure(
         code=Op.CALL(gas=0, address=auth_signer),
-        overhead_cost=OVERHEAD_COST,
+        overhead_cost=overhead_cost,
         extra_stack_items=1,
         sstore_key=slot_call_cost,
     )

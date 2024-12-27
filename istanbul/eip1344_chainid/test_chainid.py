@@ -14,9 +14,7 @@ REFERENCE_SPEC_VERSION = "02e46aebc80e6e5006ab4d2daa41876139f9a9e2"
 
 @pytest.mark.valid_from("Istanbul")
 def test_chainid(state_test: StateTestFiller, pre: Alloc):
-    """
-    Test CHAINID opcode.
-    """
+    """Test CHAINID opcode."""
     env = Environment(
         fee_recipient="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
         difficulty=0x20000,

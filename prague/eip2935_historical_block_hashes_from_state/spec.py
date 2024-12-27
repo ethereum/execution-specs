@@ -1,15 +1,11 @@
-"""
-Defines EIP-2935 specification constants and functions.
-"""
+"""Defines EIP-2935 specification constants and functions."""
 
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class ReferenceSpec:
-    """
-    Defines the reference spec version and git path.
-    """
+    """Defines the reference spec version and git path."""
 
     git_path: str
     version: str
@@ -22,7 +18,7 @@ ref_spec_2935 = ReferenceSpec("EIPS/eip-2935.md", "68d54a80a4f5b9c0cf4ae3a10586d
 class Spec:
     """
     Parameters from the EIP-2935 specifications as defined at
-    https://eips.ethereum.org/EIPS/eip-2935
+    https://eips.ethereum.org/EIPS/eip-2935.
     """
 
     FORK_TIMESTAMP = 15_000

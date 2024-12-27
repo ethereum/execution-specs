@@ -17,16 +17,15 @@ from ethereum_test_tools import (
     StateTestFiller,
     Transaction,
 )
-from ethereum_test_tools.vm.opcode import Opcode
+from ethereum_test_tools.vm.opcode import Opcode, UndefinedOpcodes
 from ethereum_test_tools.vm.opcode import Opcodes as Op
-from ethereum_test_tools.vm.opcode import UndefinedOpcodes
 
 REFERENCE_SPEC_GIT_PATH = "N/A"
 REFERENCE_SPEC_VERSION = "N/A"
 
 
 def prepare_stack(opcode: Opcode) -> Bytecode:
-    """Prepare valid stack for opcode"""
+    """Prepare valid stack for opcode."""
     if opcode == Op.CREATE:
         return Op.MSTORE(0, 0x6001600155) + Op.PUSH1(5) + Op.PUSH1(27) + Op.PUSH1(5)
     if opcode == Op.CREATE2:
@@ -39,7 +38,7 @@ def prepare_stack(opcode: Opcode) -> Bytecode:
 
 
 def prepare_suffix(opcode: Opcode) -> Bytecode:
-    """Prepare after opcode instructions"""
+    """Prepare after opcode instructions."""
     if opcode == Op.JUMPI or opcode == Op.JUMP:
         return Op.JUMPDEST
     return Op.STOP
@@ -95,7 +94,7 @@ def test_all_opcodes(state_test: StateTestFiller, pre: Alloc, fork: Fork):
 
 @pytest.mark.valid_from("Cancun")
 def test_cover_revert(state_test: StateTestFiller, pre: Alloc):
-    """Cover state revert from original tests for the coverage script"""
+    """Cover state revert from original tests for the coverage script."""
     tx = Transaction(
         sender=pre.fund_eoa(),
         gas_limit=1_000_000,

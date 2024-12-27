@@ -1,6 +1,5 @@
-"""
-Test the request types that can be included in a block by the given fork.
-"""
+"""Test the request types that can be included in a block by the given fork."""
+
 from typing import List
 
 import pytest
@@ -103,9 +102,7 @@ def test_invalid_request_type(
     pre: Alloc,
     blocks: List[Block],
 ):
-    """
-    Test sending a block with an invalid request type.
-    """
+    """Test sending a block with an invalid request type."""
     blockchain_test(
         genesis_environment=Environment(),
         pre=pre,

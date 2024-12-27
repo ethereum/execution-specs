@@ -16,9 +16,11 @@ from ethereum_test_tools import (
     Conditional,
     Environment,
     Hash,
+    StateTestFiller,
+    Switch,
+    Transaction,
 )
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Switch, Transaction
 
 from . import PytestParameterEnum
 from .spec import ref_spec_1153
@@ -175,9 +177,7 @@ class DynamicReentrancyTestCases(EnumMeta):
 
 @unique
 class ReentrancyTestCases(PytestParameterEnum, metaclass=DynamicReentrancyTestCases):
-    """
-    Transient storage test cases for different reentrancy call contexts.
-    """
+    """Transient storage test cases for different reentrancy call contexts."""
 
     TSTORE_IN_REENTRANT_CALL = {
         "description": (
@@ -279,9 +279,7 @@ class ReentrancyTestCases(PytestParameterEnum, metaclass=DynamicReentrancyTestCa
 def test_reentrant_call(
     state_test: StateTestFiller, pre: Alloc, bytecode: Bytecode, expected_storage: Dict
 ):
-    """
-    Test transient storage in different reentrancy contexts.
-    """
+    """Test transient storage in different reentrancy contexts."""
     env = Environment()
 
     callee_address = pre.deploy_contract(bytecode)

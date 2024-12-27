@@ -1,3 +1,1 @@
-"""
-Cross-client EIP-6110 Tests
-"""
+"""Cross-client EIP-6110 Tests."""

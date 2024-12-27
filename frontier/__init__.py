@@ -1,3 +1,1 @@
-"""
-Test cases for EVM functionality introduced in Frontier.
-"""
+"""Test cases for EVM functionality introduced in Frontier."""

@@ -1,6 +1,5 @@
-"""
-EOF JUMPF tests covering stack validation rules.
-"""
+"""EOF JUMPF tests covering stack validation rules."""
+
 import pytest
 
 from ethereum_test_specs import EOFTestFiller
@@ -158,9 +157,7 @@ def test_jumpf_incompatible_outputs(
     stack_height: int,
     expected_exception: EOFException,
 ):
-    """
-    Tests jumpf into fuction with incorrect output sizes
-    """
+    """Tests jumpf into fuction with incorrect output sizes."""
     current_section_outputs = 1
     if (current_section_outputs + target_inputs - target_outputs) != stack_height:
         assert expected_exception is not None
@@ -206,9 +203,7 @@ def test_jumpf_diff_max_stack_height(
     stack_height: int,
     expected_exception: EOFException,
 ):
-    """
-    Tests jumpf with a different max stack height
-    """
+    """Tests jumpf with a different max stack height."""
     current_section_outputs = 1
     eof_test(
         data=Container(
@@ -256,9 +251,7 @@ def test_jumpf_diff_min_stack_height(
     stack_height: int,
     expected_exception: EOFException,
 ):
-    """
-    Tests jumpf with a different min stack height
-    """
+    """Tests jumpf with a different min stack height."""
     current_section_outputs = 1
     eof_test(
         data=Container(

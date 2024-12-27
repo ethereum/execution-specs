@@ -1,3 +1,1 @@
-"""
-Tests for EIP-7516: BLOBBASEFEE opcode
-"""
+"""Tests for EIP-7516: BLOBBASEFEE opcode."""

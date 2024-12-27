@@ -1,6 +1,4 @@
-"""
-EOF V1 Code Validation tests
-"""
+"""EOF V1 Code Validation tests."""
 
 from typing import List
 
@@ -133,9 +131,7 @@ INVALID: List[Container] = [
 
 
 def container_name(c: Container):
-    """
-    Return the name of the container for use in pytest ids.
-    """
+    """Return the name of the container for use in pytest ids."""
     if hasattr(c, "name"):
         return c.name
     else:

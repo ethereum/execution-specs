@@ -1,5 +1,3 @@
-"""
-EOF V1 Constants used throughout all tests
-"""
+"""EOF V1 Constants used throughout all tests."""
 
 EOFCREATE_FAILURE = 0

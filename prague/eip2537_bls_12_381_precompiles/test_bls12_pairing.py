@@ -5,9 +5,8 @@ abstract: Tests BLS12_PAIRING precompile of [EIP-2537: Precompile for BLS12-381 
 
 import pytest
 
-from ethereum_test_tools import Alloc, Environment
+from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Transaction
 
 from .helpers import vectors_from_file
 from .spec import PointG1, PointG2, Spec, ref_spec_2537
@@ -22,7 +21,7 @@ pytestmark = [
 
 
 @pytest.mark.parametrize(
-    "input,expected_output",
+    "input_data,expected_output",
     vectors_from_file("pairing_check_bls.json")
     + [
         pytest.param(
@@ -43,9 +42,7 @@ def test_valid(
     post: dict,
     tx: Transaction,
 ):
-    """
-    Test the BLS12_PAIRING precompile.
-    """
+    """Test the BLS12_PAIRING precompile."""
     state_test(
         env=Environment(),
         pre=pre,
@@ -55,7 +52,7 @@ def test_valid(
 
 
 @pytest.mark.parametrize(
-    "input",
+    "input_data",
     vectors_from_file("fail-pairing_check_bls.json")
     + [
         pytest.param(
@@ -112,9 +109,7 @@ def test_invalid(
     post: dict,
     tx: Transaction,
 ):
-    """
-    Negative tests for the BLS12_PAIRING precompile.
-    """
+    """Negative tests for the BLS12_PAIRING precompile."""
     state_test(
         env=Environment(),
         pre=pre,
@@ -132,7 +127,7 @@ def test_invalid(
     ],
 )
 @pytest.mark.parametrize(
-    "input,expected_output",
+    "input_data,expected_output",
     [
         pytest.param(
             Spec.INF_G1 + Spec.INF_G2,
@@ -147,9 +142,7 @@ def test_call_types(
     post: dict,
     tx: Transaction,
 ):
-    """
-    Test the BLS12_PAIRING precompile using different call types.
-    """
+    """Test the BLS12_PAIRING precompile using different call types."""
     state_test(
         env=Environment(),
         pre=pre,

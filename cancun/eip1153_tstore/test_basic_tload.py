@@ -1,6 +1,6 @@
 """
 Ethereum Transient Storage EIP Tests
-https://eips.ethereum.org/EIPS/eip-1153
+https://eips.ethereum.org/EIPS/eip-1153.
 """
 
 from typing import Dict, Union
@@ -22,7 +22,7 @@ def test_basic_tload_transaction_begin(
     pre: Alloc,
 ):
     """
-    Ported .json vectors:
+    Ported .json vectors.
 
     (01_tloadBeginningTxnFiller.yml)
     load arbitrary value is 0 at beginning of transaction
@@ -67,7 +67,7 @@ def test_basic_tload_works(
     pre: Alloc,
 ):
     """
-    Ported .json vectors:
+    Ported .json vectors.
 
     (02_tloadAfterTstoreFiller.yml)
     tload from same slot after tstore returns correct value
@@ -119,7 +119,7 @@ def test_basic_tload_other_after_tstore(
     pre: Alloc,
 ):
     """
-    Ported .json vectors:
+    Ported .json vectors.
 
     (03_tloadAfterStoreIs0Filler.yml)
     Loading any other slot after storing to a slot returns 0.
@@ -167,7 +167,7 @@ def test_basic_tload_gasprice(
     pre: Alloc,
 ):
     """
-    Ported .json vectors:
+    Ported .json vectors.
 
     (16_tloadGasFiller.yml)
     tload costs 100 gas same as a warm sload
@@ -245,7 +245,7 @@ def test_basic_tload_after_store(
     pre: Alloc,
 ):
     """
-    Ported .json vectors:
+    Ported .json vectors.
 
     (18_tloadAfterStoreFiller.yml)
     tload from same slot after store returns 0

@@ -3,6 +3,7 @@ abstract: Tests gas usage on point evaluation precompile for [EIP-4844: Shard Bl
     Test gas usage on point evaluation precompile for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844).
 
 """  # noqa: E501
+
 from typing import Dict, Literal
 
 import pytest
@@ -30,9 +31,7 @@ REFERENCE_SPEC_VERSION = ref_spec_4844.version
 
 @pytest.fixture
 def precompile_input(proof: Literal["correct", "incorrect"]) -> bytes:
-    """
-    Format depending on whether we want a correct proof or not.
-    """
+    """Format depending on whether we want a correct proof or not."""
     kzg_commitment = INF_POINT
     kzg_proof = INF_POINT
     z = Z
@@ -72,9 +71,9 @@ def call_gas() -> int:
 
 def copy_opcode_cost(fork: Fork, length: int) -> int:
     """
-    Calculates the cost of the COPY opcodes, assuming memory expansion from
-    empty memory, based on the costs specified in the yellow paper:
-    https://ethereum.github.io/yellowpaper/paper.pdf
+    Calculate the cost of the COPY opcodes, assuming memory expansion from
+    empty memory, based on the costs specified in the yellow paper.
+    https://ethereum.github.io/yellowpaper/paper.pdf.
     """
     cost_memory_bytes = fork.memory_expansion_gas_calculator()
     return (
@@ -91,18 +90,16 @@ def precompile_caller_code(
     call_gas: int,
     precompile_input: bytes,
 ) -> Bytecode:
-    """
-    Code to call the point evaluation precompile and evaluate gas usage.
-    """
-    CALLDATASIZE_COST = 2
-    PUSH_OPERATIONS_COST = 3
-    WARM_STORAGE_READ_COST = 100
+    """Code to call the point evaluation precompile and evaluate gas usage."""
+    calldatasize_cost = 2
+    push_operations_cost = 3
+    warm_storage_read_cost = 100
 
     precompile_caller_code = Op.CALLDATACOPY(0, 0, Op.CALLDATASIZE)
     overhead_cost = (
-        WARM_STORAGE_READ_COST
-        + (CALLDATASIZE_COST * 1)
-        + (PUSH_OPERATIONS_COST * 2)
+        warm_storage_read_cost
+        + (calldatasize_cost * 1)
+        + (push_operations_cost * 2)
         + copy_opcode_cost(fork, len(precompile_input))
     )
     if call_type == Op.CALL or call_type == Op.CALLCODE:
@@ -115,7 +112,7 @@ def precompile_caller_code(
             0x00,
             0x00,
         )
-        overhead_cost += (PUSH_OPERATIONS_COST * 6) + (CALLDATASIZE_COST * 1)
+        overhead_cost += (push_operations_cost * 6) + (calldatasize_cost * 1)
     elif call_type == Op.DELEGATECALL or call_type == Op.STATICCALL:
         # Delegatecall and staticcall use one less argument
         precompile_caller_code += call_type(  # type: ignore # https://github.com/ethereum/execution-spec-tests/issues/348 # noqa: E501
@@ -126,7 +123,7 @@ def precompile_caller_code(
             0x00,
             0x00,
         )
-        overhead_cost += (PUSH_OPERATIONS_COST * 5) + (CALLDATASIZE_COST * 1)
+        overhead_cost += (push_operations_cost * 5) + (calldatasize_cost * 1)
 
     gas_measure_code = CodeGasMeasure(
         code=precompile_caller_code,
@@ -139,9 +136,7 @@ def precompile_caller_code(
 
 @pytest.fixture
 def precompile_caller_address(pre: Alloc, precompile_caller_code: Bytecode) -> Address:
-    """
-    Address of the precompile caller account.
-    """
+    """Address of the precompile caller account."""
     return pre.deploy_contract(precompile_caller_code)
 
 
@@ -151,9 +146,7 @@ def tx(
     precompile_caller_address: Address,
     precompile_input: bytes,
 ) -> Transaction:
-    """
-    Prepares transaction used to call the precompile caller account.
-    """
+    """Prepare transaction used to call the precompile caller account."""
     return Transaction(
         sender=pre.fund_eoa(),
         data=precompile_input,
@@ -170,7 +163,7 @@ def post(
     call_gas: int,
 ) -> Dict:
     """
-    Prepares expected post for each test, depending on the success or
+    Prepare expected post for each test, depending on the success or
     failure of the precompile call and the gas usage.
     """
     if proof == "correct":
@@ -212,7 +205,7 @@ def test_point_evaluation_precompile_gas_usage(
     post: Dict,
 ):
     """
-    Test point evaluation precompile gas usage under different call contexts and gas limits:
+    Test point evaluation precompile gas usage under different call contexts and gas limits.
 
     - Test using all call types (CALL, DELEGATECALL, CALLCODE, STATICCALL)
     - Test using different gas limits (exact gas, insufficient gas, extra gas)

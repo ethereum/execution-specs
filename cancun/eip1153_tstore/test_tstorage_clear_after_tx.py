@@ -1,6 +1,6 @@
 """
 Ethereum Transient Storage EIP Tests
-https://eips.ethereum.org/EIPS/eip-1153
+https://eips.ethereum.org/EIPS/eip-1153.
 """
 
 from typing import Optional
@@ -34,7 +34,7 @@ def test_tstore_clear_after_deployment_tx(
     evm_code_type: EVMCodeType,
 ):
     """
-    This test first creates a contract, which TSTOREs a value 1 in slot 1.
+    First creates a contract, which TSTOREs a value 1 in slot 1.
     After creating the contract, a new tx will call this contract, storing TLOAD(1) into slot 1.
     The transient storage should be cleared after creating the contract (at tx-level), so
     the storage should stay empty.
@@ -81,7 +81,7 @@ def test_tstore_clear_after_tx(
     pre: Alloc,
 ):
     """
-    This test first SSTOREs the TLOAD value of key 1 in slot 1. Then, it TSTOREs 1 in slot 1.
+    First SSTOREs the TLOAD value of key 1 in slot 1. Then, it TSTOREs 1 in slot 1.
     The second tx will re-call the contract. The storage should stay empty,
     because the transient storage is cleared after the transaction.
     """

@@ -4,15 +4,24 @@ abstract: Tests [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethe
     that produce a memory expansion, and potentially an out-of-gas error.
 
 """  # noqa: E501
+
 import itertools
 from typing import List, Mapping
 
 import pytest
 
 from ethereum_test_forks import Fork
-from ethereum_test_tools import AccessList, Account, Address, Alloc, Bytecode, Environment
+from ethereum_test_tools import (
+    AccessList,
+    Account,
+    Address,
+    Alloc,
+    Bytecode,
+    Environment,
+    StateTestFiller,
+    Transaction,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Transaction
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
 
@@ -30,9 +39,7 @@ value_code_worked = 0x2015
 
 @pytest.fixture
 def callee_bytecode(dest: int, src: int, length: int) -> Bytecode:
-    """
-    Callee performs a single mcopy operation and then returns.
-    """
+    """Callee performs a single mcopy operation and then returns."""
     bytecode = Bytecode()
 
     # Copy the initial memory
@@ -53,9 +60,7 @@ def callee_bytecode(dest: int, src: int, length: int) -> Bytecode:
 
 @pytest.fixture
 def tx_access_list() -> List[AccessList]:
-    """
-    Access list for the transaction.
-    """
+    """Access list for the transaction."""
     return [AccessList(address=Address(i), storage_keys=[]) for i in range(1, 10)]
 
 
@@ -68,7 +73,8 @@ def call_exact_cost(
     tx_access_list: List[AccessList],
 ) -> int:
     """
-    Returns the exact cost of the subcall, based on the initial memory and the length of the copy.
+    Return the exact cost of the subcall, based on the initial memory and the length of the
+    copy.
     """
     # Starting from EIP-7623, we need to use an access list to raise the intrinsic gas cost to be
     # above the floor data cost.
@@ -217,9 +223,7 @@ def test_mcopy_memory_expansion(
     post: Mapping[str, Account],
     tx: Transaction,
 ):
-    """
-    Perform MCOPY operations that expand the memory, and verify the gas it costs to do so.
-    """
+    """Perform MCOPY operations that expand the memory, and verify the gas it costs to do so."""
     state_test(
         env=env,
         pre=pre,

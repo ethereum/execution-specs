@@ -1,6 +1,6 @@
 """
 Suicide scenario requested test
-https://github.com/ethereum/execution-spec-tests/issues/381
+https://github.com/ethereum/execution-spec-tests/issues/381.
 """
 
 from itertools import count
@@ -61,7 +61,8 @@ def test_dynamic_create2_selfdestruct_collision(
     call_create2_contract_at_the_end: bool,
     state_test: StateTestFiller,
 ):
-    """Dynamic Create2->Suicide->Create2 collision scenario:
+    """
+    Dynamic Create2->Suicide->Create2 collision scenario.
 
     Perform a CREATE2, make sure that the initcode sets at least a couple of storage keys,
     then on a different call, in the same tx, perform a self-destruct.
@@ -245,7 +246,8 @@ def test_dynamic_create2_selfdestruct_collision_two_different_transactions(
     call_create2_contract_at_the_end: bool,
     blockchain_test: BlockchainTestFiller,
 ):
-    """Dynamic Create2->Suicide->Create2 collision scenario:
+    """
+    Dynamic Create2->Suicide->Create2 collision scenario.
 
     Perform a CREATE2, make sure that the initcode sets at least a couple of storage keys,
     then on a different call, in the same tx, perform a self-destruct.
@@ -489,7 +491,8 @@ def test_dynamic_create2_selfdestruct_collision_multi_tx(
     recreate_on_first_tx: bool,
     blockchain_test: BlockchainTestFiller,
 ):
-    """Dynamic Create2->Suicide->Create2 collision scenario over multiple transactions:
+    """
+    Dynamic Create2->Suicide->Create2 collision scenario over multiple transactions.
 
     Perform a CREATE2, make sure that the initcode sets at least a couple of storage keys,
     then on a different call, in the same or different tx but same block, perform a self-destruct.

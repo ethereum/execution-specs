@@ -1,16 +1,26 @@
 """
 abstract: Tests [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656)
-    Test memory copy under different call contexts [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656)
+    Test memory copy under different call contexts [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656).
 
 """  # noqa: E501
+
 from itertools import cycle, islice
 from typing import Mapping
 
 import pytest
 
-from ethereum_test_tools import Account, Address, Alloc, Bytecode, Environment
+from ethereum_test_tools import (
+    Account,
+    Address,
+    Alloc,
+    Bytecode,
+    Environment,
+    StateTestFiller,
+    Storage,
+    Transaction,
+    ceiling_division,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Storage, Transaction, ceiling_division
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION
 
@@ -60,9 +70,7 @@ def initial_memory(
     initial_memory_length: int,
     call_opcode: Op,
 ) -> bytes:
-    """
-    Initial memory for the test.
-    """
+    """Init memory for the test."""
     assert len(callee_bytecode) <= initial_memory_length
 
     ret = bytes(list(islice(cycle(range(0x01, 0x100)), initial_memory_length)))
@@ -89,7 +97,7 @@ def caller_bytecode(
     caller_storage: Storage,
 ) -> Bytecode:
     """
-    Prepares the bytecode and storage for the test, based on the starting memory and the final
+    Prepare bytecode and storage for the test, based on the starting memory and the final
     memory that resulted from the copy.
     """
     bytecode = Bytecode()
@@ -164,7 +172,7 @@ def test_no_memory_corruption_on_upper_call_stack_levels(
 ):
     """
     Perform a subcall with any of the following opcodes, which uses MCOPY during its execution,
-    and verify that the caller's memory is unaffected
+    and verify that the caller's memory is unaffected.
     """
     state_test(
         env=Environment(),
@@ -192,7 +200,7 @@ def test_no_memory_corruption_on_upper_create_stack_levels(
     Perform a subcall with any of the following opcodes, which uses MCOPY during its execution,
     and verify that the caller's memory is unaffected:
       - `CREATE`
-      - `CREATE2`
+      - `CREATE2`.
 
     TODO: [EOF] Add EOFCREATE opcode
     """

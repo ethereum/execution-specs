@@ -1,6 +1,4 @@
-"""
-Different variations of EOF sections displacement
-"""
+"""Different variations of EOF sections displacement."""
 
 from enum import Enum
 from typing import List
@@ -21,18 +19,14 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 
 class SectionTest(Enum):
-    """
-    Enum for the test type
-    """
+    """Enum for the test type."""
 
     MISSING = 1
     WRONG_ORDER = 2
 
 
 class CasePosition(Enum):
-    """
-    Enum for the test position
-    """
+    """Enum for the test position."""
 
     BODY = 1
     HEADER = 2
@@ -42,9 +36,7 @@ class CasePosition(Enum):
 def get_expected_code_exception(
     section_kind, section_test, test_position
 ) -> tuple[str, EOFExceptionInstanceOrList | None]:
-    """
-    Verification vectors with code and exception based on test combinations
-    """
+    """Verification vectors with code and exception based on test combinations."""
     match (section_kind, section_test, test_position):
         case (SectionKind.TYPE, SectionTest.MISSING, CasePosition.HEADER):
             return (
@@ -156,9 +148,7 @@ def test_section_order(
     section_test: SectionTest,
     test_position: CasePosition,
 ):
-    """
-    Test sections order and it appearance in body and header
-    """
+    """Test sections order and it appearance in body and header."""
 
     def calculate_skip_flag(kind, position) -> bool:
         return (

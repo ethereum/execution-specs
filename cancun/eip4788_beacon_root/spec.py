@@ -1,6 +1,5 @@
-"""
-Defines EIP-4788 specification constants and functions.
-"""
+"""Defines EIP-4788 specification constants and functions."""
+
 from dataclasses import dataclass
 
 from ethereum_test_tools import Storage
@@ -8,9 +7,7 @@ from ethereum_test_tools import Storage
 
 @dataclass(frozen=True)
 class ReferenceSpec:
-    """
-    Defines the reference spec version and git path.
-    """
+    """Defines the reference spec version and git path."""
 
     git_path: str
     version: str
@@ -24,7 +21,7 @@ ref_spec_4788 = ReferenceSpec("EIPS/eip-4788.md", "e7608fe8ac8a60934ca874f5aab7d
 class Spec:
     """
     Parameters from the EIP-4788 specifications as defined at
-    https://eips.ethereum.org/EIPS/eip-4788#specification
+    https://eips.ethereum.org/EIPS/eip-4788#specification.
     """
 
     BEACON_ROOTS_ADDRESS = 0x000F3DF6D732807EF1319FB7B8BB8522D0BEAC02
@@ -37,20 +34,14 @@ class Spec:
 
 @dataclass(frozen=True)
 class SpecHelpers:
-    """
-    Helper functions closely related to the EIP-4788 specification.
-    """
+    """Helper functions closely related to the EIP-4788 specification."""
 
     def timestamp_index(self, timestamp: int) -> int:
-        """
-        Derive the timestamp index into the timestamp ring buffer.
-        """
+        """Derive the timestamp index into the timestamp ring buffer."""
         return timestamp % Spec.HISTORY_BUFFER_LENGTH
 
     def root_index(self, timestamp: int) -> int:
-        """
-        Derive the root index into the root ring buffer.
-        """
+        """Derive the root index into the root ring buffer."""
         return self.timestamp_index(timestamp) + Spec.HISTORY_BUFFER_LENGTH
 
     @staticmethod
@@ -61,10 +52,10 @@ class SpecHelpers:
         valid_input: bool,
     ) -> Storage:
         """
-        Derives the expected storage for a given beacon root contract call
+        Derive expected storage for a given beacon root contract call
         dependent on:
         - success or failure of the call
-        - validity of the timestamp input used within the call
+        - validity of the timestamp input used within the call.
         """
         # By default assume the call is unsuccessful and all keys are zero
         storage = Storage({k: 0 for k in range(4)})  # type: ignore

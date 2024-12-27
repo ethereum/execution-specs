@@ -19,9 +19,7 @@ REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
 
 @pytest.mark.valid_from(EOF_FORK_NAME)
 def test_swapn_all_valid_immediates(eof_state_test: EOFStateTestFiller):
-    """
-    Test case for all valid SWAPN immediates.
-    """
+    """Test case for all valid SWAPN immediates."""
     n = 256
     values = range(0x500, 0x500 + 257)
 
@@ -36,7 +34,7 @@ def test_swapn_all_valid_immediates(eof_state_test: EOFStateTestFiller):
     )
 
     values_rotated = list(values[1:]) + [values[0]]
-    post = Account(storage=dict(zip(range(0, n), reversed(values_rotated))))
+    post = Account(storage=dict(zip(range(0, n), reversed(values_rotated), strict=False)))
 
     eof_state_test(
         tx_sender_funding_amount=1_000_000_000,
@@ -57,9 +55,7 @@ def test_swapn_on_max_stack(
     swapn_operand: int,
     eof_test: EOFTestFiller,
 ):
-    """
-    Test case out of bounds DUPN immediate.
-    """
+    """Test case out of bounds DUPN immediate."""
     eof_code = Container(
         sections=[
             Section.Code(
@@ -88,9 +84,7 @@ def test_swapn_stack_underflow(
     stack_height: int,
     eof_test: EOFTestFiller,
 ):
-    """
-    Test case out of bounds DUPN immediate.
-    """
+    """Test case out of bounds DUPN immediate."""
     eof_code = Container(
         sections=[
             Section.Code(

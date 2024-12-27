@@ -1,6 +1,4 @@
-"""
-Execution of DATA* opcodes within EOF V1 containers tests
-"""
+"""Execution of DATA* opcodes within EOF V1 containers tests."""
 
 import pytest
 
@@ -17,9 +15,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 
 def create_data_test(offset: int, datasize: int):
-    """
-    Generates data load operators test cases based on load offset and data section size.
-    """
+    """Generate data load operators test cases based on load offset and data section size."""
     data = b"".join(i.to_bytes(length=2, byteorder="big") for i in range(1, datasize // 2 + 1))
     assert len(data) == datasize
     overhang = min(32, offset + 32 - datasize)
@@ -95,9 +91,7 @@ def test_data_section_succeed(
     offset: int,
     datasize: int,
 ):
-    """
-    Test simple contracts that are simply expected to succeed on call.
-    """
+    """Test simple contracts that are simply expected to succeed on call."""
     env = Environment()
 
     (container, expected_storage) = create_data_test(offset, datasize)

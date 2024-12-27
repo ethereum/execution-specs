@@ -30,9 +30,7 @@ def test_empty_authorization_list(
     transaction_test: TransactionTestFiller,
     pre: Alloc,
 ):
-    """
-    Test sending a transaction with an empty authorization list.
-    """
+    """Test sending a transaction with an empty authorization list."""
     tx = Transaction(
         gas_limit=100_000,
         to=0,
@@ -71,9 +69,7 @@ def test_invalid_auth_signature(
     s: int,
     delegate_address: Address,
 ):
-    """
-    Test sending a transaction where one of the signature elements is out of range.
-    """
+    """Test sending a transaction where one of the signature elements is out of range."""
     tx = Transaction(
         gas_limit=100_000,
         to=0,

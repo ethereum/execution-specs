@@ -1,3 +1,1 @@
-"""
-Tests using Yul source for contracts.
-"""
+"""Tests using Yul source for contracts."""

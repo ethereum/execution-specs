@@ -1,3 +1,1 @@
-"""
-Test cases for EVM functionality introduced in Byzantium.
-"""
+"""Test cases for EVM functionality introduced in Byzantium."""

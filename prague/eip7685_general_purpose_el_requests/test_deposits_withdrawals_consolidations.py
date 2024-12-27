@@ -1,6 +1,6 @@
 """
 abstract: Tests [EIP-7685: General purpose execution layer requests](https://eips.ethereum.org/EIPS/eip-7685)
-    Cross testing for withdrawal and deposit request for [EIP-7685: General purpose execution layer requests](https://eips.ethereum.org/EIPS/eip-7685)
+    Cross testing for withdrawal and deposit request for [EIP-7685: General purpose execution layer requests](https://eips.ethereum.org/EIPS/eip-7685).
 
 """  # noqa: E501
 
@@ -20,9 +20,12 @@ from ethereum_test_tools import (
     Bytecode,
     Environment,
     Header,
+    Requests,
+    Storage,
+    TestAddress,
+    Transaction,
 )
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Requests, Storage, TestAddress, Transaction
 
 from ..eip6110_deposits.helpers import DepositContract, DepositRequest, DepositTransaction
 from ..eip6110_deposits.spec import Spec as Spec_EIP6110
@@ -97,9 +100,7 @@ def single_consolidation_from_contract(i: int) -> ConsolidationRequestContract: 
 
 
 def get_permutations(n: int = 3) -> Generator[Any, None, None]:
-    """
-    Returns all possible permutations of the requests from an EOA.
-    """
+    """Return possible permutations of the requests from an EOA."""
     requests = [
         (
             "deposit",
@@ -119,9 +120,7 @@ def get_permutations(n: int = 3) -> Generator[Any, None, None]:
 
 
 def get_eoa_permutations(n: int = 3) -> Generator[Any, None, None]:
-    """
-    Returns all possible permutations of the requests from an EOA.
-    """
+    """Return possible permutations of the requests from an EOA."""
     requests = [
         (
             "deposit_from_eoa",
@@ -141,9 +140,7 @@ def get_eoa_permutations(n: int = 3) -> Generator[Any, None, None]:
 
 
 def get_contract_permutations(n: int = 3) -> Generator[Any, None, None]:
-    """
-    Returns all possible permutations of the requests from a contract.
-    """
+    """Return possible permutations of the requests from a contract."""
     requests = [
         (
             "deposit_from_contract",
@@ -225,7 +222,8 @@ def test_valid_deposit_withdrawal_consolidation_requests(
     blocks: List[Block],
 ):
     """
-    Test making a deposit to the beacon chain deposit contract and a withdrawal in the same block.
+    Test making a deposit to the beacon chain deposit contract and a withdrawal
+    in the same block.
     """
     blockchain_test(
         genesis_environment=Environment(),
@@ -243,7 +241,8 @@ def test_valid_deposit_withdrawal_consolidation_request_from_same_tx(
     fork: Fork,
 ):
     """
-    Test making a deposit to the beacon chain deposit contract and a withdrawal in the same tx.
+    Test making a deposit to the beacon chain deposit contract and a withdrawal in
+    the same tx.
     """
     withdrawal_request_fee = 1
     consolidation_request_fee = 1

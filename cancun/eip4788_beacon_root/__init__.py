@@ -1,3 +1,1 @@
-"""
-Cross-client EIP-4788 Tests
-"""
+"""Cross-client EIP-4788 Tests."""

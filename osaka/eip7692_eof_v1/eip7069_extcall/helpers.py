@@ -1,6 +1,5 @@
-"""
-EOF extcall tests helpers
-"""
+"""EOF extcall tests helpers."""
+
 import itertools
 
 """Storage addresses for common testing fields"""

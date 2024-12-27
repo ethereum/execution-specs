@@ -1,6 +1,5 @@
-"""
-Fixtures for the EIP-7251 consolidations tests.
-"""
+"""Fixtures for the EIP-7251 consolidations tests."""
+
 from itertools import zip_longest
 from typing import List
 
@@ -19,7 +18,7 @@ def update_pre(
     blocks_consolidation_requests: List[List[ConsolidationRequestInteractionBase]],
 ):
     """
-    Initial state of the accounts. Every deposit transaction defines their own pre-state
+    Init state of the accounts. Every deposit transaction defines their own pre-state
     requirements, and this fixture aggregates them all.
     """
     for requests in blocks_consolidation_requests:
@@ -32,9 +31,7 @@ def included_requests(
     update_pre: None,  # Fixture is used for its side effects
     blocks_consolidation_requests: List[List[ConsolidationRequestInteractionBase]],
 ) -> List[List[ConsolidationRequest]]:
-    """
-    Return the list of consolidation requests that should be included in each block.
-    """
+    """Return the list of consolidation requests that should be included in each block."""
     excess_consolidation_requests = 0
     carry_over_requests: List[ConsolidationRequest] = []
     per_block_included_requests: List[List[ConsolidationRequest]] = []
@@ -72,9 +69,7 @@ def included_requests(
 
 @pytest.fixture
 def timestamp() -> int:
-    """
-    Return the timestamp for the first block.
-    """
+    """Return the timestamp for the first block."""
     return 1
 
 
@@ -86,9 +81,7 @@ def blocks(
     included_requests: List[List[ConsolidationRequest]],
     timestamp: int,
 ) -> List[Block]:
-    """
-    Return the list of blocks that should be included in the test.
-    """
+    """Return the list of blocks that should be included in the test."""
     blocks: List[Block] = []
 
     for block_requests, block_included_requests in zip_longest(  # type: ignore

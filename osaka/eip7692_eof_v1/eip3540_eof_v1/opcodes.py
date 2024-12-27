@@ -1,6 +1,4 @@
-"""
-EOF Valid Opcodes
-"""
+"""EOF Valid Opcodes."""
 
 from typing import List
 

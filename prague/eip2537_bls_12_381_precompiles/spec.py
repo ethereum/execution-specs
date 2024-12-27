@@ -1,6 +1,5 @@
-"""
-Defines EIP-2537 specification constants and functions.
-"""
+"""Defines EIP-2537 specification constants and functions."""
+
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Callable, Sized, SupportsBytes, Tuple
@@ -8,9 +7,7 @@ from typing import Callable, Sized, SupportsBytes, Tuple
 
 @dataclass(frozen=True)
 class ReferenceSpec:
-    """
-    Defines the reference spec version and git path.
-    """
+    """Defines the reference spec version and git path."""
 
     git_path: str
     version: str
@@ -20,12 +17,10 @@ ref_spec_2537 = ReferenceSpec("EIPS/eip-2537.md", "cd0f016ad0c4c68b8b1f5c502ef61
 
 
 class BytesConcatenation(SupportsBytes, Sized):
-    """
-    A class that can be concatenated with bytes.
-    """
+    """A class that can be concatenated with bytes."""
 
     def __len__(self) -> int:
-        """Returns the length of the object when converted to bytes."""
+        """Return length of the object when converted to bytes."""
         return len(bytes(self))
 
     def __add__(self, other: bytes | SupportsBytes) -> bytes:
@@ -44,7 +39,7 @@ class FP(BytesConcatenation):
     x: int = 0
 
     def __bytes__(self) -> bytes:
-        """Converts the field element to bytes."""
+        """Convert field element to bytes."""
         return self.x.to_bytes(64, byteorder="big")
 
 
@@ -56,7 +51,7 @@ class PointG1(BytesConcatenation):
     y: int = 0
 
     def __bytes__(self) -> bytes:
-        """Converts the point to bytes."""
+        """Convert point to bytes."""
         return self.x.to_bytes(64, byteorder="big") + self.y.to_bytes(64, byteorder="big")
 
     def __neg__(self):
@@ -71,7 +66,7 @@ class FP2(BytesConcatenation):
     x: Tuple[int, int] = (0, 0)
 
     def __bytes__(self) -> bytes:
-        """Converts the field element to bytes."""
+        """Convert field element to bytes."""
         return self.x[0].to_bytes(64, byteorder="big") + self.x[1].to_bytes(64, byteorder="big")
 
 
@@ -83,7 +78,7 @@ class PointG2(BytesConcatenation):
     y: Tuple[int, int] = (0, 0)
 
     def __bytes__(self) -> bytes:
-        """Converts the point to bytes."""
+        """Convert point to bytes."""
         return (
             self.x[0].to_bytes(64, byteorder="big")
             + self.x[1].to_bytes(64, byteorder="big")
@@ -103,7 +98,7 @@ class Scalar(BytesConcatenation):
     x: int = 0
 
     def __bytes__(self) -> bytes:
-        """Converts the scalar to bytes."""
+        """Convert scalar to bytes."""
         return self.x.to_bytes(32, byteorder="big")
 
 
@@ -111,7 +106,7 @@ class Scalar(BytesConcatenation):
 class Spec:
     """
     Parameters from the EIP-2537 specifications as defined at
-    https://eips.ethereum.org/EIPS/eip-2537
+    https://eips.ethereum.org/EIPS/eip-2537.
     """
 
     # Addresses
@@ -232,18 +227,14 @@ class Spec:
 
 
 class BLS12Group(Enum):
-    """
-    Helper enum to specify the BLS12 group in discount table helpers.
-    """
+    """Helper enum to specify the BLS12 group in discount table helpers."""
 
     G1 = auto()
     G2 = auto()
 
 
 def msm_discount(group: BLS12Group, k: int) -> int:
-    """
-    Returns the discount for the G1MSM and G2MSM precompiles.
-    """
+    """Return the discount for the G1MSM and G2MSM precompiles."""
     assert k >= 1, "k must be greater than or equal to 1"
     match group:
         case BLS12Group.G1:
@@ -258,13 +249,16 @@ def msm_gas_func_gen(
     group: BLS12Group, len_per_pair: int, multiplication_cost: int
 ) -> Callable[[int], int]:
     """
-    Generate a function that calculates the gas cost for the G1MSM and G2MSM precompiles.
+    <<<<<<< HEAD
+        Generate a function that calculates the gas cost for the G1MSM and G2MSM precompiles.
+    =======
+        Generate function that calculates the gas cost for the G1MSM and G2MSM
+        precompiles.
+    >>>>>>> 4e264c33c6 (chore(ruff): changes to `tests/prague`.)
     """
 
     def msm_gas(input_length: int) -> int:
-        """
-        Calculates the gas cost for the G1MSM and G2MSM precompiles.
-        """
+        """Calculate gas cost for the G1MSM and G2MSM precompiles."""
         k = input_length // len_per_pair
         if k == 0:
             return 0
@@ -277,9 +271,7 @@ def msm_gas_func_gen(
 
 
 def pairing_gas(input_length: int) -> int:
-    """
-    Calculates the gas cost for the PAIRING precompile.
-    """
+    """Calculate gas cost for the PAIRING precompile."""
     k = input_length // Spec.LEN_PER_PAIR
     return (Spec.PAIRING_PER_PAIR_GAS * k) + Spec.PAIRING_BASE_GAS
 

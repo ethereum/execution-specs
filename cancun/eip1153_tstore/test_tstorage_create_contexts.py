@@ -7,9 +7,18 @@ from enum import unique
 
 import pytest
 
-from ethereum_test_tools import Account, Address, Alloc, Bytecode, Environment, Initcode
+from ethereum_test_tools import (
+    Account,
+    Address,
+    Alloc,
+    Bytecode,
+    Environment,
+    Initcode,
+    StateTestFiller,
+    Transaction,
+    compute_create_address,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Transaction, compute_create_address
 
 from . import CreateOpcodeParams, PytestParameterEnum
 from .spec import ref_spec_1153
@@ -116,8 +125,7 @@ class InitcodeTestCases(PytestParameterEnum):
 @InitcodeTestCases.parametrize()
 class TestTransientStorageInContractCreation:
     """
-    Test transient storage in contract creation contexts:
-
+    Test transient storage in contract creation contexts.
     - TSTORE/TLOAD in initcode should not be able to access the creator's transient storage.
     - TSTORE/TLOAD in initcode should be able to access the created contract's transient
         storage.
@@ -157,7 +165,7 @@ class TestTransientStorageInContractCreation:
 
     @pytest.fixture()
     def creator_address(self, pre: Alloc, creator_contract_code: Bytecode) -> Address:
-        """The address that creates the contract with create/create2"""
+        """Address that creates the contract with create/create2."""
         return pre.deploy_contract(creator_contract_code)
 
     @pytest.fixture()
@@ -187,9 +195,7 @@ class TestTransientStorageInContractCreation:
         expected_creator_storage: dict,
         expected_storage: dict,
     ) -> None:
-        """
-        Test transient storage in contract creation contexts.
-        """
+        """Test transient storage in contract creation contexts."""
         sender = pre.fund_eoa()
 
         tx = Transaction(

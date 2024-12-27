@@ -1,6 +1,4 @@
-"""
-EOF validation tests for non-returning code sections.
-"""
+"""EOF validation tests for non-returning code sections."""
 
 import pytest
 
@@ -56,9 +54,7 @@ def test_first_section_returning(eof_test: EOFTestFiller, code_section: Section)
     ],
 )
 def test_returning_section_not_returning(eof_test: EOFTestFiller, code_section: Section):
-    """
-    Test EOF validation failing because a returning section has no RETF or JUMPF-to-returning.
-    """
+    """Test EOF validation failing due to returning section with no RETF or JUMPF-to-returning."""
     eof_test(
         data=Container(
             sections=[
@@ -85,7 +81,7 @@ def test_returning_section_not_returning(eof_test: EOFTestFiller, code_section: 
 def test_returning_section_returncontract(eof_test: EOFTestFiller, code_section: Section):
     """
     Test EOF validation failing because a returning section has no RETF or JUMPF-to-returning -
-    RETURNCONTRACT version
+    RETURNCONTRACT version.
     """
     eof_test(
         data=Container(
@@ -114,9 +110,7 @@ code_prefix = pytest.mark.parametrize(
 @first
 @code_prefix
 def test_retf_in_nonreturning(eof_test: EOFTestFiller, first: bool, code_prefix: Bytecode):
-    """
-    Test EOF validation failing because a non-returning section contains the RETF instruction.
-    """
+    """Test EOF validation failing due to non-returning section with the RETF instruction."""
     sections = [Section.Code(code_prefix + Op.RETF, code_outputs=NON_RETURNING_SECTION)]
     if not first:  # Prefix sections with additional valid JUMPF to invalid section
         sections = [Section.Code(Op.JUMPF[1])] + sections
@@ -128,9 +122,7 @@ def test_retf_in_nonreturning(eof_test: EOFTestFiller, first: bool, code_prefix:
 @first
 @code_prefix
 def test_jumpf_in_nonreturning(eof_test: EOFTestFiller, first: bool, code_prefix: Bytecode):
-    """
-    Test EOF validation failing because a non-returning section contains the JUMPF instruction.
-    """
+    """Test EOF validation failing due to non-returning section with the JUMPF instruction."""
     invalid_section = Section.Code(
         code_prefix + Op.JUMPF[1 if first else 2],
         code_outputs=NON_RETURNING_SECTION,

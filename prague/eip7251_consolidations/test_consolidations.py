@@ -1,6 +1,6 @@
 """
 abstract: Tests [EIP-7251: Increase the MAX_EFFECTIVE_BALANCE](https://eips.ethereum.org/EIPS/eip-7251)
-    Test execution layer triggered consolidations [EIP-7251: Increase the MAX_EFFECTIVE_BALANCE](https://eips.ethereum.org/EIPS/eip-7251)
+    Test execution layer triggered consolidations [EIP-7251: Increase the MAX_EFFECTIVE_BALANCE](https://eips.ethereum.org/EIPS/eip-7251).
 
 """  # noqa: E501
 
@@ -18,9 +18,11 @@ from ethereum_test_tools import (
     Environment,
     Header,
     Macros,
+    Requests,
+    TestAddress,
+    TestAddress2,
 )
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Requests, TestAddress, TestAddress2
 
 from .helpers import (
     ConsolidationRequest,
@@ -539,9 +541,7 @@ def test_consolidation_requests(
     blocks: List[Block],
     pre: Alloc,
 ):
-    """
-    Test making a consolidation request to the beacon chain.
-    """
+    """Test making a consolidation request to the beacon chain."""
     blockchain_test(
         genesis_environment=Environment(),
         pre=pre,

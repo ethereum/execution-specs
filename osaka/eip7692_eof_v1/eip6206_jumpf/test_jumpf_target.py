@@ -1,6 +1,4 @@
-"""
-EOF JUMPF tests covering JUMPF target rules.
-"""
+"""EOF JUMPF tests covering JUMPF target rules."""
 
 import pytest
 

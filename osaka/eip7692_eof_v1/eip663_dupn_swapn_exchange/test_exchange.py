@@ -18,9 +18,7 @@ REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
 
 @pytest.mark.valid_from(EOF_FORK_NAME)
 def test_exchange_all_valid_immediates(eof_state_test: EOFStateTestFiller):
-    """
-    Test case for all valid EXCHANGE immediates.
-    """
+    """Test case for all valid EXCHANGE immediates."""
     n = 256
     s = 34
     values = range(0x3E8, 0x3E8 + s)
@@ -45,7 +43,7 @@ def test_exchange_all_valid_immediates(eof_state_test: EOFStateTestFiller):
         values_rotated[a] = values_rotated[b]
         values_rotated[b] = temp
 
-    post = Account(storage=dict(zip(range(0, s), reversed(values_rotated))))
+    post = Account(storage=dict(zip(range(0, s), reversed(values_rotated), strict=False)))
 
     eof_state_test(
         tx_sender_funding_amount=1_000_000_000,
@@ -74,9 +72,7 @@ def test_exchange_all_invalid_immediates(
     x: int,
     y: int,
 ):
-    """
-    Test case for all invalid EXCHANGE immediates.
-    """
+    """Test case for all invalid EXCHANGE immediates."""
     eof_code = Container(
         sections=[
             Section.Code(

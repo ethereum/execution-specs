@@ -1,6 +1,5 @@
-"""
-Fixtures for the EIP-7002 deposit tests.
-"""
+"""Fixtures for the EIP-7002 deposit tests."""
+
 from itertools import zip_longest
 from typing import List
 
@@ -19,7 +18,7 @@ def update_pre(
     blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
 ):
     """
-    Initial state of the accounts. Every deposit transaction defines their own pre-state
+    Init state of the accounts. Every deposit transaction defines their own pre-state
     requirements, and this fixture aggregates them all.
     """
     for requests in blocks_withdrawal_requests:
@@ -32,9 +31,7 @@ def included_requests(
     update_pre: None,  # Fixture is used for its side effects
     blocks_withdrawal_requests: List[List[WithdrawalRequestInteractionBase]],
 ) -> List[List[WithdrawalRequest]]:
-    """
-    Return the list of withdrawal requests that should be included in each block.
-    """
+    """Return the list of withdrawal requests that should be included in each block."""
     excess_withdrawal_requests = 0
     carry_over_requests: List[WithdrawalRequest] = []
     per_block_included_requests: List[List[WithdrawalRequest]] = []
@@ -71,9 +68,7 @@ def included_requests(
 
 @pytest.fixture
 def timestamp() -> int:
-    """
-    Return the timestamp for the first block.
-    """
+    """Return the timestamp for the first block."""
     return 1
 
 
@@ -85,9 +80,7 @@ def blocks(
     included_requests: List[List[WithdrawalRequest]],
     timestamp: int,
 ) -> List[Block]:
-    """
-    Return the list of blocks that should be included in the test.
-    """
+    """Return the list of blocks that should be included in the test."""
     blocks: List[Block] = []
 
     for block_requests, block_included_requests in zip_longest(  # type: ignore

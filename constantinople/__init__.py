@@ -1,3 +1,1 @@
-"""
-Test cases for EVM functionality introduced in Constantinople.
-"""
+"""Test cases for EVM functionality introduced in Constantinople."""

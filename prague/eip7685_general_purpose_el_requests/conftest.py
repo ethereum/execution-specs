@@ -1,6 +1,4 @@
-"""
-Fixtures for the EIP-7685 deposit tests.
-"""
+"""Fixtures for the EIP-7685 deposit tests."""
 
 from typing import List, SupportsBytes
 

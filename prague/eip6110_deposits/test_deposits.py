@@ -2,6 +2,7 @@
 abstract: Tests [EIP-6110: Supply validator deposits on chain](https://eips.ethereum.org/EIPS/eip-6110)
     Test [EIP-6110: Supply validator deposits on chain](https://eips.ethereum.org/EIPS/eip-6110).
 """  # noqa: E501
+
 from typing import List
 
 import pytest
@@ -699,9 +700,7 @@ def test_deposit(
     pre: Alloc,
     blocks: List[Block],
 ):
-    """
-    Test making a deposit to the beacon chain deposit contract.
-    """
+    """Test making a deposit to the beacon chain deposit contract."""
     blockchain_test(
         genesis_environment=Environment(),
         pre=pre,

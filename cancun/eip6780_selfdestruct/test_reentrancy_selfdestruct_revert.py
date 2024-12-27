@@ -1,6 +1,6 @@
 """
 Suicide scenario requested test
-https://github.com/ethereum/tests/issues/1325
+https://github.com/ethereum/tests/issues/1325.
 """
 
 import pytest
@@ -43,7 +43,7 @@ def test_reentrancy_selfdestruct_revert(
     state_test: StateTestFiller,
 ):
     """
-    Suicide reentrancy scenario:
+    Suicide reentrancy scenario.
 
     Call|Callcode|Delegatecall the contract S.
     S self destructs.

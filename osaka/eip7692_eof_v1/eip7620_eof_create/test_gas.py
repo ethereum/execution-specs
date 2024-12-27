@@ -1,6 +1,4 @@
-"""
-Test good and bad EOFCREATE cases
-"""
+"""Test good and bad EOFCREATE cases."""
 
 import pytest
 
@@ -38,9 +36,7 @@ EOFCREATE_GAS = 32000
 
 
 def make_factory(initcode: Container):
-    """
-    Wraps an initcontainer into a minimal runtime container
-    """
+    """Wrap initcontainer into a minimal runtime container."""
     return Container(
         name="Factory Subcontainer",
         sections=[
@@ -123,7 +119,7 @@ def test_eofcreate_gas(
     initcode_execution_cost: int,
     runtime: Container,
 ):
-    """Tests variations of EOFCREATE gas"""
+    """Tests variations of EOFCREATE gas."""
     initcode_hashing_cost = 6 * ((len(initcode) + 31) // 32)
     deployed_code_cost = 200 * len(runtime) if runtime else 0
 

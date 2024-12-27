@@ -1,12 +1,16 @@
-"""
-Test ACL Transaction Source Code Examples
-"""
+"""Test ACL Transaction Source Code Examples."""
 
 import pytest
 
-from ethereum_test_tools import AccessList, Account, Alloc, Environment
+from ethereum_test_tools import (
+    AccessList,
+    Account,
+    Alloc,
+    Environment,
+    StateTestFiller,
+    Transaction,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Transaction
 
 REFERENCE_SPEC_GIT_PATH = "EIPS/eip-2930.md"
 REFERENCE_SPEC_VERSION = "c9db53a936c5c9cbe2db32ba0d1b86c4c6e73534"
@@ -14,9 +18,7 @@ REFERENCE_SPEC_VERSION = "c9db53a936c5c9cbe2db32ba0d1b86c4c6e73534"
 
 @pytest.mark.valid_from("Berlin")
 def test_access_list(state_test: StateTestFiller, pre: Alloc):
-    """
-    Test type 1 transaction.
-    """
+    """Test type 1 transaction."""
     env = Environment()
 
     contract_address = pre.deploy_contract(

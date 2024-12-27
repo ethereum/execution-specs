@@ -1,28 +1,25 @@
-"""
-Shared pytest definitions local to EIP-2537 tests.
-"""
+"""Shared pytest definitions local to EIP-2537 tests."""
 
 from typing import SupportsBytes
 
 import pytest
 
-from ethereum_test_tools import EOA, Address, Alloc, Bytecode
+from ethereum_test_tools import EOA, Address, Alloc, Bytecode, Storage, Transaction, keccak256
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Storage, Transaction, keccak256
 
 from .spec import GAS_CALCULATION_FUNCTION_MAP
 
 
 @pytest.fixture
-def precompile_gas(precompile_address: int, input: bytes) -> int:
+def precompile_gas(precompile_address: int, input_data: bytes) -> int:
     """Gas cost for the precompile."""
-    return GAS_CALCULATION_FUNCTION_MAP[precompile_address](len(input))
+    return GAS_CALCULATION_FUNCTION_MAP[precompile_address](len(input_data))
 
 
 @pytest.fixture
 def precompile_gas_modifier() -> int:
     """
-    Used to modify the gas passed to the precompile, for testing purposes.
+    Modify the gas passed to the precompile, for testing purposes.
 
     By default the call is made with the exact gas amount required for the given opcode,
     but when this fixture is overridden, the gas amount can be modified to, e.g., test
@@ -93,6 +90,7 @@ def call_contract_code(
             Op.STATICCALL).
         call_contract_post_storage:
             Storage of the test contract after the transaction is executed.
+
     """
     expected_output = bytes(expected_output)
 
@@ -152,15 +150,13 @@ def post(call_contract_address: Address, call_contract_post_storage: Storage):
 
 @pytest.fixture
 def tx_gas_limit(precompile_gas: int) -> int:
-    """
-    Transaction gas limit used for the test (Can be overridden in the test).
-    """
+    """Transaction gas limit used for the test (Can be overridden in the test)."""
     return 10_000_000 + precompile_gas
 
 
 @pytest.fixture
 def tx(
-    input: bytes,
+    input_data: bytes,
     tx_gas_limit: int,
     call_contract_address: Address,
     sender: EOA,
@@ -168,7 +164,7 @@ def tx(
     """Transaction for the test."""
     return Transaction(
         gas_limit=tx_gas_limit,
-        input=input,
+        data=input_data,
         to=call_contract_address,
         sender=sender,
     )

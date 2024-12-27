@@ -3,6 +3,7 @@ abstract: Test [EIP-198: MODEXP Precompile](https://eips.ethereum.org/EIPS/eip-1
     Tests the MODEXP precompile, located at address 0x0000..0005. Test cases from the EIP are
     labelled with `EIP-198-caseX` in the test id.
 """
+
 from dataclasses import dataclass
 
 import pytest
@@ -34,6 +35,7 @@ class ModExpInput(TestParameterGroup):
         modulus (str): The modulus value for the MODEXP precompile.
         extra_data (str): Defines extra padded data to be added at the end of the calldata
             to the precompile. Defaults to an empty string.
+
     """
 
     base: str
@@ -42,9 +44,7 @@ class ModExpInput(TestParameterGroup):
     extra_data: str = ""
 
     def create_modexp_tx_data(self):
-        """
-        Generates input for the MODEXP precompile.
-        """
+        """Generate input for the MODEXP precompile."""
         return (
             "0x"
             + f"{int(len(self.base)/2):x}".zfill(64)
@@ -59,16 +59,12 @@ class ModExpInput(TestParameterGroup):
 
 @dataclass(kw_only=True, frozen=True, repr=False)
 class ModExpRawInput(TestParameterGroup):
-    """
-    Helper class to directly define a raw input to the MODEXP precompile.
-    """
+    """Helper class to directly define a raw input to the MODEXP precompile."""
 
     raw_input: str
 
     def create_modexp_tx_data(self):
-        """
-        The raw input is already the MODEXP precompile input.
-        """
+        """Raw input is already the MODEXP precompile input."""
         return self.raw_input
 
 
@@ -81,6 +77,7 @@ class ExpectedOutput(TestParameterGroup):
         call_return_code (str): The return_code from CALL, 0 indicates unsuccessful call
             (out-of-gas), 1 indicates call succeeded.
         returned_data (str): The output returnData is the expected output of the call
+
     """
 
     call_return_code: str
@@ -89,7 +86,7 @@ class ExpectedOutput(TestParameterGroup):
 
 @pytest.mark.valid_from("Byzantium")
 @pytest.mark.parametrize(
-    ["input", "output"],
+    ["mod_exp_input", "output"],
     [
         (
             ModExpInput(base="", exponent="", modulus="02"),
@@ -206,11 +203,9 @@ class ExpectedOutput(TestParameterGroup):
     ids=lambda param: param.__repr__(),  # only required to remove parameter names (input/output)
 )
 def test_modexp(
-    state_test: StateTestFiller, input: ModExpInput, output: ExpectedOutput, pre: Alloc
+    state_test: StateTestFiller, mod_exp_input: ModExpInput, output: ExpectedOutput, pre: Alloc
 ):
-    """
-    Test the MODEXP precompile
-    """
+    """Test the MODEXP precompile."""
     env = Environment()
     sender = pre.fund_eoa()
 
@@ -228,16 +223,14 @@ def test_modexp(
         + Op.MSTORE(
             0,
             (
-                (
-                    # Need to `ljust` this PUSH32 in order to ensure the code starts
-                    # in memory at offset 0 (memory right-aligns stack items which are not
-                    # 32 bytes)
-                    Op.PUSH32(
-                        bytes(
-                            Op.CODECOPY(0, 16, Op.SUB(Op.CODESIZE(), 16))
-                            + Op.RETURN(0, Op.SUB(Op.CODESIZE, 16))
-                        ).ljust(32, bytes(1))
-                    )
+                # Need to `ljust` this PUSH32 in order to ensure the code starts
+                # in memory at offset 0 (memory right-aligns stack items which are not
+                # 32 bytes)
+                Op.PUSH32(
+                    bytes(
+                        Op.CODECOPY(0, 16, Op.SUB(Op.CODESIZE(), 16))
+                        + Op.RETURN(0, Op.SUB(Op.CODESIZE, 16))
+                    ).ljust(32, bytes(1))
                 )
             ),
         )
@@ -252,7 +245,7 @@ def test_modexp(
     tx = Transaction(
         ty=0x0,
         to=account,
-        data=input.create_modexp_tx_data(),
+        data=mod_exp_input.create_modexp_tx_data(),
         gas_limit=500000,
         gas_price=10,
         protected=True,

@@ -1,3 +1,1 @@
-"""
-Test cases for EVM functionality introduced in Paris (Merge).
-"""
+"""Test cases for EVM functionality introduced in Paris (Merge)."""

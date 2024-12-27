@@ -1,13 +1,20 @@
-"""
-Test Account Self-destruction and Re-creation
-"""
+"""Test Account Self-destruction and Re-creation."""
 
 import pytest
 
 from ethereum_test_forks import Fork
-from ethereum_test_tools import Account, Alloc, Block, BlockchainTestFiller, Environment, Initcode
+from ethereum_test_tools import (
+    Account,
+    Alloc,
+    Block,
+    BlockchainTestFiller,
+    Environment,
+    Initcode,
+    Transaction,
+    Yul,
+    compute_create2_address,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Transaction, Yul, compute_create2_address
 
 from .spec import ref_spec_1014
 

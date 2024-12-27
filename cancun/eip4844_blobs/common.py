@@ -1,6 +1,5 @@
-"""
-Common constants, classes & functions local to EIP-4844 tests.
-"""
+"""Common constants, classes & functions local to EIP-4844 tests."""
+
 from dataclasses import dataclass
 from typing import List, Literal, Tuple, Union
 
@@ -24,18 +23,14 @@ Z_Y_VALID_ENDIANNESS: Literal["little", "big"] = "big"
 
 @dataclass(kw_only=True)
 class Blob:
-    """
-    Class representing a full blob.
-    """
+    """Class representing a full blob."""
 
     blob: bytes
     kzg_commitment: bytes
     kzg_proof: bytes
 
     def versioned_hash(self) -> bytes:
-        """
-        Calculates the versioned hash for a given blob.
-        """
+        """Calculate versioned hash for a given blob."""
         return Spec.kzg_to_versioned_hash(self.kzg_commitment)
 
     @staticmethod
@@ -43,7 +38,7 @@ class Blob:
         input_blobs: List["Blob"],
     ) -> Tuple[List[bytes], List[bytes], List[bytes]]:
         """
-        Returns a tuple of lists of blobs, kzg commitments formatted to be added to a network blob
+        Return tuple of lists of blobs, kzg commitments formatted to be added to a network blob
         type transaction.
         """
         blobs: List[bytes] = []
@@ -101,9 +96,7 @@ class BlobhashContext:
 
     @staticmethod
     def _get_blobhash_verbatim():
-        """
-        Returns the BLOBHASH verbatim as a formatted string.
-        """
+        """Return BLOBHASH verbatim as a formatted string."""
         return "verbatim_{}i_{}o".format(
             Op.BLOBHASH.popped_stack_items,
             Op.BLOBHASH.pushed_stack_items,
@@ -111,9 +104,7 @@ class BlobhashContext:
 
     @classmethod
     def address(cls, context_name):
-        """
-        Maps an opcode context to a specific address.
-        """
+        """Map opcode context to a specific address."""
         address = cls.addresses.get(context_name)
         if address is None:
             raise ValueError(f"Invalid context: {context_name}")
@@ -121,9 +112,7 @@ class BlobhashContext:
 
     @classmethod
     def code(cls, context_name):
-        """
-        Maps an opcode context to bytecode that utilizes the BLOBHASH opcode.
-        """
+        """Map opcode context to bytecode that utilizes the BLOBHASH opcode."""
         assert cls.yul_compiler is not None, "YulCompiler not set"
 
         blobhash_verbatim = cls._get_blobhash_verbatim()
@@ -257,9 +246,7 @@ class BlobhashContext:
 
     @classmethod
     def created_contract(cls, context_name):
-        """
-        Maps contract creation to a specific context to a specific address.
-        """
+        """Map contract creation to a specific context to a specific address."""
         contract = {
             "tx_created_contract": compute_create_address(address=TestAddress, nonce=0),
             "create": compute_create_address(
@@ -279,14 +266,12 @@ class BlobhashContext:
 
 
 class BlobhashScenario:
-    """
-    A utility class for generating blobhash calls.
-    """
+    """A utility class for generating blobhash calls."""
 
     @staticmethod
     def create_blob_hashes_list(length: int) -> list[list[bytes]]:
         """
-        Creates a list of MAX_BLOBS_PER_BLOCK blob hashes
+        Create list of MAX_BLOBS_PER_BLOCK blob hashes
         using `random_blob_hashes`.
 
         Cycle over random_blob_hashes to get a large list of
@@ -308,7 +293,7 @@ class BlobhashScenario:
     @staticmethod
     def blobhash_sstore(index: int):
         """
-        Returns an BLOBHASH sstore to the given index.
+        Return BLOBHASH sstore to the given index.
 
         If the index is out of the valid bounds, 0x01 is written
         in storage, as we later check it is overwritten by
@@ -321,9 +306,7 @@ class BlobhashScenario:
 
     @classmethod
     def generate_blobhash_bytecode(cls, scenario_name: str) -> bytes:
-        """
-        Returns BLOBHASH bytecode for the given scenario.
-        """
+        """Return BLOBHASH bytecode for the given scenario."""
         scenarios = {
             "single_valid": sum(
                 cls.blobhash_sstore(i) for i in range(SpecHelpers.max_blobs_per_block())

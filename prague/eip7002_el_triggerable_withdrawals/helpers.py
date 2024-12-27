@@ -1,23 +1,19 @@
-"""
-Helpers for the EIP-7002 deposit tests.
-"""
+"""Helpers for the EIP-7002 deposit tests."""
+
 from dataclasses import dataclass, field
 from functools import cached_property
 from itertools import count
 from typing import Callable, ClassVar, List
 
-from ethereum_test_tools import EOA, Address, Alloc, Bytecode
+from ethereum_test_tools import EOA, Address, Alloc, Bytecode, Transaction
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Transaction
 from ethereum_test_tools import WithdrawalRequest as WithdrawalRequestBase
 
 from .spec import Spec
 
 
 class WithdrawalRequest(WithdrawalRequestBase):
-    """
-    Class used to describe a withdrawal request in a test.
-    """
+    """Class used to describe a withdrawal request in a test."""
 
     fee: int = 0
     """
@@ -42,9 +38,7 @@ class WithdrawalRequest(WithdrawalRequestBase):
 
     @property
     def value(self) -> int:
-        """
-        Returns the value of the withdrawal request.
-        """
+        """Returns the value of the withdrawal request."""
         return self.fee
 
     @cached_property
@@ -58,17 +52,13 @@ class WithdrawalRequest(WithdrawalRequestBase):
         )
 
     def with_source_address(self, source_address: Address) -> "WithdrawalRequest":
-        """
-        Return a new instance of the withdrawal request with the source address set.
-        """
+        """Return a new instance of the withdrawal request with the source address set."""
         return self.copy(source_address=source_address)
 
 
 @dataclass(kw_only=True)
 class WithdrawalRequestInteractionBase:
-    """
-    Base class for all types of withdrawal transactions we want to test.
-    """
+    """Base class for all types of withdrawal transactions we want to test."""
 
     sender_balance: int = 32_000_000_000_000_000_000 * 100
     """
@@ -234,9 +224,7 @@ class WithdrawalRequestContract(WithdrawalRequestInteractionBase):
 
 
 def get_n_fee_increments(n: int) -> List[int]:
-    """
-    Get the first N excess withdrawal requests that increase the fee.
-    """
+    """Get the first N excess withdrawal requests that increase the fee."""
     excess_withdrawal_requests_counts = []
     last_fee = 1
     for i in count(0):

@@ -1,6 +1,6 @@
 """
 Ethereum Transient Storage EIP Tests
-https://eips.ethereum.org/EIPS/eip-1153
+https://eips.ethereum.org/EIPS/eip-1153.
 """
 
 from enum import Enum
@@ -27,7 +27,7 @@ REFERENCE_SPEC_VERSION = "2f8299df31bb8173618901a03a8366a3183479b0"
 
 
 class CallDestType(Enum):
-    """Call dest type"""
+    """Call dest type."""
 
     REENTRANCY = 1
     EXTERNAL_CALL = 2
@@ -45,7 +45,7 @@ def test_tload_reentrancy(
     call_dest_type: CallDestType,
 ):
     """
-    Ported .json vectors:
+    Ported .json vectors.
 
     (05_tloadReentrancyFiller.yml)
     Reentrant calls access the same transient storage

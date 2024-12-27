@@ -81,7 +81,7 @@ def test_warm_coinbase_call_out_of_gas(
 ):
     """
     Test that the coinbase is warm by accessing the COINBASE with each
-    of the following opcodes:
+    of the following opcodes.
 
     - CALL
     - CALLCODE
@@ -219,7 +219,7 @@ def test_warm_coinbase_gas_usage(
     code_gas_measure: Bytecode,
 ):
     """
-    Test the gas usage of opcodes affected by assuming a warm coinbase:
+    Test the gas usage of opcodes affected by assuming a warm coinbase.
 
     - EXTCODESIZE
     - EXTCODECOPY

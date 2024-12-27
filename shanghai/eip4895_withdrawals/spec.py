@@ -1,15 +1,11 @@
-"""
-Defines EIP-4895 specification constants and functions.
-"""
+"""Defines EIP-4895 specification constants and functions."""
 
 from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
 class ReferenceSpec:
-    """
-    Defines the reference spec version and git path.
-    """
+    """Defines the reference spec version and git path."""
 
     git_path: str
     version: str

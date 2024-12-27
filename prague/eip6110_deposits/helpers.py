@@ -1,24 +1,19 @@
-"""
-Helpers for the EIP-6110 deposit tests.
-"""
+"""Helpers for the EIP-6110 deposit tests."""
+
 from dataclasses import dataclass, field
 from functools import cached_property
 from hashlib import sha256 as sha256_hashlib
 from typing import Callable, ClassVar, List
 
-from ethereum_test_tools import EOA, Address, Alloc, Bytecode
+from ethereum_test_tools import EOA, Address, Alloc, Bytecode, Hash, Transaction
 from ethereum_test_tools import DepositRequest as DepositRequestBase
-from ethereum_test_tools import Hash
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Transaction
 
 from .spec import Spec
 
 
 def sha256(*args: bytes) -> bytes:
-    """
-    Returns the sha256 hash of the input.
-    """
+    """Return sha256 hash of the input."""
     return sha256_hashlib(b"".join(args)).digest()
 
 
@@ -42,16 +37,12 @@ class DepositRequest(DepositRequestBase):
 
     @cached_property
     def value(self) -> int:
-        """
-        Returns the value of the deposit transaction.
-        """
+        """Returns the value of the deposit transaction."""
         return self.amount * 10**9
 
     @cached_property
     def deposit_data_root(self) -> Hash:
-        """
-        Returns the deposit data root of the deposit.
-        """
+        """Returns the deposit data root of the deposit."""
         pubkey_root = sha256(self.pubkey, b"\x00" * 16)
         signature_root = sha256(
             sha256(self.signature[:64]), sha256(self.signature[64:], b"\x00" * 32)
@@ -92,17 +83,13 @@ class DepositRequest(DepositRequestBase):
         )
 
     def with_source_address(self, source_address: Address) -> "DepositRequest":
-        """
-        Return a copy.
-        """
+        """Return a copy."""
         return self.copy()
 
 
 @dataclass(kw_only=True)
 class DepositInteractionBase:
-    """
-    Base class for all types of deposit transactions we want to test.
-    """
+    """Base class for all types of deposit transactions we want to test."""
 
     sender_balance: int = 32_000_000_000_000_000_000 * 100
     """

@@ -70,24 +70,20 @@ def callee_code(callee_opcode: Op) -> Bytecode:
         PUSH1 0x01 <- for positive value transfer
         PUSH2 Contract.nonexistent
         GAS <- value doesn't matter
-        CALL/CALLCODE
+        CALL/CALLCODE.
     """
     return callee_opcode(Op.GAS(), 0xFEFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF, 1, 0, 0, 0, 0)
 
 
 @pytest.fixture
 def sender(pre: Alloc) -> EOA:
-    """
-    Sender for all transactions.
-    """
+    """Sender for all transactions."""
     return pre.fund_eoa(0x0BA1A9CE)
 
 
 @pytest.fixture
 def callee_address(pre: Alloc, callee_code: Bytecode) -> Address:
-    """
-    Address of the callee.
-    """
+    """Address of the callee."""
     return pre.deploy_contract(callee_code, balance=0x03)
 
 
@@ -100,7 +96,7 @@ def caller_code(caller_gas_limit: int, callee_address: Address) -> Bytecode:
         PUSH2 caller_gas <- gas limit set for CALL to callee contract
         CALL
         PUSH1 0x00
-        SSTORE
+        SSTORE.
     """
     return Op.SSTORE(0, Op.CALL(caller_gas_limit, callee_address, 0, 0, 0, 0, 0))
 
@@ -114,7 +110,7 @@ def caller_address(pre: Alloc, caller_code: Bytecode) -> Address:
         PUSH2 caller_gas <- gas limit set for CALL to callee contract
         CALL
         PUSH1 0x00
-        SSTORE
+        SSTORE.
     """
     return pre.deploy_contract(caller_code, balance=0x03)
 
@@ -156,7 +152,5 @@ def test_value_transfer_gas_calculation(
     caller_tx: Transaction,
     post: Dict[str, Account],
 ):
-    """
-    Tests the nested CALL/CALLCODE opcode gas consumption with a positive value transfer.
-    """
+    """Tests the nested CALL/CALLCODE opcode gas consumption with a positive value transfer."""
     state_test(env=Environment(), pre=pre, post=post, tx=caller_tx)

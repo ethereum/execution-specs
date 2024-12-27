@@ -40,10 +40,7 @@ tx_type_3 = Transaction(
 
 
 def create_opcode_context(pre, tx, post):
-    """
-    Generates an opcode context based on the key provided by the
-    opcode_contexts dictionary.
-    """
+    """Generate opcode context based on the key provided by the opcode_contexts dictionary."""
     return {
         "pre": {TestAddress: Account(balance=1000000000000000000000), **pre},
         "tx": tx,
@@ -142,9 +139,13 @@ def opcode_context(yul: YulCompiler, request):
             ),
             {
                 BlobhashContext.address("delegatecall"): Account(
-                    storage={
-                        k: v for (k, v) in zip(range(len(simple_blob_hashes)), simple_blob_hashes)
-                    }
+                    storage=dict(
+                        zip(
+                            range(len(simple_blob_hashes)),
+                            simple_blob_hashes,
+                            strict=False,
+                        )
+                    )
                 ),
             },
         )
@@ -164,9 +165,9 @@ def opcode_context(yul: YulCompiler, request):
             ),
             {
                 BlobhashContext.address("staticcall"): Account(
-                    storage={
-                        k: v for (k, v) in zip(range(len(simple_blob_hashes)), simple_blob_hashes)
-                    }
+                    storage=dict(
+                        zip(range(len(simple_blob_hashes)), simple_blob_hashes, strict=False)
+                    )
                 ),
             },
         )
@@ -186,9 +187,9 @@ def opcode_context(yul: YulCompiler, request):
             ),
             {
                 BlobhashContext.address("callcode"): Account(
-                    storage={
-                        k: v for (k, v) in zip(range(len(simple_blob_hashes)), simple_blob_hashes)
-                    }
+                    storage=dict(
+                        zip(range(len(simple_blob_hashes)), simple_blob_hashes, strict=False)
+                    )
                 ),
             },
         )
@@ -203,9 +204,9 @@ def opcode_context(yul: YulCompiler, request):
             ),
             {
                 BlobhashContext.created_contract("create"): Account(
-                    storage={
-                        k: v for (k, v) in zip(range(len(simple_blob_hashes)), simple_blob_hashes)
-                    }
+                    storage=dict(
+                        zip(range(len(simple_blob_hashes)), simple_blob_hashes, strict=False)
+                    )
                 ),
             },
         )
@@ -220,9 +221,9 @@ def opcode_context(yul: YulCompiler, request):
             ),
             {
                 BlobhashContext.created_contract("create2"): Account(
-                    storage={
-                        k: v for (k, v) in zip(range(len(simple_blob_hashes)), simple_blob_hashes)
-                    }
+                    storage=dict(
+                        zip(range(len(simple_blob_hashes)), simple_blob_hashes, strict=False)
+                    )
                 ),
             },
         )
@@ -290,8 +291,7 @@ def opcode_context(yul: YulCompiler, request):
 @pytest.mark.compile_yul_with("Shanghai")
 def test_blobhash_opcode_contexts(opcode_context, blockchain_test: BlockchainTestFiller):
     """
-    Tests that the `BLOBHASH` opcode functions correctly when called in different
-    contexts including:
+    Tests that the `BLOBHASH` opcode functions correctly when called in different contexts.
 
     - `BLOBHASH` opcode on the top level of the call stack.
     - `BLOBHASH` opcode on the max value.

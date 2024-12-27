@@ -1,7 +1,4 @@
-"""
-EOF validation tests for EIP-3540 container format
-"""
-
+"""EOF validation tests for EIP-3540 container format."""
 
 import pytest
 
@@ -1081,9 +1078,7 @@ def test_magic_validation(
     magic_0: int,
     magic_1: int,
 ):
-    """
-    Verify EOF container 2-byte magic
-    """
+    """Verify EOF container 2-byte magic."""
     if magic_0 == 0xEF and magic_1 == 0:
         pytest.skip("Valid magic")
     code = bytearray(bytes(VALID_CONTAINER))
@@ -1100,9 +1095,7 @@ def test_version_validation(
     eof_test: EOFTestFiller,
     version: int,
 ):
-    """
-    Verify EOF container version
-    """
+    """Verify EOF container version."""
     if version == 1:
         pytest.skip("Valid version")
     code = bytearray(bytes(VALID_CONTAINER))
@@ -1120,9 +1113,7 @@ def test_single_code_section(
     plus_data: bool,
     plus_container: bool,
 ):
-    """
-    Verify EOF container maximum number of code sections
-    """
+    """Verify EOF container maximum number of code sections."""
     sections = [Section.Code(Op.RETURNCONTRACT[0](0, 0) if plus_container else Op.STOP)]
     if plus_container:
         sections.append(
@@ -1153,9 +1144,7 @@ def test_max_code_sections(
     plus_data: bool,
     plus_container: bool,
 ):
-    """
-    Verify EOF container maximum number of code sections
-    """
+    """Verify EOF container maximum number of code sections."""
     if plus_container:
         sections = [
             Section.Code(

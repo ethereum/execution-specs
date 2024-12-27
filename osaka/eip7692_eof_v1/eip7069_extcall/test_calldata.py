@@ -1,6 +1,6 @@
 """
 abstract: Tests [EIP-7069: Revamped CALL instructions](https://eips.ethereum.org/EIPS/eip-7069)
-    Tests for the RETURNDATALOAD instriction
+    Tests for the RETURNDATALOAD instriction.
 """  # noqa: E501
 
 import pytest
@@ -32,7 +32,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 
 
 def right_pad_32(v: bytes) -> bytes:
-    """Takes bytes and returns a 32 byte version right padded with zeros"""
+    """Take bytes and returns a 32 byte version right padded with zeros."""
     return v.ljust(32, b"\0")
 
 

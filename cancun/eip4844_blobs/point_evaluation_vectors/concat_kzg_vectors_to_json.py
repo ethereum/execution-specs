@@ -2,6 +2,7 @@
 Helper script to concatenate all the point evaluation test data.yaml files in
 a directory into a single JSON file for easier consumption in tests.
 """
+
 import argparse
 import json
 from pathlib import Path

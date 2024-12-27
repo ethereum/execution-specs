@@ -1,6 +1,4 @@
-"""
-Test Yul Source Code Examples
-"""
+"""Test Yul Source Code Examples."""
 
 import pytest
 
@@ -17,9 +15,7 @@ from ethereum_test_tools import (
 
 @pytest.mark.valid_from("Homestead")
 def test_yul(state_test: StateTestFiller, pre: Alloc, yul: YulCompiler, fork: Fork):
-    """
-    Test YUL compiled bytecode.
-    """
+    """Test YUL compiled bytecode."""
     env = Environment()
 
     contract_address = pre.deploy_contract(

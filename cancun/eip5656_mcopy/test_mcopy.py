@@ -1,6 +1,6 @@
 """
 abstract: Tests [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656)
-    Test copy operations of [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656)
+    Test copy operations of [EIP-5656: MCOPY - Memory copying instruction](https://eips.ethereum.org/EIPS/eip-5656).
 
 """  # noqa: E501
 
@@ -8,9 +8,20 @@ from typing import Mapping
 
 import pytest
 
-from ethereum_test_tools import Account, Address, Alloc, Bytecode, Environment, Hash
+from ethereum_test_tools import (
+    Account,
+    Address,
+    Alloc,
+    Bytecode,
+    Environment,
+    Hash,
+    StateTestFiller,
+    Storage,
+    Transaction,
+    ceiling_division,
+    keccak256,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Storage, Transaction, ceiling_division, keccak256
 
 from .common import REFERENCE_SPEC_GIT_PATH, REFERENCE_SPEC_VERSION, mcopy
 
@@ -20,25 +31,19 @@ REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
 
 @pytest.fixture
 def initial_memory() -> bytes:
-    """
-    Initial memory for the test.
-    """
+    """Init memory for the test."""
     return bytes(range(0x00, 0x100))
 
 
 @pytest.fixture
 def final_memory(*, dest: int, src: int, length: int, initial_memory: bytes) -> bytes:
-    """
-    Memory after the MCOPY operation.
-    """
+    """Memory after the MCOPY operation."""
     return mcopy(dest=dest, src=src, length=length, memory=initial_memory)
 
 
 @pytest.fixture
 def code_storage() -> Storage:
-    """
-    Storage for the code contract.
-    """
+    """Storage for the code contract."""
     return Storage()
 
 
@@ -49,7 +54,7 @@ def code_bytecode(
     code_storage: Storage,
 ) -> Bytecode:
     """
-    Prepares the bytecode and storage for the test, based on the starting memory and the final
+    Prepare bytecode and storage for the test, based on the starting memory and the final
     memory that resulted from the copy.
     """
     bytecode = Bytecode()
@@ -101,9 +106,7 @@ def code_bytecode(
 
 @pytest.fixture
 def code_address(pre: Alloc, code_bytecode: Bytecode) -> Address:
-    """
-    Address of the contract that is going to perform the MCOPY operation.
-    """
+    """Address of the contract that is going to perform the MCOPY operation."""
     return pre.deploy_contract(code_bytecode)
 
 
@@ -189,7 +192,7 @@ def test_valid_mcopy_operations(
       - Memory rewrites (copy from and to the same location)
       - Memory overwrites (copy from and to different locations)
       - Memory extensions (copy to a location that is out of bounds)
-      - Memory clear (copy from a location that is out of bounds)
+      - Memory clear (copy from a location that is out of bounds).
     """
     state_test(
         env=Environment(),
@@ -211,9 +214,7 @@ def test_mcopy_on_empty_memory(
     post: Mapping[str, Account],
     tx: Transaction,
 ):
-    """
-    Perform MCOPY operations on an empty memory, using different offsets and lengths.
-    """
+    """Perform MCOPY operations on an empty memory, using different offsets and lengths."""
     state_test(
         env=Environment(),
         pre=pre,

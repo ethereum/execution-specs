@@ -1,3 +1,1 @@
-"""
-Test for precompiles introduced in Byzantium.
-"""
+"""Test for precompiles introduced in Byzantium."""

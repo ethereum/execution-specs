@@ -38,9 +38,10 @@ from ethereum_test_tools import (
     Environment,
     Hash,
     Header,
+    Transaction,
+    add_kzg_version,
 )
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Transaction, add_kzg_version
 
 from .spec import Spec, SpecHelpers, ref_spec_4844
 
@@ -53,9 +54,7 @@ pytestmark = pytest.mark.valid_from("Cancun")
 
 @pytest.fixture
 def parent_excess_blobs() -> int:  # noqa: D103
-    """
-    By default we start with an intermediate value between the target and max.
-    """
+    """By default we start with an intermediate value between the target and max."""
     return (SpecHelpers.max_blobs_per_block() + SpecHelpers.target_blobs_per_block()) // 2 + 1
 
 
@@ -271,9 +270,7 @@ def blocks(  # noqa: D103
         header_modifier: Optional[Dict] = None,
         exception_message: Optional[BlockException | List[BlockException]] = None,
     ):
-        """
-        Utility function to add a block to the blocks list.
-        """
+        """Add a block to the blocks list."""
         blocks.append(
             Block(
                 txs=[tx],
@@ -324,7 +321,7 @@ def test_correct_excess_blob_gas_calculation(
 ):
     """
     Test calculation of the `excessBlobGas` increase/decrease across
-    multiple blocks with and without blobs:
+    multiple blocks with and without blobs.
 
     - With parent block containing `[0, MAX_BLOBS_PER_BLOCK]` blobs
     - With parent block containing `[0, TARGET_BLOBS_PER_BLOCK]` equivalent value of excess blob gas
@@ -346,9 +343,7 @@ BLOB_GAS_COST_INCREASES = [
         2**32,  # blob gas cost 2^32
         2**64 // Spec.GAS_PER_BLOB,  # Data tx wei cost 2^64
         2**64,  # blob gas cost 2^64
-        (
-            120_000_000 * (10**18) // Spec.GAS_PER_BLOB
-        ),  # Data tx wei is current total Ether supply
+        (120_000_000 * (10**18) // Spec.GAS_PER_BLOB),  # Data tx wei is current total Ether supply
     ]
 ]
 
@@ -369,7 +364,7 @@ def test_correct_increasing_blob_gas_costs(
 ):
     """
     Test calculation of the `excessBlobGas` and blob gas tx costs at
-    value points where the cost increases to interesting amounts:
+    value points where the cost increases to interesting amounts.
 
     - At the first blob gas cost increase (1 to 2)
     - At total transaction data cost increase to `> 2^32`
@@ -389,7 +384,7 @@ def test_correct_increasing_blob_gas_costs(
 
 @pytest.mark.parametrize(
     "parent_excess_blobs",
-    [g for g in BLOB_GAS_COST_INCREASES],
+    list(BLOB_GAS_COST_INCREASES),
 )
 @pytest.mark.parametrize("parent_blobs", [SpecHelpers.target_blobs_per_block() - 1])
 @pytest.mark.parametrize("new_blobs", [1])
@@ -453,9 +448,7 @@ def test_invalid_zero_excess_blob_gas_in_header(
 
 
 def all_invalid_blob_gas_used_combinations() -> Iterator[Tuple[int, int]]:
-    """
-    Returns all invalid blob gas used combinations.
-    """
+    """Return all invalid blob gas used combinations."""
     for new_blobs in range(0, SpecHelpers.max_blobs_per_block() + 1):
         for header_blob_gas_used in range(0, SpecHelpers.max_blobs_per_block() + 1):
             if new_blobs != header_blob_gas_used:
@@ -477,7 +470,7 @@ def test_invalid_blob_gas_used_in_header(
     header_blob_gas_used: Optional[int],
 ):
     """
-    Test rejection of blocks where the `blobGasUsed` in the header is invalid:
+    Test rejection of blocks where the `blobGasUsed` in the header is invalid.
 
     - `blobGasUsed` is not equal to the number of data blobs in the block
     - `blobGasUsed` is the max uint64 value
@@ -516,7 +509,7 @@ def test_invalid_excess_blob_gas_above_target_change(
     header_excess_blob_gas: Optional[int],
 ):
     """
-    Test rejection of blocks where the `excessBlobGas`
+    Test rejection of blocks where the `excessBlobGas`.
 
     - decreases more than `TARGET_BLOB_GAS_PER_BLOCK` in a single block with zero blobs
     - increases more than `TARGET_BLOB_GAS_PER_BLOCK` in a single block with max blobs
@@ -776,7 +769,7 @@ def test_invalid_non_multiple_excess_blob_gas(
 ):
     """
     Test rejection of blocks where the `excessBlobGas` changes to a value that
-    is not a multiple of Spec.GAS_PER_BLOB`:
+    is not a multiple of Spec.GAS_PER_BLOB`.
 
     - Parent block contains `TARGET_BLOBS_PER_BLOCK + 1` blobs, but `excessBlobGas` is off by +/-1
     - Parent block contains `TARGET_BLOBS_PER_BLOCK - 1` blobs, but `excessBlobGas` is off by +/-1

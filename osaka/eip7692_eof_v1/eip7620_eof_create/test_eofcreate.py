@@ -1,6 +1,4 @@
-"""
-Test good and bad EOFCREATE cases
-"""
+"""Test good and bad EOFCREATE cases."""
 
 import pytest
 
@@ -45,9 +43,7 @@ def test_simple_eofcreate(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """
-    Verifies a simple EOFCREATE case
-    """
+    """Verifies a simple EOFCREATE case."""
     env = Environment()
     sender = pre.fund_eoa()
     contract_address = pre.deploy_contract(
@@ -84,9 +80,7 @@ def test_eofcreate_then_call(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """
-    Verifies a simple EOFCREATE case, and then calls the deployed contract
-    """
+    """Verifies a simple EOFCREATE case, and then calls the deployed contract."""
     env = Environment()
     callable_contract = Container(
         sections=[
@@ -152,9 +146,7 @@ def test_eofcreate_then_call(
     ],
 )
 def test_auxdata_variations(state_test: StateTestFiller, pre: Alloc, auxdata_bytes: bytes):
-    """
-    Verifies that auxdata bytes are correctly handled in RETURNCONTRACT
-    """
+    """Verifies that auxdata bytes are correctly handled in RETURNCONTRACT."""
     env = Environment()
     auxdata_size = len(auxdata_bytes)
     pre_deploy_header_data_size = 18
@@ -218,9 +210,7 @@ def test_auxdata_variations(state_test: StateTestFiller, pre: Alloc, auxdata_byt
 
 
 def test_calldata(state_test: StateTestFiller, pre: Alloc):
-    """
-    Verifies CALLDATA passing through EOFCREATE
-    """
+    """Verifies CALLDATA passing through EOFCREATE."""
     env = Environment()
 
     initcode_subcontainer = Container(
@@ -282,9 +272,7 @@ def test_eofcreate_in_initcode(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """
-    Verifies an EOFCREATE occuring within initcode creates that contract
-    """
+    """Verifies an EOFCREATE occuring within initcode creates that contract."""
     nested_initcode_subcontainer = Container(
         sections=[
             Section.Code(
@@ -338,9 +326,7 @@ def test_eofcreate_in_initcode_reverts(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """
-    Verifies an EOFCREATE occuring in an initcode is rolled back when the initcode reverts
-    """
+    """Verifies an EOFCREATE occuring in an initcode is rolled back when the initcode reverts."""
     nested_initcode_subcontainer = Container(
         sections=[
             Section.Code(
@@ -394,9 +380,7 @@ def test_return_data_cleared(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """
-    Verifies the return data is not re-used from a extcall but is cleared upon eofcreate
-    """
+    """Verifies the return data is not re-used from a extcall but is cleared upon eofcreate."""
     env = Environment()
     value_return_canary = 0x4158675309
     value_return_canary_size = 5
@@ -461,9 +445,7 @@ def test_address_collision(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """
-    Verifies a simple EOFCREATE case
-    """
+    """Verifies a simple EOFCREATE case."""
     env = Environment()
 
     slot_create_address_2 = slot_last_slot * 2 + slot_create_address
@@ -520,9 +502,7 @@ def test_eofcreate_revert_eof_returndata(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """
-    Verifies the return data is not being deployed, even if happens to be valid EOF
-    """
+    """Verifies the return data is not being deployed, even if happens to be valid EOF."""
     env = Environment()
     code_reverts_with_calldata = Container(
         name="Initcode Subcontainer reverting with its calldata",
@@ -580,7 +560,7 @@ def test_eofcreate_invalid_index(
     eof_test: EOFTestFiller,
     index: int,
 ):
-    """Referring to non-existent container section index"""
+    """Referring to non-existent container section index."""
     eof_test(
         data=Container(
             sections=[
@@ -609,7 +589,7 @@ def test_eofcreate_context(
     destination_code: Bytecode,
     expected_result: str,
 ):
-    """Test EOFCREATE's initcode context instructions"""
+    """Test EOFCREATE's initcode context instructions."""
     env = Environment()
     sender = pre.fund_eoa()
     value = 0x1123

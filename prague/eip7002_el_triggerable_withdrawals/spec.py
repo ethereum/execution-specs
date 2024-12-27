@@ -1,6 +1,6 @@
 """
 Common procedures to test
-[EIP-7002: Execution layer triggerable withdrawals](https://eips.ethereum.org/EIPS/eip-7002)
+[EIP-7002: Execution layer triggerable withdrawals](https://eips.ethereum.org/EIPS/eip-7002).
 """  # noqa: E501
 
 from dataclasses import dataclass
@@ -10,9 +10,7 @@ from ethereum_test_tools import Address
 
 @dataclass(frozen=True)
 class ReferenceSpec:
-    """
-    Defines the reference spec version and git path.
-    """
+    """Defines the reference spec version and git path."""
 
     git_path: str
     version: str
@@ -26,7 +24,7 @@ ref_spec_7002 = ReferenceSpec("EIPS/eip-7002.md", "9fe721f56f45bd5cf2d2958c0e686
 class Spec:
     """
     Parameters from the EIP-7002 specifications as defined at
-    https://eips.ethereum.org/EIPS/eip-7002#configuration
+    https://eips.ethereum.org/EIPS/eip-7002#configuration.
 
     If the parameter is not currently used within the tests, it is commented
     out.
@@ -59,9 +57,7 @@ class Spec:
 
     @staticmethod
     def fake_exponential(factor: int, numerator: int, denominator: int) -> int:
-        """
-        Used to calculate the withdrawal request fee.
-        """
+        """Calculate the withdrawal request fee."""
         i = 1
         output = 0
         numerator_accumulator = factor * denominator
@@ -73,9 +69,7 @@ class Spec:
 
     @staticmethod
     def get_fee(excess_withdrawal_requests: int) -> int:
-        """
-        Calculate the fee for the excess withdrawal requests.
-        """
+        """Calculate the fee for the excess withdrawal requests."""
         return Spec.fake_exponential(
             Spec.MIN_WITHDRAWAL_REQUEST_FEE,
             excess_withdrawal_requests,
@@ -84,9 +78,7 @@ class Spec:
 
     @staticmethod
     def get_excess_withdrawal_requests(previous_excess: int, count: int) -> int:
-        """
-        Calculate the new excess withdrawal requests.
-        """
+        """Calculate the new excess withdrawal requests."""
         if previous_excess + count > Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK:
             return previous_excess + count - Spec.TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK
         return 0

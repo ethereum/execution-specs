@@ -82,9 +82,7 @@ def test_push0_contracts(
     contract_code: Bytecode,
     expected_storage: Account,
 ):
-    """
-    Tests PUSH0 within various deployed contracts.
-    """
+    """Tests PUSH0 within various deployed contracts."""
     push0_contract = pre.deploy_contract(contract_code)
     tx = Transaction(to=push0_contract, gas_limit=100_000, sender=sender)
     post[push0_contract] = expected_storage
@@ -97,14 +95,12 @@ class TestPush0CallContext:
     - CALL
     - CALLCODE
     - DELEGATECALL
-    - STATICCALL
+    - STATICCALL.
     """
 
     @pytest.fixture
     def push0_contract_callee(self, pre: Alloc) -> Address:
-        """
-        Deploys a PUSH0 contract callee to the pre alloc returning its address.
-        """
+        """Deploys a PUSH0 contract callee to the pre alloc returning its address."""
         push0_contract = pre.deploy_contract(Op.MSTORE8(Op.PUSH0, 0xFF) + Op.RETURN(Op.PUSH0, 1))
         return push0_contract
 
@@ -113,7 +109,8 @@ class TestPush0CallContext:
         self, pre: Alloc, call_opcode: Op, push0_contract_callee: Address
     ) -> Address:
         """
-        Deploys a contract responsible for calling the callee PUSH0 contract returning its address.
+        Deploy contract responsible for calling the callee PUSH0 contract
+        returning its address.
         """
         call_code = (
             Op.SSTORE(0, call_opcode(gas=100_000, address=push0_contract_callee))
@@ -142,9 +139,7 @@ class TestPush0CallContext:
         sender: EOA,
         push0_contract_caller: Address,
     ):
-        """
-        Test PUSH0 during various call contexts.
-        """
+        """Test PUSH0 during various call contexts."""
         tx = Transaction(to=push0_contract_caller, gas_limit=100_000, sender=sender)
         post[push0_contract_caller] = Account(storage={0x00: 0x01, 0x01: 0xFF})
         state_test(env=env, pre=pre, post=post, tx=tx)

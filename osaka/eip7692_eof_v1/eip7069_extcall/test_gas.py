@@ -1,6 +1,6 @@
 """
 abstract: Tests [EIP-7069: Revamped CALL instructions](https://eips.ethereum.org/EIPS/eip-7069)
-    Tests gas comsumption
+    Tests gas comsumption.
 """  # noqa: E501
 
 import pytest
@@ -123,7 +123,7 @@ def test_ext_calls_gas(
     new_account: bool,
     mem_expansion_bytes: int,
 ):
-    """Tests variations of EXT*CALL gas, both warm and cold, without and with mem expansions"""
+    """Tests variations of EXT*CALL gas, both warm and cold, without and with mem expansions."""
     address_target = (
         pre.fund_eoa(0) if new_account else pre.deploy_contract(Container.Code(Op.STOP))
     )

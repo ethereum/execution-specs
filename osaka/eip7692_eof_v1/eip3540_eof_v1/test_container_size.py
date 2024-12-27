@@ -1,6 +1,4 @@
-"""
-EOF validation tests for EIP-3540 container size
-"""
+"""EOF validation tests for EIP-3540 container size."""
 
 import pytest
 
@@ -27,9 +25,7 @@ def test_max_size(
     eof_test: EOFTestFiller,
     over_limit: int,
 ):
-    """
-    Verify EOF container valid at maximum size, invalid above
-    """
+    """Verify EOF container valid at maximum size, invalid above."""
     # Expand the minimal EOF code by more noop code, reaching the desired target container size.
     code = Container(
         sections=[
@@ -54,9 +50,7 @@ def test_above_max_size_raw(
     eof_test: EOFTestFiller,
     size: int,
 ):
-    """
-    Verify EOF container invalid above maximum size, regardless of header contents
-    """
+    """Verify EOF container invalid above maximum size, regardless of header contents."""
     code = Op.INVALID * size
     eof_test(
         data=bytes(code),
@@ -105,9 +99,7 @@ def test_section_after_end_of_container(
     eof_test: EOFTestFiller,
     code: Container,
 ):
-    """
-    Verify EOF container is invalid if any of sections declares above container size
-    """
+    """Verify EOF container is invalid if any of sections declares above container size."""
     eof_test(
         data=bytes(code),
         expect_exception=EOFException.INVALID_SECTION_BODIES_SIZE,

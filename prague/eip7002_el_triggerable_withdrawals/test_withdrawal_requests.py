@@ -1,6 +1,6 @@
 """
 abstract: Tests [EIP-7002: Execution layer triggerable withdrawals](https://eips.ethereum.org/EIPS/eip-7002)
-    Test execution layer triggered exits [EIP-7002: Execution layer triggerable withdrawals](https://eips.ethereum.org/EIPS/eip-7002)
+    Test execution layer triggered exits [EIP-7002: Execution layer triggerable withdrawals](https://eips.ethereum.org/EIPS/eip-7002).
 
 """  # noqa: E501
 
@@ -18,9 +18,11 @@ from ethereum_test_tools import (
     Environment,
     Header,
     Macros,
+    Requests,
+    TestAddress,
+    TestAddress2,
 )
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Requests, TestAddress, TestAddress2
 
 from .helpers import (
     WithdrawalRequest,
@@ -510,9 +512,7 @@ def test_withdrawal_requests(
     blocks: List[Block],
     pre: Alloc,
 ):
-    """
-    Test making a withdrawal request to the beacon chain.
-    """
+    """Test making a withdrawal request to the beacon chain."""
     blockchain_test(
         genesis_environment=Environment(),
         pre=pre,

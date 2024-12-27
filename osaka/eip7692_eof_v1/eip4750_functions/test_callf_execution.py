@@ -1,6 +1,5 @@
-"""
-EOF CALLF execution tests
-"""
+"""EOF CALLF execution tests."""
+
 import math
 
 import pytest
@@ -30,7 +29,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
     ((0, 1), (1, 1), (5, 120), (57, math.factorial(57)), (58, math.factorial(58) % 2**256)),
 )
 def test_callf_factorial(eof_state_test: EOFStateTestFiller, n, result):
-    """Test factorial implementation with recursive CALLF instructions"""
+    """Test factorial implementation with recursive CALLF instructions."""
     eof_state_test(
         data=Container(
             sections=[
@@ -71,7 +70,7 @@ def test_callf_factorial(eof_state_test: EOFStateTestFiller, n, result):
     ((0, 1), (1, 1), (13, 233), (27, 196418)),
 )
 def test_callf_fibonacci(eof_state_test: EOFStateTestFiller, n, result):
-    """Test fibonacci sequence implementation with recursive CALLF instructions"""
+    """Test fibonacci sequence implementation with recursive CALLF instructions."""
     eof_state_test(
         data=Container(
             sections=[
@@ -163,7 +162,7 @@ def test_callf_fibonacci(eof_state_test: EOFStateTestFiller, n, result):
     ids=lambda x: x.name,
 )
 def test_callf(eof_state_test: EOFStateTestFiller, container: Container):
-    """Test basic usage of CALLF and RETF instructions"""
+    """Test basic usage of CALLF and RETF instructions."""
     eof_state_test(
         data=container,
         container_post=Account(storage={slot_code_worked: value_code_worked}),
@@ -223,9 +222,11 @@ def test_callf(eof_state_test: EOFStateTestFiller, container: Container):
                     max_stack_height=1023,
                 ),
                 Section.Code(
-                    Op.CALLF[2] +
+                    Op.CALLF[2]
+                    +
                     # stack has 1024 items
-                    Op.POP + Op.RETF,
+                    Op.POP
+                    + Op.RETF,
                     code_inputs=0,
                     code_outputs=0,
                     max_stack_height=1,
@@ -250,17 +251,22 @@ def test_callf(eof_state_test: EOFStateTestFiller, container: Container):
                     max_stack_height=1022,
                 ),
                 Section.Code(
-                    Op.PUSH0 +
+                    Op.PUSH0
+                    +
                     # stack has 1023 items
-                    Op.CALLF[2] + Op.POP + Op.RETF,
+                    Op.CALLF[2]
+                    + Op.POP
+                    + Op.RETF,
                     code_inputs=0,
                     code_outputs=0,
                     max_stack_height=1,
                 ),
                 Section.Code(
-                    Op.PUSH0 +
+                    Op.PUSH0
+                    +
                     # stack has 1024 items
-                    Op.POP + Op.RETF,
+                    Op.POP
+                    + Op.RETF,
                     code_inputs=0,
                     code_outputs=0,
                     max_stack_height=1,
@@ -279,17 +285,22 @@ def test_callf(eof_state_test: EOFStateTestFiller, container: Container):
                     max_stack_height=1022,
                 ),
                 Section.Code(
-                    Op.PUSH0 +
+                    Op.PUSH0
+                    +
                     # Stack has 1023 items
-                    Op.CALLF[2] + Op.POP + Op.RETF,
+                    Op.CALLF[2]
+                    + Op.POP
+                    + Op.RETF,
                     code_inputs=3,
                     code_outputs=3,
                     max_stack_height=4,
                 ),
                 Section.Code(
-                    Op.PUSH0 +
+                    Op.PUSH0
+                    +
                     # Stack has 1024 items
-                    Op.POP + Op.RETF,
+                    Op.POP
+                    + Op.RETF,
                     code_inputs=3,
                     code_outputs=3,
                     max_stack_height=4,
@@ -346,7 +357,7 @@ def test_callf(eof_state_test: EOFStateTestFiller, container: Container):
     ids=lambda x: x.name,
 )
 def test_callf_operand_stack_size_max(eof_state_test: EOFStateTestFiller, container: Container):
-    """Test operand stack reaching 1024 items"""
+    """Test operand stack reaching 1024 items."""
     eof_state_test(
         data=container,
         container_post=Account(storage={slot_code_worked: value_code_worked}),
@@ -368,17 +379,22 @@ def test_callf_operand_stack_size_max(eof_state_test: EOFStateTestFiller, contai
                     max_stack_height=1023,
                 ),
                 Section.Code(
-                    Op.PUSH0 +
+                    Op.PUSH0
+                    +
                     # Stack has 1024 items
-                    Op.CALLF[2] + Op.POP + Op.RETF,
+                    Op.CALLF[2]
+                    + Op.POP
+                    + Op.RETF,
                     code_inputs=0,
                     code_outputs=0,
                     max_stack_height=1,
                 ),
                 Section.Code(
-                    Op.PUSH0 +
+                    Op.PUSH0
+                    +
                     # Runtime stack overflow
-                    Op.POP + Op.RETF,
+                    Op.POP
+                    + Op.RETF,
                     code_inputs=0,
                     code_outputs=0,
                     max_stack_height=1,
@@ -397,17 +413,22 @@ def test_callf_operand_stack_size_max(eof_state_test: EOFStateTestFiller, contai
                     max_stack_height=1023,
                 ),
                 Section.Code(
-                    Op.PUSH0 +
+                    Op.PUSH0
+                    +
                     # Stack has 1024 items
-                    Op.CALLF[2] + Op.POP + Op.RETF,
+                    Op.CALLF[2]
+                    + Op.POP
+                    + Op.RETF,
                     code_inputs=3,
                     code_outputs=3,
                     max_stack_height=4,
                 ),
                 Section.Code(
-                    Op.PUSH0 +
+                    Op.PUSH0
+                    +
                     # Runtime stackoverflow
-                    Op.POP + Op.RETF,
+                    Op.POP
+                    + Op.RETF,
                     code_inputs=3,
                     code_outputs=3,
                     max_stack_height=4,
@@ -418,7 +439,7 @@ def test_callf_operand_stack_size_max(eof_state_test: EOFStateTestFiller, contai
     ids=lambda x: x.name,
 )
 def test_callf_operand_stack_overflow(eof_state_test: EOFStateTestFiller, container: Container):
-    """Test stack overflowing 1024 items in called function"""
+    """Test stack overflowing 1024 items in called function."""
     eof_state_test(
         data=container,
         container_post=Account(storage={slot_code_worked: 0}),

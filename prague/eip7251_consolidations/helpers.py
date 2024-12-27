@@ -1,23 +1,19 @@
-"""
-Helpers for the EIP-7251 consolidation tests.
-"""
+"""Helpers for the EIP-7251 consolidation tests."""
+
 from dataclasses import dataclass, field
 from functools import cached_property
 from itertools import count
 from typing import Callable, ClassVar, List
 
-from ethereum_test_tools import EOA, Address, Alloc, Bytecode
+from ethereum_test_tools import EOA, Address, Alloc, Bytecode, Transaction
 from ethereum_test_tools import ConsolidationRequest as ConsolidationRequestBase
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Transaction
 
 from .spec import Spec
 
 
 class ConsolidationRequest(ConsolidationRequestBase):
-    """
-    Class used to describe a consolidation request in a test.
-    """
+    """Class used to describe a consolidation request in a test."""
 
     fee: int = 0
     """
@@ -42,9 +38,7 @@ class ConsolidationRequest(ConsolidationRequestBase):
 
     @property
     def value(self) -> int:
-        """
-        Returns the value of the consolidation request.
-        """
+        """Returns the value of the consolidation request."""
         return self.fee
 
     @cached_property
@@ -56,17 +50,13 @@ class ConsolidationRequest(ConsolidationRequestBase):
         return self.calldata_modifier(self.source_pubkey + self.target_pubkey)
 
     def with_source_address(self, source_address: Address) -> "ConsolidationRequest":
-        """
-        Return a new instance of the consolidation request with the source address set.
-        """
+        """Return a new instance of the consolidation request with the source address set."""
         return self.copy(source_address=source_address)
 
 
 @dataclass(kw_only=True)
 class ConsolidationRequestInteractionBase:
-    """
-    Base class for all types of consolidation transactions we want to test.
-    """
+    """Base class for all types of consolidation transactions we want to test."""
 
     sender_balance: int = 32_000_000_000_000_000_000 * 100
     """
@@ -96,9 +86,7 @@ class ConsolidationRequestInteractionBase:
 
 @dataclass(kw_only=True)
 class ConsolidationRequestTransaction(ConsolidationRequestInteractionBase):
-    """
-    Class used to describe a consolidation request originated from an externally owned account.
-    """
+    """Class to describe a consolidation request originated from an externally owned account."""
 
     def transactions(self) -> List[Transaction]:
         """Return a transaction for the consolidation request."""
@@ -234,9 +222,7 @@ class ConsolidationRequestContract(ConsolidationRequestInteractionBase):
 
 
 def get_n_fee_increments(n: int) -> List[int]:
-    """
-    Get the first N excess consolidation requests that increase the fee.
-    """
+    """Get the first N excess consolidation requests that increase the fee."""
     excess_consolidation_requests_counts = []
     last_fee = 1
     for i in count(0):

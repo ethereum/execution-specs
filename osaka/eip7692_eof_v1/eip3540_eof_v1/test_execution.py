@@ -1,6 +1,4 @@
-"""
-Execution of basic EOF containers.
-"""
+"""Execution of basic EOF containers."""
 
 import pytest
 
@@ -44,9 +42,7 @@ def test_eof_execution(
     pre: Alloc,
     container: Container,
 ):
-    """
-    Test simple contracts that are expected to succeed on call.
-    """
+    """Test simple contracts that are expected to succeed on call."""
     env = Environment()
 
     storage = Storage()

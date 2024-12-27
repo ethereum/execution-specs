@@ -1,6 +1,4 @@
-"""
-EOF V1 Constants used throughout all tests
-"""
+"""EOF V1 Constants used throughout all tests."""
 
 LEGACY_CALL_FAILURE = 0
 LEGACY_CALL_SUCCESS = 1

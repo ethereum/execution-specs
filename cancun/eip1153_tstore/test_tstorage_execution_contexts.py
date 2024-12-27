@@ -8,9 +8,17 @@ from typing import Dict, Mapping
 
 import pytest
 
-from ethereum_test_tools import Account, Address, Alloc, Bytecode, Environment, Hash
+from ethereum_test_tools import (
+    Account,
+    Address,
+    Alloc,
+    Bytecode,
+    Environment,
+    Hash,
+    StateTestFiller,
+    Transaction,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Transaction
 
 from . import PytestParameterEnum
 from .spec import Spec, ref_spec_1153
@@ -210,9 +218,7 @@ class DynamicCallContextTestCases(EnumMeta):
 
 @unique
 class CallContextTestCases(PytestParameterEnum, metaclass=DynamicCallContextTestCases):
-    """
-    Transient storage test cases for different contract subcall contexts.
-    """
+    """Transient storage test cases for different contract subcall contexts."""
 
     CALL = {
         "description": (
@@ -274,6 +280,7 @@ class CallContextTestCases(PytestParameterEnum, metaclass=DynamicCallContextTest
     }
 
     def __init__(self, value):
+        """Initialize the test case with the given value."""
         value = {
             "env": Environment(),
             "caller_bytecode": value["caller_bytecode"],
@@ -328,7 +335,7 @@ def test_subcall(
     post: Mapping,
 ):
     """
-    Test transient storage with a subcall using the following opcodes:
+    Test transient storage with a subcall using the following opcodes.
 
     - `CALL`
     - `CALLCODE`

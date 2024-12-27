@@ -9,9 +9,20 @@ from typing import Dict
 
 import pytest
 
-from ethereum_test_tools import Account, Alloc, Bytecode, CalldataCase, Environment, Hash, Initcode
+from ethereum_test_tools import (
+    Account,
+    Alloc,
+    Bytecode,
+    CalldataCase,
+    Environment,
+    Hash,
+    Initcode,
+    StateTestFiller,
+    Switch,
+    Transaction,
+    compute_create_address,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Switch, Transaction, compute_create_address
 
 from . import PytestParameterEnum
 from .spec import ref_spec_1153
@@ -25,9 +36,7 @@ CREATE_CODE = Op.CALLDATACOPY(size=Op.CALLDATASIZE) + Op.CREATE(size=Op.CALLDATA
 
 
 def call_option(option_number: int) -> Bytecode:
-    """
-    Return the bytecode for a call to the callee contract with the given option number.
-    """
+    """Return the bytecode for a call to the callee contract with the given option number."""
     return Op.MSTORE(value=option_number) + Op.CALL(
         address=Op.SLOAD(0),
         args_offset=0,
@@ -216,9 +225,7 @@ def test_reentrant_selfdestructing_call(
     callee_bytecode: Bytecode,
     expected_storage: Dict,
 ):
-    """
-    Test transient storage in different reentrancy contexts after selfdestructing.
-    """
+    """Test transient storage in different reentrancy contexts after selfdestructing."""
     env = Environment()
 
     caller_address = pre.deploy_contract(code=caller_bytecode)

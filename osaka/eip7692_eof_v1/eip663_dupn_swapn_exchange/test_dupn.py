@@ -19,9 +19,7 @@ REFERENCE_SPEC_VERSION = REFERENCE_SPEC_VERSION
 
 @pytest.mark.valid_from(EOF_FORK_NAME)
 def test_dupn_all_valid_immediates(eof_state_test: EOFStateTestFiller):
-    """
-    Test case for all valid DUPN immediates.
-    """
+    """Test case for all valid DUPN immediates."""
     n = 2**8
     values = range(0xD00, 0xD00 + n)
 
@@ -35,7 +33,7 @@ def test_dupn_all_valid_immediates(eof_state_test: EOFStateTestFiller):
         ],
     )
 
-    post = Account(storage=dict(zip(range(0, n), reversed(values))))
+    post = Account(storage=dict(zip(range(0, n), reversed(values), strict=False)))
 
     eof_state_test(
         tx_sender_funding_amount=1_000_000_000,
@@ -61,9 +59,7 @@ def test_dupn_stack_underflow(
     max_stack_height: int,
     eof_test: EOFTestFiller,
 ):
-    """
-    Test case out of bounds DUPN immediate.
-    """
+    """Test case out of bounds DUPN immediate."""
     eof_code = Container(
         sections=[
             Section.Code(
@@ -96,9 +92,7 @@ def test_dupn_stack_overflow(
     expect_exception: EOFException,
     eof_test: EOFTestFiller,
 ):
-    """
-    Test case where DUPN produces an stack overflow.
-    """
+    """Test case where DUPN produces an stack overflow."""
     eof_code = Container(
         sections=[
             Section.Code(

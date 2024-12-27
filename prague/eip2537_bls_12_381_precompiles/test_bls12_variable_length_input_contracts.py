@@ -7,9 +7,8 @@ from typing import List, SupportsBytes
 
 import pytest
 
-from ethereum_test_tools import Alloc, Bytecode, Environment
+from ethereum_test_tools import Alloc, Bytecode, Environment, StateTestFiller, Storage, Transaction
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Storage, Transaction
 
 from .spec import GAS_CALCULATION_FUNCTION_MAP, PointG1, PointG2, Scalar, Spec, ref_spec_2537
 
@@ -27,7 +26,7 @@ PAIRINGS_TO_TEST = 20
 
 
 @pytest.fixture
-def input() -> bytes:
+def input_data() -> bytes:
     """Input data for the contract."""
     return b""
 
@@ -65,6 +64,7 @@ def call_contract_code(
             Op.STATICCALL).
         call_contract_post_storage:
             Storage of the test contract after the transaction is executed.
+
     """
     expected_output = bytes(expected_output)
 
@@ -78,7 +78,7 @@ def call_contract_code(
 
     code = Bytecode()
     for precompile_gas, precompile_args_length in zip(
-        precompile_gas_list, precompile_data_length_list
+        precompile_gas_list, precompile_data_length_list, strict=False
     ):
         # For each given precompile gas value, and given arguments length, call the precompile
         # with the given gas and call data (all zeros) and compare the result.

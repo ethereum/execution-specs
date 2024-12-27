@@ -1,6 +1,4 @@
-"""
-Utility to generate gas usage related state tests automatically.
-"""
+"""Utility to generate gas usage related state tests automatically."""
 
 import itertools
 
@@ -41,7 +39,7 @@ def gas_test(
     out_of_gas_testing: bool = True,
 ):
     """
-    Creates a State Test to check the gas cost of a sequence of EOF code.
+    Create State Test to check the gas cost of a sequence of EOF code.
 
     `setup_code` and `tear_down_code` are called multiple times during the test, and MUST NOT have
     any side-effects which persist across message calls, and in particular, any effects on the gas

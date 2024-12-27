@@ -1,6 +1,4 @@
-"""
-Defines EIP-7251 specification constants and functions.
-"""
+"""Defines EIP-7251 specification constants and functions."""
 
 from dataclasses import dataclass
 
@@ -9,9 +7,7 @@ from ethereum_test_tools import Address
 
 @dataclass(frozen=True)
 class ReferenceSpec:
-    """
-    Defines the reference spec version and git path.
-    """
+    """Defines the reference spec version and git path."""
 
     git_path: str
     version: str
@@ -25,7 +21,7 @@ ref_spec_7251 = ReferenceSpec("EIPS/eip-7251.md", "18af57e74e4e862da5cbb8140aeb2
 class Spec:
     """
     Parameters from the EIP-7251 specifications as defined at
-    https://eips.ethereum.org/EIPS/eip-7251#execution-layer
+    https://eips.ethereum.org/EIPS/eip-7251#execution-layer.
     """
 
     CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS = 0x01ABEA29659E5E97C95107F20BB753CD3E09BBBB
@@ -53,9 +49,7 @@ class Spec:
 
     @staticmethod
     def fake_exponential(factor: int, numerator: int, denominator: int) -> int:
-        """
-        Used to calculate the consolidation request fee.
-        """
+        """Calculate the consolidation request fee."""
         i = 1
         output = 0
         numerator_accumulator = factor * denominator
@@ -67,9 +61,7 @@ class Spec:
 
     @staticmethod
     def get_fee(excess_consolidation_requests: int) -> int:
-        """
-        Calculate the fee for the excess consolidation requests.
-        """
+        """Calculate the fee for the excess consolidation requests."""
         return Spec.fake_exponential(
             Spec.MIN_CONSOLIDATION_REQUEST_FEE,
             excess_consolidation_requests,
@@ -78,9 +70,7 @@ class Spec:
 
     @staticmethod
     def get_excess_consolidation_requests(previous_excess: int, count: int) -> int:
-        """
-        Calculate the new excess consolidation requests.
-        """
+        """Calculate the new excess consolidation requests."""
         if previous_excess + count > Spec.TARGET_CONSOLIDATION_REQUESTS_PER_BLOCK:
             return previous_excess + count - Spec.TARGET_CONSOLIDATION_REQUESTS_PER_BLOCK
         return 0

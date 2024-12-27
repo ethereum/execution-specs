@@ -1,3 +1,1 @@
-"""
-Ethereum execution client tests related to security issues.
-"""
+"""Ethereum execution client tests related to security issues."""

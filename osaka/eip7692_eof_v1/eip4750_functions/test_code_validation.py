@@ -1,6 +1,4 @@
-"""
-Code validation of CALLF, RETF opcodes tests
-"""
+"""Code validation of CALLF, RETF opcodes tests."""
 
 from typing import List
 
@@ -163,9 +161,7 @@ INVALID: List[Container] = [
 
 
 def container_name(c: Container):
-    """
-    Return the name of the container for use in pytest ids.
-    """
+    """Return the name of the container for use in pytest ids."""
     if hasattr(c, "name"):
         return c.name
     else:
@@ -181,9 +177,7 @@ def test_eof_validity(
     eof_test: EOFTestFiller,
     container: Container,
 ):
-    """
-    Test EOF container validation for features around EIP-4750 / Functions / Code Sections
-    """
+    """Test EOF container validation for features around EIP-4750 / Functions / Code Sections."""
     eof_test(data=container)
 
 

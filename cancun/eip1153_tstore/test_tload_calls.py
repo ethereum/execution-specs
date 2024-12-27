@@ -1,6 +1,6 @@
 """
 Ethereum Transient Storage EIP Tests
-https://eips.ethereum.org/EIPS/eip-1153
+https://eips.ethereum.org/EIPS/eip-1153.
 """
 
 import pytest
@@ -17,7 +17,7 @@ REFERENCE_SPEC_VERSION = "2f8299df31bb8173618901a03a8366a3183479b0"
 @pytest.mark.parametrize("call_type", [Op.CALL, Op.CALLCODE, Op.DELEGATECALL])
 def test_tload_calls(state_test: StateTestFiller, pre: Alloc, call_type: Op):
     """
-    Ported .json vectors:
+    Ported .json vectors.
 
     (04_tloadAfterCallFiller.yml)
     Loading a slot after a call to another contract is 0.

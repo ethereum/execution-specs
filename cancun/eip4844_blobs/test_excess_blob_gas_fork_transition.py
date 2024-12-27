@@ -3,6 +3,7 @@ abstract: Tests `excessBlobGas` and `blobGasUsed` block fields for [EIP-4844: Sh
     Test `excessBlobGas` and `blobGasUsed` block fields for [EIP-4844: Shard Blob Transactions](https://eips.ethereum.org/EIPS/eip-4844) at fork
     transition.
 """  # noqa: E501
+
 from typing import List, Mapping
 
 import pytest
@@ -49,17 +50,13 @@ def pre() -> Mapping[Address, Account]:  # noqa: D103
 
 @pytest.fixture
 def pre_fork_blocks():
-    """
-    Generates blocks to reach the fork.
-    """
+    """Generate blocks to reach the fork."""
     return [Block(timestamp=t) for t in range(999, FORK_TIMESTAMP, 1_000)]
 
 
 @pytest.fixture
 def post_fork_block_count() -> int:
-    """
-    Amount of blocks to produce with the post-fork rules.
-    """
+    """Amount of blocks to produce with the post-fork rules."""
     return SpecHelpers.get_min_excess_blobs_for_blob_gas_price(2) // (
         SpecHelpers.max_blobs_per_block() - SpecHelpers.target_blobs_per_block()
     )
@@ -67,9 +64,7 @@ def post_fork_block_count() -> int:
 
 @pytest.fixture
 def blob_count_per_block() -> int:
-    """
-    Amount of blocks to produce with the post-fork rules.
-    """
+    """Amount of blocks to produce with the post-fork rules."""
     return 4
 
 
@@ -84,9 +79,7 @@ def post_fork_blocks(
     post_fork_block_count: int,
     blob_count_per_block: int,
 ):
-    """
-    Generates blocks past the fork.
-    """
+    """Generate blocks past the fork."""
     return [
         Block(
             txs=[

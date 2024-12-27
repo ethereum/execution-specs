@@ -5,9 +5,8 @@ abstract: Tests BLS12_G2MSM precompile of [EIP-2537: Precompile for BLS12-381 cu
 
 import pytest
 
-from ethereum_test_tools import Alloc, Environment
+from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Transaction
 
 from .helpers import vectors_from_file
 from .spec import PointG2, Scalar, Spec, ref_spec_2537
@@ -21,16 +20,14 @@ pytestmark = [
 ]
 
 
-@pytest.mark.parametrize("input,expected_output", vectors_from_file("multiexp_G2_bls.json"))
+@pytest.mark.parametrize("input_data,expected_output", vectors_from_file("multiexp_G2_bls.json"))
 def test_valid(
     state_test: StateTestFiller,
     pre: Alloc,
     post: dict,
     tx: Transaction,
 ):
-    """
-    Test the BLS12_G2MSM precompile.
-    """
+    """Test the BLS12_G2MSM precompile."""
     state_test(
         env=Environment(),
         pre=pre,
@@ -40,7 +37,7 @@ def test_valid(
 
 
 @pytest.mark.parametrize(
-    "input",
+    "input_data",
     vectors_from_file("fail-multiexp_G2_bls.json")
     + [
         pytest.param(
@@ -97,9 +94,7 @@ def test_invalid(
     post: dict,
     tx: Transaction,
 ):
-    """
-    Negative tests for the BLS12_G2MSM precompile.
-    """
+    """Negative tests for the BLS12_G2MSM precompile."""
     state_test(
         env=Environment(),
         pre=pre,
@@ -117,7 +112,7 @@ def test_invalid(
     ],
 )
 @pytest.mark.parametrize(
-    "input,expected_output",
+    "input_data,expected_output",
     [
         pytest.param(
             Spec.INF_G2 + Scalar(0),
@@ -132,9 +127,7 @@ def test_call_types(
     post: dict,
     tx: Transaction,
 ):
-    """
-    Test the BLS12_G2MSM precompile using different call types.
-    """
+    """Test the BLS12_G2MSM precompile using different call types."""
     state_test(
         env=Environment(),
         pre=pre,

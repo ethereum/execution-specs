@@ -1,6 +1,4 @@
-"""
-EIP-1153 Tests
-"""
+"""EIP-1153 Tests."""
 
 from enum import Enum, unique
 from pprint import pprint
@@ -49,50 +47,41 @@ class PytestParameterEnum(Enum):
     """
 
     def __init__(self, value):
+        """Initialize the enum value."""
         assert isinstance(value, dict)
         assert "description" in value
         self._value_ = value
 
     def param(self, names: List[str]):
-        """
-        Return the `pytest.param` value for this test case.
-        """
+        """Return the `pytest.param` value for this test case."""
         value = self._value_
         if "pytest_marks" in value:
             marks = {"marks": value["pytest_marks"]}
         else:
             marks = {}
         if "pytest_id" in value:
-            id = value["pytest_id"]
+            pytest_id = value["pytest_id"]
         else:
-            id = self.name.lower()
-        return pytest.param(*[value[name] for name in names], id=id, **marks)
+            pytest_id = self.name.lower()
+        return pytest.param(*[value[name] for name in names], id=pytest_id, **marks)
 
     @classmethod
     def special_keywords(cls) -> List[str]:
-        """
-        Return the special dictionary keywords that are not test parameters.
-        """
+        """Return the special dictionary keywords that are not test parameters."""
         return ["description", "pytest_marks", "pytest_id"]
 
     def names(self) -> List[str]:
-        """
-        Return the names of all the parameters included in the enum value dict.
-        """
+        """Return the names of all the parameters included in the enum value dict."""
         return sorted([k for k in self._value_.keys() if k not in self.special_keywords()])
 
     @property
     def description(self):
-        """
-        Returns the description of this test case.
-        """
+        """Returns the description of this test case."""
         return self._value_["description"]
 
     @classmethod
     def parametrize(cls):
-        """
-        Returns the decorator to parametrize a test with this enum.
-        """
+        """Return decorator to parametrize a test with this enum."""
         names = None
         for test_case_names in [test_case.names() for test_case in cls]:
             if names is None:

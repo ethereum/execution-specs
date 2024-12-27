@@ -1,6 +1,4 @@
-"""
-EOF JUMPF tests covering simple cases.
-"""
+"""EOF JUMPF tests covering simple cases."""
 
 import pytest
 
@@ -21,7 +19,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
 def test_jumpf_forward(
     eof_state_test: EOFStateTestFiller,
 ):
-    """Test JUMPF jumping forward"""
+    """Test JUMPF jumping forward."""
     eof_state_test(
         data=Container(
             sections=[
@@ -41,7 +39,7 @@ def test_jumpf_forward(
 def test_jumpf_backward(
     eof_state_test: EOFStateTestFiller,
 ):
-    """Tests JUMPF jumping backward"""
+    """Tests JUMPF jumping backward."""
     eof_state_test(
         data=Container(
             sections=[
@@ -66,7 +64,7 @@ def test_jumpf_backward(
 def test_jumpf_to_self(
     eof_state_test: EOFStateTestFiller,
 ):
-    """Tests JUMPF jumping to self"""
+    """Tests JUMPF jumping to self."""
     eof_state_test(
         data=Container(
             sections=[
@@ -88,7 +86,7 @@ def test_jumpf_to_self(
 def test_jumpf_too_large(
     eof_state_test: EOFStateTestFiller,
 ):
-    """Tests JUMPF jumping to a section outside the max section range"""
+    """Tests JUMPF jumping to a section outside the max section range."""
     eof_state_test(
         data=Container(
             sections=[
@@ -104,7 +102,7 @@ def test_jumpf_too_large(
 def test_jumpf_way_too_large(
     eof_state_test: EOFStateTestFiller,
 ):
-    """Tests JUMPF jumping to uint64.MAX"""
+    """Tests JUMPF jumping to uint64.MAX."""
     eof_state_test(
         data=Container(
             sections=[
@@ -120,7 +118,7 @@ def test_jumpf_way_too_large(
 def test_jumpf_to_nonexistent_section(
     eof_state_test: EOFStateTestFiller,
 ):
-    """Tests JUMPF jumping to valid section number but where the section does not exist"""
+    """Tests JUMPF jumping to valid section number but where the section does not exist."""
     eof_state_test(
         data=Container(
             sections=[
@@ -136,7 +134,7 @@ def test_jumpf_to_nonexistent_section(
 def test_callf_to_non_returning_section(
     eof_state_test: EOFStateTestFiller,
 ):
-    """Tests CALLF into a non-returning section"""
+    """Tests CALLF into a non-returning section."""
     eof_state_test(
         data=Container(
             sections=[
@@ -156,7 +154,7 @@ def test_callf_to_non_returning_section(
 def test_jumpf_stack_size_1024(
     eof_state_test: EOFStateTestFiller,
 ):
-    """Test stack reaching 1024 items in target function of JUMPF"""
+    """Test stack reaching 1024 items in target function of JUMPF."""
     eof_state_test(
         data=Container(
             sections=[
@@ -179,7 +177,7 @@ def test_jumpf_stack_size_1024(
 def test_jumpf_with_inputs_stack_size_1024(
     eof_state_test: EOFStateTestFiller,
 ):
-    """Test stack reaching 1024 items in target function of JUMPF with inputs"""
+    """Test stack reaching 1024 items in target function of JUMPF with inputs."""
     eof_state_test(
         data=Container(
             sections=[
@@ -202,7 +200,7 @@ def test_jumpf_with_inputs_stack_size_1024(
 def test_jumpf_stack_size_1024_at_push(
     eof_state_test: EOFStateTestFiller,
 ):
-    """Test stack reaching 1024 items in JUMPF target function at PUSH0 instruction"""
+    """Test stack reaching 1024 items in JUMPF target function at PUSH0 instruction."""
     eof_state_test(
         data=Container(
             sections=[
@@ -222,9 +220,11 @@ def test_jumpf_stack_size_1024_at_push(
                     max_stack_height=0,
                 ),
                 Section.Code(
-                    Op.PUSH0 +
+                    Op.PUSH0
+                    +
                     # stack has 1024 items
-                    Op.POP + Op.RETF,
+                    Op.POP
+                    + Op.RETF,
                     code_inputs=0,
                     code_outputs=0,
                     max_stack_height=1,
@@ -301,7 +301,7 @@ def test_jumpf_stack_overflow(
 def test_jumpf_with_inputs_stack_size_1024_at_push(
     eof_state_test: EOFStateTestFiller,
 ):
-    """Test stack reaching 1024 items in JUMPF target function with inputs at PUSH0 instruction"""
+    """Test stack reaching 1024 items in JUMPF target function with inputs at PUSH0 instruction."""
     eof_state_test(
         data=Container(
             sections=[
@@ -321,9 +321,11 @@ def test_jumpf_with_inputs_stack_size_1024_at_push(
                     max_stack_height=3,
                 ),
                 Section.Code(
-                    Op.PUSH0 +
+                    Op.PUSH0
+                    +
                     # Stack has 1024 items
-                    Op.POP + Op.RETF,
+                    Op.POP
+                    + Op.RETF,
                     code_inputs=3,
                     code_outputs=3,
                     max_stack_height=4,
@@ -337,7 +339,7 @@ def test_jumpf_with_inputs_stack_size_1024_at_push(
 def test_jumpf_with_inputs_stack_overflow(
     eof_state_test: EOFStateTestFiller,
 ):
-    """Test stack overflowing 1024 items in JUMPF target function with inputs"""
+    """Test stack overflowing 1024 items in JUMPF target function with inputs."""
     eof_state_test(
         data=Container(
             sections=[
@@ -357,9 +359,13 @@ def test_jumpf_with_inputs_stack_overflow(
                     max_stack_height=3,
                 ),
                 Section.Code(
-                    Op.PUSH0 + Op.PUSH0 +
+                    Op.PUSH0
+                    + Op.PUSH0
+                    +
                     # Runtime stackoverflow
-                    Op.POP + Op.POP + Op.RETF,
+                    Op.POP
+                    + Op.POP
+                    + Op.RETF,
                     code_inputs=3,
                     code_outputs=3,
                     max_stack_height=5,

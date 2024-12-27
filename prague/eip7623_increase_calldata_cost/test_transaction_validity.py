@@ -3,13 +3,19 @@ abstract: Test [EIP-7623: Increase calldata cost](https://eips.ethereum.org/EIPS
     Test transaction validity on [EIP-7623: Increase calldata cost](https://eips.ethereum.org/EIPS/eip-7623).
 """  # noqa: E501
 
-
 import pytest
 
 from ethereum_test_forks import Prague
-from ethereum_test_tools import AccessList, Address, Alloc, Hash
+from ethereum_test_tools import (
+    AccessList,
+    Address,
+    Alloc,
+    Hash,
+    StateTestFiller,
+    Transaction,
+    add_kzg_version,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Transaction, add_kzg_version
 
 from ...cancun.eip4844_blobs.spec import Spec as EIP_4844_Spec
 from .helpers import DataTestType
@@ -74,9 +80,7 @@ def test_transaction_validity_type_0(
     pre: Alloc,
     tx: Transaction,
 ) -> None:
-    """
-    Test transaction validity for transactions without access lists and contract creation.
-    """
+    """Test transaction validity for transactions without access lists and contract creation."""
     state_test(
         pre=pre,
         post={},
@@ -137,9 +141,7 @@ def test_transaction_validity_type_1_type_2(
     pre: Alloc,
     tx: Transaction,
 ) -> None:
-    """
-    Test transaction validity for transactions with access lists and contract creation.
-    """
+    """Test transaction validity for transactions with access lists and contract creation."""
     state_test(
         pre=pre,
         post={},
@@ -215,7 +217,8 @@ def test_transaction_validity_type_3(
     tx: Transaction,
 ) -> None:
     """
-    Test transaction validity for transactions with access lists, blobs, but no contract creation.
+    Test transaction validity for transactions with access lists, blobs,
+    but no contract creation.
     """
     state_test(
         pre=pre,

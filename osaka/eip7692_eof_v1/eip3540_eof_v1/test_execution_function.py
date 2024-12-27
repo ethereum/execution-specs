@@ -1,6 +1,4 @@
-"""
-Execution of CALLF, RETF opcodes within EOF V1 containers tests
-"""
+"""Execution of CALLF, RETF opcodes within EOF V1 containers tests."""
 
 from typing import List
 
@@ -306,9 +304,7 @@ def test_eof_functions_contract_call_succeed(
     pre: Alloc,
     container: Container,
 ):
-    """
-    Test simple contracts that are simply expected to succeed on call.
-    """
+    """Test simple contracts that are simply expected to succeed on call."""
     env = Environment()
 
     sender = pre.fund_eoa()
@@ -341,9 +337,7 @@ def test_eof_functions_contract_call_fail(
     pre: Alloc,
     container: Container,
 ):
-    """
-    Test simple contracts that are simply expected to fail on call.
-    """
+    """Test simple contracts that are simply expected to fail on call."""
     env = Environment()
 
     sender = pre.fund_eoa()

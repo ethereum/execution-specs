@@ -1,6 +1,5 @@
-"""
-Tests all EOF-only opcodes in legacy contracts and expects failure.
-"""
+"""Tests all EOF-only opcodes in legacy contracts and expects failure."""
+
 import pytest
 
 from ethereum_test_base_types import Account
@@ -58,9 +57,7 @@ eof_opcode_blocks = [
     eof_opcode_blocks,
 )
 def test_opcodes_in_legacy(state_test: StateTestFiller, pre: Alloc, code: Opcodes):
-    """
-    Test all EOF only opcodes in legacy contracts and expects failure.
-    """
+    """Test all EOF only opcodes in legacy contracts and expects failure."""
     env = Environment()
 
     address_test_contract = pre.deploy_contract(
@@ -97,9 +94,7 @@ def test_opcodes_in_legacy(state_test: StateTestFiller, pre: Alloc, code: Opcode
     eof_opcode_blocks,
 )
 def test_opcodes_in_create_tx(state_test: StateTestFiller, pre: Alloc, code: Opcodes):
-    """
-    Test all EOF only opcodes in legacy contracts and expects failure.
-    """
+    """Test all EOF only opcodes in legacy contracts and expects failure."""
     env = Environment()
 
     sender = pre.fund_eoa()
@@ -143,9 +138,7 @@ def test_opcodes_in_create_operation(
     code: Opcodes,
     legacy_create_opcode: Opcodes,
 ):
-    """
-    Test all EOF only opcodes in legacy contracts and expects failure.
-    """
+    """Test all EOF only opcodes in legacy contracts and expects failure."""
     env = Environment()
 
     init_code = Initcode(initcode_prefix=code, deploy_code=Op.RETURN(0, 0))
@@ -193,9 +186,7 @@ def test_opcodes_in_eof_calling_legacy(
     code: Opcodes,
     ext_call_opcode: Op,
 ):
-    """
-    Test all EOF only opcodes in legacy contracts and expects failure.
-    """
+    """Test all EOF only opcodes in legacy contracts and expects failure."""
     env = Environment()
 
     address_test_contract = pre.deploy_contract(

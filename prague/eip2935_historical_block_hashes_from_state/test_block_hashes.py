@@ -1,15 +1,23 @@
 """
 abstract: Tests [EIP-2935: Serve historical block hashes from state](https://eips.ethereum.org/EIPS/eip-2935)
-    Test [EIP-2935: Serve historical block hashes from state](https://eips.ethereum.org/EIPS/eip-2935)
+    Test [EIP-2935: Serve historical block hashes from state](https://eips.ethereum.org/EIPS/eip-2935).
 """  # noqa: E501
 
 from typing import Dict, List
 
 import pytest
 
-from ethereum_test_tools import Account, Address, Alloc, Block, BlockchainTestFiller, Bytecode
+from ethereum_test_tools import (
+    Account,
+    Address,
+    Alloc,
+    Block,
+    BlockchainTestFiller,
+    Bytecode,
+    Storage,
+    Transaction,
+)
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Storage, Transaction
 
 from .spec import Spec, ref_spec_2935
 
@@ -33,6 +41,7 @@ def generate_block_check_code(
         fork_block_number (int): The block number of the fork transition.
         storage (Storage): The storage object to use.
         check_contract_first (bool): Whether to check the contract first, for slot warming checks.
+
     """
     if check_block_number < 0:
         # Block number outside of range, nothing to check

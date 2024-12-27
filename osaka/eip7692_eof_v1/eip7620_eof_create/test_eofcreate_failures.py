@@ -1,6 +1,4 @@
-"""
-Test good and bad EOFCREATE cases
-"""
+"""Test good and bad EOFCREATE cases."""
 
 import pytest
 
@@ -50,9 +48,7 @@ pytestmark = pytest.mark.valid_from(EOF_FORK_NAME)
     ],
 )
 def test_initcode_revert(state_test: StateTestFiller, pre: Alloc, revert: bytes):
-    """
-    Verifies proper handling of REVERT in initcode
-    """
+    """Verifies proper handling of REVERT in initcode."""
     env = Environment()
     revert_size = len(revert)
 
@@ -107,9 +103,7 @@ def test_initcode_aborts(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """
-    Verifies correct handling of a halt in EOF initcode
-    """
+    """Verifies correct handling of a halt in EOF initcode."""
     env = Environment()
     sender = pre.fund_eoa()
     contract_address = pre.deploy_contract(
@@ -175,9 +169,7 @@ def test_eofcreate_deploy_sizes(
     pre: Alloc,
     target_deploy_size: int,
 ):
-    """
-    Verifies a mix of runtime contract sizes mixing success and multiple size failure modes.
-    """
+    """Verifies a mix of runtime contract sizes mixing success and multiple size failure modes."""
     env = Environment()
 
     runtime_container = Container(
@@ -210,11 +202,12 @@ def test_eofcreate_deploy_sizes(
         ]
     )
 
-    assert factory_size == (
-        len(factory_container) - len(runtime_container)
-    ), "factory_size is wrong, expected factory_size is %d, calculated is %d" % (
-        factory_size,
-        len(factory_container),
+    assert factory_size == (len(factory_container) - len(runtime_container)), (
+        "factory_size is wrong, expected factory_size is %d, calculated is %d"
+        % (
+            factory_size,
+            len(factory_container),
+        )
     )
 
     sender = pre.fund_eoa()
@@ -263,7 +256,7 @@ def test_eofcreate_deploy_sizes_tx(
 ):
     """
     Verifies a mix of runtime contract sizes mixing success and multiple size failure modes
-    where the initcontainer is included in a transaction
+    where the initcontainer is included in a transaction.
     """
     raise NotImplementedError("Not implemented")
 
@@ -280,9 +273,7 @@ def test_eofcreate_deploy_sizes_tx(
     ],
 )
 def test_auxdata_size_failures(state_test: StateTestFiller, pre: Alloc, auxdata_size: int):
-    """
-    Exercises a number of auxdata size violations, and one maxcode success
-    """
+    """Exercises a number of auxdata size violations, and one maxcode success."""
     env = Environment()
     auxdata_bytes = b"a" * auxdata_size
 
@@ -355,7 +346,7 @@ def test_eofcreate_insufficient_stipend(
 ):
     """
     Exercises an EOFCREATE that fails because the calling account does not have enough ether to
-    pay the stipend
+    pay the stipend.
     """
     env = Environment()
     initcode_container = Container(
@@ -398,9 +389,7 @@ def test_insufficient_initcode_gas(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """
-    Excercises an EOFCREATE when there is not enough gas for the initcode charge
-    """
+    """Excercises an EOFCREATE when there is not enough gas for the initcode charge."""
     env = Environment()
 
     initcode_data = b"a" * 0x5000
@@ -460,9 +449,7 @@ def test_insufficient_gas_memory_expansion(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """
-    Excercises an EOFCREATE when the memory for auxdata has not been expanded but is requested
-    """
+    """Exercises EOFCREATE when the memory for auxdata has not been expanded but is requested."""
     env = Environment()
 
     auxdata_size = 0x5000
@@ -520,9 +507,7 @@ def test_insufficient_returncontract_auxdata_gas(
     state_test: StateTestFiller,
     pre: Alloc,
 ):
-    """
-    Excercises an EOFCREATE when there is not enough gas for the initcode charge
-    """
+    """Excercises an EOFCREATE when there is not enough gas for the initcode charge."""
     env = Environment()
 
     auxdata_size = 0x5000
@@ -605,9 +590,7 @@ def test_static_flag_eofcreate(
     endowment: int,
     initcode: Container,
 ):
-    """
-    Verifies correct handling of the static call flag with EOFCREATE
-    """
+    """Verifies correct handling of the static call flag with EOFCREATE."""
     env = Environment()
     sender = pre.fund_eoa()
     contract_address = pre.deploy_contract(

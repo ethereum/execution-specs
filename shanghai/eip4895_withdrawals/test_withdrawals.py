@@ -42,7 +42,7 @@ ONE_GWEI = 10**9
 )
 class TestUseValueInTx:
     """
-    Test that the value from a withdrawal can be used in a transaction:
+    Test that the value from a withdrawal can be used in a transaction.
 
     1. `tx_in_withdrawals_block`: Test that the withdrawal value can not be used by a transaction
         in the same block as the withdrawal.
@@ -53,16 +53,12 @@ class TestUseValueInTx:
 
     @pytest.fixture
     def sender(self, pre: Alloc) -> EOA:
-        """
-        Funded EOA used for sending transactions.
-        """
+        """Funded EOA used for sending transactions."""
         return pre.fund_eoa(1)
 
     @pytest.fixture
     def recipient(self, pre: Alloc) -> EOA:
-        """
-        Funded EOA used for sending transactions.
-        """
+        """Funded EOA used for sending transactions."""
         return pre.fund_eoa(0)
 
     @pytest.fixture
@@ -126,9 +122,7 @@ class TestUseValueInTx:
         post: dict,
         blocks: List[Block],
     ):
-        """
-        Test sending withdrawal value in a transaction.
-        """
+        """Test sending withdrawal value in a transaction."""
         blockchain_test(pre=pre, post=post, blocks=blocks)
 
 
@@ -136,9 +130,7 @@ def test_use_value_in_contract(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
 ):
-    """
-    Test sending value from contract that has not received a withdrawal
-    """
+    """Test sending value from contract that has not received a withdrawal."""
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(1)
 
@@ -194,13 +186,13 @@ def test_balance_within_block(blockchain_test: BlockchainTestFiller, pre: Alloc)
     Test Withdrawal balance increase within the same block,
     inside contract call.
     """
-    SAVE_BALANCE_ON_BLOCK_NUMBER = Op.SSTORE(
+    save_balance_on_block_number = Op.SSTORE(
         Op.NUMBER,
         Op.BALANCE(Op.CALLDATALOAD(0)),
     )
     sender = pre.fund_eoa()
     recipient = pre.fund_eoa(ONE_GWEI)
-    contract_address = pre.deploy_contract(SAVE_BALANCE_ON_BLOCK_NUMBER)
+    contract_address = pre.deploy_contract(save_balance_on_block_number)
 
     blocks = [
         Block(
@@ -248,7 +240,7 @@ def test_balance_within_block(blockchain_test: BlockchainTestFiller, pre: Alloc)
 @pytest.mark.parametrize("test_case", ["single_block", "multiple_blocks"])
 class TestMultipleWithdrawalsSameAddress:
     """
-    Test that multiple withdrawals can be sent to the same address in:
+    Test that multiple withdrawals can be sent to the same address in.
 
     1. A single block.
 
@@ -328,10 +320,10 @@ def test_many_withdrawals(
     Test Withdrawals with a count of N withdrawals in a single block where
     N is a high number not expected to be seen in mainnet.
     """
-    N = 400
+    n = 400
     withdrawals = []
     post = {}
-    for i in range(N):
+    for i in range(n):
         addr = pre.deploy_contract(Op.SSTORE(Op.NUMBER, 1))
         amount = i * 1
         withdrawals.append(
@@ -421,9 +413,7 @@ def test_newly_created_contract(
     include_value_in_tx: bool,
     request,
 ):
-    """
-    Test Withdrawing to a newly created contract.
-    """
+    """Test Withdrawing to a newly created contract."""
     sender = pre.fund_eoa()
     initcode = Op.RETURN(0, 1)
     tx = Transaction(
@@ -467,9 +457,7 @@ def test_no_evm_execution(
     blockchain_test: BlockchainTestFiller,
     pre: Alloc,
 ):
-    """
-    Test Withdrawals don't trigger EVM execution.
-    """
+    """Test Withdrawals don't trigger EVM execution."""
     sender = pre.fund_eoa()
     contracts = [pre.deploy_contract(Op.SSTORE(Op.NUMBER, 1)) for _ in range(4)]
     blocks = [
@@ -551,7 +539,7 @@ class ZeroAmountTestCases(Enum):  # noqa: D101
 
 @pytest.mark.parametrize(
     "test_case",
-    [case for case in ZeroAmountTestCases],
+    list(ZeroAmountTestCases),
     ids=[case.value for case in ZeroAmountTestCases],
 )
 def test_zero_amount(
@@ -561,7 +549,7 @@ def test_zero_amount(
 ):
     """
     Test withdrawals with zero amount for the following cases, all withdrawals
-    are included in one block:
+    are included in one block.
 
     1. Two withdrawals of zero amount to two different addresses; one to an
        untouched account, one to an account with a balance.
@@ -705,9 +693,7 @@ def test_withdrawing_to_precompiles(
     amount: int,
     t8n: TransitionTool,
 ):
-    """
-    Test withdrawing to all precompiles for a given fork.
-    """
+    """Test withdrawing to all precompiles for a given fork."""
     sender = pre.fund_eoa()
     post: Dict = {}
 

@@ -3,12 +3,10 @@ abstract: Tests BLS12_MAP_FP2_TO_G2 precompile of [EIP-2537: Precompile for BLS1
     Tests BLS12_MAP_FP2_TO_G2 precompile of [EIP-2537: Precompile for BLS12-381 curve operations](https://eips.ethereum.org/EIPS/eip-2537).
 """  # noqa: E501
 
-
 import pytest
 
-from ethereum_test_tools import Alloc, Environment
+from ethereum_test_tools import Alloc, Environment, StateTestFiller, Transaction
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import StateTestFiller, Transaction
 
 from .helpers import vectors_from_file
 from .spec import FP2, PointG2, Spec, ref_spec_2537
@@ -34,7 +32,7 @@ G2_POINT_ZERO_FP = PointG2(
 
 
 @pytest.mark.parametrize(
-    "input,expected_output",
+    "input_data,expected_output",
     vectors_from_file("map_fp2_to_G2_bls.json")
     + [
         pytest.param(
@@ -64,9 +62,7 @@ def test_valid(
     post: dict,
     tx: Transaction,
 ):
-    """
-    Test the BLS12_MAP_FP2_TO_G2 precompile.
-    """
+    """Test the BLS12_MAP_FP2_TO_G2 precompile."""
     state_test(
         env=Environment(),
         pre=pre,
@@ -76,7 +72,7 @@ def test_valid(
 
 
 @pytest.mark.parametrize(
-    "input",
+    "input_data",
     vectors_from_file("fail-map_fp2_to_G2_bls.json")
     + [
         pytest.param(b"\x80" + bytes(FP2((0, 0)))[1:], id="invalid_encoding"),
@@ -97,9 +93,7 @@ def test_invalid(
     post: dict,
     tx: Transaction,
 ):
-    """
-    Negative tests for the BLS12_MAP_FP_TO_G2 precompile.
-    """
+    """Negative tests for the BLS12_MAP_FP_TO_G2 precompile."""
     state_test(
         env=Environment(),
         pre=pre,
@@ -109,7 +103,7 @@ def test_invalid(
 
 
 @pytest.mark.parametrize(
-    "input,expected_output,precompile_gas_modifier",
+    "input_data,expected_output,precompile_gas_modifier",
     [
         pytest.param(
             FP2((0, 0)),
@@ -131,9 +125,7 @@ def test_gas(
     post: dict,
     tx: Transaction,
 ):
-    """
-    Test the BLS12_MAP_FP_TO_G2 precompile gas requirements.
-    """
+    """Test the BLS12_MAP_FP_TO_G2 precompile gas requirements."""
     state_test(
         env=Environment(),
         pre=pre,
@@ -151,7 +143,7 @@ def test_gas(
     ],
 )
 @pytest.mark.parametrize(
-    "input,expected_output",
+    "input_data,expected_output",
     [
         pytest.param(
             FP2((0, 0)),
@@ -166,9 +158,7 @@ def test_call_types(
     post: dict,
     tx: Transaction,
 ):
-    """
-    Test the BLS12_MAP_FP_TO_G2 precompile using different call types.
-    """
+    """Test the BLS12_MAP_FP_TO_G2 precompile using different call types."""
     state_test(
         env=Environment(),
         pre=pre,

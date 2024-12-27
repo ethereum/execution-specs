@@ -1,6 +1,4 @@
-"""
-Fixtures for the EIP-7623 tests.
-"""
+"""Fixtures for the EIP-7623 tests."""
 
 from typing import List, Sequence
 
@@ -16,18 +14,17 @@ from ethereum_test_tools import (
     Bytecode,
     Bytes,
     Hash,
+    Transaction,
+    TransactionException,
 )
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Transaction, TransactionException
 
 from .helpers import DataTestType, find_floor_cost_threshold
 
 
 @pytest.fixture
 def sender(pre: Alloc) -> EOA:
-    """
-    Create the sender account.
-    """
+    """Create the sender account."""
     return pre.fund_eoa()
 
 
@@ -36,9 +33,7 @@ def to(
     request: pytest.FixtureRequest,
     pre: Alloc,
 ) -> Address | None:
-    """
-    Create the sender account.
-    """
+    """Create the sender account."""
     if hasattr(request, "param"):
         param = request.param
     else:
@@ -57,24 +52,21 @@ def to(
 @pytest.fixture
 def protected() -> bool:
     """
-    Whether the transaction is protected or not. Only valid for type-0 transactions.
+    Return whether the transaction is protected or not.
+    Only valid for type-0 transactions.
     """
     return True
 
 
 @pytest.fixture
 def access_list() -> List[AccessList] | None:
-    """
-    Access list for the transaction.
-    """
+    """Access list for the transaction."""
     return None
 
 
 @pytest.fixture
 def authorization_existing_authority() -> bool:
-    """
-    Whether the transaction has an existing authority in the authorization list.
-    """
+    """Return whether the transaction has an existing authority in the authorization list."""
     return False
 
 
@@ -85,7 +77,7 @@ def authorization_list(
     authorization_existing_authority: bool,
 ) -> List[AuthorizationTuple] | None:
     """
-    Authorization list for the transaction.
+    Authorization-list for the transaction.
 
     This fixture needs to be parametrized indirectly in order to generate the authorizations with
     valid signers using `pre` in this function, and the parametrized value should be a list of
@@ -105,17 +97,13 @@ def authorization_list(
 
 @pytest.fixture
 def blob_versioned_hashes() -> Sequence[Hash] | None:
-    """
-    Versioned hashes for the transaction.
-    """
+    """Versioned hashes for the transaction."""
     return None
 
 
 @pytest.fixture
 def contract_creating_tx(to: Address | None) -> bool:
-    """
-    Whether the transaction creates a contract or not.
-    """
+    """Return whether the transaction creates a contract or not."""
     return to is None
 
 
@@ -266,9 +254,7 @@ def tx_gas(
 
 @pytest.fixture
 def tx_error(tx_gas_delta: int) -> TransactionException | None:
-    """
-    Transaction error, only expected if the gas delta is negative.
-    """
+    """Transaction error, only expected if the gas delta is negative."""
     return TransactionException.INTRINSIC_GAS_TOO_LOW if tx_gas_delta < 0 else None
 
 
@@ -285,9 +271,7 @@ def tx(
     tx_gas: int,
     tx_error: TransactionException | None,
 ) -> Transaction:
-    """
-    Create the transaction used in each test.
-    """
+    """Create the transaction used in each test."""
     return Transaction(
         ty=ty,
         sender=sender,

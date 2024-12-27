@@ -1,6 +1,5 @@
-"""
-EOF RJump tests helpers
-"""
+"""EOF RJump tests helpers."""
+
 import itertools
 from enum import Enum
 
@@ -18,9 +17,7 @@ value_calldata_false = 11
 
 
 class JumpDirection(Enum):
-    """
-    Enum for the direction of the jump
-    """
+    """Enum for the direction of the jump."""
 
     FORWARD = 1
     BACKWARD = -1
