@@ -1,6 +1,4 @@
-"""
-Mirror module to import `ethereum_test_types.eof.v1`.
-"""
+"""Mirror module to import `ethereum_test_types.eof.v1`."""
 
 from ethereum_test_types.eof.v1 import (
     VERSION_MAX_SECTION_KIND,

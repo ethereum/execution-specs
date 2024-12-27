@@ -1,14 +1,11 @@
-"""
-Test spec debugging tools.
-"""
+"""Test spec debugging tools."""
+
 import pprint
 from typing import Dict, List
 
 
 def print_traces(traces: List[List[List[Dict]]] | None):
-    """
-    Print the traces from the transition tool for debugging.
-    """
+    """Print the traces from the transition tool for debugging."""
     if traces is None:
         print("Traces not collected. Use `--traces` to see detailed execution information.")
         return

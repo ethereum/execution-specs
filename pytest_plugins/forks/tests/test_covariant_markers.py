@@ -1,6 +1,4 @@
-"""
-Test fork covariant markers and their effect on test parametrization.
-"""
+"""Test fork covariant markers and their effect on test parametrization."""
 
 import pytest
 
@@ -17,7 +15,7 @@ import pytest
             def test_case(state_test_only, tx_type):
                 pass
             """,
-            dict(passed=3, failed=0, skipped=0, errors=0),
+            {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_tx_types",
         ),
@@ -30,7 +28,7 @@ import pytest
             def test_case(state_test_only, tx_type):
                 pass
             """,
-            dict(passed=2, failed=0, skipped=0, errors=0),
+            {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_tx_types_with_selector",
         ),
@@ -45,7 +43,7 @@ import pytest
             def test_case(state_test_only, tx_type):
                 assert tx_type != 1
             """,
-            dict(passed=2, xpassed=0, failed=0, skipped=1, errors=0),
+            {"passed": 2, "xpassed": 0, "failed": 0, "skipped": 1, "errors": 0},
             None,
             id="with_all_tx_types_with_marks_lambda",
         ),
@@ -58,7 +56,7 @@ import pytest
             def test_case(state_test_only, tx_type):
                 assert False
             """,
-            dict(passed=0, xpassed=0, failed=0, skipped=3, errors=0),
+            {"passed": 0, "xpassed": 0, "failed": 0, "skipped": 3, "errors": 0},
             None,
             id="with_all_tx_types_with_marks_lambda",
         ),
@@ -71,7 +69,7 @@ import pytest
             def test_case(state_test_only, tx_type):
                 assert False
             """,
-            dict(passed=0, xpassed=0, failed=0, skipped=3, errors=0),
+            {"passed": 0, "xpassed": 0, "failed": 0, "skipped": 3, "errors": 0},
             None,
             id="with_all_tx_types_with_marks_lambda",
         ),
@@ -94,7 +92,7 @@ import pytest
                 if tx_type == 1:
                     assert "slow" in mark_names
             """,
-            dict(passed=2, xpassed=1, failed=0, skipped=0, errors=0),
+            {"passed": 2, "xpassed": 1, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_tx_types_with_marks_lambda_multiple_marks",
         ),
@@ -107,7 +105,7 @@ import pytest
             def test_case(state_test_only, tx_type):
                 pass
             """,
-            dict(passed=3, failed=0, skipped=0, errors=0),
+            {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_contract_creating_tx_types",
         ),
@@ -120,7 +118,7 @@ import pytest
             def test_case(state_test_only, tx_type):
                 pass
             """,
-            dict(passed=3, failed=0, skipped=0, errors=0),
+            {"passed": 3, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_contract_creating_tx_types",
         ),
@@ -133,7 +131,7 @@ import pytest
             def test_case(state_test_only, precompile):
                 pass
             """,
-            dict(passed=10, failed=0, skipped=0, errors=0),
+            {"passed": 10, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_precompiles",
         ),
@@ -146,7 +144,7 @@ import pytest
             def test_case(state_test_only, evm_code_type):
                 pass
             """,
-            dict(passed=1, failed=0, skipped=0, errors=0),
+            {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_evm_code_types",
         ),
@@ -159,7 +157,7 @@ import pytest
             def test_case(state_test_only, call_opcode):
                 pass
             """,
-            dict(passed=4, failed=0, skipped=0, errors=0),
+            {"passed": 4, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_call_opcodes",
         ),
@@ -175,7 +173,7 @@ import pytest
             def test_case(state_test_only, call_opcode):
                 pass
             """,
-            dict(passed=4, failed=0, skipped=0, errors=0),
+            {"passed": 4, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_call_opcodes_with_selector_for_evm_code_type",
         ),
@@ -189,7 +187,7 @@ import pytest
             def test_case(state_test_only, call_opcode):
                 pass
             """,
-            dict(passed=1, failed=0, skipped=0, errors=0),
+            {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_call_opcodes_with_selector",
         ),
@@ -202,7 +200,7 @@ import pytest
             def test_case(state_test_only, create_opcode):
                 pass
             """,
-            dict(passed=2, failed=0, skipped=0, errors=0),
+            {"passed": 2, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_create_opcodes",
         ),
@@ -216,7 +214,7 @@ import pytest
             def test_case(state_test_only, call_opcode, precompile):
                 pass
             """,
-            dict(passed=4 * 10, failed=0, skipped=0, errors=0),
+            {"passed": 4 * 10, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_call_opcodes_and_precompiles",
         ),
@@ -230,7 +228,7 @@ import pytest
             def test_case(state_test_only, call_opcode, create_opcode):
                 pass
             """,
-            dict(passed=2 * 4, failed=0, skipped=0, errors=0),
+            {"passed": 2 * 4, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_call_opcodes_and_create_opcodes",
         ),
@@ -243,7 +241,7 @@ import pytest
             def test_case(state_test_only, system_contract):
                 pass
             """,
-            dict(passed=1, failed=0, skipped=0, errors=0),
+            {"passed": 1, "failed": 0, "skipped": 0, "errors": 0},
             None,
             id="with_all_system_contracts",
         ),
@@ -256,7 +254,7 @@ import pytest
             def test_case(state_test_only, tx_type):
                 pass
             """,
-            dict(passed=0, failed=0, skipped=0, errors=1),
+            {"passed": 0, "failed": 0, "skipped": 0, "errors": 1},
             "Unknown arguments to with_all_tx_types",
             id="invalid_covariant_marker_parameter",
         ),
@@ -269,7 +267,7 @@ import pytest
             def test_case(state_test_only, tx_type):
                 pass
             """,
-            dict(passed=0, failed=0, skipped=0, errors=1),
+            {"passed": 0, "failed": 0, "skipped": 0, "errors": 1},
             "selector must be a function",
             id="invalid_selector",
         ),
@@ -282,7 +280,7 @@ import pytest
             def test_case(state_test_only, tx_type):
                 pass
             """,
-            dict(passed=0, failed=0, skipped=0, errors=1),
+            {"passed": 0, "failed": 0, "skipped": 0, "errors": 1},
             "Only keyword arguments are supported",
             id="selector_as_positional_argument",
         ),

@@ -9,9 +9,7 @@ from pydantic import BaseModel
 
 
 class DocsConfig(BaseModel):
-    """
-    A class for accessing documentation-related configurations.
-    """
+    """A class for accessing documentation-related configurations."""
 
     TARGET_FORK: str = "Prague"
     """The target fork for the documentation."""

@@ -1,6 +1,4 @@
-"""
-Test the blockchain test types.
-"""
+"""Test the blockchain test types."""
 
 from typing import Any, Dict
 
@@ -957,24 +955,18 @@ fixture_header_ones = FixtureHeader(
     ],
 )
 class TestPydanticModelConversion:
-    """
-    Test that Pydantic models are converted to and from JSON correctly.
-    """
+    """Test that Pydantic models are converted to and from JSON correctly."""
 
     def test_json_serialization(
         self, can_be_deserialized: bool, model_instance: Any, json_repr: str | Dict[str, Any]
     ):
-        """
-        Test that to_json returns the expected JSON for the given object.
-        """
+        """Test that to_json returns the expected JSON for the given object."""
         assert to_json(model_instance) == json_repr
 
     def test_json_deserialization(
         self, can_be_deserialized: bool, model_instance: Any, json_repr: str | Dict[str, Any]
     ):
-        """
-        Test that to_json returns the expected JSON for the given object.
-        """
+        """Test that to_json returns the expected JSON for the given object."""
         if not can_be_deserialized:
             pytest.skip(reason="The model instance in this case can not be deserialized")
         model_type = type(model_instance)
@@ -1305,9 +1297,7 @@ EngineNewPayloadParametersAdapter = TypeAdapter(EngineNewPayloadParameters)  # t
     ],
 )
 class TestPydanticAdaptersConversion:
-    """
-    Test that Pydantic models are converted to and from JSON correctly.
-    """
+    """Test that Pydantic models are converted to and from JSON correctly."""
 
     def test_json_serialization(
         self,
@@ -1316,9 +1306,7 @@ class TestPydanticAdaptersConversion:
         type_instance: Any,
         json_repr: str | Dict[str, Any],
     ):
-        """
-        Test that to_json returns the expected JSON for the given object.
-        """
+        """Test that to_json returns the expected JSON for the given object."""
         assert (
             adapter.dump_python(
                 type_instance,
@@ -1336,9 +1324,7 @@ class TestPydanticAdaptersConversion:
         type_instance: Any,
         json_repr: str | Dict[str, Any],
     ):
-        """
-        Test that to_json returns the expected JSON for the given object.
-        """
+        """Test that to_json returns the expected JSON for the given object."""
         if not can_be_deserialized:
             pytest.skip(reason="The model instance in this case can not be deserialized")
         assert adapter.validate_python(json_repr) == type_instance

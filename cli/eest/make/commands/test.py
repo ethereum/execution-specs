@@ -1,5 +1,5 @@
 """
-This module provides a CLI command to scaffold a test file.
+Provides a CLI command to scaffold a test file.
 
 The `test` command guides the user through a series of prompts to generate a test file
 based on the selected test type, fork, EIP number, and EIP name. The generated test file
@@ -47,7 +47,6 @@ def test():
     * Enter the EIP name
 
     Example:
-
         uv run eest make test
 
     \f
@@ -59,6 +58,7 @@ def test():
             />
         </video>
     </figure>
+
     """  # noqa: D301
     test_type = input_select(
         "Choose the type of test to generate", choices=["State", "Blockchain"]

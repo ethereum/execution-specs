@@ -1,6 +1,4 @@
-"""
-Test suite for `cli.evm_bytes` module.
-"""
+"""Test suite for `cli.evm_bytes` module."""
 
 import pytest
 
@@ -47,7 +45,7 @@ rjumpv_vector = [
     ],
 )
 def test_evm_bytes(evm_bytes: str, python_opcodes: str):
-    """Test evm_bytes using the basic and complex vectors"""
+    """Test evm_bytes using the basic and complex vectors."""
     assert process_evm_bytes_string(evm_bytes) == python_opcodes
 
 
@@ -60,7 +58,7 @@ DUPLICATES = [Op.NOOP]
     ids=lambda op: op._name_,
 )
 def test_individual_opcodes(opcode: Op):
-    """Test each opcode individually"""
+    """Test each opcode individually."""
     data_portion = b""
     if opcode.data_portion_length > 0:
         expected_output = f"Op.{opcode._name_}[0x0]"
@@ -76,13 +74,13 @@ def test_individual_opcodes(opcode: Op):
 
 
 def test_invalid_opcode():
-    """Invalid hex string"""
+    """Invalid hex string."""
     with pytest.raises(ValueError):
         process_evm_bytes_string("0xZZ")
 
 
 def test_unknown_opcode():
-    """Opcode not defined in Op"""
+    """Opcode not defined in Op."""
     with pytest.raises(ValueError):
         process_evm_bytes_string("0x0F")
         process_evm_bytes_string("0x0F")

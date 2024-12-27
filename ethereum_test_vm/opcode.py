@@ -16,9 +16,7 @@ from .bytecode import Bytecode
 
 
 def _get_int_size(n: int) -> int:
-    """
-    Returns the size of an integer in bytes.
-    """
+    """Return size of an integer in bytes."""
     if n < 0:
         # Negative numbers in the EVM are represented as two's complement of 32 bytes
         return 32
@@ -35,9 +33,7 @@ KW_ARGS_DEFAULTS_TYPE = Mapping[str, "int | bytes | str | Opcode | Bytecode"]
 def _stack_argument_to_bytecode(
     arg: "int | bytes | SupportsBytes | str | Opcode | Bytecode | Iterable[int]",
 ) -> Bytecode:
-    """
-    Converts a stack argument in an opcode or macro to bytecode.
-    """
+    """Convert stack argument in an opcode or macro to bytecode."""
     if isinstance(arg, Bytecode):
         return arg
 
@@ -85,6 +81,7 @@ class Opcode(Bytecode):
         meant to be placed in the stack
     - kwargs_defaults: default values for the keyword arguments if any, otherwise 0
     - unchecked_stack: whether the bytecode should ignore stack checks when being called
+
     """
 
     data_portion_length: int
@@ -108,17 +105,16 @@ class Opcode(Bytecode):
         unchecked_stack=False,
         terminating: bool = False,
         kwargs: List[str] | None = None,
-        kwargs_defaults: KW_ARGS_DEFAULTS_TYPE = {},
+        kwargs_defaults: Optional[KW_ARGS_DEFAULTS_TYPE] = None,
     ):
-        """
-        Creates a new opcode instance.
-        """
+        """Create new opcode instance."""
+        if kwargs_defaults is None:
+            kwargs_defaults = {}
         if type(opcode_or_byte) is Opcode:
             # Required because Enum class calls the base class with the instantiated object as
             # parameter.
             return opcode_or_byte
         elif isinstance(opcode_or_byte, int) or isinstance(opcode_or_byte, bytes):
-
             obj_bytes = (
                 bytes([opcode_or_byte]) if isinstance(opcode_or_byte, int) else opcode_or_byte
             )
@@ -223,7 +219,7 @@ class Opcode(Bytecode):
         **kwargs: "int | bytes | str | Opcode | Bytecode",
     ) -> Bytecode:
         """
-        Makes all opcode instances callable to return formatted bytecode, which constitutes a data
+        Make all opcode instances callable to return formatted bytecode, which constitutes a data
         portion, that is located after the opcode byte, and pre-opcode bytecode, which is normally
         used to set up the stack.
 
@@ -274,27 +270,19 @@ class Opcode(Bytecode):
         return pre_opcode_bytecode + self
 
     def __lt__(self, other: "Opcode") -> bool:
-        """
-        Compares two opcodes by their integer value.
-        """
+        """Compare two opcodes by their integer value."""
         return self.int() < other.int()
 
     def __gt__(self, other: "Opcode") -> bool:
-        """
-        Compares two opcodes by their integer value.
-        """
+        """Compare two opcodes by their integer value."""
         return self.int() > other.int()
 
     def int(self) -> int:
-        """
-        Returns the integer representation of the opcode.
-        """
+        """Return integer representation of the opcode."""
         return int.from_bytes(self, byteorder="big")
 
     def has_data_portion(self) -> bool:
-        """
-        Returns whether the opcode has a data portion.
-        """
+        """Return whether the opcode has a data portion."""
         return self.data_portion_length > 0 or self.data_portion_formatter is not None
 
 
@@ -302,21 +290,19 @@ OpcodeCallArg = int | bytes | str | Bytecode | Iterable[int]
 
 
 class Macro(Bytecode):
-    """
-    Represents opcode macro replacement, basically holds bytes
-    """
+    """Represents opcode macro replacement, basically holds bytes."""
 
     lambda_operation: Callable[..., Bytecode] | None
 
     def __new__(
         cls,
-        macro_or_bytes: "Bytecode | Macro" = Bytecode(),
+        macro_or_bytes: Optional["Bytecode | Macro"] = None,
         *,
         lambda_operation: Callable[..., Bytecode] | None = None,
     ):
-        """
-        Creates a new opcode macro instance.
-        """
+        """Create new opcode macro instance."""
+        if macro_or_bytes is None:
+            macro_or_bytes = Bytecode()
         if isinstance(macro_or_bytes, Macro):
             # Required because Enum class calls the base class with the instantiated object as
             # parameter.
@@ -327,10 +313,7 @@ class Macro(Bytecode):
             return instance
 
     def __call__(self, *args_t: OpcodeCallArg) -> Bytecode:
-        """
-        Performs the macro operation if any.
-        Otherwise is a no-op.
-        """
+        """Perform macro operation if any. Otherwise is a no-op."""
         if self.lambda_operation is not None:
             return self.lambda_operation(*args_t)
 
@@ -5712,9 +5695,7 @@ _push_opcodes_byte_list: List[Opcode] = [
 
 
 def _mstore_operation(data: OpcodeCallArg = b"", offset: OpcodeCallArg = 0) -> Bytecode:
-    """
-    Helper function to generate the bytecode that stores an arbitrary amount of data in memory.
-    """
+    """Generate the bytecode that stores an arbitrary amount of data in memory."""
     assert isinstance(offset, int)
     if isinstance(data, int):
         data = data.to_bytes(32, "big")
@@ -5741,9 +5722,7 @@ def _mstore_operation(data: OpcodeCallArg = b"", offset: OpcodeCallArg = 0) -> B
 
 
 class Macros(Macro, Enum):
-    """
-    Enum containing all macros.
-    """
+    """Enum containing all macros."""
 
     OOG = Macro(Opcodes.SHA3(0, 100000000000))
     """
@@ -5798,9 +5777,7 @@ class Macros(Macro, Enum):
 
 
 class UndefinedOpcodes(Opcode, Enum):
-    """
-    Enum containing all unknown opcodes (88 at the moment).
-    """
+    """Enum containing all unknown opcodes (88 at the moment)."""
 
     OPCODE_0C = Opcode(0x0C)
     OPCODE_0D = Opcode(0x0D)

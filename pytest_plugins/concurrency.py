@@ -73,8 +73,6 @@ def session_temp_folder(
 
 @pytest.fixture(scope="session")
 def worker_count() -> int:
-    """
-    Get the number of workers for the test.
-    """
+    """Get the number of workers for the test."""
     worker_count_env = os.environ.get("PYTEST_XDIST_WORKER_COUNT", "1")
     return max(int(worker_count_env), 1)

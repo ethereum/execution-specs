@@ -1,3 +1,1 @@
-"""
-Package containing concrete implementations of Ethereum CL interfaces.
-"""
+"""Package containing concrete implementations of Ethereum CL interfaces."""

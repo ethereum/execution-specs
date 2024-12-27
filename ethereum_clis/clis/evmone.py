@@ -1,9 +1,7 @@
-"""
-Evmone Transition tool interface.
-"""
+"""Evmone Transition tool interface."""
 
+import re
 from pathlib import Path
-from re import compile
 from typing import Optional
 
 from ethereum_test_exceptions import (
@@ -18,12 +16,10 @@ from ..transition_tool import TransitionTool
 
 
 class EvmOneTransitionTool(TransitionTool):
-    """
-    Evmone `evmone-t8n` Transition tool interface wrapper class.
-    """
+    """Evmone `evmone-t8n` Transition tool interface wrapper class."""
 
     default_binary = Path("evmone-t8n")
-    detect_binary_pattern = compile(r"^evmone-t8n\b")
+    detect_binary_pattern = re.compile(r"^evmone-t8n\b")
     t8n_use_stream = False
 
     binary: Path
@@ -36,20 +32,19 @@ class EvmOneTransitionTool(TransitionTool):
         binary: Optional[Path] = None,
         trace: bool = False,
     ):
+        """Initialize the Evmone Transition tool interface."""
         super().__init__(exception_mapper=EvmoneExceptionMapper(), binary=binary, trace=trace)
 
     def is_fork_supported(self, fork: Fork) -> bool:
         """
-        Returns True if the fork is supported by the tool.
+        Return True if the fork is supported by the tool.
         Currently, evmone-t8n provides no way to determine supported forks.
         """
         return True
 
 
 class EvmoneExceptionMapper(ExceptionMapper):
-    """
-    Translate between EEST exceptions and error strings returned by evmone.
-    """
+    """Translate between EEST exceptions and error strings returned by Evmone."""
 
     @property
     def _mapping_data(self):

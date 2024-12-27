@@ -7,7 +7,7 @@ Clients consume the genesis and RLP-encoded blocks from input files upon start-u
 
 from ethereum_test_fixtures import BlockchainFixture
 from ethereum_test_rpc import EthRPC
-from pytest_plugins.consume.hive_simulators.exceptions import GenesisBlockMismatchException
+from pytest_plugins.consume.hive_simulators.exceptions import GenesisBlockMismatchExceptionError
 
 from ...decorator import fixture_format
 from ..timing import TimingData
@@ -26,7 +26,7 @@ def test_via_rlp(
     with timing_data.time("Get genesis block"):
         genesis_block = eth_rpc.get_block_by_number(0)
         if genesis_block["hash"] != str(blockchain_fixture.genesis.block_hash):
-            raise GenesisBlockMismatchException(
+            raise GenesisBlockMismatchExceptionError(
                 expected_header=blockchain_fixture.genesis,
                 got_genesis_block=genesis_block,
             )

@@ -1,6 +1,4 @@
-"""
-CLI entry point for the `consume` pytest-based command.
-"""
+"""CLI entry point for the `consume` pytest-based command."""
 
 import os
 import sys
@@ -15,11 +13,8 @@ from .common import common_click_options, handle_help_flags
 
 
 def handle_hive_env_flags(args: List[str]) -> List[str]:
-    """
-    Convert hive environment variables into pytest flags.
-    """
+    """Convert hive environment variables into pytest flags."""
     env_var_mappings = {
-        # TODO: Align `--sim.limit` regex with pytest -k.
         "HIVE_TEST_PATTERN": ["-k"],
         "HIVE_PARALLELISM": ["-n"],
     }
@@ -28,16 +23,14 @@ def handle_hive_env_flags(args: List[str]) -> List[str]:
         if value is not None:
             args.extend(pytest_flag + [value])
     if os.getenv("HIVE_RANDOM_SEED") is not None:
-        warnings.warn("HIVE_RANDOM_SEED is not yet supported.")
+        warnings.warn("HIVE_RANDOM_SEED is not yet supported.", stacklevel=2)
     if os.getenv("HIVE_LOGLEVEL") is not None:
-        warnings.warn("HIVE_LOG_LEVEL is not yet supported.")
+        warnings.warn("HIVE_LOG_LEVEL is not yet supported.", stacklevel=2)
     return args
 
 
 def handle_consume_command_flags(consume_args: List[str], is_hive: bool) -> List[str]:
-    """
-    Handle all consume CLI flag pre-processing.
-    """
+    """Handle all consume CLI flag pre-processing."""
     args = list(handle_help_flags(consume_args, pytest_type="consume"))
     args += ["-c", "pytest-consume.ini"]
     if is_hive:
@@ -50,9 +43,7 @@ def handle_consume_command_flags(consume_args: List[str], is_hive: bool) -> List
 
 
 def get_command_paths(command_name: str, is_hive: bool) -> List[Path]:
-    """
-    Determine the command paths based on the command name and hive flag.
-    """
+    """Determine the command paths based on the command name and hive flag."""
     base_path = Path("src/pytest_plugins/consume")
     if command_name == "hive":
         commands = ["rlp", "engine"]
@@ -67,9 +58,7 @@ def get_command_paths(command_name: str, is_hive: bool) -> List[Path]:
 
 
 def consume_command(is_hive: bool = False) -> Callable[[Callable[..., Any]], click.Command]:
-    """
-    Decorator to generate a consume sub-command.
-    """
+    """Generate a consume sub-command."""
 
     def create_command(
         func: Callable[..., Any],
@@ -78,14 +67,14 @@ def consume_command(is_hive: bool = False) -> Callable[[Callable[..., Any]], cli
         command_paths: List[Path],
         is_hive: bool,
     ) -> click.Command:
-        """
-        Create the command function to be decorated.
-        """
+        """Create the command function to be decorated."""
 
         @consume.command(
             name=command_name,
             help=command_help,
-            context_settings=dict(ignore_unknown_options=True),
+            context_settings={
+                "ignore_unknown_options": True,
+            },
         )
         @common_click_options
         def command(pytest_args: List[str], **kwargs) -> None:
@@ -104,41 +93,35 @@ def consume_command(is_hive: bool = False) -> Callable[[Callable[..., Any]], cli
     return decorator
 
 
-@click.group(context_settings=dict(help_option_names=["-h", "--help"]))
+@click.group(
+    context_settings={
+        "help_option_names": ["-h", "--help"],
+    }
+)
 def consume() -> None:
-    """
-    Consume command to aid client consumption of test fixtures.
-    """
+    """Consume command to aid client consumption of test fixtures."""
     pass
 
 
 @consume_command(is_hive=False)
 def direct() -> None:
-    """
-    Clients consume directly via the `blocktest` interface.
-    """
+    """Clients consume directly via the `blocktest` interface."""
     pass
 
 
 @consume_command(is_hive=True)
 def rlp() -> None:
-    """
-    Clients consume RLP-encoded blocks on startup.
-    """
+    """Client consumes RLP-encoded blocks on startup."""
     pass
 
 
 @consume_command(is_hive=True)
 def engine() -> None:
-    """
-    Clients consume via the Engine API.
-    """
+    """Client consumes via the Engine API."""
     pass
 
 
 @consume_command(is_hive=True)
 def hive() -> None:
-    """
-    Clients consume via all available hive methods (rlp, engine).
-    """
+    """Client consumes via all available hive methods (rlp, engine)."""
     pass

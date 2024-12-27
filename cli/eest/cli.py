@@ -9,11 +9,9 @@ from cli.eest.commands import clean
 from cli.eest.make.cli import make
 
 
-@click.group(context_settings=dict(help_option_names=["-h", "--help"], max_content_width=120))
+@click.group(context_settings={"help_option_names": ["-h", "--help"], "max_content_width": 120})
 def eest():
-    """
-    `eest` is a CLI tool that helps with routine tasks.
-    """
+    """`eest` is a CLI tool that helps with routine tasks."""
     pass
 
 

@@ -1,6 +1,4 @@
-"""
-Local pytest configuration for filler tests.
-"""
+"""Local pytest configuration for filler tests."""
 
 import os
 import sysconfig

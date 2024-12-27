@@ -1,6 +1,4 @@
-"""
-Helper functions/classes used to generate Ethereum tests.
-"""
+"""Helper functions/classes used to generate Ethereum tests."""
 
 from dataclasses import MISSING, dataclass, fields
 from typing import List, SupportsBytes
@@ -20,8 +18,8 @@ Helper functions
 
 def ceiling_division(a: int, b: int) -> int:
     """
-    Calculates the ceil without using floating point.
-    Used by many of the EVM's formulas
+    Calculate ceil without using floating point.
+    Used by many of the EVM's formulas.
     """
     return -(a // -b)
 
@@ -46,8 +44,8 @@ def compute_create_address(
             address = Address(address)
         if nonce is None:
             nonce = 0
-        hash = Bytes(encode([address, int_to_bytes(nonce)])).keccak256()
-        return Address(hash[-20:])
+        hash_bytes = Bytes(encode([address, int_to_bytes(nonce)])).keccak256()
+        return Address(hash_bytes[-20:])
     if opcode == Op.CREATE2:
         return compute_create2_address(address, salt, initcode)
     raise ValueError("Unsupported opcode")
@@ -60,8 +58,10 @@ def compute_create2_address(
     Compute address of the resulting contract created using the `CREATE2`
     opcode.
     """
-    hash = Bytes(b"\xff" + Address(address) + Hash(salt) + Bytes(initcode).keccak256()).keccak256()
-    return Address(hash[-20:])
+    hash_bytes = Bytes(
+        b"\xff" + Address(address) + Hash(salt) + Bytes(initcode).keccak256()
+    ).keccak256()
+    return Address(hash_bytes[-20:])
 
 
 def compute_eofcreate_address(
@@ -69,32 +69,28 @@ def compute_eofcreate_address(
     salt: FixedSizeBytesConvertible,
     init_container: BytesConvertible,
 ) -> Address:
-    """
-    Compute address of the resulting contract created using the `EOFCREATE` opcode.
-    """
-    hash = Bytes(
+    """Compute address of the resulting contract created using the `EOFCREATE` opcode."""
+    hash_bytes = Bytes(
         b"\xff" + Address(address) + Hash(salt) + Bytes(init_container).keccak256()
     ).keccak256()
-    return Address(hash[-20:])
+    return Address(hash_bytes[-20:])
 
 
 def add_kzg_version(
     b_hashes: List[bytes | SupportsBytes | int | str], kzg_version: int
 ) -> List[bytes]:
-    """
-    Adds the Kzg Version to each blob hash.
-    """
+    """Add  Kzg Version to each blob hash."""
     kzg_version_hex = bytes([kzg_version])
     kzg_versioned_hashes = []
 
-    for hash in b_hashes:
-        hash = bytes(Hash(hash))
-        if isinstance(hash, int) or isinstance(hash, str):
-            kzg_versioned_hashes.append(kzg_version_hex + hash[1:])
-        elif isinstance(hash, bytes) or isinstance(hash, SupportsBytes):
-            if isinstance(hash, SupportsBytes):
-                hash = bytes(hash)
-            kzg_versioned_hashes.append(kzg_version_hex + hash[1:])
+    for b_hash in b_hashes:
+        b_hash = bytes(Hash(b_hash))
+        if isinstance(b_hash, int) or isinstance(b_hash, str):
+            kzg_versioned_hashes.append(kzg_version_hex + b_hash[1:])
+        elif isinstance(b_hash, bytes) or isinstance(b_hash, SupportsBytes):
+            if isinstance(b_hash, SupportsBytes):
+                b_hash = bytes(b_hash)
+            kzg_versioned_hashes.append(kzg_version_hex + b_hash[1:])
         else:
             raise TypeError("Blob hash must be either an integer, string or bytes")
     return kzg_versioned_hashes
@@ -112,7 +108,7 @@ class TestParameterGroup:
 
     def __repr__(self):
         """
-        Generates a repr string, intended to be used as a test id, based on the class
+        Generate repr string, intended to be used as a test id, based on the class
         name and the values of the non-default optional fields.
         """
         class_name = self.__class__.__name__

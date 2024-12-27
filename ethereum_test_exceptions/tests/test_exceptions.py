@@ -1,6 +1,4 @@
-"""
-Test suite for ethereum_test_exceptions module.
-"""
+"""Test suite for ethereum_test_exceptions module."""
 
 import pytest
 from pydantic import TypeAdapter
@@ -36,9 +34,7 @@ BlockExceptionListAdapter: TypeAdapter = TypeAdapter(BlockExceptionInstanceOrLis
 def test_exceptions_string_conversion(
     exception: BlockException | TransactionException, expected: str
 ):
-    """
-    Test that the exceptions are unique and have the correct string representation.
-    """
+    """Test that the exceptions are unique and have the correct string representation."""
     assert str(exception) == expected
 
 
@@ -94,7 +90,5 @@ def test_exceptions_string_conversion(
     ],
 )
 def test_exceptions_or(type_adapter: TypeAdapter, exception, expected: str):
-    """
-    Test that the exceptions can be combined using the | operator.
-    """
+    """Test that the exceptions can be combined using the | operator."""
     assert type_adapter.dump_python(type_adapter.validate_python(exception)) == expected

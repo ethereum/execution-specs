@@ -1,3 +1,1 @@
-"""
-This module is the entry point for the `eest` command line interface.
-"""
+"""Entry point for the `eest` command line interface."""

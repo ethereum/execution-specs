@@ -1,6 +1,4 @@
-"""
-Ethereum test fixture format definitions.
-"""
+"""Ethereum test fixture format definitions."""
 
 from typing import Dict
 

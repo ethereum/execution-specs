@@ -1,6 +1,5 @@
-"""
-Test suite for the transaction spec test generation.
-"""
+"""Test suite for the transaction spec test generation."""
+
 import json
 import os
 
@@ -21,9 +20,7 @@ from .helpers import remove_info_metadata
     ],
 )
 def test_transaction_test_filling(name: str, tx: Transaction, fork: Fork):
-    """
-    Test the transaction test filling.
-    """
+    """Test the transaction test filling."""
     generated_fixture = TransactionTest(tx=tx.with_signature_and_sender()).generate(
         request=None,  # type: ignore
         t8n=None,  # type: ignore

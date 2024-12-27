@@ -1,6 +1,4 @@
-"""
-Ethereum Virtual Machine related definitions and utilities.
-"""
+"""Ethereum Virtual Machine related definitions and utilities."""
 
 from .bytecode import Bytecode
 from .evm_types import EVMCodeType

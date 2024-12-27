@@ -1,5 +1,5 @@
 """
-Make CLI
+Make CLI.
 
 This module provides the `make` CLI command that helps you quickly scaffold
 files.

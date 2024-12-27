@@ -35,7 +35,7 @@ from pytest_plugins.spec_version_checker.spec_version_checker import EIPSpecTest
 
 def default_output_directory() -> str:
     """
-    The default directory to store the generated test fixtures. Defined as a
+    Directory (default) to store the generated test fixtures. Defined as a
     function to allow for easier testing.
     """
     return "./fixtures"
@@ -43,32 +43,26 @@ def default_output_directory() -> str:
 
 def default_html_report_file_path() -> str:
     """
-    The default file path to store the generated HTML test report. Defined as a
+    File path (default) to store the generated HTML test report. Defined as a
     function to allow for easier testing.
     """
     return ".meta/report_fill.html"
 
 
 def strip_output_tarball_suffix(output: Path) -> Path:
-    """
-    Strip the '.tar.gz' suffix from the output path.
-    """
+    """Strip the '.tar.gz' suffix from the output path."""
     if str(output).endswith(".tar.gz"):
         return output.with_suffix("").with_suffix("")
     return output
 
 
 def is_output_stdout(output: Path) -> bool:
-    """
-    Returns True if the fixture output is configured to be stdout.
-    """
+    """Return True if the fixture output is configured to be stdout."""
     return strip_output_tarball_suffix(output).name == "stdout"
 
 
 def pytest_addoption(parser: pytest.Parser):
-    """
-    Adds command-line options to pytest.
-    """
+    """Add command-line options to pytest."""
     evm_group = parser.getgroup("evm", "Arguments defining evm executable behavior")
     evm_group.addoption(
         "--evm-bin",
@@ -255,7 +249,7 @@ def pytest_configure(config):
 
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config: pytest.Config):
-    """Add lines to pytest's console output header"""
+    """Add lines to pytest's console output header."""
     if config.option.collectonly:
         return
     t8n_version = config.stash[metadata_key]["Tools"]["t8n"]
@@ -264,7 +258,7 @@ def pytest_report_header(config: pytest.Config):
 
 def pytest_report_teststatus(report, config: pytest.Config):
     """
-    This hook modifies the test results in pytest's terminal output.
+    Modify test results in pytest's terminal output.
 
     We use this:
 
@@ -306,25 +300,19 @@ def pytest_terminal_summary(
 
 
 def pytest_metadata(metadata):
-    """
-    Add or remove metadata to/from the pytest report.
-    """
+    """Add or remove metadata to/from the pytest report."""
     metadata.pop("JAVA_HOME", None)
 
 
 def pytest_html_results_table_header(cells):
-    """
-    Customize the table headers of the HTML report table.
-    """
+    """Customize the table headers of the HTML report table."""
     cells.insert(3, '<th class="sortable" data-column-type="fixturePath">JSON Fixture File</th>')
     cells.insert(4, '<th class="sortable" data-column-type="evmDumpDir">EVM Dump Dir</th>')
     del cells[-1]  # Remove the "Links" column
 
 
 def pytest_html_results_table_row(report, cells):
-    """
-    Customize the table rows of the HTML report table.
-    """
+    """Customize the table rows of the HTML report table."""
     if hasattr(report, "user_properties"):
         user_props = dict(report.user_properties)
         if (
@@ -358,10 +346,10 @@ def pytest_html_results_table_row(report, cells):
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     """
-    This hook is called when each test is run and a report is being made.
-
     Make each test's fixture json path available to the test report via
     user_properties.
+
+    This hook is called when each test is run and a report is being made.
     """
     outcome = yield
     report = outcome.get_result()
@@ -388,24 +376,20 @@ def pytest_runtest_makereport(item, call):
 
 
 def pytest_html_report_title(report):
-    """
-    Set the HTML report title (pytest-html plugin).
-    """
+    """Set the HTML report title (pytest-html plugin)."""
     report.title = "Fill Test Report"
 
 
 @pytest.fixture(autouse=True, scope="session")
 def evm_bin(request: pytest.FixtureRequest) -> Path:
-    """
-    Returns the configured evm tool binary path used to run t8n.
-    """
+    """Return configured evm tool binary path used to run t8n."""
     return request.config.getoption("evm_bin")
 
 
 @pytest.fixture(autouse=True, scope="session")
 def verify_fixtures_bin(request: pytest.FixtureRequest) -> Path | None:
     """
-    Returns the configured evm tool binary path used to run statetest or
+    Return configured evm tool binary path used to run statetest or
     blocktest.
     """
     return request.config.getoption("verify_fixtures_bin")
@@ -413,9 +397,7 @@ def verify_fixtures_bin(request: pytest.FixtureRequest) -> Path | None:
 
 @pytest.fixture(autouse=True, scope="session")
 def t8n(request: pytest.FixtureRequest, evm_bin: Path) -> Generator[TransitionTool, None, None]:
-    """
-    Returns the configured transition tool.
-    """
+    """Return configured transition tool."""
     t8n = TransitionTool.from_binary_path(
         binary_path=evm_bin, trace=request.config.getoption("evm_collect_traces")
     )
@@ -428,7 +410,7 @@ def do_fixture_verification(
     request: pytest.FixtureRequest, verify_fixtures_bin: Path | None
 ) -> bool:
     """
-    Returns True if evm statetest or evm blocktest should be ran on the
+    Return True if evm statetest or evm blocktest should be ran on the
     generated fixture JSON files.
     """
     do_fixture_verification = False
@@ -446,7 +428,7 @@ def evm_fixture_verification(
     verify_fixtures_bin: Path | None,
 ) -> Generator[TransitionTool | None, None, None]:
     """
-    Returns the configured evm binary for executing statetest and blocktest
+    Return configured evm binary for executing statetest and blocktest
     commands used to verify generated JSON fixtures.
     """
     if not do_fixture_verification:
@@ -467,9 +449,7 @@ def evm_fixture_verification(
 
 @pytest.fixture(scope="session")
 def base_dump_dir(request: pytest.FixtureRequest) -> Path | None:
-    """
-    The base directory to dump the evm debug output.
-    """
+    """Path to base directory to dump the evm debug output."""
     if request.config.getoption("skip_dump_dir"):
         return None
     base_dump_dir_str = request.config.getoption("base_dump_dir")
@@ -480,9 +460,7 @@ def base_dump_dir(request: pytest.FixtureRequest) -> Path | None:
 
 @pytest.fixture(scope="session")
 def is_output_tarball(request: pytest.FixtureRequest) -> bool:
-    """
-    Returns True if the output directory is a tarball.
-    """
+    """Return True if the output directory is a tarball."""
     output: Path = request.config.getoption("output")
     if output.suffix == ".gz" and output.with_suffix("").suffix == ".tar":
         return True
@@ -491,9 +469,7 @@ def is_output_tarball(request: pytest.FixtureRequest) -> bool:
 
 @pytest.fixture(scope="session")
 def output_dir(request: pytest.FixtureRequest, is_output_tarball: bool) -> Path:
-    """
-    Returns the directory to store the generated test fixtures.
-    """
+    """Return directory to store the generated test fixtures."""
     output = request.config.getoption("output")
     if is_output_tarball:
         return strip_output_tarball_suffix(output)
@@ -502,9 +478,7 @@ def output_dir(request: pytest.FixtureRequest, is_output_tarball: bool) -> Path:
 
 @pytest.fixture(scope="session")
 def output_metadata_dir(output_dir: Path) -> Path:
-    """
-    Returns the metadata directory to store fixture meta files.
-    """
+    """Return metadata directory to store fixture meta files."""
     return output_dir / ".meta"
 
 
@@ -513,7 +487,7 @@ def create_properties_file(
     request: pytest.FixtureRequest, output_dir: Path, output_metadata_dir: Path
 ) -> None:
     """
-    Creates an ini file with fixture build properties in the fixture output
+    Create ini file with fixture build properties in the fixture output
     directory.
     """
     if is_output_stdout(request.config.getoption("output")):
@@ -547,7 +521,9 @@ def create_properties_file(
         elif isinstance(val, dict):
             config[key.lower()] = val
         else:
-            warnings.warn(f"Fixtures ini file: Skipping metadata key {key} with value {val}.")
+            warnings.warn(
+                f"Fixtures ini file: Skipping metadata key {key} with value {val}.", stacklevel=2
+            )
     config["environment"] = environment_properties
 
     ini_filename = output_metadata_dir / "fixtures.ini"
@@ -582,7 +558,7 @@ def dump_dir_parameter_level(
     request: pytest.FixtureRequest, base_dump_dir: Path | None, filler_path: Path
 ) -> Path | None:
     """
-    The directory to dump evm transition tool debug output on a test parameter
+    Directory to dump evm transition tool debug output on a test parameter
     level.
 
     Example with --evm-dump-dir=/tmp/evm:
@@ -631,7 +607,7 @@ def fixture_collector(
     generate_index: bool,
 ) -> Generator[FixtureCollector, None, None]:
     """
-    Returns the configured fixture collector instance used for all tests
+    Return configured fixture collector instance used for all tests
     in one test module.
     """
     if session_temp_folder is not None:
@@ -678,16 +654,12 @@ def fixture_collector(
 
 @pytest.fixture(autouse=True, scope="session")
 def filler_path(request: pytest.FixtureRequest) -> Path:
-    """
-    Returns the directory containing the tests to execute.
-    """
+    """Return directory containing the tests to execute."""
     return request.config.getoption("filler_path")
 
 
 def node_to_test_info(node: pytest.Item) -> TestInfo:
-    """
-    Returns the test info of the current node item.
-    """
+    """Return test info of the current node item."""
     return TestInfo(
         name=node.name,
         id=node.nodeid,
@@ -698,9 +670,7 @@ def node_to_test_info(node: pytest.Item) -> TestInfo:
 
 @pytest.fixture(scope="function")
 def fixture_source_url(request: pytest.FixtureRequest) -> str:
-    """
-    Returns the URL to the fixture source.
-    """
+    """Return URL to the fixture source."""
     function_line_number = request.function.__code__.co_firstlineno
     module_relative_path = os.path.relpath(request.module.__file__)
     hash_or_tag = get_current_commit_hash_or_tag()
@@ -712,7 +682,7 @@ def fixture_source_url(request: pytest.FixtureRequest) -> str:
 
 def base_test_parametrizer(cls: Type[BaseTest]):
     """
-    Generates a pytest.fixture for a given BaseTest subclass.
+    Generate pytest.fixture for a given BaseTest subclass.
 
     Implementation detail: All spec fixtures must be scoped on test function level to avoid
     leakage between tests.

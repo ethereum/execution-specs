@@ -1,35 +1,29 @@
-"""
-Simple transaction-send then post-check execution format.
-"""
+"""Simple transaction-send then post-check execution format."""
 
 from typing import ClassVar, List
 
 import pytest
 
 from ethereum_test_base_types import Alloc, Hash
-from ethereum_test_rpc import EthRPC, SendTransactionException
+from ethereum_test_rpc import EthRPC, SendTransactionExceptionError
 from ethereum_test_types import Transaction
 
 from .base import BaseExecute
 
 
 class TransactionPost(BaseExecute):
-    """
-    Represents a simple transaction-send then post-check execution format.
-    """
+    """Represents a simple transaction-send then post-check execution format."""
 
     transactions: List[Transaction]
     post: Alloc
 
     execute_format_name: ClassVar[str] = "transaction_post"
-    description: ClassVar[
-        str
-    ] = "Simple transaction sending, then post-check after all transactions are included"
+    description: ClassVar[str] = (
+        "Simple transaction sending, then post-check after all transactions are included"
+    )
 
     def execute(self, eth_rpc: EthRPC):
-        """
-        Execute the format.
-        """
+        """Execute the format."""
         assert not any(
             tx.ty == 3 for tx in self.transactions
         ), "Transaction type 3 is not supported in execute mode."
@@ -38,7 +32,7 @@ class TransactionPost(BaseExecute):
                 if transaction.error is None:
                     eth_rpc.send_wait_transaction(transaction.with_signature_and_sender())
                 else:
-                    with pytest.raises(SendTransactionException):
+                    with pytest.raises(SendTransactionExceptionError):
                         eth_rpc.send_transaction(transaction.with_signature_and_sender())
         else:
             eth_rpc.send_wait_transactions(

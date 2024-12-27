@@ -1,6 +1,4 @@
-"""
-Ethereum test fork definitions.
-"""
+"""Ethereum test fork definitions."""
 
 from .base_fork import Fork, ForkAttribute
 from .forks.forks import (

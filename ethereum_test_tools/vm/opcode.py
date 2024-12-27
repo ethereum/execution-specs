@@ -1,6 +1,5 @@
-"""
-Import shortcuts for the ethereum_test_vm package.
-"""
+"""Import shortcuts for the ethereum_test_vm package."""
+
 from ethereum_test_vm import (
     Bytecode,
     Macro,

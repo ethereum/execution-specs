@@ -1,6 +1,4 @@
-"""
-Test fork utilities.
-"""
+"""Test fork utilities."""
 
 from typing import Mapping, cast
 
@@ -39,9 +37,7 @@ DEVELOPMENT_FORKS = [Prague]
 
 
 def test_transition_forks():
-    """
-    Test transition fork utilities.
-    """
+    """Test transition fork utilities."""
     assert transition_fork_from_to(Berlin, London) == BerlinToLondonAt5
     assert transition_fork_from_to(Berlin, Paris) is None
     assert transition_fork_to(Shanghai) == [ParisToShanghaiAtTime15k]
@@ -86,9 +82,7 @@ def test_forks_from():  # noqa: D103
 
 
 def test_forks():
-    """
-    Test fork utilities.
-    """
+    """Test fork utilities."""
     assert forks_from_until(Berlin, Berlin) == [Berlin]
     assert forks_from_until(Berlin, London) == [Berlin, London]
     assert forks_from_until(Berlin, Paris) == [
@@ -172,36 +166,26 @@ def test_deployed_forks():  # noqa: D103
 
 
 class PrePreAllocFork(Shanghai):
-    """
-    Dummy fork used for testing.
-    """
+    """Dummy fork used for testing."""
 
     @classmethod
     def pre_allocation(cls) -> Mapping:
-        """
-        Return some starting point for allocation.
-        """
+        """Return some starting point for allocation."""
         return {"test": "test"}
 
 
 class PreAllocFork(PrePreAllocFork):
-    """
-    Dummy fork used for testing.
-    """
+    """Dummy fork used for testing."""
 
     @classmethod
     def pre_allocation(cls) -> Mapping:
-        """
-        Add allocation to the pre-existing one from previous fork.
-        """
+        """Add allocation to the pre-existing one from previous fork."""
         return {"test2": "test2"} | super(PreAllocFork, cls).pre_allocation()
 
 
 @transition_fork(to_fork=PreAllocFork, at_timestamp=15_000)
 class PreAllocTransitionFork(PrePreAllocFork):
-    """
-    PrePreAllocFork to PreAllocFork transition at Timestamp 15k
-    """
+    """PrePreAllocFork to PreAllocFork transition at Timestamp 15k."""
 
     pass
 
@@ -220,11 +204,11 @@ def test_pre_alloc():  # noqa: D103
 
 
 def test_precompiles():  # noqa: D103
-    Cancun.precompiles() == list(range(11))[1:]
+    Cancun.precompiles() == list(range(11))[1:]  # noqa: B015
 
 
 def test_tx_types():  # noqa: D103
-    Cancun.tx_types() == list(range(4))
+    Cancun.tx_types() == list(range(4))  # noqa: B015
 
 
 def test_solc_versioning():  # noqa: D103

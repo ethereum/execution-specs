@@ -1,14 +1,10 @@
-"""
-Engine API error defniitions
-"""
+"""Engine API error defniitions."""
 
 from enum import IntEnum
 
 
 class EngineAPIError(IntEnum):
-    """
-    List of Engine API errors
-    """
+    """List of Engine API errors."""
 
     ParseError = -32700
     InvalidRequest = -32600

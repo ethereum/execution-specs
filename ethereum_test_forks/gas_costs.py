@@ -1,15 +1,11 @@
-"""
-Defines the data class that will contain gas cost constants on each fork.
-"""
+"""Defines the data class that will contain gas cost constants on each fork."""
 
 from dataclasses import dataclass
 
 
 @dataclass(kw_only=True, frozen=True)
 class GasCosts:
-    """
-    Class that contains the gas cost constants for any fork.
-    """
+    """Class that contains the gas cost constants for any fork."""
 
     G_JUMPDEST: int
     G_BASE: int

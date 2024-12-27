@@ -1,7 +1,4 @@
-"""
-EOFTest Type Definitions
-"""
-
+"""EOFTest Type Definitions."""
 
 from typing import Any, ClassVar, Mapping
 
@@ -15,16 +12,14 @@ from .base import BaseFixture
 
 
 class Result(CamelModel):
-    """
-    Result for a single fork in a fixture.
-    """
+    """Result for a single fork in a fixture."""
 
     exception: EOFExceptionInstanceOrList | None = None
     valid: bool = Field(..., alias="result")
 
     def model_post_init(self, __context: Any) -> None:
         """
-        Simple cross-field validation that a test cannot have an empty exception if
+        Cross-field validation that a test cannot have an empty exception if
         the valid is False.
         """
         if not self.valid and self.exception is None:
@@ -35,9 +30,7 @@ class Result(CamelModel):
 
 
 class Vector(CamelModel):
-    """
-    Single test vector in a fixture.
-    """
+    """Single test vector in a fixture."""
 
     code: Bytes
     container_kind: ContainerKind = ContainerKind.RUNTIME
@@ -45,9 +38,7 @@ class Vector(CamelModel):
 
 
 class Fixture(BaseFixture):
-    """
-    Fixture for a single EOFTest.
-    """
+    """Fixture for a single EOFTest."""
 
     fixture_format_name: ClassVar[str] = "eof_test"
     description: ClassVar[str] = "Tests that generate an EOF test fixture."
@@ -55,7 +46,5 @@ class Fixture(BaseFixture):
     vectors: Mapping[Number, Vector]
 
     def get_fork(self) -> str | None:
-        """
-        Returns the fork of the fixture as a string.
-        """
+        """Return fork of the fixture as a string."""
         return None

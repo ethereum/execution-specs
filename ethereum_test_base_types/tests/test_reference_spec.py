@@ -1,8 +1,4 @@
-"""
-Test suite for `ethereum_test_base_types.reference_spec` module.
-"""
-
-# import pytest
+"""Test suite for `ethereum_test_base_types.reference_spec` module."""
 
 import re
 
@@ -10,7 +6,7 @@ import pytest
 import requests
 
 from ..reference_spec.git_reference_spec import GitReferenceSpec
-from ..reference_spec.reference_spec import NoLatestKnownVersion
+from ..reference_spec.reference_spec import NoLatestKnownVersionError
 
 # the content field from https://api.github.com/repos/ethereum/EIPs/contents/EIPS/eip-100.md
 # as of 2023-08-29
@@ -64,9 +60,7 @@ LWV0aGVyZXVtLWNvbnNlbnN1cy1wcm90b2NvbC1mbGF3Lwo="
 
 
 def test_git_reference_spec(monkeypatch):
-    """
-    Test Git reference spec.
-    """
+    """Test Git reference spec."""
 
     def mock_get(self):
         class Response:
@@ -89,7 +83,7 @@ def test_git_reference_spec(monkeypatch):
     assert latest_spec is not None
     assert "sha" in latest_spec
     assert re.match(r"^[0-9a-f]{40}$", latest_spec["sha"])
-    with pytest.raises(NoLatestKnownVersion):
+    with pytest.raises(NoLatestKnownVersionError):
         # `is_outdated` method raises here because known version is unset
         ref_spec.is_outdated()
     ref_spec.SpecVersion = "0000000000000000000000000000000000000000"

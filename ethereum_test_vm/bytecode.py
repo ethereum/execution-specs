@@ -1,6 +1,5 @@
-"""
-Ethereum Virtual Machine bytecode primitives and utilities.
-"""
+"""Ethereum Virtual Machine bytecode primitives and utilities."""
+
 from typing import SupportsBytes
 
 from ethereum_test_base_types import Bytes, Hash
@@ -20,6 +19,7 @@ class Bytecode:
     - pushed_stack_items: number of items the bytecode pushes to the stack
     - min_stack_height: minimum stack height required by the bytecode
     - max_stack_height: maximum stack height reached by the bytecode
+
     """
 
     _name_: str = ""
@@ -43,9 +43,7 @@ class Bytecode:
         terminating: bool = False,
         name: str = "",
     ):
-        """
-        Creates a new opcode instance.
-        """
+        """Create new opcode instance."""
         if bytes_or_byte_code_base is None:
             instance = super().__new__(cls)
             instance._bytes_ = b""
@@ -92,30 +90,25 @@ class Bytecode:
         raise TypeError("Bytecode constructor '__new__' didn't return an instance!")
 
     def __bytes__(self) -> bytes:
-        """
-        Return the opcode byte representation.
-        """
+        """Return the opcode byte representation."""
         return self._bytes_
 
     def __len__(self) -> int:
-        """
-        Return the length of the opcode byte representation.
-        """
+        """Return the length of the opcode byte representation."""
         return len(self._bytes_)
 
     def __str__(self) -> str:
-        """
-        Return the name of the opcode, assigned at Enum creation.
-        """
+        """Return the name of the opcode, assigned at Enum creation."""
         return self._name_
 
     def __eq__(self, other):
         """
-        Allows comparison between Bytecode instances and bytes objects.
+        Allow comparison between Bytecode instances and bytes objects.
 
         Raises:
         - NotImplementedError: if the comparison is not between an Bytecode
             or a bytes object.
+
         """
         if isinstance(other, Bytecode):
             return (
@@ -130,9 +123,7 @@ class Bytecode:
         raise NotImplementedError(f"Unsupported type for comparison: {type(other)}")
 
     def __hash__(self):
-        """
-        Return the hash of the bytecode representation.
-        """
+        """Return the hash of the bytecode representation."""
         return hash(
             (
                 bytes(self),
@@ -144,9 +135,7 @@ class Bytecode:
         )
 
     def __add__(self, other: "Bytecode | int | None") -> "Bytecode":
-        """
-        Concatenate the bytecode representation with another bytecode object.
-        """
+        """Concatenate the bytecode representation with another bytecode object."""
         if other is None or (isinstance(other, int) and other == 0):
             # Edge case for sum() function
             return self
@@ -196,9 +185,7 @@ class Bytecode:
         )
 
     def __radd__(self, other: "Bytecode | int | None") -> "Bytecode":
-        """
-        Concatenate the opcode byte representation with another bytes object.
-        """
+        """Concatenate the opcode byte representation with another bytes object."""
         if other is None or (isinstance(other, int) and other == 0):
             # Edge case for sum() function
             return self
@@ -206,9 +193,7 @@ class Bytecode:
         return other.__add__(self)
 
     def __mul__(self, other: int) -> "Bytecode":
-        """
-        Concatenate another bytes object with the opcode byte representation.
-        """
+        """Concatenate another bytes object with the opcode byte representation."""
         if other < 0:
             raise ValueError("Cannot multiply by a negative number")
         if other == 0:
@@ -219,13 +204,9 @@ class Bytecode:
         return output
 
     def hex(self) -> str:
-        """
-        Return the hexadecimal representation of the opcode byte representation.
-        """
+        """Return the hexadecimal representation of the opcode byte representation."""
         return bytes(self).hex()
 
     def keccak256(self) -> Hash:
-        """
-        Return the keccak256 hash of the opcode byte representation.
-        """
+        """Return the keccak256 hash of the opcode byte representation."""
         return Bytes(self._bytes_).keccak256()

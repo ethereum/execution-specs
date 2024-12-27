@@ -1,3 +1,1 @@
-"""
-Tests for the solc pytest plugin.
-"""
+"""Tests for the solc pytest plugin."""

@@ -1,6 +1,4 @@
-"""
-Pytest plugin for configuring and installing the solc compiler.
-"""
+"""Pytest plugin for configuring and installing the solc compiler."""
 
 from argparse import ArgumentTypeError
 from shutil import which
@@ -17,9 +15,7 @@ DEFAULT_SOLC_VERSION = "0.8.24"
 
 
 def pytest_addoption(parser: pytest.Parser):
-    """
-    Adds command-line options to pytest.
-    """
+    """Add command-line options to pytest."""
     solc_group = parser.getgroup("solc", "Arguments defining the solc executable")
     solc_group.addoption(
         "--solc-bin",
@@ -97,15 +93,13 @@ def pytest_configure(config: pytest.Config):
 
 @pytest.fixture(autouse=True, scope="session")
 def solc_bin(request: pytest.FixtureRequest):
-    """
-    Returns the configured solc binary path.
-    """
+    """Return configured solc binary path."""
     return request.config.getoption("solc_bin")
 
 
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config, start_path):
-    """Add lines to pytest's console output header"""
+    """Add lines to pytest's console output header."""
     if config.option.collectonly:
         return
     solc_version = config.stash[metadata_key]["Tools"]["solc"]

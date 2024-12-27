@@ -1,6 +1,4 @@
-"""
-Yul frontend
-"""
+"""Yul frontend."""
 
 import re
 import warnings
@@ -28,6 +26,7 @@ class Solc:
         self,
         binary: Optional[Path | str] = None,
     ):
+        """Initialize the solc compiler."""
         if not binary:
             which_path = which("solc")
             if which_path is not None:
@@ -40,24 +39,24 @@ class Solc:
             )
         self.binary = Path(binary)
 
-    def run(self, *args: str, input: str | None = None) -> CompletedProcess:
-        """Run solc with the given arguments"""
+    def run(self, *args: str, input_value: str | None = None) -> CompletedProcess:
+        """Run solc with the given arguments."""
         return run(
             [self.binary, *args],
             capture_output=True,
             text=True,
-            input=input,
+            input=input_value,
         )
 
     @cached_property
     def version(self) -> Version:
-        """Return solc's version"""
+        """Return solc's version."""
         for line in self.run("--version").stdout.splitlines():
             if match := VERSION_PATTERN.search(line):
                 # Sanitize
                 solc_version_string = match.group(1).replace("g++", "gpp")
                 return Version.parse(solc_version_string)
-        warnings.warn("Unable to determine solc version.")
+        warnings.warn("Unable to determine solc version.", stacklevel=2)
         return Version(0)
 
 
@@ -76,15 +75,13 @@ class Yul(Bytecode):
         fork: Optional[Fork] = None,
         binary: Optional[Path | str] = None,
     ):
-        """
-        Compile Yul source code into bytecode.
-        """
+        """Compile Yul source code into bytecode."""
         solc = Solc(binary)
         evm_version = fork.solc_name() if fork else None
 
         solc_args = ("--evm-version", evm_version) if evm_version else ()
 
-        result = solc.run(*solc_args, *DEFAULT_SOLC_ARGS, input=source)
+        result = solc.run(*solc_args, *DEFAULT_SOLC_ARGS, input_value=source)
 
         if result.returncode:
             stderr_lines = result.stderr.splitlines()

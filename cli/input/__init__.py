@@ -1,6 +1,4 @@
-"""
-A standard interface for interactive CLI inputs.
-"""
+"""A standard interface for interactive CLI inputs."""
 
 from .questionary_input_repository import QuestionaryInputRepository
 
@@ -17,6 +15,7 @@ def input_text(question: str) -> str:
 
     Returns:
         str: The user's response.
+
     """
     return input_repository.input_text(question)
 
@@ -30,6 +29,7 @@ def input_password(question: str) -> str:
 
     Returns:
         str: The user's response (password).
+
     """
     return input_repository.input_password(question)
 
@@ -44,6 +44,7 @@ def input_select(question: str, choices: list) -> str:
 
     Returns:
         str: The selected choice.
+
     """
     return input_repository.input_select(question, choices)
 
@@ -58,6 +59,7 @@ def input_checkbox(question: str, choices: list) -> list:
 
     Returns:
         list: The list of selected choices.
+
     """
     return input_repository.input_checkbox(question, choices)
 
@@ -71,5 +73,6 @@ def input_confirm(question: str) -> bool:
 
     Returns:
         bool: True for 'yes', False for 'no'.
+
     """
     return input_repository.input_confirm(question)

@@ -1,6 +1,4 @@
-"""
-Pre-allocation fixtures using for test filling.
-"""
+"""Pre-allocation fixtures using for test filling."""
 
 from itertools import count
 from random import randint
@@ -18,11 +16,17 @@ from ethereum_test_base_types.conversions import (
 from ethereum_test_forks import Fork
 from ethereum_test_rpc import EthRPC
 from ethereum_test_rpc.types import TransactionByHashResponse
-from ethereum_test_tools import EOA, Account, Address
+from ethereum_test_tools import (
+    EOA,
+    Account,
+    Address,
+    AuthorizationTuple,
+    Initcode,
+    Storage,
+    Transaction,
+)
 from ethereum_test_tools import Alloc as BaseAlloc
-from ethereum_test_tools import AuthorizationTuple, Initcode
 from ethereum_test_tools import Opcodes as Op
-from ethereum_test_tools import Storage, Transaction
 from ethereum_test_types.eof.v1 import Container
 from ethereum_test_vm import Bytecode, EVMCodeType, Opcodes
 
@@ -32,9 +36,7 @@ MAX_INITCODE_SIZE = MAX_BYTECODE_SIZE * 2
 
 
 def pytest_addoption(parser):
-    """
-    Adds command-line options to pytest.
-    """
+    """Add command-line options to pytest."""
     pre_alloc_group = parser.getgroup(
         "pre_alloc", "Arguments defining pre-allocation behavior during test execution"
     )
@@ -67,7 +69,7 @@ def pytest_addoption(parser):
 
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config):
-    """A pytest hook called to obtain the report header."""
+    """Pytest hook called to obtain the report header."""
     bold = "\033[1m"
     reset = "\033[39;49m"
     eoa_start = config.getoption("eoa_iterator_start")
@@ -79,18 +81,14 @@ def pytest_report_header(config):
 
 @pytest.fixture(scope="session")
 def eoa_iterator(request) -> Iterator[EOA]:
-    """
-    Returns an iterator that generates EOAs.
-    """
+    """Return an iterator that generates EOAs."""
     eoa_start = request.config.getoption("eoa_iterator_start")
     print(f"Starting EOA index: {hex(eoa_start)}")
     return iter(EOA(key=i, nonce=0) for i in count(start=eoa_start))
 
 
 class Alloc(BaseAlloc):
-    """
-    A custom class that inherits from the original Alloc class.
-    """
+    """A custom class that inherits from the original Alloc class."""
 
     _fork: Fork = PrivateAttr(...)
     _sender: EOA = PrivateAttr(...)
@@ -113,6 +111,7 @@ class Alloc(BaseAlloc):
         evm_code_type: EVMCodeType | None = None,
         **kwargs,
     ):
+        """Initialize the pre-alloc with the given parameters."""
         super().__init__(*args, **kwargs)
         self._fork = fork
         self._sender = sender
@@ -123,17 +122,13 @@ class Alloc(BaseAlloc):
         self._eoa_fund_amount_default = eoa_fund_amount_default
 
     def __setitem__(self, address: Address | FixedSizeBytesConvertible, account: Account | None):
-        """
-        Sets the account associated with an address.
-        """
+        """Set account associated with an address."""
         raise ValueError("Tests are not allowed to set pre-alloc items in execute mode")
 
     def code_pre_processor(
         self, code: Bytecode | Container, *, evm_code_type: EVMCodeType | None
     ) -> Bytecode | Container:
-        """
-        Pre-processes the code before setting it.
-        """
+        """Pre-processes the code before setting it."""
         if evm_code_type is None:
             evm_code_type = self._evm_code_type
         if evm_code_type == EVMCodeType.EOF_V1:
@@ -147,16 +142,16 @@ class Alloc(BaseAlloc):
         self,
         code: BytesConvertible,
         *,
-        storage: Storage | StorageRootType = {},
+        storage: Storage | StorageRootType | None = None,
         balance: NumberConvertible = 0,
         nonce: NumberConvertible = 1,
         address: Address | None = None,
         evm_code_type: EVMCodeType | None = None,
         label: str | None = None,
     ) -> Address:
-        """
-        Deploy a contract to the allocation.
-        """
+        """Deploy a contract to the allocation."""
+        if storage is None:
+            storage = {}
         assert address is None, "address parameter is not supported"
 
         if not isinstance(storage, Storage):
@@ -236,9 +231,7 @@ class Alloc(BaseAlloc):
         delegation: Address | Literal["Self"] | None = None,
         nonce: NumberConvertible | None = None,
     ) -> EOA:
-        """
-        Add a previously unused EOA to the pre-alloc with the balance specified by `amount`.
-        """
+        """Add a previously unused EOA to the pre-alloc with the balance specified by `amount`."""
         assert nonce is None, "nonce parameter is not supported for execute"
         eoa = next(self._eoa_iterator)
         # Send a transaction to fund the EOA
@@ -351,17 +344,13 @@ class Alloc(BaseAlloc):
         super().__setitem__(address, Account(balance=amount))
 
     def wait_for_transactions(self) -> List[TransactionByHashResponse]:
-        """
-        Wait for all transactions to be included in blocks.
-        """
+        """Wait for all transactions to be included in blocks."""
         return self._eth_rpc.wait_for_transactions(self._txs)
 
 
 @pytest.fixture(autouse=True)
 def evm_code_type(request: pytest.FixtureRequest) -> EVMCodeType:
-    """
-    Returns the default EVM code type for all tests (LEGACY).
-    """
+    """Return default EVM code type for all tests (LEGACY)."""
     parameter_evm_code_type = request.config.getoption("evm_code_type")
     if parameter_evm_code_type is not None:
         assert type(parameter_evm_code_type) is EVMCodeType, "Invalid EVM code type"
@@ -371,9 +360,7 @@ def evm_code_type(request: pytest.FixtureRequest) -> EVMCodeType:
 
 @pytest.fixture(scope="session")
 def eoa_fund_amount_default(request: pytest.FixtureRequest) -> int:
-    """
-    Get the gas price for the funding transactions.
-    """
+    """Get the gas price for the funding transactions."""
     return request.config.option.eoa_fund_amount_default
 
 
@@ -387,9 +374,7 @@ def pre(
     chain_id: int,
     eoa_fund_amount_default: int,
 ) -> Alloc:
-    """
-    Returns the default pre allocation for all tests (Empty alloc).
-    """
+    """Return default pre allocation for all tests (Empty alloc)."""
     return Alloc(
         fork=fork,
         sender=sender_key,

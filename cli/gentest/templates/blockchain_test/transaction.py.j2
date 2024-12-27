@@ -19,7 +19,7 @@ def env():  # noqa: D103
     return {{ environment  | stringify }}
 
 @pytest.mark.valid_from("Paris")
-def test_transaction_{{ tx_hash }}(  # noqa: SC200, E501
+def test_transaction_{{ tx_hash }}(
     env: Environment,
     state_test: StateTestFiller,
 ):

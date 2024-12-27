@@ -1,6 +1,4 @@
-"""
-Test suite for `ethereum_test.code` module.
-"""
+"""Test suite for `ethereum_test.code` module."""
 
 from string import Template
 from typing import Mapping, SupportsBytes
@@ -30,9 +28,7 @@ from .conftest import SOLC_PADDING_VERSION
 
 @pytest.fixture(params=get_deployed_forks())
 def fork(request: pytest.FixtureRequest):
-    """
-    Return the target evm-version (fork) for solc compilation.
-    """
+    """Return the target evm-version (fork) for solc compilation."""
     return request.param
 
 
@@ -288,9 +284,7 @@ def test_initcode(initcode: Initcode, bytecode: bytes):  # noqa: D103
     ],
 )
 def test_opcodes_if(conditional_bytecode: bytes, expected: bytes):
-    """
-    Test that the if opcode macro is transformed into bytecode as expected.
-    """
+    """Test that the if opcode macro is transformed into bytecode as expected."""
     assert bytes(conditional_bytecode) == expected
 
 
@@ -618,9 +612,7 @@ def test_opcodes_if(conditional_bytecode: bytes, expected: bytes):
     ],
 )
 def test_switch(tx_data: bytes, switch_bytecode: bytes, expected_storage: Mapping):
-    """
-    Test that the switch opcode macro gets executed as using the t8n tool.
-    """
+    """Test that the switch opcode macro gets executed as using the t8n tool."""
     code_address = Address(0x1000)
     pre = Alloc(
         {
@@ -653,4 +645,4 @@ def test_full_opcode_range():
     assert len(set(Op) & set(UndefinedOpcodes)) == 0
     full_possible_opcode_set = set(Op) | set(UndefinedOpcodes)
     assert len(full_possible_opcode_set) == 256
-    assert set(op.hex() for op in full_possible_opcode_set) == set(f"{i:02x}" for i in range(256))
+    assert {op.hex() for op in full_possible_opcode_set} == {f"{i:02x}" for i in range(256)}

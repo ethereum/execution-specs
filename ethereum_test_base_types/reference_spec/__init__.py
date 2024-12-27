@@ -1,6 +1,5 @@
-"""
-Reference Spec Classes
-"""
+"""Reference Spec Classes."""
+
 from typing import Sequence, Type
 
 from .git_reference_spec import GitReferenceSpec

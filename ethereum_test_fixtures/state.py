@@ -1,6 +1,4 @@
-"""
-StateTest types
-"""
+"""StateTest types."""
 
 from typing import ClassVar, List, Mapping, Sequence
 
@@ -20,17 +18,13 @@ from .base import BaseFixture
 
 
 class FixtureEnvironment(EnvironmentGeneric[ZeroPaddedHexNumber]):
-    """
-    Type used to describe the environment of a state test.
-    """
+    """Type used to describe the environment of a state test."""
 
     prev_randao: Hash | None = Field(None, alias="currentRandom")  # type: ignore
 
 
 class FixtureAuthorizationTuple(AuthorizationTupleGeneric[ZeroPaddedHexNumber]):
-    """
-    Authorization tuple for fixture transactions.
-    """
+    """Authorization tuple for fixture transactions."""
 
     signer: Address | None = None
 
@@ -38,16 +32,12 @@ class FixtureAuthorizationTuple(AuthorizationTupleGeneric[ZeroPaddedHexNumber]):
     def from_authorization_tuple(
         cls, auth_tuple: AuthorizationTupleGeneric
     ) -> "FixtureAuthorizationTuple":
-        """
-        Returns a FixtureAuthorizationTuple from an AuthorizationTuple.
-        """
+        """Return FixtureAuthorizationTuple from an AuthorizationTuple."""
         return cls(**auth_tuple.model_dump())
 
 
 class FixtureTransaction(TransactionFixtureConverter):
-    """
-    Type used to describe a transaction in a state test.
-    """
+    """Type used to describe a transaction in a state test."""
 
     nonce: ZeroPaddedHexNumber
     gas_price: ZeroPaddedHexNumber | None = None
@@ -66,9 +56,7 @@ class FixtureTransaction(TransactionFixtureConverter):
 
     @classmethod
     def from_transaction(cls, tx: Transaction) -> "FixtureTransaction":
-        """
-        Returns a FixtureTransaction from a Transaction.
-        """
+        """Return FixtureTransaction from a Transaction."""
         model_as_dict = tx.model_dump(
             exclude={"gas_limit", "value", "data", "access_list"}, exclude_none=True
         )
@@ -80,9 +68,7 @@ class FixtureTransaction(TransactionFixtureConverter):
 
 
 class FixtureForkPostIndexes(BaseModel):
-    """
-    Type used to describe the indexes of a single post state of a single Fork.
-    """
+    """Type used to describe the indexes of a single post state of a single Fork."""
 
     data: int = 0
     gas: int = 0
@@ -90,9 +76,7 @@ class FixtureForkPostIndexes(BaseModel):
 
 
 class FixtureForkPost(CamelModel):
-    """
-    Type used to describe the post state of a single Fork.
-    """
+    """Type used to describe the post state of a single Fork."""
 
     state_root: Hash = Field(..., alias="hash")
     logs_hash: Hash = Field(..., alias="logs")
@@ -102,9 +86,7 @@ class FixtureForkPost(CamelModel):
 
 
 class Fixture(BaseFixture):
-    """
-    Fixture for a single StateTest.
-    """
+    """Fixture for a single StateTest."""
 
     fixture_format_name: ClassVar[str] = "state_test"
     description: ClassVar[str] = "Tests that generate a state test fixture."
@@ -115,9 +97,7 @@ class Fixture(BaseFixture):
     post: Mapping[str, List[FixtureForkPost]]
 
     def get_fork(self) -> str | None:
-        """
-        Returns the fork of the fixture as a string.
-        """
+        """Return fork of the fixture as a string."""
         forks = list(self.post.keys())
         assert len(forks) == 1, "Expected state test fixture with single fork"
         return forks[0]

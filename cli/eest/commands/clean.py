@@ -1,6 +1,4 @@
-"""
-Clean CLI command removes generated files and directories.
-"""
+"""Clean CLI command removes generated files and directories."""
 
 import glob
 import os
@@ -11,18 +9,20 @@ import click
 
 @click.command(short_help="Remove all generated files and directories.")
 @click.option(
-    "--all", is_flag=True, help="Remove the virtual environment and .tox directory as well."
+    "--all",
+    "all_files",
+    is_flag=True,
+    help="Remove the virtual environment and .tox directory as well.",
 )
 @click.option("--dry-run", is_flag=True, help="Simulate the cleanup without removing files.")
 @click.option("-v", "--verbose", is_flag=True, help="Show verbose output.")
-def clean(all: bool, dry_run: bool, verbose: bool):
+def clean(all_files: bool, dry_run: bool, verbose: bool):
     """
     Remove all generated files and directories from the repository.
     If `--all` is specified, the virtual environment and .tox directory will also be removed.
 
     Args:
-
-        all (flag): Remove the virtual environment and .tox directory as well.
+        all_files (bool): Remove the virtual environment and .tox directory as well.
 
         dry_run (bool): Simulate the cleanup without removing files.
 
@@ -45,6 +45,7 @@ def clean(all: bool, dry_run: bool, verbose: bool):
         🗑️  Deleted: src/cli/et/make/commands/__pycache__
         ...
         🧹 Cleanup complete!
+
     """  # noqa: D417, D301
     # List of items to remove can contain files and directories.
     items_to_remove = [
@@ -64,7 +65,7 @@ def clean(all: bool, dry_run: bool, verbose: bool):
         matching_files = glob.glob(pattern, recursive=True)
         items_to_remove.extend(matching_files)
 
-    if all:
+    if all_files:
         items_to_remove.extend([".tox", ".venv"])
 
     # Perform dry run or actual deletion

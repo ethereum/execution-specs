@@ -1,6 +1,5 @@
-"""
-Helper functions
-"""
+"""Helper functions."""
+
 from dataclasses import dataclass
 from typing import Dict, List
 
@@ -11,12 +10,11 @@ from ethereum_test_exceptions import ExceptionBase, ExceptionMapper, UndefinedEx
 from ethereum_test_types import Transaction
 
 
-class TransactionExpectedToFailSucceed(Exception):
-    """
-    Exception used when the transaction expected to return an error, did succeed
-    """
+class TransactionExpectedToFailSucceedError(Exception):
+    """Exception used when the transaction expected to return an error, did succeed."""
 
     def __init__(self, index: int, nonce: int):
+        """Initialize the exception with the transaction index and nonce."""
         message = (
             f"\nTransactionException (pos={index}, nonce={nonce}):"
             f"\n  What: tx expected to fail succeeded!"
@@ -24,12 +22,11 @@ class TransactionExpectedToFailSucceed(Exception):
         super().__init__(message)
 
 
-class TransactionUnexpectedFail(Exception):
-    """
-    Exception used when the transaction expected to succeed, did fail
-    """
+class TransactionUnexpectedFailError(Exception):
+    """Exception used when the transaction expected to succeed, did fail."""
 
     def __init__(self, index: int, nonce: int, message: str, exception: ExceptionBase):
+        """Initialize the exception."""
         message = (
             f"\nTransactionException (pos={index}, nonce={nonce}):"
             f"\n   What: tx unexpectedly failed!"
@@ -38,10 +35,8 @@ class TransactionUnexpectedFail(Exception):
         super().__init__(message)
 
 
-class TransactionExceptionMismatch(Exception):
-    """
-    Exception used when the actual transaction error string differs from the expected one.
-    """
+class TransactionExceptionMismatchError(Exception):
+    """Exception used when the actual transaction error string differs from the expected one."""
 
     def __init__(
         self,
@@ -53,6 +48,7 @@ class TransactionExceptionMismatch(Exception):
         got_exception: ExceptionBase,
         mapper_name: str,
     ):
+        """Initialize the exception."""
         define_message_hint = (
             f"No message defined for {expected_exception}, please add it to {mapper_name}"
             if expected_message is None
@@ -76,7 +72,7 @@ class TransactionExceptionMismatch(Exception):
 
 @dataclass
 class TransactionExceptionInfo:
-    """Info to print transaction exception error messages"""
+    """Info to print transaction exception error messages."""
 
     t8n_error_message: str | None
     transaction_ind: int
@@ -86,16 +82,18 @@ class TransactionExceptionInfo:
 def verify_transaction_exception(
     exception_mapper: ExceptionMapper, info: TransactionExceptionInfo
 ):
-    """Verify transaction exception"""
+    """Verify transaction exception."""
     expected_error: bool = info.tx.error is not None or (
         isinstance(info.tx.error, list) and len(info.tx.error) != 0
     )
 
     # info.tx.error is expected error code defined in .py test
     if expected_error and not info.t8n_error_message:
-        raise TransactionExpectedToFailSucceed(index=info.transaction_ind, nonce=info.tx.nonce)
+        raise TransactionExpectedToFailSucceedError(
+            index=info.transaction_ind, nonce=info.tx.nonce
+        )
     elif not expected_error and info.t8n_error_message:
-        raise TransactionUnexpectedFail(
+        raise TransactionUnexpectedFailError(
             index=info.transaction_ind,
             nonce=info.tx.nonce,
             message=info.t8n_error_message,
@@ -123,7 +121,7 @@ def verify_transaction_exception(
         exception_mapper_name = exception_mapper.__class__.__name__
 
         if expected_error_msg is None or expected_error_msg not in info.t8n_error_message:
-            raise TransactionExceptionMismatch(
+            raise TransactionExceptionMismatchError(
                 index=info.transaction_ind,
                 nonce=info.tx.nonce,
                 expected_exception=expected_exception,
@@ -154,9 +152,7 @@ def verify_transactions(
 
 
 def is_slow_test(request: pytest.FixtureRequest) -> bool:
-    """
-    Check if the test is slow
-    """
+    """Check if the test is slow."""
     if hasattr(request, "node"):
         return request.node.get_closest_marker("slow") is not None
     return False

@@ -1,6 +1,4 @@
-"""
-Pytest plugin to run the execute in remote-rpc-mode.
-"""
+"""Pytest plugin to run the execute in remote-rpc-mode."""
 
 import pytest
 
@@ -9,9 +7,7 @@ from ethereum_test_types import TransactionDefaults
 
 
 def pytest_addoption(parser):
-    """
-    Adds command-line options to pytest.
-    """
+    """Add command-line options to pytest."""
     remote_rpc_group = parser.getgroup("remote_rpc", "Arguments defining remote RPC configuration")
     remote_rpc_group.addoption(
         "--rpc-endpoint",
@@ -41,17 +37,13 @@ def pytest_addoption(parser):
 
 @pytest.fixture(autouse=True, scope="session")
 def rpc_endpoint(request) -> str:
-    """
-    Returns the remote RPC endpoint to be used to make requests to the execution client.
-    """
+    """Return remote RPC endpoint to be used to make requests to the execution client."""
     return request.config.getoption("rpc_endpoint")
 
 
 @pytest.fixture(autouse=True, scope="session")
 def chain_id(request) -> int:
-    """
-    Returns the chain id where the tests will be executed.
-    """
+    """Return chain id where the tests will be executed."""
     chain_id = request.config.getoption("rpc_chain_id")
     if chain_id is not None:
         TransactionDefaults.chain_id = chain_id
@@ -60,8 +52,6 @@ def chain_id(request) -> int:
 
 @pytest.fixture(autouse=True, scope="session")
 def eth_rpc(request, rpc_endpoint: str) -> EthRPC:
-    """
-    Initialize ethereum RPC client for the execution client under test.
-    """
+    """Initialize ethereum RPC client for the execution client under test."""
     tx_wait_timeout = request.config.getoption("tx_wait_timeout")
     return EthRPC(rpc_endpoint, transaction_wait_timeout=tx_wait_timeout)

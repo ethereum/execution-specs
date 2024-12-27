@@ -1,6 +1,4 @@
-"""
-Utility module with helper functions for versioning.
-"""
+"""Utility module with helper functions for versioning."""
 
 import re
 
@@ -32,9 +30,7 @@ def get_current_commit_hash_or_tag(repo_path=".", shorten_hash=False):
 
 
 def generate_github_url(file_path, branch_or_commit_or_tag="main", line_number=""):
-    """
-    Generate a permalink to a source file in Github.
-    """
+    """Generate a permalink to a source file in Github."""
     base_url = "https://github.com"
     username = "ethereum"
     repository = "execution-spec-tests"

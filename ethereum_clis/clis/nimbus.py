@@ -1,11 +1,8 @@
-"""
-Go-ethereum Transition tool interface.
-"""
+"""Nimbus Transition tool interface."""
 
 import re
 import subprocess
 from pathlib import Path
-from re import compile
 from typing import Optional
 
 from ethereum_test_exceptions import (
@@ -20,12 +17,10 @@ from ..transition_tool import TransitionTool
 
 
 class NimbusTransitionTool(TransitionTool):
-    """
-    Nimbus `evm` Transition tool interface wrapper class.
-    """
+    """Nimbus `evm` Transition tool interface wrapper class."""
 
     default_binary = Path("t8n")
-    detect_binary_pattern = compile(r"^Nimbus-t8n\b")
+    detect_binary_pattern = re.compile(r"^Nimbus-t8n\b")
     version_flag: str = "--version"
 
     binary: Path
@@ -38,20 +33,21 @@ class NimbusTransitionTool(TransitionTool):
         binary: Optional[Path] = None,
         trace: bool = False,
     ):
+        """Initialize the Nimbus Transition tool interface."""
         super().__init__(exception_mapper=NimbusExceptionMapper(), binary=binary, trace=trace)
         args = [str(self.binary), "--help"]
         try:
             result = subprocess.run(args, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
-            raise Exception("evm process unexpectedly returned a non-zero status code: " f"{e}.")
+            raise Exception(
+                "evm process unexpectedly returned a non-zero status code: " f"{e}."
+            ) from e
         except Exception as e:
-            raise Exception(f"Unexpected exception calling evm tool: {e}.")
+            raise Exception(f"Unexpected exception calling evm tool: {e}.") from e
         self.help_string = result.stdout
 
     def version(self) -> str:
-        """
-        Gets `evm` binary version.
-        """
+        """Get `evm` binary version."""
         if self.cached_version is None:
             self.cached_version = re.sub(r"\x1b\[0m", "", super().version()).strip()
 
@@ -59,7 +55,7 @@ class NimbusTransitionTool(TransitionTool):
 
     def is_fork_supported(self, fork: Fork) -> bool:
         """
-        Returns True if the fork is supported by the tool.
+        Return True if the fork is supported by the tool.
 
         If the fork is a transition fork, we want to check the fork it transitions to.
         """
@@ -67,9 +63,7 @@ class NimbusTransitionTool(TransitionTool):
 
 
 class NimbusExceptionMapper(ExceptionMapper):
-    """
-    Translate between EEST exceptions and error strings returned by nimbus.
-    """
+    """Translate between EEST exceptions and error strings returned by Nimbus."""
 
     @property
     def _mapping_data(self):

@@ -1,3 +1,1 @@
-"""
-Listings of all forks, current and upcoming.
-"""
+"""Listings of all forks, current and upcoming."""

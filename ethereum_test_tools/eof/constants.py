@@ -1,6 +1,4 @@
-"""
-Mirror file to import constants from ethereum_test_types.eof.constants
-"""
+"""Mirror file to import constants from ethereum_test_types.eof.constants."""
 
 from ethereum_test_types.eof.constants import (
     EOF_HEADER_TERMINATOR,

@@ -1,6 +1,4 @@
-"""
-Pytest fixtures and classes for the `consume rlp` hive simulator.
-"""
+"""Pytest fixtures and classes for the `consume rlp` hive simulator."""
 
 import io
 from pathlib import Path
@@ -19,17 +17,13 @@ TestCase = TestCaseIndexFile | TestCaseStream
 
 @pytest.fixture(scope="module")
 def test_suite_name() -> str:
-    """
-    The name of the hive test suite used in this simulator.
-    """
+    """The name of the hive test suite used in this simulator."""
     return "eest/consume-rlp"
 
 
 @pytest.fixture(scope="module")
 def test_suite_description() -> str:
-    """
-    The description of the hive test suite used in this simulator.
-    """
+    """The description of the hive test suite used in this simulator."""
     return "Execute blockchain tests by providing RLP-encoded blocks to a client upon start-up."
 
 
@@ -59,17 +53,13 @@ def blockchain_fixture(fixture_source: JsonSource, test_case: TestCase) -> Block
 
 @pytest.fixture(scope="function")
 def blocks_rlp(blockchain_fixture: BlockchainFixture) -> List[Bytes]:
-    """
-    A list of the fixture's blocks encoded as RLP.
-    """
+    """List of the fixture's blocks encoded as RLP."""
     return [block.rlp for block in blockchain_fixture.blocks]
 
 
 @pytest.fixture(scope="function")
 def buffered_blocks_rlp(blocks_rlp: List[bytes]) -> List[io.BufferedReader]:
-    """
-    Convert the RLP-encoded blocks of the current test fixture to buffered readers.
-    """
+    """Convert the RLP-encoded blocks of the current test fixture to buffered readers."""
     block_rlp_files = []
     for _, block_rlp in enumerate(blocks_rlp):
         block_rlp_stream = io.BytesIO(block_rlp)

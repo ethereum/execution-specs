@@ -1,6 +1,5 @@
-"""
-Pytest plugin to recover funds from a failed remote execution.
-"""
+"""Pytest plugin to recover funds from a failed remote execution."""
+
 import pytest
 
 from ethereum_test_base_types import Address, HexNumber
@@ -8,9 +7,7 @@ from ethereum_test_types import EOA
 
 
 def pytest_addoption(parser):
-    """
-    Adds command-line options to pytest.
-    """
+    """Add command-line options to pytest."""
     recover_group = parser.getgroup("execute", "Arguments defining fund recovery behavior.")
     recover_group.addoption(
         "--start-eoa-index",
@@ -42,16 +39,12 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope="session")
 def destination(request: pytest.FixtureRequest) -> Address:
-    """
-    Get the destination address.
-    """
+    """Get the destination address."""
     return request.config.option.destination
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc):
-    """
-    Pytest hook used to dynamically generate test cases.
-    """
+    """Pytest hook used to dynamically generate test cases."""
     max_index = metafunc.config.option.max_index
     start_eoa_index = metafunc.config.option.start_eoa_index
 

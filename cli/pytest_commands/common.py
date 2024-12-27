@@ -1,6 +1,4 @@
-"""
-Common functions for CLI pytest-based entry points.
-"""
+"""Common functions for CLI pytest-based entry points."""
 
 from typing import Any, Callable, Dict, List
 
@@ -65,7 +63,7 @@ REQUIRED_FLAGS: Dict[str, List] = {
 
 def handle_help_flags(pytest_args: List[str], pytest_type: str) -> List[str]:
     """
-    Modifies the help arguments passed to the click CLI command before forwarding to
+    Modify help arguments passed to the click CLI command before forwarding to
     the pytest command.
 
     This is to make `--help` more useful because `pytest --help` is extremely

@@ -37,6 +37,7 @@ def recursive_sort(item: Union[Dict[str, Any], List[Any]]) -> Union[Dict[str, An
 
     Returns:
         The sorted item.
+
     """
     if isinstance(item, dict):
         return dict(sorted((k, recursive_sort(v)) for k, v in item.items()))
@@ -64,6 +65,7 @@ def order_fixture(input_path: Path, output_path: Path) -> None:
 
     Returns:
         None.
+
     """
     with input_path.open("r") as f:
         data = json.load(f)
@@ -86,6 +88,7 @@ def process_directory(input_dir: Path, output_dir: Path):
 
     Returns:
         None.
+
     """
     if not output_dir.exists():
         output_dir.mkdir(parents=True)
@@ -114,9 +117,7 @@ def process_directory(input_dir: Path, output_dir: Path):
     help="The output directory",
 )
 def order_fixtures(input_dir, output_dir):
-    """
-    Order json fixture by key recursively from the input directory.
-    """
+    """Order json fixture by key recursively from the input directory."""
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
     process_directory(input_dir, output_dir)

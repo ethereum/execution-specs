@@ -1,6 +1,4 @@
-"""
-Base fixture definitions used to define all fixture types.
-"""
+"""Base fixture definitions used to define all fixture types."""
 
 import hashlib
 import json
@@ -25,31 +23,23 @@ class BaseFixture(CamelModel):
 
     @classmethod
     def output_base_dir_name(cls) -> str:
-        """
-        Returns the name of the subdirectory where this type of fixture should be dumped to.
-        """
+        """Return name of the subdirectory where this type of fixture should be dumped to."""
         return cls.fixture_format_name.replace("test", "tests")
 
     @cached_property
     def json_dict(self) -> Dict[str, Any]:
-        """
-        Returns the JSON representation of the fixture.
-        """
+        """Returns the JSON representation of the fixture."""
         return self.model_dump(mode="json", by_alias=True, exclude_none=True, exclude={"info"})
 
     @cached_property
     def hash(self) -> str:
-        """
-        Returns the hash of the fixture.
-        """
+        """Returns the hash of the fixture."""
         json_str = json.dumps(self.json_dict, sort_keys=True, separators=(",", ":"))
         h = hashlib.sha256(json_str.encode("utf-8")).hexdigest()
         return f"0x{h}"
 
     def json_dict_with_info(self, hash_only: bool = False) -> Dict[str, Any]:
-        """
-        Returns the JSON representation of the fixture with the info field.
-        """
+        """Return JSON representation of the fixture with the info field."""
         dict_with_info = self.json_dict.copy()
         dict_with_info["_info"] = {"hash": self.hash}
         if not hash_only:
@@ -63,9 +53,7 @@ class BaseFixture(CamelModel):
         fixture_source_url: str,
         ref_spec: ReferenceSpec | None,
     ):
-        """
-        Fill the info field for this fixture
-        """
+        """Fill the info field for this fixture."""
         if "comment" not in self.info:
             self.info["comment"] = "`execution-spec-tests` generated test"
         self.info["filling-transition-tool"] = t8n_version
@@ -76,15 +64,13 @@ class BaseFixture(CamelModel):
             ref_spec.write_info(self.info)
 
     def get_fork(self) -> str | None:
-        """
-        Returns the fork of the fixture as a string.
-        """
+        """Return fork of the fixture as a string."""
         raise NotImplementedError
 
     @classmethod
     def supports_fork(cls, fork: Fork) -> bool:
         """
-        Returns whether the fixture can be generated for the given fork.
+        Return whether the fixture can be generated for the given fork.
 
         By default, all fixtures support all forks.
         """

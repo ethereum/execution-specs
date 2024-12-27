@@ -1,8 +1,9 @@
 """
 CLI interface for generating blockchain test scripts.
 
-It extracts a specified transaction and its required state from a blockchain network
-using the transaction hash and generates a Python test script based on that information.
+It extracts a specified transaction and its required state from a
+blockchain network using the transaction hash and generates a Python
+test script based on that information.
 """
 
 from sys import stderr
@@ -21,7 +22,8 @@ from .test_context_providers import StateTestProvider
 @click.argument("output_file", type=click.File("w", lazy=True))
 def generate(transaction_hash: str, output_file: TextIO):
     """
-    Extracts a transaction and required state from a network to make a blockchain test out of it.
+    Extract a transaction and required state from a network to make a
+    blockchain test out of it.
 
     TRANSACTION_HASH is the hash of the transaction to be used.
 

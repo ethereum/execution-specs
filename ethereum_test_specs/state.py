@@ -1,6 +1,4 @@
-"""
-Ethereum state test spec definition and filler.
-"""
+"""Ethereum state test spec definition and filler."""
 
 from pprint import pprint
 from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Type
@@ -36,9 +34,7 @@ TARGET_BLOB_GAS_PER_BLOCK = 393216
 
 
 class StateTest(BaseTest):
-    """
-    Filler type that tests transactions over the period of a single block.
-    """
+    """Filler type that tests transactions over the period of a single block."""
 
     env: Environment = Field(default_factory=Environment)
     pre: Alloc
@@ -59,9 +55,7 @@ class StateTest(BaseTest):
     ]
 
     def _generate_blockchain_genesis_environment(self) -> Environment:
-        """
-        Generate the genesis environment for the BlockchainTest formatted test.
-        """
+        """Generate the genesis environment for the BlockchainTest formatted test."""
         assert (
             self.env.number >= 1
         ), "genesis block number cannot be negative, set state test env.number to 1"
@@ -86,9 +80,7 @@ class StateTest(BaseTest):
         return self.env.copy(**updated_values)
 
     def _generate_blockchain_blocks(self) -> List[Block]:
-        """
-        Generate the single block that represents this state test in a BlockchainTest format.
-        """
+        """Generate the single block that represents this state test in a BlockchainTest format."""
         return [
             Block(
                 number=self.env.number,
@@ -108,9 +100,7 @@ class StateTest(BaseTest):
         ]
 
     def generate_blockchain_test(self) -> BlockchainTest:
-        """
-        Generate a BlockchainTest fixture from this StateTest fixture.
-        """
+        """Generate a BlockchainTest fixture from this StateTest fixture."""
         return BlockchainTest(
             genesis_environment=self._generate_blockchain_genesis_environment(),
             pre=self.pre,
@@ -126,9 +116,7 @@ class StateTest(BaseTest):
         eips: Optional[List[int]] = None,
         slow: bool = False,
     ) -> Fixture:
-        """
-        Create a fixture from the state test definition.
-        """
+        """Create a fixture from the state test definition."""
         # We can't generate a state test fixture that names a transition fork,
         # so we get the fork at the block number and timestamp of the state test
         fork = fork.fork_at(self.env.number, self.env.timestamp)
@@ -193,9 +181,7 @@ class StateTest(BaseTest):
         fixture_format: FixtureFormat,
         eips: Optional[List[int]] = None,
     ) -> BaseFixture:
-        """
-        Generate the BlockchainTest fixture.
-        """
+        """Generate the BlockchainTest fixture."""
         if fixture_format in BlockchainTest.supported_fixture_formats:
             return self.generate_blockchain_test().generate(
                 request=request, t8n=t8n, fork=fork, fixture_format=fixture_format, eips=eips
@@ -212,9 +198,7 @@ class StateTest(BaseTest):
         execute_format: ExecuteFormat,
         eips: Optional[List[int]] = None,
     ) -> BaseExecute:
-        """
-        Generate the list of test fixtures.
-        """
+        """Generate the list of test fixtures."""
         if execute_format == TransactionPost:
             return TransactionPost(
                 transactions=[self.tx],
@@ -224,9 +208,7 @@ class StateTest(BaseTest):
 
 
 class StateTestOnly(StateTest):
-    """
-    StateTest filler that only generates a state test fixture.
-    """
+    """StateTest filler that only generates a state test fixture."""
 
     supported_fixture_formats: ClassVar[List[FixtureFormat]] = [StateFixture]
 

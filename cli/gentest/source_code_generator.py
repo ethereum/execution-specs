@@ -17,13 +17,13 @@ template_loader = jinja2.PackageLoader("cli.gentest")
 template_env = jinja2.Environment(loader=template_loader, keep_trailing_newline=True)
 
 # This filter maps python objects to string
-template_env.filters["stringify"] = lambda input: repr(input)
+template_env.filters["stringify"] = lambda value: repr(value)
 
 
 # generates a formatted pytest source code by writing provided data on a given template.
 def get_test_source(provider: Provider, template_path: str) -> str:
     """
-    Generates formatted pytest source code by rendering a template with provided data.
+    Generate formatted pytest source code by rendering a template with provided data.
 
     This function uses the given template path to create a pytest-compatible source
     code string. It retrieves context data from the specified provider and applies
@@ -35,6 +35,7 @@ def get_test_source(provider: Provider, template_path: str) -> str:
 
     Returns:
         str: The formatted pytest source code.
+
     """
     template = template_env.get_template(template_path)
     rendered_template = template.render(provider.get_context())
@@ -44,7 +45,7 @@ def get_test_source(provider: Provider, template_path: str) -> str:
 
 def format_code(code: str) -> str:
     """
-    Formats the provided Python code using the Black code formatter.
+    Format the provided Python code using the Black code formatter.
 
     This function writes the given code to a temporary Python file, formats it using
     the Black formatter, and returns the formatted code as a string.
@@ -54,6 +55,7 @@ def format_code(code: str) -> str:
 
     Returns:
         str: The formatted Python code.
+
     """
     # Create a temporary python file
     with tempfile.NamedTemporaryFile(suffix=".py") as temp_file:

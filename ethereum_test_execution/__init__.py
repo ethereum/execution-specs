@@ -1,6 +1,5 @@
-"""
-Ethereum test execution package.
-"""
+"""Ethereum test execution package."""
+
 from typing import Dict
 
 from .base import BaseExecute, ExecuteFormat

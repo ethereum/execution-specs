@@ -1,3 +1,1 @@
-"""
-Consume RLP test functions.
-"""
+"""Consume RLP test functions."""

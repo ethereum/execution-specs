@@ -1,6 +1,4 @@
-"""
-Test state spec types.
-"""
+"""Test state spec types."""
 
 from typing import Any, Dict
 
@@ -89,24 +87,18 @@ from ..state import FixtureForkPost
     ],
 )
 class TestPydanticModelConversion:
-    """
-    Test that Pydantic models are converted to and from JSON correctly.
-    """
+    """Test that Pydantic models are converted to and from JSON correctly."""
 
     def test_json_serialization(
         self, can_be_deserialized: bool, model_instance: Any, json: str | Dict[str, Any]
     ):
-        """
-        Test that to_json returns the expected JSON for the given object.
-        """
+        """Test that to_json returns the expected JSON for the given object."""
         assert to_json(model_instance) == json
 
     def test_json_deserialization(
         self, can_be_deserialized: bool, model_instance: Any, json: str | Dict[str, Any]
     ):
-        """
-        Test that to_json returns the expected JSON for the given object.
-        """
+        """Test that to_json returns the expected JSON for the given object."""
         if not can_be_deserialized:
             pytest.skip(reason="The model instance in this case can not be deserialized")
         model_type = type(model_instance)

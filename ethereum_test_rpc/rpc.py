@@ -1,6 +1,4 @@
-"""
-JSON-RPC methods and helper functions for EEST consume based hive simulators.
-"""
+"""JSON-RPC methods and helper functions for EEST consume based hive simulators."""
 
 import time
 from itertools import count
@@ -27,55 +25,45 @@ from .types import (
 BlockNumberType = Union[int, Literal["latest", "earliest", "pending"]]
 
 
-class SendTransactionException(Exception):
-    """
-    Represents an exception that is raised when a transaction fails to be sent.
-    """
+class SendTransactionExceptionError(Exception):
+    """Represent an exception that is raised when a transaction fails to be sent."""
 
     tx: Transaction
 
     def __init__(self, *args, tx: Transaction):
-        """
-        Initializes the SendTransactionException class with the given transaction
-        """
+        """Initialize SendTransactionExceptionError class with the given transaction."""
         super().__init__(*args)
         self.tx = tx
 
     def __str__(self):
-        """
-        Returns a string representation of the exception.
-        """
+        """Return string representation of the exception."""
         return f"{super().__str__()} Transaction={self.tx.model_dump_json()}"
 
 
 class BaseRPC:
-    """
-    Represents a base RPC class for every RPC call used within EEST based hive simulators.
-    """
+    """Represents a base RPC class for every RPC call used within EEST based hive simulators."""
 
     namespace: ClassVar[str]
 
-    def __init__(self, url: str, extra_headers: Dict = {}):
-        """
-        Initializes the BaseRPC class with the given url.
-        """
+    def __init__(self, url: str, extra_headers: Dict | None = None):
+        """Initialize BaseRPC class with the given url."""
+        if extra_headers is None:
+            extra_headers = {}
         self.url = url
         self.request_id_counter = count(1)
         self.extra_headers = extra_headers
 
     def __init_subclass__(cls) -> None:
-        """
-        Sets the namespace of the RPC class to the lowercase of the class name.
-        """
+        """Set namespace of the RPC class to the lowercase of the class name."""
         namespace = cls.__name__
         if namespace.endswith("RPC"):
             namespace = namespace[:-3]
         cls.namespace = namespace.lower()
 
-    def post_request(self, method: str, *params: Any, extra_headers: Dict = {}) -> Any:
-        """
-        Sends a JSON-RPC POST request to the client RPC server at port defined in the url.
-        """
+    def post_request(self, method: str, *params: Any, extra_headers: Dict | None = None) -> Any:
+        """Send JSON-RPC POST request to the client RPC server at port defined in the url."""
+        if extra_headers is None:
+            extra_headers = {}
         assert self.namespace, "RPC namespace not set"
 
         payload = {
@@ -112,47 +100,39 @@ class EthRPC(BaseRPC):
 
     BlockNumberType = Union[int, Literal["latest", "earliest", "pending"]]
 
-    def __init__(self, url: str, extra_headers: Dict = {}, *, transaction_wait_timeout: int = 60):
-        """
-        Initializes the EthRPC class with the given url and transaction wait timeout.
-        """
+    def __init__(
+        self, url: str, extra_headers: Dict | None = None, *, transaction_wait_timeout: int = 60
+    ):
+        """Initialize EthRPC class with the given url and transaction wait timeout."""
+        if extra_headers is None:
+            extra_headers = {}
         super().__init__(url, extra_headers)
         self.transaction_wait_timeout = transaction_wait_timeout
 
     def get_block_by_number(self, block_number: BlockNumberType = "latest", full_txs: bool = True):
-        """
-        `eth_getBlockByNumber`: Returns information about a block by block number.
-        """
+        """`eth_getBlockByNumber`: Returns information about a block by block number."""
         block = hex(block_number) if isinstance(block_number, int) else block_number
         return self.post_request("getBlockByNumber", block, full_txs)
 
     def get_balance(self, address: Address, block_number: BlockNumberType = "latest") -> int:
-        """
-        `eth_getBalance`: Returns the balance of the account of given address.
-        """
+        """`eth_getBalance`: Returns the balance of the account of given address."""
         block = hex(block_number) if isinstance(block_number, int) else block_number
         return int(self.post_request("getBalance", f"{address}", block), 16)
 
     def get_code(self, address: Address, block_number: BlockNumberType = "latest") -> Bytes:
-        """
-        `eth_getCode`: Returns code at a given address.
-        """
+        """`eth_getCode`: Returns code at a given address."""
         block = hex(block_number) if isinstance(block_number, int) else block_number
         return Bytes(self.post_request("getCode", f"{address}", block))
 
     def get_transaction_count(
         self, address: Address, block_number: BlockNumberType = "latest"
     ) -> int:
-        """
-        `eth_getTransactionCount`: Returns the number of transactions sent from an address.
-        """
+        """`eth_getTransactionCount`: Returns the number of transactions sent from an address."""
         block = hex(block_number) if isinstance(block_number, int) else block_number
         return int(self.post_request("getTransactionCount", f"{address}", block), 16)
 
     def get_transaction_by_hash(self, transaction_hash: Hash) -> TransactionByHashResponse:
-        """
-        `eth_getTransactionByHash`: Returns transaction details.
-        """
+        """`eth_getTransactionByHash`: Returns transaction details."""
         try:
             resp = TransactionByHashResponse(
                 **self.post_request("getTransactionByHash", f"{transaction_hash}")
@@ -165,41 +145,33 @@ class EthRPC(BaseRPC):
     def get_storage_at(
         self, address: Address, position: Hash, block_number: BlockNumberType = "latest"
     ) -> Hash:
-        """
-        `eth_getStorageAt`: Returns the value from a storage position at a given address.
-        """
+        """`eth_getStorageAt`: Returns the value from a storage position at a given address."""
         block = hex(block_number) if isinstance(block_number, int) else block_number
         return Hash(self.post_request("getStorageAt", f"{address}", f"{position}", block))
 
     def gas_price(self) -> int:
-        """
-        `eth_gasPrice`: Returns the number of transactions sent from an address.
-        """
+        """`eth_gasPrice`: Returns the number of transactions sent from an address."""
         return int(self.post_request("gasPrice"), 16)
 
     def send_transaction(self, transaction: Transaction) -> Hash:
-        """
-        `eth_sendRawTransaction`: Send a transaction to the client.
-        """
+        """`eth_sendRawTransaction`: Send a transaction to the client."""
         try:
             result_hash = Hash(self.post_request("sendRawTransaction", f"{transaction.rlp.hex()}"))
             assert result_hash == transaction.hash
             assert result_hash is not None
             return transaction.hash
         except Exception as e:
-            raise SendTransactionException(str(e), tx=transaction)
+            raise SendTransactionExceptionError(str(e), tx=transaction) from e
 
     def send_transactions(self, transactions: List[Transaction]) -> List[Hash]:
-        """
-        Uses `eth_sendRawTransaction` to send a list of transactions to the client.
-        """
+        """Use `eth_sendRawTransaction` to send a list of transactions to the client."""
         return [self.send_transaction(tx) for tx in transactions]
 
     def storage_at_keys(
         self, account: Address, keys: List[Hash], block_number: BlockNumberType = "latest"
     ) -> Dict[Hash, Hash]:
         """
-        Helper to retrieve the storage values for the specified keys at a given address and block
+        Retrieve the storage values for the specified keys at a given address and block
         number.
         """
         results: Dict[Hash, Hash] = {}
@@ -209,9 +181,7 @@ class EthRPC(BaseRPC):
         return results
 
     def wait_for_transaction(self, transaction: Transaction) -> TransactionByHashResponse:
-        """
-        Uses `eth_getTransactionByHash` to wait until a transaction is included in a block.
-        """
+        """Use `eth_getTransactionByHash` to wait until a transaction is included in a block."""
         tx_hash = transaction.hash
         start_time = time.time()
         while True:
@@ -230,7 +200,7 @@ class EthRPC(BaseRPC):
         self, transactions: List[Transaction]
     ) -> List[TransactionByHashResponse]:
         """
-        Uses `eth_getTransactionByHash` to wait unitl all transactions in list are included in a
+        Use `eth_getTransactionByHash` to wait until all transactions in list are included in a
         block.
         """
         tx_hashes = [tx.hash for tx in transactions]
@@ -260,16 +230,12 @@ class EthRPC(BaseRPC):
         )
 
     def send_wait_transaction(self, transaction: Transaction):
-        """
-        Sends a transaction and waits until it is included in a block.
-        """
+        """Send transaction and waits until it is included in a block."""
         self.send_transaction(transaction)
         return self.wait_for_transaction(transaction)
 
     def send_wait_transactions(self, transactions: List[Transaction]):
-        """
-        Sends a list of transactions and waits until all of them are included in a block.
-        """
+        """Send list of transactions and waits until all of them are included in a block."""
         self.send_transactions(transactions)
         return self.wait_for_transactions(transactions)
 
@@ -281,9 +247,7 @@ class DebugRPC(EthRPC):
     """
 
     def trace_call(self, tr: dict[str, str], block_number: str):
-        """
-        `debug_traceCall`: Returns pre state required for transaction
-        """
+        """`debug_traceCall`: Returns pre state required for transaction."""
         return self.post_request("traceCall", tr, block_number, {"tracer": "prestateTracer"})
 
 
@@ -293,10 +257,10 @@ class EngineRPC(BaseRPC):
     simulators.
     """
 
-    def post_request(self, method: str, *params: Any, extra_headers: Dict = {}) -> Any:
-        """
-        Sends a JSON-RPC POST request to the client RPC server at port defined in the url.
-        """
+    def post_request(self, method: str, *params: Any, extra_headers: Dict | None = None) -> Any:
+        """Send JSON-RPC POST request to the client RPC server at port defined in the url."""
+        if extra_headers is None:
+            extra_headers = {}
         jwt_token = encode(
             {"iat": int(time.time())},
             b"secretsecretsecretsecretsecretse",  # the secret used within clients in hive
@@ -308,9 +272,7 @@ class EngineRPC(BaseRPC):
         return super().post_request(method, *params, extra_headers=extra_headers)
 
     def new_payload(self, *params: Any, version: int) -> PayloadStatus:
-        """
-        `engine_newPayloadVX`: Attempts to execute the given payload on an execution client.
-        """
+        """`engine_newPayloadVX`: Attempts to execute the given payload on an execution client."""
         return PayloadStatus(
             **self.post_request(f"newPayloadV{version}", *[to_json(param) for param in params])
         )
@@ -322,9 +284,7 @@ class EngineRPC(BaseRPC):
         *,
         version: int,
     ) -> ForkchoiceUpdateResponse:
-        """
-        `engine_forkchoiceUpdatedVX`: Updates the forkchoice state of the execution client.
-        """
+        """`engine_forkchoiceUpdatedVX`: Updates the forkchoice state of the execution client."""
         return ForkchoiceUpdateResponse(
             **self.post_request(
                 f"forkchoiceUpdatedV{version}",

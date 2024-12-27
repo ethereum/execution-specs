@@ -1,6 +1,4 @@
-"""
-Test execution plugin for pytest, to run Ethereum tests using in live networks.
-"""
+"""Test execution plugin for pytest, to run Ethereum tests using in live networks."""
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,16 +20,14 @@ from .pre_alloc import Alloc
 
 def default_html_report_file_path() -> str:
     """
-    The default file to store the generated HTML test report. Defined as a
+    File (default) to store the generated HTML test report. Defined as a
     function to allow for easier testing.
     """
     return "./execution_results/report_execute.html"
 
 
 def pytest_addoption(parser):
-    """
-    Adds command-line options to pytest.
-    """
+    """Add command-line options to pytest."""
     execute_group = parser.getgroup("execute", "Arguments defining test execution behavior")
     execute_group.addoption(
         "--default-gas-price",
@@ -110,16 +106,12 @@ def pytest_configure(config):
 
 
 def pytest_metadata(metadata):
-    """
-    Add or remove metadata to/from the pytest report.
-    """
+    """Add or remove metadata to/from the pytest report."""
     metadata.pop("JAVA_HOME", None)
 
 
 def pytest_html_results_table_header(cells):
-    """
-    Customize the table headers of the HTML report table.
-    """
+    """Customize the table headers of the HTML report table."""
     cells.insert(3, '<th class="sortable" data-column-type="sender">Sender</th>')
     cells.insert(4, '<th class="sortable" data-column-type="fundedAccounts">Funded Accounts</th>')
     cells.insert(
@@ -129,9 +121,7 @@ def pytest_html_results_table_header(cells):
 
 
 def pytest_html_results_table_row(report, cells):
-    """
-    Customize the table rows of the HTML report table.
-    """
+    """Customize the table rows of the HTML report table."""
     if hasattr(report, "user_properties"):
         user_props = dict(report.user_properties)
         if "sender_address" in user_props and user_props["sender_address"] is not None:
@@ -152,10 +142,10 @@ def pytest_html_results_table_row(report, cells):
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     """
-    This hook is called when each test is run and a report is being made.
-
     Make each test's fixture json path available to the test report via
     user_properties.
+
+    This hook is called when each test is run and a report is being made.
     """
     outcome = yield
     report = outcome.get_result()
@@ -167,33 +157,25 @@ def pytest_runtest_makereport(item, call):
 
 
 def pytest_html_report_title(report):
-    """
-    Set the HTML report title (pytest-html plugin).
-    """
+    """Set the HTML report title (pytest-html plugin)."""
     report.title = "Execute Test Report"
 
 
 @pytest.fixture(scope="session")
 def default_gas_price(request) -> int:
-    """
-    Returns the default gas price used for transactions.
-    """
+    """Return default gas price used for transactions."""
     return request.config.getoption("default_gas_price")
 
 
 @pytest.fixture(scope="session")
 def default_max_fee_per_gas(request) -> int:
-    """
-    Returns the default max fee per gas used for transactions.
-    """
+    """Return default max fee per gas used for transactions."""
     return request.config.getoption("default_max_fee_per_gas")
 
 
 @pytest.fixture(scope="session")
 def default_max_priority_fee_per_gas(request) -> int:
-    """
-    Returns the default max priority fee per gas used for transactions.
-    """
+    """Return default max priority fee per gas used for transactions."""
     return request.config.getoption("default_max_priority_fee_per_gas")
 
 
@@ -201,9 +183,7 @@ def default_max_priority_fee_per_gas(request) -> int:
 def modify_transaction_defaults(
     default_gas_price: int, default_max_fee_per_gas: int, default_max_priority_fee_per_gas: int
 ):
-    """
-    Modify transaction defaults to values better suited for live networks.
-    """
+    """Modify transaction defaults to values better suited for live networks."""
     TransactionDefaults.gas_price = default_gas_price
     TransactionDefaults.max_fee_per_gas = default_max_fee_per_gas
     TransactionDefaults.max_priority_fee_per_gas = default_max_priority_fee_per_gas
@@ -211,17 +191,13 @@ def modify_transaction_defaults(
 
 @dataclass(kw_only=True)
 class Collector:
-    """
-    A class that collects transactions and post-allocations for every test case.
-    """
+    """A class that collects transactions and post-allocations for every test case."""
 
     eth_rpc: EthRPC
     collected_tests: Dict[str, BaseExecute] = field(default_factory=dict)
 
     def collect(self, test_name: str, execute_format: BaseExecute):
-        """
-        Collects the transactions and post-allocations for the test case.
-        """
+        """Collect transactions and post-allocations for the test case."""
         self.collected_tests[test_name] = execute_format
 
 
@@ -231,7 +207,7 @@ def collector(
     eth_rpc: EthRPC,
 ) -> Generator[Collector, None, None]:
     """
-    Returns the configured fixture collector instance used for all tests
+    Return configured fixture collector instance used for all tests
     in one test module.
     """
     collector = Collector(eth_rpc=eth_rpc)
@@ -239,9 +215,7 @@ def collector(
 
 
 def node_to_test_info(node) -> TestInfo:
-    """
-    Returns the test info of the current node item.
-    """
+    """Return test info of the current node item."""
     return TestInfo(
         name=node.name,
         id=node.nodeid,
@@ -252,7 +226,7 @@ def node_to_test_info(node) -> TestInfo:
 
 def base_test_parametrizer(cls: Type[BaseTest]):
     """
-    Generates a pytest.fixture for a given BaseTest subclass.
+    Generate pytest.fixture for a given BaseTest subclass.
 
     Implementation detail: All spec fixtures must be scoped on test function level to avoid
     leakage between tests.
@@ -299,7 +273,6 @@ def base_test_parametrizer(cls: Type[BaseTest]):
                 # wait for pre-requisite transactions to be included in blocks
                 pre.wait_for_transactions()
                 for deployed_contract, deployed_code in pre._deployed_contracts:
-
                     if eth_rpc.get_code(deployed_contract) == deployed_code:
                         pass
                     else:

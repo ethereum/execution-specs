@@ -1,3 +1,1 @@
-"""
-Consume direct test functions.
-"""
+"""Consume direct test functions."""

@@ -1,6 +1,4 @@
-"""
-Ethereum transaction test spec definition and filler.
-"""
+"""Ethereum transaction test spec definition and filler."""
 
 from typing import Callable, ClassVar, Generator, List, Optional, Type
 
@@ -17,9 +15,7 @@ from .base import BaseTest
 
 
 class TransactionTest(BaseTest):
-    """
-    Filler type that tests the transaction over the period of a single block.
-    """
+    """Filler type that tests the transaction over the period of a single block."""
 
     tx: Transaction
     pre: Alloc | None = None
@@ -36,9 +32,7 @@ class TransactionTest(BaseTest):
         fork: Fork,
         eips: Optional[List[int]] = None,
     ) -> Fixture:
-        """
-        Create a fixture from the transaction test definition.
-        """
+        """Create a fixture from the transaction test definition."""
         if self.tx.error is not None:
             result = FixtureResult(
                 exception=self.tx.error,
@@ -76,9 +70,7 @@ class TransactionTest(BaseTest):
         fixture_format: FixtureFormat,
         eips: Optional[List[int]] = None,
     ) -> BaseFixture:
-        """
-        Generate the TransactionTest fixture.
-        """
+        """Generate the TransactionTest fixture."""
         if fixture_format == TransactionFixture:
             return self.make_transaction_test_fixture(fork, eips)
 
@@ -91,9 +83,7 @@ class TransactionTest(BaseTest):
         execute_format: ExecuteFormat,
         eips: Optional[List[int]] = None,
     ) -> BaseExecute:
-        """
-        Execute the transaction test by sending it to the live network.
-        """
+        """Execute the transaction test by sending it to the live network."""
         if execute_format == TransactionPost:
             return TransactionPost(
                 transactions=[self.tx],

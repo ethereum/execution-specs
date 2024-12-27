@@ -21,6 +21,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
     Args:
         config (pytest.Config): The pytest configuration object.
+
     """
     evm_bin = config.getoption("evm_bin", default=None)
     if evm_bin and "resolver" not in str(evm_bin):
@@ -68,6 +69,7 @@ def pytest_report_header(config: pytest.Config, startdir: Path) -> str:
 
     Returns:
         str: A string to add to the pytest report header.
+
     """
     eels_resolutions_file = getattr(config, "_eels_resolutions_file", None)
     if eels_resolutions_file:
@@ -78,7 +80,7 @@ def pytest_report_header(config: pytest.Config, startdir: Path) -> str:
 @pytest.fixture(scope="session", autouse=True)
 def output_metadata_dir_with_teardown(request):
     """
-    A session-scoped fixture that attempts to retrieve the filler's
+    Session-scoped fixture that attempts to retrieve the filler's
     "output_metadata_dir" fixture value and copies the EELS resolutions
     file there, if `_eels_resolutions_file` is set on the config object.
     """

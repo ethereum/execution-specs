@@ -22,25 +22,19 @@ TestCase = TestCaseIndexFile | TestCaseStream
 
 @pytest.fixture(scope="function")
 def engine_rpc(client: Client) -> EngineRPC:
-    """
-    Initialize engine RPC client for the execution client under test.
-    """
+    """Initialize engine RPC client for the execution client under test."""
     return EngineRPC(f"http://{client.ip}:8551")
 
 
 @pytest.fixture(scope="module")
 def test_suite_name() -> str:
-    """
-    The name of the hive test suite used in this simulator.
-    """
+    """The name of the hive test suite used in this simulator."""
     return "eest/consume-engine"
 
 
 @pytest.fixture(scope="module")
 def test_suite_description() -> str:
-    """
-    The description of the hive test suite used in this simulator.
-    """
+    """The description of the hive test suite used in this simulator."""
     return "Execute blockchain tests against clients using the Engine API."
 
 
@@ -70,9 +64,7 @@ def blockchain_fixture(fixture_source: JsonSource, test_case: TestCase) -> Block
 
 @pytest.fixture(scope="function")
 def client_files(buffered_genesis: io.BufferedReader) -> Mapping[str, io.BufferedReader]:
-    """
-    Define the files that hive will start the client with.
-    """
+    """Define the files that hive will start the client with."""
     files = {}
     files["/genesis.json"] = buffered_genesis
     return files

@@ -8,6 +8,7 @@ Simulators using this plugin must define two pytest fixtures:
 
 These fixtures are used when creating the hive test suite.
 """
+
 import json
 import os
 from dataclasses import asdict
@@ -69,9 +70,7 @@ def pytest_addoption(parser: pytest.Parser):  # noqa: D103
 
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config, start_path):
-    """
-    Add lines to pytest's console output header.
-    """
+    """Add lines to pytest's console output header."""
     if config.option.collectonly:
         return
     return [f"hive simulator: {config.hive_simulator_url}"]
@@ -118,9 +117,7 @@ def test_suite(
     test_suite_name: str,
     test_suite_description: str,
 ):
-    """
-    Defines a Hive test suite and cleans up after all tests have run.
-    """
+    """Defines a Hive test suite and cleans up after all tests have run."""
     suite_file_name = f"test_suite_{test_suite_name}"
     suite_file = session_temp_folder / suite_file_name
     suite_lock_file = session_temp_folder / f"{suite_file_name}.lock"
@@ -165,9 +162,7 @@ def test_suite(
 
 @pytest.fixture(scope="function")
 def hive_test(request, test_suite: HiveTestSuite):
-    """
-    Propagate the pytest test case and its result to the hive server.
-    """
+    """Propagate the pytest test case and its result to the hive server."""
     try:
         test_case_description = request.getfixturevalue("test_case_description")
     except pytest.FixtureLookupError:

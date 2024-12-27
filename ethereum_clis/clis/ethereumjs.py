@@ -1,9 +1,7 @@
-"""
-EthereumJS Transition tool interface.
-"""
+"""EthereumJS Transition tool interface."""
 
+import re
 from pathlib import Path
-from re import compile
 from typing import Optional
 
 from ethereum_test_exceptions import (
@@ -18,12 +16,10 @@ from ..transition_tool import TransitionTool
 
 
 class EthereumJSTransitionTool(TransitionTool):
-    """
-    EthereumJS Transition tool interface wrapper class.
-    """
+    """EthereumJS Transition tool interface wrapper class."""
 
     default_binary = Path("ethereumjs-t8ntool.sh")
-    detect_binary_pattern = compile(r"^ethereumjs t8n\b")
+    detect_binary_pattern = re.compile(r"^ethereumjs t8n\b")
     version_flag: str = "--version"
     t8n_use_stream = False
 
@@ -37,20 +33,19 @@ class EthereumJSTransitionTool(TransitionTool):
         binary: Optional[Path] = None,
         trace: bool = False,
     ):
+        """Initialize the EthereumJS Transition tool interface."""
         super().__init__(exception_mapper=EthereumJSExceptionMapper(), binary=binary, trace=trace)
 
     def is_fork_supported(self, fork: Fork) -> bool:
         """
-        Returns True if the fork is supported by the tool.
+        Return True if the fork is supported by the tool.
         Currently, EthereumJS-t8n provides no way to determine supported forks.
         """
         return True
 
 
 class EthereumJSExceptionMapper(ExceptionMapper):
-    """
-    Translate between EEST exceptions and error strings returned by ethereum-js.
-    """
+    """Translate between EEST exceptions and error strings returned by EthereumJS."""
 
     @property
     def _mapping_data(self):

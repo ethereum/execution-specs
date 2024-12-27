@@ -1,6 +1,4 @@
-"""
-BlockchainTest types
-"""
+"""BlockchainTest types."""
 
 from functools import cached_property
 from typing import (
@@ -54,22 +52,16 @@ class HeaderForkRequirement(str):
     """
 
     def __new__(cls, value: str) -> "HeaderForkRequirement":
-        """
-        Create a new instance of the class
-        """
+        """Create a new instance of the class."""
         return super().__new__(cls, value)
 
     def required(self, fork: Fork, block_number: int, timestamp: int) -> bool:
-        """
-        Check if the field is required for the given fork.
-        """
+        """Check if the field is required for the given fork."""
         return getattr(fork, f"header_{self}_required")(block_number, timestamp)
 
     @classmethod
     def get_from_annotation(cls, field_hints: Any) -> "HeaderForkRequirement | None":
-        """
-        Find the annotation in the field args
-        """
+        """Find the annotation in the field args."""
         if isinstance(field_hints, cls):
             return field_hints
         for hint in get_args(field_hints):
@@ -133,9 +125,7 @@ class FixtureHeader(CamelModel):
     fork: Fork | None = Field(None, exclude=True)
 
     def model_post_init(self, __context):
-        """
-        Model post init method used to check for required fields of a given fork.
-        """
+        """Model post init method used to check for required fields of a given fork."""
         super().model_post_init(__context)
 
         if self.fork is None:
@@ -166,9 +156,7 @@ class FixtureHeader(CamelModel):
 
     @cached_property
     def rlp_encode_list(self) -> List:
-        """
-        Compute the RLP of the header
-        """
+        """Compute the RLP of the header."""
         header_list = []
         for field in self.model_fields:
             if field == "fork":
@@ -180,24 +168,18 @@ class FixtureHeader(CamelModel):
 
     @cached_property
     def rlp(self) -> Bytes:
-        """
-        Compute the RLP of the header
-        """
+        """Compute the RLP of the header."""
         return Bytes(eth_rlp.encode(self.rlp_encode_list))
 
     @computed_field(alias="hash")  # type: ignore[misc]
     @cached_property
     def block_hash(self) -> Hash:
-        """
-        Compute the RLP of the header
-        """
+        """Compute the RLP of the header."""
         return self.rlp.keccak256()
 
 
 class FixtureExecutionPayload(CamelModel):
-    """
-    Representation of an Ethereum execution payload within a test Fixture.
-    """
+    """Representation of an Ethereum execution payload within a test Fixture."""
 
     parent_hash: Hash
     fee_recipient: Address
@@ -230,7 +212,7 @@ class FixtureExecutionPayload(CamelModel):
         withdrawals: List[Withdrawal] | None,
     ) -> "FixtureExecutionPayload":
         """
-        Returns a FixtureExecutionPayload from a FixtureHeader, a list
+        Return FixtureExecutionPayload from a FixtureHeader, a list
         of transactions and a list of withdrawals.
         """
         return cls(
@@ -281,9 +263,7 @@ class FixtureEngineNewPayload(CamelModel):
     ) = None
 
     def valid(self) -> bool:
-        """
-        Returns whether the payload is valid.
-        """
+        """Return whether the payload is valid."""
         return self.validation_error is None
 
     @classmethod
@@ -296,9 +276,7 @@ class FixtureEngineNewPayload(CamelModel):
         requests: List[Bytes] | None,
         **kwargs,
     ) -> "FixtureEngineNewPayload":
-        """
-        Creates a `FixtureEngineNewPayload` from a `FixtureHeader`.
-        """
+        """Create `FixtureEngineNewPayload` from a `FixtureHeader`."""
         new_payload_version = fork.engine_new_payload_version(header.number, header.timestamp)
         forkchoice_updated_version = fork.engine_forkchoice_updated_version(
             header.number, header.timestamp
@@ -350,9 +328,7 @@ class FixtureEngineNewPayload(CamelModel):
 
 
 class FixtureAuthorizationTuple(AuthorizationTupleGeneric[ZeroPaddedHexNumber]):
-    """
-    Authorization tuple for fixture transactions.
-    """
+    """Authorization tuple for fixture transactions."""
 
     signer: Address | None = None
 
@@ -360,24 +336,18 @@ class FixtureAuthorizationTuple(AuthorizationTupleGeneric[ZeroPaddedHexNumber]):
     def from_authorization_tuple(
         cls, auth_tuple: AuthorizationTupleGeneric
     ) -> "FixtureAuthorizationTuple":
-        """
-        Returns a FixtureAuthorizationTuple from an AuthorizationTuple.
-        """
+        """Return FixtureAuthorizationTuple from an AuthorizationTuple."""
         return cls(**auth_tuple.model_dump())
 
 
 class FixtureTransaction(TransactionFixtureConverter, TransactionGeneric[ZeroPaddedHexNumber]):
-    """
-    Representation of an Ethereum transaction within a test Fixture.
-    """
+    """Representation of an Ethereum transaction within a test Fixture."""
 
     authorization_list: List[FixtureAuthorizationTuple] | None = None
 
     @classmethod
     def from_transaction(cls, tx: Transaction) -> "FixtureTransaction":
-        """
-        Returns a FixtureTransaction from a Transaction.
-        """
+        """Return FixtureTransaction from a Transaction."""
         return cls(**tx.model_dump())
 
 
@@ -389,9 +359,7 @@ class FixtureWithdrawal(WithdrawalGeneric[ZeroPaddedHexNumber]):
 
     @classmethod
     def from_withdrawal(cls, w: WithdrawalGeneric) -> "FixtureWithdrawal":
-        """
-        Returns a FixtureWithdrawal from a Withdrawal.
-        """
+        """Return FixtureWithdrawal from a Withdrawal."""
         return cls(**w.model_dump())
 
 
@@ -406,15 +374,11 @@ class FixtureBlockBase(CamelModel):
     @computed_field(alias="blocknumber")  # type: ignore[misc]
     @cached_property
     def block_number(self) -> Number:
-        """
-        Get the block number from the header
-        """
+        """Get the block number from the header."""
         return Number(self.header.number)
 
     def with_rlp(self, txs: List[Transaction]) -> "FixtureBlock":
-        """
-        Returns a FixtureBlock with the RLP bytes set.
-        """
+        """Return FixtureBlock with the RLP bytes set."""
         block = [
             self.header.rlp_encode_list,
             [tx.serializable_list for tx in txs],
@@ -436,18 +400,14 @@ class FixtureBlock(FixtureBlockBase):
     rlp: Bytes
 
     def without_rlp(self) -> FixtureBlockBase:
-        """
-        Returns a FixtureBlockBase without the RLP bytes set.
-        """
+        """Return FixtureBlockBase without the RLP bytes set."""
         return FixtureBlockBase(
             **self.model_dump(exclude={"rlp"}),
         )
 
 
 class InvalidFixtureBlock(CamelModel):
-    """
-    Representation of an invalid Ethereum block within a test Fixture.
-    """
+    """Representation of an invalid Ethereum block within a test Fixture."""
 
     rlp: Bytes
     expect_exception: ExceptionInstanceOrList
@@ -455,9 +415,7 @@ class InvalidFixtureBlock(CamelModel):
 
 
 class FixtureCommon(BaseFixture):
-    """
-    Base blockchain test fixture model.
-    """
+    """Base blockchain test fixture model."""
 
     fork: str = Field(..., alias="network")
     genesis: FixtureHeader = Field(..., alias="genesisBlockHeader")
@@ -466,16 +424,12 @@ class FixtureCommon(BaseFixture):
     last_block_hash: Hash = Field(..., alias="lastblockhash")  # FIXME: lastBlockHash
 
     def get_fork(self) -> str | None:
-        """
-        Returns the fork of the fixture as a string.
-        """
+        """Return fork of the fixture as a string."""
         return self.fork
 
 
 class Fixture(FixtureCommon):
-    """
-    Cross-client specific blockchain test model use in JSON fixtures.
-    """
+    """Cross-client specific blockchain test model use in JSON fixtures."""
 
     fixture_format_name: ClassVar[str] = "blockchain_test"
     description: ClassVar[str] = "Tests that generate a blockchain test fixture."
@@ -486,14 +440,12 @@ class Fixture(FixtureCommon):
 
 
 class EngineFixture(FixtureCommon):
-    """
-    Engine specific test fixture information.
-    """
+    """Engine specific test fixture information."""
 
     fixture_format_name: ClassVar[str] = "blockchain_test_engine"
-    description: ClassVar[
-        str
-    ] = "Tests that generate a blockchain test fixture in Engine API format."
+    description: ClassVar[str] = (
+        "Tests that generate a blockchain test fixture in Engine API format."
+    )
 
     payloads: List[FixtureEngineNewPayload] = Field(..., alias="engineNewPayloads")
     sync_payload: FixtureEngineNewPayload | None = None
@@ -501,7 +453,7 @@ class EngineFixture(FixtureCommon):
     @classmethod
     def supports_fork(cls, fork: Fork) -> bool:
         """
-        Returns whether the fixture can be generated for the given fork.
+        Return whether the fixture can be generated for the given fork.
 
         The Engine API is available only on Paris and afterwards.
         """

@@ -1,6 +1,4 @@
-"""
-Code generating classes and functions.
-"""
+"""Code generating classes and functions."""
 
 from dataclasses import dataclass
 from typing import List, SupportsBytes
@@ -45,9 +43,9 @@ class Initcode(Bytecode):
     def __new__(
         cls,
         *,
-        deploy_code: SupportsBytes | Bytes = Bytecode(),
+        deploy_code: SupportsBytes | Bytes | None = None,
         initcode_length: int | None = None,
-        initcode_prefix: Bytecode = Bytecode(),
+        initcode_prefix: Bytecode | None = None,
         initcode_prefix_execution_gas: int = 0,
         padding_byte: int = 0x00,
         name: str = "",
@@ -56,6 +54,11 @@ class Initcode(Bytecode):
         Generate legacy initcode that inits a contract with the specified code.
         The initcode can be padded to a specified length for testing purposes.
         """
+        if deploy_code is None:
+            deploy_code = Bytecode()
+        if initcode_prefix is None:
+            initcode_prefix = Bytecode()
+
         initcode = initcode_prefix
         code_length = len(bytes(deploy_code))
         execution_gas = initcode_prefix_execution_gas
@@ -160,9 +163,7 @@ class CodeGasMeasure(Bytecode):
         sstore_key: int = 0,
         stop: bool = True,
     ):
-        """
-        Assemble the bytecode that measures gas usage.
-        """
+        """Assemble the bytecode that measures gas usage."""
         res = Op.GAS + code + Op.GAS
         # We need to swap and pop for each extra stack item that remained from
         # the execution of the code
@@ -188,16 +189,14 @@ class CodeGasMeasure(Bytecode):
 
 
 class Conditional(Bytecode):
-    """
-    Helper class used to generate conditional bytecode.
-    """
+    """Helper class used to generate conditional bytecode."""
 
     def __new__(
         cls,
         *,
         condition: Bytecode | Op,
-        if_true: Bytecode | Op = Bytecode(),
-        if_false: Bytecode | Op = Bytecode(),
+        if_true: Bytecode | Op | None = None,
+        if_false: Bytecode | Op | None = None,
         evm_code_type: EVMCodeType = EVMCodeType.LEGACY,
     ):
         """
@@ -207,6 +206,11 @@ class Conditional(Bytecode):
 
         In the future, PC usage should be replaced by using RJUMP and RJUMPI
         """
+        if if_true is None:
+            if_true = Bytecode()
+        if if_false is None:
+            if_false = Bytecode()
+
         if evm_code_type == EVMCodeType.LEGACY:
             # First we append a jumpdest to the start of the true branch
             if_true = Op.JUMPDEST + if_true
@@ -246,9 +250,7 @@ class Case:
 
     @property
     def is_terminating(self) -> bool:
-        """
-        Returns whether the case is terminating.
-        """
+        """Returns whether the case is terminating."""
         return self.terminating if self.terminating is not None else self.action.terminating
 
 
@@ -265,9 +267,7 @@ class CalldataCase(Case):
     """
 
     def __init__(self, value: int | str | Bytecode, position: int = 0, **kwargs):
-        """
-        Generate the condition base on `value` and `position`.
-        """
+        """Generate the condition base on `value` and `position`."""
         condition = Op.EQ(Op.CALLDATALOAD(position), value)
         super().__init__(condition=condition, **kwargs)
 

@@ -1,6 +1,4 @@
-"""
-Methods to work with the filesystem and json
-"""
+"""Methods to work with the filesystem and json."""
 
 import os
 import stat
@@ -11,17 +9,13 @@ from pydantic import BaseModel, RootModel
 
 
 def write_json_file(data: Dict[str, Any], file_path: str) -> None:
-    """
-    Write a JSON file to the given path.
-    """
+    """Write a JSON file to the given path."""
     with open(file_path, "w") as f:
         dump(data, f, ensure_ascii=False, indent=4)
 
 
 def dump_files_to_directory(output_path: str, files: Dict[str, Any]) -> None:
-    """
-    Dump the files to the given directory.
-    """
+    """Dump the files to the given directory."""
     os.makedirs(output_path, exist_ok=True)
     for file_rel_path_flags, file_contents in files.items():
         file_rel_path, flags = (

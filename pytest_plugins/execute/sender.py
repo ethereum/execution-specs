@@ -1,6 +1,5 @@
-"""
-Sender mutex class that allows sending transactions one at a time.
-"""
+"""Sender mutex class that allows sending transactions one at a time."""
+
 from pathlib import Path
 from typing import Generator, Iterator
 
@@ -14,9 +13,7 @@ from ethereum_test_tools import EOA, Transaction
 
 
 def pytest_addoption(parser):
-    """
-    Adds command-line options to pytest.
-    """
+    """Add command-line options to pytest."""
     sender_group = parser.getgroup(
         "sender",
         "Arguments for the sender key fixtures",
@@ -53,25 +50,19 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope="session")
 def sender_funding_transactions_gas_price(request: pytest.FixtureRequest) -> int:
-    """
-    Get the gas price for the funding transactions.
-    """
+    """Get the gas price for the funding transactions."""
     return request.config.option.sender_funding_transactions_gas_price
 
 
 @pytest.fixture(scope="session")
 def sender_fund_refund_gas_limit(request: pytest.FixtureRequest) -> int:
-    """
-    Get the gas limit of the funding transactions.
-    """
+    """Get the gas limit of the funding transactions."""
     return request.config.option.sender_fund_refund_gas_limit
 
 
 @pytest.fixture(scope="session")
 def seed_account_sweep_amount(request: pytest.FixtureRequest) -> int | None:
-    """
-    Get the seed account sweep amount.
-    """
+    """Get the seed account sweep amount."""
     return request.config.option.seed_account_sweep_amount
 
 
@@ -169,9 +160,9 @@ def sender_key(
     # refund seed sender
     remaining_balance = eth_rpc.get_balance(sender)
     used_balance = sender_key_initial_balance - remaining_balance
-    request.config.stash[metadata_key]["Senders"][
-        str(sender)
-    ] = f"Used balance={used_balance / 10**18:.18f}"
+    request.config.stash[metadata_key]["Senders"][str(sender)] = (
+        f"Used balance={used_balance / 10**18:.18f}"
+    )
 
     refund_gas_limit = sender_fund_refund_gas_limit
     refund_gas_price = sender_funding_transactions_gas_price
@@ -195,7 +186,5 @@ def sender_key(
 
 
 def pytest_sessionstart(session):  # noqa: SC200
-    """
-    Reset the sender info before the session starts.
-    """
+    """Reset the sender info before the session starts."""
     session.config.stash[metadata_key]["Senders"] = {}

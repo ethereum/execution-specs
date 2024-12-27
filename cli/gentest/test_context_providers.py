@@ -1,5 +1,5 @@
 """
-This module contains various providers which generates context required to create test scripts.
+Various providers which generate contexts required to create test scripts.
 
 Classes:
 - Provider: An provider generates required context for creating a test.
@@ -9,6 +9,7 @@ Classes:
 Example:
     provider = BlockchainTestContextProvider(transaction=transaction)
     context = provider.get_context()
+
 """
 
 from abc import ABC, abstractmethod
@@ -24,23 +25,17 @@ from .request_manager import RPCRequest
 
 
 class Provider(ABC, BaseModel):
-    """
-    An provider generates required context for creating a test.
-    """
+    """An provider generates required context for creating a test."""
 
     @abstractmethod
     def get_context(self) -> Dict:
-        """
-        Get the context for generating a test.
-        """
+        """Get the context for generating a test."""
 
     pass
 
 
 class StateTestProvider(Provider):
-    """
-    Provides context required to generate a `state_test` using pytest.
-    """
+    """Provides context required to generate a `state_test` using pytest."""
 
     transaction_hash: Hash
     block: Optional[RPCRequest.RemoteBlock] = None
@@ -73,7 +68,6 @@ class StateTestProvider(Provider):
 
         pre_state: Dict[str, Account] = {}
         for address, account_data in self.state.items():
-
             # TODO: Check if this is required. Ideally,
             # the pre-state tracer should have the correct
             # values without requiring any additional modifications.
@@ -94,6 +88,7 @@ class StateTestProvider(Provider):
         Returns:
             Dict[str, Any]: A dictionary containing environment,
             pre-state, a transaction and its hash.
+
         """
         self._make_rpc_calls()
         return {

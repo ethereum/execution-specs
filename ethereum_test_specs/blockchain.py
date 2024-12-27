@@ -1,6 +1,4 @@
-"""
-Ethereum blockchain test spec definition and filler.
-"""
+"""Ethereum blockchain test spec definition and filler."""
 
 from pprint import pprint
 from typing import Any, Callable, ClassVar, Dict, Generator, List, Optional, Tuple, Type
@@ -49,9 +47,7 @@ from .helpers import is_slow_test, verify_transactions
 
 
 def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
-    """
-    Instantiates a new environment with the provided header as parent.
-    """
+    """Instantiate new environment with the provided header as parent."""
     return Environment(
         parent_difficulty=parent.difficulty,
         parent_timestamp=parent.timestamp,
@@ -66,9 +62,7 @@ def environment_from_parent_header(parent: "FixtureHeader") -> "Environment":
 
 
 def apply_new_parent(env: Environment, new_parent: FixtureHeader) -> "Environment":
-    """
-    Applies a header as parent to a copy of this environment.
-    """
+    """Apply header as parent to a copy of this environment."""
     updated: Dict[str, Any] = {}
     updated["parent_difficulty"] = new_parent.difficulty
     updated["parent_timestamp"] = new_parent.timestamp
@@ -85,18 +79,14 @@ def apply_new_parent(env: Environment, new_parent: FixtureHeader) -> "Environmen
 
 
 def count_blobs(txs: List[Transaction]) -> int:
-    """
-    Returns the number of blobs in a list of transactions.
-    """
+    """Return number of blobs in a list of transactions."""
     return sum(
         [len(tx.blob_versioned_hashes) for tx in txs if tx.blob_versioned_hashes is not None]
     )
 
 
 class Header(CamelModel):
-    """
-    Header type used to describe block header properties in test specs.
-    """
+    """Header type used to describe block header properties in test specs."""
 
     parent_hash: Hash | None = None
     ommers_hash: Hash | None = None
@@ -156,17 +146,13 @@ class Header(CamelModel):
     @field_validator("withdrawals_root", mode="before")
     @classmethod
     def validate_withdrawals_root(cls, value):
-        """
-        Helper validator to convert a list of withdrawals into the withdrawals root hash.
-        """
+        """Convert a list of withdrawals into the withdrawals root hash."""
         if isinstance(value, list):
             return Withdrawal.list_root(value)
         return value
 
     def apply(self, target: FixtureHeader) -> FixtureHeader:
-        """
-        Produces a fixture header copy with the set values from the modifier.
-        """
+        """Produce a fixture header copy with the set values from the modifier."""
         return target.copy(
             **{
                 k: (v if v is not Header.REMOVE_FIELD else None)
@@ -175,9 +161,7 @@ class Header(CamelModel):
         )
 
     def verify(self, target: FixtureHeader):
-        """
-        Verifies that the header fields from self are as expected.
-        """
+        """Verify that the header fields from self are as expected."""
         for field_name in self.model_fields:
             baseline_value = getattr(self, field_name)
             if baseline_value is not None:
@@ -195,9 +179,7 @@ class Header(CamelModel):
 
 
 class Block(Header):
-    """
-    Block type used to describe block properties in test specs
-    """
+    """Block type used to describe block properties in test specs."""
 
     rlp: Bytes | None = None
     """
@@ -245,7 +227,7 @@ class Block(Header):
 
     def set_environment(self, env: Environment) -> Environment:
         """
-        Creates a copy of the environment with the characteristics of this
+        Create copy of the environment with the characteristics of this
         specific block.
         """
         new_env_values: Dict[str, Any] = {}
@@ -295,9 +277,7 @@ class Block(Header):
 
 
 class BlockchainTest(BaseTest):
-    """
-    Filler type that tests multiple blocks (valid or invalid) in a chain.
-    """
+    """Filler type that tests multiple blocks (valid or invalid) in a chain."""
 
     pre: Alloc
     post: Alloc
@@ -318,9 +298,7 @@ class BlockchainTest(BaseTest):
         self,
         fork: Fork,
     ) -> Tuple[Alloc, FixtureBlock]:
-        """
-        Create a genesis block from the blockchain test definition.
-        """
+        """Create a genesis block from the blockchain test definition."""
         env = self.genesis_environment.set_fork_requirements(fork)
         assert (
             env.withdrawals is None or len(env.withdrawals) == 0
@@ -386,9 +364,7 @@ class BlockchainTest(BaseTest):
         eips: Optional[List[int]] = None,
         slow: bool = False,
     ) -> Tuple[FixtureHeader, List[Transaction], List[Bytes] | None, Alloc, Environment]:
-        """
-        Generate common block data for both make_fixture and make_hive_fixture.
-        """
+        """Generate common block data for both make_fixture and make_hive_fixture."""
         if block.rlp and block.exception is not None:
             raise Exception(
                 "test correctness: post-state cannot be verified if the "
@@ -506,9 +482,7 @@ class BlockchainTest(BaseTest):
         )
 
     def network_info(self, fork: Fork, eips: Optional[List[int]] = None):
-        """
-        Returns fixture network information for the fork & EIP/s.
-        """
+        """Return fixture network information for the fork & EIP/s."""
         return (
             "+".join([fork.blockchain_test_network_name()] + [str(eip) for eip in eips])
             if eips
@@ -516,9 +490,7 @@ class BlockchainTest(BaseTest):
         )
 
     def verify_post_state(self, t8n, alloc: Alloc):
-        """
-        Verifies the post alloc after all block/s or payload/s are generated.
-        """
+        """Verify post alloc after all block/s or payload/s are generated."""
         try:
             self.post.verify_post_alloc(alloc)
         except Exception as e:
@@ -532,9 +504,7 @@ class BlockchainTest(BaseTest):
         eips: Optional[List[int]] = None,
         slow: bool = False,
     ) -> Fixture:
-        """
-        Create a fixture from the blockchain test definition.
-        """
+        """Create a fixture from the blockchain test definition."""
         fixture_blocks: List[FixtureBlock | InvalidFixtureBlock] = []
 
         pre, genesis = self.make_genesis(fork)
@@ -616,9 +586,7 @@ class BlockchainTest(BaseTest):
         eips: Optional[List[int]] = None,
         slow: bool = False,
     ) -> EngineFixture:
-        """
-        Create a hive fixture from the blocktest definition.
-        """
+        """Create a hive fixture from the blocktest definition."""
         fixture_payloads: List[FixtureEngineNewPayload] = []
 
         pre, genesis = self.make_genesis(fork)
@@ -707,9 +675,7 @@ class BlockchainTest(BaseTest):
         fixture_format: FixtureFormat,
         eips: Optional[List[int]] = None,
     ) -> BaseFixture:
-        """
-        Generate the BlockchainTest fixture.
-        """
+        """Generate the BlockchainTest fixture."""
         t8n.reset_traces()
         if fixture_format == BlockchainEngineFixture:
             return self.make_hive_fixture(t8n, fork, eips, slow=is_slow_test(request))
@@ -725,9 +691,7 @@ class BlockchainTest(BaseTest):
         execute_format: ExecuteFormat,
         eips: Optional[List[int]] = None,
     ) -> BaseExecute:
-        """
-        Generate the list of test fixtures.
-        """
+        """Generate the list of test fixtures."""
         if execute_format == TransactionPost:
             txs: List[Transaction] = []
             for block in self.blocks:
@@ -745,7 +709,8 @@ BlockchainTestFiller = Type[BlockchainTest]
 
 class BlockchainTestEngine(BlockchainTest):
     """
-    Filler type that tests multiple blocks (valid or invalid) in a chain, only for the Engine API.
+    Filler type that tests multiple blocks (valid or invalid) in a chain,
+    only for the Engine API.
     """
 
     supported_fixture_formats: ClassVar[List[FixtureFormat]] = [

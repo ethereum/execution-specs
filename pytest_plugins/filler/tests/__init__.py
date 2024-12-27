@@ -1,3 +1,1 @@
-"""
-Filler tests.
-"""
+"""Filler tests."""

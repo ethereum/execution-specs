@@ -1,3 +1,1 @@
-"""
-Tests for the forks plugin.
-"""
+"""Tests for the forks plugin."""

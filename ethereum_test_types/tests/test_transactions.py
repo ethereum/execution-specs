@@ -1,6 +1,4 @@
-"""
-Test suite for transaction signing and serialization.
-"""
+"""Test suite for transaction signing and serialization."""
 
 from typing import Tuple
 
@@ -250,9 +248,7 @@ def test_transaction_signing(
     expected_sender: str,
     expected_serialized: str,
 ):
-    """
-    Test that transaction signing / serialization works as expected.
-    """
+    """Test that transaction signing / serialization works as expected."""
     tx = tx.with_signature_and_sender()
     signature = (tx.v, tx.r, tx.s)
     assert signature is not None

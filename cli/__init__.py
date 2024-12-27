@@ -1,3 +1,1 @@
-"""
-Ethereum execution spec tests command-line tools.
-"""
+"""Ethereum execution spec tests command-line tools."""

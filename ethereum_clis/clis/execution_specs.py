@@ -4,10 +4,10 @@ Ethereum Specs EVM Resolver Transition Tool Interface.
 https://github.com/petertdavies/ethereum-spec-evm-resolver
 """
 
+import re
 import subprocess
 import time
 from pathlib import Path
-from re import compile
 from tempfile import TemporaryDirectory
 from typing import Dict, List, Optional
 
@@ -42,7 +42,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
     """
 
     default_binary = Path("ethereum-spec-evm-resolver")
-    detect_binary_pattern = compile(r"^ethereum-spec-evm-resolver\b")
+    detect_binary_pattern = re.compile(r"^ethereum-spec-evm-resolver\b")
     t8n_use_server: bool = True
     server_dir: Optional[TemporaryDirectory] = None
 
@@ -52,6 +52,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
         binary: Optional[Path] = None,
         trace: bool = False,
     ):
+        """Initialize the Ethereum Specs EVM Resolver Transition Tool interface."""
         super().__init__(
             exception_mapper=ExecutionSpecsExceptionMapper(), binary=binary, trace=trace
         )
@@ -62,14 +63,17 @@ class ExecutionSpecsTransitionTool(TransitionTool):
             raise Exception(
                 "ethereum-spec-evm-resolver process unexpectedly returned a non-zero status code: "
                 f"{e}."
-            )
+            ) from e
         except Exception as e:
-            raise Exception(f"Unexpected exception calling ethereum-spec-evm-resolver: {e}.")
+            raise Exception(
+                f"Unexpected exception calling ethereum-spec-evm-resolver: {e}."
+            ) from e
         self.help_string = result.stdout
 
     def start_server(self):
         """
-        Starts the t8n-server process, extracts the port, and leaves it running for future re-use.
+        Start the t8n-server process, extract the port, and leave it running
+        for future re-use.
         """
         self.server_dir = TemporaryDirectory()
         self.server_file_path = Path(self.server_dir.name) / "t8n.sock"
@@ -92,9 +96,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
             time.sleep(0)  # yield to other processes
 
     def shutdown(self):
-        """
-        Stops the t8n-server process if it was started.
-        """
+        """Stop the t8n-server process if it was started."""
         if self.process:
             self.process.terminate()
         if self.server_dir:
@@ -103,7 +105,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
 
     def is_fork_supported(self, fork: Fork) -> bool:
         """
-        Returns True if the fork is supported by the tool.
+        Return True if the fork is supported by the tool.
 
         If the fork is a transition fork, we want to check the fork it transitions to.
 
@@ -123,9 +125,7 @@ class ExecutionSpecsTransitionTool(TransitionTool):
 
 
 class ExecutionSpecsExceptionMapper(ExceptionMapper):
-    """
-    Translate between EEST exceptions and error strings returned by execution specs t8n.
-    """
+    """Translate between EEST exceptions and error strings returned by ExecutionSpecs."""
 
     @property
     def _mapping_data(self):

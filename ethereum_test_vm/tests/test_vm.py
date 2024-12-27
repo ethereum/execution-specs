@@ -1,6 +1,4 @@
-"""
-Test suite for `ethereum_test_vm` module.
-"""
+"""Test suite for `ethereum_test_vm` module."""
 
 import pytest
 
@@ -18,14 +16,14 @@ from ..opcode import Opcodes as Op
         pytest.param(Op.PUSH1[0x01], b"\x60\x01", id="PUSH1[0x01]"),
         pytest.param(Op.PUSH1("0x01"), b"\x60\x01", id="PUSH1('0x01')"),
         pytest.param(Op.PUSH1["0x01"], b"\x60\x01", id="PUSH1['0x01']"),
-        pytest.param(Op.PUSH1(0xFF), b"\x60\xFF", id="PUSH1(0xFF)"),
-        pytest.param(Op.PUSH1(-1), b"\x60\xFF", id="PUSH1(-1)"),
-        pytest.param(Op.PUSH1[-1], b"\x60\xFF", id="PUSH1[-1]"),
-        pytest.param(Op.PUSH1(-2), b"\x60\xFE", id="PUSH1(-2)"),
+        pytest.param(Op.PUSH1(0xFF), b"\x60\xff", id="PUSH1(0xFF)"),
+        pytest.param(Op.PUSH1(-1), b"\x60\xff", id="PUSH1(-1)"),
+        pytest.param(Op.PUSH1[-1], b"\x60\xff", id="PUSH1[-1]"),
+        pytest.param(Op.PUSH1(-2), b"\x60\xfe", id="PUSH1(-2)"),
         pytest.param(Op.PUSH20(0x01), b"\x73" + b"\x00" * 19 + b"\x01", id="PUSH20(0x01)"),
         pytest.param(Op.PUSH20[0x01], b"\x73" + b"\x00" * 19 + b"\x01", id="PUSH20[0x01]"),
-        pytest.param(Op.PUSH32(0xFF), b"\x7F" + b"\x00" * 31 + b"\xFF", id="PUSH32(0xFF)"),
-        pytest.param(Op.PUSH32(-1), b"\x7F" + b"\xFF" * 32, id="PUSH32(-1)"),
+        pytest.param(Op.PUSH32(0xFF), b"\x7f" + b"\x00" * 31 + b"\xff", id="PUSH32(0xFF)"),
+        pytest.param(Op.PUSH32(-1), b"\x7f" + b"\xff" * 32, id="PUSH32(-1)"),
         pytest.param(
             sum(Op.PUSH1(i) for i in range(0x2)),
             b"\x60\x00\x60\x01",
@@ -75,12 +73,12 @@ from ..opcode import Opcodes as Op
         pytest.param(
             Op.CALL(Op.GAS, Op.PUSH20(0x1234), 0, 0, 0, 0, 32),
             b"\x60\x20\x60\x00\x60\x00\x60\x00\x60\x00\x73\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-            + b"\x00\x00\x00\x00\x00\x00\x00\x00\x12\x34\x5A\xF1",
+            + b"\x00\x00\x00\x00\x00\x00\x00\x00\x12\x34\x5a\xf1",
             id="CALL(GAS, PUSH20(0x1234), 0, 0, 0, 0, 32)",
         ),
         pytest.param(
             Op.CALL(Op.GAS, Address(0x1234), 0, 0, 0, 0, 32),
-            b"\x60\x20\x60\x00\x60\x00\x60\x00\x60\x00\x61\x12\x34\x5A\xF1",
+            b"\x60\x20\x60\x00\x60\x00\x60\x00\x60\x00\x61\x12\x34\x5a\xf1",
             id="CALL(GAS, Address(0x1234), 0, 0, 0, 0, 32)",
         ),
         pytest.param(Op.ADD(1, 2), bytes([0x60, 0x02, 0x60, 0x01, 0x01]), id="ADD(1, 2)"),
@@ -215,7 +213,7 @@ from ..opcode import Opcodes as Op
         ),
         pytest.param(Op.RJUMPV[2, 0], bytes.fromhex("e20100020000"), id="RJUMPV[2, 0]"),
         pytest.param(
-            Op.RJUMPV[b"\x02\x00\x02\xFF\xFF"],
+            Op.RJUMPV[b"\x02\x00\x02\xff\xff"],
             bytes.fromhex("e2020002ffff"),
             id="RJUMPV[b'\\x02\\x00\\x02\\xFF\\xFF']",
         ),
@@ -252,37 +250,37 @@ from ..opcode import Opcodes as Op
         ),
         pytest.param(
             Op.CALL(address=1),
-            b"\x60\x00\x60\x00\x60\x00\x60\x00\x60\x00\x60\x01\x5A\xF1",
+            b"\x60\x00\x60\x00\x60\x00\x60\x00\x60\x00\x60\x01\x5a\xf1",
             id="Op.CALL(address=1)",
         ),
         pytest.param(
             Op.STATICCALL(address=1),
-            b"\x60\x00\x60\x00\x60\x00\x60\x00\x60\x01\x5A\xFA",
+            b"\x60\x00\x60\x00\x60\x00\x60\x00\x60\x01\x5a\xfa",
             id="Op.STATICCALL(address=1)",
         ),
         pytest.param(
             Op.CALLCODE(address=1),
-            b"\x60\x00\x60\x00\x60\x00\x60\x00\x60\x00\x60\x01\x5A\xF2",
+            b"\x60\x00\x60\x00\x60\x00\x60\x00\x60\x00\x60\x01\x5a\xf2",
             id="Op.CALLCODE(address=1)",
         ),
         pytest.param(
             Op.DELEGATECALL(address=1),
-            b"\x60\x00\x60\x00\x60\x00\x60\x00\x60\x01\x5A\xF4",
+            b"\x60\x00\x60\x00\x60\x00\x60\x00\x60\x01\x5a\xf4",
             id="Op.DELEGATECALL(address=1)",
         ),
         pytest.param(
             Op.EXTCALL(address=1),
-            b"\x60\x00\x60\x00\x60\x00\x60\x01\xF8",
+            b"\x60\x00\x60\x00\x60\x00\x60\x01\xf8",
             id="Op.EXTCALL(address=1)",
         ),
         pytest.param(
             Op.EXTSTATICCALL(address=1),
-            b"\x60\x00\x60\x00\x60\x01\xFB",
+            b"\x60\x00\x60\x00\x60\x01\xfb",
             id="Op.EXTSTATICCALL(address=1)",
         ),
         pytest.param(
             Op.EXTDELEGATECALL(address=1),
-            b"\x60\x00\x60\x00\x60\x01\xF9",
+            b"\x60\x00\x60\x00\x60\x01\xf9",
             id="Op.EXTDELEGATECALL(address=1)",
         ),
         pytest.param(
@@ -331,16 +329,12 @@ from ..opcode import Opcodes as Op
     ],
 )
 def test_opcodes(opcodes: bytes, expected: bytes):
-    """
-    Test that the `opcodes` are transformed into bytecode as expected.
-    """
+    """Test that the `opcodes` are transformed into bytecode as expected."""
     assert bytes(opcodes) == expected
 
 
 def test_opcodes_repr():
-    """
-    Test that the `repr` of an `Op` is the same as its name.
-    """
+    """Test that the `repr` of an `Op` is the same as its name."""
     assert f"{Op.CALL}" == "CALL"
     assert f"{Op.DELEGATECALL}" == "DELEGATECALL"
     assert f"{Om.OOG}" == "OOG"
@@ -350,9 +344,7 @@ def test_opcodes_repr():
 
 
 def test_macros():
-    """
-    Test opcode and macros interaction
-    """
+    """Test opcode and macros interaction."""
     assert (Op.PUSH1(1) + Om.OOG) == (Op.PUSH1(1) + Op.SHA3(0, 100000000000))
     for opcode in Op:
         assert opcode != Om.OOG
@@ -407,9 +399,7 @@ def test_bytecode_properties(
     expected_max_stack_height: int,
     expected_min_stack_height: int,
 ):
-    """
-    Test that the properties of the bytecode are as expected.
-    """
+    """Test that the properties of the bytecode are as expected."""
     assert bytecode.popped_stack_items == expected_popped_items, "Popped stack items mismatch"
     assert bytecode.pushed_stack_items == expected_pushed_items, "Pushed stack items mismatch"
     assert bytecode.max_stack_height == expected_max_stack_height, "Max stack height mismatch"
@@ -417,9 +407,7 @@ def test_bytecode_properties(
 
 
 def test_opcode_comparison():
-    """
-    Test that the opcodes are comparable.
-    """
+    """Test that the opcodes are comparable."""
     assert Op.STOP < Op.ADD
     assert Op.ADD == Op.ADD
     assert Op.ADD != Op.STOP

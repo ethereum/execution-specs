@@ -1,6 +1,4 @@
-"""
-An abstract base class for handling interactive CLI inputs.
-"""
+"""An abstract base class for handling interactive CLI inputs."""
 
 from abc import ABC, abstractmethod
 from typing import List

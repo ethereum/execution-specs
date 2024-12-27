@@ -1,6 +1,4 @@
-"""
-Pytest plugin to enable fork range configuration for the test session.
-"""
+"""Pytest plugin to enable fork range configuration for the test session."""
 
 import itertools
 import sys
@@ -28,9 +26,7 @@ from ethereum_test_forks import (
 
 
 def pytest_addoption(parser):
-    """
-    Adds command-line options to pytest.
-    """
+    """Add command-line options to pytest."""
     fork_group = parser.getgroup("Forks", "Specify the fork range to generate fixtures for")
     fork_group.addoption(
         "--forks",
@@ -76,9 +72,7 @@ class MarkedValue:
 
 @dataclass(kw_only=True)
 class ForkCovariantParameter:
-    """
-    Value list for a fork covariant parameter in a given fork.
-    """
+    """Value list for a fork covariant parameter in a given fork."""
 
     names: List[str]
     values: List[List[MarkedValue]]
@@ -86,9 +80,7 @@ class ForkCovariantParameter:
 
 @dataclass(kw_only=True)
 class ForkParametrizer:
-    """
-    A parametrizer for a test case that is parametrized by the fork.
-    """
+    """A parametrizer for a test case that is parametrized by the fork."""
 
     fork: Fork
     fork_covariant_parameters: List[ForkCovariantParameter] = field(default_factory=list)
@@ -96,9 +88,7 @@ class ForkParametrizer:
 
     @property
     def parameter_names(self) -> List[str]:
-        """
-        Return the parameter names for the test case.
-        """
+        """Return the parameter names for the test case."""
         parameter_names = ["fork"]
         for p in self.fork_covariant_parameters:
             parameter_names.extend(p.names)
@@ -106,9 +96,7 @@ class ForkParametrizer:
 
     @property
     def parameter_values(self) -> List[ParameterSet]:
-        """
-        Return the parameter values for the test case.
-        """
+        """Return the parameter values for the test case."""
         param_value_combinations = [
             # Flatten the list of values for each parameter
             list(itertools.chain(*params))
@@ -148,9 +136,7 @@ class CovariantDescriptor:
     parameter_names: List[str]
 
     def get_marker(self, metafunc: Metafunc) -> pytest.Mark | None:
-        """
-        Get the marker for the given test function.
-        """
+        """Get the marker for the given test function."""
         m = metafunc.definition.iter_markers(self.marker_name)
         if m is None:
             return None
@@ -161,9 +147,7 @@ class CovariantDescriptor:
         return marker_list[0]
 
     def check_enabled(self, metafunc: Metafunc) -> bool:
-        """
-        Check if the marker is enabled for the given test function.
-        """
+        """Check if the marker is enabled for the given test function."""
         return self.get_marker(metafunc) is not None
 
     @staticmethod
@@ -228,9 +212,7 @@ class CovariantDescriptor:
         return processed_values
 
     def add_values(self, metafunc: Metafunc, fork_parametrizer: ForkParametrizer) -> None:
-        """
-        Add the values for the covariant parameter to the parametrizer.
-        """
+        """Add the values for the covariant parameter to the parametrizer."""
         if not self.check_enabled(metafunc=metafunc):
             return
         fork = fork_parametrizer.fork
@@ -324,9 +306,9 @@ def pytest_configure(config: pytest.Config):
     for d in fork_covariant_descriptors:
         config.addinivalue_line("markers", f"{d.marker_name}: {d.description}")
 
-    forks = set([fork for fork in get_forks() if not fork.ignore()])
+    forks = {fork for fork in get_forks() if not fork.ignore()}
     config.forks = forks  # type: ignore
-    config.fork_names = set([fork.name() for fork in sorted(list(forks))])  # type: ignore
+    config.fork_names = {fork.name() for fork in sorted(forks)}  # type: ignore
     config.forks_by_name = {fork.name(): fork for fork in forks}  # type: ignore
 
     available_forks_help = textwrap.dedent(
@@ -432,7 +414,7 @@ def pytest_configure(config: pytest.Config):
 
 @pytest.hookimpl(trylast=True)
 def pytest_report_header(config, start_path):
-    """A pytest hook called to obtain the report header."""
+    """Pytest hook called to obtain the report header."""
     bold = "\033[1m"
     warning = "\033[93m"
     reset = "\033[39;49m"
@@ -440,7 +422,7 @@ def pytest_report_header(config, start_path):
         (
             bold
             + "Generating fixtures for: "
-            + ", ".join([f.name() for f in sorted(list(config.fork_set))])
+            + ", ".join([f.name() for f in sorted(config.fork_set)])
             + reset
         ),
     ]
@@ -457,9 +439,7 @@ def pytest_report_header(config, start_path):
 
 @pytest.fixture(autouse=True)
 def fork(request):
-    """
-    Parametrize test cases by fork.
-    """
+    """Parametrize test cases by fork."""
     pass
 
 
@@ -468,7 +448,8 @@ def get_validity_marker_args(
     validity_marker_name: str,
     test_name: str,
 ) -> Set[Fork]:
-    """Check and return the arguments specified to validity markers.
+    """
+    Check and return the arguments specified to validity markers.
 
     Check that the validity markers:
 
@@ -488,10 +469,9 @@ def get_validity_marker_args(
 
     Returns:
         The name of the fork specified to the validity marker.
+
     """
-    validity_markers = [
-        marker for marker in metafunc.definition.iter_markers(validity_marker_name)
-    ]
+    validity_markers = list(metafunc.definition.iter_markers(validity_marker_name))
     if not validity_markers:
         return set()
     if len(validity_markers) > 1:
@@ -520,9 +500,7 @@ def get_validity_marker_args(
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc):
-    """
-    Pytest hook used to dynamically generate test cases.
-    """
+    """Pytest hook used to dynamically generate test cases."""
     test_name = metafunc.function.__name__
     valid_at_transition_to = get_validity_marker_args(
         metafunc, "valid_at_transition_to", test_name
@@ -603,10 +581,10 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
                             )
                         ],
                     )
-                    if fork in sorted(list(unsupported_forks))
+                    if fork in sorted(unsupported_forks)
                     else ForkParametrizer(fork=fork)
                 )
-                for fork in sorted(list(intersection_set))
+                for fork in sorted(intersection_set)
             ]
             add_fork_covariant_parameters(metafunc, pytest_params)
             parametrize_fork(metafunc, pytest_params)
@@ -615,9 +593,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc):
 def add_fork_covariant_parameters(
     metafunc: Metafunc, fork_parametrizers: List[ForkParametrizer]
 ) -> None:
-    """
-    Iterate over the fork covariant descriptors and add their values to the test function.
-    """
+    """Iterate over the fork covariant descriptors and add their values to the test function."""
     for covariant_descriptor in fork_covariant_descriptors:
         for fork_parametrizer in fork_parametrizers:
             covariant_descriptor.add_values(metafunc=metafunc, fork_parametrizer=fork_parametrizer)
@@ -626,9 +602,7 @@ def add_fork_covariant_parameters(
 def parameters_from_fork_parametrizer_list(
     fork_parametrizers: List[ForkParametrizer],
 ) -> Tuple[List[str], List[ParameterSet]]:
-    """
-    Get the parameters from the fork parametrizers.
-    """
+    """Get the parameters from the fork parametrizers."""
     param_names: List[str] = []
     param_values: List[ParameterSet] = []
 
@@ -667,9 +641,7 @@ def parameters_from_fork_parametrizer_list(
 
 
 def parametrize_fork(metafunc: Metafunc, fork_parametrizers: List[ForkParametrizer]) -> None:
-    """
-    Add the fork parameters to the test function.
-    """
+    """Add the fork parameters to the test function."""
     metafunc.parametrize(
         *parameters_from_fork_parametrizer_list(fork_parametrizers), scope="function"
     )

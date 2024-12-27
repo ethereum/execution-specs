@@ -5,7 +5,7 @@ It generates the top-level "Test Case Reference" section in EEST's mkdocs
 site.
 
 Note:
------
+----
 - No output directory is specified for the generated output; file IO occurs
     via the `mkdocs-gen-files` plugin. `mkdocs serve` writes intermediate files
     to our local `docs/` directory and then copies it to the site directory.
@@ -36,6 +36,7 @@ Or to build and view the site:
 ```console
 uv run mkdocs serve
 ```
+
 """
 
 import glob
@@ -109,23 +110,17 @@ def pytest_configure(config):  # noqa: D103
 
 
 def get_test_function_id(item: Item) -> str:
-    """
-    Get the test function's ID from the item.
-    """
+    """Get the test function's ID from the item."""
     return item.nodeid.split("[")[0]
 
 
 def get_test_function_name(item: Item) -> str:
-    """
-    Get the test function's name from the item.
-    """
+    """Get the test function's name from the item."""
     return item.name.split("[")[0]
 
 
 def get_test_case_id(item: Item) -> str:
-    """
-    Get the test case's ID from the item.
-    """
+    """Get the test case's ID from the item."""
     return item.nodeid.split("[")[-1].rstrip("]")
 
 
@@ -166,9 +161,7 @@ def get_import_path(path: Path) -> str:
 
 
 def create_github_issue_url(title: str) -> str:
-    """
-    Create a GitHub issue URL for the given title.
-    """
+    """Create a GitHub issue URL for the given title."""
     url_base = "https://github.com/ethereum/execution-spec-tests/issues/new?"
     title = title.replace(" ", "%20")
     labels = "scope:docs,type:bug"
@@ -177,7 +170,7 @@ def create_github_issue_url(title: str) -> str:
 
 def get_docstring_one_liner(item: pytest.Item) -> str:
     """
-    Extracts either the first 100 characters or the first line of the docstring
+    Extract either the first 100 characters or the first line of the docstring
     from the function associated with the given pytest.Item.
     """
     item = cast(pytest.Function, item)  # help mypy infer type
@@ -224,9 +217,7 @@ def get_docstring_one_liner(item: pytest.Item) -> str:
 
 
 def get_test_function_test_type(item: pytest.Item) -> str:
-    """
-    Get the test type for the test function based on its fixtures.
-    """
+    """Get the test type for the test function based on its fixtures."""
     test_types: List[str] = [spec_type.pytest_parameter_name() for spec_type in SPEC_TYPES]
     item = cast(pytest.Function, item)  # help mypy infer type
     fixture_names = item.fixturenames
@@ -238,11 +229,10 @@ def get_test_function_test_type(item: pytest.Item) -> str:
 
 
 class TestDocsGenerator:
-    """
-    Pytest plugin class for generating test case documentation.
-    """
+    """Pytest plugin class for generating test case documentation."""
 
     def __init__(self, config) -> None:
+        """Initialize the plugin with the given pytest config."""
         self.config = config
         self.target_fork: str = config.getoption("gen_docs_target_fork")
         self.deployed_forks = [fork.name() for fork in get_forks() if fork.is_deployed()]
@@ -263,9 +253,7 @@ class TestDocsGenerator:
 
     @pytest.hookimpl(hookwrapper=True, trylast=True)
     def pytest_collection_modifyitems(self, session, config, items):
-        """
-        Generate html doc for each test item that pytest has collected.
-        """
+        """Generate html doc for each test item that pytest has collected."""
         yield
 
         self.add_global_page_props_to_env()
@@ -290,21 +278,17 @@ class TestDocsGenerator:
 
     @pytest.hookimpl(tryfirst=True)
     def pytest_runtestloop(self, session):
-        """
-        Skip test execution, only generate docs.
-        """
+        """Skip test execution, only generate docs."""
         session.testscollected = 0
         return True
 
     def pytest_terminal_summary(self, terminalreporter, exitstatus, config):
-        """
-        Add a summary line for the docs.
-        """
+        """Add a summary line for the docs."""
         terminalreporter.write_sep("=", f"{len(self.page_props)} doc pages generated", bold=True)
 
     def _setup_logger(self):
         """
-        Configures the mkdocs logger and adds a StreamHandler if outside mkdocs.
+        Configure the mkdocs logger and adds a StreamHandler if outside mkdocs.
 
         We use the mkdocs logger to report warnings if conditions are invalid -
         this will inform the user and fail the build with `mkdocs build --strict`.
@@ -317,7 +301,7 @@ class TestDocsGenerator:
 
     def get_doc_site_base_url(self) -> str:
         """
-        Returns the site's base in its URL for inclusion of local files.
+        Return site's base in its URL for inclusion of local files.
 
             This is required in order to include docs/javascripts/site.js, for
         example, in the standalone html pages.
@@ -350,21 +334,19 @@ class TestDocsGenerator:
         return "/execution-spec-tests/"
 
     def add_global_page_props_to_env(self):
-        """
-        Populate global page properties used in j2 templates.
-        """
-        global_page_props = dict(
-            target_fork=self.target_fork,
-            base_url=self.get_doc_site_base_url(),
-            deployed_forks=self.deployed_forks,
-            short_git_ref=get_current_commit_hash_or_tag(shorten_hash=True),
-        )
+        """Populate global page properties used in j2 templates."""
+        global_page_props = {
+            "target_fork": self.target_fork,
+            "base_url": self.get_doc_site_base_url(),
+            "deployed_forks": self.deployed_forks,
+            "short_git_ref": get_current_commit_hash_or_tag(shorten_hash=True),
+        }
 
         self.jinja2_env.globals.update(global_page_props)
 
     def create_function_page_props(self, test_functions: Dict["str", List[Item]]) -> None:
         """
-        Traverse all test items and create a lookup of doc pages & required props
+        Traverse all test items and create a lookup of doc pages & required props.
 
         To do: Needs refactor.
         """
@@ -402,7 +384,7 @@ class TestDocsGenerator:
                             abbreviated_id=item.nodeid.split("[")[-1].rstrip("]"),
                             fork=fork,
                             fixture_type=fixture_type,
-                            params=dict(zip(keys, values)),
+                            params=dict(zip(keys, values, strict=False)),
                         )
                     )
 
@@ -442,7 +424,7 @@ class TestDocsGenerator:
                 package_name=get_test_function_import_path(items[0]),
                 test_case_count=test_case_count,
                 cases=test_cases,
-                fixture_formats=sorted(set(case.fixture_type for case in test_cases)),
+                fixture_formats=sorted({case.fixture_type for case in test_cases}),
                 test_type=test_type,
                 docstring_one_liner=get_docstring_one_liner(items[0]),
                 html_static_page_target=f"./{get_test_function_name(items[0])}.html",
@@ -450,10 +432,8 @@ class TestDocsGenerator:
             )
 
     def create_module_page_props(self) -> None:
-        """
-        Discover the test module doc pages and extract their properties.
-        """
-        for function_id, function_page in self.function_page_props.items():
+        """Discover the test module doc pages and extract their properties."""
+        for _function_id, function_page in self.function_page_props.items():
             if str(function_page.path) not in self.module_page_props:
                 module_path = function_page.path
                 self.module_page_props[str(function_page.path)] = ModulePageProps(
@@ -518,7 +498,7 @@ class TestDocsGenerator:
 
     def find_files_within_collection_scope(self, file_pattern: str) -> List[Path]:
         """
-        Find all files that match the scope of the collected test modules
+        Find all files that match the scope of the collected test modules.
 
         This to avoid adding matching files in uncollected test directories.
 
@@ -536,9 +516,7 @@ class TestDocsGenerator:
         return [Path(file) for file in set(files)]
 
     def add_spec_page_props(self) -> None:
-        """
-        Add page path properties for spec files discovered in the collection scope.
-        """
+        """Add page path properties for spec files discovered in the collection scope."""
         for spec_path in self.find_files_within_collection_scope("spec.py"):
             self.page_props[str(spec_path)] = ModulePageProps(
                 title="Spec",
@@ -551,9 +529,7 @@ class TestDocsGenerator:
             )
 
     def add_markdown_page_props(self) -> None:
-        """
-        Add page path properties for markdown files discovered in the collection scope.
-        """
+        """Add page path properties for markdown files discovered in the collection scope."""
         for md_path in self.find_files_within_collection_scope("*.md"):
             self.page_props[str(md_path)] = MarkdownPageProps(
                 title=md_path.stem,
@@ -565,9 +541,7 @@ class TestDocsGenerator:
             )
 
     def update_mkdocs_nav(self) -> None:
-        """
-        Add the generated 'Test Case Reference' entries to the mkdocs navigation menu.
-        """
+        """Add the generated 'Test Case Reference' entries to the mkdocs navigation menu."""
         fork_order = {fork.name().lower(): i for i, fork in enumerate(reversed(get_forks()))}
 
         def sort_by_fork_deployment_and_path(x: PageProps) -> Tuple[Any, ...]:
@@ -610,8 +584,6 @@ class TestDocsGenerator:
             nav_file.writelines(nav.build_literate_nav())
 
     def write_pages(self) -> None:
-        """
-        Write all pages to the target directory.
-        """
+        """Write all pages to the target directory."""
         for page in self.page_props.values():
             page.write_page(self.jinja2_env)

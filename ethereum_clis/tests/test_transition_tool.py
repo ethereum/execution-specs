@@ -1,6 +1,4 @@
-"""
-Test the transition tool and subclasses.
-"""
+"""Test the transition tool and subclasses."""
 
 import shutil
 import subprocess
@@ -10,7 +8,7 @@ from typing import Type
 import pytest
 
 from ethereum_clis import (
-    CLINotFoundInPath,
+    CLINotFoundInPathError,
     EvmOneTransitionTool,
     ExecutionSpecsTransitionTool,
     GethTransitionTool,
@@ -20,9 +18,7 @@ from ethereum_clis import (
 
 
 def test_default_tool():
-    """
-    Tests that the default t8n tool is set.
-    """
+    """Tests that the default t8n tool is set."""
     assert TransitionTool.default_tool is ExecutionSpecsTransitionTool
 
 
@@ -62,9 +58,7 @@ def test_from_binary(
     read_result: str,
     expected_class: Type[TransitionTool],
 ):
-    """
-    Test that `from_binary` instantiates the correct subclass.
-    """
+    """Test that `from_binary` instantiates the correct subclass."""
 
     class MockCompletedProcess:
         def __init__(self, stdout):
@@ -86,8 +80,8 @@ def test_from_binary(
 
 def test_unknown_binary_path():
     """
-    Test that `from_binary_path` raises `UnknownCLI` for unknown
+    Test that `from_binary_path` raises `UnknownCLIError` for unknown
     binary paths.
     """
-    with pytest.raises(CLINotFoundInPath):
+    with pytest.raises(CLINotFoundInPathError):
         TransitionTool.from_binary_path(binary_path=Path("unknown_binary_path"))

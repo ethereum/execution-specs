@@ -1,3 +1,1 @@
-"""
-Consume Engine test functions.
-"""
+"""Consume Engine test functions."""

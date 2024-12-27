@@ -1,6 +1,4 @@
-"""
-Generate an index file of all the json fixtures in the specified directory.
-"""
+"""Generate an index file of all the json fixtures in the specified directory."""
 
 import datetime
 import json
@@ -27,16 +25,14 @@ from ethereum_test_fixtures.file import Fixtures
 from .hasher import HashableItem
 
 # TODO: remove when these tests are ported or fixed within ethereum/tests.
-fixtures_to_skip = set(
-    [
-        # These fixtures have invalid fields that we can't load into our pydantic models (bigint).
-        "BlockchainTests/GeneralStateTests/stTransactionTest/ValueOverflowParis.json",
-        "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsAmountBounds.json",
-        "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsIndexBounds.json",
-        "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsValidatorIndexBounds.json",
-        "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsAddressBounds.json",
-    ]
-)
+fixtures_to_skip = {
+    # These fixtures have invalid fields that we can't load into our pydantic models (bigint).
+    "BlockchainTests/GeneralStateTests/stTransactionTest/ValueOverflowParis.json",
+    "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsAmountBounds.json",
+    "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsIndexBounds.json",
+    "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsValidatorIndexBounds.json",
+    "BlockchainTests/InvalidBlocks/bc4895-withdrawals/withdrawalsAddressBounds.json",
+}
 
 
 def count_json_files_exclude_index(start_path: Path) -> int:
@@ -49,9 +45,7 @@ def count_json_files_exclude_index(start_path: Path) -> int:
 
 
 def infer_fixture_format_from_path(file: Path) -> FixtureFormat | None:
-    """
-    Attempt to infer the fixture format from the file path.
-    """
+    """Attempt to infer the fixture format from the file path."""
     for fixture_type in FIXTURE_FORMATS.values():
         if fixture_type.output_base_dir_name() in file.parts:
             return fixture_type
@@ -104,9 +98,7 @@ def infer_fixture_format_from_path(file: Path) -> FixtureFormat | None:
 def generate_fixtures_index_cli(
     input_dir: str, quiet_mode: bool, force_flag: bool, disable_infer_format: bool
 ):
-    """
-    The CLI wrapper to an index of all the fixtures in the specified directory.
-    """
+    """CLI wrapper to an index of all the fixtures in the specified directory."""
     generate_fixtures_index(
         Path(input_dir),
         quiet_mode=quiet_mode,
@@ -167,7 +159,7 @@ def generate_fixtures_index(
         TimeElapsedColumn(),
         expand=False,
         disable=quiet_mode,
-    ) as progress:
+    ) as progress:  # type: Progress
         task_id = progress.add_task("[cyan]Processing files...", total=total_files, filename="...")
 
         test_cases: List[TestCaseIndexFile] = []

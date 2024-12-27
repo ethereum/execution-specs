@@ -1,6 +1,4 @@
-"""
-Pytest plugin to run the test-execute in hive-mode.
-"""
+"""Pytest plugin to run the test-execute in hive-mode."""
 
 import io
 import json
@@ -45,62 +43,62 @@ from pytest_plugins.consume.hive_simulators.ruleset import ruleset
 
 
 class HashList(RootModel[List[Hash]]):
-    """Hash list class"""
+    """Hash list class."""
 
     root: List[Hash]
 
     def append(self, item: Hash):
-        """Append an item to the list"""
+        """Append an item to the list."""
         self.root.append(item)
 
     def clear(self):
-        """Clear the list"""
+        """Clear the list."""
         self.root.clear()
 
     def remove(self, item: Hash):
-        """Remove an item from the list"""
+        """Remove an item from the list."""
         self.root.remove(item)
 
     def __contains__(self, item: Hash):
-        """Check if an item is in the list"""
+        """Check if an item is in the list."""
         return item in self.root
 
     def __len__(self):
-        """Get the length of the list"""
+        """Get the length of the list."""
         return len(self.root)
 
     def __iter__(self):
-        """Iterate over the list"""
+        """Iterate over the list."""
         return iter(self.root)
 
 
 class AddressList(RootModel[List[Address]]):
-    """Address list class"""
+    """Address list class."""
 
     root: List[Address]
 
     def append(self, item: Address):
-        """Append an item to the list"""
+        """Append an item to the list."""
         self.root.append(item)
 
     def clear(self):
-        """Clear the list"""
+        """Clear the list."""
         self.root.clear()
 
     def remove(self, item: Address):
-        """Remove an item from the list"""
+        """Remove an item from the list."""
         self.root.remove(item)
 
     def __contains__(self, item: Address):
-        """Check if an item is in the list"""
+        """Check if an item is in the list."""
         return item in self.root
 
     def __len__(self):
-        """Get the length of the list"""
+        """Get the length of the list."""
         return len(self.root)
 
     def __iter__(self):
-        """Iterate over the list"""
+        """Iterate over the list."""
         return iter(self.root)
 
 
@@ -117,9 +115,7 @@ def get_fork_option(request, option_name: str) -> Fork | None:
 
 
 def pytest_addoption(parser):
-    """
-    Adds command-line options to pytest.
-    """
+    """Add command-line options to pytest."""
     hive_rpc_group = parser.getgroup(
         "hive_rpc", "Arguments defining the hive RPC client properties for the test."
     )
@@ -166,9 +162,7 @@ def pytest_configure(config):  # noqa: D103
 
 @pytest.fixture(scope="session")
 def base_fork(request) -> Fork:
-    """
-    Get the base fork for all tests.
-    """
+    """Get the base fork for all tests."""
     fork = get_fork_option(request, "single_fork")
     assert fork is not None, "invalid fork requested"
     return fork
@@ -176,9 +170,7 @@ def base_fork(request) -> Fork:
 
 @pytest.fixture(scope="session")
 def seed_sender(session_temp_folder: Path) -> EOA:
-    """
-    Determine the seed sender account for the client's genesis.
-    """
+    """Determine the seed sender account for the client's genesis."""
     base_name = "seed_sender"
     base_file = session_temp_folder / base_name
     base_lock_file = session_temp_folder / f"{base_name}.lock"
@@ -197,9 +189,7 @@ def seed_sender(session_temp_folder: Path) -> EOA:
 
 @pytest.fixture(scope="session")
 def base_pre(request, seed_sender: EOA, worker_count: int) -> Alloc:
-    """
-    Base pre-allocation for the client's genesis.
-    """
+    """Pre-allocation for the client's genesis."""
     sender_key_initial_balance = request.config.getoption("sender_key_initial_balance")
     return Alloc(
         {seed_sender: Account(balance=(worker_count * sender_key_initial_balance) + 10**18)}
@@ -211,9 +201,7 @@ def base_pre_genesis(
     base_fork: Fork,
     base_pre: Alloc,
 ) -> Tuple[Alloc, FixtureHeader]:
-    """
-    Create a genesis block from the blockchain test definition.
-    """
+    """Create a genesis block from the blockchain test definition."""
     env = Environment().set_fork_requirements(base_fork)
     assert (
         env.withdrawals is None or len(env.withdrawals) == 0
@@ -271,17 +259,13 @@ def base_pre_genesis(
 
 @pytest.fixture(scope="session")
 def base_genesis_header(base_pre_genesis: Tuple[Alloc, FixtureHeader]) -> FixtureHeader:
-    """
-    Return the genesis header for the current test fixture.
-    """
+    """Return the genesis header for the current test fixture."""
     return base_pre_genesis[1]
 
 
 @pytest.fixture(scope="session")
 def client_genesis(base_pre_genesis: Tuple[Alloc, FixtureHeader]) -> dict:
-    """
-    Convert the fixture's genesis block header and pre-state to a client genesis state.
-    """
+    """Convert the fixture's genesis block header and pre-state to a client genesis state."""
     genesis = to_json(base_pre_genesis[1])  # NOTE: to_json() excludes None values
     alloc = to_json(base_pre_genesis[0])
     # NOTE: nethermind requires account keys without '0x' prefix
@@ -331,17 +315,13 @@ def environment(base_fork: Fork) -> dict:
 
 @pytest.fixture(scope="session")
 def test_suite_name() -> str:
-    """
-    The name of the hive test suite used in this simulator.
-    """
+    """The name of the hive test suite used in this simulator."""
     return "eest/execute, hive mode"
 
 
 @pytest.fixture(scope="session")
 def test_suite_description() -> str:
-    """
-    The description of the hive test suite used in this simulator.
-    """
+    """The description of the hive test suite used in this simulator."""
     return "Execute EEST tests using hive endpoint."
 
 
@@ -349,9 +329,7 @@ def test_suite_description() -> str:
 def base_hive_test(
     request: pytest.FixtureRequest, test_suite: HiveTestSuite, session_temp_folder: Path
 ) -> Generator[HiveTest, None, None]:
-    """
-    Base test used to deploy the main client to be used throughout all tests.
-    """
+    """Test (base) used to deploy the main client to be used throughout all tests."""
     base_name = "base_hive_test"
     base_file = session_temp_folder / base_name
     base_lock_file = session_temp_folder / f"{base_name}.lock"
@@ -404,9 +382,7 @@ def base_hive_test(
 
 @pytest.fixture(scope="session")
 def client_type(simulator: Simulation) -> ClientType:
-    """
-    The type of client to be used in the test.
-    """
+    """Type of client to be used in the test."""
     return simulator.client_types()[0]
 
 
@@ -418,9 +394,7 @@ def client(
     client_type: ClientType,
     session_temp_folder: Path,
 ) -> Generator[Client, None, None]:
-    """
-    Initialize the client with the appropriate files and environment variables.
-    """
+    """Initialize the client with the appropriate files and environment variables."""
     base_name = "hive_client"
     base_file = session_temp_folder / base_name
     base_error_file = session_temp_folder / f"{base_name}.err"
@@ -491,15 +465,14 @@ class PendingTxHashes:
     lock: FileLock | None
 
     def __init__(self, temp_folder: Path):
+        """Initialize the pending transaction hashes manager."""
         self.pending_hashes_file = temp_folder / "pending_tx_hashes"
         self.pending_hashes_lock = temp_folder / "pending_tx_hashes.lock"
         self.pending_tx_hashes = None
         self.lock = None
 
     def __enter__(self):
-        """
-        Lock the pending hashes file and load it.
-        """
+        """Lock the pending hashes file and load it."""
         assert self.lock is None, "Lock already acquired"
         self.lock = FileLock(self.pending_hashes_lock, timeout=-1)
         self.lock.acquire()
@@ -512,9 +485,7 @@ class PendingTxHashes:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        """
-        Flush the pending hashes to the file and release the lock.
-        """
+        """Flush the pending hashes to the file and release the lock."""
         assert self.lock is not None, "Lock not acquired"
         assert self.pending_tx_hashes is not None, "Pending transaction hashes not loaded"
         with open(self.pending_hashes_file, "w") as f:
@@ -524,48 +495,36 @@ class PendingTxHashes:
         self.pending_tx_hashes = None
 
     def append(self, tx_hash: Hash):
-        """
-        Add a transaction hash to the pending list.
-        """
+        """Add a transaction hash to the pending list."""
         assert self.lock is not None, "Lock not acquired"
         assert self.pending_tx_hashes is not None, "Pending transaction hashes not loaded"
         self.pending_tx_hashes.append(tx_hash)
 
     def clear(self):
-        """
-        Remove a transaction hash from the pending list.
-        """
+        """Remove a transaction hash from the pending list."""
         assert self.lock is not None, "Lock not acquired"
         self.pending_tx_hashes.clear()
 
     def remove(self, tx_hash: Hash):
-        """
-        Remove a transaction hash from the pending list.
-        """
+        """Remove a transaction hash from the pending list."""
         assert self.lock is not None, "Lock not acquired"
         assert self.pending_tx_hashes is not None, "Pending transaction hashes not loaded"
         self.pending_tx_hashes.remove(tx_hash)
 
     def __contains__(self, tx_hash: Hash):
-        """
-        Check if a transaction hash is in the pending list.
-        """
+        """Check if a transaction hash is in the pending list."""
         assert self.lock is not None, "Lock not acquired"
         assert self.pending_tx_hashes is not None, "Pending transaction hashes not loaded"
         return tx_hash in self.pending_tx_hashes
 
     def __len__(self):
-        """
-        Get the number of pending transaction hashes.
-        """
+        """Get the number of pending transaction hashes."""
         assert self.lock is not None, "Lock not acquired"
         assert self.pending_tx_hashes is not None, "Pending transaction hashes not loaded"
         return len(self.pending_tx_hashes)
 
     def __iter__(self):
-        """
-        Iterate over the pending transaction hashes.
-        """
+        """Iterate over the pending transaction hashes."""
         assert self.lock is not None, "Lock not acquired"
         assert self.pending_tx_hashes is not None, "Pending transaction hashes not loaded"
         return iter(self.pending_tx_hashes)
@@ -595,9 +554,7 @@ class EthRPC(BaseEthRPC):
         initial_forkchoice_update_retries: int = 5,
         transaction_wait_timeout: int = 60,
     ):
-        """
-        Initialize the Ethereum RPC client for the hive simulator.
-        """
+        """Initialize the Ethereum RPC client for the hive simulator."""
         super().__init__(
             f"http://{client.ip}:8545",
             transaction_wait_timeout=transaction_wait_timeout,
@@ -642,9 +599,7 @@ class EthRPC(BaseEthRPC):
                 base_file.touch()
 
     def generate_block(self: "EthRPC"):
-        """
-        Generate a block using the Engine API.
-        """
+        """Generate a block using the Engine API."""
         # Get the head block hash
         head_block = self.get_block_by_number("latest")
 
@@ -716,9 +671,7 @@ class EthRPC(BaseEthRPC):
                 self.pending_tx_hashes.remove(tx_hash)
 
     def send_transaction(self, transaction: Transaction) -> Hash:
-        """
-        `eth_sendRawTransaction`: Send a transaction to the client.
-        """
+        """`eth_sendRawTransaction`: Send a transaction to the client."""
         returned_hash = super().send_transaction(transaction)
         with self.pending_tx_hashes:
             self.pending_tx_hashes.append(transaction.hash)
@@ -738,6 +691,7 @@ class EthRPC(BaseEthRPC):
 
         Returns:
             The transaction details after it is included in a block.
+
         """
         return self.wait_for_transactions([transaction])[0]
 
@@ -760,6 +714,7 @@ class EthRPC(BaseEthRPC):
         Raises:
             Exception: If one or more transactions are not included in a block
                 within the timeout period.
+
         """
         tx_hashes = [tx.hash for tx in transactions]
         responses: List[TransactionByHashResponse] = []
@@ -804,12 +759,14 @@ class EthRPC(BaseEthRPC):
 
 
 class PendingTransactionHandler:
-    """Manages block generation based on the number of pending transactions or a block generation
+    """
+    Manages block generation based on the number of pending transactions or a block generation
     interval.
 
     Attributes:
         block_generation_interval: The number of iterations after which a block
             is generated if no new transactions are added (default: 10).
+
     """
 
     eth_rpc: EthRPC
@@ -823,7 +780,8 @@ class PendingTransactionHandler:
         self.block_generation_interval = block_generation_interval
 
     def handle(self):
-        """Handle pending transactions and generate blocks if necessary.
+        """
+        Handle pending transactions and generate blocks if necessary.
 
         If the number of pending transactions reaches the limit, a block is generated.
 
@@ -861,9 +819,7 @@ def transactions_per_block(request) -> int:  # noqa: D103
 
 @pytest.fixture(scope="session")
 def chain_id() -> int:
-    """
-    Returns the chain id where the tests will be executed.
-    """
+    """Return chain id where the tests will be executed."""
     return 1
 
 
@@ -876,9 +832,7 @@ def eth_rpc(
     transactions_per_block: int,
     session_temp_folder: Path,
 ) -> EthRPC:
-    """
-    Initialize ethereum RPC client for the execution client under test.
-    """
+    """Initialize ethereum RPC client for the execution client under test."""
     get_payload_wait_time = request.config.getoption("get_payload_wait_time")
     tx_wait_timeout = request.config.getoption("tx_wait_timeout")
     return EthRPC(

@@ -1,6 +1,4 @@
-"""
-Base pydantic classes used to define the models for Ethereum tests.
-"""
+"""Base pydantic classes used to define the models for Ethereum tests."""
 
 from typing import Any, TypeVar
 
@@ -15,30 +13,22 @@ RootModelRootType = TypeVar("RootModelRootType")
 
 
 class EthereumTestBaseModel(BaseModel, ModelCustomizationsMixin):
-    """
-    Base model for all models for Ethereum tests.
-    """
+    """Base model for all models for Ethereum tests."""
 
     pass
 
 
 class EthereumTestRootModel(RootModel[RootModelRootType], ModelCustomizationsMixin):
-    """
-    Base model for all models for Ethereum tests.
-    """
+    """Base model for all models for Ethereum tests."""
 
     root: Any
 
 
 class CopyValidateModel(EthereumTestBaseModel):
-    """
-    Model that supports copying with validation.
-    """
+    """Model that supports copying with validation."""
 
     def copy(self: Model, **kwargs) -> Model:
-        """
-        Creates a copy of the model with the updated fields that are validated.
-        """
+        """Create a copy of the model with the updated fields that are validated."""
         return self.__class__(**(self.model_dump(exclude_unset=True) | kwargs))
 
 

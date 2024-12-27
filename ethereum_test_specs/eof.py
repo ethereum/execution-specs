@@ -1,6 +1,4 @@
-"""
-Ethereum EOF test spec definition and filler.
-"""
+"""Ethereum EOF test spec definition and filler."""
 
 import subprocess
 import warnings
@@ -35,32 +33,30 @@ from .state import StateTest
 existing_tests: Dict[Bytes, str] = {}
 
 
-class EOFBaseException(Exception):
-    """
-    Base exception class for exceptions raised when verifying EOF code.
-    """
+class EOFBaseExceptionError(Exception):
+    """Base exception class for exceptions raised when verifying EOF code."""
 
     def __init__(self, message):
+        """Initialize the exception with the message."""
         super().__init__(message)
 
     @staticmethod
     def format_code(code: Bytes, max_length=60) -> str:
-        """
-        Avoid printing long bytecode strings in the terminal upon test failure.
-        """
+        """Avoid printing long bytecode strings in the terminal upon test failure."""
         if len(code) > max_length:
             half_length = max_length // 2 - 5  # Floor; adjust for ellipsis
             return f"{code[:half_length].hex()}...{code[-half_length:].hex()}"
         return code.hex()
 
 
-class UnexpectedEOFException(EOFBaseException):
+class UnexpectedEOFExceptionError(EOFBaseExceptionError):
     """
     Exception used when valid EOF code unexpectedly raises an exception in
     eofparse.
     """
 
     def __init__(self, *, code: Bytes, got: str):
+        """Initialize the exception with the code and the exception message."""
         message = (
             "Expected EOF code to be valid, but an exception occurred:\n"
             f"    Code: {self.format_code(code)}\n"
@@ -70,13 +66,14 @@ class UnexpectedEOFException(EOFBaseException):
         super().__init__(message)
 
 
-class ExpectedEOFException(EOFBaseException):
+class ExpectedEOFExceptionError(EOFBaseExceptionError):
     """
     Exception used when EOF code is expected to raise an exception, but
     eofparse did not raise an exception.
     """
 
     def __init__(self, *, code: Bytes, expected: str):
+        """Initialize the exception with the code and the expected exception message."""
         message = (
             "Expected EOF code to be invalid, but no exception was raised:\n"
             f"    Code: {self.format_code(code)}\n"
@@ -86,12 +83,11 @@ class ExpectedEOFException(EOFBaseException):
         super().__init__(message)
 
 
-class EOFExceptionMismatch(EOFBaseException):
-    """
-    Exception used when the actual EOF exception differs from the expected one.
-    """
+class EOFExceptionMismatchError(EOFBaseExceptionError):
+    """Exception used when the actual EOF exception differs from the expected one."""
 
     def __init__(self, code: Bytes, expected: str, got: str):
+        """Initialize the exception with the code, the expected/actual exception message."""
         message = (
             "EOF code raised a different exception than expected:\n"
             f"    Code: {self.format_code(code)}\n"
@@ -116,6 +112,7 @@ class EOFParse:
         self,
         binary: Optional[Path | str] = None,
     ):
+        """Initialize the EOF binary."""
         if binary is None:
             which_path = which("evmone-eofparse")
             if which_path is not None:
@@ -126,13 +123,13 @@ class EOFParse:
             )
         self.binary = Path(binary)
 
-    def run(self, *args: str, input: str | None = None) -> CompletedProcess:
-        """Run evmone with the given arguments"""
+    def run(self, *args: str, input_value: str | None = None) -> CompletedProcess:
+        """Run evmone with the given arguments."""
         result = subprocess.run(
             [self.binary, *args],
             capture_output=True,
             text=True,
-            input=input,
+            input=input_value,
         )
         if result.returncode not in [0, 1]:
             raise Exception(
@@ -142,9 +139,7 @@ class EOFParse:
 
 
 class EOFTest(BaseTest):
-    """
-    Filler type that tests EOF containers.
-    """
+    """Filler type that tests EOF containers."""
 
     data: Bytes
     expect_exception: EOFExceptionInstanceOrList | None = None
@@ -157,9 +152,7 @@ class EOFTest(BaseTest):
     @model_validator(mode="before")
     @classmethod
     def check_container_exception(cls, data: Any) -> Any:
-        """
-        Check if the container exception matches the expected exception.
-        """
+        """Check if the container exception matches the expected exception."""
         if isinstance(data, dict):
             container = data.get("data")
             expect_exception = data.get("expect_exception")
@@ -188,9 +181,7 @@ class EOFTest(BaseTest):
 
     @classmethod
     def pytest_parameter_name(cls) -> str:
-        """
-        Workaround for pytest parameter name.
-        """
+        """Workaround for pytest parameter name."""
         return "eof_test"
 
     def make_eof_test_fixture(
@@ -200,9 +191,7 @@ class EOFTest(BaseTest):
         fork: Fork,
         eips: Optional[List[int]],
     ) -> EOFFixture:
-        """
-        Generate the EOF test fixture.
-        """
+        """Generate the EOF test fixture."""
         if self.data in existing_tests:
             pytest.fail(
                 f"Duplicate EOF test: {self.data}, existing test: {existing_tests[self.data]}"
@@ -224,7 +213,9 @@ class EOFTest(BaseTest):
         try:
             eof_parse = EOFParse()
         except FileNotFoundError as e:
-            warnings.warn(f"{e} Skipping EOF fixture verification. Fixtures may be invalid!")
+            warnings.warn(
+                f"{e} Skipping EOF fixture verification. Fixtures may be invalid!", stacklevel=2
+            )
             return fixture
 
         for _, vector in fixture.vectors.items():
@@ -234,15 +225,13 @@ class EOFTest(BaseTest):
             args = []
             if vector.container_kind == ContainerKind.INITCODE:
                 args.append("--initcode")
-            result = eof_parse.run(*args, input=str(vector.code))
+            result = eof_parse.run(*args, input_value=str(vector.code))
             self.verify_result(result, expected_result, vector.code)
 
         return fixture
 
     def verify_result(self, result: CompletedProcess, expected_result: Result, code: Bytes):
-        """
-        Checks that the reported exception string matches the expected error.
-        """
+        """Check that the reported exception string matches the expected error."""
         parser = EvmoneExceptionMapper()
         actual_message = result.stdout.strip()
         actual_exception = parser.message_to_exception(actual_message)
@@ -251,7 +240,7 @@ class EOFTest(BaseTest):
             if "OK" in actual_message:
                 return
             else:
-                raise UnexpectedEOFException(
+                raise UnexpectedEOFExceptionError(
                     code=code, got=f"{actual_exception} ({actual_message})"
                 )
         else:
@@ -259,14 +248,14 @@ class EOFTest(BaseTest):
             print(expected_string)
             print(actual_exception)
             if "OK" in actual_message:
-                raise ExpectedEOFException(
+                raise ExpectedEOFExceptionError(
                     code=code,
                     expected=f"{expected_string}",
                 )
             elif actual_exception in expected_result.exception:
                 return
             else:
-                raise EOFExceptionMismatch(
+                raise EOFExceptionMismatchError(
                     code=code,
                     expected=f"{expected_string}",
                     got=f"{actual_exception} ({actual_message})",
@@ -282,9 +271,7 @@ class EOFTest(BaseTest):
         fixture_format: FixtureFormat,
         **_,
     ) -> BaseFixture:
-        """
-        Generate the BlockchainTest fixture.
-        """
+        """Generate the BlockchainTest fixture."""
         if fixture_format == EOFFixture:
             return self.make_eof_test_fixture(request=request, fork=fork, eips=eips)
 
@@ -298,9 +285,7 @@ EOFTestFiller = Type[EOFTest]
 
 
 class EOFStateTest(EOFTest):
-    """
-    Filler type that tests EOF containers and also generates a state/blockchain test.
-    """
+    """Filler type that tests EOF containers and also generates a state/blockchain test."""
 
     deploy_tx: bool = False
     tx_gas_limit: int = 10_000_000
@@ -320,9 +305,7 @@ class EOFStateTest(EOFTest):
     @model_validator(mode="before")
     @classmethod
     def check_container_type(cls, data: Any) -> Any:
-        """
-        Check if the container exception matches the expected exception.
-        """
+        """Check if the container exception matches the expected exception."""
         if isinstance(data, dict):
             container = data.get("data")
             deploy_tx = data.get("deploy_tx")
@@ -339,15 +322,11 @@ class EOFStateTest(EOFTest):
 
     @classmethod
     def pytest_parameter_name(cls) -> str:
-        """
-        Workaround for pytest parameter name.
-        """
+        """Workaround for pytest parameter name."""
         return "eof_state_test"
 
     def generate_state_test(self) -> StateTest:
-        """
-        Generate the StateTest filler.
-        """
+        """Generate the StateTest filler."""
         assert self.pre is not None, "pre must be set to generate a StateTest."
         tx = Transaction(
             sender=self.pre.fund_eoa(amount=self.tx_sender_funding_amount),
@@ -384,9 +363,7 @@ class EOFStateTest(EOFTest):
         fixture_format: FixtureFormat,
         **_,
     ) -> BaseFixture:
-        """
-        Generate the BlockchainTest fixture.
-        """
+        """Generate the BlockchainTest fixture."""
         if fixture_format == EOFFixture:
             if self.data in existing_tests:
                 # Gracefully skip duplicate tests because one EOFStateTest can generate multiple
@@ -411,9 +388,7 @@ class EOFStateTest(EOFTest):
         execute_format: ExecuteFormat,
         eips: Optional[List[int]] = None,
     ) -> BaseExecute:
-        """
-        Generate the list of test fixtures.
-        """
+        """Generate the list of test fixtures."""
         if execute_format == TransactionPost:
             return self.generate_state_test().execute(
                 fork=fork, execute_format=execute_format, eips=eips

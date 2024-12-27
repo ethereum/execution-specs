@@ -1,6 +1,4 @@
-"""
-Tests for pytest commands (e.g., fill) click CLI.
-"""
+"""Tests for pytest commands (e.g., fill) click CLI."""
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -16,14 +14,12 @@ from ..pytest_commands.fill import fill, phil
 
 @pytest.fixture
 def runner():
-    """Provides a Click CliRunner for invoking command-line interfaces."""
+    """Provide a Click CliRunner for invoking command-line interfaces."""
     return CliRunner()
 
 
 def test_fill_help(runner):
-    """
-    Test the `--help` option of the `fill` command.
-    """
+    """Test the `--help` option of the `fill` command."""
     result = runner.invoke(fill, ["--help"])
     assert result.exit_code == pytest.ExitCode.OK
     assert "[--evm-bin EVM_BIN]" in result.output
@@ -34,9 +30,7 @@ def test_fill_help(runner):
 
 
 def test_fill_pytest_help(runner):
-    """
-    Test the `--pytest-help` option of the `fill` command.
-    """
+    """Test the `--pytest-help` option of the `fill` command."""
     result = runner.invoke(fill, ["--pytest-help"])
     assert result.exit_code == pytest.ExitCode.OK
     assert "[options] [file_or_dir] [file_or_dir] [...]" in result.output
@@ -44,35 +38,20 @@ def test_fill_pytest_help(runner):
 
 
 def test_fill_with_invalid_option(runner):
-    """
-    Test invoking `fill` with an invalid option.
-    """
+    """Test invoking `fill` with an invalid option."""
     result = runner.invoke(fill, ["--invalid-option"])
     assert result.exit_code != 0
     assert "unrecognized arguments" in result.output
 
 
-def test_tf_deprecation(runner):
-    """
-    Test the deprecation message of the `tf` command.
-    """
-    from ..pytest_commands.fill import tf
-
-    result = runner.invoke(tf, [])
-    assert result.exit_code == 1
-    assert "The `tf` command-line tool has been superseded by `fill`" in result.output
-
-
 @pytest.mark.run_in_serial
 class TestHtmlReportFlags:
-    """
-    Test html report generation and output options.
-    """
+    """Test html report generation and output options."""
 
     @pytest.fixture
     def fill_args(self):
         """
-        Provides default arguments for the `fill` command when testing html report
+        Provide default arguments for the `fill` command when testing html report
         generation.
 
         Specifies a single existing example test case for faster fill execution,
@@ -82,13 +61,12 @@ class TestHtmlReportFlags:
 
     @pytest.fixture()
     def default_html_report_file_path(self):
-        """
-        The default file path for fill's pytest html report.
-        """
+        """File path for fill's pytest html report."""
         return pytest_plugins.filler.filler.default_html_report_file_path()
 
     @pytest.fixture(scope="function")
-    def temp_dir(self) -> Generator[Path, None, None]:  # noqa: D102
+    def temp_dir(self) -> Generator[Path, None, None]:
+        """Provide a temporary directory as a pytest fixture."""
         temp_dir = TemporaryDirectory()
         yield Path(temp_dir.name)
         temp_dir.cleanup()
@@ -118,9 +96,7 @@ class TestHtmlReportFlags:
         fill_args,
         default_html_report_file_path,
     ):
-        """
-        Test default pytest html behavior: Neither `--html` or `--output` is specified.
-        """
+        """Test default pytest html behavior: Neither `--html` or `--output` is specified."""
         default_html_path = temp_dir / default_html_report_file_path
         result = runner.invoke(fill, fill_args)
         assert result.exit_code == pytest.ExitCode.OK
@@ -133,9 +109,7 @@ class TestHtmlReportFlags:
         fill_args,
         default_html_report_file_path,
     ):
-        """
-        Test pytest html report is disabled with the `--no-html` flag.
-        """
+        """Test pytest html report is disabled with the `--no-html` flag."""
         default_html_path = temp_dir / default_html_report_file_path
         fill_args += ["--no-html"]
         result = runner.invoke(fill, fill_args)
@@ -148,9 +122,7 @@ class TestHtmlReportFlags:
         temp_dir,
         fill_args,
     ):
-        """
-        Tests pytest html report generation with only the `--html` flag.
-        """
+        """Tests pytest html report generation with only the `--html` flag."""
         non_default_html_path = temp_dir / "non_default_output_dir" / "report.html"
         fill_args += ["--html", str(non_default_html_path)]
         result = runner.invoke(fill, fill_args)
@@ -164,9 +136,7 @@ class TestHtmlReportFlags:
         fill_args,
         default_html_report_file_path,
     ):
-        """
-        Tests pytest html report generation with only the `--output` flag.
-        """
+        """Tests pytest html report generation with only the `--output` flag."""
         output_dir = temp_dir / "non_default_output_dir"
         non_default_html_path = output_dir / default_html_report_file_path
         fill_args += ["--output", str(output_dir)]
@@ -181,9 +151,7 @@ class TestHtmlReportFlags:
         temp_dir,
         fill_args,
     ):
-        """
-        Tests pytest html report generation with both `--output` and `--html` flags.
-        """
+        """Tests pytest html report generation with both `--output` and `--html` flags."""
         output_dir = temp_dir / "non_default_output_dir_fixtures"
         html_path = temp_dir / "non_default_output_dir_html" / "non_default.html"
         fill_args += ["--output", str(output_dir), "--html", str(html_path)]
@@ -194,9 +162,7 @@ class TestHtmlReportFlags:
 
 
 def test_phil_default_output_options(runner):
-    """
-    A simple sanity test for phil.
-    """
+    """A simple sanity test for phil."""
     fill_args = ["-k", "test_dup and state_test-DUP16 and LEGACY", "--fork", "Frontier"]
     result = runner.invoke(phil, fill_args)
     assert result.exit_code == pytest.ExitCode.OK

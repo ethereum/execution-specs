@@ -1,6 +1,4 @@
-"""
-Test the help plugin.
-"""
+"""Test the help plugin."""
 
 import pytest
 
@@ -48,9 +46,7 @@ CONSUME_TEST_ARGS = (
     ],
 )
 def test_local_arguments_present_in_base_consume_help(pytester, help_flag, command):
-    """
-    Test that locally defined command-line flags appear in the help for `consume` subcommands.
-    """
+    """Test that locally defined command-line flags appear in the help for consume subcommands."""
     pytester.copy_example(name="pytest-consume.ini")
     result = pytester.runpytest("-c", "./pytest-consume.ini", command, help_flag)
     for test_arg in CONSUME_TEST_ARGS:

@@ -2,6 +2,7 @@
 EVM Object Format generic constants.
 Applicable to EOF version 1.
 """
+
 from ..constants import VERSION_BYTE_LENGTH
 
 VERSION_NUMBER = 0x01

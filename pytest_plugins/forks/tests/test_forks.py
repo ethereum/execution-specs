@@ -1,6 +1,4 @@
-"""
-Test the forks plugin.
-"""
+"""Test the forks plugin."""
 
 import pytest
 
@@ -10,9 +8,7 @@ from ethereum_test_tools import StateTest
 
 @pytest.fixture
 def fork_map():
-    """
-    Lookup fork.name() : fork class.
-    """
+    """Lookup fork.name() : fork class."""
     return {fork.name(): fork for fork in get_forks()}
 
 

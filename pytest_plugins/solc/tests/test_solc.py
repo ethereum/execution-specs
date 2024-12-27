@@ -1,6 +1,4 @@
-"""
-Tests for the solc plugin.
-"""
+"""Tests for the solc plugin."""
 
 import os
 import shutil
@@ -17,7 +15,7 @@ pytestmark = [pytest.mark.run_in_serial]
 @pytest.fixture(scope="module")
 def create_clean_solc_select_environment(request):
     """
-    Setup: Copies solc artifacts to a temporary location before starting tests
+    On Setup: Copies solc artifacts to a temporary location before starting tests
     Teardown: Restores the artifacts after tests are done.
     """
     try:
@@ -26,7 +24,7 @@ def create_clean_solc_select_environment(request):
         raise Exception(
             "Error in setup: ensure you've called `solc-select use <version>` before running the "
             f"framework tests (exception: {e})"
-        )
+        ) from e
 
     artifacts_dir = solc_select.constants.ARTIFACTS_DIR
     global_version_file = solc_select.constants.SOLC_SELECT_DIR.joinpath("global-version")
@@ -67,9 +65,7 @@ def create_clean_solc_select_environment(request):
 @pytest.mark.parametrize("solc_version", ["0.8.21", "0.8.26"])
 class TestSolcVersion:  # noqa: D101
     def test_solc_versions_flag(self, pytester, solc_version):
-        """
-        Ensure that the version specified by the `--solc-version` gets installed and is used.
-        """
+        """Ensure that the version specified by the `--solc-version` gets installed and is used."""
         pytester.makeconftest(
             f"""
             import pytest
@@ -101,9 +97,7 @@ class TestSolcVersion:  # noqa: D101
 
 
 def test_solc_version_too_old(pytester):
-    """
-    Test the plugin exits with a UsageError if a version prior to Frontier is specified.
-    """
+    """Test the plugin exits with a UsageError if a version prior to Frontier is specified."""
     old_solc_version = "0.8.19"
     pytester.copy_example(name="pytest.ini")
     test_path = pytester.copy_example(name="tests/homestead/yul/test_yul_example.py")
@@ -115,9 +109,7 @@ def test_solc_version_too_old(pytester):
 
 
 def test_unknown_solc_version(pytester):
-    """
-    Test the plugin exits with a UsageError if a version unknown to solc-select is specified.
-    """
+    """Test the plugin exits with a UsageError if a version unknown to solc-select is specified."""
     unknown_solc_version = "420.69.0"
     pytester.copy_example(name="pytest.ini")
     test_path = pytester.copy_example(name="tests/homestead/yul/test_yul_example.py")
@@ -148,9 +140,7 @@ def test_bad_solc_flag_combination(pytester):
 
 @pytest.mark.usefixtures("create_clean_solc_select_environment")
 class TestSolcBin:
-    """
-    Test the `--solc-bin` flag.
-    """
+    """Test the `--solc-bin` flag."""
 
     @pytest.fixture()
     def solc_version(self):  # noqa: D102
@@ -158,17 +148,13 @@ class TestSolcBin:
 
     @pytest.fixture()
     def solc_bin(self, solc_version):
-        """
-        Returns an available solc binary.
-        """
+        """Return available solc binary."""
         solc_select.solc_select.switch_global_version(solc_version, always_install=True)
         bin_path = Path(f"solc-{solc_version}") / f"solc-{solc_version}"
         return solc_select.constants.ARTIFACTS_DIR.joinpath(bin_path)
 
     def test_solc_bin(self, pytester, solc_version, solc_bin):
-        """
-        Ensure that the version specified by the `--solc-version` gets installed and is used.
-        """
+        """Ensure that the version specified by the `--solc-version` gets installed and is used."""
         pytester.makeconftest(
             f"""
             import pytest

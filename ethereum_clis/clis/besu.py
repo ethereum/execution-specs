@@ -1,6 +1,4 @@
-"""
-Hyperledger Besu Transition tool frontend.
-"""
+"""Hyperledger Besu Transition tool frontend."""
 
 import json
 import os
@@ -9,7 +7,6 @@ import subprocess
 import tempfile
 import textwrap
 from pathlib import Path
-from re import compile
 from typing import List, Optional
 
 import requests
@@ -28,12 +25,10 @@ from ..types import TransitionToolInput, TransitionToolOutput
 
 
 class BesuTransitionTool(TransitionTool):
-    """
-    Besu EvmTool Transition tool frontend wrapper class.
-    """
+    """Besu EvmTool Transition tool frontend wrapper class."""
 
     default_binary = Path("evm")
-    detect_binary_pattern = compile(r"^Hyperledger Besu evm .*$")
+    detect_binary_pattern = re.compile(r"^Hyperledger Besu evm .*$")
     binary: Path
     cached_version: Optional[str] = None
     trace: bool
@@ -47,20 +42,24 @@ class BesuTransitionTool(TransitionTool):
         binary: Optional[Path] = None,
         trace: bool = False,
     ):
+        """Initialize the BesuTransitionTool class."""
         super().__init__(exception_mapper=BesuExceptionMapper(), binary=binary, trace=trace)
         args = [str(self.binary), "t8n", "--help"]
         try:
             result = subprocess.run(args, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
-            raise Exception("evm process unexpectedly returned a non-zero status code: " f"{e}.")
+            raise Exception(
+                "evm process unexpectedly returned a non-zero status code: " f"{e}."
+            ) from e
         except Exception as e:
-            raise Exception(f"Unexpected exception calling evm tool: {e}.")
+            raise Exception(f"Unexpected exception calling evm tool: {e}.") from e
         self.help_string = result.stdout
         self.besu_trace_dir = tempfile.TemporaryDirectory() if self.trace else None
 
     def start_server(self):
         """
-        Starts the t8n-server process, extracts the port, and leaves it running for future re-use.
+        Start the t8n-server process, extract the port, and leave it running
+        for future re-use.
         """
         args = [
             str(self.binary),
@@ -89,9 +88,7 @@ class BesuTransitionTool(TransitionTool):
                 break
 
     def shutdown(self):
-        """
-        Stops the t8n-server process if it was started
-        """
+        """Stop the t8n-server process if it was started."""
         if self.process:
             self.process.kill()
         if self.besu_trace_dir:
@@ -111,9 +108,7 @@ class BesuTransitionTool(TransitionTool):
         state_test: bool = False,
         slow_request: bool = False,
     ) -> TransitionToolOutput:
-        """
-        Executes `evm t8n` with the specified arguments.
-        """
+        """Execute `evm t8n` with the specified arguments."""
         if not self.process:
             self.start_server()
 
@@ -151,7 +146,7 @@ class BesuTransitionTool(TransitionTool):
                 PORT=${{1:-3000}}
                 curl http://localhost:${{PORT}}/ -X POST -H "Content-Type: application/json" \\
                 --data '{indented_post_data_string}'
-                """  # noqa: E221
+                """
             )
             dump_files_to_directory(
                 debug_output_path,
@@ -205,16 +200,12 @@ class BesuTransitionTool(TransitionTool):
         return output
 
     def is_fork_supported(self, fork: Fork) -> bool:
-        """
-        Returns True if the fork is supported by the tool
-        """
+        """Return True if the fork is supported by the tool."""
         return fork.transition_tool_name() in self.help_string
 
 
 class BesuExceptionMapper(ExceptionMapper):
-    """
-    Translate between EEST exceptions and error strings returned by nimbus.
-    """
+    """Translate between EEST exceptions and error strings returned by Besu."""
 
     @property
     def _mapping_data(self):
@@ -241,7 +232,10 @@ class BesuExceptionMapper(ExceptionMapper):
             ),
             ExceptionMessage(
                 TransactionException.TYPE_3_TX_PRE_FORK,
-                "Transaction type BLOB is invalid, accepted transaction types are [EIP1559, ACCESS_LIST, FRONTIER]",  # noqa: E501
+                (
+                    "Transaction type BLOB is invalid, accepted transaction types are "
+                    "[EIP1559, ACCESS_LIST, FRONTIER]"
+                ),
             ),
             ExceptionMessage(
                 TransactionException.TYPE_3_TX_INVALID_BLOB_VERSIONED_HASH,

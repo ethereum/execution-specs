@@ -1,3 +1,1 @@
-"""
-Package containing pytest plugins related to test filling.
-"""
+"""Package containing pytest plugins related to test filling."""

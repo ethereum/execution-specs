@@ -1,6 +1,4 @@
-"""
-CLI commands for managing the environment file.
-"""
+"""CLI commands for managing the environment file."""
 
 import click
 from jinja2 import Environment, PackageLoader
@@ -12,7 +10,7 @@ from config.env import ENV_PATH, Config
 @click.command(short_help="Generate the default environment file (env.yaml).", name="env")
 def create_default_env():
     """
-    A CLI command to generate the default environment file (env.yaml).
+    CLI command to generate the default environment file (env.yaml).
 
     If an `env.yaml` already exists, this command will NOT override it.
     In that case, it is recommended to manually make changes.
@@ -20,7 +18,6 @@ def create_default_env():
     _Easter egg: Shows a random quote after creating the environment file._
 
     Example:
-
         uv run eest make env
 
     Output:
@@ -28,6 +25,7 @@ def create_default_env():
         🎉 Success! Environment file created at: <path>/env.yaml
 
         🚀 Well begun is half done. - Aristotle
+
     """
     # Check if the env file already exists
     if ENV_PATH.exists():

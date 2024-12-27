@@ -1,6 +1,4 @@
-"""
-This module provides various mixins for Pydantic models.
-"""
+"""Provides various mixins for Pydantic models."""
 
 from typing import Any, Literal
 
@@ -23,7 +21,7 @@ class ModelCustomizationsMixin:
         exclude_none: bool = True,
     ) -> dict[str, Any]:
         """
-        Serializes the model to the specified format with the given parameters.
+        Serialize the model to the specified format with the given parameters.
 
         :param mode: The mode of serialization.
               If mode is 'json', the output will only contain JSON serializable types.
@@ -57,6 +55,7 @@ class ModelCustomizationsMixin:
         Returns:
             List[Tuple[str, Any]]: A list of tuples where each tuple contains an attribute name
                                    and its corresponding non-None value.
+
         """
         attrs_names = self.serialize(mode="python", by_alias=False).keys()
         attrs = ((s, getattr(self, s)) for s in attrs_names)
@@ -69,7 +68,6 @@ class ModelCustomizationsMixin:
         repr_attrs = []
         for a, v in attrs:
             match v:
-
                 # Note: The `None` case handles an edge case with transactions
                 # see: https://github.com/ethereum/execution-spec-tests/pull/901#discussion_r1828491918 # noqa: E501
                 case list() | dict() | BaseModel() | None:

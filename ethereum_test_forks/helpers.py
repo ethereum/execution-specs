@@ -1,6 +1,5 @@
-"""
-Helper methods to resolve forks during test filling
-"""
+"""Helper methods to resolve forks during test filling."""
+
 from typing import List, Optional, Set
 
 from semver import Version
@@ -17,12 +16,13 @@ class InvalidForkError(Exception):
     """
 
     def __init__(self, message):
+        """Initialize the InvalidForkError exception."""
         super().__init__(message)
 
 
 def get_forks() -> List[Fork]:
     """
-    Returns a list of all the fork classes implemented by
+    Return list of all the fork classes implemented by
     `ethereum_test_forks` ordered chronologically by deployment.
     """
     all_forks: List[Fork] = []
@@ -37,7 +37,7 @@ def get_forks() -> List[Fork]:
 
 def get_deployed_forks() -> List[Fork]:
     """
-    Returns a list of all the fork classes implemented by `ethereum_test_forks`
+    Return list of all the fork classes implemented by `ethereum_test_forks`
     that have been deployed to mainnet, chronologically ordered by deployment.
     """
     return [fork for fork in get_forks() if fork.is_deployed()]
@@ -45,7 +45,7 @@ def get_deployed_forks() -> List[Fork]:
 
 def get_development_forks() -> List[Fork]:
     """
-    Returns a list of all the fork classes implemented by `ethereum_test_forks`
+    Return list of all the fork classes implemented by `ethereum_test_forks`
     that have been not yet deployed to mainnet and are currently under
     development. The list is ordered by their planned deployment date.
     """
@@ -53,29 +53,23 @@ def get_development_forks() -> List[Fork]:
 
 
 def get_parent_fork(fork: Fork) -> Fork:
-    """
-    Returns the parent fork of the specified fork
-    """
+    """Return parent fork of the specified fork."""
     return fork.__base__
 
 
 def get_forks_with_solc_support(solc_version: Version) -> List[Fork]:
-    """
-    Returns a list of all fork classes that are supported by solc.
-    """
+    """Return list of all fork classes that are supported by solc."""
     return [fork for fork in get_forks() if solc_version >= fork.solc_min_version()]
 
 
 def get_forks_without_solc_support(solc_version: Version) -> List[Fork]:
-    """
-    Returns a list of all fork classes that aren't supported by solc.
-    """
+    """Return list of all fork classes that aren't supported by solc."""
     return [fork for fork in get_forks() if solc_version < fork.solc_min_version()]
 
 
 def get_closest_fork_with_solc_support(fork: Fork, solc_version: Version) -> Optional[Fork]:
     """
-    Returns the closest fork, potentially the provided fork itself, that has
+    Return closest fork, potentially the provided fork itself, that has
     solc support.
     """
     if fork is BaseFork:
@@ -88,9 +82,7 @@ def get_closest_fork_with_solc_support(fork: Fork, solc_version: Version) -> Opt
 
 
 def get_transition_forks() -> List[Fork]:
-    """
-    Returns all the transition forks
-    """
+    """Return all the transition forks."""
     transition_forks: List[Fork] = []
 
     for fork_name in transition.__dict__:
@@ -106,9 +98,7 @@ def get_transition_forks() -> List[Fork]:
 def get_from_until_fork_set(
     forks: Set[Fork], forks_from: Set[Fork], forks_until: Set[Fork]
 ) -> Set[Fork]:
-    """
-    Get the fork range from forks_from to forks_until.
-    """
+    """Get fork range from forks_from to forks_until."""
     resulting_set = set()
     for fork_from in forks_from:
         for fork_until in forks_until:
@@ -119,9 +109,7 @@ def get_from_until_fork_set(
 
 
 def get_forks_with_no_parents(forks: Set[Fork]) -> Set[Fork]:
-    """
-    Get the forks with no parents in the inheritance hierarchy.
-    """
+    """Get forks with no parents in the inheritance hierarchy."""
     resulting_forks: Set[Fork] = set()
     for fork in forks:
         parents = False
@@ -135,9 +123,7 @@ def get_forks_with_no_parents(forks: Set[Fork]) -> Set[Fork]:
 
 
 def get_forks_with_no_descendants(forks: Set[Fork]) -> Set[Fork]:
-    """
-    Get the forks with no descendants in the inheritance hierarchy.
-    """
+    """Get forks with no descendants in the inheritance hierarchy."""
     resulting_forks: Set[Fork] = set()
     for fork in forks:
         descendants = False
@@ -151,9 +137,7 @@ def get_forks_with_no_descendants(forks: Set[Fork]) -> Set[Fork]:
 
 
 def get_last_descendants(forks: Set[Fork], forks_from: Set[Fork]) -> Set[Fork]:
-    """
-    Get the last descendant of a class in the inheritance hierarchy.
-    """
+    """Get last descendant of a class in the inheritance hierarchy."""
     resulting_forks: Set[Fork] = set()
     forks = get_forks_with_no_descendants(forks)
     for fork_from in forks_from:
@@ -165,7 +149,7 @@ def get_last_descendants(forks: Set[Fork], forks_from: Set[Fork]) -> Set[Fork]:
 
 def transition_fork_from_to(fork_from: Fork, fork_to: Fork) -> Fork | None:
     """
-    Returns the transition fork that transitions to and from the specified
+    Return transition fork that transitions to and from the specified
     forks.
     """
     for transition_fork in get_transition_forks():
@@ -181,9 +165,7 @@ def transition_fork_from_to(fork_from: Fork, fork_to: Fork) -> Fork | None:
 
 
 def transition_fork_to(fork_to: Fork) -> List[Fork]:
-    """
-    Returns the transition fork that transitions to the specified fork.
-    """
+    """Return transition fork that transitions to the specified fork."""
     transition_forks: List[Fork] = []
     for transition_fork in get_transition_forks():
         if not issubclass(transition_fork, TransitionBaseClass):
@@ -196,8 +178,8 @@ def transition_fork_to(fork_to: Fork) -> List[Fork]:
 
 def forks_from_until(fork_from: Fork, fork_until: Fork) -> List[Fork]:
     """
-    Returns the specified fork and all forks after it until and including the
-    second specified fork
+    Return specified fork and all forks after it until and including the
+    second specified fork.
     """
     prev_fork = fork_until
 
@@ -217,9 +199,7 @@ def forks_from_until(fork_from: Fork, fork_until: Fork) -> List[Fork]:
 
 
 def forks_from(fork: Fork, deployed_only: bool = True) -> List[Fork]:
-    """
-    Returns the specified fork and all forks after it.
-    """
+    """Return specified fork and all forks after it."""
     if deployed_only:
         latest_fork = get_deployed_forks()[-1]
     else:

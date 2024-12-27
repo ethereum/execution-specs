@@ -1,6 +1,4 @@
-"""
-Defines models for index files and consume test cases.
-"""
+"""Defines models for index files and consume test cases."""
 
 import datetime
 import json
@@ -19,9 +17,7 @@ from .state import Fixture as StateFixture
 
 
 class TestCaseBase(BaseModel):
-    """
-    Base model for a test case used in EEST consume commands.
-    """
+    """Base model for a test case used in EEST consume commands."""
 
     id: str
     fixture_hash: HexNumber | None
@@ -35,18 +31,14 @@ class TestCaseBase(BaseModel):
 
 
 class TestCaseStream(TestCaseBase):
-    """
-    The test case model used to load test cases from a stream (stdin).
-    """
+    """The test case model used to load test cases from a stream (stdin)."""
 
     fixture: StateFixture | BlockchainFixture
     __test__ = False  # stop pytest from collecting this class as a test
 
 
 class TestCaseIndexFile(TestCaseBase):
-    """
-    The test case model used to save/load test cases to/from an index file.
-    """
+    """The test case model used to save/load test cases to/from an index file."""
 
     json_path: Path
     __test__ = False  # stop pytest from collecting this class as a test
@@ -64,9 +56,7 @@ class TestCaseIndexFile(TestCaseBase):
 
 
 class IndexFile(BaseModel):
-    """
-    The model definition used for fixture index files.
-    """
+    """The model definition used for fixture index files."""
 
     root_hash: HexNumber | None
     created_at: datetime.datetime
@@ -75,9 +65,7 @@ class IndexFile(BaseModel):
 
 
 class TestCases(RootModel):
-    """
-    Root model defining a list test cases used in consume commands.
-    """
+    """Root model defining a list test cases used in consume commands."""
 
     root: List[TestCaseIndexFile] | List[TestCaseStream]
     __test__ = False  # stop pytest from collecting this class as a test
@@ -128,9 +116,7 @@ class TestCases(RootModel):
 
     @classmethod
     def from_stream(cls, fd: TextIO) -> "TestCases":
-        """
-        Create a TestCases object from a stream.
-        """
+        """Create a TestCases object from a stream."""
         fixtures = Fixtures.from_json_data(json.load(fd))
         test_cases = []
         for fixture_name, fixture in fixtures.items():
@@ -149,9 +135,7 @@ class TestCases(RootModel):
 
     @classmethod
     def from_index_file(cls, index_file: Path) -> "TestCases":
-        """
-        Create a TestCases object from an index file.
-        """
+        """Create a TestCases object from an index file."""
         with open(index_file, "r") as fd:
             index: IndexFile = IndexFile.model_validate_json(fd.read())
         return cls(root=index.test_cases)

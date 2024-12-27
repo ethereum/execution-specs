@@ -1,6 +1,4 @@
-"""
-Simple CLI tool to hash a directory of JSON fixtures.
-"""
+"""Simple CLI tool to hash a directory of JSON fixtures."""
 
 import hashlib
 import json
@@ -13,9 +11,7 @@ import click
 
 
 class HashableItemType(IntEnum):
-    """
-    Represents the type of a hashable item.
-    """
+    """Represents the type of a hashable item."""
 
     FOLDER = 0
     FILE = auto()
@@ -24,9 +20,7 @@ class HashableItemType(IntEnum):
 
 @dataclass(kw_only=True)
 class HashableItem:
-    """
-    Represents an item that can be hashed containing other items that can be hashed as well.
-    """
+    """Represents an item that can be hashed containing other items that can be hashed as well."""
 
     type: HashableItemType
     parents: List[str] = field(default_factory=list)
@@ -34,9 +28,7 @@ class HashableItem:
     items: Optional[Dict[str, "HashableItem"]] = None
 
     def hash(self) -> bytes:
-        """
-        Return the hash of the item.
-        """
+        """Return the hash of the item."""
         if self.root is not None:
             return self.root
         if self.items is None:
@@ -50,9 +42,7 @@ class HashableItem:
     def print(
         self, *, name: str, level: int = 0, print_type: Optional[HashableItemType] = None
     ) -> None:
-        """
-        Print the hash of the item and sub-items.
-        """
+        """Print the hash of the item and sub-items."""
         next_level = level
         print_name = name
         if level == 0 and self.parents:
@@ -68,9 +58,7 @@ class HashableItem:
 
     @classmethod
     def from_json_file(cls, *, file_path: Path, parents: List[str]) -> "HashableItem":
-        """
-        Create a hashable item from a JSON file.
-        """
+        """Create a hashable item from a JSON file."""
         items = {}
         with file_path.open("r") as f:
             data = json.load(f)
@@ -97,10 +85,12 @@ class HashableItem:
         return cls(type=HashableItemType.FILE, items=items, parents=parents)
 
     @classmethod
-    def from_folder(cls, *, folder_path: Path, parents: List[str] = []) -> "HashableItem":
-        """
-        Create a hashable item from a folder.
-        """
+    def from_folder(
+        cls, *, folder_path: Path, parents: Optional[List[str]] = None
+    ) -> "HashableItem":
+        """Create a hashable item from a folder."""
+        if parents is None:
+            parents = []
         items = {}
         for file_path in sorted(folder_path.iterdir()):
             if ".meta" in file_path.parts:
@@ -124,9 +114,7 @@ class HashableItem:
 @click.option("--tests", "-t", is_flag=True, help="Print hash of tests")
 @click.option("--root", "-r", is_flag=True, help="Only print hash of root folder")
 def main(folder_path_str: str, files: bool, tests: bool, root: bool) -> None:
-    """
-    Hash folders of JSON fixtures and print their hashes.
-    """
+    """Hash folders of JSON fixtures and print their hashes."""
     folder_path: Path = Path(folder_path_str)
     item = HashableItem.from_folder(folder_path=folder_path)
 

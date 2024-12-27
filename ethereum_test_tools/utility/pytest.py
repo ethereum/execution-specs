@@ -1,6 +1,4 @@
-"""
-Pytest utility functions used to write Ethereum tests.
-"""
+"""Pytest utility functions used to write Ethereum tests."""
 
 from typing import Any, Dict, List
 
@@ -15,6 +13,7 @@ class UnknownParameterInCasesError(Exception):
     """
 
     def __init__(self) -> None:
+        """Initialize the exception."""
         super().__init__("each case must only contain parameters present in defaults")
 
 
@@ -22,7 +21,7 @@ def extend_with_defaults(
     defaults: Dict[str, Any], cases: List[ParameterSet], **parametrize_kwargs: Any
 ) -> Dict[str, Any]:
     """
-    Extends test cases with default parameter values.
+    Extend test cases with default parameter values.
 
     This utility function extends test case parameters by adding default values
     from the `defaults` dictionary to each case in the `cases` list. If a case
@@ -112,6 +111,7 @@ def extend_with_defaults(
           of parameter values.
         - The function performs an in-place update of the `cases` list, so the
           original `cases` list is modified.
+
     """
     for i, case in enumerate(cases):
         if not (len(case.values) == 1 and isinstance(case.values[0], dict)):

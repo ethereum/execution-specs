@@ -1,6 +1,6 @@
 """
-Generate a JSON blockchain test from an existing JSON blockchain test by wrapping its prestate code
-in EOF wherever possible.
+Generate a JSON blockchain test from an existing JSON blockchain test by wrapping its pre-state
+code in EOF wherever possible.
 
 Example Usage:
 
@@ -20,7 +20,7 @@ from typing import Any, no_type_check
 import click
 
 from cli.evm_bytes import OpcodeWithOperands, process_evm_bytes
-from ethereum_clis import CLINotFoundInPath
+from ethereum_clis import CLINotFoundInPathError
 from ethereum_clis.clis.evmone import EvmOneTransitionTool
 from ethereum_test_base_types.base_types import Bytes
 from ethereum_test_base_types.conversions import to_hex
@@ -41,30 +41,31 @@ from ethereum_test_vm.bytecode import Bytecode
 @click.argument("input", type=click.Path(exists=True, dir_okay=True, file_okay=True))
 @click.argument("output_dir", type=click.Path(dir_okay=True, file_okay=False))
 @click.option("--traces", is_flag=True, type=bool)
-def eof_wrap(input: str, output_dir: str, traces: bool):
+def eof_wrap(input_path: str, output_dir: str, traces: bool):
     """
-    Wraps JSON blockchain test file(s) found at `input` path and outputs them to the `output_dir`.
+    Wrap JSON blockchain test file(s) found at `input_path` and
+    outputs them to the `output_dir`.
     """
     eof_wrapper = EofWrapper()
 
     try:
         EvmOneTransitionTool()
-    except CLINotFoundInPath:
+    except CLINotFoundInPathError:
         print(f"Error: {EvmOneTransitionTool.default_binary} must be in the PATH.")
         sys.exit(1)
     except Exception as e:
-        raise Exception(f"Unexpected exception: {e}.")
+        raise Exception(f"Unexpected exception: {e}") from e
 
-    if os.path.isfile(input):
-        file = os.path.basename(input)
+    if os.path.isfile(input_path):
+        file = os.path.basename(input_path)
         out_file = "eof_wrapped_" + file
         out_path = os.path.join(output_dir, out_file)
 
-        eof_wrapper.wrap_file(input, out_path, traces)
+        eof_wrapper.wrap_file(input_path, out_path, traces)
     else:
-        for subdir, dirs, files in os.walk(input):
+        for subdir, _, files in os.walk(input_path):
             for file in files:
-                rel_dir = Path(subdir).relative_to(input)
+                rel_dir = Path(subdir).relative_to(input_path)
                 out_file = "eof_wrapped_" + file
                 out_path = os.path.join(output_dir, rel_dir, out_file)
                 in_path = os.path.join(subdir, file)
@@ -77,9 +78,7 @@ def eof_wrap(input: str, output_dir: str, traces: bool):
 
 
 class EofWrapper:
-    """
-    EOF wrapping of blockchain tests with some simple metrics tracking.
-    """
+    """EOF wrapping of blockchain tests with some simple metrics tracking."""
 
     # JSON files had at least one fixture generated successfully with EOF
     FILES_GENERATED = "files_generated"
@@ -105,6 +104,7 @@ class EofWrapper:
     GENERATION_ERRORS = "generation_errors"
 
     def __init__(self):
+        """Initialize the EofWrapper with metrics tracking and a unique EOF set."""
         self.metrics = {
             self.FILES_GENERATED: 0,
             self.FILES_SKIPPED: 0,
@@ -155,7 +155,7 @@ class EofWrapper:
 
     def wrap_file(self, in_path: str, out_path: str, traces: bool):
         """
-        Wraps code from a blockchain test JSON file from `in_path` into EOF containers,
+        Wrap code from a blockchain test JSON file from `in_path` into EOF containers,
         wherever possible. If not possible - skips and tracks that in metrics. Possible means
         at least one account's code can be wrapped in a valid EOF container and the assertions
         on post state are satisfied.
@@ -170,7 +170,7 @@ class EofWrapper:
 
         out_fixtures = BaseFixturesRootModel({})
         fixture: BlockchainFixture
-        for id, fixture in fixtures.items():
+        for fixture_id, fixture in fixtures.items():
             fixture_eof_codes = []
             wrapped_at_least_one_account = False
 
@@ -205,7 +205,7 @@ class EofWrapper:
 
             try:
                 out_fixture = self._wrap_fixture(fixture, traces)
-                out_fixtures[id] = out_fixture
+                out_fixtures[fixture_id] = out_fixture
                 self.metrics[self.FIXTURES_GENERATED] += 1
                 self.unique_eof.update(fixture_eof_codes)
                 self.metrics[self.UNIQUE_ACCOUNTS_WRAPPED] = len(self.unique_eof)
@@ -224,11 +224,10 @@ class EofWrapper:
         self.metrics[self.FILES_GENERATED] += 1
 
     def _short_exception_msg(self, e: Exception):
-        THRESHOLD = 30
-
+        threshold = 30
         short = str(e)
-        if len(short) > THRESHOLD:
-            short = short[:THRESHOLD] + "..."
+        if len(short) > threshold:
+            short = short[:threshold] + "..."
         return short
 
     def _wrap_fixture(self, fixture: BlockchainFixture, traces: bool):
@@ -306,7 +305,7 @@ class EofWrapper:
     def _validate_eof(self, container: Container, metrics: bool = True) -> bool:
         eof_parse = EOFParse()
 
-        result = eof_parse.run(input=to_hex(container))
+        result = eof_parse.run(input_value=to_hex(container))
         actual_message = result.stdout.strip()
         if "OK" not in actual_message:
             if metrics:
@@ -321,7 +320,7 @@ class EofWrapper:
 @no_type_check
 def wrap_code(account_code: Bytes) -> Container:
     """
-    Wraps `account_code` into a simplest EOF container, applying some simple heuristics in
+    Wrap `account_code` into a simplest EOF container, applying some simple heuristics in
     order to obtain a valid code section termination.
     """
     assert len(account_code) > 0

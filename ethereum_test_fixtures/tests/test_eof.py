@@ -1,6 +1,4 @@
-"""
-Test the EOF fixture types.
-"""
+"""Test the EOF fixture types."""
 
 from typing import Any, Dict
 
@@ -81,16 +79,12 @@ from ..eof import ContainerKind, Fixture, Result, Vector
     ],
 )
 class TestPydanticModelConversion:
-    """
-    Test that Pydantic models are converted to and from JSON correctly.
-    """
+    """Test that Pydantic models are converted to and from JSON correctly."""
 
     def test_json_serialization(
         self, can_be_deserialized: bool, model_instance: Any, json_repr: str | Dict[str, Any]
     ):
-        """
-        Test that to_json returns the expected JSON for the given object.
-        """
+        """Test that to_json returns the expected JSON for the given object."""
         serialized = to_json(model_instance)
         serialized.pop("_info")
         assert serialized == json_repr
@@ -98,9 +92,7 @@ class TestPydanticModelConversion:
     def test_json_deserialization(
         self, can_be_deserialized: bool, model_instance: Any, json_repr: str | Dict[str, Any]
     ):
-        """
-        Test that to_json returns the expected JSON for the given object.
-        """
+        """Test that to_json returns the expected JSON for the given object."""
         if not can_be_deserialized:
             pytest.skip(reason="The model instance in this case can not be deserialized")
         model_type = type(model_instance)

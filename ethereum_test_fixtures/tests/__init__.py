@@ -1,3 +1,1 @@
-"""
-Tests for the ethereum_test_fixtures package.
-"""
+"""Tests for the ethereum_test_fixtures package."""

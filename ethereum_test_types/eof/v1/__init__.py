@@ -1,6 +1,4 @@
-"""
-EVM Object Format Version 1 Library to generate bytecode for testing purposes
-"""
+"""EVM Object Format Version 1 Library to generate bytecode for testing purposes."""
 
 from dataclasses import dataclass
 from enum import Enum, IntEnum, auto
@@ -37,9 +35,7 @@ VERSION_MAX_SECTION_KIND = 3
 
 
 class SectionKind(IntEnum):
-    """
-    Enum class of V1 valid section kind values
-    """
+    """Enum class of V1 valid section kind values."""
 
     TYPE = 1
     CODE = 2
@@ -47,16 +43,12 @@ class SectionKind(IntEnum):
     DATA = 4
 
     def __str__(self) -> str:
-        """
-        Returns the string representation of the section kind
-        """
+        """Return string representation of the section kind."""
         return self.name
 
 
 class ContainerKind(Enum):
-    """
-    Enum class of V1 valid container kind values.
-    """
+    """Enum class of V1 valid container kind values."""
 
     RUNTIME = auto()
     INITCODE = auto()
@@ -65,9 +57,7 @@ class ContainerKind(Enum):
     def __get_pydantic_core_schema__(
         source_type: Any, handler: GetCoreSchemaHandler
     ) -> PlainValidatorFunctionSchema:
-        """
-        Calls the class constructor without info and appends the serialization schema.
-        """
+        """Call class constructor without info and appends the serialization schema."""
         return no_info_plain_validator_function(
             source_type.from_str,
             serialization=to_string_ser_schema(),
@@ -75,9 +65,7 @@ class ContainerKind(Enum):
 
     @staticmethod
     def from_str(value: "str | ContainerKind | None") -> "ContainerKind | None":
-        """
-        Returns the ContainerKind enum value from a string.
-        """
+        """Return ContainerKind enum value from a string."""
         if value is None:
             return None
         if isinstance(value, ContainerKind):
@@ -85,16 +73,12 @@ class ContainerKind(Enum):
         return ContainerKind[value.upper()]
 
     def __str__(self) -> str:
-        """
-        Returns the string representation of the container kind
-        """
+        """Return string representation of the container kind."""
         return self.name
 
 
 class AutoSection(Enum):
-    """
-    Enum class for auto section generation approach
-    """
+    """Enum class for auto section generation approach."""
 
     AUTO = 1
     ONLY_HEADER = 2
@@ -102,21 +86,15 @@ class AutoSection(Enum):
     NONE = 4
 
     def any(self) -> bool:
-        """
-        Returns True if the enum is not NONE
-        """
+        """Return True if the enum is not NONE."""
         return self != AutoSection.NONE
 
     def header(self) -> bool:
-        """
-        Returns True if the enum is not ONLY_BODY
-        """
+        """Return True if the enum is not ONLY_BODY."""
         return self != AutoSection.ONLY_BODY and self != AutoSection.NONE
 
     def body(self) -> bool:
-        """
-        Returns True if the enum is not ONLY_HEADER
-        """
+        """Return True if the enum is not ONLY_HEADER."""
         return self != AutoSection.ONLY_HEADER and self != AutoSection.NONE
 
 
@@ -124,9 +102,7 @@ SUPPORT_MULTI_SECTION_HEADER = [SectionKind.CODE, SectionKind.CONTAINER]
 
 
 class Section(CopyValidateModel):
-    """
-    Class that represents a section in an EOF V1 container.
-    """
+    """Class that represents a section in an EOF V1 container."""
 
     data: Bytes = Bytes(b"")
     """
@@ -191,9 +167,7 @@ class Section(CopyValidateModel):
 
     @cached_property
     def header(self) -> bytes:
-        """
-        Get formatted header for this section according to its contents.
-        """
+        """Get formatted header for this section according to its contents."""
         size = self.custom_size if "custom_size" in self.model_fields_set else len(self.data)
         if self.kind == SectionKind.CODE:
             raise Exception("Need container-wide view of code sections to generate header")
@@ -203,9 +177,7 @@ class Section(CopyValidateModel):
 
     @cached_property
     def type_definition(self) -> bytes:
-        """
-        Returns a serialized type section entry for this section.
-        """
+        """Returns a serialized type section entry for this section."""
         if self.kind != SectionKind.CODE and not self.force_type_listing:
             return bytes()
 
@@ -236,20 +208,18 @@ class Section(CopyValidateModel):
 
     def with_max_stack_height(self, max_stack_height) -> "Section":
         """
-        Creates a copy of the section with `max_stack_height` set to the
+        Create copy of the section with `max_stack_height` set to the
         specified value.
         """
         return self.copy(max_stack_height=max_stack_height)
 
     def with_auto_max_stack_height(self) -> "Section":
-        """
-        Creates a copy of the section with `auto_max_stack_height` set to True.
-        """
+        """Create copy of the section with `auto_max_stack_height` set to True."""
         return self.copy(auto_max_stack_height=True)
 
     def with_auto_code_inputs_outputs(self) -> "Section":
         """
-        Creates a copy of the section with `auto_code_inputs_outputs` set to
+        Create copy of the section with `auto_code_inputs_outputs` set to
         True.
         """
         return self.copy(auto_code_inputs_outputs=True)
@@ -257,7 +227,7 @@ class Section(CopyValidateModel):
     @staticmethod
     def list_header(sections: List["Section"]) -> bytes:
         """
-        Creates the single code header for all code sections contained in
+        Create single code header for all code sections contained in
         the list.
         """
         # Allow 'types section' to use skip_header_listing flag
@@ -287,11 +257,11 @@ class Section(CopyValidateModel):
 
     @classmethod
     def Code(  # noqa: N802
-        cls, code: BytesConvertible | Bytecode = Bytecode(), **kwargs
+        cls, code: Optional[BytesConvertible | Bytecode] = None, **kwargs
     ) -> "Section":
-        """
-        Creates a new code section with the specified code.
-        """
+        """Create new code section with the specified code."""
+        if code is None:
+            code = Bytecode()
         kwargs.pop("kind", None)
         if "max_stack_height" not in kwargs and isinstance(code, Bytecode):
             kwargs["max_stack_height"] = code.max_stack_height
@@ -301,25 +271,19 @@ class Section(CopyValidateModel):
     def Container(  # noqa: N802
         cls, container: "Container" | BytesConvertible, **kwargs
     ) -> "Section":
-        """
-        Creates a new container section with the specified container.
-        """
+        """Create new container section with the specified container."""
         kwargs.pop("kind", None)
         return cls(kind=SectionKind.CONTAINER, data=container, **kwargs)
 
     @classmethod
     def Data(cls, data: BytesConvertible = b"", **kwargs) -> "Section":  # noqa: N802
-        """
-        Creates a new data section with the specified data.
-        """
+        """Create new data section with the specified data."""
         kwargs.pop("kind", None)
         return cls(kind=SectionKind.DATA, data=data, **kwargs)
 
 
 class Container(CopyValidateModel):
-    """
-    Class that represents an EOF V1 container.
-    """
+    """Class that represents an EOF V1 container."""
 
     name: Optional[str] = None
     """
@@ -393,9 +357,7 @@ class Container(CopyValidateModel):
 
     @cached_property
     def bytecode(self) -> bytes:
-        """
-        Converts the EOF V1 Container into bytecode.
-        """
+        """Converts the EOF V1 Container into bytecode."""
         if self.raw_bytes is not None:
             assert len(self.sections) == 0
             return self.raw_bytes
@@ -473,10 +435,10 @@ class Container(CopyValidateModel):
         return c
 
     @classmethod
-    def Code(cls, code: BytesConvertible = Bytecode(), **kwargs) -> "Container":  # noqa: N802
-        """
-        Creates simple container with a single code section.
-        """
+    def Code(cls, code: Optional[BytesConvertible] = None, **kwargs) -> "Container":  # noqa: N802
+        """Create simple container with a single code section."""
+        if code is None:
+            code = Bytecode()
         kwargs.pop("kind", None)
         return cls(sections=[Section.Code(code=code, **kwargs)])
 
@@ -484,11 +446,11 @@ class Container(CopyValidateModel):
     def Init(  # noqa: N802
         cls,
         deploy_container: "Container",
-        initcode_prefix: Bytecode = Bytecode(),
+        initcode_prefix: Optional[Bytecode] = None,
     ) -> "Container":
-        """
-        Creates simple init container that deploys the specified container.
-        """
+        """Create simple init container that deploys the specified container."""
+        if initcode_prefix is None:
+            initcode_prefix = Bytecode()
         return cls(
             sections=[
                 Section.Code(
@@ -501,20 +463,16 @@ class Container(CopyValidateModel):
         )
 
     def __bytes__(self) -> bytes:
-        """
-        Returns the bytecode of the container.
-        """
+        """Return bytecode of the container."""
         return self.bytecode
 
     def __len__(self) -> int:
-        """
-        Returns the length of the container bytecode.
-        """
+        """Return length of the container bytecode."""
         return len(self.bytecode)
 
     def __str__(self) -> str:
         """
-        Returns the name of the container if available, otherwise the bytecode of the container
+        Return name of the container if available, otherwise the bytecode of the container
         as a string.
         """
         if self.name:
@@ -540,9 +498,7 @@ class Initcode(Bytecode):
 
     @cached_property
     def init_container(self) -> Container:
-        """
-        Generate a container that will be used as the initcode.
-        """
+        """Generate a container that will be used as the initcode."""
         return Container(
             sections=[
                 Section.Code(
@@ -557,9 +513,7 @@ class Initcode(Bytecode):
 
     @cached_property
     def bytecode(self) -> bytes:
-        """
-        Generate an EOF container performs `EOFCREATE` with the specified code.
-        """
+        """Generate an EOF container performs `EOFCREATE` with the specified code."""
         initcode = Container(
             sections=[
                 Section.Code(
@@ -577,9 +531,7 @@ class Initcode(Bytecode):
 
 
 def count_sections(sections: List[Section], kind: SectionKind | int) -> int:
-    """
-    Counts sections from a list that match a specific kind
-    """
+    """Count sections from a list that match a specific kind."""
     return len([s for s in sections if s.kind == kind])
 
 
@@ -588,7 +540,7 @@ OPCODE_MAP: Dict[int, Op] = {x.int(): x for x in Op}
 
 def compute_code_stack_values(code: bytes) -> Tuple[int, int, int]:
     """
-    Computes the stack values for the given bytecode.
+    Compute stack values for the given bytecode.
 
     TODO: THIS DOES NOT WORK WHEN THE RJUMP* JUMPS BACKWARDS (and many other
     things).

@@ -1,6 +1,4 @@
-"""
-A pytest plugin providing common functionality for consuming test fixtures.
-"""
+"""A pytest plugin providing common functionality for consuming test fixtures."""
 
 import os
 import sys
@@ -24,7 +22,7 @@ JsonSource = Union[Path, Literal["stdin"]]
 
 def default_input_directory() -> str:
     """
-    The default directory to consume generated test fixtures from. Defined as a
+    Directory (default) to consume generated test fixtures from. Defined as a
     function to allow for easier testing.
     """
     return "./fixtures"
@@ -32,24 +30,20 @@ def default_input_directory() -> str:
 
 def default_html_report_file_path() -> str:
     """
-    The default filepath to store the generated HTML test report. Defined as a
+    Filepath (default) to store the generated HTML test report. Defined as a
     function to allow for easier testing.
     """
     return ".meta/report_consume.html"
 
 
 def is_url(string: str) -> bool:
-    """
-    Check if a string is a remote URL.
-    """
+    """Check if a string is a remote URL."""
     result = urlparse(string)
     return all([result.scheme, result.netloc])
 
 
 def download_and_extract(url: str, base_directory: Path) -> Path:
-    """
-    Download the URL and extract it locally if it hasn't already been downloaded.
-    """
+    """Download the URL and extract it locally if it hasn't already been downloaded."""
     parsed_url = urlparse(url)
     filename = Path(parsed_url.path).name
     version = Path(parsed_url.path).parts[-2]
@@ -163,9 +157,7 @@ def pytest_configure(config):  # noqa: D103
 
 
 def pytest_html_report_title(report):
-    """
-    Set the HTML report title (pytest-html plugin).
-    """
+    """Set the HTML report title (pytest-html plugin)."""
     report.title = "Consume Test Report"
 
 
@@ -202,9 +194,7 @@ def pytest_generate_tests(metafunc):
 
 
 def pytest_collection_modifyitems(session, config, items):
-    """
-    Modify collected item names to remove the test runner function from the name.
-    """
+    """Modify collected item names to remove the test runner function from the name."""
     for item in items:
         original_name = item.originalname
         remove = f"{original_name}["

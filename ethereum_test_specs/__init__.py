@@ -1,6 +1,4 @@
-"""
-Test spec definitions and utilities.
-"""
+"""Test spec definitions and utilities."""
 
 from typing import List, Type
 

@@ -11,7 +11,7 @@ from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, T
 
 from ethereum_test_base_types import to_json
 from ethereum_test_fixtures.file import Fixtures
-from ethereum_test_specs.base import HashMismatchException
+from ethereum_test_specs.base import HashMismatchExceptionError
 
 
 def count_json_files_exclude_index(start_path: Path) -> int:
@@ -26,7 +26,6 @@ def count_json_files_exclude_index(start_path: Path) -> int:
 def check_json(json_file_path: Path):
     """
     Check all fixtures in the specified json file:
-
     1. Load the json file into a pydantic model. This checks there are no
         Validation errors when loading fixtures into EEST models.
     2. Serialize the loaded pydantic model to "json" (actually python data
@@ -34,7 +33,7 @@ def check_json(json_file_path: Path):
     3. Load the serialized data back into a pydantic model (to get an updated
         hash) from step 2.
     4. Compare hashes:
-        a. Compare the newly calculated hashes from step 2. and 3.and
+        a. Compare the newly calculated hashes from step 2. and 3. and
         b. If present, compare info["hash"] with the calculated hash from step 2.
     """
     fixtures = Fixtures.from_file(json_file_path, fixture_format=None)
@@ -43,13 +42,13 @@ def check_json(json_file_path: Path):
     for fixture_name, fixture in fixtures.items():
         new_hash = fixtures_deserialized[fixture_name].hash
         if (original_hash := fixture.hash) != new_hash:
-            raise HashMismatchException(
+            raise HashMismatchExceptionError(
                 original_hash,
                 new_hash,
                 message=f"Fixture hash attributes do not match for {fixture_name}",
             )
         if "hash" in fixture.info and fixture.info["hash"] != original_hash:
-            raise HashMismatchException(
+            raise HashMismatchExceptionError(
                 original_hash,
                 fixture.info["hash"],
                 message=f"Fixture info['hash'] does not match calculated hash for {fixture_name}",
@@ -85,9 +84,7 @@ def check_json(json_file_path: Path):
     help="Stop and raise any exceptions encountered while checking fixtures.",
 )
 def check_fixtures(input_str: str, quiet_mode: bool, stop_on_error: bool):
-    """
-    Perform some checks on the fixtures contained in the specified directory.
-    """
+    """Perform some checks on the fixtures contained in the specified directory."""
     input_path = Path(input_str)
     success = True
     file_count = 0
@@ -112,8 +109,7 @@ def check_fixtures(input_str: str, quiet_mode: bool, stop_on_error: bool):
         TimeElapsedColumn(),
         expand=True,
         disable=quiet_mode,
-    ) as progress:
-
+    ) as progress:  # type: Progress
         task_id = progress.add_task("Checking fixtures", total=file_count, filename="...")
         for json_file_path in get_input_files():
             if json_file_path.name == "index.json":

@@ -1,6 +1,4 @@
-"""
-Shared pytest fixtures and hooks for EEST generation modes (fill and execute).
-"""
+"""Shared pytest fixtures and hooks for EEST generation modes (fill and execute)."""
 
 import warnings
 from typing import List, cast
@@ -71,7 +69,7 @@ def pytest_configure(config: pytest.Config):
 @pytest.fixture(autouse=True)
 def eips():
     """
-    A fixture specifying that, by default, no EIPs should be activated for
+    Fixture for specifying that, by default, no EIPs should be activated for
     tests.
 
     This fixture (function) may be redefined in test filler modules in order
@@ -84,7 +82,7 @@ def eips():
 @pytest.fixture
 def yul(fork: Fork, request: pytest.FixtureRequest):
     """
-    A fixture that allows contract code to be defined with Yul code.
+    Fixture that allows contract code to be defined with Yul code.
 
     This fixture defines a class that wraps the ::ethereum_test_tools.Yul
     class so that upon instantiation within the test case, it provides the
@@ -113,7 +111,9 @@ def yul(fork: Fork, request: pytest.FixtureRequest):
         solc_target_fork = get_closest_fork_with_solc_support(fork, request.config.solc_version)
         assert solc_target_fork is not None, "No fork supports provided solc version."
         if solc_target_fork != fork and request.config.getoption("verbose") >= 1:
-            warnings.warn(f"Compiling Yul for {solc_target_fork.name()}, not {fork.name()}.")
+            warnings.warn(
+                f"Compiling Yul for {solc_target_fork.name()}, not {fork.name()}.", stacklevel=2
+            )
 
     class YulWrapper(Yul):
         def __new__(cls, *args, **kwargs):
@@ -152,25 +152,23 @@ SPEC_TYPES_PARAMETERS: List[str] = [s.pytest_parameter_name() for s in SPEC_TYPE
 
 
 def pytest_runtest_call(item: pytest.Item):
-    """
-    Pytest hook called in the context of test execution.
-    """
+    """Pytest hook called in the context of test execution."""
     if isinstance(item, EIPSpecTestItem):
         return
 
-    class InvalidFiller(Exception):
+    class InvalidFillerError(Exception):
         def __init__(self, message):
             super().__init__(message)
 
     item = cast(pytest.Function, item)  # help mypy infer type
 
     if "state_test" in item.fixturenames and "blockchain_test" in item.fixturenames:
-        raise InvalidFiller(
+        raise InvalidFillerError(
             "A filler should only implement either a state test or " "a blockchain test; not both."
         )
 
     # Check that the test defines either test type as parameter.
-    if not any([i for i in item.funcargs if i in SPEC_TYPES_PARAMETERS]):
+    if not any(i for i in item.funcargs if i in SPEC_TYPES_PARAMETERS):
         pytest.fail(
             "Test must define either one of the following parameters to "
             + "properly generate a test: "

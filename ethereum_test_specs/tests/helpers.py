@@ -1,6 +1,4 @@
-"""
-Helper methods used in the spec tests.
-"""
+"""Helper methods used in the spec tests."""
 
 
 def remove_info_metadata(fixture_json):  # noqa: D103

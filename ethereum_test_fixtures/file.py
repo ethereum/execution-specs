@@ -1,6 +1,4 @@
-"""
-Defines models for interacting with JSON fixture files.
-"""
+"""Defines models for interacting with JSON fixture files."""
 
 import json
 from pathlib import Path
@@ -27,7 +25,7 @@ class BaseFixturesRootModel(EthereumTestRootModel):
     A base class for defining top-level models that encapsulate multiple test
     fixtures. Each fixture is stored in a dictionary, where each key is a string
     (typically the fixture name) and its corresponding value is a fixture object.
-    This is the structure used for blockchain and state JSON fixture files
+    This is the structure used for blockchain and state JSON fixture files.
 
     This class implements dunder methods and other common functionality to allow
     interaction with the model's fixtures as if they were being accessed directly
@@ -121,9 +119,7 @@ class BaseFixturesRootModel(EthereumTestRootModel):
 
 
 def fixture_format_discriminator(v: Any) -> str | None:
-    """
-    A discriminator function that returns the model type as a string.
-    """
+    """Discriminator function that returns the model type as a string."""
     if v is None:
         return None
     if isinstance(v, dict):
@@ -134,9 +130,7 @@ def fixture_format_discriminator(v: Any) -> str | None:
 
 
 class Fixtures(BaseFixturesRootModel):
-    """
-    A model that can contain any fixture type.
-    """
+    """A model that can contain any fixture type."""
 
     root: Dict[
         str,

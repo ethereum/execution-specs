@@ -1,6 +1,4 @@
-"""
-Test suite for `code.eof.v1` module.
-"""
+"""Test suite for `code.eof.v1` module."""
 
 from typing import List, Tuple
 
@@ -148,7 +146,7 @@ test_cases: List[Tuple[str, Container, str]] = [
     (
         "Invalid Magic",
         Container(
-            magic=b"\xEF\xFE",
+            magic=b"\xef\xfe",
             sections=[
                 Section.Code("0x00"),
             ],
@@ -842,28 +840,22 @@ test_cases: List[Tuple[str, Container, str]] = [
 
 
 @pytest.mark.parametrize(
-    ["container", "hex"],
+    ["container", "hex_value"],
     [(x[1], x[2]) for x in test_cases],
     ids=[x[0] for x in test_cases],
 )
-def test_eof_v1_assemble(container: Container, hex: str):
-    """
-    Test `ethereum_test.types.code`.
-    """
-    expected_string = remove_comments_from_string(hex)
+def test_eof_v1_assemble(container: Container, hex_value: str):
+    """Test `ethereum_test.types.code`."""
+    expected_string = remove_comments_from_string(hex_value)
     expected_bytes = bytes.fromhex(expected_string.replace(" ", "").replace("\n", ""))
-    assert (
-        bytes(container) == expected_bytes
-    ), f"""
+    assert bytes(container) == expected_bytes, f"""
     Container: {bytes(container).hex()}
     Expected : {expected_bytes.hex()}
     """
 
 
 def remove_comments_from_string(input_string):
-    """
-    Remove comments from a string and leave only valid hex characters.
-    """
+    """Remove comments from a string and leave only valid hex characters."""
     # Split the string into individual lines
     lines = input_string.split("\n")
 
@@ -896,8 +888,6 @@ def remove_comments_from_string(input_string):
     ids=lambda model: model.__class__.__name__,
 )
 def test_model_copy(model: CopyValidateModel):
-    """
-    Test that the copy method returns a correct copy of the model.
-    """
+    """Test that the copy method returns a correct copy of the model."""
     assert to_json(model.copy()) == to_json(model)
     assert model.copy().model_fields_set == model.model_fields_set

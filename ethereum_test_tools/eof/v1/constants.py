@@ -1,6 +1,4 @@
-"""
-Mirror module to import `ethereum_test_types.eof.v1.constants`.
-"""
+"""Mirror module to import `ethereum_test_types.eof.v1.constants`."""
 
 from ethereum_test_types.eof.v1.constants import (
     HEADER_SECTION_COUNT_BYTE_LENGTH,

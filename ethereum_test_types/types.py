@@ -1,6 +1,4 @@
-"""
-Useful types for generating Ethereum tests.
-"""
+"""Useful types for generating Ethereum tests."""
 
 from abc import abstractmethod
 from collections import defaultdict
@@ -25,9 +23,10 @@ from pydantic import (
 )
 from trie import HexaryTrie
 
-from ethereum_test_base_types import AccessList, Account, Address
-from ethereum_test_base_types import Alloc as BaseAlloc
 from ethereum_test_base_types import (
+    AccessList,
+    Account,
+    Address,
     BLSPublicKey,
     BLSSignature,
     Bytes,
@@ -42,6 +41,7 @@ from ethereum_test_base_types import (
     TestAddress,
     TestPrivateKey,
 )
+from ethereum_test_base_types import Alloc as BaseAlloc
 from ethereum_test_base_types.conversions import (
     BytesConvertible,
     FixedSizeBytesConvertible,
@@ -53,16 +53,12 @@ from ethereum_test_vm import EVMCodeType
 
 
 def keccak256(data: bytes) -> Hash:
-    """
-    Calculates the keccak256 hash of the given data.
-    """
+    """Calculate keccak256 hash of the given data."""
     return Bytes(data).keccak256()
 
 
 def int_to_bytes(value: int) -> bytes:
-    """
-    Converts an integer to its big-endian representation.
-    """
+    """Convert integer to its big-endian representation."""
     if value == 0:
         return b""
 
@@ -73,7 +69,7 @@ def int_to_bytes(value: int) -> bytes:
 class Removable:
     """
     Sentinel class to detect if a parameter should be removed.
-    (`None` normally means "do not modify")
+    (`None` normally means "do not modify").
     """
 
     pass
@@ -96,9 +92,7 @@ class EOA(Address):
         key: FixedSizeBytesConvertible | None = None,
         nonce: NumberConvertible = 0,
     ):
-        """
-        Init the EOA.
-        """
+        """Init the EOA."""
         if address is None:
             if key is None:
                 raise ValueError("impossible to initialize EOA without address")
@@ -113,66 +107,56 @@ class EOA(Address):
         return instance
 
     def get_nonce(self) -> Number:
-        """
-        Returns the current nonce of the EOA and increments it by one.
-        """
+        """Return current nonce of the EOA and increments it by one."""
         nonce = self.nonce
         self.nonce = Number(nonce + 1)
         return nonce
 
     def copy(self) -> "EOA":
-        """
-        Returns a copy of the EOA.
-        """
+        """Return copy of the EOA."""
         return EOA(Address(self), key=self.key, nonce=self.nonce)
 
 
 class Alloc(BaseAlloc):
-    """
-    Allocation of accounts in the state, pre and post test execution.
-    """
+    """Allocation of accounts in the state, pre and post test execution."""
 
     _eoa_fund_amount_default: int = PrivateAttr(10**21)
 
     @dataclass(kw_only=True)
-    class UnexpectedAccount(Exception):
-        """
-        Unexpected account found in the allocation.
-        """
+    class UnexpectedAccountError(Exception):
+        """Unexpected account found in the allocation."""
 
         address: Address
         account: Account | None
 
         def __init__(self, address: Address, account: Account | None, *args):
+            """Initialize the exception."""
             super().__init__(args)
             self.address = address
             self.account = account
 
         def __str__(self):
-            """Print exception string"""
+            """Print exception string."""
             return f"unexpected account in allocation {self.address}: {self.account}"
 
     @dataclass(kw_only=True)
-    class MissingAccount(Exception):
-        """
-        Expected account not found in the allocation.
-        """
+    class MissingAccountError(Exception):
+        """Expected account not found in the allocation."""
 
         address: Address
 
         def __init__(self, address: Address, *args):
+            """Initialize the exception."""
             super().__init__(args)
             self.address = address
 
         def __str__(self):
-            """Print exception string"""
+            """Print exception string."""
             return f"Account missing from allocation {self.address}"
 
     @classmethod
     def merge(cls, alloc_1: "Alloc", alloc_2: "Alloc") -> "Alloc":
-        """
-        Returns the merged allocation of two sources.
-        """
+        """Return merged allocation of two sources."""
         merged = alloc_1.model_dump()
 
         for address, other_account in alloc_2.root.items():
@@ -185,67 +169,49 @@ class Alloc(BaseAlloc):
         return Alloc(merged)
 
     def __iter__(self):
-        """
-        Returns an iterator over the allocation.
-        """
+        """Return iterator over the allocation."""
         return iter(self.root)
 
     def items(self):
-        """
-        Returns an iterator over the allocation items.
-        """
+        """Return iterator over the allocation items."""
         return self.root.items()
 
     def __getitem__(self, address: Address | FixedSizeBytesConvertible) -> Account | None:
-        """
-        Returns the account associated with an address.
-        """
+        """Return account associated with an address."""
         if not isinstance(address, Address):
             address = Address(address)
         return self.root[address]
 
     def __setitem__(self, address: Address | FixedSizeBytesConvertible, account: Account | None):
-        """
-        Sets the account associated with an address.
-        """
+        """Set account associated with an address."""
         if not isinstance(address, Address):
             address = Address(address)
         self.root[address] = account
 
     def __delitem__(self, address: Address | FixedSizeBytesConvertible):
-        """
-        Deletes the account associated with an address.
-        """
+        """Delete account associated with an address."""
         if not isinstance(address, Address):
             address = Address(address)
         self.root.pop(address, None)
 
     def __eq__(self, other) -> bool:
-        """
-        Returns True if both allocations are equal.
-        """
+        """Return True if both allocations are equal."""
         if not isinstance(other, Alloc):
             return False
         return self.root == other.root
 
     def __contains__(self, address: Address | FixedSizeBytesConvertible) -> bool:
-        """
-        Checks if an account is in the allocation.
-        """
+        """Check if an account is in the allocation."""
         if not isinstance(address, Address):
             address = Address(address)
         return address in self.root
 
     def empty_accounts(self) -> List[Address]:
-        """
-        Returns a list of addresses of empty accounts.
-        """
+        """Return list of addresses of empty accounts."""
         return [address for address, account in self.root.items() if not account]
 
     def state_root(self) -> bytes:
-        """
-        Returns the state root of the allocation.
-        """
+        """Return state root of the allocation."""
         state = State()
         for address, account in self.root.items():
             if account is None:
@@ -279,7 +245,7 @@ class Alloc(BaseAlloc):
             if account is None:
                 # Account must not exist
                 if address in got_alloc.root and got_alloc.root[address] is not None:
-                    raise Alloc.UnexpectedAccount(address, got_alloc.root[address])
+                    raise Alloc.UnexpectedAccountError(address, got_alloc.root[address])
             else:
                 if address in got_alloc.root:
                     got_account = got_alloc.root[address]
@@ -287,22 +253,20 @@ class Alloc(BaseAlloc):
                     assert isinstance(account, Account)
                     account.check_alloc(address, got_account)
                 else:
-                    raise Alloc.MissingAccount(address)
+                    raise Alloc.MissingAccountError(address)
 
     def deploy_contract(
         self,
         code: BytesConvertible,
         *,
-        storage: Storage | StorageRootType = {},
+        storage: Storage | StorageRootType | None = None,
         balance: NumberConvertible = 0,
         nonce: NumberConvertible = 1,
         address: Address | None = None,
         evm_code_type: EVMCodeType | None = None,
         label: str | None = None,
     ) -> Address:
-        """
-        Deploy a contract to the allocation.
-        """
+        """Deploy a contract to the allocation."""
         raise NotImplementedError("deploy_contract is not implemented in the base class")
 
     def fund_eoa(
@@ -313,9 +277,7 @@ class Alloc(BaseAlloc):
         delegation: Address | Literal["Self"] | None = None,
         nonce: NumberConvertible | None = None,
     ) -> EOA:
-        """
-        Add a previously unused EOA to the pre-alloc with the balance specified by `amount`.
-        """
+        """Add a previously unused EOA to the pre-alloc with the balance specified by `amount`."""
         raise NotImplementedError("fund_eoa is not implemented in the base class")
 
     def fund_address(self, address: Address, amount: NumberConvertible):
@@ -329,9 +291,7 @@ class Alloc(BaseAlloc):
 
 
 class WithdrawalGeneric(CamelModel, Generic[NumberBoundTypeVar]):
-    """
-    Withdrawal generic type, used as a parent class for `Withdrawal` and `FixtureWithdrawal`.
-    """
+    """Withdrawal generic type, used as a parent class for `Withdrawal` and `FixtureWithdrawal`."""
 
     index: NumberBoundTypeVar
     validator_index: NumberBoundTypeVar
@@ -340,7 +300,7 @@ class WithdrawalGeneric(CamelModel, Generic[NumberBoundTypeVar]):
 
     def to_serializable_list(self) -> List[Any]:
         """
-        Returns a list of the withdrawal's attributes in the order they should
+        Return list of the withdrawal's attributes in the order they should
         be serialized.
         """
         return [
@@ -352,9 +312,7 @@ class WithdrawalGeneric(CamelModel, Generic[NumberBoundTypeVar]):
 
     @staticmethod
     def list_root(withdrawals: Sequence["WithdrawalGeneric"]) -> bytes:
-        """
-        Returns the withdrawals root of a list of withdrawals.
-        """
+        """Return withdrawals root of a list of withdrawals."""
         t = HexaryTrie(db={})
         for i, w in enumerate(withdrawals):
             t.set(eth_rlp.encode(Uint(i)), eth_rlp.encode(w.to_serializable_list()))
@@ -362,9 +320,7 @@ class WithdrawalGeneric(CamelModel, Generic[NumberBoundTypeVar]):
 
 
 class Withdrawal(WithdrawalGeneric[HexNumber]):
-    """
-    Withdrawal type
-    """
+    """Withdrawal type."""
 
     pass
 
@@ -373,17 +329,13 @@ DEFAULT_BASE_FEE = 7
 
 
 class EnvironmentGeneric(CamelModel, Generic[NumberBoundTypeVar]):
-    """
-    Used as a parent class for `Environment` and `FixtureEnvironment`.
-    """
+    """Used as a parent class for `Environment` and `FixtureEnvironment`."""
 
     fee_recipient: Address = Field(
         Address("0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba"),
         alias="currentCoinbase",
     )
-    gas_limit: NumberBoundTypeVar = Field(
-        100_000_000_000_000_000, alias="currentGasLimit"
-    )  # type: ignore
+    gas_limit: NumberBoundTypeVar = Field(100_000_000_000_000_000, alias="currentGasLimit")  # type: ignore
     number: NumberBoundTypeVar = Field(1, alias="currentNumber")  # type: ignore
     timestamp: NumberBoundTypeVar = Field(1_000, alias="currentTimestamp")  # type: ignore
     prev_randao: NumberBoundTypeVar | None = Field(None, alias="currentRandom")
@@ -433,9 +385,7 @@ class Environment(EnvironmentGeneric[Number]):
         return Hash(self.block_hashes[last_index])
 
     def set_fork_requirements(self, fork: Fork) -> "Environment":
-        """
-        Fills the required fields in an environment depending on the fork.
-        """
+        """Fill required fields in an environment depending on the fork."""
         number = self.number
         timestamp = self.timestamp
 
@@ -491,9 +441,7 @@ class Environment(EnvironmentGeneric[Number]):
 
 
 class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar]):
-    """
-    Authorization tuple for transactions.
-    """
+    """Authorization tuple for transactions."""
 
     chain_id: NumberBoundTypeVar = Field(0)  # type: ignore
     address: Address
@@ -506,9 +454,7 @@ class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar]):
     magic: ClassVar[int] = 0x05
 
     def to_list(self) -> List[Any]:
-        """
-        Returns the authorization tuple as a list of serializable elements.
-        """
+        """Return authorization tuple as a list of serializable elements."""
         if isinstance(self.nonce, list):
             # Nonce list for testing purposes only
             return [
@@ -530,9 +476,7 @@ class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar]):
 
     @cached_property
     def signing_bytes(self) -> Bytes:
-        """
-        Returns the data to be signed.
-        """
+        """Returns the data to be signed."""
         if isinstance(self.nonce, list):
             # Nonce list for testing purposes only
             return Bytes(
@@ -557,9 +501,7 @@ class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar]):
         )
 
     def signature(self, private_key: Hash) -> Tuple[int, int, int]:
-        """
-        Returns the signature of the authorization tuple.
-        """
+        """Return signature of the authorization tuple."""
         signature_bytes = PrivateKey(secret=private_key).sign_recoverable(
             self.signing_bytes, hasher=keccak256
         )
@@ -571,17 +513,13 @@ class AuthorizationTupleGeneric(CamelModel, Generic[NumberBoundTypeVar]):
 
 
 class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
-    """
-    Authorization tuple for transactions.
-    """
+    """Authorization tuple for transactions."""
 
     signer: EOA | None = None
     secret_key: Hash | None = None
 
     def model_post_init(self, __context: Any) -> None:
-        """
-        Automatically signs the authorization tuple if a secret key or sender are provided.
-        """
+        """Automatically signs the authorization tuple if a secret key or sender are provided."""
         super().model_post_init(__context)
 
         if self.secret_key is not None:
@@ -612,9 +550,7 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
                 pass
 
     def sign(self, private_key: Hash) -> None:
-        """
-        Signs the authorization tuple with a private key.
-        """
+        """Signs the authorization tuple with a private key."""
         signature = self.signature(private_key)
 
         self.v = HexNumber(signature[0])
@@ -624,9 +560,7 @@ class AuthorizationTuple(AuthorizationTupleGeneric[HexNumber]):
 
 @dataclass
 class TransactionDefaults:
-    """
-    Default values for transactions.
-    """
+    """Default values for transactions."""
 
     chain_id: int = 1
     gas_price = 10
@@ -636,13 +570,12 @@ class TransactionDefaults:
 
 class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
     """
-    Generic transaction type used as a parent for Transaction and FixtureTransaction (blockchain).
+    Generic transaction type used as a parent for Transaction and
+    FixtureTransaction (blockchain).
     """
 
     ty: NumberBoundTypeVar = Field(0, alias="type")  # type: ignore
-    chain_id: NumberBoundTypeVar = Field(
-        default_factory=lambda: TransactionDefaults.chain_id
-    )  # type: ignore
+    chain_id: NumberBoundTypeVar = Field(default_factory=lambda: TransactionDefaults.chain_id)  # type: ignore
     nonce: NumberBoundTypeVar = Field(0)  # type: ignore
     gas_price: NumberBoundTypeVar | None = None
     max_priority_fee_per_gas: NumberBoundTypeVar | None = None
@@ -662,25 +595,19 @@ class TransactionGeneric(BaseModel, Generic[NumberBoundTypeVar]):
 
 
 class TransactionFixtureConverter(CamelModel):
-    """
-    Handler for serializing and validating the `to` field as an empty string.
-    """
+    """Handler for serializing and validating the `to` field as an empty string."""
 
     @model_validator(mode="before")
     @classmethod
     def validate_to_as_empty_string(cls, data: Any) -> Any:
-        """
-        If the `to` field is an empty string, set the model value to None.
-        """
+        """If the `to` field is an empty string, set the model value to None."""
         if isinstance(data, dict) and "to" in data and data["to"] == "":
             data["to"] = None
         return data
 
     @model_serializer(mode="wrap", when_used="json-unless-none")
     def serialize_to_as_empty_string(self, serializer):
-        """
-        Serialize the `to` field as the empty string if the model value is None.
-        """
+        """Serialize the `to` field as the empty string if the model value is None."""
         default = serializer(self)
         if default is not None and "to" not in default:
             default["to"] = ""
@@ -688,16 +615,12 @@ class TransactionFixtureConverter(CamelModel):
 
 
 class TransactionTransitionToolConverter(CamelModel):
-    """
-    Handler for serializing and validating the `to` field as an empty string.
-    """
+    """Handler for serializing and validating the `to` field as an empty string."""
 
     @model_validator(mode="before")
     @classmethod
     def validate_to_as_empty_string(cls, data: Any) -> Any:
-        """
-        If the `to` field is an empty string, set the model value to None.
-        """
+        """If the `to` field is an empty string, set the model value to None."""
         if (
             isinstance(data, dict)
             and "to" in data
@@ -723,9 +646,7 @@ class TransactionTransitionToolConverter(CamelModel):
 
 
 class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConverter):
-    """
-    Generic object that can represent all Ethereum transaction types.
-    """
+    """Generic object that can represent all Ethereum transaction types."""
 
     gas_limit: HexNumber = Field(HexNumber(21_000), serialization_alias="gas")
     to: Address | None = Field(Address(0xAA))
@@ -746,29 +667,25 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
 
     model_config = ConfigDict(validate_assignment=True)
 
-    class InvalidFeePayment(Exception):
-        """
-        Transaction described more than one fee payment type.
-        """
+    class InvalidFeePaymentError(Exception):
+        """Transaction described more than one fee payment type."""
 
         def __str__(self):
-            """Print exception string"""
+            """Print exception string."""
             return "only one type of fee payment field can be used in a single tx"
 
-    class InvalidSignaturePrivateKey(Exception):
+    class InvalidSignaturePrivateKeyError(Exception):
         """
         Transaction describes both the signature and private key of
         source account.
         """
 
         def __str__(self):
-            """Print exception string"""
+            """Print exception string."""
             return "can't define both 'signature' and 'private_key'"
 
     def model_post_init(self, __context):
-        """
-        Ensures the transaction has no conflicting properties.
-        """
+        """Ensure transaction has no conflicting properties."""
         super().model_post_init(__context)
 
         if self.gas_price is not None and (
@@ -776,7 +693,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
             or self.max_priority_fee_per_gas is not None
             or self.max_fee_per_blob_gas is not None
         ):
-            raise Transaction.InvalidFeePayment()
+            raise Transaction.InvalidFeePaymentError()
 
         if "ty" not in self.model_fields_set:
             # Try to deduce transaction type from included fields
@@ -792,7 +709,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
                 self.ty = 0
 
         if self.v is not None and self.secret_key is not None:
-            raise Transaction.InvalidSignaturePrivateKey()
+            raise Transaction.InvalidSignaturePrivateKeyError()
 
         if self.v is None and self.secret_key is None:
             if self.sender is not None:
@@ -834,21 +751,15 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
     def with_error(
         self, error: List[TransactionException] | TransactionException
     ) -> "Transaction":
-        """
-        Create a copy of the transaction with an added error.
-        """
+        """Create a copy of the transaction with an added error."""
         return self.copy(error=error)
 
     def with_nonce(self, nonce: int) -> "Transaction":
-        """
-        Create a copy of the transaction with a modified nonce.
-        """
+        """Create a copy of the transaction with a modified nonce."""
         return self.copy(nonce=nonce)
 
     def with_signature_and_sender(self, *, keep_secret_key: bool = False) -> "Transaction":
-        """
-        Returns a signed version of the transaction using the private key.
-        """
+        """Return signed version of the transaction using the private key."""
         updated_values: Dict[str, Any] = {}
 
         if self.v is not None:
@@ -907,9 +818,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
 
     @cached_property
     def signing_envelope(self) -> List[Any]:
-        """
-        Returns the list of values included in the envelope used for signing.
-        """
+        """Returns the list of values included in the envelope used for signing."""
         to = self.to if self.to else bytes()
         if self.ty == 4:
             # EIP-7702: https://eips.ethereum.org/EIPS/eip-7702
@@ -1024,9 +933,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
 
     @cached_property
     def payload_body(self) -> List[Any]:
-        """
-        Returns the list of values included in the transaction body.
-        """
+        """Returns the list of values included in the transaction body."""
         if self.v is None or self.r is None or self.s is None:
             raise ValueError("signature must be set before serializing any tx type")
 
@@ -1067,16 +974,12 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
 
     @cached_property
     def hash(self) -> Hash:
-        """
-        Returns hash of the transaction.
-        """
+        """Returns hash of the transaction."""
         return self.rlp.keccak256()
 
     @cached_property
     def signing_bytes(self) -> Bytes:
-        """
-        Returns the serialized bytes of the transaction used for signing.
-        """
+        """Returns the serialized bytes of the transaction used for signing."""
         return Bytes(
             bytes([self.ty]) + eth_rlp.encode(self.signing_envelope)
             if self.ty > 0
@@ -1085,9 +988,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
 
     @cached_property
     def signature_bytes(self) -> Bytes:
-        """
-        Returns the serialized bytes of the transaction signature.
-        """
+        """Returns the serialized bytes of the transaction signature."""
         assert self.v is not None and self.r is not None and self.s is not None
         v = int(self.v)
         if self.ty == 0:
@@ -1104,16 +1005,12 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
 
     @cached_property
     def serializable_list(self) -> Any:
-        """
-        Returns the list of values included in the transaction as a serializable object.
-        """
+        """Return list of values included in the transaction as a serializable object."""
         return self.rlp if self.ty > 0 else self.payload_body
 
     @staticmethod
     def list_root(input_txs: List["Transaction"]) -> Hash:
-        """
-        Returns the transactions root of a list of transactions.
-        """
+        """Return transactions root of a list of transactions."""
         t = HexaryTrie(db={})
         for i, tx in enumerate(input_txs):
             t.set(eth_rlp.encode(Uint(i)), tx.rlp)
@@ -1121,9 +1018,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
 
     @staticmethod
     def list_blob_versioned_hashes(input_txs: List["Transaction"]) -> List[Hash]:
-        """
-        Gets a list of ordered blob versioned hashes from a list of transactions.
-        """
+        """Get list of ordered blob versioned hashes from a list of transactions."""
         return [
             blob_versioned_hash
             for tx in input_txs
@@ -1133,36 +1028,28 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
 
     @cached_property
     def created_contract(self) -> Address:
-        """
-        Returns the address of the contract created by the transaction.
-        """
+        """Return address of the contract created by the transaction."""
         if self.to is not None:
             raise ValueError("transaction is not a contract creation")
         if self.sender is None:
             raise ValueError("sender address is None")
-        hash = Bytes(eth_rlp.encode([self.sender, int_to_bytes(self.nonce)])).keccak256()
-        return Address(hash[-20:])
+        hash_bytes = Bytes(eth_rlp.encode([self.sender, int_to_bytes(self.nonce)])).keccak256()
+        return Address(hash_bytes[-20:])
 
 
 class RequestBase:
-    """
-    Base class for requests.
-    """
+    """Base class for requests."""
 
     type: ClassVar[int]
 
     @abstractmethod
     def __bytes__(self) -> bytes:
-        """
-        Returns the request's attributes as bytes.
-        """
+        """Return request's attributes as bytes."""
         ...
 
 
 class DepositRequest(RequestBase, CamelModel):
-    """
-    Deposit Request type.
-    """
+    """Deposit Request type."""
 
     pubkey: BLSPublicKey
     withdrawal_credentials: Hash
@@ -1173,9 +1060,7 @@ class DepositRequest(RequestBase, CamelModel):
     type: ClassVar[int] = 0
 
     def __bytes__(self) -> bytes:
-        """
-        Returns the deposit's attributes as bytes.
-        """
+        """Return deposit's attributes as bytes."""
         return (
             bytes(self.pubkey)
             + bytes(self.withdrawal_credentials)
@@ -1186,9 +1071,7 @@ class DepositRequest(RequestBase, CamelModel):
 
 
 class WithdrawalRequest(RequestBase, CamelModel):
-    """
-    Withdrawal Request type
-    """
+    """Withdrawal Request type."""
 
     source_address: Address = Address(0)
     validator_pubkey: BLSPublicKey
@@ -1197,9 +1080,7 @@ class WithdrawalRequest(RequestBase, CamelModel):
     type: ClassVar[int] = 1
 
     def __bytes__(self) -> bytes:
-        """
-        Returns the withdrawal's attributes as bytes.
-        """
+        """Return withdrawal's attributes as bytes."""
         return (
             bytes(self.source_address)
             + bytes(self.validator_pubkey)
@@ -1208,9 +1089,7 @@ class WithdrawalRequest(RequestBase, CamelModel):
 
 
 class ConsolidationRequest(RequestBase, CamelModel):
-    """
-    Consolidation Request type
-    """
+    """Consolidation Request type."""
 
     source_address: Address = Address(0)
     source_pubkey: BLSPublicKey
@@ -1219,25 +1098,19 @@ class ConsolidationRequest(RequestBase, CamelModel):
     type: ClassVar[int] = 2
 
     def __bytes__(self) -> bytes:
-        """
-        Returns the consolidation's attributes as bytes.
-        """
+        """Return consolidation's attributes as bytes."""
         return bytes(self.source_address) + bytes(self.source_pubkey) + bytes(self.target_pubkey)
 
 
 def requests_list_to_bytes(requests_list: List[RequestBase] | Bytes | SupportsBytes) -> Bytes:
-    """
-    Converts a list of requests to bytes.
-    """
+    """Convert list of requests to bytes."""
     if not isinstance(requests_list, list):
         return Bytes(requests_list)
     return Bytes(b"".join([bytes(r) for r in requests_list]))
 
 
 class Requests:
-    """
-    Requests for the transition tool.
-    """
+    """Requests for the transition tool."""
 
     requests_list: List[Bytes]
 
@@ -1246,9 +1119,7 @@ class Requests:
         *requests: RequestBase,
         requests_lists: List[List[RequestBase] | Bytes] | None = None,
     ):
-        """
-        Initializes the requests object.
-        """
+        """Initialize requests object."""
         if requests_lists is not None:
             assert len(requests) == 0, "requests must be empty if list is provided"
             self.requests_list = []
@@ -1266,9 +1137,7 @@ class Requests:
             ]
 
     def __bytes__(self) -> bytes:
-        """
-        Returns the requests hash.
-        """
+        """Return requests hash."""
         s: bytes = b""
         for r in self.requests_list:
             # Append the index of the request type to the request data before hashing

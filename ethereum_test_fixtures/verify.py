@@ -1,6 +1,4 @@
-"""
-Ethereum test fixture verifyer abstract class.
-"""
+"""Ethereum test fixture verifyer abstract class."""
 
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -9,17 +7,13 @@ from .base import FixtureFormat
 
 
 class FixtureVerifier(ABC):
-    """
-    Abstract class for verifying Ethereum test fixtures.
-    """
+    """Abstract class for verifying Ethereum test fixtures."""
 
     def is_verifiable(
         self,
         fixture_format: FixtureFormat,
     ) -> bool:
-        """
-        Returns whether the fixture format is verifiable by this verifier.
-        """
+        """Return whether the fixture format is verifiable by this verifier."""
         return False
 
     @abstractmethod
@@ -31,7 +25,7 @@ class FixtureVerifier(ABC):
         debug_output_path: Path | None = None,
     ):
         """
-        Executes `evm [state|block]test` to verify the fixture at `fixture_path`.
+        Execute `evm [state|block]test` to verify the fixture at `fixture_path`.
 
         Currently only implemented by geth's evm.
         """

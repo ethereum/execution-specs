@@ -21,22 +21,16 @@ from ethereum_test_types import Transaction
 
 
 class RPCRequest:
-    """
-    Interface for the RPC interaction with remote node
-    """
+    """Interface for the RPC interaction with remote node."""
 
     class RemoteTransaction(Transaction):
-        """
-        Model that represents a transaction.
-        """
+        """Model that represents a transaction."""
 
         block_number: HexNumber
         tx_hash: Hash
 
     class RemoteBlock(BaseModel):
-        """
-        Model that represents a block.
-        """
+        """Model that represents a block."""
 
         coinbase: str
         difficulty: str
@@ -48,9 +42,7 @@ class RPCRequest:
     headers: dict[str, str]
 
     def __init__(self):
-        """
-        Initialize the RequestManager with specific client config.
-        """
+        """Initialize the RequestManager with specific client config."""
         node_config = EnvConfig().remote_nodes[0]
         self.node_url = node_config.node_url
         headers = node_config.rpc_headers
@@ -58,9 +50,7 @@ class RPCRequest:
         self.debug_rpc = DebugRPC(node_config.node_url, extra_headers=headers)
 
     def eth_get_transaction_by_hash(self, transaction_hash: Hash) -> RemoteTransaction:
-        """
-        Get transaction data.
-        """
+        """Get transaction data."""
         res = self.rpc.get_transaction_by_hash(transaction_hash)
         block_number = res.block_number
         assert block_number is not None, "Transaction does not seem to be included in any block"
@@ -87,9 +77,7 @@ class RPCRequest:
         )
 
     def eth_get_block_by_number(self, block_number: BlockNumberType) -> RemoteBlock:
-        """
-        Get block by number
-        """
+        """Get block by number."""
         res = self.rpc.get_block_by_number(block_number)
 
         return RPCRequest.RemoteBlock(
@@ -101,9 +89,7 @@ class RPCRequest:
         )
 
     def debug_trace_call(self, transaction: RemoteTransaction) -> Dict[str, dict]:
-        """
-        Get pre-state required for transaction
-        """
+        """Get pre-state required for transaction."""
         assert transaction.sender is not None
         assert transaction.to is not None
 

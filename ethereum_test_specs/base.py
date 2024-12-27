@@ -1,6 +1,4 @@
-"""
-Base test class and helper functions for Ethereum state and blockchain tests.
-"""
+"""Base test class and helper functions for Ethereum state and blockchain tests."""
 
 from abc import abstractmethod
 from functools import reduce
@@ -20,16 +18,18 @@ from ethereum_test_forks import Fork
 from ethereum_test_types import Environment, Withdrawal
 
 
-class HashMismatchException(Exception):
+class HashMismatchExceptionError(Exception):
     """Exception raised when the expected and actual hashes don't match."""
 
     def __init__(self, expected_hash, actual_hash, message="Hashes do not match"):
+        """Initialize the exception with the expected and actual hashes."""
         self.expected_hash = expected_hash
         self.actual_hash = actual_hash
         self.message = message
         super().__init__(self.message)
 
-    def __str__(self):  # noqa: D105
+    def __str__(self):
+        """Return the error message."""
         return f"{self.message}: Expected {self.expected_hash}, got {self.actual_hash}"
 
 
@@ -43,9 +43,7 @@ def verify_result(result: Result, env: Environment):
 
 
 class BaseTest(BaseModel):
-    """
-    Represents a base Ethereum test which must return a single test fixture.
-    """
+    """Represents a base Ethereum test which must return a single test fixture."""
 
     tag: str = ""
 
@@ -66,9 +64,7 @@ class BaseTest(BaseModel):
         fixture_format: FixtureFormat,
         eips: Optional[List[int]] = None,
     ) -> BaseFixture:
-        """
-        Generate the list of test fixtures.
-        """
+        """Generate the list of test fixtures."""
         pass
 
     def execute(
@@ -78,9 +74,7 @@ class BaseTest(BaseModel):
         execute_format: ExecuteFormat,
         eips: Optional[List[int]] = None,
     ) -> BaseExecute:
-        """
-        Generate the list of test fixtures.
-        """
+        """Generate the list of test fixtures."""
         raise Exception(f"Unsupported execute format: {execute_format}")
 
     @classmethod
@@ -94,9 +88,7 @@ class BaseTest(BaseModel):
         return reduce(lambda x, y: x + ("_" if y.isupper() else "") + y, cls.__name__).lower()
 
     def get_next_transition_tool_output_path(self) -> str:
-        """
-        Returns the path to the next transition tool output file.
-        """
+        """Return path to the next transition tool output file."""
         if not self.t8n_dump_dir:
             return ""
         return path.join(

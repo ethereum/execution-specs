@@ -1,3 +1,1 @@
-"""
-Tests for scripts and apps in `cli` .
-"""
+"""Tests for scripts and apps in `cli` ."""

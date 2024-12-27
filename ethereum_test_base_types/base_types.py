@@ -1,6 +1,4 @@
-"""
-Basic type primitives used to define other types.
-"""
+"""Basic type primitives used to define other types."""
 
 from hashlib import sha256
 from typing import Any, ClassVar, SupportsBytes, Type, TypeVar
@@ -27,16 +25,15 @@ N = TypeVar("N", bound="Number")
 
 class ToStringSchema:
     """
-    Type converter to add a simple pydantic schema that correctly parses and serializes the type.
+    Type converter to add a simple pydantic schema that correctly
+    parses and serializes the type.
     """
 
     @staticmethod
     def __get_pydantic_core_schema__(
         source_type: Any, handler: GetCoreSchemaHandler
     ) -> PlainValidatorFunctionSchema:
-        """
-        Calls the class constructor without info and appends the serialization schema.
-        """
+        """Call the class constructor without info and appends the serialization schema."""
         return no_info_plain_validator_function(
             source_type,
             serialization=to_string_ser_schema(),
@@ -44,49 +41,35 @@ class ToStringSchema:
 
 
 class Number(int, ToStringSchema):
-    """
-    Class that helps represent numbers in tests.
-    """
+    """Class that helps represent numbers in tests."""
 
-    def __new__(cls, input: NumberConvertible | N):
-        """
-        Creates a new Number object.
-        """
-        return super(Number, cls).__new__(cls, to_number(input))
+    def __new__(cls, input_number: NumberConvertible | N):
+        """Create a new Number object."""
+        return super(Number, cls).__new__(cls, to_number(input_number))
 
     def __str__(self) -> str:
-        """
-        Returns the string representation of the number.
-        """
+        """Return the string representation of the number."""
         return str(int(self))
 
     def hex(self) -> str:
-        """
-        Returns the hexadecimal representation of the number.
-        """
+        """Return the hexadecimal representation of the number."""
         return hex(self)
 
     @classmethod
-    def or_none(cls: Type[N], input: N | NumberConvertible | None) -> N | None:
-        """
-        Converts the input to a Number while accepting None.
-        """
-        if input is None:
-            return input
-        return cls(input)
+    def or_none(cls: Type[N], input_number: N | NumberConvertible | None) -> N | None:
+        """Convert the input to a Number while accepting None."""
+        if input_number is None:
+            return input_number
+        return cls(input_number)
 
 
 class Wei(Number):
-    """
-    Class that helps represent wei that can be parsed from strings
-    """
+    """Class that helps represent wei that can be parsed from strings."""
 
-    def __new__(cls, input: NumberConvertible | N):
-        """
-        Creates a new Number object.
-        """
-        if isinstance(input, str):
-            words = input.split()
+    def __new__(cls, input_number: NumberConvertible | N):
+        """Create a new Number object."""
+        if isinstance(input_number, str):
+            words = input_number.split()
             multiplier = 1
             assert len(words) <= 2
             value_str = words[0]
@@ -100,13 +83,11 @@ class Wei(Number):
             else:
                 value = float(value_str)
             return super(Number, cls).__new__(cls, value * multiplier)
-        return super(Number, cls).__new__(cls, to_number(input))
+        return super(Number, cls).__new__(cls, to_number(input_number))
 
     @staticmethod
     def _get_multiplier(unit: str) -> int:
-        """
-        Returns the multiplier for the given unit of wei, handling synonyms.
-        """
+        """Return the multiplier for the given unit of wei, handling synonyms."""
         match unit:
             case "wei":
                 return 1
@@ -127,26 +108,18 @@ class Wei(Number):
 
 
 class HexNumber(Number):
-    """
-    Class that helps represent an hexadecimal numbers in tests.
-    """
+    """Class that helps represent an hexadecimal numbers in tests."""
 
     def __str__(self) -> str:
-        """
-        Returns the string representation of the number.
-        """
+        """Return the string representation of the number."""
         return self.hex()
 
 
 class ZeroPaddedHexNumber(HexNumber):
-    """
-    Class that helps represent zero padded hexadecimal numbers in tests.
-    """
+    """Class that helps represent zero padded hexadecimal numbers in tests."""
 
     def hex(self) -> str:
-        """
-        Returns the hexadecimal representation of the number.
-        """
+        """Return the hexadecimal representation of the number."""
         if self == 0:
             return "0x00"
         hex_str = hex(self)[2:]
@@ -159,56 +132,40 @@ NumberBoundTypeVar = TypeVar("NumberBoundTypeVar", Number, HexNumber, ZeroPadded
 
 
 class Bytes(bytes, ToStringSchema):
-    """
-    Class that helps represent bytes of variable length in tests.
-    """
+    """Class that helps represent bytes of variable length in tests."""
 
-    def __new__(cls, input: BytesConvertible = b""):
-        """
-        Creates a new Bytes object.
-        """
-        if type(input) is cls:
-            return input
-        return super(Bytes, cls).__new__(cls, to_bytes(input))
+    def __new__(cls, input_bytes: BytesConvertible = b""):
+        """Create a new Bytes object."""
+        if type(input_bytes) is cls:
+            return input_bytes
+        return super(Bytes, cls).__new__(cls, to_bytes(input_bytes))
 
     def __hash__(self) -> int:
-        """
-        Returns the hash of the bytes.
-        """
+        """Return the hash of the bytes."""
         return super(Bytes, self).__hash__()
 
     def __str__(self) -> str:
-        """
-        Returns the hexadecimal representation of the bytes.
-        """
+        """Return the hexadecimal representation of the bytes."""
         return self.hex()
 
     def hex(self, *args, **kwargs) -> str:
-        """
-        Returns the hexadecimal representation of the bytes.
-        """
+        """Return the hexadecimal representation of the bytes."""
         return "0x" + super().hex(*args, **kwargs)
 
     @classmethod
-    def or_none(cls, input: "Bytes | BytesConvertible | None") -> "Bytes | None":
-        """
-        Converts the input to a Bytes while accepting None.
-        """
-        if input is None:
-            return input
-        return cls(input)
+    def or_none(cls, input_bytes: "Bytes | BytesConvertible | None") -> "Bytes | None":
+        """Convert the input to a Bytes while accepting None."""
+        if input_bytes is None:
+            return input_bytes
+        return cls(input_bytes)
 
     def keccak256(self) -> "Hash":
-        """
-        Return the keccak256 hash of the opcode byte representation.
-        """
+        """Return the keccak256 hash of the opcode byte representation."""
         k = keccak.new(digest_bits=256)
         return Hash(k.update(bytes(self)).digest())
 
     def sha256(self) -> "Hash":
-        """
-        Return the sha256 hash of the opcode byte representation.
-        """
+        """Return the sha256 hash of the opcode byte representation."""
         return Hash(sha256(self).digest())
 
 
@@ -228,9 +185,7 @@ class FixedSizeHexNumber(int, ToStringSchema):
     max_value: ClassVar[int]
 
     def __class_getitem__(cls, length: int) -> Type["FixedSizeHexNumber"]:
-        """
-        Creates a new FixedSizeHexNumber class with the given length.
-        """
+        """Create a new FixedSizeHexNumber class with the given length."""
 
         class Sized(cls):  # type: ignore
             byte_length = length
@@ -238,11 +193,9 @@ class FixedSizeHexNumber(int, ToStringSchema):
 
         return Sized
 
-    def __new__(cls, input: NumberConvertible | N):
-        """
-        Creates a new Number object.
-        """
-        i = to_number(input)
+    def __new__(cls, input_number: NumberConvertible | N):
+        """Create a new Number object."""
+        i = to_number(input_number)
         if i > cls.max_value:
             raise ValueError(f"Value {i} is too large for {cls.byte_length} bytes")
         if i < 0:
@@ -252,15 +205,11 @@ class FixedSizeHexNumber(int, ToStringSchema):
         return super(FixedSizeHexNumber, cls).__new__(cls, i)
 
     def __str__(self) -> str:
-        """
-        Returns the string representation of the number.
-        """
+        """Return the string representation of the number."""
         return self.hex()
 
     def hex(self) -> str:
-        """
-        Returns the hexadecimal representation of the number.
-        """
+        """Return the hexadecimal representation of the number."""
         if self == 0:
             return "0x00"
         hex_str = hex(self)[2:]
@@ -270,9 +219,7 @@ class FixedSizeHexNumber(int, ToStringSchema):
 
 
 class HashInt(FixedSizeHexNumber[32]):  # type: ignore
-    """
-    Class that helps represent hashes in tests.
-    """
+    """Class that helps represent hashes in tests."""
 
     pass
 
@@ -281,17 +228,13 @@ T = TypeVar("T", bound="FixedSizeBytes")
 
 
 class FixedSizeBytes(Bytes):
-    """
-    Class that helps represent bytes of fixed length in tests.
-    """
+    """Class that helps represent bytes of fixed length in tests."""
 
     byte_length: ClassVar[int]
     _sized_: ClassVar[Type["FixedSizeBytes"]]
 
     def __class_getitem__(cls, length: int) -> Type["FixedSizeBytes"]:
-        """
-        Creates a new FixedSizeBytes class with the given length.
-        """
+        """Create a new FixedSizeBytes class with the given length."""
 
         class Sized(cls):  # type: ignore
             byte_length = length
@@ -299,33 +242,27 @@ class FixedSizeBytes(Bytes):
         Sized._sized_ = Sized
         return Sized
 
-    def __new__(cls, input: FixedSizeBytesConvertible | T):
-        """
-        Creates a new FixedSizeBytes object.
-        """
-        if type(input) is cls:
-            return input
-        return super(FixedSizeBytes, cls).__new__(cls, to_fixed_size_bytes(input, cls.byte_length))
+    def __new__(cls, input_bytes: FixedSizeBytesConvertible | T):
+        """Create a new FixedSizeBytes object."""
+        if type(input_bytes) is cls:
+            return input_bytes
+        return super(FixedSizeBytes, cls).__new__(
+            cls, to_fixed_size_bytes(input_bytes, cls.byte_length)
+        )
 
     def __hash__(self) -> int:
-        """
-        Returns the hash of the bytes.
-        """
+        """Return the hash of the bytes."""
         return super(FixedSizeBytes, self).__hash__()
 
     @classmethod
-    def or_none(cls: Type[T], input: T | FixedSizeBytesConvertible | None) -> T | None:
-        """
-        Converts the input to a Fixed Size Bytes while accepting None.
-        """
-        if input is None:
-            return input
-        return cls(input)
+    def or_none(cls: Type[T], input_bytes: T | FixedSizeBytesConvertible | None) -> T | None:
+        """Convert the input to a Fixed Size Bytes while accepting None."""
+        if input_bytes is None:
+            return input_bytes
+        return cls(input_bytes)
 
     def __eq__(self, other: object) -> bool:
-        """
-        Compares two FixedSizeBytes objects to be equal.
-        """
+        """Compare two FixedSizeBytes objects to be equal."""
         if other is None:
             return False
         if not isinstance(other, FixedSizeBytes):
@@ -339,66 +276,52 @@ class FixedSizeBytes(Bytes):
         return super().__eq__(other)
 
     def __ne__(self, other: object) -> bool:
-        """
-        Compares two FixedSizeBytes objects to be not equal.
-        """
+        """Compare two FixedSizeBytes objects to be not equal."""
         return not self.__eq__(other)
 
 
 class Address(FixedSizeBytes[20]):  # type: ignore
-    """
-    Class that helps represent Ethereum addresses in tests.
-    """
+    """Class that helps represent Ethereum addresses in tests."""
 
     label: str | None = None
 
-    def __new__(cls, input: "FixedSizeBytesConvertible | Address", *, label: str | None = None):
-        """
-        Creates a new Address object with an optional label.
-        """
-        instance = super(Address, cls).__new__(cls, input)
-        if isinstance(input, Address) and label is None:
-            instance.label = input.label
+    def __new__(
+        cls, input_bytes: "FixedSizeBytesConvertible | Address", *, label: str | None = None
+    ):
+        """Create a new Address object with an optional label."""
+        instance = super(Address, cls).__new__(cls, input_bytes)
+        if isinstance(input_bytes, Address) and label is None:
+            instance.label = input_bytes.label
         else:
             instance.label = label
         return instance
 
 
 class Hash(FixedSizeBytes[32]):  # type: ignore
-    """
-    Class that helps represent hashes in tests.
-    """
+    """Class that helps represent hashes in tests."""
 
     pass
 
 
 class Bloom(FixedSizeBytes[256]):  # type: ignore
-    """
-    Class that helps represent blooms in tests.
-    """
+    """Class that helps represent blooms in tests."""
 
     pass
 
 
 class HeaderNonce(FixedSizeBytes[8]):  # type: ignore
-    """
-    Class that helps represent the header nonce in tests.
-    """
+    """Class that helps represent the header nonce in tests."""
 
     pass
 
 
 class BLSPublicKey(FixedSizeBytes[48]):  # type: ignore
-    """
-    Class that helps represent BLS public keys in tests.
-    """
+    """Class that helps represent BLS public keys in tests."""
 
     pass
 
 
 class BLSSignature(FixedSizeBytes[96]):  # type: ignore
-    """
-    Class that helps represent BLS signatures in tests.
-    """
+    """Class that helps represent BLS signatures in tests."""
 
     pass

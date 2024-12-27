@@ -1,6 +1,4 @@
-"""
-Test suite for test spec submodules of the `ethereum_test` module.
-"""
+"""Test suite for test spec submodules of the `ethereum_test` module."""
 
 from typing import Type
 
@@ -12,17 +10,13 @@ from ethereum_test_types import Alloc
 
 @pytest.fixture()
 def post(request: pytest.FixtureRequest) -> Alloc:
-    """
-    The post state: Set from the test's indirectly parametrized `post` parameter.
-    """
+    """Post state: Set from the test's indirectly parametrized `post` parameter."""
     return Alloc.model_validate(request.param)
 
 
 @pytest.fixture()
 def alloc(request: pytest.FixtureRequest) -> Alloc:
-    """
-    The alloc state: Set from the test's indirectly parametrized `alloc` parameter.
-    """
+    """Alloc state: Set from the test's indirectly parametrized `alloc` parameter."""
     return Alloc.model_validate(request.param)
 
 
@@ -40,25 +34,25 @@ def alloc(request: pytest.FixtureRequest) -> Alloc:
                     "storage": {0: 1},
                 }
             },
-            Alloc.UnexpectedAccount,
+            Alloc.UnexpectedAccountError,
         ),
         # Account should not exist but contained in alloc
         (
             {"0x00": Account.NONEXISTENT},
             {"0x0": {"nonce": "1"}},
-            Alloc.UnexpectedAccount,
+            Alloc.UnexpectedAccountError,
         ),
         # Account should not exist but contained in alloc
         (
             {"0x1": Account.NONEXISTENT},
             {"0x01": {"balance": "1"}},
-            Alloc.UnexpectedAccount,
+            Alloc.UnexpectedAccountError,
         ),
         # Account should not exist but contained in alloc
         (
             {"0x0a": Account.NONEXISTENT},
             {"0x0A": {"code": "0x00"}},
-            Alloc.UnexpectedAccount,
+            Alloc.UnexpectedAccountError,
         ),
         # Account should exist but not in alloc
         (
@@ -71,7 +65,7 @@ def alloc(request: pytest.FixtureRequest) -> Alloc:
                     "storage": {0: 1},
                 }
             },
-            Alloc.MissingAccount,
+            Alloc.MissingAccountError,
         ),
         # Account should exist and contained in alloc, but don't care about
         # values
@@ -98,7 +92,7 @@ def alloc(request: pytest.FixtureRequest) -> Alloc:
                     "storage": {0: 1},
                 }
             },
-            Account.NonceMismatch,
+            Account.NonceMismatchError,
         ),
     ],
     indirect=["post", "alloc"],
@@ -106,9 +100,7 @@ def alloc(request: pytest.FixtureRequest) -> Alloc:
 def test_verify_post_alloc(
     post: Alloc, alloc: Alloc, expected_exception_type: Type[Exception] | None
 ):
-    """
-    Test `verify_post_alloc` method of `Alloc`.
-    """
+    """Test `verify_post_alloc` method of `Alloc`."""
     if expected_exception_type is None:
         post.verify_post_alloc(alloc)
     else:

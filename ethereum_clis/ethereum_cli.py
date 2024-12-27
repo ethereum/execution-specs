@@ -1,6 +1,4 @@
-"""
-Abstract base class to help create Python interfaces to Ethereum CLIs.
-"""
+"""Abstract base class to help create Python interfaces to Ethereum CLIs."""
 
 import os
 import shutil
@@ -12,16 +10,17 @@ from re import Pattern
 from typing import Any, List, Optional, Type
 
 
-class UnknownCLI(Exception):
-    """Exception raised if an unknown CLI is encountered"""
+class UnknownCLIError(Exception):
+    """Exception raised if an unknown CLI is encountered."""
 
     pass
 
 
-class CLINotFoundInPath(Exception):
-    """Exception raised if the specified CLI binary is not found in the path"""
+class CLINotFoundInPathError(Exception):
+    """Exception raised if the specified CLI binary is not found in the path."""
 
     def __init__(self, message="The CLI binary was not found in the path", binary=None):
+        """Initialize the exception."""
         if binary:
             message = f"{message} ({binary})"
         super().__init__(message)
@@ -47,9 +46,7 @@ class EthereumCLI(ABC):
 
     @abstractmethod
     def __init__(self, *, binary: Optional[Path] = None, trace: bool = False):
-        """
-        Abstract initialization method that all subclasses must implement.
-        """
+        """Abstract initialization method that all subclasses must implement."""
         if binary is None:
             binary = self.default_binary
         else:
@@ -59,28 +56,24 @@ class EthereumCLI(ABC):
                 binary = resolved_path
         binary = shutil.which(binary)  # type: ignore
         if not binary:
-            raise CLINotFoundInPath(binary=binary)
+            raise CLINotFoundInPathError(binary=binary)
         self.binary = Path(binary)
         self.trace = trace
 
     @classmethod
     def register_tool(cls, tool_subclass: Type[Any]):
-        """
-        Registers a given subclass as tool option.
-        """
+        """Register a given subclass as tool option."""
         cls.registered_tools.append(tool_subclass)  # raise NotImplementedError
 
     @classmethod
     def set_default_tool(cls, tool_subclass: Type[Any]):
-        """
-        Registers the default tool subclass.
-        """
+        """Register the default tool subclass."""
         cls.default_tool = tool_subclass
 
     @classmethod
     def from_binary_path(cls, *, binary_path: Optional[Path], **kwargs) -> Any:
         """
-        Instantiates the appropriate CLI subclass derived from the CLI's `binary_path`.
+        Instantiate the appropriate CLI subclass derived from the CLI's `binary_path`.
 
         This method will attempt to detect the CLI version and instantiate the appropriate
         subclass based on the version output by running hte CLI with the version flag.
@@ -96,7 +89,7 @@ class EthereumCLI(ABC):
         binary = shutil.which(binary_path)  # type: ignore
 
         if not binary:
-            raise CLINotFoundInPath(binary=binary)
+            raise CLINotFoundInPathError(binary=binary)
 
         binary = Path(binary)
 
@@ -126,21 +119,17 @@ class EthereumCLI(ABC):
                 if subclass.detect_binary(binary_output):
                     return subclass(binary=binary, **kwargs)
 
-        raise UnknownCLI(f"Unknown CLI: {binary_path}")
+        raise UnknownCLIError(f"Unknown CLI: {binary_path}")
 
     @classmethod
     def detect_binary(cls, binary_output: str) -> bool:
-        """
-        Returns True if a CLI's `binary_output` matches the class's expected output.
-        """
+        """Return True if a CLI's `binary_output` matches the class's expected output."""
         assert cls.detect_binary_pattern is not None
 
         return cls.detect_binary_pattern.match(binary_output) is not None
 
     def version(self) -> str:
-        """
-        Returns the name and version of the CLI as reported by the CLI's version flag.
-        """
+        """Return the name and version of the CLI as reported by the CLI's version flag."""
         if self.cached_version is None:
             result = subprocess.run(
                 [str(self.binary), self.version_flag],

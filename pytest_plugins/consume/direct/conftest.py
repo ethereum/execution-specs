@@ -68,18 +68,14 @@ def pytest_configure(config):  # noqa: D103
 
 @pytest.fixture(autouse=True, scope="session")
 def evm(request) -> Generator[TransitionTool, None, None]:
-    """
-    Returns the interface to the evm binary that will consume tests.
-    """
+    """Return interface to the evm binary that will consume tests."""
     yield request.config.evm
     request.config.evm.shutdown()
 
 
 @pytest.fixture(scope="session")
 def evm_run_single_test(request) -> bool:
-    """
-    Helper specifying whether to execute one test per fixture in each json file.
-    """
+    """Specify whether to execute one test per fixture in each json file."""
     return request.config.evm_run_single_test
 
 
@@ -87,9 +83,7 @@ def evm_run_single_test(request) -> bool:
 def test_dump_dir(
     request, fixture_path: Path, fixture_name: str, evm_run_single_test: bool
 ) -> Optional[Path]:
-    """
-    The directory to write evm debug output to.
-    """
+    """The directory to write evm debug output to."""
     base_dump_dir = request.config.getoption("base_dump_dir")
     if not base_dump_dir:
         return None
@@ -104,7 +98,7 @@ def test_dump_dir(
 @pytest.fixture
 def fixture_path(test_case: TestCaseIndexFile | TestCaseStream, fixture_source):
     """
-    The path to the current JSON fixture file.
+    Path to the current JSON fixture file.
 
     If the fixture source is stdin, the fixture is written to a temporary json file.
     """
@@ -124,7 +118,5 @@ def fixture_path(test_case: TestCaseIndexFile | TestCaseStream, fixture_source):
 
 @pytest.fixture(scope="function")
 def fixture_name(test_case: TestCaseIndexFile | TestCaseStream):
-    """
-    The name of the current fixture.
-    """
+    """Name of the current fixture."""
     return test_case.id

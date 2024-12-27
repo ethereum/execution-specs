@@ -1,6 +1,4 @@
-"""
-Pytest test to recover funds from a failed remote execution.
-"""
+"""Pytest test to recover funds from a failed remote execution."""
 
 import pytest
 
@@ -11,9 +9,7 @@ from ethereum_test_types import EOA, Transaction
 
 @pytest.fixture(scope="session")
 def gas_price(eth_rpc: EthRPC) -> int:
-    """
-    Get the gas price for the funding transactions.
-    """
+    """Get the gas price for the funding transactions."""
     return eth_rpc.gas_price()
 
 
@@ -24,9 +20,7 @@ def test_recover_funds(
     gas_price: int,
     eth_rpc: EthRPC,
 ) -> None:
-    """
-    Recover funds from a failed remote execution.
-    """
+    """Recover funds from a failed remote execution."""
     remaining_balance = eth_rpc.get_balance(eoa)
     refund_gas_limit = 21_000
     tx_cost = refund_gas_limit * gas_price

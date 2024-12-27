@@ -1,6 +1,4 @@
-"""
-TransactionTest types
-"""
+"""TransactionTest types."""
 
 from typing import ClassVar, Mapping
 
@@ -14,9 +12,7 @@ from .base import BaseFixture
 
 
 class FixtureResult(CamelModel):
-    """
-    The per-network (fork) result structure.
-    """
+    """The per-network (fork) result structure."""
 
     hash: Hash | None = None
     intrinsic_gas: ZeroPaddedHexNumber
@@ -25,9 +21,7 @@ class FixtureResult(CamelModel):
 
 
 class Fixture(BaseFixture):
-    """
-    Fixture for a single TransactionTest.
-    """
+    """Fixture for a single TransactionTest."""
 
     fixture_format_name: ClassVar[str] = "transaction_test"
     description: ClassVar[str] = "Tests that generate a transaction test fixture."
@@ -36,9 +30,7 @@ class Fixture(BaseFixture):
     transaction: Bytes = Field(..., alias="txbytes")
 
     def get_fork(self) -> str | None:
-        """
-        Returns the fork of the fixture as a string.
-        """
+        """Return the fork of the fixture as a string."""
         forks = list(self.result.keys())
         assert len(forks) == 1, "Expected transaction test fixture with single fork"
         return forks[0]

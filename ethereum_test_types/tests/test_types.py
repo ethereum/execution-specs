@@ -1,6 +1,4 @@
-"""
-Test suite for `ethereum_test` module.
-"""
+"""Test suite for `ethereum_test` module."""
 
 from typing import Any, Dict, List
 
@@ -13,9 +11,7 @@ from ..types import Account, Alloc, Environment, Storage, Transaction, Withdrawa
 
 
 def test_storage():
-    """
-    Test `ethereum_test.types.storage` parsing.
-    """
+    """Test `ethereum_test.types.storage` parsing."""
     s = Storage({"10": "0x10"})
 
     assert 10 in s
@@ -125,9 +121,7 @@ def test_storage():
     ],
 )
 def test_empty_accounts(account: Account):
-    """
-    Test `ethereum_test.types.account` parsing.
-    """
+    """Test `ethereum_test.types.account` parsing."""
     assert not bool(account)
 
 
@@ -307,9 +301,7 @@ def test_empty_accounts(account: Account):
     ],
 )
 def test_account_check_alloc(account: Account, alloc_dict: Dict[Any, Any], should_pass: bool):
-    """
-    Test `Account.check_alloc` method.
-    """
+    """Test `Account.check_alloc` method."""
     alloc_account = Account(**alloc_dict)
     if should_pass:
         account.check_alloc(Address(1), alloc_account)
@@ -348,9 +340,7 @@ def test_account_check_alloc(account: Account, alloc_dict: Dict[Any, Any], shoul
     ],
 )
 def test_alloc_append(alloc_1: Alloc, alloc_2: Alloc, expected_alloc: Alloc):
-    """
-    Test `ethereum_test.types.alloc` merging.
-    """
+    """Test `ethereum_test.types.alloc` merging."""
     assert Alloc.merge(alloc_1, alloc_2) == expected_alloc
 
 
@@ -386,9 +376,7 @@ def test_alloc_append(alloc_1: Alloc, alloc_2: Alloc, expected_alloc: Alloc):
 def test_account_merge(
     account_1: Account | None, account_2: Account | None, expected_account: Account
 ):
-    """
-    Test `ethereum_test.types.account` merging.
-    """
+    """Test `ethereum_test.types.account` merging."""
     assert Account.merge(account_1, account_2) == expected_account
 
 
@@ -612,24 +600,18 @@ CHECKSUM_ADDRESS = "0x8a0A19589531694250d570040a0c4B74576919B8"
     ],
 )
 class TestPydanticModelConversion:
-    """
-    Test that Pydantic models are converted to and from JSON correctly.
-    """
+    """Test that Pydantic models are converted to and from JSON correctly."""
 
     def test_json_serialization(
         self, can_be_deserialized: bool, model_instance: Any, json: str | Dict[str, Any]
     ):
-        """
-        Test that to_json returns the expected JSON for the given object.
-        """
+        """Test that to_json returns the expected JSON for the given object."""
         assert to_json(model_instance) == json
 
     def test_json_deserialization(
         self, can_be_deserialized: bool, model_instance: Any, json: str | Dict[str, Any]
     ):
-        """
-        Test that to_json returns the expected JSON for the given object.
-        """
+        """Test that to_json returns the expected JSON for the given object."""
         if not can_be_deserialized:
             pytest.skip(reason="The model instance in this case can not be deserialized")
         model_type = type(model_instance)
@@ -641,25 +623,25 @@ class TestPydanticModelConversion:
     [
         pytest.param(
             {"gas_price": 1, "max_fee_per_gas": 2},
-            Transaction.InvalidFeePayment,
+            Transaction.InvalidFeePaymentError,
             "only one type of fee payment field can be used",
             id="gas-price-and-max-fee-per-gas",
         ),
         pytest.param(
             {"gas_price": 1, "max_priority_fee_per_gas": 2},
-            Transaction.InvalidFeePayment,
+            Transaction.InvalidFeePaymentError,
             "only one type of fee payment field can be used",
             id="gas-price-and-max-priority-fee-per-gas",
         ),
         pytest.param(
             {"gas_price": 1, "max_fee_per_blob_gas": 2},
-            Transaction.InvalidFeePayment,
+            Transaction.InvalidFeePaymentError,
             "only one type of fee payment field can be used",
             id="gas-price-and-max-fee-per-blob-gas",
         ),
         pytest.param(
             {"ty": 0, "v": 1, "secret_key": 2},
-            Transaction.InvalidSignaturePrivateKey,
+            Transaction.InvalidSignaturePrivateKeyError,
             "can't define both 'signature' and 'private_key'",
             id="type0-signature-and-secret-key",
         ),
@@ -815,9 +797,7 @@ def test_transaction_post_init_defaults(tx_args, expected_attributes_and_values)
     ],
 )
 def test_withdrawals_root(withdrawals: List[Withdrawal], expected_root: bytes):
-    """
-    Test that withdrawals_root returns the expected hash.
-    """
+    """Test that withdrawals_root returns the expected hash."""
     assert Withdrawal.list_root(withdrawals) == expected_root
 
 
@@ -829,8 +809,6 @@ def test_withdrawals_root(withdrawals: List[Withdrawal], expected_root: bytes):
     ids=lambda model: model.__class__.__name__,
 )
 def test_model_copy(model: CopyValidateModel):
-    """
-    Test that the copy method returns a correct copy of the model.
-    """
+    """Test that the copy method returns a correct copy of the model."""
     assert to_json(model.copy()) == to_json(model)
     assert model.copy().model_fields_set == model.model_fields_set

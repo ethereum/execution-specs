@@ -1,6 +1,4 @@
-"""
-Transition tool abstract class.
-"""
+"""Transition tool abstract class."""
 
 import json
 import os
@@ -16,7 +14,7 @@ from typing import Any, Dict, List, Mapping, Optional, Type
 from urllib.parse import urlencode
 
 from requests import Response
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests_unixsocket import Session  # type: ignore
 
 from ethereum_test_exceptions import ExceptionMapper
@@ -63,56 +61,43 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         binary: Optional[Path] = None,
         trace: bool = False,
     ):
-        """
-        Abstract initialization method that all subclasses must implement.
-        """
+        """Abstract initialization method that all subclasses must implement."""
         self.exception_mapper = exception_mapper
         super().__init__(binary=binary)
         self.trace = trace
 
     def __init_subclass__(cls):
-        """
-        Registers all subclasses of TransitionTool as possible tools.
-        """
+        """Register all subclasses of TransitionTool as possible tools."""
         TransitionTool.register_tool(cls)
 
     @abstractmethod
     def is_fork_supported(self, fork: Fork) -> bool:
-        """
-        Returns True if the fork is supported by the tool
-        """
+        """Return True if the fork is supported by the tool."""
         pass
 
     def start_server(self):
         """
-        Starts the t8n-server process, extracts the port, and leaves it running for future re-use.
+        Start the t8n-server process, extract the port, and leave it running
+        for future re-use.
         """
         pass
 
     def shutdown(self):
-        """
-        Perform any cleanup tasks related to the tested tool.
-        """
+        """Perform any cleanup tasks related to the tested tool."""
         pass
 
     def reset_traces(self):
-        """
-        Resets the internal trace storage for a new test to begin
-        """
+        """Reset the internal trace storage for a new test to begin."""
         self.traces = None
 
     def append_traces(self, new_traces: List[List[Dict]]):
-        """
-        Appends a list of traces of a state transition to the current list
-        """
+        """Append a list of traces of a state transition to the current list."""
         if self.traces is None:
             self.traces = []
         self.traces.append(new_traces)
 
     def get_traces(self) -> List[List[List[Dict]]] | None:
-        """
-        Returns the accumulated traces
-        """
+        """Return the accumulated traces."""
         return self.traces
 
     def collect_traces(
@@ -121,9 +106,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         temp_dir: tempfile.TemporaryDirectory,
         debug_output_path: str = "",
     ) -> None:
-        """
-        Collect the traces from the t8n tool output and store them in the traces list.
-        """
+        """Collect the traces from the t8n tool output and store them in the traces list."""
         traces: List[List[Dict]] = []
         for i, r in enumerate(receipts):
             trace_file_name = f"trace-{i}-{r.transaction_hash}.jsonl"
@@ -141,9 +124,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
 
     @dataclass
     class TransitionToolData:
-        """
-        Transition tool files and data to pass between methods
-        """
+        """Transition tool files and data to pass between methods."""
 
         alloc: Alloc
         txs: List[Transaction]
@@ -154,9 +135,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         state_test: bool = field(default=False)
 
         def to_input(self) -> TransitionToolInput:
-            """
-            Convert the data to a TransactionToolInput object
-            """
+            """Convert the data to a TransactionToolInput object."""
             return TransitionToolInput(
                 alloc=self.alloc,
                 txs=self.txs,
@@ -169,9 +148,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         t8n_data: TransitionToolData,
         debug_output_path: str = "",
     ) -> TransitionToolOutput:
-        """
-        Executes a transition tool using the filesystem for its inputs and outputs.
-        """
+        """Execute a transition tool using the filesystem for its inputs and outputs."""
         temp_dir = tempfile.TemporaryDirectory()
         os.mkdir(os.path.join(temp_dir.name, "input"))
         os.mkdir(os.path.join(temp_dir.name, "output"))
@@ -280,12 +257,12 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         self,
         data: Dict[str, Any],
         timeout: int,
-        url_args: Dict[str, List[str] | str] = {},
+        url_args: Optional[Dict[str, List[str] | str]] = None,
         retries: int = 5,
     ) -> Response:
-        """
-        Send a POST request to the t8n-server and return the response.
-        """
+        """Send a POST request to the t8n-server and return the response."""
+        if url_args is None:
+            url_args = {}
         post_delay = 0.1
         while True:
             try:
@@ -295,7 +272,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
                     timeout=timeout,
                 )
                 break
-            except ConnectionError as e:
+            except RequestsConnectionError as e:
                 retries -= 1
                 if retries == 0:
                     raise e
@@ -310,9 +287,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         return response
 
     def _generate_post_args(self, t8n_data: TransitionToolData) -> Dict[str, List[str] | str]:
-        """
-        Generate the arguments for the POST request to the t8n-server.
-        """
+        """Generate the arguments for the POST request to the t8n-server."""
         return {}
 
     def _evaluate_server(
@@ -322,9 +297,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         debug_output_path: str = "",
         timeout: int,
     ) -> TransitionToolOutput:
-        """
-        Executes the transition tool sending inputs and outputs via a server.
-        """
+        """Execute the transition tool sending inputs and outputs via a server."""
         input_contents = t8n_data.to_input()
         input_json = input_contents.model_dump(mode="json", **model_dump_config)
         post_data = {
@@ -383,9 +356,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         t8n_data: TransitionToolData,
         debug_output_path: str = "",
     ) -> TransitionToolOutput:
-        """
-        Executes a transition tool using stdin and stdout for its inputs and outputs.
-        """
+        """Execute a transition tool using stdin and stdout for its inputs and outputs."""
         temp_dir = tempfile.TemporaryDirectory()
         args = self.construct_args_stream(t8n_data, temp_dir)
 
@@ -424,9 +395,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
     def construct_args_stream(
         self, t8n_data: TransitionToolData, temp_dir: tempfile.TemporaryDirectory
     ) -> List[str]:
-        """
-        Construct arguments for t8n interaction via streams
-        """
+        """Construct arguments for t8n interaction via streams."""
         command: list[str] = [str(self.binary)]
         if self.t8n_subcommand:
             command.append(self.t8n_subcommand)
@@ -456,9 +425,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         args: List[str],
         result: subprocess.CompletedProcess,
     ):
-        """
-        Export debug files if requested when interacting with t8n via streams
-        """
+        """Export debug files if requested when interacting with t8n via streams."""
         if not debug_output_path:
             return
 
@@ -506,7 +473,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         slow_request: bool = False,
     ) -> TransitionToolOutput:
         """
-        Executes the relevant evaluate method as required by the `t8n` tool.
+        Execute the relevant evaluate method as required by the `t8n` tool.
 
         If a client's `t8n` tool varies from the default behavior, this method
         can be overridden.
@@ -554,7 +521,7 @@ class TransitionTool(EthereumCLI, FixtureVerifier):
         debug_output_path: Optional[Path] = None,
     ):
         """
-        Executes `evm [state|block]test` to verify the fixture at `fixture_path`.
+        Execute `evm [state|block]test` to verify the fixture at `fixture_path`.
 
         Currently only implemented by geth's evm.
         """

@@ -1,6 +1,4 @@
-"""
-Pre-alloc specifically conditioned for test filling.
-"""
+"""Pre-alloc specifically conditioned for test filling."""
 
 import inspect
 from enum import IntEnum
@@ -36,9 +34,7 @@ CONTRACT_ADDRESS_INCREMENTS_DEFAULT = 0x100
 
 
 def pytest_addoption(parser: pytest.Parser):
-    """
-    Adds command-line options to pytest.
-    """
+    """Add command-line options to pytest."""
     pre_alloc_group = parser.getgroup(
         "pre_alloc", "Arguments defining pre-allocation behavior during test filling."
     )
@@ -80,9 +76,7 @@ def pytest_addoption(parser: pytest.Parser):
 
 
 class AllocMode(IntEnum):
-    """
-    Allocation mode for the state.
-    """
+    """Allocation mode for the state."""
 
     PERMISSIVE = 0
     STRICT = 1
@@ -92,9 +86,7 @@ DELEGATION_DESIGNATION = b"\xef\x01\x00"
 
 
 class Alloc(BaseAlloc):
-    """
-    Allocation of accounts in the state, pre and post test execution.
-    """
+    """Allocation of accounts in the state, pre and post test execution."""
 
     _alloc_mode: AllocMode = PrivateAttr(...)
     _contract_address_iterator: Iterator[Address] = PrivateAttr(...)
@@ -110,9 +102,7 @@ class Alloc(BaseAlloc):
         evm_code_type: EVMCodeType | None = None,
         **kwargs,
     ):
-        """
-        Initializes the allocation with the given properties.
-        """
+        """Initialize allocation with the given properties."""
         super().__init__(*args, **kwargs)
         self._alloc_mode = alloc_mode
         self._contract_address_iterator = contract_address_iterator
@@ -120,9 +110,7 @@ class Alloc(BaseAlloc):
         self._evm_code_type = evm_code_type
 
     def __setitem__(self, address: Address | FixedSizeBytesConvertible, account: Account | None):
-        """
-        Sets the account associated with an address.
-        """
+        """Set account associated with an address."""
         if self._alloc_mode == AllocMode.STRICT:
             raise ValueError("Cannot set items in strict mode")
         super().__setitem__(address, account)
@@ -130,9 +118,7 @@ class Alloc(BaseAlloc):
     def code_pre_processor(
         self, code: BytesConvertible, *, evm_code_type: EVMCodeType | None
     ) -> BytesConvertible:
-        """
-        Pre-processes the code before setting it.
-        """
+        """Pre-processes the code before setting it."""
         if evm_code_type is None:
             evm_code_type = self._evm_code_type
         if evm_code_type == EVMCodeType.EOF_V1:
@@ -146,7 +132,7 @@ class Alloc(BaseAlloc):
         self,
         code: BytesConvertible,
         *,
-        storage: Storage | StorageRootType = {},
+        storage: Storage | StorageRootType | None = None,
         balance: NumberConvertible = 0,
         nonce: NumberConvertible = 1,
         address: Address | None = None,
@@ -159,6 +145,8 @@ class Alloc(BaseAlloc):
         Warning: `address` parameter is a temporary solution to allow tests to hard-code the
         contract address. Do NOT use in new tests as it will be removed in the future!
         """
+        if storage is None:
+            storage = {}
         if address is not None:
             assert self._alloc_mode == AllocMode.PERMISSIVE, "address parameter is not supported"
             assert address not in self, f"address {address} already in allocation"
@@ -265,9 +253,7 @@ class Alloc(BaseAlloc):
 
 @pytest.fixture(scope="session")
 def alloc_mode(request: pytest.FixtureRequest) -> AllocMode:
-    """
-    Returns the allocation mode for the tests.
-    """
+    """Return allocation mode for the tests."""
     if request.config.getoption("strict_alloc"):
         return AllocMode.STRICT
     return AllocMode.PERMISSIVE
@@ -275,17 +261,13 @@ def alloc_mode(request: pytest.FixtureRequest) -> AllocMode:
 
 @pytest.fixture(scope="session")
 def contract_start_address(request: pytest.FixtureRequest) -> int:
-    """
-    Returns the starting address for contract deployment.
-    """
+    """Return starting address for contract deployment."""
     return int(request.config.getoption("test_contract_start_address"), 0)
 
 
 @pytest.fixture(scope="session")
 def contract_address_increments(request: pytest.FixtureRequest) -> int:
-    """
-    Returns the address increment for contract deployment.
-    """
+    """Return address increment for contract deployment."""
     return int(request.config.getoption("test_contract_address_increments"), 0)
 
 
@@ -294,9 +276,7 @@ def contract_address_iterator(
     contract_start_address: int,
     contract_address_increments: int,
 ) -> Iterator[Address]:
-    """
-    Returns an iterator over contract addresses.
-    """
+    """Return iterator over contract addresses."""
     return iter(
         Address(contract_start_address + (i * contract_address_increments)) for i in count()
     )
@@ -304,25 +284,19 @@ def contract_address_iterator(
 
 @cache
 def eoa_by_index(i: int) -> EOA:
-    """
-    Returns an EOA by index.
-    """
+    """Return EOA by index."""
     return EOA(key=TestPrivateKey + i if i != 1 else TestPrivateKey2, nonce=0)
 
 
 @pytest.fixture(scope="function")
 def eoa_iterator() -> Iterator[EOA]:
-    """
-    Returns an iterator over EOAs copies.
-    """
+    """Return iterator over EOAs copies."""
     return iter(eoa_by_index(i).copy() for i in count())
 
 
 @pytest.fixture(autouse=True)
 def evm_code_type(request: pytest.FixtureRequest) -> EVMCodeType:
-    """
-    Returns the default EVM code type for all tests (LEGACY).
-    """
+    """Return default EVM code type for all tests (LEGACY)."""
     parameter_evm_code_type = request.config.getoption("evm_code_type")
     if parameter_evm_code_type is not None:
         assert type(parameter_evm_code_type) is EVMCodeType, "Invalid EVM code type"
@@ -337,9 +311,7 @@ def pre(
     eoa_iterator: Iterator[EOA],
     evm_code_type: EVMCodeType,
 ) -> Alloc:
-    """
-    Returns the default pre allocation for all tests (Empty alloc).
-    """
+    """Return default pre allocation for all tests (Empty alloc)."""
     return Alloc(
         alloc_mode=alloc_mode,
         contract_address_iterator=contract_address_iterator,

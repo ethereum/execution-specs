@@ -1,6 +1,4 @@
-"""
-Test suite for `ethereum_test_specs` fixture generation.
-"""
+"""Test suite for `ethereum_test_specs` fixture generation."""
 
 import json
 import os
@@ -30,10 +28,8 @@ from .helpers import remove_info_metadata
 
 
 @pytest.fixture()
-def hash(request: pytest.FixtureRequest):
-    """
-    Set the hash based on the fork and solc version.
-    """
+def fixture_hash(request: pytest.FixtureRequest):
+    """Set the hash based on the fork and solc version."""
     if request.node.funcargs["fork"] == Berlin:
         return bytes.fromhex("e57ad774ca")
     elif request.node.funcargs["fork"] == London:
@@ -42,7 +38,7 @@ def hash(request: pytest.FixtureRequest):
 
 def test_check_helper_fixtures():
     """
-    This tests that the framework's pydantic models serialization and deserialization
+    Test that the framework's pydantic models serialization and deserialization
     work correctly and that they are compatible with the helper fixtures defined
     in ./fixtures/ by using the check_fixtures.py script.
     """
@@ -61,14 +57,14 @@ def test_check_helper_fixtures():
 
 @pytest.mark.run_in_serial
 @pytest.mark.parametrize(
-    "fork,hash",
+    "fork,fixture_hash",
     [
         (Berlin, "set using indirect & hash fixture"),
         (London, "set using indirect & hash fixture"),
     ],
-    indirect=["hash"],
+    indirect=["fixture_hash"],
 )
-def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
+def test_make_genesis(fork: Fork, fixture_hash: bytes):  # noqa: D103
     env = Environment()
 
     pre = Alloc(
@@ -99,7 +95,7 @@ def test_make_genesis(fork: Fork, hash: bytes):  # noqa: D103
     assert fixture.genesis is not None
 
     assert fixture.genesis.block_hash is not None
-    assert fixture.genesis.block_hash.startswith(hash)
+    assert fixture.genesis.block_hash.startswith(fixture_hash)
 
 
 @pytest.mark.run_in_serial
@@ -118,9 +114,7 @@ def test_fill_state_test(
     fork: Fork,
     fixture_format: FixtureFormat,
 ):
-    """
-    Test `ethereum_test.filler.fill_fixtures` with `StateTest`.
-    """
+    """Test `ethereum_test.filler.fill_fixtures` with `StateTest`."""
     env = Environment(
         fee_recipient="0x2adc25665018aa1fe0e6bc666dac8fc2697ff9ba",
         difficulty=0x20000,
@@ -186,9 +180,7 @@ def test_fill_state_test(
 
 
 class TestFillBlockchainValidTxs:
-    """
-    Test `BlockchainTest.generate()` and blockchain fixtures.
-    """
+    """Test `BlockchainTest.generate()` and blockchain fixtures."""
 
     @pytest.fixture
     def fork(self, request):  # noqa: D102
@@ -534,9 +526,7 @@ class TestFillBlockchainValidTxs:
 
     @pytest.mark.parametrize("fork", [London], indirect=True)
     def test_fixture_header_join(self, blockchain_test_fixture: BlockchainFixture):
-        """
-        Test `FixtureHeader.join()`.
-        """
+        """Test `FixtureHeader.join()`."""
         block = blockchain_test_fixture.blocks[0]
         new_difficulty = block.header.difficulty - 1  # type: ignore
 
@@ -566,9 +556,7 @@ class TestFillBlockchainValidTxs:
     ],
 )
 def test_fill_blockchain_invalid_txs(fork: Fork, check_hive: bool, expected_json_file: str):
-    """
-    Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`.
-    """
+    """Test `ethereum_test.filler.fill_fixtures` with `BlockchainTest`."""
     pre = {
         "0xa94f5374fce5edbc8e2a8697c15331677e6ebf0b": Account(balance=0x1000000000000000000),
         "0xd02d72E067e77158444ef2020Ff2d325f929B363": Account(

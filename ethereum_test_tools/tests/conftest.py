@@ -1,6 +1,4 @@
-"""
-Common pytest fixtures for ethereum_test_tools tests.
-"""
+"""Common pytest fixtures for ethereum_test_tools tests."""
 
 import pytest
 from semver import Version

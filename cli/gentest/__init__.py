@@ -32,4 +32,6 @@ Limitations:
 1. Only legacy transaction types (type 0) are currently supported.
 """
 
-from .cli import generate  # noqa: 401
+from .cli import generate
+
+__all__ = ["generate"]

@@ -1,3 +1,1 @@
-"""
-Pytest plugins for consume commands.
-"""
+"""Pytest plugins for consume commands."""

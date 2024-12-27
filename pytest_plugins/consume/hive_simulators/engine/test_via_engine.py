@@ -8,7 +8,7 @@ Each `engine_newPayloadVX` is verified against the appropriate VALID/INVALID res
 from ethereum_test_fixtures import BlockchainEngineFixture
 from ethereum_test_rpc import EngineRPC, EthRPC
 from ethereum_test_rpc.types import ForkchoiceState, PayloadStatusEnum
-from pytest_plugins.consume.hive_simulators.exceptions import GenesisBlockMismatchException
+from pytest_plugins.consume.hive_simulators.exceptions import GenesisBlockMismatchExceptionError
 
 from ...decorator import fixture_format
 from ..timing import TimingData
@@ -43,7 +43,7 @@ def test_via_engine(
     with timing_data.time("Get genesis block"):
         genesis_block = eth_rpc.get_block_by_number(0)
         if genesis_block["hash"] != str(blockchain_fixture.genesis.block_hash):
-            raise GenesisBlockMismatchException(
+            raise GenesisBlockMismatchExceptionError(
                 expected_header=blockchain_fixture.genesis,
                 got_genesis_block=genesis_block,
             )

@@ -35,6 +35,7 @@ class RemoteNode(BaseModel):
     - name (str): The name of the remote node.
     - node_url (HttpUrl): The URL for the remote node, validated as a proper URL.
     - rpc_headers (Dict[str, str]): A dictionary of optional RPC headers, defaults to empty dict.
+
     """
 
     name: str = "mainnet_archive"
@@ -48,19 +49,22 @@ class Config(BaseModel):
 
     Attributes:
     - remote_nodes (List[RemoteNode]): A list of remote node configurations.
+
     """
 
     remote_nodes: List[RemoteNode] = [RemoteNode()]
 
 
 class EnvConfig(Config):
-    """Loads and validates environment configuration from `env.yaml`.
+    """
+    Loads and validates environment configuration from `env.yaml`.
 
     This is a wrapper class for the Config model. It reads a config file
     from disk into a Config model and then exposes it.
     """
 
     def __init__(self):
+        """Init for the EnvConfig class."""
         if not ENV_PATH.exists():
             raise FileNotFoundError(
                 f"The configuration file '{ENV_PATH}' does not exist. "
@@ -73,4 +77,4 @@ class EnvConfig(Config):
                 # Validate and parse with Pydantic
                 super().__init__(**config_data)
             except ValidationError as e:
-                raise ValueError(f"Invalid configuration: {e}")
+                raise ValueError(f"Invalid configuration: {e}") from e

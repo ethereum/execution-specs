@@ -1,6 +1,4 @@
-"""
-Tests for the order_fixtures module and click CLI.
-"""
+"""Tests for the order_fixtures module and click CLI."""
 
 import json
 from pathlib import Path
@@ -12,7 +10,8 @@ from click.testing import CliRunner
 from ..order_fixtures import order_fixtures, process_directory
 
 
-def create_temp_json_file(directory, name, content):  # noqa: D103
+def create_temp_json_file(directory, name, content):
+    """Create a temporary JSON file with specified content."""
     file_path = directory / name
     with file_path.open("w") as f:
         json.dump(content, f)
@@ -21,17 +20,13 @@ def create_temp_json_file(directory, name, content):  # noqa: D103
 
 @pytest.fixture
 def input_output_dirs():
-    """
-    Create temporary input and output directories
-    """
+    """Create temporary input and output directories."""
     with TemporaryDirectory() as input_dir, TemporaryDirectory() as output_dir:
         yield Path(input_dir), Path(output_dir)
 
 
 def test_order_fixture(input_output_dirs):
-    """
-    Test sorting a single JSON fixture.
-    """
+    """Test sorting a single JSON fixture."""
     input_dir, output_dir = input_output_dirs
     create_temp_json_file(input_dir, "test.json", {"z": 0, "a": [3, 2, 1]})
     expected_output = {"a": [1, 2, 3], "z": 0}
@@ -48,9 +43,7 @@ def test_order_fixture(input_output_dirs):
 
 
 def test_cli_invocation(input_output_dirs):
-    """
-    Test the CLI interface.
-    """
+    """Test the CLI interface."""
     runner = CliRunner()
     input_dir, output_dir = input_output_dirs
     create_temp_json_file(input_dir, "test.json", {"c": 2, "b": [4, 3, 5]})
@@ -64,9 +57,7 @@ def test_cli_invocation(input_output_dirs):
 
 
 def test_input_is_file_instead_of_directory():
-    """
-    Test the CLI interface when the input path is a file, not a directory.
-    """
+    """Test the CLI interface when the input path is a file, not a directory."""
     runner = CliRunner()
     with TemporaryDirectory() as temp_dir:
         temp_file = Path(temp_dir) / "temp_file.txt"
@@ -79,9 +70,7 @@ def test_input_is_file_instead_of_directory():
 
 
 def test_input_directory_does_not_exist():
-    """
-    Test the CLI interface when the input directory does not exist.
-    """
+    """Test the CLI interface when the input directory does not exist."""
     runner = CliRunner()
     with TemporaryDirectory() as temp_dir:
         non_existent_dir = Path(temp_dir) / "nonexistent"

@@ -63,25 +63,19 @@ def apply_name_filters(input_string: str):
 
 
 def snake_to_capitalize(string: str) -> str:  # noqa: D103
-    """
-    Converts valid identifiers to a capitalized string, otherwise leave as-is.
-    """
+    """Convert valid identifiers to a capitalized string, otherwise leave as-is."""
     if string.isidentifier():
         return " ".join(word.capitalize() for word in string.split("_"))
     return string
 
 
 def sanitize_string_title(string: str) -> str:
-    """
-    Sanitize a string to be used as a title.
-    """
+    """Sanitize a string to be used as a title."""
     return apply_name_filters(snake_to_capitalize(string))
 
 
 def nav_path_to_sanitized_str_tuple(nav_path: Path) -> tuple:
-    """
-    Convert a nav path to a tuple of sanitized strings for use in mkdocs navigation.
-    """
+    """Convert a nav path to a tuple of sanitized strings for use in mkdocs navigation."""
     return tuple(sanitize_string_title(part) for part in nav_path.parts)
 
 
@@ -104,32 +98,24 @@ class PagePropsBase:
     @property
     @abstractmethod
     def template(self) -> str:
-        """
-        Get the jinja2 template used to render this page.
-        """
+        """Get the jinja2 template used to render this page."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def target_output_file(self) -> Path:
-        """
-        Get the target output file for this page.
-        """
+        """Get the target output file for this page."""
         raise NotImplementedError
 
     def nav_entry(self, top_level_nav_entry: str) -> tuple:
-        """
-        Get the mkdocs navigation entry for this page.
-        """
+        """Get the mkdocs navigation entry for this page."""
         if len(self.path.parts) == 1:
             return (top_level_nav_entry,)
         path = top_level_nav_entry / Path(*self.path.parts[1:]).with_suffix("")
         return nav_path_to_sanitized_str_tuple(path)
 
     def write_page(self, jinja2_env: Environment):
-        """
-        Write the page to the target directory.
-        """
+        """Write the page to the target directory."""
         template = jinja2_env.get_template(self.template)
         rendered_content = template.render(**asdict(self))
         with mkdocs_gen_files.open(self.target_output_file, "w") as destination:
@@ -139,9 +125,7 @@ class PagePropsBase:
 
 @dataclass
 class TestCase:
-    """
-    Properties used to define a single test case in test function parameter tables.
-    """
+    """Properties used to define a single test case in test function parameter tables."""
 
     full_id: str
     abbreviated_id: str
@@ -167,24 +151,18 @@ class FunctionPageProps(PagePropsBase):
 
     @property
     def template(self) -> str:
-        """
-        Get the filename of the jinja2 template used to render this page.
-        """
+        """Get the filename of the jinja2 template used to render this page."""
         return "function.md.j2"
 
     @property
     def target_output_file(self) -> Path:
-        """
-        Get the target output file for this page.
-        """
+        """Get the target output file for this page."""
         return self.path.with_suffix("") / f"{self.title}.md"
 
     def nav_entry(self, top_level_nav_entry) -> tuple:
-        """
-        Get the mkdocs navigation entry for this page.
-        """
+        """Get the mkdocs navigation entry for this page."""
         nav_path_prefix = super().nav_entry(top_level_nav_entry)  # already sanitized
-        return tuple([*nav_path_prefix, f"<code>{self.title}</code>"])
+        return (*nav_path_prefix, f"<code>{self.title}</code>")
 
     def write_page(self, jinja2_env: Environment):
         """
@@ -206,9 +184,7 @@ class FunctionPageProps(PagePropsBase):
 
 @dataclass
 class TestFunction:
-    """
-    Properties used to build the test function overview table in test module pages.
-    """
+    """Properties used to build the test function overview table in test module pages."""
 
     name: str
     test_type: str
@@ -218,24 +194,18 @@ class TestFunction:
 
 @dataclass
 class ModulePageProps(PagePropsBase):
-    """
-    Definitions used for test modules, e.g., `tests/berlin/eip2930_access_list/test_acl.py`.
-    """
+    """Definitions used for test modules, e.g., `tests/berlin/eip2930_access_list/test_acl.py`."""
 
     test_functions: List[TestFunction]
 
     @property
     def template(self) -> str:
-        """
-        Get the filename of the jinja2 template used to render this page.
-        """
+        """Get the filename of the jinja2 template used to render this page."""
         return "module.md.j2"
 
     @property
     def target_output_file(self) -> Path:
-        """
-        Get the target output file for this page.
-        """
+        """Get the target output file for this page."""
         if self.path.suffix == "spec.py":
             return self.path.with_suffix(".md")
         return self.path.with_suffix("") / "index.md"
@@ -243,43 +213,31 @@ class ModulePageProps(PagePropsBase):
 
 @dataclass
 class DirectoryPageProps(PagePropsBase):
-    """
-    Definitions used for parent directories in test paths, e.g., `tests/berlin`.
-    """
+    """Definitions used for parent directories in test paths, e.g., `tests/berlin`."""
 
     @property
     def template(self) -> str:
-        """
-        Get the filename of the jinja2 template used to render this page.
-        """
+        """Get the filename of the jinja2 template used to render this page."""
         return "directory.md.j2"
 
     @property
     def target_output_file(self) -> Path:
-        """
-        Get the target output file for this page.
-        """
+        """Get the target output file for this page."""
         return self.path / "index.md"
 
 
 @dataclass
 class MarkdownPageProps(PagePropsBase):
-    """
-    Definitions used to verbatim include markdown files included in test paths.
-    """
+    """Definitions used to verbatim include markdown files included in test paths."""
 
     @property
     def template(self) -> str:
-        """
-        Get the filename of the jinja2 template used to render this page.
-        """
+        """Get the filename of the jinja2 template used to render this page."""
         return "markdown_header.md.j2"
 
     @property
     def target_output_file(self) -> Path:
-        """
-        Get the target output file for this page.
-        """
+        """Get the target output file for this page."""
         return self.path
 
     def write_page(self, jinja2_env: Environment):

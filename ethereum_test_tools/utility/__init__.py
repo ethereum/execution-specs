@@ -1,3 +1,1 @@
-"""
-Sub-package for utility functions and classes.
-"""
+"""Sub-package for utility functions and classes."""

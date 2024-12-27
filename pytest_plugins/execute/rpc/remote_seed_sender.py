@@ -1,6 +1,5 @@
-"""
-Seed sender on a remote execution client.
-"""
+"""Seed sender on a remote execution client."""
+
 import pytest
 
 from ethereum_test_base_types import Hash, Number
@@ -9,9 +8,7 @@ from ethereum_test_types import EOA
 
 
 def pytest_addoption(parser):
-    """
-    Adds command-line options to pytest.
-    """
+    """Add command-line options to pytest."""
     remote_seed_sender_group = parser.getgroup(
         "remote_seed_sender",
         "Arguments for the remote seed sender",
@@ -33,9 +30,7 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope="session")
 def seed_sender(request, eth_rpc: EthRPC) -> EOA:
-    """
-    Setup the seed sender account by checking its balance and nonce.
-    """
+    """Create seed sender account by checking its balance and nonce."""
     rpc_seed_key = Hash(request.config.getoption("rpc_seed_key"))
     # check the nonce through the rpc client
     seed_sender = EOA(key=rpc_seed_key)

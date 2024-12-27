@@ -1,6 +1,4 @@
-"""
-Common pytest fixtures for the RLP and Engine simulators.
-"""
+"""Common pytest fixtures for the RLP and Engine simulators."""
 
 import io
 import json
@@ -21,9 +19,7 @@ from .timing import TimingData
 
 
 def pytest_addoption(parser):
-    """
-    Hive simulator specific consume command line options.
-    """
+    """Hive simulator specific consume command line options."""
     consume_group = parser.getgroup(
         "consume", "Arguments related to consuming fixtures via a client"
     )
@@ -38,9 +34,7 @@ def pytest_addoption(parser):
 
 @pytest.fixture(scope="function")
 def eth_rpc(client: Client) -> EthRPC:
-    """
-    Initialize ethereum RPC client for the execution client under test.
-    """
+    """Initialize ethereum RPC client for the execution client under test."""
     return EthRPC(f"http://{client.ip}:8545")
 
 
@@ -50,9 +44,7 @@ def hive_consume_command(
     client_type: ClientType,
     test_case: TestCaseIndexFile | TestCaseStream,
 ) -> str:
-    """
-    Command to run the test within hive.
-    """
+    """Command to run the test within hive."""
     return (
         f"./hive --sim ethereum/{test_suite_name} "
         f"--client-file configs/prague.yaml "
@@ -68,9 +60,7 @@ def eest_consume_commands(
     client_type: ClientType,
     test_case: TestCaseIndexFile | TestCaseStream,
 ) -> List[str]:
-    """
-    Commands to run the test within EEST using a hive dev back-end.
-    """
+    """Commands to run the test within EEST using a hive dev back-end."""
     hive_dev = f"./hive --dev --client-file configs/prague.yaml --client {client_type.name}"
     input_source = request.config.getoption("fixture_source")
     consume = (
@@ -113,9 +103,7 @@ def test_case_description(
 
 @pytest.fixture(scope="function", autouse=True)
 def total_timing_data(request) -> Generator[TimingData, None, None]:
-    """
-    Helper to record timing data for various stages of executing test case.
-    """
+    """Record timing data for various stages of executing test case."""
     with TimingData("Total (seconds)") as total_timing_data:
         yield total_timing_data
     if request.config.getoption("timing_data"):
@@ -127,9 +115,7 @@ def total_timing_data(request) -> Generator[TimingData, None, None]:
 @pytest.fixture(scope="function")
 @pytest.mark.usefixtures("total_timing_data")
 def client_genesis(blockchain_fixture: BlockchainFixtureCommon) -> dict:
-    """
-    Convert the fixture genesis block header and pre-state to a client genesis state.
-    """
+    """Convert the fixture genesis block header and pre-state to a client genesis state."""
     genesis = to_json(blockchain_fixture.genesis)
     alloc = to_json(blockchain_fixture.pre)
     # NOTE: nethermind requires account keys without '0x' prefix
@@ -173,9 +159,7 @@ def client(
     client_type: ClientType,
     total_timing_data: TimingData,
 ) -> Generator[Client, None, None]:
-    """
-    Initialize the client with the appropriate files and environment variables.
-    """
+    """Initialize the client with the appropriate files and environment variables."""
     with total_timing_data.time("Start client"):
         client = hive_test.start_client(
             client_type=client_type, environment=environment, files=client_files
@@ -194,8 +178,6 @@ def client(
 def timing_data(
     total_timing_data: TimingData, client: Client
 ) -> Generator[TimingData, None, None]:
-    """
-    Helper to record timing data for the main execution of the test case.
-    """
+    """Record timing data for the main execution of the test case."""
     with total_timing_data.time("Test case execution") as timing_data:
         yield timing_data

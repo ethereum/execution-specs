@@ -1,3 +1,1 @@
-"""
-`ethereum_test_tools` verification tests.
-"""
+"""`ethereum_test_tools` verification tests."""

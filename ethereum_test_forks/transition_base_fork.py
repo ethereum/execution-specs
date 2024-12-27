@@ -1,6 +1,4 @@
-"""
-Base objects used to define transition forks.
-"""
+"""Base objects used to define transition forks."""
 
 from inspect import signature
 from typing import Callable, List, Type
@@ -12,36 +10,26 @@ ALWAYS_TRANSITIONED_BLOCK_TIMESTAMP = 10_000_000
 
 
 class TransitionBaseClass:
-    """
-    Base class for transition forks.
-    """
+    """Base class for transition forks."""
 
     @classmethod
     def transitions_to(cls) -> Fork:
-        """
-        Returns the fork where the transition ends.
-        """
+        """Return fork where the transition ends."""
         raise Exception("Not implemented")
 
     @classmethod
     def transitions_from(cls) -> Fork:
-        """
-        Returns the fork where the transition starts.
-        """
+        """Return fork where the transition starts."""
         raise Exception("Not implemented")
 
 
 def base_fork_abstract_methods() -> List[str]:
-    """
-    Returns a list of all abstract methods that must be implemented by a fork.
-    """
-    return list(getattr(BaseFork, "__abstractmethods__"))
+    """Return list of all abstract methods that must be implemented by a fork."""
+    return list(BaseFork.__abstractmethods__)
 
 
 def transition_fork(to_fork: Fork, at_block: int = 0, at_timestamp: int = 0):
-    """
-    Decorator to mark a class as a transition fork.
-    """
+    """Mark a class as a transition fork."""
 
     def decorator(cls) -> Type[TransitionBaseClass]:
         transition_name = cls.__name__

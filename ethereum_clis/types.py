@@ -1,6 +1,4 @@
-"""
-Types used in the transition tool interactions.
-"""
+"""Types used in the transition tool interactions."""
 
 from typing import List
 
@@ -11,9 +9,7 @@ from ethereum_test_types import Alloc, Environment, Transaction
 
 
 class TransactionLog(CamelModel):
-    """
-    Transaction log
-    """
+    """Transaction log."""
 
     address: Address
     topics: List[Hash]
@@ -27,9 +23,7 @@ class TransactionLog(CamelModel):
 
 
 class SetCodeDelegation(CamelModel):
-    """
-    Set code delegation
-    """
+    """Set code delegation."""
 
     from_address: Address = Field(..., alias="from")
     nonce: HexNumber
@@ -37,9 +31,7 @@ class SetCodeDelegation(CamelModel):
 
 
 class TransactionReceipt(CamelModel):
-    """
-    Transaction receipt
-    """
+    """Transaction receipt."""
 
     transaction_hash: Hash
     gas_used: HexNumber
@@ -58,18 +50,14 @@ class TransactionReceipt(CamelModel):
 
 
 class RejectedTransaction(CamelModel):
-    """
-    Rejected transaction
-    """
+    """Rejected transaction."""
 
     index: HexNumber
     error: str
 
 
 class Result(CamelModel):
-    """
-    Result of a t8n
-    """
+    """Result of a transition tool output."""
 
     state_root: Hash
     ommers_hash: Hash | None = Field(None, validation_alias="sha3Uncles")
@@ -92,9 +80,7 @@ class Result(CamelModel):
 
 
 class TransitionToolInput(CamelModel):
-    """
-    Transition tool input
-    """
+    """Transition tool input."""
 
     alloc: Alloc
     txs: List[Transaction]
@@ -102,9 +88,7 @@ class TransitionToolInput(CamelModel):
 
 
 class TransitionToolOutput(CamelModel):
-    """
-    Transition tool output
-    """
+    """Transition tool output."""
 
     alloc: Alloc
     result: Result

@@ -1,6 +1,4 @@
-"""
-Common definitions and types.
-"""
+"""Common definitions and types."""
 
 from .helpers import (
     TestParameterGroup,

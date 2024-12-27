@@ -1,6 +1,4 @@
-"""
-This module contains a list of quotes related to system design.
-"""
+"""List of quotes related to system design."""
 
 import random
 import textwrap
@@ -28,16 +26,12 @@ make_something_great = [
 
 
 def wrap_quote(quote, width=80):
-    """
-    Wraps the quote text to the given width.
-    """
+    """Wrap quote text to the given width."""
     return textwrap.fill(quote, width=width)
 
 
 def box_quote(quote):
-    """
-    Returns a quote wrapped in a box with borders.
-    """
+    """Return quote wrapped in a box with borders."""
     # Wrap the quote first
     wrapped_quote = wrap_quote(quote)
 
@@ -57,7 +51,5 @@ def box_quote(quote):
 
 
 def get_quote():
-    """
-    Returns a random inspirational quote related to system design formatted in a box.
-    """
+    """Return random inspirational quote related to system design formatted in a box."""
     return box_quote(random.choice(make_something_great))

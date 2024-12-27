@@ -17,9 +17,7 @@ from .commands import test
 
 @click.group(short_help="Generate project files.")
 def make():
-    """
-    Generate project files.
-    """
+    """Generate project files."""
     pass
 
 
